@@ -199,13 +199,7 @@ function AlphaStatusBar() {
 
             {/* Right: Guide Link + Last Updated & Refresh */}
             <div className="flex items-center gap-3">
-                <Link
-                    href="/how-it-works/dashboard"
-                    className="relative flex items-center gap-1.5 px-3.5 py-0.5 rounded-lg bg-cyan-500/[0.08] border border-cyan-400/25 hover:border-cyan-400/50 hover:bg-cyan-500/[0.15] backdrop-blur-md shadow-[0_0_15px_rgba(34,211,238,0.08)] hover:shadow-[0_0_25px_rgba(34,211,238,0.18)] transition-all duration-300 group"
-                >
-                    <BookOpen className="w-3.5 h-3.5 text-cyan-400/80 group-hover:text-cyan-300 transition-colors" />
-                    <span className="text-[12px] text-cyan-300/90 group-hover:text-cyan-200 font-bold tracking-wide transition-colors">{tCommon('guideLink')}</span>
-                </Link>
+                {/* Guide link hidden for compliance review */}
             </div>
         </div>
     );
@@ -1090,6 +1084,8 @@ function MainChartPanel() {
                                         putFloor: data?.levels?.putFloor ?? undefined,
                                         maxPain: data?.maxPain ?? undefined
                                     }}
+                                    session={data?.session || 'CLOSED'}
+                                    hideHeaderExtras={true}
                                 />
                             </div>
                         ) : (
@@ -1170,7 +1166,7 @@ const SIGNAL_MESSAGES: Record<string, Record<string, string>> = {
     signalSellCallWall: { ko: '저항선 도달 - 주의 (Call Wall ${callWall})', en: 'Resistance Hit - Caution (Call Wall ${callWall})', ja: '抵抗線到達 - 注意 (Call Wall ${callWall})' },
     signalSellPutHedge: { ko: '풋 헤징 증가 (PCR ${pcr}) - 하락 주의', en: 'Put Hedging Rising (PCR ${pcr}) - Caution', ja: 'プットヘッジ増加 (PCR ${pcr}) - 下落注意' },
     signalWhaleGex: { ko: '${size} 고래 GEX (${gex})', en: '${size} Whale GEX (${gex})', ja: '${size} クジラ GEX (${gex})' },
-    signalGammaSqueeze: { ko: '🔥 감마 스퀴즈 - 급등 임박!', en: '🔥 Gamma Squeeze - Surge Imminent!', ja: '🔥 ガンマスクイーズ - 急騰間近！' },
+    signalGammaSqueeze: { ko: '⚡ 감마 스퀴즈 감지', en: '⚡ Gamma Squeeze Detected', ja: '⚡ ガンマスクイーズ検知' },
     signalHighIv: { ko: '📈 고변동성 (IV ${iv}%) - 큰 움직임 예상', en: '📈 High Volatility (IV ${iv}%) - Big Move Expected', ja: '📈 高ボラティリティ (IV ${iv}%) - 大きな動き予想' },
     signalCallWallBreak: { ko: '🚀 Call Wall 돌파 ($${callWall}) - 신규 고점', en: '🚀 Call Wall Break ($${callWall}) - New High', ja: '🚀 Call Wall 突破 ($${callWall}) - 新高値' },
     signalPutFloorBreak: { ko: '💥 Put Floor 이탈 ($${putFloor}) - 리스크 상승', en: '💥 Put Floor Break ($${putFloor}) - Risk Elevated', ja: '💥 Put Floor 割れ ($${putFloor}) - リスク上昇' },

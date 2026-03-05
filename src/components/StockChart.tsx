@@ -34,6 +34,10 @@ interface StockChartProps {
     rsi?: number;
     return3d?: number;
     alphaLevels?: AlphaLevels; // [New] Optional Alpha Levels overlay
+    session?: string; // PRE | REG | POST | CLOSED
+    dayHigh?: number;
+    dayLow?: number;
+    hideHeaderExtras?: boolean; // Hide session badge + range in header
 }
 
 // [HOTFIX S-55] etMinute to HH:MM ET formatter
@@ -43,7 +47,7 @@ const formatEtMinute = (etMinute: number): string => {
     return `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')} ET`;
 };
 
-export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d", prevClose, currentPrice, rsi, return3d, alphaLevels }: StockChartProps & { initialRange?: string }) {
+export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d", prevClose, currentPrice, rsi, return3d, alphaLevels, session, dayHigh, dayLow, hideHeaderExtras }: StockChartProps & { initialRange?: string }) {
     const td = useTranslations('dashboard');
     // [LIVE-FLASH] Track previous price for directional flash color
     const prevPriceRef = useRef<number | undefined>(undefined);
@@ -204,33 +208,53 @@ export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d
                 // but at least we tried. If we can't get minute, we can't plot on minute-based axis.
                 return item;
             } else {
-                // Non-1D: Use timestamp with safe fallback
-                let timeVal = 0;
-                if (item.t) timeVal = item.t; // Raw timestamp from Polygon
-                else if (item.date) timeVal = new Date(item.date).getTime();
-                else if (item.time) timeVal = new Date(item.time).getTime();
-                else timeVal = Date.now(); // Fallback to now (will likely be an outlier but prevents crash)
+                // Non-1D: Use sequential index to eliminate weekend/holiday gaps
+                // Actual date label is stored separately for tick display
+                let dateLabel = '';
+                if (item.date) {
+                    try {
+                        dateLabel = new Date(item.date).toLocaleDateString('en-US', { month: 'numeric', day: 'numeric' });
+                    } catch { dateLabel = item.date; }
+                } else if (item.t) {
+                    dateLabel = new Date(item.t).toLocaleDateString('en-US', { month: 'numeric', day: 'numeric' });
+                }
 
                 return {
                     ...item,
-                    xValue: timeVal,
-                    xLabel: item.date || new Date(timeVal).toLocaleDateString(),
+                    xValue: 0, // Will be replaced with sequential index below
+                    xLabel: dateLabel,
+                    _origDate: item.date || (item.t ? new Date(item.t).toISOString() : ''),
                 };
             }
         })
-        .filter((item: any) => item.close !== null && item.close > 0 && (!isIntraday || item.xValue !== undefined) && !isNaN(item.xValue)) // [HOTFIX] Filter NaNs and Zeros
-        .sort((a: any, b: any) => a.xValue - b.xValue)
+        .filter((item: any) => item.close !== null && item.close > 0 && (!isIntraday || item.xValue !== undefined)) // [HOTFIX] Filter Zeros
+        .sort((a: any, b: any) => {
+            if (isIntraday) return a.xValue - b.xValue;
+            // Non-1D: sort by original date string
+            return (a._origDate || '').localeCompare(b._origDate || '');
+        })
         .reduce((acc: any[], item: any) => {
             // [S-65] Deduplication: Keep only ONE point per xValue (etMinute) to prevent vertical bands
-            const lastItem = acc[acc.length - 1];
-            if (lastItem && lastItem.xValue === item.xValue) {
-                // Same minute - replace with latest (higher close takes precedence, or just use the newer one)
-                acc[acc.length - 1] = item;
+            if (isIntraday) {
+                const lastItem = acc[acc.length - 1];
+                if (lastItem && lastItem.xValue === item.xValue) {
+                    acc[acc.length - 1] = item;
+                } else {
+                    acc.push(item);
+                }
             } else {
                 acc.push(item);
             }
             return acc;
         }, []);
+
+    // [FIX] Non-1D: Assign sequential index as xValue AFTER sort+dedup
+    // This eliminates weekend/holiday gaps by making data points equidistant
+    if (!isIntraday) {
+        processedData.forEach((item: any, idx: number) => {
+            item.xValue = idx;
+        });
+    }
 
     // [LIVE-LINK] Append currentPrice as the last data point so chart line connects to live price
     if (isIntraday && currentPrice && currentPrice > 0 && processedData.length > 0) {
@@ -291,8 +315,11 @@ export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d
         xDomain = [240, 1199];
         // Track actual data end for gradient calculation
         xDataMax = Math.max(...processedData.map((d: any) => d.xValue));
+    } else if (processedData.length > 0) {
+        // Non-1D: index-based domain [0, count-1]
+        xDomain = [0, processedData.length - 1];
     } else {
-        xDomain = ["dataMin", "dataMax"];
+        xDomain = [0, 1];
     }
 
     // Loading & Empty State
@@ -416,12 +443,17 @@ export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d
             const h12 = h % 12 || 12;
             return `${h12}:${String(m).padStart(2, '0')} ${ampm}`;
         } else {
-            return new Date(xValue).toLocaleDateString("en-US", { month: "numeric", day: "numeric" });
+            // Index-based: look up the actual date label from data
+            const idx = Math.round(xValue);
+            if (idx >= 0 && idx < processedData.length) {
+                return processedData[idx].xLabel || '';
+            }
+            return '';
         }
     };
 
     return (
-        <Card className="shadow-none border border-slate-800 bg-[#0b1219] rounded-md overflow-hidden relative h-full flex flex-col">
+        <Card className="shadow-none border border-slate-800 bg-[#0b1219] rounded-md overflow-hidden relative h-full flex flex-col !py-0 !gap-0">
             {/* Loading Overlay */}
             {loading && (
                 <div className="absolute inset-0 bg-[#0b1219]/80 backdrop-blur-sm z-50 flex items-center justify-center">
@@ -429,18 +461,45 @@ export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d
                 </div>
             )}
 
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4 border-b border-slate-800 bg-[#0b1219]">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 !py-2 !px-4 !pb-2 !gap-0 border-b border-slate-800 bg-[#0b1219]">
                 <CardTitle className="text-sm font-bold text-slate-200 flex items-center gap-2">
                     <span className="w-1.5 h-4 bg-primary rounded-full"></span>
                     Price History
-                    <span className="text-[11px] text-slate-500 font-medium ml-1">
+                    <span className="text-[12px] text-slate-300 font-medium ml-1">
                         EST
                     </span>
                     {isIntraday && baseDateET && (
-                        <span className="text-[10px] text-slate-600 font-normal ml-1">
+                        <span className="text-[12px] text-slate-300 font-normal ml-0.5">
                             • {baseDateET.split(',')[0]}
                         </span>
                     )}
+                    {/* Session Badge — hidden when hideHeaderExtras */}
+                    {!hideHeaderExtras && session && session.length > 0 && (
+                        <span className={`text-[12px] font-bold px-1.5 py-0.5 rounded border ml-1 ${session === 'REG' ? 'text-emerald-400 bg-emerald-500/15 border-emerald-500/30'
+                            : session === 'PRE' ? 'text-amber-400 bg-amber-500/15 border-amber-500/30'
+                                : session === 'POST' ? 'text-blue-400 bg-blue-500/15 border-blue-500/30'
+                                    : 'text-slate-400 bg-slate-500/15 border-slate-500/30'
+                            }`}>
+                            {session === 'REG' ? 'OPEN' : session}
+                        </span>
+                    )}
+                    {/* Day Range — 1D only, premium style with label + spread */}
+                    {!hideHeaderExtras && isIntraday && (() => {
+                        const dh = dayHigh ?? maxPrice;
+                        const dl = dayLow ?? minPrice;
+                        if (dh <= 0 || dl <= 0) return null;
+                        const spread = dh - dl;
+                        const spreadPct = dl > 0 ? ((spread / dl) * 100).toFixed(1) : '0.0';
+                        return (
+                            <span className="text-[13px] font-mono font-medium ml-3 hidden md:inline-flex items-center gap-1.5">
+                                <span className="text-slate-300 uppercase text-[13px] font-bold tracking-wider font-sans">Range</span>
+                                <span className="text-rose-400">${dl.toFixed(2)}</span>
+                                <span className="text-slate-600">—</span>
+                                <span className="text-emerald-400">${dh.toFixed(2)}</span>
+                                <span className="text-slate-300 text-[13px]">(${spread.toFixed(2)} / {spreadPct}%)</span>
+                            </span>
+                        );
+                    })()}
                 </CardTitle>
 
                 <Tabs value={range} onValueChange={handleRangeChange}>
@@ -476,15 +535,16 @@ export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d
                                         dataKey="xValue"
                                         domain={xDomain}
                                         type="number"
-                                        scale={isIntraday ? "linear" : "time"}
+                                        scale="linear"
                                         tickFormatter={xAxisTickFormatter}
-                                        ticks={getCustomTicks()}
+                                        ticks={isIntraday ? getCustomTicks() : undefined}
                                         stroke={chartConfig.textColor}
                                         fontSize={12}
                                         fontWeight={500}
                                         tickLine={false}
                                         axisLine={false}
-                                        minTickGap={30}
+                                        minTickGap={isIntraday ? 30 : 50}
+                                        allowDecimals={false}
                                     />
                                     <YAxis
                                         orientation="right"
@@ -509,10 +569,15 @@ export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d
                                             if (isIntraday) {
                                                 return formatEtMinute(xValue as number);
                                             }
-                                            return new Date(xValue).toLocaleString("en-US", {
-                                                timeZone: "America/New_York",
-                                                month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: true
-                                            }) + " ET";
+                                            // Index-based: look up date from data
+                                            const idx = Math.round(xValue as number);
+                                            if (idx >= 0 && idx < processedData.length && processedData[idx]._origDate) {
+                                                return new Date(processedData[idx]._origDate).toLocaleString('en-US', {
+                                                    timeZone: 'America/New_York',
+                                                    month: 'short', day: 'numeric', year: 'numeric'
+                                                });
+                                            }
+                                            return '';
                                         }}
                                         contentStyle={{
                                             backgroundColor: "rgba(11, 18, 25, 0.95)",

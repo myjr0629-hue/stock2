@@ -763,8 +763,9 @@ export default function PricingPage() {
                                 <button onClick={() => document.getElementById('plans')?.scrollIntoView({ behavior: 'smooth' })} className="px-8 py-3.5 rounded-lg text-sm font-bold uppercase tracking-wider bg-gradient-to-r from-cyan-500 to-cyan-600 text-black hover:brightness-110 transition-all shadow-[0_0_25px_rgba(34,211,238,0.2)] flex items-center gap-2 font-jakarta">
                                     {t("ctaButton")} <ArrowRight className="w-4 h-4" />
                                 </button>
+                                {/* Guide link hidden for compliance review — redirected to home */}
                                 <Link
-                                    href="/how-it-works"
+                                    href="/"
                                     className="px-8 py-3.5 rounded-lg text-sm font-bold uppercase tracking-wider border border-white/20 text-slate-300 hover:text-white hover:border-white/40 transition-all font-jakarta"
                                 >
                                     {t("ctaSecondary")}

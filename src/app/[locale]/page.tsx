@@ -369,7 +369,8 @@ export default function Page() {
                 flex items-center gap-2 shadow-[0_0_40px_rgba(217,119,6,0.3)] border border-[#f59e0b]/20">
               {t('home.enterCommand')} <ArrowRight size={16} className="group-hover:translate-x-1 transition-transform" />
             </Link>
-            <Link href="/how-it-works"
+            {/* Guide link hidden for compliance review — redirected to pricing */}
+            <Link href="/pricing"
               className="px-10 py-4 bg-[#0a1628]/50 border border-[#1e293b] 
                 text-[#38bdf8] rounded-md font-bold text-sm uppercase tracking-wider font-jakarta
                 hover:bg-[#0a1628] hover:border-[#38bdf8]/30 transition-all">

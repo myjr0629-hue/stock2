@@ -80,10 +80,7 @@ export default function WatchlistClientPage({
                         </div>
                     </div>
                     <div className="flex items-center gap-2 flex-wrap">
-                        <Link href="/how-it-works/watchlist" className="relative flex items-center gap-1.5 px-3.5 py-0.5 rounded-lg bg-amber-500/[0.08] border border-amber-400/25 hover:border-amber-400/50 hover:bg-amber-500/[0.15] backdrop-blur-md shadow-[0_0_15px_rgba(251,191,36,0.08)] hover:shadow-[0_0_25px_rgba(251,191,36,0.18)] transition-all duration-300 group">
-                            <BookOpen className="w-3.5 h-3.5 text-amber-400/80 group-hover:text-amber-300 transition-colors" />
-                            <span className="text-[12px] text-amber-300/90 group-hover:text-amber-200 font-bold tracking-wide transition-colors">{tCommon('guideLink')}</span>
-                        </Link>
+                        {/* Guide link hidden for compliance review */}
                         <button
                             onClick={() => !isAtLimit && setShowAddModal(true)}
                             className={`flex items-center gap-1.5 px-4 py-2 rounded-xl border text-xs font-bold transition-all duration-200 ${isAtLimit

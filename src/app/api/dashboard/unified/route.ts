@@ -391,7 +391,7 @@ function buildResponseFromResults(
 
                 // ALERT signals — core
                 if (data.isGammaSqueeze) {
-                    signals.push({ time: timestamp, ticker, type: 'ALERT', message: `🔥 감마 스퀴즈 - 급등 임박!`, messageKey: 'signalGammaSqueeze', params: {} });
+                    signals.push({ time: timestamp, ticker, type: 'ALERT', message: `⚡ 감마 스퀴즈 감지`, messageKey: 'signalGammaSqueeze', params: {} });
                 }
                 if (data.atmIv && data.atmIv > 60) {
                     signals.push({ time: timestamp, ticker, type: 'ALERT', message: `📈 고변동성 (IV ${data.atmIv}%) - 큰 움직임 예상`, messageKey: 'signalHighIv', params: { iv: data.atmIv } });

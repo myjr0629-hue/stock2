@@ -2,7 +2,7 @@
 // [V3.0] ALPHA ENGINE — THE ABSOLUTE ENGINE
 // ============================================================================
 // 
-// Philosophy: Alpha Score is ABSOLUTE. 80 means "BUY" — always, everywhere.
+// Philosophy: Alpha Score is ABSOLUTE. 80 means "STRONG" — always, everywhere.
 // Reports, watchlist, dashboard, individual stocks — ONE engine, ONE score.
 // "Data is abundant. So what do I DO?" — This engine answers that.
 //

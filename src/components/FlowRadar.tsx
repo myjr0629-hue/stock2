@@ -1441,23 +1441,23 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                                 {(analysis.action || analysis.warning || analysis.trigger) && (
                                     <div className="space-y-0.5 mb-1.5 bg-black/20 rounded-lg p-1.5 border border-white/5">
                                         {analysis.action && (
-                                            <div className="flex items-start gap-1">
+                                            <div className="flex items-start gap-2">
                                                 <div className="mt-0.5 w-1 h-2.5 rounded-full bg-emerald-400 shrink-0" />
-                                                <span className="text-[11px] text-emerald-400 font-bold uppercase shrink-0 w-7">NOTE</span>
+                                                <span className="text-[11px] text-emerald-400 font-bold uppercase shrink-0 w-8">NOTE</span>
                                                 <span className="text-xs text-emerald-300">{analysis.action}</span>
                                             </div>
                                         )}
                                         {analysis.warning && (
-                                            <div className="flex items-start gap-1">
+                                            <div className="flex items-start gap-2">
                                                 <div className="mt-0.5 w-1 h-2.5 rounded-full bg-amber-400 shrink-0" />
-                                                <span className="text-[11px] text-amber-400 font-bold uppercase shrink-0 w-7">RISK</span>
+                                                <span className="text-[11px] text-amber-400 font-bold uppercase shrink-0 w-8">RISK</span>
                                                 <span className="text-xs text-amber-300">{analysis.warning}</span>
                                             </div>
                                         )}
                                         {analysis.trigger && (
-                                            <div className="flex items-start gap-1">
+                                            <div className="flex items-start gap-2">
                                                 <div className="mt-0.5 w-1 h-2.5 rounded-full bg-cyan-400 shrink-0" />
-                                                <span className="text-[11px] text-cyan-400 font-bold uppercase shrink-0 w-7">KEY</span>
+                                                <span className="text-[11px] text-cyan-400 font-bold uppercase shrink-0 w-8">KEY</span>
                                                 <span className="text-xs text-cyan-300">{analysis.trigger}</span>
                                             </div>
                                         )}

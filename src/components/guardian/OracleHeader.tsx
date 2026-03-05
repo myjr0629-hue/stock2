@@ -132,10 +132,7 @@ export function OracleHeader({ }: OracleHeaderProps) {
 
                 {/* RIGHT: Guide + VERSION */}
                 <div className="flex items-center gap-3">
-                    <Link href="/how-it-works/guardian" className="relative flex items-center gap-1.5 px-3.5 py-0.5 rounded-lg bg-emerald-500/[0.08] border border-emerald-400/25 hover:border-emerald-400/50 hover:bg-emerald-500/[0.15] backdrop-blur-md shadow-[0_0_15px_rgba(16,185,129,0.08)] hover:shadow-[0_0_25px_rgba(16,185,129,0.18)] transition-all duration-300 group">
-                        <BookOpen className="w-3.5 h-3.5 text-emerald-400/80 group-hover:text-emerald-300 transition-colors" />
-                        <span className="text-[12px] text-emerald-300/90 group-hover:text-emerald-200 font-bold tracking-wide transition-colors">{tCommon('guideLink')}</span>
-                    </Link>
+                    {/* Guide link hidden for compliance review */}
                     <div className="text-[11px] text-slate-500 font-black tracking-widest uppercase opacity-70 font-jakarta">
                         V8.2 CORE ACTIVE
                     </div>
