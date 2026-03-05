@@ -543,9 +543,9 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
         (url: string) => fetch(url).then(res => res.json()),
         {
             fallbackData: initialUnifiedData, // [SSR HYDRATION] Bypass skeleton
-            revalidateOnFocus: false, // Redis handles background freshness
-            revalidateIfStale: false,
-            refreshInterval: 0 // We don't interval-poll heavy data. Live quote takes care of prices.
+            revalidateOnFocus: true,  // Refresh when user returns to tab
+            revalidateIfStale: true,
+            refreshInterval: 60_000  // 60s polling — Redis cache absorbs load; keeps INST RADAR/Squeeze/Vol fresh
         }
     );
 
