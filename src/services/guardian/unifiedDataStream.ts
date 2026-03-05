@@ -348,9 +348,14 @@ export class GuardianDataHub {
                 getMacroSnapshotSSOT(),
                 RvolEngine.getRvol("QQQ"),
                 RvolEngine.getRvol("DIA"),
-                // [V8.0] Fetch market news for context-aware Gemini analysis
-                fetchMassive('/v2/reference/news', { ticker: 'SPY', limit: '10', order: 'desc', sort: 'published_utc' }, true)
-                    .then((res: any) => (res?.results || []).map((n: any) => n.title).filter(Boolean))
+                // [V11.0] Expanded market news for context-aware Gemini analysis
+                // Multi-ticker (SPY,QQQ,DIA,TLT,GLD) + title+description for deeper context
+                fetchMassive('/v2/reference/news', { ticker: 'SPY,QQQ,DIA,TLT,GLD', limit: '15', order: 'desc', sort: 'published_utc' }, true)
+                    .then((res: any) => (res?.results || []).map((n: any) => {
+                        const title = n.title || '';
+                        const desc = n.description ? ` — ${n.description.slice(0, 120)}` : '';
+                        return title + desc;
+                    }).filter(Boolean))
                     .catch(() => [] as string[]),
                 // [V10.0] GAMMA SHIELD — market-wide GEX/squeeze/trigger band
                 getGammaShield(force).catch(e => { console.warn('[Guardian] GammaShield failed:', e.message); return null; })

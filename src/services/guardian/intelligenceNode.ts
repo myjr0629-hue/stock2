@@ -336,7 +336,7 @@ const REALITY_PROMPTS: Record<Locale, (ctx: IntelligenceContext) => string> = {
         const realYieldLine = ctx.realYield !== undefined
             ? `- 실질금리: ${ctx.realYield?.toFixed(2)}% (${ctx.realYieldStance === 'TIGHT' ? '긴축적 → 성장주 압박' : ctx.realYieldStance === 'LOOSE' ? '완화적 → 성장주 유리' : '중립'})` : '';
         const breadthLine = ctx.breadthPct !== undefined
-            ? `- 시장 광폭(Breadth): 상승 ${Math.round(ctx.breadthPct!)}% / A/D 비율 ${ctx.adRatio?.toFixed(2) || '?'} / 거래량 Breadth ${ctx.volumeBreadth?.toFixed(1) || '?'}% [${ctx.breadthSignal || '?'}]` : '';
+            ? `- 시장 참여폭(Breadth): 상승 ${Math.round(ctx.breadthPct!)}% / A/D 비율 ${ctx.adRatio?.toFixed(2) || '?'} / 거래량 Breadth ${ctx.volumeBreadth?.toFixed(1) || '?'}% [${ctx.breadthSignal || '?'}]` : '';
 
         // [V9.0] Cross-asset macro context
         const assetLines: string[] = [];
@@ -640,7 +640,8 @@ export class IntelligenceNode {
         if (!apiKey) return "SETUP REQUIRED: ADD GEMINI_API_KEY";
 
         const prompt = REALITY_PROMPTS[locale](ctx);
-        const result = await this.callGemini(prompt, `REALITY_${locale}`);
+        // [V11.0] Reality Insight uses gemini-2.5-pro for deeper reasoning
+        const result = await this.callGemini(prompt, `REALITY_${locale}`, 'gemini-2.5-pro');
 
         if (result && !result.includes("failed")) {
             _cachedReality[locale] = result;
@@ -650,7 +651,7 @@ export class IntelligenceNode {
         return result;
     }
 
-    private static async callGemini(prompt: string, cacheKeySuffix: string): Promise<string> {
+    private static async callGemini(prompt: string, cacheKeySuffix: string, model: string = 'gemini-2.5-flash'): Promise<string> {
         let attempts = 0;
         const maxAttempts = 3;
 
@@ -658,7 +659,7 @@ export class IntelligenceNode {
             try {
                 attempts++;
                 const result = await genAI.models.generateContent({
-                    model: "gemini-2.5-flash",
+                    model,
                     contents: prompt,
                 });
                 const text = result.text || "";
