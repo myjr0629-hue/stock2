@@ -55,12 +55,17 @@ function la(obj: L10nArr | undefined, locale: string): string[] {
 
 // ── Section titles per locale ──
 const SECTION_TITLES: Record<string, { ko: string; en: string; ja: string }> = {
-    marketOverview: { ko: '시장 개요', en: 'Market Overview', ja: '市場概要' },
-    sectorRotation: { ko: '섹터 로테이션', en: 'Sector Rotation', ja: 'セクターローテーション' },
-    newsImpact: { ko: '뉴스 영향', en: 'News Impact', ja: 'ニュースインパクト' },
-    gammaOptions: { ko: '감마 & 옵션', en: 'Gamma & Options', ja: 'ガンマ＆オプション' },
-    outlook: { ko: '전망 & 전략', en: 'Outlook & Strategy', ja: '見通し＆戦略' },
+    marketOverview: { ko: 'MARKET PULSE', en: 'MARKET PULSE', ja: 'MARKET PULSE' },
+    sectorRotation: { ko: 'SECTOR FLOW MAP', en: 'SECTOR FLOW MAP', ja: 'SECTOR FLOW MAP' },
+    newsImpact: { ko: 'MARKET CATALYST', en: 'MARKET CATALYST', ja: 'MARKET CATALYST' },
+    gammaOptions: { ko: 'OPTIONS STRUCTURE', en: 'OPTIONS STRUCTURE', ja: 'OPTIONS STRUCTURE' },
+    outlook: { ko: 'SCENARIO MAP', en: 'SCENARIO MAP', ja: 'SCENARIO MAP' },
 };
+
+// ── Glass Card Style ──
+const GLASS = 'rounded-xl border border-white/10 p-5';
+const GLASS_BG = { background: 'rgba(11,15,23,0.6)', backdropFilter: 'blur(12px)' };
+const GLASS_ACCENT_BG = { background: 'rgba(11,15,23,0.4)', backdropFilter: 'blur(16px)' };
 
 // ── Tone/Bias Badge Component ──
 function ToneBadge({ tone }: { tone: string }) {
@@ -79,14 +84,63 @@ function ToneBadge({ tone }: { tone: string }) {
     );
 }
 
-// ── Sentiment Dot Component ──
-function SentimentDot({ sentiment }: { sentiment: string }) {
-    const colors: Record<string, string> = {
-        positive: 'bg-emerald-400',
-        negative: 'bg-red-400',
-        neutral: 'bg-slate-400',
-    };
-    return <span className={`w-2 h-2 rounded-full inline-block ${colors[sentiment] || colors.neutral}`} />;
+// ── Sector Change Bar (Infographic) ──
+function ChangeBar({ change, isPositive, maxVal }: { change: string; isPositive: boolean; maxVal: number }) {
+    const numVal = Math.abs(parseFloat(change.replace(/[^0-9.\-]/g, '')) || 0);
+    const widthPct = maxVal > 0 ? Math.min((numVal / maxVal) * 100, 100) : 0;
+    return (
+        <div className="flex items-center gap-2 min-w-0">
+            <span className={`text-[14px] font-black font-mono min-w-[60px] text-right ${isPositive ? 'text-emerald-400' : 'text-rose-400'}`}>
+                {change}
+            </span>
+            <div className="flex-1 h-2 rounded-full bg-white/5 overflow-hidden">
+                <div
+                    className={`h-full rounded-full transition-all duration-500 ${isPositive ? 'bg-gradient-to-r from-emerald-500/40 to-emerald-400' : 'bg-gradient-to-r from-rose-500/40 to-rose-400'}`}
+                    style={{ width: `${widthPct}%` }}
+                />
+            </div>
+        </div>
+    );
+}
+
+// ── GEX Gauge Bar (SVG Infographic) ──
+function GexGauge({ regime }: { regime: string }) {
+    const pos = regime === 'LONG' ? 80 : regime === 'SHORT' ? 20 : 50;
+    return (
+        <div className="mt-2">
+            <div className="relative h-3 rounded-full bg-white/5 overflow-hidden">
+                {/* Gradient background: red → yellow → green */}
+                <div className="absolute inset-0 bg-gradient-to-r from-rose-500/30 via-amber-500/30 to-emerald-500/30" />
+                {/* Position marker */}
+                <div
+                    className="absolute top-0 h-full w-3 rounded-full bg-white shadow-lg shadow-white/20 border border-white/50 transition-all duration-500"
+                    style={{ left: `calc(${pos}% - 6px)` }}
+                />
+            </div>
+            <div className="flex justify-between mt-1">
+                <span className="text-[12px] text-rose-400/70 font-mono">SHORT</span>
+                <span className="text-[12px] text-slate-500 font-mono">NEUTRAL</span>
+                <span className="text-[12px] text-emerald-400/70 font-mono">LONG</span>
+            </div>
+        </div>
+    );
+}
+
+// ── PCR Ratio Bar ──
+function PcrBar({ pcr }: { pcr: number }) {
+    const putPct = Math.min((pcr / 2) * 100, 100);
+    return (
+        <div className="mt-2">
+            <div className="h-2.5 rounded-full bg-white/5 overflow-hidden flex">
+                <div className="h-full bg-gradient-to-r from-rose-500/60 to-rose-400/80 transition-all duration-500" style={{ width: `${putPct}%` }} />
+                <div className="h-full bg-gradient-to-r from-emerald-400/80 to-emerald-500/60 flex-1" />
+            </div>
+            <div className="flex justify-between mt-1">
+                <span className="text-[12px] text-rose-400/70 font-mono">PUT</span>
+                <span className="text-[12px] text-emerald-400/70 font-mono">CALL</span>
+            </div>
+        </div>
+    );
 }
 
 export function PostMarketBriefView() {
@@ -128,10 +182,18 @@ export function PostMarketBriefView() {
 
     const d = brief?.structured;
 
+    // Calculate max change for bar normalization
+    const allChanges = [
+        ...(d?.sectorRotation?.winners || []).map((w: any) => Math.abs(parseFloat(w.change?.replace(/[^0-9.\-]/g, '')) || 0)),
+        ...(d?.sectorRotation?.losers || []).map((l: any) => Math.abs(parseFloat(l.change?.replace(/[^0-9.\-]/g, '')) || 0)),
+    ];
+    const maxChange = Math.max(...allChanges, 1);
+
     return (
         <div className="space-y-6">
             {/* ═══ Header ═══ */}
-            <section className="relative p-6 rounded-2xl border border-amber-500/[0.15] bg-[#0d1117]/80 backdrop-blur-sm shadow-2xl overflow-hidden">
+            <section className="relative p-6 rounded-2xl border border-amber-500/[0.15] overflow-hidden"
+                style={{ background: 'rgba(13,17,23,0.7)', backdropFilter: 'blur(16px)' }}>
                 <div className="absolute inset-0 pointer-events-none">
                     <div className="absolute -top-20 -right-20 w-80 h-80 bg-gradient-radial from-amber-500/8 to-transparent rounded-full blur-3xl" />
                     <div className="absolute -bottom-16 -left-16 w-56 h-56 bg-gradient-radial from-orange-500/5 to-transparent rounded-full blur-3xl" />
@@ -147,13 +209,14 @@ export function PostMarketBriefView() {
                         ALL SECTOR <span className="bg-gradient-to-r from-amber-400 to-orange-400 bg-clip-text text-transparent">REPORTS</span>
                     </h1>
                     <p className="text-slate-300 text-[13px] mt-1 font-mono">
-                        10 SECTORS • DAILY CLOSE ANALYSIS • AI-GENERATED INSIGHTS
+                        10 SECTORS &bull; DAILY CLOSE ANALYSIS &bull; AI-GENERATED INSIGHTS
                     </p>
                 </div>
             </section>
 
             {/* ═══ AI Cross-Sector Intelligence ═══ */}
-            <section className="relative rounded-2xl border border-amber-500/[0.12] bg-[#0c1018]/90 backdrop-blur-sm overflow-hidden">
+            <section className="relative rounded-2xl border border-amber-500/[0.12] overflow-hidden"
+                style={{ background: 'rgba(12,16,24,0.7)', backdropFilter: 'blur(16px)' }}>
                 <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-amber-400/60 to-transparent" />
 
                 <div className="p-6">
@@ -169,7 +232,7 @@ export function PostMarketBriefView() {
                             </p>
                         </div>
                         {brief && (
-                            <span className="ml-auto px-2.5 py-1 text-[11px] font-bold text-amber-300 bg-amber-500/10 border border-amber-500/20 rounded-full">
+                            <span className="ml-auto px-2.5 py-1 text-[12px] font-bold text-amber-300 bg-amber-500/10 border border-amber-500/20 rounded-full">
                                 GEMINI AI
                             </span>
                         )}
@@ -183,8 +246,8 @@ export function PostMarketBriefView() {
                     ) : d ? (
                         <div className="space-y-6">
 
-                            {/* ── 1. MARKET OVERVIEW ── */}
-                            <div className="rounded-xl border border-white/[0.08] bg-[#0b0f17]/70 p-5">
+                            {/* ── 1. MARKET PULSE ── */}
+                            <div className={GLASS} style={GLASS_ACCENT_BG}>
                                 <div className="flex items-center justify-between mb-4">
                                     <div className="flex items-center gap-2">
                                         <BarChart3 className="w-4.5 h-4.5 text-cyan-400" />
@@ -199,16 +262,17 @@ export function PostMarketBriefView() {
                                 </p>
                                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                                     {la(d.marketOverview?.keyDrivers, locale).map((driver: string, i: number) => (
-                                        <div key={i} className="flex items-start gap-2 p-3 rounded-lg bg-white/[0.03] border border-white/[0.06]">
+                                        <div key={i} className="flex items-start gap-2 p-3 rounded-lg border border-white/10"
+                                            style={{ background: 'rgba(255,255,255,0.03)', backdropFilter: 'blur(8px)' }}>
                                             <Target className="w-3.5 h-3.5 text-amber-400 mt-0.5 shrink-0" />
-                                            <span className="text-[14px] text-slate-200 leading-snug">{driver}</span>
+                                            <span className="text-[13px] text-slate-300 leading-snug">{driver}</span>
                                         </div>
                                     ))}
                                 </div>
                             </div>
 
-                            {/* ── 2. SECTOR ROTATION ── */}
-                            <div className="rounded-xl border border-white/[0.08] bg-[#0b0f17]/70 p-5">
+                            {/* ── 2. SECTOR FLOW MAP ── */}
+                            <div className={GLASS} style={GLASS_BG}>
                                 <div className="flex items-center gap-2 mb-4">
                                     <Activity className="w-4.5 h-4.5 text-purple-400" />
                                     <h3 className="text-[15px] font-bold text-white tracking-tight uppercase">
@@ -218,48 +282,51 @@ export function PostMarketBriefView() {
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                                     {/* Winners */}
                                     <div className="space-y-2">
-                                        <span className="text-[11px] font-bold text-emerald-400 tracking-widest uppercase flex items-center gap-1.5">
+                                        <span className="text-[12px] font-bold text-emerald-400 tracking-widest uppercase flex items-center gap-1.5">
                                             <ArrowUpRight className="w-3.5 h-3.5" /> {locale === 'ko' ? '강세 섹터' : locale === 'ja' ? '上昇セクター' : 'OUTPERFORMERS'}
                                         </span>
                                         {(d.sectorRotation?.winners || []).map((w: any, i: number) => (
-                                            <div key={i} className="flex items-center justify-between p-3 rounded-lg bg-emerald-500/[0.06] border border-emerald-500/[0.12]">
-                                                <div>
+                                            <div key={i} className="p-3 rounded-lg border border-emerald-500/15"
+                                                style={{ background: 'rgba(16,185,129,0.06)', backdropFilter: 'blur(8px)' }}>
+                                                <div className="flex items-center justify-between mb-1">
                                                     <span className="text-[13px] font-bold text-white">{w.sector}</span>
-                                                    <p className="text-[13px] text-slate-300 mt-0.5 leading-snug">{lt(w.reason, locale)}</p>
                                                 </div>
-                                                <span className="text-[14px] font-bold text-emerald-400 font-mono">{w.change}</span>
+                                                <ChangeBar change={w.change} isPositive={true} maxVal={maxChange} />
+                                                <p className="text-[13px] text-slate-300 mt-1.5 leading-snug">{lt(w.reason, locale)}</p>
                                             </div>
                                         ))}
                                     </div>
                                     {/* Losers */}
                                     <div className="space-y-2">
-                                        <span className="text-[11px] font-bold text-red-400 tracking-widest uppercase flex items-center gap-1.5">
+                                        <span className="text-[12px] font-bold text-red-400 tracking-widest uppercase flex items-center gap-1.5">
                                             <ArrowDownRight className="w-3.5 h-3.5" /> {locale === 'ko' ? '약세 섹터' : locale === 'ja' ? '下落セクター' : 'UNDERPERFORMERS'}
                                         </span>
                                         {(d.sectorRotation?.losers || []).map((l: any, i: number) => (
-                                            <div key={i} className="flex items-center justify-between p-3 rounded-lg bg-red-500/[0.06] border border-red-500/[0.12]">
-                                                <div>
+                                            <div key={i} className="p-3 rounded-lg border border-red-500/15"
+                                                style={{ background: 'rgba(239,68,68,0.06)', backdropFilter: 'blur(8px)' }}>
+                                                <div className="flex items-center justify-between mb-1">
                                                     <span className="text-[13px] font-bold text-white">{l.sector}</span>
-                                                    <p className="text-[13px] text-slate-300 mt-0.5 leading-snug">{lt(l.reason, locale)}</p>
                                                 </div>
-                                                <span className="text-[14px] font-bold text-red-400 font-mono">{l.change}</span>
+                                                <ChangeBar change={l.change} isPositive={false} maxVal={maxChange} />
+                                                <p className="text-[13px] text-slate-300 mt-1.5 leading-snug">{lt(l.reason, locale)}</p>
                                             </div>
                                         ))}
                                     </div>
                                 </div>
                                 {d.sectorRotation?.rotationInsight && (
-                                    <div className="p-3 rounded-lg bg-purple-500/[0.06] border border-purple-500/[0.12]">
+                                    <div className="p-3 rounded-lg border border-purple-500/15"
+                                        style={{ background: 'rgba(168,85,247,0.06)', backdropFilter: 'blur(8px)' }}>
                                         <div className="flex items-start gap-2">
                                             <Eye className="w-4 h-4 text-purple-400 mt-0.5 shrink-0" />
-                                            <p className="text-[14px] text-slate-200 leading-relaxed">{lt(d.sectorRotation.rotationInsight, locale)}</p>
+                                            <p className="text-[14px] text-slate-300 leading-relaxed">{lt(d.sectorRotation.rotationInsight, locale)}</p>
                                         </div>
                                     </div>
                                 )}
                             </div>
 
-                            {/* ── 3. NEWS IMPACT ── */}
+                            {/* ── 3. MARKET CATALYST ── */}
                             {d.newsImpact?.items?.length > 0 && (
-                                <div className="rounded-xl border border-white/[0.08] bg-[#0b0f17]/70 p-5">
+                                <div className={GLASS} style={GLASS_BG}>
                                     <div className="flex items-center gap-2 mb-4">
                                         <Newspaper className="w-4.5 h-4.5 text-sky-400" />
                                         <h3 className="text-[15px] font-bold text-white tracking-tight uppercase">
@@ -267,10 +334,13 @@ export function PostMarketBriefView() {
                                         </h3>
                                     </div>
                                     <div className="space-y-3">
-                                        {d.newsImpact.items.map((item: any, i: number) => (
-                                            <div key={i} className="p-4 rounded-lg bg-white/[0.02] border border-white/[0.06] hover:border-white/[0.12] transition-colors">
-                                                <div className="flex items-start gap-3">
-                                                    <SentimentDot sentiment={item.sentiment} />
+                                        {d.newsImpact.items.map((item: any, i: number) => {
+                                            const sentimentColor = item.sentiment === 'positive' ? 'bg-emerald-400' : item.sentiment === 'negative' ? 'bg-rose-400' : 'bg-slate-500';
+                                            return (
+                                                <div key={i} className="flex gap-3 p-4 rounded-lg border border-white/8 hover:border-white/15 transition-colors"
+                                                    style={{ background: 'rgba(255,255,255,0.02)', backdropFilter: 'blur(8px)' }}>
+                                                    {/* Sentiment color bar */}
+                                                    <div className={`w-1 self-stretch rounded-full flex-shrink-0 ${sentimentColor}`} />
                                                     <div className="flex-1 min-w-0">
                                                         <h4 className="text-[15px] font-bold text-white leading-snug mb-1">
                                                             {lt(item.headline, locale)}
@@ -281,7 +351,8 @@ export function PostMarketBriefView() {
                                                         {item.relatedSectors?.length > 0 && (
                                                             <div className="flex gap-1.5 mt-2 flex-wrap">
                                                                 {item.relatedSectors.map((s: string) => (
-                                                                    <span key={s} className="px-2 py-0.5 text-[11px] font-bold text-slate-300 bg-white/[0.05] border border-white/[0.08] rounded-md uppercase tracking-wide">
+                                                                    <span key={s} className="px-2 py-0.5 text-[12px] font-bold text-slate-300 border border-white/10 rounded-md uppercase tracking-wide"
+                                                                        style={{ background: 'rgba(255,255,255,0.05)' }}>
                                                                         {s.replace(/_/g, ' ')}
                                                                     </span>
                                                                 ))}
@@ -289,15 +360,15 @@ export function PostMarketBriefView() {
                                                         )}
                                                     </div>
                                                 </div>
-                                            </div>
-                                        ))}
+                                            );
+                                        })}
                                     </div>
                                 </div>
                             )}
 
-                            {/* ── 4. GAMMA & OPTIONS ── */}
+                            {/* ── 4. OPTIONS STRUCTURE ── */}
                             {d.gammaOptions && (
-                                <div className="rounded-xl border border-white/[0.08] bg-[#0b0f17]/70 p-5">
+                                <div className={GLASS} style={GLASS_BG}>
                                     <div className="flex items-center gap-2 mb-4">
                                         <Zap className="w-4.5 h-4.5 text-yellow-400" />
                                         <h3 className="text-[15px] font-bold text-white tracking-tight uppercase">
@@ -305,32 +376,34 @@ export function PostMarketBriefView() {
                                         </h3>
                                     </div>
                                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
-                                        <div className="p-3 rounded-lg bg-white/[0.03] border border-white/[0.06] text-center">
-                                            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Total GEX</span>
+                                        <div className="p-3 rounded-lg border border-white/10 text-center" style={GLASS_ACCENT_BG}>
+                                            <span className="text-[12px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Total GEX</span>
                                             <span className="text-[18px] font-black text-white font-mono">{d.gammaOptions.totalGexLabel || '-'}</span>
+                                            <GexGauge regime={d.gammaOptions.regime || 'NEUTRAL'} />
                                         </div>
-                                        <div className="p-3 rounded-lg bg-white/[0.03] border border-white/[0.06] text-center">
-                                            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-1">AVG PCR</span>
+                                        <div className="p-3 rounded-lg border border-white/10 text-center" style={GLASS_ACCENT_BG}>
+                                            <span className="text-[12px] font-bold text-slate-400 uppercase tracking-wider block mb-1">AVG PCR</span>
                                             <span className={`text-[18px] font-black font-mono ${(d.gammaOptions.avgPcr || 1) < 0.8 ? 'text-emerald-400' : (d.gammaOptions.avgPcr || 1) > 1.2 ? 'text-red-400' : 'text-amber-400'}`}>
                                                 {(d.gammaOptions.avgPcr || 0).toFixed(2)}
                                             </span>
+                                            <PcrBar pcr={d.gammaOptions.avgPcr || 1} />
                                         </div>
-                                        <div className="p-3 rounded-lg bg-white/[0.03] border border-white/[0.06] text-center">
-                                            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-1">REGIME</span>
+                                        <div className="p-3 rounded-lg border border-white/10 text-center" style={GLASS_ACCENT_BG}>
+                                            <span className="text-[12px] font-bold text-slate-400 uppercase tracking-wider block mb-1">REGIME</span>
                                             <span className={`text-[18px] font-black font-mono ${d.gammaOptions.regime === 'LONG' ? 'text-emerald-400' : d.gammaOptions.regime === 'SHORT' ? 'text-red-400' : 'text-amber-400'}`}>
                                                 {d.gammaOptions.regime || 'NEUTRAL'}
                                             </span>
                                         </div>
                                     </div>
-                                    <p className="text-[14px] text-slate-200 leading-[1.7]">
+                                    <p className="text-[14px] text-slate-300 leading-[1.7]">
                                         {lt(d.gammaOptions.insight, locale)}
                                     </p>
                                 </div>
                             )}
 
-                            {/* ── 5. OUTLOOK & STRATEGY ── */}
+                            {/* ── 5. SCENARIO MAP ── */}
                             {d.outlook && (
-                                <div className="rounded-xl border border-amber-500/[0.12] bg-[#0b0f17]/70 p-5">
+                                <div className="rounded-xl border border-amber-500/15 p-5" style={{ background: 'rgba(11,15,23,0.5)', backdropFilter: 'blur(16px)' }}>
                                     <div className="flex items-center justify-between mb-4">
                                         <div className="flex items-center gap-2">
                                             <Target className="w-4.5 h-4.5 text-amber-400" />
@@ -345,24 +418,26 @@ export function PostMarketBriefView() {
                                     {d.outlook.keyLevels?.length > 0 && (
                                         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4">
                                             {d.outlook.keyLevels.map((level: any, i: number) => (
-                                                <div key={i} className="p-2.5 rounded-lg bg-amber-500/[0.05] border border-amber-500/[0.10] text-center">
-                                                    <span className="text-[10px] font-bold text-amber-300/70 uppercase tracking-wider block mb-0.5">{level.label}</span>
+                                                <div key={i} className="p-2.5 rounded-lg border border-amber-500/15 text-center"
+                                                    style={{ background: 'rgba(245,158,11,0.05)', backdropFilter: 'blur(8px)' }}>
+                                                    <span className="text-[12px] font-bold text-amber-300/70 uppercase tracking-wider block mb-0.5">{level.label}</span>
                                                     <span className="text-[16px] font-black text-white font-mono">{level.value}</span>
                                                 </div>
                                             ))}
                                         </div>
                                     )}
 
-                                    {/* Catalysts / Risks / Opportunities — 3 column */}
+                                    {/* Catalysts / Risks / Opportunities — 3 column glass cards */}
                                     <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                                         {/* Catalysts */}
-                                        <div className="p-3 rounded-lg bg-cyan-500/[0.05] border border-cyan-500/[0.10]">
-                                            <span className="text-[11px] font-bold text-cyan-400 tracking-widest uppercase block mb-2">
+                                        <div className="p-3 rounded-lg border border-cyan-500/15"
+                                            style={{ background: 'rgba(6,182,212,0.05)', backdropFilter: 'blur(8px)' }}>
+                                            <span className="text-[12px] font-bold text-cyan-400 tracking-widest uppercase block mb-2">
                                                 {locale === 'ko' ? '촉매' : locale === 'ja' ? '触媒' : 'CATALYSTS'}
                                             </span>
                                             <ul className="space-y-1.5">
                                                 {la(d.outlook.catalysts, locale).map((c: string, i: number) => (
-                                                    <li key={i} className="text-[13px] text-slate-200 flex items-start gap-1.5">
+                                                    <li key={i} className="text-[13px] text-slate-300 flex items-start gap-1.5">
                                                         <Zap className="w-3 h-3 text-cyan-400 mt-0.5 shrink-0" />
                                                         <span>{c}</span>
                                                     </li>
@@ -370,27 +445,29 @@ export function PostMarketBriefView() {
                                             </ul>
                                         </div>
                                         {/* Risks */}
-                                        <div className="p-3 rounded-lg bg-red-500/[0.05] border border-red-500/[0.10]">
-                                            <span className="text-[11px] font-bold text-red-400 tracking-widest uppercase block mb-2">
+                                        <div className="p-3 rounded-lg border border-red-500/15"
+                                            style={{ background: 'rgba(239,68,68,0.05)', backdropFilter: 'blur(8px)' }}>
+                                            <span className="text-[12px] font-bold text-red-400 tracking-widest uppercase block mb-2">
                                                 {locale === 'ko' ? '리스크' : locale === 'ja' ? 'リスク' : 'RISKS'}
                                             </span>
                                             <ul className="space-y-1.5">
                                                 {la(d.outlook.risks, locale).map((r: string, i: number) => (
-                                                    <li key={i} className="text-[13px] text-slate-200 flex items-start gap-1.5">
+                                                    <li key={i} className="text-[13px] text-slate-300 flex items-start gap-1.5">
                                                         <AlertTriangle className="w-3 h-3 text-red-400 mt-0.5 shrink-0" />
                                                         <span>{r}</span>
                                                     </li>
                                                 ))}
                                             </ul>
                                         </div>
-                                        {/* Opportunities */}
-                                        <div className="p-3 rounded-lg bg-emerald-500/[0.05] border border-emerald-500/[0.10]">
-                                            <span className="text-[11px] font-bold text-emerald-400 tracking-widest uppercase block mb-2">
-                                                {locale === 'ko' ? '기회' : locale === 'ja' ? '機会' : 'OPPORTUNITIES'}
+                                        {/* Observations (was Opportunities) */}
+                                        <div className="p-3 rounded-lg border border-emerald-500/15"
+                                            style={{ background: 'rgba(16,185,129,0.05)', backdropFilter: 'blur(8px)' }}>
+                                            <span className="text-[12px] font-bold text-emerald-400 tracking-widest uppercase block mb-2">
+                                                {locale === 'ko' ? '관찰' : locale === 'ja' ? '観察' : 'OBSERVATIONS'}
                                             </span>
                                             <ul className="space-y-1.5">
                                                 {la(d.outlook.opportunities, locale).map((o: string, i: number) => (
-                                                    <li key={i} className="text-[13px] text-slate-200 flex items-start gap-1.5">
+                                                    <li key={i} className="text-[13px] text-slate-300 flex items-start gap-1.5">
                                                         <TrendingUp className="w-3 h-3 text-emerald-400 mt-0.5 shrink-0" />
                                                         <span>{o}</span>
                                                     </li>
@@ -417,13 +494,15 @@ export function PostMarketBriefView() {
                 <div className="flex gap-2">
                     <button
                         onClick={expandAll}
-                        className="px-3 py-1.5 text-xs font-bold text-slate-300 bg-white/[0.05] border border-white/[0.08] rounded-lg hover:bg-white/[0.10] transition-colors"
+                        className="px-3 py-1.5 text-[12px] font-bold text-slate-300 border border-white/10 rounded-lg hover:bg-white/10 transition-colors"
+                        style={{ background: 'rgba(255,255,255,0.05)' }}
                     >
                         {t('expandAll')}
                     </button>
                     <button
                         onClick={collapseAll}
-                        className="px-3 py-1.5 text-xs font-bold text-slate-300 bg-white/[0.05] border border-white/[0.08] rounded-lg hover:bg-white/[0.10] transition-colors"
+                        className="px-3 py-1.5 text-[12px] font-bold text-slate-300 border border-white/10 rounded-lg hover:bg-white/10 transition-colors"
+                        style={{ background: 'rgba(255,255,255,0.05)' }}
                     >
                         {t('collapseAll')}
                     </button>
@@ -435,7 +514,8 @@ export function PostMarketBriefView() {
                 const isExpanded = expandedSectors.has(config.id);
                 const [textColor, bgColor, borderColor] = accentColor.split(' ');
                 return (
-                    <section key={config.id} className="rounded-xl border border-white/[0.08] bg-[#0b0f17]/70 overflow-hidden transition-all duration-300">
+                    <section key={config.id} className="rounded-xl border border-white/10 overflow-hidden transition-all duration-300"
+                        style={GLASS_BG}>
                         <button
                             onClick={() => toggleSector(config.id)}
                             className="w-full flex items-center justify-between px-5 py-4 hover:bg-white/[0.03] transition-colors group"

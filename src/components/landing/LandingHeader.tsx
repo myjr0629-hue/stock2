@@ -94,12 +94,7 @@ export function LandingHeader() {
             <div className="w-full flex h-12 items-center px-4 sm:px-6 gap-4">
                 {/* 1. LOGO */}
                 <Link href="/" className="flex items-center gap-2 group shrink-0">
-                    <svg width="24" height="24" viewBox="0 0 48 48" className="text-cyan-400">
-                        <path d="M24 4 L42 14 L42 34 L24 44 L6 34 L6 14 Z" fill="none" stroke="currentColor" strokeWidth="2" className="opacity-80" />
-                        <circle cx="24" cy="24" r="8" fill="none" stroke="currentColor" strokeWidth="1.5" className="opacity-50" />
-                        <circle cx="24" cy="24" r="3" fill="currentColor" className="animate-pulse" />
-                        <line x1="24" y1="24" x2="34" y2="14" stroke="#f59e0b" strokeWidth="2" strokeLinecap="round" />
-                    </svg>
+                    <img src="/signum-sg-vectorized.svg" alt="SIGNUM HQ" width="28" height="28" className="shrink-0" />
                     <span className="text-xl font-black tracking-tight text-white leading-none group-hover:text-cyan-400 transition-colors">
                         SIGNUM<span className="text-cyan-400">HQ</span>
                     </span>

@@ -9,6 +9,7 @@ import { getLatestSnapshot } from '@/lib/supabase/snapshot';
 import { getFromCache, setInCache } from '@/services/redisClient';
 import { GoogleGenAI } from '@google/genai';
 import { YAHOO_CACHE_KEYS, type YahooQuote } from '@/services/yahooFinanceHub';
+import { fetchMassive } from '@/services/massiveClient';
 
 const SECTOR_IDS = [
     'm7', 'physical_ai', 'silicon_core', 'power_matrix', 'bio_pulse',
@@ -38,6 +39,44 @@ function getDayOfWeekET(): string {
 
 function getCacheKey(date: string) {
     return `postmarket:cross-brief-v2:${date}`;
+}
+
+// [V11.0] Static economic calendar — returns next N upcoming events
+function getUpcomingEconomicEvents(count: number): { date: string; time: string; event: string; impact: string }[] {
+    const EVENTS = [
+        { date: '2026-03-06', time: '08:30', event: 'Non-Farm Payrolls (Feb)', impact: 'HIGH' },
+        { date: '2026-03-11', time: '08:30', event: 'CPI / Core CPI (Feb)', impact: 'HIGH' },
+        { date: '2026-03-12', time: '08:30', event: 'PPI / Core PPI (Feb)', impact: 'HIGH' },
+        { date: '2026-03-13', time: '08:30', event: 'GDP 2nd Estimate (Q4)', impact: 'HIGH' },
+        { date: '2026-03-13', time: '08:30', event: 'Core PCE Price Index (Jan)', impact: 'HIGH' },
+        { date: '2026-03-18', time: '14:00', event: 'FOMC Rate Decision', impact: 'HIGH' },
+        { date: '2026-04-01', time: '10:00', event: 'ISM Manufacturing PMI (Mar)', impact: 'HIGH' },
+        { date: '2026-04-03', time: '08:30', event: 'Non-Farm Payrolls (Mar)', impact: 'HIGH' },
+        { date: '2026-04-08', time: '14:00', event: 'FOMC Minutes (Mar)', impact: 'HIGH' },
+        { date: '2026-04-10', time: '08:30', event: 'CPI / Core CPI (Mar)', impact: 'HIGH' },
+        { date: '2026-04-29', time: '14:00', event: 'FOMC Rate Decision', impact: 'HIGH' },
+        { date: '2026-05-08', time: '08:30', event: 'Non-Farm Payrolls (Apr)', impact: 'HIGH' },
+        { date: '2026-05-12', time: '08:30', event: 'CPI / Core CPI (Apr)', impact: 'HIGH' },
+        { date: '2026-06-05', time: '08:30', event: 'Non-Farm Payrolls (May)', impact: 'HIGH' },
+        { date: '2026-06-10', time: '08:30', event: 'CPI / Core CPI (May)', impact: 'HIGH' },
+        { date: '2026-06-17', time: '14:00', event: 'FOMC Rate Decision', impact: 'HIGH' },
+        { date: '2026-07-02', time: '08:30', event: 'Non-Farm Payrolls (Jun)', impact: 'HIGH' },
+        { date: '2026-07-14', time: '08:30', event: 'CPI / Core CPI (Jun)', impact: 'HIGH' },
+        { date: '2026-07-29', time: '14:00', event: 'FOMC Rate Decision', impact: 'HIGH' },
+        { date: '2026-08-07', time: '08:30', event: 'Non-Farm Payrolls (Jul)', impact: 'HIGH' },
+        { date: '2026-08-12', time: '08:30', event: 'CPI / Core CPI (Jul)', impact: 'HIGH' },
+        { date: '2026-09-04', time: '08:30', event: 'Non-Farm Payrolls (Aug)', impact: 'HIGH' },
+        { date: '2026-09-11', time: '08:30', event: 'CPI / Core CPI (Aug)', impact: 'HIGH' },
+        { date: '2026-09-16', time: '14:00', event: 'FOMC Rate Decision', impact: 'HIGH' },
+    ];
+    const now = new Date();
+    return EVENTS
+        .filter(e => {
+            const [y, m, d] = e.date.split('-').map(Number);
+            const [h, min] = e.time.split(':').map(Number);
+            return new Date(Date.UTC(y, m - 1, d, h + 5, min)).getTime() > now.getTime();
+        })
+        .slice(0, count);
 }
 
 // ── Structured Types ──
@@ -133,14 +172,22 @@ export async function POST() {
             return NextResponse.json({ error: 'No sector snapshots available' }, { status: 404 });
         }
 
-        // 2. Fetch macro data from Redis
-        const [redisVix, redisSpx, redisNq, redisTnx, redisBtc, redisFng] = await Promise.all([
+        // 2. Fetch macro data + market news from Redis/Polygon
+        const [redisVix, redisSpx, redisNq, redisTnx, redisBtc, redisFng, marketNews] = await Promise.all([
             getFromCache<YahooQuote>(YAHOO_CACHE_KEYS.VIX),
             getFromCache<YahooQuote>(YAHOO_CACHE_KEYS.SPX),
             getFromCache<YahooQuote>(YAHOO_CACHE_KEYS.NQ),
             getFromCache<YahooQuote>(YAHOO_CACHE_KEYS.TNX),
             getFromCache<YahooQuote>('yahoo:quote:BTC-USD'),
             getFromCache<any>('market:fear_greed'),
+            // [V11.0] Fetch broad market news with descriptions for deeper context
+            fetchMassive('/v2/reference/news', { ticker: 'SPY,QQQ,DIA,TLT,GLD', limit: '10', order: 'desc', sort: 'published_utc' }, true)
+                .then((res: any) => (res?.results || []).map((n: any) => {
+                    const title = n.title || '';
+                    const desc = n.description ? ` — ${n.description.slice(0, 150)}` : '';
+                    return title + desc;
+                }).filter(Boolean))
+                .catch(() => [] as string[]),
         ]);
 
         // 3. Build concise prompt data
@@ -185,6 +232,17 @@ export async function POST() {
             redisFng ? `Fear & Greed: ${redisFng.value || redisFng.score || 'N/A'}` : null,
         ].filter(Boolean).join(' | ');
 
+        // [V11.0] Market news context for AI
+        const newsContext = (marketNews as string[]).length > 0
+            ? `\n## Real-time Market News (from Polygon)\n${(marketNews as string[]).map((n: string, i: number) => `${i + 1}. ${n}`).join('\n')}`
+            : '';
+
+        // [V11.0] Next economic event context (static calendar)
+        const nextEvents = getUpcomingEconomicEvents(3);
+        const calendarContext = nextEvents.length > 0
+            ? `\n## Upcoming Economic Events\n${nextEvents.map(e => `- ${e.date} ${e.time} ET: ${e.event} (${e.impact})`).join('\n')}`
+            : '';
+
         // 4. Gemini API call with structured JSON prompt
         const geminiKey = process.env.GEMINI_NEWS_KEY || process.env.GEMINI_VERDICT_KEY || process.env.GEMINI_API_KEY;
         if (!geminiKey) {
@@ -203,12 +261,24 @@ export async function POST() {
 3. If a company has already reported earnings (e.g. past date), do NOT say "earnings upcoming" or "imminent."
 4. Only reference news items that appear in the provided data. Never hallucinate news.
 5. Base ALL analysis strictly on the provided sector data and macro numbers.
+6. NEVER provide investment advice, recommendations, or action directives. Use conditional observations only ("IF X → THEN Y is possible").
+7. Use "Market Breadth" (참여폭 in Korean) — never translate as 광폭.
 
 ## Macro Environment
 ${macroStr || 'Macro data unavailable'}
+${newsContext}
+${calendarContext}
 
 ## 10 Sector Summaries (Today's Close Data)
 ${JSON.stringify(sectorSummaries, null, 1)}
+
+## EDGE DETECTION REQUIREMENTS (CRITICAL FOR PREMIUM QUALITY)
+1. **Cross-Asset Divergence**: If stocks rise but VIX also rises, or bonds and equities move same direction — flag the divergence explicitly.
+2. **Sector Anomalies**: If one sector moves opposite to all others (e.g. Bio Pulse +3% while everything else is red), analyze WHY and flag as anomaly.
+3. **Smart Money Signals**: Compare PCR across sectors. Unusually high PCR in bullish sectors = institutional hedging. Flag it.
+4. **Gamma Structure**: If GEX is deeply negative + VIX elevated, note the amplified downside risk structure.
+5. **News-Price Gap**: If major negative news dropped but stocks didn't react, note the resilience. Vice versa.
+6. **Calendar Awareness**: If an upcoming economic event (FOMC, CPI, NFP) is within 3 days, note how current positioning may be pre-event hedging/positioning.
 
 ## OUTPUT FORMAT
 Return ONLY valid JSON (no markdown fences, no extra text). The JSON must follow this exact structure:
@@ -217,14 +287,14 @@ Return ONLY valid JSON (no markdown fences, no extra text). The JSON must follow
   "marketOverview": {
     "tone": "BULLISH|BEARISH|MIXED|CAUTIOUS",
     "summary": {
-      "ko": "한국어 시장 요약 (2-3문장, 핵심 수치 포함)",
-      "en": "English market summary (2-3 sentences with key numbers)",
-      "ja": "日本語市場サマリー（2-3文、主要指標含む）"
+      "ko": "한국어 시장 요약 (3-4문장, 핵심 수치 + 원인 분석 + 교차 검증 포함)",
+      "en": "English market summary (3-4 sentences with key numbers, causation, cross-validation)",
+      "ja": "日本語市場サマリー（3-4文、主要指標+原因分析+クロスバリデーション含む）"
     },
     "keyDrivers": {
-      "ko": ["한국어 핵심 동인 1", "한국어 핵심 동인 2", "한국어 핵심 동인 3"],
-      "en": ["English key driver 1", "English key driver 2", "English key driver 3"],
-      "ja": ["日本語主要ドライバー1", "日本語主要ドライバー2", "日本語主要ドライバー3"]
+      "ko": ["핵심 동인 1 (구체적 수치 포함)", "핵심 동인 2", "핵심 동인 3"],
+      "en": ["Key driver 1 (with specific numbers)", "Key driver 2", "Key driver 3"],
+      "ja": ["主要ドライバー1（具体的数値含む）", "主要ドライバー2", "主要ドライバー3"]
     }
   },
   "sectorRotation": {
@@ -235,16 +305,16 @@ Return ONLY valid JSON (no markdown fences, no extra text). The JSON must follow
       { "sector": "Sector Name", "change": "-X.XX%", "reason": { "ko": "...", "en": "...", "ja": "..." } }
     ],
     "rotationInsight": {
-      "ko": "자금 흐름 분석 인사이트 (defensive/cyclical/growth 등)",
-      "en": "Capital rotation analysis insight",
-      "ja": "資金フロー分析インサイト"
+      "ko": "자금 흐름 패턴 분석 — defensive vs growth vs cyclical. 이상 신호가 있으면 반드시 언급.",
+      "en": "Capital rotation pattern — defensive vs growth vs cyclical. Flag any anomalies.",
+      "ja": "資金フローパターン — ディフェンシブ vs グロース vs シクリカル。異常シグナルがあれば必ず言及。"
     }
   },
   "newsImpact": {
     "items": [
       {
         "headline": { "ko": "한국어 헤드라인", "en": "English headline", "ja": "日本語ヘッドライン" },
-        "impact": { "ko": "시장 영향 분석", "en": "Market impact", "ja": "市場への影響" },
+        "impact": { "ko": "시장 영향 분석 (구체적 수치/섹터 연결)", "en": "Market impact (specific numbers/sector connection)", "ja": "市場への影響（具体的数値/セクター接続）" },
         "sentiment": "positive|negative|neutral",
         "relatedSectors": ["sector_id_1", "sector_id_2"]
       }
@@ -255,9 +325,9 @@ Return ONLY valid JSON (no markdown fences, no extra text). The JSON must follow
     "avgPcr": 1.05,
     "regime": "LONG|SHORT|MIXED",
     "insight": {
-      "ko": "감마/옵션 환경 해석 2-3문장",
-      "en": "Gamma/options environment interpretation 2-3 sentences",
-      "ja": "ガンマ/オプション環境解釈 2-3文"
+      "ko": "감마/옵션 구조적 환경 해석 (2-3문장). 딜러 포지셔닝과 변동성 구조 분석.",
+      "en": "Gamma/options structural interpretation (2-3 sentences). Dealer positioning and vol structure.",
+      "ja": "ガンマ/オプション構造的環境解釈（2-3文）。ディーラーポジショニングとボラティリティ構造分析。"
     }
   },
   "outlook": {
@@ -267,34 +337,37 @@ Return ONLY valid JSON (no markdown fences, no extra text). The JSON must follow
       { "label": "NASDAQ Resistance", "value": "25,000" }
     ],
     "catalysts": {
-      "ko": ["다가오는 촉매 1", "촉매 2"],
-      "en": ["Upcoming catalyst 1", "Catalyst 2"],
-      "ja": ["今後の触媒1", "触媒2"]
+      "ko": ["촉매 1 (IF 조건부 분석)", "촉매 2"],
+      "en": ["Catalyst 1 (IF conditional analysis)", "Catalyst 2"],
+      "ja": ["触媒1（IF条件付き分析）", "触媒2"]
     },
     "risks": {
-      "ko": ["리스크 요인 1", "리스크 요인 2"],
-      "en": ["Risk factor 1", "Risk factor 2"],
-      "ja": ["リスク要因1", "リスク要因2"]
+      "ko": ["리스크 1 (IF→THEN 구조)", "리스크 2"],
+      "en": ["Risk 1 (IF→THEN structure)", "Risk 2"],
+      "ja": ["リスク1（IF→THEN構造）", "リスク2"]
     },
     "opportunities": {
-      "ko": ["기회 1", "기회 2"],
-      "en": ["Opportunity 1", "Opportunity 2"],
-      "ja": ["機会1", "機会2"]
+      "ko": ["관찰 1 (조건부 팩트)", "관찰 2"],
+      "en": ["Observation 1 (conditional fact)", "Observation 2"],
+      "ja": ["観察1（条件付きファクト）", "観察2"]
     }
   }
 }
 
 ## ANALYSIS REQUIREMENTS
 - Be specific with numbers, tickers, and percentages from the provided data
-- Provide 3-5 news impact items based on PROVIDED news data only
+- Provide 3-5 news impact items based on PROVIDED news data AND real-time market news
 - Provide 2-3 winners and 2-3 losers in sector rotation based on avgAlpha and leader/laggard data
 - Provide 2-4 key levels to watch in outlook
 - Each language should be natural and professional — Korean like a 증권사 리서치센터, English like Bloomberg Terminal, Japanese like Nikkei/日経
-- Maximum 3 keyDrivers, 3 catalysts, 3 risks, 3 opportunities per language`;
+- Maximum 3 keyDrivers, 3 catalysts, 3 risks, 3 opportunities per language
+- Use IF→THEN conditional framing for catalysts, risks, and opportunities (e.g. "IF US10Y > 4.5% → growth stock valuation pressure likely to intensify")
+- Flag any cross-asset divergences or sector anomalies as premium edge insights`;
 
         console.log(`[CrossSectorBrief V2] Calling Gemini with ${sectorSummaries.length} sectors...`);
+        // [V11.0] Use gemini-2.5-pro for deeper cross-sector reasoning
         const result = await genAI.models.generateContent({
-            model: 'gemini-2.5-flash',
+            model: 'gemini-2.5-pro',
             contents: prompt,
         });
 

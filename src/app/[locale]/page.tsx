@@ -340,6 +340,7 @@ export default function Page() {
             </div>
           </div>
 
+
           {/* Live Badge */}
           <div className="inline-flex items-center gap-3 px-6 py-2 rounded-full 
             bg-transparent border border-[#d97706]/30
