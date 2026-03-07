@@ -117,18 +117,7 @@ export default function LoginPage() {
                         {/* Logo & Header */}
                         <div className="text-center mb-8">
                             <div className="inline-flex items-center justify-center gap-3 mb-4">
-                                <svg width="48" height="48" viewBox="0 0 48 48" className="text-cyan-400">
-                                    <path
-                                        d="M24 4 L42 14 L42 34 L24 44 L6 34 L6 14 Z"
-                                        fill="none"
-                                        stroke="currentColor"
-                                        strokeWidth="2"
-                                        className="opacity-80"
-                                    />
-                                    <circle cx="24" cy="24" r="8" fill="none" stroke="currentColor" strokeWidth="1.5" className="opacity-50" />
-                                    <circle cx="24" cy="24" r="3" fill="currentColor" className="animate-pulse" />
-                                    <line x1="24" y1="24" x2="34" y2="14" stroke="#f59e0b" strokeWidth="2" strokeLinecap="round" />
-                                </svg>
+                                <img src="/signum-sg-vectorized.svg" alt="SIGNUM HQ" width="48" height="48" className="shrink-0" />
                             </div>
                             <h1 className="text-2xl font-black tracking-tight text-white mb-3">
                                 SIGNUM<span className="text-cyan-400">HQ</span>
