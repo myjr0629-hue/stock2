@@ -1201,17 +1201,17 @@ function MainChartPanel() {
 // Signal message translation map (ko/en/ja)
 const SIGNAL_MESSAGES: Record<string, Record<string, string>> = {
     signalBuyPutFloor: { ko: '지지선 지지 구간 (Put Floor ${putFloor})', en: 'Support Zone Active (Put Floor ${putFloor})', ja: 'サポートゾーン活性化 (Put Floor ${putFloor})' },
-    signalBuyCallBullish: { ko: '콜 강세 (PCR ${pcr}) - 상승 추세', en: 'Call Bullish (PCR ${pcr}) - Uptrend', ja: 'コール強気 (PCR ${pcr}) - 上昇トレンド' },
-    signalSellCallWall: { ko: '저항선 도달 - 주의 (Call Wall ${callWall})', en: 'Resistance Hit - Caution (Call Wall ${callWall})', ja: '抵抗線到達 - 注意 (Call Wall ${callWall})' },
-    signalSellPutHedge: { ko: '풋 헤징 증가 (PCR ${pcr}) - 하락 주의', en: 'Put Hedging Rising (PCR ${pcr}) - Caution', ja: 'プットヘッジ増加 (PCR ${pcr}) - 下落注意' },
+    signalBuyCallBullish: { ko: '콜 우위 관측 (PCR ${pcr})', en: 'Call Dominance Observed (PCR ${pcr})', ja: 'コール優位観測 (PCR ${pcr})' },
+    signalSellCallWall: { ko: '저항 레벨 접근 (Call Wall ${callWall})', en: 'Approaching Resistance (Call Wall ${callWall})', ja: '抵抗レベル接近 (Call Wall ${callWall})' },
+    signalSellPutHedge: { ko: '풋 볼륨 증가 관측 (PCR ${pcr})', en: 'Put Volume Elevated (PCR ${pcr})', ja: 'プットボリューム増加観測 (PCR ${pcr})' },
     signalWhaleGex: { ko: '${size} 고래 GEX (${gex})', en: '${size} Whale GEX (${gex})', ja: '${size} クジラ GEX (${gex})' },
     signalGammaSqueeze: { ko: '⚡ 감마 스퀴즈 감지', en: '⚡ Gamma Squeeze Detected', ja: '⚡ ガンマスクイーズ検知' },
-    signalHighIv: { ko: '📈 고변동성 (IV ${iv}%) - 큰 움직임 예상', en: '📈 High Volatility (IV ${iv}%) - Big Move Expected', ja: '📈 高ボラティリティ (IV ${iv}%) - 大きな動き予想' },
-    signalCallWallBreak: { ko: '🚀 Call Wall 돌파 ($${callWall}) - 신규 고점', en: '🚀 Call Wall Break ($${callWall}) - New High', ja: '🚀 Call Wall 突破 ($${callWall}) - 新高値' },
-    signalPutFloorBreak: { ko: '💥 Put Floor 이탈 ($${putFloor}) - 리스크 상승', en: '💥 Put Floor Break ($${putFloor}) - Risk Elevated', ja: '💥 Put Floor 割れ ($${putFloor}) - リスク上昇' },
-    signalDarkPool: { ko: '🏦 Dark Pool 집중 (${pct}%) - 기관 대량 거래', en: '🏦 Dark Pool Focus (${pct}%) - Institutional Block', ja: '🏦 Dark Pool 集中 (${pct}%) - 機関大口取引' },
-    signalShortVol: { ko: '📉 Short Vol 급증 (${pct}%) - 공매도 공세', en: '📉 Short Vol Surge (${pct}%) - Bearish Pressure', ja: '📉 Short Vol 急増 (${pct}%) - 空売り攻勢' },
-    signalImpliedMove: { ko: '⚡ Implied Move ±${pct}% - 대폭 변동 예상', en: '⚡ Implied Move ±${pct}% - Major Swing Expected', ja: '⚡ Implied Move ±${pct}% - 大幅変動予想' },
+    signalHighIv: { ko: '📈 고변동성 구간 (IV ${iv}%)', en: '📈 Elevated IV Zone (IV ${iv}%)', ja: '📈 高IV圏 (IV ${iv}%)' },
+    signalCallWallBreak: { ko: '🚀 Call Wall 돌파 ($${callWall})', en: '🚀 Call Wall Breach ($${callWall})', ja: '🚀 Call Wall 突破 ($${callWall})' },
+    signalPutFloorBreak: { ko: '💥 Put Floor 이탈 ($${putFloor})', en: '💥 Put Floor Breach ($${putFloor})', ja: '💥 Put Floor 割れ ($${putFloor})' },
+    signalDarkPool: { ko: '🏦 Dark Pool 집중 (${pct}%) - 기관 블록 거래', en: '🏦 Dark Pool Concentration (${pct}%) - Block Trade', ja: '🏦 Dark Pool 集中 (${pct}%) - ブロック取引' },
+    signalShortVol: { ko: '📉 Short Vol 확대 (${pct}%)', en: '📉 Short Vol Elevated (${pct}%)', ja: '📉 Short Vol 拡大 (${pct}%)' },
+    signalImpliedMove: { ko: '⚡ Implied Move ±${pct}%', en: '⚡ Implied Move ±${pct}%', ja: '⚡ Implied Move ±${pct}%' },
 };
 
 function translateSignalMessage(signal: { message: string; messageKey?: string; params?: Record<string, any> }, locale: string): string {
