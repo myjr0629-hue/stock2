@@ -7,10 +7,10 @@ import { PrivacySection, PrivacyMeta } from './_content-en';
 
 export const meta: PrivacyMeta = {
     pageTitle: 'プライバシーポリシー',
-    lastUpdated: '最終更新日: 2026年2月12日',
-    intro: 'SIGNUM HQ（以下「サービス」）は、利用者の個人情報を重視し、GDPR、CCPAなど国際的なプライバシー関連法令を遵守します。本ポリシーでは、利用者の個人情報の収集・利用・保管・廃棄について説明します。',
+    lastUpdated: '最終更新日: 2026年3月7日',
+    intro: 'SIGNUM HQ, LLC（以下「サービス」）は、利用者の個人情報を重視し、GDPR、CCPAなど国際的なプライバシー関連法令を遵守します。本ポリシーでは、利用者の個人情報の収集・利用・保管・廃棄について説明します。',
     effectiveDate: '本プライバシーポリシーは',
-    effectiveDateBold: '2026年2月12日',
+    effectiveDateBold: '2026年3月7日',
     effectiveDateSuffix: 'より施行されます。',
     backLink: '← ログインに戻る',
     importantBadge: '重要項目',
@@ -22,7 +22,7 @@ export const sections: PrivacySection[] = [
         color: 'text-slate-400',
         title: '第1条（目的）',
         content: (
-            <p>本プライバシーポリシーは、SIGNUM HQ（以下「サービス」）が利用者の個人情報をどのように収集、利用、保管、廃棄するかを説明し、GDPR、CCPAなど国際的なプライバシー関連法令を遵守することを目的とします。</p>
+            <p>本プライバシーポリシーは、SIGNUM HQ, LLC（以下「サービス」）が利用者の個人情報をどのように収集、利用、保管、廃棄するかを説明し、GDPR、CCPAなど国際的なプライバシー関連法令を遵守することを目的とします。</p>
         ),
     },
     {

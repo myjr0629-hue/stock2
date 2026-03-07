@@ -7,10 +7,10 @@ import { TermsSection, TermsMeta } from './_content-en';
 
 export const meta: TermsMeta = {
     pageTitle: 'SIGNUM HQ 서비스 이용약관',
-    lastUpdated: '최종 수정일: 2026-02-12',
-    intro: '본 약관은 SIGNUM HQ 서비스의 이용과 관련하여 회사와 회원 간의 권리, 의무 및 책임사항을 규정합니다. 서비스를 이용함으로써 본 약관에 동의하신 것으로 간주됩니다.',
+    lastUpdated: '최종 수정일: 2026-03-07',
+    intro: '본 약관은 SIGNUM HQ, LLC 서비스의 이용과 관련하여 회사와 회원 간의 권리, 의무 및 책임사항을 규정합니다. 서비스를 이용함으로써 본 약관에 동의하신 것으로 간주됩니다.',
     effectiveDate: '부칙: 본 약관은 ',
-    effectiveDateBold: '2026년 2월 12일',
+    effectiveDateBold: '2026년 3월 7일',
     effectiveDateSuffix: '부터 시행됩니다.',
     backLink: '← 로그인으로 돌아가기',
     importantBadge: '중요 조항',
@@ -22,7 +22,7 @@ export const sections: TermsSection[] = [
         color: 'text-slate-400',
         title: '제1조 (목적)',
         content: (
-            <p>본 약관은 SIGNUM HQ(이하 &apos;서비스&apos;)의 이용과 관련하여 회사와 회원 간의 권리, 의무 및 책임사항을 규정함을 목적으로 합니다.</p>
+            <p>본 약관은 SIGNUM HQ, LLC(이하 &apos;서비스&apos;)의 이용과 관련하여 회사와 회원 간의 권리, 의무 및 책임사항을 규정함을 목적으로 합니다.</p>
         ),
     },
     {
@@ -105,9 +105,10 @@ export const sections: TermsSection[] = [
         title: '제7조 (환불 정책)',
         content: (
             <ol className="list-decimal list-inside space-y-2">
-                <li><strong>14일 무조건 환불 보장:</strong> 최초 구매일로부터 <strong>14일 이내에 환불을 요청하시면 사유를 불문하고 전액 환불</strong>해 드립니다.</li>
-                <li><strong>환불 절차:</strong> 환불 요청은 이메일(<a href="mailto:contact@signumhq.com" className="text-cyan-400 hover:underline">contact@signumhq.com</a>)을 통해 신청할 수 있으며, 요청 접수일로부터 영업일 기준 7일 이내에 처리됩니다.</li>
-                <li><strong>14일 경과 후:</strong> 14일이 경과한 후에는 언제든지 구독을 해지하여 향후 과금을 중단할 수 있으나, 남은 구독 기간에 대한 일할 환불은 제공되지 않습니다.</li>
+                <li><strong>7일 만족 보장:</strong> 최초 결제일로부터 <strong>7일 이내에 서비스 품질 또는 기능에 대한 불만족 사유로 환불을 요청</strong>하실 수 있습니다.</li>
+                <li><strong>환불 조건:</strong> 환불은 <strong>계정당 1회로 제한</strong>됩니다. 프로모션 또는 할인 구매 건은 환불 대상에서 제외됩니다.</li>
+                <li><strong>환불 절차:</strong> 환불 요청은 이메일(<a href="mailto:contact@signumhq.com" className="text-cyan-400 hover:underline">contact@signumhq.com</a>)을 통해 신청할 수 있으며, 승인된 환불은 영업일 기준 5-7일 이내에 원래 결제 수단으로 처리됩니다.</li>
+                <li><strong>7일 경과 후:</strong> 7일이 경과한 후에는 언제든지 구독을 해지하여 향후 과금을 중단할 수 있으나, 남은 구독 기간에 대한 일할 환불은 제공되지 않습니다.</li>
             </ol>
         ),
     },

@@ -26,10 +26,10 @@ export interface TermsMeta {
 
 export const meta: TermsMeta = {
     pageTitle: 'Terms of Service',
-    lastUpdated: 'Last Updated: 2026-02-12',
-    intro: 'These Terms of Service ("Terms") govern your access to and use of the SIGNUM HQ platform and services. By accessing or using the Service, you agree to be bound by these Terms.',
+    lastUpdated: 'Last Updated: 2026-03-07',
+    intro: 'These Terms of Service ("Terms") govern your access to and use of the SIGNUM HQ, LLC platform and services. By accessing or using the Service, you agree to be bound by these Terms.',
     effectiveDate: 'These Terms are effective as of ',
-    effectiveDateBold: 'February 12, 2026',
+    effectiveDateBold: 'March 7, 2026',
     effectiveDateSuffix: '.',
     backLink: '← Back to Login',
     importantBadge: 'IMPORTANT',
@@ -41,7 +41,7 @@ export const sections: TermsSection[] = [
         color: 'text-slate-400',
         title: 'Article 1. Purpose',
         content: (
-            <p>These Terms establish the rights, obligations, and responsibilities between SIGNUM HQ (the &quot;Company&quot;) and users (&quot;Members&quot;) regarding the use of the SIGNUM HQ platform and associated services.</p>
+            <p>These Terms establish the rights, obligations, and responsibilities between SIGNUM HQ, LLC (the &quot;Company&quot;) and users (&quot;Members&quot;) regarding the use of the SIGNUM HQ platform and associated services.</p>
         ),
     },
     {
@@ -124,9 +124,10 @@ export const sections: TermsSection[] = [
         title: 'Article 7. Refund Policy',
         content: (
             <ol className="list-decimal list-inside space-y-2">
-                <li><strong>14-Day Money-Back Guarantee:</strong> We offer a <strong>14-day unconditional money-back guarantee</strong> from the date of your initial purchase. If you are not satisfied with our service for any reason, you may request a full refund within 14 days. <strong>No questions asked.</strong></li>
-                <li><strong>How to Request:</strong> Refund requests may be submitted via email (<a href="mailto:contact@signumhq.com" className="text-cyan-400 hover:underline">contact@signumhq.com</a>). Refunds will be processed within 7 business days.</li>
-                <li><strong>After 14 Days:</strong> After the 14-day refund window has passed, subscriptions may be cancelled at any time to prevent future charges, but no partial refund will be issued for the remaining subscription period.</li>
+                <li><strong>7-Day Satisfaction Guarantee:</strong> We offer a <strong>7-day refund guarantee</strong> from the date of your initial purchase. If you are dissatisfied with the service quality or functionality, you may request a full refund within 7 calendar days.</li>
+                <li><strong>Conditions:</strong> Refunds are limited to <strong>one per account.</strong> Promotional or discounted purchases are not eligible for refunds.</li>
+                <li><strong>How to Request:</strong> Refund requests may be submitted via email (<a href="mailto:contact@signumhq.com" className="text-cyan-400 hover:underline">contact@signumhq.com</a>). Approved refunds are processed within 5-7 business days to the original payment method.</li>
+                <li><strong>After 7 Days:</strong> After the 7-day refund window has passed, subscriptions may be cancelled at any time to prevent future charges, but no partial refund will be issued for the remaining subscription period.</li>
             </ol>
         ),
     },

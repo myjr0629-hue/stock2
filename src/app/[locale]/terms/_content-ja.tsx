@@ -8,10 +8,10 @@ import { TermsSection, TermsMeta } from './_content-en';
 
 export const meta: TermsMeta = {
     pageTitle: 'SIGNUM HQ 利用規約',
-    lastUpdated: '最終更新日: 2026年2月12日',
-    intro: '本利用規約（以下「本規約」）は、SIGNUM HQ（以下「サービス」）の利用に関して、当社とユーザー（以下「会員」）との間の権利、義務および責任事項を定めることを目的とします。サービスを利用することにより、本規約に同意したものとみなされます。',
+    lastUpdated: '最終更新日: 2026年3月7日',
+    intro: '本利用規約（以下「本規約」）は、SIGNUM HQ, LLC（以下「サービス」）の利用に関して、当社とユーザー（以下「会員」）との間の権利、義務および責任事項を定めることを目的とします。サービスを利用することにより、本規約に同意したものとみなされます。',
     effectiveDate: '本規約は',
-    effectiveDateBold: '2026年2月12日',
+    effectiveDateBold: '2026年3月7日',
     effectiveDateSuffix: 'より施行されます。',
     backLink: '← ログインに戻る',
     importantBadge: '重要条項',
@@ -23,7 +23,7 @@ export const sections: TermsSection[] = [
         color: 'text-slate-400',
         title: '第1条（目的）',
         content: (
-            <p>本規約は、SIGNUM HQ（以下「当社」）が提供するサービスの利用に関して、当社と会員との間の権利、義務および責任事項を規定することを目的とします。</p>
+            <p>本規約は、SIGNUM HQ, LLC（以下「当社」）が提供するサービスの利用に関して、当社と会員との間の権利、義務および責任事項を規定することを目的とします。</p>
         ),
     },
     {
@@ -106,9 +106,10 @@ export const sections: TermsSection[] = [
         title: '第7条（返金ポリシー）',
         content: (
             <ol className="list-decimal list-inside space-y-2">
-                <li><strong>14日間無条件返金保証：</strong> 初回購入日から<strong>14日以内に返金をリクエストいただければ、理由を問わず全額返金</strong>いたします。</li>
-                <li><strong>返金手続き：</strong> 返金リクエストはメール（<a href="mailto:contact@signumhq.com" className="text-cyan-400 hover:underline">contact@signumhq.com</a>）から申請でき、受領日から営業日基準7日以内に処理します。</li>
-                <li><strong>14日経過後：</strong> 14日経過後はいつでもサブスクリプションを解約して今後の課金を停止できますが、残余サブスクリプション期間に対する日割返金は提供されません。</li>
+                <li><strong>7日間満足保証：</strong> 初回決済日から<strong>7日以内に、サービス品質または機能に対するご不満を理由として返金をリクエスト</strong>いただけます。</li>
+                <li><strong>返金条件：</strong> 返金は<strong>アカウントにつき1回限り</strong>です。プロモーションまたは割引購入は返金対象外です。</li>
+                <li><strong>返金手続き：</strong> 返金リクエストはメール（<a href="mailto:contact@signumhq.com" className="text-cyan-400 hover:underline">contact@signumhq.com</a>）から申請でき、承認された返金は営業日基準5〜7日以内に元の決済方法で処理されます。</li>
+                <li><strong>7日経過後：</strong> 7日経過後はいつでもサブスクリプションを解約して今後の課金を停止できますが、残余サブスクリプション期間に対する日割返金は提供されません。</li>
             </ol>
         ),
     },

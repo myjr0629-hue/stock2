@@ -25,10 +25,10 @@ export interface PrivacyMeta {
 
 export const meta: PrivacyMeta = {
     pageTitle: 'Privacy Policy',
-    lastUpdated: 'Last Updated: February 12, 2026',
-    intro: 'SIGNUM HQ ("Service") is committed to protecting your personal information and respects your privacy. This Privacy Policy explains how we collect, use, store, and delete your personal data in compliance with applicable privacy laws.',
+    lastUpdated: 'Last Updated: March 7, 2026',
+    intro: 'SIGNUM HQ, LLC ("Service") is committed to protecting your personal information and respects your privacy. This Privacy Policy explains how we collect, use, store, and delete your personal data in compliance with applicable privacy laws.',
     effectiveDate: 'This Privacy Policy is effective as of ',
-    effectiveDateBold: 'February 12, 2026',
+    effectiveDateBold: 'March 7, 2026',
     effectiveDateSuffix: '.',
     backLink: '← Back to Login',
     importantBadge: 'IMPORTANT',
@@ -40,7 +40,7 @@ export const sections: PrivacySection[] = [
         color: 'text-slate-400',
         title: 'Article 1. Purpose',
         content: (
-            <p>This Privacy Policy describes how SIGNUM HQ (&quot;Service&quot;) collects, uses, stores, and deletes your personal information, and is intended to comply with applicable data protection laws including the General Data Protection Regulation (GDPR) and the California Consumer Privacy Act (CCPA).</p>
+            <p>This Privacy Policy describes how SIGNUM HQ, LLC (&quot;Service&quot;) collects, uses, stores, and deletes your personal information, and is intended to comply with applicable data protection laws including the General Data Protection Regulation (GDPR) and the California Consumer Privacy Act (CCPA).</p>
         ),
     },
     {

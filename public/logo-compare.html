@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Logo Comparison</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: #0a0f1a;
+            color: #e2e8f0;
+            font-family: -apple-system, sans-serif;
+            padding: 40px;
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 40px;
+            color: #fff;
+            font-size: 24px;
+        }
+
+        .row {
+            display: flex;
+            gap: 40px;
+            justify-content: center;
+            margin-bottom: 60px;
+            flex-wrap: wrap;
+        }
+
+        .card {
+            background: #0f172a;
+            border: 1px solid #1e293b;
+            border-radius: 16px;
+            padding: 24px;
+            text-align: center;
+            min-width: 280px;
+        }
+
+        .card h3 {
+            color: #00d4ff;
+            font-size: 16px;
+            margin-bottom: 16px;
+        }
+
+        .card .note {
+            color: #64748b;
+            font-size: 12px;
+            margin-top: 12px;
+        }
+
+        /* Fake navbar */
+        .nav {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            background: linear-gradient(180deg, #111827 0%, #0c1220 100%);
+            border: 1px solid #1e293b;
+            border-radius: 8px;
+            padding: 10px 20px;
+            margin: 16px auto 0;
+        }
+
+        .nav .brand {
+            font-size: 18px;
+            font-weight: 900;
+            color: #fff;
+            letter-spacing: -0.5px;
+        }
+
+        .nav .brand span {
+            color: #00d4ff;
+        }
+
+        .nav .links {
+            display: flex;
+            gap: 16px;
+            margin-left: 24px;
+        }
+
+        .nav .links a {
+            color: #94a3b8;
+            font-size: 12px;
+            font-weight: 600;
+            text-decoration: none;
+            letter-spacing: 0.5px;
+        }
+
+        .nav .avatar {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            background: #f97316;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #fff;
+            font-size: 12px;
+            font-weight: 700;
+            margin-left: auto;
+        }
+
+        .section-title {
+            text-align: center;
+            color: #f59e0b;
+            font-size: 14px;
+            font-weight: 700;
+            letter-spacing: 2px;
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <h1>🔍 로고 비교 — 어떤 것이 눈에 더 띄나요?</h1>
+
+    <!-- SECTION 1: Current size comparison -->
+    <p class="section-title">▼ 헤더 적용 시뮬레이션 (실제 크기)</p>
+
+    <div class="row">
+        <div class="card">
+            <h3>A. 기존 로고 (24px)</h3>
+            <div class="nav">
+                <svg width="24" height="24" viewBox="0 0 48 48">
+                    <path d="M24 4 L42 14 L42 34 L24 44 L6 34 L6 14 Z" fill="none" stroke="#22d3ee" stroke-width="2"
+                        opacity="0.8" />
+                    <circle cx="24" cy="24" r="8" fill="none" stroke="#22d3ee" stroke-width="1.5" opacity="0.5" />
+                    <circle cx="24" cy="24" r="3" fill="#22d3ee" />
+                    <line x1="24" y1="24" x2="34" y2="14" stroke="#f59e0b" stroke-width="2" stroke-linecap="round" />
+                </svg>
+                <span class="brand">SIGNUM<span>HQ</span></span>
+                <div class="links"><a>DASHBOARD</a><a>GUARDIAN</a><a>COMMAND</a></div>
+                <div class="avatar">r</div>
+            </div>
+            <p class="note">시안 색상 + 펄스 → 작지만 색으로 눈에 띈다</p>
+        </div>
+
+        <div class="card">
+            <h3>B. 프리즘 SVG (32px, 현재)</h3>
+            <div class="nav">
+                <svg width="32" height="32" viewBox="0 0 1024 1024" style="border-radius:6px;">
+                    <defs>
+                        <radialGradient id="bg1" cx="28%" cy="18%" r="95%">
+                            <stop offset="0%" stop-color="#0E1A2C" />
+                            <stop offset="55%" stop-color="#0A1220" />
+                            <stop offset="100%" stop-color="#070E19" />
+                        </radialGradient>
+                    </defs>
+                    <rect width="1024" height="1024" rx="210" fill="url(#bg1)" />
+                    <g fill="none" stroke="#FFF" stroke-width="26" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M512 190 L770 350 L770 674 L512 834 L254 674 L254 350 Z" />
+                        <path d="M356 320 L356 704" />
+                        <path d="M668 320 L668 704" />
+                        <path d="M512 190 L356 320" />
+                        <path d="M512 190 L668 320" />
+                        <path d="M356 704 L512 834" />
+                        <path d="M668 704 L512 834" />
+                        <path d="M254 350 L356 320" />
+                        <path d="M770 350 L668 320" />
+                        <path d="M254 674 L356 704" />
+                        <path d="M770 674 L668 704" />
+                    </g>
+                    <line x1="150" y1="512" x2="874" y2="512" stroke="#20D6FF" stroke-width="28"
+                        stroke-linecap="round" />
+                </svg>
+                <span class="brand">SIGNUM<span>HQ</span></span>
+                <div class="links"><a>DASHBOARD</a><a>GUARDIAN</a><a>COMMAND</a></div>
+                <div class="avatar">r</div>
+            </div>
+            <p class="note">디테일 있지만 32px에서 와이어프레임이 뭉개짐</p>
+        </div>
+    </div>
+
+    <p class="section-title">▼ 개선 방안 — 더 눈에 띄는 프리즘 변형들</p>
+
+    <div class="row">
+        <div class="card">
+            <h3>C. 프리즘 40px (크기 UP)</h3>
+            <div class="nav">
+                <svg width="40" height="40" viewBox="0 0 1024 1024" style="border-radius:8px;">
+                    <defs>
+                        <radialGradient id="bg2" cx="28%" cy="18%" r="95%">
+                            <stop offset="0%" stop-color="#0E1A2C" />
+                            <stop offset="55%" stop-color="#0A1220" />
+                            <stop offset="100%" stop-color="#070E19" />
+                        </radialGradient>
+                    </defs>
+                    <rect width="1024" height="1024" rx="210" fill="url(#bg2)" />
+                    <g fill="none" stroke="#FFF" stroke-width="26" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M512 190 L770 350 L770 674 L512 834 L254 674 L254 350 Z" />
+                        <path d="M356 320 L356 704" />
+                        <path d="M668 320 L668 704" />
+                        <path d="M512 190 L356 320" />
+                        <path d="M512 190 L668 320" />
+                        <path d="M356 704 L512 834" />
+                        <path d="M668 704 L512 834" />
+                        <path d="M254 350 L356 320" />
+                        <path d="M770 350 L668 320" />
+                        <path d="M254 674 L356 704" />
+                        <path d="M770 674 L668 704" />
+                    </g>
+                    <line x1="150" y1="512" x2="874" y2="512" stroke="#20D6FF" stroke-width="28"
+                        stroke-linecap="round" />
+                </svg>
+                <span class="brand">SIGNUM<span>HQ</span></span>
+                <div class="links"><a>DASHBOARD</a><a>GUARDIAN</a><a>COMMAND</a></div>
+                <div class="avatar">r</div>
+            </div>
+            <p class="note">크기만 키움 → 디테일이 더 잘 보임</p>
+        </div>
+
+        <div class="card">
+            <h3>D. 프리즘 시안 라인 (32px)</h3>
+            <div class="nav">
+                <svg width="32" height="32" viewBox="0 0 1024 1024" style="border-radius:6px;">
+                    <defs>
+                        <radialGradient id="bg3" cx="28%" cy="18%" r="95%">
+                            <stop offset="0%" stop-color="#0E1A2C" />
+                            <stop offset="55%" stop-color="#0A1220" />
+                            <stop offset="100%" stop-color="#070E19" />
+                        </radialGradient>
+                    </defs>
+                    <rect width="1024" height="1024" rx="210" fill="url(#bg3)" />
+                    <g fill="none" stroke="#20D6FF" stroke-width="26" stroke-linecap="round" stroke-linejoin="round"
+                        opacity="0.7">
+                        <path d="M512 190 L770 350 L770 674 L512 834 L254 674 L254 350 Z" />
+                        <path d="M356 320 L356 704" />
+                        <path d="M668 320 L668 704" />
+                        <path d="M512 190 L356 320" />
+                        <path d="M512 190 L668 320" />
+                        <path d="M356 704 L512 834" />
+                        <path d="M668 704 L512 834" />
+                        <path d="M254 350 L356 320" />
+                        <path d="M770 350 L668 320" />
+                        <path d="M254 674 L356 704" />
+                        <path d="M770 674 L668 704" />
+                    </g>
+                    <line x1="150" y1="512" x2="874" y2="512" stroke="#20D6FF" stroke-width="32"
+                        stroke-linecap="round" />
+                </svg>
+                <span class="brand">SIGNUM<span>HQ</span></span>
+                <div class="links"><a>DASHBOARD</a><a>GUARDIAN</a><a>COMMAND</a></div>
+                <div class="avatar">r</div>
+            </div>
+            <p class="note">크리스탈 라인도 시안 → 색이 통일되어 눈에 더 띔</p>
+        </div>
+
+        <div class="card">
+            <h3>E. 프리즘 밝은 배경 (32px)</h3>
+            <div class="nav">
+                <svg width="32" height="32" viewBox="0 0 1024 1024" style="border-radius:6px;">
+                    <rect width="1024" height="1024" rx="210" fill="#1a2744" />
+                    <g fill="none" stroke="#FFF" stroke-width="30" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M512 190 L770 350 L770 674 L512 834 L254 674 L254 350 Z" />
+                        <path d="M356 320 L356 704" />
+                        <path d="M668 320 L668 704" />
+                        <path d="M512 190 L356 320" />
+                        <path d="M512 190 L668 320" />
+                        <path d="M356 704 L512 834" />
+                        <path d="M668 704 L512 834" />
+                        <path d="M254 350 L356 320" />
+                        <path d="M770 350 L668 320" />
+                        <path d="M254 674 L356 704" />
+                        <path d="M770 674 L668 704" />
+                    </g>
+                    <line x1="150" y1="512" x2="874" y2="512" stroke="#20D6FF" stroke-width="32"
+                        stroke-linecap="round" />
+                </svg>
+                <span class="brand">SIGNUM<span>HQ</span></span>
+                <div class="links"><a>DASHBOARD</a><a>GUARDIAN</a><a>COMMAND</a></div>
+                <div class="avatar">r</div>
+            </div>
+            <p class="note">배경을 약간 밝게 → 헤더와 대비되어 구별됨</p>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="card">
+            <h3>F. 프리즘 단순화 + 시안 (32px)</h3>
+            <div class="nav">
+                <svg width="32" height="32" viewBox="0 0 1024 1024" style="border-radius:6px;">
+                    <rect width="1024" height="1024" rx="210" fill="#0C1220" />
+                    <!-- Simplified: outer hex + beam only -->
+                    <polygon points="512,190 770,350 770,674 512,834 254,674 254,350" fill="none" stroke="#20D6FF"
+                        stroke-width="36" stroke-linejoin="round" />
+                    <line x1="150" y1="512" x2="874" y2="512" stroke="#FFF" stroke-width="32" stroke-linecap="round" />
+                </svg>
+                <span class="brand">SIGNUM<span>HQ</span></span>
+                <div class="links"><a>DASHBOARD</a><a>GUARDIAN</a><a>COMMAND</a></div>
+                <div class="avatar">r</div>
+            </div>
+            <p class="note">내부 선 제거, 육각 시안 + 흰 빔만 → 32px에서 극명하게 보임</p>
+        </div>
+
+        <div class="card">
+            <h3>G. 심볼만 (배경 없이, 28px)</h3>
+            <div class="nav">
+                <svg width="28" height="28" viewBox="0 0 1024 1024">
+                    <g fill="none" stroke="#20D6FF" stroke-width="36" stroke-linecap="round" stroke-linejoin="round">
+                        <polygon points="512,190 770,350 770,674 512,834 254,674 254,350" />
+                    </g>
+                    <line x1="150" y1="512" x2="874" y2="512" stroke="#f59e0b" stroke-width="32"
+                        stroke-linecap="round" />
+                </svg>
+                <span class="brand">SIGNUM<span>HQ</span></span>
+                <div class="links"><a>DASHBOARD</a><a>GUARDIAN</a><a>COMMAND</a></div>
+                <div class="avatar">r</div>
+            </div>
+            <p class="note">기존 로고처럼 배경 없이 심볼만 → 가장 가볍고 깔끔</p>
+        </div>
+
+        <div class="card">
+            <h3>H. 프리즘 40px + 시안 라인</h3>
+            <div class="nav">
+                <svg width="40" height="40" viewBox="0 0 1024 1024" style="border-radius:8px;">
+                    <rect width="1024" height="1024" rx="210" fill="#0C1220" />
+                    <g fill="none" stroke="#20D6FF" stroke-width="24" stroke-linecap="round" stroke-linejoin="round"
+                        opacity="0.6">
+                        <path d="M512 190 L770 350 L770 674 L512 834 L254 674 L254 350 Z" />
+                        <path d="M356 320 L356 704" />
+                        <path d="M668 320 L668 704" />
+                        <path d="M512 190 L356 320" />
+                        <path d="M512 190 L668 320" />
+                        <path d="M356 704 L512 834" />
+                        <path d="M668 704 L512 834" />
+                        <path d="M254 350 L356 320" />
+                        <path d="M770 350 L668 320" />
+                        <path d="M254 674 L356 704" />
+                        <path d="M770 674 L668 704" />
+                    </g>
+                    <line x1="150" y1="512" x2="874" y2="512" stroke="#20D6FF" stroke-width="30"
+                        stroke-linecap="round" />
+                </svg>
+                <span class="brand">SIGNUM<span>HQ</span></span>
+                <div class="links"><a>DASHBOARD</a><a>GUARDIAN</a><a>COMMAND</a></div>
+                <div class="avatar">r</div>
+            </div>
+            <p class="note">풀 디테일 + 시안 + 40px = 가장 임팩트 있는 조합</p>
+        </div>
+    </div>
+
+</body>
+
+</html>

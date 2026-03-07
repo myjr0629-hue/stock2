@@ -7,10 +7,10 @@ import { PrivacySection, PrivacyMeta } from './_content-en';
 
 export const meta: PrivacyMeta = {
     pageTitle: '개인정보처리방침',
-    lastUpdated: '최종 수정일: 2026-02-12',
-    intro: 'SIGNUM HQ(이하 \'서비스\')는 이용자의 개인정보를 중요시하며, GDPR, CCPA 등 국제 개인정보 관련 법령을 준수합니다. 본 방침을 통해 이용자의 개인정보가 어떻게 수집·이용·보관·파기되는지 안내합니다.',
+    lastUpdated: '최종 수정일: 2026-03-07',
+    intro: 'SIGNUM HQ, LLC(이하 \'서비스\')는 이용자의 개인정보를 중요시하며, GDPR, CCPA 등 국제 개인정보 관련 법령을 준수합니다. 본 방침을 통해 이용자의 개인정보가 어떻게 수집·이용·보관·파기되는지 안내합니다.',
     effectiveDate: '본 개인정보처리방침은 ',
-    effectiveDateBold: '2026년 2월 12일',
+    effectiveDateBold: '2026년 3월 7일',
     effectiveDateSuffix: '부터 시행됩니다.',
     backLink: '← 로그인으로 돌아가기',
     importantBadge: '중요 항목',
@@ -22,7 +22,7 @@ export const sections: PrivacySection[] = [
         color: 'text-slate-400',
         title: '제1조 (목적)',
         content: (
-            <p>본 개인정보처리방침은 SIGNUM HQ(이하 &apos;서비스&apos;)가 이용자의 개인정보를 어떻게 수집, 이용, 보관, 파기하는지를 설명하며, GDPR, CCPA 등 국제 개인정보 관련 법령을 준수합니다.</p>
+            <p>본 개인정보처리방침은 SIGNUM HQ, LLC(이하 &apos;서비스&apos;)가 이용자의 개인정보를 어떻게 수집, 이용, 보관, 파기하는지를 설명하며, GDPR, CCPA 등 국제 개인정보 관련 법령을 준수합니다.</p>
         ),
     },
     {

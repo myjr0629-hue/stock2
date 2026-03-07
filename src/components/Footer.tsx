@@ -21,8 +21,8 @@ export function Footer() {
             <div className="px-4 sm:px-6 pt-8 pb-4 lg:px-8 max-w-[1400px] mx-auto">
 
                 {/* ── Legal Links Row ── */}
-                <div className="text-[12px] text-slate-400 text-center mb-3 flex items-center justify-center gap-1 flex-wrap">
-                    <span className="text-slate-500">© 2026 SIGNUM HQ. All rights reserved.</span>
+                <div className="text-[12px] text-slate-400 text-center mb-3 flex items-center justify-center gap-2 flex-wrap">
+                    <span className="text-slate-500">© 2026 SIGNUM HQ, LLC. All rights reserved.</span>
                     <span className="text-slate-600 mx-1">|</span>
                     <Link href={`/${locale}/terms`} className="underline hover:text-white transition-colors">
                         {isKorean ? '이용약관' : locale === 'ja' ? '利用規約' : 'Terms of Service'}

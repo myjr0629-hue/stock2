@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <!-- SIGNUM HQ - SG Icon (Pure Vector) -->
+  <!-- S-shape with ECG heartbeat through a rounded square -->
+
+  <!-- Upper S portion: top-left area curving to right, with ECG bottom edge -->
+  <path d="
+    M 88 340
+    L 88 152
+    C 88 116.7 116.7 88 152 88
+    L 360 88
+    C 395.3 88 424 116.7 424 152
+    L 424 210
+    C 424 235 410 255 388 270
+    C 365 286 335 298 308 308
+    L 290 314
+    L 282 290
+    L 264 330
+    L 244 272
+    L 228 316
+    L 214 290
+    L 196 322
+    C 164 336 136 354 116 375
+    C 100 392 88 406 88 340
+  " fill="white"/>
+
+  <!-- Lower S portion: bottom-right area curving to left, with ECG top edge -->
+  <path d="
+    M 424 172
+    L 424 360
+    C 424 395.3 395.3 424 360 424
+    L 152 424
+    C 116.7 424 88 395.3 88 360
+    L 88 340
+    C 88 406 100 392 116 375
+    C 136 354 164 336 196 322
+    L 214 290
+    L 228 316
+    L 244 272
+    L 264 330
+    L 282 290
+    L 290 314
+    L 308 308
+    C 335 298 365 286 388 270
+    C 410 255 424 235 424 210
+    Z
+  " fill="white"/>
+</svg>

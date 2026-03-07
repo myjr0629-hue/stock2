@@ -134,12 +134,12 @@ function TickerDrawer({ symbol, isOpen, onClose }: { symbol: string, isOpen: boo
   );
 }
 
-// --- Enhanced Live Ticker Card ---
 function LiveTickerCard({ symbol }: { symbol: string }) {
   const router = useRouter();
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [isDataChanged, setIsDataChanged] = useState(false);
+  const [sparklineData, setSparklineData] = useState<number[]>([]);
   const prevDataRef = useRef<any>(null);
 
   useEffect(() => {
@@ -164,7 +164,22 @@ function LiveTickerCard({ symbol }: { symbol: string }) {
         setLoading(false);
       }
     };
+
+    // Fetch real sparkline data (daily closes from Polygon) — one-time on mount
+    const fetchSparkline = async () => {
+      try {
+        const res = await fetch(`/api/sparkline?t=${symbol}`);
+        const json = await res.json();
+        if (json.closes && json.closes.length > 0) {
+          setSparklineData(json.closes);
+        }
+      } catch {
+        setSparklineData([]);
+      }
+    };
+
     fetchData();
+    fetchSparkline();
     const interval = setInterval(fetchData, 30000); // Refresh every 30s
     return () => clearInterval(interval);
   }, [symbol]); // Only symbol in dependency array!
@@ -178,9 +193,6 @@ function LiveTickerCard({ symbol }: { symbol: string }) {
     if (data.netGex && Math.abs(data.netGex) > 1000000000) return 'whale';
     return 'hot'; // Default for active tickers
   };
-
-  // Mock sparkline data (in production, fetch from API)
-  const sparklineData = [45, 52, 48, 61, 55, 67, 72, 68, 75, 80];
 
   // Use actual change percent if available, otherwise show neutral
   const priceChange = data?.changePercent?.toFixed(2) || null;
@@ -244,7 +256,9 @@ function LiveTickerCard({ symbol }: { symbol: string }) {
               </div>
             )}
           </div>
-          <Sparkline data={sparklineData} color={isPositive ? "#22d3ee" : "#f43f5e"} />
+          {sparklineData.length > 0 && (
+            <Sparkline data={sparklineData} color={isPositive ? "#22d3ee" : "#f43f5e"} />
+          )}
         </div>
 
         {/* Metrics Row */}
@@ -358,7 +372,7 @@ export default function Page() {
 
           {/* FOMO Subheadline */}
           <p className="text-base md:text-lg text-slate-300 max-w-2xl mx-auto leading-relaxed mb-10 font-medium">
-            {t('home.fomoSubheadline')}<span className="text-cyan-400 font-bold">{t('home.fomoHighlight')}</span>
+            {t('home.fomoSubheadline')}<br /><span className="text-cyan-400 font-bold">{t('home.fomoHighlight')}</span>
           </p>
 
           {/* CTA Buttons */}
