@@ -467,30 +467,40 @@ function MainChartPanel() {
         }
     }, [data?.prevClose]);
 
-    // [S-78] Fetch daily history for premium table
+    // [S-78] Fetch daily history for premium table — with client-side cache
+    const dailyHistoryCacheRef = React.useRef<Map<string, typeof dailyHistory>>(new Map());
     useEffect(() => {
+        if (!selectedTicker) return;
+        // Check cache first — instant display for revisited tickers
+        const cached = dailyHistoryCacheRef.current.get(selectedTicker);
+        if (cached) {
+            setDailyHistory(cached);
+            return;
+        }
         const fetchDailyHistory = async () => {
-            if (!selectedTicker) return;
             try {
                 const res = await fetch(`/api/dashboard/daily-history?t=${selectedTicker}&days=5`);
                 if (res.ok) {
                     const json = await res.json();
-                    setDailyHistory(json.data || []);
+                    const data = json.data || [];
+                    dailyHistoryCacheRef.current.set(selectedTicker, data);
+                    setDailyHistory(data);
                 }
             } catch (e) {
                 console.error('[Dashboard] Daily history fetch error:', e);
             }
         };
+        setDailyHistory([]);
         fetchDailyHistory();
     }, [selectedTicker]);
 
     // Fetch chart data for StockChart
-    // [S-78] Silent refresh: Only show loading on first load or ticker change, background updates thereafter
+    // [P2 FIX] Optimistic update: keep previous chart visible during ticker switch (no flicker)
+    // Only show loading spinner on very first load when no chart data exists
     const lastTickerRef = React.useRef<string | null>(null);
 
-    const fetchChartData = useCallback(async (showLoading: boolean = false) => {
+    const fetchChartData = useCallback(async () => {
         if (!selectedTicker) return;
-        if (showLoading) setChartLoading(true);
         try {
             const res = await fetch(`/api/chart?symbol=${selectedTicker}&range=1d`);
             if (res.ok) {
@@ -505,21 +515,21 @@ function MainChartPanel() {
     }, [selectedTicker]);
 
     useEffect(() => {
-        const isTickerChange = lastTickerRef.current !== selectedTicker;
         lastTickerRef.current = selectedTicker;
 
-        // Show loading on ticker change or first load
-        fetchChartData(isTickerChange || chartHistory.length === 0);
+        // [P2 FIX] Only show spinner on initial empty state — keep previous chart during switch
+        if (chartHistory.length === 0) setChartLoading(true);
+        fetchChartData();
 
         // Silent background refresh every 30s
-        const interval = setInterval(() => fetchChartData(false), 30000);
+        const interval = setInterval(() => fetchChartData(), 30000);
 
         // [P2 FIX] Debounced handler for visibility + focus events
         // Without debounce, tab switch triggers BOTH visibilitychange + focus → 2x fetch
         let debounceTimer: ReturnType<typeof setTimeout> | null = null;
         const debouncedRefresh = () => {
             if (debounceTimer) clearTimeout(debounceTimer);
-            debounceTimer = setTimeout(() => fetchChartData(false), 500);
+            debounceTimer = setTimeout(() => fetchChartData(), 500);
         };
 
         const handleVisibility = () => {
@@ -534,7 +544,8 @@ function MainChartPanel() {
             document.removeEventListener('visibilitychange', handleVisibility);
             window.removeEventListener('focus', debouncedRefresh);
         };
-    }, [selectedTicker, fetchChartData]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [selectedTicker]);
 
     const isPositive = (data?.changePercent || 0) >= 0;
     const gexDisplay = data?.netGex
