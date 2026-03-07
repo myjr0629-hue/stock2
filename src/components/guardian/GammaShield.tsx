@@ -25,49 +25,49 @@ const T: Record<string, Record<Locale, string>> = {
     },
     // Dynamic insight texts
     squeezeCritical: {
-        ko: '옵션 매도자 손절 임박 — 급격한 움직임 대비',
-        en: 'Options sellers near forced exits — brace for sharp moves',
-        ja: 'オプション売り手の損切り迫る — 急変動に備え',
+        ko: '옵션 매도자 손절 구간 — 급변동 구간 진입',
+        en: 'Options sellers near forced exits — high swing zone',
+        ja: 'オプション売り手の損切り圏 — 急変動圏突入',
     },
     resistNear: {
-        ko: 'S&P 옵션 벽 {val} 근접 — 돌파 시 급등, 실패 시 반락',
-        en: 'S&P options wall {val} nearby — breakout rally or rejection dip',
-        ja: 'S&P オプション壁 {val} 接近 — 突破で急騰、失敗で反落',
+        ko: 'S&P 옵션 벽 {val} 근접 — 저항 테스트 구간',
+        en: 'S&P options wall {val} nearby — resistance test zone',
+        ja: 'S&P オプション壁 {val} 接近 — 抵抗テスト圏',
     },
     supportNear: {
-        ko: 'S&P 옵션 지지 {val} 근접 — 반등 또는 이탈 주시',
-        en: 'S&P options floor {val} nearby — watch for bounce or breakdown',
-        ja: 'S&P オプション支持 {val} 接近 — 反発または離脱注視',
+        ko: 'S&P 옵션 지지 {val} 근접 — 지지 테스트 구간',
+        en: 'S&P options floor {val} nearby — support test zone',
+        ja: 'S&P オプション支持 {val} 接近 — サポートテスト圏',
     },
     longGamma: {
-        ko: '대형 기관이 하락 방어 중 — 급락 가능성 낮음',
-        en: 'Major institutions defending downside — low crash risk',
-        ja: '大型機関が下落防御中 — 急落の可能性低い',
+        ko: '기관 감마 매수 우위 — 하방 쿠션 활성',
+        en: 'Institutional long gamma dominant — downside cushion active',
+        ja: '機関ガンマ買い優位 — 下方クッション活性',
     },
     longGammaButSelling: {
-        ko: '기관 감마 방어 중이나 매도 압력 우세 — 점진적 하락 주의',
-        en: 'Gamma cushion active but sell pressure dominant — gradual decline risk',
-        ja: 'ガンマ防御中も売り圧力優勢 — 段階的な下落に注意',
+        ko: '감마 방어 중이나 매도 압력 관측 — 쿠션 약화 구간',
+        en: 'Gamma cushion active but sell pressure observed — cushion weakening',
+        ja: 'ガンマ防御中も売り圧力観測 — クッション弱化圏',
     },
     shortGamma: {
-        ko: '기관 헤지가 변동을 키우는 중 — 급등락 주의',
-        en: 'Institutional hedging amplifying swings — watch for sharp moves',
-        ja: '機関ヘッジが変動を拡大中 — 急騰落に注意',
+        ko: '기관 헤지가 변동 증폭 중 — 숏감마 구간',
+        en: 'Institutional hedging amplifying swings — short gamma zone',
+        ja: '機関ヘッジが変動増幅中 — ショートガンマ圏',
     },
     shortGammaDropping: {
-        ko: 'Short Gamma + 시장 하락 — 딜러 매도 증폭 구간, 포지션 축소 필요',
-        en: 'Short Gamma + market dropping — dealer selling amplified, reduce exposure',
-        ja: 'ショートガンマ + 市場下落 — ディーラー売り増幅、ポジション縮小推奨',
+        ko: '숏감마 + 하락 — 딜러 매도 증폭 관측',
+        en: 'Short gamma + declining — dealer selling amplified',
+        ja: 'ショートガンマ + 下落 — ディーラー売り増幅観測',
     },
     squeezeBuilding: {
-        ko: 'Squeeze {val}% — 45% 돌파 시 변동성 극대화 구간, 현재 경계 레벨',
-        en: 'Squeeze {val}% — volatility extreme zone above 45%, currently at warning level',
-        ja: 'Squeeze {val}% — 45%突破時ボラティリティ極大化圈、現在警戒レベル',
+        ko: 'Squeeze {val}% — 변동성 축적 구간, 경계 레벨',
+        en: 'Squeeze {val}% — volatility compression zone, alert level',
+        ja: 'Squeeze {val}% — ボラ蓄積圏、警戒レベル',
     },
     neutral: {
-        ko: '옵션 시장 균형 — 큰 변동 없이 횡보 가능성',
-        en: 'Options market balanced — sideways movement likely',
-        ja: 'オプション市場均衡 — 大きな変動なく横ばいの可能性',
+        ko: '옵션 시장 균형 — 감마 중립 구간',
+        en: 'Options market balanced — gamma neutral zone',
+        ja: 'オプション市場均衡 — ガンマ中立圏',
     },
 };
 
@@ -207,7 +207,7 @@ function TriggerBand({
     );
 }
 
-// === Directional Insight Generator (v3) ===
+// === Directional Insight Generator (v3 → v4 Compliance) ===
 function getInsightText(
     gexIndex: number,
     squeezeRisk: number,
@@ -237,53 +237,52 @@ function getInsightText(
     // Priority 1: Squeeze critical (≥55%)
     if (squeezeRisk >= 55 && sup && res) {
         const base = {
-            ko: `S&P ${sp} — Squeeze ${squeezeRisk}% 변동성 임계, 이탈 방향 급가속 · ${sup}↔${res}`,
-            en: `S&P ${sp} — Squeeze ${squeezeRisk}% volatility critical, breakout accelerates · ${sup}↔${res}`,
-            ja: `S&P ${sp} — Squeeze ${squeezeRisk}%急変動迫る、突破方向急加速 · ${sup}↔${res}`
+            ko: `S&P ${sp} — Squeeze ${squeezeRisk}% 임계 구간 · 레인지 ${sup}↔${res}`,
+            en: `S&P ${sp} — Squeeze ${squeezeRisk}% critical zone · range ${sup}↔${res}`,
+            ja: `S&P ${sp} — Squeeze ${squeezeRisk}%臨界圏 · レンジ ${sup}↔${res}`
         };
         return base[locale];
     }
 
-    // Priority 2: Short Gamma danger (≤-20) — directional with emphasis on downside
+    // Priority 2: Short Gamma danger (≤-20) — emphasis on amplification
     if (gexIndex <= -20 && sup && distDown) {
         const base = {
-            ko: `S&P ${sp} — ${gexStr(locale)}(${gexIndex}), ▼${sup}(-${distDown}%) 급락 경고${res ? ` · 상한 ${res}` : ''}`,
-            en: `S&P ${sp} — ${gexStr(locale)}(${gexIndex}), ▼${sup}(-${distDown}%) crash warning${res ? ` · cap ${res}` : ''}`,
-            ja: `S&P ${sp} — ${gexStr(locale)}(${gexIndex}), ▼${sup}(-${distDown}%) 急落警告${res ? ` · 上限 ${res}` : ''}`
+            ko: `S&P ${sp} — ${gexStr(locale)}(${gexIndex}), 지지 ${sup}(-${distDown}%) 하방 증폭 구간${res ? ` · 저항 ${res}` : ''}`,
+            en: `S&P ${sp} — ${gexStr(locale)}(${gexIndex}), floor ${sup}(-${distDown}%) downside amplified${res ? ` · cap ${res}` : ''}`,
+            ja: `S&P ${sp} — ${gexStr(locale)}(${gexIndex}), 支持 ${sup}(-${distDown}%) 下方増幅圏${res ? ` · 抵抗 ${res}` : ''}`
         };
         return base[locale];
     }
 
-    // Priority 3: Directional bias based on GEX + price targets
+    // Priority 3: Directional structure based on GEX + levels
     if (sup && res && distDown && distUp) {
-        // Strong upside bias (GEX ≥ 40)
+        // Strong long gamma (GEX ≥ 40)
         if (gexIndex >= 40) {
             const base = {
-                ko: `S&P ${sp} — ${gexStr(locale)}(+${gexIndex}), ▲${res}(+${distUp}%) 상방 편향 · 하한 ${sup}`,
-                en: `S&P ${sp} — ${gexStr(locale)}(+${gexIndex}), ▲${res}(+${distUp}%) upside bias · floor ${sup}`,
-                ja: `S&P ${sp} — ${gexStr(locale)}(+${gexIndex}), ▲${res}(+${distUp}%) 上方偏向 · 下限 ${sup}`
+                ko: `S&P ${sp} — ${gexStr(locale)}(+${gexIndex}), 저항 ${res}(+${distUp}%) · 지지 ${sup} 쿠션`,
+                en: `S&P ${sp} — ${gexStr(locale)}(+${gexIndex}), resistance ${res}(+${distUp}%) · floor ${sup} cushion`,
+                ja: `S&P ${sp} — ${gexStr(locale)}(+${gexIndex}), 抵抗 ${res}(+${distUp}%) · 支持 ${sup} クッション`
             };
             return base[locale];
         }
-        // Mild upside bias (GEX 20-39)
+        // Moderate gamma defense (GEX 20-39)
         if (gexIndex >= 20) {
             const base = {
-                ko: `S&P ${sp} — ${gexStr(locale)}(+${gexIndex}), ▲${res}(+${distUp}%) 돌파 시도 예상 · 하한 ${sup}`,
-                en: `S&P ${sp} — ${gexStr(locale)}(+${gexIndex}), ▲${res}(+${distUp}%) breakout attempt · floor ${sup}`,
-                ja: `S&P ${sp} — ${gexStr(locale)}(+${gexIndex}), ▲${res}(+${distUp}%) 突破試行予想 · 下限 ${sup}`
+                ko: `S&P ${sp} — ${gexStr(locale)}(+${gexIndex}), 저항 ${res}(+${distUp}%) 테스트 구간 · 지지 ${sup}`,
+                en: `S&P ${sp} — ${gexStr(locale)}(+${gexIndex}), resistance ${res}(+${distUp}%) test zone · floor ${sup}`,
+                ja: `S&P ${sp} — ${gexStr(locale)}(+${gexIndex}), 抵抗 ${res}(+${distUp}%) テスト圏 · 支持 ${sup}`
             };
             return base[locale];
         }
-        // Weak/neutral GEX (−19 to +19) — downside bias
+        // Weak/neutral GEX (−19 to +19)
         const gexSign = gexIndex >= 0 ? `+${gexIndex}` : `${gexIndex}`;
-        // Add squeeze context if meaningful
         const sqCtx = squeezeRisk >= 30
             ? { ko: `, Squeeze ${squeezeRisk}%`, en: `, Squeeze ${squeezeRisk}%`, ja: `, Squeeze ${squeezeRisk}%` }[locale]
             : '';
         const base = {
-            ko: `S&P ${sp} — ${gexStr(locale)}(${gexSign})${sqCtx}, ▼${sup}(-${distDown}%) 하방 편향 · 상한 ${res}`,
-            en: `S&P ${sp} — ${gexStr(locale)}(${gexSign})${sqCtx}, ▼${sup}(-${distDown}%) downside bias · cap ${res}`,
-            ja: `S&P ${sp} — ${gexStr(locale)}(${gexSign})${sqCtx}, ▼${sup}(-${distDown}%) 下方偏向 · 上限 ${res}`
+            ko: `S&P ${sp} — ${gexStr(locale)}(${gexSign})${sqCtx}, 지지 ${sup}(-${distDown}%) · 저항 ${res}`,
+            en: `S&P ${sp} — ${gexStr(locale)}(${gexSign})${sqCtx}, floor ${sup}(-${distDown}%) · cap ${res}`,
+            ja: `S&P ${sp} — ${gexStr(locale)}(${gexSign})${sqCtx}, 支持 ${sup}(-${distDown}%) · 抵抗 ${res}`
         };
         return base[locale];
     }
