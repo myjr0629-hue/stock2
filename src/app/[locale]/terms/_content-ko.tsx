@@ -73,7 +73,7 @@ export const sections: TermsSection[] = [
         title: '제5조 (구독 및 결제)',
         content: (
             <ol className="list-decimal list-inside space-y-2">
-                <li>회사는 유료 서비스(Premium, Pro 등)를 제공하며, 각 구독 등급별 이용 범위와 요금은 서비스 내에 별도로 공지합니다.</li>
+                <li>회사는 유료 서비스(Pro, Elite 등)를 제공하며, 각 구독 등급별 이용 범위와 요금은 서비스 내에 별도로 공지합니다.</li>
                 <li>정기 구독의 경우, 회원이 구독 기간 만료 전까지 별도로 해지 신청을 하지 않을 경우 <strong>매월 또는 매년 자동으로 결제가 갱신</strong>됩니다.</li>
                 <li>회사는 구독 요금을 변경할 수 있으며, 변경 시 최소 30일 전에 서비스 내 공지 또는 이메일을 통해 안내합니다. 변경된 요금은 다음 갱신 주기부터 적용됩니다.</li>
             </ol>

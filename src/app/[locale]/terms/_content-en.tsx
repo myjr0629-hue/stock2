@@ -92,7 +92,7 @@ export const sections: TermsSection[] = [
         title: 'Article 5. Subscriptions & Payments',
         content: (
             <ol className="list-decimal list-inside space-y-2">
-                <li>The Company offers paid services (Premium, Pro, etc.). Pricing and scope for each tier are published within the Service.</li>
+                <li>The Company offers paid services (Pro, Elite, etc.). Pricing and scope for each tier are published within the Service.</li>
                 <li>Recurring subscriptions will <strong>automatically renew on a monthly or annual basis</strong> unless the Member cancels before the end of the billing period.</li>
                 <li>The Company may modify subscription pricing with at least 30 days&apos; prior notice via in-service announcement or email. Updated pricing applies from the next billing cycle.</li>
             </ol>
