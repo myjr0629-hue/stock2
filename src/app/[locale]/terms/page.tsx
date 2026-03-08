@@ -1,8 +1,11 @@
 'use client';
 
 import Link from 'next/link';
+import { useState, useEffect } from 'react';
 import { useLocale } from 'next-intl';
+import { useRouter } from 'next/navigation';
 import { ArrowLeft, AlertTriangle, Shield } from 'lucide-react';
+import { createClient } from '@/lib/supabase/client';
 import { sections as koSections, meta as koMeta } from './_content-ko';
 import { sections as enSections, meta as enMeta } from './_content-en';
 import { sections as jaSections, meta as jaMeta } from './_content-ja';
@@ -16,6 +19,14 @@ const contentMap = {
 export default function TermsPage() {
     const locale = useLocale();
     const { sections, meta } = contentMap[locale as keyof typeof contentMap] || contentMap.en;
+    const router = useRouter();
+    const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+    useEffect(() => {
+        createClient().auth.getUser().then(({ data }) => {
+            if (data?.user) setIsLoggedIn(true);
+        });
+    }, []);
 
     return (
         <div className="min-h-screen bg-[#030712] flex flex-col overflow-hidden antialiased">
@@ -99,16 +110,29 @@ export default function TermsPage() {
 
                         {/* Footer */}
                         <footer className="mt-4 pt-6 border-t border-white/[0.04]">
-                            <Link
-                                href="/login"
-                                className="group inline-flex items-center gap-2 text-sm font-medium text-cyan-400 transition-all duration-300 hover:text-cyan-300 relative"
-                            >
-                                <ArrowLeft className="w-4 h-4 transition-transform group-hover:-translate-x-1" />
-                                <span className="relative">
-                                    {meta.backLink}
-                                    <span className="absolute -bottom-1 left-0 w-0 h-px bg-cyan-400 shadow-[0_0_8px_rgba(34,211,238,0.8)] transition-all duration-300 group-hover:w-full" />
-                                </span>
-                            </Link>
+                            {isLoggedIn ? (
+                                <button
+                                    onClick={() => router.back()}
+                                    className="group inline-flex items-center gap-2 text-sm font-medium text-cyan-400 transition-all duration-300 hover:text-cyan-300 relative"
+                                >
+                                    <ArrowLeft className="w-4 h-4 transition-transform group-hover:-translate-x-1" />
+                                    <span className="relative">
+                                        {locale === 'ko' ? '← 이전 페이지로 돌아가기' : locale === 'ja' ? '← 前のページに戻る' : '← Go Back'}
+                                        <span className="absolute -bottom-1 left-0 w-0 h-px bg-cyan-400 shadow-[0_0_8px_rgba(34,211,238,0.8)] transition-all duration-300 group-hover:w-full" />
+                                    </span>
+                                </button>
+                            ) : (
+                                <Link
+                                    href="/login"
+                                    className="group inline-flex items-center gap-2 text-sm font-medium text-cyan-400 transition-all duration-300 hover:text-cyan-300 relative"
+                                >
+                                    <ArrowLeft className="w-4 h-4 transition-transform group-hover:-translate-x-1" />
+                                    <span className="relative">
+                                        {meta.backLink}
+                                        <span className="absolute -bottom-1 left-0 w-0 h-px bg-cyan-400 shadow-[0_0_8px_rgba(34,211,238,0.8)] transition-all duration-300 group-hover:w-full" />
+                                    </span>
+                                </Link>
+                            )}
                         </footer>
                     </div>
                 </div>
