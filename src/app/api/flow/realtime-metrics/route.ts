@@ -3,6 +3,7 @@
 // Uses Polygon.io APIs
 
 import { NextRequest, NextResponse } from 'next/server';
+import { getFromCache, setInCache } from '@/services/redisClient';
 
 const POLYGON_API_KEY = process.env.POLYGON_API_KEY || process.env.MASSIVE_API_KEY || "iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF";
 const POLYGON_BASE = "https://api.polygon.io";
@@ -223,6 +224,8 @@ async function fetchShortVolumeData(ticker: string): Promise<ShortVolumeData | n
 export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const ticker = searchParams.get('ticker')?.toUpperCase() || 'TSLA';
+    const cacheKey = `rt-metrics:${ticker}`;
+    const REDIS_TTL = 60; // 1 minute
 
     try {
         // Fetch all data in parallel
@@ -232,7 +235,15 @@ export async function GET(request: NextRequest) {
             fetchShortVolumeData(ticker),
         ]);
 
-        return NextResponse.json({
+        // If all fetches failed, serve from Redis cache
+        if (!tradeData && !quoteData && !shortVolumeData) {
+            const cached = await getFromCache<any>(cacheKey);
+            if (cached) {
+                return NextResponse.json({ ...cached, _cached: true });
+            }
+        }
+
+        const response = {
             ticker,
             timestamp: new Date().toISOString(),
             darkPool: tradeData ? {
@@ -264,9 +275,21 @@ export async function GET(request: NextRequest) {
                 volume: shortVolumeData.shortVolume,
                 totalVolume: shortVolumeData.totalVolume,
             } : null,
-        });
+        };
+
+        // Save to Redis for fallback
+        if (tradeData || quoteData || shortVolumeData) {
+            setInCache(cacheKey, response, REDIS_TTL).catch(() => { }); // fire-and-forget
+        }
+
+        return NextResponse.json(response);
     } catch (error) {
         console.error('[realtime-metrics] Error:', error);
+        // On error → serve Redis cached data
+        const cached = await getFromCache<any>(cacheKey);
+        if (cached) {
+            return NextResponse.json({ ...cached, _cached: true });
+        }
         return NextResponse.json(
             { error: 'Failed to fetch metrics' },
             { status: 500 }

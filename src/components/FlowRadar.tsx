@@ -1269,7 +1269,7 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
     return (
         <div className="space-y-1 animate-in fade-in zoom-in duration-500" style={{ fontFamily: "'Plus Jakarta Sans', Pretendard, sans-serif" }}>
             {/* Header / Control Bar */}
-            <div className="flex flex-col md:flex-row justify-between items-center gap-4 bg-slate-900/50 p-2 px-4 rounded-md border border-white/5 backdrop-blur-md">
+            <div className="flex flex-col md:flex-row justify-between items-center gap-3 bg-slate-900/50 p-2 px-4 rounded-md border border-white/5 backdrop-blur-md">
                 {/* 1. Left: Branding with Prestige */}
                 <div className="flex items-center gap-3 min-w-[200px]">
                     <div className="h-9 w-9 bg-emerald-500/10 rounded-lg flex items-center justify-center border border-emerald-500/20 shadow-[0_0_15px_rgba(16,185,129,0.2)]">
@@ -1331,7 +1331,7 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
             <ProGate title="AI Verdict" fomoMessage={gt('fomoAiVerdict')} mode="peek">
                 {!isSystemReady ? (
                     /* Compact analyzing indicator — inline next to AI VERDICT title */
-                    <div className="bg-gradient-to-br from-slate-900/80 via-slate-800/60 to-slate-900/80 rounded-xl border border-white/10 p-3 backdrop-blur-xl shadow-2xl">
+                    <div className="bg-gradient-to-br from-slate-900/80 via-slate-800/60 to-slate-900/80 rounded-xl border border-white/10 p-3 backdrop-blur-xl shadow-lg">
                         <div className="flex items-center gap-3">
                             <div className="relative">
                                 <div className="h-8 w-8 bg-amber-500/20 rounded-lg flex items-center justify-center border border-amber-400/50 shadow-[0_0_15px_rgba(251,191,36,0.3)]">
@@ -1344,7 +1344,7 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                         </div>
                     </div>
                 ) : analysis && (
-                    <div className="bg-gradient-to-br from-slate-900/80 via-slate-800/60 to-slate-900/80 rounded-xl border border-white/10 p-3 backdrop-blur-xl shadow-2xl">
+                    <div className="bg-gradient-to-br from-slate-900/80 via-slate-800/60 to-slate-900/80 rounded-xl border border-white/10 p-3 backdrop-blur-xl shadow-lg">
                         {/* Top Row: Title + Status with Dynamic Icon */}
                         <div className="flex items-center gap-3 mb-3">
                             <div className="relative">
@@ -1967,10 +1967,10 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
             </div>
 
             {/* Tactical Intel Panel */}
-            <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-4 h-[780px]">
+            <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-3 h-[780px]">
 
                 {/* 1. Main Radar Chart & Whale Feed */}
-                <Card className="bg-slate-900/80 border-white/10 shadow-2xl relative overflow-hidden order-2 lg:order-1 rounded-lg flex flex-col h-full">
+                <Card className="bg-slate-900/80 border-white/10 shadow-lg relative overflow-hidden order-2 lg:order-1 rounded-lg flex flex-col h-full">
                     <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:20px_20px] pointer-events-none" />
                     <CardContent className="p-6 relative z-10 flex-1 flex flex-col min-h-0 overflow-hidden">
                         {/* [TOP] HOLOGRAPHIC WHALE STREAM (Relocated) */}
@@ -2383,7 +2383,7 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                 {/* 2. Tactical Briefing Console (Korean Mode) */}
                 <div className="order-1 lg:order-2 h-full">
                     {/* Consistent Glass Panel for Right Side */}
-                    <Card className="bg-slate-900/30 backdrop-blur-md border-white/10 flex flex-col rounded-xl h-full min-h-0 shadow-2xl relative overflow-y-auto">
+                    <Card className="bg-slate-900/30 backdrop-blur-md border-white/10 flex flex-col rounded-xl h-full min-h-0 shadow-lg relative overflow-y-auto">
                         {/* Subtle Grid Background */}
                         <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:30px_30px] pointer-events-none opacity-50" />
 
