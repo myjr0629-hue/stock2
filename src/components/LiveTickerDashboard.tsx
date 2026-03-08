@@ -766,9 +766,9 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                 </div>
 
                 {/* Chart + Sidebar Skeleton — Premium */}
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-3">
                     {/* Chart area with premium skeleton */}
-                    <div className="lg:col-span-8 h-[320px] lg:h-[520px] rounded-2xl border border-white/10 bg-slate-900/60 overflow-hidden relative">
+                    <div className="lg:col-span-8 h-[320px] lg:h-[520px] rounded-lg border border-white/10 bg-slate-900/60 overflow-hidden relative">
                         {/* Decorative Label */}
                         <div className="absolute -top-3 left-4 px-2 py-0.5 bg-indigo-950/80 border border-indigo-500/30 rounded text-[12px] font-black text-indigo-300 uppercase tracking-widest z-20 backdrop-blur-md shadow-lg flex items-center gap-2 font-jakarta">
                             <div className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse" /> Price History
@@ -807,7 +807,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                     </div>
                     {/* Sidebar skeleton */}
                     <div className="lg:col-span-4 space-y-4 animate-pulse">
-                        <div className="h-[250px] bg-slate-800/20 rounded-2xl border border-slate-700/15 p-4">
+                        <div className="h-[250px] bg-slate-800/20 rounded-lg border border-slate-700/15 p-4">
                             <div className="text-[12px] font-bold text-slate-500 uppercase tracking-wider mb-3 font-jakarta">SIGNAL FEED</div>
                             <div className="space-y-2">
                                 {[...Array(4)].map((_, i) => (
@@ -815,7 +815,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                 ))}
                             </div>
                         </div>
-                        <div className="h-[250px] bg-slate-800/20 rounded-2xl border border-slate-700/15 p-4">
+                        <div className="h-[250px] bg-slate-800/20 rounded-lg border border-slate-700/15 p-4">
                             <div className="text-[12px] font-bold text-slate-500 uppercase tracking-wider mb-3 font-jakarta">5-DAY HISTORY</div>
                             <div className="space-y-2">
                                 {[...Array(5)].map((_, i) => (
@@ -839,7 +839,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
             {/* 1. TOP HEADER (2-Row Layout matching Flow page) - Sticky below main header */}
             <div className="sticky top-[78px] z-30 bg-white/5 backdrop-blur-xl rounded-xl py-1 px-3 border border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.3)]">
                 {/* Header: 2-column layout — Left: ticker+price, Right: description */}
-                <div className="flex items-stretch gap-4">
+                <div className="flex items-stretch gap-3">
                     {/* Left Column: Identity + Price */}
                     <div className="flex flex-col justify-center min-w-0 shrink-0">
                         {/* Row 1: Identity */}
@@ -1412,7 +1412,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                     <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 min-h-[800px]">
 
                         {/* MAIN COLUMN (8 Cols) - Flex Structure */}
-                        <div className="lg:col-span-8 flex flex-col items-stretch gap-4 h-full">
+                        <div className="lg:col-span-8 flex flex-col items-stretch gap-3 h-full">
                             {/* A. Main Chart Section */}
                             {/* A. Main Chart Section (Height: 580px) */}
                             <div className="h-[580px] min-h-0 relative flex flex-col group shrink-0">
@@ -1422,7 +1422,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                 </div>
 
                                 {/* Glass Card */}
-                                <div className="h-full rounded-2xl border border-white/10 bg-slate-900/60 overflow-hidden shadow-2xl relative backdrop-blur-md flex flex-col">
+                                <div className="h-full rounded-lg border border-white/10 bg-slate-900/60 overflow-hidden shadow-lg relative backdrop-blur-md flex flex-col">
                                     {/* Texture Overlay */}
                                     <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:30px_30px] pointer-events-none opacity-20" />
                                     <div className="flex-1 min-h-0 relative z-10 p-1 pb-2">
@@ -1499,10 +1499,10 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
 
                             {/* B. Advanced Options Analysis (Fixed Height: 400px) — PRO */}
                             <ProGate title="Tactical Range & Gamma Engine" mode="blur" fomoMessage="Max Pain · Call Wall · Put Floor · Net GEX · Gamma Flip Level · Squeeze Risk">
-                                <div className="min-h-[400px] grid grid-cols-1 md:grid-cols-2 gap-4 shrink-0">
+                                <div className="min-h-[400px] grid grid-cols-1 md:grid-cols-2 gap-3 shrink-0">
 
                                     {/* 1. TACTICAL RANGE (Depth Gauge + Max Pain) */}
-                                    <div className="min-h-[400px] rounded-2xl border border-white/10 bg-slate-900/60 backdrop-blur-lg shadow-2xl shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] flex flex-col relative group hover:border-white/20 transition-colors">
+                                    <div className="min-h-[400px] rounded-lg border border-white/10 bg-slate-900/60 backdrop-blur-lg shadow-lg shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] flex flex-col relative group hover:border-white/20 transition-colors">
                                         {/* Infographic BG: Micro Grid + Level Lines */}
                                         <div className="absolute inset-0 pointer-events-none z-0">
                                             {/* Fine grid */}
@@ -1651,7 +1651,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                     </div>
 
                                     {/* 2. NET GAMMA ENGINE (Infographic Style) */}
-                                    <div className="min-h-[400px] rounded-2xl border border-white/10 bg-slate-900/60 backdrop-blur-lg shadow-2xl shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] flex flex-col relative group hover:border-white/20 transition-colors">
+                                    <div className="min-h-[400px] rounded-lg border border-white/10 bg-slate-900/60 backdrop-blur-lg shadow-lg shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] flex flex-col relative group hover:border-white/20 transition-colors">
                                         {/* Infographic BG: Scanlines + Energy Pulse */}
                                         <div className="absolute inset-0 pointer-events-none z-0">
                                             {/* Horizontal scanlines */}
@@ -1689,7 +1689,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                         {/* Main Content - Infographic Layout */}
                                         <div className="flex-1 p-3 flex flex-col gap-2 overflow-hidden">
                                             {/* Top Row: Core GEX + Status + P/C OI Circle */}
-                                            <div className="flex items-center justify-between gap-4">
+                                            <div className="flex items-center justify-between gap-3">
                                                 {/* Left: Reactor Core (GEX Only) */}
                                                 <div className="relative shrink-0">
                                                     <div className={`w-20 h-20 rounded-full border-4 border-dashed ${structure?.netGex > 0 ? "border-emerald-500/40 shadow-[0_0_15px_rgba(16,185,129,0.5)]" : "border-rose-500/40 shadow-[0_0_15px_rgba(244,63,94,0.5)]"} flex items-center justify-center animate-[spin_10s_linear_infinite]`} />
@@ -2021,7 +2021,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                                 <div className={`mt-4 text-[12px] font-bold px-2 py-1 rounded inline-block ${structure?.netGex > 0 ? "bg-emerald-950/30 text-emerald-400 border border-emerald-500/20" : structure?.netGex < 0 ? "bg-rose-950/30 text-rose-400 border border-rose-500/20" : "bg-slate-800 text-slate-400"}`}>
                                                     {structure?.netGex > 0 ? td('gexBullish') : structure?.netGex < 0 ? td('gexBearish') : td('gexNeutral')}
                                                 </div>
-                                                <div className="mt-4 flex justify-center gap-4 text-[12px] font-medium text-slate-400 border-t border-white/5 pt-2">
+                                                <div className="mt-4 flex justify-center gap-3 text-[12px] font-medium text-slate-400 border-t border-white/5 pt-2">
                                                     <div className="flex items-center gap-1">
                                                         <span className="w-1.5 h-1.5 bg-emerald-500 rounded-full"></span>
                                                         <span>{td('gexSafeZone')}</span>
@@ -2057,11 +2057,11 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                         </div>
 
                         {/* SIDEBAR (4 Cols) - Glass Stack */}
-                        <div className="lg:col-span-4 flex flex-col gap-4 h-full overflow-hidden">
+                        <div className="lg:col-span-4 flex flex-col gap-3 h-full overflow-hidden">
 
                             {/* 1. Decision Gate (Signal Core) — ELITE */}
                             <EliteGate title="Signal Core" mode="blur">
-                                <div className="shrink-0 relative rounded-2xl border border-white/10 bg-slate-900/60 backdrop-blur-md overflow-hidden group hover:border-white/20 transition-colors shadow-2xl">
+                                <div className="shrink-0 relative rounded-lg border border-white/10 bg-slate-900/60 backdrop-blur-md overflow-hidden group hover:border-white/20 transition-colors shadow-lg">
                                     {/* Infographic BG: Radar Grid + Sentinel Glow */}
                                     <div className="absolute inset-0 pointer-events-none z-0">
                                         {/* Crosshair grid */}
@@ -2092,7 +2092,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
 
                             {/* 2. Flow Unit — ELITE */}
                             <EliteGate title="Flow Unit" mode="blur">
-                                <div className="shrink-0 rounded-2xl border border-white/10 bg-slate-900/60 backdrop-blur-md overflow-hidden relative group hover:border-white/20 transition-colors shadow-2xl">
+                                <div className="shrink-0 rounded-lg border border-white/10 bg-slate-900/60 backdrop-blur-md overflow-hidden relative group hover:border-white/20 transition-colors shadow-lg">
                                     {/* Infographic BG: Flow Pulse + Wave Pattern */}
                                     <div className="absolute inset-0 pointer-events-none z-0">
                                         {/* Horizontal flow lines */}
@@ -2133,7 +2133,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                             </EliteGate>
 
                             {/* 3. Intel Feed — Real-time AI Insight */}
-                            <div className="flex-1 min-h-0 flex flex-col rounded-2xl border border-white/10 bg-slate-900/60 backdrop-blur-md overflow-hidden shadow-2xl relative group flex-grow">
+                            <div className="flex-1 min-h-0 flex flex-col rounded-lg border border-white/10 bg-slate-900/60 backdrop-blur-md overflow-hidden shadow-lg relative group flex-grow">
 
                                 <div className="p-3 border-b border-white/5 flex items-center justify-between bg-white/5 relative z-10 shrink-0">
                                     <div className="flex items-center gap-2">
