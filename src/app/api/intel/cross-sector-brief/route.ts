@@ -120,27 +120,23 @@ export interface CrossSectorBriefV2 {
  */
 export async function GET() {
     try {
-        const today = getTodayET();
-        const cached = await getFromCache<{
-            structured: CrossSectorBriefV2;
-            generatedAt: string;
-            date: string;
-            sectorCount: number;
-            macroSnapshot: string;
-        }>(getCacheKey(today));
+        // Check today + up to 4 days back (covers weekends & holidays)
+        // e.g. Sunday → checks Sun, Sat, Fri, Thu, Wed
+        for (let daysBack = 0; daysBack <= 4; daysBack++) {
+            const d = new Date();
+            d.setDate(d.getDate() - daysBack);
+            const dateStr = d.toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
+            const cached = await getFromCache<{
+                structured: CrossSectorBriefV2;
+                generatedAt: string;
+                date: string;
+                sectorCount: number;
+                macroSnapshot: string;
+            }>(getCacheKey(dateStr));
 
-        if (cached) {
-            return NextResponse.json({ success: true, ...cached });
-        }
-
-        // Try yesterday if today not ready
-        const yesterday = new Date();
-        yesterday.setDate(yesterday.getDate() - 1);
-        const yesterdayStr = yesterday.toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
-        const cachedYesterday = await getFromCache<any>(getCacheKey(yesterdayStr));
-
-        if (cachedYesterday) {
-            return NextResponse.json({ success: true, ...cachedYesterday });
+            if (cached) {
+                return NextResponse.json({ success: true, ...cached });
+            }
         }
 
         return NextResponse.json({ success: false, error: 'No cross-sector brief available yet' }, { status: 404 });
