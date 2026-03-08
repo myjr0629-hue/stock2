@@ -436,14 +436,14 @@ export function SectorSessionGrid({ config, quotes, loading, refreshing, lockedT
 
     if (loading) {
         return (
-            <div className="w-full bg-white/[0.03] backdrop-blur-xl border border-white/[0.08] rounded-2xl p-8 flex items-center justify-center min-h-[300px]">
+            <div className="w-full bg-white/[0.03] backdrop-blur-xl border border-white/[0.08] rounded-xl p-8 flex items-center justify-center min-h-[300px]">
                 <RefreshCw className="w-6 h-6 animate-spin" style={{ color: accentColor }} />
             </div>
         );
     }
 
     return (
-        <div className="w-full bg-white/[0.03] backdrop-blur-xl border border-white/[0.15] rounded-2xl p-5 shadow-[0_8px_32px_rgba(0,0,0,0.3)] relative overflow-hidden transition-all duration-500 hover:border-white/[0.22]">
+        <div className="w-full bg-white/[0.03] backdrop-blur-xl border border-white/[0.15] rounded-xl p-5 shadow-[0_8px_32px_rgba(0,0,0,0.3)] relative overflow-hidden transition-all duration-500 hover:border-white/[0.22]">
             {/* Ambient glow */}
             <div className="absolute top-0 left-1/4 w-1/2 h-1/2 blur-[100px] rounded-full pointer-events-none mix-blend-screen opacity-20"
                 style={{ backgroundColor: accentColor }} />

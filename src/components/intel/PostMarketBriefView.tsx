@@ -64,6 +64,7 @@ const SECTION_TITLES: Record<string, { ko: string; en: string; ja: string }> = {
 
 // ── Glass Card Style ──
 const GLASS = 'rounded-xl border border-white/10 p-5';
+const MACRO_LABELS: Record<string, string> = { VIX: 'VIX', 'S&P500': 'S&P 500', NASDAQ: 'NASDAQ', US10Y: 'US 10Y', BTC: 'Bitcoin', 'Fear': 'Fear & Greed' };
 const GLASS_BG = { background: 'rgba(11,15,23,0.6)', backdropFilter: 'blur(12px)' };
 const GLASS_ACCENT_BG = { background: 'rgba(11,15,23,0.4)', backdropFilter: 'blur(16px)' };
 
@@ -118,9 +119,9 @@ function GexGauge({ regime }: { regime: string }) {
                 />
             </div>
             <div className="flex justify-between mt-1">
-                <span className="text-[12px] text-rose-400/70 font-mono">SHORT</span>
-                <span className="text-[12px] text-slate-500 font-mono">NEUTRAL</span>
-                <span className="text-[12px] text-emerald-400/70 font-mono">LONG</span>
+                <span className="text-[12px] text-rose-400 font-mono">SHORT</span>
+                <span className="text-[12px] text-slate-300 font-mono">NEUTRAL</span>
+                <span className="text-[12px] text-emerald-400 font-mono">LONG</span>
             </div>
         </div>
     );
@@ -192,7 +193,7 @@ export function PostMarketBriefView() {
     return (
         <div className="space-y-6">
             {/* ═══ Header ═══ */}
-            <section className="relative p-6 rounded-2xl border border-amber-500/[0.15] overflow-hidden"
+            <section className="relative p-6 rounded-xl border border-amber-500/[0.15] overflow-hidden"
                 style={{ background: 'rgba(13,17,23,0.7)', backdropFilter: 'blur(16px)' }}>
                 <div className="absolute inset-0 pointer-events-none">
                     <div className="absolute -top-20 -right-20 w-80 h-80 bg-gradient-radial from-amber-500/8 to-transparent rounded-full blur-3xl" />
@@ -215,7 +216,7 @@ export function PostMarketBriefView() {
             </section>
 
             {/* ═══ AI Cross-Sector Intelligence ═══ */}
-            <section className="relative rounded-2xl border border-amber-500/[0.12] overflow-hidden"
+            <section className="relative rounded-xl border border-amber-500/[0.12] overflow-hidden"
                 style={{ background: 'rgba(12,16,24,0.7)', backdropFilter: 'blur(16px)' }}>
                 <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-amber-400/60 to-transparent" />
 
@@ -230,6 +231,22 @@ export function PostMarketBriefView() {
                             <p className="text-[13px] text-slate-300 font-mono">
                                 {brief ? `Generated ${new Date(brief.generatedAt).toLocaleString(locale === 'ko' ? 'ko-KR' : locale === 'ja' ? 'ja-JP' : 'en-US', { timeZone: 'America/New_York' })} ET` : 'AI-POWERED DAILY ANALYSIS'}
                             </p>
+                            {brief?.macroSnapshot && (
+                                <div className="flex flex-wrap gap-2 mt-2">
+                                    {brief.macroSnapshot.split(' | ').map((item: string, i: number) => {
+                                        const parts = item.split(': ');
+                                        const label = parts[0]?.trim() || '';
+                                        const value = parts[1]?.trim() || '';
+                                        const isNeg = value.includes('-');
+                                        return (
+                                            <div key={i} className="px-2.5 py-1.5 rounded-lg border border-white/10 text-center" style={{ background: 'rgba(255,255,255,0.03)' }}>
+                                                <span className="text-[12px] text-slate-300 font-bold block">{label}</span>
+                                                <span className={`text-[13px] font-black font-mono ${isNeg ? 'text-rose-400' : 'text-emerald-400'}`}>{value}</span>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            )}
                         </div>
                         {brief && (
                             <span className="ml-auto px-2.5 py-1 text-[12px] font-bold text-amber-300 bg-amber-500/10 border border-amber-500/20 rounded-full">
@@ -377,19 +394,19 @@ export function PostMarketBriefView() {
                                     </div>
                                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
                                         <div className="p-3 rounded-lg border border-white/10 text-center" style={GLASS_ACCENT_BG}>
-                                            <span className="text-[12px] font-bold text-slate-400 uppercase tracking-wider block mb-1">Total GEX</span>
+                                            <span className="text-[12px] font-bold text-slate-300 uppercase tracking-wider block mb-1">Total GEX</span>
                                             <span className="text-[18px] font-black text-white font-mono">{d.gammaOptions.totalGexLabel || '-'}</span>
                                             <GexGauge regime={d.gammaOptions.regime || 'NEUTRAL'} />
                                         </div>
                                         <div className="p-3 rounded-lg border border-white/10 text-center" style={GLASS_ACCENT_BG}>
-                                            <span className="text-[12px] font-bold text-slate-400 uppercase tracking-wider block mb-1">AVG PCR</span>
+                                            <span className="text-[12px] font-bold text-slate-300 uppercase tracking-wider block mb-1">AVG PCR</span>
                                             <span className={`text-[18px] font-black font-mono ${(d.gammaOptions.avgPcr || 1) < 0.8 ? 'text-emerald-400' : (d.gammaOptions.avgPcr || 1) > 1.2 ? 'text-red-400' : 'text-amber-400'}`}>
                                                 {(d.gammaOptions.avgPcr || 0).toFixed(2)}
                                             </span>
                                             <PcrBar pcr={d.gammaOptions.avgPcr || 1} />
                                         </div>
                                         <div className="p-3 rounded-lg border border-white/10 text-center" style={GLASS_ACCENT_BG}>
-                                            <span className="text-[12px] font-bold text-slate-400 uppercase tracking-wider block mb-1">REGIME</span>
+                                            <span className="text-[12px] font-bold text-slate-300 uppercase tracking-wider block mb-1">REGIME</span>
                                             <span className={`text-[18px] font-black font-mono ${d.gammaOptions.regime === 'LONG' ? 'text-emerald-400' : d.gammaOptions.regime === 'SHORT' ? 'text-red-400' : 'text-amber-400'}`}>
                                                 {d.gammaOptions.regime || 'NEUTRAL'}
                                             </span>
@@ -420,7 +437,7 @@ export function PostMarketBriefView() {
                                             {d.outlook.keyLevels.map((level: any, i: number) => (
                                                 <div key={i} className="p-2.5 rounded-lg border border-amber-500/15 text-center"
                                                     style={{ background: 'rgba(245,158,11,0.05)', backdropFilter: 'blur(8px)' }}>
-                                                    <span className="text-[12px] font-bold text-amber-300/70 uppercase tracking-wider block mb-0.5">{level.label}</span>
+                                                    <span className="text-[12px] font-bold text-amber-300 uppercase tracking-wider block mb-0.5">{level.label}</span>
                                                     <span className="text-[16px] font-black text-white font-mono">{level.value}</span>
                                                 </div>
                                             ))}
