@@ -98,6 +98,7 @@ interface AIAnalysisResult {
     analysisEN?: string;     // AI market interpretation (English)
     analysisJP?: string;     // AI market interpretation (Japanese)
     isRumor: boolean;
+    sentiment?: "positive" | "negative" | "neutral";
 }
 
 let genAI: GoogleGenAI | null = null;
@@ -246,10 +247,11 @@ export async function analyzeNewsBatch(items: any[], marketContext?: string): Pr
             3. 'analysisKR': Korean market interpretation, 1-2 sentences. 투자자가 바로 행동할 수 있는 해석. (e.g. "RSI 과매도 구간에서 하락 뉴스 → 기술적 반등 가능성. Put Floor $120 지지 확인 필요")
             4. 'analysisEN': English market interpretation, 1-2 sentences. Actionable. (e.g. "Bearish news while RSI is oversold → possible technical bounce. Watch Put Floor at $120 for support.")
             5. 'analysisJP': Japanese market interpretation, 1-2 sentences. (e.g. "RSI売られ過ぎ区間で下落ニュース→テクニカル反発の可能性。プットフロア$120のサポート確認必要")
-            6. 'isRumor': boolean (true if sources say 'reportedly', 'leaks', 'rumor', 'speculation').
+            6. 'sentiment': "positive" | "negative" | "neutral" — Based on ACTUAL market impact of the news (not just headline tone). Positive = price-supportive catalyst, Negative = price-damaging catalyst, Neutral = informational only.
+            7. 'isRumor': boolean (true if sources say 'reportedly', 'leaks', 'rumor', 'speculation').
 
             Output MUST be a valid JSON Array of EXACTLY 5 items (or fewer if less than 5 unique news exist):
-            [ { "id": "...", "summaryKR": "...", "summaryJP": "...", "analysisKR": "...", "analysisEN": "...", "analysisJP": "...", "isRumor": boolean } ]
+            [ { "id": "...", "summaryKR": "...", "summaryJP": "...", "analysisKR": "...", "analysisEN": "...", "analysisJP": "...", "sentiment": "positive|negative|neutral", "isRumor": boolean } ]
             DO NOT output markdown code blocks. Just the raw JSON.
             `;
 
@@ -481,7 +483,7 @@ export async function fetchStockNews(tickers: string[], limit: number = 10, skip
                 link: article.article_url,
                 publishedAt,
                 publishedAtET: formatETTime(publishedAt),
-                sentiment,
+                sentiment: aiMatch?.sentiment || sentiment,
                 relatedTickers: article.tickers || [],
                 catalystType,
                 catalystAge: age,
