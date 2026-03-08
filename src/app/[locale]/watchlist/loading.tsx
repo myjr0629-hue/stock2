@@ -2,14 +2,29 @@
 export default function WatchlistLoading() {
     return (
         <div className="min-h-screen bg-gradient-to-b from-[#0b1120] via-[#0d1424] to-[#0b1120] text-slate-100 p-4">
-            <div className="flex gap-4 mb-6">
-                {Array.from({ length: 4 }).map((_, i) => (
-                    <div key={i} className="flex-1 h-20 bg-slate-800/30 rounded-xl animate-pulse" style={{ animationDelay: `${i * 100}ms` }} />
+            {/* Header */}
+            <div className="h-10 bg-slate-800/30 rounded-lg animate-pulse mb-4 w-48" />
+
+            {/* 5 Stats Bar */}
+            <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-6">
+                {Array.from({ length: 5 }).map((_, i) => (
+                    <div key={i} className="h-20 bg-slate-800/30 rounded-xl animate-pulse" style={{ animationDelay: `${i * 80}ms` }} />
                 ))}
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+
+            {/* Sort / Filter Bar */}
+            <div className="flex gap-2 mb-3">
+                <div className="h-8 w-24 bg-slate-800/25 rounded-lg animate-pulse" />
+                <div className="h-8 w-24 bg-slate-800/25 rounded-lg animate-pulse" style={{ animationDelay: '50ms' }} />
+            </div>
+
+            {/* Table Header */}
+            <div className="h-10 bg-slate-800/25 rounded-lg animate-pulse mb-2" />
+
+            {/* Table Rows */}
+            <div className="space-y-1.5">
                 {Array.from({ length: 6 }).map((_, i) => (
-                    <div key={i} className="h-48 bg-slate-800/20 rounded-xl animate-pulse" style={{ animationDelay: `${i * 80}ms` }} />
+                    <div key={i} className="h-14 bg-slate-800/15 rounded-lg animate-pulse" style={{ animationDelay: `${i * 60}ms` }} />
                 ))}
             </div>
         </div>
