@@ -1029,7 +1029,11 @@ async function getAggregates(symbol: string, multiplier: number, timespan: strin
   const res = await fetchMassive(endpoint, { limit: '5000', adjust: 'true', sort: 'asc' }, true, budget);
   return (res?.results || []).map((r: any) => ({
     date: new Date(r.t).toISOString(),
-    close: r.c
+    close: r.c,
+    open: r.o,
+    high: r.h,
+    low: r.l,
+    volume: r.v
   }));
 }
 

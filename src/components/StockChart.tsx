@@ -5,7 +5,9 @@ import { useState, useEffect, useRef } from "react";
 import { useTranslations } from 'next-intl';
 import {
     Line,
-    LineChart,
+    Area,
+    Bar,
+    ComposedChart,
     CartesianGrid,
     ResponsiveContainer,
     Tooltip,
@@ -227,7 +229,7 @@ export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d
                 };
             }
         })
-        .filter((item: any) => item.close !== null && item.close > 0 && (!isIntraday || item.xValue !== undefined)) // [HOTFIX] Filter Zeros
+        .filter((item: any) => item.close !== null && item.close > 0 && (!isIntraday || item.xValue !== undefined))
         .sort((a: any, b: any) => {
             if (isIntraday) return a.xValue - b.xValue;
             // Non-1D: sort by original date string
@@ -372,9 +374,11 @@ export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d
 
     const minPrice = validPrices.length > 0 ? Math.min(...validPrices) : 0;
     const maxPrice = validPrices.length > 0 ? Math.max(...validPrices) : 0;
-    // [User Request] Range adjustment: NVDA 187-191 means approx +/- 1% padding
-    // 0.04 was too wide (flat chart). 0.01 is closer to the desired "focused but not too zoomed" look.
     const padding = maxPrice * 0.01;
+
+    // [PREMIUM] Volume data for bars
+    const hasVolume = processedData.some((d: any) => d.volume && d.volume > 0);
+    const maxVolume = hasVolume ? Math.max(...processedData.filter((d: any) => d.volume).map((d: any) => d.volume)) : 0;
 
     // [HOTFIX] Yahoo Style Dark Mode Colors
     const chartConfig = {
@@ -529,7 +533,7 @@ export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d
                     {mounted && dataReady && processedData.length > 0 ? (
                         <>
                             <ResponsiveContainer width="99%" height="100%" minWidth={200} minHeight={200}>
-                                <LineChart data={processedData} margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
+                                <ComposedChart data={processedData} margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
                                     <CartesianGrid strokeDasharray="2 2" vertical={true} horizontal={true} stroke={chartConfig.gridColor} />
                                     <XAxis
                                         dataKey="xValue"
@@ -563,6 +567,15 @@ export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d
                                         width={65}
                                         dx={0}
                                     />
+                                    {/* [PREMIUM] Hidden volume Y-axis — bottom 15% of chart */}
+                                    {hasVolume && (
+                                        <YAxis
+                                            yAxisId="volume"
+                                            orientation="right"
+                                            domain={[0, maxVolume * 7]}
+                                            hide={true}
+                                        />
+                                    )}
                                     <Tooltip
                                         cursor={{ stroke: chartConfig.crosshair, strokeWidth: 1, strokeDasharray: '4 4' }}
                                         labelFormatter={(xValue) => {
@@ -588,7 +601,16 @@ export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d
                                             fontSize: "12px"
                                         }}
                                         itemStyle={{ color: '#f8fafc' }}
-                                        formatter={(value: any) => [`${(Number(value) || 0).toFixed(2)}`, "Close"]}
+                                        formatter={(value: any, name?: string) => {
+                                            if (name === 'areaFill') return ['', ''];
+                                            if (name === 'volume') {
+                                                const v = Number(value) || 0;
+                                                if (v >= 1000000) return [`${(v / 1000000).toFixed(1)}M`, 'Vol'];
+                                                if (v >= 1000) return [`${(v / 1000).toFixed(0)}K`, 'Vol'];
+                                                return [v.toString(), 'Vol'];
+                                            }
+                                            return [`$${(Number(value) || 0).toFixed(2)}`, 'Price'];
+                                        }}
                                     />
                                     {/* ═══ LAYER 1 (BACK): prevClose dashed line only — no label here ═══ */}
                                     {isIntraday && prevClose !== undefined && (
@@ -680,7 +702,7 @@ export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d
                                             />
                                         </ReferenceLine>
                                     )}
-                                    {/* ═══ LAYER 3: Gradient + Price Line ═══ */}
+                                    {/* ═══ LAYER 3: Gradient + Price Line + Area Fill ═══ */}
                                     <defs>
                                         {(() => {
                                             const xMin = 240;
@@ -690,21 +712,63 @@ export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d
                                                 ? Math.max(0, Math.min(1, (SESSION_REG_END - xMin) / totalRange))
                                                 : 1;
                                             return (
-                                                <linearGradient id="chartGradient" x1="0" y1="0" x2="1" y2="0">
-                                                    <stop offset={0} stopColor={chartConfig.preMarketColor} />
-                                                    <stop offset={preEndOffset} stopColor={chartConfig.preMarketColor} />
-                                                    <stop offset={preEndOffset} stopColor={chartConfig.lineColor} />
-                                                    <stop offset={postStartOffset} stopColor={chartConfig.lineColor} />
-                                                    {xDataMax > SESSION_REG_END && (
-                                                        <>
-                                                            <stop offset={postStartOffset} stopColor={chartConfig.postMarketColor} />
-                                                            <stop offset={1} stopColor={chartConfig.postMarketColor} />
-                                                        </>
-                                                    )}
-                                                </linearGradient>
+                                                <>
+                                                    {/* Horizontal gradient for line stroke color (session-aware) */}
+                                                    <linearGradient id="chartGradient" x1="0" y1="0" x2="1" y2="0">
+                                                        <stop offset={0} stopColor={chartConfig.preMarketColor} />
+                                                        <stop offset={preEndOffset} stopColor={chartConfig.preMarketColor} />
+                                                        <stop offset={preEndOffset} stopColor={chartConfig.lineColor} />
+                                                        <stop offset={postStartOffset} stopColor={chartConfig.lineColor} />
+                                                        {xDataMax > SESSION_REG_END && (
+                                                            <>
+                                                                <stop offset={postStartOffset} stopColor={chartConfig.postMarketColor} />
+                                                                <stop offset={1} stopColor={chartConfig.postMarketColor} />
+                                                            </>
+                                                        )}
+                                                    </linearGradient>
+                                                    {/* Vertical gradient for area fill (transparent fade) */}
+                                                    <linearGradient id="areaFillGradient" x1="0" y1="0" x2="0" y2="1">
+                                                        <stop offset="0%" stopColor="#60a5fa" stopOpacity={0.25} />
+                                                        <stop offset="50%" stopColor="#3b82f6" stopOpacity={0.08} />
+                                                        <stop offset="100%" stopColor="#1e3a5f" stopOpacity={0} />
+                                                    </linearGradient>
+                                                </>
                                             );
                                         })()}
                                     </defs>
+                                    {/* [PREMIUM] Volume bars — rendered FIRST so they appear behind the line */}
+                                    {hasVolume && (
+                                        <Bar
+                                            dataKey="volume"
+                                            yAxisId="volume"
+                                            fill="#334155"
+                                            fillOpacity={0.4}
+                                            isAnimationActive={false}
+                                            barSize={isIntraday ? 1 : 3}
+                                            shape={(props: any) => {
+                                                const { x, y, width, height, payload } = props;
+                                                if (!height || height <= 0) return <rect x={0} y={0} width={0} height={0} fill="none" />;
+                                                // Color based on price direction
+                                                const isUp = payload.close >= (payload.open || payload.close);
+                                                const fill = isUp ? 'rgba(52, 211, 153, 0.35)' : 'rgba(251, 113, 133, 0.35)';
+                                                return <rect x={x} y={y} width={Math.max(width, 1)} height={height} fill={fill} rx={0} />;
+                                            }}
+                                        />
+                                    )}
+                                    {/* Area fill below line — semi-transparent gradient */}
+                                    <Area
+                                        type="monotone"
+                                        dataKey="close"
+                                        name="areaFill"
+                                        stroke="none"
+                                        fill="url(#areaFillGradient)"
+                                        fillOpacity={1}
+                                        isAnimationActive={false}
+                                        connectNulls={true}
+                                        dot={false}
+                                        activeDot={false}
+                                        tooltipType="none"
+                                    />
                                     <Line
                                         type="monotone"
                                         dataKey="close"
@@ -801,7 +865,7 @@ export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d
                                             </ReferenceLine>
                                         );
                                     })()}
-                                </LineChart>
+                                </ComposedChart>
                             </ResponsiveContainer>
                         </>
                     ) : (
