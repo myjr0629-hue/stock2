@@ -792,6 +792,16 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
     const optionsPending = !options || options.options_status === 'PENDING' || !options.atmSlice || options.atmSlice.length === 0;
     const showStructure = structure && structure.structure && structure.structure.strikes?.length > 0;
 
+    // === Cross-Card Synergy Glow ===
+    const _gexShort = (structure?.netGex || 0) < 0;
+    const _gexLong = (structure?.netGex || 0) > 0;
+    const _volHot = volatilityData?.regime === 'ERUPTING' || volatilityData?.regime === 'LOADED';
+    const _sqzHigh = (volatilityData?.squeezeScore || 0) > 40;
+    const _flowBull = (liveQuote?.flow?.netPremium || 0) > 500000;
+    const bearSynergy = _gexShort && (_volHot || _sqzHigh);
+    const bullSynergy = _gexLong && !_volHot && _flowBull;
+    const synergyGlow = bearSynergy ? 'ring-1 ring-rose-500/40 shadow-[0_0_16px_rgba(244,63,94,0.15)]' : bullSynergy ? 'ring-1 ring-emerald-500/30 shadow-[0_0_12px_rgba(16,185,129,0.1)]' : '';
+
     // === GLOBAL LOADING GATE ===
     // Prevent rendering with zero/stale data (causes $0.00, Infinity%, distorted chart)
     // Wait for: (1) liveQuote with real price ONLY — chart loads independently with its own skeleton
@@ -1090,7 +1100,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                             const regimeBg = r?.regime === 'ERUPTING' ? 'bg-rose-950/40 border-rose-500/30 animate-card-breathe-bear' : r?.regime === 'LOADED' ? 'bg-amber-950/40 border-amber-500/30 shadow-[0_0_12px_rgba(245,158,11,0.12)]' : 'bg-slate-800/40 border-slate-700/50';
                             const regimeDesc = r?.regime === 'ERUPTING' ? td('volErupting') : r?.regime === 'LOADED' ? td('volLoaded') : r?.regime === 'COILING' ? td('volCoiling') : td('volStable');
                             return (
-                                <div className={`relative overflow-hidden rounded-lg py-2 px-2.5 min-h-[120px] transition-all duration-500 backdrop-blur-xl border ${regimeBg}`}>
+                                <div className={`relative overflow-hidden rounded-lg py-2 px-2.5 min-h-[120px] transition-all duration-500 backdrop-blur-xl border ${regimeBg} ${synergyGlow}`}>
                                     <div className="absolute inset-0 bg-gradient-to-br from-white/[0.06] via-transparent to-transparent pointer-events-none" />
                                     <div className="absolute inset-0 pointer-events-none opacity-[0.12]" style={{ backgroundImage: "radial-gradient(circle at 85% 50%, rgba(255,255,255,0.8) 0%, transparent 8%, transparent 12%, rgba(255,255,255,0.4) 13%, transparent 14%, transparent 22%, rgba(255,255,255,0.2) 23%, transparent 24%)" }} />
                                     <div className="relative z-10 flex items-center justify-between mb-1">
@@ -1191,7 +1201,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                             const statusBg = s?.status === 'CRITICAL' ? 'bg-rose-950/40 border-rose-500/30 animate-card-breathe-bear' : s?.status === 'HIGH' ? 'bg-amber-950/40 border-amber-500/30 shadow-[0_0_12px_rgba(245,158,11,0.12)]' : 'bg-slate-800/40 border-slate-700/50';
                             const sqDesc = s?.status === 'CRITICAL' ? td('sqCritical') : s?.status === 'HIGH' ? td('sqHigh') : s?.status === 'MEDIUM' ? td('sqMedium') : td('sqLow');
                             return (
-                                <div className={`relative overflow-hidden rounded-lg py-2 px-2.5 min-h-[120px] transition-all duration-500 backdrop-blur-xl border ${statusBg}`}>
+                                <div className={`relative overflow-hidden rounded-lg py-2 px-2.5 min-h-[120px] transition-all duration-500 backdrop-blur-xl border ${statusBg} ${synergyGlow}`}>
                                     <div className="absolute inset-0 bg-gradient-to-br from-white/[0.06] via-transparent to-transparent pointer-events-none" />
                                     <div className="absolute inset-0 pointer-events-none opacity-[0.15]" style={{ backgroundImage: "repeating-linear-gradient(135deg, transparent, transparent 6px, rgba(255,255,255,0.3) 6px, rgba(255,255,255,0.3) 7px, transparent 7px, transparent 13px)" }} />
                                     <div className="relative z-10 flex items-center justify-between mb-1">
@@ -1503,6 +1513,24 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                 <div className="absolute -top-3 left-4 px-2 py-0.5 bg-indigo-950/80 border border-indigo-500/30 rounded text-[12px] font-black text-indigo-300 uppercase tracking-widest z-20 backdrop-blur-md shadow-lg flex items-center gap-2 font-jakarta">
                                     <div className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse" /> Price History
                                 </div>
+
+                                {/* Market Pulse Bar — 1-line realtime summary */}
+                                {effectiveSession === 'REG' && (
+                                    <div className="absolute -top-3 right-4 z-20 flex items-center gap-2">
+                                        {/* Gamma */}
+                                        <span className={`text-[10px] font-black px-1.5 py-0.5 rounded backdrop-blur-md border ${(structure?.netGex || 0) > 0 ? 'bg-emerald-950/80 border-emerald-500/30 text-emerald-400' : (structure?.netGex || 0) < 0 ? 'bg-rose-950/80 border-rose-500/30 text-rose-400' : 'bg-slate-800/80 border-slate-600/30 text-slate-400'}`}>
+                                            γ {(structure?.netGex || 0) > 0 ? 'LONG' : (structure?.netGex || 0) < 0 ? 'SHORT' : '—'}
+                                        </span>
+                                        {/* Squeeze */}
+                                        <span className={`text-[10px] font-black px-1.5 py-0.5 rounded backdrop-blur-md border ${(volatilityData?.squeezeScore || 0) > 50 ? 'bg-rose-950/80 border-rose-500/30 text-rose-400' : (volatilityData?.squeezeScore || 0) > 25 ? 'bg-amber-950/80 border-amber-500/30 text-amber-400' : 'bg-emerald-950/80 border-emerald-500/30 text-emerald-400'}`}>
+                                            SQZ {(volatilityData?.squeezeScore || 0) > 50 ? 'HIGH' : (volatilityData?.squeezeScore || 0) > 25 ? 'MED' : 'LOW'}
+                                        </span>
+                                        {/* Flow */}
+                                        <span className={`text-[10px] font-black px-1.5 py-0.5 rounded backdrop-blur-md border ${(liveQuote?.flow?.netPremium || 0) > 500000 ? 'bg-emerald-950/80 border-emerald-500/30 text-emerald-400' : (liveQuote?.flow?.netPremium || 0) < -500000 ? 'bg-rose-950/80 border-rose-500/30 text-rose-400' : 'bg-slate-800/80 border-slate-600/30 text-slate-400'}`}>
+                                            FLOW {(liveQuote?.flow?.netPremium || 0) > 500000 ? 'BULL' : (liveQuote?.flow?.netPremium || 0) < -500000 ? 'BEAR' : '—'}
+                                        </span>
+                                    </div>
+                                )}
 
                                 {/* Glass Card */}
                                 <div className="h-full rounded-lg border border-white/10 bg-slate-900/60 overflow-hidden shadow-lg relative backdrop-blur-md flex flex-col">
