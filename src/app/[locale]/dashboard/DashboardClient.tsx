@@ -638,6 +638,32 @@ function MainChartPanel() {
                                 </span>
                                 <span className="text-xs text-white">{(data?.netGex || 0) > 0 ? td('gexStableInterpret') : td('gexVolatileInterpret')}</span>
                             </div>
+                            {/* Net GEX Magnitude Bar — centered at zero */}
+                            {(() => {
+                                const gex = data?.netGex || 0;
+                                const absGex = Math.abs(gex);
+                                const maxScale = 5e9; // 5B scale
+                                const pct = Math.min(absGex / maxScale * 50, 50);
+                                return (
+                                    <div className="relative z-10 mt-2">
+                                        <div className="relative h-1.5 bg-slate-700 rounded-full overflow-hidden">
+                                            <div className="absolute left-1/2 top-0 w-px h-full bg-slate-500" />
+                                            {gex >= 0 ? (
+                                                <div className="absolute top-0 h-full rounded-r-full bg-emerald-400/70"
+                                                    style={{ left: '50%', width: `${pct}%` }} />
+                                            ) : (
+                                                <div className="absolute top-0 h-full rounded-l-full bg-rose-400/70"
+                                                    style={{ left: `${50 - pct}%`, width: `${pct}%` }} />
+                                            )}
+                                        </div>
+                                        <div className="flex justify-between mt-1">
+                                            <span className="text-[12px] text-slate-300">-5B</span>
+                                            <span className="text-[12px] text-slate-300">0</span>
+                                            <span className="text-[12px] text-slate-300">+5B</span>
+                                        </div>
+                                    </div>
+                                );
+                            })()}
                         </div>
                     </ProGate>
 
@@ -660,6 +686,37 @@ function MainChartPanel() {
                                     </span>
                                 )}
                             </div>
+                            {/* Gamma Flip Distance Bar — price position relative to flip level */}
+                            {data?.gammaFlipLevel && data?.underlyingPrice && (() => {
+                                const flip = data.gammaFlipLevel;
+                                const price = data.underlyingPrice;
+                                const dist = ((price - flip) / flip) * 100;
+                                const rangeMin = flip * 0.95;
+                                const rangeMax = flip * 1.05;
+                                const span = rangeMax - rangeMin;
+                                const flipPos = span > 0 ? ((flip - rangeMin) / span * 100) : 50;
+                                const pricePos = span > 0 ? Math.max(0, Math.min(100, ((price - rangeMin) / span * 100))) : 50;
+                                const isLong = price > flip;
+                                return (
+                                    <div className="relative z-10 mt-2">
+                                        <div className="relative h-1.5 bg-slate-700 rounded-full overflow-visible">
+                                            {/* Short zone (left of flip) */}
+                                            <div className="absolute left-0 top-0 h-full rounded-l-full bg-rose-500/30" style={{ width: `${flipPos}%` }} />
+                                            {/* Long zone (right of flip) */}
+                                            <div className="absolute top-0 h-full rounded-r-full bg-emerald-500/30" style={{ left: `${flipPos}%`, width: `${100 - flipPos}%` }} />
+                                            {/* Flip level marker */}
+                                            <div className="absolute top-1/2 -translate-y-1/2 w-1 h-4 bg-cyan-400 rounded-full" style={{ left: `${flipPos}%` }} />
+                                            {/* Price marker */}
+                                            <div className="absolute top-1/2 w-2.5 h-2.5 rounded-full border-2 border-white bg-white shadow-[0_0_6px_rgba(255,255,255,0.6)]" style={{ left: `${pricePos}%`, transform: 'translate(-50%, -50%)' }} />
+                                        </div>
+                                        <div className="flex justify-between mt-1">
+                                            <span className="text-[12px] text-rose-300">SHORT</span>
+                                            <span className="text-[12px] text-cyan-300">FLIP</span>
+                                            <span className="text-[12px] text-emerald-300">LONG</span>
+                                        </div>
+                                    </div>
+                                );
+                            })()}
                         </div>
                     </ProGate>
 
@@ -724,10 +781,34 @@ function MainChartPanel() {
                                     <span className={`text-xl font-mono font-bold ${dist > 0 ? 'text-emerald-400' : dist < 0 ? 'text-rose-400' : 'text-white'}`}>
                                         {vwap > 0 ? `${dist > 0 ? '+' : ''}${dist.toFixed(1)}%` : '—'}
                                     </span>
-                                    <span className="text-xs font-mono text-slate-400">
+                                    <span className="text-xs font-mono text-slate-300">
                                         {vwap > 0 ? `$${vwap.toFixed(1)}` : ''}
                                     </span>
                                 </div>
+                                {/* VWAP Distance Bar — centered divergence */}
+                                {vwap > 0 && (() => {
+                                    const clampedDist = Math.max(-3, Math.min(3, dist));
+                                    const pct = Math.abs(clampedDist) / 3 * 50;
+                                    return (
+                                        <div className="mt-2">
+                                            <div className="relative h-1.5 bg-slate-700 rounded-full overflow-hidden">
+                                                <div className="absolute left-1/2 top-0 w-px h-full bg-slate-500" />
+                                                {clampedDist >= 0 ? (
+                                                    <div className="absolute top-0 h-full rounded-r-full bg-emerald-400/70"
+                                                        style={{ left: '50%', width: `${pct}%` }} />
+                                                ) : (
+                                                    <div className="absolute top-0 h-full rounded-l-full bg-rose-400/70"
+                                                        style={{ left: `${50 - pct}%`, width: `${pct}%` }} />
+                                                )}
+                                            </div>
+                                            <div className="flex justify-between mt-1">
+                                                <span className="text-[12px] text-slate-300">-3%</span>
+                                                <span className="text-[12px] text-slate-300">VWAP</span>
+                                                <span className="text-[12px] text-slate-300">+3%</span>
+                                            </div>
+                                        </div>
+                                    );
+                                })()}
                             </div>
                         );
                     })()}
@@ -1018,9 +1099,24 @@ function MainChartPanel() {
                                     <span className={`text-sm font-bold ${color}`}>{label}</span>
                                 </div>
                                 {hasVolData && (
-                                    <span className="text-[12px] text-white font-mono mt-1 block">
-                                        C {(callVol / 1000).toFixed(0)}K / P {(putVol / 1000).toFixed(0)}K
-                                    </span>
+                                    <>
+                                        <span className="text-[12px] text-white font-mono mt-1 block">
+                                            C {(callVol / 1000).toFixed(0)}K / P {(putVol / 1000).toFixed(0)}K
+                                        </span>
+                                        {/* Call vs Put Volume Proportion Bar */}
+                                        <div className="mt-2">
+                                            <div className="relative h-1.5 bg-slate-700 rounded-full overflow-hidden">
+                                                <div className="absolute left-0 top-0 h-full rounded-l-full bg-emerald-400/60"
+                                                    style={{ width: `${(callVol / (callVol + putVol)) * 100}%` }} />
+                                                <div className="absolute top-0 h-full rounded-r-full bg-rose-400/60"
+                                                    style={{ left: `${(callVol / (callVol + putVol)) * 100}%`, width: `${(putVol / (callVol + putVol)) * 100}%` }} />
+                                            </div>
+                                            <div className="flex justify-between mt-1">
+                                                <span className="text-[12px] text-emerald-300">Call</span>
+                                                <span className="text-[12px] text-rose-300">Put</span>
+                                            </div>
+                                        </div>
+                                    </>
                                 )}
                             </div>
                         );
