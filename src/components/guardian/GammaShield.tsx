@@ -156,7 +156,7 @@ function TriggerBand({
 }: { support: number | null; current: number | null; resistance: number | null; locale: Locale }) {
     if (!support || !current || !resistance || resistance <= support) {
         return (
-            <div className="text-[12px] text-slate-400 font-jakarta text-center">
+            <div className="text-[12px] text-slate-300 font-jakarta text-center">
                 {t('triggerCollecting', locale)}
             </div>
         );
@@ -305,7 +305,7 @@ export default function GammaShield({ data, isMarketActive }: Props) {
                         GAMMA SHIELD
                     </span>
                 </div>
-                <div className="flex items-center justify-center h-[120px] text-[13px] text-slate-400 font-jakarta">
+                <div className="flex items-center justify-center h-[120px] text-[13px] text-slate-300 font-jakarta">
                     {isMarketActive ? t('collecting', locale) : 'Regular Session Only'}
                 </div>
             </div>
@@ -336,7 +336,7 @@ export default function GammaShield({ data, isMarketActive }: Props) {
                         · {getInsightText(gexIndex, squeezeRisk, currentPrice, supportWall, resistanceWall, locale)}
                     </span>
                 </div>
-                <span className={`text-[12px] font-bold font-jakarta px-2 py-0.5 rounded border shrink-0 ml-2 ${isMarketActive ? 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10 animate-pulse' : 'text-slate-400 border-slate-600/30 bg-slate-600/10'}`}>
+                <span className={`text-[12px] font-bold font-jakarta px-2 py-0.5 rounded border shrink-0 ml-2 ${isMarketActive ? 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10 animate-pulse' : 'text-slate-300 border-slate-600/30 bg-slate-600/10'}`}>
                     {isMarketActive ? '● LIVE' : 'STANDBY'}
                 </span>
             </div>
@@ -374,7 +374,7 @@ export default function GammaShield({ data, isMarketActive }: Props) {
                         </div>
                         <div className="flex justify-between mt-1">
                             <span className="text-[12px] font-jakarta text-red-400/70">-100</span>
-                            <span className="text-[12px] font-jakarta text-slate-400">0</span>
+                            <span className="text-[12px] font-jakarta text-slate-300">0</span>
                             <span className="text-[12px] font-jakarta text-emerald-400/70">+100</span>
                         </div>
                     </div>
@@ -499,7 +499,7 @@ export default function GammaShield({ data, isMarketActive }: Props) {
                     <span className="text-[12px] font-bold font-jakarta tracking-[0.10em] text-slate-300 uppercase text-center">
                         Trigger Band
                     </span>
-                    <span className="text-[12px] font-jakarta text-slate-400 text-center -mt-1">
+                    <span className="text-[12px] font-jakarta text-slate-300 text-center -mt-1">
                         S&P 500
                     </span>
                     <TriggerBand

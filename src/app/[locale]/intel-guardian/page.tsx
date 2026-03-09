@@ -465,7 +465,7 @@ export default function GuardianPage() {
                                                 <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest border-b border-slate-700 pb-2 inline-block font-jakarta">
                                                     Flow Topography Map v3.0
                                                 </h3>
-                                                <span className={`text-[11px] font-black tracking-wide px-3 py-1 rounded-md border font-jakarta shrink-0 ${isMarketActive
+                                                <span className={`text-[12px] font-black tracking-wide px-3 py-1 rounded-md border font-jakarta shrink-0 ${isMarketActive
                                                     ? 'bg-emerald-950/80 text-emerald-400 border-emerald-500/40 animate-pulse shadow-[0_0_12px_rgba(52,211,153,0.3)]'
                                                     : 'bg-amber-950/60 text-amber-400 border-amber-500/30'
                                                     }`}>
@@ -477,7 +477,7 @@ export default function GuardianPage() {
                                                     </span>
                                                 )}
                                                 {isMarketActive && data?.rotationIntensity?.regime && data.rotationIntensity.regime !== 'MIXED' && (
-                                                    <span className={`text-[11px] font-bold tracking-wider px-2 py-0.5 rounded border font-jakarta ${data.rotationIntensity.regime === 'RISK_ON_GROWTH' ? 'bg-emerald-950/80 text-emerald-400 border-emerald-500/30' :
+                                                    <span className={`text-[12px] font-bold tracking-wider px-2 py-0.5 rounded border font-jakarta ${data.rotationIntensity.regime === 'RISK_ON_GROWTH' ? 'bg-emerald-950/80 text-emerald-400 border-emerald-500/30' :
                                                         data.rotationIntensity.regime === 'RISK_OFF_DEFENSE' ? 'bg-rose-950/80 text-rose-400 border-rose-500/30' :
                                                             data.rotationIntensity.regime === 'CYCLICAL_RECOVERY' ? 'bg-amber-950/80 text-amber-400 border-amber-500/30' :
                                                                 data.rotationIntensity.regime === 'BROAD_RALLY' ? 'bg-emerald-950/80 text-emerald-300 border-emerald-400/30' :
@@ -504,7 +504,7 @@ export default function GuardianPage() {
                                                     <div className={`text-2xl font-black text-amber-400 tracking-[0.15em] drop-shadow-[0_0_20px_rgba(245,158,11,0.6)] whitespace-nowrap ${isMarketActive ? 'animate-[pulse_3s_ease-in-out_infinite]' : 'opacity-60'}`}>
                                                         TARGET LOCKED
                                                     </div>
-                                                    <div className="text-[11px] text-amber-200 tracking-[0.5em] mt-2 uppercase font-bold bg-black/60 px-3 py-1 rounded border border-amber-500/30">
+                                                    <div className="text-[12px] text-amber-200 tracking-[0.5em] mt-2 uppercase font-bold bg-black/60 px-3 py-1 rounded border border-amber-500/30">
                                                         TRIPLE-A SEQUENCE ENGAGED
                                                     </div>
                                                 </div>
@@ -706,7 +706,7 @@ export default function GuardianPage() {
                                                     </div>
                                                     <div>
                                                         <div className="text-[13px] font-bold text-white/80">{t('insightPending')}</div>
-                                                        <div className="text-[11px] text-slate-400 font-mono mt-1 font-jakarta">Regular Session 09:30-16:00 ET</div>
+                                                        <div className="text-[12px] text-slate-400 font-mono mt-1 font-jakarta">Regular Session 09:30-16:00 ET</div>
                                                     </div>
                                                 </div>
                                             </div>
@@ -735,7 +735,7 @@ export default function GuardianPage() {
                                             <line x1="280" y1="60" x2="320" y2="80" stroke="rgba(6,182,212,0.12)" strokeWidth="1" />
                                             <line x1="320" y1="80" x2="320" y2="120" stroke="rgba(6,182,212,0.15)" strokeWidth="1" />
                                         </svg>
-                                        <h3 className="text-[11px] font-black uppercase tracking-[0.2em] text-cyan-400 mb-4 border-b border-cyan-900/30 pb-2 flex-none font-jakarta">
+                                        <h3 className="text-[12px] font-black uppercase tracking-[0.2em] text-cyan-400 mb-4 border-b border-cyan-900/30 pb-2 flex-none font-jakarta">
                                             SECTOR INTEL {selectedSector && <span className="text-slate-500 font-mono opacity-50 ml-2">:: {selectedSector.id}</span>}
                                         </h3>
 
@@ -764,7 +764,7 @@ export default function GuardianPage() {
                                                             <div className="mb-3 flex-none">
                                                                 {/* Header */}
                                                                 <div className="flex items-center justify-between mb-2">
-                                                                    <span className="text-[11px] font-bold text-slate-400 uppercase tracking-widest font-jakarta">{st.trendAnalysis}</span>
+                                                                    <span className="text-[12px] font-bold text-slate-400 uppercase tracking-widest font-jakarta">{st.trendAnalysis}</span>
                                                                     <span className={`text-xs font-mono font-bold ${td.cumReturn >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
                                                                         {td.cumReturn > 0 ? '▲' : '▼'} {td.cumReturn > 0 ? '+' : ''}{td.cumReturn.toFixed(2)}%
                                                                     </span>
@@ -774,7 +774,7 @@ export default function GuardianPage() {
                                                                 <div className="space-y-1.5 mb-3">
                                                                     {td.changes.map((c, i) => (
                                                                         <div key={i} className="flex items-center gap-2">
-                                                                            <span className="text-[11px] text-slate-600 font-mono w-6 text-right shrink-0">{dayLabels[i] || `D${i}`}</span>
+                                                                            <span className="text-[12px] text-slate-600 font-mono w-6 text-right shrink-0">{dayLabels[i] || `D${i}`}</span>
                                                                             <div className="flex-1 h-4 bg-slate-900 rounded overflow-hidden relative">
                                                                                 {/* Center line */}
                                                                                 <div className="absolute left-1/2 top-0 bottom-0 w-px bg-slate-700/50" />
@@ -788,7 +788,7 @@ export default function GuardianPage() {
                                                                                     }}
                                                                                 />
                                                                             </div>
-                                                                            <span className={`text-[11px] font-mono font-bold w-12 text-right shrink-0 ${c >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                                                            <span className={`text-[12px] font-mono font-bold w-12 text-right shrink-0 ${c >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
                                                                                 {c > 0 ? '+' : ''}{c.toFixed(1)}%
                                                                             </span>
                                                                         </div>
@@ -799,18 +799,18 @@ export default function GuardianPage() {
                                                                 <div className="grid grid-cols-2 gap-2">
                                                                     {/* Volume Intensity */}
                                                                     <div className="bg-slate-900/80 rounded-lg px-3 py-2 border border-slate-800/50">
-                                                                        <div className="text-[11px] text-slate-500 font-bold tracking-wider mb-1">{st.volumeIntensity}</div>
+                                                                        <div className="text-[12px] text-slate-500 font-bold tracking-wider mb-1">{st.volumeIntensity}</div>
                                                                         <div className="flex items-baseline gap-1.5">
                                                                             <span className={`text-sm font-mono font-bold ${rvolColor}`}>{td.rvol.toFixed(2)}x</span>
-                                                                            <span className={`text-[11px] font-medium ${rvolColor}`}>{rvolLabel}</span>
+                                                                            <span className={`text-[12px] font-medium ${rvolColor}`}>{rvolLabel}</span>
                                                                         </div>
                                                                     </div>
                                                                     {/* Trend Consistency */}
                                                                     <div className="bg-slate-900/80 rounded-lg px-3 py-2 border border-slate-800/50">
-                                                                        <div className="text-[11px] text-slate-500 font-bold tracking-wider mb-1">{st.trendConsistency}</div>
+                                                                        <div className="text-[12px] text-slate-500 font-bold tracking-wider mb-1">{st.trendConsistency}</div>
                                                                         <div className="flex items-baseline gap-1.5">
                                                                             <span className={`text-sm font-mono font-bold ${consistencyColor}`}>{(td.consistency * 100).toFixed(0)}%</span>
-                                                                            <span className={`text-[11px] font-medium ${consistencyColor}`}>{consistencyLabel}</span>
+                                                                            <span className={`text-[12px] font-medium ${consistencyColor}`}>{consistencyLabel}</span>
                                                                         </div>
                                                                     </div>
                                                                 </div>
@@ -819,7 +819,7 @@ export default function GuardianPage() {
                                                                 {td.isBounce && (
                                                                     <div className="mt-2 flex items-center gap-2 bg-amber-950/30 border border-amber-500/20 rounded-lg px-3 py-2">
                                                                         <AlertTriangle className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-                                                                        <span className="text-[11px] text-amber-300 font-medium">
+                                                                        <span className="text-[12px] text-amber-300 font-medium">
                                                                             {st.noiseBounce(td.todayChange, td.cumReturn)}
                                                                         </span>
                                                                     </div>
@@ -836,7 +836,7 @@ export default function GuardianPage() {
                                                                     {/* Left: Logo & Symbol */}
                                                                     <div className="flex items-center gap-3">
                                                                         <div className="w-6 h-6 rounded bg-slate-800 border border-slate-700 flex items-center justify-center overflow-hidden shrink-0 relative">
-                                                                            <span className="text-[11px] font-bold text-slate-500 absolute">{stock.symbol.substring(0, 2)}</span>
+                                                                            <span className="text-[12px] font-bold text-slate-500 absolute">{stock.symbol.substring(0, 2)}</span>
                                                                             <img
                                                                                 src={`https://financialmodelingprep.com/image-stock/${stock.symbol}.png`}
                                                                                 alt={stock.symbol}
@@ -850,7 +850,7 @@ export default function GuardianPage() {
                                                                     {/* Right: Data */}
                                                                     <div className="text-right">
                                                                         <div className="text-slate-200 font-mono">${stock.price.toFixed(2)}</div>
-                                                                        <div className={`text-[11px] font-bold ${stock.change >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+                                                                        <div className={`text-[12px] font-bold ${stock.change >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
                                                                             {stock.change > 0 ? "+" : ""}{stock.change.toFixed(2)}%
                                                                         </div>
                                                                     </div>

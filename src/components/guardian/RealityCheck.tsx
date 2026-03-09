@@ -68,7 +68,7 @@ export function RealityCheck({
             <div className="flex justify-between items-center mb-3 flex-none">
                 <div className="flex items-center gap-2">
                     <Activity className="w-3.5 h-3.5 text-cyan-400/60" />
-                    <h3 className="text-[11px] font-black uppercase tracking-[0.2em] text-white/70 font-jakarta">
+                    <h3 className="text-[12px] font-black uppercase tracking-[0.2em] text-white/70 font-jakarta">
                         REALITY CHECK
                     </h3>
                 </div>

@@ -131,11 +131,11 @@ export default function GravityGauge({ score, loading, session, components, rlsi
                     <Activity className="w-3 h-3 text-white opacity-70" />
                     <span className="text-xs uppercase tracking-[0.2em] text-white font-black font-jakarta">Gravity Gauge</span>
                     {session && (
-                        <span className={`${session === 'PRE' ? 'text-[12px]' : 'text-[11px]'} font-bold px-1.5 py-0.5 rounded ml-auto whitespace-nowrap ${isHoliday ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' :
+                        <span className={`${session === 'PRE' ? 'text-[12px]' : 'text-[12px]'} font-bold px-1.5 py-0.5 rounded ml-auto whitespace-nowrap ${isHoliday ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' :
                             session === 'PRE' ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' :
                                 session === 'REG' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' :
                                     session === 'POST' ? 'bg-indigo-500/20 text-indigo-400 border border-indigo-500/30' :
-                                        'bg-slate-500/20 text-slate-400 border border-slate-500/30'
+                                        'bg-slate-500/20 text-slate-300 border border-slate-500/30'
                             }`}>
                             {isHoliday ? 'HOLIDAY' :
                                 session === 'PRE' ? t('preMarketEstimate') :
@@ -223,7 +223,7 @@ export default function GravityGauge({ score, loading, session, components, rlsi
                         {loading ? "--" : Math.round(animatedScore)}
                     </span>
                     <span
-                        className="text-[11px] font-black uppercase tracking-widest mt-0.5 px-2 py-0.5 rounded border border-white/10 font-jakarta"
+                        className="text-[12px] font-black uppercase tracking-widest mt-0.5 px-2 py-0.5 rounded border border-white/10 font-jakarta"
                         style={{ color: statusColor, borderColor: `${statusColor}33`, backgroundColor: `${statusColor}11` }}
                     >
                         {statusText}
@@ -244,7 +244,7 @@ export default function GravityGauge({ score, loading, session, components, rlsi
                 {/* Scale labels */}
                 <div className="flex justify-between mt-0.5 px-0.5">
                     {scaleZones.map(z => (
-                        <span key={z.label} className="text-[11px] font-mono text-slate-500">{z.label}</span>
+                        <span key={z.label} className="text-[12px] font-mono text-slate-300">{z.label}</span>
                     ))}
                 </div>
             </div>
@@ -261,7 +261,7 @@ export default function GravityGauge({ score, loading, session, components, rlsi
                                 <Icon className="w-3 h-3 flex-shrink-0 opacity-60" style={{ color: item.color }} />
                                 {/* Label */}
                                 <div className="w-[88px] flex-shrink-0">
-                                    <div className="text-[11px] font-bold text-white/80 uppercase tracking-wide leading-tight whitespace-nowrap">
+                                    <div className="text-[12px] font-bold text-white/80 uppercase tracking-wide leading-tight whitespace-nowrap">
                                         {item.label}
                                     </div>
                                 </div>
@@ -280,10 +280,10 @@ export default function GravityGauge({ score, loading, session, components, rlsi
                                 </div>
                                 {/* Score + Interpretation */}
                                 <div className="w-[90px] text-right flex-shrink-0 flex items-center justify-end gap-1 whitespace-nowrap">
-                                    <span className="text-[11px] font-mono font-bold" style={{ color: item.color }}>
+                                    <span className="text-[12px] font-mono font-bold" style={{ color: item.color }}>
                                         {Math.round(item.score)}
                                     </span>
-                                    <span className="text-[11px] font-bold" style={{ color: interp.color }}>
+                                    <span className="text-[12px] font-bold" style={{ color: interp.color }}>
                                         {interp.text}
                                     </span>
                                 </div>
@@ -297,7 +297,7 @@ export default function GravityGauge({ score, loading, session, components, rlsi
                             {factorSummary.bull > 0 && (
                                 <div className="flex items-center gap-1">
                                     <ChevronUp className="w-3 h-3 text-emerald-400" />
-                                    <span className="text-[11px] font-bold text-emerald-400">
+                                    <span className="text-[12px] font-bold text-emerald-400">
                                         {t('bullish')} ×{factorSummary.bull}
                                     </span>
                                 </div>
@@ -305,15 +305,15 @@ export default function GravityGauge({ score, loading, session, components, rlsi
                             {factorSummary.bear > 0 && (
                                 <div className="flex items-center gap-1">
                                     <ChevronDown className="w-3 h-3 text-red-400" />
-                                    <span className="text-[11px] font-bold text-red-400">
+                                    <span className="text-[12px] font-bold text-red-400">
                                         {t('bearish')} ×{factorSummary.bear}
                                     </span>
                                 </div>
                             )}
                             {factorSummary.bull === 0 && factorSummary.bear === 0 && (
                                 <div className="flex items-center gap-1">
-                                    <Minus className="w-3 h-3 text-slate-400" />
-                                    <span className="text-[11px] font-bold text-slate-400">
+                                    <Minus className="w-3 h-3 text-slate-300" />
+                                    <span className="text-[12px] font-bold text-slate-300">
                                         {t('neutral')}
                                     </span>
                                 </div>
@@ -330,7 +330,7 @@ export default function GravityGauge({ score, loading, session, components, rlsi
                         <div key={key} className="flex items-center gap-1.5">
                             <div className="w-3 h-3 rounded bg-slate-800 animate-pulse flex-shrink-0" />
                             <div className="flex-shrink-0">
-                                <div className="text-[11px] font-bold text-slate-500 uppercase tracking-wide whitespace-nowrap">
+                                <div className="text-[12px] font-bold text-slate-300 uppercase tracking-wide whitespace-nowrap">
                                     {t(`gauge.${key}` as 'gauge.momentum')}
                                 </div>
                             </div>
@@ -338,7 +338,7 @@ export default function GravityGauge({ score, loading, session, components, rlsi
                                 <div className="h-full w-0 rounded-full bg-slate-700" />
                             </div>
                             <div className="w-[90px] text-right flex-shrink-0">
-                                <span className="text-[11px] font-mono text-slate-500">--</span>
+                                <span className="text-[12px] font-mono text-slate-300">--</span>
                             </div>
                         </div>
                     ))}
@@ -349,8 +349,8 @@ export default function GravityGauge({ score, loading, session, components, rlsi
             {rlsiHistory && rlsiHistory.length >= 2 && !loading && !isHoliday && (
                 <div className="w-full max-w-[290px] border-t border-slate-800/50 pt-2 mt-1">
                     <div className="flex items-center justify-between mb-1">
-                        <span className="text-[11px] font-bold uppercase tracking-[0.15em] text-slate-300 font-jakarta">INTRADAY TREND</span>
-                        <span className="text-[11px] font-mono text-slate-400 font-jakarta">{rlsiHistory.length} pts</span>
+                        <span className="text-[12px] font-bold uppercase tracking-[0.15em] text-slate-300 font-jakarta">INTRADAY TREND</span>
+                        <span className="text-[12px] font-mono text-slate-300 font-jakarta">{rlsiHistory.length} pts</span>
                     </div>
                     <RlsiSparkline history={rlsiHistory} currentScore={animatedScore} />
                 </div>
@@ -403,8 +403,8 @@ function RlsiSparkline({ history, currentScore }: { history: { time: string; sco
         <div className="relative">
             {/* Score labels (HTML — unaffected by SVG scaling) */}
             <div className="absolute right-0 top-0 -mr-1 flex flex-col justify-between h-[50px] items-end pointer-events-none" style={{ transform: 'translateX(100%)', paddingLeft: '4px' }}>
-                <span className="text-[11px] font-mono font-semibold text-slate-300 leading-none">{maxScore}</span>
-                <span className="text-[11px] font-mono font-semibold text-slate-300 leading-none">{minScore}</span>
+                <span className="text-[12px] font-mono font-semibold text-slate-300 leading-none">{maxScore}</span>
+                <span className="text-[12px] font-mono font-semibold text-slate-300 leading-none">{minScore}</span>
             </div>
 
             {/* SVG Chart (line + fill only) */}
@@ -434,11 +434,11 @@ function RlsiSparkline({ history, currentScore }: { history: { time: string; sco
 
             {/* Time labels (HTML — 11px, clearly visible) */}
             <div className="flex justify-between mt-1 px-0.5">
-                <span className="text-[11px] font-mono font-medium text-slate-300">{formatTime(history[0].time)}</span>
+                <span className="text-[12px] font-mono font-medium text-slate-300">{formatTime(history[0].time)}</span>
                 {history.length > 10 && (
-                    <span className="text-[11px] font-mono font-medium text-slate-400">{formatTime(history[Math.floor(history.length / 2)].time)}</span>
+                    <span className="text-[12px] font-mono font-medium text-slate-300">{formatTime(history[Math.floor(history.length / 2)].time)}</span>
                 )}
-                <span className="text-[11px] font-mono font-bold text-slate-200">NOW</span>
+                <span className="text-[12px] font-mono font-bold text-slate-200">NOW</span>
             </div>
         </div>
     );

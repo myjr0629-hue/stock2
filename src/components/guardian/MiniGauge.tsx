@@ -33,8 +33,8 @@ export function MiniGauge({
     const sizeConfig = {
         sm: { px: 68, valueCls: 'text-[14px]', secCls: 'text-[10px]', subCls: 'text-[10px]', stroke: 2 },
         md: { px: 78, valueCls: 'text-[15px]', secCls: 'text-[10px]', subCls: 'text-[10px]', stroke: 2.5 },
-        lg: { px: 88, valueCls: 'text-[16px]', secCls: 'text-[11px]', subCls: 'text-[11px]', stroke: 2.5 },
-        xl: { px: 100, valueCls: 'text-lg', secCls: 'text-[11px]', subCls: 'text-[11px]', stroke: 3 }
+        lg: { px: 88, valueCls: 'text-[16px]', secCls: 'text-[12px]', subCls: 'text-[12px]', stroke: 2.5 },
+        xl: { px: 100, valueCls: 'text-lg', secCls: 'text-[12px]', subCls: 'text-[12px]', stroke: 3 }
     };
     const cfg = sizeConfig[size];
     const r = (cfg.px / 2) - 7;
@@ -220,7 +220,7 @@ export function DualGauge({ priceValue, flowValue, size = 'xl' }: DualGaugeProps
             </div>
 
             {/* Sentiment indicator */}
-            <span className="text-[11px] font-bold text-white/50 uppercase tracking-wider flex items-center gap-1.5 font-jakarta">
+            <span className="text-[12px] font-bold text-white/50 uppercase tracking-wider flex items-center gap-1.5 font-jakarta">
                 <span
                     className="inline-block w-1.5 h-1.5 rounded-full"
                     style={{ backgroundColor: sentimentColor, boxShadow: `0 0 6px ${sentimentColor}` }}

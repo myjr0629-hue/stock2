@@ -70,7 +70,7 @@ export function OracleHeader({ }: OracleHeaderProps) {
                 {/* LEFT: STATUS */}
                 <div className="flex items-center gap-2">
                     <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_10px_#10b981]"></div>
-                    <span className="text-[11px] font-black tracking-[0.2em] text-emerald-400 font-jakarta">
+                    <span className="text-[12px] font-black tracking-[0.2em] text-emerald-400 font-jakarta">
                         GUARDIAN EYE : ONLINE
                     </span>
                 </div>
@@ -81,11 +81,11 @@ export function OracleHeader({ }: OracleHeaderProps) {
                     <div className="relative group">
                         <div className={`absolute -inset-0.5 bg-gradient-to-r ${fgStatus.glow} rounded-lg blur opacity-60 group-hover:opacity-100 transition`} />
                         <div className="relative flex items-center gap-2.5 px-3.5 py-1 bg-slate-900/80 backdrop-blur-xl rounded-lg border border-white/10">
-                            <span className="text-[11px] text-white font-bold tracking-wider font-jakarta">Fear & Greed</span>
+                            <span className="text-[12px] text-white font-bold tracking-wider font-jakarta">Fear & Greed</span>
                             <span className="text-sm font-bold font-mono tabular-nums" style={{ color: fgStatus.color }}>
                                 {fgScore > 0 ? fgScore.toFixed(1) : '—'}
                             </span>
-                            <span className="text-[11px] font-black tracking-wider border-l border-white/15 pl-2 font-jakarta" style={{ color: fgStatus.color }}>
+                            <span className="text-[12px] font-black tracking-wider border-l border-white/15 pl-2 font-jakarta" style={{ color: fgStatus.color }}>
                                 {fgStatus.label}
                             </span>
                         </div>
@@ -95,7 +95,7 @@ export function OracleHeader({ }: OracleHeaderProps) {
                     <div className="relative group">
                         <div className={`absolute -inset-0.5 bg-gradient-to-r ${vixStatus.glow} rounded-lg blur opacity-60 group-hover:opacity-100 transition`} />
                         <div className="relative flex items-center gap-2.5 px-3.5 py-1 bg-slate-900/80 backdrop-blur-xl rounded-lg border border-white/10">
-                            <span className="text-[11px] text-white font-bold tracking-wider font-jakarta">VIX</span>
+                            <span className="text-[12px] text-white font-bold tracking-wider font-jakarta">VIX</span>
                             <span className="text-sm font-bold font-mono tabular-nums" style={{ color: vixStatus.color }}>
                                 {vix > 0 ? vix.toFixed(1) : '—'}
                             </span>
@@ -104,7 +104,7 @@ export function OracleHeader({ }: OracleHeaderProps) {
                                     {vixChg >= 0 ? '+' : ''}{vixChg.toFixed(1)}%
                                 </span>
                             )}
-                            <span className="text-[11px] font-black tracking-wider border-l border-white/15 pl-2 font-jakarta" style={{ color: vixStatus.color }}>
+                            <span className="text-[12px] font-black tracking-wider border-l border-white/15 pl-2 font-jakarta" style={{ color: vixStatus.color }}>
                                 {vixStatus.label}
                             </span>
                         </div>
@@ -114,7 +114,7 @@ export function OracleHeader({ }: OracleHeaderProps) {
                     <div className="relative group">
                         <div className={`absolute -inset-0.5 bg-gradient-to-r ${dxyStatus.glow} rounded-lg blur opacity-60 group-hover:opacity-100 transition`} />
                         <div className="relative flex items-center gap-2.5 px-3.5 py-1 bg-slate-900/80 backdrop-blur-xl rounded-lg border border-white/10">
-                            <span className="text-[11px] text-white font-bold tracking-wider font-jakarta">DXY</span>
+                            <span className="text-[12px] text-white font-bold tracking-wider font-jakarta">DXY</span>
                             <span className="text-sm font-bold font-mono tabular-nums" style={{ color: dxyStatus.color }}>
                                 {dxy > 0 ? dxy.toFixed(1) : '—'}
                             </span>
@@ -123,7 +123,7 @@ export function OracleHeader({ }: OracleHeaderProps) {
                                     {dxyChg >= 0 ? '+' : ''}{dxyChg.toFixed(1)}%
                                 </span>
                             )}
-                            <span className="text-[11px] font-black tracking-wider border-l border-white/15 pl-2 font-jakarta" style={{ color: dxyStatus.color }}>
+                            <span className="text-[12px] font-black tracking-wider border-l border-white/15 pl-2 font-jakarta" style={{ color: dxyStatus.color }}>
                                 {dxyStatus.label}
                             </span>
                         </div>
@@ -133,7 +133,7 @@ export function OracleHeader({ }: OracleHeaderProps) {
                 {/* RIGHT: Guide + VERSION */}
                 <div className="flex items-center gap-3">
                     {/* Guide link hidden for compliance review */}
-                    <div className="text-[11px] text-slate-500 font-black tracking-widest uppercase opacity-70 font-jakarta">
+                    <div className="text-[12px] text-slate-500 font-black tracking-widest uppercase opacity-70 font-jakarta">
                         V8.2 CORE ACTIVE
                     </div>
                 </div>
@@ -172,7 +172,7 @@ export function OracleHeader({ }: OracleHeaderProps) {
                             {vix > 0 ? vix.toFixed(1) : '—'}
                         </span>
                         {vixChg !== 0 && (
-                            <span className={`text-[11px] font-bold font-mono ${vixChg >= 0 ? 'text-rose-400' : 'text-emerald-400'}`}>
+                            <span className={`text-[12px] font-bold font-mono ${vixChg >= 0 ? 'text-rose-400' : 'text-emerald-400'}`}>
                                 {vixChg >= 0 ? '+' : ''}{vixChg.toFixed(1)}%
                             </span>
                         )}
@@ -187,7 +187,7 @@ export function OracleHeader({ }: OracleHeaderProps) {
                             {dxy > 0 ? dxy.toFixed(1) : '—'}
                         </span>
                         {dxyChg !== 0 && (
-                            <span className={`text-[11px] font-bold font-mono ${dxyChg >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                            <span className={`text-[12px] font-bold font-mono ${dxyChg >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
                                 {dxyChg >= 0 ? '+' : ''}{dxyChg.toFixed(1)}%
                             </span>
                         )}
