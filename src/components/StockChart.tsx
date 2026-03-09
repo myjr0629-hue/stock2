@@ -14,6 +14,7 @@ import {
     XAxis,
     YAxis,
     ReferenceLine,
+    ReferenceArea,
     Label,
     Customized,
 } from "recharts";
@@ -41,6 +42,7 @@ interface StockChartProps {
     dayLow?: number;
     hideHeaderExtras?: boolean; // Hide session badge + range in header
     vwap?: number; // [New] VWAP line overlay for 1D chart
+    gammaFlipLevel?: number; // [New] Gamma Flip level — only visible when within chart Y-axis range
 }
 
 // [HOTFIX S-55] etMinute to HH:MM ET formatter
@@ -50,7 +52,7 @@ const formatEtMinute = (etMinute: number): string => {
     return `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')} ET`;
 };
 
-export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d", prevClose, currentPrice, rsi, return3d, alphaLevels, session, dayHigh, dayLow, hideHeaderExtras, vwap }: StockChartProps & { initialRange?: string }) {
+export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d", prevClose, currentPrice, rsi, return3d, alphaLevels, session, dayHigh, dayLow, hideHeaderExtras, vwap, gammaFlipLevel }: StockChartProps & { initialRange?: string }) {
     const td = useTranslations('dashboard');
     // [LIVE-FLASH] Track previous price for directional flash color
     const prevPriceRef = useRef<number | undefined>(undefined);
@@ -583,6 +585,27 @@ export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d
                             <ResponsiveContainer width="99%" height="100%" minWidth={200} minHeight={200}>
                                 <ComposedChart data={processedData} margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
                                     <CartesianGrid strokeDasharray="2 2" vertical={true} horizontal={true} stroke={chartConfig.gridColor} />
+                                    {/* ═══ Session Background Shading (1D only) ═══ */}
+                                    {isIntraday && (
+                                        <>
+                                            {/* PRE-MARKET zone: 04:00 (240) to 09:30 (570) */}
+                                            <ReferenceArea
+                                                x1={240}
+                                                x2={570}
+                                                fill="#fbbf24"
+                                                fillOpacity={0.04}
+                                                ifOverflow="hidden"
+                                            />
+                                            {/* POST-MARKET zone: 16:00 (960) to 20:00 (1199) */}
+                                            <ReferenceArea
+                                                x1={960}
+                                                x2={1199}
+                                                fill="#60a5fa"
+                                                fillOpacity={0.04}
+                                                ifOverflow="hidden"
+                                            />
+                                        </>
+                                    )}
                                     <XAxis
                                         dataKey="xValue"
                                         domain={xDomain}
@@ -692,6 +715,33 @@ export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d
                                                             <rect x={x + 4} y={y - 18} width={72} height={18} rx={3} fill="#052e16" fillOpacity={0.9} stroke="#22c55e" strokeWidth={0.5} />
                                                             <text x={x + 40} y={y - 5} textAnchor="middle" fill="#4ade80" fontSize={12} fontWeight="bold">
                                                                 VWAP {vwap.toFixed(0)}
+                                                            </text>
+                                                        </g>
+                                                    );
+                                                }}
+                                            />
+                                        </ReferenceLine>
+                                    )}
+                                    {/* ═══ Gamma Flip Level line (1D only) — visible only when in Y-axis range ═══ */}
+                                    {isIntraday && gammaFlipLevel !== undefined && gammaFlipLevel > 0 && (
+                                        <ReferenceLine
+                                            y={gammaFlipLevel}
+                                            stroke="#f59e0b"
+                                            strokeDasharray="6 4"
+                                            strokeWidth={1.2}
+                                            strokeOpacity={0.6}
+                                            ifOverflow="hidden"
+                                        >
+                                            <Label
+                                                position="insideBottomLeft"
+                                                content={({ viewBox }: any) => {
+                                                    const { x, y } = viewBox || {};
+                                                    if (x === undefined || y === undefined) return null;
+                                                    return (
+                                                        <g>
+                                                            <rect x={x + 4} y={y + 2} width={52} height={18} rx={3} fill="#451a03" fillOpacity={0.9} stroke="#f59e0b" strokeWidth={0.5} />
+                                                            <text x={x + 30} y={y + 15} textAnchor="middle" fill="#fbbf24" fontSize={12} fontWeight="bold">
+                                                                GF {gammaFlipLevel.toFixed(0)}
                                                             </text>
                                                         </g>
                                                     );
