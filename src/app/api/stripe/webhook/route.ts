@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { stripe, planFromPriceId } from '@/lib/stripe';
+import { getStripe, planFromPriceId } from '@/lib/stripe';
 import { createClient } from '@supabase/supabase-js';
 
 // Supabase service-role — use anon key for now (RLS should allow user_profiles upsert)
@@ -21,7 +21,7 @@ export async function POST(req: NextRequest) {
 
     try {
         if (webhookSecret && signature) {
-            event = stripe.webhooks.constructEvent(body, signature, webhookSecret);
+            event = getStripe().webhooks.constructEvent(body, signature, webhookSecret);
         } else {
             // During initial setup (no webhook secret yet), parse JSON directly
             event = JSON.parse(body);

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { stripe } from '@/lib/stripe';
+import { getStripe } from '@/lib/stripe';
 import { createClient } from '@supabase/supabase-js';
 
 const supabase = createClient(
@@ -37,7 +37,7 @@ export async function POST(req: NextRequest) {
         }
 
         // Find Stripe customer by email
-        const customers = await stripe.customers.list({ email: userEmail, limit: 1 });
+        const customers = await getStripe().customers.list({ email: userEmail, limit: 1 });
         if (customers.data.length === 0) {
             return NextResponse.json({ error: 'No Stripe customer found' }, { status: 404 });
         }
@@ -45,7 +45,7 @@ export async function POST(req: NextRequest) {
         const origin = req.headers.get('origin') || 'https://signumhq.com';
 
         // Create Customer Portal session
-        const portalSession = await stripe.billingPortal.sessions.create({
+        const portalSession = await getStripe().billingPortal.sessions.create({
             customer: customers.data[0].id,
             return_url: `${origin}/${locale}/settings`,
         });
