@@ -66,8 +66,20 @@ function getCountdown(eventDate: Date, now: Date): string {
 function parseEventDate(event: EconomicEvent): Date {
     const [y, m, d] = event.date.split('-').map(Number);
     const [h, min] = event.time.split(':').map(Number);
-    // FMP times are in ET (UTC-4 EDT / UTC-5 EST). Use UTC-5 as baseline.
-    return new Date(Date.UTC(y, m - 1, d, h + 5, min));
+    // Dynamic DST: detect if ET is currently UTC-4 (EDT) or UTC-5 (EST)
+    const etUtcOffset = getETUtcOffset();
+    return new Date(Date.UTC(y, m - 1, d, h + etUtcOffset, min));
+}
+
+// Detect ET UTC offset dynamically (4 for EDT summer, 5 for EST winter)
+function getETUtcOffset(): number {
+    const fmt = new Intl.DateTimeFormat('en-US', {
+        timeZone: 'America/New_York',
+        timeZoneName: 'shortOffset',
+    });
+    const parts = fmt.formatToParts(new Date());
+    const tz = parts.find(p => p.type === 'timeZoneName')?.value || '';
+    return tz.includes('-4') ? 4 : 5;
 }
 
 // Format value with unit
@@ -121,8 +133,11 @@ export function EconomicCalendarWidget({ locale = 'ko', maxEvents = 10 }: Props)
         return () => clearInterval(timer);
     }, []);
 
-    // Timezone offset for display
-    const tzOffset = locale === 'ko' ? 14 : locale === 'ja' ? 14 : 0; // KST/JST = ET + 14h
+    // Timezone offset for display — dynamic DST handling
+    // EDT (summer): ET is UTC-4, KST is UTC+9, diff = 13h
+    // EST (winter): ET is UTC-5, KST is UTC+9, diff = 14h
+    const etUtcOff = getETUtcOffset(); // 4 or 5
+    const tzOffset = locale === 'ko' ? (9 + etUtcOff) : locale === 'ja' ? (9 + etUtcOff) : 0;
     const tzLabel = locale === 'ko' ? 'KST' : locale === 'ja' ? 'JST' : 'ET';
 
     const convertTime = (etTime: string): string => {

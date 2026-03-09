@@ -1,5 +1,5 @@
 import { fetchMassive } from '@/services/massiveClient';
-import { getETNow, getETDateNDaysAgo } from '@/services/timezoneUtils';
+import { getETNow, getETDateNDaysAgo, getETOffset } from '@/services/timezoneUtils';
 import { getFromCache, setInCache } from '@/services/redisClient';
 
 // [V5.5 FIX] Robust Pre-Market fetcher to bypass Polygon's Snapshot bug
@@ -15,9 +15,10 @@ export async function fetchTruePreMarket(symbol: string): Promise<number | null>
     // Scan backwards up to 3 days to find the last valid trading day's PM close
     for (let i = 0; i < 4; i++) {
         const checkDateStr = getETDateNDaysAgo(i);
-        // Using strict ET offset (-05:00) for exact 09:29:59 boundary
-        const startTs = new Date(`${checkDateStr}T04:00:00-05:00`).getTime();
-        const endTs = new Date(`${checkDateStr}T09:29:59-05:00`).getTime();
+        // Dynamic ET offset: -04:00 during EDT (summer), -05:00 during EST (winter)
+        const etOffset = getETOffset(checkDateStr);
+        const startTs = new Date(`${checkDateStr}T04:00:00${etOffset}`).getTime();
+        const endTs = new Date(`${checkDateStr}T09:29:59${etOffset}`).getTime();
 
         try {
             const url = `/v2/aggs/ticker/${symbol}/range/1/minute/${startTs}/${endTs}?adjusted=true&sort=desc&limit=1`;

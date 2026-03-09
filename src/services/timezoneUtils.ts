@@ -118,3 +118,29 @@ export function isMarketOpen(): boolean {
     const et = getETNow();
     return getSessionType(et.hour, et.minute, et.isWeekend) === 'REG';
 }
+
+/**
+ * Get the ET timezone UTC offset string for a specific date.
+ * Returns '-04:00' during EDT (summer) or '-05:00' during EST (winter).
+ * Uses the OS timezone database to auto-detect DST transitions.
+ */
+export function getETOffset(dateStr?: string): string {
+    const d = dateStr ? new Date(`${dateStr}T12:00:00Z`) : new Date();
+    const fmt = new Intl.DateTimeFormat('en-US', {
+        timeZone: 'America/New_York',
+        timeZoneName: 'shortOffset',
+    });
+    const parts = fmt.formatToParts(d);
+    const tzPart = parts.find(p => p.type === 'timeZoneName')?.value || '';
+    // tzPart will be "GMT-4" or "GMT-5"
+    if (tzPart.includes('-4')) return '-04:00';
+    return '-05:00';
+}
+
+/**
+ * Get the numeric ET-to-UTC offset in hours.
+ * Returns 4 during EDT (summer) or 5 during EST (winter).
+ */
+export function getETOffsetHours(): number {
+    return getETOffset().includes('-04') ? 4 : 5;
+}

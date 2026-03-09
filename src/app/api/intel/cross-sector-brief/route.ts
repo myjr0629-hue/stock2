@@ -10,6 +10,7 @@ import { getFromCache, setInCache } from '@/services/redisClient';
 import { GoogleGenAI } from '@google/genai';
 import { YAHOO_CACHE_KEYS, type YahooQuote } from '@/services/yahooFinanceHub';
 import { fetchMassive } from '@/services/massiveClient';
+import { getETOffsetHours } from '@/services/timezoneUtils';
 
 const SECTOR_IDS = [
     'm7', 'physical_ai', 'silicon_core', 'power_matrix', 'bio_pulse',
@@ -74,7 +75,7 @@ function getUpcomingEconomicEvents(count: number): { date: string; time: string;
         .filter(e => {
             const [y, m, d] = e.date.split('-').map(Number);
             const [h, min] = e.time.split(':').map(Number);
-            return new Date(Date.UTC(y, m - 1, d, h + 5, min)).getTime() > now.getTime();
+            return new Date(Date.UTC(y, m - 1, d, h + getETOffsetHours(), min)).getTime() > now.getTime();
         })
         .slice(0, count);
 }
