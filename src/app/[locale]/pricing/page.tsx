@@ -1,10 +1,8 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useCallback } from "react";
 import { useTranslations, useLocale } from "next-intl";
 import { Link } from "@/i18n/routing";
-import { useRouter } from "next/navigation";
-import { initializePaddle, type Paddle } from "@paddle/paddle-js";
 import {
     Check,
     Lock,
@@ -121,53 +119,38 @@ function FaqItem({ q, a }: { q: string; a: string }) {
 // ============================================================
 // MAIN PAGE
 // ============================================================
-// ── Paddle Price ID Map (Sandbox) ──
-const PADDLE_PRICES = {
-    pro: { monthly: 'pri_01kjqs3xr3bfa8q3bm7ns1cszr', yearly: 'pri_01kjqsm5vav5ngr4d5d94q421f' },
-    elite: { monthly: 'pri_01kjqsfax6twsw0b6ztv1qdf1a', yearly: 'pri_01kjqsq43z6qb8rdj0jtbh399t' },
-};
-
 export default function PricingPage() {
     const t = useTranslations("pricing");
     const locale = useLocale();
-    const isKo = locale === 'ko';  // kept for Paddle checkout routing only
     const [isAnnual, setIsAnnual] = useState(false);
-    const [paddle, setPaddle] = useState<Paddle | null>(null);
-    const router = useRouter();
+    const [checkoutLoading, setCheckoutLoading] = useState(false);
 
-    // ── Paddle SDK 초기화 (en/ja only) ──
-    useEffect(() => {
-        if (isKo) return;
-        initializePaddle({
-            environment: 'sandbox',
-            token: 'test_080d8779c0e5d492e287882d3ed',
-        }).then((p) => {
-            if (p) setPaddle(p);
-        });
-    }, [isKo]);
-
-    // ── Paddle 결제 오버레이 열기 ──
-    const openPaddleCheckout = useCallback((plan: 'pro' | 'elite') => {
-        if (!paddle) return;
-        const billing = isAnnual ? 'yearly' : 'monthly';
-        const priceId = PADDLE_PRICES[plan][billing];
-        paddle.Checkout.open({
-            items: [{ priceId, quantity: 1 }],
-            settings: {
-                theme: 'dark',
-                locale: locale === 'ja' ? 'ja' : 'en',
-            },
-        });
-    }, [paddle, isAnnual, locale]);
-
-    // ── 플랜 버튼 클릭 핸들러 (hydration 안전) ──
-    const handlePlanClick = useCallback((plan: 'pro' | 'elite') => {
-        if (isKo) {
-            router.push(`/${locale}/checkout?plan=${plan}&billing=${isAnnual ? 'annual' : 'monthly'}`);
-        } else {
-            openPaddleCheckout(plan);
+    // ── 플랜 버튼 클릭 핸들러 ──
+    // 모든 언어 → Stripe Checkout Session 생성 → 리다이렉트
+    const handlePlanClick = useCallback(async (plan: 'pro' | 'elite') => {
+        setCheckoutLoading(true);
+        try {
+            const res = await fetch('/api/stripe/checkout', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    plan,
+                    billing: isAnnual ? 'yearly' : 'monthly',
+                    locale,
+                }),
+            });
+            const data = await res.json();
+            if (data.url) {
+                window.location.href = data.url;
+            } else {
+                console.error('[Pricing] Checkout error:', data.error);
+                setCheckoutLoading(false);
+            }
+        } catch (err) {
+            console.error('[Pricing] Checkout fetch error:', err);
+            setCheckoutLoading(false);
         }
-    }, [isKo, locale, isAnnual, router, openPaddleCheckout]);
+    }, [locale, isAnnual]);
 
     // USD Prices
     const proPriceMonthly = 69;
