@@ -686,6 +686,20 @@ function MainChartPanel() {
                                                 {score >= 70 ? td('sqzExtreme') : score >= 50 ? td('sqzCaution') : score >= 30 ? td('sqzNormal') : td('sqzStable')}
                                             </span>
                                         </div>
+                                        {/* Squeeze Progress Bar */}
+                                        <div className="mt-2">
+                                            <div className="relative h-1.5 bg-slate-700 rounded-full overflow-hidden">
+                                                <div
+                                                    className={`absolute left-0 top-0 h-full rounded-full transition-all ${risk === 'EXTREME' ? 'bg-rose-400' : risk === 'HIGH' ? 'bg-amber-400' : risk === 'MEDIUM' ? 'bg-yellow-400' : 'bg-emerald-400'}`}
+                                                    style={{ width: `${Math.min(score, 100)}%` }}
+                                                />
+                                            </div>
+                                            <div className="flex justify-between mt-1">
+                                                <span className="text-[12px] text-slate-300">0%</span>
+                                                <span className="text-[12px] text-slate-300">50%</span>
+                                                <span className="text-[12px] text-slate-300">100%</span>
+                                            </div>
+                                        </div>
                                     </>
                                 );
                             })()}
@@ -852,6 +866,22 @@ function MainChartPanel() {
                                         </span>
                                         <span className="text-xs text-white">{dp >= 55 ? td('dpInstitutionalHigh') : dp >= 45 ? td('dpInstitutionalActive') : td('dpNormal')}</span>
                                     </div>
+                                    {/* Dark Pool Level Bar */}
+                                    {dp > 0 && (
+                                        <div className="mt-2">
+                                            <div className="relative h-1.5 bg-slate-700 rounded-full overflow-hidden">
+                                                <div
+                                                    className={`absolute left-0 top-0 h-full rounded-full transition-all ${dp >= 55 ? 'bg-purple-400' : dp >= 45 ? 'bg-purple-300' : 'bg-slate-400'}`}
+                                                    style={{ width: `${Math.min(dp, 100)}%` }}
+                                                />
+                                            </div>
+                                            <div className="flex justify-between mt-1">
+                                                <span className="text-[12px] text-slate-300">0%</span>
+                                                <span className="text-[12px] text-slate-300">45%</span>
+                                                <span className="text-[12px] text-slate-300">100%</span>
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
                             );
                         })()}
@@ -946,9 +976,9 @@ function MainChartPanel() {
                                         />
                                     </div>
                                     <div className="flex justify-between mt-1">
-                                        <span className="text-[12px] text-slate-400">0%</span>
-                                        <span className="text-[12px] text-slate-400">50%</span>
-                                        <span className="text-[12px] text-slate-400">100%</span>
+                                        <span className="text-[12px] text-slate-300">0%</span>
+                                        <span className="text-[12px] text-slate-300">50%</span>
+                                        <span className="text-[12px] text-slate-300">100%</span>
                                     </div>
                                 </div>
                             )}
@@ -1057,6 +1087,15 @@ function MainChartPanel() {
                                     <span className="text-[12px] text-white font-mono block mt-0.5">
                                         {flip > 0 ? `FLIP $${flip.toFixed(0)} (${flipDir}${absDist}%)` : isLong ? td('gexLongGamma') : td('gexShortGamma')}
                                     </span>
+                                    {/* GEX Regime Mini Gauge */}
+                                    <div className="mt-2">
+                                        <div className="relative h-1.5 bg-slate-700 rounded-full overflow-hidden">
+                                            <div
+                                                className={`absolute left-0 top-0 h-full rounded-full transition-all ${regime === 'EXPLOSIVE' ? 'bg-rose-400' : regime === 'FLIP_ZONE' ? 'bg-orange-400' : regime === 'TRANSITION' ? 'bg-amber-400' : 'bg-emerald-400'}`}
+                                                style={{ width: `${pinStrength}%` }}
+                                            />
+                                        </div>
+                                    </div>
                                 </div>
                             );
                         })()}
@@ -1091,6 +1130,28 @@ function MainChartPanel() {
                                     <span className="text-[12px] text-white block mt-0.5">
                                         {dir === 'bullish' ? td('imBullish') : dir === 'bearish' ? td('imBearish') : td('imNeutral')}
                                     </span>
+                                    {/* Implied Move Range Bar */}
+                                    {im > 0 && (
+                                        <div className="mt-2">
+                                            <div className="relative h-1.5 bg-slate-700 rounded-full overflow-hidden">
+                                                {/* Center point */}
+                                                <div className="absolute left-1/2 top-0 w-px h-full bg-slate-500" />
+                                                {/* Move range spread */}
+                                                <div
+                                                    className={`absolute top-0 h-full rounded-full ${im >= 5 ? 'bg-cyan-400' : im >= 3 ? 'bg-cyan-400/70' : 'bg-cyan-400/40'}`}
+                                                    style={{
+                                                        left: `${50 - Math.min(im * 5, 45)}%`,
+                                                        width: `${Math.min(im * 10, 90)}%`
+                                                    }}
+                                                />
+                                            </div>
+                                            <div className="flex justify-between mt-1">
+                                                <span className="text-[12px] text-slate-300">-{im}%</span>
+                                                <span className="text-[12px] text-slate-300">0</span>
+                                                <span className="text-[12px] text-slate-300">+{im}%</span>
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
                             );
                         })()}
