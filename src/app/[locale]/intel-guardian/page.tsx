@@ -621,7 +621,7 @@ export default function GuardianPage() {
                                                 <div className="mt-auto pt-3 border-t border-slate-800 grid grid-cols-3 gap-3">
                                                     {/* ROTATION - V6.0 Conviction Bar */}
                                                     <div>
-                                                        <div className="text-[11px] text-white font-bold mb-0.5 tracking-wider font-jakarta">ROTATION</div>
+                                                        <div className="text-[12px] text-white font-bold mb-0.5 tracking-wider font-jakarta">ROTATION</div>
                                                         <div className="flex items-center gap-1.5">
                                                             <div className="flex-1 h-1.5 bg-slate-800 rounded-full overflow-hidden">
                                                                 <div
@@ -631,34 +631,54 @@ export default function GuardianPage() {
                                                                     style={{ width: `${Math.min(100, data?.rotationIntensity?.score || 50)}%` }}
                                                                 />
                                                             </div>
-                                                            <span className="text-[11px] font-mono font-bold text-slate-300">
+                                                            <span className="text-[12px] font-mono font-bold text-slate-300">
                                                                 {(data?.rotationIntensity?.score || 50).toFixed(0)}%
                                                             </span>
                                                         </div>
-                                                        <div className={`text-[11px] font-bold mt-0.5 tracking-wide ${data?.rotationIntensity?.direction === 'RISK_ON' ? 'text-emerald-400' :
-                                                            data?.rotationIntensity?.direction === 'RISK_OFF' ? 'text-rose-400' : 'text-slate-400'
+                                                        <div className={`text-[12px] font-bold mt-0.5 tracking-wide ${data?.rotationIntensity?.direction === 'RISK_ON' ? 'text-emerald-400' :
+                                                            data?.rotationIntensity?.direction === 'RISK_OFF' ? 'text-rose-400' : 'text-slate-300'
                                                             }`}>
                                                             {data?.rotationIntensity?.direction || 'NEUTRAL'} · {data?.rotationIntensity?.conviction || 'LOW'}
                                                         </div>
                                                     </div>
 
                                                     <div>
-                                                        <div className="text-[11px] text-white font-bold mb-0.5 tracking-wider font-jakarta">MOMENTUM</div>
-                                                        <div className="text-sm font-mono font-bold text-emerald-400">
-                                                            {((data?.rlsi.components.momentumRaw || 1) - 1) * 100 > 0 ? "+" : ""}
-                                                            {(((data?.rlsi.components.momentumRaw || 1) - 1) * 100).toFixed(1)}%
-                                                        </div>
-                                                        <div className="text-[11px] text-white font-bold mt-1 tracking-wide opacity-90 font-jakarta">3-DAY VELOCITY</div>
+                                                        <div className="text-[12px] text-white font-bold mb-0.5 tracking-wider font-jakarta">MOMENTUM</div>
+                                                        {(() => {
+                                                            const momVal = ((data?.rlsi.components.momentumRaw || 1) - 1) * 100;
+                                                            const momColor = momVal > 0 ? 'text-emerald-400' : momVal < 0 ? 'text-rose-400' : 'text-white';
+                                                            return (
+                                                                <div className={`text-sm font-mono font-bold ${momColor}`}>
+                                                                    {momVal > 0 ? '▲ +' : momVal < 0 ? '▼ ' : ''}{momVal.toFixed(1)}%
+                                                                </div>
+                                                            );
+                                                        })()}
+                                                        <div className="text-[12px] text-white font-bold mt-1 tracking-wide opacity-90 font-jakarta">3-DAY VELOCITY</div>
                                                     </div>
                                                     <div>
-                                                        <div className="text-[11px] text-white font-bold mb-0.5 tracking-wider font-jakarta">TARGET LOCK</div>
+                                                        <div className="text-[12px] text-white font-bold mb-0.5 tracking-wider font-jakarta">TARGET LOCK</div>
                                                         <div className={`text-sm font-mono font-bold ${data?.tripleA?.isTargetLock ? "text-amber-400 animate-pulse" : "text-white"}`}>
                                                             {data?.tripleA?.isTargetLock ? "LOCKED" : "SEARCHING"}
                                                         </div>
-                                                        <div className="text-[11px] text-white font-bold mt-1 tracking-wide opacity-90 font-jakarta">
+                                                        {/* Triple-A Checklist Dots */}
+                                                        <div className="flex items-center gap-1.5 mt-1.5">
+                                                            <div className="flex items-center gap-1">
+                                                                <div className={`w-2 h-2 rounded-full ${data?.tripleA?.alignment ? 'bg-emerald-400' : 'bg-slate-600'}`} />
+                                                                <span className="text-[12px] text-slate-300 font-jakarta">A</span>
+                                                            </div>
+                                                            <div className="flex items-center gap-1">
+                                                                <div className={`w-2 h-2 rounded-full ${data?.tripleA?.acceleration ? 'bg-emerald-400' : 'bg-slate-600'}`} />
+                                                                <span className="text-[12px] text-slate-300 font-jakarta">A</span>
+                                                            </div>
+                                                            <div className="flex items-center gap-1">
+                                                                <div className={`w-2 h-2 rounded-full ${data?.tripleA?.accumulation ? 'bg-emerald-400' : 'bg-slate-600'}`} />
+                                                                <span className="text-[12px] text-slate-300 font-jakarta">A</span>
+                                                            </div>
+                                                        </div>
+                                                        <div className="text-[12px] text-white font-bold mt-1 tracking-wide opacity-90 font-jakarta">
                                                             {data?.tripleA?.regime || "NEUTRAL"} REGIME
                                                         </div>
-                                                        <div className={`text-[11px] font-medium mt-0.5 tracking-tight ${data?.tripleA?.regime === 'BULL' ? "text-emerald-400" :
+                                                        <div className={`text-[12px] font-medium mt-0.5 tracking-tight ${data?.tripleA?.regime === 'BULL' ? "text-emerald-400" :
                                                             data?.tripleA?.regime === 'BEAR' ? "text-rose-400" : "text-white"
                                                             }`}>
                                                             {data?.tripleA?.regime === 'BULL' ? t('bullRegime') :
@@ -842,9 +862,41 @@ export default function GuardianPage() {
                                                     </div>
                                                 </div>
                                             ) : (
-                                                <div className="h-full flex flex-col items-center justify-center text-xs text-slate-600">
-                                                    <Layers className="w-8 h-8 opacity-20 mb-2" />
-                                                    SELECT A SECTOR ON MAP
+                                                <div className="h-full flex flex-col">
+                                                    {/* Top Movers auto-display when no sector selected */}
+                                                    {data?.sectors && data.sectors.length > 0 ? (() => {
+                                                        const sorted = [...data.sectors].sort((a, b) => Math.abs(b.change) - Math.abs(a.change)).slice(0, 5);
+                                                        return (
+                                                            <>
+                                                                <div className="flex items-center gap-2 mb-3">
+                                                                    <Activity className="w-3.5 h-3.5 text-cyan-400" />
+                                                                    <span className="text-[12px] font-bold text-slate-300 uppercase tracking-widest font-jakarta">Today's Top Movers</span>
+                                                                </div>
+                                                                <div className="space-y-1.5">
+                                                                    {sorted.map(s => (
+                                                                        <button
+                                                                            key={s.id}
+                                                                            onClick={() => setSelectedSectorId(s.id)}
+                                                                            className="w-full flex items-center justify-between py-2 px-3 rounded-lg hover:bg-slate-800/50 border border-transparent hover:border-slate-700/50 transition-all text-left group"
+                                                                        >
+                                                                            <span className="text-[13px] font-medium text-slate-200 group-hover:text-cyan-300 transition-colors">{getSectorName(s.name, locale)}</span>
+                                                                            <span className={`text-[13px] font-mono font-bold ${s.change >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                                                                {s.change > 0 ? '+' : ''}{s.change.toFixed(2)}%
+                                                                            </span>
+                                                                        </button>
+                                                                    ))}
+                                                                </div>
+                                                                <div className="mt-3 text-[12px] text-slate-300 text-center">
+                                                                    ↑ {locale === 'ko' ? '섹터를 선택하면 상세 분석을 볼 수 있습니다' : locale === 'ja' ? 'セクターを選択して詳細分析を表示' : 'Select a sector for detailed analysis'}
+                                                                </div>
+                                                            </>
+                                                        );
+                                                    })() : (
+                                                        <div className="h-full flex flex-col items-center justify-center text-[12px] text-slate-300">
+                                                            <Layers className="w-8 h-8 opacity-20 mb-2" />
+                                                            SELECT A SECTOR ON MAP
+                                                        </div>
+                                                    )}
                                                 </div>
                                             )}
                                         </div>
