@@ -242,9 +242,9 @@
     "yieldFlattening": "Flattening",
     "yieldNormal": "Normal",
     "stanceNeutral": "Neutral",
-    "bullMomentum": "Upward Momentum",
-    "bearPressure": "Downward Pressure",
-    "mixedSignal": "Mixed"
+    "bullMomentum": "BULLISH",
+    "bearPressure": "BEARISH",
+    "mixedSignal": "MIXED"
   },
   "command": {
     "title": "COMMAND",

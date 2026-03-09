@@ -220,13 +220,15 @@ export function DualGauge({ priceValue, flowValue, size = 'xl' }: DualGaugeProps
             </div>
 
             {/* Sentiment indicator */}
-            <span className="text-[12px] font-bold text-white/50 uppercase tracking-wider flex items-center gap-1.5 font-jakarta">
-                <span
-                    className="inline-block w-1.5 h-1.5 rounded-full"
-                    style={{ backgroundColor: sentimentColor, boxShadow: `0 0 6px ${sentimentColor}` }}
-                />
-                {sentimentText}
-            </span>
+            <div className="text-center">
+                <span className="text-[12px] font-bold text-white/50 uppercase tracking-wider inline-flex items-center gap-1.5 font-jakarta whitespace-nowrap">
+                    <span
+                        className="w-1.5 h-1.5 rounded-full flex-shrink-0"
+                        style={{ backgroundColor: sentimentColor, boxShadow: `0 0 6px ${sentimentColor}` }}
+                    />
+                    {sentimentText}
+                </span>
+            </div>
         </div>
     );
 }
