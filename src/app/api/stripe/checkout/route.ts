@@ -49,11 +49,14 @@ export async function POST(req: NextRequest) {
         // Build Checkout Session params
         const origin = req.headers.get('origin') || 'https://signumhq.com';
 
+        const stripeLocale = locale === 'ko' ? 'ko' : locale === 'ja' ? 'ja' : 'en';
+
         const sessionParams: Record<string, any> = {
             mode: 'subscription',
             line_items: [{ price: priceId, quantity: 1 }],
             success_url: `${origin}/${locale}/pricing?session_id={CHECKOUT_SESSION_ID}&success=true`,
             cancel_url: `${origin}/${locale}/pricing`,
+            locale: stripeLocale,
             metadata: {
                 plan,
                 billing,
