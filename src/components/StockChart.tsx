@@ -19,7 +19,7 @@ import {
 } from "recharts";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Loader2, TrendingUp, AlertCircle } from "lucide-react";
+import { Loader2, TrendingUp, AlertCircle, BarChart2 } from "lucide-react";
 
 interface AlphaLevels {
     callWall?: number;
@@ -40,6 +40,7 @@ interface StockChartProps {
     dayHigh?: number;
     dayLow?: number;
     hideHeaderExtras?: boolean; // Hide session badge + range in header
+    vwap?: number; // [New] VWAP line overlay for 1D chart
 }
 
 // [HOTFIX S-55] etMinute to HH:MM ET formatter
@@ -49,7 +50,7 @@ const formatEtMinute = (etMinute: number): string => {
     return `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')} ET`;
 };
 
-export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d", prevClose, currentPrice, rsi, return3d, alphaLevels, session, dayHigh, dayLow, hideHeaderExtras }: StockChartProps & { initialRange?: string }) {
+export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d", prevClose, currentPrice, rsi, return3d, alphaLevels, session, dayHigh, dayLow, hideHeaderExtras, vwap }: StockChartProps & { initialRange?: string }) {
     const td = useTranslations('dashboard');
     // [LIVE-FLASH] Track previous price for directional flash color
     const prevPriceRef = useRef<number | undefined>(undefined);
@@ -78,6 +79,7 @@ export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d
     );
     const [range, setRange] = useState(initialRange);
     const [baseDateET, setBaseDateET] = useState<string>("");
+    const [showSMA, setShowSMA] = useState(false);
     // [S-76] Mark ready immediately if SSR data is complete (including 1D with etMinute)
     const [dataReady, setDataReady] = useState(
         ssrHasCompleteData || (initialRange !== '1d' && data && data.length > 0)
@@ -256,6 +258,24 @@ export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d
         processedData.forEach((item: any, idx: number) => {
             item.xValue = idx;
         });
+    }
+
+    // ═══ SMA 50/200 Calculation (non-1D only) ═══
+    const hasSMAData = !isIntraday && showSMA && processedData.length > 0;
+    if (hasSMAData) {
+        const closes = processedData.map((d: any) => d.close);
+        for (let i = 0; i < closes.length; i++) {
+            // SMA 50
+            if (i >= 49) {
+                const slice50 = closes.slice(i - 49, i + 1);
+                processedData[i].sma50 = slice50.reduce((a: number, b: number) => a + b, 0) / 50;
+            }
+            // SMA 200
+            if (i >= 199) {
+                const slice200 = closes.slice(i - 199, i + 1);
+                processedData[i].sma200 = slice200.reduce((a: number, b: number) => a + b, 0) / 200;
+            }
+        }
     }
 
     // [LIVE-LINK] Append currentPrice as the last data point so chart line connects to live price
@@ -506,26 +526,54 @@ export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d
                     })()}
                 </CardTitle>
 
-                <Tabs value={range} onValueChange={handleRangeChange}>
-                    <TabsList className="h-8 bg-slate-800 p-1 gap-1 rounded-md">
-                        {[
-                            { v: "1d", l: "1D" },
-                            { v: "1w", l: "5D" },
-                            { v: "1mo", l: "1M" },
-                            { v: "6m", l: "6M" },
-                            { v: "1y", l: "1Y" },
-                            { v: "max", l: "All" }
-                        ].map((r) => (
-                            <TabsTrigger
-                                key={r.v}
-                                value={r.v}
-                                className="h-6 px-3 text-xs font-medium rounded-sm text-slate-400 data-[state=active]:bg-slate-700 data-[state=active]:text-white transition-all"
-                            >
-                                {r.l}
-                            </TabsTrigger>
-                        ))}
-                    </TabsList>
-                </Tabs>
+                <div className="flex items-center gap-2">
+                    {/* SMA Toggle — only for non-1D ranges */}
+                    {!isIntraday && (
+                        <button
+                            onClick={() => setShowSMA(prev => !prev)}
+                            className={`h-8 px-2.5 rounded-md text-xs font-bold flex items-center gap-1.5 transition-all border ${showSMA
+                                ? 'bg-cyan-500/15 border-cyan-500/40 text-cyan-400'
+                                : 'bg-slate-800 border-slate-700 text-slate-400 hover:text-slate-300 hover:border-slate-600'
+                                }`}
+                            title="SMA 50/200 Overlay"
+                        >
+                            <BarChart2 className="w-3.5 h-3.5" />
+                            SMA
+                            {showSMA && (
+                                <span className="flex items-center gap-1.5 ml-0.5">
+                                    <span className="flex items-center gap-0.5">
+                                        <span className="w-3 h-px bg-cyan-400 inline-block" style={{ borderTop: '2px dashed #22d3ee' }} />
+                                        <span className="text-[10px] text-cyan-400">50</span>
+                                    </span>
+                                    <span className="flex items-center gap-0.5">
+                                        <span className="w-3 h-px inline-block" style={{ borderTop: '2px dashed #f97316' }} />
+                                        <span className="text-[10px] text-orange-400">200</span>
+                                    </span>
+                                </span>
+                            )}
+                        </button>
+                    )}
+                    <Tabs value={range} onValueChange={handleRangeChange}>
+                        <TabsList className="h-8 bg-slate-800 p-1 gap-1 rounded-md">
+                            {[
+                                { v: "1d", l: "1D" },
+                                { v: "1w", l: "5D" },
+                                { v: "1mo", l: "1M" },
+                                { v: "6m", l: "6M" },
+                                { v: "1y", l: "1Y" },
+                                { v: "max", l: "All" }
+                            ].map((r) => (
+                                <TabsTrigger
+                                    key={r.v}
+                                    value={r.v}
+                                    className="h-6 px-3 text-xs font-medium rounded-sm text-slate-400 data-[state=active]:bg-slate-700 data-[state=active]:text-white transition-all"
+                                >
+                                    {r.l}
+                                </TabsTrigger>
+                            ))}
+                        </TabsList>
+                    </Tabs>
+                </div>
             </CardHeader>
             <CardContent className="pt-6 flex-1 flex flex-col min-h-0">
                 {/* [P0-2] Key-based remount for stability */}
@@ -609,6 +657,8 @@ export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d
                                                 if (v >= 1000) return [`${(v / 1000).toFixed(0)}K`, 'Vol'];
                                                 return [v.toString(), 'Vol'];
                                             }
+                                            if (name === 'SMA 50') return [`$${(Number(value) || 0).toFixed(2)}`, 'SMA 50'];
+                                            if (name === 'SMA 200') return [`$${(Number(value) || 0).toFixed(2)}`, 'SMA 200'];
                                             return [`$${(Number(value) || 0).toFixed(2)}`, 'Price'];
                                         }}
                                     />
@@ -621,6 +671,33 @@ export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d
                                             strokeWidth={1.5}
                                             ifOverflow="extendDomain"
                                         />
+                                    )}
+                                    {/* ═══ VWAP line (1D only) — institutional reference ═══ */}
+                                    {isIntraday && vwap !== undefined && vwap > 0 && (
+                                        <ReferenceLine
+                                            y={vwap}
+                                            stroke="#22c55e"
+                                            strokeDasharray="4 4"
+                                            strokeWidth={1.2}
+                                            strokeOpacity={0.7}
+                                            ifOverflow="extendDomain"
+                                        >
+                                            <Label
+                                                position="insideTopLeft"
+                                                content={({ viewBox }: any) => {
+                                                    const { x, y } = viewBox || {};
+                                                    if (x === undefined || y === undefined) return null;
+                                                    return (
+                                                        <g>
+                                                            <rect x={x + 4} y={y - 18} width={72} height={18} rx={3} fill="#052e16" fillOpacity={0.9} stroke="#22c55e" strokeWidth={0.5} />
+                                                            <text x={x + 40} y={y - 5} textAnchor="middle" fill="#4ade80" fontSize={12} fontWeight="bold">
+                                                                VWAP {vwap.toFixed(0)}
+                                                            </text>
+                                                        </g>
+                                                    );
+                                                }}
+                                            />
+                                        </ReferenceLine>
                                     )}
                                     {/* ═══ LAYER 2: Alpha level lines + labels ═══ */}
                                     {alphaLevels?.callWall && (
@@ -769,6 +846,35 @@ export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d
                                         activeDot={false}
                                         tooltipType="none"
                                     />
+                                    {/* ═══ SMA Lines Overlay ═══ */}
+                                    {hasSMAData && processedData.some((d: any) => d.sma50) && (
+                                        <Line
+                                            type="monotone"
+                                            dataKey="sma50"
+                                            name="SMA 50"
+                                            stroke="#22d3ee"
+                                            strokeWidth={1.2}
+                                            strokeDasharray="6 3"
+                                            dot={false}
+                                            activeDot={false}
+                                            isAnimationActive={false}
+                                            connectNulls={true}
+                                        />
+                                    )}
+                                    {hasSMAData && processedData.some((d: any) => d.sma200) && (
+                                        <Line
+                                            type="monotone"
+                                            dataKey="sma200"
+                                            name="SMA 200"
+                                            stroke="#f97316"
+                                            strokeWidth={1.2}
+                                            strokeDasharray="6 3"
+                                            dot={false}
+                                            activeDot={false}
+                                            isAnimationActive={false}
+                                            connectNulls={true}
+                                        />
+                                    )}
                                     <Line
                                         type="monotone"
                                         dataKey="close"

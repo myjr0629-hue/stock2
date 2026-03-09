@@ -1447,6 +1447,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                                 }
                                                 rsi={initialStockData.rsi}
                                                 return3d={initialStockData.return3d}
+                                                vwap={liveQuote?.vwap || initialStockData?.vwap}
                                             />
                                         ) : (
                                             /* Premium Chart Skeleton — shown while chart data loads */
