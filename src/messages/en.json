@@ -2001,6 +2001,27 @@
       "neutralNearMaxPain": "Price near Max Pain {mp}, equilibrium zone. Call Wall {cw} · Put Floor {pf} levels confirmed.",
       "neutralMixed": "Mixed bull/bear factors observed. Call Wall {cw} · Put Floor {pf} key levels monitoring."
     },
+    "scenario": {
+      "breakAbove": "→ Short gamma acceleration environment observed above this level",
+      "breakBelow": "→ Long gamma support weakening environment observed below this level",
+      "pinning": "→ Max Pain convergence zone: expiry-driven volatility compression observed",
+      "gammaFlipAbove": "→ Above Gamma Flip: dealer long gamma hedging suppresses volatility",
+      "gammaFlipBelow": "→ Below Gamma Flip: dealer short gamma hedging amplifies volatility"
+    },
+    "divergence": {
+      "flowVsPrice": {
+        "bullFlow": "⚡ Divergence: Call premium inflow dominant while price declining — flow vs price mismatch",
+        "bearFlow": "⚡ Divergence: Put premium inflow dominant while price rising — flow vs price mismatch"
+      },
+      "dpVsFlow": {
+        "dpBuy": "⚡ Divergence: Dark Pool buying observed while options premium net selling — institutional split",
+        "dpSell": "⚡ Divergence: Dark Pool selling observed while options premium net buying — institutional split"
+      },
+      "gexVsSma": {
+        "longGammaDead": "⚡ Divergence: Long Gamma (stability) vs Dead Cross (bearish trend) — structure vs trend mismatch",
+        "shortGammaGolden": "⚡ Divergence: Short Gamma (volatility) vs Golden Cross (bullish trend) — amplified movement zone"
+      }
+    },
     "keyMetrics": "Key Metrics",
     "sentimentNeutral": "Neutral",
     "sentimentPositive": "Positive",

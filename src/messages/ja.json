@@ -2001,6 +2001,27 @@
       "neutralNearMaxPain": "現在価 Max Pain {mp} 付近、均衡区間。Call Wall {cw} · Put Floor {pf} レベル確認。",
       "neutralMixed": "上昇・下落要因混在。Call Wall {cw} · Put Floor {pf} 主要レベルモニタリング。"
     },
+    "scenario": {
+      "breakAbove": "→ このレベル突破時、ショートガンマ加速環境が観察される",
+      "breakBelow": "→ このレベル下抜け時、ロングガンマサポート弱体化環境が観察される",
+      "pinning": "→ Max Pain収束ゾーン：期限主導のボラティリティ圧縮が観察される",
+      "gammaFlipAbove": "→ ガンマフリップ上方：ディーラーのロングガンマヘッジがボラティリティを抑制",
+      "gammaFlipBelow": "→ ガンマフリップ下方：ディーラーのショートガンマヘッジがボラティリティを増幅"
+    },
+    "divergence": {
+      "flowVsPrice": {
+        "bullFlow": "⚡ 乖離：コールプレミアム流入優勢 vs 価格下落 — フロー・価格不一致",
+        "bearFlow": "⚡ 乖離：プットプレミアム流入優勢 vs 価格上昇 — フロー・価格不一致"
+      },
+      "dpVsFlow": {
+        "dpBuy": "⚡ 乖離：ダークプール買い観察 vs オプションプレミアム純売り — 機関分裂",
+        "dpSell": "⚡ 乖離：ダークプール売り観察 vs オプションプレミアム純買い — 機関分裂"
+      },
+      "gexVsSma": {
+        "longGammaDead": "⚡ 乖離：ロングガンマ(安定) vs デッドクロス(下落トレンド) — 構造・トレンド不一致",
+        "shortGammaGolden": "⚡ 乖離：ショートガンマ(変動) vs ゴールデンクロス(上昇トレンド) — 変動増幅ゾーン"
+      }
+    },
     "keyMetrics": "主要指標",
     "sentimentNeutral": "ニュートラル",
     "sentimentPositive": "良好",

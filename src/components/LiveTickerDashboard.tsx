@@ -223,6 +223,60 @@ const DecisionGate = ({ ticker, displayPrice, session, structure, krNews, smaDat
         insights.push({ text: td('insight.zeroDteHigh'), type: 'neutral' });
     }
 
+    // === Convergence / Divergence Count ===
+    const bullCount = insights.filter(i => i.type === 'bull').length;
+    const bearCount = insights.filter(i => i.type === 'bear').length;
+    const totalSignals = insights.filter(i => i.type !== 'neutral').length;
+    const convergenceLabel = totalSignals > 0
+        ? (bullCount > bearCount ? `${bullCount}/${totalSignals}` : `${bearCount}/${totalSignals}`)
+        : '—';
+    const isConvergence = totalSignals >= 3 && (bullCount >= 3 || bearCount >= 3);
+
+    // === IF→THEN Conditional Scenarios (compliance-safe) ===
+    const scenarios: string[] = [];
+    const gammaFlip = structure?.gammaFlipLevel || 0;
+    if (isREG && callWall > 0 && putFloor > 0 && maxPain > 0) {
+        const cwDist = callWall > 0 ? ((callWall - displayPrice) / displayPrice * 100).toFixed(1) : '0';
+        const pfDist = putFloor > 0 ? ((displayPrice - putFloor) / displayPrice * 100).toFixed(1) : '0';
+
+        if (displayPrice > maxPain && netGex > 0) {
+            scenarios.push(`IF → Call Wall $${callWall} (+${cwDist}%) ${td('scenario.breakAbove')}`);
+        }
+        if (displayPrice < maxPain && netGex < 0) {
+            scenarios.push(`IF → Put Floor $${putFloor} (-${pfDist}%) ${td('scenario.breakBelow')}`);
+        }
+        if (Math.abs(displayPrice - maxPain) / maxPain < 0.015) {
+            scenarios.push(`IF → Max Pain $${maxPain} ${td('scenario.pinning')}`);
+        }
+        if (gammaFlip > 0 && Math.abs(displayPrice - gammaFlip) / displayPrice < 0.03) {
+            scenarios.push(`IF → GF $${gammaFlip} ${displayPrice > gammaFlip ? td('scenario.gammaFlipAbove') : td('scenario.gammaFlipBelow')}`);
+        }
+    }
+
+    // === Cross-Indicator Divergence Warnings ===
+    const divergences: string[] = [];
+    if (isREG) {
+        // Flow vs Price divergence
+        if (netPremium > 500000 && displayPrice < (liveQuote?.prevClose || displayPrice)) {
+            divergences.push(td('divergence.flowVsPrice.bullFlow'));
+        } else if (netPremium < -500000 && displayPrice > (liveQuote?.prevClose || displayPrice)) {
+            divergences.push(td('divergence.flowVsPrice.bearFlow'));
+        }
+        // Dark Pool vs Flow divergence
+        const dpBuyPct = institutionalData?.darkPool?.buyPct || 0;
+        if (dpBuyPct > 55 && netPremium < -200000) {
+            divergences.push(td('divergence.dpVsFlow.dpBuy'));
+        } else if (dpBuyPct < 45 && dpBuyPct > 0 && netPremium > 200000) {
+            divergences.push(td('divergence.dpVsFlow.dpSell'));
+        }
+        // GEX vs SMA divergence
+        if (netGex > 0 && smaData?.cross === 'DEAD') {
+            divergences.push(td('divergence.gexVsSma.longGammaDead'));
+        } else if (netGex < 0 && smaData?.cross === 'GOLDEN') {
+            divergences.push(td('divergence.gexVsSma.shortGammaGolden'));
+        }
+    }
+
     // === Verdict ===
     const diff = bullScore - bearScore;
     let verdict: 'BULLISH' | 'BEARISH' | 'NEUTRAL' | 'CAUTION' = 'NEUTRAL';
@@ -309,6 +363,11 @@ const DecisionGate = ({ ticker, displayPrice, session, structure, krNews, smaDat
                 <span className={`text-[12px] font-medium uppercase tracking-wider ${colors.text}`}>
                     {verdict}
                 </span>
+                {isConvergence && (
+                    <span className={`text-[12px] font-black px-1.5 py-0.5 rounded ${verdict === 'BULLISH' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : verdict === 'BEARISH' ? 'bg-rose-500/20 text-rose-400 border border-rose-500/30' : 'bg-slate-700/50 text-slate-400 border border-slate-600/30'}`}>
+                        {convergenceLabel}
+                    </span>
+                )}
             </div>
 
             {/* Main Content */}
@@ -323,11 +382,35 @@ const DecisionGate = ({ ticker, displayPrice, session, structure, krNews, smaDat
                     </p>
                 </div>
 
+                {/* IF→THEN Scenarios */}
+                {scenarios.length > 0 && (
+                    <div className="space-y-1">
+                        {scenarios.map((s, i) => (
+                            <div key={i} className="flex items-start gap-1.5 text-[12px] text-amber-300/90 leading-snug">
+                                <span className="text-amber-500 mt-0.5 shrink-0">▸</span>
+                                <span>{s}</span>
+                            </div>
+                        ))}
+                    </div>
+                )}
+
+                {/* Divergence Warnings */}
+                {divergences.length > 0 && (
+                    <div className="space-y-1">
+                        {divergences.map((d, i) => (
+                            <div key={i} className="flex items-start gap-1.5 text-[12px] text-rose-300/80 leading-snug">
+                                <span className="text-rose-500 mt-0.5 shrink-0">⚠</span>
+                                <span>{d}</span>
+                            </div>
+                        ))}
+                    </div>
+                )}
+
                 {/* Key Insights Grid */}
                 <div className="space-y-2">
                     <div className="text-[12px] font-bold text-slate-300 uppercase tracking-wider">{td('keyMetrics')}</div>
                     <div className="flex flex-wrap gap-1.5">
-                        {insights.slice(0, 6).map((item, i) => (
+                        {insights.slice(0, 8).map((item, i) => (
                             <span
                                 key={i}
                                 className={`text-[12px] font-bold px-2 py-1 rounded-lg ${item.type === 'bull' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' :

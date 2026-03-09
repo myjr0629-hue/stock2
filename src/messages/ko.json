@@ -2362,6 +2362,27 @@
       "neutralNearMaxPain": "현재가 Max Pain {mp} 근접, 균형 구간. Call Wall {cw} · Put Floor {pf} 레벨 확인.",
       "neutralMixed": "상승·하락 요인 혼재. Call Wall {cw} · Put Floor {pf} 주요 레벨 모니터링."
     },
+    "scenario": {
+      "breakAbove": "→ 이 레벨 상향 돌파 시 숏 감마 가속 환경 관찰됨",
+      "breakBelow": "→ 이 레벨 하향 이탈 시 롱 감마 지지 약화 환경 관찰됨",
+      "pinning": "→ Max Pain 수렴 구간: 만기 기반 변동 압축 환경 관찰됨",
+      "gammaFlipAbove": "→ 감마플립 상방: 딜러 롱 감마 헤징이 변동성 억제",
+      "gammaFlipBelow": "→ 감마플립 하방: 딜러 숏 감마 헤징이 변동성 증폭"
+    },
+    "divergence": {
+      "flowVsPrice": {
+        "bullFlow": "⚡ 괴리: 콜 프리미엄 순유입 우세 vs 가격 하락 — 플로우·가격 불일치",
+        "bearFlow": "⚡ 괴리: 풋 프리미엄 순유입 우세 vs 가격 상승 — 플로우·가격 불일치"
+      },
+      "dpVsFlow": {
+        "dpBuy": "⚡ 괴리: 다크풀 매수 관찰 vs 옵션 프리미엄 순매도 — 기관 분열",
+        "dpSell": "⚡ 괴리: 다크풀 매도 관찰 vs 옵션 프리미엄 순매수 — 기관 분열"
+      },
+      "gexVsSma": {
+        "longGammaDead": "⚡ 괴리: 롱 감마(안정) vs 데드 크로스(하락 추세) — 구조·추세 불일치",
+        "shortGammaGolden": "⚡ 괴리: 숏 감마(변동) vs 골든 크로스(상승 추세) — 변동 증폭 구간"
+      }
+    },
     "keyMetrics": "핵심 지표",
     "sentimentNeutral": "중립",
     "sentimentPositive": "양호",
