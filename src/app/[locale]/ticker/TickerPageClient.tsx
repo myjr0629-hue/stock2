@@ -43,14 +43,16 @@ interface TickerPageClientProps {
     range: string;
     initialStockData: any;
     initialUnifiedData?: any;
+    initialChartData?: any;
 }
 
-export function TickerPageClient({ ticker, range, initialStockData, initialUnifiedData }: TickerPageClientProps) {
+export function TickerPageClient({ ticker, range, initialStockData, initialUnifiedData, initialChartData }: TickerPageClientProps) {
     return (
         <LiveTickerDashboard
             ticker={ticker}
             initialStockData={initialStockData}
             initialUnifiedData={initialUnifiedData}
+            initialChartData={initialChartData}
             initialNews={[]}
             range={range}
             buildId="csr-ssr-hybrid"

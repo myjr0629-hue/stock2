@@ -6,6 +6,7 @@ import { TickerPageClient } from "./TickerPageClient";
 import { TerminalGateWrapper } from '@/components/gate/TerminalGateWrapper';
 import { getFromCache } from '@/services/redisClient';
 import { getStockDataLight } from '@/services/marketDataLight';
+import { getStockChartData } from '@/services/stockApi';
 
 interface Props {
     params: Promise<{ locale: string }>;
@@ -33,9 +34,10 @@ export default async function TickerPage({ params, searchParams }: Props) {
     }
 
     // [SSR HYDRATION] Pre-fetch stock data and unified cache to eliminate skeleton
-    const [initialStockData, initialUnifiedData] = await Promise.all([
+    const [initialStockData, initialUnifiedData, initialChartData] = await Promise.all([
         getStockDataLight(ticker).catch(() => null),
-        getFromCache<any>(`cache:command:unified:${ticker}:${locale}`).catch(() => null)
+        getFromCache<any>(`cache:command:unified:${ticker}:${locale}`).catch(() => null),
+        getStockChartData(ticker, (range || '1d') as any).catch(() => null)
     ]);
 
     // Construct a safe minimal version if stock data fails
@@ -58,6 +60,7 @@ export default async function TickerPage({ params, searchParams }: Props) {
                         range={range}
                         initialStockData={safeStockData}
                         initialUnifiedData={initialUnifiedData || undefined}
+                        initialChartData={initialChartData || undefined}
                     />
                 </main>
             </div>

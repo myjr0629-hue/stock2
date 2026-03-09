@@ -12,37 +12,34 @@ export async function fetchTruePreMarket(symbol: string): Promise<number | null>
         if (cached) return cached;
     } catch { }
 
-    // Scan backwards up to 3 days to find the last valid trading day's PM close
-    for (let i = 0; i < 4; i++) {
+    // [PERF] Parallel scan: check all 4 days simultaneously instead of sequential for-loop
+    const candidates = Array.from({ length: 4 }, (_, i) => {
         const checkDateStr = getETDateNDaysAgo(i);
-        // Dynamic ET offset: -04:00 during EDT (summer), -05:00 during EST (winter)
         const etOffset = getETOffset(checkDateStr);
         const startTs = new Date(`${checkDateStr}T04:00:00${etOffset}`).getTime();
         const endTs = new Date(`${checkDateStr}T09:29:59${etOffset}`).getTime();
+        const url = `/v2/aggs/ticker/${symbol}/range/1/minute/${startTs}/${endTs}?adjusted=true&sort=desc&limit=1`;
+        return fetchMassive(url).catch(() => null);
+    });
 
-        try {
-            const url = `/v2/aggs/ticker/${symbol}/range/1/minute/${startTs}/${endTs}?adjusted=true&sort=desc&limit=1`;
-            const res = await fetchMassive(url).catch(() => null);
-            if (res && res.results && res.results.length > 0) {
-                const pmClose = res.results[0].c;
-                // [FIX] Only cache if pre-market has ended (9:30+ AM ET)
-                // During PRE session, the "last bar" is still changing — caching it
-                // would lock in an intermediate price instead of the true 9:29 close
-                const etTime = et.hour + et.minute / 60;
-                const preMarketEnded = etTime >= 9.5 || et.isWeekend;
-                if (preMarketEnded) {
-                    await setInCache(cacheKey, pmClose, 24 * 60 * 60);
-                }
-                return pmClose;
+    const results = await Promise.allSettled(candidates);
+
+    for (const result of results) {
+        if (result.status === 'fulfilled' && result.value?.results?.length > 0) {
+            const pmClose = result.value.results[0].c;
+            const etTime = et.hour + et.minute / 60;
+            const preMarketEnded = etTime >= 9.5 || et.isWeekend;
+            if (preMarketEnded) {
+                await setInCache(cacheKey, pmClose, 24 * 60 * 60).catch(() => { });
             }
-        } catch (e) {
-            console.error(`Error fetching true PM close for ${symbol}`, e);
+            return pmClose;
         }
     }
     return null;
 }
 
-export async function getStockDataLight(symbol: string) {
+// [PERF] Core data fetcher — called by Polygon APIs
+async function _fetchStockDataLight(symbol: string) {
     const to = new Date().toISOString().split('T')[0];
     const fromDate = new Date(Date.now() - 10 * 86400000).toISOString().split('T')[0];
 
@@ -88,16 +85,13 @@ export async function getStockDataLight(symbol: string) {
 
     const sparkline = dailyResults.slice(-20).map((d: any) => d.close);
 
-    // --- NEW: True Pre-Market Resolver ---
-    // If we are currently in PRE session, true PM is just the live price
-    // If PRE has closed (REG/POST), we strictly rely on the true 09:29 aggregated close
+    // --- True Pre-Market Resolver ---
     let prePriceToStore: number | null = null;
     if (session === 'pre') {
         prePriceToStore = latestPrice;
     } else if (truePmRes !== null) {
         prePriceToStore = truePmRes;
     } else {
-        // Absolute fallback if everything fails
         const prePriceStr = String(t?.preMarket?.p || t?.prevDay?.c || 0);
         prePriceToStore = parseFloat(prePriceStr);
     }
@@ -120,4 +114,38 @@ export async function getStockDataLight(symbol: string) {
         sparkline,
         dailyResults,
     };
+}
+
+// [PERF] Redis SWR-cached wrapper — SSR hits cache first (~50ms), avoids 4 Polygon calls (~800ms)
+const STOCK_LIGHT_CACHE_PREFIX = 'cache:stockLight:';
+const STOCK_LIGHT_TTL_REG = 30;    // 30s during market hours (fresh data)
+const STOCK_LIGHT_TTL_EXT = 120;   // 2min during extended/closed (lower API pressure)
+
+export async function getStockDataLight(symbol: string) {
+    const cacheKey = `${STOCK_LIGHT_CACHE_PREFIX}${symbol}`;
+
+    // 1. Try cache first (0ms vs 800ms)
+    try {
+        const cached = await getFromCache<any>(cacheKey);
+        if (cached && cached.price > 0) {
+            // SWR: Return cached data instantly, trigger background refresh
+            const age = Date.now() - (cached._cachedAt || 0);
+            const ttlMs = (cached.session === 'reg' ? STOCK_LIGHT_TTL_REG : STOCK_LIGHT_TTL_EXT) * 1000;
+            if (age > ttlMs) {
+                // Stale → background refresh (fire and forget)
+                _fetchStockDataLight(symbol).then(fresh => {
+                    if (fresh) setInCache(cacheKey, { ...fresh, _cachedAt: Date.now() }, STOCK_LIGHT_TTL_EXT * 2).catch(() => { });
+                }).catch(() => { });
+            }
+            return cached;
+        }
+    } catch { }
+
+    // 2. Cache miss: fetch fresh (first load only)
+    const fresh = await _fetchStockDataLight(symbol);
+    if (fresh) {
+        const ttl = fresh.session === 'reg' ? STOCK_LIGHT_TTL_REG : STOCK_LIGHT_TTL_EXT;
+        await setInCache(cacheKey, { ...fresh, _cachedAt: Date.now() }, ttl * 2).catch(() => { });
+    }
+    return fresh;
 }

@@ -47,6 +47,7 @@ interface Props {
     buildId?: string;
     chartDiagnostics?: ChartDiagnostics; // [S-56.4.7] No-Silence UX
     initialUnifiedData?: any; // [PERF] SSR Hydration payload
+    initialChartData?: any[];  // [PERF] SSR Chart pre-fetch
 }
 
 const DecisionGate = ({ ticker, displayPrice, session, structure, krNews, smaData, newsScore, liveQuote, analystData, fundamentalData, institutionalData }: any) => {
@@ -432,7 +433,7 @@ const DecisionGate = ({ ticker, displayPrice, session, structure, krNews, smaDat
 
 };
 
-export function LiveTickerDashboard({ ticker, initialStockData, initialNews, range, buildId, chartDiagnostics, initialUnifiedData }: Props) {
+export function LiveTickerDashboard({ ticker, initialStockData, initialNews, range, buildId, chartDiagnostics, initialUnifiedData, initialChartData }: Props) {
     const tCommon = useTranslations('common');
     // --- Live Data State ---
     // [PERF] SWR replaces manual fetchQuote + setInterval(10s)
@@ -465,7 +466,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
     const liveQuote = _swrQuote || ssrFallback || null;
     const [options, setOptions] = useState<any>(null);
     // [FIX] Client-side chart data to override stale SSR data on navigation back
-    const [liveChartData, setLiveChartData] = useState<any[] | null>(null);
+    const [liveChartData, setLiveChartData] = useState<any[] | null>(initialChartData || null);
     const [structure, setStructure] = useState<any>(null);
     const [krNews, setKrNews] = useState<any[]>(initialNews || []);
     const [expandedNewsId, setExpandedNewsId] = useState<number | null>(null);
