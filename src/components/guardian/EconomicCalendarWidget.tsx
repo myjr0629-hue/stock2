@@ -212,124 +212,127 @@ export function EconomicCalendarWidget({ locale = 'ko', maxEvents = 10 }: Props)
     const countdown = nextEvent ? getCountdown(nextEvent.dateObj, now) : '--';
 
     return (
-        <div className="border border-slate-800 rounded-lg p-4 relative flex flex-col shadow-2xl flex-none overflow-hidden"
-            style={{
-                background: 'linear-gradient(90deg, rgba(249,115,22,0.12) 0%, rgba(249,115,22,0.03) 30%, transparent 60%), linear-gradient(135deg, rgba(15,23,42,0.95), rgba(10,14,20,0.98))',
-                backdropFilter: 'blur(20px)',
-                borderLeft: '3px solid rgba(249,115,22,0.25)',
-            }}
-        >
-            {/* Header */}
-            <div className="flex justify-between items-center mb-3">
-                <h3 className="text-[12px] font-black uppercase tracking-[0.2em] text-amber-400 flex items-center gap-1.5 font-jakarta">
-                    <Calendar className="w-3.5 h-3.5" />
-                    ECONOMIC CALENDAR
-                </h3>
-                <div className="flex items-center gap-1.5">
-                    <span className="text-[12px] bg-blue-950/50 text-blue-300 px-2 py-0.5 rounded border border-blue-500/20 font-bold font-jakarta">
-                        US
-                    </span>
-                    <span className="text-[12px] bg-rose-950/50 text-rose-300 px-2 py-0.5 rounded border border-rose-500/20 font-bold font-jakarta">
-                        HIGH
-                    </span>
-                </div>
-            </div>
-
-            {/* Next Impact Countdown */}
-            {nextEvent && (
-                <div className="flex items-center gap-2 mb-3 bg-slate-900/60 rounded-lg px-3 py-2 border border-slate-700/30">
-                    <Clock className="w-3.5 h-3.5 text-amber-400 flex-shrink-0" />
-                    <span className="text-[12px] text-white font-bold font-jakarta">Next Impact:</span>
-                    <span className="text-[13px] font-mono font-black text-amber-400">{countdown}</span>
-                    <span className="text-[12px] text-slate-300 truncate ml-auto font-jakarta">{nextEvent.event}</span>
-                </div>
-            )}
-
-            {/* Event List — Date as header, events below */}
-            <div className="space-y-2.5 flex-1">
-                {groupedEvents.map((group, gi) => (
-                    <div key={gi}>
-                        {/* Date header */}
-                        <div className="flex items-center gap-2 mb-1">
-                            <span className="text-[12px] font-mono font-bold text-amber-400/80 font-jakarta">{group.displayDate}</span>
-                            <div className="flex-1 h-px bg-slate-700/40" />
-                        </div>
-                        {/* Events */}
-                        <div className="space-y-0.5 pl-1">
-                            {group.events.map((event, ei) => {
-                                const hasActual = event.actual != null;
-                                const hasEstimate = event.estimate != null;
-                                const isBeat = hasActual && hasEstimate && event.actual! > event.estimate!;
-                                const isMiss = hasActual && hasEstimate && event.actual! < event.estimate!;
-
-                                return (
-                                    <div key={ei} className="flex items-center gap-1.5 min-h-[20px]">
-                                        {/* Category badge */}
-                                        <span className={`text-[11px] font-mono font-black px-1 py-0 rounded ${CATEGORY_COLORS[event.category] || 'text-slate-400'} bg-white/5 flex-shrink-0 font-jakarta`}>
-                                            {CATEGORY_ICONS[event.category] || 'ETC'}
-                                        </span>
-                                        {/* Time (local) */}
-                                        <span className="text-[11px] font-mono text-slate-400 flex-shrink-0 w-[34px]">
-                                            {convertTime(event.time)}
-                                        </span>
-                                        {/* Event name */}
-                                        <span className={`text-[12px] font-semibold truncate flex-1 ${CATEGORY_COLORS[event.category] || 'text-white'} font-jakarta`}>
-                                            {event.event}
-                                        </span>
-                                        {/* Estimate / Actual values */}
-                                        {hasActual ? (
-                                            <span className={`text-[11px] font-mono font-bold flex-shrink-0 ${isBeat ? 'text-emerald-400' : isMiss ? 'text-rose-400' : 'text-slate-300'}`}>
-                                                {fmtVal(event.actual, event.unit)}
-                                                {hasEstimate && (
-                                                    <span className="text-slate-500 ml-0.5">
-                                                        ({isBeat ? '▲' : isMiss ? '▼' : '='}{fmtVal(event.estimate, event.unit)})
-                                                    </span>
-                                                )}
-                                            </span>
-                                        ) : hasEstimate ? (
-                                            <span className="text-[11px] font-mono text-slate-400 flex-shrink-0">
-                                                Est {fmtVal(event.estimate, event.unit)}
-                                            </span>
-                                        ) : (
-                                            <span className={`flex-shrink-0 w-2 h-2 rounded-full ${event.impact === 'HIGH' ? 'bg-rose-500' : 'bg-amber-500'}`} />
-                                        )}
-                                    </div>
-                                );
-                            })}
-                        </div>
+        <div className="relative">
+            <div className={`border border-slate-800 rounded-lg p-4 flex flex-col shadow-2xl flex-none overflow-hidden ${expanded ? 'absolute top-0 left-0 right-0 z-50 ring-1 ring-amber-500/30' : ''}`}
+                style={{
+                    background: 'linear-gradient(90deg, rgba(249,115,22,0.12) 0%, rgba(249,115,22,0.03) 30%, transparent 60%), linear-gradient(135deg, rgba(15,23,42,0.98), rgba(10,14,20,1))',
+                    backdropFilter: 'blur(20px)',
+                    borderLeft: '3px solid rgba(249,115,22,0.25)',
+                    ...(expanded ? { maxHeight: '500px' } : {}),
+                }}
+            >
+                {/* Header */}
+                <div className="flex justify-between items-center mb-3">
+                    <h3 className="text-[12px] font-black uppercase tracking-[0.2em] text-amber-400 flex items-center gap-1.5 font-jakarta">
+                        <Calendar className="w-3.5 h-3.5" />
+                        ECONOMIC CALENDAR
+                    </h3>
+                    <div className="flex items-center gap-1.5">
+                        <span className="text-[12px] bg-blue-950/50 text-blue-300 px-2 py-0.5 rounded border border-blue-500/20 font-bold font-jakarta">
+                            US
+                        </span>
+                        <span className="text-[12px] bg-rose-950/50 text-rose-300 px-2 py-0.5 rounded border border-rose-500/20 font-bold font-jakarta">
+                            HIGH
+                        </span>
                     </div>
-                ))}
-            </div>
+                </div>
 
-            {/* Expand/Collapse button */}
-            {hasMore && (
-                <button
-                    onClick={() => setExpanded(v => !v)}
-                    className="mt-1.5 w-full flex items-center justify-center gap-1 py-1 rounded text-[11px] font-bold text-amber-400/70 hover:text-amber-400 hover:bg-slate-800/40 transition-all duration-200 font-jakarta"
-                >
-                    {expanded ? (
-                        <><ChevronUp className="w-3.5 h-3.5" /> Collapse</>
-                    ) : (
-                        <><ChevronDown className="w-3.5 h-3.5" /> +{totalVisibleRows - COLLAPSED_MAX_ROWS + allGroupedEvents.length} more events</>
-                    )}
-                </button>
-            )}
+                {/* Next Impact Countdown */}
+                {nextEvent && (
+                    <div className="flex items-center gap-2 mb-3 bg-slate-900/60 rounded-lg px-3 py-2 border border-slate-700/30">
+                        <Clock className="w-3.5 h-3.5 text-amber-400 flex-shrink-0" />
+                        <span className="text-[12px] text-white font-bold font-jakarta">Next Impact:</span>
+                        <span className="text-[13px] font-mono font-black text-amber-400">{countdown}</span>
+                        <span className="text-[12px] text-slate-300 truncate ml-auto font-jakarta">{nextEvent.event}</span>
+                    </div>
+                )}
 
-            {/* Footer */}
-            <div className="mt-2 pt-2 border-t border-slate-800/40 flex items-center justify-between">
-                <span className="text-[12px] text-slate-300 font-mono font-jakarta">
-                    {totalCount} events · {tzLabel}
-                    {source === 'REDIS' && <span className="text-emerald-500 ml-1">● LIVE</span>}
-                </span>
-                <div className="flex items-center gap-2">
-                    <span className="flex items-center gap-1">
-                        <span className="w-2 h-2 rounded-full bg-rose-500" />
-                        <span className="text-[12px] text-slate-300 font-jakarta">HIGH</span>
+                {/* Event List — Date as header, events below */}
+                <div className={`space-y-2.5 flex-1 ${expanded ? 'max-h-[320px] overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-slate-700 scrollbar-track-transparent' : ''}`}>
+                    {groupedEvents.map((group, gi) => (
+                        <div key={gi}>
+                            {/* Date header */}
+                            <div className="flex items-center gap-2 mb-1">
+                                <span className="text-[12px] font-mono font-bold text-amber-400/80 font-jakarta">{group.displayDate}</span>
+                                <div className="flex-1 h-px bg-slate-700/40" />
+                            </div>
+                            {/* Events */}
+                            <div className="space-y-0.5 pl-1">
+                                {group.events.map((event, ei) => {
+                                    const hasActual = event.actual != null;
+                                    const hasEstimate = event.estimate != null;
+                                    const isBeat = hasActual && hasEstimate && event.actual! > event.estimate!;
+                                    const isMiss = hasActual && hasEstimate && event.actual! < event.estimate!;
+
+                                    return (
+                                        <div key={ei} className="flex items-center gap-1.5 min-h-[20px]">
+                                            {/* Category badge */}
+                                            <span className={`text-[11px] font-mono font-black px-1 py-0 rounded ${CATEGORY_COLORS[event.category] || 'text-slate-400'} bg-white/5 flex-shrink-0 font-jakarta`}>
+                                                {CATEGORY_ICONS[event.category] || 'ETC'}
+                                            </span>
+                                            {/* Time (local) */}
+                                            <span className="text-[11px] font-mono text-slate-400 flex-shrink-0 w-[34px]">
+                                                {convertTime(event.time)}
+                                            </span>
+                                            {/* Event name */}
+                                            <span className={`text-[12px] font-semibold truncate flex-1 ${CATEGORY_COLORS[event.category] || 'text-white'} font-jakarta`}>
+                                                {event.event}
+                                            </span>
+                                            {/* Estimate / Actual values */}
+                                            {hasActual ? (
+                                                <span className={`text-[11px] font-mono font-bold flex-shrink-0 ${isBeat ? 'text-emerald-400' : isMiss ? 'text-rose-400' : 'text-slate-300'}`}>
+                                                    {fmtVal(event.actual, event.unit)}
+                                                    {hasEstimate && (
+                                                        <span className="text-slate-500 ml-0.5">
+                                                            ({isBeat ? '▲' : isMiss ? '▼' : '='}{fmtVal(event.estimate, event.unit)})
+                                                        </span>
+                                                    )}
+                                                </span>
+                                            ) : hasEstimate ? (
+                                                <span className="text-[11px] font-mono text-slate-400 flex-shrink-0">
+                                                    Est {fmtVal(event.estimate, event.unit)}
+                                                </span>
+                                            ) : (
+                                                <span className={`flex-shrink-0 w-2 h-2 rounded-full ${event.impact === 'HIGH' ? 'bg-rose-500' : 'bg-amber-500'}`} />
+                                            )}
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    ))}
+                </div>
+
+                {/* Expand/Collapse button */}
+                {hasMore && (
+                    <button
+                        onClick={() => setExpanded(v => !v)}
+                        className="mt-1.5 w-full flex items-center justify-center gap-1 py-1 rounded text-[11px] font-bold text-amber-400/70 hover:text-amber-400 hover:bg-slate-800/40 transition-all duration-200 font-jakarta"
+                    >
+                        {expanded ? (
+                            <><ChevronUp className="w-3.5 h-3.5" /> Collapse</>
+                        ) : (
+                            <><ChevronDown className="w-3.5 h-3.5" /> +{totalVisibleRows - COLLAPSED_MAX_ROWS + allGroupedEvents.length} more events</>
+                        )}
+                    </button>
+                )}
+
+                {/* Footer */}
+                <div className="mt-2 pt-2 border-t border-slate-800/40 flex items-center justify-between">
+                    <span className="text-[12px] text-slate-300 font-mono font-jakarta">
+                        {totalCount} events · {tzLabel}
+                        {source === 'REDIS' && <span className="text-emerald-500 ml-1">● LIVE</span>}
                     </span>
-                    <span className="flex items-center gap-1">
-                        <span className="w-2 h-2 rounded-full bg-amber-500" />
-                        <span className="text-[12px] text-slate-300 font-jakarta">MED</span>
-                    </span>
+                    <div className="flex items-center gap-2">
+                        <span className="flex items-center gap-1">
+                            <span className="w-2 h-2 rounded-full bg-rose-500" />
+                            <span className="text-[12px] text-slate-300 font-jakarta">HIGH</span>
+                        </span>
+                        <span className="flex items-center gap-1">
+                            <span className="w-2 h-2 rounded-full bg-amber-500" />
+                            <span className="text-[12px] text-slate-300 font-jakarta">MED</span>
+                        </span>
+                    </div>
                 </div>
             </div>
         </div>
