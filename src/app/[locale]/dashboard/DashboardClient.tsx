@@ -642,8 +642,24 @@ function MainChartPanel() {
                     })()}
                 </div>
 
-                {/* Status Badges + Alert Button */}
+                {/* Status Badges + Alert + Customize Buttons */}
                 <div className="flex items-center gap-2">
+                    {/* Customize Button — prominent border */}
+                    {(tier === 'pro' || tier === 'elite') && (
+                        <button
+                            onClick={() => customize.isEditing ? customize.setIsEditing(false) : customize.setIsEditing(true)}
+                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-medium transition-all ${customize.isEditing
+                                    ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-400/60 shadow-[0_0_8px_rgba(34,211,238,0.25)]'
+                                    : 'bg-slate-800/60 text-slate-300 border border-cyan-500/30 hover:border-cyan-400/50 hover:bg-cyan-500/10 hover:shadow-[0_0_6px_rgba(34,211,238,0.15)]'
+                                }`}
+                        >
+                            {customize.isEditing ? (
+                                <><Check className="w-3.5 h-3.5" /> Done</>
+                            ) : (
+                                <><Settings className="w-3.5 h-3.5" /> Customize</>
+                            )}
+                        </button>
+                    )}
                     {/* Alert Button */}
                     {(tier === 'pro' || tier === 'elite') && (
                         <button
@@ -718,32 +734,17 @@ function MainChartPanel() {
             )}
 
             {/* ═══════ Metrics Grid: 3 Rows × 4 Cards ═══════ */}
-            {/* [CUSTOMIZE] Edit button header */}
-            <div className="px-4 pt-3 pb-1 flex items-center justify-end gap-2">
-                {(tier === 'pro' || tier === 'elite') && (
-                    <button
-                        onClick={() => customize.setIsEditing(!customize.isEditing)}
-                        className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[12px] font-medium transition-all ${customize.isEditing
-                            ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30'
-                            : 'bg-slate-800/50 text-slate-400 border border-white/5 hover:border-white/10'
-                            }`}
-                    >
-                        {customize.isEditing ? (
-                            <><Check className="w-3.5 h-3.5" /> Done</>
-                        ) : (
-                            <><Settings className="w-3.5 h-3.5" /> Customize</>
-                        )}
-                    </button>
-                )}
-                {customize.isEditing && (
+            {/* [CUSTOMIZE] Select Cards button (only visible in edit mode) */}
+            {customize.isEditing && (
+                <div className="px-4 pt-3 pb-1 flex items-center justify-end gap-2">
                     <button
                         onClick={() => customize.setShowSelector(true)}
                         className="flex items-center gap-1 px-2.5 py-1 rounded-md text-[12px] font-medium bg-slate-800/50 text-slate-400 border border-white/5 hover:border-white/10 transition-all"
                     >
                         <Plus className="w-3.5 h-3.5" /> Select Cards
                     </button>
-                )}
-            </div>
+                </div>
+            )}
             {customize.showSelector && (
                 <customize.CardSelectorModal
                     visibleCards={customize.cardOrder}
