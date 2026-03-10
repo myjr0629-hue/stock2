@@ -23,53 +23,53 @@ const POLYGON_KEY = process.env.POLYGON_API_KEY || 'iKNEA6cQ6kqWWuHwURT_AyUqMprD
 
 // ====== Full Universe (150+ tickers) ======
 const UNIVERSE = [
-  'AAPL','MSFT','AMZN','NVDA','GOOGL','META','TSLA',
-  'AMD','AVGO','QCOM','MU','LRCX','AMAT','KLAC','MRVL','ASML',
-  'CRWD','PANW','ZS','FTNT','OKTA',
-  'AMGN','GILD','REGN','VRTX','BIIB',
-  'ISRG','TER','ROK','MBLY','PONY',
-  'VST','CEG','VRT','ETN','PWR',
-  'RTX','LMT','GD','NOC','BA',
-  'IBM','IONQ','RGTI','QUBT',
-  'V','MA','SQ','PYPL','COIN',
-  'CRM','NOW','SNOW',
-  'EQIX','DLR','AMT','CCI','SBAC',
-  'JPM','BAC','GS','WFC','C',
-  'JNJ','UNH','LLY','PFE','ABBV','MRK','TMO',
-  'XOM','CVX','COP','SLB',
-  'HD','COST','WMT','TGT','LOW',
-  'PG','KO','PEP','MCD','SBUX','NKE',
-  'DIS','NFLX','CMCSA',
-  'CAT','GE','HON','UPS','DE',
-  'NEE','DUK','SO',
-  'PLD','O','VICI',
-  'TXN','ON','INTC',
-  'UBER','ABNB','DASH','SHOP','SE',
-  'AI','PLTR','SMCI','ARM','DELL',
-  'FCX','NEM','LIN','SHW',
-  'BLK','SCHW','AXP',
-  'CRM','ADBE','TSM','HOOD','DKNG','NET',
+  'AAPL', 'MSFT', 'AMZN', 'NVDA', 'GOOGL', 'META', 'TSLA',
+  'AMD', 'AVGO', 'QCOM', 'MU', 'LRCX', 'AMAT', 'KLAC', 'MRVL', 'ASML',
+  'CRWD', 'PANW', 'ZS', 'FTNT', 'OKTA',
+  'AMGN', 'GILD', 'REGN', 'VRTX', 'BIIB',
+  'ISRG', 'TER', 'ROK', 'MBLY', 'PONY',
+  'VST', 'CEG', 'VRT', 'ETN', 'PWR',
+  'RTX', 'LMT', 'GD', 'NOC', 'BA',
+  'IBM', 'IONQ', 'RGTI', 'QUBT',
+  'V', 'MA', 'SQ', 'PYPL', 'COIN',
+  'CRM', 'NOW', 'SNOW',
+  'EQIX', 'DLR', 'AMT', 'CCI', 'SBAC',
+  'JPM', 'BAC', 'GS', 'WFC', 'C',
+  'JNJ', 'UNH', 'LLY', 'PFE', 'ABBV', 'MRK', 'TMO',
+  'XOM', 'CVX', 'COP', 'SLB',
+  'HD', 'COST', 'WMT', 'TGT', 'LOW',
+  'PG', 'KO', 'PEP', 'MCD', 'SBUX', 'NKE',
+  'DIS', 'NFLX', 'CMCSA',
+  'CAT', 'GE', 'HON', 'UPS', 'DE',
+  'NEE', 'DUK', 'SO',
+  'PLD', 'O', 'VICI',
+  'TXN', 'ON', 'INTC',
+  'UBER', 'ABNB', 'DASH', 'SHOP', 'SE',
+  'AI', 'PLTR', 'SMCI', 'ARM', 'DELL',
+  'FCX', 'NEM', 'LIN', 'SHW',
+  'BLK', 'SCHW', 'AXP',
+  'CRM', 'ADBE', 'TSM', 'HOOD', 'DKNG', 'NET',
 ];
 const UNIQUE_UNIVERSE = [...new Set(UNIVERSE)];
 
 // GEX deep analysis tickers (get FULL options chain with pagination)
 const GEX_TICKERS = [
-  'AAPL','MSFT','AMZN','NVDA','GOOGL','META','TSLA',
-  'AMD','PLTR','SMCI','ARM','COIN','CRWD','AI','MRVL','AVGO','MU',
-  'UBER','ABNB','SHOP','SQ','PYPL',
-  'JPM','BAC','GS',
-  'XOM','CVX','LLY','UNH'
+  'AAPL', 'MSFT', 'AMZN', 'NVDA', 'GOOGL', 'META', 'TSLA',
+  'AMD', 'PLTR', 'SMCI', 'ARM', 'COIN', 'CRWD', 'AI', 'MRVL', 'AVGO', 'MU',
+  'UBER', 'ABNB', 'SHOP', 'SQ', 'PYPL',
+  'JPM', 'BAC', 'GS',
+  'XOM', 'CVX', 'LLY', 'UNH'
 ];
 
 // ====== Paginated Options Fetch ======
 async function getAllOptions(ticker) {
   let allResults = [];
-  let url = \"https://api.polygon.io/v3/snapshot/options/\" + ticker + \"?limit=250&apiKey=\" + POLYGON_KEY;
+  let url = "https://api.polygon.io/v3/snapshot/options/" + ticker + "?limit=250&apiKey=" + POLYGON_KEY;
   let pages = 0;
   while (url && pages < 20) {
     const data = await httpsGet(url);
     if (data?.results) allResults = allResults.concat(data.results);
-    url = data?.next_url ? data.next_url + \"&apiKey=\" + POLYGON_KEY : null;
+    url = data?.next_url ? data.next_url + "&apiKey=" + POLYGON_KEY : null;
     pages++;
   }
   return allResults;
@@ -85,7 +85,7 @@ async function batchWrite(tableName, items) {
       }));
     } catch (e) {
       for (const item of batch) {
-        await client.send(new PutCommand({ TableName: tableName, Item: item })).catch(() => {});
+        await client.send(new PutCommand({ TableName: tableName, Item: item })).catch(() => { });
       }
     }
   }
@@ -96,20 +96,20 @@ async function harvestPrices() {
   console.log('Step 1: Price snapshot for ' + UNIQUE_UNIVERSE.length + ' tickers...');
   const ts = Date.now();
   const today = new Date().toISOString().slice(0, 10);
-  
+
   // Use Polygon full snapshot API (single call, all US stocks)
   const snap = await httpsGet('https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers?apiKey=' + POLYGON_KEY);
   const allTickers = snap?.tickers || [];
-  
+
   const items = [];
   const priceMap = {};
-  
+
   for (const t of allTickers) {
     if (!UNIQUE_UNIVERSE.includes(t.ticker)) continue;
     const price = t.lastTrade?.p || t.day?.c || t.prevDay?.c || 0;
     const changePct = t.todaysChangePerc || 0;
     priceMap[t.ticker] = price;
-    
+
     items.push({
       ticker: t.ticker,
       date: today,
@@ -126,11 +126,11 @@ async function harvestPrices() {
       pcr: 0,
     });
   }
-  
+
   if (items.length > 0) {
     await batchWrite('signum-alpha-history', items);
   }
-  
+
   console.log('Prices: ' + items.length + '/' + UNIQUE_UNIVERSE.length + ' tickers saved');
   return { count: items.length, priceMap };
 }
@@ -140,30 +140,30 @@ async function harvestGex(priceMap) {
   console.log('Step 2: GEX harvest for ' + GEX_TICKERS.length + ' tickers (full chain)...');
   const ts = Date.now();
   const results = [];
-  
+
   // Process 3 at a time
   for (let i = 0; i < GEX_TICKERS.length; i += 3) {
     const batch = GEX_TICKERS.slice(i, i + 3);
-    
+
     await Promise.all(batch.map(async (ticker) => {
       try {
         const price = priceMap[ticker] || 0;
         if (!price) { results.push(ticker + ':NO_PRICE'); return; }
-        
+
         const allOptions = await getAllOptions(ticker);
         if (allOptions.length === 0) { results.push(ticker + ':NO_OPT'); return; }
-        
+
         let gex = 0, callWall = null, putFloor = null;
         let maxCallOI = 0, maxPutOI = 0;
         let totalCallOI = 0, totalPutOI = 0;
-        
+
         for (const opt of allOptions) {
           const strike = opt.details?.strike_price;
           if (!strike) continue;
           const gamma = opt.greeks?.gamma || 0;
           const oi = opt.open_interest || 0;
           const type = opt.details?.contract_type;
-          
+
           if (type === 'call') {
             gex += gamma * oi * 100 * price;
             totalCallOI += oi;
@@ -174,29 +174,29 @@ async function harvestGex(priceMap) {
             if (oi > maxPutOI) { maxPutOI = oi; putFloor = strike; }
           }
         }
-        
+
         const flipLevel = callWall && putFloor ? (callWall + putFloor) / 2 : null;
         const gammaRegime = gex > 0 ? 'POSITIVE' : gex < 0 ? 'NEGATIVE' : 'NEUTRAL';
         const pcr = totalCallOI > 0 ? totalPutOI / totalCallOI : 0;
-        
+
         await client.send(new PutCommand({
           TableName: 'signum-gex-history',
           Item: { ticker, timestamp: ts, gex: Math.round(gex), flipLevel, callWall, putFloor, maxPain: null, price, gammaRegime, totalContracts: allOptions.length, totalCallOI, totalPutOI, pcr: Math.round(pcr * 100) / 100 }
         }));
-        
+
         // Flow history
         await client.send(new PutCommand({
           TableName: 'signum-flow-history',
           Item: { ticker, timestamp: ts, compositeScore: 0, opi: totalCallOI - totalPutOI, whaleScore: 0, dex: 0, ivSkew: 0, squeezeProbability: 0, smartMoneyScore: 0, totalCallOI, totalPutOI, pcr: Math.round(pcr * 100) / 100 }
-        })).catch(() => {});
-        
+        })).catch(() => { });
+
         results.push(ticker + ':' + allOptions.length + 'c');
       } catch (e) {
         results.push(ticker + ':ERR');
       }
     }));
   }
-  
+
   console.log('GEX: ' + results.join(', '));
   return results;
 }
@@ -231,32 +231,32 @@ exports.handler = async (event) => {
   const start = Date.now();
   console.log('SIGNUM Harvest Lambda v2 — ' + new Date().toISOString());
   console.log('Universe: ' + UNIQUE_UNIVERSE.length + ' price + ' + GEX_TICKERS.length + ' GEX');
-  
+
   // Market hours check (UTC) — Extended hours included
   const hour = new Date().getUTCHours();
   const minute = new Date().getUTCMinutes();
   const utcMin = hour * 60 + minute;
-  
+
   // Pre-market: 4:00 ET = 08:00/09:00 UTC (EDT/EST)
   // Regular:    9:30 ET = 13:30/14:30 UTC
   // Close:     16:00 ET = 20:00/21:00 UTC
   // After:     20:00 ET = 00:00/01:00 UTC (next day)
   // Wide window: 08:00 UTC ~ 01:00 UTC (next day) covers all DST variations
-  const isExtendedHours = (utcMin >= 8*60) || (utcMin <= 1*60);
-  
+  const isExtendedHours = (utcMin >= 8 * 60) || (utcMin <= 1 * 60);
+
   // Regular hours only (for options/GEX): 13:30~21:00 UTC
-  const isRegularHours = (utcMin >= 13*60+30 && utcMin <= 21*60);
-  
+  const isRegularHours = (utcMin >= 13 * 60 + 30 && utcMin <= 21 * 60);
+
   if (!isExtendedHours) {
     return { statusCode: 200, body: JSON.stringify({ skipped: true, reason: 'All markets closed', utcHour: hour }) };
   }
-  
+
   const results = {};
-  
+
   // Step 1: Price snapshot — ALWAYS during extended hours
   const { count, priceMap } = await harvestPrices();
   results.prices = count;
-  
+
   // Step 2: GEX harvest — ONLY during regular hours (options don't trade pre/post)
   if (isRegularHours) {
     results.gex = await harvestGex(priceMap);
@@ -264,13 +264,13 @@ exports.handler = async (event) => {
     results.gex = 'SKIPPED:extended_hours';
     console.log('GEX skipped — extended hours (options closed)');
   }
-  
+
   // Step 3: RLSI — ALWAYS during extended hours
   results.rlsi = await harvestRlsi();
-  
+
   const duration = Math.round((Date.now() - start) / 1000);
   console.log('Done in ' + duration + 's — Prices:' + count + ' GEX:' + results.gex.length);
-  
+
   return {
     statusCode: 200,
     body: JSON.stringify({ success: true, timestamp: new Date().toISOString(), duration, results })
