@@ -1251,7 +1251,7 @@ function MainChartPanel() {
                     })() : null}
 
                     {/* GEX REGIME — PRO (blur: SpotGamma Pro $249) */}
-                    {customize.cardOrder.includes('gexRegime') && <ProGate title="GEX Regime" fomoMessage={gt('fomoDashGexRegime')} mode="blur" compact>
+                    {customize.cardOrder.includes('gexRegime') && <EliteGate title="GEX Regime" fomoMessage={gt('fomoDashGexRegime')} compact>
                         {(() => {
                             const price = data?.underlyingPrice || 0;
                             const flip = data?.gammaFlipLevel || 0;
@@ -1323,7 +1323,7 @@ function MainChartPanel() {
                                 </div>
                             );
                         })()}
-                    </ProGate>}
+                    </EliteGate>}
 
                     {/* Implied Move — ELITE (blur: advanced derivatives) */}
                     {customize.cardOrder.includes('impliedMove') && <EliteGate title="Implied Move" fomoMessage={gt('fomoDashImpliedMove')} mode="blur" compact>
@@ -1382,55 +1382,60 @@ function MainChartPanel() {
                     </EliteGate>}
 
                     {/* ── Additional Pool ── */}
-                    {/* Alpha Score */}
-                    {customize.cardOrder.includes('alphaScore') && (() => {
-                        const alpha = data?.alpha;
-                        const score = alpha?.score ?? 0;
-                        const grade = alpha?.grade ?? '—';
-                        const gradeColor = grade === 'A+' || grade === 'A' ? 'text-emerald-400' : grade === 'B+' || grade === 'B' ? 'text-cyan-400' : grade === 'C' ? 'text-amber-400' : 'text-slate-400';
-                        const barWidth = Math.min(Math.abs(score), 100);
-                        return (
-                            <div className="relative p-4 rounded-xl border overflow-hidden bg-[#0d1829]/80 border-white/5">
-                                <svg className="absolute right-0 bottom-0 w-24 h-16 opacity-[0.06]" viewBox="0 0 96 64"><path d="M0 50 Q24 10 48 30 T96 15" fill="none" stroke="currentColor" strokeWidth="2" className="text-emerald-400" /></svg>
-                                <div className="flex items-center gap-2 mb-2">
-                                    <span className="text-[12px] font-jakarta uppercase tracking-wider text-white">Alpha Score</span>
+                    {/* Alpha Score — PRO */}
+                    {customize.cardOrder.includes('alphaScore') && <ProGate title="Alpha Score" mode="peek" compact>
+                        {(() => {
+                            const alpha = data?.alpha;
+                            const score = alpha?.score ?? 0;
+                            const grade = alpha?.grade ?? '—';
+                            const gradeColor = grade === 'A+' || grade === 'A' ? 'text-emerald-400' : grade === 'B+' || grade === 'B' ? 'text-cyan-400' : grade === 'C' ? 'text-amber-400' : 'text-slate-400';
+                            const barWidth = Math.min(Math.abs(score), 100);
+                            return (
+                                <div className="relative p-4 rounded-xl border overflow-hidden bg-[#0d1829]/80 border-white/5">
+                                    <svg className="absolute right-0 bottom-0 w-24 h-16 opacity-[0.06]" viewBox="0 0 96 64"><path d="M0 50 Q24 10 48 30 T96 15" fill="none" stroke="currentColor" strokeWidth="2" className="text-emerald-400" /></svg>
+                                    <div className="flex items-center gap-2 mb-2">
+                                        <span className="text-[12px] font-jakarta uppercase tracking-wider text-white">Alpha Score</span>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <span className={`text-2xl font-mono font-bold ${gradeColor}`}>{grade}</span>
+                                        <span className="text-lg font-mono text-white">{score > 0 ? '+' : ''}{score}</span>
+                                    </div>
+                                    <div className="mt-2 h-1.5 bg-slate-700 rounded-full overflow-hidden">
+                                        <div className={`h-full rounded-full transition-all ${score > 0 ? 'bg-emerald-500' : 'bg-rose-500'}`} style={{ width: `${barWidth}%` }} />
+                                    </div>
+                                    {alpha?.actionKR ? <p className="text-[12px] text-slate-300 mt-1.5 line-clamp-1">{alpha.actionKR}</p> : <p className="text-[12px] text-slate-300 mt-1.5">{grade === 'A+' || grade === 'A' ? td('alphaGradeA') : grade === 'B+' || grade === 'B' ? td('alphaGradeB') : grade === 'C' ? td('alphaGradeC') : td('alphaGradeD')}</p>}
                                 </div>
-                                <div className="flex items-center gap-2">
-                                    <span className={`text-2xl font-mono font-bold ${gradeColor}`}>{grade}</span>
-                                    <span className="text-lg font-mono text-white">{score > 0 ? '+' : ''}{score}</span>
-                                </div>
-                                <div className="mt-2 h-1.5 bg-slate-700 rounded-full overflow-hidden">
-                                    <div className={`h-full rounded-full transition-all ${score > 0 ? 'bg-emerald-500' : 'bg-rose-500'}`} style={{ width: `${barWidth}%` }} />
-                                </div>
-                                {alpha?.actionKR ? <p className="text-[12px] text-slate-300 mt-1.5 line-clamp-1">{alpha.actionKR}</p> : <p className="text-[12px] text-slate-300 mt-1.5">{grade === 'A+' || grade === 'A' ? td('alphaGradeA') : grade === 'B+' || grade === 'B' ? td('alphaGradeB') : grade === 'C' ? td('alphaGradeC') : td('alphaGradeD')}</p>}
-                            </div>
-                        );
-                    })()}
+                            );
+                        })()}
+                    </ProGate>}
 
-                    {/* Whale Index */}
-                    {customize.cardOrder.includes('whaleIndex') && (() => {
-                        const wi = (data as any)?.whaleIndex ?? 0;
-                        const conf = (data as any)?.whaleConfidence ?? '—';
-                        const isHigh = Math.abs(wi) >= 50;
-                        return (
-                            <div className={`relative p-4 rounded-xl border overflow-hidden ${isHigh ? 'bg-purple-500/10 border-purple-400/40' : 'bg-[#0d1829]/80 border-white/5'}`}>
-                                <svg className="absolute right-0 bottom-0 w-24 h-16 opacity-[0.06]" viewBox="0 0 96 64"><ellipse cx="48" cy="40" rx="36" ry="16" fill="none" stroke="currentColor" strokeWidth="2" className="text-purple-400" /></svg>
-                                <div className="flex items-center gap-2 mb-2">
-                                    <span className="text-[12px] font-jakarta uppercase tracking-wider text-white">Whale Index</span>
+                    {/* Whale Index — PRO */}
+                    {customize.cardOrder.includes('whaleIndex') && <ProGate title="Whale Index" mode="blur" compact>
+                        {(() => {
+                            const wi = (data as any)?.whaleIndex ?? 0;
+                            const conf = (data as any)?.whaleConfidence ?? '—';
+                            const isHigh = Math.abs(wi) >= 50;
+                            return (
+                                <div className={`relative p-4 rounded-xl border overflow-hidden ${isHigh ? 'bg-purple-500/10 border-purple-400/40' : 'bg-[#0d1829]/80 border-white/5'}`}>
+                                    <svg className="absolute right-0 bottom-0 w-24 h-16 opacity-[0.06]" viewBox="0 0 96 64"><ellipse cx="48" cy="40" rx="36" ry="16" fill="none" stroke="currentColor" strokeWidth="2" className="text-purple-400" /></svg>
+                                    <div className="flex items-center gap-2 mb-2">
+                                        <span className="text-[12px] font-jakarta uppercase tracking-wider text-white">Whale Index</span>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <span className={`text-xl font-mono font-bold ${wi > 0 ? 'text-emerald-400' : wi < 0 ? 'text-rose-400' : 'text-slate-400'}`}>{wi > 0 ? '+' : ''}{wi}</span>
+                                        <span className="text-[12px] text-slate-300">{conf}</span>
+                                    </div>
+                                    <div className="mt-2 relative h-1.5 bg-slate-700 rounded-full overflow-hidden">
+                                        <div className="absolute left-1/2 top-0 w-px h-full bg-slate-500" />
+                                        <div className={`absolute top-0 h-full rounded-full ${wi > 0 ? 'bg-emerald-500' : 'bg-rose-500'}`} style={{ left: wi > 0 ? '50%' : `${50 - Math.min(Math.abs(wi) / 2, 50)}%`, width: `${Math.min(Math.abs(wi) / 2, 50)}%` }} />
+                                    </div>
+                                    <p className="text-[12px] text-slate-300 mt-1.5">{wi > 20 ? td('whaleBullish') : wi < -20 ? td('whaleBearish') : td('whaleNeutral')}</p>
                                 </div>
-                                <div className="flex items-center gap-2">
-                                    <span className={`text-xl font-mono font-bold ${wi > 0 ? 'text-emerald-400' : wi < 0 ? 'text-rose-400' : 'text-slate-400'}`}>{wi > 0 ? '+' : ''}{wi}</span>
-                                    <span className="text-[12px] text-slate-300">{conf}</span>
-                                </div>
-                                <div className="mt-2 relative h-1.5 bg-slate-700 rounded-full overflow-hidden">
-                                    <div className="absolute left-1/2 top-0 w-px h-full bg-slate-500" />
-                                    <div className={`absolute top-0 h-full rounded-full ${wi > 0 ? 'bg-emerald-500' : 'bg-rose-500'}`} style={{ left: wi > 0 ? '50%' : `${50 - Math.min(Math.abs(wi) / 2, 50)}%`, width: `${Math.min(Math.abs(wi) / 2, 50)}%` }} />
-                                </div>
-                            </div>
-                        );
-                    })()}
+                            );
+                        })()}
+                    </ProGate>}
 
-                    {/* RSI 14 */}
+                    {/* RSI 14 — FREE */}
                     {customize.cardOrder.includes('rsi14') && (() => {
                         const rsi = data?._rsi14 ?? data?.rsi14 ?? null;
                         const isOverbought = rsi !== null && rsi >= 70;
@@ -1452,11 +1457,12 @@ function MainChartPanel() {
                                     <div className="absolute left-[70%] top-0 w-px h-full bg-rose-500/30" />
                                     {rsi !== null && <div className="absolute top-1/2 w-2 h-2 rounded-full bg-white shadow-[0_0_6px_rgba(255,255,255,0.6)]" style={{ left: `${Math.min(rsi, 100)}%`, transform: 'translate(-50%,-50%)' }} />}
                                 </div>
+                                <p className="text-[12px] text-slate-300 mt-1.5">{isOverbought ? td('rsiOverbought') : isOversold ? td('rsiOversold') : td('rsiNeutralRange')}</p>
                             </div>
                         );
                     })()}
 
-                    {/* Return 3D */}
+                    {/* Return 3D — FREE */}
                     {customize.cardOrder.includes('return3d') && (() => {
                         const ret = data?._return3D ?? data?.return3D ?? null;
                         const isPositive = ret !== null && ret > 0;
@@ -1474,11 +1480,12 @@ function MainChartPanel() {
                                     <div className="absolute left-1/2 top-0 w-px h-full bg-slate-500" />
                                     {ret !== null && <div className={`absolute top-0 h-full rounded-full ${isPositive ? 'bg-emerald-500' : 'bg-rose-500'}`} style={{ left: isPositive ? '50%' : `${50 - Math.min(Math.abs(ret) * 5, 50)}%`, width: `${Math.min(Math.abs(ret) * 5, 50)}%` }} />}
                                 </div>
+                                <p className="text-[12px] text-slate-300 mt-1.5">{ret !== null ? (ret > 1 ? td('ret3dStrong') : ret < -1 ? td('ret3dWeak') : td('ret3dFlat')) : ''}</p>
                             </div>
                         );
                     })()}
 
-                    {/* Rel Volume */}
+                    {/* Rel Volume — FREE */}
                     {customize.cardOrder.includes('relVolume') && (() => {
                         const rv = data?._relVol ?? data?.relVol ?? null;
                         const isHigh = rv !== null && rv >= 2.0;
@@ -1494,78 +1501,87 @@ function MainChartPanel() {
                                 <div className="mt-2 h-1.5 bg-slate-700 rounded-full overflow-hidden">
                                     <div className="h-full rounded-full bg-cyan-500/60 transition-all" style={{ width: `${rv !== null ? Math.min(rv * 25, 100) : 0}%` }} />
                                 </div>
+                                <p className="text-[12px] text-slate-300 mt-1.5">{rv !== null ? (rv >= 2 ? td('relVolHigh') : rv >= 1.2 ? td('relVolNormal') : td('relVolLow')) : ''}</p>
                             </div>
                         );
                     })()}
 
-                    {/* OPI (Options Positioning Index) */}
-                    {customize.cardOrder.includes('opi') && (() => {
-                        const pcr = data?.volumePcr ?? data?.pcr ?? null;
-                        const gex = data?.netGex ?? null;
-                        const opi = pcr !== null && gex !== null ? Math.round(((pcr > 1 ? -1 : 1) * 50) + ((gex ?? 0) > 0 ? 20 : -20)) : null;
-                        return (
-                            <div className="relative p-4 rounded-xl border overflow-hidden bg-[#0d1829]/80 border-white/5">
-                                <div className="flex items-center gap-2 mb-2">
-                                    <span className="text-[12px] font-jakarta uppercase tracking-wider text-white">OPI</span>
-                                    <span className="text-[12px] text-slate-500">Options Position</span>
+                    {/* OPI — PRO */}
+                    {customize.cardOrder.includes('opi') && <ProGate title="OPI" mode="peek" compact>
+                        {(() => {
+                            const pcr = data?.volumePcr ?? data?.pcr ?? null;
+                            const gex = data?.netGex ?? null;
+                            const opi = pcr !== null && gex !== null ? Math.round(((pcr > 1 ? -1 : 1) * 50) + ((gex ?? 0) > 0 ? 20 : -20)) : null;
+                            return (
+                                <div className="relative p-4 rounded-xl border overflow-hidden bg-[#0d1829]/80 border-white/5">
+                                    <div className="flex items-center gap-2 mb-2">
+                                        <span className="text-[12px] font-jakarta uppercase tracking-wider text-white">OPI</span>
+                                        <span className="text-[12px] text-slate-500">Options Position</span>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <span className={`text-xl font-mono font-bold ${(opi ?? 0) > 0 ? 'text-emerald-400' : (opi ?? 0) < 0 ? 'text-rose-400' : 'text-slate-400'}`}>
+                                            {opi !== null ? `${opi > 0 ? '+' : ''}${opi}` : '—'}
+                                        </span>
+                                    </div>
+                                    <div className="mt-2 relative h-1.5 bg-slate-700 rounded-full overflow-hidden">
+                                        <div className="absolute left-1/2 top-0 w-px h-full bg-slate-500" />
+                                    </div>
+                                    <p className="text-[12px] text-slate-300 mt-1.5">{(opi ?? 0) > 0 ? td('opiCallPressure') : (opi ?? 0) < 0 ? td('opiPutPressure') : td('opiBalanced')}</p>
                                 </div>
-                                <div className="flex items-center gap-2">
-                                    <span className={`text-xl font-mono font-bold ${(opi ?? 0) > 0 ? 'text-emerald-400' : (opi ?? 0) < 0 ? 'text-rose-400' : 'text-slate-400'}`}>
-                                        {opi !== null ? `${opi > 0 ? '+' : ''}${opi}` : '—'}
-                                    </span>
-                                </div>
-                                <div className="mt-2 relative h-1.5 bg-slate-700 rounded-full overflow-hidden">
-                                    <div className="absolute left-1/2 top-0 w-px h-full bg-slate-500" />
-                                </div>
-                            </div>
-                        );
-                    })()}
+                            );
+                        })()}
+                    </ProGate>}
 
-                    {/* Smart Money */}
-                    {customize.cardOrder.includes('smartMoney') && (() => {
-                        const dp = data?.darkPoolPct ?? 0;
-                        const sv = data?.shortVolPct ?? 0;
-                        const smartScore = dp > 0 ? Math.round((dp * 0.6) + (sv * 0.4)) : null;
-                        const label = smartScore === null ? '—' : smartScore >= 50 ? 'Active' : 'Quiet';
-                        return (
-                            <div className="relative p-4 rounded-xl border overflow-hidden bg-[#0d1829]/80 border-white/5">
-                                <div className="flex items-center gap-2 mb-2">
-                                    <span className="text-[12px] font-jakarta uppercase tracking-wider text-white">Smart Money</span>
+                    {/* Smart Money — ELITE */}
+                    {customize.cardOrder.includes('smartMoney') && <EliteGate title="Smart Money" compact>
+                        {(() => {
+                            const dp = data?.darkPoolPct ?? 0;
+                            const sv = data?.shortVolPct ?? 0;
+                            const smartScore = dp > 0 ? Math.round((dp * 0.6) + (sv * 0.4)) : null;
+                            const label = smartScore === null ? '—' : smartScore >= 50 ? 'Active' : 'Quiet';
+                            return (
+                                <div className="relative p-4 rounded-xl border overflow-hidden bg-[#0d1829]/80 border-white/5">
+                                    <div className="flex items-center gap-2 mb-2">
+                                        <span className="text-[12px] font-jakarta uppercase tracking-wider text-white">Smart Money</span>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <span className={`text-xl font-mono font-bold ${(smartScore ?? 0) >= 50 ? 'text-purple-400' : 'text-slate-400'}`}>
+                                            {smartScore !== null ? `${smartScore}%` : '—'}
+                                        </span>
+                                        <span className="text-[12px] text-slate-300">{label}</span>
+                                    </div>
+                                    <div className="mt-2 h-1.5 bg-slate-700 rounded-full overflow-hidden">
+                                        <div className="h-full rounded-full bg-purple-500/60 transition-all" style={{ width: `${smartScore ?? 0}%` }} />
+                                    </div>
+                                    <p className="text-[12px] text-slate-300 mt-1.5">{(smartScore ?? 0) >= 50 ? td('smartActive') : td('smartQuiet')}</p>
                                 </div>
-                                <div className="flex items-center gap-2">
-                                    <span className={`text-xl font-mono font-bold ${(smartScore ?? 0) >= 50 ? 'text-purple-400' : 'text-slate-400'}`}>
-                                        {smartScore !== null ? `${smartScore}%` : '—'}
-                                    </span>
-                                    <span className="text-[12px] text-slate-300">{label}</span>
-                                </div>
-                                <div className="mt-2 h-1.5 bg-slate-700 rounded-full overflow-hidden">
-                                    <div className="h-full rounded-full bg-purple-500/60 transition-all" style={{ width: `${smartScore ?? 0}%` }} />
-                                </div>
-                            </div>
-                        );
-                    })()}
+                            );
+                        })()}
+                    </EliteGate>}
 
-                    {/* IV Rank */}
-                    {customize.cardOrder.includes('ivRank') && (() => {
-                        const iv = data?.atmIv ?? 0;
-                        // IV Rank approximation: ATM IV percentile (simplified)
-                        const ivRank = iv > 0 ? Math.min(Math.round(iv * 1.5), 100) : null;
-                        const isHigh = (ivRank ?? 0) >= 60;
-                        return (
-                            <div className={`relative p-4 rounded-xl border overflow-hidden ${isHigh ? 'bg-amber-500/10 border-amber-400/30' : 'bg-[#0d1829]/80 border-white/5'}`}>
-                                <div className="flex items-center gap-2 mb-2">
-                                    <span className="text-[12px] font-jakarta uppercase tracking-wider text-white">IV Rank</span>
+                    {/* IV Rank — PRO */}
+                    {customize.cardOrder.includes('ivRank') && <ProGate title="IV Rank" mode="peek" compact>
+                        {(() => {
+                            const iv = data?.atmIv ?? 0;
+                            const ivRank = iv > 0 ? Math.min(Math.round(iv * 1.5), 100) : null;
+                            const isHigh = (ivRank ?? 0) >= 60;
+                            return (
+                                <div className={`relative p-4 rounded-xl border overflow-hidden ${isHigh ? 'bg-amber-500/10 border-amber-400/30' : 'bg-[#0d1829]/80 border-white/5'}`}>
+                                    <div className="flex items-center gap-2 mb-2">
+                                        <span className="text-[12px] font-jakarta uppercase tracking-wider text-white">IV Rank</span>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <span className={`text-xl font-mono font-bold ${isHigh ? 'text-amber-400' : 'text-white'}`}>{ivRank !== null ? `${ivRank}%` : '—'}</span>
+                                        <span className="text-[12px] text-slate-300">{ivRank !== null ? (ivRank >= 60 ? 'High' : ivRank >= 30 ? 'Medium' : 'Low') : ''}</span>
+                                    </div>
+                                    <div className="mt-2 h-1.5 bg-slate-700 rounded-full overflow-hidden">
+                                        <div className={`h-full rounded-full transition-all ${isHigh ? 'bg-amber-500/60' : 'bg-slate-500/40'}`} style={{ width: `${ivRank ?? 0}%` }} />
+                                    </div>
+                                    <p className="text-[12px] text-slate-300 mt-1.5">{ivRank !== null ? (ivRank >= 60 ? td('ivRankHigh') : ivRank >= 30 ? td('ivRankMedium') : td('ivRankLow')) : ''}</p>
                                 </div>
-                                <div className="flex items-center gap-2">
-                                    <span className={`text-xl font-mono font-bold ${isHigh ? 'text-amber-400' : 'text-white'}`}>{ivRank !== null ? `${ivRank}%` : '—'}</span>
-                                    <span className="text-[12px] text-slate-300">{ivRank !== null ? (ivRank >= 60 ? 'High' : ivRank >= 30 ? 'Medium' : 'Low') : ''}</span>
-                                </div>
-                                <div className="mt-2 h-1.5 bg-slate-700 rounded-full overflow-hidden">
-                                    <div className={`h-full rounded-full transition-all ${isHigh ? 'bg-amber-500/60' : 'bg-slate-500/40'}`} style={{ width: `${ivRank ?? 0}%` }} />
-                                </div>
-                            </div>
-                        );
-                    })()}
+                            );
+                        })()}
+                    </ProGate>}
                 </div>
             </div>
 

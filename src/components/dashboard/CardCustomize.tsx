@@ -37,9 +37,9 @@ export const ALL_CARDS: CardDef[] = [
     { id: 'maxPain', label: 'MAX PAIN', category: 'options', proOnly: true },
     { id: 'callPutWall', label: 'CALL/PUT WALL', category: 'options', proOnly: true },
     { id: 'darkPool', label: 'DARK POOL %', category: 'options', proOnly: true },
-    { id: 'shortVol', label: 'SHORT VOL %', category: 'options' },
+    { id: 'shortVol', label: 'SHORT VOL %', category: 'options', proOnly: true },
     // Flow (Row 3 defaults)
-    { id: 'atmIv', label: 'ATM IV', category: 'options' },
+    { id: 'atmIv', label: 'ATM IV', category: 'options', proOnly: true },
     { id: 'pcRatio', label: 'P/C RATIO', category: 'options' },
     { id: 'gexRegime', label: 'GEX REGIME', category: 'structure', eliteOnly: true },
     { id: 'impliedMove', label: 'IMPLIED MOVE', category: 'options', eliteOnly: true },
