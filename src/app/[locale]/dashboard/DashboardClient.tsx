@@ -13,6 +13,7 @@ import { useRealtimeData } from "@/providers/WebSocketProvider";
 import { ProGate, EliteGate } from "@/components/gate/FeatureGate";
 import { useTier } from "@/contexts/TierContext";
 import { Crown, Lock as LockIcon } from "lucide-react";
+import { CardTooltip } from "@/components/ui/CardTooltip";
 import { useCardCustomize, DEFAULT_CARD_ORDER, ALL_CARDS } from "@/components/dashboard/CardCustomize";
 import { DndContext, closestCenter } from "@dnd-kit/core";
 import { SortableContext, rectSortingStrategy } from "@dnd-kit/sortable";
@@ -688,7 +689,7 @@ function MainChartPanel() {
                             <svg className="absolute right-0 bottom-0 w-24 h-16 opacity-[0.06]" viewBox="0 0 96 64"><path d="M0 50 Q12 20 24 35 T48 25 T72 40 T96 15" fill="none" stroke="currentColor" strokeWidth="2" className="text-amber-400" /><path d="M0 55 Q16 40 32 45 T64 35 T96 30" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-amber-300" /></svg>
                             <div className="relative z-10 flex items-center gap-2 mb-2 whitespace-nowrap">
                                 <Activity className="w-4 h-4 text-amber-400" />
-                                <span className="text-[12px] font-jakarta uppercase tracking-wider text-white cursor-help" title={td('tipNetGex')}>Net GEX</span>
+                                <CardTooltip text={td('tipNetGex')}><span className="text-[12px] font-jakarta uppercase tracking-wider text-white">Net GEX</span></CardTooltip>
                             </div>
                             <div className="relative z-10 flex items-center gap-2">
                                 <span className={`text-xl font-mono font-bold ${(data?.netGex || 0) > 0 ? "text-emerald-400" : "text-rose-400"}`}>
@@ -732,7 +733,7 @@ function MainChartPanel() {
                             <svg className="absolute right-1 bottom-1 w-20 h-16 opacity-[0.06]" viewBox="0 0 80 64"><circle cx="40" cy="32" r="22" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-cyan-400" /><line x1="40" y1="5" x2="40" y2="59" stroke="currentColor" strokeWidth="1" className="text-cyan-300" strokeDasharray="3 3" /><line x1="13" y1="32" x2="67" y2="32" stroke="currentColor" strokeWidth="1" className="text-cyan-300" strokeDasharray="3 3" /></svg>
                             <div className="relative z-10 flex items-center gap-2 mb-2 whitespace-nowrap">
                                 <Radio className="w-4 h-4 text-cyan-400" />
-                                <span className="text-[12px] font-jakarta uppercase tracking-wider text-white cursor-help" title={td('tipGammaFlip')}>Gamma Flip</span>
+                                <CardTooltip text={td('tipGammaFlip')}><span className="text-[12px] font-jakarta uppercase tracking-wider text-white">Gamma Flip</span></CardTooltip>
                             </div>
                             <div className="relative z-10 flex items-center gap-2">
                                 <span className="text-xl font-mono font-bold text-white">
@@ -792,7 +793,7 @@ function MainChartPanel() {
                                     <>
                                         <div className="flex items-center gap-2 mb-2 whitespace-nowrap">
                                             <Zap className="w-4 h-4 text-indigo-400" />
-                                            <span className="text-[12px] font-jakarta uppercase tracking-wider text-white cursor-help" title={td('tipSqueeze')}>Squeeze</span>
+                                            <CardTooltip text={td('tipSqueeze')}><span className="text-[12px] font-jakarta uppercase tracking-wider text-white">Squeeze</span></CardTooltip>
                                             <span className={`text-[12px] font-bold px-1.5 py-0.5 rounded ${bgColor} text-white`}>{risk}</span>
                                         </div>
                                         <div className="flex items-center gap-2">
@@ -897,7 +898,7 @@ function MainChartPanel() {
                                     <svg className="absolute right-1 bottom-1 w-20 h-16 opacity-[0.06]" viewBox="0 0 80 64"><circle cx="40" cy="32" r="24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-cyan-400" /><circle cx="40" cy="32" r="14" fill="none" stroke="currentColor" strokeWidth="1" className="text-cyan-300" /><circle cx="40" cy="32" r="3" fill="currentColor" className="text-cyan-400" /></svg>
                                     <div className="flex items-center gap-2 mb-2 whitespace-nowrap">
                                         <Target className="w-4 h-4 text-cyan-400" />
-                                        <span className="text-[12px] font-jakarta uppercase tracking-wider text-white cursor-help" title={td('tipMaxPain')}>Max Pain</span>
+                                        <CardTooltip text={td('tipMaxPain')}><span className="text-[12px] font-jakarta uppercase tracking-wider text-white">Max Pain</span></CardTooltip>
                                         {isNear && mp > 0 && <span className="text-[12px] font-bold px-1.5 py-0.5 rounded bg-amber-500/80 text-white">PIN</span>}
                                     </div>
                                     <div className="flex items-center gap-2">
@@ -950,7 +951,7 @@ function MainChartPanel() {
                                     <div className="flex items-center gap-2 mb-2 whitespace-nowrap">
                                         <TrendingUp className="w-4 h-4 text-emerald-400" />
                                         <div className="flex flex-col leading-tight">
-                                            <span className="text-[12px] font-jakarta uppercase tracking-wider text-white cursor-help" title={td('tipCallPutWall')}>Call Wall</span>
+                                            <CardTooltip text={td('tipCallPutWall')}><span className="text-[12px] font-jakarta uppercase tracking-wider text-white">Call Wall</span></CardTooltip>
                                             <span className="text-[12px] font-jakarta uppercase tracking-wider text-white">Put Floor</span>
                                         </div>
                                     </div>
@@ -992,7 +993,7 @@ function MainChartPanel() {
                                     <div className="flex items-center gap-2 mb-2 flex-wrap">
                                         <div className="flex items-center gap-2 whitespace-nowrap">
                                             <Activity className="w-4 h-4 text-purple-400" />
-                                            <span className="text-[12px] font-jakarta uppercase tracking-wider text-white cursor-help" title={td('tipDarkPool')}>Dark Pool %</span>
+                                            <CardTooltip text={td('tipDarkPool')}><span className="text-[12px] font-jakarta uppercase tracking-wider text-white">Dark Pool %</span></CardTooltip>
                                         </div>
                                         {dp >= 55 && <span className="text-[10px] font-bold px-1 py-0.5 rounded bg-purple-500/80 text-white">HIGH</span>}
                                         {sessionLabel && <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${sessionColor}`}>{sessionLabel}</span>}
@@ -1042,7 +1043,7 @@ function MainChartPanel() {
                                     <svg className="absolute right-1 bottom-0 w-20 h-16 opacity-[0.06]" viewBox="0 0 80 64"><rect x="5" y="10" width="10" height="50" rx="2" fill="currentColor" className="text-rose-400" /><rect x="22" y="20" width="10" height="40" rx="2" fill="currentColor" className="text-rose-400" /><rect x="39" y="28" width="10" height="32" rx="2" fill="currentColor" className="text-rose-400" /><rect x="56" y="36" width="10" height="24" rx="2" fill="currentColor" className="text-rose-300" /></svg>
                                     <div className="flex items-center gap-2 mb-1 whitespace-nowrap">
                                         <TrendingDown className="w-4 h-4 text-rose-400" />
-                                        <span className="text-[12px] font-jakarta uppercase tracking-wider text-white cursor-help" title={td('tipShortVol')}>Short Vol %</span>
+                                        <CardTooltip text={td('tipShortVol')}><span className="text-[12px] font-jakarta uppercase tracking-wider text-white">Short Vol %</span></CardTooltip>
                                         {sv >= 50 && <span className="text-[10px] font-bold px-1 py-0.5 rounded bg-rose-500/80 text-white">HIGH</span>}
                                     </div>
                                     <div className="flex items-center gap-2">
@@ -1086,7 +1087,7 @@ function MainChartPanel() {
                             <svg className="absolute right-0 bottom-0 w-24 h-16 opacity-[0.06]" viewBox="0 0 96 64"><path d="M0 32 Q12 10 24 32 T48 32 T72 32 T96 32" fill="none" stroke="currentColor" strokeWidth="2" className="text-purple-400" /><path d="M0 32 Q12 48 24 32 T48 32 T72 32 T96 32" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-purple-300" strokeDasharray="3 3" /></svg>
                             <div className="flex items-center gap-2 mb-2 whitespace-nowrap">
                                 <Activity className="w-4 h-4 text-purple-400" />
-                                <span className="text-[12px] font-jakarta uppercase tracking-wider text-white cursor-help" title={td('tipAtmIv')}>ATM IV</span>
+                                <CardTooltip text={td('tipAtmIv')}><span className="text-[12px] font-jakarta uppercase tracking-wider text-white">ATM IV</span></CardTooltip>
                                 <span className="text-[12px] text-white">{td('impliedVol')}</span>
                             </div>
                             <div className="flex items-center gap-2">
@@ -1143,7 +1144,7 @@ function MainChartPanel() {
                                     ) : (
                                         <Activity className="w-4 h-4 text-slate-400" />
                                     )}
-                                    <span className="text-[12px] font-jakarta uppercase tracking-wider text-white cursor-help" title={td('tipPcRatio')}>P/C Ratio</span>
+                                    <CardTooltip text={td('tipPcRatio')}><span className="text-[12px] font-jakarta uppercase tracking-wider text-white">P/C Ratio</span></CardTooltip>
                                     <span className="text-[12px] text-cyan-400 font-medium">VOLUME</span>
                                 </div>
                                 <div className="flex items-center gap-2">
@@ -1263,7 +1264,7 @@ function MainChartPanel() {
                                     <svg className="absolute right-0 bottom-0 w-24 h-16 opacity-[0.06]" viewBox="0 0 96 64"><path d="M30 32 L10 20 M30 32 L10 44 M66 32 L86 20 M66 32 L86 44" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="text-cyan-400" /><line x1="30" y1="32" x2="66" y2="32" stroke="currentColor" strokeWidth="1.5" strokeDasharray="4 4" className="text-cyan-300" /></svg>
                                     <div className="flex items-center gap-2 mb-2 whitespace-nowrap">
                                         <Activity className="w-4 h-4 text-cyan-400" />
-                                        <span className="text-[12px] font-jakarta uppercase tracking-wider text-white cursor-help" title={td('tipImpliedMove')}>Implied Move</span>
+                                        <CardTooltip text={td('tipImpliedMove')}><span className="text-[12px] font-jakarta uppercase tracking-wider text-white">Implied Move</span></CardTooltip>
                                     </div>
                                     <div className="flex items-center gap-2">
                                         <span className={`text-xl font-mono font-bold ${im >= 5 ? 'text-cyan-400' : im >= 3 ? 'text-cyan-300' : 'text-white'}`}>
@@ -1321,7 +1322,7 @@ function MainChartPanel() {
                                     <svg className="absolute right-0 bottom-0 w-24 h-16 opacity-[0.06]" viewBox="0 0 96 64"><path d="M0 50 Q24 10 48 30 T96 15" fill="none" stroke="currentColor" strokeWidth="2" className="text-emerald-400" /></svg>
                                     <div className="flex items-center gap-2 mb-2">
                                         <Crown className="w-4 h-4 text-emerald-400" />
-                                        <span className="text-[12px] font-jakarta uppercase tracking-wider text-white cursor-help" title={td('tipAlphaScore')}>Alpha Score</span>
+                                        <CardTooltip text={td('tipAlphaScore')}><span className="text-[12px] font-jakarta uppercase tracking-wider text-white">Alpha Score</span></CardTooltip>
                                     </div>
                                     <div className="flex items-center gap-2">
                                         <span className={`text-2xl font-mono font-bold ${gradeColor}`}>{grade}</span>
@@ -1347,7 +1348,7 @@ function MainChartPanel() {
                                     <svg className="absolute right-0 bottom-0 w-24 h-16 opacity-[0.06]" viewBox="0 0 96 64"><ellipse cx="48" cy="40" rx="36" ry="16" fill="none" stroke="currentColor" strokeWidth="2" className="text-purple-400" /></svg>
                                     <div className="flex items-center gap-2 mb-2">
                                         <Anchor className="w-4 h-4 text-purple-400" />
-                                        <span className="text-[12px] font-jakarta uppercase tracking-wider text-white cursor-help" title={td('tipWhaleIndex')}>Whale Index</span>
+                                        <CardTooltip text={td('tipWhaleIndex')}><span className="text-[12px] font-jakarta uppercase tracking-wider text-white">Whale Index</span></CardTooltip>
                                     </div>
                                     <div className="flex items-center gap-2">
                                         <span className={`text-xl font-mono font-bold ${wi > 0 ? 'text-emerald-400' : wi < 0 ? 'text-rose-400' : 'text-slate-400'}`}>{wi > 0 ? '+' : ''}{wi}</span>
@@ -1375,7 +1376,7 @@ function MainChartPanel() {
                                 <svg className="absolute right-0 bottom-0 w-24 h-16 opacity-[0.06]" viewBox="0 0 96 64"><path d="M0 32 Q24 10 48 32 T96 32" fill="none" stroke="currentColor" strokeWidth="2" className="text-amber-400" /></svg>
                                 <div className="flex items-center gap-2 mb-2">
                                     <Gauge className="w-4 h-4 text-amber-400" />
-                                    <span className="text-[12px] font-jakarta uppercase tracking-wider text-white cursor-help" title={td('tipRsi14')}>RSI 14</span>
+                                    <CardTooltip text={td('tipRsi14')}><span className="text-[12px] font-jakarta uppercase tracking-wider text-white">RSI 14</span></CardTooltip>
                                 </div>
                                 <div className="flex items-center gap-2">
                                     <span className={`text-xl font-mono font-bold ${color}`}>{rsi !== null ? rsi.toFixed(1) : '—'}</span>
@@ -1399,7 +1400,7 @@ function MainChartPanel() {
                             <div className="relative p-4 rounded-xl border overflow-hidden bg-[#0d1829]/80 border-white/5">
                                 <div className="flex items-center gap-2 mb-2">
                                     <TrendingUp className="w-4 h-4 text-cyan-400" />
-                                    <span className="text-[12px] font-jakarta uppercase tracking-wider text-white cursor-help" title={td('tipReturn3d')}>Return 3D</span>
+                                    <CardTooltip text={td('tipReturn3d')}><span className="text-[12px] font-jakarta uppercase tracking-wider text-white">Return 3D</span></CardTooltip>
                                 </div>
                                 <div className="flex items-center gap-2">
                                     <span className={`text-xl font-mono font-bold ${isPositive ? 'text-emerald-400' : ret !== null ? 'text-rose-400' : 'text-slate-400'}`}>
@@ -1423,7 +1424,7 @@ function MainChartPanel() {
                             <div className={`relative p-4 rounded-xl border overflow-hidden ${isHigh ? 'bg-cyan-500/10 border-cyan-400/30' : 'bg-[#0d1829]/80 border-white/5'}`}>
                                 <div className="flex items-center gap-2 mb-2">
                                     <BarChart2 className="w-4 h-4 text-cyan-400" />
-                                    <span className="text-[12px] font-jakarta uppercase tracking-wider text-white cursor-help" title={td('tipRelVolume')}>Rel Volume</span>
+                                    <CardTooltip text={td('tipRelVolume')}><span className="text-[12px] font-jakarta uppercase tracking-wider text-white">Rel Volume</span></CardTooltip>
                                 </div>
                                 <div className="flex items-center gap-2">
                                     <span className={`text-xl font-mono font-bold ${isHigh ? 'text-cyan-400' : 'text-white'}`}>{rv !== null ? `${rv.toFixed(1)}x` : '—'}</span>
@@ -1447,7 +1448,7 @@ function MainChartPanel() {
                                 <div className="relative p-4 rounded-xl border overflow-hidden bg-[#0d1829]/80 border-white/5">
                                     <div className="flex items-center gap-2 mb-2">
                                         <Layers className="w-4 h-4 text-indigo-400" />
-                                        <span className="text-[12px] font-jakarta uppercase tracking-wider text-white cursor-help" title={td('tipOpi')}>OPI</span>
+                                        <CardTooltip text={td('tipOpi')}><span className="text-[12px] font-jakarta uppercase tracking-wider text-white">OPI</span></CardTooltip>
                                         <span className="text-[12px] text-slate-500">Options Position</span>
                                     </div>
                                     <div className="flex items-center gap-2">
@@ -1475,7 +1476,7 @@ function MainChartPanel() {
                                 <div className="relative p-4 rounded-xl border overflow-hidden bg-[#0d1829]/80 border-white/5">
                                     <div className="flex items-center gap-2 mb-2">
                                         <Brain className="w-4 h-4 text-purple-400" />
-                                        <span className="text-[12px] font-jakarta uppercase tracking-wider text-white cursor-help" title={td('tipSmartMoney')}>Smart Money</span>
+                                        <CardTooltip text={td('tipSmartMoney')}><span className="text-[12px] font-jakarta uppercase tracking-wider text-white">Smart Money</span></CardTooltip>
                                     </div>
                                     <div className="flex items-center gap-2">
                                         <span className={`text-xl font-mono font-bold ${(smartScore ?? 0) >= 50 ? 'text-purple-400' : 'text-slate-400'}`}>
@@ -1502,7 +1503,7 @@ function MainChartPanel() {
                                 <div className={`relative p-4 rounded-xl border overflow-hidden ${isHigh ? 'bg-amber-500/10 border-amber-400/30' : 'bg-[#0d1829]/80 border-white/5'}`}>
                                     <div className="flex items-center gap-2 mb-2">
                                         <Gem className="w-4 h-4 text-amber-400" />
-                                        <span className="text-[12px] font-jakarta uppercase tracking-wider text-white cursor-help" title={td('tipIvRank')}>IV Rank</span>
+                                        <CardTooltip text={td('tipIvRank')}><span className="text-[12px] font-jakarta uppercase tracking-wider text-white">IV Rank</span></CardTooltip>
                                     </div>
                                     <div className="flex items-center gap-2">
                                         <span className={`text-xl font-mono font-bold ${isHigh ? 'text-amber-400' : 'text-white'}`}>{ivRank !== null ? `${ivRank}%` : '—'}</span>
