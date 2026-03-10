@@ -6,6 +6,7 @@ import { ConsentGuard } from '@/components/ConsentGuard';
 import { AuthGuard } from '@/components/AuthGuard';
 import { DeactivationGuard } from '@/components/DeactivationGuard';
 import { TierProvider } from '@/contexts/TierContext';
+import { WebSocketProvider } from '@/providers/WebSocketProvider';
 import { LandingHeader } from '@/components/landing/LandingHeader';
 import { StickyFoundingBar } from '@/components/landing/StickyFoundingBar';
 import { Footer } from '@/components/Footer';
@@ -39,7 +40,9 @@ export default async function LocaleLayout({ children, params }: Props) {
                         <AuthGuard>
                             <DeactivationGuard>
                                 <LandingHeader />
-                                {children}
+                                <WebSocketProvider>
+                                    {children}
+                                </WebSocketProvider>
                                 <Footer />
                                 <BottomNav />
                                 <StickyFoundingBar />
