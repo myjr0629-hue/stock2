@@ -666,16 +666,6 @@ function MainChartPanel() {
                             )}
                         </button>
                     )}
-                    {/* Alert Button */}
-                    {(tier === 'pro' || tier === 'elite') && (
-                        <button
-                            onClick={() => setShowAlertModal(true)}
-                            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-slate-800/50 border border-white/5 hover:border-cyan-500/30 hover:bg-cyan-500/10 transition-all"
-                            title="Set Alert"
-                        >
-                            <Bell className="w-4 h-4 text-slate-400" />
-                        </button>
-                    )}
                     {data?.isGammaSqueeze && (
                         <div className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-500/20 border border-indigo-500/30 rounded-lg animate-squeeze-glow">
                             <Zap className="w-4 h-4 text-indigo-400 animate-pulse" />
@@ -691,53 +681,6 @@ function MainChartPanel() {
                 </div>
             </div>
 
-            {/* Alert Modal */}
-            {showAlertModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
-                    onClick={() => setShowAlertModal(false)}>
-                    <div className="bg-[#0d1829] border border-white/10 rounded-xl p-5 w-[380px] shadow-2xl"
-                        onClick={e => e.stopPropagation()}>
-                        <div className="flex items-center justify-between mb-4">
-                            <div className="flex items-center gap-2">
-                                <Bell className="w-5 h-5 text-cyan-400" />
-                                <h3 className="text-white font-bold text-lg">Set Alert</h3>
-                            </div>
-                            <button onClick={() => setShowAlertModal(false)} className="p-1 hover:bg-slate-700 rounded">
-                                <X className="w-4 h-4 text-slate-400" />
-                            </button>
-                        </div>
-                        <p style={{ fontSize: '13px' }} className="text-slate-300 mb-4">{selectedTicker} — Set condition alert</p>
-                        <div className="mb-3">
-                            <label style={{ fontSize: '12px' }} className="text-slate-300 font-medium mb-1 block">Condition</label>
-                            <select value={alertCondition} onChange={e => setAlertCondition(e.target.value)}
-                                className="w-full p-2.5 rounded-lg bg-slate-800 border border-white/10 text-white text-sm focus:border-cyan-500/50 focus:outline-none">
-                                <option value="price_above">Price Above</option>
-                                <option value="price_below">Price Below</option>
-                                <option value="gex_flip_long">GEX Long Flip</option>
-                                <option value="gex_flip_short">GEX Short Flip</option>
-                                <option value="squeeze_above">Squeeze Above %</option>
-                            </select>
-                        </div>
-                        {(alertCondition.startsWith('price_') || alertCondition === 'squeeze_above') && (
-                            <div className="mb-4">
-                                <label style={{ fontSize: '12px' }} className="text-slate-300 font-medium mb-1 block">
-                                    {alertCondition === 'squeeze_above' ? 'Squeeze %' : 'Price ($)'}
-                                </label>
-                                <input type="number" value={alertThreshold} onChange={e => setAlertThreshold(e.target.value)}
-                                    placeholder={alertCondition === 'squeeze_above' ? '70' : data?.underlyingPrice?.toFixed(2) || '0'}
-                                    className="w-full p-2.5 rounded-lg bg-slate-800 border border-white/10 text-white text-sm font-mono focus:border-cyan-500/50 focus:outline-none" />
-                            </div>
-                        )}
-                        {alertCondition.startsWith('gex_flip_') && (
-                            <p style={{ fontSize: '12px' }} className="text-slate-400 mb-4">Lambda monitors GEX every 5 min. Alert triggers on flip.</p>
-                        )}
-                        <button onClick={handleSaveAlert} disabled={alertSaving}
-                            className="w-full py-2.5 rounded-lg bg-cyan-500/20 text-cyan-400 font-bold text-sm hover:bg-cyan-500/30 transition-colors disabled:opacity-50">
-                            {alertSaving ? 'Saving...' : 'Set Alert'}
-                        </button>
-                    </div>
-                </div>
-            )}
 
             {/* ═══════ Metrics Grid: 3 Rows × 4 Cards ═══════ */}
             {/* [CUSTOMIZE] Select Cards button (only visible in edit mode) */}
