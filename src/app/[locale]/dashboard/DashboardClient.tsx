@@ -946,7 +946,7 @@ function MainChartPanel() {
                             const range = cw - pf;
                             const pricePos = range > 0 && price > 0 ? Math.max(0, Math.min(100, ((price - pf) / range * 100))) : 50;
                             return (
-                                <div className="relative p-4 bg-[#0d1829]/80 rounded-xl border border-white/5 overflow-hidden">
+                                <div className="relative p-4 bg-[#0d1829]/80 rounded-xl border border-white/5 overflow-hidden transition-all duration-200 hover:-translate-y-0.5 hover:brightness-110 hover:border-white/15">
                                     <svg className="absolute right-0 bottom-0 w-24 h-16 opacity-[0.06]" viewBox="0 0 96 64"><line x1="0" y1="20" x2="96" y2="20" stroke="currentColor" strokeWidth="1.5" className="text-emerald-400" /><line x1="0" y1="44" x2="96" y2="44" stroke="currentColor" strokeWidth="1.5" className="text-rose-400" /><line x1="0" y1="32" x2="96" y2="32" stroke="currentColor" strokeWidth="1" strokeDasharray="4 4" className="text-white" /></svg>
                                     <div className="flex items-center gap-2 mb-2 whitespace-nowrap">
                                         <TrendingUp className="w-4 h-4 text-emerald-400" />
@@ -1038,7 +1038,7 @@ function MainChartPanel() {
                                     : svHigh && !dpHigh ? { label: td('svCrossRetailShort'), color: 'text-amber-400' }
                                         : { label: td('svCrossNeutral'), color: 'text-slate-400' };
                             return (
-                                <div className={`relative py-3 px-4 rounded-xl border overflow-hidden ${isAlert ? 'bg-rose-500/10 backdrop-blur-md border-rose-400/40 shadow-[0_0_25px_rgba(251,113,133,0.3)]' : 'bg-[#0d1829]/80 border-white/5'}`}>
+                                <div className={`relative py-3 px-4 rounded-xl border overflow-hidden transition-all duration-200 hover:-translate-y-0.5 hover:brightness-110 hover:border-white/15 ${isAlert ? 'bg-rose-500/10 backdrop-blur-md border-rose-400/40 shadow-[0_0_25px_rgba(251,113,133,0.3)]' : 'bg-[#0d1829]/80 border-white/5'}`}>
                                     {isAlert && <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-rose-400 to-rose-500" />}
                                     <svg className="absolute right-1 bottom-0 w-20 h-16 opacity-[0.06]" viewBox="0 0 80 64"><rect x="5" y="10" width="10" height="50" rx="2" fill="currentColor" className="text-rose-400" /><rect x="22" y="20" width="10" height="40" rx="2" fill="currentColor" className="text-rose-400" /><rect x="39" y="28" width="10" height="32" rx="2" fill="currentColor" className="text-rose-400" /><rect x="56" y="36" width="10" height="24" rx="2" fill="currentColor" className="text-rose-300" /></svg>
                                     <div className="flex items-center gap-2 mb-1 whitespace-nowrap">
