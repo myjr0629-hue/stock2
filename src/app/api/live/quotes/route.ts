@@ -2,6 +2,7 @@
 import { NextResponse } from 'next/server';
 import { fetchMassive } from '@/services/massiveClient';
 import { getMarketStatusSSOT } from '@/services/marketStatusProvider';
+import { getFromCache, setInCache } from '@/services/redisClient';
 
 export const dynamic = 'force-dynamic'; // No caching allowed
 
@@ -17,6 +18,17 @@ export async function GET(request: Request) {
         const tickers = symbolsParam.split(',').map(s => s.trim().toUpperCase()).filter(Boolean);
         const marketStatus = await getMarketStatusSSOT();
         const session = marketStatus.session; // 'pre', 'regular', 'post', 'closed'
+
+        // [AWS] Redis cache check (2s TTL — same symbols batch within polling interval)
+        const cacheKey = `live-quotes:${tickers.sort().join(',')}`;
+        try {
+            const cached = await getFromCache<any>(cacheKey);
+            if (cached) {
+                return NextResponse.json({ data: cached, session, timestamp: Date.now(), _cached: true }, {
+                    headers: { 'Cache-Control': 'private, max-age=1, stale-while-revalidate=3' }
+                });
+            }
+        } catch { /* continue to Polygon */ }
 
         // ── [STRATEGY B] Batch Polygon snapshot — 1 API call instead of N ──
         // Previous: N parallel calls to /v2/snapshot/locale/us/markets/stocks/tickers/${ticker}
@@ -146,6 +158,9 @@ export async function GET(request: Request) {
                 lastUpdate: Date.now()
             };
         });
+
+        // [AWS] Cache to ElastiCache (2s TTL — matches polling interval)
+        try { await setInCache(cacheKey, data, 2); } catch { /* non-critical */ }
 
         return NextResponse.json({
             data,

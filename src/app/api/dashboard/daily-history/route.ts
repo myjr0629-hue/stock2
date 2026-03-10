@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { fetchMassive } from '@/services/massiveClient';
+import { getFromCache, setInCache } from '@/services/redisClient';
 
 /**
  * GET /api/dashboard/daily-history?t=TSLA&days=5
  * Returns daily OHLC data with calculated metrics for the past N trading days
+ * [AWS] ElastiCache 300s TTL — daily data rarely changes intraday
  */
 export async function GET(request: NextRequest) {
     const ticker = request.nextUrl.searchParams.get('t')?.toUpperCase();
@@ -12,6 +14,15 @@ export async function GET(request: NextRequest) {
     if (!ticker) {
         return NextResponse.json({ error: 'Missing ticker parameter' }, { status: 400 });
     }
+
+    // [AWS] Redis cache first (300s TTL)
+    const cacheKey = `daily-history:${ticker}:${days}`;
+    try {
+        const cached = await getFromCache<any>(cacheKey);
+        if (cached) {
+            return NextResponse.json({ ticker, data: cached, _cached: true });
+        }
+    } catch { /* continue to Polygon */ }
 
     try {
         // Calculate date range (go back extra days to account for weekends/holidays)
@@ -52,6 +63,11 @@ export async function GET(request: NextRequest) {
             };
         });
 
+        // [AWS] Cache to ElastiCache (300s TTL — daily bars rarely change)
+        if (dailyData.length > 0) {
+            try { await setInCache(cacheKey, dailyData, 300); } catch { /* non-critical */ }
+        }
+
         return NextResponse.json({ ticker, data: dailyData });
 
     } catch (error: any) {
@@ -63,3 +79,4 @@ export async function GET(request: NextRequest) {
         }, { status: 500 });
     }
 }
+

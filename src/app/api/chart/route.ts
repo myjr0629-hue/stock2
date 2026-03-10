@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getStockChartData, Range } from '@/services/stockApi';
 import { getBuildId } from '@/services/buildIdSSOT'; // [S-56.4.6e]
+import { getFromCache, setInCache } from '@/services/redisClient';
 
 // [S-78] Edge cache for 30 seconds - faster chart load while maintaining accuracy
 export const revalidate = 30;
@@ -14,6 +15,23 @@ export async function GET(request: Request) {
         return NextResponse.json({ error: 'Symbol is required' }, { status: 400 });
     }
 
+    // [AWS] Redis cache first (30s TTL matching edge cache)
+    const cacheKey = `chart:${symbol}:${range}`;
+    try {
+        const cached = await getFromCache<any>(cacheKey);
+        if (cached) {
+            const buildId = getBuildId();
+            return new Response(JSON.stringify({
+                data: cached.data,
+                meta: { buildId, timestampISO: new Date().toISOString(), sessionMaskDebug: cached.sessionMaskDebug, _cached: true },
+                range, symbol, count: cached.data?.length || 0
+            }), {
+                status: 200,
+                headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 's-maxage=30, stale-while-revalidate=10' }
+            });
+        }
+    } catch { /* continue to Polygon */ }
+
     try {
         const data = await getStockChartData(symbol, range as Range);
 
@@ -25,6 +43,9 @@ export async function GET(request: Request) {
         if (sessionMaskDebug) {
             sessionMaskDebug.buildId = buildId;
         }
+
+        // [AWS] Cache to ElastiCache (30s TTL)
+        try { await setInCache(cacheKey, { data, sessionMaskDebug }, 30); } catch { /* non-critical */ }
 
         // [S-52.2.3] Inject build metadata for staleness detection
         const response = {
@@ -51,3 +72,4 @@ export async function GET(request: Request) {
         return NextResponse.json({ error: 'Failed to fetch chart data' }, { status: 500 });
     }
 }
+
