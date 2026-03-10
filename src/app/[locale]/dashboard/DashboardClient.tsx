@@ -543,7 +543,7 @@ function MainChartPanel() {
         fetchChartData();
 
         // Silent background refresh every 30s
-        const interval = setInterval(() => fetchChartData(), 30000);
+        const interval = setInterval(() => fetchChartData(), 15000);
 
         // [P2 FIX] Debounced handler for visibility + focus events
         // Without debounce, tab switch triggers BOTH visibilitychange + focus → 2x fetch
