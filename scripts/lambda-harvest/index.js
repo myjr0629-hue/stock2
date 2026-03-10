@@ -21,34 +21,76 @@ function httpsGet(url) {
 
 const POLYGON_KEY = process.env.POLYGON_API_KEY || 'iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF';
 
-// ====== Full Universe (150+ tickers) ======
+// ====== Full Universe (300+ tickers) ======
+// Site sectors (70) + S&P 500 majors + warm-analysis tickers
 const UNIVERSE = [
+  // ── M7 ──
   'AAPL', 'MSFT', 'AMZN', 'NVDA', 'GOOGL', 'META', 'TSLA',
-  'AMD', 'AVGO', 'QCOM', 'MU', 'LRCX', 'AMAT', 'KLAC', 'MRVL', 'ASML',
-  'CRWD', 'PANW', 'ZS', 'FTNT', 'OKTA',
-  'AMGN', 'GILD', 'REGN', 'VRTX', 'BIIB',
-  'ISRG', 'TER', 'ROK', 'MBLY', 'PONY',
-  'VST', 'CEG', 'VRT', 'ETN', 'PWR',
-  'RTX', 'LMT', 'GD', 'NOC', 'BA',
-  'IBM', 'IONQ', 'RGTI', 'QUBT',
-  'V', 'MA', 'SQ', 'PYPL', 'COIN',
-  'CRM', 'NOW', 'SNOW',
-  'EQIX', 'DLR', 'AMT', 'CCI', 'SBAC',
-  'JPM', 'BAC', 'GS', 'WFC', 'C',
-  'JNJ', 'UNH', 'LLY', 'PFE', 'ABBV', 'MRK', 'TMO',
-  'XOM', 'CVX', 'COP', 'SLB',
-  'HD', 'COST', 'WMT', 'TGT', 'LOW',
-  'PG', 'KO', 'PEP', 'MCD', 'SBUX', 'NKE',
-  'DIS', 'NFLX', 'CMCSA',
-  'CAT', 'GE', 'HON', 'UPS', 'DE',
-  'NEE', 'DUK', 'SO',
-  'PLD', 'O', 'VICI',
-  'TXN', 'ON', 'INTC',
-  'UBER', 'ABNB', 'DASH', 'SHOP', 'SE',
-  'AI', 'PLTR', 'SMCI', 'ARM', 'DELL',
-  'FCX', 'NEM', 'LIN', 'SHW',
-  'BLK', 'SCHW', 'AXP',
-  'CRM', 'ADBE', 'TSM', 'HOOD', 'DKNG', 'NET',
+  // ── Physical AI ──
+  'PLTR', 'SERV', 'PL', 'TER', 'SYM', 'RKLB', 'ISRG',
+  // ── Silicon Core ──
+  'AMD', 'AVGO', 'TSM', 'ARM', 'MU', 'ASML', 'MRVL',
+  // ── Power Matrix ──
+  'CEG', 'VST', 'GEV', 'PWR', 'CCJ', 'SMR', 'ETN',
+  // ── Bio Pulse ──
+  'LLY', 'NVO', 'VRTX', 'REGN', 'VKTX', 'AMGN', 'GILD',
+  // ── Cyber Shield ──
+  'CRWD', 'PANW', 'FTNT', 'ZS', 'S', 'OKTA', 'NET',
+  // ── Orbit Defense ──
+  'LMT', 'RTX', 'AXON', 'KTOS', 'LDOS', 'ASTS', 'LUNR',
+  // ── Quantum Edge ──
+  'IBM', 'IONQ', 'RGTI', 'QUBT', 'QBTS', 'FORM', 'ARQQ',
+  // ── Fintech Pulse ──
+  'V', 'MA', 'SQ', 'PYPL', 'COIN', 'AFRM', 'HOOD',
+  // ── Cloud Fortress ──
+  'CRM', 'NOW', 'SNOW', 'WDAY', 'DDOG', 'MDB', 'TEAM',
+  // ── Mega Cap Tech ──
+  'ADBE', 'ORCL', 'INTU', 'SNPS', 'CDNS', 'PANW', 'NFLX',
+  // ── Semis Extended ──
+  'QCOM', 'LRCX', 'AMAT', 'KLAC', 'ON', 'INTC', 'TXN', 'MCHP', 'ADI', 'NXPI', 'SWKS',
+  // ── Finance ──
+  'JPM', 'BAC', 'GS', 'WFC', 'C', 'MS', 'BLK', 'SCHW', 'AXP', 'USB', 'PNC', 'TFC',
+  // ── Healthcare ──
+  'JNJ', 'UNH', 'PFE', 'ABBV', 'MRK', 'TMO', 'ABT', 'DHR', 'BMY', 'BIIB', 'ISRG', 'MDT',
+  // ── Energy ──
+  'XOM', 'CVX', 'COP', 'SLB', 'EOG', 'MPC', 'PSX', 'VLO', 'OXY', 'DVN', 'HES', 'HAL',
+  // ── Consumer ──
+  'HD', 'COST', 'WMT', 'TGT', 'LOW', 'PG', 'KO', 'PEP', 'MCD', 'SBUX', 'NKE', 'EL',
+  // ── Media/Entertainment ──
+  'DIS', 'CMCSA', 'NFLX', 'WBD', 'PARA', 'ROKU', 'SPOT', 'TTD',
+  // ── Industrial ──
+  'CAT', 'GE', 'HON', 'UPS', 'DE', 'MMM', 'RTX', 'BA', 'WM', 'EMR', 'ITW', 'FDX',
+  // ── REITs ──
+  'PLD', 'O', 'VICI', 'AMT', 'CCI', 'SBAC', 'EQIX', 'DLR', 'PSA', 'SPG', 'WELL',
+  // ── Utilities ──
+  'NEE', 'DUK', 'SO', 'AEP', 'D', 'SRE', 'EXC', 'XEL', 'WEC', 'ED',
+  // ── Materials ──
+  'FCX', 'NEM', 'LIN', 'SHW', 'APD', 'ECL', 'DD', 'NUE', 'CF', 'MOS',
+  // ── Momentum/Growth ──
+  'UBER', 'ABNB', 'DASH', 'SHOP', 'SE', 'AI', 'SMCI', 'DELL', 'DKNG', 'RBLX', 'SNAP', 'PINS',
+  // ── China/ADR ──
+  'BABA', 'JD', 'PDD', 'BIDU', 'NIO', 'XPEV', 'LI', 'BILI',
+  // ── EV/Auto ──
+  'RIVN', 'LCID', 'F', 'GM', 'STLA', 'TM',
+  // ── Space/Defense Extended ──
+  'NOC', 'GD', 'HII', 'LHX', 'BAH',
+  // ── Biotech Extended ──
+  'MRNA', 'DXCM', 'ILMN', 'ZTS', 'IDXX', 'ALGN',
+  // ── Indexes/ETFs (for market breadth) ──
+  'SPY', 'QQQ', 'IWM', 'DIA', 'XLF', 'XLE', 'XLK', 'XLV', 'XLI', 'XLP',
+  // ── Crypto-related ──
+  'MSTR', 'MARA', 'RIOT', 'CLSK', 'BITF',
+  // ── Additional S&P 500 ──
+  'ACN', 'CL', 'CME', 'CTAS', 'CSX', 'DXCM', 'FAST', 'FISV', 'GEHC', 'GIS',
+  'ICE', 'IDXX', 'KDP', 'KHC', 'KLAC', 'MDLZ', 'MNST', 'ODFL', 'PAYX', 'ROST',
+  'SYK', 'TRGP', 'VRSK', 'VRSN', 'YUM', 'ZBH', 'ZTS',
+  // ── More S&P 500 / Large Cap ──
+  'LULU', 'CPRT', 'CSGP', 'FANG', 'MSCI', 'CHTR', 'ADP', 'REGN', 'EW', 'ORLY',
+  'A', 'ANSS', 'BKR', 'CDW', 'CTSH', 'DOV', 'EFX', 'GRMN', 'HUBB', 'IQV',
+  'JCI', 'KMB', 'LNT', 'MAA', 'NTRS', 'OKE', 'POOL', 'RCL', 'SBNY', 'TEL',
+  'TDG', 'TROW', 'TYL', 'URI', 'WAB', 'WRB', 'WST', 'ZBRA',
+  // ── VRT and other site tickers ──
+  'VRT', 'ROK', 'MBLY', 'PONY',
 ];
 const UNIQUE_UNIVERSE = [...new Set(UNIVERSE)];
 
