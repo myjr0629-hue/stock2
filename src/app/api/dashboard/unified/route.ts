@@ -443,9 +443,54 @@ async function buildResponseFromAnalysisCache(
 ) {
     const tickersData: Record<string, any> = {};
 
-    // Fetch live prices in parallel via Polygon snapshots (lightweight, ~50ms per batch)
+    // Fetch live prices — DynamoDB first (fast batch), Polygon fallback for misses
     const priceMap: Record<string, any> = {};
     try {
+        // [Phase 2] Try DynamoDB priceCacheStore first (batch: ~300ms for all tickers)
+        const { getLatestPricesBatch } = await import('@/lib/aws/priceCacheStore');
+        const tickersToFetch = tickers.filter(t => analysisCacheMap[t]);
+        const dynamoPrices = await getLatestPricesBatch(tickersToFetch);
+
+        // Use DynamoDB data where available
+        const missingFromDynamo: string[] = [];
+        for (const ticker of tickersToFetch) {
+            const dp = dynamoPrices.get(ticker);
+            if (dp && dp.close > 0) {
+                // Convert DynamoDB format to Polygon snapshot format
+                priceMap[ticker] = {
+                    lastTrade: { p: dp.close },
+                    day: { c: dp.close, o: dp.open, h: dp.high, l: dp.low, v: dp.volume, vw: dp.vwap },
+                    prevDay: { c: dp.close }, // approximation
+                    todaysChangePerc: dp.changePct || 0,
+                };
+            } else {
+                missingFromDynamo.push(ticker);
+            }
+        }
+
+        // Polygon fallback only for DynamoDB misses
+        if (missingFromDynamo.length > 0) {
+            const polygonResults = await Promise.all(
+                missingFromDynamo.map(async (ticker) => {
+                    try {
+                        const snapRes = await fetchMassive(
+                            `/v2/snapshot/locale/us/markets/stocks/tickers/${ticker}`,
+                            {}, false, undefined, { cache: 'no-store' as RequestCache }
+                        );
+                        return { ticker, snapshot: snapRes?.ticker || null };
+                    } catch {
+                        return { ticker, snapshot: null };
+                    }
+                })
+            );
+            polygonResults.forEach(({ ticker, snapshot }) => {
+                if (snapshot) priceMap[ticker] = snapshot;
+            });
+        }
+
+        console.log(`[Dashboard] Price: DynamoDB ${tickersToFetch.length - missingFromDynamo.length}/${tickersToFetch.length}, Polygon fallback ${missingFromDynamo.length}`);
+    } catch {
+        // DynamoDB failed — fall back entirely to Polygon
         const priceResults = await Promise.all(
             tickers.filter(t => analysisCacheMap[t]).map(async (ticker) => {
                 try {
@@ -462,8 +507,6 @@ async function buildResponseFromAnalysisCache(
         priceResults.forEach(({ ticker, snapshot }) => {
             if (snapshot) priceMap[ticker] = snapshot;
         });
-    } catch {
-        // If price fetch fails, we still have analysis data — price will be stale but available
     }
 
     for (const ticker of tickers) {
