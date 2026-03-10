@@ -9,6 +9,7 @@ import { useDashboardStore } from "@/stores/dashboardStore";
 import { useShallow } from "zustand/react/shallow";
 import { PriceDisplay, usePriceFlash, getFlashStyle, tickerDelay } from "@/components/ui/PriceDisplay";
 import { calcPriceDisplay } from "@/utils/calcPriceDisplay";
+import { useRealtimeData } from "@/providers/WebSocketProvider";
 import { ProGate, EliteGate } from "@/components/gate/FeatureGate";
 import { useTier } from "@/contexts/TierContext";
 import { Crown, Lock as LockIcon } from "lucide-react";
@@ -1553,6 +1554,7 @@ export function DashboardClient({ initialTickers, initialQuotes }: { initialTick
     const isLoading = useDashboardStore(s => s.isLoading);
     const dashboardTickers = useDashboardStore(s => s.dashboardTickers);
     const initializeStore = useDashboardStore(s => s.initializeStore);
+    const updateRealtimePrice = useDashboardStore(s => s.updateRealtimePrice);
     const [initialized, setInitialized] = useState(false);
     const [mobileTab, setMobileTab] = useState('chart');
 
@@ -1630,6 +1632,23 @@ export function DashboardClient({ initialTickers, initialQuotes }: { initialTick
         };
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [initialized]);
+
+    // [WEBSOCKET] Real-time price injection — WebSocket Push → dashboardStore
+    const { prices: wsPrices, rlsi: wsRlsi } = useRealtimeData(dashboardTickers);
+
+    // Bridge WebSocket prices to store
+    const prevWsPricesRef = useRef<Map<string, any>>(new Map());
+    useEffect(() => {
+        if (!wsPrices || wsPrices.size === 0) return;
+        wsPrices.forEach((update, ticker) => {
+            const prev = prevWsPricesRef.current.get(ticker);
+            if (prev && prev.price === update.price) return; // Skip unchanged
+            if (update.price > 0) {
+                updateRealtimePrice(ticker, update.price, update.changePct);
+            }
+        });
+        prevWsPricesRef.current = new Map(wsPrices);
+    }, [wsPrices, updateRealtimePrice]);
 
     return (
         <div className="min-h-screen bg-[#050a14] text-white flex flex-col">

@@ -120,6 +120,8 @@ interface DashboardState {
     fetchSingleTicker: (ticker: string) => Promise<void>;
     // [SSR] Initialize store with server-fetched props
     initializeStore: (dashboardTickers: string[], quotes: any) => void;
+    // [WEBSOCKET] Update price from real-time WebSocket Push
+    updateRealtimePrice: (ticker: string, price: number, changePct?: number) => void;
 }
 
 const DEFAULT_TICKERS = ['NVDA', 'TSLA', 'SPY'];
@@ -459,6 +461,34 @@ export const useDashboardStore = create<DashboardState>()(
                 } catch (e) {
                     console.error(`[BOARD] fetchSingleTicker(${ticker}) error:`, e);
                 }
+            },
+
+            // [WEBSOCKET] Real-time price injection from WebSocket Push
+            updateRealtimePrice: (ticker: string, price: number, changePct?: number) => {
+                const existing = get().tickers[ticker];
+                if (!existing) return; // Only update tickers already in the dashboard
+
+                // Skip if price is same (avoid unnecessary re-renders)
+                if (existing.underlyingPrice === price) return;
+
+                const refClose = existing.prevClose || existing.underlyingPrice || price;
+                const calculatedChangePct = changePct ?? (refClose > 0 ? ((price - refClose) / refClose) * 100 : 0);
+
+                set({
+                    tickers: {
+                        ...get().tickers,
+                        [ticker]: {
+                            ...existing,
+                            underlyingPrice: price,
+                            changePercent: calculatedChangePct,
+                            display: {
+                                ...existing.display,
+                                price,
+                                changePctPct: calculatedChangePct,
+                            },
+                        }
+                    }
+                });
             }
         }),
         {
