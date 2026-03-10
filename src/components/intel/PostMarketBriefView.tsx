@@ -1,11 +1,11 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
     ChevronDown, Sparkles, Loader2, FileText, Orbit, Bot, Zap, Activity,
     ShieldAlert, Shield, Rocket, Cpu, CreditCard, Cloud,
     TrendingUp, TrendingDown, AlertTriangle, Target, Newspaper, BarChart3,
-    ArrowUpRight, ArrowDownRight, Minus, Eye
+    ArrowUpRight, ArrowDownRight, Minus, Eye, ArrowRight, Calendar, Flame
 } from 'lucide-react';
 import { useTranslations, useLocale } from 'next-intl';
 import { m7Config } from '@/configs/m7.config';
@@ -64,9 +64,125 @@ const SECTION_TITLES: Record<string, { ko: string; en: string; ja: string }> = {
 
 // ── Glass Card Style ──
 const GLASS = 'rounded-xl border border-white/10 p-5';
-const MACRO_LABELS: Record<string, string> = { VIX: 'VIX', 'S&P500': 'S&P 500', NASDAQ: 'NASDAQ', US10Y: 'US 10Y', BTC: 'Bitcoin', 'Fear': 'Fear & Greed' };
 const GLASS_BG = { background: 'rgba(11,15,23,0.6)', backdropFilter: 'blur(12px)' };
 const GLASS_ACCENT_BG = { background: 'rgba(11,15,23,0.4)', backdropFilter: 'blur(16px)' };
+
+// ── Stagger animation CSS ──
+const staggerStyle = (i: number) => ({
+    animation: 'fadeSlideUp 0.5s ease-out both',
+    animationDelay: `${i * 100}ms`,
+});
+
+// ── Animated Number Hook ──
+function useAnimatedNumber(target: number, duration = 800) {
+    const [val, setVal] = useState(0);
+    const ref = useRef<number>(0);
+    useEffect(() => {
+        const start = ref.current;
+        const diff = target - start;
+        if (Math.abs(diff) < 0.01) { setVal(target); return; }
+        const startTime = performance.now();
+        const step = (now: number) => {
+            const elapsed = now - startTime;
+            const progress = Math.min(elapsed / duration, 1);
+            const eased = 1 - Math.pow(1 - progress, 3);
+            const current = start + diff * eased;
+            setVal(current);
+            ref.current = current;
+            if (progress < 1) requestAnimationFrame(step);
+        };
+        requestAnimationFrame(step);
+    }, [target, duration]);
+    return val;
+}
+
+// ── Fear & Greed Semicircle Gauge ──
+function FearGreedGauge({ value }: { value: number }) {
+    const animVal = useAnimatedNumber(value);
+    const angle = -90 + (animVal / 100) * 180;
+    const getColor = (v: number) => {
+        if (v <= 25) return '#ef4444';
+        if (v <= 45) return '#f97316';
+        if (v <= 55) return '#eab308';
+        if (v <= 75) return '#84cc16';
+        return '#22c55e';
+    };
+    const getLabel = (v: number) => {
+        if (v <= 25) return 'Extreme Fear';
+        if (v <= 45) return 'Fear';
+        if (v <= 55) return 'Neutral';
+        if (v <= 75) return 'Greed';
+        return 'Extreme Greed';
+    };
+    return (
+        <div className="flex flex-col items-center">
+            <svg width="100" height="58" viewBox="0 0 100 58">
+                <defs>
+                    <linearGradient id="fgGrad" x1="0%" y1="0%" x2="100%">
+                        <stop offset="0%" stopColor="#ef4444" />
+                        <stop offset="25%" stopColor="#f97316" />
+                        <stop offset="50%" stopColor="#eab308" />
+                        <stop offset="75%" stopColor="#84cc16" />
+                        <stop offset="100%" stopColor="#22c55e" />
+                    </linearGradient>
+                </defs>
+                <path d="M 10 52 A 40 40 0 0 1 90 52" fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="6" strokeLinecap="round" />
+                <path d="M 10 52 A 40 40 0 0 1 90 52" fill="none" stroke="url(#fgGrad)" strokeWidth="6" strokeLinecap="round"
+                    strokeDasharray={`${(animVal / 100) * 125.6} 125.6`} />
+                <line x1="50" y1="52" x2="50" y2="18" stroke={getColor(animVal)} strokeWidth="2" strokeLinecap="round"
+                    transform={`rotate(${angle}, 50, 52)`} style={{ transition: 'transform 0.8s ease-out' }} />
+                <circle cx="50" cy="52" r="3" fill={getColor(animVal)} />
+            </svg>
+            <span className="text-[20px] font-black font-mono mt-1" style={{ color: getColor(animVal) }}>{Math.round(animVal)}</span>
+            <span className="text-[12px] font-bold text-slate-300 uppercase tracking-wider">{getLabel(animVal)}</span>
+        </div>
+    );
+}
+
+// ── GEX Semicircle Gauge (SVG) ──
+function GexSemiGauge({ regime, label }: { regime: string; label: string }) {
+    const pos = regime === 'LONG' ? 85 : regime === 'SHORT' ? 15 : 50;
+    const animPos = useAnimatedNumber(pos);
+    const angle = -90 + (animPos / 100) * 180;
+    const color = regime === 'LONG' ? '#22c55e' : regime === 'SHORT' ? '#ef4444' : '#eab308';
+    return (
+        <div className="flex flex-col items-center">
+            <svg width="100" height="58" viewBox="0 0 100 58">
+                <path d="M 10 52 A 40 40 0 0 1 90 52" fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="6" strokeLinecap="round" />
+                <defs><linearGradient id="gexGrad" x1="0%" x2="100%"><stop offset="0%" stopColor="#ef4444" /><stop offset="50%" stopColor="#eab308" /><stop offset="100%" stopColor="#22c55e" /></linearGradient></defs>
+                <path d="M 10 52 A 40 40 0 0 1 90 52" fill="none" stroke="url(#gexGrad)" strokeWidth="6" strokeLinecap="round" opacity="0.4" />
+                <line x1="50" y1="52" x2="50" y2="18" stroke={color} strokeWidth="2" strokeLinecap="round"
+                    transform={`rotate(${angle}, 50, 52)`} />
+                <circle cx="50" cy="52" r="3" fill={color} />
+            </svg>
+            <span className="text-[13px] font-black font-mono mt-1 text-white">{label}</span>
+        </div>
+    );
+}
+
+// ── PCR Donut Chart ──
+function PcrDonut({ pcr }: { pcr: number }) {
+    const putPct = Math.min((pcr / (1 + pcr)) * 100, 100);
+    const animPut = useAnimatedNumber(putPct);
+    const circumference = 2 * Math.PI * 32;
+    const putArc = (animPut / 100) * circumference;
+    return (
+        <div className="flex flex-col items-center">
+            <svg width="80" height="80" viewBox="0 0 80 80">
+                <circle cx="40" cy="40" r="32" fill="none" stroke="rgba(34,197,94,0.3)" strokeWidth="8" />
+                <circle cx="40" cy="40" r="32" fill="none" stroke="#ef4444" strokeWidth="8"
+                    strokeDasharray={`${putArc} ${circumference}`} strokeDashoffset="0"
+                    transform="rotate(-90 40 40)" strokeLinecap="round" style={{ transition: 'stroke-dasharray 0.8s ease-out' }} />
+                <text x="40" y="38" textAnchor="middle" className="fill-white text-[14px] font-black font-mono">{pcr.toFixed(2)}</text>
+                <text x="40" y="50" textAnchor="middle" className="fill-slate-300 text-[12px] font-bold">PCR</text>
+            </svg>
+            <div className="flex gap-3 mt-1">
+                <span className="text-[12px] font-bold text-rose-400">PUT {Math.round(animPut)}%</span>
+                <span className="text-[12px] font-bold text-emerald-400">CALL {Math.round(100 - animPut)}%</span>
+            </div>
+        </div>
+    );
+}
 
 // ── Tone/Bias Badge Component ──
 function ToneBadge({ tone }: { tone: string }) {
@@ -182,6 +298,9 @@ export function PostMarketBriefView() {
     const collapseAll = () => setExpandedSectors(new Set());
 
     const d = brief?.structured;
+    const macroIndicators = brief?.macroIndicators || [];
+    const vixTS = brief?.vixTermStructure;
+    const upcomingEvents = brief?.upcomingEvents || [];
 
     // Calculate max change for bar normalization
     const allChanges = [
@@ -190,11 +309,41 @@ export function PostMarketBriefView() {
     ];
     const maxChange = Math.max(...allChanges, 1);
 
+    // Sector color map for related sector tags
+    const SECTOR_COLORS: Record<string, string> = {
+        m7: 'text-indigo-400 border-indigo-500/30 bg-indigo-500/10',
+        physical_ai: 'text-amber-500 border-amber-500/30 bg-amber-500/10',
+        silicon_core: 'text-amber-400 border-amber-400/30 bg-amber-400/10',
+        power_matrix: 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10',
+        bio_pulse: 'text-rose-400 border-rose-500/30 bg-rose-500/10',
+        cyber_shield: 'text-cyan-400 border-cyan-500/30 bg-cyan-500/10',
+        orbit_defense: 'text-sky-400 border-sky-500/30 bg-sky-500/10',
+        quantum_edge: 'text-fuchsia-400 border-fuchsia-500/30 bg-fuchsia-500/10',
+        fintech_pulse: 'text-lime-400 border-lime-500/30 bg-lime-500/10',
+        cloud_fortress: 'text-sky-300 border-sky-400/30 bg-sky-400/10',
+    };
+
     return (
         <div className="space-y-6">
+            {/* CSS Keyframes for animations */}
+            <style jsx global>{`
+                @keyframes fadeSlideUp {
+                    from { opacity: 0; transform: translateY(12px); }
+                    to { opacity: 1; transform: translateY(0); }
+                }
+                @keyframes pulseGlow {
+                    0%, 100% { box-shadow: 0 0 8px rgba(245,158,11,0.2); }
+                    50% { box-shadow: 0 0 20px rgba(245,158,11,0.4); }
+                }
+                @keyframes regimePulse {
+                    0%, 100% { opacity: 0.6; }
+                    50% { opacity: 1; }
+                }
+            `}</style>
+
             {/* ═══ Header ═══ */}
             <section className="relative p-6 rounded-xl border border-amber-500/[0.15] overflow-hidden"
-                style={{ background: 'rgba(13,17,23,0.7)', backdropFilter: 'blur(16px)' }}>
+                style={{ background: 'rgba(13,17,23,0.7)', backdropFilter: 'blur(16px)', ...staggerStyle(0) }}>
                 <div className="absolute inset-0 pointer-events-none">
                     <div className="absolute -top-20 -right-20 w-80 h-80 bg-gradient-radial from-amber-500/8 to-transparent rounded-full blur-3xl" />
                     <div className="absolute -bottom-16 -left-16 w-56 h-56 bg-gradient-radial from-orange-500/5 to-transparent rounded-full blur-3xl" />
@@ -217,7 +366,7 @@ export function PostMarketBriefView() {
 
             {/* ═══ AI Cross-Sector Intelligence ═══ */}
             <section className="relative rounded-xl border border-amber-500/[0.12] overflow-hidden"
-                style={{ background: 'rgba(12,16,24,0.7)', backdropFilter: 'blur(16px)' }}>
+                style={{ background: 'rgba(12,16,24,0.7)', backdropFilter: 'blur(16px)', ...staggerStyle(1) }}>
                 <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-amber-400/60 to-transparent" />
 
                 <div className="p-6">
@@ -231,26 +380,10 @@ export function PostMarketBriefView() {
                             <p className="text-[13px] text-slate-300 font-mono">
                                 {brief ? `Generated ${new Date(brief.generatedAt).toLocaleString(locale === 'ko' ? 'ko-KR' : locale === 'ja' ? 'ja-JP' : 'en-US', { timeZone: 'America/New_York' })} ET` : 'AI-POWERED DAILY ANALYSIS'}
                             </p>
-                            {brief?.macroSnapshot && (
-                                <div className="flex flex-wrap gap-2 mt-2">
-                                    {brief.macroSnapshot.split(' | ').map((item: string, i: number) => {
-                                        const parts = item.split(': ');
-                                        const label = parts[0]?.trim() || '';
-                                        const value = parts[1]?.trim() || '';
-                                        const isNeg = value.includes('-');
-                                        return (
-                                            <div key={i} className="px-2.5 py-1.5 rounded-lg border border-white/10 text-center" style={{ background: 'rgba(255,255,255,0.03)' }}>
-                                                <span className="text-[12px] text-slate-300 font-bold block">{label}</span>
-                                                <span className={`text-[13px] font-black font-mono ${isNeg ? 'text-rose-400' : 'text-emerald-400'}`}>{value}</span>
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-                            )}
                         </div>
                         {brief && (
                             <span className="ml-auto px-2.5 py-1 text-[12px] font-bold text-amber-300 bg-amber-500/10 border border-amber-500/20 rounded-full">
-                                GEMINI AI
+                                {brief.version === 'v3' ? 'GEMINI 2.5 PRO' : 'GEMINI AI'}
                             </span>
                         )}
                     </div>
@@ -263,24 +396,136 @@ export function PostMarketBriefView() {
                     ) : d ? (
                         <div className="space-y-6">
 
+                            {/* ── 0. MACRO INDICATORS DASHBOARD ── */}
+                            {macroIndicators.length > 0 && (
+                                <div style={staggerStyle(2)}>
+                                    <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-7 gap-2 mb-3">
+                                        {macroIndicators.filter((m: any) => m.key !== 'Fear & Greed').map((m: any, i: number) => {
+                                            const isNeg = m.changePct < 0;
+                                            const glowColor = isNeg ? 'rgba(239,68,68,0.15)' : 'rgba(34,197,94,0.15)';
+                                            return (
+                                                <div key={m.key} className="p-2 rounded-lg border border-white/10 text-center transition-all hover:border-white/20"
+                                                    style={{ background: 'rgba(255,255,255,0.03)', boxShadow: `0 0 12px ${glowColor}` }}>
+                                                    <span className="text-[12px] font-bold text-slate-300 uppercase tracking-wider block mb-0.5">{m.key}</span>
+                                                    <span className="text-[14px] font-black text-white font-mono block">
+                                                        {m.value > 1000 ? m.value.toLocaleString(undefined, { maximumFractionDigits: 0 }) : m.value.toFixed(2)}
+                                                    </span>
+                                                    <span className={`text-[12px] font-bold font-mono ${isNeg ? 'text-rose-400' : 'text-emerald-400'}`}>
+                                                        {isNeg ? '' : '+'}{m.changePct.toFixed(2)}%
+                                                    </span>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                    {/* Fear & Greed + VIX Term Structure row */}
+                                    <div className="flex flex-wrap gap-3 items-center justify-center">
+                                        {macroIndicators.find((m: any) => m.key === 'Fear & Greed') && (
+                                            <div className="p-3 rounded-lg border border-white/10 text-center" style={{ background: 'rgba(255,255,255,0.03)' }}>
+                                                <span className="text-[12px] font-bold text-slate-300 uppercase tracking-wider block mb-1">FEAR &amp; GREED</span>
+                                                <FearGreedGauge value={macroIndicators.find((m: any) => m.key === 'Fear & Greed')?.value || 50} />
+                                            </div>
+                                        )}
+                                        {vixTS && (
+                                            <div className={`p-3 rounded-lg border text-center ${vixTS.state === 'BACKWARDATION' ? 'border-red-500/25' : 'border-emerald-500/25'}`}
+                                                style={{ background: vixTS.state === 'BACKWARDATION' ? 'rgba(239,68,68,0.06)' : 'rgba(34,197,94,0.06)' }}>
+                                                <span className="text-[12px] font-bold text-slate-300 uppercase tracking-wider block mb-1">VIX TERM STRUCTURE</span>
+                                                <div className="flex items-center gap-2">
+                                                    <span className="text-[13px] font-mono text-white">VIX <span className="font-black">{vixTS.vix.toFixed(1)}</span></span>
+                                                    <span className="text-slate-500">/</span>
+                                                    <span className="text-[13px] font-mono text-white">3M <span className="font-black">{vixTS.vix3m.toFixed(1)}</span></span>
+                                                </div>
+                                                <span className={`text-[12px] font-black mt-1 block ${vixTS.state === 'BACKWARDATION' ? 'text-red-400' : 'text-emerald-400'}`}
+                                                    style={vixTS.state === 'BACKWARDATION' ? { animation: 'regimePulse 2s ease-in-out infinite' } : {}}>
+                                                    {vixTS.state} ({vixTS.ratio})
+                                                </span>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* ── EDGE ALERTS ── */}
+                            {d.edgeAlerts?.length > 0 && (
+                                <div className="space-y-2" style={staggerStyle(3)}>
+                                    {d.edgeAlerts.map((alert: any, i: number) => {
+                                        const typeConfig: Record<string, { icon: React.ReactNode; border: string; bg: string }> = {
+                                            DIVERGENCE: { icon: <Activity className="w-4 h-4" />, border: 'border-amber-500/30', bg: 'rgba(245,158,11,0.08)' },
+                                            ANOMALY: { icon: <AlertTriangle className="w-4 h-4" />, border: 'border-purple-500/30', bg: 'rgba(168,85,247,0.08)' },
+                                            EXTREME: { icon: <Flame className="w-4 h-4" />, border: 'border-red-500/30', bg: 'rgba(239,68,68,0.08)' },
+                                        };
+                                        const tc = typeConfig[alert.type] || typeConfig.DIVERGENCE;
+                                        return (
+                                            <div key={i} className={`p-3 rounded-lg border ${tc.border} flex items-start gap-3`}
+                                                style={{ background: tc.bg, animation: 'pulseGlow 3s ease-in-out infinite' }}>
+                                                <div className="text-amber-400 mt-0.5 shrink-0">{tc.icon}</div>
+                                                <div>
+                                                    <span className="text-[12px] font-black text-amber-400 tracking-widest uppercase">⚡ EDGE — {alert.type}</span>
+                                                    <h4 className="text-[14px] font-bold text-white mt-0.5">{lt(alert.title, locale)}</h4>
+                                                    <p className="text-[13px] text-slate-300 mt-0.5 leading-snug">{lt(alert.detail, locale)}</p>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            )}
+
                             {/* ── 1. MARKET PULSE ── */}
-                            <div className={GLASS} style={GLASS_ACCENT_BG}>
-                                <div className="flex items-center justify-between mb-4">
+                            <div className={GLASS} style={{ ...GLASS_ACCENT_BG, ...staggerStyle(4) }}>
+                                <div className="flex items-center justify-between mb-3">
                                     <div className="flex items-center gap-2">
-                                        <BarChart3 className="w-4.5 h-4.5 text-cyan-400" />
+                                        <BarChart3 className="w-4.5 h-4.5 text-cyan-400" style={{ animation: 'regimePulse 3s ease-in-out infinite' }} />
                                         <h3 className="text-[15px] font-bold text-white tracking-tight uppercase">
                                             {(SECTION_TITLES.marketOverview as any)[locale] || SECTION_TITLES.marketOverview.en}
                                         </h3>
                                     </div>
                                     <ToneBadge tone={d.marketOverview?.tone || 'NEUTRAL'} />
                                 </div>
-                                <p className="text-slate-200 text-[15px] leading-[1.75] mb-4">
+
+                                {/* S&P 500 / NASDAQ Index Cards */}
+                                {(() => {
+                                    const spx = macroIndicators.find((m: any) => m.key === 'S&P500');
+                                    const ndx = macroIndicators.find((m: any) => m.key === 'NASDAQ');
+                                    if (!spx && !ndx) return null;
+                                    return (
+                                        <div className="grid grid-cols-2 gap-3 mb-4">
+                                            {[spx, ndx].filter(Boolean).map((idx: any) => {
+                                                const isNeg = idx.changePct < 0;
+                                                const pctAbs = Math.abs(idx.changePct);
+                                                const barWidth = Math.min(pctAbs * 20, 100);
+                                                return (
+                                                    <div key={idx.key} className={`p-4 rounded-xl border ${isNeg ? 'border-rose-500/20' : 'border-emerald-500/20'}`}
+                                                        style={{ background: isNeg ? 'rgba(239,68,68,0.06)' : 'rgba(34,197,94,0.06)' }}>
+                                                        <div className="flex items-center justify-between mb-1">
+                                                            <span className="text-[12px] font-bold text-slate-300 uppercase tracking-wider">{idx.key === 'S&P500' ? 'S&P 500' : 'NASDAQ 100'}</span>
+                                                            {isNeg ? <TrendingDown className="w-4 h-4 text-rose-400" /> : <TrendingUp className="w-4 h-4 text-emerald-400" />}
+                                                        </div>
+                                                        <div className="flex items-baseline gap-2">
+                                                            <span className="text-[22px] font-black text-white font-mono">
+                                                                {idx.value.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                                                            </span>
+                                                            <span className={`text-[14px] font-bold font-mono ${isNeg ? 'text-rose-400' : 'text-emerald-400'}`}>
+                                                                {isNeg ? '' : '+'}{idx.changePct.toFixed(2)}%
+                                                            </span>
+                                                        </div>
+                                                        {/* Mini change bar */}
+                                                        <div className="mt-2 h-1.5 rounded-full bg-white/5 overflow-hidden">
+                                                            <div className={`h-full rounded-full transition-all duration-700 ${isNeg ? 'bg-gradient-to-r from-rose-500/60 to-rose-400' : 'bg-gradient-to-r from-emerald-500/60 to-emerald-400'}`}
+                                                                style={{ width: `${barWidth}%` }} />
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    );
+                                })()}
+
+                                <p className="text-slate-200 text-[14px] leading-[1.7] mb-3">
                                     {lt(d.marketOverview?.summary, locale)}
                                 </p>
-                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                                     {la(d.marketOverview?.keyDrivers, locale).map((driver: string, i: number) => (
-                                        <div key={i} className="flex items-start gap-2 p-3 rounded-lg border border-white/10"
-                                            style={{ background: 'rgba(255,255,255,0.03)', backdropFilter: 'blur(8px)' }}>
+                                        <div key={i} className="flex items-start gap-2 p-2.5 rounded-lg border border-white/10"
+                                            style={{ background: 'rgba(255,255,255,0.03)' }}>
                                             <Target className="w-3.5 h-3.5 text-amber-400 mt-0.5 shrink-0" />
                                             <span className="text-[13px] text-slate-300 leading-snug">{driver}</span>
                                         </div>
@@ -289,27 +534,59 @@ export function PostMarketBriefView() {
                             </div>
 
                             {/* ── 2. SECTOR FLOW MAP ── */}
-                            <div className={GLASS} style={GLASS_BG}>
-                                <div className="flex items-center gap-2 mb-4">
+                            <div className={GLASS} style={{ ...GLASS_BG, ...staggerStyle(5) }}>
+                                <div className="flex items-center gap-2 mb-3">
                                     <Activity className="w-4.5 h-4.5 text-purple-400" />
                                     <h3 className="text-[15px] font-bold text-white tracking-tight uppercase">
                                         {(SECTION_TITLES.sectorRotation as any)[locale] || SECTION_TITLES.sectorRotation.en}
                                     </h3>
                                 </div>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+
+                                {/* Sector Heatbar — all 10 sectors in one row */}
+                                {(d.sectorRotation?.winners?.length > 0 || d.sectorRotation?.losers?.length > 0) && (
+                                    <div className="flex gap-0.5 mb-4 h-8 rounded-lg overflow-hidden">
+                                        {[...(d.sectorRotation?.winners || []), ...(d.sectorRotation?.losers || [])]
+                                            .sort((a: any, b: any) => parseFloat(b.change) - parseFloat(a.change))
+                                            .map((s: any, i: number) => {
+                                                const val = parseFloat(s.change?.replace(/[^0-9.\-]/g, '') || '0');
+                                                const isPos = val >= 0;
+                                                const width = Math.max(Math.abs(val) / maxChange * 100, 8);
+                                                return (
+                                                    <div key={i} className="relative group cursor-pointer transition-all hover:opacity-80"
+                                                        style={{
+                                                            flex: `${width} 0 0`,
+                                                            background: isPos
+                                                                ? `linear-gradient(135deg, rgba(34,197,94,${0.2 + Math.abs(val) / maxChange * 0.4}), rgba(34,197,94,${0.1 + Math.abs(val) / maxChange * 0.3}))`
+                                                                : `linear-gradient(135deg, rgba(239,68,68,${0.2 + Math.abs(val) / maxChange * 0.4}), rgba(239,68,68,${0.1 + Math.abs(val) / maxChange * 0.3}))`,
+                                                        }}>
+                                                        <span className="absolute inset-0 flex items-center justify-center text-[12px] font-black text-white/80 truncate px-0.5">
+                                                            {s.sector?.split(' ')[0]}
+                                                        </span>
+                                                        {/* Tooltip */}
+                                                        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1 px-2 py-1 rounded-md border border-white/20 text-[12px] font-mono text-white whitespace-nowrap hidden group-hover:block z-50"
+                                                            style={{ background: 'rgba(11,15,23,0.95)' }}>
+                                                            {s.sector} <span className={isPos ? 'text-emerald-400' : 'text-rose-400'}>{s.change}</span>
+                                                        </div>
+                                                    </div>
+                                                );
+                                            })}
+                                    </div>
+                                )}
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
                                     {/* Winners */}
                                     <div className="space-y-2">
                                         <span className="text-[12px] font-bold text-emerald-400 tracking-widest uppercase flex items-center gap-1.5">
                                             <ArrowUpRight className="w-3.5 h-3.5" /> {locale === 'ko' ? '강세 섹터' : locale === 'ja' ? '上昇セクター' : 'OUTPERFORMERS'}
                                         </span>
                                         {(d.sectorRotation?.winners || []).map((w: any, i: number) => (
-                                            <div key={i} className="p-3 rounded-lg border border-emerald-500/15"
-                                                style={{ background: 'rgba(16,185,129,0.06)', backdropFilter: 'blur(8px)' }}>
+                                            <div key={i} className="p-2.5 rounded-lg border border-emerald-500/15"
+                                                style={{ background: 'rgba(16,185,129,0.06)' }}>
                                                 <div className="flex items-center justify-between mb-1">
                                                     <span className="text-[13px] font-bold text-white">{w.sector}</span>
+                                                    <span className="text-[13px] font-black text-emerald-400 font-mono">{w.change}</span>
                                                 </div>
-                                                <ChangeBar change={w.change} isPositive={true} maxVal={maxChange} />
-                                                <p className="text-[13px] text-slate-300 mt-1.5 leading-snug">{lt(w.reason, locale)}</p>
+                                                <p className="text-[12px] text-slate-300 leading-snug">{lt(w.reason, locale)}</p>
                                             </div>
                                         ))}
                                     </div>
@@ -319,32 +596,32 @@ export function PostMarketBriefView() {
                                             <ArrowDownRight className="w-3.5 h-3.5" /> {locale === 'ko' ? '약세 섹터' : locale === 'ja' ? '下落セクター' : 'UNDERPERFORMERS'}
                                         </span>
                                         {(d.sectorRotation?.losers || []).map((l: any, i: number) => (
-                                            <div key={i} className="p-3 rounded-lg border border-red-500/15"
-                                                style={{ background: 'rgba(239,68,68,0.06)', backdropFilter: 'blur(8px)' }}>
+                                            <div key={i} className="p-2.5 rounded-lg border border-red-500/15"
+                                                style={{ background: 'rgba(239,68,68,0.06)' }}>
                                                 <div className="flex items-center justify-between mb-1">
                                                     <span className="text-[13px] font-bold text-white">{l.sector}</span>
+                                                    <span className="text-[13px] font-black text-rose-400 font-mono">{l.change}</span>
                                                 </div>
-                                                <ChangeBar change={l.change} isPositive={false} maxVal={maxChange} />
-                                                <p className="text-[13px] text-slate-300 mt-1.5 leading-snug">{lt(l.reason, locale)}</p>
+                                                <p className="text-[12px] text-slate-300 leading-snug">{lt(l.reason, locale)}</p>
                                             </div>
                                         ))}
                                     </div>
                                 </div>
                                 {d.sectorRotation?.rotationInsight && (
-                                    <div className="p-3 rounded-lg border border-purple-500/15"
-                                        style={{ background: 'rgba(168,85,247,0.06)', backdropFilter: 'blur(8px)' }}>
+                                    <div className="p-2.5 rounded-lg border border-purple-500/15"
+                                        style={{ background: 'rgba(168,85,247,0.06)' }}>
                                         <div className="flex items-start gap-2">
                                             <Eye className="w-4 h-4 text-purple-400 mt-0.5 shrink-0" />
-                                            <p className="text-[14px] text-slate-300 leading-relaxed">{lt(d.sectorRotation.rotationInsight, locale)}</p>
+                                            <p className="text-[13px] text-slate-300 leading-relaxed">{lt(d.sectorRotation.rotationInsight, locale)}</p>
                                         </div>
                                     </div>
                                 )}
                             </div>
 
-                            {/* ── 3. MARKET CATALYST ── */}
+                            {/* ── 3. MARKET CATALYST (with Impact Chain) ── */}
                             {d.newsImpact?.items?.length > 0 && (
-                                <div className={GLASS} style={GLASS_BG}>
-                                    <div className="flex items-center gap-2 mb-4">
+                                <div className={GLASS} style={{ ...GLASS_BG, ...staggerStyle(6) }}>
+                                    <div className="flex items-center gap-2 mb-3">
                                         <Newspaper className="w-4.5 h-4.5 text-sky-400" />
                                         <h3 className="text-[15px] font-bold text-white tracking-tight uppercase">
                                             {(SECTION_TITLES.newsImpact as any)[locale] || SECTION_TITLES.newsImpact.en}
@@ -353,23 +630,36 @@ export function PostMarketBriefView() {
                                     <div className="space-y-3">
                                         {d.newsImpact.items.map((item: any, i: number) => {
                                             const sentimentColor = item.sentiment === 'positive' ? 'bg-emerald-400' : item.sentiment === 'negative' ? 'bg-rose-400' : 'bg-slate-500';
+                                            const impactDots = item.impactLevel === 'HIGH' ? '🔴🔴🔴' : item.impactLevel === 'MED' ? '🟡🟡' : '🟢';
                                             return (
-                                                <div key={i} className="flex gap-3 p-4 rounded-lg border border-white/8 hover:border-white/15 transition-colors"
-                                                    style={{ background: 'rgba(255,255,255,0.02)', backdropFilter: 'blur(8px)' }}>
-                                                    {/* Sentiment color bar */}
+                                                <div key={i} className={`flex gap-3 p-3 rounded-lg border ${i === 0 && item.impactLevel === 'HIGH' ? 'border-amber-500/25' : 'border-white/8'} hover:border-white/15 transition-colors`}
+                                                    style={{ background: i === 0 && item.impactLevel === 'HIGH' ? 'rgba(245,158,11,0.05)' : 'rgba(255,255,255,0.02)' }}>
                                                     <div className={`w-1 self-stretch rounded-full flex-shrink-0 ${sentimentColor}`} />
                                                     <div className="flex-1 min-w-0">
-                                                        <h4 className="text-[15px] font-bold text-white leading-snug mb-1">
-                                                            {lt(item.headline, locale)}
-                                                        </h4>
-                                                        <p className="text-[14px] text-slate-300 leading-[1.7]">
-                                                            {lt(item.impact, locale)}
-                                                        </p>
+                                                        <div className="flex items-center gap-2 mb-0.5">
+                                                            <h4 className="text-[14px] font-bold text-white leading-snug flex-1">{lt(item.headline, locale)}</h4>
+                                                            <span className="text-[12px] shrink-0">{impactDots}</span>
+                                                        </div>
+                                                        <p className="text-[13px] text-slate-300 leading-snug mb-2">{lt(item.impact, locale)}</p>
+
+                                                        {/* Impact Chain visualization */}
+                                                        {item.impactChain?.length > 0 && (
+                                                            <div className="flex flex-wrap items-center gap-1 mb-2">
+                                                                {item.impactChain.map((chain: any, ci: number) => (
+                                                                    <React.Fragment key={ci}>
+                                                                        {ci > 0 && <ArrowRight className="w-3 h-3 text-slate-500" />}
+                                                                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[12px] font-bold border ${chain.direction === '↑' ? 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10' : 'text-rose-400 border-rose-500/30 bg-rose-500/10'}`}>
+                                                                            {chain.indicator} {chain.direction}
+                                                                        </span>
+                                                                    </React.Fragment>
+                                                                ))}
+                                                            </div>
+                                                        )}
+
                                                         {item.relatedSectors?.length > 0 && (
-                                                            <div className="flex gap-1.5 mt-2 flex-wrap">
+                                                            <div className="flex gap-1.5 flex-wrap">
                                                                 {item.relatedSectors.map((s: string) => (
-                                                                    <span key={s} className="px-2 py-0.5 text-[12px] font-bold text-slate-300 border border-white/10 rounded-md uppercase tracking-wide"
-                                                                        style={{ background: 'rgba(255,255,255,0.05)' }}>
+                                                                    <span key={s} className={`px-2 py-0.5 text-[12px] font-bold border rounded-md uppercase tracking-wide ${SECTOR_COLORS[s] || 'text-slate-300 border-white/10 bg-white/5'}`}>
                                                                         {s.replace(/_/g, ' ')}
                                                                     </span>
                                                                 ))}
@@ -383,44 +673,50 @@ export function PostMarketBriefView() {
                                 </div>
                             )}
 
-                            {/* ── 4. OPTIONS STRUCTURE ── */}
+                            {/* ── 4. OPTIONS STRUCTURE (SVG Gauges) ── */}
                             {d.gammaOptions && (
-                                <div className={GLASS} style={GLASS_BG}>
+                                <div className={GLASS} style={{ ...GLASS_BG, ...staggerStyle(7) }}>
                                     <div className="flex items-center gap-2 mb-4">
                                         <Zap className="w-4.5 h-4.5 text-yellow-400" />
                                         <h3 className="text-[15px] font-bold text-white tracking-tight uppercase">
                                             {(SECTION_TITLES.gammaOptions as any)[locale] || SECTION_TITLES.gammaOptions.en}
                                         </h3>
                                     </div>
-                                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
-                                        <div className="p-3 rounded-lg border border-white/10 text-center" style={GLASS_ACCENT_BG}>
-                                            <span className="text-[12px] font-bold text-slate-300 uppercase tracking-wider block mb-1">Total GEX</span>
-                                            <span className="text-[18px] font-black text-white font-mono">{d.gammaOptions.totalGexLabel || '-'}</span>
-                                            <GexGauge regime={d.gammaOptions.regime || 'NEUTRAL'} />
+                                    <div className="flex flex-wrap items-start justify-center gap-6 mb-3">
+                                        {/* GEX Gauge */}
+                                        <div className="text-center">
+                                            <span className="text-[12px] font-bold text-slate-300 uppercase tracking-wider block mb-2">TOTAL GEX</span>
+                                            <GexSemiGauge regime={d.gammaOptions.regime || 'NEUTRAL'} label={d.gammaOptions.totalGexLabel || '-'} />
                                         </div>
-                                        <div className="p-3 rounded-lg border border-white/10 text-center" style={GLASS_ACCENT_BG}>
-                                            <span className="text-[12px] font-bold text-slate-300 uppercase tracking-wider block mb-1">AVG PCR</span>
-                                            <span className={`text-[18px] font-black font-mono ${(d.gammaOptions.avgPcr || 1) < 0.8 ? 'text-emerald-400' : (d.gammaOptions.avgPcr || 1) > 1.2 ? 'text-red-400' : 'text-amber-400'}`}>
-                                                {(d.gammaOptions.avgPcr || 0).toFixed(2)}
-                                            </span>
-                                            <PcrBar pcr={d.gammaOptions.avgPcr || 1} />
+                                        {/* PCR Donut */}
+                                        <div className="text-center">
+                                            <span className="text-[12px] font-bold text-slate-300 uppercase tracking-wider block mb-2">AVG PCR</span>
+                                            <PcrDonut pcr={d.gammaOptions.avgPcr || 1} />
                                         </div>
-                                        <div className="p-3 rounded-lg border border-white/10 text-center" style={GLASS_ACCENT_BG}>
-                                            <span className="text-[12px] font-bold text-slate-300 uppercase tracking-wider block mb-1">REGIME</span>
-                                            <span className={`text-[18px] font-black font-mono ${d.gammaOptions.regime === 'LONG' ? 'text-emerald-400' : d.gammaOptions.regime === 'SHORT' ? 'text-red-400' : 'text-amber-400'}`}>
+                                        {/* Regime Badge */}
+                                        <div className="text-center">
+                                            <span className="text-[12px] font-bold text-slate-300 uppercase tracking-wider block mb-2">REGIME</span>
+                                            <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg border text-[18px] font-black font-mono
+                                                ${d.gammaOptions.regime === 'LONG' ? 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10' :
+                                                    d.gammaOptions.regime === 'SHORT' ? 'text-red-400 border-red-500/30 bg-red-500/10' :
+                                                        'text-amber-400 border-amber-500/30 bg-amber-500/10'}`}
+                                                style={{ animation: 'regimePulse 2s ease-in-out infinite' }}>
                                                 {d.gammaOptions.regime || 'NEUTRAL'}
-                                            </span>
+                                            </div>
                                         </div>
                                     </div>
-                                    <p className="text-[14px] text-slate-300 leading-[1.7]">
-                                        {lt(d.gammaOptions.insight, locale)}
-                                    </p>
+                                    <p className="text-[13px] text-slate-300 leading-[1.7] text-center">{lt(d.gammaOptions.insight, locale)}</p>
                                 </div>
                             )}
 
                             {/* ── 5. SCENARIO MAP ── */}
                             {d.outlook && (
-                                <div className="rounded-xl border border-amber-500/15 p-5" style={{ background: 'rgba(11,15,23,0.5)', backdropFilter: 'blur(16px)' }}>
+                                <div className="rounded-xl border border-amber-500/15 p-5"
+                                    style={{
+                                        background: d.outlook.bias === 'BULLISH' ? 'rgba(34,197,94,0.03)' :
+                                            d.outlook.bias === 'BEARISH' ? 'rgba(239,68,68,0.03)' : 'rgba(11,15,23,0.5)',
+                                        backdropFilter: 'blur(16px)', ...staggerStyle(8)
+                                    }}>
                                     <div className="flex items-center justify-between mb-4">
                                         <div className="flex items-center gap-2">
                                             <Target className="w-4.5 h-4.5 text-amber-400" />
@@ -431,60 +727,70 @@ export function PostMarketBriefView() {
                                         <ToneBadge tone={d.outlook.bias || 'NEUTRAL'} />
                                     </div>
 
-                                    {/* Key Levels */}
-                                    {d.outlook.keyLevels?.length > 0 && (
-                                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4">
-                                            {d.outlook.keyLevels.map((level: any, i: number) => (
-                                                <div key={i} className="p-2.5 rounded-lg border border-amber-500/15 text-center"
-                                                    style={{ background: 'rgba(245,158,11,0.05)', backdropFilter: 'blur(8px)' }}>
-                                                    <span className="text-[12px] font-bold text-amber-300 uppercase tracking-wider block mb-0.5">{level.label}</span>
-                                                    <span className="text-[16px] font-black text-white font-mono">{level.value}</span>
+                                    {/* Price Range Bar */}
+                                    {d.outlook.keyLevels?.length >= 2 && (
+                                        <div className="mb-4">
+                                            <div className="flex justify-between text-[12px] font-bold mb-1">
+                                                <span className="text-emerald-400">{d.outlook.keyLevels[0]?.label}</span>
+                                                <span className="text-red-400">{d.outlook.keyLevels[1]?.label}</span>
+                                            </div>
+                                            <div className="relative h-4 rounded-full overflow-hidden bg-gradient-to-r from-emerald-500/20 via-amber-500/20 to-rose-500/20 border border-white/10">
+                                                <div className="absolute top-0 h-full w-1 bg-white rounded-full shadow-lg shadow-white/30"
+                                                    style={{ left: '50%', transform: 'translateX(-50%)' }} />
+                                            </div>
+                                            <div className="flex justify-between text-[13px] font-black font-mono mt-1">
+                                                <span className="text-emerald-400">{d.outlook.keyLevels[0]?.value}</span>
+                                                <span className="text-red-400">{d.outlook.keyLevels[1]?.value}</span>
+                                            </div>
+                                            {d.outlook.keyLevels.length > 2 && (
+                                                <div className="flex flex-wrap gap-2 mt-2">
+                                                    {d.outlook.keyLevels.slice(2).map((level: any, i: number) => (
+                                                        <div key={i} className="px-2.5 py-1 rounded-md border border-amber-500/15 text-center"
+                                                            style={{ background: 'rgba(245,158,11,0.05)' }}>
+                                                            <span className="text-[12px] font-bold text-amber-300 uppercase block">{level.label}</span>
+                                                            <span className="text-[13px] font-black text-white font-mono">{level.value}</span>
+                                                        </div>
+                                                    ))}
                                                 </div>
-                                            ))}
+                                            )}
                                         </div>
                                     )}
 
-                                    {/* Catalysts / Risks / Opportunities — 3 column glass cards */}
+                                    {/* Catalysts / Risks / Observations */}
                                     <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                                        {/* Catalysts */}
-                                        <div className="p-3 rounded-lg border border-cyan-500/15"
-                                            style={{ background: 'rgba(6,182,212,0.05)', backdropFilter: 'blur(8px)' }}>
+                                        <div className="p-3 rounded-lg border border-cyan-500/15" style={{ background: 'rgba(6,182,212,0.05)' }}>
                                             <span className="text-[12px] font-bold text-cyan-400 tracking-widest uppercase block mb-2">
                                                 {locale === 'ko' ? '촉매' : locale === 'ja' ? '触媒' : 'CATALYSTS'}
                                             </span>
                                             <ul className="space-y-1.5">
                                                 {la(d.outlook.catalysts, locale).map((c: string, i: number) => (
-                                                    <li key={i} className="text-[13px] text-slate-300 flex items-start gap-1.5">
+                                                    <li key={i} className="text-[12px] text-slate-300 flex items-start gap-1.5">
                                                         <Zap className="w-3 h-3 text-cyan-400 mt-0.5 shrink-0" />
                                                         <span>{c}</span>
                                                     </li>
                                                 ))}
                                             </ul>
                                         </div>
-                                        {/* Risks */}
-                                        <div className="p-3 rounded-lg border border-red-500/15"
-                                            style={{ background: 'rgba(239,68,68,0.05)', backdropFilter: 'blur(8px)' }}>
+                                        <div className="p-3 rounded-lg border border-red-500/15" style={{ background: 'rgba(239,68,68,0.05)' }}>
                                             <span className="text-[12px] font-bold text-red-400 tracking-widest uppercase block mb-2">
                                                 {locale === 'ko' ? '리스크' : locale === 'ja' ? 'リスク' : 'RISKS'}
                                             </span>
                                             <ul className="space-y-1.5">
                                                 {la(d.outlook.risks, locale).map((r: string, i: number) => (
-                                                    <li key={i} className="text-[13px] text-slate-300 flex items-start gap-1.5">
+                                                    <li key={i} className="text-[12px] text-slate-300 flex items-start gap-1.5">
                                                         <AlertTriangle className="w-3 h-3 text-red-400 mt-0.5 shrink-0" />
                                                         <span>{r}</span>
                                                     </li>
                                                 ))}
                                             </ul>
                                         </div>
-                                        {/* Observations (was Opportunities) */}
-                                        <div className="p-3 rounded-lg border border-emerald-500/15"
-                                            style={{ background: 'rgba(16,185,129,0.05)', backdropFilter: 'blur(8px)' }}>
+                                        <div className="p-3 rounded-lg border border-emerald-500/15" style={{ background: 'rgba(16,185,129,0.05)' }}>
                                             <span className="text-[12px] font-bold text-emerald-400 tracking-widest uppercase block mb-2">
                                                 {locale === 'ko' ? '관찰' : locale === 'ja' ? '観察' : 'OBSERVATIONS'}
                                             </span>
                                             <ul className="space-y-1.5">
                                                 {la(d.outlook.opportunities, locale).map((o: string, i: number) => (
-                                                    <li key={i} className="text-[13px] text-slate-300 flex items-start gap-1.5">
+                                                    <li key={i} className="text-[12px] text-slate-300 flex items-start gap-1.5">
                                                         <TrendingUp className="w-3 h-3 text-emerald-400 mt-0.5 shrink-0" />
                                                         <span>{o}</span>
                                                     </li>
@@ -492,6 +798,28 @@ export function PostMarketBriefView() {
                                             </ul>
                                         </div>
                                     </div>
+
+                                    {/* Economic Calendar Timeline */}
+                                    {upcomingEvents.length > 0 && (
+                                        <div className="mt-4 p-3 rounded-lg border border-white/8" style={{ background: 'rgba(255,255,255,0.02)' }}>
+                                            <div className="flex items-center gap-2 mb-2">
+                                                <Calendar className="w-3.5 h-3.5 text-slate-400" />
+                                                <span className="text-[12px] font-bold text-slate-300 uppercase tracking-wider">
+                                                    {locale === 'ko' ? '경제 캘린더' : locale === 'ja' ? '経済カレンダー' : 'ECONOMIC CALENDAR'}
+                                                </span>
+                                            </div>
+                                            <div className="flex flex-wrap gap-2">
+                                                {upcomingEvents.slice(0, 4).map((evt: any, i: number) => (
+                                                    <div key={i} className={`px-2.5 py-1.5 rounded-md border text-center ${evt.impact === 'HIGH' ? 'border-red-500/25 bg-red-500/5' : 'border-white/10 bg-white/3'}`}>
+                                                        <span className={`text-[12px] font-black font-mono block ${evt.daysUntil <= 3 ? 'text-red-400' : 'text-slate-300'}`}>
+                                                            D-{evt.daysUntil}
+                                                        </span>
+                                                        <span className="text-[12px] text-slate-300 block mt-0.5 max-w-[140px] truncate">{evt.event}</span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
                             )}
 
