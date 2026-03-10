@@ -648,9 +648,9 @@ function MainChartPanel() {
                     {(tier === 'pro' || tier === 'elite') && (
                         <button
                             onClick={() => customize.isEditing ? customize.setIsEditing(false) : customize.setIsEditing(true)}
-                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[12px] font-medium transition-all ${customize.isEditing
-                                    ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-400/60 shadow-[0_0_8px_rgba(34,211,238,0.25)]'
-                                    : 'bg-slate-800/60 text-slate-300 border border-cyan-500/30 hover:border-cyan-400/50 hover:bg-cyan-500/10 hover:shadow-[0_0_6px_rgba(34,211,238,0.15)]'
+                            className={`flex items-center gap-1.5 px-3 py-0.5 rounded-md text-[12px] font-medium transition-all ${customize.isEditing
+                                ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-400/60 shadow-[0_0_8px_rgba(34,211,238,0.25)]'
+                                : 'bg-slate-800/60 text-slate-300 border border-cyan-500/30 hover:border-cyan-400/50 hover:bg-cyan-500/10 hover:shadow-[0_0_6px_rgba(34,211,238,0.15)]'
                                 }`}
                         >
                             {customize.isEditing ? (
