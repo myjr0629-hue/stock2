@@ -6,6 +6,7 @@
  * Shows RLSI (Real-time Leadership Stability Index) over time.
  * Color zones: Green (Stable) → Yellow (Transitional) → Red (Unstable)
  * 
+ * Belongs on: Guardian page (market-wide indicator)
  * Uses: /api/history?type=rlsi&days=30
  */
 
@@ -59,15 +60,41 @@ export function RlsiHistoryChart({ days = 30, height = 80 }: RlsiHistoryChartPro
 
     if (!data.length || !stats) return null;
 
+    // Single point guard
+    if (data.length < 2) {
+        const d = data[0];
+        const color = d.rlsi >= 70 ? '#10b981' : d.rlsi >= 40 ? '#f59e0b' : '#ef4444';
+        const label = d.rlsi >= 70 ? 'STABLE' : d.rlsi >= 40 ? 'TRANSITIONAL' : 'UNSTABLE';
+        return (
+            <div className="rounded-xl border border-slate-700/30 bg-slate-900/40 backdrop-blur-sm p-4">
+                <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                        <div className="w-2 h-2 rounded-full" style={{ backgroundColor: color, boxShadow: `0 0 6px ${color}60` }} />
+                        <span className="text-xs font-semibold text-slate-300 tracking-wider uppercase">RLSI Timeline</span>
+                        <span className="text-xs text-slate-300">{days}D</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <span className="text-sm font-mono font-bold" style={{ color }}>{d.rlsi.toFixed(0)}</span>
+                        <span className="text-xs px-1.5 py-0.5 rounded font-medium"
+                            style={{ color, backgroundColor: `${color}15`, border: `1px solid ${color}30` }}>
+                            {label}
+                        </span>
+                    </div>
+                </div>
+                <div className="mt-2 text-xs text-slate-300 text-center">Collecting data — chart appears with 2+ data points</div>
+            </div>
+        );
+    }
+
     const W = 400;
     const H = height;
     const P = 4;
 
     // Color based on RLSI value
     const getColor = (rlsi: number) => {
-        if (rlsi >= 70) return '#10b981'; // Stable — emerald
-        if (rlsi >= 40) return '#f59e0b'; // Transitional — amber
-        return '#ef4444'; // Unstable — red
+        if (rlsi >= 70) return '#10b981';
+        if (rlsi >= 40) return '#f59e0b';
+        return '#ef4444';
     };
 
     // Build gradient path points
@@ -92,13 +119,13 @@ export function RlsiHistoryChart({ days = 30, height = 80 }: RlsiHistoryChartPro
                     <span className="text-xs font-semibold text-slate-300 tracking-wider uppercase">
                         RLSI Timeline
                     </span>
-                    <span className="text-[10px] text-slate-500">{days}D</span>
+                    <span className="text-xs text-slate-300">{days}D</span>
                 </div>
                 <div className="flex items-center gap-2">
                     <span className="text-sm font-mono font-bold" style={{ color: latestColor }}>
                         {stats.latest.rlsi.toFixed(0)}
                     </span>
-                    <span className="text-[10px] px-1.5 py-0.5 rounded font-medium"
+                    <span className="text-xs px-1.5 py-0.5 rounded font-medium"
                         style={{ color: latestColor, backgroundColor: `${latestColor}15`, border: `1px solid ${latestColor}30` }}>
                         {latestLabel}
                     </span>
@@ -108,13 +135,10 @@ export function RlsiHistoryChart({ days = 30, height = 80 }: RlsiHistoryChartPro
             {/* Chart */}
             <svg width="100%" height={H} viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" className="overflow-visible">
                 {/* Zone backgrounds */}
-                {/* Stable zone (70-100) */}
                 <rect x={P} y={P} width={W - P * 2} height={(H - P * 2) * 0.3}
                     fill="rgba(16,185,129,0.04)" />
-                {/* Transitional zone (40-70) */}
                 <rect x={P} y={P + (H - P * 2) * 0.3} width={W - P * 2} height={(H - P * 2) * 0.3}
                     fill="rgba(245,158,11,0.03)" />
-                {/* Unstable zone (0-40) */}
                 <rect x={P} y={P + (H - P * 2) * 0.6} width={W - P * 2} height={(H - P * 2) * 0.4}
                     fill="rgba(239,68,68,0.03)" />
 
@@ -146,7 +170,7 @@ export function RlsiHistoryChart({ days = 30, height = 80 }: RlsiHistoryChartPro
             </svg>
 
             {/* Zone legend */}
-            <div className="flex items-center justify-between text-[9px] text-slate-500">
+            <div className="flex items-center justify-between text-xs text-slate-300">
                 <div className="flex items-center gap-3">
                     <span><span className="text-emerald-400">■</span> Stable (70+)</span>
                     <span><span className="text-amber-400">■</span> Transition (40-70)</span>

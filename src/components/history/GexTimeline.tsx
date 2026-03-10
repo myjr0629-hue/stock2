@@ -5,7 +5,11 @@
  * 
  * Shows: GEX value over time, gamma regime zones, key levels.
  * This is Bloomberg-tier — historical GEX tracking is typically behind
- * expensive institutional data paywalls.
+ * expensive institutional data paywalls ($300+/mo SpotGamma level).
+ * 
+ * Insight: Tracks dealer hedging pressure transitions.
+ * - Positive→Negative = volatility expansion, downside acceleration
+ * - Negative→Positive = stabilization, pin effect
  * 
  * Uses: /api/history?type=gex&ticker=NVDA&days=30
  */
@@ -25,7 +29,7 @@ interface GexDataPoint {
 interface GexTimelineProps {
     ticker: string;
     days?: number;
-    compact?: boolean; // Mini version for AlphaCard
+    compact?: boolean;
 }
 
 export function GexTimeline({ ticker, days = 30, compact = false }: GexTimelineProps) {
@@ -63,6 +67,15 @@ export function GexTimeline({ ticker, days = 30, compact = false }: GexTimelineP
         return { max, min, range, latest, trend, positiveDays, negativeDays };
     }, [data]);
 
+    // Format GEX value
+    const formatGex = (v: number) => {
+        const abs = Math.abs(v);
+        if (abs >= 1e9) return `${(v / 1e9).toFixed(1)}B`;
+        if (abs >= 1e6) return `${(v / 1e6).toFixed(1)}M`;
+        if (abs >= 1e3) return `${(v / 1e3).toFixed(0)}K`;
+        return v.toFixed(0);
+    };
+
     if (loading) {
         return (
             <div className={`animate-pulse ${compact ? 'h-16' : 'h-48'} bg-slate-800/30 rounded-xl border border-slate-700/20`} />
@@ -71,8 +84,35 @@ export function GexTimeline({ ticker, days = 30, compact = false }: GexTimelineP
 
     if (error || !data.length || !stats) {
         return compact ? null : (
-            <div className="h-32 flex items-center justify-center text-slate-500 text-xs border border-slate-800/40 rounded-xl bg-slate-900/30">
+            <div className="h-32 flex items-center justify-center text-slate-300 text-xs border border-slate-800/40 rounded-xl bg-slate-900/30">
                 GEX history unavailable
+            </div>
+        );
+    }
+
+    // Single data point — show value only, no chart line
+    if (data.length < 2) {
+        const d = data[0];
+        const isPos = d.gex >= 0;
+        if (compact) return (
+            <span className={`text-xs font-mono ${isPos ? 'text-emerald-400' : 'text-red-400'}`}>{formatGex(d.gex)}</span>
+        );
+        return (
+            <div className="rounded-xl border border-slate-700/30 bg-slate-900/40 backdrop-blur-sm p-4">
+                <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                        <div className={`w-2 h-2 rounded-full ${isPos ? 'bg-emerald-400 shadow-[0_0_6px_rgba(16,185,129,0.6)]' : 'bg-red-400 shadow-[0_0_6px_rgba(239,68,68,0.6)]'}`} />
+                        <span className="text-xs font-semibold text-slate-300 tracking-wider uppercase">GEX Timeline</span>
+                        <span className="text-xs text-slate-300">{days}D</span>
+                    </div>
+                    <div className="text-right">
+                        <div className={`text-sm font-mono font-bold ${isPos ? 'text-emerald-400' : 'text-red-400'}`}>{formatGex(d.gex)}</div>
+                        <div className="text-xs text-slate-300">
+                            {d.gammaRegime === 'POSITIVE' ? '🟢 Long Gamma' : d.gammaRegime === 'NEGATIVE' ? '🔴 Short Gamma' : '⚪ Neutral'}
+                        </div>
+                    </div>
+                </div>
+                <div className="mt-2 text-xs text-slate-300 text-center">Collecting data — chart appears with 2+ data points</div>
             </div>
         );
     }
@@ -101,32 +141,19 @@ export function GexTimeline({ ticker, days = 30, compact = false }: GexTimelineP
     const fillColor = isPositive ? 'rgba(16,185,129,0.12)' : 'rgba(239,68,68,0.12)';
     const glowColor = isPositive ? 'rgba(16,185,129,0.4)' : 'rgba(239,68,68,0.4)';
 
-    // Format GEX value
-    const formatGex = (v: number) => {
-        const abs = Math.abs(v);
-        if (abs >= 1e9) return `${(v / 1e9).toFixed(1)}B`;
-        if (abs >= 1e6) return `${(v / 1e6).toFixed(1)}M`;
-        if (abs >= 1e3) return `${(v / 1e3).toFixed(0)}K`;
-        return v.toFixed(0);
-    };
-
     // Compact version (for AlphaCard or inline use)
     if (compact) {
         return (
             <div className="flex items-center gap-2">
                 <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} className="overflow-visible">
-                    {/* Zero line */}
                     <line x1={PADDING} y1={zeroY} x2={W - PADDING} y2={zeroY}
                         stroke="rgba(148,163,184,0.15)" strokeWidth="0.5" strokeDasharray="2 2" />
-                    {/* Fill */}
                     <path d={fillPath} fill={fillColor} />
-                    {/* Line */}
                     <path d={linePath} fill="none" stroke={lineColor} strokeWidth="1.5" />
-                    {/* Latest dot */}
                     <circle cx={points[points.length - 1].x} cy={points[points.length - 1].y}
                         r="2" fill={lineColor} />
                 </svg>
-                <span className={`text-[10px] font-mono ${isPositive ? 'text-emerald-400' : 'text-red-400'}`}>
+                <span className={`text-xs font-mono ${isPositive ? 'text-emerald-400' : 'text-red-400'}`}>
                     {formatGex(stats.latest.gex)}
                 </span>
             </div>
@@ -143,14 +170,14 @@ export function GexTimeline({ ticker, days = 30, compact = false }: GexTimelineP
                     <span className="text-xs font-semibold text-slate-300 tracking-wider uppercase">
                         GEX Timeline
                     </span>
-                    <span className="text-[10px] text-slate-500">{days}D</span>
+                    <span className="text-xs text-slate-300">{days}D</span>
                 </div>
                 <div className="flex items-center gap-3">
                     <div className="text-right">
                         <div className={`text-sm font-mono font-bold ${isPositive ? 'text-emerald-400' : 'text-red-400'}`}>
                             {formatGex(stats.latest.gex)}
                         </div>
-                        <div className="text-[10px] text-slate-500">
+                        <div className="text-xs text-slate-300">
                             {stats.latest.gammaRegime === 'POSITIVE' ? '🟢 Long Gamma' : stats.latest.gammaRegime === 'NEGATIVE' ? '🔴 Short Gamma' : '⚪ Neutral'}
                         </div>
                     </div>
@@ -166,7 +193,7 @@ export function GexTimeline({ ticker, days = 30, compact = false }: GexTimelineP
                     <line x1={PADDING} y1={H - PADDING} x2={W - PADDING} y2={H - PADDING}
                         stroke="rgba(148,163,184,0.06)" strokeWidth="0.5" />
 
-                    {/* Zero line (highlighted) */}
+                    {/* Zero line */}
                     <line x1={PADDING} y1={zeroY} x2={W - PADDING} y2={zeroY}
                         stroke="rgba(148,163,184,0.2)" strokeWidth="0.5" strokeDasharray="4 4" />
 
@@ -191,16 +218,16 @@ export function GexTimeline({ ticker, days = 30, compact = false }: GexTimelineP
                 </svg>
 
                 {/* Y-axis labels */}
-                <div className="absolute left-0 top-0 text-[9px] text-emerald-500/60 font-mono">
+                <div className="absolute left-0 top-0 text-xs text-emerald-400/70 font-mono">
                     {formatGex(stats.max)}
                 </div>
-                <div className="absolute left-0 bottom-0 text-[9px] text-red-400/60 font-mono">
+                <div className="absolute left-0 bottom-0 text-xs text-red-400/70 font-mono">
                     {formatGex(stats.min)}
                 </div>
             </div>
 
             {/* Stats bar */}
-            <div className="flex items-center justify-between text-[10px] text-slate-500">
+            <div className="flex items-center justify-between text-xs text-slate-300">
                 <span>
                     <span className="text-emerald-400">▲</span> {stats.positiveDays}d positive
                 </span>

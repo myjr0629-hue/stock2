@@ -6,6 +6,7 @@
  * Shows 10 sectors over 30 days as a color-coded heatmap.
  * Green = positive change, Red = negative, Intensity = magnitude.
  * 
+ * Belongs on: Intel page (sector-level intelligence)
  * Uses: /api/history?type=sector&sectorId={id}&days=30
  */
 
@@ -69,7 +70,7 @@ export function SectorRotationHeatmap({ days = 20 }: { days?: number }) {
 
     if (sortedDates.length === 0) {
         return (
-            <div className="h-32 flex items-center justify-center text-slate-500 text-xs border border-slate-800/40 rounded-xl bg-slate-900/30">
+            <div className="h-32 flex items-center justify-center text-slate-300 text-xs border border-slate-800/40 rounded-xl bg-slate-900/30">
                 Sector rotation data collecting...
             </div>
         );
@@ -105,9 +106,9 @@ export function SectorRotationHeatmap({ days = 20 }: { days?: number }) {
                     <span className="text-xs font-semibold text-slate-300 tracking-wider uppercase">
                         Sector Rotation
                     </span>
-                    <span className="text-[10px] text-slate-500">{sortedDates.length}D Heatmap</span>
+                    <span className="text-xs text-slate-300">{sortedDates.length}D Heatmap</span>
                 </div>
-                <div className="flex items-center gap-1 text-[9px] text-slate-500">
+                <div className="flex items-center gap-1 text-xs text-slate-300">
                     <span className="w-3 h-3 rounded" style={{ backgroundColor: 'rgba(239,68,68,0.5)' }} />
                     <span>Bear</span>
                     <span className="w-3 h-3 rounded mx-1" style={{ backgroundColor: 'rgba(148,163,184,0.1)' }} />
@@ -122,7 +123,7 @@ export function SectorRotationHeatmap({ days = 20 }: { days?: number }) {
                     {/* Date headers (show every 5th) */}
                     <div className="flex mb-1" style={{ paddingLeft: '100px' }}>
                         {sortedDates.map((date, i) => (
-                            <div key={date} className="flex-1 text-center text-[8px] text-slate-600">
+                            <div key={date} className="flex-1 text-center text-xs text-slate-300">
                                 {i % 5 === 0 ? date.slice(5) : ''}
                             </div>
                         ))}
@@ -136,7 +137,7 @@ export function SectorRotationHeatmap({ days = 20 }: { days?: number }) {
                         return (
                             <div key={sectorId} className="flex items-center gap-1 mb-0.5">
                                 {/* Sector label */}
-                                <div className="w-[96px] text-[10px] text-slate-400 font-medium truncate text-right pr-2">
+                                <div className="w-[96px] text-xs text-slate-300 font-medium truncate text-right pr-2">
                                     {SECTOR_LABELS[sectorId]}
                                 </div>
                                 {/* Cells */}
@@ -159,7 +160,7 @@ export function SectorRotationHeatmap({ days = 20 }: { days?: number }) {
                                     })}
                                 </div>
                                 {/* Latest change */}
-                                <div className={`w-14 text-right text-[10px] font-mono ${(dateMap.get(latestDate)?.avgChange || 0) >= 0 ? 'text-emerald-400' : 'text-red-400'
+                                <div className={`w-14 text-right text-xs font-mono ${(dateMap.get(latestDate)?.avgChange || 0) >= 0 ? 'text-emerald-400' : 'text-red-400'
                                     }`}>
                                     {(() => {
                                         const v = dateMap.get(latestDate)?.avgChange || 0;

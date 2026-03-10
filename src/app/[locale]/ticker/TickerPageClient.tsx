@@ -6,7 +6,6 @@
 
 import dynamic from "next/dynamic";
 import { GexTimeline } from "@/components/history/GexTimeline";
-import { RlsiHistoryChart } from "@/components/history/RlsiHistoryChart";
 
 // Dynamic import with loading skeleton
 const LiveTickerDashboard = dynamic(
@@ -63,11 +62,8 @@ export function TickerPageClient({ ticker, range, initialStockData, initialUnifi
 
             {/* [Phase 3] AWS DynamoDB-powered History Section */}
             <div className="mt-6 space-y-4">
-                {/* GEX 30-Day Timeline */}
+                {/* GEX 30-Day Timeline — per-ticker institutional hedging history */}
                 <GexTimeline ticker={ticker} days={30} />
-
-                {/* RLSI Market Regime History */}
-                <RlsiHistoryChart days={30} height={80} />
             </div>
         </>
     );
