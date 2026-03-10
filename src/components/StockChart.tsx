@@ -492,7 +492,7 @@ export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d
                     <span className="w-1.5 h-4 bg-primary rounded-full"></span>
                     Price History
                     <span className="text-[12px] text-slate-300 font-medium ml-1">
-                        EST
+                        ET
                     </span>
                     {isIntraday && baseDateET && (
                         <span className="text-[12px] text-slate-300 font-normal ml-0.5">
