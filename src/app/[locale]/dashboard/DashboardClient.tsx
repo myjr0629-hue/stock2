@@ -13,6 +13,9 @@ import { useRealtimeData } from "@/providers/WebSocketProvider";
 import { ProGate, EliteGate } from "@/components/gate/FeatureGate";
 import { useTier } from "@/contexts/TierContext";
 import { Crown, Lock as LockIcon } from "lucide-react";
+import { useCardCustomize, DEFAULT_CARD_ORDER, ALL_CARDS } from "@/components/dashboard/CardCustomize";
+import { DndContext, closestCenter } from "@dnd-kit/core";
+import { SortableContext, rectSortingStrategy } from "@dnd-kit/sortable";
 
 // Dynamic import for StockChart (no SSR for chart component)
 const StockChart = dynamic(() => import("@/components/StockChart").then(mod => mod.StockChart), {
@@ -33,7 +36,9 @@ import {
     Loader2,
     X,
     Plus,
-    BookOpen
+    BookOpen,
+    Settings,
+    Check,
 } from "lucide-react";
 
 // Market status badge colors
@@ -439,6 +444,8 @@ function WatchlistPanel() {
 function MainChartPanel() {
     const td = useTranslations('dashboard');
     const gt = useTranslations('gate');
+    const { tier } = useTier();
+    const customize = useCardCustomize(tier);
     const selectedTicker = useDashboardStore(s => s.selectedTicker);
     // [PERF FIX] Subscribe only to the selected ticker's data, not all tickers
     const data = useDashboardStore(s => s.tickers[s.selectedTicker]);
@@ -620,8 +627,42 @@ function MainChartPanel() {
                 </div>
             </div>
 
-            {/* ═══════ Metrics Grid: 3 Rows × 4 Cards (No Gap Between Rows) ═══════ */}
-            <div className="px-4 pt-4 pb-4 flex flex-col gap-1">
+            {/* ═══════ Metrics Grid: 3 Rows × 4 Cards ═══════ */}
+            {/* [CUSTOMIZE] Edit button header */}
+            <div className="px-4 pt-3 pb-1 flex items-center justify-end gap-2">
+                {(tier === 'pro' || tier === 'elite') && (
+                    <button
+                        onClick={() => customize.setIsEditing(!customize.isEditing)}
+                        className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[12px] font-medium transition-all ${customize.isEditing
+                            ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30'
+                            : 'bg-slate-800/50 text-slate-400 border border-white/5 hover:border-white/10'
+                            }`}
+                    >
+                        {customize.isEditing ? (
+                            <><Check className="w-3.5 h-3.5" /> Done</>
+                        ) : (
+                            <><Settings className="w-3.5 h-3.5" /> Customize</>
+                        )}
+                    </button>
+                )}
+                {customize.isEditing && (
+                    <button
+                        onClick={() => customize.setShowSelector(true)}
+                        className="flex items-center gap-1 px-2.5 py-1 rounded-md text-[12px] font-medium bg-slate-800/50 text-slate-400 border border-white/5 hover:border-white/10 transition-all"
+                    >
+                        <Plus className="w-3.5 h-3.5" /> Select Cards
+                    </button>
+                )}
+            </div>
+            {customize.showSelector && (
+                <customize.CardSelectorModal
+                    visibleCards={customize.cardOrder}
+                    onToggleCard={customize.toggleCard}
+                    onClose={() => customize.setShowSelector(false)}
+                    tier={tier}
+                />
+            )}
+            <div className="px-4 pb-4 flex flex-col gap-1">
                 {/* ── ROW 1: 구조 판단 (Structure) ── */}
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                     {/* Net GEX — PRO (peek: number visible, interpretation blurred) */}
