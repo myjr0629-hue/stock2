@@ -1,18 +1,11 @@
 // [P1] Event Store - Redis-based storage for economic events
 // Migrates from static JSON to Redis with cron-driven refresh
+// [Phase 1B] Uses unified Redis client (EC2 proxy primary + Upstash fallback)
 
-import { Redis } from "@upstash/redis";
+import { getFromCache, setInCache } from '@/services/redisClient';
 
 const EVENTS_KEY = "events:macro:14d";
 const EVENTS_TTL = 60 * 60 * 12; // 12 hours
-
-// Get Redis client
-function getRedis(): Redis | null {
-    const url = process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL;
-    const token = process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN;
-    if (!url || !token) return null;
-    return new Redis({ url, token });
-}
 
 export interface StoredEvent {
     date: string;
@@ -27,21 +20,15 @@ export interface StoredEvent {
 
 // Save events to Redis
 export async function saveEventsToRedis(events: StoredEvent[]): Promise<boolean> {
-    const redis = getRedis();
-    if (!redis) {
-        console.warn("[EventStore] Redis not available");
-        return false;
-    }
-
     try {
-        await redis.set(EVENTS_KEY, JSON.stringify({
+        const data = {
             events,
             updatedAt: new Date().toISOString(),
             count: events.length
-        }), { ex: EVENTS_TTL });
-
-        console.log(`[EventStore] Saved ${events.length} events to Redis`);
-        return true;
+        };
+        const ok = await setInCache(EVENTS_KEY, data, EVENTS_TTL);
+        if (ok) console.log(`[EventStore] Saved ${events.length} events`);
+        return ok;
     } catch (e) {
         console.error("[EventStore] Save failed:", e);
         return false;
@@ -50,17 +37,12 @@ export async function saveEventsToRedis(events: StoredEvent[]): Promise<boolean>
 
 // Get events from Redis
 export async function getEventsFromRedis(): Promise<{ events: StoredEvent[]; updatedAt: string } | null> {
-    const redis = getRedis();
-    if (!redis) return null;
-
     try {
-        const data = await redis.get(EVENTS_KEY);
+        const data = await getFromCache<{ events: StoredEvent[]; updatedAt: string; count: number }>(EVENTS_KEY);
         if (!data) return null;
-
-        const parsed = typeof data === 'string' ? JSON.parse(data) : data;
         return {
-            events: parsed.events || [],
-            updatedAt: parsed.updatedAt || new Date().toISOString()
+            events: data.events || [],
+            updatedAt: data.updatedAt || new Date().toISOString()
         };
     } catch (e) {
         console.error("[EventStore] Read failed:", e);

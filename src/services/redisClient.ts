@@ -148,3 +148,35 @@ export async function setInCache<T>(key: string, value: T, ttlSeconds?: number):
 
     return ecOk || upstashOk;
 }
+
+/**
+ * Delete a key from Redis cache
+ * Removes from BOTH EC2 Proxy and Upstash
+ */
+export async function deleteFromCache(key: string): Promise<boolean> {
+    let ecOk = false;
+    let upstashOk = false;
+
+    // Delete from EC2 Proxy
+    if (ecProxyAvailable !== false) {
+        try {
+            const res = await fetch(`${EC2_PROXY_URL}/del?key=${encodeURIComponent(key)}`, {
+                method: 'DELETE',
+                headers: { 'Authorization': `Bearer ${EC2_PROXY_KEY}` },
+                signal: AbortSignal.timeout(3000),
+            });
+            ecOk = res.ok;
+        } catch { /* ignore */ }
+    }
+
+    // Delete from Upstash
+    const upstash = getUpstashClient();
+    if (upstash) {
+        try {
+            await upstash.del(key);
+            upstashOk = true;
+        } catch { /* ignore */ }
+    }
+
+    return ecOk || upstashOk;
+}

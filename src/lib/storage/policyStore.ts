@@ -1,18 +1,11 @@
 // [P1] Policy Store - Redis-based storage for policy events
 // Migrates from static JSON to Redis with cron-driven refresh
+// [Phase 1B] Uses unified Redis client (EC2 proxy primary + Upstash fallback)
 
-import { Redis } from "@upstash/redis";
+import { getFromCache, setInCache } from '@/services/redisClient';
 
 const POLICY_KEY = "events:policy:7d";
 const POLICY_TTL = 60 * 60 * 24; // 24 hours
-
-// Get Redis client
-function getRedis(): Redis | null {
-    const url = process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL;
-    const token = process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN;
-    if (!url || !token) return null;
-    return new Redis({ url, token });
-}
 
 export interface StoredPolicy {
     id: string;
@@ -29,21 +22,15 @@ export interface StoredPolicy {
 
 // Save policies to Redis
 export async function savePoliciesToRedis(policies: StoredPolicy[]): Promise<boolean> {
-    const redis = getRedis();
-    if (!redis) {
-        console.warn("[PolicyStore] Redis not available");
-        return false;
-    }
-
     try {
-        await redis.set(POLICY_KEY, JSON.stringify({
+        const data = {
             policies,
             updatedAt: new Date().toISOString(),
             count: policies.length
-        }), { ex: POLICY_TTL });
-
-        console.log(`[PolicyStore] Saved ${policies.length} policies to Redis`);
-        return true;
+        };
+        const ok = await setInCache(POLICY_KEY, data, POLICY_TTL);
+        if (ok) console.log(`[PolicyStore] Saved ${policies.length} policies`);
+        return ok;
     } catch (e) {
         console.error("[PolicyStore] Save failed:", e);
         return false;
@@ -52,17 +39,12 @@ export async function savePoliciesToRedis(policies: StoredPolicy[]): Promise<boo
 
 // Get policies from Redis
 export async function getPoliciesFromRedis(): Promise<{ policies: StoredPolicy[]; updatedAt: string } | null> {
-    const redis = getRedis();
-    if (!redis) return null;
-
     try {
-        const data = await redis.get(POLICY_KEY);
+        const data = await getFromCache<{ policies: StoredPolicy[]; updatedAt: string; count: number }>(POLICY_KEY);
         if (!data) return null;
-
-        const parsed = typeof data === 'string' ? JSON.parse(data) : data;
         return {
-            policies: parsed.policies || [],
-            updatedAt: parsed.updatedAt || new Date().toISOString()
+            policies: data.policies || [],
+            updatedAt: data.updatedAt || new Date().toISOString()
         };
     } catch (e) {
         console.error("[PolicyStore] Read failed:", e);

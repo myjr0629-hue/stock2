@@ -1,7 +1,8 @@
 // [Phase 7] Evidence Cache Layer - Redis-based caching for real data
 // NO estimation, NO fallback - only cache real API responses
+// [Phase 1B] Uses unified Redis client (EC2 proxy primary + Upstash fallback)
 
-import { Redis } from '@upstash/redis';
+import { getFromCache, setInCache, deleteFromCache } from '@/services/redisClient';
 
 // === CACHE KEYS & TTLs ===
 const CACHE_TTL = {
@@ -17,29 +18,6 @@ const CACHE_KEYS = {
     options: (ticker: string) => `options:chain:${ticker.toUpperCase()}`,
     flow: (ticker: string) => `flow:bundle:${ticker.toUpperCase()}`
 };
-
-// === Redis Client ===
-let redis: Redis | null = null;
-let isRedisAvailable = true;
-
-function getRedis(): Redis | null {
-    if (!isRedisAvailable) return null;
-    if (!redis) {
-        try {
-            const url = process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL;
-            const token = process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN;
-            if (!url || !token) {
-                isRedisAvailable = false;
-                return null;
-            }
-            redis = new Redis({ url, token });
-        } catch (e) {
-            isRedisAvailable = false;
-            return null;
-        }
-    }
-    return redis;
-}
 
 // === EVIDENCE CACHE ===
 
@@ -57,12 +35,9 @@ export interface CachedEvidence {
 export async function getEvidenceFromCache(ticker: string): Promise<CachedEvidence | null> {
     try {
         const key = CACHE_KEYS.evidence(ticker);
-        const redisFn = getRedis();
-        if (!redisFn) return null;
-        const cached = await redisFn.get<CachedEvidence>(key);
+        const cached = await getFromCache<CachedEvidence>(key);
 
         if (cached) {
-            // Calculate age
             const fetchedAt = new Date(cached.fetchedAtET);
             cached.ageSeconds = Math.floor((Date.now() - fetchedAt.getTime()) / 1000);
             console.log(`[EvidenceCache] HIT ${ticker} (age: ${cached.ageSeconds}s)`);
@@ -78,8 +53,7 @@ export async function getEvidenceFromCache(ticker: string): Promise<CachedEviden
 export async function setEvidenceToCache(ticker: string, evidence: CachedEvidence): Promise<void> {
     try {
         const key = CACHE_KEYS.evidence(ticker);
-        const redisFn = getRedis();
-        if (redisFn) await redisFn.set(key, evidence, { ex: CACHE_TTL.EVIDENCE });
+        await setInCache(key, evidence, CACHE_TTL.EVIDENCE);
         console.log(`[EvidenceCache] SET ${ticker} (TTL: ${CACHE_TTL.EVIDENCE}s)`);
     } catch (e) {
         console.error(`[EvidenceCache] SET error for ${ticker}:`, e);
@@ -100,9 +74,7 @@ export interface CachedMacroBundle {
 export async function getMacroBundleFromCache(): Promise<CachedMacroBundle | null> {
     try {
         const key = CACHE_KEYS.macro();
-        const redisFn = getRedis();
-        if (!redisFn) return null;
-        const cached = await redisFn.get<CachedMacroBundle>(key);
+        const cached = await getFromCache<CachedMacroBundle>(key);
 
         if (cached) {
             const fetchedAt = new Date(cached.fetchedAtET);
@@ -120,8 +92,7 @@ export async function getMacroBundleFromCache(): Promise<CachedMacroBundle | nul
 export async function setMacroBundleToCache(macro: CachedMacroBundle): Promise<void> {
     try {
         const key = CACHE_KEYS.macro();
-        const redisFn = getRedis();
-        if (redisFn) await redisFn.set(key, macro, { ex: CACHE_TTL.MACRO });
+        await setInCache(key, macro, CACHE_TTL.MACRO);
         console.log(`[MacroCache] SET (TTL: ${CACHE_TTL.MACRO}s)`);
     } catch (e) {
         console.error(`[MacroCache] SET error:`, e);
@@ -153,9 +124,7 @@ export interface CachedOptionsChain {
 export async function getOptionsFromCache(ticker: string): Promise<CachedOptionsChain | null> {
     try {
         const key = CACHE_KEYS.options(ticker);
-        const redisFn = getRedis();
-        if (!redisFn) return null;
-        const cached = await redisFn.get<CachedOptionsChain>(key);
+        const cached = await getFromCache<CachedOptionsChain>(key);
 
         if (cached) {
             console.log(`[OptionsCache] HIT ${ticker}`);
@@ -171,8 +140,7 @@ export async function getOptionsFromCache(ticker: string): Promise<CachedOptions
 export async function setOptionsToCache(ticker: string, options: CachedOptionsChain): Promise<void> {
     try {
         const key = CACHE_KEYS.options(ticker);
-        const redisFn = getRedis();
-        if (redisFn) await redisFn.set(key, options, { ex: CACHE_TTL.OPTIONS });
+        await setInCache(key, options, CACHE_TTL.OPTIONS);
         console.log(`[OptionsCache] SET ${ticker} (TTL: ${CACHE_TTL.OPTIONS}s)`);
     } catch (e) {
         console.error(`[OptionsCache] SET error for ${ticker}:`, e);
@@ -197,9 +165,7 @@ export interface CachedFlowBundle {
 export async function getFlowFromCache(ticker: string): Promise<CachedFlowBundle | null> {
     try {
         const key = CACHE_KEYS.flow(ticker);
-        const redisFn = getRedis();
-        if (!redisFn) return null;
-        const cached = await redisFn.get<CachedFlowBundle>(key);
+        const cached = await getFromCache<CachedFlowBundle>(key);
 
         if (cached) {
             console.log(`[FlowCache] HIT ${ticker}`);
@@ -215,8 +181,7 @@ export async function getFlowFromCache(ticker: string): Promise<CachedFlowBundle
 export async function setFlowToCache(ticker: string, flow: CachedFlowBundle): Promise<void> {
     try {
         const key = CACHE_KEYS.flow(ticker);
-        const redisFn = getRedis();
-        if (redisFn) await redisFn.set(key, flow, { ex: CACHE_TTL.FLOW });
+        await setInCache(key, flow, CACHE_TTL.FLOW);
         console.log(`[FlowCache] SET ${ticker} (TTL: ${CACHE_TTL.FLOW}s)`);
     } catch (e) {
         console.error(`[FlowCache] SET error for ${ticker}:`, e);
@@ -239,11 +204,9 @@ export async function invalidateTickerCache(ticker: string): Promise<void> {
             CACHE_KEYS.options(ticker),
             CACHE_KEYS.flow(ticker)
         ];
-        const redisFn = getRedis();
-        if (redisFn) await Promise.all(keys.map(k => redisFn!.del(k)));
+        await Promise.all(keys.map(k => deleteFromCache(k)));
         console.log(`[Cache] Invalidated all caches for ${ticker}`);
     } catch (e) {
         console.error(`[Cache] Invalidation error for ${ticker}:`, e);
     }
 }
-

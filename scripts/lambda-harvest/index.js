@@ -304,10 +304,158 @@ async function harvestRlsi() {
   } catch (e) { return 'RLSI:ERR:' + e.message; }
 }
 
+// ====== Sector Definitions ======
+const SECTORS = {
+  m7: { id: 'M7', tickers: ['AAPL', 'MSFT', 'AMZN', 'NVDA', 'GOOGL', 'META', 'TSLA'] },
+  physicalai: { id: 'PHYSICALAI', tickers: ['PLTR', 'SERV', 'PL', 'TER', 'SYM', 'RKLB', 'ISRG'] },
+  siliconcore: { id: 'SILICONCORE', tickers: ['AMD', 'AVGO', 'TSM', 'ARM', 'MU', 'ASML', 'MRVL'] },
+  powermatrix: { id: 'POWERMATRIX', tickers: ['CEG', 'VST', 'GEV', 'PWR', 'CCJ', 'SMR', 'ETN'] },
+  biopulse: { id: 'BIOPULSE', tickers: ['LLY', 'NVO', 'VRTX', 'REGN', 'VKTX', 'AMGN', 'GILD'] },
+  cybershield: { id: 'CYBERSHIELD', tickers: ['CRWD', 'PANW', 'FTNT', 'ZS', 'S', 'OKTA', 'NET'] },
+  orbitdefense: { id: 'ORBITDEFENSE', tickers: ['LMT', 'RTX', 'AXON', 'KTOS', 'LDOS', 'ASTS', 'LUNR'] },
+  quantumedge: { id: 'QUANTUMEDGE', tickers: ['IBM', 'IONQ', 'RGTI', 'QUBT', 'QBTS', 'FORM', 'ARQQ'] },
+  fintechpulse: { id: 'FINTECHPULSE', tickers: ['V', 'MA', 'SQ', 'PYPL', 'COIN', 'AFRM', 'HOOD'] },
+  cloudfortress: { id: 'CLOUDFORTRESS', tickers: ['CRM', 'NOW', 'SNOW', 'WDAY', 'DDOG', 'MDB', 'TEAM'] },
+};
+
+// ====== Step 5: Sector Daily Scores ======
+async function harvestSector(priceMap, gexResults) {
+  console.log('Step 5: Sector daily scores...');
+  const today = new Date().toISOString().slice(0, 10);
+  const items = [];
+  let rank = 0;
+
+  const sectorScores = [];
+
+  for (const [key, sector] of Object.entries(SECTORS)) {
+    let changeSum = 0, changeCount = 0, gexSum = 0;
+    let lead = { ticker: '', change: -Infinity };
+    let lag = { ticker: '', change: Infinity };
+
+    for (const ticker of sector.tickers) {
+      const price = priceMap[ticker];
+      if (!price) continue;
+      // Get change from alpha-history items that were saved in harvestPrices
+      changeCount++;
+      // We don't have changePct in priceMap directly, calculate from snapshot
+    }
+
+    // Use Polygon snapshot for sector change data
+    const snap = await httpsGet('https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers?tickers=' + sector.tickers.join(',') + '&apiKey=' + POLYGON_KEY);
+    const tickers = snap?.tickers || [];
+
+    for (const t of tickers) {
+      const chg = t.todaysChangePerc || 0;
+      changeSum += chg;
+      changeCount++;
+      if (chg > lead.change) lead = { ticker: t.ticker, change: chg };
+      if (chg < lag.change) lag = { ticker: t.ticker, change: chg };
+    }
+
+    const avgChange = changeCount > 0 ? Math.round((changeSum / changeCount) * 100) / 100 : 0;
+    sectorScores.push({ id: sector.id, avgChange });
+
+    items.push({
+      sectorId: sector.id,
+      date: today,
+      avgChange,
+      gexSum: 0,
+      avgPcr: 0,
+      alphaScore: 0,
+      ranking: 0,
+      leadTicker: lead.ticker || '',
+      lagTicker: lag.ticker || '',
+      tickerCount: changeCount,
+    });
+  }
+
+  // Calculate rankings by avgChange (best = 1)
+  sectorScores.sort((a, b) => b.avgChange - a.avgChange);
+  for (const item of items) {
+    const idx = sectorScores.findIndex(s => s.id === item.sectorId);
+    item.ranking = idx + 1;
+  }
+
+  if (items.length > 0) {
+    await batchWrite('signum-sector-daily', items);
+  }
+
+  console.log('Sectors: ' + items.length + ' saved — top: ' + (sectorScores[0]?.id || 'N/A'));
+  return items.length;
+}
+
+// ====== Step 6: IV Surface Snapshot ======
+async function harvestIVSurface(priceMap) {
+  console.log('Step 6: IV Surface snapshot for key tickers...');
+  const IV_TICKERS = GEX_TICKERS.slice(0, 10); // Top 10 GEX tickers
+  const ts = Date.now();
+  let totalSaved = 0;
+
+  for (const ticker of IV_TICKERS) {
+    try {
+      const price = priceMap[ticker];
+      if (!price) continue;
+
+      const allOptions = await getAllOptions(ticker);
+      if (allOptions.length === 0) continue;
+
+      // Group by DTE and extract IV surface data
+      const surfaceItems = [];
+      const seenStrikes = new Set();
+
+      for (const opt of allOptions) {
+        const strike = opt.details?.strike_price;
+        const expDate = opt.details?.expiration_date;
+        const iv = opt.implied_volatility;
+        const delta = opt.greeks?.delta;
+        const gamma = opt.greeks?.gamma;
+        const type = opt.details?.contract_type;
+
+        if (!strike || !expDate || iv === undefined) continue;
+
+        // Only save options near ATM (±30%)
+        if (strike < price * 0.7 || strike > price * 1.3) continue;
+
+        const key = `${strike}-${expDate}-${type}`;
+        if (seenStrikes.has(key)) continue;
+        seenStrikes.add(key);
+
+        // Calculate DTE
+        const dte = Math.round((new Date(expDate).getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+        if (dte < 0 || dte > 90) continue; // Only 0-90 DTE
+
+        surfaceItems.push({
+          ticker,
+          sk: `${ts}#${dte}#${strike}#${type}`,
+          strike,
+          iv: Math.round(iv * 10000) / 100, // Convert to percentage
+          delta: Math.round((delta || 0) * 1000) / 1000,
+          gamma: gamma || 0,
+          dte,
+          contractType: type,
+          expDate,
+          price,
+        });
+      }
+
+      // Save in batches
+      if (surfaceItems.length > 0) {
+        await batchWrite('signum-iv-surface', surfaceItems);
+        totalSaved += surfaceItems.length;
+      }
+    } catch (e) {
+      console.log('IV Surface ERR ' + ticker + ': ' + e.message);
+    }
+  }
+
+  console.log('IV Surface: ' + totalSaved + ' points saved');
+  return totalSaved;
+}
+
 // ====== Main Handler ======
 exports.handler = async (event) => {
   const start = Date.now();
-  console.log('SIGNUM Harvest Lambda v2 — ' + new Date().toISOString());
+  console.log('SIGNUM Harvest Lambda v3 — ' + new Date().toISOString());
   console.log('Universe: ' + UNIQUE_UNIVERSE.length + ' price + ' + GEX_TICKERS.length + ' GEX');
 
   // Market hours check (UTC) — Extended hours included
@@ -324,6 +472,9 @@ exports.handler = async (event) => {
 
   // Regular hours only (for options/GEX): 13:30~21:00 UTC
   const isRegularHours = (utcMin >= 13 * 60 + 30 && utcMin <= 21 * 60);
+
+  // Near close (for daily summaries): 20:00~21:00 UTC (4:00~5:00 PM ET)
+  const isNearClose = (utcMin >= 20 * 60 && utcMin <= 21 * 60);
 
   if (!isExtendedHours) {
     return { statusCode: 200, body: JSON.stringify({ skipped: true, reason: 'All markets closed', utcHour: hour }) };
@@ -348,7 +499,6 @@ exports.handler = async (event) => {
 
   // Step 4: Push real-time data to EC2 WebSocket Hub (fire-and-forget)
   const pushPromises = [];
-  // Push top 20 price updates for WebSocket subscribers
   const topTickers = Object.keys(priceMap).slice(0, 20);
   for (const ticker of topTickers) {
     const p = priceMap[ticker];
@@ -361,8 +511,26 @@ exports.handler = async (event) => {
   await Promise.allSettled(pushPromises);
   results.pushed = pushPromises.length;
 
+  // Step 5: Sector daily scores — every execution (5min, incremental update)
+  try {
+    results.sectors = await harvestSector(priceMap);
+  } catch (e) {
+    results.sectors = 'ERR:' + e.message;
+  }
+
+  // Step 6: IV Surface — ONLY during regular hours, every 3rd execution (~15min)
+  if (isRegularHours && minute % 15 < 5) {
+    try {
+      results.ivSurface = await harvestIVSurface(priceMap);
+    } catch (e) {
+      results.ivSurface = 'ERR:' + e.message;
+    }
+  } else {
+    results.ivSurface = 'SKIPPED';
+  }
+
   const duration = Math.round((Date.now() - start) / 1000);
-  console.log('Done in ' + duration + 's — Prices:' + count + ' GEX:' + results.gex.length + ' Pushed:' + pushPromises.length);
+  console.log('Done in ' + duration + 's — Prices:' + count + ' GEX:' + (Array.isArray(results.gex) ? results.gex.length : results.gex) + ' Sectors:' + results.sectors + ' IV:' + results.ivSurface + ' Pushed:' + pushPromises.length);
 
   return {
     statusCode: 200,
