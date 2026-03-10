@@ -14,7 +14,33 @@ import {
     type GexHistoryItem, type RlsiHistoryItem, type SectorDailyItem, type AlphaHistoryItem
 } from '@/lib/aws/historyStore';
 
-const M7_TICKERS = ['AAPL', 'NVDA', 'MSFT', 'GOOGL', 'AMZN', 'META', 'TSLA'];
+// [Phase 2] Full universe tickers — matches Lambda harvest scope
+const HARVEST_TICKERS = [
+    'AAPL', 'MSFT', 'AMZN', 'NVDA', 'GOOGL', 'META', 'TSLA',
+    'AMD', 'AVGO', 'QCOM', 'MU', 'LRCX', 'AMAT', 'KLAC', 'MRVL', 'ASML',
+    'CRWD', 'PANW', 'ZS', 'FTNT', 'OKTA',
+    'AMGN', 'GILD', 'REGN', 'VRTX', 'BIIB',
+    'ISRG', 'TER', 'ROK', 'MBLY', 'PONY',
+    'VST', 'CEG', 'VRT', 'ETN', 'PWR',
+    'RTX', 'LMT', 'GD', 'NOC', 'BA',
+    'JPM', 'BAC', 'GS', 'WFC', 'C',
+    'JNJ', 'UNH', 'LLY', 'PFE', 'ABBV', 'MRK', 'TMO',
+    'XOM', 'CVX', 'COP', 'SLB',
+    'HD', 'COST', 'WMT', 'TGT', 'LOW',
+    'PG', 'KO', 'PEP', 'MCD', 'SBUX', 'NKE',
+    'DIS', 'NFLX', 'CMCSA',
+    'CAT', 'GE', 'HON', 'UPS', 'DE',
+    'NEE', 'DUK', 'SO', 'PLD', 'O', 'VICI',
+    'TXN', 'ON', 'INTC',
+    'UBER', 'ABNB', 'DASH', 'SHOP', 'SE',
+    'AI', 'PLTR', 'SMCI', 'ARM', 'DELL',
+    'FCX', 'NEM', 'LIN', 'SHW',
+    'BLK', 'SCHW', 'AXP',
+    'CRM', 'ADBE', 'TSM', 'SNOW', 'COIN', 'HOOD', 'DKNG', 'NET',
+    'V', 'MA', 'PYPL',
+    'IBM', 'IONQ', 'RGTI', 'QUBT',
+    'EQIX', 'DLR', 'AMT', 'CCI', 'SBAC',
+];
 const SECTORS = ['m7', 'physical_ai', 'silicon_core', 'power_matrix', 'bio_pulse',
     'cyber_shield', 'orbit_defense', 'quantum_edge', 'fintech_pulse', 'cloud_fortress'];
 
@@ -27,9 +53,9 @@ export async function GET(request: Request) {
     const baseUrl = request.url.split('/api/')[0];
 
     try {
-        // ====== 1. Harvest GEX data for M7 tickers ======
+        // ====== 1. Harvest GEX data for full universe ======
         const gexResults: string[] = [];
-        for (const ticker of M7_TICKERS) {
+        for (const ticker of HARVEST_TICKERS) {
             try {
                 const res = await fetch(`${baseUrl}/api/live/ticker?ticker=${ticker}`, {
                     headers: process.env.VERCEL_AUTOMATION_BYPASS_SECRET
