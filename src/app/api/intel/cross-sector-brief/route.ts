@@ -12,6 +12,8 @@ import { YAHOO_CACHE_KEYS, type YahooQuote } from '@/services/yahooFinanceHub';
 import { fetchMassive } from '@/services/massiveClient';
 import { getETOffsetHours } from '@/services/timezoneUtils';
 
+export const maxDuration = 60; // Gemini AI analysis needs 30s+
+
 const SECTOR_IDS = [
     'm7', 'physical_ai', 'silicon_core', 'power_matrix', 'bio_pulse',
     'cyber_shield', 'orbit_defense', 'quantum_edge', 'fintech_pulse', 'cloud_fortress',

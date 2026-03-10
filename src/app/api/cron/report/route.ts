@@ -4,6 +4,8 @@
 import { NextResponse } from 'next/server';
 import { generateReport, ReportType, getArchivedReport } from '@/services/reportScheduler';
 
+export const maxDuration = 60; // Gemini report generation needs 30s+
+
 export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const type = searchParams.get('type') as ReportType | null;
