@@ -232,27 +232,40 @@ exports.handler = async (event) => {
   console.log('SIGNUM Harvest Lambda v2 — ' + new Date().toISOString());
   console.log('Universe: ' + UNIQUE_UNIVERSE.length + ' price + ' + GEX_TICKERS.length + ' GEX');
   
-  // Market hours check (UTC)
+  // Market hours check (UTC) — Extended hours included
   const hour = new Date().getUTCHours();
   const minute = new Date().getUTCMinutes();
   const utcMin = hour * 60 + minute;
-  // EDT: 13:30-20:00 UTC | EST: 14:30-21:00 UTC
-  const isMarketOpen = (utcMin >= 13*60+30 && utcMin <= 21*60);
   
-  if (!isMarketOpen) {
-    return { statusCode: 200, body: JSON.stringify({ skipped: true, reason: 'Market closed', utcHour: hour }) };
+  // Pre-market: 4:00 ET = 08:00/09:00 UTC (EDT/EST)
+  // Regular:    9:30 ET = 13:30/14:30 UTC
+  // Close:     16:00 ET = 20:00/21:00 UTC
+  // After:     20:00 ET = 00:00/01:00 UTC (next day)
+  // Wide window: 08:00 UTC ~ 01:00 UTC (next day) covers all DST variations
+  const isExtendedHours = (utcMin >= 8*60) || (utcMin <= 1*60);
+  
+  // Regular hours only (for options/GEX): 13:30~21:00 UTC
+  const isRegularHours = (utcMin >= 13*60+30 && utcMin <= 21*60);
+  
+  if (!isExtendedHours) {
+    return { statusCode: 200, body: JSON.stringify({ skipped: true, reason: 'All markets closed', utcHour: hour }) };
   }
   
   const results = {};
   
-  // Step 1: Price snapshot (all universe)
+  // Step 1: Price snapshot — ALWAYS during extended hours
   const { count, priceMap } = await harvestPrices();
   results.prices = count;
   
-  // Step 2: GEX harvest (key tickers, full options chain)
-  results.gex = await harvestGex(priceMap);
+  // Step 2: GEX harvest — ONLY during regular hours (options don't trade pre/post)
+  if (isRegularHours) {
+    results.gex = await harvestGex(priceMap);
+  } else {
+    results.gex = 'SKIPPED:extended_hours';
+    console.log('GEX skipped — extended hours (options closed)');
+  }
   
-  // Step 3: RLSI
+  // Step 3: RLSI — ALWAYS during extended hours
   results.rlsi = await harvestRlsi();
   
   const duration = Math.round((Date.now() - start) / 1000);
