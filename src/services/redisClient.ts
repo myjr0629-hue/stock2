@@ -1,65 +1,21 @@
-// [V45.8] Upstash Redis Client for Persistent Caching
-// Used for VIX Last Known Good pattern and other caching needs
-// Supports both Vercel KV (KV_REST_API_*) and Upstash (UPSTASH_REDIS_REST_*) naming
+// ===========================================================================
+// Unified Redis Client — ElastiCache (primary) + Upstash (fallback)
+// ElastiCache: ioredis TCP connection (requires Vercel Secure Compute)
+// Upstash: HTTP REST API (works everywhere, slower)
+// ===========================================================================
 
-import { Redis } from '@upstash/redis';
+import { Redis as UpstashRedis } from '@upstash/redis';
 
-// Lazy initialization - only create client when needed
-let redisClient: Redis | null = null;
-let lastInitAttempt = 0;
+// Lazy initialization
+let upstashClient: UpstashRedis | null = null;
+let ioredisClient: any = null; // ioredis dynamically imported
+let useElastiCache = false;
+let elastiCacheAttempted = false;
 let lastError: string | null = null;
-const RETRY_INTERVAL_MS = 30_000; // Retry Redis init every 30s after failure
 
-/** Get Redis connection status for debugging */
-export function getRedisStatus() {
-    return {
-        connected: redisClient !== null,
-        lastError,
-        hasUrl: !!(process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL),
-        hasToken: !!(process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN),
-        urlPrefix: (process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL || '').substring(0, 30),
-    };
-}
-
-/**
- * Get Redis client instance (lazy initialization)
- * Supports both Vercel KV and Upstash environment variable names
- * Retries after failure instead of giving up permanently
- */
-export async function getRedisClient(): Promise<Redis | null> {
-    // Return existing client
-    if (redisClient) {
-        return redisClient;
-    }
-
-    // Rate-limit retry attempts (wait 30s before retrying after failure)
-    const now = Date.now();
-    if (lastInitAttempt > 0 && now - lastInitAttempt < RETRY_INTERVAL_MS) {
-        return null;
-    }
-    lastInitAttempt = now;
-
-    // Check for required environment variables (Upstash direct FIRST, then legacy Vercel KV)
-    const url = process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL;
-    const token = process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN;
-
-    if (!url || !token) {
-        console.warn('[Redis] KV_REST_API_URL/TOKEN or UPSTASH_REDIS_REST_URL/TOKEN not configured');
-        return null;
-    }
-
-    try {
-        redisClient = new Redis({ url, token });
-        console.log('[Redis] Client initialized successfully');
-        lastInitAttempt = 0; // Reset on success
-        return redisClient;
-    } catch (e) {
-        lastError = `init: ${e instanceof Error ? e.message : String(e)}`;
-        console.error('[Redis] Failed to initialize client:', lastError);
-        redisClient = null;
-        return null;
-    }
-}
+// ElastiCache endpoint from .env.local
+const ELASTICACHE_HOST = process.env.ELASTICACHE_ENDPOINT || 'signum-redis.dhzfzt.0001.use1.cache.amazonaws.com';
+const ELASTICACHE_PORT = parseInt(process.env.ELASTICACHE_PORT || '6379');
 
 // Cache keys
 export const CACHE_KEYS = {
@@ -67,39 +23,136 @@ export const CACHE_KEYS = {
     VIX_LAST_UPDATE: 'vix:last_update'
 };
 
-/**
- * Get cached value from Redis
- */
-export async function getFromCache<T>(key: string): Promise<T | null> {
-    const redis = await getRedisClient();
-    if (!redis) return null;
+/** Get Redis connection status for debugging */
+export function getRedisStatus() {
+    return {
+        backend: useElastiCache ? 'elasticache' : 'upstash',
+        connected: useElastiCache ? ioredisClient !== null : upstashClient !== null,
+        lastError,
+        elastiCacheHost: ELASTICACHE_HOST,
+        hasUpstashUrl: !!(process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL),
+    };
+}
+
+// ── ElastiCache (ioredis) connection ──
+async function getElastiCacheClient(): Promise<any | null> {
+    if (ioredisClient) return ioredisClient;
+    if (elastiCacheAttempted) return null;
+    elastiCacheAttempted = true;
 
     try {
-        const value = await redis.get<T>(key);
-        return value;
-    } catch (e) {
-        console.warn(`[Redis] Failed to get ${key}:`, e);
+        const IORedis = (await import('ioredis')).default;
+        ioredisClient = new IORedis({
+            host: ELASTICACHE_HOST,
+            port: ELASTICACHE_PORT,
+            connectTimeout: 3000,
+            maxRetriesPerRequest: 1,
+            retryStrategy: (times: number) => (times > 2 ? null : Math.min(times * 500, 2000)),
+            lazyConnect: true,
+        });
+
+        await ioredisClient.connect();
+        useElastiCache = true;
+        console.log(`[Redis] ✅ ElastiCache connected: ${ELASTICACHE_HOST}:${ELASTICACHE_PORT}`);
+        return ioredisClient;
+    } catch (e: any) {
+        lastError = `elasticache: ${e.message}`;
+        console.warn(`[Redis] ElastiCache unavailable (${e.message}), falling back to Upstash`);
+        ioredisClient = null;
+        return null;
+    }
+}
+
+// ── Upstash (HTTP) connection ──
+function getUpstashClient(): UpstashRedis | null {
+    if (upstashClient) return upstashClient;
+
+    const url = process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL;
+    const token = process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN;
+
+    if (!url || !token) {
+        console.warn('[Redis] Upstash not configured');
+        return null;
+    }
+
+    try {
+        upstashClient = new UpstashRedis({ url, token });
+        console.log('[Redis] Upstash client initialized');
+        return upstashClient;
+    } catch (e: any) {
+        lastError = `upstash: ${e.message}`;
+        return null;
+    }
+}
+
+/**
+ * Get cached value from Redis
+ * Tries ElastiCache first (< 1ms latency), falls back to Upstash (~30ms)
+ */
+export async function getFromCache<T>(key: string): Promise<T | null> {
+    // Try ElastiCache first
+    const ec = await getElastiCacheClient();
+    if (ec) {
+        try {
+            const raw = await ec.get(key);
+            if (raw) return typeof raw === 'string' ? JSON.parse(raw) : raw;
+            return null;
+        } catch (e: any) {
+            console.warn(`[Redis/EC] get(${key}) failed:`, e.message);
+        }
+    }
+
+    // Fallback to Upstash
+    const upstash = getUpstashClient();
+    if (!upstash) return null;
+
+    try {
+        return await upstash.get<T>(key);
+    } catch (e: any) {
+        console.warn(`[Redis/Upstash] get(${key}) failed:`, e.message);
         return null;
     }
 }
 
 /**
  * Set value in Redis cache with optional TTL (seconds)
+ * Writes to BOTH ElastiCache and Upstash for consistency
  */
 export async function setInCache<T>(key: string, value: T, ttlSeconds?: number): Promise<boolean> {
-    const redis = await getRedisClient();
-    if (!redis) return false;
+    let ecOk = false;
+    let upstashOk = false;
 
-    try {
-        if (ttlSeconds) {
-            await redis.setex(key, ttlSeconds, value);
-        } else {
-            await redis.set(key, value);
+    // Write to ElastiCache
+    const ec = await getElastiCacheClient();
+    if (ec) {
+        try {
+            const serialized = JSON.stringify(value);
+            if (ttlSeconds) {
+                await ec.setex(key, ttlSeconds, serialized);
+            } else {
+                await ec.set(key, serialized);
+            }
+            ecOk = true;
+        } catch (e: any) {
+            console.warn(`[Redis/EC] set(${key}) failed:`, e.message);
         }
-        return true;
-    } catch (e) {
-        lastError = `set(${key}): ${e instanceof Error ? e.message : String(e)}`;
-        console.warn(`[Redis] Failed to set ${key}:`, lastError);
-        return false;
     }
+
+    // Write to Upstash (always, for fallback consistency)
+    const upstash = getUpstashClient();
+    if (upstash) {
+        try {
+            if (ttlSeconds) {
+                await upstash.setex(key, ttlSeconds, value);
+            } else {
+                await upstash.set(key, value);
+            }
+            upstashOk = true;
+        } catch (e: any) {
+            lastError = `set(${key}): ${e.message}`;
+            console.warn(`[Redis/Upstash] set(${key}) failed:`, e.message);
+        }
+    }
+
+    return ecOk || upstashOk;
 }
