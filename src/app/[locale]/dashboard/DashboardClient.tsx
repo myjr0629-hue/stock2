@@ -750,7 +750,7 @@ function MainChartPanel() {
                 {/* ── ROW 1: 구조 판단 (Structure) ── */}
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                     {/* Net GEX — PRO (peek: number visible, interpretation blurred) */}
-                    <ProGate title="Net GEX" mode="peek" compact>
+                    {customize.cardOrder.includes('netGex') && <ProGate title="Net GEX" mode="peek" compact>
                         <div className={`relative p-4 rounded-xl border overflow-hidden ${(data?.netGex || 0) < 0 ? 'bg-rose-500/10 backdrop-blur-md border-rose-400/40 shadow-[0_0_25px_rgba(251,113,133,0.3)]' : 'bg-[#0d1829]/80 border-white/5'}`}>
                             {(data?.netGex || 0) < 0 && <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-rose-400 to-rose-500" />}
                             <svg className="absolute right-0 bottom-0 w-24 h-16 opacity-[0.06]" viewBox="0 0 96 64"><path d="M0 50 Q12 20 24 35 T48 25 T72 40 T96 15" fill="none" stroke="currentColor" strokeWidth="2" className="text-amber-400" /><path d="M0 55 Q16 40 32 45 T64 35 T96 30" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-amber-300" /></svg>
@@ -791,10 +791,10 @@ function MainChartPanel() {
                                 );
                             })()}
                         </div>
-                    </ProGate>
+                    </ProGate>}
 
                     {/* Gamma Flip — PRO (blur: SpotGamma core data) */}
-                    <ProGate title="Gamma Flip" mode="blur" compact>
+                    {customize.cardOrder.includes('gammaFlip') && <ProGate title="Gamma Flip" mode="blur" compact>
                         <div className={`relative p-4 rounded-xl border overflow-hidden ${data?.gammaFlipLevel && data?.underlyingPrice && data.underlyingPrice < data.gammaFlipLevel ? 'bg-rose-500/10 backdrop-blur-md border-rose-400/40 shadow-[0_0_25px_rgba(251,113,133,0.3)]' : 'bg-[#0d1829]/80 border-white/5'}`}>
                             {data?.gammaFlipLevel && data?.underlyingPrice && data.underlyingPrice < data.gammaFlipLevel && <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-rose-400 to-rose-500" />}
                             <svg className="absolute right-1 bottom-1 w-20 h-16 opacity-[0.06]" viewBox="0 0 80 64"><circle cx="40" cy="32" r="22" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-cyan-400" /><line x1="40" y1="5" x2="40" y2="59" stroke="currentColor" strokeWidth="1" className="text-cyan-300" strokeDasharray="3 3" /><line x1="13" y1="32" x2="67" y2="32" stroke="currentColor" strokeWidth="1" className="text-cyan-300" strokeDasharray="3 3" /></svg>
@@ -844,10 +844,10 @@ function MainChartPanel() {
                                 );
                             })()}
                         </div>
-                    </ProGate>
+                    </ProGate>}
 
                     {/* Squeeze — PRO (peek: score visible, interpretation blurred) */}
-                    <ProGate title="Squeeze" fomoMessage={gt('fomoSqueeze')} mode="peek" compact>
+                    {customize.cardOrder.includes('squeeze') && <ProGate title="Squeeze" fomoMessage={gt('fomoSqueeze')} mode="peek" compact>
                         <div className={`relative p-4 rounded-xl border overflow-hidden ${data?.squeezeRisk === 'EXTREME' || data?.squeezeRisk === 'HIGH' ? 'bg-amber-500/15 backdrop-blur-md border-amber-400/50 shadow-[0_0_30px_rgba(251,191,36,0.4)]' : 'bg-[#0d1829]/80 border-white/5'}`}>
                             {(data?.squeezeRisk === 'EXTREME' || data?.squeezeRisk === 'HIGH') && <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-amber-400 via-orange-500 to-amber-400 animate-pulse" />}
                             <svg className="absolute right-0 bottom-0 w-24 h-16 opacity-[0.06]" viewBox="0 0 96 64"><path d="M0 55 L12 35 L24 50 L36 20 L48 45 L60 15 L72 40 L84 10 L96 30" fill="none" stroke="currentColor" strokeWidth="2" className="text-amber-400" /></svg>
@@ -887,10 +887,10 @@ function MainChartPanel() {
                                 );
                             })()}
                         </div>
-                    </ProGate>
+                    </ProGate>}
 
                     {/* VWAP 거리 (NEW) */}
-                    {(() => {
+                    {customize.cardOrder.includes('vwapDist') ? (() => {
                         const price = data?.underlyingPrice || 0;
                         const vwap = data?.vwap || 0;
                         const dist = vwap > 0 && price > 0 ? ((price - vwap) / vwap * 100) : 0;
@@ -937,13 +937,13 @@ function MainChartPanel() {
                                 })()}
                             </div>
                         );
-                    })()}
+                    })() : null}
                 </div>
 
                 {/* ── ROW 2: 가격 레벨 + 기관 (Levels & Institutional) ── */}
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                     {/* Max Pain — PRO (peek: price visible, % distance blurred) */}
-                    <ProGate title="Max Pain" mode="peek" compact>
+                    {customize.cardOrder.includes('maxPain') && <ProGate title="Max Pain" mode="peek" compact>
                         {(() => {
                             const mp = data?.maxPain || 0;
                             const price = data?.underlyingPrice || 0;
@@ -1002,10 +1002,10 @@ function MainChartPanel() {
                                 </div>
                             );
                         })()}
-                    </ProGate>
+                    </ProGate>}
 
                     {/* Call Wall / Put Floor — PRO (blur: options level data) */}
-                    <ProGate title="Call Wall / Put Floor" fomoMessage={gt('fomoDashCallPut')} mode="blur" compact>
+                    {customize.cardOrder.includes('callPutWall') && <ProGate title="Call Wall / Put Floor" fomoMessage={gt('fomoDashCallPut')} mode="blur" compact>
                         {(() => {
                             const cw = data?.levels?.callWall || 0;
                             const pf = data?.levels?.putFloor || 0;
@@ -1045,10 +1045,10 @@ function MainChartPanel() {
                                 </div>
                             );
                         })()}
-                    </ProGate>
+                    </ProGate>}
 
                     {/* Dark Pool % — PRO (blur: institutional data, FlowAlgo $149) */}
-                    <ProGate title="Dark Pool %" fomoMessage={gt('fomoDarkPool')} mode="blur" compact>
+                    {customize.cardOrder.includes('darkPool') && <ProGate title="Dark Pool %" fomoMessage={gt('fomoDarkPool')} mode="blur" compact>
                         {(() => {
                             const dp = data?.darkPoolPct ?? 0;
                             const isAlert = dp >= 45;
@@ -1092,10 +1092,10 @@ function MainChartPanel() {
                                 </div>
                             );
                         })()}
-                    </ProGate>
+                    </ProGate>}
 
                     {/* Short Vol % — PRO (blur: Ortex $49-149) */}
-                    <ProGate title="Short Vol %" fomoMessage={gt('fomoShortVol')} mode="blur" compact>
+                    {customize.cardOrder.includes('shortVol') && <ProGate title="Short Vol %" fomoMessage={gt('fomoShortVol')} mode="blur" compact>
                         {(() => {
                             const sv = data?.shortVolPct ?? 0;
                             const dp = data?.darkPoolPct ?? 0;
@@ -1146,13 +1146,13 @@ function MainChartPanel() {
                                 </div>
                             );
                         })()}
-                    </ProGate>
+                    </ProGate>}
                 </div>
 
                 {/* ── ROW 3: 변동성 + 당일 분석 (Volatility & Intraday) ── */}
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                     {/* ATM IV — PRO (blur: advanced volatility surface, QuantData $99) */}
-                    <ProGate title="ATM IV" fomoMessage={gt('fomoAtmIv')} mode="blur" compact>
+                    {customize.cardOrder.includes('atmIv') && <ProGate title="ATM IV" fomoMessage={gt('fomoAtmIv')} mode="blur" compact>
                         <div className={`relative p-4 rounded-xl border overflow-hidden ${(data?.atmIv || 0) > 50 ? 'bg-cyan-500/10 backdrop-blur-md border-cyan-400/40 shadow-[0_0_25px_rgba(34,211,238,0.3)]' : 'bg-[#0d1829]/80 border-white/5'}`}>
                             {(data?.atmIv || 0) > 50 && <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-cyan-400 to-cyan-500" />}
                             <svg className="absolute right-0 bottom-0 w-24 h-16 opacity-[0.06]" viewBox="0 0 96 64"><path d="M0 32 Q12 10 24 32 T48 32 T72 32 T96 32" fill="none" stroke="currentColor" strokeWidth="2" className="text-purple-400" /><path d="M0 32 Q12 48 24 32 T48 32 T72 32 T96 32" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-purple-300" strokeDasharray="3 3" /></svg>
@@ -1190,10 +1190,10 @@ function MainChartPanel() {
                                 </div>
                             )}
                         </div>
-                    </ProGate>
+                    </ProGate>}
 
                     {/* P/C Ratio (VOLUME) - matches Flow page */}
-                    {(() => {
+                    {customize.cardOrder.includes('pcRatio') ? (() => {
                         const vpcr = data?.volumePcr ?? null;  // Instant from unified API cache
                         const isAlert = vpcr !== null && (vpcr >= 2.0 || vpcr <= 0.5);
                         const label = vpcr === null ? '—' : vpcr >= 2.0 ? td('pcrStrongCall') : vpcr >= 1.3 ? td('pcrCall') : vpcr <= 0.5 ? td('pcrStrongPut') : vpcr <= 0.75 ? td('pcrPut') : td('pcrBalanced');
@@ -1246,10 +1246,10 @@ function MainChartPanel() {
                                 )}
                             </div>
                         );
-                    })()}
+                    })() : null}
 
                     {/* GEX REGIME — PRO (blur: SpotGamma Pro $249) */}
-                    <ProGate title="GEX Regime" fomoMessage={gt('fomoDashGexRegime')} mode="blur" compact>
+                    {customize.cardOrder.includes('gexRegime') && <ProGate title="GEX Regime" fomoMessage={gt('fomoDashGexRegime')} mode="blur" compact>
                         {(() => {
                             const price = data?.underlyingPrice || 0;
                             const flip = data?.gammaFlipLevel || 0;
@@ -1321,10 +1321,10 @@ function MainChartPanel() {
                                 </div>
                             );
                         })()}
-                    </ProGate>
+                    </ProGate>}
 
                     {/* Implied Move — ELITE (blur: advanced derivatives) */}
-                    <EliteGate title="Implied Move" fomoMessage={gt('fomoDashImpliedMove')} mode="blur" compact>
+                    {customize.cardOrder.includes('impliedMove') && <EliteGate title="Implied Move" fomoMessage={gt('fomoDashImpliedMove')} mode="blur" compact>
                         {(() => {
                             const im = data?.impliedMovePct ?? 0;
                             const dir = data?.impliedMoveDir ?? 'neutral';
@@ -1377,7 +1377,7 @@ function MainChartPanel() {
                                 </div>
                             );
                         })()}
-                    </EliteGate>
+                    </EliteGate>}
                 </div>
             </div>
 
