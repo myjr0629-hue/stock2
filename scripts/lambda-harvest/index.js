@@ -1,6 +1,6 @@
 
 const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
-const { DynamoDBDocumentClient, PutCommand, BatchWriteCommand } = require('@aws-sdk/lib-dynamodb');
+const { DynamoDBDocumentClient, PutCommand, BatchWriteCommand, QueryCommand } = require('@aws-sdk/lib-dynamodb');
 const https = require('https');
 
 const client = DynamoDBDocumentClient.from(new DynamoDBClient({ region: 'us-east-1' }), {
@@ -555,6 +555,80 @@ exports.handler = async (event) => {
     }
   } else {
     results.ivSurface = 'SKIPPED';
+  }
+
+  // Step 7: Signal Detection — detect market structure changes → DynamoDB + WebSocket
+  try {
+    const signals = [];
+    const now = Date.now();
+
+    // 7A: GEX Flip Detection (from GEX results)
+    if (Array.isArray(results.gex)) {
+      for (const r of results.gex) {
+        if (typeof r !== 'string') continue;
+        const parts = r.split(':');
+        if (parts.length < 2) continue;
+        const ticker = parts[0];
+        const gexVal = parseFloat(parts[1]);
+        if (isNaN(gexVal)) continue;
+
+        // Check previous GEX from DynamoDB to detect flip
+        try {
+          const prevData = await client.send(new QueryCommand({
+            TableName: 'signum-gex-history',
+            KeyConditionExpression: 'pk = :pk',
+            ExpressionAttributeValues: { ':pk': ticker },
+            ScanIndexForward: false, Limit: 1,
+          }));
+          if (prevData.Items && prevData.Items.length > 0) {
+            const prevGex = prevData.Items[0].gex || 0;
+            if (prevGex < 0 && gexVal >= 0) {
+              signals.push({ ticker, type: 'GEX_FLIP_LONG', gex: gexVal, prevGex, ts: now });
+            } else if (prevGex >= 0 && gexVal < 0) {
+              signals.push({ ticker, type: 'GEX_FLIP_SHORT', gex: gexVal, prevGex, ts: now });
+            }
+          }
+        } catch (e) { /* skip individual ticker errors */ }
+      }
+    }
+
+    // Save signals to DynamoDB signum-pattern-db
+    if (signals.length > 0) {
+      const signalWrites = signals.map(s => ({
+        PutRequest: {
+          Item: {
+            pk: 'SIGNAL',
+            timestamp: s.ts,
+            ticker: s.ticker,
+            signalType: s.type,
+            data: JSON.stringify(s),
+            ttl: Math.floor(s.ts / 1000) + 86400, // 24h TTL
+          }
+        }
+      }));
+
+      // Batch write (max 25 per batch)
+      for (let i = 0; i < signalWrites.length; i += 25) {
+        const batch = signalWrites.slice(i, i + 25);
+        try {
+          await client.send(new BatchWriteCommand({
+            RequestItems: { 'signum-pattern-db': batch }
+          }));
+        } catch (e) { console.log('Signal write error:', e.message); }
+      }
+
+      // Push signals to WebSocket
+      for (const s of signals) {
+        await pushToWebSocket('signum:alerts', {
+          ticker: s.ticker, type: s.type, ts: s.ts,
+        });
+      }
+    }
+
+    results.signals = signals.length;
+    console.log('Signals detected: ' + signals.length);
+  } catch (e) {
+    results.signals = 'ERR:' + e.message;
   }
 
   const duration = Math.round((Date.now() - start) / 1000);

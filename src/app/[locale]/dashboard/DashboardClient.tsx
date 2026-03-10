@@ -1459,8 +1459,8 @@ function SignalItem({ signal, locale }: { signal: { time: string; ticker: string
 
 
 // Signal Feed Panel
+// [24H] Always active — fetches signals from DynamoDB + merges with store signals
 // [LOCALIZATION] Uses locale for time formatting, [SORTING] Newest signals first
-// [MARKET HOURS] Only active during regular trading session (OPEN)
 function SignalFeedPanel() {
     const signals = useDashboardStore(s => s.signals);
     const session = useDashboardStore(s => s.tickers[s.selectedTicker]?.session || 'CLOSED');
@@ -1468,38 +1468,120 @@ function SignalFeedPanel() {
     const td = useTranslations('dashboard');
     const isOpen = session === 'REG';
 
-    // Sort signals by time - newest first, limit to 15
-    const sortedSignals = [...signals]
-        .sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime())
-        .slice(0, 15);
+    // [24H] Fetch DynamoDB signals (persisted 24h)
+    const [dbSignals, setDbSignals] = useState<any[]>([]);
+    useEffect(() => {
+        const fetchSignals = async () => {
+            try {
+                const res = await fetch('/api/dashboard/signals');
+                if (res.ok) {
+                    const data = await res.json();
+                    setDbSignals(data.signals || []);
+                }
+            } catch { /* silent */ }
+        };
+        fetchSignals();
+        const interval = setInterval(fetchSignals, 60000); // Refresh every 60s
+        return () => clearInterval(interval);
+    }, []);
+
+    // Signal type display config
+    const SIGNAL_DISPLAY: Record<string, { icon: string; color: string; label: string }> = {
+        GEX_FLIP_LONG: { icon: '🟢', color: 'text-emerald-400', label: 'GEX Long Flip' },
+        GEX_FLIP_SHORT: { icon: '🔴', color: 'text-rose-400', label: 'GEX Short Flip' },
+        DARK_SURGE: { icon: '🏦', color: 'text-purple-400', label: 'Dark Pool Surge' },
+        SQUEEZE_HIGH: { icon: '⚡', color: 'text-amber-400', label: 'Squeeze Alert' },
+        IV_SPIKE: { icon: '📊', color: 'text-cyan-400', label: 'IV Spike' },
+        ALPHA_JUMP: { icon: '🔥', color: 'text-orange-400', label: 'Alpha Jump' },
+    };
+
+    // Merge store signals + DynamoDB signals, deduplicate, sort newest first
+    const mergedSignals = useMemo(() => {
+        const allSignals: any[] = [];
+
+        // Store signals (from unified API)
+        for (const s of signals) {
+            allSignals.push({
+                ticker: s.ticker,
+                type: s.type,
+                message: s.message,
+                messageKey: s.messageKey,
+                params: s.params,
+                timestamp: new Date(s.time).getTime(),
+                source: 'store',
+            });
+        }
+
+        // DynamoDB signals (persisted 24h)
+        for (const s of dbSignals) {
+            allSignals.push({
+                ticker: s.ticker,
+                type: s.type,
+                timestamp: s.timestamp,
+                gex: s.gex,
+                prevGex: s.prevGex,
+                source: 'dynamodb',
+            });
+        }
+
+        // Sort newest first, limit 20
+        return allSignals
+            .sort((a, b) => b.timestamp - a.timestamp)
+            .slice(0, 20);
+    }, [signals, dbSignals]);
+
+    // Format relative time
+    const formatRelativeTime = (ts: number) => {
+        const diff = Math.floor((Date.now() - ts) / 1000);
+        if (diff < 60) return `${diff}s`;
+        if (diff < 3600) return `${Math.floor(diff / 60)}m`;
+        if (diff < 86400) return `${Math.floor(diff / 3600)}h`;
+        return `${Math.floor(diff / 86400)}d`;
+    };
 
     return (
         <div className="flex flex-col h-full">
             <div className="flex items-center justify-between p-3 border-b border-white/5">
                 <div className="flex items-center gap-2">
-                    <Radio className={`w-3.5 h-3.5 ${isOpen ? 'text-cyan-400 animate-pulse' : 'text-slate-600'}`} />
+                    <Radio className={`w-3.5 h-3.5 ${isOpen ? 'text-cyan-400 animate-pulse' : 'text-emerald-400'}`} />
                     <h2 className="text-xs font-jakarta font-bold uppercase tracking-wider text-slate-300">Signal Feed</h2>
+                    <span className={`text-[12px] font-bold px-1.5 py-0.5 rounded ${isOpen ? 'bg-emerald-500/20 text-emerald-400' : 'bg-slate-700/50 text-slate-300'}`}>
+                        {isOpen ? '● LIVE' : '24H'}
+                    </span>
                 </div>
-                {isOpen ? (
-                    <span className="text-[12px] text-slate-400">{signals.length}</span>
-                ) : (
-                    <span className="text-[12px] font-jakarta font-bold px-1.5 py-0.5 rounded bg-slate-700/50 text-slate-400">CLOSED</span>
-                )}
+                <span style={{ fontSize: '12px' }} className="text-slate-300">{mergedSignals.length}</span>
             </div>
-            <div className="overflow-y-auto p-2 space-y-2 max-h-[calc(100vh-200px)]">
-                {!isOpen ? (
+            <div className="overflow-y-auto p-2 space-y-1.5 max-h-[calc(100vh-200px)]">
+                {mergedSignals.length > 0 ? (
+                    mergedSignals.map((signal, i) => {
+                        // DynamoDB signals
+                        if (signal.source === 'dynamodb') {
+                            const display = SIGNAL_DISPLAY[signal.type] || { icon: '📌', color: 'text-slate-300', label: signal.type };
+                            const gexDisplay = signal.gex ? `$${(signal.gex / 1e9).toFixed(2)}B` : '';
+                            return (
+                                <div key={`db-${i}`} className="flex items-start gap-2 p-2 rounded-lg bg-[#0d1829]/80 border border-white/5 hover:border-white/10 transition-colors">
+                                    <span className="text-sm flex-shrink-0 mt-0.5">{display.icon}</span>
+                                    <div className="flex-1 min-w-0">
+                                        <div className="flex items-center gap-1.5">
+                                            <span className="text-[13px] font-bold text-white">{signal.ticker}</span>
+                                            <span className={`text-[12px] font-medium ${display.color}`}>{display.label}</span>
+                                        </div>
+                                        {gexDisplay && (
+                                            <span style={{ fontSize: '12px' }} className="text-slate-300 font-mono">{gexDisplay}</span>
+                                        )}
+                                    </div>
+                                    <span style={{ fontSize: '12px' }} className="text-slate-400 flex-shrink-0">{formatRelativeTime(signal.timestamp)}</span>
+                                </div>
+                            );
+                        }
+                        // Store signals (existing)
+                        return <SignalItem key={`store-${i}`} signal={{ ...signal, time: new Date(signal.timestamp).toISOString() }} locale={locale} />;
+                    })
+                ) : (
                     <div className="flex flex-col items-center justify-center h-32 gap-2">
                         <Radio className="w-5 h-5 text-slate-500" />
-                        <p className="text-slate-300 text-sm text-center font-medium">{td('signalClosedMsg')}</p>
-                        <p className="text-slate-400 text-xs">9:30 AM ~ 4:00 PM ET</p>
-                    </div>
-                ) : sortedSignals.length > 0 ? (
-                    sortedSignals.map((signal, i) => (
-                        <SignalItem key={i} signal={signal} locale={locale} />
-                    ))
-                ) : (
-                    <div className="flex items-center justify-center h-full">
-                        <p className="text-slate-400 text-xs">{td('signalWaiting')}</p>
+                        <p className="text-slate-300 text-sm text-center font-medium">{td('signalWaiting')}</p>
+                        <p style={{ fontSize: '12px' }} className="text-slate-400">Signals are generated during market hours</p>
                     </div>
                 )}
             </div>
