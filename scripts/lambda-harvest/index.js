@@ -19,6 +19,42 @@ function httpsGet(url) {
   });
 }
 
+// HTTP POST helper (for EC2 Redis Proxy)
+function httpPost(url, data, headers = {}) {
+  return new Promise((resolve) => {
+    const urlObj = new URL(url);
+    const options = {
+      hostname: urlObj.hostname,
+      port: urlObj.port || 80,
+      path: urlObj.pathname,
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...headers },
+      timeout: 3000,
+    };
+    const mod = urlObj.protocol === 'https:' ? https : require('http');
+    const req = mod.request(options, (res) => {
+      let body = '';
+      res.on('data', c => body += c);
+      res.on('end', () => resolve({ ok: res.statusCode < 300, body }));
+    });
+    req.on('error', () => resolve({ ok: false }));
+    req.on('timeout', () => { req.destroy(); resolve({ ok: false }); });
+    req.write(JSON.stringify(data));
+    req.end();
+  });
+}
+
+// EC2 Redis Proxy config
+const EC2_PROXY_URL = process.env.EC2_REDIS_PROXY_URL || 'http://3.236.193.97:8081';
+const EC2_PROXY_KEY = process.env.EC2_REDIS_PROXY_KEY || 'signum-redis-proxy-2026';
+
+async function pushToWebSocket(channel, data) {
+  try {
+    await httpPost(`${EC2_PROXY_URL}/publish`, { channel, data },
+      { 'Authorization': `Bearer ${EC2_PROXY_KEY}` });
+  } catch { /* fire-and-forget */ }
+}
+
 const POLYGON_KEY = process.env.POLYGON_API_KEY || 'iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF';
 
 // ====== Full Universe (300+ tickers) ======
@@ -310,8 +346,23 @@ exports.handler = async (event) => {
   // Step 3: RLSI — ALWAYS during extended hours
   results.rlsi = await harvestRlsi();
 
+  // Step 4: Push real-time data to EC2 WebSocket Hub (fire-and-forget)
+  const pushPromises = [];
+  // Push top 20 price updates for WebSocket subscribers
+  const topTickers = Object.keys(priceMap).slice(0, 20);
+  for (const ticker of topTickers) {
+    const p = priceMap[ticker];
+    if (p && p.price) {
+      pushPromises.push(pushToWebSocket('signum:prices', {
+        ticker, price: p.price, changePct: p.changePct || 0, volume: p.volume || 0,
+      }));
+    }
+  }
+  await Promise.allSettled(pushPromises);
+  results.pushed = pushPromises.length;
+
   const duration = Math.round((Date.now() - start) / 1000);
-  console.log('Done in ' + duration + 's — Prices:' + count + ' GEX:' + results.gex.length);
+  console.log('Done in ' + duration + 's — Prices:' + count + ' GEX:' + results.gex.length + ' Pushed:' + pushPromises.length);
 
   return {
     statusCode: 200,

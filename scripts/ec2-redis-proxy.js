@@ -77,6 +77,23 @@ const server = http.createServer(async (req, res) => {
             return;
         }
 
+        // POST /publish  body: { channel, data }
+        // Lambda calls this to push real-time data via ElastiCache Pub/Sub
+        if (path === "/publish" && req.method === "POST") {
+            let body = "";
+            for await (const chunk of req) body += chunk;
+            const { channel, data } = JSON.parse(body);
+            if (!channel || !data) {
+                res.writeHead(400);
+                res.end(JSON.stringify({ error: "channel and data required" }));
+                return;
+            }
+            const subscribers = await redis.publish(channel, JSON.stringify(data));
+            res.writeHead(200, { "Content-Type": "application/json" });
+            res.end(JSON.stringify({ ok: true, channel, subscribers }));
+            return;
+        }
+
         // GET /health
         if (path === "/health") {
             const ping = await redis.ping();
