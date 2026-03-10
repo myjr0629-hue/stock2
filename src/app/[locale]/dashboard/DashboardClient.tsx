@@ -1403,7 +1403,7 @@ function MainChartPanel() {
                                     <div className="mt-2 h-1.5 bg-slate-700 rounded-full overflow-hidden">
                                         <div className={`h-full rounded-full transition-all ${score > 0 ? 'bg-emerald-500' : 'bg-rose-500'}`} style={{ width: `${barWidth}%` }} />
                                     </div>
-                                    {alpha?.actionKR ? <p className="text-[12px] text-slate-300 mt-1.5 line-clamp-1">{alpha.actionKR}</p> : <p className="text-[12px] text-slate-300 mt-1.5">{grade === 'A+' || grade === 'A' ? td('alphaGradeA') : grade === 'B+' || grade === 'B' ? td('alphaGradeB') : grade === 'C' ? td('alphaGradeC') : td('alphaGradeD')}</p>}
+                                    <p className="text-[12px] text-slate-300 mt-1.5">{grade === 'A+' || grade === 'A' ? td('alphaGradeA') : grade === 'B+' || grade === 'B' ? td('alphaGradeB') : grade === 'C' ? td('alphaGradeC') : td('alphaGradeD')}</p>
                                 </div>
                             );
                         })()}
