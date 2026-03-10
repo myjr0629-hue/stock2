@@ -398,6 +398,29 @@ async function warmTicker(ticker: string): Promise<{ ticker: string; ok: boolean
 
         await writeAnalysisCache(ticker, cacheEntry);
 
+        // [Phase 2] Record to DynamoDB history (fire-and-forget — non-blocking)
+        try {
+            const { recordAlphaDaily, recordGexSnapshot } = await import('@/lib/aws/historyMiddleware');
+            recordAlphaDaily(ticker, {
+                alphaScore: alphaResult.score,
+                qualityTier: alphaResult.grade,
+                changePct: changePct,
+                gex: structureRes?.netGex ?? gex ?? 0,
+                pcr: alphaPcr ?? 0,
+            });
+            if (structureRes?.netGex != null) {
+                recordGexSnapshot(ticker, {
+                    gex: structureRes.netGex,
+                    gammaFlipLevel: gammaFlipLevel,
+                    callWall: structureRes?.levels?.callWall ?? null,
+                    putFloor: structureRes?.levels?.putFloor ?? null,
+                    maxPain: finalMaxPain,
+                    price: stockData.price ?? 0,
+                    gammaState: structureRes?.netGex > 0 ? 'LONG_GAMMA' : 'SHORT_GAMMA',
+                });
+            }
+        } catch { /* DynamoDB recording must never break warm-analysis */ }
+
         return { ticker, ok: true, ms: Date.now() - start };
     } catch (e) {
         console.error(`[WARM] ❌ ${ticker} failed:`, e);
