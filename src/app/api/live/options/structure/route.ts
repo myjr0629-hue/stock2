@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getStructureData } from "@/services/structureService";
 import { getETNow, getETDayOfWeek, toYYYYMMDD_ET } from "@/services/marketDaySSOT";
 import { fetchMassive, CACHE_POLICY } from "@/services/massiveClient";
+import { recordGexSnapshot } from "@/lib/aws/historyMiddleware";
 
 export const revalidate = 0; // Force dynamic (User Request)
 
@@ -62,5 +63,19 @@ export async function GET(req: NextRequest) {
     if (!t) return NextResponse.json({ error: "Missing ticker" }, { status: 400 });
 
     const result = await getStructureData(t, requestedExp);
+
+    // [Phase 2] Record GEX snapshot to DynamoDB (fire-and-forget, non-blocking)
+    if (result?.gex?.totalGex !== undefined) {
+        recordGexSnapshot(t, {
+            gex: result.gex.totalGex,
+            gammaFlipLevel: result.gex.gammaFlipLevel,
+            callWall: result.gex.callWall,
+            putFloor: result.gex.putFloor,
+            maxPain: result.gex.maxPain,
+            price: result.gex.spotPrice || result.spotPrice || 0,
+            gammaState: result.gex.gammaState,
+        });
+    }
+
     return NextResponse.json(result);
 }

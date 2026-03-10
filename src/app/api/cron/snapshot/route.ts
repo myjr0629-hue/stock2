@@ -4,6 +4,7 @@
 // ============================================================================
 
 import { NextResponse } from 'next/server';
+import { recordSectorDaily } from '@/lib/aws/historyMiddleware';
 
 const SECTORS = ['m7', 'physical_ai', 'silicon_core', 'power_matrix', 'bio_pulse', 'cyber_shield', 'orbit_defense', 'quantum_edge', 'fintech_pulse', 'cloud_fortress'];
 
@@ -53,6 +54,15 @@ export async function GET(request: Request) {
                 status: res.status,
                 ...data,
             };
+
+            // [Phase 2] Record sector daily to DynamoDB (fire-and-forget)
+            if (res.ok && data) {
+                recordSectorDaily(sector, {
+                    avgChange: data.avgChange ?? data.avgChangePct ?? 0,
+                    leadTicker: data.leadTicker || data.topGainer || '',
+                    lagTicker: data.lagTicker || data.topLoser || '',
+                });
+            }
 
             console.log(`[Cron/Snapshot] ${sector}: ${res.ok ? '✅' : '❌'} ${JSON.stringify(data)}`);
         } catch (e: any) {
