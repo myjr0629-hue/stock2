@@ -684,7 +684,7 @@ function MainChartPanel() {
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                     {/* Net GEX — PRO (peek: number visible, interpretation blurred) */}
                     {customize.cardOrder.includes('netGex') && <ProGate title="Net GEX" mode="peek" compact>
-                        <div className={`relative p-4 rounded-xl border overflow-hidden ${(data?.netGex || 0) < 0 ? 'bg-rose-500/10 backdrop-blur-md border-rose-400/40 shadow-[0_0_25px_rgba(251,113,133,0.3)]' : 'bg-[#0d1829]/80 border-white/5'}`}>
+                        <div className={`relative p-4 rounded-xl border overflow-hidden transition-all duration-200 hover:-translate-y-0.5 hover:brightness-110 hover:border-white/15 ${(data?.netGex || 0) < 0 ? 'bg-rose-500/10 backdrop-blur-md border-rose-400/40 shadow-[0_0_25px_rgba(251,113,133,0.3)]' : 'bg-[#0d1829]/80 border-white/5'}`}>
                             {(data?.netGex || 0) < 0 && <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-rose-400 to-rose-500" />}
                             <svg className="absolute right-0 bottom-0 w-24 h-16 opacity-[0.06]" viewBox="0 0 96 64"><path d="M0 50 Q12 20 24 35 T48 25 T72 40 T96 15" fill="none" stroke="currentColor" strokeWidth="2" className="text-amber-400" /><path d="M0 55 Q16 40 32 45 T64 35 T96 30" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-amber-300" /></svg>
                             <div className="relative z-10 flex items-center gap-2 mb-2 whitespace-nowrap">
@@ -728,7 +728,7 @@ function MainChartPanel() {
 
                     {/* Gamma Flip — PRO (blur: SpotGamma core data) */}
                     {customize.cardOrder.includes('gammaFlip') && <ProGate title="Gamma Flip" mode="blur" compact>
-                        <div className={`relative p-4 rounded-xl border overflow-hidden ${data?.gammaFlipLevel && data?.underlyingPrice && data.underlyingPrice < data.gammaFlipLevel ? 'bg-rose-500/10 backdrop-blur-md border-rose-400/40 shadow-[0_0_25px_rgba(251,113,133,0.3)]' : 'bg-[#0d1829]/80 border-white/5'}`}>
+                        <div className={`relative p-4 rounded-xl border overflow-hidden transition-all duration-200 hover:-translate-y-0.5 hover:brightness-110 hover:border-white/15 ${data?.gammaFlipLevel && data?.underlyingPrice && data.underlyingPrice < data.gammaFlipLevel ? 'bg-rose-500/10 backdrop-blur-md border-rose-400/40 shadow-[0_0_25px_rgba(251,113,133,0.3)]' : 'bg-[#0d1829]/80 border-white/5'}`}>
                             {data?.gammaFlipLevel && data?.underlyingPrice && data.underlyingPrice < data.gammaFlipLevel && <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-rose-400 to-rose-500" />}
                             <svg className="absolute right-1 bottom-1 w-20 h-16 opacity-[0.06]" viewBox="0 0 80 64"><circle cx="40" cy="32" r="22" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-cyan-400" /><line x1="40" y1="5" x2="40" y2="59" stroke="currentColor" strokeWidth="1" className="text-cyan-300" strokeDasharray="3 3" /><line x1="13" y1="32" x2="67" y2="32" stroke="currentColor" strokeWidth="1" className="text-cyan-300" strokeDasharray="3 3" /></svg>
                             <div className="relative z-10 flex items-center gap-2 mb-2 whitespace-nowrap">
@@ -781,7 +781,7 @@ function MainChartPanel() {
 
                     {/* Squeeze — PRO (peek: score visible, interpretation blurred) */}
                     {customize.cardOrder.includes('squeeze') && <ProGate title="Squeeze" fomoMessage={gt('fomoSqueeze')} mode="peek" compact>
-                        <div className={`relative p-4 rounded-xl border overflow-hidden ${data?.squeezeRisk === 'EXTREME' || data?.squeezeRisk === 'HIGH' ? 'bg-amber-500/15 backdrop-blur-md border-amber-400/50 shadow-[0_0_30px_rgba(251,191,36,0.4)]' : 'bg-[#0d1829]/80 border-white/5'}`}>
+                        <div className={`relative p-4 rounded-xl border overflow-hidden transition-all duration-200 hover:-translate-y-0.5 hover:brightness-110 hover:border-white/15 ${data?.squeezeRisk === 'EXTREME' || data?.squeezeRisk === 'HIGH' ? 'bg-amber-500/15 backdrop-blur-md border-amber-400/50 shadow-[0_0_30px_rgba(251,191,36,0.4)]' : 'bg-[#0d1829]/80 border-white/5'}`}>
                             {(data?.squeezeRisk === 'EXTREME' || data?.squeezeRisk === 'HIGH') && <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-amber-400 via-orange-500 to-amber-400 animate-pulse" />}
                             <svg className="absolute right-0 bottom-0 w-24 h-16 opacity-[0.06]" viewBox="0 0 96 64"><path d="M0 55 L12 35 L24 50 L36 20 L48 45 L60 15 L72 40 L84 10 L96 30" fill="none" stroke="currentColor" strokeWidth="2" className="text-amber-400" /></svg>
                             {(() => {
@@ -829,7 +829,7 @@ function MainChartPanel() {
                         const dist = vwap > 0 && price > 0 ? ((price - vwap) / vwap * 100) : 0;
                         const isAlert = Math.abs(dist) >= 1;
                         return (
-                            <div className={`relative p-4 rounded-xl border overflow-hidden ${isAlert ? (dist > 0 ? 'bg-emerald-500/10 backdrop-blur-md border-emerald-400/40 shadow-[0_0_25px_rgba(52,211,153,0.3)]' : 'bg-rose-500/10 backdrop-blur-md border-rose-400/40 shadow-[0_0_25px_rgba(251,113,133,0.3)]') : 'bg-[#0d1829]/80 border-white/5'}`}>
+                            <div className={`relative p-4 rounded-xl border overflow-hidden transition-all duration-200 hover:-translate-y-0.5 hover:brightness-110 hover:border-white/15 ${isAlert ? (dist > 0 ? 'bg-emerald-500/10 backdrop-blur-md border-emerald-400/40 shadow-[0_0_25px_rgba(52,211,153,0.3)]' : 'bg-rose-500/10 backdrop-blur-md border-rose-400/40 shadow-[0_0_25px_rgba(251,113,133,0.3)]') : 'bg-[#0d1829]/80 border-white/5'}`}>
                                 {isAlert && <div className={`absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b ${dist > 0 ? 'from-emerald-400 to-emerald-500' : 'from-rose-400 to-rose-500'}`} />}
                                 <svg className="absolute right-1 bottom-0 w-20 h-16 opacity-[0.06]" viewBox="0 0 80 64"><rect x="5" y="30" width="10" height="30" rx="2" fill="currentColor" className="text-cyan-400" /><rect x="22" y="18" width="10" height="42" rx="2" fill="currentColor" className="text-cyan-400" /><rect x="39" y="24" width="10" height="36" rx="2" fill="currentColor" className="text-cyan-400" /><rect x="56" y="12" width="10" height="48" rx="2" fill="currentColor" className="text-cyan-400" /></svg>
                                 <div className="flex items-center gap-2 mb-2 whitespace-nowrap">
@@ -893,7 +893,7 @@ function MainChartPanel() {
                             const pricePos = rangeSpan > 0 ? Math.max(0, Math.min(100, ((price - rangeMin) / rangeSpan * 100))) : 50;
 
                             return (
-                                <div className={`relative p-4 rounded-xl border overflow-hidden ${isAlert ? 'bg-amber-500/10 backdrop-blur-md border-amber-400/40 shadow-[0_0_25px_rgba(251,191,36,0.3)]' : 'bg-[#0d1829]/80 border-white/5'}`}>
+                                <div className={`relative p-4 rounded-xl border overflow-hidden transition-all duration-200 hover:-translate-y-0.5 hover:brightness-110 hover:border-white/15 ${isAlert ? 'bg-amber-500/10 backdrop-blur-md border-amber-400/40 shadow-[0_0_25px_rgba(251,191,36,0.3)]' : 'bg-[#0d1829]/80 border-white/5'}`}>
                                     {isAlert && <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-amber-400 to-amber-500" />}
                                     <svg className="absolute right-1 bottom-1 w-20 h-16 opacity-[0.06]" viewBox="0 0 80 64"><circle cx="40" cy="32" r="24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-cyan-400" /><circle cx="40" cy="32" r="14" fill="none" stroke="currentColor" strokeWidth="1" className="text-cyan-300" /><circle cx="40" cy="32" r="3" fill="currentColor" className="text-cyan-400" /></svg>
                                     <div className="flex items-center gap-2 mb-2 whitespace-nowrap">
@@ -987,7 +987,7 @@ function MainChartPanel() {
                             const sessionColor = data?.session === 'PRE' ? 'text-amber-400 bg-amber-500/20 border-amber-500/30'
                                 : 'text-purple-400 bg-purple-500/20 border-purple-500/30';
                             return (
-                                <div className={`relative p-4 rounded-xl border overflow-hidden ${isAlert ? 'bg-purple-500/10 backdrop-blur-md border-purple-400/40 shadow-[0_0_25px_rgba(168,85,247,0.3)]' : 'bg-[#0d1829]/80 border-white/5'}`}>
+                                <div className={`relative p-4 rounded-xl border overflow-hidden transition-all duration-200 hover:-translate-y-0.5 hover:brightness-110 hover:border-white/15 ${isAlert ? 'bg-purple-500/10 backdrop-blur-md border-purple-400/40 shadow-[0_0_25px_rgba(168,85,247,0.3)]' : 'bg-[#0d1829]/80 border-white/5'}`}>
                                     {isAlert && <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-purple-400 to-purple-500" />}
                                     <svg className="absolute right-1 bottom-1 w-20 h-14 opacity-[0.06]" viewBox="0 0 80 56">{[0, 1, 2, 3, 4, 5].map(i => <circle key={i} cx={10 + i * 12} cy={10 + ((i * 17) % 30)} r="3" fill="currentColor" className="text-purple-400" />)}<path d="M10 10 L22 27 L34 20 L46 37 L58 14 L70 40" fill="none" stroke="currentColor" strokeWidth="1" className="text-purple-300" /></svg>
                                     <div className="flex items-center gap-2 mb-2 flex-wrap">
@@ -1082,7 +1082,7 @@ function MainChartPanel() {
                     {/* ── Volatility & Intraday ── */}
                     {/* ATM IV — PRO (blur: advanced volatility surface, QuantData $99) */}
                     {customize.cardOrder.includes('atmIv') && <ProGate title="ATM IV" fomoMessage={gt('fomoAtmIv')} mode="blur" compact>
-                        <div className={`relative p-4 rounded-xl border overflow-hidden ${(data?.atmIv || 0) > 50 ? 'bg-cyan-500/10 backdrop-blur-md border-cyan-400/40 shadow-[0_0_25px_rgba(34,211,238,0.3)]' : 'bg-[#0d1829]/80 border-white/5'}`}>
+                        <div className={`relative p-4 rounded-xl border overflow-hidden transition-all duration-200 hover:-translate-y-0.5 hover:brightness-110 hover:border-white/15 ${(data?.atmIv || 0) > 50 ? 'bg-cyan-500/10 backdrop-blur-md border-cyan-400/40 shadow-[0_0_25px_rgba(34,211,238,0.3)]' : 'bg-[#0d1829]/80 border-white/5'}`}>
                             {(data?.atmIv || 0) > 50 && <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-cyan-400 to-cyan-500" />}
                             <svg className="absolute right-0 bottom-0 w-24 h-16 opacity-[0.06]" viewBox="0 0 96 64"><path d="M0 32 Q12 10 24 32 T48 32 T72 32 T96 32" fill="none" stroke="currentColor" strokeWidth="2" className="text-purple-400" /><path d="M0 32 Q12 48 24 32 T48 32 T72 32 T96 32" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-purple-300" strokeDasharray="3 3" /></svg>
                             <div className="flex items-center gap-2 mb-2 whitespace-nowrap">
@@ -1133,7 +1133,7 @@ function MainChartPanel() {
                         const putVol = data?.volumePcrPutVol ?? 0;
                         const hasVolData = callVol > 0 || putVol > 0;
                         return (
-                            <div className={`relative p-4 rounded-xl border overflow-hidden ${isAlert ? (isBullish ? 'bg-emerald-500/10 backdrop-blur-md border-emerald-400/40 shadow-[0_0_25px_rgba(52,211,153,0.3)]' : 'bg-rose-500/10 backdrop-blur-md border-rose-400/40 shadow-[0_0_25px_rgba(251,113,133,0.3)]') : 'bg-[#0d1829]/80 border-white/5'}`}>
+                            <div className={`relative p-4 rounded-xl border overflow-hidden transition-all duration-200 hover:-translate-y-0.5 hover:brightness-110 hover:border-white/15 ${isAlert ? (isBullish ? 'bg-emerald-500/10 backdrop-blur-md border-emerald-400/40 shadow-[0_0_25px_rgba(52,211,153,0.3)]' : 'bg-rose-500/10 backdrop-blur-md border-rose-400/40 shadow-[0_0_25px_rgba(251,113,133,0.3)]') : 'bg-[#0d1829]/80 border-white/5'}`}>
                                 {isAlert && <div className={`absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b ${isBullish ? 'from-emerald-400 to-emerald-500' : 'from-rose-400 to-rose-500'}`} />}
                                 <svg className="absolute right-1 bottom-0 w-20 h-16 opacity-[0.06]" viewBox="0 0 80 64"><rect x="15" y="8" width="18" height="52" rx="3" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-emerald-400" /><rect x="47" y="8" width="18" height="52" rx="3" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-rose-400" /><line x1="0" y1="34" x2="80" y2="34" stroke="currentColor" strokeWidth="1" strokeDasharray="4 4" className="text-white" /></svg>
                                 <div className="flex items-center gap-2 mb-2 whitespace-nowrap">
@@ -1219,7 +1219,7 @@ function MainChartPanel() {
                             const absDist = Math.abs(flipDist).toFixed(1);
 
                             return (
-                                <div className={`relative p-4 rounded-xl border overflow-hidden ${isAlert ? 'bg-amber-500/10 backdrop-blur-md border-amber-400/40 shadow-[0_0_25px_rgba(251,191,36,0.3)]' : 'bg-[#0d1829]/80 border-white/5'}`}>
+                                <div className={`relative p-4 rounded-xl border overflow-hidden transition-all duration-200 hover:-translate-y-0.5 hover:brightness-110 hover:border-white/15 ${isAlert ? 'bg-amber-500/10 backdrop-blur-md border-amber-400/40 shadow-[0_0_25px_rgba(251,191,36,0.3)]' : 'bg-[#0d1829]/80 border-white/5'}`}>
                                     {isAlert && <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-amber-400 to-amber-500 animate-pulse" />}
                                     <svg className="absolute right-0 bottom-0 w-24 h-16 opacity-[0.06]" viewBox="0 0 96 64"><path d="M48 58 A 38 38 0 0 1 10 58" fill="none" stroke="currentColor" strokeWidth="2" className="text-emerald-400" /><path d="M86 58 A 38 38 0 0 1 48 58" fill="none" stroke="currentColor" strokeWidth="2" className="text-amber-400" /><circle cx="48" cy="58" r="3" fill="currentColor" className="text-white" /></svg>
                                     <div className="flex items-center gap-1.5 mb-2 whitespace-nowrap">
@@ -1259,7 +1259,7 @@ function MainChartPanel() {
                             const dir = data?.impliedMoveDir ?? 'neutral';
                             const isAlert = im >= 3;
                             return (
-                                <div className={`relative p-4 rounded-xl border overflow-hidden ${isAlert ? 'bg-cyan-500/10 backdrop-blur-md border-cyan-400/40 shadow-[0_0_25px_rgba(34,211,238,0.3)]' : 'bg-[#0d1829]/80 border-white/5'}`}>
+                                <div className={`relative p-4 rounded-xl border overflow-hidden transition-all duration-200 hover:-translate-y-0.5 hover:brightness-110 hover:border-white/15 ${isAlert ? 'bg-cyan-500/10 backdrop-blur-md border-cyan-400/40 shadow-[0_0_25px_rgba(34,211,238,0.3)]' : 'bg-[#0d1829]/80 border-white/5'}`}>
                                     {isAlert && <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-cyan-400 to-cyan-500" />}
                                     <svg className="absolute right-0 bottom-0 w-24 h-16 opacity-[0.06]" viewBox="0 0 96 64"><path d="M30 32 L10 20 M30 32 L10 44 M66 32 L86 20 M66 32 L86 44" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="text-cyan-400" /><line x1="30" y1="32" x2="66" y2="32" stroke="currentColor" strokeWidth="1.5" strokeDasharray="4 4" className="text-cyan-300" /></svg>
                                     <div className="flex items-center gap-2 mb-2 whitespace-nowrap">
@@ -1318,7 +1318,7 @@ function MainChartPanel() {
                             const gradeColor = grade === 'A+' || grade === 'A' ? 'text-emerald-400' : grade === 'B+' || grade === 'B' ? 'text-cyan-400' : grade === 'C' ? 'text-amber-400' : 'text-slate-400';
                             const barWidth = Math.min(Math.abs(score), 100);
                             return (
-                                <div className="relative p-4 rounded-xl border overflow-hidden bg-[#0d1829]/80 border-white/5">
+                                <div className="relative p-4 rounded-xl border overflow-hidden transition-all duration-200 hover:-translate-y-0.5 hover:brightness-110 hover:border-white/15 bg-[#0d1829]/80 border-white/5">
                                     <svg className="absolute right-0 bottom-0 w-24 h-16 opacity-[0.06]" viewBox="0 0 96 64"><path d="M0 50 Q24 10 48 30 T96 15" fill="none" stroke="currentColor" strokeWidth="2" className="text-emerald-400" /></svg>
                                     <div className="flex items-center gap-2 mb-2">
                                         <Crown className="w-4 h-4 text-emerald-400" />
@@ -1344,7 +1344,7 @@ function MainChartPanel() {
                             const conf = (data as any)?.whaleConfidence ?? '—';
                             const isHigh = Math.abs(wi) >= 50;
                             return (
-                                <div className={`relative p-4 rounded-xl border overflow-hidden ${isHigh ? 'bg-purple-500/10 border-purple-400/40' : 'bg-[#0d1829]/80 border-white/5'}`}>
+                                <div className={`relative p-4 rounded-xl border overflow-hidden transition-all duration-200 hover:-translate-y-0.5 hover:brightness-110 hover:border-white/15 ${isHigh ? 'bg-purple-500/10 border-purple-400/40' : 'bg-[#0d1829]/80 border-white/5'}`}>
                                     <svg className="absolute right-0 bottom-0 w-24 h-16 opacity-[0.06]" viewBox="0 0 96 64"><ellipse cx="48" cy="40" rx="36" ry="16" fill="none" stroke="currentColor" strokeWidth="2" className="text-purple-400" /></svg>
                                     <div className="flex items-center gap-2 mb-2">
                                         <Anchor className="w-4 h-4 text-purple-400" />
@@ -1372,7 +1372,7 @@ function MainChartPanel() {
                         const label = rsi === null ? '—' : isOverbought ? td('labelOverbought') : isOversold ? td('labelOversold') : td('labelNeutral');
                         const color = isOverbought ? 'text-rose-400' : isOversold ? 'text-emerald-400' : 'text-slate-300';
                         return (
-                            <div className={`relative p-4 rounded-xl border overflow-hidden ${isOverbought || isOversold ? 'bg-amber-500/10 border-amber-400/30' : 'bg-[#0d1829]/80 border-white/5'}`}>
+                            <div className={`relative p-4 rounded-xl border overflow-hidden transition-all duration-200 hover:-translate-y-0.5 hover:brightness-110 hover:border-white/15 ${isOverbought || isOversold ? 'bg-amber-500/10 border-amber-400/30' : 'bg-[#0d1829]/80 border-white/5'}`}>
                                 <svg className="absolute right-0 bottom-0 w-24 h-16 opacity-[0.06]" viewBox="0 0 96 64"><path d="M0 32 Q24 10 48 32 T96 32" fill="none" stroke="currentColor" strokeWidth="2" className="text-amber-400" /></svg>
                                 <div className="flex items-center gap-2 mb-2">
                                     <Gauge className="w-4 h-4 text-amber-400" />
@@ -1397,7 +1397,7 @@ function MainChartPanel() {
                         const ret = data?._return3D ?? data?.return3D ?? null;
                         const isPositive = ret !== null && ret > 0;
                         return (
-                            <div className="relative p-4 rounded-xl border overflow-hidden bg-[#0d1829]/80 border-white/5">
+                            <div className="relative p-4 rounded-xl border overflow-hidden transition-all duration-200 hover:-translate-y-0.5 hover:brightness-110 hover:border-white/15 bg-[#0d1829]/80 border-white/5">
                                 <div className="flex items-center gap-2 mb-2">
                                     <TrendingUp className="w-4 h-4 text-cyan-400" />
                                     <CardTooltip text={td('tipReturn3d')}><span className="text-[12px] font-jakarta uppercase tracking-wider text-white">Return 3D</span></CardTooltip>
@@ -1421,7 +1421,7 @@ function MainChartPanel() {
                         const rv = data?._relVol ?? data?.relVol ?? null;
                         const isHigh = rv !== null && rv >= 2.0;
                         return (
-                            <div className={`relative p-4 rounded-xl border overflow-hidden ${isHigh ? 'bg-cyan-500/10 border-cyan-400/30' : 'bg-[#0d1829]/80 border-white/5'}`}>
+                            <div className={`relative p-4 rounded-xl border overflow-hidden transition-all duration-200 hover:-translate-y-0.5 hover:brightness-110 hover:border-white/15 ${isHigh ? 'bg-cyan-500/10 border-cyan-400/30' : 'bg-[#0d1829]/80 border-white/5'}`}>
                                 <div className="flex items-center gap-2 mb-2">
                                     <BarChart2 className="w-4 h-4 text-cyan-400" />
                                     <CardTooltip text={td('tipRelVolume')}><span className="text-[12px] font-jakarta uppercase tracking-wider text-white">Rel Volume</span></CardTooltip>
@@ -1445,7 +1445,7 @@ function MainChartPanel() {
                             const gex = data?.netGex ?? null;
                             const opi = pcr !== null && gex !== null ? Math.round(((pcr > 1 ? -1 : 1) * 50) + ((gex ?? 0) > 0 ? 20 : -20)) : null;
                             return (
-                                <div className="relative p-4 rounded-xl border overflow-hidden bg-[#0d1829]/80 border-white/5">
+                                <div className="relative p-4 rounded-xl border overflow-hidden transition-all duration-200 hover:-translate-y-0.5 hover:brightness-110 hover:border-white/15 bg-[#0d1829]/80 border-white/5">
                                     <div className="flex items-center gap-2 mb-2">
                                         <Layers className="w-4 h-4 text-indigo-400" />
                                         <CardTooltip text={td('tipOpi')}><span className="text-[12px] font-jakarta uppercase tracking-wider text-white">OPI</span></CardTooltip>
@@ -1473,7 +1473,7 @@ function MainChartPanel() {
                             const smartScore = dp > 0 ? Math.round((dp * 0.6) + (sv * 0.4)) : null;
                             const label = smartScore === null ? '—' : smartScore >= 50 ? td('labelActive') : td('labelQuiet');
                             return (
-                                <div className="relative p-4 rounded-xl border overflow-hidden bg-[#0d1829]/80 border-white/5">
+                                <div className="relative p-4 rounded-xl border overflow-hidden transition-all duration-200 hover:-translate-y-0.5 hover:brightness-110 hover:border-white/15 bg-[#0d1829]/80 border-white/5">
                                     <div className="flex items-center gap-2 mb-2">
                                         <Brain className="w-4 h-4 text-purple-400" />
                                         <CardTooltip text={td('tipSmartMoney')}><span className="text-[12px] font-jakarta uppercase tracking-wider text-white">Smart Money</span></CardTooltip>
@@ -1500,7 +1500,7 @@ function MainChartPanel() {
                             const ivRank = iv > 0 ? Math.min(Math.round(iv * 1.5), 100) : null;
                             const isHigh = (ivRank ?? 0) >= 60;
                             return (
-                                <div className={`relative p-4 rounded-xl border overflow-hidden ${isHigh ? 'bg-amber-500/10 border-amber-400/30' : 'bg-[#0d1829]/80 border-white/5'}`}>
+                                <div className={`relative p-4 rounded-xl border overflow-hidden transition-all duration-200 hover:-translate-y-0.5 hover:brightness-110 hover:border-white/15 ${isHigh ? 'bg-amber-500/10 border-amber-400/30' : 'bg-[#0d1829]/80 border-white/5'}`}>
                                     <div className="flex items-center gap-2 mb-2">
                                         <Gem className="w-4 h-4 text-amber-400" />
                                         <CardTooltip text={td('tipIvRank')}><span className="text-[12px] font-jakarta uppercase tracking-wider text-white">IV Rank</span></CardTooltip>
