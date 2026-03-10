@@ -838,7 +838,7 @@ export default function GuardianPage() {
                                                                         <div className="w-6 h-6 rounded bg-slate-800 border border-slate-700 flex items-center justify-center overflow-hidden shrink-0 relative">
                                                                             <span className="text-[12px] font-bold text-slate-500 absolute">{stock.symbol.substring(0, 2)}</span>
                                                                             <img
-                                                                                src={`https://financialmodelingprep.com/image-stock/${stock.symbol}.png`}
+                                                                                src={`/api/logo/${stock.symbol}`}
                                                                                 alt={stock.symbol}
                                                                                 className="w-full h-full object-contain relative z-10"
                                                                                 onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}

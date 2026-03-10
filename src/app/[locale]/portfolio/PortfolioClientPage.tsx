@@ -373,7 +373,7 @@ function PremiumHoldingRow({ holding, onRemove, onEdit, totalValue, index = 0, c
                     {/* Ticker */}
                     <div className="flex items-center gap-2.5 min-w-0">
                         <div className="relative w-9 h-9 rounded-lg bg-gradient-to-br from-slate-800/90 to-slate-900/90 border border-white/[0.08] flex items-center justify-center overflow-hidden flex-shrink-0">
-                            <img loading="lazy" decoding="async" src={`https://financialmodelingprep.com/image-stock/${holding.ticker}.png`} alt={holding.ticker} className="w-6 h-6 object-contain" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                            <img loading="lazy" decoding="async" src={`/api/logo/${holding.ticker}`} alt={holding.ticker} className="w-6 h-6 object-contain" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
                             <span className="text-[8px] font-bold text-slate-600 absolute">{holding.ticker.slice(0, 2)}</span>
                         </div>
                         <div className="min-w-0">
@@ -953,7 +953,7 @@ function AddHoldingModal({ onClose, onHoldingAdded }: { onClose: () => void; onH
                                 <div className="flex items-center gap-2 mt-2">
                                     <div className="w-6 h-6 rounded bg-slate-800 border border-slate-700 flex items-center justify-center overflow-hidden">
                                         <img
-                                            src={`https://financialmodelingprep.com/image-stock/${ticker}.png`}
+                                            src={`/api/logo/${ticker}`}
                                             alt={ticker}
                                             className="w-5 h-5 object-contain"
                                             onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}

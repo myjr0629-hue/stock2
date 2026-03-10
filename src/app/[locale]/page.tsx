@@ -224,7 +224,7 @@ function LiveTickerCard({ symbol }: { symbol: string }) {
             <div className="w-11 h-11 rounded-lg bg-[#0a1420] border border-[#1a2942] flex items-center justify-center overflow-hidden
                 group-hover:border-cyan-500/20 transition-colors">
               <img
-                src={`https://financialmodelingprep.com/image-stock/${symbol}.png`}
+                src={`/api/logo/${symbol}`}
                 alt={symbol}
                 className="w-7 h-7 object-contain"
                 onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}

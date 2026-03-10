@@ -293,7 +293,7 @@ const WatchlistItem = React.memo(function WatchlistItem({ ticker, isSelected }: 
                     <img
                         loading="lazy"
                         decoding="async"
-                        src={`https://financialmodelingprep.com/image-stock/${ticker}.png`}
+                        src={`/api/logo/${ticker}`}
                         alt={ticker}
                         className="w-5 h-5 rounded bg-[#1a2535] object-contain"
                         onError={(e) => {
@@ -584,7 +584,7 @@ function MainChartPanel() {
                         <img
                             loading="lazy"
                             decoding="async"
-                            src={`https://financialmodelingprep.com/image-stock/${selectedTicker}.png`}
+                            src={`/api/logo/${selectedTicker}`}
                             alt={selectedTicker}
                             className="w-5 h-5 object-contain"
                             onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
@@ -1704,7 +1704,7 @@ function SignalItem({ signal, locale }: { signal: { time: string; ticker: string
                     <img
                         loading="lazy"
                         decoding="async"
-                        src={`https://financialmodelingprep.com/image-stock/${signal.ticker}.png`}
+                        src={`/api/logo/${signal.ticker}`}
                         alt=""
                         className="w-3.5 h-3.5 object-contain"
                         onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}

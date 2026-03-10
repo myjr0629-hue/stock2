@@ -500,7 +500,7 @@ const WatchlistCard = memo(function WatchlistCard({ item, onRemove, locale, inde
                 >
                     {/* Logo */}
                     <div className="relative w-10 h-10 rounded-lg bg-gradient-to-br from-slate-800/90 to-slate-900/90 border border-white/[0.08] flex items-center justify-center overflow-hidden flex-shrink-0">
-                        <img loading="lazy" decoding="async" src={`https://financialmodelingprep.com/image-stock/${item.ticker}.png`} alt={item.ticker} className="w-6 h-6 object-contain" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                        <img loading="lazy" decoding="async" src={`/api/logo/${item.ticker}`} alt={item.ticker} className="w-6 h-6 object-contain" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
                     </div>
                     {/* Ticker + Price */}
                     <div className="flex-1 min-w-0">
@@ -536,7 +536,7 @@ const WatchlistCard = memo(function WatchlistCard({ item, onRemove, locale, inde
                             <img
                                 loading="lazy"
                                 decoding="async"
-                                src={`https://financialmodelingprep.com/image-stock/${item.ticker}.png`}
+                                src={`/api/logo/${item.ticker}`}
                                 alt={item.ticker}
                                 className="w-6 h-6 object-contain"
                                 onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
@@ -1118,7 +1118,7 @@ function AddWatchlistModal({ onClose, onAdd, existingTickers = [] }: { onClose: 
                                     <img
                                         loading="lazy"
                                         decoding="async"
-                                        src={`https://financialmodelingprep.com/image-stock/${ticker}.png`}
+                                        src={`/api/logo/${ticker}`}
                                         alt={ticker}
                                         className="w-6 h-6 object-contain"
                                         onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}

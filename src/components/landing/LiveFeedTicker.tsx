@@ -185,7 +185,7 @@ export function LiveFeedTicker() {
                                 {/* Ticker Logo */}
                                 <div className="w-4 h-4 rounded-full bg-slate-800 overflow-hidden flex items-center justify-center flex-shrink-0">
                                     <img
-                                        src={`https://financialmodelingprep.com/image-stock/${item.symbol}.png`}
+                                        src={`/api/logo/${item.symbol}`}
                                         alt={item.symbol}
                                         className="w-full h-full object-contain"
                                         onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
