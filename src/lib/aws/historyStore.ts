@@ -1,0 +1,160 @@
+/**
+ * [Phase 1] History Store — Write/Read market history data to DynamoDB
+ * 
+ * Safe additive layer: Does NOT modify existing Upstash Redis behavior.
+ * All writes are fire-and-forget (don't block response if DynamoDB fails).
+ */
+
+import { putItem, queryItems, batchPutItems, TABLES } from './dynamoClient';
+
+// ====== GEX History ======
+
+export interface GexHistoryItem {
+    ticker: string;
+    timestamp: number;
+    gex: number;
+    flipLevel: number | null;
+    callWall: number | null;
+    putFloor: number | null;
+    maxPain: number | null;
+    price: number;
+    gammaRegime: string;
+}
+
+export async function saveGexSnapshot(data: GexHistoryItem): Promise<void> {
+    await putItem(TABLES.GEX_HISTORY, data).catch(() => { });
+}
+
+export async function getGexHistory(ticker: string, days = 30): Promise<GexHistoryItem[]> {
+    const since = Date.now() - days * 24 * 60 * 60 * 1000;
+    return queryItems<GexHistoryItem>(
+        TABLES.GEX_HISTORY,
+        'ticker = :t AND #ts > :since',
+        { ':t': ticker, ':since': since },
+        { limit: 1000, scanForward: true, expressionNames: { '#ts': 'timestamp' } }
+    );
+}
+
+// ====== RLSI History ======
+
+export interface RlsiHistoryItem {
+    pk: string; // 'MARKET'
+    timestamp: number;
+    rlsi: number;
+    momentum: number;
+    participation: number;
+    priceTrend: number;
+    rotation: number;
+    sentiment: number;
+    regime: string;
+}
+
+export async function saveRlsiSnapshot(data: Omit<RlsiHistoryItem, 'pk'>): Promise<void> {
+    await putItem(TABLES.RLSI_HISTORY, { pk: 'MARKET', ...data }).catch(() => { });
+}
+
+export async function getRlsiHistory(days = 30): Promise<RlsiHistoryItem[]> {
+    const since = Date.now() - days * 24 * 60 * 60 * 1000;
+    return queryItems<RlsiHistoryItem>(
+        TABLES.RLSI_HISTORY,
+        'pk = :pk AND #ts > :since',
+        { ':pk': 'MARKET', ':since': since },
+        { limit: 1000, scanForward: true, expressionNames: { '#ts': 'timestamp' } }
+    );
+}
+
+// ====== Sector Daily ======
+
+export interface SectorDailyItem {
+    sectorId: string;
+    date: string; // YYYY-MM-DD
+    avgChange: number;
+    gexSum: number;
+    avgPcr: number;
+    alphaScore: number;
+    ranking: number;
+    leadTicker: string;
+    lagTicker: string;
+}
+
+export async function saveSectorDaily(data: SectorDailyItem): Promise<void> {
+    await putItem(TABLES.SECTOR_DAILY, data).catch(() => { });
+}
+
+export async function getSectorHistory(sectorId: string, days = 30): Promise<SectorDailyItem[]> {
+    const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    return queryItems<SectorDailyItem>(
+        TABLES.SECTOR_DAILY,
+        'sectorId = :s AND #d > :since',
+        { ':s': sectorId, ':since': since },
+        { limit: 90, scanForward: true, expressionNames: { '#d': 'date' } }
+    );
+}
+
+// ====== Alpha History ======
+
+export interface AlphaHistoryItem {
+    ticker: string;
+    date: string; // YYYY-MM-DD
+    alphaScore: number;
+    qualityTier: string;
+    changePct: number;
+    gex: number;
+    pcr: number;
+}
+
+export async function saveAlphaDaily(data: AlphaHistoryItem): Promise<void> {
+    await putItem(TABLES.ALPHA_HISTORY, data).catch(() => { });
+}
+
+export async function getAlphaHistory(ticker: string, days = 30): Promise<AlphaHistoryItem[]> {
+    const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    return queryItems<AlphaHistoryItem>(
+        TABLES.ALPHA_HISTORY,
+        'ticker = :t AND #d > :since',
+        { ':t': ticker, ':since': since },
+        { limit: 90, scanForward: true, expressionNames: { '#d': 'date' } }
+    );
+}
+
+// ====== Flow History ======
+
+export interface FlowHistoryItem {
+    ticker: string;
+    timestamp: number;
+    compositeScore: number;
+    opi: number;
+    whaleScore: number;
+    dex: number;
+    ivSkew: number;
+    squeezeProbability: number;
+    smartMoneyScore: number;
+}
+
+export async function saveFlowSnapshot(data: FlowHistoryItem): Promise<void> {
+    await putItem(TABLES.FLOW_HISTORY, data).catch(() => { });
+}
+
+export async function getFlowHistory(ticker: string, days = 7): Promise<FlowHistoryItem[]> {
+    const since = Date.now() - days * 24 * 60 * 60 * 1000;
+    return queryItems<FlowHistoryItem>(
+        TABLES.FLOW_HISTORY,
+        'ticker = :t AND #ts > :since',
+        { ':t': ticker, ':since': since },
+        { limit: 500, scanForward: true, expressionNames: { '#ts': 'timestamp' } }
+    );
+}
+
+// ====== Batch Helpers ======
+
+export async function saveBatchGexSnapshots(items: GexHistoryItem[]): Promise<void> {
+    await batchPutItems(TABLES.GEX_HISTORY, items).catch(() => { });
+}
+
+export async function saveBatchAlphaDaily(items: AlphaHistoryItem[]): Promise<void> {
+    await batchPutItems(TABLES.ALPHA_HISTORY, items).catch(() => { });
+}
+
+export async function saveBatchSectorDaily(items: SectorDailyItem[]): Promise<void> {
+    await batchPutItems(TABLES.SECTOR_DAILY, items).catch(() => { });
+}

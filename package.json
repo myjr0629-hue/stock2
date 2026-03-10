@@ -41,6 +41,13 @@
     "three": "^0.182.0"
   },
   "devDependencies": {
+    "@aws-sdk/client-dynamodb": "^3.1005.0",
+    "@aws-sdk/client-ec2": "^3.1005.0",
+    "@aws-sdk/client-elasticache": "^3.1005.0",
+    "@aws-sdk/client-lambda": "^3.1005.0",
+    "@aws-sdk/client-s3": "^3.1005.0",
+    "@aws-sdk/client-scheduler": "^3.1005.0",
+    "@aws-sdk/lib-dynamodb": "^3.1005.0",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20.19.27",
     "@types/react": "^19",
