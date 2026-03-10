@@ -1,0 +1,216 @@
+"use client";
+
+/**
+ * [Phase 3] GEX Timeline Chart — 30-day GEX history from DynamoDB
+ * 
+ * Shows: GEX value over time, gamma regime zones, key levels.
+ * This is Bloomberg-tier — historical GEX tracking is typically behind
+ * expensive institutional data paywalls.
+ * 
+ * Uses: /api/history?type=gex&ticker=NVDA&days=30
+ */
+
+import { useEffect, useState, useMemo } from "react";
+
+interface GexDataPoint {
+    timestamp: number;
+    gex: number;
+    flipLevel: number | null;
+    callWall: number | null;
+    putFloor: number | null;
+    price: number;
+    gammaRegime: string;
+}
+
+interface GexTimelineProps {
+    ticker: string;
+    days?: number;
+    compact?: boolean; // Mini version for AlphaCard
+}
+
+export function GexTimeline({ ticker, days = 30, compact = false }: GexTimelineProps) {
+    const [data, setData] = useState<GexDataPoint[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(false);
+
+    useEffect(() => {
+        if (!ticker) return;
+        setLoading(true);
+        fetch(`/api/history?type=gex&ticker=${ticker}&days=${days}`)
+            .then(r => r.json())
+            .then(res => {
+                setData(res.data || []);
+                setLoading(false);
+            })
+            .catch(() => {
+                setError(true);
+                setLoading(false);
+            });
+    }, [ticker, days]);
+
+    const stats = useMemo(() => {
+        if (!data.length) return null;
+        const gexValues = data.map(d => d.gex);
+        const max = Math.max(...gexValues);
+        const min = Math.min(...gexValues);
+        const range = max - min || 1;
+        const latest = data[data.length - 1];
+        const prev = data.length > 1 ? data[data.length - 2] : null;
+        const trend = prev ? (latest.gex > prev.gex ? 'rising' : 'falling') : 'stable';
+        const positiveDays = data.filter(d => d.gex > 0).length;
+        const negativeDays = data.filter(d => d.gex < 0).length;
+
+        return { max, min, range, latest, trend, positiveDays, negativeDays };
+    }, [data]);
+
+    if (loading) {
+        return (
+            <div className={`animate-pulse ${compact ? 'h-16' : 'h-48'} bg-slate-800/30 rounded-xl border border-slate-700/20`} />
+        );
+    }
+
+    if (error || !data.length || !stats) {
+        return compact ? null : (
+            <div className="h-32 flex items-center justify-center text-slate-500 text-xs border border-slate-800/40 rounded-xl bg-slate-900/30">
+                GEX history unavailable
+            </div>
+        );
+    }
+
+    // SVG chart dimensions
+    const W = compact ? 200 : 600;
+    const H = compact ? 40 : 120;
+    const PADDING = compact ? 2 : 8;
+
+    // Build SVG path
+    const points = data.map((d, i) => {
+        const x = PADDING + (i / (data.length - 1)) * (W - PADDING * 2);
+        const y = PADDING + (1 - (d.gex - stats.min) / stats.range) * (H - PADDING * 2);
+        return { x, y, gex: d.gex, regime: d.gammaRegime };
+    });
+
+    const linePath = points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(' ');
+
+    // Fill path (area under curve to zero line)
+    const zeroY = PADDING + (1 - (0 - stats.min) / stats.range) * (H - PADDING * 2);
+    const fillPath = `${linePath} L ${points[points.length - 1].x.toFixed(1)} ${zeroY.toFixed(1)} L ${points[0].x.toFixed(1)} ${zeroY.toFixed(1)} Z`;
+
+    // Determine color based on latest regime
+    const isPositive = stats.latest.gex >= 0;
+    const lineColor = isPositive ? '#10b981' : '#ef4444';
+    const fillColor = isPositive ? 'rgba(16,185,129,0.12)' : 'rgba(239,68,68,0.12)';
+    const glowColor = isPositive ? 'rgba(16,185,129,0.4)' : 'rgba(239,68,68,0.4)';
+
+    // Format GEX value
+    const formatGex = (v: number) => {
+        const abs = Math.abs(v);
+        if (abs >= 1e9) return `${(v / 1e9).toFixed(1)}B`;
+        if (abs >= 1e6) return `${(v / 1e6).toFixed(1)}M`;
+        if (abs >= 1e3) return `${(v / 1e3).toFixed(0)}K`;
+        return v.toFixed(0);
+    };
+
+    // Compact version (for AlphaCard or inline use)
+    if (compact) {
+        return (
+            <div className="flex items-center gap-2">
+                <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} className="overflow-visible">
+                    {/* Zero line */}
+                    <line x1={PADDING} y1={zeroY} x2={W - PADDING} y2={zeroY}
+                        stroke="rgba(148,163,184,0.15)" strokeWidth="0.5" strokeDasharray="2 2" />
+                    {/* Fill */}
+                    <path d={fillPath} fill={fillColor} />
+                    {/* Line */}
+                    <path d={linePath} fill="none" stroke={lineColor} strokeWidth="1.5" />
+                    {/* Latest dot */}
+                    <circle cx={points[points.length - 1].x} cy={points[points.length - 1].y}
+                        r="2" fill={lineColor} />
+                </svg>
+                <span className={`text-[10px] font-mono ${isPositive ? 'text-emerald-400' : 'text-red-400'}`}>
+                    {formatGex(stats.latest.gex)}
+                </span>
+            </div>
+        );
+    }
+
+    // Full version
+    return (
+        <div className="rounded-xl border border-slate-700/30 bg-slate-900/40 backdrop-blur-sm p-4 space-y-3">
+            {/* Header */}
+            <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                    <div className={`w-2 h-2 rounded-full ${isPositive ? 'bg-emerald-400 shadow-[0_0_6px_rgba(16,185,129,0.6)]' : 'bg-red-400 shadow-[0_0_6px_rgba(239,68,68,0.6)]'}`} />
+                    <span className="text-xs font-semibold text-slate-300 tracking-wider uppercase">
+                        GEX Timeline
+                    </span>
+                    <span className="text-[10px] text-slate-500">{days}D</span>
+                </div>
+                <div className="flex items-center gap-3">
+                    <div className="text-right">
+                        <div className={`text-sm font-mono font-bold ${isPositive ? 'text-emerald-400' : 'text-red-400'}`}>
+                            {formatGex(stats.latest.gex)}
+                        </div>
+                        <div className="text-[10px] text-slate-500">
+                            {stats.latest.gammaRegime === 'POSITIVE' ? '🟢 Long Gamma' : stats.latest.gammaRegime === 'NEGATIVE' ? '🔴 Short Gamma' : '⚪ Neutral'}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {/* Chart */}
+            <div className="relative">
+                <svg width="100%" height={H} viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" className="overflow-visible">
+                    {/* Grid lines */}
+                    <line x1={PADDING} y1={PADDING} x2={W - PADDING} y2={PADDING}
+                        stroke="rgba(148,163,184,0.06)" strokeWidth="0.5" />
+                    <line x1={PADDING} y1={H - PADDING} x2={W - PADDING} y2={H - PADDING}
+                        stroke="rgba(148,163,184,0.06)" strokeWidth="0.5" />
+
+                    {/* Zero line (highlighted) */}
+                    <line x1={PADDING} y1={zeroY} x2={W - PADDING} y2={zeroY}
+                        stroke="rgba(148,163,184,0.2)" strokeWidth="0.5" strokeDasharray="4 4" />
+
+                    {/* Positive/Negative zones */}
+                    <rect x={PADDING} y={PADDING} width={W - PADDING * 2} height={Math.max(0, zeroY - PADDING)}
+                        fill="rgba(16,185,129,0.03)" />
+                    <rect x={PADDING} y={zeroY} width={W - PADDING * 2} height={Math.max(0, H - PADDING - zeroY)}
+                        fill="rgba(239,68,68,0.03)" />
+
+                    {/* Area fill */}
+                    <path d={fillPath} fill={fillColor} />
+
+                    {/* Line with glow */}
+                    <path d={linePath} fill="none" stroke={glowColor} strokeWidth="4" />
+                    <path d={linePath} fill="none" stroke={lineColor} strokeWidth="1.5" />
+
+                    {/* Latest point with glow */}
+                    <circle cx={points[points.length - 1].x} cy={points[points.length - 1].y}
+                        r="4" fill={glowColor} />
+                    <circle cx={points[points.length - 1].x} cy={points[points.length - 1].y}
+                        r="2.5" fill={lineColor} stroke="#0f172a" strokeWidth="1" />
+                </svg>
+
+                {/* Y-axis labels */}
+                <div className="absolute left-0 top-0 text-[9px] text-emerald-500/60 font-mono">
+                    {formatGex(stats.max)}
+                </div>
+                <div className="absolute left-0 bottom-0 text-[9px] text-red-400/60 font-mono">
+                    {formatGex(stats.min)}
+                </div>
+            </div>
+
+            {/* Stats bar */}
+            <div className="flex items-center justify-between text-[10px] text-slate-500">
+                <span>
+                    <span className="text-emerald-400">▲</span> {stats.positiveDays}d positive
+                </span>
+                <span>
+                    <span className="text-red-400">▼</span> {stats.negativeDays}d negative
+                </span>
+                <span className={stats.trend === 'rising' ? 'text-emerald-400' : 'text-red-400'}>
+                    {stats.trend === 'rising' ? '↗ Rising' : '↘ Falling'}
+                </span>
+            </div>
+        </div>
+    );
+}

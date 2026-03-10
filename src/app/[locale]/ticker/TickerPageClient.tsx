@@ -5,6 +5,8 @@
 // No SSR blocking = instant page load (same as Flow page)
 
 import dynamic from "next/dynamic";
+import { GexTimeline } from "@/components/history/GexTimeline";
+import { RlsiHistoryChart } from "@/components/history/RlsiHistoryChart";
 
 // Dynamic import with loading skeleton
 const LiveTickerDashboard = dynamic(
@@ -48,14 +50,25 @@ interface TickerPageClientProps {
 
 export function TickerPageClient({ ticker, range, initialStockData, initialUnifiedData, initialChartData }: TickerPageClientProps) {
     return (
-        <LiveTickerDashboard
-            ticker={ticker}
-            initialStockData={initialStockData}
-            initialUnifiedData={initialUnifiedData}
-            initialChartData={initialChartData}
-            initialNews={[]}
-            range={range}
-            buildId="csr-ssr-hybrid"
-        />
+        <>
+            <LiveTickerDashboard
+                ticker={ticker}
+                initialStockData={initialStockData}
+                initialUnifiedData={initialUnifiedData}
+                initialChartData={initialChartData}
+                initialNews={[]}
+                range={range}
+                buildId="csr-ssr-hybrid"
+            />
+
+            {/* [Phase 3] AWS DynamoDB-powered History Section */}
+            <div className="mt-6 space-y-4">
+                {/* GEX 30-Day Timeline */}
+                <GexTimeline ticker={ticker} days={30} />
+
+                {/* RLSI Market Regime History */}
+                <RlsiHistoryChart days={30} height={80} />
+            </div>
+        </>
     );
 }
