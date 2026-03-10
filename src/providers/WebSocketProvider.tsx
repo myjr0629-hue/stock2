@@ -36,6 +36,7 @@ interface WebSocketContextType {
     prices: Map<string, PriceUpdate>;
     gexData: Map<string, GexUpdate>;
     alerts: AlertUpdate[];
+    rlsi: number | null;
     subscribe: (tickers: string[]) => void;
     getPrice: (ticker: string) => PriceUpdate | undefined;
     getGex: (ticker: string) => GexUpdate | undefined;
@@ -46,6 +47,7 @@ const WebSocketContext = createContext<WebSocketContextType>({
     prices: new Map(),
     gexData: new Map(),
     alerts: [],
+    rlsi: null,
     subscribe: () => { },
     getPrice: () => undefined,
     getGex: () => undefined,
@@ -68,6 +70,7 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
     const [prices, setPrices] = useState<Map<string, PriceUpdate>>(new Map());
     const [gexData, setGexData] = useState<Map<string, GexUpdate>>(new Map());
     const [alerts, setAlerts] = useState<AlertUpdate[]>([]);
+    const [rlsi, setRlsi] = useState<number | null>(null);
 
     const connect = useCallback(() => {
         if (typeof window === 'undefined') return;
@@ -129,6 +132,12 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
                                 ...prev.slice(0, MAX_ALERTS - 1),
                             ]);
                             break;
+
+                        case 'rlsi':
+                            if (typeof msg.rlsi === 'number') {
+                                setRlsi(msg.rlsi);
+                            }
+                            break;
                     }
                 } catch { /* invalid JSON */ }
             };
@@ -179,7 +188,7 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
     const getGex = useCallback((ticker: string) => gexData.get(ticker), [gexData]);
 
     return (
-        <WebSocketContext.Provider value={{ connected, prices, gexData, alerts, subscribe, getPrice, getGex }}>
+        <WebSocketContext.Provider value={{ connected, prices, gexData, alerts, rlsi, subscribe, getPrice, getGex }}>
             {children}
         </WebSocketContext.Provider>
     );

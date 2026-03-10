@@ -499,15 +499,43 @@ exports.handler = async (event) => {
 
   // Step 4: Push real-time data to EC2 WebSocket Hub (fire-and-forget)
   const pushPromises = [];
-  const topTickers = Object.keys(priceMap).slice(0, 20);
-  for (const ticker of topTickers) {
+
+  // 4A: Price updates — all collected tickers
+  const allCollectedTickers = Object.keys(priceMap);
+  for (const ticker of allCollectedTickers) {
     const p = priceMap[ticker];
-    if (p && p.price) {
+    if (p) {
       pushPromises.push(pushToWebSocket('signum:prices', {
-        ticker, price: p.price, changePct: p.changePct || 0, volume: p.volume || 0,
+        ticker, price: p, changePct: 0, volume: 0,
       }));
     }
   }
+
+  // 4B: RLSI update — market-wide gauge
+  if (typeof results.rlsi === 'string' && results.rlsi.startsWith('RLSI:') && !results.rlsi.includes('ERR') && !results.rlsi.includes('NO_DATA')) {
+    const rlsiVal = parseFloat(results.rlsi.replace('RLSI:', ''));
+    if (!isNaN(rlsiVal)) {
+      pushPromises.push(pushToWebSocket('signum:rlsi', {
+        rlsi: rlsiVal, ts: Date.now(),
+      }));
+    }
+  }
+
+  // 4C: GEX updates — key tickers with GEX data
+  if (Array.isArray(results.gex)) {
+    for (const r of results.gex) {
+      if (typeof r === 'string' && r.includes(':') && !r.includes('ERR') && !r.includes('NO_')) {
+        const [ticker] = r.split(':');
+        pushPromises.push(pushToWebSocket('signum:gex', {
+          ticker, ts: Date.now(),
+        }));
+      }
+    }
+  }
+
+  // 4D: Alerts — GEX Break detection (negative → positive or vice versa)
+  // This will be populated when we have historical comparison data
+
   await Promise.allSettled(pushPromises);
   results.pushed = pushPromises.length;
 
