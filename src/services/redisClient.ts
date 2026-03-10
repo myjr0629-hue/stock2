@@ -1,21 +1,19 @@
 // ===========================================================================
-// Unified Redis Client — ElastiCache (primary) + Upstash (fallback)
-// ElastiCache: ioredis TCP connection (requires Vercel Secure Compute)
-// Upstash: HTTP REST API (works everywhere, slower)
+// Unified Redis Client — ElastiCache via EC2 Proxy (primary) + Upstash (fallback)
+// EC2 Proxy: HTTP REST API wrapping ElastiCache (~15ms from Vercel same-region)
+// Upstash: HTTP REST API (works everywhere, ~30ms)
 // ===========================================================================
 
 import { Redis as UpstashRedis } from '@upstash/redis';
 
 // Lazy initialization
 let upstashClient: UpstashRedis | null = null;
-let ioredisClient: any = null; // ioredis dynamically imported
-let useElastiCache = false;
-let elastiCacheAttempted = false;
 let lastError: string | null = null;
+let ecProxyAvailable: boolean | null = null; // null = not tested yet
 
-// ElastiCache endpoint from .env.local
-const ELASTICACHE_HOST = process.env.ELASTICACHE_ENDPOINT || 'signum-redis.dhzfzt.0001.use1.cache.amazonaws.com';
-const ELASTICACHE_PORT = parseInt(process.env.ELASTICACHE_PORT || '6379');
+// EC2 Redis Proxy configuration
+const EC2_PROXY_URL = process.env.EC2_REDIS_PROXY_URL || 'http://3.236.193.97:8081';
+const EC2_PROXY_KEY = process.env.EC2_REDIS_PROXY_KEY || 'signum-redis-proxy-2026';
 
 // Cache keys
 export const CACHE_KEYS = {
@@ -26,40 +24,51 @@ export const CACHE_KEYS = {
 /** Get Redis connection status for debugging */
 export function getRedisStatus() {
     return {
-        backend: useElastiCache ? 'elasticache' : 'upstash',
-        connected: useElastiCache ? ioredisClient !== null : upstashClient !== null,
+        backend: ecProxyAvailable ? 'ec2-proxy' : 'upstash',
+        ecProxyUrl: EC2_PROXY_URL,
+        ecProxyAvailable,
         lastError,
-        elastiCacheHost: ELASTICACHE_HOST,
         hasUpstashUrl: !!(process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL),
     };
 }
 
-// ── ElastiCache (ioredis) connection ──
-async function getElastiCacheClient(): Promise<any | null> {
-    if (ioredisClient) return ioredisClient;
-    if (elastiCacheAttempted) return null;
-    elastiCacheAttempted = true;
-
+// ── EC2 Redis Proxy helpers ──
+async function ecProxyGet<T>(key: string): Promise<T | null> {
     try {
-        const IORedis = (await import('ioredis')).default;
-        ioredisClient = new IORedis({
-            host: ELASTICACHE_HOST,
-            port: ELASTICACHE_PORT,
-            connectTimeout: 3000,
-            maxRetriesPerRequest: 1,
-            retryStrategy: (times: number) => (times > 2 ? null : Math.min(times * 500, 2000)),
-            lazyConnect: true,
+        const res = await fetch(`${EC2_PROXY_URL}/get?key=${encodeURIComponent(key)}`, {
+            headers: { 'Authorization': `Bearer ${EC2_PROXY_KEY}` },
+            signal: AbortSignal.timeout(3000), // 3s timeout
         });
-
-        await ioredisClient.connect();
-        useElastiCache = true;
-        console.log(`[Redis] ✅ ElastiCache connected: ${ELASTICACHE_HOST}:${ELASTICACHE_PORT}`);
-        return ioredisClient;
+        if (!res.ok) return null;
+        const data = await res.json();
+        if (ecProxyAvailable === null) {
+            ecProxyAvailable = true;
+            console.log('[Redis] ✅ EC2 Proxy connected');
+        }
+        return data.result as T;
     } catch (e: any) {
-        lastError = `elasticache: ${e.message}`;
-        console.warn(`[Redis] ElastiCache unavailable (${e.message}), falling back to Upstash`);
-        ioredisClient = null;
+        if (ecProxyAvailable !== false) {
+            ecProxyAvailable = false;
+            console.warn(`[Redis] EC2 Proxy unavailable: ${e.message}`);
+        }
         return null;
+    }
+}
+
+async function ecProxySet<T>(key: string, value: T, ttlSeconds?: number): Promise<boolean> {
+    try {
+        const res = await fetch(`${EC2_PROXY_URL}/set`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${EC2_PROXY_KEY}`,
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ key, value, ttl: ttlSeconds }),
+            signal: AbortSignal.timeout(3000),
+        });
+        return res.ok;
+    } catch {
+        return false;
     }
 }
 
@@ -87,19 +96,13 @@ function getUpstashClient(): UpstashRedis | null {
 
 /**
  * Get cached value from Redis
- * Tries ElastiCache first (< 1ms latency), falls back to Upstash (~30ms)
+ * Tries EC2 Proxy (ElastiCache) first (~15ms), falls back to Upstash (~30ms)
  */
 export async function getFromCache<T>(key: string): Promise<T | null> {
-    // Try ElastiCache first
-    const ec = await getElastiCacheClient();
-    if (ec) {
-        try {
-            const raw = await ec.get(key);
-            if (raw) return typeof raw === 'string' ? JSON.parse(raw) : raw;
-            return null;
-        } catch (e: any) {
-            console.warn(`[Redis/EC] get(${key}) failed:`, e.message);
-        }
+    // Try EC2 Proxy first (ElastiCache via HTTP)
+    if (ecProxyAvailable !== false) {
+        const result = await ecProxyGet<T>(key);
+        if (result !== null) return result;
     }
 
     // Fallback to Upstash
@@ -116,26 +119,15 @@ export async function getFromCache<T>(key: string): Promise<T | null> {
 
 /**
  * Set value in Redis cache with optional TTL (seconds)
- * Writes to BOTH ElastiCache and Upstash for consistency
+ * Writes to BOTH EC2 Proxy (ElastiCache) and Upstash for consistency
  */
 export async function setInCache<T>(key: string, value: T, ttlSeconds?: number): Promise<boolean> {
     let ecOk = false;
     let upstashOk = false;
 
-    // Write to ElastiCache
-    const ec = await getElastiCacheClient();
-    if (ec) {
-        try {
-            const serialized = JSON.stringify(value);
-            if (ttlSeconds) {
-                await ec.setex(key, ttlSeconds, serialized);
-            } else {
-                await ec.set(key, serialized);
-            }
-            ecOk = true;
-        } catch (e: any) {
-            console.warn(`[Redis/EC] set(${key}) failed:`, e.message);
-        }
+    // Write to EC2 Proxy (ElastiCache)
+    if (ecProxyAvailable !== false) {
+        ecOk = await ecProxySet(key, value, ttlSeconds);
     }
 
     // Write to Upstash (always, for fallback consistency)
