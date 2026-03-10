@@ -40,6 +40,12 @@ import {
     Settings,
     Check,
     Bell,
+    Anchor,
+    Gauge,
+    BarChart2,
+    Layers,
+    Brain,
+    Gem,
 } from "lucide-react";
 
 // Market status badge colors
@@ -1395,7 +1401,8 @@ function MainChartPanel() {
                                 <div className="relative p-4 rounded-xl border overflow-hidden bg-[#0d1829]/80 border-white/5">
                                     <svg className="absolute right-0 bottom-0 w-24 h-16 opacity-[0.06]" viewBox="0 0 96 64"><path d="M0 50 Q24 10 48 30 T96 15" fill="none" stroke="currentColor" strokeWidth="2" className="text-emerald-400" /></svg>
                                     <div className="flex items-center gap-2 mb-2">
-                                        <span className="text-[12px] font-jakarta uppercase tracking-wider text-white">Alpha Score</span>
+                                        <Crown className="w-4 h-4 text-emerald-400" />
+                                    <span className="text-[12px] font-jakarta uppercase tracking-wider text-white">Alpha Score</span>
                                     </div>
                                     <div className="flex items-center gap-2">
                                         <span className={`text-2xl font-mono font-bold ${gradeColor}`}>{grade}</span>
@@ -1420,7 +1427,8 @@ function MainChartPanel() {
                                 <div className={`relative p-4 rounded-xl border overflow-hidden ${isHigh ? 'bg-purple-500/10 border-purple-400/40' : 'bg-[#0d1829]/80 border-white/5'}`}>
                                     <svg className="absolute right-0 bottom-0 w-24 h-16 opacity-[0.06]" viewBox="0 0 96 64"><ellipse cx="48" cy="40" rx="36" ry="16" fill="none" stroke="currentColor" strokeWidth="2" className="text-purple-400" /></svg>
                                     <div className="flex items-center gap-2 mb-2">
-                                        <span className="text-[12px] font-jakarta uppercase tracking-wider text-white">Whale Index</span>
+                                        <Anchor className="w-4 h-4 text-purple-400" />
+                                    <span className="text-[12px] font-jakarta uppercase tracking-wider text-white">Whale Index</span>
                                     </div>
                                     <div className="flex items-center gap-2">
                                         <span className={`text-xl font-mono font-bold ${wi > 0 ? 'text-emerald-400' : wi < 0 ? 'text-rose-400' : 'text-slate-400'}`}>{wi > 0 ? '+' : ''}{wi}</span>
@@ -1447,6 +1455,7 @@ function MainChartPanel() {
                             <div className={`relative p-4 rounded-xl border overflow-hidden ${isOverbought || isOversold ? 'bg-amber-500/10 border-amber-400/30' : 'bg-[#0d1829]/80 border-white/5'}`}>
                                 <svg className="absolute right-0 bottom-0 w-24 h-16 opacity-[0.06]" viewBox="0 0 96 64"><path d="M0 32 Q24 10 48 32 T96 32" fill="none" stroke="currentColor" strokeWidth="2" className="text-amber-400" /></svg>
                                 <div className="flex items-center gap-2 mb-2">
+                                    <Gauge className="w-4 h-4 text-amber-400" />
                                     <span className="text-[12px] font-jakarta uppercase tracking-wider text-white">RSI 14</span>
                                 </div>
                                 <div className="flex items-center gap-2">
@@ -1470,6 +1479,7 @@ function MainChartPanel() {
                         return (
                             <div className="relative p-4 rounded-xl border overflow-hidden bg-[#0d1829]/80 border-white/5">
                                 <div className="flex items-center gap-2 mb-2">
+                                    <TrendingUp className="w-4 h-4 text-cyan-400" />
                                     <span className="text-[12px] font-jakarta uppercase tracking-wider text-white">Return 3D</span>
                                 </div>
                                 <div className="flex items-center gap-2">
@@ -1493,6 +1503,7 @@ function MainChartPanel() {
                         return (
                             <div className={`relative p-4 rounded-xl border overflow-hidden ${isHigh ? 'bg-cyan-500/10 border-cyan-400/30' : 'bg-[#0d1829]/80 border-white/5'}`}>
                                 <div className="flex items-center gap-2 mb-2">
+                                    <BarChart2 className="w-4 h-4 text-cyan-400" />
                                     <span className="text-[12px] font-jakarta uppercase tracking-wider text-white">Rel Volume</span>
                                 </div>
                                 <div className="flex items-center gap-2">
@@ -1516,7 +1527,8 @@ function MainChartPanel() {
                             return (
                                 <div className="relative p-4 rounded-xl border overflow-hidden bg-[#0d1829]/80 border-white/5">
                                     <div className="flex items-center gap-2 mb-2">
-                                        <span className="text-[12px] font-jakarta uppercase tracking-wider text-white">OPI</span>
+                                        <Layers className="w-4 h-4 text-indigo-400" />
+                                    <span className="text-[12px] font-jakarta uppercase tracking-wider text-white">OPI</span>
                                         <span className="text-[12px] text-slate-500">Options Position</span>
                                     </div>
                                     <div className="flex items-center gap-2">
@@ -1543,7 +1555,8 @@ function MainChartPanel() {
                             return (
                                 <div className="relative p-4 rounded-xl border overflow-hidden bg-[#0d1829]/80 border-white/5">
                                     <div className="flex items-center gap-2 mb-2">
-                                        <span className="text-[12px] font-jakarta uppercase tracking-wider text-white">Smart Money</span>
+                                        <Brain className="w-4 h-4 text-purple-400" />
+                                    <span className="text-[12px] font-jakarta uppercase tracking-wider text-white">Smart Money</span>
                                     </div>
                                     <div className="flex items-center gap-2">
                                         <span className={`text-xl font-mono font-bold ${(smartScore ?? 0) >= 50 ? 'text-purple-400' : 'text-slate-400'}`}>
@@ -1569,7 +1582,8 @@ function MainChartPanel() {
                             return (
                                 <div className={`relative p-4 rounded-xl border overflow-hidden ${isHigh ? 'bg-amber-500/10 border-amber-400/30' : 'bg-[#0d1829]/80 border-white/5'}`}>
                                     <div className="flex items-center gap-2 mb-2">
-                                        <span className="text-[12px] font-jakarta uppercase tracking-wider text-white">IV Rank</span>
+                                        <Gem className="w-4 h-4 text-amber-400" />
+                                    <span className="text-[12px] font-jakarta uppercase tracking-wider text-white">IV Rank</span>
                                     </div>
                                     <div className="flex items-center gap-2">
                                         <span className={`text-xl font-mono font-bold ${isHigh ? 'text-amber-400' : 'text-white'}`}>{ivRank !== null ? `${ivRank}%` : '—'}</span>
