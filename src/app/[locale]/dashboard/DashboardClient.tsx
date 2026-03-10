@@ -834,7 +834,7 @@ function MainChartPanel() {
                                 <svg className="absolute right-1 bottom-0 w-20 h-16 opacity-[0.06]" viewBox="0 0 80 64"><rect x="5" y="30" width="10" height="30" rx="2" fill="currentColor" className="text-cyan-400" /><rect x="22" y="18" width="10" height="42" rx="2" fill="currentColor" className="text-cyan-400" /><rect x="39" y="24" width="10" height="36" rx="2" fill="currentColor" className="text-cyan-400" /><rect x="56" y="12" width="10" height="48" rx="2" fill="currentColor" className="text-cyan-400" /></svg>
                                 <div className="flex items-center gap-2 mb-2 whitespace-nowrap">
                                     <BarChart3 className="w-4 h-4 text-cyan-400" />
-                                    <span className="text-[12px] font-jakarta uppercase tracking-wider text-white">{td('vwapDistance')}</span>
+                                    <CardTooltip text={td('tipVwapDist')}><span className="text-[12px] font-jakarta uppercase tracking-wider text-white">{td('vwapDistance')}</span></CardTooltip>
                                 </div>
                                 <div className="flex items-center gap-2">
                                     <span className={`text-xl font-mono font-bold ${dist > 0 ? 'text-emerald-400' : dist < 0 ? 'text-rose-400' : 'text-white'}`}>
@@ -1224,7 +1224,7 @@ function MainChartPanel() {
                                     <svg className="absolute right-0 bottom-0 w-24 h-16 opacity-[0.06]" viewBox="0 0 96 64"><path d="M48 58 A 38 38 0 0 1 10 58" fill="none" stroke="currentColor" strokeWidth="2" className="text-emerald-400" /><path d="M86 58 A 38 38 0 0 1 48 58" fill="none" stroke="currentColor" strokeWidth="2" className="text-amber-400" /><circle cx="48" cy="58" r="3" fill="currentColor" className="text-white" /></svg>
                                     <div className="flex items-center gap-1.5 mb-2 whitespace-nowrap">
                                         <Zap className="w-4 h-4 text-amber-400 shrink-0" />
-                                        <span className="text-[12px] font-jakarta uppercase tracking-wide text-white">GEX Regime</span>
+                                        <CardTooltip text={td('tipGexRegime')}><span className="text-[12px] font-jakarta uppercase tracking-wide text-white">GEX Regime</span></CardTooltip>
                                         {expStr && (
                                             <span className="text-[12px] text-slate-300 font-mono">
                                                 {expStr.slice(5)}
