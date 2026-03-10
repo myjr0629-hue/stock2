@@ -24,6 +24,7 @@ export interface CardDef {
     label: string;
     category: 'structure' | 'options' | 'momentum' | 'flow';
     proOnly?: boolean;
+    eliteOnly?: boolean;
 }
 
 export const ALL_CARDS: CardDef[] = [
@@ -40,8 +41,8 @@ export const ALL_CARDS: CardDef[] = [
     // Flow (Row 3 defaults)
     { id: 'atmIv', label: 'ATM IV', category: 'options' },
     { id: 'pcRatio', label: 'P/C RATIO', category: 'options' },
-    { id: 'gexRegime', label: 'GEX REGIME', category: 'structure', proOnly: true },
-    { id: 'impliedMove', label: 'IMPLIED MOVE', category: 'options' },
+    { id: 'gexRegime', label: 'GEX REGIME', category: 'structure', eliteOnly: true },
+    { id: 'impliedMove', label: 'IMPLIED MOVE', category: 'options', eliteOnly: true },
     // ── Additional Pool (8 more) ──
     { id: 'alphaScore', label: 'ALPHA SCORE', category: 'momentum' },
     { id: 'whaleIndex', label: 'WHALE INDEX', category: 'flow' },
@@ -133,16 +134,16 @@ function CardSelectorModal({
                         <div className="grid grid-cols-2 gap-2">
                             {ALL_CARDS.filter(c => c.category === cat).map(card => {
                                 const isVisible = visibleCards.includes(card.id);
-                                const isLocked = card.proOnly && (tier === 'free' || tier === 'guest');
+                                const isLocked = (card.proOnly || card.eliteOnly) && (tier === 'free' || tier === 'guest');
                                 return (
                                     <button
                                         key={card.id}
                                         onClick={() => !isLocked && onToggleCard(card.id)}
                                         className={`flex items-center gap-2 p-2.5 rounded-lg border transition-all ${isVisible
-                                                ? 'bg-cyan-500/10 border-cyan-500/30 text-white'
-                                                : isLocked
-                                                    ? 'bg-slate-800/50 border-white/5 text-slate-500 cursor-not-allowed'
-                                                    : 'bg-slate-800/50 border-white/5 text-slate-400 hover:border-white/20'
+                                            ? 'bg-cyan-500/10 border-cyan-500/30 text-white'
+                                            : isLocked
+                                                ? 'bg-slate-800/50 border-white/5 text-slate-500 cursor-not-allowed'
+                                                : 'bg-slate-800/50 border-white/5 text-slate-400 hover:border-white/20'
                                             }`}
                                     >
                                         {isVisible ? (
@@ -155,6 +156,9 @@ function CardSelectorModal({
                                         <span style={{ fontSize: '13px' }} className="font-medium">{card.label}</span>
                                         {card.proOnly && (
                                             <span className="ml-auto text-[10px] font-bold px-1 py-0.5 rounded bg-amber-500/20 text-amber-400">PRO</span>
+                                        )}
+                                        {card.eliteOnly && (
+                                            <span className="ml-auto text-[10px] font-bold px-1 py-0.5 rounded bg-purple-500/20 text-purple-400">ELITE</span>
                                         )}
                                     </button>
                                 );

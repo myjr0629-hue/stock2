@@ -60,6 +60,27 @@ interface TickerData {
         putsOI: number[];
     } | null;
     error?: string;
+    // ── Additional card data (from unified API) ──
+    alpha?: {
+        score: number;
+        grade: string;
+        action: string;
+        actionKR?: string;
+        whyKR?: string;
+        pillars: Record<string, number>;
+        gatesApplied?: string[];
+        dataCompleteness?: number;
+        engineVersion?: string;
+    };
+    whaleIndex?: number | null;
+    whaleConfidence?: string | null;
+    rsi14?: number | null;
+    return3D?: number | null;
+    relVol?: number | null;
+    ivRank?: number | null;
+    _rsi14?: number | null;
+    _return3D?: number | null;
+    _relVol?: number | null;
 }
 
 interface MarketData {

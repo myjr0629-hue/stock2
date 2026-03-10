@@ -524,9 +524,15 @@ function MainChartPanel() {
     }, [selectedTicker]);
 
     useEffect(() => {
+        // [FIX] Reset chart data on ticker change to prevent Y-axis stretching
+        // (old ticker's Y-range + new ticker's data = distorted chart for ~200ms)
+        if (lastTickerRef.current && lastTickerRef.current !== selectedTicker) {
+            setChartHistory([]);
+            setChartLoading(true);
+        }
         lastTickerRef.current = selectedTicker;
 
-        // [P2 FIX] Only show spinner on initial empty state — keep previous chart during switch
+        // Show spinner on initial empty state
         if (chartHistory.length === 0) setChartLoading(true);
         fetchChartData();
 
@@ -938,10 +944,8 @@ function MainChartPanel() {
                             </div>
                         );
                     })() : null}
-                </div>
 
-                {/* ── ROW 2: 가격 레벨 + 기관 (Levels & Institutional) ── */}
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    {/* ── Levels & Institutional ── */}
                     {/* Max Pain — PRO (peek: price visible, % distance blurred) */}
                     {customize.cardOrder.includes('maxPain') && <ProGate title="Max Pain" mode="peek" compact>
                         {(() => {
@@ -1147,10 +1151,8 @@ function MainChartPanel() {
                             );
                         })()}
                     </ProGate>}
-                </div>
 
-                {/* ── ROW 3: 변동성 + 당일 분석 (Volatility & Intraday) ── */}
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    {/* ── Volatility & Intraday ── */}
                     {/* ATM IV — PRO (blur: advanced volatility surface, QuantData $99) */}
                     {customize.cardOrder.includes('atmIv') && <ProGate title="ATM IV" fomoMessage={gt('fomoAtmIv')} mode="blur" compact>
                         <div className={`relative p-4 rounded-xl border overflow-hidden ${(data?.atmIv || 0) > 50 ? 'bg-cyan-500/10 backdrop-blur-md border-cyan-400/40 shadow-[0_0_25px_rgba(34,211,238,0.3)]' : 'bg-[#0d1829]/80 border-white/5'}`}>
@@ -1378,6 +1380,192 @@ function MainChartPanel() {
                             );
                         })()}
                     </EliteGate>}
+
+                    {/* ── Additional Pool ── */}
+                    {/* Alpha Score */}
+                    {customize.cardOrder.includes('alphaScore') && (() => {
+                        const alpha = data?.alpha;
+                        const score = alpha?.score ?? 0;
+                        const grade = alpha?.grade ?? '—';
+                        const gradeColor = grade === 'A+' || grade === 'A' ? 'text-emerald-400' : grade === 'B+' || grade === 'B' ? 'text-cyan-400' : grade === 'C' ? 'text-amber-400' : 'text-slate-400';
+                        const barWidth = Math.min(Math.abs(score), 100);
+                        return (
+                            <div className="relative p-4 rounded-xl border overflow-hidden bg-[#0d1829]/80 border-white/5">
+                                <svg className="absolute right-0 bottom-0 w-24 h-16 opacity-[0.06]" viewBox="0 0 96 64"><path d="M0 50 Q24 10 48 30 T96 15" fill="none" stroke="currentColor" strokeWidth="2" className="text-emerald-400" /></svg>
+                                <div className="flex items-center gap-2 mb-2">
+                                    <span className="text-[12px] font-jakarta uppercase tracking-wider text-white">Alpha Score</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <span className={`text-2xl font-mono font-bold ${gradeColor}`}>{grade}</span>
+                                    <span className="text-lg font-mono text-white">{score > 0 ? '+' : ''}{score}</span>
+                                </div>
+                                <div className="mt-2 h-1.5 bg-slate-700 rounded-full overflow-hidden">
+                                    <div className={`h-full rounded-full transition-all ${score > 0 ? 'bg-emerald-500' : 'bg-rose-500'}`} style={{ width: `${barWidth}%` }} />
+                                </div>
+                                {alpha?.actionKR && <p className="text-[12px] text-slate-300 mt-1.5 line-clamp-1">{alpha.actionKR}</p>}
+                            </div>
+                        );
+                    })()}
+
+                    {/* Whale Index */}
+                    {customize.cardOrder.includes('whaleIndex') && (() => {
+                        const wi = (data as any)?.whaleIndex ?? 0;
+                        const conf = (data as any)?.whaleConfidence ?? '—';
+                        const isHigh = Math.abs(wi) >= 50;
+                        return (
+                            <div className={`relative p-4 rounded-xl border overflow-hidden ${isHigh ? 'bg-purple-500/10 border-purple-400/40' : 'bg-[#0d1829]/80 border-white/5'}`}>
+                                <svg className="absolute right-0 bottom-0 w-24 h-16 opacity-[0.06]" viewBox="0 0 96 64"><ellipse cx="48" cy="40" rx="36" ry="16" fill="none" stroke="currentColor" strokeWidth="2" className="text-purple-400" /></svg>
+                                <div className="flex items-center gap-2 mb-2">
+                                    <span className="text-[12px] font-jakarta uppercase tracking-wider text-white">Whale Index</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <span className={`text-xl font-mono font-bold ${wi > 0 ? 'text-emerald-400' : wi < 0 ? 'text-rose-400' : 'text-slate-400'}`}>{wi > 0 ? '+' : ''}{wi}</span>
+                                    <span className="text-[12px] text-slate-300">{conf}</span>
+                                </div>
+                                <div className="mt-2 relative h-1.5 bg-slate-700 rounded-full overflow-hidden">
+                                    <div className="absolute left-1/2 top-0 w-px h-full bg-slate-500" />
+                                    <div className={`absolute top-0 h-full rounded-full ${wi > 0 ? 'bg-emerald-500' : 'bg-rose-500'}`} style={{ left: wi > 0 ? '50%' : `${50 - Math.min(Math.abs(wi) / 2, 50)}%`, width: `${Math.min(Math.abs(wi) / 2, 50)}%` }} />
+                                </div>
+                            </div>
+                        );
+                    })()}
+
+                    {/* RSI 14 */}
+                    {customize.cardOrder.includes('rsi14') && (() => {
+                        const rsi = data?._rsi14 ?? data?.rsi14 ?? null;
+                        const isOverbought = rsi !== null && rsi >= 70;
+                        const isOversold = rsi !== null && rsi <= 30;
+                        const label = rsi === null ? '—' : isOverbought ? 'Overbought' : isOversold ? 'Oversold' : 'Neutral';
+                        const color = isOverbought ? 'text-rose-400' : isOversold ? 'text-emerald-400' : 'text-slate-300';
+                        return (
+                            <div className={`relative p-4 rounded-xl border overflow-hidden ${isOverbought || isOversold ? 'bg-amber-500/10 border-amber-400/30' : 'bg-[#0d1829]/80 border-white/5'}`}>
+                                <svg className="absolute right-0 bottom-0 w-24 h-16 opacity-[0.06]" viewBox="0 0 96 64"><path d="M0 32 Q24 10 48 32 T96 32" fill="none" stroke="currentColor" strokeWidth="2" className="text-amber-400" /></svg>
+                                <div className="flex items-center gap-2 mb-2">
+                                    <span className="text-[12px] font-jakarta uppercase tracking-wider text-white">RSI 14</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <span className={`text-xl font-mono font-bold ${color}`}>{rsi !== null ? rsi.toFixed(1) : '—'}</span>
+                                    <span className={`text-[12px] ${color}`}>{label}</span>
+                                </div>
+                                <div className="mt-2 relative h-1.5 bg-slate-700 rounded-full overflow-hidden">
+                                    <div className="absolute left-[30%] top-0 w-px h-full bg-emerald-500/30" />
+                                    <div className="absolute left-[70%] top-0 w-px h-full bg-rose-500/30" />
+                                    {rsi !== null && <div className="absolute top-1/2 w-2 h-2 rounded-full bg-white shadow-[0_0_6px_rgba(255,255,255,0.6)]" style={{ left: `${Math.min(rsi, 100)}%`, transform: 'translate(-50%,-50%)' }} />}
+                                </div>
+                            </div>
+                        );
+                    })()}
+
+                    {/* Return 3D */}
+                    {customize.cardOrder.includes('return3d') && (() => {
+                        const ret = data?._return3D ?? data?.return3D ?? null;
+                        const isPositive = ret !== null && ret > 0;
+                        return (
+                            <div className="relative p-4 rounded-xl border overflow-hidden bg-[#0d1829]/80 border-white/5">
+                                <div className="flex items-center gap-2 mb-2">
+                                    <span className="text-[12px] font-jakarta uppercase tracking-wider text-white">Return 3D</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <span className={`text-xl font-mono font-bold ${isPositive ? 'text-emerald-400' : ret !== null ? 'text-rose-400' : 'text-slate-400'}`}>
+                                        {ret !== null ? `${ret > 0 ? '+' : ''}${ret.toFixed(2)}%` : '—'}
+                                    </span>
+                                </div>
+                                <div className="mt-2 relative h-1.5 bg-slate-700 rounded-full overflow-hidden">
+                                    <div className="absolute left-1/2 top-0 w-px h-full bg-slate-500" />
+                                    {ret !== null && <div className={`absolute top-0 h-full rounded-full ${isPositive ? 'bg-emerald-500' : 'bg-rose-500'}`} style={{ left: isPositive ? '50%' : `${50 - Math.min(Math.abs(ret) * 5, 50)}%`, width: `${Math.min(Math.abs(ret) * 5, 50)}%` }} />}
+                                </div>
+                            </div>
+                        );
+                    })()}
+
+                    {/* Rel Volume */}
+                    {customize.cardOrder.includes('relVolume') && (() => {
+                        const rv = data?._relVol ?? data?.relVol ?? null;
+                        const isHigh = rv !== null && rv >= 2.0;
+                        return (
+                            <div className={`relative p-4 rounded-xl border overflow-hidden ${isHigh ? 'bg-cyan-500/10 border-cyan-400/30' : 'bg-[#0d1829]/80 border-white/5'}`}>
+                                <div className="flex items-center gap-2 mb-2">
+                                    <span className="text-[12px] font-jakarta uppercase tracking-wider text-white">Rel Volume</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <span className={`text-xl font-mono font-bold ${isHigh ? 'text-cyan-400' : 'text-white'}`}>{rv !== null ? `${rv.toFixed(1)}x` : '—'}</span>
+                                    <span className="text-[12px] text-slate-300">{rv !== null ? (rv >= 2 ? 'High' : rv >= 1.2 ? 'Normal' : 'Low') : ''}</span>
+                                </div>
+                                <div className="mt-2 h-1.5 bg-slate-700 rounded-full overflow-hidden">
+                                    <div className="h-full rounded-full bg-cyan-500/60 transition-all" style={{ width: `${rv !== null ? Math.min(rv * 25, 100) : 0}%` }} />
+                                </div>
+                            </div>
+                        );
+                    })()}
+
+                    {/* OPI (Options Positioning Index) */}
+                    {customize.cardOrder.includes('opi') && (() => {
+                        const pcr = data?.volumePcr ?? data?.pcr ?? null;
+                        const gex = data?.netGex ?? null;
+                        const opi = pcr !== null && gex !== null ? Math.round(((pcr > 1 ? -1 : 1) * 50) + ((gex ?? 0) > 0 ? 20 : -20)) : null;
+                        return (
+                            <div className="relative p-4 rounded-xl border overflow-hidden bg-[#0d1829]/80 border-white/5">
+                                <div className="flex items-center gap-2 mb-2">
+                                    <span className="text-[12px] font-jakarta uppercase tracking-wider text-white">OPI</span>
+                                    <span className="text-[12px] text-slate-500">Options Position</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <span className={`text-xl font-mono font-bold ${(opi ?? 0) > 0 ? 'text-emerald-400' : (opi ?? 0) < 0 ? 'text-rose-400' : 'text-slate-400'}`}>
+                                        {opi !== null ? `${opi > 0 ? '+' : ''}${opi}` : '—'}
+                                    </span>
+                                </div>
+                                <div className="mt-2 relative h-1.5 bg-slate-700 rounded-full overflow-hidden">
+                                    <div className="absolute left-1/2 top-0 w-px h-full bg-slate-500" />
+                                </div>
+                            </div>
+                        );
+                    })()}
+
+                    {/* Smart Money */}
+                    {customize.cardOrder.includes('smartMoney') && (() => {
+                        const dp = data?.darkPoolPct ?? 0;
+                        const sv = data?.shortVolPct ?? 0;
+                        const smartScore = dp > 0 ? Math.round((dp * 0.6) + (sv * 0.4)) : null;
+                        const label = smartScore === null ? '—' : smartScore >= 50 ? 'Active' : 'Quiet';
+                        return (
+                            <div className="relative p-4 rounded-xl border overflow-hidden bg-[#0d1829]/80 border-white/5">
+                                <div className="flex items-center gap-2 mb-2">
+                                    <span className="text-[12px] font-jakarta uppercase tracking-wider text-white">Smart Money</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <span className={`text-xl font-mono font-bold ${(smartScore ?? 0) >= 50 ? 'text-purple-400' : 'text-slate-400'}`}>
+                                        {smartScore !== null ? `${smartScore}%` : '—'}
+                                    </span>
+                                    <span className="text-[12px] text-slate-300">{label}</span>
+                                </div>
+                                <div className="mt-2 h-1.5 bg-slate-700 rounded-full overflow-hidden">
+                                    <div className="h-full rounded-full bg-purple-500/60 transition-all" style={{ width: `${smartScore ?? 0}%` }} />
+                                </div>
+                            </div>
+                        );
+                    })()}
+
+                    {/* IV Rank */}
+                    {customize.cardOrder.includes('ivRank') && (() => {
+                        const iv = data?.atmIv ?? 0;
+                        // IV Rank approximation: ATM IV percentile (simplified)
+                        const ivRank = iv > 0 ? Math.min(Math.round(iv * 1.5), 100) : null;
+                        const isHigh = (ivRank ?? 0) >= 60;
+                        return (
+                            <div className={`relative p-4 rounded-xl border overflow-hidden ${isHigh ? 'bg-amber-500/10 border-amber-400/30' : 'bg-[#0d1829]/80 border-white/5'}`}>
+                                <div className="flex items-center gap-2 mb-2">
+                                    <span className="text-[12px] font-jakarta uppercase tracking-wider text-white">IV Rank</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <span className={`text-xl font-mono font-bold ${isHigh ? 'text-amber-400' : 'text-white'}`}>{ivRank !== null ? `${ivRank}%` : '—'}</span>
+                                    <span className="text-[12px] text-slate-300">{ivRank !== null ? (ivRank >= 60 ? 'High' : ivRank >= 30 ? 'Medium' : 'Low') : ''}</span>
+                                </div>
+                                <div className="mt-2 h-1.5 bg-slate-700 rounded-full overflow-hidden">
+                                    <div className={`h-full rounded-full transition-all ${isHigh ? 'bg-amber-500/60' : 'bg-slate-500/40'}`} style={{ width: `${ivRank ?? 0}%` }} />
+                                </div>
+                            </div>
+                        );
+                    })()}
                 </div>
             </div>
 
