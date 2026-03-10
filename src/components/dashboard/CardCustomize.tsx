@@ -44,14 +44,14 @@ export const ALL_CARDS: CardDef[] = [
     { id: 'gexRegime', label: 'GEX REGIME', category: 'structure', eliteOnly: true },
     { id: 'impliedMove', label: 'IMPLIED MOVE', category: 'options', eliteOnly: true },
     // ── Additional Pool (8 more) ──
-    { id: 'alphaScore', label: 'ALPHA SCORE', category: 'momentum' },
-    { id: 'whaleIndex', label: 'WHALE INDEX', category: 'flow' },
+    { id: 'alphaScore', label: 'ALPHA SCORE', category: 'momentum', proOnly: true },
+    { id: 'whaleIndex', label: 'WHALE INDEX', category: 'flow', proOnly: true },
     { id: 'rsi14', label: 'RSI 14', category: 'momentum' },
     { id: 'return3d', label: 'RETURN 3D', category: 'momentum' },
     { id: 'relVolume', label: 'REL VOLUME', category: 'momentum' },
-    { id: 'opi', label: 'OPI', category: 'flow' },
-    { id: 'smartMoney', label: 'SMART MONEY', category: 'flow' },
-    { id: 'ivRank', label: 'IV RANK', category: 'options' },
+    { id: 'opi', label: 'OPI', category: 'flow', proOnly: true },
+    { id: 'smartMoney', label: 'SMART MONEY', category: 'flow', eliteOnly: true },
+    { id: 'ivRank', label: 'IV RANK', category: 'options', proOnly: true },
 ];
 
 export const DEFAULT_CARD_ORDER = ALL_CARDS.slice(0, 12).map(c => c.id);
