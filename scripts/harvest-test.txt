@@ -1,0 +1,1 @@
+﻿{"success":true,"duration":"2010ms","timestamp":"2026-03-10T05:30:32.793Z","harvested":{"gex":"","sectors":"Skipped (not market close)"}}
