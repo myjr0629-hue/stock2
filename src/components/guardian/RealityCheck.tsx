@@ -23,7 +23,7 @@ interface RealityCheckProps {
 }
 
 /**
- * RealityCheck v9.0 — Dual-Mode: Gauges + Risk Radar HUD (6-Axis Hexagon)
+ * RealityCheck v9.1 — Dual-Mode: Gauges + Risk Radar HUD (6-Axis Hexagon)
  */
 export function RealityCheck({
     nasdaqChange,
@@ -77,8 +77,8 @@ export function RealityCheck({
                         <button
                             onClick={() => setActiveTab('gauges')}
                             className={`text-[12px] font-bold px-2.5 py-0.5 rounded-full transition-all duration-200 ${activeTab === 'gauges'
-                                    ? 'bg-slate-600/80 text-white shadow-sm'
-                                    : 'text-slate-400 hover:text-slate-300'
+                                ? 'bg-slate-600/80 text-white shadow-sm'
+                                : 'text-slate-400 hover:text-slate-300'
                                 }`}
                         >
                             GAUGES
@@ -86,8 +86,8 @@ export function RealityCheck({
                         <button
                             onClick={() => setActiveTab('radar')}
                             className={`text-[12px] font-bold px-2.5 py-0.5 rounded-full transition-all duration-200 flex items-center gap-1 ${activeTab === 'radar'
-                                    ? 'bg-cyan-500/20 text-cyan-400 shadow-sm border border-cyan-500/30'
-                                    : 'text-slate-400 hover:text-slate-300'
+                                ? 'bg-cyan-500/20 text-cyan-400 shadow-sm border border-cyan-500/30'
+                                : 'text-slate-400 hover:text-slate-300'
                                 }`}
                         >
                             <Radar className="w-3 h-3" />
@@ -162,7 +162,7 @@ export function RealityCheck({
 }
 
 // ========================================================
-// Risk Radar HUD — 6-Axis Hexagon SVG Spider Chart
+// Risk Radar HUD — 6-Axis Hexagon (Larger, Center-Aligned)
 // VIX | 10Y | OIL | DXY | GOLD | BTC
 // ========================================================
 function RiskRadarHUD({ snapshot }: { snapshot: ReturnType<typeof useMacroSnapshot>['snapshot'] }) {
@@ -218,7 +218,8 @@ function RiskRadarHUD({ snapshot }: { snapshot: ReturnType<typeof useMacroSnapsh
         return { label: 'RISK-ON', color: '#34d399', bgColor: 'rgba(52,211,153,0.08)', borderColor: 'rgba(52,211,153,0.25)' };
     }, [axes]);
 
-    const CX = 140, CY = 100, R = 60;
+    // ★ LARGER hexagon
+    const CX = 150, CY = 115, R = 80;
     const getPoint = (angle: number, radius: number) => ({
         x: CX + radius * Math.cos(angle),
         y: CY + radius * Math.sin(angle),
@@ -254,10 +255,21 @@ function RiskRadarHUD({ snapshot }: { snapshot: ReturnType<typeof useMacroSnapsh
         return chg > 0.1 ? '#34d399' : chg < -0.1 ? '#f87171' : '#94a3b8';
     };
 
+    // Label component for DRY — always center-aligned
+    const AxisLabel = ({ idx, invert = false }: { idx: number; invert?: boolean }) => (
+        <>
+            <div className="text-[13px] font-bold text-slate-400 tracking-wider font-jakarta">{axes[idx].label}</div>
+            <div className="text-[14px] font-mono font-bold text-white leading-tight">{axes[idx].value}</div>
+            <div className="text-[13px] font-mono font-semibold leading-tight" style={{ color: chgColor(axes[idx].chg, invert) }}>
+                {axes[idx].chg > 0 ? '+' : ''}{axes[idx].chg.toFixed(2)}%
+            </div>
+        </>
+    );
+
     return (
-        <div className="flex-1 flex flex-col items-center justify-start mt-3">
-            <div className="relative" style={{ width: 280, height: 210 }}>
-                <svg width="280" height="210" viewBox="0 0 280 210" className="overflow-visible">
+        <div className="flex-1 flex flex-col items-center justify-start mt-4">
+            <div className="relative" style={{ width: 300, height: 240 }}>
+                <svg width="300" height="240" viewBox="0 0 300 240" className="overflow-visible">
                     <defs>
                         <radialGradient id="radarBg6" cx="50%" cy="50%" r="50%">
                             <stop offset="0%" stopColor="rgba(6,182,212,0.06)" />
@@ -308,60 +320,49 @@ function RiskRadarHUD({ snapshot }: { snapshot: ReturnType<typeof useMacroSnapsh
                                 <animate attributeName="r" values="3;7;3" dur="3s" repeatCount="indefinite" begin={`${i * 0.4}s`} />
                                 <animate attributeName="opacity" values="0.4;0.1;0.4" dur="3s" repeatCount="indefinite" begin={`${i * 0.4}s`} />
                             </circle>
-                            <circle cx={p.x} cy={p.y} r="2.5" fill={regime.color} opacity="0.9" />
+                            <circle cx={p.x} cy={p.y} r="3" fill={regime.color} opacity="0.9" />
                         </g>
                     ))}
 
                     {/* Center regime label */}
                     <text x={CX} y={CY - 3} textAnchor="middle"
-                        className="font-jakarta" style={{ fontSize: '13px', fontWeight: 900, fill: regime.color, letterSpacing: '0.12em' }}>
+                        className="font-jakarta" style={{ fontSize: '14px', fontWeight: 900, fill: regime.color, letterSpacing: '0.12em' }}>
                         {regime.label}
                     </text>
-                    <circle cx={CX} cy={CY + 9} r="2.5" fill={regime.color} opacity="0.6">
+                    <circle cx={CX} cy={CY + 10} r="2.5" fill={regime.color} opacity="0.6">
                         <animate attributeName="opacity" values="0.3;0.8;0.3" dur="2s" repeatCount="indefinite" />
                     </circle>
                 </svg>
 
-                {/* HTML Labels — VIX top */}
-                <div className="absolute left-1/2 -translate-x-1/2 text-center" style={{ top: `${CY - R - 50}px` }}>
-                    <div className="text-[12px] font-bold text-slate-400 tracking-wider font-jakarta">VIX</div>
-                    <div className="text-[12px] font-mono font-bold text-white">{axes[0].value}</div>
-                    <div className="text-[12px] font-mono font-semibold" style={{ color: chgColor(axes[0].chg, true) }}>{axes[0].chg > 0 ? '+' : ''}{axes[0].chg.toFixed(2)}%</div>
+                {/* HTML Labels — ALL center-aligned */}
+                {/* VIX — top */}
+                <div className="absolute left-1/2 -translate-x-1/2 text-center" style={{ top: '-14px' }}>
+                    <AxisLabel idx={0} invert />
                 </div>
-                {/* 10Y top-right */}
-                <div className="absolute text-left" style={{ right: '-8px', top: `${CY - R * 0.5 - 18}px` }}>
-                    <div className="text-[12px] font-bold text-slate-400 tracking-wider font-jakarta">10Y</div>
-                    <div className="text-[12px] font-mono font-bold text-white">{axes[1].value}</div>
-                    <div className="text-[12px] font-mono font-semibold" style={{ color: chgColor(axes[1].chg, true) }}>{axes[1].chg > 0 ? '+' : ''}{axes[1].chg.toFixed(2)}%</div>
+                {/* 10Y — top-right */}
+                <div className="absolute text-center" style={{ right: '-24px', top: `${CY - R * 0.5 - 22}px` }}>
+                    <AxisLabel idx={1} invert />
                 </div>
-                {/* OIL bottom-right */}
-                <div className="absolute text-left" style={{ right: '-8px', top: `${CY + R * 0.5 - 8}px` }}>
-                    <div className="text-[12px] font-bold text-slate-400 tracking-wider font-jakarta">OIL</div>
-                    <div className="text-[12px] font-mono font-bold text-white">{axes[2].value}</div>
-                    <div className="text-[12px] font-mono font-semibold" style={{ color: chgColor(axes[2].chg) }}>{axes[2].chg > 0 ? '+' : ''}{axes[2].chg.toFixed(2)}%</div>
+                {/* OIL — bottom-right */}
+                <div className="absolute text-center" style={{ right: '-24px', top: `${CY + R * 0.5 - 6}px` }}>
+                    <AxisLabel idx={2} />
                 </div>
-                {/* DXY bottom */}
-                <div className="absolute left-1/2 -translate-x-1/2 text-center" style={{ bottom: '-36px' }}>
-                    <div className="text-[12px] font-bold text-slate-400 tracking-wider font-jakarta">DXY</div>
-                    <div className="text-[12px] font-mono font-bold text-white">{axes[3].value}</div>
-                    <div className="text-[12px] font-mono font-semibold" style={{ color: chgColor(axes[3].chg, true) }}>{axes[3].chg > 0 ? '+' : ''}{axes[3].chg.toFixed(2)}%</div>
+                {/* DXY — bottom */}
+                <div className="absolute left-1/2 -translate-x-1/2 text-center" style={{ bottom: '-44px' }}>
+                    <AxisLabel idx={3} invert />
                 </div>
-                {/* GOLD bottom-left */}
-                <div className="absolute text-right" style={{ left: '-8px', top: `${CY + R * 0.5 - 8}px` }}>
-                    <div className="text-[12px] font-bold text-slate-400 tracking-wider font-jakarta">GOLD</div>
-                    <div className="text-[12px] font-mono font-bold text-white">{axes[4].value}</div>
-                    <div className="text-[12px] font-mono font-semibold" style={{ color: chgColor(axes[4].chg) }}>{axes[4].chg > 0 ? '+' : ''}{axes[4].chg.toFixed(2)}%</div>
+                {/* GOLD — bottom-left */}
+                <div className="absolute text-center" style={{ left: '-28px', top: `${CY + R * 0.5 - 6}px` }}>
+                    <AxisLabel idx={4} />
                 </div>
-                {/* BTC top-left */}
-                <div className="absolute text-right" style={{ left: '-8px', top: `${CY - R * 0.5 - 18}px` }}>
-                    <div className="text-[12px] font-bold text-slate-400 tracking-wider font-jakarta">BTC</div>
-                    <div className="text-[12px] font-mono font-bold text-white">{axes[5].value}</div>
-                    <div className="text-[12px] font-mono font-semibold" style={{ color: chgColor(axes[5].chg) }}>{axes[5].chg > 0 ? '+' : ''}{axes[5].chg.toFixed(2)}%</div>
+                {/* BTC — top-left */}
+                <div className="absolute text-center" style={{ left: '-28px', top: `${CY - R * 0.5 - 22}px` }}>
+                    <AxisLabel idx={5} />
                 </div>
             </div>
 
             {/* Insight bar */}
-            <div className="w-full px-1 mt-10">
+            <div className="w-full px-1 mt-12">
                 <div className="px-3 py-1.5 rounded border text-center" style={{ backgroundColor: regime.bgColor, borderColor: regime.borderColor }}>
                     <span className="text-[12px] text-slate-300">{insightText}</span>
                 </div>
