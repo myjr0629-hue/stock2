@@ -349,7 +349,7 @@ export default function GravityGauge({ score, loading, session, components, rlsi
             {rlsiHistory && rlsiHistory.length >= 2 && !loading && !isHoliday && (
                 <div className="w-full max-w-[290px] border-t border-slate-800/50 pt-2 mt-1">
                     <div className="flex items-center justify-between mb-1">
-                        <span className="text-[12px] font-bold uppercase tracking-[0.15em] text-slate-300 font-jakarta">INTRADAY TREND</span>
+                        <span className="text-[12px] font-bold uppercase tracking-[0.15em] text-slate-300 font-jakarta">SCORE TIMELINE</span>
                         <span className="text-[12px] font-mono text-slate-300 font-jakarta">{rlsiHistory.length} pts</span>
                     </div>
                     <ScoreTimeline history={rlsiHistory} currentScore={animatedScore} />
