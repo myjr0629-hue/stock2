@@ -87,7 +87,7 @@ export default function WhatIfSimulator({ currentScore, components }: WhatIfProp
     ), [components]);
 
     const delta = Number((simResult.score - currentResult.score).toFixed(1));
-    const deltaColor = delta > 0 ? 'text-emerald-400' : delta < 0 ? 'text-rose-400' : 'text-slate-400';
+    const deltaColor = delta > 0 ? 'text-emerald-400' : delta < 0 ? 'text-rose-400' : 'text-slate-300';
     const DeltaIcon = delta > 0 ? TrendingUp : delta < 0 ? TrendingDown : Minus;
 
     const handleReset = () => {
@@ -119,16 +119,16 @@ export default function WhatIfSimulator({ currentScore, components }: WhatIfProp
                         {t('title', locale)}
                     </span>
                 </div>
-                <button onClick={handleReset} className="text-[12px] font-jakarta text-slate-400 hover:text-white transition-colors px-2 py-0.5 rounded border border-slate-700/40 hover:border-slate-500/60">
+                <button onClick={handleReset} className="text-[12px] font-jakarta text-slate-300 hover:text-white transition-colors px-2 py-0.5 rounded border border-slate-700/40 hover:border-slate-500/60">
                     {t('reset', locale)}
                 </button>
             </div>
-            <p className="text-[12px] font-jakarta text-slate-400 -mt-1">{t('subtitle', locale)}</p>
+            <p className="text-[12px] font-jakarta text-slate-300 -mt-1">{t('subtitle', locale)}</p>
 
             {/* Score Comparison */}
             <div className="grid grid-cols-3 gap-2 bg-slate-800/40 rounded-lg p-2.5 border border-slate-700/20">
                 <div className="flex flex-col items-center">
-                    <span className="text-[12px] font-jakarta text-slate-400 mb-1">{t('current', locale)}</span>
+                    <span className="text-[12px] font-jakarta text-slate-300 mb-1">{t('current', locale)}</span>
                     <span className="text-[20px] font-black font-jakarta tabular-nums text-slate-300">{currentResult.score}</span>
                 </div>
                 <div className="flex flex-col items-center justify-center">
@@ -136,10 +136,10 @@ export default function WhatIfSimulator({ currentScore, components }: WhatIfProp
                     <span className={`text-[16px] font-black font-jakarta tabular-nums ${deltaColor}`}>
                         {delta > 0 ? '+' : ''}{delta}
                     </span>
-                    <span className="text-[12px] font-jakarta text-slate-500">{t('delta', locale)}</span>
+                    <span className="text-[12px] font-jakarta text-slate-300">{t('delta', locale)}</span>
                 </div>
                 <div className="flex flex-col items-center">
-                    <span className="text-[12px] font-jakarta text-slate-400 mb-1">{t('simulated', locale)}</span>
+                    <span className="text-[12px] font-jakarta text-slate-300 mb-1">{t('simulated', locale)}</span>
                     <span className={`text-[20px] font-black font-jakarta tabular-nums ${getLevelColor(simLevel)}`}>{simResult.score}</span>
                     <span className={`text-[12px] font-bold font-jakarta ${getLevelColor(simLevel)}`}>{simLevel}</span>
                 </div>
@@ -152,7 +152,7 @@ export default function WhatIfSimulator({ currentScore, components }: WhatIfProp
                     return (
                         <div key={s.key} className="flex flex-col gap-1">
                             <div className="flex items-center justify-between">
-                                <span className={`text-[12px] font-jakarta ${changed ? 'text-violet-300 font-semibold' : 'text-slate-400'}`}>
+                                <span className={`text-[12px] font-jakarta ${changed ? 'text-violet-300 font-semibold' : 'text-slate-300'}`}>
                                     {s.label}
                                 </span>
                                 <span className={`text-[13px] font-mono font-bold tabular-nums ${changed ? 'text-white' : 'text-slate-300'}`}>
@@ -167,9 +167,9 @@ export default function WhatIfSimulator({ currentScore, components }: WhatIfProp
                                     background: `linear-gradient(to right, rgb(139,92,246) 0%, rgb(139,92,246) ${((s.value - s.min) / (s.max - s.min)) * 100}%, rgb(51,65,85) ${((s.value - s.min) / (s.max - s.min)) * 100}%, rgb(51,65,85) 100%)`
                                 }}
                             />
-                            <div className="flex justify-between text-[12px] font-jakarta text-slate-500">
+                            <div className="flex justify-between text-[12px] font-jakarta text-slate-300">
                                 <span>{s.fmt(s.min)}</span>
-                                <span className="text-slate-600">{t('current', locale)}: {s.fmt(s.current)}</span>
+                                <span className="text-slate-300">{t('current', locale)}: {s.fmt(s.current)}</span>
                                 <span>{s.fmt(s.max)}</span>
                             </div>
                         </div>
