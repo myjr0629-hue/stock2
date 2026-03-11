@@ -291,7 +291,8 @@ function getInsightText(
     return t('neutral', locale);
 }
 
-// === Summary Strip — readable multi-sentence insight ===
+// === Summary Strip — Institutional-Grade Conditional Insight ===
+// Data-driven: output varies by GEX × Squeeze × Level Proximity combinations
 function getSummaryInsight(
     gexIndex: number,
     squeezeRisk: number,
@@ -301,48 +302,87 @@ function getSummaryInsight(
     resistanceWall: number | null,
     locale: Locale
 ): string[] {
-    const lines: string[] = [];
     const sup = supportWall && supportWall > 0 ? supportWall.toLocaleString() : null;
     const res = resistanceWall && resistanceWall > 0 ? resistanceWall.toLocaleString() : null;
-    const distDown = supportWall && supportWall > 0 && currentPrice ? (((currentPrice - supportWall) / currentPrice) * 100).toFixed(1) : null;
+    const distDown = supportWall && supportWall > 0 && currentPrice ? ((currentPrice - supportWall) / currentPrice * 100) : null;
+    const distUp = resistanceWall && resistanceWall > 0 && currentPrice ? ((resistanceWall - currentPrice) / currentPrice * 100) : null;
+    const nearSupport = distDown !== null && distDown < 1.5;
+    const nearResist = distUp !== null && distUp < 1.5;
+    const dD = distDown?.toFixed(1);
+    const dU = distUp?.toFixed(1);
 
-    // Line 1: GEX condition
+    // Institutional-grade: different insight for every meaningful data combination
     if (locale === 'ko') {
-        if (gexIndex >= 40) lines.push(`감마 매수 우위(+${gexIndex}) — 기관 헤지가 하방 쿠션 역할 중. 옵션 시장 안정 구간.`);
-        else if (gexIndex >= 20) lines.push(`감마 방어(+${gexIndex}) — 기관 포지션이 변동성 흡수 중. 안정적 구조.`);
-        else if (gexIndex > -20) lines.push(`감마 중립(${gexIndex >= 0 ? '+' : ''}${gexIndex}) — 옵션 시장 균형. 방향성 미확정 구간.`);
-        else if (gexIndex > -40) lines.push(`숏감마(${gexIndex}) — 기관 헤지가 변동을 증폭시키는 구간. 경계 필요.`);
-        else lines.push(`강한 숏감마(${gexIndex}) — 딜러 매도가 하락을 가속시킬 수 있는 구조.`);
-    } else if (locale === 'ja') {
-        if (gexIndex >= 40) lines.push(`ガンマ買い優位(+${gexIndex}) — 機関ヘッジが下方クッション。安定構造。`);
-        else if (gexIndex >= 20) lines.push(`ガンマ防御(+${gexIndex}) — 機関がボラティリティ吸収中。安定的構造。`);
-        else if (gexIndex > -20) lines.push(`ガンマ中立(${gexIndex >= 0 ? '+' : ''}${gexIndex}) — オプション市場均衡。方向性未確定。`);
-        else if (gexIndex > -40) lines.push(`ショートガンマ(${gexIndex}) — 機関ヘッジが変動増幅圏。警戒必要。`);
-        else lines.push(`強いショートガンマ(${gexIndex}) — ディーラー売りが下落加速構造。`);
-    } else {
-        if (gexIndex >= 40) lines.push(`Long gamma dominant (+${gexIndex}) — institutional hedging acts as downside cushion. Stable structure.`);
-        else if (gexIndex >= 20) lines.push(`Gamma defense (+${gexIndex}) — institutional positioning absorbs volatility. Stable structure.`);
-        else if (gexIndex > -20) lines.push(`Gamma neutral (${gexIndex >= 0 ? '+' : ''}${gexIndex}) — options market balanced. Directionality unconfirmed.`);
-        else if (gexIndex > -40) lines.push(`Short gamma (${gexIndex}) — institutional hedging amplifying swings. Elevated caution.`);
-        else lines.push(`Deep short gamma (${gexIndex}) — dealer selling may accelerate declines.`);
+        // CASE: High Squeeze + Short Gamma — most dangerous
+        if (squeezeRisk >= 55 && gexIndex <= -20)
+            return [`숏감마(${gexIndex}) · Squeeze ${squeezeRisk}% 임계 — 딜러 헤지 매도가 하방 변동을 증폭시키는 구조. 지지 ${sup || '—'}${dD ? `(-${dD}%)` : ''} 이탈 시 연쇄 청산 압력 확대 가능성 관측.`];
+
+        // CASE: High Squeeze + Long Gamma — coiled spring
+        if (squeezeRisk >= 55 && gexIndex >= 20)
+            return [`감마 방어(+${gexIndex}) · Squeeze ${squeezeRisk}% 임계 — 딜러 롱감마가 변동 억제 중이나 Squeeze 에너지 축적 상태. 저항 ${res || '—'}${dU ? `(+${dU}%)` : ''} 돌파 시 감마 언와인딩 동반 급등 구조 형성 관측.`];
+
+        // CASE: High Squeeze + Neutral — directionless pressure
+        if (squeezeRisk >= 55)
+            return [`감마 중립(${gexIndex >= 0 ? '+' : ''}${gexIndex}) · Squeeze ${squeezeRisk}% 임계 — 방향 미확정 상태에서 변동성 에너지 축적. ${sup && res ? `${sup}~${res} 레인지` : '현재 레인지'} 이탈 시 방향 불문 급변동 가능성 관측.`];
+
+        // CASE: Near resistance + Long Gamma — pinning
+        if (nearResist && gexIndex >= 20)
+            return [`감마 방어(+${gexIndex}) — 저항 ${res}(+${dU}%) 근접. 딜러 매도 헤지가 상방 억제 역할 중, 레인지 바운드 구조 형성. Squeeze ${squeezeRisk}%${squeezeRisk >= 30 ? ' 축적 중' : ' 안정'}.`];
+
+        // CASE: Near support + Short Gamma — amplification zone
+        if (nearSupport && gexIndex <= -20)
+            return [`숏감마(${gexIndex}) — 지지 ${sup}(-${dD}%) 근접, 딜러 숏감마 포지션이 하방 이탈 시 매도 가속 구조. Squeeze ${squeezeRisk}%${squeezeRisk >= 30 ? ', 에너지 축적 상태' : ''}.`];
+
+        // CASE: Near support + Neutral
+        if (nearSupport)
+            return [`감마 중립(${gexIndex >= 0 ? '+' : ''}${gexIndex}) — 지지 ${sup}(-${dD}%) 테스트 구간. 옵션 시장 방어력 부족(감마 약), 이탈 시 추가 하락 폭 확대 가능성. Squeeze ${squeezeRisk}%.`];
+
+        // CASE: Strong Long Gamma — stability regime
+        if (gexIndex >= 40)
+            return [`감마 매수 우위(+${gexIndex}) — 딜러 롱감마 클램핑으로 ${sup && res ? `${sup}~${res}` : '현재'} 레인지 변동 억제 구조. Squeeze ${squeezeRisk}%${squeezeRisk >= 30 ? ' 축적 중, 돌파 시 감마 해제 동반 변동성 확대 관측' : ' 안정, 레인지 바운드 지속 관측'}.`];
+
+        // CASE: Moderate Long Gamma
+        if (gexIndex >= 20)
+            return [`감마 방어(+${gexIndex}) — 기관 포지션이 변동성 흡수 중. Squeeze ${squeezeRisk}%${squeezeRisk >= 30 ? ' 축적 중' : ' 안정'}. 지지 ${sup || '—'}${dD ? `(-${dD}%)` : ''}, 저항 ${res || '—'}${dU ? `(+${dU}%)` : ''} 관측.`];
+
+        // CASE: Moderate Short Gamma
+        if (gexIndex <= -20)
+            return [`숏감마(${gexIndex}) — 기관 헤지 매도가 변동 폭 증폭 구간. Squeeze ${squeezeRisk}%${squeezeRisk >= 30 ? ' 축적 중, 방향성 변동 가속 관측' : ''}. 지지 ${sup || '—'}${dD ? `(-${dD}%)` : ''}, 저항 ${res || '—'} 관측.`];
+
+        // DEFAULT: Neutral GEX
+        return [`감마 중립(${gexIndex >= 0 ? '+' : ''}${gexIndex}) — 옵션 시장 균형. Squeeze ${squeezeRisk}%${squeezeRisk >= 30 ? ' 축적 중' : ' 안정'}. 지지 ${sup || '—'}${dD ? `(-${dD}%)` : ''}, 저항 ${res || '—'}${dU ? `(+${dU}%)` : ''} 관측.`];
     }
 
-    // Line 2: Squeeze + Support context
-    if (locale === 'ko') {
-        if (squeezeRisk >= 55) lines.push(`Squeeze ${squeezeRisk}% 임계 — 변동성이 급격히 해소될 수 있는 구간.${sup && distDown ? ` 지지 ${sup}(-${distDown}%).` : ''}`);
-        else if (squeezeRisk >= 30) lines.push(`Squeeze ${squeezeRisk}% 축적 중.${sup && distDown ? ` 지지 ${sup}(-${distDown}%)` : ''}${res ? `, 저항 ${res}` : ''} 관측.`);
-        else lines.push(`Squeeze ${squeezeRisk}% 안정.${sup && distDown ? ` 지지 ${sup}(-${distDown}%)` : ''}${res ? `, 저항 ${res}` : ''}.`);
-    } else if (locale === 'ja') {
-        if (squeezeRisk >= 55) lines.push(`Squeeze ${squeezeRisk}%臨界 — ボラティリティ急解消の可能性。${sup && distDown ? `支持${sup}(-${distDown}%)。` : ''}`);
-        else if (squeezeRisk >= 30) lines.push(`Squeeze ${squeezeRisk}%蓄積中。${sup && distDown ? `支持${sup}(-${distDown}%)` : ''}${res ? `、抵抗${res}` : ''}観測。`);
-        else lines.push(`Squeeze ${squeezeRisk}%安定。${sup && distDown ? `支持${sup}(-${distDown}%)` : ''}${res ? `、抵抗${res}` : ''}。`);
-    } else {
-        if (squeezeRisk >= 55) lines.push(`Squeeze ${squeezeRisk}% critical — volatility may release sharply.${sup && distDown ? ` Floor ${sup}(-${distDown}%).` : ''}`);
-        else if (squeezeRisk >= 30) lines.push(`Squeeze ${squeezeRisk}% building.${sup && distDown ? ` Floor ${sup}(-${distDown}%)` : ''}${res ? `, cap ${res}` : ''} observed.`);
-        else lines.push(`Squeeze ${squeezeRisk}% stable.${sup && distDown ? ` Floor ${sup}(-${distDown}%)` : ''}${res ? `, cap ${res}` : ''}.`);
+    if (locale === 'ja') {
+        if (squeezeRisk >= 55 && gexIndex <= -20)
+            return [`ショートガンマ(${gexIndex}) · Squeeze ${squeezeRisk}%臨界 — ディーラーヘッジ売りが下方変動増幅構造。支持${sup || '—'}${dD ? `(-${dD}%)` : ''}割れで連鎖清算圧力拡大の可能性。`];
+        if (squeezeRisk >= 55 && gexIndex >= 20)
+            return [`ガンマ防御(+${gexIndex}) · Squeeze ${squeezeRisk}%臨界 — ロングガンマが変動抑制もSqueeze蓄積。抵抗${res || '—'}${dU ? `(+${dU}%)` : ''}突破時、ガンマ解除急騰構造観測。`];
+        if (squeezeRisk >= 55)
+            return [`ガンマ中立(${gexIndex >= 0 ? '+' : ''}${gexIndex}) · Squeeze ${squeezeRisk}%臨界 — 方向未確定でボラ蓄積。${sup && res ? `${sup}~${res}レンジ` : '現レンジ'}離脱時、方向不問急変動の可能性。`];
+        if (gexIndex >= 40)
+            return [`ガンマ買い優位(+${gexIndex}) — ディーラークランプで変動抑制構造。Squeeze ${squeezeRisk}%${squeezeRisk >= 30 ? '蓄積中' : '安定'}。支持${sup || '—'}、抵抗${res || '—'}観測。`];
+        if (gexIndex >= 20)
+            return [`ガンマ防御(+${gexIndex}) — 機関ポジションがボラ吸収中。Squeeze ${squeezeRisk}%${squeezeRisk >= 30 ? '蓄積中' : '安定'}。支持${sup || '—'}${dD ? `(-${dD}%)` : ''}、抵抗${res || '—'}観測。`];
+        if (gexIndex <= -20)
+            return [`ショートガンマ(${gexIndex}) — 機関ヘッジ売りが変動増幅圏。Squeeze ${squeezeRisk}%${squeezeRisk >= 30 ? '蓄積中' : ''}。支持${sup || '—'}${dD ? `(-${dD}%)` : ''}、抵抗${res || '—'}観測。`];
+        return [`ガンマ中立(${gexIndex >= 0 ? '+' : ''}${gexIndex}) — 市場均衡。Squeeze ${squeezeRisk}%${squeezeRisk >= 30 ? '蓄積中' : '安定'}。支持${sup || '—'}${dD ? `(-${dD}%)` : ''}、抵抗${res || '—'}${dU ? `(+${dU}%)` : ''}観測。`];
     }
 
-    return lines;
+    // EN
+    if (squeezeRisk >= 55 && gexIndex <= -20)
+        return [`Short gamma (${gexIndex}) · Squeeze ${squeezeRisk}% critical — dealer hedge selling amplifies downside. Floor ${sup || '—'}${dD ? ` (-${dD}%)` : ''} breach risks cascading liquidation pressure.`];
+    if (squeezeRisk >= 55 && gexIndex >= 20)
+        return [`Gamma defense (+${gexIndex}) · Squeeze ${squeezeRisk}% critical — long gamma dampening vol but squeeze energy building. Cap ${res || '—'}${dU ? ` (+${dU}%)` : ''} breakout may trigger gamma unwind rally.`];
+    if (squeezeRisk >= 55)
+        return [`Gamma neutral (${gexIndex >= 0 ? '+' : ''}${gexIndex}) · Squeeze ${squeezeRisk}% critical — directionless vol compression. ${sup && res ? `${sup}–${res} range` : 'Range'} breach triggers sharp move either direction.`];
+    if (gexIndex >= 40)
+        return [`Long gamma dominant (+${gexIndex}) — dealer clamping suppresses ${sup && res ? `${sup}–${res}` : ''} range vol. Squeeze ${squeezeRisk}%${squeezeRisk >= 30 ? ' building — breakout triggers gamma unwind' : ' stable, range-bound regime'}.`];
+    if (gexIndex >= 20)
+        return [`Gamma defense (+${gexIndex}) — institutional positioning absorbs vol. Squeeze ${squeezeRisk}%${squeezeRisk >= 30 ? ' building' : ' stable'}. Floor ${sup || '—'}${dD ? ` (-${dD}%)` : ''}, cap ${res || '—'}${dU ? ` (+${dU}%)` : ''}.`];
+    if (gexIndex <= -20)
+        return [`Short gamma (${gexIndex}) — dealer hedging amplifies swings. Squeeze ${squeezeRisk}%${squeezeRisk >= 30 ? ' building, directional acceleration observed' : ''}. Floor ${sup || '—'}${dD ? ` (-${dD}%)` : ''}, cap ${res || '—'}.`];
+    return [`Gamma neutral (${gexIndex >= 0 ? '+' : ''}${gexIndex}) — options market balanced. Squeeze ${squeezeRisk}%${squeezeRisk >= 30 ? ' building' : ' stable'}. Floor ${sup || '—'}${dD ? ` (-${dD}%)` : ''}, cap ${res || '—'}${dU ? ` (+${dU}%)` : ''}.`];
 }
 
 // === Main Component ===
