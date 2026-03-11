@@ -32,7 +32,7 @@ export function getRedisStatus() {
     };
 }
 
-// ?€?€ EC2 Redis Proxy helpers ?€?€
+// ?ï¿½?ï¿½ EC2 Redis Proxy helpers ?ï¿½?ï¿½
 async function ecProxyGet<T>(key: string): Promise<T | null> {
     try {
         const res = await fetch(`${EC2_PROXY_URL}/get?key=${encodeURIComponent(key)}`, {
@@ -72,7 +72,7 @@ async function ecProxySet<T>(key: string, value: T, ttlSeconds?: number): Promis
     }
 }
 
-// ?€?€ Upstash (HTTP) connection ?€?€
+// ?ï¿½?ï¿½ Upstash (HTTP) connection ?ï¿½?ï¿½
 function getUpstashClient(): UpstashRedis | null {
     if (upstashClient) return upstashClient;
 

@@ -4,9 +4,9 @@ import React, { createContext, useContext, useEffect, useState, useRef, useMemo,
 import { usePathname } from 'next/navigation';
 import { useMarketStatus } from '@/hooks/useMarketStatus';
 
-// ?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═
+// ?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═
 // TYPES
-// ?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═
+// ?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═
 
 interface RLSIResult {
     score: number;
@@ -47,15 +47,15 @@ const GuardianContext = createContext<GuardianContextType>({
     connectionMode: 'connecting',
 });
 
-// ?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═
+// ?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═
 // EC2 WEBSOCKET HUB URL
-// ?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═
+// ?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═
 
 const WS_HUB_URL = process.env.NEXT_PUBLIC_GUARDIAN_WS_URL || 'wss://52.23.98.13:8082/guardian';
 
-// ?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═
+// ?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═
 // PROVIDER
-// ?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═
+// ?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═
 
 export function GuardianProvider({ children }: { children: React.ReactNode }) {
     const [data, setData] = useState<any>(null);
@@ -72,7 +72,7 @@ export function GuardianProvider({ children }: { children: React.ReactNode }) {
     const locale = pathname?.split('/')[1] || 'ko';
     const validLocale = ['ko', 'en', 'ja'].includes(locale) ? locale : 'ko';
 
-    // ?�?� Helper: Merge snapshot preserving AI verdict ?�?�
+    // ?�?� Helper: Merge snapshot preserving AI verdict ?�?�
     const mergeSnapshot = useCallback((newData: any) => {
         setData((prev: any) => {
             if (newData.verdict && !newData.verdict.realityInsight && prev?.verdict?.realityInsight) {
@@ -85,7 +85,7 @@ export function GuardianProvider({ children }: { children: React.ReactNode }) {
         setLoading(false);
     }, []);
 
-    // ?�?� Polling Refresh (fallback) ?�?�
+    // ?�?� Polling Refresh (fallback) ?�?�
     const refresh = useCallback(async (force: boolean = false) => {
         if (!data || force) setLoading(true);
         try {
@@ -101,7 +101,7 @@ export function GuardianProvider({ children }: { children: React.ReactNode }) {
         }
     }, [data, validLocale, mergeSnapshot]);
 
-    // ?�?� WebSocket Connection ?�?�
+    // ?�?� WebSocket Connection ?�?�
     const connectWebSocket = useCallback(() => {
         // Don't reconnect if already connected
         if (wsRef.current?.readyState === WebSocket.OPEN) return;
@@ -112,7 +112,7 @@ export function GuardianProvider({ children }: { children: React.ReactNode }) {
             wsRef.current = ws;
 
             ws.onopen = () => {
-                console.log('[Guardian] ?�� WebSocket connected');
+                console.log('[Guardian] ?�� WebSocket connected');
                 setConnectionMode('websocket');
                 // Start ping keepalive
                 pingTimerRef.current = setInterval(() => {
@@ -127,17 +127,17 @@ export function GuardianProvider({ children }: { children: React.ReactNode }) {
                     const msg = JSON.parse(event.data);
 
                     if (msg.type === 'initial_snapshot' && msg.data) {
-                        console.log('[Guardian] ?�� Received initial snapshot via WebSocket');
+                        console.log('[Guardian] ?�� Received initial snapshot via WebSocket');
                         mergeSnapshot(msg.data);
                     }
 
                     if (msg.type === 'snapshot_update' && msg.data) {
-                        console.log('[Guardian] ?�� Received real-time update via WebSocket');
+                        console.log('[Guardian] ?�� Received real-time update via WebSocket');
                         mergeSnapshot(msg.data);
                     }
 
                     if (msg.type === 'alert' && msg.data) {
-                        console.log('[Guardian] ?�� Alert:', msg.data.title);
+                        console.log('[Guardian] ?�� Alert:', msg.data.title);
                         setAlerts(prev => {
                             // Deduplicate by alert ID, keep max 5
                             const filtered = prev.filter(a => a.id !== msg.data.id);
@@ -184,7 +184,7 @@ export function GuardianProvider({ children }: { children: React.ReactNode }) {
         }
     }, [validLocale, mergeSnapshot]);
 
-    // ?�?� Lifecycle: Connect WebSocket, fallback to polling ?�?�
+    // ?�?� Lifecycle: Connect WebSocket, fallback to polling ?�?�
     useEffect(() => {
         // First: immediate API fetch for fast initial load
         refresh();
@@ -200,7 +200,7 @@ export function GuardianProvider({ children }: { children: React.ReactNode }) {
         };
     }, [validLocale]);
 
-    // ?�?� Auto-refresh on market session change ?�?�
+    // ?�?� Auto-refresh on market session change ?�?�
     useEffect(() => {
         const currentSession = mktStatus.session;
         const prevSession = prevSessionRef.current;
@@ -212,7 +212,7 @@ export function GuardianProvider({ children }: { children: React.ReactNode }) {
         prevSessionRef.current = currentSession;
     }, [mktStatus.session]);
 
-    // ?�?� Polling fallback (only when WebSocket is down) ?�?�
+    // ?�?� Polling fallback (only when WebSocket is down) ?�?�
     useEffect(() => {
         if (connectionMode !== 'polling') return;
 

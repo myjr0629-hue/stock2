@@ -60,72 +60,72 @@ const POLYGON_KEY = process.env.POLYGON_API_KEY || 'iKNEA6cQ6kqWWuHwURT_AyUqMprD
 // ====== Full Universe (300+ tickers) ======
 // Site sectors (70) + S&P 500 majors + warm-analysis tickers
 const UNIVERSE = [
-  // ?€?€ M7 ?€?€
+  // ?ï¿½?ï¿½ M7 ?ï¿½?ï¿½
   'AAPL', 'MSFT', 'AMZN', 'NVDA', 'GOOGL', 'META', 'TSLA',
-  // ?€?€ Physical AI ?€?€
+  // ?ï¿½?ï¿½ Physical AI ?ï¿½?ï¿½
   'PLTR', 'SERV', 'PL', 'TER', 'SYM', 'RKLB', 'ISRG',
-  // ?€?€ Silicon Core ?€?€
+  // ?ï¿½?ï¿½ Silicon Core ?ï¿½?ï¿½
   'AMD', 'AVGO', 'TSM', 'ARM', 'MU', 'ASML', 'MRVL',
-  // ?€?€ Power Matrix ?€?€
+  // ?ï¿½?ï¿½ Power Matrix ?ï¿½?ï¿½
   'CEG', 'VST', 'GEV', 'PWR', 'CCJ', 'SMR', 'ETN',
-  // ?€?€ Bio Pulse ?€?€
+  // ?ï¿½?ï¿½ Bio Pulse ?ï¿½?ï¿½
   'LLY', 'NVO', 'VRTX', 'REGN', 'VKTX', 'AMGN', 'GILD',
-  // ?€?€ Cyber Shield ?€?€
+  // ?ï¿½?ï¿½ Cyber Shield ?ï¿½?ï¿½
   'CRWD', 'PANW', 'FTNT', 'ZS', 'S', 'OKTA', 'NET',
-  // ?€?€ Orbit Defense ?€?€
+  // ?ï¿½?ï¿½ Orbit Defense ?ï¿½?ï¿½
   'LMT', 'RTX', 'AXON', 'KTOS', 'LDOS', 'ASTS', 'LUNR',
-  // ?€?€ Quantum Edge ?€?€
+  // ?ï¿½?ï¿½ Quantum Edge ?ï¿½?ï¿½
   'IBM', 'IONQ', 'RGTI', 'QUBT', 'QBTS', 'FORM', 'ARQQ',
-  // ?€?€ Fintech Pulse ?€?€
+  // ?ï¿½?ï¿½ Fintech Pulse ?ï¿½?ï¿½
   'V', 'MA', 'SQ', 'PYPL', 'COIN', 'AFRM', 'HOOD',
-  // ?€?€ Cloud Fortress ?€?€
+  // ?ï¿½?ï¿½ Cloud Fortress ?ï¿½?ï¿½
   'CRM', 'NOW', 'SNOW', 'WDAY', 'DDOG', 'MDB', 'TEAM',
-  // ?€?€ Mega Cap Tech ?€?€
+  // ?ï¿½?ï¿½ Mega Cap Tech ?ï¿½?ï¿½
   'ADBE', 'ORCL', 'INTU', 'SNPS', 'CDNS', 'PANW', 'NFLX',
-  // ?€?€ Semis Extended ?€?€
+  // ?ï¿½?ï¿½ Semis Extended ?ï¿½?ï¿½
   'QCOM', 'LRCX', 'AMAT', 'KLAC', 'ON', 'INTC', 'TXN', 'MCHP', 'ADI', 'NXPI', 'SWKS',
-  // ?€?€ Finance ?€?€
+  // ?ï¿½?ï¿½ Finance ?ï¿½?ï¿½
   'JPM', 'BAC', 'GS', 'WFC', 'C', 'MS', 'BLK', 'SCHW', 'AXP', 'USB', 'PNC', 'TFC',
-  // ?€?€ Healthcare ?€?€
+  // ?ï¿½?ï¿½ Healthcare ?ï¿½?ï¿½
   'JNJ', 'UNH', 'PFE', 'ABBV', 'MRK', 'TMO', 'ABT', 'DHR', 'BMY', 'BIIB', 'ISRG', 'MDT',
-  // ?€?€ Energy ?€?€
+  // ?ï¿½?ï¿½ Energy ?ï¿½?ï¿½
   'XOM', 'CVX', 'COP', 'SLB', 'EOG', 'MPC', 'PSX', 'VLO', 'OXY', 'DVN', 'HES', 'HAL',
-  // ?€?€ Consumer ?€?€
+  // ?ï¿½?ï¿½ Consumer ?ï¿½?ï¿½
   'HD', 'COST', 'WMT', 'TGT', 'LOW', 'PG', 'KO', 'PEP', 'MCD', 'SBUX', 'NKE', 'EL',
-  // ?€?€ Media/Entertainment ?€?€
+  // ?ï¿½?ï¿½ Media/Entertainment ?ï¿½?ï¿½
   'DIS', 'CMCSA', 'NFLX', 'WBD', 'PARA', 'ROKU', 'SPOT', 'TTD',
-  // ?€?€ Industrial ?€?€
+  // ?ï¿½?ï¿½ Industrial ?ï¿½?ï¿½
   'CAT', 'GE', 'HON', 'UPS', 'DE', 'MMM', 'RTX', 'BA', 'WM', 'EMR', 'ITW', 'FDX',
-  // ?€?€ REITs ?€?€
+  // ?ï¿½?ï¿½ REITs ?ï¿½?ï¿½
   'PLD', 'O', 'VICI', 'AMT', 'CCI', 'SBAC', 'EQIX', 'DLR', 'PSA', 'SPG', 'WELL',
-  // ?€?€ Utilities ?€?€
+  // ?ï¿½?ï¿½ Utilities ?ï¿½?ï¿½
   'NEE', 'DUK', 'SO', 'AEP', 'D', 'SRE', 'EXC', 'XEL', 'WEC', 'ED',
-  // ?€?€ Materials ?€?€
+  // ?ï¿½?ï¿½ Materials ?ï¿½?ï¿½
   'FCX', 'NEM', 'LIN', 'SHW', 'APD', 'ECL', 'DD', 'NUE', 'CF', 'MOS',
-  // ?€?€ Momentum/Growth ?€?€
+  // ?ï¿½?ï¿½ Momentum/Growth ?ï¿½?ï¿½
   'UBER', 'ABNB', 'DASH', 'SHOP', 'SE', 'AI', 'SMCI', 'DELL', 'DKNG', 'RBLX', 'SNAP', 'PINS',
-  // ?€?€ China/ADR ?€?€
+  // ?ï¿½?ï¿½ China/ADR ?ï¿½?ï¿½
   'BABA', 'JD', 'PDD', 'BIDU', 'NIO', 'XPEV', 'LI', 'BILI',
-  // ?€?€ EV/Auto ?€?€
+  // ?ï¿½?ï¿½ EV/Auto ?ï¿½?ï¿½
   'RIVN', 'LCID', 'F', 'GM', 'STLA', 'TM',
-  // ?€?€ Space/Defense Extended ?€?€
+  // ?ï¿½?ï¿½ Space/Defense Extended ?ï¿½?ï¿½
   'NOC', 'GD', 'HII', 'LHX', 'BAH',
-  // ?€?€ Biotech Extended ?€?€
+  // ?ï¿½?ï¿½ Biotech Extended ?ï¿½?ï¿½
   'MRNA', 'DXCM', 'ILMN', 'ZTS', 'IDXX', 'ALGN',
-  // ?€?€ Indexes/ETFs (for market breadth) ?€?€
+  // ?ï¿½?ï¿½ Indexes/ETFs (for market breadth) ?ï¿½?ï¿½
   'SPY', 'QQQ', 'IWM', 'DIA', 'XLF', 'XLE', 'XLK', 'XLV', 'XLI', 'XLP',
-  // ?€?€ Crypto-related ?€?€
+  // ?ï¿½?ï¿½ Crypto-related ?ï¿½?ï¿½
   'MSTR', 'MARA', 'RIOT', 'CLSK', 'BITF',
-  // ?€?€ Additional S&P 500 ?€?€
+  // ?ï¿½?ï¿½ Additional S&P 500 ?ï¿½?ï¿½
   'ACN', 'CL', 'CME', 'CTAS', 'CSX', 'DXCM', 'FAST', 'FISV', 'GEHC', 'GIS',
   'ICE', 'IDXX', 'KDP', 'KHC', 'KLAC', 'MDLZ', 'MNST', 'ODFL', 'PAYX', 'ROST',
   'SYK', 'TRGP', 'VRSK', 'VRSN', 'YUM', 'ZBH', 'ZTS',
-  // ?€?€ More S&P 500 / Large Cap ?€?€
+  // ?ï¿½?ï¿½ More S&P 500 / Large Cap ?ï¿½?ï¿½
   'LULU', 'CPRT', 'CSGP', 'FANG', 'MSCI', 'CHTR', 'ADP', 'REGN', 'EW', 'ORLY',
   'A', 'ANSS', 'BKR', 'CDW', 'CTSH', 'DOV', 'EFX', 'GRMN', 'HUBB', 'IQV',
   'JCI', 'KMB', 'LNT', 'MAA', 'NTRS', 'OKE', 'POOL', 'RCL', 'SBNY', 'TEL',
   'TDG', 'TROW', 'TYL', 'URI', 'WAB', 'WRB', 'WST', 'ZBRA',
-  // ?€?€ VRT and other site tickers ?€?€
+  // ?ï¿½?ï¿½ VRT and other site tickers ?ï¿½?ï¿½
   'VRT', 'ROK', 'MBLY', 'PONY',
 ];
 const UNIQUE_UNIVERSE = [...new Set(UNIVERSE)];

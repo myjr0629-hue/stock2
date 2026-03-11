@@ -8,7 +8,7 @@
 
 import { createContext, useContext, useEffect, useRef, useState, useCallback, type ReactNode } from 'react';
 
-// ?€?€ Types ?€?€
+// ?ï¿½?ï¿½ Types ?ï¿½?ï¿½
 interface PriceUpdate {
     ticker: string;
     price: number;
@@ -53,13 +53,13 @@ const WebSocketContext = createContext<WebSocketContextType>({
     getGex: () => undefined,
 });
 
-// ?€?€ Configuration ?€?€
+// ?ï¿½?ï¿½ Configuration ?ï¿½?ï¿½
 const WS_URL = process.env.NEXT_PUBLIC_WEBSOCKET_URL || 'ws://52.23.98.13:8080';
 const RECONNECT_DELAY = 3000;
 const MAX_RECONNECT = 10;
 const MAX_ALERTS = 50;
 
-// ?€?€ Provider ?€?€
+// ?ï¿½?ï¿½ Provider ?ï¿½?ï¿½
 export function WebSocketProvider({ children }: { children: ReactNode }) {
     const wsRef = useRef<WebSocket | null>(null);
     const reconnectCount = useRef(0);
@@ -194,7 +194,7 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
     );
 }
 
-// ?€?€ Hook for pages/components ?€?€
+// ?ï¿½?ï¿½ Hook for pages/components ?ï¿½?ï¿½
 export function useRealtimeData(tickers?: string[]) {
     const ctx = useContext(WebSocketContext);
 
