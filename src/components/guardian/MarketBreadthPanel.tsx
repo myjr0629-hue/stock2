@@ -146,25 +146,25 @@ export default function RLSIInsightPanel({
             </div>
 
             {/* ── Toggle Tabs: Briefing / Tactical ── */}
-            <div className="flex items-center gap-1 mb-2 flex-none">
+            <div className="flex items-center gap-0.5 mb-1.5 flex-none">
                 <button
                     onClick={() => setActiveTab("briefing")}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold tracking-wide transition-all duration-300 ${activeTab === "briefing"
-                            ? "bg-amber-500/15 text-amber-300 border border-amber-500/30"
-                            : "text-slate-400 hover:text-slate-300 border border-transparent"
+                    className={`flex items-center gap-1 px-2.5 py-0.5 rounded text-xs font-bold tracking-wide transition-all duration-300 ${activeTab === "briefing"
+                        ? "bg-amber-500/15 text-amber-300 border border-amber-500/30"
+                        : "text-slate-400 hover:text-slate-300 border border-transparent"
                         }`}
                 >
-                    <Sun size={13} />
+                    <Sun size={12} />
                     BRIEFING
                 </button>
                 <button
                     onClick={() => setActiveTab("tactical")}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold tracking-wide transition-all duration-300 ${activeTab === "tactical"
-                            ? "bg-emerald-500/15 text-emerald-300 border border-emerald-500/30"
-                            : "text-slate-400 hover:text-slate-300 border border-transparent"
+                    className={`flex items-center gap-1 px-2.5 py-0.5 rounded text-xs font-bold tracking-wide transition-all duration-300 ${activeTab === "tactical"
+                        ? "bg-emerald-500/15 text-emerald-300 border border-emerald-500/30"
+                        : "text-slate-400 hover:text-slate-300 border border-transparent"
                         }`}
                 >
-                    <FileText size={13} />
+                    <FileText size={12} />
                     TACTICAL
                 </button>
                 {activeTab === "briefing" && briefingData?.source && (
