@@ -80,11 +80,11 @@ export default function GuardianAlertBanner({ alerts, connectionMode }: Props) {
 
     // Auto-expand when new critical alert arrives
     useEffect(() => {
-        const hasCritical = alerts.some(a => a.severity === 'CRITICAL' && !dismissed.has(a.id));
+        const hasCritical = (alerts || []).some(a => a.severity === 'CRITICAL' && !dismissed.has(a.id));
         if (hasCritical) setIsCollapsed(false);
     }, [alerts, dismissed]);
 
-    const visibleAlerts = alerts.filter(a => !dismissed.has(a.id));
+    const visibleAlerts = (alerts || []).filter(a => !dismissed.has(a.id));
     if (visibleAlerts.length === 0) return null;
 
     const dismissAlert = (id: string) => {
