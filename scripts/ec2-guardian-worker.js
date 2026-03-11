@@ -44,7 +44,7 @@ const CONFIG = {
 
     // Timing
     REG_INTERVAL_MS: 30 * 1000,      // 30s during regular session
-    EXT_INTERVAL_MS: 5 * 60 * 1000,  // 5min during extended/closed
+    EXT_INTERVAL_MS: 30 * 1000,       // 30s during ALL sessions — real-time
     HISTORY_INTERVAL_MS: 5 * 60 * 1000, // 5min for DynamoDB writes
 
     // Redis keys
