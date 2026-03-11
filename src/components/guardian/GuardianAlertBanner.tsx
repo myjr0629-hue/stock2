@@ -97,9 +97,9 @@ export default function GuardianAlertBanner({ alerts, connectionMode }: Props) {
             <div className="flex items-center justify-between px-1">
                 <div className="flex items-center gap-2">
                     <div className={`w-2 h-2 rounded-full ${connectionMode === 'websocket' ? 'bg-emerald-400 animate-pulse' :
-                            connectionMode === 'polling' ? 'bg-amber-400' : 'bg-slate-500'
+                        connectionMode === 'polling' ? 'bg-amber-400' : 'bg-slate-500'
                         }`} />
-                    <span className="text-xs uppercase tracking-widest text-slate-500 font-mono">
+                    <span className="text-xs uppercase tracking-widest text-slate-300 font-mono">
                         {connectionMode === 'websocket' ? 'LIVE' : connectionMode === 'polling' ? 'POLLING' : 'CONNECTING'}
                         {' · '}CROSS-INTELLIGENCE
                     </span>
@@ -108,7 +108,7 @@ export default function GuardianAlertBanner({ alerts, connectionMode }: Props) {
                 {visibleAlerts.length > 1 && (
                     <button
                         onClick={() => setIsCollapsed(!isCollapsed)}
-                        className="text-xs text-slate-500 hover:text-slate-300 transition-colors font-mono"
+                        className="text-xs text-slate-400 hover:text-slate-200 transition-colors font-mono"
                     >
                         {isCollapsed ? `▼ ${visibleAlerts.length} ALERTS` : '▲ COLLAPSE'}
                     </button>
@@ -153,7 +153,7 @@ export default function GuardianAlertBanner({ alerts, connectionMode }: Props) {
                                         {alert.severity}
                                     </span>
                                 </div>
-                                <p className="text-xs text-slate-400 mt-1 leading-relaxed">
+                                <p className="text-xs text-slate-300 mt-1 leading-relaxed">
                                     {alert.description}
                                 </p>
 
@@ -172,7 +172,7 @@ export default function GuardianAlertBanner({ alerts, connectionMode }: Props) {
                             {/* Dismiss button */}
                             <button
                                 onClick={() => dismissAlert(alert.id)}
-                                className="flex-shrink-0 text-slate-600 hover:text-slate-300 transition-colors p-1"
+                                className="flex-shrink-0 text-slate-400 hover:text-slate-200 transition-colors p-1"
                                 aria-label="Dismiss alert"
                             >
                                 <X size={16} />
