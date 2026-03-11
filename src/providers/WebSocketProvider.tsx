@@ -1,5 +1,5 @@
 // ===========================================================================
-// WebSocket Provider â€” Global real-time data context
+// WebSocket Provider ??Global real-time data context
 // Single WebSocket connection shared across all pages
 // Provides live price/GEX/alert updates to any component
 // ===========================================================================
@@ -8,7 +8,7 @@
 
 import { createContext, useContext, useEffect, useRef, useState, useCallback, type ReactNode } from 'react';
 
-// â”€â”€ Types â”€â”€
+// ?€?€ Types ?€?€
 interface PriceUpdate {
     ticker: string;
     price: number;
@@ -53,13 +53,13 @@ const WebSocketContext = createContext<WebSocketContextType>({
     getGex: () => undefined,
 });
 
-// â”€â”€ Configuration â”€â”€
-const WS_URL = process.env.NEXT_PUBLIC_WEBSOCKET_URL || 'ws://3.236.193.97:8080';
+// ?€?€ Configuration ?€?€
+const WS_URL = process.env.NEXT_PUBLIC_WEBSOCKET_URL || 'ws://52.23.98.13:8080';
 const RECONNECT_DELAY = 3000;
 const MAX_RECONNECT = 10;
 const MAX_ALERTS = 50;
 
-// â”€â”€ Provider â”€â”€
+// ?€?€ Provider ?€?€
 export function WebSocketProvider({ children }: { children: ReactNode }) {
     const wsRef = useRef<WebSocket | null>(null);
     const reconnectCount = useRef(0);
@@ -194,7 +194,7 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
     );
 }
 
-// â”€â”€ Hook for pages/components â”€â”€
+// ?€?€ Hook for pages/components ?€?€
 export function useRealtimeData(tickers?: string[]) {
     const ctx = useContext(WebSocketContext);
 

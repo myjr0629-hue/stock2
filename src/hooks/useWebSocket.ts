@@ -1,5 +1,5 @@
 // ===========================================================================
-// useWebSocket — Real-time data hook via EC2 WebSocket Hub
+// useWebSocket ??Real-time data hook via EC2 WebSocket Hub
 // Subscribes to ticker-specific price/GEX/alert updates via ElastiCache Pub/Sub
 // ===========================================================================
 
@@ -21,7 +21,7 @@ interface UseWebSocketOptions {
     onAlert?: (data: { ticker: string; type: string; message: string }) => void;
 }
 
-const WS_URL = process.env.NEXT_PUBLIC_WEBSOCKET_URL || 'ws://3.236.193.97:8080';
+const WS_URL = process.env.NEXT_PUBLIC_WEBSOCKET_URL || 'ws://52.23.98.13:8080';
 const RECONNECT_DELAY_MS = 3000;
 const MAX_RECONNECT_ATTEMPTS = 5;
 

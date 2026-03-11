@@ -45,7 +45,7 @@ function httpPost(url, data, headers = {}) {
 }
 
 // EC2 Redis Proxy config
-const EC2_PROXY_URL = process.env.EC2_REDIS_PROXY_URL || 'http://3.236.193.97:8081';
+const EC2_PROXY_URL = process.env.EC2_REDIS_PROXY_URL || 'http://52.23.98.13:8081';
 const EC2_PROXY_KEY = process.env.EC2_REDIS_PROXY_KEY || 'signum-redis-proxy-2026';
 
 async function pushToWebSocket(channel, data) {
@@ -60,72 +60,72 @@ const POLYGON_KEY = process.env.POLYGON_API_KEY || 'iKNEA6cQ6kqWWuHwURT_AyUqMprD
 // ====== Full Universe (300+ tickers) ======
 // Site sectors (70) + S&P 500 majors + warm-analysis tickers
 const UNIVERSE = [
-  // â”€â”€ M7 â”€â”€
+  // ?€?€ M7 ?€?€
   'AAPL', 'MSFT', 'AMZN', 'NVDA', 'GOOGL', 'META', 'TSLA',
-  // â”€â”€ Physical AI â”€â”€
+  // ?€?€ Physical AI ?€?€
   'PLTR', 'SERV', 'PL', 'TER', 'SYM', 'RKLB', 'ISRG',
-  // â”€â”€ Silicon Core â”€â”€
+  // ?€?€ Silicon Core ?€?€
   'AMD', 'AVGO', 'TSM', 'ARM', 'MU', 'ASML', 'MRVL',
-  // â”€â”€ Power Matrix â”€â”€
+  // ?€?€ Power Matrix ?€?€
   'CEG', 'VST', 'GEV', 'PWR', 'CCJ', 'SMR', 'ETN',
-  // â”€â”€ Bio Pulse â”€â”€
+  // ?€?€ Bio Pulse ?€?€
   'LLY', 'NVO', 'VRTX', 'REGN', 'VKTX', 'AMGN', 'GILD',
-  // â”€â”€ Cyber Shield â”€â”€
+  // ?€?€ Cyber Shield ?€?€
   'CRWD', 'PANW', 'FTNT', 'ZS', 'S', 'OKTA', 'NET',
-  // â”€â”€ Orbit Defense â”€â”€
+  // ?€?€ Orbit Defense ?€?€
   'LMT', 'RTX', 'AXON', 'KTOS', 'LDOS', 'ASTS', 'LUNR',
-  // â”€â”€ Quantum Edge â”€â”€
+  // ?€?€ Quantum Edge ?€?€
   'IBM', 'IONQ', 'RGTI', 'QUBT', 'QBTS', 'FORM', 'ARQQ',
-  // â”€â”€ Fintech Pulse â”€â”€
+  // ?€?€ Fintech Pulse ?€?€
   'V', 'MA', 'SQ', 'PYPL', 'COIN', 'AFRM', 'HOOD',
-  // â”€â”€ Cloud Fortress â”€â”€
+  // ?€?€ Cloud Fortress ?€?€
   'CRM', 'NOW', 'SNOW', 'WDAY', 'DDOG', 'MDB', 'TEAM',
-  // â”€â”€ Mega Cap Tech â”€â”€
+  // ?€?€ Mega Cap Tech ?€?€
   'ADBE', 'ORCL', 'INTU', 'SNPS', 'CDNS', 'PANW', 'NFLX',
-  // â”€â”€ Semis Extended â”€â”€
+  // ?€?€ Semis Extended ?€?€
   'QCOM', 'LRCX', 'AMAT', 'KLAC', 'ON', 'INTC', 'TXN', 'MCHP', 'ADI', 'NXPI', 'SWKS',
-  // â”€â”€ Finance â”€â”€
+  // ?€?€ Finance ?€?€
   'JPM', 'BAC', 'GS', 'WFC', 'C', 'MS', 'BLK', 'SCHW', 'AXP', 'USB', 'PNC', 'TFC',
-  // â”€â”€ Healthcare â”€â”€
+  // ?€?€ Healthcare ?€?€
   'JNJ', 'UNH', 'PFE', 'ABBV', 'MRK', 'TMO', 'ABT', 'DHR', 'BMY', 'BIIB', 'ISRG', 'MDT',
-  // â”€â”€ Energy â”€â”€
+  // ?€?€ Energy ?€?€
   'XOM', 'CVX', 'COP', 'SLB', 'EOG', 'MPC', 'PSX', 'VLO', 'OXY', 'DVN', 'HES', 'HAL',
-  // â”€â”€ Consumer â”€â”€
+  // ?€?€ Consumer ?€?€
   'HD', 'COST', 'WMT', 'TGT', 'LOW', 'PG', 'KO', 'PEP', 'MCD', 'SBUX', 'NKE', 'EL',
-  // â”€â”€ Media/Entertainment â”€â”€
+  // ?€?€ Media/Entertainment ?€?€
   'DIS', 'CMCSA', 'NFLX', 'WBD', 'PARA', 'ROKU', 'SPOT', 'TTD',
-  // â”€â”€ Industrial â”€â”€
+  // ?€?€ Industrial ?€?€
   'CAT', 'GE', 'HON', 'UPS', 'DE', 'MMM', 'RTX', 'BA', 'WM', 'EMR', 'ITW', 'FDX',
-  // â”€â”€ REITs â”€â”€
+  // ?€?€ REITs ?€?€
   'PLD', 'O', 'VICI', 'AMT', 'CCI', 'SBAC', 'EQIX', 'DLR', 'PSA', 'SPG', 'WELL',
-  // â”€â”€ Utilities â”€â”€
+  // ?€?€ Utilities ?€?€
   'NEE', 'DUK', 'SO', 'AEP', 'D', 'SRE', 'EXC', 'XEL', 'WEC', 'ED',
-  // â”€â”€ Materials â”€â”€
+  // ?€?€ Materials ?€?€
   'FCX', 'NEM', 'LIN', 'SHW', 'APD', 'ECL', 'DD', 'NUE', 'CF', 'MOS',
-  // â”€â”€ Momentum/Growth â”€â”€
+  // ?€?€ Momentum/Growth ?€?€
   'UBER', 'ABNB', 'DASH', 'SHOP', 'SE', 'AI', 'SMCI', 'DELL', 'DKNG', 'RBLX', 'SNAP', 'PINS',
-  // â”€â”€ China/ADR â”€â”€
+  // ?€?€ China/ADR ?€?€
   'BABA', 'JD', 'PDD', 'BIDU', 'NIO', 'XPEV', 'LI', 'BILI',
-  // â”€â”€ EV/Auto â”€â”€
+  // ?€?€ EV/Auto ?€?€
   'RIVN', 'LCID', 'F', 'GM', 'STLA', 'TM',
-  // â”€â”€ Space/Defense Extended â”€â”€
+  // ?€?€ Space/Defense Extended ?€?€
   'NOC', 'GD', 'HII', 'LHX', 'BAH',
-  // â”€â”€ Biotech Extended â”€â”€
+  // ?€?€ Biotech Extended ?€?€
   'MRNA', 'DXCM', 'ILMN', 'ZTS', 'IDXX', 'ALGN',
-  // â”€â”€ Indexes/ETFs (for market breadth) â”€â”€
+  // ?€?€ Indexes/ETFs (for market breadth) ?€?€
   'SPY', 'QQQ', 'IWM', 'DIA', 'XLF', 'XLE', 'XLK', 'XLV', 'XLI', 'XLP',
-  // â”€â”€ Crypto-related â”€â”€
+  // ?€?€ Crypto-related ?€?€
   'MSTR', 'MARA', 'RIOT', 'CLSK', 'BITF',
-  // â”€â”€ Additional S&P 500 â”€â”€
+  // ?€?€ Additional S&P 500 ?€?€
   'ACN', 'CL', 'CME', 'CTAS', 'CSX', 'DXCM', 'FAST', 'FISV', 'GEHC', 'GIS',
   'ICE', 'IDXX', 'KDP', 'KHC', 'KLAC', 'MDLZ', 'MNST', 'ODFL', 'PAYX', 'ROST',
   'SYK', 'TRGP', 'VRSK', 'VRSN', 'YUM', 'ZBH', 'ZTS',
-  // â”€â”€ More S&P 500 / Large Cap â”€â”€
+  // ?€?€ More S&P 500 / Large Cap ?€?€
   'LULU', 'CPRT', 'CSGP', 'FANG', 'MSCI', 'CHTR', 'ADP', 'REGN', 'EW', 'ORLY',
   'A', 'ANSS', 'BKR', 'CDW', 'CTSH', 'DOV', 'EFX', 'GRMN', 'HUBB', 'IQV',
   'JCI', 'KMB', 'LNT', 'MAA', 'NTRS', 'OKE', 'POOL', 'RCL', 'SBNY', 'TEL',
   'TDG', 'TROW', 'TYL', 'URI', 'WAB', 'WRB', 'WST', 'ZBRA',
-  // â”€â”€ VRT and other site tickers â”€â”€
+  // ?€?€ VRT and other site tickers ?€?€
   'VRT', 'ROK', 'MBLY', 'PONY',
 ];
 const UNIQUE_UNIVERSE = [...new Set(UNIVERSE)];
@@ -380,7 +380,7 @@ async function harvestSector(priceMap, gexResults) {
     await batchWrite('signum-sector-daily', items);
   }
 
-  console.log('Sectors: ' + items.length + ' saved â€” top: ' + (sectorScores[0]?.id || 'N/A'));
+  console.log('Sectors: ' + items.length + ' saved ??top: ' + (sectorScores[0]?.id || 'N/A'));
   return items.length;
 }
 
@@ -455,10 +455,10 @@ async function harvestIVSurface(priceMap) {
 // ====== Main Handler ======
 exports.handler = async (event) => {
   const start = Date.now();
-  console.log('SIGNUM Harvest Lambda v3 â€” ' + new Date().toISOString());
+  console.log('SIGNUM Harvest Lambda v3 ??' + new Date().toISOString());
   console.log('Universe: ' + UNIQUE_UNIVERSE.length + ' price + ' + GEX_TICKERS.length + ' GEX');
 
-  // Market hours check (UTC) â€” Extended hours included
+  // Market hours check (UTC) ??Extended hours included
   const hour = new Date().getUTCHours();
   const minute = new Date().getUTCMinutes();
   const utcMin = hour * 60 + minute;
@@ -482,25 +482,25 @@ exports.handler = async (event) => {
 
   const results = {};
 
-  // Step 1: Price snapshot â€” ALWAYS during extended hours
+  // Step 1: Price snapshot ??ALWAYS during extended hours
   const { count, priceMap } = await harvestPrices();
   results.prices = count;
 
-  // Step 2: GEX harvest â€” ONLY during regular hours (options don't trade pre/post)
+  // Step 2: GEX harvest ??ONLY during regular hours (options don't trade pre/post)
   if (isRegularHours) {
     results.gex = await harvestGex(priceMap);
   } else {
     results.gex = 'SKIPPED:extended_hours';
-    console.log('GEX skipped â€” extended hours (options closed)');
+    console.log('GEX skipped ??extended hours (options closed)');
   }
 
-  // Step 3: RLSI â€” ALWAYS during extended hours
+  // Step 3: RLSI ??ALWAYS during extended hours
   results.rlsi = await harvestRlsi();
 
   // Step 4: Push real-time data to EC2 WebSocket Hub (fire-and-forget)
   const pushPromises = [];
 
-  // 4A: Price updates â€” all collected tickers
+  // 4A: Price updates ??all collected tickers
   const allCollectedTickers = Object.keys(priceMap);
   for (const ticker of allCollectedTickers) {
     const p = priceMap[ticker];
@@ -511,7 +511,7 @@ exports.handler = async (event) => {
     }
   }
 
-  // 4B: RLSI update â€” market-wide gauge
+  // 4B: RLSI update ??market-wide gauge
   if (typeof results.rlsi === 'string' && results.rlsi.startsWith('RLSI:') && !results.rlsi.includes('ERR') && !results.rlsi.includes('NO_DATA')) {
     const rlsiVal = parseFloat(results.rlsi.replace('RLSI:', ''));
     if (!isNaN(rlsiVal)) {
@@ -521,7 +521,7 @@ exports.handler = async (event) => {
     }
   }
 
-  // 4C: GEX updates â€” key tickers with GEX data
+  // 4C: GEX updates ??key tickers with GEX data
   if (Array.isArray(results.gex)) {
     for (const r of results.gex) {
       if (typeof r === 'string' && r.includes(':') && !r.includes('ERR') && !r.includes('NO_')) {
@@ -533,20 +533,20 @@ exports.handler = async (event) => {
     }
   }
 
-  // 4D: Alerts â€” GEX Break detection (negative â†’ positive or vice versa)
+  // 4D: Alerts ??GEX Break detection (negative ??positive or vice versa)
   // This will be populated when we have historical comparison data
 
   await Promise.allSettled(pushPromises);
   results.pushed = pushPromises.length;
 
-  // Step 5: Sector daily scores â€” every execution (5min, incremental update)
+  // Step 5: Sector daily scores ??every execution (5min, incremental update)
   try {
     results.sectors = await harvestSector(priceMap);
   } catch (e) {
     results.sectors = 'ERR:' + e.message;
   }
 
-  // Step 6: IV Surface â€” ONLY during regular hours, every 3rd execution (~15min)
+  // Step 6: IV Surface ??ONLY during regular hours, every 3rd execution (~15min)
   if (isRegularHours && minute % 15 < 5) {
     try {
       results.ivSurface = await harvestIVSurface(priceMap);
@@ -557,7 +557,7 @@ exports.handler = async (event) => {
     results.ivSurface = 'SKIPPED';
   }
 
-  // Step 7: Signal Detection â€” detect market structure changes â†’ DynamoDB + WebSocket
+  // Step 7: Signal Detection ??detect market structure changes ??DynamoDB + WebSocket
   try {
     const signals = [];
     const now = Date.now();
@@ -632,7 +632,7 @@ exports.handler = async (event) => {
   }
 
   const duration = Math.round((Date.now() - start) / 1000);
-  console.log('Done in ' + duration + 's â€” Prices:' + count + ' GEX:' + (Array.isArray(results.gex) ? results.gex.length : results.gex) + ' Sectors:' + results.sectors + ' IV:' + results.ivSurface + ' Pushed:' + pushPromises.length);
+  console.log('Done in ' + duration + 's ??Prices:' + count + ' GEX:' + (Array.isArray(results.gex) ? results.gex.length : results.gex) + ' Sectors:' + results.sectors + ' IV:' + results.ivSurface + ' Pushed:' + pushPromises.length);
 
   return {
     statusCode: 200,

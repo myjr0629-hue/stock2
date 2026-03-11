@@ -1,5 +1,5 @@
 // ===========================================================================
-// Unified Redis Client â€” ElastiCache via EC2 Proxy (primary) + Upstash (fallback)
+// Unified Redis Client ??ElastiCache via EC2 Proxy (primary) + Upstash (fallback)
 // EC2 Proxy: HTTP REST API wrapping ElastiCache (~15ms from Vercel same-region)
 // Upstash: HTTP REST API (works everywhere, ~30ms)
 // ===========================================================================
@@ -12,7 +12,7 @@ let lastError: string | null = null;
 let ecProxyAvailable: boolean | null = null; // null = not tested yet
 
 // EC2 Redis Proxy configuration
-const EC2_PROXY_URL = process.env.EC2_REDIS_PROXY_URL || 'http://3.236.193.97:8081';
+const EC2_PROXY_URL = process.env.EC2_REDIS_PROXY_URL || 'http://52.23.98.13:8081';
 const EC2_PROXY_KEY = process.env.EC2_REDIS_PROXY_KEY || 'signum-redis-proxy-2026';
 
 // Cache keys
@@ -32,7 +32,7 @@ export function getRedisStatus() {
     };
 }
 
-// â”€â”€ EC2 Redis Proxy helpers â”€â”€
+// ?€?€ EC2 Redis Proxy helpers ?€?€
 async function ecProxyGet<T>(key: string): Promise<T | null> {
     try {
         const res = await fetch(`${EC2_PROXY_URL}/get?key=${encodeURIComponent(key)}`, {
@@ -43,7 +43,7 @@ async function ecProxyGet<T>(key: string): Promise<T | null> {
         const data = await res.json();
         if (ecProxyAvailable === null) {
             ecProxyAvailable = true;
-            console.log('[Redis] âœ… EC2 Proxy connected');
+            console.log('[Redis] ??EC2 Proxy connected');
         }
         return data.result as T;
     } catch (e: any) {
@@ -72,7 +72,7 @@ async function ecProxySet<T>(key: string, value: T, ttlSeconds?: number): Promis
     }
 }
 
-// â”€â”€ Upstash (HTTP) connection â”€â”€
+// ?€?€ Upstash (HTTP) connection ?€?€
 function getUpstashClient(): UpstashRedis | null {
     if (upstashClient) return upstashClient;
 
