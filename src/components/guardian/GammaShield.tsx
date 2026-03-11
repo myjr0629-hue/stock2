@@ -456,33 +456,7 @@ export default function GammaShield({ data, isMarketActive }: Props) {
                         </div>
                     )}
 
-                    {/* v2: SPY / QQQ Split */}
-                    <div className="w-full max-w-[160px] mt-1">
-                        <div className="flex items-center justify-between gap-1">
-                            <span className="text-[12px] font-bold font-jakarta text-slate-300 w-[26px]">SPY</span>
-                            <div className="flex-1 h-[4px] rounded-full bg-slate-800 overflow-hidden">
-                                <div
-                                    className={`h-full rounded-full transition-all duration-700 ${spyGexIndex >= 0 ? 'bg-emerald-400/70' : 'bg-red-400/70'}`}
-                                    style={{ width: `${Math.min(100, Math.abs(spyGexIndex))}%`, marginLeft: spyGexIndex < 0 ? 'auto' : undefined }}
-                                />
-                            </div>
-                            <span className={`text-[12px] font-bold font-jakarta tabular-nums w-[28px] text-right ${spyGexIndex >= 20 ? 'text-emerald-400' : spyGexIndex <= -20 ? 'text-red-400' : 'text-slate-300'}`}>
-                                {spyGexIndex >= 0 ? '+' : ''}{spyGexIndex}
-                            </span>
-                        </div>
-                        <div className="flex items-center justify-between gap-1 mt-0.5">
-                            <span className="text-[12px] font-bold font-jakarta text-slate-300 w-[26px]">QQQ</span>
-                            <div className="flex-1 h-[4px] rounded-full bg-slate-800 overflow-hidden">
-                                <div
-                                    className={`h-full rounded-full transition-all duration-700 ${qqqGexIndex >= 0 ? 'bg-emerald-400/70' : 'bg-red-400/70'}`}
-                                    style={{ width: `${Math.min(100, Math.abs(qqqGexIndex))}%`, marginLeft: qqqGexIndex < 0 ? 'auto' : undefined }}
-                                />
-                            </div>
-                            <span className={`text-[12px] font-bold font-jakarta tabular-nums w-[28px] text-right ${qqqGexIndex >= 20 ? 'text-emerald-400' : qqqGexIndex <= -20 ? 'text-red-400' : 'text-slate-300'}`}>
-                                {qqqGexIndex >= 0 ? '+' : ''}{qqqGexIndex}
-                            </span>
-                        </div>
-                    </div>
+
                 </div>
 
                 {/* Column 2: Squeeze Risk */}
@@ -507,33 +481,7 @@ export default function GammaShield({ data, isMarketActive }: Props) {
                         <span className={getSqueezeColor(squeezeLevel)}>{squeezeLevel}</span>
                     </div>
 
-                    {/* SPY / QQQ Squeeze Split */}
-                    <div className="w-full max-w-[140px]">
-                        <div className="flex items-center justify-between gap-1">
-                            <span className="text-[12px] font-bold font-jakarta text-slate-300 w-[26px]">SPY</span>
-                            <div className="flex-1 h-[4px] rounded-full bg-slate-800 overflow-hidden">
-                                <div
-                                    className={`h-full rounded-full transition-all duration-700 ${spySqueezeScore >= 45 ? 'bg-amber-400' : spySqueezeScore >= 20 ? 'bg-yellow-400/70' : 'bg-emerald-400/60'}`}
-                                    style={{ width: `${Math.min(100, spySqueezeScore)}%` }}
-                                />
-                            </div>
-                            <span className={`text-[12px] font-bold font-jakarta tabular-nums w-[28px] text-right ${spySqueezeScore >= 45 ? 'text-amber-400' : 'text-slate-300'}`}>
-                                {spySqueezeScore}
-                            </span>
-                        </div>
-                        <div className="flex items-center justify-between gap-1 mt-0.5">
-                            <span className="text-[12px] font-bold font-jakarta text-slate-300 w-[26px]">QQQ</span>
-                            <div className="flex-1 h-[4px] rounded-full bg-slate-800 overflow-hidden">
-                                <div
-                                    className={`h-full rounded-full transition-all duration-700 ${qqqSqueezeScore >= 45 ? 'bg-amber-400' : qqqSqueezeScore >= 20 ? 'bg-yellow-400/70' : 'bg-emerald-400/60'}`}
-                                    style={{ width: `${Math.min(100, qqqSqueezeScore)}%` }}
-                                />
-                            </div>
-                            <span className={`text-[12px] font-bold font-jakarta tabular-nums w-[28px] text-right ${qqqSqueezeScore >= 45 ? 'text-amber-400' : 'text-slate-300'}`}>
-                                {qqqSqueezeScore}
-                            </span>
-                        </div>
-                    </div>
+
 
                     {/* Threshold Distance */}
                     {squeezeRisk < 70 && (
@@ -585,14 +533,6 @@ export default function GammaShield({ data, isMarketActive }: Props) {
                 </div>
             </div>
 
-            {/* Bottom Line — concise structural summary */}
-            <div className="px-4 pb-3 pt-1">
-                <div className="border-t border-slate-700/30 pt-2">
-                    <p className="text-[12px] font-mono font-medium text-slate-400 tracking-wide text-center">
-                        {getInsightText(gexIndex, squeezeRisk, currentPrice, supportWall, resistanceWall, locale)}
-                    </p>
-                </div>
-            </div>
         </div>
     );
 }
