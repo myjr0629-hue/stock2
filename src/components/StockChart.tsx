@@ -281,26 +281,31 @@ export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d
     }
 
     // [LIVE-LINK] Append currentPrice as the last data point so chart line connects to live price
+    // [FIX] Only append within visible chart domain [240, 1199] (04:00-19:59 ET)
+    // During CLOSED session (20:00+), currentEtMinute can be >1199 which stretches the X axis
     if (isIntraday && currentPrice && currentPrice > 0 && processedData.length > 0) {
         const now = new Date();
         const etTime = now.toLocaleString("en-US", { timeZone: "America/New_York", hour12: false, hour: '2-digit', minute: '2-digit' });
         const [h, m] = etTime.split(':').map(Number);
         if (!isNaN(h) && !isNaN(m)) {
             const currentEtMinute = h * 60 + m;
-            const lastPoint = processedData[processedData.length - 1];
-            // Only append if current minute is >= last data point (avoid going backwards)
-            if (currentEtMinute >= lastPoint.xValue) {
-                if (currentEtMinute === lastPoint.xValue) {
-                    // Same minute: update the close price in place
-                    lastPoint.close = currentPrice;
-                } else {
-                    // New minute: append a new data point
-                    processedData.push({
-                        close: currentPrice,
-                        xValue: currentEtMinute,
-                        xLabel: formatEtMinute(currentEtMinute),
-                        session: currentEtMinute < 570 ? 'PRE' : currentEtMinute >= 960 ? 'POST' : 'REG',
-                    });
+            // Only append if within trading session window (04:00-19:59 ET)
+            if (currentEtMinute >= 240 && currentEtMinute <= 1199) {
+                const lastPoint = processedData[processedData.length - 1];
+                // Only append if current minute is >= last data point (avoid going backwards)
+                if (currentEtMinute >= lastPoint.xValue) {
+                    if (currentEtMinute === lastPoint.xValue) {
+                        // Same minute: update the close price in place
+                        lastPoint.close = currentPrice;
+                    } else {
+                        // New minute: append a new data point
+                        processedData.push({
+                            close: currentPrice,
+                            xValue: currentEtMinute,
+                            xLabel: formatEtMinute(currentEtMinute),
+                            session: currentEtMinute < 570 ? 'PRE' : currentEtMinute >= 960 ? 'POST' : 'REG',
+                        });
+                    }
                 }
             }
         }
