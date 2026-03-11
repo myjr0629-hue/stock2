@@ -345,26 +345,27 @@ export default function GravityGauge({ score, loading, session, components, rlsi
                 </div>
             )}
 
-            {/* [V9.0] RLSI Intraday Sparkline — hidden during holidays */}
+            {/* [V10.0] Guardian Score Timeline — ECG-style with insights */}
             {rlsiHistory && rlsiHistory.length >= 2 && !loading && !isHoliday && (
                 <div className="w-full max-w-[290px] border-t border-slate-800/50 pt-2 mt-1">
                     <div className="flex items-center justify-between mb-1">
                         <span className="text-[12px] font-bold uppercase tracking-[0.15em] text-slate-300 font-jakarta">INTRADAY TREND</span>
                         <span className="text-[12px] font-mono text-slate-300 font-jakarta">{rlsiHistory.length} pts</span>
                     </div>
-                    <RlsiSparkline history={rlsiHistory} currentScore={animatedScore} />
+                    <ScoreTimeline history={rlsiHistory} currentScore={animatedScore} />
                 </div>
             )}
         </div>
     );
 }
 
-// [V9.0] Sparkline Sub-Component
-function RlsiSparkline({ history, currentScore }: { history: { time: string; score: number }[]; currentScore: number }) {
-    const W = 280; // chart width
-    const H = 50;  // chart height (SVG-only area, no text)
-    const PAD_TOP = 4;
-    const PAD_BOT = 4;
+// [V10.0] Guardian Score Timeline — ECG-Style Premium Component
+function ScoreTimeline({ history, currentScore }: { history: { time: string; score: number }[]; currentScore: number }) {
+    const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
+    const W = 280;
+    const H = 56;
+    const PAD_TOP = 6;
+    const PAD_BOT = 6;
     const drawH = H - PAD_TOP - PAD_BOT;
 
     const scores = history.map(h => h.score);
@@ -372,67 +373,190 @@ function RlsiSparkline({ history, currentScore }: { history: { time: string; sco
     const maxScore = Math.min(100, Math.max(...scores) + 5);
     const range = maxScore - minScore || 1;
 
-    // Build SVG path points
+    // Build SVG points
     const points = history.map((h, i) => {
         const x = (i / (history.length - 1)) * W;
         const y = PAD_TOP + drawH - ((h.score - minScore) / range) * drawH;
         return { x, y, score: h.score, time: h.time };
     });
 
-    // Line path
+    // Zone color by RLSI score
+    const getZoneColor = (s: number) => {
+        if (s >= 70) return '#34d399';   // Bullish — emerald
+        if (s >= 55) return '#6ee7b7';   // Mild bull — light emerald
+        if (s >= 45) return '#94a3b8';   // Neutral — slate
+        if (s >= 30) return '#fbbf24';   // Cautious — amber
+        return '#f87171';                 // Bearish — red
+    };
+
+    // Create colored line segments
+    const segments: { path: string; color: string }[] = [];
+    for (let i = 0; i < points.length - 1; i++) {
+        const p1 = points[i];
+        const p2 = points[i + 1];
+        const avgScore = (p1.score + p2.score) / 2;
+        segments.push({
+            path: `M${p1.x.toFixed(1)},${p1.y.toFixed(1)} L${p2.x.toFixed(1)},${p2.y.toFixed(1)}`,
+            color: getZoneColor(avgScore),
+        });
+    }
+
+    // Fill path for gradient area
     const linePath = points.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
-    // Fill path (closed polygon for gradient)
     const fillPath = `${linePath} L${W},${PAD_TOP + drawH} L0,${PAD_TOP + drawH} Z`;
 
-    // Score color
-    const getColor = (s: number) => {
-        if (s >= 60) return '#34d399';
-        if (s <= 40) return '#f87171';
-        return '#94a3b8';
-    };
+    // Last point for pulse
     const lastPoint = points[points.length - 1];
-    const lineColor = getColor(currentScore);
+    const lastColor = getZoneColor(currentScore);
 
-    // Time labels: show first, middle, last
+    // Hovered point
+    const hoveredPoint = hoveredIdx !== null ? points[hoveredIdx] : null;
+
+    // Time format
     const formatTime = (iso: string) => {
         const d = new Date(iso);
         return `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`;
     };
 
+    // Trend Insight calculation
+    const trendInsight = useMemo(() => {
+        if (scores.length < 4) return null;
+        const recent5 = scores.slice(-5);
+        const older5 = scores.slice(-10, -5);
+        const recentAvg = recent5.reduce((a, b) => a + b, 0) / recent5.length;
+        const olderAvg = older5.length > 0 ? older5.reduce((a, b) => a + b, 0) / older5.length : recentAvg;
+        const delta = recentAvg - olderAvg;
+        const dayHigh = Math.max(...scores);
+        const dayLow = Math.min(...scores);
+        const volatility = dayHigh - dayLow;
+
+        let direction: 'rising' | 'falling' | 'stable';
+        let icon: string;
+        let color: string;
+
+        if (delta > 3) { direction = 'rising'; icon = '▲'; color = '#34d399'; }
+        else if (delta < -3) { direction = 'falling'; icon = '▼'; color = '#f87171'; }
+        else { direction = 'stable'; icon = '─'; color = '#94a3b8'; }
+
+        return { direction, icon, color, delta, dayHigh, dayLow, volatility, recentAvg };
+    }, [scores]);
+
+    // Zone borders for background bands
+    const scoreToY = (s: number) => PAD_TOP + drawH - ((s - minScore) / range) * drawH;
+    const zoneWarnTop = Math.max(PAD_TOP, scoreToY(Math.min(maxScore, 60)));
+    const zoneWarnBot = Math.min(PAD_TOP + drawH, scoreToY(Math.max(minScore, 40)));
+    const showZoneBands = maxScore > 40 && minScore < 60;
+
     return (
         <div className="relative">
-            {/* Score labels (HTML — unaffected by SVG scaling) */}
-            <div className="absolute right-0 top-0 -mr-1 flex flex-col justify-between h-[50px] items-end pointer-events-none" style={{ transform: 'translateX(100%)', paddingLeft: '4px' }}>
+            {/* Score labels */}
+            <div className="absolute right-0 top-0 -mr-1 flex flex-col justify-between h-[56px] items-end pointer-events-none" style={{ transform: 'translateX(100%)', paddingLeft: '4px' }}>
                 <span className="text-[12px] font-mono font-semibold text-slate-300 leading-none">{maxScore}</span>
                 <span className="text-[12px] font-mono font-semibold text-slate-300 leading-none">{minScore}</span>
             </div>
 
-            {/* SVG Chart (line + fill only) */}
-            <svg width="100%" height={H} viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" className="overflow-visible">
+            {/* SVG Chart */}
+            <svg
+                width="100%"
+                height={H}
+                viewBox={`0 0 ${W} ${H}`}
+                preserveAspectRatio="none"
+                className="overflow-visible cursor-crosshair"
+                onMouseMove={(e) => {
+                    const rect = e.currentTarget.getBoundingClientRect();
+                    const relX = ((e.clientX - rect.left) / rect.width) * W;
+                    const closest = points.reduce((best, p, i) =>
+                        Math.abs(p.x - relX) < Math.abs(points[best].x - relX) ? i : best, 0);
+                    setHoveredIdx(closest);
+                }}
+                onMouseLeave={() => setHoveredIdx(null)}
+            >
                 <defs>
-                    <linearGradient id="sparkFill" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor={lineColor} stopOpacity="0.15" />
-                        <stop offset="100%" stopColor={lineColor} stopOpacity="0.02" />
+                    <linearGradient id="ecgFill" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor={lastColor} stopOpacity="0.12" />
+                        <stop offset="100%" stopColor={lastColor} stopOpacity="0.01" />
                     </linearGradient>
+                    <filter id="ecgGlow">
+                        <feGaussianBlur stdDeviation="2" result="blur" />
+                        <feMerge>
+                            <feMergeNode in="blur" />
+                            <feMergeNode in="SourceGraphic" />
+                        </feMerge>
+                    </filter>
                 </defs>
+
+                {/* Neutral zone band (40-60) */}
+                {showZoneBands && (
+                    <rect
+                        x={0} y={zoneWarnTop}
+                        width={W} height={Math.max(0, zoneWarnBot - zoneWarnTop)}
+                        fill="rgba(148,163,184,0.04)"
+                        rx={2}
+                    />
+                )}
+
                 {/* Grid lines */}
-                <line x1="0" y1={PAD_TOP} x2={W} y2={PAD_TOP} stroke="rgba(148,163,184,0.15)" strokeWidth="0.5" />
-                <line x1="0" y1={PAD_TOP + drawH / 2} x2={W} y2={PAD_TOP + drawH / 2} stroke="rgba(148,163,184,0.12)" strokeWidth="0.5" strokeDasharray="2 4" />
-                <line x1="0" y1={PAD_TOP + drawH} x2={W} y2={PAD_TOP + drawH} stroke="rgba(148,163,184,0.15)" strokeWidth="0.5" />
+                <line x1="0" y1={PAD_TOP} x2={W} y2={PAD_TOP} stroke="rgba(148,163,184,0.12)" strokeWidth="0.5" />
+                <line x1="0" y1={PAD_TOP + drawH / 2} x2={W} y2={PAD_TOP + drawH / 2} stroke="rgba(148,163,184,0.08)" strokeWidth="0.5" strokeDasharray="3 6" />
+                <line x1="0" y1={PAD_TOP + drawH} x2={W} y2={PAD_TOP + drawH} stroke="rgba(148,163,184,0.12)" strokeWidth="0.5" />
+
                 {/* Gradient fill */}
-                <path d={fillPath} fill="url(#sparkFill)" />
-                {/* Line */}
-                <path d={linePath} fill="none" stroke={lineColor} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                {/* Current dot */}
+                <path d={fillPath} fill="url(#ecgFill)" />
+
+                {/* Zone-colored line segments */}
+                {segments.map((seg, i) => (
+                    <path
+                        key={i}
+                        d={seg.path}
+                        fill="none"
+                        stroke={seg.color}
+                        strokeWidth="1.8"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        opacity={hoveredIdx !== null && (hoveredIdx !== i && hoveredIdx !== i + 1) ? 0.4 : 1}
+                    />
+                ))}
+
+                {/* Hover crosshair + dot */}
+                {hoveredPoint && (
+                    <>
+                        <line x1={hoveredPoint.x} y1={PAD_TOP} x2={hoveredPoint.x} y2={PAD_TOP + drawH} stroke="rgba(255,255,255,0.2)" strokeWidth="0.5" strokeDasharray="2 3" />
+                        <circle cx={hoveredPoint.x} cy={hoveredPoint.y} r="3.5" fill={getZoneColor(hoveredPoint.score)} stroke="rgba(0,0,0,0.5)" strokeWidth="0.5" />
+                    </>
+                )}
+
+                {/* Current point — pulse animation */}
                 {lastPoint && (
                     <>
-                        <circle cx={lastPoint.x} cy={lastPoint.y} r="4" fill={lineColor} />
-                        <circle cx={lastPoint.x} cy={lastPoint.y} r="6" fill="none" stroke={lineColor} strokeWidth="0.5" opacity="0.5" />
+                        <circle cx={lastPoint.x} cy={lastPoint.y} r="6" fill="none" stroke={lastColor} strokeWidth="0.5" opacity="0.3">
+                            <animate attributeName="r" values="4;8;4" dur="2s" repeatCount="indefinite" />
+                            <animate attributeName="opacity" values="0.4;0.1;0.4" dur="2s" repeatCount="indefinite" />
+                        </circle>
+                        <circle cx={lastPoint.x} cy={lastPoint.y} r="3.5" fill={lastColor} filter="url(#ecgGlow)" />
                     </>
                 )}
             </svg>
 
-            {/* Time labels (HTML — 11px, clearly visible) */}
+            {/* Hover tooltip */}
+            {hoveredPoint && hoveredIdx !== null && (
+                <div
+                    className="absolute pointer-events-none z-10 px-2 py-1 rounded bg-slate-900/95 border border-slate-700/60 shadow-lg backdrop-blur-sm"
+                    style={{
+                        left: `${Math.min(78, Math.max(2, (hoveredPoint.x / W) * 100))}%`,
+                        top: '-28px',
+                        transform: 'translateX(-50%)',
+                    }}
+                >
+                    <span className="text-[12px] font-mono font-bold" style={{ color: getZoneColor(hoveredPoint.score) }}>
+                        {Math.round(hoveredPoint.score)}
+                    </span>
+                    <span className="text-[12px] font-mono text-slate-400 ml-1.5">
+                        {formatTime(hoveredPoint.time)}
+                    </span>
+                </div>
+            )}
+
+            {/* Time labels */}
             <div className="flex justify-between mt-1 px-0.5">
                 <span className="text-[12px] font-mono font-medium text-slate-300">{formatTime(history[0].time)}</span>
                 {history.length > 10 && (
@@ -440,6 +564,22 @@ function RlsiSparkline({ history, currentScore }: { history: { time: string; sco
                 )}
                 <span className="text-[12px] font-mono font-bold text-slate-200">NOW</span>
             </div>
+
+            {/* Trend Insight — AI narrative text */}
+            {trendInsight && (
+                <div className="mt-1.5 px-1 py-1 rounded bg-slate-800/30 border border-slate-700/20">
+                    <div className="flex items-center gap-1.5">
+                        <span className="text-[12px] font-bold" style={{ color: trendInsight.color }}>
+                            {trendInsight.icon}
+                        </span>
+                        <span className="text-[12px] text-slate-300 leading-tight">
+                            {trendInsight.direction === 'rising' && `RLSI ${trendInsight.delta.toFixed(1)}pt ↑ | H:${trendInsight.dayHigh} L:${trendInsight.dayLow} | Range ${trendInsight.volatility.toFixed(0)}pt`}
+                            {trendInsight.direction === 'falling' && `RLSI ${Math.abs(trendInsight.delta).toFixed(1)}pt ↓ | H:${trendInsight.dayHigh} L:${trendInsight.dayLow} | Range ${trendInsight.volatility.toFixed(0)}pt`}
+                            {trendInsight.direction === 'stable' && `RLSI stable ±${Math.abs(trendInsight.delta).toFixed(1)}pt | H:${trendInsight.dayHigh} L:${trendInsight.dayLow} | Range ${trendInsight.volatility.toFixed(0)}pt`}
+                        </span>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
