@@ -146,9 +146,46 @@ async function harvestGex(priceMap) {
         }
         for (const ts2 of [...strikes].sort((a,b)=>a-b)) { let c2=0; for(const o of opts){const s2=o.details?.strike_price;const oi2=o.open_interest||0;if(!s2||!oi2)continue;if(o.details.contract_type==='call')c2+=Math.max(0,ts2-s2)*oi2;else c2+=Math.max(0,s2-ts2)*oi2;} if(c2<mpMin){mpMin=c2;mp=ts2;} }
         const fl=cw&&pf?(cw+pf)/2:null, gr=gex>0?'POSITIVE':gex<0?'NEGATIVE':'NEUTRAL', pcr=tCOI>0?tPOI/tCOI:0;
-        gexMap[ticker] = { gex, pcr, gammaRegime:gr };
-        await client.send(new PutCommand({ TableName:'signum-gex-history', Item:{ticker,timestamp:ts,gex:Math.round(gex),flipLevel:fl,callWall:cw,putFloor:pf,maxPain:mp,price,gammaRegime:gr,totalContracts:opts.length,totalCallOI:tCOI,totalPutOI:tPOI,pcr:Math.round(pcr*100)/100}}));
-        await client.send(new PutCommand({ TableName:'signum-flow-history', Item:{ticker,timestamp:ts,compositeScore:0,opi:tCOI-tPOI,whaleScore:0,dex:0,ivSkew:0,squeezeProbability:0,smartMoneyScore:0,totalCallOI:tCOI,totalPutOI:tPOI,pcr:Math.round(pcr*100)/100}})).catch(()=>{});
+
+        // ====== ATM IV + IV Skew ======
+        let atmIv = null, ivSkew = null;
+        try {
+          // Find ATM options (closest strike to current price)
+          const callsByDist = opts.filter(o => o.details?.contract_type === 'call' && o.greeks?.implied_volatility > 0)
+            .sort((a, b) => Math.abs(a.details.strike_price - price) - Math.abs(b.details.strike_price - price));
+          const putsByDist = opts.filter(o => o.details?.contract_type === 'put' && o.greeks?.implied_volatility > 0)
+            .sort((a, b) => Math.abs(a.details.strike_price - price) - Math.abs(b.details.strike_price - price));
+          const atmCall = callsByDist[0];
+          const atmPut = putsByDist[0];
+          if (atmCall) atmIv = Math.round(atmCall.greeks.implied_volatility * 10000) / 100; // as %
+          if (atmCall && atmPut) {
+            ivSkew = Math.round((atmPut.greeks.implied_volatility - atmCall.greeks.implied_volatility) * 10000) / 100;
+          }
+        } catch {}
+
+        // ====== Squeeze Score ======
+        let squeezeScore = 0;
+        // Factor 1: Gamma regime (negative gamma = higher squeeze risk)
+        if (gr === 'NEGATIVE') squeezeScore += 35;
+        else if (gr === 'NEUTRAL') squeezeScore += 15;
+        // Factor 2: PCR (high = more puts = squeeze risk)
+        if (pcr > 1.5) squeezeScore += 25;
+        else if (pcr > 1.0) squeezeScore += 15;
+        else if (pcr > 0.7) squeezeScore += 5;
+        // Factor 3: Price near gamma flip (close to flip = instability)
+        if (fl && price) {
+          const distPct = Math.abs(price - fl) / price * 100;
+          if (distPct < 1) squeezeScore += 20;
+          else if (distPct < 3) squeezeScore += 10;
+        }
+        // Factor 4: High IV = elevated squeeze risk
+        if (atmIv && atmIv > 80) squeezeScore += 20;
+        else if (atmIv && atmIv > 50) squeezeScore += 10;
+        squeezeScore = Math.min(100, squeezeScore);
+
+        gexMap[ticker] = { gex, pcr, gammaRegime:gr, atmIv, squeezeScore };
+        await client.send(new PutCommand({ TableName:'signum-gex-history', Item:{ticker,timestamp:ts,gex:Math.round(gex),flipLevel:fl,callWall:cw,putFloor:pf,maxPain:mp,price,gammaRegime:gr,totalContracts:opts.length,totalCallOI:tCOI,totalPutOI:tPOI,pcr:Math.round(pcr*100)/100,atmIv:atmIv,ivSkew:ivSkew,squeezeScore:squeezeScore}}));
+        await client.send(new PutCommand({ TableName:'signum-flow-history', Item:{ticker,timestamp:ts,compositeScore:0,opi:tCOI-tPOI,whaleScore:0,dex:0,ivSkew:ivSkew||0,squeezeProbability:squeezeScore,smartMoneyScore:0,totalCallOI:tCOI,totalPutOI:tPOI,pcr:Math.round(pcr*100)/100}})).catch(()=>{});
         ok++;
       } catch {}
     }));
