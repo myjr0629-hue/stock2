@@ -34,12 +34,13 @@ export default async function TickerPage({ params, searchParams }: Props) {
     }
 
     // [SSR HYDRATION] Pre-fetch stock data and unified cache to eliminate skeleton
-    // Tier 1: Redis cache | Tier 2: DynamoDB (if Redis miss, for 300 universe tickers)
-    const [initialStockData, rawUnifiedData, initialChartData] = await Promise.all([
+    // Chart is NOT prefetched here — it loads via client-side SWR (LiveTickerDashboard fetchChartData)
+    // This avoids 2-3s SSR blocking from Polygon 1-minute 5-day data
+    const [initialStockData, rawUnifiedData] = await Promise.all([
         getStockDataLight(ticker).catch(() => null),
         getFromCache<any>(`cache:command:unified:${ticker}:${locale}`).catch(() => null),
-        getStockChartData(ticker, (range || '1d') as any).catch(() => null)
     ]);
+    const initialChartData = null; // Client-side SWR handles chart loading
 
     // [SSR DynamoDB FALLBACK] If Redis missed, try DynamoDB for instant SSR data
     let initialUnifiedData = rawUnifiedData;

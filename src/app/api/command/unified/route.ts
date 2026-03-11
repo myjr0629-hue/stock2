@@ -218,15 +218,28 @@ export async function GET(request: NextRequest) {
         if (dynamoResult) {
             // DynamoDB had fresh data — return instantly, let Polygon fill gaps in background
             await setInCache(cacheKey, dynamoResult, CACHE_TTL_SEC);
-            // Background: Polygon will fill squeeze/volatility/overview
+            // Background: Polygon will fill ALL gaps (fundamentals, related, etc.)
             polygonPromise.then(async (fullData) => {
                 if (fullData.structure || fullData.options) {
-                    // Merge: keep DynamoDB base, overlay Polygon-only fields
+                    // Merge: Polygon has full data for fundamentals, related, etc.
+                    // DynamoDB only has partial (name/sector for fundamentals, ticker list for related)
                     const merged = {
                         ...dynamoResult,
+                        // Polygon-exclusive fields (DynamoDB has null or incomplete)
                         volatility: fullData.volatility || dynamoResult.volatility,
                         squeeze: fullData.squeeze || dynamoResult.squeeze,
                         overview: fullData.overview || dynamoResult.overview,
+                        // Polygon has FULL data (score/grade/breakdown), DynamoDB only has name/sector
+                        fundamentals: fullData.fundamentals || dynamoResult.fundamentals,
+                        // Polygon has prices/logos, DynamoDB only has ticker names
+                        related: fullData.related || dynamoResult.related,
+                        // Polygon may have fresher data for these too
+                        sma: fullData.sma || dynamoResult.sma,
+                        earnings: fullData.earnings || dynamoResult.earnings,
+                        analyst: fullData.analyst || dynamoResult.analyst,
+                        institutional: fullData.institutional || dynamoResult.institutional,
+                        structure: fullData.structure || dynamoResult.structure,
+                        options: fullData.options || dynamoResult.options,
                         timestamp: Date.now(),
                     };
                     await setInCache(cacheKey, merged, CACHE_TTL_SEC);
