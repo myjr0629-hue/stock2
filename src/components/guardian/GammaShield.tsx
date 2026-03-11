@@ -291,6 +291,60 @@ function getInsightText(
     return t('neutral', locale);
 }
 
+// === Summary Strip — readable multi-sentence insight ===
+function getSummaryInsight(
+    gexIndex: number,
+    squeezeRisk: number,
+    squeezeLevel: string,
+    currentPrice: number | null,
+    supportWall: number | null,
+    resistanceWall: number | null,
+    locale: Locale
+): string[] {
+    const lines: string[] = [];
+    const sup = supportWall && supportWall > 0 ? supportWall.toLocaleString() : null;
+    const res = resistanceWall && resistanceWall > 0 ? resistanceWall.toLocaleString() : null;
+    const distDown = supportWall && supportWall > 0 && currentPrice ? (((currentPrice - supportWall) / currentPrice) * 100).toFixed(1) : null;
+
+    // Line 1: GEX condition
+    if (locale === 'ko') {
+        if (gexIndex >= 40) lines.push(`감마 매수 우위(+${gexIndex}) — 기관 헤지가 하방 쿠션 역할 중. 옵션 시장 안정 구간.`);
+        else if (gexIndex >= 20) lines.push(`감마 방어(+${gexIndex}) — 기관 포지션이 변동성 흡수 중. 안정적 구조.`);
+        else if (gexIndex > -20) lines.push(`감마 중립(${gexIndex >= 0 ? '+' : ''}${gexIndex}) — 옵션 시장 균형. 방향성 미확정 구간.`);
+        else if (gexIndex > -40) lines.push(`숏감마(${gexIndex}) — 기관 헤지가 변동을 증폭시키는 구간. 경계 필요.`);
+        else lines.push(`강한 숏감마(${gexIndex}) — 딜러 매도가 하락을 가속시킬 수 있는 구조.`);
+    } else if (locale === 'ja') {
+        if (gexIndex >= 40) lines.push(`ガンマ買い優位(+${gexIndex}) — 機関ヘッジが下方クッション。安定構造。`);
+        else if (gexIndex >= 20) lines.push(`ガンマ防御(+${gexIndex}) — 機関がボラティリティ吸収中。安定的構造。`);
+        else if (gexIndex > -20) lines.push(`ガンマ中立(${gexIndex >= 0 ? '+' : ''}${gexIndex}) — オプション市場均衡。方向性未確定。`);
+        else if (gexIndex > -40) lines.push(`ショートガンマ(${gexIndex}) — 機関ヘッジが変動増幅圏。警戒必要。`);
+        else lines.push(`強いショートガンマ(${gexIndex}) — ディーラー売りが下落加速構造。`);
+    } else {
+        if (gexIndex >= 40) lines.push(`Long gamma dominant (+${gexIndex}) — institutional hedging acts as downside cushion. Stable structure.`);
+        else if (gexIndex >= 20) lines.push(`Gamma defense (+${gexIndex}) — institutional positioning absorbs volatility. Stable structure.`);
+        else if (gexIndex > -20) lines.push(`Gamma neutral (${gexIndex >= 0 ? '+' : ''}${gexIndex}) — options market balanced. Directionality unconfirmed.`);
+        else if (gexIndex > -40) lines.push(`Short gamma (${gexIndex}) — institutional hedging amplifying swings. Elevated caution.`);
+        else lines.push(`Deep short gamma (${gexIndex}) — dealer selling may accelerate declines.`);
+    }
+
+    // Line 2: Squeeze + Support context
+    if (locale === 'ko') {
+        if (squeezeRisk >= 55) lines.push(`Squeeze ${squeezeRisk}% 임계 — 변동성이 급격히 해소될 수 있는 구간.${sup && distDown ? ` 지지 ${sup}(-${distDown}%).` : ''}`);
+        else if (squeezeRisk >= 30) lines.push(`Squeeze ${squeezeRisk}% 축적 중.${sup && distDown ? ` 지지 ${sup}(-${distDown}%)` : ''}${res ? `, 저항 ${res}` : ''} 관측.`);
+        else lines.push(`Squeeze ${squeezeRisk}% 안정.${sup && distDown ? ` 지지 ${sup}(-${distDown}%)` : ''}${res ? `, 저항 ${res}` : ''}.`);
+    } else if (locale === 'ja') {
+        if (squeezeRisk >= 55) lines.push(`Squeeze ${squeezeRisk}%臨界 — ボラティリティ急解消の可能性。${sup && distDown ? `支持${sup}(-${distDown}%)。` : ''}`);
+        else if (squeezeRisk >= 30) lines.push(`Squeeze ${squeezeRisk}%蓄積中。${sup && distDown ? `支持${sup}(-${distDown}%)` : ''}${res ? `、抵抗${res}` : ''}観測。`);
+        else lines.push(`Squeeze ${squeezeRisk}%安定。${sup && distDown ? `支持${sup}(-${distDown}%)` : ''}${res ? `、抵抗${res}` : ''}。`);
+    } else {
+        if (squeezeRisk >= 55) lines.push(`Squeeze ${squeezeRisk}% critical — volatility may release sharply.${sup && distDown ? ` Floor ${sup}(-${distDown}%).` : ''}`);
+        else if (squeezeRisk >= 30) lines.push(`Squeeze ${squeezeRisk}% building.${sup && distDown ? ` Floor ${sup}(-${distDown}%)` : ''}${res ? `, cap ${res}` : ''} observed.`);
+        else lines.push(`Squeeze ${squeezeRisk}% stable.${sup && distDown ? ` Floor ${sup}(-${distDown}%)` : ''}${res ? `, cap ${res}` : ''}.`);
+    }
+
+    return lines;
+}
+
 // === Main Component ===
 export default function GammaShield({ data, isMarketActive }: Props) {
     const rawLocale = useLocale();
@@ -322,23 +376,31 @@ export default function GammaShield({ data, isMarketActive }: Props) {
             ${getGexBgGlow(gexIndex)}
             transition-all duration-500
         `}>
-            {/* Header */}
-            <div className="flex items-center justify-between px-4 pt-3 pb-2">
-                <div className="flex items-center gap-2 min-w-0">
+            {/* Header — Clean */}
+            <div className="flex items-center justify-between px-4 pt-3 pb-1">
+                <div className="flex items-center gap-2">
                     <Shield className={`w-4 h-4 shrink-0 ${gexIndex >= 0 ? 'text-cyan-400' : 'text-amber-400'}`} />
-                    <span className="text-[14px] font-black font-jakarta tracking-[0.08em] text-slate-200 shrink-0">
+                    <span className="text-[14px] font-black font-jakarta tracking-[0.08em] text-slate-200">
                         GAMMA SHIELD
                     </span>
-                    <span className={`text-[12px] font-bold font-jakarta px-1.5 py-0.5 rounded-sm border shrink-0 ${confidence === 'HIGH' ? 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10' : confidence === 'MEDIUM' ? 'text-amber-400 border-amber-500/30 bg-amber-500/10' : 'text-slate-300 border-slate-500/30 bg-slate-500/10'}`}>
+                    <span className={`text-[12px] font-bold font-jakarta px-1.5 py-0.5 rounded-sm border ${confidence === 'HIGH' ? 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10' : confidence === 'MEDIUM' ? 'text-amber-400 border-amber-500/30 bg-amber-500/10' : 'text-slate-300 border-slate-500/30 bg-slate-500/10'}`}>
                         {confidence}
                     </span>
-                    <span className="text-[13px] font-jakarta text-slate-300 truncate">
-                        · {getInsightText(gexIndex, squeezeRisk, currentPrice, supportWall, resistanceWall, locale)}
-                    </span>
                 </div>
-                <span className={`text-[12px] font-bold font-jakarta px-2 py-0.5 rounded border shrink-0 ml-2 ${isMarketActive ? 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10 animate-pulse' : 'text-slate-300 border-slate-600/30 bg-slate-600/10'}`}>
+                <span className={`text-[12px] font-bold font-jakarta px-2 py-0.5 rounded border shrink-0 ${isMarketActive ? 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10 animate-pulse' : 'text-slate-300 border-slate-600/30 bg-slate-600/10'}`}>
                     {isMarketActive ? '● LIVE' : 'STANDBY'}
                 </span>
+            </div>
+
+            {/* Summary Strip — readable multi-line insight */}
+            <div className="px-4 pb-2">
+                <div className="bg-slate-800/40 rounded-lg px-3 py-2 border border-slate-700/20">
+                    {getSummaryInsight(gexIndex, squeezeRisk, squeezeLevel, currentPrice, supportWall, resistanceWall, locale).map((line, i) => (
+                        <p key={i} className={`text-[13px] font-jakarta leading-relaxed ${i === 0 ? 'text-slate-200 font-semibold' : 'text-slate-400 mt-0.5'}`}>
+                            {i === 0 ? '⚡ ' : '  '}{line}
+                        </p>
+                    ))}
+                </div>
             </div>
 
             {/* Content Grid — 3 columns */}
@@ -520,6 +582,15 @@ export default function GammaShield({ data, isMarketActive }: Props) {
                             </span>
                         </div>
                     )}
+                </div>
+            </div>
+
+            {/* Bottom Line — concise structural summary */}
+            <div className="px-4 pb-3 pt-1">
+                <div className="border-t border-slate-700/30 pt-2">
+                    <p className="text-[12px] font-mono font-medium text-slate-400 tracking-wide text-center">
+                        {getInsightText(gexIndex, squeezeRisk, currentPrice, supportWall, resistanceWall, locale)}
+                    </p>
                 </div>
             </div>
         </div>
