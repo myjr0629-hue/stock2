@@ -431,6 +431,18 @@ function ScoreTimeline({ history, currentScore }: { history: { time: string; sco
     const zoneWarnBot = Math.min(PAD_TOP + drawH, scoreToY(Math.max(minScore, 40)));
     const showZoneBands = maxScore > 40 && minScore < 60;
 
+    // [FORENSIC] Percentile bands — historical distribution context
+    const sortedScores = [...scores].sort((a, b) => a - b);
+    const getPercentile = (p: number) => {
+        const idx = Math.max(0, Math.min(sortedScores.length - 1, Math.floor(sortedScores.length * p / 100)));
+        return sortedScores[idx];
+    };
+    const p5 = getPercentile(5);
+    const p25 = getPercentile(25);
+    const p75 = getPercentile(75);
+    const p95 = getPercentile(95);
+    const showPercentiles = scores.length >= 5; // Need minimum data
+
     return (
         <div className="relative">
             {/* Score labels */}
@@ -477,6 +489,48 @@ function ScoreTimeline({ history, currentScore }: { history: { time: string; sco
                         fill="rgba(148,163,184,0.04)"
                         rx={2}
                     />
+                )}
+
+                {/* [FORENSIC] Percentile distribution bands */}
+                {showPercentiles && (
+                    <>
+                        {/* P5–P95 outer band — very faint */}
+                        <rect
+                            x={0} y={scoreToY(Math.min(p95, maxScore))}
+                            width={W}
+                            height={Math.max(0, scoreToY(Math.max(p5, minScore)) - scoreToY(Math.min(p95, maxScore)))}
+                            fill="rgba(99,102,241,0.05)"
+                            rx={1}
+                        />
+                        {/* P25–P75 inner band — slightly stronger */}
+                        <rect
+                            x={0} y={scoreToY(Math.min(p75, maxScore))}
+                            width={W}
+                            height={Math.max(0, scoreToY(Math.max(p25, minScore)) - scoreToY(Math.min(p75, maxScore)))}
+                            fill="rgba(99,102,241,0.08)"
+                            rx={1}
+                        />
+                        {/* Dashed lines at P5, P25, P75, P95 */}
+                        {[
+                            { val: p95, label: 'P95' },
+                            { val: p75, label: 'P75' },
+                            { val: p25, label: 'P25' },
+                            { val: p5, label: 'P5' },
+                        ].map(({ val, label }) => {
+                            const y = scoreToY(Math.max(minScore, Math.min(maxScore, val)));
+                            return (
+                                <g key={label}>
+                                    <line x1={0} y1={y} x2={W} y2={y}
+                                        stroke="rgba(129,140,248,0.2)" strokeWidth="0.5" strokeDasharray="2 4" />
+                                    <text x={W - 2} y={y - 2}
+                                        textAnchor="end" fill="rgba(129,140,248,0.4)"
+                                        fontSize="7" fontFamily="monospace" fontWeight="600">
+                                        {label}
+                                    </text>
+                                </g>
+                            );
+                        })}
+                    </>
                 )}
 
                 {/* Grid lines */}

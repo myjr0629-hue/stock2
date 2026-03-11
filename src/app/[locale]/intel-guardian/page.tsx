@@ -531,6 +531,128 @@ export default function GuardianPage() {
                                                     isBullMode={isBullMode}
                                                     isMarketActive={isMarketActive}
                                                 />
+
+                                                {/* [FLOW AI EXPLAIN] Glassmorphism Sector Insight Popover */}
+                                                {selectedSectorId && isMapUnlocked && (() => {
+                                                    const sec = data?.sectors.find(s => s.id === selectedSectorId);
+                                                    if (!sec) return null;
+                                                    const sectorName = getSectorName(sec.name, locale);
+                                                    const change = sec.change;
+                                                    const isInflow = change >= 0;
+                                                    const absChange = Math.abs(change).toFixed(2);
+                                                    const tops = sec.topConstituents?.slice(0, 3) || [];
+
+                                                    // Flow vectors related to this sector
+                                                    const inboundVecs = (data?.vectors || []).filter(v => v.targetId === selectedSectorId);
+                                                    const outboundVecs = (data?.vectors || []).filter(v => v.sourceId === selectedSectorId);
+                                                    const totalInbound = inboundVecs.reduce((s, v) => s + v.strength, 0);
+                                                    const totalOutbound = outboundVecs.reduce((s, v) => s + v.strength, 0);
+                                                    const netFlow = totalInbound - totalOutbound;
+
+                                                    // [COMPLIANCE] Observational insight — no advisory language
+                                                    const insightLines: string[] = [];
+                                                    if (locale === 'ko') {
+                                                        if (Math.abs(change) > 3) {
+                                                            insightLines.push(isInflow
+                                                                ? `5일 누적 유입 ${absChange}% — 강한 자금 집중 구간 관측`
+                                                                : `5일 누적 유출 ${absChange}% — 지속적 자금 이탈 패턴 관측`);
+                                                        } else if (Math.abs(change) > 1) {
+                                                            insightLines.push(isInflow
+                                                                ? `완만한 유입 흐름 ${absChange}% — 점진적 포지션 구축 구간`
+                                                                : `점진적 유출 흐름 ${absChange}% — 포지션 축소 구간`);
+                                                        } else {
+                                                            insightLines.push(`자금 흐름 중립 구간 — 방향성 미확정`);
+                                                        }
+                                                        if (netFlow > 10) insightLines.push(`순유입 흐름 우위 — 타 섹터 대비 자금 유입 집중`);
+                                                        else if (netFlow < -10) insightLines.push(`순유출 흐름 우위 — 자금이 타 섹터로 분산 이동 중`);
+                                                    } else if (locale === 'ja') {
+                                                        if (Math.abs(change) > 3) {
+                                                            insightLines.push(isInflow
+                                                                ? `5日累積流入 ${absChange}% — 強い資金集中ゾーン観測`
+                                                                : `5日累積流出 ${absChange}% — 継続的資金流出パターン観測`);
+                                                        } else if (Math.abs(change) > 1) {
+                                                            insightLines.push(isInflow
+                                                                ? `緩やかな流入 ${absChange}% — ポジション構築ゾーン`
+                                                                : `段階的流出 ${absChange}% — ポジション縮小ゾーン`);
+                                                        } else {
+                                                            insightLines.push(`資金フローニュートラル — 方向性未確定`);
+                                                        }
+                                                        if (netFlow > 10) insightLines.push(`純流入優位 — 他セクター比で資金集中`);
+                                                        else if (netFlow < -10) insightLines.push(`純流出優位 — 資金は他セクターに分散移動中`);
+                                                    } else {
+                                                        if (Math.abs(change) > 3) {
+                                                            insightLines.push(isInflow
+                                                                ? `5-day cumulative inflow ${absChange}% — strong capital concentration zone observed`
+                                                                : `5-day cumulative outflow ${absChange}% — sustained capital exit pattern observed`);
+                                                        } else if (Math.abs(change) > 1) {
+                                                            insightLines.push(isInflow
+                                                                ? `Gradual inflow ${absChange}% — position accumulation zone`
+                                                                : `Gradual outflow ${absChange}% — position reduction zone`);
+                                                        } else {
+                                                            insightLines.push(`Capital flow neutral — directionality unconfirmed`);
+                                                        }
+                                                        if (netFlow > 10) insightLines.push(`Net inflow dominant — capital concentration relative to other sectors`);
+                                                        else if (netFlow < -10) insightLines.push(`Net outflow dominant — capital dispersing to other sectors`);
+                                                    }
+
+                                                    return (
+                                                        <div className="absolute top-3 right-3 z-50 w-[260px] animate-in fade-in slide-in-from-right-2 duration-300">
+                                                            <div className="bg-slate-900/92 backdrop-blur-xl border border-slate-600/40 rounded-xl shadow-2xl shadow-black/40 overflow-hidden">
+                                                                {/* Header */}
+                                                                <div className="flex items-center justify-between px-3 py-2 border-b border-slate-700/40">
+                                                                    <div className="flex items-center gap-2">
+                                                                        <div className={`w-2 h-2 rounded-full ${isInflow ? 'bg-emerald-400' : 'bg-rose-400'}`} />
+                                                                        <span className="text-[13px] font-bold text-white tracking-wide">{sectorName}</span>
+                                                                    </div>
+                                                                    <button
+                                                                        onClick={() => setSelectedSectorId(null)}
+                                                                        className="text-slate-500 hover:text-white transition-colors text-lg leading-none px-1"
+                                                                    >×</button>
+                                                                </div>
+                                                                {/* Change badge */}
+                                                                <div className="px-3 py-2">
+                                                                    <div className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[12px] font-mono font-bold ${isInflow ? 'bg-emerald-500/15 text-emerald-400' : 'bg-rose-500/15 text-rose-400'
+                                                                        }`}>
+                                                                        {isInflow ? '▲' : '▼'} {isInflow ? '+' : ''}{change.toFixed(2)}%
+                                                                        <span className="text-slate-500 font-normal ml-1">5D</span>
+                                                                    </div>
+                                                                </div>
+                                                                {/* AI Insight */}
+                                                                <div className="px-3 pb-2">
+                                                                    {insightLines.map((line, i) => (
+                                                                        <p key={i} className="text-[12px] text-slate-300 leading-relaxed">
+                                                                            {i === 0 ? '⚡ ' : '→ '}{line}
+                                                                        </p>
+                                                                    ))}
+                                                                </div>
+                                                                {/* Top Tickers */}
+                                                                {tops.length > 0 && (
+                                                                    <div className="px-3 pb-2.5 border-t border-slate-700/30 pt-2">
+                                                                        <div className="text-[11px] text-slate-500 font-semibold tracking-wider mb-1.5 uppercase">
+                                                                            {locale === 'ko' ? '주요 종목' : locale === 'ja' ? '主要銘柄' : 'Top Holdings'}
+                                                                        </div>
+                                                                        {tops.map((tk, i) => {
+                                                                            const live = livePrices[tk.symbol];
+                                                                            const price = live?.price || tk.price;
+                                                                            const chg = live?.change ?? tk.change;
+                                                                            return (
+                                                                                <div key={i} className="flex items-center justify-between py-0.5">
+                                                                                    <span className="text-[12px] font-mono font-bold text-slate-200">{tk.symbol}</span>
+                                                                                    <div className="flex items-center gap-2">
+                                                                                        <span className="text-[12px] font-mono text-slate-400">${price.toFixed(2)}</span>
+                                                                                        <span className={`text-[12px] font-mono font-bold ${chg >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                                                                            {chg >= 0 ? '+' : ''}{chg.toFixed(2)}%
+                                                                                        </span>
+                                                                                    </div>
+                                                                                </div>
+                                                                            );
+                                                                        })}
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })()}
                                             </div>
                                         </>
                                     );

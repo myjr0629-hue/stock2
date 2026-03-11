@@ -160,6 +160,21 @@ function HtmlNode({ data, position, onClick, isSource, isTarget, isCenter, isMar
                         <div className="absolute inset-[-5px] rounded-full border border-cyan-400 opacity-60 animate-ping" />
                     )}
 
+                    {/* [SMART MONEY FOOTPRINT] Heatmap intensity ring — flow magnitude visualization */}
+                    {Math.abs(data.density) > 0.3 && (
+                        <div
+                            className={`absolute rounded-full pointer-events-none ${Math.abs(data.density) > 2 && isMarketActive ? 'animate-pulse' : ''
+                                }`}
+                            style={{
+                                inset: '-6px',
+                                border: `2px solid ${data.density >= 0 ? 'rgba(52,211,153,' : 'rgba(248,113,113,'}${Math.min(0.7, Math.abs(data.density) / 5)})`,
+                                boxShadow: `0 0 ${Math.min(20, Math.abs(data.density) * 4)}px ${data.density >= 0 ? 'rgba(52,211,153,' : 'rgba(248,113,113,'
+                                    }${Math.min(0.4, Math.abs(data.density) / 8)})`,
+                                borderRadius: '9999px',
+                            }}
+                        />
+                    )}
+
                     {/* MAIN CIRCLE */}
                     <div
                         className="absolute inset-0 rounded-full border-2 backdrop-blur-sm flex items-center justify-center transition-all duration-500"
