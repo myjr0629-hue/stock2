@@ -584,7 +584,7 @@ export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d
             </CardHeader>
             <CardContent className="pt-6 flex-1 flex flex-col min-h-0">
                 {/* [P0-2] Key-based remount for stability */}
-                <div ref={chartContainerRef} key={`${ticker}-${range}`} className={`flex-1 w-full flex flex-col min-w-[200px] min-h-[200px] relative transition-opacity duration-500 ${renderSettled ? 'opacity-100' : 'opacity-0'}`}>
+                <div ref={chartContainerRef} key={`${ticker}-${range}`} className={`flex-1 w-full flex flex-col min-w-[200px] min-h-[200px] overflow-hidden relative transition-opacity duration-500 ${renderSettled ? 'opacity-100' : 'opacity-0'}`}>
                     {mounted && dataReady && processedData.length > 0 ? (
                         <>
                             <ResponsiveContainer width="99%" height="100%" minWidth={200} minHeight={200}>
