@@ -212,16 +212,29 @@ export function GuardianProvider({ children }: { children: React.ReactNode }) {
         prevSessionRef.current = currentSession;
     }, [mktStatus.session]);
 
-    // ?�?� Polling fallback (only when WebSocket is down) ?�?�
+    // 🔄 Smart Auto-Refresh — ALWAYS polls for data freshness 🔄
+    // WebSocket is a bonus for instant updates, polling is the guaranteed baseline
     useEffect(() => {
-        if (connectionMode !== 'polling') return;
-
         const session = data?.rlsi?.session;
+        
+        // Determine polling interval based on market session
+        let intervalMs: number;
         if (session === 'REG') {
-            const interval = setInterval(() => refresh(), 2 * 60 * 1000); // 2 min when polling
-            return () => clearInterval(interval);
+            intervalMs = 30 * 1000; // 30s during regular session — real-time
+        } else if (session === 'PRE' || session === 'POST') {
+            intervalMs = 2 * 60 * 1000; // 2 min during extended hours
+        } else {
+            intervalMs = 10 * 60 * 1000; // 10 min when closed
         }
-    }, [data?.rlsi?.session, validLocale, connectionMode]);
+
+        console.log(`[Guardian] Auto-refresh active: ${session || 'INIT'} → ${intervalMs / 1000}s interval`);
+        
+        const interval = setInterval(() => {
+            refresh();
+        }, intervalMs);
+
+        return () => clearInterval(interval);
+    }, [data?.rlsi?.session, validLocale]);
 
     const value = useMemo(() => ({
         data,
