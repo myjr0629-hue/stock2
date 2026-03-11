@@ -84,7 +84,9 @@ async function writeSnapshot(snapshot) {
     const hours = String(et.getHours()).padStart(2, "0");
     const minutes = String(et.getMinutes()).padStart(2, "0");
     const time = `${hours}:${minutes}`;
+    const timestamp = now.getTime();
 
+    // === 1) Guardian unified history (guardian-history table) ===
     const item = {
         date,
         time,
@@ -122,6 +124,52 @@ async function writeSnapshot(snapshot) {
     }));
 
     console.log(`[DynamoDB] Written: ${date} ${time} | RLSI: ${item.rlsi} | GEX: ${item.gexIndex} | VIX: ${item.vix}`);
+
+    // === 2) RLSI History (signum-rlsi-history table — Vercel API reads this) ===
+    try {
+        const rlsiItem = {
+            pk: "MARKET",
+            timestamp,
+            rlsi: Math.round(snapshot.rlsi.score * 10) / 10,
+            momentum: snapshot.rlsi.components?.momentum || 0,
+            participation: snapshot.rlsi.components?.participation || 0,
+            priceTrend: snapshot.rlsi.components?.priceActionScore || 0,
+            rotation: snapshot.rlsi.components?.rotation || 0,
+            sentiment: snapshot.rlsi.components?.sentiment || 0,
+            regime: snapshot.rlsi.level || "NEUTRAL",
+        };
+        await docClient.send(new PutCommand({
+            TableName: "signum-rlsi-history",
+            Item: rlsiItem,
+        }));
+        console.log(`[DynamoDB] signum-rlsi-history: RLSI ${rlsiItem.rlsi}`);
+    } catch (e) {
+        console.warn(`[DynamoDB] signum-rlsi-history write failed:`, e.message);
+    }
+
+    // === 3) GEX History (signum-gex-history table) ===
+    if (snapshot.gammaShield?.gexIndex != null) {
+        try {
+            const gexItem = {
+                ticker: "SPY",
+                timestamp,
+                gex: snapshot.gammaShield.gexIndex,
+                flipLevel: snapshot.gammaShield.gammaFlipPoint || null,
+                callWall: snapshot.gammaShield.resistanceWall || null,
+                putFloor: snapshot.gammaShield.supportWall || null,
+                maxPain: null,
+                price: snapshot.gammaShield.currentPrice || 0,
+                gammaRegime: snapshot.gammaShield.gexLevel || "NEUTRAL",
+            };
+            await docClient.send(new PutCommand({
+                TableName: "signum-gex-history",
+                Item: gexItem,
+            }));
+            console.log(`[DynamoDB] signum-gex-history: GEX ${gexItem.gex} | Price ${gexItem.price}`);
+        } catch (e) {
+            console.warn(`[DynamoDB] signum-gex-history write failed:`, e.message);
+        }
+    }
 }
 
 // ══════════════════════════════════════════════════════════════
