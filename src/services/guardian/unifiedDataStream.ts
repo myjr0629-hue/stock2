@@ -91,7 +91,7 @@ export interface GuardianContext {
 // === CACHE CONFIG (per-locale to prevent AI text cross-contamination) ===
 const _cachedContext: Record<Locale, GuardianContext | null> = { ko: null, en: null, ja: null };
 const _lastFetchTime: Record<Locale, number> = { ko: 0, en: 0, ja: 0 };
-const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+const CACHE_TTL_MS = 25 * 1000; // 25 seconds — matches 30s polling interval
 
 // [V12.0] Persistent AI verdict cache — Redis-based for deploy survival & EC2 sync
 // [FIX] Per-locale keys to prevent English verdict being served to Korean/Japanese
@@ -346,11 +346,19 @@ export class GuardianDataHub {
                         console.log(`[Guardian FIX] Session mismatch: cached=${cachedSession}, current=${currentSession} — recomputing for ${locale}`);
                         // Don't return stale cache, fall through to recompute
                     } else {
-                        // Session matches, safe to return
-                        _cachedContext[locale] = cached;
-                        _lastFetchTime[locale] = now;
-                        console.log(`[Guardian V12.0] Redis SWR hit for ${locale} (RLSI: ${cached.rlsi.score?.toFixed?.(0) || 'N/A'}, session: ${cachedSession}, source: ${cached._source || 'redis'})`);
-                        return cached;
+                        // [FIX] Staleness check: if data is older than 25s, recompute for real-time freshness
+                        const workerTs = cached._workerTimestamp ? new Date(cached._workerTimestamp).getTime() : 0;
+                        const dataAge = now - workerTs;
+                        if (dataAge > 25000) {
+                            console.log(`[Guardian] Redis cache stale (${(dataAge/1000).toFixed(0)}s old) — recomputing for ${locale}`);
+                            // Fall through to recompute
+                        } else {
+                            // Session matches and data is fresh, safe to return
+                            _cachedContext[locale] = cached;
+                            _lastFetchTime[locale] = now;
+                            console.log(`[Guardian V12.0] Redis SWR hit for ${locale} (RLSI: ${cached.rlsi.score?.toFixed?.(0) || 'N/A'}, session: ${cachedSession}, age: ${(dataAge/1000).toFixed(0)}s)`);
+                            return cached;
+                        }
                     }
                 }
             } catch (e) {
