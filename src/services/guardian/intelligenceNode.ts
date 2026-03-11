@@ -25,7 +25,7 @@ function sanitizeText(text: string): string {
     // Also remove common 2-byte symbols that cause issues: ⚠️🛡️📰🎯✍️📊🔍🔥🟢⚡📋
     return text
         .replace(/[\u{10000}-\u{10FFFF}]/gu, '')
-        .replace(/[\u2600-\u27BF\u2B50\u2934\u2935\u25AA-\u25FE\u2700-\u27BF\uFE0F]/g, '')
+        .replace(/[\u2600-\u27BF\u2B50\u2934\u2935\u25AA-\u25FE\u2700-\u27BF\uFE0F\uFFFD\u25C6]/g, '')
         .replace(/\s{2,}/g, ' ')
         .trim();
 }
@@ -54,7 +54,7 @@ async function loadInsightFromRedis(key: string): Promise<string | null> {
         const data = await redis.get(key) as { text: string; updatedAt: string } | null;
         if (data?.text) {
             console.log(`[IntelligenceNode] Loaded ${key} from Redis (${data.updatedAt})`);
-            return data.text;
+            return sanitizeText(data.text); // Re-sanitize on read to strip any broken unicode from old cache
         }
     } catch (e) {
         console.warn("[IntelligenceNode] Redis load error:", e);
