@@ -34,11 +34,42 @@ export default async function TickerPage({ params, searchParams }: Props) {
     }
 
     // [SSR HYDRATION] Pre-fetch stock data and unified cache to eliminate skeleton
-    const [initialStockData, initialUnifiedData, initialChartData] = await Promise.all([
+    // Tier 1: Redis cache | Tier 2: DynamoDB (if Redis miss, for 300 universe tickers)
+    const [initialStockData, rawUnifiedData, initialChartData] = await Promise.all([
         getStockDataLight(ticker).catch(() => null),
         getFromCache<any>(`cache:command:unified:${ticker}:${locale}`).catch(() => null),
         getStockChartData(ticker, (range || '1d') as any).catch(() => null)
     ]);
+
+    // [SSR DynamoDB FALLBACK] If Redis missed, try DynamoDB for instant SSR data
+    let initialUnifiedData = rawUnifiedData;
+    if (!initialUnifiedData) {
+        try {
+            const { getTickerSnapshot, isDataFresh } = await import('@/lib/aws/dynamoDataProvider');
+            const snap = await getTickerSnapshot(ticker);
+            if (snap.price && (isDataFresh(snap.price.date) || isWithin3Days(snap.price.date))) {
+                const gex = snap.gex;
+                const p = snap.price as any;
+                initialUnifiedData = {
+                    structure: gex ? {
+                        options_status: 'OK', netGex: gex.gex, maxPain: gex.maxPain,
+                        pcRatio: gex.pcr, levels: { callWall: gex.callWall, putFloor: gex.putFloor },
+                        gammaFlipLevel: gex.flipLevel, gammaRegime: gex.gammaRegime,
+                        totalContracts: gex.totalContracts, totalCallOI: gex.totalCallOI, totalPutOI: gex.totalPutOI,
+                        validation: { confidence: 'HIGH', source: 'ssr-dynamodb' },
+                    } : null,
+                    options: gex ? { pcr: gex.pcr } : null,
+                    sma: p.sma50 && p.sma200 ? { ticker, cross: p.cross || 'NONE', crossType: p.crossType || '', sma50: p.sma50, sma200: p.sma200, distance: Math.round(((p.sma50 - p.sma200) / p.sma200) * 10000) / 100, isImminent: Math.abs(((p.sma50 - p.sma200) / p.sma200) * 100) < 0.5, phase: 'NEUTRAL', label: '' } : null,
+                    earnings: snap.earnings ? { ticker, nextEarningsDate: snap.earnings.nextDate, daysUntilEarnings: snap.earnings.daysUntil || 0, daysLabel: (snap.earnings.daysUntil || 0) <= 0 ? 'today' : `D-${snap.earnings.daysUntil}`, hasData: true } : null,
+                    analyst: snap.analyst ? { ticker, consensus: snap.analyst.consensus || 'N/A', totalAnalysts: snap.analyst.totalAnalysts || 0, bullishPct: snap.analyst.bullishPct || 0, breakdown: snap.analyst.breakdown || {} } : null,
+                    fundamentals: snap.fundamentals ? { ticker, name: snap.fundamentals.name || ticker, marketCap: snap.fundamentals.marketCap, sector: snap.fundamentals.sector } : null,
+                    related: snap.related?.tickers ? { ticker, relatedTickers: snap.related.tickers } : null,
+                    _dynamoPrice: { price: p.close, open: p.open, high: p.high, low: p.low, volume: p.volume, changePct: p.changePct },
+                    timestamp: Date.now(), _source: 'ssr-dynamodb',
+                };
+            }
+        } catch { /* DynamoDB unavailable in SSR — continue without initial data */ }
+    }
 
     // Construct a safe minimal version if stock data fails
     const safeStockData = initialStockData || {
@@ -66,4 +97,12 @@ export default async function TickerPage({ params, searchParams }: Props) {
             </div>
         </TerminalGateWrapper>
     );
+}
+
+// Helper: Check if date string is within 3 days (covers weekends/holidays)
+function isWithin3Days(dateStr: string): boolean {
+    if (!dateStr) return false;
+    const dataDate = new Date(dateStr + 'T12:00:00-05:00');
+    const diffDays = (Date.now() - dataDate.getTime()) / (1000 * 60 * 60 * 24);
+    return diffDays >= 0 && diffDays < 3.5;
 }
