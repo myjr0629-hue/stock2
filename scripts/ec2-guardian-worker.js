@@ -208,10 +208,107 @@ async function harvestGuardianData(locale = "ko") {
 }
 
 // ══════════════════════════════════════════════════════════════
-// CROSS-INTELLIGENCE ALERT ENGINE
+// CROSS-INTELLIGENCE ALERT ENGINE (Multi-Locale + Compliance)
 // ══════════════════════════════════════════════════════════════
 
 let lastAlertState = {};
+let preEventGexSnapshot = null; // GEX before event release
+
+// ── Multi-locale alert templates (compliance-safe: observation only) ──
+
+const ALERT_TEXT = {
+    TRIPLE_DANGER: {
+        ko: (m) => ({
+            title: "⚠️ 다중 위험 신호 동시 활성",
+            description: `RLSI ${m.rlsi.toFixed(0)} + 숏 감마 (GEX ${m.gex.toFixed(0)}) + VIX ${m.vix.toFixed(1)} — 3중 위험 지표가 동시에 관찰됨`,
+        }),
+        en: (m) => ({
+            title: "⚠️ TRIPLE RISK SIGNALS ACTIVE",
+            description: `RLSI ${m.rlsi.toFixed(0)} + Short Gamma (GEX ${m.gex.toFixed(0)}) + VIX ${m.vix.toFixed(1)} — Three risk indicators simultaneously observed`,
+        }),
+        ja: (m) => ({
+            title: "⚠️ トリプルリスクシグナル同時発生",
+            description: `RLSI ${m.rlsi.toFixed(0)} + ショートガンマ (GEX ${m.gex.toFixed(0)}) + VIX ${m.vix.toFixed(1)} — 3重リスク指標が同時に観測`,
+        }),
+    },
+    HIDDEN_DIVERGENCE: {
+        ko: (m) => ({
+            title: "🔍 히든 다이버전스 관찰",
+            description: `지수 양호 (RLSI ${m.rlsi.toFixed(0)}) 그러나 내부 체력 약세 (Breadth ${m.breadth.toFixed(0)}%) — 표면 강세 이면 섹터 약세 동시 관찰`,
+        }),
+        en: (m) => ({
+            title: "🔍 HIDDEN DIVERGENCE OBSERVED",
+            description: `Index positive (RLSI ${m.rlsi.toFixed(0)}) with weak internals (Breadth ${m.breadth.toFixed(0)}%) — Surface strength coincides with sector weakness`,
+        }),
+        ja: (m) => ({
+            title: "🔍 ヒドゥンダイバージェンス観測",
+            description: `指数は良好 (RLSI ${m.rlsi.toFixed(0)}) ですが内部体力は弱い (Breadth ${m.breadth.toFixed(0)}%) — 表面の強さとセクターの弱さが同時に観測`,
+        }),
+    },
+    SQUEEZE_ALERT: {
+        ko: (m) => ({
+            title: "🔥 감마 스퀴즈 압력 감지",
+            description: `Squeeze Risk ${m.squeeze.toFixed(0)}% + 숏 감마 (GEX ${m.gex.toFixed(0)}) — 높은 스퀴즈 압력과 숏 감마 구간이 동시 관찰됨`,
+        }),
+        en: (m) => ({
+            title: "🔥 GAMMA SQUEEZE PRESSURE DETECTED",
+            description: `Squeeze Risk ${m.squeeze.toFixed(0)}% + Short Gamma (GEX ${m.gex.toFixed(0)}) — High squeeze pressure with short gamma simultaneously observed`,
+        }),
+        ja: (m) => ({
+            title: "🔥 ガンマスクイーズ圧力検出",
+            description: `Squeeze Risk ${m.squeeze.toFixed(0)}% + ショートガンマ (GEX ${m.gex.toFixed(0)}) — 高いスクイーズ圧力とショートガンマが同時に観測`,
+        }),
+    },
+    FULL_BULL: {
+        ko: (m) => ({
+            title: "🟢 전 지표 긍정 정렬 확인",
+            description: `RLSI ${m.rlsi.toFixed(0)} + 롱 감마 (GEX ${m.gex.toFixed(0)}) + Breadth ${m.breadth.toFixed(0)}% — 매크로·마이크로 지표 동시 긍정 관찰`,
+        }),
+        en: (m) => ({
+            title: "🟢 FULL POSITIVE ALIGNMENT CONFIRMED",
+            description: `RLSI ${m.rlsi.toFixed(0)} + Long Gamma (GEX ${m.gex.toFixed(0)}) + Breadth ${m.breadth.toFixed(0)}% — Macro and micro indicators simultaneously positive`,
+        }),
+        ja: (m) => ({
+            title: "🟢 全指標ポジティブ整列確認",
+            description: `RLSI ${m.rlsi.toFixed(0)} + ロングガンマ (GEX ${m.gex.toFixed(0)}) + Breadth ${m.breadth.toFixed(0)}% — マクロ・ミクロ指標が同時にポジティブ`,
+        }),
+    },
+    GEX_FLIP: {
+        ko: (m) => ({
+            title: `⚡ 감마 전환: ${m.direction}`,
+            description: `GEX ${m.prevGex.toFixed(0)} → ${m.gex.toFixed(0)} 전환 관찰 — 딜러 헤징 체제 변경 감지`,
+        }),
+        en: (m) => ({
+            title: `⚡ GAMMA FLIP: ${m.direction}`,
+            description: `GEX shifted from ${m.prevGex.toFixed(0)} to ${m.gex.toFixed(0)} — Dealer hedging regime change observed`,
+        }),
+        ja: (m) => ({
+            title: `⚡ ガンマフリップ: ${m.direction}`,
+            description: `GEX ${m.prevGex.toFixed(0)} → ${m.gex.toFixed(0)} に転換 — ディーラーヘッジ体制の変更を観測`,
+        }),
+    },
+    EVENT_IMPACT: {
+        ko: (m) => ({
+            title: `📊 지표 발표 임팩트: ${m.eventName}`,
+            description: `발표값 ${m.actual} (예상 ${m.estimate}) — 발표 후 GEX ${m.gexBefore.toFixed(0)} → ${m.gexAfter.toFixed(0)} 변동 관찰 (${m.gexDelta > 0 ? "+" : ""}${m.gexDelta.toFixed(0)}pt)${m.regimeChange ? ", 감마 체제 전환 감지" : ""}`,
+        }),
+        en: (m) => ({
+            title: `📊 EVENT IMPACT: ${m.eventName}`,
+            description: `Actual ${m.actual} (Est ${m.estimate}) — Post-release GEX ${m.gexBefore.toFixed(0)} → ${m.gexAfter.toFixed(0)} observed (${m.gexDelta > 0 ? "+" : ""}${m.gexDelta.toFixed(0)}pt)${m.regimeChange ? ", gamma regime change detected" : ""}`,
+        }),
+        ja: (m) => ({
+            title: `📊 指標発表インパクト: ${m.eventName}`,
+            description: `実績値 ${m.actual} (予想 ${m.estimate}) — 発表後GEX ${m.gexBefore.toFixed(0)} → ${m.gexAfter.toFixed(0)} 変動観測 (${m.gexDelta > 0 ? "+" : ""}${m.gexDelta.toFixed(0)}pt)${m.regimeChange ? "、ガンマ体制転換を検出" : ""}`,
+        }),
+    },
+};
+
+function getAlertText(id, locale, metrics) {
+    const template = ALERT_TEXT[id];
+    if (!template) return { title: id, description: "" };
+    const fn = template[locale] || template.en;
+    return fn(metrics);
+}
 
 async function runCrossIntelligence(snapshot) {
     if (!snapshot?.rlsi || !snapshot?.gammaShield) return;
@@ -229,80 +326,208 @@ async function runCrossIntelligence(snapshot) {
 
     // ── TRIPLE DANGER: RLSI < 20 + Short Gamma + VIX > 25 ──
     if (rlsi < 20 && gex < -20 && vix > 25) {
-        alerts.push({
-            id: "TRIPLE_DANGER",
-            severity: "CRITICAL",
-            title: "⚠️ TRIPLE DANGER DETECTED",
-            description: `RLSI ${rlsi.toFixed(0)} + Short Gamma (GEX ${gex.toFixed(0)}) + VIX ${vix.toFixed(1)} — Historical 87% chance of 2%+ move within 72h`,
-            metrics: { rlsi, gex, vix },
-            color: "#ef4444", // red
-        });
+        const metrics = { rlsi, gex, vix };
+        for (const locale of CONFIG.LOCALES) {
+            const text = getAlertText("TRIPLE_DANGER", locale, metrics);
+            alerts.push({ ...text, id: "TRIPLE_DANGER", severity: "CRITICAL", metrics, color: "#ef4444", locale });
+        }
     }
 
     // ── HIDDEN DIVERGENCE: RLSI high + Breadth weak ──
     if (rlsi > 70 && breadth < 40) {
-        alerts.push({
-            id: "HIDDEN_DIVERGENCE",
-            severity: "WARNING",
-            title: "🔍 HIDDEN DIVERGENCE",
-            description: `Index positive (RLSI ${rlsi.toFixed(0)}) but internal breadth weak (${breadth.toFixed(0)}%) — Surface strength masking sector weakness`,
-            metrics: { rlsi, breadth },
-            color: "#f59e0b", // amber
-        });
+        const metrics = { rlsi, breadth };
+        for (const locale of CONFIG.LOCALES) {
+            const text = getAlertText("HIDDEN_DIVERGENCE", locale, metrics);
+            alerts.push({ ...text, id: "HIDDEN_DIVERGENCE", severity: "WARNING", metrics, color: "#f59e0b", locale });
+        }
     }
 
     // ── SQUEEZE ALERT: Extreme squeeze + Short Gamma ──
     if (squeeze > 70 && gex < -10) {
-        alerts.push({
-            id: "SQUEEZE_ALERT",
-            severity: "HIGH",
-            title: "🔥 GAMMA SQUEEZE PRESSURE",
-            description: `Squeeze Risk ${squeeze.toFixed(0)}% + Short Gamma (GEX ${gex.toFixed(0)}) — Accelerated move potential active`,
-            metrics: { squeeze, gex },
-            color: "#ef4444",
-        });
+        const metrics = { squeeze, gex };
+        for (const locale of CONFIG.LOCALES) {
+            const text = getAlertText("SQUEEZE_ALERT", locale, metrics);
+            alerts.push({ ...text, id: "SQUEEZE_ALERT", severity: "HIGH", metrics, color: "#ef4444", locale });
+        }
     }
 
     // ── FULL BULL: Strong RLSI + Long Gamma + Good Breadth ──
     if (rlsi > 70 && gex > 30 && breadth > 65) {
-        alerts.push({
-            id: "FULL_BULL",
-            severity: "INFO",
-            title: "🟢 FULL BULL CONFIRMATION",
-            description: `RLSI ${rlsi.toFixed(0)} + Long Gamma (GEX ${gex.toFixed(0)}) + Breadth ${breadth.toFixed(0)}% — Macro + micro alignment confirmed`,
-            metrics: { rlsi, gex, breadth },
-            color: "#10b981", // emerald
-        });
+        const metrics = { rlsi, gex, breadth };
+        for (const locale of CONFIG.LOCALES) {
+            const text = getAlertText("FULL_BULL", locale, metrics);
+            alerts.push({ ...text, id: "FULL_BULL", severity: "INFO", metrics, color: "#10b981", locale });
+        }
     }
 
     // ── GEX FLIP: Gamma regime change ──
     const prevGex = lastSnapshots.ko?.gammaShield?.gexIndex || 0;
     if ((prevGex > 0 && gex < 0) || (prevGex < 0 && gex > 0)) {
         const direction = gex > 0 ? "SHORT → LONG" : "LONG → SHORT";
-        alerts.push({
-            id: "GEX_FLIP",
-            severity: "HIGH",
-            title: `⚡ GAMMA FLIP: ${direction}`,
-            description: `GEX flipped from ${prevGex.toFixed(0)} to ${gex.toFixed(0)} — Dealer hedging regime changed`,
-            metrics: { prevGex, gex },
-            color: gex > 0 ? "#10b981" : "#ef4444",
-        });
+        const metrics = { prevGex, gex, direction };
+        for (const locale of CONFIG.LOCALES) {
+            const text = getAlertText("GEX_FLIP", locale, metrics);
+            alerts.push({ ...text, id: "GEX_FLIP", severity: "HIGH", metrics: { prevGex, gex }, color: gex > 0 ? "#10b981" : "#ef4444", locale });
+        }
     }
 
-    // Publish alerts (only new ones)
+    // Publish alerts (only new ones, per locale)
     for (const alert of alerts) {
-        if (lastAlertState[alert.id] && Date.now() - lastAlertState[alert.id] < 5 * 60 * 1000) {
+        const dedupeKey = `${alert.id}_${alert.locale}`;
+        if (lastAlertState[dedupeKey] && Date.now() - lastAlertState[dedupeKey] < 5 * 60 * 1000) {
             continue; // Dedupe: same alert within 5 minutes
         }
-        lastAlertState[alert.id] = Date.now();
+        lastAlertState[dedupeKey] = Date.now();
 
         await redisPub.publish(CONFIG.ALERT_CHANNEL, JSON.stringify(alert));
-        // Also store latest alerts in Redis for new clients joining
-        await redis.setex("guardian:latest_alerts", 600, JSON.stringify(alerts));
-        console.log(`[CrossIntel] 🚨 ${alert.title}`);
+        console.log(`[CrossIntel] 🚨 ${alert.locale}: ${alert.title}`);
+    }
+
+    // Store latest alerts per locale
+    for (const locale of CONFIG.LOCALES) {
+        const localeAlerts = alerts.filter(a => a.locale === locale);
+        if (localeAlerts.length > 0) {
+            await redis.setex(`guardian:latest_alerts:${locale}`, 600, JSON.stringify(localeAlerts));
+        }
+    }
+    // Also store default key for backward compat
+    const koAlerts = alerts.filter(a => a.locale === "ko");
+    if (koAlerts.length > 0) {
+        await redis.setex("guardian:latest_alerts", 600, JSON.stringify(koAlerts));
     }
 
     return alerts;
+}
+
+// ══════════════════════════════════════════════════════════════
+// EVENT IMPACT ENGINE — Economic Release + Gamma Shield Reaction
+// ══════════════════════════════════════════════════════════════
+
+let lastEventImpactCheck = 0;
+let pendingEvent = null;   // Event we're watching
+
+async function checkEventImpact(snapshot) {
+    if (!snapshot?.gammaShield?.gexIndex) return;
+    const now = Date.now();
+
+    // Only check every 30 seconds
+    if (now - lastEventImpactCheck < 25 * 1000) return;
+    lastEventImpactCheck = now;
+
+    const { hour, minute } = getETNow();
+    const currentMinutes = hour * 60 + minute;
+    const currentGex = snapshot.gammaShield.gexIndex;
+
+    // ── Phase 1: Check if any HIGH impact event is about to happen ──
+    if (!pendingEvent) {
+        try {
+            const calRaw = await redis.get("fmp:econ-calendar");
+            if (!calRaw) return;
+            const calendar = JSON.parse(calRaw);
+            const events = calendar.events || [];
+
+            // Find next HIGH impact event within 10 minutes
+            for (const evt of events) {
+                if (evt.impact !== "HIGH") continue;
+
+                // Parse event time (format: "HH:mm")
+                const [h, m] = (evt.time || "00:00").split(":").map(Number);
+                const eventMinutes = h * 60 + m;
+                const diff = eventMinutes - currentMinutes;
+
+                // Check today's date
+                const todayET = new Date().toLocaleDateString("en-CA", { timeZone: "America/New_York" });
+                if (evt.date !== todayET) continue;
+
+                // 5 minutes before event: capture pre-event GEX
+                if (diff > 0 && diff <= 5) {
+                    pendingEvent = {
+                        name: evt.event,
+                        eventMinutes,
+                        estimate: evt.estimate,
+                        preGex: currentGex,
+                        capturedAt: now,
+                    };
+                    preEventGexSnapshot = currentGex;
+                    console.log(`[EventImpact] 📋 Pre-event GEX captured: ${currentGex.toFixed(0)} (${evt.event} in ${diff}min)`);
+                    break;
+                }
+            }
+        } catch (e) {
+            console.warn("[EventImpact] Calendar read error:", e.message);
+        }
+        return;
+    }
+
+    // ── Phase 2: After event time, measure GEX reaction ──
+    const timeSinceEvent = currentMinutes - pendingEvent.eventMinutes;
+
+    // Wait 2-10 minutes after event for GEX to react
+    if (timeSinceEvent >= 2 && timeSinceEvent <= 10) {
+        const gexDelta = currentGex - pendingEvent.preGex;
+        const gexBefore = pendingEvent.preGex;
+        const gexAfter = currentGex;
+        const regimeChange = (gexBefore > 0 && gexAfter < 0) || (gexBefore < 0 && gexAfter > 0);
+
+        // Only fire if GEX moved significantly (>5pt)
+        if (Math.abs(gexDelta) > 5) {
+            // Get actual value from FMP (re-fetch calendar)
+            let actualValue = "N/A";
+            try {
+                const calRaw = await redis.get("fmp:econ-calendar");
+                if (calRaw) {
+                    const cal = JSON.parse(calRaw);
+                    const evt = (cal.events || []).find(e => e.event === pendingEvent.name && e.date === new Date().toLocaleDateString("en-CA", { timeZone: "America/New_York" }));
+                    if (evt?.actual != null && evt.actual !== "" && evt.actual !== "--") {
+                        actualValue = String(evt.actual);
+                    }
+                }
+            } catch { }
+
+            const metrics = {
+                eventName: pendingEvent.name,
+                actual: actualValue,
+                estimate: pendingEvent.estimate || "N/A",
+                gexBefore,
+                gexAfter,
+                gexDelta,
+                regimeChange,
+            };
+
+            const severity = Math.abs(gexDelta) > 15 ? "CRITICAL" : regimeChange ? "HIGH" : "WARNING";
+
+            // Publish EVENT_IMPACT alerts for all locales
+            for (const locale of CONFIG.LOCALES) {
+                const text = getAlertText("EVENT_IMPACT", locale, metrics);
+                const alert = {
+                    ...text,
+                    id: "EVENT_IMPACT",
+                    severity,
+                    metrics: { gexBefore, gexAfter, gexDelta },
+                    color: gexDelta < 0 ? "#ef4444" : "#10b981",
+                    locale,
+                };
+                await redisPub.publish(CONFIG.ALERT_CHANNEL, JSON.stringify(alert));
+                await redis.setex(`guardian:event_impact:${locale}`, 3600, JSON.stringify(alert));
+                console.log(`[EventImpact] 🚨 ${locale}: ${text.title}`);
+            }
+
+            console.log(`[EventImpact] 📊 ${pendingEvent.name}: GEX ${gexBefore.toFixed(0)} → ${gexAfter.toFixed(0)} (Δ${gexDelta > 0 ? "+" : ""}${gexDelta.toFixed(0)})`);
+        } else {
+            console.log(`[EventImpact] ℹ️ ${pendingEvent.name}: GEX change minor (${gexDelta.toFixed(1)}pt), no alert`);
+        }
+
+        // Reset pending event
+        pendingEvent = null;
+        preEventGexSnapshot = null;
+    }
+
+    // Timeout: if 15 minutes passed without significant move, reset
+    if (timeSinceEvent > 15) {
+        console.log(`[EventImpact] ⏰ ${pendingEvent.name}: timeout, resetting`);
+        pendingEvent = null;
+        preEventGexSnapshot = null;
+    }
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -484,6 +709,7 @@ async function mainLoop() {
         if (koSnapshot && session === "REG") {
             await runCrossIntelligence(koSnapshot);
             await appendRlsiHistory(koSnapshot);
+            await checkEventImpact(koSnapshot); // Event Impact: GEX reaction to economic releases
 
             // DynamoDB history write (every 5 min during REG)
             if (dynamo && (!lastDynamoWrite || Date.now() - lastDynamoWrite > CONFIG.HISTORY_INTERVAL_MS)) {
