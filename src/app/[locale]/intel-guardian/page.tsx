@@ -445,6 +445,7 @@ export default function GuardianPage() {
                                         isDivergent={data?.breadth?.isDivergent ?? data?.rlsi.components?.breadthDivergent ?? false}
                                         loading={loading}
                                         isMarketActive={isMarketActive}
+                                        session={session || 'CLOSED'}
                                     />
                                 </ProGate>
                             </div>

@@ -1,5 +1,5 @@
-import React from "react";
-import { BarChart3, TrendingUp, TrendingDown, AlertTriangle, MessageSquare, Lightbulb, Clock, Radio } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import { BarChart3, TrendingUp, TrendingDown, AlertTriangle, MessageSquare, Lightbulb, Clock, Radio, Sun, FileText } from "lucide-react";
 import { useTranslations } from 'next-intl';
 
 interface RLSIInsightPanelProps {
@@ -14,11 +14,13 @@ interface RLSIInsightPanelProps {
     isDivergent: boolean;
     loading?: boolean;
     isMarketActive?: boolean;
+    session?: string; // "PRE" | "REG" | "CLOSED" | "POST"
 }
 
 /**
- * RLSIInsightPanel V7.7 — Breadth-Enhanced
- * TACTICAL INSIGHT 축소 + MARKET BREADTH 시각화 강화
+ * RLSIInsightPanel V8.0 — Morning Briefing + Tactical Toggle
+ * PRE session → Briefing tab default
+ * REG session → Tactical tab default
  */
 export default function RLSIInsightPanel({
     alignmentStatus,
@@ -31,9 +33,41 @@ export default function RLSIInsightPanel({
     breadthSignal,
     isDivergent,
     loading,
-    isMarketActive = true
+    isMarketActive = true,
+    session = "CLOSED",
 }: RLSIInsightPanelProps) {
     const t = useTranslations('guardian');
+
+    // Toggle state: "briefing" or "tactical"
+    const defaultTab = (session === "PRE" || session === "CLOSED") ? "briefing" : "tactical";
+    const [activeTab, setActiveTab] = useState<"briefing" | "tactical">(defaultTab);
+    const [briefingData, setBriefingData] = useState<any>(null);
+    const [briefingLoading, setBriefingLoading] = useState(false);
+
+    // Update default tab when session changes
+    useEffect(() => {
+        if (session === "REG") setActiveTab("tactical");
+        else if (session === "PRE") setActiveTab("briefing");
+    }, [session]);
+
+    // Fetch briefing data
+    useEffect(() => {
+        const fetchBriefing = async () => {
+            setBriefingLoading(true);
+            try {
+                const res = await fetch("/api/guardian/briefing");
+                const data = await res.json();
+                if (data.success && data.briefing) {
+                    setBriefingData(data);
+                }
+            } catch {
+                // Silent fail — briefing is optional
+            } finally {
+                setBriefingLoading(false);
+            }
+        };
+        fetchBriefing();
+    }, []);
 
     const signalConfig: Record<string, { color: string; bg: string; label: string }> = {
         STRONG: { color: "#34d399", bg: "rgba(52,211,153,0.08)", label: t('signalStrong') },
@@ -101,9 +135,9 @@ export default function RLSIInsightPanel({
                     <span className="text-xs uppercase tracking-[0.2em] text-white font-black font-jakarta">
                         RLSI INSIGHT
                     </span>
-                    <span className="text-[12px] text-amber-500 font-mono font-jakarta">· Regular Session Only</span>
+                    <span className="text-xs text-amber-500 font-mono font-jakarta">· Regular Session Only</span>
                 </div>
-                <div className={`text-[12px] font-black uppercase px-2 py-0.5 rounded border ${alignmentStatus === 'DIVERGENCE'
+                <div className={`text-xs font-black uppercase px-2 py-0.5 rounded border ${alignmentStatus === 'DIVERGENCE'
                     ? 'text-rose-400 border-rose-500/30 bg-rose-500/10'
                     : 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10'
                     }`}>
@@ -111,53 +145,133 @@ export default function RLSIInsightPanel({
                 </div>
             </div>
 
-            {/* TACTICAL INSIGHT — Glassmorphism, news-enhanced */}
-            <div className={`rounded-lg backdrop-blur-sm border ${sentimentBorder} p-3 mb-3 flex-none`}
+            {/* ── Toggle Tabs: Briefing / Tactical ── */}
+            <div className="flex items-center gap-1 mb-2 flex-none">
+                <button
+                    onClick={() => setActiveTab("briefing")}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold tracking-wide transition-all duration-300 ${activeTab === "briefing"
+                            ? "bg-amber-500/15 text-amber-300 border border-amber-500/30"
+                            : "text-slate-400 hover:text-slate-300 border border-transparent"
+                        }`}
+                >
+                    <Sun size={13} />
+                    BRIEFING
+                </button>
+                <button
+                    onClick={() => setActiveTab("tactical")}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold tracking-wide transition-all duration-300 ${activeTab === "tactical"
+                            ? "bg-emerald-500/15 text-emerald-300 border border-emerald-500/30"
+                            : "text-slate-400 hover:text-slate-300 border border-transparent"
+                        }`}
+                >
+                    <FileText size={13} />
+                    TACTICAL
+                </button>
+                {activeTab === "briefing" && briefingData?.source && (
+                    <span className="ml-auto text-xs text-slate-500 font-mono">
+                        {briefingData.source === "gemini" ? "AI" : "AUTO"}
+                    </span>
+                )}
+            </div>
+
+            {/* ── Tab Content ── */}
+            <div className={`rounded-lg backdrop-blur-sm border ${activeTab === "tactical" ? sentimentBorder : 'border-amber-500/15'} p-3 mb-3 flex-none`}
                 style={{
-                    background: sentiment === 'BULLISH'
-                        ? 'linear-gradient(135deg, rgba(16,185,129,0.06) 0%, rgba(15,23,42,0.4) 100%)'
-                        : sentiment === 'BEARISH'
-                            ? 'linear-gradient(135deg, rgba(244,63,94,0.06) 0%, rgba(15,23,42,0.4) 100%)'
-                            : 'linear-gradient(135deg, rgba(148,163,184,0.04) 0%, rgba(15,23,42,0.4) 100%)',
-                    boxShadow: sentiment === 'BULLISH'
-                        ? '0 0 20px rgba(16,185,129,0.04), inset 0 1px 0 rgba(255,255,255,0.03)'
-                        : sentiment === 'BEARISH'
-                            ? '0 0 20px rgba(244,63,94,0.04), inset 0 1px 0 rgba(255,255,255,0.03)'
-                            : 'inset 0 1px 0 rgba(255,255,255,0.03)'
+                    background: activeTab === "tactical"
+                        ? (sentiment === 'BULLISH'
+                            ? 'linear-gradient(135deg, rgba(16,185,129,0.06) 0%, rgba(15,23,42,0.4) 100%)'
+                            : sentiment === 'BEARISH'
+                                ? 'linear-gradient(135deg, rgba(244,63,94,0.06) 0%, rgba(15,23,42,0.4) 100%)'
+                                : 'linear-gradient(135deg, rgba(148,163,184,0.04) 0%, rgba(15,23,42,0.4) 100%)')
+                        : 'linear-gradient(135deg, rgba(245,158,11,0.06) 0%, rgba(15,23,42,0.4) 100%)',
+                    boxShadow: activeTab === "tactical"
+                        ? (sentiment === 'BULLISH'
+                            ? '0 0 20px rgba(16,185,129,0.04), inset 0 1px 0 rgba(255,255,255,0.03)'
+                            : sentiment === 'BEARISH'
+                                ? '0 0 20px rgba(244,63,94,0.04), inset 0 1px 0 rgba(255,255,255,0.03)'
+                                : 'inset 0 1px 0 rgba(255,255,255,0.03)')
+                        : '0 0 20px rgba(245,158,11,0.04), inset 0 1px 0 rgba(255,255,255,0.03)'
                 }}>
-                {isMarketActive ? (
+
+                {/* TACTICAL TAB */}
+                {activeTab === "tactical" && (
                     <>
-                        <div className={`text-[12px] font-bold mb-1.5 uppercase tracking-wide ${sentiment === 'BULLISH' ? 'text-emerald-300' :
-                            sentiment === 'BEARISH' ? 'text-rose-300' : 'text-white'
-                            }`}>
-                            {insightTitle}
-                        </div>
-                        <div className="text-[13px] text-white/80 leading-[1.6]" style={{ fontFamily: 'Pretendard, sans-serif' }}>
-                            {insightDesc}
-                        </div>
+                        {isMarketActive ? (
+                            <>
+                                <div className={`text-xs font-bold mb-1.5 uppercase tracking-wide ${sentiment === 'BULLISH' ? 'text-emerald-300' :
+                                    sentiment === 'BEARISH' ? 'text-rose-300' : 'text-white'
+                                    }`}>
+                                    {insightTitle}
+                                </div>
+                                <div className="text-[13px] text-white/80 leading-[1.6]" style={{ fontFamily: 'Pretendard, sans-serif' }}>
+                                    {insightDesc}
+                                </div>
+                            </>
+                        ) : (insightTitle || insightDesc) ? (
+                            <>
+                                <div className={`text-xs font-bold mb-1.5 uppercase tracking-wide ${sentiment === 'BULLISH' ? 'text-emerald-300' :
+                                    sentiment === 'BEARISH' ? 'text-rose-300' : 'text-white'
+                                    }`}>
+                                    {insightTitle}
+                                </div>
+                                <div className="text-[13px] text-white/80 leading-[1.6]" style={{ fontFamily: 'Pretendard, sans-serif' }}>
+                                    {insightDesc}
+                                </div>
+                                <div className="text-xs text-amber-500/50 font-mono mt-1.5 font-jakarta">Last session analysis</div>
+                            </>
+                        ) : (
+                            <div className="flex items-center gap-3 py-1.5">
+                                <div className="w-7 h-7 rounded-lg bg-amber-500/10 border border-amber-500/20 flex items-center justify-center flex-shrink-0">
+                                    <Clock size={14} className="text-amber-400" />
+                                </div>
+                                <div>
+                                    <div className="text-xs font-bold text-white/80">{t('insightPending')}</div>
+                                    <div className="text-xs text-slate-400 font-mono mt-0.5 font-jakarta">Regular Session 09:30-16:00 ET</div>
+                                </div>
+                            </div>
+                        )}
                     </>
-                ) : (insightTitle || insightDesc) ? (
+                )}
+
+                {/* BRIEFING TAB */}
+                {activeTab === "briefing" && (
                     <>
-                        <div className={`text-[12px] font-bold mb-1.5 uppercase tracking-wide ${sentiment === 'BULLISH' ? 'text-emerald-300' :
-                            sentiment === 'BEARISH' ? 'text-rose-300' : 'text-white'
-                            }`}>
-                            {insightTitle}
-                        </div>
-                        <div className="text-[13px] text-white/80 leading-[1.6]" style={{ fontFamily: 'Pretendard, sans-serif' }}>
-                            {insightDesc}
-                        </div>
-                        <div className="text-[12px] text-amber-500/50 font-mono mt-1.5 font-jakarta">Last session analysis</div>
+                        {briefingLoading ? (
+                            <div className="flex items-center gap-3 py-1.5">
+                                <div className="w-7 h-7 rounded-lg bg-amber-500/10 border border-amber-500/20 flex items-center justify-center flex-shrink-0 animate-pulse">
+                                    <Sun size={14} className="text-amber-400" />
+                                </div>
+                                <div className="text-xs text-slate-300">Loading briefing...</div>
+                            </div>
+                        ) : briefingData?.briefing ? (
+                            <>
+                                <div className="text-xs font-bold mb-1.5 uppercase tracking-wide text-amber-300">
+                                    🌅 MORNING BRIEFING
+                                    <span className="ml-2 text-xs font-normal text-slate-400 font-mono">
+                                        {briefingData.date}
+                                    </span>
+                                </div>
+                                <div className="text-[13px] text-white/80 leading-[1.6] whitespace-pre-line" style={{ fontFamily: 'Pretendard, sans-serif' }}>
+                                    {briefingData.briefing}
+                                </div>
+                                {briefingData.generatedAt && (
+                                    <div className="text-xs text-amber-500/50 font-mono mt-1.5 font-jakarta">
+                                        Generated {new Date(briefingData.generatedAt).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", timeZone: "America/New_York" })} ET
+                                    </div>
+                                )}
+                            </>
+                        ) : (
+                            <div className="flex items-center gap-3 py-1.5">
+                                <div className="w-7 h-7 rounded-lg bg-amber-500/10 border border-amber-500/20 flex items-center justify-center flex-shrink-0">
+                                    <Sun size={14} className="text-amber-400" />
+                                </div>
+                                <div>
+                                    <div className="text-xs font-bold text-white/80">Morning Briefing</div>
+                                    <div className="text-xs text-slate-400 font-mono mt-0.5 font-jakarta">Generated daily at 08:00 ET</div>
+                                </div>
+                            </div>
+                        )}
                     </>
-                ) : (
-                    <div className="flex items-center gap-3 py-1.5">
-                        <div className="w-7 h-7 rounded-lg bg-amber-500/10 border border-amber-500/20 flex items-center justify-center flex-shrink-0">
-                            <Clock size={14} className="text-amber-400" />
-                        </div>
-                        <div>
-                            <div className="text-[12px] font-bold text-white/80">{t('insightPending')}</div>
-                            <div className="text-[12px] text-slate-400 font-mono mt-0.5 font-jakarta">Regular Session 09:30-16:00 ET</div>
-                        </div>
-                    </div>
                 )}
             </div>
 
