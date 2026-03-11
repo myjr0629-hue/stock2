@@ -165,6 +165,8 @@ async function writeSnapshot(snapshot) {
                 maxPain: null,
                 price: snapshot.gammaShield.currentPrice || 0,
                 gammaRegime: snapshot.gammaShield.gexLevel || "NEUTRAL",
+                squeezeRisk: snapshot.gammaShield.squeezeRisk || 0,
+                squeezeLevel: snapshot.gammaShield.squeezeLevel || "LOW",
             };
             await docClient.send(new PutCommand({
                 TableName: "signum-gex-history",
