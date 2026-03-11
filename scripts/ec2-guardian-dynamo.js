@@ -12,6 +12,11 @@
  *   TTL:           expireAt (90 days)
  */
 
+// Polyfill for Node.js < 17 (EC2 runs Node 16)
+if (typeof globalThis.structuredClone === "undefined") {
+    globalThis.structuredClone = (obj) => JSON.parse(JSON.stringify(obj));
+}
+
 const { DynamoDBClient, CreateTableCommand, DescribeTableCommand } = require("@aws-sdk/client-dynamodb");
 const { DynamoDBDocumentClient, PutCommand, QueryCommand } = require("@aws-sdk/lib-dynamodb");
 
