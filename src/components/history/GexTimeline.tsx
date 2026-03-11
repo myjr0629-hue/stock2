@@ -64,7 +64,24 @@ export function GexTimeline({ ticker, days = 30, compact = false }: GexTimelineP
         const positiveDays = data.filter(d => d.gex > 0).length;
         const negativeDays = data.filter(d => d.gex < 0).length;
 
-        return { max, min, range, latest, trend, positiveDays, negativeDays };
+        // [PREMIUM] Gamma Flip Events — detect regime transitions
+        const flipEvents: { index: number; from: string; to: string; timestamp: number; price: number; flipLevel: number | null }[] = [];
+        for (let i = 1; i < data.length; i++) {
+            const prevRegime = data[i - 1].gammaRegime;
+            const currRegime = data[i].gammaRegime;
+            if (prevRegime !== currRegime && prevRegime && currRegime) {
+                flipEvents.push({ index: i, from: prevRegime, to: currRegime, timestamp: data[i].timestamp, price: data[i].price, flipLevel: data[i].flipLevel });
+            }
+        }
+
+        // [PREMIUM] Anomaly Detection — current GEX vs 30-day percentile
+        const sorted = [...gexValues].sort((a, b) => a - b);
+        const currentIdx = sorted.findIndex(v => v >= latest.gex);
+        const percentile = Math.round((currentIdx / sorted.length) * 100);
+        const isAnomaly = percentile >= 90 || percentile <= 10;
+        const anomalyLabel = percentile >= 90 ? 'EXTREME HIGH' : percentile <= 10 ? 'EXTREME LOW' : percentile >= 75 ? 'ELEVATED' : percentile <= 25 ? 'DEPRESSED' : 'NORMAL';
+
+        return { max, min, range, latest, trend, positiveDays, negativeDays, flipEvents, percentile, isAnomaly, anomalyLabel };
     }, [data]);
 
     // Format GEX value
@@ -226,7 +243,7 @@ export function GexTimeline({ ticker, days = 30, compact = false }: GexTimelineP
                 </div>
             </div>
 
-            {/* Stats bar */}
+            {/* Stats bar + Anomaly Badge */}
             <div className="flex items-center justify-between text-xs text-slate-300">
                 <span>
                     <span className="text-emerald-400">▲</span> {stats.positiveDays}d positive
@@ -234,10 +251,44 @@ export function GexTimeline({ ticker, days = 30, compact = false }: GexTimelineP
                 <span>
                     <span className="text-red-400">▼</span> {stats.negativeDays}d negative
                 </span>
+                {stats.isAnomaly && (
+                    <span className={`px-1.5 py-0.5 rounded-full text-xs font-bold animate-pulse ${stats.percentile >= 90 ? 'bg-red-500/20 text-red-400 border border-red-500/40' : 'bg-blue-500/20 text-blue-400 border border-blue-500/40'}`}>
+                        🔥 {stats.anomalyLabel} ({stats.percentile}th %ile)
+                    </span>
+                )}
+                {!stats.isAnomaly && (
+                    <span className="text-slate-300/60">{stats.percentile}th percentile</span>
+                )}
                 <span className={stats.trend === 'rising' ? 'text-emerald-400' : 'text-red-400'}>
                     {stats.trend === 'rising' ? '↗ Rising' : '↘ Falling'}
                 </span>
             </div>
+
+            {/* [PREMIUM] Gamma Flip Event Timeline */}
+            {stats.flipEvents.length > 0 && (
+                <div className="border-t border-slate-700/30 pt-2 mt-1 space-y-1">
+                    <div className="text-xs font-semibold text-slate-300/80 tracking-wider uppercase flex items-center gap-1">
+                        <span className="text-amber-400">⚡</span> Gamma Flip Events ({stats.flipEvents.length})
+                    </div>
+                    <div className="flex flex-wrap gap-1.5">
+                        {stats.flipEvents.slice(-5).map((ev, i) => {
+                            const date = new Date(ev.timestamp);
+                            const dateStr = `${date.getMonth() + 1}/${date.getDate()}`;
+                            const isPositiveFlip = ev.to === 'POSITIVE';
+                            return (
+                                <div key={i} className={`flex items-center gap-1 px-2 py-1 rounded-lg text-xs border ${
+                                    isPositiveFlip ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-400' : 'border-red-500/30 bg-red-500/10 text-red-400'
+                                }`}>
+                                    <span className="font-mono text-slate-300/60">{dateStr}</span>
+                                    <span>{isPositiveFlip ? '🟢' : '🔴'}</span>
+                                    <span className="font-medium">{ev.from.slice(0,3)} → {ev.to.slice(0,3)}</span>
+                                    <span className="text-slate-300/50 font-mono">${ev.price?.toFixed(0)}</span>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
