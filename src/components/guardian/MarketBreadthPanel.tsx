@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { BarChart3, TrendingUp, TrendingDown, AlertTriangle, MessageSquare, Lightbulb, Clock, Radio, Sun, FileText } from "lucide-react";
-import { useTranslations } from 'next-intl';
+import { useTranslations, useLocale } from 'next-intl';
 
 interface RLSIInsightPanelProps {
     alignmentStatus: string;
@@ -37,6 +37,7 @@ export default function RLSIInsightPanel({
     session = "CLOSED",
 }: RLSIInsightPanelProps) {
     const t = useTranslations('guardian');
+    const locale = useLocale();
 
     // Toggle state: "briefing" or "tactical"
     const defaultTab = (session === "PRE" || session === "CLOSED") ? "briefing" : "tactical";
@@ -55,7 +56,7 @@ export default function RLSIInsightPanel({
         const fetchBriefing = async () => {
             setBriefingLoading(true);
             try {
-                const res = await fetch("/api/guardian/briefing");
+                const res = await fetch(`/api/guardian/briefing?locale=${locale}`);
                 const data = await res.json();
                 if (data.success && data.briefing) {
                     setBriefingData(data);

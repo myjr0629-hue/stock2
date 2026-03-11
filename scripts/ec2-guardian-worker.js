@@ -574,6 +574,7 @@ async function appendRlsiHistory(snapshot) {
 
 // ══════════════════════════════════════════════════════════════
 // AI MORNING BRIEFING GENERATOR (08:00 ET Daily)
+// Narrative-driven: News + Data woven into story via Gemini
 // ══════════════════════════════════════════════════════════════
 
 let lastBriefingDate = null;
@@ -588,91 +589,120 @@ async function generateMorningBriefing() {
     if (lastBriefingDate === etDateStr) return;
     if (hour !== 8 || minute > 5) return;
 
-    console.log("[Briefing] 🌅 Generating morning briefing...");
+    console.log("[Briefing] 🌅 Generating narrative morning briefing...");
     lastBriefingDate = etDateStr;
 
     try {
-        // Get yesterday's RLSI history from Redis
-        const historyRaw = await redis.get(CONFIG.RLSI_HISTORY_KEY);
-        const history = historyRaw ? JSON.parse(historyRaw) : [];
-
-        // Get current snapshot
+        // Get current snapshot from Redis
         const snapshotRaw = await redis.get(`${CONFIG.SNAPSHOT_KEY_PREFIX}ko`);
         const snapshot = snapshotRaw ? JSON.parse(snapshotRaw) : null;
 
-        // Get latest alerts
-        const alertsRaw = await redis.get("guardian:latest_alerts");
-        const alerts = alertsRaw ? JSON.parse(alertsRaw) : [];
+        // Get RLSI history
+        const historyRaw = await redis.get(CONFIG.RLSI_HISTORY_KEY);
+        const rlsiHistory = historyRaw ? JSON.parse(historyRaw) : [];
 
-        // Compose briefing data
-        const briefingData = {
-            date: etDateStr,
-            preMarketRlsi: snapshot?.rlsi?.score || null,
-            preMarketSession: snapshot?.rlsi?.session || null,
-            yesterdayHistory: history.slice(-10), // Last 10 RLSI readings
-            gexIndex: snapshot?.gammaShield?.gexIndex || null,
-            squeezeRisk: snapshot?.gammaShield?.squeezeRisk || null,
-            vix: snapshot?.rlsi?.components?.vix || null,
-            breadthPct: snapshot?.breadth?.breadthPct || null,
-            regime: snapshot?.tripleA?.regime || null,
-            activeAlerts: alerts.map(a => a.title).slice(0, 3),
-            topSectors: (snapshot?.sectors || [])
-                .sort((a, b) => Math.abs(b.change || 0) - Math.abs(a.change || 0))
-                .slice(0, 5)
-                .map(s => ({ name: s.name, change: s.change })),
-        };
+        // Call Vercel API for Gemini narrative generation
+        const apiUrl = `${CONFIG.VERCEL_API_URL}/api/guardian/briefing/generate`;
 
-        // Generate briefing text using Vercel API (Gemini-powered)
-        const briefingBody = JSON.stringify({
-            type: "morning_briefing",
-            data: briefingData,
+        const response = await fetch(apiUrl, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ snapshot, rlsiHistory }),
+            signal: AbortSignal.timeout(55000), // 55s timeout (Gemini needs time)
         });
 
-        const briefingResponse = await fetchJSON(
-            `${CONFIG.VERCEL_API_URL}/api/guardian/briefing`,
-            30000
-        ).catch(() => null);
+        if (!response.ok) {
+            throw new Error(`API responded ${response.status}`);
+        }
 
-        const briefing = {
-            date: etDateStr,
-            generatedAt: new Date().toISOString(),
-            preMarket: briefingData,
-            // AI-generated text (if API is available)
-            text: briefingResponse?.briefing || generateFallbackBriefing(briefingData),
-            source: briefingResponse?.briefing ? "gemini" : "template",
-        };
+        const result = await response.json();
 
-        // Store in Redis (24h TTL)
-        await redis.setex("guardian:morning_briefing", 24 * 60 * 60, JSON.stringify(briefing));
+        if (result.success && result.briefing) {
+            const briefingTexts = result.briefing; // { ko: "...", en: "...", ja: "..." }
 
-        // Publish to WebSocket clients
-        await redisPub.publish(CONFIG.UPDATE_CHANNEL, JSON.stringify({
-            locale: "ko",
-            type: "morning_briefing",
-            briefing,
-            timestamp: new Date().toISOString(),
-        }));
+            // Store per-locale in Redis (24h TTL)
+            for (const locale of CONFIG.LOCALES) {
+                const briefing = {
+                    date: etDateStr,
+                    generatedAt: new Date().toISOString(),
+                    briefing: briefingTexts[locale] || briefingTexts.en || "Briefing not available",
+                    source: "gemini",
+                    newsCount: result.newsCount || 0,
+                    calendarCount: result.calendarCount || 0,
+                };
+                await redis.setex(`guardian:morning_briefing:${locale}`, 24 * 60 * 60, JSON.stringify(briefing));
+            }
 
-        console.log(`[Briefing] ✅ Morning briefing generated (source: ${briefing.source})`);
+            // Also store default key (backward compat)
+            await redis.setex("guardian:morning_briefing", 24 * 60 * 60, JSON.stringify({
+                date: etDateStr,
+                generatedAt: new Date().toISOString(),
+                text: briefingTexts.ko || briefingTexts.en,
+                briefing: briefingTexts.ko || briefingTexts.en,
+                source: "gemini",
+                preMarket: {
+                    preMarketRlsi: snapshot?.rlsi?.score || null,
+                    gexIndex: snapshot?.gammaShield?.gexIndex || null,
+                    vix: snapshot?.rlsi?.components?.vix || null,
+                },
+            }));
+
+            // Publish to WebSocket clients
+            for (const locale of CONFIG.LOCALES) {
+                await redisPub.publish(CONFIG.UPDATE_CHANNEL, JSON.stringify({
+                    locale,
+                    type: "morning_briefing",
+                    briefing: briefingTexts[locale],
+                    timestamp: new Date().toISOString(),
+                }));
+            }
+
+            console.log(`[Briefing] ✅ Narrative briefing generated (${result.newsCount} news, ${result.calendarCount} calendar) in ${result.elapsedMs}ms`);
+        } else {
+            // Fallback to template if Gemini fails
+            const fallbackText = generateFallbackBriefing(snapshot, etDateStr);
+            for (const locale of CONFIG.LOCALES) {
+                await redis.setex(`guardian:morning_briefing:${locale}`, 24 * 60 * 60, JSON.stringify({
+                    date: etDateStr,
+                    generatedAt: new Date().toISOString(),
+                    briefing: fallbackText,
+                    source: "template",
+                }));
+            }
+            await redis.setex("guardian:morning_briefing", 24 * 60 * 60, JSON.stringify({
+                date: etDateStr,
+                generatedAt: new Date().toISOString(),
+                text: fallbackText,
+                briefing: fallbackText,
+                source: "template",
+            }));
+            console.log("[Briefing] ⚠️ Used fallback template (Gemini unavailable)");
+        }
     } catch (e) {
         console.error("[Briefing] ❌ Morning briefing failed:", e.message);
+        // Don't block — store minimal fallback
+        try {
+            const fallback = `📊 Pre-Market (${etDateStr}): Briefing generation temporarily unavailable.`;
+            await redis.setex("guardian:morning_briefing", 24 * 60 * 60, JSON.stringify({
+                date: etDateStr, generatedAt: new Date().toISOString(),
+                text: fallback, briefing: fallback, source: "error",
+            }));
+        } catch { }
     }
 }
 
-function generateFallbackBriefing(data) {
+function generateFallbackBriefing(snapshot, dateStr) {
     const parts = [];
-    parts.push(`📊 Pre-Market Snapshot (${data.date})`);
-    if (data.preMarketRlsi !== null) {
-        parts.push(`RLSI: ${data.preMarketRlsi.toFixed(0)} | Session: ${data.preMarketSession || "PRE"}`);
+    parts.push(`📊 Pre-Market Snapshot (${dateStr})`);
+    if (snapshot?.rlsi?.score != null) {
+        parts.push(`RLSI: ${snapshot.rlsi.score.toFixed(0)} | Session: ${snapshot.rlsi.session || "PRE"}`);
     }
-    if (data.vix !== null) parts.push(`VIX: ${data.vix.toFixed(1)}`);
-    if (data.gexIndex !== null) parts.push(`GEX: ${data.gexIndex.toFixed(0)} | Squeeze: ${(data.squeezeRisk || 0).toFixed(0)}%`);
-    if (data.breadthPct !== null) parts.push(`Breadth: ${data.breadthPct.toFixed(0)}%`);
-    if (data.regime) parts.push(`Regime: ${data.regime}`);
-    if (data.activeAlerts.length > 0) parts.push(`Active Alerts: ${data.activeAlerts.join(", ")}`);
-    if (data.topSectors.length > 0) {
-        parts.push(`Top Sectors: ${data.topSectors.map(s => `${s.name} (${s.change > 0 ? "+" : ""}${s.change?.toFixed(1)}%)`).join(", ")}`);
-    }
+    const vix = snapshot?.rlsi?.components?.vix;
+    if (vix != null) parts.push(`VIX: ${vix.toFixed(1)}`);
+    const gex = snapshot?.gammaShield?.gexIndex;
+    if (gex != null) parts.push(`GEX: ${gex.toFixed(0)} | Squeeze: ${(snapshot?.gammaShield?.squeezeRisk || 0).toFixed(0)}%`);
+    const breadth = snapshot?.breadth?.breadthPct;
+    if (breadth != null) parts.push(`Breadth: ${breadth.toFixed(0)}%`);
     return parts.join("\n");
 }
 
