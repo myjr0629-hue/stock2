@@ -605,7 +605,7 @@ function TimelineInsight({ history }: { history: { time: string; score: number }
     return (
         <div className="w-full px-2 mt-1.5">
             <div className="px-2.5 py-1.5 rounded bg-slate-800/30 border border-slate-700/20">
-                <div className="flex items-center gap-1.5">
+                <div className="flex items-center justify-center gap-1.5">
                     <span className="text-[12px] font-bold flex-shrink-0" style={{ color: insight.color }}>
                         {insight.icon}
                     </span>
