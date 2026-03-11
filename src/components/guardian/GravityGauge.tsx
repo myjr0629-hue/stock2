@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useMemo } from "react";
 import { Activity, TrendingUp, TrendingDown, BarChart3, Radio, Globe, ShieldAlert, Minus, ChevronUp, ChevronDown } from "lucide-react";
-import { useTranslations } from 'next-intl';
+import { useTranslations, useLocale } from 'next-intl';
 import { useMarketStatus } from '@/hooks/useMarketStatus';
 
 interface RLSIComponents {
@@ -124,9 +124,9 @@ export default function GravityGauge({ score, loading, session, components, rlsi
     ];
 
     return (
-        <div className="flex flex-col items-center justify-start h-full relative p-3 pt-4">
+        <div className="flex flex-col items-center justify-start h-full relative p-2 pt-1">
             {/* Header */}
-            <div className="w-full px-2 mb-1">
+            <div className="w-full px-2 mb-0">
                 <div className="flex items-center gap-2">
                     <Activity className="w-3 h-3 text-white opacity-70" />
                     <span className="text-xs uppercase tracking-[0.2em] text-white font-black font-jakarta">Gravity Gauge</span>
@@ -147,7 +147,7 @@ export default function GravityGauge({ score, loading, session, components, rlsi
             </div>
 
             {/* Main Gauge Container */}
-            <div className="relative mt-0">
+            <div className="relative -mt-1">
                 <svg width="200" height="115" viewBox="0 0 200 115" className="overflow-visible">
                     <defs>
                         <linearGradient id="gaugeGradient" x1="0%" y1="0%" x2="100%" y2="0%">
@@ -355,6 +355,11 @@ export default function GravityGauge({ score, loading, session, components, rlsi
                     <ScoreTimeline history={rlsiHistory} currentScore={animatedScore} />
                 </div>
             )}
+
+            {/* Trend Insight — full card width */}
+            {rlsiHistory && rlsiHistory.length >= 4 && !loading && !isHoliday && (
+                <TimelineInsight history={rlsiHistory} />
+            )}
         </div>
     );
 }
@@ -418,28 +423,7 @@ function ScoreTimeline({ history, currentScore }: { history: { time: string; sco
         return `${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`;
     };
 
-    // Trend Insight calculation
-    const trendInsight = useMemo(() => {
-        if (scores.length < 4) return null;
-        const recent5 = scores.slice(-5);
-        const older5 = scores.slice(-10, -5);
-        const recentAvg = recent5.reduce((a, b) => a + b, 0) / recent5.length;
-        const olderAvg = older5.length > 0 ? older5.reduce((a, b) => a + b, 0) / older5.length : recentAvg;
-        const delta = recentAvg - olderAvg;
-        const dayHigh = Math.max(...scores);
-        const dayLow = Math.min(...scores);
-        const volatility = dayHigh - dayLow;
 
-        let direction: 'rising' | 'falling' | 'stable';
-        let icon: string;
-        let color: string;
-
-        if (delta > 3) { direction = 'rising'; icon = '▲'; color = '#34d399'; }
-        else if (delta < -3) { direction = 'falling'; icon = '▼'; color = '#f87171'; }
-        else { direction = 'stable'; icon = '─'; color = '#94a3b8'; }
-
-        return { direction, icon, color, delta, dayHigh, dayLow, volatility, recentAvg };
-    }, [scores]);
 
     // Zone borders for background bands
     const scoreToY = (s: number) => PAD_TOP + drawH - ((s - minScore) / range) * drawH;
@@ -564,22 +548,72 @@ function ScoreTimeline({ history, currentScore }: { history: { time: string; sco
                 )}
                 <span className="text-[12px] font-mono font-bold text-slate-200">NOW</span>
             </div>
+        </div>
+    );
+}
 
-            {/* Trend Insight — AI narrative text */}
-            {trendInsight && (
-                <div className="mt-1.5 px-1 py-1 rounded bg-slate-800/30 border border-slate-700/20">
-                    <div className="flex items-center gap-1.5">
-                        <span className="text-[12px] font-bold" style={{ color: trendInsight.color }}>
-                            {trendInsight.icon}
-                        </span>
-                        <span className="text-[12px] text-slate-300 leading-tight">
-                            {trendInsight.direction === 'rising' && `RLSI ${trendInsight.delta.toFixed(1)}pt ↑ | H:${trendInsight.dayHigh} L:${trendInsight.dayLow} | Range ${trendInsight.volatility.toFixed(0)}pt`}
-                            {trendInsight.direction === 'falling' && `RLSI ${Math.abs(trendInsight.delta).toFixed(1)}pt ↓ | H:${trendInsight.dayHigh} L:${trendInsight.dayLow} | Range ${trendInsight.volatility.toFixed(0)}pt`}
-                            {trendInsight.direction === 'stable' && `RLSI stable ±${Math.abs(trendInsight.delta).toFixed(1)}pt | H:${trendInsight.dayHigh} L:${trendInsight.dayLow} | Range ${trendInsight.volatility.toFixed(0)}pt`}
-                        </span>
-                    </div>
+// [V10.0] Timeline Insight — Full-Width Premium Narrative
+function TimelineInsight({ history }: { history: { time: string; score: number }[] }) {
+    const locale = useLocale();
+    const scores = history.map(h => h.score);
+
+    const insight = useMemo(() => {
+        if (scores.length < 4) return null;
+        const recent5 = scores.slice(-5);
+        const older5 = scores.slice(-10, -5);
+        const recentAvg = recent5.reduce((a, b) => a + b, 0) / recent5.length;
+        const olderAvg = older5.length > 0 ? older5.reduce((a, b) => a + b, 0) / older5.length : recentAvg;
+        const delta = recentAvg - olderAvg;
+        const dayHigh = Math.max(...scores);
+        const dayLow = Math.min(...scores);
+        const volatility = dayHigh - dayLow;
+
+        let direction: 'rising' | 'falling' | 'stable';
+        let icon: string;
+        let color: string;
+
+        if (delta > 3) { direction = 'rising'; icon = '▲'; color = '#34d399'; }
+        else if (delta < -3) { direction = 'falling'; icon = '▼'; color = '#f87171'; }
+        else { direction = 'stable'; icon = '─'; color = '#94a3b8'; }
+
+        const d = Math.abs(delta).toFixed(1);
+        const vol = volatility >= 15 ? 'high' : volatility >= 8 ? 'mid' : 'low';
+
+        let text: string;
+        if (locale === 'ko') {
+            const vk = vol === 'high' ? '변동성 확대' : vol === 'mid' ? '보통 변동' : '안정적 흐름';
+            if (direction === 'rising') text = `시장 심리 개선 중 (+${d}pt) · 일중 ${dayLow}→${dayHigh} · ${vk}`;
+            else if (direction === 'falling') text = `시장 심리 약화 중 (-${d}pt) · 일중 ${dayHigh}→${dayLow} · ${vk}`;
+            else text = `시장 심리 횡보 (±${d}pt) · 일중 ${dayLow}~${dayHigh} · ${vk}`;
+        } else if (locale === 'ja') {
+            const vj = vol === 'high' ? '変動拡大' : vol === 'mid' ? '通常変動' : '安定推移';
+            if (direction === 'rising') text = `市場心理が改善中 (+${d}pt) · 日中 ${dayLow}→${dayHigh} · ${vj}`;
+            else if (direction === 'falling') text = `市場心理が弱含み (-${d}pt) · 日中 ${dayHigh}→${dayLow} · ${vj}`;
+            else text = `市場心理は横ばい (±${d}pt) · 日中 ${dayLow}~${dayHigh} · ${vj}`;
+        } else {
+            const ve = vol === 'high' ? 'Elevated volatility' : vol === 'mid' ? 'Normal fluctuation' : 'Steady flow';
+            if (direction === 'rising') text = `Sentiment improving (+${d}pt) · Range ${dayLow}→${dayHigh} · ${ve}`;
+            else if (direction === 'falling') text = `Sentiment weakening (-${d}pt) · Range ${dayHigh}→${dayLow} · ${ve}`;
+            else text = `Sentiment ranging (±${d}pt) · Range ${dayLow}~${dayHigh} · ${ve}`;
+        }
+
+        return { icon, color, text };
+    }, [scores, locale]);
+
+    if (!insight) return null;
+
+    return (
+        <div className="w-full px-2 mt-1.5">
+            <div className="px-2.5 py-1.5 rounded bg-slate-800/30 border border-slate-700/20">
+                <div className="flex items-center gap-1.5">
+                    <span className="text-[12px] font-bold flex-shrink-0" style={{ color: insight.color }}>
+                        {insight.icon}
+                    </span>
+                    <span className="text-[12px] text-slate-300 whitespace-nowrap">
+                        {insight.text}
+                    </span>
                 </div>
-            )}
+            </div>
         </div>
     );
 }
