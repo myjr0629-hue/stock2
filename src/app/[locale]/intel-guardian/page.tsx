@@ -25,6 +25,7 @@ const VitalsPanel = dynamic(() => import("@/components/guardian/VitalsPanel").th
 const OracleHeader = dynamic(() => import("@/components/guardian/OracleHeader").then(m => m.OracleHeader), { ssr: false });
 const RLSIInsightPanel = dynamic(() => import("@/components/guardian/MarketBreadthPanel"), { ssr: false });
 const GammaShield = dynamic(() => import("@/components/guardian/GammaShield"), { ssr: false });
+const WhatIfSimulator = dynamic(() => import("@/components/guardian/WhatIfSimulator"), { ssr: false });
 
 
 // === TYPES ===
@@ -220,6 +221,7 @@ export default function GuardianPage() {
     // Map global data to local type if necessary, or just cast
     const data = globalData as GuardianContext | null;
     const [selectedSectorId, setSelectedSectorId] = useState<string | null>(null);
+    const [insightTab, setInsightTab] = useState<'insight' | 'whatif'>('insight');
     // [30s POLLING] Live constituent prices, independent from 5-min Guardian cache
     const [livePrices, setLivePrices] = useState<Record<string, { price: number; change: number; volume: number }>>({});
     const priceIntervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -433,20 +435,54 @@ export default function GuardianPage() {
                             </svg>
                             <div className="flex-1 flex flex-col">
                                 <ProGate title="RLSI Insight" fomoMessage={gt('fomoRlsiInsight')} mode="blur" compact>
-                                    <RLSIInsightPanel
-                                        alignmentStatus={data?.divergence?.isDivergent ? 'DIVERGENCE' : 'ALIGNMENT OK'}
-                                        insightTitle={verdict.title}
-                                        insightDesc={verdict.realityInsight || verdict.desc}
-                                        sentiment={verdict.sentiment as 'BULLISH' | 'BEARISH' | 'NEUTRAL'}
-                                        breadthPct={data?.breadth?.breadthPct ?? data?.rlsi.components?.breadthPct ?? 50}
-                                        adRatio={data?.breadth?.adRatio ?? data?.rlsi.components?.adRatio ?? 1}
-                                        volumeBreadth={data?.breadth?.volumeBreadth ?? data?.rlsi.components?.volumeBreadth ?? 50}
-                                        breadthSignal={data?.breadth?.signal ?? data?.rlsi.components?.breadthSignal ?? 'NEUTRAL'}
-                                        isDivergent={data?.breadth?.isDivergent ?? data?.rlsi.components?.breadthDivergent ?? false}
-                                        loading={loading}
-                                        isMarketActive={isMarketActive}
-                                        session={session || 'CLOSED'}
-                                    />
+                                    {/* Tab Toggle */}
+                                    <div className="flex items-center gap-1 px-3 pt-2 pb-1">
+                                        {(['insight', 'whatif'] as const).map(tab => (
+                                            <button
+                                                key={tab}
+                                                onClick={() => setInsightTab(tab)}
+                                                className={`text-[12px] font-bold font-jakarta px-3 py-1 rounded-md border transition-all duration-200 ${insightTab === tab
+                                                        ? tab === 'whatif' ? 'text-violet-300 border-violet-500/40 bg-violet-500/15' : 'text-emerald-400 border-emerald-500/40 bg-emerald-500/15'
+                                                        : 'text-slate-400 border-slate-700/30 bg-transparent hover:text-slate-300 hover:border-slate-600/40'
+                                                    }`}
+                                            >
+                                                {tab === 'insight' ? (locale === 'ko' ? '✧ 브리핑' : locale === 'ja' ? '✧ ブリーフィング' : '✧ BRIEFING') : (locale === 'ko' ? '⚡ What-If' : locale === 'ja' ? '⚡ What-If' : '⚡ WHAT-IF')}
+                                            </button>
+                                        ))}
+                                    </div>
+
+                                    {insightTab === 'insight' ? (
+                                        <RLSIInsightPanel
+                                            alignmentStatus={data?.divergence?.isDivergent ? 'DIVERGENCE' : 'ALIGNMENT OK'}
+                                            insightTitle={verdict.title}
+                                            insightDesc={verdict.realityInsight || verdict.desc}
+                                            sentiment={verdict.sentiment as 'BULLISH' | 'BEARISH' | 'NEUTRAL'}
+                                            breadthPct={data?.breadth?.breadthPct ?? data?.rlsi.components?.breadthPct ?? 50}
+                                            adRatio={data?.breadth?.adRatio ?? data?.rlsi.components?.adRatio ?? 1}
+                                            volumeBreadth={data?.breadth?.volumeBreadth ?? data?.rlsi.components?.volumeBreadth ?? 50}
+                                            breadthSignal={data?.breadth?.signal ?? data?.rlsi.components?.breadthSignal ?? 'NEUTRAL'}
+                                            isDivergent={data?.breadth?.isDivergent ?? data?.rlsi.components?.breadthDivergent ?? false}
+                                            loading={loading}
+                                            isMarketActive={isMarketActive}
+                                            session={session || 'CLOSED'}
+                                        />
+                                    ) : (
+                                        <WhatIfSimulator
+                                            currentScore={data?.rlsi.score || 50}
+                                            components={{
+                                                vix: data?.rlsi.components?.vix ?? 15,
+                                                yieldRaw: data?.rlsi.components?.yieldRaw ?? 4.0,
+                                                sentimentScore: data?.rlsi.components?.sentimentScore ?? 50,
+                                                momentumScore: data?.rlsi.components?.momentumScore ?? 50,
+                                                priceActionScore: data?.rlsi.components?.priceActionScore ?? 50,
+                                                breadthScore: data?.rlsi.components?.breadthScore ?? 50,
+                                                rotationScore: data?.rlsi.components?.rotationScore ?? 50,
+                                                vixMultiplier: data?.rlsi.components?.vixMultiplier ?? 1.0,
+                                                yieldPenalty: data?.rlsi.components?.yieldPenalty ?? 5,
+                                                vixTermStructure: data?.rlsi.components?.vixTermStructure ?? 1.0,
+                                            }}
+                                        />
+                                    )}
                                 </ProGate>
                             </div>
                         </div>
