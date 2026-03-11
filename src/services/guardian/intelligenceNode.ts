@@ -575,6 +575,30 @@ export class IntelligenceNode {
             return _cachedRotation[locale]!;
         }
 
+        // [FIX] Redis TTL check — prevents Gemini call on every Vercel cold start
+        // In-memory cache resets on cold start, but Redis persists
+        if (!_cachedRotation[locale] || (now - _lastRotationTime[locale] >= ttl)) {
+            try {
+                const redisCache = await loadInsightFromRedis(getRedisKey('rotation', locale));
+                if (redisCache) {
+                    // Check Redis updatedAt to see if within TTL
+                    const redis = getRedis();
+                    if (redis) {
+                        const raw = await redis.get(getRedisKey('rotation', locale)) as { text: string; updatedAt: string } | null;
+                        if (raw?.updatedAt) {
+                            const cacheAge = now - new Date(raw.updatedAt).getTime();
+                            if (cacheAge < ttl) {
+                                console.log(`[IntelligenceNode] Redis cache hit for rotation/${locale} (age: ${(cacheAge/1000).toFixed(0)}s, TTL: ${ttl/1000}s)`);
+                                _cachedRotation[locale] = redisCache;
+                                _lastRotationTime[locale] = new Date(raw.updatedAt).getTime();
+                                return redisCache;
+                            }
+                        }
+                    }
+                }
+            } catch (e) { /* Redis check failed, proceed to generate */ }
+        }
+
         if (isOffHours()) {
             console.log(`[IntelligenceNode] Off-hours: skipping Gemini call for Rotation (${locale})`);
             if (_cachedRotation[locale]) return _cachedRotation[locale]!;
@@ -626,6 +650,28 @@ export class IntelligenceNode {
 
         if (_cachedReality[locale] && (now - _lastRealityTime[locale] < ttl)) {
             return _cachedReality[locale]!;
+        }
+
+        // [FIX] Redis TTL check — prevents Gemini call on every Vercel cold start
+        if (!_cachedReality[locale] || (now - _lastRealityTime[locale] >= ttl)) {
+            try {
+                const redisCache = await loadInsightFromRedis(getRedisKey('reality', locale));
+                if (redisCache) {
+                    const redis = getRedis();
+                    if (redis) {
+                        const raw = await redis.get(getRedisKey('reality', locale)) as { text: string; updatedAt: string } | null;
+                        if (raw?.updatedAt) {
+                            const cacheAge = now - new Date(raw.updatedAt).getTime();
+                            if (cacheAge < ttl) {
+                                console.log(`[IntelligenceNode] Redis cache hit for reality/${locale} (age: ${(cacheAge/1000).toFixed(0)}s, TTL: ${ttl/1000}s)`);
+                                _cachedReality[locale] = redisCache;
+                                _lastRealityTime[locale] = new Date(raw.updatedAt).getTime();
+                                return redisCache;
+                            }
+                        }
+                    }
+                }
+            } catch (e) { /* Redis check failed, proceed to generate */ }
         }
 
         if (isOffHours()) {
