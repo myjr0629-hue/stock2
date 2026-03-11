@@ -92,11 +92,13 @@ const _cachedContext: Record<Locale, GuardianContext | null> = { ko: null, en: n
 const _lastFetchTime: Record<Locale, number> = { ko: 0, en: 0, ja: 0 };
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
 
-// [V8.1] Persistent AI verdict cache — file-based to survive server restarts
-// Stores last successful Gemini analysis so it can be shown after market hours
-import * as fs from 'fs';
-import * as path from 'path';
-const AI_VERDICT_CACHE_PATH = path.join(process.cwd(), '.next', 'cache', 'guardian_ai_verdict.json');
+// [V12.0] Persistent AI verdict cache — Redis-based for deploy survival & EC2 sync
+// Stores last successful Gemini analysis in ElastiCache so it persists across deploys
+const AI_VERDICT_REDIS_KEY = 'guardian:ai_verdict';
+const AI_VERDICT_TTL = 24 * 60 * 60; // 24 hours
+
+// [V12.0] Redis-first Guardian Snapshot keys (EC2 Worker writes these)
+const GUARDIAN_SNAPSHOT_PREFIX = 'guardian:snapshot:';
 
 // [V9.0] RLSI Intraday History — Redis-based for Vercel persistence
 interface RlsiHistoryEntry { time: string; score: number; }
@@ -164,19 +166,15 @@ async function appendRlsiHistory(score: number, session: string): Promise<RlsiHi
     return history;
 }
 
-function saveAiVerdict(verdict: GuardianVerdict) {
+async function saveAiVerdict(verdict: GuardianVerdict) {
     try {
-        const dir = path.dirname(AI_VERDICT_CACHE_PATH);
-        if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-        fs.writeFileSync(AI_VERDICT_CACHE_PATH, JSON.stringify(verdict), 'utf-8');
+        await setInCache(AI_VERDICT_REDIS_KEY, verdict, AI_VERDICT_TTL);
     } catch (e) { /* ignore write errors */ }
 }
 
-function loadAiVerdict(): GuardianVerdict | null {
+async function loadAiVerdict(): Promise<GuardianVerdict | null> {
     try {
-        if (fs.existsSync(AI_VERDICT_CACHE_PATH)) {
-            return JSON.parse(fs.readFileSync(AI_VERDICT_CACHE_PATH, 'utf-8'));
-        }
+        return await getFromCache<GuardianVerdict>(AI_VERDICT_REDIS_KEY);
     } catch (e) { /* ignore read errors */ }
     return null;
 }
@@ -333,6 +331,23 @@ export class GuardianDataHub {
     static async getGuardianSnapshot(force: boolean = false, locale: Locale = 'ko'): Promise<GuardianContext> {
         const now = Date.now();
 
+        // [V12.0] Redis-first: Check EC2 Worker's pre-cached snapshot
+        if (!force) {
+            try {
+                const redisKey = `${GUARDIAN_SNAPSHOT_PREFIX}${locale}`;
+                const cached = await getFromCache<any>(redisKey);
+                if (cached && cached.rlsi && cached.rlsi.score !== undefined) {
+                    // Update in-memory cache too
+                    _cachedContext[locale] = cached;
+                    _lastFetchTime[locale] = now;
+                    console.log(`[Guardian V12.0] Redis SWR hit for ${locale} (RLSI: ${cached.rlsi.score?.toFixed?.(0) || 'N/A'}, source: ${cached._source || 'redis'})`);
+                    return cached;
+                }
+            } catch (e) {
+                // Redis miss or error — fall through to in-memory then compute
+            }
+        }
+
         if (!force && _cachedContext[locale] && (now - _lastFetchTime[locale] < CACHE_TTL_MS)) {
             return _cachedContext[locale]!;
         }
@@ -435,9 +450,9 @@ export class GuardianDataHub {
                     description: divCase.verdictDesc,
                     sentiment: divCase.caseId === 'B' ? 'BULLISH' : 'BEARISH'
                 };
-            } else if (rlsi.session !== 'REG' && loadAiVerdict()) {
-                // [V8.1] After hours with cached AI verdict: use it
-                verdict = loadAiVerdict()!;
+            } else if (rlsi.session !== 'REG' && (await loadAiVerdict())) {
+                // [V12.0] After hours with cached AI verdict from Redis: use it
+                verdict = (await loadAiVerdict())!;
             } else {
                 // Standard Market: Use Dual Stream AI
                 const staticVerdict: GuardianVerdict = {
@@ -532,8 +547,8 @@ export class GuardianDataHub {
                             sentiment: 'NEUTRAL',
                             realityInsight: realityText // Center
                         };
-                        // [V8.1] Persist AI verdict to file for after-hours display
-                        saveAiVerdict(verdict);
+                        // [V12.0] Persist AI verdict to Redis for after-hours display & deploy survival
+                        await saveAiVerdict(verdict);
                     }
                 } catch (e) {
                     console.warn("[Guardian] AI Verdict Failed, using fallback:", e);
@@ -741,6 +756,12 @@ export class GuardianDataHub {
                 _cachedContext[locale] = context;
                 _lastFetchTime[locale] = now;
             }
+
+            // [V12.0] Write back to Redis for EC2 Worker / other instances
+            try {
+                const redisTtl = context.rlsi?.session === 'REG' ? 120 : 600; // 2min REG, 10min EXT
+                await setInCache(`${GUARDIAN_SNAPSHOT_PREFIX}${locale}`, { ...context, _source: 'vercel' }, redisTtl);
+            } catch { /* Redis write failure is non-critical */ }
 
             console.log("[Guardian] Context Refresh Complete.");
             return context;

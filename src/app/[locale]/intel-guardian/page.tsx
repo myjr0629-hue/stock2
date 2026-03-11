@@ -12,6 +12,7 @@ import dynamic from 'next/dynamic';
 import { TypewriterText, renderColoredText } from "@/components/guardian/TypewriterText";
 import { RealityCheck } from "@/components/guardian/RealityCheck";
 import { useGuardian } from "@/components/guardian/GuardianProvider";
+import GuardianAlertBanner from "@/components/guardian/GuardianAlertBanner";
 import { EconomicCalendarWidget } from "@/components/guardian/EconomicCalendarWidget";
 import { useMarketStatus } from '@/hooks/useMarketStatus';
 import { GuestWall } from '@/components/gate/GuestWall';
@@ -205,7 +206,7 @@ function getSectorName(name: string, locale: string): string {
 }
 
 export default function GuardianPage() {
-    const { data: globalData, loading, refresh } = useGuardian();
+    const { data: globalData, loading, refresh, alerts, connectionMode } = useGuardian();
     const t = useTranslations('guardian');
     const gt = useTranslations('gate');
     const locale = useLocale();
@@ -335,6 +336,9 @@ export default function GuardianPage() {
                 {/* MAIN HUD CONTAINER — Granular Tier Gates */}
                 <main className="pb-4 px-4 min-h-[calc(100vh-110px)] max-w-[1920px] mx-auto flex flex-col gap-4 mt-4">
 
+                    {/* CROSS-INTELLIGENCE ALERTS (real-time from EC2 Worker via WebSocket) */}
+                    <GuardianAlertBanner alerts={alerts} connectionMode={connectionMode} />
+
                     {/* --- TOP ROW: GAUGE | REALITY | MAP | VERDICT (GRID) --- */}
                     {/* 
                     Layout Strategy based on Mockup:
@@ -357,7 +361,7 @@ export default function GuardianPage() {
                     <div className="flex-1 grid grid-cols-12 grid-rows-[auto_1fr_30px] gap-4 min-h-0">
 
                         {/* BLOCK A: GAUGE (4 cols) */}
-                        <div className="col-span-12 lg:col-span-4 backdrop-blur-md border border-slate-800 rounded-lg p-4 relative shadow-2xl flex flex-col justify-center overflow-hidden"
+                        <div className="col-span-12 lg:col-span-4 backdrop-blur-md border border-slate-800 rounded-lg p-4 relative shadow-2xl flex flex-col justify-center overflow-hidden transition-all duration-300 hover:border-emerald-500/30 hover:shadow-[0_0_25px_rgba(52,211,153,0.08)] hover:scale-[1.003]"
                             style={{ background: 'radial-gradient(circle at 50% 70%, rgba(52,211,153,0.12) 0%, transparent 50%), radial-gradient(circle at 20% 30%, rgba(6,182,212,0.06) 0%, transparent 40%), rgba(10,14,20,0.85)' }}
                         >
                             {/* Infographic: Concentric Radar Circles */}
@@ -384,7 +388,7 @@ export default function GuardianPage() {
                         </div>
 
                         {/* BLOCK B: REALITY CHECK (4 cols) */}
-                        <div className="col-span-12 lg:col-span-4 backdrop-blur-md border border-slate-800 rounded-lg p-3 relative shadow-2xl flex flex-col justify-center overflow-hidden"
+                        <div className="col-span-12 lg:col-span-4 backdrop-blur-md border border-slate-800 rounded-lg p-3 relative shadow-2xl flex flex-col justify-center overflow-hidden transition-all duration-300 hover:border-cyan-500/30 hover:shadow-[0_0_25px_rgba(6,182,212,0.08)] hover:scale-[1.003]"
                             style={{ background: 'linear-gradient(135deg, rgba(6,182,212,0.10) 0%, rgba(6,182,212,0.03) 40%, transparent 70%), rgba(10,14,20,0.85)' }}
                         >
                             {/* Infographic: Dot Matrix Grid */}
@@ -415,7 +419,7 @@ export default function GuardianPage() {
                         </div>
 
                         {/* BLOCK C: RLSI INSIGHT + BREADTH COMPACT (4 cols) */}
-                        <div className="col-span-12 lg:col-span-4 backdrop-blur-md border border-slate-800 rounded-lg relative shadow-2xl flex flex-col overflow-hidden"
+                        <div className="col-span-12 lg:col-span-4 backdrop-blur-md border border-slate-800 rounded-lg relative shadow-2xl flex flex-col overflow-hidden transition-all duration-300 hover:border-emerald-500/30 hover:shadow-[0_0_25px_rgba(16,185,129,0.08)] hover:scale-[1.003]"
                             style={{ background: 'linear-gradient(180deg, rgba(16,185,129,0.10) 0%, rgba(16,185,129,0.03) 30%, transparent 50%), rgba(10,14,20,0.85)' }}
                         >
                             {/* Infographic: Horizontal Data Bars */}

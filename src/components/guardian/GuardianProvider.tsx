@@ -1,11 +1,12 @@
 "use client";
 
-import React, { createContext, useContext, useEffect, useState, useRef, useMemo } from 'react';
+import React, { createContext, useContext, useEffect, useState, useRef, useMemo, useCallback } from 'react';
 import { usePathname } from 'next/navigation';
 import { useMarketStatus } from '@/hooks/useMarketStatus';
 
-// Re-using types from unifiedDataStream (or similar shape)
-// We might want to import them if they are shared, or define flexible types here.
+// ══════════════════════════════════════════════════════════════
+// TYPES
+// ══════════════════════════════════════════════════════════════
 
 interface RLSIResult {
     score: number;
@@ -14,100 +15,224 @@ interface RLSIResult {
     timestamp: string;
 }
 
+interface GuardianAlert {
+    id: string;
+    severity: 'CRITICAL' | 'HIGH' | 'WARNING' | 'INFO';
+    title: string;
+    description: string;
+    metrics: Record<string, number>;
+    color: string;
+    timestamp?: string;
+}
+
 interface GuardianContextType {
-    data: any | null; // Full snapshot
+    data: any | null;
     rlsi: RLSIResult | null;
     marketStatus: 'GO' | 'WAIT' | 'STOP';
     verdict: any;
+    alerts: GuardianAlert[];
     refresh: (force?: boolean) => void;
     loading: boolean;
+    connectionMode: 'websocket' | 'polling' | 'connecting';
 }
 
 const GuardianContext = createContext<GuardianContextType>({
     data: null,
     rlsi: null,
-    marketStatus: 'WAIT', // Default safety
+    marketStatus: 'WAIT',
     verdict: null,
+    alerts: [],
     refresh: () => { },
     loading: false,
+    connectionMode: 'connecting',
 });
+
+// ══════════════════════════════════════════════════════════════
+// EC2 WEBSOCKET HUB URL
+// ══════════════════════════════════════════════════════════════
+
+const WS_HUB_URL = process.env.NEXT_PUBLIC_GUARDIAN_WS_URL || 'wss://3.236.193.97:8082/guardian';
+
+// ══════════════════════════════════════════════════════════════
+// PROVIDER
+// ══════════════════════════════════════════════════════════════
 
 export function GuardianProvider({ children }: { children: React.ReactNode }) {
     const [data, setData] = useState<any>(null);
     const [loading, setLoading] = useState(true);
+    const [alerts, setAlerts] = useState<GuardianAlert[]>([]);
+    const [connectionMode, setConnectionMode] = useState<'websocket' | 'polling' | 'connecting'>('connecting');
     const pathname = usePathname();
-    const { status: mktStatus } = useMarketStatus(); // polls every 60s independently
+    const { status: mktStatus } = useMarketStatus();
     const prevSessionRef = useRef<string | null>(null);
+    const wsRef = useRef<WebSocket | null>(null);
+    const reconnectTimerRef = useRef<NodeJS.Timeout | null>(null);
+    const pingTimerRef = useRef<NodeJS.Timeout | null>(null);
 
-    // Extract locale from pathname (e.g., /en/intel-guardian -> 'en')
     const locale = pathname?.split('/')[1] || 'ko';
     const validLocale = ['ko', 'en', 'ja'].includes(locale) ? locale : 'ko';
 
-    const refresh = async (force: boolean = false) => {
-        // Only show loading spinner on initial load or forced refresh
-        // Background polling updates data silently without flicker
-        if (!data || force) {
-            setLoading(true);
-        }
+    // ── Helper: Merge snapshot preserving AI verdict ──
+    const mergeSnapshot = useCallback((newData: any) => {
+        setData((prev: any) => {
+            if (newData.verdict && !newData.verdict.realityInsight && prev?.verdict?.realityInsight) {
+                newData.verdict.realityInsight = prev.verdict.realityInsight;
+                newData.verdict.title = prev.verdict.title || newData.verdict.title;
+                newData.verdict.description = prev.verdict.description || newData.verdict.description;
+            }
+            return newData;
+        });
+        setLoading(false);
+    }, []);
+
+    // ── Polling Refresh (fallback) ──
+    const refresh = useCallback(async (force: boolean = false) => {
+        if (!data || force) setLoading(true);
         try {
-            // Using existing API endpoint with locale
             const res = await fetch(`/api/debug/guardian?force=${force}&locale=${validLocale}`);
             const json = await res.json();
             if (json.success && json.data) {
-                // [V8.1] Preserve last AI verdict if new data doesn't have one
-                const newData = json.data;
-                if (newData.verdict && !newData.verdict.realityInsight && data?.verdict?.realityInsight) {
-                    newData.verdict.realityInsight = data.verdict.realityInsight;
-                    newData.verdict.title = data.verdict.title || newData.verdict.title;
-                    newData.verdict.description = data.verdict.description || newData.verdict.description;
-                }
-                setData(newData);
+                mergeSnapshot(json.data);
             }
         } catch (err) {
-            console.error("GuardianProvider fetch error:", err);
+            console.error("[Guardian] Fetch error:", err);
         } finally {
             setLoading(false);
         }
-    };
+    }, [data, validLocale, mergeSnapshot]);
 
+    // ── WebSocket Connection ──
+    const connectWebSocket = useCallback(() => {
+        // Don't reconnect if already connected
+        if (wsRef.current?.readyState === WebSocket.OPEN) return;
+
+        try {
+            const url = `${WS_HUB_URL}?locale=${validLocale}`;
+            const ws = new WebSocket(url);
+            wsRef.current = ws;
+
+            ws.onopen = () => {
+                console.log('[Guardian] 🔌 WebSocket connected');
+                setConnectionMode('websocket');
+                // Start ping keepalive
+                pingTimerRef.current = setInterval(() => {
+                    if (ws.readyState === WebSocket.OPEN) {
+                        ws.send(JSON.stringify({ type: 'ping' }));
+                    }
+                }, 30000);
+            };
+
+            ws.onmessage = (event) => {
+                try {
+                    const msg = JSON.parse(event.data);
+
+                    if (msg.type === 'initial_snapshot' && msg.data) {
+                        console.log('[Guardian] 📦 Received initial snapshot via WebSocket');
+                        mergeSnapshot(msg.data);
+                    }
+
+                    if (msg.type === 'snapshot_update' && msg.data) {
+                        console.log('[Guardian] 📡 Received real-time update via WebSocket');
+                        mergeSnapshot(msg.data);
+                    }
+
+                    if (msg.type === 'alert' && msg.data) {
+                        console.log('[Guardian] 🚨 Alert:', msg.data.title);
+                        setAlerts(prev => {
+                            // Deduplicate by alert ID, keep max 5
+                            const filtered = prev.filter(a => a.id !== msg.data.id);
+                            return [{ ...msg.data, timestamp: msg.timestamp }, ...filtered].slice(0, 5);
+                        });
+                    }
+
+                    if (msg.type === 'alerts' && msg.data) {
+                        // Batch alerts from initial connection
+                        setAlerts(msg.data.slice(0, 5));
+                    }
+
+                    if (msg.type === 'pong') {
+                        // Keepalive acknowledged
+                    }
+                } catch (e) {
+                    console.warn('[Guardian] WS message parse error:', e);
+                }
+            };
+
+            ws.onclose = (e) => {
+                console.log(`[Guardian] WebSocket closed (code: ${e.code})`);
+                wsRef.current = null;
+                if (pingTimerRef.current) clearInterval(pingTimerRef.current);
+
+                // Fallback to polling mode
+                setConnectionMode('polling');
+
+                // Attempt reconnect after 10 seconds
+                reconnectTimerRef.current = setTimeout(() => {
+                    console.log('[Guardian] Attempting WebSocket reconnect...');
+                    connectWebSocket();
+                }, 10000);
+            };
+
+            ws.onerror = (e) => {
+                console.warn('[Guardian] WebSocket error — will fallback to polling');
+                // onclose will fire after onerror
+            };
+
+        } catch (e) {
+            console.warn('[Guardian] WebSocket init failed — using polling');
+            setConnectionMode('polling');
+        }
+    }, [validLocale, mergeSnapshot]);
+
+    // ── Lifecycle: Connect WebSocket, fallback to polling ──
     useEffect(() => {
-        refresh(); // Initial fetch uses cached data (force=false to avoid SSG issues)
+        // First: immediate API fetch for fast initial load
+        refresh();
+
+        // Then: try WebSocket connection for real-time updates
+        const wsTimer = setTimeout(() => connectWebSocket(), 1000);
+
+        return () => {
+            clearTimeout(wsTimer);
+            if (wsRef.current) wsRef.current.close();
+            if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current);
+            if (pingTimerRef.current) clearInterval(pingTimerRef.current);
+        };
     }, [validLocale]);
 
-    // [V9.1] Auto-activate when market transitions to REG
-    // useMarketStatus polls /api/market/status every 60s independently,
-    // so we detect the session change and trigger a Guardian refresh
+    // ── Auto-refresh on market session change ──
     useEffect(() => {
         const currentSession = mktStatus.session;
         const prevSession = prevSessionRef.current;
 
         if (prevSession !== null && prevSession !== 'regular' && currentSession === 'regular') {
-            // Market just opened! Force refresh to get live data
             console.log('[Guardian] Market session changed to REG — auto-refreshing');
             refresh(true);
         }
         prevSessionRef.current = currentSession;
     }, [mktStatus.session]);
 
-    // [V8.1] Poll during regular session (REG)
+    // ── Polling fallback (only when WebSocket is down) ──
     useEffect(() => {
+        if (connectionMode !== 'polling') return;
+
         const session = data?.rlsi?.session;
         if (session === 'REG') {
-            // Regular session: poll every 5 minutes
-            const interval = setInterval(refresh, 5 * 60 * 1000);
+            const interval = setInterval(() => refresh(), 2 * 60 * 1000); // 2 min when polling
             return () => clearInterval(interval);
         }
-        // After hours: no polling needed (useMarketStatus handles session detection)
-    }, [data?.rlsi?.session, validLocale]);
+    }, [data?.rlsi?.session, validLocale, connectionMode]);
 
     const value = useMemo(() => ({
         data,
         rlsi: data?.rlsi || null,
         marketStatus: data?.marketStatus || 'WAIT',
         verdict: data?.verdict || null,
+        alerts,
         refresh,
-        loading
-    }), [data, loading]);
+        loading,
+        connectionMode,
+    }), [data, loading, alerts, connectionMode]);
 
     return (
         <GuardianContext.Provider value={value}>
