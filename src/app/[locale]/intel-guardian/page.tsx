@@ -590,45 +590,45 @@ export default function GuardianPage() {
                                                     if (locale === 'ko') {
                                                         if (Math.abs(change) > 3) {
                                                             insightLines.push(isInflow
-                                                                ? `5일 누적 유입 ${absChange}% — 강한 자금 집중 구간 관측`
+                                                                ? `5일 누적 유입 ${absChange}% — 강한 자금 집중 흐름 관측`
                                                                 : `5일 누적 유출 ${absChange}% — 지속적 자금 이탈 패턴 관측`);
                                                         } else if (Math.abs(change) > 1) {
                                                             insightLines.push(isInflow
-                                                                ? `완만한 유입 흐름 ${absChange}% — 점진적 포지션 구축 구간`
-                                                                : `점진적 유출 흐름 ${absChange}% — 포지션 축소 구간`);
+                                                                ? `완만한 유입 흐름 ${absChange}% — 자금 유입 점진적 확대 관측`
+                                                                : `점진적 유출 흐름 ${absChange}% — 자금 유출 지속 관측`);
                                                         } else {
                                                             insightLines.push(`자금 흐름 중립 구간 — 방향성 미확정`);
                                                         }
-                                                        if (netFlow > 10) insightLines.push(`순유입 흐름 우위 — 타 섹터 대비 자금 유입 집중`);
-                                                        else if (netFlow < -10) insightLines.push(`순유출 흐름 우위 — 자금이 타 섹터로 분산 이동 중`);
+                                                        if (netFlow > 10) insightLines.push(`→ 순유입 흐름 우위 — 타 섹터 대비 자금 유입 집중`);
+                                                        else if (netFlow < -10) insightLines.push(`→ 순유출 흐름 우위 — 자금이 타 섹터로 분산 이동 중`);
                                                     } else if (locale === 'ja') {
                                                         if (Math.abs(change) > 3) {
                                                             insightLines.push(isInflow
-                                                                ? `5日累積流入 ${absChange}% — 強い資金集中ゾーン観測`
+                                                                ? `5日累積流入 ${absChange}% — 強い資金集中フロー観測`
                                                                 : `5日累積流出 ${absChange}% — 継続的資金流出パターン観測`);
                                                         } else if (Math.abs(change) > 1) {
                                                             insightLines.push(isInflow
-                                                                ? `緩やかな流入 ${absChange}% — ポジション構築ゾーン`
-                                                                : `段階的流出 ${absChange}% — ポジション縮小ゾーン`);
+                                                                ? `緩やかな流入 ${absChange}% — 資金流入の段階的拡大を観測`
+                                                                : `段階的流出 ${absChange}% — 資金流出の継続を観測`);
                                                         } else {
                                                             insightLines.push(`資金フローニュートラル — 方向性未確定`);
                                                         }
-                                                        if (netFlow > 10) insightLines.push(`純流入優位 — 他セクター比で資金集中`);
-                                                        else if (netFlow < -10) insightLines.push(`純流出優位 — 資金は他セクターに分散移動中`);
+                                                        if (netFlow > 10) insightLines.push(`→ 純流入優位 — 他セクター比で資金集中`);
+                                                        else if (netFlow < -10) insightLines.push(`→ 純流出優位 — 資金は他セクターに分散移動中`);
                                                     } else {
                                                         if (Math.abs(change) > 3) {
                                                             insightLines.push(isInflow
-                                                                ? `5-day cumulative inflow ${absChange}% — strong capital concentration zone observed`
+                                                                ? `5-day cumulative inflow ${absChange}% — strong capital concentration flow observed`
                                                                 : `5-day cumulative outflow ${absChange}% — sustained capital exit pattern observed`);
                                                         } else if (Math.abs(change) > 1) {
                                                             insightLines.push(isInflow
-                                                                ? `Gradual inflow ${absChange}% — position accumulation zone`
-                                                                : `Gradual outflow ${absChange}% — position reduction zone`);
+                                                                ? `Gradual inflow ${absChange}% — incremental capital expansion observed`
+                                                                : `Gradual outflow ${absChange}% — sustained capital reduction observed`);
                                                         } else {
                                                             insightLines.push(`Capital flow neutral — directionality unconfirmed`);
                                                         }
-                                                        if (netFlow > 10) insightLines.push(`Net inflow dominant — capital concentration relative to other sectors`);
-                                                        else if (netFlow < -10) insightLines.push(`Net outflow dominant — capital dispersing to other sectors`);
+                                                        if (netFlow > 10) insightLines.push(`→ Net inflow dominant — capital concentration relative to other sectors`);
+                                                        else if (netFlow < -10) insightLines.push(`→ Net outflow dominant — capital dispersing to other sectors`);
                                                     }
 
                                                     return (

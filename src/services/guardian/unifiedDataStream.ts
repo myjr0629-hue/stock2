@@ -185,34 +185,34 @@ type Locale = 'ko' | 'en' | 'ja';
 
 const VERDICT_TEXTS: Record<string, Record<Locale, { title: string; desc: string }>> = {
     SYNC: {
-        ko: { title: "MARKET SYNCHRONIZED", desc: "지수와 유동성이 동기화됨. 특이사항 없음." },
-        en: { title: "MARKET SYNCHRONIZED", desc: "Index and liquidity are aligned. No anomalies detected." },
-        ja: { title: "MARKET SYNCHRONIZED", desc: "指数と流動性が同期中。特異事項なし。" }
+        ko: { title: "MARKET SYNCHRONIZED", desc: "지수와 유동성 흐름이 동기화 상태. 이상 징후 미관측." },
+        en: { title: "MARKET SYNCHRONIZED", desc: "Index and liquidity flows are aligned. No anomalies detected." },
+        ja: { title: "MARKET SYNCHRONIZED", desc: "指数と流動性フローが同期状態。異常兆候は未観測。" }
     },
     RETAIL_TRAP: {
-        ko: { title: "RETAIL TRAP", desc: "지수는 상승하나 유동성은 이탈 중. 추격 매수 금지." },
-        en: { title: "RETAIL TRAP", desc: "Index rising but liquidity is exiting. Avoid chasing." },
-        ja: { title: "RETAIL TRAP", desc: "指数上昇中も流動性は離脱中。追撃買い禁止。" }
+        ko: { title: "DIVERGENCE DETECTED", desc: "지수 상승에도 유동성 이탈 진행 중. 표면 강세와 내부 약세 괴리 관측." },
+        en: { title: "DIVERGENCE DETECTED", desc: "Index advancing while liquidity exits. Surface strength diverges from internal weakness." },
+        ja: { title: "DIVERGENCE DETECTED", desc: "指数上昇中も流動性離脱が進行。表面の強さと内部の弱さの乖離を観測。" }
     },
     SILENT_ACCUM: {
-        ko: { title: "SILENT ACCUMULATION", desc: "가격 하락 중 스마트 머니 강력 유입. 분할 매수 적기." },
-        en: { title: "SILENT ACCUMULATION", desc: "Smart money accumulating during price decline. Good entry zone." },
-        ja: { title: "SILENT ACCUMULATION", desc: "価格下落中にスマートマネーが強力流入。分割買いの好機。" }
+        ko: { title: "STEALTH INFLOW", desc: "가격 하락 구간에서 기관 유동성 유입 관측. 역방향 자금 흐름 감지." },
+        en: { title: "STEALTH INFLOW", desc: "Institutional liquidity inflow observed during price decline. Counter-directional capital flow detected." },
+        ja: { title: "STEALTH INFLOW", desc: "価格下落局面で機関流動性の流入を観測。逆方向の資金フローを検出。" }
     },
     QUANTUM_LEAP: {
-        ko: { title: "QUANTUM LEAP", desc: "강력한 유동성 동반 상승. 수익 극대화 구간." },
-        en: { title: "QUANTUM LEAP", desc: "Strong liquidity-backed rally. Maximize gains." },
-        ja: { title: "QUANTUM LEAP", desc: "強力な流動性を伴う上昇。収益最大化区間。" }
+        ko: { title: "MOMENTUM SURGE", desc: "강한 유동성 동반 상승세 관측. 거래량과 가격 동시 확장 구간." },
+        en: { title: "MOMENTUM SURGE", desc: "Strong liquidity-backed advance observed. Volume and price expanding simultaneously." },
+        ja: { title: "MOMENTUM SURGE", desc: "強い流動性を伴う上昇トレンドを観測。出来高と価格が同時拡大中。" }
     },
     DEEP_FREEZE: {
-        ko: { title: "DEEP FREEZE", desc: "모멘텀 소멸. 현금 비중 확대 구간." },
-        en: { title: "DEEP FREEZE", desc: "Momentum depleted. Cash allocation zone." },
-        ja: { title: "DEEP FREEZE", desc: "モメンタム消失。現金比重拡大区間。" }
+        ko: { title: "MOMENTUM DEPLETION", desc: "모멘텀 및 유동성 동시 위축 관측. 방향성 부재 구간." },
+        en: { title: "MOMENTUM DEPLETION", desc: "Momentum and liquidity contraction observed simultaneously. Directionless phase." },
+        ja: { title: "MOMENTUM DEPLETION", desc: "モメンタムと流動性の同時収縮を観測。方向性不在の局面。" }
     },
     STABLE: {
-        ko: { title: "SYSTEM STABLE", desc: "특이 징후 없음. 섹터 순환매 감시 중." },
-        en: { title: "SYSTEM STABLE", desc: "No anomalies detected. Monitoring sector rotation." },
-        ja: { title: "SYSTEM STABLE", desc: "特異兆候なし。セクターローテーション監視中。" }
+        ko: { title: "SYSTEM STABLE", desc: "특이 징후 미관측. 섹터 순환 흐름 모니터링 중." },
+        en: { title: "SYSTEM STABLE", desc: "No anomalies detected. Sector rotation flows under surveillance." },
+        ja: { title: "SYSTEM STABLE", desc: "特異兆候は未観測。セクターローテーションフローを監視中。" }
     },
     SETUP_REQUIRED: {
         ko: { title: "SETUP REQUIRED", desc: "AI 인텔리전스를 활성화하려면 .env.local 파일에 GEMINI_API_KEY가 필요합니다." },
@@ -223,19 +223,19 @@ const VERDICT_TEXTS: Record<string, Record<Locale, { title: string; desc: string
 
 const REGIME_TEXTS: Record<string, Record<Locale, string>> = {
     BULL: {
-        ko: "강세장 진입 :: 적극 매수 (Alpha Seek)",
-        en: "Bull Market Entry :: Aggressive Buy (Alpha Seek)",
-        ja: "強気相場参入 :: 積極買い (Alpha Seek)"
+        ko: "강세 환경 관측 :: 모멘텀·유동성 확장 구간 (Alpha Seek)",
+        en: "Bullish Environment :: Momentum & Liquidity Expansion Phase (Alpha Seek)",
+        ja: "強気環境観測 :: モメンタム・流動性拡大局面 (Alpha Seek)"
     },
     BEAR: {
-        ko: "약세장 진입 :: 보수적 운용 (Defense)",
-        en: "Bear Market Entry :: Defensive Mode (Defense)",
-        ja: "弱気相場参入 :: 防御運用 (Defense)"
+        ko: "약세 환경 관측 :: 변동성 확대·유동성 위축 구간 (Defense)",
+        en: "Bearish Environment :: Volatility Expansion & Liquidity Contraction Phase (Defense)",
+        ja: "弱気環境観測 :: ボラティリティ拡大・流動性収縮局面 (Defense)"
     },
     NEUTRAL: {
-        ko: "방향성 부재 :: 관망 구간 (Wait)",
-        en: "No Direction :: Standby (Wait)",
-        ja: "方向性不在 :: 様子見区間 (Wait)"
+        ko: "방향성 부재 :: 모멘텀 중립 구간 (Monitor)",
+        en: "Directionless :: Momentum Neutral Phase (Monitor)",
+        ja: "方向性不在 :: モメンタム中立局面 (Monitor)"
     }
 };
 
