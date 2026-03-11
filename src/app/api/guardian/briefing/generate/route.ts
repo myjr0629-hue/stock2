@@ -99,6 +99,7 @@ Your briefing must read like a NARRATIVE STORY, not a list of indicators.
 4. NEVER give investment advice. Use ONLY observational language: "관찰됨", "나타남", "observed", "noted".
 5. Connect the dots: WHY does VIX matter given today's news? HOW does GEX relate to the event calendar?
 6. Each language must be NATIVE quality — not a translation, but written as if by a native analyst.
+7. Do NOT use any emoji or special Unicode symbols. Use plain text only.
 
 ## MARKET DATA (Pre-Market Snapshot)
 - RLSI: ${rlsi} | Recent Trend: ${historyStr || 'N/A'}

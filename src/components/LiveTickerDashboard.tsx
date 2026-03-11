@@ -5,6 +5,7 @@ import useSWR from 'swr';
 import dynamic from 'next/dynamic';
 import { useFlowData } from '@/hooks/useFlowData';
 import { useLivePrice } from '@/hooks/useLivePrice';
+import { useRealtimeData } from '@/providers/WebSocketProvider';
 import { calcPriceDisplay } from '@/utils/calcPriceDisplay';
 import { usePriceFlash, getFlashStyle } from '@/components/ui/PriceDisplay';
 import { FavoriteToggle } from "@/components/FavoriteToggle";
@@ -462,6 +463,10 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
     });
     // [PERF] 5s real-time price polling (separate from heavy 60s ticker API)
     const livePrice = useLivePrice(ticker);
+    // [AWS Phase 3] WebSocket real-time price/GEX from EC2 Hub
+    const { connected: wsConnected, getPrice: wsGetPrice, getGex: wsGetGex } = useRealtimeData([ticker]);
+    const wsPrice = wsGetPrice(ticker);
+    const wsGex = wsGetGex(ticker);
     // Use SWR data when available, SSR fallback otherwise — keeps 'liveQuote' name for compatibility
     const liveQuote = _swrQuote || ssrFallback || null;
     const [options, setOptions] = useState<any>(null);
@@ -629,7 +634,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
             fallbackData: initialUnifiedData, // [SSR HYDRATION] Bypass skeleton
             revalidateOnFocus: true,  // Refresh when user returns to tab
             revalidateIfStale: true,
-            refreshInterval: 60_000  // 60s polling — Redis cache absorbs load; keeps INST RADAR/Squeeze/Vol fresh
+            refreshInterval: 15_000  // [AWS OPTIMIZED] 15s polling — warm-command cron keeps cache always fresh, so every hit is ~300ms cache HIT
         }
     );
 
@@ -759,8 +764,8 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
 
     // [UNIFIED] All price display logic via shared calcPriceDisplay()
     const { displayPrice, displayChangePct, activeExtPrice, activeExtType, activeExtLabel, activeExtPct } = calcPriceDisplay({
-        livePrice: livePrice?.price,
-        liveChangePct: livePrice?.changePercent,
+        livePrice: wsPrice?.price || livePrice?.price, // [AWS Phase 3] WebSocket price has highest priority
+        liveChangePct: wsPrice?.changePct || livePrice?.changePercent,
         liveExtPrice: livePrice?.extendedPrice,
         liveExtChangePct: livePrice?.extendedChangePercent,
         liveExtLabel: livePrice?.extendedLabel,

@@ -54,7 +54,7 @@ const WebSocketContext = createContext<WebSocketContextType>({
 });
 
 // ?�?� Configuration ?�?�
-const WS_URL = process.env.NEXT_PUBLIC_WEBSOCKET_URL || 'ws://52.23.98.13:8080';
+const WS_URL = process.env.NEXT_PUBLIC_WEBSOCKET_URL || 'wss://ws.signumhq.com';
 const RECONNECT_DELAY = 3000;
 const MAX_RECONNECT = 10;
 const MAX_ALERTS = 50;

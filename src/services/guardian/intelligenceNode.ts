@@ -19,16 +19,28 @@ function getRedis(): Redis | null {
     return new Redis({ url, token });
 }
 
+// [FIX] Sanitize text: strip 4-byte UTF-8 (emoji) which breaks Upstash REST API
+function sanitizeText(text: string): string {
+    // Remove emoji and other 4-byte UTF-8 characters (U+10000+)
+    // Also remove common 2-byte symbols that cause issues: ⚠️🛡️📰🎯✍️📊🔍🔥🟢⚡📋
+    return text
+        .replace(/[\u{10000}-\u{10FFFF}]/gu, '')
+        .replace(/[\u2600-\u27BF\u2B50\u2934\u2935\u25AA-\u25FE\u2700-\u27BF\uFE0F]/g, '')
+        .replace(/\s{2,}/g, ' ')
+        .trim();
+}
+
 // Save insight to Redis (for persistence across cold starts)
 async function saveInsightToRedis(key: string, text: string): Promise<void> {
     try {
         const redis = getRedis();
         if (!redis) return;
+        const cleanText = sanitizeText(text);
         await redis.set(key, JSON.stringify({
-            text,
+            text: cleanText,
             updatedAt: new Date().toISOString()
         }), { ex: 43200 }); // 12 hour expiry
-        console.log(`[IntelligenceNode] Saved ${key} to Redis`);
+        console.log(`[IntelligenceNode] Saved ${key} to Redis (${cleanText.length} chars)`);
     } catch (e) {
         console.warn("[IntelligenceNode] Redis save error:", e);
     }
@@ -194,16 +206,16 @@ const ROTATION_PROMPTS: Record<Locale, (ctx: IntelligenceContext, vectorDesc: st
         ${ctx.rotationConviction ? `- 순환매 확신도: ${ctx.rotationConviction}` : ''}
         ${macroContext}
 
-        ${ctx.signalConflict ? `- ⚠️ 신호 충돌: ${ctx.signalConflict}` : ''}
+        ${ctx.signalConflict ? `- [경고] 신호 충돌: ${ctx.signalConflict}` : ''}
 
-        ${ctx.gexIndex !== undefined ? `**🛡️ GAMMA SHIELD:**
+        ${ctx.gexIndex !== undefined ? `**[GAMMA SHIELD]:**
         - GEX 지수: ${ctx.gexIndex >= 0 ? '+' : ''}${ctx.gexIndex} (${ctx.gexLevel || 'N/A'})
         - 스퀴즈 리스크: ${ctx.squeezeRisk}% (${ctx.squeezeLevel || 'N/A'})
         ${ctx.triggerSupport ? `- 옵션 지지선(S&P 500): ${ctx.triggerSupport.toLocaleString()}` : ''}
         ${ctx.triggerResistance ? `- 옵션 저항선(S&P 500): ${ctx.triggerResistance.toLocaleString()}` : ''}
         ${ctx.triggerCurrent ? `- 현재가(S&P 500): ${ctx.triggerCurrent.toLocaleString()}` : ''}` : ''}
 
-        ${ctx.marketNewsHeadlines && ctx.marketNewsHeadlines.length > 0 ? `**📰 실시간 시장 뉴스:**
+        ${ctx.marketNewsHeadlines && ctx.marketNewsHeadlines.length > 0 ? `**[실시간 시장 뉴스]:**
         ${ctx.marketNewsHeadlines.map((h, i) => `${i + 1}. ${h}`).join('\n        ')}` : ''}
 
         **중요 분석 규칙:**
@@ -227,6 +239,7 @@ const ROTATION_PROMPTS: Record<Locale, (ctx: IntelligenceContext, vectorDesc: st
         - 3줄 이내, 간결하게
         - 뉴스에서 핵심 이벤트를 추출하여 수치의 "왜"를 설명
         - 거시경제 자산 동향으로 순환매의 배경을 설명 (예: "유가 급등으로 에너지 유입")
+        - 이모지(emoji) 사용 절대 금지. 텍스트만 사용
     `;
     },
     en: (ctx, vectorDesc) => `
@@ -244,16 +257,16 @@ const ROTATION_PROMPTS: Record<Locale, (ctx: IntelligenceContext, vectorDesc: st
         ${ctx.noiseWarning ? `- Noise Warning: ${ctx.noiseWarning}` : ''}
         ${ctx.rotationConviction ? `- Rotation Conviction: ${ctx.rotationConviction}` : ''}
 
-        ${ctx.signalConflict ? `- ⚠️ Signal Conflict: ${ctx.signalConflict}` : ''}
+        ${ctx.signalConflict ? `- [WARNING] Signal Conflict: ${ctx.signalConflict}` : ''}
 
-        ${ctx.gexIndex !== undefined ? `**🛡️ GAMMA SHIELD:**
+        ${ctx.gexIndex !== undefined ? `**[GAMMA SHIELD]:**
         - GEX Index: ${ctx.gexIndex >= 0 ? '+' : ''}${ctx.gexIndex} (${ctx.gexLevel || 'N/A'})
         - Squeeze Risk: ${ctx.squeezeRisk}% (${ctx.squeezeLevel || 'N/A'})
         ${ctx.triggerSupport ? `- Options Support (S&P 500): ${ctx.triggerSupport.toLocaleString()}` : ''}
         ${ctx.triggerResistance ? `- Options Resistance (S&P 500): ${ctx.triggerResistance.toLocaleString()}` : ''}
         ${ctx.triggerCurrent ? `- Current Price (S&P 500): ${ctx.triggerCurrent.toLocaleString()}` : ''}` : ''}
 
-        ${ctx.marketNewsHeadlines && ctx.marketNewsHeadlines.length > 0 ? `**📰 Real-time Market News:**
+        ${ctx.marketNewsHeadlines && ctx.marketNewsHeadlines.length > 0 ? `**[Real-time Market News]:**
         ${ctx.marketNewsHeadlines.map((h, i) => `${i + 1}. ${h}`).join('\n        ')}` : ''}
 
         **Critical Analysis Rules:**
@@ -275,6 +288,7 @@ const ROTATION_PROMPTS: Record<Locale, (ctx: IntelligenceContext, vectorDesc: st
         - Be specific with sector names
         - Max 3 lines, concise
         - Reference key news events to explain the "why" behind the numbers
+        - Do NOT use any emoji. Use plain text only
     `,
     ja: (ctx, vectorDesc) => `
         あなたは機関投資戦略家です。5日間のトレンドデータとリアルタイムニュースに基づいてセクターローテーションを分析します。
@@ -291,13 +305,13 @@ const ROTATION_PROMPTS: Record<Locale, (ctx: IntelligenceContext, vectorDesc: st
         ${ctx.noiseWarning ? `- ノイズ警告: ${ctx.noiseWarning}` : ''}
         ${ctx.rotationConviction ? `- ローテーション確信度: ${ctx.rotationConviction}` : ''}
 
-        ${ctx.gexIndex !== undefined ? `**🛡️ ガンマシールド:**
+        ${ctx.gexIndex !== undefined ? `**[ガンマシールド]:**
         - GEX指数: ${ctx.gexIndex >= 0 ? '+' : ''}${ctx.gexIndex} (${ctx.gexLevel || 'N/A'})
         - スクイーズリスク: ${ctx.squeezeRisk}% (${ctx.squeezeLevel || 'N/A'})
         ${ctx.triggerSupport ? `- オプションサポート(S&P 500): ${ctx.triggerSupport.toLocaleString()}` : ''}
         ${ctx.triggerResistance ? `- オプションレジスタンス(S&P 500): ${ctx.triggerResistance.toLocaleString()}` : ''}` : ''}
 
-        ${ctx.marketNewsHeadlines && ctx.marketNewsHeadlines.length > 0 ? `**📰 リアルタイム市場ニュース:**
+        ${ctx.marketNewsHeadlines && ctx.marketNewsHeadlines.length > 0 ? `**[リアルタイム市場ニュース]:**
         ${ctx.marketNewsHeadlines.map((h, i) => `${i + 1}. ${h}`).join('\n        ')}` : ''}
 
         **重要な分析ルール:**
@@ -317,6 +331,7 @@ const ROTATION_PROMPTS: Record<Locale, (ctx: IntelligenceContext, vectorDesc: st
         - セクター名は日本語（テクノロジー、エネルギー、不動産など）
         - 3行以内、簡潔に
         - ニュースから核心イベントを抽出して「なぜ」を説明
+        - 絵文字(emoji)使用禁止。テキストのみ使用
     `
 };
 
@@ -332,7 +347,7 @@ const REALITY_PROMPTS: Record<Locale, (ctx: IntelligenceContext) => string> = {
         const yieldLine = ctx.us10y !== undefined
             ? `- US10Y 금리: ${ctx.us10y?.toFixed(2)}% (변동: ${ctx.us10yChange !== undefined ? (ctx.us10yChange >= 0 ? '+' : '') + ctx.us10yChange.toFixed(2) + '%' : '?'})` : '';
         const spreadLine = ctx.spread2s10s !== undefined
-            ? `- 장단기 금리차(2s10s): ${ctx.spread2s10s?.toFixed(2)}% ${ctx.spread2s10s! < 0 ? '⚠역전' : ctx.spread2s10s! < 0.25 ? '⚠축소' : '정상'}` : '';
+            ? `- 장단기 금리차(2s10s): ${ctx.spread2s10s?.toFixed(2)}% ${ctx.spread2s10s! < 0 ? '[경고]역전' : ctx.spread2s10s! < 0.25 ? '[경고]축소' : '정상'}` : '';
         const realYieldLine = ctx.realYield !== undefined
             ? `- 실질금리: ${ctx.realYield?.toFixed(2)}% (${ctx.realYieldStance === 'TIGHT' ? '긴축적 → 성장주 압박' : ctx.realYieldStance === 'LOOSE' ? '완화적 → 성장주 유리' : '중립'})` : '';
         const breadthLine = ctx.breadthPct !== undefined
@@ -351,18 +366,18 @@ const REALITY_PROMPTS: Record<Locale, (ctx: IntelligenceContext) => string> = {
 
         // Fear & Greed context
         const fgLine = ctx.fearGreedScore !== undefined
-            ? `- CNN 공포탐욕지수: ${ctx.fearGreedScore.toFixed(0)}점 (${ctx.fearGreedRating || '?'}) ${ctx.fearGreedScore < 25 ? '⚠극단적 공포' : ctx.fearGreedScore < 40 ? '공포' : ctx.fearGreedScore > 75 ? '⚠탐욕 과열' : ctx.fearGreedScore > 60 ? '탐욕' : '중립'}` : '';
+            ? `- CNN 공포탐욕지수: ${ctx.fearGreedScore.toFixed(0)}점 (${ctx.fearGreedRating || '?'}) ${ctx.fearGreedScore < 25 ? '[경고]극단적 공포' : ctx.fearGreedScore < 40 ? '공포' : ctx.fearGreedScore > 75 ? '[경고]탐욕 과열' : ctx.fearGreedScore > 60 ? '탐욕' : '중립'}` : '';
 
         return `
         당신은 월가 최고의 매크로 전략가이자 기술적 분석가입니다. 모든 지표, 자산군 동향, 실시간 뉴스를 종합하여 **정확한 판단**과 실전 데이터 인사이트를 제공합니다.
 
-        ⚠ **판단 정확성 최우선 원칙:**
+        **[중요] 판단 정확성 최우선 원칙:**
         - 수치가 보여주는 사실과 뉴스 해석이 충돌하면 **수치를 우선**
         - 불확실하면 "~가능성" "~주시 필요" 같은 유보적 표현 사용, 확정 표현 금지
         - 하나의 뉴스 헤드라인만으로 전체 시장을 판단하지 말 것
         - 최소 2개 이상 지표가 동일 방향을 가리킬 때만 확신 있는 판단
 
-        **📊 현재 시장 데이터 — 종합 대시보드:**
+        **[현재 시장 데이터 -- 종합 대시보드]:**
 
         [가격 & 내부지표]
         - RLSI (시장 건강도): ${ctx.rlsiScore.toFixed(0)}점 (${rlsiLevel})
@@ -389,10 +404,10 @@ const REALITY_PROMPTS: Record<Locale, (ctx: IntelligenceContext) => string> = {
         ${ctx.triggerSupport ? `- 옵션 지지선: ${ctx.triggerSupport.toLocaleString()} (${ctx.triggerCurrent ? (((ctx.triggerCurrent - ctx.triggerSupport) / ctx.triggerCurrent) * 100).toFixed(1) + '% 아래' : ''})` : ''}
         ${ctx.triggerResistance ? `- 옵션 저항선: ${ctx.triggerResistance.toLocaleString()} (${ctx.triggerCurrent ? (((ctx.triggerResistance - ctx.triggerCurrent) / ctx.triggerCurrent) * 100).toFixed(1) + '% 위' : ''})` : ''}` : ''}
 
-        ${ctx.marketNewsHeadlines && ctx.marketNewsHeadlines.length > 0 ? `[📰 실시간 시장 뉴스 — 거시경제 이벤트]
+        ${ctx.marketNewsHeadlines && ctx.marketNewsHeadlines.length > 0 ? `[실시간 시장 뉴스 -- 거시경제 이벤트]
         ${ctx.marketNewsHeadlines.map((h, i) => `${i + 1}. ${h}`).join('\n        ')}` : ''}
 
-        **🎯 종합 분석 프레임워크 (교차 검증 필수):**
+        **[종합 분석 프레임워크] (교차 검증 필수):**
 
         [기술적 분석]
         1. RLSI 65+ & 상승 & Breadth 70%+ → 건강한 광범위 상승, 추세 추종 유효
@@ -424,7 +439,7 @@ const REALITY_PROMPTS: Record<Locale, (ctx: IntelligenceContext) => string> = {
         21. 옵션 지지선/저항선 3% 이내 접근 → 해당 레벨 돌파/이탈 시나리오 언급
         22. GEX 약(−19~+19) + Squeeze 30%+ → "감마 방어력 부족, Squeeze 에너지 축적" 언급
 
-        **✍️ 출력 (정확히 이 형식으로):**
+        **[출력] (정확히 이 형식으로):**
         현재 시장의 거시경제 상황과 핵심 상태를 투자자가 바로 이해할 수 있도록 자연스러운 한국어 3-4문장으로 작성하세요.
         - "[진단]" "[결론]" 같은 레이블 사용 금지
         - **첫 문장은 반드시 현재 시장의 가장 중요한 거시경제 이슈** (금리/인플레/연준/뉴스 기반)
@@ -434,6 +449,7 @@ const REALITY_PROMPTS: Record<Locale, (ctx: IntelligenceContext) => string> = {
         - 거시경제 자산 교차 검증 결과 반드시 포함 (금/채권/유가/달러 중 핵심)
         - 전문가가 시장 상황을 객관적으로 전달하듯이 작성 (자문/권유 표현 절대 금지)
         - 공백 포함 250자 이내
+        - 이모지(emoji) 사용 절대 금지. 텍스트만 사용
 
         **예시 (참고용, 그대로 복사 금지):**
         - "1월 CPI 3.0%로 예상 상회하며 금리 인하 기대가 후퇴, 10Y 금리 4.63%로 급등하며 달러도 동반 강세를 보이고 있습니다. RLSI 35점에 Breadth 38%로 광범위한 매도세이며, 금과 TLT가 동반 상승해 안전자산 선호가 뚜렷합니다. 기술주 신규 진입 환경은 부정적이며 현금 비중 확대 구간으로 판단됩니다."
@@ -477,7 +493,7 @@ const REALITY_PROMPTS: Record<Locale, (ctx: IntelligenceContext) => string> = {
         ${ctx.marketNewsHeadlines && ctx.marketNewsHeadlines.length > 0 ? `[News]
         ${ctx.marketNewsHeadlines.map((h, i) => `${i + 1}. ${h}`).join('\n        ')}` : ''}
 
-        **Output:** 2-3 sentences. Lead with the key macro driver, follow with market state (include gamma/options structure when relevant), end with factual outlook. No action directives. Max 200 chars.
+        **Output:** 2-3 sentences. Lead with the key macro driver, follow with market state (include gamma/options structure when relevant), end with factual outlook. No action directives. Max 200 chars. Do NOT use any emoji.
     `;
     },
     ja: (ctx) => {
@@ -516,7 +532,7 @@ const REALITY_PROMPTS: Record<Locale, (ctx: IntelligenceContext) => string> = {
         ${ctx.marketNewsHeadlines && ctx.marketNewsHeadlines.length > 0 ? `[ニュース]
         ${ctx.marketNewsHeadlines.map((h, i) => `${i + 1}. ${h}`).join('\n        ')}` : ''}
 
-        **出力:** 2-3文。マクロ要因→市場状態（ガンマ/オプション構造含む）→市場見通し（行動指示禁止）。250字以内。
+        **出力:** 2-3文。マクロ要因→市場状態（ガンマ/オプション構造含む）→市場見通し（行動指示禁止）。250字以内。絵文字使用禁止。
     `;
     }
 };

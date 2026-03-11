@@ -49,10 +49,6 @@
             "schedule": "45 21 * * 1-5"
         },
         {
-            "path": "/api/cron/warm-analysis",
-            "schedule": "*/5 * * * 1-5"
-        },
-        {
             "path": "/api/cron/market-feed",
             "schedule": "*/2 * * * *"
         },
@@ -67,6 +63,10 @@
         {
             "path": "/api/cron/economic-calendar",
             "schedule": "0 */4 * * *"
+        },
+        {
+            "path": "/api/cron/warm-command",
+            "schedule": "*/3 14-21 * * 1-5"
         }
     ]
 }

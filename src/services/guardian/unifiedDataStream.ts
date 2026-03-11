@@ -1,4 +1,5 @@
 import { calculateRLSI, RLSIResult, getMarketSession, MarketSession } from "./rlsiEngine";
+// [FIX] Import getMarketSession for cache session validation
 import { SectorEngine, SectorFlowRate, GuardianVerdict, FlowVector, RotationIntensity } from "./sectorEngine";
 import { getMacroSnapshotSSOT, MacroSnapshot } from "@/services/macroHubProvider";
 import { IntelligenceNode } from "./intelligenceNode";
@@ -93,8 +94,8 @@ const _lastFetchTime: Record<Locale, number> = { ko: 0, en: 0, ja: 0 };
 const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
 
 // [V12.0] Persistent AI verdict cache — Redis-based for deploy survival & EC2 sync
-// Stores last successful Gemini analysis in ElastiCache so it persists across deploys
-const AI_VERDICT_REDIS_KEY = 'guardian:ai_verdict';
+// [FIX] Per-locale keys to prevent English verdict being served to Korean/Japanese
+const getAiVerdictKey = (locale: Locale) => `guardian:ai_verdict:${locale}`;
 const AI_VERDICT_TTL = 24 * 60 * 60; // 24 hours
 
 // [V12.0] Redis-first Guardian Snapshot keys (EC2 Worker writes these)
@@ -166,15 +167,15 @@ async function appendRlsiHistory(score: number, session: string): Promise<RlsiHi
     return history;
 }
 
-async function saveAiVerdict(verdict: GuardianVerdict) {
+async function saveAiVerdict(verdict: GuardianVerdict, locale: Locale = 'ko') {
     try {
-        await setInCache(AI_VERDICT_REDIS_KEY, verdict, AI_VERDICT_TTL);
+        await setInCache(getAiVerdictKey(locale), verdict, AI_VERDICT_TTL);
     } catch (e) { /* ignore write errors */ }
 }
 
-async function loadAiVerdict(): Promise<GuardianVerdict | null> {
+async function loadAiVerdict(locale: Locale = 'ko'): Promise<GuardianVerdict | null> {
     try {
-        return await getFromCache<GuardianVerdict>(AI_VERDICT_REDIS_KEY);
+        return await getFromCache<GuardianVerdict>(getAiVerdictKey(locale));
     } catch (e) { /* ignore read errors */ }
     return null;
 }
@@ -332,16 +333,25 @@ export class GuardianDataHub {
         const now = Date.now();
 
         // [V12.0] Redis-first: Check EC2 Worker's pre-cached snapshot
+        // [FIX] Validate that cached session matches current session before returning
+        const currentSession = getMarketSession();
         if (!force) {
             try {
                 const redisKey = `${GUARDIAN_SNAPSHOT_PREFIX}${locale}`;
                 const cached = await getFromCache<any>(redisKey);
                 if (cached && cached.rlsi && cached.rlsi.score !== undefined) {
-                    // Update in-memory cache too
-                    _cachedContext[locale] = cached;
-                    _lastFetchTime[locale] = now;
-                    console.log(`[Guardian V12.0] Redis SWR hit for ${locale} (RLSI: ${cached.rlsi.score?.toFixed?.(0) || 'N/A'}, source: ${cached._source || 'redis'})`);
-                    return cached;
+                    // [FIX] Session validation: if cached session differs from current, recompute
+                    const cachedSession = cached.rlsi?.session;
+                    if (cachedSession && cachedSession !== currentSession) {
+                        console.log(`[Guardian FIX] Session mismatch: cached=${cachedSession}, current=${currentSession} — recomputing for ${locale}`);
+                        // Don't return stale cache, fall through to recompute
+                    } else {
+                        // Session matches, safe to return
+                        _cachedContext[locale] = cached;
+                        _lastFetchTime[locale] = now;
+                        console.log(`[Guardian V12.0] Redis SWR hit for ${locale} (RLSI: ${cached.rlsi.score?.toFixed?.(0) || 'N/A'}, session: ${cachedSession}, source: ${cached._source || 'redis'})`);
+                        return cached;
+                    }
                 }
             } catch (e) {
                 // Redis miss or error — fall through to in-memory then compute
@@ -349,7 +359,13 @@ export class GuardianDataHub {
         }
 
         if (!force && _cachedContext[locale] && (now - _lastFetchTime[locale] < CACHE_TTL_MS)) {
-            return _cachedContext[locale]!;
+            // [FIX] Also validate in-memory cache session
+            const memSession = (_cachedContext[locale] as any)?.rlsi?.session;
+            if (memSession && memSession !== currentSession) {
+                console.log(`[Guardian FIX] In-memory session mismatch: cached=${memSession}, current=${currentSession} — recomputing for ${locale}`);
+            } else {
+                return _cachedContext[locale]!;
+            }
         }
 
         console.log("[Guardian] Refreshing Context (Parallel Optimization)...");
@@ -450,9 +466,9 @@ export class GuardianDataHub {
                     description: divCase.verdictDesc,
                     sentiment: divCase.caseId === 'B' ? 'BULLISH' : 'BEARISH'
                 };
-            } else if (rlsi.session !== 'REG' && (await loadAiVerdict())) {
-                // [V12.0] After hours with cached AI verdict from Redis: use it
-                verdict = (await loadAiVerdict())!;
+            } else if (rlsi.session !== 'REG' && (await loadAiVerdict(locale))) {
+                // [V12.0] After hours with cached AI verdict from Redis: use it (per-locale)
+                verdict = (await loadAiVerdict(locale))!;
             } else {
                 // Standard Market: Use Dual Stream AI
                 const staticVerdict: GuardianVerdict = {
@@ -541,14 +557,17 @@ export class GuardianDataHub {
                             sentiment: 'NEUTRAL'
                         };
                     } else {
+                        // [FIX] Sanitize AI text: strip emoji that breaks Upstash Redis REST API
+                        const cleanRotation = rotationText.replace(/[\u{10000}-\u{10FFFF}]/gu, '').replace(/[\u2600-\u27BF\u2B50\u2934\u2935\u25AA-\u25FE\u2700-\u27BF\uFE0F]/g, '').trim();
+                        const cleanReality = realityText.replace(/[\u{10000}-\u{10FFFF}]/gu, '').replace(/[\u2600-\u27BF\u2B50\u2934\u2935\u25AA-\u25FE\u2700-\u27BF\uFE0F]/g, '').trim();
                         verdict = {
                             title: "TACTICAL INSIGHT",
-                            description: rotationText, // Sidebar
+                            description: cleanRotation, // Sidebar
                             sentiment: 'NEUTRAL',
-                            realityInsight: realityText // Center
+                            realityInsight: cleanReality // Center
                         };
                         // [V12.0] Persist AI verdict to Redis for after-hours display & deploy survival
-                        await saveAiVerdict(verdict);
+                        await saveAiVerdict(verdict, locale);
                     }
                 } catch (e) {
                     console.warn("[Guardian] AI Verdict Failed, using fallback:", e);
