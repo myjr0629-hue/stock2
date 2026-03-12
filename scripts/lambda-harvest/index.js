@@ -372,22 +372,38 @@ async function warmRedisCache() {
   return { success, fail, duration };
 }
 
-// ====== Flow Cache Warming ======
-// Triggers Vercel /api/cron/warm-flow once (30 tickers in single call)
-// Ensures all top flow tickers have pre-computed data in Redis + DynamoDB
+// ====== Flow Cache Warming Orchestrator ======
+// Triggers Vercel /api/cron/warm-flow for all 30 batches (300 tickers)
+// Mirrors warmRedisCache() pattern for complete universe coverage
+const FLOW_TOTAL_BATCHES = 30; // 300 tickers / 10 per batch
+
 async function warmFlowCache() {
-  console.log('[FlowWarm] Triggering warm-flow cron...');
+  console.log('[FlowWarm] Starting full Flow cache warming — ' + FLOW_TOTAL_BATCHES + ' batches...');
   const start = Date.now();
-  try {
-    const url = VERCEL_URL + '/api/cron/warm-flow';
-    const result = await httpsGet(url.replace('http://', 'https://'), 55000);
-    const duration = Math.round((Date.now() - start) / 1000);
-    console.log('[FlowWarm] Done in ' + duration + 's — warmed: ' + (result?.warmed || 0));
-    return { success: true, warmed: result?.warmed || 0, duration };
-  } catch (e) {
-    console.warn('[FlowWarm] Failed: ' + e.message);
-    return { success: false, error: e.message };
+  const CONCURRENCY = 3; // 3 concurrent Vercel function invocations
+  let success = 0, fail = 0;
+
+  for (let i = 0; i < FLOW_TOTAL_BATCHES; i += CONCURRENCY) {
+    const batchPromises = [];
+    for (let j = 0; j < CONCURRENCY && (i + j) < FLOW_TOTAL_BATCHES; j++) {
+      const batchNum = i + j;
+      const url = VERCEL_URL + '/api/cron/warm-flow?batch=' + batchNum;
+      batchPromises.push(
+        httpsGet(url.replace('http://', 'https://'), 55000)
+          .then(r => { success++; return r; })
+          .catch(e => { fail++; console.warn('[FlowWarm] Batch ' + batchNum + ' failed: ' + e.message); })
+      );
+    }
+    await Promise.all(batchPromises);
+    // Small delay between batch groups
+    if (i + CONCURRENCY < FLOW_TOTAL_BATCHES) {
+      await new Promise(r => setTimeout(r, 2000));
+    }
   }
+
+  const duration = Math.round((Date.now() - start) / 1000);
+  console.log('[FlowWarm] Done: ' + success + ' ok, ' + fail + ' fail in ' + duration + 's');
+  return { success, fail, duration };
 }
 
 exports.handler = async (event) => {
