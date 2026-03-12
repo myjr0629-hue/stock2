@@ -112,4 +112,5 @@ export const TABLES = {
     IV_SURFACE: 'signum-iv-surface',
     ECONOMIC_CALENDAR: 'signum-economic-calendar',
     PATTERN_DB: 'signum-pattern-db',
+    UNIFIED_CACHE: 'signum-unified-cache',
 } as const;

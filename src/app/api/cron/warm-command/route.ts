@@ -18,6 +18,7 @@
 
 import { NextResponse } from 'next/server';
 import { setInCache, getFromCache } from '@/services/redisClient';
+import { putUnifiedCache } from '@/lib/aws/unifiedCacheProvider';
 import { GET as getStructure } from '@/app/api/live/options/structure/route';
 import { GET as getAtm } from '@/app/api/live/options/atm/route';
 import { GET as getEarnings } from '@/app/api/live/earnings/route';
@@ -134,7 +135,11 @@ export async function GET(request: Request) {
                     try {
                         const data = await buildUnifiedData(ticker, baseUrl, locale);
                         if (data.structure || data.options) {
-                            await setInCache(cacheKey, data, getSmartTTL());
+                            // Write to BOTH Redis (fast cache) and DynamoDB (permanent)
+                            await Promise.all([
+                                setInCache(cacheKey, data, getSmartTTL()),
+                                putUnifiedCache(ticker, locale, data),
+                            ]);
                             warmed++;
                             results.push(`${ticker}:${locale}:✅`);
                         } else {

@@ -215,10 +215,24 @@ export async function GET(request: NextRequest) {
         }
 
         // ══════════════════════════════════════════════════════════════
-        // TIER 2: PARALLEL RACE — DynamoDB vs Polygon (zero extra latency)
+        // TIER 1.5: DynamoDB Unified Cache — ~50ms (permanent, never expires)
+        // Complete unified data stored by warm-command cron
+        // ══════════════════════════════════════════════════════════════
+        try {
+            const { getUnifiedCache } = await import('@/lib/aws/unifiedCacheProvider');
+            const dynamoUnified = await getUnifiedCache(ticker, locale);
+            if (dynamoUnified && (dynamoUnified.structure || dynamoUnified.options)) {
+                // Re-warm Redis for next request (0ms)
+                setInCache(cacheKey, dynamoUnified, getSmartTTL()).catch(() => {});
+                console.log(`[Command Unified] ⚡ DynamoDB UNIFIED for ${ticker} in ${Date.now() - start}ms`);
+                return NextResponse.json({ ...dynamoUnified, _source: 'dynamodb-unified', _latency: Date.now() - start });
+            }
+        } catch { /* DynamoDB unavailable, continue to Tier 2 */ }
+
+        // ══════════════════════════════════════════════════════════════
+        // TIER 2: PARALLEL RACE — DynamoDB snapshots vs Polygon
         // Start BOTH simultaneously. If DynamoDB has fresh data → return instantly.
         // If DynamoDB fails/empty → Polygon result is already in-flight.
-        // ══════════════════════════════════════════════════════════════
         const baseUrl = getBaseUrl(request);
 
         // Start Polygon fetch immediately (don't wait for DynamoDB to fail first)
@@ -258,6 +272,8 @@ export async function GET(request: NextRequest) {
                     timestamp: Date.now(),
                 };
                 await setInCache(cacheKey, merged, getSmartTTL());
+                // Persist to DynamoDB for permanent access
+                import('@/lib/aws/unifiedCacheProvider').then(m => m.putUnifiedCache(ticker, locale, merged)).catch(() => {});
                 console.log(`[Command Unified] ⚡ MERGED (DynamoDB+Polygon) for ${ticker} in ${Date.now() - start}ms`);
                 return NextResponse.json({ ...merged, _source: 'merged', _ageMs: 0, _latency: Date.now() - start });
             }
@@ -282,6 +298,8 @@ export async function GET(request: NextRequest) {
                         timestamp: Date.now(),
                     };
                     await setInCache(cacheKey, merged, getSmartTTL());
+                    // Persist to DynamoDB for permanent access
+                    import('@/lib/aws/unifiedCacheProvider').then(m => m.putUnifiedCache(ticker, locale, merged)).catch(() => {});
                 }
             }).catch(() => {});
 
@@ -294,6 +312,8 @@ export async function GET(request: NextRequest) {
 
         if (newData.structure || newData.options) {
             await setInCache(cacheKey, newData, getSmartTTL());
+            // Persist to DynamoDB for permanent access
+            import('@/lib/aws/unifiedCacheProvider').then(m => m.putUnifiedCache(ticker, locale, newData)).catch(() => {});
         }
 
         console.log(`[Command Unified] 🌐 Polygon FRESH for ${ticker} in ${Date.now() - start}ms`);
