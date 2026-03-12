@@ -216,24 +216,51 @@ export async function GET(request: NextRequest) {
         const dynamoResult = await tryDynamoFast(ticker);
 
         if (dynamoResult) {
-            // DynamoDB had fresh data — return instantly, let Polygon fill gaps in background
+            // DynamoDB had fresh data — but it's PARTIAL (no full fundamentals, related, etc.)
+            // Wait up to 2s for Polygon to complete so we can return FULL merged data
+            const POLYGON_WAIT_MS = 2000;
+            const polygonWithTimeout = Promise.race([
+                polygonPromise.then(fullData => ({ fullData, timedOut: false })),
+                new Promise<{ fullData: null; timedOut: boolean }>(resolve =>
+                    setTimeout(() => resolve({ fullData: null, timedOut: true }), POLYGON_WAIT_MS)
+                )
+            ]);
+
+            const polygonResult = await polygonWithTimeout;
+
+            if (!polygonResult.timedOut && polygonResult.fullData && (polygonResult.fullData.structure || polygonResult.fullData.options)) {
+                // Polygon completed within 2s — return FULLY MERGED data (best of both)
+                const merged = {
+                    ...dynamoResult,
+                    volatility: polygonResult.fullData.volatility || dynamoResult.volatility,
+                    squeeze: polygonResult.fullData.squeeze || dynamoResult.squeeze,
+                    overview: polygonResult.fullData.overview || dynamoResult.overview,
+                    fundamentals: polygonResult.fullData.fundamentals || dynamoResult.fundamentals,
+                    related: polygonResult.fullData.related || dynamoResult.related,
+                    sma: polygonResult.fullData.sma || dynamoResult.sma,
+                    earnings: polygonResult.fullData.earnings || dynamoResult.earnings,
+                    analyst: polygonResult.fullData.analyst || dynamoResult.analyst,
+                    institutional: polygonResult.fullData.institutional || dynamoResult.institutional,
+                    structure: polygonResult.fullData.structure || dynamoResult.structure,
+                    options: polygonResult.fullData.options || dynamoResult.options,
+                    timestamp: Date.now(),
+                };
+                await setInCache(cacheKey, merged, CACHE_TTL_SEC);
+                console.log(`[Command Unified] ⚡ MERGED (DynamoDB+Polygon) for ${ticker} in ${Date.now() - start}ms`);
+                return NextResponse.json({ ...merged, _source: 'merged', _ageMs: 0, _latency: Date.now() - start });
+            }
+
+            // Polygon timed out — return DynamoDB partial, let Polygon finish in background
             await setInCache(cacheKey, dynamoResult, CACHE_TTL_SEC);
-            // Background: Polygon will fill ALL gaps (fundamentals, related, etc.)
             polygonPromise.then(async (fullData) => {
                 if (fullData.structure || fullData.options) {
-                    // Merge: Polygon has full data for fundamentals, related, etc.
-                    // DynamoDB only has partial (name/sector for fundamentals, ticker list for related)
                     const merged = {
                         ...dynamoResult,
-                        // Polygon-exclusive fields (DynamoDB has null or incomplete)
                         volatility: fullData.volatility || dynamoResult.volatility,
                         squeeze: fullData.squeeze || dynamoResult.squeeze,
                         overview: fullData.overview || dynamoResult.overview,
-                        // Polygon has FULL data (score/grade/breakdown), DynamoDB only has name/sector
                         fundamentals: fullData.fundamentals || dynamoResult.fundamentals,
-                        // Polygon has prices/logos, DynamoDB only has ticker names
                         related: fullData.related || dynamoResult.related,
-                        // Polygon may have fresher data for these too
                         sma: fullData.sma || dynamoResult.sma,
                         earnings: fullData.earnings || dynamoResult.earnings,
                         analyst: fullData.analyst || dynamoResult.analyst,
@@ -246,8 +273,8 @@ export async function GET(request: NextRequest) {
                 }
             }).catch(() => {});
 
-            console.log(`[Command Unified] ⚡ DynamoDB INSTANT for ${ticker} in ${Date.now() - start}ms`);
-            return NextResponse.json({ ...dynamoResult, _source: 'dynamodb', _ageMs: 0, _latency: Date.now() - start });
+            console.log(`[Command Unified] ⚡ DynamoDB PARTIAL for ${ticker} in ${Date.now() - start}ms (Polygon timeout, bg merge)`);
+            return NextResponse.json({ ...dynamoResult, _source: 'dynamodb-partial', _ageMs: 0, _latency: Date.now() - start });
         }
 
         // DynamoDB had nothing — await Polygon (which was already started in parallel)
