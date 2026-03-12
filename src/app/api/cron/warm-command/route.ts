@@ -37,8 +37,19 @@ const UNIVERSE = ["AAPL","ABBV","ABNB","ABT","ACN","ADBE","ADI","ADP","AEP","AFR
 const BATCH_SIZE = 10;
 const TOTAL_BATCHES = Math.ceil(UNIVERSE.length / BATCH_SIZE); // 30
 const CACHE_KEY_PREFIX = 'cache:command:unified:';
-const CACHE_TTL_SEC = 300; // 5 min
+const CACHE_TTL_MARKET = 300; // 5 min during market
+const CACHE_TTL_OFFHOURS = 43200; // 12 hours off-hours (data won't change)
 const LOCALES = ['ko', 'en'];
+
+// Smart TTL: short during market, long during off-hours
+function getSmartTTL(): number {
+    const now = new Date();
+    const utcHour = now.getUTCHours();
+    const utcMin = utcHour * 60 + now.getUTCMinutes();
+    const day = now.getUTCDay();
+    const isMarketHours = day >= 1 && day <= 5 && utcMin >= 13 * 60 + 30 && utcMin <= 21 * 60;
+    return isMarketHours ? CACHE_TTL_MARKET : CACHE_TTL_OFFHOURS;
+}
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -123,7 +134,7 @@ export async function GET(request: Request) {
                     try {
                         const data = await buildUnifiedData(ticker, baseUrl, locale);
                         if (data.structure || data.options) {
-                            await setInCache(cacheKey, data, CACHE_TTL_SEC);
+                            await setInCache(cacheKey, data, getSmartTTL());
                             warmed++;
                             results.push(`${ticker}:${locale}:✅`);
                         } else {

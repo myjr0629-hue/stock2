@@ -16,8 +16,20 @@ import { GET as getOverview } from '@/app/api/live/overview/route';
 
 // Configuration
 const CACHE_KEY_PREFIX = 'cache:command:unified:';
-const CACHE_TTL_SEC = 300; // 5 minutes solid cache (Redis TTL)
-const REFRESH_THRESHOLD_MS = 120 * 1000; // [OPTIMIZED] 2 minutes (was 1 min — reduces unnecessary background refreshes)
+const CACHE_TTL_MARKET = 300; // 5 minutes during market hours
+const CACHE_TTL_OFFHOURS = 43200; // 12 hours during off-hours (data doesn't change)
+const REFRESH_THRESHOLD_MS = 120 * 1000; // [OPTIMIZED] 2 minutes
+
+// Smart TTL: short during market, long during off-hours
+function getSmartTTL(): number {
+    const now = new Date();
+    const utcHour = now.getUTCHours();
+    const utcMin = utcHour * 60 + now.getUTCMinutes();
+    const day = now.getUTCDay();
+    // Market hours: Mon-Fri, 13:30-21:00 UTC (9:30-16:00 ET + extended)
+    const isMarketHours = day >= 1 && day <= 5 && utcMin >= 13 * 60 + 30 && utcMin <= 21 * 60;
+    return isMarketHours ? CACHE_TTL_MARKET : CACHE_TTL_OFFHOURS;
+}
 
 // [AWS Phase 2] Fetch DynamoDB GEX history for percentile, flip events, maxpain tracking
 async function fetchGexHistoryData(ticker: string): Promise<any> {
@@ -164,7 +176,7 @@ async function triggerBackgroundRefresh(ticker: string, cacheKey: string, baseUr
     try {
         const newData = await buildUnifiedData(ticker, baseUrl, locale);
         if (newData.structure || newData.options) {
-            await setInCache(cacheKey, newData, CACHE_TTL_SEC);
+            await setInCache(cacheKey, newData, getSmartTTL());
         }
         console.log(`[Command Unified] Background refresh complete for ${ticker}`);
     } catch (e) {
@@ -245,13 +257,13 @@ export async function GET(request: NextRequest) {
                     options: polygonResult.fullData.options || dynamoResult.options,
                     timestamp: Date.now(),
                 };
-                await setInCache(cacheKey, merged, CACHE_TTL_SEC);
+                await setInCache(cacheKey, merged, getSmartTTL());
                 console.log(`[Command Unified] ⚡ MERGED (DynamoDB+Polygon) for ${ticker} in ${Date.now() - start}ms`);
                 return NextResponse.json({ ...merged, _source: 'merged', _ageMs: 0, _latency: Date.now() - start });
             }
 
             // Polygon timed out — return DynamoDB partial, let Polygon finish in background
-            await setInCache(cacheKey, dynamoResult, CACHE_TTL_SEC);
+            await setInCache(cacheKey, dynamoResult, getSmartTTL());
             polygonPromise.then(async (fullData) => {
                 if (fullData.structure || fullData.options) {
                     const merged = {
@@ -269,7 +281,7 @@ export async function GET(request: NextRequest) {
                         options: fullData.options || dynamoResult.options,
                         timestamp: Date.now(),
                     };
-                    await setInCache(cacheKey, merged, CACHE_TTL_SEC);
+                    await setInCache(cacheKey, merged, getSmartTTL());
                 }
             }).catch(() => {});
 
@@ -281,7 +293,7 @@ export async function GET(request: NextRequest) {
         const newData = await polygonPromise;
 
         if (newData.structure || newData.options) {
-            await setInCache(cacheKey, newData, CACHE_TTL_SEC);
+            await setInCache(cacheKey, newData, getSmartTTL());
         }
 
         console.log(`[Command Unified] 🌐 Polygon FRESH for ${ticker} in ${Date.now() - start}ms`);
