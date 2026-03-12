@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { BarChart3, TrendingUp, TrendingDown, AlertTriangle, MessageSquare, Lightbulb, Clock, Radio, Sun, FileText } from "lucide-react";
 import { useTranslations, useLocale } from 'next-intl';
+import { GuardianTooltip } from './GuardianTooltip';
 
 interface RLSIInsightPanelProps {
     alignmentStatus: string;
@@ -135,9 +136,11 @@ export default function RLSIInsightPanel({
             <div className="flex items-center justify-between mb-2 border-b border-slate-800 pb-2 flex-none">
                 <div className="flex items-center gap-2">
                     <MessageSquare className="w-3.5 h-3.5 text-emerald-400" />
-                    <span className="text-xs uppercase tracking-[0.2em] text-white font-black font-jakarta">
-                        RLSI INSIGHT
-                    </span>
+                    <GuardianTooltip sectionId="rlsiInsight">
+                        <span className="text-xs uppercase tracking-[0.2em] text-white font-black font-jakarta">
+                            RLSI INSIGHT
+                        </span>
+                    </GuardianTooltip>
                     <span className="text-xs text-amber-500 font-mono font-jakarta">· Regular Session Only</span>
                 </div>
                 <div className={`text-xs font-black uppercase px-2 py-0.5 rounded border ${alignmentStatus === 'DIVERGENCE'
@@ -284,7 +287,9 @@ export default function RLSIInsightPanel({
                 <div className="flex items-center justify-between flex-none">
                     <div className="flex items-center gap-1.5">
                         <BarChart3 className="w-3.5 h-3.5" style={{ color: cfg.color }} />
-                        <span className="text-[12px] font-black text-white uppercase tracking-[0.15em] font-jakarta">MARKET BREADTH</span>
+                        <GuardianTooltip sectionId="marketBreadth">
+                            <span className="text-[12px] font-black text-white uppercase tracking-[0.15em] font-jakarta">MARKET BREADTH</span>
+                        </GuardianTooltip>
                     </div>
                     <div className="flex items-center gap-2">
                         {isDivergent && (

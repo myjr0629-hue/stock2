@@ -4,6 +4,7 @@ import React from 'react';
 import type { GammaShieldData } from '@/services/guardian/gammaShieldEngine';
 import { Shield, Zap, AlertTriangle, TrendingUp } from 'lucide-react';
 import { useLocale } from 'next-intl';
+import { GuardianTooltip } from './GuardianTooltip';
 
 // === i18n Text Map ===
 type Locale = 'ko' | 'en' | 'ja';
@@ -395,9 +396,11 @@ export default function GammaShield({ data, isMarketActive }: Props) {
             <div className="bg-slate-900/40 backdrop-blur-md rounded-xl border border-slate-700/30 p-4">
                 <div className="flex items-center gap-2 mb-3">
                     <Shield className="w-4 h-4 text-cyan-400" />
-                    <span className="text-[14px] font-black font-jakarta tracking-wider text-slate-200">
-                        GAMMA SHIELD
-                    </span>
+                    <GuardianTooltip sectionId="gammaShield">
+                        <span className="text-[14px] font-black font-jakarta tracking-wider text-slate-200">
+                            GAMMA SHIELD
+                        </span>
+                    </GuardianTooltip>
                 </div>
                 <div className="flex items-center justify-center h-[120px] text-[13px] text-slate-300 font-jakarta">
                     {isMarketActive ? t('collecting', locale) : 'Regular Session Only'}
@@ -420,9 +423,11 @@ export default function GammaShield({ data, isMarketActive }: Props) {
             <div className="flex items-center justify-between px-4 pt-3 pb-1">
                 <div className="flex items-center gap-2">
                     <Shield className={`w-4 h-4 shrink-0 ${gexIndex >= 0 ? 'text-cyan-400' : 'text-amber-400'}`} />
-                    <span className="text-[14px] font-black font-jakarta tracking-[0.08em] text-slate-200">
-                        GAMMA SHIELD
-                    </span>
+                    <GuardianTooltip sectionId="gammaShield">
+                        <span className="text-[14px] font-black font-jakarta tracking-[0.08em] text-slate-200">
+                            GAMMA SHIELD
+                        </span>
+                    </GuardianTooltip>
                     <span className={`text-[12px] font-bold font-jakarta px-1.5 py-0.5 rounded-sm border ${confidence === 'HIGH' ? 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10' : confidence === 'MEDIUM' ? 'text-amber-400 border-amber-500/30 bg-amber-500/10' : 'text-slate-300 border-slate-500/30 bg-slate-500/10'}`}>
                         {confidence}
                     </span>

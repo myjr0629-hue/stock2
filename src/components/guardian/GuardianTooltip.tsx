@@ -1,0 +1,107 @@
+"use client";
+
+import React from "react";
+import { useLocale } from "next-intl";
+
+/**
+ * GuardianTooltip — CSS-only hover tooltip for Guardian section labels.
+ * Shows a brief description of the indicator on hover.
+ * Compliance: observational only, no advisory language.
+ */
+
+// ── Tooltip descriptions per section (ko/en/ja) ──
+const TOOLTIP_MAP: Record<string, { ko: string; en: string; ja: string }> = {
+    gravityGauge: {
+        ko: "RLSI 기반 시장 방향 게이지 — 모멘텀, 심리, 포지션, 회전 5대 요소를 종합한 실시간 시장 중력 지표",
+        en: "RLSI-based Market Direction Gauge — real-time market gravity indicator synthesizing 5 core factors: momentum, sentiment, positioning, rotation & volatility",
+        ja: "RLSI市場方向ゲージ — モメンタム・心理・ポジション・ローテーション・ボラティリティ5要素を統合したリアルタイム市場重力指標",
+    },
+    realityCheck: {
+        ko: "매크로 핵심 지표 레이더 — 미국 10년물, S&P 500, NDX, DOW, 금리, 달러 흐름을 한눈에 파악",
+        en: "Macro Core Radar — US 10Y yield, S&P 500, NDX, DOW, rates & dollar flow at a glance for cross-asset awareness",
+        ja: "マクロコアレーダー — 米10年債・S&P 500・NDX・DOW・金利・ドルフローを一目で把握するクロスアセット指標",
+    },
+    gammaShield: {
+        ko: "감마 노출 방패 — 옵션 시장의 감마 압력, 스퀴즈 리스크, 주요 지지/저항 밴드를 기관급으로 시각화",
+        en: "Gamma Exposure Shield — institutional-grade visualization of options gamma pressure, squeeze risk & key support/resistance bands",
+        ja: "ガンマエクスポージャーシールド — オプション市場のガンマ圧力・スクイーズリスク・主要サポ/レジバンドを機関級で可視化",
+    },
+    flowMap: {
+        ko: "자금 흐름 토폴로지 맵 — 11개 섹터 간 실시간 자금 이동, 회전 패턴, 순유입/유출을 3D로 시각화",
+        en: "Capital Flow Topology Map — 3D visualization of real-time fund rotation across 11 sectors, showing inflow/outflow patterns & rotation regimes",
+        ja: "資金フロートポロジーマップ — 11セクター間のリアルタイム資金移動・ローテーションパターンを3Dで可視化",
+    },
+    rlsiInsight: {
+        ko: "RLSI 인사이트 — AI 기반 시장 컨디션 분석, 모닝 브리핑 & 전술적 판단을 제공하는 종합 인텔리전스",
+        en: "RLSI Insight — AI-powered market condition analysis providing morning briefings & tactical intelligence across multiple timeframes",
+        ja: "RLSIインサイト — AI市場コンディション分析、モーニングブリーフィング＆タクティカルインテリジェンスを提供する総合情報",
+    },
+    marketBreadth: {
+        ko: "시장 광폭성 분석 — 상승/하락 비율, A/D 라인, 거래량 분석으로 시장 전체 건강도를 진단",
+        en: "Market Breadth Analysis — advance/decline ratio, A/D line & volume analysis diagnosing overall market health",
+        ja: "市場ブレッド分析 — 騰落比率・AD比率・出来高分析で市場全体の健全性を診断",
+    },
+    economicCalendar: {
+        ko: "경제 캘린더 — 금리 결정, 고용 지표, GDP 등 시장에 영향을 미치는 주요 이벤트 스케줄",
+        en: "Economic Calendar — schedule of key market-moving events including rate decisions, employment data & GDP releases",
+        ja: "経済カレンダー — 金利決定・雇用指標・GDPなど市場に影響を与える重要イベントスケジュール",
+    },
+    tacticalVerdict: {
+        ko: "전술적 판단 — RLSI 엔진의 정량 분석 + AI 해석을 결합한 시장 전술 인사이트",
+        en: "Tactical Verdict — market tactical insight combining RLSI engine quantitative analysis with AI interpretation",
+        ja: "タクティカルバーディクト — RLSIエンジン定量分析＋AI解釈を結合した市場タクティカルインサイト",
+    },
+    sectorIntel: {
+        ko: "섹터 인텔리전스 — 선택된 섹터의 5일 추세, 거래량, 주요 종목 등락을 심층 분석",
+        en: "Sector Intelligence — deep analysis of selected sector's 5-day trend, volume intensity & top constituent performance",
+        ja: "セクターインテリジェンス — 選択セクターの5日トレンド・出来高・主要銘柄の騰落を深層分析",
+    },
+    whatIf: {
+        ko: "What-If 시뮬레이터 — VIX, 금리, 심리, 모멘텀을 조정해 RLSI 점수 변화를 시뮬레이션",
+        en: "What-If Simulator — simulate RLSI score changes by adjusting VIX, yield, sentiment & momentum parameters",
+        ja: "What-Ifシミュレーター — VIX・金利・心理・モメンタムを調整しRLSIスコア変化をシミュレーション",
+    },
+};
+
+interface GuardianTooltipProps {
+    sectionId: keyof typeof TOOLTIP_MAP;
+    children: React.ReactNode;
+    position?: "top" | "bottom" | "right";
+}
+
+export function GuardianTooltip({ sectionId, children, position = "bottom" }: GuardianTooltipProps) {
+    const locale = useLocale() as "ko" | "en" | "ja";
+    const tooltip = TOOLTIP_MAP[sectionId];
+    if (!tooltip) return <>{children}</>;
+
+    const text = tooltip[locale] || tooltip.en;
+
+    const positionClasses = {
+        top: "bottom-full left-0 mb-2",
+        bottom: "top-full left-0 mt-2",
+        right: "left-full top-0 ml-2",
+    };
+
+    return (
+        <span className="relative group inline-flex items-center cursor-help">
+            {children}
+            <span
+                className={`
+                    absolute ${positionClasses[position]} z-[60] w-[280px] max-w-[90vw]
+                    px-3 py-2.5 rounded-lg
+                    bg-slate-900/95 backdrop-blur-xl
+                    border border-slate-600/40
+                    shadow-2xl shadow-black/50
+                    text-[12px] leading-[1.6] text-slate-300 font-normal tracking-normal normal-case
+                    opacity-0 invisible group-hover:opacity-100 group-hover:visible
+                    transition-all duration-200 ease-out
+                    pointer-events-none
+                `}
+            >
+                {text}
+            </span>
+        </span>
+    );
+}
+
+export default GuardianTooltip;

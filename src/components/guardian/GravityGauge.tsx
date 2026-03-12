@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useMemo } from "react";
 import { Activity, TrendingUp, TrendingDown, BarChart3, Radio, Globe, ShieldAlert, Minus, ChevronUp, ChevronDown } from "lucide-react";
 import { useTranslations, useLocale } from 'next-intl';
+import { GuardianTooltip } from './GuardianTooltip';
 import { useMarketStatus } from '@/hooks/useMarketStatus';
 
 interface RLSIComponents {
@@ -129,7 +130,9 @@ export default function GravityGauge({ score, loading, session, components, rlsi
             <div className="w-full px-2 mb-0">
                 <div className="flex items-center gap-2">
                     <Activity className="w-3 h-3 text-white opacity-70" />
-                    <span className="text-xs uppercase tracking-[0.2em] text-white font-black font-jakarta">Gravity Gauge</span>
+                    <GuardianTooltip sectionId="gravityGauge">
+                        <span className="text-xs uppercase tracking-[0.2em] text-white font-black font-jakarta">Gravity Gauge</span>
+                    </GuardianTooltip>
                     {session && (
                         <span className={`${session === 'PRE' ? 'text-[12px]' : 'text-[12px]'} font-bold px-1.5 py-0.5 rounded ml-auto whitespace-nowrap ${isHoliday ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' :
                             session === 'PRE' ? 'bg-amber-500/20 text-amber-400 border border-amber-500/30' :

@@ -5,6 +5,7 @@ import React, { useEffect, useState, useRef, useCallback } from "react";
 import { useTranslations, useLocale } from 'next-intl';
 import { Activity, Shield, Zap, AlertTriangle, Layers, ArrowRight, Radio, Clock, BookOpen, Lock } from "lucide-react";
 import { useTier } from '@/contexts/TierContext';
+import { GuardianTooltip } from '@/components/guardian/GuardianTooltip';
 
 import { Link } from "@/i18n/routing";
 
@@ -503,9 +504,11 @@ export default function GuardianPage() {
                                     const mapContent = (
                                         <>
                                             <div className="absolute top-6 left-6 z-10 flex items-center gap-3">
-                                                <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest border-b border-slate-700 pb-2 inline-block font-jakarta">
-                                                    Flow Topography Map v3.0
-                                                </h3>
+                                                <GuardianTooltip sectionId="flowMap">
+                                                    <h3 className="text-sm font-bold text-slate-400 uppercase tracking-widest border-b border-slate-700 pb-2 inline-block font-jakarta">
+                                                        Flow Topography Map v3.0
+                                                    </h3>
+                                                </GuardianTooltip>
                                                 <span className={`text-[12px] font-black tracking-wide px-3 py-1 rounded-md border font-jakarta shrink-0 ${isMarketActive
                                                     ? 'bg-emerald-950/80 text-emerald-400 border-emerald-500/40 animate-pulse shadow-[0_0_12px_rgba(52,211,153,0.3)]'
                                                     : 'bg-amber-950/60 text-amber-400 border-amber-500/30'
@@ -899,7 +902,10 @@ export default function GuardianPage() {
                                             <line x1="320" y1="80" x2="320" y2="120" stroke="rgba(6,182,212,0.15)" strokeWidth="1" />
                                         </svg>
                                         <h3 className="text-[12px] font-black uppercase tracking-[0.2em] text-cyan-400 mb-4 border-b border-cyan-900/30 pb-2 flex-none font-jakarta">
-                                            SECTOR INTEL {selectedSector && <span className="text-slate-500 font-mono opacity-50 ml-2">:: {selectedSector.id}</span>}
+                                            <GuardianTooltip sectionId="sectorIntel" position="right">
+                                                <span>SECTOR INTEL</span>
+                                            </GuardianTooltip>
+                                            {selectedSector && <span className="text-slate-500 font-mono opacity-50 ml-2">:: {selectedSector.id}</span>}
                                         </h3>
 
                                         <div className="flex-1 overflow-y-auto pr-1 custom-scrollbar">
