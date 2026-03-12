@@ -337,10 +337,44 @@ async function updateAlphaScores(snapshotMap, gexMap) {
   console.log('Alpha: '+items.length+' scores');
   return items.length;
 }
+// ====== Redis Cache Warming Orchestrator ======
+// Triggers Vercel /api/cron/warm-command for all 30 batches (300 tickers)
+// This ensures all universe tickers have complete unified data in Redis (0ms access)
+const VERCEL_URL = process.env.VERCEL_URL || 'https://signumhq.com';
+const TOTAL_BATCHES = 30; // 300 tickers / 10 per batch
+
+async function warmRedisCache() {
+  console.log('[CacheWarm] Starting full Redis cache warming — ' + TOTAL_BATCHES + ' batches...');
+  const start = Date.now();
+  const CONCURRENCY = 3; // 3 concurrent Vercel function invocations
+  let success = 0, fail = 0;
+
+  for (let i = 0; i < TOTAL_BATCHES; i += CONCURRENCY) {
+    const batchPromises = [];
+    for (let j = 0; j < CONCURRENCY && (i + j) < TOTAL_BATCHES; j++) {
+      const batchNum = i + j;
+      const url = VERCEL_URL + '/api/cron/warm-command?batch=' + batchNum;
+      batchPromises.push(
+        httpsGet(url.replace('http://', 'https://'), 55000)
+          .then(r => { success++; return r; })
+          .catch(e => { fail++; console.warn('[CacheWarm] Batch ' + batchNum + ' failed: ' + e.message); })
+      );
+    }
+    await Promise.all(batchPromises);
+    // Small delay between batch groups to avoid overwhelming
+    if (i + CONCURRENCY < TOTAL_BATCHES) {
+      await new Promise(r => setTimeout(r, 2000));
+    }
+  }
+
+  const duration = Math.round((Date.now() - start) / 1000);
+  console.log('[CacheWarm] Done: ' + success + ' ok, ' + fail + ' fail in ' + duration + 's');
+  return { success, fail, duration };
+}
 
 exports.handler = async (event) => {
   const start = Date.now();
-  console.log('SIGNUM Harvest Lambda v5.0 — ' + new Date().toISOString());
+  console.log('SIGNUM Harvest Lambda v6.0 — ' + new Date().toISOString());
   const hour = new Date().getUTCHours();
   const minute = new Date().getUTCMinutes();
   const utcMin = hour*60+minute;
@@ -375,8 +409,19 @@ exports.handler = async (event) => {
   } else {
     results.details = 'SKIP:not_daily_window';
   }
+
+  // Redis Cache Warming: warm all 300 tickers during regular hours
+  if (isRegular || forceRun) {
+    try {
+      results.cacheWarm = await warmRedisCache();
+    } catch (e) {
+      results.cacheWarm = { error: e.message };
+    }
+  } else {
+    results.cacheWarm = 'SKIP:extended';
+  }
   
   const duration = Math.round((Date.now()-start)/1000);
   console.log('Done in '+duration+'s');
-  return { statusCode:200, body:JSON.stringify({ success:true, version:'5.0', timestamp:new Date().toISOString(), duration, results }) };
+  return { statusCode:200, body:JSON.stringify({ success:true, version:'6.0', timestamp:new Date().toISOString(), duration, results }) };
 };
