@@ -634,7 +634,9 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
             fallbackData: initialUnifiedData, // [SSR HYDRATION] Bypass skeleton
             revalidateOnFocus: true,  // Refresh when user returns to tab
             revalidateIfStale: true,
-            refreshInterval: 15_000  // [AWS OPTIMIZED] 15s polling — warm-command cron keeps cache always fresh, so every hit is ~300ms cache HIT
+            refreshInterval: 15_000,  // [AWS OPTIMIZED] 15s polling
+            keepPreviousData: true,   // [PERF] Flicker-free: old data stays until new data arrives
+            dedupingInterval: 5_000,  // [PERF] Prevent duplicate fetches within 5s
         }
     );
 
