@@ -40,7 +40,9 @@ export default function RLSIInsightPanel({
     const locale = useLocale();
 
     // Toggle state: "briefing" or "tactical"
-    const defaultTab = (session === "PRE" || session === "CLOSED") ? "briefing" : "tactical";
+    // [FIX] Briefing only during PRE-market (generated & relevant until market open)
+    // All other sessions (REG, POST, CLOSED) → tactical for actionable analysis
+    const defaultTab = session === "PRE" ? "briefing" : "tactical";
     const [activeTab, setActiveTab] = useState<"briefing" | "tactical">(defaultTab);
     const [briefingData, setBriefingData] = useState<any>(null);
     const [briefingLoading, setBriefingLoading] = useState(false);
