@@ -33,14 +33,18 @@ export default async function TickerPage({ params, searchParams }: Props) {
         );
     }
 
-    // [SSR HYDRATION] Pre-fetch stock data and unified cache to eliminate skeleton
-    // Chart is NOT prefetched here — it loads via client-side SWR (LiveTickerDashboard fetchChartData)
-    // This avoids 2-3s SSR blocking from Polygon 1-minute 5-day data
-    const [initialStockData, rawUnifiedData] = await Promise.all([
+    // [SSR HYDRATION] Pre-fetch stock data, unified cache, and chart
+    // Chart has a 500ms timeout — if Polygon is slow, client SWR will load it instead
+    const chartWithTimeout = Promise.race([
+        getStockChartData(ticker, (range || '1d') as any).catch(() => null),
+        new Promise<null>(resolve => setTimeout(() => resolve(null), 500))
+    ]);
+
+    const [initialStockData, rawUnifiedData, initialChartData] = await Promise.all([
         getStockDataLight(ticker).catch(() => null),
         getFromCache<any>(`cache:command:unified:${ticker}:${locale}`).catch(() => null),
+        chartWithTimeout,
     ]);
-    const initialChartData = null; // Client-side SWR handles chart loading
 
     // [SSR DynamoDB FALLBACK] If Redis missed, try DynamoDB for instant SSR data
     let initialUnifiedData = rawUnifiedData;

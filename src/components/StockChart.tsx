@@ -896,7 +896,7 @@ export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d
                                         fill="url(#areaFillGradient)"
                                         fillOpacity={1}
                                         isAnimationActive={false}
-                                        connectNulls={true}
+                                        connectNulls={false}
                                         dot={false}
                                         activeDot={false}
                                         tooltipType="none"
@@ -938,7 +938,7 @@ export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d
                                         dot={false}
                                         activeDot={{ r: 4, fill: "#fff", stroke: chartConfig.background, strokeWidth: 2 }}
                                         isAnimationActive={false}
-                                        connectNulls={true}
+                                        connectNulls={false}
                                     />
                                     {/* ═══ prevClose label (right side, Y-axis) ═══ */}
                                     {isIntraday && prevClose !== undefined && (

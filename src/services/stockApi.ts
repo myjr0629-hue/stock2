@@ -1244,15 +1244,38 @@ export async function getStockChartData(symbol: string, range: Range = "1d"): Pr
       }
       console.log(`[1D Chart Filter] TargetDay: ${targetTradingDayET}, Filtered: ${finalProcessed.length} from ${processed.length}`);
 
+      // [GAP-FIX] Insert null break points between data points separated by >5 minutes
+      // This makes Recharts break the line at session transitions instead of stretching
+      const GAP_THRESHOLD_MINUTES = 5;
+      const withGapBreaks: any[] = [];
+      for (let i = 0; i < finalProcessed.length; i++) {
+        if (i > 0) {
+          const prevMin = finalProcessed[i - 1].etMinute;
+          const currMin = finalProcessed[i].etMinute;
+          const gap = Math.abs(currMin - prevMin);
+          if (gap > GAP_THRESHOLD_MINUTES) {
+            // Insert a null break point to break the line
+            withGapBreaks.push({
+              date: finalProcessed[i].date,
+              close: null, open: null, high: null, low: null, volume: 0,
+              dateET: '', etMinute: prevMin + 1, etDate: finalProcessed[i].etDate,
+              session: finalProcessed[i].session, _gapBreak: true
+            });
+          }
+        }
+        withGapBreaks.push(finalProcessed[i]);
+      }
+
       // Preserve sessionMaskDebug
-      (finalProcessed as any).sessionMaskDebug = (processed as any).sessionMaskDebug;
-      (finalProcessed as any).sessionMaskDebug.todayDateET = todayDateET;
-      (finalProcessed as any).sessionMaskDebug.currentSession = currentClassified.session;
-      (finalProcessed as any).sessionMaskDebug.usedFallbackDay = todayData.length < MIN_SPARKLINE_POINTS && (currentClassified.session === 'PRE' || currentClassified.session === 'CLOSED');
+      (withGapBreaks as any).sessionMaskDebug = (processed as any).sessionMaskDebug;
+      (withGapBreaks as any).sessionMaskDebug.todayDateET = todayDateET;
+      (withGapBreaks as any).sessionMaskDebug.currentSession = currentClassified.session;
+      (withGapBreaks as any).sessionMaskDebug.usedFallbackDay = todayData.length < MIN_SPARKLINE_POINTS && (currentClassified.session === 'PRE' || currentClassified.session === 'CLOSED');
+      (withGapBreaks as any).sessionMaskDebug.gapBreaksInserted = withGapBreaks.filter((p: any) => p._gapBreak).length;
 
       // Limit to max points for performance
-      if (finalProcessed.length > 1200) return finalProcessed.slice(-1200);
-      return finalProcessed;
+      if (withGapBreaks.length > 1200) return withGapBreaks.slice(-1200);
+      return withGapBreaks;
     }
 
     let fromDate = new Date();
