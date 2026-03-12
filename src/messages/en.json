@@ -680,11 +680,21 @@
     "strategicEdgeDesc": "System analysis based on supply/demand (GEX) and price deviation."
   },
   "flowSniper": {
+    "flowMonitor": "Flow Monitor",
     "realtimeTracking": "Real-time option flow tracking",
     "viewFlowRadar": "View Flow Radar Institutional Metrics",
     "gammaSqueeze": "Gamma Squeeze Activated",
+    "gammaSqueezeDetected": "GAMMA SQUEEZE DETECTED",
     "panicSelling": "Panic Selling",
-    "netPremiumTooltip": "Today's actual positioning direction of market participants.\n(+) Positive: Upward pressure (Call positioning) dominant\n(-) Negative: Downward pressure (Put positioning) dominant"
+    "panicSellingDetected": "PANIC SELLING DETECTED",
+    "bullish": "BULLISH",
+    "bearish": "BEARISH",
+    "netPremiumFlow": "Net Premium Flow",
+    "netPremiumTooltip": "Today's actual positioning direction of market participants.\n(+) Positive: Upward pressure (Call positioning) dominant\n(-) Negative: Downward pressure (Put positioning) dominant",
+    "callPrem": "Call Prem",
+    "putPrem": "Put Prem",
+    "volumeStrength": "Volume Strength",
+    "activeContracts": "ACTIVE ({count} Contracts)"
   },
   "flowRadar": {
     "volumePreMarket": "⚡ Volume: Pre-market wait - Activates at market open",
@@ -2352,6 +2362,10 @@
     "pcSeeking": "Seeking Direction",
     "gexContracts": "{count} contracts",
     "whaleTrack": "Whale Track",
+    "whalePosition": "WHALE POSITION",
+    "whalePositionLong": "LONG",
+    "whalePositionShort": "SHORT",
+    "whalePositionWait": "WAIT",
     "darkPoolLabel": "Dark Pool",
     "costBepLegend": "Cost = Acquisition Price | BEP = Break-Even",
     "strategyStockRepl": "Stock Replace",

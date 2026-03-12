@@ -67,6 +67,10 @@
         {
             "path": "/api/cron/warm-command",
             "schedule": "*/3 14-21 * * 1-5"
+        },
+        {
+            "path": "/api/cron/warm-flow",
+            "schedule": "*/3 14-21 * * 1-5"
         }
     ]
 }

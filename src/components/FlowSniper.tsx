@@ -37,12 +37,12 @@ export function FlowSniper({ netPremium, callPremium, putPremium, optionsCount, 
                 <div className="text-xs font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
                     <Target className={`w-3 h-3 ${isGammaSqueeze ? "text-indigo-400 animate-pulse" : isPanicSelling ? "text-rose-400 animate-pulse" : "text-rose-400"}`} />
                     <div>
-                        Flow Monitor
+                        {t('flowMonitor')}
                         <div className="flex items-center gap-1 mt-0.5">
                             {isGammaSqueeze ? (
-                                <span className="block text-[11px] text-indigo-300 font-black animate-pulse font-jakarta">🚀 GAMMA SQUEEZE DETECTED</span>
+                                <span className="block text-[11px] text-indigo-300 font-black animate-pulse font-jakarta">🚀 {t('gammaSqueezeDetected')}</span>
                             ) : isPanicSelling ? (
-                                <span className="block text-[11px] text-rose-300 font-black animate-pulse font-jakarta">📉 PANIC SELLING DETECTED</span>
+                                <span className="block text-[11px] text-rose-300 font-black animate-pulse font-jakarta">📉 {t('panicSellingDetected')}</span>
                             ) : (
                                 <span className="block text-[11px] text-indigo-400 font-bold normal-case opacity-90">{t('realtimeTracking')}</span>
                             )}
@@ -54,7 +54,7 @@ export function FlowSniper({ netPremium, callPremium, putPremium, optionsCount, 
                     <span className={`text-[11px] font-black font-jakarta ${isGammaSqueeze ? 'text-indigo-300' : isPanicSelling ? 'text-rose-300' : isBullish ? 'text-emerald-500' : 'text-rose-500'}`}>
                         {isGammaSqueeze ? t('gammaSqueeze') :
                             isPanicSelling ? t('panicSelling') :
-                                isBullish ? "BULLISH" : "BEARISH"}
+                                isBullish ? t('bullish') : t('bearish')}
                     </span>
                 </div>
             </div>
@@ -63,7 +63,7 @@ export function FlowSniper({ netPremium, callPremium, putPremium, optionsCount, 
                 {/* 1. NET PREMIUM BIG DISPLAY */}
                 <div className="text-center">
                     <div className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-0.5 font-jakarta">
-                        Net Premium Flow
+                        {t('netPremiumFlow')}
                         <span title={t('netPremiumTooltip')}>
                             <Info size={10} className="inline ml-1 text-slate-500 hover:text-slate-300 cursor-help" />
                         </span>
@@ -76,8 +76,8 @@ export function FlowSniper({ netPremium, callPremium, putPremium, optionsCount, 
                 {/* 2. CALL vs PUT BATTLE BAR */}
                 <div className="space-y-0.5">
                     <div className="flex justify-between text-[11px] font-bold text-slate-400 uppercase font-jakarta">
-                        <span className="text-emerald-500">Call Prem (${(callPremium / 1000000).toFixed(1)}M)</span>
-                        <span className="text-rose-500">Put Prem (${(putPremium / 1000000).toFixed(1)}M)</span>
+                        <span className="text-emerald-500">{t('callPrem')} (${(callPremium / 1000000).toFixed(1)}M)</span>
+                        <span className="text-rose-500">{t('putPrem')} (${(putPremium / 1000000).toFixed(1)}M)</span>
                     </div>
                     <div className="h-1.5 w-full bg-slate-800 rounded-full overflow-hidden flex relative">
                         {/* Center Marker */}
@@ -102,10 +102,10 @@ export function FlowSniper({ netPremium, callPremium, putPremium, optionsCount, 
 
                 {/* 3. RELVOL / ACTIVITY (Placeholder for Logic) */}
                 <div className="flex items-center justify-between pt-1.5 border-t border-white/5 mt-1.5">
-                    <span className="text-[11px] font-bold text-slate-400 uppercase font-jakarta">Volume Strength</span>
+                    <span className="text-[11px] font-bold text-slate-400 uppercase font-jakarta">{t('volumeStrength')}</span>
                     <div className="flex items-center gap-1 text-[11px] font-black text-amber-400 font-jakarta">
                         <TrendingUp size={9} />
-                        <span>ACTIVE ({optionsCount} Contracts)</span>
+                        <span>{t('activeContracts', { count: optionsCount })}</span>
                     </div>
                 </div>
 

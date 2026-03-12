@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useMemo, useState, useRef, useEffect } from 'react';
-import { useWhaleTrades, useRealtimeMetrics, useDarkPoolTrades } from '@/hooks/useFlowData';
+import { useWhaleTrades, useRealtimeMetrics, useDarkPoolTrades, useIvPercentile } from '@/hooks/useFlowData';
 import { Radar, Target, Crosshair, Zap, Layers, Info, TrendingUp, TrendingDown, Activity, Lightbulb, Percent, Lock, Shield, Loader2, AlertTriangle, BarChart3, Banknote } from 'lucide-react';
 import { Card, CardContent } from "@/components/ui/card";
 import { ProGate, EliteGate } from '@/components/gate/FeatureGate';
@@ -200,13 +200,29 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
     }, [filteredChain]);
 
     // [PREMIUM] IV Percentile - ATM Implied Volatility Ranking
+    // First try DynamoDB true percentile, fallback to simplified calculation
+    const trueIvData = useIvPercentile(ticker);
+
     const ivPercentile = useMemo(() => {
-        if (!rawChain || rawChain.length === 0) return { value: 0, label: fm('analyzing'), color: 'text-slate-400' };
+        // Use DynamoDB true percentile if available (real historical rank)
+        if (trueIvData.percentile !== null && trueIvData.sampleSize >= 10) {
+            const p = trueIvData.percentile;
+            let label = fm('moderate');
+            let color = 'text-white';
+            if (p >= 80) { label = fm('veryHigh'); color = 'text-rose-400'; }
+            else if (p >= 60) { label = fm('high'); color = 'text-amber-400'; }
+            else if (p >= 40) { label = fm('moderate'); color = 'text-white'; }
+            else if (p >= 20) { label = fm('low'); color = 'text-cyan-400'; }
+            else { label = fm('veryLow'); color = 'text-emerald-400'; }
+            return { value: p, label, color, source: 'dynamodb' };
+        }
+
+        // Fallback: simplified calculation from raw chain
+        if (!rawChain || rawChain.length === 0) return { value: 0, label: fm('analyzing'), color: 'text-slate-400', source: 'fallback' };
 
         // Find ATM options (closest to current price)
         const atmOptions = rawChain
             .filter(opt => {
-                // Check multiple paths for IV (Polygon API variations)
                 const iv = opt.greeks?.implied_volatility || opt.implied_volatility || opt.iv;
                 const strike = opt.details?.strike_price || opt.strike_price;
                 return iv && iv > 0 && strike;
@@ -216,18 +232,16 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                 const strikeB = b.details?.strike_price || b.strike_price;
                 return Math.abs(strikeA - currentPrice) - Math.abs(strikeB - currentPrice);
             })
-            .slice(0, 4); // Get 4 closest strikes
+            .slice(0, 4);
 
-        if (atmOptions.length === 0) return { value: 0, label: fm('noData'), color: 'text-white' };
+        if (atmOptions.length === 0) return { value: 0, label: fm('noData'), color: 'text-white', source: 'fallback' };
 
-        // Average ATM IV (check multiple paths)
         const avgIV = atmOptions.reduce((sum, opt) => {
             const iv = opt.greeks?.implied_volatility || opt.implied_volatility || opt.iv || 0;
             return sum + iv;
         }, 0) / atmOptions.length;
         const ivPercent = Math.round(avgIV * 100);
 
-        // Determine percentile rank (simplified: IV 20-80% typical range)
         let label = fm('moderate');
         let color = 'text-white';
         if (ivPercent >= 60) { label = fm('veryHigh'); color = 'text-rose-400'; }
@@ -236,8 +250,8 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
         else if (ivPercent >= 20) { label = fm('low'); color = 'text-cyan-400'; }
         else { label = fm('veryLow'); color = 'text-emerald-400'; }
 
-        return { value: ivPercent, label, color };
-    }, [rawChain, currentPrice]);
+        return { value: ivPercent, label, color, source: 'fallback' };
+    }, [rawChain, currentPrice, trueIvData.percentile, trueIvData.sampleSize]);
 
     // [PREMIUM] Smart Money Score - Institutional-level trade ratio
     const smartMoney = useMemo(() => {
@@ -1599,16 +1613,16 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
 
                                         <div className="flex items-center gap-1 mb-0.5 relative z-10">
                                             <Shield size={12} className="text-cyan-400" />
-                                            <span className="text-xs text-white font-bold uppercase tracking-wider">WHALE POSITION</span>
+                                            <span className="text-xs text-white font-bold uppercase tracking-wider">{ui('whalePosition')}</span>
                                         </div>
 
                                         <div className={`text-lg font-black relative z-10 ${analysis.whaleBias?.includes('BULL') ? 'text-emerald-400'
                                             : analysis.whaleBias?.includes('BEAR') ? 'text-rose-400'
                                                 : 'text-white'
                                             }`} style={{ textShadow: analysis.whaleBias?.includes('BULL') ? '0 0 12px rgba(52,211,153,0.8)' : analysis.whaleBias?.includes('BEAR') ? '0 0 12px rgba(248,113,113,0.8)' : 'none' }}>
-                                            {analysis.whaleBias?.includes('BULL') ? 'LONG'
-                                                : analysis.whaleBias?.includes('BEAR') ? 'SHORT'
-                                                    : 'WAIT'}
+                                            {analysis.whaleBias?.includes('BULL') ? ui('whalePositionLong')
+                                                : analysis.whaleBias?.includes('BEAR') ? ui('whalePositionShort')
+                                                    : ui('whalePositionWait')}
                                         </div>
 
                                         {/* Net Premium Flow */}

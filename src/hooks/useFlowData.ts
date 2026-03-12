@@ -80,8 +80,8 @@ export function useRealtimeMetrics(ticker: string | null, enabled: boolean = tru
         fetcher,
         {
             fallbackData,
-            refreshInterval: 15000,
-            dedupingInterval: 10000,
+            refreshInterval: 30000,        // 30s (aligned with warm-flow cron interval)
+            dedupingInterval: 20000,
             revalidateOnFocus: true,
             errorRetryCount: 2,
             keepPreviousData: true,
@@ -109,4 +109,31 @@ export function useDarkPoolTrades(ticker: string | null, enabled: boolean = true
     );
 
     return { trades: data?.items || [], error, isLoading };
+}
+
+/**
+ * SWR hook for true IV percentile from DynamoDB history
+ * Returns actual historical percentile rank (not simplified range mapping)
+ */
+export function useIvPercentile(ticker: string | null, enabled: boolean = true) {
+    const { data, error, isLoading } = useSWR(
+        ticker && enabled ? `/api/flow/iv-percentile?t=${ticker}` : null,
+        fetcher,
+        {
+            refreshInterval: 60000,        // 60s (IV changes slowly)
+            dedupingInterval: 30000,
+            revalidateOnFocus: false,
+            errorRetryCount: 2,
+            keepPreviousData: true,
+        }
+    );
+
+    return {
+        percentile: data?.percentile ?? null,
+        currentIv: data?.currentIv ?? null,
+        sampleSize: data?.sampleSize ?? 0,
+        source: data?._source ?? null,
+        error,
+        isLoading,
+    };
 }

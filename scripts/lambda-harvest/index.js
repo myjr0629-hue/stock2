@@ -372,6 +372,24 @@ async function warmRedisCache() {
   return { success, fail, duration };
 }
 
+// ====== Flow Cache Warming ======
+// Triggers Vercel /api/cron/warm-flow once (30 tickers in single call)
+// Ensures all top flow tickers have pre-computed data in Redis + DynamoDB
+async function warmFlowCache() {
+  console.log('[FlowWarm] Triggering warm-flow cron...');
+  const start = Date.now();
+  try {
+    const url = VERCEL_URL + '/api/cron/warm-flow';
+    const result = await httpsGet(url.replace('http://', 'https://'), 55000);
+    const duration = Math.round((Date.now() - start) / 1000);
+    console.log('[FlowWarm] Done in ' + duration + 's — warmed: ' + (result?.warmed || 0));
+    return { success: true, warmed: result?.warmed || 0, duration };
+  } catch (e) {
+    console.warn('[FlowWarm] Failed: ' + e.message);
+    return { success: false, error: e.message };
+  }
+}
+
 exports.handler = async (event) => {
   const start = Date.now();
   console.log('SIGNUM Harvest Lambda v6.0 — ' + new Date().toISOString());
@@ -410,15 +428,21 @@ exports.handler = async (event) => {
     results.details = 'SKIP:not_daily_window';
   }
 
-  // Redis Cache Warming: warm all 300 tickers during regular hours
+  // Redis + Flow Cache Warming: warm all tickers during regular hours
   if (isRegular || forceRun) {
     try {
-      results.cacheWarm = await warmRedisCache();
+      const [commandWarm, flowWarm] = await Promise.all([
+        warmRedisCache(),
+        warmFlowCache(),
+      ]);
+      results.cacheWarm = commandWarm;
+      results.flowWarm = flowWarm;
     } catch (e) {
       results.cacheWarm = { error: e.message };
     }
   } else {
     results.cacheWarm = 'SKIP:extended';
+    results.flowWarm = 'SKIP:extended';
   }
   
   const duration = Math.round((Date.now()-start)/1000);

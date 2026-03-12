@@ -59,12 +59,40 @@ async function fetchTradeData(ticker: string): Promise<TradeData | null> {
         const tradesData = await tradesRes.json();
         const trades = tradesData.results || [];
 
-        // Parse quotes for Quote Rule (reverse to chronological order for search)
-        const quotes = quotesRes.ok
-            ? ((await quotesRes.json()).results || []).reverse()
+        // Parse quotes for Quote Rule — sort ascending by timestamp for binary search
+        const quotesRaw = quotesRes.ok
+            ? ((await quotesRes.json()).results || [])
             : [];
+        // Pre-sort quotes by sip_timestamp (ascending) for O(log N) binary search
+        const quotes = quotesRaw.sort((a: any, b: any) => {
+            const ta = BigInt(a.sip_timestamp);
+            const tb = BigInt(b.sip_timestamp);
+            return ta < tb ? -1 : ta > tb ? 1 : 0;
+        });
 
         if (trades.length === 0) return null;
+
+        // Binary search: find quote with nearest timestamp to target
+        function findNearestQuote(targetTs: bigint): any {
+            if (quotes.length === 0) return null;
+            let lo = 0, hi = quotes.length - 1;
+            while (lo < hi) {
+                const mid = (lo + hi) >> 1;
+                const midTs = BigInt(quotes[mid].sip_timestamp);
+                if (midTs < targetTs) lo = mid + 1;
+                else hi = mid;
+            }
+            // Compare lo and lo-1 to find the absolute nearest
+            let best = lo;
+            if (lo > 0) {
+                const diffLo = targetTs - BigInt(quotes[lo - 1].sip_timestamp);
+                const diffHi = BigInt(quotes[lo].sip_timestamp) - targetTs;
+                if ((diffLo < BigInt(0) ? -diffLo : diffLo) < (diffHi < BigInt(0) ? -diffHi : diffHi)) {
+                    best = lo - 1;
+                }
+            }
+            return quotes[best];
+        }
 
         let totalVolume = 0;
         let darkPoolVolume = 0;
@@ -87,13 +115,9 @@ async function fetchTradeData(ticker: string): Promise<TradeData | null> {
             if (DARK_POOL_EXCHANGES.has(exchangeId)) {
                 darkPoolVolume += size;
 
-                // Quote Rule classification: find nearest quote by timestamp
+                // Quote Rule classification: binary search for nearest quote O(log N)
                 if (quotes.length > 0) {
-                    let bestQ: any = null, bestDiff = Infinity;
-                    for (const q of quotes) {
-                        const diff = Math.abs(Number(BigInt(q.sip_timestamp) - BigInt(trade.sip_timestamp)));
-                        if (diff < bestDiff) { bestDiff = diff; bestQ = q; }
-                    }
+                    const bestQ = findNearestQuote(BigInt(trade.sip_timestamp));
 
                     if (bestQ && bestQ.bid_price > 0 && bestQ.ask_price > 0) {
                         const mid = (bestQ.bid_price + bestQ.ask_price) / 2;

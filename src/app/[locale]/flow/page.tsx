@@ -1,5 +1,6 @@
 import { FlowPageClient } from "./FlowPageClient";
-import { getFromCache } from '@/services/redisClient';
+import { getFromCache, setInCache } from '@/services/redisClient';
+import { getFlowCache } from '@/lib/aws/flowCacheProvider';
 import { TerminalGateWrapper } from '@/components/gate/TerminalGateWrapper';
 
 interface Props {
@@ -24,10 +25,21 @@ export default async function FlowPage({ params, searchParams }: Props) {
         );
     }
 
-    // [SSR HYDRATION] Pre-fetch the exact same unified payload from Redis
-    // The key matches CACHE_KEY_PREFIX from flow/unified/route.ts
+    // [SSR HYDRATION] 3-Tier: Redis → DynamoDB → null
     const cacheKey = `cache:flow:unified:${ticker}`;
-    const initialFlowData = await getFromCache<any>(cacheKey).catch(() => null);
+    let initialFlowData = await getFromCache<any>(cacheKey).catch(() => null);
+
+    // Tier 2: DynamoDB fallback if Redis misses
+    if (!initialFlowData) {
+        try {
+            const dynamoData = await getFlowCache(ticker, 600000); // max 10 min
+            if (dynamoData) {
+                initialFlowData = dynamoData;
+                // Re-warm Redis from DynamoDB for subsequent requests
+                setInCache(cacheKey, dynamoData, 300).catch(() => {});
+            }
+        } catch { /* DynamoDB unavailable, continue without SSR data */ }
+    }
 
     return (
         <TerminalGateWrapper pageName="FLOW">

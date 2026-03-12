@@ -680,11 +680,21 @@
     "strategicEdgeDesc": "수급(GEX)과 가격 이격도를 종합하여 도출된 시스템 분석 결과입니다."
   },
   "flowSniper": {
+    "flowMonitor": "Flow Monitor",
     "realtimeTracking": "실시간 금일 옵션 자금 추적",
     "viewFlowRadar": "Flow Radar 기관지표 확인",
     "gammaSqueeze": "감마 스퀴즈 발동",
+    "gammaSqueezeDetected": "감마 스퀴즈 감지",
     "panicSelling": "패닉 셀링",
-    "netPremiumTooltip": "오늘 시장 참여자들의 실제 포지셔닝 방향입니다.\n(+) 양수: 상승 포지셔닝(Call 주도) 우위\n(-) 음수: 하락 포지셔닝(Put 주도) 우위"
+    "panicSellingDetected": "패닉 매도 감지",
+    "bullish": "강세 (BULLISH)",
+    "bearish": "약세 (BEARISH)",
+    "netPremiumFlow": "순 프리미엄 흐름",
+    "netPremiumTooltip": "오늘 시장 참여자들의 실제 포지셔닝 방향입니다.\n(+) 양수: 상승 포지셔닝(Call 주도) 우위\n(-) 음수: 하락 포지셔닝(Put 주도) 우위",
+    "callPrem": "콜 프리미엄",
+    "putPrem": "풋 프리미엄",
+    "volumeStrength": "거래 강도",
+    "activeContracts": "활성 ({count} 계약)"
   },
   "flowRadar": {
     "volumePreMarket": "⚡ Volume(거래량): 장전(Pre) 대기중 - 본장 시작 시 활성화",
@@ -2713,6 +2723,10 @@
     "pcSeeking": "방향 탐색",
     "gexContracts": "{count}계약",
     "whaleTrack": "고래추적",
+    "whalePosition": "고래 포지션",
+    "whalePositionLong": "LONG (매수)",
+    "whalePositionShort": "SHORT (매도)",
+    "whalePositionWait": "대기",
     "darkPoolLabel": "다크풀",
     "costBepLegend": "Cost=취득단가 | BEP=손익분기점",
     "strategyStockRepl": "주식대체",

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getFromCache, setInCache } from '@/services/redisClient';
+import { getFlowCache } from '@/lib/aws/flowCacheProvider';
 
 // Import individual route GET handlers directly to bypass HTTP overhead
 // DO NOT MODIFY external data-fetching logic inside these files.
@@ -71,7 +72,7 @@ export async function GET(request: NextRequest) {
     const cacheKey = `${CACHE_KEY_PREFIX}${ticker}`;
 
     try {
-        // 1. Check Redis Cache First
+        // === TIER 1: Redis Cache (warm-flow cron pre-warmed) ===
         let cachedData = await getFromCache<any>(cacheKey);
 
         let needsRefresh = false;
@@ -85,14 +86,30 @@ export async function GET(request: NextRequest) {
                 console.log(`[Flow Unified] Returning Fresh Cache (${Math.round(ageMs / 1000)}s old) for ${ticker}`);
             }
         } else {
-            console.log(`[Flow Unified] Cache Miss for ${ticker} - Fetching synchronous data`);
-            cachedData = null; // Ensure null if not found
+            console.log(`[Flow Unified] Redis Miss for ${ticker} - Trying DynamoDB Tier 2`);
         }
 
         const baseUrl = getBaseUrl(request);
 
-        // 2. Cache Miss: We MUST wait for the fresh data (Zero-Latency SSR relies on this first fetch)
+        // === TIER 2: DynamoDB Fallback (permanent, ~50ms) ===
         if (!cachedData) {
+            try {
+                const dynamoData = await getFlowCache(ticker, 600000); // max 10 min old
+                if (dynamoData) {
+                    console.log(`[Flow Unified] DynamoDB Hit for ${ticker} (${dynamoData._ageMs}ms old)`);
+                    // Re-warm Redis from DynamoDB data
+                    await setInCache(cacheKey, dynamoData, CACHE_TTL_SEC).catch(() => {});
+                    cachedData = dynamoData;
+                    needsRefresh = true; // Trigger background refresh to get latest
+                }
+            } catch (e) {
+                console.warn(`[Flow Unified] DynamoDB Tier 2 failed for ${ticker}`, e);
+            }
+        }
+
+        // === TIER 3: Polygon Live API (slowest, ~3-5s) ===
+        if (!cachedData) {
+            console.log(`[Flow Unified] Full Cache Miss for ${ticker} - Fetching from Polygon`);
             const freshData = await buildUnifiedFlowData(ticker, baseUrl);
 
             // Only cache if the critical data (liveQuote) was successfully fetched

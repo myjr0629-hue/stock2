@@ -680,11 +680,21 @@
     "strategicEdgeDesc": "需給(GEX)と価格乖離に基づくシステム分析"
   },
   "flowSniper": {
+    "flowMonitor": "Flow Monitor",
     "realtimeTracking": "リアルタイムOption Flow追跡",
     "viewFlowRadar": "Flow Radar機関指標を見る",
     "gammaSqueeze": "Gamma Squeeze発動",
+    "gammaSqueezeDetected": "ガンマスクイーズ検知",
     "panicSelling": "パニック売り",
-    "netPremiumTooltip": "本日の市場参加者の実際のベッティング方向です。\n(+) プラス: 強気ベット（コール買い）優勢\n(-) マイナス: 弱気ベット（プット買い）優勢"
+    "panicSellingDetected": "パニック売り検知",
+    "bullish": "強気 (BULLISH)",
+    "bearish": "弱気 (BEARISH)",
+    "netPremiumFlow": "ネットプレミアムフロー",
+    "netPremiumTooltip": "本日の市場参加者の実際のベッティング方向です。\n(+) プラス: 強気ベット（コール買い）優勢\n(-) マイナス: 弱気ベット（プット買い）優勢",
+    "callPrem": "コールプレミアム",
+    "putPrem": "プットプレミアム",
+    "volumeStrength": "取引強度",
+    "activeContracts": "アクティブ ({count} 契約)"
   },
   "flowRadar": {
     "volumePreMarket": "⚡ Volume: プレマーケット待機中 - 本場開始時に有効化",
@@ -2352,6 +2362,10 @@
     "pcSeeking": "方向探索中",
     "gexContracts": "{count}契約",
     "whaleTrack": "クジラ追跡",
+    "whalePosition": "クジラポジション",
+    "whalePositionLong": "ロング",
+    "whalePositionShort": "ショート",
+    "whalePositionWait": "待機",
     "darkPoolLabel": "ダークプール",
     "costBepLegend": "Cost=取得単価 | BEP=損益分岐点",
     "strategyStockRepl": "株式代替",
