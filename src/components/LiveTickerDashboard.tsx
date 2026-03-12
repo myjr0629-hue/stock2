@@ -21,6 +21,9 @@ import { FlowSniper } from "@/components/FlowSniper";
 import { CommandInsight } from "@/components/CommandInsight";
 import { ProGate, EliteGate } from '@/components/gate/FeatureGate';
 import { useTranslations, useLocale } from 'next-intl';
+import { GexTimeline } from '@/components/history/GexTimeline';
+import { GammaPressureGauge } from '@/components/GammaPressureGauge';
+import { CardTooltip, COMMAND_TOOLTIPS } from '@/components/ui/CardTooltip';
 
 // [FIX] Dynamic import with SSR disabled - Recharts requires DOM measurements
 const StockChart = dynamic(() => import("@/components/StockChart").then(mod => mod.StockChart), {
@@ -86,7 +89,7 @@ const DecisionGate = ({ ticker, displayPrice, session, structure, krNews, smaDat
                 <div className="p-3 border-b border-white/5 flex items-center justify-between bg-white/5 shrink-0">
                     <span className="text-[12px] text-amber-500 font-bold uppercase tracking-wider flex items-center gap-2">
                         <Zap size={10} />
-                        SIGNAL CORE
+                        <CardTooltip tooltip={COMMAND_TOOLTIPS.SIGNAL_CORE.tooltip} badge={COMMAND_TOOLTIPS.SIGNAL_CORE.badge}>SIGNAL CORE</CardTooltip>
                     </span>
                     <span className="text-[12px] text-slate-400 font-medium uppercase tracking-wider">
                         LOADING
@@ -360,7 +363,7 @@ const DecisionGate = ({ ticker, displayPrice, session, structure, krNews, smaDat
             <div className="p-3 border-b border-white/5 flex items-center justify-between bg-white/5 shrink-0">
                 <span className="text-[12px] text-amber-500 font-bold uppercase tracking-wider flex items-center gap-2">
                     <Zap size={10} />
-                    SIGNAL CORE
+                    <CardTooltip tooltip={COMMAND_TOOLTIPS.SIGNAL_CORE.tooltip} badge={COMMAND_TOOLTIPS.SIGNAL_CORE.badge}>SIGNAL CORE</CardTooltip>
                 </span>
                 <span className={`text-[12px] font-medium uppercase tracking-wider ${colors.text}`}>
                     {verdict}
@@ -1114,7 +1117,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                     <div className="relative z-10 flex items-center justify-between mb-1">
                                         <div className="flex items-center gap-1">
                                             <Zap className={`w-3.5 h-3.5 ${isHot ? 'text-amber-400' : 'text-cyan-400'}`} />
-                                            <span className="text-[13px] font-bold text-white uppercase tracking-wider font-jakarta">VOL REGIME</span>
+                                            <span className="text-[13px] font-bold text-white uppercase tracking-wider font-jakarta"><CardTooltip tooltip={COMMAND_TOOLTIPS.VOL_REGIME.tooltip}>VOL REGIME</CardTooltip></span>
                                         </div>
                                         <span className={`text-[12px] font-black px-1.5 py-px rounded font-jakarta ${isHot ? 'bg-rose-500/20' : 'bg-slate-700/30'} ${regimeColor}`}>
                                             {r?.regime || '...'}
@@ -1151,7 +1154,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                     <div className="relative z-10 flex items-center justify-between mb-1">
                                         <div className="flex items-center gap-1">
                                             <Target className="w-3.5 h-3.5 text-amber-400" />
-                                            <span className="text-[13px] font-bold text-white uppercase tracking-wider font-jakarta">CONVICTION</span>
+                                            <span className="text-[13px] font-bold text-white uppercase tracking-wider font-jakarta"><CardTooltip tooltip={COMMAND_TOOLTIPS.CONVICTION.tooltip}>CONVICTION</CardTooltip></span>
                                         </div>
                                         <span className={`text-[12px] font-black px-1.5 py-px rounded font-jakarta ${isBull ? 'bg-emerald-500/20 text-emerald-400' : isBear ? 'bg-rose-500/20 text-rose-400' : 'bg-slate-700/30 text-white'}`}>{conviction?.grade || '...'}</span>
                                     </div>
@@ -1182,7 +1185,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                 <div className="relative z-10 flex items-center justify-between mb-1">
                                     <div className="flex items-center gap-1">
                                         <Activity className="w-3.5 h-3.5 text-indigo-400" />
-                                        <span className="text-[13px] font-bold text-white uppercase tracking-wider font-jakarta">VWAP</span>
+                                        <span className="text-[13px] font-bold text-white uppercase tracking-wider font-jakarta"><CardTooltip tooltip={COMMAND_TOOLTIPS.VWAP.tooltip}>VWAP</CardTooltip></span>
                                     </div>
                                     <span className={`text-[12px] font-black px-1.5 py-px rounded font-jakarta ${vwapDiff > 0 ? 'bg-emerald-500/20 text-emerald-400' : vwapDiff < 0 ? 'bg-rose-500/20 text-rose-400' : 'bg-slate-700/30 text-white'}`}>
                                         {vwapDiff > 0 ? '+' : ''}{vwapDiff.toFixed(1)}%
@@ -1215,7 +1218,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                     <div className="relative z-10 flex items-center justify-between mb-1">
                                         <div className="flex items-center gap-1">
                                             <ShieldAlert className={`w-3.5 h-3.5 ${isCritical ? 'text-rose-400' : 'text-orange-400'}`} />
-                                            <span className="text-[13px] font-bold text-white uppercase tracking-wider font-jakarta">SHORT SQUEEZE</span>
+                                            <span className="text-[13px] font-bold text-white uppercase tracking-wider font-jakarta"><CardTooltip tooltip={COMMAND_TOOLTIPS.SHORT_SQUEEZE.tooltip}>SHORT SQUEEZE</CardTooltip></span>
                                         </div>
                                         <span className={`text-[12px] font-black px-1.5 py-px rounded font-jakarta ${isCritical ? 'bg-rose-500/20' : 'bg-slate-700/30'} ${statusColor}`}>
                                             {s?.status || '...'}
@@ -1256,7 +1259,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                     <div className="relative z-10 flex items-center justify-between mb-1">
                                         <div className="flex items-center gap-1">
                                             <Crosshair className={`w-3.5 h-3.5 ${isBullish ? 'text-emerald-400' : isBearish ? 'text-rose-400' : 'text-cyan-400'}`} />
-                                            <span className="text-[13px] font-bold text-white uppercase tracking-wider font-jakarta">ANALYST TARGET</span>
+                                            <span className="text-[13px] font-bold text-white uppercase tracking-wider font-jakarta"><CardTooltip tooltip={COMMAND_TOOLTIPS.ANALYST_TARGET.tooltip}>ANALYST TARGET</CardTooltip></span>
                                         </div>
                                         <span className={`text-[12px] font-jakarta font-black px-1.5 py-px rounded ${isBullish ? 'bg-emerald-500/20 text-emerald-400' : isBearish ? 'bg-rose-500/20 text-rose-400' : 'bg-slate-700/30 text-slate-300'}`}>{consensusKr}</span>
                                     </div>
@@ -1316,7 +1319,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                     <div className="relative z-10 flex items-center justify-between mb-1">
                                         <div className="flex items-center gap-1">
                                             <Radar className={`w-3.5 h-3.5 ${isAccumulation ? 'text-emerald-400' : 'text-indigo-400'}`} />
-                                            <span className="text-[13px] font-bold text-white uppercase tracking-wider font-jakarta">INST RADAR</span>
+                                            <span className="text-[13px] font-bold text-white uppercase tracking-wider font-jakarta"><CardTooltip tooltip={COMMAND_TOOLTIPS.INST_RADAR.tooltip}>INST RADAR</CardTooltip></span>
                                         </div>
                                         <span className={`text-[12px] font-black px-1.5 py-px rounded font-jakarta ${isAccumulation ? 'bg-emerald-500/20' : isDistribution ? 'bg-rose-500/20' : 'bg-slate-700/30'} ${sigColor}`}>
                                             {signal}
@@ -1350,7 +1353,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                     <div className="relative z-10 flex items-center justify-between mb-1">
                                         <div className="flex items-center gap-1">
                                             <TrendingUp className="w-3.5 h-3.5 text-cyan-400" />
-                                            <span className="text-[13px] font-bold text-white uppercase tracking-wider font-jakarta">TREND PHASE</span>
+                                            <span className="text-[13px] font-bold text-white uppercase tracking-wider font-jakarta"><CardTooltip tooltip={COMMAND_TOOLTIPS.TREND_PHASE.tooltip}>TREND PHASE</CardTooltip></span>
                                         </div>
                                         {smaData?.crossType === 'NEW' && (
                                             <span className="text-[12px] font-black px-1.5 py-px rounded bg-amber-500/30 text-amber-300 animate-pulse font-jakarta">NEW!</span>
@@ -1394,7 +1397,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                     <div className="relative z-10 flex items-center justify-between mb-1">
                                         <div className="flex items-center gap-1">
                                             <Shield className={`w-3.5 h-3.5 ${hasData ? 'text-emerald-400' : 'text-amber-400'}`} />
-                                            <span className="text-[13px] font-bold text-white uppercase tracking-wider font-jakarta">FUNDAMENTAL</span>
+                                            <span className="text-[13px] font-bold text-white uppercase tracking-wider font-jakarta"><CardTooltip tooltip={COMMAND_TOOLTIPS.FUNDAMENTAL.tooltip}>FUNDAMENTAL</CardTooltip></span>
                                         </div>
                                         <span className={`text-[12px] font-black px-1.5 py-px rounded font-jakarta bg-slate-700/30 ${hasData ? gradeColor : 'text-slate-400'}`}>
                                             {hasData ? f?.grade : td('fundGradeCollecting')}
@@ -1441,7 +1444,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                 <div className="relative z-10 flex items-center justify-between mb-1">
                                     <div className="flex items-center gap-1">
                                         <BarChart3 className="w-3.5 h-3.5 text-cyan-400" />
-                                        <span className="text-[13px] font-bold text-white uppercase tracking-wider font-jakarta">EARNINGS</span>
+                                        <span className="text-[13px] font-bold text-white uppercase tracking-wider font-jakarta"><CardTooltip tooltip={COMMAND_TOOLTIPS.EARNINGS.tooltip}>EARNINGS</CardTooltip></span>
                                     </div>
                                     <span className={`text-[12px] font-bold px-1.5 py-px rounded font-jakarta ${isImminent ? 'bg-amber-500/20 text-amber-400' : 'bg-slate-700/30 text-slate-300'}`}>
                                         {isValidDays ? `D-${daysNum}` : rawDays || 'TBD'}
@@ -1472,7 +1475,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                         <div className="relative z-10 flex items-center justify-between mb-1">
                             <div className="flex items-center gap-1">
                                 <Layers className="w-3.5 h-3.5 text-violet-400" />
-                                <span className="text-[13px] font-bold text-white uppercase tracking-wider font-jakarta">RELATED</span>
+                                <span className="text-[13px] font-bold text-white uppercase tracking-wider font-jakarta"><CardTooltip tooltip={COMMAND_TOOLTIPS.RELATED.tooltip}>RELATED</CardTooltip></span>
                             </div>
                             <span className="text-[12px] font-jakarta text-white">{td('relatedSector')}</span>
                         </div>
@@ -1519,7 +1522,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                             <div className="h-[580px] min-h-0 relative flex flex-col group shrink-0">
                                 {/* Decorative Label (Absolute) */}
                                 <div className="absolute -top-3 left-4 px-2 py-0.5 bg-indigo-950/80 border border-indigo-500/30 rounded text-[12px] font-black text-indigo-300 uppercase tracking-widest z-20 backdrop-blur-md shadow-lg flex items-center gap-2 font-jakarta">
-                                    <div className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse" /> Price History
+                                    <div className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse" /> <CardTooltip tooltip={COMMAND_TOOLTIPS.PRICE_HISTORY.tooltip}>Price History</CardTooltip>
                                 </div>
 
                                 {/* Market Pulse Bar — 1-line realtime summary */}
@@ -1618,6 +1621,11 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                 </div>
                             </div>
 
+                            {/* GEX 30-Day Timeline — between Price History and Tactical Range */}
+                            <div className="shrink-0">
+                                <GexTimeline ticker={ticker} days={30} />
+                            </div>
+
                             {/* B. Advanced Options Analysis (Fixed Height: 400px) — PRO */}
                             <ProGate title="Tactical Range & Gamma Engine" mode="blur" fomoMessage="Max Pain · Call Wall · Put Floor · Net GEX · Gamma Flip Level · Squeeze Risk">
                                 <div className="min-h-[400px] grid grid-cols-1 md:grid-cols-2 gap-3 shrink-0">
@@ -1652,7 +1660,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                             <div className="flex items-center gap-2">
                                                 <h4 className="text-xs font-black text-white uppercase tracking-widest flex items-center gap-2">
                                                     <div className="w-1.5 h-1.5 bg-indigo-500 rounded-sm animate-pulse" />
-                                                    Tactical Range
+                                                    <CardTooltip tooltip={COMMAND_TOOLTIPS.TACTICAL_RANGE.tooltip} badge={COMMAND_TOOLTIPS.TACTICAL_RANGE.badge}>Tactical Range</CardTooltip>
                                                 </h4>
                                                 {structure?.expiration && (() => {
                                                     const expDate = new Date(structure.expiration + 'T16:00:00-05:00');
@@ -1800,7 +1808,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                         <div className="p-3 border-b border-white/5 flex items-center justify-between bg-white/5">
                                             <h4 className="text-xs font-black text-white uppercase tracking-widest flex items-center gap-2 font-jakarta">
                                                 <Activity size={10} className={structure?.netGex > 0 ? "text-emerald-400" : "text-rose-400"} />
-                                                NET GAMMA ENGINE
+                                                <CardTooltip tooltip={COMMAND_TOOLTIPS.NET_GAMMA_ENGINE.tooltip} badge={COMMAND_TOOLTIPS.NET_GAMMA_ENGINE.badge}>NET GAMMA ENGINE</CardTooltip>
                                             </h4>
                                             {structure?.expiration && (
                                                 <span className="text-xs text-white font-mono font-jakarta">EXP: {structure.expiration}</span>
@@ -2229,7 +2237,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                     <div className="p-2 border-b border-white/5 flex items-center justify-between bg-white/5">
                                         <div className="flex items-center gap-2">
                                             <Activity size={10} className="text-sky-400" />
-                                            <span className="text-[12px] font-black text-sky-200 uppercase tracking-widest font-jakarta">Flow Unit</span>
+                                            <span className="text-[12px] font-black text-sky-200 uppercase tracking-widest font-jakarta"><CardTooltip tooltip={COMMAND_TOOLTIPS.FLOW_UNIT.tooltip} badge={COMMAND_TOOLTIPS.FLOW_UNIT.badge}>Flow Unit</CardTooltip></span>
                                         </div>
                                         <span className={`text-[12px] px-1.5 py-0.5 rounded border font-jakarta ${effectiveSession === 'REG' ? 'bg-emerald-900/50 text-emerald-400 border-emerald-500/20' :
                                             effectiveSession === 'PRE' ? 'bg-amber-900/50 text-amber-400 border-amber-500/20' :
@@ -2253,13 +2261,24 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                 </div>
                             </EliteGate>
 
+                            {/* 2.5 Gamma Pressure Gauge — Bloomberg-tier visual */}
+                            <GammaPressureGauge
+                                netGex={structure?.netGex || 0}
+                                callWall={structure?.levels?.callWall || 0}
+                                putFloor={structure?.levels?.putFloor || 0}
+                                gammaFlipLevel={structure?.gammaFlipLevel || 0}
+                                currentPrice={displayPrice}
+                                squeezeRisk={structure?.squeezeRisk || 'LOW'}
+                                squeezeScore={structure?.squeezeScore ?? 0}
+                            />
+
                             {/* 3. Intel Feed — Real-time AI Insight */}
                             <div className="flex-1 min-h-0 flex flex-col rounded-lg border border-white/10 bg-slate-900/60 backdrop-blur-md overflow-hidden shadow-lg relative group flex-grow">
 
                                 <div className="p-3 border-b border-white/5 flex items-center justify-between bg-white/5 relative z-10 shrink-0">
                                     <div className="flex items-center gap-2">
                                         <Sparkles size={12} className="text-cyan-400" />
-                                        <h3 className="text-[12px] font-black text-white uppercase tracking-widest font-jakarta">Intel Feed (AI)</h3>
+                                        <h3 className="text-[12px] font-black text-white uppercase tracking-widest font-jakarta"><CardTooltip tooltip={COMMAND_TOOLTIPS.INTEL_FEED.tooltip} badge={COMMAND_TOOLTIPS.INTEL_FEED.badge}>Intel Feed (AI)</CardTooltip></h3>
                                     </div>
                                     <div className="flex items-center gap-1.5">
                                         {newsLoading && <Loader2 size={10} className="text-cyan-400 animate-spin" />}
@@ -2282,7 +2301,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                 {krNews.length > 0 && (
                                     <div className="px-3 py-2.5 border-b border-white/5 bg-slate-950/40 shrink-0 relative z-10">
                                         <div className="flex items-center justify-between mb-1.5">
-                                            <span className="text-[12px] font-black text-slate-300 uppercase tracking-widest font-jakarta">SENTIMENT OVERVIEW</span>
+                                            <span className="text-[12px] font-black text-slate-300 uppercase tracking-widest font-jakarta"><CardTooltip tooltip={COMMAND_TOOLTIPS.SENTIMENT_OVERVIEW.tooltip}>SENTIMENT OVERVIEW</CardTooltip></span>
                                             <span className="text-[12px] text-slate-300 font-jakarta">{krNews.slice(0, 5).length} articles</span>
                                         </div>
                                         {(() => {

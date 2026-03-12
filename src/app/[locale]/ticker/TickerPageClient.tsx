@@ -5,7 +5,6 @@
 // No SSR blocking = instant page load (same as Flow page)
 
 import dynamic from "next/dynamic";
-import { GexTimeline } from "@/components/history/GexTimeline";
 
 // Dynamic import with loading skeleton
 const LiveTickerDashboard = dynamic(
@@ -59,12 +58,6 @@ export function TickerPageClient({ ticker, range, initialStockData, initialUnifi
                 range={range}
                 buildId="csr-ssr-hybrid"
             />
-
-            {/* [Phase 3] AWS DynamoDB-powered History Section */}
-            <div className="mt-6 space-y-4">
-                {/* GEX 30-Day Timeline — per-ticker institutional hedging history */}
-                <GexTimeline ticker={ticker} days={30} />
-            </div>
         </>
     );
 }
