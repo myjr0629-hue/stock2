@@ -326,3 +326,247 @@ export const COMMAND_TOOLTIPS = {
         badge: null,
     },
 } as const;
+
+/**
+ * Pre-defined tooltip content for FLOW page indicator cards.
+ * All text is observational/descriptive — compliance-safe.
+ */
+export const FLOW_TOOLTIPS = {
+    SMART_MONEY: {
+        tooltip: {
+            ko: '블록 거래($50K+, $100K+) 기반 기관 자금 흐름 스코어. 대형 프리미엄 방향 집중도를 수치화합니다.',
+            en: 'Block trade-based institutional flow score. Quantifies large premium directional concentration ($50K+ / $100K+ trades).',
+            ja: 'ブロック取引($50K+・$100K+)基盤の機関マネーフロースコア。大口プレミアム方向集中度を数値化。',
+        },
+        badge: {
+            ko: '기관 전용 플로우 분석',
+            en: 'Institutional-only flow analysis',
+            ja: '機関投資家専用フロー分析',
+        },
+    },
+    MAX_PAIN: {
+        tooltip: {
+            ko: '옵션 만기 시 옵션 보유자 손실이 극대화되는 가격. 만기일 가격 수렴(pinning) 경향을 파악하는 핵심 지표입니다.',
+            en: 'Price where option holder losses are maximized at expiry. Key indicator for expiry-day price convergence (pinning) tendencies.',
+            ja: '満期時にオプション保有者の損失が最大化する価格。満期日の価格収束(ピニング)傾向を把握する指標。',
+        },
+        badge: {
+            ko: '만기일 가격 수렴 분석',
+            en: 'Expiry convergence analysis',
+            ja: '満期日価格収束分析',
+        },
+    },
+    IV_SKEW: {
+        tooltip: {
+            ko: 'Put IV - Call IV 차이. 양(+)이면 풋 수요 과다(하방 헤지 증가), 음(-)이면 콜 수요 과다(상승 기대)를 나타냅니다.',
+            en: 'Put IV minus Call IV spread. Positive means excess put demand (downside hedging), negative means excess call demand (upside expectation).',
+            ja: 'Put IV − Call IV差。正値はプット需要過多(下方ヘッジ増加)、負値はコール需要過多(上昇期待)を示す。',
+        },
+        badge: {
+            ko: 'IV 구조 불균형 감지',
+            en: 'IV structure imbalance detection',
+            ja: 'IV構造不均衡検出',
+        },
+    },
+    DEX: {
+        tooltip: {
+            ko: '델타 익스포저 — 옵션 체인 전체의 순 델타 합계. 양(+)이면 콜 델타 우위(딜러 숏 주식 필요), 음(-)이면 풋 델타 우위입니다.',
+            en: 'Net delta across the full options chain. Positive means call delta dominance (dealers need to short stock), negative means put delta dominance.',
+            ja: 'フルオプションチェーンのネットデルタ合計。正値はコールデルタ優位(ディーラーの株売り需要)、負値はプットデルタ優位。',
+        },
+        badge: {
+            ko: '딜러 헤징 방향 분석',
+            en: 'Dealer hedging direction analysis',
+            ja: 'ディーラーヘッジ方向分析',
+        },
+    },
+    UOA: {
+        tooltip: {
+            ko: '이례적 옵션 활동 — 당일 거래량/미결제약정 비율. 평균 대비 급증 시 포지션 구축 또는 정보 거래 가능성을 나타냅니다.',
+            en: 'Unusual Options Activity — today\'s volume vs open interest ratio. Spikes above average signal potential position building or informed trading.',
+            ja: '異常オプション活動 — 当日出来高/建玉比率。平均比急増時にポジション構築または情報取引の可能性。',
+        },
+        badge: {
+            ko: '비정상 거래 탐지',
+            en: 'Anomaly detection engine',
+            ja: '異常取引検出エンジン',
+        },
+    },
+    DARK_POOL_PCT: {
+        tooltip: {
+            ko: '다크풀(장외) 거래 비중 — 전체 거래량 대비 FINRA TRF/ADF 거래소 볼륨 비율. Quote Rule로 매수/매도 분류합니다.',
+            en: 'Dark pool (off-exchange) volume as % of total. Ratio of FINRA TRF/ADF venue volume. Buy/sell classified via Quote Rule.',
+            ja: 'ダークプール(取引所外)比率 — 全取引量対FINRA TRF/ADF出来高比率。Quote Ruleで売買分類。',
+        },
+        badge: {
+            ko: '기관 거래소 외 분석',
+            en: 'Off-exchange institutional analysis',
+            ja: '取引所外機関分析',
+        },
+    },
+    IMPLIED_MOVE: {
+        tooltip: {
+            ko: 'ATM 스트래들 가격 기반 예상 변동폭. 만기까지 시장이 가격 결정한 등락 범위를 %로 표시합니다.',
+            en: 'ATM straddle-based expected move. Shows the market-priced percentage range of movement through expiry.',
+            ja: 'ATMストラドル価格基盤の予想変動幅。満期までの市場織り込み済み変動範囲を%表示。',
+        },
+        badge: {
+            ko: '시장 내재 변동성',
+            en: 'Market-implied volatility',
+            ja: '市場インプライド・ボラティリティ',
+        },
+    },
+    PUT_FLOOR: {
+        tooltip: {
+            ko: '풋 감마 집중 가격 — 딜러가 주식 매수 헤지를 시작하는 구간으로 지지선 역할을 합니다.',
+            en: 'Put gamma concentration — price level where dealers begin buying stock to hedge, acting as support.',
+            ja: 'プットガンマ集中価格 — ディーラーが株買いヘッジを開始する区間でサポート機能。',
+        },
+        badge: null,
+    },
+    CALL_WALL: {
+        tooltip: {
+            ko: '콜 감마 집중 가격 — 딜러가 주식 매도 헤지를 시작하는 구간으로 저항선 역할을 합니다.',
+            en: 'Call gamma concentration — price level where dealers begin selling stock to hedge, acting as resistance.',
+            ja: 'コールガンマ集中価格 — ディーラーが株売りヘッジを開始する区間でレジスタンス機能。',
+        },
+        badge: null,
+    },
+    SQUEEZE: {
+        tooltip: {
+            ko: '숏 스퀴즈 지표 — 공매도 비율, 대차 이용률, DTC(Days to Cover) 종합 확률. 높을수록 급등 압력 증가.',
+            en: 'Short squeeze indicator — combines short interest, utilization rate & DTC. Higher values indicate increased squeeze pressure.',
+            ja: 'ショートスクイーズ指標 — 空売り比率・貸株利用率・DTC総合確率。高値ほど急騰圧力増大。',
+        },
+        badge: {
+            ko: '스퀴즈 리스크 분석',
+            en: 'Squeeze risk analysis',
+            ja: 'スクイーズリスク分析',
+        },
+    },
+    WHALE_POSITION: {
+        tooltip: {
+            ko: '대형 기관 포지션 분석 — 프리미엄 $150K+ 거래 기반 방향성. 콜 도미넌트 또는 풋 도미넌트를 감지합니다.',
+            en: 'Large institutional position — directional bias from $150K+ premium trades. Detects call or put dominance.',
+            ja: '大口機関ポジション分析 — $150K+プレミアム取引基盤の方向性。コール/プットドミナンスを検出。',
+        },
+        badge: {
+            ko: '기관 포지셔닝 감지',
+            en: 'Institutional positioning',
+            ja: '機関ポジショニング検出',
+        },
+    },
+    GEX_REGIME: {
+        tooltip: {
+            ko: '감마 익스포저 레짐 — 양(+)이면 변동성 억제(딜러 역추세 헤지), 음(-)이면 변동성 증폭(딜러 순추세 헤지) 환경.',
+            en: 'Gamma exposure regime — positive means volatility suppression (dealer counter-trend hedging), negative means amplification (pro-trend hedging).',
+            ja: 'ガンマエクスポージャーレジーム — 正値は変動性抑制、負値は変動性増幅環境。',
+        },
+        badge: {
+            ko: '딜러 포지셔닝 레짐',
+            en: 'Dealer positioning regime',
+            ja: 'ディーラーポジショニングレジーム',
+        },
+    },
+    SHORT_VOL: {
+        tooltip: {
+            ko: '공매도 거래량 비율 — 전체 거래량 대비 공매도 볼륨. 높을수록 하방 포지션 구축 또는 마켓메이킹 활동 증가.',
+            en: 'Short volume as % of total — higher values indicate increased short positioning or market-making activity.',
+            ja: '空売り出来高比率 — 全取引量対空売りボリューム。高値ほどショートポジション構築増加。',
+        },
+        badge: null,
+    },
+    PC_RATIO: {
+        tooltip: {
+            ko: '풋/콜 거래량 비율 — 1.0 이상이면 풋 우위(하방 헤지/약세), 이하면 콜 우위(상승 기대).',
+            en: 'Put/Call volume ratio — above 1.0 means put dominance (downside hedging), below means call dominance (upside expectation).',
+            ja: 'プット/コール出来高比率 — 1.0以上はプット優位(下方ヘッジ)、以下はコール優位(上昇期待)。',
+        },
+        badge: null,
+    },
+    COMPOSITE_INDEX: {
+        tooltip: {
+            ko: '복합 지표 지수 — 9개 핵심 지표(플로우, 감마, IV, 공매도 등)의 방향 일치도를 종합 점수화.',
+            en: 'Multi-indicator composite — direction alignment score across 9 core indicators (flow, gamma, IV, short interest, etc.).',
+            ja: '複合指標指数 — 9つの主要指標(フロー・ガンマ・IV・空売り等)の方向一致度を総合スコア化。',
+        },
+        badge: {
+            ko: '멀티시그널 융합 엔진',
+            en: 'Multi-signal fusion engine',
+            ja: 'マルチシグナル融合エンジン',
+        },
+    },
+    OPI: {
+        tooltip: {
+            ko: '옵션 프라이스 게이지 — 콜/풋 포지셔닝 기반 가격 압력 방향. +는 콜 가격 우위, -는 풋 가격 우위.',
+            en: 'Options Price Gauge — price pressure direction from call/put positioning. Positive = call-price dominance, negative = put-price dominance.',
+            ja: 'オプション価格ゲージ — コール/プットポジショニング基盤の価格圧力。正値=コール優位、負値=プット優位。',
+        },
+        badge: null,
+    },
+    ATM_IV: {
+        tooltip: {
+            ko: 'ATM 내재변동성 — 등가격 옵션에서 추출한 시장 내재 변동성. 시장의 향후 변동 기대치를 반영합니다.',
+            en: 'ATM implied volatility — market-implied volatility extracted from at-the-money options. Reflects market\'s forward volatility expectation.',
+            ja: 'ATMインプライドボラティリティ — 等価格オプションから抽出した市場内在変動性。',
+        },
+        badge: null,
+    },
+    PRICE_POSITION: {
+        tooltip: {
+            ko: '현재가 위치 분석 — 오늘의 고/저가 범위 내 현재가 위치. 극단 위치 시 반전 또는 추세 지속 가능성.',
+            en: 'Current price position within today\'s high/low range. Extreme positions may indicate reversal or trend continuation potential.',
+            ja: '現在価格位置分析 — 本日の高値/安値範囲内の現在価格位置。',
+        },
+        badge: null,
+    },
+    AI_VERDICT: {
+        tooltip: {
+            ko: 'AI 종합 판정 — 플로우, 감마, IV, 공매도 등 10개 지표를 가중 합산한 복합 방향성 스코어. 실시간 옵션 데이터 기반.',
+            en: 'AI composite verdict — weighted aggregate of 10 indicators (flow, gamma, IV, short interest, etc.). Based on real-time options data.',
+            ja: 'AI総合判定 — フロー・ガンマ・IV・空売り等10指標の加重合算スコア。リアルタイムオプションデータ基盤。',
+        },
+        badge: {
+            ko: '멀티팩터 AI 분석',
+            en: 'Multi-factor AI analysis',
+            ja: 'マルチファクターAI分析',
+        },
+    },
+    INSTITUTIONAL_FLOW: {
+        tooltip: {
+            ko: '기관 대형 주문 추적 — $150K+ 프리미엄 옵션 거래를 실시간 감지. 블록/스윕 분류와 BEP(손익분기점) 계산 포함.',
+            en: 'Institutional order tracking — detects $150K+ premium options in real-time. Includes block/sweep classification and BEP calculation.',
+            ja: '機関大口注文追跡 — $150K+プレミアムオプション取引をリアルタイム検出。ブロック/スイープ分類とBEP計算。',
+        },
+        badge: {
+            ko: '고빈도 기관 데이터',
+            en: 'High-frequency institutional data',
+            ja: '高頻度機関データ',
+        },
+    },
+    DARK_POOL_SECTION: {
+        tooltip: {
+            ko: 'FINRA 다크풀 블록 거래 피드 — 10,000주 이상 장외 거래를 실시간 표시. Quote Rule로 매수/매도 분류.',
+            en: 'FINRA dark pool block trade feed — displays 10,000+ share off-exchange trades. Buy/sell classified via Quote Rule.',
+            ja: 'FINRAダークプール・ブロック取引フィード — 1万株以上の取引所外取引を表示。Quote Ruleで売買分類。',
+        },
+        badge: {
+            ko: 'FINRA 장외 거래 분석',
+            en: 'FINRA off-exchange analysis',
+            ja: 'FINRA取引所外分析',
+        },
+    },
+    INTRADAY_STRIKE: {
+        tooltip: {
+            ko: '장중 행사가별 콜/풋 거래량 분포 — 가격대별 매수-매도 세력 집중도를 시각화. 핵심 지지/저항 가격대 탐지.',
+            en: 'Intraday call/put volume by strike — visualizes buyer-seller concentration at each price level. Detects key support/resistance zones.',
+            ja: '日中行使価格別コール/プット出来高分布 — 価格帯別の売買集中度を可視化。主要S/R帯検出。',
+        },
+        badge: {
+            ko: '옵션 지형 시각화',
+            en: 'Options terrain visualization',
+            ja: 'オプション地形可視化',
+        },
+    },
+} as const;
+

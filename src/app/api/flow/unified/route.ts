@@ -53,6 +53,7 @@ async function buildUnifiedFlowData(ticker: string, baseUrl: string) {
         liveQuote,
         whaleTrades: null, // Client will fetch this heavy data independently (Progressive Loading)
         darkPoolTrades: darkPool?.items || [],
+        darkPoolStats: darkPool ? { totalDarkPoolVolume: darkPool.totalDarkPoolVolume, totalVolume: darkPool.totalVolume, darkPoolPercent: darkPool.darkPoolPercent, tradesScanned: darkPool.tradesScanned } : null,
         realtimeMetrics: realtimeMetrics || { darkPool: null, shortVolume: null, bidAsk: null, blockTrade: null },
         timestamp: Date.now()
     };

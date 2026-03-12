@@ -5,6 +5,7 @@ import React, { useMemo, useState, useRef, useEffect } from 'react';
 import { useWhaleTrades, useRealtimeMetrics, useDarkPoolTrades, useIvPercentile, useEnhancedMetrics } from '@/hooks/useFlowData';
 import { Radar, Target, Crosshair, Zap, Layers, Info, TrendingUp, TrendingDown, Activity, Lightbulb, Percent, Lock, Shield, Loader2, AlertTriangle, BarChart3, Banknote } from 'lucide-react';
 import { Card, CardContent } from "@/components/ui/card";
+import { CardTooltip, FLOW_TOOLTIPS } from '@/components/ui/CardTooltip';
 import { ProGate, EliteGate } from '@/components/gate/FeatureGate';
 import { Progress } from "./ui/progress";
 import { useTranslations } from 'next-intl';
@@ -125,6 +126,75 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
             })),
             totalVolume: totalVol
         };
+    }, [rawChain, currentPrice, userViewMode]);
+
+    // Strike × Expiry Heatmap data for VOLUME mode
+    const heatmapData = useMemo(() => {
+        if (!rawChain || rawChain.length === 0 || (userViewMode || 'VOLUME') !== 'VOLUME') {
+            return { matrix: new Map<number, Map<string, { callVol: number; putVol: number }>>(), expiries: [] as string[], strikes: [] as number[], maxVol: 0 };
+        }
+
+        const etNow = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' }));
+        const today = new Date(etNow.getFullYear(), etNow.getMonth(), etNow.getDate());
+        const maxDate = new Date(today);
+        maxDate.setDate(today.getDate() + 7);
+
+        // Build Strike × Expiry matrix
+        const matrix = new Map<number, Map<string, { callVol: number; putVol: number }>>();
+        const expirySet = new Set<string>();
+        let maxVol = 0;
+        const range = currentPrice * 0.10; // ±10% for tighter focus
+
+        rawChain.forEach(opt => {
+            const strike = opt.details?.strike_price;
+            const type = opt.details?.contract_type;
+            const vol = opt.day?.volume || 0;
+            const expiryStr = opt.details?.expiration_date;
+            if (!strike || !expiryStr || vol === 0) return;
+
+            // Filter: ±10% from current price
+            if (strike < currentPrice - range || strike > currentPrice + range) return;
+
+            // Filter: within 7 DTE
+            const parts = expiryStr.split('-');
+            if (parts.length !== 3) return;
+            const expiry = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+            if (expiry < today || expiry > maxDate) return;
+
+            expirySet.add(expiryStr);
+
+            if (!matrix.has(strike)) matrix.set(strike, new Map());
+            const strikeRow = matrix.get(strike)!;
+            if (!strikeRow.has(expiryStr)) strikeRow.set(expiryStr, { callVol: 0, putVol: 0 });
+
+            const cell = strikeRow.get(expiryStr)!;
+            if (type === 'call') cell.callVol += vol;
+            else if (type === 'put') cell.putVol += vol;
+
+            const totalCellVol = cell.callVol + cell.putVol;
+            if (totalCellVol > maxVol) maxVol = totalCellVol;
+        });
+
+        // Sort expiries chronologically, strikes descending
+        const expiries = Array.from(expirySet).sort();
+        const strikes = Array.from(matrix.keys())
+            .filter(s => {
+                const row = matrix.get(s)!;
+                let total = 0;
+                row.forEach(cell => total += cell.callVol + cell.putVol);
+                return total > 0;
+            })
+            .sort((a, b) => b - a);
+
+        // Limit to top ~25 strikes for readability
+        const topStrikes = strikes.length > 25
+            ? strikes.filter(s => {
+                const dist = Math.abs(s - currentPrice) / currentPrice;
+                return dist < 0.07; 
+            }).slice(0, 25)
+            : strikes;
+
+        return { matrix, expiries, strikes: topStrikes, maxVol };
     }, [rawChain, currentPrice, userViewMode]);
 
     // Intelligent Default Mode (placed before metrics for DTE-filtered chain)
@@ -1376,7 +1446,7 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                                 </div>
                                 <div className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-amber-400 rounded-full animate-ping" />
                             </div>
-                            <span className="text-xs font-black text-amber-400 tracking-widest">AI VERDICT</span>
+                            <CardTooltip tooltip={FLOW_TOOLTIPS.AI_VERDICT.tooltip} badge={FLOW_TOOLTIPS.AI_VERDICT.badge}><span className="text-xs font-black text-amber-400 tracking-widest">AI VERDICT</span></CardTooltip>
                             <span className="text-[13px] font-medium text-slate-400 animate-pulse">{ui('collectingData')}</span>
                         </div>
                     </div>
@@ -1391,7 +1461,7 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                                 <div className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-amber-400 rounded-full animate-pulse" />
                             </div>
                             <div className="flex items-center gap-2">
-                                <span className="text-xs font-black text-amber-400 tracking-widest">AI VERDICT</span>
+                                <CardTooltip tooltip={FLOW_TOOLTIPS.AI_VERDICT.tooltip} badge={FLOW_TOOLTIPS.AI_VERDICT.badge}><span className="text-xs font-black text-amber-400 tracking-widest">AI VERDICT</span></CardTooltip>
                                 {/* Dynamic Status Icon */}
                                 {analysis.status?.includes('SUPER') || analysis.status?.includes('BULL') || analysis.status?.includes('Buy') || analysis.status?.includes('BREAKOUT') || analysis.status?.includes('MOMENTUM') ? (
                                     <TrendingUp size={16} className="text-emerald-400" />
@@ -1528,7 +1598,7 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                                         {/* Infographic: pressure arrows */}
                                         <svg className="absolute right-0 bottom-0 w-20 h-14 opacity-[0.12] pointer-events-none" viewBox="0 0 80 56"><path d="M10 28 L25 14 M10 28 L25 42 M70 28 L55 14 M70 28 L55 42" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="text-emerald-400" /><line x1="25" y1="28" x2="55" y2="28" stroke="currentColor" strokeWidth="1.5" strokeDasharray="4 3" className="text-slate-400" /></svg>
 
-                                        <span className="text-[13px] text-white font-bold uppercase relative z-10 text-center">{ui('opiTitle')}</span>
+                                        <CardTooltip tooltip={FLOW_TOOLTIPS.OPI.tooltip}><span className="text-[13px] text-white font-bold uppercase relative z-10 text-center">{ui('opiTitle')}</span></CardTooltip>
                                         <span className="text-xs text-white font-medium relative z-10 mt-0.5">{ui('opiSubtitle')}</span>
 
                                         {/* Circular Gauge with Glow - LARGER */}
@@ -1567,7 +1637,7 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                                         {/* Infographic: volatility wave */}
                                         <svg className="absolute right-0 bottom-0 w-20 h-14 opacity-[0.12] pointer-events-none" viewBox="0 0 80 56"><path d="M4 28 Q14 8 24 28 Q34 48 44 28 Q54 8 64 28 Q74 48 80 28" fill="none" stroke="currentColor" strokeWidth="2" className="text-purple-400" strokeLinecap="round" /><line x1="4" y1="28" x2="80" y2="28" stroke="currentColor" strokeWidth="0.5" className="text-purple-300" strokeDasharray="3 3" /></svg>
 
-                                        <span className="text-[13px] text-white font-bold uppercase relative z-10">ATM IV</span>
+                                        <CardTooltip tooltip={FLOW_TOOLTIPS.ATM_IV.tooltip}><span className="text-[13px] text-white font-bold uppercase relative z-10">ATM IV</span></CardTooltip>
                                         <span className="text-xs text-white font-medium relative z-10 mt-0.5">{ui('atmIvSubtitle')}</span>
 
                                         <div className={`text-lg font-black relative z-10 mt-1 ${ivPercentile.value >= 60 ? 'text-rose-400' : ivPercentile.value <= 25 ? 'text-cyan-400' : 'text-white'}`} style={{ textShadow: ivPercentile.value >= 25 && ivPercentile.value < 60 ? 'none' : '0 0 10px currentColor' }}>
@@ -1596,7 +1666,7 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                                         {/* Infographic: convergence radar */}
                                         <svg className="absolute right-0 bottom-0 w-20 h-14 opacity-[0.12] pointer-events-none" viewBox="0 0 80 56"><circle cx="40" cy="28" r="20" fill="none" stroke="currentColor" strokeWidth="1" className="text-emerald-400" /><circle cx="40" cy="28" r="12" fill="none" stroke="currentColor" strokeWidth="1" className="text-emerald-300" /><circle cx="40" cy="28" r="4" fill="currentColor" className="text-emerald-400" /><line x1="40" y1="4" x2="40" y2="52" stroke="currentColor" strokeWidth="0.5" className="text-emerald-300" /><line x1="16" y1="28" x2="64" y2="28" stroke="currentColor" strokeWidth="0.5" className="text-emerald-300" /></svg>
 
-                                        <span className="text-[13px] text-white font-bold uppercase relative z-10">COMPOSITE INDEX</span>
+                                        <CardTooltip tooltip={FLOW_TOOLTIPS.COMPOSITE_INDEX.tooltip} badge={FLOW_TOOLTIPS.COMPOSITE_INDEX.badge}><span className="text-[13px] text-white font-bold uppercase relative z-10">COMPOSITE INDEX</span></CardTooltip>
                                         <span className="text-xs text-white font-medium relative z-10 mt-0.5">{ui('compositeSubtitle')}</span>
 
                                         <div className={`text-lg font-black relative z-10 mt-1 ${analysis.probability >= 65 ? 'text-emerald-400' : analysis.probability <= 35 ? 'text-rose-400' : 'text-white'}`} style={{ textShadow: analysis.probability > 35 && analysis.probability < 65 ? 'none' : '0 0 10px currentColor' }}>
@@ -1636,7 +1706,7 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
 
                                         <div className="flex items-center gap-1 mb-0.5 relative z-10">
                                             <Shield size={12} className="text-cyan-400" />
-                                            <span className="text-xs text-white font-bold uppercase tracking-wider">{ui('whalePosition')}</span>
+                                            <CardTooltip tooltip={FLOW_TOOLTIPS.WHALE_POSITION.tooltip} badge={FLOW_TOOLTIPS.WHALE_POSITION.badge}><span className="text-xs text-white font-bold uppercase tracking-wider">{ui('whalePosition')}</span></CardTooltip>
                                         </div>
 
                                         <div className={`text-lg font-black relative z-10 ${analysis.whaleBias?.includes('BULL') ? 'text-emerald-400'
@@ -1681,7 +1751,7 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                                         {/* Infographic: price range gauge */}
                                         <svg className="absolute right-1 bottom-1 w-20 h-14 opacity-[0.12] pointer-events-none" viewBox="0 0 80 56"><path d="M10 46 A 35 35 0 0 1 70 46" fill="none" stroke="currentColor" strokeWidth="2" className="text-indigo-400" strokeLinecap="round" /><line x1="40" y1="46" x2="40" y2="16" stroke="currentColor" strokeWidth="1.5" className="text-indigo-300" strokeLinecap="round" /><circle cx="40" cy="14" r="2.5" fill="currentColor" className="text-indigo-400" /></svg>
                                         <div className="relative z-10 flex flex-col items-center">
-                                            <span className="text-xs text-white font-bold uppercase tracking-wider mb-1">{ui('pricePosition')}</span>
+                                            <CardTooltip tooltip={FLOW_TOOLTIPS.PRICE_POSITION.tooltip}><span className="text-xs text-white font-bold uppercase tracking-wider mb-1">{ui('pricePosition')}</span></CardTooltip>
                                             {(() => {
                                                 const totalRange = callWall - putWall;
                                                 const currentPos = currentPrice - putWall;
@@ -1720,7 +1790,7 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                                         <div className="relative z-10 flex flex-col items-center">
                                             <div className="flex items-center gap-1.5 mb-1">
                                                 <Zap size={11} className="text-amber-400" />
-                                                <span className="text-xs text-white font-bold uppercase tracking-wide">SQUEEZE</span>
+                                                <CardTooltip tooltip={FLOW_TOOLTIPS.SQUEEZE.tooltip} badge={FLOW_TOOLTIPS.SQUEEZE.badge}><span className="text-xs text-white font-bold uppercase tracking-wide">SQUEEZE</span></CardTooltip>
                                                 {!squeezeProbability.isLoading && (
                                                     <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${squeezeProbability.label === 'EXTREME' ? 'bg-rose-500/80 text-white' : squeezeProbability.label === 'HIGH' ? 'bg-amber-500/80 text-white' : squeezeProbability.label === 'MODERATE' ? 'bg-yellow-500/80 text-black' : 'bg-emerald-500/80 text-white'}`}>
                                                         {squeezeProbability.label}
@@ -1785,7 +1855,7 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                                 <div className="relative z-10 flex flex-col items-center justify-center">
                                     <div className="flex items-center gap-1.5 mb-1">
                                         <div className={`w-2 h-2 rounded-full bg-purple-500 shadow-[0_0_8px_rgba(168,85,247,0.8)] ${realtimeMetrics.darkPool ? 'animate-pulse' : ''}`} />
-                                        <span className="text-xs text-white uppercase font-bold tracking-wide">Dark Pool %</span>
+                                        <CardTooltip tooltip={FLOW_TOOLTIPS.DARK_POOL_PCT.tooltip} badge={FLOW_TOOLTIPS.DARK_POOL_PCT.badge}><span className="text-xs text-white uppercase font-bold tracking-wide">Dark Pool %</span></CardTooltip>
                                         <span className="text-[10px] text-slate-400 font-medium">{ui('institutionalWeight')}</span>
                                         {/* Session Label: PRE / REG / POST */}
                                         {(() => {
@@ -1857,7 +1927,7 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                                 <div className="relative z-10 flex flex-col items-center justify-center">
                                     <div className="flex items-center gap-1.5 mb-1">
                                         <div className="w-2 h-2 rounded-full bg-rose-500 shadow-[0_0_8px_rgba(244,63,94,0.8)]" />
-                                        <span className="text-xs text-white uppercase font-bold tracking-wide">Short Vol %</span>
+                                        <CardTooltip tooltip={FLOW_TOOLTIPS.SHORT_VOL.tooltip}><span className="text-xs text-white uppercase font-bold tracking-wide">Short Vol %</span></CardTooltip>
                                     </div>
                                     <span className="text-xl font-black text-rose-400" style={{ textShadow: '0 0 20px rgba(244,63,94,0.7)' }}>
                                         {realtimeMetrics.shortVolume ? `${realtimeMetrics.shortVolume.percent}%` : '--'}
@@ -1898,7 +1968,7 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                             <div className="relative z-10 flex flex-col items-center justify-center">
                                 <div className="flex items-center gap-1.5 mb-1">
                                     <div className={`w-2 h-2 rounded-full shadow-[0_0_8px_rgba(34,211,238,0.8)] ${dotColor}`} />
-                                    <span className="text-xs text-white uppercase font-bold tracking-wide">P/C Ratio</span>
+                                    <CardTooltip tooltip={FLOW_TOOLTIPS.PC_RATIO.tooltip}><span className="text-xs text-white uppercase font-bold tracking-wide">P/C Ratio</span></CardTooltip>
                                     <span className={`text-[10px] font-medium ${isOI ? 'text-indigo-400' : 'text-white/60'}`}>{isOI ? 'OI' : 'VOLUME'}</span>
                                 </div>
                                 <span className={`text-xl font-black ${activePC.color}`} style={{ textShadow: `0 0 20px currentColor` }}>
@@ -1957,7 +2027,7 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                         <div className="relative z-10 flex flex-col items-center justify-center">
                             <div className="flex items-center gap-1.5 mb-1">
                                 <div className={`w-2 h-2 rounded-full shadow-[0_0_8px_rgba(245,158,11,0.8)] ${gexRegime.pinStrength >= 50 ? 'bg-amber-500 animate-pulse' : 'bg-amber-500'}`} />
-                                <span className="text-xs text-white uppercase font-bold tracking-wider">GEX REGIME</span>
+                                <CardTooltip tooltip={FLOW_TOOLTIPS.GEX_REGIME.tooltip} badge={FLOW_TOOLTIPS.GEX_REGIME.badge}><span className="text-xs text-white uppercase font-bold tracking-wider">GEX REGIME</span></CardTooltip>
                                 {gexRegime.dte === 0 && (
                                     <span className="text-[10px] px-1 py-0.5 rounded bg-rose-500/20 text-rose-400 border border-rose-500/30 font-bold animate-pulse">TODAY</span>
                                 )}
@@ -2035,7 +2105,7 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                                             >
                                                 <Shield size={13} className={flowViewMode === 'WHALE' ? 'text-cyan-400' : 'text-slate-400'} />
                                                 <div className="flex flex-col items-start">
-                                                    <span className="text-xs font-black uppercase tracking-wider leading-none">Institutional</span>
+                                                    <CardTooltip tooltip={FLOW_TOOLTIPS.INSTITUTIONAL_FLOW.tooltip} badge={FLOW_TOOLTIPS.INSTITUTIONAL_FLOW.badge}><span className="text-xs font-black uppercase tracking-wider leading-none">Institutional</span></CardTooltip>
                                                     <span className={`text-[12px] leading-none mt-0.5 ${flowViewMode === 'WHALE' ? 'text-cyan-300/70' : 'text-slate-400'}`}>{ui('whaleTracking')}</span>
                                                 </div>
                                                 {whaleTrades.length > 0 && (
@@ -2052,7 +2122,7 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                                             >
                                                 <Layers size={13} className={flowViewMode === 'DARKPOOL' ? 'text-teal-400' : 'text-slate-400'} />
                                                 <div className="flex flex-col items-start">
-                                                    <span className="text-xs font-black uppercase tracking-wider leading-none">Dark Pool</span>
+                                                    <CardTooltip tooltip={FLOW_TOOLTIPS.DARK_POOL_SECTION.tooltip} badge={FLOW_TOOLTIPS.DARK_POOL_SECTION.badge}><span className="text-xs font-black uppercase tracking-wider leading-none">Dark Pool</span></CardTooltip>
                                                     <span className={`text-[12px] leading-none mt-0.5 ${flowViewMode === 'DARKPOOL' ? 'text-teal-300/70' : 'text-slate-400'}`}>{ui('darkPoolLabel')}</span>
                                                 </div>
                                                 {darkPoolTrades.length > 0 && (
@@ -2210,12 +2280,15 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                                                 darkPoolTrades.map((dp: any, i: number) => {
                                                     const isBlock = dp.size >= 10000;
                                                     const isMajor = dp.premium >= 1000000;
-                                                    const nodeBorder = isMajor
-                                                        ? 'border-amber-400 shadow-[0_0_15px_rgba(251,191,36,0.3)]'
-                                                        : isBlock
-                                                            ? 'border-teal-400/60 shadow-[0_0_10px_rgba(45,212,191,0.2)]'
-                                                            : 'border-slate-500/30 shadow-[0_0_5px_rgba(100,116,139,0.1)]';
-                                                    const nodeBg = isMajor ? 'bg-amber-950/40' : 'bg-slate-800/40';
+                                                    const side = dp.side || 'NEUTRAL';
+                                                    const nodeBorder = side === 'BUY'
+                                                        ? 'border-emerald-400/70 shadow-[0_0_12px_rgba(52,211,153,0.25)]'
+                                                        : side === 'SELL'
+                                                            ? 'border-rose-400/70 shadow-[0_0_12px_rgba(251,113,133,0.25)]'
+                                                            : isMajor
+                                                                ? 'border-amber-400 shadow-[0_0_15px_rgba(251,191,36,0.3)]'
+                                                                : 'border-slate-500/30 shadow-[0_0_5px_rgba(100,116,139,0.1)]';
+                                                    const nodeBg = side === 'BUY' ? 'bg-emerald-950/30' : side === 'SELL' ? 'bg-rose-950/30' : isMajor ? 'bg-amber-950/40' : 'bg-slate-800/40';
 
                                                     return (
                                                         <div
@@ -2239,14 +2312,21 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                                                                         {isBlock && <span className="inline-block w-2 h-2 rounded-full bg-teal-400 shadow-[0_0_8px_rgba(45,212,191,0.6)] animate-pulse" />}
                                                                         {ticker}
                                                                     </span>
-                                                                    <span className="text-xs text-slate-400 font-mono mt-0.5">{dp.exchangeName}</span>
+                                                                    <span className="text-[12px] text-slate-300 font-mono mt-0.5">{dp.exchangeName}</span>
                                                                 </div>
                                                                 <div className="text-right flex flex-col items-end">
                                                                     <div className="text-[13px] font-bold px-2 py-0.5 rounded mb-1 text-teal-300 bg-teal-500/15">
                                                                         DARK POOL
                                                                     </div>
-                                                                    <div className={`text-[11px] font-bold tracking-wider ${isBlock ? 'text-amber-400' : 'text-slate-400'}`}>
-                                                                        {isBlock ? 'BLOCK' : 'STANDARD'}
+                                                                    <div className="text-[12px] font-bold tracking-wider flex items-center gap-1">
+                                                                        <span className={isBlock ? 'text-amber-400' : 'text-slate-300'}>
+                                                                            {isBlock ? 'BLOCK' : 'STANDARD'}
+                                                                        </span>
+                                                                        {side !== 'NEUTRAL' && (
+                                                                            <span className={side === 'BUY' ? 'text-emerald-400' : 'text-rose-400'}>
+                                                                                · {side}
+                                                                            </span>
+                                                                        )}
                                                                     </div>
                                                                 </div>
                                                             </div>
@@ -2254,7 +2334,7 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                                                             {/* Row 2: Size & Price */}
                                                             <div className="flex justify-between items-end border-b border-white/10 pb-2">
                                                                 <div className="flex flex-col">
-                                                                    <span className="text-xs text-slate-400">Size</span>
+                                                                    <span className="text-[12px] text-slate-300">Size</span>
                                                                     <span className="text-sm font-bold text-white">
                                                                         {dp.size >= 1000 ? `${(dp.size / 1000).toFixed(1)}K` : dp.size} shares
                                                                     </span>
@@ -2269,7 +2349,7 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                                                                 <div className={`text-sm font-black tracking-tight ${isMajor ? 'text-amber-300 drop-shadow-[0_0_5px_rgba(251,191,36,0.6)]' : 'text-teal-300'}`}>
                                                                     ${dp.premium >= 1000000 ? `${(dp.premium / 1000000).toFixed(1)}M` : `${(dp.premium / 1000).toFixed(0)}K`}
                                                                 </div>
-                                                                <div className="text-[13px] font-mono text-slate-400">
+                                                                <div className="text-[13px] font-mono text-slate-300">
                                                                     {dp.timeET}
                                                                 </div>
                                                             </div>
@@ -2289,15 +2369,267 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                                     <div className="w-full border-t border-white/10"></div>
                                 </div>
                                 <div className="relative flex justify-center">
-                                    <span className="bg-slate-900 px-4 text-[11px] font-black text-slate-400 tracking-widest">
-                                        OPTIONS FLOW LANDSCAPE
+                                    <span className="bg-slate-900 px-4 text-[12px] font-black text-slate-400 tracking-widest">
+                                        <CardTooltip tooltip={FLOW_TOOLTIPS.INTRADAY_STRIKE.tooltip} badge={FLOW_TOOLTIPS.INTRADAY_STRIKE.badge}>{effectiveViewMode === 'VOLUME' ? 'INTRADAY STRIKE PROFILE' : 'OPTIONS FLOW LANDSCAPE'}</CardTooltip>
                                     </span>
                                 </div>
                             </div>
 
+                            {effectiveViewMode === 'VOLUME' && heatmapData.strikes.length > 0 ? (
+                                /* ═══ VOLUME MODE: Gravity Force Field ═══ */
+                                <div className="flex-1 min-h-0 overflow-hidden rounded-lg border border-slate-700/30 relative mb-6"
+                                    style={{ background: 'linear-gradient(180deg, #020617 0%, #0a0f1a 30%, #0f172a 100%)' }}>
+
+                                    {/* Animated CSS for pulse */}
+                                    <style jsx>{`
+                                        @keyframes energyPulse {
+                                            0%, 100% { opacity: 0.3; transform: scale(1); }
+                                            50% { opacity: 0.8; transform: scale(1.15); }
+                                        }
+                                    `}</style>
+
+                                    {/* SVG Force Field */}
+                                    {(() => {
+                                        const strikes = heatmapData.strikes;
+                                        const expiries = heatmapData.expiries;
+                                        const maxVol = heatmapData.maxVol;
+                                        const W = 600;
+                                        const ROW_H = 30;
+                                        const PADDING_TOP = 8;
+                                        const PADDING_BOTTOM = 12;
+                                        const H = strikes.length * ROW_H + PADDING_TOP + PADDING_BOTTOM;
+                                        const CENTER = W / 2;
+                                        const BAR_ZONE = CENTER - 55;
+
+                                        const yOf = (i: number) => PADDING_TOP + i * ROW_H + ROW_H / 2;
+
+                                        const strikeAggs = strikes.map(strike => {
+                                            const row = heatmapData.matrix.get(strike);
+                                            let c = 0, p = 0;
+                                            if (row) row.forEach(cell => { c += cell.callVol; p += cell.putVol; });
+                                            return { strike, callVol: c, putVol: p, total: c + p };
+                                        });
+                                        const localMax = Math.max(...strikeAggs.map(s => Math.max(s.callVol, s.putVol)), 1);
+                                        const totalCall = strikeAggs.reduce((s, a) => s + a.callVol, 0);
+                                        const totalPut = strikeAggs.reduce((s, a) => s + a.putVol, 0);
+                                        const totalAll = totalCall + totalPut || 1;
+
+                                        let priceY = PADDING_TOP + strikes.length * ROW_H / 2;
+                                        for (let i = 0; i < strikes.length - 1; i++) {
+                                            if (strikes[i] >= currentPrice && strikes[i + 1] < currentPrice) {
+                                                const frac = (strikes[i] - currentPrice) / (strikes[i] - strikes[i + 1]);
+                                                priceY = yOf(i) + frac * ROW_H;
+                                                break;
+                                            }
+                                        }
+
+                                        return (
+                                            <>
+                                            {/* ── FIXED PUT/CALL FLOW BAR (above scroll) ── */}
+                                            <div style={{ padding: '6px 12px 4px', background: 'rgba(15,23,42,0.5)' }}>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                                                    <span style={{ color: '#fb7185', fontSize: '12px', fontWeight: 900, fontFamily: 'monospace', letterSpacing: '2px', opacity: 0.7 }}>PUT</span>
+                                                    <span style={{ color: '#34d399', fontSize: '12px', fontWeight: 900, fontFamily: 'monospace', letterSpacing: '2px', opacity: 0.7 }}>CALL</span>
+                                                </div>
+                                                <div style={{ position: 'relative', height: '10px', borderRadius: '5px', background: '#1e293b', border: '0.5px solid #334155', overflow: 'visible' }}>
+                                                    <div style={{ position: 'absolute', left: 0, top: 0, width: `${(totalPut / totalAll) * 100}%`, height: '100%', borderRadius: '5px 0 0 5px', background: 'linear-gradient(90deg, #f43f5e 0%, #e11d48 100%)', opacity: 0.8 }} />
+                                                    <div style={{ position: 'absolute', right: 0, top: 0, width: `${(totalCall / totalAll) * 100}%`, height: '100%', borderRadius: '0 5px 5px 0', background: 'linear-gradient(90deg, #10b981 0%, #34d399 100%)', opacity: 0.8 }} />
+                                                    <div style={{ position: 'absolute', left: `${(totalPut / totalAll) * 100}%`, top: '50%', transform: 'translate(-50%, -50%)', width: '12px', height: '12px', borderRadius: '50%', background: '#0f172a', border: '1.5px solid #94a3b8', zIndex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                                        <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: totalCall > totalPut ? '#34d399' : '#fb7185' }} />
+                                                    </div>
+                                                </div>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '4px' }}>
+                                                    <span style={{ color: '#fb7185', fontSize: '11px', fontWeight: 800, fontFamily: 'monospace' }}>{totalPut.toLocaleString()}</span>
+                                                    <span style={{ color: '#94a3b8', fontSize: '11px', fontWeight: 700, fontFamily: 'monospace' }}>{((totalCall / totalAll) * 100).toFixed(0)}% CALL</span>
+                                                    <span style={{ color: '#34d399', fontSize: '11px', fontWeight: 800, fontFamily: 'monospace' }}>{totalCall.toLocaleString()}</span>
+                                                </div>
+                                            </div>
+                                            {/* ── SCROLLABLE SVG AREA ── */}
+                                            <div style={{ maxHeight: '580px', overflowY: 'auto', overflowX: 'hidden', scrollbarWidth: 'thin', scrollbarColor: '#334155 transparent' } as React.CSSProperties}
+                                                ref={(el) => {
+                                                    if (el && !el.dataset.scrolled) {
+                                                        const containerH = el.clientHeight;
+                                                        const svgH = el.scrollHeight;
+                                                        if (svgH > containerH + 10) {
+                                                            const priceFrac = priceY / H;
+                                                            const scrollTarget = priceFrac * svgH - containerH / 2;
+                                                            el.scrollTop = Math.max(0, scrollTarget);
+                                                        }
+                                                        el.dataset.scrolled = '1';
+                                                    }
+                                                }}>
+                                            <svg viewBox={`0 0 ${W} ${H}`} width="100%" height={Math.round(H * 1.4)} preserveAspectRatio="xMidYMin meet">
+                                                <defs>
+                                                    <linearGradient id="ff-call" x1="0" y1="0" x2="1" y2="0">
+                                                        <stop offset="0%" stopColor="#10b981" stopOpacity="0.05" />
+                                                        <stop offset="40%" stopColor="#10b981" stopOpacity="0.4" />
+                                                        <stop offset="100%" stopColor="#34d399" stopOpacity="0.9" />
+                                                    </linearGradient>
+                                                    <linearGradient id="ff-put" x1="1" y1="0" x2="0" y2="0">
+                                                        <stop offset="0%" stopColor="#f43f5e" stopOpacity="0.05" />
+                                                        <stop offset="40%" stopColor="#f43f5e" stopOpacity="0.4" />
+                                                        <stop offset="100%" stopColor="#fb7185" stopOpacity="0.9" />
+                                                    </linearGradient>
+                                                    <filter id="ff-bloom" x="-30%" y="-30%" width="160%" height="160%">
+                                                        <feGaussianBlur in="SourceGraphic" stdDeviation="6" result="b" />
+                                                        <feMerge><feMergeNode in="b" /><feMergeNode in="SourceGraphic" /></feMerge>
+                                                    </filter>
+                                                    <filter id="ff-glow-c" x="-40%" y="-50%" width="180%" height="200%">
+                                                        <feGaussianBlur in="SourceAlpha" stdDeviation="8" result="b" />
+                                                        <feFlood floodColor="#10b981" floodOpacity="0.5" result="c" />
+                                                        <feComposite in="c" in2="b" operator="in" result="g" />
+                                                        <feMerge><feMergeNode in="g" /><feMergeNode in="SourceGraphic" /></feMerge>
+                                                    </filter>
+                                                    <filter id="ff-glow-p" x="-40%" y="-50%" width="180%" height="200%">
+                                                        <feGaussianBlur in="SourceAlpha" stdDeviation="8" result="b" />
+                                                        <feFlood floodColor="#f43f5e" floodOpacity="0.5" result="c" />
+                                                        <feComposite in="c" in2="b" operator="in" result="g" />
+                                                        <feMerge><feMergeNode in="g" /><feMergeNode in="SourceGraphic" /></feMerge>
+                                                    </filter>
+                                                </defs>
+
+                                                {/* Center spine */}
+                                                <line x1={CENTER} x2={CENTER} y1={PADDING_TOP - 4} y2={H - PADDING_BOTTOM + 4}
+                                                    stroke="#334155" strokeWidth="1" opacity="0.4" />
+
+                                                {/* Per-strike energy bars */}
+                                                {strikeAggs.map((agg, i) => {
+                                                    const y = yOf(i);
+                                                    const isATM = Math.abs(agg.strike - currentPrice) / currentPrice < 0.005;
+                                                    const cPct = agg.callVol / localMax;
+                                                    const pPct = agg.putVol / localMax;
+                                                    const cW = cPct * BAR_ZONE;
+                                                    const pW = pPct * BAR_ZONE;
+                                                    const barH = 16;
+                                                    const isHot = cPct > 0.5 || pPct > 0.5;
+                                                    const isCallWallStrike = agg.strike === callWall;
+                                                    const isPutWallStrike = agg.strike === putWall;
+
+                                                    return (
+                                                        <g key={`row-${i}`}>
+                                                            <line x1={30} x2={W - 30} y1={y} y2={y} stroke="#1e293b" strokeWidth="0.3" />
+
+                                                            {/* CALL BAR (right) */}
+                                                            {cW > 2 && (
+                                                                <g>
+                                                                    {cPct > 0.3 && (
+                                                                        <rect x={CENTER + 2} y={y - barH / 2 - 3} width={cW + 6} height={barH + 6}
+                                                                            rx={barH / 2 + 3} fill="#10b981" opacity={cPct * 0.25}
+                                                                            filter="url(#ff-bloom)" />
+                                                                    )}
+                                                                    <rect x={CENTER + 2} y={y - barH / 2} width={cW} height={barH}
+                                                                        rx={barH / 2} fill="url(#ff-call)"
+                                                                        stroke="rgba(16,185,129,0.5)" strokeWidth="0.5" />
+                                                                    <rect x={CENTER + 2} y={y - barH / 2 + 1} width={cW * 0.7} height={barH * 0.35}
+                                                                        rx={barH / 4} fill="rgba(255,255,255,0.08)" />
+                                                                    {cW > 30 && (
+                                                                        <text x={CENTER + cW - 4} y={y + 4} textAnchor="end"
+                                                                            fill="white" fontSize="12" fontWeight="800" fontFamily="monospace"
+                                                                            style={{ textShadow: '0 1px 4px rgba(0,0,0,0.9)' }}>
+                                                                            {agg.callVol.toLocaleString()}
+                                                                        </text>
+                                                                    )}
+                                                                    {isHot && cPct > 0.4 && (
+                                                                        <circle cx={CENTER + cW} cy={y} r={6}
+                                                                            fill="none" stroke="#34d399" strokeWidth="1.5"
+                                                                            style={{ animation: 'energyPulse 2s ease-in-out infinite' }} />
+                                                                    )}
+                                                                </g>
+                                                            )}
+
+                                                            {/* PUT BAR (left) */}
+                                                            {pW > 2 && (
+                                                                <g>
+                                                                    {pPct > 0.3 && (
+                                                                        <rect x={CENTER - pW - 8} y={y - barH / 2 - 3} width={pW + 6} height={barH + 6}
+                                                                            rx={barH / 2 + 3} fill="#f43f5e" opacity={pPct * 0.25}
+                                                                            filter="url(#ff-bloom)" />
+                                                                    )}
+                                                                    <rect x={CENTER - pW - 2} y={y - barH / 2} width={pW} height={barH}
+                                                                        rx={barH / 2} fill="url(#ff-put)"
+                                                                        stroke="rgba(244,63,94,0.5)" strokeWidth="0.5" />
+                                                                    <rect x={CENTER - pW - 2 + pW * 0.3} y={y - barH / 2 + 1} width={pW * 0.7} height={barH * 0.35}
+                                                                        rx={barH / 4} fill="rgba(255,255,255,0.08)" />
+                                                                    {pW > 30 && (
+                                                                        <text x={CENTER - pW + 4} y={y + 4} textAnchor="start"
+                                                                            fill="white" fontSize="12" fontWeight="800" fontFamily="monospace"
+                                                                            style={{ textShadow: '0 1px 4px rgba(0,0,0,0.9)' }}>
+                                                                            {agg.putVol.toLocaleString()}
+                                                                        </text>
+                                                                    )}
+                                                                    {isHot && pPct > 0.4 && (
+                                                                        <circle cx={CENTER - pW - 2} cy={y} r={6}
+                                                                            fill="none" stroke="#fb7185" strokeWidth="1.5"
+                                                                            style={{ animation: 'energyPulse 2s ease-in-out infinite' }} />
+                                                                    )}
+                                                                </g>
+                                                            )}
+
+                                                            {/* NET FLOW DOT */}
+                                                            {agg.total > 0 && (
+                                                                <circle cx={CENTER + (agg.callVol > agg.putVol ? 14 : -14)} cy={y} r={3}
+                                                                    fill={agg.callVol > agg.putVol ? '#34d399' : '#fb7185'}
+                                                                    opacity={0.7} />
+                                                            )}
+
+                                                            {/* STRIKE LABEL */}
+                                                            <text x={CENTER} y={y + 4} textAnchor="middle"
+                                                                fill={isATM ? '#fff' : isCallWallStrike || isPutWallStrike ? '#fbbf24' : '#94a3b8'}
+                                                                fontSize={isATM ? '13' : '12'} fontWeight={isATM ? '900' : '600'} fontFamily="monospace"
+                                                                style={isATM ? { filter: 'drop-shadow(0 0 8px rgba(99,102,241,0.9))' } : {}}>
+                                                                {agg.strike}
+                                                            </text>
+
+                                                            {/* KEY LEVEL BADGES */}
+                                                            {isCallWallStrike && (
+                                                                <g>
+                                                                    <rect x={CENTER + Math.max(cW, 20) + 6} y={y - 9} width={68} height={18} rx={9}
+                                                                        fill="#0c1525" stroke="#10b981" strokeWidth="1" opacity="0.95" />
+                                                                    <text x={CENTER + Math.max(cW, 20) + 40} y={y + 4} textAnchor="middle"
+                                                                        fill="#34d399" fontSize="10" fontWeight="800" fontFamily="monospace">CALL WALL</text>
+                                                                </g>
+                                                            )}
+                                                            {isPutWallStrike && (
+                                                                <g>
+                                                                    <rect x={CENTER - Math.max(pW, 20) - 74} y={y - 9} width={64} height={18} rx={9}
+                                                                        fill="#0c1525" stroke="#f43f5e" strokeWidth="1" opacity="0.95" />
+                                                                    <text x={CENTER - Math.max(pW, 20) - 42} y={y + 4} textAnchor="middle"
+                                                                        fill="#fb7185" fontSize="10" fontWeight="800" fontFamily="monospace">PUT WALL</text>
+                                                                </g>
+                                                            )}
+                                                        </g>
+                                                    );
+                                                })}
+
+                                                {/* CURRENT PRICE BEACON */}
+                                                <line x1={35} x2={W - 35} y1={priceY} y2={priceY}
+                                                    stroke="#38bdf8" strokeWidth="1.5" strokeDasharray="10 5" opacity="0.6" />
+                                                <line x1={35} x2={W - 35} y1={priceY} y2={priceY}
+                                                    stroke="#38bdf8" strokeWidth="6" opacity="0.06" />
+                                                <circle cx={CENTER} cy={priceY} r={4} fill="#38bdf8" opacity="0.5">
+                                                    <animate attributeName="r" values="4;18" dur="2s" repeatCount="indefinite" />
+                                                    <animate attributeName="opacity" values="0.6;0" dur="2s" repeatCount="indefinite" />
+                                                </circle>
+                                                <circle cx={CENTER} cy={priceY} r={3} fill="#38bdf8" />
+                                                <rect x={W - 62} y={priceY - 10} width={56} height={20} rx={10}
+                                                    fill="#0c1525" stroke="#38bdf8" strokeWidth="1" opacity="0.95" />
+                                                <text x={W - 34} y={priceY + 4} textAnchor="middle"
+                                                    fill="#38bdf8" fontSize="11" fontWeight="900" fontFamily="monospace">
+                                                    ${currentPrice.toFixed(1)}
+                                                </text>
+
+                                            </svg>
+                                            </div>
+                                            </>
+                                        );
+                                    })()}
+                                </div>
+                            ) : (
+                                /* ═══ OI MODE: Original Bar Chart ═══ */
+                                <>
                             {/* THE RADAR LIST (Top 2/3) */}
                             <div className="flex-none pb-4 mt-2">
-                                <div className="grid grid-cols-[1fr_80px_1fr] gap-4 mb-2 text-[11px] font-black uppercase tracking-[0.2em] text-slate-400 text-center shrink-0">
+                                <div className="grid grid-cols-[1fr_80px_1fr] gap-4 mb-2 text-[12px] font-black uppercase tracking-[0.2em] text-slate-400 text-center shrink-0">
                                     <div className="text-rose-500/50 flex items-center justify-end gap-2">
                                         <span className="hidden md:inline">{t('putFlowDown')}</span> <div className="w-2 h-2 bg-rose-500 rounded-full shadow-[0_0_8px_rgba(244,63,94,0.5)]" />
                                     </div>
@@ -2411,6 +2743,8 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                                     })
                                 )}
                             </div>
+                                </>
+                            )}
                         </ProGate>
 
 
@@ -2435,7 +2769,7 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                                         <div className="flex items-center justify-between mb-2">
                                             <div className="flex items-center gap-2">
                                                 <div className="w-2 h-2 bg-teal-400 rounded-full animate-pulse" />
-                                                <span className="text-xs text-white font-bold uppercase tracking-wider">Implied Move</span>
+                                                <CardTooltip tooltip={FLOW_TOOLTIPS.IMPLIED_MOVE.tooltip} badge={FLOW_TOOLTIPS.IMPLIED_MOVE.badge}><span className="text-xs text-white font-bold uppercase tracking-wider">Implied Move</span></CardTooltip>
                                             </div>
                                             <div className="flex items-center gap-2">
                                                 <div className={`text-xl font-black ${impliedMove.color}`} style={{ textShadow: '0 0 10px currentColor' }}>
@@ -2466,7 +2800,7 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                                         <div className="flex items-center justify-between mb-2 relative z-10">
                                             <div className="flex items-center gap-1.5">
                                                 <div className="w-1.5 h-1.5 bg-rose-500 rounded-sm shadow-[0_0_5px_rgba(244,63,94,0.8)] animate-pulse" />
-                                                <span className="text-[11px] text-rose-400 font-bold uppercase tracking-wider">PUT FLOOR</span>
+                                                <CardTooltip tooltip={FLOW_TOOLTIPS.PUT_FLOOR.tooltip}><span className="text-[12px] text-rose-400 font-bold uppercase tracking-wider">PUT FLOOR</span></CardTooltip>
                                             </div>
                                             <span className="text-xs font-bold text-rose-400">
                                                 {currentPrice > 0 && putWall > 0 ? `${(((currentPrice - putWall) / currentPrice) * 100).toFixed(1)}%↑` : '-'}
@@ -2486,7 +2820,7 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                                         <div className="flex items-center justify-between mb-2 relative z-10">
                                             <div className="flex items-center gap-1.5">
                                                 <div className="w-1.5 h-1.5 bg-emerald-500 rounded-sm shadow-[0_0_5px_rgba(16,185,129,0.8)] animate-pulse" />
-                                                <span className="text-[11px] text-emerald-400 font-bold uppercase tracking-wider">CALL WALL</span>
+                                                <CardTooltip tooltip={FLOW_TOOLTIPS.CALL_WALL.tooltip}><span className="text-[12px] text-emerald-400 font-bold uppercase tracking-wider">CALL WALL</span></CardTooltip>
                                             </div>
                                             <span className="text-xs font-bold text-emerald-400">
                                                 {currentPrice > 0 && callWall > 0 ? `${(((callWall - currentPrice) / currentPrice) * 100).toFixed(1)}%↓` : '-'}
@@ -2513,7 +2847,7 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                                             <div className="flex items-center justify-between mb-2">
                                                 <div className="flex items-center gap-2">
                                                     <div className="w-2 h-2 bg-indigo-400 rounded-full animate-pulse" />
-                                                    <span className="text-xs text-white font-bold uppercase tracking-wider">{ui('smartMoneyTitle')}</span>
+                                                    <CardTooltip tooltip={FLOW_TOOLTIPS.SMART_MONEY.tooltip} badge={FLOW_TOOLTIPS.SMART_MONEY.badge}><span className="text-xs text-white font-bold uppercase tracking-wider">{ui('smartMoneyTitle')}</span></CardTooltip>
                                                 </div>
                                                 <div className="flex items-center gap-3">
                                                     <div className={`text-xl font-black ${smartMoney.color}`} style={{ textShadow: '0 0 10px currentColor' }}>
@@ -2540,7 +2874,7 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                                             <div className="flex items-center justify-between mb-2">
                                                 <div className="flex items-center gap-2">
                                                     <div className="w-2 h-2 bg-orange-400 rounded-full animate-pulse" />
-                                                    <span className="text-xs text-white font-bold uppercase tracking-wider">{ui('maxPainDistance')}</span>
+                                                    <CardTooltip tooltip={FLOW_TOOLTIPS.MAX_PAIN.tooltip} badge={FLOW_TOOLTIPS.MAX_PAIN.badge}><span className="text-xs text-white font-bold uppercase tracking-wider">{ui('maxPainDistance')}</span></CardTooltip>
                                                 </div>
                                                 <div className="flex items-center gap-2">
                                                     <div className={`text-xl font-black ${maxPainDistance.color}`} style={{ textShadow: '0 0 10px currentColor' }}>
@@ -2570,7 +2904,7 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                                             <div className="flex items-center justify-between mb-2">
                                                 <div className="flex items-center gap-2">
                                                     <div className="w-2 h-2 bg-violet-400 rounded-full animate-pulse" />
-                                                    <span className="text-xs text-white font-bold uppercase tracking-wider">{ui('ivSkewTitle')}</span>
+                                                    <CardTooltip tooltip={FLOW_TOOLTIPS.IV_SKEW.tooltip} badge={FLOW_TOOLTIPS.IV_SKEW.badge}><span className="text-xs text-white font-bold uppercase tracking-wider">{ui('ivSkewTitle')}</span></CardTooltip>
                                                 </div>
                                                 <div className="flex items-center gap-3">
                                                     <div className={`text-xl font-black ${ivSkew.color}`} style={{ textShadow: '0 0 10px currentColor' }}>
@@ -2597,7 +2931,7 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                                             {/* Row 1: Label */}
                                             <div className="flex items-center gap-2 mb-2">
                                                 <div className="w-2 h-2 bg-cyan-400 rounded-full animate-pulse shrink-0" />
-                                                <span className="text-xs text-white font-bold uppercase tracking-wider">{ui('dexTitle')}</span>
+                                                <CardTooltip tooltip={FLOW_TOOLTIPS.DEX.tooltip} badge={FLOW_TOOLTIPS.DEX.badge}><span className="text-xs text-white font-bold uppercase tracking-wider">{ui('dexTitle')}</span></CardTooltip>
                                             </div>
                                             {/* Row 2: Value + Verdict */}
                                             <div className="flex items-center justify-center gap-3 mb-2">
@@ -2625,7 +2959,7 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                                             <div className="flex items-center justify-between mb-2">
                                                 <div className="flex items-center gap-2">
                                                     <div className="w-2 h-2 bg-amber-400 rounded-full animate-pulse" />
-                                                    <span className="text-xs text-white font-bold uppercase tracking-wider">{ui('uoaTitle')}</span>
+                                                    <CardTooltip tooltip={FLOW_TOOLTIPS.UOA.tooltip} badge={FLOW_TOOLTIPS.UOA.badge}><span className="text-xs text-white font-bold uppercase tracking-wider">{ui('uoaTitle')}</span></CardTooltip>
                                                 </div>
                                                 <div className="flex items-center gap-3">
                                                     <div className={`text-xl font-black ${uoa.color}`} style={{ textShadow: '0 0 10px currentColor' }}>
