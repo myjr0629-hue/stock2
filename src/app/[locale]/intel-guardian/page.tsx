@@ -675,7 +675,7 @@ export default function GuardianPage() {
                                                                             const price = live?.price || tk.price;
                                                                             const chg = live?.change ?? tk.change;
                                                                             return (
-                                                                                <Link key={i} href={`/command/${tk.symbol}`} className="flex items-center justify-between py-0.5 group/tk hover:bg-white/[0.03] rounded px-0.5 -mx-0.5 transition-colors">
+                                                                                <Link key={i} href={`/ticker?ticker=${tk.symbol}`} className="flex items-center justify-between py-0.5 group/tk hover:bg-white/[0.03] rounded px-0.5 -mx-0.5 transition-colors">
                                                                                     <div className="flex items-center gap-1.5">
                                                                                         <img
                                                                                             src={`https://assets.parqet.com/logos/symbol/${tk.symbol}`}
