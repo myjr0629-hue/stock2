@@ -20,7 +20,7 @@ function httpsGet(url, timeoutMs) {
 
 const POLYGON_KEY = process.env.POLYGON_API_KEY || 'iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF';
 const FINNHUB_KEY = process.env.FINNHUB_API_KEY || '';
-const UNIVERSE = ["AAPL","ABBV","ABNB","ABT","ACN","ADBE","ADI","ADP","AEP","AFRM","AI","AMAT","AMD","AMGN","AMZN","ANET","ANSS","APD","ARE","ARM","ASML","ASTS","AVGO","AWK","AXP","BA","BAC","BBY","BIIB","BKNG","BLK","BMY","BSX","C","CARR","CAT","CCI","CCJ","CDNS","CEG","CF","CHTR","CL","CMCSA","COIN","COP","COST","CPRT","CRM","CRWD","CTAS","CTSH","CVS","CVX","D","DASH","DD","DDOG","DE","DELL","DHR","DIS","DKNG","DLR","DOV","DOW","DPZ","DUK","DVN","DXCM","EA","EBAY","ECL","EL","EMR","ENPH","EOG","EQIX","EQR","ETN","FAST","FCX","FDX","FSLR","FTNT","FTV","GD","GE","GEV","GILD","GIS","GM","GOOGL","GRMN","GS","HAL","HCA","HD","HON","HOOD","HSIC","HSY","HUBS","HUM","IBM","ICE","IDXX","IFF","ILMN","INCY","INTC","IONQ","IP","IQV","IR","ISRG","IT","ITW","JNJ","JPM","KDP","KEY","KHC","KLAC","KMB","KO","KR","KTOS","LDOS","LIN","LLY","LMT","LOW","LRCX","LULU","LUNR","LVS","LYB","LYV","MA","MAR","MARA","MBLY","MCD","MCHP","MCO","MDB","MDLZ","MDT","MELI","MET","META","MGM","MNST","MO","MPC","MPWR","MRK","MRNA","MRVL","MS","MSCI","MSFT","MSI","MSTR","MTB","MTD","MU","NDAQ","NDSN","NEE","NEM","NET","NFLX","NKE","NOC","NOW","NSC","NTRS","NUE","NVDA","NVO","O","ODFL","OKTA","ON","ORCL","ORLY","OTIS","OXY","PANW","PARA","PATH","PAYX","PCAR","PCG","PEAK","PEG","PEP","PFE","PG","PHM","PL","PLD","PLTR","PM","PNC","PONY","POOL","PPG","PSA","PSX","PTC","PWR","PYPL","QCOM","REGN","RIOT","RIVN","RKLB","ROK","ROKU","ROP","ROST","RSG","RTX","S","SBAC","SBUX","SCHW","SE","SEDG","SERV","SHOP","SHW","SLB","SMCI","SMR","SNA","SNOW","SNPS","SO","SOFI","SPG","SQ","SRE","STE","STT","STX","STZ","SWK","SWKS","SYK","SYM","SYY","T","TDG","TEAM","TEL","TER","TFC","TJX","TMO","TMUS","TRGP","TROW","TRV","TSLA","TSM","TT","TTWO","TWLO","TXN","TYL","UBER","UNH","UNP","UPS","UPST","URI","USB","V","VFC","VICI","VKTX","VLO","VMC","VRSK","VRTX","VST","VTR","VTRS","VZ","WDAY","WELL","WFC","WMT","XOM","XYZ","ZS"];
+const UNIVERSE = ["AAPL","ABBV","ABNB","ABT","ACN","ADBE","ADI","ADP","AEP","AFRM","AI","AMAT","AMD","AMGN","AMZN","ANET","ANSS","APD","ARE","ARM","ASML","ASTS","AVGO","AWK","AXP","BA","BAC","BBY","BIIB","BKNG","BLK","BMY","BSX","C","CARR","CAT","CCI","CCJ","CDNS","CEG","CF","CHTR","CL","CMCSA","COIN","COP","COST","CPRT","CRM","CRWD","CTAS","CTSH","CVS","CVX","D","DASH","DD","DDOG","DE","DELL","DHR","DIS","DKNG","DLR","DOV","DOW","DPZ","DUK","DVN","DXCM","EA","EBAY","ECL","EL","EMR","ENPH","EOG","EQIX","EQR","ETN","FAST","FCX","FDX","FSLR","FTNT","FTV","GD","GE","GEV","GILD","GIS","GM","GOOGL","GRMN","GS","HAL","HCA","HD","HON","HOOD","HSIC","HSY","HUBS","HUM","IBM","ICE","IDXX","IFF","ILMN","INCY","INTC","IONQ","IP","IQV","IR","ISRG","IT","ITW","JNJ","JPM","KDP","KEY","KHC","KLAC","KMB","KO","KR","KTOS","LDOS","LIN","LLY","LMT","LOW","LRCX","LULU","LUNR","LVS","LYB","LYV","MA","MAR","MARA","MBLY","MCD","MCHP","MCO","MDB","MDLZ","MDT","MELI","MET","META","MGM","MNST","MO","MPC","MPWR","MRK","MRNA","MRVL","MS","MSCI","MSFT","MSI","MSTR","MTB","MTD","MU","NDAQ","NDSN","NEE","NEM","NET","NFLX","NKE","NOC","NOW","NSC","NTRS","NUE","NVDA","NVO","O","ODFL","OKTA","ON","ORCL","ORLY","OTIS","OXY","PANW","PARA","PATH","PAYX","PCAR","PCG","PEAK","PEG","PEP","PFE","PG","PHM","PL","PLD","PLTR","PM","PNC","PONY","POOL","PPG","PSA","PSX","PTC","PWR","PYPL","QCOM","REGN","RIOT","RIVN","RKLB","ROK","ROKU","ROP","ROST","RSG","RTX","S","SBAC","SBUX","SCHW","SE","SEDG","SERV","SHOP","SHW","SLB","SMCI","SMR","SNA","SNOW","SNPS","SO","SOFI","SPG","SQ","SRE","STE","STT","STX","STZ","SWK","SWKS","SYK","SYM","SYY","T","TDG","TEAM","TEL","TER","TFC","TJX","TMO","TMUS","TRGP","TROW","TRV","TSLA","TSM","TT","TTWO","TWLO","TXN","TYL","UBER","UNH","UNP","UPS","UPST","URI","USB","V","VFC","VICI","VKTX","VLO","VMC","VRSK","VRTX","VST","VTR","VTRS","VZ","WDAY","WELL","WFC","WMT","XOM","XYZ","ZS","AAL","ACHR","AFL","AIG","AKAM","ALB","ALGN","ALL","ALLY","AMPH","APA","APH","APO","APTV","ARKG","AWR","AZN","AZO","BALL","BDX","BEN","BG","BILL","BIO","BK","BR","BRK.B","BURL","BWA","BYND","CB","CELH","CHWY","CI","CINF","CIVI","CLF","CLX","CME","CMG","CMI","CNC","CNP","COF","COHR","CPNG","CR","CRL","CSCO","CSX","CTRA","CTVA","DAL","DECK","DFS","DG","DLTR","DOC","DOCU","DRI","DT","DUOL","DVA","EFX","EIX","ELV","EMN","ENTG","EPAM","EQT","ES","ESS","ESTC","ETSY","EVR","EXPE","F","FANG","FE","FI","FICO","FIS","FIVE","FLT","FMC","FOX","FROG","FRT","FUBO","GAP","GEN","GLOB","GLW","GNRC","GPC","GOOG","GPS","GWW","HAS","HIG","HIMS","HLT","HPE","HPQ","HRL","HSBC","HST","HUBB","HWM","HXL","IAC","IEX","IOVA","IPG","IRM","IVZ","J","JBHT","JCI","JKHY","KEYS","KIM","KMI","KMX","KNX","KVUE","L","LBRDA","LH","LI","LKQ","LSCC","LYFT","LZB","MAA","MANH","MAS","MASI","MKTX","MLM","MMC","MMM","MOH","MPLN","MRO","MTN","MTTR","NCLH","NIO","NTNX","NTRA","NVR","NWL","NWS","OC","OLED","OMC","OPEN","ORI","OSK","OTEX","OVV","PAYC","PEN","PINS","PNR","PNW","PODD","PSTG","PVH","RBLX","RCL","RE","RFP","RGLD","RHI","RL","RMD","RPM","RVTY","SAIA","SCI","SEB","SFM","SIRI","SKX","SNAP","SSNC","STLD","SWAV","SWN","TAP","TECK","TFX","TGT","TPR","SPY","QQQ","IWM","DIA","XLF","XLE","XLK","XLV","GLD","TLT"];
 const GEX_TICKERS = ["AAPL","MSFT","AMZN","NVDA","GOOGL","META","TSLA","AMD","AVGO","PLTR","SMCI","ARM","COIN","AI","MRVL","MU","TSM","ASML","SERV","PL","TER","SYM","RKLB","ISRG","CEG","VST","GEV","PWR","CCJ","SMR","ETN","LLY","NVO","VRTX","REGN","VKTX","AMGN","GILD","CRWD","PANW","FTNT","ZS","S","OKTA","NET","LMT","RTX","AXON","KTOS","LDOS","ASTS","LUNR","SNOW","IONQ","DELL","PATH","TWLO","XYZ","PYPL","SOFI","AFRM","HOOD","UPST","CRM","NOW","DDOG","WDAY","MDB","TEAM","HUBS","JPM","BAC","GS","WFC","V","MA","XOM","CVX","UNH","JNJ","MRK","HD","COST","WMT","DIS","NFLX","BA","CAT","GE","MSTR","MARA","RIOT","SPY","QQQ","IWM","UBER","ABNB","SHOP","BABA"];
 const DETAIL_TICKERS = ["AAPL","MSFT","AMZN","NVDA","GOOGL","META","TSLA","AMD","AVGO","PLTR","SMCI","ARM","COIN","AI","MRVL","MU","TSM","ASML","SERV","PL","TER","SYM","RKLB","ISRG","CEG","VST","GEV","PWR","CCJ","SMR","ETN","LLY","NVO","VRTX","REGN","VKTX","AMGN","GILD","CRWD","PANW","FTNT","ZS","S","OKTA","NET","LMT","RTX","AXON","KTOS","LDOS","ASTS","LUNR","SNOW","IONQ","DELL","PATH","TWLO","XYZ","PYPL","SOFI","AFRM","HOOD","UPST","CRM","NOW","DDOG","WDAY","MDB","TEAM","HUBS","JPM","BAC","GS","WFC","V","MA","XOM","CVX","UNH","JNJ","MRK","HD","COST","WMT","DIS","NFLX","BA","CAT","GE","MSTR","MARA","RIOT","SPY","QQQ","IWM","UBER","ABNB","SHOP","BABA"];
 
@@ -341,7 +341,7 @@ async function updateAlphaScores(snapshotMap, gexMap) {
 // Triggers Vercel /api/cron/warm-command for all 30 batches (300 tickers)
 // This ensures all universe tickers have complete unified data in Redis (0ms access)
 const VERCEL_URL = process.env.VERCEL_URL || 'https://signumhq.com';
-const TOTAL_BATCHES = 30; // 300 tickers / 10 per batch
+const TOTAL_BATCHES = 50; // 500 tickers / 10 per batch
 
 async function warmRedisCache() {
   console.log('[CacheWarm] Starting full Redis cache warming — ' + TOTAL_BATCHES + ' batches...');
@@ -375,17 +375,17 @@ async function warmRedisCache() {
 // ====== Flow Cache Warming Orchestrator ======
 // Triggers Vercel /api/cron/warm-flow for all 30 batches (300 tickers)
 // Mirrors warmRedisCache() pattern for complete universe coverage
-const FLOW_TOTAL_BATCHES = 30; // 300 tickers / 10 per batch
+const FLOW_BATCHES = 50; // 500 tickers / 10 per batch
 
 async function warmFlowCache() {
-  console.log('[FlowWarm] Starting full Flow cache warming — ' + FLOW_TOTAL_BATCHES + ' batches...');
+  console.log('[FlowWarm] Starting full Flow cache warming — ' + FLOW_BATCHES + ' batches...');
   const start = Date.now();
   const CONCURRENCY = 3; // 3 concurrent Vercel function invocations
   let success = 0, fail = 0;
 
-  for (let i = 0; i < FLOW_TOTAL_BATCHES; i += CONCURRENCY) {
+  for (let i = 0; i < FLOW_BATCHES; i += CONCURRENCY) {
     const batchPromises = [];
-    for (let j = 0; j < CONCURRENCY && (i + j) < FLOW_TOTAL_BATCHES; j++) {
+    for (let j = 0; j < CONCURRENCY && (i + j) < FLOW_BATCHES; j++) {
       const batchNum = i + j;
       const url = VERCEL_URL + '/api/cron/warm-flow?batch=' + batchNum;
       batchPromises.push(
@@ -396,7 +396,7 @@ async function warmFlowCache() {
     }
     await Promise.all(batchPromises);
     // Small delay between batch groups
-    if (i + CONCURRENCY < FLOW_TOTAL_BATCHES) {
+    if (i + CONCURRENCY < FLOW_BATCHES) {
       await new Promise(r => setTimeout(r, 2000));
     }
   }

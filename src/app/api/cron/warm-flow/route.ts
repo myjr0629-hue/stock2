@@ -1,38 +1,35 @@
-// Cron: Warm Flow Unified Cache — FULL UNIVERSE
+// Cron: Warm Flow Unified Cache — FULL 500 UNIVERSE
 //
-// Runs every 3 minutes during market hours (UTC 14-21, Mon-Fri).
-// Pre-warms cache:flow:unified:* keys in Redis for ALL 300 universe tickers
-// using batch rotation: 30 batches × 10 tickers per invocation.
+// Runs every 3 minutes during Pre+Regular+Post hours (UTC 8-23, Mon-Fri).
+// Pre-warms cache:flow:unified:* keys in Redis for ALL 500 universe tickers
+// using batch rotation: 50 batches × 10 tickers per invocation.
 //
 // Usage:
 //   /api/cron/warm-flow          → auto-rotate batch based on current minute
 //   /api/cron/warm-flow?batch=0  → explicit batch 0 (tickers 0-9)
-//   /api/cron/warm-flow?batch=29 → explicit batch 29 (tickers 290-299)
 //
-// Full cycle: 3 min × 30 batches = 90 min for complete universe coverage.
-// Lambda orchestrator triggers all 30 batches sequentially for 5-min full refresh.
+// Full cycle: 3 min × 50 batches = 150 min for complete universe coverage.
+// Lambda orchestrator triggers all 50 batches for ~8-min full refresh.
 //
-// Architecture:
-//   1. Calls realtime-metrics + dark-pool-trades + options/trades (whale) in parallel
-//   2. Writes combined data to Redis (hot cache, 5-min TTL)
-//   3. Writes to DynamoDB signum-flow-history (permanent, Tier 2 fallback)
+// Features:
+//   - Retry up to 2 times on failure (zero-defect)
+//   - Dual-write: Redis (5-min TTL) + DynamoDB (permanent)
 //
-// Vercel Cron schedule: every 3 min, 14-21 UTC, Mon-Fri
+// Vercel Cron schedule: every 3 min, 8-23 UTC, Mon-Fri
 
 import { NextResponse, NextRequest } from 'next/server';
 import { setInCache, getFromCache } from '@/services/redisClient';
 import { putFlowCache } from '@/lib/aws/flowCacheProvider';
+import { UNIVERSE_500 } from '@/lib/universe';
 import { GET as getRealtimeMetrics } from '@/app/api/flow/realtime-metrics/route';
 import { GET as getDarkPoolTrades } from '@/app/api/flow/dark-pool-trades/route';
 import { GET as getWhaleTrades } from '@/app/api/live/options/trades/route';
 
-// Full 300 Universe — same as Lambda signum-harvest & warm-command
-const UNIVERSE = ["AAPL","ABBV","ABNB","ABT","ACN","ADBE","ADI","ADP","AEP","AFRM","AI","AMAT","AMD","AMGN","AMZN","ANET","ANSS","APD","ARE","ARM","ASML","ASTS","AVGO","AWK","AXP","BA","BAC","BBY","BIIB","BKNG","BLK","BMY","BSX","C","CARR","CAT","CCI","CCJ","CDNS","CEG","CF","CHTR","CL","CMCSA","COIN","COP","COST","CPRT","CRM","CRWD","CTAS","CTSH","CVS","CVX","D","DASH","DD","DDOG","DE","DELL","DHR","DIS","DKNG","DLR","DOV","DOW","DPZ","DUK","DVN","DXCM","EA","EBAY","ECL","EL","EMR","ENPH","EOG","EQIX","EQR","ETN","FAST","FCX","FDX","FSLR","FTNT","FTV","GD","GE","GEV","GILD","GIS","GM","GOOGL","GRMN","GS","HAL","HCA","HD","HON","HOOD","HSIC","HSY","HUBS","HUM","IBM","ICE","IDXX","IFF","ILMN","INCY","INTC","IONQ","IP","IQV","IR","ISRG","IT","ITW","JNJ","JPM","KDP","KEY","KHC","KLAC","KMB","KO","KR","KTOS","LDOS","LIN","LLY","LMT","LOW","LRCX","LULU","LUNR","LVS","LYB","LYV","MA","MAR","MARA","MBLY","MCD","MCHP","MCO","MDB","MDLZ","MDT","MELI","MET","META","MGM","MNST","MO","MPC","MPWR","MRK","MRNA","MRVL","MS","MSCI","MSFT","MSI","MSTR","MTB","MTD","MU","NDAQ","NDSN","NEE","NEM","NET","NFLX","NKE","NOC","NOW","NSC","NTRS","NUE","NVDA","NVO","O","ODFL","OKTA","ON","ORCL","ORLY","OTIS","OXY","PANW","PARA","PATH","PAYX","PCAR","PCG","PEAK","PEG","PEP","PFE","PG","PHM","PL","PLD","PLTR","PM","PNC","PONY","POOL","PPG","PSA","PSX","PTC","PWR","PYPL","QCOM","REGN","RIOT","RIVN","RKLB","ROK","ROKU","ROP","ROST","RSG","RTX","S","SBAC","SBUX","SCHW","SE","SEDG","SERV","SHOP","SHW","SLB","SMCI","SMR","SNA","SNOW","SNPS","SO","SOFI","SPG","SQ","SRE","STE","STT","STX","STZ","SWK","SWKS","SYK","SYM","SYY","T","TDG","TEAM","TEL","TER","TFC","TJX","TMO","TMUS","TRGP","TROW","TRV","TSLA","TSM","TT","TTWO","TWLO","TXN","TYL","UBER","UNH","UNP","UPS","UPST","URI","USB","V","VFC","VICI","VKTX","VLO","VMC","VRSK","VRTX","VST","VTR","VTRS","VZ","WDAY","WELL","WFC","WMT","XOM","XYZ","ZS"];
-
 const BATCH_SIZE = 10;
-const TOTAL_BATCHES = Math.ceil(UNIVERSE.length / BATCH_SIZE); // 30
+const TOTAL_BATCHES = Math.ceil(UNIVERSE_500.length / BATCH_SIZE); // 50
 const CACHE_KEY_PREFIX = 'cache:flow:unified:';
-const CACHE_TTL = 300; // 5 min — aligned with warm-command
+const CACHE_TTL = 300; // 5 min
+const MAX_RETRIES = 2; // Retry up to 2 times on failure
 
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
@@ -67,6 +64,42 @@ async function buildFlowData(ticker: string, baseUrl: string) {
     };
 }
 
+// Retry wrapper: attempts up to MAX_RETRIES+1 times
+async function warmTickerWithRetry(ticker: string, baseUrl: string): Promise<'ok' | 'skip' | 'fail'> {
+    const cacheKey = `${CACHE_KEY_PREFIX}${ticker}`;
+
+    // Skip if cache is still fresh (< 2 min old)
+    try {
+        const existing = await getFromCache<any>(cacheKey);
+        if (existing?.timestamp && (Date.now() - existing.timestamp) < 120_000) {
+            return 'skip';
+        }
+    } catch { /* continue */ }
+
+    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+        try {
+            const data = await buildFlowData(ticker, baseUrl);
+            if (data.realtimeMetrics || data.darkPoolTrades) {
+                // Dual-write: Redis (fast) + DynamoDB (permanent)
+                await Promise.all([
+                    setInCache(cacheKey, data, CACHE_TTL),
+                    putFlowCache(ticker, data),
+                ]);
+                return 'ok';
+            }
+            // Data came back empty — retry
+            if (attempt < MAX_RETRIES) {
+                await new Promise(r => setTimeout(r, 1000)); // Wait 1s before retry
+            }
+        } catch {
+            if (attempt < MAX_RETRIES) {
+                await new Promise(r => setTimeout(r, 1000));
+            }
+        }
+    }
+    return 'fail';
+}
+
 export async function GET(request: Request) {
     const start = Date.now();
     const baseUrl = request.url.split('/api/')[0];
@@ -75,17 +108,17 @@ export async function GET(request: Request) {
     // Determine batch number: explicit param or auto-rotate by minute
     let batchNum = parseInt(searchParams.get('batch') || '-1');
     if (batchNum < 0 || batchNum >= TOTAL_BATCHES) {
-        // Auto-rotate: 3-min cron → each invocation covers the next batch
         const minuteOfHour = new Date().getMinutes();
         batchNum = Math.floor(minuteOfHour / 3) % TOTAL_BATCHES;
     }
 
     const batchStart = batchNum * BATCH_SIZE;
-    const batchTickers = UNIVERSE.slice(batchStart, batchStart + BATCH_SIZE);
+    const batchTickers = UNIVERSE_500.slice(batchStart, batchStart + BATCH_SIZE);
 
     let warmed = 0;
     let skipped = 0;
     let failed = 0;
+    const retried: string[] = [];
 
     try {
         // Process 2 tickers concurrently (each ticker = 3 Polygon API calls)
@@ -93,34 +126,16 @@ export async function GET(request: Request) {
         for (let i = 0; i < batchTickers.length; i += CONCURRENCY) {
             const chunk = batchTickers.slice(i, i + CONCURRENCY);
 
-            await Promise.all(chunk.map(async (ticker) => {
-                const cacheKey = `${CACHE_KEY_PREFIX}${ticker}`;
-
-                // Skip if cache is still fresh (< 2 min old)
-                try {
-                    const existing = await getFromCache<any>(cacheKey);
-                    if (existing?.timestamp && (Date.now() - existing.timestamp) < 120_000) {
-                        skipped++;
-                        return;
-                    }
-                } catch { /* continue */ }
-
-                try {
-                    const data = await buildFlowData(ticker, baseUrl);
-                    if (data.realtimeMetrics || data.darkPoolTrades) {
-                        // Dual-write: Redis (fast) + DynamoDB (permanent)
-                        await Promise.all([
-                            setInCache(cacheKey, data, CACHE_TTL),
-                            putFlowCache(ticker, data),
-                        ]);
-                        warmed++;
-                    } else {
-                        failed++;
-                    }
-                } catch {
-                    failed++;
-                }
+            const results = await Promise.all(chunk.map(async (ticker) => {
+                const result = await warmTickerWithRetry(ticker, baseUrl);
+                return { ticker, result };
             }));
+
+            for (const { ticker, result } of results) {
+                if (result === 'ok') warmed++;
+                else if (result === 'skip') skipped++;
+                else { failed++; retried.push(ticker); }
+            }
         }
 
         const duration = Date.now() - start;
@@ -132,6 +147,7 @@ export async function GET(request: Request) {
             warmed,
             skipped,
             failed,
+            retried,
             duration: `${duration}ms`,
             timestamp: new Date().toISOString(),
         });
