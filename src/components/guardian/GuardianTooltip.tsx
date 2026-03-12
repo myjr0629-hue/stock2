@@ -47,9 +47,9 @@ const TOOLTIP_MAP: Record<string, { ko: string; en: string; ja: string }> = {
         ja: "経済カレンダー — 金利決定・雇用指標・GDPなど市場に影響を与える重要イベントスケジュール",
     },
     tacticalVerdict: {
-        ko: "전술적 판단 — RLSI 엔진의 정량 분석 + AI 해석을 결합한 시장 전술 인사이트",
-        en: "Tactical Verdict — market tactical insight combining RLSI engine quantitative analysis with AI interpretation",
-        ja: "タクティカルバーディクト — RLSIエンジン定量分析＋AI解釈を結合した市場タクティカルインサイト",
+        ko: "순환매 전술 분석 — 섹터 간 자금 흐름, 로테이션 패턴, 수급 변화를 AI가 종합 분석한 전술적 시장 판단",
+        en: "Sector Rotation Tactical Analysis — AI-synthesized verdict on inter-sector fund flows, rotation patterns & supply-demand shifts",
+        ja: "セクターローテーション戦術分析 — セクター間資金フロー・ローテーションパターン・需給変化をAIが総合分析した戦術的市場判断",
     },
     sectorIntel: {
         ko: "섹터 인텔리전스 — 선택된 섹터의 5일 추세, 거래량, 주요 종목 등락을 심층 분석",
