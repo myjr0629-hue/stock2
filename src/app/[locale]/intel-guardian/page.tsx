@@ -764,9 +764,11 @@ export default function GuardianPage() {
                                         </svg>
                                         <div className="flex justify-between items-center mb-4">
                                             <div className="flex items-center gap-2">
-                                                <h3 className="text-[12px] font-black uppercase tracking-[0.2em] text-emerald-400 font-jakarta">
-                                                    TACTICAL VERDICT
-                                                </h3>
+                                                <GuardianTooltip sectionId="tacticalVerdict">
+                                                    <h3 className="text-[12px] font-black uppercase tracking-[0.2em] text-emerald-400 font-jakarta">
+                                                        TACTICAL VERDICT
+                                                    </h3>
+                                                </GuardianTooltip>
                                                 <span className="text-[12px] text-amber-500 font-mono font-jakarta">· Regular Session Only</span>
                                             </div>
                                             <span className="text-[12px] bg-emerald-950 text-emerald-400 px-2 py-0.5 rounded border border-emerald-500/20 font-bold font-jakarta">
