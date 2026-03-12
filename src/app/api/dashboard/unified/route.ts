@@ -537,9 +537,13 @@ async function buildResponseFromAnalysisCache(
         const session = sessionMap[currentSession] || 'CLOSED';
 
         // Calculate changePct from live data
+        // [FIX] Always use todaysChangePerc first (DynamoDB dp.changePct is pre-calculated and correct)
+        // The dayClose/prevClose calculation fails when DynamoDB approximates prevDay as close
         let changePercent = 0;
-        if (session === 'REG') {
-            changePercent = todaysChangePerc || (prevClose > 0 && price > 0 ? ((price - prevClose) / prevClose) * 100 : 0);
+        if (todaysChangePerc && todaysChangePerc !== 0) {
+            changePercent = todaysChangePerc;
+        } else if (session === 'REG') {
+            changePercent = prevClose > 0 && price > 0 ? ((price - prevClose) / prevClose) * 100 : 0;
         } else {
             changePercent = (dayClose > 0 && prevClose > 0 && dayClose !== prevClose) ? ((dayClose - prevClose) / prevClose) * 100 : 0;
         }
