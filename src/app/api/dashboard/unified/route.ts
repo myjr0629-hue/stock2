@@ -122,10 +122,20 @@ interface CacheEntry {
 }
 const CACHE_VERSION = 'v4'; // Bumped: v3→v4 (Redis hybrid cache)
 const cache: Map<string, CacheEntry> = new Map();
-const CACHE_TTL_MS = 120_000; // 120 seconds — data considered "fresh" (warmer runs every 90s)
 const WARM_INTERVAL_MS = 90_000; // 90 seconds — auto-refresh interval for default tickers
-const REDIS_TTL_SECONDS = 180; // Redis TTL: 180s (slightly longer than in-memory)
 const REDIS_PREFIX = 'dashboard:unified:'; // Redis key prefix
+
+// Smart TTL: short during market, long during off-hours (data doesn't change)
+function getDashboardSmartTTL(): { memoryMs: number; redisSeconds: number } {
+    const now = new Date();
+    const utcHour = now.getUTCHours();
+    const utcMin = utcHour * 60 + now.getUTCMinutes();
+    const day = now.getUTCDay();
+    const isMarketHours = day >= 1 && day <= 5 && utcMin >= 13 * 60 + 30 && utcMin <= 21 * 60;
+    return isMarketHours
+        ? { memoryMs: 120_000, redisSeconds: 180 } // 2min/3min during market
+        : { memoryMs: 3600_000, redisSeconds: 43200 }; // 1h/12h during off-hours
+}
 
 // Default tickers for dashboard
 const DEFAULT_TICKERS = ['NVDA', 'TSLA', 'AAPL', 'MSFT', 'SPY'];
@@ -141,7 +151,7 @@ async function getFromRedisCache(cacheKey: string): Promise<CacheEntry | null> {
         if (entry && entry.data && entry.timestamp) {
             // Check freshness (Redis TTL handles expiry, but double-check)
             const age = Date.now() - entry.timestamp;
-            if (age < REDIS_TTL_SECONDS * 1000) {
+            if (age < getDashboardSmartTTL().redisSeconds * 1000) {
                 return entry;
             }
         }
@@ -153,7 +163,7 @@ async function getFromRedisCache(cacheKey: string): Promise<CacheEntry | null> {
 
 async function writeToRedisCache(cacheKey: string, data: any, timestamp: number): Promise<void> {
     try {
-        await setInCache(redisKey(cacheKey), { data, timestamp }, REDIS_TTL_SECONDS);
+        await setInCache(redisKey(cacheKey), { data, timestamp }, getDashboardSmartTTL().redisSeconds);
     } catch {
         // Redis write failure is non-critical — in-memory cache still works
     }
@@ -426,7 +436,7 @@ function buildResponseFromResults(
         signals: signals.slice(0, 20),
         meta: {
             tickerCount: Object.keys(tickersData).length,
-            cacheTTL: CACHE_TTL_MS / 1000
+            cacheTTL: getDashboardSmartTTL().memoryMs / 1000
         }
     };
 }
@@ -624,7 +634,7 @@ async function buildResponseFromAnalysisCache(
         signals: [] as any[],
         meta: {
             tickerCount: Object.keys(tickersData).length,
-            cacheTTL: CACHE_TTL_MS / 1000,
+            cacheTTL: getDashboardSmartTTL().memoryMs / 1000,
             source: 'analysis-cache'
         }
     };
@@ -691,7 +701,7 @@ export async function GET(request: NextRequest) {
     const baseUrl = new URL(request.url).origin;
 
     // [WARM] Fresh cache — return immediately
-    if (cached && (now - cached.timestamp) < CACHE_TTL_MS) {
+    if (cached && (now - cached.timestamp) < getDashboardSmartTTL().memoryMs) {
         return NextResponse.json({
             ...cached.data,
             _cached: true,
