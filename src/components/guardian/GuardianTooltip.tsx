@@ -27,9 +27,9 @@ const TOOLTIP_MAP: Record<string, { ko: string; en: string; ja: string }> = {
         ja: "ガンマエクスポージャーシールド — オプション市場のガンマ圧力・スクイーズリスク・主要サポ/レジバンドを機関級で可視化",
     },
     flowMap: {
-        ko: "자금 흐름 토폴로지 맵 — 11개 섹터 간 실시간 자금 이동, 회전 패턴, 순유입/유출을 3D로 시각화",
-        en: "Capital Flow Topology Map — 3D visualization of real-time fund rotation across 11 sectors, showing inflow/outflow patterns & rotation regimes",
-        ja: "資金フロートポロジーマップ — 11セクター間のリアルタイム資金移動・ローテーションパターンを3Dで可視化",
+        ko: "자금 흐름 토폴로지 맵 — 15개 섹터 간 실시간 자금 이동, 회전 패턴, 순유입/유출을 3D로 시각화",
+        en: "Capital Flow Topology Map — 3D visualization of real-time fund rotation across 15 sectors, showing inflow/outflow patterns & rotation regimes",
+        ja: "資金フロートポロジーマップ — 15セクター間のリアルタイム資金移動・ローテーションパターンを3Dで可視化",
     },
     rlsiInsight: {
         ko: "RLSI 인사이트 — AI 기반 시장 컨디션 분석, 모닝 브리핑 & 전술적 판단을 제공하는 종합 인텔리전스",
