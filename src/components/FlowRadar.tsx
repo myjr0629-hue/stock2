@@ -2,7 +2,7 @@
 "use client";
 
 import React, { useMemo, useState, useRef, useEffect } from 'react';
-import { useWhaleTrades, useRealtimeMetrics, useDarkPoolTrades, useIvPercentile } from '@/hooks/useFlowData';
+import { useWhaleTrades, useRealtimeMetrics, useDarkPoolTrades, useIvPercentile, useEnhancedMetrics } from '@/hooks/useFlowData';
 import { Radar, Target, Crosshair, Zap, Layers, Info, TrendingUp, TrendingDown, Activity, Lightbulb, Percent, Lock, Shield, Loader2, AlertTriangle, BarChart3, Banknote } from 'lucide-react';
 import { Card, CardContent } from "@/components/ui/card";
 import { ProGate, EliteGate } from '@/components/gate/FeatureGate';
@@ -202,6 +202,7 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
     // [PREMIUM] IV Percentile - ATM Implied Volatility Ranking
     // First try DynamoDB true percentile, fallback to simplified calculation
     const trueIvData = useIvPercentile(ticker);
+    const enhancedData = useEnhancedMetrics(ticker);
 
     const ivPercentile = useMemo(() => {
         // Use DynamoDB true percentile if available (real historical rank)
@@ -254,19 +255,29 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
     }, [rawChain, currentPrice, trueIvData.percentile, trueIvData.sampleSize]);
 
     // [PREMIUM] Smart Money Score - Institutional-level trade ratio
+    // Enhanced: DynamoDB 5-day directional consistency when available
     const smartMoney = useMemo(() => {
         if (!whaleTrades || whaleTrades.length === 0) return { score: 0, label: fm('noTrades'), color: 'text-slate-500' };
 
-        // Calculate based on whale trade characteristics
+        // Intraday base score
         const largeTrades = whaleTrades.filter((t: any) => (t.premium || t.size * 100) >= 50000);
         const veryLargeTrades = whaleTrades.filter((t: any) => (t.premium || t.size * 100) >= 100000);
 
-        // Score calculation: weight by premium size
         let score = 0;
         if (whaleTrades.length > 0) {
             const largeRatio = (largeTrades.length / whaleTrades.length) * 50;
             const veryLargeRatio = (veryLargeTrades.length / whaleTrades.length) * 50;
             score = Math.min(100, Math.round(largeRatio + veryLargeRatio));
+        }
+
+        // DynamoDB enhancement: boost/reduce score based on 5-day consistency
+        const sm = enhancedData.smartMoney;
+        if (sm?.consistency !== null && sm?.sampleSize >= 3) {
+            // If 80%+ consistent direction over 5 days → boost by +15
+            // If <40% consistency → reduce by -10 (noisy, less reliable)
+            if (sm.consistency >= 80) score = Math.min(100, score + 15);
+            else if (sm.consistency >= 60) score = Math.min(100, score + 8);
+            else if (sm.consistency < 40) score = Math.max(0, score - 10);
         }
 
         let label = fm('moderate');
@@ -277,11 +288,10 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
         else if (score >= 20) { label = fm('weak'); color = 'text-amber-400'; }
         else { label = fm('veryWeak'); color = 'text-rose-400'; }
 
-        // Rationale: detailed breakdown
         const rationale = fm('smartMoneyRationale', { large: String(largeTrades.length), veryLarge: String(veryLargeTrades.length) });
 
-        return { score, label, color, rationale };
-    }, [whaleTrades]);
+        return { score, label, color, rationale, source: sm?.sampleSize >= 3 ? 'dynamodb' : 'intraday' };
+    }, [whaleTrades, enhancedData.smartMoney]);
 
     // [PREMIUM] IV Skew - Put vs Call IV difference (fear gauge)
     const ivSkew = useMemo(() => {
@@ -547,10 +557,11 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
     }, [filteredChain]);
 
     // [NEW] UOA Score (Unusual Options Activity) - Abnormal Volume Detection
+    // Enhanced: DynamoDB 5-10 day OI z-score when available
     const uoa = useMemo(() => {
         if (!filteredChain || filteredChain.length === 0) return { score: 0, label: fm('analyzing'), color: 'text-slate-400', rationale: '' };
 
-        // Calculate today's total volume
+        // Calculate today's total volume + OI
         let todayVolume = 0;
         let avgOI = 0;
         let optionCount = 0;
@@ -563,10 +574,20 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
             optionCount++;
         });
 
-        // UOA Score = Today's Volume / Average OI (proxy for average daily volume)
-        // Higher = More unusual activity
-        const uoaScore = avgOI > 0 ? (todayVolume / avgOI) * 10 : 0; // Multiply by 10 for readability
-        const normalizedScore = Math.min(10, uoaScore); // Cap at 10x
+        // DynamoDB enhancement: use z-score if available
+        const uoaEnhanced = enhancedData.uoa;
+        let normalizedScore: number;
+        let useZScore = false;
+
+        if (uoaEnhanced?.zScore !== null && uoaEnhanced?.sampleSize >= 3) {
+            // Z-score based: 2.0+ = extreme, 1.5+ = abnormal, 1.0+ = active
+            normalizedScore = Math.min(10, Math.max(0, Math.abs(uoaEnhanced.zScore) * 2.5));
+            useZScore = true;
+        } else {
+            // Fallback: intraday Vol/OI ratio
+            const uoaScore = avgOI > 0 ? (todayVolume / avgOI) * 10 : 0;
+            normalizedScore = Math.min(10, uoaScore);
+        }
 
         let label = fm('uoaNormal');
         let color = 'text-white';
@@ -574,10 +595,12 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
         else if (normalizedScore >= 3) { label = fm('uoaAbnormal'); color = 'text-amber-400'; }
         else if (normalizedScore >= 1.5) { label = fm('uoaActive'); color = 'text-cyan-400'; }
 
-        const rationale = fm('uoaVolOi', { vol: (todayVolume / 1000).toFixed(0), oi: (avgOI / 1000).toFixed(0) });
+        const rationale = useZScore
+            ? fm('uoaVolOi', { vol: (todayVolume / 1000).toFixed(0), oi: (avgOI / 1000).toFixed(0) }) + ` (z:${uoaEnhanced!.zScore})`
+            : fm('uoaVolOi', { vol: (todayVolume / 1000).toFixed(0), oi: (avgOI / 1000).toFixed(0) });
 
-        return { score: Math.round(normalizedScore * 10) / 10, label, color, rationale };
-    }, [filteredChain]);
+        return { score: Math.round(normalizedScore * 10) / 10, label, color, rationale, source: useZScore ? 'dynamodb' : 'intraday' };
+    }, [filteredChain, enhancedData.uoa]);
 
     // [NEW] P/C Ratio - Call/Put Volume Ratio (Market Sentiment Gauge)
     const pcRatio = useMemo(() => {

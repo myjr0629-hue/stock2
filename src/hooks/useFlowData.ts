@@ -137,3 +137,30 @@ export function useIvPercentile(ticker: string | null, enabled: boolean = true) 
         isLoading,
     };
 }
+
+/**
+ * SWR hook for enhanced Smart Money + UOA from DynamoDB history
+ * Returns direction consistency (5-day) and OI z-score (5-10 day)
+ */
+export function useEnhancedMetrics(ticker: string | null, enabled: boolean = true) {
+    const { data, error, isLoading } = useSWR(
+        ticker && enabled ? `/api/flow/enhanced-metrics?t=${ticker}` : null,
+        fetcher,
+        {
+            refreshInterval: 60000,        // 60s (historical data changes slowly)
+            dedupingInterval: 30000,
+            revalidateOnFocus: false,
+            errorRetryCount: 2,
+            keepPreviousData: true,
+        }
+    );
+
+    return {
+        smartMoney: data?.smartMoney ?? null,
+        uoa: data?.uoa ?? null,
+        source: data?._source ?? null,
+        error,
+        isLoading,
+    };
+}
+
