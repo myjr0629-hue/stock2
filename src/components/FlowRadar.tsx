@@ -2074,7 +2074,7 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
             </div>
 
             {/* Tactical Intel Panel */}
-            <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-3 h-[780px]">
+            <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-3 h-[1050px]">
 
                 {/* 1. Main Radar Chart & Whale Feed */}
                 <Card className="bg-slate-900/80 border-white/10 shadow-lg relative overflow-hidden order-2 lg:order-1 rounded-lg flex flex-col h-full">
@@ -2377,7 +2377,7 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
 
                             {effectiveViewMode === 'VOLUME' && heatmapData.strikes.length > 0 ? (
                                 /* ═══ VOLUME MODE: Gravity Force Field ═══ */
-                                <div className="flex-1 min-h-0 overflow-hidden rounded-lg border border-slate-700/30 relative mb-6"
+                                <div className="flex-1 min-h-0 overflow-hidden rounded-lg border border-slate-700/30 relative"
                                     style={{ background: 'linear-gradient(180deg, #020617 0%, #0a0f1a 30%, #0f172a 100%)' }}>
 
                                     {/* Animated CSS for pulse */}
@@ -2758,7 +2758,7 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                         {/* Subtle Grid Background */}
                         <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:30px_30px] pointer-events-none opacity-50" />
 
-                        <CardContent className="p-4 pb-8 flex flex-col relative z-10">
+                        <CardContent className="p-4 pb-4 flex flex-col relative z-10 flex-1">
                             {/* Implied Move (기대변동폭) — PRO */}
                             <ProGate title="Implied Move" fomoMessage={gt('fomoImpliedMove')} mode="blur" compact>
                                 <div className="mb-4 bg-gradient-to-br from-teal-950/20 to-slate-900/40 border border-teal-500/15 rounded-lg p-4 relative overflow-hidden group hover:border-teal-500/30 transition-all">
@@ -2835,7 +2835,7 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                             </ProGate>
 
                             {/* Other Indicators: 1-Column Full-Width with Spacious Layout */}
-                            <div className="flex flex-col gap-3 mt-3">
+                            <div className="flex flex-col gap-3 mt-3 flex-1">
                                 {/* Smart Money Score — ELITE */}
                                 <EliteGate title="Institutional Activity" mode="blur" compact>
                                     <div className="bg-gradient-to-br from-indigo-950/20 to-slate-900/40 border border-indigo-500/15 rounded-lg p-4 relative overflow-hidden group hover:border-indigo-500/30 transition-all">
