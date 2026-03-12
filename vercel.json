@@ -70,7 +70,7 @@
         },
         {
             "path": "/api/cron/warm-flow",
-            "schedule": "*/3 14-21 * * 1-5"
+            "schedule": "*/3 8-23 * * 1-5"
         }
     ]
 }

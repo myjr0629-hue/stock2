@@ -444,21 +444,27 @@ exports.handler = async (event) => {
     results.details = 'SKIP:not_daily_window';
   }
 
-  // Redis + Flow Cache Warming: warm all tickers during regular hours
+  // Command Cache Warming: regular hours only (GEX/options data)
   if (isRegular || forceRun) {
     try {
-      const [commandWarm, flowWarm] = await Promise.all([
-        warmRedisCache(),
-        warmFlowCache(),
-      ]);
-      results.cacheWarm = commandWarm;
-      results.flowWarm = flowWarm;
+      results.cacheWarm = await warmRedisCache();
     } catch (e) {
       results.cacheWarm = { error: e.message };
     }
   } else {
     results.cacheWarm = 'SKIP:extended';
-    results.flowWarm = 'SKIP:extended';
+  }
+
+  // Flow Cache Warming: Pre + Regular + Post (all extended hours)
+  // Flow data is critical during pre/post market trading
+  if (isExtended || forceRun) {
+    try {
+      results.flowWarm = await warmFlowCache();
+    } catch (e) {
+      results.flowWarm = { error: e.message };
+    }
+  } else {
+    results.flowWarm = 'SKIP:closed';
   }
   
   const duration = Math.round((Date.now()-start)/1000);
