@@ -247,13 +247,13 @@ async function harvestSMA(priceMap) {
 // ====== Step 4: Analyst + Earnings + Fundamentals (daily) ======
 async function harvestDetails() {
   if (!FINNHUB_KEY) { console.log('SKIP details: no Finnhub key'); return { analyst:0, earnings:0 }; }
-  console.log('Step 4: Details (Analyst+Earnings) for '+DETAIL_TICKERS.length+' tickers...');
+  console.log('Step 4: Details (Analyst+Earnings+Fund+Related) for '+UNIVERSE.length+' tickers...');
   const today = new Date().toISOString().slice(0,10);
   let analystOk = 0, earningsOk = 0;
   
   // Rate limit: Finnhub free = 60/min. Process 2 at a time with 2.5s delay
-  for (let i = 0; i < DETAIL_TICKERS.length; i += 2) {
-    const batch = DETAIL_TICKERS.slice(i, i+2);
+  for (let i = 0; i < UNIVERSE.length; i += 2) {
+    const batch = UNIVERSE.slice(i, i+2);
     await Promise.all(batch.map(async (ticker) => {
       try {
         // Analyst recommendations
@@ -291,8 +291,8 @@ async function harvestDetails() {
   
   // Fundamentals from Polygon (company details — rarely changes)
   let fundOk = 0;
-  for (let i = 0; i < DETAIL_TICKERS.length; i += 5) {
-    const batch = DETAIL_TICKERS.slice(i, i+5);
+  for (let i = 0; i < UNIVERSE.length; i += 5) {
+    const batch = UNIVERSE.slice(i, i+5);
     await Promise.all(batch.map(async (ticker) => {
       try {
         const data = await httpsGet('https://api.polygon.io/v3/reference/tickers/'+ticker+'?apiKey='+POLYGON_KEY, 5000);
@@ -307,8 +307,8 @@ async function harvestDetails() {
   
   // Related tickers from Polygon
   let relOk = 0;
-  for (let i = 0; i < DETAIL_TICKERS.length; i += 5) {
-    const batch = DETAIL_TICKERS.slice(i, i+5);
+  for (let i = 0; i < UNIVERSE.length; i += 5) {
+    const batch = UNIVERSE.slice(i, i+5);
     await Promise.all(batch.map(async (ticker) => {
       try {
         const data = await httpsGet('https://api.polygon.io/v1/related-companies/'+ticker+'?apiKey='+POLYGON_KEY, 5000);
@@ -403,7 +403,7 @@ exports.handler = async (event) => {
   }
   
   // Daily details: run once at 14:30 UTC (market open + 1hr) or forceRun
-  const isDailyDetailTime = (utcMin >= 14*60+25 && utcMin <= 14*60+35);
+  const isDailyDetailTime = (utcMin >= 14*60+25 && utcMin <= 14*60+45);
   if (isDailyDetailTime || forceRun) {
     results.details = await harvestDetails();
   } else {
@@ -423,5 +423,5 @@ exports.handler = async (event) => {
   
   const duration = Math.round((Date.now()-start)/1000);
   console.log('Done in '+duration+'s');
-  return { statusCode:200, body:JSON.stringify({ success:true, version:'6.0', timestamp:new Date().toISOString(), duration, results }) };
+  return { statusCode:200, body:JSON.stringify({ success:true, version:'7.0', timestamp:new Date().toISOString(), duration, results }) };
 };
