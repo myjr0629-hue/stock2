@@ -675,15 +675,23 @@ export default function GuardianPage() {
                                                                             const price = live?.price || tk.price;
                                                                             const chg = live?.change ?? tk.change;
                                                                             return (
-                                                                                <div key={i} className="flex items-center justify-between py-0.5">
-                                                                                    <span className="text-[12px] font-mono font-bold text-slate-200">{tk.symbol}</span>
+                                                                                <Link key={i} href={`/command/${tk.symbol}`} className="flex items-center justify-between py-0.5 group/tk hover:bg-white/[0.03] rounded px-0.5 -mx-0.5 transition-colors">
+                                                                                    <div className="flex items-center gap-1.5">
+                                                                                        <img
+                                                                                            src={`https://assets.parqet.com/logos/symbol/${tk.symbol}`}
+                                                                                            alt={tk.symbol}
+                                                                                            className="w-4 h-4 rounded-full flex-shrink-0"
+                                                                                            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                                                                                        />
+                                                                                        <span className="text-[12px] font-mono font-bold text-slate-200 group-hover/tk:text-cyan-400 transition-colors">{tk.symbol}</span>
+                                                                                    </div>
                                                                                     <div className="flex items-center gap-2">
                                                                                         <span className="text-[12px] font-mono text-slate-400">${price.toFixed(2)}</span>
                                                                                         <span className={`text-[12px] font-mono font-bold ${chg >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
                                                                                             {chg >= 0 ? '+' : ''}{chg.toFixed(2)}%
                                                                                         </span>
                                                                                     </div>
-                                                                                </div>
+                                                                                </Link>
                                                                             );
                                                                         })}
                                                                     </div>
