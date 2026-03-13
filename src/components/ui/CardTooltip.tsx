@@ -181,6 +181,18 @@ export const COMMAND_TOOLTIPS = {
             ja: '30日間ディーラーポジショニング',
         },
     },
+    TECH_LEVELS: {
+        tooltip: {
+            ko: '핵심 기술적 레벨 맵 — SMA, VWAP, Max Pain, 감마 레벨 대비 현재가 위치를 시각화',
+            en: 'Key technical levels — current price position vs SMA, VWAP, Max Pain & gamma levels',
+            ja: '主要テクニカルレベル — SMA・VWAP・マックスペイン・ガンマ対比の現在価格位置',
+        },
+        badge: {
+            ko: '기관급 레벨 분석',
+            en: 'Institutional-grade levels',
+            ja: '機関投資家級レベル分析',
+        },
+    },
     TACTICAL_RANGE: {
         tooltip: {
             ko: '옵션 기반 지지/저항 — 맥스 페인 수렴도 분석',

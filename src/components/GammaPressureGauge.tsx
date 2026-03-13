@@ -95,7 +95,7 @@ export function GammaPressureGauge({
     const regime = isLongGamma ? 'long' : 'short';
 
     return (
-        <div className={`rounded-lg backdrop-blur-md shadow-lg relative group transition-all duration-500 overflow-hidden ${
+        <div className={`rounded-lg backdrop-blur-md shadow-lg relative group transition-all duration-500 ${
             isLongGamma
                 ? 'border border-emerald-500/30 bg-slate-900/60 shadow-[0_0_20px_rgba(16,185,129,0.15)] hover:shadow-[0_0_25px_rgba(16,185,129,0.2)]'
                 : 'border border-red-500/30 bg-slate-900/60 shadow-[0_0_20px_rgba(239,68,68,0.15)] hover:shadow-[0_0_25px_rgba(239,68,68,0.2)]'
@@ -130,7 +130,7 @@ export function GammaPressureGauge({
 
             {/* Gauge SVG */}
             <div className="relative z-10 px-3 pt-3 pb-1 flex justify-center">
-                <svg width="200" height="100" viewBox="0 0 200 100">
+                <svg width="200" height="110" viewBox="0 -5 200 110" className="overflow-visible">
                     {/* Text shadow filter for readability */}
                     <defs>
                         <filter id="textShadow" x="-20%" y="-20%" width="140%" height="140%">

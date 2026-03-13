@@ -32,9 +32,10 @@ interface GexTimelineProps {
     ticker: string;
     days?: number;
     compact?: boolean;
+    onEmpty?: () => void;
 }
 
-export function GexTimeline({ ticker, days = 30, compact = false }: GexTimelineProps) {
+export function GexTimeline({ ticker, days = 30, compact = false, onEmpty }: GexTimelineProps) {
     const [data, setData] = useState<GexDataPoint[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(false);
@@ -54,6 +55,13 @@ export function GexTimeline({ ticker, days = 30, compact = false }: GexTimelineP
                 setLoading(false);
             });
     }, [ticker, days]);
+
+    // [UX] Auto-switch to Technical Levels when GEX data unavailable
+    useEffect(() => {
+        if (!loading && (error || data.length === 0) && onEmpty) {
+            onEmpty();
+        }
+    }, [loading, error, data.length, onEmpty]);
 
     // Format GEX value — must be defined before useMemo hooks that reference it
     const formatGex = (v: number) => {
@@ -150,6 +158,9 @@ export function GexTimeline({ ticker, days = 30, compact = false }: GexTimelineP
     // [UX] Professional unavailable message with auto-shrink
     if (error || !data.length || !stats) {
         if (compact) return null;
+        // If onEmpty callback exists, useEffect already handles the auto-switch
+        // Show nothing here — the parent will switch tabs
+        if (onEmpty) return null;
         const unavailableMsg: Record<string, string> = {
             ko: "이 종목은 옵션 거래량이 GEX 산출 기준에 미달하여 히스토리를 제공하지 않습니다",
             en: "Insufficient options volume for GEX history — GEX analysis requires adequate daily contract volume",

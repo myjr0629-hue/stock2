@@ -22,6 +22,7 @@ import { CommandInsight } from "@/components/CommandInsight";
 import { ProGate, EliteGate } from '@/components/gate/FeatureGate';
 import { useTranslations, useLocale } from 'next-intl';
 import { GexTimeline } from '@/components/history/GexTimeline';
+import { TechnicalLevelsMap } from '@/components/TechnicalLevelsMap';
 import { GammaPressureGauge } from '@/components/GammaPressureGauge';
 import { CardTooltip, COMMAND_TOOLTIPS } from '@/components/ui/CardTooltip';
 
@@ -488,6 +489,8 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
     const [earningsData, setEarningsData] = useState<{ nextDate: string | null; daysLabel: string; epsEstimate: number | null; quarter: number | null; year: number | null; hourLabel: string; color: string } | null>(null);
     const [smaData, setSmaData] = useState<{ cross: string; crossType: string; label: string; sma50: number; sma200: number; distance: number; isImminent: boolean; phase: string } | null>(null);
     const [conviction, setConviction] = useState<{ score: number; label: string; grade: string } | null>(null);
+    // [UX] GEX Timeline ↔ Technical Levels Map toggle
+    const [activeInsightTab, setActiveInsightTab] = useState<'gex' | 'levels'>('gex');
     const [relatedData, setRelatedData] = useState<{ count: number; topRelated: { ticker: string; price: number; change: number; logo: string | null }[] } | null>(null);
     const [analystData, setAnalystData] = useState<{
         consensus: string; totalAnalysts: number; bullishPct: number;
@@ -1621,9 +1624,50 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                 </div>
                             </div>
 
-                            {/* GEX 30-Day Timeline — between Price History and Tactical Range */}
+                            {/* GEX Timeline ↔ Technical Levels Map — Toggle Section */}
                             <div className="shrink-0">
-                                <GexTimeline ticker={ticker} days={30} />
+                                {/* Tab Header */}
+                                <div className="flex items-center gap-1.5 mb-2">
+                                    <button
+                                        onClick={() => setActiveInsightTab('gex')}
+                                        className={`px-3 py-1.5 rounded-lg text-[12px] font-black uppercase tracking-wider transition-all duration-200 font-jakarta flex items-center gap-1.5 ${
+                                            activeInsightTab === 'gex'
+                                                ? 'bg-indigo-500/20 text-white border border-indigo-500/40 shadow-[0_0_10px_rgba(99,102,241,0.15)]'
+                                                : 'bg-slate-800/40 text-slate-400 border border-slate-700/30 hover:text-slate-300 hover:border-slate-600/50'
+                                        }`}
+                                    >
+                                        <div className={`w-1.5 h-1.5 rounded-full ${activeInsightTab === 'gex' ? 'bg-indigo-400' : 'bg-slate-500'}`} />
+                                        GEX Timeline 30D
+                                    </button>
+                                    <button
+                                        onClick={() => setActiveInsightTab('levels')}
+                                        className={`px-3 py-1.5 rounded-lg text-[12px] font-black uppercase tracking-wider transition-all duration-200 font-jakarta flex items-center gap-1.5 ${
+                                            activeInsightTab === 'levels'
+                                                ? 'bg-indigo-500/20 text-white border border-indigo-500/40 shadow-[0_0_10px_rgba(99,102,241,0.15)]'
+                                                : 'bg-slate-800/40 text-slate-400 border border-slate-700/30 hover:text-slate-300 hover:border-slate-600/50'
+                                        }`}
+                                    >
+                                        <div className={`w-1.5 h-1.5 rounded-full ${activeInsightTab === 'levels' ? 'bg-indigo-400' : 'bg-slate-500'}`} />
+                                        Tech Levels
+                                    </button>
+                                </div>
+
+                                {/* Tab Content */}
+                                {activeInsightTab === 'gex' ? (
+                                    <GexTimeline ticker={ticker} days={30} onEmpty={() => setActiveInsightTab('levels')} />
+                                ) : (
+                                    <TechnicalLevelsMap
+                                        currentPrice={displayPrice}
+                                        sma50={smaData?.sma50}
+                                        sma200={smaData?.sma200}
+                                        smaCross={smaData?.cross}
+                                        vwap={liveQuote?.vwap || initialStockData?.vwap}
+                                        maxPain={structure?.maxPain || initialStockData?.flow?.maxPain}
+                                        callWall={structure?.levels?.callWall}
+                                        putFloor={structure?.levels?.putFloor}
+                                        gammaFlipLevel={structure?.gammaFlipLevel}
+                                    />
+                                )}
                             </div>
 
                             {/* B. Advanced Options Analysis (Fixed Height: 400px) — PRO */}
