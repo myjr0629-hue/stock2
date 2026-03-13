@@ -3,9 +3,10 @@
 
 import { NextResponse } from 'next/server';
 import { getM7EarningsCalendar, getM7Recommendations, EarningsEvent, RecommendationTrend } from '@/services/finnhubClient';
+import { swrFetch } from '@/lib/cache/redisSWR';
 
 export const dynamic = 'force-dynamic';
-export const revalidate = 3600; // 1 hour cache
+export const revalidate = 3600;
 
 export interface M7CalendarResponse {
     earnings: EarningsEvent[];
@@ -15,25 +16,25 @@ export interface M7CalendarResponse {
 
 export async function GET() {
     try {
-        // Fetch both in parallel
-        const [earnings, recommendationsMap] = await Promise.all([
-            getM7EarningsCalendar(),
-            getM7Recommendations()
-        ]);
+        const result = await swrFetch(
+            'intel:m7-calendar',
+            async () => {
+                const [earnings, recommendationsMap] = await Promise.all([
+                    getM7EarningsCalendar(),
+                    getM7Recommendations()
+                ]);
 
-        // Convert Map to Record
-        const recommendations: Record<string, RecommendationTrend> = {};
-        recommendationsMap.forEach((value, key) => {
-            recommendations[key] = value;
-        });
+                const recommendations: Record<string, RecommendationTrend> = {};
+                recommendationsMap.forEach((value, key) => {
+                    recommendations[key] = value;
+                });
 
-        const response: M7CalendarResponse = {
-            earnings,
-            recommendations,
-            fetchedAt: new Date().toISOString()
-        };
+                return { earnings, recommendations, fetchedAt: new Date().toISOString() };
+            },
+            { ttlSeconds: 3600, keyPrefix: 'swr' }
+        );
 
-        return NextResponse.json(response);
+        return NextResponse.json({ ...result.data, _cache: result._cache });
     } catch (error) {
         console.error('[M7 Calendar API] Error:', error);
         return NextResponse.json(

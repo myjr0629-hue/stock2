@@ -444,23 +444,23 @@ function generateVerdict(q: any): string {
     const rvol = q.rvol || 0;
 
     // Strong signals
-    if (score >= 70 && pcr < 0.7 && changePct > 1) return 'BUY_DIP';
-    if (score < 30 && pcr > 1.3 && changePct < -1) return 'HEDGE';
-    if (score >= 60 && gex < 0 && pcr < 0.8) return 'BUY_DIP';
-    if (score < 40 && gex < 0 && pcr > 1.1) return 'TRIM';
+    if (score >= 70 && pcr < 0.7 && changePct > 1) return 'OVERSOLD_ZONE';
+    if (score < 30 && pcr > 1.3 && changePct < -1) return 'ELEVATED_RISK';
+    if (score >= 60 && gex < 0 && pcr < 0.8) return 'OVERSOLD_ZONE';
+    if (score < 40 && gex < 0 && pcr > 1.1) return 'OVERBOUGHT_ZONE';
 
     // RSI-driven signals
-    if (rsi > 0 && rsi < 30 && changePct < -1 && score >= 40) return 'BUY_DIP';  // Oversold + dip on decent stock
-    if (rsi > 70 && changePct > 2) return 'TRIM';  // Overbought + overextended
-    if (rsi > 0 && rsi < 25 && pcr < 0.8) return 'BUY_DIP';  // Deep oversold + bullish options
+    if (rsi > 0 && rsi < 30 && changePct < -1 && score >= 40) return 'OVERSOLD_ZONE';
+    if (rsi > 70 && changePct > 2) return 'OVERBOUGHT_ZONE';
+    if (rsi > 0 && rsi < 25 && pcr < 0.8) return 'OVERSOLD_ZONE';
 
     // Moderate signals
-    if (changePct > 2 && pcr < 0.6) return 'TRIM';  // Overextended
-    if (changePct < -2 && score >= 50) return 'BUY_DIP';  // Dip on strong stock
+    if (changePct > 2 && pcr < 0.6) return 'OVERBOUGHT_ZONE';
+    if (changePct < -2 && score >= 50) return 'OVERSOLD_ZONE';
 
-    // RVOL conviction modifier: high volume confirms weak signals
-    if (rvol > 1.5 && changePct < -1.5 && score >= 45) return 'BUY_DIP';  // High vol selloff on OK stock
-    if (rvol > 1.5 && changePct > 2 && pcr > 0.9) return 'TRIM';  // High vol rally with put pressure
+    // RVOL conviction modifier
+    if (rvol > 1.5 && changePct < -1.5 && score >= 45) return 'OVERSOLD_ZONE';
+    if (rvol > 1.5 && changePct > 2 && pcr > 0.9) return 'OVERBOUGHT_ZONE';
 
     return 'HOLD';
 }
@@ -521,10 +521,10 @@ function generateAnalysisKR(q: any, verdict: string): string {
     }
 
     const verdictKR: Record<string, string> = {
-        'BUY_DIP': '조정 시 매수 기회',
-        'HOLD': '보유 유지',
-        'HEDGE': '헷지 구간',
-        'TRIM': '일부 차익실현 구간',
+        'OVERSOLD_ZONE': '과매도 영역 진입 관측',
+        'HOLD': '중립 구간 관측',
+        'ELEVATED_RISK': '리스크 지표 상승 관측',
+        'OVERBOUGHT_ZONE': '과매수 영역 진입 관측',
     };
 
     return `${changePct > '0' ? '▲' : '▼'} ${changePct}%.${rsiNote}${rvolNote} ${regimeKR}. PCR ${pcr.toFixed(2)} (${pcrKR}). Max Pain $${maxPain} 대비 ${maxPainDir} ${Math.abs(parseFloat(maxPainDist))}% 마감.${levelNote} [${verdictKR[verdict] || verdict}]`;
@@ -567,17 +567,17 @@ function generateNextDayBriefing(
         headlineEN = `All stocks up — ${topGainer.ticker} ${chgStr(topGainer.change_pct)} leading, risk-on mode`;
         headlineJP = `全銘柄上昇 — ${topGainer.ticker} ${chgStr(topGainer.change_pct)} 主導、リスクオンモード`;
     } else if (allDown) {
-        headline = `전 종목 하락 — ${topLoser.ticker} ${topLoser.change_pct.toFixed(2)}% 최대 낙폭, 방어 전환 필요`;
-        headlineEN = `All stocks down — ${topLoser.ticker} ${topLoser.change_pct.toFixed(2)}% largest drop, defensive shift needed`;
-        headlineJP = `全銘柄下落 — ${topLoser.ticker} ${topLoser.change_pct.toFixed(2)}% 最大下落幅、防御転換必要`;
+        headline = `전 종목 하락 — ${topLoser.ticker} ${topLoser.change_pct.toFixed(2)}% 최대 낙폭, 방어적 환경 관측`;
+        headlineEN = `All stocks down — ${topLoser.ticker} ${topLoser.change_pct.toFixed(2)}% largest drop, defensive environment observed`;
+        headlineJP = `全銘柄下落 — ${topLoser.ticker} ${topLoser.change_pct.toFixed(2)}% 最大下落幅、防御的環境観測`;
     } else if (summary.gainers <= 2) {
-        headline = `${topGainer.ticker} 주도 반등, 그러나 ${tickers.length}종 중 ${summary.losers}종 하락 — 변동성은 여전하다`;
+        headline = `${topGainer.ticker} 주도 반등, 그러나 ${tickers.length}종 중 ${summary.losers}종 하락 — 변동성 지속 관측`;
         headlineEN = `${topGainer.ticker}-led rebound, but ${summary.losers} of ${tickers.length} still down — volatility persists`;
-        headlineJP = `${topGainer.ticker}主導の反発、しかし${tickers.length}銘柄中${summary.losers}銘柄下落 — 変動性継続`;
+        headlineJP = `${topGainer.ticker}主導の反発、しかし${tickers.length}銘柄中${summary.losers}銘柄下落 — 変動性継続観測`;
     } else {
-        headline = `${summary.gainers}종 상승 vs ${summary.losers}종 하락 — ${outlookKR} 장세, 선별적 접근 필요`;
-        headlineEN = `${summary.gainers} up vs ${summary.losers} down — ${outlookEN} market, selective approach needed`;
-        headlineJP = `${summary.gainers}銘柄上昇 vs ${summary.losers}銘柄下落 — ${outlookJP}相場、選別的アプローチ必要`;
+        headline = `${summary.gainers}종 상승 vs ${summary.losers}종 하락 — ${outlookKR} 장세, 혼조 환경 관측`;
+        headlineEN = `${summary.gainers} up vs ${summary.losers} down — ${outlookEN} market, mixed conditions observed`;
+        headlineJP = `${summary.gainers}銘柄上昇 vs ${summary.losers}銘柄下落 — ${outlookJP}相場、混在環境観測`;
     }
 
     // Bullets (KR / EN / JP)
@@ -634,12 +634,12 @@ function generateNextDayBriefing(
     const overbought = tickers.filter(t => (t.rsi || 50) > 70);
     if (oversold.length > 0) {
         const rsiStr = oversold.map(t => `<mark>${t.ticker} RSI ${Math.round(t.rsi || 0)}</mark>`).join(', ');
-        bullets.push(`⚠️ RSI 과매도 구간: ${rsiStr} — 기술적 반등 가능성 주시`);
+        bullets.push(`⚠️ RSI 과매도 구간: ${rsiStr} — 기술적 반등 가능성 영역`);
         bulletsEN.push(`⚠️ RSI oversold: ${rsiStr} — potential technical bounce`);
         bulletsJP.push(`⚠️ RSI売られ過ぎ: ${rsiStr} — テクニカル反発の可能性`);
     } else if (overbought.length > 0) {
         const rsiStr = overbought.map(t => `<mark>${t.ticker} RSI ${Math.round(t.rsi || 0)}</mark>`).join(', ');
-        bullets.push(`⚠️ RSI 과매수 구간: ${rsiStr} — 차익실현 압력 예상`);
+        bullets.push(`⚠️ RSI 과매수 구간: ${rsiStr} — 과열 영역 진입 관측`);
         bulletsEN.push(`⚠️ RSI overbought: ${rsiStr} — profit-taking pressure expected`);
         bulletsJP.push(`⚠️ RSI買われ過ぎ: ${rsiStr} — 利確売り圧力予想`);
     } else {
