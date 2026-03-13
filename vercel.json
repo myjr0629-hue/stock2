@@ -62,11 +62,15 @@
         },
         {
             "path": "/api/cron/economic-calendar",
-            "schedule": "0 */4 * * *"
+            "schedule": "*/30 13-21 * * 1-5"
+        },
+        {
+            "path": "/api/cron/economic-calendar",
+            "schedule": "0 0,4,8 * * *"
         },
         {
             "path": "/api/cron/warm-command",
-            "schedule": "*/3 14-21 * * 1-5"
+            "schedule": "*/3 8-23 * * 1-5"
         },
         {
             "path": "/api/cron/warm-flow",
