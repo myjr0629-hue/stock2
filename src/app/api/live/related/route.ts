@@ -1,4 +1,5 @@
 // [S-124.6] Related Tickers API Endpoint for Command Quick Intel Gauges
+// V8: DynamoDB-first — Lambda stores related tickers daily
 import { NextRequest } from 'next/server';
 import { fetchMassive, CACHE_POLICY } from "@/services/massiveClient";
 
@@ -20,6 +21,36 @@ export async function GET(req: NextRequest) {
     const ticker = t.toUpperCase();
 
     try {
+        // ====== V8: DynamoDB-first — check if Lambda already has related tickers ======
+        try {
+            const { getRelatedData } = await import('@/lib/aws/dynamoDataProvider');
+            const dynRelated = await getRelatedData(ticker);
+            if (dynRelated?.tickers && dynRelated.tickers.length > 0) {
+                const relTickers = dynRelated.tickers.slice(0, 10);
+                // Get prices for top 3 from snapshot
+                const top3 = relTickers.slice(0, 3);
+                const pricePromises = top3.map(async (relTicker: string) => {
+                    try {
+                        const snapshotUrl = `${MASSIVE_BASE_URL}/v2/snapshot/locale/us/markets/stocks/tickers/${relTicker}?apiKey=${MASSIVE_API_KEY}`;
+                        const snapshot = await fetchMassive(snapshotUrl, {}, false, undefined, CACHE_POLICY.LIVE);
+                        const tickerData = snapshot?.ticker || {};
+                        const price = tickerData.lastTrade?.p || tickerData.day?.c || tickerData.prevDay?.c || 0;
+                        const change = tickerData.todaysChangePerc || 0;
+                        return { ticker: relTicker, price: Math.round(price * 100) / 100, change: Math.round(change * 100) / 100, logo: null };
+                    } catch { return { ticker: relTicker, price: 0, change: 0, logo: null }; }
+                });
+                const topRelatedWithPrices = await Promise.all(pricePromises);
+                return new Response(JSON.stringify({
+                    ticker, count: relTickers.length,
+                    label: relTickers.length >= 10 ? '다수' : relTickers.length >= 5 ? '보통' : '소수',
+                    topRelated: topRelatedWithPrices,
+                    allTickers: relTickers,
+                    _source: 'dynamodb',
+                }), { status: 200, headers: { 'Content-Type': 'application/json; charset=utf-8' } });
+            }
+        } catch {}
+
+        // ====== Polygon fallback ======
         // Fetch Related Companies from Polygon/Massive API
         const url = `${MASSIVE_BASE_URL}/v1/related-companies/${ticker}?apiKey=${MASSIVE_API_KEY}`;
         const data = await fetchMassive(url, {}, false, undefined, CACHE_POLICY.LIVE);

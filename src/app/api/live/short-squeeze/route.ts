@@ -1,9 +1,11 @@
 // API Route: /api/live/short-squeeze
+// [V8] Redis SWR cache: 60s TTL
 // SI% + Days to Cover + Short Volume → Squeeze Risk
 // LOW / MEDIUM / HIGH / CRITICAL
 
 import { NextRequest, NextResponse } from 'next/server';
 import { fetchSIPercent } from '@/services/massiveClient';
+import { swrFetch } from '@/lib/cache/redisSWR';
 
 const POLYGON_API_KEY = process.env.POLYGON_API_KEY || process.env.MASSIVE_API_KEY || '';
 const POLYGON_BASE = 'https://api.polygon.io';
@@ -33,10 +35,20 @@ export async function GET(req: NextRequest) {
     if (!ticker) return NextResponse.json({ error: 'Missing ticker' }, { status: 400 });
 
     try {
-        const [siData, svData] = await Promise.all([
-            fetchSIPercent(ticker),
-            fetchShortVolume(ticker),
-        ]);
+        // [V8] Redis SWR: 60s cache for short squeeze data
+        const { data: squeezeData, _cache } = await swrFetch(
+            ticker,
+            async () => {
+                const [siData, svData] = await Promise.all([
+                    fetchSIPercent(ticker),
+                    fetchShortVolume(ticker),
+                ]);
+                return { siData, svData };
+            },
+            { ttlSeconds: 60, keyPrefix: 'swr:squeeze' }
+        );
+
+        const { siData, svData } = squeezeData;
 
         const siPercent = siData?.siPercent || 0;
         const daysToCover = siData?.daysToCover || 0;

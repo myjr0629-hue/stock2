@@ -32,11 +32,11 @@ const lambda = new LambdaClient(config);
 
 async function main() {
   console.log('╔══════════════════════════════════════════════╗');
-  console.log('║  SIGNUM Lambda v5 Update — squeeze + IV     ║');
+  console.log('║  SIGNUM Lambda v8 Update — metrics + tables ║');
   console.log('╚══════════════════════════════════════════════╝');
 
   const lambdaDir = path.join(__dirname, 'lambda-harvest');
-  const zipPath = path.join(__dirname, 'lambda-harvest-v5.zip');
+  const zipPath = path.join(__dirname, 'lambda-harvest-v8.zip');
 
   // 1. Verify index.js exists
   const indexPath = path.join(lambdaDir, 'index.js');
@@ -47,10 +47,10 @@ async function main() {
 
   // Check v5 marker
   const code = fs.readFileSync(indexPath, 'utf8');
-  if (code.includes('squeezeScore')) {
-    console.log('✅ Verified: index.js contains squeeze/IV calculations (v5)');
+  if (code.includes('compositeVal') && code.includes('computeSectorDaily')) {
+    console.log('✅ Verified: index.js contains v8 real metrics + table activation');
   } else {
-    console.error('WARNING: index.js may not have v5 squeeze/IV code');
+    console.error('WARNING: index.js may not have v8 code');
   }
 
   // 2. Ensure node_modules exist
@@ -89,10 +89,10 @@ async function main() {
 
   console.log('');
   console.log('╔══════════════════════════════════════════════╗');
-  console.log('║  ✅ Lambda v5 Update Complete!               ║');
+  console.log('║  ✅ Lambda v8 Update Complete!               ║');
   console.log('╠══════════════════════════════════════════════╣');
   console.log('║  Function: signum-harvest                    ║');
-  console.log('║  Version:  v5 (squeeze + ATM IV + IV Skew)   ║');
+  console.log('║  Version:  v8 (metrics + tables + premarket) ║');
   console.log('║  Schedule: Every 5 min (EventBridge)         ║');
   console.log('╚══════════════════════════════════════════════╝');
 

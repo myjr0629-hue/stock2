@@ -1,6 +1,8 @@
 // [S-124.6] MACD API Endpoint for Command Quick Intel Gauges
+// [V8] Redis SWR cache: 30s TTL
 import { NextRequest } from 'next/server';
 import { fetchMassive, CACHE_POLICY } from "@/services/massiveClient";
+import { swrFetch } from '@/lib/cache/redisSWR';
 
 const MASSIVE_API_KEY = process.env.MASSIVE_API_KEY || process.env.POLYGON_API_KEY;
 const MASSIVE_BASE_URL = process.env.MASSIVE_BASE_URL || "https://api.polygon.io";
@@ -20,10 +22,14 @@ export async function GET(req: NextRequest) {
     const ticker = t.toUpperCase();
 
     try {
-        // Fetch MACD from Polygon/Massive API
+        // [V8] Redis SWR: 30s cache for MACD data
         const url = `${MASSIVE_BASE_URL}/v1/indicators/macd/${ticker}?timespan=day&adjusted=true&short_window=12&long_window=26&signal_window=9&series_type=close&limit=5&apiKey=${MASSIVE_API_KEY}`;
 
-        const data = await fetchMassive(url, {}, false, undefined, CACHE_POLICY.LIVE);
+        const { data, _cache } = await swrFetch(
+            ticker,
+            () => fetchMassive(url, {}, false, undefined, CACHE_POLICY.LIVE),
+            { ttlSeconds: 30, keyPrefix: 'swr:macd' }
+        );
 
         const results = data?.results?.values || [];
 

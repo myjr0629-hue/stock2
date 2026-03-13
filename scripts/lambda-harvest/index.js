@@ -183,9 +183,87 @@ async function harvestGex(priceMap) {
         else if (atmIv && atmIv > 50) squeezeScore += 10;
         squeezeScore = Math.min(100, squeezeScore);
 
+        // ====== V8: DEX (Net Delta Exposure) ======
+        // Σ(call_delta × call_OI × 100) - Σ(put_delta × put_OI × 100)
+        let dexVal = 0;
+        for (const o of opts) {
+          const delta = o.greeks?.delta || 0;
+          const oi = o.open_interest || 0;
+          const ct = o.details?.contract_type;
+          if (ct === 'call') dexVal += delta * oi * 100;
+          else if (ct === 'put') dexVal += delta * oi * 100; // put delta is negative
+        }
+        dexVal = Math.round(dexVal);
+
+        // ====== V8: Whale Score ======
+        // Count concentrated OI at ATM ±10% strikes (top 5% threshold)
+        const atmRange = price * 0.10;
+        const atmLow = price - atmRange, atmHigh = price + atmRange;
+        const oiValues = opts
+          .filter(o => (o.open_interest || 0) > 0 && o.details?.strike_price >= atmLow && o.details?.strike_price <= atmHigh)
+          .map(o => o.open_interest);
+        let whaleVal = 0;
+        if (oiValues.length > 0) {
+          oiValues.sort((a, b) => a - b);
+          const p95Idx = Math.floor(oiValues.length * 0.95);
+          const threshold = oiValues[p95Idx] || oiValues[oiValues.length - 1];
+          // Count how many ATM contracts exceed the 95th percentile
+          const whaleContracts = oiValues.filter(v => v >= threshold).length;
+          // Normalize: 0-5 whales=low, 5-15=medium, 15+=high
+          // Score range: -25 to +25 (positive = call whale dominance, negative = put)
+          let callWhaleOI = 0, putWhaleOI = 0;
+          for (const o of opts) {
+            const s = o.details?.strike_price;
+            const oi = o.open_interest || 0;
+            if (!s || oi < threshold || s < atmLow || s > atmHigh) continue;
+            if (o.details.contract_type === 'call') callWhaleOI += oi;
+            else putWhaleOI += oi;
+          }
+          const whaleTotal = callWhaleOI + putWhaleOI;
+          if (whaleTotal > 0) {
+            whaleVal = Math.round(((callWhaleOI - putWhaleOI) / whaleTotal) * 25);
+          }
+        }
+
+        // ====== V8: Smart Money Score ======
+        // Factor 1: Unusual volume/OI ratio (high volume vs low OI = unusual activity)
+        // Factor 2: IV Skew direction
+        let smartVal = 0;
+        let totalVol = 0, totalOI = 0;
+        for (const o of opts) {
+          totalVol += o.day?.volume || 0;
+          totalOI += o.open_interest || 0;
+        }
+        const volOiRatio = totalOI > 0 ? totalVol / totalOI : 0;
+        // Normal vol/OI ratio is ~0.1-0.3, unusual is >0.5
+        if (volOiRatio > 1.0) smartVal += 5;
+        else if (volOiRatio > 0.5) smartVal += 3;
+        else if (volOiRatio > 0.3) smartVal += 1;
+        // IV Skew direction: positive skew (puts more expensive) = bearish smart money
+        if (ivSkew !== null) {
+          if (ivSkew > 5) smartVal -= 4; // Puts significantly more expensive: bearish
+          else if (ivSkew > 2) smartVal -= 2;
+          else if (ivSkew < -5) smartVal += 4; // Calls more expensive: bullish
+          else if (ivSkew < -2) smartVal += 2;
+        }
+        smartVal = Math.max(-10, Math.min(10, smartVal));
+
+        // ====== V8: Composite Score ======
+        // Weighted combination matching FlowRadar.tsx factor breakdown
+        const opi = tCOI - tPOI;
+        const opiNorm = tCOI + tPOI > 0 ? (opi / (tCOI + tPOI)) * 25 : 0; // OPI: max ±25
+        const squeezeNorm = Math.min(15, squeezeScore * 0.15); // Squeeze: max 15
+        const skewNorm = ivSkew ? Math.max(-15, Math.min(15, -ivSkew)) : 0; // IV Skew: max ±15
+        const pcrNorm = pcr > 1.3 ? 5 : pcr < 0.7 ? -5 : 0; // P/C: max ±5
+        const dexNorm = dexVal > 0 ? Math.min(10, 5) : dexVal < 0 ? Math.max(-10, -5) : 0; // DEX: max ±10
+        const compositeVal = Math.round(
+          opiNorm + whaleVal + squeezeNorm + skewNorm + smartVal + dexNorm + pcrNorm
+        );
+        const compositeClamped = Math.max(-100, Math.min(100, compositeVal));
+
         gexMap[ticker] = { gex, pcr, gammaRegime:gr, atmIv, squeezeScore };
         await client.send(new PutCommand({ TableName:'signum-gex-history', Item:{ticker,timestamp:ts,gex:Math.round(gex),flipLevel:fl,callWall:cw,putFloor:pf,maxPain:mp,price,gammaRegime:gr,totalContracts:opts.length,totalCallOI:tCOI,totalPutOI:tPOI,pcr:Math.round(pcr*100)/100,atmIv:atmIv,ivSkew:ivSkew,squeezeScore:squeezeScore}}));
-        await client.send(new PutCommand({ TableName:'signum-flow-history', Item:{ticker,timestamp:ts,compositeScore:0,opi:tCOI-tPOI,whaleScore:0,dex:0,ivSkew:ivSkew||0,squeezeProbability:squeezeScore,smartMoneyScore:0,totalCallOI:tCOI,totalPutOI:tPOI,pcr:Math.round(pcr*100)/100}})).catch(()=>{});
+        await client.send(new PutCommand({ TableName:'signum-flow-history', Item:{ticker,timestamp:ts,compositeScore:compositeClamped,opi:opi,whaleScore:whaleVal,dex:dexVal,ivSkew:ivSkew||0,squeezeProbability:squeezeScore,smartMoneyScore:smartVal,totalCallOI:tCOI,totalPutOI:tPOI,pcr:Math.round(pcr*100)/100}})).catch(()=>{});
         ok++;
       } catch {}
     }));
@@ -406,9 +484,158 @@ async function warmFlowCache() {
   return { success, fail, duration };
 }
 
+// ====== V8: GICS Sector Mapping ======
+const SECTOR_MAP = {
+  'Technology':['AAPL','MSFT','GOOGL','META','NVDA','AMD','AVGO','ASML','TSM','MU','MRVL','INTC','CRM','NOW','ORCL','ADBE','SNPS','CDNS','ANET','DELL','QCOM','TXN','KLAC','LRCX','AMAT','ARM','SMCI','PLTR','CRWD','PANW','FTNT','ZS','NET','OKTA','DDOG','SNOW','WDAY','TEAM','HUBS','MDB','PATH','TWLO','SHOP','COIN','MSTR','MARA','RIOT','SQ','IONQ'],
+  'Healthcare':['LLY','NVO','UNH','JNJ','MRK','ABT','ABBV','AMGN','GILD','VRTX','REGN','ISRG','BSX','DHR','SYK','DXCM','BIIB','MRNA','VKTX','MDT','HCA','ILMN','IDXX'],
+  'Financials':['JPM','BAC','GS','WFC','MS','V','MA','BLK','SCHW','AXP','C','BK','MCO','ICE','CME','COF','MET','AIG','ALL','PNC','USB','TFC','SOFI','AFRM','HOOD','UPST'],
+  'Consumer':['AMZN','TSLA','HD','COST','WMT','MCD','NKE','SBUX','LOW','TJX','BKNG','DIS','NFLX','ABNB','CMG','LULU','ROST','DPZ','LVS','MGM','DKNG','DASH','UBER','LYFT'],
+  'Energy':['XOM','CVX','COP','EOG','SLB','DVN','OXY','HAL','MPC','VLO','PSX','FSLR','ENPH','CEG','VST','GEV','CCJ','SMR','NEE','DUK','SO','AEP','D','PCG'],
+  'Industrials':['BA','CAT','GE','HON','RTX','LMT','DE','GD','NOC','ETN','EMR','ITW','IR','FDX','UPS','LDOS','KTOS','AXON','PWR','CARR','OTIS'],
+  'Materials':['LIN','APD','SHW','ECL','FCX','NUE','DOW','DD','VMC','MLM','CF','NEM'],
+  'RealEstate':['PLD','EQIX','DLR','SPG','O','WELL','CCI','PSA','SBAC','ARE','VTR'],
+  'ETFs':['SPY','QQQ','IWM','DIA','XLF','XLE','XLK','XLV','GLD','TLT'],
+};
+
+// ====== V8 Step 5B: Sector Daily Aggregation ======
+async function computeSectorDaily(gexMap, snapshotMap) {
+  console.log('[V8] Computing sector daily aggregation...');
+  const today = new Date().toISOString().slice(0,10);
+  const ts = Date.now();
+  let written = 0;
+  for (const [sector, tickers] of Object.entries(SECTOR_MAP)) {
+    let sumGex=0, sumPcr=0, sumComposite=0, sumAlpha=0, count=0;
+    let totalCallOI=0, totalPutOI=0;
+    for (const t of tickers) {
+      const g = gexMap[t];
+      const s = snapshotMap[t];
+      if (!g && !s) continue;
+      count++;
+      if (g) { sumGex += g.gex || 0; sumPcr += g.pcr || 0; }
+      if (s) { sumAlpha += s.changePct || 0; }
+    }
+    if (count === 0) continue;
+    try {
+      await client.send(new PutCommand({ TableName:'signum-sector-daily', Item: {
+        pk: today, sk: sector, timestamp: ts,
+        avgGex: Math.round(sumGex / count),
+        avgPcr: Math.round((sumPcr / count) * 100) / 100,
+        avgChangePct: Math.round((sumAlpha / count) * 100) / 100,
+        tickerCount: count,
+        sector: sector,
+      }}));
+      written++;
+    } catch {}
+  }
+  console.log('[V8] Sector daily: ' + written + ' sectors written');
+  return written;
+}
+
+// ====== V8 Step 5C: IV Surface ======
+async function computeIvSurface(priceMap) {
+  console.log('[V8] Computing IV surface for detail tickers...');
+  const ts = Date.now();
+  let written = 0;
+  // Use first 20 detail tickers to avoid timeout
+  const ivTickers = DETAIL_TICKERS.slice(0, 20);
+  for (let i = 0; i < ivTickers.length; i += 5) {
+    const batch = ivTickers.slice(i, i+5);
+    await Promise.all(batch.map(async (ticker) => {
+      try {
+        const price = priceMap[ticker]; if (!price) return;
+        const opts = await getAllOptions(ticker); if (!opts.length) return;
+        // Group by expiration date
+        const byExp = {};
+        for (const o of opts) {
+          const exp = o.details?.expiration_date;
+          if (!exp) continue;
+          if (!byExp[exp]) byExp[exp] = { calls: [], puts: [] };
+          if (o.details.contract_type === 'call') byExp[exp].calls.push(o);
+          else byExp[exp].puts.push(o);
+        }
+        // For each expiration, find ATM IV and 25-delta IVs
+        const surface = [];
+        for (const [exp, data] of Object.entries(byExp)) {
+          const dte = Math.ceil((new Date(exp).getTime() - Date.now()) / 86400000);
+          if (dte < 0 || dte > 90) continue;
+          // ATM Call IV
+          const sortedCalls = data.calls
+            .filter(o => o.greeks?.implied_volatility > 0)
+            .sort((a,b) => Math.abs(a.details.strike_price-price) - Math.abs(b.details.strike_price-price));
+          const sortedPuts = data.puts
+            .filter(o => o.greeks?.implied_volatility > 0)
+            .sort((a,b) => Math.abs(a.details.strike_price-price) - Math.abs(b.details.strike_price-price));
+          const atmCallIv = sortedCalls[0]?.greeks?.implied_volatility;
+          const atmPutIv = sortedPuts[0]?.greeks?.implied_volatility;
+          // 25-delta: find options closest to 0.25 delta
+          const d25Call = data.calls
+            .filter(o => o.greeks?.delta > 0)
+            .sort((a,b) => Math.abs((a.greeks?.delta||0)-0.25) - Math.abs((b.greeks?.delta||0)-0.25))[0];
+          const d25Put = data.puts
+            .filter(o => o.greeks?.delta < 0)
+            .sort((a,b) => Math.abs(Math.abs(a.greeks?.delta||0)-0.25) - Math.abs(Math.abs(b.greeks?.delta||0)-0.25))[0];
+          surface.push({
+            expiration: exp, dte,
+            atmCallIv: atmCallIv ? Math.round(atmCallIv*10000)/100 : null,
+            atmPutIv: atmPutIv ? Math.round(atmPutIv*10000)/100 : null,
+            d25CallIv: d25Call?.greeks?.implied_volatility ? Math.round(d25Call.greeks.implied_volatility*10000)/100 : null,
+            d25PutIv: d25Put?.greeks?.implied_volatility ? Math.round(d25Put.greeks.implied_volatility*10000)/100 : null,
+            skew: (atmPutIv && atmCallIv) ? Math.round((atmPutIv-atmCallIv)*10000)/100 : null,
+          });
+        }
+        if (surface.length > 0) {
+          await client.send(new PutCommand({ TableName:'signum-iv-surface', Item: {
+            ticker, timestamp: ts, price, surface: surface.slice(0, 8), // max 8 expirations
+          }}));
+          written++;
+        }
+      } catch {}
+    }));
+  }
+  console.log('[V8] IV Surface: ' + written + ' tickers written');
+  return written;
+}
+
+// ====== V8 Step 5D: Economic Calendar ======
+async function harvestEconomicCalendar() {
+  if (!FINNHUB_KEY) { console.log('[V8] SKIP economic calendar: no Finnhub key'); return 0; }
+  console.log('[V8] Fetching economic calendar...');
+  try {
+    const from = new Date().toISOString().slice(0,10);
+    const to = new Date(Date.now()+7*86400000).toISOString().slice(0,10);
+    const data = await httpsGet('https://finnhub.io/api/v1/calendar/economic?from='+from+'&to='+to+'&token='+FINNHUB_KEY, 10000);
+    const events = data?.economicCalendar || [];
+    let written = 0;
+    for (const evt of events.slice(0, 50)) { // max 50 events
+      try {
+        await client.send(new PutCommand({ TableName:'signum-economic-calendar', Item: {
+          pk: evt.date || from,
+          sk: (evt.event || 'unknown') + ':' + (evt.time || '00:00'),
+          timestamp: Date.now(),
+          event: evt.event || '',
+          country: evt.country || '',
+          impact: evt.impact || '',
+          actual: evt.actual ?? null,
+          estimate: evt.estimate ?? null,
+          prev: evt.prev ?? null,
+          unit: evt.unit || '',
+          time: evt.time || '',
+        }}));
+        written++;
+      } catch {}
+    }
+    console.log('[V8] Economic calendar: ' + written + ' events written');
+    return written;
+  } catch (e) {
+    console.error('[V8] Economic calendar error:', e.message);
+    return 0;
+  }
+}
+
+
 exports.handler = async (event) => {
   const start = Date.now();
-  console.log('SIGNUM Harvest Lambda v6.0 — ' + new Date().toISOString());
+  console.log('SIGNUM Harvest Lambda v8.0 — ' + new Date().toISOString());
   const hour = new Date().getUTCHours();
   const minute = new Date().getUTCMinutes();
   const utcMin = hour*60+minute;
@@ -425,23 +652,66 @@ exports.handler = async (event) => {
   results.prices = count;
   results.rlsi = await computeRlsi();
   
-  // Regular hours: GEX + Alpha + SMA
+  // Regular hours: GEX + Alpha + SMA + V8(Sector + IV Surface)
+  let gexMap = {};
   if (isRegular || forceRun) {
-    const gexMap = await harvestGex(priceMap);
+    gexMap = await harvestGex(priceMap);
     results.gex = Object.keys(gexMap).length;
     results.alpha = await updateAlphaScores(snapshotMap, gexMap);
     results.sma = await harvestSMA(priceMap);
+    // V8: Sector daily aggregation (uses gexMap + snapshotMap)
+    try { results.sectorDaily = await computeSectorDaily(gexMap, snapshotMap); }
+    catch (e) { results.sectorDaily = { error: e.message }; }
+    // V8: IV Surface (uses priceMap + options chain, top 20 tickers)
+    try { results.ivSurface = await computeIvSurface(priceMap); }
+    catch (e) { results.ivSurface = { error: e.message }; }
   } else {
     results.gex = 'SKIP:extended';
     results.sma = 'SKIP:extended';
+    results.sectorDaily = 'SKIP:extended';
+    results.ivSurface = 'SKIP:extended';
   }
   
-  // Daily details: run once at 14:30 UTC (market open + 1hr) or forceRun
+  // Daily details + V8 economic calendar: run once at 14:30 UTC (market open + 1hr)
   const isDailyDetailTime = (utcMin >= 14*60+25 && utcMin <= 14*60+45);
   if (isDailyDetailTime || forceRun) {
     results.details = await harvestDetails();
+    // V8: Economic calendar (Finnhub, once daily)
+    try { results.economicCalendar = await harvestEconomicCalendar(); }
+    catch (e) { results.economicCalendar = { error: e.message }; }
   } else {
     results.details = 'SKIP:not_daily_window';
+    results.economicCalendar = 'SKIP:not_daily_window';
+  }
+
+  // V8/Phase F: Pre-market history enhancement
+  // During pre-market (08:00-13:29 UTC = 04:00-09:29 ET), record pre-market specific data
+  const isPreMarket = (utcMin >= 8*60 && utcMin < 13*60+30);
+  if (isPreMarket) {
+    try {
+      const today = new Date().toISOString().slice(0,10);
+      let preMarketUpdated = 0;
+      for (const [ticker, snapData] of Object.entries(snapshotMap)) {
+        if (!snapData || !snapData.changePct) continue;
+        try {
+          await client.send(new PutCommand({ TableName:'signum-alpha-history', Item: {
+            ticker, date: today + ':PRE',
+            preMarketChange: Math.round(snapData.changePct * 100) / 100,
+            preMarketVolume: snapData.volume || 0,
+            preMarketPrice: snapData.price || 0,
+            timestamp: Date.now(),
+            qualityTier: 'PRE_MARKET',
+          }}));
+          preMarketUpdated++;
+        } catch {}
+      }
+      results.preMarket = preMarketUpdated;
+      console.log('[V8] Pre-market: ' + preMarketUpdated + ' tickers recorded');
+    } catch (e) {
+      results.preMarket = { error: e.message };
+    }
+  } else {
+    results.preMarket = 'SKIP:not_premarket';
   }
 
   // Command Cache Warming: regular hours only (GEX/options data)
@@ -469,5 +739,5 @@ exports.handler = async (event) => {
   
   const duration = Math.round((Date.now()-start)/1000);
   console.log('Done in '+duration+'s');
-  return { statusCode:200, body:JSON.stringify({ success:true, version:'7.0', timestamp:new Date().toISOString(), duration, results }) };
+  return { statusCode:200, body:JSON.stringify({ success:true, version:'8.0', timestamp:new Date().toISOString(), duration, results }) };
 };

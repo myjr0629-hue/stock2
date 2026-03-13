@@ -3,15 +3,19 @@
 import { useTranslations } from 'next-intl';
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
+import { useState, useEffect } from 'react';
 
 export function Footer() {
     const t = useTranslations('footer');
     const pathname = usePathname();
 
-    // Guide pages have a fixed sidebar — offset footer to match
-    const isGuide = pathname.includes('/how-it-works');
-    const isIntel = pathname.includes('/intel') && !pathname.includes('/intel-guardian');
-    const needsOffset = isGuide || isIntel;
+    // V8: Use useEffect to avoid hydration mismatch (SSR vs CSR pathname can differ)
+    const [needsOffset, setNeedsOffset] = useState(false);
+    useEffect(() => {
+        const isGuide = pathname.includes('/how-it-works');
+        const isIntel = pathname.includes('/intel') && !pathname.includes('/intel-guardian');
+        setNeedsOffset(isGuide || isIntel);
+    }, [pathname]);
 
     const isKorean = pathname.startsWith('/ko');
     const locale = pathname.startsWith('/ja') ? 'ja' : pathname.startsWith('/ko') ? 'ko' : 'en';
