@@ -34,24 +34,30 @@ export function FlowSniper({ netPremium, callPremium, putPremium, optionsCount, 
             }`}>
             {/* Header */}
             <div className="py-2 border-b border-white/5 flex flex-row items-center justify-between px-3 shrink-0">
-                <div className="text-xs font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                <div className="text-xs font-black text-slate-300 uppercase tracking-widest flex items-center gap-2">
                     <Target className={`w-3 h-3 ${isGammaSqueeze ? "text-indigo-400 animate-pulse" : isPanicSelling ? "text-rose-400 animate-pulse" : "text-rose-400"}`} />
                     <div>
                         {t('flowMonitor')}
                         <div className="flex items-center gap-1 mt-0.5">
                             {isGammaSqueeze ? (
-                                <span className="block text-[11px] text-indigo-300 font-black animate-pulse font-jakarta">🚀 {t('gammaSqueezeDetected')}</span>
+                                <span className="block text-[12px] text-indigo-300 font-black animate-pulse font-jakarta flex items-center gap-1">
+                                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" className="shrink-0"><path d="M7 1L9 5H5L7 1Z" fill="currentColor" opacity="0.8"/><path d="M7 4L9 8H5L7 4Z" fill="currentColor" opacity="0.5"/><path d="M7 7L9 11H5L7 7Z" fill="currentColor" opacity="0.3"/><line x1="7" y1="1" x2="7" y2="13" stroke="currentColor" strokeWidth="1" strokeDasharray="1 1"/></svg>
+                                    {t('gammaSqueezeDetected')}
+                                </span>
                             ) : isPanicSelling ? (
-                                <span className="block text-[11px] text-rose-300 font-black animate-pulse font-jakarta">📉 {t('panicSellingDetected')}</span>
+                                <span className="block text-[12px] text-rose-300 font-black animate-pulse font-jakarta flex items-center gap-1">
+                                    <svg width="14" height="14" viewBox="0 0 14 14" fill="none" className="shrink-0"><path d="M2 3L7 5L12 2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/><path d="M2 6L5 8L8 6.5L12 9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/><path d="M10 7V11M10 11L8 9M10 11L12 9" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                                    {t('panicSellingDetected')}
+                                </span>
                             ) : (
-                                <span className="block text-[11px] text-indigo-400 font-bold normal-case opacity-90">{t('realtimeTracking')}</span>
+                                <span className="block text-[12px] text-indigo-400 font-bold normal-case opacity-90">{t('realtimeTracking')}</span>
                             )}
                         </div>
                     </div>
                 </div>
                 <div className="flex items-center gap-1">
                     <span className={`w-1.5 h-1.5 rounded-full ${isGammaSqueeze ? 'bg-indigo-400 shadow-[0_0_10px_#818cf8]' : isPanicSelling ? 'bg-rose-500 shadow-[0_0_10px_#f43f5e]' : isBullish ? 'bg-emerald-500' : 'bg-rose-500'} animate-pulse`} />
-                    <span className={`text-[11px] font-black font-jakarta ${isGammaSqueeze ? 'text-indigo-300' : isPanicSelling ? 'text-rose-300' : isBullish ? 'text-emerald-500' : 'text-rose-500'}`}>
+                    <span className={`text-[12px] font-black font-jakarta ${isGammaSqueeze ? 'text-indigo-300' : isPanicSelling ? 'text-rose-300' : isBullish ? 'text-emerald-500' : 'text-rose-500'}`}>
                         {isGammaSqueeze ? t('gammaSqueeze') :
                             isPanicSelling ? t('panicSelling') :
                                 isBullish ? t('bullish') : t('bearish')}
@@ -62,7 +68,7 @@ export function FlowSniper({ netPremium, callPremium, putPremium, optionsCount, 
             <div className="space-y-1.5 pt-1.5 pb-2 px-3 flex-1">
                 {/* 1. NET PREMIUM BIG DISPLAY */}
                 <div className="text-center">
-                    <div className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-0.5 font-jakarta">
+                    <div className="text-[12px] font-bold text-slate-300 uppercase tracking-widest mb-0.5 font-jakarta">
                         {t('netPremiumFlow')}
                         <span title={t('netPremiumTooltip')}>
                             <Info size={10} className="inline ml-1 text-slate-500 hover:text-slate-300 cursor-help" />
@@ -75,7 +81,7 @@ export function FlowSniper({ netPremium, callPremium, putPremium, optionsCount, 
 
                 {/* 2. CALL vs PUT BATTLE BAR */}
                 <div className="space-y-0.5">
-                    <div className="flex justify-between text-[11px] font-bold text-slate-400 uppercase font-jakarta">
+                    <div className="flex justify-between text-[12px] font-bold text-slate-300 uppercase font-jakarta">
                         <span className="text-emerald-500">{t('callPrem')} (${(callPremium / 1000000).toFixed(1)}M)</span>
                         <span className="text-rose-500">{t('putPrem')} (${(putPremium / 1000000).toFixed(1)}M)</span>
                     </div>
@@ -94,7 +100,7 @@ export function FlowSniper({ netPremium, callPremium, putPremium, optionsCount, 
                             style={{ width: `${putPct}%` }}
                         />
                     </div>
-                    <div className="flex justify-between text-[11px] font-mono text-slate-400">
+                    <div className="flex justify-between text-[12px] font-mono text-slate-300">
                         <span>{callPct.toFixed(0)}%</span>
                         <span>{putPct.toFixed(0)}%</span>
                     </div>
@@ -102,9 +108,9 @@ export function FlowSniper({ netPremium, callPremium, putPremium, optionsCount, 
 
                 {/* 3. RELVOL / ACTIVITY (Placeholder for Logic) */}
                 <div className="flex items-center justify-between pt-1.5 border-t border-white/5 mt-1.5">
-                    <span className="text-[11px] font-bold text-slate-400 uppercase font-jakarta">{t('volumeStrength')}</span>
-                    <div className="flex items-center gap-1 text-[11px] font-black text-amber-400 font-jakarta">
-                        <TrendingUp size={9} />
+                    <span className="text-[12px] font-bold text-slate-300 uppercase font-jakarta">{t('volumeStrength')}</span>
+                    <div className="flex items-center gap-1 text-[12px] font-black text-amber-400 font-jakarta">
+                        <TrendingUp size={10} />
                         <span>{t('activeContracts', { count: optionsCount })}</span>
                     </div>
                 </div>
