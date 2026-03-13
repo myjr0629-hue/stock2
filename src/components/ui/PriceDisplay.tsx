@@ -314,6 +314,9 @@ export function PriceDisplayCard({
     // Show extended data even when session is over (user wants to see last known POST/PRE data)
     const hasExtended = extendedPrice && extendedPrice > 0;
 
+    // ── Extended price flash (PRE/POST) — track changes internally ──
+    const extFlash = usePriceFlash(extendedPrice || 0, staggerMs);
+
     // Staggered flash — delay the flash by staggerMs so cards don't all flash at once
     const [delayedFlash, setDelayedFlash] = useState<'up' | 'down' | null>(null);
     const flashTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -352,6 +355,12 @@ export function PriceDisplayCard({
             ? 'animate-[priceFlashDown_0.6s_ease-out]'
             : '';
 
+    // Extended flash style — glow + background highlight on PRE/POST price change
+    const extFlashBorder = extFlash === 'up' ? 'border-emerald-400/50' :
+        extFlash === 'down' ? 'border-rose-400/50' : '';
+    const extFlashBg = extFlash === 'up' ? 'bg-emerald-500/15' :
+        extFlash === 'down' ? 'bg-rose-500/15' : '';
+
     return (
         <div className="flex flex-col items-center">
             {/* Main Price */}
@@ -365,16 +374,34 @@ export function PriceDisplayCard({
                 })}
             </div>
 
-            {/* Extended Price (if available) */}
+            {/* Extended Price (if available) — with flash on price change */}
             {hasExtended && (
-                <div className="flex items-center justify-center gap-1.5 mb-1 animate-in fade-in slide-in-from-bottom-1">
+                <div
+                    key={extFlash ? `ext-${extendedPrice}-${Date.now()}` : undefined}
+                    className={`flex items-center justify-center gap-1.5 mb-1 animate-in fade-in slide-in-from-bottom-1 rounded-md px-1 py-0.5 transition-all duration-300 ${extFlash ? `${extFlashBg} ${extFlashBorder} border` : ''}`}
+                    style={extFlash ? {
+                        boxShadow: extFlash === 'up'
+                            ? '0 0 12px rgba(52,211,153,0.3)'
+                            : '0 0 12px rgba(251,113,133,0.3)',
+                    } : undefined}
+                >
                     <span className={`text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-sm border font-jakarta ${(extendedLabel || 'POST') === 'POST'
                         ? 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30'
                         : 'bg-amber-500/20 text-amber-300 border-amber-500/30'
                         }`}>
                         {extendedLabel || 'POST'}
                     </span>
-                    <span className="text-xs font-bold text-white/90 font-num">
+                    <span
+                        className={`text-xs font-bold font-num transition-all duration-300 ${extFlash === 'up' ? 'text-green-200' :
+                            extFlash === 'down' ? 'text-red-200' :
+                                'text-white/90'
+                            }`}
+                        style={extFlash ? {
+                            textShadow: extFlash === 'up'
+                                ? '0 0 10px rgba(74,222,128,0.8)'
+                                : '0 0 10px rgba(248,113,113,0.8)',
+                        } : { textShadow: 'none' }}
+                    >
                         ${extendedPrice.toFixed(2)}
                     </span>
                     <span className={`text-[10px] font-semibold font-num ${extendedColor}`}>
