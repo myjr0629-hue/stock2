@@ -378,7 +378,19 @@
     "dealerSuppressVolatility": "딜러가 변동성 억제 (안정적)",
     "dealerAccelerateVolatility": "딜러가 변동성 가속 (주의)",
     "maxPainDistance": "Max Pain 이격도",
-    "signalTriggers": "📊 분석 근거"
+    "signalTriggers": "📊 분석 근거",
+    "sectorDistribution": "섹터 비중",
+    "riskAssessment": "리스크 진단",
+    "pnlTreemap": "손익 트리맵",
+    "concentration": "집중도",
+    "sectorBias": "섹터 편중",
+    "diversification": "분산도",
+    "highConcentration": "⚠️ 단일 종목 집중 위험",
+    "moderateConcentration": "⚡ 보통 수준 집중도",
+    "wellDiversified": "✅ 분산 양호",
+    "dominant": "비중 최대",
+    "sectors": "섹터",
+    "sect": "섹터"
   },
   "verdict": {
     "price": "가격",

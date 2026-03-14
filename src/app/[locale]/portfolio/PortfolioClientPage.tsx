@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef, useCallback, memo } from 'react';
 import { usePortfolio, type EnrichedHolding } from '@/hooks/usePortfolio';
 import { useTranslations, useLocale } from 'next-intl';
 import {
@@ -13,6 +13,7 @@ import { Link, useRouter } from '@/i18n/routing';
 import { useDashboardStore } from '@/stores/dashboardStore';
 import { usePriceFlash, getFlashStyle, tickerDelay } from '@/components/ui/PriceDisplay';
 import { ProGate, EliteGate } from '@/components/gate/FeatureGate';
+import { CardTooltip, PORTFOLIO_TOOLTIPS } from '@/components/ui/CardTooltip';
 import { useTier } from '@/contexts/TierContext';
 import useSWR from 'swr';
 
@@ -47,19 +48,41 @@ export default function PortfolioClientPage({
     const { tier } = useTier();
     const [currencyMode, setCurrencyMode] = useState<'usd' | 'local'>('usd');
     const fx = useExchangeRate(locale);
+    const [sortKey, setSortKey] = useState<'default' | 'score' | 'pnl' | 'weight' | 'today'>('default');
+    const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
 
     // Tier-based holdings limit: FREE=3, PRO=20, ELITE=unlimited
     const maxHoldings = tier === 'elite' ? 999 : tier === 'pro' ? 20 : 3;
     const isAtLimit = holdings.length >= maxHoldings;
 
-    // SWR handles dual-interval polling automatically:
-    // - Price/P&L: every 5 seconds (lightweight, price-only API)
-    // - Alpha/Signal/Action: every 30 seconds (full API with engine)
-
     // Calculate portfolio score (average of all alpha scores)
     const portfolioScore = holdings.length > 0
         ? Math.round(holdings.reduce((sum, h) => sum + (h.alphaScore || 50), 0) / holdings.length)
         : 0;
+
+    // Sort holdings
+    const sortedHoldings = useMemo(() => {
+        if (sortKey === 'default') return holdings;
+        const sorted = [...holdings].sort((a, b) => {
+            switch (sortKey) {
+                case 'score': return (b.alphaScore ?? 0) - (a.alphaScore ?? 0);
+                case 'pnl': return b.gainLossPct - a.gainLossPct;
+                case 'weight': {
+                    const wA = summary.totalValue > 0 ? a.marketValue / summary.totalValue : 0;
+                    const wB = summary.totalValue > 0 ? b.marketValue / summary.totalValue : 0;
+                    return wB - wA;
+                }
+                case 'today': return b.changePct - a.changePct;
+                default: return 0;
+            }
+        });
+        return sortDir === 'asc' ? sorted.reverse() : sorted;
+    }, [holdings, sortKey, sortDir, summary.totalValue]);
+
+    const handleSort = (key: typeof sortKey) => {
+        if (sortKey === key) setSortDir(d => d === 'desc' ? 'asc' : 'desc');
+        else { setSortKey(key); setSortDir('desc'); }
+    };
 
     return (
         <div className="min-h-screen bg-[#0c1220] text-slate-100">
@@ -95,6 +118,26 @@ export default function PortfolioClientPage({
             <main className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-5">
                 {/* Stats Dashboard */}
                 <PortfolioStatsBar summary={summary} portfolioScore={portfolioScore} holdingsCount={holdings.length} locale={locale} />
+
+                {/* [3] Sector Donut + Risk + [5] Treemap — only when holdings exist */}
+                {!loading && holdings.length > 0 && (
+                    <PortfolioAnalyticsDashboard holdings={holdings} summary={summary} t={t} />
+                )}
+
+                {/* Sort Chips */}
+                {!loading && holdings.length > 1 && (
+                    <div className="flex items-center gap-2 text-[12px]">
+                        <span className="text-slate-300 font-semibold uppercase tracking-wider">Sort</span>
+                        {(['default', 'score', 'pnl', 'weight', 'today'] as const).map(key => (
+                            <button key={key} onClick={() => handleSort(key)} className={`px-2.5 py-1 rounded-lg border transition-all duration-200 font-bold ${
+                                sortKey === key ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-400' : 'border-white/[0.06] bg-white/[0.03] text-slate-300 hover:text-white hover:border-white/[0.12]'
+                            }`}>
+                                {key === 'default' ? 'Default' : key === 'score' ? 'Score' : key === 'pnl' ? 'P&L' : key === 'weight' ? 'Weight' : 'Today'}
+                                {sortKey === key && key !== 'default' && <span className="ml-1">{sortDir === 'desc' ? '↓' : '↑'}</span>}
+                            </button>
+                        ))}
+                    </div>
+                )}
 
                 {/* Premium Holdings Table - Glassmorphism */}
                 {loading ? (
@@ -158,9 +201,9 @@ export default function PortfolioClientPage({
                             </div>
                             <div className="w-[60px] flex-shrink-0" />
                         </div>
-                        {/* Cards */}
-                        {holdings.map((holding, i) => (
-                            <PremiumHoldingRow key={holding.ticker} holding={holding} onRemove={() => removeHolding(holding.ticker)} onEdit={() => setEditingHolding(holding)} totalValue={summary.totalValue} index={i} currencyMode={currencyMode} fxRate={fx.rate} fxSymbol={fx.symbol} />
+                        {/* Cards — Lazy rendering with IntersectionObserver */}
+                        {sortedHoldings.map((holding, i) => (
+                            <LazyHoldingRow key={holding.ticker} holding={holding} onRemove={() => removeHolding(holding.ticker)} onEdit={() => setEditingHolding(holding)} totalValue={summary.totalValue} index={i} currencyMode={currencyMode} fxRate={fx.rate} fxSymbol={fx.symbol} immediate={i < 8} />
                         ))}
                     </div>
                 )}
@@ -1317,6 +1360,286 @@ function CurrencySubText({ usd, locale, showSign }: { usd: number; locale: strin
         <div className="text-[13px] font-bold tabular-nums text-slate-200 mt-0.5">
             ≈ {displayVal}
         </div>
+    );
+}
+
+// === LAZY HOLDING ROW (IntersectionObserver) ===
+function LazyHoldingRow({ holding, onRemove, onEdit, totalValue, index, currencyMode, fxRate, fxSymbol, immediate }: {
+    holding: EnrichedHolding; onRemove: () => void; onEdit: () => void; totalValue: number; index: number;
+    currencyMode: 'usd' | 'local'; fxRate?: number | null; fxSymbol?: string; immediate: boolean;
+}) {
+    const [isVisible, setIsVisible] = useState(immediate);
+    const ref = useRef<HTMLDivElement>(null);
+    useEffect(() => {
+        if (immediate || isVisible) return;
+        const el = ref.current;
+        if (!el) return;
+        const obs = new IntersectionObserver(([e]) => { if (e.isIntersecting) { setIsVisible(true); obs.disconnect(); } }, { rootMargin: '200px' });
+        obs.observe(el);
+        return () => obs.disconnect();
+    }, [immediate, isVisible]);
+    if (!isVisible) return <div ref={ref} className="h-[52px] rounded-lg border border-white/[0.04] bg-white/[0.02]" />;
+    return <PremiumHoldingRow holding={holding} onRemove={onRemove} onEdit={onEdit} totalValue={totalValue} index={index} currencyMode={currencyMode} fxRate={fxRate} fxSymbol={fxSymbol} />;
+}
+
+// === SECTOR MAPPING ===
+const SECTOR_MAP: Record<string, { sector: string; color: string }> = {
+    AAPL: { sector: 'Technology', color: '#818cf8' }, MSFT: { sector: 'Technology', color: '#818cf8' },
+    GOOGL: { sector: 'Communication', color: '#f472b6' }, GOOG: { sector: 'Communication', color: '#f472b6' },
+    META: { sector: 'Communication', color: '#f472b6' }, NFLX: { sector: 'Communication', color: '#f472b6' },
+    AMZN: { sector: 'Consumer Disc.', color: '#fb923c' }, TSLA: { sector: 'Consumer Disc.', color: '#fb923c' },
+    NVDA: { sector: 'Technology', color: '#818cf8' }, AMD: { sector: 'Technology', color: '#818cf8' },
+    INTC: { sector: 'Technology', color: '#818cf8' }, CRM: { sector: 'Technology', color: '#818cf8' },
+    AVGO: { sector: 'Technology', color: '#818cf8' }, ORCL: { sector: 'Technology', color: '#818cf8' },
+    JPM: { sector: 'Financials', color: '#fbbf24' }, GS: { sector: 'Financials', color: '#fbbf24' },
+    BAC: { sector: 'Financials', color: '#fbbf24' }, V: { sector: 'Financials', color: '#fbbf24' },
+    MA: { sector: 'Financials', color: '#fbbf24' }, MS: { sector: 'Financials', color: '#fbbf24' },
+    UNH: { sector: 'Healthcare', color: '#34d399' }, JNJ: { sector: 'Healthcare', color: '#34d399' },
+    LLY: { sector: 'Healthcare', color: '#34d399' }, PFE: { sector: 'Healthcare', color: '#34d399' },
+    XOM: { sector: 'Energy', color: '#f87171' }, CVX: { sector: 'Energy', color: '#f87171' },
+    PG: { sector: 'Consumer Staples', color: '#a78bfa' }, KO: { sector: 'Consumer Staples', color: '#a78bfa' },
+    DIS: { sector: 'Communication', color: '#f472b6' }, BA: { sector: 'Industrials', color: '#94a3b8' },
+    CAT: { sector: 'Industrials', color: '#94a3b8' }, UPS: { sector: 'Industrials', color: '#94a3b8' },
+    NEE: { sector: 'Utilities', color: '#67e8f9' }, SPY: { sector: 'ETF', color: '#6ee7b7' },
+    QQQ: { sector: 'ETF', color: '#6ee7b7' }, IWM: { sector: 'ETF', color: '#6ee7b7' },
+    PLTR: { sector: 'Technology', color: '#818cf8' }, COIN: { sector: 'Financials', color: '#fbbf24' },
+    SQ: { sector: 'Financials', color: '#fbbf24' }, SOFI: { sector: 'Financials', color: '#fbbf24' },
+    SMCI: { sector: 'Technology', color: '#818cf8' }, MSTR: { sector: 'Technology', color: '#818cf8' },
+    ARM: { sector: 'Technology', color: '#818cf8' }, TSM: { sector: 'Technology', color: '#818cf8' },
+    MU: { sector: 'Technology', color: '#818cf8' }, QCOM: { sector: 'Technology', color: '#818cf8' },
+    UBER: { sector: 'Technology', color: '#818cf8' }, SHOP: { sector: 'Technology', color: '#818cf8' },
+    SNOW: { sector: 'Technology', color: '#818cf8' }, NET: { sector: 'Technology', color: '#818cf8' },
+};
+const DEFAULT_SECTOR = { sector: 'Other', color: '#64748b' };
+
+// === PORTFOLIO ANALYTICS DASHBOARD (Sector Donut + Risk + Treemap) ===
+function PortfolioAnalyticsDashboard({ holdings, summary, t }: { holdings: EnrichedHolding[]; summary: { totalValue: number; totalCost: number; totalGainLoss: number; totalGainLossPct: number }; t: (key: string) => string }) {
+    // Sector aggregation
+    const sectorData = useMemo(() => {
+        const map: Record<string, { sector: string; color: string; value: number; pnl: number; tickers: string[] }> = {};
+        holdings.forEach(h => {
+            const s = SECTOR_MAP[h.ticker] || DEFAULT_SECTOR;
+            if (!map[s.sector]) map[s.sector] = { sector: s.sector, color: s.color, value: 0, pnl: 0, tickers: [] };
+            map[s.sector].value += h.marketValue;
+            map[s.sector].pnl += h.gainLoss;
+            map[s.sector].tickers.push(h.ticker);
+        });
+        return Object.values(map).sort((a, b) => b.value - a.value);
+    }, [holdings]);
+
+    // Risk metrics
+    const riskMetrics = useMemo(() => {
+        const topWeight = holdings.length > 0 ? Math.max(...holdings.map(h => h.marketValue / Math.max(summary.totalValue, 1) * 100)) : 0;
+        const topSectorWeight = sectorData.length > 0 ? (sectorData[0].value / Math.max(summary.totalValue, 1)) * 100 : 0;
+        const avgScore = holdings.filter(h => h.alphaScore).length > 0
+            ? Math.round(holdings.filter(h => h.alphaScore).reduce((s, h) => s + (h.alphaScore || 0), 0) / holdings.filter(h => h.alphaScore).length) : 0;
+        return { topWeight, topSectorWeight, holdingsCount: holdings.length, avgScore };
+    }, [holdings, sectorData, summary.totalValue]);
+
+    return (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+            {/* Sector Donut Chart */}
+            <div className="relative overflow-hidden rounded-xl border border-white/[0.08] bg-gradient-to-br from-white/[0.05] to-white/[0.02] backdrop-blur-xl p-5 flex flex-col justify-between min-h-[180px]">
+                <CardTooltip tooltip={PORTFOLIO_TOOLTIPS.SECTOR_DISTRIBUTION.tooltip} badge={PORTFOLIO_TOOLTIPS.SECTOR_DISTRIBUTION.badge}>
+                    <div className="text-[12px] text-slate-300 uppercase tracking-[0.15em] font-bold mb-4">{t('sectorDistribution')}</div>
+                </CardTooltip>
+                <div className="flex items-center gap-5 flex-1">
+                    <SectorDonut sectors={sectorData} total={summary.totalValue} label={t('sectors')} />
+                    <div className="flex-1 space-y-2.5">
+                        {sectorData.slice(0, 5).map(s => (
+                            <div key={s.sector} className="flex items-center gap-2.5">
+                                <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: s.color }} />
+                                <span className="text-[12px] text-slate-300 font-bold truncate flex-1">{s.sector}</span>
+                                <span className="text-[13px] text-white font-black tabular-nums">{summary.totalValue > 0 ? ((s.value / summary.totalValue) * 100).toFixed(0) : 0}%</span>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            </div>
+
+            {/* Risk Assessment */}
+            <div className="relative overflow-hidden rounded-xl border border-white/[0.08] bg-gradient-to-br from-white/[0.05] to-white/[0.02] backdrop-blur-xl p-5 flex flex-col justify-between min-h-[180px]">
+                <CardTooltip tooltip={PORTFOLIO_TOOLTIPS.RISK_ASSESSMENT.tooltip} badge={PORTFOLIO_TOOLTIPS.RISK_ASSESSMENT.badge}>
+                    <div className="text-[12px] text-slate-300 uppercase tracking-[0.15em] font-bold mb-4">{t('riskAssessment')}</div>
+                </CardTooltip>
+                <div className="space-y-4 flex-1 flex flex-col justify-center">
+                    {/* Concentration Risk */}
+                    <div>
+                        <div className="flex justify-between items-center mb-1.5">
+                            <CardTooltip tooltip={PORTFOLIO_TOOLTIPS.CONCENTRATION.tooltip}>
+                                <span className="text-[12px] text-slate-300 font-bold">{t('concentration')}</span>
+                            </CardTooltip>
+                            <span className={`text-[13px] font-black tabular-nums ${riskMetrics.topWeight > 40 ? 'text-rose-400' : riskMetrics.topWeight > 30 ? 'text-amber-400' : 'text-emerald-400'}`}>
+                                {riskMetrics.topWeight.toFixed(0)}%
+                            </span>
+                        </div>
+                        <div className="h-1.5 rounded-full bg-slate-800/80 overflow-hidden">
+                            <div className={`h-full rounded-full transition-all duration-700 ${riskMetrics.topWeight > 40 ? 'bg-rose-400' : riskMetrics.topWeight > 30 ? 'bg-amber-400' : 'bg-emerald-400'}`} style={{ width: `${Math.min(riskMetrics.topWeight, 100)}%` }} />
+                        </div>
+                        <div className="text-[12px] text-slate-300 mt-1">{riskMetrics.topWeight > 40 ? t('highConcentration') : riskMetrics.topWeight > 30 ? t('moderateConcentration') : t('wellDiversified')}</div>
+                    </div>
+                    {/* Sector Bias */}
+                    <div>
+                        <div className="flex justify-between items-center mb-1.5">
+                            <CardTooltip tooltip={PORTFOLIO_TOOLTIPS.SECTOR_BIAS.tooltip}>
+                                <span className="text-[12px] text-slate-300 font-bold">{t('sectorBias')}</span>
+                            </CardTooltip>
+                            <span className={`text-[13px] font-black tabular-nums ${riskMetrics.topSectorWeight > 60 ? 'text-rose-400' : riskMetrics.topSectorWeight > 40 ? 'text-amber-400' : 'text-emerald-400'}`}>
+                                {riskMetrics.topSectorWeight.toFixed(0)}%
+                            </span>
+                        </div>
+                        <div className="h-1.5 rounded-full bg-slate-800/80 overflow-hidden">
+                            <div className={`h-full rounded-full transition-all duration-700 ${riskMetrics.topSectorWeight > 60 ? 'bg-rose-400' : riskMetrics.topSectorWeight > 40 ? 'bg-amber-400' : 'bg-emerald-400'}`} style={{ width: `${Math.min(riskMetrics.topSectorWeight, 100)}%` }} />
+                        </div>
+                        <div className="text-[12px] text-slate-300 mt-1">{sectorData[0]?.sector || '-'} {t('dominant')}</div>
+                    </div>
+                    {/* Diversification */}
+                    <div>
+                        <div className="flex justify-between items-center mb-1.5">
+                            <CardTooltip tooltip={PORTFOLIO_TOOLTIPS.DIVERSIFICATION.tooltip}>
+                                <span className="text-[12px] text-slate-300 font-bold">{t('diversification')}</span>
+                            </CardTooltip>
+                            <span className="text-[13px] font-black tabular-nums text-white">{riskMetrics.holdingsCount} / {sectorData.length} {t('sect')}</span>
+                        </div>
+                        <div className="h-1.5 rounded-full bg-slate-800/80 overflow-hidden">
+                            <div className="h-full rounded-full bg-cyan-400 transition-all duration-700" style={{ width: `${Math.min(sectorData.length * 15, 100)}%` }} />
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {/* P&L Treemap */}
+            <div className="relative overflow-hidden rounded-xl border border-white/[0.08] bg-gradient-to-br from-white/[0.05] to-white/[0.02] backdrop-blur-xl p-5 flex flex-col min-h-[180px]">
+                <CardTooltip tooltip={PORTFOLIO_TOOLTIPS.PNL_TREEMAP.tooltip} badge={PORTFOLIO_TOOLTIPS.PNL_TREEMAP.badge}>
+                    <div className="text-[12px] text-slate-300 uppercase tracking-[0.15em] font-bold mb-4">{t('pnlTreemap')}</div>
+                </CardTooltip>
+                <div className="flex-1 flex items-center">
+                    <PnlTreemap holdings={holdings} totalValue={summary.totalValue} />
+                </div>
+            </div>
+        </div>
+    );
+}
+
+// === SVG SECTOR DONUT ===
+function SectorDonut({ sectors, total, label }: { sectors: { sector: string; color: string; value: number }[]; total: number; label?: string }) {
+    const r = 40, cx = 50, cy = 50, strokeWidth = 12;
+    const circ = 2 * Math.PI * r;
+    let accum = 0;
+
+    return (
+        <svg width="100" height="100" viewBox="0 0 100 100" className="flex-shrink-0">
+            <circle cx={cx} cy={cy} r={r} fill="none" stroke="#1e293b" strokeWidth={strokeWidth} />
+            {sectors.map((s) => {
+                const pct = total > 0 ? s.value / total : 0;
+                const dashLen = circ * pct;
+                const offset = circ * (1 - accum) + circ * 0.25;
+                accum += pct;
+                return <circle key={s.sector} cx={cx} cy={cy} r={r} fill="none" stroke={s.color} strokeWidth={strokeWidth}
+                    strokeDasharray={`${dashLen} ${circ - dashLen}`} strokeDashoffset={offset}
+                    style={{ transition: 'stroke-dashoffset 0.8s ease-out' }} />;
+            })}
+            <text x={cx} y={cy - 4} textAnchor="middle" className="text-[16px] font-black fill-white">{sectors.length}</text>
+            <text x={cx} y={cy + 11} textAnchor="middle" className="text-[10px] fill-slate-300 font-bold">{label || 'SECTORS'}</text>
+        </svg>
+    );
+}
+
+// === P&L TREEMAP (Squarified) ===
+function PnlTreemap({ holdings, totalValue }: { holdings: EnrichedHolding[]; totalValue: number }) {
+    const sorted = useMemo(() => [...holdings].sort((a, b) => b.marketValue - a.marketValue), [holdings]);
+    const containerW = 280, containerH = 120;
+
+    // Simple row-based treemap layout
+    const rects = useMemo(() => {
+        if (sorted.length === 0 || totalValue <= 0) return [];
+        const result: { x: number; y: number; w: number; h: number; ticker: string; changePct: number; weight: number }[] = [];
+        let x = 0, y = 0, remainW = containerW, remainH = containerH;
+        let remaining = [...sorted];
+
+        while (remaining.length > 0) {
+            const isHorizontal = remainW >= remainH;
+            const totalRemaining = remaining.reduce((s, h) => s + h.marketValue, 0);
+
+            // Take items for this row
+            const rowItems: typeof remaining = [];
+            let rowVal = 0;
+            const rowTarget = totalRemaining * (isHorizontal ? remainH / containerH : remainW / containerW);
+
+            for (const item of remaining) {
+                if (rowItems.length > 0 && rowVal + item.marketValue > rowTarget * 1.2) break;
+                rowItems.push(item);
+                rowVal += item.marketValue;
+            }
+            if (rowItems.length === 0) break;
+
+            const rowPct = totalRemaining > 0 ? rowVal / totalRemaining : 1;
+            const rowSize = isHorizontal ? remainW * rowPct : remainH * rowPct;
+            let pos = 0;
+
+            rowItems.forEach(item => {
+                const itemPct = rowVal > 0 ? item.marketValue / rowVal : 1 / rowItems.length;
+                const itemSize = (isHorizontal ? remainH : remainW) * itemPct;
+                result.push({
+                    x: isHorizontal ? x : x + pos,
+                    y: isHorizontal ? y + pos : y,
+                    w: isHorizontal ? rowSize : itemSize,
+                    h: isHorizontal ? itemSize : rowSize,
+                    ticker: item.ticker,
+                    changePct: item.changePct,
+                    weight: totalValue > 0 ? (item.marketValue / totalValue) * 100 : 0,
+                });
+                pos += itemSize;
+            });
+
+            if (isHorizontal) { x += rowSize; remainW -= rowSize; }
+            else { y += rowSize; remainH -= rowSize; }
+            remaining = remaining.filter(r => !rowItems.includes(r));
+        }
+        return result;
+    }, [sorted, totalValue, containerW, containerH]);
+
+    return (
+        <svg width="100%" viewBox={`0 0 ${containerW} ${containerH}`} className="rounded-lg overflow-hidden">
+            {rects.map(r => {
+                const abs = Math.abs(r.changePct);
+                const intensity = Math.min(abs / 5, 1);
+                // Rich color palette: green shades for gains, red-orange-pink for losses
+                let fill: string;
+                if (r.changePct >= 0) {
+                    // Greens: from muted teal to vivid emerald
+                    const h = 155 - intensity * 15; // 155→140 (teal→green)
+                    const s = 45 + intensity * 35;  // 45%→80%
+                    const l = 35 + (1 - intensity) * 15; // 35→50 (darker=stronger)
+                    fill = `hsl(${h}, ${s}%, ${l}%)`;
+                } else {
+                    // Reds: from muted rose to deep crimson, with orange tint for moderate
+                    const h = abs < 1.5 ? 15 : abs < 3 ? 0 : 345; // orange→red→crimson
+                    const s = 40 + intensity * 40;  // 40%→80%
+                    const l = 38 + (1 - intensity) * 12; // 38→50
+                    fill = `hsl(${h}, ${s}%, ${l}%)`;
+                }
+                const showLabel = r.w > 35 && r.h > 20;
+                return (
+                    <g key={r.ticker}>
+                        <rect x={r.x + 0.5} y={r.y + 0.5} width={Math.max(r.w - 1, 0)} height={Math.max(r.h - 1, 0)}
+                            fill={fill} rx="3" className="transition-all duration-500" />
+                        {showLabel && (
+                            <>
+                                <text x={r.x + r.w / 2} y={r.y + r.h / 2 - 3} textAnchor="middle"
+                                    className="text-[9px] font-black fill-white" style={{ textShadow: '0 1px 2px rgba(0,0,0,0.5)' }}>
+                                    {r.ticker}
+                                </text>
+                                <text x={r.x + r.w / 2} y={r.y + r.h / 2 + 8} textAnchor="middle"
+                                    className={`text-[8px] font-bold tabular-nums ${r.changePct >= 0 ? 'fill-emerald-200' : 'fill-rose-200'}`}>
+                                    {r.changePct >= 0 ? '+' : ''}{r.changePct.toFixed(1)}%
+                                </text>
+                            </>
+                        )}
+                    </g>
+                );
+            })}
+        </svg>
     );
 }
 

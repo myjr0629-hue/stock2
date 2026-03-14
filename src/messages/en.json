@@ -378,7 +378,19 @@
     "dealerSuppressVolatility": "Dealer suppresses volatility (stable)",
     "dealerAccelerateVolatility": "Dealer accelerates volatility (caution)",
     "maxPainDistance": "Max Pain Distance",
-    "signalTriggers": "📊 Analysis Triggers"
+    "signalTriggers": "📊 Analysis Triggers",
+    "sectorDistribution": "Sector Distribution",
+    "riskAssessment": "Risk Assessment",
+    "pnlTreemap": "P&L Treemap",
+    "concentration": "Concentration",
+    "sectorBias": "Sector Bias",
+    "diversification": "Diversification",
+    "highConcentration": "⚠️ High single-stock risk",
+    "moderateConcentration": "⚡ Moderate concentration",
+    "wellDiversified": "✅ Well diversified",
+    "dominant": "dominant",
+    "sectors": "SECTORS",
+    "sect": "sect."
   },
   "verdict": {
     "price": "Price",

@@ -378,7 +378,19 @@
     "dealerSuppressVolatility": "Dealer がボラティリティ抑制 (安定)",
     "dealerAccelerateVolatility": "Dealer がボラティリティ加速 (注意)",
     "maxPainDistance": "Max Pain Distance",
-    "signalTriggers": "📊 Signal トリガー"
+    "signalTriggers": "📊 Signal トリガー",
+    "sectorDistribution": "セクター構成",
+    "riskAssessment": "リスク診断",
+    "pnlTreemap": "損益ツリーマップ",
+    "concentration": "集中度",
+    "sectorBias": "セクター偏重",
+    "diversification": "分散度",
+    "highConcentration": "⚠️ 単一銘柄集中リスク",
+    "moderateConcentration": "⚡ 中程度の集中",
+    "wellDiversified": "✅ 分散良好",
+    "dominant": "比重最大",
+    "sectors": "セクター",
+    "sect": "セクター"
   },
   "verdict": {
     "price": "Price",

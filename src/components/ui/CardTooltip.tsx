@@ -582,3 +582,69 @@ export const FLOW_TOOLTIPS = {
     },
 } as const;
 
+/**
+ * Pre-defined tooltip content for PORTFOLIO analytics dashboard cards.
+ * All text is observational/descriptive — compliance-safe.
+ */
+export const PORTFOLIO_TOOLTIPS = {
+    SECTOR_DISTRIBUTION: {
+        tooltip: {
+            ko: '보유 종목의 섹터별 비중 분포 — 포트폴리오의 산업 다각화 수준을 한눈에 파악할 수 있습니다.',
+            en: 'Sector allocation of your holdings — visualize industry diversification at a glance.',
+            ja: '保有銘柄のセクター別比率分布 — ポートフォリオの業種分散度を一目で把握。',
+        },
+        badge: {
+            ko: '섹터 집중도 분석',
+            en: 'Sector concentration analysis',
+            ja: 'セクター集中度分析',
+        },
+    },
+    RISK_ASSESSMENT: {
+        tooltip: {
+            ko: '포트폴리오 리스크 진단 — 집중도(단일 종목), 섹터 편중, 분산도 3가지 축으로 리스크를 측정합니다.',
+            en: 'Portfolio risk diagnosis — measures concentration, sector bias, and diversification across three dimensions.',
+            ja: 'ポートフォリオリスク診断 — 集中度・セクター偏重・分散度の3つの軸でリスクを測定。',
+        },
+        badge: {
+            ko: '3축 리스크 분석',
+            en: '3-axis risk analysis',
+            ja: '3軸リスク分析',
+        },
+    },
+    PNL_TREEMAP: {
+        tooltip: {
+            ko: '종목별 당일 손익 트리맵 — 사각형 크기는 비중, 색상은 당일 변동률. 초록(상승) / 빨강(하락).',
+            en: 'Daily P&L treemap — rectangle size = weight, color = today\'s change. Green (gain) / Red (loss).',
+            ja: '銘柄別当日損益ツリーマップ — 面積=比重、色=当日変動率。緑(上昇)/赤(下落)。',
+        },
+        badge: {
+            ko: '비중+성과 시각화',
+            en: 'Weight + performance visual',
+            ja: '比重+パフォーマンス可視化',
+        },
+    },
+    CONCENTRATION: {
+        tooltip: {
+            ko: '단일 종목 최대 비중 — 40% 이상 시 집중 위험, 30% 이하 시 분산 양호. 리밸런싱 참고 지표.',
+            en: 'Top single-stock weight — above 40% signals concentration risk, below 30% is well diversified.',
+            ja: '単一銘柄最大比重 — 40%以上は集中リスク、30%以下は分散良好。リバランス参考指標。',
+        },
+        badge: null,
+    },
+    SECTOR_BIAS: {
+        tooltip: {
+            ko: '최대 섹터 비중 — 특정 섹터 60% 이상 시 섹터 리스크 주의. 산업 분산이 하락 방어에 기여합니다.',
+            en: 'Top sector weight — above 60% signals sector risk. Industry diversification helps in downside protection.',
+            ja: '最大セクター比重 — 60%以上はセクターリスク注意。業種分散が下落防御に寄与。',
+        },
+        badge: null,
+    },
+    DIVERSIFICATION: {
+        tooltip: {
+            ko: '보유 종목 수 / 섹터 수 — 더 많은 섹터에 분산될수록 포트폴리오 안정성이 높아집니다.',
+            en: 'Holdings count vs sector count — more sectors = higher stability and lower correlation risk.',
+            ja: '保有銘柄数/セクター数 — より多くのセクターに分散するほどポートフォリオの安定性が向上。',
+        },
+        badge: null,
+    },
+} as const;

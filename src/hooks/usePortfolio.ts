@@ -10,6 +10,7 @@ import {
     type PortfolioData
 } from '@/lib/storage/portfolioStore';
 import { useMarketStatus } from './useMarketStatus';
+import { useRealtimeData } from '@/providers/WebSocketProvider';
 
 export interface EnrichedHolding extends Holding {
     currentPrice: number;
@@ -84,10 +85,14 @@ export function usePortfolio(initialHoldings?: Holding[], initialFullData?: any[
     };
 
     const tickerString = portfolioData.holdings.map(h => h.ticker).join(',');
+    const tickerArray = useMemo(() => portfolioData.holdings.map(h => h.ticker), [portfolioData.holdings]);
 
     // [PERF] Stop polling when market is closed (weekends, nights)
     const { status: marketStatus } = useMarketStatus();
     const isClosed = marketStatus.session === 'closed';
+
+    // [WS] Real-time price overlay via WebSocket (EC2 Price WS Hub)
+    const { getPrice: wsGetPrice, connected: wsConnected } = useRealtimeData(tickerArray);
 
     // ── SWR: Full data with 30s auto-refresh (Alpha, Signal, Action, etc.) ──
     const { data: fullData, error: fullError, isLoading: fullLoading, isValidating: fullValidating, mutate } = useSWR(
@@ -200,11 +205,11 @@ export function usePortfolio(initialHoldings?: Holding[], initialFullData?: any[
             }
 
             if (rt) {
-                // Price: prefer extended live > fast 5s poll > full 30s
-                const price = displayPrice || priceRt?.price || fullRt?.price || 0;
-                // changePct: ALWAYS prefer batch API (correct regular session %)
-                // liveQ.changePercent from Polygon todaysChangePerc is combined (prevClose→preMarket) during PRE/POST
-                const changePct = fullRt?.changePct ?? priceRt?.changePct ?? 0;
+                // [WS] WebSocket price overlay: real-time tick > extended live > fast 5s poll > full 30s
+                const wsPrice = wsGetPrice(holding.ticker);
+                const price = wsPrice?.price || displayPrice || priceRt?.price || fullRt?.price || 0;
+                // changePct: WS provides real-time changePct, then batch API
+                const changePct = wsPrice?.changePct ?? fullRt?.changePct ?? priceRt?.changePct ?? 0;
                 // regChangePct for UI decomposition: same reliable source
                 const regChangePct = fullRt?.changePct ?? priceRt?.changePct ?? 0;
                 const marketValue = holding.quantity * price;
@@ -255,7 +260,7 @@ export function usePortfolio(initialHoldings?: Holding[], initialFullData?: any[
                 gainLossPct: 0,
             };
         });
-    }, [fullData, priceData, liveQuotes, portfolioData]);
+    }, [fullData, priceData, liveQuotes, portfolioData, wsGetPrice]);
 
     // ── Summary (derived from holdings) ──
     const summary = useMemo<PortfolioSummary>(() => {
