@@ -433,7 +433,21 @@
     "addToWatchlistDesc": "Watchlistに銘柄を追加します",
     "tickerSymbol": "ティッカーシンボル",
     "invalidTicker": "無効なティッカーです",
-    "dataNotAvailable": "N/A"
+    "dataNotAvailable": "N/A",
+    "chart": "チャート",
+    "score": "スコア",
+    "whaleCol": "機関",
+    "ivCol": "IV",
+    "maxPainCol": "Max Pain",
+    "premiumMonitoring": "プレミアムモニタリング",
+    "dailyChange": "日次変動",
+    "popular": "人気銘柄",
+    "avgScore": "平均スコア",
+    "sectorDist": "セクター分布",
+    "riskSummary": "リスク概要",
+    "signalSummary": "シグナル分布",
+    "autoRefresh": "30秒自動更新 • プレミアムデータ",
+    "ready": "READY"
   },
   "intel": {
     "title": "INTEL",

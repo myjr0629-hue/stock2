@@ -648,3 +648,114 @@ export const PORTFOLIO_TOOLTIPS = {
         badge: null,
     },
 } as const;
+
+/**
+ * Pre-defined tooltip content for WATCHLIST page column headers.
+ * All text is observational/descriptive — compliance-safe.
+ */
+export const WATCHLIST_TOOLTIPS = {
+    SYMBOL: {
+        tooltip: {
+            ko: '종목 코드 — 클릭하면 해당 종목의 상세 분석 페이지로 이동합니다.',
+            en: 'Ticker symbol — click to navigate to the detailed analysis page.',
+            ja: '銘柄コード — クリックで詳細分析ページへ移動。',
+        },
+        badge: null,
+    },
+    PRICE: {
+        tooltip: {
+            ko: '실시간 가격 — 정규장 변동률 + VWAP 거리. PRE/POST 세션 시 연장 시장 변동률 병행 표시.',
+            en: 'Real-time price — regular session change + VWAP distance. Extended session data shown during PRE/POST.',
+            ja: 'リアルタイム価格 — 正規セッション変動率+VWAP距離。プレ/ポスト時は延長セッションも表示。',
+        },
+        badge: null,
+    },
+    CHART: {
+        tooltip: {
+            ko: '30일 가격 추이 미니차트 — 상승(초록), 하락(빨강). 전체 추세를 한눈에 파악.',
+            en: '30-day price trend sparkline — green (up), red (down). Quick trend overview.',
+            ja: '30日間価格推移ミニチャート — 上昇(緑)、下落(赤)。トレンドを一目で把握。',
+        },
+        badge: null,
+    },
+    SCORE: {
+        tooltip: {
+            ko: 'Alpha Score — SMA, 플로우, 센티먼트 등 복합 팩터 분석. A(80+) B(65+) C(50+) D(50-).',
+            en: 'Alpha Score — multi-factor analysis (SMA, flow, sentiment). A(80+) B(65+) C(50+) D(<50).',
+            ja: 'Alphaスコア — SMA・フロー・センチメント複合ファクター分析。A(80+)B(65+)C(50+)D(50-)。',
+        },
+        badge: {
+            ko: '기관급 복합 분석',
+            en: 'Institutional-grade analysis',
+            ja: '機関投資家級複合分析',
+        },
+    },
+    SIGNAL: {
+        tooltip: {
+            ko: '시그널 — HOLD(유지), ADD(매수 관심), WATCH(관찰), TRIM(비중 축소). 신뢰도 %와 병행 표시.',
+            en: 'Signal — HOLD, ADD, WATCH, TRIM. Displayed with confidence percentage.',
+            ja: 'シグナル — HOLD・ADD・WATCH・TRIM。信頼度%と併記。',
+        },
+        badge: {
+            ko: 'AI 복합 시그널',
+            en: 'AI composite signal',
+            ja: 'AI複合シグナル',
+        },
+    },
+    WHALE: {
+        tooltip: {
+            ko: '기관 지수 (Whale Index) — $150K+ 옵션 프리미엄 거래 기반 기관 매집/분배 감지. 70+ 강한 매집.',
+            en: 'Whale Index — detects institutional accumulation from $150K+ premium trades. 70+ = strong accumulation.',
+            ja: '機関指数 — $150K+オプション取引基盤の機関売買検出。70+は強い買い集め。',
+        },
+        badge: {
+            ko: '기관 포지션 추적',
+            en: 'Institutional positioning',
+            ja: '機関ポジション追跡',
+        },
+    },
+    IV: {
+        tooltip: {
+            ko: '내재변동성(IV) — 옵션 시장이 반영한 향후 변동 기대치. 50%+ 고변동, 20%- 저변동.',
+            en: 'Implied Volatility — market-priced expected future volatility. 50%+ high, 20%- low.',
+            ja: 'インプライドボラティリティ — オプション市場の将来変動期待値。50%+高変動、20%-低変動。',
+        },
+        badge: null,
+    },
+    GAMMA_FLIP: {
+        tooltip: {
+            ko: '감마 전환 가격 — 이 가격 위: 롱감마(변동성 억제), 아래: 숏감마(변동성 증폭). 딜러 헤징 전환점.',
+            en: 'Gamma Flip — above: long gamma (suppressed vol), below: short gamma (amplified vol). Dealer hedging pivot.',
+            ja: 'ガンマフリップ — 上:ロングガンマ(変動性抑制)、下:ショートガンマ(変動性増幅)。ディーラーヘッジ転換点。',
+        },
+        badge: null,
+    },
+    RETURN_3D: {
+        tooltip: {
+            ko: '3일 수익률 — 최근 3거래일 누적 변동. 단기 모멘텀의 방향과 강도를 나타냅니다.',
+            en: '3-day return — cumulative change over last 3 trading days. Shows short-term momentum direction.',
+            ja: '3日リターン — 直近3営業日の累積変動。短期モメンタムの方向と強度を表示。',
+        },
+        badge: null,
+    },
+    MAX_PAIN: {
+        tooltip: {
+            ko: 'Max Pain — 옵션 만기 시 최대 손실 가격. 현재가 대비 거리(%)표시. 만기 근접 시 수렴 경향.',
+            en: 'Max Pain — price where option holder losses maximize. Shows distance from current price. Convergence tendency near expiry.',
+            ja: 'Max Pain — オプション満期時の最大損失価格。現在価格からの距離を%表示。満期近接時に収束傾向。',
+        },
+        badge: null,
+    },
+    GEX: {
+        tooltip: {
+            ko: 'GEX (감마 익스포저) — LONG: 딜러 역추세 헤지(안정), SHORT: 딜러 순추세 헤지(급변). 규모 병행 표시.',
+            en: 'GEX — LONG: dealer counter-trend hedging (stable), SHORT: pro-trend hedging (volatile). Shows magnitude.',
+            ja: 'GEX — LONG:ディーラー逆トレンドヘッジ(安定)、SHORT:順トレンドヘッジ(急変)。規模併記。',
+        },
+        badge: {
+            ko: '딜러 감마 포지셔닝',
+            en: 'Dealer gamma positioning',
+            ja: 'ディーラーガンマポジショニング',
+        },
+    },
+} as const;

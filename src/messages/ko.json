@@ -433,7 +433,21 @@
     "addToWatchlistDesc": "Watchlist에 종목을 추가합니다",
     "tickerSymbol": "티커 심볼",
     "invalidTicker": "유효하지 않은 티커입니다",
-    "dataNotAvailable": "데이터 없음"
+    "dataNotAvailable": "데이터 없음",
+    "chart": "차트",
+    "score": "스코어",
+    "whaleCol": "기관",
+    "ivCol": "IV",
+    "maxPainCol": "Max Pain",
+    "premiumMonitoring": "프리미엄 모니터링",
+    "dailyChange": "일간 변동",
+    "popular": "인기 종목",
+    "avgScore": "평균 스코어",
+    "sectorDist": "섹터 분포",
+    "riskSummary": "리스크 요약",
+    "signalSummary": "시그널 분포",
+    "autoRefresh": "30초 자동 새로고침 • 프리미엄 데이터",
+    "ready": "준비"
   },
   "intel": {
     "title": "INTEL",

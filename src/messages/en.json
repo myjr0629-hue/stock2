@@ -433,7 +433,21 @@
     "addToWatchlistDesc": "Add stock to your watchlist",
     "tickerSymbol": "Ticker Symbol",
     "invalidTicker": "Invalid ticker",
-    "dataNotAvailable": "N/A"
+    "dataNotAvailable": "N/A",
+    "chart": "Chart",
+    "score": "Score",
+    "whaleCol": "Whale",
+    "ivCol": "IV",
+    "maxPainCol": "Max Pain",
+    "premiumMonitoring": "PREMIUM MONITORING",
+    "dailyChange": "Daily Change",
+    "popular": "Popular",
+    "avgScore": "Avg Score",
+    "sectorDist": "Sector Dist.",
+    "riskSummary": "Risk Summary",
+    "signalSummary": "Signal Dist.",
+    "autoRefresh": "Auto-refresh 30s • Premium Data Feed",
+    "ready": "READY"
   },
   "intel": {
     "title": "INTEL",

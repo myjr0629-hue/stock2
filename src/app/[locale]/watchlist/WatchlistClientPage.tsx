@@ -1,3 +1,4 @@
+// Watchlist Premium v2 — 2026-03-15T00:50
 'use client';
 
 import React, { useState, useMemo, useEffect, memo, useRef, useCallback } from 'react';
@@ -12,10 +13,11 @@ import {
 import { Link, useRouter } from '@/i18n/routing';
 import { useDashboardStore } from '@/stores/dashboardStore';
 import { ProGate } from '@/components/gate/FeatureGate';
+import { CardTooltip, WATCHLIST_TOOLTIPS } from '@/components/ui/CardTooltip';
 import { useTier } from '@/contexts/TierContext';
 
 // ─── Sort Types ──────────────────────────────────────────────────────────
-type SortKey = 'default' | 'alpha' | 'change' | 'whale';
+type SortKey = 'default' | 'alpha' | 'change' | 'whale' | 'iv' | 'gex' | 'return3d';
 
 // ─── MAIN PAGE ───────────────────────────────────────────────────────────
 export default function WatchlistClientPage({
@@ -46,6 +48,9 @@ export default function WatchlistClientPage({
                 case 'alpha': return (b.alphaScore ?? 0) - (a.alphaScore ?? 0);
                 case 'change': return b.changePct - a.changePct;
                 case 'whale': return (b.whaleIndex ?? 0) - (a.whaleIndex ?? 0);
+                case 'iv': return (b.iv ?? 0) - (a.iv ?? 0);
+                case 'gex': return (b.gexM ?? 0) - (a.gexM ?? 0);
+                case 'return3d': return (b.return3d ?? 0) - (a.return3d ?? 0);
                 default: return 0;
             }
         });
@@ -76,7 +81,7 @@ export default function WatchlistClientPage({
                         </div>
                         <div>
                             <h1 className="text-lg font-black tracking-wider text-white">WATCHLIST</h1>
-                            <p className="text-[9px] text-amber-400/50 tracking-[0.25em] font-semibold -mt-0.5">PREMIUM MONITORING</p>
+                            <p className="text-[12px] text-amber-400/50 tracking-[0.25em] font-semibold -mt-0.5">{t('premiumMonitoring').toUpperCase()}</p>
                         </div>
                     </div>
                     <div className="flex items-center gap-2 flex-wrap">
@@ -102,11 +107,14 @@ export default function WatchlistClientPage({
                 {/* ── Stats Dashboard (Mockup 1) ── */}
                 {!loading && items.length > 0 && <StatsBar items={items} />}
 
+                {/* ── Analytics Row (Sector + Signal + Risk) ── */}
+                {!loading && items.length > 0 && <AnalyticsRow items={items} />}
+
                 {/* ── Sort Chips ── */}
                 {!loading && items.length > 1 && (
-                    <div className="flex items-center gap-2 text-[12px]">
-                        <span className="text-slate-300 font-semibold uppercase tracking-wider">Sort</span>
-                        {(['default', 'alpha', 'change', 'whale'] as SortKey[]).map(key => (
+                    <div className="flex items-center gap-2 text-[12px] flex-wrap">
+                        <span className="text-slate-300 font-semibold uppercase tracking-wider">SORT</span>
+                        {(['default', 'alpha', 'change', 'whale', 'iv', 'gex', 'return3d'] as SortKey[]).map(key => (
                             <button
                                 key={key}
                                 onClick={() => handleSort(key)}
@@ -115,7 +123,8 @@ export default function WatchlistClientPage({
                                     : 'border-white/[0.06] bg-white/[0.03] text-slate-300 hover:text-white hover:border-white/[0.12]'
                                     }`}
                             >
-                                {key === 'default' ? 'Default' : key === 'alpha' ? 'Score' : key === 'change' ? 'Change%' : 'Whale'}
+                                {key === 'default' ? 'Default' : key === 'alpha' ? 'Score' : key === 'change' ? 'Change%'
+                                    : key === 'whale' ? 'Whale' : key === 'iv' ? 'IV' : key === 'gex' ? 'GEX' : '3D'}
                                 {sortKey === key && key !== 'default' && (
                                     <span className="ml-1">{sortDir === 'desc' ? '↓' : '↑'}</span>
                                 )}
@@ -136,18 +145,18 @@ export default function WatchlistClientPage({
                         {/* Column Headers (glassmorphism bar) — hidden on mobile */}
                         <div className="hidden md:flex items-center rounded-lg border border-white/[0.04] bg-white/[0.03] backdrop-blur-sm">
                             <div className="w-11 flex-shrink-0" />
-                            <div className={`flex-1 ${GRID_COLS} px-3 py-2.5 text-[12px] font-bold text-slate-200 uppercase tracking-wider`}>
-                                <div className="text-center">{t('symbol')}</div>
-                                <div className="text-center">{t('price')}</div>
-                                <div className="text-center">Chart</div>
-                                <div className="text-center">Score</div>
-                                <div className="text-center">{t('signal')}</div>
-                                <div className="text-center">Whale</div>
-                                <div className="text-center">IV</div>
-                                <div className="text-center">{t('gammaFlip')}</div>
-                                <div className="text-center">{t('return3d')}</div>
-                                <div className="text-center">MaxPain</div>
-                                <div className="text-center">{t('gex')}</div>
+                            <div className={`flex-1 ${GRID_COLS} px-3 py-2.5 text-[12px] font-bold text-slate-300 uppercase tracking-wider`}>
+                                <div className="text-center"><CardTooltip tooltip={WATCHLIST_TOOLTIPS.SYMBOL.tooltip}>{t('symbol')}</CardTooltip></div>
+                                <div className="text-center"><CardTooltip tooltip={WATCHLIST_TOOLTIPS.PRICE.tooltip}>{t('price')}</CardTooltip></div>
+                                <div className="text-center"><CardTooltip tooltip={WATCHLIST_TOOLTIPS.CHART.tooltip}>{t('chart')}</CardTooltip></div>
+                                <div className="text-center"><CardTooltip tooltip={WATCHLIST_TOOLTIPS.SCORE.tooltip} badge={WATCHLIST_TOOLTIPS.SCORE.badge}>{t('score')}</CardTooltip></div>
+                                <div className="text-center"><CardTooltip tooltip={WATCHLIST_TOOLTIPS.SIGNAL.tooltip} badge={WATCHLIST_TOOLTIPS.SIGNAL.badge}>{t('signal')}</CardTooltip></div>
+                                <div className="text-center"><CardTooltip tooltip={WATCHLIST_TOOLTIPS.WHALE.tooltip} badge={WATCHLIST_TOOLTIPS.WHALE.badge}>{t('whaleCol')}</CardTooltip></div>
+                                <div className="text-center"><CardTooltip tooltip={WATCHLIST_TOOLTIPS.IV.tooltip}>{t('ivCol')}</CardTooltip></div>
+                                <div className="text-center"><CardTooltip tooltip={WATCHLIST_TOOLTIPS.GAMMA_FLIP.tooltip}>{t('gammaFlip')}</CardTooltip></div>
+                                <div className="text-center"><CardTooltip tooltip={WATCHLIST_TOOLTIPS.RETURN_3D.tooltip}>{t('return3d')}</CardTooltip></div>
+                                <div className="text-center"><CardTooltip tooltip={WATCHLIST_TOOLTIPS.MAX_PAIN.tooltip}>{t('maxPainCol')}</CardTooltip></div>
+                                <div className="text-center"><CardTooltip tooltip={WATCHLIST_TOOLTIPS.GEX.tooltip} badge={WATCHLIST_TOOLTIPS.GEX.badge}>{t('gex')}</CardTooltip></div>
                             </div>
                             <div className="w-[40px] flex-shrink-0" />
                         </div>
@@ -167,8 +176,8 @@ export default function WatchlistClientPage({
 
                 {/* ── Last Updated Footer ── */}
                 {!loading && items.length > 0 && (
-                    <div className="text-center text-[12px] text-slate-400 pt-2">
-                        Auto-refresh every 30s • Data Source: Premium Financial Feed
+                    <div className="text-center text-[12px] text-slate-300 pt-2">
+                        {t('autoRefresh')}
                     </div>
                 )}
             </main>
@@ -187,6 +196,7 @@ export default function WatchlistClientPage({
 
 // ─── STATS DASHBOARD BAR (Mockup 1) ─────────────────────────────────────
 function StatsBar({ items }: { items: EnrichedWatchlistItem[] }) {
+    const t = useTranslations('watchlist');
     const [now, setNow] = useState(new Date());
 
     useEffect(() => {
@@ -254,10 +264,10 @@ function StatsBar({ items }: { items: EnrichedWatchlistItem[] }) {
                     <Activity className="w-4 h-4 text-amber-400/60 -translate-y-0.5" />
                 </div>
                 <div className="flex items-center gap-2 mt-1">
-                    <span className="text-xs text-slate-200 uppercase tracking-[0.15em] font-bold">WATCHLIST</span>
+                    <span className="text-[12px] text-slate-300 uppercase tracking-[0.15em] font-bold">WATCHLIST</span>
                 </div>
                 <div className="flex items-center gap-1.5 mt-0.5">
-                    <span className="text-xs text-slate-200 uppercase tracking-wider font-bold">AVG CHANGE</span>
+                    <span className="text-[12px] text-slate-300 uppercase tracking-wider font-bold">AVG CHANGE</span>
                     <span className={`text-lg font-black tabular-nums ${stats.avgChange >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
                         {stats.avgChange >= 0 ? '+' : ''}{stats.avgChange.toFixed(2)}%
                     </span>
@@ -275,7 +285,7 @@ function StatsBar({ items }: { items: EnrichedWatchlistItem[] }) {
                     <div className="w-px h-5 bg-white/[0.06]" />
                     <div className="flex items-center gap-1"><ArrowDownRight className="w-3.5 h-3.5 text-rose-400" /><span className="text-xl font-black text-rose-400 tabular-nums">{stats.losers}</span></div>
                 </div>
-                <div className="text-xs text-slate-200 uppercase tracking-[0.15em] font-bold mt-1.5">GAINERS / LOSERS</div>
+                <div className="text-[12px] text-slate-300 uppercase tracking-[0.15em] font-bold mt-1.5">GAINERS / LOSERS</div>
                 <div className="mt-2 h-1.5 rounded-full bg-slate-800/80 overflow-hidden flex">
                     <div className="bg-gradient-to-r from-emerald-500 to-emerald-400 transition-all duration-700 ease-out rounded-l-full" style={{ width: `${(stats.gainers / Math.max(stats.total, 1)) * 100}%` }} />
                     <div className="bg-gradient-to-r from-rose-400 to-rose-500 transition-all duration-700 ease-out rounded-r-full ml-auto" style={{ width: `${(stats.losers / Math.max(stats.total, 1)) * 100}%` }} />
@@ -297,7 +307,7 @@ function StatsBar({ items }: { items: EnrichedWatchlistItem[] }) {
                         <StatsAlphaGauge score={stats.avgAlpha} grade={stats.avgGrade} />
                         <div>
                             <div className="text-xl font-black text-white tabular-nums">{stats.avgAlpha}</div>
-                            <div className="text-xs text-slate-200 uppercase tracking-[0.15em] font-bold">AVG SCORE</div>
+                            <div className="text-[12px] text-slate-300 uppercase tracking-[0.15em] font-bold">{t('avgScore').toUpperCase()}</div>
                         </div>
                     </div>
                 </ProGate>
@@ -339,7 +349,7 @@ function StatsBar({ items }: { items: EnrichedWatchlistItem[] }) {
             {/* ── Ticker Heatmap ── */}
             <div className="hidden lg:block relative overflow-hidden rounded-xl border border-white/[0.12] bg-gradient-to-br from-white/[0.05] to-white/[0.02] backdrop-blur-xl p-4 hover:border-white/[0.18] transition-all duration-300 shadow-lg shadow-black/10">
                 <TickerHeatmap items={items} />
-                <div className="text-xs text-slate-200 uppercase tracking-[0.15em] font-bold mt-2">DAILY CHANGE</div>
+                <div className="text-[12px] text-slate-300 uppercase tracking-[0.15em] font-bold mt-2">{t('dailyChange').toUpperCase()}</div>
             </div>
         </div>
     );
@@ -368,17 +378,28 @@ function StatsAlphaGauge({ score, grade }: { score: number; grade: string }) {
 }
 
 function TickerHeatmap({ items }: { items: EnrichedWatchlistItem[] }) {
+    const t = useTranslations('watchlist');
     return (
         <div className="flex flex-wrap gap-1.5">
             {items.slice(0, 14).map(item => {
-                const intensity = Math.min(Math.abs(item.changePct) / 4, 1);
-                const bg = item.changePct >= 0
-                    ? `rgba(52, 211, 153, ${0.15 + intensity * 0.55})`
-                    : `rgba(251, 113, 133, ${0.15 + intensity * 0.55})`;
+                const abs = Math.abs(item.changePct);
+                const intensity = Math.min(abs / 5, 1);
+                let bg: string;
+                if (item.changePct >= 0) {
+                    const h = 155 - intensity * 15;
+                    const s = 45 + intensity * 35;
+                    const l = 35 + (1 - intensity) * 15;
+                    bg = `hsl(${h}, ${s}%, ${l}%)`;
+                } else {
+                    const h = abs < 1.5 ? 15 : abs < 3 ? 0 : 345;
+                    const s = 40 + intensity * 40;
+                    const l = 38 + (1 - intensity) * 12;
+                    bg = `hsl(${h}, ${s}%, ${l}%)`;
+                }
                 return (
                     <div
                         key={item.ticker}
-                        className="px-1.5 py-1 rounded-md flex items-center justify-center text-[9px] font-bold text-white cursor-default transition-transform duration-200 hover:scale-110"
+                        className="px-1.5 py-1 rounded-md flex items-center justify-center text-[12px] font-bold text-white cursor-default transition-transform duration-200 hover:scale-110"
                         style={{ backgroundColor: bg }}
                         title={`${item.ticker} ${item.changePct > 0 ? '+' : ''}${item.changePct.toFixed(1)}%`}
                     >
@@ -386,6 +407,147 @@ function TickerHeatmap({ items }: { items: EnrichedWatchlistItem[] }) {
                     </div>
                 );
             })}
+        </div>
+    );
+}
+
+// ─── ANALYTICS ROW (Signal + Risk + Top Movers) ─────────────────────────
+function AnalyticsRow({ items }: { items: EnrichedWatchlistItem[] }) {
+    const t = useTranslations('watchlist');
+
+    const analytics = useMemo(() => {
+        // Signal distribution
+        const signals: Record<string, number> = { HOLD: 0, ADD: 0, WATCH: 0, TRIM: 0 };
+        items.forEach(i => { if (i.action && signals[i.action] !== undefined) signals[i.action]++; });
+        const totalSignals = Object.values(signals).reduce((a, b) => a + b, 0);
+
+        // Risk metrics
+        const ivItems = items.filter(i => i.iv !== undefined && i.iv !== null);
+        const avgIV = ivItems.length > 0 ? ivItems.reduce((s, i) => s + (i.iv || 0), 0) / ivItems.length : 0;
+        const gexItems = items.filter(i => i.gexM !== undefined && i.gexM !== null);
+        const longGammaRatio = gexItems.length > 0 ? gexItems.filter(i => (i.gexM || 0) > 0).length / gexItems.length : 0;
+        const mpItems = items.filter(i => i.maxPainDist !== undefined && i.maxPainDist !== null);
+        const nearMPRatio = mpItems.length > 0 ? mpItems.filter(i => Math.abs(i.maxPainDist || 0) < 3).length / mpItems.length : 0;
+
+        // Top movers
+        const sorted = [...items].filter(i => i.changePct !== 0).sort((a, b) => Math.abs(b.changePct) - Math.abs(a.changePct));
+        const topMovers = sorted.slice(0, 3);
+
+        return { signals, totalSignals, avgIV, longGammaRatio, nearMPRatio, topMovers };
+    }, [items]);
+
+    const signalColors: Record<string, string> = {
+        HOLD: '#34d399', ADD: '#22d3ee', WATCH: '#fbbf24', TRIM: '#f87171',
+    };
+
+    return (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+            {/* ── Signal Distribution ── */}
+            <div className="relative overflow-hidden rounded-xl border border-white/[0.08] bg-gradient-to-br from-white/[0.04] to-white/[0.02] backdrop-blur-xl p-4 hover:border-white/[0.12] transition-all duration-300">
+                <div className="text-[12px] text-slate-300 uppercase tracking-[0.15em] font-bold mb-3">{t('signalSummary')}</div>
+                <div className="flex items-center gap-5">
+                    {/* Mini donut — larger */}
+                    <svg width="64" height="64" className="flex-shrink-0 -rotate-90">
+                        {analytics.totalSignals > 0 && (() => {
+                            let offset = 0;
+                            const r = 25, circ = 2 * Math.PI * r;
+                            return Object.entries(analytics.signals).map(([key, val]) => {
+                                const pct = val / analytics.totalSignals;
+                                const dash = pct * circ;
+                                const el = (
+                                    <circle key={key} cx="32" cy="32" r={r} fill="none"
+                                        stroke={signalColors[key]} strokeWidth="6"
+                                        strokeDasharray={`${dash} ${circ - dash}`}
+                                        strokeDashoffset={-offset}
+                                        strokeLinecap="butt" opacity={0.85} />
+                                );
+                                offset += dash;
+                                return el;
+                            });
+                        })()}
+                        <circle cx="32" cy="32" r="16" fill="#0b1120" />
+                        <text x="32" y="32" textAnchor="middle" dominantBaseline="central" className="rotate-90 origin-center" fill="#94a3b8" fontSize="12" fontWeight="800">{analytics.totalSignals}</text>
+                    </svg>
+                    {/* Labels — right side compact */}
+                    <div className="flex-1 grid grid-cols-2 gap-x-4 gap-y-1.5">
+                        {Object.entries(analytics.signals).map(([key, val]) => (
+                            <div key={key} className="flex items-center gap-1.5">
+                                <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: signalColors[key] }} />
+                                <span className="text-[12px] font-bold text-slate-300">{key}</span>
+                                <span className="text-[13px] font-black tabular-nums text-white ml-auto">{val}</span>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            </div>
+
+            {/* ── Risk Summary ── */}
+            <div className="relative overflow-hidden rounded-xl border border-white/[0.08] bg-gradient-to-br from-white/[0.04] to-white/[0.02] backdrop-blur-xl p-4 hover:border-white/[0.12] transition-all duration-300">
+                <div className="text-[12px] text-slate-300 uppercase tracking-[0.15em] font-bold mb-3">{t('riskSummary')}</div>
+                <div className="space-y-2.5">
+                    {/* Avg IV */}
+                    <div className="flex items-center justify-between">
+                        <span className="text-[12px] text-slate-300">IV {t('avgScore').replace(t('score'), '').trim() || 'Avg'}</span>
+                        <div className="flex items-center gap-2">
+                            <div className="w-16 h-1.5 rounded-full bg-slate-800 overflow-hidden">
+                                <div className={`h-full rounded-full transition-all duration-700 ${analytics.avgIV >= 50 ? 'bg-rose-400' : analytics.avgIV >= 30 ? 'bg-amber-400' : 'bg-emerald-400'}`}
+                                    style={{ width: `${Math.min(analytics.avgIV, 100)}%` }} />
+                            </div>
+                            <span className={`text-[12px] font-black tabular-nums ${analytics.avgIV >= 50 ? 'text-rose-400' : analytics.avgIV >= 30 ? 'text-amber-400' : 'text-emerald-400'}`}>
+                                {analytics.avgIV.toFixed(0)}%
+                            </span>
+                        </div>
+                    </div>
+                    {/* GEX Long Ratio */}
+                    <div className="flex items-center justify-between">
+                        <span className="text-[12px] text-slate-300">GEX Long</span>
+                        <div className="flex items-center gap-2">
+                            <div className="w-16 h-1.5 rounded-full bg-slate-800 overflow-hidden">
+                                <div className="h-full rounded-full bg-emerald-400 transition-all duration-700"
+                                    style={{ width: `${analytics.longGammaRatio * 100}%` }} />
+                            </div>
+                            <span className="text-[12px] font-black tabular-nums text-emerald-400">
+                                {(analytics.longGammaRatio * 100).toFixed(0)}%
+                            </span>
+                        </div>
+                    </div>
+                    {/* MaxPain Convergence */}
+                    <div className="flex items-center justify-between">
+                        <span className="text-[12px] text-slate-300">MP ±3%</span>
+                        <div className="flex items-center gap-2">
+                            <div className="w-16 h-1.5 rounded-full bg-slate-800 overflow-hidden">
+                                <div className="h-full rounded-full bg-cyan-400 transition-all duration-700"
+                                    style={{ width: `${analytics.nearMPRatio * 100}%` }} />
+                            </div>
+                            <span className="text-[12px] font-black tabular-nums text-cyan-400">
+                                {(analytics.nearMPRatio * 100).toFixed(0)}%
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {/* ── Top Movers ── */}
+            <div className="relative overflow-hidden rounded-xl border border-white/[0.08] bg-gradient-to-br from-white/[0.04] to-white/[0.02] backdrop-blur-xl p-4 hover:border-white/[0.12] transition-all duration-300">
+                <div className="text-[12px] text-slate-300 uppercase tracking-[0.15em] font-bold mb-3">TOP MOVERS</div>
+                <div className="space-y-2">
+                    {analytics.topMovers.map(item => (
+                        <div key={item.ticker} className="flex items-center gap-2">
+                            <div className="w-6 h-6 rounded-md bg-gradient-to-br from-slate-800 to-slate-900 border border-white/[0.06] flex items-center justify-center overflow-hidden flex-shrink-0">
+                                <img loading="lazy" decoding="async" src={`/api/logo/${item.ticker}`} alt="" className="w-4 h-4 object-contain" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                            </div>
+                            <span className="text-[12px] font-bold text-white flex-shrink-0 w-12">{item.ticker}</span>
+                            <div className="flex-1 h-1.5 rounded-full bg-slate-800 overflow-hidden">
+                                <div className={`h-full rounded-full transition-all duration-500 ${item.changePct >= 0 ? 'bg-emerald-400' : 'bg-rose-400'}`}
+                                    style={{ width: `${Math.min(Math.abs(item.changePct) / 5 * 100, 100)}%` }} />
+                            </div>
+                            <span className={`text-[12px] font-black tabular-nums ${item.changePct >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                {item.changePct >= 0 ? '+' : ''}{item.changePct.toFixed(2)}%
+                            </span>
+                        </div>
+                    ))}
+                </div>
+            </div>
         </div>
     );
 }
@@ -513,7 +675,7 @@ const WatchlistCard = memo(function WatchlistCard({ item, onRemove, locale, inde
                         <div className="flex items-center gap-2 mt-0.5">
                             <span className={`font-bold tabular-nums text-[14px] ${pf.color}`} style={pf.style}>${item.currentPrice.toFixed(2)}</span>
                             {item.alphaGrade && (
-                                <span className={`text-[10px] font-black px-1.5 py-0.5 rounded ${(item.alphaGrade as string) === 'S' ? 'bg-amber-500/20 text-amber-400' :
+                                <span className={`text-[12px] font-black px-1.5 py-0.5 rounded ${(item.alphaGrade as string) === 'S' ? 'bg-amber-500/20 text-amber-400' :
                                     item.alphaGrade === 'A' ? 'bg-emerald-500/20 text-emerald-400' :
                                         item.alphaGrade === 'B' ? 'bg-cyan-500/20 text-cyan-400' :
                                             'bg-slate-500/20 text-slate-400'
@@ -541,10 +703,13 @@ const WatchlistCard = memo(function WatchlistCard({ item, onRemove, locale, inde
                                 className="w-6 h-6 object-contain"
                                 onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
                             />
-                            <span className="text-[8px] font-bold text-slate-600 absolute">{item.ticker.slice(0, 2)}</span>
+                            <span className="text-[12px] font-bold text-slate-600 absolute">{item.ticker.slice(0, 2)}</span>
                         </div>
                         <div className="min-w-0">
-                            <div className="font-black text-[13px] text-white tracking-wide">{item.ticker}</div>
+                            <div className="flex items-center gap-1">
+                                <span className="font-black text-[13px] text-white tracking-wide">{item.ticker}</span>
+                                <ConditionBadge item={item} />
+                            </div>
                         </div>
                     </div>
 
@@ -558,9 +723,9 @@ const WatchlistCard = memo(function WatchlistCard({ item, onRemove, locale, inde
                                 const etDow = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' })).getDay();
                                 const isWeekend = etDow === 0 || etDow === 6;
                                 const realSession = isWeekend ? 'closed' : etMins < 240 ? 'closed' : etMins < 570 ? 'pre' : etMins < 960 ? 'reg' : etMins < 1200 ? 'post' : 'closed';
-                                if (realSession === 'pre') return <span className="text-[10px] font-bold px-1 py-0.5 rounded bg-cyan-500/25 text-cyan-400">PRE</span>;
-                                if (realSession === 'post') return <span className="text-[10px] font-bold px-1 py-0.5 rounded bg-amber-500/25 text-amber-400">POST</span>;
-                                if (realSession === 'closed') return <span className="text-[10px] font-bold px-1 py-0.5 rounded bg-slate-500/25 text-slate-400">CLOSED</span>;
+                                if (realSession === 'pre') return <span className="text-[12px] font-bold px-1 py-0.5 rounded bg-cyan-500/25 text-cyan-400">PRE</span>;
+                                if (realSession === 'post') return <span className="text-[12px] font-bold px-1 py-0.5 rounded bg-amber-500/25 text-amber-400">POST</span>;
+                                if (realSession === 'closed') return <span className="text-[12px] font-bold px-1 py-0.5 rounded bg-slate-500/25 text-slate-400">CLOSED</span>;
                                 return null;
                             })()}
                         </div>
@@ -778,7 +943,7 @@ const CircularAlphaGauge = memo(function CircularAlphaGauge({ score, grade }: { 
     if (score === undefined) {
         return (
             <div className="w-9 h-9 rounded-full border-2 border-slate-800 flex items-center justify-center">
-                <span className="text-[7px] text-slate-600 animate-pulse">—</span>
+                <span className="text-[12px] text-slate-600 animate-pulse">—</span>
             </div>
         );
     }
@@ -828,7 +993,7 @@ const SignalBadge = memo(function SignalBadge({ action, confidence }: { action?:
 const WhaleIndicator = memo(function WhaleIndicator({ index, confidence }: { index?: number; confidence?: string }) {
     const t = useTranslations('watchlist');
     if (index === undefined || index === null) {
-        return <span className="text-[9px] text-slate-600">—</span>;
+        return <span className="text-[12px] text-slate-600">—</span>;
     }
     const level = index >= 70 ? t('strongAccumulation') : index >= 40 ? t('attention') : t('normal');
     const color = index >= 70 ? 'text-amber-400 bg-amber-400/10 border-amber-400/20' :
@@ -847,7 +1012,7 @@ const WhaleIndicator = memo(function WhaleIndicator({ index, confidence }: { ind
 });
 
 const IVIndicator = memo(function IVIndicator({ value }: { value?: number }) {
-    if (value === undefined || value === null) return <span className="text-[9px] text-slate-600">—</span>;
+    if (value === undefined || value === null) return <span className="text-[12px] text-slate-600">—</span>;
     const color = value >= 50 ? 'text-rose-400' : value <= 20 ? 'text-emerald-400' : 'text-amber-400';
     const label = value >= 50 ? 'HIGH' : value <= 20 ? 'LOW' : '';
     return (
@@ -884,11 +1049,11 @@ const GammaFlipIndicator = memo(function GammaFlipIndicator({ value, price, gexM
             </div>
         );
     }
-    return <span className="text-[9px] text-slate-600">—</span>;
+    return <span className="text-[12px] text-slate-600">—</span>;
 });
 
 const Return3DIndicator = memo(function Return3DIndicator({ value }: { value?: number }) {
-    if (value === undefined || value === null) return <span className="text-[9px] text-slate-600">—</span>;
+    if (value === undefined || value === null) return <span className="text-[12px] text-slate-600">—</span>;
     const color = value > 0 ? 'text-emerald-400' : value < 0 ? 'text-rose-400' : 'text-white/60';
     return (
         <div className="flex items-center justify-center gap-1" title="3D Return">
@@ -902,7 +1067,7 @@ const Return3DIndicator = memo(function Return3DIndicator({ value }: { value?: n
 });
 
 const MaxPainIndicator = memo(function MaxPainIndicator({ maxPain, dist }: { maxPain?: number; dist?: number }) {
-    if (dist === undefined || dist === null) return <span className="text-[9px] text-slate-600">—</span>;
+    if (dist === undefined || dist === null) return <span className="text-[12px] text-slate-600">—</span>;
     const color = dist > 0 ? 'text-emerald-400' : dist < 0 ? 'text-rose-400' : 'text-white/60';
     const arrow = dist > 0 ? '↑' : dist < 0 ? '↓' : '→';
     return (
@@ -1128,14 +1293,14 @@ function AddWatchlistModal({ onClose, onAdd, existingTickers = [] }: { onClose: 
                                     <div className="text-[13px] text-white font-bold truncate">{companyName}</div>
                                     <div className="text-[12px] text-slate-500 font-medium tracking-wider">{ticker.toUpperCase()}</div>
                                 </div>
-                                <div className="ml-auto text-emerald-400/80 text-[12px] font-bold bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/10">READY</div>
+                                <div className="ml-auto text-emerald-400/80 text-[12px] font-bold bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/10">{t('ready')}</div>
                             </div>
                         )}
 
                         {/* Quick picks */}
                         {!validated && (
                             <div>
-                                <div className="text-[9px] text-slate-600 uppercase tracking-widest font-bold mb-2">Popular</div>
+                                <div className="text-[12px] text-slate-300 uppercase tracking-widest font-bold mb-2">{t('popular')}</div>
                                 <div className="flex flex-wrap gap-1.5">
                                     {popularTickers.map(tk => (
                                         <button
@@ -1181,6 +1346,28 @@ function AddWatchlistModal({ onClose, onAdd, existingTickers = [] }: { onClose: 
         </div>
     );
 }
+
+// ─── CONDITION BADGE (HOT / WHALE / SHIELD) ──────────────────────────────
+const ConditionBadge = memo(function ConditionBadge({ item }: { item: EnrichedWatchlistItem }) {
+    const badges: { label: string; color: string; bg: string }[] = [];
+    if (item.return3d !== undefined && item.return3d > 5) {
+        badges.push({ label: '🔥', color: 'text-orange-300', bg: 'bg-orange-500/15' });
+    }
+    if (item.whaleIndex !== undefined && item.whaleIndex >= 70) {
+        badges.push({ label: '🐋', color: 'text-amber-300', bg: 'bg-amber-500/15' });
+    }
+    if (item.gexM !== undefined && item.gexM > 0) {
+        badges.push({ label: '🛡️', color: 'text-emerald-300', bg: 'bg-emerald-500/15' });
+    }
+    if (badges.length === 0) return null;
+    return (
+        <div className="flex items-center gap-0.5">
+            {badges.map((b, i) => (
+                <span key={i} className={`text-[12px] leading-none ${b.color} ${b.bg} rounded px-0.5`}>{b.label}</span>
+            ))}
+        </div>
+    );
+});
 
 // ─── GLOBAL STYLES (injected) ────────────────────────────────────────────
 const GlobalStyles = () => (
