@@ -473,10 +473,10 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
     const wsGex = wsGetGex(ticker);
     // Use SWR data when available, SSR fallback otherwise — keeps 'liveQuote' name for compatibility
     const liveQuote = _swrQuote || ssrFallback || null;
-    const [options, setOptions] = useState<any>(null);
+    const [options, setOptions] = useState<any>(initialUnifiedData?.options || null);
     // [FIX] Client-side chart data to override stale SSR data on navigation back
     const [liveChartData, setLiveChartData] = useState<any[] | null>(initialChartData || null);
-    const [structure, setStructure] = useState<any>(null);
+    const [structure, setStructure] = useState<any>(initialUnifiedData?.structure || null);
     const [krNews, setKrNews] = useState<any[]>(initialNews || []);
     const [expandedNewsId, setExpandedNewsId] = useState<number | null>(null);
     const [optionsLoading, setOptionsLoading] = useState(false);
@@ -486,24 +486,39 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
     const [selectedExp, setSelectedExp] = useState<string>("");
     // [S-124.6] Quick Intel Gauges State
     const [newsScore, setNewsScore] = useState<{ score: number; label: string; breakdown?: { positive: number; negative: number; neutral: number } } | null>(null);
-    const [earningsData, setEarningsData] = useState<{ nextDate: string | null; daysLabel: string; epsEstimate: number | null; quarter: number | null; year: number | null; hourLabel: string; color: string } | null>(null);
-    const [smaData, setSmaData] = useState<{ cross: string; crossType: string; label: string; sma50: number; sma200: number; distance: number; isImminent: boolean; phase: string } | null>(null);
+    const [earningsData, setEarningsData] = useState<{ nextDate: string | null; daysLabel: string; epsEstimate: number | null; quarter: number | null; year: number | null; hourLabel: string; color: string } | null>(() => {
+        if (!initialUnifiedData?.earnings) return null;
+        const e = initialUnifiedData.earnings;
+        return { nextDate: e.nextEarningsDate || null, daysLabel: e.daysLabel || 'TBD', epsEstimate: e.epsEstimate || null, quarter: e.quarter || null, year: e.year || null, hourLabel: e.hourLabel || '', color: e.color || 'text-slate-400' };
+    });
+    const [smaData, setSmaData] = useState<{ cross: string; crossType: string; label: string; sma50: number; sma200: number; distance: number; isImminent: boolean; phase: string } | null>(() => {
+        if (!initialUnifiedData?.sma) return null;
+        const s = initialUnifiedData.sma;
+        return { cross: s.cross || 'UNKNOWN', crossType: s.crossType || '', label: s.label || '', sma50: s.sma50 || 0, sma200: s.sma200 || 0, distance: s.distance || 0, isImminent: s.isImminent || false, phase: s.phase || 'UNKNOWN' };
+    });
     const [conviction, setConviction] = useState<{ score: number; label: string; grade: string } | null>(null);
     // [UX] GEX Timeline ↔ Technical Levels Map toggle
     const [activeInsightTab, setActiveInsightTab] = useState<'gex' | 'levels'>('gex');
-    const [relatedData, setRelatedData] = useState<{ count: number; topRelated: { ticker: string; price: number; change: number; logo: string | null }[] } | null>(null);
+    const [relatedData, setRelatedData] = useState<{ count: number; topRelated: { ticker: string; price: number; change: number; logo: string | null }[] } | null>(() => {
+        if (!initialUnifiedData?.related) return null;
+        return { count: initialUnifiedData.related.count || 0, topRelated: initialUnifiedData.related.topRelated || [] };
+    });
     const [analystData, setAnalystData] = useState<{
         consensus: string; totalAnalysts: number; bullishPct: number;
         breakdown: { strongBuy: number; buy: number; hold: number; sell: number; strongSell: number };
         priceTarget: { mean: number; median: number; high: number; low: number } | null;
-    } | null>(null);
+    } | null>(initialUnifiedData?.analyst || null);
     // [PREMIUM-5x2] New indicator states
-    const [volatilityData, setVolatilityData] = useState<{ regime: string; regimeScore: number; gex: number; gexLabel: string; iv: number; flipDistance: number; flipLevel: number; isAboveFlip: boolean; squeezeScore: number; squeezeRisk: string; gammaConcentration: number; gammaConcentrationLabel: string } | null>(null);
-    const [squeezeData, setSqueezeData] = useState<{ siPercent: number; daysToCover: number; siChange: number; shortVolPercent: number; riskScore: number; status: string } | null>(null);
-    const [institutionalData, setInstitutionalData] = useState<{ darkPool: { percent: number } | null; blockTrade: { count: number; volume: number } | null; shortVolume: { percent: number } | null } | null>(null);
-    const [fundamentalData, setFundamentalData] = useState<{ score: number; grade: string; breakdown: Record<string, { value: string; score: number; label: string }>; pe?: number | null; de?: number | null; roe?: number | null; revenueGrowth?: number | null; netMargin?: number | null; fcfYield?: number | null } | null>(null);
+    const [volatilityData, setVolatilityData] = useState<{ regime: string; regimeScore: number; gex: number; gexLabel: string; iv: number; flipDistance: number; flipLevel: number; isAboveFlip: boolean; squeezeScore: number; squeezeRisk: string; gammaConcentration: number; gammaConcentrationLabel: string } | null>(initialUnifiedData?.volatility || null);
+    const [squeezeData, setSqueezeData] = useState<{ siPercent: number; daysToCover: number; siChange: number; shortVolPercent: number; riskScore: number; status: string } | null>(initialUnifiedData?.squeeze || null);
+    const [institutionalData, setInstitutionalData] = useState<{ darkPool: { percent: number } | null; blockTrade: { count: number; volume: number } | null; shortVolume: { percent: number } | null } | null>(initialUnifiedData?.institutional || null);
+    const [fundamentalData, setFundamentalData] = useState<{ score: number; grade: string; breakdown: Record<string, { value: string; score: number; label: string }>; pe?: number | null; de?: number | null; roe?: number | null; revenueGrowth?: number | null; netMargin?: number | null; fcfYield?: number | null } | null>(initialUnifiedData?.fundamentals || null);
     // [Company Profile] Overview data for header display
-    const [companyOverview, setCompanyOverview] = useState<{ sector: string | null; sectorEN: string | null; description: string | null; descriptionEN: string | null } | null>(null);
+    const [companyOverview, setCompanyOverview] = useState<{ sector: string | null; sectorEN: string | null; description: string | null; descriptionEN: string | null } | null>(() => {
+        if (!initialUnifiedData?.overview?.overview) return null;
+        const o = initialUnifiedData.overview.overview;
+        return { sector: o.sector, sectorEN: o.sectorEN, description: o.description, descriptionEN: o.descriptionEN };
+    });
 
     // i18n translations
     const t = useTranslations('command');
@@ -640,6 +655,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
             fallbackData: initialUnifiedData, // [SSR HYDRATION] Bypass skeleton
             revalidateOnFocus: true,  // Refresh when user returns to tab
             revalidateIfStale: true,
+            revalidateOnMount: !initialUnifiedData, // [PERF] Skip mount fetch if SSR data exists
             refreshInterval: 15_000,  // [AWS OPTIMIZED] 15s polling
             keepPreviousData: true,   // [PERF] Flicker-free: old data stays until new data arrives
             dedupingInterval: 5_000,  // [PERF] Prevent duplicate fetches within 5s

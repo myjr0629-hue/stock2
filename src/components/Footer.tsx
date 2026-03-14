@@ -22,7 +22,7 @@ export function Footer() {
 
     return (
         <footer className={`border-t border-white/[0.03] bg-[#080d18] pb-20 md:pb-0 ${needsOffset ? 'lg:pl-56' : ''}`}>
-            <div className="px-4 sm:px-6 pt-12 pb-4 lg:px-8 max-w-[1400px] mx-auto">
+            <div className="px-4 sm:px-6 pt-8 pb-4 lg:px-8 max-w-[1400px] mx-auto" suppressHydrationWarning>
 
                 {/* ── Legal Links Row ── */}
                 <div className="text-[12px] text-slate-400 text-center mb-3 flex items-center justify-center gap-2 flex-wrap">

@@ -85,6 +85,19 @@ async function fetchGexHistoryData(ticker: string): Promise<any> {
     }
 }
 
+// Helper: JSON response with browser caching headers
+function jsonResponse(data: any, status = 200) {
+    const isMarket = getSmartTTL() === CACHE_TTL_MARKET;
+    return NextResponse.json(data, {
+        status,
+        headers: {
+            'Cache-Control': isMarket
+                ? 'private, max-age=10, stale-while-revalidate=30'
+                : 'private, max-age=60, stale-while-revalidate=300',
+        }
+    });
+}
+
 // Helper to reliably get the localhost URL for internal API calls
 function getBaseUrl(request: NextRequest) {
     // Priority 1: Vercel standard URL
@@ -211,7 +224,7 @@ export async function GET(request: NextRequest) {
                 triggerBackgroundRefresh(ticker, cacheKey, baseUrl, locale);
             }
 
-            return NextResponse.json({ ...cachedData, _source: 'cache', _ageMs: ageMs });
+            return jsonResponse({ ...cachedData, _source: 'cache', _ageMs: ageMs });
         }
 
         // ══════════════════════════════════════════════════════════════
@@ -225,7 +238,7 @@ export async function GET(request: NextRequest) {
                 // Re-warm Redis for next request (0ms)
                 setInCache(cacheKey, dynamoUnified, getSmartTTL()).catch(() => {});
                 console.log(`[Command Unified] ⚡ DynamoDB UNIFIED for ${ticker} in ${Date.now() - start}ms`);
-                return NextResponse.json({ ...dynamoUnified, _source: 'dynamodb-unified', _latency: Date.now() - start });
+                return jsonResponse({ ...dynamoUnified, _source: 'dynamodb-unified', _latency: Date.now() - start });
             }
         } catch { /* DynamoDB unavailable, continue to Tier 2 */ }
 
@@ -275,7 +288,7 @@ export async function GET(request: NextRequest) {
                 // Persist to DynamoDB for permanent access
                 import('@/lib/aws/unifiedCacheProvider').then(m => m.putUnifiedCache(ticker, locale, merged)).catch(() => {});
                 console.log(`[Command Unified] ⚡ MERGED (DynamoDB+Polygon) for ${ticker} in ${Date.now() - start}ms`);
-                return NextResponse.json({ ...merged, _source: 'merged', _ageMs: 0, _latency: Date.now() - start });
+                return jsonResponse({ ...merged, _source: 'merged', _ageMs: 0, _latency: Date.now() - start });
             }
 
             // Polygon timed out — return DynamoDB partial, let Polygon finish in background
@@ -304,7 +317,7 @@ export async function GET(request: NextRequest) {
             }).catch(() => {});
 
             console.log(`[Command Unified] ⚡ DynamoDB PARTIAL for ${ticker} in ${Date.now() - start}ms (Polygon timeout, bg merge)`);
-            return NextResponse.json({ ...dynamoResult, _source: 'dynamodb-partial', _ageMs: 0, _latency: Date.now() - start });
+            return jsonResponse({ ...dynamoResult, _source: 'dynamodb-partial', _ageMs: 0, _latency: Date.now() - start });
         }
 
         // DynamoDB had nothing — await Polygon (which was already started in parallel)
@@ -317,7 +330,7 @@ export async function GET(request: NextRequest) {
         }
 
         console.log(`[Command Unified] 🌐 Polygon FRESH for ${ticker} in ${Date.now() - start}ms`);
-        return NextResponse.json({ ...newData, _source: 'fresh', _ageMs: 0, _latency: Date.now() - start });
+        return jsonResponse({ ...newData, _source: 'fresh', _ageMs: 0, _latency: Date.now() - start });
 
     } catch (error: any) {
         console.error('[Command Unified] API Error:', error);
