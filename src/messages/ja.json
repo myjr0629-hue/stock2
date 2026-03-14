@@ -1,4 +1,4 @@
-{
+﻿{
   "auth": {
     "subtitle": "Analytics Engine搭載マーケットインテリジェンス",
     "continueWithGoogle": "Googleで続ける",
@@ -2745,7 +2745,28 @@
     "tunnelAtResist": "🎯 {ticker} Call Wall(${cw})到達 — 強いレジスタンス、突破でガンマスクイーズ。",
     "tunnelMidRange": "↔️ {ticker} ガンマトンネル中央(${pf}~${cw}) — 方向未定、突破待ち。",
     "tunnelLowerZone": "⬇️ {ticker} ガンマトンネル下部接近 — Put Floor(${pf})サポートテスト中。",
-    "tunnelUpperZone": "⬆️ {ticker} ガンマトンネル上部接近 — Call Wall(${cw})レジスタンステスト中。"
+    "tunnelUpperZone": "↑ {ticker} gamma tunnel ceiling approaching - Call Wall(${cw}) resistance test.",
+    "synthSqueezeImminent": "Gamma squeeze critical: Short gamma + call(PCR {pcr}) + Squeeze {squeeze}%. Call Wall(${cw}) break accelerates.",
+    "synthCrashRisk": "Downside alert: Short gamma + put heavy(PCR {pcr}) + Put Floor(${pf}) {dist}%. Dealer selling on breach.",
+    "synthCallWallBreak": "Call Wall(${cw}) {dist}% away. {gammaContext}.",
+    "synthPutFloorBreak": "Put Floor(${pf}) {dist}% away. {gammaContext}.",
+    "synthStealthHedge": "Stealth hedge: Price stable({changePct}%) but IV Skew +{skew}% - smart money downside insurance.",
+    "synthSqueezeExtreme": "Squeeze {val}% critical. {gammaContext}.",
+    "synthMaxPainPin": "Max Pain(${mp}) near, volatility compression expected.",
+    "synthAboveMaxPain": "Max Pain(${mp}) +{dist}% divergence - expiry convergence pressure.",
+    "synthBelowMaxPain": "Max Pain(${mp}) {dist}% below - rebound incentive.",
+    "synthPreMaxPainPin": "Pre-market ${price} - Max Pain aligned, pinning possible.",
+    "synthPreMarket": "Pre-market ${price}({changePct}%) trading.",
+    "synthPostMarket": "After-hours ${price}({changePct}%) - gap direction reference.",
+    "takeawaySqueezeReady": "Key: Upside squeeze setup complete. Gamma acceleration on ${cw} break.",
+    "takeawayCrashWatch": "Key: Downside pressure. Sell acceleration on ${pf} breach.",
+    "takeawayPinning": "Key: Long gamma + Max Pain convergence = sideways pinning.",
+    "takeawayCallWallTest": "Key: Call Wall(${cw}) test zone. Break determines direction.",
+    "takeawayPutFloorTest": "Key: Put Floor(${pf}) support test. Bounce or breach.",
+    "takeawayBullFlow": "Key: Net call inflow +${val}M. Institutional bullish positioning.",
+    "takeawayBearFlow": "Key: Net put inflow -${val}M. Institutional downside hedging.",
+    "takeawayVolWatch": "Key: Short gamma - bidirectional volatility expansion possible.",
+    "takeawayStable": "Key: Long gamma stable. Current levels expected to hold."
   },
   "sectorRanking": {
     "moneyFlowSub": "資金力ランキング",

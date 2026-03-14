@@ -107,141 +107,189 @@ function FlowBar({ pcr, changePct, ss }: { pcr: number; changePct: number; ss: a
     );
 }
 
-// ── AI Analysis Generator (from TACTICAL DECK) ──
 function generateAnalysis(q: IntelQuote, ss: any): string {
-    const { price, maxPain, callWall, putFloor, gex, pcr, gammaRegime, changePct } = q;
+    const { price, maxPain, callWall, putFloor, gex, pcr, gammaRegime, changePct, session } = q;
     if (!price || price === 0) return ss('dataWaiting');
 
-    const parts: string[] = [];
-
-    // 1. Max Pain 기준 가격 위치 분석
-    if (maxPain > 0) {
-        const diff = ((price - maxPain) / maxPain * 100);
-        if (Math.abs(diff) < 1) {
-            parts.push(ss('nearMaxPain', { mp: maxPain.toFixed(0) }));
-        } else if (diff > 2.5) {
-            parts.push(ss('aboveMaxPain', { mp: maxPain.toFixed(0), diff: diff.toFixed(1) }));
-        } else if (diff > 0) {
-            parts.push(ss('slightAboveMaxPain', { mp: maxPain.toFixed(0) }));
-        } else if (diff < -2.5) {
-            parts.push(ss('belowMaxPain', { mp: maxPain.toFixed(0), diff: diff.toFixed(1) }));
-        } else {
-            parts.push(ss('slightBelowMaxPain', { mp: maxPain.toFixed(0) }));
-        }
-    }
-
-    // 2. Call Wall / Put Floor 핵심 레벨 분석
-    if (callWall > 0 && putFloor > 0 && price > 0) {
-        const toCallWall = ((callWall - price) / price * 100);
-        const toPutFloor = ((price - putFloor) / price * 100);
-
-        if (toCallWall < 1.5) {
-            parts.push(ss('callWallNearBreak', { cw: callWall.toFixed(0) }));
-        } else if (toPutFloor < 1.5) {
-            parts.push(ss('putFloorNearBreak', { pf: putFloor.toFixed(0) }));
-        } else if (toCallWall < toPutFloor) {
-            parts.push(ss('resistanceNearerThanSupport', { cw: callWall.toFixed(0), pf: putFloor.toFixed(0) }));
-        } else {
-            parts.push(ss('midRange', { pf: putFloor.toFixed(0), cw: callWall.toFixed(0) }));
-        }
-    } else if (callWall > 0 && price > 0) {
-        const toCallWall = ((callWall - price) / price * 100);
-        if (toCallWall < 2) parts.push(ss('callWallNearResist', { callWall: callWall.toFixed(0) }));
-    } else if (putFloor > 0 && price > 0) {
-        const toPutFloor = ((price - putFloor) / price * 100);
-        if (toPutFloor < 2) parts.push(ss('putFloorSupport', { putFloor: putFloor.toFixed(0) }));
-    }
-
-    // 3. GEX + PCR 종합 포지셔닝 (2개를 결합하여 시장 심리 판단)
-    const gexM = gex / 1e6;
-    if (gammaRegime === 'SHORT' && pcr > 1.2) {
-        parts.push(ss('shortGammaPutRisk'));
-    } else if (gammaRegime === 'SHORT' && pcr < 0.7) {
-        parts.push(ss('shortGammaCallSqueeze'));
-    } else if (gammaRegime === 'LONG' && pcr < 0.8) {
-        parts.push(ss('longGammaCallStable'));
-    } else if (gammaRegime === 'LONG' && pcr > 1.2) {
-        parts.push(ss('longGammaPutHedge'));
-    } else if (pcr < 0.5) {
-        parts.push(ss('extremeCallBias'));
-    } else if (pcr > 1.5) {
-        parts.push(ss('extremePutBias'));
-    }
-
-    // 4. Squeeze Score 분석
     const squeeze = (q as any).squeezeScore || 0;
-    if (squeeze >= 70) {
-        parts.push(ss('squeezeHigh', { val: Math.round(squeeze).toString() }));
-    } else if (squeeze >= 40) {
-        parts.push(ss('squeezeMid', { val: Math.round(squeeze).toString() }));
-    }
-
-    // 5. Net Premium 분석
     const np = q.netPremium || 0;
     const npM = np / 1e6;
-    if (Math.abs(npM) >= 1) {
-        if (npM > 0) {
-            parts.push(ss('netPremCallInflow', { val: npM.toFixed(1) }));
-        } else {
-            parts.push(ss('netPremPutInflow', { val: Math.abs(npM).toFixed(1) }));
-        }
-    }
-
-    // 6. Whale Index & Dark Pool
     const whaleIdx = (q as any).whaleIndex || 0;
     const darkPool = (q as any).darkPoolPct || 0;
-    if (whaleIdx >= 70) {
-        parts.push(ss('whaleHeavyAnalysis', { idx: whaleIdx }));
-    } else if (whaleIdx >= 40 && darkPool >= 40) {
-        parts.push(ss('whaleDarkPoolCombo', { idx: whaleIdx, pct: darkPool.toFixed(0) }));
-    } else if (darkPool >= 45) {
-        parts.push(ss('darkPoolHighAnalysis', { pct: darkPool.toFixed(0) }));
-    }
-
-    // 7. IV Skew 분석 (풋/콜 비대칭)
     const skew = q.ivSkew || 0;
-    if (Math.abs(skew) >= 3) {
-        if (skew > 0 && Math.abs(q.changePct) < 1) {
-            parts.push(ss('ivSkewStealthHedge', { ticker: q.ticker, val: skew.toFixed(1) }));
-        } else if (skew > 5) {
-            parts.push(ss('ivSkewExtremePut', { ticker: q.ticker, val: skew.toFixed(1) }));
-        } else if (skew > 0) {
-            parts.push(ss('ivSkewPutBias', { ticker: q.ticker, val: skew.toFixed(1) }));
-        } else if (skew < -5) {
-            parts.push(ss('ivSkewExtremeCall', { ticker: q.ticker, val: skew.toFixed(1) }));
-        } else {
-            parts.push(ss('ivSkewCallBias', { ticker: q.ticker, val: skew.toFixed(1) }));
-        }
-    }
-
-    // 8. Implied Move % 분석
     const im = q.impliedMovePct || 0;
-    if (im >= 5) {
-        parts.push(ss('impliedMoveLarge', { ticker: q.ticker, val: im.toFixed(1) }));
-    } else if (im >= 3) {
-        parts.push(ss('impliedMoveMid', { ticker: q.ticker, val: im.toFixed(1) }));
-    } else if (im > 0) {
-        parts.push(ss('impliedMoveSmall', { ticker: q.ticker, val: im.toFixed(1) }));
+    const gexM = gex / 1e6;
+    const isShortGamma = gammaRegime === 'SHORT';
+    const isLongGamma = gammaRegime === 'LONG';
+
+    // ── 거리 계산 ──
+    const maxPainDist = maxPain > 0 ? ((price - maxPain) / maxPain * 100) : 0;
+    const toCallWall = (callWall > 0 && price > 0) ? ((callWall - price) / price * 100) : 999;
+    const toPutFloor = (putFloor > 0 && price > 0) ? ((price - putFloor) / price * 100) : 999;
+
+    // ════════════════════════════════════════════════
+    // PRIORITY SIGNALS — 가장 중요한 이상 신호 감지
+    // ════════════════════════════════════════════════
+    let prioritySignal = '';
+
+    // P1: 감마 스퀴즈 임박 (숏감마 + 콜 과다 + Squeeze 높음)
+    if (isShortGamma && pcr < 0.7 && squeeze >= 60) {
+        prioritySignal = ss('synthSqueezeImminent') ||
+            `⚡ 감마 스퀴즈 임계: 숏감마(${gexM.toFixed(0)}M) + 콜 집중(PCR ${pcr.toFixed(2)}) + Squeeze ${Math.round(squeeze)}%. Call Wall($${callWall?.toFixed(0)}) 돌파 시 딜러 헤징 상방 가속.`;
+    }
+    // P2: 급락 리스크 (숏감마 + 풋 과다 + Put Floor 근접)
+    else if (isShortGamma && pcr > 1.3 && toPutFloor < 2) {
+        prioritySignal = ss('synthCrashRisk') ||
+            `🔴 하방 가속 경계: 숏감마 + 풋 과다(PCR ${pcr.toFixed(2)}) + Put Floor($${putFloor?.toFixed(0)}) ${toPutFloor.toFixed(1)}% 근접. 이탈 시 딜러 매도 가속.`;
+    }
+    // P3: Call Wall 돌파 임박
+    else if (toCallWall < 1.5 && toCallWall > 0) {
+        prioritySignal = ss('synthCallWallBreak') ||
+            `🎯 Call Wall($${callWall?.toFixed(0)}) ${toCallWall.toFixed(1)}% 근접. ${isShortGamma ? '숏감마 환경에서 돌파 시 감마 스퀴즈' : '롱감마 안정 환경, 돌파 시 추세 지속'}.`;
+    }
+    // P4: Put Floor 이탈 임박
+    else if (toPutFloor < 1.5 && toPutFloor > 0) {
+        prioritySignal = ss('synthPutFloorBreak') ||
+            `🛡️ Put Floor($${putFloor?.toFixed(0)}) ${toPutFloor.toFixed(1)}% 근접. ${isShortGamma ? '숏감마에서 이탈 시 하락 가속' : '롱감마 지지력 활발'}.`;
+    }
+    // P5: 스텔스 헤지 감지 (주가 안정인데 풋 IV 급등)
+    else if (skew > 3 && Math.abs(changePct) < 1) {
+        prioritySignal = ss('synthStealthHedge') ||
+            `🕵️ 스텔스 헤지: 주가 안정(${changePct > 0 ? '+' : ''}${changePct.toFixed(1)}%)인데 IV Skew +${skew.toFixed(1)}% — 스마트 머니 하방 보험 구축.`;
+    }
+    // P6: 극단적 변동성 축적
+    else if (squeeze >= 70) {
+        prioritySignal = ss('synthSqueezeExtreme') ||
+            `⚡ Squeeze ${Math.round(squeeze)}% 임계 구간. ${isShortGamma ? '숏감마 + 변동성 축적 = 급변동 임박' : '롱감마가 억제 중이나 해소 시 방향성 출현'}.`;
     }
 
-    // 9. Gamma Tunnel 분석 (가격 위치 해석)
-    if (q.putFloor > 0 && q.callWall > 0 && q.putFloor < q.callWall) {
-        const range = q.callWall - q.putFloor;
-        const pricePct = ((q.price - q.putFloor) / range) * 100;
-        if (pricePct <= 10) {
-            parts.push(ss('tunnelAtSupport', { ticker: q.ticker, pf: q.putFloor.toFixed(0) }));
-        } else if (pricePct >= 90) {
-            parts.push(ss('tunnelAtResist', { ticker: q.ticker, cw: q.callWall.toFixed(0) }));
-        } else if (pricePct >= 40 && pricePct <= 60) {
-            parts.push(ss('tunnelMidRange', { ticker: q.ticker, pf: q.putFloor.toFixed(0), cw: q.callWall.toFixed(0) }));
-        } else if (pricePct < 30) {
-            parts.push(ss('tunnelLowerZone', { ticker: q.ticker, pf: q.putFloor.toFixed(0) }));
-        } else if (pricePct > 70) {
-            parts.push(ss('tunnelUpperZone', { ticker: q.ticker, cw: q.callWall.toFixed(0) }));
+    // ════════════════════════════════════════════════
+    // STRUCTURAL CONTEXT — 구조적 위치 분석
+    // ════════════════════════════════════════════════
+    let structural = '';
+
+    if (maxPain > 0 && callWall > 0 && putFloor > 0) {
+        const range = callWall - putFloor;
+        const pricePct = range > 0 ? ((price - putFloor) / range * 100) : 50;
+
+        if (Math.abs(maxPainDist) < 1) {
+            structural = ss('synthMaxPainPin') ||
+                `Max Pain($${maxPain.toFixed(0)}) 근처, 변동성 축소 예상.`;
+        } else if (maxPainDist > 2.5) {
+            structural = ss('synthAboveMaxPain') ||
+                `Max Pain($${maxPain.toFixed(0)}) 대비 +${maxPainDist.toFixed(1)}% 괴리 — 만기 수렴 하방 압력.`;
+        } else if (maxPainDist < -2.5) {
+            structural = ss('synthBelowMaxPain') ||
+                `Max Pain($${maxPain.toFixed(0)}) 대비 ${maxPainDist.toFixed(1)}% 하회 — 반등 유인 존재.`;
+        }
+
+        // 가격 위치 추가
+        if (pricePct >= 80) {
+            structural += ` 터널 상단(저항 $${callWall.toFixed(0)}) 근접.`;
+        } else if (pricePct <= 20) {
+            structural += ` 터널 하단(지지 $${putFloor.toFixed(0)}) 근접.`;
+        } else {
+            structural += toCallWall < toPutFloor
+                ? ` 저항($${callWall.toFixed(0)})이 지지($${putFloor.toFixed(0)})보다 가까움.`
+                : ` 지지($${putFloor.toFixed(0)})~저항($${callWall.toFixed(0)}) 중간.`;
         }
     }
 
-    return parts.join(' ') || ss('collectingData');
+    // ════════════════════════════════════════════════
+    // FLOW CONTEXT — 자금 흐름 + 기관 활동
+    // ════════════════════════════════════════════════
+    const flowParts: string[] = [];
+
+    // GEX + PCR 교차 (단순 나열 대신 합성)
+    if (isShortGamma && pcr < 0.7) {
+        flowParts.push(ss('shortGammaCallSqueeze'));
+    } else if (isShortGamma && pcr > 1.2) {
+        flowParts.push(ss('shortGammaPutRisk'));
+    } else if (isLongGamma && pcr < 0.8) {
+        flowParts.push(ss('longGammaCallStable'));
+    } else if (isLongGamma && pcr > 1.2) {
+        flowParts.push(ss('longGammaPutHedge'));
+    }
+
+    // Net Premium (유의미한 경우만)
+    if (Math.abs(npM) >= 1) {
+        flowParts.push(npM > 0
+            ? (ss('netPremCallInflow', { val: npM.toFixed(1) }))
+            : (ss('netPremPutInflow', { val: Math.abs(npM).toFixed(1) })));
+    }
+
+    // Whale + DarkPool 교차 (합산 인사이트)
+    if (whaleIdx >= 70) {
+        flowParts.push(ss('whaleHeavyAnalysis', { idx: whaleIdx }));
+    } else if (whaleIdx >= 40 && darkPool >= 40) {
+        flowParts.push(ss('whaleDarkPoolCombo', { idx: whaleIdx, pct: darkPool.toFixed(0) }));
+    } else if (darkPool >= 45) {
+        flowParts.push(ss('darkPoolHighAnalysis', { pct: darkPool.toFixed(0) }));
+    }
+
+    // ════════════════════════════════════════════════
+    // SESSION CONTEXT — 세션별 맥락 (PRE/POST 시 추가)
+    // ════════════════════════════════════════════════
+    let sessionContext = '';
+    const sess = session || 'reg';
+    if ((sess === 'pre' || sess === 'PRE') && q.extendedPrice > 0) {
+        const preVsMaxPain = maxPain > 0 ? Math.abs((q.extendedPrice - maxPain) / maxPain * 100) : 999;
+        if (preVsMaxPain < 1) {
+            sessionContext = ss('synthPreMaxPainPin') ||
+                `프리마켓 $${q.extendedPrice.toFixed(2)} — Max Pain 일치, 정규장 핀닝 가능.`;
+        } else {
+            sessionContext = ss('synthPreMarket') ||
+                `프리마켓 $${q.extendedPrice.toFixed(2)}(${q.extendedChangePct >= 0 ? '+' : ''}${q.extendedChangePct.toFixed(2)}%) 체결 중.`;
+        }
+    } else if ((sess === 'post' || sess === 'POST') && q.extendedPrice > 0) {
+        sessionContext = ss('synthPostMarket') ||
+            `장마감 후 $${q.extendedPrice.toFixed(2)}(${q.extendedChangePct >= 0 ? '+' : ''}${q.extendedChangePct.toFixed(2)}%) — 내일 갭 방향 참고.`;
+    }
+
+    // ════════════════════════════════════════════════
+    // KEY TAKEAWAY — 핵심 한줄 요약
+    // ════════════════════════════════════════════════
+    let takeaway = '';
+
+    if (isShortGamma && pcr < 0.7 && squeeze >= 50 && toCallWall < 5) {
+        takeaway = ss('takeawaySqueezeReady') ||
+            `🔑 핵심: 상방 스퀴즈 셋업 완성. $${callWall?.toFixed(0)} 돌파 시 감마 가속.`;
+    } else if (isShortGamma && pcr > 1.3 && toPutFloor < 3) {
+        takeaway = ss('takeawayCrashWatch') ||
+            `🔑 핵심: 하방 압력 집중. $${putFloor?.toFixed(0)} 이탈 시 매도 가속 환경.`;
+    } else if (isLongGamma && Math.abs(maxPainDist) < 2 && squeeze < 30) {
+        takeaway = ss('takeawayPinning') ||
+            `🔑 핵심: 롱감마 + Max Pain 수렴 = 횡보 핀닝 예상. 방향성 제한적.`;
+    } else if (toCallWall < 2 && toCallWall > 0) {
+        takeaway = ss('takeawayCallWallTest') ||
+            `🔑 핵심: Call Wall($${callWall?.toFixed(0)}) 테스트 구간. 돌파 여부가 단기 방향 결정.`;
+    } else if (toPutFloor < 2 && toPutFloor > 0) {
+        takeaway = ss('takeawayPutFloorTest') ||
+            `🔑 핵심: Put Floor($${putFloor?.toFixed(0)}) 지지 테스트. 반등 or 이탈 분기점.`;
+    } else if (Math.abs(npM) >= 3) {
+        takeaway = npM > 0
+            ? (ss('takeawayBullFlow') || `🔑 핵심: 콜 순유입 +$${npM.toFixed(1)}M. 기관 상방 포지셔닝 적립.`)
+            : (ss('takeawayBearFlow') || `🔑 핵심: 풋 순유입 -$${Math.abs(npM).toFixed(1)}M. 기관 하방 헤지 활발.`);
+    } else if (isShortGamma) {
+        takeaway = ss('takeawayVolWatch') ||
+            `🔑 핵심: 숏감마 환경 — 양방향 변동성 확대 가능. 핵심 레벨 주시.`;
+    } else {
+        takeaway = ss('takeawayStable') ||
+            `🔑 핵심: 롱감마 안정 환경. 현 레벨 유지 예상.`;
+    }
+
+    // ════════════════════════════════════════════════
+    // ASSEMBLY — 조합
+    // ════════════════════════════════════════════════
+    const sections: string[] = [];
+
+    if (prioritySignal) sections.push(prioritySignal);
+    if (sessionContext) sections.push(sessionContext);
+    if (structural) sections.push(structural);
+    if (flowParts.length > 0) sections.push(flowParts.join(' '));
+    if (takeaway) sections.push(takeaway);
+
+    return sections.join(' ') || ss('collectingData');
 }
 
 function getWhaleLabel(idx: number, ss: any): string {
@@ -349,6 +397,37 @@ export function SectorSessionGrid({ config, quotes, loading, refreshing, lockedT
         return () => clearInterval(id);
     }, []);
     const sInfo = getSessionInfo(session);
+
+    // Phase B: DynamoDB history context (async, non-blocking)
+    const [historyInsights, setHistoryInsights] = useState<Record<string, string>>({});
+    useEffect(() => {
+        if (sorted.length === 0) return;
+        const tickers = sorted.map(q => q.ticker).join(',');
+        const regimes = sorted.map(q => q.gammaRegime || 'NEUTRAL').join(',');
+        const controller = new AbortController();
+        fetch(`/api/intel/gex-history?tickers=${tickers}&regimes=${regimes}`, { signal: controller.signal })
+            .then(r => r.ok ? r.json() : null)
+            .then(data => {
+                if (!data) return;
+                const insights: Record<string, string> = {};
+                for (const [ticker, ctx] of Object.entries(data) as [string, any][]) {
+                    const parts: string[] = [];
+                    if (ctx.regimeChanged && ctx.prevRegime) {
+                        parts.push(ctx.prevRegime === 'LONG'
+                            ? (ss('histRegimeToShort') || '\u26A0\uFE0F \uAC10\uB9C8 \uB808\uC9D0 \uC804\uD658: \uB871\uAC10\uB9C8\u2192\uC219\uAC10\uB9C8. \uBCC0\uB3D9\uC131 \uD658\uACBD \uBCC0\uD654.')
+                            : (ss('histRegimeToLong') || '\u2705 \uAC10\uB9C8 \uB808\uC9D0 \uC804\uD658: \uC219\uAC10\uB9C8\u2192\uB871\uAC10\uB9C8. \uC548\uC815 \uD658\uACBD \uBCF5\uADC0.'));
+                    }
+                    if (ctx.isOnlyShortGamma) parts.push(ss('histOnlyShortGamma') || '\uD83D\uDD34 \uC139\uD130 \uB0B4 \uC720\uC77C\uD55C \uC219\uAC10\uB9C8.');
+                    if (ctx.isOnlyLongGamma) parts.push(ss('histOnlyLongGamma') || '\uD83D\uDFE2 \uC139\uD130 \uB0B4 \uC720\uC77C\uD55C \uB871\uAC10\uB9C8.');
+                    if (ctx.pcrTrend === 'rising') parts.push(ss('histPcrRising') || 'PCR \uC5F0\uC18D \uC0C1\uC2B9 \u2014 \uD48B \uC218\uC694 \uC99D\uAC00.');
+                    if (ctx.pcrTrend === 'falling') parts.push(ss('histPcrFalling') || 'PCR \uC5F0\uC18D \uD558\uB77D \u2014 \uCF5C \uC218\uC694 \uC99D\uAC00.');
+                    if (parts.length > 0) insights[ticker] = parts.join(' ');
+                }
+                setHistoryInsights(insights);
+            })
+            .catch(() => {}); // silent fail — history is supplementary
+        return () => controller.abort();
+    }, [sorted.map(q => q.ticker + q.gammaRegime).join(',')]);  // eslint-disable-line react-hooks/exhaustive-deps
     const SessionIcon = sInfo.icon;
     const sessionLabel = SESSION_LABELS[session];
 
@@ -487,7 +566,9 @@ export function SectorSessionGrid({ config, quotes, loading, refreshing, lockedT
                     const regimeLabel = q.gammaRegime === 'LONG' ? ss('stableFlow') :
                         q.gammaRegime === 'SHORT' ? ss('volExpansion') : ss('searchingDirection');
                     const sparkColor = isUp ? '#10b981' : '#f43f5e';
-                    const analysis = generateAnalysis(q, ss);
+                    const baseAnalysis = generateAnalysis(q, ss);
+                    const historyExtra = historyInsights[q.ticker] || '';
+                    const analysis = historyExtra ? `${baseAnalysis} ${historyExtra}` : baseAnalysis;
                     const isHighGex = Math.abs(q.gex) > 50e6;
                     const isExtremePcr = q.pcr < 0.5 || q.pcr > 1.5;
                     const hasAlert = isHighGex || isExtremePcr;
