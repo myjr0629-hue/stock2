@@ -138,7 +138,7 @@ export default function WatchlistClientPage({
                 <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8">
                     <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide pb-1">
                         {categories.map(cat => {
-                            const count = cat === 'all' ? items.length : items.filter(i => ((i as any).category || 'default') === cat).length;
+                            const count = cat === 'all' ? items.length : items.filter(i => ((i as any).category || 'default').toLowerCase() === cat.toLowerCase()).length;
                             const isActive = activeCategory === cat;
                             const label = cat === 'all'
                                 ? (currentLocale === 'ko' ? '전체' : currentLocale === 'ja' ? 'すべて' : 'ALL')
@@ -271,12 +271,12 @@ export default function WatchlistClientPage({
                     categories={categories.filter(c => c !== 'all' && c !== 'default')}
                     onCreateCategory={async (name) => {
                         await addCategory(name);
-                        setActiveCategory(name);
+                        setActiveCategory(name.toLowerCase().trim());
                         setShowCategoryModal(false);
                     }}
                     onDeleteCategory={async (name) => {
                         await deleteCategory(name);
-                        if (activeCategory === name) setActiveCategory('all');
+                        if (activeCategory.toLowerCase() === name.toLowerCase()) setActiveCategory('all');
                     }}
                     currentLocale={currentLocale}
                 />
@@ -952,7 +952,7 @@ const WatchlistCard = memo(function WatchlistCard({ item, onRemove, locale, inde
                                             key={cat}
                                             onClick={(e) => { e.stopPropagation(); e.preventDefault(); onCategoryChange?.(cat); setShowCatMenu(false); }}
                                             className={`w-full text-left px-3 py-2 text-[12px] font-bold transition-colors flex items-center gap-2 ${
-                                                (item as any).category === cat || (!( item as any).category && cat === 'default')
+                                                ((item as any).category || 'default').toLowerCase() === cat.toLowerCase()
                                                     ? 'text-cyan-400 bg-cyan-500/10'
                                                     : 'text-slate-300 hover:text-white hover:bg-white/5'
                                             }`}
@@ -1519,7 +1519,7 @@ const ConditionBadge = memo(function ConditionBadge({ item }: { item: EnrichedWa
 });
 
 // ─── CATEGORY MODAL ──────────────────────────────────────────────────────
-function CategoryModal({ onClose, categories, onCreateCategory, onDeleteCategory, currentLocale }: {
+function CategoryModal({ onClose, categories: initialCategories, onCreateCategory, onDeleteCategory, currentLocale }: {
     onClose: () => void;
     categories: string[];
     onCreateCategory: (name: string) => void;
@@ -1527,13 +1527,31 @@ function CategoryModal({ onClose, categories, onCreateCategory, onDeleteCategory
     currentLocale: string;
 }) {
     const [newCatName, setNewCatName] = useState('');
+    const [localCategories, setLocalCategories] = useState(initialCategories);
+    const [deletingCat, setDeletingCat] = useState<string | null>(null);
+    const [message, setMessage] = useState<string | null>(null);
+
+    // Sync with parent
+    useEffect(() => { setLocalCategories(initialCategories); }, [initialCategories]);
 
     const handleCreate = () => {
         const name = newCatName.trim().toLowerCase().replace(/\s+/g, '-');
-        if (name && !categories.includes(name)) {
+        if (name && !localCategories.includes(name)) {
+            setLocalCategories(prev => [...prev, name]);
             onCreateCategory(name);
             setNewCatName('');
+            setMessage(currentLocale === 'ko' ? `'${name.toUpperCase()}' 카테고리가 생성되었습니다` : currentLocale === 'ja' ? `'${name.toUpperCase()}' カテゴリを作成しました` : `Category '${name.toUpperCase()}' created`);
+            setTimeout(() => setMessage(null), 2000);
         }
+    };
+
+    const handleDelete = async (cat: string) => {
+        setDeletingCat(cat);
+        setLocalCategories(prev => prev.filter(c => c !== cat));
+        await onDeleteCategory(cat);
+        setDeletingCat(null);
+        setMessage(currentLocale === 'ko' ? `'${cat.toUpperCase()}' 카테고리가 삭제되었습니다` : currentLocale === 'ja' ? `'${cat.toUpperCase()}' カテゴリを削除しました` : `Category '${cat.toUpperCase()}' deleted`);
+        setTimeout(() => setMessage(null), 2000);
     };
 
     return (
@@ -1567,19 +1585,20 @@ function CategoryModal({ onClose, categories, onCreateCategory, onDeleteCategory
                     </div>
 
                     {/* Existing categories */}
-                    {categories.length > 0 && (
+                    {localCategories.length > 0 && (
                         <div className="mb-4">
                             <div className="text-[12px] text-slate-300 uppercase tracking-widest font-bold mb-2">
                                 {currentLocale === 'ko' ? '현재 카테고리' : currentLocale === 'ja' ? '現在のカテゴリ' : 'Current Categories'}
                             </div>
                             <div className="space-y-1.5">
-                                {categories.map(cat => (
-                                    <div key={cat} className="flex items-center gap-2 px-3 py-2 rounded-lg bg-white/[0.03] border border-white/[0.06] group/cat">
+                                {localCategories.map((cat: string) => (
+                                    <div key={cat} className={`flex items-center gap-2 px-3 py-2 rounded-lg bg-white/[0.03] border border-white/[0.06] group/cat transition-all duration-200 ${deletingCat === cat ? 'opacity-50 scale-95' : ''}`}>
                                         <Tag className="w-3.5 h-3.5 text-cyan-400" />
                                         <span className="text-[13px] font-bold text-white flex-1">{cat.toUpperCase()}</span>
                                         <button
-                                            onClick={() => onDeleteCategory(cat)}
-                                            className="p-1 rounded-md text-slate-600 hover:text-rose-400 hover:bg-rose-500/15 transition-all duration-200"
+                                            onClick={() => handleDelete(cat)}
+                                            disabled={!!deletingCat}
+                                            className="p-1 rounded-md text-slate-600 hover:text-rose-400 hover:bg-rose-500/15 transition-all duration-200 disabled:opacity-30"
                                             title={currentLocale === 'ko' ? '삭제' : currentLocale === 'ja' ? '削除' : 'Delete'}
                                         >
                                             <Trash2 className="w-3.5 h-3.5" />
@@ -1594,6 +1613,13 @@ function CategoryModal({ onClose, categories, onCreateCategory, onDeleteCategory
                                         ? '削除すると銘柄はデフォルトに移動します'
                                         : 'Deleting moves items to the default category'}
                             </p>
+                        </div>
+                    )}
+
+                    {/* Status message */}
+                    {message && (
+                        <div className="mb-4 px-3 py-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[12px] font-bold animate-in fade-in duration-200">
+                            {message}
                         </div>
                     )}
 
