@@ -130,7 +130,7 @@ export default function WatchlistClientPage({
             </div>
 
             {/* ── ELITE Category Tabs ── */}
-            {isElite && !loading && items.length > 0 && categories.length > 2 && (
+            {isElite && !loading && items.length > 0 && (
                 <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8">
                     <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide pb-1">
                         {categories.map(cat => {
