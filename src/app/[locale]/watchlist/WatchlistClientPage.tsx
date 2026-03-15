@@ -48,7 +48,22 @@ export default function WatchlistClientPage({
     const [activeCategory, setActiveCategory] = useState<string>('all');
     const [showCategoryModal, setShowCategoryModal] = useState(false);
     const [categoryMenuTicker, setCategoryMenuTicker] = useState<string | null>(null);
-    const [customCategories, setCustomCategories] = useState<string[]>([]);
+    const [customCategories, setCustomCategories] = useState<string[]>(() => {
+        if (typeof window !== 'undefined') {
+            try {
+                const saved = localStorage.getItem('watchlist-categories');
+                return saved ? JSON.parse(saved) : [];
+            } catch { return []; }
+        }
+        return [];
+    });
+
+    // Persist custom categories to localStorage
+    useEffect(() => {
+        if (typeof window !== 'undefined') {
+            localStorage.setItem('watchlist-categories', JSON.stringify(customCategories));
+        }
+    }, [customCategories]);
 
     const categories = useMemo(() => {
         const cats = new Set<string>();
@@ -271,6 +286,7 @@ export default function WatchlistClientPage({
                     categories={categories.filter(c => c !== 'all' && c !== 'default')}
                     onCreateCategory={(name) => {
                         setCustomCategories(prev => [...prev, name]);
+                        setActiveCategory(name);
                         setShowCategoryModal(false);
                     }}
                     onDeleteCategory={async (name) => {
