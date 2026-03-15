@@ -4,11 +4,12 @@
 import React, { useState, useMemo, useEffect, memo, useRef, useCallback } from 'react';
 import { useWatchlist, type EnrichedWatchlistItem } from '@/hooks/useWatchlist';
 import { usePriceFlash, getFlashStyle, tickerDelay } from '@/components/ui/PriceDisplay';
-import { useTranslations } from 'next-intl';
+import { useTranslations, useLocale } from 'next-intl';
 import {
     Star, Plus, RefreshCw, Trash2, X, Loader2, Activity, Fish, Zap,
     Target, Shield, RefreshCcw, Crosshair, LayoutDashboard,
-    ArrowUpRight, ArrowDownRight, TrendingUp, Search, BookOpen, Lock, ChevronRight
+    ArrowUpRight, ArrowDownRight, TrendingUp, Search, BookOpen, Lock, ChevronRight,
+    FolderPlus, Tag, MoreHorizontal, Edit3, ChevronDown as ChevronDownIcon
 } from 'lucide-react';
 import { Link, useRouter } from '@/i18n/routing';
 import { useDashboardStore } from '@/stores/dashboardStore';
@@ -29,21 +30,46 @@ export default function WatchlistClientPage({
     initialWatchlist?: any[];
     initialFullData?: any[];
 }) {
-    const { items, loading, isRefreshing, refresh, addItem, removeItem } = useWatchlist(initialWatchlist, initialFullData);
+    const { items, loading, isRefreshing, refresh, addItem, removeItem, updateItemCategory, getCategories } = useWatchlist(initialWatchlist, initialFullData);
     const [showAddModal, setShowAddModal] = useState(false);
     const [sortKey, setSortKey] = useState<SortKey>('default');
     const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
     const t = useTranslations('watchlist');
     const tCommon = useTranslations('common');
-    const { tier } = useTier();
+    const currentLocale = useLocale();
+    const { tier, hasAccess } = useTier();
 
     // Tier-based watchlist limit: FREE=5, PRO=50, ELITE=unlimited
     const maxItems = tier === 'elite' ? 999 : tier === 'pro' ? 50 : 5;
     const isAtLimit = items.length >= maxItems;
 
+    // ── ELITE Category System ──
+    const isElite = hasAccess('elite');
+    const [activeCategory, setActiveCategory] = useState<string>('all');
+    const [showCategoryModal, setShowCategoryModal] = useState(false);
+    const [categoryMenuTicker, setCategoryMenuTicker] = useState<string | null>(null);
+
+    const categories = useMemo(() => {
+        const cats = new Set<string>();
+        items.forEach(item => {
+            if ((item as any).category && (item as any).category !== 'default') {
+                cats.add((item as any).category);
+            }
+        });
+        return ['all', 'default', ...Array.from(cats).sort()];
+    }, [items]);
+
+    const filteredItems = useMemo(() => {
+        if (!isElite || activeCategory === 'all') return items;
+        return items.filter(item => {
+            const cat = (item as any).category || 'default';
+            return cat === activeCategory;
+        });
+    }, [items, activeCategory, isElite]);
+
     const sortedItems = useMemo(() => {
-        if (sortKey === 'default') return items;
-        const sorted = [...items].sort((a, b) => {
+        if (sortKey === 'default') return filteredItems;
+        const sorted = [...filteredItems].sort((a, b) => {
             switch (sortKey) {
                 case 'alpha': return (b.alphaScore ?? 0) - (a.alphaScore ?? 0);
                 case 'change': return b.changePct - a.changePct;
@@ -103,6 +129,45 @@ export default function WatchlistClientPage({
                 </div>
             </div>
 
+            {/* ── ELITE Category Tabs ── */}
+            {isElite && !loading && items.length > 0 && categories.length > 2 && (
+                <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8">
+                    <div className="flex items-center gap-2 overflow-x-auto scrollbar-hide pb-1">
+                        {categories.map(cat => {
+                            const count = cat === 'all' ? items.length : items.filter(i => ((i as any).category || 'default') === cat).length;
+                            const isActive = activeCategory === cat;
+                            const label = cat === 'all'
+                                ? (currentLocale === 'ko' ? '전체' : currentLocale === 'ja' ? 'すべて' : 'ALL')
+                                : cat === 'default'
+                                    ? (currentLocale === 'ko' ? '기본' : currentLocale === 'ja' ? 'デフォルト' : 'DEFAULT')
+                                    : cat.toUpperCase();
+                            return (
+                                <button
+                                    key={cat}
+                                    onClick={() => setActiveCategory(cat)}
+                                    className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl border text-[12px] font-bold tracking-wider uppercase transition-all duration-200 whitespace-nowrap ${
+                                        isActive
+                                            ? 'border-cyan-500/30 bg-cyan-500/10 text-cyan-400 shadow-[0_0_12px_rgba(34,211,238,0.1)]'
+                                            : 'border-white/[0.06] bg-white/[0.03] text-slate-300 hover:text-white hover:border-white/[0.12]'
+                                    }`}
+                                >
+                                    {cat !== 'all' && cat !== 'default' && <Tag className="w-3 h-3" />}
+                                    {label}
+                                    <span className={`tabular-nums text-[12px] ${isActive ? 'text-cyan-400/70' : 'text-slate-500'}`}>{count}</span>
+                                </button>
+                            );
+                        })}
+                        <button
+                            onClick={() => setShowCategoryModal(true)}
+                            className="flex items-center gap-1 px-3 py-2 rounded-xl border border-dashed border-white/[0.08] text-[12px] font-bold text-slate-500 hover:text-cyan-400 hover:border-cyan-500/20 transition-all duration-200 whitespace-nowrap"
+                        >
+                            <FolderPlus className="w-3.5 h-3.5" />
+                            {currentLocale === 'ko' ? '새 카테고리' : currentLocale === 'ja' ? '新規カテゴリ' : 'New Category'}
+                        </button>
+                    </div>
+                </div>
+            )}
+
             <main className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 pb-10 space-y-5">
                 {/* ── Stats Dashboard (Mockup 1) ── */}
                 {!loading && items.length > 0 && <StatsBar items={items} />}
@@ -160,15 +225,18 @@ export default function WatchlistClientPage({
                             </div>
                             <div className="w-[40px] flex-shrink-0" />
                         </div>
-                        {/* Cards — first 8 render immediately, rest use Intersection Observer */}
+                        {/* Cards — all render immediately (no lazy loading for Sort consistency) */}
                         {sortedItems.map((item, i) => (
-                            <LazyWatchlistCard
+                            <WatchlistCard
                                 key={item.ticker}
                                 item={item}
                                 onRemove={() => removeItem(item.ticker)}
                                 locale={locale}
                                 index={i}
-                                immediate={i < 8}
+                                isElite={isElite}
+                                categories={categories.filter(c => c !== 'all')}
+                                onCategoryChange={(cat) => updateItemCategory(item.ticker, cat)}
+                                currentLocale={currentLocale}
                             />
                         ))}
                     </div>
@@ -188,6 +256,20 @@ export default function WatchlistClientPage({
                     onClose={() => setShowAddModal(false)}
                     onAdd={addItem}
                     existingTickers={items.map(i => i.ticker)}
+                    isElite={isElite}
+                    categories={categories.filter(c => c !== 'all')}
+                    currentLocale={currentLocale}
+                />
+            )}
+            {showCategoryModal && (
+                <CategoryModal
+                    onClose={() => setShowCategoryModal(false)}
+                    categories={categories.filter(c => c !== 'all' && c !== 'default')}
+                    onCreateCategory={(name) => {
+                        // Creating a category is implicit — just assign items to it
+                        setShowCategoryModal(false);
+                    }}
+                    currentLocale={currentLocale}
                 />
             )}
         </div>
@@ -555,65 +637,24 @@ function AnalyticsRow({ items }: { items: EnrichedWatchlistItem[] }) {
 // ─── GRID TEMPLATE (shared between header & cards) ──────────────────────
 const GRID_COLS = 'grid grid-cols-[1fr_1.4fr_0.7fr_0.9fr_1fr_0.8fr_0.8fr_1.2fr_0.7fr_1.3fr_1.3fr]';
 
-// ─── LAZY CARD WRAPPER (Intersection Observer) ──────────────────────────
-// [PERF] Cards below the fold render as lightweight placeholders until scrolled into view.
-// First N cards (immediate=true) render instantly, rest are deferred.
-function LazyWatchlistCard({ item, onRemove, locale, index, immediate }: {
-    item: EnrichedWatchlistItem;
-    onRemove: () => void;
-    locale: string;
-    index: number;
-    immediate: boolean;
-}) {
-    const [isVisible, setIsVisible] = useState(immediate);
-    const ref = useRef<HTMLDivElement>(null);
-
-    useEffect(() => {
-        if (immediate || isVisible) return;
-        const el = ref.current;
-        if (!el) return;
-
-        const observer = new IntersectionObserver(
-            ([entry]) => {
-                if (entry.isIntersecting) {
-                    setIsVisible(true);
-                    observer.disconnect(); // Once visible, stay rendered
-                }
-            },
-            { rootMargin: '200px' } // Start rendering 200px before entering viewport
-        );
-        observer.observe(el);
-        return () => observer.disconnect();
-    }, [immediate, isVisible]);
-
-    if (!isVisible) {
-        // Lightweight placeholder matching card height
-        return (
-            <div ref={ref} className="h-[52px] rounded-lg border border-white/[0.04] bg-white/[0.02]" />
-        );
-    }
-
-    return (
-        <WatchlistCard
-            item={item}
-            onRemove={onRemove}
-            locale={locale}
-            index={index}
-        />
-    );
-}
 
 // ─── GLASSMORPHISM TABLE-ROW CARD (Mockup 1 Layout + Mockup 2 Glass) ─────
-const WatchlistCard = memo(function WatchlistCard({ item, onRemove, locale, index }: {
+const WatchlistCard = memo(function WatchlistCard({ item, onRemove, locale, index, isElite, categories, onCategoryChange, currentLocale }: {
     item: EnrichedWatchlistItem;
     onRemove: () => void;
     locale: string;
     index: number;
+    isElite?: boolean;
+    categories?: string[];
+    onCategoryChange?: (category: string) => void;
+    currentLocale?: string;
 }) {
     const isPositive = item.changePct >= 0;
     const tCommon = useTranslations('common');
     const { hasAccess } = useTier();
     const router = useRouter();
+    const [showCatMenu, setShowCatMenu] = useState(false);
+    const catMenuRef = useRef<HTMLDivElement>(null);
     const toggleDashboardTicker = useDashboardStore((s) => s.toggleDashboardTicker);
     const dashboardTickers = useDashboardStore((s) => s.dashboardTickers);
     const [isInDashboard, setIsInDashboard] = useState(false);
@@ -885,15 +926,54 @@ const WatchlistCard = memo(function WatchlistCard({ item, onRemove, locale, inde
                     </div>
                 </Link>
 
-                {/* Delete — fixed width column */}
-                <div className="flex-shrink-0 w-[40px] flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                    <button
-                        onClick={(e) => { e.stopPropagation(); e.preventDefault(); onRemove(); }}
-                        className="p-1.5 rounded-lg hover:bg-rose-500/20 text-slate-600 hover:text-rose-400 transition-colors"
-                        title={tCommon('delete')}
-                    >
-                        <Trash2 className="w-3.5 h-3.5" />
-                    </button>
+                {/* Actions — fixed width column */}
+                <div className="flex-shrink-0 w-[40px] flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-200 relative" ref={catMenuRef}>
+                    {isElite && categories && categories.length > 0 ? (
+                        <>
+                            <button
+                                onClick={(e) => { e.stopPropagation(); e.preventDefault(); setShowCatMenu(!showCatMenu); }}
+                                className="p-1.5 rounded-lg hover:bg-white/10 text-slate-600 hover:text-white transition-colors"
+                            >
+                                <MoreHorizontal className="w-3.5 h-3.5" />
+                            </button>
+                            {showCatMenu && (
+                                <div className="absolute right-0 top-full mt-1 w-40 rounded-xl bg-[#0d1424]/98 backdrop-blur-2xl border border-white/10 shadow-2xl z-50 py-1 animate-in fade-in zoom-in-95 duration-150">
+                                    {categories.map(cat => (
+                                        <button
+                                            key={cat}
+                                            onClick={(e) => { e.stopPropagation(); e.preventDefault(); onCategoryChange?.(cat); setShowCatMenu(false); }}
+                                            className={`w-full text-left px-3 py-2 text-[12px] font-bold transition-colors flex items-center gap-2 ${
+                                                (item as any).category === cat || (!( item as any).category && cat === 'default')
+                                                    ? 'text-cyan-400 bg-cyan-500/10'
+                                                    : 'text-slate-300 hover:text-white hover:bg-white/5'
+                                            }`}
+                                        >
+                                            <Tag className="w-3 h-3" />
+                                            {cat === 'default'
+                                                ? (currentLocale === 'ko' ? '기본' : currentLocale === 'ja' ? 'デフォルト' : 'DEFAULT')
+                                                : cat.toUpperCase()}
+                                        </button>
+                                    ))}
+                                    <div className="border-t border-white/[0.06] my-1" />
+                                    <button
+                                        onClick={(e) => { e.stopPropagation(); e.preventDefault(); onRemove(); setShowCatMenu(false); }}
+                                        className="w-full text-left px-3 py-2 text-[12px] font-bold text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 transition-colors flex items-center gap-2"
+                                    >
+                                        <Trash2 className="w-3 h-3" />
+                                        {currentLocale === 'ko' ? '삭제' : currentLocale === 'ja' ? '削除' : 'Delete'}
+                                    </button>
+                                </div>
+                            )}
+                        </>
+                    ) : (
+                        <button
+                            onClick={(e) => { e.stopPropagation(); e.preventDefault(); onRemove(); }}
+                            className="p-1.5 rounded-lg hover:bg-rose-500/20 text-slate-600 hover:text-rose-400 transition-colors"
+                            title={tCommon('delete')}
+                        >
+                            <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                    )}
                 </div>
             </div>
         </div>
@@ -1186,12 +1266,20 @@ function EmptyState({ onAdd }: { onAdd: () => void }) {
 }
 
 // ─── ADD MODAL ───────────────────────────────────────────────────────────
-function AddWatchlistModal({ onClose, onAdd, existingTickers = [] }: { onClose: () => void; onAdd: (ticker: string, name: string) => Promise<void>; existingTickers?: string[] }) {
+function AddWatchlistModal({ onClose, onAdd, existingTickers = [], isElite, categories, currentLocale }: {
+    onClose: () => void;
+    onAdd: (ticker: string, name: string, category?: string) => Promise<void>;
+    existingTickers?: string[];
+    isElite?: boolean;
+    categories?: string[];
+    currentLocale?: string;
+}) {
     const [ticker, setTicker] = useState('');
     const [companyName, setCompanyName] = useState('');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [validated, setValidated] = useState(false);
+    const [selectedCategory, setSelectedCategory] = useState('default');
     const t = useTranslations('watchlist');
     const tCommon = useTranslations('common');
 
@@ -1227,7 +1315,7 @@ function AddWatchlistModal({ onClose, onAdd, existingTickers = [] }: { onClose: 
         if (!ticker || !validated || loading) return;
         setLoading(true);
         try {
-            await onAdd(ticker.toUpperCase(), companyName || ticker.toUpperCase());
+            await onAdd(ticker.toUpperCase(), companyName || ticker.toUpperCase(), isElite ? selectedCategory : undefined);
             onClose();
         } finally {
             setLoading(false);
@@ -1341,6 +1429,33 @@ function AddWatchlistModal({ onClose, onAdd, existingTickers = [] }: { onClose: 
                             </div>
                         )}
 
+                        {/* Category selector (ELITE only) */}
+                        {isElite && categories && categories.length > 1 && validated && (
+                            <div>
+                                <div className="text-[12px] text-slate-300 uppercase tracking-widest font-bold mb-2">
+                                    {currentLocale === 'ko' ? '카테고리' : currentLocale === 'ja' ? 'カテゴリ' : 'CATEGORY'}
+                                </div>
+                                <div className="flex flex-wrap gap-1.5">
+                                    {categories.map(cat => (
+                                        <button
+                                            key={cat}
+                                            type="button"
+                                            onClick={() => setSelectedCategory(cat)}
+                                            className={`px-2.5 py-1 rounded-lg border text-[12px] font-bold transition-all duration-200 ${
+                                                selectedCategory === cat
+                                                    ? 'border-cyan-500/30 bg-cyan-500/10 text-cyan-400'
+                                                    : 'bg-white/[0.03] border-white/[0.06] text-slate-400 hover:bg-white/[0.08] hover:text-white hover:border-white/[0.12]'
+                                            }`}
+                                        >
+                                            {cat === 'default'
+                                                ? (currentLocale === 'ko' ? '기본' : currentLocale === 'ja' ? 'デフォルト' : 'DEFAULT')
+                                                : cat.toUpperCase()}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
                         {/* Action buttons */}
                         <div className="flex gap-2.5 pt-1">
                             <button
@@ -1393,6 +1508,113 @@ const ConditionBadge = memo(function ConditionBadge({ item }: { item: EnrichedWa
         </div>
     );
 });
+
+// ─── CATEGORY MODAL ──────────────────────────────────────────────────────
+function CategoryModal({ onClose, categories, onCreateCategory, currentLocale }: {
+    onClose: () => void;
+    categories: string[];
+    onCreateCategory: (name: string) => void;
+    currentLocale: string;
+}) {
+    const [newCatName, setNewCatName] = useState('');
+
+    const handleCreate = () => {
+        const name = newCatName.trim().toLowerCase().replace(/\s+/g, '-');
+        if (name && !categories.includes(name)) {
+            onCreateCategory(name);
+            setNewCatName('');
+        }
+    };
+
+    return (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={onClose}>
+            <div
+                className="relative rounded-2xl overflow-hidden max-w-sm w-full animate-in fade-in zoom-in-95 duration-200"
+                onClick={(e) => e.stopPropagation()}
+            >
+                <div className="absolute inset-0 bg-gradient-to-b from-[#0f1629] via-[#0d1220] to-[#0b0f1a] rounded-2xl" />
+                <div className="absolute inset-0 rounded-2xl border border-white/[0.12]" />
+                <div className="absolute -top-20 -right-20 w-40 h-40 bg-cyan-500/[0.06] rounded-full blur-3xl pointer-events-none" />
+
+                <div className="relative p-6">
+                    <div className="flex items-center justify-between mb-5">
+                        <div className="flex items-center gap-2.5">
+                            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-cyan-500/20 to-indigo-500/10 border border-cyan-500/20 flex items-center justify-center">
+                                <FolderPlus className="w-4 h-4 text-cyan-400" />
+                            </div>
+                            <div>
+                                <h2 className="text-base font-black text-white">
+                                    {currentLocale === 'ko' ? '카테고리 관리' : currentLocale === 'ja' ? 'カテゴリ管理' : 'Manage Categories'}
+                                </h2>
+                                <p className="text-[12px] text-slate-300 mt-0.5">
+                                    {currentLocale === 'ko' ? '워치리스트를 분류하세요' : currentLocale === 'ja' ? 'ウォッチリストを分類' : 'Organize your watchlist'}
+                                </p>
+                            </div>
+                        </div>
+                        <button onClick={onClose} className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-white/[0.06] text-slate-500 hover:text-white transition-all duration-200">
+                            <X className="w-4 h-4" />
+                        </button>
+                    </div>
+
+                    {/* Existing categories */}
+                    {categories.length > 0 && (
+                        <div className="mb-4">
+                            <div className="text-[12px] text-slate-300 uppercase tracking-widest font-bold mb-2">
+                                {currentLocale === 'ko' ? '현재 카테고리' : currentLocale === 'ja' ? '現在のカテゴリ' : 'Current Categories'}
+                            </div>
+                            <div className="space-y-1.5">
+                                {categories.map(cat => (
+                                    <div key={cat} className="flex items-center gap-2 px-3 py-2 rounded-lg bg-white/[0.03] border border-white/[0.06]">
+                                        <Tag className="w-3.5 h-3.5 text-cyan-400" />
+                                        <span className="text-[13px] font-bold text-white flex-1">{cat.toUpperCase()}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Create new */}
+                    <div>
+                        <div className="text-[12px] text-slate-300 uppercase tracking-widest font-bold mb-2">
+                            {currentLocale === 'ko' ? '새 카테고리 만들기' : currentLocale === 'ja' ? '新規カテゴリ作成' : 'Create New'}
+                        </div>
+                        <div className="flex gap-2">
+                            <input
+                                type="text"
+                                value={newCatName}
+                                onChange={(e) => setNewCatName(e.target.value)}
+                                placeholder={currentLocale === 'ko' ? '카테고리 이름' : currentLocale === 'ja' ? 'カテゴリ名' : 'Category name'}
+                                className="flex-1 bg-white/[0.04] border border-white/[0.08] rounded-xl px-4 py-2.5 text-white text-[13px] font-bold focus:border-cyan-500/50 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 placeholder:text-slate-600 transition-all duration-200"
+                                maxLength={20}
+                            />
+                            <button
+                                onClick={handleCreate}
+                                disabled={!newCatName.trim()}
+                                className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-cyan-500 to-cyan-600 text-black text-[13px] font-black hover:brightness-110 transition-all disabled:opacity-30 disabled:cursor-not-allowed shadow-lg shadow-cyan-500/20"
+                            >
+                                <Plus className="w-4 h-4" />
+                            </button>
+                        </div>
+                        <p className="text-[12px] text-slate-500 mt-2">
+                            {currentLocale === 'ko'
+                                ? '종목의 ⋯ 메뉴에서 카테고리를 지정할 수 있습니다'
+                                : currentLocale === 'ja'
+                                    ? '銘柄の⋯メニューからカテゴリを指定できます'
+                                    : 'Assign categories from the ⋯ menu on each item'}
+                        </p>
+                    </div>
+
+                    <button
+                        onClick={onClose}
+                        className="w-full mt-4 px-4 py-2.5 bg-white/[0.03] text-slate-300 rounded-xl text-[13px] font-bold hover:bg-white/[0.06] hover:text-white transition-all duration-200 border border-white/[0.06]"
+                    >
+                        {currentLocale === 'ko' ? '닫기' : currentLocale === 'ja' ? '閉じる' : 'Close'}
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+}
 
 // ─── GLOBAL STYLES (injected) ────────────────────────────────────────────
 const GlobalStyles = () => (

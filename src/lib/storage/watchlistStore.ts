@@ -6,6 +6,7 @@ export interface WatchlistItem {
     ticker: string;
     name: string;
     addedAt: string;
+    category?: string;
 }
 
 export interface WatchlistData {
@@ -21,7 +22,7 @@ export async function getWatchlist(): Promise<WatchlistData> {
 
     const { data, error } = await supabase
         .from('user_watchlist')
-        .select('ticker, name, added_at')
+        .select('ticker, name, added_at, category')
         .eq('user_id', user.id)
         .order('added_at', { ascending: true });
 
@@ -35,13 +36,14 @@ export async function getWatchlist(): Promise<WatchlistData> {
             ticker: row.ticker,
             name: row.name,
             addedAt: row.added_at,
+            category: (row as any).category || 'default',
         })),
         updatedAt: new Date().toISOString(),
     };
 }
 
 // Add a ticker to watchlist
-export async function addToWatchlist(ticker: string, name: string): Promise<WatchlistData> {
+export async function addToWatchlist(ticker: string, name: string, category: string = 'default'): Promise<WatchlistData> {
     const supabase = createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return { items: [], updatedAt: new Date().toISOString() };
@@ -53,9 +55,26 @@ export async function addToWatchlist(ticker: string, name: string): Promise<Watc
             ticker: ticker.toUpperCase(),
             name,
             added_at: new Date().toISOString(),
+            category,
         }, { onConflict: 'user_id,ticker' });
 
     if (error) console.error('Failed to add to watchlist:', error);
+    return getWatchlist();
+}
+
+// Update category for a ticker
+export async function updateWatchlistCategory(ticker: string, category: string): Promise<WatchlistData> {
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { items: [], updatedAt: new Date().toISOString() };
+
+    const { error } = await supabase
+        .from('user_watchlist')
+        .update({ category })
+        .eq('user_id', user.id)
+        .eq('ticker', ticker);
+
+    if (error) console.error('Failed to update category:', error);
     return getWatchlist();
 }
 

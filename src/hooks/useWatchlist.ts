@@ -6,6 +6,7 @@ import {
     getWatchlist,
     addToWatchlist as storeAdd,
     removeFromWatchlist as storeRemove,
+    updateWatchlistCategory as storeUpdateCategory,
     type WatchlistItem,
     type WatchlistData
 } from '@/lib/storage/watchlistStore';
@@ -14,6 +15,7 @@ import { useMarketStatus } from './useMarketStatus';
 export interface EnrichedWatchlistItem extends WatchlistItem {
     currentPrice: number;
     changePct: number;
+    category?: string;
     session?: 'pre' | 'reg' | 'post';
     // Session-aware price decomposition
     regChangePct?: number;     // Regular session change % (from prevClose)
@@ -212,8 +214,8 @@ export function useWatchlist(initialWatchlist?: WatchlistItem[], initialFullData
     // [PERF] Defer non-critical UI updates — price ticks won't block main thread rendering
     const deferredItems = useDeferredValue(items);
 
-    const addItem = useCallback(async (ticker: string, name: string) => {
-        const updated = await storeAdd(ticker, name);
+    const addItem = useCallback(async (ticker: string, name: string, category?: string) => {
+        const updated = await storeAdd(ticker, name, category || 'default');
         setWatchlistData(updated);
         mutate();
     }, [mutate]);
@@ -223,6 +225,23 @@ export function useWatchlist(initialWatchlist?: WatchlistItem[], initialFullData
         setWatchlistData(updated);
         mutate();
     }, [mutate]);
+
+    const updateItemCategory = useCallback(async (ticker: string, category: string) => {
+        const updated = await storeUpdateCategory(ticker, category);
+        setWatchlistData(updated);
+        mutate();
+    }, [mutate]);
+
+    const getCategories = useCallback(() => {
+        const cats = new Set<string>();
+        items.forEach(item => {
+            if (item.category && item.category !== 'default') {
+                cats.add(item.category);
+            }
+        });
+        return ['default', ...Array.from(cats).sort()];
+    }, [items]);
+
 
     const refresh = useCallback(() => {
         mutate();
@@ -236,6 +255,8 @@ export function useWatchlist(initialWatchlist?: WatchlistItem[], initialFullData
         error: error?.message || null,
         addItem,
         removeItem,
+        updateItemCategory,
+        getCategories,
         refresh,
         itemCount: items.length,
     };
