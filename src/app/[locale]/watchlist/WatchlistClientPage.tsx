@@ -48,16 +48,20 @@ export default function WatchlistClientPage({
     const [activeCategory, setActiveCategory] = useState<string>('all');
     const [showCategoryModal, setShowCategoryModal] = useState(false);
     const [categoryMenuTicker, setCategoryMenuTicker] = useState<string | null>(null);
+    const [customCategories, setCustomCategories] = useState<string[]>([]);
 
     const categories = useMemo(() => {
         const cats = new Set<string>();
+        // From items
         items.forEach(item => {
             if ((item as any).category && (item as any).category !== 'default') {
                 cats.add((item as any).category);
             }
         });
+        // From user-created
+        customCategories.forEach(c => cats.add(c));
         return ['all', 'default', ...Array.from(cats).sort()];
-    }, [items]);
+    }, [items, customCategories]);
 
     const filteredItems = useMemo(() => {
         if (!isElite || activeCategory === 'all') return items;
@@ -266,7 +270,7 @@ export default function WatchlistClientPage({
                     onClose={() => setShowCategoryModal(false)}
                     categories={categories.filter(c => c !== 'all' && c !== 'default')}
                     onCreateCategory={(name) => {
-                        // Creating a category is implicit — just assign items to it
+                        setCustomCategories(prev => [...prev, name]);
                         setShowCategoryModal(false);
                     }}
                     currentLocale={currentLocale}
@@ -670,7 +674,7 @@ const WatchlistCard = memo(function WatchlistCard({ item, onRemove, locale, inde
     return (
         <div
             className={`
-                group relative rounded-xl overflow-hidden
+                group relative rounded-xl
                 bg-gradient-to-r from-white/[0.045] via-white/[0.03] to-white/[0.02]
                 backdrop-blur-xl
                 border border-white/[0.08] border-l-[3px] ${accentBorder}
@@ -937,7 +941,7 @@ const WatchlistCard = memo(function WatchlistCard({ item, onRemove, locale, inde
                                 <MoreHorizontal className="w-3.5 h-3.5" />
                             </button>
                             {showCatMenu && (
-                                <div className="absolute right-0 top-full mt-1 w-40 rounded-xl bg-[#0d1424]/98 backdrop-blur-2xl border border-white/10 shadow-2xl z-50 py-1 animate-in fade-in zoom-in-95 duration-150">
+                                <div className="absolute right-0 bottom-full mb-1 w-40 rounded-xl bg-[#0d1424]/98 backdrop-blur-2xl border border-white/10 shadow-2xl z-50 py-1 animate-in fade-in zoom-in-95 duration-150">
                                     {categories.map(cat => (
                                         <button
                                             key={cat}
