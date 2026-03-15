@@ -9,7 +9,7 @@ export async function getWatchlistServer(): Promise<WatchlistData> {
 
     const { data, error } = await supabase
         .from('user_watchlist')
-        .select('ticker, name, added_at')
+        .select('ticker, name, added_at, category')
         .eq('user_id', user.id)
         .order('added_at', { ascending: true });
 
@@ -23,6 +23,7 @@ export async function getWatchlistServer(): Promise<WatchlistData> {
             ticker: row.ticker,
             name: row.name,
             addedAt: row.added_at,
+            category: (row as any).category || 'default',
         })),
         updatedAt: new Date().toISOString(),
     };
