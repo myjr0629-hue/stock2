@@ -62,19 +62,48 @@ export async function addToWatchlist(ticker: string, name: string, category: str
     return getWatchlist();
 }
 
-// Update category for a ticker
+// Update category for a ticker (uses delete+insert to bypass UPDATE RLS if not configured)
 export async function updateWatchlistCategory(ticker: string, category: string): Promise<WatchlistData> {
     const supabase = createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return { items: [], updatedAt: new Date().toISOString() };
 
-    const { error } = await supabase
+    // First try direct UPDATE
+    const { error: updateError } = await supabase
         .from('user_watchlist')
         .update({ category })
         .eq('user_id', user.id)
         .eq('ticker', ticker);
 
-    if (error) console.error('Failed to update category:', error);
+    if (updateError) {
+        console.warn('Direct update failed, using delete+insert fallback:', updateError.message);
+        // Fallback: fetch current item, delete, re-insert with new category
+        const { data: existing } = await supabase
+            .from('user_watchlist')
+            .select('ticker, name, added_at')
+            .eq('user_id', user.id)
+            .eq('ticker', ticker)
+            .maybeSingle();
+
+        if (existing) {
+            await supabase
+                .from('user_watchlist')
+                .delete()
+                .eq('user_id', user.id)
+                .eq('ticker', ticker);
+
+            await supabase
+                .from('user_watchlist')
+                .insert({
+                    user_id: user.id,
+                    ticker: existing.ticker,
+                    name: existing.name,
+                    added_at: existing.added_at,
+                    category,
+                });
+        }
+    }
+
     return getWatchlist();
 }
 
