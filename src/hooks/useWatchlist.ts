@@ -57,12 +57,11 @@ export function useWatchlist(initialWatchlist?: WatchlistItem[], initialFullData
     });
     const [storeLoading, setStoreLoading] = useState(!initialWatchlist);
 
-    // Initial load from Supabase if not hydrated via props
+    // Initial load from Supabase — always refresh on mount to get category data
+    // SSR hydration provides fast initial render, client re-fetch ensures category field
     useEffect(() => {
-        if (!initialWatchlist) {
-            loadWatchlist();
-        }
-    }, [initialWatchlist]);
+        loadWatchlist();
+    }, []);
 
     const loadWatchlist = async () => {
         setStoreLoading(true);
