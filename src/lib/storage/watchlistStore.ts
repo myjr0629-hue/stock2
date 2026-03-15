@@ -62,7 +62,7 @@ export async function addToWatchlist(ticker: string, name: string, category: str
     return getWatchlist();
 }
 
-// Update category for a ticker (uses delete+insert to bypass UPDATE RLS if not configured)
+// Update category for a ticker — uses upsert (same as addToWatchlist which works reliably)
 export async function updateWatchlistCategory(ticker: string, category: string): Promise<WatchlistData> {
     const supabase = createClient();
     const { data: { user } } = await supabase.auth.getUser();
@@ -70,48 +70,34 @@ export async function updateWatchlistCategory(ticker: string, category: string):
 
     console.log('[CAT] updateWatchlistCategory:', ticker, '->', category);
 
-    // First try direct UPDATE
-    const { error: updateError, count } = await supabase
+    // Read existing item data first
+    const { data: existing } = await supabase
         .from('user_watchlist')
-        .update({ category })
+        .select('ticker, name, added_at')
         .eq('user_id', user.id)
-        .eq('ticker', ticker);
+        .eq('ticker', ticker)
+        .maybeSingle();
 
-    console.log('[CAT] Direct update result:', { error: updateError?.message, count });
-
-    if (updateError) {
-        console.warn('[CAT] Direct update failed, using delete+insert fallback:', updateError.message);
-        // Fallback: fetch current item, delete, re-insert with new category
-        const { data: existing } = await supabase
-            .from('user_watchlist')
-            .select('ticker, name, added_at')
-            .eq('user_id', user.id)
-            .eq('ticker', ticker)
-            .maybeSingle();
-
-        if (existing) {
-            const { error: delErr } = await supabase
-                .from('user_watchlist')
-                .delete()
-                .eq('user_id', user.id)
-                .eq('ticker', ticker);
-            console.log('[CAT] Delete result:', delErr?.message || 'OK');
-
-            const { error: insErr } = await supabase
-                .from('user_watchlist')
-                .insert({
-                    user_id: user.id,
-                    ticker: existing.ticker,
-                    name: existing.name,
-                    added_at: existing.added_at,
-                    category,
-                });
-            console.log('[CAT] Insert result:', insErr?.message || 'OK');
-        }
+    if (!existing) {
+        console.error('[CAT] Item not found:', ticker);
+        return getWatchlist();
     }
 
+    // Upsert with updated category (same pattern as addToWatchlist which works)
+    const { error } = await supabase
+        .from('user_watchlist')
+        .upsert({
+            user_id: user.id,
+            ticker: existing.ticker,
+            name: existing.name,
+            added_at: existing.added_at,
+            category,
+        }, { onConflict: 'user_id,ticker' });
+
+    console.log('[CAT] Upsert result:', error ? error.message : 'OK');
+
     const result = await getWatchlist();
-    console.log('[CAT] After update, items with categories:', result.items.map(i => `${i.ticker}:${i.category}`).join(', '));
+    console.log('[CAT] After update, categories:', result.items.map(i => `${i.ticker}:${i.category}`).join(', '));
     return result;
 }
 
