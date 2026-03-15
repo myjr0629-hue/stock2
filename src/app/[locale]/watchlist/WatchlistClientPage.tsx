@@ -51,22 +51,23 @@ export default function WatchlistClientPage({
 
     const categories = useMemo(() => {
         const cats = new Set<string>();
-        // From items
+        // From items (normalize to lowercase)
         items.forEach(item => {
-            if ((item as any).category && (item as any).category !== 'default') {
-                cats.add((item as any).category);
+            const cat = ((item as any).category || 'default').toLowerCase();
+            if (cat !== 'default') {
+                cats.add(cat);
             }
         });
-        // From Supabase-backed custom categories
-        (hookCategories || []).forEach(c => cats.add(c));
+        // From Supabase-backed custom categories (already lowercase)
+        (hookCategories || []).forEach(c => cats.add(c.toLowerCase()));
         return ['all', 'default', ...Array.from(cats).sort()];
     }, [items, hookCategories]);
 
     const filteredItems = useMemo(() => {
         if (!isElite || activeCategory === 'all') return items;
         return items.filter(item => {
-            const cat = (item as any).category || 'default';
-            return cat === activeCategory;
+            const cat = ((item as any).category || 'default').toLowerCase();
+            return cat === activeCategory.toLowerCase();
         });
     }, [items, activeCategory, isElite]);
 

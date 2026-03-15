@@ -70,6 +70,9 @@ export async function updateWatchlistCategory(ticker: string, category: string):
 
     console.log('[CAT] updateWatchlistCategory:', ticker, '->', category);
 
+    // Normalize category to lowercase (addUserCategory stores lowercase)
+    const normalizedCategory = category.toLowerCase().trim();
+
     // Read existing item data first
     const { data: existing } = await supabase
         .from('user_watchlist')
@@ -91,10 +94,10 @@ export async function updateWatchlistCategory(ticker: string, category: string):
             ticker: existing.ticker,
             name: existing.name,
             added_at: existing.added_at,
-            category,
+            category: normalizedCategory,
         }, { onConflict: 'user_id,ticker' });
 
-    console.log('[CAT] Upsert result:', error ? error.message : 'OK');
+    console.log('[CAT] Upsert result:', error ? error.message : 'OK, saved as:', normalizedCategory);
 
     const result = await getWatchlist();
     console.log('[CAT] After update, categories:', result.items.map(i => `${i.ticker}:${i.category}`).join(', '));
