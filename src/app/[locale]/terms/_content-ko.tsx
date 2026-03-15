@@ -105,8 +105,8 @@ export const sections: TermsSection[] = [
         title: '제7조 (환불 정책)',
         content: (
             <ol className="list-decimal list-inside space-y-2">
-                <li><strong>7일 만족 보장:</strong> 최초 결제일로부터 <strong>7일 이내에 서비스 품질 또는 기능에 대한 불만족 사유로 환불을 요청</strong>하실 수 있습니다.</li>
-                <li><strong>환불 조건:</strong> 환불은 <strong>계정당 1회로 제한</strong>됩니다. 프로모션 또는 할인 구매 건은 환불 대상에서 제외됩니다.</li>
+                <li><strong>7일 환불 보장:</strong> 최초 결제일로부터 <strong>7일 이내에 기술적 결함으로 인한 서비스 정상 이용 불가 사유로 환불을 요청</strong>하실 수 있습니다.</li>
+                <li><strong>환불 조건:</strong> 환불은 <strong>계정당 1회로 제한</strong>됩니다. 프로모션 또는 할인 구매 건은 환불 대상에서 제외됩니다. 단순 변심 또는 주관적 불만족은 환불 사유에 해당하지 않습니다.</li>
                 <li><strong>환불 절차:</strong> 환불 요청은 이메일(<a href="mailto:contact@signumhq.com" className="text-cyan-400 hover:underline">contact@signumhq.com</a>)을 통해 신청할 수 있으며, 승인된 환불은 영업일 기준 5-7일 이내에 원래 결제 수단으로 처리됩니다.</li>
                 <li><strong>7일 경과 후:</strong> 7일이 경과한 후에는 언제든지 구독을 해지하여 향후 과금을 중단할 수 있으나, 남은 구독 기간에 대한 일할 환불은 제공되지 않습니다.</li>
             </ol>

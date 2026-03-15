@@ -8,12 +8,12 @@ const content = {
     en: {
         title: 'Refund Policy',
         lastUpdated: 'Last Updated: March 7, 2026',
-        headline: '7-Day Satisfaction Guarantee',
-        headlineDesc: 'We stand behind the quality of our platform. If the service does not meet your expectations, we offer a clear and fair refund process.',
+        headline: '7-Day Refund Guarantee',
+        headlineDesc: 'We stand behind the quality of our platform. If a technical defect prevents normal use of the service, we offer a clear and fair refund process.',
         eligibility: 'Eligibility',
         eligibilityItems: [
             'Refund requests must be made within 7 calendar days of initial purchase',
-            'Available for dissatisfaction with service quality or functionality',
+            'Technical defects preventing normal use of the service',
             'Limited to one refund per account',
             'Applies to both monthly and annual plans',
         ],
@@ -22,6 +22,7 @@ const content = {
             'Requests made after the 7-day window',
             'Promotional or discounted purchases',
             'Accounts that have previously received a refund',
+            'Simple change of mind or subjective dissatisfaction',
         ],
         process: 'Refund Process',
         processSteps: [
@@ -39,12 +40,12 @@ const content = {
     ko: {
         title: '환불 정책',
         lastUpdated: '최종 수정일: 2026년 3월 7일',
-        headline: '7일 만족 보장',
-        headlineDesc: '서비스 품질에 자신이 있습니다. 기대에 부합하지 않을 경우, 명확하고 공정한 환불 절차를 제공합니다.',
+        headline: '7일 환불 보장',
+        headlineDesc: '서비스 품질에 자신이 있습니다. 기술적 결함으로 정상 이용이 불가한 경우, 명확하고 공정한 환불 절차를 제공합니다.',
         eligibility: '환불 대상',
         eligibilityItems: [
             '최초 결제일로부터 7일 이내 요청',
-            '서비스 품질 또는 기능에 대한 불만족 사유',
+            '기술적 결함으로 인한 서비스 정상 이용 불가',
             '계정당 1회 환불 제한',
             '월간 및 연간 플랜 모두 적용',
         ],
@@ -53,6 +54,7 @@ const content = {
             '7일 이후 요청',
             '프로모션 또는 할인 구매 건',
             '이전에 환불을 받은 계정',
+            '단순 변심 또는 주관적 불만족',
         ],
         process: '환불 절차',
         processSteps: [
@@ -70,12 +72,12 @@ const content = {
     ja: {
         title: '返金ポリシー',
         lastUpdated: '最終更新日: 2026年3月7日',
-        headline: '7日間満足保証',
-        headlineDesc: 'プラットフォームの品質に自信を持っています。ご期待に沿えない場合、明確で公正な返金プロセスをご用意しています。',
+        headline: '7日間返金保証',
+        headlineDesc: 'プラットフォームの品質に自信を持っています。技術的な不具合によりサービスの正常なご利用ができない場合、明確で公正な返金プロセスをご用意しています。',
         eligibility: '返金対象',
         eligibilityItems: [
             '初回決済から7日以内のリクエスト',
-            'サービス品質または機能に対するご不満',
+            '技術的不具合によるサービスの正常利用不可',
             'アカウントにつき1回限り',
             '月額・年額プランともに対象',
         ],
@@ -84,6 +86,7 @@ const content = {
             '7日経過後のリクエスト',
             'プロモーションまたは割引購入',
             '以前に返金を受けたアカウント',
+            '単なる気変わりまたは主観的な不満',
         ],
         process: '返金プロセス',
         processSteps: [

@@ -106,8 +106,8 @@ export const sections: TermsSection[] = [
         title: '第7条（返金ポリシー）',
         content: (
             <ol className="list-decimal list-inside space-y-2">
-                <li><strong>7日間満足保証：</strong> 初回決済日から<strong>7日以内に、サービス品質または機能に対するご不満を理由として返金をリクエスト</strong>いただけます。</li>
-                <li><strong>返金条件：</strong> 返金は<strong>アカウントにつき1回限り</strong>です。プロモーションまたは割引購入は返金対象外です。</li>
+                <li><strong>7日間返金保証：</strong> 初回決済日から<strong>7日以内に、技術的不具合によるサービスの正常利用不可を理由として返金をリクエスト</strong>いただけます。</li>
+                <li><strong>返金条件：</strong> 返金は<strong>アカウントにつき1回限り</strong>です。プロモーションまたは割引購入は返金対象外です。単なる気変わりまたは主観的な不満は返金事由に該当しません。</li>
                 <li><strong>返金手続き：</strong> 返金リクエストはメール（<a href="mailto:contact@signumhq.com" className="text-cyan-400 hover:underline">contact@signumhq.com</a>）から申請でき、承認された返金は営業日基準5〜7日以内に元の決済方法で処理されます。</li>
                 <li><strong>7日経過後：</strong> 7日経過後はいつでもサブスクリプションを解約して今後の課金を停止できますが、残余サブスクリプション期間に対する日割返金は提供されません。</li>
             </ol>

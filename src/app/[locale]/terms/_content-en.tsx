@@ -124,8 +124,8 @@ export const sections: TermsSection[] = [
         title: 'Article 7. Refund Policy',
         content: (
             <ol className="list-decimal list-inside space-y-2">
-                <li><strong>7-Day Satisfaction Guarantee:</strong> We offer a <strong>7-day refund guarantee</strong> from the date of your initial purchase. If you are dissatisfied with the service quality or functionality, you may request a full refund within 7 calendar days.</li>
-                <li><strong>Conditions:</strong> Refunds are limited to <strong>one per account.</strong> Promotional or discounted purchases are not eligible for refunds.</li>
+                <li><strong>7-Day Refund Guarantee:</strong> We offer a <strong>7-day refund guarantee</strong> from the date of your initial purchase. If a technical defect prevents normal use of the service, you may request a full refund within 7 calendar days.</li>
+                <li><strong>Conditions:</strong> Refunds are limited to <strong>one per account.</strong> Promotional or discounted purchases are not eligible for refunds. Simple change of mind or subjective dissatisfaction does not qualify.</li>
                 <li><strong>How to Request:</strong> Refund requests may be submitted via email (<a href="mailto:contact@signumhq.com" className="text-cyan-400 hover:underline">contact@signumhq.com</a>). Approved refunds are processed within 5-7 business days to the original payment method.</li>
                 <li><strong>After 7 Days:</strong> After the 7-day refund window has passed, subscriptions may be cancelled at any time to prevent future charges, but no partial refund will be issued for the remaining subscription period.</li>
             </ol>
