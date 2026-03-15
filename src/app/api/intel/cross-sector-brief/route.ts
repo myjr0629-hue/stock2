@@ -473,7 +473,7 @@ Return ONLY valid JSON (no markdown fences, no extra text). The JSON must follow
             version: 'v3',
         };
 
-        await setInCache(getCacheKey(today), briefData, 86400);
+        await setInCache(getCacheKey(today), briefData, 259200); // 72h TTL — covers weekends (Fri→Mon)
         const elapsed = Date.now() - startTime;
 
         console.log(`[CrossSectorBrief V3] ✅ Generated Bloomberg-grade brief in ${elapsed}ms (${macroIndicators.length} macro indicators)`);
