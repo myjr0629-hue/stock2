@@ -273,6 +273,16 @@ export default function WatchlistClientPage({
                         setCustomCategories(prev => [...prev, name]);
                         setShowCategoryModal(false);
                     }}
+                    onDeleteCategory={async (name) => {
+                        // Move all items in this category to default
+                        const itemsInCat = items.filter(i => (i as any).category === name);
+                        for (const item of itemsInCat) {
+                            await updateItemCategory(item.ticker, 'default');
+                        }
+                        // Remove from customCategories
+                        setCustomCategories(prev => prev.filter(c => c !== name));
+                        if (activeCategory === name) setActiveCategory('all');
+                    }}
                     currentLocale={currentLocale}
                 />
             )}
@@ -1514,10 +1524,11 @@ const ConditionBadge = memo(function ConditionBadge({ item }: { item: EnrichedWa
 });
 
 // ─── CATEGORY MODAL ──────────────────────────────────────────────────────
-function CategoryModal({ onClose, categories, onCreateCategory, currentLocale }: {
+function CategoryModal({ onClose, categories, onCreateCategory, onDeleteCategory, currentLocale }: {
     onClose: () => void;
     categories: string[];
     onCreateCategory: (name: string) => void;
+    onDeleteCategory: (name: string) => void;
     currentLocale: string;
 }) {
     const [newCatName, setNewCatName] = useState('');
@@ -1568,12 +1579,26 @@ function CategoryModal({ onClose, categories, onCreateCategory, currentLocale }:
                             </div>
                             <div className="space-y-1.5">
                                 {categories.map(cat => (
-                                    <div key={cat} className="flex items-center gap-2 px-3 py-2 rounded-lg bg-white/[0.03] border border-white/[0.06]">
+                                    <div key={cat} className="flex items-center gap-2 px-3 py-2 rounded-lg bg-white/[0.03] border border-white/[0.06] group/cat">
                                         <Tag className="w-3.5 h-3.5 text-cyan-400" />
                                         <span className="text-[13px] font-bold text-white flex-1">{cat.toUpperCase()}</span>
+                                        <button
+                                            onClick={() => onDeleteCategory(cat)}
+                                            className="p-1 rounded-md text-slate-600 hover:text-rose-400 hover:bg-rose-500/15 transition-all duration-200"
+                                            title={currentLocale === 'ko' ? '삭제' : currentLocale === 'ja' ? '削除' : 'Delete'}
+                                        >
+                                            <Trash2 className="w-3.5 h-3.5" />
+                                        </button>
                                     </div>
                                 ))}
                             </div>
+                            <p className="text-[12px] text-slate-500 mt-2">
+                                {currentLocale === 'ko'
+                                    ? '삭제 시 해당 종목은 기본 카테고리로 이동됩니다'
+                                    : currentLocale === 'ja'
+                                        ? '削除すると銘柄はデフォルトに移動します'
+                                        : 'Deleting moves items to the default category'}
+                            </p>
                         </div>
                     )}
 
