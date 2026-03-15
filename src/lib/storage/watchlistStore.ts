@@ -123,3 +123,59 @@ export async function clearWatchlist(): Promise<WatchlistData> {
 
     return { items: [], updatedAt: new Date().toISOString() };
 }
+
+// ─── CATEGORY MANAGEMENT (Supabase-backed) ──────────────────────────────
+
+// Get user's custom categories
+export async function getUserCategories(): Promise<string[]> {
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return [];
+
+    const { data, error } = await supabase
+        .from('user_watchlist_categories')
+        .select('category_name')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: true });
+
+    if (error) {
+        console.error('Failed to load categories:', error);
+        return [];
+    }
+
+    return (data || []).map(row => row.category_name);
+}
+
+// Add a custom category
+export async function addUserCategory(categoryName: string): Promise<string[]> {
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return [];
+
+    const { error } = await supabase
+        .from('user_watchlist_categories')
+        .upsert({
+            user_id: user.id,
+            category_name: categoryName.toLowerCase().trim(),
+            created_at: new Date().toISOString(),
+        }, { onConflict: 'user_id,category_name' });
+
+    if (error) console.error('Failed to add category:', error);
+    return getUserCategories();
+}
+
+// Delete a custom category
+export async function deleteUserCategory(categoryName: string): Promise<string[]> {
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return [];
+
+    const { error } = await supabase
+        .from('user_watchlist_categories')
+        .delete()
+        .eq('user_id', user.id)
+        .eq('category_name', categoryName);
+
+    if (error) console.error('Failed to delete category:', error);
+    return getUserCategories();
+}

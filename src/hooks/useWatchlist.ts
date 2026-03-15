@@ -7,6 +7,9 @@ import {
     addToWatchlist as storeAdd,
     removeFromWatchlist as storeRemove,
     updateWatchlistCategory as storeUpdateCategory,
+    getUserCategories as storeGetCategories,
+    addUserCategory as storeAddCategory,
+    deleteUserCategory as storeDeleteCategory,
     type WatchlistItem,
     type WatchlistData
 } from '@/lib/storage/watchlistStore';
@@ -232,6 +235,32 @@ export function useWatchlist(initialWatchlist?: WatchlistItem[], initialFullData
         mutate();
     }, [mutate]);
 
+    // ── Supabase-backed category management ──
+    const [customCategories, setCustomCategories] = useState<string[]>([]);
+
+    // Fetch categories on mount
+    useEffect(() => {
+        storeGetCategories().then(setCustomCategories);
+    }, []);
+
+    const addCategory = useCallback(async (name: string) => {
+        const updated = await storeAddCategory(name);
+        setCustomCategories(updated);
+        return updated;
+    }, []);
+
+    const deleteCategory = useCallback(async (name: string) => {
+        // Move all items in this category to default first
+        const itemsInCat = items.filter(i => i.category === name);
+        for (const item of itemsInCat) {
+            await storeUpdateCategory(item.ticker, 'default');
+        }
+        const updated = await storeDeleteCategory(name);
+        setCustomCategories(updated);
+        mutate(); // Refresh items since categories changed
+        return updated;
+    }, [items, mutate]);
+
     const getCategories = useCallback(() => {
         const cats = new Set<string>();
         items.forEach(item => {
@@ -239,8 +268,9 @@ export function useWatchlist(initialWatchlist?: WatchlistItem[], initialFullData
                 cats.add(item.category);
             }
         });
+        customCategories.forEach(c => cats.add(c));
         return ['default', ...Array.from(cats).sort()];
-    }, [items]);
+    }, [items, customCategories]);
 
 
     const refresh = useCallback(() => {
@@ -248,8 +278,8 @@ export function useWatchlist(initialWatchlist?: WatchlistItem[], initialFullData
     }, [mutate]);
 
     return {
-        items: deferredItems,   // [PERF] Deferred for smooth rendering during rapid price updates
-        rawItems: items,        // Non-deferred for operations needing immediate state (add/remove)
+        items: deferredItems,
+        rawItems: items,
         loading: storeLoading || (fullLoading && items.length === 0),
         isRefreshing: fullValidating && !fullLoading,
         error: error?.message || null,
@@ -257,6 +287,9 @@ export function useWatchlist(initialWatchlist?: WatchlistItem[], initialFullData
         removeItem,
         updateItemCategory,
         getCategories,
+        addCategory,
+        deleteCategory,
+        customCategories,
         refresh,
         itemCount: items.length,
     };

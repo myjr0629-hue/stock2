@@ -30,7 +30,7 @@ export default function WatchlistClientPage({
     initialWatchlist?: any[];
     initialFullData?: any[];
 }) {
-    const { items, loading, isRefreshing, refresh, addItem, removeItem, updateItemCategory, getCategories } = useWatchlist(initialWatchlist, initialFullData);
+    const { items, loading, isRefreshing, refresh, addItem, removeItem, updateItemCategory, getCategories, addCategory, deleteCategory, customCategories: hookCategories } = useWatchlist(initialWatchlist, initialFullData);
     const [showAddModal, setShowAddModal] = useState(false);
     const [sortKey, setSortKey] = useState<SortKey>('default');
     const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
@@ -48,22 +48,6 @@ export default function WatchlistClientPage({
     const [activeCategory, setActiveCategory] = useState<string>('all');
     const [showCategoryModal, setShowCategoryModal] = useState(false);
     const [categoryMenuTicker, setCategoryMenuTicker] = useState<string | null>(null);
-    const [customCategories, setCustomCategories] = useState<string[]>(() => {
-        if (typeof window !== 'undefined') {
-            try {
-                const saved = localStorage.getItem('watchlist-categories');
-                return saved ? JSON.parse(saved) : [];
-            } catch { return []; }
-        }
-        return [];
-    });
-
-    // Persist custom categories to localStorage
-    useEffect(() => {
-        if (typeof window !== 'undefined') {
-            localStorage.setItem('watchlist-categories', JSON.stringify(customCategories));
-        }
-    }, [customCategories]);
 
     const categories = useMemo(() => {
         const cats = new Set<string>();
@@ -73,10 +57,10 @@ export default function WatchlistClientPage({
                 cats.add((item as any).category);
             }
         });
-        // From user-created
-        customCategories.forEach(c => cats.add(c));
+        // From Supabase-backed custom categories
+        (hookCategories || []).forEach(c => cats.add(c));
         return ['all', 'default', ...Array.from(cats).sort()];
-    }, [items, customCategories]);
+    }, [items, hookCategories]);
 
     const filteredItems = useMemo(() => {
         if (!isElite || activeCategory === 'all') return items;
@@ -284,19 +268,13 @@ export default function WatchlistClientPage({
                 <CategoryModal
                     onClose={() => setShowCategoryModal(false)}
                     categories={categories.filter(c => c !== 'all' && c !== 'default')}
-                    onCreateCategory={(name) => {
-                        setCustomCategories(prev => [...prev, name]);
+                    onCreateCategory={async (name) => {
+                        await addCategory(name);
                         setActiveCategory(name);
                         setShowCategoryModal(false);
                     }}
                     onDeleteCategory={async (name) => {
-                        // Move all items in this category to default
-                        const itemsInCat = items.filter(i => (i as any).category === name);
-                        for (const item of itemsInCat) {
-                            await updateItemCategory(item.ticker, 'default');
-                        }
-                        // Remove from customCategories
-                        setCustomCategories(prev => prev.filter(c => c !== name));
+                        await deleteCategory(name);
                         if (activeCategory === name) setActiveCategory('all');
                     }}
                     currentLocale={currentLocale}
