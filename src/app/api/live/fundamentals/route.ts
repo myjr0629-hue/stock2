@@ -39,20 +39,30 @@ export async function GET(req: NextRequest) {
                 let revenueGrowth: number | null = null;
                 let netMargin: number | null = null;
 
-                if (vxResults.length >= 2) {
+                if (vxResults.length >= 1) {
                     const latest = vxResults[0]?.financials?.income_statement;
-                    const prevIdx = vxResults.length >= 5 ? 4 : vxResults.length - 1;
-                    const prev = vxResults[prevIdx]?.financials?.income_statement;
 
-                    if (latest && prev) {
+                    // [FIX] Net Margin: latest만으로 독립 계산 (prev 의존 제거)
+                    if (latest) {
                         const revLatest = latest.revenues?.value || 0;
-                        const revPrev = prev.revenues?.value || 0;
-                        if (revPrev > 0 && revLatest > 0) {
-                            revenueGrowth = ((revLatest - revPrev) / Math.abs(revPrev)) * 100;
-                        }
                         const netIncome = latest.net_income_loss?.value || 0;
                         if (revLatest > 0) {
                             netMargin = (netIncome / revLatest) * 100;
+                        }
+                    }
+
+                    // [FIX] Revenue Growth: prev 데이터 없으면 유효한 과거 분기 자동 탐색
+                    if (latest && vxResults.length >= 2) {
+                        const revLatest = latest.revenues?.value || 0;
+                        // 4분기 전(YoY) 우선, 없으면 가까운 유효 분기 탐색
+                        let revPrev = 0;
+                        const preferredIdx = vxResults.length >= 5 ? 4 : vxResults.length - 1;
+                        for (let i = preferredIdx; i >= 1; i--) {
+                            const val = vxResults[i]?.financials?.income_statement?.revenues?.value;
+                            if (val && val > 0) { revPrev = val; break; }
+                        }
+                        if (revPrev > 0 && revLatest > 0) {
+                            revenueGrowth = ((revLatest - revPrev) / Math.abs(revPrev)) * 100;
                         }
                     }
                 }
