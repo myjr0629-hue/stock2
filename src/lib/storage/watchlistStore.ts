@@ -68,15 +68,19 @@ export async function updateWatchlistCategory(ticker: string, category: string):
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return { items: [], updatedAt: new Date().toISOString() };
 
+    console.log('[CAT] updateWatchlistCategory:', ticker, '->', category);
+
     // First try direct UPDATE
-    const { error: updateError } = await supabase
+    const { error: updateError, count } = await supabase
         .from('user_watchlist')
         .update({ category })
         .eq('user_id', user.id)
         .eq('ticker', ticker);
 
+    console.log('[CAT] Direct update result:', { error: updateError?.message, count });
+
     if (updateError) {
-        console.warn('Direct update failed, using delete+insert fallback:', updateError.message);
+        console.warn('[CAT] Direct update failed, using delete+insert fallback:', updateError.message);
         // Fallback: fetch current item, delete, re-insert with new category
         const { data: existing } = await supabase
             .from('user_watchlist')
@@ -86,13 +90,14 @@ export async function updateWatchlistCategory(ticker: string, category: string):
             .maybeSingle();
 
         if (existing) {
-            await supabase
+            const { error: delErr } = await supabase
                 .from('user_watchlist')
                 .delete()
                 .eq('user_id', user.id)
                 .eq('ticker', ticker);
+            console.log('[CAT] Delete result:', delErr?.message || 'OK');
 
-            await supabase
+            const { error: insErr } = await supabase
                 .from('user_watchlist')
                 .insert({
                     user_id: user.id,
@@ -101,10 +106,13 @@ export async function updateWatchlistCategory(ticker: string, category: string):
                     added_at: existing.added_at,
                     category,
                 });
+            console.log('[CAT] Insert result:', insErr?.message || 'OK');
         }
     }
 
-    return getWatchlist();
+    const result = await getWatchlist();
+    console.log('[CAT] After update, items with categories:', result.items.map(i => `${i.ticker}:${i.category}`).join(', '));
+    return result;
 }
 
 // Remove a ticker from watchlist
@@ -159,7 +167,7 @@ export async function clearWatchlist(): Promise<WatchlistData> {
 export async function getUserCategories(): Promise<string[]> {
     const supabase = createClient();
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return [];
+    if (!user) { console.log('[CAT] getUserCategories: no user'); return []; }
 
     const { data, error } = await supabase
         .from('user_watchlist_categories')
@@ -168,11 +176,13 @@ export async function getUserCategories(): Promise<string[]> {
         .order('created_at', { ascending: true });
 
     if (error) {
-        console.error('Failed to load categories:', error);
+        console.error('[CAT] Failed to load categories:', error.message, error.details);
         return [];
     }
 
-    return (data || []).map(row => row.category_name);
+    const cats = (data || []).map(row => row.category_name);
+    console.log('[CAT] getUserCategories loaded:', cats);
+    return cats;
 }
 
 // Add a custom category
