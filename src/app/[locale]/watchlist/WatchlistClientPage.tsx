@@ -1000,14 +1000,22 @@ const WhaleIndicator = memo(function WhaleIndicator({ index, confidence }: { ind
         index >= 40 ? 'text-slate-300 bg-slate-400/10 border-slate-400/20' :
             'text-slate-500 bg-slate-600/10 border-slate-600/20';
 
+    const whaleTooltip = {
+        ko: `기관 지수: ${index} — ${level}\n$150K+ 옵션 프리미엄 기반 기관 매집/분배 감지`,
+        en: `Whale Index: ${index} — ${level}\nInstitutional accumulation/distribution via $150K+ option premium`,
+        ja: `機関指数: ${index} — ${level}\n$150K+オプションプレミアムに基づく機関集積/分配検出`,
+    };
+    const whaleBadge = index >= 70 ? { ko: '★ 강한 매집', en: '★ Strong Signal', ja: '★ 強い買い集め' } : null;
+
     return (
-        <div className="flex items-center justify-center gap-1.5" title={`Whale Index: ${index}`}>
-            <div className={`flex items-center gap-1 px-2 py-0.5 rounded-md border ${color}`}>
-                <Fish className="w-3 h-3" />
-                <span className="text-[13px] font-bold tabular-nums">{index}</span>
+        <CardTooltip tooltip={whaleTooltip} badge={whaleBadge}>
+            <div className="flex items-center justify-center gap-1.5 cursor-help">
+                <div className={`flex items-center gap-1 px-2 py-0.5 rounded-md border ${color}`}>
+                    <Fish className="w-3 h-3" />
+                    <span className="text-[13px] font-bold tabular-nums">{index}</span>
+                </div>
             </div>
-            <span className="text-[12px] text-white/70 hidden xl:inline">{level}</span>
-        </div>
+        </CardTooltip>
     );
 });
 
@@ -1030,23 +1038,40 @@ const GammaFlipIndicator = memo(function GammaFlipIndicator({ value, price, gexM
         const isAbove = price ? price > value : false;
         const color = isAbove ? 'text-emerald-400' : 'text-rose-400';
         const label = isAbove ? tInd('longGamma') : tInd('shortGamma');
+        const flipTooltip = {
+            ko: `감마 플립: $${value.toFixed(0)} — ${label}\n현재가가 플립 레벨 ${isAbove ? '위' : '아래'}에 위치`,
+            en: `Gamma Flip: $${value.toFixed(0)} — ${label}\nPrice is ${isAbove ? 'above' : 'below'} the flip level`,
+            ja: `ガンマフリップ: $${value.toFixed(0)} — ${label}\n現在価格がフリップレベル${isAbove ? '上' : '下'}に位置`,
+        };
+        const flipBadge = isAbove
+            ? { ko: '🛡️ 딜러 헤지 안정', en: '🛡️ Dealer Hedge Stable', ja: '🛡️ ディーラーヘッジ安定' }
+            : { ko: '⚡ 변동성 증폭 구간', en: '⚡ Volatility Amplified', ja: '⚡ ボラティリティ増幅区間' };
         return (
-            <div className="flex items-center justify-center gap-1" title={`Gamma Flip: $${value}`}>
-                <RefreshCcw className="w-3 h-3 text-slate-400" />
-                <span className={`text-[13px] font-bold tabular-nums ${color}`}>${value.toFixed(0)}</span>
-                <span className="text-[12px] text-white/70">{label}</span>
-            </div>
+            <CardTooltip tooltip={flipTooltip} badge={flipBadge}>
+                <div className="flex items-center justify-center gap-1 cursor-help">
+                    <RefreshCcw className="w-3 h-3 text-slate-400" />
+                    <span className={`text-[13px] font-bold tabular-nums ${color}`}>${value.toFixed(0)}</span>
+                </div>
+            </CardTooltip>
         );
     }
     if (gexM !== undefined && gexM !== null) {
+        const gexTooltip = gexM < 0
+            ? { ko: 'GEX 숏 감마 — 변동성 증폭 구간', en: 'GEX Short Gamma — Volatility amplified zone', ja: 'GEXショートガンマ — ボラティリティ増幅区間' }
+            : { ko: 'GEX 롱 감마 — 딜러 헤지가 시장 안정화', en: 'GEX Long Gamma — Dealer hedging stabilizes market', ja: 'GEXロングガンマ — ディーラーヘッジが市場安定化' };
+        const gexBadge = gexM < 0
+            ? { ko: '⚡ 숏 감마', en: '⚡ Short Gamma', ja: '⚡ ショートガンマ' }
+            : { ko: '🛡️ 롱 감마', en: '🛡️ Long Gamma', ja: '🛡️ ロングガンマ' };
         const badge = gexM < 0
             ? <span className="text-[12px] font-bold px-1.5 py-0.5 rounded bg-rose-600/70 text-white">SHORT</span>
             : <span className="text-[12px] font-bold px-1.5 py-0.5 rounded bg-emerald-600/70 text-white">LONG</span>;
         return (
-            <div className="flex items-center justify-center gap-1" title={gexM < 0 ? tInd('allShortGamma') : tInd('allLongGamma')}>
-                <RefreshCcw className="w-3 h-3 text-slate-600" />
-                {badge}
-            </div>
+            <CardTooltip tooltip={gexTooltip} badge={gexBadge}>
+                <div className="flex items-center justify-center gap-1 cursor-help">
+                    <RefreshCcw className="w-3 h-3 text-slate-600" />
+                    {badge}
+                </div>
+            </CardTooltip>
         );
     }
     return <span className="text-[12px] text-slate-600">—</span>;
