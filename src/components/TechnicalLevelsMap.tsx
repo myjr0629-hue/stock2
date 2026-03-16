@@ -285,22 +285,20 @@ export function TechnicalLevelsMap({
                     })}
                 </div>
 
-                {/* Price labels below the bar — smart stagger to avoid overlap */}
+                {/* Price labels below the bar — smart stagger with connector lines */}
                 {(() => {
-                    // Pre-calculate positions and assign vertical tiers to avoid overlap
                     const labelData = levels.filter(l => !l.isFlip).map(level => {
                         const pos = getPos(level.value);
-                        const clamped = Math.max(5, Math.min(95, pos));
+                        const clamped = Math.max(2, Math.min(98, pos));
                         const name = locale === 'ko' ? level.labelKo : locale === 'ja' ? level.labelJa : level.label;
                         return { ...level, pos: clamped, name };
                     }).sort((a, b) => a.pos - b.pos);
 
                     // Assign tiers: if two labels are within 8% of each other, bump to next tier
                     const tiers: number[] = [];
-                    const OVERLAP_THRESHOLD = 8; // % distance threshold
+                    const OVERLAP_THRESHOLD = 8;
                     for (let i = 0; i < labelData.length; i++) {
                         if (labelData[i].isCurrent) {
-                            // Current price always gets tier 2 (bottom)
                             tiers.push(2);
                             continue;
                         }
@@ -310,42 +308,65 @@ export function TechnicalLevelsMap({
                                 tier++;
                             }
                         }
-                        tiers.push(Math.min(tier, 1)); // max tier 1 for non-current labels
+                        tiers.push(Math.min(tier, 1));
                     }
 
-                    const TIER_OFFSET = [0, 40, 80]; // px offsets per tier — wide enough for label+value
+                    const TIER_OFFSET = [0, 40, 80]; // px offsets per tier
+                    const BAR_BOTTOM_GAP = 10; // mt-2.5 gap
                     const maxTier = Math.max(...tiers);
                     const containerHeight = 40 + TIER_OFFSET[maxTier] + 10;
 
                     return (
-                        <div className="relative mt-2.5" style={{ height: `${containerHeight}px` }}>
-                            {labelData.map((level, i) => (
-                                <div
-                                    key={i}
-                                    className="absolute flex flex-col items-center"
-                                    style={{
-                                        left: `${level.pos}%`,
-                                        transform: 'translateX(-50%)',
-                                        top: `${TIER_OFFSET[tiers[i]]}px`,
-                                    }}
-                                >
-                                    {/* Tick line — longer for offset tiers to connect to bar */}
-                                    <div className={`w-px ${level.isCurrent ? 'bg-white/60' : 'bg-slate-600/40'}`}
-                                        style={{ height: `${tiers[i] > 0 ? 2 : 2}px` }} />
-                                    {/* Label — min 12px, slate-300, with tooltip */}
-                                    <span className={`text-[12px] font-jakarta whitespace-nowrap mt-0.5 text-slate-300 ${level.isCurrent ? 'font-black' : 'font-semibold'}`}
-                                        style={{ color: level.isCurrent ? 'white' : level.color }}>
-                                        {level.tooltip ? (
-                                            <CardTooltip tooltip={level.tooltip}>{level.name}</CardTooltip>
-                                        ) : level.name}
-                                    </span>
-                                    {/* Value — min 12px, slate-300 */}
-                                    <span className={`text-[12px] font-mono tabular-nums text-slate-300 ${level.isCurrent ? 'font-bold' : ''}`}>
-                                        ${level.value.toFixed(0)}
-                                    </span>
-                                </div>
-                            ))}
-                        </div>
+                        <>
+                            {/* Connector lines — rendered from BAR coordinate system for perfect dot alignment */}
+                            <div className="relative" style={{ height: 0 }}>
+                                {labelData.map((level, i) => {
+                                    const lineHeight = BAR_BOTTOM_GAP + TIER_OFFSET[tiers[i]];
+                                    const lineColor = level.isCurrent ? 'rgba(255,255,255,0.5)' : level.color.replace('rgb', 'rgba').replace(')', ',0.5)');
+                                    return (
+                                        <div
+                                            key={`line-${i}`}
+                                            className="absolute"
+                                            style={{
+                                                left: `${level.pos}%`,
+                                                top: '0px',
+                                                width: '1px',
+                                                height: `${lineHeight}px`,
+                                                transform: 'translateX(-50%)',
+                                                backgroundColor: lineColor,
+                                            }}
+                                        />
+                                    );
+                                })}
+                            </div>
+
+                            {/* Labels */}
+                            <div className="relative" style={{ height: `${containerHeight}px`, marginTop: `${BAR_BOTTOM_GAP}px` }}>
+                                {labelData.map((level, i) => (
+                                    <div
+                                        key={i}
+                                        className="absolute flex flex-col items-center"
+                                        style={{
+                                            left: `${level.pos}%`,
+                                            transform: 'translateX(-50%)',
+                                            top: `${TIER_OFFSET[tiers[i]]}px`,
+                                        }}
+                                    >
+                                        {/* Label */}
+                                        <span className={`text-[12px] font-jakarta whitespace-nowrap mt-0.5 text-slate-300 ${level.isCurrent ? 'font-black' : 'font-semibold'}`}
+                                            style={{ color: level.isCurrent ? 'white' : level.color }}>
+                                            {level.tooltip ? (
+                                                <CardTooltip tooltip={level.tooltip}>{level.name}</CardTooltip>
+                                            ) : level.name}
+                                        </span>
+                                        {/* Value */}
+                                        <span className={`text-[12px] font-mono tabular-nums text-slate-300 ${level.isCurrent ? 'font-bold' : ''}`}>
+                                            ${level.value.toFixed(0)}
+                                        </span>
+                                    </div>
+                                ))}
+                            </div>
+                        </>
                     );
                 })()}
             </div>
