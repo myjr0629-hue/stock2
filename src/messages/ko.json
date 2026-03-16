@@ -3163,7 +3163,15 @@
     "histOnlyShortGamma": "🔴 섹터 내 유일한 숏감마.",
     "histOnlyLongGamma": "🟢 섹터 내 유일한 롱감마.",
     "histPcrRising": "PCR 연속 상승 — 풋 수요 증가.",
-    "histPcrFalling": "PCR 연속 하락 — 콜 수요 증가."
+    "histPcrFalling": "PCR 연속 하락 — 콜 수요 증가.",
+    "takeawayLongGammaBullish": "🔑 핵심: 롱감마 + 콜 우세(PCR {pcr}) — 안정 상승 구조. 지지 {pf} 견고.",
+    "takeawayLongGammaBearish": "🔑 핵심: 롱감마지만 풋 우세(PCR {pcr}) — 헤지 수요 증가 중. Max Pain({mp}) 부근 수렴 압력.",
+    "takeawayLongGammaRange": "🔑 핵심: 롱감마 중립. {pf} 지지~{cw} 저항 레인지 내. 방향성 제한.",
+    "takeawayShortGammaBullish": "🔑 핵심: 숏감마 + 콜 유입 — 상방 변동성 확대 구조. {cw} 돌파 시 가속.",
+    "takeawayShortGammaBearish": "🔑 핵심: 숏감마 + 풋 우세 — 하방 변동성 확대 리스크. {pf} 주시.",
+    "takeawayInstitutionalAccum": "🔑 핵심: Institutional Index {idx}, 기관 대형 포지셔닝 감지. Dark Pool {dp}% 활용 중.",
+    "takeawayHighIvSkew": "🔑 핵심: IV 스큐 {skew}% 상승 — 하방 테일 리스크 헤지 확대 중.",
+    "takeawayNearExpiry": "🔑 핵심: 만기 접근 효과. Max Pain({mp})으로 수렴 압력 증가 중. 감마 피닝 구조."
   },
   "sectorRanking": {
     "moneyFlowSub": "자금력 랭킹",

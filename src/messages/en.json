@@ -2803,7 +2803,15 @@
     "histOnlyShortGamma": "🔴 Only short gamma in sector.",
     "histOnlyLongGamma": "🟢 Only long gamma in sector.",
     "histPcrRising": "PCR trending up — put demand increasing.",
-    "histPcrFalling": "PCR trending down — call demand increasing."
+    "histPcrFalling": "PCR trending down — call demand increasing.",
+    "takeawayLongGammaBullish": "🔑 Key: Long gamma + call-dominant(PCR {pcr}) — stable uptrend structure. Support at {pf} firm.",
+    "takeawayLongGammaBearish": "🔑 Key: Long gamma but put-dominant(PCR {pcr}) — hedge demand rising. Convergence pressure near Max Pain({mp}).",
+    "takeawayLongGammaRange": "🔑 Key: Long gamma neutral. Ranging within {pf} support ~ {cw} resistance. Directional bias limited.",
+    "takeawayShortGammaBullish": "🔑 Key: Short gamma + call inflow — upside volatility expansion structure. Acceleration on {cw} break.",
+    "takeawayShortGammaBearish": "🔑 Key: Short gamma + put-dominant — downside volatility expansion risk. Watch {pf}.",
+    "takeawayInstitutionalAccum": "🔑 Key: Institutional Index {idx}, large institutional positioning detected. Dark Pool {dp}% activity.",
+    "takeawayHighIvSkew": "🔑 Key: IV Skew +{skew}% elevated — downside tail risk hedge expanding.",
+    "takeawayNearExpiry": "🔑 Key: Expiry convergence effect. Increasing pressure toward Max Pain({mp}). Gamma pinning structure."
   },
   "sectorRanking": {
     "moneyFlowSub": "Money Flow Ranking",

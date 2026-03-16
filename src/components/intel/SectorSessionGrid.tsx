@@ -254,6 +254,22 @@ function generateAnalysis(q: IntelQuote, ss: any): string {
         takeaway = npM > 0
             ? ss('takeawayBullFlow', { val: npM.toFixed(1) })
             : ss('takeawayBearFlow', { val: Math.abs(npM).toFixed(1) });
+    } else if (skew > 2.5) {
+        takeaway = ss('takeawayHighIvSkew', { skew: skew.toFixed(1) });
+    } else if (whaleIdx >= 50 && darkPool >= 40) {
+        takeaway = ss('takeawayInstitutionalAccum', { idx: String(whaleIdx), dp: darkPool.toFixed(0) });
+    } else if (maxPain > 0 && Math.abs(maxPainDist) < 3 && im > 0 && im < 2) {
+        takeaway = ss('takeawayNearExpiry', { mp: `$${maxPain.toFixed(0)}` });
+    } else if (isShortGamma && pcr < 0.9) {
+        takeaway = ss('takeawayShortGammaBullish', { cw: cwTk });
+    } else if (isShortGamma && pcr >= 0.9) {
+        takeaway = ss('takeawayShortGammaBearish', { pf: pfTk });
+    } else if (isLongGamma && pcr < 0.8) {
+        takeaway = ss('takeawayLongGammaBullish', { pcr: pcr.toFixed(2), pf: pfTk });
+    } else if (isLongGamma && pcr > 1.1) {
+        takeaway = ss('takeawayLongGammaBearish', { pcr: pcr.toFixed(2), mp: `$${maxPain?.toFixed(0)}` });
+    } else if (isLongGamma) {
+        takeaway = ss('takeawayLongGammaRange', { pf: pfTk, cw: cwTk });
     } else if (isShortGamma) {
         takeaway = ss('takeawayVolWatch');
     } else {
