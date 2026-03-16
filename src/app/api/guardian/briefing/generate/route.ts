@@ -123,11 +123,13 @@ Your briefing must read like a NARRATIVE STORY, not a list of indicators.
 ## CRITICAL RULES
 1. Today is ${todayStr} (${dayOfWeek}).
 2. WEAVE the news stories INTO the data. News is the backbone, indicators are the supporting evidence.
-3. Write exactly 3-4 sentences per language. CONCISE but COMPLETE.
+3. Write exactly 4-5 sentences per language. CONCISE but COMPLETE.
 4. NEVER give investment advice. Use ONLY observational language: "관찰됨", "나타남", "observed", "noted".
 5. Connect the dots: WHY does VIX matter given today's news? HOW does GEX relate to the event calendar?
 6. Each language must be NATIVE quality — not a translation, but written as if by a native analyst.
 7. Do NOT use any emoji or special Unicode symbols. Use plain text only.
+8. **MANDATORY**: You MUST mention the actual S&P 500 and NASDAQ 100 performance (price and % change) in the first or second sentence. These are the most important numbers for any market briefing. Also weave in notable moves from bonds (10Y yield), gold, oil, or BTC if significant.
+9. Start the briefing with the big market picture (index performance), then connect to RLSI/GEX/VIX analysis.
 
 ## MARKET DATA (Pre-Market Snapshot)
 - RLSI: ${rlsi} | Recent Trend: ${historyStr || 'N/A'}
@@ -137,6 +139,7 @@ Your briefing must read like a NARRATIVE STORY, not a list of indicators.
 - Top Sectors: ${sectors || 'N/A'}
 
 ## LIVE MARKET PRICES (from Redis, updated every minute)
+**USE THESE NUMBERS IN YOUR BRIEFING — they are the latest real-time data.**
 ${marketDataStr || 'Market data unavailable'}
 
 ## TODAY'S ECONOMIC CALENDAR (HIGH IMPACT)
