@@ -13,6 +13,24 @@
 import { saveGexSnapshot, saveFlowSnapshot, saveAlphaDaily, saveSectorDaily } from './historyStore';
 import type { GexHistoryItem, FlowHistoryItem, AlphaHistoryItem, SectorDailyItem } from './historyStore';
 
+// ====== US Market Hours Guard ======
+// Only record intraday snapshots during or near US market hours (9:00–16:30 ET, Mon–Fri)
+// Extended window: 9:00–16:30 ET (30min before open for pre-market data, 30min after close for settlement)
+function isWithinMarketHours(): boolean {
+    const now = new Date();
+    // Get ET time using timezone offset
+    const etStr = now.toLocaleString('en-US', { timeZone: 'America/New_York' });
+    const et = new Date(etStr);
+    const day = et.getDay(); // 0=Sun, 6=Sat
+    if (day === 0 || day === 6) return false; // Weekend
+
+    const hour = et.getHours();
+    const minute = et.getMinutes();
+    const timeMin = hour * 60 + minute;
+    // 9:00 ET (540) to 16:30 ET (990) — captures full trading + settlement
+    return timeMin >= 540 && timeMin <= 990;
+}
+
 // ====== GEX Recording ======
 // Called from: /api/live/options/structure, /api/live/ticker, any GEX-computing endpoint
 export function recordGexSnapshot(
@@ -29,6 +47,7 @@ export function recordGexSnapshot(
 ): void {
     if (!data.gex && data.gex !== 0) return; // No GEX data, skip
     if (!ticker) return;
+    if (!isWithinMarketHours()) return; // Skip outside market hours
 
     const item: GexHistoryItem = {
         ticker,
@@ -66,6 +85,7 @@ export function recordFlowSnapshot(
     }
 ): void {
     if (!ticker) return;
+    if (!isWithinMarketHours()) return; // Skip outside market hours
 
     const item: FlowHistoryItem = {
         ticker,

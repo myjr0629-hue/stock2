@@ -56,6 +56,50 @@ export function GexTimeline({ ticker, days = 30, compact = false, onEmpty }: Gex
             });
     }, [ticker, days]);
 
+    // [FIX] Filter to trading hours only + aggregate to daily representative values
+    // This prevents overnight/weekend stale data from dominating the chart
+    const chartData = useMemo(() => {
+        if (!data.length) return [];
+
+        // Step 1: Filter to US trading hours only (Mon-Fri, 9:30-16:00 ET)
+        const tradingHoursData = data.filter(d => {
+            const dt = new Date(d.timestamp);
+            // Convert to ET
+            const etStr = dt.toLocaleString('en-US', { timeZone: 'America/New_York' });
+            const et = new Date(etStr);
+            const day = et.getDay();
+            if (day === 0 || day === 6) return false; // Weekend
+            const timeMin = et.getHours() * 60 + et.getMinutes();
+            return timeMin >= 570 && timeMin <= 960; // 9:30 ET to 16:00 ET
+        });
+
+        if (tradingHoursData.length === 0) return data.length > 0 ? [data[data.length - 1]] : [];
+
+        // Step 2: Group by trading day and pick representative snapshot per day
+        // Use last snapshot of each day (closing value) for clean daily chart
+        const dayMap = new Map<string, GexDataPoint[]>();
+        tradingHoursData.forEach(d => {
+            const dt = new Date(d.timestamp);
+            const etStr = dt.toLocaleString('en-US', { timeZone: 'America/New_York' });
+            const et = new Date(etStr);
+            const dayKey = `${et.getFullYear()}-${String(et.getMonth()+1).padStart(2,'0')}-${String(et.getDate()).padStart(2,'0')}`;
+            if (!dayMap.has(dayKey)) dayMap.set(dayKey, []);
+            dayMap.get(dayKey)!.push(d);
+        });
+
+        // If we have <= 2 days of intraday data, show all intraday points for that period
+        if (dayMap.size <= 2) return tradingHoursData;
+
+        // Pick close (last) snapshot per day for multi-day view
+        const dailyData: GexDataPoint[] = [];
+        const sortedDays = [...dayMap.keys()].sort();
+        for (const day of sortedDays) {
+            const dayPoints = dayMap.get(day)!;
+            dailyData.push(dayPoints[dayPoints.length - 1]); // Last = closest to close
+        }
+        return dailyData;
+    }, [data]);
+
     // [UX] Auto-switch to Technical Levels when GEX data unavailable
     useEffect(() => {
         if (!loading && (error || data.length === 0) && onEmpty) {
@@ -73,30 +117,30 @@ export function GexTimeline({ ticker, days = 30, compact = false, onEmpty }: Gex
     };
 
     const stats = useMemo(() => {
-        if (!data.length) return null;
-        const gexValues = data.map(d => d.gex);
+        if (!chartData.length) return null;
+        const gexValues = chartData.map(d => d.gex);
         const max = Math.max(...gexValues);
         const min = Math.min(...gexValues);
         const range = max - min || 1;
-        const latest = data[data.length - 1];
-        const prev = data.length > 1 ? data[data.length - 2] : null;
+        const latest = chartData[chartData.length - 1];
+        const prev = chartData.length > 1 ? chartData[chartData.length - 2] : null;
         const trend = prev ? (latest.gex > prev.gex ? 'rising' : 'falling') : 'stable';
 
         // [FIX] Count actual unique trading days, not snapshot count
-        const uniqueDays = new Set(data.map(d => new Date(d.timestamp).toISOString().slice(0, 10)));
-        const positiveDaySet = new Set(data.filter(d => d.gex > 0).map(d => new Date(d.timestamp).toISOString().slice(0, 10)));
-        const negativeDaySet = new Set(data.filter(d => d.gex < 0).map(d => new Date(d.timestamp).toISOString().slice(0, 10)));
+        const uniqueDays = new Set(chartData.map(d => new Date(d.timestamp).toISOString().slice(0, 10)));
+        const positiveDaySet = new Set(chartData.filter(d => d.gex > 0).map(d => new Date(d.timestamp).toISOString().slice(0, 10)));
+        const negativeDaySet = new Set(chartData.filter(d => d.gex < 0).map(d => new Date(d.timestamp).toISOString().slice(0, 10)));
         const positiveDays = positiveDaySet.size;
         const negativeDays = negativeDaySet.size;
         const totalDays = uniqueDays.size;
 
         // [PREMIUM] Gamma Flip Events — detect regime transitions
         const flipEvents: { index: number; from: string; to: string; timestamp: number; price: number; flipLevel: number | null }[] = [];
-        for (let i = 1; i < data.length; i++) {
-            const prevRegime = data[i - 1].gammaRegime;
-            const currRegime = data[i].gammaRegime;
+        for (let i = 1; i < chartData.length; i++) {
+            const prevRegime = chartData[i - 1].gammaRegime;
+            const currRegime = chartData[i].gammaRegime;
             if (prevRegime !== currRegime && prevRegime && currRegime) {
-                flipEvents.push({ index: i, from: prevRegime, to: currRegime, timestamp: data[i].timestamp, price: data[i].price, flipLevel: data[i].flipLevel });
+                flipEvents.push({ index: i, from: prevRegime, to: currRegime, timestamp: chartData[i].timestamp, price: chartData[i].price, flipLevel: chartData[i].flipLevel });
             }
         }
 
@@ -108,7 +152,7 @@ export function GexTimeline({ ticker, days = 30, compact = false, onEmpty }: Gex
         const anomalyLabel = percentile >= 90 ? 'EXTREME HIGH' : percentile <= 10 ? 'EXTREME LOW' : percentile >= 75 ? 'ELEVATED' : percentile <= 25 ? 'DEPRESSED' : 'NORMAL';
 
         return { max, min, range, latest, trend, positiveDays, negativeDays, totalDays, flipEvents, percentile, isAnomaly, anomalyLabel };
-    }, [data]);
+    }, [chartData]);
 
     // Dynamic insight text generation (compliance-safe, observational only)
     const insightText = useMemo(() => {
@@ -156,7 +200,7 @@ export function GexTimeline({ ticker, days = 30, compact = false, onEmpty }: Gex
     }
 
     // [UX] Professional unavailable message with auto-shrink
-    if (error || !data.length || !stats) {
+    if (error || !chartData.length || !stats) {
         if (compact) return null;
         // If onEmpty callback exists, useEffect already handles the auto-switch
         // Show nothing here — the parent will switch tabs
@@ -175,8 +219,8 @@ export function GexTimeline({ ticker, days = 30, compact = false, onEmpty }: Gex
     }
 
     // Single data point — show value only, no chart line
-    if (data.length < 2) {
-        const d = data[0];
+    if (chartData.length < 2) {
+        const d = chartData[0];
         const isPos = d.gex >= 0;
         if (compact) return (
             <span className={`text-[12px] font-mono ${isPos ? 'text-emerald-400' : 'text-red-400'}`}>{formatGex(d.gex)}</span>
@@ -206,9 +250,12 @@ export function GexTimeline({ ticker, days = 30, compact = false, onEmpty }: Gex
     const H = compact ? 40 : 80;
     const PADDING = compact ? 2 : 8;
 
-    // Build SVG path
-    const points = data.map((d, i) => {
-        const x = PADDING + (i / (data.length - 1)) * (W - PADDING * 2);
+    // Build SVG path — X-axis is time-proportional (not index-based)
+    const timeMin = chartData[0].timestamp;
+    const timeMax = chartData[chartData.length - 1].timestamp;
+    const timeRange = timeMax - timeMin || 1;
+    const points = chartData.map((d) => {
+        const x = PADDING + ((d.timestamp - timeMin) / timeRange) * (W - PADDING * 2);
         const y = PADDING + (1 - (d.gex - stats.min) / stats.range) * (H - PADDING * 2);
         return { x, y, gex: d.gex, regime: d.gammaRegime };
     });
