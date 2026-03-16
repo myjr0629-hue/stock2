@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, useCallback, useRef } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import useSWR from 'swr';
 import dynamic from 'next/dynamic';
 import { useFlowData } from '@/hooks/useFlowData';
@@ -749,31 +749,12 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
         }
     }, [ticker, range]);
 
-    // [FIX] Clear ALL stale data when ticker CHANGES via search bar (not on initial mount)
-    // Without this, keepPreviousData:true in SWR causes old ticker's data to flash
-    // Uses ref to skip initial mount — preserving SSR data for instant first render
-    const prevTickerRef = useRef(ticker);
+    // [FIX] Clear stale chart data instantly when ticker changes
+    // Also clear company overview & related (sector) to prevent flash of old ticker's info on search
     useEffect(() => {
-        if (prevTickerRef.current !== ticker) {
-            // Ticker actually changed (e.g., search bar navigation)
-            prevTickerRef.current = ticker;
-            setLiveChartData(null);
-            setCompanyOverview(null);
-            setStructure(null);
-            setOptions(null);
-            setKrNews([]);
-            setNewsScore(null);
-            setSmaData(null);
-            setConviction(null);
-            setEarningsData(null);
-            setAnalystData(null);
-            setVolatilityData(null);
-            setSqueezeData(null);
-            setInstitutionalData(null);
-            setFundamentalData(null);
-            setRelatedData(null);
-            setActiveInsightTab('gex');
-        }
+        setLiveChartData(null);
+        setCompanyOverview(null);
+        setRelatedData(null);
     }, [ticker]);
 
     // News & AI Setup (Progressive Hydration - Non blocking)
