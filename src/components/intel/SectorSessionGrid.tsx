@@ -128,39 +128,30 @@ function generateAnalysis(q: IntelQuote, ss: any): string {
     const toPutFloor = (putFloor > 0 && price > 0) ? ((price - putFloor) / price * 100) : 999;
 
     // ════════════════════════════════════════════════
-    // PRIORITY SIGNALS — 가장 중요한 이상 신호 감지
+    // PRIORITY SIGNALS
     // ════════════════════════════════════════════════
     let prioritySignal = '';
+    const gammaCtxShortCW = isShortGamma ? ss('shortGammaCallSqueeze') : ss('longGammaCallStable');
+    const gammaCtxShortPF = isShortGamma ? ss('shortGammaPutRisk') : ss('longGammaPutHedge');
+    const gammaCtxSqueeze = isShortGamma ? ss('shortGammaPutRisk') : ss('longGammaPutHedge');
 
-    // P1: 감마 스퀴즈 임박 (숏감마 + 콜 과다 + Squeeze 높음)
     if (isShortGamma && pcr < 0.7 && squeeze >= 60) {
-        prioritySignal = ss('synthSqueezeImminent') ||
-            `⚡ 감마 스퀴즈 임계: 숏감마(${gexM.toFixed(0)}M) + 콜 집중(PCR ${pcr.toFixed(2)}) + Squeeze ${Math.round(squeeze)}%. Call Wall($${callWall?.toFixed(0)}) 돌파 시 딜러 헤징 상방 가속.`;
+        prioritySignal = ss('synthSqueezeImminent', { pcr: pcr.toFixed(2), squeeze: Math.round(squeeze).toString(), cw: `$${callWall?.toFixed(0)}` });
     }
-    // P2: 급락 리스크 (숏감마 + 풋 과다 + Put Floor 근접)
     else if (isShortGamma && pcr > 1.3 && toPutFloor < 2) {
-        prioritySignal = ss('synthCrashRisk') ||
-            `🔴 하방 가속 경계: 숏감마 + 풋 과다(PCR ${pcr.toFixed(2)}) + Put Floor($${putFloor?.toFixed(0)}) ${toPutFloor.toFixed(1)}% 근접. 이탈 시 딜러 매도 가속.`;
+        prioritySignal = ss('synthCrashRisk', { pcr: pcr.toFixed(2), pf: `$${putFloor?.toFixed(0)}`, dist: toPutFloor.toFixed(1) });
     }
-    // P3: Call Wall 돌파 임박
     else if (toCallWall < 1.5 && toCallWall > 0) {
-        prioritySignal = ss('synthCallWallBreak') ||
-            `🎯 Call Wall($${callWall?.toFixed(0)}) ${toCallWall.toFixed(1)}% 근접. ${isShortGamma ? '숏감마 환경에서 돌파 시 감마 스퀴즈' : '롱감마 안정 환경, 돌파 시 추세 지속'}.`;
+        prioritySignal = ss('synthCallWallBreak', { cw: `$${callWall?.toFixed(0)}`, dist: toCallWall.toFixed(1), gammaContext: gammaCtxShortCW });
     }
-    // P4: Put Floor 이탈 임박
     else if (toPutFloor < 1.5 && toPutFloor > 0) {
-        prioritySignal = ss('synthPutFloorBreak') ||
-            `🛡️ Put Floor($${putFloor?.toFixed(0)}) ${toPutFloor.toFixed(1)}% 근접. ${isShortGamma ? '숏감마에서 이탈 시 하락 가속' : '롱감마 지지력 활발'}.`;
+        prioritySignal = ss('synthPutFloorBreak', { pf: `$${putFloor?.toFixed(0)}`, dist: toPutFloor.toFixed(1), gammaContext: gammaCtxShortPF });
     }
-    // P5: 스텔스 헤지 감지 (주가 안정인데 풋 IV 급등)
     else if (skew > 3 && Math.abs(changePct) < 1) {
-        prioritySignal = ss('synthStealthHedge') ||
-            `🕵️ 스텔스 헤지: 주가 안정(${changePct > 0 ? '+' : ''}${changePct.toFixed(1)}%)인데 IV Skew +${skew.toFixed(1)}% — 스마트 머니 하방 보험 구축.`;
+        prioritySignal = ss('synthStealthHedge', { changePct: `${changePct > 0 ? '+' : ''}${changePct.toFixed(1)}`, skew: skew.toFixed(1) });
     }
-    // P6: 극단적 변동성 축적
     else if (squeeze >= 70) {
-        prioritySignal = ss('synthSqueezeExtreme') ||
-            `⚡ Squeeze ${Math.round(squeeze)}% 임계 구간. ${isShortGamma ? '숏감마 + 변동성 축적 = 급변동 임박' : '롱감마가 억제 중이나 해소 시 방향성 출현'}.`;
+        prioritySignal = ss('synthSqueezeExtreme', { val: Math.round(squeeze).toString(), gammaContext: gammaCtxSqueeze });
     }
 
     // ════════════════════════════════════════════════
@@ -171,27 +162,26 @@ function generateAnalysis(q: IntelQuote, ss: any): string {
     if (maxPain > 0 && callWall > 0 && putFloor > 0) {
         const range = callWall - putFloor;
         const pricePct = range > 0 ? ((price - putFloor) / range * 100) : 50;
+        const cwStr = `$${callWall.toFixed(0)}`;
+        const pfStr = `$${putFloor.toFixed(0)}`;
+        const mpStr = `$${maxPain.toFixed(0)}`;
 
         if (Math.abs(maxPainDist) < 1) {
-            structural = ss('synthMaxPainPin') ||
-                `Max Pain($${maxPain.toFixed(0)}) 근처, 변동성 축소 예상.`;
+            structural = ss('synthMaxPainPin', { mp: mpStr });
         } else if (maxPainDist > 2.5) {
-            structural = ss('synthAboveMaxPain') ||
-                `Max Pain($${maxPain.toFixed(0)}) 대비 +${maxPainDist.toFixed(1)}% 괴리 — 만기 수렴 하방 압력.`;
+            structural = ss('synthAboveMaxPain', { mp: mpStr, dist: maxPainDist.toFixed(1) });
         } else if (maxPainDist < -2.5) {
-            structural = ss('synthBelowMaxPain') ||
-                `Max Pain($${maxPain.toFixed(0)}) 대비 ${maxPainDist.toFixed(1)}% 하회 — 반등 유인 존재.`;
+            structural = ss('synthBelowMaxPain', { mp: mpStr, dist: maxPainDist.toFixed(1) });
         }
 
-        // 가격 위치 추가
         if (pricePct >= 80) {
-            structural += ` 터널 상단(저항 $${callWall.toFixed(0)}) 근접.`;
+            structural += ' ' + ss('structTunnelUpper', { cw: cwStr });
         } else if (pricePct <= 20) {
-            structural += ` 터널 하단(지지 $${putFloor.toFixed(0)}) 근접.`;
+            structural += ' ' + ss('structTunnelLower', { pf: pfStr });
         } else {
-            structural += toCallWall < toPutFloor
-                ? ` 저항($${callWall.toFixed(0)})이 지지($${putFloor.toFixed(0)})보다 가까움.`
-                : ` 지지($${putFloor.toFixed(0)})~저항($${callWall.toFixed(0)}) 중간.`;
+            structural += ' ' + (toCallWall < toPutFloor
+                ? ss('structResistCloser', { cw: cwStr, pf: pfStr })
+                : ss('structSupportMid', { pf: pfStr, cw: cwStr }));
         }
     }
 
@@ -211,18 +201,18 @@ function generateAnalysis(q: IntelQuote, ss: any): string {
         flowParts.push(ss('longGammaPutHedge'));
     }
 
-    // Net Premium (유의미한 경우만)
+    // Net Premium
     if (Math.abs(npM) >= 1) {
         flowParts.push(npM > 0
-            ? (ss('netPremCallInflow', { val: npM.toFixed(1) }))
-            : (ss('netPremPutInflow', { val: Math.abs(npM).toFixed(1) })));
+            ? ss('netPremCallInflow', { val: npM.toFixed(1) })
+            : ss('netPremPutInflow', { val: Math.abs(npM).toFixed(1) }));
     }
 
-    // Whale + DarkPool 교차 (합산 인사이트)
+    // Whale + DarkPool
     if (whaleIdx >= 70) {
-        flowParts.push(ss('whaleHeavyAnalysis', { idx: whaleIdx }));
+        flowParts.push(ss('whaleHeavyAnalysis', { idx: String(whaleIdx) }));
     } else if (whaleIdx >= 40 && darkPool >= 40) {
-        flowParts.push(ss('whaleDarkPoolCombo', { idx: whaleIdx, pct: darkPool.toFixed(0) }));
+        flowParts.push(ss('whaleDarkPoolCombo', { idx: String(whaleIdx), pct: darkPool.toFixed(0) }));
     } else if (darkPool >= 45) {
         flowParts.push(ss('darkPoolHighAnalysis', { pct: darkPool.toFixed(0) }));
     }
@@ -235,47 +225,39 @@ function generateAnalysis(q: IntelQuote, ss: any): string {
     if ((sess === 'pre' || sess === 'PRE') && q.extendedPrice > 0) {
         const preVsMaxPain = maxPain > 0 ? Math.abs((q.extendedPrice - maxPain) / maxPain * 100) : 999;
         if (preVsMaxPain < 1) {
-            sessionContext = ss('synthPreMaxPainPin') ||
-                `프리마켓 $${q.extendedPrice.toFixed(2)} — Max Pain 일치, 정규장 핀닝 가능.`;
+            sessionContext = ss('synthPreMaxPainPin', { price: `$${q.extendedPrice.toFixed(2)}` });
         } else {
-            sessionContext = ss('synthPreMarket') ||
-                `프리마켓 $${q.extendedPrice.toFixed(2)}(${q.extendedChangePct >= 0 ? '+' : ''}${q.extendedChangePct.toFixed(2)}%) 체결 중.`;
+            sessionContext = ss('synthPreMarket', { price: `$${q.extendedPrice.toFixed(2)}`, changePct: `${q.extendedChangePct >= 0 ? '+' : ''}${q.extendedChangePct.toFixed(2)}` });
         }
     } else if ((sess === 'post' || sess === 'POST') && q.extendedPrice > 0) {
-        sessionContext = ss('synthPostMarket') ||
-            `장마감 후 $${q.extendedPrice.toFixed(2)}(${q.extendedChangePct >= 0 ? '+' : ''}${q.extendedChangePct.toFixed(2)}%) — 내일 갭 방향 참고.`;
+        sessionContext = ss('synthPostMarket', { price: `$${q.extendedPrice.toFixed(2)}`, changePct: `${q.extendedChangePct >= 0 ? '+' : ''}${q.extendedChangePct.toFixed(2)}` });
     }
 
     // ════════════════════════════════════════════════
     // KEY TAKEAWAY — 핵심 한줄 요약
     // ════════════════════════════════════════════════
     let takeaway = '';
+    const cwTk = `$${callWall?.toFixed(0)}`;
+    const pfTk = `$${putFloor?.toFixed(0)}`;
 
     if (isShortGamma && pcr < 0.7 && squeeze >= 50 && toCallWall < 5) {
-        takeaway = ss('takeawaySqueezeReady') ||
-            `🔑 핵심: 상방 스퀴즈 셋업 완성. $${callWall?.toFixed(0)} 돌파 시 감마 가속.`;
+        takeaway = ss('takeawaySqueezeReady', { cw: cwTk });
     } else if (isShortGamma && pcr > 1.3 && toPutFloor < 3) {
-        takeaway = ss('takeawayCrashWatch') ||
-            `🔑 핵심: 하방 압력 집중. $${putFloor?.toFixed(0)} 이탈 시 매도 가속 환경.`;
+        takeaway = ss('takeawayCrashWatch', { pf: pfTk });
     } else if (isLongGamma && Math.abs(maxPainDist) < 2 && squeeze < 30) {
-        takeaway = ss('takeawayPinning') ||
-            `🔑 핵심: 롱감마 + Max Pain 수렴 = 횡보 핀닝 예상. 방향성 제한적.`;
+        takeaway = ss('takeawayPinning');
     } else if (toCallWall < 2 && toCallWall > 0) {
-        takeaway = ss('takeawayCallWallTest') ||
-            `🔑 핵심: Call Wall($${callWall?.toFixed(0)}) 테스트 구간. 돌파 여부가 단기 방향 결정.`;
+        takeaway = ss('takeawayCallWallTest', { cw: cwTk });
     } else if (toPutFloor < 2 && toPutFloor > 0) {
-        takeaway = ss('takeawayPutFloorTest') ||
-            `🔑 핵심: Put Floor($${putFloor?.toFixed(0)}) 지지 테스트. 반등 or 이탈 분기점.`;
+        takeaway = ss('takeawayPutFloorTest', { pf: pfTk });
     } else if (Math.abs(npM) >= 3) {
         takeaway = npM > 0
-            ? (ss('takeawayBullFlow') || `🔑 핵심: 콜 순유입 +$${npM.toFixed(1)}M. 기관 상방 포지셔닝 적립.`)
-            : (ss('takeawayBearFlow') || `🔑 핵심: 풋 순유입 -$${Math.abs(npM).toFixed(1)}M. 기관 하방 헤지 활발.`);
+            ? ss('takeawayBullFlow', { val: npM.toFixed(1) })
+            : ss('takeawayBearFlow', { val: Math.abs(npM).toFixed(1) });
     } else if (isShortGamma) {
-        takeaway = ss('takeawayVolWatch') ||
-            `🔑 핵심: 숏감마 환경 — 양방향 변동성 확대 가능. 핵심 레벨 주시.`;
+        takeaway = ss('takeawayVolWatch');
     } else {
-        takeaway = ss('takeawayStable') ||
-            `🔑 핵심: 롱감마 안정 환경. 현 레벨 유지 예상.`;
+        takeaway = ss('takeawayStable');
     }
 
     // ════════════════════════════════════════════════
