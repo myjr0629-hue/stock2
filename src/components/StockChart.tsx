@@ -715,10 +715,23 @@ export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d
                                                 content={({ viewBox }: any) => {
                                                     const { x, y } = viewBox || {};
                                                     if (x === undefined || y === undefined) return null;
+                                                    // [FIX] Dynamic offset to avoid overlap with prevClose and GF
+                                                    let yOff = -18; // default: above line
+                                                    const priceRange = maxPrice - minPrice || 1;
+                                                    const chartH = 360; // approximate chart height
+                                                    const pxPerDollar = chartH / priceRange;
+                                                    // Check proximity to prevClose (within ~20px)
+                                                    if (prevClose !== undefined && Math.abs(vwap - prevClose) * pxPerDollar < 22) {
+                                                        yOff = vwap > prevClose ? -36 : 4; // push further away
+                                                    }
+                                                    // Check proximity to gammaFlipLevel
+                                                    if (gammaFlipLevel && gammaFlipLevel > 0 && Math.abs(vwap - gammaFlipLevel) * pxPerDollar < 22) {
+                                                        yOff = vwap > gammaFlipLevel ? -36 : 4;
+                                                    }
                                                     return (
                                                         <g>
-                                                            <rect x={x + 4} y={y - 18} width={72} height={18} rx={3} fill="#052e16" fillOpacity={0.9} stroke="#22c55e" strokeWidth={0.5} />
-                                                            <text x={x + 40} y={y - 5} textAnchor="middle" fill="#4ade80" fontSize={12} fontWeight="bold">
+                                                            <rect x={x + 4} y={y + yOff} width={72} height={18} rx={3} fill="#052e16" fillOpacity={0.9} stroke="#22c55e" strokeWidth={0.5} />
+                                                            <text x={x + 40} y={y + yOff + 13} textAnchor="middle" fill="#4ade80" fontSize={12} fontWeight="bold">
                                                                 VWAP {vwap.toFixed(0)}
                                                             </text>
                                                         </g>
@@ -742,10 +755,23 @@ export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d
                                                 content={({ viewBox }: any) => {
                                                     const { x, y } = viewBox || {};
                                                     if (x === undefined || y === undefined) return null;
+                                                    // [FIX] Dynamic offset to avoid overlap with prevClose and VWAP
+                                                    let yOff = 2; // default: below line
+                                                    const priceRange = maxPrice - minPrice || 1;
+                                                    const chartH = 360;
+                                                    const pxPerDollar = chartH / priceRange;
+                                                    // Check proximity to prevClose
+                                                    if (prevClose !== undefined && Math.abs(gammaFlipLevel - prevClose) * pxPerDollar < 22) {
+                                                        yOff = gammaFlipLevel > prevClose ? -18 : 22; // push away
+                                                    }
+                                                    // Check proximity to VWAP
+                                                    if (vwap !== undefined && vwap > 0 && Math.abs(gammaFlipLevel - vwap) * pxPerDollar < 22) {
+                                                        yOff = gammaFlipLevel > vwap ? -18 : 22;
+                                                    }
                                                     return (
                                                         <g>
-                                                            <rect x={x + 4} y={y + 2} width={52} height={18} rx={3} fill="#451a03" fillOpacity={0.9} stroke="#f59e0b" strokeWidth={0.5} />
-                                                            <text x={x + 30} y={y + 15} textAnchor="middle" fill="#fbbf24" fontSize={12} fontWeight="bold">
+                                                            <rect x={x + 4} y={y + yOff} width={52} height={18} rx={3} fill="#451a03" fillOpacity={0.9} stroke="#f59e0b" strokeWidth={0.5} />
+                                                            <text x={x + 30} y={y + yOff + 13} textAnchor="middle" fill="#fbbf24" fontSize={12} fontWeight="bold">
                                                                 GF {gammaFlipLevel.toFixed(0)}
                                                             </text>
                                                         </g>
