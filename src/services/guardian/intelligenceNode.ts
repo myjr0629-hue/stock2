@@ -494,7 +494,7 @@ const REALITY_PROMPTS: Record<Locale, (ctx: IntelligenceContext) => string> = {
         2. **Second sentence**: How news impact propagated across asset classes (cross-validate with gold/bonds/oil/dollar + key indicators like RLSI/Breadth)
         3. **Third sentence**: Key variables and factual outlook (no action directives)
         Core principle: Tell the **news → market reaction causal story**, not a list of indicators. Use indicators as evidence for the narrative.
-        Max 280 chars. Do NOT use any emoji.
+        Max 350 chars. Do NOT use any emoji.
     `;
     },
     ja: (ctx) => {
