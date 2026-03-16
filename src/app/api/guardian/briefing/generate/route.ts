@@ -14,6 +14,7 @@ import { NextResponse } from 'next/server';
 import { GoogleGenAI } from '@google/genai';
 import { fetchMassive } from '@/services/massiveClient';
 import { getFromCache, setInCache } from '@/services/redisClient';
+import { getYahooDataSSOT } from '@/services/yahooFinanceHub';
 
 export const maxDuration = 60;
 
@@ -56,6 +57,33 @@ export async function POST(req: Request) {
             }
         } catch (e) {
             console.warn('[Briefing Gen] Calendar fetch failed:', e);
+        }
+
+        // 2.5. Fetch ALL market data from Redis (cron-updated every minute)
+        let marketDataStr = '';
+        try {
+            const mkt = await getYahooDataSSOT();
+            const fmt = (q: any, label: string) => {
+                if (!q || q.source === 'DEFAULT') return null;
+                return `${label}: ${q.price?.toFixed(2)} (${q.changePct >= 0 ? '+' : ''}${q.changePct?.toFixed(2)}%)`;
+            };
+            const lines = [
+                fmt(mkt.spx, 'S&P 500 Futures (ES)'),
+                fmt(mkt.nq, 'NASDAQ 100 Futures (NQ)'),
+                fmt(mkt.rut, 'Russell 2000 Futures (RTY)'),
+                fmt(mkt.tnx, 'US 10Y Yield'),
+                fmt(mkt.tlt, 'TLT (20Y+ Bond ETF)'),
+                fmt(mkt.btc, 'Bitcoin (BTC)'),
+                fmt(mkt.gold, 'Gold (GC)'),
+                fmt(mkt.oil, 'WTI Oil (CL)'),
+                mkt.vix && mkt.vix3m && mkt.vix.source !== 'DEFAULT' && mkt.vix3m.source !== 'DEFAULT'
+                    ? `VIX Term Structure: VIX ${mkt.vix.price?.toFixed(2)} / VIX3M ${mkt.vix3m.price?.toFixed(2)} (Ratio: ${(mkt.vix.price / (mkt.vix3m.price || 1)).toFixed(3)}, ${mkt.vix.price > mkt.vix3m.price ? 'BACKWARDATION' : 'CONTANGO'})`
+                    : null,
+            ].filter(Boolean);
+            marketDataStr = lines.join('\n');
+            console.log(`[Briefing Gen] Market data: ${lines.length} indicators loaded`);
+        } catch (e) {
+            console.warn('[Briefing Gen] Market data fetch failed:', e);
         }
 
         // 3. Extract key metrics from snapshot
@@ -107,6 +135,9 @@ Your briefing must read like a NARRATIVE STORY, not a list of indicators.
 - Breadth: ${breadth}% | Regime: ${regime}
 - Gamma: Resistance ${triggerHigh}, Support ${triggerLow}, Flip ${flipPoint}
 - Top Sectors: ${sectors || 'N/A'}
+
+## LIVE MARKET PRICES (from Redis, updated every minute)
+${marketDataStr || 'Market data unavailable'}
 
 ## TODAY'S ECONOMIC CALENDAR (HIGH IMPACT)
 ${calendarEvents.length > 0 ? calendarEvents.join('\n') : 'No HIGH impact events today'}
