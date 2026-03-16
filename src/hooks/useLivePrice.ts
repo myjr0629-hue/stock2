@@ -37,9 +37,8 @@ export function useLivePrice(ticker: string | null, refreshInterval = 5000): Liv
         ticker ? `/api/live/quotes?symbols=${ticker}` : null,
         fetcher,
         {
-            // WS connected: 30s slow poll (extended session data backup only)
-            // WS disconnected: fast poll as primary data source
-            refreshInterval: wsConnected ? 30000 : refreshInterval,
+            // [WS] Never slow down polling — WS is additive overlay only
+            refreshInterval,
             dedupingInterval: 3000,
             revalidateOnFocus: true,
             revalidateOnReconnect: true,
