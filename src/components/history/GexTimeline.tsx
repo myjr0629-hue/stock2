@@ -250,14 +250,14 @@ export function GexTimeline({ ticker, days = 30, compact = false, onEmpty }: Gex
     const H = compact ? 40 : 80;
     const PADDING = compact ? 2 : 8;
 
-    // Build SVG path — X-axis is time-proportional (not index-based)
-    const timeMin = chartData[0].timestamp;
-    const timeMax = chartData[chartData.length - 1].timestamp;
-    const timeRange = timeMax - timeMin || 1;
-    const points = chartData.map((d) => {
-        const x = PADDING + ((d.timestamp - timeMin) / timeRange) * (W - PADDING * 2);
+    // Build SVG path — X-axis is INDEX-based (industry standard: Bloomberg, TradingView)
+    // Index-based spacing ensures trading days are evenly distributed,
+    // eliminating weekend/holiday gaps that stretch the chart unnaturally
+    const lastIdx = chartData.length - 1;
+    const points = chartData.map((d, i) => {
+        const x = PADDING + (lastIdx > 0 ? (i / lastIdx) : 0.5) * (W - PADDING * 2);
         const y = PADDING + (1 - (d.gex - stats.min) / stats.range) * (H - PADDING * 2);
-        return { x, y, gex: d.gex, regime: d.gammaRegime };
+        return { x, y, gex: d.gex, regime: d.gammaRegime, timestamp: d.timestamp };
     });
 
     const linePath = points.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(' ');
