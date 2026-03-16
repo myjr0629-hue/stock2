@@ -1227,20 +1227,31 @@ export async function getStockChartData(symbol: string, range: Range = "1d"): Pr
       // [Pre-Market Fix] Filter to target day first
       let todayData = processed.filter((p: any) => p.etDate === targetTradingDayET);
 
-      // [FIX] Fallback to previous trading day when data is insufficient
-      // Applies to ALL sessions (weekends, holidays, early pre-market, etc.)
+      // [FIX] Session-aware fallback logic:
+      // - PRE/REG/POST (active trading): Show today's data even if only 1 point exists
+      //   This ensures the chart resets to a fresh session at market open/pre-market start
+      // - CLOSED (overnight/weekend): Fallback to previous trading day for a complete chart
+      const isActiveSession = currentClassified.session === 'PRE' ||
+                              currentClassified.session === 'REG' ||
+                              currentClassified.session === 'POST';
       const MIN_SPARKLINE_POINTS = 5;
-      if (todayData.length < MIN_SPARKLINE_POINTS) {
-        // Find previous trading day from available dates
+
+      if (isActiveSession && todayData.length > 0) {
+        // Active session: always show today's data (fresh chart start)
+        finalProcessed = todayData;
+        console.log(`[1D Chart ${currentClassified.session}] Active session — showing today: ${targetTradingDayET} (${todayData.length} points)`);
+      } else if (todayData.length >= MIN_SPARKLINE_POINTS) {
+        // Enough data for any session
+        finalProcessed = todayData;
+      } else {
+        // CLOSED session or no today data: fallback to previous trading day
         const previousDayET = uniqueDates.find(d => d < targetTradingDayET);
         if (previousDayET) {
           console.log(`[1D Chart ${currentClassified.session}] Target ${targetTradingDayET} has only ${todayData.length} points, falling back to: ${previousDayET}`);
           finalProcessed = processed.filter((p: any) => p.etDate === previousDayET);
         } else {
-          finalProcessed = todayData; // No fallback available
+          finalProcessed = todayData.length > 0 ? todayData : processed;
         }
-      } else {
-        finalProcessed = todayData;
       }
       console.log(`[1D Chart Filter] TargetDay: ${targetTradingDayET}, Filtered: ${finalProcessed.length} from ${processed.length}`);
 
