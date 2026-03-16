@@ -270,7 +270,8 @@ export default function GuardianPage() {
         fetchLivePrices(constituentSymbols);
 
         // Poll at reduced frequency when WS is active
-        priceIntervalRef.current = setInterval(() => fetchLivePrices(constituentSymbols), wsConnected ? 60_000 : 30_000);
+        // [WS] Backup polling at 30s — WS handles real-time push, this is safety net
+        priceIntervalRef.current = setInterval(() => fetchLivePrices(constituentSymbols), 30_000);
 
         return () => {
             if (priceIntervalRef.current) clearInterval(priceIntervalRef.current);

@@ -30,14 +30,16 @@ export interface LivePriceData {
 export function useLivePrice(ticker: string | null, refreshInterval = 5000): LivePriceData | null {
     // [WS] Subscribe to WebSocket price stream
     const tickerArray = ticker ? [ticker] : undefined;
-    const { connected: wsConnected, getPrice: wsGetPrice } = useRealtimeData(tickerArray);
+    const { connected: wsConnected, getPrice: wsGetPrice, prices: wsPrices } = useRealtimeData(tickerArray);
 
-    // [POLL] SWR fallback — reduced frequency when WS is active
+    // [POLL] SWR fallback — slow polling as backup when WS provides real-time data
     const { data } = useSWR(
         ticker ? `/api/live/quotes?symbols=${ticker}` : null,
         fetcher,
         {
-            refreshInterval: wsConnected ? 30000 : refreshInterval, // Slow down polling when WS active
+            // WS connected: 30s slow poll (extended session data backup only)
+            // WS disconnected: fast poll as primary data source
+            refreshInterval: wsConnected ? 30000 : refreshInterval,
             dedupingInterval: 3000,
             revalidateOnFocus: true,
             revalidateOnReconnect: true,
@@ -80,4 +82,3 @@ export function useLivePrice(ticker: string | null, refreshInterval = 5000): Liv
         session: q.session || data.session || 'closed',
     };
 }
-

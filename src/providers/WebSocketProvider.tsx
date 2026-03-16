@@ -1,14 +1,15 @@
 // ===========================================================================
-// WebSocket Provider ??Global real-time data context
-// Single WebSocket connection shared across all pages
-// Provides live price/GEX/alert updates to any component
+// WebSocket Provider — Global real-time data context
+// TWO WebSocket connections:
+//   1. Guardian WS: RLSI / GEX / Alerts (wss://ws.signumhq.com/guardian)
+//   2. Price WS:    Live stock prices   (wss://ws.signumhq.com)
 // ===========================================================================
 
 'use client';
 
 import { createContext, useContext, useEffect, useRef, useState, useCallback, type ReactNode } from 'react';
 
-// ?�?� Types ?�?�
+// ── Types ──
 interface PriceUpdate {
     ticker: string;
     price: number;
@@ -32,7 +33,8 @@ interface AlertUpdate {
 }
 
 interface WebSocketContextType {
-    connected: boolean;
+    connected: boolean;           // Price WS connected
+    guardianConnected: boolean;   // Guardian WS connected
     prices: Map<string, PriceUpdate>;
     gexData: Map<string, GexUpdate>;
     alerts: AlertUpdate[];
@@ -44,6 +46,7 @@ interface WebSocketContextType {
 
 const WebSocketContext = createContext<WebSocketContextType>({
     connected: false,
+    guardianConnected: false,
     prices: new Map(),
     gexData: new Map(),
     alerts: [],
@@ -53,37 +56,49 @@ const WebSocketContext = createContext<WebSocketContextType>({
     getGex: () => undefined,
 });
 
-// ?�?� Configuration ?�?�
-// [FIX] Force domain URL — raw IP in env causes SSL mismatch via Cloudflare
-const WS_URL = 'wss://ws.signumhq.com';
+// ── Configuration ──
+const PRICE_WS_URL = 'wss://ws.signumhq.com';           // Root path → price-ws (port 8084)
+const GUARDIAN_WS_URL = 'wss://ws.signumhq.com/guardian'; // /guardian → guardian-ws (port 8082)
 const RECONNECT_DELAY = 3000;
 const MAX_RECONNECT = 10;
 const MAX_ALERTS = 50;
 
-// ?�?� Provider ?�?�
+// ── Provider ──
 export function WebSocketProvider({ children }: { children: ReactNode }) {
-    const wsRef = useRef<WebSocket | null>(null);
-    const reconnectCount = useRef(0);
-    const reconnectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+    // Price WS refs
+    const priceWsRef = useRef<WebSocket | null>(null);
+    const priceReconnectCount = useRef(0);
+    const priceReconnectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
     const subscribedTickers = useRef<Set<string>>(new Set());
 
+    // Guardian WS refs
+    const guardianWsRef = useRef<WebSocket | null>(null);
+    const guardianReconnectCount = useRef(0);
+    const guardianReconnectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+    // Shared state
     const [connected, setConnected] = useState(false);
+    const [guardianConnected, setGuardianConnected] = useState(false);
     const [prices, setPrices] = useState<Map<string, PriceUpdate>>(new Map());
     const [gexData, setGexData] = useState<Map<string, GexUpdate>>(new Map());
     const [alerts, setAlerts] = useState<AlertUpdate[]>([]);
     const [rlsi, setRlsi] = useState<number | null>(null);
 
-    const connect = useCallback(() => {
+    // ═══════════════════════════════════════════════════════════
+    // PRICE WEBSOCKET — Real-time stock prices via Polygon
+    // ═══════════════════════════════════════════════════════════
+    const connectPriceWs = useCallback(() => {
         if (typeof window === 'undefined') return;
-        if (wsRef.current?.readyState === WebSocket.OPEN) return;
+        if (priceWsRef.current?.readyState === WebSocket.OPEN) return;
 
         try {
-            const ws = new WebSocket(WS_URL);
-            wsRef.current = ws;
+            const ws = new WebSocket(PRICE_WS_URL);
+            priceWsRef.current = ws;
 
             ws.onopen = () => {
+                console.log('[WS] ✅ Price WebSocket connected');
                 setConnected(true);
-                reconnectCount.current = 0;
+                priceReconnectCount.current = 0;
 
                 // Re-subscribe all tickers
                 if (subscribedTickers.current.size > 0) {
@@ -99,21 +114,60 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
                     const msg = JSON.parse(event.data);
                     const now = Date.now();
 
-                    switch (msg.type) {
-                        case 'prices':
-                            setPrices(prev => {
-                                const next = new Map(prev);
-                                next.set(msg.ticker, {
-                                    ticker: msg.ticker,
-                                    price: msg.price || 0,
-                                    changePct: msg.changePct || 0,
-                                    volume: msg.volume || 0,
-                                    ts: now,
-                                });
-                                return next;
+                    if (msg.type === 'prices') {
+                        setPrices(prev => {
+                            const next = new Map(prev);
+                            next.set(msg.ticker, {
+                                ticker: msg.ticker,
+                                price: msg.price || 0,
+                                changePct: msg.changePct || 0,
+                                volume: msg.volume || 0,
+                                ts: now,
                             });
-                            break;
+                            return next;
+                        });
+                    }
+                } catch { /* invalid JSON */ }
+            };
 
+            ws.onclose = () => {
+                setConnected(false);
+                priceWsRef.current = null;
+
+                if (priceReconnectCount.current < MAX_RECONNECT) {
+                    const delay = RECONNECT_DELAY * Math.pow(1.5, priceReconnectCount.current);
+                    priceReconnectCount.current++;
+                    priceReconnectTimer.current = setTimeout(connectPriceWs, delay);
+                }
+            };
+
+            ws.onerror = () => ws.close();
+        } catch { /* WebSocket not supported */ }
+    }, []);
+
+    // ═══════════════════════════════════════════════════════════
+    // GUARDIAN WEBSOCKET — RLSI / GEX / Alerts
+    // ═══════════════════════════════════════════════════════════
+    const connectGuardianWs = useCallback(() => {
+        if (typeof window === 'undefined') return;
+        if (guardianWsRef.current?.readyState === WebSocket.OPEN) return;
+
+        try {
+            const ws = new WebSocket(GUARDIAN_WS_URL);
+            guardianWsRef.current = ws;
+
+            ws.onopen = () => {
+                console.log('[WS] ✅ Guardian WebSocket connected');
+                setGuardianConnected(true);
+                guardianReconnectCount.current = 0;
+            };
+
+            ws.onmessage = (event) => {
+                try {
+                    const msg = JSON.parse(event.data);
+                    const now = Date.now();
+
+                    switch (msg.type) {
                         case 'gex':
                             setGexData(prev => {
                                 const next = new Map(prev);
@@ -139,18 +193,33 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
                                 setRlsi(msg.rlsi);
                             }
                             break;
+
+                        // Guardian WS might also send prices for guardian-specific tickers
+                        case 'prices':
+                            setPrices(prev => {
+                                const next = new Map(prev);
+                                next.set(msg.ticker, {
+                                    ticker: msg.ticker,
+                                    price: msg.price || 0,
+                                    changePct: msg.changePct || 0,
+                                    volume: msg.volume || 0,
+                                    ts: now,
+                                });
+                                return next;
+                            });
+                            break;
                     }
                 } catch { /* invalid JSON */ }
             };
 
             ws.onclose = () => {
-                setConnected(false);
-                wsRef.current = null;
+                setGuardianConnected(false);
+                guardianWsRef.current = null;
 
-                if (reconnectCount.current < MAX_RECONNECT) {
-                    const delay = RECONNECT_DELAY * Math.pow(1.5, reconnectCount.current);
-                    reconnectCount.current++;
-                    reconnectTimer.current = setTimeout(connect, delay);
+                if (guardianReconnectCount.current < MAX_RECONNECT) {
+                    const delay = RECONNECT_DELAY * Math.pow(1.5, guardianReconnectCount.current);
+                    guardianReconnectCount.current++;
+                    guardianReconnectTimer.current = setTimeout(connectGuardianWs, delay);
                 }
             };
 
@@ -158,19 +227,19 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
         } catch { /* WebSocket not supported */ }
     }, []);
 
-    // Connect on mount
+    // Connect both on mount
     useEffect(() => {
-        connect();
+        connectPriceWs();
+        connectGuardianWs();
         return () => {
-            if (reconnectTimer.current) clearTimeout(reconnectTimer.current);
-            if (wsRef.current) {
-                wsRef.current.close();
-                wsRef.current = null;
-            }
+            if (priceReconnectTimer.current) clearTimeout(priceReconnectTimer.current);
+            if (guardianReconnectTimer.current) clearTimeout(guardianReconnectTimer.current);
+            if (priceWsRef.current) { priceWsRef.current.close(); priceWsRef.current = null; }
+            if (guardianWsRef.current) { guardianWsRef.current.close(); guardianWsRef.current = null; }
         };
-    }, [connect]);
+    }, [connectPriceWs, connectGuardianWs]);
 
-    // Subscribe to tickers (additive, deduped)
+    // Subscribe to tickers on Price WS (additive, deduped)
     const subscribe = useCallback((tickers: string[]) => {
         const newTickers: string[] = [];
         tickers.forEach(t => {
@@ -180,8 +249,8 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
             }
         });
 
-        if (newTickers.length > 0 && wsRef.current?.readyState === WebSocket.OPEN) {
-            wsRef.current.send(JSON.stringify({ type: 'subscribe', tickers: newTickers }));
+        if (newTickers.length > 0 && priceWsRef.current?.readyState === WebSocket.OPEN) {
+            priceWsRef.current.send(JSON.stringify({ type: 'subscribe', tickers: newTickers }));
         }
     }, []);
 
@@ -189,13 +258,16 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
     const getGex = useCallback((ticker: string) => gexData.get(ticker), [gexData]);
 
     return (
-        <WebSocketContext.Provider value={{ connected, prices, gexData, alerts, rlsi, subscribe, getPrice, getGex }}>
+        <WebSocketContext.Provider value={{
+            connected, guardianConnected, prices, gexData, alerts, rlsi,
+            subscribe, getPrice, getGex
+        }}>
             {children}
         </WebSocketContext.Provider>
     );
 }
 
-// ?�?� Hook for pages/components ?�?�
+// ── Hook for pages/components ──
 export function useRealtimeData(tickers?: string[]) {
     const ctx = useContext(WebSocketContext);
 
