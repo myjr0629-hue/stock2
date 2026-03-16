@@ -749,9 +749,25 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
         }
     }, [ticker, range]);
 
-    // [FIX] Clear stale chart data instantly when ticker changes
+    // [FIX] Clear ALL stale data instantly when ticker changes via search bar
+    // Without this, keepPreviousData:true in SWR causes old ticker's data to flash
     useEffect(() => {
         setLiveChartData(null);
+        setCompanyOverview(null);
+        setStructure(null);
+        setOptions(null);
+        setKrNews([]);
+        setNewsScore(null);
+        setSmaData(null);
+        setConviction(null);
+        setEarningsData(null);
+        setAnalystData(null);
+        setVolatilityData(null);
+        setSqueezeData(null);
+        setInstitutionalData(null);
+        setFundamentalData(null);
+        setRelatedData(null);
+        setActiveInsightTab('gex');
     }, [ticker]);
 
     // News & AI Setup (Progressive Hydration - Non blocking)
