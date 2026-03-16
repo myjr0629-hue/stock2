@@ -82,7 +82,7 @@ export async function buildHistoryContext(
 
     try {
         // 1. Get previous snapshots for regime change detection
-        const history = await getRecentHistory(ticker, 3);
+        const history = await getRecentHistory(ticker, 10);
 
         if (history.length >= 2) {
             // history[0] = most recent (current), history[1] = previous
@@ -90,7 +90,24 @@ export async function buildHistoryContext(
             ctx.prevGex = prev.gex;
             ctx.prevRegime = prev.gammaRegime;
             ctx.gexDelta = history[0].gex - prev.gex;
-            ctx.regimeChanged = prev.gammaRegime !== currentRegime;
+
+            // [FIX] Regime change detection — compare by TRADING DAY, not intraday snapshots
+            // Intraday snapshots frequently oscillate between regimes, causing false "regime changed" signals
+            // Only flag a regime change when the PREVIOUS DAY's dominant regime differs from current
+            const currentDay = new Date(history[0].timestamp).toISOString().slice(0, 10);
+            const prevDaySnapshots = history.filter(h => {
+                const d = new Date(h.timestamp).toISOString().slice(0, 10);
+                return d !== currentDay;
+            });
+            if (prevDaySnapshots.length > 0) {
+                // Use the most recent snapshot from the previous trading day
+                const prevDayRegime = prevDaySnapshots[0].gammaRegime;
+                ctx.prevRegime = prevDayRegime;
+                ctx.regimeChanged = prevDayRegime !== currentRegime;
+            } else {
+                // All snapshots are from the same day — no cross-day comparison possible
+                ctx.regimeChanged = false;
+            }
 
             // PCR trend detection (need 3 points)
             if (history.length >= 3 && history[0].pcr && history[1].pcr && history[2].pcr) {
