@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import useSWR from 'swr';
 import dynamic from 'next/dynamic';
 import { useFlowData } from '@/hooks/useFlowData';
@@ -749,25 +749,31 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
         }
     }, [ticker, range]);
 
-    // [FIX] Clear ALL stale data instantly when ticker changes via search bar
+    // [FIX] Clear ALL stale data when ticker CHANGES via search bar (not on initial mount)
     // Without this, keepPreviousData:true in SWR causes old ticker's data to flash
+    // Uses ref to skip initial mount — preserving SSR data for instant first render
+    const prevTickerRef = useRef(ticker);
     useEffect(() => {
-        setLiveChartData(null);
-        setCompanyOverview(null);
-        setStructure(null);
-        setOptions(null);
-        setKrNews([]);
-        setNewsScore(null);
-        setSmaData(null);
-        setConviction(null);
-        setEarningsData(null);
-        setAnalystData(null);
-        setVolatilityData(null);
-        setSqueezeData(null);
-        setInstitutionalData(null);
-        setFundamentalData(null);
-        setRelatedData(null);
-        setActiveInsightTab('gex');
+        if (prevTickerRef.current !== ticker) {
+            // Ticker actually changed (e.g., search bar navigation)
+            prevTickerRef.current = ticker;
+            setLiveChartData(null);
+            setCompanyOverview(null);
+            setStructure(null);
+            setOptions(null);
+            setKrNews([]);
+            setNewsScore(null);
+            setSmaData(null);
+            setConviction(null);
+            setEarningsData(null);
+            setAnalystData(null);
+            setVolatilityData(null);
+            setSqueezeData(null);
+            setInstitutionalData(null);
+            setFundamentalData(null);
+            setRelatedData(null);
+            setActiveInsightTab('gex');
+        }
     }, [ticker]);
 
     // News & AI Setup (Progressive Hydration - Non blocking)
