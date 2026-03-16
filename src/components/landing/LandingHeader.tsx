@@ -24,11 +24,17 @@ export function LandingHeader() {
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const profileRef = useRef<HTMLDivElement>(null);
     const mobileSearchRef = useRef<HTMLInputElement>(null);
+    const [mounted, setMounted] = useState(false);
+
+    // Hydration-safe: only read dynamic searchParams after mount
+    useEffect(() => { setMounted(true); }, []);
 
     // Get current ticker from URL params for cross-page sync
-    const currentTicker = searchParams.get('ticker')?.toUpperCase()
-        || searchParams.get('t')?.toUpperCase()
-        || 'NVDA';
+    const currentTicker = mounted
+        ? (searchParams.get('ticker')?.toUpperCase()
+            || searchParams.get('t')?.toUpperCase()
+            || 'NVDA')
+        : 'NVDA';
 
     // Auth state detection
     useEffect(() => {
@@ -114,7 +120,7 @@ export function LandingHeader() {
                             // { label: "GUIDE", href: "/how-it-works", path: "/how-it-works", hasLive: false }, // Hidden for compliance review
                             { label: "PRICING", href: "/pricing", path: "/pricing", hasLive: false }
                         ].map((item) => {
-                            const isActive = item.path
+                            const isActive = mounted && item.path
                                 ? (item.path === "/intel" ? pathname === "/intel" : pathname?.startsWith(item.path))
                                 : false;
                             return (
