@@ -53,6 +53,7 @@ interface Props {
     chartDiagnostics?: ChartDiagnostics; // [S-56.4.7] No-Silence UX
     initialUnifiedData?: any; // [PERF] SSR Hydration payload
     initialChartData?: any[];  // [PERF] SSR Chart pre-fetch
+    onReady?: () => void;      // [PERF] Signal that dashboard has mounted (for SSR preview swap)
 }
 
 const DecisionGate = ({ ticker, displayPrice, session, structure, krNews, smaData, newsScore, liveQuote, analystData, fundamentalData, institutionalData }: any) => {
@@ -438,7 +439,7 @@ const DecisionGate = ({ ticker, displayPrice, session, structure, krNews, smaDat
 
 };
 
-export function LiveTickerDashboard({ ticker, initialStockData, initialNews, range, buildId, chartDiagnostics, initialUnifiedData, initialChartData }: Props) {
+export function LiveTickerDashboard({ ticker, initialStockData, initialNews, range, buildId, chartDiagnostics, initialUnifiedData, initialChartData, onReady }: Props) {
     const tCommon = useTranslations('common');
     // --- Live Data State ---
     // [PERF] SWR replaces manual fetchQuote + setInterval(10s)
@@ -849,6 +850,11 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
     const hasSsrPrice = initialStockData && (initialStockData.price > 0 || (initialStockData.prevClose && initialStockData.prevClose > 0));
     const isInitialLoading = (!liveQuote && !hasSsrPrice) || displayPrice === 0;
 
+    // [PERF] Signal SSR preview removal — must be BEFORE conditional return (React Hook rules)
+    useEffect(() => {
+        if (!isInitialLoading) onReady?.();
+    }, [isInitialLoading]); // eslint-disable-line react-hooks/exhaustive-deps
+
     if (isInitialLoading) {
         return (
             <div className="w-full max-w-[1600px] mx-auto space-y-4">
@@ -972,7 +978,6 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
 
             {/* 1. TOP HEADER (2-Row Layout matching Flow page) - Sticky below main header */}
             <div className="sticky top-[78px] z-30 bg-white/5 backdrop-blur-xl rounded-xl py-1 px-3 border border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.3)]">
-                {/* Header: 2-column layout — Left: ticker+price, Right: description */}
                 <div className="flex items-stretch gap-3">
                     {/* Left Column: Identity + Price */}
                     <div className="flex flex-col justify-center min-w-0 shrink-0">
