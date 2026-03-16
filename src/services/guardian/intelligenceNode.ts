@@ -439,21 +439,16 @@ const REALITY_PROMPTS: Record<Locale, (ctx: IntelligenceContext) => string> = {
         21. 옵션 지지선/저항선 3% 이내 접근 → 해당 레벨 돌파/이탈 시나리오 언급
         22. GEX 약(−19~+19) + Squeeze 30%+ → "감마 방어력 부족, Squeeze 에너지 축적" 언급
 
-        **[출력] (정확히 이 형식으로):**
-        현재 시장의 거시경제 상황과 핵심 상태를 투자자가 바로 이해할 수 있도록 자연스러운 한국어 3-4문장으로 작성하세요.
+        **[출력] — "왜 시장이 이렇게 움직이는가"를 최우선으로 작성:**
+        자연스러운 한국어 3문장으로 작성하세요.
         - "[진단]" "[결론]" 같은 레이블 사용 금지
-        - **첫 문장은 반드시 현재 시장의 가장 중요한 거시경제 이슈** (금리/인플레/연준/뉴스 기반)
-        - 두 번째 문장은 수치 기반 시장 상태 (RLSI/Breadth/VIX/자산 동향)
-        - 세 번째 문장은 **시장 전망** (향후 방향성, 주요 변수 — 행동 지시 금지, "~하세요" "~보류" "~권장" 표현 사용 금지)
-        - **뉴스가 제공된 경우, 시장 움직임의 원인을 뉴스에서 찾아 반드시 언급** (예: "CPI 예상 상회로 인한 매도세", "연준 금리 인하 연기 시사")
-        - 거시경제 자산 교차 검증 결과 반드시 포함 (금/채권/유가/달러 중 핵심)
+        - **첫 문장 (필수)**: 오늘 시장을 움직인 **핵심 뉴스 이벤트**와 시장 반응의 **인과관계**를 명확히 서술 (예: "2월 CPI 3.2%로 예상 상회하며 6월 금리인하 기대가 후퇴, 10Y 금리 4.31%로 급등하며 성장주 중심 매도세 확산")
+        - **두 번째 문장**: 뉴스 영향이 자산군에 어떻게 전이되었는지 교차 검증 (금/채권/유가/달러 등으로 뒷받침 + RLSI/Breadth 등 핵심 지표로 시장 상태 확인)
+        - **세 번째 문장**: 향후 시장 방향의 핵심 변수와 전망 (행동 지시 금지, "~하세요" "~보류" "~권장" 표현 금지)
+        - **핵심 원칙**: 지표 나열이 아닌 **뉴스→시장 반응의 인과 스토리**를 전달. 지표는 뉴스의 근거로 사용
         - 전문가가 시장 상황을 객관적으로 전달하듯이 작성 (자문/권유 표현 절대 금지)
-        - 공백 포함 250자 이내
+        - 공백 포함 350자 이내
         - 이모지(emoji) 사용 절대 금지. 텍스트만 사용
-
-        **예시 (참고용, 그대로 복사 금지):**
-        - "1월 CPI 3.0%로 예상 상회하며 금리 인하 기대가 후퇴, 10Y 금리 4.63%로 급등하며 달러도 동반 강세를 보이고 있습니다. RLSI 35점에 Breadth 38%로 광범위한 매도세이며, 금과 TLT가 동반 상승해 안전자산 선호가 뚜렷합니다. 기술주 신규 진입 환경은 부정적이며 현금 비중 확대 구간으로 판단됩니다."
-        - "FOMC 의사록에서 인내심 기조가 재확인되며 금리 동결 기대가 강화, 나스닥이 견조한 흐름을 보이고 있습니다. RLSI 72점에 공포탐욕지수 68(탐욕)로 강세 신호지만, 유가 급등(+3.2%)에 인플레 재점화 우려가 있어 추가 상승 여력은 제한적입니다. 추세 추종 유효하나 상방 저항 구간 접근 시 변동성 확대 가능성이 존재합니다."
     `;
     },
     en: (ctx) => {
@@ -493,7 +488,13 @@ const REALITY_PROMPTS: Record<Locale, (ctx: IntelligenceContext) => string> = {
         ${ctx.marketNewsHeadlines && ctx.marketNewsHeadlines.length > 0 ? `[News]
         ${ctx.marketNewsHeadlines.map((h, i) => `${i + 1}. ${h}`).join('\n        ')}` : ''}
 
-        **Output:** 2-3 sentences. Lead with the key macro driver, follow with market state (include gamma/options structure when relevant), end with factual outlook. No action directives. Max 200 chars. Do NOT use any emoji.
+        **Output — "WHY is the market moving this way" is your #1 priority:**
+        Write 2-3 natural sentences.
+        1. **First sentence (REQUIRED)**: Identify the **key news event** driving today's market and explain the **causal chain** (e.g., "Hot CPI print of 3.2% dashed June rate cut hopes, driving 10Y yields to 4.31% and triggering a broad growth-stock selloff")
+        2. **Second sentence**: How news impact propagated across asset classes (cross-validate with gold/bonds/oil/dollar + key indicators like RLSI/Breadth)
+        3. **Third sentence**: Key variables and factual outlook (no action directives)
+        Core principle: Tell the **news → market reaction causal story**, not a list of indicators. Use indicators as evidence for the narrative.
+        Max 280 chars. Do NOT use any emoji.
     `;
     },
     ja: (ctx) => {
@@ -532,7 +533,13 @@ const REALITY_PROMPTS: Record<Locale, (ctx: IntelligenceContext) => string> = {
         ${ctx.marketNewsHeadlines && ctx.marketNewsHeadlines.length > 0 ? `[ニュース]
         ${ctx.marketNewsHeadlines.map((h, i) => `${i + 1}. ${h}`).join('\n        ')}` : ''}
 
-        **出力:** 2-3文。マクロ要因→市場状態（ガンマ/オプション構造含む）→市場見通し（行動指示禁止）。250字以内。絵文字使用禁止。
+        **出力 — 「なぜ市場がこう動いているのか」を最優先で記述:**
+        自然な日本語3文で作成してください。
+        1. **第1文（必須）**: 本日の市場を動かした**核心ニュースイベント**と市場反応の**因果関係**を明確に記述（例：「2月CPIが予想を上回る3.2%となり利下げ期待が後退、10Y金利が4.31%に急騰しグロース株中心の売りが拡大」）
+        2. **第2文**: ニュースの影響が資産クラスにどう波及したか（金/債券/原油/ドルで交差検証 + RLSI/Breadth等の核心指標）
+        3. **第3文**: 核心変数と今後の見通し（行動指示禁止）
+        核心原則: 指標の羅列ではなく**ニュース→市場反応の因果ストーリー**を伝達。指標はナラティブの根拠として使用。
+        350字以内。絵文字使用禁止。
     `;
     }
 };
