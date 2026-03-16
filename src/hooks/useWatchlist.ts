@@ -84,7 +84,7 @@ export function useWatchlist(initialWatchlist?: WatchlistItem[], initialFullData
 
     // [WS] Subscribe all watchlist tickers to WebSocket price stream
     const tickerArray = useMemo(() => watchlistData.items.map(i => i.ticker), [watchlistData.items]);
-    const { connected: wsConnected, getPrice: wsGetPrice } = useRealtimeData(tickerArray.length > 0 ? tickerArray : undefined);
+    const { connected: wsConnected, getPrice: wsGetPrice, prices: wsPrices } = useRealtimeData(tickerArray.length > 0 ? tickerArray : undefined);
 
     // SWR: Full data with 30s auto-refresh (Alpha, Whale, GEX, etc.)
     const hasSSRData = !!(initialFullData && initialFullData.length > 0);
@@ -119,8 +119,8 @@ export function useWatchlist(initialWatchlist?: WatchlistItem[], initialFullData
                     return acc;
                 }, {} as Record<string, any>)
             } : undefined,
-            // [WS] When WebSocket is connected, slow polling to 30s (WS push handles real-time)
-            refreshInterval: isClosed ? 0 : wsConnected ? 30000 : 2000,
+            // [WS] Keep fast polling even with WS — ensures changePct stays fresh
+            refreshInterval: isClosed ? 0 : 5000,
             revalidateOnFocus: false,
             keepPreviousData: true,  // [PERF] Keep stale prices visible during revalidation
             dedupingInterval: 3000,
@@ -219,7 +219,7 @@ export function useWatchlist(initialWatchlist?: WatchlistItem[], initialFullData
             }
             return { ...item, currentPrice: 0, changePct: 0 };
         });
-    }, [fullData, priceData, watchlistData]);
+    }, [fullData, priceData, watchlistData, wsPrices, wsConnected]);
 
     // [PERF] Defer non-critical UI updates — price ticks won't block main thread rendering
     const deferredItems = useDeferredValue(items);
