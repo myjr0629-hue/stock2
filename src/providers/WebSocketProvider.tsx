@@ -54,7 +54,8 @@ const WebSocketContext = createContext<WebSocketContextType>({
 });
 
 // ?�?� Configuration ?�?�
-const WS_URL = process.env.NEXT_PUBLIC_WEBSOCKET_URL || 'wss://ws.signumhq.com';
+// [FIX] Force domain URL — raw IP in env causes SSL mismatch via Cloudflare
+const WS_URL = 'wss://ws.signumhq.com';
 const RECONNECT_DELAY = 3000;
 const MAX_RECONNECT = 10;
 const MAX_ALERTS = 50;

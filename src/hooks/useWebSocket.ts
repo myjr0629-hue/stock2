@@ -21,7 +21,8 @@ interface UseWebSocketOptions {
     onAlert?: (data: { ticker: string; type: string; message: string }) => void;
 }
 
-const WS_URL = process.env.NEXT_PUBLIC_WEBSOCKET_URL || 'wss://ws.signumhq.com';
+// [FIX] Force domain URL — raw IP causes SSL mismatch via Cloudflare
+const WS_URL = 'wss://ws.signumhq.com';
 const RECONNECT_DELAY_MS = 3000;
 const MAX_RECONNECT_ATTEMPTS = 5;
 
