@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useMemo, useEffect, useDeferredValue } from 'react';
 import useSWR from 'swr';
+import { useRealtimeData } from '@/providers/WebSocketProvider';
 import {
     getWatchlist,
     addToWatchlist as storeAdd,
@@ -81,6 +82,10 @@ export function useWatchlist(initialWatchlist?: WatchlistItem[], initialFullData
     const { status: marketStatus } = useMarketStatus();
     const isClosed = marketStatus.session === 'closed';
 
+    // [WS] Subscribe all watchlist tickers to WebSocket price stream
+    const tickerArray = useMemo(() => watchlistData.items.map(i => i.ticker), [watchlistData.items]);
+    const { connected: wsConnected, getPrice: wsGetPrice } = useRealtimeData(tickerArray.length > 0 ? tickerArray : undefined);
+
     // SWR: Full data with 30s auto-refresh (Alpha, Whale, GEX, etc.)
     const hasSSRData = !!(initialFullData && initialFullData.length > 0);
     const { data: fullData, error, isLoading: fullLoading, isValidating: fullValidating, mutate } = useSWR(
@@ -102,7 +107,7 @@ export function useWatchlist(initialWatchlist?: WatchlistItem[], initialFullData
         }
     );
 
-    // SWR: Price-only with 2s auto-refresh (lightweight — always fetch on mount for accurate prices)
+    // SWR: Price-only polling (reduced when WS active)
     const { data: priceData, isLoading: priceLoading } = useSWR(
         tickerString ? `/api/live/quotes?symbols=${tickerString}` : null,
         fetcher,
@@ -114,7 +119,8 @@ export function useWatchlist(initialWatchlist?: WatchlistItem[], initialFullData
                     return acc;
                 }, {} as Record<string, any>)
             } : undefined,
-            refreshInterval: isClosed ? 0 : 2000, // [UX] Near-real-time price feel (disabled when closed)
+            // [WS] When WebSocket is connected, slow polling to 30s (WS push handles real-time)
+            refreshInterval: isClosed ? 0 : wsConnected ? 30000 : 2000,
             revalidateOnFocus: false,
             keepPreviousData: true,  // [PERF] Keep stale prices visible during revalidation
             dedupingInterval: 3000,
@@ -167,11 +173,13 @@ export function useWatchlist(initialWatchlist?: WatchlistItem[], initialFullData
         return watchlistData.items.map((item) => {
             const apiData = apiResults[item.ticker];
             const fastPrice = priceMap[item.ticker];
+            // [WS] WebSocket real-time price overlay (highest priority)
+            const wsPrice = wsConnected ? wsGetPrice(item.ticker) : undefined;
             if (apiData?.alphaSnapshot && apiData?.realtime) {
                 return {
                     ...item,
-                    // Price: fast poll (2s) for real-time feel, batch (30s) fallback
-                    currentPrice: fastPrice?.price ?? apiData.realtime.price ?? 0,
+                    // Price: WS (instant) > fast poll (2s) > batch (30s)
+                    currentPrice: (wsPrice?.price && wsPrice.price > 0) ? wsPrice.price : (fastPrice?.price ?? apiData.realtime.price ?? 0),
                     // changePct: ALWAYS prefer batch API (correct regular session %) over fast poll
                     // Fast poll's changePct from Polygon todaysChangePerc is combined (prevClose→preMarket) during PRE/POST
                     changePct: apiData.realtime.changePct ?? fastPrice?.regChangePct ?? 0,

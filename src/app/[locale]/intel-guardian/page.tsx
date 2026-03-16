@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useEffect, useState, useRef, useCallback } from "react";
+import React, { useEffect, useState, useRef, useCallback, useMemo } from "react";
 import { useTranslations, useLocale } from 'next-intl';
 import { Activity, Shield, Zap, AlertTriangle, Layers, ArrowRight, Radio, Clock, BookOpen, Lock } from "lucide-react";
 import { useTier } from '@/contexts/TierContext';
@@ -16,6 +16,7 @@ import { useGuardian } from "@/components/guardian/GuardianProvider";
 import GuardianAlertBanner from "@/components/guardian/GuardianAlertBanner";
 import { EconomicCalendarWidget } from "@/components/guardian/EconomicCalendarWidget";
 import { useMarketStatus } from '@/hooks/useMarketStatus';
+import { useRealtimeData } from '@/providers/WebSocketProvider';
 import { GuestWall } from '@/components/gate/GuestWall';
 import { ProGate, EliteGate } from '@/components/gate/FeatureGate';
 
@@ -226,7 +227,6 @@ export default function GuardianPage() {
     // [30s POLLING] Live constituent prices, independent from 5-min Guardian cache
     const [livePrices, setLivePrices] = useState<Record<string, { price: number; change: number; volume: number }>>({});
     const priceIntervalRef = useRef<NodeJS.Timeout | null>(null);
-
     // useEffect removed to prevent double-fetch (Provider handles it)
 
     // Auto-select the 'Target' sector if available and nothing selected
@@ -239,6 +239,10 @@ export default function GuardianPage() {
     // [30s POLLING] Fetch constituent prices every 30 seconds
     const selectedSector = data?.sectors.find(s => s.id === selectedSectorId);
     const constituentSymbols = selectedSector?.topConstituents?.map(c => c.symbol) || [];
+
+    // [WS] Subscribe constituent symbols to WebSocket price stream
+    const wsTickerArray = useMemo(() => constituentSymbols, [constituentSymbols.join(',')]);
+    const { connected: wsConnected, getPrice: wsGetPrice } = useRealtimeData(wsTickerArray.length > 0 ? wsTickerArray : undefined);
 
     const fetchLivePrices = useCallback(async (symbols: string[]) => {
         if (symbols.length === 0) return;
@@ -265,8 +269,8 @@ export default function GuardianPage() {
         // Initial fetch
         fetchLivePrices(constituentSymbols);
 
-        // Poll every 30 seconds
-        priceIntervalRef.current = setInterval(() => fetchLivePrices(constituentSymbols), 30_000);
+        // Poll at reduced frequency when WS is active
+        priceIntervalRef.current = setInterval(() => fetchLivePrices(constituentSymbols), wsConnected ? 60_000 : 30_000);
 
         return () => {
             if (priceIntervalRef.current) clearInterval(priceIntervalRef.current);
@@ -295,8 +299,13 @@ export default function GuardianPage() {
         };
     }, [data]);
 
-    // Determine Movers: merge live prices over Guardian snapshot data
+    // Determine Movers: WS price > live API prices > Guardian snapshot data
     const topMovers = (selectedSector?.topConstituents || []).map(stock => {
+        // [WS] WebSocket price has highest priority
+        const wsPrice = wsConnected ? wsGetPrice(stock.symbol) : undefined;
+        if (wsPrice && wsPrice.price > 0) {
+            return { ...stock, price: wsPrice.price, change: wsPrice.changePct || stock.change, volume: wsPrice.volume || stock.volume };
+        }
         const live = livePrices[stock.symbol];
         return live ? { ...stock, price: live.price, change: live.change, volume: live.volume } : stock;
     });
