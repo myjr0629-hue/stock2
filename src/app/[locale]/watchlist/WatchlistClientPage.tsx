@@ -85,7 +85,7 @@ export default function WatchlistClientPage({
             }
         });
         return sortDir === 'asc' ? sorted.reverse() : sorted;
-    }, [items, sortKey, sortDir]);
+    }, [filteredItems, sortKey, sortDir]);
 
     const handleSort = (key: SortKey) => {
         if (sortKey === key) {
