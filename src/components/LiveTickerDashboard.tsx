@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import useSWR from 'swr';
 import dynamic from 'next/dynamic';
 import { useFlowData } from '@/hooks/useFlowData';
@@ -750,11 +750,19 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
     }, [ticker, range]);
 
     // [FIX] Clear stale chart data instantly when ticker changes
-    // Also clear company overview & related (sector) to prevent flash of old ticker's info on search
     useEffect(() => {
         setLiveChartData(null);
-        setCompanyOverview(null);
-        setRelatedData(null);
+    }, [ticker]);
+
+    // [FIX] Clear company overview & sector only on actual ticker CHANGE (not initial mount)
+    // These come from SSR initialUnifiedData — clearing on mount would wipe SSR instant load
+    const prevTickerRef = useRef(ticker);
+    useEffect(() => {
+        if (prevTickerRef.current !== ticker) {
+            prevTickerRef.current = ticker;
+            setCompanyOverview(null);
+            setRelatedData(null);
+        }
     }, [ticker]);
 
     // News & AI Setup (Progressive Hydration - Non blocking)
