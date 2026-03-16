@@ -3157,7 +3157,13 @@
     "structTunnelUpper": "터널 상단(저항 {cw}) 근접.",
     "structTunnelLower": "터널 하단(지지 {pf}) 근접.",
     "structResistCloser": "저항({cw})이 지지({pf})보다 가까움.",
-    "structSupportMid": "지지({pf})~저항({cw}) 중간."
+    "structSupportMid": "지지({pf})~저항({cw}) 중간.",
+    "histRegimeToShort": "⚠️ 감마 레짐 전환: 롱감마→숏감마. 변동성 환경 변화.",
+    "histRegimeToLong": "✅ 감마 레짐 전환: 숏감마→롱감마. 안정 환경 복귀.",
+    "histOnlyShortGamma": "🔴 섹터 내 유일한 숏감마.",
+    "histOnlyLongGamma": "🟢 섹터 내 유일한 롱감마.",
+    "histPcrRising": "PCR 연속 상승 — 풋 수요 증가.",
+    "histPcrFalling": "PCR 연속 하락 — 콜 수요 증가."
   },
   "sectorRanking": {
     "moneyFlowSub": "자금력 랭킹",

@@ -2797,7 +2797,13 @@
     "structTunnelUpper": "Near tunnel upper resistance ({cw}).",
     "structTunnelLower": "Near tunnel lower support ({pf}).",
     "structResistCloser": "Resistance ({cw}) closer than support ({pf}).",
-    "structSupportMid": "Mid-range between support ({pf}) and resistance ({cw})."
+    "structSupportMid": "Mid-range between support ({pf}) and resistance ({cw}).",
+    "histRegimeToShort": "⚠️ Gamma regime shift: Long→Short gamma. Volatility environment change.",
+    "histRegimeToLong": "✅ Gamma regime shift: Short→Long gamma. Stability restored.",
+    "histOnlyShortGamma": "🔴 Only short gamma in sector.",
+    "histOnlyLongGamma": "🟢 Only long gamma in sector.",
+    "histPcrRising": "PCR trending up — put demand increasing.",
+    "histPcrFalling": "PCR trending down — call demand increasing."
   },
   "sectorRanking": {
     "moneyFlowSub": "Money Flow Ranking",

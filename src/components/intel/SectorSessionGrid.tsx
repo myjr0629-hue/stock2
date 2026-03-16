@@ -396,13 +396,13 @@ export function SectorSessionGrid({ config, quotes, loading, refreshing, lockedT
                     const parts: string[] = [];
                     if (ctx.regimeChanged && ctx.prevRegime) {
                         parts.push(ctx.prevRegime === 'LONG'
-                            ? (ss('histRegimeToShort') || '\u26A0\uFE0F \uAC10\uB9C8 \uB808\uC9D0 \uC804\uD658: \uB871\uAC10\uB9C8\u2192\uC219\uAC10\uB9C8. \uBCC0\uB3D9\uC131 \uD658\uACBD \uBCC0\uD654.')
-                            : (ss('histRegimeToLong') || '\u2705 \uAC10\uB9C8 \uB808\uC9D0 \uC804\uD658: \uC219\uAC10\uB9C8\u2192\uB871\uAC10\uB9C8. \uC548\uC815 \uD658\uACBD \uBCF5\uADC0.'));
+                            ? ss('histRegimeToShort')
+                            : ss('histRegimeToLong'));
                     }
-                    if (ctx.isOnlyShortGamma) parts.push(ss('histOnlyShortGamma') || '\uD83D\uDD34 \uC139\uD130 \uB0B4 \uC720\uC77C\uD55C \uC219\uAC10\uB9C8.');
-                    if (ctx.isOnlyLongGamma) parts.push(ss('histOnlyLongGamma') || '\uD83D\uDFE2 \uC139\uD130 \uB0B4 \uC720\uC77C\uD55C \uB871\uAC10\uB9C8.');
-                    if (ctx.pcrTrend === 'rising') parts.push(ss('histPcrRising') || 'PCR \uC5F0\uC18D \uC0C1\uC2B9 \u2014 \uD48B \uC218\uC694 \uC99D\uAC00.');
-                    if (ctx.pcrTrend === 'falling') parts.push(ss('histPcrFalling') || 'PCR \uC5F0\uC18D \uD558\uB77D \u2014 \uCF5C \uC218\uC694 \uC99D\uAC00.');
+                    if (ctx.isOnlyShortGamma) parts.push(ss('histOnlyShortGamma'));
+                    if (ctx.isOnlyLongGamma) parts.push(ss('histOnlyLongGamma'));
+                    if (ctx.pcrTrend === 'rising') parts.push(ss('histPcrRising'));
+                    if (ctx.pcrTrend === 'falling') parts.push(ss('histPcrFalling'));
                     if (parts.length > 0) insights[ticker] = parts.join(' ');
                 }
                 setHistoryInsights(insights);

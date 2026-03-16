@@ -2796,7 +2796,13 @@
     "structTunnelUpper": "トンネル上端（抵抗{cw}）接近。",
     "structTunnelLower": "トンネル下端（支持{pf}）接近。",
     "structResistCloser": "抵抗({cw})が支持({pf})より近い。",
-    "structSupportMid": "支持({pf})〜抵抗({cw})中間。"
+    "structSupportMid": "支持({pf})〜抵抗({cw})中間。",
+    "histRegimeToShort": "⚠️ ガンマレジーム転換：ロング→ショートガンマ。ボラティリティ環境変化。",
+    "histRegimeToLong": "✅ ガンマレジーム転換：ショート→ロングガンマ。安定環境回復。",
+    "histOnlyShortGamma": "🔴 セクター内唯一のショートガンマ。",
+    "histOnlyLongGamma": "🟢 セクター内唯一のロングガンマ。",
+    "histPcrRising": "PCR連続上昇 — プット需要増加。",
+    "histPcrFalling": "PCR連続下落 — コール需要増加。"
   },
   "sectorRanking": {
     "moneyFlowSub": "資金力ランキング",
