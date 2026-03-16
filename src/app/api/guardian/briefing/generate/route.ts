@@ -13,7 +13,7 @@
 import { NextResponse } from 'next/server';
 import { GoogleGenAI } from '@google/genai';
 import { fetchMassive } from '@/services/massiveClient';
-import { getFromCache } from '@/services/redisClient';
+import { getFromCache, setInCache } from '@/services/redisClient';
 
 export const maxDuration = 60;
 
@@ -140,8 +140,33 @@ Return ONLY valid JSON (no markdown fences):
 
         const briefing = JSON.parse(rawText);
         const elapsed = Date.now() - startTime;
+        const etDateStr = new Date().toLocaleDateString('en-US', { timeZone: 'America/New_York' });
 
         console.log(`[Briefing Gen] ✅ Narrative briefing generated in ${elapsed}ms`);
+
+        // [AUTO-SAVE] Store directly in Redis — no Worker dependency
+        const locales = ['ko', 'en', 'ja'] as const;
+        for (const loc of locales) {
+            const briefingText = briefing[loc] || briefing.en || 'Briefing not available';
+            await setInCache(`guardian:morning_briefing:${loc}`, {
+                date: etDateStr,
+                generatedAt: new Date().toISOString(),
+                briefing: briefingText,
+                source: 'gemini',
+                newsCount: marketNews.length,
+                calendarCount: calendarEvents.length,
+            }, 24 * 60 * 60);
+        }
+        // Legacy key
+        await setInCache('guardian:morning_briefing', {
+            date: etDateStr,
+            generatedAt: new Date().toISOString(),
+            text: briefing.ko || briefing.en,
+            briefing: briefing.ko || briefing.en,
+            source: 'gemini',
+        }, 24 * 60 * 60);
+
+        console.log(`[Briefing Gen] ✅ Saved to Redis (3 locales + legacy)`);
 
         return NextResponse.json({
             success: true,
@@ -149,6 +174,7 @@ Return ONLY valid JSON (no markdown fences):
             newsCount: marketNews.length,
             calendarCount: calendarEvents.length,
             elapsedMs: elapsed,
+            savedToRedis: true,
         });
 
     } catch (e: any) {
