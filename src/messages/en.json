@@ -2857,6 +2857,7 @@
     "fomoClassifiedFlow": "$50K+ Institutional Orders · Dark Pool Block Prints — Live Feed",
     "fomoOptionsBattlefield": "Strike-Level Call/Put Distribution · Support/Resistance Visualization",
     "fomoImpliedMove": "ATM Straddle-Based Expected Range",
+    "fomoOmr": "IV · Skew · P/C · UOA · Flow · GEX synthesis — real-time institutional regime detection",
     "fomoPutFloorCallWall": "Options Wall — Support/Resist",
     "fomoMaxPain": "Max Pain Convergence Analysis",
     "fomoIvSkew": "Put/Call IV Asymmetry",

@@ -580,6 +580,18 @@ export const FLOW_TOOLTIPS = {
             ja: 'オプション地形可視化',
         },
     },
+    OMR: {
+        tooltip: {
+            ko: 'Options Market Regime — IV, Skew, P/C비율, UOA, 플로우, GEX를 종합하여 옵션 시장의 현재 체제를 판별. 기관 매집, 정리, 헤지, 투기 등 5가지 모드 감지.',
+            en: 'Options Market Regime — synthesizes IV, Skew, P/C ratio, UOA, flow & GEX to determine the current options market state. Detects 5 modes: accumulation, distribution, hedging, speculation, neutral.',
+            ja: 'Options Market Regime — IV・スキュー・P/C比率・UOA・フロー・GEXを総合し、オプション市場の現在体制を判別。機関買い集め・売り・ヘッジ・投機の5モード検出。',
+        },
+        badge: {
+            ko: '기관 체제 분석 엔진',
+            en: 'Institutional regime engine',
+            ja: '機関体制分析エンジン',
+        },
+    },
 } as const;
 
 /**

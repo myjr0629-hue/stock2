@@ -8,7 +8,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { CardTooltip, FLOW_TOOLTIPS } from '@/components/ui/CardTooltip';
 import { ProGate, EliteGate } from '@/components/gate/FeatureGate';
 import { Progress } from "./ui/progress";
-import { useTranslations } from 'next-intl';
+import { useTranslations, useLocale } from 'next-intl';
 
 export interface FlowRadarProps {
     ticker: string;
@@ -27,6 +27,7 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
     const fm = useTranslations('flowRadarMetrics');
     const ui = useTranslations('flowRadarUI');
     const gt = useTranslations('gate');
+    const locale = useLocale();
     const [userViewMode, setUserViewMode] = useState<'VOLUME' | 'OI' | null>(null);
     const scrollContainerRef = useRef<HTMLDivElement>(null);
     const currentPriceLineRef = useRef<HTMLDivElement>(null);
@@ -922,6 +923,125 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
 
         return { value: Math.round(movePercent * 10) / 10, direction, color, label, straddle: straddle.toFixed(2), expiryLabel };
     }, [rawChain, currentPrice]);
+
+    // [PREMIUM] Options Market Regime (OMR) — Meta-indicator synthesizing IV, Skew, P/C, UOA, Flow, GEX
+    const omr = useMemo(() => {
+        const ivVal = ivPercentile.value;
+        const skewVal = ivSkew.value;
+        const pcVal = pcRatio.value;
+        const uoaVal = uoa.score;
+        const netFlow = opi.value;
+        const isLongGamma = gexRegime.isLongGamma;
+        const regime = gexRegime.regime;
+
+        // Score each dimension (0-2)
+        const ivLow = ivVal <= 30 ? 2 : ivVal <= 45 ? 1 : 0;
+        const ivHigh = ivVal >= 60 ? 2 : ivVal >= 45 ? 1 : 0;
+        const skewPut = skewVal >= 3 ? 2 : skewVal >= 1 ? 1 : 0;  // Put skew (fear)
+        const skewCall = skewVal <= -3 ? 2 : skewVal <= -1 ? 1 : 0; // Call skew (greed)
+        const pcBullish = pcVal > 0 && pcVal < 0.7 ? 2 : pcVal < 1.0 ? 1 : 0;
+        const pcBearish = pcVal >= 1.3 ? 2 : pcVal >= 1.0 ? 1 : 0;
+        const uoaHigh = uoaVal >= 5 ? 2 : uoaVal >= 3 ? 1 : 0;
+        const flowBullish = netFlow > 0 ? 1 : 0;
+        const flowBearish = netFlow < 0 ? 1 : 0;
+
+        // Determine regime
+        type RegimeType = 'ACCUMULATION' | 'DISTRIBUTION' | 'HEDGING' | 'SPECULATION' | 'NEUTRAL';
+        let regimeType: RegimeType = 'NEUTRAL';
+        let confidence = 0;
+
+        // ACCUMULATION: Low IV + Bullish PC + Positive Flow + Low Skew
+        const accumScore = ivLow + pcBullish + flowBullish + skewCall;
+        // DISTRIBUTION: High IV + Bearish PC + Negative Flow
+        const distScore = ivHigh + pcBearish + flowBearish + skewPut;
+        // HEDGING: High IV + Strong Put Skew (regardless of flow)
+        const hedgeScore = ivHigh + skewPut * 2;
+        // SPECULATION: Low IV + High UOA + Call Skew
+        const specScore = ivLow + uoaHigh + skewCall;
+
+        if (hedgeScore >= 5) { regimeType = 'HEDGING'; confidence = Math.min(100, hedgeScore * 15); }
+        else if (accumScore >= 5) { regimeType = 'ACCUMULATION'; confidence = Math.min(100, accumScore * 14); }
+        else if (distScore >= 5) { regimeType = 'DISTRIBUTION'; confidence = Math.min(100, distScore * 14); }
+        else if (specScore >= 5) { regimeType = 'SPECULATION'; confidence = Math.min(100, specScore * 15); }
+        else {
+            // Pick highest if above threshold 3
+            const scores = { ACCUMULATION: accumScore, DISTRIBUTION: distScore, HEDGING: hedgeScore, SPECULATION: specScore };
+            const sorted = Object.entries(scores).sort(([, a], [, b]) => b - a);
+            if (sorted[0][1] >= 3) {
+                regimeType = sorted[0][0] as RegimeType;
+                confidence = Math.min(100, sorted[0][1] * 14);
+            } else {
+                regimeType = 'NEUTRAL';
+                confidence = 30;
+            }
+        }
+
+        const config: Record<RegimeType, { color: string; bg: string; border: string; iconColor: string; label: Record<string, string>; rationale: Record<string, string> }> = {
+            ACCUMULATION: {
+                color: 'text-emerald-400', bg: 'from-emerald-950/20 to-slate-900/40', border: 'border-emerald-500/15',
+                iconColor: 'text-emerald-400',
+                label: { ko: '기관 매집', en: 'ACCUMULATION', ja: '機関買い集め' },
+                rationale: {
+                    ko: `낮은 IV(${ivVal}%) + 콜 편향이 기관의 조용한 포지션 구축을 시사`,
+                    en: `Low IV(${ivVal}%) + call bias suggests quiet institutional positioning`,
+                    ja: `低IV(${ivVal}%) + コール偏重が機関の静かなポジション構築を示唆`
+                }
+            },
+            DISTRIBUTION: {
+                color: 'text-rose-400', bg: 'from-rose-950/20 to-slate-900/40', border: 'border-rose-500/15',
+                iconColor: 'text-rose-400',
+                label: { ko: '기관 정리', en: 'DISTRIBUTION', ja: '機関売り' },
+                rationale: {
+                    ko: `높은 IV(${ivVal}%) + 풋 편향 + 매도 흐름이 포지션 정리를 시사`,
+                    en: `High IV(${ivVal}%) + put bias + sell flow suggests position unwinding`,
+                    ja: `高IV(${ivVal}%) + プット偏重 + 売りフローがポジション整理を示唆`
+                }
+            },
+            HEDGING: {
+                color: 'text-amber-400', bg: 'from-amber-950/20 to-slate-900/40', border: 'border-amber-500/15',
+                iconColor: 'text-amber-400',
+                label: { ko: '헤지 수요', en: 'HEDGING', ja: 'ヘッジ需要' },
+                rationale: {
+                    ko: `IV 상승(${ivVal}%) + 강한 풋 스큐(${skewVal > 0 ? '+' : ''}${skewVal}%)가 방어적 포지셔닝 시사`,
+                    en: `Rising IV(${ivVal}%) + put skew(${skewVal > 0 ? '+' : ''}${skewVal}%) signals defensive positioning`,
+                    ja: `IV上昇(${ivVal}%) + プットスキュー(${skewVal > 0 ? '+' : ''}${skewVal}%)が防衛的ポジショニングを示唆`
+                }
+            },
+            SPECULATION: {
+                color: 'text-cyan-400', bg: 'from-cyan-950/20 to-slate-900/40', border: 'border-cyan-500/15',
+                iconColor: 'text-cyan-400',
+                label: { ko: '투기적 매수', en: 'SPECULATION', ja: '投機的買い' },
+                rationale: {
+                    ko: `낮은 IV(${ivVal}%) + UOA ${uoaVal}x 이상 거래가 투기적 콜 매수를 시사`,
+                    en: `Low IV(${ivVal}%) + UOA ${uoaVal}x unusual activity signals speculative call buying`,
+                    ja: `低IV(${ivVal}%) + UOA ${uoaVal}x 異常取引が投機的コール買いを示唆`
+                }
+            },
+            NEUTRAL: {
+                color: 'text-slate-300', bg: 'from-slate-800/20 to-slate-900/40', border: 'border-slate-500/15',
+                iconColor: 'text-slate-400',
+                label: { ko: '방향 탐색', en: 'NEUTRAL', ja: '方向模索' },
+                rationale: {
+                    ko: `뚜렷한 체제 신호 없음 — IV ${ivVal}%, P/C ${pcVal.toFixed(2)}`,
+                    en: `No clear regime signal — IV ${ivVal}%, P/C ${pcVal.toFixed(2)}`,
+                    ja: `明確な体制シグナルなし — IV ${ivVal}%, P/C ${pcVal.toFixed(2)}`
+                }
+            }
+        };
+
+        const c = config[regimeType];
+        return {
+            regime: regimeType,
+            color: c.color,
+            bg: c.bg,
+            border: c.border,
+            iconColor: c.iconColor,
+            label: c.label,
+            rationale: c.rationale,
+            confidence,
+            inputs: { ivVal, skewVal, pcVal: pcVal.toFixed(2), uoaVal, isLongGamma }
+        };
+    }, [ivPercentile, ivSkew, pcRatio, uoa, opi, gexRegime]);
 
     // [PREMIUM] Max Pain Distance - how far current price from max pain
     const maxPainDistance = useMemo(() => {
@@ -2759,6 +2879,64 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                         <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:30px_30px] pointer-events-none opacity-50" />
 
                         <CardContent className="p-4 pb-4 flex flex-col relative z-10 flex-1">
+                            {/* OPTIONS MARKET REGIME (OMR) — ELITE */}
+                            <EliteGate title="Options Market Regime" fomoMessage={gt('fomoOmr')} mode="blur" compact>
+                                <div className={`mb-4 bg-gradient-to-br ${omr.bg} border ${omr.border} rounded-lg p-4 relative overflow-hidden group hover:border-opacity-40 transition-all`}>
+                                    <div className="absolute inset-0 bg-white/[0.02] blur-xl opacity-0 group-hover:opacity-100 transition-opacity" />
+                                    {/* Infographic: regime pulse grid */}
+                                    <svg className="absolute right-2 bottom-2 w-20 h-14 opacity-[0.12] pointer-events-none" viewBox="0 0 80 56">
+                                        <rect x="8" y="8" width="14" height="14" rx="3" fill="currentColor" className={omr.iconColor} />
+                                        <rect x="28" y="8" width="14" height="14" rx="3" fill="none" stroke="currentColor" strokeWidth="1.5" className={omr.iconColor} />
+                                        <rect x="48" y="8" width="14" height="14" rx="3" fill="currentColor" className={omr.iconColor} opacity="0.5" />
+                                        <rect x="8" y="28" width="14" height="14" rx="3" fill="none" stroke="currentColor" strokeWidth="1.5" className={omr.iconColor} />
+                                        <rect x="28" y="28" width="14" height="14" rx="3" fill="currentColor" className={omr.iconColor} opacity="0.7" />
+                                        <rect x="48" y="28" width="14" height="14" rx="3" fill="none" stroke="currentColor" strokeWidth="1" className={omr.iconColor} opacity="0.3" />
+                                    </svg>
+                                    <div className="relative z-10">
+                                        {/* Row 1: Title + Regime */}
+                                        <div className="mb-3">
+                                            <div className="flex items-center gap-2 mb-1.5">
+                                                <div className={`w-2 h-2 rounded-full animate-pulse`} style={{ backgroundColor: omr.regime === 'ACCUMULATION' ? '#34d399' : omr.regime === 'DISTRIBUTION' ? '#fb7185' : omr.regime === 'HEDGING' ? '#fbbf24' : omr.regime === 'SPECULATION' ? '#22d3ee' : '#94a3b8' }} />
+                                                <CardTooltip tooltip={FLOW_TOOLTIPS.OMR.tooltip} badge={FLOW_TOOLTIPS.OMR.badge}><span className="text-[12px] text-white font-bold uppercase tracking-wider">OPTIONS MARKET REGIME</span></CardTooltip>
+                                            </div>
+                                            <div className={`text-base font-black ${omr.color} ml-4`} style={{ textShadow: '0 0 15px currentColor' }}>
+                                                {omr.label[locale] || omr.label.en}
+                                            </div>
+                                        </div>
+                                        {/* Row 2: 3-Column Input Grid */}
+                                        <div className="grid grid-cols-3 gap-2 mb-3">
+                                            <div className="bg-black/20 rounded px-2 py-1.5 text-center">
+                                                <div className="text-[12px] text-slate-300 mb-0.5">IV Rank</div>
+                                                <div className="text-[14px] font-bold text-white">{omr.inputs.ivVal}%</div>
+                                            </div>
+                                            <div className="bg-black/20 rounded px-2 py-1.5 text-center">
+                                                <div className="text-[12px] text-slate-300 mb-0.5">Skew</div>
+                                                <div className="text-[14px] font-bold text-white">{omr.inputs.skewVal > 0 ? '+' : ''}{omr.inputs.skewVal}%</div>
+                                            </div>
+                                            <div className="bg-black/20 rounded px-2 py-1.5 text-center">
+                                                <div className="text-[12px] text-slate-300 mb-0.5">P/C</div>
+                                                <div className="text-[14px] font-bold text-white">{omr.inputs.pcVal}</div>
+                                            </div>
+                                        </div>
+                                        {/* Row 3: Confidence Bar */}
+                                        <div className="mb-2">
+                                            <div className="flex items-center justify-between text-[12px] mb-1">
+                                                <span className="text-slate-300">{locale === 'ko' ? '신뢰도' : locale === 'ja' ? '信頼度' : 'Confidence'}</span>
+                                                <span className={`font-bold ${omr.color}`}>{omr.confidence}%</span>
+                                            </div>
+                                            <div className="w-full bg-slate-700/50 rounded-full h-1.5">
+                                                <div className={`h-1.5 rounded-full transition-all duration-700`}
+                                                     style={{ width: `${omr.confidence}%`, backgroundColor: omr.regime === 'ACCUMULATION' ? '#34d399' : omr.regime === 'DISTRIBUTION' ? '#fb7185' : omr.regime === 'HEDGING' ? '#fbbf24' : omr.regime === 'SPECULATION' ? '#22d3ee' : '#94a3b8' }} />
+                                            </div>
+                                        </div>
+                                        {/* Row 4: Rationale */}
+                                        <div className={`text-[13px] text-white/90 font-medium pl-4 border-l-2 ${omr.regime === 'ACCUMULATION' ? 'border-emerald-500/40' : omr.regime === 'DISTRIBUTION' ? 'border-rose-500/40' : omr.regime === 'HEDGING' ? 'border-amber-500/40' : omr.regime === 'SPECULATION' ? 'border-cyan-500/40' : 'border-slate-500/40'}`}>
+                                            <Shield size={11} className={`${omr.iconColor} inline mr-1`} />{omr.rationale[locale] || omr.rationale.en}
+                                        </div>
+                                    </div>
+                                </div>
+                            </EliteGate>
+
                             {/* Implied Move (기대변동폭) — PRO */}
                             <ProGate title="Implied Move" fomoMessage={gt('fomoImpliedMove')} mode="blur" compact>
                                 <div className="mb-4 bg-gradient-to-br from-teal-950/20 to-slate-900/40 border border-teal-500/15 rounded-lg p-4 relative overflow-hidden group hover:border-teal-500/30 transition-all">
