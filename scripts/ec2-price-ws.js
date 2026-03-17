@@ -24,6 +24,45 @@
 
 const WebSocket = require("ws");
 const http = require("http");
+const https = require("https");
+const fs = require("fs");
+const path = require("path");
+
+// ── Load .env file (no dotenv dependency) ──
+(function loadEnv() {
+    const envPaths = [
+        path.join(path.dirname(process.argv[1] || __filename), '.env'),
+        '/opt/signum-ws/.env',
+        path.join(process.env.HOME || '', '.env'),
+    ];
+    for (const p of envPaths) {
+        try {
+            const content = fs.readFileSync(p, 'utf8');
+            content.split('\n').forEach(line => {
+                const match = line.match(/^([A-Z_]+)=(.+)$/);
+                if (match && !process.env[match[1]]) {
+                    process.env[match[1]] = match[2].trim();
+                }
+            });
+            console.log(`[Price WS] Loaded env from ${p}`);
+            break;
+        } catch (e) { /* skip */ }
+    }
+})();
+
+// Node 16 compatible HTTP GET (no global fetch)
+function httpsGet(url) {
+    return new Promise((resolve, reject) => {
+        https.get(url, (res) => {
+            let data = '';
+            res.on('data', chunk => data += chunk);
+            res.on('end', () => {
+                try { resolve(JSON.parse(data)); }
+                catch (e) { reject(new Error('JSON parse failed')); }
+            });
+        }).on('error', reject);
+    });
+}
 
 // ══════════════════════════════════════════════════════════════
 // CONFIGURATION
@@ -31,7 +70,7 @@ const http = require("http");
 
 const PORT = parseInt(process.env.WS_PORT || "8084");
 const POLYGON_API_KEY = process.env.POLYGON_API_KEY || process.env.MASSIVE_API_KEY || "";
-const POLYGON_WS_URL = "wss://socket.polygon.io/stocks";
+const POLYGON_WS_URL = "wss://socket.massive.com/stocks";
 const HEARTBEAT_INTERVAL_MS = 30000;    // 30s — ping clients
 const STALE_CLIENT_MS = 120000;         // 2min — disconnect idle clients
 const POLYGON_RECONNECT_DELAY_MS = 5000; // 5s initial reconnect delay
@@ -167,30 +206,30 @@ function resubscribeAllOnPolygon() {
 
     if (allTickers.size === 0) return;
 
-    // Subscribe to per-second aggregate bars (A.) — best balance of data vs cost
+    // Subscribe to Trades (T.), per-second aggs (A.), and per-minute aggs (AM.)
     const tickerList = [...allTickers];
-    const subscriptions = tickerList.map(t => `A.${t}`).join(",");
-    polygonWs.send(JSON.stringify({ action: "subscribe", params: subscriptions }));
+    const subs = tickerList.flatMap(t => [`T.${t}`, `A.${t}`, `AM.${t}`]).join(",");
+    polygonWs.send(JSON.stringify({ action: "subscribe", params: subs }));
     tickerList.forEach(t => subscribedOnPolygon.add(t));
-    console.log(`[Price WS] Subscribed to ${tickerList.length} tickers on Polygon: ${tickerList.slice(0, 10).join(", ")}${tickerList.length > 10 ? "..." : ""}`);
+    console.log(`[Price WS] Subscribed to ${tickerList.length} tickers (T+A+AM): ${tickerList.slice(0, 10).join(", ")}${tickerList.length > 10 ? "..." : ""}`);
 }
 
 function subscribeTickerOnPolygon(ticker) {
     if (subscribedOnPolygon.has(ticker)) return;
     if (!polygonWs || polygonWs.readyState !== WebSocket.OPEN) return;
 
-    polygonWs.send(JSON.stringify({ action: "subscribe", params: `A.${ticker}` }));
+    polygonWs.send(JSON.stringify({ action: "subscribe", params: `T.${ticker},A.${ticker},AM.${ticker}` }));
     subscribedOnPolygon.add(ticker);
-    console.log(`[Price WS] + Subscribed to A.${ticker} on Polygon`);
+    console.log(`[Price WS] + Subscribed to T/A/AM.${ticker} on Massive`);
 }
 
 function unsubscribeTickerOnPolygon(ticker) {
     if (!subscribedOnPolygon.has(ticker)) return;
     if (!polygonWs || polygonWs.readyState !== WebSocket.OPEN) return;
 
-    polygonWs.send(JSON.stringify({ action: "unsubscribe", params: `A.${ticker}` }));
+    polygonWs.send(JSON.stringify({ action: "unsubscribe", params: `T.${ticker},A.${ticker},AM.${ticker}` }));
     subscribedOnPolygon.delete(ticker);
-    console.log(`[Price WS] - Unsubscribed from A.${ticker} on Polygon`);
+    console.log(`[Price WS] - Unsubscribed from T/A/AM.${ticker} on Massive`);
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -483,9 +522,7 @@ async function fetchSnapshotREST(tickers) {
     
     try {
         const url = `https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers?tickers=${tickers.join(",")}&apiKey=${POLYGON_API_KEY}`;
-        const res = await fetch(url);
-        if (!res.ok) { console.warn(`[REST Fallback] HTTP ${res.status}`); return; }
-        const data = await res.json();
+        const data = await httpsGet(url);
         
         if (!data.tickers || !Array.isArray(data.tickers)) return;
         
