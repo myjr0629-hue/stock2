@@ -62,20 +62,25 @@ const SECTION_TITLES: Record<string, { ko: string; en: string; ja: string }> = {
     outlook: { ko: 'SCENARIO MAP', en: 'SCENARIO MAP', ja: 'SCENARIO MAP' },
 };
 
-// ── Indicator Metadata: Ticker Symbols & Category Colors ──
-const INDICATOR_META: Record<string, { ticker: string; category: string; color: string; borderColor: string; bgColor: string }> = {
-    'VIX':        { ticker: '^VIX',    category: 'volatility', color: 'text-orange-400', borderColor: 'border-orange-500/20', bgColor: 'rgba(249,115,22,0.06)' },
-    'VIX3M':      { ticker: '^VIX3M',  category: 'volatility', color: 'text-orange-400', borderColor: 'border-orange-500/20', bgColor: 'rgba(249,115,22,0.06)' },
-    'S&P 500':    { ticker: 'SPY',     category: 'equity',     color: 'text-cyan-400',   borderColor: 'border-cyan-500/20',   bgColor: 'rgba(6,182,212,0.06)' },
-    'NASDAQ':     { ticker: 'QQQ',     category: 'equity',     color: 'text-cyan-400',   borderColor: 'border-cyan-500/20',   bgColor: 'rgba(6,182,212,0.06)' },
-    'Russell 2K': { ticker: 'IWM',     category: 'equity',     color: 'text-cyan-400',   borderColor: 'border-cyan-500/20',   bgColor: 'rgba(6,182,212,0.06)' },
-    'US 10Y':     { ticker: '^TNX',    category: 'bond',       color: 'text-amber-400',  borderColor: 'border-amber-500/20',  bgColor: 'rgba(245,158,11,0.06)' },
-    'TLT':        { ticker: 'TLT',     category: 'bond',       color: 'text-amber-400',  borderColor: 'border-amber-500/20',  bgColor: 'rgba(245,158,11,0.06)' },
-    'Gold':       { ticker: 'GLD',     category: 'commodity',  color: 'text-yellow-400', borderColor: 'border-yellow-500/20', bgColor: 'rgba(234,179,8,0.06)' },
-    'WTI Oil':    { ticker: 'CL',      category: 'commodity',  color: 'text-yellow-400', borderColor: 'border-yellow-500/20', bgColor: 'rgba(234,179,8,0.06)' },
-    'BTC':        { ticker: 'BTC',     category: 'crypto',     color: 'text-purple-400', borderColor: 'border-purple-500/20', bgColor: 'rgba(168,85,247,0.06)' },
-    'USD/KRW':    { ticker: 'KRW=X',   category: 'fx',         color: 'text-sky-400',    borderColor: 'border-sky-500/20',    bgColor: 'rgba(14,165,233,0.06)' },
-    'USD/JPY':    { ticker: 'JPY=X',   category: 'fx',         color: 'text-sky-400',    borderColor: 'border-sky-500/20',    bgColor: 'rgba(14,165,233,0.06)' },
+// ── Indicator Metadata: Logos & Category Colors ──
+const INDICATOR_META: Record<string, { logoTicker: string | null; category: string; color: string; borderColor: string; bgColor: string }> = {
+    'VIX':        { logoTicker: null,   category: 'volatility', color: 'text-orange-400', borderColor: 'border-orange-500/20', bgColor: 'rgba(249,115,22,0.06)' },
+    'VIX3M':      { logoTicker: null,   category: 'volatility', color: 'text-orange-400', borderColor: 'border-orange-500/20', bgColor: 'rgba(249,115,22,0.06)' },
+    'S&P 500':    { logoTicker: 'SPY',  category: 'equity',     color: 'text-cyan-400',   borderColor: 'border-cyan-500/20',   bgColor: 'rgba(6,182,212,0.06)' },
+    'NASDAQ':     { logoTicker: 'QQQ',  category: 'equity',     color: 'text-cyan-400',   borderColor: 'border-cyan-500/20',   bgColor: 'rgba(6,182,212,0.06)' },
+    'Russell 2K': { logoTicker: 'IWM',  category: 'equity',     color: 'text-cyan-400',   borderColor: 'border-cyan-500/20',   bgColor: 'rgba(6,182,212,0.06)' },
+    'US 10Y':     { logoTicker: 'TLT',  category: 'bond',       color: 'text-amber-400',  borderColor: 'border-amber-500/20',  bgColor: 'rgba(245,158,11,0.06)' },
+    'TLT':        { logoTicker: 'TLT',  category: 'bond',       color: 'text-amber-400',  borderColor: 'border-amber-500/20',  bgColor: 'rgba(245,158,11,0.06)' },
+    'Gold':       { logoTicker: 'GLD',  category: 'commodity',  color: 'text-yellow-400', borderColor: 'border-yellow-500/20', bgColor: 'rgba(234,179,8,0.06)' },
+    'WTI Oil':    { logoTicker: 'USO',  category: 'commodity',  color: 'text-yellow-400', borderColor: 'border-yellow-500/20', bgColor: 'rgba(234,179,8,0.06)' },
+    'BTC':        { logoTicker: null,   category: 'crypto',     color: 'text-purple-400', borderColor: 'border-purple-500/20', bgColor: 'rgba(168,85,247,0.06)' },
+    'USD/KRW':    { logoTicker: null,   category: 'fx',         color: 'text-sky-400',    borderColor: 'border-sky-500/20',    bgColor: 'rgba(14,165,233,0.06)' },
+    'USD/JPY':    { logoTicker: null,   category: 'fx',         color: 'text-sky-400',    borderColor: 'border-sky-500/20',    bgColor: 'rgba(14,165,233,0.06)' },
+};
+
+// Category emoji for indicators without stock logos
+const CATEGORY_EMOJI: Record<string, string> = {
+    volatility: '⚡', bond: '📊', crypto: '₿', fx: '💱',
 };
 
 // ── Glass Card Style ──
@@ -435,12 +440,17 @@ export function PostMarketBriefView() {
                                             return (
                                                 <div key={m.key} className={`p-2.5 rounded-lg border ${borderCol} text-center transition-all hover:border-white/25 hover:scale-[1.02]`}
                                                     style={{ background: bgCol, boxShadow: `0 0 10px ${glowColor}` }}>
-                                                    <div className="flex items-center justify-center gap-1 mb-0.5">
+                                                    <div className="flex items-center justify-center gap-1.5 mb-1">
+                                                        {meta?.logoTicker ? (
+                                                            <img loading="lazy" decoding="async"
+                                                                src={`https://assets.parqet.com/logos/symbol/${meta.logoTicker}?format=png`}
+                                                                alt="" className="w-4 h-4 rounded-full object-cover"
+                                                                onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                                                        ) : CATEGORY_EMOJI[meta?.category || ''] ? (
+                                                            <span className="text-[12px]">{CATEGORY_EMOJI[meta?.category || '']}</span>
+                                                        ) : null}
                                                         <span className={`text-[12px] font-bold uppercase tracking-wider ${catColor}`}>{m.key}</span>
                                                     </div>
-                                                    {meta?.ticker && (
-                                                        <span className="text-[10px] font-mono text-slate-500 block mb-0.5">{meta.ticker}</span>
-                                                    )}
                                                     <span className="text-[14px] font-black text-white font-mono block">
                                                         {m.value > 1000 ? m.value.toLocaleString(undefined, { maximumFractionDigits: 0 }) : m.value.toFixed(2)}
                                                     </span>
