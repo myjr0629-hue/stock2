@@ -4,16 +4,36 @@
 import { useState, useEffect } from "react";
 import { MarketStatusResult } from "@/services/marketStatusProvider";
 
-// Define a safe initial state to prevent hydration mismatches
-const INITIAL_STATUS: MarketStatusResult = {
-    market: "closed",
-    session: "closed",
-    isHoliday: false,
-    serverTime: new Date().toISOString(),
-    asOfET: "-",
-    source: "FALLBACK",
-    cacheAgeSec: 0
-};
+// Compute initial session from client clock to prevent polling freeze on mount
+// This is a best-effort estimate; the API will correct it within seconds
+function computeInitialSession(): MarketStatusResult {
+    const now = new Date();
+    const etStr = now.toLocaleString('en-US', { timeZone: 'America/New_York', hour12: false });
+    const et = new Date(etStr);
+    const h = et.getHours();
+    const m = et.getMinutes();
+    const etMins = h * 60 + m;
+    const dow = et.getDay();
+    const isWE = dow === 0 || dow === 6;
+    let session: 'pre' | 'regular' | 'post' | 'closed' = 'closed';
+    let market: 'open' | 'closed' = 'closed';
+    if (!isWE) {
+        if (etMins >= 240 && etMins < 570) { session = 'pre'; market = 'open'; }
+        else if (etMins >= 570 && etMins < 960) { session = 'regular'; market = 'open'; }
+        else if (etMins >= 960 && etMins < 1200) { session = 'post'; market = 'open'; }
+    }
+    return {
+        market,
+        session,
+        isHoliday: false,
+        serverTime: now.toISOString(),
+        asOfET: '-',
+        source: 'FALLBACK',
+        cacheAgeSec: 0
+    };
+}
+
+const INITIAL_STATUS: MarketStatusResult = computeInitialSession();
 
 export function useMarketStatus() {
     const [status, setStatus] = useState<MarketStatusResult>(INITIAL_STATUS);
@@ -54,7 +74,7 @@ export function useMarketStatus() {
         fetchStatus();
 
         // Poll every 60s (matches server cache)
-        const interval = setInterval(fetchStatus, 60000);
+        const interval = setInterval(fetchStatus, 30000);
 
         return () => {
             isMounted = false;
