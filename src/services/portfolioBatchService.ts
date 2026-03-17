@@ -152,14 +152,11 @@ export async function processPortfolioBatch(tickers: string[], mode: 'full' | 'p
         if (analysis) {
             const base = buildBasePrice();
 
+            // [FIX] Always use buildBasePrice().changePct — based on live snapshot data
+            // Previously: sparkline-based override used stale cache data (sparkline[-2] could be wrong date)
             let finalChangePct = base.changePct;
-            if (currentSession !== 'regular' && analysis.sparkline && analysis.sparkline.length >= 2) {
-                const lastClose = analysis.sparkline[analysis.sparkline.length - 1];
-                const prevClose2 = analysis.sparkline[analysis.sparkline.length - 2];
-                if (prevClose2 > 0 && lastClose > 0) {
-                    finalChangePct = ((lastClose - prevClose2) / prevClose2) * 100;
-                }
-            } else if (currentSession === 'regular') {
+            if (currentSession === 'regular') {
+                // If snapshot todaysChangePerc is 0 but we have live data, calculate directly
                 if (base.changePct === 0 && base.liveLast > 0 && base.prevDayClose > 0) {
                     finalChangePct = ((base.liveLast - base.prevDayClose) / base.prevDayClose) * 100;
                 }

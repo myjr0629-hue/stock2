@@ -64,6 +64,23 @@ function httpsGet(url) {
     });
 }
 
+// Fetch real previous day close for a ticker from Massive REST API
+function fetchPreviousClose(ticker) {
+    const url = `https://api.massive.com/v2/snapshot/locale/us/markets/stocks/tickers/${ticker}?apiKey=${process.env.MASSIVE_API_KEY || process.env.POLYGON_API_KEY}`;
+    return httpsGet(url)
+        .then(data => {
+            const t = data?.ticker;
+            if (t?.prevDay?.c && t.prevDay.c > 0) {
+                return t.prevDay.c;
+            }
+            return 0;
+        })
+        .catch(e => {
+            console.warn(`[Price WS] Failed to fetch prevClose for ${ticker}:`, e.message);
+            return 0;
+        });
+}
+
 // ══════════════════════════════════════════════════════════════
 // CONFIGURATION
 // ══════════════════════════════════════════════════════════════
@@ -221,6 +238,17 @@ function subscribeTickerOnPolygon(ticker) {
     polygonWs.send(JSON.stringify({ action: "subscribe", params: `T.${ticker},A.${ticker},AM.${ticker}` }));
     subscribedOnPolygon.add(ticker);
     console.log(`[Price WS] + Subscribed to T/A/AM.${ticker} on Massive`);
+
+    // Fetch real previousClose from REST API for accurate changePct
+    if (!latestPrices.has(ticker) || !latestPrices.get(ticker).prevClose) {
+        fetchPreviousClose(ticker).then(prevClose => {
+            if (prevClose > 0) {
+                const existing = latestPrices.get(ticker) || {};
+                latestPrices.set(ticker, { ...existing, prevClose });
+                console.log(`[Price WS] 📊 ${ticker} prevClose: $${prevClose}`);
+            }
+        });
+    }
 }
 
 function unsubscribeTickerOnPolygon(ticker) {
@@ -245,9 +273,9 @@ function handleAggregateUpdate(msg) {
     const volume = msg.v || 0;
     const open = msg.o || price;
 
-    // Update latest price cache
+    // Update latest price cache (prevClose must come from REST API, never from trade/agg data)
     const existing = latestPrices.get(ticker);
-    const prevClose = existing?.prevClose || open;
+    const prevClose = existing?.prevClose || 0;
     const changePct = prevClose > 0 ? ((price - prevClose) / prevClose) * 100 : 0;
 
     latestPrices.set(ticker, {
@@ -271,7 +299,7 @@ function handleTradeUpdate(msg) {
     const volume = msg.s || 0;
 
     const existing = latestPrices.get(ticker);
-    const prevClose = existing?.prevClose || price;
+    const prevClose = existing?.prevClose || 0;
     const changePct = prevClose > 0 ? ((price - prevClose) / prevClose) * 100 : 0;
 
     latestPrices.set(ticker, {

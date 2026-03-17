@@ -225,16 +225,11 @@ export async function processWatchlistBatch(tickers: string[], mode: 'full' | 'p
                 } catch { /* silent */ }
             }
 
-            // Override changePct with sparkline if NOT in regular session
+            // [FIX] Always use buildBasePrice().changePct — based on live snapshot data
+            // Previously: sparkline-based override used stale cache data (sparkline[-2] could be wrong date)
             let finalChangePct = base.changePct;
-            if (currentSession !== 'regular' && analysis.sparkline && analysis.sparkline.length >= 2) {
-                const lastClose = analysis.sparkline[analysis.sparkline.length - 1];
-                const prevClose2 = analysis.sparkline[analysis.sparkline.length - 2];
-                if (prevClose2 > 0 && lastClose > 0) {
-                    finalChangePct = ((lastClose - prevClose2) / prevClose2) * 100;
-                }
-            } else if (currentSession === 'regular') {
-                // If liveLast exists and we have prevDayClose
+            if (currentSession === 'regular') {
+                // If snapshot todaysChangePerc is 0 but we have live data, calculate directly
                 const liveLast = snap?.lastTrade?.p || 0;
                 if (base.changePct === 0 && liveLast > 0 && base.prevDayClose > 0) {
                     finalChangePct = ((liveLast - base.prevDayClose) / base.prevDayClose) * 100;
@@ -326,14 +321,9 @@ export async function processWatchlistBatch(tickers: string[], mode: 'full' | 'p
             const isREG = alphaSession === 'REG';
             const dailyResults = stockData.dailyResults || [];
 
+            // [FIX] Use getStockDataLight's changePct directly (snapshot-based, always correct)
+            // Previously: dailyResults[-2] could be wrong date due to weekends/holidays
             let changePct = stockData.changePercent || 0;
-            if (!isREG && dailyResults.length >= 2) {
-                const lastBar = dailyResults[dailyResults.length - 1];
-                const prevBar = dailyResults[dailyResults.length - 2];
-                if (lastBar?.close && prevBar?.close) {
-                    changePct = ((lastBar.close - prevBar.close) / prevBar.close) * 100;
-                }
-            }
 
             let relVol: number | null = null;
             if (isREG) {
