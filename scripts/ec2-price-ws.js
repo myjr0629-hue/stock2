@@ -200,6 +200,7 @@ function unsubscribeTickerOnPolygon(ticker) {
 function handleAggregateUpdate(msg) {
     const ticker = msg.sym;
     if (!ticker) return;
+    markPolygonDataReceived(); // Track that Polygon WS is alive
 
     const price = msg.c || msg.vw || 0; // close or vwap
     const volume = msg.v || 0;
@@ -225,6 +226,7 @@ function handleAggregateUpdate(msg) {
 function handleTradeUpdate(msg) {
     const ticker = msg.sym;
     if (!ticker) return;
+    markPolygonDataReceived(); // Track that Polygon WS is alive
 
     const price = msg.p || 0;
     const volume = msg.s || 0;
@@ -447,9 +449,116 @@ setInterval(() => {
 
 setInterval(() => {
     if (clients.size > 0 || tickerSubscribers.size > 0) {
-        console.log(`[Price WS] 📊 Clients: ${clients.size} | Tickers: ${tickerSubscribers.size} | Polygon: ${polygonConnected ? "✅" : "❌"} | Cached Prices: ${latestPrices.size}`);
+        console.log(`[Price WS] 📊 Clients: ${clients.size} | Tickers: ${tickerSubscribers.size} | Polygon: ${polygonConnected ? "✅" : "❌"} | REST Fallback: ${restFallbackActive ? "✅" : "❌"} | Cached Prices: ${latestPrices.size}`);
     }
 }, 60000); // Every minute
+
+// ══════════════════════════════════════════════════════════════
+// REST FALLBACK — Polls Polygon REST API when WS is dead
+// ══════════════════════════════════════════════════════════════
+// If Polygon WS isn't delivering data, this kicks in automatically
+// and polls the snapshot REST API every 3s, pushing individual
+// ticker updates to clients via WebSocket.
+
+const REST_POLL_INTERVAL_MS = 3000;  // 3s between REST polls
+const REST_FALLBACK_CHECK_MS = 10000; // Activate after 10s with no WS data
+let restFallbackActive = false;
+let restFallbackTimer = null;
+let lastPolygonDataTs = 0;           // Last time we received real WS data
+
+// Track when Polygon WS actually delivers data
+function markPolygonDataReceived() {
+    lastPolygonDataTs = Date.now();
+    // If fallback is active and WS is now working, disable fallback
+    if (restFallbackActive) {
+        console.log("[Price WS] Polygon WS data received — disabling REST fallback");
+        restFallbackActive = false;
+        if (restFallbackTimer) { clearInterval(restFallbackTimer); restFallbackTimer = null; }
+    }
+}
+
+// REST snapshot fetcher for a batch of tickers
+async function fetchSnapshotREST(tickers) {
+    if (!POLYGON_API_KEY || tickers.length === 0) return;
+    
+    try {
+        const url = `https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers?tickers=${tickers.join(",")}&apiKey=${POLYGON_API_KEY}`;
+        const res = await fetch(url);
+        if (!res.ok) { console.warn(`[REST Fallback] HTTP ${res.status}`); return; }
+        const data = await res.json();
+        
+        if (!data.tickers || !Array.isArray(data.tickers)) return;
+        
+        for (const snap of data.tickers) {
+            const ticker = snap.ticker;
+            if (!ticker) continue;
+            
+            const liveLast = snap.lastTrade?.p || 0;
+            const dayClose = snap.day?.c || 0;
+            const prevClose = snap.prevDay?.c || 0;
+            const volume = snap.day?.v || 0;
+            const price = liveLast || dayClose || prevClose;
+            
+            if (price <= 0) continue;
+            
+            const changePct = prevClose > 0 ? ((price - prevClose) / prevClose) * 100 : 0;
+            
+            // Only broadcast if price actually changed
+            const existing = latestPrices.get(ticker);
+            if (existing && Math.abs(existing.price - price) < 0.001) continue;
+            
+            latestPrices.set(ticker, {
+                price,
+                changePct: Math.round(changePct * 100) / 100,
+                volume,
+                prevClose,
+                ts: Date.now(),
+            });
+            
+            // Push to subscribed clients immediately
+            broadcastPrice(ticker, price, changePct, volume);
+        }
+    } catch (e) {
+        console.warn("[REST Fallback] Error:", e.message);
+    }
+}
+
+// REST fallback polling loop
+function startRestFallback() {
+    if (restFallbackActive) return;
+    restFallbackActive = true;
+    console.log("[Price WS] 🔄 REST fallback ACTIVATED — polling Polygon REST API every 3s");
+    
+    const poll = () => {
+        const tickers = [...tickerSubscribers.keys()];
+        if (tickers.length === 0) return;
+        
+        // Polygon allows up to 50 tickers per snapshot request
+        const batches = [];
+        for (let i = 0; i < tickers.length; i += 50) {
+            batches.push(tickers.slice(i, i + 50));
+        }
+        batches.forEach(batch => fetchSnapshotREST(batch));
+    };
+    
+    // Immediate first poll
+    poll();
+    restFallbackTimer = setInterval(poll, REST_POLL_INTERVAL_MS);
+}
+
+// Check periodically if we need to activate REST fallback
+setInterval(() => {
+    if (tickerSubscribers.size === 0) return; // No subscribers, no need
+    
+    const now = Date.now();
+    const timeSinceLastData = now - lastPolygonDataTs;
+    
+    // If no WS data for 10s and fallback not yet active, activate it
+    if (timeSinceLastData > REST_FALLBACK_CHECK_MS && !restFallbackActive) {
+        console.log(`[Price WS] No Polygon WS data for ${Math.round(timeSinceLastData / 1000)}s — activating REST fallback`);
+        startRestFallback();
+    }
+}, 5000); // Check every 5s
 
 // ══════════════════════════════════════════════════════════════
 // STARTUP
