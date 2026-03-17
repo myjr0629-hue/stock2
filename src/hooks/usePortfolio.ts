@@ -103,12 +103,13 @@ export function usePortfolio(initialHoldings?: Holding[], initialFullData?: any[
                 ? { results: initialFullData }
                 : undefined,
             refreshInterval: isClosed ? 0 : 30000,      // 30s full refresh (disabled when closed)
+            revalidateOnMount: true,                     // ← CRITICAL: fetch fresh data immediately on mount
             revalidateOnFocus: false,
             dedupingInterval: 5000,
         }
     );
 
-    // ── SWR: Price-only with 5s auto-refresh (lightweight) ──
+    // ── SWR: Price-only with 2s auto-refresh (lightweight) ──
     const { data: priceData, isLoading: priceLoading } = useSWR(
         tickerString ? `/api/portfolio/batch?tickers=${tickerString}&mode=price` : null,
         fetcher,
@@ -128,12 +129,13 @@ export function usePortfolio(initialHoldings?: Holding[], initialFullData?: any[
                 }))
             } : undefined,
             refreshInterval: isClosed ? 0 : 2000,       // 2s fast price polling (disabled when closed)
+            revalidateOnMount: true,                     // ← CRITICAL: immediate first fetch
             revalidateOnFocus: false,
-            dedupingInterval: 2000,
+            dedupingInterval: 1000,                      // ← Reduced from 2s to 1s for snappier updates
         }
     );
 
-    // ── SWR: Live quotes for session-aware extended pricing (10s) ──
+    // ── SWR: Live quotes for session-aware extended pricing (2s) ──
     const { data: liveQuotes } = useSWR(
         tickerString ? `/api/live/quotes?symbols=${tickerString}` : null,
         fetcher,
@@ -145,8 +147,9 @@ export function usePortfolio(initialHoldings?: Holding[], initialFullData?: any[
                 }, {} as Record<string, any>)
             } : undefined,
             refreshInterval: isClosed ? 0 : 2000,      // 2s near-real-time (disabled when closed)
+            revalidateOnMount: true,                     // ← CRITICAL: immediate first fetch
             revalidateOnFocus: false,
-            dedupingInterval: 3000,
+            dedupingInterval: 1000,                      // ← Reduced from 3s to 1s
         }
     );
 
@@ -183,11 +186,11 @@ export function usePortfolio(initialHoldings?: Holding[], initialFullData?: any[
             const priceApi = priceResults[holding.ticker];
             const liveQ = liveMap[holding.ticker];
 
-            // Use 5s fast price if available, else 30s full data
+            // Use 2s fast price if available, else 30s full data
             // Merge: price from fast poll, sparkline/indicators from full data
             const fullRt = fullApi?.realtime;
             const priceRt = priceApi?.realtime;
-            const rt = fullRt || priceRt;
+            const rt = priceRt || fullRt;  // ← priceRt (2s) takes priority over fullRt (30s)
             const alpha = fullApi?.alphaSnapshot; // Alpha only from full data
 
             // Session-aware extended price decomposition from /api/live/quotes
@@ -205,11 +208,11 @@ export function usePortfolio(initialHoldings?: Holding[], initialFullData?: any[
             }
 
             if (rt) {
-                // [WS] WebSocket price overlay: real-time tick > extended live > fast 5s poll > full 30s
+                // Price priority: WS tick > extended live > fast 2s poll > full 30s
                 const wsPrice = wsGetPrice(holding.ticker);
                 const price = wsPrice?.price || displayPrice || priceRt?.price || fullRt?.price || 0;
-                // changePct: WS provides real-time changePct, then batch API
-                const changePct = wsPrice?.changePct ?? fullRt?.changePct ?? priceRt?.changePct ?? 0;
+                // changePct: WS > priceRt (2s) > fullRt (30s) — freshest data first
+                const changePct = wsPrice?.changePct ?? priceRt?.changePct ?? fullRt?.changePct ?? 0;
                 // regChangePct for UI decomposition: same reliable source
                 const regChangePct = fullRt?.changePct ?? priceRt?.changePct ?? 0;
                 const marketValue = holding.quantity * price;
