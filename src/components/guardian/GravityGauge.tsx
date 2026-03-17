@@ -125,9 +125,9 @@ export default function GravityGauge({ score, loading, session, components, rlsi
     ];
 
     return (
-        <div className="flex flex-col items-center justify-start h-full relative p-2 pt-1">
-            {/* Header */}
-            <div className="w-full px-2 mb-0">
+        <div className="flex flex-col items-center h-full relative p-2 pt-1">
+            {/* Header — pinned to top */}
+            <div className="w-full px-2 mb-0 flex-none">
                 <div className="flex items-center gap-2">
                     <Activity className="w-3 h-3 text-white opacity-70" />
                     <GuardianTooltip sectionId="gravityGauge">
@@ -148,6 +148,9 @@ export default function GravityGauge({ score, loading, session, components, rlsi
                     )}
                 </div>
             </div>
+
+            {/* Content — vertically centered in remaining space */}
+            <div className="flex-1 flex flex-col items-center justify-center min-h-0">
 
             {/* Main Gauge Container */}
             <div className="relative -mt-1">
@@ -363,6 +366,7 @@ export default function GravityGauge({ score, loading, session, components, rlsi
             {rlsiHistory && rlsiHistory.length >= 4 && !loading && !isHoliday && (
                 <TimelineInsight history={rlsiHistory} />
             )}
+            </div>
         </div>
     );
 }

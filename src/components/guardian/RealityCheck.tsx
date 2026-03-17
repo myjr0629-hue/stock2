@@ -1,8 +1,9 @@
 "use client";
 
 import React, { useState, useMemo } from 'react';
-import { Activity, AlertTriangle, TrendingUp, Radar } from "lucide-react";
+import { Activity, AlertTriangle, TrendingUp, Radar, Newspaper, Radio, Globe, Flag, BarChart3, Zap, Shield, Clock } from "lucide-react";
 import { useMacroSnapshot } from "@/hooks/useMacroSnapshot";
+import { useGuardianNews, type NewsDigestItem } from "@/hooks/useGuardianNews";
 import { useTranslations, useLocale } from 'next-intl';
 import { MiniGauge, DualGauge } from "./MiniGauge";
 import { GuardianTooltip } from './GuardianTooltip';
@@ -23,8 +24,24 @@ interface RealityCheckProps {
     goldFlow?: number;
 }
 
+// ===== Category Config =====
+const CATEGORY_CONFIG: Record<string, { icon: typeof Globe; color: string; label: Record<string, string> }> = {
+    US_MARKET: { icon: BarChart3, color: 'text-emerald-400', label: { ko: '미국 시장', en: 'US MARKET', ja: '米国市場' } },
+    GLOBAL: { icon: Globe, color: 'text-sky-400', label: { ko: '글로벌', en: 'GLOBAL', ja: 'グローバル' } },
+    GEOPOLITICAL: { icon: Flag, color: 'text-rose-400', label: { ko: '지정학', en: 'GEOPOLITICAL', ja: '地政学' } },
+    MACRO: { icon: TrendingUp, color: 'text-amber-400', label: { ko: '매크로', en: 'MACRO', ja: 'マクロ' } },
+    SECTOR: { icon: Zap, color: 'text-violet-400', label: { ko: '섹터', en: 'SECTOR', ja: 'セクター' } },
+};
+
+const IMPACT_CONFIG: Record<string, { color: string; bg: string; border: string }> = {
+    BULLISH: { color: 'text-emerald-400', bg: 'bg-emerald-500/10', border: 'border-emerald-500/20' },
+    BEARISH: { color: 'text-rose-400', bg: 'bg-rose-500/10', border: 'border-rose-500/20' },
+    MIXED: { color: 'text-amber-400', bg: 'bg-amber-500/10', border: 'border-amber-500/20' },
+    NEUTRAL: { color: 'text-slate-300', bg: 'bg-slate-500/10', border: 'border-slate-500/20' },
+};
+
 /**
- * RealityCheck v9.1 — Dual-Mode: Gauges + Risk Radar HUD (6-Axis Hexagon)
+ * RealityCheck v10.0 — MACRO ALERTS + NEWS PULSE Toggle
  */
 export function RealityCheck({
     nasdaqChange,
@@ -37,7 +54,9 @@ export function RealityCheck({
     goldFlow,
 }: RealityCheckProps) {
     const t = useTranslations('guardian');
+    const locale = useLocale();
     const [activeTab, setActiveTab] = useState<'gauges' | 'radar'>('gauges');
+    const [bottomTab, setBottomTab] = useState<'alerts' | 'news'>('news');
     const isDivergent = divergenceCase === 'A' || divergenceCase === 'B';
     const statusText = isDivergent ? "DIVERGENCE" : "ALIGNED";
     const statusColor = isDivergent
@@ -45,10 +64,16 @@ export function RealityCheck({
         : "text-emerald-400 border-emerald-500/30 bg-emerald-500/10";
 
     const { snapshot } = useMacroSnapshot();
+    const { items: newsItems, hasBreaking, isLoading: newsLoading } = useGuardianNews(true);
     const yieldCurve = snapshot?.yieldCurve;
     const realYield = snapshot?.realYield;
     const us10yFactor = snapshot?.factors?.us10y;
     const us10yChangePct = us10yFactor?.chgPct ?? 0;
+
+    // Check if macro alerts exist
+    const hasVixAlert = vixTermStructure !== undefined && vixTermStructure <= 0.95;
+    const hasRiskOff = bondFlow !== undefined && goldFlow !== undefined && (bondFlow + goldFlow) > 0.5;
+    const hasMacroAlerts = hasVixAlert || hasRiskOff;
 
     const getRvolColor = (val: number) => val > 1.0 ? 'text-cyan-400' : 'text-slate-400';
     const get10YColor = (change: number) => change >= 0 ? 'text-rose-400' : 'text-emerald-400';
@@ -61,6 +86,43 @@ export function RealityCheck({
         if (stance === 'TIGHT') return 'text-rose-400';
         if (stance === 'LOOSE') return 'text-emerald-400';
         return 'text-sky-400';
+    };
+
+    // i18n helper for bottom section
+    const bt = (key: string): string => {
+        const map: Record<string, Record<string, string>> = {
+            macroAlerts: { ko: '매크로 경보', en: 'MACRO ALERTS', ja: 'マクロ警報' },
+            newsPulse: { ko: '뉴스 펄스', en: 'NEWS PULSE', ja: 'ニュースパルス' },
+            noAlerts: { ko: '현재 매크로 경보 없음 — 정상 구간', en: 'No active macro alerts — Normal conditions', ja: '現在マクロ警報なし — 正常区間' },
+            breaking: { ko: '속보', en: 'BREAKING', ja: '速報' },
+            ago: { ko: '전', en: 'ago', ja: '前' },
+            min: { ko: '분', en: 'min', ja: '分' },
+            hour: { ko: '시간', en: 'h', ja: '時間' },
+            updated: { ko: '갱신', en: 'Updated', ja: '更新' },
+            loading: { ko: '뉴스 분석 중...', en: 'Analyzing news...', ja: 'ニュース分析中...' },
+            noNews: { ko: '뉴스를 불러오는 중...', en: 'Loading news...', ja: 'ニュースを読み込み中...' },
+            impact: { ko: '임팩트', en: 'Impact', ja: 'インパクト' },
+        };
+        return map[key]?.[locale] || map[key]?.en || key;
+    };
+
+    // Get localized summary/analysis
+    const getLocalizedSummary = (item: NewsDigestItem): string => {
+        if (locale === 'ko') return item.summaryKR || item.summaryEN;
+        if (locale === 'ja') return item.summaryJP || item.summaryEN;
+        return item.summaryEN || item.summaryKR;
+    };
+    const getLocalizedAnalysis = (item: NewsDigestItem): string => {
+        if (locale === 'ko') return item.analysisKR || item.analysisEN;
+        if (locale === 'ja') return item.analysisJP || item.analysisEN;
+        return item.analysisEN || item.analysisKR;
+    };
+
+    // Age formatter
+    const formatAge = (minutes: number): string => {
+        if (minutes < 60) return `${minutes}${bt('min')} ${bt('ago')}`;
+        const hours = Math.floor(minutes / 60);
+        return `${hours}${bt('hour')} ${bt('ago')}`;
     };
 
     return (
@@ -106,7 +168,7 @@ export function RealityCheck({
             {/* ===== GAUGES TAB ===== */}
             {activeTab === 'gauges' && (
                 <>
-                    <div className="flex-1 grid grid-cols-3 gap-x-2 gap-y-3 place-items-center content-center">
+                    <div className="flex-none grid grid-cols-3 gap-x-2 gap-y-3 place-items-center content-center">
                         <DualGauge priceValue={nasdaqChange} flowValue={guardianScore} size="lg" />
                         <MiniGauge label="NDX 20D" value={`${Math.round(rvolNdx * 100)}%`}
                             subLabel={rvolNdx > 1.5 ? t('rvolActive') : rvolNdx > 1.0 ? t('rvolNormal') : t('rvolLow')}
@@ -127,32 +189,73 @@ export function RealityCheck({
                             colorClass={realYield ? getRealColor(realYield.stance) : 'text-slate-400'} size="lg"
                             fillPercent={realYield ? Math.min((realYield.realYield + 2) * 25, 100) : 50} />
                     </div>
-                    {(vixTermStructure !== undefined && bondFlow !== undefined && goldFlow !== undefined) && (
-                        <div className="flex flex-col gap-2 mt-3 flex-none">
-                            {vixTermStructure <= 0.95 && (
-                                <div className="flex items-start gap-2 rounded-lg bg-rose-500/10 border border-rose-500/20 p-2.5">
-                                    <AlertTriangle className="w-4 h-4 text-rose-400 mt-0.5 flex-shrink-0" />
-                                    <div>
-                                        <div className="text-[13px] font-bold text-rose-400 uppercase tracking-wider font-jakarta">VIX Backwardation (Panic)</div>
-                                        <div className="text-[13px] text-rose-300/85 mt-0.5 leading-[1.5]" style={{ fontFamily: 'Pretendard, sans-serif' }}>
-                                            {t('vixBackwardationDesc')}
-                                        </div>
-                                    </div>
-                                </div>
+
+                    {/* ===== BOTTOM TOGGLE: MACRO ALERTS / NEWS PULSE ===== */}
+                    <div className="flex flex-col mt-3 flex-1 min-h-0">
+                        {/* Toggle Tabs */}
+                        <div className="flex items-center gap-0 mb-2 flex-none">
+                            <button
+                                onClick={() => setBottomTab('alerts')}
+                                className={`flex items-center gap-1.5 text-[12px] font-bold px-3 py-1 rounded-l-lg border transition-all duration-200 ${bottomTab === 'alerts'
+                                    ? 'bg-slate-700/60 text-white border-slate-500/70 shadow-sm'
+                                    : 'bg-transparent text-slate-500 border-slate-600/40 hover:text-slate-400 hover:border-slate-500/50'
+                                    }`}
+                            >
+                                <Shield className="w-3 h-3" />
+                                {bt('macroAlerts')}
+                                {hasMacroAlerts && (
+                                    <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+                                )}
+                            </button>
+                            <button
+                                onClick={() => setBottomTab('news')}
+                                className={`flex items-center gap-1.5 text-[12px] font-bold px-3 py-1 rounded-r-lg border-y border-r transition-all duration-200 ${bottomTab === 'news'
+                                    ? 'bg-indigo-500/15 text-indigo-300 border-indigo-400/40 shadow-sm shadow-indigo-500/10'
+                                    : 'bg-transparent text-slate-500 border-slate-600/40 hover:text-slate-400 hover:border-slate-500/50'
+                                    }`}
+                            >
+                                <Radio className="w-3 h-3" />
+                                {bt('newsPulse')}
+                                {bottomTab === 'news' && (
+                                    <span className="relative flex h-2 w-2">
+                                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75" />
+                                        <span className="relative inline-flex rounded-full h-2 w-2 bg-cyan-400" />
+                                    </span>
+                                )}
+                                {hasBreaking && (
+                                    <span className="relative flex h-2 w-2">
+                                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75" />
+                                        <span className="relative inline-flex rounded-full h-2 w-2 bg-rose-500" />
+                                    </span>
+                                )}
+                            </button>
+                        </div>
+
+                        {/* Bottom Content */}
+                        <div className="flex-1 min-h-0 overflow-y-auto" style={{ scrollbarWidth: 'thin', scrollbarColor: '#334155 transparent' } as React.CSSProperties}>
+                            {bottomTab === 'alerts' && (
+                                <MacroAlertsContent
+                                    vixTermStructure={vixTermStructure}
+                                    bondFlow={bondFlow}
+                                    goldFlow={goldFlow}
+                                    hasMacroAlerts={hasMacroAlerts}
+                                    t={t}
+                                    bt={bt}
+                                />
                             )}
-                            {(bondFlow + goldFlow) > 0.5 && (
-                                <div className="flex items-start gap-2 rounded-lg bg-amber-500/10 border border-amber-500/20 p-2.5">
-                                    <TrendingUp className="w-4 h-4 text-amber-400 mt-0.5 flex-shrink-0" />
-                                    <div>
-                                        <div className="text-[13px] font-bold text-amber-400 uppercase tracking-wider font-jakarta">Risk-Off Rotation</div>
-                                        <div className="text-[13px] text-amber-300/85 mt-0.5 leading-[1.5]" style={{ fontFamily: 'Pretendard, sans-serif' }}>
-                                            {t('riskOffDesc')} (Bonds: {(bondFlow > 0 ? '+' : '')}{bondFlow.toFixed(1)}%, Gold: {(goldFlow > 0 ? '+' : '')}{goldFlow.toFixed(1)}%)
-                                        </div>
-                                    </div>
-                                </div>
+                            {bottomTab === 'news' && (
+                                <NewsPulseContent
+                                    items={newsItems}
+                                    isLoading={newsLoading}
+                                    locale={locale}
+                                    bt={bt}
+                                    getLocalizedSummary={getLocalizedSummary}
+                                    getLocalizedAnalysis={getLocalizedAnalysis}
+                                    formatAge={formatAge}
+                                />
                             )}
                         </div>
-                    )}
+                    </div>
                 </>
             )}
 
@@ -160,6 +263,198 @@ export function RealityCheck({
             {activeTab === 'radar' && (
                 <RiskRadarHUD snapshot={snapshot} />
             )}
+        </div>
+    );
+}
+
+// ===== MACRO ALERTS Sub-Component =====
+function MacroAlertsContent({
+    vixTermStructure, bondFlow, goldFlow, hasMacroAlerts, t, bt,
+}: {
+    vixTermStructure?: number; bondFlow?: number; goldFlow?: number;
+    hasMacroAlerts: boolean;
+    t: (key: string) => string; bt: (key: string) => string;
+}) {
+    return (
+        <div className="flex flex-col gap-2">
+            {vixTermStructure !== undefined && vixTermStructure <= 0.95 && (
+                <div className="flex items-start gap-2 rounded-lg bg-rose-500/10 border border-rose-500/20 p-2.5">
+                    <AlertTriangle className="w-4 h-4 text-rose-400 mt-0.5 flex-shrink-0" />
+                    <div>
+                        <div className="text-[13px] font-bold text-rose-400 uppercase tracking-wider font-jakarta">VIX Backwardation (Panic)</div>
+                        <div className="text-[13px] text-rose-300/85 mt-0.5 leading-[1.5]" style={{ fontFamily: 'Pretendard, sans-serif' }}>
+                            {t('vixBackwardationDesc')}
+                        </div>
+                    </div>
+                </div>
+            )}
+            {bondFlow !== undefined && goldFlow !== undefined && (bondFlow + goldFlow) > 0.5 && (
+                <div className="flex items-start gap-2 rounded-lg bg-amber-500/10 border border-amber-500/20 p-2.5">
+                    <TrendingUp className="w-4 h-4 text-amber-400 mt-0.5 flex-shrink-0" />
+                    <div>
+                        <div className="text-[13px] font-bold text-amber-400 uppercase tracking-wider font-jakarta">Risk-Off Rotation</div>
+                        <div className="text-[13px] text-amber-300/85 mt-0.5 leading-[1.5]" style={{ fontFamily: 'Pretendard, sans-serif' }}>
+                            {t('riskOffDesc')} (Bonds: {(bondFlow > 0 ? '+' : '')}{bondFlow.toFixed(1)}%, Gold: {(goldFlow > 0 ? '+' : '')}{goldFlow.toFixed(1)}%)
+                        </div>
+                    </div>
+                </div>
+            )}
+            {!hasMacroAlerts && (
+                <div className="flex items-center gap-2 rounded-lg bg-emerald-500/5 border border-emerald-500/15 p-3">
+                    <Shield className="w-4 h-4 text-emerald-400/60 flex-shrink-0" />
+                    <div className="text-[13px] text-slate-300 leading-[1.5]" style={{ fontFamily: 'Pretendard, sans-serif' }}>
+                        ✅ {bt('noAlerts')}
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+}
+
+// ===== NEWS PULSE Sub-Component — Single-Item Auto-Carousel =====
+function NewsPulseContent({
+    items, isLoading, locale, bt, getLocalizedSummary, getLocalizedAnalysis, formatAge,
+}: {
+    items: NewsDigestItem[];
+    isLoading: boolean;
+    locale: string;
+    bt: (key: string) => string;
+    getLocalizedSummary: (item: NewsDigestItem) => string;
+    getLocalizedAnalysis: (item: NewsDigestItem) => string;
+    formatAge: (minutes: number) => string;
+}) {
+    const [currentIdx, setCurrentIdx] = React.useState(0);
+    const displayItems = items.slice(0, 5);
+    const total = displayItems.length;
+
+    // Auto-rotation: 8 seconds per item
+    React.useEffect(() => {
+        if (total <= 1) return;
+        const timer = setInterval(() => {
+            setCurrentIdx(prev => (prev + 1) % total);
+        }, 10000);
+        return () => clearInterval(timer);
+    }, [total]);
+
+    // Reset index when items change
+    React.useEffect(() => { setCurrentIdx(0); }, [items.length]);
+
+    if (isLoading || total === 0) {
+        return (
+            <div className="flex flex-col items-center justify-center py-4 gap-2">
+                <Radio className="w-5 h-5 text-indigo-400/50 animate-pulse" />
+                <span className="text-[13px] text-slate-400" style={{ fontFamily: 'Pretendard, sans-serif' }}>
+                    {isLoading ? bt('loading') : bt('noNews')}
+                </span>
+            </div>
+        );
+    }
+
+    const item = displayItems[currentIdx];
+    if (!item) return null;
+
+    const isBreaking = item.urgency >= 8;
+    const cat = CATEGORY_CONFIG[item.category] || CATEGORY_CONFIG.US_MARKET;
+    const imp = IMPACT_CONFIG[item.impact] || IMPACT_CONFIG.NEUTRAL;
+    const CatIcon = cat.icon;
+    const summary = getLocalizedSummary(item);
+    const analysis = getLocalizedAnalysis(item);
+
+    return (
+        <div className="flex flex-col">
+            {/* Single News Card */}
+            <div
+                key={`${item.id}-${currentIdx}`}
+                className={`relative rounded-lg p-3 transition-all duration-500 overflow-hidden ${isBreaking
+                    ? 'border border-rose-500/30 shadow-[0_0_15px_rgba(244,63,94,0.15)]'
+                    : 'border border-slate-600/50'
+                    }`}
+                style={{
+                    background: isBreaking
+                        ? 'linear-gradient(135deg, rgba(244,63,94,0.06) 0%, rgba(15,23,42,0.95) 50%, rgba(244,63,94,0.04) 100%)'
+                        : 'linear-gradient(135deg, rgba(99,102,241,0.06) 0%, rgba(15,23,42,0.95) 40%, rgba(6,182,212,0.04) 100%)',
+                }}
+            >
+                {/* Infographic grid pattern overlay */}
+                <div className="absolute inset-0 pointer-events-none opacity-[0.04]"
+                    style={{
+                        backgroundImage: `
+                            linear-gradient(rgba(148,163,184,0.3) 1px, transparent 1px),
+                            linear-gradient(90deg, rgba(148,163,184,0.3) 1px, transparent 1px)
+                        `,
+                        backgroundSize: '20px 20px',
+                    }}
+                />
+                {/* Subtle corner accent */}
+                <div className="absolute top-0 right-0 w-28 h-28 pointer-events-none"
+                    style={{ background: 'radial-gradient(circle at top right, rgba(99,102,241,0.18), transparent 70%)' }}
+                />
+
+                <div className="relative z-10">
+                    {/* Header: Breaking + Category + Impact + Time */}
+                    <div className="flex items-center gap-1.5 mb-1.5">
+                        {isBreaking && (
+                            <span className="flex items-center gap-1 text-[12px] font-black text-rose-400 bg-rose-500/15 px-1.5 py-0.5 rounded border border-rose-500/30 animate-pulse">
+                                <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
+                                {bt('breaking')}
+                            </span>
+                        )}
+                        <span className={`flex items-center gap-1 text-[12px] font-bold ${cat.color}`}>
+                            <CatIcon className="w-3 h-3" />
+                            {cat.label[locale] || cat.label.en}
+                        </span>
+                        <span className={`text-[12px] font-bold px-1.5 py-0.5 rounded ${imp.bg} ${imp.border} border ${imp.color}`}>
+                            {item.impact}
+                        </span>
+                        <span className="text-[12px] text-slate-500 ml-auto flex items-center gap-1">
+                            <Clock className="w-3 h-3" />
+                            {formatAge(item.ageMinutes)}
+                        </span>
+                    </div>
+
+                    {/* Summary — main headline */}
+                    <div className="text-[13px] text-slate-300 font-medium leading-[1.6]" style={{ fontFamily: 'Pretendard, sans-serif' }}>
+                        {summary}
+                    </div>
+
+                    {/* Analysis — much more visible with separator */}
+                    {analysis && (
+                        <div className="mt-2 pt-2 border-t border-slate-700/30">
+                            <div className="flex items-start gap-1.5">
+                                <span className="text-[10px] font-black text-violet-300 bg-violet-500/15 border border-violet-400/30 rounded px-1 py-[1px] mt-0.5 flex-shrink-0 tracking-wide leading-none">AI</span>
+                                <span className="text-[13px] text-cyan-300/90 leading-[1.6] font-medium" style={{ fontFamily: 'Pretendard, sans-serif' }}>
+                                    {analysis}
+                                </span>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Source */}
+                    <div className="flex items-center justify-between mt-2">
+                        <span className="text-[12px] text-slate-500 italic">
+                            {item.source}
+                        </span>
+                    </div>
+                </div>
+            </div>
+
+            {/* Progress Dots + Navigation */}
+            {total > 1 && (
+                <div className="flex items-center justify-center gap-1.5 mt-2">
+                    {displayItems.map((_, idx) => (
+                        <button
+                            key={idx}
+                            onClick={() => setCurrentIdx(idx)}
+                            className={`rounded-full transition-all duration-300 ${idx === currentIdx
+                                ? 'w-4 h-1.5 bg-indigo-400'
+                                : 'w-1.5 h-1.5 bg-slate-600 hover:bg-slate-500'
+                                }`}
+                        />
+                    ))}
+                </div>
+            )}
+
+
         </div>
     );
 }
