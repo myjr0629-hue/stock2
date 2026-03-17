@@ -158,9 +158,9 @@ export default async function HowItWorksPage() {
                     {/* Call Wall line */}
                     <line x1="0" y1="50" x2="260" y2="50" stroke="#fbbf24" strokeWidth="1.5" />
                     <text x="248" y="46" fill="#fbbf24" fontSize="8" textAnchor="end">CALL WALL</text>
-                    {/* Put Wall line */}
+                    {/* Put Floor line */}
                     <line x1="0" y1="140" x2="260" y2="140" stroke="#fb7185" strokeWidth="1.5" />
-                    <text x="248" y="136" fill="#fb7185" fontSize="8" textAnchor="end">PUT WALL</text>
+                    <text x="248" y="136" fill="#fb7185" fontSize="8" textAnchor="end">PUT FLOOR</text>
                     {/* Max Pain line */}
                     <line x1="0" y1="95" x2="260" y2="95" stroke="#a78bfa" strokeWidth="1" strokeDasharray="6 3" />
                     <text x="248" y="91" fill="#a78bfa" fontSize="7" textAnchor="end">MAX PAIN</text>

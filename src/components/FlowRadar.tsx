@@ -144,7 +144,7 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
         const matrix = new Map<number, Map<string, { callVol: number; putVol: number }>>();
         const expirySet = new Set<string>();
         let maxVol = 0;
-        const range = currentPrice * 0.10; // ±10% for tighter focus
+        const range = currentPrice * 0.18; // ±18% for rich coverage
 
         rawChain.forEach(opt => {
             const strike = opt.details?.strike_price;
@@ -187,12 +187,11 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
             })
             .sort((a, b) => b - a);
 
-        // Limit to top ~25 strikes for readability
-        const topStrikes = strikes.length > 25
+        const topStrikes = strikes.length > 40
             ? strikes.filter(s => {
                 const dist = Math.abs(s - currentPrice) / currentPrice;
-                return dist < 0.07; 
-            }).slice(0, 25)
+                return dist < 0.18; 
+            }).slice(0, 40)
             : strikes;
 
         return { matrix, expiries, strikes: topStrikes, maxVol };
@@ -2506,6 +2505,10 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                                             0%, 100% { opacity: 0.3; transform: scale(1); }
                                             50% { opacity: 0.8; transform: scale(1.15); }
                                         }
+                                        @keyframes priceFlash {
+                                            0%, 100% { filter: drop-shadow(0 0 4px rgba(56,189,248,0.4)); }
+                                            50% { filter: drop-shadow(0 0 16px rgba(56,189,248,0.9)) drop-shadow(0 0 30px rgba(56,189,248,0.4)); }
+                                        }
                                     `}</style>
 
                                     {/* SVG Force Field */}
@@ -2514,12 +2517,13 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                                         const expiries = heatmapData.expiries;
                                         const maxVol = heatmapData.maxVol;
                                         const W = 600;
-                                        const ROW_H = 30;
                                         const PADDING_TOP = 8;
                                         const PADDING_BOTTOM = 12;
+                                        const ROW_H = 30;
                                         const H = strikes.length * ROW_H + PADDING_TOP + PADDING_BOTTOM;
+                                        const LABEL_COL = 45;
                                         const CENTER = W / 2;
-                                        const BAR_ZONE = CENTER - 55;
+                                        const BAR_ZONE = Math.min(CENTER - LABEL_COL, W - CENTER - 10);
 
                                         const yOf = (i: number) => PADDING_TOP + i * ROW_H + ROW_H / 2;
 
@@ -2578,7 +2582,7 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                                                         el.dataset.scrolled = '1';
                                                     }
                                                 }}>
-                                            <svg viewBox={`0 0 ${W} ${H}`} width="100%" height={Math.round(H * 1.4)} preserveAspectRatio="xMidYMin meet">
+                                            <svg viewBox={`0 0 ${W} ${H}`} width="100%" height={H} preserveAspectRatio="xMidYMin meet">
                                                 <defs>
                                                     <linearGradient id="ff-call" x1="0" y1="0" x2="1" y2="0">
                                                         <stop offset="0%" stopColor="#10b981" stopOpacity="0.05" />
@@ -2608,6 +2612,9 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                                                     </filter>
                                                 </defs>
 
+                                                {/* Label column separator */}
+                                                <line x1={LABEL_COL} x2={LABEL_COL} y1={PADDING_TOP - 4} y2={H - PADDING_BOTTOM + 4}
+                                                    stroke="#1e293b" strokeWidth="0.5" opacity="0.6" />
                                                 {/* Center spine */}
                                                 <line x1={CENTER} x2={CENTER} y1={PADDING_TOP - 4} y2={H - PADDING_BOTTOM + 4}
                                                     stroke="#334155" strokeWidth="1" opacity="0.4" />
@@ -2618,125 +2625,146 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                                                     const isATM = Math.abs(agg.strike - currentPrice) / currentPrice < 0.005;
                                                     const cPct = agg.callVol / localMax;
                                                     const pPct = agg.putVol / localMax;
-                                                    const cW = cPct * BAR_ZONE;
-                                                    const pW = pPct * BAR_ZONE;
-                                                    const barH = 16;
-                                                    const isHot = cPct > 0.5 || pPct > 0.5;
                                                     const isCallWallStrike = agg.strike === callWall;
                                                     const isPutWallStrike = agg.strike === putWall;
+                                                    const isKeyLevel = isCallWallStrike || isPutWallStrike;
+                                                    const GAP = 22;
+                                                    const bH = isKeyLevel ? ROW_H : Math.round(ROW_H * 0.73);
+                                                    const cW = cPct * (BAR_ZONE - GAP);
+                                                    const pW = pPct * (BAR_ZONE - GAP);
+                                                    const isHot = cPct > 0.5 || pPct > 0.5;
+                                                    const callX = CENTER + GAP;
+                                                    const putEndX = CENTER - GAP;
 
                                                     return (
                                                         <g key={`row-${i}`}>
-                                                            <line x1={30} x2={W - 30} y1={y} y2={y} stroke="#1e293b" strokeWidth="0.3" />
+                                                            <line x1={LABEL_COL + 4} x2={W - 4} y1={y} y2={y} stroke="#1e293b" strokeWidth="0.3" />
 
-                                                            {/* CALL BAR (right) */}
+                                                            {/* Key level row background glow */}
+                                                            {isKeyLevel && (
+                                                                <rect x={LABEL_COL} y={y - ROW_H / 2} width={W - LABEL_COL} height={ROW_H}
+                                                                    fill={isCallWallStrike ? '#10b981' : '#f43f5e'} opacity={0.04} />
+                                                            )}
+
+                                                            {/* CALL BAR (right of gap) */}
                                                             {cW > 2 && (
                                                                 <g>
                                                                     {cPct > 0.3 && (
-                                                                        <rect x={CENTER + 2} y={y - barH / 2 - 3} width={cW + 6} height={barH + 6}
-                                                                            rx={barH / 2 + 3} fill="#10b981" opacity={cPct * 0.25}
+                                                                        <rect x={callX} y={y - bH / 2 - 3} width={cW + 6} height={bH + 6}
+                                                                            rx={bH / 2 + 3} fill="#10b981" opacity={cPct * 0.25}
                                                                             filter="url(#ff-bloom)" />
                                                                     )}
-                                                                    <rect x={CENTER + 2} y={y - barH / 2} width={cW} height={barH}
-                                                                        rx={barH / 2} fill="url(#ff-call)"
-                                                                        stroke="rgba(16,185,129,0.5)" strokeWidth="0.5" />
-                                                                    <rect x={CENTER + 2} y={y - barH / 2 + 1} width={cW * 0.7} height={barH * 0.35}
-                                                                        rx={barH / 4} fill="rgba(255,255,255,0.08)" />
+                                                                    <rect x={callX} y={y - bH / 2} width={cW} height={bH}
+                                                                        rx={bH / 2} fill="url(#ff-call)"
+                                                                        stroke={isCallWallStrike ? 'rgba(16,185,129,0.8)' : 'rgba(16,185,129,0.5)'} strokeWidth={isCallWallStrike ? '1' : '0.5'} />
+                                                                    <rect x={callX} y={y - bH / 2 + 1} width={cW * 0.7} height={bH * 0.35}
+                                                                        rx={bH / 4} fill="rgba(255,255,255,0.08)" />
                                                                     {cW > 30 && (
-                                                                        <text x={CENTER + cW - 4} y={y + 4} textAnchor="end"
+                                                                        <text x={callX + cW - 4} y={y + 4} textAnchor="end"
                                                                             fill="white" fontSize="12" fontWeight="800" fontFamily="monospace"
                                                                             style={{ textShadow: '0 1px 4px rgba(0,0,0,0.9)' }}>
                                                                             {agg.callVol.toLocaleString()}
                                                                         </text>
                                                                     )}
                                                                     {isHot && cPct > 0.4 && (
-                                                                        <circle cx={CENTER + cW} cy={y} r={6}
+                                                                        <circle cx={callX + cW} cy={y} r={6}
                                                                             fill="none" stroke="#34d399" strokeWidth="1.5"
                                                                             style={{ animation: 'energyPulse 2s ease-in-out infinite' }} />
                                                                     )}
                                                                 </g>
                                                             )}
 
-                                                            {/* PUT BAR (left) */}
+                                                            {/* PUT BAR (left of gap) */}
                                                             {pW > 2 && (
                                                                 <g>
                                                                     {pPct > 0.3 && (
-                                                                        <rect x={CENTER - pW - 8} y={y - barH / 2 - 3} width={pW + 6} height={barH + 6}
-                                                                            rx={barH / 2 + 3} fill="#f43f5e" opacity={pPct * 0.25}
+                                                                        <rect x={putEndX - pW - 6} y={y - bH / 2 - 3} width={pW + 6} height={bH + 6}
+                                                                            rx={bH / 2 + 3} fill="#f43f5e" opacity={pPct * 0.25}
                                                                             filter="url(#ff-bloom)" />
                                                                     )}
-                                                                    <rect x={CENTER - pW - 2} y={y - barH / 2} width={pW} height={barH}
-                                                                        rx={barH / 2} fill="url(#ff-put)"
-                                                                        stroke="rgba(244,63,94,0.5)" strokeWidth="0.5" />
-                                                                    <rect x={CENTER - pW - 2 + pW * 0.3} y={y - barH / 2 + 1} width={pW * 0.7} height={barH * 0.35}
-                                                                        rx={barH / 4} fill="rgba(255,255,255,0.08)" />
+                                                                    <rect x={putEndX - pW} y={y - bH / 2} width={pW} height={bH}
+                                                                        rx={bH / 2} fill="url(#ff-put)"
+                                                                        stroke={isPutWallStrike ? 'rgba(244,63,94,0.8)' : 'rgba(244,63,94,0.5)'} strokeWidth={isPutWallStrike ? '1' : '0.5'} />
+                                                                    <rect x={putEndX - pW + pW * 0.3} y={y - bH / 2 + 1} width={pW * 0.7} height={bH * 0.35}
+                                                                        rx={bH / 4} fill="rgba(255,255,255,0.08)" />
                                                                     {pW > 30 && (
-                                                                        <text x={CENTER - pW + 4} y={y + 4} textAnchor="start"
+                                                                        <text x={putEndX - pW + 4} y={y + 4} textAnchor="start"
                                                                             fill="white" fontSize="12" fontWeight="800" fontFamily="monospace"
                                                                             style={{ textShadow: '0 1px 4px rgba(0,0,0,0.9)' }}>
                                                                             {agg.putVol.toLocaleString()}
                                                                         </text>
                                                                     )}
                                                                     {isHot && pPct > 0.4 && (
-                                                                        <circle cx={CENTER - pW - 2} cy={y} r={6}
+                                                                        <circle cx={putEndX - pW} cy={y} r={6}
                                                                             fill="none" stroke="#fb7185" strokeWidth="1.5"
                                                                             style={{ animation: 'energyPulse 2s ease-in-out infinite' }} />
                                                                     )}
                                                                 </g>
                                                             )}
 
-                                                            {/* NET FLOW DOT */}
-                                                            {agg.total > 0 && (
-                                                                <circle cx={CENTER + (agg.callVol > agg.putVol ? 14 : -14)} cy={y} r={3}
-                                                                    fill={agg.callVol > agg.putVol ? '#34d399' : '#fb7185'}
-                                                                    opacity={0.7} />
-                                                            )}
-
-                                                            {/* STRIKE LABEL */}
-                                                            <text x={CENTER} y={y + 4} textAnchor="middle"
-                                                                fill={isATM ? '#fff' : isCallWallStrike || isPutWallStrike ? '#fbbf24' : '#94a3b8'}
-                                                                fontSize={isATM ? '13' : '12'} fontWeight={isATM ? '900' : '600'} fontFamily="monospace"
-                                                                style={isATM ? { filter: 'drop-shadow(0 0 8px rgba(99,102,241,0.9))' } : {}}>
+                                                            {/* STRIKE LABEL — Left column */}
+                                                            <text x={22} y={y + 5} textAnchor="end"
+                                                                fill={isATM ? '#38bdf8' : isCallWallStrike ? '#34d399' : isPutWallStrike ? '#fb7185' : '#94a3b8'}
+                                                                fontSize={isATM ? '14' : '13'} fontWeight={isATM ? '900' : isCallWallStrike || isPutWallStrike ? '800' : '600'} fontFamily="monospace"
+                                                                style={isATM ? { filter: 'drop-shadow(0 0 6px rgba(56,189,248,0.8))' } : {}}>
                                                                 {agg.strike}
                                                             </text>
 
-                                                            {/* KEY LEVEL BADGES */}
+                                                            {/* CALL/PUT % in center gap */}
+                                                            {agg.total > 0 && (cW > 2 || pW > 2) && (
+                                                                <text x={CENTER} y={y + 4} textAnchor="middle"
+                                                                    fill="#94a3b8" fontSize="12" fontWeight="600" fontFamily="monospace"
+                                                                    opacity={0.7}>
+                                                                    {Math.round(agg.callVol / agg.total * 100)}%
+                                                                </text>
+                                                            )}
+
+                                                            {/* KEY LEVEL BADGES — right of call bars */}
                                                             {isCallWallStrike && (
                                                                 <g>
-                                                                    <rect x={CENTER + Math.max(cW, 20) + 6} y={y - 9} width={68} height={18} rx={9}
+                                                                    <rect x={callX + Math.max(cW, 20) + 6} y={y - 10} width={74} height={20} rx={10}
                                                                         fill="#0c1525" stroke="#10b981" strokeWidth="1" opacity="0.95" />
-                                                                    <text x={CENTER + Math.max(cW, 20) + 40} y={y + 4} textAnchor="middle"
-                                                                        fill="#34d399" fontSize="10" fontWeight="800" fontFamily="monospace">CALL WALL</text>
+                                                                    <text x={callX + Math.max(cW, 20) + 43} y={y + 5} textAnchor="middle"
+                                                                        fill="#34d399" fontSize="12" fontWeight="800" fontFamily="monospace">CALL WALL</text>
                                                                 </g>
                                                             )}
                                                             {isPutWallStrike && (
                                                                 <g>
-                                                                    <rect x={CENTER - Math.max(pW, 20) - 74} y={y - 9} width={64} height={18} rx={9}
+                                                                    <rect x={putEndX - Math.max(pW, 20) - 86} y={y - 10} width={78} height={20} rx={10}
                                                                         fill="#0c1525" stroke="#f43f5e" strokeWidth="1" opacity="0.95" />
-                                                                    <text x={CENTER - Math.max(pW, 20) - 42} y={y + 4} textAnchor="middle"
-                                                                        fill="#fb7185" fontSize="10" fontWeight="800" fontFamily="monospace">PUT WALL</text>
+                                                                    <text x={putEndX - Math.max(pW, 20) - 47} y={y + 5} textAnchor="middle"
+                                                                        fill="#fb7185" fontSize="12" fontWeight="800" fontFamily="monospace">PUT FLOOR</text>
                                                                 </g>
                                                             )}
                                                         </g>
                                                     );
                                                 })}
 
-                                                {/* CURRENT PRICE BEACON */}
-                                                <line x1={35} x2={W - 35} y1={priceY} y2={priceY}
+                                                {/* CURRENT PRICE BEACON + FLASH */}
+                                                <line x1={LABEL_COL + 4} x2={W - 4} y1={priceY} y2={priceY}
                                                     stroke="#38bdf8" strokeWidth="1.5" strokeDasharray="10 5" opacity="0.6" />
-                                                <line x1={35} x2={W - 35} y1={priceY} y2={priceY}
+                                                <line x1={LABEL_COL + 4} x2={W - 4} y1={priceY} y2={priceY}
                                                     stroke="#38bdf8" strokeWidth="6" opacity="0.06" />
+                                                {/* Outer pulse ring */}
                                                 <circle cx={CENTER} cy={priceY} r={4} fill="#38bdf8" opacity="0.5">
-                                                    <animate attributeName="r" values="4;18" dur="2s" repeatCount="indefinite" />
-                                                    <animate attributeName="opacity" values="0.6;0" dur="2s" repeatCount="indefinite" />
+                                                    <animate attributeName="r" values="4;22" dur="2.5s" repeatCount="indefinite" />
+                                                    <animate attributeName="opacity" values="0.6;0" dur="2.5s" repeatCount="indefinite" />
+                                                </circle>
+                                                {/* Secondary pulse ring (offset) */}
+                                                <circle cx={CENTER} cy={priceY} r={4} fill="#38bdf8" opacity="0.3">
+                                                    <animate attributeName="r" values="4;16" dur="2.5s" begin="0.8s" repeatCount="indefinite" />
+                                                    <animate attributeName="opacity" values="0.4;0" dur="2.5s" begin="0.8s" repeatCount="indefinite" />
                                                 </circle>
                                                 <circle cx={CENTER} cy={priceY} r={3} fill="#38bdf8" />
-                                                <rect x={W - 62} y={priceY - 10} width={56} height={20} rx={10}
-                                                    fill="#0c1525" stroke="#38bdf8" strokeWidth="1" opacity="0.95" />
-                                                <text x={W - 34} y={priceY + 4} textAnchor="middle"
-                                                    fill="#38bdf8" fontSize="11" fontWeight="900" fontFamily="monospace">
-                                                    ${currentPrice.toFixed(1)}
-                                                </text>
+                                                {/* Price badge with flash glow */}
+                                                <g style={{ animation: 'priceFlash 3s ease-in-out infinite' }}>
+                                                    <rect x={W - 68} y={priceY - 12} width={62} height={24} rx={12}
+                                                        fill="#0c1525" stroke="#38bdf8" strokeWidth="1.5" opacity="0.95" />
+                                                    <text x={W - 37} y={priceY + 5} textAnchor="middle"
+                                                        fill="#38bdf8" fontSize="13" fontWeight="900" fontFamily="monospace">
+                                                        ${currentPrice.toFixed(1)}
+                                                    </text>
+                                                </g>
 
                                             </svg>
                                             </div>

@@ -35,7 +35,7 @@ export const ALL_CARDS: CardDef[] = [
     { id: 'vwapDist', label: 'VWAP DIST', category: 'structure' },
     // Options (Row 2 defaults)
     { id: 'maxPain', label: 'MAX PAIN', category: 'options', proOnly: true },
-    { id: 'callPutWall', label: 'CALL/PUT WALL', category: 'options', proOnly: true },
+    { id: 'callPutWall', label: 'CALL WALL / PUT FLOOR', category: 'options', proOnly: true },
     { id: 'darkPool', label: 'DARK POOL %', category: 'options', proOnly: true },
     { id: 'shortVol', label: 'SHORT VOL %', category: 'options', proOnly: true },
     // Flow (Row 3 defaults)
