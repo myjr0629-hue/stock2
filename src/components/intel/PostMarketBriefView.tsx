@@ -787,7 +787,7 @@ export function PostMarketBriefView() {
                                                                     <div className="w-3 h-3 rounded-full bg-cyan-400 border-2 border-white shadow-lg shadow-cyan-400/50"
                                                                         style={{ animation: 'regimePulse 2s ease-in-out infinite', transform: 'translateX(-50%)' }} />
                                                                     <div className="absolute -top-6 left-1/2 -translate-x-1/2 px-1.5 py-0.5 rounded bg-cyan-500/20 border border-cyan-400/40 whitespace-nowrap">
-                                                                        <span className="text-[10px] font-black text-cyan-300 font-mono">{currentPrice.toLocaleString()}</span>
+                                                                        <span className="text-[12px] font-black text-slate-300 font-mono">{currentPrice.toLocaleString()}</span>
                                                                     </div>
                                                                 </div>
                                                             </div>
