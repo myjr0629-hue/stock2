@@ -62,6 +62,22 @@ const SECTION_TITLES: Record<string, { ko: string; en: string; ja: string }> = {
     outlook: { ko: 'SCENARIO MAP', en: 'SCENARIO MAP', ja: 'SCENARIO MAP' },
 };
 
+// ── Indicator Metadata: Ticker Symbols & Category Colors ──
+const INDICATOR_META: Record<string, { ticker: string; category: string; color: string; borderColor: string; bgColor: string }> = {
+    'VIX':        { ticker: '^VIX',    category: 'volatility', color: 'text-orange-400', borderColor: 'border-orange-500/20', bgColor: 'rgba(249,115,22,0.06)' },
+    'VIX3M':      { ticker: '^VIX3M',  category: 'volatility', color: 'text-orange-400', borderColor: 'border-orange-500/20', bgColor: 'rgba(249,115,22,0.06)' },
+    'S&P 500':    { ticker: 'SPY',     category: 'equity',     color: 'text-cyan-400',   borderColor: 'border-cyan-500/20',   bgColor: 'rgba(6,182,212,0.06)' },
+    'NASDAQ':     { ticker: 'QQQ',     category: 'equity',     color: 'text-cyan-400',   borderColor: 'border-cyan-500/20',   bgColor: 'rgba(6,182,212,0.06)' },
+    'Russell 2K': { ticker: 'IWM',     category: 'equity',     color: 'text-cyan-400',   borderColor: 'border-cyan-500/20',   bgColor: 'rgba(6,182,212,0.06)' },
+    'US 10Y':     { ticker: '^TNX',    category: 'bond',       color: 'text-amber-400',  borderColor: 'border-amber-500/20',  bgColor: 'rgba(245,158,11,0.06)' },
+    'TLT':        { ticker: 'TLT',     category: 'bond',       color: 'text-amber-400',  borderColor: 'border-amber-500/20',  bgColor: 'rgba(245,158,11,0.06)' },
+    'Gold':       { ticker: 'GLD',     category: 'commodity',  color: 'text-yellow-400', borderColor: 'border-yellow-500/20', bgColor: 'rgba(234,179,8,0.06)' },
+    'WTI Oil':    { ticker: 'CL',      category: 'commodity',  color: 'text-yellow-400', borderColor: 'border-yellow-500/20', bgColor: 'rgba(234,179,8,0.06)' },
+    'BTC':        { ticker: 'BTC',     category: 'crypto',     color: 'text-purple-400', borderColor: 'border-purple-500/20', bgColor: 'rgba(168,85,247,0.06)' },
+    'USD/KRW':    { ticker: 'KRW=X',   category: 'fx',         color: 'text-sky-400',    borderColor: 'border-sky-500/20',    bgColor: 'rgba(14,165,233,0.06)' },
+    'USD/JPY':    { ticker: 'JPY=X',   category: 'fx',         color: 'text-sky-400',    borderColor: 'border-sky-500/20',    bgColor: 'rgba(14,165,233,0.06)' },
+};
+
 // ── Glass Card Style ──
 const GLASS = 'rounded-xl border border-white/10 p-5';
 const GLASS_BG = { background: 'rgba(11,15,23,0.6)', backdropFilter: 'blur(12px)' };
@@ -382,8 +398,9 @@ export function PostMarketBriefView() {
                             </p>
                         </div>
                         {brief && (
-                            <span className="ml-auto px-2.5 py-1 text-[12px] font-bold text-amber-300 bg-amber-500/10 border border-amber-500/20 rounded-full">
-                                {brief.version === 'v3' ? 'GEMINI 2.5 PRO' : 'GEMINI AI'}
+                            <span className="ml-auto px-2.5 py-1 text-[12px] font-bold text-amber-300 bg-amber-500/10 border border-amber-500/20 rounded-full flex items-center gap-1.5">
+                                <Sparkles className="w-3 h-3" />
+                                AI ANALYSIS
                             </span>
                         )}
                     </div>
@@ -396,17 +413,34 @@ export function PostMarketBriefView() {
                     ) : d ? (
                         <div className="space-y-6">
 
-                            {/* ── 0. MACRO INDICATORS DASHBOARD ── */}
+                            {/* ── 0. MACRO INDICATORS DASHBOARD (Bloomberg-Grade) ── */}
                             {macroIndicators.length > 0 && (
                                 <div style={staggerStyle(2)}>
                                     <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-7 gap-2 mb-3">
-                                        {macroIndicators.filter((m: any) => m.key !== 'Fear & Greed').map((m: any, i: number) => {
+                                        {macroIndicators
+                                            .filter((m: any) => m.key !== 'Fear & Greed')
+                                            .filter((m: any) => {
+                                                // Locale-specific currency filtering
+                                                if (m.key === 'USD/KRW') return locale === 'ko';
+                                                if (m.key === 'USD/JPY') return locale === 'ja';
+                                                return true;
+                                            })
+                                            .map((m: any, i: number) => {
                                             const isNeg = m.changePct < 0;
-                                            const glowColor = isNeg ? 'rgba(239,68,68,0.15)' : 'rgba(34,197,94,0.15)';
+                                            const meta = INDICATOR_META[m.key];
+                                            const catColor = meta?.color || 'text-slate-300';
+                                            const borderCol = meta?.borderColor || 'border-white/10';
+                                            const bgCol = meta?.bgColor || 'rgba(255,255,255,0.03)';
+                                            const glowColor = isNeg ? 'rgba(239,68,68,0.12)' : 'rgba(34,197,94,0.12)';
                                             return (
-                                                <div key={m.key} className="p-2 rounded-lg border border-white/10 text-center transition-all hover:border-white/20"
-                                                    style={{ background: 'rgba(255,255,255,0.03)', boxShadow: `0 0 12px ${glowColor}` }}>
-                                                    <span className="text-[12px] font-bold text-slate-300 uppercase tracking-wider block mb-0.5">{m.key}</span>
+                                                <div key={m.key} className={`p-2.5 rounded-lg border ${borderCol} text-center transition-all hover:border-white/25 hover:scale-[1.02]`}
+                                                    style={{ background: bgCol, boxShadow: `0 0 10px ${glowColor}` }}>
+                                                    <div className="flex items-center justify-center gap-1 mb-0.5">
+                                                        <span className={`text-[12px] font-bold uppercase tracking-wider ${catColor}`}>{m.key}</span>
+                                                    </div>
+                                                    {meta?.ticker && (
+                                                        <span className="text-[10px] font-mono text-slate-500 block mb-0.5">{meta.ticker}</span>
+                                                    )}
                                                     <span className="text-[14px] font-black text-white font-mono block">
                                                         {m.value > 1000 ? m.value.toLocaleString(undefined, { maximumFractionDigits: 0 }) : m.value.toFixed(2)}
                                                     </span>
@@ -727,17 +761,37 @@ export function PostMarketBriefView() {
                                         <ToneBadge tone={d.outlook.bias || 'NEUTRAL'} />
                                     </div>
 
-                                    {/* Price Range Bar */}
+                                    {/* Price Range Bar — with current price position */}
                                     {d.outlook.keyLevels?.length >= 2 && (
                                         <div className="mb-4">
                                             <div className="flex justify-between text-[12px] font-bold mb-1">
                                                 <span className="text-emerald-400">{d.outlook.keyLevels[0]?.label}</span>
                                                 <span className="text-red-400">{d.outlook.keyLevels[1]?.label}</span>
                                             </div>
-                                            <div className="relative h-4 rounded-full overflow-hidden bg-gradient-to-r from-emerald-500/20 via-amber-500/20 to-rose-500/20 border border-white/10">
-                                                <div className="absolute top-0 h-full w-1 bg-white rounded-full shadow-lg shadow-white/30"
-                                                    style={{ left: '50%', transform: 'translateX(-50%)' }} />
-                                            </div>
+                                            {(() => {
+                                                const supportVal = parseFloat(d.outlook.keyLevels[0]?.value?.replace(/[^0-9.]/g, '') || '0');
+                                                const resistVal = parseFloat(d.outlook.keyLevels[1]?.value?.replace(/[^0-9.]/g, '') || '0');
+                                                const spxData = macroIndicators.find((m: any) => m.key === 'S&P 500');
+                                                const currentPrice = spxData?.value || 0;
+                                                const range = resistVal - supportVal;
+                                                const pricePct = range > 0 ? Math.max(2, Math.min(98, ((currentPrice - supportVal) / range) * 100)) : 50;
+                                                return (
+                                                    <div className="relative h-5 rounded-full overflow-visible bg-gradient-to-r from-emerald-500/20 via-amber-500/20 to-rose-500/20 border border-white/10">
+                                                        {/* Current price marker */}
+                                                        {currentPrice > 0 && (
+                                                            <div className="absolute top-1/2 -translate-y-1/2 z-10" style={{ left: `${pricePct}%` }}>
+                                                                <div className="relative">
+                                                                    <div className="w-3 h-3 rounded-full bg-cyan-400 border-2 border-white shadow-lg shadow-cyan-400/50"
+                                                                        style={{ animation: 'regimePulse 2s ease-in-out infinite', transform: 'translateX(-50%)' }} />
+                                                                    <div className="absolute -top-6 left-1/2 -translate-x-1/2 px-1.5 py-0.5 rounded bg-cyan-500/20 border border-cyan-400/40 whitespace-nowrap">
+                                                                        <span className="text-[10px] font-black text-cyan-300 font-mono">{currentPrice.toLocaleString()}</span>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                );
+                                            })()}
                                             <div className="flex justify-between text-[13px] font-black font-mono mt-1">
                                                 <span className="text-emerald-400">{d.outlook.keyLevels[0]?.value}</span>
                                                 <span className="text-red-400">{d.outlook.keyLevels[1]?.value}</span>
