@@ -164,7 +164,7 @@ CRITICAL RULES:
 4. TRANSLATIONS must be PERFECT natural language — not machine-translated. Korean=한국어 전문 투자 톤, Japanese=日本語金融プロフェッショナルトーン.
 5. ANALYSIS must CONNECT news to the market data above when relevant (e.g., "VIX surging confirms market fear from tariff news").
 6. Each 'summary' should be 1-2 concise sentences capturing the key fact.
-7. Each 'analysis' MUST be exactly 1 concise sentence (under 80 characters) of sharp market interpretation linking to indicator data. Be maximally insightful — every word must add value. Use IF→THEN format when possible.
+7. Each 'analysis' MUST be exactly 1 concise sentence (under 100 characters) of sharp market interpretation linking to indicator data. Be maximally insightful — every word must add value. Use IF→THEN format when possible.
 8. 'urgency' 1-10: 8+ = BREAKING (published < 60 min AND extreme market impact keywords like crash, halt, emergency, war, collapse, default).
 
 For EACH of the TOP 5 selected items, output:
