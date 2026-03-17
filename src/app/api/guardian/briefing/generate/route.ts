@@ -116,12 +116,21 @@ export async function POST(req: Request) {
 
         const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
         const dayOfWeek = new Date().toLocaleDateString('en-US', { weekday: 'long', timeZone: 'America/New_York' });
+        const dayOfWeekKo = new Date().toLocaleDateString('ko-KR', { weekday: 'long', timeZone: 'America/New_York' });
+        const dayOfWeekJa = new Date().toLocaleDateString('ja-JP', { weekday: 'long', timeZone: 'America/New_York' });
 
         const prompt = `You are a Bloomberg Terminal Pre-Market Analyst writing the MORNING BRIEFING.
 Your briefing must read like a NARRATIVE STORY, not a list of indicators.
 
+## ⚠️ ABSOLUTE TOP PRIORITY — DAY OF WEEK
+TODAY IS: ${todayStr} — ${dayOfWeek} / ${dayOfWeekKo} / ${dayOfWeekJa}
+- In Korean: use "${dayOfWeekKo}" (e.g., "${dayOfWeekKo} 개장 전 거래에서...")
+- In English: use "${dayOfWeek}" (e.g., "${dayOfWeek} pre-market trading...")
+- In Japanese: use "${dayOfWeekJa}" (e.g., "${dayOfWeekJa}のプレマーケットで...")
+**FORBIDDEN**: Do NOT use any other day of the week. Using a wrong day name is a CRITICAL ERROR.
+
 ## CRITICAL RULES
-1. Today is ${todayStr} (${dayOfWeek}).
+1. Today is ${todayStr} (${dayOfWeek} / ${dayOfWeekKo} / ${dayOfWeekJa}). You MUST reference this exact day in each language's first sentence.
 2. WEAVE the news stories INTO the data. News is the backbone, indicators are the supporting evidence.
 3. Write exactly 4-5 sentences per language. CONCISE but COMPLETE.
 4. NEVER give investment advice. Use ONLY observational language: "관찰됨", "나타남", "observed", "noted".
@@ -129,7 +138,7 @@ Your briefing must read like a NARRATIVE STORY, not a list of indicators.
 6. Each language must be NATIVE quality — not a translation, but written as if by a native analyst.
 7. Do NOT use any emoji or special Unicode symbols. Use plain text only.
 8. **MANDATORY**: You MUST mention the actual S&P 500 and NASDAQ 100 performance (price and % change) in the first or second sentence. These are the most important numbers for any market briefing. Also weave in notable moves from bonds (10Y yield), gold, oil, or BTC if significant.
-9. Start the briefing with the big market picture (index performance), then connect to RLSI/GEX/VIX analysis.
+9. Start the briefing with the day of week + big market picture (index performance), then connect to RLSI/GEX/VIX analysis.
 
 ## MARKET DATA (Pre-Market Snapshot)
 - RLSI: ${rlsi} | Recent Trend: ${historyStr || 'N/A'}
@@ -148,10 +157,10 @@ ${calendarEvents.length > 0 ? calendarEvents.join('\n') : 'No HIGH impact events
 ## OVERNIGHT / PRE-MARKET NEWS
 ${marketNews.length > 0 ? marketNews.map((n, i) => `${i + 1}. ${n}`).join('\n') : 'No major headlines'}
 
-## NARRATIVE STYLE EXAMPLES (follow this tone):
-- KO: "인플레이션 우려 속 CPI 발표를 앞두고 시장은 관망세를 보이고 있으며, 전일 RLSI 44 중립 마감과 VIX 24.9 상승이 변동성 확대 가능 구간을 시사. 숏 감마(GEX -7) 환경에서 유럽 약세(-0.8%)가 프리마켓 하방 압력으로 관찰됨. 오늘 12:30 ET CPI 결과에 따라 감마 체제 전환 가능성 주시 구간."
-- EN: "Markets enter a cautious stance ahead of today's 12:30 ET CPI release, with prior close RLSI at 44 and VIX elevated at 24.9. Short gamma positioning (GEX -7) coupled with European weakness (-0.8%) creating pre-market downside pressure. S&P 6,772 approaching the gamma flip level, where dealer hedging dynamics shift observed."
-- JA: "CPI発表を控えインフレ懸念が再浮上する中、前日RLSI 44中立圏で引け。VIX 24.9上昇とショートガンマ(GEX -7)環境下で欧州市場の弱さ(-0.8%)がプレマーケットの下方圧力として観測。本日12:30 ET CPI結果次第でガンマ体制転換の可能性を注視。"
+## NARRATIVE STYLE EXAMPLES (follow this tone — note how each starts with the day of week):
+- KO: "화요일 프리마켓에서 S&P 500 선물 5,650(+0.45%)과 NASDAQ 100 선물 19,840(+0.72%)으로 시장은 소폭 상승 출발하며 인플레이션 우려 속 CPI 발표를 앞두고 관망세가 관찰됨. 전일 RLSI 44 중립 마감과 VIX 24.9 상승이 변동성 확대 가능 구간을 시사하고 있으며, 숏 감마(GEX -7) 환경에서 유럽 약세(-0.8%)가 프리마켓 하방 압력으로 관찰됨. 오늘 12:30 ET CPI 결과에 따라 감마 체제 전환 가능성이 주시되는 구간."
+- EN: "Tuesday pre-market shows S&P 500 futures at 5,650 (+0.45%) and NASDAQ 100 futures at 19,840 (+0.72%) as markets enter a cautious stance ahead of today's 12:30 ET CPI release. Prior close RLSI at 44 and VIX elevated at 24.9, with short gamma positioning (GEX -7) coupled with European weakness (-0.8%) creating pre-market downside pressure. S&P 5,650 approaching the gamma flip level, where dealer hedging dynamics shift observed."
+- JA: "火曜日のプレマーケットではS&P 500先物5,650(+0.45%)、NASDAQ 100先物19,840(+0.72%)と小幅上昇で取引開始。CPI発表を控えインフレ懸念が再浮上する中、前日RLSI 44中立圏で引け。VIX 24.9上昇とショートガンマ(GEX -7)環境下で欧州市場の弱さ(-0.8%)がプレマーケットの下方圧力として観測。"
 
 ## OUTPUT FORMAT
 Return ONLY valid JSON (no markdown fences):
