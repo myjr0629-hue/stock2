@@ -275,8 +275,13 @@ function subscribeTickerOnPolygon(ticker) {
                 const existing = latestPrices.get(ticker) || {};
                 latestPrices.set(ticker, { ...existing, prevClose });
                 console.log(`[Price WS] 📊 ${ticker} prevClose: $${prevClose}`);
+                // After we have prevClose, subscribe Q. for ATM options
+                subscribeQuotesForTicker(ticker);
             }
         });
+    } else {
+        // Already have price, subscribe Q. now
+        subscribeQuotesForTicker(ticker);
     }
 
 }
@@ -471,7 +476,7 @@ function connectToOptionsWs() {
         optionsWs = new WebSocket(OPTIONS_WS_URL);
 
         optionsWs.on("open", () => {
-            console.log("[Options WS] v2 - Options WebSocket connected");
+            console.log("[Options WS] v3 - Options WebSocket connected");
             optionsWsConnected = true;
             optionsReconnectCount = 0;
             optionsWs.send(JSON.stringify({ action: "auth", params: POLYGON_API_KEY }));
@@ -480,6 +485,8 @@ function connectToOptionsWs() {
                 if (optionsWs && optionsWs.readyState === WebSocket.OPEN) {
                     optionsWs.send(JSON.stringify({ action: "subscribe", params: "T.*" }));
                     console.log("[Options WS] Subscribed to T.* (all options trades)");
+                    // Also subscribe Q. for active tickers' ATM contracts
+                    subscribeQuotesForActiveTickers();
                 }
             }, 2000);
         });
@@ -564,7 +571,80 @@ function resubscribeAllOptions() {
 
     // Subscribe to ALL options trades with wildcard — filter by underlying when broadcasting
     optionsWs.send(JSON.stringify({ action: "subscribe", params: "T.*" }));
-    console.log("[Options WS] 🎯 Subscribed to T.* (all options trades via wildcard)");
+    console.log("[Options WS] Subscribed to T.* (all options trades via wildcard)");
+    // Q.* is disabled by Massive, so subscribe to individual ATM contracts
+    subscribeQuotesForActiveTickers();
+}
+
+// Fetch ATM options contracts for a ticker and subscribe Q. on Options WS
+const quotesSubscribed = new Set(); // track which tickers already have Q. subscribed
+
+async function subscribeQuotesForTicker(ticker) {
+    if (quotesSubscribed.has(ticker)) return;
+    if (!optionsWs || optionsWs.readyState !== WebSocket.OPEN) return;
+
+    quotesSubscribed.add(ticker);
+    console.log("[Options WS] Fetching ATM contracts for " + ticker + "...");
+
+    try {
+        var url = "https://api.massive.com/v3/reference/options/contracts?underlying_ticker=" + ticker + "&expired=false&limit=30&order=asc&sort=expiration_date&apiKey=" + POLYGON_API_KEY;
+        var data = await httpsGet(url);
+        var contracts = (data && data.results) ? data.results : [];
+
+        if (contracts.length === 0) {
+            console.log("[Options WS] No contracts found for " + ticker);
+            quotesSubscribed.delete(ticker);
+            return;
+        }
+
+        // Get current price to find ATM
+        var priceEntry = latestPrices.get(ticker);
+        var currentPrice = (priceEntry && priceEntry.price) ? priceEntry.price : 0;
+
+        // Group by expiry
+        var expiryGroups = {};
+        for (var i = 0; i < contracts.length; i++) {
+            var c = contracts[i];
+            var exp = c.expiration_date;
+            if (!expiryGroups[exp]) expiryGroups[exp] = [];
+            expiryGroups[exp].push(c);
+        }
+
+        var sortedExpiries = Object.keys(expiryGroups).sort();
+        var targetExpiry = sortedExpiries[0]; // nearest expiry
+        if (!targetExpiry) return;
+
+        var expContracts = expiryGroups[targetExpiry];
+
+        // Sort by proximity to ATM if we have price
+        if (currentPrice > 0) {
+            expContracts.sort(function(a, b) {
+                return Math.abs(a.strike_price - currentPrice) - Math.abs(b.strike_price - currentPrice);
+            });
+        }
+
+        // Take closest 10 contracts (5 calls + 5 puts approx)
+        var selected = expContracts.slice(0, 10);
+        var qSubs = selected.map(function(c) { return "Q." + c.ticker; }).join(",");
+
+        optionsWs.send(JSON.stringify({ action: "subscribe", params: qSubs }));
+        console.log("[Options WS] Q. subscribed " + selected.length + " ATM contracts for " + ticker + " (exp: " + targetExpiry + ")");
+    } catch (e) {
+        console.warn("[Options WS] Q. subscribe failed for " + ticker + ": " + e.message);
+        quotesSubscribed.delete(ticker);
+    }
+}
+
+function subscribeQuotesForActiveTickers() {
+    var tickers = [];
+    for (var entry of tickerSubscribers) {
+        tickers.push(entry[0]);
+    }
+    if (tickers.length === 0) return;
+    console.log("[Options WS] Subscribing Q. for " + tickers.length + " active tickers");
+    for (var i = 0; i < tickers.length; i++) {
+        subscribeQuotesForTicker(tickers[i]);
+    }
 }
 
 function subscribeOptionsContract(contract) {
