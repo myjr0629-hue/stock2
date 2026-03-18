@@ -696,8 +696,147 @@ function parseOptionsTicker(ticker) {
 }
 
 function handleOptionsQuoteUpdate(msg) {
-    // TODO: task ⓔ — parse options quote, calculate IV, broadcast
     markPolygonDataReceived();
+
+    const optionsTicker = msg.sym; // e.g. "O:NVDA250321C00180000"
+    if (!optionsTicker) return;
+
+    const bid = msg.bp || 0;
+    const bidSize = msg.bs || 0;
+    const ask = msg.ap || 0;
+    const askSize = msg.as || 0;
+
+    // Skip if no valid bid/ask
+    if (bid <= 0 && ask <= 0) return;
+
+    const midPrice = (bid > 0 && ask > 0) ? (bid + ask) / 2 : (bid || ask);
+    const spread = (ask > 0 && bid > 0) ? Math.round((ask - bid) * 100) / 100 : 0;
+
+    // Parse options ticker to get underlying, expiry, strike, type
+    const parsed = parseOptionsTicker(optionsTicker);
+    if (!parsed.underlying || !parsed.expiry || !parsed.optionType) return;
+
+    // Get underlying stock price from latestPrices
+    const stockData = latestPrices.get(parsed.underlying);
+    const underlyingPrice = stockData?.price || 0;
+    if (underlyingPrice <= 0) return; // Can't calc IV without underlying
+
+    // Calculate time to expiry in years
+    const expiryDate = new Date(parsed.expiry + "T16:00:00Z"); // 4PM ET close
+    const now = new Date();
+    const T = (expiryDate - now) / (365.25 * 24 * 60 * 60 * 1000); // years
+    if (T <= 0) return; // Expired
+
+    // Calculate IV using Black-Scholes Newton-Raphson
+    const r = 0.05; // Risk-free rate ~5%
+    const iv = calcIV(midPrice, underlyingPrice, parsed.strike, T, r, parsed.optionType);
+
+    // Throttle quote broadcasts (1s per options ticker)
+    const now2 = Date.now();
+    const lastTime = lastQuoteBroadcastTime.get(optionsTicker) || 0;
+    if (now2 - lastTime < THROTTLE_MS) return;
+    lastQuoteBroadcastTime.set(optionsTicker, now2);
+
+    // Broadcast to options contract subscribers
+    const subscribers = optionsTickerSubscribers.get(optionsTicker);
+    const stockSubs = tickerSubscribers.get(parsed.underlying);
+
+    if ((!subscribers || subscribers.size === 0) && (!stockSubs || stockSubs.size === 0)) return;
+
+    const message = JSON.stringify({
+        type: "optionsQuote",
+        contract: optionsTicker,
+        underlying: parsed.underlying,
+        expiry: parsed.expiry,
+        strike: parsed.strike,
+        optionType: parsed.optionType,
+        bid: Math.round(bid * 100) / 100,
+        bidSize,
+        ask: Math.round(ask * 100) / 100,
+        askSize,
+        mid: Math.round(midPrice * 100) / 100,
+        spread,
+        iv: iv ? Math.round(iv * 10000) / 10000 : null, // 4 decimal (e.g. 0.3542 = 35.42%)
+        ivPct: iv ? Math.round(iv * 10000) / 100 : null, // percentage (e.g. 35.42)
+        ts: now2,
+    });
+
+    // Broadcast to options contract subscribers
+    if (subscribers) {
+        for (const ws of subscribers) {
+            if (ws.readyState === WebSocket.OPEN) {
+                try { ws.send(message); } catch {}
+            }
+        }
+    }
+
+    // Also broadcast to underlying stock subscribers
+    if (stockSubs) {
+        for (const ws of stockSubs) {
+            if (ws.readyState === WebSocket.OPEN) {
+                try { ws.send(message); } catch {}
+            }
+        }
+    }
+}
+
+// ══════════════════════════════════════════════════════════════
+// BLACK-SCHOLES IV CALCULATOR
+// ══════════════════════════════════════════════════════════════
+
+// Standard Normal CDF (Abramowitz & Stegun approximation, max error < 7.5e-8)
+function normcdf(x) {
+    if (x > 6) return 1;
+    if (x < -6) return 0;
+    const sign = x < 0 ? -1 : 1;
+    x = Math.abs(x);
+    const t = 1 / (1 + 0.2316419 * x);
+    const d = 0.3989422804014327; // 1/sqrt(2π)
+    const pdf = d * Math.exp(-0.5 * x * x);
+    const p = pdf * t * (0.319381530 + t * (-0.356563782 + t * (1.781477937 + t * (-1.821255978 + t * 1.330274429))));
+    return sign === 1 ? 1 - p : p;
+}
+
+// Black-Scholes option price
+function bsPrice(S, K, T, r, sigma, optionType) {
+    if (T <= 0 || sigma <= 0) return 0;
+    const d1 = (Math.log(S / K) + (r + 0.5 * sigma * sigma) * T) / (sigma * Math.sqrt(T));
+    const d2 = d1 - sigma * Math.sqrt(T);
+    if (optionType === "C") {
+        return S * normcdf(d1) - K * Math.exp(-r * T) * normcdf(d2);
+    } else {
+        return K * Math.exp(-r * T) * normcdf(-d2) - S * normcdf(-d1);
+    }
+}
+
+// Black-Scholes Vega (∂price/∂σ)
+function bsVega(S, K, T, r, sigma) {
+    if (T <= 0 || sigma <= 0) return 0;
+    const d1 = (Math.log(S / K) + (r + 0.5 * sigma * sigma) * T) / (sigma * Math.sqrt(T));
+    const pdf = (1 / Math.sqrt(2 * Math.PI)) * Math.exp(-0.5 * d1 * d1);
+    return S * Math.sqrt(T) * pdf;
+}
+
+// Newton-Raphson IV solver
+function calcIV(marketPrice, S, K, T, r, optionType) {
+    if (marketPrice <= 0 || S <= 0 || K <= 0 || T <= 0) return null;
+
+    // Brenner-Subrahmanyam initial guess
+    let sigma = Math.sqrt(2 * Math.PI / T) * (marketPrice / S);
+    sigma = Math.max(0.01, Math.min(sigma, 5.0));
+
+    for (let i = 0; i < 50; i++) {
+        const price = bsPrice(S, K, T, r, sigma, optionType);
+        const vega = bsVega(S, K, T, r, sigma);
+        if (vega < 1e-10) break;
+        const diff = price - marketPrice;
+        if (Math.abs(diff) < 1e-6) break;
+        sigma = sigma - diff / vega;
+        sigma = Math.max(0.001, Math.min(sigma, 10.0));
+    }
+
+    if (sigma < 0.001 || sigma > 10.0) return null;
+    return Math.round(sigma * 10000) / 10000;
 }
 
 // ══════════════════════════════════════════════════════════════
