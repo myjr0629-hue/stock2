@@ -88,6 +88,7 @@ function fetchPreviousClose(ticker) {
 const PORT = parseInt(process.env.WS_PORT || "8084");
 const POLYGON_API_KEY = process.env.POLYGON_API_KEY || process.env.MASSIVE_API_KEY || "";
 const POLYGON_WS_URL = "wss://socket.massive.com/stocks";
+const OPTIONS_WS_URL = "wss://socket.massive.com/options";
 const HEARTBEAT_INTERVAL_MS = 30000;    // 30s — ping clients
 const STALE_CLIENT_MS = 120000;         // 2min — disconnect idle clients
 const POLYGON_RECONNECT_DELAY_MS = 5000; // 5s initial reconnect delay
@@ -122,6 +123,15 @@ let polygonConnected = false;
 let polygonReconnectCount = 0;
 let polygonReconnectTimer = null;
 let subscribedOnPolygon = new Set(); // tickers actually subscribed on Polygon
+
+// Options WS state
+let optionsWs = null;
+let optionsWsConnected = false;
+let optionsReconnectCount = 0;
+let optionsReconnectTimer = null;
+let optionsSubscribedOnMassive = new Set(); // options contract tickers subscribed
+// Options subscribers: Map<optionsTicker, Set<WebSocket>>
+const optionsTickerSubscribers = new Map();
 
 // ══════════════════════════════════════════════════════════════
 // POLYGON WEBSOCKET CONNECTION
@@ -446,6 +456,151 @@ function broadcastLuld(ticker, upperLimit, lowerLimit, indicator) {
 }
 
 // ══════════════════════════════════════════════════════════════
+// OPTIONS WEBSOCKET CONNECTION (wss://socket.massive.com/options)
+// ══════════════════════════════════════════════════════════════
+
+function connectToOptionsWs() {
+    if (!POLYGON_API_KEY) {
+        console.error("[Options WS] ❌ No API key set. Cannot connect.");
+        return;
+    }
+
+    try {
+        console.log("[Options WS] Connecting to Massive Options WebSocket...");
+        optionsWs = new WebSocket(OPTIONS_WS_URL);
+
+        optionsWs.on("open", () => {
+            console.log("[Options WS] ✅ Options WebSocket connected");
+            optionsWsConnected = true;
+            optionsReconnectCount = 0;
+            optionsWs.send(JSON.stringify({ action: "auth", params: POLYGON_API_KEY }));
+        });
+
+        optionsWs.on("message", (data) => {
+            try {
+                const messages = JSON.parse(data.toString());
+                if (!Array.isArray(messages)) return;
+
+                for (const msg of messages) {
+                    if (msg.ev === "status") {
+                        if (msg.status === "auth_success") {
+                            console.log("[Options WS] ✅ Options auth success");
+                            resubscribeAllOptions();
+                        } else if (msg.status === "auth_failed") {
+                            console.error("[Options WS] ❌ Options auth failed:", msg.message);
+                        } else if (msg.status === "success") {
+                            console.log("[Options WS] Options:", msg.message);
+                        }
+                        continue;
+                    }
+
+                    // Options Trade events
+                    if (msg.ev === "T") {
+                        handleOptionsTradeUpdate(msg);
+                    }
+
+                    // Options Quote events
+                    if (msg.ev === "Q") {
+                        handleOptionsQuoteUpdate(msg);
+                    }
+
+                    // Options Aggregate per-second (reserved for future)
+                    // if (msg.ev === "A") { }
+
+                    // Options Aggregate per-minute (reserved for future)
+                    // if (msg.ev === "AM") { }
+                }
+            } catch (e) {
+                // Non-JSON or parse error — ignore
+            }
+        });
+
+        optionsWs.on("close", (code, reason) => {
+            console.log(`[Options WS] Options WS closed (code: ${code})`);
+            optionsWsConnected = false;
+            optionsWs = null;
+            optionsSubscribedOnMassive.clear();
+            scheduleOptionsReconnect();
+        });
+
+        optionsWs.on("error", (e) => {
+            console.error("[Options WS] Options WS error:", e.message);
+            if (optionsWs) {
+                try { optionsWs.close(); } catch {}
+            }
+        });
+    } catch (e) {
+        console.error("[Options WS] Failed to create Options WS:", e.message);
+        scheduleOptionsReconnect();
+    }
+}
+
+function scheduleOptionsReconnect() {
+    if (optionsReconnectTimer) return;
+    if (optionsReconnectCount >= MAX_POLYGON_RECONNECT) {
+        console.error("[Options WS] Max reconnect attempts reached.");
+        return;
+    }
+
+    const delay = POLYGON_RECONNECT_DELAY_MS * Math.pow(1.5, optionsReconnectCount);
+    optionsReconnectCount++;
+    console.log(`[Options WS] Reconnecting in ${Math.round(delay / 1000)}s (attempt ${optionsReconnectCount})`);
+    optionsReconnectTimer = setTimeout(() => {
+        optionsReconnectTimer = null;
+        connectToOptionsWs();
+    }, delay);
+}
+
+function resubscribeAllOptions() {
+    if (!optionsWs || optionsWs.readyState !== WebSocket.OPEN) return;
+
+    const allContracts = new Set();
+    for (const [contract] of optionsTickerSubscribers) {
+        allContracts.add(contract);
+    }
+
+    if (allContracts.size === 0) {
+        console.log("[Options WS] No options contracts to resubscribe.");
+        return;
+    }
+
+    const contractList = [...allContracts];
+    const subs = contractList.flatMap(c => [`T.${c}`, `Q.${c}`]).join(",");
+    optionsWs.send(JSON.stringify({ action: "subscribe", params: subs }));
+    contractList.forEach(c => optionsSubscribedOnMassive.add(c));
+    console.log(`[Options WS] Resubscribed to ${contractList.length} contracts (T+Q): ${contractList.slice(0, 5).join(", ")}${contractList.length > 5 ? "..." : ""}`);
+}
+
+function subscribeOptionsContract(contract) {
+    if (optionsSubscribedOnMassive.has(contract)) return;
+    if (!optionsWs || optionsWs.readyState !== WebSocket.OPEN) return;
+
+    optionsWs.send(JSON.stringify({ action: "subscribe", params: `T.${contract},Q.${contract}` }));
+    optionsSubscribedOnMassive.add(contract);
+    console.log(`[Options WS] + Subscribed to T/Q.${contract}`);
+}
+
+function unsubscribeOptionsContract(contract) {
+    if (!optionsSubscribedOnMassive.has(contract)) return;
+    if (!optionsWs || optionsWs.readyState !== WebSocket.OPEN) return;
+
+    optionsWs.send(JSON.stringify({ action: "unsubscribe", params: `T.${contract},Q.${contract}` }));
+    optionsSubscribedOnMassive.delete(contract);
+    console.log(`[Options WS] - Unsubscribed from T/Q.${contract}`);
+}
+
+// Placeholder handlers — implemented in tasks ⓓ and ⓔ
+function handleOptionsTradeUpdate(msg) {
+    // TODO: task ⓓ — parse options trade, broadcast to clients
+    markPolygonDataReceived();
+}
+
+function handleOptionsQuoteUpdate(msg) {
+    // TODO: task ⓔ — parse options quote, calculate IV, broadcast
+    markPolygonDataReceived();
+}
+
+// ══════════════════════════════════════════════════════════════
 // CLIENT WEBSOCKET SERVER
 // ══════════════════════════════════════════════════════════════
 
@@ -747,12 +902,12 @@ server.listen(PORT, () => {
     console.log(`  Polygon WS:   ${POLYGON_WS_URL}`);
     console.log("═══════════════════════════════════════════════════");
 
-    // Connect to Polygon
+    // Connect to Polygon (Stocks)
     if (POLYGON_API_KEY) {
         connectToPolygon();
+        connectToOptionsWs();
     } else {
-        console.warn("[Price WS] ⚠️ No POLYGON_API_KEY set. Running in offline mode (no live prices).");
-        console.warn("[Price WS] Set POLYGON_API_KEY or MASSIVE_API_KEY environment variable.");
+        console.warn("[Price WS] ⚠️ No POLYGON_API_KEY set. Running in offline mode.");
     }
 });
 
@@ -760,7 +915,9 @@ server.listen(PORT, () => {
 process.on("SIGINT", () => {
     console.log("\n[Price WS] Shutting down...");
     if (polygonWs) { try { polygonWs.close(); } catch {} }
+    if (optionsWs) { try { optionsWs.close(); } catch {} }
     if (polygonReconnectTimer) clearTimeout(polygonReconnectTimer);
+    if (optionsReconnectTimer) clearTimeout(optionsReconnectTimer);
     wss.close();
     server.close();
     process.exit(0);
@@ -769,7 +926,9 @@ process.on("SIGINT", () => {
 process.on("SIGTERM", () => {
     console.log("\n[Price WS] SIGTERM received...");
     if (polygonWs) { try { polygonWs.close(); } catch {} }
+    if (optionsWs) { try { optionsWs.close(); } catch {} }
     if (polygonReconnectTimer) clearTimeout(polygonReconnectTimer);
+    if (optionsReconnectTimer) clearTimeout(optionsReconnectTimer);
     wss.close();
     server.close();
     process.exit(0);
