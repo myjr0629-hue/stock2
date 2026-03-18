@@ -21,6 +21,7 @@ import {
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Loader2, TrendingUp, AlertCircle, BarChart2 } from "lucide-react";
+import { CardTooltip } from '@/components/ui/CardTooltip';
 
 interface AlphaLevels {
     callWall?: number;
@@ -594,7 +595,10 @@ export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d
                                 const spreadColor = spreadPct < 0.05 ? 'text-emerald-400' : spreadPct < 0.15 ? 'text-amber-400' : 'text-rose-400';
                                 const spreadBorder = spreadPct < 0.05 ? 'border-emerald-500/30' : spreadPct < 0.15 ? 'border-amber-500/30' : 'border-rose-500/30';
                                 return (
-                                    <div className="absolute top-2 left-1/2 -translate-x-1/2 z-30 flex items-center gap-1.5 px-3 py-1 rounded-md bg-slate-900/70 backdrop-blur-sm border border-white/10" title="NBBO (National Best Bid and Offer) — 전국 최우선 호가. Bid는 매수 최고가, Ask는 매도 최저가이며, 그 차이(Spread)가 좁을수록 유동성이 풍부합니다.">
+                                    <div className="absolute top-2 left-1/2 -translate-x-1/2 z-30 flex items-center gap-1.5 px-3 py-1 rounded-md bg-slate-900/70 backdrop-blur-sm border border-white/10">
+                                        {/* NBBO Label with Tooltip */}
+                                        <span className="text-[12px] font-bold text-slate-300 font-jakarta"><CardTooltip tooltip={{ ko: 'NBBO (National Best Bid & Offer) — 전국 최우선 호가. Bid는 매수 최고가, Ask는 매도 최저가이며, 그 차이(Spread)가 좁을수록 유동성이 풍부합니다. Spread < 0.05%: 매우 우수 | 0.05~0.15%: 보통 | > 0.15%: 유동성 부족 주의.', en: 'NBBO (National Best Bid & Offer) — The best available bid and ask prices across all exchanges. Spread < 0.05%: Excellent liquidity | 0.05–0.15%: Normal | > 0.15%: Low liquidity warning.', ja: 'NBBO（全米最良気配）— 全取引所で最も優れた売買気配値。スプレッド < 0.05%: 流動性良好 | 0.05〜0.15%: 普通 | > 0.15%: 流動性注意。' }}>NBBO</CardTooltip></span>
+                                        <span className="text-slate-600">|</span>
                                         {/* Bid */}
                                         <span className="text-[12px] font-bold text-emerald-400 tabular-nums font-jakarta">${nbbo.bid.toFixed(2)}</span>
                                         <span className="text-[12px] text-slate-300 tabular-nums font-jakarta">×{nbbo.bidSize}</span>
