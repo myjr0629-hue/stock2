@@ -42,11 +42,50 @@ interface AlertUpdate {
     ts: number;
 }
 
+interface OptionsTradeUpdate {
+    contract: string;
+    underlying: string;
+    expiry: string;
+    strike: number;
+    optionType: string; // 'C' or 'P'
+    price: number;
+    size: number;
+    premium: number;
+    tradeType: string; // 'NORMAL', 'SWEEP', 'BLOCK'
+    ts: number;
+}
+
+interface OptionsQuoteUpdate {
+    contract: string;
+    underlying: string;
+    expiry: string;
+    strike: number;
+    optionType: string;
+    bid: number;
+    ask: number;
+    mid: number;
+    spread: number;
+    iv: number | null;    // decimal e.g. 0.3542
+    ivPct: number | null; // percentage e.g. 35.42
+    ts: number;
+}
+
+interface LuldUpdate {
+    ticker: string;
+    upperLimit: number;
+    lowerLimit: number;
+    indicator: number;
+    ts: number;
+}
+
 interface WebSocketContextType {
-    connected: boolean;           // Price WS connected
-    guardianConnected: boolean;   // Guardian WS connected
+    connected: boolean;
+    guardianConnected: boolean;
     prices: Map<string, PriceUpdate>;
     quotes: Map<string, QuoteUpdate>;
+    optionsTrades: OptionsTradeUpdate[];
+    optionsQuotes: Map<string, OptionsQuoteUpdate>;
+    luldEvents: LuldUpdate[];
     gexData: Map<string, GexUpdate>;
     alerts: AlertUpdate[];
     rlsi: number | null;
@@ -61,6 +100,9 @@ const WebSocketContext = createContext<WebSocketContextType>({
     guardianConnected: false,
     prices: new Map(),
     quotes: new Map(),
+    optionsTrades: [],
+    optionsQuotes: new Map(),
+    luldEvents: [],
     gexData: new Map(),
     alerts: [],
     rlsi: null,
@@ -76,6 +118,8 @@ const GUARDIAN_WS_URL = 'wss://ws.signumhq.com/guardian'; // /guardian → guard
 const RECONNECT_DELAY = 3000;
 const MAX_RECONNECT = 10;
 const MAX_ALERTS = 50;
+const MAX_OPTIONS_TRADES = 100;
+const MAX_LULD_EVENTS = 20;
 
 // ── Provider ──
 export function WebSocketProvider({ children }: { children: ReactNode }) {
@@ -95,6 +139,9 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
     const [guardianConnected, setGuardianConnected] = useState(false);
     const [prices, setPrices] = useState<Map<string, PriceUpdate>>(new Map());
     const [quotes, setQuotes] = useState<Map<string, QuoteUpdate>>(new Map());
+    const [optionsTrades, setOptionsTrades] = useState<OptionsTradeUpdate[]>([]);
+    const [optionsQuotes, setOptionsQuotes] = useState<Map<string, OptionsQuoteUpdate>>(new Map());
+    const [luldEvents, setLuldEvents] = useState<LuldUpdate[]>([]);
     const [gexData, setGexData] = useState<Map<string, GexUpdate>>(new Map());
     const [alerts, setAlerts] = useState<AlertUpdate[]>([]);
     const [rlsi, setRlsi] = useState<number | null>(null);
@@ -157,6 +204,58 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
                             });
                             return next;
                         });
+                    }
+
+                    if (msg.type === 'optionsTrade') {
+                        setOptionsTrades(prev => [
+                            {
+                                contract: msg.contract,
+                                underlying: msg.underlying,
+                                expiry: msg.expiry,
+                                strike: msg.strike,
+                                optionType: msg.optionType,
+                                price: msg.price,
+                                size: msg.size,
+                                premium: msg.premium,
+                                tradeType: msg.tradeType,
+                                ts: now,
+                            },
+                            ...prev.slice(0, MAX_OPTIONS_TRADES - 1),
+                        ]);
+                    }
+
+                    if (msg.type === 'optionsQuote') {
+                        setOptionsQuotes(prev => {
+                            const next = new Map(prev);
+                            next.set(msg.contract, {
+                                contract: msg.contract,
+                                underlying: msg.underlying,
+                                expiry: msg.expiry,
+                                strike: msg.strike,
+                                optionType: msg.optionType,
+                                bid: msg.bid || 0,
+                                ask: msg.ask || 0,
+                                mid: msg.mid || 0,
+                                spread: msg.spread || 0,
+                                iv: msg.iv,
+                                ivPct: msg.ivPct,
+                                ts: now,
+                            });
+                            return next;
+                        });
+                    }
+
+                    if (msg.type === 'luld') {
+                        setLuldEvents(prev => [
+                            {
+                                ticker: msg.ticker,
+                                upperLimit: msg.upperLimit,
+                                lowerLimit: msg.lowerLimit,
+                                indicator: msg.indicator,
+                                ts: msg.ts || now,
+                            },
+                            ...prev.slice(0, MAX_LULD_EVENTS - 1),
+                        ]);
                     }
                 } catch { /* invalid JSON */ }
             };
@@ -291,7 +390,9 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
 
     return (
         <WebSocketContext.Provider value={{
-            connected, guardianConnected, prices, quotes, gexData, alerts, rlsi,
+            connected, guardianConnected, prices, quotes,
+            optionsTrades, optionsQuotes, luldEvents,
+            gexData, alerts, rlsi,
             subscribe, getPrice, getQuote, getGex
         }}>
             {children}
