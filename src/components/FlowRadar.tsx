@@ -55,15 +55,119 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
     // [PERF] SWR-powered data fetching (replaces manual fetch + setInterval)
     // SWR handles: caching, deduplication, background refresh, error retry
     const hasData = rawChain.length > 0;
-    const { trades: whaleTrades, isLoading: tradesLoading } = useWhaleTrades(ticker, hasData, initialFlowData?.whaleTrades);
+    const { trades: restWhaleTrades, isLoading: tradesLoading } = useWhaleTrades(ticker, hasData, initialFlowData?.whaleTrades);
     const { metrics: realtimeMetrics } = useRealtimeMetrics(ticker, hasData, initialFlowData?.realtimeMetrics);
     const { trades: darkPoolTrades } = useDarkPoolTrades(ticker, hasData, initialFlowData?.darkPoolTrades);
     const [flowViewMode, setFlowViewMode] = useState<'WHALE' | 'DARKPOOL' | 'LIVE'>('WHALE');
-    const { optionsTrades: wsOptionsTrades, connected: wsFlowConnected } = useRealtimeData([ticker]);
+    const { optionsTrades: wsOptionsTrades, optionsQuotes: wsOptionsQuotes, connected: wsFlowConnected } = useRealtimeData([ticker]);
     // Filter WS trades for current ticker
     const liveOptionsTrades = useMemo(() => {
         return wsOptionsTrades.filter(t => t.underlying === ticker).slice(0, 50);
     }, [wsOptionsTrades, ticker]);
+
+    // [WS OPT] Hybrid whale trades: REST initial load + WS real-time whale-sized trades
+    const whaleTrades = useMemo(() => {
+        // 1. Start with REST baseline (always available, even after market close)
+        const restTrades = restWhaleTrades || [];
+
+        // 2. Convert WS trades to whale format (filter: premium >= $50K, this ticker, expiry <= 14d)
+        const fourteenDaysFromNow = new Date();
+        fourteenDaysFromNow.setDate(fourteenDaysFromNow.getDate() + 14);
+
+        const wsWhales = wsOptionsTrades
+            .filter(t => {
+                if (t.underlying !== ticker) return false;
+                if (t.premium < 50000) return false;
+                // Expiry filter: within 14 days
+                if (t.expiry) {
+                    const expDate = new Date(t.expiry);
+                    if (expDate > fourteenDaysFromNow) return false;
+                }
+                return true;
+            })
+            .map(t => {
+                const tradeDate = new Date(t.ts);
+                return {
+                    id: `ws-${t.contract}-${t.ts}`,
+                    ticker: t.contract,
+                    underlying: t.underlying,
+                    strike: t.strike,
+                    expiry: t.expiry,
+                    type: t.optionType === 'C' ? 'CALL' : t.optionType === 'P' ? 'PUT' : t.optionType?.toUpperCase() || 'UNKNOWN',
+                    price: t.price,
+                    size: t.size,
+                    premium: t.premium,
+                    iv: null,
+                    greeks: null,
+                    timestamp: t.ts * 1000000, // Convert ms → ns for REST compatibility
+                    tradeDate,
+                    timeET: tradeDate.toLocaleTimeString('en-US', {
+                        timeZone: 'America/New_York',
+                        hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false
+                    }),
+                    tradeType: t.tradeType,
+                    isWhale: true,
+                };
+            });
+
+        // 3. Merge: REST first, then append WS trades not already in REST (dedup by timestamp proximity)
+        const restTimestamps = new Set(restTrades.map((t: any) => Math.floor(t.timestamp / 1000000))); // ns → ms
+        const uniqueWsWhales = wsWhales.filter(wt => !restTimestamps.has(wt.tradeDate.getTime()));
+        const merged = [...restTrades, ...uniqueWsWhales];
+
+        // 4. Sort newest first (same as REST API)
+        merged.sort((a: any, b: any) => (b.timestamp || 0) - (a.timestamp || 0));
+
+        return merged;
+    }, [restWhaleTrades, wsOptionsTrades, ticker]);
+
+    // [QUOTE SIGNAL] Real-time bid/ask pressure classification from WS optionsQuotes
+    // Caches last known signal so it persists after market close
+    const lastQuoteSignalRef = useRef<'bearish' | 'bullish' | 'volatility' | 'subdued' | null>(null);
+    const quoteSignalLive = useMemo(() => {
+        if (!wsFlowConnected || wsOptionsQuotes.size === 0) return null;
+        let putBidTotal = 0, putAskTotal = 0, callBidTotal = 0, callAskTotal = 0;
+        let putCount = 0, callCount = 0;
+        wsOptionsQuotes.forEach((q) => {
+            if (q.underlying !== ticker) return;
+            if (q.optionType === 'put') {
+                putBidTotal += q.bid;
+                putAskTotal += q.ask;
+                putCount++;
+            } else if (q.optionType === 'call') {
+                callBidTotal += q.bid;
+                callAskTotal += q.ask;
+                callCount++;
+            }
+        });
+        if (putCount === 0 && callCount === 0) return null;
+        const putBidAvg = putCount > 0 ? putBidTotal / putCount : 0;
+        const callBidAvg = callCount > 0 ? callBidTotal / callCount : 0;
+        const putAskAvg = putCount > 0 ? putAskTotal / putCount : 0;
+        const callAskAvg = callCount > 0 ? callAskTotal / callCount : 0;
+        const putBidStrength = putBidAvg > 0 ? putBidAvg / putAskAvg : 0;
+        const callBidStrength = callBidAvg > 0 ? callBidAvg / callAskAvg : 0;
+        const ACTIVE_THRESHOLD = 0.3;
+        const bothActive = putBidStrength > ACTIVE_THRESHOLD && callBidStrength > ACTIVE_THRESHOLD;
+        const putDominant = putBidStrength > callBidStrength * 1.15;
+        const callDominant = callBidStrength > putBidStrength * 1.15;
+        let result: 'bearish' | 'bullish' | 'volatility' | 'subdued';
+        if (bothActive && !putDominant && !callDominant) {
+            result = 'volatility';
+        } else if (putDominant) {
+            result = 'bearish';
+        } else if (callDominant) {
+            result = 'bullish';
+        } else {
+            result = 'subdued';
+        }
+        lastQuoteSignalRef.current = result;  // Cache for post-market
+        return result;
+    }, [wsOptionsQuotes, wsFlowConnected, ticker]);
+    // Use live signal if available, otherwise use cached last signal
+    const quoteSignal = quoteSignalLive ?? lastQuoteSignalRef.current;
+    const isQuoteSignalLive = quoteSignalLive !== null;
+
     const isSystemReady = hasData && !tradesLoading;
 
     // [REMOVED] News Sentiment, Treasury, Risk Factors - Now displayed in Command page gauges
@@ -912,8 +1016,20 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
         });
         if (!nearestCall || !nearestPut) return { value: 0, direction: 'neutral' as const, color: 'text-slate-400', label: '--', straddle: '0', expiryLabel: '' };
 
-        const callPrice = nearestCall.day?.close || nearestCall.last_quote?.midpoint || 0;
-        const putPrice = nearestPut.day?.close || nearestPut.last_quote?.midpoint || 0;
+        // [WS OPT] Use WS mid price if available (fresher than REST snapshot)
+        let callPrice = nearestCall.day?.close || nearestCall.last_quote?.midpoint || 0;
+        let putPrice = nearestPut.day?.close || nearestPut.last_quote?.midpoint || 0;
+        const callContractId = nearestCall.details?.ticker;
+        const putContractId = nearestPut.details?.ticker;
+        if (callContractId && wsOptionsQuotes.has(callContractId)) {
+            const wsCall = wsOptionsQuotes.get(callContractId);
+            if (wsCall && wsCall.mid > 0) callPrice = wsCall.mid;
+        }
+        if (putContractId && wsOptionsQuotes.has(putContractId)) {
+            const wsPut = wsOptionsQuotes.get(putContractId);
+            if (wsPut && wsPut.mid > 0) putPrice = wsPut.mid;
+        }
+
         const straddle = callPrice + putPrice;
         const movePercent = currentPrice > 0 ? (straddle / currentPrice) * 100 : 0;
         const direction = callPrice > putPrice ? 'bullish' as const : callPrice < putPrice ? 'bearish' as const : 'neutral' as const;
@@ -927,7 +1043,7 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
         else { color = 'text-emerald-400'; label = fm('impliedStable'); }
 
         return { value: Math.round(movePercent * 10) / 10, direction, color, label, straddle: straddle.toFixed(2), expiryLabel };
-    }, [rawChain, currentPrice]);
+    }, [rawChain, currentPrice, wsOptionsQuotes]);
 
     // [PREMIUM] Options Market Regime (OMR) — Meta-indicator synthesizing IV, Skew, P/C, UOA, Flow, GEX
     const omr = useMemo(() => {
@@ -1273,7 +1389,7 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
         compositeScore = Math.max(-100, Math.min(100, compositeScore));
 
         // =====================================
-        // V3.0: ACTIONABLE NARRATIVE ENGINE
+        // V5.0: INSTITUTIONAL NARRATIVE ENGINE
         // =====================================
         // Output: status, message, action, warning, trigger
         let status = ui('verdictScanning');
@@ -1282,9 +1398,18 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
         let probability = 50;
         let probLabel = ui('verdictNeutralLabel');
         let probColor = "text-slate-400";
-        let action = "";    // Action guide
-        let warning = "";   // Warning
-        let trigger = "";   // Trigger (next action condition)
+        let action = "";    // Structural read
+        let warning = "";   // Failure mode
+        let trigger = "";   // Repricing condition
+
+        // [V5] Common numeric params for message interpolation (max 3 per message)
+        const msgParams = {
+            callWall, putWall,
+            netPremium: `$${Math.abs(netWhalePremium / 1000).toFixed(0)}K`,
+            opiVal: Math.round(opi.value),
+            distToCall: distToCall.toFixed(1),
+            distToPut: Math.abs(distToPut).toFixed(1),
+        };
 
         // Alpha Trade Intel
         let alphaIntel = "";
@@ -1304,39 +1429,39 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
             // ===== BREAKOUT ZONE =====
             if (compositeScore > 30) {
                 status = ui('verdictSuperCycle');
-                message = ui('verdictSuperCycleMsg', { callWall });
+                message = ui('verdictSuperCycleMsg', msgParams);
                 probability = Math.min(98, 75 + compositeScore * 0.23);
                 probLabel = ui('verdictConviction'); probColor = "text-emerald-400"; color = "text-emerald-400";
-                action = ui('verdictSuperCycleAction');
+                action = ui('verdictSuperCycleAction', msgParams);
                 warning = ui('verdictSuperCycleWarn');
                 trigger = ui('verdictSuperCycleTrigger');
             } else {
                 status = ui('verdictBreathingAfterBreak');
-                message = ui('verdictBreathingMsg', { callWall });
+                message = ui('verdictBreathingMsg', msgParams);
                 probability = 55 + compositeScore * 0.1;
                 probLabel = ui('verdictWaitLabel'); probColor = "text-amber-400"; color = "text-amber-400";
-                action = ui('verdictBreathingAction');
+                action = ui('verdictBreathingAction', msgParams);
                 warning = ui('verdictBreathingWarn');
-                trigger = ui('verdictBreathingTrigger', { callWall });
+                trigger = ui('verdictBreathingTrigger', msgParams);
             }
         } else if (currentPrice < putWall) {
             // ===== BREAKDOWN ZONE =====
             if (compositeScore < -30) {
                 status = ui('verdictCollapse');
-                message = ui('verdictCollapseMsg', { putWall });
+                message = ui('verdictCollapseMsg', msgParams);
                 probability = Math.max(5, 25 + compositeScore * 0.2);
                 probLabel = ui('verdictDanger'); probColor = "text-rose-500"; color = "text-rose-500";
                 action = ui('verdictCollapseAction');
                 warning = ui('verdictCollapseWarn');
-                trigger = ui('verdictCollapseTrigger', { putWall });
+                trigger = ui('verdictCollapseTrigger', msgParams);
             } else {
                 status = ui('verdictBearTrap');
-                message = ui('verdictBearTrapMsg', { putWall });
+                message = ui('verdictBearTrapMsg', msgParams);
                 probability = 40 + compositeScore * 0.1;
                 probLabel = ui('verdictCautionLabel'); probColor = "text-amber-500"; color = "text-amber-500";
                 action = ui('verdictBearTrapAction');
                 warning = ui('verdictBearTrapWarn');
-                trigger = ui('verdictBearTrapTrigger', { putWall });
+                trigger = ui('verdictBearTrapTrigger', msgParams);
             }
         } else {
             // ===== INSIDE RANGE =====
@@ -1346,65 +1471,81 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
             if (isNearRes) {
                 if (compositeScore > 25) {
                     status = ui('verdictBreakoutReady');
-                    message = ui('verdictBreakoutReadyMsg', { callWall });
+                    message = ui('verdictBreakoutReadyMsg', msgParams);
                     probability = 75 + compositeScore * 0.2;
                     probLabel = ui('verdictStrongBuy'); probColor = "text-emerald-400"; color = "text-emerald-400";
-                    action = ui('verdictBreakoutReadyAction', { callWall });
+                    action = ui('verdictBreakoutReadyAction', msgParams);
                     warning = ui('verdictBreakoutReadyWarn');
-                    trigger = ui('verdictBreakoutReadyTrigger', { callWall });
+                    trigger = ui('verdictBreakoutReadyTrigger', msgParams);
                 } else {
                     status = ui('verdictResistance');
-                    message = ui('verdictResistanceMsg', { callWall });
+                    message = ui('verdictResistanceMsg', msgParams);
                     probability = 45 + compositeScore * 0.1;
                     probLabel = ui('verdictCautionLabel'); probColor = "text-amber-400"; color = "text-amber-400";
                     action = ui('verdictResistanceAction');
                     warning = ui('verdictResistanceWarn');
-                    trigger = ui('verdictResistanceTrigger', { callWall });
+                    trigger = ui('verdictResistanceTrigger', msgParams);
                 }
             } else if (isNearSup) {
                 if (compositeScore > 15) {
                     status = ui('verdictBuyTheDip');
-                    message = ui('verdictBuyTheDipMsg', { putWall });
+                    message = ui('verdictBuyTheDipMsg', msgParams);
                     probability = 70 + compositeScore * 0.2;
                     probLabel = ui('verdictBuy'); probColor = "text-emerald-400"; color = "text-emerald-400";
-                    action = ui('verdictBuyTheDipAction', { putWall });
-                    warning = ui('verdictBuyTheDipWarn', { putWall });
+                    action = ui('verdictBuyTheDipAction', msgParams);
+                    warning = ui('verdictBuyTheDipWarn', msgParams);
                     trigger = ui('verdictBuyTheDipTrigger');
                 } else {
                     status = ui('verdictWeak');
-                    message = ui('verdictWeakMsg', { putWall });
+                    message = ui('verdictWeakMsg', msgParams);
                     probability = 30 + compositeScore * 0.15;
                     probLabel = ui('verdictSellWait'); probColor = "text-rose-500"; color = "text-rose-500";
                     action = ui('verdictWeakAction');
                     warning = ui('verdictWeakWarn');
-                    trigger = ui('verdictWeakTrigger', { putWall });
+                    trigger = ui('verdictWeakTrigger', msgParams);
                 }
             } else {
-                // MID-RANGE
+                // MID-RANGE — V5 NEUTRAL 2-SPLIT
                 if (compositeScore > 35) {
                     status = ui('verdictMomentum');
-                    message = ui('verdictMomentumMsg');
+                    message = ui('verdictMomentumMsg', msgParams);
                     probability = 65 + compositeScore * 0.2;
                     probLabel = ui('verdictBuyDominant'); probColor = "text-emerald-400"; color = "text-emerald-400";
-                    action = ui('verdictMomentumAction', { putWall });
+                    action = ui('verdictMomentumAction', msgParams);
                     warning = ui('verdictMomentumWarn');
-                    trigger = ui('verdictMomentumTrigger', { callWall });
+                    trigger = ui('verdictMomentumTrigger', msgParams);
                 } else if (compositeScore < -35) {
                     status = ui('verdictPressure');
-                    message = ui('verdictPressureMsg');
+                    message = ui('verdictPressureMsg', msgParams);
                     probability = 35 + compositeScore * 0.15;
                     probLabel = ui('verdictSellDominant'); probColor = "text-rose-400"; color = "text-rose-400";
                     action = ui('verdictPressureAction');
                     warning = ui('verdictPressureWarn');
-                    trigger = ui('verdictPressureTrigger', { putWall });
+                    trigger = ui('verdictPressureTrigger', msgParams);
                 } else {
-                    status = ui('verdictNeutral');
-                    message = ui('verdictNeutralMsg', { putWall, callWall });
-                    probability = 50 + compositeScore * 0.1;
-                    probLabel = ui('verdictNeutralLabel'); probColor = "text-slate-400"; color = "text-slate-400";
-                    action = ui('verdictNeutralAction');
-                    warning = ui('verdictNeutralWarn');
-                    trigger = ui('verdictNeutralTrigger');
+                    // [V5] NEUTRAL 2-split: Coiling vs Cross-Current
+                    const wallSpread = ((callWall - putWall) / currentPrice) * 100;
+                    const isCoiling = wallSpread < 5 || (Math.abs(opi.value) > 18 && squeezeProbability.value >= 35);
+
+                    if (isCoiling) {
+                        // VOLATILITY COILING — compressed neutrality with directional energy building
+                        status = ui('verdictCoiling');
+                        message = ui('verdictCoilingMsg', msgParams);
+                        probability = 50 + compositeScore * 0.1;
+                        probLabel = ui('verdictCoilingLabel'); probColor = "text-amber-400"; color = "text-amber-400";
+                        action = ui('verdictCoilingAction', msgParams);
+                        warning = ui('verdictCoilingWarn');
+                        trigger = ui('verdictCoilingTrigger', msgParams);
+                    } else {
+                        // CROSS-CURRENT — conflicting signals, catalyst-dependent
+                        status = ui('verdictCrossCurrent');
+                        message = ui('verdictCrossCurrentMsg', msgParams);
+                        probability = 50 + compositeScore * 0.1;
+                        probLabel = ui('verdictCrossCurrentLabel'); probColor = "text-slate-400"; color = "text-slate-400";
+                        action = ui('verdictCrossCurrentAction');
+                        warning = ui('verdictCrossCurrentWarn');
+                        trigger = ui('verdictCrossCurrentTrigger');
+                    }
                 }
             }
         }
@@ -1421,28 +1562,28 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
         if (isGammaPinch) {
             if (compositeScore > 20) {
                 status = ui('verdictGammaPinchUp');
-                message = ui('verdictGammaPinchUpMsg', { putWall, callWall });
+                message = ui('verdictGammaPinchUpMsg', msgParams);
                 probability = Math.min(85, 65 + compositeScore * 0.2);
                 probLabel = ui('verdictUpLikely'); probColor = "text-emerald-400"; color = "text-emerald-400";
-                action = ui('verdictGammaPinchUpAction', { callWall });
+                action = ui('verdictGammaPinchUpAction', msgParams);
                 warning = ui('verdictGammaPinchUpWarn');
-                trigger = ui('verdictGammaPinchUpTrigger', { callWall });
+                trigger = ui('verdictGammaPinchUpTrigger', msgParams);
             } else if (compositeScore < -20) {
                 status = ui('verdictGammaPinchDown');
-                message = ui('verdictGammaPinchDownMsg', { putWall, callWall });
+                message = ui('verdictGammaPinchDownMsg', msgParams);
                 probability = Math.max(15, 35 + compositeScore * 0.2);
                 probLabel = ui('verdictDownCaution'); probColor = "text-rose-400"; color = "text-rose-400";
-                action = ui('verdictGammaPinchDownAction', { putWall });
-                warning = ui('verdictGammaPinchDownWarn', { callWall });
-                trigger = ui('verdictGammaPinchDownTrigger', { putWall, callWall });
+                action = ui('verdictGammaPinchDownAction', msgParams);
+                warning = ui('verdictGammaPinchDownWarn', msgParams);
+                trigger = ui('verdictGammaPinchDownTrigger', msgParams);
             } else {
                 status = ui('verdictGammaPinchExplosive');
-                message = ui('verdictGammaPinchExplosiveMsg', { putWall, callWall });
+                message = ui('verdictGammaPinchExplosiveMsg', msgParams);
                 probability = 50;
                 probLabel = ui('verdictDirectionUndecided'); probColor = "text-amber-400"; color = "text-amber-400";
                 action = ui('verdictGammaPinchExplosiveAction');
                 warning = ui('verdictGammaPinchExplosiveWarn');
-                trigger = ui('verdictGammaPinchExplosiveTrigger', { callWall, putWall });
+                trigger = ui('verdictGammaPinchExplosiveTrigger', msgParams);
             }
         }
 
@@ -1577,30 +1718,47 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                     </div>
                 ) : analysis && (
                     <div className="bg-gradient-to-br from-slate-900/80 via-slate-800/60 to-slate-900/80 rounded-xl border border-white/10 p-3 backdrop-blur-xl shadow-lg">
-                        {/* Top Row: Title + Status with Dynamic Icon */}
-                        <div className="flex items-center gap-3 mb-3">
-                            <div className="relative">
-                                <div className="h-8 w-8 bg-amber-500/20 rounded-lg flex items-center justify-center border border-amber-400/50 shadow-[0_0_15px_rgba(251,191,36,0.3)]">
-                                    <Target size={16} className="text-amber-400" />
+                        {/* Top Row: Title + Status + Quote Signal */}
+                        <div className="flex items-center justify-between gap-3 mb-3">
+                            <div className="flex items-center gap-3 min-w-0">
+                                <div className="relative flex-shrink-0">
+                                    <div className="h-8 w-8 bg-amber-500/20 rounded-lg flex items-center justify-center border border-amber-400/50 shadow-[0_0_15px_rgba(251,191,36,0.3)]">
+                                        <Target size={16} className="text-amber-400" />
+                                    </div>
+                                    <div className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-amber-400 rounded-full animate-pulse" />
                                 </div>
-                                <div className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-amber-400 rounded-full animate-pulse" />
+                                <div className="flex items-center gap-2 min-w-0">
+                                    <CardTooltip tooltip={FLOW_TOOLTIPS.AI_VERDICT.tooltip} badge={FLOW_TOOLTIPS.AI_VERDICT.badge}><span className="text-xs font-black text-amber-400 tracking-widest">AI VERDICT</span></CardTooltip>
+                                    {/* Dynamic Status Icon */}
+                                    {analysis.status?.includes('SUPER') || analysis.status?.includes('BULL') || analysis.status?.includes('Buy') || analysis.status?.includes('BREAKOUT') || analysis.status?.includes('MOMENTUM') ? (
+                                        <TrendingUp size={16} className="text-emerald-400" />
+                                    ) : analysis.status?.includes('COLLAPSE') || analysis.status?.includes('BEAR') || analysis.status?.includes('PRESSURE') || analysis.status?.includes('WEAK') ? (
+                                        <TrendingDown size={16} className="text-rose-400" />
+                                    ) : analysis.status?.includes('RESISTANCE') ? (
+                                        <AlertTriangle size={14} className="text-rose-400" />
+                                    ) : analysis.status?.includes('BREAKOUT') || analysis.status?.includes('GAMMA') ? (
+                                        <Zap size={16} className="text-amber-400" />
+                                    ) : (
+                                        <Activity size={14} className="text-slate-400" />
+                                    )}
+                                    <span className={`text-base font-black ${analysis.color}`}>{analysis.status}</span>
+                                </div>
                             </div>
-                            <div className="flex items-center gap-2">
-                                <CardTooltip tooltip={FLOW_TOOLTIPS.AI_VERDICT.tooltip} badge={FLOW_TOOLTIPS.AI_VERDICT.badge}><span className="text-xs font-black text-amber-400 tracking-widest">AI VERDICT</span></CardTooltip>
-                                {/* Dynamic Status Icon */}
-                                {analysis.status?.includes('SUPER') || analysis.status?.includes('BULL') || analysis.status?.includes('Buy') || analysis.status?.includes('BREAKOUT') || analysis.status?.includes('MOMENTUM') ? (
-                                    <TrendingUp size={16} className="text-emerald-400" />
-                                ) : analysis.status?.includes('COLLAPSE') || analysis.status?.includes('BEAR') || analysis.status?.includes('PRESSURE') || analysis.status?.includes('WEAK') ? (
-                                    <TrendingDown size={16} className="text-rose-400" />
-                                ) : analysis.status?.includes('RESISTANCE') ? (
-                                    <AlertTriangle size={14} className="text-rose-400" />
-                                ) : analysis.status?.includes('BREAKOUT') || analysis.status?.includes('GAMMA') ? (
-                                    <Zap size={16} className="text-amber-400" />
-                                ) : (
-                                    <Activity size={14} className="text-slate-400" />
-                                )}
-                                <span className={`text-base font-black ${analysis.color}`}>{analysis.status}</span>
-                            </div>
+                            {/* [QUOTE SIGNAL] Real-time bid/ask pressure — right side */}
+                            {quoteSignal && (
+                                <div className="hidden lg:flex items-center gap-2 flex-shrink-0">
+                                    <div className="h-4 w-px bg-slate-600" />
+                                    <span className={`text-[12px] font-black px-1.5 py-0.5 rounded ${
+                                        quoteSignal === 'bearish' ? 'bg-rose-500/20 text-rose-400' :
+                                        quoteSignal === 'bullish' ? 'bg-emerald-500/20 text-emerald-400' :
+                                        quoteSignal === 'volatility' ? 'bg-amber-500/20 text-amber-400' :
+                                        'bg-slate-600/50 text-slate-400'
+                                    }`}>{quoteSignal === 'bearish' ? ui('quoteSignalTagBearish') : quoteSignal === 'bullish' ? ui('quoteSignalTagBullish') : quoteSignal === 'volatility' ? ui('quoteSignalTagVolatility') : ui('quoteSignalTagSubdued')}</span>
+                                    <span className="text-[13px] font-medium text-slate-300 tracking-tight max-w-[320px] truncate">{quoteSignal === 'bearish' ? ui('quoteSignalBearish') : quoteSignal === 'bullish' ? ui('quoteSignalBullish') : quoteSignal === 'volatility' ? ui('quoteSignalVolatility') : ui('quoteSignalSubdued')}</span>
+                                    <div className={`w-2 h-2 rounded-full flex-shrink-0 ${isQuoteSignalLive ? 'bg-emerald-400 animate-pulse' : 'bg-slate-500'}`} title={isQuoteSignalLive ? 'LIVE' : 'CLOSED'} />
+                                    {!isQuoteSignalLive && <span className="text-[10px] text-slate-500 font-medium">CLOSED</span>}
+                                </div>
+                            )}
                         </div>
 
                         {/* Metrics Grid - Glassmorphism Cards - Balanced 50/50 */}
@@ -1675,21 +1833,21 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                                         {analysis.action && (
                                             <div className="flex items-start gap-2">
                                                 <div className="mt-0.5 w-1 h-2.5 rounded-full bg-emerald-400 shrink-0" />
-                                                <span className="text-[12px] text-emerald-400 font-bold uppercase shrink-0 w-8">NOTE</span>
+                                                <span className="text-[12px] text-emerald-400 font-bold uppercase shrink-0 w-12">{ui('labelStruct')}</span>
                                                 <span className="text-xs text-emerald-300">{analysis.action}</span>
                                             </div>
                                         )}
                                         {analysis.warning && (
                                             <div className="flex items-start gap-2">
                                                 <div className="mt-0.5 w-1 h-2.5 rounded-full bg-amber-400 shrink-0" />
-                                                <span className="text-[12px] text-amber-400 font-bold uppercase shrink-0 w-8">RISK</span>
+                                                <span className="text-[12px] text-amber-400 font-bold uppercase shrink-0 w-12">{ui('labelFail')}</span>
                                                 <span className="text-xs text-amber-300">{analysis.warning}</span>
                                             </div>
                                         )}
                                         {analysis.trigger && (
                                             <div className="flex items-start gap-2">
                                                 <div className="mt-0.5 w-1 h-2.5 rounded-full bg-cyan-400 shrink-0" />
-                                                <span className="text-[12px] text-cyan-400 font-bold uppercase shrink-0 w-8">KEY</span>
+                                                <span className="text-[12px] text-cyan-400 font-bold uppercase shrink-0 w-12">{ui('labelRepr')}</span>
                                                 <span className="text-xs text-cyan-300">{analysis.trigger}</span>
                                             </div>
                                         )}

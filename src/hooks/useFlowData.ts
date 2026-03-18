@@ -60,9 +60,10 @@ export function useWhaleTrades(ticker: string | null, enabled: boolean = true, f
         fetcher,
         {
             fallbackData: fallbackData ? { items: fallbackData } : undefined,
-            refreshInterval: 30000,        // 30s (was 15s, but response takes 35s)
-            dedupingInterval: 25000,
-            revalidateOnFocus: false,       // Don't refetch heavy API on focus
+            refreshInterval: 0,            // [WS OPT] Disabled polling — WS provides real-time updates
+            dedupingInterval: 60000,        // Prevent duplicate fetches for 60s
+            revalidateOnFocus: false,
+            revalidateOnReconnect: true,    // Re-fetch on network reconnect (safety net)
             errorRetryCount: 2,
             keepPreviousData: true,
         }
