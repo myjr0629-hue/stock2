@@ -13,6 +13,7 @@ import { useMemo, useState, useCallback } from "react";
 import useSWR from "swr";
 import { TrendingUp } from "lucide-react";
 import { useLocale } from "next-intl";
+import { useRealtimeData } from "@/providers/WebSocketProvider";
 
 interface AtmContract {
     strike: number;
@@ -73,6 +74,27 @@ export default function IVSkewCurve({ ticker, atmSlice: parentAtmSlice, underlyi
     const resolvedExpiration = expiration || atmResponse?.atmSlice?.[0]?.expiration;
     const resolvedPrice = underlyingPrice || atmResponse?.underlyingPrice || 0;
 
+    // ═══ REAL-TIME WS: Subscribe to ticker and extract live IV from optionsQuotes ═══
+    const tickerArr = useMemo(() => ticker ? [ticker] : [], [ticker]);
+    const { optionsQuotes, connected: wsConnected } = useRealtimeData(tickerArr);
+
+    // Extract real-time IV by strike from optionsQuotes Map
+    const wsIVByStrike = useMemo(() => {
+        const map = new Map<number, { callIV: number; putIV: number }>();
+        if (!optionsQuotes || optionsQuotes.size === 0) return map;
+
+        optionsQuotes.forEach((q) => {
+            if (q.underlying !== ticker || !q.ivPct || q.ivPct <= 0) return;
+            const existing = map.get(q.strike) || { callIV: 0, putIV: 0 };
+            if (q.optionType === 'C') existing.callIV = q.ivPct;
+            else if (q.optionType === 'P') existing.putIV = q.ivPct;
+            map.set(q.strike, existing);
+        });
+        return map;
+    }, [optionsQuotes, ticker]);
+
+    const hasLiveIV = wsConnected && wsIVByStrike.size > 0;
+
     // Process data: group by strike, pair call/put
     const { strikeData, avgCallIV, avgPutIV, skewDir, maxIV, fearStrike, targetStrike, crossover } = useMemo(() => {
         if (!atmSlice || atmSlice.length === 0) return { strikeData: [], avgCallIV: 0, avgPutIV: 0, skewDir: 'BALANCED' as const, maxIV: 0, fearStrike: null as StrikeIV | null, targetStrike: null as StrikeIV | null, crossover: null as StrikeIV | null };
@@ -87,8 +109,17 @@ export default function IVSkewCurve({ ticker, atmSlice: parentAtmSlice, underlyi
         const strikes = Object.keys(byStrike).map(Number).sort((a, b) => a - b);
         const data: StrikeIV[] = strikes.map(s => {
             const pair = byStrike[s];
-            const callIV = (pair.call?.iv && pair.call.iv > 0) ? pair.call.iv * 100 : 0;
-            const putIV = (pair.put?.iv && pair.put.iv > 0) ? pair.put.iv * 100 : 0;
+            // REST IV (baseline)
+            let callIV = (pair.call?.iv && pair.call.iv > 0) ? pair.call.iv * 100 : 0;
+            let putIV = (pair.put?.iv && pair.put.iv > 0) ? pair.put.iv * 100 : 0;
+
+            // WS IV overlay (real-time priority)
+            const wsIV = wsIVByStrike.get(s);
+            if (wsIV) {
+                if (wsIV.callIV > 0) callIV = wsIV.callIV;
+                if (wsIV.putIV > 0) putIV = wsIV.putIV;
+            }
+
             return {
                 strike: s,
                 callIV,
@@ -97,7 +128,7 @@ export default function IVSkewCurve({ ticker, atmSlice: parentAtmSlice, underlyi
                 putOI: pair.put?.oi || 0,
                 callGamma: pair.call?.gamma || 0,
                 putGamma: pair.put?.gamma || 0,
-                isATM: Math.abs(s - resolvedPrice) <= (resolvedPrice * 0.01), // within 1%
+                isATM: Math.abs(s - resolvedPrice) <= (resolvedPrice * 0.01),
             };
         }).filter(d => d.callIV > 0 || d.putIV > 0);
 
@@ -153,7 +184,7 @@ export default function IVSkewCurve({ ticker, atmSlice: parentAtmSlice, underlyi
         }
 
         return { strikeData: data, avgCallIV: ac, avgPutIV: ap, skewDir: dir as 'PUT RICH' | 'CALL RICH' | 'BALANCED', maxIV: mx, fearStrike, targetStrike, crossover };
-    }, [atmSlice, resolvedPrice]);
+    }, [atmSlice, resolvedPrice, wsIVByStrike]);
 
     // SVG dimensions
     const W = 700, H = 280, PAD = { top: 30, right: 20, bottom: 50, left: 55 };
@@ -269,6 +300,7 @@ export default function IVSkewCurve({ ticker, atmSlice: parentAtmSlice, underlyi
                     <h4 className="text-[12px] font-black text-white uppercase tracking-widest flex items-center gap-2 font-jakarta">
                         <div className="w-1.5 h-1.5 bg-indigo-500 rounded-sm animate-pulse" />
                         IV SKEW CURVE
+                        {hasLiveIV && <span className="ml-1 px-1.5 py-0.5 bg-emerald-500/20 text-emerald-400 text-[9px] font-bold rounded-full border border-emerald-500/30 animate-pulse">LIVE</span>}
                     </h4>
                     {resolvedExpiration && (
                         <span className="text-[12px] text-slate-400 font-mono font-jakarta">EXP: {resolvedExpiration}</span>

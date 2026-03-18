@@ -470,7 +470,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
     // [PERF] 5s real-time price polling (separate from heavy 60s ticker API)
     const livePrice = useLivePrice(ticker);
     // [AWS Phase 3] WebSocket real-time price/GEX from EC2 Hub
-    const { connected: wsConnected, getPrice: wsGetPrice, getGex: wsGetGex } = useRealtimeData([ticker]);
+    const { connected: wsConnected, getPrice: wsGetPrice, getGex: wsGetGex, getQuote: wsGetQuote } = useRealtimeData([ticker]);
     const wsPrice = wsGetPrice(ticker);
     const wsGex = wsGetGex(ticker);
     // Use SWR data when available, SSR fallback otherwise — keeps 'liveQuote' name for compatibility
@@ -1232,6 +1232,31 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                 </div>
                                 <div className="relative z-10 text-[12px] font-jakarta text-white mt-0.5">{vwapDesc}</div>
                                 <div className="relative z-10 text-[12px] font-jakarta text-slate-300 mt-px">{td('vwapDeviation')} {vwapDiff > 0 ? '+' : ''}{vwapDiff.toFixed(2)}{td('vwapDeviationSuffix')}</div>
+                                {/* Real-time Bid/Ask Spread from WS */}
+                                {(() => {
+                                    const q = wsGetQuote(ticker);
+                                    if (!q || q.bid <= 0) return null;
+                                    const spreadPct = q.ask > 0 && q.bid > 0 ? ((q.ask - q.bid) / ((q.bid + q.ask) / 2) * 100) : 0;
+                                    const mid = (q.bid + q.ask) / 2;
+                                    return (
+                                        <div className="relative z-10 mt-1.5 pt-1.5 border-t border-white/5">
+                                            <div className="flex items-center justify-between">
+                                                <div className="flex items-center gap-1">
+                                                    <div className="w-1 h-1 rounded-full bg-emerald-400 animate-pulse" />
+                                                    <span className="text-[10px] text-slate-400 font-jakarta">NBBO</span>
+                                                </div>
+                                                <span className={`text-[10px] font-bold font-jakarta ${spreadPct < 0.05 ? 'text-emerald-400' : spreadPct < 0.15 ? 'text-amber-400' : 'text-rose-400'}`}>
+                                                    Spread {spreadPct.toFixed(3)}%
+                                                </span>
+                                            </div>
+                                            <div className="flex items-center justify-between mt-0.5 text-[11px] font-mono tabular-nums font-jakarta">
+                                                <span className="text-emerald-400">${q.bid.toFixed(2)}<span className="text-[9px] text-slate-500 ml-0.5">×{q.bidSize}</span></span>
+                                                <span className="text-slate-500">—</span>
+                                                <span className="text-rose-400">${q.ask.toFixed(2)}<span className="text-[9px] text-slate-500 ml-0.5">×{q.askSize}</span></span>
+                                            </div>
+                                        </div>
+                                    );
+                                })()}
                                 <div className="relative z-10 mt-0.5">
                                     <span className="text-[12px] text-slate-300 font-jakarta">{td('vwapFullDesc')}</span>
                                 </div>
