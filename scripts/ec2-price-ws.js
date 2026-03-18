@@ -185,6 +185,11 @@ function connectToPolygon() {
                     if (msg.ev === "Q") {
                         handleQuoteUpdate(msg);
                     }
+
+                    // LULD events (Limit Up / Limit Down)
+                    if (msg.ev === "LULD") {
+                        handleLuldUpdate(msg);
+                    }
                 }
             } catch (e) {
                 // Non-JSON or parse error — ignore
@@ -239,19 +244,19 @@ function resubscribeAllOnPolygon() {
 
     // Subscribe to Trades (T.), per-second aggs (A.), and per-minute aggs (AM.)
     const tickerList = [...allTickers];
-    const subs = tickerList.flatMap(t => [`T.${t}`, `A.${t}`, `AM.${t}`, `Q.${t}`]).join(",");
+    const subs = tickerList.flatMap(t => [`T.${t}`, `A.${t}`, `AM.${t}`, `Q.${t}`, `LULD.${t}`]).join(",");
     polygonWs.send(JSON.stringify({ action: "subscribe", params: subs }));
     tickerList.forEach(t => subscribedOnPolygon.add(t));
-    console.log(`[Price WS] Subscribed to ${tickerList.length} tickers (T+A+AM+Q): ${tickerList.slice(0, 10).join(", ")}${tickerList.length > 10 ? "..." : ""}`);
+    console.log(`[Price WS] Subscribed to ${tickerList.length} tickers (T+A+AM+Q+LULD): ${tickerList.slice(0, 10).join(", ")}${tickerList.length > 10 ? "..." : ""}`);
 }
 
 function subscribeTickerOnPolygon(ticker) {
     if (subscribedOnPolygon.has(ticker)) return;
     if (!polygonWs || polygonWs.readyState !== WebSocket.OPEN) return;
 
-    polygonWs.send(JSON.stringify({ action: "subscribe", params: `T.${ticker},A.${ticker},AM.${ticker},Q.${ticker}` }));
+    polygonWs.send(JSON.stringify({ action: "subscribe", params: `T.${ticker},A.${ticker},AM.${ticker},Q.${ticker},LULD.${ticker}` }));
     subscribedOnPolygon.add(ticker);
-    console.log(`[Price WS] + Subscribed to T/A/AM/Q.${ticker} on Massive`);
+    console.log(`[Price WS] + Subscribed to T/A/AM/Q/LULD.${ticker} on Massive`);
 
     // Fetch real previousClose from REST API for accurate changePct
     if (!latestPrices.has(ticker) || !latestPrices.get(ticker).prevClose) {
@@ -269,9 +274,9 @@ function unsubscribeTickerOnPolygon(ticker) {
     if (!subscribedOnPolygon.has(ticker)) return;
     if (!polygonWs || polygonWs.readyState !== WebSocket.OPEN) return;
 
-    polygonWs.send(JSON.stringify({ action: "unsubscribe", params: `T.${ticker},A.${ticker},AM.${ticker},Q.${ticker}` }));
+    polygonWs.send(JSON.stringify({ action: "unsubscribe", params: `T.${ticker},A.${ticker},AM.${ticker},Q.${ticker},LULD.${ticker}` }));
     subscribedOnPolygon.delete(ticker);
-    console.log(`[Price WS] - Unsubscribed from T/A/AM/Q.${ticker} on Massive`);
+    console.log(`[Price WS] - Unsubscribed from T/A/AM/Q/LULD.${ticker} on Massive`);
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -392,6 +397,45 @@ function broadcastQuote(ticker, bid, bidSize, ask, askSize, spread) {
         type: "quote",
         ticker,
         bid, bidSize, ask, askSize, spread,
+    });
+
+    for (const ws of subscribers) {
+        if (ws.readyState === WebSocket.OPEN) {
+            try { ws.send(message); } catch {}
+        }
+    }
+}
+
+// ══════════════════════════════════════════════════════════════
+// LULD (LIMIT UP LIMIT DOWN) HANDLER
+// ══════════════════════════════════════════════════════════════
+
+function handleLuldUpdate(msg) {
+    const ticker = msg.T || msg.sym;
+    if (!ticker) return;
+    markPolygonDataReceived();
+
+    const upperLimit = msg.high_limit || msg.up || 0;
+    const lowerLimit = msg.low_limit || msg.down || 0;
+    const indicator = msg.indicator || 0;
+    // Indicator codes: 1=opening, 2=tier1 reopening, 3=tier2 reopening,
+    // 17=trading halt, 18=trading resume
+
+    console.log(`[Price WS] ⚡ LULD event: ${ticker} upper=$${upperLimit} lower=$${lowerLimit} indicator=${indicator}`);
+
+    // Always broadcast LULD immediately (no throttle — rare and critical events)
+    broadcastLuld(ticker, upperLimit, lowerLimit, indicator);
+}
+
+function broadcastLuld(ticker, upperLimit, lowerLimit, indicator) {
+    const subscribers = tickerSubscribers.get(ticker);
+    if (!subscribers || subscribers.size === 0) return;
+
+    const message = JSON.stringify({
+        type: "luld",
+        ticker,
+        upperLimit, lowerLimit, indicator,
+        ts: Date.now(),
     });
 
     for (const ws of subscribers) {
