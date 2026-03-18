@@ -107,6 +107,10 @@ const tickerSubscribers = new Map();
 // Map<ticker, { price, changePct, volume, prevClose, ts }>
 const latestPrices = new Map();
 
+// Throttle: broadcast at most once per THROTTLE_MS per ticker
+const THROTTLE_MS = 1000; // 1 second
+const lastBroadcastTime = new Map(); // Map<ticker, timestamp>
+
 // Polygon state
 let polygonWs = null;
 let polygonConnected = false;
@@ -286,8 +290,8 @@ function handleAggregateUpdate(msg) {
         ts: Date.now(),
     });
 
-    // Broadcast to subscribed clients
-    broadcastPrice(ticker, price, changePct, volume);
+    // Broadcast to subscribed clients (throttled: 1s per ticker)
+    throttledBroadcast(ticker, price, changePct, volume);
 }
 
 function handleTradeUpdate(msg) {
@@ -310,7 +314,15 @@ function handleTradeUpdate(msg) {
         ts: Date.now(),
     });
 
-    broadcastPrice(ticker, price, changePct, (existing?.volume || 0) + volume);
+    throttledBroadcast(ticker, price, changePct, (existing?.volume || 0) + volume);
+}
+
+function throttledBroadcast(ticker, price, changePct, volume) {
+    const now = Date.now();
+    const lastTime = lastBroadcastTime.get(ticker) || 0;
+    if (now - lastTime < THROTTLE_MS) return; // Skip: within throttle window
+    lastBroadcastTime.set(ticker, now);
+    broadcastPrice(ticker, price, changePct, volume);
 }
 
 function broadcastPrice(ticker, price, changePct, volume) {
