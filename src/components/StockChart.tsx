@@ -588,6 +588,26 @@ export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d
                 <div ref={chartContainerRef} key={`${ticker}-${range}`} className={`flex-1 w-full flex flex-col min-w-[200px] min-h-[200px] overflow-hidden relative transition-opacity duration-500 ${renderSettled ? 'opacity-100' : 'opacity-0'}`}>
                     {mounted && dataReady && processedData.length > 0 ? (
                         <>
+                            {/* ═══ NBBO Bid/Ask Overlay (1D only) — positioned on chart upper area ═══ */}
+                            {isIntraday && nbbo && nbbo.bid > 0 && nbbo.ask > 0 && (() => {
+                                const spreadPct = ((nbbo.ask - nbbo.bid) / ((nbbo.bid + nbbo.ask) / 2) * 100);
+                                const spreadColor = spreadPct < 0.05 ? 'text-emerald-400' : spreadPct < 0.15 ? 'text-amber-400' : 'text-rose-400';
+                                const spreadBorder = spreadPct < 0.05 ? 'border-emerald-500/30' : spreadPct < 0.15 ? 'border-amber-500/30' : 'border-rose-500/30';
+                                return (
+                                    <div className="absolute top-2 left-1/2 -translate-x-1/2 z-30 flex items-center gap-1.5 px-3 py-1 rounded-md bg-slate-900/70 backdrop-blur-sm border border-white/10" title="NBBO (National Best Bid and Offer) — 전국 최우선 호가. Bid는 매수 최고가, Ask는 매도 최저가이며, 그 차이(Spread)가 좁을수록 유동성이 풍부합니다.">
+                                        {/* Bid */}
+                                        <span className="text-[12px] font-bold text-emerald-400 tabular-nums font-jakarta">${nbbo.bid.toFixed(2)}</span>
+                                        <span className="text-[12px] text-slate-300 tabular-nums font-jakarta">×{nbbo.bidSize}</span>
+                                        {/* Spread */}
+                                        <span className={`text-[12px] font-bold ${spreadColor} px-1.5 py-px rounded border ${spreadBorder} bg-slate-950/50 tabular-nums font-jakarta`}>
+                                            Spread {spreadPct.toFixed(3)}%
+                                        </span>
+                                        {/* Ask */}
+                                        <span className="text-[12px] font-bold text-rose-400 tabular-nums font-jakarta">${nbbo.ask.toFixed(2)}</span>
+                                        <span className="text-[12px] text-slate-300 tabular-nums font-jakarta">×{nbbo.askSize}</span>
+                                    </div>
+                                );
+                            })()}
                             <ResponsiveContainer width="99%" height="100%" minWidth={200} minHeight={200}>
                                 <ComposedChart data={processedData} margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
                                     <CartesianGrid strokeDasharray="2 2" vertical={true} horizontal={true} stroke={chartConfig.gridColor} />
@@ -611,44 +631,6 @@ export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d
                                                 ifOverflow="hidden"
                                             />
                                         </>
-                                    )}
-                                    {/* ═══ NBBO Bid/Ask Overlay (1D only, inside chart area) ═══ */}
-                                    {isIntraday && nbbo && nbbo.bid > 0 && nbbo.ask > 0 && (
-                                        <Customized
-                                            component={({ width: cw, height: ch }: any) => {
-                                                if (!cw || !ch) return null;
-                                                const spreadPct = ((nbbo.ask - nbbo.bid) / ((nbbo.bid + nbbo.ask) / 2) * 100);
-                                                const spreadColor = spreadPct < 0.05 ? '#4ade80' : spreadPct < 0.15 ? '#fbbf24' : '#f87171';
-                                                // Position: upper center of chart
-                                                const cx = cw / 2;
-                                                const cy = 24;
-                                                return (
-                                                    <g>
-                                                        {/* Background pill */}
-                                                        <rect x={cx - 145} y={cy - 10} width={290} height={24} rx={6} fill="rgba(15,23,42,0.65)" stroke="rgba(148,163,184,0.15)" strokeWidth={0.5} />
-                                                        {/* Bid */}
-                                                        <text x={cx - 130} y={cy + 5} fill="#4ade80" fontSize={12} fontWeight={700} fontFamily="Plus Jakarta Sans, system-ui" style={{ letterSpacing: '0.01em' }}>
-                                                            ${nbbo.bid.toFixed(2)}
-                                                        </text>
-                                                        <text x={cx - 78} y={cy + 5} fill="#94a3b8" fontSize={12} fontFamily="Plus Jakarta Sans, system-ui">
-                                                            ×{nbbo.bidSize}
-                                                        </text>
-                                                        {/* Spread badge */}
-                                                        <rect x={cx - 42} y={cy - 7} width={84} height={18} rx={4} fill="rgba(15,23,42,0.8)" stroke={spreadColor} strokeWidth={0.5} strokeOpacity={0.5} />
-                                                        <text x={cx} y={cy + 5} textAnchor="middle" fill={spreadColor} fontSize={12} fontWeight={700} fontFamily="Plus Jakarta Sans, system-ui">
-                                                            Spread {spreadPct.toFixed(3)}%
-                                                        </text>
-                                                        {/* Ask */}
-                                                        <text x={cx + 48} y={cy + 5} fill="#f87171" fontSize={12} fontWeight={700} fontFamily="Plus Jakarta Sans, system-ui" style={{ letterSpacing: '0.01em' }}>
-                                                            ${nbbo.ask.toFixed(2)}
-                                                        </text>
-                                                        <text x={cx + 100} y={cy + 5} fill="#94a3b8" fontSize={12} fontFamily="Plus Jakarta Sans, system-ui">
-                                                            ×{nbbo.askSize}
-                                                        </text>
-                                                    </g>
-                                                );
-                                            }}
-                                        />
                                     )}
                                     <XAxis
                                         dataKey="xValue"
