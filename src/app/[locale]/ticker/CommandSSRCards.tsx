@@ -145,15 +145,49 @@ export function CommandSSRCards({ data, stockData, ticker }: CommandSSRCardsProp
                     <div className="mt-0.5"><span className="text-[12px] text-slate-300 font-jakarta">Volume Weighted Avg Price</span></div>
                 </CardShell>
 
-                {/* 1-4: SHORT SQUEEZE */}
-                <CardShell bg={sqStatus === 'CRITICAL' ? 'bg-rose-950/40 border-rose-500/30' : sqStatus === 'HIGH' ? 'bg-amber-950/40 border-amber-500/30' : 'bg-slate-800/40 border-slate-700/50'}>
-                    <CardHeader icon="🛡️" title="SHORT SQUEEZE" badge={sqStatus} badgeColor={`${sqStatus === 'CRITICAL' ? 'bg-rose-500/20' : 'bg-slate-700/30'} ${sqColor}`} />
-                    <MetricRow value={sqScore !== null ? `${typeof sqScore === 'number' ? sqScore.toFixed(1) : sqScore}%` : '--'} suffix="SI%" color={sqColor} />
-                    <div className="flex gap-3 mt-0.5 text-[12px] font-jakarta tabular-nums">
-                        <span className="text-white/80">DTC <span className="font-bold text-white">{squeeze?.daysToCover?.toFixed(1) ?? '--'}</span></span>
-                    </div>
-                    <div className="mt-0.5"><span className="text-[12px] text-slate-300 font-jakarta">SI%·DTC·Short Vol</span></div>
-                </CardShell>
+                {/* 1-4: IV SKEW (conditional) → SHORT SQUEEZE fallback */}
+                {(() => {
+                    // Try to compute IV skew from ATM options slice
+                    const atmSlice = data.options?.atmSlice || [];
+                    const callIVs = atmSlice.filter((c: any) => c.type === 'call' && c.iv > 0).map((c: any) => c.iv);
+                    const putIVs = atmSlice.filter((c: any) => c.type === 'put' && c.iv > 0).map((c: any) => c.iv);
+                    const avgCallIV = callIVs.length > 0 ? callIVs.reduce((a: number, b: number) => a + b, 0) / callIVs.length : 0;
+                    const avgPutIV = putIVs.length > 0 ? putIVs.reduce((a: number, b: number) => a + b, 0) / putIVs.length : 0;
+                    const hasIVData = avgCallIV > 0 && avgPutIV > 0;
+
+                    if (hasIVData) {
+                        const atmIV = ((avgCallIV + avgPutIV) / 2 * 100);
+                        const skewSpread = (avgPutIV - avgCallIV) * 100;
+                        const skewDir = skewSpread > 2 ? 'PUT RICH' : skewSpread < -2 ? 'CALL RICH' : 'BALANCED';
+                        const skewColor = skewDir === 'PUT RICH' ? 'text-rose-400' : skewDir === 'CALL RICH' ? 'text-emerald-400' : 'text-cyan-400';
+                        const skewBg = skewDir === 'PUT RICH' ? 'bg-rose-950/40 border-rose-500/30' : skewDir === 'CALL RICH' ? 'bg-emerald-950/40 border-emerald-500/30' : 'bg-slate-800/40 border-slate-700/50';
+
+                        return (
+                            <CardShell bg={skewBg}>
+                                <CardHeader icon="📐" title="IV SKEW" badge={skewDir} badgeColor={`${skewDir === 'PUT RICH' ? 'bg-rose-500/20' : skewDir === 'CALL RICH' ? 'bg-emerald-500/20' : 'bg-slate-700/30'} ${skewColor}`} />
+                                <MetricRow value={`${atmIV.toFixed(1)}%`} suffix="ATM IV" color={skewColor} />
+                                <div className="flex gap-3 mt-0.5 text-[12px] font-jakarta tabular-nums">
+                                    <span className="text-white/80">Call <span className="font-bold text-emerald-400">{(avgCallIV * 100).toFixed(0)}%</span></span>
+                                    <span className="text-white/80">Put <span className="font-bold text-rose-400">{(avgPutIV * 100).toFixed(0)}%</span></span>
+                                    <span className="text-white/80">Δ <span className={`font-bold ${skewColor}`}>{skewSpread > 0 ? '+' : ''}{skewSpread.toFixed(1)}%</span></span>
+                                </div>
+                                <div className="mt-0.5"><span className="text-[12px] text-slate-300 font-jakarta">Call IV·Put IV·Skew Spread</span></div>
+                            </CardShell>
+                        );
+                    }
+
+                    // Fallback: SHORT SQUEEZE
+                    return (
+                        <CardShell bg={sqStatus === 'CRITICAL' ? 'bg-rose-950/40 border-rose-500/30' : sqStatus === 'HIGH' ? 'bg-amber-950/40 border-amber-500/30' : 'bg-slate-800/40 border-slate-700/50'}>
+                            <CardHeader icon="🛡️" title="SHORT SQUEEZE" badge={sqStatus} badgeColor={`${sqStatus === 'CRITICAL' ? 'bg-rose-500/20' : 'bg-slate-700/30'} ${sqColor}`} />
+                            <MetricRow value={sqScore !== null ? `${typeof sqScore === 'number' ? sqScore.toFixed(1) : sqScore}%` : '--'} suffix="SI%" color={sqColor} />
+                            <div className="flex gap-3 mt-0.5 text-[12px] font-jakarta tabular-nums">
+                                <span className="text-white/80">DTC <span className="font-bold text-white">{squeeze?.daysToCover?.toFixed(1) ?? '--'}</span></span>
+                            </div>
+                            <div className="mt-0.5"><span className="text-[12px] text-slate-300 font-jakarta">SI%·DTC·Short Vol</span></div>
+                        </CardShell>
+                    );
+                })()}
 
                 {/* 1-5: ANALYST TARGET */}
                 <CardShell bg={analystBg}>

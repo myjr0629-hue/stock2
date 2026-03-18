@@ -25,6 +25,7 @@ import { GexTimeline } from '@/components/history/GexTimeline';
 import { TechnicalLevelsMap } from '@/components/TechnicalLevelsMap';
 import { GammaPressureGauge } from '@/components/GammaPressureGauge';
 import { CardTooltip, COMMAND_TOOLTIPS } from '@/components/ui/CardTooltip';
+import IVSkewCurve from '@/components/IVSkewCurve';
 
 // [FIX] Dynamic import with SSR disabled - Recharts requires DOM measurements
 const StockChart = dynamic(() => import("@/components/StockChart").then(mod => mod.StockChart), {
@@ -498,8 +499,8 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
         return { cross: s.cross || 'UNKNOWN', crossType: s.crossType || '', label: s.label || '', sma50: s.sma50 || 0, sma200: s.sma200 || 0, distance: s.distance || 0, isImminent: s.isImminent || false, phase: s.phase || 'UNKNOWN' };
     });
     const [conviction, setConviction] = useState<{ score: number; label: string; grade: string } | null>(null);
-    // [UX] GEX Timeline ↔ Technical Levels Map toggle
-    const [activeInsightTab, setActiveInsightTab] = useState<'gex' | 'levels'>('gex');
+    // [UX] GEX Timeline ↔ Tech Levels ↔ IV SKEW toggle
+    const [activeInsightTab, setActiveInsightTab] = useState<'gex' | 'levels' | 'ivskew'>('gex');
     const [relatedData, setRelatedData] = useState<{ count: number; topRelated: { ticker: string; price: number; change: number; logo: string | null }[] } | null>(() => {
         if (!initialUnifiedData?.related) return null;
         return { count: initialUnifiedData.related.count || 0, topRelated: initialUnifiedData.related.topRelated || [] };
@@ -1238,9 +1239,56 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                         );
                     })()}
 
-                    {/* [1-4] SHORT SQUEEZE™ — FREE peek */}
-                    <ProGate title="Short Squeeze" mode="peek" compact>
+                    {/* [1-4] IV SKEW / SHORT SQUEEZE — conditional */}
+                    <ProGate title="IV Skew" mode="peek" compact>
                         {(() => {
+                            // Try to compute IV skew from ATM options slice
+                            const atmSlice = options?.atmSlice || [];
+                            const callIVs = atmSlice.filter((c: any) => c.type === 'call' && c.iv > 0).map((c: any) => c.iv);
+                            const putIVs = atmSlice.filter((c: any) => c.type === 'put' && c.iv > 0).map((c: any) => c.iv);
+                            const avgCallIV = callIVs.length > 0 ? callIVs.reduce((a: number, b: number) => a + b, 0) / callIVs.length : 0;
+                            const avgPutIV = putIVs.length > 0 ? putIVs.reduce((a: number, b: number) => a + b, 0) / putIVs.length : 0;
+                            const hasIVData = avgCallIV > 0 && avgPutIV > 0;
+
+                            if (hasIVData) {
+                                const atmIV = ((avgCallIV + avgPutIV) / 2 * 100);
+                                const skewSpread = (avgPutIV - avgCallIV) * 100;
+                                const skewDir = skewSpread > 2 ? 'PUT RICH' : skewSpread < -2 ? 'CALL RICH' : 'BALANCED';
+                                const skewColor = skewDir === 'PUT RICH' ? 'text-rose-400' : skewDir === 'CALL RICH' ? 'text-emerald-400' : 'text-cyan-400';
+                                const skewBg = skewDir === 'PUT RICH' ? 'bg-rose-950/40 border-rose-500/30' : skewDir === 'CALL RICH' ? 'bg-emerald-950/40 border-emerald-500/30' : 'bg-slate-800/40 border-slate-700/50';
+                                const skewInsight = skewDir === 'PUT RICH' ? td('skewPutRich') : skewDir === 'CALL RICH' ? td('skewCallRich') : td('skewBalanced');
+
+                                return (
+                                    <div className={`relative overflow-hidden rounded-lg py-2 px-2.5 min-h-[120px] transition-all duration-500 backdrop-blur-xl border cursor-default hover:-translate-y-0.5 hover:brightness-110 hover:border-white/20 hover:shadow-[0_4px_20px_rgba(99,102,241,0.1)] ${skewBg}`}>
+                                        <div className="absolute inset-0 bg-gradient-to-br from-white/[0.06] via-transparent to-transparent pointer-events-none" />
+                                        <div className="absolute inset-0 pointer-events-none opacity-[0.12]" style={{ backgroundImage: "repeating-linear-gradient(45deg, transparent, transparent 4px, rgba(255,255,255,0.2) 4px, rgba(255,255,255,0.2) 5px, transparent 5px, transparent 9px)" }} />
+                                        <div className="relative z-10 flex items-center justify-between mb-1">
+                                            <div className="flex items-center gap-1">
+                                                <TrendingUp className={`w-3.5 h-3.5 ${skewColor}`} />
+                                                <span className="text-[13px] font-bold text-white uppercase tracking-wider font-jakarta"><CardTooltip tooltip={COMMAND_TOOLTIPS.IV_SKEW?.tooltip || 'IV Skew measures the difference between put and call implied volatility. PUT RICH indicates hedging demand, CALL RICH indicates speculative demand.'}>IV SKEW</CardTooltip></span>
+                                            </div>
+                                            <span className={`text-[12px] font-black px-1.5 py-px rounded font-jakarta ${skewDir === 'PUT RICH' ? 'bg-rose-500/20' : skewDir === 'CALL RICH' ? 'bg-emerald-500/20' : 'bg-slate-700/30'} ${skewColor}`}>
+                                                {skewDir}
+                                            </span>
+                                        </div>
+                                        <div className="relative z-10 flex items-baseline gap-1.5">
+                                            <span className={`text-[20px] font-black tabular-nums leading-none ${skewColor}`}>{atmIV.toFixed(1)}%</span>
+                                            <span className="text-[14px] font-jakarta text-white font-bold">ATM IV</span>
+                                        </div>
+                                        <div className="relative z-10 flex gap-3 mt-0.5 text-[12px] font-jakarta tabular-nums">
+                                            <span className="text-white/80">Call <span className="font-bold text-emerald-400">{(avgCallIV * 100).toFixed(0)}%</span></span>
+                                            <span className="text-white/80">Put <span className="font-bold text-rose-400">{(avgPutIV * 100).toFixed(0)}%</span></span>
+                                            <span className="text-white/80">Δ <span className={`font-bold ${skewColor}`}>{skewSpread > 0 ? '+' : ''}{skewSpread.toFixed(1)}%</span></span>
+                                        </div>
+                                        <div className="relative z-10 text-[12px] font-jakarta text-white mt-0.5">{skewInsight}</div>
+                                        <div className="relative z-10 mt-0.5">
+                                            <span className="text-[12px] text-slate-300 font-jakarta">Call IV·Put IV·Skew Spread</span>
+                                        </div>
+                                    </div>
+                                );
+                            }
+
+                            // Fallback: SHORT SQUEEZE
                             const s = squeezeData;
                             const isCritical = s?.status === 'CRITICAL' || s?.status === 'HIGH';
                             const statusColor = s?.status === 'CRITICAL' ? 'text-rose-400' : s?.status === 'HIGH' ? 'text-amber-400' : s?.status === 'MEDIUM' ? 'text-cyan-400' : 'text-emerald-400';
@@ -1668,8 +1716,8 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                                 : 'bg-slate-800/40 text-slate-400 border border-slate-700/30 hover:text-slate-300 hover:border-slate-600/50'
                                         }`}
                                     >
-                                        <div className={`w-1.5 h-1.5 rounded-full ${activeInsightTab === 'gex' ? 'bg-indigo-400' : 'bg-slate-500'}`} />
-                                        GEX Timeline 30D
+                                        <div className={`w-1.5 h-1.5 rounded-full ${activeInsightTab === 'gex' ? 'bg-indigo-400' : 'bg-slate-500'} ${effectiveSession === 'REG' && activeInsightTab !== 'gex' ? 'animate-pulse' : ''}`} />
+                                        <CardTooltip tooltip={COMMAND_TOOLTIPS.GEX_TIMELINE.tooltip} badge={COMMAND_TOOLTIPS.GEX_TIMELINE.badge}>GEX Timeline 30D</CardTooltip>
                                     </button>
                                     <button
                                         onClick={() => setActiveInsightTab('levels')}
@@ -1679,15 +1727,26 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                                 : 'bg-slate-800/40 text-slate-400 border border-slate-700/30 hover:text-slate-300 hover:border-slate-600/50'
                                         }`}
                                     >
-                                        <div className={`w-1.5 h-1.5 rounded-full ${activeInsightTab === 'levels' ? 'bg-indigo-400' : 'bg-slate-500'}`} />
-                                        Tech Levels
+                                        <div className={`w-1.5 h-1.5 rounded-full ${activeInsightTab === 'levels' ? 'bg-indigo-400' : 'bg-slate-500'} ${effectiveSession === 'REG' && activeInsightTab !== 'levels' ? 'animate-pulse' : ''}`} />
+                                        <CardTooltip tooltip={COMMAND_TOOLTIPS.TECH_LEVELS.tooltip} badge={COMMAND_TOOLTIPS.TECH_LEVELS.badge}>Tech Levels</CardTooltip>
+                                    </button>
+                                    <button
+                                        onClick={() => setActiveInsightTab('ivskew')}
+                                        className={`px-3 py-1.5 rounded-lg text-[12px] font-black uppercase tracking-wider transition-all duration-200 font-jakarta flex items-center gap-1.5 ${
+                                            activeInsightTab === 'ivskew'
+                                                ? 'bg-indigo-500/20 text-white border border-indigo-500/40 shadow-[0_0_10px_rgba(99,102,241,0.15)]'
+                                                : 'bg-slate-800/40 text-slate-400 border border-slate-700/30 hover:text-slate-300 hover:border-slate-600/50'
+                                        }`}
+                                    >
+                                        <div className={`w-1.5 h-1.5 rounded-full ${activeInsightTab === 'ivskew' ? 'bg-indigo-400' : 'bg-slate-500'} ${effectiveSession === 'REG' && activeInsightTab !== 'ivskew' ? 'animate-pulse' : ''}`} />
+                                        <CardTooltip tooltip={COMMAND_TOOLTIPS.IV_SKEW.tooltip} badge={COMMAND_TOOLTIPS.IV_SKEW.badge}>IV Skew</CardTooltip>
                                     </button>
                                 </div>
 
                                 {/* Tab Content */}
                                 {activeInsightTab === 'gex' ? (
                                     <GexTimeline ticker={ticker} days={30} onEmpty={() => setActiveInsightTab('levels')} />
-                                ) : (
+                                ) : activeInsightTab === 'levels' ? (
                                     <TechnicalLevelsMap
                                         currentPrice={displayPrice}
                                         sma50={smaData?.sma50}
@@ -1699,6 +1758,15 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                         putFloor={structure?.levels?.putFloor}
                                         gammaFlipLevel={structure?.gammaFlipLevel}
                                     />
+                                ) : (
+                                    <ProGate title="IV Skew Curve" mode="blur" fomoMessage="Call IV · Put IV · Skew Direction · ATM IV Smile · Strike-level Analysis">
+                                        <IVSkewCurve
+                                            ticker={ticker}
+                                            atmSlice={options?.atmSlice || []}
+                                            underlyingPrice={displayPrice}
+                                            expiration={options?.atmSlice?.[0]?.expiration || structure?.expiration}
+                                        />
+                                    </ProGate>
                                 )}
                             </div>
 
@@ -2256,9 +2324,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                             </div>
 
 
-                            {/* C. ATM Chain (Raw) - REMOVED per user request (redundant with Flow Radar) */}
-                            <section className="hidden">
-                            </section>
+                            {/* C. (Moved to toggle tabs above) */}
                         </div>
 
                         {/* SIDEBAR (4 Cols) - Glass Stack */}

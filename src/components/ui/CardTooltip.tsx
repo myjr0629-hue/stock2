@@ -249,6 +249,18 @@ export const COMMAND_TOOLTIPS = {
         },
         badge: null,
     },
+    IV_SKEW: {
+        tooltip: {
+            ko: 'Put IV - Call IV 차이 분석. PUT RICH = 하방 헤지 수요↑, CALL RICH = 상승 기대↑, BALANCED = 균형',
+            en: 'Put IV vs Call IV spread. PUT RICH = hedging demand↑, CALL RICH = upside expectation↑, BALANCED = neutral',
+            ja: 'Put IV - Call IV差分析。PUT RICH = 下方ヘッジ需要↑, CALL RICH = 上昇期待↑, BALANCED = 均衡',
+        },
+        badge: {
+            ko: '행사가별 IV 구조 분석',
+            en: 'Strike-level IV structure',
+            ja: '行使価格別IV構造分析',
+        },
+    },
     ANALYST_TARGET: {
         tooltip: {
             ko: '월가 컨센서스 목표가 분포',

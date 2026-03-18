@@ -54,21 +54,26 @@ export async function GET(req: NextRequest) {
                 }
             }
 
-            // 2. Fetch Options Chain (Massive v3 Snapshot)
+            // 2. Fetch Options Chain — Call + Put separately (Polygon sorts alphabetically, limit=250 may miss puts)
             const todayStr = et.dateString;
-            const chainUrl = `/v3/snapshot/options/${ticker}?expiration_date.gte=${todayStr}&limit=250`;
-            const chainRes = await fetchMassiveWithRetry(chainUrl, 3);
+            const [callChainRes, putChainRes] = await Promise.all([
+                fetchMassiveWithRetry(`/v3/snapshot/options/${ticker}?expiration_date.gte=${todayStr}&contract_type=call&limit=250`, 3),
+                fetchMassiveWithRetry(`/v3/snapshot/options/${ticker}?expiration_date.gte=${todayStr}&contract_type=put&limit=250`, 3),
+            ]);
 
-            if (!chainRes.success || !chainRes.data?.results) {
+            const callContracts = callChainRes.success && callChainRes.data?.results ? callChainRes.data.results : [];
+            const putContracts = putChainRes.success && putChainRes.data?.results ? putChainRes.data.results : [];
+
+            if (callContracts.length === 0 && putContracts.length === 0) {
                 return {
                     ticker, timestampET: et.displayString, session,
                     underlyingPrice: underlyingPrice || null,
                     atmSlice: [], options_status: "PENDING", sourceGrade: "C",
-                    debug: { apiStatus: 500, attempts: chainRes.attempts, latencyMs: 0, error: chainRes.error }
+                    debug: { apiStatus: 500, attempts: (callChainRes.attempts || 0) + (putChainRes.attempts || 0), latencyMs: 0, error: callChainRes.error || putChainRes.error }
                 };
             }
 
-            const allContracts = chainRes.data.results;
+            const allContracts = [...callContracts, ...putContracts];
 
             // 3. [S-70] Find Weekly Expiration (Friday, or Thursday if holiday)
             const expirations = Array.from(new Set(allContracts.map((c: any) => c.details?.expiration_date || c.expiration_date))).sort() as string[];
@@ -95,38 +100,98 @@ export async function GET(req: NextRequest) {
                 (c.details?.expiration_date === nearestExpiry || c.expiration_date === nearestExpiry)
             );
 
-            expiryContracts.sort((a: any, b: any) => {
-                const sa = a.details?.strike_price || a.strike_price || 0;
-                const sb = b.details?.strike_price || b.strike_price || 0;
-                return sa - sb;
-            });
-
-            let closestIndex = 0;
-            let minDiff = Infinity;
-
-            for (let i = 0; i < expiryContracts.length; i++) {
-                const k = expiryContracts[i].details?.strike_price || expiryContracts[i].strike_price || 0;
-                const diff = Math.abs(k - underlyingPrice);
-                if (diff < minDiff) {
-                    minDiff = diff;
-                    closestIndex = i;
-                }
+            // Group contracts by strike price (each strike has call + put)
+            const byStrike: Record<number, any[]> = {};
+            for (const c of expiryContracts) {
+                const k = c.details?.strike_price || c.strike_price || 0;
+                if (!byStrike[k]) byStrike[k] = [];
+                byStrike[k].push(c);
             }
 
-            const startIdx = Math.max(0, closestIndex - 8);
-            const endIdx = Math.min(expiryContracts.length, closestIndex + 9);
-            const sliceRaw = expiryContracts.slice(startIdx, endIdx);
+            // Get sorted unique strikes
+            const strikes = Object.keys(byStrike).map(Number).sort((a, b) => a - b);
+
+            // Find ATM strike (closest to underlying price)
+            let atmIdx = 0;
+            let minDiff = Infinity;
+            for (let i = 0; i < strikes.length; i++) {
+                const diff = Math.abs(strikes[i] - underlyingPrice);
+                if (diff < minDiff) { minDiff = diff; atmIdx = i; }
+            }
+
+            // Take ±8 strikes around ATM (each strike includes both call + put)
+            const startIdx = Math.max(0, atmIdx - 8);
+            const endIdx = Math.min(strikes.length, atmIdx + 9);
+            const selectedStrikes = strikes.slice(startIdx, endIdx);
+
+            // Flatten back to individual contracts (call + put per strike)
+            const sliceRaw = selectedStrikes.flatMap(k => byStrike[k]);
 
             let nullOiCount = 0;
+
+            // Days to expiration for IV approximation
+            const expDate = new Date(nearestExpiry + 'T16:00:00-05:00');
+            const nowDate = new Date();
+            const dte = Math.max(1, Math.ceil((expDate.getTime() - nowDate.getTime()) / (1000 * 60 * 60 * 24)));
+            const T = dte / 365;
+
+            // Simplified Black-Scholes IV approximation (Brenner-Subrahmanyam + Newton-Raphson)
+            function approxIV(optionPrice: number, spot: number, strike: number, isCall: boolean): number | null {
+                if (!optionPrice || optionPrice <= 0 || spot <= 0 || strike <= 0) return null;
+
+                // Intrinsic value check
+                const intrinsic = isCall ? Math.max(0, spot - strike) : Math.max(0, strike - spot);
+                const timeValue = optionPrice - intrinsic;
+                if (timeValue <= 0) return null;
+
+                // Brenner-Subrahmanyam initial guess: σ ≈ price * √(2π) / (S * √T)
+                const sqrtT = Math.sqrt(T);
+                let sigma = (timeValue * Math.sqrt(2 * Math.PI)) / (spot * sqrtT);
+                sigma = Math.max(0.05, Math.min(sigma, 5.0));
+
+                // CDF approximation
+                const cdf = (x: number) => {
+                    const t = 1 / (1 + 0.2316419 * Math.abs(x));
+                    const d = 0.3989422804014327 * Math.exp(-0.5 * x * x);
+                    const p = d * t * (0.3193815 + t * (-0.3565638 + t * (1.781478 + t * (-1.821256 + t * 1.330274))));
+                    return x > 0 ? 1 - p : p;
+                };
+
+                // Newton-Raphson iterations (max 15)
+                for (let i = 0; i < 15; i++) {
+                    const d1 = (Math.log(spot / strike) + (0.5 * sigma * sigma) * T) / (sigma * sqrtT);
+                    const d2 = d1 - sigma * sqrtT;
+                    const bsPrice = isCall
+                        ? spot * cdf(d1) - strike * cdf(d2)
+                        : strike * cdf(-d2) - spot * cdf(-d1);
+
+                    const vega = spot * sqrtT * 0.3989422804014327 * Math.exp(-0.5 * d1 * d1);
+                    if (vega < 1e-12) break;
+
+                    const diff = bsPrice - optionPrice;
+                    sigma = sigma - diff / vega;
+                    sigma = Math.max(0.01, Math.min(sigma, 10.0));
+
+                    if (Math.abs(diff) < 0.001) break;
+                }
+
+                return (sigma > 0.01 && sigma < 5.0) ? sigma : null;
+            }
 
             const atmSlice = sliceRaw.map((c: any) => {
                 const strike = c.details?.strike_price || c.strike_price || 0;
                 const type = (c.details?.contract_type || c.contract_type || "call").toLowerCase();
                 const last = c.day?.close || c.last_quote?.a || null;
-                const iv = c.greeks?.implied_volatility || null;
+                let iv = c.implied_volatility || c.greeks?.implied_volatility || null;
                 const gamma = c.greeks?.gamma || null;
                 const oi = c.open_interest;
                 if (oi === undefined || oi === null) nullOiCount++;
+
+                // Fallback: compute IV from option price when Polygon returns null on both fields
+                if (!iv && last && last > 0 && underlyingPrice > 0) {
+                    iv = approxIV(last, underlyingPrice, strike, type === 'call');
+                }
+
                 return { expiration: nearestExpiry, strike, type, last, iv, gamma, oi: (typeof oi === 'number') ? oi : null };
             });
 
@@ -149,7 +214,7 @@ export async function GET(req: NextRequest) {
                 atmSlice,
                 optionsStatus: { status, coveragePct, updatedAt: et.displayString, reasonKR: status === 'OK' ? undefined : `자체 커버리지 ${coveragePct}%` },
                 sourceGrade: "A",
-                debug: { apiStatus: 200, pagesFetched: 1, contractsFetched: allContracts.length, attempts: chainRes.attempts, latencyMs: chainRes.latency }
+                debug: { apiStatus: 200, pagesFetched: 2, contractsFetched: allContracts.length, attempts: (callChainRes.attempts || 1) + (putChainRes.attempts || 1), latencyMs: Math.max(callChainRes.latency || 0, putChainRes.latency || 0) }
             };
         },
         { ttlSeconds: 30, keyPrefix: 'swr' }
