@@ -107,9 +107,14 @@ const tickerSubscribers = new Map();
 // Map<ticker, { price, changePct, volume, prevClose, ts }>
 const latestPrices = new Map();
 
+// Latest quotes (bid/ask) for immediate delivery
+// Map<ticker, { bid, bidSize, ask, askSize, spread, ts }>
+const latestQuotes = new Map();
+
 // Throttle: broadcast at most once per THROTTLE_MS per ticker
 const THROTTLE_MS = 1000; // 1 second
-const lastBroadcastTime = new Map(); // Map<ticker, timestamp>
+const lastBroadcastTime = new Map(); // Map<ticker, timestamp> (prices)
+const lastQuoteBroadcastTime = new Map(); // Map<ticker, timestamp> (quotes)
 
 // Polygon state
 let polygonWs = null;
@@ -175,6 +180,11 @@ function connectToPolygon() {
                     if (msg.ev === "AM") {
                         handleAggregateUpdate(msg);
                     }
+
+                    // Quotes NBBO (Q.NVDA = best bid/offer)
+                    if (msg.ev === "Q") {
+                        handleQuoteUpdate(msg);
+                    }
                 }
             } catch (e) {
                 // Non-JSON or parse error — ignore
@@ -229,19 +239,19 @@ function resubscribeAllOnPolygon() {
 
     // Subscribe to Trades (T.), per-second aggs (A.), and per-minute aggs (AM.)
     const tickerList = [...allTickers];
-    const subs = tickerList.flatMap(t => [`T.${t}`, `A.${t}`, `AM.${t}`]).join(",");
+    const subs = tickerList.flatMap(t => [`T.${t}`, `A.${t}`, `AM.${t}`, `Q.${t}`]).join(",");
     polygonWs.send(JSON.stringify({ action: "subscribe", params: subs }));
     tickerList.forEach(t => subscribedOnPolygon.add(t));
-    console.log(`[Price WS] Subscribed to ${tickerList.length} tickers (T+A+AM): ${tickerList.slice(0, 10).join(", ")}${tickerList.length > 10 ? "..." : ""}`);
+    console.log(`[Price WS] Subscribed to ${tickerList.length} tickers (T+A+AM+Q): ${tickerList.slice(0, 10).join(", ")}${tickerList.length > 10 ? "..." : ""}`);
 }
 
 function subscribeTickerOnPolygon(ticker) {
     if (subscribedOnPolygon.has(ticker)) return;
     if (!polygonWs || polygonWs.readyState !== WebSocket.OPEN) return;
 
-    polygonWs.send(JSON.stringify({ action: "subscribe", params: `T.${ticker},A.${ticker},AM.${ticker}` }));
+    polygonWs.send(JSON.stringify({ action: "subscribe", params: `T.${ticker},A.${ticker},AM.${ticker},Q.${ticker}` }));
     subscribedOnPolygon.add(ticker);
-    console.log(`[Price WS] + Subscribed to T/A/AM.${ticker} on Massive`);
+    console.log(`[Price WS] + Subscribed to T/A/AM/Q.${ticker} on Massive`);
 
     // Fetch real previousClose from REST API for accurate changePct
     if (!latestPrices.has(ticker) || !latestPrices.get(ticker).prevClose) {
@@ -259,9 +269,9 @@ function unsubscribeTickerOnPolygon(ticker) {
     if (!subscribedOnPolygon.has(ticker)) return;
     if (!polygonWs || polygonWs.readyState !== WebSocket.OPEN) return;
 
-    polygonWs.send(JSON.stringify({ action: "unsubscribe", params: `T.${ticker},A.${ticker},AM.${ticker}` }));
+    polygonWs.send(JSON.stringify({ action: "unsubscribe", params: `T.${ticker},A.${ticker},AM.${ticker},Q.${ticker}` }));
     subscribedOnPolygon.delete(ticker);
-    console.log(`[Price WS] - Unsubscribed from T/A/AM.${ticker} on Massive`);
+    console.log(`[Price WS] - Unsubscribed from T/A/AM/Q.${ticker} on Massive`);
 }
 
 // ══════════════════════════════════════════════════════════════
@@ -344,6 +354,49 @@ function broadcastPrice(ticker, price, changePct, volume) {
                 ws.send(message);
                 sent++;
             } catch {}
+        }
+    }
+}
+
+// ══════════════════════════════════════════════════════════════
+// QUOTE (NBBO) HANDLER
+// ══════════════════════════════════════════════════════════════
+
+function handleQuoteUpdate(msg) {
+    const ticker = msg.sym;
+    if (!ticker) return;
+    markPolygonDataReceived();
+
+    const bid = msg.bp || 0;
+    const bidSize = msg.bs || 0;
+    const ask = msg.ap || 0;
+    const askSize = msg.as || 0;
+    const spread = (ask > 0 && bid > 0) ? Math.round((ask - bid) * 100) / 100 : 0;
+
+    latestQuotes.set(ticker, { bid, bidSize, ask, askSize, spread, ts: Date.now() });
+
+    // Throttle quote broadcasts (1s per ticker)
+    const now = Date.now();
+    const lastTime = lastQuoteBroadcastTime.get(ticker) || 0;
+    if (now - lastTime < THROTTLE_MS) return;
+    lastQuoteBroadcastTime.set(ticker, now);
+
+    broadcastQuote(ticker, bid, bidSize, ask, askSize, spread);
+}
+
+function broadcastQuote(ticker, bid, bidSize, ask, askSize, spread) {
+    const subscribers = tickerSubscribers.get(ticker);
+    if (!subscribers || subscribers.size === 0) return;
+
+    const message = JSON.stringify({
+        type: "quote",
+        ticker,
+        bid, bidSize, ask, askSize, spread,
+    });
+
+    for (const ws of subscribers) {
+        if (ws.readyState === WebSocket.OPEN) {
+            try { ws.send(message); } catch {}
         }
     }
 }

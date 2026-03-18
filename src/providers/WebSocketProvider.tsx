@@ -18,6 +18,16 @@ interface PriceUpdate {
     ts: number;
 }
 
+interface QuoteUpdate {
+    ticker: string;
+    bid: number;
+    bidSize: number;
+    ask: number;
+    askSize: number;
+    spread: number;
+    ts: number;
+}
+
 interface GexUpdate {
     ticker: string;
     gex: number;
@@ -36,11 +46,13 @@ interface WebSocketContextType {
     connected: boolean;           // Price WS connected
     guardianConnected: boolean;   // Guardian WS connected
     prices: Map<string, PriceUpdate>;
+    quotes: Map<string, QuoteUpdate>;
     gexData: Map<string, GexUpdate>;
     alerts: AlertUpdate[];
     rlsi: number | null;
     subscribe: (tickers: string[]) => void;
     getPrice: (ticker: string) => PriceUpdate | undefined;
+    getQuote: (ticker: string) => QuoteUpdate | undefined;
     getGex: (ticker: string) => GexUpdate | undefined;
 }
 
@@ -48,11 +60,13 @@ const WebSocketContext = createContext<WebSocketContextType>({
     connected: false,
     guardianConnected: false,
     prices: new Map(),
+    quotes: new Map(),
     gexData: new Map(),
     alerts: [],
     rlsi: null,
     subscribe: () => { },
     getPrice: () => undefined,
+    getQuote: () => undefined,
     getGex: () => undefined,
 });
 
@@ -80,6 +94,7 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
     const [connected, setConnected] = useState(false);
     const [guardianConnected, setGuardianConnected] = useState(false);
     const [prices, setPrices] = useState<Map<string, PriceUpdate>>(new Map());
+    const [quotes, setQuotes] = useState<Map<string, QuoteUpdate>>(new Map());
     const [gexData, setGexData] = useState<Map<string, GexUpdate>>(new Map());
     const [alerts, setAlerts] = useState<AlertUpdate[]>([]);
     const [rlsi, setRlsi] = useState<number | null>(null);
@@ -122,6 +137,22 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
                                 price: msg.price || 0,
                                 changePct: msg.changePct || 0,
                                 volume: msg.volume || 0,
+                                ts: now,
+                            });
+                            return next;
+                        });
+                    }
+
+                    if (msg.type === 'quote') {
+                        setQuotes(prev => {
+                            const next = new Map(prev);
+                            next.set(msg.ticker, {
+                                ticker: msg.ticker,
+                                bid: msg.bid || 0,
+                                bidSize: msg.bidSize || 0,
+                                ask: msg.ask || 0,
+                                askSize: msg.askSize || 0,
+                                spread: msg.spread || 0,
                                 ts: now,
                             });
                             return next;
@@ -255,12 +286,13 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
     }, []);
 
     const getPrice = useCallback((ticker: string) => prices.get(ticker), [prices]);
+    const getQuote = useCallback((ticker: string) => quotes.get(ticker), [quotes]);
     const getGex = useCallback((ticker: string) => gexData.get(ticker), [gexData]);
 
     return (
         <WebSocketContext.Provider value={{
-            connected, guardianConnected, prices, gexData, alerts, rlsi,
-            subscribe, getPrice, getGex
+            connected, guardianConnected, prices, quotes, gexData, alerts, rlsi,
+            subscribe, getPrice, getQuote, getGex
         }}>
             {children}
         </WebSocketContext.Provider>
