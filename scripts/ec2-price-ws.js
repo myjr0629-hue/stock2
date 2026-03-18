@@ -1003,6 +1003,20 @@ wss.on("connection", (ws, req) => {
                             volume: cached.volume,
                         }));
                     }
+
+                    // Send latest cached quote (NBBO) immediately
+                    const cachedQuote = latestQuotes.get(t);
+                    if (cachedQuote && cachedQuote.bid > 0) {
+                        ws.send(JSON.stringify({
+                            type: "quote",
+                            ticker: t,
+                            bid: cachedQuote.bid,
+                            bidSize: cachedQuote.bidSize,
+                            ask: cachedQuote.ask,
+                            askSize: cachedQuote.askSize,
+                            spread: cachedQuote.spread,
+                        }));
+                    }
                 }
 
                 console.log(`[Price WS] Client subscribed to ${msg.tickers.length} tickers (client total: ${meta.tickers.size})`);
