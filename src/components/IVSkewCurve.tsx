@@ -9,7 +9,7 @@
  * Data: options.atmSlice[] → { strike, type, iv, gamma, oi }
  */
 
-import { useMemo, useState, useCallback } from "react";
+import { useMemo, useState, useCallback, useRef, useEffect } from "react";
 import useSWR from "swr";
 import { TrendingUp } from "lucide-react";
 import { useLocale } from "next-intl";
@@ -78,19 +78,43 @@ export default function IVSkewCurve({ ticker, atmSlice: parentAtmSlice, underlyi
     const tickerArr = useMemo(() => ticker ? [ticker] : [], [ticker]);
     const { optionsQuotes, connected: wsConnected } = useRealtimeData(tickerArr);
 
-    // Extract real-time IV by strike from optionsQuotes Map
-    const wsIVByStrike = useMemo(() => {
-        const map = new Map<number, { callIV: number; putIV: number }>();
-        if (!optionsQuotes || optionsQuotes.size === 0) return map;
+    // Throttled WS IV: update at most every 2 seconds to prevent jittery chart
+    const IV_CAP = 200; // Filter out IV > 200% (illiquid deep OTM noise)
+    const THROTTLE_MS = 2000;
+    const lastUpdateRef = useRef(0);
+    const pendingRef = useRef(false);
+    const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const [wsIVByStrike, setWsIVByStrike] = useState<Map<number, { callIV: number; putIV: number }>>(new Map());
 
-        optionsQuotes.forEach((q) => {
-            if (q.underlying !== ticker || !q.ivPct || q.ivPct <= 0) return;
-            const existing = map.get(q.strike) || { callIV: 0, putIV: 0 };
-            if (q.optionType === 'C') existing.callIV = q.ivPct;
-            else if (q.optionType === 'P') existing.putIV = q.ivPct;
-            map.set(q.strike, existing);
-        });
-        return map;
+    useEffect(() => {
+        if (!optionsQuotes || optionsQuotes.size === 0) return;
+
+        const buildMap = () => {
+            const map = new Map<number, { callIV: number; putIV: number }>();
+            optionsQuotes.forEach((q) => {
+                if (q.underlying !== ticker || !q.ivPct || q.ivPct <= 0) return;
+                if (q.ivPct > IV_CAP) return; // Skip illiquid extreme IV
+                const existing = map.get(q.strike) || { callIV: 0, putIV: 0 };
+                if (q.optionType === 'C') existing.callIV = q.ivPct;
+                else if (q.optionType === 'P') existing.putIV = q.ivPct;
+                map.set(q.strike, existing);
+            });
+            setWsIVByStrike(map);
+            lastUpdateRef.current = Date.now();
+            pendingRef.current = false;
+        };
+
+        const elapsed = Date.now() - lastUpdateRef.current;
+        if (elapsed >= THROTTLE_MS) {
+            buildMap();
+        } else if (!pendingRef.current) {
+            pendingRef.current = true;
+            timerRef.current = setTimeout(buildMap, THROTTLE_MS - elapsed);
+        }
+
+        return () => {
+            if (timerRef.current) clearTimeout(timerRef.current);
+        };
     }, [optionsQuotes, ticker]);
 
     const hasLiveIV = wsConnected && wsIVByStrike.size > 0;
@@ -130,7 +154,7 @@ export default function IVSkewCurve({ ticker, atmSlice: parentAtmSlice, underlyi
                 putGamma: pair.put?.gamma || 0,
                 isATM: Math.abs(s - resolvedPrice) <= (resolvedPrice * 0.01),
             };
-        }).filter(d => d.callIV > 0 || d.putIV > 0);
+        }).filter(d => (d.callIV > 0 || d.putIV > 0) && d.callIV <= IV_CAP && d.putIV <= IV_CAP);
 
         const callIVs = data.filter(d => d.callIV > 0).map(d => d.callIV);
         const putIVs = data.filter(d => d.putIV > 0).map(d => d.putIV);
