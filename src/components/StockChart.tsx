@@ -43,6 +43,7 @@ interface StockChartProps {
     hideHeaderExtras?: boolean; // Hide session badge + range in header
     vwap?: number; // [New] VWAP line overlay for 1D chart
     gammaFlipLevel?: number; // [New] Gamma Flip level — only visible when within chart Y-axis range
+    nbbo?: { bid: number; ask: number; bidSize: number; askSize: number } | null; // [New] NBBO overlay
 }
 
 // [HOTFIX S-55] etMinute to HH:MM ET formatter
@@ -52,7 +53,7 @@ const formatEtMinute = (etMinute: number): string => {
     return `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')} ET`;
 };
 
-export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d", prevClose, currentPrice, rsi, return3d, alphaLevels, session, dayHigh, dayLow, hideHeaderExtras, vwap, gammaFlipLevel }: StockChartProps & { initialRange?: string }) {
+export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d", prevClose, currentPrice, rsi, return3d, alphaLevels, session, dayHigh, dayLow, hideHeaderExtras, vwap, gammaFlipLevel, nbbo }: StockChartProps & { initialRange?: string }) {
     const td = useTranslations('dashboard');
     // [LIVE-FLASH] Track previous price for directional flash color
     const prevPriceRef = useRef<number | undefined>(undefined);
@@ -610,6 +611,44 @@ export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d
                                                 ifOverflow="hidden"
                                             />
                                         </>
+                                    )}
+                                    {/* ═══ NBBO Bid/Ask Overlay (1D only, inside chart area) ═══ */}
+                                    {isIntraday && nbbo && nbbo.bid > 0 && nbbo.ask > 0 && (
+                                        <Customized
+                                            component={({ width: cw, height: ch }: any) => {
+                                                if (!cw || !ch) return null;
+                                                const spreadPct = ((nbbo.ask - nbbo.bid) / ((nbbo.bid + nbbo.ask) / 2) * 100);
+                                                const spreadColor = spreadPct < 0.05 ? '#4ade80' : spreadPct < 0.15 ? '#fbbf24' : '#f87171';
+                                                // Position: upper center of chart
+                                                const cx = cw / 2;
+                                                const cy = 24;
+                                                return (
+                                                    <g>
+                                                        {/* Background pill */}
+                                                        <rect x={cx - 145} y={cy - 10} width={290} height={24} rx={6} fill="rgba(15,23,42,0.65)" stroke="rgba(148,163,184,0.15)" strokeWidth={0.5} />
+                                                        {/* Bid */}
+                                                        <text x={cx - 130} y={cy + 5} fill="#4ade80" fontSize={12} fontWeight={700} fontFamily="Plus Jakarta Sans, system-ui" style={{ letterSpacing: '0.01em' }}>
+                                                            ${nbbo.bid.toFixed(2)}
+                                                        </text>
+                                                        <text x={cx - 78} y={cy + 5} fill="#94a3b8" fontSize={12} fontFamily="Plus Jakarta Sans, system-ui">
+                                                            ×{nbbo.bidSize}
+                                                        </text>
+                                                        {/* Spread badge */}
+                                                        <rect x={cx - 42} y={cy - 7} width={84} height={18} rx={4} fill="rgba(15,23,42,0.8)" stroke={spreadColor} strokeWidth={0.5} strokeOpacity={0.5} />
+                                                        <text x={cx} y={cy + 5} textAnchor="middle" fill={spreadColor} fontSize={12} fontWeight={700} fontFamily="Plus Jakarta Sans, system-ui">
+                                                            Spread {spreadPct.toFixed(3)}%
+                                                        </text>
+                                                        {/* Ask */}
+                                                        <text x={cx + 48} y={cy + 5} fill="#f87171" fontSize={12} fontWeight={700} fontFamily="Plus Jakarta Sans, system-ui" style={{ letterSpacing: '0.01em' }}>
+                                                            ${nbbo.ask.toFixed(2)}
+                                                        </text>
+                                                        <text x={cx + 100} y={cy + 5} fill="#94a3b8" fontSize={12} fontFamily="Plus Jakarta Sans, system-ui">
+                                                            ×{nbbo.askSize}
+                                                        </text>
+                                                    </g>
+                                                );
+                                            }}
+                                        />
                                     )}
                                     <XAxis
                                         dataKey="xValue"
