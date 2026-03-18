@@ -279,100 +279,6 @@ function subscribeTickerOnPolygon(ticker) {
         });
     }
 
-    // ── AUTO-SUBSCRIBE OPTIONS CONTRACTS ──
-    // When a stock ticker is subscribed, fetch ATM options contracts and
-    // subscribe them on the Options WS so optionsTrade/optionsQuote events flow
-    autoSubscribeOptionsForTicker(ticker);
-}
-
-// Track which tickers already have options auto-subscribed
-const optionsAutoSubscribed = new Set();
-
-async function autoSubscribeOptionsForTicker(ticker) {
-    if (optionsAutoSubscribed.has(ticker)) return;
-    if (!optionsWsConnected) {
-        console.log(`[Options WS] Options WS not connected yet, will retry for ${ticker}`);
-        setTimeout(() => autoSubscribeOptionsForTicker(ticker), 5000);
-        return;
-    }
-    optionsAutoSubscribed.add(ticker);
-
-    try {
-        // Fetch options contracts from Massive REST API
-        const url = `https://api.massive.com/v3/reference/options/contracts?underlying_ticker=${ticker}&expired=false&limit=50&order=asc&sort=expiration_date&apiKey=${POLYGON_API_KEY}`;
-        const data = await httpsGet(url);
-        const contracts = data?.results || [];
-
-        if (contracts.length === 0) {
-            console.log(`[Options WS] No options contracts found for ${ticker}`);
-            return;
-        }
-
-        // Get current price to find ATM
-        const priceData = latestPrices.get(ticker);
-        const currentPrice = priceData?.price || 0;
-
-        // Filter: nearest expiry, ATM ± 10 strikes
-        // Group by expiry, take the nearest
-        const expiryGroups = {};
-        for (const c of contracts) {
-            const exp = c.expiration_date;
-            if (!expiryGroups[exp]) expiryGroups[exp] = [];
-            expiryGroups[exp].push(c);
-        }
-
-        const sortedExpiries = Object.keys(expiryGroups).sort();
-        // Take nearest 2 expiries for coverage
-        const targetExpiries = sortedExpiries.slice(0, 2);
-        
-        let selectedContracts = [];
-        for (const exp of targetExpiries) {
-            const expContracts = expiryGroups[exp];
-            if (currentPrice > 0) {
-                // Sort by proximity to ATM
-                expContracts.sort((a, b) =>
-                    Math.abs(a.strike_price - currentPrice) - Math.abs(b.strike_price - currentPrice)
-                );
-                // Take closest 20 contracts (10 calls + 10 puts approximately)
-                selectedContracts.push(...expContracts.slice(0, 20));
-            } else {
-                // No price yet, take first 15 contracts
-                selectedContracts.push(...expContracts.slice(0, 15));
-            }
-        }
-
-        if (selectedContracts.length === 0) {
-            console.log(`[Options WS] No ATM contracts selected for ${ticker}`);
-            return;
-        }
-
-        // Subscribe on Options WS
-        const contractTickers = selectedContracts.map(c => c.ticker);
-        const subs = contractTickers.flatMap(c => [`T.${c}`, `Q.${c}`]).join(",");
-
-        if (optionsWs && optionsWs.readyState === WebSocket.OPEN) {
-            optionsWs.send(JSON.stringify({ action: "subscribe", params: subs }));
-            contractTickers.forEach(c => optionsSubscribedOnMassive.add(c));
-
-            // Also register all stock-ticker subscribers as options contract subscribers
-            const stockSubs = tickerSubscribers.get(ticker);
-            if (stockSubs) {
-                for (const c of contractTickers) {
-                    if (!optionsTickerSubscribers.has(c)) {
-                        optionsTickerSubscribers.set(c, new Set());
-                    }
-                    for (const ws of stockSubs) {
-                        optionsTickerSubscribers.get(c).add(ws);
-                    }
-                }
-            }
-
-            console.log(`[Options WS] 🎯 Auto-subscribed ${contractTickers.length} ATM contracts for ${ticker} (${targetExpiries.join(", ")})`);
-        }
-    } catch (e) {
-        console.warn(`[Options WS] Failed to auto-subscribe options for ${ticker}:`, e.message);
-        optionsAutoSubscribed.delete(ticker); // Allow retry
-    }
 }
 
 function unsubscribeTickerOnPolygon(ticker) {
@@ -565,10 +471,17 @@ function connectToOptionsWs() {
         optionsWs = new WebSocket(OPTIONS_WS_URL);
 
         optionsWs.on("open", () => {
-            console.log("[Options WS] ✅ Options WebSocket connected");
+            console.log("[Options WS] v2 - Options WebSocket connected");
             optionsWsConnected = true;
             optionsReconnectCount = 0;
             optionsWs.send(JSON.stringify({ action: "auth", params: POLYGON_API_KEY }));
+            // Subscribe to T.* after short delay for auth to complete
+            setTimeout(() => {
+                if (optionsWs && optionsWs.readyState === WebSocket.OPEN) {
+                    optionsWs.send(JSON.stringify({ action: "subscribe", params: "T.*" }));
+                    console.log("[Options WS] Subscribed to T.* (all options trades)");
+                }
+            }, 2000);
         });
 
         optionsWs.on("message", (data) => {
@@ -649,21 +562,9 @@ function scheduleOptionsReconnect() {
 function resubscribeAllOptions() {
     if (!optionsWs || optionsWs.readyState !== WebSocket.OPEN) return;
 
-    const allContracts = new Set();
-    for (const [contract] of optionsTickerSubscribers) {
-        allContracts.add(contract);
-    }
-
-    if (allContracts.size === 0) {
-        console.log("[Options WS] No options contracts to resubscribe.");
-        return;
-    }
-
-    const contractList = [...allContracts];
-    const subs = contractList.flatMap(c => [`T.${c}`, `Q.${c}`]).join(",");
-    optionsWs.send(JSON.stringify({ action: "subscribe", params: subs }));
-    contractList.forEach(c => optionsSubscribedOnMassive.add(c));
-    console.log(`[Options WS] Resubscribed to ${contractList.length} contracts (T+Q): ${contractList.slice(0, 5).join(", ")}${contractList.length > 5 ? "..." : ""}`);
+    // Subscribe to ALL options trades with wildcard — filter by underlying when broadcasting
+    optionsWs.send(JSON.stringify({ action: "subscribe", params: "T.*" }));
+    console.log("[Options WS] 🎯 Subscribed to T.* (all options trades via wildcard)");
 }
 
 function subscribeOptionsContract(contract) {
