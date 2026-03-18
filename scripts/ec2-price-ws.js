@@ -591,8 +591,108 @@ function unsubscribeOptionsContract(contract) {
 
 // Placeholder handlers — implemented in tasks ⓓ and ⓔ
 function handleOptionsTradeUpdate(msg) {
-    // TODO: task ⓓ — parse options trade, broadcast to clients
     markPolygonDataReceived();
+
+    const optionsTicker = msg.sym; // e.g. "O:NVDA250321C00180000"
+    if (!optionsTicker) return;
+
+    const price = msg.p || 0;     // trade price per contract
+    const size = msg.s || 0;      // number of contracts
+    const exchange = msg.x || 0;  // exchange ID
+    const conditions = msg.c || [];
+    const timestamp = msg.t || Date.now();
+
+    // Calculate premium: price × contracts × 100 (shares per contract)
+    const premium = price * size * 100;
+
+    // Skip small trades (< $10K premium) to reduce noise
+    if (premium < 10000) return;
+
+    // Parse options ticker: O:NVDA250321C00180000
+    // Format: O:{underlying}{YYMMDD}{C/P}{strike*1000}
+    const parsed = parseOptionsTicker(optionsTicker);
+
+    // Classify trade type
+    let tradeType = "NORMAL";
+    if (premium >= 1000000) tradeType = "BLOCK";
+    else if (premium >= 500000) tradeType = "SWEEP";
+
+    // Broadcast to clients subscribed to this options contract
+    const subscribers = optionsTickerSubscribers.get(optionsTicker);
+    if (subscribers && subscribers.size > 0) {
+        const message = JSON.stringify({
+            type: "optionsTrade",
+            contract: optionsTicker,
+            underlying: parsed.underlying,
+            expiry: parsed.expiry,
+            strike: parsed.strike,
+            optionType: parsed.optionType, // "C" or "P"
+            price: Math.round(price * 100) / 100,
+            size,
+            premium: Math.round(premium),
+            tradeType, // "NORMAL", "SWEEP", "BLOCK"
+            exchange,
+            ts: timestamp,
+        });
+
+        for (const ws of subscribers) {
+            if (ws.readyState === WebSocket.OPEN) {
+                try { ws.send(message); } catch {}
+            }
+        }
+    }
+
+    // Also broadcast to clients subscribed to the underlying stock ticker
+    // (so Flow page can show trades for all contracts of a stock)
+    if (parsed.underlying) {
+        const stockSubs = tickerSubscribers.get(parsed.underlying);
+        if (stockSubs && stockSubs.size > 0) {
+            const message = JSON.stringify({
+                type: "optionsTrade",
+                contract: optionsTicker,
+                underlying: parsed.underlying,
+                expiry: parsed.expiry,
+                strike: parsed.strike,
+                optionType: parsed.optionType,
+                price: Math.round(price * 100) / 100,
+                size,
+                premium: Math.round(premium),
+                tradeType,
+                exchange,
+                ts: timestamp,
+            });
+
+            for (const ws of stockSubs) {
+                if (ws.readyState === WebSocket.OPEN) {
+                    try { ws.send(message); } catch {}
+                }
+            }
+        }
+    }
+}
+
+// Parse options ticker: O:NVDA250321C00180000 → { underlying, expiry, optionType, strike }
+function parseOptionsTicker(ticker) {
+    try {
+        // Remove "O:" prefix
+        const raw = ticker.startsWith("O:") ? ticker.slice(2) : ticker;
+        // Find where the date starts (6 digits + C/P)
+        // Underlying is letters at the start, then YYMMDD, then C/P, then strike
+        const match = raw.match(/^([A-Z]+)(\d{6})([CP])(\d+)$/);
+        if (!match) return { underlying: raw, expiry: "", optionType: "", strike: 0 };
+
+        const underlying = match[1];
+        const dateStr = match[2]; // YYMMDD
+        const optionType = match[3]; // C or P
+        const strikeRaw = parseInt(match[4], 10);
+        const strike = strikeRaw / 1000; // Convert from integer to dollars
+
+        const expiry = `20${dateStr.slice(0,2)}-${dateStr.slice(2,4)}-${dateStr.slice(4,6)}`;
+
+        return { underlying, expiry, optionType, strike };
+    } catch {
+        return { underlying: ticker, expiry: "", optionType: "", strike: 0 };
+    }
 }
 
 function handleOptionsQuoteUpdate(msg) {
@@ -718,6 +818,39 @@ wss.on("connection", (ws, req) => {
                 if (meta) meta.lastPing = Date.now();
                 ws.send(JSON.stringify({ type: "pong" }));
             }
+
+            // Subscribe to options contracts
+            if (msg.type === "subscribeOptions" && Array.isArray(msg.contracts)) {
+                for (const contract of msg.contracts) {
+                    const c = contract.toUpperCase().trim();
+                    if (!c) continue;
+
+                    // Add to options subscribers map
+                    if (!optionsTickerSubscribers.has(c)) {
+                        optionsTickerSubscribers.set(c, new Set());
+                    }
+                    optionsTickerSubscribers.get(c).add(ws);
+
+                    // Subscribe on Massive Options WS
+                    subscribeOptionsContract(c);
+                }
+                console.log(`[Price WS] Client subscribed to ${msg.contracts.length} options contracts`);
+            }
+
+            // Unsubscribe from options contracts
+            if (msg.type === "unsubscribeOptions" && Array.isArray(msg.contracts)) {
+                for (const contract of msg.contracts) {
+                    const c = contract.toUpperCase().trim();
+                    const subs = optionsTickerSubscribers.get(c);
+                    if (subs) {
+                        subs.delete(ws);
+                        if (subs.size === 0) {
+                            optionsTickerSubscribers.delete(c);
+                            unsubscribeOptionsContract(c);
+                        }
+                    }
+                }
+            }
         } catch {
             // Ignore malformed messages
         }
@@ -738,7 +871,7 @@ wss.on("connection", (ws, req) => {
 function cleanupClient(ws) {
     const meta = clients.get(ws);
     if (meta) {
-        // Remove from all ticker subscriptions
+        // Remove from all stock ticker subscriptions
         for (const ticker of meta.tickers) {
             const subs = tickerSubscribers.get(ticker);
             if (subs) {
@@ -750,6 +883,16 @@ function cleanupClient(ws) {
             }
         }
     }
+
+    // Remove from all options contract subscriptions
+    for (const [contract, subs] of optionsTickerSubscribers.entries()) {
+        subs.delete(ws);
+        if (subs.size === 0) {
+            optionsTickerSubscribers.delete(contract);
+            unsubscribeOptionsContract(contract);
+        }
+    }
+
     clients.delete(ws);
 }
 
