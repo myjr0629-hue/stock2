@@ -52,26 +52,8 @@ async function batchWrite(tableName, items) {
   }
 }
 
-// Filter out items whose ticker+date already has SSR_V46 in DynamoDB
-async function filterSsrProtected(items) {
-  const safe = [];
-  for (const item of items) {
-    try {
-      const r = await client.send(new QueryCommand({
-        TableName: 'signum-alpha-history',
-        KeyConditionExpression: 'ticker=:t AND #d=:d',
-        ExpressionAttributeValues: { ':t': item.ticker, ':d': item.date },
-        ExpressionAttributeNames: { '#d': 'date' },
-        ProjectionExpression: 'qualityTier',
-        Limit: 1,
-      }));
-      const existing = r.Items?.[0];
-      if (existing?.qualityTier === 'SSR_V46') continue; // SKIP — SSR_V46 is authoritative
-      safe.push(item);
-    } catch { safe.push(item); } // on error, allow write
-  }
-  return safe;
-}
+// [REMOVED] filterSsrProtected — Legacy score writing removed entirely.
+// Context Score is written exclusively by Vercel cron (V4.6 SSR engine).
 
 // ====== RLSI Self-Calculation ======
 function computeRSI(closes, period) {
@@ -138,11 +120,10 @@ async function harvestPrices() {
     const ch = t.todaysChangePerc || 0;
     priceMap[t.ticker] = p;
     snapshotMap[t.ticker] = { changePct:ch, volume:t.day?.v||0, price:p };
-    items.push({ ticker:t.ticker, date:today, qualityTier:'LIVE', changePct:Math.round(ch*100)/100, open:t.day?.o||0, high:t.day?.h||0, low:t.day?.l||0, close:t.day?.c||p, volume:t.day?.v||0, vwap:t.day?.vw||0, gex:0, pcr:0, alphaScore:0 });
+    // [REMOVED] Legacy alpha-history write — Context Score is exclusively from Vercel cron V4.6
   }
-  if (items.length > 0) { const safe = await filterSsrProtected(items); if (safe.length > 0) await batchWrite('signum-alpha-history', safe); console.log('Prices: skipped '+(items.length-safe.length)+' SSR_V46 protected'); }
-  console.log('Prices: '+items.length+'/'+UNIVERSE.length);
-  return { count:items.length, priceMap, snapshotMap };
+  console.log('Prices: '+Object.keys(priceMap).length+'/'+UNIVERSE.length);
+  return { count:Object.keys(priceMap).length, priceMap, snapshotMap };
 }
 
 // ====== Step 2: GEX ======
@@ -424,17 +405,12 @@ async function harvestDetails() {
   return { analyst:analystOk, earnings:earningsOk, fundamentals:fundOk, related:relOk };
 }
 
-// ====== Step 5: Update Alpha Scores (merge GEX into prices) ======
+// ====== Step 5: Update Alpha Scores — DISABLED ======
+// Context Score is exclusively written by Vercel cron (V4.6 SSR engine).
+// Lambda no longer writes to signum-alpha-history for score data.
 async function updateAlphaScores(snapshotMap, gexMap) {
-  const today = new Date().toISOString().slice(0,10);
-  const items = [];
-  for (const [ticker, pd] of Object.entries(snapshotMap)) {
-    const alpha = computeAlphaScore(pd, gexMap[ticker]||null);
-    items.push({ ticker, date:today, changePct:Math.round(pd.changePct*100)/100, open:0,high:0,low:0, close:pd.price, volume:pd.volume, vwap:0, gex:gexMap[ticker]?gexMap[ticker].gex:0, pcr:gexMap[ticker]?gexMap[ticker].pcr:0, alphaScore:alpha, qualityTier:gexMap[ticker]?'FULL':'PRICE_ONLY' });
-  }
-  if (items.length > 0) { const safe = await filterSsrProtected(items); if (safe.length > 0) await batchWrite('signum-alpha-history', safe); console.log('Alpha: skipped '+(items.length-safe.length)+' SSR_V46 protected'); }
-  console.log('Alpha: '+items.length+' scores');
-  return items.length;
+  console.log('[SKIP] Alpha scores — Context Score is Vercel cron exclusive');
+  return 0;
 }
 // ====== Redis Cache Warming Orchestrator ======
 // Triggers Vercel /api/cron/warm-command for all 30 batches (300 tickers)
