@@ -79,6 +79,10 @@
         {
             "path": "/api/cron/warm-news-digest",
             "schedule": "*/30 * * * *"
+        },
+        {
+            "path": "/api/cron/warm-analysis",
+            "schedule": "*/2 13-21 * * 1-5"
         }
     ]
 }
