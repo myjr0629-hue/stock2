@@ -443,27 +443,38 @@ const DecisionGate = ({ ticker, displayPrice, session, structure, krNews, smaDat
 export function LiveTickerDashboard({ ticker, initialStockData, initialNews, range, buildId, chartDiagnostics, initialUnifiedData, initialChartData, onReady }: Props) {
     const tCommon = useTranslations('common');
     // --- Live Data State ---
+    // [PERF V73] 3-second loading gate auto-release — blank screen NEVER exceeds 3s
+    const [forceReady, setForceReady] = useState(false);
+    useEffect(() => {
+        const timer = setTimeout(() => setForceReady(true), 3000);
+        return () => clearTimeout(timer);
+    }, []);
+
     // [PERF] SWR replaces manual fetchQuote + setInterval(10s)
     // SSR data → SWR fallbackData → instant first render → background refresh
     const ssrFallback = React.useMemo(() => {
-        if (!initialStockData || initialStockData.price === 0) return undefined;
-        const s = (initialStockData.session || '').toLowerCase() as string;
+        // [V73] Accept DynamoDB price as fallback when Polygon price=0
+        const stockPrice = initialStockData?.price || 0;
+        const dynamoPrice = initialUnifiedData?._dynamoPrice?.price || 0;
+        const effectivePrice = stockPrice > 0 ? stockPrice : dynamoPrice;
+        if (!effectivePrice || effectivePrice === 0) return undefined;
+        const s = (initialStockData?.session || '').toLowerCase() as string;
         return {
-            price: initialStockData.price,
+            price: effectivePrice,
             prices: {
-                regularCloseToday: s === 'reg' ? initialStockData.price : undefined,
-                prevClose: initialStockData.prevClose || null,
-                prePrice: s === 'pre' ? initialStockData.price : undefined,
-                postPrice: s === 'post' || s === 'closed' ? initialStockData.price : undefined,
+                regularCloseToday: s === 'reg' ? effectivePrice : undefined,
+                prevClose: initialStockData?.prevClose || null,
+                prePrice: s === 'pre' ? effectivePrice : undefined,
+                postPrice: s === 'post' || s === 'closed' ? effectivePrice : undefined,
             },
             extended: {
-                prePrice: s === 'pre' ? initialStockData.price : undefined,
-                postPrice: s === 'post' || s === 'closed' ? initialStockData.price : undefined,
+                prePrice: s === 'pre' ? effectivePrice : undefined,
+                postPrice: s === 'post' || s === 'closed' ? effectivePrice : undefined,
             },
             session: s === 'reg' ? 'REG' : s === 'pre' ? 'PRE' : s === 'post' ? 'POST' : 'CLOSED',
-            changePercent: initialStockData.changePercent
+            changePercent: initialStockData?.changePercent || initialUnifiedData?._dynamoPrice?.changePct || 0
         };
-    }, [initialStockData]);
+    }, [initialStockData, initialUnifiedData]);
     const { data: _swrQuote, isValidating: quoteLoading } = useFlowData(ticker, {
         refreshInterval: 2000, // [UX] Near-real-time price feel
     });
@@ -646,7 +657,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
     };
 
     // =========================================================================
-    // [V68] COMMAND HYBRID ARCHITECTURE (Unified SWR Cache)
+    // [V73] COMMAND HYBRID ARCHITECTURE (Unified SWR Cache — Zero Blank Screen)
     // =========================================================================
 
     // 1. Fetch Unified Backend Data (11-in-1 aggregation + Redis SWR Cache)
@@ -657,7 +668,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
             fallbackData: initialUnifiedData, // [SSR HYDRATION] Bypass skeleton
             revalidateOnFocus: true,  // Refresh when user returns to tab
             revalidateIfStale: true,
-            revalidateOnMount: !initialUnifiedData, // [PERF] Skip mount fetch if SSR data exists
+            revalidateOnMount: true,  // [V73] ALWAYS fetch on mount — SSR data may be stale
             refreshInterval: 15_000,  // [AWS OPTIMIZED] 15s polling
             keepPreviousData: true,   // [PERF] Flicker-free: old data stays until new data arrives
             dedupingInterval: 5_000,  // [PERF] Prevent duplicate fetches within 5s
@@ -845,11 +856,15 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
     const bullSynergy = _gexLong && !_volHot && _flowBull;
     const synergyGlow = bearSynergy ? 'ring-1 ring-rose-500/40 shadow-[0_0_16px_rgba(244,63,94,0.15)]' : bullSynergy ? 'ring-1 ring-emerald-500/30 shadow-[0_0_12px_rgba(16,185,129,0.1)]' : '';
 
-    // === GLOBAL LOADING GATE ===
+    // === GLOBAL LOADING GATE (V73 — Zero Blank Screen) ===
     // Prevent rendering with zero/stale data (causes $0.00, Infinity%, distorted chart)
-    // Wait for: (1) liveQuote with real price ONLY — chart loads independently with its own skeleton
-    const hasSsrPrice = initialStockData && (initialStockData.price > 0 || (initialStockData.prevClose && initialStockData.prevClose > 0));
-    const isInitialLoading = (!liveQuote && !hasSsrPrice) || displayPrice === 0;
+    // But NEVER block for more than 3 seconds — forceReady auto-releases
+    const hasSsrPrice = initialStockData && (
+        initialStockData.price > 0 ||
+        (initialStockData.prevClose && initialStockData.prevClose > 0) ||
+        (initialUnifiedData?._dynamoPrice?.price > 0)  // [V73] DynamoDB price fallback
+    );
+    const isInitialLoading = !forceReady && ((!liveQuote && !hasSsrPrice) || displayPrice === 0);
 
     // [PERF] Signal SSR preview removal — must be BEFORE conditional return (React Hook rules)
     useEffect(() => {

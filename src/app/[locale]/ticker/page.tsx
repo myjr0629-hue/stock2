@@ -1,10 +1,11 @@
 // src/app/ticker/page.tsx
-// [PERF] CSR-first: No SSR blocking. Page renders instantly, data loads via SWR.
-// LiveTickerDashboard already uses useFlowData (SWR) internally for all price data.
+// [PERF V73] ZERO BLANK SCREEN — 4-Tier SSR Data Pipeline
+// Tier 1: Redis (0ms) → Tier 2: DynamoDB Unified Cache (~50ms) → Tier 3: DynamoDB Snapshots (~200ms) → Tier 4: Safe fallback
+// LiveTickerDashboard uses useFlowData (SWR) internally for all price data.
 
 import { TickerPageClient } from "./TickerPageClient";
 import { TerminalGateWrapper } from '@/components/gate/TerminalGateWrapper';
-import { getFromCache } from '@/services/redisClient';
+import { getFromCache, setInCache } from '@/services/redisClient';
 import { getStockDataLight } from '@/services/marketDataLight';
 import { getStockChartData } from '@/services/stockApi';
 
@@ -33,7 +34,7 @@ export default async function TickerPage({ params, searchParams }: Props) {
         );
     }
 
-    // [SSR HYDRATION] Pre-fetch stock data, unified cache, and chart
+    // [SSR HYDRATION] Pre-fetch stock data, unified cache, and chart — ALL in parallel
     // Chart has a 500ms timeout — if Polygon is slow, client SWR will load it instead
     const chartWithTimeout = Promise.race([
         getStockChartData(ticker, (range || '1d') as any).catch(() => null),
@@ -46,8 +47,25 @@ export default async function TickerPage({ params, searchParams }: Props) {
         chartWithTimeout,
     ]);
 
-    // [SSR DynamoDB FALLBACK] If Redis missed, try DynamoDB for instant SSR data
+    // ═══════════════════════════════════════════════════════════════
+    // [V73] 4-TIER SSR DATA PIPELINE — guarantees data for every load
+    // ═══════════════════════════════════════════════════════════════
     let initialUnifiedData = rawUnifiedData;
+
+    // ── Tier 2: DynamoDB Unified Cache (complete pre-built data from warm-command) ──
+    if (!initialUnifiedData) {
+        try {
+            const { getUnifiedCache } = await import('@/lib/aws/unifiedCacheProvider');
+            const dynamoUnified = await getUnifiedCache(ticker, locale);
+            if (dynamoUnified && (dynamoUnified.structure || dynamoUnified.options)) {
+                initialUnifiedData = dynamoUnified;
+                // Re-warm Redis for next visitor (fire-and-forget)
+                setInCache(`cache:command:unified:${ticker}:${locale}`, dynamoUnified, 300).catch(() => {});
+            }
+        } catch { /* DynamoDB Unified Cache unavailable */ }
+    }
+
+    // ── Tier 3: DynamoDB Individual Snapshots (Lambda harvest data) ──
     if (!initialUnifiedData) {
         try {
             const { getTickerSnapshot, isDataFresh } = await import('@/lib/aws/dynamoDataProvider');
@@ -76,8 +94,21 @@ export default async function TickerPage({ params, searchParams }: Props) {
         } catch { /* DynamoDB unavailable in SSR — continue without initial data */ }
     }
 
-    // Construct a safe minimal version if stock data fails
-    const safeStockData = initialStockData || {
+    // ── Apply DynamoDB price to stockData if Polygon failed ──
+    // This prevents the price=0 loading gate deadlock
+    const dynamoPrice = initialUnifiedData?._dynamoPrice;
+    const safeStockData = initialStockData || (dynamoPrice?.price > 0 ? {
+        symbol: ticker,
+        name: ticker,
+        price: dynamoPrice.price,
+        change: 0,
+        changePercent: dynamoPrice.changePct || 0,
+        prevClose: 0,
+        vwap: 0,
+        currency: "USD",
+        history: [],
+        session: 'closed',
+    } : {
         symbol: ticker,
         name: ticker,
         price: 0,
@@ -85,7 +116,7 @@ export default async function TickerPage({ params, searchParams }: Props) {
         changePercent: 0,
         currency: "USD",
         history: [],
-    };
+    });
 
     return (
         <TerminalGateWrapper pageName="COMMAND">
