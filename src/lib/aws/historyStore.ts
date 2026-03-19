@@ -101,6 +101,15 @@ export interface AlphaHistoryItem {
     changePct: number;
     gex: number;
     pcr: number;
+    // [V4.6] Pillar breakdown — SSR Write-back
+    grade?: string;          // S/A/B/C/D/F
+    momentum?: number;       // 0-25 pillar score
+    structure?: number;      // 0-25
+    flow?: number;           // 0-25
+    regime?: number;         // 0-15
+    catalyst?: number;       // 0-10
+    engineVersion?: string;  // '4.6.0'
+    price?: number;
 }
 
 export async function saveAlphaDaily(data: AlphaHistoryItem): Promise<void> {

@@ -12,6 +12,7 @@ import { getAnalysisCacheForTickers, type AnalysisCacheEntry, writeAnalysisCache
 import { getMacroSnapshotSSOT } from '@/services/macroHubProvider';
 import { fetchTradeData, fetchShortVolumeData } from '@/services/realtimeMetricsService';
 import { getFromCache } from '@/services/redisClient';
+import { recordAlphaDaily } from '@/lib/aws/historyMiddleware';
 
 // [S-76] Edge cache for 30 seconds - faster repeat loads
 export const revalidate = 30;
@@ -520,6 +521,24 @@ export async function processWatchlistBatch(tickers: string[], mode: 'full' | 'p
                 ivSkew: typeof ivSkew === 'number' ? ivSkew : (typeof ivSkew === 'object' && ivSkew !== null ? (ivSkew as any).value ?? null : null),
                 impliedMovePct: impliedMovePct ?? null
             }).catch(e => console.error(`Failed to write analysis cache for ${ticker}`, e));
+
+            // 🔥 [V4.6 WRITE-BACK] Record accurate SSR Alpha Score to DynamoDB
+            // Replaces Lambda's simplified 3-factor score with full V4.6 pillar breakdown
+            recordAlphaDaily(ticker, {
+                alphaScore: alphaResult.score,
+                qualityTier: 'SSR_V46',
+                changePct,
+                gex: alphaGex ?? 0,
+                pcr: alphaPcr ?? 0,
+                grade: alphaResult.grade,
+                momentum: alphaResult.pillars.momentum.score,
+                structure: alphaResult.pillars.structure.score,
+                flow: alphaResult.pillars.flow.score,
+                regime: alphaResult.pillars.regime.score,
+                catalyst: alphaResult.pillars.catalyst.score,
+                engineVersion: alphaResult.engineVersion,
+                price: currentPrice,
+            });
 
             return fullObj;
 

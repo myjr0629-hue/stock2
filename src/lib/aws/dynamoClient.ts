@@ -113,4 +113,5 @@ export const TABLES = {
     ECONOMIC_CALENDAR: 'signum-economic-calendar',
     PATTERN_DB: 'signum-pattern-db',
     UNIFIED_CACHE: 'signum-unified-cache',
+    BACKTEST: 'signum-backtest',
 } as const;

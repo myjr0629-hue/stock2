@@ -3,6 +3,7 @@ import { calculateAlphaScore, calculateWhaleIndex, type AlphaSession } from '@/s
 import { getStructureData } from '@/services/structureService';
 import { fetchRealtimeMetrics } from '@/services/realtimeMetricsService';
 import { getFromCache, setInCache } from '@/services/redisClient';
+import { recordAlphaDaily } from '@/lib/aws/historyMiddleware';
 import { getAnalysisCacheForTickers, type AnalysisCacheEntry } from '@/services/analysisCache';
 import { fetchMassive } from '@/services/massiveClient';
 
@@ -363,6 +364,23 @@ function buildResponseFromResults(
                     dataCompleteness: alphaResult.dataCompleteness,
                     engineVersion: alphaResult.engineVersion,
                 };
+
+                // 🔥 [V4.6 WRITE-BACK] Record accurate SSR Alpha Score to DynamoDB
+                recordAlphaDaily(ticker, {
+                    alphaScore: alphaResult.score,
+                    qualityTier: 'SSR_V46',
+                    changePct: data.changePercent || 0,
+                    gex: data.netGex ?? 0,
+                    pcr: data.pcr ?? 0,
+                    grade: alphaResult.grade,
+                    momentum: alphaResult.pillars.momentum.score,
+                    structure: alphaResult.pillars.structure.score,
+                    flow: alphaResult.pillars.flow.score,
+                    regime: alphaResult.pillars.regime.score,
+                    catalyst: alphaResult.pillars.catalyst.score,
+                    engineVersion: alphaResult.engineVersion,
+                    price: data.underlyingPrice || 0,
+                });
             } catch (e) {
                 console.error(`[Dashboard V3 SWR] Alpha failed for ${ticker}:`, e);
             }

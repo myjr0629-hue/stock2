@@ -103,7 +103,7 @@ export function recordFlowSnapshot(
 }
 
 // ====== Alpha Recording ======
-// Called from: /api/cron/report, /api/cron/snapshot after analysis
+// Called from: SSR calculation endpoints (watchlist, command, intel) after V4.6 Alpha Score calculation
 export function recordAlphaDaily(
     ticker: string,
     data: {
@@ -112,6 +112,15 @@ export function recordAlphaDaily(
         changePct?: number;
         gex?: number;
         pcr?: number;
+        // [V4.6] Pillar breakdown — SSR Write-back
+        grade?: string;
+        momentum?: number;
+        structure?: number;
+        flow?: number;
+        regime?: number;
+        catalyst?: number;
+        engineVersion?: string;
+        price?: number;
     }
 ): void {
     if (!ticker) return;
@@ -125,6 +134,15 @@ export function recordAlphaDaily(
         changePct: data.changePct ?? 0,
         gex: data.gex ?? 0,
         pcr: data.pcr ?? 0,
+        // Pillar breakdown (only present when SSR V4.6 calculates)
+        grade: data.grade,
+        momentum: data.momentum,
+        structure: data.structure,
+        flow: data.flow,
+        regime: data.regime,
+        catalyst: data.catalyst,
+        engineVersion: data.engineVersion,
+        price: data.price,
     };
 
     saveAlphaDaily(item).catch(() => { });
