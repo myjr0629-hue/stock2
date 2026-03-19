@@ -9,6 +9,7 @@ import { calculateAlphaScore, type AlphaSession } from '@/services/alphaEngine';
 import { getStructureData } from '@/services/structureService';
 import { fetchMassive } from '@/services/massiveClient';
 import { getAnalysisCacheForTickers, type AnalysisCacheEntry, writeAnalysisCache } from '@/services/analysisCache';
+import { recordAlphaDaily } from '@/lib/aws/historyMiddleware';
 
 // [PERF] Lightweight stock data fetcher - same as watchlist batch
 async function getStockDataLight(symbol: string) {
@@ -319,6 +320,23 @@ export async function processPortfolioBatch(tickers: string[], mode: 'full' | 'p
                 vwapDist: null, volume: null, squeezeScore: null, iv: null, darkPoolPct: 0,
                 ivSkew: null, impliedMovePct: null
             }).catch(e => console.error(`Failed to cache ${ticker}`, e));
+
+            // 🔥 [V4.6 WRITE-BACK] Record accurate SSR Alpha Score to DynamoDB
+            recordAlphaDaily(ticker, {
+                alphaScore: alphaResult.score,
+                qualityTier: 'SSR_V46',
+                changePct,
+                gex: alphaGex ?? 0,
+                pcr: alphaPcr ?? 0,
+                grade: alphaResult.grade,
+                momentum: alphaResult.pillars.momentum.score,
+                structure: alphaResult.pillars.structure.score,
+                flow: alphaResult.pillars.flow.score,
+                regime: alphaResult.pillars.regime.score,
+                catalyst: alphaResult.pillars.catalyst.score,
+                engineVersion: alphaResult.engineVersion,
+                price: currentPrice,
+            });
 
             return fullObj;
         } catch (error) {

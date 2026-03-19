@@ -15,7 +15,8 @@ const client = DynamoDBDocumentClient.from(
 
 async function main() {
     const today = new Date().toISOString().slice(0, 10);
-    const tickers = ['NVDA', 'TSLA', 'AAPL', 'MSFT', 'SPY'];
+    // Test both user-visited and cron-only tickers
+    const tickers = ['NVDA', 'TSLA', 'AAPL', 'MSFT', 'SPY', 'AMD', 'CRWD', 'META', 'PLTR', 'CRM'];
     const results = [];
 
     for (const ticker of tickers) {
@@ -34,19 +35,16 @@ async function main() {
                     score: item.alphaScore,
                     grade: item.grade || '-',
                     tier: item.qualityTier,
-                    momentum: item.momentum,
-                    structure: item.structure,
-                    flow: item.flow,
-                    regime: item.regime,
-                    catalyst: item.catalyst,
+                    M: item.momentum, S: item.structure, F: item.flow,
+                    R: item.regime, C: item.catalyst,
                     engine: item.engineVersion || '-',
                     price: item.price,
                 });
             } else {
-                results.push({ ticker, score: '-', tier: 'NO_RECORD' });
+                results.push({ ticker, tier: 'NO_RECORD' });
             }
         } catch (e) {
-            results.push({ ticker, score: 'ERROR', tier: e.message });
+            results.push({ ticker, tier: 'ERROR: ' + e.message });
         }
     }
     console.log(JSON.stringify(results, null, 2));
