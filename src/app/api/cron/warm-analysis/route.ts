@@ -1,7 +1,8 @@
 // ============================================================================
 // /api/cron/warm-analysis — Analysis Cache Warmer (Vercel Cron)
-// [CACHE WARMER] Pre-computes analysis data for ~50 popular tickers → Redis
-// Schedule: Every 2 min (Mon-Fri, market hours) via Vercel Cron
+// [UNIFIED] Uses stock_universe_us300.json as SSOT (300 tickers)
+// Round-robin: 3 groups × 100 tickers per cron cycle (every 2 min)
+// Full universe coverage in 6 minutes (3 cycles)
 // ============================================================================
 
 import { NextResponse } from 'next/server';
@@ -12,31 +13,14 @@ import { fetchMassive } from '@/services/massiveClient';
 import { writeAnalysisCache, type AnalysisCacheEntry } from '@/services/analysisCache';
 import { getMacroSnapshotSSOT } from '@/services/macroHubProvider';
 import { fetchTradeData, fetchShortVolumeData } from '@/services/realtimeMetricsService';
-import { getFromCache } from '@/services/redisClient';
+import { getFromCache, setInCache } from '@/services/redisClient';
+import { loadStockUniversePool } from '@/services/universePolicy';
 
-// ── Ticker Lists ──
-const M7_TICKERS = ['AAPL', 'MSFT', 'GOOGL', 'AMZN', 'NVDA', 'META', 'TSLA'];
-const PHYSICAL_AI_TICKERS = ['PLTR', 'SERV', 'PL', 'TER', 'SYM', 'RKLB', 'ISRG'];
-const SILICON_CORE_TICKERS = ['AMD', 'AVGO', 'TSM', 'ARM', 'MU', 'ASML', 'MRVL'];
-const POWER_MATRIX_TICKERS = ['CEG', 'VST', 'GEV', 'PWR', 'CCJ', 'SMR', 'ETN'];
-const BIO_PULSE_TICKERS = ['LLY', 'NVO', 'VRTX', 'REGN', 'VKTX', 'AMGN', 'GILD'];
-const CYBER_SHIELD_TICKERS = ['CRWD', 'PANW', 'FTNT', 'ZS', 'S', 'OKTA', 'NET'];
-const ORBIT_DEFENSE_TICKERS = ['LMT', 'RTX', 'AXON', 'KTOS', 'LDOS', 'ASTS', 'LUNR'];
-const QUANTUM_EDGE_TICKERS = ['SMCI', 'SNOW', 'IONQ', 'DELL', 'AI', 'PATH', 'TWLO'];
-const FINTECH_PULSE_TICKERS = ['XYZ', 'PYPL', 'COIN', 'SOFI', 'AFRM', 'HOOD', 'UPST'];
-const CLOUD_FORTRESS_TICKERS = ['CRM', 'NOW', 'DDOG', 'WDAY', 'MDB', 'TEAM', 'HUBS'];
-
-// Popular tickers that are frequently viewed (top dashboard/watchlist selections)
-const POPULAR_TICKERS = [
-    'SPY', 'QQQ', 'IWM', 'INTC', 'SOFI', 'COIN', 'MSTR',
-    'SMCI', 'CRM', 'SNOW', 'UBER', 'XYZ',
-    'SHOP', 'SE', 'BABA', 'JD', 'NIO', 'LI', 'RIVN', 'LCID',
-    'BA', 'DIS', 'NFLX', 'PYPL', 'V', 'MA', 'JPM', 'GS',
-    'XOM', 'CVX', 'UNH', 'WDC', 'MCD',
-];
-
-// Deduplicated unified list (all 7 sectors + popular)
-const ALL_TICKERS = [...new Set([...M7_TICKERS, ...PHYSICAL_AI_TICKERS, ...SILICON_CORE_TICKERS, ...POWER_MATRIX_TICKERS, ...BIO_PULSE_TICKERS, ...CYBER_SHIELD_TICKERS, ...ORBIT_DEFENSE_TICKERS, ...QUANTUM_EDGE_TICKERS, ...FINTECH_PULSE_TICKERS, ...CLOUD_FORTRESS_TICKERS, ...POPULAR_TICKERS])];
+// ── Unified Universe (SSOT: stock_universe_us300.json) ──
+// Loaded once per cold start via universePolicy.ts
+const FULL_UNIVERSE = loadStockUniversePool(); // 300 tickers
+const GROUPS = 3;                               // Split into 3 round-robin groups
+const GROUP_SIZE = Math.ceil(FULL_UNIVERSE.length / GROUPS);
 
 // Concurrency control — max 5 tickers in parallel to avoid API rate limits
 const CONCURRENCY = 5;
@@ -464,16 +448,30 @@ export async function GET(request: Request) {
     }
 
     const startTime = Date.now();
-    console.log(`[WARM] 🔥 Starting analysis cache warm for ${ALL_TICKERS.length} tickers...`);
 
-    const results = await processInChunks(ALL_TICKERS, CONCURRENCY, warmTicker);
+    // ── Round-robin: get current cycle from Redis, pick group ──
+    let cycle = 0;
+    try {
+        const cached = await getFromCache<number>('warm:cycle');
+        cycle = (cached ?? 0) % GROUPS;
+    } catch { /* default to cycle 0 */ }
+
+    const groupStart = cycle * GROUP_SIZE;
+    const groupTickers = FULL_UNIVERSE.slice(groupStart, groupStart + GROUP_SIZE);
+
+    console.log(`[WARM] 🔥 Cycle ${cycle + 1}/${GROUPS}: Processing ${groupTickers.length} tickers (${groupStart}–${groupStart + groupTickers.length - 1} of ${FULL_UNIVERSE.length} universe)...`);
+
+    const results = await processInChunks(groupTickers, CONCURRENCY, warmTicker);
+
+    // Advance cycle for next invocation
+    try { await setInCache('warm:cycle', (cycle + 1) % GROUPS, 3600); } catch { /* non-critical */ }
 
     const succeeded = results.filter((r: any) => r.ok).length;
     const failed = results.filter((r: any) => !r.ok).length;
     const totalMs = Date.now() - startTime;
     const avgMs = succeeded > 0 ? Math.round(totalMs / succeeded) : 0;
 
-    console.log(`[WARM] ✅ Complete: ${succeeded}/${ALL_TICKERS.length} tickers cached (${failed} failed) in ${totalMs}ms (avg ${avgMs}ms/ticker)`);
+    console.log(`[WARM] ✅ Cycle ${cycle + 1}/${GROUPS} Complete: ${succeeded}/${groupTickers.length} tickers cached (${failed} failed) in ${totalMs}ms (avg ${avgMs}ms/ticker)`);
 
     // ================================================================
     // [V6.0] Entry Zone Detection — Check today's recommendations
@@ -483,7 +481,6 @@ export async function GET(request: Request) {
     let entryCheckCount = 0;
     try {
         const { createClient } = await import('@supabase/supabase-js');
-        const { setInCache } = await import('@/services/redisClient');
 
         const supabase = createClient(
             process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -541,9 +538,12 @@ export async function GET(request: Request) {
 
     return NextResponse.json({
         success: true,
+        cycle: cycle + 1,
+        totalGroups: GROUPS,
+        universeSize: FULL_UNIVERSE.length,
+        groupSize: groupTickers.length,
         cached: succeeded,
         failed,
-        total: ALL_TICKERS.length,
         elapsedMs: totalMs,
         avgMs,
         entryZoneTriggered: entryCheckCount,
