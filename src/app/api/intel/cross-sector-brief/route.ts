@@ -141,9 +141,9 @@ export async function POST() {
 
         // 2. Fetch ALL 13 macro indicators + news + economic calendar from Redis
         const [
-            redisVix, redisVix3m, redisSpxRaw, redisNqRaw, redisTnx,
+            redisVix, redisVix3m, redisSpx, redisNq, redisTnx,
             redisBtc, redisFng, redisGold, redisOil, redisTlt,
-            redisRutRaw, redisUsdkrw, redisUsdjpy,
+            redisRut, redisUsdkrw, redisUsdjpy,
             fmpCalendar, marketNews
         ] = await Promise.all([
             // 6 existing
@@ -173,42 +173,59 @@ export async function POST() {
                 .catch(() => [] as string[]),
         ]);
 
-        // 2b. [FIX] Use Polygon daily aggregates for equity indices to get REGULAR SESSION close
-        // Yahoo Redis data at 21:50 UTC contains post-market prices, which distorts the closing report
-        const today = getTodayET();
-        const polyEquityClosing = await Promise.all(
-            ['SPY', 'QQQ', 'IWM'].map(async (ticker) => {
-                try {
-                    const agg = await fetchMassive(`/v2/aggs/ticker/${ticker}/prev`, {}, true);
-                    const bar = agg?.results?.[0];
-                    if (bar && bar.c && bar.o) {
-                        const changePct = ((bar.c - bar.o) / bar.o) * 100;  // open-to-close for daily
-                        // Use previous close for more accurate daily change
-                        const prevClose = bar.o; // prev bar open approximation
-                        return { ticker, close: bar.c, changePct, prevClose: bar.o };
+        // 2b. Fetch REAL index closing prices from FMP (indices have no post-market, always regular session close)
+        const FMP_API_KEY = process.env.FMP_API_KEY || '';
+        interface FmpIndexQuote { symbol: string; name: string; price: number; previousClose: number; change: number; changePercentage: number; open: number; dayHigh: number; dayLow: number; }
+        const FMP_INDEX_SYMBOLS = ['^GSPC', '^DJI', '^IXIC', '^RUT', '^VIX', '^FTSE', '^N225', '^HSI', '^STOXX50E'];
+        
+        let fmpIndices: Record<string, FmpIndexQuote> = {};
+        if (FMP_API_KEY) {
+            try {
+                const symbolParam = FMP_INDEX_SYMBOLS.map(s => encodeURIComponent(s)).join(',');
+                const fmpUrl = `https://financialmodelingprep.com/stable/quote?symbol=${symbolParam}&apikey=${FMP_API_KEY}`;
+                const fmpRes = await fetch(fmpUrl, { cache: 'no-store' });
+                const fmpData: any[] = await fmpRes.json();
+                if (Array.isArray(fmpData)) {
+                    for (const q of fmpData) {
+                        if (q.symbol && q.price) {
+                            const changePct = q.previousClose ? ((q.price - q.previousClose) / q.previousClose) * 100 : (q.changePercentage || 0);
+                            fmpIndices[q.symbol] = { ...q, changePercentage: changePct };
+                        }
                     }
-                } catch { /* fall through to Yahoo */ }
-                return null;
-            })
-        );
-
-        // Override Yahoo equity prices with Polygon regular-session close
-        const spyClose = polyEquityClosing.find(p => p?.ticker === 'SPY');
-        const qqqClose = polyEquityClosing.find(p => p?.ticker === 'QQQ');
-        const iwmClose = polyEquityClosing.find(p => p?.ticker === 'IWM');
-
-        const overrideQuote = (yahoo: YahooQuote | null, polyData: typeof spyClose, label: string): YahooQuote | null => {
-            if (polyData && yahoo) {
-                const regSessionPct = ((polyData.close - yahoo.prevClose) / yahoo.prevClose) * 100;
-                console.log(`[CrossSectorBrief] ${label}: Yahoo=${yahoo.price.toFixed(2)} (${yahoo.changePct.toFixed(2)}% post-mkt) → Polygon close=${polyData.close.toFixed(2)} (${regSessionPct.toFixed(2)}% reg-session)`);
-                return { ...yahoo, price: polyData.close, changePct: regSessionPct, change: polyData.close - yahoo.prevClose };
+                }
+                console.log(`[CrossSectorBrief] FMP indices loaded: ${Object.keys(fmpIndices).join(', ')}`);
+            } catch (e) {
+                console.warn('[CrossSectorBrief] FMP index fetch failed, using Yahoo fallback:', e);
             }
-            return yahoo;
+        }
+
+        // Override Yahoo equity/VIX data with FMP real index data (regular session close only)
+        const fmpToYahoo = (sym: string, fallback: YahooQuote | null, label: string): YahooQuote | null => {
+            const fmp = fmpIndices[sym];
+            if (fmp) {
+                const changePct = fmp.changePercentage;
+                if (fallback) {
+                    console.log(`[CrossSectorBrief] ${label}: Yahoo=${fallback.price.toFixed(2)} (${fallback.changePct.toFixed(2)}% post-mkt) → FMP=${fmp.price.toFixed(2)} (${changePct.toFixed(2)}% reg-session)`);
+                }
+                return {
+                    symbol: sym,
+                    price: fmp.price,
+                    prevClose: fmp.previousClose || fallback?.prevClose || fmp.price,
+                    change: fmp.change || (fmp.price - (fmp.previousClose || 0)),
+                    changePct,
+                    updatedAt: new Date().toISOString(),
+                    source: 'YAHOO' as const, // keep type compatible
+                    isStale: false,
+                };
+            }
+            return fallback;
         };
 
-        const redisSpx = overrideQuote(redisSpxRaw, spyClose, 'S&P500/SPY');
-        const redisNq = overrideQuote(redisNqRaw, qqqClose, 'NASDAQ/QQQ');
-        const redisRut = overrideQuote(redisRutRaw, iwmClose, 'Russell2K/IWM');
+        // Apply FMP overrides for US indices
+        const idxSpx = fmpToYahoo('^GSPC', redisSpx, 'S&P500');
+        const idxNq  = fmpToYahoo('^IXIC', redisNq, 'NASDAQ');
+        const idxRut = fmpToYahoo('^RUT', redisRut, 'Russell2K');
+        const idxVix = fmpToYahoo('^VIX', redisVix, 'VIX');
 
         // 3. Build sector summaries
         const sectorSummaries = validSnapshots.map(s => {
@@ -242,17 +259,24 @@ export async function POST() {
             };
         });
 
-        // 4. Build expanded macro string (13 indicators)
+        // 4. Build expanded macro string — FMP indices (reg-session close) + Yahoo for commodities/FX
         const fmt = (q: YahooQuote | null, label: string, suffix = '') =>
             q ? `${label}: ${q.price.toFixed(suffix === '%' ? 2 : (q.price > 1000 ? 0 : 2))}${suffix} (${q.changePct >= 0 ? '+' : ''}${q.changePct.toFixed(2)}%)` : null;
 
+        const fmtFmp = (sym: string, label: string) => {
+            const q = fmpIndices[sym];
+            return q ? `${label}: ${q.price.toFixed(q.price > 1000 ? 0 : 2)} (${q.changePercentage >= 0 ? '+' : ''}${q.changePercentage.toFixed(2)}%)` : null;
+        };
+
         const macroStr = [
-            fmt(redisVix, 'VIX'),
+            // US Indices (FMP real index data — regular session close)
+            fmtFmp('^VIX', 'VIX') || fmt(redisVix, 'VIX'),
             fmt(redisVix3m, 'VIX3M'),
-            redisVix && redisVix3m ? `VIX/VIX3M Ratio: ${(redisVix.price / (redisVix3m.price || 1)).toFixed(3)} (${redisVix.price > redisVix3m.price ? 'BACKWARDATION ⚠️' : 'CONTANGO ✓'})` : null,
-            fmt(redisSpx, 'S&P500'),
-            fmt(redisNq, 'NASDAQ'),
-            fmt(redisRut, 'Russell2000'),
+            (idxVix || redisVix) && redisVix3m ? `VIX/VIX3M Ratio: ${((idxVix || redisVix)!.price / (redisVix3m.price || 1)).toFixed(3)} (${(idxVix || redisVix)!.price > redisVix3m.price ? 'BACKWARDATION ⚠️' : 'CONTANGO ✓'})` : null,
+            fmtFmp('^GSPC', 'S&P500') || fmt(redisSpx, 'S&P500'),
+            fmtFmp('^IXIC', 'NASDAQ') || fmt(redisNq, 'NASDAQ'),
+            fmtFmp('^DJI', 'DOW') || null,
+            fmtFmp('^RUT', 'Russell2000') || fmt(redisRut, 'Russell2000'),
             redisTnx ? `US10Y: ${redisTnx.price.toFixed(2)}% (${redisTnx.changePct >= 0 ? '+' : ''}${redisTnx.changePct.toFixed(2)}%)` : null,
             fmt(redisTlt, 'TLT(20Y+Bond)'),
             fmt(redisGold, 'Gold'),
@@ -261,6 +285,11 @@ export async function POST() {
             redisFng ? `Fear & Greed: ${redisFng.value || redisFng.score || 'N/A'}` : null,
             redisUsdkrw ? `USD/KRW: ${redisUsdkrw.price.toFixed(2)} (${redisUsdkrw.changePct >= 0 ? '+' : ''}${redisUsdkrw.changePct.toFixed(2)}%)` : null,
             redisUsdjpy ? `USD/JPY: ${redisUsdjpy.price.toFixed(2)} (${redisUsdjpy.changePct >= 0 ? '+' : ''}${redisUsdjpy.changePct.toFixed(2)}%)` : null,
+            // Global Indices (FMP)
+            fmtFmp('^FTSE', 'FTSE100(UK)'),
+            fmtFmp('^N225', 'Nikkei225(JP)'),
+            fmtFmp('^HSI', 'HangSeng(HK)'),
+            fmtFmp('^STOXX50E', 'EuroStoxx50'),
         ].filter(Boolean).join(' | ');
 
         // 5. Market news context
@@ -471,33 +500,43 @@ Return ONLY valid JSON (no markdown fences, no extra text). The JSON must follow
             return NextResponse.json({ error: 'Gemini response missing required sections' }, { status: 500 });
         }
 
-        // 8. Build macro indicators array for frontend display
+        // 8. Build macro indicators array for frontend display (FMP indices preferred)
+        const fmpIndicator = (sym: string, key: string, cat: string) => {
+            const q = fmpIndices[sym];
+            return q ? { key, value: q.price, changePct: q.changePercentage, category: cat } : null;
+        };
+
         const macroIndicators = [
-            redisVix ? { key: 'VIX', value: redisVix.price, changePct: redisVix.changePct, category: 'volatility' } : null,
+            // VIX — FMP preferred
+            fmpIndicator('^VIX', 'VIX', 'volatility') || (redisVix ? { key: 'VIX', value: redisVix.price, changePct: redisVix.changePct, category: 'volatility' } : null),
             redisVix3m ? { key: 'VIX3M', value: redisVix3m.price, changePct: redisVix3m.changePct, category: 'volatility' } : null,
-            redisSpx ? { key: 'S&P 500', value: redisSpx.price, changePct: redisSpx.changePct, category: 'equity' } : null,
-            redisNq ? { key: 'NASDAQ', value: redisNq.price, changePct: redisNq.changePct, category: 'equity' } : null,
-            redisRut ? { key: 'Russell 2K', value: redisRut.price, changePct: redisRut.changePct, category: 'equity' } : null,
+            // US Equity Indices — FMP (regular session close)
+            fmpIndicator('^GSPC', 'S&P 500', 'equity') || (redisSpx ? { key: 'S&P 500', value: redisSpx.price, changePct: redisSpx.changePct, category: 'equity' } : null),
+            fmpIndicator('^IXIC', 'NASDAQ', 'equity') || (redisNq ? { key: 'NASDAQ', value: redisNq.price, changePct: redisNq.changePct, category: 'equity' } : null),
+            fmpIndicator('^RUT', 'Russell 2K', 'equity') || (redisRut ? { key: 'Russell 2K', value: redisRut.price, changePct: redisRut.changePct, category: 'equity' } : null),
+            // Bonds & Commodities — Yahoo (no post-market distortion for these)
             redisTnx ? { key: 'US 10Y', value: redisTnx.price, changePct: redisTnx.changePct, category: 'bond' } : null,
             redisTlt ? { key: 'TLT', value: redisTlt.price, changePct: redisTlt.changePct, category: 'bond' } : null,
             redisGold ? { key: 'Gold', value: redisGold.price, changePct: redisGold.changePct, category: 'commodity' } : null,
             redisOil ? { key: 'WTI Oil', value: redisOil.price, changePct: redisOil.changePct, category: 'commodity' } : null,
             redisBtc ? { key: 'BTC', value: redisBtc.price, changePct: redisBtc.changePct, category: 'crypto' } : null,
             redisFng ? { key: 'Fear & Greed', value: Number(redisFng.value || redisFng.score || 50), changePct: 0, category: 'sentiment' } : null,
+            // FX
             redisUsdkrw ? { key: 'USD/KRW', value: redisUsdkrw.price, changePct: redisUsdkrw.changePct, category: 'fx' } : null,
             redisUsdjpy ? { key: 'USD/JPY', value: redisUsdjpy.price, changePct: redisUsdjpy.changePct, category: 'fx' } : null,
         ].filter(Boolean);
 
-        // VIX term structure
-        const vixTermStructure = redisVix && redisVix3m ? {
-            vix: redisVix.price,
+        // VIX term structure (use FMP VIX if available)
+        const vixPrice = idxVix?.price || redisVix?.price || 0;
+        const vixTermStructure = vixPrice && redisVix3m ? {
+            vix: vixPrice,
             vix3m: redisVix3m.price,
-            ratio: +(redisVix.price / (redisVix3m.price || 1)).toFixed(3),
-            state: redisVix.price > redisVix3m.price ? 'BACKWARDATION' : 'CONTANGO',
+            ratio: +(vixPrice / (redisVix3m.price || 1)).toFixed(3),
+            state: vixPrice > redisVix3m.price ? 'BACKWARDATION' : 'CONTANGO',
         } : null;
 
         // 9. Save to Redis (TTL: 24 hours)
-        // 'today' already declared above in step 2b
+        const today = getTodayET();
         const briefData = {
             structured,
             generatedAt: new Date().toISOString(),
