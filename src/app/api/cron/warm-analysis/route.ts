@@ -17,10 +17,13 @@ import { getFromCache, setInCache } from '@/services/redisClient';
 import { loadStockUniversePool } from '@/services/universePolicy';
 
 // ── Unified Universe (SSOT: stock_universe_us300.json) ──
-// Loaded once per cold start via universePolicy.ts
-const FULL_UNIVERSE = loadStockUniversePool(); // 300 tickers
-const GROUPS = 3;                               // Split into 3 round-robin groups
-const GROUP_SIZE = Math.ceil(FULL_UNIVERSE.length / GROUPS);
+// Lazy-loaded on first cron invocation (avoids module-scope fs.readFile issues)
+let _universe: string[] | null = null;
+function getUniverse(): string[] {
+    if (!_universe) _universe = loadStockUniversePool();
+    return _universe;
+}
+const GROUPS = 3;
 
 // Concurrency control — max 5 tickers in parallel to avoid API rate limits
 const CONCURRENCY = 5;
@@ -450,16 +453,18 @@ export async function GET(request: Request) {
     const startTime = Date.now();
 
     // ── Round-robin: get current cycle from Redis, pick group ──
+    const universe = getUniverse();
+    const groupSize = Math.ceil(universe.length / GROUPS);
     let cycle = 0;
     try {
         const cached = await getFromCache<number>('warm:cycle');
         cycle = (cached ?? 0) % GROUPS;
     } catch { /* default to cycle 0 */ }
 
-    const groupStart = cycle * GROUP_SIZE;
-    const groupTickers = FULL_UNIVERSE.slice(groupStart, groupStart + GROUP_SIZE);
+    const groupStart = cycle * groupSize;
+    const groupTickers = universe.slice(groupStart, groupStart + groupSize);
 
-    console.log(`[WARM] 🔥 Cycle ${cycle + 1}/${GROUPS}: Processing ${groupTickers.length} tickers (${groupStart}–${groupStart + groupTickers.length - 1} of ${FULL_UNIVERSE.length} universe)...`);
+    console.log(`[WARM] 🔥 Cycle ${cycle + 1}/${GROUPS}: Processing ${groupTickers.length} tickers (${groupStart}–${groupStart + groupTickers.length - 1} of ${universe.length} universe)...`);
 
     const results = await processInChunks(groupTickers, CONCURRENCY, warmTicker);
 
@@ -540,7 +545,7 @@ export async function GET(request: Request) {
         success: true,
         cycle: cycle + 1,
         totalGroups: GROUPS,
-        universeSize: FULL_UNIVERSE.length,
+        universeSize: universe.length,
         groupSize: groupTickers.length,
         cached: succeeded,
         failed,
