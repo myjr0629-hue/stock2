@@ -587,9 +587,9 @@ exports.handler = async (event) => {
     results.gex = Object.keys(gexMap).length;
     results.sma = await harvestSMA(priceMap);
     
-    // Context Score: ONLY at market close (4:10-4:20 PM ET = 20:10-20:20 UTC)
-    // End-of-day score is the only meaningful one for history tracking
-    const isMarketClose = (utcMin >= 20*60+10 && utcMin <= 20*60+20);
+    // Context Score: at market close (4:00-4:30 PM ET = 20:00-20:30 UTC)
+    // 30-min window ensures 5-min EventBridge always catches it (6 trigger points)
+    const isMarketClose = (utcMin >= 20*60 && utcMin <= 20*60+30);
     if (isMarketClose || forceRun) {
       console.log('Market close window — computing Context Scores for ' + UNIVERSE.length + ' tickers');
       results.contextScore = await computeContextScores(snapshotMap, gexMap, results.rlsi);

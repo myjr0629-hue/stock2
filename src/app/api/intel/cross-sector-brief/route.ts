@@ -141,9 +141,9 @@ export async function POST() {
 
         // 2. Fetch ALL 13 macro indicators + news + economic calendar from Redis
         const [
-            redisVix, redisVix3m, redisSpx, redisNq, redisTnx,
+            redisVix, redisVix3m, redisSpxRaw, redisNqRaw, redisTnx,
             redisBtc, redisFng, redisGold, redisOil, redisTlt,
-            redisRut, redisUsdkrw, redisUsdjpy,
+            redisRutRaw, redisUsdkrw, redisUsdjpy,
             fmpCalendar, marketNews
         ] = await Promise.all([
             // 6 existing
@@ -172,6 +172,43 @@ export async function POST() {
                 }).filter(Boolean))
                 .catch(() => [] as string[]),
         ]);
+
+        // 2b. [FIX] Use Polygon daily aggregates for equity indices to get REGULAR SESSION close
+        // Yahoo Redis data at 21:50 UTC contains post-market prices, which distorts the closing report
+        const today = getTodayET();
+        const polyEquityClosing = await Promise.all(
+            ['SPY', 'QQQ', 'IWM'].map(async (ticker) => {
+                try {
+                    const agg = await fetchMassive(`/v2/aggs/ticker/${ticker}/prev`, {}, true);
+                    const bar = agg?.results?.[0];
+                    if (bar && bar.c && bar.o) {
+                        const changePct = ((bar.c - bar.o) / bar.o) * 100;  // open-to-close for daily
+                        // Use previous close for more accurate daily change
+                        const prevClose = bar.o; // prev bar open approximation
+                        return { ticker, close: bar.c, changePct, prevClose: bar.o };
+                    }
+                } catch { /* fall through to Yahoo */ }
+                return null;
+            })
+        );
+
+        // Override Yahoo equity prices with Polygon regular-session close
+        const spyClose = polyEquityClosing.find(p => p?.ticker === 'SPY');
+        const qqqClose = polyEquityClosing.find(p => p?.ticker === 'QQQ');
+        const iwmClose = polyEquityClosing.find(p => p?.ticker === 'IWM');
+
+        const overrideQuote = (yahoo: YahooQuote | null, polyData: typeof spyClose, label: string): YahooQuote | null => {
+            if (polyData && yahoo) {
+                const regSessionPct = ((polyData.close - yahoo.prevClose) / yahoo.prevClose) * 100;
+                console.log(`[CrossSectorBrief] ${label}: Yahoo=${yahoo.price.toFixed(2)} (${yahoo.changePct.toFixed(2)}% post-mkt) → Polygon close=${polyData.close.toFixed(2)} (${regSessionPct.toFixed(2)}% reg-session)`);
+                return { ...yahoo, price: polyData.close, changePct: regSessionPct, change: polyData.close - yahoo.prevClose };
+            }
+            return yahoo;
+        };
+
+        const redisSpx = overrideQuote(redisSpxRaw, spyClose, 'S&P500/SPY');
+        const redisNq = overrideQuote(redisNqRaw, qqqClose, 'NASDAQ/QQQ');
+        const redisRut = overrideQuote(redisRutRaw, iwmClose, 'Russell2K/IWM');
 
         // 3. Build sector summaries
         const sectorSummaries = validSnapshots.map(s => {
@@ -460,7 +497,7 @@ Return ONLY valid JSON (no markdown fences, no extra text). The JSON must follow
         } : null;
 
         // 9. Save to Redis (TTL: 24 hours)
-        const today = getTodayET();
+        // 'today' already declared above in step 2b
         const briefData = {
             structured,
             generatedAt: new Date().toISOString(),
