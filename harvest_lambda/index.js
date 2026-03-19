@@ -52,6 +52,27 @@ async function batchWrite(tableName, items) {
   }
 }
 
+// Filter out items whose ticker+date already has SSR_V46 in DynamoDB
+async function filterSsrProtected(items) {
+  const safe = [];
+  for (const item of items) {
+    try {
+      const r = await client.send(new QueryCommand({
+        TableName: 'signum-alpha-history',
+        KeyConditionExpression: 'ticker=:t AND #d=:d',
+        ExpressionAttributeValues: { ':t': item.ticker, ':d': item.date },
+        ExpressionAttributeNames: { '#d': 'date' },
+        ProjectionExpression: 'qualityTier',
+        Limit: 1,
+      }));
+      const existing = r.Items?.[0];
+      if (existing?.qualityTier === 'SSR_V46') continue; // SKIP — SSR_V46 is authoritative
+      safe.push(item);
+    } catch { safe.push(item); } // on error, allow write
+  }
+  return safe;
+}
+
 // ====== RLSI Self-Calculation ======
 function computeRSI(closes, period) {
   if (closes.length < period + 1) return 50;
@@ -119,7 +140,7 @@ async function harvestPrices() {
     snapshotMap[t.ticker] = { changePct:ch, volume:t.day?.v||0, price:p };
     items.push({ ticker:t.ticker, date:today, qualityTier:'LIVE', changePct:Math.round(ch*100)/100, open:t.day?.o||0, high:t.day?.h||0, low:t.day?.l||0, close:t.day?.c||p, volume:t.day?.v||0, vwap:t.day?.vw||0, gex:0, pcr:0, alphaScore:0 });
   }
-  if (items.length > 0) await batchWrite('signum-alpha-history', items);
+  if (items.length > 0) { const safe = await filterSsrProtected(items); if (safe.length > 0) await batchWrite('signum-alpha-history', safe); console.log('Prices: skipped '+(items.length-safe.length)+' SSR_V46 protected'); }
   console.log('Prices: '+items.length+'/'+UNIVERSE.length);
   return { count:items.length, priceMap, snapshotMap };
 }
@@ -411,7 +432,7 @@ async function updateAlphaScores(snapshotMap, gexMap) {
     const alpha = computeAlphaScore(pd, gexMap[ticker]||null);
     items.push({ ticker, date:today, changePct:Math.round(pd.changePct*100)/100, open:0,high:0,low:0, close:pd.price, volume:pd.volume, vwap:0, gex:gexMap[ticker]?gexMap[ticker].gex:0, pcr:gexMap[ticker]?gexMap[ticker].pcr:0, alphaScore:alpha, qualityTier:gexMap[ticker]?'FULL':'PRICE_ONLY' });
   }
-  if (items.length > 0) await batchWrite('signum-alpha-history', items);
+  if (items.length > 0) { const safe = await filterSsrProtected(items); if (safe.length > 0) await batchWrite('signum-alpha-history', safe); console.log('Alpha: skipped '+(items.length-safe.length)+' SSR_V46 protected'); }
   console.log('Alpha: '+items.length+' scores');
   return items.length;
 }
