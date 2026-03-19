@@ -398,15 +398,25 @@ async function warmTicker(ticker: string): Promise<{ ticker: string; ok: boolean
 
         await writeAnalysisCache(ticker, cacheEntry);
 
-        // [Phase 2] Record to DynamoDB history (fire-and-forget — non-blocking)
+        // [Phase 2 + V4.6 WRITE-BACK] Record to DynamoDB history (fire-and-forget — non-blocking)
+        // This is the BATCH path — ensures ALL ~100 tracked tickers get V4.6 scores,
+        // not just user-visited ones. Runs every 2min via Vercel Cron.
         try {
             const { recordAlphaDaily, recordGexSnapshot } = await import('@/lib/aws/historyMiddleware');
             recordAlphaDaily(ticker, {
                 alphaScore: alphaResult.score,
-                qualityTier: alphaResult.grade,
+                qualityTier: 'SSR_V46',
                 changePct: changePct,
                 gex: structureRes?.netGex ?? gex ?? 0,
                 pcr: alphaPcr ?? 0,
+                grade: alphaResult.grade,
+                momentum: alphaResult.pillars.momentum.score,
+                structure: alphaResult.pillars.structure.score,
+                flow: alphaResult.pillars.flow.score,
+                regime: alphaResult.pillars.regime.score,
+                catalyst: alphaResult.pillars.catalyst.score,
+                engineVersion: alphaResult.engineVersion,
+                price: currentPrice,
             });
             if (structureRes?.netGex != null) {
                 recordGexSnapshot(ticker, {
