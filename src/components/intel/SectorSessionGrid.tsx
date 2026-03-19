@@ -107,7 +107,136 @@ function FlowBar({ pcr, changePct, ss }: { pcr: number; changePct: number; ss: a
     );
 }
 
-function generateAnalysis(q: IntelQuote, ss: any): string {
+// ════════════════════════════════════════════════════════════════════════════
+// Conclusion Rule Engine — 구조 판정 → 근거 압축 → 전환 조건
+// 8 categories (C1~C8) + fallback, priority-ordered
+// ════════════════════════════════════════════════════════════════════════════
+type ConclusionCode = 'C1' | 'C2' | 'C3' | 'C4' | 'C5' | 'C6' | 'C7' | 'C8' | 'CF';
+
+interface AnalysisContext {
+    gammaRegime: string;
+    pcr: number;
+    squeeze: number;
+    npM: number;                   // net premium in millions
+    npDir: 'call' | 'put' | 'flat';
+    whaleIdx: number;
+    darkPool: number;
+    ivSkew: number;
+    price: number;
+    maxPain: number;
+    callWall: number;
+    putFloor: number;
+    distToCall: number;
+    distToPut: number;
+    maxPainDist: number;           // % distance from MP (positive = above)
+    pricePctInTunnel: number;
+    histType: 'toShort' | 'toLong' | 'none';
+}
+
+function deriveContext(q: IntelQuote): AnalysisContext {
+    const { price, maxPain, callWall, putFloor, pcr, gammaRegime } = q;
+    const np = q.netPremium || 0;
+    const npM = np / 1e6;
+    const range = (callWall > 0 && putFloor > 0) ? callWall - putFloor : 1;
+    return {
+        gammaRegime: gammaRegime || 'NEUTRAL',
+        pcr: pcr || 1,
+        squeeze: (q as any).squeezeScore || 0,
+        npM,
+        npDir: Math.abs(npM) < 1 ? 'flat' : npM > 0 ? 'call' : 'put',
+        whaleIdx: (q as any).whaleIndex || 0,
+        darkPool: (q as any).darkPoolPct || 0,
+        ivSkew: q.ivSkew || 0,
+        price: price || 0,
+        maxPain: maxPain || 0,
+        callWall: callWall || 0,
+        putFloor: putFloor || 0,
+        distToCall: (callWall > 0 && price > 0) ? ((callWall - price) / price * 100) : 999,
+        distToPut: (putFloor > 0 && price > 0) ? ((price - putFloor) / price * 100) : 999,
+        maxPainDist: maxPain > 0 ? ((price - maxPain) / maxPain * 100) : 0,
+        pricePctInTunnel: range > 0 ? ((price - putFloor) / range * 100) : 50,
+        histType: 'none',
+    };
+}
+
+function resolveConclusion(ctx: AnalysisContext): ConclusionCode {
+    const isSG = ctx.gammaRegime === 'SHORT';
+    const isLG = ctx.gammaRegime === 'LONG';
+    const nearCW = ctx.distToCall < 2;
+    const nearPF = ctx.distToPut < 2;
+    const aboveMP = ctx.maxPainDist > 2.5;
+    const belowMP = ctx.maxPainDist < -2.5;
+    const nearMP = Math.abs(ctx.maxPainDist) < 1;
+    const strongPut = ctx.npDir === 'put' && Math.abs(ctx.npM) >= 3;
+    const strongCall = ctx.npDir === 'call' && Math.abs(ctx.npM) >= 3;
+    const heavyInst = ctx.whaleIdx >= 70;
+    const stealth = ctx.whaleIdx >= 40 && ctx.darkPool >= 40;
+    const highSkew = ctx.ivSkew > 2.5;
+    const coiling = ctx.squeeze >= 50 || ctx.distToCall < 1.5 || ctx.distToPut < 1.5;
+
+    // R1 — 레짐 전환 감시 (C8)
+    if (ctx.histType !== 'none') return 'C8';
+
+    // R2 — 하방 압력 우세 (C2)
+    if ((isSG && ctx.pcr > 1.2 && nearPF) ||
+        (isSG && strongPut && aboveMP) ||
+        (isSG && strongPut && highSkew)) return 'C2';
+
+    // R3 — 상방 반응 우호 (C1)
+    if ((isSG && ctx.pcr < 0.8 && ctx.squeeze >= 50 && nearCW) ||
+        (isLG && strongCall && ctx.pcr < 0.9) ||
+        (strongCall && heavyInst && nearCW)) return 'C1';
+
+    // R4 — 만기 수렴 압력 (C3)
+    if ((nearMP && isLG && ctx.squeeze < 30) ||
+        (aboveMP && !strongCall && !nearCW) ||
+        (belowMP && !strongPut && !nearPF)) return 'C3';
+
+    // R5 — 지지 흡수 관찰 (C6)
+    if ((nearPF && stealth) ||
+        (nearPF && isLG && ctx.pcr > 1.0) ||
+        (nearPF && heavyInst && ctx.npDir !== 'put')) return 'C6';
+
+    // R6 — 저항 마찰 확대 (C7)
+    if ((nearCW && isLG && ctx.pcr >= 0.9) ||
+        (nearCW && !strongCall) ||
+        (nearCW && ctx.pricePctInTunnel >= 80)) return 'C7';
+
+    // R7 — 변동성 응축 (C4)
+    if ((coiling && Math.abs(ctx.maxPainDist) < 3 && !strongCall && !strongPut) ||
+        (ctx.squeeze >= 50 && ctx.gammaRegime !== 'NEUTRAL') ||
+        (ctx.distToCall < 2.5 && ctx.distToPut < 2.5)) return 'C4';
+
+    // R8 — 지표 상충 (C5)
+    if (ctx.gammaRegime === 'NEUTRAL' ||
+        (strongPut && nearCW) ||
+        (strongCall && nearPF) ||
+        (heavyInst && ctx.npDir === 'flat' && !coiling)) return 'C5';
+
+    // Fallback
+    return 'CF';
+}
+
+function buildConclusionText(code: ConclusionCode, ctx: AnalysisContext, ss: any): string {
+    const mp = `$${ctx.maxPain.toFixed(0)}`;
+    const cw = `$${ctx.callWall.toFixed(0)}`;
+    const pf = `$${ctx.putFloor.toFixed(0)}`;
+    const npAbs = Math.abs(ctx.npM).toFixed(1);
+    const pcr = ctx.pcr.toFixed(2);
+
+    const verdict = ss(`concl${code}`);
+    const reason = ss(`concl${code}Reason`, { mp, cw, pf, npAbs, pcr, whale: String(ctx.whaleIdx), dp: ctx.darkPool.toFixed(0), skew: ctx.ivSkew.toFixed(1) });
+    const shift = ss(`concl${code}Shift`, { mp, cw, pf });
+
+    return `📋 ${verdict} ${reason} ${shift}`;
+}
+
+// ════════════════════════════════════════════════════════════════════════════
+// MAIN ANALYSIS GENERATOR — 4-block pipeline
+// Priority → Structural → Flow → Conclusion
+// ════════════════════════════════════════════════════════════════════════════
+
+function generateAnalysis(q: IntelQuote, ss: any, histType: 'toShort' | 'toLong' | 'none' = 'none'): string {
     const { price, maxPain, callWall, putFloor, gex, pcr, gammaRegime, changePct, session } = q;
     if (!price || price === 0) return ss('dataWaiting');
 
@@ -118,7 +247,6 @@ function generateAnalysis(q: IntelQuote, ss: any): string {
     const darkPool = (q as any).darkPoolPct || 0;
     const skew = q.ivSkew || 0;
     const im = q.impliedMovePct || 0;
-    const gexM = gex / 1e6;
     const isShortGamma = gammaRegime === 'SHORT';
     const isLongGamma = gammaRegime === 'LONG';
 
@@ -128,37 +256,42 @@ function generateAnalysis(q: IntelQuote, ss: any): string {
     const toPutFloor = (putFloor > 0 && price > 0) ? ((price - putFloor) / price * 100) : 999;
 
     // ════════════════════════════════════════════════
-    // PRIORITY SIGNALS
+    // BLOCK 1 — PRIORITY SIGNAL (headline)
     // ════════════════════════════════════════════════
     let prioritySignal = '';
-    const gammaCtxShortCW = isShortGamma ? ss('shortGammaCallSqueeze') : ss('longGammaCallStable');
-    const gammaCtxShortPF = isShortGamma ? ss('shortGammaPutRisk') : ss('longGammaPutHedge');
-    const gammaCtxSqueeze = isShortGamma ? ss('shortGammaPutRisk') : ss('longGammaPutHedge');
+    const gammaCtxCW = isShortGamma ? ss('shortGammaCallSqueeze') : ss('longGammaCallStable');
+    const gammaCtxPF = isShortGamma ? ss('shortGammaPutRisk') : ss('longGammaPutHedge');
 
     if (isShortGamma && pcr < 0.7 && squeeze >= 60) {
         prioritySignal = ss('synthSqueezeImminent', { pcr: pcr.toFixed(2), squeeze: Math.round(squeeze).toString(), cw: `$${callWall?.toFixed(0)}` });
-    }
-    else if (isShortGamma && pcr > 1.3 && toPutFloor < 2) {
+    } else if (isShortGamma && pcr > 1.3 && toPutFloor < 2) {
         prioritySignal = ss('synthCrashRisk', { pcr: pcr.toFixed(2), pf: `$${putFloor?.toFixed(0)}`, dist: toPutFloor.toFixed(1) });
-    }
-    else if (toCallWall < 1.5 && toCallWall > 0) {
-        prioritySignal = ss('synthCallWallBreak', { cw: `$${callWall?.toFixed(0)}`, dist: toCallWall.toFixed(1), gammaContext: gammaCtxShortCW });
-    }
-    else if (toPutFloor < 1.5 && toPutFloor > 0) {
-        prioritySignal = ss('synthPutFloorBreak', { pf: `$${putFloor?.toFixed(0)}`, dist: toPutFloor.toFixed(1), gammaContext: gammaCtxShortPF });
-    }
-    else if (skew > 3 && Math.abs(changePct) < 1) {
+    } else if (toCallWall < 1.5 && toCallWall > 0) {
+        prioritySignal = ss('synthCallWallBreak', { cw: `$${callWall?.toFixed(0)}`, dist: toCallWall.toFixed(1), gammaContext: gammaCtxCW });
+    } else if (toPutFloor < 1.5 && toPutFloor > 0) {
+        prioritySignal = ss('synthPutFloorBreak', { pf: `$${putFloor?.toFixed(0)}`, dist: toPutFloor.toFixed(1), gammaContext: gammaCtxPF });
+    } else if (skew > 3 && Math.abs(changePct) < 1) {
         prioritySignal = ss('synthStealthHedge', { changePct: `${changePct > 0 ? '+' : ''}${changePct.toFixed(1)}`, skew: skew.toFixed(1) });
+    } else if (squeeze >= 70) {
+        prioritySignal = ss('synthSqueezeExtreme', { val: Math.round(squeeze).toString(), gammaContext: gammaCtxPF });
     }
-    else if (squeeze >= 70) {
-        prioritySignal = ss('synthSqueezeExtreme', { val: Math.round(squeeze).toString(), gammaContext: gammaCtxSqueeze });
+
+    // PRE/POST session — short prefix when applicable
+    let sessionPrefix = '';
+    const sess = session || 'reg';
+    if ((sess === 'pre' || sess === 'PRE') && q.extendedPrice > 0) {
+        const preVsMP = maxPain > 0 ? Math.abs((q.extendedPrice - maxPain) / maxPain * 100) : 999;
+        sessionPrefix = preVsMP < 1
+            ? ss('synthPreMaxPainPin', { price: `$${q.extendedPrice.toFixed(2)}` })
+            : ss('synthPreMarket', { price: `$${q.extendedPrice.toFixed(2)}`, changePct: `${q.extendedChangePct >= 0 ? '+' : ''}${q.extendedChangePct.toFixed(2)}` });
+    } else if ((sess === 'post' || sess === 'POST') && q.extendedPrice > 0) {
+        sessionPrefix = ss('synthPostMarket', { price: `$${q.extendedPrice.toFixed(2)}`, changePct: `${q.extendedChangePct >= 0 ? '+' : ''}${q.extendedChangePct.toFixed(2)}` });
     }
 
     // ════════════════════════════════════════════════
-    // STRUCTURAL CONTEXT — 구조적 위치 분석
+    // BLOCK 2 — STRUCTURAL CONTEXT
     // ════════════════════════════════════════════════
     let structural = '';
-
     if (maxPain > 0 && callWall > 0 && putFloor > 0) {
         const range = callWall - putFloor;
         const pricePct = range > 0 ? ((price - putFloor) / range * 100) : 50;
@@ -186,11 +319,11 @@ function generateAnalysis(q: IntelQuote, ss: any): string {
     }
 
     // ════════════════════════════════════════════════
-    // FLOW CONTEXT — 자금 흐름 + 기관 활동
+    // BLOCK 3 — FLOW CONTEXT
     // ════════════════════════════════════════════════
     const flowParts: string[] = [];
+    let usedNetPremSignal = false; // dedup tracker
 
-    // GEX + PCR 교차 (단순 나열 대신 합성)
     if (isShortGamma && pcr < 0.7) {
         flowParts.push(ss('shortGammaCallSqueeze'));
     } else if (isShortGamma && pcr > 1.2) {
@@ -201,14 +334,13 @@ function generateAnalysis(q: IntelQuote, ss: any): string {
         flowParts.push(ss('longGammaPutHedge'));
     }
 
-    // Net Premium
     if (Math.abs(npM) >= 1) {
         flowParts.push(npM > 0
             ? ss('netPremCallInflow', { val: npM.toFixed(1) })
             : ss('netPremPutInflow', { val: Math.abs(npM).toFixed(1) }));
+        usedNetPremSignal = true;
     }
 
-    // Whale + DarkPool
     if (whaleIdx >= 70) {
         flowParts.push(ss('whaleHeavyAnalysis', { idx: String(whaleIdx) }));
     } else if (whaleIdx >= 40 && darkPool >= 40) {
@@ -218,74 +350,24 @@ function generateAnalysis(q: IntelQuote, ss: any): string {
     }
 
     // ════════════════════════════════════════════════
-    // SESSION CONTEXT — 세션별 맥락 (PRE/POST 시 추가)
+    // BLOCK 4 — CONCLUSION (replaces old Takeaway)
+    // 규칙 엔진 → 구조 판정 · 근거 · 전환 조건
     // ════════════════════════════════════════════════
-    let sessionContext = '';
-    const sess = session || 'reg';
-    if ((sess === 'pre' || sess === 'PRE') && q.extendedPrice > 0) {
-        const preVsMaxPain = maxPain > 0 ? Math.abs((q.extendedPrice - maxPain) / maxPain * 100) : 999;
-        if (preVsMaxPain < 1) {
-            sessionContext = ss('synthPreMaxPainPin', { price: `$${q.extendedPrice.toFixed(2)}` });
-        } else {
-            sessionContext = ss('synthPreMarket', { price: `$${q.extendedPrice.toFixed(2)}`, changePct: `${q.extendedChangePct >= 0 ? '+' : ''}${q.extendedChangePct.toFixed(2)}` });
-        }
-    } else if ((sess === 'post' || sess === 'POST') && q.extendedPrice > 0) {
-        sessionContext = ss('synthPostMarket', { price: `$${q.extendedPrice.toFixed(2)}`, changePct: `${q.extendedChangePct >= 0 ? '+' : ''}${q.extendedChangePct.toFixed(2)}` });
-    }
+    const ctx = deriveContext(q);
+    ctx.histType = histType;
+    const conclusionCode = resolveConclusion(ctx);
+    const conclusion = buildConclusionText(conclusionCode, ctx, ss);
 
     // ════════════════════════════════════════════════
-    // KEY TAKEAWAY — 핵심 한줄 요약
-    // ════════════════════════════════════════════════
-    let takeaway = '';
-    const cwTk = `$${callWall?.toFixed(0)}`;
-    const pfTk = `$${putFloor?.toFixed(0)}`;
-
-    if (isShortGamma && pcr < 0.7 && squeeze >= 50 && toCallWall < 5) {
-        takeaway = ss('takeawaySqueezeReady', { cw: cwTk });
-    } else if (isShortGamma && pcr > 1.3 && toPutFloor < 3) {
-        takeaway = ss('takeawayCrashWatch', { pf: pfTk });
-    } else if (isLongGamma && Math.abs(maxPainDist) < 2 && squeeze < 30) {
-        takeaway = ss('takeawayPinning');
-    } else if (toCallWall < 2 && toCallWall > 0) {
-        takeaway = ss('takeawayCallWallTest', { cw: cwTk });
-    } else if (toPutFloor < 2 && toPutFloor > 0) {
-        takeaway = ss('takeawayPutFloorTest', { pf: pfTk });
-    } else if (Math.abs(npM) >= 3) {
-        takeaway = npM > 0
-            ? ss('takeawayBullFlow', { val: npM.toFixed(1) })
-            : ss('takeawayBearFlow', { val: Math.abs(npM).toFixed(1) });
-    } else if (skew > 2.5) {
-        takeaway = ss('takeawayHighIvSkew', { skew: skew.toFixed(1) });
-    } else if (whaleIdx >= 50 && darkPool >= 40) {
-        takeaway = ss('takeawayInstitutionalAccum', { idx: String(whaleIdx), dp: darkPool.toFixed(0) });
-    } else if (maxPain > 0 && Math.abs(maxPainDist) < 3 && im > 0 && im < 2) {
-        takeaway = ss('takeawayNearExpiry', { mp: `$${maxPain.toFixed(0)}` });
-    } else if (isShortGamma && pcr < 0.9) {
-        takeaway = ss('takeawayShortGammaBullish', { cw: cwTk });
-    } else if (isShortGamma && pcr >= 0.9) {
-        takeaway = ss('takeawayShortGammaBearish', { pf: pfTk });
-    } else if (isLongGamma && pcr < 0.8) {
-        takeaway = ss('takeawayLongGammaBullish', { pcr: pcr.toFixed(2), pf: pfTk });
-    } else if (isLongGamma && pcr > 1.1) {
-        takeaway = ss('takeawayLongGammaBearish', { pcr: pcr.toFixed(2), mp: `$${maxPain?.toFixed(0)}` });
-    } else if (isLongGamma) {
-        takeaway = ss('takeawayLongGammaRange', { pf: pfTk, cw: cwTk });
-    } else if (isShortGamma) {
-        takeaway = ss('takeawayVolWatch');
-    } else {
-        takeaway = ss('takeawayStable');
-    }
-
-    // ════════════════════════════════════════════════
-    // ASSEMBLY — 조합
+    // ASSEMBLY — 4블록 조합
     // ════════════════════════════════════════════════
     const sections: string[] = [];
 
+    if (sessionPrefix) sections.push(sessionPrefix);
     if (prioritySignal) sections.push(prioritySignal);
-    if (sessionContext) sections.push(sessionContext);
     if (structural) sections.push(structural);
     if (flowParts.length > 0) sections.push(flowParts.join(' '));
-    if (takeaway) sections.push(takeaway);
+    sections.push(conclusion);
 
     return sections.join(' ') || ss('collectingData');
 }
@@ -396,8 +478,8 @@ export function SectorSessionGrid({ config, quotes, loading, refreshing, lockedT
     }, []);
     const sInfo = getSessionInfo(session);
 
-    // Phase B: DynamoDB history context (async, non-blocking)
-    const [historyInsights, setHistoryInsights] = useState<Record<string, string>>({});
+    // Phase B: DynamoDB history context → Conclusion engine modifier
+    const [historyTypes, setHistoryTypes] = useState<Record<string, 'toShort' | 'toLong' | 'none'>>({});
     useEffect(() => {
         if (sorted.length === 0) return;
         const tickers = sorted.map(q => q.ticker).join(',');
@@ -407,21 +489,13 @@ export function SectorSessionGrid({ config, quotes, loading, refreshing, lockedT
             .then(r => r.ok ? r.json() : null)
             .then(data => {
                 if (!data) return;
-                const insights: Record<string, string> = {};
+                const types: Record<string, 'toShort' | 'toLong' | 'none'> = {};
                 for (const [ticker, ctx] of Object.entries(data) as [string, any][]) {
-                    const parts: string[] = [];
                     if (ctx.regimeChanged && ctx.prevRegime) {
-                        parts.push(ctx.prevRegime === 'LONG'
-                            ? ss('histRegimeToShort')
-                            : ss('histRegimeToLong'));
+                        types[ticker] = ctx.prevRegime === 'LONG' ? 'toShort' : 'toLong';
                     }
-                    if (ctx.isOnlyShortGamma) parts.push(ss('histOnlyShortGamma'));
-                    if (ctx.isOnlyLongGamma) parts.push(ss('histOnlyLongGamma'));
-                    if (ctx.pcrTrend === 'rising') parts.push(ss('histPcrRising'));
-                    if (ctx.pcrTrend === 'falling') parts.push(ss('histPcrFalling'));
-                    if (parts.length > 0) insights[ticker] = parts.join(' ');
                 }
-                setHistoryInsights(insights);
+                setHistoryTypes(types);
             })
             .catch(() => {}); // silent fail — history is supplementary
         return () => controller.abort();
@@ -564,9 +638,8 @@ export function SectorSessionGrid({ config, quotes, loading, refreshing, lockedT
                     const regimeLabel = q.gammaRegime === 'LONG' ? ss('stableFlow') :
                         q.gammaRegime === 'SHORT' ? ss('volExpansion') : ss('searchingDirection');
                     const sparkColor = isUp ? '#10b981' : '#f43f5e';
-                    const baseAnalysis = generateAnalysis(q, ss);
-                    const historyExtra = historyInsights[q.ticker] || '';
-                    const analysis = historyExtra ? `${baseAnalysis} ${historyExtra}` : baseAnalysis;
+                    const histType = historyTypes[q.ticker] || 'none';
+                    const analysis = generateAnalysis(q, ss, histType);
                     const isHighGex = Math.abs(q.gex) > 50e6;
                     const isExtremePcr = q.pcr < 0.5 || q.pcr > 1.5;
                     const hasAlert = isHighGex || isExtremePcr;
