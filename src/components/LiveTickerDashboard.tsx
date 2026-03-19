@@ -532,6 +532,14 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
         const o = initialUnifiedData.overview.overview;
         return { sector: o.sector, sectorEN: o.sectorEN, description: o.description, descriptionEN: o.descriptionEN };
     });
+    // [Bloomberg DES] Company description popover state
+    const [descPopoverOpen, setDescPopoverOpen] = useState(false);
+    useEffect(() => {
+        if (!descPopoverOpen) return;
+        const handleEsc = (e: KeyboardEvent) => { if (e.key === 'Escape') setDescPopoverOpen(false); };
+        window.addEventListener('keydown', handleEsc);
+        return () => window.removeEventListener('keydown', handleEsc);
+    }, [descPopoverOpen]);
 
     // i18n translations
     const t = useTranslations('command');
@@ -1080,37 +1088,107 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
 
                     {/* Guide Link hidden for compliance review */}
 
-                    {/* Right Column: Company Description with infographic background */}
-                    {companyOverview?.description && (
-                        <div className="hidden lg:flex items-center max-w-[45%] relative overflow-hidden rounded-xl px-5 py-2.5 border border-white/[0.06]"
-                            style={{
-                                background: 'linear-gradient(135deg, rgba(99,102,241,0.08) 0%, rgba(59,130,246,0.05) 50%, rgba(15,23,42,0.3) 100%)',
-                                boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.04), 0 0 20px rgba(99,102,241,0.06)'
-                            }}>
-                            {/* Infographic SVG background */}
-                            <svg className="absolute inset-0 w-full h-full opacity-[0.12]" preserveAspectRatio="none" viewBox="0 0 400 80">
-                                {/* Subtle grid dots */}
-                                <pattern id="headerDots" x="0" y="0" width="24" height="24" patternUnits="userSpaceOnUse">
-                                    <circle cx="2" cy="2" r="0.5" fill="rgb(148,163,184)" />
-                                </pattern>
-                                <rect width="400" height="80" fill="url(#headerDots)" />
-                                {/* Smooth chart line */}
-                                <polyline points="0,60 40,55 80,42 120,48 160,32 200,36 240,22 280,26 320,16 360,19 400,12"
-                                    fill="none" stroke="rgb(129,140,248)" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round" opacity="0.7" />
-                                {/* Area fill under chart */}
-                                <polygon points="0,60 40,55 80,42 120,48 160,32 200,36 240,22 280,26 320,16 360,19 400,12 400,80 0,80"
-                                    fill="url(#headerAreaGrad)" />
-                                <linearGradient id="headerAreaGrad" x1="0" y1="0" x2="0" y2="1">
-                                    <stop offset="0%" stopColor="rgb(129,140,248)" stopOpacity="0.15" />
-                                    <stop offset="100%" stopColor="rgb(129,140,248)" stopOpacity="0" />
-                                </linearGradient>
-                            </svg>
-                            <p className="relative text-[13px] text-slate-300/90 leading-relaxed z-10"
-                                style={{ fontFamily: locale === 'ko' ? 'Pretendard, sans-serif' : locale === 'ja' ? "'Noto Sans JP', sans-serif" : "'Plus Jakarta Sans', sans-serif" }}>
-                                {companyOverview.description}
-                            </p>
-                        </div>
-                    )}
+                    {/* Right Column: Company Description — Bloomberg DES Style */}
+                    {/* 3-line clamp by default, click to reveal floating popover with full text */}
+                    {companyOverview?.description && (() => {
+                        const descText = companyOverview.description;
+                        const isLong = descText.length > 180;
+                        const descFontFamily = locale === 'ko' ? 'Pretendard, sans-serif' : locale === 'ja' ? "'Noto Sans JP', sans-serif" : "'Plus Jakarta Sans', sans-serif";
+
+                        return (
+                            <div className="hidden lg:flex items-center max-w-[45%] relative" style={{ zIndex: descPopoverOpen ? 50 : 'auto' }}>
+                                {/* Clamped Preview Card */}
+                                <div
+                                    className={`relative overflow-hidden rounded-xl px-5 py-2.5 border w-full transition-all duration-200 ${isLong ? 'cursor-pointer group border-white/[0.06] hover:border-white/[0.12]' : 'border-white/[0.06]'}`}
+                                    style={{
+                                        background: 'linear-gradient(135deg, rgba(99,102,241,0.08) 0%, rgba(59,130,246,0.05) 50%, rgba(15,23,42,0.3) 100%)',
+                                        boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.04), 0 0 20px rgba(99,102,241,0.06)'
+                                    }}
+                                    onClick={() => isLong && setDescPopoverOpen(!descPopoverOpen)}
+                                >
+                                    {/* Infographic SVG background */}
+                                    <svg className="absolute inset-0 w-full h-full opacity-[0.12]" preserveAspectRatio="none" viewBox="0 0 400 80">
+                                        <pattern id="headerDots" x="0" y="0" width="24" height="24" patternUnits="userSpaceOnUse">
+                                            <circle cx="2" cy="2" r="0.5" fill="rgb(148,163,184)" />
+                                        </pattern>
+                                        <rect width="400" height="80" fill="url(#headerDots)" />
+                                        <polyline points="0,60 40,55 80,42 120,48 160,32 200,36 240,22 280,26 320,16 360,19 400,12"
+                                            fill="none" stroke="rgb(129,140,248)" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round" opacity="0.7" />
+                                        <polygon points="0,60 40,55 80,42 120,48 160,32 200,36 240,22 280,26 320,16 360,19 400,12 400,80 0,80"
+                                            fill="url(#headerAreaGrad)" />
+                                        <linearGradient id="headerAreaGrad" x1="0" y1="0" x2="0" y2="1">
+                                            <stop offset="0%" stopColor="rgb(129,140,248)" stopOpacity="0.15" />
+                                            <stop offset="100%" stopColor="rgb(129,140,248)" stopOpacity="0" />
+                                        </linearGradient>
+                                    </svg>
+                                    <p className="relative text-[13px] text-slate-300 leading-relaxed z-10"
+                                        style={{
+                                            fontFamily: descFontFamily,
+                                            display: '-webkit-box',
+                                            WebkitLineClamp: 3,
+                                            WebkitBoxOrient: 'vertical' as any,
+                                            overflow: 'hidden',
+                                        }}>
+                                        {descText}
+                                    </p>
+                                    {/* "more →" — inside card, bottom-right, wide gradient fade */}
+                                    {isLong && !descPopoverOpen && (
+                                        <div className="absolute bottom-0 right-0 z-20 flex items-end justify-end pl-10 pr-3 py-1.5 rounded-br-xl"
+                                            style={{ background: 'linear-gradient(to right, transparent 0%, rgba(15,20,35,0.7) 30%, rgba(15,20,35,0.92) 70%, rgba(15,20,35,0.97) 100%)' }}>
+                                            <span className="text-[13px] font-semibold text-emerald-400 group-hover:text-emerald-300 group-hover:underline underline-offset-2 transition-all duration-150 font-jakarta">
+                                                more →
+                                            </span>
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* Bloomberg-style Floating Popover — full description */}
+                                {descPopoverOpen && (
+                                    <>
+                                        {/* Backdrop click-away */}
+                                        <div className="fixed inset-0 z-40" onClick={() => setDescPopoverOpen(false)} />
+                                        {/* Floating Card */}
+                                        <div
+                                            className="absolute top-full mt-2 right-0 z-50 w-[480px] max-h-[360px] overflow-y-auto rounded-xl border border-white/10 shadow-2xl"
+                                            style={{
+                                                background: 'linear-gradient(135deg, rgba(15,23,42,0.97) 0%, rgba(30,41,59,0.95) 50%, rgba(15,23,42,0.98) 100%)',
+                                                backdropFilter: 'blur(24px)',
+                                                boxShadow: '0 25px 60px rgba(0,0,0,0.5), 0 0 30px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.06)',
+                                            }}
+                                            onClick={e => e.stopPropagation()}
+                                        >
+                                            {/* Header bar */}
+                                            <div className="sticky top-0 z-10 flex items-center justify-between px-4 py-2.5 border-b border-white/[0.06]"
+                                                style={{ background: 'rgba(15,23,42,0.95)', backdropFilter: 'blur(12px)' }}>
+                                                <div className="flex items-center gap-2">
+                                                    <div className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                                                    <span className="text-[12px] font-bold tracking-wider text-slate-300 uppercase font-jakarta">COMPANY OVERVIEW</span>
+                                                </div>
+                                                <button
+                                                    onClick={() => setDescPopoverOpen(false)}
+                                                    className="w-7 h-7 rounded-md flex items-center justify-center text-slate-400 hover:text-slate-200 hover:bg-white/10 transition-all duration-150"
+                                                >
+                                                    <svg width="14" height="14" viewBox="0 0 14 14"><path d="M3 3 L11 11 M11 3 L3 11" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /></svg>
+                                                </button>
+                                            </div>
+                                            {/* Full description */}
+                                            <div className="px-5 py-4">
+                                                <p className="text-[13px] text-slate-300 leading-[1.8]"
+                                                    style={{ fontFamily: descFontFamily }}>
+                                                    {descText}
+                                                </p>
+                                            </div>
+                                            {/* Bottom bar */}
+                                            <div className="px-4 py-2 border-t border-white/[0.06] flex items-center justify-between">
+                                                <span className="text-[12px] text-slate-300 font-mono">{ticker} • {companyOverview.sector || 'N/A'}</span>
+                                                <span className="text-[12px] text-slate-400 font-mono">ESC to close</span>
+                                            </div>
+                                        </div>
+                                    </>
+                                )}
+                            </div>
+                        );
+                    })()}
                 </div>
 
                 {/* Mobile Only: Price & Extended Row */}
