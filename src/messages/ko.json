@@ -3314,5 +3314,84 @@
         "fomoPortfolioSignal": "AI 매매 신호 보기",
         "fomoPortfolioAction": "실시간 방향성 분석 확인",
         "fomoPortfolioScore": "내 포트폴리오 등급은?"
+    },
+    "signalCoreV3": {
+        "headlineDataValidating": "옵션 데이터 검증 중입니다.",
+        "headlineSession": "{session} 세션 — SMA·뉴스 기반 분석 (옵션 분석은 본장에만 제공)",
+        "headline": {
+            "bullish": "{ticker}은 복합 지표상 상방 바이어스가 우세합니다.",
+            "bearish": "{ticker}은 복합 지표상 하방 압력이 관측됩니다.",
+            "mixed": "{ticker}은 상승·하락 신호가 혼조된 상태입니다.",
+            "neutral": "{ticker}은 현재 방향성이 불명확합니다."
+        },
+        "labelDriver": "주도 요인",
+        "labelRisk": "리스크",
+        "labelObs": "관찰 포인트",
+        "labelConclusion": "총 결론",
+        "driver": {
+            "family": {
+                "trend": "추세 정렬 (SMA + VWAP)",
+                "flow": "기관 수급 정렬 (Flow + Dark Pool)",
+                "derivatives": "파생 구조 정렬 (GEX + PCR + IV Skew)",
+                "sentiment": "심리·컨센서스 우호 (뉴스 + Analyst)",
+                "event": "이벤트 요인"
+            }
+        },
+        "driverNoSignal": "유의미한 방향 신호 미감지",
+        "riskNone": "현재 판정과 반대되는 유의미한 반대 신호 없음",
+        "riskDerivativesDefensive": "다만 옵션 구조는 아직 방어적 성격이 관측됨",
+        "riskDerivativesSupportive": "다만 파생 구조 일부에서 지지 신호가 관측됨",
+        "riskFlowContra": "현물·파생 신호와 수급 흐름 간 괴리 존재",
+        "riskTrendContra": "수급은 우호적이나 기술적 추세와 불일치 관측",
+        "riskMultiContra": "복수 계열에서 판정과 반대되는 신호 관측됨",
+        "riskEarningsAppend": "실적 발표 {days}일 이내 — 방향 판정 신뢰도 제한.",
+        "riskVolAppend": "변동성 레짐 극한 수준 — 신호 지속성 제한 가능.",
+        "ivSkewPutRich": "IV Skew PUT RICH",
+        "ivSkewCallRich": "IV Skew CALL RICH",
+        "pcrCallSide": "P/C Ratio 콜 우세",
+        "pcrPutSide": "P/C Ratio 풋 우세",
+        "volErupting": "Vol Regime 극변동",
+        "volCoiling": "Vol Regime 에너지 축적",
+        "squeezePressure": "Short Squeeze 압력 (SI {si}%)",
+        "earningsNear": "실적 발표 {days}일 이내",
+        "obsGammaFlip": "Gamma Flip {gf} — 현재 {dir}. 레짐 전환 가능성 모니터링",
+        "obsAbove": "상방",
+        "obsBelow": "하방",
+        "obsEarningsEvent": "실적 발표 인접 — 이벤트 리스크가 구조적 레벨보다 우선",
+        "obsCallWall": "Call Wall {cw} (+{pct}%) 상단 반응 확인 구간",
+        "obsPutFloor": "Put Floor {pf} (-{pct}%) 하단 방어력 테스트 구간",
+        "obsMaxPain": "Max Pain {mp} 수렴 압력 관측 구간",
+        "obsRange": "Call Wall {cw} · Put Floor {pf} 범위 내 횡보 구간",
+        "conclusionDataWait": "옵션 데이터 안정화 후 종합 판정이 진행됩니다.",
+        "conclusionSession": "{ticker}의 실시간 옵션 구조 분석은 정규장(9:30~16:00 ET) 개장 시 자동으로 시작됩니다.",
+        "conclusion": {
+            "cleanTrend": "추세·수급·파생 구조가 같은 방향으로 정렬되어 있어 판정 신뢰도가 높은 구간입니다. 이 정렬이 유지되는 한 현재 방향의 연속성이 구조적으로 관측됩니다.",
+            "fragileHedge": {
+                "bullish": "현물·심리 신호는 우호적이지만 파생 구조는 아직 방어적입니다. 따라서 일방향 확장보다는 상단 저항 확인과 수급 정합성 회복이 먼저 필요한 구조로 해석합니다.",
+                "bearish": "하방 신호가 우세하지만 일부 파생 지표에서 지지 신호가 관측됩니다. 추가 하락보다는 하단 지지 확인이 먼저 필요한 구간입니다.",
+                "mixed": "방향성 신호와 파생 구조 간 괴리가 있어 판정 신뢰도가 제한됩니다. 방향성보다 구조 확인이 우선인 구간입니다.",
+                "neutral": "뚜렷한 방향성이 없는 가운데 파생 구조에서도 일관된 신호가 관측되지 않습니다. 관망이 적절한 구간입니다."
+            },
+            "eventRisk": {
+                "bullish": "표면상 상방 바이어스가 관측되나 실적 발표가 {days}일 이내로 방향 판정 신뢰도가 제한됩니다. 이벤트 통과 후 구조 재확인이 필요합니다.",
+                "bearish": "하방 압력이 관측되나 실적 발표 인접으로 이벤트 기반 급변동 가능성이 존재합니다. 방향 판정보다 변동성 관리가 우선인 구간입니다.",
+                "mixed": "방향성이 혼조된 상태에서 실적 발표가 임박해 있어 구조적 판정이 어렵습니다. 이벤트 통과 후 재평가가 필요합니다.",
+                "neutral": "실적 발표 {days}일 이내로 방향성 판정을 유보합니다. 이벤트 통과 후 구조 재확인이 권고됩니다."
+            },
+            "volatile": {
+                "bullish": "상방 바이어스가 관측되나 숏감마 환경에서 가격 반응이 거칠어질 수 있습니다. 추세 추종보다 변동 대응이 우선입니다.",
+                "bearish": "하방 압력과 숏감마 환경이 겹쳐 자기강화적 매도 압력이 관측됩니다. 급변동에 유의하며 하단 지지 레벨을 주시해야 합니다.",
+                "mixed": "방향성 미확정 상태에서 변동성이 극단적으로 확대되어 있습니다. 방향 판정보다 변동 대응이 우선인 구간입니다.",
+                "neutral": "변동성 레짐이 극한 수준이나 방향 신호가 부재합니다. 변동성 축소 확인 후 판정이 유효해지는 구간입니다."
+            },
+            "compression": "변동성이 축적되고 가격이 Call Wall과 Put Floor 사이에 압축되어 있습니다. 에너지가 축적된 상태로 일방향 이탈 시 가격 반응이 확대될 수 있는 구간입니다.",
+            "mixed": "상승·하락 요인이 혼재되어 있어 일방향 해석이 어렵습니다. 방향성보다 구조 확인이 우선이며, 지표 정렬이 개선될 때까지 관망이 적절합니다.",
+            "standard": {
+                "bullish": "복합 지표가 상방을 지지하고 있으나 확신도가 완전히 정렬되지 않았습니다. 주요 레벨에서의 반응을 확인하며 방향성을 검증하는 구간입니다.",
+                "bearish": "하방 신호가 관측되나 일부 지지 요인이 남아 있습니다. 하단 레벨의 방어력 테스트를 주시하는 구간입니다.",
+                "mixed": "방향성 신호가 엇갈리고 있어 판정 유보가 적절합니다. 한쪽으로 정렬될 때까지 관망이 권고됩니다.",
+                "neutral": "유의미한 방향 신호가 관측되지 않습니다. 새로운 구조적 변화가 발생할 때까지 관망 구간입니다."
+            }
+        }
     }
 }

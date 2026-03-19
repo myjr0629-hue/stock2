@@ -2954,5 +2954,84 @@
         "fomoPortfolioSignal": "View AI Signal",
         "fomoPortfolioAction": "Real-time directional analysis",
         "fomoPortfolioScore": "View Portfolio Grade"
+    },
+    "signalCoreV3": {
+        "headlineDataValidating": "Options data under validation.",
+        "headlineSession": "{session} — SMA & news-based analysis only (full options analysis available during regular hours)",
+        "headline": {
+            "bullish": "{ticker} exhibits a dominant bullish bias across composite indicators.",
+            "bearish": "{ticker} shows broadening downside pressure across composite indicators.",
+            "mixed": "{ticker} carries conflicting bull/bear signals — direction unresolved.",
+            "neutral": "{ticker} presents no actionable directional bias at this time."
+        },
+        "labelDriver": "DRIVER",
+        "labelRisk": "RISK",
+        "labelObs": "WATCH",
+        "labelConclusion": "BOTTOM LINE",
+        "driver": {
+            "family": {
+                "trend": "Trend Alignment (SMA + VWAP)",
+                "flow": "Institutional Flow Alignment (Flow + Dark Pool)",
+                "derivatives": "Derivatives Structure Alignment (GEX + PCR + IV Skew)",
+                "sentiment": "Sentiment Convergence (News + Analyst)",
+                "event": "Event Factor"
+            }
+        },
+        "driverNoSignal": "No actionable directional signals detected",
+        "riskNone": "No material counter-signals to current bias observed",
+        "riskDerivativesDefensive": "However, derivatives structure remains defensively positioned",
+        "riskDerivativesSupportive": "However, pockets of derivative support are being observed",
+        "riskFlowContra": "Flow direction diverges from spot/derivatives consensus",
+        "riskTrendContra": "Flow is constructive but technical trend structure remains misaligned",
+        "riskMultiContra": "Counter-signals observed across multiple indicator families",
+        "riskEarningsAppend": "Earnings within {days} days — conviction is event-constrained.",
+        "riskVolAppend": "Volatility regime at extreme levels — signal persistence may be limited.",
+        "ivSkewPutRich": "IV Skew PUT RICH",
+        "ivSkewCallRich": "IV Skew CALL RICH",
+        "pcrCallSide": "P/C Ratio Call-Side Dominant",
+        "pcrPutSide": "P/C Ratio Put-Side Dominant",
+        "volErupting": "Vol Regime Erupting",
+        "volCoiling": "Vol Regime Coiling",
+        "squeezePressure": "Short Squeeze Pressure (SI {si}%)",
+        "earningsNear": "Earnings within {days} days",
+        "obsGammaFlip": "Gamma Flip at {gf} — currently {dir}. Monitor for regime transition.",
+        "obsAbove": "above",
+        "obsBelow": "below",
+        "obsEarningsEvent": "Earnings event imminent — event risk supersedes structural levels.",
+        "obsCallWall": "Call Wall {cw} (+{pct}%) — upside reaction test zone.",
+        "obsPutFloor": "Put Floor {pf} (-{pct}%) — downside defense test zone.",
+        "obsMaxPain": "Max Pain {mp} — convergence pressure observed.",
+        "obsRange": "Ranging within Call Wall {cw} · Put Floor {pf} corridor.",
+        "conclusionDataWait": "Awaiting options data stabilization before rendering composite assessment.",
+        "conclusionSession": "Real-time options structure analysis for {ticker} activates at regular session open (9:30–16:00 ET).",
+        "conclusion": {
+            "cleanTrend": "Trend, flow, and derivatives structure are directionally aligned — conviction is structurally high in this regime. Bias continuity is observable as long as alignment holds.",
+            "fragileHedge": {
+                "bullish": "Spot and sentiment signals are constructive, but derivatives remain defensively positioned. Upside extension is less likely than resistance confirmation and flow re-convergence in this structure.",
+                "bearish": "Downside bias is dominant but pockets of derivative support persist. Downside support confirmation takes priority over further extension.",
+                "mixed": "Directional signals and derivatives structure are in disagreement — conviction is constrained. Structure confirmation takes priority over direction.",
+                "neutral": "No clear directional signal with derivatives failing to provide consistent reads. Observation is the appropriate posture."
+            },
+            "eventRisk": {
+                "bullish": "Surface-level bullish bias observed, but earnings within {days} days constrains directional conviction. Post-event structure reassessment required.",
+                "bearish": "Downside pressure observed, but earnings proximity introduces event-driven repricing risk. Volatility management supersedes directional conviction.",
+                "mixed": "Mixed signals with imminent earnings make structural assessment unreliable. Defer to post-event reassessment.",
+                "neutral": "Directional judgment suspended with earnings {days} days out. Post-event structure review recommended."
+            },
+            "volatile": {
+                "bullish": "Bullish bias observed, but short-gamma environment means price response may be amplified. Volatility management supersedes trend-following.",
+                "bearish": "Downside pressure overlaps with short-gamma — self-reinforcing sell pressure is structurally present. Monitor downside support levels closely.",
+                "mixed": "Direction unresolved with extreme volatility expansion. Volatility management supersedes directional judgment.",
+                "neutral": "Volatility regime at extreme levels with no directional signal. Assessment gains validity after volatility compression."
+            },
+            "compression": "Volatility is coiling with price compressed between Call Wall and Put Floor. Energy is accumulating — a directional breakout may produce an amplified price response.",
+            "mixed": "Bull/bear factors are interleaved — single-direction interpretation carries elevated risk. Structure confirmation and indicator realignment are prerequisites for conviction.",
+            "standard": {
+                "bullish": "Composite indicators support the upside, though conviction is not fully aligned across all axes. Watch key levels for confirmation.",
+                "bearish": "Downside signals observed but residual support factors remain. Focus is on testing the structural integrity of lower-bound defense.",
+                "mixed": "Directional signals are offsetting — judgment deferral is appropriate until alignment improves.",
+                "neutral": "No actionable directional signals observed. Observation posture until new structural catalysts emerge."
+            }
+        }
     }
 }
