@@ -1,6 +1,7 @@
 require('dotenv').config({ path: '.env.local' });
 const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
 const { DynamoDBDocumentClient, QueryCommand } = require('@aws-sdk/lib-dynamodb');
+const fs = require('fs');
 
 const client = DynamoDBDocumentClient.from(
     new DynamoDBClient({
@@ -15,29 +16,32 @@ const client = DynamoDBDocumentClient.from(
 
 async function main() {
     const today = new Date().toISOString().slice(0, 10);
-    // Check tickers visible in the dashboard/watchlist screenshot
-    const tickers = ['NVDA', 'TSLA', 'GOOGL', 'AMZN', 'AAPL', 'WDC', 'RIVN', 'MCD', 'CEG', 'AMD', 'MSFT'];
-
-    for (const ticker of tickers) {
-        try {
-            const result = await client.send(new QueryCommand({
+    const universe = JSON.parse(fs.readFileSync('data/stock_universe_us300.json', 'utf-8')).symbols;
+    const group1 = [universe[0], universe[25], universe[50], universe[75], universe[99]];
+    const group2 = [universe[100], universe[125], universe[150], universe[175], universe[199]];
+    const group3 = [universe[200], universe[225], universe[250], universe[275], universe[299]];
+    const sampling = [
+        { group: 1, tickers: group1 },
+        { group: 2, tickers: group2 },
+        { group: 3, tickers: group3 },
+    ];
+    let ssr=0, live=0, none=0;
+    for (const { group, tickers } of sampling) {
+        console.log(`\n--- GROUP ${group} ---`);
+        for (const t of tickers) {
+            const r = await client.send(new QueryCommand({
                 TableName: 'signum-alpha-history',
                 KeyConditionExpression: 'ticker = :t AND #d = :d',
-                ExpressionAttributeValues: { ':t': ticker, ':d': today },
+                ExpressionAttributeValues: { ':t': t, ':d': today },
                 ExpressionAttributeNames: { '#d': 'date' },
                 Limit: 1,
             }));
-            const item = result.Items?.[0];
-            if (!item) {
-                console.log(`[ ] ${ticker}: NO RECORD`);
-            } else if (item.qualityTier === 'SSR_V46') {
-                console.log(`[V] ${ticker}: SSR_V46 Score=${item.alphaScore} Grade=${item.grade} M=${item.momentum} S=${item.structure} F=${item.flow} R=${item.regime} C=${item.catalyst} Price=${item.price}`);
-            } else {
-                console.log(`[L] ${ticker}: ${item.qualityTier} Score=${item.alphaScore}`);
-            }
-        } catch (e) {
-            console.log(`[!] ${ticker}: ERROR`);
+            const i = r.Items?.[0];
+            if (!i) { console.log(`  [ ] ${t}: NONE`); none++; }
+            else if (i.qualityTier === 'SSR_V46') { console.log(`  [V] ${t}: SSR_V46 Score=${i.alphaScore} Grade=${i.grade}`); ssr++; }
+            else { console.log(`  [L] ${t}: ${i.qualityTier} Score=${i.alphaScore}`); live++; }
         }
     }
+    console.log(`\n=== RESULT: SSR_V46=${ssr} LIVE=${live} NONE=${none} ===`);
 }
 main();

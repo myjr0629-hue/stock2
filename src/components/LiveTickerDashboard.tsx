@@ -729,6 +729,9 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
         if (!initialUnifiedData?.related) return null;
         return { count: initialUnifiedData.related.count || 0, topRelated: initialUnifiedData.related.topRelated || [] };
     });
+    // [WS] Subscribe to RELATED tickers for real-time price updates
+    const relatedTickers = React.useMemo(() => relatedData?.topRelated?.map(r => r.ticker) ?? [], [relatedData?.topRelated?.map(r => r.ticker).join(',')]);
+    const { connected: relWsConnected, getPrice: relWsGetPrice } = useRealtimeData(relatedTickers.length > 0 ? relatedTickers : undefined);
     const [analystData, setAnalystData] = useState<{
         consensus: string; totalAnalysts: number; bullishPct: number;
         breakdown: { strongBuy: number; buy: number; hold: number; sell: number; strongSell: number };
@@ -1885,9 +1888,16 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                             />
                                             <span className="text-[12px] font-bold text-white font-jakarta hover:text-indigo-300 transition-colors">{item.ticker}</span>
                                         </div>
-                                        <span className={`text-[12px] font-jakarta font-bold tabular-nums ${item.change >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                                            {item.change >= 0 ? '+' : ''}{item.change}%
-                                        </span>
+                                        {(() => {
+                                            // [WS] Real-time changePct from WebSocket, fallback to SSR/SWR
+                                            const wsPrice = relWsConnected ? relWsGetPrice(item.ticker) : undefined;
+                                            const displayChange = wsPrice && wsPrice.changePct !== undefined ? Number(wsPrice.changePct.toFixed(2)) : item.change;
+                                            return (
+                                                <span className={`text-[12px] font-jakarta font-bold tabular-nums ${displayChange >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                                    {displayChange >= 0 ? '+' : ''}{displayChange}%
+                                                </span>
+                                            );
+                                        })()}
                                     </div>
                                 ))
                             ) : (
