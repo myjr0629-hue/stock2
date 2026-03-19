@@ -5,7 +5,8 @@
  * All writes are fire-and-forget (don't block response if DynamoDB fails).
  */
 
-import { putItem, queryItems, batchPutItems, TABLES } from './dynamoClient';
+import { putItem, queryItems, batchPutItems, getDynamoClient, TABLES } from './dynamoClient';
+import { PutCommand } from '@aws-sdk/lib-dynamodb';
 
 // ====== GEX History ======
 
@@ -113,7 +114,30 @@ export interface AlphaHistoryItem {
 }
 
 export async function saveAlphaDaily(data: AlphaHistoryItem): Promise<void> {
-    await putItem(TABLES.ALPHA_HISTORY, data).catch(() => { });
+    const client = getDynamoClient();
+    if (!client) return;
+
+    try {
+        if (data.qualityTier === 'SSR_V46') {
+            // SSR_V46 always overwrites — this is the authoritative source
+            await client.send(new PutCommand({
+                TableName: TABLES.ALPHA_HISTORY,
+                Item: data,
+            }));
+        } else {
+            // Non-SSR (LIVE/Lambda) — only write if NO SSR_V46 record exists for today
+            await client.send(new PutCommand({
+                TableName: TABLES.ALPHA_HISTORY,
+                Item: data,
+                ConditionExpression: 'attribute_not_exists(qualityTier) OR qualityTier <> :ssr',
+                ExpressionAttributeValues: { ':ssr': 'SSR_V46' },
+            }));
+        }
+    } catch (e: any) {
+        // ConditionalCheckFailedException = SSR_V46 already exists, skip silently
+        if (e?.name === 'ConditionalCheckFailedException') return;
+        // Other errors — log but don't throw
+    }
 }
 
 export async function getAlphaHistory(ticker: string, days = 30): Promise<AlphaHistoryItem[]> {
