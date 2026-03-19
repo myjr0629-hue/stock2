@@ -20,7 +20,27 @@ function httpsGet(url, timeoutMs) {
 
 const POLYGON_KEY = process.env.POLYGON_API_KEY || 'iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF';
 const FINNHUB_KEY = process.env.FINNHUB_API_KEY || '';
-const UNIVERSE = ["AAPL","ABBV","ABNB","ABT","ACN","ADBE","ADI","ADP","AEP","AFRM","AI","AMAT","AMD","AMGN","AMZN","ANET","ANSS","APD","ARE","ARM","ASML","ASTS","AVGO","AWK","AXP","BA","BAC","BBY","BIIB","BKNG","BLK","BMY","BSX","C","CARR","CAT","CCI","CCJ","CDNS","CEG","CF","CHTR","CL","CMCSA","COIN","COP","COST","CPRT","CRM","CRWD","CTAS","CTSH","CVS","CVX","D","DASH","DD","DDOG","DE","DELL","DHR","DIS","DKNG","DLR","DOV","DOW","DPZ","DUK","DVN","DXCM","EA","EBAY","ECL","EL","EMR","ENPH","EOG","EQIX","EQR","ETN","FAST","FCX","FDX","FSLR","FTNT","FTV","GD","GE","GEV","GILD","GIS","GM","GOOGL","GRMN","GS","HAL","HCA","HD","HON","HOOD","HSIC","HSY","HUBS","HUM","IBM","ICE","IDXX","IFF","ILMN","INCY","INTC","IONQ","IP","IQV","IR","ISRG","IT","ITW","JNJ","JPM","KDP","KEY","KHC","KLAC","KMB","KO","KR","KTOS","LDOS","LIN","LLY","LMT","LOW","LRCX","LULU","LUNR","LVS","LYB","LYV","MA","MAR","MARA","MBLY","MCD","MCHP","MCO","MDB","MDLZ","MDT","MELI","MET","META","MGM","MNST","MO","MPC","MPWR","MRK","MRNA","MRVL","MS","MSCI","MSFT","MSI","MSTR","MTB","MTD","MU","NDAQ","NDSN","NEE","NEM","NET","NFLX","NKE","NOC","NOW","NSC","NTRS","NUE","NVDA","NVO","O","ODFL","OKTA","ON","ORCL","ORLY","OTIS","OXY","PANW","PARA","PATH","PAYX","PCAR","PCG","PEAK","PEG","PEP","PFE","PG","PHM","PL","PLD","PLTR","PM","PNC","PONY","POOL","PPG","PSA","PSX","PTC","PWR","PYPL","QCOM","REGN","RIOT","RIVN","RKLB","ROK","ROKU","ROP","ROST","RSG","RTX","S","SBAC","SBUX","SCHW","SE","SEDG","SERV","SHOP","SHW","SLB","SMCI","SMR","SNA","SNOW","SNPS","SO","SOFI","SPG","SQ","SRE","STE","STT","STX","STZ","SWK","SWKS","SYK","SYM","SYY","T","TDG","TEAM","TEL","TER","TFC","TJX","TMO","TMUS","TRGP","TROW","TRV","TSLA","TSM","TT","TTWO","TWLO","TXN","TYL","UBER","UNH","UNP","UPS","UPST","URI","USB","V","VFC","VICI","VKTX","VLO","VMC","VRSK","VRTX","VST","VTR","VTRS","VZ","WDAY","WELL","WFC","WMT","XOM","XYZ","ZS"];
+
+// ====== Dynamic Universe Loading ======
+// Load from universe.json (built by scripts/build-universe.js)
+// Falls back to hardcoded core list if file not found
+function loadUniverse() {
+  try {
+    const path = require('path');
+    const fs = require('fs');
+    const uniPath = path.join(__dirname, 'universe.json');
+    if (fs.existsSync(uniPath)) {
+      const data = JSON.parse(fs.readFileSync(uniPath, 'utf-8'));
+      console.log('Universe loaded from universe.json: ' + (data.symbols?.length || 0) + ' symbols');
+      return data.symbols || [];
+    }
+  } catch (e) { console.warn('Failed to load universe.json:', e.message); }
+  // Fallback: core 300
+  console.log('Using fallback hardcoded universe (300 symbols)');
+  return ["AAPL","ABBV","ABNB","ABT","ACN","ADBE","ADI","ADP","AEP","AFRM","AI","AMAT","AMD","AMGN","AMZN","ANET","ANSS","APD","ARE","ARM","ASML","ASTS","AVGO","AWK","AXP","BA","BAC","BBY","BIIB","BKNG","BLK","BMY","BSX","C","CARR","CAT","CCI","CCJ","CDNS","CEG","CF","CHTR","CL","CMCSA","COIN","COP","COST","CPRT","CRM","CRWD","CTAS","CTSH","CVS","CVX","D","DASH","DD","DDOG","DE","DELL","DHR","DIS","DKNG","DLR","DOV","DOW","DPZ","DUK","DVN","DXCM","EA","EBAY","ECL","EL","EMR","ENPH","EOG","EQIX","EQR","ETN","FAST","FCX","FDX","FSLR","FTNT","FTV","GD","GE","GEV","GILD","GIS","GM","GOOGL","GRMN","GS","HAL","HCA","HD","HON","HOOD","HSIC","HSY","HUBS","HUM","IBM","ICE","IDXX","IFF","ILMN","INCY","INTC","IONQ","IP","IQV","IR","ISRG","IT","ITW","JNJ","JPM","KDP","KEY","KHC","KLAC","KMB","KO","KR","KTOS","LDOS","LIN","LLY","LMT","LOW","LRCX","LULU","LUNR","LVS","LYB","LYV","MA","MAR","MARA","MBLY","MCD","MCHP","MCO","MDB","MDLZ","MDT","MELI","MET","META","MGM","MNST","MO","MPC","MPWR","MRK","MRNA","MRVL","MS","MSCI","MSFT","MSI","MSTR","MTB","MTD","MU","NDAQ","NDSN","NEE","NEM","NET","NFLX","NKE","NOC","NOW","NSC","NTRS","NUE","NVDA","NVO","O","ODFL","OKTA","ON","ORCL","ORLY","OTIS","OXY","PANW","PARA","PATH","PAYX","PCAR","PCG","PEAK","PEG","PEP","PFE","PG","PHM","PL","PLD","PLTR","PM","PNC","PONY","POOL","PPG","PSA","PSX","PTC","PWR","PYPL","QCOM","REGN","RIOT","RIVN","RKLB","ROK","ROKU","ROP","ROST","RSG","RTX","S","SBAC","SBUX","SCHW","SE","SEDG","SERV","SHOP","SHW","SLB","SMCI","SMR","SNA","SNOW","SNPS","SO","SOFI","SPG","SQ","SRE","STE","STT","STX","STZ","SWK","SWKS","SYK","SYM","SYY","T","TDG","TEAM","TEL","TER","TFC","TJX","TMO","TMUS","TRGP","TROW","TRV","TSLA","TSM","TT","TTWO","TWLO","TXN","TYL","UBER","UNH","UNP","UPS","UPST","URI","USB","V","VFC","VICI","VKTX","VLO","VMC","VRSK","VRTX","VST","VTR","VTRS","VZ","WDAY","WELL","WFC","WMT","XOM","XYZ","ZS"];
+}
+const UNIVERSE = loadUniverse();
+
 const GEX_TICKERS = ["AAPL","MSFT","AMZN","NVDA","GOOGL","META","TSLA","AMD","AVGO","PLTR","SMCI","ARM","COIN","AI","MRVL","MU","TSM","ASML","SERV","PL","TER","SYM","RKLB","ISRG","CEG","VST","GEV","PWR","CCJ","SMR","ETN","LLY","NVO","VRTX","REGN","VKTX","AMGN","GILD","CRWD","PANW","FTNT","ZS","S","OKTA","NET","LMT","RTX","AXON","KTOS","LDOS","ASTS","LUNR","SNOW","IONQ","DELL","PATH","TWLO","XYZ","PYPL","SOFI","AFRM","HOOD","UPST","CRM","NOW","DDOG","WDAY","MDB","TEAM","HUBS","JPM","BAC","GS","WFC","V","MA","XOM","CVX","UNH","JNJ","MRK","HD","COST","WMT","DIS","NFLX","BA","CAT","GE","MSTR","MARA","RIOT","SPY","QQQ","IWM","UBER","ABNB","SHOP","BABA"];
 const DETAIL_TICKERS = ["AAPL","MSFT","AMZN","NVDA","GOOGL","META","TSLA","AMD","AVGO","PLTR","SMCI","ARM","COIN","AI","MRVL","MU","TSM","ASML","SERV","PL","TER","SYM","RKLB","ISRG","CEG","VST","GEV","PWR","CCJ","SMR","ETN","LLY","NVO","VRTX","REGN","VKTX","AMGN","GILD","CRWD","PANW","FTNT","ZS","S","OKTA","NET","LMT","RTX","AXON","KTOS","LDOS","ASTS","LUNR","SNOW","IONQ","DELL","PATH","TWLO","XYZ","PYPL","SOFI","AFRM","HOOD","UPST","CRM","NOW","DDOG","WDAY","MDB","TEAM","HUBS","JPM","BAC","GS","WFC","V","MA","XOM","CVX","UNH","JNJ","MRK","HD","COST","WMT","DIS","NFLX","BA","CAT","GE","MSTR","MARA","RIOT","SPY","QQQ","IWM","UBER","ABNB","SHOP","BABA"];
 
@@ -94,14 +114,8 @@ async function computeRlsi() {
 }
 
 // ====== Alpha Score ======
-function computeAlphaScore(priceData, gexData) {
-  let s = 50;
-  const c = priceData.changePct||0;
-  if(c>3) s+=15; else if(c>1) s+=10; else if(c>0) s+=5; else if(c<-3) s-=15; else if(c<-1) s-=10; else if(c<0) s-=5;
-  if(priceData.volume>50000000) s+=5; else if(priceData.volume>20000000) s+=3;
-  if(gexData) { if(gexData.gammaRegime==='POSITIVE') s+=5; else if(gexData.gammaRegime==='NEGATIVE') s-=5; if(gexData.pcr<0.7) s+=5; else if(gexData.pcr>1.3) s-=5; }
-  return Math.max(0, Math.min(100, Math.round(s)));
-}
+// [REMOVED] Legacy computeAlphaScore() — Context Score is computed by V4.6 engine
+// V4.6 engine is bundled from alphaEngine.ts via esbuild (see alphaEngine.js)
 
 // ====== OMR (Options Market Regime) Calculator ======
 function computeOMR(opts, price, gexData) {
@@ -364,11 +378,188 @@ async function harvestDetails() {
   return { analyst:analystOk, earnings:earningsOk, fundamentals:fundOk, related:relOk };
 }
 
-// ====== Step 5: Update Alpha Scores — DISABLED ======
-// Context Score is exclusively written by Vercel cron (V4.6 SSR engine).
-async function updateAlphaScores(snapshotMap, gexMap) {
-  console.log('[SKIP] Alpha scores — Context Score is Vercel cron exclusive');
-  return 0;
+// ====== Step 5: Context Score (V4.6 Engine) ======
+// Computes Context Score using the bundled V4.6 engine (alphaEngine.js)
+// Results written to DynamoDB with qualityTier 'LAMBDA_V46'
+// ConditionExpression protects SSR_V46 (Vercel cron has priority)
+// 
+// DATA PARITY with Vercel cron warm-analysis:
+//   Momentum: price, RSI, MACD, return3D, relVol ✅
+//   Structure: PCR, GEX ✅
+//   Flow: darkPoolPct, shortVolPct, whaleIndex, blockTrades ✅
+//   Regime: VIX ✅
+//   Catalyst: partial ✅
+
+// Dark Pool Exchange Codes (FINRA TRF/ADF = Dark Pool)
+const DARK_POOL_EXCHANGES = new Set([4, 15, 16, 19]);
+
+// Fetch dark pool % and block trades from Polygon Trades API
+async function fetchDarkPoolData(ticker) {
+  try {
+    const data = await httpsGet('https://api.polygon.io/v3/trades/'+ticker+'?limit=5000&apiKey='+POLYGON_KEY, 8000);
+    const trades = data?.results || [];
+    if (trades.length === 0) return null;
+    
+    let totalVolume = 0, darkPoolVolume = 0, blockTrades = 0;
+    for (const t of trades) {
+      const size = t.size || 0;
+      totalVolume += size;
+      if (DARK_POOL_EXCHANGES.has(t.exchange)) darkPoolVolume += size;
+      if (size >= 10000) blockTrades++;
+    }
+    
+    return {
+      darkPoolPct: totalVolume > 0 ? Math.round((darkPoolVolume / totalVolume) * 1000) / 10 : 0,
+      blockTrades,
+    };
+  } catch { return null; }
+}
+
+// Fetch short volume % from Polygon Short Volume API
+async function fetchShortVolData(ticker) {
+  try {
+    const data = await httpsGet('https://api.polygon.io/stocks/v1/short-volume?ticker='+ticker+'&limit=1&apiKey='+POLYGON_KEY, 8000);
+    const result = data?.results?.[0];
+    if (!result) return null;
+    const sv = result.short_volume || 0;
+    const tv = result.total_volume || 1;
+    return { shortVolPct: Math.round((sv / tv) * 1000) / 10 };
+  } catch { return null; }
+}
+
+async function computeContextScores(snapshotMap, gexMap, rlsiData) {
+  let alphaEngine;
+  try {
+    alphaEngine = require('./alphaEngine.js');
+  } catch (e) {
+    console.log('[SKIP] Context Score — alphaEngine.js not found (run build-lambda-engine.js first)');
+    return 0;
+  }
+  
+  const { calculateAlphaScore, calculateWhaleIndex } = alphaEngine;
+  if (!calculateAlphaScore) {
+    console.log('[SKIP] Context Score — calculateAlphaScore not exported');
+    return 0;
+  }
+  
+  console.log('Step 5: Context Score (V4.6) for ' + Object.keys(snapshotMap).length + ' tickers...');
+  const today = new Date().toISOString().slice(0,10);
+  const tickers = Object.keys(snapshotMap);
+  let scored = 0, skipped = 0;
+  
+  // Macro regime data from RLSI (already computed)
+  const vixValue = rlsiData?.vix || null;
+  
+  // Process in batches of 10 (5 API calls per ticker: RSI + dailyAggs + MACD + trades + shortVol)
+  for (let i = 0; i < tickers.length; i += 10) {
+    const batch = tickers.slice(i, i + 10);
+    await Promise.all(batch.map(async (ticker) => {
+      try {
+        const pd = snapshotMap[ticker];
+        if (!pd || !pd.price) { skipped++; return; }
+        
+        const gd = gexMap[ticker] || null;
+        
+        // Fetch ALL data in parallel: RSI + dailyAggs + MACD + darkPool + shortVol
+        const ago = new Date(Date.now() - 10*86400000).toISOString().slice(0,10);
+        const [rsiData, dailyData, macdData, dpData, svData] = await Promise.all([
+          httpsGet('https://api.polygon.io/v1/indicators/rsi/'+ticker+'?timespan=day&window=14&limit=1&apiKey='+POLYGON_KEY, 8000).catch(()=>null),
+          httpsGet('https://api.polygon.io/v2/aggs/ticker/'+ticker+'/range/1/day/'+ago+'/'+today+'?adjusted=true&sort=asc&limit=10&apiKey='+POLYGON_KEY, 8000).catch(()=>null),
+          httpsGet('https://api.polygon.io/v1/indicators/macd/'+ticker+'?timespan=day&short_window=12&long_window=26&signal_window=9&limit=1&apiKey='+POLYGON_KEY, 8000).catch(()=>null),
+          fetchDarkPoolData(ticker),
+          fetchShortVolData(ticker),
+        ]);
+        
+        // Momentum data
+        const rsi = rsiData?.results?.values?.[0]?.value ?? null;
+        const dailyResults = dailyData?.results || [];
+        let return3D = null;
+        if (dailyResults.length >= 4) {
+          const recent = dailyResults.slice(-4);
+          const p3d = recent[0].c;
+          const pNow = recent[recent.length - 1].c;
+          if (p3d > 0) return3D = ((pNow - p3d) / p3d) * 100;
+        }
+        const macdHist = macdData?.results?.values?.[0]?.histogram ?? null;
+        
+        // Compute relVol
+        let relVol = null;
+        if (dailyResults.length >= 2) {
+          const lastVol = dailyResults[dailyResults.length - 1]?.v || 0;
+          const prevVol = dailyResults[dailyResults.length - 2]?.v || 1;
+          if (lastVol > 0) relVol = lastVol / prevVol;
+        }
+        
+        // Flow data (from darkPool + shortVol fetch)
+        const darkPoolPct = dpData?.darkPoolPct ?? null;
+        const shortVolPct = svData?.shortVolPct ?? null;
+        const blockTrades = dpData?.blockTrades ?? null;
+        const whaleIdx = calculateWhaleIndex ? calculateWhaleIndex(gd?.gex ?? null) : null;
+        
+        // Call V4.6 engine — ALL 5 PILLARS COMPLETE
+        const result = calculateAlphaScore({
+          ticker: ticker,
+          session: 'REG',
+          price: pd.price,
+          prevClose: pd.prevClose || pd.price,
+          changePct: pd.changePct || 0,
+          // Momentum
+          rsi14: rsi,
+          return3D: return3D,
+          macdHistogram: macdHist,
+          relVol: relVol,
+          // Structure (from GEX step)
+          pcr: gd?.pcr ?? null,
+          gex: gd?.gex ?? null,
+          optionsDataAvailable: !!gd,
+          // Flow (NEW — full data parity with Vercel cron)
+          darkPoolPct: darkPoolPct,
+          shortVolPct: shortVolPct,
+          whaleIndex: whaleIdx,
+          blockTrades: blockTrades,
+          // Regime
+          vixValue: vixValue,
+          preMarketChangePct: null,
+        });
+        
+        // Write to DynamoDB with LAMBDA_V46 qualifier
+        // ConditionExpression: only write if no SSR_V46 record exists for today
+        try {
+          await client.send(new PutCommand({
+            TableName: 'signum-alpha-history',
+            Item: {
+              ticker: ticker,
+              date: today,
+              alphaScore: result.score,
+              qualityTier: 'LAMBDA_V46',
+              grade: result.grade,
+              changePct: pd.changePct || 0,
+              gex: gd?.gex || 0,
+              pcr: gd?.pcr || 0,
+              momentum: result.pillars.momentum.score,
+              structure: result.pillars.structure.score,
+              flow: result.pillars.flow.score,
+              regime: result.pillars.regime.score,
+              catalyst: result.pillars.catalyst.score,
+              engineVersion: result.engineVersion,
+              price: pd.price,
+              close: pd.price,
+              open: 0, high: 0, low: 0, volume: pd.volume || 0, vwap: 0,
+            },
+            ConditionExpression: 'attribute_not_exists(qualityTier) OR qualityTier <> :ssr',
+            ExpressionAttributeValues: { ':ssr': 'SSR_V46' },
+          }));
+          scored++;
+        } catch (condErr) {
+          // ConditionalCheckFailedException = SSR_V46 already exists, skip (expected)
+          if (condErr.name === 'ConditionalCheckFailedException') { skipped++; }
+          else { skipped++; }
+        }
+      } catch { skipped++; }
+    }));
+  }
+  console.log('Context Score: ' + scored + ' scored, ' + skipped + ' skipped/protected');
+  return scored;
 }
 
 exports.handler = async (event) => {
@@ -390,14 +581,24 @@ exports.handler = async (event) => {
   results.prices = count;
   results.rlsi = await computeRlsi();
   
-  // Regular hours: GEX + Alpha + SMA
+  // Regular hours: GEX + SMA (every run)
   if (isRegular || forceRun) {
     const gexMap = await harvestGex(priceMap);
     results.gex = Object.keys(gexMap).length;
-    results.alpha = await updateAlphaScores(snapshotMap, gexMap);
     results.sma = await harvestSMA(priceMap);
+    
+    // Context Score: ONLY at market close (4:10-4:20 PM ET = 20:10-20:20 UTC)
+    // End-of-day score is the only meaningful one for history tracking
+    const isMarketClose = (utcMin >= 20*60+10 && utcMin <= 20*60+20);
+    if (isMarketClose || forceRun) {
+      console.log('Market close window — computing Context Scores for ' + UNIVERSE.length + ' tickers');
+      results.contextScore = await computeContextScores(snapshotMap, gexMap, results.rlsi);
+    } else {
+      results.contextScore = 'SKIP:not_close_window';
+    }
   } else {
     results.gex = 'SKIP:extended';
+    results.contextScore = 'SKIP:extended';
     results.sma = 'SKIP:extended';
   }
   

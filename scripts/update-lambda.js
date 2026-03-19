@@ -32,11 +32,31 @@ const lambda = new LambdaClient(config);
 
 async function main() {
   console.log('╔══════════════════════════════════════════════╗');
-  console.log('║  SIGNUM Lambda v8 Update — metrics + tables ║');
+  console.log('║  SIGNUM Lambda v9 Update — V4.6 Engine      ║');
   console.log('╚══════════════════════════════════════════════╝');
 
   const lambdaDir = path.join(__dirname, 'lambda-harvest');
-  const zipPath = path.join(__dirname, 'lambda-harvest-v8.zip');
+  const zipPath = path.join(__dirname, 'lambda-harvest-v9.zip');
+
+  // 0. Pre-step: Build V4.6 engine bundle
+  console.log('⚙️  Building V4.6 engine bundle...');
+  try {
+    execSync('node scripts/build-lambda-engine.js', { cwd: path.join(__dirname, '..'), stdio: 'inherit' });
+  } catch (e) {
+    console.error('ERROR: Engine bundle failed. Cannot deploy without V4.6 engine.');
+    process.exit(1);
+  }
+
+  // 0b. Copy universe.json if stock_universe_us800.json exists
+  const universeSource = path.join(__dirname, '..', 'data', 'stock_universe_us800.json');
+  const universeDest = path.join(lambdaDir, 'universe.json');
+  if (fs.existsSync(universeSource)) {
+    const uniData = JSON.parse(fs.readFileSync(universeSource, 'utf-8'));
+    fs.writeFileSync(universeDest, JSON.stringify({ symbols: uniData.symbols }));
+    console.log('📋 Copied universe: ' + uniData.symbols.length + ' symbols');
+  } else {
+    console.log('⚠️  stock_universe_us800.json not found, Lambda will use fallback universe');
+  }
 
   // 1. Verify index.js exists
   const indexPath = path.join(lambdaDir, 'index.js');
@@ -45,12 +65,12 @@ async function main() {
     process.exit(1);
   }
 
-  // Check v5 marker
+  // Check markers
   const code = fs.readFileSync(indexPath, 'utf8');
-  if (code.includes('compositeVal') && code.includes('computeSectorDaily')) {
-    console.log('✅ Verified: index.js contains v8 real metrics + table activation');
+  if (code.includes('computeContextScores') && code.includes('loadUniverse')) {
+    console.log('✅ Verified: index.js contains V4.6 Context Score + dynamic universe');
   } else {
-    console.error('WARNING: index.js may not have v8 code');
+    console.warn('WARNING: index.js may not have latest code');
   }
 
   // 2. Ensure node_modules exist

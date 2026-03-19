@@ -347,7 +347,8 @@ export function validateNoETFInItems(items: any[]): {
 let _stockUniverseCache: string[] | null = null;
 
 /**
- * Stock Universe Pool 로드 (300개 미국 주식)
+ * Stock Universe Pool 로드 (800+ 미국 주식, 옵션 거래량 기준 선별)
+ * Tries us800 first, falls back to us300
  * @returns 주식 심볼 배열
  */
 export function loadStockUniversePool(): string[] {
@@ -359,15 +360,22 @@ export function loadStockUniversePool(): string[] {
         const fs = require('fs');
         // eslint-disable-next-line @typescript-eslint/no-var-requires
         const path = require('path');
-        const filePath = path.join(process.cwd(), 'data', 'stock_universe_us300.json');
+        
+        // Try expanded universe first, then fallback to core 300
+        const candidates = [
+            path.join(process.cwd(), 'data', 'stock_universe_us800.json'),
+            path.join(process.cwd(), 'data', 'stock_universe_us300.json'),
+        ];
 
-        if (fs.existsSync(filePath)) {
-            const raw = fs.readFileSync(filePath, 'utf-8');
-            const data = JSON.parse(raw);
-            const symbols: string[] = data.symbols || [];
-            _stockUniverseCache = symbols;
-            console.log(`[S-56.3] Loaded Stock Universe Pool: ${symbols.length} symbols`);
-            return symbols;
+        for (const filePath of candidates) {
+            if (fs.existsSync(filePath)) {
+                const raw = fs.readFileSync(filePath, 'utf-8');
+                const data = JSON.parse(raw);
+                const symbols: string[] = data.symbols || [];
+                _stockUniverseCache = symbols;
+                console.log(`[S-56.3] Loaded Stock Universe Pool: ${symbols.length} symbols from ${path.basename(filePath)}`);
+                return symbols;
+            }
         }
     } catch (e) {
         console.warn('[S-56.3] Failed to load stock universe pool:', (e as Error).message);

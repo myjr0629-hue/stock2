@@ -1,8 +1,8 @@
 // ============================================================================
 // /api/cron/warm-analysis — Analysis Cache Warmer (Vercel Cron)
-// [UNIFIED] Uses stock_universe_us300.json as SSOT (300 tickers)
-// Round-robin: 3 groups × 100 tickers per cron cycle (every 2 min)
-// Full universe coverage in 6 minutes (3 cycles)
+// [UNIFIED] Uses stock_universe_us800.json as SSOT (800+ tickers)
+// Round-robin: 8 groups × ~100 tickers per cron cycle (every 2 min)
+// Full universe coverage in 16 minutes (8 cycles)
 // ============================================================================
 
 import { NextResponse } from 'next/server';
@@ -23,7 +23,7 @@ function getUniverse(): string[] {
     if (!_universe) _universe = loadStockUniversePool();
     return _universe;
 }
-const GROUPS = 3;
+const GROUPS = 10;
 
 // Concurrency control — max 5 tickers in parallel to avoid API rate limits
 const CONCURRENCY = 5;
