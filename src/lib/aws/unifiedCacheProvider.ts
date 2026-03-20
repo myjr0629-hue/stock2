@@ -23,19 +23,20 @@ export async function putUnifiedCache(ticker: string, locale: string, data: any)
     if (!client) return false;
 
     try {
-        // DynamoDB item size limit is 400KB — unified data is typically 5-20KB
+        // Store with language-independent key (data) + locale info for overview
         await client.send(new PutCommand({
             TableName: TABLES.UNIFIED_CACHE,
             Item: {
-                pk: `${ticker}:${locale}`,
+                pk: ticker,  // Language-independent key
                 data: data,
+                locale: locale,
                 timestamp: Date.now(),
                 updatedAt: new Date().toISOString(),
             },
         }));
         return true;
     } catch (e: any) {
-        console.warn(`[DynamoDB/UnifiedCache] put(${ticker}:${locale}) failed:`, e.message);
+        console.warn(`[DynamoDB/UnifiedCache] put(${ticker}) failed:`, e.message);
         return false;
     }
 }
@@ -50,10 +51,19 @@ export async function getUnifiedCache(ticker: string, locale: string, maxAgeMs =
     if (!client) return null;
 
     try {
-        const result = await client.send(new GetCommand({
+        // Try new key format first (language-independent)
+        let result = await client.send(new GetCommand({
             TableName: TABLES.UNIFIED_CACHE,
-            Key: { pk: `${ticker}:${locale}` },
+            Key: { pk: ticker },
         }));
+
+        // Fallback: try old key format (TICKER:locale) for migration
+        if (!result.Item) {
+            result = await client.send(new GetCommand({
+                TableName: TABLES.UNIFIED_CACHE,
+                Key: { pk: `${ticker}:${locale}` },
+            }));
+        }
 
         if (!result.Item) return null;
 
@@ -70,7 +80,7 @@ export async function getUnifiedCache(ticker: string, locale: string, maxAgeMs =
             _ageMs: age,
         };
     } catch (e: any) {
-        console.warn(`[DynamoDB/UnifiedCache] get(${ticker}:${locale}) failed:`, e.message);
+        console.warn(`[DynamoDB/UnifiedCache] get(${ticker}) failed:`, e.message);
         return null;
     }
 }

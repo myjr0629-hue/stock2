@@ -985,7 +985,29 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [unifiedFingerprint]);
 
-    // [FIX] Client-side chart refresh on visibility/focus change
+    // ══════════════════════════════════════════════════════════════
+    // [EFFECTIVE VALUES] useMemo fallback — guarantees card data
+    // even if useEffect hasn't fired yet (bypasses intermediate step)
+    // ══════════════════════════════════════════════════════════════
+    const effectiveVol = React.useMemo(() => volatilityData || unifiedData?.volatility || null, [volatilityData, unifiedData?.volatility]);
+    const effectiveSma = React.useMemo(() => smaData || unifiedData?.sma || null, [smaData, unifiedData?.sma]);
+    const effectiveFund = React.useMemo(() => fundamentalData || unifiedData?.fundamentals || null, [fundamentalData, unifiedData?.fundamentals]);
+    const effectiveRelated = React.useMemo(() => relatedData || (unifiedData?.related ? { count: unifiedData.related.count || 0, topRelated: unifiedData.related.topRelated || [] } : null), [relatedData, unifiedData?.related]);
+    const effectiveAnalyst = React.useMemo(() => analystData || unifiedData?.analyst || null, [analystData, unifiedData?.analyst]);
+    const effectiveSqueeze = React.useMemo(() => squeezeData || unifiedData?.squeeze || null, [squeezeData, unifiedData?.squeeze]);
+    const effectiveInst = React.useMemo(() => institutionalData || unifiedData?.institutional || null, [institutionalData, unifiedData?.institutional]);
+    const effectiveEarnings = React.useMemo(() => {
+        if (earningsData) return earningsData;
+        if (!unifiedData?.earnings) return null;
+        const e = unifiedData.earnings;
+        return { nextDate: e.nextEarningsDate || e.nextDate || null, daysLabel: e.daysLabel || 'TBD', epsEstimate: e.epsEstimate || null, quarter: e.quarter || null, year: e.year || null, hourLabel: e.hourLabel || '', color: e.color || 'text-slate-400' };
+    }, [earningsData, unifiedData?.earnings]);
+    const effectiveOverview = React.useMemo(() => {
+        if (companyOverview) return companyOverview;
+        if (!unifiedData?.overview?.overview) return null;
+        const o = unifiedData.overview.overview;
+        return { sector: o.sector, sectorEN: o.sectorEN, description: o.description, descriptionEN: o.descriptionEN };
+    }, [companyOverview, unifiedData?.overview]);
     const fetchChartData = useCallback(async () => {
         try {
             const res = await fetch(`/api/chart?symbol=${ticker}&range=${range}`);
@@ -1463,7 +1485,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                     {/* [1-1] VOLATILITY REGIME™ — PRO peek */}
                     <ProGate title="Vol Regime" mode="peek" compact>
                         {(() => {
-                            const r = volatilityData || unifiedData?.volatility;
+                            const r = effectiveVol;
                             const isHot = r?.regime === 'ERUPTING' || r?.regime === 'LOADED';
                             const regimeColor = r?.regime === 'ERUPTING' ? 'text-rose-400' : r?.regime === 'LOADED' ? 'text-amber-400' : r?.regime === 'COILING' ? 'text-cyan-400' : 'text-emerald-400';
                             const regimeBg = r?.regime === 'ERUPTING' ? 'bg-rose-950/40 border-rose-500/30 animate-card-breathe-bear' : r?.regime === 'LOADED' ? 'bg-amber-950/40 border-amber-500/30 shadow-[0_0_12px_rgba(245,158,11,0.12)]' : 'bg-slate-800/40 border-slate-700/50';
@@ -1751,7 +1773,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                     {/* [2-2] TREND PHASE™ — PRO peek */}
                     <ProGate title="Trend Phase" mode="peek" compact>
                         {(() => {
-                            const s = smaData || unifiedData?.sma;
+                            const s = effectiveSma;
                             const phase = s?.cross === 'GOLDEN' ? td('smaGolden') : s?.cross === 'DEAD' ? td('smaDead') : s?.label === 'ABOVE' ? td('smaAbove') : s?.label === 'BELOW' ? td('smaBelow') : '...';
                             return (
                                 <div className={`relative overflow-hidden rounded-lg py-2 px-2.5 min-h-[120px] transition-all duration-500 backdrop-blur-xl border cursor-default hover:-translate-y-0.5 hover:brightness-110 hover:border-white/20 hover:shadow-[0_4px_20px_rgba(99,102,241,0.1)] ${s?.cross === 'GOLDEN' ? 'bg-emerald-950/40 border-emerald-500/30 animate-card-breathe-bull' : s?.cross === 'DEAD' ? 'bg-rose-950/40 border-rose-500/30 animate-card-breathe-bear' : 'bg-slate-800/40 border-slate-700/50'}`}>
@@ -1789,7 +1811,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                     {/* [2-3] FUNDAMENTAL VALUE™ — PRO peek */}
                     <ProGate title="Fundamental" mode="peek" compact>
                         {(() => {
-                            const f = fundamentalData || unifiedData?.fundamentals;
+                            const f = effectiveFund;
                             const hasData = f && f.score > 0;
                             const gradeColor = f?.grade?.startsWith('A') ? 'text-emerald-400' : f?.grade?.startsWith('B') ? 'text-cyan-400' : f?.grade?.startsWith('C') ? 'text-amber-400' : 'text-slate-400';
                             const gradeBg = f?.grade?.startsWith('A') ? 'bg-emerald-950/40 border-emerald-500/30 animate-card-breathe-bull' : f?.grade?.startsWith('B') ? 'bg-cyan-950/40 border-cyan-500/30' : 'bg-slate-800/40 border-slate-700/50';
@@ -2688,16 +2710,16 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                         session={effectiveSession}
                                         structure={structure}
                                         krNews={krNews}
-                                        smaData={smaData}
+                                        smaData={effectiveSma}
                                         newsScore={newsScore}
                                         liveQuote={liveQuote}
-                                        analystData={analystData}
-                                        fundamentalData={fundamentalData}
-                                        institutionalData={institutionalData}
-                                        volatilityData={volatilityData}
-                                        squeezeData={squeezeData}
+                                        analystData={effectiveAnalyst}
+                                        fundamentalData={effectiveFund}
+                                        institutionalData={effectiveInst}
+                                        volatilityData={effectiveVol}
+                                        squeezeData={effectiveSqueeze}
                                         convictionData={conviction}
-                                        earningsData={earningsData}
+                                        earningsData={effectiveEarnings}
                                     />
                                 </div>
                             </EliteGate>

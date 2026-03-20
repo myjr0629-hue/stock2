@@ -37,10 +37,11 @@ import { UNIVERSE_500 } from '@/lib/universe';
 
 const BATCH_SIZE = 10;
 const TOTAL_BATCHES = Math.ceil(UNIVERSE_500.length / BATCH_SIZE); // 50
-const CACHE_KEY_PREFIX = 'cache:command:unified:';
+const CACHE_KEY_PREFIX = 'cache:command:unified:';    // Language-independent data
+const OVERVIEW_KEY_PREFIX = 'cache:command:overview:'; // Language-specific overview
 const CACHE_TTL_MARKET = 1800; // [극강] 30 min during market (was 5 min)
 const CACHE_TTL_OFFHOURS = 43200; // 12 hours off-hours (data won't change)
-const LOCALES = ['ko', 'en'];
+const OVERVIEW_LOCALES = ['ko', 'en', 'ja']; // All 3 languages for overview
 
 // Smart TTL: short during market, long during off-hours
 function getSmartTTL(): number {
@@ -85,12 +86,15 @@ async function buildUnifiedData(ticker: string, baseUrl: string, locale: string)
         callInternalGet(getOverview, `${baseUrl}/api/live/overview?t=${ticker}&lang=${locale}`),
     ]);
 
-    return {
+    // Separate data (language-independent) from overview (language-specific)
+    const data = {
         timestamp: Date.now(),
         latencyMs: Date.now() - start,
         structure, options: optionsAtm, earnings, sma, related,
-        analyst, volatility, squeeze, institutional, fundamentals, overview,
+        analyst, volatility, squeeze, institutional, fundamentals,
     };
+
+    return { data, overview };
 }
 
 export async function GET(request: Request) {
@@ -120,34 +124,44 @@ export async function GET(request: Request) {
             const chunk = batchTickers.slice(i, i + CONCURRENCY);
 
             await Promise.all(chunk.map(async (ticker) => {
-                for (const locale of LOCALES) {
-                    const cacheKey = `${CACHE_KEY_PREFIX}${ticker}:${locale}`;
+                const dataCacheKey = `${CACHE_KEY_PREFIX}${ticker}`; // Language-independent
 
-                    // Skip if cache is still fresh (< 2 min old)
-                    try {
-                        const existing = await getFromCache<any>(cacheKey);
-                        if (existing?.timestamp && (Date.now() - existing.timestamp) < 120_000) {
-                            skipped++;
-                            return;
-                        }
-                    } catch { /* continue */ }
-
-                    try {
-                        const data = await buildUnifiedData(ticker, baseUrl, locale);
-                        if (data.structure || data.options) {
-                            // Write to BOTH Redis (fast cache) and DynamoDB (permanent)
-                            await Promise.all([
-                                setInCache(cacheKey, data, getSmartTTL()),
-                                putUnifiedCache(ticker, locale, data),
-                            ]);
-                            warmed++;
-                            results.push(`${ticker}:${locale}:✅`);
-                        } else {
-                            results.push(`${ticker}:${locale}:⚠️`);
-                        }
-                    } catch {
-                        results.push(`${ticker}:${locale}:❌`);
+                // Skip if data cache is still fresh (< 2 min old)
+                try {
+                    const existing = await getFromCache<any>(dataCacheKey);
+                    if (existing?.timestamp && (Date.now() - existing.timestamp) < 120_000) {
+                        skipped++;
+                        return;
                     }
+                } catch { /* continue */ }
+
+                try {
+                    // Step 1: Build data + overview for first locale (ko) together
+                    const { data, overview: koOverview } = await buildUnifiedData(ticker, baseUrl, 'ko');
+                    if (data.structure || data.options) {
+                        // Step 2: Fetch overview for remaining locales in parallel
+                        const [enOverview, jaOverview] = await Promise.all([
+                            callInternalGet(getOverview, `${baseUrl}/api/live/overview?t=${ticker}&lang=en`),
+                            callInternalGet(getOverview, `${baseUrl}/api/live/overview?t=${ticker}&lang=ja`),
+                        ]);
+
+                        // Step 3: Store data (1x) + overview (3x) + DynamoDB
+                        await Promise.all([
+                            setInCache(dataCacheKey, data, getSmartTTL()),                                // Data: language-independent
+                            setInCache(`${OVERVIEW_KEY_PREFIX}${ticker}:ko`, koOverview, getSmartTTL()),   // Overview: ko
+                            setInCache(`${OVERVIEW_KEY_PREFIX}${ticker}:en`, enOverview, getSmartTTL()),   // Overview: en
+                            setInCache(`${OVERVIEW_KEY_PREFIX}${ticker}:ja`, jaOverview, getSmartTTL()),   // Overview: ja
+                            putUnifiedCache(ticker, 'ko', { ...data, overview: koOverview }),              // DynamoDB: ko
+                            putUnifiedCache(ticker, 'en', { ...data, overview: enOverview }),              // DynamoDB: en
+                            putUnifiedCache(ticker, 'ja', { ...data, overview: jaOverview }),              // DynamoDB: ja
+                        ]);
+                        warmed++;
+                        results.push(`${ticker}:✅`);
+                    } else {
+                        results.push(`${ticker}:⚠️`);
+                    }
+                } catch {
+                    results.push(`${ticker}:❌`);
                 }
             }));
         }
@@ -161,7 +175,8 @@ export async function GET(request: Request) {
             duration: `${duration}ms`,
             warmed,
             skipped,
-            total: batchTickers.length * LOCALES.length,
+            total: batchTickers.length,
+            languages: OVERVIEW_LOCALES,
             timestamp: new Date().toISOString(),
         });
     } catch (error: any) {

@@ -41,16 +41,17 @@ export default async function TickerPage({ params, searchParams }: Props) {
         new Promise<null>(resolve => setTimeout(() => resolve(null), 500))
     ]);
 
-    const [initialStockData, rawUnifiedData, initialChartData] = await Promise.all([
+    const [initialStockData, rawUnifiedData, rawOverviewData, initialChartData] = await Promise.all([
         getStockDataLight(ticker).catch(() => null),
-        getFromCache<any>(`cache:command:unified:${ticker}:${locale}`).catch(() => null),
+        getFromCache<any>(`cache:command:unified:${ticker}`).catch(() => null),         // Language-independent data
+        getFromCache<any>(`cache:command:overview:${ticker}:${locale}`).catch(() => null), // Language-specific overview
         chartWithTimeout,
     ]);
 
     // ═══════════════════════════════════════════════════════════════
     // [V73] 4-TIER SSR DATA PIPELINE — guarantees data for every load
     // ═══════════════════════════════════════════════════════════════
-    let initialUnifiedData = rawUnifiedData;
+    let initialUnifiedData = rawUnifiedData ? { ...rawUnifiedData, overview: rawOverviewData || rawUnifiedData.overview || null } : null;
 
     // ── Tier 2: DynamoDB Unified Cache (complete pre-built data from warm-command) ──
     if (!initialUnifiedData) {
@@ -60,7 +61,9 @@ export default async function TickerPage({ params, searchParams }: Props) {
             if (dynamoUnified && (dynamoUnified.structure || dynamoUnified.options)) {
                 initialUnifiedData = dynamoUnified;
                 // Re-warm Redis for next visitor (fire-and-forget) — 30min TTL
-                setInCache(`cache:command:unified:${ticker}:${locale}`, dynamoUnified, 1800).catch(() => {});
+                const { overview: dynOverview, ...dynData } = dynamoUnified;
+                setInCache(`cache:command:unified:${ticker}`, dynData, 1800).catch(() => {});
+                if (dynOverview) setInCache(`cache:command:overview:${ticker}:${locale}`, dynOverview, 1800).catch(() => {});
             }
         } catch { /* DynamoDB Unified Cache unavailable */ }
     }

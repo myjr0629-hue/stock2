@@ -18,7 +18,8 @@ import { GET as getOverview } from '@/app/api/live/overview/route';
 export const maxDuration = 30;
 
 // Configuration
-const CACHE_KEY_PREFIX = 'cache:command:unified:';
+const CACHE_KEY_PREFIX = 'cache:command:unified:';  // Language-independent data
+const OVERVIEW_KEY_PREFIX = 'cache:command:overview:'; // Language-specific overview
 const CACHE_TTL_MARKET = 1800; // [극강] 30 minutes during market hours (was 5 min)
 const CACHE_TTL_OFFHOURS = 43200; // 12 hours during off-hours (data doesn't change)
 const REFRESH_THRESHOLD_MS = 300 * 1000; // [극강] 5 minutes — background refresh after 5 min (was 2 min)
@@ -172,11 +173,11 @@ async function callInternalGet(handler: Function, url: string) {
     }
 }
 
-// Core Aggregation Function
+// Core Aggregation Function — fetches Polygon data (language-independent) + overview (language-specific)
 async function buildUnifiedData(ticker: string, baseUrl: string, locale: string) {
     const start = Date.now();
 
-    // 11 Parallel Internal Fetches, executed as pure JS functions running instantly in memory
+    // 11 Parallel Internal Fetches: 10 language-independent + 1 language-specific (overview)
     const [
         structure,
         optionsAtm,
@@ -206,6 +207,7 @@ async function buildUnifiedData(ticker: string, baseUrl: string, locale: string)
         fetchGexHistoryData(ticker),
     ]);
 
+    // Separate data (language-independent) from overview (language-specific)
     const data = {
         structure,
         options: optionsAtm,
@@ -217,23 +219,25 @@ async function buildUnifiedData(ticker: string, baseUrl: string, locale: string)
         squeeze,
         institutional,
         fundamentals,
-        overview,
-        // [AWS Phase 2] History-based insights from DynamoDB
+        // overview is NOT stored in data cache — stored separately
         history: gexHistory,
         timestamp: Date.now()
     };
 
     console.log(`[Command Unified] Built aggregation for ${ticker} in ${Date.now() - start}ms execution time`);
-    return data;
+    return { data, overview };
 }
 
 // Background Revalidator
-async function triggerBackgroundRefresh(ticker: string, cacheKey: string, baseUrl: string, locale: string) {
+async function triggerBackgroundRefresh(ticker: string, dataCacheKey: string, overviewCacheKey: string, baseUrl: string, locale: string) {
     console.log(`[Command Unified] Triggering background refresh for ${ticker}`);
     try {
-        const newData = await buildUnifiedData(ticker, baseUrl, locale);
+        const { data: newData, overview: newOverview } = await buildUnifiedData(ticker, baseUrl, locale);
         if (newData.structure || newData.options) {
-            await setInCache(cacheKey, newData, getSmartTTL());
+            await setInCache(dataCacheKey, newData, getSmartTTL());
+        }
+        if (newOverview) {
+            await setInCache(overviewCacheKey, newOverview, getSmartTTL());
         }
         console.log(`[Command Unified] Background refresh complete for ${ticker}`);
     } catch (e) {
@@ -250,44 +254,52 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ error: 'Ticker is required' }, { status: 400 });
     }
 
-    // [극강] Cache with locale for language-correct overview descriptions
-    const cacheKey = `${CACHE_KEY_PREFIX}${ticker}:${locale}`;
+    // [통합] Language-independent data key + language-specific overview key
+    const dataCacheKey = `${CACHE_KEY_PREFIX}${ticker}`;              // Polygon data (shared across all languages)
+    const overviewCacheKey = `${OVERVIEW_KEY_PREFIX}${ticker}:${locale}`; // Overview (per language)
     const start = Date.now();
 
     try {
         // ══════════════════════════════════════════════════════════════
         // [극강 Layer 1] IN-MEMORY LRU — 0ms response
         // ══════════════════════════════════════════════════════════════
-        const memKey = `${ticker}:${locale}`;
+        const memKey = ticker; // Language-independent (data is shared)
         const memData = memoryGet(memKey);
         if (memData && (memData.structure || memData.options)) {
             const ageMs = Date.now() - (memData.timestamp || 0);
             // Background refresh if stale
             if (ageMs > REFRESH_THRESHOLD_MS) {
                 const baseUrl = getBaseUrl(request);
-                triggerBackgroundRefresh(ticker, cacheKey, baseUrl, locale);
+                triggerBackgroundRefresh(ticker, dataCacheKey, overviewCacheKey, baseUrl, locale);
             }
-            return jsonResponse({ ...memData, _source: 'memory-lru', _ageMs: ageMs });
+            // Merge with language-specific overview from memory or Redis
+            const memOverview = memoryGet(`overview:${ticker}:${locale}`);
+            const overview = memOverview || await getFromCache<any>(overviewCacheKey).catch(() => null);
+            return jsonResponse({ ...memData, overview: overview || memData.overview || null, _source: 'memory-lru', _ageMs: ageMs });
         }
 
         // ══════════════════════════════════════════════════════════════
         // [극강 Layer 2] Redis Cache — ~5ms response (TTL 30min)
         // ══════════════════════════════════════════════════════════════
-        const cachedData = await getFromCache<any>(cacheKey);
+        const [cachedData, cachedOverview] = await Promise.all([
+            getFromCache<any>(dataCacheKey).catch(() => null),
+            getFromCache<any>(overviewCacheKey).catch(() => null),
+        ]);
 
         if (cachedData && cachedData.timestamp && (cachedData.structure || cachedData.options)) {
             const ageMs = Date.now() - cachedData.timestamp;
 
             // Promote to memory cache for next request (0ms)
             memorySet(memKey, cachedData);
+            if (cachedOverview) memorySet(`overview:${ticker}:${locale}`, cachedOverview);
 
             // SWR: If older than threshold, refetch in background
             if (ageMs > REFRESH_THRESHOLD_MS) {
                 const baseUrl = getBaseUrl(request);
-                triggerBackgroundRefresh(ticker, cacheKey, baseUrl, locale);
+                triggerBackgroundRefresh(ticker, dataCacheKey, overviewCacheKey, baseUrl, locale);
             }
 
-            return jsonResponse({ ...cachedData, _source: 'cache', _ageMs: ageMs });
+            return jsonResponse({ ...cachedData, overview: cachedOverview || null, _source: 'cache', _ageMs: ageMs });
         }
 
         // ══════════════════════════════════════════════════════════════
@@ -298,11 +310,13 @@ export async function GET(request: NextRequest) {
             const { getUnifiedCache } = await import('@/lib/aws/unifiedCacheProvider');
             const dynamoUnified = await getUnifiedCache(ticker, locale);
             if (dynamoUnified && (dynamoUnified.structure || dynamoUnified.options)) {
-                // Re-warm Redis + memory for next request
-                setInCache(cacheKey, dynamoUnified, getSmartTTL()).catch(() => {});
-                memorySet(memKey, dynamoUnified);
+                // Re-warm Redis + memory for next request (language-independent data)
+                const { overview: dynOverview, ...dynData } = dynamoUnified;
+                setInCache(dataCacheKey, dynData, getSmartTTL()).catch(() => {});
+                if (dynOverview) setInCache(overviewCacheKey, dynOverview, getSmartTTL()).catch(() => {});
+                memorySet(memKey, dynData);
                 console.log(`[Command Unified] ⚡ DynamoDB UNIFIED for ${ticker} in ${Date.now() - start}ms`);
-                return jsonResponse({ ...dynamoUnified, _source: 'dynamodb-unified', _latency: Date.now() - start });
+                return jsonResponse({ ...dynData, overview: dynOverview || null, _source: 'dynamodb-unified', _latency: Date.now() - start });
             }
         } catch { /* DynamoDB unavailable, continue to Tier 2 */ }
 
@@ -314,6 +328,8 @@ export async function GET(request: NextRequest) {
 
         // Start Polygon fetch immediately (don't wait for DynamoDB to fail first)
         const polygonPromise = buildUnifiedData(ticker, baseUrl, locale);
+        // Also check if overview exists in cache (from another language's Polygon call)
+        const existingOverview = cachedOverview || await getFromCache<any>(overviewCacheKey).catch(() => null);
 
         // Race: Try DynamoDB + Analysis Cache in parallel with Polygon
         const dynamoResult = await tryDynamoFast(ticker);
@@ -331,40 +347,43 @@ export async function GET(request: NextRequest) {
 
             const polygonResult = await polygonWithTimeout;
 
-            if (!polygonResult.timedOut && polygonResult.fullData && (polygonResult.fullData.structure || polygonResult.fullData.options)) {
-                // Polygon completed within 2s — return FULLY MERGED data (best of both)
-                const merged = {
-                    ...dynamoResult,
-                    volatility: polygonResult.fullData.volatility || dynamoResult.volatility,
-                    squeeze: polygonResult.fullData.squeeze || dynamoResult.squeeze,
-                    overview: polygonResult.fullData.overview || dynamoResult.overview,
-                    fundamentals: polygonResult.fullData.fundamentals || dynamoResult.fundamentals,
-                    related: polygonResult.fullData.related || dynamoResult.related,
-                    sma: polygonResult.fullData.sma || dynamoResult.sma,
-                    earnings: polygonResult.fullData.earnings || dynamoResult.earnings,
-                    analyst: polygonResult.fullData.analyst || dynamoResult.analyst,
-                    institutional: polygonResult.fullData.institutional || dynamoResult.institutional,
-                    structure: polygonResult.fullData.structure || dynamoResult.structure,
-                    options: polygonResult.fullData.options || dynamoResult.options,
-                    timestamp: Date.now(),
-                };
-                await setInCache(cacheKey, merged, getSmartTTL());
-                memorySet(memKey, merged);
-                // Persist to DynamoDB for permanent access
-                import('@/lib/aws/unifiedCacheProvider').then(m => m.putUnifiedCache(ticker, locale, merged)).catch(() => {});
-                console.log(`[Command Unified] ⚡ MERGED (DynamoDB+Polygon) for ${ticker} in ${Date.now() - start}ms`);
-                return jsonResponse({ ...merged, _source: 'merged', _ageMs: 0, _latency: Date.now() - start });
+            if (!polygonResult.timedOut && polygonResult.fullData) {
+                const { data: polyData, overview: polyOverview } = polygonResult.fullData;
+                if (polyData.structure || polyData.options) {
+                    // Polygon completed within 2s — return FULLY MERGED data (best of both)
+                    const merged = {
+                        ...dynamoResult,
+                        volatility: polyData.volatility || dynamoResult.volatility,
+                        squeeze: polyData.squeeze || dynamoResult.squeeze,
+                        fundamentals: polyData.fundamentals || dynamoResult.fundamentals,
+                        related: polyData.related || dynamoResult.related,
+                        sma: polyData.sma || dynamoResult.sma,
+                        earnings: polyData.earnings || dynamoResult.earnings,
+                        analyst: polyData.analyst || dynamoResult.analyst,
+                        institutional: polyData.institutional || dynamoResult.institutional,
+                        structure: polyData.structure || dynamoResult.structure,
+                        options: polyData.options || dynamoResult.options,
+                        timestamp: Date.now(),
+                    };
+                    const mergedOverview = polyOverview || existingOverview || null;
+                    await setInCache(dataCacheKey, merged, getSmartTTL());
+                    if (mergedOverview) await setInCache(overviewCacheKey, mergedOverview, getSmartTTL());
+                    memorySet(memKey, merged);
+                    // Persist to DynamoDB for permanent access
+                    import('@/lib/aws/unifiedCacheProvider').then(m => m.putUnifiedCache(ticker, locale, { ...merged, overview: mergedOverview })).catch(() => {});
+                    console.log(`[Command Unified] ⚡ MERGED (DynamoDB+Polygon) for ${ticker} in ${Date.now() - start}ms`);
+                    return jsonResponse({ ...merged, overview: mergedOverview, _source: 'merged', _ageMs: 0, _latency: Date.now() - start });
+                }
             }
 
             // Polygon timed out — return DynamoDB partial, let Polygon finish in background
-            await setInCache(cacheKey, dynamoResult, getSmartTTL());
-            polygonPromise.then(async (fullData) => {
+            await setInCache(dataCacheKey, dynamoResult, getSmartTTL());
+            polygonPromise.then(async ({ data: fullData, overview: fullOverview }) => {
                 if (fullData.structure || fullData.options) {
                     const merged = {
                         ...dynamoResult,
                         volatility: fullData.volatility || dynamoResult.volatility,
                         squeeze: fullData.squeeze || dynamoResult.squeeze,
-                        overview: fullData.overview || dynamoResult.overview,
                         fundamentals: fullData.fundamentals || dynamoResult.fundamentals,
                         related: fullData.related || dynamoResult.related,
                         sma: fullData.sma || dynamoResult.sma,
@@ -375,29 +394,31 @@ export async function GET(request: NextRequest) {
                         options: fullData.options || dynamoResult.options,
                         timestamp: Date.now(),
                     };
-                    await setInCache(cacheKey, merged, getSmartTTL());
+                    await setInCache(dataCacheKey, merged, getSmartTTL());
+                    if (fullOverview) await setInCache(overviewCacheKey, fullOverview, getSmartTTL());
                     // Persist to DynamoDB for permanent access
-                    import('@/lib/aws/unifiedCacheProvider').then(m => m.putUnifiedCache(ticker, locale, merged)).catch(() => {});
+                    import('@/lib/aws/unifiedCacheProvider').then(m => m.putUnifiedCache(ticker, locale, { ...merged, overview: fullOverview })).catch(() => {});
                 }
             }).catch(() => {});
 
             console.log(`[Command Unified] ⚡ DynamoDB PARTIAL for ${ticker} in ${Date.now() - start}ms (Polygon timeout, bg merge)`);
             memorySet(memKey, dynamoResult);
-            return jsonResponse({ ...dynamoResult, _source: 'dynamodb-partial', _ageMs: 0, _latency: Date.now() - start });
+            return jsonResponse({ ...dynamoResult, overview: existingOverview || null, _source: 'dynamodb-partial', _ageMs: 0, _latency: Date.now() - start });
         }
 
         // DynamoDB had nothing — await Polygon (which was already started in parallel)
-        const newData = await polygonPromise;
+        const { data: newData, overview: newOverview } = await polygonPromise;
 
         if (newData.structure || newData.options) {
-            await setInCache(cacheKey, newData, getSmartTTL());
+            await setInCache(dataCacheKey, newData, getSmartTTL());
+            if (newOverview) await setInCache(overviewCacheKey, newOverview, getSmartTTL());
             memorySet(memKey, newData);
             // Persist to DynamoDB for permanent access
-            import('@/lib/aws/unifiedCacheProvider').then(m => m.putUnifiedCache(ticker, locale, newData)).catch(() => {});
+            import('@/lib/aws/unifiedCacheProvider').then(m => m.putUnifiedCache(ticker, locale, { ...newData, overview: newOverview })).catch(() => {});
         }
 
         console.log(`[Command Unified] 🌐 Polygon FRESH for ${ticker} in ${Date.now() - start}ms`);
-        return jsonResponse({ ...newData, _source: 'fresh', _ageMs: 0, _latency: Date.now() - start });
+        return jsonResponse({ ...newData, overview: newOverview || null, _source: 'fresh', _ageMs: 0, _latency: Date.now() - start });
 
     } catch (error: any) {
         console.error('[Command Unified] API Error:', error);
