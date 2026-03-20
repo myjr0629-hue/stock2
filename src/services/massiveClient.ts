@@ -201,7 +201,7 @@ export async function fetchMassive(
         }
     }
 
-    const MAX_RETRIES = 3; // [V4.6] Reduced from 5 (worst case: 3×15s = 45s instead of 90s)
+    const MAX_RETRIES = budget ? 3 : 2; // [극강] 2 retries for live (was 3), 3 for reports
     let attempt = 0;
     let lastHttpStatus: number | undefined;
 
@@ -220,9 +220,11 @@ export async function fetchMassive(
                     fetchOptions = { next: { revalidate: 30 } };
                 }
 
-                // Create a timeout signal (15 seconds default)
+                // Create a timeout signal
+                // [극강] 6s for live calls (was 15s), 15s for report generation
                 const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), 15000);
+                const timeoutMs = budget ? 15000 : 6000;
+                const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
                 try {
                     const res = await fetch(url, {

@@ -14,6 +14,9 @@ import { GET as getInstitutional } from '@/app/api/flow/realtime-metrics/route';
 import { GET as getFundamentals } from '@/app/api/live/fundamentals/route';
 import { GET as getOverview } from '@/app/api/live/overview/route';
 
+// [극강] Allow Vercel Pro to run unified aggregation up to 30s (default 10s kills it)
+export const maxDuration = 30;
+
 // Configuration
 const CACHE_KEY_PREFIX = 'cache:command:unified:';
 const CACHE_TTL_MARKET = 1800; // [극강] 30 minutes during market hours (was 5 min)
