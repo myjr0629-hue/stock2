@@ -272,10 +272,21 @@ export async function GET(request: NextRequest) {
                 const baseUrl = getBaseUrl(request);
                 triggerBackgroundRefresh(ticker, dataCacheKey, overviewCacheKey, baseUrl, locale);
             }
-            // Merge with language-specific overview from memory or Redis
-            const memOverview = memoryGet(`overview:${ticker}:${locale}`);
-            const overview = memOverview || await getFromCache<any>(overviewCacheKey).catch(() => null);
-            return jsonResponse({ ...memData, overview: overview || memData.overview || null, _source: 'memory-lru', _ageMs: ageMs });
+            // Merge with language-specific overview: memory → Redis → API fetch
+            let overview = memoryGet(`overview:${ticker}:${locale}`);
+            if (!overview) {
+                overview = await getFromCache<any>(overviewCacheKey).catch(() => null);
+            }
+            if (!overview) {
+                // Overview not cached yet — fetch from API and cache for next time
+                const baseUrl = getBaseUrl(request);
+                overview = await callInternalGet(getOverview, `${baseUrl}/api/live/overview?t=${ticker}&lang=${locale}`);
+                if (overview) {
+                    setInCache(overviewCacheKey, overview, getSmartTTL()).catch(() => {});
+                    memorySet(`overview:${ticker}:${locale}`, overview);
+                }
+            }
+            return jsonResponse({ ...memData, overview: overview || null, _source: 'memory-lru', _ageMs: ageMs });
         }
 
         // ══════════════════════════════════════════════════════════════
@@ -291,7 +302,17 @@ export async function GET(request: NextRequest) {
 
             // Promote to memory cache for next request (0ms)
             memorySet(memKey, cachedData);
-            if (cachedOverview) memorySet(`overview:${ticker}:${locale}`, cachedOverview);
+
+            // Get overview: Redis → API fetch
+            let resolvedOverview = cachedOverview;
+            if (!resolvedOverview) {
+                const baseUrl = getBaseUrl(request);
+                resolvedOverview = await callInternalGet(getOverview, `${baseUrl}/api/live/overview?t=${ticker}&lang=${locale}`);
+                if (resolvedOverview) {
+                    setInCache(overviewCacheKey, resolvedOverview, getSmartTTL()).catch(() => {});
+                }
+            }
+            if (resolvedOverview) memorySet(`overview:${ticker}:${locale}`, resolvedOverview);
 
             // SWR: If older than threshold, refetch in background
             if (ageMs > REFRESH_THRESHOLD_MS) {
@@ -299,7 +320,7 @@ export async function GET(request: NextRequest) {
                 triggerBackgroundRefresh(ticker, dataCacheKey, overviewCacheKey, baseUrl, locale);
             }
 
-            return jsonResponse({ ...cachedData, overview: cachedOverview || null, _source: 'cache', _ageMs: ageMs });
+            return jsonResponse({ ...cachedData, overview: resolvedOverview || null, _source: 'cache', _ageMs: ageMs });
         }
 
         // ══════════════════════════════════════════════════════════════
