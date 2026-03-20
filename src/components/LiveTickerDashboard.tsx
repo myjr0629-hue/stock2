@@ -1123,7 +1123,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
         (initialStockData.prevClose && initialStockData.prevClose > 0) ||
         (initialUnifiedData?._dynamoPrice?.price > 0)  // [V73] DynamoDB price fallback
     );
-    const isInitialLoading = !forceReady && ((!liveQuote && !hasSsrPrice) || displayPrice === 0);
+    const isInitialLoading = !forceReady && !initialStockData;
 
     // [PERF] Signal SSR preview removal — must be BEFORE conditional return (React Hook rules)
     useEffect(() => {
