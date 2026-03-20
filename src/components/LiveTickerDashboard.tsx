@@ -656,12 +656,20 @@ const DecisionGate = ({ ticker, displayPrice, session, structure, krNews, smaDat
 export function LiveTickerDashboard({ ticker, initialStockData, initialNews, range, buildId, chartDiagnostics, initialUnifiedData, initialChartData, onReady }: Props) {
     const tCommon = useTranslations('common');
     // --- Live Data State ---
+    // [극강] Track whether unified API has responded (to distinguish 'loading' vs 'no data')
+    const [unifiedDataReceived, setUnifiedDataReceived] = useState(!!initialUnifiedData);
     // [PERF V73] 3-second loading gate auto-release — blank screen NEVER exceeds 3s
     const [forceReady, setForceReady] = useState(false);
     useEffect(() => {
         const timer = setTimeout(() => setForceReady(true), 3000);
         return () => clearTimeout(timer);
     }, []);
+    // [극강] 5-second safety: if unified API hasn't responded, stop showing 'Loading...' on cards
+    useEffect(() => {
+        if (unifiedDataReceived) return;
+        const safetyTimer = setTimeout(() => setUnifiedDataReceived(true), 5000);
+        return () => clearTimeout(safetyTimer);
+    }, [unifiedDataReceived]);
 
     // [PERF] SWR replaces manual fetchQuote + setInterval(10s)
     // SSR data → SWR fallbackData → instant first render → background refresh
@@ -970,6 +978,8 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
         // Stop loading overlays
         setStructLoading(false);
         setOptionsLoading(false);
+        // [극강] Mark unified data as received — cards can now show 'N/A' instead of 'Loading...'
+        setUnifiedDataReceived(true);
     }, [unifiedData]);
 
     // [FIX] Client-side chart refresh on visibility/focus change
@@ -1900,6 +1910,8 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                         })()}
                                     </div>
                                 ))
+                            ) : unifiedDataReceived ? (
+                                <div className="text-[12px] font-jakarta text-slate-500 text-center py-1">Peers</div>
                             ) : (
                                 <div className="text-[12px] font-jakarta text-slate-300 text-center py-1">{td('loading')}</div>
                             )}
