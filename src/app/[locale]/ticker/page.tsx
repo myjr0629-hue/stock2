@@ -59,11 +59,13 @@ export default async function TickerPage({ params, searchParams }: Props) {
             const { getUnifiedCache } = await import('@/lib/aws/unifiedCacheProvider');
             const dynamoUnified = await getUnifiedCache(ticker, locale);
             if (dynamoUnified && (dynamoUnified.structure || dynamoUnified.options)) {
-                initialUnifiedData = dynamoUnified;
+                // Strip any embedded overview (may be wrong language)
+                const { overview: _discard, ...dynData } = dynamoUnified;
+                // Get correct language overview from Redis
+                const dynOverview = rawOverviewData || await getFromCache<any>(`cache:command:overview:${ticker}:${locale}`).catch(() => null);
+                initialUnifiedData = { ...dynData, overview: dynOverview || null };
                 // Re-warm Redis for next visitor (fire-and-forget) — 30min TTL
-                const { overview: dynOverview, ...dynData } = dynamoUnified;
                 setInCache(`cache:command:unified:${ticker}`, dynData, 1800).catch(() => {});
-                if (dynOverview) setInCache(`cache:command:overview:${ticker}:${locale}`, dynOverview, 1800).catch(() => {});
             }
         } catch { /* DynamoDB Unified Cache unavailable */ }
     }

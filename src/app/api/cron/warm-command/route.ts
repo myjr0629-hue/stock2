@@ -145,15 +145,13 @@ export async function GET(request: Request) {
                             callInternalGet(getOverview, `${baseUrl}/api/live/overview?t=${ticker}&lang=ja`),
                         ]);
 
-                        // Step 3: Store data (1x) + overview (3x) + DynamoDB
+                        // Step 3: Store data (1x Redis + 1x DynamoDB) + overview (3x Redis only)
                         await Promise.all([
                             setInCache(dataCacheKey, data, getSmartTTL()),                                // Data: language-independent
-                            setInCache(`${OVERVIEW_KEY_PREFIX}${ticker}:ko`, koOverview, getSmartTTL()),   // Overview: ko
-                            setInCache(`${OVERVIEW_KEY_PREFIX}${ticker}:en`, enOverview, getSmartTTL()),   // Overview: en
-                            setInCache(`${OVERVIEW_KEY_PREFIX}${ticker}:ja`, jaOverview, getSmartTTL()),   // Overview: ja
-                            putUnifiedCache(ticker, 'ko', { ...data, overview: koOverview }),              // DynamoDB: ko
-                            putUnifiedCache(ticker, 'en', { ...data, overview: enOverview }),              // DynamoDB: en
-                            putUnifiedCache(ticker, 'ja', { ...data, overview: jaOverview }),              // DynamoDB: ja
+                            setInCache(`${OVERVIEW_KEY_PREFIX}${ticker}:ko`, koOverview, getSmartTTL()),   // Overview: ko (Redis only)
+                            setInCache(`${OVERVIEW_KEY_PREFIX}${ticker}:en`, enOverview, getSmartTTL()),   // Overview: en (Redis only)
+                            setInCache(`${OVERVIEW_KEY_PREFIX}${ticker}:ja`, jaOverview, getSmartTTL()),   // Overview: ja (Redis only)
+                            putUnifiedCache(ticker, 'en', data),                                          // DynamoDB: data only (1x)
                         ]);
                         warmed++;
                         results.push(`${ticker}:✅`);
