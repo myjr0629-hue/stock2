@@ -146,13 +146,23 @@ function getBaseUrl(request: NextRequest) {
     return `http://localhost:${port}`;
 }
 
-// Bypasses Next.js HTTP routing entirely by calling the GET handler as a standard async function
+// Bypasses Next.js HTTP routing — with 8s per-call timeout (no single API blocks everything)
+const INTERNAL_CALL_TIMEOUT_MS = 8000;
+
 async function callInternalGet(handler: Function, url: string) {
     try {
         const mockReq = new NextRequest(url);
-        const res = await handler(mockReq);
-        if (!res || !res.ok) return null;
-        return await res.json();
+        const result = await Promise.race([
+            handler(mockReq).then(async (res: any) => {
+                if (!res || !res.ok) return null;
+                return await res.json();
+            }),
+            new Promise<null>(resolve => setTimeout(() => {
+                console.warn(`[Command Unified] ⏱️ Timeout (${INTERNAL_CALL_TIMEOUT_MS}ms): ${url.split('?')[0].split('/').pop()}`);
+                resolve(null);
+            }, INTERNAL_CALL_TIMEOUT_MS))
+        ]);
+        return result;
     } catch (e) {
         console.warn(`[Command Unified] Direct functional call failed: ${url}`, e);
         return null;
