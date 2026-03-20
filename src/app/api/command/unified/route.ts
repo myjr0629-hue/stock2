@@ -291,25 +291,6 @@ export async function GET(request: NextRequest) {
         }
 
         // ══════════════════════════════════════════════════════════════
-        // [극강] Cross-language cache fallback — reuse data from other locale
-        // If ETN:ja misses but ETN:ko exists, use non-overview data
-        // ══════════════════════════════════════════════════════════════
-        const otherLocales = ['ko', 'en', 'ja'].filter(l => l !== locale);
-        for (const otherLang of otherLocales) {
-            const otherKey = `${CACHE_KEY_PREFIX}${ticker}:${otherLang}`;
-            const otherData = await getFromCache<any>(otherKey).catch(() => null);
-            if (otherData && otherData.timestamp && (otherData.structure || otherData.options)) {
-                // Use all data except overview (which is language-dependent)
-                const crossLangData = { ...otherData, overview: null, _source: 'cache-crosslang' };
-                memorySet(memKey, crossLangData);
-                // Trigger background refresh to get correct language overview
-                const baseUrl = getBaseUrl(request);
-                triggerBackgroundRefresh(ticker, cacheKey, baseUrl, locale);
-                return jsonResponse(crossLangData);
-            }
-        }
-
-        // ══════════════════════════════════════════════════════════════
         // TIER 1.5: DynamoDB Unified Cache — ~50ms (permanent, never expires)
         // Complete unified data stored by warm-command cron
         // ══════════════════════════════════════════════════════════════
