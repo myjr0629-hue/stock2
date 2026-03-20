@@ -96,11 +96,18 @@ export async function GET(request: Request) {
             // REG: Use todaysChangePerc (live last trade is the correct reference)
             // PRE/POST/CLOSED: Calculate from day.c vs prevDay.c (regular session close)
             // [FIX] During PRE, day.c might equal prevDay.c. If so, don't force it to 0. Use todaysChangePerc as fallback if day.c === prevDay.c
+            // [FIX V2] Cross-validate Polygon todaysChangePerc against manual calc — Polygon sometimes returns wrong values
             let changePercent = 0;
+            const manualCalc = (liveLast > 0 && prevDayClose > 0) ? ((liveLast - prevDayClose) / prevDayClose) * 100 : 0;
+
             if (session === 'regular') {
-                // During regular hours: Polygon's live todaysChangePerc is accurate
-                changePercent = todaysChangePerc !== 0 ? todaysChangePerc
-                    : ((liveLast > 0 && prevDayClose > 0) ? ((liveLast - prevDayClose) / prevDayClose) * 100 : 0);
+                if (todaysChangePerc !== 0 && manualCalc !== 0) {
+                    // Cross-validate: if Polygon value diverges >10pp from manual calc, use manual calc
+                    const divergence = Math.abs(todaysChangePerc - manualCalc);
+                    changePercent = divergence > 10 ? manualCalc : todaysChangePerc;
+                } else {
+                    changePercent = todaysChangePerc !== 0 ? todaysChangePerc : manualCalc;
+                }
             } else {
                 // PRE / POST / CLOSED
                 if (dayClose > 0 && prevDayClose > 0 && dayClose !== prevDayClose) {
