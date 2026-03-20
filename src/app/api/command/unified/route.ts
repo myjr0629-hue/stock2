@@ -250,15 +250,15 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ error: 'Ticker is required' }, { status: 400 });
     }
 
-    // [극강] Language-independent cache — ETN:ko, ETN:ja, ETN:en share ONE cache
-    const cacheKey = `${CACHE_KEY_PREFIX}${ticker}`;
+    // [극강] Cache with locale for language-correct overview descriptions
+    const cacheKey = `${CACHE_KEY_PREFIX}${ticker}:${locale}`;
     const start = Date.now();
 
     try {
         // ══════════════════════════════════════════════════════════════
         // [극강 Layer 1] IN-MEMORY LRU — 0ms response
         // ══════════════════════════════════════════════════════════════
-        const memKey = `${ticker}`;
+        const memKey = `${ticker}:${locale}`;
         const memData = memoryGet(memKey);
         if (memData && (memData.structure || memData.options)) {
             const ageMs = Date.now() - (memData.timestamp || 0);
@@ -288,6 +288,25 @@ export async function GET(request: NextRequest) {
             }
 
             return jsonResponse({ ...cachedData, _source: 'cache', _ageMs: ageMs });
+        }
+
+        // ══════════════════════════════════════════════════════════════
+        // [극강] Cross-language cache fallback — reuse data from other locale
+        // If ETN:ja misses but ETN:ko exists, use non-overview data
+        // ══════════════════════════════════════════════════════════════
+        const otherLocales = ['ko', 'en', 'ja'].filter(l => l !== locale);
+        for (const otherLang of otherLocales) {
+            const otherKey = `${CACHE_KEY_PREFIX}${ticker}:${otherLang}`;
+            const otherData = await getFromCache<any>(otherKey).catch(() => null);
+            if (otherData && otherData.timestamp && (otherData.structure || otherData.options)) {
+                // Use all data except overview (which is language-dependent)
+                const crossLangData = { ...otherData, overview: null, _source: 'cache-crosslang' };
+                memorySet(memKey, crossLangData);
+                // Trigger background refresh to get correct language overview
+                const baseUrl = getBaseUrl(request);
+                triggerBackgroundRefresh(ticker, cacheKey, baseUrl, locale);
+                return jsonResponse(crossLangData);
+            }
         }
 
         // ══════════════════════════════════════════════════════════════

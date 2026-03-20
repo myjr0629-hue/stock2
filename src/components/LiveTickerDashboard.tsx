@@ -1461,7 +1461,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                     {/* [1-1] VOLATILITY REGIME™ — PRO peek */}
                     <ProGate title="Vol Regime" mode="peek" compact>
                         {(() => {
-                            const r = volatilityData;
+                            const r = volatilityData || unifiedData?.volatility;
                             const isHot = r?.regime === 'ERUPTING' || r?.regime === 'LOADED';
                             const regimeColor = r?.regime === 'ERUPTING' ? 'text-rose-400' : r?.regime === 'LOADED' ? 'text-amber-400' : r?.regime === 'COILING' ? 'text-cyan-400' : 'text-emerald-400';
                             const regimeBg = r?.regime === 'ERUPTING' ? 'bg-rose-950/40 border-rose-500/30 animate-card-breathe-bear' : r?.regime === 'LOADED' ? 'bg-amber-950/40 border-amber-500/30 shadow-[0_0_12px_rgba(245,158,11,0.12)]' : 'bg-slate-800/40 border-slate-700/50';
@@ -1749,9 +1749,10 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                     {/* [2-2] TREND PHASE™ — PRO peek */}
                     <ProGate title="Trend Phase" mode="peek" compact>
                         {(() => {
-                            const phase = smaData?.cross === 'GOLDEN' ? td('smaGolden') : smaData?.cross === 'DEAD' ? td('smaDead') : smaData?.label === 'ABOVE' ? td('smaAbove') : smaData?.label === 'BELOW' ? td('smaBelow') : '...';
+                            const s = smaData || unifiedData?.sma;
+                            const phase = s?.cross === 'GOLDEN' ? td('smaGolden') : s?.cross === 'DEAD' ? td('smaDead') : s?.label === 'ABOVE' ? td('smaAbove') : s?.label === 'BELOW' ? td('smaBelow') : '...';
                             return (
-                                <div className={`relative overflow-hidden rounded-lg py-2 px-2.5 min-h-[120px] transition-all duration-500 backdrop-blur-xl border cursor-default hover:-translate-y-0.5 hover:brightness-110 hover:border-white/20 hover:shadow-[0_4px_20px_rgba(99,102,241,0.1)] ${smaData?.cross === 'GOLDEN' ? 'bg-emerald-950/40 border-emerald-500/30 animate-card-breathe-bull' : smaData?.cross === 'DEAD' ? 'bg-rose-950/40 border-rose-500/30 animate-card-breathe-bear' : 'bg-slate-800/40 border-slate-700/50'}`}>
+                                <div className={`relative overflow-hidden rounded-lg py-2 px-2.5 min-h-[120px] transition-all duration-500 backdrop-blur-xl border cursor-default hover:-translate-y-0.5 hover:brightness-110 hover:border-white/20 hover:shadow-[0_4px_20px_rgba(99,102,241,0.1)] ${s?.cross === 'GOLDEN' ? 'bg-emerald-950/40 border-emerald-500/30 animate-card-breathe-bull' : s?.cross === 'DEAD' ? 'bg-rose-950/40 border-rose-500/30 animate-card-breathe-bear' : 'bg-slate-800/40 border-slate-700/50'}`}>
                                     <div className="absolute inset-0 bg-gradient-to-br from-white/[0.06] via-transparent to-transparent pointer-events-none" />
                                     <div className="absolute inset-0 pointer-events-none opacity-[0.12]" style={{ backgroundImage: "repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(255,255,255,0.2) 10px, rgba(255,255,255,0.2) 11px)" }} />
                                     <div className="relative z-10 flex items-center justify-between mb-1">
@@ -1759,20 +1760,20 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                             <TrendingUp className="w-3.5 h-3.5 text-cyan-400" />
                                             <span className="text-[13px] font-bold text-white uppercase tracking-wider font-jakarta"><CardTooltip tooltip={COMMAND_TOOLTIPS.TREND_PHASE.tooltip}>TREND PHASE</CardTooltip></span>
                                         </div>
-                                        {smaData?.crossType === 'NEW' && (
+                                        {s?.crossType === 'NEW' && (
                                             <span className="text-[12px] font-black px-1.5 py-px rounded bg-amber-500/30 text-amber-300 animate-pulse font-jakarta">NEW!</span>
                                         )}
                                     </div>
                                     <div className="relative z-10 flex items-baseline gap-2">
-                                        <span className={`text-lg font-black leading-none ${smaData?.cross === 'GOLDEN' ? 'text-emerald-400' : smaData?.cross === 'DEAD' ? 'text-rose-400' : 'text-white'}`}>
-                                            {smaData?.cross === 'GOLDEN' ? 'GOLDEN' : smaData?.cross === 'DEAD' ? 'DEAD' : smaData?.label || '--'}
+                                        <span className={`text-lg font-black leading-none ${s?.cross === 'GOLDEN' ? 'text-emerald-400' : s?.cross === 'DEAD' ? 'text-rose-400' : 'text-white'}`}>
+                                            {s?.cross === 'GOLDEN' ? 'GOLDEN' : s?.cross === 'DEAD' ? 'DEAD' : s?.label || '--'}
                                         </span>
                                         <span className="text-[12px] font-jakarta text-white">{phase}</span>
                                     </div>
-                                    {smaData && smaData.distance !== null && (
-                                        <div className={`relative z-10 text-[12px] font-jakarta font-bold mt-0.5 ${smaData.distance > 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                                            {td('smaDeviation')} {smaData.distance > 0 ? '+' : ''}{smaData.distance}%
-                                            {smaData.isImminent && <span className="ml-1 text-amber-400">⚡ {td('smaCrossImminent')}</span>}
+                                    {s && s.distance !== null && (
+                                        <div className={`relative z-10 text-[12px] font-jakarta font-bold mt-0.5 ${s.distance > 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                            {td('smaDeviation')} {s.distance > 0 ? '+' : ''}{s.distance}%
+                                            {s.isImminent && <span className="ml-1 text-amber-400">⚡ {td('smaCrossImminent')}</span>}
                                         </div>
                                     )}
                                     <div className="relative z-10 mt-0.5">
@@ -1786,7 +1787,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                     {/* [2-3] FUNDAMENTAL VALUE™ — PRO peek */}
                     <ProGate title="Fundamental" mode="peek" compact>
                         {(() => {
-                            const f = fundamentalData;
+                            const f = fundamentalData || unifiedData?.fundamentals;
                             const hasData = f && f.score > 0;
                             const gradeColor = f?.grade?.startsWith('A') ? 'text-emerald-400' : f?.grade?.startsWith('B') ? 'text-cyan-400' : f?.grade?.startsWith('C') ? 'text-amber-400' : 'text-slate-400';
                             const gradeBg = f?.grade?.startsWith('A') ? 'bg-emerald-950/40 border-emerald-500/30 animate-card-breathe-bull' : f?.grade?.startsWith('B') ? 'bg-cyan-950/40 border-cyan-500/30' : 'bg-slate-800/40 border-slate-700/50';
