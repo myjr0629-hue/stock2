@@ -129,6 +129,14 @@ export function calcPriceDisplay(input: PriceDisplayInput): PriceDisplayResult {
         displayPrice = lastTrade || displayPrice;
     }
 
+    // [FIX V3] Final cross-validation for REG session — catches wrong changePct from ANY source (WS, SWR, SSR)
+    if ((s === 'REG' || s === 'RTH' || s === 'MARKET') && displayPrice > 0 && resolvedPrevClose > 0) {
+        const manualCalc = ((displayPrice - resolvedPrevClose) / resolvedPrevClose) * 100;
+        if (displayChangePct !== null && Math.abs(displayChangePct - manualCalc) > 10) {
+            displayChangePct = manualCalc;
+        }
+    }
+
     // ===== B. Extended Session Badge =====
     let activeExtPrice = 0;
     let activeExtType = '';
