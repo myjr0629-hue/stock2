@@ -276,10 +276,12 @@ export async function GET(req: NextRequest) {
         _source: 'fresh',
     };
 
-    // Step 5: Save to Redis
+    // Step 5: Save to Redis — only full-TTL cache if analysis succeeded
+    const hasAnalysis = items.some(it => it.analysisEN && it.analysisEN.length > 0);
     try {
-        await setInCache(REDIS_KEY, digest, REDIS_TTL);
-        console.log(`[NewsDigest] Saved ${items.length} items to Redis (TTL: ${REDIS_TTL}s)`);
+        const ttl = hasAnalysis ? REDIS_TTL : 180; // 35min if good, 3min if analysis empty (retry soon)
+        await setInCache(REDIS_KEY, digest, ttl);
+        console.log(`[NewsDigest] Saved ${items.length} items to Redis (TTL: ${ttl}s, analysis: ${hasAnalysis ? 'OK' : 'EMPTY — short TTL for retry'})`);
     } catch (e) {
         console.warn('[NewsDigest] Redis save failed:', e);
     }
