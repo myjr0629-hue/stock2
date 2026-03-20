@@ -902,12 +902,13 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
             revalidateIfStale: true,
             revalidateOnMount: true,  // [V73] ALWAYS fetch on mount — SSR data may be stale
             refreshInterval: 15_000,  // [AWS OPTIMIZED] 15s polling
-            keepPreviousData: true,   // [PERF] Flicker-free: old data stays until new data arrives
             dedupingInterval: 5_000,  // [PERF] Prevent duplicate fetches within 5s
         }
     );
 
     // 2. Map Unified Data to Components
+    // [극강] Use timestamp as dependency key — guarantees useEffect fires on every SWR update
+    const unifiedTimestamp = unifiedData?.timestamp || unifiedData?._source || 0;
     useEffect(() => {
         if (!unifiedData) return;
 
@@ -918,22 +919,21 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
         // Earnings
         if (unifiedData.earnings) {
             setEarningsData({
-                nextDate: unifiedData.earnings.nextEarningsDate || null,
-                daysLabel: unifiedData.earnings.daysLabel || 'TBD',
-                epsEstimate: unifiedData.earnings.epsEstimate || null,
-                quarter: unifiedData.earnings.quarter || null,
-                year: unifiedData.earnings.year || null,
+                nextDate: unifiedData.earnings.nextEarningsDate || unifiedData.earnings.nextDate,
+                daysLabel: unifiedData.earnings.daysLabel || '',
                 hourLabel: unifiedData.earnings.hourLabel || '',
-                color: unifiedData.earnings.color || 'text-slate-400'
+                epsEstimate: unifiedData.earnings.epsEstimate ?? null,
+                quarter: unifiedData.earnings.quarter,
+                year: unifiedData.earnings.year
             });
         }
 
-        // SMA (TREND PHASE)
+        // SMA / Trend Phase
         if (unifiedData.sma) {
             setSmaData({
-                cross: unifiedData.sma.cross || 'UNKNOWN',
+                ticker,
+                cross: unifiedData.sma.cross || 'NONE',
                 crossType: unifiedData.sma.crossType || '',
-                label: unifiedData.sma.label || td('noData'),
                 sma50: unifiedData.sma.sma50 || 0,
                 sma200: unifiedData.sma.sma200 || 0,
                 distance: unifiedData.sma.distance || 0,
@@ -980,7 +980,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
         setOptionsLoading(false);
         // [극강] Mark unified data as received — cards can now show 'N/A' instead of 'Loading...'
         setUnifiedDataReceived(true);
-    }, [unifiedData]);
+    }, [unifiedData, unifiedTimestamp]);
 
     // [FIX] Client-side chart refresh on visibility/focus change
     const fetchChartData = useCallback(async () => {
