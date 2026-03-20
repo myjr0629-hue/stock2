@@ -5,12 +5,12 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useMemo, useState, useEffect } from 'react';
+import { useMemo, useState, useEffect, useCallback } from 'react';
 import { useLocale, useTranslations } from 'next-intl';
 import {
     Activity, Radio, RefreshCw, TrendingUp,
     DollarSign, Shield, Target, ChevronRight,
-    AlertTriangle, Moon, Sun, Clock
+    AlertTriangle, Moon, Sun, Clock, Sparkles
 } from 'lucide-react';
 import { ProGate } from '@/components/gate/FeatureGate';
 import type { SectorConfig } from '@/types/sector';
@@ -397,6 +397,29 @@ function getLogoUrl(ticker: string): string {
     return `https://assets.parqet.com/logos/symbol/${ticker}?format=png`;
 }
 
+// ── Analysis Text Highlighter (subtle, Bloomberg-style) ──
+function highlightAnalysis(text: string): React.ReactNode[] {
+    const pattern = /(\$[\d,.]+[BMK]?|[+-]?\d+\.?\d*%|SHORT Gamma|LONG Gamma)/g;
+    const parts: React.ReactNode[] = [];
+    let lastIndex = 0;
+    let match;
+
+    while ((match = pattern.exec(text)) !== null) {
+        if (match.index > lastIndex) {
+            parts.push(text.slice(lastIndex, match.index));
+        }
+        const word = match[0];
+        parts.push(<span key={match.index} className="text-white font-semibold">{word}</span>);
+        lastIndex = pattern.lastIndex;
+    }
+
+    if (lastIndex < text.length) {
+        parts.push(text.slice(lastIndex));
+    }
+
+    return parts;
+}
+
 // ============================================================================
 // MAIN COMPONENT
 // ============================================================================
@@ -502,6 +525,58 @@ export function SectorSessionGrid({ config, quotes, loading, refreshing, lockedT
     }, [sorted.map(q => q.ticker + q.gammaRegime).join(',')]);  // eslint-disable-line react-hooks/exhaustive-deps
     const SessionIcon = sInfo.icon;
     const sessionLabel = SESSION_LABELS[session];
+
+    // ── Perplexity AI Analysis ──
+    const [perplexityData, setPerplexityData] = useState<Record<string, { ko: string; en: string; ja: string }>>({}); 
+    const [perplexityLoading, setPerplexityLoading] = useState(false);
+
+    useEffect(() => {
+        if (sorted.length === 0) return;
+        const controller = new AbortController();
+        setPerplexityLoading(true);
+
+        const stocksPayload = sorted.map(q => ({
+            ticker: q.ticker,
+            price: q.price || 0,
+            changePct: q.changePct || 0,
+            gex: q.gex || 0,
+            pcr: q.pcr || 0,
+            gammaRegime: q.gammaRegime || 'NEUTRAL',
+            netPremium: q.netPremium || 0,
+            callWall: q.callWall || 0,
+            putFloor: q.putFloor || 0,
+            maxPain: q.maxPain || 0,
+            whaleIndex: (q as any).whaleIndex || 0,
+            darkPoolPct: (q as any).darkPoolPct || 0,
+            ivSkew: q.ivSkew || 0,
+            impliedMovePct: q.impliedMovePct || 0,
+            squeezeScore: (q as any).squeezeScore || 0,
+            alphaScore: q.alphaScore || 0,
+        }));
+
+        console.log('[Perplexity] Fetching analysis for', stocksPayload.length, 'stocks');
+
+        fetch('/api/intel/perplexity-analysis', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ stocks: stocksPayload }),
+            signal: controller.signal,
+        })
+            .then(r => {
+                console.log('[Perplexity] Response status:', r.status);
+                return r.ok ? r.json() : null;
+            })
+            .then(data => {
+                if (data?.analyses) {
+                    console.log('[Perplexity] Got analyses for', Object.keys(data.analyses).length, 'stocks');
+                    setPerplexityData(data.analyses);
+                }
+            })
+            .catch((e) => { if (e?.name !== 'AbortError') console.error('[Perplexity] Fetch error:', e); })
+            .finally(() => setPerplexityLoading(false));
+
+        return () => controller.abort();
+    }, [sorted.map(q => q.ticker).join(',')]);  // eslint-disable-line react-hooks/exhaustive-deps
 
     const stats = useMemo(() => {
         if (sorted.length === 0) return null;
@@ -832,9 +907,26 @@ export function SectorSessionGrid({ config, quotes, loading, refreshing, lockedT
 
                             {/* ── Card Footer: AI Analysis + Regime ── */}
                             <div className="px-3.5 pb-3 pt-0">
-                                {/* AI Analysis */}
+                                {/* AI Analysis — Perplexity (primary) or Rule-based (fallback) */}
                                 <div className="bg-white/[0.04] border border-white/[0.15] rounded-lg p-2.5 mb-2">
-                                    <p className="text-[13px] font-medium text-white/85 leading-relaxed">{analysis}</p>
+                                    {perplexityData[q.ticker] ? (
+                                        <>
+                                            <p className="text-[13px] font-medium text-slate-300 leading-relaxed">
+                                                {highlightAnalysis(perplexityData[q.ticker][locale as 'ko' | 'en' | 'ja'] || perplexityData[q.ticker].en)}
+                                            </p>
+                                            <div className="flex items-center gap-1 mt-1.5">
+                                                <Sparkles size={10} className="text-cyan-400" />
+                                                <span className="text-[12px] text-cyan-400 font-bold tracking-wider uppercase">AI News Context</span>
+                                            </div>
+                                        </>
+                                    ) : perplexityLoading ? (
+                                        <div className="flex items-center gap-2">
+                                            <div className="w-3 h-3 border border-cyan-400/50 border-t-cyan-400 rounded-full animate-spin" />
+                                            <span className="text-[13px] text-slate-400 font-medium">{locale === 'ko' ? 'AI 분석 중...' : locale === 'ja' ? 'AI分析中...' : 'AI analyzing...'}</span>
+                                        </div>
+                                    ) : (
+                                        <p className="text-[13px] font-medium text-slate-300 leading-relaxed">{analysis}</p>
+                                    )}
                                 </div>
 
                                 {/* Regime + Alerts + Navigate */}
