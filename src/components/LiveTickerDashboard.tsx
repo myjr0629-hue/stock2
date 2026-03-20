@@ -924,16 +924,17 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                 hourLabel: unifiedData.earnings.hourLabel || '',
                 epsEstimate: unifiedData.earnings.epsEstimate ?? null,
                 quarter: unifiedData.earnings.quarter,
-                year: unifiedData.earnings.year
+                year: unifiedData.earnings.year,
+                color: unifiedData.earnings.color || 'text-slate-400'
             });
         }
 
         // SMA / Trend Phase
         if (unifiedData.sma) {
             setSmaData({
-                ticker,
                 cross: unifiedData.sma.cross || 'NONE',
                 crossType: unifiedData.sma.crossType || '',
+                label: unifiedData.sma.label || '',
                 sma50: unifiedData.sma.sma50 || 0,
                 sma200: unifiedData.sma.sma200 || 0,
                 distance: unifiedData.sma.distance || 0,
