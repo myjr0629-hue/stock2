@@ -250,14 +250,15 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ error: 'Ticker is required' }, { status: 400 });
     }
 
-    const cacheKey = `${CACHE_KEY_PREFIX}${ticker}:${locale}`;
+    // [극강] Language-independent cache — ETN:ko, ETN:ja, ETN:en share ONE cache
+    const cacheKey = `${CACHE_KEY_PREFIX}${ticker}`;
     const start = Date.now();
 
     try {
         // ══════════════════════════════════════════════════════════════
         // [극강 Layer 1] IN-MEMORY LRU — 0ms response
         // ══════════════════════════════════════════════════════════════
-        const memKey = `${ticker}:${locale}`;
+        const memKey = `${ticker}`;
         const memData = memoryGet(memKey);
         if (memData && (memData.structure || memData.options)) {
             const ageMs = Date.now() - (memData.timestamp || 0);
