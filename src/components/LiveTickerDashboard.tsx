@@ -907,10 +907,11 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
     );
 
     // 2. Map Unified Data to Components
-    // [극강] Use timestamp as dependency key — guarantees useEffect fires on every SWR update
-    const unifiedTimestamp = unifiedData?.timestamp || unifiedData?._source || 0;
+    // [극강] JSON fingerprint ensures useEffect fires whenever actual data values change
+    const unifiedFingerprint = unifiedData ? `${!!unifiedData.structure}|${!!unifiedData.volatility}|${!!unifiedData.sma}|${!!unifiedData.fundamentals}|${!!unifiedData.related}|${unifiedData.timestamp || ''}|${unifiedData._source || ''}` : '';
     useEffect(() => {
         if (!unifiedData) return;
+        console.log('[Command] useEffect triggered, source:', unifiedData._source, 'has volatility:', !!unifiedData.volatility, 'has sma:', !!unifiedData.sma);
 
         // Structure & Options
         if (unifiedData.structure) setStructure(unifiedData.structure);
@@ -981,7 +982,8 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
         setOptionsLoading(false);
         // [극강] Mark unified data as received — cards can now show 'N/A' instead of 'Loading...'
         setUnifiedDataReceived(true);
-    }, [unifiedData, unifiedTimestamp]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [unifiedFingerprint]);
 
     // [FIX] Client-side chart refresh on visibility/focus change
     const fetchChartData = useCallback(async () => {
