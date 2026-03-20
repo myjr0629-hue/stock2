@@ -140,19 +140,11 @@ export function getFlashStyle(flash: 'up' | 'down' | null) {
     const color = flash === 'up' ? 'text-green-200' :
         flash === 'down' ? 'text-red-200' : 'text-white';
     const style: React.CSSProperties = flash ? {
-        transition: 'color 0.1s ease-in, text-shadow 0.1s ease-in, background-color 0.1s ease-in',
+        transition: 'color 0.1s ease-in, text-shadow 0.1s ease-in',
         textShadow: flash === 'up' ? '0 0 12px rgba(74,222,128,0.8)' : '0 0 12px rgba(248,113,113,0.8)',
-        backgroundColor: flash === 'up' ? 'rgba(34,197,94,0.2)' : 'rgba(239,68,68,0.2)',
-        borderRadius: '4px',
-        padding: '0 4px',
-        margin: '0 -4px',
     } : {
-        transition: 'color 0.5s ease-out, text-shadow 0.5s ease-out, background-color 0.5s ease-out',
+        transition: 'color 0.5s ease-out, text-shadow 0.5s ease-out',
         textShadow: 'none',
-        backgroundColor: 'transparent',
-        borderRadius: '4px',
-        padding: '0 4px',
-        margin: '0 -4px',
     };
     return { color, style };
 }
@@ -196,19 +188,11 @@ export function PriceDisplay({
 
     // [STRONG] Triple combo: background highlight + text color + glow
     const flashStyle: React.CSSProperties = flash ? {
-        transition: 'color 0.1s ease-in, text-shadow 0.1s ease-in, background-color 0.1s ease-in',
+        transition: 'color 0.1s ease-in, text-shadow 0.1s ease-in',
         textShadow: flash === 'up' ? '0 0 12px rgba(74,222,128,0.8)' : '0 0 12px rgba(248,113,113,0.8)',
-        backgroundColor: flash === 'up' ? 'rgba(34,197,94,0.2)' : 'rgba(239,68,68,0.2)',
-        borderRadius: '4px',
-        padding: '0 4px',
-        margin: '0 -4px',
     } : {
-        transition: 'color 0.5s ease-out, text-shadow 0.5s ease-out, background-color 0.5s ease-out',
+        transition: 'color 0.5s ease-out, text-shadow 0.5s ease-out',
         textShadow: 'none',
-        backgroundColor: 'transparent',
-        borderRadius: '4px',
-        padding: '0 4px',
-        margin: '0 -4px',
     };
 
     return (
