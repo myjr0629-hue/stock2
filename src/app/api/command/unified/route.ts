@@ -292,10 +292,23 @@ export async function GET(request: NextRequest) {
         // ══════════════════════════════════════════════════════════════
         // [극강 Layer 2] Redis Cache — ~5ms response (TTL 30min)
         // ══════════════════════════════════════════════════════════════
-        const [cachedData, cachedOverview] = await Promise.all([
+        let [cachedData, cachedOverview] = await Promise.all([
             getFromCache<any>(dataCacheKey).catch(() => null),
             getFromCache<any>(overviewCacheKey).catch(() => null),
         ]);
+
+        // Migration fallback: try old key format if new key has no data
+        if (!cachedData) {
+            const oldKey = `${CACHE_KEY_PREFIX}${ticker}:${locale}`;
+            const oldData = await getFromCache<any>(oldKey).catch(() => null);
+            if (oldData && oldData.timestamp && (oldData.structure || oldData.options)) {
+                cachedData = oldData;
+                if (!cachedOverview && oldData.overview) cachedOverview = oldData.overview;
+                // Migrate to new key format for next time
+                setInCache(dataCacheKey, oldData, getSmartTTL()).catch(() => {});
+                if (oldData.overview) setInCache(overviewCacheKey, oldData.overview, getSmartTTL()).catch(() => {});
+            }
+        }
 
         if (cachedData && cachedData.timestamp && (cachedData.structure || cachedData.options)) {
             const ageMs = Date.now() - cachedData.timestamp;
