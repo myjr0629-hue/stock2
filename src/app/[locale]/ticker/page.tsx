@@ -59,8 +59,8 @@ export default async function TickerPage({ params, searchParams }: Props) {
             const dynamoUnified = await getUnifiedCache(ticker, locale);
             if (dynamoUnified && (dynamoUnified.structure || dynamoUnified.options)) {
                 initialUnifiedData = dynamoUnified;
-                // Re-warm Redis for next visitor (fire-and-forget)
-                setInCache(`cache:command:unified:${ticker}:${locale}`, dynamoUnified, 300).catch(() => {});
+                // Re-warm Redis for next visitor (fire-and-forget) — 30min TTL
+                setInCache(`cache:command:unified:${ticker}:${locale}`, dynamoUnified, 1800).catch(() => {});
             }
         } catch { /* DynamoDB Unified Cache unavailable */ }
     }
@@ -92,6 +92,42 @@ export default async function TickerPage({ params, searchParams }: Props) {
                 };
             }
         } catch { /* DynamoDB unavailable in SSR — continue without initial data */ }
+    }
+
+    // ── [극강 Layer 3] SSR Direct Build — server fetches unified API if ALL caches miss ──
+    // 3-second timeout: if Polygon is slow, fall through to client SWR (current behavior)
+    if (!initialUnifiedData) {
+        try {
+            const headers = new Headers();
+            headers.set('x-ssr-direct', '1'); // Tag for logging
+            const baseUrl = process.env.VERCEL_URL
+                ? `https://${process.env.VERCEL_URL}`
+                : `http://localhost:${process.env.PORT || 3000}`;
+
+            const controller = new AbortController();
+            const timeout = setTimeout(() => controller.abort(), 3000); // 3s timeout
+
+            const ssrRes = await fetch(
+                `${baseUrl}/api/command/unified?t=${ticker}&lang=${locale}`,
+                { signal: controller.signal, cache: 'no-store' }
+            );
+            clearTimeout(timeout);
+
+            if (ssrRes.ok) {
+                const ssrData = await ssrRes.json();
+                if (ssrData && (ssrData.structure || ssrData.options)) {
+                    initialUnifiedData = ssrData;
+                    console.log(`[SSR] 극강 Layer 3: Direct build for ${ticker} succeeded`);
+                }
+            }
+        } catch (e: any) {
+            // AbortError = timeout (safe, expected), other errors = also safe
+            if (e?.name !== 'AbortError') {
+                console.warn(`[SSR] Layer 3 direct build failed for ${ticker}:`, e?.message);
+            } else {
+                console.log(`[SSR] Layer 3 timeout for ${ticker} (3s) — client SWR will handle`);
+            }
+        }
     }
 
     // ── Apply DynamoDB price to stockData if Polygon failed ──

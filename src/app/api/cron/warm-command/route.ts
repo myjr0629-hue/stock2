@@ -38,7 +38,7 @@ import { UNIVERSE_500 } from '@/lib/universe';
 const BATCH_SIZE = 10;
 const TOTAL_BATCHES = Math.ceil(UNIVERSE_500.length / BATCH_SIZE); // 50
 const CACHE_KEY_PREFIX = 'cache:command:unified:';
-const CACHE_TTL_MARKET = 300; // 5 min during market
+const CACHE_TTL_MARKET = 1800; // [극강] 30 min during market (was 5 min)
 const CACHE_TTL_OFFHOURS = 43200; // 12 hours off-hours (data won't change)
 const LOCALES = ['ko', 'en'];
 

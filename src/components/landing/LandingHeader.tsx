@@ -77,6 +77,10 @@ export function LandingHeader() {
         e.preventDefault();
         if (searchQuery.trim()) {
             const ticker = searchQuery.toUpperCase();
+            // [극강 Layer 4] Prefetch unified data before navigation → SWR cache warm on arrival
+            if (!pathname?.startsWith('/flow')) {
+                fetch(`/api/command/unified?t=${ticker}&lang=${locale}`, { priority: 'low' } as any).catch(() => {});
+            }
             if (pathname?.startsWith('/flow')) {
                 router.push(`/flow?ticker=${ticker}`);
             } else {

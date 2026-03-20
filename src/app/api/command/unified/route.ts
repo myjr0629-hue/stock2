@@ -16,19 +16,48 @@ import { GET as getOverview } from '@/app/api/live/overview/route';
 
 // Configuration
 const CACHE_KEY_PREFIX = 'cache:command:unified:';
-const CACHE_TTL_MARKET = 300; // 5 minutes during market hours
+const CACHE_TTL_MARKET = 1800; // [극강] 30 minutes during market hours (was 5 min)
 const CACHE_TTL_OFFHOURS = 43200; // 12 hours during off-hours (data doesn't change)
-const REFRESH_THRESHOLD_MS = 120 * 1000; // [OPTIMIZED] 2 minutes
+const REFRESH_THRESHOLD_MS = 300 * 1000; // [극강] 5 minutes — background refresh after 5 min (was 2 min)
+
+// ══════════════════════════════════════════════════════════════
+// [극강 Layer 1] IN-MEMORY LRU CACHE — 0ms response
+// Survives within the same serverless instance (Vercel keeps warm ~5-15 min)
+// Max 200 entries, 60-second TTL (short = always fresh)
+// ══════════════════════════════════════════════════════════════
+const MEMORY_MAX = 200;
+const MEMORY_TTL_MS = 60_000; // 60 seconds
+const memoryCache = new Map<string, { data: any; ts: number }>();
+
+function memoryGet(key: string): any | null {
+    const entry = memoryCache.get(key);
+    if (!entry) return null;
+    if (Date.now() - entry.ts > MEMORY_TTL_MS) {
+        memoryCache.delete(key);
+        return null;
+    }
+    return entry.data;
+}
+
+function memorySet(key: string, data: any): void {
+    // LRU eviction: if at capacity, delete oldest entry
+    if (memoryCache.size >= MEMORY_MAX) {
+        const oldestKey = memoryCache.keys().next().value;
+        if (oldestKey) memoryCache.delete(oldestKey);
+    }
+    memoryCache.set(key, { data, ts: Date.now() });
+}
+
+function isMarketHoursNow(): boolean {
+    const now = new Date();
+    const utcMin = now.getUTCHours() * 60 + now.getUTCMinutes();
+    const day = now.getUTCDay();
+    return day >= 1 && day <= 5 && utcMin >= 13 * 60 + 30 && utcMin <= 21 * 60;
+}
 
 // Smart TTL: short during market, long during off-hours
 function getSmartTTL(): number {
-    const now = new Date();
-    const utcHour = now.getUTCHours();
-    const utcMin = utcHour * 60 + now.getUTCMinutes();
-    const day = now.getUTCDay();
-    // Market hours: Mon-Fri, 13:30-21:00 UTC (9:30-16:00 ET + extended)
-    const isMarketHours = day >= 1 && day <= 5 && utcMin >= 13 * 60 + 30 && utcMin <= 21 * 60;
-    return isMarketHours ? CACHE_TTL_MARKET : CACHE_TTL_OFFHOURS;
+    return isMarketHoursNow() ? CACHE_TTL_MARKET : CACHE_TTL_OFFHOURS;
 }
 
 // [AWS Phase 2] Fetch DynamoDB GEX history for percentile, flip events, maxpain tracking
@@ -85,15 +114,17 @@ async function fetchGexHistoryData(ticker: string): Promise<any> {
     }
 }
 
-// Helper: JSON response with browser caching headers
+// [극강 Layer 5] JSON response with Vercel CDN edge caching headers
+// s-maxage: Vercel CDN caches at edge (서버 함수 호출 자체가 없음)
+// stale-while-revalidate: 만료 후에도 즉시 stale 응답 + 백그라운드 갱신
 function jsonResponse(data: any, status = 200) {
-    const isMarket = getSmartTTL() === CACHE_TTL_MARKET;
+    const isMarket = isMarketHoursNow();
     return NextResponse.json(data, {
         status,
         headers: {
             'Cache-Control': isMarket
-                ? 'private, max-age=10, stale-while-revalidate=30'
-                : 'private, max-age=60, stale-while-revalidate=300',
+                ? 'public, s-maxage=15, stale-while-revalidate=60, max-age=10'
+                : 'public, s-maxage=300, stale-while-revalidate=3600, max-age=60',
         }
     });
 }
@@ -211,12 +242,30 @@ export async function GET(request: NextRequest) {
 
     try {
         // ══════════════════════════════════════════════════════════════
-        // TIER 1: Redis Cache — 0ms response
+        // [극강 Layer 1] IN-MEMORY LRU — 0ms response
+        // ══════════════════════════════════════════════════════════════
+        const memKey = `${ticker}:${locale}`;
+        const memData = memoryGet(memKey);
+        if (memData && (memData.structure || memData.options)) {
+            const ageMs = Date.now() - (memData.timestamp || 0);
+            // Background refresh if stale
+            if (ageMs > REFRESH_THRESHOLD_MS) {
+                const baseUrl = getBaseUrl(request);
+                triggerBackgroundRefresh(ticker, cacheKey, baseUrl, locale);
+            }
+            return jsonResponse({ ...memData, _source: 'memory-lru', _ageMs: ageMs });
+        }
+
+        // ══════════════════════════════════════════════════════════════
+        // [극강 Layer 2] Redis Cache — ~5ms response (TTL 30min)
         // ══════════════════════════════════════════════════════════════
         const cachedData = await getFromCache<any>(cacheKey);
 
         if (cachedData && cachedData.timestamp && (cachedData.structure || cachedData.options)) {
             const ageMs = Date.now() - cachedData.timestamp;
+
+            // Promote to memory cache for next request (0ms)
+            memorySet(memKey, cachedData);
 
             // SWR: If older than threshold, refetch in background
             if (ageMs > REFRESH_THRESHOLD_MS) {
@@ -235,8 +284,9 @@ export async function GET(request: NextRequest) {
             const { getUnifiedCache } = await import('@/lib/aws/unifiedCacheProvider');
             const dynamoUnified = await getUnifiedCache(ticker, locale);
             if (dynamoUnified && (dynamoUnified.structure || dynamoUnified.options)) {
-                // Re-warm Redis for next request (0ms)
+                // Re-warm Redis + memory for next request
                 setInCache(cacheKey, dynamoUnified, getSmartTTL()).catch(() => {});
+                memorySet(memKey, dynamoUnified);
                 console.log(`[Command Unified] ⚡ DynamoDB UNIFIED for ${ticker} in ${Date.now() - start}ms`);
                 return jsonResponse({ ...dynamoUnified, _source: 'dynamodb-unified', _latency: Date.now() - start });
             }
@@ -285,6 +335,7 @@ export async function GET(request: NextRequest) {
                     timestamp: Date.now(),
                 };
                 await setInCache(cacheKey, merged, getSmartTTL());
+                memorySet(memKey, merged);
                 // Persist to DynamoDB for permanent access
                 import('@/lib/aws/unifiedCacheProvider').then(m => m.putUnifiedCache(ticker, locale, merged)).catch(() => {});
                 console.log(`[Command Unified] ⚡ MERGED (DynamoDB+Polygon) for ${ticker} in ${Date.now() - start}ms`);
@@ -317,6 +368,7 @@ export async function GET(request: NextRequest) {
             }).catch(() => {});
 
             console.log(`[Command Unified] ⚡ DynamoDB PARTIAL for ${ticker} in ${Date.now() - start}ms (Polygon timeout, bg merge)`);
+            memorySet(memKey, dynamoResult);
             return jsonResponse({ ...dynamoResult, _source: 'dynamodb-partial', _ageMs: 0, _latency: Date.now() - start });
         }
 
@@ -325,6 +377,7 @@ export async function GET(request: NextRequest) {
 
         if (newData.structure || newData.options) {
             await setInCache(cacheKey, newData, getSmartTTL());
+            memorySet(memKey, newData);
             // Persist to DynamoDB for permanent access
             import('@/lib/aws/unifiedCacheProvider').then(m => m.putUnifiedCache(ticker, locale, newData)).catch(() => {});
         }
