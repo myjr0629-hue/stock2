@@ -147,8 +147,15 @@ export function calcPriceDisplay(input: PriceDisplayInput): PriceDisplayResult {
     if (input.liveExtPrice && input.liveExtPrice > 0 && input.liveExtLabel) {
         activeExtPrice = input.liveExtPrice;
         activeExtPct = input.liveExtChangePct || 0;
-        activeExtLabel = input.liveExtLabel === 'PRE' ? 'PRE' : input.liveExtLabel === 'POST' ? 'POST' : input.liveExtLabel;
-        activeExtType = input.liveExtLabel; // Treat type same as label for styling mapping
+        // During REG session, PRE market has closed → show as 'PRE CLOSE'
+        const isRegSession = s === 'REG' || s === 'RTH' || s === 'MARKET';
+        if (input.liveExtLabel === 'PRE' && isRegSession) {
+            activeExtLabel = 'PRE CLOSE';
+            activeExtType = 'PRE_CLOSE';
+        } else {
+            activeExtLabel = input.liveExtLabel === 'PRE' ? 'PRE' : input.liveExtLabel === 'POST' ? 'POST' : input.liveExtLabel;
+            activeExtType = input.liveExtLabel;
+        }
     } else {
         // Fallback to heavy ticker API data if live polling hasn't spun up yet
         if (s === 'PRE') {

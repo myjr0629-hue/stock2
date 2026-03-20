@@ -128,6 +128,12 @@ export async function GET(request: Request) {
 
             if (session === 'regular') {
                 price = liveLast || dayClose || prevClose;
+                // [FIX] Provide PRE CLOSE badge during REG session from Polygon preMarket data
+                const preMarketClose = S.preMarket?.c || 0;
+                if (preMarketClose > 0) {
+                    extendedPrice = preMarketClose;
+                    extendedLabel = 'PRE';
+                }
             } else if (session === 'pre') {
                 price = prevClose;
                 extendedPrice = S.min?.c || liveLast || 0;
