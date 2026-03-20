@@ -43,7 +43,7 @@ export default async function TickerPage({ params, searchParams }: Props) {
 
     const [initialStockData, rawUnifiedData, initialChartData] = await Promise.all([
         getStockDataLight(ticker).catch(() => null),
-        getFromCache<any>(`cache:command:unified:${ticker}:${locale}`).catch(() => null),
+        getFromCache<any>(`cache:command:unified:${ticker}`).catch(() => null),
         chartWithTimeout,
     ]);
 
@@ -60,7 +60,7 @@ export default async function TickerPage({ params, searchParams }: Props) {
             if (dynamoUnified && (dynamoUnified.structure || dynamoUnified.options)) {
                 initialUnifiedData = dynamoUnified;
                 // Re-warm Redis for next visitor (fire-and-forget) — 30min TTL
-                setInCache(`cache:command:unified:${ticker}:${locale}`, dynamoUnified, 1800).catch(() => {});
+                setInCache(`cache:command:unified:${ticker}`, dynamoUnified, 1800).catch(() => {});
             }
         } catch { /* DynamoDB Unified Cache unavailable */ }
     }
