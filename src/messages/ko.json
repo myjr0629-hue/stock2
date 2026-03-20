@@ -2486,6 +2486,7 @@
         "fundGood": "재무 양호",
         "fundAvg": "재무 보통",
         "fundCaution": "주의 필요",
+        "fundNoData": "데이터 미제공",
         "fundGradeCollecting": "수집중",
         "fundRevenue": "매출",
         "fundMargin": "마진",

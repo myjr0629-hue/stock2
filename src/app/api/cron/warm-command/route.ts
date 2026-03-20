@@ -56,12 +56,22 @@ function getSmartTTL(): number {
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
+const CRON_CALL_TIMEOUT_MS = 10000; // 10초 per API call — 서버 로그에서 확인: timeout 없으면 무한 대기
+
 async function callInternalGet(handler: Function, url: string) {
     try {
         const mockReq = new NextRequest(url);
-        const res = await handler(mockReq);
-        if (!res || !res.ok) return null;
-        return await res.json();
+        const result = await Promise.race([
+            handler(mockReq).then(async (res: any) => {
+                if (!res || !res.ok) return null;
+                return await res.json();
+            }),
+            new Promise<null>(resolve => setTimeout(() => {
+                console.warn(`[warm-command] ⏱️ Timeout (${CRON_CALL_TIMEOUT_MS}ms): ${url.split('?')[0].split('/').pop()}`);
+                resolve(null);
+            }, CRON_CALL_TIMEOUT_MS))
+        ]);
+        return result;
     } catch {
         return null;
     }

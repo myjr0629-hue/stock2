@@ -110,18 +110,30 @@ export async function GET(req: NextRequest) {
                     breakdown.margin = { value: 'N/A', score: 0, label: 'Margin' };
                 }
 
+                // [FIX] 외국주 등 Polygon 데이터가 전혀 없는 경우 감지
+                // 모든 breakdown이 N/A면 = Polygon에서 데이터를 제공하지 않는 종목
+                const hasAnyData = Object.values(breakdown).some(b => b.score > 0);
+
                 let grade: string;
-                if (score >= 80) grade = 'A';
-                else if (score >= 70) grade = 'A-';
-                else if (score >= 60) grade = 'B+';
-                else if (score >= 50) grade = 'B';
-                else if (score >= 40) grade = 'C+';
-                else if (score >= 30) grade = 'C';
-                else if (score >= 20) grade = 'D';
-                else grade = 'F';
+                let finalScore: number | null;
+                if (!hasAnyData) {
+                    // 데이터 미제공 종목 (외국주, ADR 등)
+                    grade = 'NO_DATA';
+                    finalScore = null;
+                } else {
+                    finalScore = score;
+                    if (score >= 80) grade = 'A';
+                    else if (score >= 70) grade = 'A-';
+                    else if (score >= 60) grade = 'B+';
+                    else if (score >= 50) grade = 'B';
+                    else if (score >= 40) grade = 'C+';
+                    else if (score >= 30) grade = 'C';
+                    else if (score >= 20) grade = 'D';
+                    else grade = 'F';
+                }
 
                 return {
-                    ticker, score, grade, breakdown,
+                    ticker, score: finalScore, grade, breakdown,
                     pe: pe !== null ? Math.round(pe * 10) / 10 : null,
                     de: de !== null ? Math.round(de * 100) / 100 : null,
                     roe: roe !== null ? Math.round(roe * 1000) / 10 : null,

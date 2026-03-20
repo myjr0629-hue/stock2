@@ -2125,6 +2125,7 @@
         "fundGood": "Good",
         "fundAvg": "Avg Financials",
         "fundCaution": "Caution",
+        "fundNoData": "Not Available",
         "fundGradeCollecting": "Loading",
         "fundRevenue": "Revenue",
         "fundMargin": "Margin",

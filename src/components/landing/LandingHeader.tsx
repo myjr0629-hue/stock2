@@ -112,7 +112,7 @@ export function LandingHeader() {
 
                 {/* 2. NAVIGATION + SEARCH (fill middle) */}
                 <div className="hidden xl:flex items-center gap-1 flex-1 min-w-0">
-                    <nav className="flex items-center gap-1.5 font-jakarta">
+                    <nav className="flex items-center gap-1.5 font-jakarta" suppressHydrationWarning>
                         {[
                             { label: "DASHBOARD", href: "/dashboard", path: "/dashboard", hasLive: false },
                             { label: "GUARDIAN", href: "/intel-guardian", path: "/intel-guardian", hasLive: false },
@@ -124,11 +124,12 @@ export function LandingHeader() {
                             // { label: "GUIDE", href: "/how-it-works", path: "/how-it-works", hasLive: false }, // Hidden for compliance review
                             { label: "PRICING", href: "/pricing", path: "/pricing", hasLive: false }
                         ].map((item) => {
-                            const isActive = mounted && item.path
+                            const isActive = item.path
                                 ? (item.path === "/intel" ? pathname === "/intel" : pathname?.startsWith(item.path))
                                 : false;
                             return (
                                 <Link
+                                    suppressHydrationWarning
                                     key={item.label}
                                     href={item.href}
                                     className={clsx(
@@ -365,7 +366,7 @@ export function LandingHeader() {
                                 </div>
 
                                 {/* Navigation Links */}
-                                <nav className="px-3 space-y-0.5">
+                                <nav className="px-3 space-y-0.5" suppressHydrationWarning>
                                     {[
                                         { label: "DASHBOARD", href: "/dashboard", icon: "📊" },
                                         { label: "GUARDIAN", href: "/intel-guardian", icon: "🛡️" },

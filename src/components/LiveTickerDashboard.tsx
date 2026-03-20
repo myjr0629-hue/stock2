@@ -1812,11 +1812,12 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                     <ProGate title="Fundamental" mode="peek" compact>
                         {(() => {
                             const f = effectiveFund;
-                            const hasData = f && f.score > 0;
-                            const gradeColor = f?.grade?.startsWith('A') ? 'text-emerald-400' : f?.grade?.startsWith('B') ? 'text-cyan-400' : f?.grade?.startsWith('C') ? 'text-amber-400' : 'text-slate-400';
-                            const gradeBg = f?.grade?.startsWith('A') ? 'bg-emerald-950/40 border-emerald-500/30 animate-card-breathe-bull' : f?.grade?.startsWith('B') ? 'bg-cyan-950/40 border-cyan-500/30' : 'bg-slate-800/40 border-slate-700/50';
+                            const isNoData = f?.grade === 'NO_DATA';
+                            const hasData = f && f.score !== null && f.score > 0;
+                            const gradeColor = isNoData ? 'text-slate-400' : f?.grade?.startsWith('A') ? 'text-emerald-400' : f?.grade?.startsWith('B') ? 'text-cyan-400' : f?.grade?.startsWith('C') ? 'text-amber-400' : 'text-slate-400';
+                            const gradeBg = isNoData ? 'bg-slate-800/40 border-slate-700/50' : f?.grade?.startsWith('A') ? 'bg-emerald-950/40 border-emerald-500/30 animate-card-breathe-bull' : f?.grade?.startsWith('B') ? 'bg-cyan-950/40 border-cyan-500/30' : 'bg-slate-800/40 border-slate-700/50';
                             const bd = f?.breakdown;
-                            const fundDesc = !hasData ? td('fundCollecting') : f?.grade?.startsWith('A') ? td('fundExcellent') : f?.grade?.startsWith('B') ? td('fundGood') : f?.grade?.startsWith('C') ? td('fundAvg') : td('fundCaution');
+                            const fundDesc = isNoData ? td('fundNoData') : !hasData ? td('fundCollecting') : f?.grade?.startsWith('A') ? td('fundExcellent') : f?.grade?.startsWith('B') ? td('fundGood') : f?.grade?.startsWith('C') ? td('fundAvg') : td('fundCaution');
                             // Display raw values even when score is 0
                             const pe = f?.pe; const de = f?.de; const roe = f?.roe; const rev = f?.revenueGrowth; const margin = f?.netMargin;
                             return (
@@ -1829,7 +1830,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                             <span className="text-[13px] font-bold text-white uppercase tracking-wider font-jakarta"><CardTooltip tooltip={COMMAND_TOOLTIPS.FUNDAMENTAL.tooltip}>FUNDAMENTAL</CardTooltip></span>
                                         </div>
                                         <span className={`text-[12px] font-black px-1.5 py-px rounded font-jakarta bg-slate-700/30 ${hasData ? gradeColor : 'text-slate-400'}`}>
-                                            {hasData ? f?.grade : td('fundGradeCollecting')}
+                                            {isNoData ? 'N/A' : hasData ? f?.grade : td('fundGradeCollecting')}
                                         </span>
                                     </div>
                                     {hasData ? (
@@ -2010,7 +2011,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                                 vwap={liveQuote?.vwap || initialStockData?.vwap}
                                                 gammaFlipLevel={structure?.gammaFlipLevel}
                                                 nbbo={(() => {
-                                                    const q = wsGetQuote(ticker);
+                                                    const q = typeof wsGetQuote === 'function' ? wsGetQuote(ticker) : undefined;
                                                     return q && q.bid > 0 && q.ask > 0 ? { bid: q.bid, ask: q.ask, bidSize: q.bidSize || 0, askSize: q.askSize || 0 } : null;
                                                 })()}
                                             />

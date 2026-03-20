@@ -487,10 +487,54 @@ async function tryDynamoFast(ticker: string): Promise<any | null> {
         );
 
         if (hasFreshPrice) {
-            const [gexHistory] = await Promise.all([fetchGexHistoryData(ticker)]);
             const gex = snap.gex;
             const flow = snap.flow;
             const p = snap.price as any;
+
+            // [핵심 FIX] DynamoDB에 없는 필드(fundamentals, sma, related)를 개별 API로 보충
+            // 4초 timeout — DynamoDB 응답(~1s) + supplement(~2-3s) = 전체 ~5s 이내
+            const SUPPLEMENT_TIMEOUT = 4000;
+            const supplementPromises: Promise<any>[] = [fetchGexHistoryData(ticker)];
+
+            const needFundamentals = !snap.fundamentals?.score;
+            const needSma = !p.sma50 || !p.sma200;
+            const needRelated = !snap.related?.tickers?.length;
+
+            const baseUrl = process.env.VERCEL_URL
+                ? `https://${process.env.VERCEL_URL}`
+                : `http://localhost:${process.env.PORT || '3000'}`;
+
+            if (needFundamentals) {
+                supplementPromises.push(
+                    Promise.race([
+                        callInternalGet(getFundamentals, `${baseUrl}/api/live/fundamentals?t=${ticker}`),
+                        new Promise<null>(r => setTimeout(() => r(null), SUPPLEMENT_TIMEOUT))
+                    ])
+                );
+            }
+            if (needSma) {
+                supplementPromises.push(
+                    Promise.race([
+                        callInternalGet(getSma, `${baseUrl}/api/live/sma?t=${ticker}`),
+                        new Promise<null>(r => setTimeout(() => r(null), SUPPLEMENT_TIMEOUT))
+                    ])
+                );
+            }
+            if (needRelated) {
+                supplementPromises.push(
+                    Promise.race([
+                        callInternalGet(getRelated, `${baseUrl}/api/live/related?t=${ticker}`),
+                        new Promise<null>(r => setTimeout(() => r(null), SUPPLEMENT_TIMEOUT))
+                    ])
+                );
+            }
+
+            const supplementResults = await Promise.all(supplementPromises);
+            const [gexHistory] = supplementResults;
+            let supplementIdx = 1;
+            const fundResult = needFundamentals ? supplementResults[supplementIdx++] : null;
+            const smaResult = needSma ? supplementResults[supplementIdx++] : null;
+            const relResult = needRelated ? supplementResults[supplementIdx++] : null;
 
             // Build SMA
             let smaCard = null;
@@ -520,12 +564,38 @@ async function tryDynamoFast(ticker: string): Promise<any | null> {
                 earningsCard = { ticker, nextEarningsDate: e.nextDate || null, daysUntilEarnings: days, daysLabel: days < 0 ? `D+${Math.abs(days)}` : days === 0 ? 'today' : `D-${days}`, epsEstimate: e.epsEstimate || null, quarter: e.quarter || null, year: e.year || null, hourLabel: e.hour || '', color: days <= 3 && days >= 0 ? 'text-rose-400' : days <= 7 && days >= 0 ? 'text-amber-400' : 'text-slate-400', hasData: true };
             }
 
-            let relatedCard = snap.related?.tickers ? { ticker, relatedTickers: snap.related.tickers } : null;
+            let relatedCard = snap.related?.tickers ? {
+                ticker,
+                count: snap.related.tickers.length,
+                topRelated: snap.related.tickers.slice(0, 4).map((t: string) => ({ ticker: t, price: 0, change: 0, logo: null })),
+                relatedTickers: snap.related.tickers,
+                allTickers: snap.related.tickers,
+                _source: 'dynamodb-partial',
+            } : null;
 
             let fundamentalsCard = null;
             if (snap.fundamentals) {
                 const f = snap.fundamentals;
-                fundamentalsCard = { ticker, name: f.name || ticker, marketCap: f.marketCap || null, shareCount: f.shareCount || null, description: f.description || null, sector: f.sector || null };
+                fundamentalsCard = {
+                    ticker, name: f.name || ticker,
+                    marketCap: f.marketCap || null, shareCount: f.shareCount || null,
+                    description: f.description || null, sector: f.sector || null,
+                    score: f.score ?? null, grade: f.grade ?? null,
+                    pe: f.pe ?? null, roe: f.roe ?? null, de: f.de ?? null,
+                    revenueGrowth: f.revenueGrowth ?? null, netMargin: f.netMargin ?? null,
+                    breakdown: f.breakdown ?? null,
+                };
+            }
+
+            // [핵심 FIX] DynamoDB에 없는 필드를 supplement API 결과로 보충
+            if (!fundamentalsCard && fundResult) {
+                fundamentalsCard = fundResult;
+            }
+            if (!smaCard && smaResult) {
+                smaCard = smaResult;
+            }
+            if (!relatedCard && relResult) {
+                relatedCard = relResult;
             }
 
             // Build squeeze from GEX data (squeezeProbability or compute from PCR + regime)

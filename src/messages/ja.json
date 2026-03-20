@@ -2125,6 +2125,7 @@
         "fundGood": "財務良好",
         "fundAvg": "財務普通",
         "fundCaution": "注意必要",
+        "fundNoData": "データ未提供",
         "fundGradeCollecting": "収集中",
         "fundRevenue": "売上",
         "fundMargin": "マージン",

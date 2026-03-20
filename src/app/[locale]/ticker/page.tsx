@@ -90,8 +90,19 @@ export default async function TickerPage({ params, searchParams }: Props) {
                     sma: p.sma50 && p.sma200 ? { ticker, cross: p.cross || 'NONE', crossType: p.crossType || '', sma50: p.sma50, sma200: p.sma200, distance: Math.round(((p.sma50 - p.sma200) / p.sma200) * 10000) / 100, isImminent: Math.abs(((p.sma50 - p.sma200) / p.sma200) * 100) < 0.5, phase: 'NEUTRAL', label: '' } : null,
                     earnings: snap.earnings ? { ticker, nextEarningsDate: snap.earnings.nextDate, daysUntilEarnings: snap.earnings.daysUntil || 0, daysLabel: (snap.earnings.daysUntil || 0) <= 0 ? 'today' : `D-${snap.earnings.daysUntil}`, hasData: true } : null,
                     analyst: snap.analyst ? { ticker, consensus: snap.analyst.consensus || 'N/A', totalAnalysts: snap.analyst.totalAnalysts || 0, bullishPct: snap.analyst.bullishPct || 0, breakdown: snap.analyst.breakdown || {} } : null,
-                    fundamentals: snap.fundamentals ? { ticker, name: snap.fundamentals.name || ticker, marketCap: snap.fundamentals.marketCap, sector: snap.fundamentals.sector } : null,
-                    related: snap.related?.tickers ? { ticker, relatedTickers: snap.related.tickers } : null,
+                    fundamentals: snap.fundamentals ? {
+                        ticker, name: snap.fundamentals.name || ticker,
+                        marketCap: snap.fundamentals.marketCap, sector: snap.fundamentals.sector,
+                        score: snap.fundamentals.score ?? null, grade: snap.fundamentals.grade ?? null,
+                        pe: snap.fundamentals.pe ?? null, roe: snap.fundamentals.roe ?? null,
+                        de: snap.fundamentals.de ?? null, revenueGrowth: snap.fundamentals.revenueGrowth ?? null,
+                        netMargin: snap.fundamentals.netMargin ?? null, breakdown: snap.fundamentals.breakdown ?? null,
+                    } : null,
+                    related: snap.related?.tickers ? {
+                        ticker, count: snap.related.tickers.length,
+                        topRelated: snap.related.tickers.slice(0, 4).map((t: string) => ({ ticker: t, price: 0, change: 0, logo: null })),
+                        relatedTickers: snap.related.tickers, allTickers: snap.related.tickers,
+                    } : null,
                     _dynamoPrice: { price: p.close, open: p.open, high: p.high, low: p.low, volume: p.volume, changePct: p.changePct },
                     timestamp: Date.now(), _source: 'ssr-dynamodb',
                 };

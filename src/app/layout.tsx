@@ -67,6 +67,7 @@ export default function RootLayout({
       </head>
       <body
         className="antialiased"
+        suppressHydrationWarning
       >
         <GuardianProvider>
           {children}

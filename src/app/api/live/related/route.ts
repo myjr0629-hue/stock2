@@ -27,23 +27,31 @@ export async function GET(req: NextRequest) {
             const dynRelated = await getRelatedData(ticker);
             if (dynRelated?.tickers && dynRelated.tickers.length > 0) {
                 const relTickers = dynRelated.tickers.slice(0, 10);
-                // Get prices for top 3 from snapshot
-                const top3 = relTickers.slice(0, 3);
-                const pricePromises = top3.map(async (relTicker: string) => {
-                    try {
-                        const snapshotUrl = `${MASSIVE_BASE_URL}/v2/snapshot/locale/us/markets/stocks/tickers/${relTicker}?apiKey=${MASSIVE_API_KEY}`;
-                        const snapshot = await fetchMassive(snapshotUrl, {}, false, undefined, CACHE_POLICY.LIVE);
-                        const tickerData = snapshot?.ticker || {};
-                        const price = tickerData.lastTrade?.p || tickerData.day?.c || tickerData.prevDay?.c || 0;
-                        const change = tickerData.todaysChangePerc || 0;
-                        return { ticker: relTicker, price: Math.round(price * 100) / 100, change: Math.round(change * 100) / 100, logo: null };
-                    } catch { return { ticker: relTicker, price: 0, change: 0, logo: null }; }
-                });
-                const topRelatedWithPrices = await Promise.all(pricePromises);
+                const top4 = relTickers.slice(0, 4);
+
+                // [FIX] 4개 종목 changePct를 한번에 가져오기 (2초 timeout)
+                let topRelated = top4.map((t: string) => ({ ticker: t, price: 0, change: 0, logo: null }));
+                try {
+                    const snapPromises = top4.map((relT: string) =>
+                        fetchMassive(`/v2/snapshot/locale/us/markets/stocks/tickers/${relT}`, {}, true)
+                            .then((snap: any) => ({
+                                ticker: relT,
+                                price: Math.round((snap?.ticker?.lastTrade?.p || snap?.ticker?.day?.c || 0) * 100) / 100,
+                                change: Math.round((snap?.ticker?.todaysChangePerc || 0) * 100) / 100,
+                                logo: null
+                            }))
+                            .catch(() => ({ ticker: relT, price: 0, change: 0, logo: null }))
+                    );
+                    topRelated = await Promise.race([
+                        Promise.all(snapPromises),
+                        new Promise<typeof topRelated>(r => setTimeout(() => r(topRelated), 2000))
+                    ]);
+                } catch {}
+
                 return new Response(JSON.stringify({
                     ticker, count: relTickers.length,
                     label: relTickers.length >= 10 ? '다수' : relTickers.length >= 5 ? '보통' : '소수',
-                    topRelated: topRelatedWithPrices,
+                    topRelated,
                     allTickers: relTickers,
                     _source: 'dynamodb',
                 }), { status: 200, headers: { 'Content-Type': 'application/json; charset=utf-8' } });
@@ -53,37 +61,30 @@ export async function GET(req: NextRequest) {
         // ====== Polygon fallback ======
         // Fetch Related Companies from Polygon/Massive API
         const url = `${MASSIVE_BASE_URL}/v1/related-companies/${ticker}?apiKey=${MASSIVE_API_KEY}`;
-        const data = await fetchMassive(url, {}, false, undefined, CACHE_POLICY.LIVE);
+        const data = await fetchMassive(url, {}, true, undefined, CACHE_POLICY.LIVE);
 
         const results = data?.results || [];
         const count = results.length;
 
-        // Get top 3 related tickers and fetch their prices
-        const top3Tickers = results.slice(0, 3).map((item: any) => item.ticker);
+        // Get top 4 related tickers — snapshot for prices only, NO logo fetch
+        const top4Tickers = results.slice(0, 4).map((item: any) => item.ticker);
 
-        // Fetch prices and logos for top 3 related tickers in parallel
-        const pricePromises = top3Tickers.map(async (relTicker: string) => {
+        const pricePromises = top4Tickers.map(async (relTicker: string) => {
             try {
-                // Fetch snapshot for price
-                const snapshotUrl = `${MASSIVE_BASE_URL}/v2/snapshot/locale/us/markets/stocks/tickers/${relTicker}?apiKey=${MASSIVE_API_KEY}`;
-                const snapshot = await fetchMassive(snapshotUrl, {}, false, undefined, CACHE_POLICY.LIVE);
+                // Fetch snapshot for price only (로고는 프론트에서 parqet.com 사용)
+                const snapshot = await fetchMassive(
+                    `/v2/snapshot/locale/us/markets/stocks/tickers/${relTicker}`,
+                    {}, true  // useCache=true for speed
+                );
                 const tickerData = snapshot?.ticker || {};
                 const price = tickerData.lastTrade?.p || tickerData.day?.c || tickerData.prevDay?.c || 0;
                 const change = tickerData.todaysChangePerc || 0;
-
-                // Fetch ticker details for logo
-                const detailsUrl = `${MASSIVE_BASE_URL}/v3/reference/tickers/${relTicker}?apiKey=${MASSIVE_API_KEY}`;
-                const details = await fetchMassive(detailsUrl, {}, false, undefined, CACHE_POLICY.LIVE);
-                const iconUrl = details?.results?.branding?.icon_url;
-                const logo = iconUrl && MASSIVE_API_KEY
-                    ? `${iconUrl}?apiKey=${MASSIVE_API_KEY}`
-                    : null;
 
                 return {
                     ticker: relTicker,
                     price: Math.round(price * 100) / 100,
                     change: Math.round(change * 100) / 100,
-                    logo
+                    logo: null  // 프론트에서 parqet.com 로고 사용
                 };
             } catch (e) {
                 return { ticker: relTicker, price: 0, change: 0, logo: null };
