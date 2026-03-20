@@ -313,9 +313,18 @@ export async function GET(request: NextRequest) {
                 // Strip any embedded overview (may be wrong language) — use Redis overview only
                 const { overview: _discardOverview, ...dynData } = dynamoUnified;
                 // Get correct language overview from Redis
-                const dynOverview = await getFromCache<any>(overviewCacheKey).catch(() => null);
+                let dynOverview = await getFromCache<any>(overviewCacheKey).catch(() => null);
+                // If Redis has no overview (post-migration), fetch it now
+                if (!dynOverview) {
+                    const baseUrlForOverview = getBaseUrl(request);
+                    dynOverview = await callInternalGet(getOverview, `${baseUrlForOverview}/api/live/overview?t=${ticker}&lang=${locale}`);
+                    if (dynOverview) {
+                        setInCache(overviewCacheKey, dynOverview, getSmartTTL()).catch(() => {});
+                    }
+                }
                 setInCache(dataCacheKey, dynData, getSmartTTL()).catch(() => {});
                 memorySet(memKey, dynData);
+                if (dynOverview) memorySet(`overview:${ticker}:${locale}`, dynOverview);
                 console.log(`[Command Unified] ⚡ DynamoDB UNIFIED for ${ticker} in ${Date.now() - start}ms`);
                 return jsonResponse({ ...dynData, overview: dynOverview || null, _source: 'dynamodb-unified', _latency: Date.now() - start });
             }
