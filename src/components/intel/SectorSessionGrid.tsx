@@ -551,7 +551,7 @@ export function SectorSessionGrid({ config, quotes, loading, refreshing, lockedT
             ivSkew: q.ivSkew || 0,
             impliedMovePct: q.impliedMovePct || 0,
             squeezeScore: (q as any).squeezeScore || 0,
-            alphaScore: q.alphaScore || 0,
+            contextScore: q.alphaScore || 0,
         }));
 
         console.log('[Perplexity] Fetching analysis for', stocksPayload.length, 'stocks');

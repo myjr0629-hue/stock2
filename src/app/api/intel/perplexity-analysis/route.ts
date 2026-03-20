@@ -26,7 +26,7 @@ interface StockData {
     ivSkew: number;
     impliedMovePct: number;
     squeezeScore: number;
-    alphaScore: number;
+    contextScore: number;
 }
 
 function buildDataBlock(stocks: StockData[]): string {
@@ -37,42 +37,70 @@ function buildDataBlock(stocks: StockData[]): string {
   Squeeze: ${s.squeezeScore}% | NetPremium: $${(s.netPremium / 1e6).toFixed(1)}M
   CallWall: $${s.callWall.toFixed(0)} | PutFloor: $${s.putFloor.toFixed(0)} | MaxPain: $${s.maxPain.toFixed(0)} (${mpDist}% from price)
   Whale: ${s.whaleIndex} | DarkPool: ${s.darkPoolPct}% | IVSkew: ${s.ivSkew > 0 ? '+' : ''}${s.ivSkew.toFixed(1)}%
-  ImpliedMove: ±${s.impliedMovePct.toFixed(1)}% | AlphaScore: ${s.alphaScore.toFixed(1)}`;
+  ImpliedMove: ±${s.impliedMovePct.toFixed(1)}% | ContextScore: ${s.contextScore.toFixed(1)}`;
     }).join('\n\n');
 }
 
-const SYSTEM_PROMPT = `You are a senior equity analyst writing market intelligence briefs. Weave news and indicators into a flowing, readable narrative.
+const SYSTEM_PROMPT = `You are a senior equity research analyst at a top-tier institution (Goldman Sachs / Morgan Stanley caliber). You produce institutional-grade market intelligence briefs.
 
-STYLE REFERENCE (follow this exact tone and structure):
-"GOOGL은 GEX -21.0M과 SHORT Gamma로 dealers의 헤지 압력이 하방을 지시하며, PCR 0.92와 22% Squeeze가 단기 변동성을 암시한다. $290 MaxPain 근처에서 거래 중이며, Wiz $32억 인수 완료와 48% 클라우드 성장으로 지지받고 있으나 지리정치적 불안과 유가 상승이 랠리를 억제하는 환경이다."
+═══ CRITICAL ANALYSIS RULES ═══
 
-KEY PRINCIPLES:
-1. SEARCH the web for each ticker's recent news (last 7 days)
-2. Write 2-3 flowing sentences — indicators and news woven together naturally
-3. INTERPRET indicators, don't just list values:
-   - BAD: "PCR 0.92, Squeeze 22%, MaxPain $290 관찰"
-   - GOOD: "PCR 0.92와 22% Squeeze가 단기 변동성을 암시하며" "MaxPain $290 근처에서 거래 중이며"
-4. Always END with a synthesized environment conclusion:
-   - GOOD endings: "~억제하는 환경이다" "~확대되는 구간이다" "~지지 테스트가 예상된다"
-   - BAD endings: "~관찰된다" "~주목된다" (these just observe, don't conclude)
-5. DO NOT cite source names (no "Reuters", "CNBC에 따르면"). State news facts directly
-6. Tone: professional but readable — like a smart analyst explaining to a colleague, not a legal document
-7. COMPLIANCE: Never recommend buy/sell. No "will rise/fall" or "should buy/sell"
+1. PRICE MOMENTUM IS PRIMARY CONTEXT
+   - If changePct ≥ +10%: This is an EXTREME RALLY. Lead with the momentum and explain WHY it surged. Do NOT describe bearish pressure.
+   - If changePct ≤ -10%: This is a SHARP SELLOFF. Lead with the decline and explain contributing factors.
+   - If changePct is moderate (±1~5%): Balance indicators and news equally.
+   - NEVER contradict obvious price action. A +30% stock is NOT in a "support test environment."
 
-OUTPUT: Valid JSON only:
+2. ALL INDICATORS MUST BE CROSS-CORRELATED (not just listed)
+   - BAD: "GEX -1.0M, PCR 0.50, Squeeze 15%, MaxPain $25에서 38.5% 이격 관찰"
+   - GOOD: "30% 급등에도 GEX -1.0M의 SHORT Gamma 환경이 유지되어 딜러 헤지 매수가 추가 상승을 가속화할 수 있으며, PCR 0.50의 극단적 콜 편향이 이를 뒷받침한다"
+   - Explain HOW indicators interact, not what their values are
+
+3. NEWS INTEGRATION
+   - SEARCH the web for each ticker's recent news (last 7 days)
+   - Bloomberg, Reuters, WSJ, Financial Times only. NO YouTube, social media, blogs
+   - State news facts directly — DO NOT cite source names
+   - Connect news to indicators as cause-and-effect
+
+4. CONCLUSION: Always end with an actionable environment assessment
+   - GOOD: "~가속화될 수 있는 환경이다" "~압축 구간에 진입하고 있다" "~재평가 과정이 진행 중이다"
+   - BAD: "~관찰된다" "~주목된다" (passive observation = useless)
+
+5. COMPLIANCE: Never recommend buy/sell/hold. No price targets. No "will rise/fall."
+
+6. TONE: Professional institutional research — concise, authoritative, zero fluff
+
+═══ OUTPUT FORMAT ═══
+Return ONLY valid JSON:
 {
   "analyses": [
     {
       "ticker": "SYMBOL",
-      "ko": "한국어 스토리텔링 2-3문장",
-      "en": "English narrative 2-3 sentences",
-      "ja": "日本語ストーリー 2-3文"
+      "ko": "한국어 기관급 분석 2-3문장 (150-200자)",
+      "en": "English institutional analysis 2-3 sentences (100-150 words)",
+      "ja": "日本語機関級分析 2-3文 (150-200文字)"
     }
   ]
-}`;
+}
+
+All 3 languages must have IDENTICAL analytical depth and conclusions. Not translations — each language should read natively.`;
 
 
+// ── Market Hours Detection (ET timezone) ──
+function isMarketActive(): boolean {
+    const now = new Date();
+    const etStr = now.toLocaleString('en-US', { timeZone: 'America/New_York' });
+    const et = new Date(etStr);
+    const day = et.getDay();
+    if (day === 0 || day === 6) return false; // Weekend
+    const time = et.getHours() * 60 + et.getMinutes();
+    // PRE 4:00 ~ POST 20:00 = active
+    return time >= 240 && time < 1200;
+}
 
+function getCacheTtl(): number {
+    return isMarketActive() ? 1200 : 28800; // 20min during market, 8hr off-hours
+}
 
 export async function POST(req: Request) {
     try {
@@ -91,7 +119,7 @@ export async function POST(req: Request) {
 
         for (const s of stocks) {
             try {
-                const key = `cache:perplexity:intel:v5:${s.ticker}`;
+                const key = `cache:perplexity:intel:v6:${s.ticker}`;
                 const entry = await getFromCache<{ ko: string; en: string; ja: string; basePrice: number }>(key);
                 if (entry) {
                     // ±1% check: if price moved more than 1% from cached basePrice, invalidate
@@ -114,19 +142,18 @@ export async function POST(req: Request) {
         if (needsFetch.length > 0) {
             const dataBlock = buildDataBlock(needsFetch);
             const tickerList = needsFetch.map(s => s.ticker).join(', ');
-            const userPrompt = `IMPORTANT: Search the web for recent news about each of these stocks: ${tickerList}
-
-For each stock, find at least one specific recent news article from major outlets (Reuters, Bloomberg, CNBC, WSJ, etc.) and combine it with the indicator data below.
+            const userPrompt = `Analyze these ${tickerList.split(',').length} stocks with recent web news + provided indicators.
 
 INDICATOR DATA:
 ${dataBlock}
 
-Instructions:
-1. Search for "${tickerList}" recent news, earnings, analyst ratings, regulatory actions, product launches
-2. Lead each analysis with the specific news you found (cite source name)
-3. Then connect news to the indicator values provided
-4. Provide analysis in Korean, English, and Japanese
-5. Return valid JSON only`;
+CRITICAL:
+1. Search for "${tickerList}" recent news from major financial outlets (last 7 days)
+2. For stocks with changePct > ±10%, LEAD with price momentum context — do NOT write bearish analysis for a +30% stock
+3. Cross-correlate ALL provided indicators (GEX, PCR, Gamma, Squeeze, Whale, DarkPool, IVSkew, ImpliedMove) — explain interactions, not values
+4. Do NOT cite any source names or URLs
+5. End each analysis with an environment conclusion
+6. Return valid JSON only`;
 
             const response = await fetch('https://api.perplexity.ai/chat/completions', {
                 method: 'POST',
@@ -168,16 +195,17 @@ Instructions:
                     }
                 }
 
-                // ── Cache fresh results (30min TTL) ──
+                // ── Cache fresh results (dynamic TTL: 20min market / 8hr off-hours) ──
+                const ttl = getCacheTtl();
                 for (const s of needsFetch) {
                     const a = freshAnalyses[s.ticker];
                     if (a) {
                         try {
-                            await setInCache(`cache:perplexity:intel:v5:${s.ticker}`, {
+                            await setInCache(`cache:perplexity:intel:v6:${s.ticker}`, {
                                 ko: a.ko, en: a.en, ja: a.ja,
                                 basePrice: s.price,
                                 updatedAt: new Date().toISOString(),
-                            }, 1800);
+                            }, ttl);
                         } catch {}
                     }
                 }
