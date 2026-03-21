@@ -385,13 +385,64 @@ function WatchlistPanel() {
     // dashboardTickers = sole source of truth for the visible list
     const tickerList = dashboardTickers;
     const [newTicker, setNewTicker] = useState('');
+    const [suggestions, setSuggestions] = useState<string[]>([]);
+    const [showSuggestions, setShowSuggestions] = useState(false);
+    const [highlightIdx, setHighlightIdx] = useState(-1);
+    const suggestTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const inputWrapRef = useRef<HTMLDivElement>(null);
+
+    // Debounced autocomplete fetch
+    const fetchSuggestions = useCallback((q: string) => {
+        if (suggestTimer.current) clearTimeout(suggestTimer.current);
+        if (!q || q.length < 1) { setSuggestions([]); setShowSuggestions(false); return; }
+        suggestTimer.current = setTimeout(async () => {
+            try {
+                const res = await fetch(`/api/tickers/search?q=${encodeURIComponent(q)}`);
+                if (res.ok) {
+                    const data = await res.json();
+                    const filtered = (data.symbols || []).filter((s: string) => !dashboardTickers.includes(s));
+                    setSuggestions(filtered);
+                    setShowSuggestions(filtered.length > 0);
+                    setHighlightIdx(-1);
+                }
+            } catch { /* silent */ }
+        }, 150);
+    }, [dashboardTickers]);
+
+    // Close suggestions on outside click
+    useEffect(() => {
+        const handler = (e: MouseEvent) => {
+            if (inputWrapRef.current && !inputWrapRef.current.contains(e.target as Node)) {
+                setShowSuggestions(false);
+            }
+        };
+        document.addEventListener('mousedown', handler);
+        return () => document.removeEventListener('mousedown', handler);
+    }, []);
+
+    const selectTicker = useCallback((ticker: string) => {
+        if (isAtLimit) return;
+        if (ticker && !dashboardTickers.includes(ticker)) {
+            toggleDashboardTicker(ticker, maxSlots);
+        }
+        setNewTicker('');
+        setSuggestions([]);
+        setShowSuggestions(false);
+    }, [isAtLimit, dashboardTickers, toggleDashboardTicker, maxSlots]);
 
     const handleAddTicker = () => {
         if (isAtLimit) return;
+        // If a suggestion is highlighted, select it
+        if (highlightIdx >= 0 && highlightIdx < suggestions.length) {
+            selectTicker(suggestions[highlightIdx]);
+            return;
+        }
         const ticker = newTicker.trim().toUpperCase();
         if (ticker && !dashboardTickers.includes(ticker)) {
             toggleDashboardTicker(ticker, maxSlots);
             setNewTicker('');
+            setSuggestions([]);
+            setShowSuggestions(false);
         }
     };
 
@@ -414,31 +465,63 @@ function WatchlistPanel() {
                 <h2 className="text-xs font-bold uppercase tracking-wider text-slate-300 font-jakarta">Watchlist</h2>
                 <span style={{ fontSize: '12px' }} className={`font-jakarta font-bold ${isAtLimit ? 'text-amber-400' : 'text-slate-300'}`}>{dashboardTickers.length} / {maxSlots}</span>
             </div>
-            {/* Add Ticker Input */}
-            <div className="p-2 border-b border-white/5">
-                <div className="flex gap-1">
-                    <input
-                        type="text"
-                        value={newTicker}
-                        onChange={(e) => setNewTicker(e.target.value.toUpperCase())}
-                        onKeyDown={(e) => e.key === 'Enter' && handleAddTicker()}
-                        placeholder={isAtLimit ? (tier === 'free' || tier === 'guest' ? gt('watchlistLimitPro', { count: TIER_MAX_SLOTS.pro }) : tier === 'pro' ? gt('watchlistLimitElite', { count: TIER_MAX_SLOTS.elite }) : '') : td('searchPlaceholder')}
-                        className={`flex-1 px-2 py-1.5 text-xs bg-[#0d1829] border rounded focus:outline-none ${isAtLimit ? 'border-amber-500/30 text-amber-400/60 placeholder-slate-300 cursor-not-allowed' : 'border-white/10 text-white placeholder-slate-300 focus:border-cyan-500/50'}`}
-                        maxLength={6}
-                        disabled={isAtLimit}
-                    />
-                    {isAtLimit ? (
-                        <Link href="/pricing" className="px-2 py-1.5 rounded transition-colors bg-amber-500/20 hover:bg-amber-500/30 text-amber-400">
-                            <LockIcon className="w-4 h-4" />
-                        </Link>
-                    ) : (
-                        <button
-                            onClick={handleAddTicker}
-                            className="px-2 py-1.5 rounded transition-colors bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-400"
-                            title={td('searchPlaceholder')}
-                        >
-                            <Plus className="w-4 h-4" />
-                        </button>
+            {/* Add Ticker Input with Autocomplete */}
+            <div className="p-2 border-b border-white/5" ref={inputWrapRef}>
+                <div className="relative">
+                    <div className="flex gap-1">
+                        <input
+                            type="text"
+                            value={newTicker}
+                            onChange={(e) => {
+                                const v = e.target.value.toUpperCase();
+                                setNewTicker(v);
+                                fetchSuggestions(v);
+                            }}
+                            onKeyDown={(e) => {
+                                if (e.key === 'Enter') { handleAddTicker(); }
+                                else if (e.key === 'Escape') { setShowSuggestions(false); }
+                                else if (e.key === 'ArrowDown') { e.preventDefault(); setHighlightIdx(i => Math.min(i + 1, suggestions.length - 1)); }
+                                else if (e.key === 'ArrowUp') { e.preventDefault(); setHighlightIdx(i => Math.max(i - 1, -1)); }
+                            }}
+                            onFocus={() => { if (suggestions.length > 0) setShowSuggestions(true); }}
+                            placeholder={isAtLimit ? (tier === 'free' || tier === 'guest' ? gt('watchlistLimitPro', { count: TIER_MAX_SLOTS.pro }) : tier === 'pro' ? gt('watchlistLimitElite', { count: TIER_MAX_SLOTS.elite }) : '') : td('searchPlaceholder')}
+                            className={`flex-1 px-2 py-1.5 text-xs bg-[#0d1829] border rounded focus:outline-none ${isAtLimit ? 'border-amber-500/30 text-amber-400/60 placeholder-slate-300 cursor-not-allowed' : 'border-white/10 text-white placeholder-slate-300 focus:border-cyan-500/50'}`}
+                            maxLength={6}
+                            disabled={isAtLimit}
+                            autoComplete="off"
+                        />
+                        {isAtLimit ? (
+                            <Link href="/pricing" className="px-2 py-1.5 rounded transition-colors bg-amber-500/20 hover:bg-amber-500/30 text-amber-400">
+                                <LockIcon className="w-4 h-4" />
+                            </Link>
+                        ) : (
+                            <button
+                                onClick={handleAddTicker}
+                                className="px-2 py-1.5 rounded transition-colors bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-400"
+                                title={td('searchPlaceholder')}
+                            >
+                                <Plus className="w-4 h-4" />
+                            </button>
+                        )}
+                    </div>
+                    {/* Autocomplete Dropdown */}
+                    {showSuggestions && suggestions.length > 0 && (
+                        <div className="absolute left-0 right-0 top-full z-50 mt-1 rounded-lg border border-white/10 bg-[#0d1829] shadow-2xl overflow-hidden">
+                            {suggestions.map((sym, idx) => (
+                                <button
+                                    key={sym}
+                                    onClick={() => selectTicker(sym)}
+                                    onMouseEnter={() => setHighlightIdx(idx)}
+                                    className={`w-full px-3 py-1.5 text-left text-xs font-mono transition-colors ${
+                                        idx === highlightIdx
+                                            ? 'bg-cyan-500/20 text-cyan-300'
+                                            : 'text-slate-300 hover:bg-white/5'
+                                    }`}
+                                >
+                                    {sym}
+                                </button>
+                            ))}
+                        </div>
                     )}
                 </div>
             </div>
