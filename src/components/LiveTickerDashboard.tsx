@@ -708,8 +708,18 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
     // Use SWR data when available, SSR fallback otherwise — keeps 'liveQuote' name for compatibility
     const liveQuote = _swrQuote || ssrFallback || null;
     const [options, setOptions] = useState<any>(initialUnifiedData?.options || null);
-    // [FIX] Client-side chart data to override stale SSR data on navigation back
-    const [liveChartData, setLiveChartData] = useState<any[] | null>(initialChartData || null);
+    // [PERF V74] Chart data via SWR — dedup, stale-while-revalidate, focus-revalidation automatic
+    const { data: _swrChartResult } = useSWR(
+        ticker ? `/api/chart?symbol=${ticker}&range=${range}` : null,
+        (url: string) => fetch(url).then(r => r.json()),
+        {
+            fallbackData: initialChartData ? { data: initialChartData } : undefined,
+            refreshInterval: 30_000,     // 30s polling (same as old setInterval)
+            revalidateOnFocus: true,     // Refresh when user returns to tab
+            dedupingInterval: 10_000,    // Prevent duplicate fetches within 10s
+        }
+    );
+    const liveChartData = _swrChartResult?.data || initialChartData || null;
     const [structure, setStructure] = useState<any>(initialUnifiedData?.structure || null);
     const [krNews, setKrNews] = useState<any[]>(initialNews || []);
     const [expandedNewsId, setExpandedNewsId] = useState<number | null>(null);
@@ -1008,23 +1018,8 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
         const o = unifiedData.overview.overview;
         return { sector: o.sector, sectorEN: o.sectorEN, description: o.description, descriptionEN: o.descriptionEN };
     }, [companyOverview, unifiedData?.overview]);
-    const fetchChartData = useCallback(async () => {
-        try {
-            const res = await fetch(`/api/chart?symbol=${ticker}&range=${range}`);
-            if (res.ok) {
-                const json = await res.json();
-                const newData = json.data || [];
-                if (newData.length > 0) setLiveChartData(newData);
-            }
-        } catch (e) {
-            console.error('[Command] Chart refresh error:', e);
-        }
-    }, [ticker, range]);
-
-    // [FIX] Clear stale chart data instantly when ticker changes
-    useEffect(() => {
-        setLiveChartData(null);
-    }, [ticker]);
+    // [PERF V74] Chart data via SWR above (L712) — no manual fetchChartData needed
+    // SWR handles: 30s refresh, focus-revalidation, dedup, stale-while-revalidate
 
     // [FIX] Clear company overview & sector only on actual ticker CHANGE (not initial mount)
     // These come from SSR initialUnifiedData — clearing on mount would wipe SSR instant load
@@ -1037,35 +1032,25 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
         }
     }, [ticker]);
 
-    // News & AI Setup (Progressive Hydration - Non blocking)
+    // [PERF V74] News — independent effect, parallel with chart SWR
     useEffect(() => {
-        fetchNewsAndScore(); // AI fetch resolves silently in background
-        fetchChartData();    // Initial chart load
-
-        const chartInterval = setInterval(fetchChartData, 30000);
+        fetchNewsAndScore();
         const newsInterval = setInterval(fetchNewsAndScore, 30 * 60 * 1000);
-
-        const handleVisibility = () => { if (document.visibilityState === 'visible') fetchChartData(); };
-        const handleFocus = () => fetchChartData();
-
-        document.addEventListener('visibilitychange', handleVisibility);
-        window.addEventListener('focus', handleFocus);
-
-        return () => {
-            clearInterval(chartInterval);
-            clearInterval(newsInterval);
-            document.removeEventListener('visibilitychange', handleVisibility);
-            window.removeEventListener('focus', handleFocus);
-        };
-    }, [ticker, fetchChartData]); // Re-run when ticker changes
+        return () => clearInterval(newsInterval);
+    }, [ticker]); // Re-run when ticker changes
 
     // [PREMIUM] Recalculate conviction when dependencies change
-    // [FIX] Use stable scalar values instead of full liveQuote object to prevent infinite loop
+    // [PERF V74] Narrowed to scalar deps — prevents re-render on deep object changes
     const liveQuotePrice = liveQuote?.prices?.regularCloseToday || liveQuote?.price || 0;
     const liveQuoteNetPremium = liveQuote?.flow?.netPremium || 0;
+    const smaCross = smaData?.cross;
+    const newsScoreVal = newsScore?.score;
+    const structPcr = structure?.pcRatio;
+    const structGex = structure?.netGex;
     useEffect(() => {
         calculateConviction();
-    }, [smaData, newsScore, liveQuotePrice, liveQuoteNetPremium, structure]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [smaCross, newsScoreVal, liveQuotePrice, liveQuoteNetPremium, structPcr, structGex]);
 
     if (!initialStockData) return <div>Data Unavailable</div>;
 
