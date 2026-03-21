@@ -5,7 +5,7 @@
 export const ko = {
     // ============ BLOCK TITLES ============
     blocks: {
-        A: "블록 A — 알파점수 분해",
+        A: "블록 A — 컨텍스트 스코어 분해",
         B: "블록 B — 펄스점수 상세",
         C: "블록 C — 옵션 구조 지도",
         D: "블록 D — 정책/이벤트/뉴스"
@@ -126,7 +126,7 @@ export const ko = {
         refresh: "새로고침",
         collapse: "접기",
         expand: "펼치기",
-        alphaScore: "알파점수",
+        alphaScore: "컨텍스트 스코어",
         pulseScore: "펄스점수",
         price: "가격",
         change: "변동",

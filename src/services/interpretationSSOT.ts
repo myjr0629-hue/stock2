@@ -49,7 +49,7 @@ const REASON_KR: Record<string, string> = {
     'TREND_UP': '상승 추세',
     'TREND_DOWN': '하락 추세',
     'HIGH_RANK': '상위 순위',
-    'ALPHA_STRONG': '알파 점수 우수'
+    'ALPHA_STRONG': '컨텍스트 스코어 우수'
 };
 
 // Action templates based on conditions
@@ -130,8 +130,8 @@ export function generateInterpretation(input: InterpretationInput): Interpretati
             whyList.push('알파 순위 최상위권');
             confidence = 'HIGH';
         } else if (alphaScore && alphaScore >= 75) {
-            headline = `✅ ${symbol}: 알파 점수 우수 (${alphaScore.toFixed(1)})`;
-            whyList.push(`알파 점수 ${alphaScore.toFixed(1)}로 상위권`);
+            headline = `✅ ${symbol}: 컨텍스트 스코어 우수 (${alphaScore.toFixed(1)})`;
+            whyList.push(`컨텍스트 스코어 ${alphaScore.toFixed(1)}로 상위권`);
             confidence = 'HIGH';
         } else {
             headline = `✅ ${symbol}: 게이트 통과, 모멘텀 유효`;

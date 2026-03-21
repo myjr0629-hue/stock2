@@ -381,7 +381,7 @@ export function analyzeGemsTicker(t: any, regime: string, opts?: any, strict = f
     // 1. ELIGIBLE Check
     if (alphaScore < 40) {
         eligible = 'FAIL';
-        reasonsKR.push('알파 점수 저조 (40점 미만)');
+        reasonsKR.push('컨텍스트 스코어 저조 (40점 미만)');
     }
     if (optStatus === 'FAILED') {
         eligible = 'FAIL';
