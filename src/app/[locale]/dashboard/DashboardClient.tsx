@@ -288,7 +288,7 @@ const WatchlistItem = React.memo(function WatchlistItem({ ticker, isSelected }: 
                     ${hasWhale && !hasGammaSqueeze ? "animate-whale-glow" : ""}
                 `}
             >
-                {/* Col 1: Logo + Ticker */}
+                {/* Col 1: Logo + Ticker + Live dot */}
                 <div className="flex items-center gap-1.5 min-w-0">
                     <img
                         loading="lazy"
@@ -304,6 +304,13 @@ const WatchlistItem = React.memo(function WatchlistItem({ ticker, isSelected }: 
                     <span className={`font-jakarta font-bold text-[13px] truncate ${isSelected ? "text-cyan-400" : "text-white"}`}>
                         {ticker}
                     </span>
+                    {/* Live indicator dot — pulses during PRE/OPEN/AFTER */}
+                    {data?.session && data.session !== 'CLOSED' && (
+                        <span className="relative flex h-1.5 w-1.5 flex-shrink-0">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                            <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500" />
+                        </span>
+                    )}
                     {hasGammaSqueeze && (
                         <span className="px-0.5 text-[8px] font-bold text-indigo-400 flex-shrink-0">SQ</span>
                     )}
