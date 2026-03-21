@@ -279,7 +279,7 @@ const WatchlistItem = React.memo(function WatchlistItem({ ticker, isSelected }: 
                 onClick={() => setSelectedTicker(ticker)}
                 onMouseEnter={handleHoverPrefetch}
                 onMouseLeave={handleHoverCancel}
-                className={`flex-1 grid grid-cols-[minmax(0,1fr)_auto_auto_auto] items-center gap-x-1 px-2.5 py-2 rounded-lg transition-all duration-200
+                className={`flex-1 grid grid-cols-[minmax(0,1fr)_72px_58px_58px] items-center gap-x-1.5 px-2.5 py-2 rounded-lg transition-all duration-200
                     ${isSelected
                         ? "bg-cyan-500/10 border border-cyan-500/30"
                         : "bg-[#0d1829]/40 border border-transparent hover:border-white/8 hover:bg-[#0d1829]/70"
@@ -301,7 +301,7 @@ const WatchlistItem = React.memo(function WatchlistItem({ ticker, isSelected }: 
                             (e.target as HTMLImageElement).className = 'w-4 h-4 rounded bg-slate-700 hidden';
                         }}
                     />
-                    <span className={`font-jakarta font-bold text-[12px] truncate ${isSelected ? "text-cyan-400" : "text-white"}`}>
+                    <span className={`font-jakarta font-bold text-[13px] truncate ${isSelected ? "text-cyan-400" : "text-white"}`}>
                         {ticker}
                     </span>
                     {hasGammaSqueeze && (
@@ -313,9 +313,9 @@ const WatchlistItem = React.memo(function WatchlistItem({ ticker, isSelected }: 
                 </div>
 
                 {/* Col 2: Last Price */}
-                <div className="text-right w-[68px] flex-shrink-0">
+                <div className="text-right flex-shrink-0">
                     {mainPrice > 0 ? (
-                        <span className={`font-mono text-[12px] ${wf.color}`}
+                        <span className={`font-mono text-[14px] ${wf.color}`}
                             style={wf.style}>
                             {mainPrice.toFixed(2)}
                         </span>
@@ -325,9 +325,9 @@ const WatchlistItem = React.memo(function WatchlistItem({ ticker, isSelected }: 
                 </div>
 
                 {/* Col 3: Chg% */}
-                <div className="text-right w-[56px] flex-shrink-0">
+                <div className="text-right flex-shrink-0">
                     {mainPrice > 0 ? (
-                        <span className={`font-mono text-[12px] font-medium ${isPositive ? "text-emerald-400" : "text-rose-400"}`}>
+                        <span className={`font-mono text-[14px] font-medium ${isPositive ? "text-emerald-400" : "text-rose-400"}`}>
                             {isPositive ? "+" : ""}{mainChangePct.toFixed(2)}%
                         </span>
                     ) : (
@@ -336,9 +336,9 @@ const WatchlistItem = React.memo(function WatchlistItem({ ticker, isSelected }: 
                 </div>
 
                 {/* Col 4: Ext% (no label, just the number) */}
-                <div className="text-right w-[56px] flex-shrink-0">
+                <div className="text-right flex-shrink-0">
                     {extPrice > 0 ? (
-                        <span className={`font-mono text-[12px] font-medium ${extChangePct >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+                        <span className={`font-mono text-[14px] font-medium ${extChangePct >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
                             {extChangePct > 0 ? "+" : ""}{extChangePct.toFixed(2)}%
                         </span>
                     ) : (
@@ -449,11 +449,11 @@ function WatchlistPanel() {
                 </div>
             )}
             {/* Column Headers — TradingView style */}
-            <div className="grid grid-cols-[minmax(0,1fr)_auto_auto_auto] items-center gap-x-1 px-2.5 py-1.5 border-b border-white/5">
-                <span className="text-[10px] font-jakarta uppercase tracking-wider text-slate-500">Symbol</span>
-                <span className="text-[10px] font-jakarta uppercase tracking-wider text-slate-500 text-right w-[68px]">Last</span>
-                <span className="text-[10px] font-jakarta uppercase tracking-wider text-slate-500 text-right w-[56px]">Chg%</span>
-                <span className="text-[10px] font-jakarta uppercase tracking-wider text-slate-500 text-right w-[56px]">{extHeaderLabel}</span>
+            <div className="grid grid-cols-[minmax(0,1fr)_72px_58px_58px] items-center gap-x-1.5 pl-[14px] pr-[32px] py-1.5 border-b border-white/5">
+                <span className="text-[12px] font-jakarta uppercase tracking-wider text-slate-300">Symbol</span>
+                <span className="text-[12px] font-jakarta uppercase tracking-wider text-slate-300 text-right">Last</span>
+                <span className="text-[12px] font-jakarta uppercase tracking-wider text-slate-300 text-right">Chg%</span>
+                <span className="text-[12px] font-jakarta uppercase tracking-wider text-slate-300 text-right">{extHeaderLabel}</span>
             </div>
             <div className="flex-1 overflow-y-auto px-1 py-0.5 space-y-0">
                 {tickerList.map(ticker => (
@@ -2023,8 +2023,8 @@ export function DashboardClient({ initialTickers, initialQuotes }: { initialTick
             {/* Alpha Status Bar */}
             <AlphaStatusBar />
 
-            {/* Desktop: 25:50:25 Bento Grid - Fixed Height */}
-            <div className="hidden lg:grid flex-1 grid-cols-[1fr_2fr_1fr] gap-0.5 bg-white/5 p-0.5 h-[calc(100vh-120px)] overflow-hidden">
+            {/* Desktop: ~23:52:25 Bento Grid - Fixed Height */}
+            <div className="hidden lg:grid flex-1 grid-cols-[0.92fr_2.08fr_1fr] gap-0.5 bg-white/5 p-0.5 h-[calc(100vh-120px)] overflow-hidden">
                 {/* Left Panel - Watchlist (25%) */}
                 <div className="bg-[#0a0f1a] rounded-l-lg overflow-y-auto">
                     <WatchlistPanel />
