@@ -279,82 +279,83 @@ const WatchlistItem = React.memo(function WatchlistItem({ ticker, isSelected }: 
                 onClick={() => setSelectedTicker(ticker)}
                 onMouseEnter={handleHoverPrefetch}
                 onMouseLeave={handleHoverCancel}
-                className={`flex-1 flex items-center justify-between p-3 rounded-lg transition-all duration-200
+                className={`flex-1 grid grid-cols-[minmax(0,1fr)_auto_auto_auto] items-center gap-x-1 px-2.5 py-2 rounded-lg transition-all duration-200
                     ${isSelected
                         ? "bg-cyan-500/10 border border-cyan-500/30"
-                        : "bg-[#0d1829]/60 border border-white/5 hover:border-white/10"
+                        : "bg-[#0d1829]/40 border border-transparent hover:border-white/8 hover:bg-[#0d1829]/70"
                     }
                     ${hasGammaSqueeze ? "animate-squeeze-glow" : ""}
                     ${hasWhale && !hasGammaSqueeze ? "animate-whale-glow" : ""}
                 `}
             >
-                {/* Left: Logo + Ticker (fixed width) */}
-                <div className="flex items-center gap-2 w-16 flex-shrink-0">
+                {/* Col 1: Logo + Ticker */}
+                <div className="flex items-center gap-1.5 min-w-0">
                     <img
                         loading="lazy"
                         decoding="async"
                         src={`/api/logo/${ticker}`}
                         alt={ticker}
-                        className="w-5 h-5 rounded bg-[#1a2535] object-contain"
+                        className="w-4.5 h-4.5 rounded bg-[#1a2535] object-contain flex-shrink-0"
                         onError={(e) => {
                             (e.target as HTMLImageElement).src = '';
-                            (e.target as HTMLImageElement).className = 'w-5 h-5 rounded bg-slate-700 hidden';
+                            (e.target as HTMLImageElement).className = 'w-4 h-4 rounded bg-slate-700 hidden';
                         }}
                     />
-                    <span className={`font-jakarta font-bold text-[13px] ${isSelected ? "text-cyan-400" : "text-white"}`}>
+                    <span className={`font-jakarta font-bold text-[12px] truncate ${isSelected ? "text-cyan-400" : "text-white"}`}>
                         {ticker}
                     </span>
                     {hasGammaSqueeze && (
-                        <span className="px-1 py-0.5 text-[10px] font-bold uppercase bg-indigo-500/20 text-indigo-400 rounded">SQ</span>
+                        <span className="px-0.5 text-[8px] font-bold text-indigo-400 flex-shrink-0">SQ</span>
                     )}
                     {hasWhale && !hasGammaSqueeze && (
-                        <span className="px-1 py-0.5 text-[10px] font-bold uppercase bg-amber-500/20 text-amber-400 rounded">WH</span>
+                        <span className="px-0.5 text-[8px] font-bold text-amber-400 flex-shrink-0">WH</span>
                     )}
                 </div>
 
-                {/* Right: Price (aligned to right edge) */}
-                <div className="flex-1 flex items-center justify-end gap-2">
-
-                    {/* Main Price + Change - Skeleton when loading */}
+                {/* Col 2: Last Price */}
+                <div className="text-right w-[68px] flex-shrink-0">
                     {mainPrice > 0 ? (
-                        <div className="flex items-center gap-1.5">
-                            <span className={`font-mono text-sm ${wf.color}`}
-                                style={wf.style}>
-                                ${mainPrice.toFixed(2)}
-                            </span>
-                            <span className={`text-[13px] font-medium ${isPositive ? "text-emerald-400" : "text-rose-400"}`}>
-                                {isPositive ? "+" : ""}{mainChangePct.toFixed(2)}%
-                            </span>
-                        </div>
+                        <span className={`font-mono text-[12px] ${wf.color}`}
+                            style={wf.style}>
+                            {mainPrice.toFixed(2)}
+                        </span>
                     ) : (
-                        <div className="flex items-center gap-1.5 animate-pulse">
-                            <div className="h-4 w-16 bg-slate-700 rounded" />
-                            <div className="h-3 w-10 bg-slate-700 rounded" />
-                        </div>
+                        <div className="h-3.5 w-14 bg-slate-700 rounded animate-pulse ml-auto" />
                     )}
-                    {/* Extended Session Badge (Command-style pill) */}
-                    {extPrice > 0 && (
-                        <div className="flex items-baseline gap-1.5 px-2 py-0.5 rounded-md bg-slate-800/60 border border-slate-700/50">
-                            <div className={`w-1.5 h-1.5 rounded-full ${displayExtLabel === 'PRE' ? 'bg-amber-500' : displayExtLabel === 'POST' ? 'bg-indigo-500' : 'bg-cyan-500'
-                                } animate-pulse`} />
-                            <span className={`text-[12px] font-black uppercase tracking-wider ${extColor}`}>{displayExtLabel}</span>
-                            <span className={`text-[13px] font-mono font-bold ${extChangePct >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
-                                {extChangePct > 0 ? "+" : ""}{extChangePct.toFixed(2)}%
-                            </span>
-                        </div>
+                </div>
+
+                {/* Col 3: Chg% */}
+                <div className="text-right w-[56px] flex-shrink-0">
+                    {mainPrice > 0 ? (
+                        <span className={`font-mono text-[12px] font-medium ${isPositive ? "text-emerald-400" : "text-rose-400"}`}>
+                            {isPositive ? "+" : ""}{mainChangePct.toFixed(2)}%
+                        </span>
+                    ) : (
+                        <div className="h-3.5 w-10 bg-slate-700 rounded animate-pulse ml-auto" />
+                    )}
+                </div>
+
+                {/* Col 4: Ext% (no label, just the number) */}
+                <div className="text-right w-[56px] flex-shrink-0">
+                    {extPrice > 0 ? (
+                        <span className={`font-mono text-[12px] font-medium ${extChangePct >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+                            {extChangePct > 0 ? "+" : ""}{extChangePct.toFixed(2)}%
+                        </span>
+                    ) : (
+                        <span className="text-[12px] text-slate-600">—</span>
                     )}
                 </div>
             </button>
-            {/* Remove Button - inline on the right, appears on hover */}
+            {/* Remove Button */}
             <button
                 onClick={(e) => {
                     e.stopPropagation();
                     toggleDashboardTicker(ticker);
                 }}
-                className="ml-1 opacity-0 group-hover:opacity-100 transition-opacity p-1 hover:bg-rose-500/20 rounded text-rose-400 flex-shrink-0"
+                className="ml-0.5 opacity-0 group-hover:opacity-100 transition-opacity p-0.5 hover:bg-rose-500/20 rounded text-rose-400 flex-shrink-0"
                 title={td('removeFromDashboard')}
             >
-                <X className="w-3.5 h-3.5" />
+                <X className="w-3 h-3" />
             </button>
         </div>
     );
@@ -386,6 +387,19 @@ function WatchlistPanel() {
             setNewTicker('');
         }
     };
+
+    // Determine ext header label from market session
+    const market = useDashboardStore(s => s.market);
+    const extHeaderLabel = (() => {
+        const status = market?.marketStatus;
+        if (status === 'PRE') return 'Pre';
+        if (status === 'AFTER') return 'Post';
+        // During regular hours or closed, check if any ticker has ext data
+        const firstTickerData = dashboardTickers.length > 0 ? useDashboardStore.getState().tickers[dashboardTickers[0]] : null;
+        if (firstTickerData?.extended?.postPrice) return 'Post';
+        if (firstTickerData?.extended?.prePrice) return 'Pre';
+        return 'Ext';
+    })();
 
     return (
         <div className="flex flex-col h-full">
@@ -434,7 +448,14 @@ function WatchlistPanel() {
                     </Link>
                 </div>
             )}
-            <div className="flex-1 overflow-y-auto p-2 space-y-1">
+            {/* Column Headers — TradingView style */}
+            <div className="grid grid-cols-[minmax(0,1fr)_auto_auto_auto] items-center gap-x-1 px-2.5 py-1.5 border-b border-white/5">
+                <span className="text-[10px] font-jakarta uppercase tracking-wider text-slate-500">Symbol</span>
+                <span className="text-[10px] font-jakarta uppercase tracking-wider text-slate-500 text-right w-[68px]">Last</span>
+                <span className="text-[10px] font-jakarta uppercase tracking-wider text-slate-500 text-right w-[56px]">Chg%</span>
+                <span className="text-[10px] font-jakarta uppercase tracking-wider text-slate-500 text-right w-[56px]">{extHeaderLabel}</span>
+            </div>
+            <div className="flex-1 overflow-y-auto px-1 py-0.5 space-y-0">
                 {tickerList.map(ticker => (
                     <WatchlistItem
                         key={ticker}
