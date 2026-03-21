@@ -14,6 +14,7 @@ import { ProGate, EliteGate } from "@/components/gate/FeatureGate";
 import { useTier } from "@/contexts/TierContext";
 import { Crown, Lock as LockIcon } from "lucide-react";
 import { CardTooltip } from "@/components/ui/CardTooltip";
+import { prefetchCommandData } from "@/utils/commandPrefetch";
 import { useCardCustomize, DEFAULT_CARD_ORDER, ALL_CARDS } from "@/components/dashboard/CardCustomize";
 import { DndContext, closestCenter } from "@dnd-kit/core";
 import { SortableContext, rectSortingStrategy } from "@dnd-kit/sortable";
@@ -229,13 +230,16 @@ const WatchlistItem = React.memo(function WatchlistItem({ ticker, isSelected }: 
     const hoverTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     // [PREFETCH] On hover, fetch data if missing or stale (>60s)
+    const locale = useLocale();
     const handleHoverPrefetch = useCallback(() => {
         hoverTimeout.current = setTimeout(() => {
             const isStale = !data || !data.underlyingPrice ||
                 (lastUpdated && (Date.now() - new Date(lastUpdated).getTime() > 60000));
             if (isStale) fetchSingleTicker(ticker);
+            // [PERF V74] Prefetch Command unified data for instant page transition
+            prefetchCommandData(ticker, locale);
         }, 300);
-    }, [ticker, data, lastUpdated, fetchSingleTicker]);
+    }, [ticker, data, lastUpdated, fetchSingleTicker, locale]);
 
     const handleHoverCancel = useCallback(() => {
         if (hoverTimeout.current) { clearTimeout(hoverTimeout.current); hoverTimeout.current = null; }
