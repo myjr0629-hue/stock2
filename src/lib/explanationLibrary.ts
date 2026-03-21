@@ -138,8 +138,8 @@ export const EXPLANATIONS: Record<string, Explanation> = {
     },
     'ALPHA_SCORE': {
         id: 'ALPHA_SCORE',
-        label: '알파 스코어 (Alpha Score)',
-        labelEN: 'Alpha Score',
+        label: '컨텍스트 스코어 (Context Score)',
+        labelEN: 'Context Score',
         category: 'score',
         meaning: '시장 대비 초과 수익 잠재력을 0~100으로 정량화한 점수입니다.',
         interpretation: '80+: 최상위 알파 후보 / 60-80: 우수 / 60 미만: 시장 수익률 수준',

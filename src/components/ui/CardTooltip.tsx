@@ -704,9 +704,9 @@ export const WATCHLIST_TOOLTIPS = {
     },
     SCORE: {
         tooltip: {
-            ko: 'Alpha Score — SMA, 플로우, 센티먼트 등 복합 팩터 분석. A(80+) B(65+) C(50+) D(50-).',
-            en: 'Alpha Score — multi-factor analysis (SMA, flow, sentiment). A(80+) B(65+) C(50+) D(<50).',
-            ja: 'Alphaスコア — SMA・フロー・センチメント複合ファクター分析。A(80+)B(65+)C(50+)D(50-)。',
+            ko: 'Context Score — SMA, 플로우, 센티먼트 등 복합 팩터 분석. A(80+) B(65+) C(50+) D(50-).',
+            en: 'Context Score — multi-factor analysis (SMA, flow, sentiment). A(80+) B(65+) C(50+) D(<50).',
+            ja: 'Context Score — SMA・フロー・センチメント複合ファクター分析。A(80+)B(65+)C(50+)D(50-)。',
         },
         badge: {
             ko: '기관급 복합 분석',

@@ -44,7 +44,7 @@ export const ALL_CARDS: CardDef[] = [
     { id: 'gexRegime', label: 'GEX REGIME', category: 'structure', eliteOnly: true },
     { id: 'impliedMove', label: 'IMPLIED MOVE', category: 'options', eliteOnly: true },
     // ── Additional Pool (8 more) ──
-    { id: 'alphaScore', label: 'ALPHA SCORE', category: 'momentum', proOnly: true },
+    { id: 'alphaScore', label: 'CONTEXT SCORE', category: 'momentum', proOnly: true },
     { id: 'whaleIndex', label: 'WHALE INDEX', category: 'flow', proOnly: true },
     { id: 'rsi14', label: 'RSI 14', category: 'momentum' },
     { id: 'return3d', label: 'RETURN 3D', category: 'momentum' },

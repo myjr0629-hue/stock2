@@ -1337,8 +1337,8 @@ function MainChartPanel() {
                     </EliteGate>}
 
                     {/* ── Additional Pool ── */}
-                    {/* Alpha Score — PRO */}
-                    {customize.cardOrder.includes('alphaScore') && <ProGate title="Alpha Score" mode="peek" compact>
+                    {/* Context Score — PRO */}
+                    {customize.cardOrder.includes('alphaScore') && <ProGate title="Context Score" mode="peek" compact>
                         {(() => {
                             const alpha = data?.alpha;
                             const score = alpha?.score ?? 0;
@@ -1350,7 +1350,7 @@ function MainChartPanel() {
                                     <svg className="absolute right-0 bottom-0 w-24 h-16 opacity-[0.06]" viewBox="0 0 96 64"><path d="M0 50 Q24 10 48 30 T96 15" fill="none" stroke="currentColor" strokeWidth="2" className="text-emerald-400" /></svg>
                                     <div className="flex items-center gap-2 mb-2">
                                         <Crown className="w-4 h-4 text-emerald-400" />
-                                        <CardTooltip text={td('tipAlphaScore')}><span className="text-[12px] font-jakarta uppercase tracking-wider text-white">Alpha Score</span></CardTooltip>
+                                        <CardTooltip text={td('tipAlphaScore')}><span className="text-[12px] font-jakarta uppercase tracking-wider text-white">Context Score</span></CardTooltip>
                                     </div>
                                     <div className="flex items-center gap-2">
                                         <span className={`text-2xl font-mono font-bold ${gradeColor}`}>{grade}</span>
