@@ -246,6 +246,7 @@ export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d
                 textColor: '#94a3b8',
                 fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
                 fontSize: 12,
+                attributionLogo: false,
             },
             grid: {
                 vertLines: { color: '#1e293b', style: LineStyle.Dashed },
@@ -277,6 +278,7 @@ export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d
                 rightOffset: 5,
                 barSpacing: isIntraday ? 3 : 6,
             },
+            watermark: { visible: false },
             handleScroll: { mouseWheel: true, pressedMouseMove: true },
             handleScale: { axisPressedMouseMove: true, mouseWheel: true, pinch: true },
         });
