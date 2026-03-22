@@ -1,0 +1,67 @@
+[
+  {
+    "id": "8d8afb7031bcae608b50542ae4170a0a3d256906a57a0ff54633f1f3765e7df3",
+    "headline": "BofA MOVE Index Signals Potential Market Volatility",
+    "summaryKR": "BofA MOVE 지수가 3월 20일 108.84로 급등하며, 단기 주식 시장의 불안정성을 시사합니다.",
+    "summaryEN": "BofA MOVE Index surged to 108.84 on March 20, 2026, indicating potential short-term stock market instability.",
+    "summaryJP": "BofAのMOVEインデックスが3月20日に108.84に急騰し、短期的な株式市場の不安定性を示唆しています。",
+    "analysisKR": "IF MOVE 지수가 현재 수준을 유지한다면, THEN S&P 500의 변동성 확대와 투자자 불안심리 증가를 예상할 수 있습니다.",
+    "analysisEN": "IF MOVE Index maintains current levels, THEN expect expanded S&P 500 volatility and increased investor uncertainty.",
+    "analysisJP": "IF MOVE指数が現在のレベルを維持すれば、THENマーケットの変動性と投資家の不安が高まると予想されます。",
+    "category": "US_MARKET",
+    "impact": "BEARISH",
+    "urgency": 7
+  },
+  {
+    "id": "e978155fc5956931e216030899ed53d06868b19ff5a833ac548a1a8501afff64",
+    "headline": "Amazon's Massive AI Infrastructure Investment",
+    "summaryKR": "아마존, 2026년 AI 인프라에 2,000억 달러 투자 계획 - 애널리스트 예상치 대비 53% 증가",
+    "summaryEN": "Amazon plans $200 billion capital expenditure for AI infrastructure in 2026, 53% higher than analyst expectations.",
+    "summaryJP": "アマゾンは2026年にAIインフラに2,000億ドルを投資する計画で、アナリストの予想を53%上回っています。",
+    "analysisKR": "IF AWS의 AI 투자가 지속된다면, THEN 클라우드 및 기술 섹터의 장기적 성장 전망에 긍정적 신호를 제공할 것입니다.",
+    "analysisEN": "IF AWS continues AI investment trajectory, THEN positive long-term growth signals for cloud and technology sectors.",
+    "analysisJP": "IF AWSのAI投資が継続すれば、THENクラウドおよびテクノロジーセクターの長期的な成長に前向きなシグナルを提供します。",
+    "category": "SECTOR",
+    "impact": "BULLISH",
+    "urgency": 5
+  },
+  {
+    "id": "ff6e9726c3f9851aa3179b5a2728ce6369c197fe6b8192a9c8eaafe27a123c80",
+    "headline": "U.S. Gas Prices Surge Amid Global Tensions",
+    "summaryKR": "이란 전쟁으로 인한 원유 가격 상승으로 미국 전국 평균 가스 가격이 한 달 만에 30% 상승, 현재 갤런당 3.88달러",
+    "summaryEN": "U.S. gas prices up 30% in one month to $3.88 per gallon, driven by global crude oil price increases due to Iran war.",
+    "summaryJP": "イラン戦争による原油価格の上昇で、米国の平均ガソリン価格が1か月で30%上昇し、現在は1ガロン3.88ドルに。",
+    "analysisKR": "IF 현재 지정학적 긴장이 지속된다면, THEN 에너지 섹터 및 인플레이션 압박에 대한 재평가가 불가피합니다.",
+    "analysisEN": "IF current geopolitical tensions persist, THEN inevitable re-evaluation of energy sector and inflationary pressures.",
+    "analysisJP": "IF現在の地政学的緊張が続けば、THENエネルギーセクターとインフレ圧力の再評価が避けられません。",
+    "category": "GEOPOLITICAL",
+    "impact": "BEARISH",
+    "urgency": 6
+  },
+  {
+    "id": "d9f9cb37ab0a1b422aed40e7e2e8e7148a6075988c319018ae4846a1dbd4e446",
+    "headline": "AI Stocks Reach 'Trough of Disillusionment'",
+    "summaryKR": "AI 주식들이 기술의 실제 가치와 비용 효율성에 대한 투자자들의 재평가로 인해 상당한 조정을 겪고 있습니다.",
+    "summaryEN": "AI stocks have suffered significant corrections as investors reassess the technology's real-world value and cost-effectiveness.",
+    "summaryJP": "AI株は、投資家が技術の実世界での価値と費用対効果を再評価する中で、大幅な調整を経験しています。",
+    "analysisKR": "IF 현재 AI 주식 조정이 계속된다면, THEN 장기 투자자들에게 매수 기회로 해석될 수 있습니다.",
+    "analysisEN": "IF current AI stock correction continues, THEN may represent buying opportunity for long-term investors.",
+    "analysisJP": "IF現在のAI株の調整が続けば、THENlong-term投資家にとって買いのチャンスと解釈できます。",
+    "category": "SECTOR",
+    "impact": "MIXED",
+    "urgency": 5
+  },
+  {
+    "id": "8299dc62ee3ca7f725249a259c5c909a9b5f11c001f7dc6549f2014b28858fc0",
+    "headline": "Cameco Positioned as Key Uranium Supplier",
+    "summaryKR": "미국이 2050년까지 원자력 발전 용량을 4배로 늘리려는 계획 속에서 Cameco는 주요 우라늄 공급업체로 부상하고 있습니다.",
+    "summaryEN": "As the U.S. aims to quadruple nuclear energy capacity by 2050, Cameco is positioned as a key uranium supplier amid growing electricity demand from data centers.",
+    "summaryJP": "米国が2050年までに原子力発電能力を4倍にする計画の中で、Camecoはデータセンターからの電力需要増加に伴い、主要なウラン供給業者として位置づけられています。",
+    "analysisKR": "IF 데이터 센터의 전력 수요가 지속적으로 증가한다면, THEN 원자력 및 우라늄 섹터의 장기 성장 전망이 긍정적입니다.",
+    "analysisEN": "IF data center electricity demand continues to grow, THEN positive long-term growth outlook for nuclear and uranium sectors.",
+    "analysisJP": "IFデータセンターの電力需要が継続的に増加すれば、THEN原子力およびウラン部門の長期的な成長見通しは前向きです。",
+    "category": "SECTOR",
+    "impact": "BULLISH",
+    "urgency": 4
+  }
+]

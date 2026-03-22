@@ -24,6 +24,7 @@ import { useTranslations, useLocale } from 'next-intl';
 import { GexTimeline } from '@/components/history/GexTimeline';
 import { TechnicalLevelsMap } from '@/components/TechnicalLevelsMap';
 import { GammaPressureGauge } from '@/components/GammaPressureGauge';
+import { AIDeepAnalysis } from '@/components/AIDeepAnalysis';
 import { CardTooltip, COMMAND_TOOLTIPS } from '@/components/ui/CardTooltip';
 import IVSkewCurve from '@/components/IVSkewCurve';
 
@@ -2763,212 +2764,99 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                 squeezeScore={structure?.squeezeScore ?? 0}
                             />
 
-                            {/* 3. Intel Feed — Real-time AI Insight */}
-                            <div className="flex-1 min-h-0 flex flex-col rounded-lg border border-white/10 bg-slate-900/60 backdrop-blur-md overflow-hidden shadow-lg relative group flex-grow">
-
-                                <div className="p-3 border-b border-white/5 flex items-center justify-between bg-white/5 relative z-10 shrink-0">
-                                    <div className="flex items-center gap-2">
-                                        <Sparkles size={12} className="text-cyan-400" />
-                                        <h3 className="text-[12px] font-black text-white uppercase tracking-widest font-jakarta"><CardTooltip tooltip={COMMAND_TOOLTIPS.INTEL_FEED.tooltip} badge={COMMAND_TOOLTIPS.INTEL_FEED.badge}>Intel Feed (AI)</CardTooltip></h3>
-                                    </div>
-                                    <div className="flex items-center gap-1.5">
-                                        {newsLoading && <Loader2 size={10} className="text-cyan-400 animate-spin" />}
-                                        {aiAnalyzing && (
-                                            <span className="text-[12px] px-1.5 py-0.5 rounded bg-cyan-500/20 text-cyan-400 border border-cyan-500/20 font-jakarta flex items-center gap-1 animate-pulse">
-                                                <Sparkles size={8} />
-                                                {locale === 'ko' ? 'AI 분석 중' : locale === 'ja' ? 'AI分析中' : 'AI Analyzing'}
-                                            </span>
-                                        )}
-                                        {!aiAnalyzing && !newsLoading && krNews.length > 0 && krNews[0]?.summaryKR && krNews[0]?.summaryKR !== krNews[0]?.title && (
-                                            <span className="text-[12px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 font-jakarta">
-                                                AI ✓
-                                            </span>
-                                        )}
-                                        <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
-                                    </div>
-                                </div>
-
-                                {/* AI Sentiment Summary — Top Bar */}
-                                {krNews.length > 0 && (
-                                    <div className="px-3 py-2.5 border-b border-white/5 bg-slate-950/40 shrink-0 relative z-10">
-                                        <div className="flex items-center justify-between mb-1.5">
-                                            <span className="text-[12px] font-black text-slate-300 uppercase tracking-widest font-jakarta"><CardTooltip tooltip={COMMAND_TOOLTIPS.SENTIMENT_OVERVIEW.tooltip}>SENTIMENT OVERVIEW</CardTooltip></span>
-                                            <span className="text-[12px] text-slate-300 font-jakarta">{krNews.slice(0, 5).length} articles</span>
-                                        </div>
-                                        {(() => {
-                                            const articles = krNews.slice(0, 5);
-                                            const bull = articles.filter((n: any) => n.sentiment === 'positive').length;
-                                            const bear = articles.filter((n: any) => n.sentiment === 'negative').length;
-                                            const neutral = articles.length - bull - bear;
-                                            const total = articles.length || 1;
-                                            return (
-                                                <>
-                                                    <div className="flex h-1.5 rounded-full overflow-hidden bg-slate-800/60 mb-1.5">
-                                                        {bull > 0 && <div className="bg-emerald-500 transition-all" style={{ width: `${(bull / total) * 100}%` }} />}
-                                                        {neutral > 0 && <div className="bg-slate-500/60 transition-all" style={{ width: `${(neutral / total) * 100}%` }} />}
-                                                        {bear > 0 && <div className="bg-rose-500 transition-all" style={{ width: `${(bear / total) * 100}%` }} />}
-                                                    </div>
-                                                    <div className="flex items-center justify-between text-[12px] font-jakarta tabular-nums">
-                                                        <span className="flex items-center gap-1">
-                                                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                                                            <span className="text-emerald-400 font-bold">{bull}</span>
-                                                            <span className="text-slate-300">Bullish</span>
-                                                        </span>
-                                                        <span className="flex items-center gap-1">
-                                                            <span className="w-1.5 h-1.5 rounded-full bg-slate-500" />
-                                                            <span className="text-slate-300 font-bold">{neutral}</span>
-                                                            <span className="text-slate-300">Neutral</span>
-                                                        </span>
-                                                        <span className="flex items-center gap-1">
-                                                            <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
-                                                            <span className="text-rose-400 font-bold">{bear}</span>
-                                                            <span className="text-slate-300">Bearish</span>
-                                                        </span>
-                                                    </div>
-                                                </>
-                                            );
-                                        })()}
-                                    </div>
-                                )}
-
-                                <div className="flex-1 min-h-0 overflow-y-auto custom-scrollbar relative z-10">
-                                    {/* Full-Card AI Analysis Skeleton Overlay */}
-                                    {aiAnalyzing && (
-                                        <div className="absolute inset-0 z-30 flex flex-col items-center justify-center pointer-events-none"
-                                            style={{ background: 'linear-gradient(180deg, rgba(15,23,42,0.75) 0%, rgba(15,23,42,0.88) 50%, rgba(15,23,42,0.75) 100%)' }}>
-                                            <div className="flex flex-col items-center gap-3">
-                                                <div className="relative">
-                                                    <div className="w-10 h-10 rounded-full border-2 border-cyan-500/30 flex items-center justify-center">
-                                                        <Sparkles size={18} className="text-cyan-400 animate-pulse" />
-                                                    </div>
-                                                    <div className="absolute inset-0 rounded-full border-2 border-transparent border-t-cyan-400 animate-spin" style={{ animationDuration: '2s' }} />
-                                                </div>
-                                                <div className="text-center">
-                                                    <p className="text-[13px] text-cyan-200 font-jakarta font-bold tracking-wider">
-                                                        {locale === 'ko' ? 'AI 번역 · 분석 중' : locale === 'ja' ? 'AI翻訳・分析中' : 'AI Translating & Analyzing'}
-                                                    </p>
-                                                    <p className="text-[12px] text-slate-300 font-jakarta mt-0.5">
-                                                        {locale === 'ko' ? 'Gemini가 뉴스를 분석하고 있습니다...' : locale === 'ja' ? 'Geminiがニュースを分析中...' : 'Gemini is analyzing news...'}
-                                                    </p>
-                                                </div>
-                                                {/* Skeleton lines */}
-                                                <div className="w-48 space-y-2 mt-1">
-                                                    <div className="h-1.5 rounded-full bg-gradient-to-r from-cyan-500/20 via-cyan-500/40 to-cyan-500/20" style={{ animation: 'shimmer 2s ease-in-out infinite', backgroundSize: '200% 100%' }} />
-                                                    <div className="h-1.5 rounded-full bg-gradient-to-r from-cyan-500/20 via-cyan-500/40 to-cyan-500/20 w-3/4" style={{ animation: 'shimmer 2s ease-in-out infinite 0.3s', backgroundSize: '200% 100%' }} />
-                                                    <div className="h-1.5 rounded-full bg-gradient-to-r from-cyan-500/20 via-cyan-500/40 to-cyan-500/20 w-1/2" style={{ animation: 'shimmer 2s ease-in-out infinite 0.6s', backgroundSize: '200% 100%' }} />
-                                                </div>
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    {krNews.slice(0, 5).map((n: any, i) => {
-                                        const isExpanded = expandedNewsId === i;
-                                        const analysis = locale === 'ko'
-                                            ? (n.analysisKR || null)
-                                            : locale === 'ja'
-                                                ? (n.analysisJP || n.analysisKR || null)
-                                                : (n.analysisEN || n.analysisKR || null);
-                                        const hasAnalysis = !!analysis;
-                                        const hasTranslation = locale === 'ko' ? !!n.summaryKR && n.summaryKR !== n.title
-                                            : locale === 'ja' ? !!n.summaryJP && n.summaryJP !== n.title
-                                                : true;
-
-                                        return (
-                                            <div key={`${n.title}-${i}`} className={`border-b border-white/5 last:border-0 relative ${isExpanded ? 'bg-cyan-950/20' : ''}`}>
-                                                {/* Sentiment Indicator Bar */}
-                                                <div className={`absolute left-0 top-0 bottom-0 w-0.5 ${n.sentiment === 'positive' ? 'bg-emerald-500' :
-                                                    n.sentiment === 'negative' ? 'bg-rose-500' : 'bg-slate-600'
-                                                    }`} />
-
-
-                                                {/* News Header — clickable for expand */}
-                                                <div
-                                                    className={`p-3 pl-3.5 cursor-pointer hover:bg-white/5 transition-colors ${isExpanded ? 'bg-cyan-500/[0.06]' : ''
-                                                        }`}
-                                                    onClick={() => setExpandedNewsId(isExpanded ? null : i)}
-                                                >
-                                                    <div className="text-[12px] text-indigo-300/90 font-bold mb-1 flex justify-between items-center font-jakarta">
-                                                        <span className="flex items-center gap-1.5">
-                                                            {n.source || "Unknown"}
-                                                            {n.ageHours !== undefined && (
-                                                                <span className="text-slate-400">· {n.ageHours < 1 ? 'Now' : `${n.ageHours}h`}</span>
-                                                            )}
-                                                            {n.isRumor && (
-                                                                <span className="text-[12px] px-1 py-0.5 rounded bg-amber-500/20 text-amber-400 border border-amber-500/30 animate-pulse font-jakarta">RUMOR</span>
-                                                            )}
-                                                        </span>
-                                                        <span className="flex items-center gap-1">
-                                                            {hasAnalysis && (
-                                                                <span className={`text-[12px] px-1 py-0.5 rounded font-jakarta ${isExpanded ? 'bg-cyan-500/30 text-cyan-300 border border-cyan-400/40' : 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/20'}`}>
-                                                                    AI
-                                                                </span>
-                                                            )}
-                                                            {n.sentiment === 'positive' && <span className="text-emerald-500 text-[12px] font-jakarta">BULLISH</span>}
-                                                            {n.sentiment === 'negative' && <span className="text-rose-500 text-[12px] font-jakarta">BEARISH</span>}
-                                                            {hasAnalysis && (
-                                                                isExpanded
-                                                                    ? <ChevronUp size={12} className="text-cyan-400" />
-                                                                    : <ChevronDown size={12} className="text-slate-400" />
-                                                            )}
-                                                        </span>
-                                                    </div>
-                                                    <div className="text-[13px] text-slate-300 font-medium leading-snug line-clamp-2">
-                                                        {locale === 'ko'
-                                                            ? (n.summaryKR || n.title)
-                                                            : locale === 'ja'
-                                                                ? (n.summaryJP || n.summaryKR || n.title)
-                                                                : n.title
-                                                        }
-                                                    </div>
-                                                </div>
-
-                                                {/* AI Insight — PRO gated */}
-                                                {isExpanded && analysis && (() => {
-                                                    const showAbove = i >= 3;
-                                                    return (
-                                                        <div className={`absolute left-0 right-0 z-30 px-2 animate-in duration-200 ${showAbove ? 'slide-in-from-bottom-1 pb-0.5' : 'slide-in-from-top-1 pt-0.5'}`}
-                                                            style={showAbove ? { bottom: '100%' } : { top: '100%' }}>
-                                                            <div className="bg-cyan-950/95 backdrop-blur-lg border border-cyan-500/30 rounded-lg p-2.5 shadow-[0_8px_32px_rgba(0,0,0,0.6),0_0_15px_rgba(6,182,212,0.15)]">
-                                                                <div className="flex items-center justify-between mb-1">
-                                                                    <div className="flex items-center gap-1.5">
-                                                                        <Sparkles size={10} className="text-cyan-400" />
-                                                                        <span className="text-[12px] font-bold text-cyan-400 uppercase tracking-wider font-jakarta">AI Insight</span>
-                                                                    </div>
-                                                                    <button
-                                                                        onClick={(e) => { e.stopPropagation(); setExpandedNewsId(null); }}
-                                                                        className="text-slate-400 hover:text-white transition-colors p-0.5 rounded hover:bg-white/10"
-                                                                    >
-                                                                        <ChevronUp size={14} />
-                                                                    </button>
-                                                                </div>
-                                                                <ProGate title="AI Insight" mode="blur" compact>
-                                                                    <p className="text-[13px] text-slate-200 leading-relaxed">
-                                                                        {analysis}
-                                                                    </p>
-                                                                    {n.url && n.url !== '#' && (
-                                                                        <a href={n.url} target="_blank" rel="noreferrer"
-                                                                            className="text-[12px] text-indigo-400 hover:text-indigo-300 mt-1.5 inline-block font-jakarta"
-                                                                            onClick={(e) => e.stopPropagation()}>
-                                                                            {locale === 'ko' ? '원문 보기 →' : locale === 'ja' ? '原文を見る →' : 'Read original →'}
-                                                                        </a>
-                                                                    )}
-                                                                </ProGate>
-                                                            </div>
-                                                        </div>
-                                                    );
-                                                })()}
-                                            </div>
-                                        );
-                                    })}
-                                    {krNews.length === 0 && (
-                                        <div className="h-full flex items-center justify-center text-amber-400/70 text-xs text-center p-4 italic">
-                                            {tIntel('translating')}
-                                        </div>
-                                    )}
-                                </div>
-
-
-                            </div>
+                            {/* 3. AI Deep Analysis — Claude Sonnet 4 */}
+                            <AIDeepAnalysis
+                                ticker={ticker}
+                                displayPrice={displayPrice}
+                                session={effectiveSession}
+                                snapshot={{
+                                    price: displayPrice,
+                                    priceChange: displayChangePct,
+                                    session: effectiveSession,
+                                    signalCore: {
+                                        direction: 'NEUTRAL', // Will be computed by DecisionGate logic
+                                        conviction: 'MIXED',
+                                        condition: 'TREND',
+                                        conclusion: '',
+                                        bullCount: 0,
+                                        bearCount: 0,
+                                        bullSignals: '',
+                                        bearSignals: '',
+                                    },
+                                    sma: {
+                                        cross: effectiveSma?.cross || 'NONE',
+                                        sma50: effectiveSma?.sma50 || 0,
+                                        sma200: effectiveSma?.sma200 || 0,
+                                        trendPhase: effectiveSma?.phase || 'UNKNOWN',
+                                    },
+                                    vwap: liveQuote?.vwap || initialStockData?.vwap || 0,
+                                    vwapDistance: (() => {
+                                        const vwap = liveQuote?.vwap || initialStockData?.vwap || 0;
+                                        if (!vwap || !displayPrice) return 'N/A';
+                                        return `${((displayPrice - vwap) / vwap * 100).toFixed(1)}%`;
+                                    })(),
+                                    conviction: {
+                                        score: conviction?.score || 50,
+                                        grade: conviction?.grade || 'C',
+                                    },
+                                    structure: {
+                                        netGex: structure?.netGex || 0,
+                                        gammaFlipLevel: structure?.gammaFlipLevel || 0,
+                                        squeezeRisk: structure?.squeezeRisk || 'N/A',
+                                        squeezeScore: structure?.squeezeScore || 0,
+                                        pcRatio: structure?.pcRatio || 0,
+                                        callWall: structure?.levels?.callWall || 0,
+                                        putFloor: structure?.levels?.putFloor || 0,
+                                        maxPain: structure?.maxPain || 0,
+                                        gammaConcentration: structure?.gammaConcentration || 0,
+                                        gammaConcentrationLabel: structure?.gammaConcentrationLabel || 'NORMAL',
+                                    },
+                                    flow: {
+                                        netPremium: liveQuote?.flow?.netPremium || 0,
+                                    },
+                                    fundamental: {
+                                        score: effectiveFund?.score || 0,
+                                        grade: effectiveFund?.grade || 'N/A',
+                                        pe: effectiveFund?.pe || 0,
+                                        fcfMargin: effectiveFund?.fcfYield || 0,
+                                    },
+                                    analyst: {
+                                        score: (() => {
+                                            if (!effectiveAnalyst?.totalAnalysts) return 0;
+                                            const bd = effectiveAnalyst.breakdown;
+                                            return Math.round(((bd?.strongBuy + bd?.buy) / effectiveAnalyst.totalAnalysts) * 100);
+                                        })(),
+                                        buyPct: (() => {
+                                            if (!effectiveAnalyst?.totalAnalysts) return 0;
+                                            const bd = effectiveAnalyst.breakdown;
+                                            return Math.round(((bd?.strongBuy + bd?.buy) / effectiveAnalyst.totalAnalysts) * 100);
+                                        })(),
+                                    },
+                                    institutional: {
+                                        dpRatio: effectiveInst?.darkPool?.percent || 0,
+                                        activity: effectiveInst?.darkPool ? (effectiveInst.darkPool.percent > 50 ? 'ACCUMULATION' : 'DISTRIBUTION') : 'N/A',
+                                    },
+                                    volatility: {
+                                        regime: effectiveVol?.regime || 'N/A',
+                                        regimeScore: effectiveVol?.regimeScore || 0,
+                                        gexLong: effectiveVol?.gex || 0,
+                                    },
+                                    squeeze: {
+                                        status: effectiveSqueeze?.status || 'N/A',
+                                        siPercent: effectiveSqueeze?.siPercent || 0,
+                                    },
+                                    earnings: {
+                                        daysUntil: (() => {
+                                            if (!effectiveEarnings?.daysLabel) return 999;
+                                            const parsed = parseInt(effectiveEarnings.daysLabel.replace(/\D/g, ''));
+                                            return isNaN(parsed) ? 999 : parsed;
+                                        })(),
+                                        date: effectiveEarnings?.nextDate || 'N/A',
+                                        estimatedEps: effectiveEarnings?.epsEstimate || 0,
+                                    },
+                                    relatedTickers: effectiveRelated?.topRelated?.map((r: any) => r.ticker) || [],
+                                }}
+                            />
 
                         </div>
 

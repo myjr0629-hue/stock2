@@ -541,9 +541,18 @@ exports.handler = async (event) => {
   const hour = new Date().getUTCHours();
   const minute = new Date().getUTCMinutes();
   const utcMin = hour*60+minute;
+  const day = new Date().getUTCDay(); // 0=Sun, 6=Sat
+  const isWeekend = (day === 0 || day === 6);
   const isExtended = (utcMin >= 8*60) || (utcMin <= 1*60);
   const isRegular = (utcMin >= 13*60+30 && utcMin <= 21*60);
   const forceRun = event && event.forceRun;
+  
+  // Weekend: skip everything — preserve Friday's data as-is
+  if (isWeekend) {
+    console.log('Weekend (day='+day+') — skipping all steps to preserve Friday data');
+    return { statusCode:200, body:JSON.stringify({ skipped:true, reason:'Weekend - Friday data preserved', day }) };
+  }
+  
   if (!isExtended && !forceRun) {
     return { statusCode:200, body:JSON.stringify({ skipped:true, reason:'Markets closed', utcHour:hour }) };
   }

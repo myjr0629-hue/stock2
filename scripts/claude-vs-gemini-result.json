@@ -1,0 +1,149 @@
+{
+  "timing": {
+    "gemini": "38.6s",
+    "claude": "35.7s",
+    "claudeTokens": {
+      "input": 2920,
+      "output": 2218
+    }
+  },
+  "results": {
+    "gemini": [
+      {
+        "id": "ff6e9726c3f9851aa3179b5a2728ce6369c197fe6b8192a9c8eaafe27a123c80",
+        "headline": "Are We Headed for $5 Gas? This 1 Thing Determines How Much You Pay at the Pump (No, It's Not Iran).",
+        "summaryKR": "이란 전쟁으로 글로벌 원유 가격이 급등하며 미국 휘발유 가격이 지난 한 달간 30% 상승해 인플레이션 압박이 커지고 있습니다. 미국이 순석유 수출국임에도 불구하고 국제 유가 동향이 국내 가격에 큰 영향을 미치고 있습니다.",
+        "summaryEN": "U.S. gas prices are surging by 30% over the last month due to global crude oil increases, primarily driven by the Iran war, raising significant inflation concerns. Despite the U.S. being a net petroleum exporter, global crude dynamics are dictating pump prices.",
+        "summaryJP": "イラン戦争による世界的な原油価格高騰を受け、米国のガソリン価格は過去1ヶ月で30%上昇し、インフレ懸念を強めています。米国が石油純輸出国であるにもかかわらず、世界の原油動向がガソリン価格に大きく影響しています。",
+        "analysisKR": "IF 지정학적 긴장이 유가를 계속 끌어올린다면 THEN 인플레이션 압력 증가로 연준의 금리 인하 기대가 약화되고 시장의 위험 회피 심리가 심화될 수 있습니다.",
+        "analysisEN": "IF geopolitical tensions continue to push crude oil prices higher THEN increased inflation pressure may dampen Fed rate cut expectations and exacerbate market risk-off sentiment.",
+        "analysisJP": "IF 地政学的緊張が原油価格を押し上げ続けるならば THEN インフレ圧力の増大がFRBの利下げ期待を抑制し、市場のリスクオフ心理を悪化させる可能性があります。",
+        "category": "GEOPOLITICAL",
+        "impact": "BEARISH",
+        "urgency": 9
+      },
+      {
+        "id": "8d8afb7031bcae608b50542ae4170a0a3d256906a57a0ff54633f1f3765e7df3",
+        "headline": "Is This Under-the-Radar Index Signaling Disaster for Stocks This Week? Here's What History Tells Us.",
+        "summaryKR": "미 국채 금리 변동성 지수인 BofA MOVE 지수가 28% 급등하여 2025년 4월 이후 최고치를 기록, 단기 주식 시장 변동성 확대를 예고합니다. 과거 데이터는 이러한 급등이 종종 주식 시장 불안정 증가에 선행했음을 보여줍니다.",
+        "summaryEN": "The BofA MOVE Index, a measure of Treasury bond yield volatility, surged 28% to its highest level since April 2025, signaling potential near-term stock market volatility. Historically, such spikes have often preceded increased equity market turbulence.",
+        "summaryJP": "米国債利回り変動性を示すBofA MOVE指数が28%急騰し、2025年4月以来の高水準を記録、短期的な株式市場の変動拡大を示唆しています。歴史的に、このような急騰はしばしば株式市場の混乱に先行してきました。",
+        "analysisKR": "IF MOVE 지수와 VIX가 동시에 급등하며 시장 불확실성이 커진다면 THEN 투자자들은 금리 변동성에 대한 우려로 위험 자산 회피를 지속하며 주식 시장 추가 하방 압력을 가중시킬 수 있습니다.",
+        "analysisEN": "IF both the MOVE Index and VIX continue to surge, signaling increased market uncertainty THEN investors may continue to shun risk assets due to interest rate volatility concerns, adding further downside pressure to equity markets.",
+        "analysisJP": "IF MOVE指数とVIXが同時に急騰し、市場の不確実性が高まるならば THEN 投資家は金利変動への懸念からリスク資産を避け続け、株式市場へのさらなる下押し圧力を加える可能性があります。",
+        "category": "US_MARKET",
+        "impact": "BEARISH",
+        "urgency": 9
+      },
+      {
+        "id": "e978155fc5956931e216030899ed53d06868b19ff5a833ac548a1a8501afff64",
+        "headline": "Here's Why Amazon's Biggest Bet in 2026 Could Backfire on Shareholders",
+        "summaryKR": "아마존이 2026년에 인공지능(AI) 인프라에 주로 2,000억 달러를 투자할 계획이며, 이는 애널리스트 예상치를 53% 상회하는 규모입니다. 막대한 지출은 장기적인 AI 성장 잠재력에도 불구하고 단기적으로 자유 현금 흐름 및 주주 수익에 대한 우려를 제기합니다.",
+        "summaryEN": "Amazon plans to invest $200 billion in AI infrastructure in 2026, exceeding analyst expectations by 53%, indicating aggressive expansion in the AI sector. This substantial capital expenditure raises concerns about near-term free cash flow and potential impacts on shareholder returns despite long-term growth potential.",
+        "summaryJP": "Amazonは2026年にAIインフラに2000億ドルを投資する計画で、これはアナリスト予想を53%上回る規模です。この巨額な設備投資は、長期的なAI成長の可能性にもかかわらず、短期的なフリーキャッシュフローと株主還元への影響について懸念を引き起こしています。",
+        "analysisKR": "IF 주요 기술 기업의 대규모 AI 투자 발표가 이어지면 THEN AI 관련 기업들의 장기 성장 전망은 강화되지만, 단기적으로는 비용 증가 우려로 시장의 변동성이 커질 수 있습니다.",
+        "analysisEN": "IF major tech companies continue to announce massive AI investments THEN long-term growth prospects for AI-related firms may strengthen, but near-term market volatility could increase due to rising cost concerns.",
+        "analysisJP": "IF 主要テクノロジー企業による大規模なAI投資発表が続けば THEN AI関連企業の長期的な成長見通しは強化されるものの、短期的にはコスト増への懸念から市場の変動性が高まる可能性があります。",
+        "category": "SECTOR",
+        "impact": "MIXED",
+        "urgency": 7
+      },
+      {
+        "id": "d9f9cb37ab0a1b422aed40e7e2e8e7148a6075988c319018ae4846a1dbd4e446",
+        "headline": "Prediction: The \"Trough of Disillusionment\" Will Create the Best Buying Opportunity for Artificial Intelligence (AI) Stocks in 2026",
+        "summaryKR": "AI 주식들이 기술의 실제 가치와 비용 효율성에 대한 재평가로 인해 상당한 조정을 겪었으며, 이는 '환멸의 계곡' 단계로 해석됩니다. 이 시기가 2026년에 AI 주식의 최적 매수 기회를 창출할 수 있다고 제안됩니다.",
+        "summaryEN": "AI stocks have experienced significant corrections as investors reassess the technology's real-world value and cost-effectiveness, seen as the 'trough of disillusionment' phase. This period is predicted to create a prime buying opportunity for AI stocks in 2026.",
+        "summaryJP": "AI株は、テクノロジーの実用的価値と費用対効果の再評価により大幅な調整を経験しており、これは「幻滅期」の段階と解釈されています。この記事は、この時期が2026年のAI株にとって最高の買い場を生み出す可能性を示唆しています。",
+        "analysisKR": "IF AI 주식들이 '환멸의 계곡' 단계에 진입하며 추가 조정을 겪는다면 THEN 장기 투자자들은 현재 시장의 위험 회피 속에서도 미래 AI 성장을 위한 전략적 진입점을 모색할 수 있습니다.",
+        "analysisEN": "IF AI stocks continue to undergo adjustments during the 'trough of disillusionment' phase THEN long-term investors may seek strategic entry points for future AI growth, even amidst current market risk-off sentiment.",
+        "analysisJP": "IF AI株が「幻滅期」の調整を続けるならば THEN 長期投資家は、現在の市場のリスクオフムードの中でも、将来のAI成長に向けた戦略的な参入機会を探る可能性があります。",
+        "category": "SECTOR",
+        "impact": "MIXED",
+        "urgency": 6
+      },
+      {
+        "id": "abfeff1f0736e43af951ea1ca482fa4d82fc8f32b9e0c78b2c7f57822679e449",
+        "headline": "Crypto News: Pepeto Announces Exchange Upgrade While XRP Price Prediction Targets New ATH and Trump Iran War Shakes Crypto Markets",
+        "summaryKR": "\"트럼프 이란 전쟁이 암호화폐 시장을 뒤흔든다\"는 소식은 이란 관련 지정학적 긴장과 잠재적인 미국 행정부 변화가 디지털 자산 가치에 영향을 미치고 있음을 나타냅니다. 이는 글로벌 분쟁에 대한 시장의 광범위한 민감성을 시사합니다.",
+        "summaryEN": "News of a \"Trump Iran War shakes crypto markets\" indicates that escalating geopolitical tensions involving Iran and a potential US administration change are influencing digital asset valuations. This suggests broader market sensitivity to global conflicts and their ripple effects.",
+        "summaryJP": "「トランプ・イラン戦争が仮想通貨市場を揺るがす」とのニュースは、イランを巡る地政学的緊張と米政権交代の可能性がデジタル資産の評価に影響を与えていることを示しています。これは、グローバル紛争に対する市場の広範な感応度を示唆しています。",
+        "analysisKR": "IF 지정학적 리스크가 암호화폐와 같은 위험 자산에 영향을 미친다면 THEN 이는 전통 금융 시장에도 유사한 위험 회피 심리를 확산시켜 전반적인 시장 하락 압력을 가중시킬 수 있습니다.",
+        "analysisEN": "IF geopolitical risks continue to impact speculative assets like cryptocurrencies THEN it may spread similar risk-off sentiment to traditional financial markets, increasing overall market downside pressure.",
+        "analysisJP": "IF 地政学的リスクが仮想通貨のような投機的資産に影響を与えるならば THEN 伝統的な金融市場にも同様のリスクオフ心理が広がり、全体的な市場の下押し圧力を増大させる可能性があります。",
+        "category": "GEOPOLITICAL",
+        "impact": "BEARISH",
+        "urgency": 8
+      }
+    ],
+    "claude": [
+      {
+        "id": "e978155fc5956931e216030899ed53d06868b19ff5a833ac548a1a8501afff64",
+        "headline": "Here's Why Amazon's Biggest Bet in 2026 Could Backfire on Shareholders",
+        "summaryKR": "아마존이 2026년 AI 인프라에 2000억 달러 투자 계획을 발표했으며, 이는 애널리스트 예상치를 53% 상회하는 대규모 투자입니다.",
+        "summaryEN": "Amazon plans massive $200 billion capital expenditure in AI infrastructure, significantly exceeding analyst expectations for 2026.",
+        "summaryJP": "アマゾンは2026年にAIインフラに2000億ドルの設備投資を計画し、アナリストの予想を大幅に上回っています。",
+        "analysisKR": "IF AI 투자 과열이 지속된다면, THEN 기술주 밸류에이션에 대한 투자자 불확실성 증가를 예상할 수 있습니다.",
+        "analysisEN": "IF Amazon's aggressive AI capex continues, THEN expect increased market skepticism about tech sector valuations.",
+        "analysisJP": "AIへの大規模投資が継続すれば、テック株のバリュエーションに対する市場の不透明感が高まる可能性があります。",
+        "category": "US_MARKET",
+        "impact": "MIXED",
+        "urgency": 6
+      },
+      {
+        "id": "8d8afb7031bcae608b50542ae4170a0a3d256906a57a0ff54633f1f3765e7df3",
+        "headline": "Is This Under-the-Radar Index Signaling Disaster for Stocks This Week?",
+        "summaryKR": "BofA MOVE 지수가 3월 20일 108.84로 급등하며, 국채 수익률 변동성이 2025년 4월 이후 최고 수준을 기록했습니다.",
+        "summaryEN": "BofA MOVE Index surged to 108.84 on March 20, indicating highest Treasury yield volatility since April 2025.",
+        "summaryJP": "BofAのMOVEインデックスが3月20日に108.84に急騰し、2025年4月以来の国債利回り変動性を示しています。",
+        "analysisKR": "IF 국채 변동성 지수가 현재 수준을 유지한다면, THEN 주식 시장의 단기적 불안정성이 증가할 가능성이 높습니다.",
+        "analysisEN": "IF the MOVE Index remains elevated, THEN expect increased short-term stock market volatility and potential risk-off sentiment.",
+        "analysisJP": "MOVEインデックスが高水準を維持すれば、株式市場の短期的な不安定性とリスクオフの可能性が高まります。",
+        "category": "MACRO",
+        "impact": "BEARISH",
+        "urgency": 8
+      },
+      {
+        "id": "ff6e9726c3f9851aa3179b5a2728ce6369c197fe6b8192a9c8eaafe27a123c80",
+        "headline": "Are We Headed for $5 Gas? This 1 Thing Determines How Much You Pay at the Pump (No, It's Not Iran).",
+        "summaryKR": "미국 전국 평균 가스 가격이 지난 한 달간 30% 상승하여 갤런당 3.88달러를 기록했으며, 이란 전쟁으로 인한 글로벌 원유 가격 상승이 주요 원인입니다.",
+        "summaryEN": "U.S. national average gas prices have surged 30% to $3.88 per gallon in the last month, driven by global crude oil price increases amid the Iran war.",
+        "summaryJP": "米国の全国平均ガソリン価格が過去1か月で30%上昇し、ガロンあたり3.88ドルに達しました。イラン紛争による世界の原油価格上昇が主な要因です。",
+        "analysisKR": "IF 원유 가격 상승이 지속된다면, THEN 인플레이션 압박과 소비자 지출 감소로 이어질 수 있습니다.",
+        "analysisEN": "IF crude oil prices continue rising, THEN expect increased inflationary pressures and potential consumer spending reduction.",
+        "analysisJP": "原油価格の上昇が続けば、インフレ圧力の増大と消費者支出の減少が予想されます。",
+        "category": "MACRO",
+        "impact": "BEARISH",
+        "urgency": 7
+      },
+      {
+        "id": "d9f9cb37ab0a1b422aed40e7e2e8e7148a6075988c319018ae4846a1dbd4e446",
+        "headline": "Prediction: The \"Trough of Disillusionment\" Will Create the Best Buying Opportunity for Artificial Intelligence (AI) Stocks in 2026",
+        "summaryKR": "AI 주식들이 기술의 실제 가치와 비용 효율성에 대한 투자자들의 재평가로 인해 상당한 조정을 겪고 있습니다.",
+        "summaryEN": "AI stocks have experienced significant corrections as investors reassess the technology's real-world value and cost-effectiveness.",
+        "summaryJP": "AI株は、投資家が技術の実際の価値と費用対効果を再評価する中で、大幅な調整を経験しています。",
+        "analysisKR": "IF AI 주식의 현재 조정이 '환멸의 골' 단계라면, THEN 장기 투자자들에게 매수 기회를 제공할 수 있습니다.",
+        "analysisEN": "IF current AI stock corrections represent the 'trough of disillusionment', THEN this may present a strategic entry point for long-term investors.",
+        "analysisJP": "現在のAI株の調整が「幻滅の谷」の段階であれば、長期投資家にとって戦略的な参入ポイントとなる可能性があります。",
+        "category": "US_MARKET",
+        "impact": "MIXED",
+        "urgency": 5
+      },
+      {
+        "id": "8299dc62ee3ca7f725249a259c5c909a9b5f11c001f7dc6549f2014b28858fc0",
+        "headline": "1 Brilliant Energy Stock to Buy Now and Hold for the Long Term",
+        "summaryKR": "미국은 2050년까지 원자력 에너지 용량을 4배로 늘릴 계획이며, 데이터 센터의 증가하는 전력 수요에 대응하고 있습니다.",
+        "summaryEN": "The U.S. aims to quadruple nuclear energy capacity by 2050, addressing growing electricity demand from data centers.",
+        "summaryJP": "米国は2050年までに原子力エネルギー容量を4倍に増やす計画で、データセンターの増大する電力需要に対応しています。",
+        "analysisKR": "IF 원자력 에너지에 대한 장기 투자 트렌드가 확인된다면, THEN 우라늄 공급업체들의 전략적 가치가 높아질 수 있습니다.",
+        "analysisEN": "IF long-term nuclear energy investment trends are confirmed, THEN uranium suppliers may see increased strategic value.",
+        "analysisJP": "長期的な原子力エネルギー投資のトレンドが確認されれば、ウラン供給業者の戦略的価値が高まる可能性があります。",
+        "category": "SECTOR",
+        "impact": "BULLISH",
+        "urgency": 6
+      }
+    ],
+    "sonnet": {
+      "error": "Access denied. This Model is marked by provider as Legacy and you have not been actively using the model in the last 15 days. Please upgrade to an active model on Amazon Bedrock"
+    }
+  }
+}

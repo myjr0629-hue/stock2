@@ -1,0 +1,84 @@
+{
+  "gemini": [
+    {
+      "id": "8a7f1535fa0bd22484f52ec32e29ffedd4c9151afe9965c92de91a5890cc5a87",
+      "headline": "Bronstein, Gewirtz & Grossman LLC Urges AMC Entertainment Holdings, Inc. Investors to Act: Class Action Filed Alleging Investor Harm",
+      "summaryKR": "AMC 엔터테인먼트가 APE(우선주 유닛) 관련 증권법 위반 혐의로 집단 소송에 직면했습니다. 이는 회사 및 특정 임원들이 오해의 소지가 있는 진술을 했다는 주장입니다.",
+      "summaryEN": "AMC Entertainment is facing a class action lawsuit alleging securities law violations related to its APE (Preferred Equity Units) holders. The complaint claims the company and certain officers made misleading statements.",
+      "summaryJP": "AMCエンターテインメントは、APE（優先株式ユニット）保有者に関連する証券法違反で集団訴訟に直面しています。同社および特定の役員が誤解を招く発言をしたと主張されています。",
+      "analysisKR": "IF 투자자들이 AMC 경영진의 투명성 및 지배구조에 대한 신뢰를 잃는다면, THEN AMC 주가는 추가적인 하방 압력을 받을 수 있으며, 이는 전반적인 밈 주식(meme stock) 섹터에 대한 투자심리를 약화시킬 수 있습니다.",
+      "analysisEN": "IF investors lose confidence in AMC's management transparency and corporate governance, THEN AMC's stock price could face further downward pressure, potentially dampening sentiment across the broader meme stock sector.",
+      "analysisJP": "IF 投資家がAMC経営陣の透明性および企業統治に対する信頼を失うならば、THEN AMC株価はさらなる下落圧力を受ける可能性があり、ミーム株セクター全体の投資心理を悪化させる可能性があります。",
+      "category": "US_MARKET",
+      "impact": "BEARISH",
+      "urgency": 3
+    },
+    {
+      "id": "62373eb7becc75cbba596b20845ae1036a893ce1fefb72da435d6ec491b639e1",
+      "headline": "Bronstein, Gewirtz & Grossman LLC Urges Plug Power Inc. Investors to Act: Class Action Filed Alleging Investor Harm",
+      "summaryKR": "수소 연료전지 기업 플러그 파워가 미 에너지부(DOE) 대출 자금 및 수소 생산 시설과 관련하여 허위 진술을 했다는 혐의로 집단 소송에 휘말렸습니다. 이는 2023년 초부터 2024년 2월 사이의 기간에 해당합니다.",
+      "summaryEN": "Hydrogen fuel cell company Plug Power faces a class action lawsuit alleging false and misleading statements regarding DOE loan funding and hydrogen production facilities. The allegations cover the period from early 2023 to February 2024.",
+      "summaryJP": "水素燃料電池企業であるプラグパワーは、米国エネルギー省（DOE）の融資資金および水素生産施設に関する虚偽および誤解を招く声明を巡り、集団訴訟に直面しています。これは2023年初頭から2024年2月までの期間にわたるものです。",
+      "analysisKR": "IF 플러그 파워의 정부 지원 및 운영 능력에 대한 주장이 신뢰를 잃는다면, THEN 회사의 주가는 물론이고 광범위한 수소 에너지 및 청정 기술 섹터에 대한 투자자 신뢰가 약화될 수 있습니다.",
+      "analysisEN": "IF Plug Power's claims regarding government funding and operational capabilities lose credibility, THEN the company's stock price and investor confidence in the broader hydrogen energy and clean tech sector could be negatively impacted.",
+      "analysisJP": "IF プラグパワーの政府支援および運営能力に関する主張が信頼性を失うならば、THEN 同社の株価のみならず、広範な水素エネルギーおよびクリーンテックセクターへの投資家信頼感が損なわれる可能性があります。",
+      "category": "SECTOR",
+      "impact": "BEARISH",
+      "urgency": 4
+    },
+    {
+      "id": "9d553a878612f9bcd9126d6a9e7fa733cf702f707d3d8113e5fc3190083b3ea3",
+      "headline": "Bronstein, Gewirtz & Grossman LLC Urges Trip.com Group Limited Investors to Act: Class Action Filed Alleging Investor Harm",
+      "summaryKR": "트립닷컴 그룹이 독점적 사업 관행으로 인한 규제 위험에 대해 허위 및 오해의 소지가 있는 진술을 했다는 혐의로 집단 소송에 직면했습니다. 이는 중국 기술 기업에 대한 지속적인 규제 우려를 다시 상기시킵니다.",
+      "summaryEN": "Trip.com Group is facing a class action lawsuit alleging false and misleading statements regarding regulatory risks stemming from its monopolistic business practices. This serves as a reminder of ongoing regulatory concerns for Chinese tech firms.",
+      "summaryJP": "Trip.comグループは、独占的事業慣行による規制リスクに関して虚偽および誤解を招く記述をしたとして集団訴訟に直面しています。これは、中国テクノロジー企業に対する継続的な規制懸念を再認識させるものです。",
+      "analysisKR": "IF 중국 당국의 독점 규제 조치가 강화되거나 트립닷컴의 혐의가 사실로 드러난다면, THEN 트립닷컴의 성장 전망과 수익성에 부정적인 영향을 미칠 수 있으며, 이는 중국 기술 기업 전반의 투자심리에 추가적인 부담으로 작용할 수 있습니다.",
+      "analysisEN": "IF China's anti-monopoly regulatory actions intensify or the allegations against Trip.com are substantiated, THEN Trip.com's growth outlook and profitability could be negatively affected, adding further pressure on investor sentiment for Chinese technology companies overall.",
+      "analysisJP": "IF 中国当局の独占規制措置が強化されるか、Trip.comに対する疑惑が立証されるならば、THEN Trip.comの成長見通しと収益性に悪影響を及ぼし、中国のテクノロジー企業全般に対する投資家心理にさらなる圧力をかける可能性があります。",
+      "category": "SECTOR",
+      "impact": "BEARISH",
+      "urgency": 5
+    }
+  ],
+  "bedrock": [
+    {
+      "id": "981487ba2bf5e09fa72fee49321e77da1f64d9fe69023e66a30c95dc478e8668",
+      "headline": "Bronstein, Gewirtz & Grossman LLC Urges Alight, Inc. Investors to Act: Class Action Filed Alleging Investor Harm",
+      "summaryKR": "Alight, Inc.에 대한 집단 소송이 제기되었으며, 회사 경영진이 새 CEO 하에서의 전망에 대해 실질적으로 거짓이고 오해의 소지가 있는 진술을 했다고 주장합니다.",
+      "summaryEN": "A class action lawsuit has been filed against Alight, Inc. alleging that company executives made materially false and misleading statements regarding the company's prospects under new CEO Guilmette.",
+      "summaryJP": "Alight, Inc.に対して集団訴訟が提起され、新CEOギルメットの下での同社の見通しに関して、経営陣が実質的に虚偽で誤解を招くような声明を行ったと主張しています。",
+      "analysisKR": "IF Alight, Inc.에 대한 집단 소송이 제기된다면, THEN 투자자들은 회사의 재무 상태와 미래 전망에 대해 더 신중하게 평가할 것입니다.",
+      "analysisEN": "IF a class action lawsuit is filed against Alight, Inc., THEN investors will likely reassess the company's financial health and future prospects more cautiously.",
+      "analysisJP": "IF Alight, Inc.に対して集団訴訟が提起された場合、THEN投資家は同社の財務状態と将来の見通しをより慎重に評価するでしょう。",
+      "category": "SECTOR",
+      "impact": "BEARISH",
+      "urgency": 7
+    },
+    {
+      "id": "8a7f1535fa0bd22484f52ec32e29ffedd4c9151afe9965c92de91a5890cc5a87",
+      "headline": "Bronstein, Gewirtz & Grossman LLC Urges AMC Entertainment Holdings, Inc. Investors to Act: Class Action Filed Alleging Investor Harm",
+      "summaryKR": "AMC Entertainment Holdings에 대한 집단 소송이 제기되었으며, APE (Preferred Equity Units) 보유자와 관련된 증권법 위반을 주장합니다.",
+      "summaryEN": "A class action lawsuit has been filed against AMC Entertainment Holdings and certain officers, alleging securities law violations related to APE (Preferred Equity Units) holders.",
+      "summaryJP": "AMC Entertainment Holdingsと一部の役員に対して集団訴訟が提起され、APE（優先株式ユニット）保有者に関する証券法違反を主張しています。",
+      "analysisKR": "IF AMC Entertainment Holdings에 대한 집단 소송이 제기된다면, THEN 투자자들은 회사의 주식에 대한 신뢰도가 떨어질 것입니다.",
+      "analysisEN": "IF a class action lawsuit is filed against AMC Entertainment Holdings, THEN investor confidence in the company's stock may decline.",
+      "analysisJP": "IF AMC Entertainment Holdingsに対して集団訴訟が提起された場合、THEN投資家の同社株式に対する信頼度が低下するでしょう。",
+      "category": "SECTOR",
+      "impact": "BEARISH",
+      "urgency": 8
+    },
+    {
+      "id": "62373eb7becc75cbba596b20845ae1036a893ce1fefb72da435d6ec491b639e1",
+      "headline": "Bronstein, Gewirtz & Grossman LLC Urges Plug Power Inc. Investors to Act: Class Action Filed Alleging Investor Harm",
+      "summaryKR": "Plug Power Inc.에 대한 집단 소송이 제기되었으며, 회사가 DOE 대출 자금 및 수소 생산 시설에 관해 거짓이고 오해의 소지가 있는 진술을 했다고 주장합니다.",
+      "summaryEN": "A class action lawsuit has been filed against Plug Power Inc. alleging that the company made false and misleading statements regarding DOE loan funding and hydrogen production facilities.",
+      "summaryJP": "Plug Power Inc.に対して集団訴訟が提起され、DOE融資および水素生産施設に関して虚偽で誤解を招くような声明を行ったと主張しています。",
+      "analysisKR": "IF Plug Power Inc.에 대한 집단 소송이 제기된다면, THEN 투자자들은 회사의 재무 건전성과 운영 능력에 의문을 가질 것입니다.",
+      "analysisEN": "IF a class action lawsuit is filed against Plug Power Inc., THEN investors may question the company's financial integrity and operational capabilities.",
+      "analysisJP": "IF Plug Power Inc.に対して集団訴訟が提起された場合、THEN投資家は同社の財務健全性と運営能力に疑問を抱くでしょう。",
+      "category": "SECTOR",
+      "impact": "BEARISH",
+      "urgency": 9
+    }
+  ]
+}
