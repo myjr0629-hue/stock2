@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { Link } from '@/i18n/routing';
 import { ProGate } from '@/components/gate/FeatureGate';
+import { SectorHeatmap } from '@/components/intel/SectorHeatmap';
 import type { IntelQuote, IntelSharedData } from '@/hooks/useIntelSharedData';
 
 // ── Sector Definitions ──
@@ -369,6 +370,9 @@ export function SectorCommandCenter({ sectorData, onNavigate }: SectorCommandCen
                     </section>
                 ) : null;
             })()}
+
+            {/* ═══ SECTOR HEATMAP (ECharts TreeMap) ═══ */}
+            <SectorHeatmap sectorData={sectorData} onNavigate={onNavigate} />
 
             {/* ═══ SECTOR GRID (5×2) ═══ */}
             <section className="relative z-10 grid grid-cols-2 lg:grid-cols-5 gap-3">
