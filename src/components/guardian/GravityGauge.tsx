@@ -3,6 +3,9 @@ import { Activity, TrendingUp, TrendingDown, BarChart3, Radio, Globe, ShieldAler
 import { useTranslations, useLocale } from 'next-intl';
 import { GuardianTooltip } from './GuardianTooltip';
 import { useMarketStatus } from '@/hooks/useMarketStatus';
+import dynamic from 'next/dynamic';
+
+const ReactECharts = dynamic(() => import('echarts-for-react'), { ssr: false });
 
 interface RLSIComponents {
     priceActionRaw: number;
@@ -43,13 +46,7 @@ export default function GravityGauge({ score, loading, session, components, rlsi
         return () => clearTimeout(timer);
     }, [score]);
 
-    // Calculate Gauge Parameters
-    const radius = 60;
-    const stroke = 8;
     const normalizedScore = Math.min(Math.max(animatedScore, 0), 100);
-    const circumference = 2 * Math.PI * radius;
-    const maxOffset = circumference / 2;
-    const offset = maxOffset - (normalizedScore / 100) * maxOffset;
 
     // Determine Status
     let statusText = "NEUTRAL";
@@ -114,15 +111,147 @@ export default function GravityGauge({ score, loading, session, components, rlsi
         return { bull, bear, total: decomposition.length };
     }, [components, decomposition]);
 
-    // Score scale zones
-    const scaleZones = [
-        { label: '0', pos: 0 },
-        { label: '20', pos: 20 },
-        { label: '40', pos: 40 },
-        { label: '60', pos: 60 },
-        { label: '80', pos: 80 },
-        { label: '100', pos: 100 }
-    ];
+    // ── ECharts Gauge Option ──
+    const gaugeOption = useMemo(() => ({
+        series: [
+            // Outer decorative ring — gradient arc
+            {
+                type: 'gauge',
+                startAngle: 200,
+                endAngle: -20,
+                min: 0,
+                max: 100,
+                radius: '92%',
+                center: ['50%', '65%'],
+                splitNumber: 10,
+                axisLine: {
+                    lineStyle: {
+                        width: 6,
+                        color: [
+                            [0.2, '#3b82f6'],    // Oversold — blue
+                            [0.4, '#60a5fa'],    // Bearish — light blue
+                            [0.5, '#94a3b8'],    // Neutral — slate
+                            [0.6, '#34d399'],    // Bullish — emerald
+                            [0.8, '#10b981'],    // Strong — green
+                            [1, '#f43f5e'],      // Overheated — red
+                        ],
+                    },
+                },
+                axisTick: {
+                    distance: -12,
+                    length: 4,
+                    lineStyle: { color: '#475569', width: 1 },
+                },
+                splitLine: {
+                    distance: -14,
+                    length: 8,
+                    lineStyle: { color: '#475569', width: 1.5 },
+                },
+                axisLabel: {
+                    distance: -22,
+                    color: '#64748b',
+                    fontSize: 10,
+                    fontFamily: 'monospace',
+                    formatter: (v: number) => {
+                        if (v === 0 || v === 50 || v === 100) return `${v}`;
+                        return '';
+                    },
+                },
+                pointer: { show: false },
+                detail: { show: false },
+            },
+            // Main gauge — needle + center display
+            {
+                type: 'gauge',
+                startAngle: 200,
+                endAngle: -20,
+                min: 0,
+                max: 100,
+                radius: '80%',
+                center: ['50%', '65%'],
+                itemStyle: {
+                    color: statusColor,
+                    shadowColor: `${statusColor}66`,
+                    shadowBlur: 12,
+                },
+                progress: {
+                    show: true,
+                    roundCap: true,
+                    width: 10,
+                    itemStyle: {
+                        color: {
+                            type: 'linear',
+                            x: 0, y: 0, x2: 1, y2: 0,
+                            colorStops: [
+                                { offset: 0, color: '#3b82f6' },
+                                { offset: 0.4, color: '#34d399' },
+                                { offset: 0.6, color: '#10b981' },
+                                { offset: 1, color: '#f43f5e' },
+                            ],
+                        },
+                        shadowColor: 'rgba(52, 211, 153, 0.3)',
+                        shadowBlur: 8,
+                    },
+                },
+                axisLine: {
+                    roundCap: true,
+                    lineStyle: { width: 10, color: [[1, '#1e293b']] },
+                },
+                axisTick: { show: false },
+                splitLine: { show: false },
+                axisLabel: { show: false },
+                pointer: {
+                    icon: 'path://M12.8,0.7l12,40.1H0.7L12.8,0.7z',
+                    length: '55%',
+                    width: 8,
+                    offsetCenter: [0, '-5%'],
+                    itemStyle: {
+                        color: statusColor,
+                        shadowColor: `${statusColor}44`,
+                        shadowBlur: 6,
+                        shadowOffsetY: 2,
+                    },
+                },
+                anchor: {
+                    show: true,
+                    showAbove: true,
+                    size: 14,
+                    itemStyle: {
+                        borderWidth: 3,
+                        borderColor: statusColor,
+                        color: '#0f172a',
+                        shadowColor: `${statusColor}33`,
+                        shadowBlur: 8,
+                    },
+                },
+                title: {
+                    show: true,
+                    offsetCenter: [0, '55%'],
+                    fontSize: 12,
+                    fontWeight: 900,
+                    fontFamily: 'Plus Jakarta Sans, system-ui, sans-serif',
+                    color: statusColor,
+                    borderColor: `${statusColor}33`,
+                    backgroundColor: `${statusColor}11`,
+                    borderWidth: 1,
+                    borderRadius: 4,
+                    padding: [2, 8, 2, 8],
+                },
+                detail: {
+                    valueAnimation: true,
+                    fontSize: 36,
+                    fontWeight: 800,
+                    fontFamily: 'ui-monospace, SFMono-Regular, monospace',
+                    offsetCenter: [0, '25%'],
+                    color: '#ffffff',
+                    formatter: loading ? '--' : '{value}',
+                },
+                data: [{ value: loading ? 0 : Math.round(normalizedScore), name: statusText }],
+                animationDuration: 1200,
+                animationEasingUpdate: 'cubicOut',
+            },
+        ],
+    }), [normalizedScore, statusText, statusColor, loading]);
 
     return (
         <div className="flex flex-col items-center h-full relative p-2 pt-1">
@@ -152,106 +281,18 @@ export default function GravityGauge({ score, loading, session, components, rlsi
             {/* Content — vertically centered in remaining space */}
             <div className="flex-1 flex flex-col items-center justify-center min-h-0">
 
-            {/* Main Gauge Container */}
-            <div className="relative -mt-1">
-                <svg width="200" height="115" viewBox="0 0 200 115" className="overflow-visible">
-                    <defs>
-                        <linearGradient id="gaugeGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-                            <stop offset="0%" stopColor="#60a5fa" />
-                            <stop offset="50%" stopColor="#34d399" />
-                            <stop offset="100%" stopColor="#f43f5e" />
-                        </linearGradient>
-                        <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
-                            <feGaussianBlur stdDeviation="3" result="coloredBlur" />
-                            <feMerge>
-                                <feMergeNode in="coloredBlur" />
-                                <feMergeNode in="SourceGraphic" />
-                            </feMerge>
-                        </filter>
-                    </defs>
-
-                    {/* TICK MARKS */}
-                    {Array.from({ length: 31 }).map((_, i) => {
-                        const angle = Math.PI - (i / 30) * Math.PI;
-                        const cx = 100;
-                        const cy = 100;
-                        const rInner = 68;
-                        const rOuter = i % 5 === 0 ? 76 : 72;
-
-                        const x1 = cx + rInner * Math.cos(angle);
-                        const y1 = cy - rInner * Math.sin(angle);
-                        const x2 = cx + rOuter * Math.cos(angle);
-                        const y2 = cy - rOuter * Math.sin(angle);
-
-                        return (
-                            <line
-                                key={i}
-                                x1={x1.toFixed(2)} y1={y1.toFixed(2)}
-                                x2={x2.toFixed(2)} y2={y2.toFixed(2)}
-                                stroke={i % 5 === 0 ? "#475569" : "#1e293b"}
-                                strokeWidth={i % 5 === 0 ? 2 : 1}
-                            />
-                        );
-                    })}
-
-                    {/* Background Track */}
-                    <path
-                        d={`M 40 100 A ${radius} ${radius} 0 0 1 160 100`}
-                        fill="none"
-                        stroke="#1e293b"
-                        strokeWidth={stroke}
-                        strokeLinecap="round"
-                    />
-
-                    {/* Active Arc */}
-                    <path
-                        d={`M 40 100 A ${radius} ${radius} 0 0 1 160 100`}
-                        fill="none"
-                        stroke="url(#gaugeGradient)"
-                        strokeWidth={stroke}
-                        strokeLinecap="round"
-                        strokeDasharray={maxOffset}
-                        strokeDashoffset={offset}
-                        className="transition-all duration-1000 ease-out"
-                        filter="url(#glow)"
-                        opacity={loading ? 0.3 : 1}
-                    />
-
-                    {/* RLSI Label — centered above the arc */}
-                    <text x="100" y="14" textAnchor="middle" className="fill-white text-[12px] font-black uppercase" letterSpacing="4" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif' }}>
+            {/* ECharts Gauge */}
+            <div className="relative -mt-2 w-full max-w-[280px]" style={{ height: 190 }}>
+                <ReactECharts
+                    option={gaugeOption}
+                    style={{ height: '100%', width: '100%' }}
+                    opts={{ renderer: 'canvas' }}
+                />
+                {/* RLSI label overlay */}
+                <div className="absolute top-2 left-0 right-0 flex justify-center pointer-events-none">
+                    <span className="text-[14px] font-black uppercase tracking-[4px] text-white/90" style={{ fontFamily: 'Plus Jakarta Sans, sans-serif' }}>
                         RLSI
-                    </text>
-                </svg>
-
-                {/* Central Score Display */}
-                <div className="absolute bottom-0 left-0 right-0 top-6 flex flex-col items-center justify-end pb-1">
-                    <span className="text-4xl font-mono font-bold tracking-tighter text-white drop-shadow-lg">
-                        {loading ? "--" : Math.round(animatedScore)}
                     </span>
-                    <span
-                        className="text-[12px] font-black uppercase tracking-widest mt-0.5 px-2 py-0.5 rounded border border-white/10 font-jakarta"
-                        style={{ color: statusColor, borderColor: `${statusColor}33`, backgroundColor: `${statusColor}11` }}
-                    >
-                        {statusText}
-                    </span>
-                </div>
-            </div>
-
-            {/* Score Scale Bar — replaces "RLSI 시장건강도" */}
-            <div className="w-full max-w-[260px] mt-1 mb-1">
-                <div className="relative h-[6px] rounded-full overflow-hidden"
-                    style={{ background: 'linear-gradient(90deg, #60a5fa 0%, #34d399 40%, #34d399 60%, #f43f5e 100%)' }}>
-                    {/* Score position marker */}
-                    <div
-                        className="absolute top-[-3px] w-[3px] h-[12px] bg-white rounded-full shadow-lg transition-all duration-1000 ease-out"
-                        style={{ left: `${normalizedScore}%`, transform: 'translateX(-50%)' }}
-                    />
-                </div>
-                {/* Scale labels */}
-                <div className="flex justify-between mt-0.5 px-0.5">
-                    {scaleZones.map(z => (
-                        <span key={z.label} className="text-[12px] font-mono text-slate-300">{z.label}</span>
-                    ))}
                 </div>
             </div>
 
