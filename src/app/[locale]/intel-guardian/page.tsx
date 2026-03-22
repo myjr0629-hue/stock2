@@ -790,7 +790,7 @@ export default function GuardianPage() {
                                                 <span className="text-[12px] text-amber-500 font-mono font-jakarta">· Regular Session Only</span>
                                             </div>
                                             <span className="text-[12px] bg-emerald-950 text-emerald-400 px-2 py-0.5 rounded border border-emerald-500/20 font-bold font-jakarta">
-                                                V.2.5 FLASH
+                                                V.CLAUDE S4
                                             </span>
                                         </div>
 
