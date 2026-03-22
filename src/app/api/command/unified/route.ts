@@ -310,11 +310,8 @@ export async function GET(request: NextRequest) {
             }
         }
 
-        if (cachedData && cachedData.timestamp && (cachedData.structure || cachedData.options)) {
+        if (cachedData && cachedData.timestamp) {
             const ageMs = Date.now() - cachedData.timestamp;
-
-            // Promote to memory cache for next request (0ms)
-            memorySet(memKey, cachedData);
 
             // Get overview: Redis → API fetch
             let resolvedOverview = cachedOverview;
@@ -326,6 +323,49 @@ export async function GET(request: NextRequest) {
                 }
             }
             if (resolvedOverview) memorySet(`overview:${ticker}:${locale}`, resolvedOverview);
+
+            // [GAP-FILL] Check for missing fields and fill them via sub-APIs
+            const CORE_FIELDS = ['analyst','fundamentals','earnings','related','sma','squeeze','volatility','structure'] as const;
+            const missingFields = CORE_FIELDS.filter(f => !cachedData[f]);
+            
+            if (missingFields.length > 0 && missingFields.length <= 6) {
+                // Only gap-fill if partially complete (not completely empty)
+                const baseUrl = getBaseUrl(request);
+                const fieldHandlers: Record<string, [Function, string]> = {
+                    'analyst': [getAnalyst, `${baseUrl}/api/live/analyst?t=${ticker}`],
+                    'fundamentals': [getFundamentals, `${baseUrl}/api/live/fundamentals?t=${ticker}`],
+                    'earnings': [getEarnings, `${baseUrl}/api/live/earnings?t=${ticker}`],
+                    'related': [getRelated, `${baseUrl}/api/live/related?t=${ticker}`],
+                    'sma': [getSma, `${baseUrl}/api/live/sma?t=${ticker}`],
+                    'squeeze': [getSqueeze, `${baseUrl}/api/live/short-squeeze?t=${ticker}`],
+                    'volatility': [getVolatility, `${baseUrl}/api/live/volatility-regime?t=${ticker}`],
+                    'structure': [getStructure, `${baseUrl}/api/live/options/structure?t=${ticker}`],
+                };
+                
+                const gapPromises = missingFields.map(f => {
+                    const [handler, url] = fieldHandlers[f];
+                    return callInternalGet(handler, url);
+                });
+                
+                const gapResults = await Promise.all(gapPromises);
+                let filled = 0;
+                for (let i = 0; i < missingFields.length; i++) {
+                    if (gapResults[i]) {
+                        cachedData[missingFields[i]] = gapResults[i];
+                        filled++;
+                    }
+                }
+                
+                if (filled > 0) {
+                    cachedData.timestamp = Date.now();
+                    // Update Redis with complete data
+                    setInCache(dataCacheKey, cachedData, getSmartTTL()).catch(() => {});
+                    console.log(`[Command Unified] Redis GAP-FILL ${ticker}: filled ${missingFields.filter((_,i) => gapResults[i]).join(',')}`);
+                }
+            }
+
+            // Promote to memory cache for next request (0ms)
+            memorySet(memKey, cachedData);
 
             // SWR: If older than threshold, refetch in background
             if (ageMs > REFRESH_THRESHOLD_MS) {
