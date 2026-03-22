@@ -52,8 +52,8 @@ export async function insertNewTrackRecords(
         const today = new Date();
         const recordedDate = today.toISOString().split('T')[0];
 
-        // Calculate Target Check Date (T+3 Business Days)
-        const targetCheckDate = calculateTPlus3(today).toISOString().split('T')[0];
+        // Calculate Target Check Date (T+3 Business Days, holiday-aware)
+        const targetCheckDate = (await calculateTPlus3(today)).toISOString().split('T')[0];
 
         const recordsToInsert: TrackRecordDB[] = topItems.map(item => {
             const ssot = item.decisionSSOT;
@@ -257,21 +257,30 @@ export async function verifyPendingTrackRecords(): Promise<{ success: boolean; p
 }
 
 // ============================================================================
-// HELPER: Calculate T+3 Business Days
+// HELPER: Calculate T+3 Business Days (Holiday-Aware)
 // ============================================================================
 
-function calculateTPlus3(startDate: Date): Date {
+async function calculateTPlus3(startDate: Date): Promise<Date> {
+    const { getMarketHolidays, isMarketHoliday } = await import('../holidayCache');
+    let holidays: Awaited<ReturnType<typeof getMarketHolidays>> = [];
+    try {
+        holidays = await getMarketHolidays();
+    } catch (e) {
+        console.warn('[TrackRecord] Holiday fetch failed, skipping holiday check');
+    }
+
     let daysAdded = 0;
     let currentDate = new Date(startDate);
 
     while (daysAdded < 3) {
         currentDate.setDate(currentDate.getDate() + 1);
         const dayOfWeek = currentDate.getDay();
-        // Skip Weekends (0 = Sunday, 6 = Saturday)
-        if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+        const dateStr = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}-${String(currentDate.getDate()).padStart(2, '0')}`;
+
+        // Skip Weekends (0 = Sunday, 6 = Saturday) and Market Holidays
+        if (dayOfWeek !== 0 && dayOfWeek !== 6 && !isMarketHoliday(dateStr, holidays)) {
             daysAdded++;
         }
-        // TODO: Skip Holidays using holidayCache.ts
     }
 
     return currentDate;
