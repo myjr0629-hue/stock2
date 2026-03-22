@@ -375,8 +375,14 @@ export async function GET(request: NextRequest) {
         // Also check if overview exists in cache (from another language's Polygon call)
         const existingOverview = cachedOverview || await getFromCache<any>(overviewCacheKey).catch(() => null);
 
-        // Race: Try DynamoDB + Analysis Cache in parallel with Polygon
-        const dynamoResult = await tryDynamoFast(ticker);
+        // Race: Try DynamoDB with 3s hard timeout (DynamoDB can hang on Vercel)
+        const dynamoResult = await Promise.race([
+            tryDynamoFast(ticker),
+            new Promise<null>(resolve => setTimeout(() => {
+                console.warn(`[Command Unified] ⏱️ DynamoDB timeout (3s) for ${ticker} — skipping to Polygon`);
+                resolve(null);
+            }, 3000))
+        ]);
 
         if (dynamoResult) {
             // DynamoDB had fresh data — but it's PARTIAL (no full fundamentals, related, etc.)

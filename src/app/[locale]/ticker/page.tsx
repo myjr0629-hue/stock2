@@ -53,29 +53,35 @@ export default async function TickerPage({ params, searchParams }: Props) {
     // ═══════════════════════════════════════════════════════════════
     let initialUnifiedData = rawUnifiedData ? { ...rawUnifiedData, overview: rawOverviewData || rawUnifiedData.overview || null } : null;
 
-    // ── Tier 2: DynamoDB Unified Cache (complete pre-built data from warm-command) ──
+    // ── Tier 2: DynamoDB Unified Cache (2s timeout — DynamoDB can hang on Vercel) ──
     if (!initialUnifiedData) {
         try {
-            const { getUnifiedCache } = await import('@/lib/aws/unifiedCacheProvider');
-            const dynamoUnified = await getUnifiedCache(ticker, locale);
+            const dynamoUnified = await Promise.race([
+                import('@/lib/aws/unifiedCacheProvider').then(m => m.getUnifiedCache(ticker, locale)),
+                new Promise<null>(r => setTimeout(() => r(null), 2000))
+            ]);
             if (dynamoUnified && (dynamoUnified.structure || dynamoUnified.options)) {
-                // Strip any embedded overview (may be wrong language)
                 const { overview: _discard, ...dynData } = dynamoUnified;
-                // Get correct language overview from Redis
                 const dynOverview = rawOverviewData || await getFromCache<any>(`cache:command:overview:${ticker}:${locale}`).catch(() => null);
                 initialUnifiedData = { ...dynData, overview: dynOverview || null };
-                // Re-warm Redis for next visitor (fire-and-forget) — 30min TTL
                 setInCache(`cache:command:unified:${ticker}`, dynData, 1800).catch(() => {});
             }
         } catch { /* DynamoDB Unified Cache unavailable */ }
     }
 
-    // ── Tier 3: DynamoDB Individual Snapshots (Lambda harvest data) ──
+    // ── Tier 3: DynamoDB Individual Snapshots (2s timeout) ──
     if (!initialUnifiedData) {
         try {
-            const { getTickerSnapshot, isDataFresh } = await import('@/lib/aws/dynamoDataProvider');
-            const snap = await getTickerSnapshot(ticker);
-            if (snap.price && (isDataFresh(snap.price.date) || isWithin3Days(snap.price.date))) {
+            const snapResult = await Promise.race([
+                import('@/lib/aws/dynamoDataProvider').then(async m => {
+                    const snap = await m.getTickerSnapshot(ticker);
+                    return { snap, isDataFresh: m.isDataFresh };
+                }),
+                new Promise<null>(r => setTimeout(() => r(null), 2000))
+            ]);
+            if (snapResult) {
+                const { snap, isDataFresh } = snapResult;
+                if (snap.price && (isDataFresh(snap.price.date) || isWithin3Days(snap.price.date))) {
                 const gex = snap.gex;
                 const p = snap.price as any;
                 initialUnifiedData = {
@@ -106,6 +112,7 @@ export default async function TickerPage({ params, searchParams }: Props) {
                     _dynamoPrice: { price: p.close, open: p.open, high: p.high, low: p.low, volume: p.volume, changePct: p.changePct },
                     timestamp: Date.now(), _source: 'ssr-dynamodb',
                 };
+                }
             }
         } catch { /* DynamoDB unavailable in SSR — continue without initial data */ }
     }
