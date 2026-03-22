@@ -296,6 +296,17 @@ Return ONLY valid JSON (no markdown fences):
         const analysis = JSON.parse(rawText);
         const elapsed = Date.now() - startTime;
 
+        // --- Build News Summary (UI-rendered, not AI-generated) ---
+        const bullishCount = newsArticles.filter(a => a.sentiment === 'positive').length;
+        const bearishCount = newsArticles.filter(a => a.sentiment === 'negative').length;
+        const neutralCount = newsArticles.length - bullishCount - bearishCount;
+        const topHeadlines = newsArticles.slice(0, 3).map(a => ({
+            title: a.title.split(' — ')[0].slice(0, 120),  // Clean title only, no description
+            age: a.age,
+            sentiment: a.sentiment,
+            source: a.source,
+        }));
+
         // --- Save to Redis ---
         const resultPayload = {
             ...analysis,
@@ -306,6 +317,13 @@ Return ONLY valid JSON (no markdown fences):
             generatedAt: new Date().toISOString(),
             elapsedMs: elapsed,
             newsCount: newsArticles.length,
+            newsSummary: {
+                total: newsArticles.length,
+                bullish: bullishCount,
+                bearish: bearishCount,
+                neutral: neutralCount,
+                headlines: topHeadlines,
+            },
             model: 'claude-sonnet-4',
         };
 
