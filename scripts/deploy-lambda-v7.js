@@ -1,4 +1,65 @@
+/**
+ * Deploy Lambda v7.0 — Unified Cache Builder
+ * 
+ * Added over v6:
+ * - Step 6: Build COMPLETE unified data for command page (10 fields)
+ *   → Save to signum-unified-cache for instant Vercel reads
+ *   Reuses data already collected in Steps 1-5 (zero waste)
+ *   Adds: volatility regime, short squeeze, institutional (dark pool)
+ * 
+ * Existing from v6 (UNTOUCHED):
+ * - Step 1: Price snapshot (300 tickers)
+ * - Step 2: GEX + OMR (100 tickers)
+ * - Step 3: SMA 50/200 (300 tickers)
+ * - Step 4: Details — Analyst/Earnings/Fundamentals/Related (100 tickers)
+ * - Step 5: Alpha Scores
+ * - RLSI self-calculation
+ * 
+ * Usage: node scripts/deploy-lambda-v7.js
+ */
+require('dotenv').config({ path: '.env.local' });
+const fs = require('fs');
+const path = require('path');
+const { execSync } = require('child_process');
+const { LambdaClient, UpdateFunctionCodeCommand, UpdateFunctionConfigurationCommand } = require('@aws-sdk/client-lambda');
 
+const universe = JSON.parse(fs.readFileSync('data/stock_universe_us300.json', 'utf-8')).symbols;
+console.log('Universe:', universe.length, 'tickers');
+
+// Import UNIVERSE_500 from pre-extracted JSON (avoids regex parsing issues)
+let universe500 = [];
+try {
+  universe500 = JSON.parse(fs.readFileSync('data/universe_500.json', 'utf-8')).symbols;
+} catch {
+  console.warn('WARNING: data/universe_500.json not found, using universe 300');
+  universe500 = universe;
+}
+console.log('Universe 500 for unified cache:', universe500.length, 'tickers');
+
+const GEX_TICKERS = [
+  'AAPL','MSFT','AMZN','NVDA','GOOGL','META','TSLA',
+  'AMD','AVGO','PLTR','SMCI','ARM','COIN','AI','MRVL','MU','TSM','ASML',
+  'SERV','PL','TER','SYM','RKLB','ISRG',
+  'CEG','VST','GEV','PWR','CCJ','SMR','ETN',
+  'LLY','NVO','VRTX','REGN','VKTX','AMGN','GILD',
+  'CRWD','PANW','FTNT','ZS','S','OKTA','NET',
+  'LMT','RTX','AXON','KTOS','LDOS','ASTS','LUNR',
+  'SNOW','IONQ','DELL','PATH','TWLO',
+  'XYZ','PYPL','SOFI','AFRM','HOOD','UPST',
+  'CRM','NOW','DDOG','WDAY','MDB','TEAM','HUBS',
+  'JPM','BAC','GS','WFC','V','MA',
+  'XOM','CVX','UNH','JNJ','MRK',
+  'HD','COST','WMT','DIS','NFLX',
+  'BA','CAT','GE','MSTR','MARA','RIOT',
+  'SPY','QQQ','IWM','UBER','ABNB','SHOP','BABA',
+];
+
+const DETAIL_TICKERS = [...new Set([...GEX_TICKERS])];
+
+const FINNHUB_KEY = process.env.FINNHUB_API_KEY || '';
+if (!FINNHUB_KEY) console.warn('WARNING: FINNHUB_API_KEY not set!');
+
+const handlerCode = `
 const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
 const { DynamoDBDocumentClient, PutCommand, BatchWriteCommand, QueryCommand, GetCommand } = require('@aws-sdk/lib-dynamodb');
 const https = require('https');
@@ -20,10 +81,10 @@ function httpsGet(url, timeoutMs) {
 
 const POLYGON_KEY = process.env.POLYGON_API_KEY || 'iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF';
 const FINNHUB_KEY = process.env.FINNHUB_API_KEY || '';
-const UNIVERSE = ["AAPL","ABBV","ABNB","ABT","ACN","ADBE","ADI","ADP","AEP","AFRM","AI","AMAT","AMD","AMGN","AMZN","ANET","ANSS","APD","ARE","ARM","ASML","ASTS","AVGO","AWK","AXP","BA","BAC","BBY","BIIB","BKNG","BLK","BMY","BSX","C","CARR","CAT","CCI","CCJ","CDNS","CEG","CF","CHTR","CL","CMCSA","COIN","COP","COST","CPRT","CRM","CRWD","CTAS","CTSH","CVS","CVX","D","DASH","DD","DDOG","DE","DELL","DHR","DIS","DKNG","DLR","DOV","DOW","DPZ","DUK","DVN","DXCM","EA","EBAY","ECL","EL","EMR","ENPH","EOG","EQIX","EQR","ETN","FAST","FCX","FDX","FSLR","FTNT","FTV","GD","GE","GEV","GILD","GIS","GM","GOOGL","GRMN","GS","HAL","HCA","HD","HON","HOOD","HSIC","HSY","HUBS","HUM","IBM","ICE","IDXX","IFF","ILMN","INCY","INTC","IONQ","IP","IQV","IR","ISRG","IT","ITW","JNJ","JPM","KDP","KEY","KHC","KLAC","KMB","KO","KR","KTOS","LDOS","LIN","LLY","LMT","LOW","LRCX","LULU","LUNR","LVS","LYB","LYV","MA","MAR","MARA","MBLY","MCD","MCHP","MCO","MDB","MDLZ","MDT","MELI","MET","META","MGM","MNST","MO","MPC","MPWR","MRK","MRNA","MRVL","MS","MSCI","MSFT","MSI","MSTR","MTB","MTD","MU","NDAQ","NDSN","NEE","NEM","NET","NFLX","NKE","NOC","NOW","NSC","NTRS","NUE","NVDA","NVO","O","ODFL","OKTA","ON","ORCL","ORLY","OTIS","OXY","PANW","PARA","PATH","PAYX","PCAR","PCG","PEAK","PEG","PEP","PFE","PG","PHM","PL","PLD","PLTR","PM","PNC","PONY","POOL","PPG","PSA","PSX","PTC","PWR","PYPL","QCOM","REGN","RIOT","RIVN","RKLB","ROK","ROKU","ROP","ROST","RSG","RTX","S","SBAC","SBUX","SCHW","SE","SEDG","SERV","SHOP","SHW","SLB","SMCI","SMR","SNA","SNOW","SNPS","SO","SOFI","SPG","SQ","SRE","STE","STT","STX","STZ","SWK","SWKS","SYK","SYM","SYY","T","TDG","TEAM","TEL","TER","TFC","TJX","TMO","TMUS","TRGP","TROW","TRV","TSLA","TSM","TT","TTWO","TWLO","TXN","TYL","UBER","UNH","UNP","UPS","UPST","URI","USB","V","VFC","VICI","VKTX","VLO","VMC","VRSK","VRTX","VST","VTR","VTRS","VZ","WDAY","WELL","WFC","WMT","XOM","XYZ","ZS"];
-const UNIVERSE_500 = ["AAPL","ABBV","ABNB","ABT","ACN","ADBE","ADI","ADP","AEP","AFRM","AI","AMAT","AMD","AMGN","AMZN","ANET","ANSS","APD","ARE","ARM","ASML","ASTS","AVGO","AWK","AXP","BA","BAC","BBY","BIIB","BKNG","BLK","BMY","BSX","C","CARR","CAT","CCI","CCJ","CDNS","CEG","CF","CHTR","CL","CMCSA","COIN","COP","COST","CPRT","CRM","CRWD","CTAS","CTSH","CVS","CVX","D","DASH","DD","DDOG","DE","DELL","DHR","DIS","DKNG","DLR","DOV","DOW","DPZ","DUK","DVN","DXCM","EA","EBAY","ECL","EL","EMR","ENPH","EOG","EQIX","EQR","ETN","FAST","FCX","FDX","FSLR","FTNT","FTV","GD","GE","GEV","GILD","GIS","GM","GOOGL","GRMN","GS","HAL","HCA","HD","HON","HOOD","HSIC","HSY","HUBS","HUM","IBM","ICE","IDXX","IFF","ILMN","INCY","INTC","IONQ","IP","IQV","IR","ISRG","IT","ITW","JNJ","JPM","KDP","KEY","KHC","KLAC","KMB","KO","KR","KTOS","LDOS","LIN","LLY","LMT","LOW","LRCX","LULU","LUNR","LVS","LYB","LYV","MA","MAR","MARA","MBLY","MCD","MCHP","MCO","MDB","MDLZ","MDT","MELI","MET","META","MGM","MNST","MO","MPC","MPWR","MRK","MRNA","MRVL","MS","MSCI","MSFT","MSI","MSTR","MTB","MTD","MU","NDAQ","NDSN","NEE","NEM","NET","NFLX","NKE","NOC","NOW","NSC","NTRS","NUE","NVDA","NVO","O","ODFL","OKTA","ON","ORCL","ORLY","OTIS","OXY","PANW","PARA","PATH","PAYX","PCAR","PCG","PEAK","PEG","PEP","PFE","PG","PHM","PL","PLD","PLTR","PM","PNC","PONY","POOL","PPG","PSA","PSX","PTC","PWR","PYPL","QCOM","REGN","RIOT","RIVN","RKLB","ROK","ROKU","ROP","ROST","RSG","RTX","S","SBAC","SBUX","SCHW","SE","SEDG","SERV","SHOP","SHW","SLB","SMCI","SMR","SNA","SNOW","SNPS","SO","SOFI","SPG","SQ","SRE","STE","STT","STX","STZ","SWK","SWKS","SYK","SYM","SYY","T","TDG","TEAM","TEL","TER","TFC","TJX","TMO","TMUS","TRGP","TROW","TRV","TSLA","TSM","TT","TTWO","TWLO","TXN","TYL","UBER","UNH","UNP","UPS","UPST","URI","USB","V","VFC","VICI","VKTX","VLO","VMC","VRSK","VRTX","VST","VTR","VTRS","VZ","WDAY","WELL","WFC","WMT","XOM","XYZ","ZS","AAL","ACHR","AFL","AIG","AKAM","ALB","ALGN","ALL","ALLY","AMPH","APA","APH","APO","APTV","ARKG","AWR","AZN","AZO","BALL","BDX","BEN","BG","BILL","BIO","BK","BR","BRK.B","BURL","BWA","BYND","CB","CELH","CHWY","CI","CINF","CIVI","CLF","CLX","CME","CMG","CMI","CNC","CNP","COF","COHR","CPNG","CR","CRL","CSCO","CSX","CTRA","CTVA","DAL","DECK","DFS","DG","DLTR","DOC","DOCU","DRI","DT","DUOL","DVA","EFX","EIX","ELV","EMN","ENTG","EPAM","EQT","ES","ESS","ESTC","ETSY","EVR","EXPE","F","FANG","FE","FI","FICO","FIS","FIVE","FLT","FMC","FOX","FROG","FRT","FUBO","GAP","GEN","GLOB","GLW","GNRC","GPC","GOOG","GPS","GWW","HAS","HIG","HIMS","HLT","HPE","HPQ","HRL","HSBC","HST","HUBB","HWM","HXL","IAC","IEX","IOVA","IPG","IRM","IVZ","J","JBHT","JCI","JKHY","KEYS","KIM","KMI","KMX","KNX","KVUE","L","LBRDA","LH","LI","LKQ","LSCC","LYFT","LZB","MAA","MANH","MAS","MASI","MKTX","MLM","MMC","MMM","MOH","MPLN","MRO","MTN","MTTR","NCLH","NIO","NTNX","NTRA","NUAN","NVR","NWL","NWS","OC","OLED","OMC","OPEN","ORI","OSK","OTEX","OVV","PAYC","PEN","PINS","PNR","PNW","PODD","PSTG","PVH","RBLX","RCL","RE","RFP","RGLD","RHI","RL","RMD","RPM","RVTY","SAIA","SCI","SEB","SFM","SGEN","SIRI","SIVB","SKX","SNAP","SSNC","STLD","SWAV","SWN","TAP","TECK","TFX","TGT","TPR","SPY","QQQ","IWM","DIA","XLF","XLE","XLK","XLV","GLD","TLT"];
-const GEX_TICKERS = ["AAPL","MSFT","AMZN","NVDA","GOOGL","META","TSLA","AMD","AVGO","PLTR","SMCI","ARM","COIN","AI","MRVL","MU","TSM","ASML","SERV","PL","TER","SYM","RKLB","ISRG","CEG","VST","GEV","PWR","CCJ","SMR","ETN","LLY","NVO","VRTX","REGN","VKTX","AMGN","GILD","CRWD","PANW","FTNT","ZS","S","OKTA","NET","LMT","RTX","AXON","KTOS","LDOS","ASTS","LUNR","SNOW","IONQ","DELL","PATH","TWLO","XYZ","PYPL","SOFI","AFRM","HOOD","UPST","CRM","NOW","DDOG","WDAY","MDB","TEAM","HUBS","JPM","BAC","GS","WFC","V","MA","XOM","CVX","UNH","JNJ","MRK","HD","COST","WMT","DIS","NFLX","BA","CAT","GE","MSTR","MARA","RIOT","SPY","QQQ","IWM","UBER","ABNB","SHOP","BABA"];
-const DETAIL_TICKERS = ["AAPL","MSFT","AMZN","NVDA","GOOGL","META","TSLA","AMD","AVGO","PLTR","SMCI","ARM","COIN","AI","MRVL","MU","TSM","ASML","SERV","PL","TER","SYM","RKLB","ISRG","CEG","VST","GEV","PWR","CCJ","SMR","ETN","LLY","NVO","VRTX","REGN","VKTX","AMGN","GILD","CRWD","PANW","FTNT","ZS","S","OKTA","NET","LMT","RTX","AXON","KTOS","LDOS","ASTS","LUNR","SNOW","IONQ","DELL","PATH","TWLO","XYZ","PYPL","SOFI","AFRM","HOOD","UPST","CRM","NOW","DDOG","WDAY","MDB","TEAM","HUBS","JPM","BAC","GS","WFC","V","MA","XOM","CVX","UNH","JNJ","MRK","HD","COST","WMT","DIS","NFLX","BA","CAT","GE","MSTR","MARA","RIOT","SPY","QQQ","IWM","UBER","ABNB","SHOP","BABA"];
+const UNIVERSE = ${JSON.stringify(universe)};
+const UNIVERSE_500 = ${JSON.stringify(universe500)};
+const GEX_TICKERS = ${JSON.stringify(GEX_TICKERS)};
+const DETAIL_TICKERS = ${JSON.stringify(DETAIL_TICKERS)};
 
 async function getAllOptions(ticker) {
   let allResults = [];
@@ -603,3 +664,42 @@ exports.handler = async (event) => {
   console.log('Done in '+duration+'s');
   return { statusCode:200, body:JSON.stringify({ success:true, version:'7.0', timestamp:new Date().toISOString(), duration, results }) };
 };
+`;
+
+// Write handler
+const lambdaDir = path.join(__dirname, 'lambda-harvest');
+if (!fs.existsSync(lambdaDir)) fs.mkdirSync(lambdaDir, { recursive: true });
+fs.writeFileSync(path.join(lambdaDir, 'index.js'), handlerCode);
+fs.writeFileSync(path.join(lambdaDir, 'package.json'), JSON.stringify({
+  name: 'signum-harvest-lambda', version: '7.0.0',
+  dependencies: { '@aws-sdk/client-dynamodb': '^3.0.0', '@aws-sdk/lib-dynamodb': '^3.0.0' }
+}, null, 2));
+
+console.log('Installing deps...');
+execSync('npm install --production', { cwd: lambdaDir, stdio: 'pipe' });
+
+const zipPath = path.join(__dirname, 'lambda-harvest.zip');
+if (fs.existsSync(zipPath)) fs.unlinkSync(zipPath);
+execSync(`powershell -command "Compress-Archive -Path '${lambdaDir}\\\\*' -DestinationPath '${zipPath}' -Force"`, { stdio: 'pipe' });
+console.log('Zip:', Math.round(fs.statSync(zipPath).size / 1024 / 1024 * 10) / 10 + 'MB');
+
+async function deploy() {
+  const lambda = new LambdaClient({ region: 'us-east-1' });
+  const zipBuffer = fs.readFileSync(zipPath);
+  
+  await lambda.send(new UpdateFunctionCodeCommand({ FunctionName: 'signum-harvest', ZipFile: zipBuffer }));
+  console.log('Lambda code updated: signum-harvest v7.0');
+
+  await new Promise(r => setTimeout(r, 5000));
+
+  await lambda.send(new UpdateFunctionConfigurationCommand({
+    FunctionName: 'signum-harvest',
+    Timeout: 600,  // 10 minutes (up from 5min — unified cache needs more time)
+    MemorySize: 1024, // 1GB (up from 512MB — more data processing)
+    Environment: { Variables: { NODE_ENV: 'production', FINNHUB_API_KEY: FINNHUB_KEY } },
+  }));
+  console.log('Lambda config updated (600s, 1024MB, Finnhub key set)');
+  console.log('v7.0: Steps 1-5 (unchanged) + Step 6 (unified cache builder)');
+}
+
+deploy().catch(e => console.error('Deploy error:', e.message));
