@@ -1,19 +1,18 @@
 // ============================================================================
 // Guardian News Intelligence — Market-Wide News Digest API
-// Polygon News (no ticker = global market news) → Gemini AI Analysis/Curation
+// Polygon News (no ticker = global market news) → Claude AI Analysis/Curation
 // Uses macro snapshot context for market-reaction-linked interpretation
+// Bedrock Claude 3.5 Haiku — optimized prompt for Claude's strengths
 // ============================================================================
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getFromCache, setInCache } from '@/services/redisClient';
 import { fetchMassive, CACHE_POLICY } from '@/services/massiveClient';
-import { GoogleGenAI } from '@google/genai';
-import path from 'path';
-import fs from 'fs';
+import { BedrockRuntimeClient, InvokeModelCommand } from '@aws-sdk/client-bedrock-runtime';
 
 const REDIS_KEY = 'guardian:news:digest';
 const REDIS_TTL = 35 * 60; // 35 min (5 min buffer over 30 min cron)
-const MODEL_NAME = 'gemini-2.5-flash';
+const BEDROCK_MODEL = 'us.anthropic.claude-3-5-haiku-20241022-v1:0';
 
 // ===== Types =====
 export interface NewsDigestItem {
@@ -43,26 +42,18 @@ export interface NewsDigest {
     _source: 'fresh' | 'cached';
 }
 
-// ===== Gemini Client =====
-let genAI: GoogleGenAI | null = null;
-function getGenAI(): GoogleGenAI | null {
-    if (genAI) return genAI;
-    let apiKey = process.env.GEMINI_NEWS_KEY || process.env.GEMINI_VERDICT_KEY || process.env.GEMINI_API_KEY;
-    if (!apiKey) {
-        try {
-            const envPath = path.join(process.cwd(), '.env.local');
-            if (fs.existsSync(envPath)) {
-                const content = fs.readFileSync(envPath, 'utf-8');
-                for (const line of content.split('\n')) {
-                    const t = line.trim();
-                    if (t.startsWith('GEMINI_NEWS_KEY=')) { apiKey = t.split('=')[1].trim(); break; }
-                    if (!apiKey && t.startsWith('GEMINI_API_KEY=')) apiKey = t.split('=')[1].trim();
-                }
-            }
-        } catch { /* ignore */ }
-    }
-    if (apiKey) { genAI = new GoogleGenAI({ apiKey }); return genAI; }
-    return null;
+// ===== Bedrock Client (Claude 3.5 Haiku) =====
+let bedrockClient: BedrockRuntimeClient | null = null;
+function getBedrock(): BedrockRuntimeClient {
+    if (bedrockClient) return bedrockClient;
+    bedrockClient = new BedrockRuntimeClient({
+        region: process.env.AWS_REGION || 'us-east-1',
+        credentials: {
+            accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
+            secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
+        },
+    });
+    return bedrockClient;
 }
 
 // ===== Time Helpers =====
@@ -117,28 +108,39 @@ async function getMacroContext(baseUrl: string): Promise<string> {
     }
 }
 
-// ===== Gemini Batch Analysis =====
-async function analyzeWithGemini(articles: any[], macroContext: string): Promise<NewsDigestItem[]> {
-    const client = getGenAI();
-    if (!client) {
-        console.warn('[NewsDigest] No Gemini API key — returning raw items');
-        return articles.slice(0, 5).map((a, i) => ({
-            id: a.id || `news-${i}`,
-            headline: a.title || 'No Title',
-            summaryKR: a.description?.substring(0, 120) || a.title,
-            summaryEN: a.description?.substring(0, 120) || a.title,
-            summaryJP: a.title,
-            analysisKR: '', analysisEN: '', analysisJP: '',
-            category: 'US_MARKET' as const,
-            impact: 'NEUTRAL' as const,
-            urgency: 3,
-            source: a.publisher?.name || 'Unknown',
-            publishedAt: a.published_utc || new Date().toISOString(),
-            publishedAtET: formatET(a.published_utc || new Date().toISOString()),
-            ageMinutes: getAgeMinutes(a.published_utc || new Date().toISOString()),
-        }));
-    }
+// ===== Claude AI Analysis (Bedrock) =====
+const SYSTEM_PROMPT = `You are a top-tier macro strategist at a Bloomberg-class institutional terminal.
+Your role: CURATE the most impactful global market news and provide institutional-grade analysis.
 
+<persona>
+- Write Korean (한국어) in authoritative 전문 투자 분석가 tone — use expressions like "~에 주목할 필요가 있습니다", "~할 가능성을 시사합니다", "~에 대한 재평가가 불가피합니다"
+- Write Japanese (日本語) in 金融プロフェッショナル tone — formal 「です・ます」 with precise financial terminology
+- Write English in concise Bloomberg-wire professional style
+- NEVER use machine-translation patterns. Each language must feel native.
+</persona>
+
+<compliance>
+- Do NOT provide specific trading recommendations (buy/sell/hold)
+- Use conditional language: "may indicate", "suggests potential", "watch for"
+- Analysis format: conditional cause-and-effect connecting news to market data
+</compliance>
+
+<analysis_format>
+- English analysis: use "IF → THEN" format (e.g. "IF X happens, THEN Y may follow")
+- Korean analysis (analysisKR): use native Korean conditional — "만약 ~한다면, ~할 수 있습니다" or "~이/가 지속된다면, ~에 대한 재평가가 불가피합니다". Do NOT write "IF", "THEN" in English.
+- Japanese analysis (analysisJP): use native Japanese conditional — "もし～が継続すれば、～の可能性があります" or "～であれば、～が予想されます". Do NOT write "IF", "THEN" in English.
+</analysis_format>
+
+<output_rules>
+- Select EXACTLY TOP 5 most impactful news (fewer if <5 unique)
+- Prioritize: geopolitical > macro policy > market-moving > sector rotation > commentary
+- DEDUPLICATE: same event → keep most detailed article only
+- Each summary: 1-2 concise sentences with key facts and numbers
+- Each analysis: exactly 1 dense conditional sentence — no filler words — MUST reference provided market data
+- urgency 1-10: 8+ only for BREAKING (<60 min old + extreme keywords: crash/halt/war/collapse/default)
+</output_rules>`;
+
+async function analyzeWithClaude(articles: any[], macroContext: string): Promise<NewsDigestItem[]> {
     const inputItems = articles.slice(0, 30).map((a, i) => ({
         id: a.id || `news-${i}`,
         title: a.title || '',
@@ -148,56 +150,52 @@ async function analyzeWithGemini(articles: any[], macroContext: string): Promise
         ageMin: getAgeMinutes(a.published_utc || new Date().toISOString()),
     }));
 
-    const prompt = `You are a top-tier macro strategist at a Bloomberg-class terminal.
-Your job: CURATE the most impactful global market news, translate into 3 languages, and provide ACTIONABLE market interpretation linked to real-time indicators.
+    const userPrompt = `<market_data>
+${macroContext || 'Market data unavailable — weekend/holiday'}
+</market_data>
 
-CURRENT MARKET DATA (use this for your analysis):
-${macroContext || 'Market data unavailable'}
-
-INPUT NEWS (${inputItems.length} articles — select TOP 5 by global market impact):
+<articles count="${inputItems.length}">
 ${JSON.stringify(inputItems)}
+</articles>
 
-CRITICAL RULES:
-1. SELECT ONLY TOP 5 most impactful news for global market investors. Prioritize: geopolitical > macro policy > market-moving events > sector rotation > commentary.
-2. DEDUPLICATE: if multiple articles cover the same event, keep only the most detailed one.
-3. COMPLIANCE: Do NOT provide specific trading recommendations (buy/sell/hold). Focus on factual impact analysis and conditional scenarios (IF→THEN). Use language like "may indicate", "suggests potential", "watch for" instead of directives.
-4. TRANSLATIONS must be PERFECT natural language — not machine-translated. Korean=한국어 전문 투자 톤, Japanese=日本語金融プロフェッショナルトーン.
-5. ANALYSIS must CONNECT news to the market data above when relevant (e.g., "VIX surging confirms market fear from tariff news").
-6. Each 'summary' should be 1-2 concise sentences capturing the key fact.
-7. Each 'analysis' MUST be exactly 1 sharp sentence. Be maximally dense — no filler words. Link to indicator data using IF→THEN format when possible.
-8. 'urgency' 1-10: 8+ = BREAKING (published < 60 min AND extreme market impact keywords like crash, halt, emergency, war, collapse, default).
+Select TOP 5 and output as JSON array with this exact schema per item:
+{"id","headline","summaryKR","summaryEN","summaryJP","analysisKR","analysisEN","analysisJP","category":"US_MARKET|GLOBAL|GEOPOLITICAL|MACRO|SECTOR","impact":"BULLISH|BEARISH|MIXED|NEUTRAL","urgency":1-10}
 
-For EACH of the TOP 5 selected items, output:
-{
-  "id": "original article id",
-  "headline": "original English headline",
-  "summaryKR": "한국어 요약 (1-2문장, 전문 투자 톤)",
-  "summaryEN": "English summary (1-2 sentences, professional)",
-  "summaryJP": "日本語要約 (1-2文、金融プロトーン)",
-  "analysisKR": "한국어 시장 해석 — 지표 연결 (조건부 시나리오 형식)",
-  "analysisEN": "English market interpretation — indicator-linked (IF→THEN format)",
-  "analysisJP": "日本語市場解釈 — 指標連動 (条件付きシナリオ)",
-  "category": "US_MARKET|GLOBAL|GEOPOLITICAL|MACRO|SECTOR",
-  "impact": "BULLISH|BEARISH|MIXED|NEUTRAL",
-  "urgency": 1-10
-}
-
-Output MUST be a valid JSON Array of EXACTLY 5 items (or fewer if < 5 unique):
-[ { ... }, { ... } ]
-DO NOT output markdown code blocks. Raw JSON only.`;
+Output ONLY the JSON array — no explanation, no markdown.`;
 
     try {
+        const client = getBedrock();
+        const command = new InvokeModelCommand({
+            modelId: BEDROCK_MODEL,
+            contentType: 'application/json',
+            accept: 'application/json',
+            body: JSON.stringify({
+                anthropic_version: 'bedrock-2023-05-31',
+                max_tokens: 4096,
+                temperature: 0.3,
+                system: SYSTEM_PROMPT,
+                messages: [
+                    { role: 'user', content: userPrompt },
+                    { role: 'assistant', content: '[' },  // Prefill to guarantee JSON array start
+                ],
+            }),
+        });
+
         const result = await Promise.race([
-            client.models.generateContent({ model: MODEL_NAME, contents: prompt }),
-            new Promise<any>((_, reject) => setTimeout(() => reject(new Error('Gemini timeout 60s')), 60000))
+            client.send(command),
+            new Promise<never>((_, reject) => setTimeout(() => reject(new Error('Bedrock timeout 60s')), 60000))
         ]);
 
-        const text = result.text || '';
-        const json = text.replace(/```json/g, '').replace(/```/g, '').trim();
-        if (!json) throw new Error('Empty Gemini response');
-        
+        const responseBody = JSON.parse(new TextDecoder().decode(result.body));
+        const text = responseBody.content?.[0]?.text || '';
+        // Prepend '[' since we used prefill, then clean
+        const fullJson = '[' + text;
+        const json = fullJson.replace(/```json/g, '').replace(/```/g, '').trim();
+        if (!json || json === '[') throw new Error('Empty Claude response');
+
         const parsed = JSON.parse(json) as any[];
-        
+        console.log(`[NewsDigest] Claude: ${parsed.length} items, ${responseBody.usage?.input_tokens || 0}in/${responseBody.usage?.output_tokens || 0}out tokens`);
+
         return parsed.map((item, i) => ({
             id: item.id || `digest-${i}`,
             headline: item.headline || articles[i]?.title || 'No Title',
@@ -216,7 +214,7 @@ DO NOT output markdown code blocks. Raw JSON only.`;
             ageMinutes: getAgeMinutes(articles.find(a => a.id === item.id)?.published_utc || new Date().toISOString()),
         }));
     } catch (e) {
-        console.error('[NewsDigest] Gemini analysis failed:', e);
+        console.error('[NewsDigest] Claude analysis failed:', e);
         // Fallback: return raw top 5 without AI
         return articles.slice(0, 5).map((a, i) => ({
             id: a.id || `news-${i}`,
@@ -262,8 +260,8 @@ export async function GET(req: NextRequest) {
         return NextResponse.json({ items: [], error: 'No news available', _source: 'empty' });
     }
 
-    // Step 3: AI Analysis
-    const items = await analyzeWithGemini(articles, macroContext);
+    // Step 3: AI Analysis (Claude Haiku via Bedrock)
+    const items = await analyzeWithClaude(articles, macroContext);
 
     // Step 4: Build digest
     const now = new Date();
