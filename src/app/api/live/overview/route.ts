@@ -3,9 +3,53 @@ import { NextRequest, NextResponse } from 'next/server';
 import { fetchMassive } from '@/services/massiveClient';
 import translate from 'google-translate-api-x';
 
+const FMP_API_KEY = process.env.FMP_API_KEY || '';
+
 // In-memory translation cache (key: `${ticker}:${lang}:${field}`)
 const translationCache = new Map<string, { text: string; ts: number }>();
 const CACHE_TTL = 86400_000; // 24h
+
+// FMP sector → accurate ko/ja translations
+const SECTOR_TRANSLATIONS: Record<string, { ko: string; ja: string }> = {
+    'Technology': { ko: '기술', ja: 'テクノロジー' },
+    'Communication Services': { ko: '커뮤니케이션 서비스', ja: '通信サービス' },
+    'Consumer Cyclical': { ko: '경기소비재', ja: '一般消費財' },
+    'Consumer Defensive': { ko: '필수소비재', ja: '生活必需品' },
+    'Financial Services': { ko: '금융', ja: '金融サービス' },
+    'Healthcare': { ko: '헬스케어', ja: 'ヘルスケア' },
+    'Industrials': { ko: '산업재', ja: '資本財' },
+    'Energy': { ko: '에너지', ja: 'エネルギー' },
+    'Real Estate': { ko: '부동산', ja: '不動産' },
+    'Basic Materials': { ko: '소재', ja: '素材' },
+    'Utilities': { ko: '유틸리티', ja: '公益事業' },
+};
+
+// FMP sector cache (in-memory, keyed by ticker)
+const sectorCache = new Map<string, { sector: string; ts: number }>();
+const SECTOR_CACHE_TTL = 86400_000 * 7; // 7 days — sectors rarely change
+
+async function getFmpSector(ticker: string): Promise<string | null> {
+    // Check cache first
+    const cached = sectorCache.get(ticker);
+    if (cached && Date.now() - cached.ts < SECTOR_CACHE_TTL) return cached.sector;
+
+    if (!FMP_API_KEY) return null;
+    try {
+        const res = await fetch(
+            `https://financialmodelingprep.com/stable/profile?symbol=${ticker}&apikey=${FMP_API_KEY}`,
+            { next: { revalidate: 86400 } }
+        );
+        if (!res.ok) return null;
+        const data = await res.json();
+        const sector = data?.[0]?.sector || null;
+        if (sector) {
+            sectorCache.set(ticker, { sector, ts: Date.now() });
+        }
+        return sector;
+    } catch {
+        return null;
+    }
+}
 
 async function translateText(text: string, lang: 'ko' | 'ja'): Promise<string> {
     try {
@@ -33,84 +77,57 @@ export async function GET(req: NextRequest) {
 
     const startTime = Date.now();
     try {
-        // Overview data is stable, cache for 24 hours (86400 seconds)
+        // Fetch Polygon company data (for name, description, marketCap, etc.)
         let data;
         try {
             data = await fetchMassive(`/v3/reference/tickers/${ticker}`, {}, true, undefined, { next: { revalidate: 86400 } });
         } catch (e) {
             return NextResponse.json({
                 ticker,
-                source: `Massive /v3/reference/tickers/${ticker}`,
+                source: `Polygon + FMP`,
                 sourceGrade: "C",
                 overview: {
-                    name: null,
-                    sector: null,
-                    industry: null,
-                    description: null,
-                    marketCap: null,
-                    exchange: null,
-                    homepage: null
+                    name: null, sector: null, industry: null, description: null,
+                    marketCap: null, exchange: null, homepage: null
                 },
                 debug: { latencyMs: Date.now() - startTime }
             });
         }
         const results = data.results || {};
 
-        // Extract raw English values — limit description to first 2 sentences
+        // Extract raw English description — limit to first 2 sentences
         const rawDesc = results.description || null;
         const descriptionEN = rawDesc
             ? rawDesc.split(/(?<=\.)\s+/).slice(0, 2).join(' ')
             : null;
 
-        // [FIX] SIC sector overrides for common industries (prevents outdated "Radiotelephone" translations)
-        const SECTOR_DICT: Record<string, { en: string; ko: string; ja: string }> = {
-            "3571": { en: "Consumer Electronics", ko: "소비자 가전", ja: "家電" }, // AAPL
-            "7372": { en: "Software", ko: "소프트웨어", ja: "ソフトウェア" }, // MSFT
-            "3674": { en: "Semiconductors", ko: "반도체", ja: "半導体" }, // NVDA, AMD
-            "7370": { en: "Internet Services", ko: "인터넷 서비스", ja: "インターネット関連" }, // GOOGL, META
-            "5961": { en: "E-Commerce", ko: "전자상거래", ja: "電子商取引" }, // AMZN
-            "3711": { en: "Automakers", ko: "자동차 제조", ja: "自動車製造" }, // TSLA
-            "4813": { en: "Telecom Services", ko: "통신 서비스", ja: "通信サービス" }, // T, VZ
-            "2834": { en: "Pharmaceuticals", ko: "제약", ja: "製薬" }, // LLY, JNJ
-            "6021": { en: "Banking", ko: "은행", ja: "銀行業" }, // JPM, BAC
-            "5812": { en: "Restaurants", ko: "음식점", ja: "レストラン" },
-            "4512": { en: "Airlines", ko: "항공/운송", ja: "航空" },
-            "2080": { en: "Beverages", ko: "음료", ja: "飲料" },
-            "7990": { en: "Entertainment", ko: "엔터테인먼트", ja: "エンターテイメント" } // DIS, NFLX
-        };
+        // === FMP Sector (replaces Polygon SIC) ===
+        const fmpSector = await getFmpSector(ticker);
+        let sectorEN = fmpSector || results.sic_description || null;
+        let sector = sectorEN;
 
-        const sicCodeStr = results.sic_code ? results.sic_code.toString() : null;
-        let sectorENRaw = results.sic_description || null;
-        let sectorEN = sectorENRaw;
-        let sector = sectorENRaw;
-        let skipSectorTranslation = false;
-
-        if (sicCodeStr && SECTOR_DICT[sicCodeStr]) {
-            // Apply hardcoded override for clean terminology
-            const dict = SECTOR_DICT[sicCodeStr];
-            sectorEN = dict.en;
-            sector = lang === 'ko' ? dict.ko : lang === 'ja' ? dict.ja : dict.en;
-            skipSectorTranslation = true;
-        } else if (sectorENRaw) {
-            // Sanitizer: Remove outdated ", Except [something]" from raw SIC descriptions
-            sectorEN = sectorENRaw.split(/,?\s+Except/i)[0].trim();
-            sector = sectorEN;
+        // Apply precise translations for FMP sectors (no google translate needed)
+        if (fmpSector && (lang === 'ko' || lang === 'ja')) {
+            const translation = SECTOR_TRANSLATIONS[fmpSector];
+            if (translation) {
+                sector = translation[lang];
+            }
+            // If no translation found, sector stays as English
         }
 
-        // Translate if needed (ko/ja)
+        // Translate description if needed (ko/ja)
         let description = descriptionEN;
         if (descriptionEN && (lang === 'ko' || lang === 'ja')) {
-            const [descTranslated, sectorTranslated] = await Promise.all([
-                getCachedTranslation(ticker, 'desc', descriptionEN, lang),
-                (sectorEN && !skipSectorTranslation) ? getCachedTranslation(ticker, 'sector', sectorEN, lang) : Promise.resolve(sector)
-            ]);
-            description = descTranslated;
-            sector = skipSectorTranslation ? sector : sectorTranslated;
+            description = await getCachedTranslation(ticker, 'desc', descriptionEN, lang);
+            // If FMP sector not in dictionary, translate it too
+            if (sectorEN && !SECTOR_TRANSLATIONS[sectorEN] && sector === sectorEN) {
+                sector = await getCachedTranslation(ticker, 'sector', sectorEN, lang);
+            }
         }
 
         return NextResponse.json({
             ticker,
-            source: `Massive /v3/reference/tickers/${ticker}`,
+            source: `Polygon + FMP`,
             sourceGrade: "A",
             overview: {
                 name: results.name || null,
@@ -136,4 +153,3 @@ export async function GET(req: NextRequest) {
         });
     }
 }
-
