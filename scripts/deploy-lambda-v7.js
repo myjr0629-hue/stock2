@@ -57,7 +57,9 @@ const GEX_TICKERS = [
 const DETAIL_TICKERS = [...new Set([...GEX_TICKERS])];
 
 const FINNHUB_KEY = process.env.FINNHUB_API_KEY || '';
+const FMP_API_KEY = process.env.FMP_API_KEY || '';
 if (!FINNHUB_KEY) console.warn('WARNING: FINNHUB_API_KEY not set!');
+if (!FMP_API_KEY) console.warn('WARNING: FMP_API_KEY not set!');
 
 const handlerCode = `
 const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
@@ -81,6 +83,7 @@ function httpsGet(url, timeoutMs) {
 
 const POLYGON_KEY = process.env.POLYGON_API_KEY || 'iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF';
 const FINNHUB_KEY = process.env.FINNHUB_API_KEY || '';
+const FMP_KEY = process.env.FMP_API_KEY || '';
 const UNIVERSE = ${JSON.stringify(universe)};
 const UNIVERSE_500 = ${JSON.stringify(universe500)};
 const GEX_TICKERS = ${JSON.stringify(GEX_TICKERS)};
@@ -329,55 +332,75 @@ async function harvestSMA(priceMap) {
   return { smaCount: withSMA, smaMap };
 }
 
-// ====== Step 4: Analyst + Earnings + Fundamentals (daily) ======
+// ====== Step 4: Analyst(FMP) + Earnings(Finnhub) + Fundamentals + Related — ALL 509 tickers ======
 async function harvestDetails() {
-  if (!FINNHUB_KEY) { console.log('SKIP details: no Finnhub key'); return { analyst:0, earnings:0, detailsMap:{} }; }
-  console.log('Step 4: Details (Analyst+Earnings) for '+DETAIL_TICKERS.length+' tickers...');
+  console.log('Step 4: Details for ALL '+UNIVERSE_500.length+' tickers (FMP analyst + Finnhub earnings + Polygon fund/related)...');
   const today = new Date().toISOString().slice(0,10);
   let analystOk = 0, earningsOk = 0;
-  const detailsMap = {}; // Store for unified cache
+  const detailsMap = {};
   
-  for (let i = 0; i < DETAIL_TICKERS.length; i += 2) {
-    const batch = DETAIL_TICKERS.slice(i, i+2);
-    await Promise.all(batch.map(async (ticker) => {
-      detailsMap[ticker] = detailsMap[ticker] || {};
-      try {
-        const recs = await httpsGet('https://finnhub.io/api/v1/stock/recommendation?symbol='+ticker+'&token='+FINNHUB_KEY, 8000);
-        if (Array.isArray(recs) && recs.length > 0) {
-          const latest = recs[0];
-          const total = (latest.strongBuy||0)+(latest.buy||0)+(latest.hold||0)+(latest.sell||0)+(latest.strongSell||0);
-          const bullishPct = total > 0 ? Math.round(((latest.strongBuy||0)+(latest.buy||0))/total*100) : 0;
-          let consensus = 'N/A';
-          if (total > 0) {
-            const ws = ((latest.strongBuy||0)*5+(latest.buy||0)*4+(latest.hold||0)*3+(latest.sell||0)*2+(latest.strongSell||0))/total;
-            consensus = ws>=4.3?'STRONG BUY':ws>=3.5?'BUY':ws>=2.5?'HOLD':ws>=1.7?'SELL':'STRONG SELL';
+  // === 4a: FMP Analyst Grades — ALL tickers (no rate limit issues) ===
+  if (FMP_KEY) {
+    for (let i = 0; i < UNIVERSE_500.length; i += 10) {
+      const batch = UNIVERSE_500.slice(i, i+10);
+      await Promise.all(batch.map(async (ticker) => {
+        detailsMap[ticker] = detailsMap[ticker] || {};
+        try {
+          const data = await httpsGet('https://financialmodelingprep.com/stable/grades-consensus?symbol='+ticker+'&apikey='+FMP_KEY, 5000);
+          const grade = Array.isArray(data) ? data[0] : data;
+          if (grade && (grade.strongBuy || grade.buy || grade.hold)) {
+            const total = (grade.strongBuy||0)+(grade.buy||0)+(grade.hold||0)+(grade.sell||0)+(grade.strongSell||0);
+            const bullishPct = total > 0 ? Math.round(((grade.strongBuy||0)+(grade.buy||0))/total*100) : 0;
+            let consensus = grade.consensus || 'N/A';
+            if (consensus === 'N/A' && total > 0) {
+              const ws = ((grade.strongBuy||0)*5+(grade.buy||0)*4+(grade.hold||0)*3+(grade.sell||0)*2+(grade.strongSell||0))/total;
+              consensus = ws>=4.3?'STRONG BUY':ws>=3.5?'BUY':ws>=2.5?'HOLD':ws>=1.7?'SELL':'STRONG SELL';
+            }
+            detailsMap[ticker].analyst = { ticker, consensus, totalAnalysts:total, bullishPct, breakdown:{ strongBuy:grade.strongBuy||0, buy:grade.buy||0, hold:grade.hold||0, sell:grade.sell||0, strongSell:grade.strongSell||0 } };
+            await client.send(new PutCommand({ TableName:'signum-pattern-db', Item:{ pattern:'ANALYST:'+ticker, timestamp:Date.now(), consensus, totalAnalysts:total, bullishPct, breakdown:detailsMap[ticker].analyst.breakdown }}));
+            analystOk++;
           }
-          detailsMap[ticker].analyst = { ticker, consensus, totalAnalysts:total, bullishPct, breakdown:latest };
-          await client.send(new PutCommand({ TableName:'signum-pattern-db', Item:{ pattern:'ANALYST:'+ticker, timestamp:Date.now(), consensus, totalAnalysts:total, bullishPct, breakdown:latest, period:latest.period||null }}));
-          analystOk++;
-        }
-      } catch {}
-      try {
-        const from = today;
-        const toDate = new Date(Date.now()+180*86400000).toISOString().slice(0,10);
-        const eData = await httpsGet('https://finnhub.io/api/v1/calendar/earnings?symbol='+ticker+'&from='+from+'&to='+toDate+'&token='+FINNHUB_KEY, 8000);
-        const events = eData?.earningsCalendar || [];
-        if (events.length > 0) {
-          const next = events.sort((a,b) => new Date(a.date).getTime()-new Date(b.date).getTime())[0];
-          const daysUntil = Math.ceil((new Date(next.date).getTime()-new Date(today).getTime())/(86400000));
-          const daysLabel = daysUntil <= 0 ? 'today' : 'D-'+daysUntil;
-          detailsMap[ticker].earnings = { ticker, nextEarningsDate:next.date, daysUntilEarnings:daysUntil, daysLabel, hasData:true, epsEstimate:next.epsEstimate||null, quarter:next.quarter||null, year:next.year||null, hour:next.hour||null };
-          await client.send(new PutCommand({ TableName:'signum-pattern-db', Item:{ pattern:'EARNINGS:'+ticker, timestamp:Date.now(), nextDate:next.date, daysUntil, epsEstimate:next.epsEstimate||null, quarter:next.quarter||null, year:next.year||null, hour:next.hour||null }}));
-          earningsOk++;
-        }
-      } catch {}
-    }));
-    if (i % 10 === 0 && i > 0) await new Promise(r => setTimeout(r, 2500));
+        } catch {}
+      }));
+    }
+    console.log('FMP Analyst: '+analystOk+'/'+UNIVERSE_500.length);
   }
   
+  // === 4b: Finnhub Earnings — rate-limited (60/min), process as many as possible ===
+  if (FINNHUB_KEY) {
+    let earningsProcessed = 0;
+    for (let i = 0; i < UNIVERSE_500.length; i += 2) {
+      const batch = UNIVERSE_500.slice(i, i+2);
+      await Promise.all(batch.map(async (ticker) => {
+        detailsMap[ticker] = detailsMap[ticker] || {};
+        try {
+          const from = today;
+          const toDate = new Date(Date.now()+180*86400000).toISOString().slice(0,10);
+          const eData = await httpsGet('https://finnhub.io/api/v1/calendar/earnings?symbol='+ticker+'&from='+from+'&to='+toDate+'&token='+FINNHUB_KEY, 8000);
+          const events = eData?.earningsCalendar || [];
+          if (events.length > 0) {
+            const next = events.sort((a,b) => new Date(a.date).getTime()-new Date(b.date).getTime())[0];
+            const daysUntil = Math.ceil((new Date(next.date).getTime()-new Date(today).getTime())/(86400000));
+            const daysLabel = daysUntil <= 0 ? 'today' : 'D-'+daysUntil;
+            detailsMap[ticker].earnings = { ticker, nextEarningsDate:next.date, daysUntilEarnings:daysUntil, daysLabel, hasData:true, epsEstimate:next.epsEstimate||null, quarter:next.quarter||null, year:next.year||null, hour:next.hour||null };
+            await client.send(new PutCommand({ TableName:'signum-pattern-db', Item:{ pattern:'EARNINGS:'+ticker, timestamp:Date.now(), nextDate:next.date, daysUntil, epsEstimate:next.epsEstimate||null, quarter:next.quarter||null, year:next.year||null, hour:next.hour||null }}));
+            earningsOk++;
+          }
+          earningsProcessed++;
+        } catch {}
+      }));
+      // Finnhub rate limit: 60/min → 2 per batch, wait 2.2s between batches
+      if (earningsProcessed % 10 === 0) await new Promise(r => setTimeout(r, 2200));
+      // Safety: if we've been processing for 3+ minutes, stop (other steps need time)
+      if (earningsProcessed >= 150) { console.log('Earnings: capped at '+earningsProcessed+' (rate limit)'); break; }
+    }
+    console.log('Finnhub Earnings: '+earningsOk+'/'+earningsProcessed+' processed');
+  }
+  
+  // === 4c: Polygon Fundamentals — ALL tickers (no rate limit) ===
   let fundOk = 0;
-  for (let i = 0; i < DETAIL_TICKERS.length; i += 5) {
-    const batch = DETAIL_TICKERS.slice(i, i+5);
+  for (let i = 0; i < UNIVERSE_500.length; i += 10) {
+    const batch = UNIVERSE_500.slice(i, i+10);
     await Promise.all(batch.map(async (ticker) => {
       try {
         const data = await httpsGet('https://api.polygon.io/v3/reference/tickers/'+ticker+'?apiKey='+POLYGON_KEY, 5000);
@@ -393,9 +416,10 @@ async function harvestDetails() {
     }));
   }
   
+  // === 4d: Polygon Related Companies — ALL tickers (no rate limit) ===
   let relOk = 0;
-  for (let i = 0; i < DETAIL_TICKERS.length; i += 5) {
-    const batch = DETAIL_TICKERS.slice(i, i+5);
+  for (let i = 0; i < UNIVERSE_500.length; i += 10) {
+    const batch = UNIVERSE_500.slice(i, i+10);
     await Promise.all(batch.map(async (ticker) => {
       try {
         const data = await httpsGet('https://api.polygon.io/v1/related-companies/'+ticker+'?apiKey='+POLYGON_KEY, 5000);
@@ -620,7 +644,7 @@ exports.handler = async (event) => {
     results.details = 'SKIP:not_daily_window';
     // Load existing details from DynamoDB for unified cache
     // (We have them from previous runs in signum-pattern-db)
-    for (const ticker of UNIVERSE_500.slice(0, 200)) {
+    for (const ticker of UNIVERSE_500) {
       try {
         const [analystRes, earningsRes, fundRes, relRes] = await Promise.all([
           client.send(new GetCommand({ TableName:'signum-pattern-db', Key:{pattern:'ANALYST:'+ticker} })),
@@ -694,9 +718,9 @@ async function deploy() {
 
   await lambda.send(new UpdateFunctionConfigurationCommand({
     FunctionName: 'signum-harvest',
-    Timeout: 600,  // 10 minutes (up from 5min — unified cache needs more time)
-    MemorySize: 1024, // 1GB (up from 512MB — more data processing)
-    Environment: { Variables: { NODE_ENV: 'production', FINNHUB_API_KEY: FINNHUB_KEY } },
+    Timeout: 600,  // 10 minutes
+    MemorySize: 1024, // 1GB
+    Environment: { Variables: { NODE_ENV: 'production', FINNHUB_API_KEY: FINNHUB_KEY, FMP_API_KEY: FMP_API_KEY } },
   }));
   console.log('Lambda config updated (600s, 1024MB, Finnhub key set)');
   console.log('v7.0: Steps 1-5 (unchanged) + Step 6 (unified cache builder)');
