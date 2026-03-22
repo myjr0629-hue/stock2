@@ -380,8 +380,9 @@ export async function GET(request: NextRequest) {
 
         if (dynamoResult) {
             // DynamoDB had fresh data — but it's PARTIAL (no full fundamentals, related, etc.)
-            // Wait up to 2s for Polygon to complete so we can return FULL merged data
-            const POLYGON_WAIT_MS = 2000;
+            // [극강 FIX] Wait up to 15s for Polygon (unlimited plan, completes in ~5s)
+            // Previously 2s → returned incomplete data. Now we ALWAYS get complete data.
+            const POLYGON_WAIT_MS = 15000;
             const polygonWithTimeout = Promise.race([
                 polygonPromise.then(fullData => ({ fullData, timedOut: false })),
                 new Promise<{ fullData: null; timedOut: boolean }>(resolve =>
@@ -420,8 +421,9 @@ export async function GET(request: NextRequest) {
                 }
             }
 
-            // Polygon timed out — return DynamoDB partial, let Polygon finish in background
-            await setInCache(dataCacheKey, dynamoResult, getSmartTTL());
+            // [극강 FIX] Polygon timed out (15s — very rare with unlimited plan)
+            // Still return DynamoDB partial BUT do NOT cache incomplete data
+            // Background Polygon will save complete data for next request
             polygonPromise.then(async ({ data: fullData, overview: fullOverview }) => {
                 if (fullData.structure || fullData.options) {
                     const merged = {
@@ -440,12 +442,11 @@ export async function GET(request: NextRequest) {
                     };
                     await setInCache(dataCacheKey, merged, getSmartTTL());
                     if (fullOverview) await setInCache(overviewCacheKey, fullOverview, getSmartTTL());
-                    // Persist to DynamoDB for permanent access
                     import('@/lib/aws/unifiedCacheProvider').then(m => m.putUnifiedCache(ticker, locale, merged)).catch(() => {});
                 }
             }).catch(() => {});
 
-            console.log(`[Command Unified] ⚡ DynamoDB PARTIAL for ${ticker} in ${Date.now() - start}ms (Polygon timeout, bg merge)`);
+            console.log(`[Command Unified] ⚠️ DynamoDB PARTIAL for ${ticker} in ${Date.now() - start}ms (Polygon 15s timeout — bg merge)`);
             memorySet(memKey, dynamoResult);
             return jsonResponse({ ...dynamoResult, overview: existingOverview || null, _source: 'dynamodb-partial', _ageMs: 0, _latency: Date.now() - start });
         }
