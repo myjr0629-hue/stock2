@@ -344,23 +344,24 @@ export async function GET(request: NextRequest) {
             const { getUnifiedCache } = await import('@/lib/aws/unifiedCacheProvider');
             const dynamoUnified = await getUnifiedCache(ticker, locale);
             if (dynamoUnified && (dynamoUnified.structure || dynamoUnified.options)) {
-                // Strip any embedded overview (may be wrong language) — use Redis overview only
-                const { overview: _discardOverview, ...dynData } = dynamoUnified;
-                // Get correct language overview from Redis
-                let dynOverview = await getFromCache<any>(overviewCacheKey).catch(() => null);
-                // If Redis has no overview (post-migration), fetch it now
-                if (!dynOverview) {
-                    const baseUrlForOverview = getBaseUrl(request);
-                    dynOverview = await callInternalGet(getOverview, `${baseUrlForOverview}/api/live/overview?t=${ticker}&lang=${locale}`);
-                    if (dynOverview) {
-                        setInCache(overviewCacheKey, dynOverview, getSmartTTL()).catch(() => {});
+                const CF = ['structure','analyst','fundamentals','earnings','sma','related','squeeze','volatility','institutional'] as const;
+                const fc = CF.filter(f => (dynamoUnified as any)[f]).length;
+                if (fc >= 7) {
+                    const { overview: _dov, ...dynData } = dynamoUnified;
+                    let dynOv = await getFromCache<any>(overviewCacheKey).catch(() => null);
+                    if (!dynOv) {
+                        const bUrl = getBaseUrl(request);
+                        dynOv = await callInternalGet(getOverview, `${bUrl}/api/live/overview?t=${ticker}&lang=${locale}`);
+                        if (dynOv) setInCache(overviewCacheKey, dynOv, getSmartTTL()).catch(() => {});
                     }
+                    setInCache(dataCacheKey, dynData, getSmartTTL()).catch(() => {});
+                    memorySet(memKey, dynData);
+                    if (dynOv) memorySet(`overview:${ticker}:${locale}`, dynOv);
+                    console.log(`[Command Unified] DynamoDB UNIFIED ${ticker} ${Date.now() - start}ms (${fc}/9)`);
+                    return jsonResponse({ ...dynData, overview: dynOv || null, _source: 'dynamodb-unified', _latency: Date.now() - start });
+                } else {
+                    console.warn(`[Command Unified] DynamoDB INCOMPLETE ${ticker} (${fc}/9) - skipping to Polygon`);
                 }
-                setInCache(dataCacheKey, dynData, getSmartTTL()).catch(() => {});
-                memorySet(memKey, dynData);
-                if (dynOverview) memorySet(`overview:${ticker}:${locale}`, dynOverview);
-                console.log(`[Command Unified] ⚡ DynamoDB UNIFIED for ${ticker} in ${Date.now() - start}ms`);
-                return jsonResponse({ ...dynData, overview: dynOverview || null, _source: 'dynamodb-unified', _latency: Date.now() - start });
             }
         } catch { /* DynamoDB unavailable, continue to Tier 2 */ }
 
