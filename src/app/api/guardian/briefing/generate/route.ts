@@ -230,7 +230,7 @@ Output ONLY valid JSON (no markdown fences):
             generatedAt: new Date().toISOString(),
             text: briefing.ko || briefing.en,
             briefing: briefing.ko || briefing.en,
-            source: 'gemini',
+            source: 'claude',
         }, 24 * 60 * 60);
 
         console.log(`[Briefing Gen] ✅ Saved to Redis (3 locales + legacy)`);
