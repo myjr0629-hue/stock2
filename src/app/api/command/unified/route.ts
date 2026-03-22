@@ -70,11 +70,11 @@ function isFieldUsable(field: string, data: any): boolean {
     switch (field) {
         case 'analyst': return data.totalAnalysts > 0;
         case 'earnings': return data.hasData !== false && data.nextEarningsDate !== null;
-        case 'fundamentals': return !!data.name || !!data.marketCap || !!data.score;
-        case 'related': return (data.relatedTickers?.length > 0) || (data.topRelated?.length > 0);
-        case 'sma': return data.sma50 != null || data.sma200 != null;
+        case 'fundamentals': return !!data.name || !!data.score || !!data.marketCap || !!data.grade;
+        case 'related': return (data.relatedTickers?.length > 0) || (data.topRelated?.length > 0) || (data.count > 0);
+        case 'sma': return data.sma50 != null || data.sma200 != null || data.cross != null;
         case 'volatility': return data.regime != null;
-        case 'squeeze': return data.shortVolPercent != null || data.score != null || data.siPercent != null;
+        case 'squeeze': return data.shortVolPercent != null || data.score != null || data.siPercent != null || data.status != null;
         case 'structure': return data.options_status === 'OK' || data.netGex != null;
         default: return true;
     }
