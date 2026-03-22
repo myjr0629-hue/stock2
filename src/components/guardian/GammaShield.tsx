@@ -1,5 +1,3 @@
-'use client';
-
 import React from 'react';
 import type { GammaShieldData } from '@/services/guardian/gammaShieldEngine';
 import { Shield, Zap, AlertTriangle, TrendingUp } from 'lucide-react';

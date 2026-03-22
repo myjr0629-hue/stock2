@@ -3,6 +3,117 @@ import { BarChart3, TrendingUp, TrendingDown, AlertTriangle, MessageSquare, Ligh
 import { useTranslations, useLocale } from 'next-intl';
 import { GuardianTooltip } from './GuardianTooltip';
 
+// === BreadthLiquid — Premium Energy Bar ===
+function BreadthLiquid({ breadthPct, signal, loading, signalColor, advancingLabel, decliningLabel }: { breadthPct: number; signal: string; loading?: boolean; signalColor: string; advancingLabel: string; decliningLabel: string }) {
+    const pct = loading ? 0 : Math.min(100, Math.max(0, Math.round(breadthPct)));
+    const fillColor = pct >= 60 ? '#34d399' : pct >= 45 ? '#94a3b8' : pct >= 30 ? '#fbbf24' : '#f87171';
+    const fillGradient = pct >= 60
+        ? 'linear-gradient(90deg, #065f46, #059669, #34d399)'
+        : pct >= 45
+            ? 'linear-gradient(90deg, #334155, #64748b, #94a3b8)'
+            : pct >= 30
+                ? 'linear-gradient(90deg, #78350f, #d97706, #fbbf24)'
+                : 'linear-gradient(90deg, #7f1d1d, #dc2626, #f87171)';
+
+    return (
+        <div className="w-full">
+            {/* Score + Inline Metrics */}
+            <div className="flex items-end justify-between mb-2.5">
+                <div className="flex items-baseline gap-1.5">
+                    <span className="text-3xl font-mono font-black text-white tabular-nums leading-none">
+                        {loading ? '--' : pct}
+                    </span>
+                    <span className="text-sm text-slate-400 font-bold">%</span>
+                </div>
+                <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-1">
+                        <TrendingUp className="w-3 h-3 text-emerald-400/60" />
+                        <span className="text-[12px] font-bold text-emerald-400/80 tabular-nums">{pct}%</span>
+                    </div>
+                    <div className="w-px h-3 bg-slate-700" />
+                    <div className="flex items-center gap-1">
+                        <TrendingDown className="w-3 h-3 text-rose-400/60" />
+                        <span className="text-[12px] font-bold text-rose-400/80 tabular-nums">{100 - pct}%</span>
+                    </div>
+                </div>
+            </div>
+
+            {/* Premium Energy Bar */}
+            <div className="relative w-full rounded-md overflow-hidden" style={{ height: 20 }}>
+                {/* Background track */}
+                <div className="absolute inset-0 bg-slate-800/80 rounded-md" />
+
+                {/* Declining zone (right side) — subtle red */}
+                <div
+                    className="absolute right-0 top-0 h-full transition-all duration-700 ease-out"
+                    style={{
+                        width: `${100 - pct}%`,
+                        background: 'linear-gradient(90deg, transparent, rgba(244,63,94,0.12))',
+                    }}
+                />
+
+                {/* Advancing fill (left side) — gradient */}
+                <div
+                    className="absolute left-0 top-0 h-full rounded-md transition-all duration-700 ease-out"
+                    style={{
+                        width: `${Math.max(2, pct)}%`,
+                        background: fillGradient,
+                        boxShadow: `0 0 16px ${fillColor}30, 0 0 4px ${fillColor}50`,
+                    }}
+                >
+                    {/* Shimmer scan line */}
+                    <div
+                        className="absolute inset-0 overflow-hidden rounded-md"
+                        style={{
+                            background: 'linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.15) 50%, transparent 100%)',
+                            backgroundSize: '200% 100%',
+                            animation: 'shimmer-scan 2.5s ease-in-out infinite',
+                        }}
+                    />
+                    {/* Glass reflection */}
+                    <div
+                        className="absolute inset-x-0 top-0 h-[40%] rounded-t-md"
+                        style={{
+                            background: 'linear-gradient(180deg, rgba(255,255,255,0.12) 0%, transparent 100%)',
+                        }}
+                    />
+                </div>
+
+                {/* 50% center tick */}
+                <div className="absolute left-1/2 top-0 bottom-0 w-px bg-white/20 z-10" />
+
+                {/* Glow edge at fill boundary */}
+                <div
+                    className="absolute top-0 bottom-0 w-1 z-10 transition-all duration-700 ease-out"
+                    style={{
+                        left: `calc(${Math.max(2, pct)}% - 2px)`,
+                        background: `linear-gradient(180deg, ${fillColor}00, ${fillColor}, ${fillColor}00)`,
+                        boxShadow: `0 0 8px ${fillColor}60`,
+                    }}
+                />
+            </div>
+
+            {/* Minimal scale */}
+            <div className="flex justify-between mt-1 px-0.5">
+                <span className="text-[12px] text-slate-300 font-medium">{advancingLabel}</span>
+                <span className="text-[12px] text-slate-300 font-mono">50%</span>
+                <span className="text-[12px] text-slate-300 font-medium">{decliningLabel}</span>
+            </div>
+
+            {/* CSS Keyframes */}
+            <style jsx>{`
+                @keyframes shimmer-scan {
+                    0% { background-position: -200% 0; }
+                    100% { background-position: 200% 0; }
+                }
+            `}</style>
+        </div>
+    );
+}
+
+
+
+
 interface RLSIInsightPanelProps {
     alignmentStatus: string;
     insightTitle: string;
@@ -311,34 +422,9 @@ export default function RLSIInsightPanel({
                     </div>
                 </div>
 
-                {/* Big Score + Enhanced Progress Bar */}
+                {/* Big Score — Wave Tank */}
                 <div className="flex-none">
-                    <div className="flex items-baseline gap-2 mb-1.5">
-                        <span className="text-2xl font-mono font-black text-white tabular-nums">
-                            {loading ? '--' : Math.round(breadthPct)}
-                            <span className="text-sm text-slate-300 font-bold">%</span>
-                        </span>
-                        <span className="text-[12px] text-white/70">{t('advancingRatio')}</span>
-                    </div>
-                    {/* Dual-tone progress bar */}
-                    <div className="relative h-3 bg-slate-800/80 rounded-full overflow-hidden">
-                        {/* Advancing (left, green) */}
-                        <div
-                            className="absolute left-0 top-0 h-full rounded-full transition-all duration-700 ease-out"
-                            style={{
-                                width: `${Math.min(100, Math.max(2, breadthPct))}%`,
-                                background: `linear-gradient(90deg, ${cfg.color}66, ${cfg.color})`,
-                                boxShadow: `0 0 12px ${cfg.color}40`
-                            }}
-                        />
-                        {/* Center marker at 50% */}
-                        <div className="absolute left-1/2 top-0 w-[1px] h-full bg-white/20" />
-                    </div>
-                    <div className="flex justify-between mt-1">
-                        <span className="text-[12px] text-emerald-400/80 font-bold">{t('advancing')}</span>
-                        <span className="text-[12px] text-white/60">50%</span>
-                        <span className="text-[12px] text-rose-400/80 font-bold">{t('declining')}</span>
-                    </div>
+                    <BreadthLiquid breadthPct={breadthPct} signal={breadthSignal} loading={loading} signalColor={cfg.color} advancingLabel={t('advancing')} decliningLabel={t('declining')} />
                 </div>
 
                 {/* A/D Ratio + Volume Breadth — Card Style */}
