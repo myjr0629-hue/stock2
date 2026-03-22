@@ -41,13 +41,22 @@ async function fetchMassiveWithRetry(url: string, maxAttempts = 3): Promise<any>
     return { success: false, error: lastError, attempts: maxAttempts };
 }
 
-// [DATA CONSISTENCY] Cache for 60 seconds to ensure stable values
+// [DATA CONSISTENCY] Cache for 60s during market, 72h during off-hours (preserve Friday data through weekend)
 interface CachedResult {
     data: any;
     timestamp: number;
 }
 const structureCache = new Map<string, CachedResult>();
-const CACHE_TTL_MS = 60 * 1000; // 60 seconds
+const CACHE_TTL_MARKET_MS = 60 * 1000; // 60 seconds during market
+const CACHE_TTL_OFFHOURS_MS = 72 * 60 * 60 * 1000; // 72 hours off-hours (covers weekends + holidays)
+
+function getStructureCacheTtl(): number {
+    const now = new Date();
+    const utcDay = now.getUTCDay();
+    const utcMin = now.getUTCHours() * 60 + now.getUTCMinutes();
+    const isMarket = utcDay >= 1 && utcDay <= 5 && utcMin >= 13 * 60 + 30 && utcMin <= 21 * 60;
+    return isMarket ? CACHE_TTL_MARKET_MS : CACHE_TTL_OFFHOURS_MS;
+}
 
 // [DATA VALIDATION] Ensure calculated values are within valid ranges
 interface DataValidation {
@@ -137,7 +146,7 @@ export async function getStructureData(ticker: string, requestedExp?: string | n
 
     // [DATA CONSISTENCY] Check cache first
     const cached = structureCache.get(cacheKey);
-    if (cached && (Date.now() - cached.timestamp) < CACHE_TTL_MS) {
+    if (cached && (Date.now() - cached.timestamp) < getStructureCacheTtl()) {
         console.log(`[CACHE HIT] ${ticker}: returning cached data (age: ${Math.round((Date.now() - cached.timestamp) / 1000)}s)`);
         return { ...cached.data, cached: true };
     }

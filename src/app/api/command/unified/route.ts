@@ -166,8 +166,8 @@ function getBaseUrl(request: NextRequest) {
     return `http://localhost:${port}`;
 }
 
-// Bypasses Next.js HTTP routing — with 8s per-call timeout (no single API blocks everything)
-const INTERNAL_CALL_TIMEOUT_MS = 5000;
+// Bypasses Next.js HTTP routing — with 8s per-call timeout (overview needs FMP+Polygon+Translate)
+const INTERNAL_CALL_TIMEOUT_MS = 8000;
 
 async function callInternalGet(handler: Function, url: string) {
     try {
