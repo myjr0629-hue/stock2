@@ -2711,60 +2711,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                 </div>
                             </EliteGate>
 
-                            {/* 2. Flow Unit — ELITE */}
-                            <EliteGate title="Flow Unit" mode="blur">
-                                <div className="shrink-0 rounded-lg border border-white/10 bg-slate-900/60 backdrop-blur-md overflow-hidden relative group hover:border-white/20 transition-colors shadow-lg">
-                                    {/* Infographic BG: Flow Pulse + Wave Pattern */}
-                                    <div className="absolute inset-0 pointer-events-none z-0">
-                                        {/* Horizontal flow lines */}
-                                        <div className="absolute inset-0 bg-[linear-gradient(0deg,transparent_0%,transparent_48%,rgba(56,189,248,0.07)_49%,rgba(56,189,248,0.07)_51%,transparent_52%,transparent_100%)] bg-[size:100%_20px]" />
-                                        {/* Pulse glow top-left */}
-                                        <div className="absolute -top-10 -left-10 w-48 h-48 bg-[radial-gradient(circle,rgba(56,189,248,0.15)_0%,transparent_70%)]" />
-                                        {/* Bottom-right emerald glow for bullish feel */}
-                                        <div className="absolute -bottom-8 -right-8 w-40 h-40 bg-[radial-gradient(circle,rgba(52,211,153,0.12)_0%,transparent_70%)]" />
-                                        {/* Accent lines */}
-                                        <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-sky-500/40 to-transparent" />
-                                        <div className="absolute top-0 left-0 bottom-0 w-px bg-gradient-to-b from-sky-500/25 via-transparent to-transparent" />
-                                    </div>
-                                    <div className="p-2 border-b border-white/5 flex items-center justify-between bg-white/5">
-                                        <div className="flex items-center gap-2">
-                                            <Activity size={10} className="text-sky-400" />
-                                            <span className="text-[12px] font-black text-sky-200 uppercase tracking-widest font-jakarta"><CardTooltip tooltip={COMMAND_TOOLTIPS.FLOW_UNIT.tooltip} badge={COMMAND_TOOLTIPS.FLOW_UNIT.badge}>Flow Unit</CardTooltip></span>
-                                        </div>
-                                        <span className={`text-[12px] px-1.5 py-0.5 rounded border font-jakarta ${effectiveSession === 'REG' ? 'bg-emerald-900/50 text-emerald-400 border-emerald-500/20' :
-                                            effectiveSession === 'PRE' ? 'bg-amber-900/50 text-amber-400 border-amber-500/20' :
-                                                effectiveSession === 'POST' ? 'bg-blue-900/50 text-blue-400 border-blue-500/20' :
-                                                    'bg-slate-800/80 text-slate-400 border-white/5'
-                                            }`}>{
-                                                effectiveSession === 'REG' ? 'INTRADAY' :
-                                                    effectiveSession === 'PRE' ? 'PRE-MKT' :
-                                                        effectiveSession === 'POST' ? 'POST-MKT' :
-                                                            'CLOSED'
-                                            }</span>
-                                    </div>
-                                    <div className="p-1">
-                                        <FlowSniper
-                                            netPremium={liveQuote?.flow?.netPremium || 0}
-                                            callPremium={liveQuote?.flow?.callPremium || 0}
-                                            putPremium={liveQuote?.flow?.putPremium || 0}
-                                            optionsCount={liveQuote?.flow?.optionsCount || 0}
-                                        />
-                                    </div>
-                                </div>
-                            </EliteGate>
-
-                            {/* 2.5 Gamma Pressure Gauge — Bloomberg-tier visual */}
-                            <GammaPressureGauge
-                                netGex={structure?.netGex || 0}
-                                callWall={structure?.levels?.callWall || 0}
-                                putFloor={structure?.levels?.putFloor || 0}
-                                gammaFlipLevel={structure?.gammaFlipLevel || 0}
-                                currentPrice={displayPrice}
-                                squeezeRisk={structure?.squeezeRisk || 'LOW'}
-                                squeezeScore={structure?.squeezeScore ?? 0}
-                            />
-
-                            {/* 3. AI Deep Analysis — Claude Sonnet 4 */}
+                            {/* 2. AI Deep Analysis — Claude Sonnet 4 (above Flow Unit) */}
                             <AIDeepAnalysis
                                 ticker={ticker}
                                 displayPrice={displayPrice}
@@ -2774,7 +2721,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                     priceChange: displayChangePct,
                                     session: effectiveSession,
                                     signalCore: {
-                                        direction: 'NEUTRAL', // Will be computed by DecisionGate logic
+                                        direction: 'NEUTRAL',
                                         conviction: 'MIXED',
                                         condition: 'TREND',
                                         conclusion: '',
@@ -2857,6 +2804,61 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                     relatedTickers: effectiveRelated?.topRelated?.map((r: any) => r.ticker) || [],
                                 }}
                             />
+
+                            {/* 3. Flow Unit — ELITE */}
+                            <EliteGate title="Flow Unit" mode="blur">
+                                <div className="shrink-0 rounded-lg border border-white/10 bg-slate-900/60 backdrop-blur-md overflow-hidden relative group hover:border-white/20 transition-colors shadow-lg">
+                                    {/* Infographic BG: Flow Pulse + Wave Pattern */}
+                                    <div className="absolute inset-0 pointer-events-none z-0">
+                                        {/* Horizontal flow lines */}
+                                        <div className="absolute inset-0 bg-[linear-gradient(0deg,transparent_0%,transparent_48%,rgba(56,189,248,0.07)_49%,rgba(56,189,248,0.07)_51%,transparent_52%,transparent_100%)] bg-[size:100%_20px]" />
+                                        {/* Pulse glow top-left */}
+                                        <div className="absolute -top-10 -left-10 w-48 h-48 bg-[radial-gradient(circle,rgba(56,189,248,0.15)_0%,transparent_70%)]" />
+                                        {/* Bottom-right emerald glow for bullish feel */}
+                                        <div className="absolute -bottom-8 -right-8 w-40 h-40 bg-[radial-gradient(circle,rgba(52,211,153,0.12)_0%,transparent_70%)]" />
+                                        {/* Accent lines */}
+                                        <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-sky-500/40 to-transparent" />
+                                        <div className="absolute top-0 left-0 bottom-0 w-px bg-gradient-to-b from-sky-500/25 via-transparent to-transparent" />
+                                    </div>
+                                    <div className="p-2 border-b border-white/5 flex items-center justify-between bg-white/5">
+                                        <div className="flex items-center gap-2">
+                                            <Activity size={10} className="text-sky-400" />
+                                            <span className="text-[12px] font-black text-sky-200 uppercase tracking-widest font-jakarta"><CardTooltip tooltip={COMMAND_TOOLTIPS.FLOW_UNIT.tooltip} badge={COMMAND_TOOLTIPS.FLOW_UNIT.badge}>Flow Unit</CardTooltip></span>
+                                        </div>
+                                        <span className={`text-[12px] px-1.5 py-0.5 rounded border font-jakarta ${effectiveSession === 'REG' ? 'bg-emerald-900/50 text-emerald-400 border-emerald-500/20' :
+                                            effectiveSession === 'PRE' ? 'bg-amber-900/50 text-amber-400 border-amber-500/20' :
+                                                effectiveSession === 'POST' ? 'bg-blue-900/50 text-blue-400 border-blue-500/20' :
+                                                    'bg-slate-800/80 text-slate-400 border-white/5'
+                                            }`}>{
+                                                effectiveSession === 'REG' ? 'INTRADAY' :
+                                                    effectiveSession === 'PRE' ? 'PRE-MKT' :
+                                                        effectiveSession === 'POST' ? 'POST-MKT' :
+                                                            'CLOSED'
+                                            }</span>
+                                    </div>
+                                    <div className="p-1">
+                                        <FlowSniper
+                                            netPremium={liveQuote?.flow?.netPremium || 0}
+                                            callPremium={liveQuote?.flow?.callPremium || 0}
+                                            putPremium={liveQuote?.flow?.putPremium || 0}
+                                            optionsCount={liveQuote?.flow?.optionsCount || 0}
+                                        />
+                                    </div>
+                                </div>
+                            </EliteGate>
+
+                            {/* 2.5 Gamma Pressure Gauge — Bloomberg-tier visual */}
+                            <GammaPressureGauge
+                                netGex={structure?.netGex || 0}
+                                callWall={structure?.levels?.callWall || 0}
+                                putFloor={structure?.levels?.putFloor || 0}
+                                gammaFlipLevel={structure?.gammaFlipLevel || 0}
+                                currentPrice={displayPrice}
+                                squeezeRisk={structure?.squeezeRisk || 'LOW'}
+                                squeezeScore={structure?.squeezeScore ?? 0}
+                            />
+
+
 
                         </div>
 

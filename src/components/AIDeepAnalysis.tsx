@@ -6,8 +6,10 @@ import { useTranslations, useLocale } from 'next-intl';
 
 interface DeepAnalysisResult {
     currentState: string;
-    narrative: string;
-    keyMetrics: { label: string; value: string; note: string }[];
+    narrative?: string;  // Legacy (backward compat for cached data)
+    sections?: { title: string; content: string }[];  // New structured format
+    keyInsight?: string;  // Key takeaway line
+    keyMetrics?: { label: string; value: string; note: string }[];  // Legacy (removed from prompt)
     riskFlag: 'HIGH' | 'MEDIUM' | 'LOW' | 'NONE';
     confidence: 'HIGH' | 'MEDIUM' | 'LOW';
     generatedAt: string;
@@ -304,26 +306,37 @@ export function AIDeepAnalysis({ ticker, displayPrice, session, snapshot }: Prop
                         </p>
                     </div>
 
-                    {/* Narrative Body */}
-                    <div className="px-4 py-3">
-                        <p className="text-[13px] text-slate-300 leading-[1.8] whitespace-pre-wrap" style={{ fontFamily: 'Pretendard, sans-serif' }}>
-                            {analysis.narrative}
-                        </p>
-                    </div>
-
-                    {/* Key Metrics Grid */}
-                    {analysis.keyMetrics && analysis.keyMetrics.length > 0 && (
-                        <div className="px-4 pb-3">
-                            <div className="grid grid-cols-2 gap-2">
-                                {analysis.keyMetrics.map((metric, i) => (
-                                    <div key={i} className="bg-slate-800/40 rounded-lg px-3 py-2 border border-white/5">
-                                        <div className="text-[12px] text-slate-400 font-bold tracking-wide font-jakarta">{metric.label}</div>
-                                        <div className="text-[13px] font-black text-white mt-0.5">{metric.value}</div>
-                                        {metric.note && (
-                                            <div className="text-[12px] text-slate-300 mt-0.5">{metric.note}</div>
-                                        )}
+                    {/* Sections Body (new format) */}
+                    {analysis.sections && analysis.sections.length > 0 ? (
+                        <div className="px-4 py-2 space-y-0">
+                            {analysis.sections.map((section, i) => (
+                                <div key={i} className={`py-2.5 ${i > 0 ? 'border-t border-white/5' : ''}`}>
+                                    <div className="text-[12px] font-bold text-cyan-400/80 uppercase tracking-wider mb-1.5 font-jakarta">
+                                        {section.title}
                                     </div>
-                                ))}
+                                    <p className="text-[13px] text-slate-300 leading-[1.8]" style={{ fontFamily: 'Pretendard, sans-serif' }}>
+                                        {section.content}
+                                    </p>
+                                </div>
+                            ))}
+                        </div>
+                    ) : analysis.narrative ? (
+                        /* Legacy fallback for cached responses */
+                        <div className="px-4 py-3">
+                            <p className="text-[13px] text-slate-300 leading-[1.8] whitespace-pre-wrap" style={{ fontFamily: 'Pretendard, sans-serif' }}>
+                                {analysis.narrative}
+                            </p>
+                        </div>
+                    ) : null}
+
+                    {/* Key Insight (one-liner) */}
+                    {analysis.keyInsight && (
+                        <div className="mx-4 mb-3 px-3 py-2 bg-cyan-950/40 rounded-lg border border-cyan-500/15">
+                            <div className="flex items-start gap-2">
+                                <Sparkles size={12} className="text-cyan-400 mt-0.5 shrink-0" />
+                                <p className="text-[13px] text-cyan-100 font-medium leading-snug" style={{ fontFamily: 'Pretendard, sans-serif' }}>
+                                    {analysis.keyInsight}
+                                </p>
                             </div>
                         </div>
                     )}

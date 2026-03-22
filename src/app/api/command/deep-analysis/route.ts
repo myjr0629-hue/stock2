@@ -172,13 +172,13 @@ export async function POST(req: Request) {
   
   <options_flow>
     <net_gex>${structure.netGex ? (structure.netGex / 1e6).toFixed(1) + 'M' : 'N/A'}</net_gex>
-    <gamma_flip level="${structure.gammaFlipLevel || 'N/A'}" zone="${s.price > (structure.gammaFlipLevel || 0) ? 'LONG_GAMMA' : 'SHORT_GAMMA'}"/>
+    <gamma_flip_level note="THIS_IS_NOT_CALL_WALL">$${structure.gammaFlipLevel || 'N/A'} (${s.price > (structure.gammaFlipLevel || 0) ? 'LONG_GAMMA' : 'SHORT_GAMMA'} zone)</gamma_flip_level>
     <squeeze_risk>${structure.squeezeRisk || 'N/A'} (${structure.squeezeScore || 0}%)</squeeze_risk>
     <pc_ratio>${structure.pcRatio?.toFixed(2) || 'N/A'}</pc_ratio>
-    <call_wall>${structure.callWall || 'N/A'}</call_wall>
-    <put_floor>${structure.putFloor || 'N/A'}</put_floor>
-    <max_pain>${structure.maxPain || 'N/A'}</max_pain>
-    <net_premium>${flow.netPremium ? (flow.netPremium > 0 ? '+' : '') + (flow.netPremium / 1e6).toFixed(1) + 'M' : 'N/A'}</net_premium>
+    <call_wall note="HIGHEST_CALL_CONCENTRATION">$${structure.callWall || 'N/A'}</call_wall>
+    <put_floor note="HIGHEST_PUT_CONCENTRATION">$${structure.putFloor || 'N/A'}</put_floor>
+    <max_pain>$${structure.maxPain || 'N/A'}</max_pain>
+    <net_premium>${flow.netPremium ? (flow.netPremium > 0 ? '+' : '') + '$' + (Math.abs(flow.netPremium) / 1e6).toFixed(1) + 'M' : 'N/A'} (${flow.netPremium > 0 ? 'CALL dominant' : flow.netPremium < 0 ? 'PUT dominant' : 'NEUTRAL'})</net_premium>
     <gamma_concentration>${structure.gammaConcentration || 'N/A'}% (${structure.gammaConcentrationLabel || 'N/A'})</gamma_concentration>
   </options_flow>
   
@@ -229,24 +229,35 @@ ${langInstructions}
 Return ONLY valid JSON (no markdown fences):
 {
   "currentState": "1줄 현재 상태 핵심 판단 (예: 'BULLISH — 기술적 골든크로스 + 기관 매수 우위 속 감마 롱존 유지')",
-  "narrative": "깊이 있는 분석 내러티브. 6-10문장. 지표가 주인공이되 뉴스를 자연스럽게 녹여내고, 현 상태에 대한 구조적 인사이트를 명확하게 전달. 각 문장은 구체적 수치와 맥락을 포함. 단순 나열이 아닌 스토리텔링.",
-  "keyMetrics": [
-    {"label": "Call Wall", "value": "$185", "note": "+3.2% — 단기 저항선"},
-    {"label": "Gamma Zone", "value": "LONG", "note": "안정적 변동성 억제 구간"},
-    {"label": "실적", "value": "D-12", "note": "May 26 예정"}
+  "sections": [
+    {
+      "title": "기술적 구조 분석",
+      "content": "2-4문장. SMA, VWAP 등 기술적 지표의 구조적 맥락을 깊이있게 분석."
+    },
+    {
+      "title": "옵션 포지셔닝",
+      "content": "2-3문장. GEX, 감마 구조, Call Wall/Put Floor, 기관 흐름을 연결하여 분석."
+    },
+    {
+      "title": "뉴스 및 시장 맥락",
+      "content": "2-3문장. 최근 뉴스를 지표와 연결하여 해석. 뉴스 없으면 섹터/매크로 맥락."
+    }
   ],
+  "keyInsight": "핵심 인사이트 1줄 — 현재 가장 주목해야 할 포인트",
   "riskFlag": "HIGH | MEDIUM | LOW | NONE",
   "confidence": "HIGH | MEDIUM | LOW"
 }
 </output_format>
 
 <critical_rules>
-- The "narrative" should be 6-10 sentences of DEEP analysis, NOT a brief summary
-- Weave news INTO the analysis naturally (e.g., "최근 보도된 AI 밸류에이션 과열 우려에도 불구하고...")
+- SECTIONS: Divide analysis into 2-4 sections with clear titles for readability. Each section is a self-contained paragraph.
+- DEPTH over brevity: Each section should have 2-4 sentences of DEEP analysis
+- DATA ACCURACY: Use EXACT values from the XML data. call_wall is NOT gamma_flip_level — they are DIFFERENT values. Do NOT invent or substitute values.
+- NO DUPLICATE METRICS: Do NOT include "keyMetrics" — all data is already displayed in the Signal Core and Gamma Pressure cards above this section. Focus purely on narrative insight.
+- NEWS INTEGRATION: Weave news INTO the analysis naturally (e.g., "최근 보도된 AI 밸류에이션 과열 우려에도 불구하고...")
 - If news is scarce, focus on structural indicators and sector context
 - If price moved significantly (trigger_reason=PRICE_MOVE), explain WHAT likely caused it
 - FORBIDDEN: investment advice, buy/sell recommendations, emojis, special unicode symbols
-- "keyMetrics" should have 3-5 most important data points that the user should watch
 - Make connections between indicators (e.g., "감마 롱존 유지와 Golden Cross의 동시 발생은...")
 </critical_rules>`;
 
