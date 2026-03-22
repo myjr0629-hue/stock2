@@ -73,8 +73,16 @@
             "schedule": "*/3 8-23 * * 1-5"
         },
         {
+            "path": "/api/cron/warm-command",
+            "schedule": "0 0,6,12,18 * * 0,6"
+        },
+        {
             "path": "/api/cron/warm-flow",
             "schedule": "*/3 8-23 * * 1-5"
+        },
+        {
+            "path": "/api/cron/warm-flow",
+            "schedule": "0 0,6,12,18 * * 0,6"
         },
         {
             "path": "/api/cron/warm-news-digest",

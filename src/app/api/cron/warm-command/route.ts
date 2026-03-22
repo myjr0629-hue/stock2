@@ -40,7 +40,7 @@ const TOTAL_BATCHES = Math.ceil(UNIVERSE_500.length / BATCH_SIZE); // 50
 const CACHE_KEY_PREFIX = 'cache:command:unified:';    // Language-independent data
 const OVERVIEW_KEY_PREFIX = 'cache:command:overview:'; // Language-specific overview
 const CACHE_TTL_MARKET = 1800; // [극강] 30 min during market (was 5 min)
-const CACHE_TTL_OFFHOURS = 43200; // 12 hours off-hours (data won't change)
+const CACHE_TTL_OFFHOURS = 259200; // 72 hours off-hours (covers Friday→Monday)
 const OVERVIEW_LOCALES = ['ko', 'en', 'ja']; // All 3 languages for overview
 
 // Smart TTL: short during market, long during off-hours

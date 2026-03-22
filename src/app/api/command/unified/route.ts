@@ -21,7 +21,7 @@ export const maxDuration = 30;
 const CACHE_KEY_PREFIX = 'cache:command:unified:';  // Language-independent data
 const OVERVIEW_KEY_PREFIX = 'cache:command:overview:'; // Language-specific overview
 const CACHE_TTL_MARKET = 1800; // [극강] 30 minutes during market hours (was 5 min)
-const CACHE_TTL_OFFHOURS = 43200; // 12 hours during off-hours (data doesn't change)
+const CACHE_TTL_OFFHOURS = 259200; // 72 hours off-hours (covers Friday→Monday)
 const REFRESH_THRESHOLD_MS = 300 * 1000; // [극강] 5 minutes — background refresh after 5 min (was 2 min)
 
 // ══════════════════════════════════════════════════════════════
@@ -151,7 +151,7 @@ function getBaseUrl(request: NextRequest) {
 }
 
 // Bypasses Next.js HTTP routing — with 8s per-call timeout (no single API blocks everything)
-const INTERNAL_CALL_TIMEOUT_MS = 8000;
+const INTERNAL_CALL_TIMEOUT_MS = 5000;
 
 async function callInternalGet(handler: Function, url: string) {
     try {
@@ -493,7 +493,7 @@ async function tryDynamoFast(ticker: string): Promise<any | null> {
 
             // [핵심 FIX] DynamoDB에 없는 필드(fundamentals, sma, related)를 개별 API로 보충
             // 4초 timeout — DynamoDB 응답(~1s) + supplement(~2-3s) = 전체 ~5s 이내
-            const SUPPLEMENT_TIMEOUT = 4000;
+            const SUPPLEMENT_TIMEOUT = 2000;
             const supplementPromises: Promise<any>[] = [fetchGexHistoryData(ticker)];
 
             const needFundamentals = !snap.fundamentals?.score;
