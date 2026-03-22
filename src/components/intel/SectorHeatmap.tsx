@@ -27,20 +27,20 @@ const SECTOR_DEFS = [
 
 // ── Helpers ──
 function getHeatColor(pct: number): string {
-    // Premium 16-step continuous gradient — smoother color transitions
-    if (pct >= 5)   return '#00e676';    // vivid green
-    if (pct >= 3)   return '#00c853';    // bright green
-    if (pct >= 2)   return '#2e7d32';    // green
-    if (pct >= 1.5) return '#1b5e20';    // deep green
-    if (pct >= 1)   return '#2d5a3a';    // muted green
-    if (pct >= 0.5) return '#344d3f';    // dark green tint
-    if (pct > -0.5) return '#2d3748';    // neutral dark
-    if (pct > -1)   return '#5c2a2a';    // muted red tint
-    if (pct > -1.5) return '#7a2020';    // dark red
-    if (pct > -2)   return '#991b1b';    // deep red
-    if (pct > -3)   return '#b91c1c';    // medium red
-    if (pct > -5)   return '#dc2626';    // red
-    return '#ef4444';                     // vivid red
+    // Premium muted gradient — 20% lower brightness for dark-theme harmony
+    if (pct >= 5)   return '#00a65c';    // vivid green (muted)
+    if (pct >= 3)   return '#00904a';    // bright green
+    if (pct >= 2)   return '#256b2b';    // green
+    if (pct >= 1.5) return '#174d1a';    // deep green
+    if (pct >= 1)   return '#244a30';    // muted green
+    if (pct >= 0.5) return '#2a3f34';    // dark green tint
+    if (pct > -0.5) return '#262f3a';    // neutral dark
+    if (pct > -1)   return '#4a2222';    // muted red tint
+    if (pct > -1.5) return '#611a1a';    // dark red
+    if (pct > -2)   return '#7a1616';    // deep red
+    if (pct > -3)   return '#961717';    // medium red
+    if (pct > -5)   return '#b32020';    // red
+    return '#cc3333';                     // vivid red (muted)
 }
 
 interface SectorHeatmapProps {
