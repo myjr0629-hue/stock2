@@ -7,6 +7,15 @@ import { getStructureData } from '@/services/structureService';
 
 export const revalidate = 60;
 
+// Check if US market is currently open
+function isMarketOpen(): boolean {
+    const now = new Date();
+    const utcDay = now.getUTCDay();
+    const utcMin = now.getUTCHours() * 60 + now.getUTCMinutes();
+    // Market: Mon-Fri 13:30-20:00 UTC (9:30 AM - 4:00 PM ET)
+    return utcDay >= 1 && utcDay <= 5 && utcMin >= 13 * 60 + 30 && utcMin <= 20 * 60;
+}
+
 export async function GET(req: NextRequest) {
     const ticker = req.nextUrl.searchParams.get('t')?.toUpperCase();
     if (!ticker) return NextResponse.json({ error: 'Missing ticker' }, { status: 400 });
@@ -14,14 +23,35 @@ export async function GET(req: NextRequest) {
     try {
         const structure = await getStructureData(ticker);
 
-        const netGex = structure?.netGex || 0;
-        const gammaFlip = structure?.gammaFlipLevel || 0;
-        const underlyingPrice = structure?.underlyingPrice || 0;
-        const squeezeScore = structure?.squeezeScore || 0;
-        const squeezeRisk = structure?.squeezeRisk || 'LOW';
-        const atmIv = structure?.atmIv || 0; // already percentage
-        const gammaConcentration = structure?.gammaConcentration || 0;
-        const gammaConcentrationLabel = structure?.gammaConcentrationLabel || 'NORMAL';
+        let netGex = structure?.netGex || 0;
+        let gammaFlip = structure?.gammaFlipLevel || 0;
+        let underlyingPrice = structure?.underlyingPrice || 0;
+        let squeezeScore = structure?.squeezeScore || 0;
+        let squeezeRisk = structure?.squeezeRisk || 'LOW';
+        let atmIv = structure?.atmIv || 0; // already percentage
+        let gammaConcentration = structure?.gammaConcentration || 0;
+        let gammaConcentrationLabel = structure?.gammaConcentrationLabel || 'NORMAL';
+
+        // [Weekend/Off-hours Fix] If IV is 0 and market is closed, 
+        // try to use DynamoDB cached data from last trading day
+        if (atmIv === 0 && !isMarketOpen()) {
+            try {
+                const { getTickerSnapshot } = await import('@/lib/aws/dynamoDataProvider');
+                const snap = await getTickerSnapshot(ticker);
+                if (snap?.gex) {
+                    // Use DynamoDB GEX data as fallback for off-hours
+                    if (snap.gex.gex !== undefined) netGex = snap.gex.gex;
+                    if (snap.gex.flipLevel) gammaFlip = snap.gex.flipLevel;
+                    if (snap.gex.gammaRegime) {
+                        // gammaRegime from DynamoDB provides regime context
+                    }
+                }
+                // Try to get IV from the structure's historical cache
+                if (snap?.price?.close && snap.price.close > 0) {
+                    underlyingPrice = snap.price.close;
+                }
+            } catch { /* DynamoDB fallback failed, continue with live data */ }
+        }
 
         // Gamma Flip distance (% from current price)
         const flipDistance = gammaFlip > 0 && underlyingPrice > 0
