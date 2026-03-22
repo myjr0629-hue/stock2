@@ -64,6 +64,22 @@ function getSmartTTL(): number {
     return isMarketHoursNow() ? CACHE_TTL_MARKET : CACHE_TTL_OFFHOURS;
 }
 
+// [GAP-FILL] Check if a cached field has usable data (not just an empty shell)
+function isFieldUsable(field: string, data: any): boolean {
+    if (!data) return false;
+    switch (field) {
+        case 'analyst': return data.totalAnalysts > 0;
+        case 'earnings': return data.hasData !== false && data.nextEarningsDate !== null;
+        case 'fundamentals': return !!data.name || !!data.marketCap || !!data.score;
+        case 'related': return (data.relatedTickers?.length > 0) || (data.topRelated?.length > 0);
+        case 'sma': return data.sma50 != null || data.sma200 != null;
+        case 'volatility': return data.regime != null;
+        case 'squeeze': return data.shortVolPercent != null || data.score != null || data.siPercent != null;
+        case 'structure': return data.options_status === 'OK' || data.netGex != null;
+        default: return true;
+    }
+}
+
 // [AWS Phase 2] Fetch DynamoDB GEX history for percentile, flip events, maxpain tracking
 async function fetchGexHistoryData(ticker: string): Promise<any> {
     try {
@@ -324,9 +340,9 @@ export async function GET(request: NextRequest) {
             }
             if (resolvedOverview) memorySet(`overview:${ticker}:${locale}`, resolvedOverview);
 
-            // [GAP-FILL] Check for missing fields and fill them via sub-APIs
+            // [GAP-FILL] Check for missing or empty-shell fields and fill them via sub-APIs
             const CORE_FIELDS = ['analyst','fundamentals','earnings','related','sma','squeeze','volatility','structure'] as const;
-            const missingFields = CORE_FIELDS.filter(f => !cachedData[f]);
+            const missingFields = CORE_FIELDS.filter(f => !isFieldUsable(f, cachedData[f]));
             
             if (missingFields.length > 0 && missingFields.length <= 6) {
                 // Only gap-fill if partially complete (not completely empty)
@@ -395,14 +411,14 @@ export async function GET(request: NextRequest) {
                 const gapFills: Promise<any>[] = [];
                 const gapNames: string[] = [];
                 
-                if (!dynData.analyst) { gapFills.push(callInternalGet(getAnalyst, `${bUrl}/api/live/analyst?t=${ticker}`)); gapNames.push('analyst'); }
-                if (!dynData.fundamentals) { gapFills.push(callInternalGet(getFundamentals, `${bUrl}/api/live/fundamentals?t=${ticker}`)); gapNames.push('fundamentals'); }
-                if (!dynData.earnings) { gapFills.push(callInternalGet(getEarnings, `${bUrl}/api/live/earnings?t=${ticker}`)); gapNames.push('earnings'); }
-                if (!dynData.related) { gapFills.push(callInternalGet(getRelated, `${bUrl}/api/live/related?t=${ticker}`)); gapNames.push('related'); }
-                if (!dynData.sma) { gapFills.push(callInternalGet(getSma, `${bUrl}/api/live/sma?t=${ticker}`)); gapNames.push('sma'); }
-                if (!dynData.squeeze) { gapFills.push(callInternalGet(getSqueeze, `${bUrl}/api/live/short-squeeze?t=${ticker}`)); gapNames.push('squeeze'); }
-                if (!dynData.volatility) { gapFills.push(callInternalGet(getVolatility, `${bUrl}/api/live/volatility-regime?t=${ticker}`)); gapNames.push('volatility'); }
-                if (!dynData.structure) { gapFills.push(callInternalGet(getStructure, `${bUrl}/api/live/options/structure?t=${ticker}`)); gapNames.push('structure'); }
+                if (!isFieldUsable('analyst', dynData.analyst)) { gapFills.push(callInternalGet(getAnalyst, `${bUrl}/api/live/analyst?t=${ticker}`)); gapNames.push('analyst'); }
+                if (!isFieldUsable('fundamentals', dynData.fundamentals)) { gapFills.push(callInternalGet(getFundamentals, `${bUrl}/api/live/fundamentals?t=${ticker}`)); gapNames.push('fundamentals'); }
+                if (!isFieldUsable('earnings', dynData.earnings)) { gapFills.push(callInternalGet(getEarnings, `${bUrl}/api/live/earnings?t=${ticker}`)); gapNames.push('earnings'); }
+                if (!isFieldUsable('related', dynData.related)) { gapFills.push(callInternalGet(getRelated, `${bUrl}/api/live/related?t=${ticker}`)); gapNames.push('related'); }
+                if (!isFieldUsable('sma', dynData.sma)) { gapFills.push(callInternalGet(getSma, `${bUrl}/api/live/sma?t=${ticker}`)); gapNames.push('sma'); }
+                if (!isFieldUsable('squeeze', dynData.squeeze)) { gapFills.push(callInternalGet(getSqueeze, `${bUrl}/api/live/short-squeeze?t=${ticker}`)); gapNames.push('squeeze'); }
+                if (!isFieldUsable('volatility', dynData.volatility)) { gapFills.push(callInternalGet(getVolatility, `${bUrl}/api/live/volatility-regime?t=${ticker}`)); gapNames.push('volatility'); }
+                if (!isFieldUsable('structure', dynData.structure)) { gapFills.push(callInternalGet(getStructure, `${bUrl}/api/live/options/structure?t=${ticker}`)); gapNames.push('structure'); }
                 
                 // Overview (language-specific)
                 let dynOv = await getFromCache<any>(overviewCacheKey).catch(() => null);
