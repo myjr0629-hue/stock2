@@ -337,31 +337,67 @@ export async function GET(request: NextRequest) {
         }
 
         // ══════════════════════════════════════════════════════════════
-        // TIER 1.5: DynamoDB Unified Cache — ~50ms (permanent, never expires)
-        // Complete unified data stored by warm-command cron
+        // TIER 1.5: DynamoDB Unified Cache + Sub-API Gap Fill
+        // Uses whatever DynamoDB has, fills missing fields via sub-APIs
         // ══════════════════════════════════════════════════════════════
         try {
             const { getUnifiedCache } = await import('@/lib/aws/unifiedCacheProvider');
             const dynamoUnified = await getUnifiedCache(ticker, locale);
-            if (dynamoUnified && (dynamoUnified.structure || dynamoUnified.options)) {
+            if (dynamoUnified) {
                 const CF = ['structure','analyst','fundamentals','earnings','sma','related','squeeze','volatility','institutional'] as const;
                 const fc = CF.filter(f => (dynamoUnified as any)[f]).length;
-                if (fc >= 7) {
-                    const { overview: _dov, ...dynData } = dynamoUnified;
-                    let dynOv = await getFromCache<any>(overviewCacheKey).catch(() => null);
-                    if (!dynOv) {
-                        const bUrl = getBaseUrl(request);
-                        dynOv = await callInternalGet(getOverview, `${bUrl}/api/live/overview?t=${ticker}&lang=${locale}`);
-                        if (dynOv) setInCache(overviewCacheKey, dynOv, getSmartTTL()).catch(() => {});
-                    }
-                    setInCache(dataCacheKey, dynData, getSmartTTL()).catch(() => {});
-                    memorySet(memKey, dynData);
-                    if (dynOv) memorySet(`overview:${ticker}:${locale}`, dynOv);
-                    console.log(`[Command Unified] DynamoDB UNIFIED ${ticker} ${Date.now() - start}ms (${fc}/9)`);
-                    return jsonResponse({ ...dynData, overview: dynOv || null, _source: 'dynamodb-unified', _latency: Date.now() - start });
-                } else {
-                    console.warn(`[Command Unified] DynamoDB INCOMPLETE ${ticker} (${fc}/9) - skipping to Polygon`);
+                
+                // Use DynamoDB data as base, fill missing fields with sub-APIs
+                const { overview: _dov, _source: _s, _ageMs: _a, ...dynData } = dynamoUnified;
+                const bUrl = getBaseUrl(request);
+                
+                // Identify missing fields and fetch them in parallel
+                const gapFills: Promise<any>[] = [];
+                const gapNames: string[] = [];
+                
+                if (!dynData.analyst) { gapFills.push(callInternalGet(getAnalyst, `${bUrl}/api/live/analyst?t=${ticker}`)); gapNames.push('analyst'); }
+                if (!dynData.fundamentals) { gapFills.push(callInternalGet(getFundamentals, `${bUrl}/api/live/fundamentals?t=${ticker}`)); gapNames.push('fundamentals'); }
+                if (!dynData.earnings) { gapFills.push(callInternalGet(getEarnings, `${bUrl}/api/live/earnings?t=${ticker}`)); gapNames.push('earnings'); }
+                if (!dynData.related) { gapFills.push(callInternalGet(getRelated, `${bUrl}/api/live/related?t=${ticker}`)); gapNames.push('related'); }
+                if (!dynData.sma) { gapFills.push(callInternalGet(getSma, `${bUrl}/api/live/sma?t=${ticker}`)); gapNames.push('sma'); }
+                if (!dynData.squeeze) { gapFills.push(callInternalGet(getSqueeze, `${bUrl}/api/live/short-squeeze?t=${ticker}`)); gapNames.push('squeeze'); }
+                if (!dynData.volatility) { gapFills.push(callInternalGet(getVolatility, `${bUrl}/api/live/volatility-regime?t=${ticker}`)); gapNames.push('volatility'); }
+                if (!dynData.structure) { gapFills.push(callInternalGet(getStructure, `${bUrl}/api/live/options/structure?t=${ticker}`)); gapNames.push('structure'); }
+                
+                // Overview (language-specific)
+                let dynOv = await getFromCache<any>(overviewCacheKey).catch(() => null);
+                if (!dynOv) {
+                    gapFills.push(callInternalGet(getOverview, `${bUrl}/api/live/overview?t=${ticker}&lang=${locale}`));
+                    gapNames.push('overview');
                 }
+                
+                // Execute all gap fills in parallel
+                const gapResults = await Promise.all(gapFills);
+                
+                // Merge gap fill results into dynData
+                for (let gi = 0; gi < gapNames.length; gi++) {
+                    const name = gapNames[gi];
+                    const result = gapResults[gi];
+                    if (result) {
+                        if (name === 'overview') {
+                            dynOv = result;
+                        } else {
+                            (dynData as any)[name] = result;
+                        }
+                    }
+                }
+                
+                // Cache the completed data
+                if (dynOv) {
+                    setInCache(overviewCacheKey, dynOv, getSmartTTL()).catch(() => {});
+                    memorySet(`overview:${ticker}:${locale}`, dynOv);
+                }
+                setInCache(dataCacheKey, dynData, getSmartTTL()).catch(() => {});
+                memorySet(memKey, dynData);
+                
+                const finalFc = CF.filter(f => (dynData as any)[f]).length;
+                console.log(`[Command Unified] DynamoDB+GapFill ${ticker} ${Date.now() - start}ms (${fc}→${finalFc}/9, filled: ${gapNames.filter((n,i) => gapResults[i] && n !== 'overview').join(',')})`);
+                return jsonResponse({ ...dynData, overview: dynOv || null, _source: fc === finalFc ? 'dynamodb-unified' : 'dynamodb-gapfill', _latency: Date.now() - start });
             }
         } catch { /* DynamoDB unavailable, continue to Tier 2 */ }
 
