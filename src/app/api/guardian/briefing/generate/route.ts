@@ -2,7 +2,7 @@
  * POST /api/guardian/briefing/generate
  * 
  * [V8.0] Bloomberg-Grade Morning Briefing Generator
- * Called by EC2 Worker at 08:00 ET — generates narrative-driven briefing via Gemini.
+ * Called by EC2 Worker at 08:00 ET — generates narrative-driven briefing via Claude Sonnet 4.
  * 
  * Input: Market data + news + calendar (from Worker)
  * Output: { ko: "...", en: "...", ja: "..." } narrative briefing
@@ -11,14 +11,27 @@
  */
 
 import { NextResponse } from 'next/server';
-import { GoogleGenAI } from '@google/genai';
+import { BedrockRuntimeClient, InvokeModelCommand } from '@aws-sdk/client-bedrock-runtime';
 import { fetchMassive } from '@/services/massiveClient';
 import { getFromCache, setInCache } from '@/services/redisClient';
 import { getYahooDataSSOT } from '@/services/yahooFinanceHub';
 
 export const maxDuration = 60;
 
-const MODEL_NAME = 'gemini-2.5-flash';
+const BEDROCK_MODEL = 'us.anthropic.claude-sonnet-4-20250514-v1:0';
+
+let _bedrockClient: BedrockRuntimeClient | null = null;
+function getBedrock(): BedrockRuntimeClient {
+    if (_bedrockClient) return _bedrockClient;
+    _bedrockClient = new BedrockRuntimeClient({
+        region: process.env.AWS_REGION || 'us-east-1',
+        credentials: {
+            accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
+            secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
+        },
+    });
+    return _bedrockClient;
+}
 
 export async function POST(req: Request) {
     const startTime = Date.now();
@@ -108,10 +121,9 @@ export async function POST(req: Request) {
         const historyStr = (rlsiHistory || []).slice(-5)
             .map((h: any) => h.score).join(' → ');
 
-        // 4. Build Gemini Prompt — NARRATIVE-DRIVEN
-        const geminiKey = process.env.GEMINI_NEWS_KEY || process.env.GEMINI_VERDICT_KEY || process.env.GEMINI_API_KEY;
-        if (!geminiKey) {
-            return NextResponse.json({ error: 'Gemini API key not configured' }, { status: 500 });
+        // 4. Build Claude Prompt — NARRATIVE-DRIVEN
+        if (!process.env.AWS_ACCESS_KEY_ID) {
+            return NextResponse.json({ error: 'AWS credentials not configured' }, { status: 500 });
         }
 
         const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
@@ -119,66 +131,78 @@ export async function POST(req: Request) {
         const dayOfWeekKo = new Date().toLocaleDateString('ko-KR', { weekday: 'long', timeZone: 'America/New_York' });
         const dayOfWeekJa = new Date().toLocaleDateString('ja-JP', { weekday: 'long', timeZone: 'America/New_York' });
 
-        const prompt = `You are a Bloomberg Terminal Pre-Market Analyst writing the MORNING BRIEFING.
+        const systemPrompt = `You are a Bloomberg Terminal Pre-Market Analyst writing the MORNING BRIEFING.
 Your briefing must read like a NARRATIVE STORY, not a list of indicators.
 
-## ⚠️ ABSOLUTE TOP PRIORITY — DAY OF WEEK
-TODAY IS: ${todayStr} — ${dayOfWeek} / ${dayOfWeekKo} / ${dayOfWeekJa}
+<critical_rules>
+- TODAY IS: ${todayStr} — ${dayOfWeek} / ${dayOfWeekKo} / ${dayOfWeekJa}
 - In Korean: use "${dayOfWeekKo}" (e.g., "${dayOfWeekKo} 개장 전 거래에서...")
 - In English: use "${dayOfWeek}" (e.g., "${dayOfWeek} pre-market trading...")
 - In Japanese: use "${dayOfWeekJa}" (e.g., "${dayOfWeekJa}のプレマーケットで...")
-**FORBIDDEN**: Do NOT use any other day of the week. Using a wrong day name is a CRITICAL ERROR.
+- FORBIDDEN: Do NOT use any other day of the week. Using a wrong day is a CRITICAL ERROR.
+- Write exactly 4-5 sentences per language. CONCISE but COMPLETE.
+- NEVER give investment advice. ONLY observational language: "관찰됨", "나타남", "observed", "noted".
+- Each language must be NATIVE quality — not a translation, but written as if by a native analyst.
+- Do NOT use any emoji or special Unicode symbols. Plain text only.
+- MANDATORY: Mention actual S&P 500 and NASDAQ 100 performance (price and % change) in the first or second sentence.
+- Start with day of week + big market picture, then connect to RLSI/GEX/VIX analysis.
+</critical_rules>`;
 
-## CRITICAL RULES
-1. Today is ${todayStr} (${dayOfWeek} / ${dayOfWeekKo} / ${dayOfWeekJa}). You MUST reference this exact day in each language's first sentence.
-2. WEAVE the news stories INTO the data. News is the backbone, indicators are the supporting evidence.
-3. Write exactly 4-5 sentences per language. CONCISE but COMPLETE.
-4. NEVER give investment advice. Use ONLY observational language: "관찰됨", "나타남", "observed", "noted".
-5. Connect the dots: WHY does VIX matter given today's news? HOW does GEX relate to the event calendar?
-6. Each language must be NATIVE quality — not a translation, but written as if by a native analyst.
-7. Do NOT use any emoji or special Unicode symbols. Use plain text only.
-8. **MANDATORY**: You MUST mention the actual S&P 500 and NASDAQ 100 performance (price and % change) in the first or second sentence. These are the most important numbers for any market briefing. Also weave in notable moves from bonds (10Y yield), gold, oil, or BTC if significant.
-9. Start the briefing with the day of week + big market picture (index performance), then connect to RLSI/GEX/VIX analysis.
-
-## MARKET DATA (Pre-Market Snapshot)
+        const userPrompt = `<market_snapshot>
 - RLSI: ${rlsi} | Recent Trend: ${historyStr || 'N/A'}
 - VIX: ${vix} | GEX: ${gex} | Squeeze Risk: ${squeeze}%
 - Breadth: ${breadth}% | Regime: ${regime}
 - Gamma: Resistance ${triggerHigh}, Support ${triggerLow}, Flip ${flipPoint}
 - Top Sectors: ${sectors || 'N/A'}
+</market_snapshot>
 
-## LIVE MARKET PRICES (from Redis, updated every minute)
-**USE THESE NUMBERS IN YOUR BRIEFING — they are the latest real-time data.**
+<live_prices>
 ${marketDataStr || 'Market data unavailable'}
+</live_prices>
 
-## TODAY'S ECONOMIC CALENDAR (HIGH IMPACT)
+<economic_calendar>
 ${calendarEvents.length > 0 ? calendarEvents.join('\n') : 'No HIGH impact events today'}
+</economic_calendar>
 
-## OVERNIGHT / PRE-MARKET NEWS
+<overnight_news>
 ${marketNews.length > 0 ? marketNews.map((n, i) => `${i + 1}. ${n}`).join('\n') : 'No major headlines'}
+</overnight_news>
 
-## NARRATIVE STYLE EXAMPLES (follow this tone — note how each starts with the day of week):
-- KO: "화요일 프리마켓에서 S&P 500 선물 5,650(+0.45%)과 NASDAQ 100 선물 19,840(+0.72%)으로 시장은 소폭 상승 출발하며 인플레이션 우려 속 CPI 발표를 앞두고 관망세가 관찰됨. 전일 RLSI 44 중립 마감과 VIX 24.9 상승이 변동성 확대 가능 구간을 시사하고 있으며, 숏 감마(GEX -7) 환경에서 유럽 약세(-0.8%)가 프리마켓 하방 압력으로 관찰됨. 오늘 12:30 ET CPI 결과에 따라 감마 체제 전환 가능성이 주시되는 구간."
-- EN: "Tuesday pre-market shows S&P 500 futures at 5,650 (+0.45%) and NASDAQ 100 futures at 19,840 (+0.72%) as markets enter a cautious stance ahead of today's 12:30 ET CPI release. Prior close RLSI at 44 and VIX elevated at 24.9, with short gamma positioning (GEX -7) coupled with European weakness (-0.8%) creating pre-market downside pressure. S&P 5,650 approaching the gamma flip level, where dealer hedging dynamics shift observed."
-- JA: "火曜日のプレマーケットではS&P 500先物5,650(+0.45%)、NASDAQ 100先物19,840(+0.72%)と小幅上昇で取引開始。CPI発表を控えインフレ懸念が再浮上する中、前日RLSI 44中立圏で引け。VIX 24.9上昇とショートガンマ(GEX -7)環境下で欧州市場の弱さ(-0.8%)がプレマーケットの下方圧力として観測。"
+<style_examples>
+- KO: "화요일 프리마켓에서 S&P 500 선물 5,650(+0.45%)과 NASDAQ 100 선물 19,840(+0.72%)으로 시장은 소폭 상승 출발하며 인플레이션 우려 속 CPI 발표를 앞두고 관망세가 관찰됨."
+- EN: "Tuesday pre-market shows S&P 500 futures at 5,650 (+0.45%) and NASDAQ 100 futures at 19,840 (+0.72%) as markets enter a cautious stance ahead of today's 12:30 ET CPI release."
+- JA: "火曜日のプレマーケットではS&P 500先物5,650(+0.45%)、NASDAQ 100先物19,840(+0.72%)と小幅上昇で取引開始。"
+</style_examples>
 
-## OUTPUT FORMAT
-Return ONLY valid JSON (no markdown fences):
-{
-  "ko": "한국어 브리핑 (3-4문장, 네이티브 애널리스트 톤)",
-  "en": "English briefing (3-4 sentences, Bloomberg tone)",
-  "ja": "日本語ブリーフィング（3-4文、野村レポートトーン）"
-}`;
+Output ONLY valid JSON (no markdown fences):
+{"ko": "한국어 브리핑 (4-5문장)", "en": "English briefing (4-5 sentences)", "ja": "日本語ブリーフィング (4-5文)"}`;
 
-        const genAI = new GoogleGenAI({ apiKey: geminiKey });
-        const result = await genAI.models.generateContent({
-            model: MODEL_NAME,
-            contents: prompt,
+        const client = getBedrock();
+        const command = new InvokeModelCommand({
+            modelId: BEDROCK_MODEL,
+            contentType: 'application/json',
+            accept: 'application/json',
+            body: JSON.stringify({
+                anthropic_version: 'bedrock-2023-05-31',
+                max_tokens: 2048,
+                temperature: 0.3,
+                system: systemPrompt,
+                messages: [
+                    { role: 'user', content: userPrompt },
+                    { role: 'assistant', content: '{' },  // Prefill to guarantee JSON object start
+                ],
+            }),
         });
 
-        const rawText = (result.text || '').replace(/```json/g, '').replace(/```/g, '').trim();
-        if (!rawText) {
-            return NextResponse.json({ error: 'Gemini returned empty response' }, { status: 500 });
+        const result = await Promise.race([
+            client.send(command),
+            new Promise<never>((_, reject) => setTimeout(() => reject(new Error('Claude timeout 60s')), 55000))
+        ]);
+
+        const responseBody = JSON.parse(new TextDecoder().decode(result.body));
+        const rawText = '{' + (responseBody.content?.[0]?.text || '').replace(/```json/g, '').replace(/```/g, '').trim();
+        if (!rawText || rawText === '{') {
+            return NextResponse.json({ error: 'Claude returned empty response' }, { status: 500 });
         }
 
         const briefing = JSON.parse(rawText);
@@ -195,7 +219,7 @@ Return ONLY valid JSON (no markdown fences):
                 date: etDateStr,
                 generatedAt: new Date().toISOString(),
                 briefing: briefingText,
-                source: 'gemini',
+                source: 'claude',
                 newsCount: marketNews.length,
                 calendarCount: calendarEvents.length,
             }, 24 * 60 * 60);

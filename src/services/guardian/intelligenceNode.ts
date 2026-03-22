@@ -1,9 +1,7 @@
 
-import { GoogleGenAI } from "@google/genai";
+import { BedrockRuntimeClient, InvokeModelCommand } from "@aws-sdk/client-bedrock-runtime";
 import { Redis } from "@upstash/redis";
 import { SECTOR_MAP } from "@/services/universePolicy";
-import * as fs from 'fs';
-import * as path from 'path';
 
 // Supported locales
 type Locale = 'ko' | 'en' | 'ja';
@@ -62,38 +60,22 @@ async function loadInsightFromRedis(key: string): Promise<string | null> {
     return null;
 }
 
-// Robust API Key Loader
-const getApiKey = (): string => {
-    if (process.env.GEMINI_NEWS_KEY) return process.env.GEMINI_NEWS_KEY;
-    if (process.env.GEMINI_API_KEY) return process.env.GEMINI_API_KEY;
-    if (process.env.GOOGLE_API_KEY) return process.env.GOOGLE_API_KEY;
+// Bedrock Claude Models
+const BEDROCK_MODEL_FAST = 'us.anthropic.claude-3-5-haiku-20241022-v1:0';  // Rotation + Translation (fast)
+const BEDROCK_MODEL_PRO = 'us.anthropic.claude-sonnet-4-20250514-v1:0';   // Reality Insight (deep analysis)
 
-    try {
-        const envPath = path.join(process.cwd(), '.env.local');
-        if (fs.existsSync(envPath)) {
-            const content = fs.readFileSync(envPath, 'utf-8');
-            const lines = content.split('\n');
-            for (const line of lines) {
-                const trimmed = line.trim();
-                if (trimmed.startsWith('GEMINI_VERDICT_KEY=')) {
-                    return trimmed.split('=')[1].trim();
-                }
-                if (trimmed.startsWith('GEMINI_API_KEY=')) {
-                    return trimmed.split('=')[1].trim();
-                }
-                if (trimmed.startsWith('GOOGLE_API_KEY=')) {
-                    return trimmed.split('=')[1].trim();
-                }
-            }
-        }
-    } catch (e) {
-        console.warn("[IntelligenceNode] Failed to read .env.local manually:", e);
-    }
-    return "";
-};
-
-const API_KEY = getApiKey();
-const genAI = new GoogleGenAI({ apiKey: API_KEY });
+let _bedrockClient: BedrockRuntimeClient | null = null;
+function getBedrockClient(): BedrockRuntimeClient {
+    if (_bedrockClient) return _bedrockClient;
+    _bedrockClient = new BedrockRuntimeClient({
+        region: process.env.AWS_REGION || 'us-east-1',
+        credentials: {
+            accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
+            secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
+        },
+    });
+    return _bedrockClient;
+}
 
 interface IntelligenceContext {
     rlsiScore: number;
@@ -549,18 +531,25 @@ const LOCALE_NAMES: Record<Locale, string> = { ko: 'Korean', en: 'English', ja: 
 
 async function translateInsight(koreanText: string, targetLocale: Locale, type: 'rotation' | 'reality'): Promise<string | null> {
     try {
-        const apiKey = getApiKey();
-        if (!apiKey) return null;
-
         const prompt = type === 'rotation'
             ? `Translate the following Korean market rotation analysis to ${LOCALE_NAMES[targetLocale]}. Keep the same format ([Status]/[Interpretation]/[Outlook] for English, [現況]/[解釈]/[見通し] for Japanese). Keep it concise, 3 lines max. Maintain financial terminology accuracy.\n\nKorean text:\n${koreanText}`
             : `Translate the following Korean market analysis to natural ${LOCALE_NAMES[targetLocale]}. Do NOT use labels like [Diagnosis] or [Conclusion]. Write 2-3 natural sentences as a professional market strategist providing factual observations, not action recommendations. Keep financial terms accurate. Max 200 characters for English, 250 characters for Japanese.\n\nKorean text:\n${koreanText}`;
 
-        const result = await genAI.models.generateContent({
-            model: "gemini-2.5-flash",
-            contents: prompt,
+        const client = getBedrockClient();
+        const command = new InvokeModelCommand({
+            modelId: BEDROCK_MODEL_FAST,
+            contentType: 'application/json',
+            accept: 'application/json',
+            body: JSON.stringify({
+                anthropic_version: 'bedrock-2023-05-31',
+                max_tokens: 500,
+                temperature: 0.3,
+                messages: [{ role: 'user', content: prompt }],
+            }),
         });
-        const text = result.text?.trim();
+        const result = await client.send(command);
+        const body = JSON.parse(new TextDecoder().decode(result.body));
+        const text = body.content?.[0]?.text?.trim();
         if (text && text.length > 10) {
             console.log(`[IntelligenceNode V9.1] Translated ${type} ko→${targetLocale} (${text.length} chars)`);
             return text;
@@ -630,8 +619,7 @@ export class IntelligenceNode {
             return OFF_HOURS_ROTATION[locale];
         }
 
-        const apiKey = getApiKey();
-        if (!apiKey) return "SETUP REQUIRED: ADD GEMINI_API_KEY";
+        if (!process.env.AWS_ACCESS_KEY_ID) return "SETUP REQUIRED: ADD AWS_ACCESS_KEY_ID";
 
         // ETF ID → sector name conversion (e.g. SMH → 반도체, HACK → 사이버보안)
         const etfToName = (id: string): string => SECTOR_MAP[id]?.name || id;
@@ -640,7 +628,7 @@ export class IntelligenceNode {
             : "No significant rotation";
 
         const prompt = ROTATION_PROMPTS[locale](ctx, vectorDesc);
-        const result = await this.callGemini(prompt, `ROTATION_${locale}`);
+        const result = await IntelligenceNode.callClaude(prompt, `ROTATION_${locale}`, BEDROCK_MODEL_FAST);
 
         if (result && !result.includes("failed")) {
             _cachedRotation[locale] = result;
@@ -682,7 +670,7 @@ export class IntelligenceNode {
         }
 
         if (isOffHours()) {
-            console.log(`[IntelligenceNode] Off-hours: skipping Gemini call for Reality (${locale})`);
+            console.log(`[IntelligenceNode] Off-hours: skipping Claude call for Reality (${locale})`);
             if (_cachedReality[locale]) return _cachedReality[locale]!;
             const redisCache = await loadInsightFromRedis(getRedisKey('reality', locale));
             if (redisCache) {
@@ -705,12 +693,11 @@ export class IntelligenceNode {
             return OFF_HOURS_REALITY[locale];
         }
 
-        const apiKey = getApiKey();
-        if (!apiKey) return "SETUP REQUIRED: ADD GEMINI_API_KEY";
+        if (!process.env.AWS_ACCESS_KEY_ID) return "SETUP REQUIRED: ADD AWS_ACCESS_KEY_ID";
 
         const prompt = REALITY_PROMPTS[locale](ctx);
-        // [V11.0] Reality Insight uses gemini-2.5-pro for deeper reasoning
-        const result = await this.callGemini(prompt, `REALITY_${locale}`, 'gemini-2.5-pro');
+        // [V11.0] Reality Insight uses Claude Sonnet 4 for deeper reasoning
+        const result = await IntelligenceNode.callClaude(prompt, `REALITY_${locale}`, BEDROCK_MODEL_PRO);
 
         if (result && !result.includes("failed")) {
             _cachedReality[locale] = result;
@@ -720,23 +707,35 @@ export class IntelligenceNode {
         return result;
     }
 
-    private static async callGemini(prompt: string, cacheKeySuffix: string, model: string = 'gemini-2.5-flash'): Promise<string> {
+    private static async callClaude(prompt: string, cacheKeySuffix: string, modelId: string = BEDROCK_MODEL_FAST): Promise<string> {
         let attempts = 0;
         const maxAttempts = 3;
 
         while (attempts < maxAttempts) {
             try {
                 attempts++;
-                const result = await genAI.models.generateContent({
-                    model,
-                    contents: prompt,
+                const client = getBedrockClient();
+                const command = new InvokeModelCommand({
+                    modelId,
+                    contentType: 'application/json',
+                    accept: 'application/json',
+                    body: JSON.stringify({
+                        anthropic_version: 'bedrock-2023-05-31',
+                        max_tokens: 1024,
+                        temperature: 0.3,
+                        system: 'You are an institutional investment strategist. Provide concise, data-driven market analysis. Do NOT use any emoji or special unicode symbols. Use plain text only.',
+                        messages: [{ role: 'user', content: prompt }],
+                    }),
                 });
-                const text = result.text || "";
-                if (text.length > 10 && !text.includes("System Busy")) {
+                const result = await client.send(command);
+                const body = JSON.parse(new TextDecoder().decode(result.body));
+                const text = body.content?.[0]?.text || "";
+                if (text.length > 10) {
                     return text.trim();
                 }
             } catch (e: any) {
-                if ((e.status === 429 || e.status === 503) && attempts < maxAttempts) {
+                const status = e.$metadata?.httpStatusCode;
+                if ((status === 429 || status === 503) && attempts < maxAttempts) {
                     await new Promise(r => setTimeout(r, 2000 * attempts));
                     continue;
                 }
