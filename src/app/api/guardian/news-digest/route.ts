@@ -81,6 +81,48 @@ async function fetchMarketNews(limit: number = 30): Promise<any[]> {
     }
 }
 
+// ===== Fetch Macro/Geopolitical News from FMP =====
+const FMP_API_KEY = process.env.FMP_API_KEY || '';
+async function fetchFMPGeneralNews(limit: number = 15): Promise<any[]> {
+    if (!FMP_API_KEY) return [];
+    try {
+        const res = await fetch(
+            `https://financialmodelingprep.com/stable/news/general-latest?limit=${limit}&apikey=${FMP_API_KEY}`,
+            { signal: AbortSignal.timeout(8000) }
+        );
+        if (!res.ok) return [];
+        const data = await res.json();
+        if (!Array.isArray(data)) return [];
+        // Normalize FMP format to match Polygon structure
+        return data.map((n: any) => ({
+            id: `fmp-${n.url?.slice(-20) || Math.random()}`,
+            title: n.title || '',
+            description: n.text?.substring(0, 300) || '',
+            published_utc: n.publishedDate || new Date().toISOString(),
+            publisher: { name: n.site || 'FMP' },
+            _source: 'fmp',
+        }));
+    } catch (e) {
+        console.error('[NewsDigest] FMP fetch failed:', e);
+        return [];
+    }
+}
+
+// ===== Merge & Deduplicate News =====
+function mergeAndDeduplicate(polygonNews: any[], fmpNews: any[]): any[] {
+    const all = [...polygonNews, ...fmpNews];
+    // Sort by published time (newest first)
+    all.sort((a, b) => new Date(b.published_utc || 0).getTime() - new Date(a.published_utc || 0).getTime());
+    // Deduplicate by title similarity (first 50 chars)
+    const seen = new Set<string>();
+    return all.filter(n => {
+        const key = (n.title || '').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 50);
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+    });
+}
+
 // ===== Fetch Macro Context for AI =====
 async function getMacroContext(baseUrl: string): Promise<string> {
     try {
@@ -238,9 +280,10 @@ Output ONLY the JSON array — no explanation, no markdown.`;
 export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const forceRefresh = searchParams.get('refresh') === '1';
+    const isUrgent = searchParams.get('urgent') === '1'; // VIX spike trigger
 
-    // Step 1: Check Redis cache
-    if (!forceRefresh) {
+    // Step 1: Check Redis cache (skip if urgent VIX trigger)
+    if (!forceRefresh && !isUrgent) {
         try {
             const cached = await getFromCache<NewsDigest>(REDIS_KEY);
             if (cached && cached.items?.length > 0) {
@@ -249,12 +292,17 @@ export async function GET(req: NextRequest) {
         } catch { /* ignore cache miss */ }
     }
 
-    // Step 2: Fetch fresh data
+    // Step 2: Fetch fresh data from BOTH sources
     const baseUrl = req.url.split('/api/')[0];
-    const [articles, macroContext] = await Promise.all([
+    const [polygonArticles, fmpArticles, macroContext] = await Promise.all([
         fetchMarketNews(30),
+        fetchFMPGeneralNews(15),
         getMacroContext(baseUrl),
     ]);
+
+    // Merge & deduplicate: Polygon (stock/sector) + FMP (macro/geopolitical)
+    const articles = mergeAndDeduplicate(polygonArticles, fmpArticles);
+    console.log(`[NewsDigest] Sources: Polygon=${polygonArticles.length}, FMP=${fmpArticles.length}, Merged=${articles.length}${isUrgent ? ' [URGENT/VIX]' : ''}`);
 
     if (articles.length === 0) {
         return NextResponse.json({ items: [], error: 'No news available', _source: 'empty' });

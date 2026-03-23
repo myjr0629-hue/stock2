@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { setInCache } from '@/services/redisClient';
+import { setInCache, getFromCache } from '@/services/redisClient';
 import { YAHOO_CACHE_KEYS, type YahooQuote } from '@/services/yahooFinanceHub';
 
 /**
@@ -147,10 +147,47 @@ export async function GET() {
 
     console.log(`[market-feed] ${ok}/${SYMBOLS.length + 1} updated: ${results.join(', ')}`);
 
+    // ===== VIX Spike Detection → Urgent News Refresh =====
+    let vixTriggered = false;
+    try {
+        const vixData = await getFromCache<YahooQuote>(YAHOO_CACHE_KEYS.VIX);
+        if (vixData && typeof vixData.changePct === 'number') {
+            const prevVixChange = await getFromCache<{ changePct: number }>('vix:prev_change');
+            const prevPct = prevVixChange?.changePct ?? vixData.changePct;
+            const vixDelta = Math.abs(vixData.changePct - prevPct);
+
+            // Trigger if VIX change moved ±5% since last check (e.g., VIX went from +2% to +8%)
+            if (vixDelta >= 5) {
+                console.log(`[market-feed] 🚨 VIX SPIKE DETECTED: ${prevPct.toFixed(1)}% → ${vixData.changePct.toFixed(1)}% (delta: ${vixDelta.toFixed(1)}%)`);
+
+                // Trigger urgent news refresh (fire-and-forget)
+                try {
+                    const baseUrl = process.env.VERCEL_URL
+                        ? `https://${process.env.VERCEL_URL}`
+                        : process.env.NEXT_PUBLIC_BASE_URL || 'https://www.signumhq.com';
+                    fetch(`${baseUrl}/api/guardian/news-digest?refresh=1&urgent=1`, {
+                        signal: AbortSignal.timeout(10000),
+                        headers: process.env.VERCEL_AUTOMATION_BYPASS_SECRET
+                            ? { 'x-vercel-protection-bypass': process.env.VERCEL_AUTOMATION_BYPASS_SECRET }
+                            : {},
+                    }).catch(() => {}); // fire-and-forget
+                    vixTriggered = true;
+                    console.log(`[market-feed] 📡 Urgent news refresh triggered`);
+                } catch {}
+            }
+
+            // Store current VIX change for next comparison
+            await setInCache('vix:prev_change', { changePct: vixData.changePct }, 600); // 10min TTL
+        }
+    } catch (e) {
+        // VIX detection is non-critical, don't fail the entire cron
+    }
+
     return NextResponse.json({
         ok,
         fail,
         results,
+        vixTriggered,
         ts: new Date().toISOString(),
     });
 }
