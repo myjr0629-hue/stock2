@@ -1,0 +1,22 @@
+﻿[dotenv@17.2.3] injecting env (31) from .env.local -- tip: ?숋툘  specify custom .env file path with { path: '/custom/path/.env' }
+=== Bedrock + Polygon News Test ===
+
+Fetching news...
+NVDA: 5 articles
+TSLA: 5 articles
+
+Calling Bedrock Claude S4...
+
+==================================================
+  NVDA
+==================================================
+[KO] NVDA??湲띿젙??媛먮쭏(47M GEX)? ??? PCR(0.92)濡?肄??명뼢??蹂댁씠吏留? 留μ뒪?섏씤($180)???꾩옱媛蹂대떎 4.1% ?믪븘 ?곸듅 ?뺣젰???쒗븳?곸엯?덈떎. 97% ?ㅽ겕? ?쒕룞怨?13% ?ㅽ댁쫰??湲곌? 留ㅻ룄 ?뺣젰???쒖궗?섎ŉ, AI ?깆옣 ?꾨쭩 ?댁뒪?먮룄 遺덇뎄?섍퀬 ?④린 議곗젙 媛?μ꽦???믪뒿?덈떎.
+[EN] NVDA's positive gamma environment (47M GEX) with call-skewed positioning (0.92 PCR) suggests upside momentum potential, yet the stock trades 4.1% below max pain at $180, indicating near-term headwinds. The 97% dark pool activity combined with 13% squeeze metrics reveals institutional distribution despite bullish AI growth narratives in recent coverage. The $185 call wall creates meaningful resistance while elevated IV skew (+1.4%) reflects heightened uncertainty around the semiconductor leader's near-term trajectory.
+[JA] NVDA?????궗?녈깯?겼쥊竊?7M GEX竊됥겏?녈꺖?ュ걦?띲깮?멥궥?㎯꺍竊늁CR 0.92竊됥굮鹽뷩걲?뚣곥깯?껁궚?밤깪?ㅳ꺍180?됥꺂??.1%訝뗥썮?뗦객繹뽧겎?뽩폊?뺛굦?╉걡?듽곭윮?잏쉪?や툓?ㅵ쑇?쎼걣?먨츣?꾠?7%????쇈궚?쀣꺖?ユ뉵?뺛겏13%??궧??궎?쇈궨?뉑쮽??갂I?먬빓?잌푷??깮?멥깇?ｃ깣?뗣깷?쇈궧?ャ굚?뗣걢?뤵굢?싨찣?€뒘蘊뉐???２?듿쑇?쎼굮鹽뷴봿?쀣겍?꾠굥??
+==================================================
+  TSLA
+==================================================
+[KO] TSLA??洹좏삎?≫엺 PCR(0.99)怨??믪? GEX(115M)濡??묐갑??蹂?숈꽦???쒖궗?섎ŉ, 留μ뒪?섏씤($303)蹂대떎 21.4% ?믪? ?꾨━誘몄뾼 嫄곕옒媛 議곗젙 ?뺣젰???섑??낅땲?? SpaceX ?⑸퀝 ?곕젮? -$393M ?룻봽由щ??꾩? 湲곌??ㅼ쓽 ?ㅼ? ?섏슂 利앷?瑜?諛섏쁺?섎ŉ, $300 ?뗮뵆濡쒖뼱 洹쇱쿂源뚯? ?섎씫 由ъ뒪?ш? 議댁옱?⑸땲??
+[EN] TSLA exhibits balanced option positioning (0.99 PCR) with substantial gamma exposure (115M GEX), yet trades at a significant 21.4% premium to max pain at $303, creating downside gravitational pull. The massive negative net premium (-$393.3M) coincides with SpaceX merger concerns raised by analysts, amplifying institutional hedging demand. With 68% dark pool activity and the stock positioned between the $410 call wall and $300 put floor, TSLA faces a compressed trading environment amid elevated uncertainty.
+[JA] TSLA??깘?⒲꺍?밤겗?뽧굦?잆궕?쀣궥?㎯꺍?앫궦?룔깾?놂펷PCR 0.99竊됥겏鸚㎯걤?ゃ궗?녈깯?ⓦ궚?밤깮?쇈궦?ｃ꺖竊?15M GEX竊됥굮鹽뷩걲?뚣곥깯?껁궚?밤깪?ㅳ꺍303?됥꺂??1.4%訝듿썮?뗦객繹뽧겎?뽩폊?뺛굦?곦툔?밧쑇?쎼걣凉룔걚?괪paceX?덁슉?멨영??393M?됥꺂??ㄷ亮끹겒?띲긿?덀깤?с깱?㏂깲?욁궎?듽궧?뚧찣?€뒘蘊뉐???깦?껁궦?誤곩쥥?졼굮鹽뷩걮?╉걚?뗣?
+Done in 33.7s
