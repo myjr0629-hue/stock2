@@ -197,6 +197,9 @@ export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d
                     } else {
                         processedData.push({
                             close: currentPrice,
+                            open: currentPrice,
+                            high: currentPrice,
+                            low: currentPrice,
                             etMinute: currentEtMinute,
                             session: currentEtMinute < 570 ? 'PRE' : currentEtMinute >= 960 ? 'POST' : 'REG',
                             volume: 0,
@@ -206,6 +209,35 @@ export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d
             }
         }
     }
+
+    // ── Aggregate intraday 1-min data into 5-min OHLC bars for candle mode ──
+    const CANDLE_INTERVAL = 5; // minutes
+    const candleData = (isIntraday && chartType === 'candle' && processedData.length > 100)
+        ? processedData.reduce((acc: any[], item: any) => {
+            const bucket = Math.floor((item.etMinute || 0) / CANDLE_INTERVAL) * CANDLE_INTERVAL;
+            const last = acc[acc.length - 1];
+            if (last && last.etMinute === bucket) {
+                last.high = Math.max(last.high, item.high ?? item.close);
+                last.low = Math.min(last.low, item.low ?? item.close);
+                last.close = item.close;
+                last.volume = (last.volume || 0) + (item.volume || 0);
+            } else {
+                acc.push({
+                    ...item,
+                    etMinute: bucket,
+                    open: item.open ?? item.close,
+                    high: item.high ?? item.close,
+                    low: item.low ?? item.close,
+                    close: item.close,
+                    volume: item.volume || 0,
+                });
+            }
+            return acc;
+        }, [])
+        : processedData;
+
+    // Use candleData for rendering (aggregated for candle mode, raw for area)
+    const renderData = candleData;
 
     // ── SMA calculation ──
     const computeSMA = (closes: number[], period: number): (number | null)[] => {
@@ -276,7 +308,7 @@ export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d
                 timeVisible: isIntraday,
                 secondsVisible: false,
                 rightOffset: 5,
-                barSpacing: isIntraday ? 3 : 6,
+                barSpacing: (isIntraday && chartType === 'candle') ? 8 : isIntraday ? 3 : 6,
             },
             watermark: { visible: false },
             handleScroll: { mouseWheel: true, pressedMouseMove: true },
@@ -287,7 +319,7 @@ export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d
 
         // ── Main series (Area or Candlestick) ──
         let mainSeries: any;
-        if (chartType === 'candle' && processedData.some((d: any) => d.open !== undefined)) {
+        if (chartType === 'candle' && renderData.some((d: any) => d.open !== undefined)) {
             mainSeries = chart.addCandlestickSeries({
                 upColor: '#26a69a',
                 downColor: '#ef5350',
@@ -328,7 +360,7 @@ export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d
         const seriesData: any[] = [];
         const volumeData: any[] = [];
 
-        processedData.forEach((item: any, idx: number) => {
+        renderData.forEach((item: any, idx: number) => {
             const time = toTimestamp(item, isIntraday);
             
             if (chartType === 'candle' && item.open !== undefined) {
@@ -522,7 +554,7 @@ export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d
             sma200SeriesRef.current = null;
             priceLinesRef.current = [];
         };
-    }, [processedData.length > 0 ? `${ticker}-${range}-${processedData.length}-${showSMA}-${chartType}` : 'empty',
+    }, [renderData.length > 0 ? `${ticker}-${range}-${renderData.length}-${showSMA}-${chartType}` : 'empty',
         prevClose, vwap, gammaFlipLevel, currentPrice,
         alphaLevels?.callWall, alphaLevels?.putFloor, alphaLevels?.maxPain]);
 
