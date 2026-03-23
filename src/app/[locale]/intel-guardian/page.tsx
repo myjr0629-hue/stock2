@@ -316,14 +316,17 @@ export default function GuardianPage() {
     const regime = data?.tripleA?.regime || 'NEUTRAL';
     const isBullMode = regime === 'BULL';
 
-    // [V7.7] Session-based animation control — no blinking during off-hours
+    // [V7.7] Session-based animation control
     const session = data?.rlsi?.session;
     const { status: marketStatusInfo } = useMarketStatus();
-    const isMarketActive = session === 'REG' && !marketStatusInfo.isHoliday;
+    // isMarketActive: PRE + REG + POST = show analysis (04:00-20:00 ET)
+    const isMarketActive = (session === 'REG' || session === 'PRE' || session === 'POST') && !marketStatusInfo.isHoliday;
+    // isFullyActive: REG only = live animations, pulse effects
+    const isFullyActive = session === 'REG' && !marketStatusInfo.isHoliday;
 
     // Dynamic Map Border — no pulse animation when market is closed
-    const mapBorderClass = isTargetLocked && isMarketActive
-        ? "border-amber-500/50 shadow-[0_0_30px_rgba(245,158,11,0.3)] animate-pulse" // Locked (Gold) - only during market hours
+    const mapBorderClass = isTargetLocked && isFullyActive
+        ? "border-amber-500/50 shadow-[0_0_30px_rgba(245,158,11,0.3)] animate-pulse" // Locked (Gold) - only during REG hours
         : isTargetLocked
             ? "border-amber-500/50 shadow-[0_0_20px_rgba(245,158,11,0.15)]" // Locked but static after hours
             : isBullMode
@@ -522,11 +525,11 @@ export default function GuardianPage() {
                                                         Flow Topography Map v3.0
                                                     </h3>
                                                 </GuardianTooltip>
-                                                <span className={`text-[12px] font-black tracking-wide px-3 py-1 rounded-md border font-jakarta shrink-0 ${isMarketActive
+                                                <span className={`text-[12px] font-black tracking-wide px-3 py-1 rounded-md border font-jakarta shrink-0 ${isFullyActive
                                                     ? 'bg-emerald-950/80 text-emerald-400 border-emerald-500/40 animate-pulse shadow-[0_0_12px_rgba(52,211,153,0.3)]'
                                                     : 'bg-amber-950/60 text-amber-400 border-amber-500/30'
                                                     }`}>
-                                                    {isMarketActive ? '● LIVE' : 'STANDBY'}
+                                                    {isFullyActive ? '● LIVE' : isMarketActive ? '◉ ACTIVE' : 'STANDBY'}
                                                 </span>
                                                 {!isMarketActive && (
                                                     <span className="text-[12px] text-amber-500/80 font-medium tracking-wide">
@@ -547,7 +550,7 @@ export default function GuardianPage() {
                                             </div>
                                             {isTargetLocked && (
                                                 <div className="absolute bottom-16 left-1/2 -translate-x-1/2 z-50 pointer-events-none flex flex-col items-center select-none">
-                                                    {isMarketActive ? (
+                                                    {isFullyActive ? (
                                                         <>
                                                             <div className="absolute w-[180px] h-[180px] border border-amber-500/15 rounded-full animate-[spin_12s_linear_infinite]" />
                                                             <div className="absolute w-[120px] h-[120px] border border-dashed border-amber-500/25 rounded-full animate-[spin_6s_linear_infinite_reverse]" />
@@ -558,7 +561,7 @@ export default function GuardianPage() {
                                                             <div className="absolute w-[120px] h-[120px] border border-dashed border-amber-500/15 rounded-full" />
                                                         </>
                                                     )}
-                                                    <div className={`text-2xl font-black text-amber-400 tracking-[0.15em] drop-shadow-[0_0_20px_rgba(245,158,11,0.6)] whitespace-nowrap ${isMarketActive ? 'animate-[pulse_3s_ease-in-out_infinite]' : 'opacity-60'}`}>
+                                                    <div className={`text-2xl font-black text-amber-400 tracking-[0.15em] drop-shadow-[0_0_20px_rgba(245,158,11,0.6)] whitespace-nowrap ${isFullyActive ? 'animate-[pulse_3s_ease-in-out_infinite]' : 'opacity-60'}`}>
                                                         TARGET LOCKED
                                                     </div>
                                                     <div className="text-[12px] text-amber-200 tracking-[0.5em] mt-2 uppercase font-bold bg-black/60 px-3 py-1 rounded border border-amber-500/30">
@@ -790,7 +793,7 @@ export default function GuardianPage() {
                                                         TACTICAL VERDICT
                                                     </h3>
                                                 </GuardianTooltip>
-                                                <span className="text-[12px] text-amber-500 font-mono font-jakarta">· Regular Session Only</span>
+                                                <span className="text-[12px] text-amber-500 font-mono font-jakarta">· {session === 'REG' ? 'Regular Session' : session === 'PRE' ? 'Pre-Market' : session === 'POST' ? 'Post-Market' : 'Off-Hours'}</span>
                                             </div>
                                             <span className="text-[12px] bg-emerald-950 text-emerald-400 px-2 py-0.5 rounded border border-emerald-500/20 font-bold font-jakarta">
                                                 V.CLAUDE S4
