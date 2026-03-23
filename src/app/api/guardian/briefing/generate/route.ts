@@ -40,7 +40,7 @@ export async function POST(req: Request) {
         const body = await req.json();
         const { snapshot, rlsiHistory } = body;
 
-        // 1. Fetch Polygon broad market news (macro/geopolitical included)
+        // 1. Fetch Polygon broad market news (stock/sector)
         let marketNews: string[] = [];
         try {
             const newsData = await fetchMassive(
@@ -54,7 +54,32 @@ export async function POST(req: Request) {
                 return title + desc;
             }).filter(Boolean).slice(0, 7);
         } catch (e) {
-            console.warn('[Briefing Gen] News fetch failed:', e);
+            console.warn('[Briefing Gen] Polygon news fetch failed:', e);
+        }
+
+        // 1.5 Fetch FMP General News (macro/geopolitical — not covered by Polygon)
+        try {
+            const fmpKey = process.env.FMP_API_KEY;
+            if (fmpKey) {
+                const fmpRes = await fetch(
+                    `https://financialmodelingprep.com/stable/news/general-latest?limit=8&apikey=${fmpKey}`,
+                    { signal: AbortSignal.timeout(6000) }
+                );
+                if (fmpRes.ok) {
+                    const fmpData = await fmpRes.json();
+                    if (Array.isArray(fmpData)) {
+                        const fmpNews = fmpData
+                            .map((n: any) => n.title || '')
+                            .filter(Boolean)
+                            .slice(0, 5);
+                        // Append FMP news (geopolitical/macro) after Polygon news
+                        marketNews = [...marketNews, ...fmpNews].slice(0, 10);
+                        console.log(`[Briefing Gen] FMP General: +${fmpNews.length} headlines merged`);
+                    }
+                }
+            }
+        } catch (e) {
+            console.warn('[Briefing Gen] FMP news fetch failed:', e);
         }
 
         // 2. Get economic calendar from Redis

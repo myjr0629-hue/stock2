@@ -750,7 +750,8 @@ function FedWatchMini() {
 
     if (!data) return null;
     const total = data.ease + data.noChange + data.hike;
-    if (total === 0) return null;
+    // Show component even if probabilities are 0, as long as metadata exists
+    if (total === 0 && !data.targetRate && !data.daysUntilFomc) return null;
 
     const fresh = data.scrapedAt ? (() => {
         const m = Math.floor((Date.now() - new Date(data.scrapedAt).getTime()) / 60000);
