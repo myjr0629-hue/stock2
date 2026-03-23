@@ -794,7 +794,6 @@ function FedWatchMini() {
                         <div className="flex items-center gap-2">
                             <Landmark className="w-3.5 h-3.5 text-indigo-400/60" />
                             <span className="text-[13px] font-black uppercase tracking-[0.15em] text-white/80 font-jakarta">FEDWATCH</span>
-                            {fresh && <span className="text-[12px] font-mono text-slate-300">· {fresh}</span>}
                         </div>
                         <div className="flex items-center gap-2">
                             {data.targetRate && (
