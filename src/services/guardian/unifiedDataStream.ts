@@ -382,13 +382,12 @@ export class GuardianDataHub {
             // === STEP 1: PARALLEL DATA FETCHING (Optimization) ===
             // [V5.0] Changed order: Sector first, then RLSI with RIS score
             console.log("[Guardian V5.0] Step 1: Fetching Sector Flows & Macro in Parallel...");
-            const [sectorResult, macro, rvolNdx, rvolDow, marketNews, gammaShieldData] = await Promise.all([
+            const [sectorResult, macro, rvolNdx, rvolDow, polygonNews, fmpGeneralNews, gammaShieldData] = await Promise.all([
                 SectorEngine.getSectorFlows(),
                 getMacroSnapshotSSOT(),
                 RvolEngine.getRvol("QQQ"),
                 RvolEngine.getRvol("DIA"),
-                // [V11.0] Expanded market news for context-aware Gemini analysis
-                // Multi-ticker (SPY,QQQ,DIA,TLT,GLD) + title+description for deeper context
+                // [V11.0] Polygon: stock/sector-specific news
                 fetchMassive('/v2/reference/news', { ticker: 'SPY,QQQ,DIA,TLT,GLD', limit: '15', order: 'desc', sort: 'published_utc' }, true)
                     .then((res: any) => (res?.results || []).map((n: any) => {
                         const title = n.title || '';
@@ -396,9 +395,39 @@ export class GuardianDataHub {
                         return title + desc;
                     }).filter(Boolean))
                     .catch(() => [] as string[]),
+                // [V11.1] FMP General News: macro/geopolitical events (Trump, Fed, CPI, trade war, etc.)
+                (async () => {
+                    try {
+                        const fmpKey = process.env.FMP_API_KEY;
+                        if (!fmpKey) return [] as string[];
+                        const res = await fetch(
+                            `https://financialmodelingprep.com/stable/news/general-latest?limit=8&apikey=${fmpKey}`,
+                            { signal: AbortSignal.timeout(5000) }
+                        );
+                        if (!res.ok) return [] as string[];
+                        const data = await res.json();
+                        if (!Array.isArray(data)) return [] as string[];
+                        return data.map((n: any) => n.title || '').filter(Boolean).slice(0, 5);
+                    } catch { return [] as string[]; }
+                })(),
                 // [V10.0] GAMMA SHIELD — market-wide GEX/squeeze/trigger band
                 getGammaShield(force).catch(e => { console.warn('[Guardian] GammaShield failed:', e.message); return null; })
             ]);
+
+            // Merge Polygon + FMP news with deduplication
+            const mergedNews: string[] = [...polygonNews];
+            for (const fmpTitle of fmpGeneralNews) {
+                const isDup = mergedNews.some(existing => {
+                    const a = existing.toLowerCase().slice(0, 60);
+                    const b = fmpTitle.toLowerCase().slice(0, 60);
+                    return a.includes(b.slice(0, 30)) || b.includes(a.slice(0, 30));
+                });
+                if (!isDup) mergedNews.push(fmpTitle);
+            }
+            const marketNews = mergedNews.slice(0, 12);
+            if (fmpGeneralNews.length > 0) {
+                console.log(`[Guardian] News merged: Polygon ${polygonNews.length} + FMP ${fmpGeneralNews.length} → ${marketNews.length} headlines`);
+            }
 
             const { flows, vectors, source, target, sourceId, targetId, rotationIntensity } = sectorResult;
             console.log(`[Guardian V5.0] Step 1 Complete. RIS: ${rotationIntensity.score}, Direction: ${rotationIntensity.direction}`);
