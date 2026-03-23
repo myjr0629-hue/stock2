@@ -126,28 +126,12 @@ async function fetchAndCacheFearGreed(): Promise<string> {
     }
 }
 
-// ===== FedWatch: Calculate rate probabilities from Fed Funds Futures =====
-// Reads ZQ=F price from Redis (written by SYMBOLS loop above) — no direct Yahoo calls
-async function calculateFedWatch(): Promise<string> {
+// ===== FedWatch: Update FOMC metadata + emergency fallback only =====
+// ZQ=F front-month futures is inaccurate for next-meeting probabilities.
+// Scraper (GitHub Actions) is the authoritative source for EASE/HOLD/HIKE.
+// This function ONLY: (1) updates daysUntilFomc metadata, (2) writes fallback if NO data exists
+async function updateFedWatchMetadata(): Promise<string> {
     try {
-        // Read ZQ=F from Redis (already fetched and cached by SYMBOLS loop)
-        const zqData = await getFromCache<YahooQuote>('yahoo:zq');
-        if (!zqData?.price || zqData.price < 90 || zqData.price > 100) return 'FW=NO_ZQ_DATA';
-
-        const price = zqData.price;
-        // Implied rate = 100 - futures price
-        const impliedRate = 100 - price;
-        const currentMid = (CURRENT_FED_RATE_UPPER + CURRENT_FED_RATE_LOWER) / 2;
-
-        // Calculate probabilities for 25bp cut / hold / 25bp hike
-        let ease = Math.max(0, Math.min(100, ((currentMid - impliedRate) / 0.25) * 100));
-        let hike = Math.max(0, Math.min(100, ((impliedRate - currentMid) / 0.25) * 100));
-        let noChange = Math.max(0, 100 - ease - hike);
-
-        ease = Math.round(ease * 10) / 10;
-        hike = Math.round(hike * 10) / 10;
-        noChange = Math.round(noChange * 10) / 10;
-
         // Next FOMC date and days until
         const nowET = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' }));
         const todayStr = nowET.toISOString().split('T')[0];
@@ -158,38 +142,31 @@ async function calculateFedWatch(): Promise<string> {
             daysUntilFomc = Math.ceil(diff / (1000 * 60 * 60 * 24));
         }
 
-        // Only write if scraper data is stale (>6h old) — scraper has priority
-        const existing = await getFromCache<{ scrapedAt?: string; source?: string; ease?: number; noChange?: number; hike?: number }>('fedwatch:latest');
-        if (existing?.scrapedAt && existing?.source !== 'yahoo_futures_calc') {
-            const age = Date.now() - new Date(existing.scrapedAt).getTime();
-            if (age < 6 * 60 * 60 * 1000 && (existing.noChange || 0) > 0) {
-                // Scraper data is fresh and has real probabilities — skip overwrite
-                console.log(`[market-feed] FedWatch: scraper data fresh (${(age/3600000).toFixed(1)}h old), skipping calc overwrite`);
-                return `FW=scraper_fresh`;
-            }
+        const existing = await getFromCache<Record<string, unknown>>('fedwatch:latest');
+        
+        if (existing && ((existing.noChange as number || 0) > 0 || (existing.hike as number || 0) > 0 || (existing.ease as number || 0) > 0)) {
+            // Scraper data exists with real probabilities — only update FOMC metadata
+            const updated = { ...existing, daysUntilFomc, nextMeetingDate: nextFomc || existing.nextMeetingDate };
+            await setInCache('fedwatch:latest', updated, 86400);
+            return `FW=meta_updated(D-${daysUntilFomc})`;
         }
 
-        const fedwatchData = {
-            ease, noChange, hike,
-            prevEase: existing?.ease ?? undefined,
-            prevNoChange: existing?.noChange ?? undefined,
-            prevHike: existing?.hike ?? undefined,
+        // NO data at all — write placeholder with FOMC info only (no probabilities)
+        const placeholder = {
+            ease: 0, noChange: 0, hike: 0,
             targetRate: `${(CURRENT_FED_RATE_LOWER * 100).toFixed(0)}-${(CURRENT_FED_RATE_UPPER * 100).toFixed(0)}`,
             nextMeetingDate: nextFomc || null,
             daysUntilFomc,
-            impliedRate: Math.round(impliedRate * 1000) / 1000,
-            futuresPrice: price,
-            contract: 'ZQ=F',
+            contract: null,
             scrapedAt: new Date().toISOString(),
             storedAt: new Date().toISOString(),
-            source: 'yahoo_futures_calc',
+            source: 'placeholder',
         };
-
-        await setInCache('fedwatch:latest', fedwatchData, 86400);
-        console.log(`[market-feed] FedWatch: ease=${ease}% hold=${noChange}% hike=${hike}% (ZQ=${price}, implied=${impliedRate.toFixed(3)}%)`);
-        return `FW=ease${ease}%/hold${noChange}%`;
+        await setInCache('fedwatch:latest', placeholder, 86400);
+        console.log(`[market-feed] FedWatch: no scraper data — wrote FOMC placeholder (D-${daysUntilFomc})`);
+        return `FW=placeholder(D-${daysUntilFomc})`;
     } catch (e) {
-        console.warn('[market-feed] FedWatch calc failed:', e);
+        console.warn('[market-feed] FedWatch metadata update failed:', e);
         return 'FW=FAIL';
     }
 }
@@ -224,7 +201,7 @@ export async function GET() {
     else fail++;
 
     // FedWatch — auto-calculate from Fed Funds Futures
-    const fwResult = await calculateFedWatch();
+    const fwResult = await updateFedWatchMetadata();
     results.push(fwResult);
     if (!fwResult.includes('FAIL')) ok++;
     else fail++;
