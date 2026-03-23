@@ -5,6 +5,8 @@
 
 import { NextResponse } from 'next/server';
 
+export const maxDuration = 60;
+
 export async function GET(request: Request) {
     const startTime = Date.now();
 
@@ -25,8 +27,18 @@ export async function GET(request: Request) {
             cache: 'no-store',
         });
 
-        const data = await res.json();
         const elapsed = Date.now() - startTime;
+
+        // Safely parse response — handle HTML error pages (504, Vercel protection)
+        let data: any;
+        const contentType = res.headers.get('content-type') || '';
+        if (contentType.includes('application/json')) {
+            data = await res.json();
+        } else {
+            const text = await res.text();
+            console.error(`[Cron:CrossSectorBrief] Non-JSON response (${res.status}):`, text.substring(0, 200));
+            data = { error: `POST returned ${res.status} (${text.substring(0, 100)})` };
+        }
 
         console.log(`[Cron:CrossSectorBrief] ${res.ok ? '✅' : '❌'} Completed in ${elapsed}ms`);
 

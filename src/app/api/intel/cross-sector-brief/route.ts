@@ -124,6 +124,7 @@ export async function GET() {
  * V3: Bloomberg-grade depth with 13 macro indicators + impact chains
  */
 export async function POST() {
+    console.log('[CrossSectorBrief V3] POST handler entered');
     const startTime = Date.now();
 
     try {
