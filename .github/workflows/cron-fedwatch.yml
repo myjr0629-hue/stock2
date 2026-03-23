@@ -1,0 +1,49 @@
+name: FedWatch Scraper
+
+on:
+  schedule:
+    # 4x daily (Mon-Fri, UTC):
+    # 12:00 UTC = 07:00 ET (Pre-market)
+    - cron: '0 12 * * 1-5'
+    # 15:00 UTC = 10:00 ET (Market open + 30min)
+    - cron: '0 15 * * 1-5'
+    # 19:00 UTC = 14:00 ET (Afternoon)
+    - cron: '0 19 * * 1-5'
+    # 22:00 UTC = 17:00 ET (After close)
+    - cron: '0 22 * * 1-5'
+
+  # Manual trigger
+  workflow_dispatch:
+
+env:
+  AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+  AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+  AWS_REGION: us-east-1
+
+jobs:
+  scrape-fedwatch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm install puppeteer @aws-sdk/client-dynamodb @aws-sdk/lib-dynamodb
+
+      - name: Run FedWatch Scraper
+        run: node scripts/scrape-fedwatch.js
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "## 🏛️ FedWatch Scraper" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Time (UTC):** $(date -u +%Y-%m-%d\ %H:%M:%S)" >> $GITHUB_STEP_SUMMARY
+          echo "- **Triggered:** ${{ github.event_name }}" >> $GITHUB_STEP_SUMMARY
