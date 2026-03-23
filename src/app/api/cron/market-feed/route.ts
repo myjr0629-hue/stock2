@@ -24,6 +24,7 @@ const SYMBOLS = [
     { yahoo: 'RTY=F', key: YAHOO_CACHE_KEYS.RUT },
     { yahoo: 'KRW=X', key: YAHOO_CACHE_KEYS.USDKRW },
     { yahoo: 'JPY=X', key: YAHOO_CACHE_KEYS.USDJPY },
+    { yahoo: 'ZQ=F', key: 'yahoo:zq' },  // Fed Funds Futures (for FedWatch calc)
 ];
 
 // ===== FEDWATCH: FOMC Schedule & Current Target Rate =====
@@ -126,33 +127,23 @@ async function fetchAndCacheFearGreed(): Promise<string> {
 }
 
 // ===== FedWatch: Calculate rate probabilities from Fed Funds Futures =====
+// Reads ZQ=F price from Redis (written by SYMBOLS loop above) — no direct Yahoo calls
 async function calculateFedWatch(): Promise<string> {
     try {
-        // Fetch ZQ=F (30-Day Fed Funds Futures)
-        const res = await fetch(
-            'https://query1.finance.yahoo.com/v8/finance/chart/ZQ%3DF?interval=1d&range=1d',
-            {
-                headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
-                signal: AbortSignal.timeout(5000),
-            }
-        );
-        if (!res.ok) return 'FW=FETCH_FAIL';
+        // Read ZQ=F from Redis (already fetched and cached by SYMBOLS loop)
+        const zqData = await getFromCache<YahooQuote>('yahoo:zq');
+        if (!zqData?.price || zqData.price < 90 || zqData.price > 100) return 'FW=NO_ZQ_DATA';
 
-        const data = await res.json();
-        const price = data?.chart?.result?.[0]?.meta?.regularMarketPrice;
-        if (!price || price < 90 || price > 100) return 'FW=INVALID_PRICE';
-
+        const price = zqData.price;
         // Implied rate = 100 - futures price
         const impliedRate = 100 - price;
         const currentMid = (CURRENT_FED_RATE_UPPER + CURRENT_FED_RATE_LOWER) / 2;
 
         // Calculate probabilities for 25bp cut / hold / 25bp hike
-        // P(cut) = (currentMid - impliedRate) / 0.25, clamped to [0, 100]
         let ease = Math.max(0, Math.min(100, ((currentMid - impliedRate) / 0.25) * 100));
         let hike = Math.max(0, Math.min(100, ((impliedRate - currentMid) / 0.25) * 100));
         let noChange = Math.max(0, 100 - ease - hike);
 
-        // Round to 1 decimal
         ease = Math.round(ease * 10) / 10;
         hike = Math.round(hike * 10) / 10;
         noChange = Math.round(noChange * 10) / 10;
@@ -167,16 +158,22 @@ async function calculateFedWatch(): Promise<string> {
             daysUntilFomc = Math.ceil(diff / (1000 * 60 * 60 * 24));
         }
 
-        // Load previous data for delta tracking
-        const prev = await getFromCache<{ ease: number; noChange: number; hike: number }>('fedwatch:latest');
+        // Only write if scraper data is stale (>6h old) — scraper has priority
+        const existing = await getFromCache<{ scrapedAt?: string; source?: string; ease?: number; noChange?: number; hike?: number }>('fedwatch:latest');
+        if (existing?.scrapedAt && existing?.source !== 'yahoo_futures_calc') {
+            const age = Date.now() - new Date(existing.scrapedAt).getTime();
+            if (age < 6 * 60 * 60 * 1000 && (existing.noChange || 0) > 0) {
+                // Scraper data is fresh and has real probabilities — skip overwrite
+                console.log(`[market-feed] FedWatch: scraper data fresh (${(age/3600000).toFixed(1)}h old), skipping calc overwrite`);
+                return `FW=scraper_fresh`;
+            }
+        }
 
         const fedwatchData = {
-            ease,
-            noChange,
-            hike,
-            prevEase: prev?.ease ?? undefined,
-            prevNoChange: prev?.noChange ?? undefined,
-            prevHike: prev?.hike ?? undefined,
+            ease, noChange, hike,
+            prevEase: existing?.ease ?? undefined,
+            prevNoChange: existing?.noChange ?? undefined,
+            prevHike: existing?.hike ?? undefined,
             targetRate: `${(CURRENT_FED_RATE_LOWER * 100).toFixed(0)}-${(CURRENT_FED_RATE_UPPER * 100).toFixed(0)}`,
             nextMeetingDate: nextFomc || null,
             daysUntilFomc,
@@ -188,7 +185,7 @@ async function calculateFedWatch(): Promise<string> {
             source: 'yahoo_futures_calc',
         };
 
-        await setInCache('fedwatch:latest', fedwatchData, 86400); // 24h TTL
+        await setInCache('fedwatch:latest', fedwatchData, 86400);
         console.log(`[market-feed] FedWatch: ease=${ease}% hold=${noChange}% hike=${hike}% (ZQ=${price}, implied=${impliedRate.toFixed(3)}%)`);
         return `FW=ease${ease}%/hold${noChange}%`;
     } catch (e) {
