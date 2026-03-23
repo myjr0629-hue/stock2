@@ -8,6 +8,20 @@ interface Props {
     searchParams: Promise<{ ticker?: string; t?: string }>;
 }
 
+/**
+ * Sanitize data for React Server → Client serialization.
+ * React Flight protocol crashes on NaN, Infinity, -Infinity, undefined in objects.
+ * This round-trips through JSON to convert them to null safely.
+ */
+function sanitizeForClient(data: any): any {
+    if (data === null || data === undefined) return data;
+    try {
+        return JSON.parse(JSON.stringify(data));
+    } catch {
+        return null;
+    }
+}
+
 export default async function FlowPage({ params, searchParams }: Props) {
     const resolvedParams = await searchParams;
     const ticker = (resolvedParams.ticker || resolvedParams.t || 'TSLA').toUpperCase();
@@ -41,11 +55,14 @@ export default async function FlowPage({ params, searchParams }: Props) {
         } catch { /* DynamoDB unavailable, continue without SSR data */ }
     }
 
+    // [FIX] Sanitize for React Flight — NaN/Infinity crash client hydration
+    const safeData = sanitizeForClient(initialFlowData);
+
     return (
         <TerminalGateWrapper pageName="FLOW">
             <FlowPageClient
                 ticker={ticker}
-                initialFlowData={initialFlowData || undefined}
+                initialFlowData={safeData || undefined}
             />
         </TerminalGateWrapper>
     );
