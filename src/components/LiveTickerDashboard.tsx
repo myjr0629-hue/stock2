@@ -798,62 +798,6 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
             ? 'CLOSED'
             : liveQuote?.session || 'CLOSED';
 
-    // --- Fetchers ---
-    // [PERF] 2-Stage News Rendering: Quick (Polygon only) → Full (AI analysis)
-    const applyNewsScore = (data: any) => {
-        if (data.sentiment) {
-            setNewsScore({
-                score: data.sentiment.score || 50,
-                label: data.sentiment.label || td('sentimentNeutral'),
-                breakdown: data.sentiment.breakdown
-            });
-        } else {
-            const items = data.items || [];
-            let score = 50;
-            let positive = 0, negative = 0, neutral = 0;
-            items.forEach((item: any) => {
-                if (item.sentiment === 'positive') { score += 5; positive++; }
-                else if (item.sentiment === 'negative') { score -= 5; negative++; }
-                else neutral++;
-            });
-            score = Math.max(0, Math.min(100, score));
-            const label = score >= 70 ? td('sentimentPositive') : score >= 40 ? td('sentimentNeutral') : td('sentimentCaution');
-            setNewsScore({ score, label, breakdown: { positive, negative, neutral } });
-        }
-    };
-
-    const fetchNewsAndScore = async () => {
-        setNewsLoading(true);
-        try {
-            // Stage 1: Quick fetch — Polygon raw news only (~1s)
-            const quickRes = await fetch(`/api/live/news?t=${ticker}&quick=1`);
-            if (quickRes.ok) {
-                const quickData = await quickRes.json();
-                setKrNews(quickData.items || []);
-                applyNewsScore(quickData);
-                setNewsLoading(false);
-
-                // Stage 2: Full fetch — AI translation + analysis (5-15s, or instant if cached)
-                setAiAnalyzing(true);
-                try {
-                    const fullRes = await fetch(`/api/live/news?t=${ticker}`);
-                    if (fullRes.ok) {
-                        const fullData = await fullRes.json();
-                        setKrNews(fullData.items || []);
-                        applyNewsScore(fullData);
-                    }
-                } catch (aiErr) {
-                    console.warn('[News] AI analysis fetch failed:', aiErr);
-                } finally {
-                    setAiAnalyzing(false);
-                }
-            }
-        } catch (e: any) {
-            if (e?.message?.includes("Failed to fetch")) console.warn("[News] Network retry...");
-            else console.error(e);
-            setNewsLoading(false);
-        }
-    };
     // [PERF] fetchQuote removed — replaced by SWR useFlowData hook above
     // SWR handles: caching, deduplication, background refresh (15s), error retry
 
@@ -1033,12 +977,8 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
         }
     }, [ticker]);
 
-    // [PERF V74] News — independent effect, parallel with chart SWR
-    useEffect(() => {
-        fetchNewsAndScore();
-        const newsInterval = setInterval(fetchNewsAndScore, 30 * 60 * 1000);
-        return () => clearInterval(newsInterval);
-    }, [ticker]); // Re-run when ticker changes
+
+
 
     // [PREMIUM] Recalculate conviction when dependencies change
     // [PERF V74] Narrowed to scalar deps — prevents re-render on deep object changes
