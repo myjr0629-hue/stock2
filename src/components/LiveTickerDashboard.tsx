@@ -1620,7 +1620,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                             }
 
                             // Fallback: SHORT SQUEEZE
-                            const s = squeezeData;
+                            const s = effectiveSqueeze;
                             const isCritical = s?.status === 'CRITICAL' || s?.status === 'HIGH';
                             const statusColor = s?.status === 'CRITICAL' ? 'text-rose-400' : s?.status === 'HIGH' ? 'text-amber-400' : s?.status === 'MEDIUM' ? 'text-cyan-400' : 'text-emerald-400';
                             const statusBg = s?.status === 'CRITICAL' ? 'bg-rose-950/40 border-rose-500/30 animate-card-breathe-bear' : s?.status === 'HIGH' ? 'bg-amber-950/40 border-amber-500/30 shadow-[0_0_12px_rgba(245,158,11,0.12)]' : 'bg-slate-800/40 border-slate-700/50';
