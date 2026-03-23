@@ -1,40 +1,23 @@
 /**
  * POST /api/command/deep-analysis
  * 
- * [V1.0] AI Deep Analysis — Claude Sonnet 4
- * On-demand analysis: generates institutional-grade narrative when user views a ticker.
+ * [V2.0] AI Deep Analysis — Claude Sonnet 4 (Centralized Client)
+ * Generates TRILINGUAL (ko/en/ja) institutional-grade narrative.
+ * Single Bedrock call → all 3 languages → cached per ticker.
  * 
- * Reads ALL Command page indicators + recent news → produces deep, story-driven insight
- * with natural news integration, structural context, and clear current-state assessment.
+ * Features: Retry + Haiku fallback + concurrency control via bedrockClient.
  * 
  * Trigger: FIRST_VIEW | SCHEDULED | PRICE_MOVE | GAMMA_FLIP
- * Cache: Redis with session-aware TTL
- * 
+ * Cache: Redis with session-aware TTL (key: ai-deep-analysis:${ticker})
  * POLICY: Observation-only language. No investment advice.
  */
 
 import { NextResponse } from 'next/server';
-import { BedrockRuntimeClient, InvokeModelCommand } from '@aws-sdk/client-bedrock-runtime';
+import { callBedrock } from '@/services/bedrockClient';
 import { getFromCache, setInCache } from '@/services/redisClient';
 import { fetchMassive } from '@/services/massiveClient';
 
 export const maxDuration = 60;
-
-const BEDROCK_MODEL = 'us.anthropic.claude-sonnet-4-20250514-v1:0';
-
-// --- Bedrock Client (Singleton) ---
-let _bedrockClient: BedrockRuntimeClient | null = null;
-function getBedrock(): BedrockRuntimeClient {
-    if (_bedrockClient) return _bedrockClient;
-    _bedrockClient = new BedrockRuntimeClient({
-        region: process.env.AWS_REGION || 'us-east-1',
-        credentials: {
-            accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
-            secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
-        },
-    });
-    return _bedrockClient;
-}
 
 // --- Session-aware TTL ---
 function getSessionTTL(session: string): number {
@@ -66,12 +49,10 @@ export async function POST(req: Request) {
         if (!ticker) {
             return NextResponse.json({ error: 'ticker required' }, { status: 400 });
         }
-        if (!process.env.AWS_ACCESS_KEY_ID) {
-            return NextResponse.json({ error: 'AWS credentials not configured' }, { status: 500 });
-        }
+
 
         const session = snapshot?.session || 'CLOSED';
-        const cacheKey = `ai-deep-analysis:${ticker}:${locale}`;
+        const cacheKey = `ai-deep-analysis:${ticker}`;
 
         // --- Check Cache (unless PRICE_MOVE or GAMMA_FLIP forces refresh) ---
         const forceRefresh = triggerReason === 'PRICE_MOVE' || triggerReason === 'GAMMA_FLIP';
@@ -201,101 +182,77 @@ ${newsXml}
   <trigger_reason>${triggerReason}</trigger_reason>
 </ticker_analysis>`;
 
-        // --- System Prompt ---
-        const langInstructions = locale === 'ko'
-            ? `한국어로 네이티브 품질 작성. 번역체 금지. 기관 리서치 애널리스트가 쓰는 것처럼 전문적이고 깊이있게.
-"관찰됨", "나타남", "확인됨", "주목됨" 등 관찰적 표현만 사용.`
-            : locale === 'ja'
-                ? `日本語でネイティブ品質の文章を作成。翻訳調禁止。機関リサーチアナリストが書くように専門的かつ深く。
-「観測された」「確認された」「注目される」等の観察的表現のみ使用。`
-                : `Write in native-quality English. Professional institutional research analyst tone. Deep and thorough.
-Use only observational language: "observed", "noted", "identified", "suggests".`;
-
+        // --- System Prompt (V2: Trilingual) ---
         const systemPrompt = `You are a senior institutional equity research analyst writing a DEEP ANALYSIS NOTE.
 
 <persona>
 - You write like a Goldman Sachs or Morgan Stanley research team
 - Your analysis connects indicators to tell a STORY, not list data points
 - News is woven naturally into the narrative as supporting evidence or context
-- The current state assessment ("so what is the situation RIGHT NOW?") is crystal clear
-- You go DEEP — explain WHY indicators matter, how they RELATE to each other, what the STRUCTURAL position means
+- The current state assessment is crystal clear
+- You go DEEP — explain WHY indicators matter, how they RELATE to each other
 </persona>
 
 <language>
-${langInstructions}
+You MUST produce output in ALL THREE languages simultaneously: Korean (ko), English (en), Japanese (ja).
+- Korean: 네이티브 품질. 번역체 금지. 기관 리서치 애널리스트급. "관찰됨", "확인됨" 등 관찰적 표현.
+- English: Native quality. Institutional research analyst. "observed", "noted", "suggests".
+- Japanese: ネイティブ品質。翻訳調禁止。「観測された」「確認された」等。
+All versions convey the SAME analysis with NATIVE expressions. No investment advice.
 </language>
 
 <output_format>
 Return ONLY valid JSON (no markdown fences).
-ALL text values (currentState, section titles, content, keyInsight) MUST be written in ${locale === 'ko' ? 'Korean (한국어)' : locale === 'ja' ? 'Japanese (日本語)' : 'English'}.
+All text fields use { "ko": "...", "en": "...", "ja": "..." } trilingual structure.
 {
-  "currentState": "${locale === 'ko' ? '1줄 현재 상태 핵심 판단 (예: \'BULLISH — 기술적 골든크로스 + 기관 매수 우위 속 감마 롱존 유지\')' : locale === 'ja' ? '1行の現状核心判断 (例: \'BULLISH — テクニカルゴールデンクロス + 機関買い優勢の中ガンマロングゾーン維持\')' : 'One-line current state assessment (e.g., \'BULLISH — Technical golden cross + institutional call dominance with long gamma zone maintained\')'}",
+  "currentState": {
+    "ko": "1줄 현재 상태 핵심 판단 (예: 'BULLISH — 기술적 골든크로스 + 기관 매수 우위 속 감마 롱존 유지')",
+    "en": "One-line current state assessment (e.g., 'BULLISH — Technical golden cross + institutional call dominance')",
+    "ja": "1行の現状核心判断 (例: 'BULLISH — テクニカルゴールデンクロス + 機関買い優勢の中ガンマロングゾーン維持')"
+  },
   "sections": [
     {
-      "title": "${locale === 'ko' ? '기술적 구조 분석' : locale === 'ja' ? 'テクニカル構造分析' : 'Technical Structure Analysis'}",
-      "content": "2-4 sentences. Deep structural context of SMA, VWAP, and technical indicators."
+      "title": { "ko": "기술적 구조 분석", "en": "Technical Structure Analysis", "ja": "テクニカル構造分析" },
+      "content": { "ko": "2-4문장", "en": "2-4 sentences", "ja": "2-4文" }
     },
     {
-      "title": "${locale === 'ko' ? '옵션 포지셔닝' : locale === 'ja' ? 'オプションポジショニング' : 'Options Positioning'}",
-      "content": "2-3 sentences. Connect GEX, gamma structure, Call Wall/Put Floor, and institutional flow."
+      "title": { "ko": "옵션 포지셔닝", "en": "Options Positioning", "ja": "オプションポジショニング" },
+      "content": { "ko": "2-3문장", "en": "2-3 sentences", "ja": "2-3文" }
     },
     {
-      "title": "${locale === 'ko' ? '뉴스 및 시장 맥락' : locale === 'ja' ? 'ニュースと市場コンテクスト' : 'News & Market Context'}",
-      "content": "2-3 sentences. Interpret recent news with indicators. If no news, use sector/macro context."
+      "title": { "ko": "뉴스 및 시장 맥락", "en": "News & Market Context", "ja": "ニュースと市場コンテクスト" },
+      "content": { "ko": "2-3문장", "en": "2-3 sentences", "ja": "2-3文" }
     }
   ],
-  "keyInsight": "${locale === 'ko' ? '핵심 인사이트 1줄' : locale === 'ja' ? '核心インサイト1行' : 'One-line key insight — the single most important observation right now'}",
+  "keyInsight": { "ko": "핵심 인사이트 1줄", "en": "One-line key insight", "ja": "核心インサイト1行" },
   "riskFlag": "HIGH | MEDIUM | LOW | NONE",
   "confidence": "HIGH | MEDIUM | LOW"
 }
 </output_format>
 
 <critical_rules>
-- SECTIONS: Divide analysis into 2-4 sections with clear titles for readability. Each section is a self-contained paragraph.
-- DEPTH over brevity: Each section should have 2-4 sentences of DEEP analysis
-- DATA ACCURACY: Use EXACT values from the XML data. call_wall is NOT gamma_flip_level — they are DIFFERENT values. Do NOT invent or substitute values.
-- NO DUPLICATE METRICS: Do NOT include "keyMetrics" — all data is already displayed in the Signal Core and Gamma Pressure cards above this section. Focus purely on narrative insight.
-- NEWS INTEGRATION: Weave news INTO the analysis naturally (e.g., ${locale === 'ko' ? '"최근 보도된 AI 밸류에이션 과열 우려에도 불구하고..."' : locale === 'ja' ? '"最近報じられたAIバリュエーション過熱懸念にもかかわらず..."' : '"Despite recent reports of AI valuation overheating concerns..."'})
-- If news is scarce, focus on structural indicators and sector context
-- If price moved significantly (trigger_reason=PRICE_MOVE), explain WHAT likely caused it
-- FORBIDDEN: investment advice, buy/sell recommendations, emojis, special unicode symbols
-- Make connections between indicators (e.g., ${locale === 'ko' ? '"감마 롱존 유지와 Golden Cross의 동시 발생은..."' : locale === 'ja' ? '"ガンマロングゾーン維持とゴールデンクロスの同時発生は..."' : '"The concurrent occurrence of long gamma zone maintenance and Golden Cross suggests..."'})
-- LANGUAGE: ALL output text MUST be in ${locale === 'ko' ? 'Korean (한국어)' : locale === 'ja' ? 'Japanese (日本語)' : 'English'}. Do NOT mix languages.
+- SECTIONS: 2-4 sections with clear titles. Each section 2-4 sentences of DEEP analysis.
+- DATA ACCURACY: Use EXACT values from the XML data. call_wall ≠ gamma_flip_level.
+- NO DUPLICATE METRICS: Focus purely on narrative insight.
+- NEWS INTEGRATION: Weave news naturally into analysis.
+- If news is scarce, focus on structural indicators and sector context.
+- If trigger_reason=PRICE_MOVE, explain WHAT likely caused it.
+- FORBIDDEN: investment advice, buy/sell recommendations, emojis.
+- Make connections between indicators.
 </critical_rules>`;
 
         const userPrompt = xmlContext;
 
-        // --- Call Claude Sonnet 4 ---
-        const client = getBedrock();
-        const command = new InvokeModelCommand({
-            modelId: BEDROCK_MODEL,
-            contentType: 'application/json',
-            accept: 'application/json',
-            body: JSON.stringify({
-                anthropic_version: 'bedrock-2023-05-31',
-                max_tokens: 4096,
-                temperature: 0.4,
-                system: systemPrompt,
-                messages: [
-                    { role: 'user', content: userPrompt },
-                    { role: 'assistant', content: '{' },  // Prefill JSON
-                ],
-            }),
+        // --- Call Bedrock (with retry + fallback) ---
+        const bedrockResult = await callBedrock({
+            system: systemPrompt,
+            userPrompt,
+            maxTokens: 4096,
+            temperature: 0.4,
+            label: 'DeepAnalysis',
         });
 
-        const result = await Promise.race([
-            client.send(command),
-            new Promise<never>((_, reject) => setTimeout(() => reject(new Error('Claude timeout 55s')), 55000))
-        ]);
-
-        const responseBody = JSON.parse(new TextDecoder().decode(result.body));
-        const rawText = '{' + (responseBody.content?.[0]?.text || '').replace(/```json/g, '').replace(/```/g, '').trim();
-
-        if (!rawText || rawText === '{') {
-            return NextResponse.json({ error: 'Claude returned empty response' }, { status: 500 });
-        }
-
-        const analysis = JSON.parse(rawText);
+        const analysis = JSON.parse(bedrockResult.text);
         const elapsed = Date.now() - startTime;
 
         // --- Build News Summary (UI-rendered, not AI-generated) ---
@@ -309,11 +266,10 @@ ALL text values (currentState, section titles, content, keyInsight) MUST be writ
             source: a.source,
         }));
 
-        // --- Save to Redis ---
+        // --- Save to Redis (language-agnostic) ---
         const resultPayload = {
             ...analysis,
             ticker,
-            locale,
             session,
             triggerReason,
             generatedAt: new Date().toISOString(),
@@ -326,13 +282,14 @@ ALL text values (currentState, section titles, content, keyInsight) MUST be writ
                 neutral: neutralCount,
                 headlines: topHeadlines,
             },
-            model: 'claude-sonnet-4',
+            model: bedrockResult.model,
+            usedFallback: bedrockResult.usedFallback,
         };
 
         const ttl = getSessionTTL(session);
         await setInCache(cacheKey, resultPayload, ttl);
 
-        console.log(`[DeepAnalysis] ✅ ${ticker}:${locale} generated in ${elapsed}ms (trigger: ${triggerReason}, news: ${newsArticles.length}, TTL: ${ttl}s)`);
+        console.log(`[DeepAnalysis] ✅ ${ticker} trilingual generated in ${elapsed}ms (trigger: ${triggerReason}, news: ${newsArticles.length}, TTL: ${ttl}s, model: ${bedrockResult.model})`);
 
         return NextResponse.json({
             ...resultPayload,

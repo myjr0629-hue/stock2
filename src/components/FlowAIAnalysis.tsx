@@ -4,16 +4,24 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Sparkles, Clock, AlertTriangle, RefreshCw, Loader2, ChevronDown, TrendingUp, TrendingDown, BarChart3, Zap, Shield } from 'lucide-react';
 import { useLocale } from 'next-intl';
 
+// Helper: extract locale-specific text from trilingual object or fallback string
+type Trilingual = string | { ko?: string; en?: string; ja?: string };
+function extractLocale(val: Trilingual | undefined, locale: string): string {
+    if (!val) return '';
+    if (typeof val === 'string') return val;
+    return (val as any)[locale] || val.en || val.ko || '';
+}
+
 interface FactorHighlight {
     factor: string;
-    insight: string;
+    insight: Trilingual;
     impact: 'bull' | 'bear' | 'mixed';
 }
 
 interface FlowAnalysisResult {
-    structuralThesis: string;
+    structuralThesis: Trilingual;
     factorHighlights: FactorHighlight[];
-    repricingCondition: string;
+    repricingCondition: Trilingual;
     riskAssessment: 'HIGH' | 'MEDIUM' | 'LOW';
     confidence: 'HIGH' | 'MEDIUM' | 'LOW';
     generatedAt: string;
@@ -345,7 +353,7 @@ export function FlowAIAnalysis({ ticker, isSystemReady, isMarketClosed, flowData
                             </span>
                         </div>
                         <p className="text-[13px] text-slate-300 leading-[1.8]" style={{ fontFamily: 'Pretendard, sans-serif' }}>
-                            {analysis.structuralThesis}
+                            {extractLocale(analysis.structuralThesis, locale)}
                         </p>
                     </div>
 
@@ -375,7 +383,7 @@ export function FlowAIAnalysis({ ticker, isSystemReady, isMarketClosed, flowData
                                                 <span className="text-[12px] font-bold text-white font-jakarta">{fh.factor}</span>
                                             </div>
                                             <p className="text-[13px] text-slate-300 leading-[1.7]" style={{ fontFamily: 'Pretendard, sans-serif' }}>
-                                                {fh.insight}
+                                                {extractLocale(fh.insight, locale)}
                                             </p>
                                         </div>
                                     ))}
@@ -403,7 +411,7 @@ export function FlowAIAnalysis({ ticker, isSystemReady, isMarketClosed, flowData
                                 style={{ maxHeight: openSections.has('repricing') ? '300px' : '0px', opacity: openSections.has('repricing') ? 1 : 0 }}>
                                 <div className="px-3.5 pb-3">
                                     <p className="text-[13px] text-slate-300 leading-[1.8]" style={{ fontFamily: 'Pretendard, sans-serif' }}>
-                                        {analysis.repricingCondition}
+                                        {extractLocale(analysis.repricingCondition, locale)}
                                     </p>
                                 </div>
                             </div>

@@ -4,11 +4,19 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Sparkles, Clock, AlertTriangle, RefreshCw, Loader2, ChevronDown, ChevronUp, TrendingUp, BarChart3, Globe, Zap } from 'lucide-react';
 import { useLocale } from 'next-intl';
 
+// Helper: extract locale-specific text from trilingual object or fallback string
+type Trilingual = string | { ko?: string; en?: string; ja?: string };
+function extractLocale(val: Trilingual | undefined, locale: string): string {
+    if (!val) return '';
+    if (typeof val === 'string') return val;
+    return (val as any)[locale] || val.en || val.ko || '';
+}
+
 interface DeepAnalysisResult {
-    currentState: string;
+    currentState: Trilingual;
     narrative?: string;
-    sections?: { title: string; content: string }[];
-    keyInsight?: string;
+    sections?: { title: Trilingual; content: Trilingual }[];
+    keyInsight?: Trilingual;
     keyMetrics?: { label: string; value: string; note: string }[];
     riskFlag: 'HIGH' | 'MEDIUM' | 'LOW' | 'NONE';
     confidence: 'HIGH' | 'MEDIUM' | 'LOW';
@@ -220,9 +228,10 @@ export function AIDeepAnalysis({ ticker, displayPrice, session, snapshot }: Prop
     };
 
     // Extract description from currentState (text after —)
-    const parts = analysis?.currentState?.split('—') || [];
-    const shortVerdict = parts.length > 1 ? parts.slice(1).join('—').trim() : (analysis?.currentState || '');
-    const verdict = analysis ? verdictColor(analysis.currentState) : { bar: '#f59e0b', label: 'NEUTRAL' };
+    const currentStateText = extractLocale(analysis?.currentState, locale);
+    const parts = currentStateText?.split('—') || [];
+    const shortVerdict = parts.length > 1 ? parts.slice(1).join('—').trim() : (currentStateText || '');
+    const verdict = analysis ? verdictColor(currentStateText) : { bar: '#f59e0b', label: 'NEUTRAL' };
     const risk = analysis ? riskConfig[analysis.riskFlag] || riskConfig.NONE : riskConfig.NONE;
 
     return (
@@ -371,13 +380,13 @@ export function AIDeepAnalysis({ ticker, displayPrice, session, snapshot }: Prop
                             </div>
 
                             {/* Key Insight — promoted to main position */}
-                            {analysis.keyInsight && (
+                            {extractLocale(analysis.keyInsight, locale) && (
                                 <div className="mt-1 px-3 py-2.5 rounded-lg border border-cyan-500/15"
                                     style={{ background: 'linear-gradient(135deg, rgba(6,182,212,0.08) 0%, rgba(99,102,241,0.06) 100%)' }}>
                                     <div className="flex items-start gap-2">
                                         <Sparkles size={12} className="text-cyan-400 mt-0.5 shrink-0" style={{ animation: 'aiPulse 3s ease-in-out infinite' }} />
                                         <p className="text-[13px] text-slate-300 font-medium leading-relaxed" style={{ fontFamily: 'Pretendard, sans-serif' }}>
-                                            {analysis.keyInsight}
+                                            {extractLocale(analysis.keyInsight, locale)}
                                         </p>
                                     </div>
                                 </div>
@@ -432,9 +441,9 @@ export function AIDeepAnalysis({ ticker, displayPrice, session, snapshot }: Prop
                                             className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-white/[0.03] transition-colors"
                                         >
                                             <div className="flex items-center gap-2">
-                                                {sectionIcon(section.title)}
+                                                {sectionIcon(extractLocale(section.title, locale))}
                                                 <span className="text-[12px] font-bold text-slate-300 uppercase tracking-wider font-jakarta">
-                                                    {section.title}
+                                                    {extractLocale(section.title, locale)}
                                                 </span>
                                             </div>
                                             <ChevronDown
@@ -452,7 +461,7 @@ export function AIDeepAnalysis({ ticker, displayPrice, session, snapshot }: Prop
                                         >
                                             <div className="px-4 pb-3">
                                                 <p className="text-[13px] text-slate-300 leading-[1.8]" style={{ fontFamily: 'Pretendard, sans-serif' }}>
-                                                    {section.content}
+                                                    {extractLocale(section.content, locale)}
                                                 </p>
                                             </div>
                                         </div>

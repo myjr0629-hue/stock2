@@ -1,5 +1,5 @@
 
-import { BedrockRuntimeClient, InvokeModelCommand } from "@aws-sdk/client-bedrock-runtime";
+import { callBedrock, MODELS } from '@/services/bedrockClient';
 import { Redis } from "@upstash/redis";
 import { SECTOR_MAP } from "@/services/universePolicy";
 
@@ -60,22 +60,7 @@ async function loadInsightFromRedis(key: string): Promise<string | null> {
     return null;
 }
 
-// Bedrock Claude Models
-const BEDROCK_MODEL_FAST = 'us.anthropic.claude-3-5-haiku-20241022-v1:0';  // Rotation + Translation (fast)
-const BEDROCK_MODEL_PRO = 'us.anthropic.claude-sonnet-4-20250514-v1:0';   // Reality Insight (deep analysis)
 
-let _bedrockClient: BedrockRuntimeClient | null = null;
-function getBedrockClient(): BedrockRuntimeClient {
-    if (_bedrockClient) return _bedrockClient;
-    _bedrockClient = new BedrockRuntimeClient({
-        region: process.env.AWS_REGION || 'us-east-1',
-        credentials: {
-            accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
-            secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
-        },
-    });
-    return _bedrockClient;
-}
 
 interface IntelligenceContext {
     rlsiScore: number;
@@ -535,21 +520,18 @@ async function translateInsight(koreanText: string, targetLocale: Locale, type: 
             ? `Translate the following Korean market rotation analysis to ${LOCALE_NAMES[targetLocale]}. Keep the same format ([Status]/[Interpretation]/[Outlook] for English, [現況]/[解釈]/[見通し] for Japanese). Keep it concise, 3 lines max. Maintain financial terminology accuracy.\n\nKorean text:\n${koreanText}`
             : `Translate the following Korean market analysis to natural ${LOCALE_NAMES[targetLocale]}. Do NOT use labels like [Diagnosis] or [Conclusion]. Write 2-3 natural sentences as a professional market strategist providing factual observations, not action recommendations. Keep financial terms accurate. Max 200 characters for English, 250 characters for Japanese.\n\nKorean text:\n${koreanText}`;
 
-        const client = getBedrockClient();
-        const command = new InvokeModelCommand({
-            modelId: BEDROCK_MODEL_FAST,
-            contentType: 'application/json',
-            accept: 'application/json',
-            body: JSON.stringify({
-                anthropic_version: 'bedrock-2023-05-31',
-                max_tokens: 500,
-                temperature: 0.3,
-                messages: [{ role: 'user', content: prompt }],
-            }),
+        const result = await callBedrock({
+            modelId: MODELS.HAIKU_35,
+            system: 'You are an expert financial translator.',
+            userPrompt: prompt,
+            maxTokens: 500,
+            temperature: 0.3,
+            jsonPrefill: false,
+            fallbackModel: null,
+            label: `Translate/${type}/${targetLocale}`,
         });
-        const result = await client.send(command);
-        const body = JSON.parse(new TextDecoder().decode(result.body));
-        const text = body.content?.[0]?.text?.trim();
+
+        const text = result.text?.trim();
         if (text && text.length > 10) {
             console.log(`[IntelligenceNode V9.1] Translated ${type} ko→${targetLocale} (${text.length} chars)`);
             return text;
@@ -628,7 +610,7 @@ export class IntelligenceNode {
             : "No significant rotation";
 
         const prompt = ROTATION_PROMPTS[locale](ctx, vectorDesc);
-        const result = await IntelligenceNode.callClaude(prompt, `ROTATION_${locale}`, BEDROCK_MODEL_FAST);
+        const result = await IntelligenceNode.callClaude(prompt, `ROTATION_${locale}`, MODELS.HAIKU_35);
 
         if (result && !result.includes("failed")) {
             _cachedRotation[locale] = result;
@@ -697,7 +679,7 @@ export class IntelligenceNode {
 
         const prompt = REALITY_PROMPTS[locale](ctx);
         // [V11.0] Reality Insight uses Claude Sonnet 4 for deeper reasoning
-        const result = await IntelligenceNode.callClaude(prompt, `REALITY_${locale}`, BEDROCK_MODEL_PRO);
+        const result = await IntelligenceNode.callClaude(prompt, `REALITY_${locale}`, MODELS.SONNET_4);
 
         if (result && !result.includes("failed")) {
             _cachedReality[locale] = result;
@@ -707,39 +689,25 @@ export class IntelligenceNode {
         return result;
     }
 
-    private static async callClaude(prompt: string, cacheKeySuffix: string, modelId: string = BEDROCK_MODEL_FAST): Promise<string> {
-        let attempts = 0;
-        const maxAttempts = 3;
+    private static async callClaude(prompt: string, cacheKeySuffix: string, modelId: string = MODELS.HAIKU_35): Promise<string> {
+        try {
+            const result = await callBedrock({
+                modelId,
+                system: 'You are an institutional investment strategist. Provide concise, data-driven market analysis. Do NOT use any emoji or special unicode symbols. Use plain text only.',
+                userPrompt: prompt,
+                maxTokens: 1024,
+                temperature: 0.3,
+                jsonPrefill: false,
+                fallbackModel: modelId === MODELS.SONNET_4 ? MODELS.HAIKU_35 : null,
+                label: `Guardian/${cacheKeySuffix}`,
+            });
 
-        while (attempts < maxAttempts) {
-            try {
-                attempts++;
-                const client = getBedrockClient();
-                const command = new InvokeModelCommand({
-                    modelId,
-                    contentType: 'application/json',
-                    accept: 'application/json',
-                    body: JSON.stringify({
-                        anthropic_version: 'bedrock-2023-05-31',
-                        max_tokens: 1024,
-                        temperature: 0.3,
-                        system: 'You are an institutional investment strategist. Provide concise, data-driven market analysis. Do NOT use any emoji or special unicode symbols. Use plain text only.',
-                        messages: [{ role: 'user', content: prompt }],
-                    }),
-                });
-                const result = await client.send(command);
-                const body = JSON.parse(new TextDecoder().decode(result.body));
-                const text = body.content?.[0]?.text || "";
-                if (text.length > 10) {
-                    return text.trim();
-                }
-            } catch (e: any) {
-                const status = e.$metadata?.httpStatusCode;
-                if ((status === 429 || status === 503) && attempts < maxAttempts) {
-                    await new Promise(r => setTimeout(r, 2000 * attempts));
-                    continue;
-                }
+            const text = result.text?.trim();
+            if (text && text.length > 10) {
+                return text;
             }
+        } catch (e: any) {
+            console.error(`[IntelligenceNode] callClaude failed (${cacheKeySuffix}):`, e.message);
         }
         return "Insight generation failed. Market unstable.";
     }

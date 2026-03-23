@@ -11,27 +11,13 @@
  */
 
 import { NextResponse } from 'next/server';
-import { BedrockRuntimeClient, InvokeModelCommand } from '@aws-sdk/client-bedrock-runtime';
+import { callBedrock } from '@/services/bedrockClient';
 import { getFromCache, setInCache } from '@/services/redisClient';
 import { fetchMassive } from '@/services/massiveClient';
 
 export const maxDuration = 60;
 
-const BEDROCK_MODEL = 'us.anthropic.claude-sonnet-4-20250514-v1:0';
 
-// --- Bedrock Client (Singleton) ---
-let _bedrockClient: BedrockRuntimeClient | null = null;
-function getBedrock(): BedrockRuntimeClient {
-    if (_bedrockClient) return _bedrockClient;
-    _bedrockClient = new BedrockRuntimeClient({
-        region: process.env.AWS_REGION || 'us-east-1',
-        credentials: {
-            accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
-            secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
-        },
-    });
-    return _bedrockClient;
-}
 
 interface StockData {
     ticker: string;
@@ -217,35 +203,18 @@ CRITICAL:
 3. End each analysis with an actionable environment conclusion
 4. Return valid JSON only with all 3 languages per stock`;
 
-            // 3. Call Bedrock Claude Sonnet 4
-            const client = getBedrock();
-            const command = new InvokeModelCommand({
-                modelId: BEDROCK_MODEL,
-                contentType: 'application/json',
-                accept: 'application/json',
-                body: JSON.stringify({
-                    anthropic_version: 'bedrock-2023-05-31',
-                    max_tokens: needsFetch.length * 800,
-                    temperature: 0.3,
-                    system: SYSTEM_PROMPT,
-                    messages: [
-                        { role: 'user', content: userPrompt },
-                        { role: 'assistant', content: '{' },
-                    ],
-                }),
+            // 3. Call Bedrock Claude (with retry + fallback)
+            const bedrockResult = await callBedrock({
+                system: SYSTEM_PROMPT,
+                userPrompt,
+                maxTokens: needsFetch.length * 800,
+                temperature: 0.3,
+                label: 'IntelAI',
             });
 
-            const result = await Promise.race([
-                client.send(command),
-                new Promise<never>((_, reject) => setTimeout(() => reject(new Error('Claude timeout 55s')), 55000))
-            ]);
-
-            const responseBody = JSON.parse(new TextDecoder().decode(result.body));
-            const rawText = '{' + (responseBody.content?.[0]?.text || '').replace(/```json/g, '').replace(/```/g, '').trim();
-
-            if (rawText && rawText !== '{') {
+            if (bedrockResult.text && bedrockResult.text !== '{') {
                 try {
-                    const parsed = JSON.parse(rawText);
+                    const parsed = JSON.parse(bedrockResult.text);
                     const analyses = parsed.analyses || [];
                     for (const a of analyses) {
                         if (a.ticker && a.ko && a.en && a.ja) {

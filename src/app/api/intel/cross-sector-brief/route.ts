@@ -7,27 +7,14 @@
 import { NextResponse } from 'next/server';
 import { getLatestSnapshot } from '@/lib/supabase/snapshot';
 import { getFromCache, setInCache } from '@/services/redisClient';
-import { BedrockRuntimeClient, InvokeModelCommand } from '@aws-sdk/client-bedrock-runtime';
+import { callBedrock } from '@/services/bedrockClient';
 import { YAHOO_CACHE_KEYS, type YahooQuote } from '@/services/yahooFinanceHub';
 import { fetchMassive } from '@/services/massiveClient';
 import { getETOffsetHours } from '@/services/timezoneUtils';
 
 export const maxDuration = 60; // Bedrock AI analysis needs 30s+
 
-const BEDROCK_MODEL = 'us.anthropic.claude-sonnet-4-20250514-v1:0';
 
-let _bedrockClient: BedrockRuntimeClient | null = null;
-function getBedrock(): BedrockRuntimeClient {
-    if (_bedrockClient) return _bedrockClient;
-    _bedrockClient = new BedrockRuntimeClient({
-        region: process.env.AWS_REGION || 'us-east-1',
-        credentials: {
-            accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
-            secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
-        },
-    });
-    return _bedrockClient;
-}
 
 const SECTOR_IDS = [
     'm7', 'physical_ai', 'silicon_core', 'power_matrix', 'bio_pulse',
@@ -489,41 +476,22 @@ Return ONLY valid JSON (no markdown fences, no extra text). The JSON must follow
 - Use IF→THEN conditional framing for catalysts, risks, and opportunities
 - Flag any cross-asset divergences explicitly in edgeAlerts`;
 
-        console.log(`[CrossSectorBrief V3] Calling Bedrock Claude Sonnet 4 with ${sectorSummaries.length} sectors + 13 macro indicators...`);
+        console.log(`[CrossSectorBrief V3] Calling Bedrock Claude with ${sectorSummaries.length} sectors + 13 macro indicators...`);
 
-        const client = getBedrock();
-        const bedrockCmd = new InvokeModelCommand({
-            modelId: BEDROCK_MODEL,
-            contentType: 'application/json',
-            accept: 'application/json',
-            body: JSON.stringify({
-                anthropic_version: 'bedrock-2023-05-31',
-                max_tokens: 8192,
-                temperature: 0.4,
-                system: 'You are SIGNUM Intelligence, an elite institutional-grade financial analyst. Return ONLY valid JSON. No markdown fences.',
-                messages: [
-                    { role: 'user', content: prompt },
-                    { role: 'assistant', content: '{' },
-                ],
-            }),
+        const bedrockResult = await callBedrock({
+            system: 'You are SIGNUM Intelligence, an elite institutional-grade financial analyst. Return ONLY valid JSON. No markdown fences.',
+            userPrompt: prompt,
+            maxTokens: 8192,
+            temperature: 0.4,
+            timeoutMs: 55000,
+            label: 'CrossSectorBrief',
         });
-
-        const bedrockResult = await Promise.race([
-            client.send(bedrockCmd),
-            new Promise<never>((_, reject) => setTimeout(() => reject(new Error('Bedrock timeout 55s')), 55000))
-        ]);
-
-        const responseBody = JSON.parse(new TextDecoder().decode(bedrockResult.body));
-        const rawText = '{' + (responseBody.content?.[0]?.text || '').replace(/```json/g, '').replace(/```/g, '').trim();
-        if (!rawText || rawText === '{') {
-            return NextResponse.json({ error: 'Bedrock returned empty response' }, { status: 500 });
-        }
 
         let structured: CrossSectorBriefV3;
         try {
-            structured = JSON.parse(rawText);
+            structured = JSON.parse(bedrockResult.text);
         } catch (parseErr) {
-            console.error('[CrossSectorBrief V3] JSON parse failed:', parseErr, 'Raw:', rawText.substring(0, 500));
+            console.error('[CrossSectorBrief V3] JSON parse failed:', parseErr, 'Raw:', bedrockResult.text.substring(0, 500));
             return NextResponse.json({ error: 'Bedrock returned invalid JSON' }, { status: 500 });
         }
 

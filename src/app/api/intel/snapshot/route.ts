@@ -8,26 +8,13 @@ import { NextResponse } from 'next/server';
 import { saveSnapshot, getLatestSnapshot, getSnapshotByDate } from '@/lib/supabase/snapshot';
 import type { SnapshotData, TickerSnapshot, SectorSummary, NewsDigestItem, BriefingData } from '@/types/sector';
 import { fetchStockNews } from '@/services/newsHubProvider';
-import { BedrockRuntimeClient, InvokeModelCommand } from '@aws-sdk/client-bedrock-runtime';
+import { callBedrock } from '@/services/bedrockClient';
 import { getFromCache } from '@/services/redisClient';
 import { YAHOO_CACHE_KEYS, type YahooQuote } from '@/services/yahooFinanceHub';
 
 export const maxDuration = 60;
 
-const BEDROCK_MODEL = 'us.anthropic.claude-sonnet-4-20250514-v1:0';
 
-let _bedrockClient: BedrockRuntimeClient | null = null;
-function getBedrock(): BedrockRuntimeClient {
-    if (_bedrockClient) return _bedrockClient;
-    _bedrockClient = new BedrockRuntimeClient({
-        region: process.env.AWS_REGION || 'us-east-1',
-        credentials: {
-            accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
-            secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
-        },
-    });
-    return _bedrockClient;
-}
 
 // Sector ticker lists
 const SECTOR_TICKERS: Record<string, string[]> = {
@@ -325,32 +312,16 @@ Also provide overallSentiment: "BULLISH" | "BEARISH" | "MIXED" | "NEUTRAL" based
 Output MUST be valid JSON (no markdown):
 { "items": [ { "id": 0, "summaryKR": "...", "summaryJP": "...", "insightKR": "...", "insightEN": "...", "insightJP": "...", "sentiment": "..." } ], "overallSentiment": "..." }`;
 
-                        const client = getBedrock();
-                        const bedrockCmd = new InvokeModelCommand({
-                            modelId: BEDROCK_MODEL,
-                            contentType: 'application/json',
-                            accept: 'application/json',
-                            body: JSON.stringify({
-                                anthropic_version: 'bedrock-2023-05-31',
-                                max_tokens: 4096,
-                                temperature: 0.3,
-                                system: 'You are SIGNUM Intelligence, an elite financial analyst. Return ONLY valid JSON.',
-                                messages: [
-                                    { role: 'user', content: userPrompt },
-                                    { role: 'assistant', content: '{' },
-                                ],
-                            }),
+                        const bedrockResult = await callBedrock({
+                            system: 'You are SIGNUM Intelligence, an elite financial analyst. Return ONLY valid JSON.',
+                            userPrompt,
+                            maxTokens: 4096,
+                            temperature: 0.3,
+                            timeoutMs: 30000,
+                            label: 'Snapshot/News',
                         });
 
-                        const bedrockResult = await Promise.race([
-                            client.send(bedrockCmd),
-                            new Promise<never>((_, reject) => setTimeout(() => reject(new Error('Bedrock timeout 30s')), 30000))
-                        ]);
-
-                        const responseBody = JSON.parse(new TextDecoder().decode(bedrockResult.body));
-                        const responseText = '{' + (responseBody.content?.[0]?.text || '').replace(/```json/g, '').replace(/```/g, '').trim();
-                        if (!responseText || responseText === '{') throw new Error('Bedrock returned empty response');
-                        const parsed = JSON.parse(responseText);
+                        const parsed = JSON.parse(bedrockResult.text);
                         const aiItems = parsed.items || [];
                         newsSentimentOverall = parsed.overallSentiment || 'NEUTRAL';
 

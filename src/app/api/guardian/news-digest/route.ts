@@ -8,25 +8,24 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getFromCache, setInCache } from '@/services/redisClient';
 import { fetchMassive, CACHE_POLICY } from '@/services/massiveClient';
-import { BedrockRuntimeClient, InvokeModelCommand } from '@aws-sdk/client-bedrock-runtime';
+import { callBedrock, MODELS } from '@/services/bedrockClient';
 
 const REDIS_KEY = 'guardian:news:digest';
 const REDIS_TTL = 35 * 60; // 35 min (5 min buffer over 30 min cron)
-const BEDROCK_MODEL = 'us.anthropic.claude-3-5-haiku-20241022-v1:0';
 
 // ===== Types =====
 export interface NewsDigestItem {
     id: string;
-    headline: string;        // Original English
-    summaryKR: string;       // Korean summary (1-2 sentences)
-    summaryEN: string;       // English summary
-    summaryJP: string;       // Japanese summary
-    analysisKR: string;      // Korean market interpretation with indicator context
-    analysisEN: string;      // English market interpretation
-    analysisJP: string;      // Japanese market interpretation
+    headline: string;
+    summaryKR: string;
+    summaryEN: string;
+    summaryJP: string;
+    analysisKR: string;
+    analysisEN: string;
+    analysisJP: string;
     category: 'US_MARKET' | 'GLOBAL' | 'GEOPOLITICAL' | 'MACRO' | 'SECTOR';
     impact: 'BULLISH' | 'BEARISH' | 'MIXED' | 'NEUTRAL';
-    urgency: number;         // 1-10 (8+ = BREAKING)
+    urgency: number;
     source: string;
     publishedAt: string;
     publishedAtET: string;
@@ -35,25 +34,11 @@ export interface NewsDigestItem {
 
 export interface NewsDigest {
     items: NewsDigestItem[];
-    generatedAt: string;      // ISO timestamp
-    generatedAtET: string;    // ET formatted
-    nextRefreshAt: string;    // Next cron run
-    marketContext: string;    // Macro context used for analysis
+    generatedAt: string;
+    generatedAtET: string;
+    nextRefreshAt: string;
+    marketContext: string;
     _source: 'fresh' | 'cached';
-}
-
-// ===== Bedrock Client (Claude 3.5 Haiku) =====
-let bedrockClient: BedrockRuntimeClient | null = null;
-function getBedrock(): BedrockRuntimeClient {
-    if (bedrockClient) return bedrockClient;
-    bedrockClient = new BedrockRuntimeClient({
-        region: process.env.AWS_REGION || 'us-east-1',
-        credentials: {
-            accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
-            secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
-        },
-    });
-    return bedrockClient;
 }
 
 // ===== Time Helpers =====
@@ -206,37 +191,26 @@ Select TOP 5 and output as JSON array with this exact schema per item:
 Output ONLY the JSON array — no explanation, no markdown.`;
 
     try {
-        const client = getBedrock();
-        const command = new InvokeModelCommand({
-            modelId: BEDROCK_MODEL,
-            contentType: 'application/json',
-            accept: 'application/json',
-            body: JSON.stringify({
-                anthropic_version: 'bedrock-2023-05-31',
-                max_tokens: 4096,
-                temperature: 0.3,
-                system: SYSTEM_PROMPT,
-                messages: [
-                    { role: 'user', content: userPrompt },
-                    { role: 'assistant', content: '[' },  // Prefill to guarantee JSON array start
-                ],
-            }),
+        const bedrockResult = await callBedrock({
+            modelId: MODELS.HAIKU_35,
+            system: SYSTEM_PROMPT,
+            userPrompt,
+            maxTokens: 4096,
+            temperature: 0.3,
+            timeoutMs: 60000,
+            jsonPrefill: false,  // This route uses array '[' prefill
+            fallbackModel: null, // Haiku IS the cheap model
+            label: 'NewsDigest',
         });
 
-        const result = await Promise.race([
-            client.send(command),
-            new Promise<never>((_, reject) => setTimeout(() => reject(new Error('Bedrock timeout 60s')), 60000))
-        ]);
-
-        const responseBody = JSON.parse(new TextDecoder().decode(result.body));
-        const text = responseBody.content?.[0]?.text || '';
-        // Prepend '[' since we used prefill, then clean
-        const fullJson = '[' + text;
-        const json = fullJson.replace(/```json/g, '').replace(/```/g, '').trim();
+        // Parse as JSON array (response might start with '[' or not)
+        let json = bedrockResult.text;
+        if (!json.startsWith('[')) json = '[' + json;
+        json = json.replace(/```json/g, '').replace(/```/g, '').trim();
         if (!json || json === '[') throw new Error('Empty Claude response');
 
         const parsed = JSON.parse(json) as any[];
-        console.log(`[NewsDigest] Claude: ${parsed.length} items, ${responseBody.usage?.input_tokens || 0}in/${responseBody.usage?.output_tokens || 0}out tokens`);
+        console.log(`[NewsDigest] Claude: ${parsed.length} items (model: ${bedrockResult.model})`);
 
         return parsed.map((item, i) => ({
             id: item.id || `digest-${i}`,
