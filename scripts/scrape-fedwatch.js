@@ -107,25 +107,90 @@ async function scrapeFedWatch() {
             try {
                 const text = await frame.evaluate(() => document.body?.innerText || '');
                 if (text.includes('EASE') && text.includes('HIKE') && text.includes('NO CHANGE')) {
-                    const easeM = text.match(/EASE\s*[\n\r\s]*([\d.]+)%?/);
-                    const ncM = text.match(/NO\s*CHANGE\s*[\n\r\s]*([\d.]+)%?/);
-                    const hikeM = text.match(/HIKE\s*[\n\r\s]*([\d.]+)%?/);
-                    const targetM = text.match(/Current\s*target\s*rate\s*is\s*([\d]+-[\d]+)/i);
-                    const meetingM = text.match(/(\d+\s*\d+\s*2026)/);
-                    const contractM = text.match(/CONTRACT\s*[\n\r\s]*(\w+)/);
-                    const midPriceM = text.match(/MID\s*PRICE\s*[\n\r\s]*([\d.]+)/);
+                    console.log('🔍 FedWatch 테이블 감지됨. 텍스트 파싱 시도...');
+                    
+                    // === Strategy 1: Header-indexed parsing (new CME structure) ===
+                    // CME now separates headers from data in table rows:
+                    //   "PROBABILITY  EASE  NO CHANGE  HIKE\n0.0%  91.7%  8.3%"
+                    // Find the header line, then extract percentages from next line(s)
+                    const lines = text.split(/[\n\r]+/).map(l => l.trim()).filter(Boolean);
+                    let headerIdx = -1;
+                    for (let i = 0; i < lines.length; i++) {
+                        if (lines[i].includes('EASE') && lines[i].includes('HIKE')) {
+                            headerIdx = i;
+                            break;
+                        }
+                    }
 
-                    if (easeM || ncM || hikeM) {
-                        result = {
-                            ease: easeM ? parseFloat(easeM[1]) : 0,
-                            noChange: ncM ? parseFloat(ncM[1]) : 0,
-                            hike: hikeM ? parseFloat(hikeM[1]) : 0,
-                            targetRate: targetM?.[1] || null,
-                            nextMeetingDate: meetingM?.[1]?.trim() || null,
-                            contract: contractM?.[1] || null,
-                            midPrice: midPriceM ? parseFloat(midPriceM[1]) : null,
-                        };
-                        console.log('✅ 데이터 추출 성공!');
+                    if (headerIdx >= 0) {
+                        // Collect all percentages from lines after the header
+                        const remainingText = lines.slice(headerIdx + 1).join(' ');
+                        const pctMatches = [...remainingText.matchAll(/([\d.]+)\s*%/g)].map(m => parseFloat(m[1]));
+                        
+                        // Determine column order from header
+                        const headerLine = lines[headerIdx];
+                        const colOrder = [];
+                        const positions = [
+                            { name: 'EASE', pos: headerLine.indexOf('EASE') },
+                            { name: 'NO_CHANGE', pos: headerLine.indexOf('NO CHANGE') },
+                            { name: 'HIKE', pos: headerLine.indexOf('HIKE') },
+                        ].filter(c => c.pos >= 0).sort((a, b) => a.pos - b.pos);
+                        
+                        if (positions.length === 3 && pctMatches.length >= 3) {
+                            const mapped = {};
+                            positions.forEach((col, i) => { mapped[col.name] = pctMatches[i]; });
+                            result = {
+                                ease: mapped['EASE'] || 0,
+                                noChange: mapped['NO_CHANGE'] || 0,
+                                hike: mapped['HIKE'] || 0,
+                            };
+                            console.log(`✅ Strategy 1 성공: EASE=${result.ease}%, NO_CHANGE=${result.noChange}%, HIKE=${result.hike}%`);
+                        }
+                    }
+
+                    // === Strategy 2: Legacy regex (old CME structure, fallback) ===
+                    if (!result) {
+                        const easeM = text.match(/EASE\s*[\n\r\s]*([\d.]+)%?/);
+                        const ncM = text.match(/NO\s*CHANGE\s*[\n\r\s]*([\d.]+)%?/);
+                        const hikeM = text.match(/HIKE\s*[\n\r\s]*([\d.]+)%?/);
+
+                        if (easeM || ncM || hikeM) {
+                            result = {
+                                ease: easeM ? parseFloat(easeM[1]) : 0,
+                                noChange: ncM ? parseFloat(ncM[1]) : 0,
+                                hike: hikeM ? parseFloat(hikeM[1]) : 0,
+                            };
+                            console.log(`✅ Strategy 2 (legacy) 성공: EASE=${result.ease}%, NO_CHANGE=${result.noChange}%, HIKE=${result.hike}%`);
+                        }
+                    }
+
+                    // === Strategy 3: Brute-force all percentages ===
+                    if (!result) {
+                        const allPcts = [...text.matchAll(/([\d.]+)\s*%/g)].map(m => parseFloat(m[1]));
+                        const validPcts = allPcts.filter(p => p >= 0 && p <= 100);
+                        if (validPcts.length >= 3) {
+                            // Assume order: ease, noChange, hike (first 3 probabilities summing to ~100)
+                            for (let i = 0; i <= validPcts.length - 3; i++) {
+                                const sum = validPcts[i] + validPcts[i+1] + validPcts[i+2];
+                                if (Math.abs(sum - 100) < 2) {
+                                    result = { ease: validPcts[i], noChange: validPcts[i+1], hike: validPcts[i+2] };
+                                    console.log(`✅ Strategy 3 (brute) 성공: EASE=${result.ease}%, NO_CHANGE=${result.noChange}%, HIKE=${result.hike}%`);
+                                    break;
+                                }
+                            }
+                        }
+                    }
+
+                    // Add metadata if we got probabilities
+                    if (result) {
+                        const targetM = text.match(/Current\s*target\s*rate\s*is\s*([\d]+-[\d]+)/i);
+                        const meetingM = text.match(/(\d+\s*\d+\s*2026)/);
+                        const contractM = text.match(/CONTRACT\s*[\n\r\s]*(\w+)/);
+                        const midPriceM = text.match(/MID\s*PRICE\s*[\n\r\s]*([\d.]+)/);
+                        result.targetRate = targetM?.[1] || null;
+                        result.nextMeetingDate = meetingM?.[1]?.trim() || null;
+                        result.contract = contractM?.[1] || null;
+                        result.midPrice = midPriceM ? parseFloat(midPriceM[1]) : null;
                         break;
                     }
                 }

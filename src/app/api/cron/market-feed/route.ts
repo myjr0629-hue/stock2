@@ -26,6 +26,15 @@ const SYMBOLS = [
     { yahoo: 'JPY=X', key: YAHOO_CACHE_KEYS.USDJPY },
 ];
 
+// ===== FEDWATCH: FOMC Schedule & Current Target Rate =====
+// Update these when the Fed changes rates or new FOMC dates are announced
+const FOMC_SCHEDULE = [
+    '2026-05-07', '2026-06-17', '2026-07-29', '2026-09-16',
+    '2026-10-28', '2026-12-16',
+];
+const CURRENT_FED_RATE_UPPER = 4.50; // Current upper bound (update when Fed changes)
+const CURRENT_FED_RATE_LOWER = 4.25; // Current lower bound
+
 async function fetchOneQuote(symbol: string): Promise<YahooQuote | null> {
     try {
         const encoded = encodeURIComponent(symbol);
@@ -116,6 +125,78 @@ async function fetchAndCacheFearGreed(): Promise<string> {
     }
 }
 
+// ===== FedWatch: Calculate rate probabilities from Fed Funds Futures =====
+async function calculateFedWatch(): Promise<string> {
+    try {
+        // Fetch ZQ=F (30-Day Fed Funds Futures)
+        const res = await fetch(
+            'https://query1.finance.yahoo.com/v8/finance/chart/ZQ%3DF?interval=1d&range=1d',
+            {
+                headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
+                signal: AbortSignal.timeout(5000),
+            }
+        );
+        if (!res.ok) return 'FW=FETCH_FAIL';
+
+        const data = await res.json();
+        const price = data?.chart?.result?.[0]?.meta?.regularMarketPrice;
+        if (!price || price < 90 || price > 100) return 'FW=INVALID_PRICE';
+
+        // Implied rate = 100 - futures price
+        const impliedRate = 100 - price;
+        const currentMid = (CURRENT_FED_RATE_UPPER + CURRENT_FED_RATE_LOWER) / 2;
+
+        // Calculate probabilities for 25bp cut / hold / 25bp hike
+        // P(cut) = (currentMid - impliedRate) / 0.25, clamped to [0, 100]
+        let ease = Math.max(0, Math.min(100, ((currentMid - impliedRate) / 0.25) * 100));
+        let hike = Math.max(0, Math.min(100, ((impliedRate - currentMid) / 0.25) * 100));
+        let noChange = Math.max(0, 100 - ease - hike);
+
+        // Round to 1 decimal
+        ease = Math.round(ease * 10) / 10;
+        hike = Math.round(hike * 10) / 10;
+        noChange = Math.round(noChange * 10) / 10;
+
+        // Next FOMC date and days until
+        const nowET = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' }));
+        const todayStr = nowET.toISOString().split('T')[0];
+        const nextFomc = FOMC_SCHEDULE.find(d => d >= todayStr);
+        let daysUntilFomc: number | null = null;
+        if (nextFomc) {
+            const diff = new Date(nextFomc).getTime() - new Date(todayStr).getTime();
+            daysUntilFomc = Math.ceil(diff / (1000 * 60 * 60 * 24));
+        }
+
+        // Load previous data for delta tracking
+        const prev = await getFromCache<{ ease: number; noChange: number; hike: number }>('fedwatch:latest');
+
+        const fedwatchData = {
+            ease,
+            noChange,
+            hike,
+            prevEase: prev?.ease ?? undefined,
+            prevNoChange: prev?.noChange ?? undefined,
+            prevHike: prev?.hike ?? undefined,
+            targetRate: `${(CURRENT_FED_RATE_LOWER * 100).toFixed(0)}-${(CURRENT_FED_RATE_UPPER * 100).toFixed(0)}`,
+            nextMeetingDate: nextFomc || null,
+            daysUntilFomc,
+            impliedRate: Math.round(impliedRate * 1000) / 1000,
+            futuresPrice: price,
+            contract: 'ZQ=F',
+            scrapedAt: new Date().toISOString(),
+            storedAt: new Date().toISOString(),
+            source: 'yahoo_futures_calc',
+        };
+
+        await setInCache('fedwatch:latest', fedwatchData, 86400); // 24h TTL
+        console.log(`[market-feed] FedWatch: ease=${ease}% hold=${noChange}% hike=${hike}% (ZQ=${price}, implied=${impliedRate.toFixed(3)}%)`);
+        return `FW=ease${ease}%/hold${noChange}%`;
+    } catch (e) {
+        console.warn('[market-feed] FedWatch calc failed:', e);
+        return 'FW=FAIL';
+    }
+}
+
 export async function GET() {
     const results: string[] = [];
     let ok = 0;
@@ -145,7 +226,13 @@ export async function GET() {
     if (!fgResult.includes('FAIL')) ok++;
     else fail++;
 
-    console.log(`[market-feed] ${ok}/${SYMBOLS.length + 1} updated: ${results.join(', ')}`);
+    // FedWatch — auto-calculate from Fed Funds Futures
+    const fwResult = await calculateFedWatch();
+    results.push(fwResult);
+    if (!fwResult.includes('FAIL')) ok++;
+    else fail++;
+
+    console.log(`[market-feed] ${ok}/${SYMBOLS.length + 2} updated: ${results.join(', ')}`);
 
     // ===== VIX Spike Detection → Urgent News Refresh =====
     let vixTriggered = false;

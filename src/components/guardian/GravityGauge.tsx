@@ -738,7 +738,7 @@ function FedWatchMini() {
     useEffect(() => {
         fetch('/api/guardian/fedwatch')
             .then(r => r.json())
-            .then(d => { if (d && typeof d.noChange === 'number' && (d.noChange > 0 || d.hike > 0 || d.ease > 0)) setData(d); })
+            .then(d => { if (d && typeof d.noChange === 'number' && (d.noChange > 0 || d.hike > 0 || d.ease > 0 || d.targetRate || d.daysUntilFomc)) setData(d); })
             .catch(() => {});
     }, []);
 
