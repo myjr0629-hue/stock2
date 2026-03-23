@@ -1,18 +1,33 @@
 // ==========================================================================
 // /api/intel/cross-sector-brief — Cross-Sector AI Daily Brief (V3)
-// POST: Generate structured multi-language JSON via Gemini (Bloomberg-Grade)
+// POST: Generate structured multi-language JSON via Bedrock Claude (Bloomberg-Grade)
 // GET:  Retrieve latest brief for frontend display
 // ==========================================================================
 
 import { NextResponse } from 'next/server';
 import { getLatestSnapshot } from '@/lib/supabase/snapshot';
 import { getFromCache, setInCache } from '@/services/redisClient';
-import { GoogleGenAI } from '@google/genai';
+import { BedrockRuntimeClient, InvokeModelCommand } from '@aws-sdk/client-bedrock-runtime';
 import { YAHOO_CACHE_KEYS, type YahooQuote } from '@/services/yahooFinanceHub';
 import { fetchMassive } from '@/services/massiveClient';
 import { getETOffsetHours } from '@/services/timezoneUtils';
 
-export const maxDuration = 60; // Gemini AI analysis needs 30s+
+export const maxDuration = 60; // Bedrock AI analysis needs 30s+
+
+const BEDROCK_MODEL = 'us.anthropic.claude-sonnet-4-20250514-v1:0';
+
+let _bedrockClient: BedrockRuntimeClient | null = null;
+function getBedrock(): BedrockRuntimeClient {
+    if (_bedrockClient) return _bedrockClient;
+    _bedrockClient = new BedrockRuntimeClient({
+        region: process.env.AWS_REGION || 'us-east-1',
+        credentials: {
+            accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
+            secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
+        },
+    });
+    return _bedrockClient;
+}
 
 const SECTOR_IDS = [
     'm7', 'physical_ai', 'silicon_core', 'power_matrix', 'bio_pulse',
@@ -118,7 +133,7 @@ export async function GET() {
 
 /**
  * POST /api/intel/cross-sector-brief
- * Generate structured multi-language cross-sector analysis via Gemini
+ * Generate structured multi-language cross-sector analysis via Bedrock Claude
  * V3: Bloomberg-grade depth with 13 macro indicators + impact chains
  */
 export async function POST() {
@@ -320,13 +335,11 @@ export async function POST() {
                 : '';
         }
 
-        // 7. Gemini API call
-        const geminiKey = process.env.GEMINI_NEWS_KEY || process.env.GEMINI_VERDICT_KEY || process.env.GEMINI_API_KEY;
-        if (!geminiKey) {
-            return NextResponse.json({ error: 'Gemini API key not configured' }, { status: 500 });
+        // 7. Bedrock Claude Sonnet 4 API call
+        if (!process.env.AWS_ACCESS_KEY_ID) {
+            return NextResponse.json({ error: 'AWS credentials not configured' }, { status: 500 });
         }
 
-        const genAI = new GoogleGenAI({ apiKey: geminiKey });
         const todayDate = getTodayET();
         const dayOfWeek = getDayOfWeekET();
 
@@ -476,15 +489,34 @@ Return ONLY valid JSON (no markdown fences, no extra text). The JSON must follow
 - Use IF→THEN conditional framing for catalysts, risks, and opportunities
 - Flag any cross-asset divergences explicitly in edgeAlerts`;
 
-        console.log(`[CrossSectorBrief V3] Calling Gemini 2.5 Pro with ${sectorSummaries.length} sectors + 13 macro indicators...`);
-        const result = await genAI.models.generateContent({
-            model: 'gemini-2.5-pro',
-            contents: prompt,
+        console.log(`[CrossSectorBrief V3] Calling Bedrock Claude Sonnet 4 with ${sectorSummaries.length} sectors + 13 macro indicators...`);
+
+        const client = getBedrock();
+        const bedrockCmd = new InvokeModelCommand({
+            modelId: BEDROCK_MODEL,
+            contentType: 'application/json',
+            accept: 'application/json',
+            body: JSON.stringify({
+                anthropic_version: 'bedrock-2023-05-31',
+                max_tokens: 8192,
+                temperature: 0.4,
+                system: 'You are SIGNUM Intelligence, an elite institutional-grade financial analyst. Return ONLY valid JSON. No markdown fences.',
+                messages: [
+                    { role: 'user', content: prompt },
+                    { role: 'assistant', content: '{' },
+                ],
+            }),
         });
 
-        const rawText = (result.text || '').replace(/```json/g, '').replace(/```/g, '').trim();
-        if (!rawText) {
-            return NextResponse.json({ error: 'Gemini returned empty response' }, { status: 500 });
+        const bedrockResult = await Promise.race([
+            client.send(bedrockCmd),
+            new Promise<never>((_, reject) => setTimeout(() => reject(new Error('Bedrock timeout 55s')), 55000))
+        ]);
+
+        const responseBody = JSON.parse(new TextDecoder().decode(bedrockResult.body));
+        const rawText = '{' + (responseBody.content?.[0]?.text || '').replace(/```json/g, '').replace(/```/g, '').trim();
+        if (!rawText || rawText === '{') {
+            return NextResponse.json({ error: 'Bedrock returned empty response' }, { status: 500 });
         }
 
         let structured: CrossSectorBriefV3;
@@ -492,12 +524,12 @@ Return ONLY valid JSON (no markdown fences, no extra text). The JSON must follow
             structured = JSON.parse(rawText);
         } catch (parseErr) {
             console.error('[CrossSectorBrief V3] JSON parse failed:', parseErr, 'Raw:', rawText.substring(0, 500));
-            return NextResponse.json({ error: 'Gemini returned invalid JSON' }, { status: 500 });
+            return NextResponse.json({ error: 'Bedrock returned invalid JSON' }, { status: 500 });
         }
 
         // Validate required fields
         if (!structured.marketOverview || !structured.sectorRotation || !structured.outlook) {
-            return NextResponse.json({ error: 'Gemini response missing required sections' }, { status: 500 });
+            return NextResponse.json({ error: 'Bedrock response missing required sections' }, { status: 500 });
         }
 
         // 8. Build macro indicators array for frontend display (FMP indices preferred)

@@ -8,9 +8,26 @@ import { NextResponse } from 'next/server';
 import { saveSnapshot, getLatestSnapshot, getSnapshotByDate } from '@/lib/supabase/snapshot';
 import type { SnapshotData, TickerSnapshot, SectorSummary, NewsDigestItem, BriefingData } from '@/types/sector';
 import { fetchStockNews } from '@/services/newsHubProvider';
-import { GoogleGenAI } from '@google/genai';
+import { BedrockRuntimeClient, InvokeModelCommand } from '@aws-sdk/client-bedrock-runtime';
 import { getFromCache } from '@/services/redisClient';
 import { YAHOO_CACHE_KEYS, type YahooQuote } from '@/services/yahooFinanceHub';
+
+export const maxDuration = 60;
+
+const BEDROCK_MODEL = 'us.anthropic.claude-sonnet-4-20250514-v1:0';
+
+let _bedrockClient: BedrockRuntimeClient | null = null;
+function getBedrock(): BedrockRuntimeClient {
+    if (_bedrockClient) return _bedrockClient;
+    _bedrockClient = new BedrockRuntimeClient({
+        region: process.env.AWS_REGION || 'us-east-1',
+        credentials: {
+            accessKeyId: process.env.AWS_ACCESS_KEY_ID!,
+            secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!,
+        },
+    });
+    return _bedrockClient;
+}
 
 // Sector ticker lists
 const SECTOR_TICKERS: Record<string, string[]> = {
@@ -274,12 +291,9 @@ export async function POST(request: Request) {
             }).slice(0, 8);
 
             if (uniqueNews.length > 0) {
-                // Generate AI insights via Gemini (NEWS_KEY = Tier1 primary)
-                const geminiKey = process.env.GEMINI_NEWS_KEY || process.env.GEMINI_VERDICT_KEY || process.env.GEMINI_API_KEY;
-                console.log(`[Snapshot] uniqueNews: ${uniqueNews.length}, geminiKey: ${geminiKey ? 'YES (' + geminiKey.substring(0, 8) + '...)' : 'MISSING'}`);
-                if (geminiKey) {
+                // Generate AI insights via Bedrock Claude Sonnet 4
+                if (process.env.AWS_ACCESS_KEY_ID) {
                     try {
-                        const genAI = new GoogleGenAI({ apiKey: geminiKey });
                         const newsForPrompt = uniqueNews.map((n, i) => ({
                             id: i,
                             title: n.headline,
@@ -292,8 +306,7 @@ export async function POST(request: Request) {
                             `${t.ticker}: ${t.change_pct >= 0 ? '+' : ''}${t.change_pct.toFixed(2)}%, RSI ${t.rsi}, PCR ${t.pcr}, γ ${t.gamma_regime}`
                         ).join('; ');
 
-                        const prompt = `You are SIGNUM Intelligence, an elite financial analyst.
-Context: M7 sector today — ${tickerContext}
+                        const userPrompt = `Context: M7 sector today — ${tickerContext}
 Outlook: ${outlook}, Dominant Gamma: ${dominantRegime}
 
 Analyze these ${newsForPrompt.length} news items and provide investment insights:
@@ -312,13 +325,31 @@ Also provide overallSentiment: "BULLISH" | "BEARISH" | "MIXED" | "NEUTRAL" based
 Output MUST be valid JSON (no markdown):
 { "items": [ { "id": 0, "summaryKR": "...", "summaryJP": "...", "insightKR": "...", "insightEN": "...", "insightJP": "...", "sentiment": "..." } ], "overallSentiment": "..." }`;
 
-                        const result = await genAI.models.generateContent({
-                            model: 'gemini-2.5-flash',
-                            contents: prompt,
+                        const client = getBedrock();
+                        const bedrockCmd = new InvokeModelCommand({
+                            modelId: BEDROCK_MODEL,
+                            contentType: 'application/json',
+                            accept: 'application/json',
+                            body: JSON.stringify({
+                                anthropic_version: 'bedrock-2023-05-31',
+                                max_tokens: 4096,
+                                temperature: 0.3,
+                                system: 'You are SIGNUM Intelligence, an elite financial analyst. Return ONLY valid JSON.',
+                                messages: [
+                                    { role: 'user', content: userPrompt },
+                                    { role: 'assistant', content: '{' },
+                                ],
+                            }),
                         });
 
-                        const responseText = (result.text || '').replace(/```json/g, '').replace(/```/g, '').trim();
-                        if (!responseText) throw new Error('Gemini returned empty response');
+                        const bedrockResult = await Promise.race([
+                            client.send(bedrockCmd),
+                            new Promise<never>((_, reject) => setTimeout(() => reject(new Error('Bedrock timeout 30s')), 30000))
+                        ]);
+
+                        const responseBody = JSON.parse(new TextDecoder().decode(bedrockResult.body));
+                        const responseText = '{' + (responseBody.content?.[0]?.text || '').replace(/```json/g, '').replace(/```/g, '').trim();
+                        if (!responseText || responseText === '{') throw new Error('Bedrock returned empty response');
                         const parsed = JSON.parse(responseText);
                         const aiItems = parsed.items || [];
                         newsSentimentOverall = parsed.overallSentiment || 'NEUTRAL';
@@ -338,11 +369,10 @@ Output MUST be valid JSON (no markdown):
                                 publishedAt: n.publishedAt,
                             };
                         });
-                        console.log(`[Snapshot] News Digest: ${newsDigest.length} items, overall: ${newsSentimentOverall}`);
+                        console.log(`[Snapshot] News Digest (Bedrock): ${newsDigest.length} items, overall: ${newsSentimentOverall}`);
                     } catch (aiErr: any) {
-                        newsDebugInfo = `Gemini failed: ${aiErr.message || aiErr}`;
-                        console.warn('[Snapshot] Gemini insight generation failed, using raw news:', aiErr);
-                        // Fallback: use news without AI insight
+                        newsDebugInfo = `Bedrock failed: ${aiErr.message || aiErr}`;
+                        console.warn('[Snapshot] Bedrock insight generation failed, using raw news:', aiErr);
                         newsDigest = uniqueNews.slice(0, 6).map(n => ({
                             headline: n.headline,
                             summaryKR: n.summaryKR || n.headline,
@@ -357,7 +387,7 @@ Output MUST be valid JSON (no markdown):
                         }));
                     }
                 } else {
-                    // No Gemini key — raw news only
+                    // No AWS credentials — raw news only
                     newsDigest = uniqueNews.slice(0, 6).map(n => ({
                         headline: n.headline,
                         summaryKR: n.summaryKR || n.headline,
