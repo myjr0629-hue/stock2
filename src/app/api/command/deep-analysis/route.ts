@@ -77,7 +77,7 @@ export async function POST(req: Request) {
         const forceRefresh = triggerReason === 'PRICE_MOVE' || triggerReason === 'GAMMA_FLIP';
         if (!forceRefresh) {
             const cached = await getFromCache<any>(cacheKey);
-            if (cached && cached.narrative) {
+            if (cached && (cached.currentState || cached.narrative)) {
                 console.log(`[DeepAnalysis] Cache HIT for ${ticker}:${locale}`);
                 return NextResponse.json({
                     ...cached,
