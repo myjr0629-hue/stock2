@@ -377,15 +377,18 @@ export default function GuardianPage() {
                         <div className="col-span-12 lg:col-span-4 backdrop-blur-md border border-slate-800 rounded-lg p-4 relative shadow-2xl flex flex-col justify-center overflow-hidden transition-all duration-300 hover:border-emerald-500/30 hover:shadow-[0_0_25px_rgba(52,211,153,0.08)] hover:scale-[1.003]"
                             style={{ background: 'radial-gradient(circle at 50% 70%, rgba(52,211,153,0.12) 0%, transparent 50%), radial-gradient(circle at 20% 30%, rgba(6,182,212,0.06) 0%, transparent 40%), rgba(10,14,20,0.85)' }}
                         >
-                            {/* Infographic: Concentric Radar Circles */}
-                            <svg className="absolute inset-0 w-full h-full pointer-events-none" viewBox="0 0 300 300" preserveAspectRatio="xMidYMid slice">
-                                <circle cx="150" cy="170" r="40" fill="none" stroke="rgba(52,211,153,0.20)" strokeWidth="1" strokeDasharray="4 4" />
-                                <circle cx="150" cy="170" r="80" fill="none" stroke="rgba(52,211,153,0.15)" strokeWidth="1" strokeDasharray="4 4" />
-                                <circle cx="150" cy="170" r="120" fill="none" stroke="rgba(52,211,153,0.10)" strokeWidth="1" strokeDasharray="4 4" />
-                                <circle cx="150" cy="170" r="160" fill="none" stroke="rgba(52,211,153,0.07)" strokeWidth="0.8" />
-                                <line x1="150" y1="10" x2="150" y2="290" stroke="rgba(52,211,153,0.08)" strokeWidth="0.8" strokeDasharray="2 6" />
-                                <line x1="10" y1="170" x2="290" y2="170" stroke="rgba(52,211,153,0.08)" strokeWidth="0.8" strokeDasharray="2 6" />
-                            </svg>
+                            {/* Premium HUD Background */}
+                            <div className="absolute inset-0 pointer-events-none">
+                                {/* Radial vignette glow */}
+                                <div className="absolute inset-0" style={{ background: 'radial-gradient(ellipse at 50% 45%, rgba(6,182,212,0.06) 0%, rgba(15,23,42,0) 65%)' }} />
+                                {/* Subtle grid overlay */}
+                                <div className="absolute inset-0 opacity-[0.04]" style={{
+                                    backgroundImage: 'linear-gradient(rgba(148,163,184,0.4) 1px, transparent 1px), linear-gradient(90deg, rgba(148,163,184,0.4) 1px, transparent 1px)',
+                                    backgroundSize: '24px 24px',
+                                }} />
+                                {/* Faint horizontal scan accent */}
+                                <div className="absolute left-0 right-0" style={{ top: '42%', height: '1px', background: 'linear-gradient(90deg, transparent, rgba(6,182,212,0.15) 30%, rgba(6,182,212,0.15) 70%, transparent)' }} />
+                            </div>
                             {/* Sci-Fi Corner Decors */}
                             <div className="absolute top-2 left-2 w-2 h-2 border-t border-l border-slate-600"></div>
                             <div className="absolute top-2 right-2 w-2 h-2 border-t border-r border-slate-600"></div>

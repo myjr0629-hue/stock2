@@ -6,6 +6,7 @@ import { useWhaleTrades, useRealtimeMetrics, useDarkPoolTrades, useIvPercentile,
 import { Radar, Target, Crosshair, Zap, Layers, Info, TrendingUp, TrendingDown, Activity, Lightbulb, Percent, Lock, Shield, Loader2, AlertTriangle, BarChart3, Banknote, Radio } from 'lucide-react';
 import { useRealtimeData } from '@/providers/WebSocketProvider';
 import { Card, CardContent } from "@/components/ui/card";
+import { FlowAIAnalysis } from '@/components/FlowAIAnalysis';
 import { CardTooltip, FLOW_TOOLTIPS } from '@/components/ui/CardTooltip';
 import { ProGate, EliteGate } from '@/components/gate/FeatureGate';
 import { Progress } from "./ui/progress";
@@ -1827,32 +1828,45 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                                     </div>
                                 )}
 
-                                {/* Row 5: Market Observation */}
-                                {(analysis.action || analysis.warning || analysis.trigger) && (
-                                    <div className="space-y-0.5 mb-1.5 bg-black/20 rounded-lg p-1.5 border border-white/5">
-                                        {analysis.action && (
-                                            <div className="flex items-start gap-2">
-                                                <div className="mt-0.5 w-1 h-2.5 rounded-full bg-emerald-400 shrink-0" />
-                                                <span className="text-[12px] text-emerald-400 font-bold uppercase shrink-0 w-12">{ui('labelStruct')}</span>
-                                                <span className="text-xs text-emerald-300">{analysis.action}</span>
-                                            </div>
-                                        )}
-                                        {analysis.warning && (
-                                            <div className="flex items-start gap-2">
-                                                <div className="mt-0.5 w-1 h-2.5 rounded-full bg-amber-400 shrink-0" />
-                                                <span className="text-[12px] text-amber-400 font-bold uppercase shrink-0 w-12">{ui('labelFail')}</span>
-                                                <span className="text-xs text-amber-300">{analysis.warning}</span>
-                                            </div>
-                                        )}
-                                        {analysis.trigger && (
-                                            <div className="flex items-start gap-2">
-                                                <div className="mt-0.5 w-1 h-2.5 rounded-full bg-cyan-400 shrink-0" />
-                                                <span className="text-[12px] text-cyan-400 font-bold uppercase shrink-0 w-12">{ui('labelRepr')}</span>
-                                                <span className="text-xs text-cyan-300">{analysis.trigger}</span>
-                                            </div>
-                                        )}
-                                    </div>
-                                )}
+                                {/* Row 5: AI Flow Intelligence — Claude S4 (replaced STRUCT/FAIL/REPR) */}
+                                <FlowAIAnalysis
+                                    ticker={ticker}
+                                    isSystemReady={isSystemReady}
+                                    isMarketClosed={isMarketClosed}
+                                    flowData={{
+                                        currentPrice,
+                                        compositeScore: analysis.compositeScore ?? 0,
+                                        session: isMarketClosed ? 'CLOSED' : 'REG',
+                                        position: {
+                                            putFloor: putWall,
+                                            callWall: callWall,
+                                            distToPut: `${((currentPrice - putWall) / currentPrice * 100).toFixed(1)}%`,
+                                            distToCall: `${((callWall - currentPrice) / currentPrice * 100).toFixed(1)}%`,
+                                            zone: currentPrice > callWall ? 'ABOVE_CALL_WALL' : currentPrice < putWall ? 'BELOW_PUT_FLOOR' : 'INSIDE_RANGE',
+                                        },
+                                        factors: {
+                                            opi: { value: opi.value, score: analysis.factorBreakdown?.find((f: any) => f.key === 'opi')?.score ?? 0, label: opi.label },
+                                            whale: { premium: `$${Math.abs((analysis.netWhalePremium || 0) / 1000).toFixed(0)}K`, score: analysis.factorBreakdown?.find((f: any) => f.key === 'whale')?.score ?? 0, bias: analysis.whaleBias || 'NEUTRAL' },
+                                            squeeze: { probability: squeezeProbability.value, score: analysis.factorBreakdown?.find((f: any) => f.key === 'squeeze')?.score ?? 0, label: squeezeProbability.label },
+                                            ivSkew: { value: ivSkew.value, score: analysis.factorBreakdown?.find((f: any) => f.key === 'skew')?.score ?? 0, label: ivSkew.label },
+                                            smartMoney: { score: analysis.factorBreakdown?.find((f: any) => f.key === 'smart')?.score ?? 0, label: smartMoney.label },
+                                            dex: { value: dex.value, score: analysis.factorBreakdown?.find((f: any) => f.key === 'dex')?.score ?? 0, label: dex.label },
+                                            uoa: { score: analysis.factorBreakdown?.find((f: any) => f.key === 'uoa')?.score ?? 0, label: uoa.label },
+                                            pcRatio: { value: pcRatio.value, score: analysis.factorBreakdown?.find((f: any) => f.key === 'pc')?.score ?? 0 },
+                                            gex: { pinStrength: gexRegime.pinStrength, score: analysis.factorBreakdown?.find((f: any) => f.key === 'zdte')?.score ?? 0, regime: gexRegime.regime },
+                                        },
+                                        regime: {
+                                            ivPercentile: ivPercentile.value,
+                                            impliedMove: `±${((ivPercentile.value || 30) * 0.1).toFixed(1)}%`,
+                                            maxPain: 0,
+                                            maxPainDist: 'N/A',
+                                            gammaFlipLevel: gexRegime.flipLevel ?? 0,
+                                            flipPercentage: gexRegime.flipDistance ?? 0,
+                                            gexRegime: gexRegime.regime,
+                                        },
+                                        ruleVerdict: { status: analysis.status || '' },
+                                    }}
+                                />
                                 {/* Row 6: Key Levels */}
                                 <div className="flex items-center gap-3 pt-1.5 border-t border-white/10 mt-auto">
                                     <div className="flex items-center gap-1">
@@ -1871,7 +1885,7 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                             </div>
 
                             {/* 2-5. 4 Metrics + 현재가위치/SQUEEZE (50% width) */}
-                            <div className="flex flex-col gap-2 lg:w-[50%] shrink-0 self-start">
+                            <div className="flex flex-col gap-2 lg:w-[50%] shrink-0">
                                 {/* Top Row: 4 Metric Cards (uniform height) */}
                                 <div className="flex gap-2">
                                     {/* OPI - Glowing Circular Gauge - ENLARGED */}
@@ -2113,15 +2127,9 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                                         </div>
                                     </div>
                                 </div>
-                            </div>
-                        </div>
-                    </div>
-                )}
-            </ProGate>
 
-
-            {/* 🆕 NEW METRICS ROW - Dark Pool / Short Volume / P/C Ratio (FREE) / GEX */}
-            <div className="grid grid-cols-4 gap-3 mb-1">
+                                {/* METRICS 2x2: Dark Pool / Short Vol / P/C Ratio / GEX */}
+                                <div className="grid grid-cols-2 gap-2 mt-2">
                 {/* === PRO GATED: Dark Pool + Short Vol (2 cards) === */}
                 <div className="col-span-2">
                     <ProGate title="Market Structure" fomoMessage={gt('fomoMarketStructure')} mode="blur" compact>
@@ -2354,7 +2362,12 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                         </div>
                     </div>
                 </ProGate>
-            </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+            </ProGate>
 
             {/* Tactical Intel Panel */}
             <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-3 h-[1050px]">

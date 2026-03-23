@@ -1,46 +1,44 @@
 'use client';
 // ============================================================================
-// SectorHeatmap — ECharts TreeMap (Finviz/Bloomberg Style)
-// Real-time sector heatmap visualization with 10 sectors × N tickers
+// SectorHeatmap V4 — Finviz-Style Premium TreeMap
+// 10 sectors × N tickers — centered labels (NO rich text = verticalAlign works)
 // ============================================================================
 
 import React, { useMemo, useCallback } from 'react';
 import dynamic from 'next/dynamic';
 import type { IntelQuote, IntelSharedData } from '@/hooks/useIntelSharedData';
 
-// Dynamic import to avoid SSR issues with ECharts
 const ReactECharts = dynamic(() => import('echarts-for-react'), { ssr: false });
 
-// ── Sector Definitions ──
 const SECTOR_DEFS = [
-    { key: 'm7', label: 'M7', hex: '#06b6d4' },
-    { key: 'physicalAI', label: 'PHYS AI', hex: '#f59e0b' },
-    { key: 'siliconCore', label: 'SILICON', hex: '#fbbf24' },
-    { key: 'powerMatrix', label: 'POWER', hex: '#10b981' },
-    { key: 'bioPulse', label: 'BIO', hex: '#f43f5e' },
-    { key: 'cyberShield', label: 'CYBER', hex: '#22d3ee' },
-    { key: 'orbitDefense', label: 'ORBIT', hex: '#0ea5e9' },
-    { key: 'quantumEdge', label: 'QUANTUM', hex: '#d946ef' },
-    { key: 'fintechPulse', label: 'FINTECH', hex: '#84cc16' },
-    { key: 'cloudFortress', label: 'CLOUD', hex: '#38bdf8' },
+    { key: 'm7', label: 'M7' },
+    { key: 'physicalAI', label: 'PHYS AI' },
+    { key: 'siliconCore', label: 'SILICON' },
+    { key: 'powerMatrix', label: 'POWER' },
+    { key: 'bioPulse', label: 'BIO' },
+    { key: 'cyberShield', label: 'CYBER' },
+    { key: 'orbitDefense', label: 'ORBIT' },
+    { key: 'quantumEdge', label: 'QUANTUM' },
+    { key: 'fintechPulse', label: 'FINTECH' },
+    { key: 'cloudFortress', label: 'CLOUD' },
 ] as const;
 
-// ── Helpers ──
 function getHeatColor(pct: number): string {
-    // Premium muted gradient — 20% lower brightness for dark-theme harmony
-    if (pct >= 5)   return '#00a65c';    // vivid green (muted)
-    if (pct >= 3)   return '#00904a';    // bright green
-    if (pct >= 2)   return '#256b2b';    // green
-    if (pct >= 1.5) return '#174d1a';    // deep green
-    if (pct >= 1)   return '#244a30';    // muted green
-    if (pct >= 0.5) return '#2a3f34';    // dark green tint
-    if (pct > -0.5) return '#262f3a';    // neutral dark
-    if (pct > -1)   return '#4a2222';    // muted red tint
-    if (pct > -1.5) return '#611a1a';    // dark red
-    if (pct > -2)   return '#7a1616';    // deep red
-    if (pct > -3)   return '#961717';    // medium red
-    if (pct > -5)   return '#b32020';    // red
-    return '#cc3333';                     // vivid red (muted)
+    if (pct >= 4)    return '#2d8b57';
+    if (pct >= 3)    return '#2a7d4f';
+    if (pct >= 2)    return '#276e46';
+    if (pct >= 1.5)  return '#245f3d';
+    if (pct >= 1)    return '#1e5233';
+    if (pct >= 0.5)  return '#1a4129';
+    if (pct > 0)     return '#183520';
+    if (pct === 0)   return '#1e2430';
+    if (pct > -0.5)  return '#351a1a';
+    if (pct > -1)    return '#4d1919';
+    if (pct > -1.5)  return '#621919';
+    if (pct > -2)    return '#7d1a1a';
+    if (pct > -3)    return '#961c1c';
+    if (pct > -4)    return '#ab2020';
+    return '#c02424';
 }
 
 interface SectorHeatmapProps {
@@ -53,53 +51,36 @@ export function SectorHeatmap({ sectorData, onNavigate }: SectorHeatmapProps) {
         return SECTOR_DEFS.map(sector => {
             const quotes: IntelQuote[] = (sectorData as any)[sector.key] || [];
             const validQuotes = quotes.filter(q => q.price > 0);
-
             if (validQuotes.length === 0) return null;
 
             const avgChange = validQuotes.reduce((s, q) => s + q.changePct, 0) / validQuotes.length;
+            const sorted = [...validQuotes].sort((a, b) => Math.abs(b.changePct) - Math.abs(a.changePct));
 
-            const children = validQuotes
-                .sort((a, b) => Math.abs(b.changePct) - Math.abs(a.changePct))
-                .map(q => ({
+            const children = sorted.map(q => {
+                const baseWeight = Math.max(q.price * 0.3, 8);
+                const magnitudeBonus = Math.min(Math.abs(q.changePct) * 1.5, 15);
+                const tileValue = baseWeight + magnitudeBonus;
+
+                // Dynamic font sizing per tile (plain label, NO rich text)
+                const fontSize = tileValue >= 60 ? 15 : tileValue >= 25 ? 13 : 12;
+
+                return {
                     name: q.ticker,
-                    value: Math.max(Math.min(Math.abs(q.changePct), 8) * 10, 5), // Size by magnitude, capped at 8% to prevent outlier dominance
+                    value: tileValue,
                     changePct: q.changePct,
                     price: q.price,
                     itemStyle: {
                         color: getHeatColor(q.changePct),
-                        borderColor: '#0d1117',
-                        borderWidth: 1,
+                        borderColor: '#0a0e14',
+                        borderWidth: 1.5,
                     },
+                    // Per-node label: fontSize varies, but NO rich text → verticalAlign works
                     label: {
-                        show: true,
-                        formatter: (params: any) => {
-                            const d = params.data;
-                            if (!d) return '';
-                            const pct = d.changePct ?? 0;
-                            const sign = pct >= 0 ? '+' : '';
-                            return [
-                                `{ticker|${d.name || ''}}`,
-                                `{pct|${sign}${pct.toFixed(1)}%}`,
-                            ].join('\n');
-                        },
-                        rich: {
-                            ticker: {
-                                fontSize: 13,
-                                fontWeight: 800,
-                                color: '#fff',
-                                lineHeight: 18,
-                                fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
-                            },
-                            pct: {
-                                fontSize: 12,
-                                fontWeight: 700,
-                                color: 'rgba(255,255,255,0.85)',
-                                lineHeight: 16,
-                                fontFamily: 'monospace',
-                            },
-                        },
+                        fontSize,
+                        lineHeight: fontSize + 4,
                     },
-                }));
+                };
+            });
 
             return {
                 name: sector.label,
@@ -108,29 +89,8 @@ export function SectorHeatmap({ sectorData, onNavigate }: SectorHeatmapProps) {
                 children,
                 itemStyle: {
                     color: getHeatColor(avgChange),
-                    borderColor: '#1e293b',
+                    borderColor: '#1a1f2e',
                     borderWidth: 2,
-                },
-                label: {
-                    show: true,
-                    position: 'insideTopLeft' as const,
-                    formatter: (params: any) => {
-                        const d = params.data;
-                        if (!d) return '';
-                        const avg = d.avgChange ?? 0;
-                        const sign = avg >= 0 ? '+' : '';
-                        return `{sector|${d.name || ''}  ${sign}${avg.toFixed(2)}%}`;
-                    },
-                    rich: {
-                        sector: {
-                            fontSize: 12,
-                            fontWeight: 900,
-                            color: 'rgba(255,255,255,0.7)',
-                            lineHeight: 20,
-                            padding: [2, 4, 0, 2],
-                            fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
-                        },
-                    },
                 },
             };
         }).filter(Boolean);
@@ -145,7 +105,6 @@ export function SectorHeatmap({ sectorData, onNavigate }: SectorHeatmapProps) {
 
     const onChartClick = useCallback((params: any) => {
         if (params.data) {
-            // If clicking a ticker, navigate to parent sector
             const sectorName = params.treePathInfo?.[1]?.name || params.data.name;
             const tabKey = tabKeyMap[sectorName];
             if (tabKey) onNavigate(tabKey);
@@ -158,32 +117,31 @@ export function SectorHeatmap({ sectorData, onNavigate }: SectorHeatmapProps) {
                 const d = params.data;
                 if (!d) return '';
                 if (d.children) {
-                    // Sector level
                     const avg = d.avgChange ?? 0;
                     const sign = avg >= 0 ? '+' : '';
-                    return `<div style="font-family:system-ui;padding:4px 0">
-                        <div style="font-weight:900;font-size:14px;margin-bottom:4px">${d.name || ''}</div>
-                        <div style="font-size:13px;color:${avg >= 0 ? '#4ade80' : '#fb7185'}">
-                            AVG: ${sign}${avg.toFixed(2)}%
-                        </div>
-                        <div style="font-size:12px;color:#94a3b8">${d.children.length} tickers</div>
+                    const color = avg >= 0 ? '#4ade80' : '#fb7185';
+                    return `<div style="font-family:'Plus Jakarta Sans',system-ui;padding:6px 2px">
+                        <div style="font-weight:900;font-size:15px;margin-bottom:4px">${d.name || ''}</div>
+                        <div style="font-size:14px;color:${color};font-family:monospace;font-weight:800">AVG: ${sign}${avg.toFixed(2)}%</div>
+                        <div style="font-size:12px;color:#94a3b8;margin-top:2px">${d.children.length} tickers</div>
                     </div>`;
                 }
-                // Ticker level
                 const pct = d.changePct ?? 0;
                 const sign = pct >= 0 ? '+' : '';
-                const priceStr = typeof d.price === 'number' ? `<div style="font-size:12px;color:#94a3b8">$${d.price.toFixed(2)}</div>` : '';
-                return `<div style="font-family:system-ui;padding:4px 0">
-                    <div style="font-weight:900;font-size:14px">${d.name || ''}</div>
-                    <div style="font-size:13px;color:${pct >= 0 ? '#4ade80' : '#fb7185'};font-family:monospace">
-                        ${sign}${pct.toFixed(2)}%
-                    </div>
+                const color = pct >= 0 ? '#4ade80' : '#fb7185';
+                const priceStr = typeof d.price === 'number'
+                    ? `<div style="font-size:13px;color:#94a3b8;font-family:monospace;margin-top:2px">$${d.price.toFixed(2)}</div>` : '';
+                return `<div style="font-family:'Plus Jakarta Sans',system-ui;padding:6px 2px">
+                    <div style="font-weight:900;font-size:15px">${d.name || ''}</div>
+                    <div style="font-size:14px;color:${color};font-family:monospace;font-weight:800;margin-top:2px">${sign}${pct.toFixed(2)}%</div>
                     ${priceStr}
                 </div>`;
             },
-            backgroundColor: '#0f172a',
+            backgroundColor: 'rgba(10, 14, 22, 0.95)',
             borderColor: '#334155',
+            borderWidth: 1,
             textStyle: { color: '#e2e8f0' },
+            extraCssText: 'box-shadow: 0 8px 32px rgba(0,0,0,0.5); border-radius: 8px; backdrop-filter: blur(8px);',
         },
 
         series: [{
@@ -195,53 +153,68 @@ export function SectorHeatmap({ sectorData, onNavigate }: SectorHeatmapProps) {
             bottom: 0,
             roam: false,
             nodeClick: false,
-            squareRatio: 0.6,
-
+            squareRatio: 0.62,
             breadcrumb: { show: false },
+
             levels: [
                 {
-                    // Sector level
-                    itemStyle: {
-                        borderColor: '#334155',
-                        borderWidth: 3,
-                        gapWidth: 1,
-                    },
+                    // Level 0: Root — invisible
+                    itemStyle: { borderColor: 'transparent', borderWidth: 0, gapWidth: 0 },
+                    upperLabel: { show: false },
+                },
+                {
+                    // Level 1: Sector — header bar
+                    itemStyle: { borderColor: '#1e293b', borderWidth: 3, gapWidth: 2 },
                     upperLabel: {
                         show: true,
-                        height: 18,
-                        backgroundColor: 'rgba(15, 23, 42, 0.95)',
+                        height: 24,
+                        backgroundColor: 'rgba(10, 14, 22, 0.92)',
                         color: '#e2e8f0',
                         fontSize: 12,
                         fontWeight: 900,
-                        fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
-                        padding: [0, 6, 0, 6],
+                        fontFamily: '"Plus Jakarta Sans", -apple-system, system-ui, sans-serif',
+                        padding: [2, 8, 2, 8],
+                        formatter: (params: any) => {
+                            const d = params.data;
+                            if (!d || !d.name) return '';
+                            const avg = d.avgChange ?? 0;
+                            const sign = avg >= 0 ? '+' : '';
+                            return `${d.name}  ${sign}${avg.toFixed(1)}%`;
+                        },
                     },
                 },
                 {
-                    // Ticker level
-                    itemStyle: {
-                        borderColor: 'rgba(13, 17, 25, 0.6)',
-                        borderWidth: 1,
-                        gapWidth: 1,
-                    },
+                    // Level 2: Ticker — PLAIN TEXT (no rich) → verticalAlign works!
+                    itemStyle: { borderColor: 'rgba(10,14,22,0.7)', borderWidth: 1.5, gapWidth: 1 },
                     label: {
                         show: true,
+                        position: 'inside',
                         align: 'center',
                         verticalAlign: 'middle',
+                        color: '#ffffff',
+                        fontWeight: 900,
+                        fontFamily: '"Plus Jakarta Sans", -apple-system, system-ui, sans-serif',
+                        textShadowColor: 'rgba(0,0,0,0.5)',
+                        textShadowBlur: 3,
+                        formatter: (params: any) => {
+                            const d = params.data;
+                            if (!d) return '';
+                            const pct = d.changePct ?? 0;
+                            const sign = pct >= 0 ? '+' : '';
+                            return `${d.name || ''}\n${sign}${pct.toFixed(1)}%`;
+                        },
                     },
                 },
             ],
+
             emphasis: {
                 itemStyle: {
                     borderColor: '#60a5fa',
                     borderWidth: 2,
-                    shadowBlur: 12,
-                    shadowColor: 'rgba(96, 165, 250, 0.4)',
+                    shadowBlur: 16,
+                    shadowColor: 'rgba(96, 165, 250, 0.5)',
                 },
-                upperLabel: {
-                    show: true,
-                    color: '#ffffff',
-                },
+                upperLabel: { show: true, color: '#ffffff' },
             },
         }],
     }), [treeData]);
@@ -250,12 +223,17 @@ export function SectorHeatmap({ sectorData, onNavigate }: SectorHeatmapProps) {
 
     return (
         <section className="relative z-10">
-            <div className="rounded-xl border border-emerald-500/[0.15] bg-[#0d1117]/90 backdrop-blur-sm overflow-hidden shadow-[0_0_40px_rgba(16,185,129,0.06)]">
+            <div className="rounded-xl border border-slate-700/40 overflow-hidden"
+                style={{
+                    background: 'linear-gradient(180deg, #0d1117 0%, #0a0e14 100%)',
+                    boxShadow: '0 0 30px rgba(0,0,0,0.4), 0 0 8px rgba(99,102,241,0.06)',
+                }}>
                 {/* Header */}
-                <div className="px-5 py-2.5 border-b border-slate-800/80 flex items-center justify-between bg-gradient-to-r from-[#0d1117] via-[#0f1923] to-[#0d1117]">
-                    <div className="flex items-center gap-2.5">
-                        <div className="w-1 h-5 rounded-full bg-gradient-to-b from-emerald-400 to-emerald-600" />
-                        <span className="text-[14px] font-black text-white tracking-wider uppercase">
+                <div className="px-5 py-2.5 border-b border-slate-800/60 flex items-center justify-between"
+                    style={{ background: 'linear-gradient(90deg, rgba(13,17,23,1) 0%, rgba(15,25,35,0.95) 50%, rgba(13,17,23,1) 100%)' }}>
+                    <div className="flex items-center gap-3">
+                        <div className="w-1 h-5 rounded-full bg-gradient-to-b from-cyan-400 to-indigo-500" />
+                        <span className="text-[14px] font-black text-white tracking-[0.12em] uppercase font-jakarta">
                             SECTOR HEATMAP
                         </span>
                         <span className="text-[12px] text-slate-300 font-mono">
@@ -264,23 +242,25 @@ export function SectorHeatmap({ sectorData, onNavigate }: SectorHeatmapProps) {
                     </div>
                     <div className="flex items-center gap-1.5 text-[12px] font-mono">
                         <span className="text-emerald-400 font-bold">+3%</span>
-                        <div className="w-20 h-2.5 rounded-full mx-1" style={{
-                            background: 'linear-gradient(90deg, #00c853, #2e7d32, #37474f, #c62828, #f44336)'
-                        }} />
+                        <div className="flex h-2.5 rounded-full overflow-hidden mx-1" style={{ width: 80 }}>
+                            <div style={{ flex: 1, background: '#2d8b57' }} />
+                            <div style={{ flex: 1, background: '#1e5233' }} />
+                            <div style={{ flex: 1, background: '#1e2430' }} />
+                            <div style={{ flex: 1, background: '#7d1a1a' }} />
+                            <div style={{ flex: 1, background: '#c02424' }} />
+                        </div>
                         <span className="text-rose-400 font-bold">-3%</span>
                     </div>
                 </div>
 
-                {/* TreeMap Chart — negative margin compensates for ECharts internal root padding */}
-                <div style={{ height: 400, overflow: 'hidden' }}>
-                    <div style={{ marginTop: -6, height: 410 }}>
+                {/* TreeMap */}
+                <div style={{ height: 450 }}>
                     <ReactECharts
                         option={option}
                         style={{ height: '100%', width: '100%' }}
                         opts={{ renderer: 'canvas' }}
                         onEvents={{ click: onChartClick }}
                     />
-                    </div>
                 </div>
             </div>
         </section>

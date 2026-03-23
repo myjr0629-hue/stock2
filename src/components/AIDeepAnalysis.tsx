@@ -1,23 +1,8 @@
 "use client";
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Sparkles, Clock, AlertTriangle, RefreshCw, Loader2, ChevronDown, ChevronUp, Newspaper, TrendingUp, TrendingDown, Minus } from 'lucide-react';
+import { Sparkles, Clock, AlertTriangle, RefreshCw, Loader2, ChevronDown, ChevronUp, TrendingUp, BarChart3, Globe, Zap } from 'lucide-react';
 import { useLocale } from 'next-intl';
-
-interface NewsHeadline {
-    title: string;
-    age: string;
-    sentiment: string;
-    source: string;
-}
-
-interface NewsSummary {
-    total: number;
-    bullish: number;
-    bearish: number;
-    neutral: number;
-    headlines: NewsHeadline[];
-}
 
 interface DeepAnalysisResult {
     currentState: string;
@@ -30,7 +15,6 @@ interface DeepAnalysisResult {
     generatedAt: string;
     elapsedMs: number;
     newsCount: number;
-    newsSummary?: NewsSummary;
     fromCache: boolean;
     triggerReason: string;
     session: string;
@@ -94,12 +78,22 @@ function getEffectiveInterval(session: string, earningsDaysUntil: number): numbe
     return base;
 }
 
+// ── Section icon mapping ──
+const sectionIcon = (title: string) => {
+    const t = title.toLowerCase();
+    if (t.includes('기술') || t.includes('technical') || t.includes('技術')) return <TrendingUp size={12} className="text-cyan-400" />;
+    if (t.includes('옵션') || t.includes('option') || t.includes('オプション') || t.includes('포지셔닝')) return <BarChart3 size={12} className="text-indigo-400" />;
+    if (t.includes('뉴스') || t.includes('news') || t.includes('시장') || t.includes('ニュース')) return <Globe size={12} className="text-amber-400" />;
+    return <Zap size={12} className="text-slate-400" />;
+};
+
 export function AIDeepAnalysis({ ticker, displayPrice, session, snapshot }: Props) {
     const locale = useLocale();
     const [analysis, setAnalysis] = useState<DeepAnalysisResult | null>(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [expanded, setExpanded] = useState(true);
+    const [openSections, setOpenSections] = useState<Set<number>>(new Set());
     const lastAnalysisPriceRef = useRef<number>(0);
     const lastGammaFlipRef = useRef<number>(0);
     const refreshTimerRef = useRef<NodeJS.Timeout | null>(null);
@@ -153,7 +147,6 @@ export function AIDeepAnalysis({ ticker, displayPrice, session, snapshot }: Prop
         if (!lastAnalysisPriceRef.current || loading) return;
         const changePct = Math.abs((displayPrice - lastAnalysisPriceRef.current) / lastAnalysisPriceRef.current * 100);
         if (changePct >= 1.0 && session === 'REG') {
-            console.log(`[AIDeepAnalysis] Price move ${changePct.toFixed(1)}% — re-analyzing`);
             fetchAnalysis('PRICE_MOVE');
         }
     }, [displayPrice, session, loading, fetchAnalysis]);
@@ -166,7 +159,6 @@ export function AIDeepAnalysis({ ticker, displayPrice, session, snapshot }: Prop
         const priceWasAbove = displayPrice > lastFlip;
         const priceIsAbove = displayPrice > currentFlip;
         if (priceWasAbove !== priceIsAbove && session === 'REG') {
-            console.log('[AIDeepAnalysis] Gamma Flip zone change — re-analyzing');
             fetchAnalysis('GAMMA_FLIP');
         }
     }, [snapshot.structure?.gammaFlipLevel, displayPrice, session, loading, fetchAnalysis]);
@@ -184,13 +176,22 @@ export function AIDeepAnalysis({ ticker, displayPrice, session, snapshot }: Prop
         return () => clearInterval(timer);
     }, [analysis]);
 
-    // --- Helper functions ---
-    const riskColors: Record<string, string> = {
-        HIGH: 'bg-rose-500/20 text-rose-400 border-rose-500/30',
-        MEDIUM: 'bg-amber-500/20 text-amber-400 border-amber-500/30',
-        LOW: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30',
-        NONE: 'bg-slate-500/15 text-slate-400 border-slate-500/20',
+    // --- Helpers ---
+    const riskConfig: Record<string, { bg: string; text: string; border: string; glow: string }> = {
+        HIGH: { bg: 'bg-rose-500/15', text: 'text-rose-400', border: 'border-rose-500/30', glow: 'rgba(244,63,94,0.15)' },
+        MEDIUM: { bg: 'bg-amber-500/15', text: 'text-amber-400', border: 'border-amber-500/30', glow: 'rgba(245,158,11,0.12)' },
+        LOW: { bg: 'bg-emerald-500/15', text: 'text-emerald-400', border: 'border-emerald-500/30', glow: 'rgba(16,185,129,0.12)' },
+        NONE: { bg: 'bg-slate-500/10', text: 'text-slate-400', border: 'border-slate-500/20', glow: 'rgba(148,163,184,0.08)' },
     };
+
+    const verdictColor = (state: string) => {
+        if (!state) return { bar: '#f59e0b', label: 'NEUTRAL' };
+        const s = state.toUpperCase();
+        if (s.includes('BULLISH') || s.includes('상승') || s.includes('강세')) return { bar: '#10b981', label: 'BULLISH' };
+        if (s.includes('BEARISH') || s.includes('하락') || s.includes('약세')) return { bar: '#f43f5e', label: 'BEARISH' };
+        return { bar: '#f59e0b', label: 'NEUTRAL' };
+    };
+
     const confidenceDots: Record<string, number> = { HIGH: 3, MEDIUM: 2, LOW: 1 };
 
     const timeAgo = (iso: string) => {
@@ -209,75 +210,81 @@ export function AIDeepAnalysis({ ticker, displayPrice, session, snapshot }: Prop
         GAMMA_FLIP: locale === 'ko' ? '감마 플립 감지' : locale === 'ja' ? 'ガンマフリップ検知' : 'Gamma Flip',
     };
 
-    const sentimentIcon = (s: string) => {
-        if (s === 'positive') return <TrendingUp size={10} className="text-emerald-400" />;
-        if (s === 'negative') return <TrendingDown size={10} className="text-rose-400" />;
-        return <Minus size={10} className="text-slate-400" />;
+    const toggleSection = (idx: number) => {
+        setOpenSections(prev => {
+            const next = new Set(prev);
+            if (next.has(idx)) next.delete(idx);
+            else next.add(idx);
+            return next;
+        });
     };
 
-    const sentimentColor = (s: string) => {
-        if (s === 'positive') return 'text-emerald-400';
-        if (s === 'negative') return 'text-rose-400';
-        return 'text-slate-400';
-    };
-
-    // Format price for display
-    const fmtPrice = (v: number) => v ? `$${v.toLocaleString()}` : 'N/A';
+    // Extract description from currentState (text after —)
+    const parts = analysis?.currentState?.split('—') || [];
+    const shortVerdict = parts.length > 1 ? parts.slice(1).join('—').trim() : (analysis?.currentState || '');
+    const verdict = analysis ? verdictColor(analysis.currentState) : { bar: '#f59e0b', label: 'NEUTRAL' };
+    const risk = analysis ? riskConfig[analysis.riskFlag] || riskConfig.NONE : riskConfig.NONE;
 
     return (
-        <div className="shrink-0 relative rounded-lg border border-white/10 bg-slate-900/60 backdrop-blur-md overflow-hidden shadow-lg group hover:border-cyan-500/20 transition-colors">
-            {/* ═══ Premium AI Infographic Background ═══ */}
+        <div className="shrink-0 relative rounded-lg border border-white/10 overflow-hidden shadow-lg group hover:border-cyan-500/15 transition-all duration-300"
+            style={{ background: 'linear-gradient(180deg, rgba(8,12,21,0.95) 0%, rgba(13,17,25,0.98) 100%)' }}>
+
+            {/* ═══ AI Neural Background ═══ */}
             <div className="absolute inset-0 pointer-events-none z-0 overflow-hidden">
-                {/* Neural network grid — subtle diagonal crosshatch */}
+                {/* Neural mesh grid */}
                 <div className="absolute inset-0"
                     style={{
                         backgroundImage: `
-                            linear-gradient(30deg, rgba(6,182,212,0.03) 1px, transparent 1px),
-                            linear-gradient(150deg, rgba(6,182,212,0.03) 1px, transparent 1px),
-                            linear-gradient(270deg, rgba(99,102,241,0.02) 1px, transparent 1px)
+                            linear-gradient(30deg, rgba(6,182,212,0.04) 1px, transparent 1px),
+                            linear-gradient(150deg, rgba(6,182,212,0.04) 1px, transparent 1px)
                         `,
-                        backgroundSize: '40px 40px, 40px 40px, 30px 30px',
+                        backgroundSize: '32px 32px, 32px 32px',
                     }}
                 />
                 {/* AI neural glow — top-right */}
-                <div className="absolute -top-16 -right-16 w-72 h-72 rounded-full"
-                    style={{ background: 'radial-gradient(circle, rgba(6,182,212,0.08) 0%, rgba(99,102,241,0.04) 40%, transparent 70%)' }}
+                <div className="absolute -top-20 -right-20 w-64 h-64 rounded-full"
+                    style={{ background: 'radial-gradient(circle, rgba(6,182,212,0.1) 0%, rgba(99,102,241,0.05) 40%, transparent 70%)' }}
                 />
                 {/* Data pulse — bottom-left */}
-                <div className="absolute -bottom-12 -left-12 w-56 h-56 rounded-full"
-                    style={{ background: 'radial-gradient(circle, rgba(99,102,241,0.06) 0%, rgba(6,182,212,0.03) 50%, transparent 70%)' }}
+                <div className="absolute -bottom-16 -left-16 w-48 h-48 rounded-full"
+                    style={{ background: 'radial-gradient(circle, rgba(99,102,241,0.08) 0%, transparent 70%)' }}
                 />
-                {/* Horizontal scan line animation */}
-                <div className="absolute left-0 right-0 h-px opacity-40"
+                {/* Horizontal scan line */}
+                <div className="absolute left-0 right-0 h-px opacity-30"
                     style={{
-                        background: 'linear-gradient(90deg, transparent 0%, rgba(6,182,212,0.3) 30%, rgba(6,182,212,0.5) 50%, rgba(6,182,212,0.3) 70%, transparent 100%)',
-                        animation: 'scanline 8s ease-in-out infinite',
+                        background: 'linear-gradient(90deg, transparent 0%, rgba(6,182,212,0.4) 30%, rgba(6,182,212,0.6) 50%, rgba(6,182,212,0.4) 70%, transparent 100%)',
+                        animation: 'aiScanline 10s ease-in-out infinite',
                     }}
                 />
-                {/* Corner brackets — institutional style */}
-                <div className="absolute top-0 right-0 w-20 h-20 border-r-2 border-t-2 border-cyan-500/10 rounded-tr-xl" />
-                <div className="absolute bottom-0 left-0 w-20 h-20 border-l-2 border-b-2 border-indigo-500/10 rounded-bl-xl" />
-                {/* Vertical accent line — left edge */}
-                <div className="absolute top-0 left-0 bottom-0 w-[2px] bg-gradient-to-b from-cyan-500/20 via-indigo-500/10 to-transparent" />
-                {/* Bottom accent gradient */}
-                <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-cyan-500/30 to-transparent" />
+                {/* Corner brackets */}
+                <div className="absolute top-0 right-0 w-16 h-16 border-r border-t border-cyan-500/15 rounded-tr-lg" />
+                <div className="absolute bottom-0 left-0 w-16 h-16 border-l border-b border-indigo-500/15 rounded-bl-lg" />
+                {/* Left accent bar */}
+                <div className="absolute top-0 left-0 bottom-0 w-[2px] bg-gradient-to-b from-cyan-500/30 via-indigo-500/15 to-transparent" />
             </div>
 
-            {/* ═══ Scan line keyframe (injected once) ═══ */}
+            {/* ═══ Scan line keyframe ═══ */}
             <style jsx>{`
-                @keyframes scanline {
-                    0%, 100% { top: 10%; opacity: 0; }
-                    10% { opacity: 0.4; }
-                    50% { top: 85%; opacity: 0.3; }
+                @keyframes aiScanline {
+                    0%, 100% { top: 8%; opacity: 0; }
+                    10% { opacity: 0.3; }
+                    50% { top: 90%; opacity: 0.2; }
                     90% { opacity: 0; }
+                }
+                @keyframes aiPulse {
+                    0%, 100% { opacity: 0.4; }
+                    50% { opacity: 1; }
                 }
             `}</style>
 
             {/* ═══ Header ═══ */}
-            <div className="p-3 border-b border-white/5 flex items-center justify-between bg-gradient-to-r from-white/[0.04] via-white/[0.06] to-white/[0.04] relative z-10">
+            <div className="px-3.5 py-2.5 border-b border-white/[0.06] flex items-center justify-between relative z-10"
+                style={{ background: 'linear-gradient(90deg, rgba(6,182,212,0.06) 0%, rgba(99,102,241,0.04) 50%, transparent 100%)' }}>
                 <div className="flex items-center gap-2">
-                    <Sparkles size={12} className="text-cyan-400" />
-                    <span className="text-[12px] font-black text-white uppercase tracking-widest font-jakarta">
+                    <div className="relative">
+                        <Sparkles size={13} className="text-cyan-400" style={{ animation: 'aiPulse 3s ease-in-out infinite' }} />
+                    </div>
+                    <span className="text-[12px] font-black text-white uppercase tracking-[0.15em] font-jakarta">
                         AI Deep Analysis
                     </span>
                     <span className="text-[10px] bg-gradient-to-r from-cyan-950/80 to-indigo-950/80 text-cyan-400 px-1.5 py-0.5 rounded border border-cyan-500/20 font-bold font-jakarta">
@@ -287,7 +294,7 @@ export function AIDeepAnalysis({ ticker, displayPrice, session, snapshot }: Prop
                 <div className="flex items-center gap-2">
                     {loading && <Loader2 size={12} className="text-cyan-400 animate-spin" />}
                     {analysis?.triggerReason && analysis.triggerReason !== 'FIRST_VIEW' && (
-                        <span className="text-[11px] text-amber-400/80 font-jakarta">
+                        <span className="text-[12px] text-amber-400/80 font-jakarta">
                             {triggerLabel[analysis.triggerReason] || ''}
                         </span>
                     )}
@@ -308,7 +315,7 @@ export function AIDeepAnalysis({ ticker, displayPrice, session, snapshot }: Prop
                             <div className="absolute inset-0 rounded-full border-2 border-transparent border-t-cyan-400 animate-spin" style={{ animationDuration: '2s' }} />
                         </div>
                         <div className="text-center">
-                            <p className="text-[13px] text-cyan-200 font-jakarta font-bold tracking-wider">
+                            <p className="text-[13px] text-cyan-300 font-jakarta font-bold tracking-wider">
                                 {locale === 'ko' ? 'AI 심층 분석 중...' : locale === 'ja' ? 'AI深層分析中...' : 'AI Deep Analysis in progress...'}
                             </p>
                             <p className="text-[12px] text-slate-300 font-jakarta mt-1">
@@ -317,7 +324,6 @@ export function AIDeepAnalysis({ ticker, displayPrice, session, snapshot }: Prop
                         </div>
                         <div className="w-48 space-y-2 mt-1">
                             <div className="h-1.5 rounded-full bg-gradient-to-r from-cyan-500/20 via-cyan-500/40 to-cyan-500/20" style={{ animation: 'shimmer 2s ease-in-out infinite', backgroundSize: '200% 100%' }} />
-                            <div className="h-1.5 rounded-full bg-gradient-to-r from-cyan-500/20 via-cyan-500/40 to-cyan-500/20 w-3/4" style={{ animation: 'shimmer 2s ease-in-out infinite 0.3s', backgroundSize: '200% 100%' }} />
                         </div>
                     </div>
                 </div>
@@ -331,183 +337,149 @@ export function AIDeepAnalysis({ ticker, displayPrice, session, snapshot }: Prop
                         <span className="text-[12px] font-bold font-jakarta">Analysis Error</span>
                     </div>
                     <p className="text-[12px] text-slate-300">{error}</p>
-                    <button
-                        onClick={() => fetchAnalysis('FIRST_VIEW')}
-                        className="mt-2 text-[12px] text-cyan-400 hover:text-cyan-300 flex items-center gap-1 font-jakarta"
-                    >
+                    <button onClick={() => fetchAnalysis('FIRST_VIEW')}
+                        className="mt-2 text-[12px] text-cyan-400 hover:text-cyan-300 flex items-center gap-1 font-jakarta">
                         <RefreshCw size={10} /> {locale === 'ko' ? '재시도' : locale === 'ja' ? '再試行' : 'Retry'}
                     </button>
                 </div>
             )}
 
-            {/* ═══ Analysis Result ═══ */}
+            {/* ═══ VERDICT BANNER + ACCORDION ═══ */}
             {analysis && expanded && (
                 <div className="relative z-10">
 
-                    {/* ─── Current State Banner ─── */}
-                    <div className="px-4 py-3 border-b border-white/5"
-                        style={{
-                            background: analysis.riskFlag === 'HIGH'
-                                ? 'linear-gradient(90deg, rgba(244,63,94,0.08) 0%, transparent 60%)'
-                                : analysis.currentState?.includes('BULLISH') || analysis.currentState?.includes('상승') || analysis.currentState?.includes('강세')
-                                    ? 'linear-gradient(90deg, rgba(16,185,129,0.08) 0%, transparent 60%)'
-                                    : analysis.currentState?.includes('BEARISH') || analysis.currentState?.includes('하락') || analysis.currentState?.includes('약세')
-                                        ? 'linear-gradient(90deg, rgba(244,63,94,0.08) 0%, transparent 60%)'
-                                        : 'linear-gradient(90deg, rgba(148,163,184,0.05) 0%, transparent 60%)'
-                        }}
-                    >
-                        <p className="text-[13px] font-bold text-white leading-snug" style={{ fontFamily: 'Pretendard, sans-serif' }}>
-                            {analysis.currentState}
-                        </p>
+                    {/* ─── ① Verdict Banner ─── */}
+                    <div className="relative">
+                        {/* Colored left accent bar */}
+                        <div className="absolute left-0 top-0 bottom-0 w-[3px] rounded-r"
+                            style={{ background: `linear-gradient(180deg, ${verdict.bar}, ${verdict.bar}88)` }} />
+
+                        <div className="pl-4 pr-4 py-3.5"
+                            style={{
+                                background: `linear-gradient(90deg, ${verdict.bar}10 0%, transparent 60%)`,
+                            }}>
+                            {/* Verdict label */}
+                            <div className="flex items-center gap-2 mb-2">
+                                <span className="text-[13px] font-black uppercase tracking-wider font-jakarta"
+                                    style={{ color: verdict.bar }}>
+                                    {verdict.label}
+                                </span>
+                                <span className="text-[12px] text-slate-400 font-jakarta">—</span>
+                                <span className="text-[12px] text-slate-300 font-semibold font-jakarta truncate">
+                                    {shortVerdict}
+                                </span>
+                            </div>
+
+                            {/* Key Insight — promoted to main position */}
+                            {analysis.keyInsight && (
+                                <div className="mt-1 px-3 py-2.5 rounded-lg border border-cyan-500/15"
+                                    style={{ background: 'linear-gradient(135deg, rgba(6,182,212,0.08) 0%, rgba(99,102,241,0.06) 100%)' }}>
+                                    <div className="flex items-start gap-2">
+                                        <Sparkles size={12} className="text-cyan-400 mt-0.5 shrink-0" style={{ animation: 'aiPulse 3s ease-in-out infinite' }} />
+                                        <p className="text-[13px] text-slate-300 font-medium leading-relaxed" style={{ fontFamily: 'Pretendard, sans-serif' }}>
+                                            {analysis.keyInsight}
+                                        </p>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Risk + Confidence + Time — integrated inline */}
+                            <div className="flex items-center justify-between mt-2.5 flex-wrap gap-1.5">
+                                <div className="flex items-center gap-2">
+                                    <span className={`text-[12px] px-2 py-0.5 rounded border font-bold font-jakarta ${risk.bg} ${risk.text} ${risk.border}`}>
+                                        RISK: {analysis.riskFlag}
+                                    </span>
+                                    <div className="flex items-center gap-1">
+                                        {[1, 2, 3].map(dot => (
+                                            <div key={dot} className={`w-1.5 h-1.5 rounded-full ${dot <= (confidenceDots[analysis.confidence] || 0) ? 'bg-cyan-400' : 'bg-slate-600'}`} />
+                                        ))}
+                                        <span className="text-[12px] text-slate-300 ml-0.5 font-jakarta">{analysis.confidence}</span>
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    {loading && analysis && <Loader2 size={10} className="text-cyan-400 animate-spin" />}
+                                    <span className="text-[12px] text-slate-300 font-mono font-jakarta flex items-center gap-1">
+                                        <Clock size={10} />
+                                        {timeAgo(analysis.generatedAt)}
+                                    </span>
+                                    {countdown && session !== 'CLOSED' && (
+                                        <span className="text-[12px] text-slate-400 font-mono">
+                                            {locale === 'ko' ? `다음 ${countdown}` : locale === 'ja' ? `次回 ${countdown}` : `Next: ${countdown}`}
+                                        </span>
+                                    )}
+                                    <button
+                                        onClick={() => fetchAnalysis('SCHEDULED')}
+                                        className="text-slate-400 hover:text-cyan-400 transition-colors"
+                                        disabled={loading}
+                                    >
+                                        <RefreshCw size={12} />
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
                     </div>
 
-                    {/* ─── Sections Body ─── */}
-                    {analysis.sections && analysis.sections.length > 0 ? (
-                        <div className="px-4 py-2 space-y-0">
-                            {analysis.sections.map((section, i) => (
-                                <div key={i} className={`py-2.5 ${i > 0 ? 'border-t border-white/5' : ''}`}>
-                                    <div className="text-[12px] font-bold text-cyan-400/80 uppercase tracking-wider mb-1.5 font-jakarta">
-                                        {section.title}
+                    {/* ─── ② Accordion Sections ─── */}
+                    {analysis.sections && analysis.sections.length > 0 && (
+                        <div className="border-t border-white/[0.04]">
+                            {analysis.sections.map((section, i) => {
+                                const isOpen = openSections.has(i);
+                                return (
+                                    <div key={i} className={`${i > 0 ? 'border-t border-white/[0.04]' : ''}`}>
+                                        {/* Toggle header */}
+                                        <button
+                                            onClick={() => toggleSection(i)}
+                                            className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-white/[0.03] transition-colors"
+                                        >
+                                            <div className="flex items-center gap-2">
+                                                {sectionIcon(section.title)}
+                                                <span className="text-[12px] font-bold text-slate-300 uppercase tracking-wider font-jakarta">
+                                                    {section.title}
+                                                </span>
+                                            </div>
+                                            <ChevronDown
+                                                size={14}
+                                                className={`text-slate-400 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}
+                                            />
+                                        </button>
+                                        {/* Collapsible body */}
+                                        <div
+                                            className="overflow-hidden transition-all duration-300 ease-in-out"
+                                            style={{
+                                                maxHeight: isOpen ? '600px' : '0px',
+                                                opacity: isOpen ? 1 : 0,
+                                            }}
+                                        >
+                                            <div className="px-4 pb-3">
+                                                <p className="text-[13px] text-slate-300 leading-[1.8]" style={{ fontFamily: 'Pretendard, sans-serif' }}>
+                                                    {section.content}
+                                                </p>
+                                            </div>
+                                        </div>
                                     </div>
-                                    <p className="text-[13px] text-slate-300 leading-[1.8]" style={{ fontFamily: 'Pretendard, sans-serif' }}>
-                                        {section.content}
-                                    </p>
-                                </div>
-                            ))}
+                                );
+                            })}
                         </div>
-                    ) : analysis.narrative ? (
-                        <div className="px-4 py-3">
+                    )}
+
+                    {/* Fallback: narrative without sections */}
+                    {!analysis.sections?.length && analysis.narrative && (
+                        <div className="px-4 py-3 border-t border-white/[0.04]">
                             <p className="text-[13px] text-slate-300 leading-[1.8] whitespace-pre-wrap" style={{ fontFamily: 'Pretendard, sans-serif' }}>
                                 {analysis.narrative}
                             </p>
                         </div>
-                    ) : null}
-
-                    {/* ─── Key Insight (one-liner) ─── */}
-                    {analysis.keyInsight && (
-                        <div className="mx-4 mb-2 px-3 py-2 bg-cyan-950/40 rounded-lg border border-cyan-500/15">
-                            <div className="flex items-start gap-2">
-                                <Sparkles size={12} className="text-cyan-400 mt-0.5 shrink-0" />
-                                <p className="text-[13px] text-cyan-100 font-medium leading-snug" style={{ fontFamily: 'Pretendard, sans-serif' }}>
-                                    {analysis.keyInsight}
-                                </p>
-                            </div>
-                        </div>
                     )}
-
-                    {/* ─── News Summary Cards ─── */}
-                    {analysis.newsSummary && analysis.newsSummary.total > 0 && (
-                        <div className="mx-4 mb-3">
-                            {/* News Header + Sentiment Bar */}
-                            <div className="flex items-center justify-between mb-2">
-                                <div className="flex items-center gap-1.5">
-                                    <Newspaper size={11} className="text-indigo-400" />
-                                    <span className="text-[11px] font-bold text-indigo-300 uppercase tracking-wider font-jakarta">
-                                        {locale === 'ko' ? '관련 뉴스' : locale === 'ja' ? '関連ニュース' : 'Related News'}
-                                    </span>
-                                    <span className="text-[11px] text-slate-500 font-jakarta">
-                                        ({analysis.newsSummary.total})
-                                    </span>
-                                </div>
-                                <div className="flex items-center gap-2 text-[11px] font-jakarta tabular-nums">
-                                    {analysis.newsSummary.bullish > 0 && (
-                                        <span className="flex items-center gap-0.5">
-                                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                                            <span className="text-emerald-400">{analysis.newsSummary.bullish}</span>
-                                        </span>
-                                    )}
-                                    {analysis.newsSummary.neutral > 0 && (
-                                        <span className="flex items-center gap-0.5">
-                                            <span className="w-1.5 h-1.5 rounded-full bg-slate-500" />
-                                            <span className="text-slate-400">{analysis.newsSummary.neutral}</span>
-                                        </span>
-                                    )}
-                                    {analysis.newsSummary.bearish > 0 && (
-                                        <span className="flex items-center gap-0.5">
-                                            <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
-                                            <span className="text-rose-400">{analysis.newsSummary.bearish}</span>
-                                        </span>
-                                    )}
-                                </div>
-                            </div>
-
-                            {/* Sentiment Progress Bar */}
-                            <div className="flex h-1 rounded-full overflow-hidden bg-slate-800/60 mb-2.5">
-                                {analysis.newsSummary.bullish > 0 && (
-                                    <div className="bg-emerald-500 transition-all" style={{ width: `${(analysis.newsSummary.bullish / analysis.newsSummary.total) * 100}%` }} />
-                                )}
-                                {analysis.newsSummary.neutral > 0 && (
-                                    <div className="bg-slate-500/60 transition-all" style={{ width: `${(analysis.newsSummary.neutral / analysis.newsSummary.total) * 100}%` }} />
-                                )}
-                                {analysis.newsSummary.bearish > 0 && (
-                                    <div className="bg-rose-500 transition-all" style={{ width: `${(analysis.newsSummary.bearish / analysis.newsSummary.total) * 100}%` }} />
-                                )}
-                            </div>
-
-                            {/* Top Headlines */}
-                            <div className="space-y-0">
-                                {analysis.newsSummary.headlines.map((h, i) => (
-                                    <div key={i} className="flex items-start gap-2 py-1.5 border-b border-white/[0.03] last:border-0">
-                                        <div className="mt-1 shrink-0">{sentimentIcon(h.sentiment)}</div>
-                                        <div className="flex-1 min-w-0">
-                                            <p className="text-[12px] text-slate-300 leading-snug line-clamp-2" style={{ fontFamily: 'Pretendard, sans-serif' }}>
-                                                {h.title}
-                                            </p>
-                                            <div className="flex items-center gap-1.5 mt-0.5">
-                                                <span className="text-[10px] text-slate-500 font-jakarta">{h.source}</span>
-                                                <span className="text-[10px] text-slate-600">·</span>
-                                                <span className={`text-[10px] font-jakarta ${sentimentColor(h.sentiment)}`}>
-                                                    {h.age}
-                                                </span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    )}
-
-                    {/* ─── Footer — Risk + Confidence + Countdown ─── */}
-                    <div className="px-4 py-2.5 border-t border-white/5 bg-slate-950/30 flex items-center justify-between flex-wrap gap-2">
-                        <div className="flex items-center gap-2">
-                            <span className={`text-[11px] px-2 py-0.5 rounded border font-bold font-jakarta ${riskColors[analysis.riskFlag] || riskColors.NONE}`}>
-                                RISK: {analysis.riskFlag}
-                            </span>
-                            <div className="flex items-center gap-1">
-                                {[1, 2, 3].map(dot => (
-                                    <div key={dot} className={`w-1.5 h-1.5 rounded-full ${dot <= (confidenceDots[analysis.confidence] || 0) ? 'bg-cyan-400' : 'bg-slate-600'}`} />
-                                ))}
-                                <span className="text-[11px] text-slate-400 ml-1 font-jakarta">{analysis.confidence}</span>
-                            </div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                            {loading && analysis && <Loader2 size={10} className="text-cyan-400 animate-spin" />}
-                            <span className="text-[11px] text-slate-400 font-mono font-jakarta flex items-center gap-1">
-                                <Clock size={10} />
-                                {timeAgo(analysis.generatedAt)}
-                            </span>
-                            {countdown && session !== 'CLOSED' && (
-                                <span className="text-[11px] text-slate-500 font-mono">
-                                    {locale === 'ko' ? `다음 ${countdown}` : locale === 'ja' ? `次回 ${countdown}` : `Next: ${countdown}`}
-                                </span>
-                            )}
-                            <button
-                                onClick={() => fetchAnalysis('SCHEDULED')}
-                                className="text-slate-500 hover:text-cyan-400 transition-colors"
-                                disabled={loading}
-                                title={locale === 'ko' ? '수동 갱신' : 'Refresh'}
-                            >
-                                <RefreshCw size={12} />
-                            </button>
-                        </div>
-                    </div>
                 </div>
             )}
 
             {/* ═══ Collapsed State ═══ */}
             {analysis && !expanded && (
-                <div className="px-4 py-2 relative z-10 cursor-pointer" onClick={() => setExpanded(true)}>
-                    <p className="text-[12px] text-slate-300 truncate">{analysis.currentState}</p>
+                <div className="px-4 py-2.5 relative z-10 cursor-pointer flex items-center gap-2" onClick={() => setExpanded(true)}>
+                    <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: verdict.bar }} />
+                    <span className="text-[13px] font-bold font-jakarta" style={{ color: verdict.bar }}>{verdict.label}</span>
+                    <span className="text-[12px] text-slate-300 truncate flex-1">{shortVerdict}</span>
+                    <ChevronDown size={14} className="text-slate-400 shrink-0" />
                 </div>
             )}
         </div>

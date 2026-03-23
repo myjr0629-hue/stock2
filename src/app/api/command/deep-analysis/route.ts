@@ -226,24 +226,25 @@ ${langInstructions}
 </language>
 
 <output_format>
-Return ONLY valid JSON (no markdown fences):
+Return ONLY valid JSON (no markdown fences).
+ALL text values (currentState, section titles, content, keyInsight) MUST be written in ${locale === 'ko' ? 'Korean (한국어)' : locale === 'ja' ? 'Japanese (日本語)' : 'English'}.
 {
-  "currentState": "1줄 현재 상태 핵심 판단 (예: 'BULLISH — 기술적 골든크로스 + 기관 매수 우위 속 감마 롱존 유지')",
+  "currentState": "${locale === 'ko' ? '1줄 현재 상태 핵심 판단 (예: \'BULLISH — 기술적 골든크로스 + 기관 매수 우위 속 감마 롱존 유지\')' : locale === 'ja' ? '1行の現状核心判断 (例: \'BULLISH — テクニカルゴールデンクロス + 機関買い優勢の中ガンマロングゾーン維持\')' : 'One-line current state assessment (e.g., \'BULLISH — Technical golden cross + institutional call dominance with long gamma zone maintained\')'}",
   "sections": [
     {
-      "title": "기술적 구조 분석",
-      "content": "2-4문장. SMA, VWAP 등 기술적 지표의 구조적 맥락을 깊이있게 분석."
+      "title": "${locale === 'ko' ? '기술적 구조 분석' : locale === 'ja' ? 'テクニカル構造分析' : 'Technical Structure Analysis'}",
+      "content": "2-4 sentences. Deep structural context of SMA, VWAP, and technical indicators."
     },
     {
-      "title": "옵션 포지셔닝",
-      "content": "2-3문장. GEX, 감마 구조, Call Wall/Put Floor, 기관 흐름을 연결하여 분석."
+      "title": "${locale === 'ko' ? '옵션 포지셔닝' : locale === 'ja' ? 'オプションポジショニング' : 'Options Positioning'}",
+      "content": "2-3 sentences. Connect GEX, gamma structure, Call Wall/Put Floor, and institutional flow."
     },
     {
-      "title": "뉴스 및 시장 맥락",
-      "content": "2-3문장. 최근 뉴스를 지표와 연결하여 해석. 뉴스 없으면 섹터/매크로 맥락."
+      "title": "${locale === 'ko' ? '뉴스 및 시장 맥락' : locale === 'ja' ? 'ニュースと市場コンテクスト' : 'News & Market Context'}",
+      "content": "2-3 sentences. Interpret recent news with indicators. If no news, use sector/macro context."
     }
   ],
-  "keyInsight": "핵심 인사이트 1줄 — 현재 가장 주목해야 할 포인트",
+  "keyInsight": "${locale === 'ko' ? '핵심 인사이트 1줄' : locale === 'ja' ? '核心インサイト1行' : 'One-line key insight — the single most important observation right now'}",
   "riskFlag": "HIGH | MEDIUM | LOW | NONE",
   "confidence": "HIGH | MEDIUM | LOW"
 }
@@ -254,11 +255,12 @@ Return ONLY valid JSON (no markdown fences):
 - DEPTH over brevity: Each section should have 2-4 sentences of DEEP analysis
 - DATA ACCURACY: Use EXACT values from the XML data. call_wall is NOT gamma_flip_level — they are DIFFERENT values. Do NOT invent or substitute values.
 - NO DUPLICATE METRICS: Do NOT include "keyMetrics" — all data is already displayed in the Signal Core and Gamma Pressure cards above this section. Focus purely on narrative insight.
-- NEWS INTEGRATION: Weave news INTO the analysis naturally (e.g., "최근 보도된 AI 밸류에이션 과열 우려에도 불구하고...")
+- NEWS INTEGRATION: Weave news INTO the analysis naturally (e.g., ${locale === 'ko' ? '"최근 보도된 AI 밸류에이션 과열 우려에도 불구하고..."' : locale === 'ja' ? '"最近報じられたAIバリュエーション過熱懸念にもかかわらず..."' : '"Despite recent reports of AI valuation overheating concerns..."'})
 - If news is scarce, focus on structural indicators and sector context
 - If price moved significantly (trigger_reason=PRICE_MOVE), explain WHAT likely caused it
 - FORBIDDEN: investment advice, buy/sell recommendations, emojis, special unicode symbols
-- Make connections between indicators (e.g., "감마 롱존 유지와 Golden Cross의 동시 발생은...")
+- Make connections between indicators (e.g., ${locale === 'ko' ? '"감마 롱존 유지와 Golden Cross의 동시 발생은..."' : locale === 'ja' ? '"ガンマロングゾーン維持とゴールデンクロスの同時発生は..."' : '"The concurrent occurrence of long gamma zone maintenance and Golden Cross suggests..."'})
+- LANGUAGE: ALL output text MUST be in ${locale === 'ko' ? 'Korean (한국어)' : locale === 'ja' ? 'Japanese (日本語)' : 'English'}. Do NOT mix languages.
 </critical_rules>`;
 
         const userPrompt = xmlContext;
