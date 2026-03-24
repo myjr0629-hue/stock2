@@ -238,8 +238,8 @@ export function FlowAIAnalysis({ ticker, isSystemReady, isMarketClosed, flowData
     if (!isSystemReady && !analysis) return null;
 
     return (
-        <div className="relative rounded-lg border border-white/10 overflow-hidden shadow-lg"
-            style={{ background: 'linear-gradient(180deg, rgba(8,12,21,0.95) 0%, rgba(13,17,25,0.98) 100%)' }}>
+        <div className="relative rounded-lg border border-amber-500/40 overflow-hidden shadow-lg transition-all duration-300"
+            style={{ background: 'linear-gradient(180deg, rgba(8,12,21,0.95) 0%, rgba(13,17,25,0.98) 100%)', boxShadow: '0 0 12px rgba(245,158,11,0.12), 0 0 4px rgba(245,158,11,0.06)' }}>
 
             {/* ═══ AI Neural Background ═══ */}
             <div className="absolute inset-0 pointer-events-none z-0 overflow-hidden">
