@@ -1,35 +1,39 @@
-const puppeteer = require('puppeteer');
-const path = require('path');
-
-const BASE_URL = 'http://localhost:3000';
-const TICKER = 'NVDA';
-const OUTPUT_DIR = path.join(__dirname, '..', 'public', 'guide');
+const { chromium } = require('playwright');
 
 (async () => {
-    const browser = await puppeteer.launch({
-        headless: true,
-        args: ['--no-sandbox', '--disable-setuid-sandbox'],
+  const browser = await chromium.launch({ headless: true });
+  const context = await browser.newContext({
+    viewport: { width: 1920, height: 1080 },
+    deviceScaleFactor: 2,
+  });
+
+  const locales = ['ko', 'en', 'ja'];
+  // Using AAPL as the default ticker for command/dashboard screenshots
+  const ticker = 'AAPL';
+  
+  for (const locale of locales) {
+    console.log(`Capturing ${locale} dashboard for ${ticker}...`);
+    const page = await context.newPage();
+    
+    await page.goto(`https://www.signumhq.com/${locale}/dashboard?ticker=${ticker}`, {
+      waitUntil: 'networkidle',
+      timeout: 60000,
     });
+    
+    // Wait for content to load
+    await page.waitForTimeout(8000);
+    
+    const outPath = `./public/guide/command-full${locale === 'ko' ? '' : '-' + locale}.png`;
+    await page.screenshot({
+      path: outPath,
+      fullPage: true,
+      type: 'png',
+    });
+    
+    console.log(`  Saved: ${outPath}`);
+    await page.close();
+  }
 
-    for (const locale of ['ko', 'en', 'ja']) {
-        const page = await browser.newPage();
-        await page.setViewport({ width: 1440, height: 900, deviceScaleFactor: 2 });
-
-        const url = `${BASE_URL}/${locale}/ticker?ticker=${TICKER}`;
-        console.log(`📸 Capturing ${locale}: ${url}`);
-
-        await page.goto(url, { waitUntil: 'networkidle2', timeout: 60000 });
-        // Wait for data to load (SWR fetches)
-        await new Promise(r => setTimeout(r, 12000));
-
-        const suffix = locale === 'ko' ? '' : `-${locale}`;
-        const outputPath = path.join(OUTPUT_DIR, `command-full${suffix}.png`);
-        await page.screenshot({ path: outputPath, fullPage: true });
-
-        console.log(`✅ Saved: ${outputPath}`);
-        await page.close();
-    }
-
-    await browser.close();
-    console.log('\n🎉 All Command captures done!');
+  await browser.close();
+  console.log('All command screenshots captured!');
 })();

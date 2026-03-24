@@ -890,57 +890,184 @@
     "proTip": "Cross-reference Context Score with Gamma Flip and GEX regime to identify scenarios where multiple structural indicators converge on the same directional thesis."
   },
   "commandGuide": {
-    "subtitle": "AI-curated analytics portfolio identifying the strongest structural alignments across the entire U.S. equity universe in real time",
-    "cards": {
-      "overview": {
-        "badge": "Core",
-        "meaning": "COMMAND CENTER continuously scans the full U.S. equity universe and surfaces the top 30 tickers exhibiting the strongest structural alignment. Updated every 60 seconds with real-time data.",
-        "title": "Analytics Overview",
-        "desc": "The ranking algorithm synthesizes <gold>options flow</gold>, <cyan>institutional positioning</cyan>, <emerald>technical indicators</emerald>, and <rose>sentiment data</rose> to compute a composite Context Score for every tracked equity."
-      },
-      "alphaCard": {
-        "badge": "Score",
-        "meaning": "The Context Score (0-100) rank card displays each ticker's composite score, grade (A-F), and key contributing factors. A higher score indicates stronger bullish structural alignment across data sources.",
-        "title": "Context Score Card",
-        "colorGuide": "Grade color coding: <green>A/B grades</green> indicate bullish structure, <red>D/F grades</red> indicate bearish structure."
-      },
-      "signal": {
-        "badge": "Structural Signal",
-        "meaning": "Signal badges derived from the Analytics scoring engine. Each signal includes a confidence level reflecting the degree of data convergence supporting the classification.",
-        "title": "Signal System",
-        "buy": "Bullish Signal — Bullish structural alignment confirmed",
-        "strongBuy": "Strong Bullish — Multiple bullish indicators in simultaneous convergence",
-        "hold": "Hold — Current structure stable, directional data inconclusive",
-        "watch": "Watch — Bearish structure or elevated uncertainty detected"
-      },
-      "sparkline": {
-        "badge": "Trend",
-        "meaning": "A 7-day price micro-chart providing visual context for recent momentum. Green indicates positive trajectory, red indicates negative trajectory.",
-        "title": "Sparkline Chart"
-      },
-      "related": {
-        "badge": "Data Sources",
-        "meaning": "Each Context Score card shows the contributing data sources: GEX regime, P/C Ratio, IV status, Short Interest, and Dark Pool activity. These individual indicators are the building blocks of the composite score.",
-        "title": "Contributing Indicators"
-      },
-      "gammaFlip": {
-        "badge": "Gamma",
-        "meaning": "The Gamma Flip price level and current regime for each ranked ticker. Long gamma (above flip) indicates a volatility-suppressing environment; short gamma (below flip) indicates a volatility-amplifying environment.",
-        "above": "Long Gamma — Dealer hedging stabilizes price, range-bound environment",
-        "below": "Short Gamma — Dealer hedging amplifies moves, trending environment",
-        "title": "Gamma Flip Status"
-      },
-      "strategy": {
-        "badge": "Workflow",
-        "meaning": "The COMMAND CENTER analytical workflow for systematic data interpretation.",
-        "title": "Analysis Process",
-        "step1": "Structural alignment analysis: Identify tickers with highest Context Scores and consistent signal convergence",
-        "step2": "Cross-reference with Dashboard: Examine individual ticker's Gamma Flip, GEX, and AI Verdict for detailed structural validation",
-        "step3": "Options flow confirmation: Verify thesis via Flow Radar's institutional order flow and premium analytics"
-      }
+    "subtitle": "10 independent derivative, technical, and flow indicators — the institutional trading desk toolkit, delivered to individual investors",
+    "overviewTitle": "COMMAND Overview",
+    "overviewDesc": "Command Terminal consolidates <cyan>10 independent derivative, technical, and flow indicators</cyan> into a single screen. Monitor <gold>VOL REGIME</gold> for current volatility structure, <cyan>CONVICTION</cyan> for multi-source data alignment, <rose>SHORT SQUEEZE</rose> for short-cover risk, and <emerald>ANALYST TARGET</emerald> for Wall Street consensus — all in real-time. Delivering the same analytical depth that costs hundreds of thousands at a Bloomberg Terminal.",
+    "indicatorsTitle": "Premium Indicator Cards",
+    "indicatorsSubtitle": "Institutional-Grade Analytics",
+    "indicatorsDesc": "Each indicator derives from an independent data source in real-time. The core of structural analysis lies not in interpreting single indicators, but in cross-validating multiple signals — applying the same multi-source confirmation methodology used by institutional analysts.",
+    "row1Title": "Row 1 — Real-Time Market Structure",
+    "row2Title": "Row 2 — Swing & Long-Term Positioning",
+    "volRegime": {
+      "title": "VOL REGIME",
+      "badge": "Volatility",
+      "desc": "Combines Gamma Exposure (GEX), Implied Volatility (IV), and Squeeze Probability to classify the current <gold>market volatility regime</gold> into 4 tiers. Quantified as a 0–100 Score derived directly from options dealer hedging structure — the metric institutional risk managers check first.",
+      "stable": "STABLE — Low volatility, range-bound environment",
+      "coiling": "COILING — Energy accumulating, direction seeking",
+      "loaded": "LOADED — Volatility at critical threshold, prepare for breakout",
+      "erupting": "ERUPTING — Extreme volatility, maximum risk zone",
+      "tip": "In LOADED/ERUPTING states, small catalysts can trigger non-linear price movements due to dealer short-gamma positioning — the structural characteristic that institutional risk managers prioritize.",
+      "tradingGuide": "Signal Interpretation",
+      "guide1": "STABLE: Dealer hedging tends to revert prices toward VWAP, creating a mean-reversion environment",
+      "guide2": "COILING: Compressed volatility accumulates energy; breakout moves tend to be amplified",
+      "guide3": "LOADED/ERUPTING: Dealer short-gamma deepens, creating structural conditions for bi-directional sharp moves"
     },
-    "overviewTitle": "COMMAND CENTER Overview",
-    "overviewDesc": "The <cyan>COMMAND CENTER</cyan> functions as a real-time structural intelligence scanner, surfacing the top <gold>30 tickers</gold> with the strongest Context Scores. All data refreshes every <emerald>60 seconds</emerald>, providing continuous monitoring of the highest-conviction structural setups across the U.S. equity universe."
+    "conviction": {
+      "title": "CONVICTION MATRIX",
+      "badge": "Composite Score",
+      "desc": "Weighted aggregation of <cyan>moving average trends</cyan>, VWAP position, P/C Ratio, gamma exposure, and options flow — a <gold>directional conviction score</gold> from 5 independent data sources. Grades A through F to intuitively convey data alignment, implementing institutional multi-source confirmation methodology.",
+      "bull": "A–B+ (65+) — Bullish dominance, multi-signal alignment",
+      "neutral": "B–C (45-64) — Neutral, direction seeking",
+      "bear": "D–F (0-44) — Bearish dominance, concentrated sell signals",
+      "tip": "Conviction 80+ combined with VOL REGIME STABLE indicates 5 sources are stably aligned — a high-conviction structural environment.",
+      "tradingGuide": "Signal Interpretation",
+      "guide1": "Grade A: All 5 data sources converge in the same direction, structurally elevating trend continuation probability",
+      "guide2": "Grade C: Data conflict detected — a transitional state with low directional confidence",
+      "guide3": "Grade F: Multiple sources converge bearish, indicating structurally elevated downside risk"
+    },
+    "vwapCard": {
+      "title": "VWAP",
+      "badge": "Institutional Benchmark",
+      "desc": "The deviation (%) between <cyan>Volume-Weighted Average Price</cyan> and current price. The industry-standard execution benchmark used by institutional participants to measure execution quality — its sign and magnitude reveal <gold>short-term supply/demand structure</gold>. A core reference at global hedge fund trading desks.",
+      "above": "Positive (+) — Above VWAP — Average buyer in profit",
+      "below": "Negative (−) — Below VWAP — Average buyer in loss",
+      "tip": "VWAP deviation within ±0.3% is the institutional benchmark battleground — the resolution direction at this level determines short-term trend.",
+      "tradingGuide": "Signal Interpretation",
+      "guide1": "+2% deviation: Average participants hold significant unrealized gains; profit-taking supply likely",
+      "guide2": "±0.5%: VWAP battleground zone — whether close forms above or below VWAP is the key observation",
+      "guide3": "−2% deviation: Average participants underwater; additional decline may trigger stop-loss cascades"
+    },
+    "shortSqueeze": {
+      "title": "SHORT SQUEEZE",
+      "badge": "Short Risk",
+      "desc": "Aggregates Short Interest (SI%), Days to Cover, and short volume concentration to classify <rose>squeeze probability</rose> into tiers. Quantifies the potential magnitude of involuntary buying demand when forced covering occurs — a mandatory monitoring element in institutional risk management systems.",
+      "low": "LOW — SI% below 5%, squeeze probability minimal",
+      "medium": "MEDIUM — SI% 5-15%, monitoring required",
+      "high": "HIGH — SI% 15%+, short squeeze alert",
+      "critical": "CRITICAL — SI% 25%+, extreme risk",
+      "tip": "Days to Cover 3+ combined with SI% 15%+ creates the classic structure where short-cover demand can concentrate in a compressed timeframe.",
+      "tradingGuide": "Signal Interpretation",
+      "guide1": "HIGH/CRITICAL: Price increases can cascade forced covering, triggering non-linear rallies through self-reinforcing loops",
+      "guide2": "Positive momentum + HIGH SI%: Price rise triggers covers, covers trigger further rises — a self-reinforcing feedback loop",
+      "guide3": "LOW: Short interest impact on price is negligible; prioritize fundamental and technical analysis"
+    },
+    "analystTarget": {
+      "title": "ANALYST TARGET",
+      "badge": "Consensus",
+      "desc": "Displays <emerald>analyst opinion distribution</emerald> and price target consensus from major investment banks and research houses. Track the 5-tier distribution (Strong Buy to Strong Sell), analyst count, and target-to-current price gap — real-time tracking of Wall Street's collective research judgment.",
+      "strongBuy": "Strong Buy — Overwhelming bullish consensus",
+      "buy": "Buy — Bullish consensus",
+      "hold": "Hold — Neutral consensus",
+      "sell": "Sell — Bearish consensus",
+      "tip": "Buy opinions above 80% indicate strongly converged consensus. Consider both that consensus may already be priced in and the crowding risk from absence of dissent.",
+      "tradingGuide": "Signal Interpretation",
+      "guide1": "Buy 90%+: Research community outlook extremely converged — strong consensus serves as a medium-term bullish foundation",
+      "guide2": "Buy 50–70%: Dispersed opinions suggest data permits multiple interpretations — an uncertain phase",
+      "guide3": "Hold majority: Absence of directional conviction; wait-and-see dominates until new catalysts emerge"
+    },
+    "related": {
+      "title": "RELATED",
+      "badge": "Correlated Peers",
+      "desc": "Displays real-time performance of industry peers with <cyan>high statistical correlation</cyan>. Instantly distinguish sector-wide capital flows from individual stock events — delivering the same correlation analysis that institutional traders monitor continuously.",
+      "positive": "Same direction — Sector-wide common factors at work",
+      "divergent": "Different direction — Stock-specific factors driving price",
+      "tip": "When all related stocks move together but the target diverges, it signals a decoupling structure where individual catalysts override sector trends.",
+      "tradingGuide": "Signal Interpretation",
+      "guide1": "Sector co-movement: Macro/sector flows dominate price action over individual fundamentals",
+      "guide2": "Leader-only advance: Intra-sector rotation underway; whether it spreads to laggards is the key question",
+      "guide3": "Decoupling: Stock-specific catalyst overrides sector trend"
+    },
+    "instRadar": {
+      "title": "INST RADAR",
+      "badge": "Institutional Flow",
+      "desc": "Combines <purple>dark pool trading ratios</purple> and <cyan>block trade frequency</cyan> to classify institutional Accumulation/Distribution patterns into 3 tiers. Infers institutional positioning intent invisible to public markets — data typically accessible only through institutional-only terminals.",
+      "accum": "ACCUMULATION — Dark pool 40%+ & Block 3+ — Institutional buying indicated",
+      "neutral": "NEUTRAL — Normal range, no institutional anomalies detected",
+      "dist": "DISTRIBUTION — Dark pool 20%− & Block 1− — Institutional selling indicated",
+      "tip": "ACCUMULATION coinciding with Buy consensus indicates both institutional execution and research views are aligned — a powerful structural agreement.",
+      "tradingGuide": "Signal Interpretation",
+      "guide1": "ACCUMULATION: Large volumes aggregating off-exchange, indicating non-public institutional buying intent",
+      "guide2": "DISTRIBUTION: Institutional supply entering the market; selling may continue even during rallies",
+      "guide3": "NEUTRAL: Institutional participation at normal levels; retail flow plays the dominant price-setting role"
+    },
+    "trendPhase": {
+      "title": "TREND PHASE",
+      "badge": "Trend Diagnosis",
+      "desc": "Diagnoses the current trend phase based on <emerald>SMA 50/200 crossover state</emerald>. Golden Cross and Dead Cross are the technical reference points institutional portfolio managers use for medium-to-long-term asset allocation — SIGNUM delivers these with real-time levels and deviation percentages.",
+      "golden": "GOLDEN — SMA 50 > SMA 200, medium-term bullish transition",
+      "dead": "DEAD — SMA 50 < SMA 200, medium-term bearish transition",
+      "neutral": "NEUTRAL — No crossover, existing trend tentatively maintained",
+      "tip": "Golden Cross + CONVICTION Grade A: Technical trend and multi-source data confirm the same direction — a structurally powerful setup.",
+      "tradingGuide": "Signal Interpretation",
+      "guide1": "Golden Cross: 50-day average crossed above 200-day — technical confirmation of medium-term bullish momentum",
+      "guide2": "Dead Cross: 50-day average fell below 200-day — technical warning of medium-term bearish transition",
+      "guide3": "SMA gap within 3%: Two averages converging, crossover imminent — a transitional zone"
+    },
+    "fundamental": {
+      "title": "FUNDAMENTAL",
+      "badge": "Financial Analysis",
+      "desc": "Composite <emerald>financial health score</emerald> integrating <cyan>P/E</cyan>, <gold>ROE</gold>, free cash flow, revenue growth, operating margin, and debt ratio. Automated quantitative analysis applying institutional analyst valuation frameworks — instantly accessible as 0–100 / A–F grade.",
+      "aGrade": "Grade A (80+) — Financially excellent, growth-profitability balance",
+      "bGrade": "Grade B (60-79) — Solid with minor weaknesses",
+      "cGrade": "Grade C or below — Improvement needed, risk flagged",
+      "tip": "P/E discounted vs. sector average combined with ROE above 20% suggests undervaluation relative to earnings power.",
+      "tradingGuide": "Signal Interpretation",
+      "guide1": "Grade A: Growth, profitability, and stability all strong — structural fundamental advantage confirmed",
+      "guide2": "Grade B: Most metrics solid but specific areas require attention — a mixed picture",
+      "guide3": "Grade C−: Structural financial vulnerabilities confirmed; price likely driven by speculative flow"
+    },
+    "earnings": {
+      "title": "EARNINGS",
+      "badge": "Earnings Schedule",
+      "desc": "Displays next <gold>quarterly earnings date</gold>, D-Day countdown, and EPS estimates. The structural IV expansion/contraction pattern around earnings is a core variable in institutional options strategy — SIGNUM auto-integrates this schedule into all analysis modules.",
+      "upcoming": "Earnings imminent (D-7) — IV expansion, premium-rich environment",
+      "far": "Earnings distant — Fundamentals and technicals take priority",
+      "tip": "IV typically surges D-3 onwards; post-announcement, uncertainty resolution frequently triggers IV Crush.",
+      "tradingGuide": "Signal Interpretation",
+      "guide1": "D-7: IV begins rising; options premiums expand as volatility expectations build",
+      "guide2": "Earnings day: Directional uncertainty peaks; results can trigger significant gap moves",
+      "guide3": "Post-earnings: Uncertainty resolves, IV normalizes rapidly — known as IV Crush"
+    },
+    "chartTitle": "Price History Chart",
+    "chartDesc": "Overlays Call Wall, Max Pain, Put Floor, and Prev Close levels on a <cyan>multi-timeframe price chart</cyan>. Instantly visualize <gold>support/resistance zones</gold> defined by options structure. Switchable across 1D/5D/1M/6M/1Y/All — integrating institutional-grade options level analysis directly into the chart.",
+    "signalTitle": "SIGNAL CORE",
+    "signalDesc": "<gold>Composite signal analysis engine</gold>. Displays detected structural events (Golden Cross, IV Spike, Consensus Shift) as summary badges. After market close, auto-generates AI comprehensive analysis reports combining SMA, news, and flow data.",
+    "flowTitle": "FLOW UNIT",
+    "flowDesc": "Tracks <emerald>real-time options capital flows</emerald>. Combines Call/Put premium differential (Net Premium) with execution intensity (Volume Strength) to capture large participant <gold>directional positioning</gold> in real-time — a core feature delivering institutional options flow data to individual investors.",
+    "gammaTitle": "TACTICAL RANGE & NET GAMMA ENGINE",
+    "gammaDesc": "Provides <gold>structural price levels</gold> derived from options open interest and <cyan>gamma profile analysis</cyan>. Support/Resist/Max Pain define the short-term price range while Net GEX direction and Gamma Flip structurally classify the current market environment.",
+    "intelTitle": "INTEL FEED (AI)",
+    "intelDesc": "<cyan>AI news intelligence</cyan> feed. AI engine analyzes stock-relevant news in real-time, auto-evaluating market impact and sentiment. Each news item receives auto-classification tags and impact scores for rapid situational awareness.",
+    "gammaFlipDesc": "<purple>Gamma Flip Level</purple> is the price point where dealer gamma exposure <cyan>transitions from long to short</cyan>. At this boundary, dealer hedging direction reverses — above it, dealers hedge <emerald>against price movement</emerald> (stabilizing); below it, they hedge <rose>in the same direction</rose> (amplifying). A core reference level at institutional options desks — SIGNUM delivers it to individual investors in real-time.",
+    "gammaFlip": {
+      "longTitle": "LONG γ Zone (Above Flip)",
+      "longDesc": "Price > Gamma Flip → Dealers <emerald>hedge against price movement</emerald> → Natural braking force on price swings. A <gold>volatility-suppressed range environment</gold> forms.",
+      "shortTitle": "SHORT γ Zone (Below Flip)",
+      "shortDesc": "Price < Gamma Flip → Dealers <rose>hedge in the same direction as price</rose> → Price moves become self-reinforcing. A <gold>volatility-amplified momentum environment</gold> forms.",
+      "tip": "Monitor Flip deviation (%) on the VOL REGIME card for real-time distance to regime transition. Within ±2%, regime shift is considered imminent."
+    },
+    "strategy": {
+      "title": "Structural Analysis Workflow",
+      "desc": "Systematize Command's 10 indicators into a <cyan>4-step framework</cyan> for multi-dimensional market structure analysis. Adapts the actual analytical process used by institutional trading desks for individual investors.",
+      "step1": {
+        "title": "Step 1: Volatility Regime Assessment",
+        "desc": "Check VOL REGIME's 4-tier grade and CONVICTION's composite score first. Understanding whether the market is in a Stable/Transitional/Explosive volatility regime and which direction data align forms the foundation for all subsequent analysis."
+      },
+      "step2": {
+        "title": "Step 2: Directional Structure Confirmation",
+        "desc": "Review TREND PHASE crossover state and VWAP deviation. Confirm whether technical trend and short-term supply/demand benchmark point the same direction or conflict."
+      },
+      "step3": {
+        "title": "Step 3: Risk Environment Evaluation",
+        "desc": "Check SHORT SQUEEZE risk tier and EARNINGS D-Day. High SI% + imminent earnings creates compound catalyst conditions for bi-directional sharp moves."
+      },
+      "step4": {
+        "title": "Step 4: Institutional Participation Structure",
+        "desc": "Review INST RADAR's Accumulation/Distribution signals and FLOW UNIT's Net Premium direction. Infer institutional positioning through cross-analysis of dark pool, block trade, and flow data."
+      },
+      "warningTitle": "⚠️ Risk Disclosure & Disclaimer",
+      "warningDesc": "All information provided (including indicators, signals, and analysis results) represents quantitative analysis of market data and does not constitute investment advice, trade directives, or personalized recommendations. Financial investments carry the risk of principal loss. Past data and indicators do not guarantee future returns. All investment decisions are made under the user's own responsibility."
+    }
   },
   "intelGuide": {
     "subtitle": "AI-generated sector intelligence reports delivering institutional-grade analysis on 14 thematic sectors with real-time data synthesis",
