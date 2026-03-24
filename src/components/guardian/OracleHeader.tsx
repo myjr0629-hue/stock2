@@ -77,7 +77,7 @@ export function OracleHeader({ }: OracleHeaderProps) {
                 <div className="flex items-center gap-2">
                     <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_10px_#10b981]"></div>
                     <span className="text-[12px] font-black tracking-[0.2em] text-emerald-400 font-jakarta">
-                        GUARDIAN EYE : ONLINE
+                        GUARDIAN EYE
                     </span>
                 </div>
 
@@ -162,15 +162,12 @@ export function OracleHeader({ }: OracleHeaderProps) {
                     )}
                 </div>
 
-                {/* RIGHT: Guide + VERSION */}
+                {/* RIGHT: Guide */}
                 <div className="flex items-center gap-3">
                     <Link href="/how-it-works" className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-cyan-500/30 text-[11px] font-bold text-cyan-400 hover:text-white hover:border-cyan-400/50 hover:shadow-[0_0_16px_rgba(6,182,212,0.3)] transition-all duration-300 font-jakarta shadow-[0_0_8px_rgba(6,182,212,0.15)] bg-cyan-950/20">
                         <BookOpen className="w-3 h-3" />
                         GUIDE
                     </Link>
-                    <div className="text-[12px] text-slate-500 font-black tracking-widest uppercase opacity-70 font-jakarta">
-                        V8.2 CORE ACTIVE
-                    </div>
                 </div>
             </div>
 
@@ -181,11 +178,8 @@ export function OracleHeader({ }: OracleHeaderProps) {
                     <div className="flex items-center gap-2">
                         <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_8px_#10b981]"></div>
                         <span className="text-[10px] font-black tracking-[0.15em] text-emerald-400 font-jakarta">
-                            GUARDIAN EYE : ONLINE
+                            GUARDIAN EYE
                         </span>
-                    </div>
-                    <div className="text-[9px] text-slate-500 font-black tracking-widest uppercase opacity-70 font-jakarta">
-                        V8.2
                     </div>
                 </div>
                 {/* Row 2: Pills (horizontally scrollable) */}
