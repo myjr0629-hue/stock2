@@ -1062,16 +1062,26 @@ const CircularAlphaGauge = memo(function CircularAlphaGauge({ score, grade }: { 
 
 const SignalBadge = memo(function SignalBadge({ action, confidence }: { action?: string; confidence?: number }) {
     if (!action) return <span className="text-[12px] text-slate-600">—</span>;
-    const cfg: Record<string, { bg: string; text: string; border: string }> = {
-        'HOLD': { bg: 'bg-emerald-500/10', text: 'text-emerald-400', border: 'border-emerald-500/25' },
-        'ADD': { bg: 'bg-cyan-500/10', text: 'text-cyan-400', border: 'border-cyan-500/25' },
-        'WATCH': { bg: 'bg-amber-500/10', text: 'text-amber-400', border: 'border-amber-500/25' },
-        'TRIM': { bg: 'bg-rose-500/10', text: 'text-rose-400', border: 'border-rose-500/25' },
+    const cfg: Record<string, { bg: string; text: string; border: string; label: string }> = {
+        'HOLD': { bg: 'bg-emerald-500/10', text: 'text-emerald-400', border: 'border-emerald-500/25', label: 'HOLD' },
+        'ADD': { bg: 'bg-cyan-500/10', text: 'text-cyan-400', border: 'border-cyan-500/25', label: 'ADD' },
+        'WATCH': { bg: 'bg-amber-500/10', text: 'text-amber-400', border: 'border-amber-500/25', label: 'WATCH' },
+        'TRIM': { bg: 'bg-rose-500/10', text: 'text-rose-400', border: 'border-rose-500/25', label: 'TRIM' },
+        // Compliance-safe labels from alphaEngine
+        'STRONG_BULLISH': { bg: 'bg-emerald-500/15', text: 'text-emerald-400', border: 'border-emerald-500/30', label: 'BULLISH' },
+        'BULLISH': { bg: 'bg-emerald-500/10', text: 'text-emerald-400', border: 'border-emerald-500/25', label: 'BULLISH' },
+        'CAUTION': { bg: 'bg-amber-500/10', text: 'text-amber-400', border: 'border-amber-500/25', label: 'CAUTION' },
+        'AVOID': { bg: 'bg-rose-500/10', text: 'text-rose-400', border: 'border-rose-500/25', label: 'AVOID' },
+        // Backward compat for data still using old labels
+        'BUY': { bg: 'bg-emerald-500/10', text: 'text-emerald-400', border: 'border-emerald-500/25', label: 'BULLISH' },
+        'STRONG_BUY': { bg: 'bg-emerald-500/15', text: 'text-emerald-400', border: 'border-emerald-500/30', label: 'BULLISH' },
+        'REDUCE': { bg: 'bg-amber-500/10', text: 'text-amber-400', border: 'border-amber-500/25', label: 'CAUTION' },
+        'EXIT': { bg: 'bg-rose-500/10', text: 'text-rose-400', border: 'border-rose-500/25', label: 'AVOID' },
     };
     const s = cfg[action] || cfg['HOLD'];
     return (
         <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg ${s.bg} border ${s.border}`}>
-            <span className={`text-[13px] font-black ${s.text}`}>{action}</span>
+            <span className={`text-[13px] font-black ${s.text}`}>{s.label}</span>
             {confidence !== undefined && (
                 <span className="text-xs font-bold tabular-nums text-slate-200">{confidence}%</span>
             )}

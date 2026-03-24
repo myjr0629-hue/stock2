@@ -28,7 +28,7 @@ export interface EnrichedWatchlistItem extends WatchlistItem {
     // Alpha
     alphaScore?: number;
     alphaGrade?: 'A' | 'B' | 'C' | 'D' | 'F';
-    action?: 'HOLD' | 'ADD' | 'TRIM' | 'WATCH';
+    action?: 'HOLD' | 'ADD' | 'TRIM' | 'WATCH' | 'STRONG_BULLISH' | 'BULLISH' | 'CAUTION' | 'AVOID' | string;
     confidence?: number;
     triggers?: string[];
     // Premium Indicators
