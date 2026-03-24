@@ -168,7 +168,7 @@ export function FlowPageClient({ ticker, initialFlowData }: FlowPageClientProps)
 
                         {/* Guide Link + Sparkline grouped together */}
                         <div className="hidden sm:flex items-center gap-2 self-end mb-0.5">
-                            <Link href="/how-it-works" className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-white/10 text-[11px] font-bold text-slate-400 hover:text-white hover:border-white/20 transition-all">
+                            <Link href="/how-it-works" className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-cyan-500/30 text-[11px] font-bold text-cyan-400 hover:text-white hover:border-cyan-400/50 hover:shadow-[0_0_16px_rgba(6,182,212,0.3)] transition-all duration-300 shadow-[0_0_8px_rgba(6,182,212,0.15)] bg-cyan-950/20">
                                 <BookOpen className="w-3 h-3" />
                                 GUIDE
                             </Link>
