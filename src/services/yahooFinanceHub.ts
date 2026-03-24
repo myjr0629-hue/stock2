@@ -33,6 +33,10 @@ export const YAHOO_CACHE_KEYS = {
     RUT: 'yahoo:rut',
     USDKRW: 'yahoo:usdkrw',
     USDJPY: 'yahoo:usdjpy',
+    // Actual index (regular session close) — distinct from futures
+    IDX_NASDAQ: 'yahoo:idx:nasdaq',
+    IDX_DOW: 'yahoo:idx:dow',
+    IDX_SPX: 'yahoo:idx:spx',
     LAST_FETCH: 'yahoo:last_fetch'
 };
 

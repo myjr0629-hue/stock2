@@ -195,7 +195,7 @@ Output ONLY the JSON array — no explanation, no markdown.`;
             modelId: MODELS.HAIKU_35,
             system: SYSTEM_PROMPT,
             userPrompt,
-            maxTokens: 4096,
+            maxTokens: 8192,
             temperature: 0.3,
             timeoutMs: 60000,
             jsonPrefill: false,  // This route uses array '[' prefill
