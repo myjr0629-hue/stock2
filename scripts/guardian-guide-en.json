@@ -1,0 +1,228 @@
+{
+  "subtitle": "Macro intelligence center integrating macroeconomic indicators, market sentiment, and sector capital flow analysis",
+  "overviewTitle": "GUARDIAN Overview",
+  "overviewDesc": "The Guardian terminal integrates <cyan>macroeconomic indicators</cyan>, <gold>market sentiment</gold>, and <emerald>sector capital flows</emerald> into a unified interface for real-time structural diagnosis of the overall market environment. A macro analysis terminal designed to observe the market's structural regime rather than individual securities.",
+  "topBar": {
+    "title": "Real-time Market Indicator Bar",
+    "desc": "The Guardian top bar simultaneously displays <gold>Fear & Greed Index</gold>, <rose>VIX</rose>, and <cyan>DXY</cyan>. These three market temperature indicators provide an immediate assessment of the overall macro environment.",
+    "fearGreed": {
+      "title": "Fear & Greed Index",
+      "desc": "A composite sentiment indicator derived from <gold>7 market data sources</gold> compiled by CNN. <emerald>Extreme fear zones have historically preceded reversals</emerald>; <rose>extreme greed zones have historically preceded corrections</rose>.",
+      "extremeFear": "Extreme Fear — Panic zone, historically extreme levels",
+      "fear": "Fear — Risk-averse environment",
+      "neutral": "Neutral — Balanced state",
+      "greed": "Greed — Risk-seeking expansion",
+      "extremeGreed": "Extreme Greed — Overheated zone, correction-preceding probability structurally elevated"
+    },
+    "vix": {
+      "title": "VIX Volatility Index",
+      "desc": "Forward 30-day implied volatility derived from <cyan>S&P 500 options</cyan> pricing. A key indicator for market uncertainty and risk premium levels.",
+      "low": "Low volatility — Stable environment, premiums compressed",
+      "normal": "Normal — Standard volatility range",
+      "high": "High volatility — Uncertainty elevated, risk premiums expanded"
+    },
+    "dxy": {
+      "title": "DXY Dollar Index",
+      "desc": "U.S. dollar strength against a basket of 6 major currencies. <rose>Dollar strength generally creates headwinds for emerging markets and commodities</rose>; <cyan>impact on U.S. large-caps is mixed</cyan>.",
+      "tip": "DXY rising: export/tech stocks tend to face headwinds. DXY falling: EM/commodities tend to show relative strength."
+    },
+    "tradingGuide": "Data Interpretation",
+    "guide1": "<gold>F&G ≤ 25</gold> + <rose>VIX ≥ 30</rose> simultaneous → <emerald>Historically extreme zone where panic-level reversals are frequently observed</emerald>",
+    "guide2": "<gold>F&G ≥ 75</gold> + <cyan>VIX ≤ 12</cyan> simultaneous → <rose>Overheated zone where profit-taking pressure structurally increases</rose>",
+    "guide3": "<rose>DXY surge</rose>: export/semiconductor headwind environment → <cyan>Domestic/defensive relative strength zone</cyan>"
+  },
+  "gravityGauge": {
+    "title": "GRAVITY GAUGE",
+    "desc": "Gravity Gauge composites <gold>price, volume, sentiment, and institutional positioning</gold> into a <cyan>single 0-100 score</cyan> quantifying overall market strength.",
+    "bullishFactors": "Bullish Factors",
+    "bearishFactors": "Bearish Factors",
+    "priceStocks": "Price Stocks",
+    "investSentiment": "Market Sentiment",
+    "weak": "WEAK",
+    "weakDesc": "Bearish — Downward pressure dominant environment",
+    "neutral": "NEUTRAL",
+    "neutralDesc": "Neutral — Directional data inconclusive",
+    "strong": "STRONG",
+    "strongDesc": "Bullish — Upward pressure dominant environment",
+    "tradingGuide": "Data Interpretation",
+    "guide1": "<rose>Gauge ≤ 40</rose> → Bearish environment with dominant downward pressure observed",
+    "guide2": "<emerald>Gauge ≥ 60</emerald> → Bullish environment with upward pressure; <gold>40→60 transition zone</gold> carries elevated structural significance",
+    "guide3": "Gauge <cyan>consolidating near 50</cyan> → Directionally inconclusive, catalyst-awaiting environment"
+  },
+  "realityCheck": {
+    "title": "REALITY CHECK",
+    "desc": "Diagnoses current macroeconomic state through <cyan>PRICE FLOW</cyan>, <gold>NDX/DOW 20-day moving averages</gold>, <rose>U.S. 10-Year Treasury yield</rose>, yield curve spread (2S10S), and real rates (REAL). V9.0 adds <emerald>Macro Tactical Alerts</emerald> for real-time bond/gold capital flow detection.",
+    "priceFlow": {
+      "label": "PRICE FLOW & Moving Averages",
+      "desc": "<cyan>Price Flow</cyan> represents major index <gold>short-term momentum</gold>; <emerald>NDX/DOW 20D</emerald> indicates tech and industrial <purple>medium-term trend health</purple>. <gold>100%</gold> means all constituent stocks are above their 20-day moving average."
+    },
+    "bonds": {
+      "label": "Rates & Bond Market",
+      "desc": "<cyan>USO10Y</cyan> is the market's discount rate, <gold>2S10S</gold> is a recession leading indicator, <purple>REAL</purple> is inflation-adjusted real yield. <rose>Sustained yield curve inversion structurally elevates recession probability</rose>."
+    },
+    "macroAlert": {
+      "label": "Macro Tactical Alert",
+      "desc": "Simultaneous capital inflows into bonds (TLT) and gold (GLD) trigger a <rose>RISK-OFF ROTATION</rose> alert. This pattern indicates institutional participants rotating capital from equities to safe haven assets — a <gold>crisis precursor pattern</gold>.",
+      "riskOff": "Bond + gold simultaneous rally → Safe haven preference expansion",
+      "riskOn": "Bond + gold simultaneous decline → Risk asset preference expansion"
+    },
+    "tradingGuide": "Macro Data Interpretation",
+    "guide1": "<emerald>NDX/DOW 20D both at 100%</emerald> → Strong uptrend; <gold>pullbacks are interpreted as structural support zones</gold>",
+    "guide2": "<rose>2S10S inversion (negative) sustained</rose> → Recession leading indicator with 6-18 month lead time; <cyan>defensive sector relative strength environment</cyan>",
+    "guide3": "<rose>RISK-OFF ROTATION alert</rose> → Safe haven preference strengthening environment"
+  },
+  "rlsi": {
+    "title": "RLSI INSIGHT",
+    "desc": "RLSI (Real-time Liquidity & Sentiment Index) uses AI to synthesize <cyan>liquidity</cyan>, <gold>sentiment</gold>, and <emerald>technical indicators</emerald> in real time, generating session-specific structural insights. Active during regular trading hours only.",
+    "sampleInsight": "Post-FOMC minutes, the market maintains a growth-favoring regime with positive tech sector flow observed. Rate stabilization expectations are being reflected.",
+    "alignOk": "All data sources receiving normally",
+    "alignPartial": "Some data feeds delayed",
+    "alignOffline": "After hours — analysis suspended",
+    "tradingGuide": "RLSI Interpretation Guide",
+    "guide1": "<emerald>ALIGNMENT OK</emerald> state: RLSI insights are analytically valid",
+    "guide2": "RLSI <purple>session insights</purple> structurally summarize the current market environment",
+    "guide3": "<rose>PARTIAL state</rose>: Some data sources missing; <cyan>cross-verification with other indicators recommended</cyan>"
+  },
+  "breadth": {
+    "title": "MARKET BREADTH",
+    "desc": "Market breadth analyzes <emerald>advancing vs declining stock counts</emerald> to assess the structural health of market rallies. When <rose>indices rise but most stocks decline</rose>, this indicates a narrow large-cap driven structure with elevated trend fatigue probability.",
+    "advanceRatio": "Advance Ratio",
+    "advanceLabel": "▲ Advancing 61%",
+    "declineLabel": "▼ Declining 39%",
+    "adRatio": "Ratio · Advance / Decline",
+    "buyAdvantage": "Buy Advantage",
+    "volumeAnalysis": "Volume Analysis · Buy% Weight",
+    "balanced": "Balanced",
+    "tradingGuide": "Breadth Data Interpretation",
+    "guide1": "<emerald>A/D ratio ≥ 2:1</emerald> → Broad participation confirmed; structurally healthy trend environment",
+    "guide2": "Index new high + <rose>Breadth < 50%</rose> → Narrow large-cap driven structure; <gold>trend fatigue probability elevated</gold>",
+    "guide3": "<emerald>Breadth rebounding from lows</emerald> → Participation breadth expanding; <cyan>bottom formation indicated</cyan>"
+  },
+  "calendar": {
+    "title": "ECONOMIC CALENDAR",
+    "desc": "Displays schedules and <rose>estimated market impact levels</rose> for key economic events including <gold>CPI, PPI, PMI, FOMC</gold>. Volatility structurally expands around <rose>HIGH-rated events</rose>.",
+    "date1": "2/27 Fri",
+    "event1": "PPI / Core PPI (Jan)",
+    "date2": "3/2 Mon",
+    "event2": "ISM Manufacturing PMI",
+    "date3": "3/5 Wed",
+    "event3": "ISM Services PMI",
+    "tradingGuide": "Event-Driven Data Interpretation",
+    "guide1": "<rose>HIGH event D-1</rose>: Volatility expansion is structurally anticipated",
+    "guide2": "<gold>Post CPI/PPI release</gold>: Initial 30-minute moves carry high noise probability; <cyan>directional confirmation becomes valid at 1-hour mark</cyan>",
+    "guide3": "<purple>FOMC ±1 week</purple>: VIX spikes frequently observed; <emerald>options premium expansion zone</emerald>"
+  },
+  "tactical": {
+    "title": "TACTICAL VERDICT",
+    "desc": "Gemini 2.5 FLASH AI cross-analyzes <cyan>all Guardian data</cyan> to produce <gold>Status</gold>, <purple>Analysis</purple>, and <emerald>Outlook</emerald> in a 3-stage output. V9.0 incorporates <rose>VIX futures term structure</rose> and <gold>bond/gold capital flow</gold> cross-analysis for volatility anomaly detection.",
+    "currentLabel": "Status",
+    "analysisLabel": "Analysis",
+    "actionLabel": "Outlook",
+    "sampleCurrent": "5-day trend shows growth-favoring regime (RISK_ON_GROWTH) with capital inflows observed into value, industrials, and financials.",
+    "sampleAnalysis": "Market maintains resilient flow dynamics despite FOMC minutes uncertainty, with tech sector showing relative strength driven by AI thematic concentration.",
+    "sampleAction": "Growth-favoring regime and stable flow data indicate continued tech-led upward momentum in the current market environment.",
+    "v9DeepAnalysis": {
+      "title": "V9.0 Deep Macro Analysis Indicators",
+      "vixTerm": "VIX vs VIX3M (futures term structure): Contango (VIX < VIX3M) = stable market state; Backwardation (VIX > VIX3M) = fear spike precursor pattern",
+      "bondFlow": "Bond capital flow (TLT): Rally indicates safe haven preference expansion → downside risk increase indicated",
+      "goldFlow": "Gold capital flow (GLD): Rally indicates inflation hedge / crisis sentiment → volatility expansion environment indicated"
+    },
+    "bullish": "Bullish zone — upside structure confirmed",
+    "neutralDesc": "Watch — directional confirmation pending",
+    "bearish": "Bearish zone — downside risk elevated"
+  },
+  "flowMap": {
+    "title": "FLOW TOPOGRAPHY MAP V3.0",
+    "desc": "Visualizes <cyan>real-time capital flows</cyan> across <purple>14 sectors</purple> (GICS 11 + <cyan>Semiconductors, Cybersecurity, Clean Energy</cyan>) through network topology. Node <emerald>size and color indicate inflow/outflow intensity</emerald>; <gold>connection lines represent inter-sector correlation</gold>. V9.0 adds <rose>Safe Haven</rose> nodes for bond/gold capital flight visualization.",
+    "legendTitle": "Legend Reference",
+    "nodeUp": "Green border = Capital inflow sector",
+    "nodeDown": "Red border = Capital outflow sector",
+    "flowLine": "Gradient connection = Capital flow path",
+    "activeFlow": "Pulse dot = Active capital flow",
+    "safeHaven": "Yellow node (Safe Haven) = Bond/gold safe haven capital flow",
+    "newSectors": "V9.0 new: Semiconductors (SEMIS), Cybersecurity (CYBER), Clean Energy (CLEAN NRG)",
+    "tradingGuide": "Flow Map Data Interpretation",
+    "guide1": "Capital-concentrating sectors (<emerald>large green nodes</emerald>) → <gold>Bullish structure confirmed for leading constituents</gold>",
+    "guide2": "Capital outflow (<rose>red nodes</rose>) to inflow sectors → <cyan>Sector rotation observed</cyan>",
+    "guide3": "<gold>Safe Haven node</gold> capital concentration → <rose>Risk-off environment with strengthening safe haven preference</rose>"
+  },
+  "sectorIntel": {
+    "title": "SECTOR INTEL",
+    "desc": "Provides each sector's <cyan>5-day trend</cyan>, <gold>volume intensity</gold>, and <emerald>constituent-level real-time pricing</emerald>. Structurally assesses whether the entire sector moves in unison or is driven by select individual stocks.",
+    "tradingGuide": "Sector Intel Data Interpretation",
+    "guide1": "<emerald>Sector-wide advance + volume expansion</emerald> → <gold>Broad-based bullish structure confirmed</gold>",
+    "guide2": "5-day trend <cyan>negative→positive transition</cyan> → <emerald>Early reversal observed at transition zone</emerald>",
+    "guide3": "Sector <rose>top constituents advancing while remainder declines</rose> → <gold>Individual stock selection analysis more valid than sector-level thesis</gold>"
+  },
+  "gammaShield": {
+    "title": "GAMMA SHIELD™ V3",
+    "badge": "Core Indicator",
+    "desc": "Analyzes institutional dealers' <gold>gamma hedge positions</gold> in the <cyan>S&P 500 options market</cyan> in real time to structurally assess market <emerald>volatility direction</emerald> and <rose>sudden movement risk</rose>. V3 adds <gold>GEX trend</gold>, <cyan>SPY/QQQ individual GEX</cyan>, and <emerald>Gamma Flip Point</emerald>.",
+    "sampleInsight": "S&P 6,893 — Gamma weak(+13), Squeeze 38%, ▼6,500(-5.7%) downside bias · ceiling 7,000",
+    "gex": {
+      "title": "Gamma Pressure (GEX Index)",
+      "desc": "Normalizes combined <cyan>SPY + QQQ</cyan> options gamma exposure (GEX) to a -100 to +100 scale. <gold>Positive (+)</gold>: dealer hedging stabilizes prices. <rose>Negative (-)</rose>: dealer hedging amplifies volatility. V3 adds <emerald>▲/▼ trend arrows</emerald> showing day-over-day GEX direction.",
+      "long": "Stable",
+      "neutral": "Neutral",
+      "short": "Caution"
+    },
+    "squeeze": {
+      "title": "Squeeze Risk",
+      "desc": "Measures the probability of short-gamma position holders being <rose>forced to cover (squeeze)</rose> due to sharp price movements. Explosive price movement potential structurally elevates above <gold>45%</gold>; <rose>≥70%</rose> is an extreme risk zone."
+    },
+    "trigger": {
+      "title": "Trigger Band",
+      "desc": "Analyzes S&P 500 <cyan>options chain open interest</cyan> to calculate institutional <emerald>price support (Put Floor)</emerald> and <rose>resistance (Call Wall)</rose>. V3 adds <gold>Gamma Flip Point</gold> showing the critical price where dealers transition from long to short gamma.",
+      "resistDesc": "Call OI concentration zone → upside resistance",
+      "supportDesc": "Put OI concentration zone → downside defense"
+    },
+    "spySplit": {
+      "title": "SPY / QQQ Individual GEX",
+      "desc": "V3 feature displaying SPY (S&P 500) and QQQ (Nasdaq 100) <cyan>GEX individually</cyan>. Comparing gamma regime divergence between the two ETFs captures <gold>internal market structure discrepancies</gold>."
+    },
+    "flipPoint": {
+      "title": "Gamma Flip Point",
+      "desc": "The <gold>critical price</gold> where dealer positions transition from <emerald>long gamma (stable)</emerald> to <rose>short gamma (volatile)</rose>. Distance (%) from current price is displayed; <rose>within 2% proximity</rose> triggers a regime transition warning."
+    },
+    "directionalInsight": {
+      "title": "Directional Insight (V3 New)",
+      "desc": "V3 replaces static insights with dynamic, real-time data-driven insights outputting <cyan>price targets and directional bias</cyan> in the header. <gold>GEX intensity</gold>, <emerald>squeeze level</emerald>, <rose>directional bias and price targets</rose> are immediately visible."
+    },
+    "aiIntegration": {
+      "title": "AI Integration (V3 New)",
+      "desc": "Gamma Shield data (GEX, Squeeze, support/resistance) feeds directly into <cyan>Tactical Insight AI</cyan>, enabling RLSI+Breadth+macro+<gold>options structure</gold> synthesis. Dealer gamma clamping, squeeze proximity, and options wall approach are automatically reflected in AI analysis context."
+    },
+    "insightTitle": "Real-time Dynamic Insights",
+    "insightDesc": "GAMMA SHIELD V3 auto-generates <cyan>current data-based directional insights</cyan> displayed in the header. Example insights by scenario:",
+    "insightLong": "S&P 6,893 — Gamma strong(+45), Squeeze 12%, ▲7,000(+1.6%) upside bias · floor 6,800 (GEX ≥ +20: stable, range-bound)",
+    "insightShort": "S&P 6,893 — Gamma weak(-30), Squeeze 62%, ▼6,500(-5.7%) downside bias · ceiling 7,000 (GEX ≤ -20: vol expansion)",
+    "insightSqueeze": "S&P 6,893 — Gamma weak(+8), Squeeze 71%, direction-agnostic sharp move imminent · capital preservation priority (Squeeze ≥ 70%)",
+    "insightTrigger": "S&P 6,893 — Gamma neutral(+15), Squeeze 28%, ▲7,000(+1.6%) · resistance 1.2% approach — breakout = surge, rejection = pullback",
+    "tradingGuide": "GAMMA SHIELD V3 Data Interpretation",
+    "guide1": "<emerald>GEX ≥ +20 + Squeeze LOW</emerald> → Dealer hedging stabilizes prices; <gold>volatility-suppressed range-bound zone</gold>",
+    "guide2": "<rose>GEX ≤ -20 + Squeeze HIGH</rose> → Dealer hedging amplifies volatility; <cyan>structurally high bi-directional sharp movement probability</cyan>",
+    "guide3": "<emerald>Gamma Flip Point within 2%</emerald> → Dealer regime transition imminent; <rose>volatility regime change preparation warranted</rose>"
+  },
+  "strategy": {
+    "title": "Structural Data Analysis Workflow",
+    "desc": "A 4-step process for systematically interpreting Guardian's complete dataset to diagnose market structure — from macro environment to micro-level analysis.",
+    "step1": {
+      "title": "Step 1: Market Environment Assessment",
+      "desc": "Review <gold>Fear & Greed</gold> + <rose>VIX</rose> + <cyan>DXY</cyan> status bar to assess overall market temperature. <emerald>Extreme fear/greed zones</emerald> have historically preceded reversals."
+    },
+    "step2": {
+      "title": "Step 2: Macro Environment Diagnosis",
+      "desc": "Verify macro structural health via <gold>Gravity Gauge</gold> + <purple>Reality Check</purple> + <emerald>Market Breadth</emerald>. <cyan>Broad participation + stable rates</cyan> indicate a bullish environment."
+    },
+    "step3": {
+      "title": "Step 3: Sector Flow Observation",
+      "desc": "Identify capital-concentrating sectors via <purple>Flow Topography Map</purple> + <cyan>Sector Intel</cyan>. Read <gold>sector rotation direction</gold> and analyze leading constituents of inflow sectors."
+    },
+    "step4": {
+      "title": "Step 4: AI Structural Analysis Review",
+      "desc": "<emerald>Tactical Verdict</emerald> and <cyan>RLSI Insight</cyan> AI analysis provides final market environment assessment. Combining with <gold>Dashboard individual ticker analysis</gold> enables macro-micro integrated analysis."
+    },
+    "warningTitle": "⚠️ Risk Disclosure & Disclaimer",
+    "warningDesc": "All information provided by this service, including indicators, signals, and analytical outputs, represents quantitative analysis of market data and does not constitute investment advice, trade recommendations, or personalized financial guidance. Financial market participation involves risk of capital loss. Historical data and indicators do not guarantee future performance. All investment decisions are made at the user's sole discretion, and the service provider assumes no legal liability for outcomes resulting from use of this service."
+  }
+}

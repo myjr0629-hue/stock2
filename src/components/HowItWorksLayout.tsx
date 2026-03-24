@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { HowItWorksSidebar } from './HowItWorksSidebar';
-import { Menu, X } from 'lucide-react';
+import { Menu, X, ShieldCheck } from 'lucide-react';
 
 interface HowItWorksLayoutProps {
     children: React.ReactNode;
@@ -60,6 +60,19 @@ export function HowItWorksLayout({ children, title, subtitle }: HowItWorksLayout
                     <div className="space-y-6">
                         {children}
                     </div>
+
+                    {/* Common Disclaimer Footer */}
+                    <footer className="mt-12 pt-6 border-t border-white/[0.06]">
+                        <div className="flex items-start gap-3 p-4 rounded-xl bg-slate-900/40 border border-white/[0.06]">
+                            <ShieldCheck size={16} className="text-slate-500 mt-0.5 flex-shrink-0" />
+                            <p className="text-xs text-slate-500 leading-relaxed">
+                                All information provided on this page — including indicators, signals, and analytical outputs — represents quantitative analysis of market data and does not constitute investment advice, trade recommendations, or personalized financial guidance. Past data and indicators do not guarantee future performance. All investment decisions are made at the user&apos;s sole discretion and responsibility.
+                            </p>
+                        </div>
+                        <div className="mt-3 text-center">
+                            <span className="text-[10px] text-slate-600 uppercase tracking-widest">SIGNUM HQ — Institutional-Grade Market Intelligence</span>
+                        </div>
+                    </footer>
                 </main>
             </div>
         </div>

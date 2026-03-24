@@ -1,0 +1,228 @@
+{
+  "subtitle": "マクロ経済指標、市場センチメント、セクター資金フロー分析を統合するマクロインテリジェンスセンター",
+  "overviewTitle": "GUARDIAN 概要",
+  "overviewDesc": "Guardianターミナルは<cyan>マクロ経済指標</cyan>、<gold>市場センチメント</gold>、<emerald>セクター資金フロー</emerald>を単一インターフェースに統合し、市場全体の構造的レジームをリアルタイム診断します。個別銘柄ではなく市場の構造体質そのものを観測するマクロ分析ターミナルです。",
+  "topBar": {
+    "title": "リアルタイム市場指標バー",
+    "desc": "Guardian上部バーに<gold>Fear & Greed Index</gold>、<rose>VIX</rose>、<cyan>DXY</cyan>を同時表示。これら3つの市場温度指標がマクロ環境の即時評価を提供します。",
+    "fearGreed": {
+      "title": "Fear & Greed Index",
+      "desc": "CNNが<gold>7種類の市場データ</gold>を統合算出するセンチメント複合指標。<emerald>極端な恐怖ゾーンは歴史的に反転を先行</emerald>、<rose>極端な貪欲ゾーンは歴史的に調整を先行</rose>するレベルとして観察されます。",
+      "extremeFear": "極端な恐怖 — パニックゾーン、歴史的極端レベル",
+      "fear": "恐怖 — リスク回避環境",
+      "neutral": "中立 — 均衡状態",
+      "greed": "貪欲 — リスク選好拡大",
+      "extremeGreed": "極端な貪欲 — 過熱ゾーン、調整先行確率が構造的に上昇"
+    },
+    "vix": {
+      "title": "VIXボラティリティ指数",
+      "desc": "<cyan>S&P 500オプション</cyan>価格から算出される向こう30日間のインプライドボラティリティ。市場の不確実性とリスクプレミアム水準を示す主要指標です。",
+      "low": "低ボラティリティ — 安定環境、プレミアム収縮",
+      "normal": "通常 — 標準的なボラティリティ範囲",
+      "high": "高ボラティリティ — 不確実性上昇、リスクプレミアム拡大"
+    },
+    "dxy": {
+      "title": "DXYドルインデックス",
+      "desc": "主要6通貨に対する米ドルの強度。<rose>ドル高は一般的に新興市場とコモディティに逆風</rose>、<cyan>米国大型株への影響は混在</cyan>です。",
+      "tip": "DXY上昇：輸出・テクノロジー株は逆風環境。DXY下落：新興市場・コモディティに相対的な追い風。"
+    },
+    "tradingGuide": "データ解釈",
+    "guide1": "<gold>F&G ≤ 25</gold> + <rose>VIX ≥ 30</rose> 同時発生 → <emerald>パニックレベルの反転が歴史的に頻繁に観察される極端ゾーン</emerald>",
+    "guide2": "<gold>F&G ≥ 75</gold> + <cyan>VIX ≤ 12</cyan> 同時発生 → <rose>利益確定圧力が構造的に上昇する過熱ゾーン</rose>",
+    "guide3": "<rose>DXY急騰</rose>：輸出・半導体逆風環境 → <cyan>内需・ディフェンシブ相対的強さのゾーン</cyan>"
+  },
+  "gravityGauge": {
+    "title": "GRAVITY GAUGE",
+    "desc": "Gravity Gaugeは<gold>価格、出来高、センチメント、機関ポジション</gold>を統合し、<cyan>0-100の単一スコア</cyan>で市場全体の強度を定量化します。",
+    "bullishFactors": "強気要因",
+    "bearishFactors": "弱気要因",
+    "priceStocks": "価格銘柄",
+    "investSentiment": "市場センチメント",
+    "weak": "WEAK",
+    "weakDesc": "弱気 — 下方圧力優勢の環境",
+    "neutral": "NEUTRAL",
+    "neutralDesc": "中立 — 方向性データ不確定",
+    "strong": "STRONG",
+    "strongDesc": "強気 — 上方圧力優勢の環境",
+    "tradingGuide": "データ解釈",
+    "guide1": "<rose>Gauge ≤ 40</rose> → 下方圧力優勢が観察される弱気環境",
+    "guide2": "<emerald>Gauge ≥ 60</emerald> → 上方圧力の強気環境; <gold>40→60遷移ゾーン</gold>は構造的に重要",
+    "guide3": "Gauge <cyan>50付近で推移</cyan> → 方向不確定、カタリスト待機環境"
+  },
+  "realityCheck": {
+    "title": "REALITY CHECK",
+    "desc": "<cyan>PRICE FLOW</cyan>、<gold>NDX/DOW 20日移動平均</gold>、<rose>米10年国債利回り</rose>、イールドカーブスプレッド(2S10S)、実質金利(REAL)を通じてマクロ経済状態を診断。V9.0では<emerald>マクロタクティカルアラート</emerald>を追加し債券・金の資金フローをリアルタイム検出。",
+    "priceFlow": {
+      "label": "PRICE FLOW & 移動平均",
+      "desc": "<cyan>Price Flow</cyan>は主要指数の<gold>短期モメンタム</gold>; <emerald>NDX/DOW 20D</emerald>はテクノロジーと産業の<purple>中期トレンド健全性</purple>を示します。<gold>100%</gold>は全構成銘柄が20日移動平均上方にあることを意味します。"
+    },
+    "bonds": {
+      "label": "金利・債券市場",
+      "desc": "<cyan>USO10Y</cyan>は市場のディスカウントレート、<gold>2S10S</gold>は景気後退先行指標、<purple>REAL</purple>はインフレ調整後の実質利回り。<rose>イールドカーブ逆転の持続は景気後退確率を構造的に上昇</rose>させます。"
+    },
+    "macroAlert": {
+      "label": "マクロタクティカルアラート",
+      "desc": "債券(TLT)と金(GLD)への同時資金流入は<rose>RISK-OFF ROTATION</rose>アラートを発動。機関参加者が株式からセーフヘイブン資産へ資金をローテーションするパターン — <gold>危機前兆パターン</gold>。",
+      "riskOff": "債券+金同時上昇 → セーフヘイブン選好の拡大",
+      "riskOn": "債券+金同時下落 → リスク資産選好の拡大"
+    },
+    "tradingGuide": "マクロデータ解釈",
+    "guide1": "<emerald>NDX/DOW 20D共に100%</emerald> → 強い上昇トレンド; <gold>押し目は構造的サポートゾーンとして解釈</gold>",
+    "guide2": "<rose>2S10S逆転（マイナス）持続</rose> → 6-18ヶ月リードの景気後退先行指標; <cyan>ディフェンシブセクター相対優位環境</cyan>",
+    "guide3": "<rose>RISK-OFF ROTATIONアラート</rose> → セーフヘイブン選好が強まる環境"
+  },
+  "rlsi": {
+    "title": "RLSI INSIGHT",
+    "desc": "RLSI（Real-time Liquidity & Sentiment Index）はAIが<cyan>流動性</cyan>、<gold>センチメント</gold>、<emerald>テクニカル指標</emerald>をリアルタイム統合し、セッション固有の構造インサイトを生成。通常取引時間中のみアクティブです。",
+    "sampleInsight": "FOMC議事録公開後、市場はグロース選好レジームを維持しテクノロジーセクターへの正のフローが観察されます。金利安定化期待が反映されています。",
+    "alignOk": "全データソース正常受信中",
+    "alignPartial": "一部データフィード遅延",
+    "alignOffline": "時間外 — 分析停止中",
+    "tradingGuide": "RLSI解釈ガイド",
+    "guide1": "<emerald>ALIGNMENT OK</emerald>状態：RLSIインサイトは分析的に有効",
+    "guide2": "RLSI <purple>セッションインサイト</purple>は現在の市場環境を構造的に要約",
+    "guide3": "<rose>PARTIAL状態</rose>：一部データソース欠落; <cyan>他指標との交差検証を推奨</cyan>"
+  },
+  "breadth": {
+    "title": "MARKET BREADTH",
+    "desc": "市場幅は<emerald>上昇銘柄数 vs 下落銘柄数</emerald>を分析し、上昇相場の構造的健全性を評価します。<rose>指数が上昇する一方で大半の銘柄が下落</rose>する場合、大型株主導の狭い構造でありトレンド疲弊確率が上昇します。",
+    "advanceRatio": "上昇比率",
+    "advanceLabel": "▲ 上昇 61%",
+    "declineLabel": "▼ 下落 39%",
+    "adRatio": "比率・上昇/下落",
+    "buyAdvantage": "買い優勢",
+    "volumeAnalysis": "出来高分析・買い%ウェイト",
+    "balanced": "均衡",
+    "tradingGuide": "Breadthデータ解釈",
+    "guide1": "<emerald>A/D比率 ≥ 2:1</emerald> → 幅広い参加が確認; 構造的に健全なトレンド環境",
+    "guide2": "指数新高値 + <rose>Breadth < 50%</rose> → 大型株主導の狭い構造; <gold>トレンド疲弊確率上昇</gold>",
+    "guide3": "<emerald>Breadthが底値から回復</emerald> → 参加幅拡大; <cyan>底打ち形成が示唆</cyan>"
+  },
+  "calendar": {
+    "title": "経済カレンダー",
+    "desc": "<gold>CPI、PPI、PMI、FOMC</gold>等の主要経済イベントのスケジュールと<rose>推定市場インパクトレベル</rose>を表示。<rose>HIGH評価イベント</rose>前後にはボラティリティが構造的に拡大します。",
+    "date1": "2/27 金",
+    "event1": "PPI / コアPPI (1月)",
+    "date2": "3/2 月",
+    "event2": "ISM製造業PMI",
+    "date3": "3/5 水",
+    "event3": "ISMサービス業PMI",
+    "tradingGuide": "イベント主導データ解釈",
+    "guide1": "<rose>HIGHイベント前日</rose>: ボラティリティ拡大が構造的に見込まれる",
+    "guide2": "<gold>CPI/PPI発表後</gold>: 最初の30分は高ノイズ確率; <cyan>1時間経過時点で方向確認が有効</cyan>",
+    "guide3": "<purple>FOMC ±1週間</purple>: VIXスパイクが頻繁に観察; <emerald>オプションプレミアム拡大ゾーン</emerald>"
+  },
+  "tactical": {
+    "title": "TACTICAL VERDICT",
+    "desc": "Gemini 2.5 FLASH AIが<cyan>全Guardianデータ</cyan>を交差分析し、<gold>現況</gold>、<purple>分析</purple>、<emerald>見通し</emerald>の3段階出力を生成。V9.0は<rose>VIX先物期間構造</rose>と<gold>債券/金資金フロー</gold>交差分析によるボラティリティ異常検出を統合。",
+    "currentLabel": "現況",
+    "analysisLabel": "分析",
+    "actionLabel": "見通し",
+    "sampleCurrent": "5日間トレンドはグロース選好レジーム(RISK_ON_GROWTH)を示し、バリュー・産業・金融への資金流入が観察されます。",
+    "sampleAnalysis": "FOMC議事録の不確実性にもかかわらず、市場はレジリエントなフロー動態を維持。AIテーマ集中によるテクノロジーセクターの相対的強さが観察されます。",
+    "sampleAction": "グロース選好レジームと安定したフローデータが現在の市場環境においてテクノロジー主導の上昇モメンタム継続を示唆。",
+    "v9DeepAnalysis": {
+      "title": "V9.0 ディープマクロ分析指標",
+      "vixTerm": "VIX vs VIX3M（先物期間構造）: コンタンゴ(VIX < VIX3M) = 安定市場; バックワーデーション(VIX > VIX3M) = 恐怖スパイク前兆パターン",
+      "bondFlow": "債券資金フロー(TLT): 上昇はセーフヘイブン選好拡大 → 下方リスク上昇が示唆",
+      "goldFlow": "金資金フロー(GLD): 上昇はインフレヘッジ/危機センチメント → ボラティリティ拡大環境が示唆"
+    },
+    "bullish": "強気ゾーン — 上昇構造確認",
+    "neutralDesc": "監視 — 方向確認待ち",
+    "bearish": "弱気ゾーン — 下方リスク上昇"
+  },
+  "flowMap": {
+    "title": "FLOW TOPOGRAPHY MAP V3.0",
+    "desc": "<cyan>リアルタイム資金フロー</cyan>を<purple>14セクター</purple>（GICS 11 + <cyan>半導体、サイバーセキュリティ、クリーンエネルギー</cyan>）にわたりネットワークトポロジーで可視化。ノード<emerald>サイズと色は流入/流出強度</emerald>; <gold>接続線はセクター間相関</gold>を表示。V9.0は<rose>セーフヘイブン</rose>ノードを追加し債券/金の資金逃避を可視化。",
+    "legendTitle": "凡例リファレンス",
+    "nodeUp": "緑枠 = 資金流入セクター",
+    "nodeDown": "赤枠 = 資金流出セクター",
+    "flowLine": "グラデーション接続線 = 資金フロー経路",
+    "activeFlow": "パルスドット = アクティブ資金フロー",
+    "safeHaven": "黄色ノード (セーフヘイブン) = 債券/金の逃避資金フロー",
+    "newSectors": "V9.0新規: 半導体(SEMIS)、サイバーセキュリティ(CYBER)、クリーンエネルギー(CLEAN NRG)",
+    "tradingGuide": "フローマップデータ解釈",
+    "guide1": "資金集中セクター(<emerald>大型緑ノード</emerald>) → <gold>主要構成銘柄の強気構造が確認</gold>",
+    "guide2": "資金流出(<rose>赤ノード</rose>)から流入セクターへ → <cyan>セクターローテーションが観察</cyan>",
+    "guide3": "<gold>セーフヘイブンノード</gold>への資金集中 → <rose>セーフヘイブン選好が強まるリスクオフ環境</rose>"
+  },
+  "sectorIntel": {
+    "title": "SECTOR INTEL",
+    "desc": "各セクターの<cyan>5日間トレンド</cyan>、<gold>出来高強度</gold>、<emerald>構成銘柄レベルのリアルタイム価格</emerald>を提供。セクター全体が一体で動くか、特定個別銘柄主導かを構造的に評価します。",
+    "tradingGuide": "セクターインテルデータ解釈",
+    "guide1": "<emerald>セクター全面高 + 出来高拡大</emerald> → <gold>広範な強気構造が確認</gold>",
+    "guide2": "5日間トレンド<cyan>ネガティブ→ポジティブ転換</cyan> → <emerald>遷移ゾーンでの初期反転が観察</emerald>",
+    "guide3": "セクター<rose>上位構成銘柄上昇、残りは下落</rose> → <gold>セクターテーゼより個別銘柄分析が有効</gold>"
+  },
+  "gammaShield": {
+    "title": "GAMMA SHIELD™ V3",
+    "badge": "コア指標",
+    "desc": "機関ディーラーの<gold>ガンマヘッジポジション</gold>を<cyan>S&P 500オプション市場</cyan>でリアルタイム分析し、<emerald>ボラティリティ方向</emerald>と<rose>急変リスク</rose>を構造的に評価。V3は<gold>GEXトレンド</gold>、<cyan>SPY/QQQ個別GEX</cyan>、<emerald>ガンマフリップポイント</emerald>を追加。",
+    "sampleInsight": "S&P 6,893 — ガンマ弱(+13), スクイーズ38%, ▼6,500(-5.7%) 下方バイアス · 天井7,000",
+    "gex": {
+      "title": "ガンマ圧力（GEXインデックス）",
+      "desc": "<cyan>SPY + QQQ</cyan>合計のオプションガンマエクスポージャー(GEX)を-100~+100に正規化。<gold>正(+)</gold>: ディーラーヘッジが価格を安定化。<rose>負(-)</rose>: ディーラーヘッジがボラティリティを増幅。V3は<emerald>▲/▼トレンド矢印</emerald>で前日比GEX方向を追加。",
+      "long": "安定",
+      "neutral": "中立",
+      "short": "注意"
+    },
+    "squeeze": {
+      "title": "スクイーズリスク",
+      "desc": "急激な価格変動によりショートガンマポジション保有者が<rose>強制カバー（スクイーズ）</rose>される確率を測定。<gold>45%</gold>以上で爆発的価格変動の可能性が構造的に上昇; <rose>≥70%</rose>は極端なリスクゾーン。"
+    },
+    "trigger": {
+      "title": "トリガーバンド",
+      "desc": "S&P 500<cyan>オプションチェーン建玉</cyan>を分析し、機関の<emerald>価格サポート(Put Floor)</emerald>と<rose>レジスタンス(Call Wall)</rose>を算出。V3は<gold>ガンマフリップポイント</gold>を追加しディーラーがロングからショートガンマに転換する臨界価格を表示。",
+      "resistDesc": "コールOI集中ゾーン → 上方レジスタンス",
+      "supportDesc": "プットOI集中ゾーン → 下方サポート"
+    },
+    "spySplit": {
+      "title": "SPY / QQQ 個別GEX",
+      "desc": "V3機能: SPY(S&P 500)とQQQ(Nasdaq 100)の<cyan>GEXを個別表示</cyan>。2つのETF間のガンマレジーム乖離を比較することで<gold>市場内部の構造的不一致</gold>を捕捉。"
+    },
+    "flipPoint": {
+      "title": "ガンマフリップポイント",
+      "desc": "ディーラーポジションが<emerald>ロングガンマ(安定)</emerald>から<rose>ショートガンマ(不安定)</rose>に転換する<gold>臨界価格</gold>。現在価格からの距離(%)を表示; <rose>2%以内の接近</rose>でレジーム遷移警告が発動。"
+    },
+    "directionalInsight": {
+      "title": "ディレクショナルインサイト（V3新機能）",
+      "desc": "V3は静的インサイトをリアルタイムデータ駆動のダイナミックインサイトに置換し、ヘッダーに<cyan>価格目標と方向性バイアス</cyan>を出力。<gold>GEX強度</gold>、<emerald>スクイーズレベル</emerald>、<rose>方向性バイアスと価格目標</rose>が即座に確認可能。"
+    },
+    "aiIntegration": {
+      "title": "AI統合（V3新機能）",
+      "desc": "Gamma Shieldデータ(GEX、スクイーズ、サポート/レジスタンス)が<cyan>Tactical Insight AI</cyan>に直接フィードされ、RLSI+Breadth+マクロ+<gold>オプション構造</gold>の統合が実現。ディーラーガンマクランプ、スクイーズ接近、オプションウォール接近がAI分析コンテキストに自動反映。"
+    },
+    "insightTitle": "リアルタイムダイナミックインサイト",
+    "insightDesc": "GAMMA SHIELD V3は<cyan>現在データに基づくディレクショナルインサイト</cyan>を自動生成しヘッダーに表示。シナリオ別のインサイト例：",
+    "insightLong": "S&P 6,893 — ガンマ強(+45), スクイーズ12%, ▲7,000(+1.6%) 上方バイアス · フロア6,800（GEX ≥ +20: 安定、レンジバウンド）",
+    "insightShort": "S&P 6,893 — ガンマ弱(-30), スクイーズ62%, ▼6,500(-5.7%) 下方バイアス · 天井7,000（GEX ≤ -20: ボラ拡大）",
+    "insightSqueeze": "S&P 6,893 — ガンマ弱(+8), スクイーズ71%, 方向不問の急変動が切迫 · 資本保全優先（スクイーズ ≥ 70%）",
+    "insightTrigger": "S&P 6,893 — ガンマ中立(+15), スクイーズ28%, ▲7,000(+1.6%) · レジスタンス1.2%接近 — ブレイク=急伸、拒否=押し戻し",
+    "tradingGuide": "GAMMA SHIELD V3 データ解釈",
+    "guide1": "<emerald>GEX ≥ +20 + スクイーズ LOW</emerald> → ディーラーヘッジが価格を安定化; <gold>ボラティリティ抑制のレンジバウンドゾーン</gold>",
+    "guide2": "<rose>GEX ≤ -20 + スクイーズ HIGH</rose> → ディーラーヘッジがボラティリティを増幅; <cyan>双方向急変動確率が構造的に高い環境</cyan>",
+    "guide3": "<emerald>ガンマフリップポイント2%以内</emerald> → ディーラーレジーム遷移が切迫; <rose>ボラティリティレジーム変化への備えが必要</rose>"
+  },
+  "strategy": {
+    "title": "構造データ分析ワークフロー",
+    "desc": "マクロ環境からミクロレベルまで、Guardianの全データセットを体系的に解釈し市場構造を診断する4段階プロセス。",
+    "step1": {
+      "title": "ステップ1: 市場環境評価",
+      "desc": "<gold>Fear & Greed</gold> + <rose>VIX</rose> + <cyan>DXY</cyan>ステータスバーで全体的な市場温度を評価。<emerald>極端な恐怖/貪欲ゾーン</emerald>は歴史的に反転を先行。"
+    },
+    "step2": {
+      "title": "ステップ2: マクロ環境診断",
+      "desc": "<gold>Gravity Gauge</gold> + <purple>Reality Check</purple> + <emerald>Market Breadth</emerald>でマクロ構造健全性を検証。<cyan>幅広い参加 + 安定した金利</cyan>は強気環境を示唆。"
+    },
+    "step3": {
+      "title": "ステップ3: セクターフロー観察",
+      "desc": "<purple>Flow Topography Map</purple> + <cyan>Sector Intel</cyan>で資金集中セクターを特定。<gold>セクターローテーション方向</gold>を把握し、流入セクターの主要構成銘柄を分析。"
+    },
+    "step4": {
+      "title": "ステップ4: AI構造分析確認",
+      "desc": "<emerald>Tactical Verdict</emerald>と<cyan>RLSI Insight</cyan>のAI分析が最終的な市場環境評価を提供。<gold>Dashboard個別銘柄分析</gold>と組み合わせることでマクロ-ミクロ統合分析が可能。"
+    },
+    "warningTitle": "⚠️ リスク開示および免責事項",
+    "warningDesc": "本サービスが提供するすべての情報（指標、シグナル、分析結果を含む）は市場データの定量分析結果であり、投資助言、売買推奨、個別の財務助言には該当しません。金融市場への参加には元本損失のリスクが伴います。過去のデータや指標は将来の収益を保証するものではありません。すべての投資判断は利用者本人の責任の下に行われ、本サービス提供者は利用結果に対していかなる法的責任も負いません。"
+  }
+}

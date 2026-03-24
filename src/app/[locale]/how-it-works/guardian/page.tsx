@@ -4,7 +4,7 @@ import { getTranslations } from 'next-intl/server';
 import {
     Gauge, Activity, TrendingUp, TrendingDown, Shield, Globe, BarChart3,
     Lightbulb, AlertTriangle, Calendar, Eye, Compass, Target, Layers,
-    ArrowUpDown, Radio, Zap, Brain, MapPin, Info, ChevronRight
+    ArrowUpDown, Radio, Zap, Brain, MapPin, Info, ChevronRight, SlidersHorizontal
 } from 'lucide-react';
 
 export default async function GuardianGuidePage({ params }: { params: Promise<{ locale: string }> }) {
@@ -241,36 +241,7 @@ export default async function GuardianGuidePage({ params }: { params: Promise<{ 
 
                 {/* ── V3 New Feature Cards ── */}
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                    {/* SPY/QQQ Split */}
-                    <div className={`${glassCard} ${glassBg}`}>
-                        <div className="absolute -right-6 -top-6 w-28 h-28 rounded-full bg-purple-500/[0.05] blur-3xl pointer-events-none" />
-                        <div className="relative space-y-3">
-                            <div className="flex items-center gap-2">
-                                <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-purple-400 to-indigo-600 flex items-center justify-center">
-                                    <Layers size={14} className="text-white" />
-                                </div>
-                                <h4 className="text-sm font-bold text-white">{t('gammaShield.spySplit.title')}</h4>
-                                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-purple-500/20 border border-purple-500/30 text-purple-300">V3</span>
-                            </div>
-                            <p className="text-[13px] text-slate-300 leading-relaxed">{t.rich('gammaShield.spySplit.desc', richTags)}</p>
-                            <div className="space-y-1.5">
-                                <div className="flex items-center gap-2">
-                                    <span className="text-[11px] font-bold text-cyan-400 w-10">SPY</span>
-                                    <div className="flex-1 h-[6px] rounded-full bg-slate-800 overflow-hidden">
-                                        <div className="h-full rounded-full bg-gradient-to-r from-cyan-500 to-cyan-400" style={{ width: '60%' }} />
-                                    </div>
-                                    <span className="text-[11px] font-bold text-cyan-400 tabular-nums">+12</span>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                    <span className="text-[11px] font-bold text-amber-400 w-10">QQQ</span>
-                                    <div className="flex-1 h-[6px] rounded-full bg-slate-800 overflow-hidden">
-                                        <div className="h-full rounded-full bg-gradient-to-r from-amber-500 to-amber-400" style={{ width: '45%' }} />
-                                    </div>
-                                    <span className="text-[11px] font-bold text-amber-400 tabular-nums">+5</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+
 
                     {/* Gamma Flip Point */}
                     <div className={`${glassCard} ${glassBg}`}>
@@ -815,7 +786,7 @@ export default async function GuardianGuidePage({ params }: { params: Promise<{ 
             {/* Section 7 & 8: Economic Calendar + Tactical Verdict (2-col)*/}
             {/* ═══════════════════════════════════════════════════════════ */}
             <section className="space-y-5">
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 items-start">
                     {/* ─── Economic Calendar ─── */}
                     <div className={`${glassCard} ${glassBg}`}>
                         <div className="absolute -right-8 -bottom-8 w-32 h-32 rounded-full bg-amber-500/[0.05] blur-3xl pointer-events-none" />
@@ -843,14 +814,15 @@ export default async function GuardianGuidePage({ params }: { params: Promise<{ 
                                 </div>
                                 <div className="space-y-2">
                                     {[
-                                        { date: t('calendar.date1'), tag: 'CPI', event: t('calendar.event1'), tagColor: 'bg-amber-500/30 text-amber-300' },
-                                        { date: t('calendar.date2'), tag: 'PMI', event: t('calendar.event2'), tagColor: 'bg-rose-500/30 text-rose-300' },
-                                        { date: t('calendar.date3'), tag: 'PMI', event: t('calendar.event3'), tagColor: 'bg-rose-500/30 text-rose-300' },
+                                        { date: t('calendar.date1'), tag: 'CPI', event: t('calendar.event1'), tagColor: 'bg-amber-500/30 text-amber-300', impact: 'HIGH' },
+                                        { date: t('calendar.date2'), tag: 'PMI', event: t('calendar.event2'), tagColor: 'bg-rose-500/30 text-rose-300', impact: 'HIGH' },
+                                        { date: t('calendar.date3'), tag: 'PMI', event: t('calendar.event3'), tagColor: 'bg-rose-500/30 text-rose-300', impact: 'MED' },
                                     ].map((e) => (
                                         <div key={e.date} className="flex items-center gap-3 text-xs">
-                                            <span className="text-slate-300 w-10">{e.date}</span>
-                                            <span className={`text-[11px] font-bold px-1 py-0.5 rounded ${e.tagColor}`}>{e.tag}</span>
-                                            <span className="text-slate-300">{e.event}</span>
+                                            <span className="text-slate-300 w-12 flex-shrink-0">{e.date}</span>
+                                            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${e.tagColor}`}>{e.tag}</span>
+                                            <span className="text-slate-300 flex-1">{e.event}</span>
+                                            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${e.impact === 'HIGH' ? 'bg-rose-500/25 text-rose-300' : 'bg-amber-500/20 text-amber-300'}`}>{e.impact}</span>
                                         </div>
                                     ))}
                                 </div>
@@ -861,6 +833,7 @@ export default async function GuardianGuidePage({ params }: { params: Promise<{ 
                                 <div className="text-[13px] text-slate-300 leading-relaxed space-y-0.5">
                                     <p>• {t.rich('calendar.guide1', richTags)}</p>
                                     <p>• {t.rich('calendar.guide2', richTags)}</p>
+                                    <p>• {t.rich('calendar.guide3', richTags)}</p>
                                 </div>
                             </div>
                         </div>
@@ -881,7 +854,7 @@ export default async function GuardianGuidePage({ params }: { params: Promise<{ 
                                         <p className="text-xs text-emerald-400 font-medium uppercase tracking-wider">AI Tactical Analysis</p>
                                     </div>
                                 </div>
-                                <span className="px-2.5 py-1 rounded-full bg-emerald-500/20 border border-emerald-500/30 text-xs font-bold text-emerald-300">V2.5 FLASH</span>
+                                <span className="px-2.5 py-1 rounded-full bg-emerald-500/20 border border-emerald-500/30 text-xs font-bold text-emerald-300">AI</span>
                             </div>
 
                             <p className="text-sm text-slate-300 leading-relaxed">{t.rich('tactical.desc', richTags)}</p>
@@ -914,27 +887,137 @@ export default async function GuardianGuidePage({ params }: { params: Promise<{ 
                                     <div className="text-xs font-bold text-rose-400">BEARISH</div>
                                 </div>
                             </div>
+                        </div>
+                    </div>
+                </div>
 
-                            {/* V9.0 Deep Macro Analysis Indicators */}
-                            <div className="p-3 rounded-lg bg-slate-800/40 border border-white/5 space-y-2">
-                                <div className="flex items-center gap-1.5">
-                                    <Activity size={12} className="text-rose-400" />
-                                    <span className="text-xs font-bold text-rose-400 uppercase tracking-wider">{t('tactical.v9DeepAnalysis.title')}</span>
+                {/* ── Deep Macro + What-If (full-width below grid) ── */}
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+                    {/* V9.0 Deep Macro Analysis Indicators */}
+                    <div className={`${glassCard} ${glassBg}`}>
+                        <div className="absolute -left-6 -top-6 w-28 h-28 rounded-full bg-rose-500/[0.05] blur-3xl pointer-events-none" />
+                        <div className="relative space-y-3">
+                            <div className="flex items-center gap-1.5">
+                                <Activity size={13} className="text-rose-400" />
+                                <span className="text-xs font-bold text-rose-400 uppercase tracking-wider">{t('tactical.v9DeepAnalysis.title')}</span>
+                            </div>
+                            <div className="text-[13px] text-slate-300 leading-relaxed space-y-1.5">
+                                <div className="flex items-start gap-2">
+                                    <div className="w-1.5 h-1.5 rounded-full bg-rose-400 mt-1.5 flex-shrink-0" />
+                                    <p>{t('tactical.v9DeepAnalysis.vixTerm')}</p>
                                 </div>
-                                <div className="text-[13px] text-slate-300 leading-relaxed space-y-1.5">
-                                    <div className="flex items-start gap-2">
-                                        <div className="w-1.5 h-1.5 rounded-full bg-rose-400 mt-1.5 flex-shrink-0" />
-                                        <p>{t('tactical.v9DeepAnalysis.vixTerm')}</p>
+                                <div className="flex items-start gap-2">
+                                    <div className="w-1.5 h-1.5 rounded-full bg-cyan-400 mt-1.5 flex-shrink-0" />
+                                    <p>{t('tactical.v9DeepAnalysis.bondFlow')}</p>
+                                </div>
+                                <div className="flex items-start gap-2">
+                                    <div className="w-1.5 h-1.5 rounded-full bg-amber-400 mt-1.5 flex-shrink-0" />
+                                    <p>{t('tactical.v9DeepAnalysis.goldFlow')}</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* What-If Simulator */}
+                    <div className={`${glassCard} ${glassBg}`}>
+                        <div className="absolute -right-6 -bottom-6 w-28 h-28 rounded-full bg-teal-500/[0.05] blur-3xl pointer-events-none" />
+                        <div className="relative space-y-3">
+                            <div className="flex items-center gap-1.5">
+                                <SlidersHorizontal size={13} className="text-teal-400" />
+                                <span className="text-xs font-bold text-teal-400 uppercase tracking-wider">{t('tactical.whatIf.title')}</span>
+                            </div>
+                            <p className="text-[13px] text-slate-300 leading-relaxed">{t.rich('tactical.whatIf.desc', richTags)}</p>
+                            <div className="rounded-lg bg-slate-800/50 border border-white/5 p-3 space-y-2.5">
+                                {[
+                                    { label: 'VIX', value: 18, color: 'bg-rose-400', width: '36%' },
+                                    { label: '10Y Yield', value: 4.2, color: 'bg-amber-400', width: '55%' },
+                                    { label: 'Sentiment', value: 62, color: 'bg-emerald-400', width: '62%' },
+                                    { label: 'Momentum', value: 71, color: 'bg-cyan-400', width: '71%' },
+                                ].map((s) => (
+                                    <div key={s.label} className="flex items-center gap-3">
+                                        <span className="text-xs text-slate-300 w-16 font-medium">{s.label}</span>
+                                        <div className="flex-1 h-2 rounded-full bg-slate-700 overflow-hidden">
+                                            <div className={`h-full rounded-full ${s.color}`} style={{ width: s.width }} />
+                                        </div>
+                                        <span className="text-xs font-bold text-white w-8 text-right">{s.value}</span>
                                     </div>
-                                    <div className="flex items-start gap-2">
-                                        <div className="w-1.5 h-1.5 rounded-full bg-cyan-400 mt-1.5 flex-shrink-0" />
-                                        <p>{t('tactical.v9DeepAnalysis.bondFlow')}</p>
+                                ))}
+                                <div className="text-center pt-1 border-t border-white/5">
+                                    <span className="text-xs text-slate-400">RLSI Score Impact →</span>
+                                    <span className="text-sm font-bold text-emerald-400 ml-2">+4.2</span>
+                                </div>
+                            </div>
+                            <p className="text-xs text-slate-400 leading-relaxed">{t('tactical.whatIf.howTo')}</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            {/* ═══════════════════════════════════════════════════════════ */}
+            {/* Section 8.5: FedWatch Rate Probability                    */}
+            {/* ═══════════════════════════════════════════════════════════ */}
+            <section className="space-y-5">
+                <div className={`${glassCard} ${glassBg}`}>
+                    <div className="absolute -right-10 -top-10 w-40 h-40 rounded-full bg-indigo-500/[0.05] blur-3xl pointer-events-none" />
+                    <div className="relative space-y-4">
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                                <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-400 to-blue-600 flex items-center justify-center shadow-lg shadow-indigo-500/25">
+                                    <BarChart3 size={18} className="text-white" />
+                                </div>
+                                <div>
+                                    <h3 className="text-lg font-bold text-white">{t('fedWatch.title')}</h3>
+                                    <p className="text-xs text-indigo-400 font-medium uppercase tracking-wider">CME FedWatch Integration</p>
+                                </div>
+                            </div>
+                            <span className="px-2.5 py-1 rounded-full bg-indigo-500/20 border border-indigo-500/30 text-xs font-bold text-indigo-300">LIVE</span>
+                        </div>
+
+                        <p className="text-sm text-slate-300 leading-relaxed">{t.rich('fedWatch.desc', richTags)}</p>
+
+                        {/* FedWatch Mockup */}
+                        <div className="rounded-lg bg-slate-800/50 border border-white/5 p-4 space-y-3">
+                            <div className="flex items-center justify-between text-xs">
+                                <span className="text-slate-300">{t('fedWatch.nextMeeting')}</span>
+                                <span className="text-indigo-300 font-bold">Jun 18, 2026</span>
+                            </div>
+                            <div className="space-y-2.5">
+                                <div className="space-y-1">
+                                    <div className="flex items-center justify-between text-xs">
+                                        <span className="text-emerald-400 font-medium">{t('fedWatch.cutProb')}</span>
+                                        <span className="text-emerald-400 font-bold">68.2%</span>
                                     </div>
-                                    <div className="flex items-start gap-2">
-                                        <div className="w-1.5 h-1.5 rounded-full bg-amber-400 mt-1.5 flex-shrink-0" />
-                                        <p>{t('tactical.v9DeepAnalysis.goldFlow')}</p>
+                                    <div className="h-3 rounded-full bg-slate-700 overflow-hidden">
+                                        <div className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-emerald-400" style={{ width: '68.2%' }} />
                                     </div>
                                 </div>
+                                <div className="space-y-1">
+                                    <div className="flex items-center justify-between text-xs">
+                                        <span className="text-amber-400 font-medium">{t('fedWatch.holdProb')}</span>
+                                        <span className="text-amber-400 font-bold">28.5%</span>
+                                    </div>
+                                    <div className="h-3 rounded-full bg-slate-700 overflow-hidden">
+                                        <div className="h-full rounded-full bg-gradient-to-r from-amber-500 to-amber-400" style={{ width: '28.5%' }} />
+                                    </div>
+                                </div>
+                                <div className="space-y-1">
+                                    <div className="flex items-center justify-between text-xs">
+                                        <span className="text-rose-400 font-medium">{t('fedWatch.hikeProb')}</span>
+                                        <span className="text-rose-400 font-bold">3.3%</span>
+                                    </div>
+                                    <div className="h-3 rounded-full bg-slate-700 overflow-hidden">
+                                        <div className="h-full rounded-full bg-gradient-to-r from-rose-500 to-rose-400" style={{ width: '3.3%' }} />
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="p-3 rounded-lg bg-indigo-900/15 border border-indigo-500/20 space-y-1">
+                            <span className="text-[13px] font-bold text-indigo-400 flex items-center gap-1.5"><Lightbulb size={13} />{t('fedWatch.tradingGuide')}</span>
+                            <div className="text-[13px] text-slate-300 leading-relaxed space-y-0.5">
+                                <p>• {t.rich('fedWatch.guide1', richTags)}</p>
+                                <p>• {t.rich('fedWatch.guide2', richTags)}</p>
+                                <p>• {t.rich('fedWatch.guide3', richTags)}</p>
                             </div>
                         </div>
                     </div>
