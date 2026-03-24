@@ -240,9 +240,11 @@ export const useDashboardStore = create<DashboardState>()(
                                 prevClose: q.previousClose || 0,
                                 regularCloseToday: null,
                                 intradayChangePct: null,
-                                display: null,
-                                prevChangePct: null,
-                                prevRegularClose: null,
+                                // [FIX] Populate display & prevRegularClose from SSR data
+                                // so calcPriceDisplay has accurate CHG% from first render
+                                display: { price: q.price || 0, changePctPct: q.changesPercentage || 0 },
+                                prevChangePct: q.changesPercentage || null,
+                                prevRegularClose: q.previousClose || null,
                                 extended: null,
                                 session: (q.marketState && sessionMap[q.marketState]) || 'REG',
                                 netGex: null, maxPain: null, pcr: null, isGammaSqueeze: false,
@@ -258,6 +260,9 @@ export const useDashboardStore = create<DashboardState>()(
                                 underlyingPrice: q.price,
                                 changePercent: q.changesPercentage,
                                 prevClose: q.previousClose,
+                                // [FIX] Also merge prevRegularClose and display for accurate CHG%
+                                prevRegularClose: q.previousClose,
+                                display: { price: q.price, changePctPct: q.changesPercentage },
                                 session: (q.marketState && sessionMap[q.marketState]) || currentTickers[ticker].session
                             });
                         }

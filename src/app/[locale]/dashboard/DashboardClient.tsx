@@ -324,30 +324,30 @@ const WatchlistItem = React.memo(function WatchlistItem({ ticker, isSelected }: 
                 </div>
 
                 {/* Col 2: Last Price */}
-                <div className="text-right flex-shrink-0">
+                <div className="text-center flex-shrink-0">
                     {mainPrice > 0 ? (
                         <span className={`font-mono text-[14px] ${wf.color}`}
                             style={wf.style}>
                             {mainPrice.toFixed(2)}
                         </span>
                     ) : (
-                        <div className="h-3.5 w-14 bg-slate-700 rounded animate-pulse ml-auto" />
+                        <div className="h-3.5 w-14 bg-slate-700 rounded animate-pulse mx-auto" />
                     )}
                 </div>
 
                 {/* Col 3: Chg% */}
-                <div className="text-right flex-shrink-0">
+                <div className="text-center flex-shrink-0">
                     {mainPrice > 0 ? (
                         <span className={`font-mono text-[14px] font-medium ${isPositive ? "text-emerald-400" : "text-rose-400"}`}>
                             {isPositive ? "+" : ""}{mainChangePct.toFixed(2)}%
                         </span>
                     ) : (
-                        <div className="h-3.5 w-10 bg-slate-700 rounded animate-pulse ml-auto" />
+                        <div className="h-3.5 w-10 bg-slate-700 rounded animate-pulse mx-auto" />
                     )}
                 </div>
 
                 {/* Col 4: Ext% (no label, just the number) */}
-                <div className="text-right flex-shrink-0">
+                <div className="text-center flex-shrink-0">
                     {extPrice > 0 ? (
                         <span className={`font-mono text-[14px] font-medium ${extChangePct >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
                             {extChangePct > 0 ? "+" : ""}{extChangePct.toFixed(2)}%
@@ -545,9 +545,9 @@ function WatchlistPanel() {
             {/* Column Headers — TradingView style */}
             <div className="grid grid-cols-[minmax(0,1fr)_72px_58px_58px] items-center gap-x-1.5 pl-[14px] pr-[32px] py-1.5 border-b border-white/5">
                 <span className="text-[12px] font-jakarta uppercase tracking-wider text-slate-300">Symbol</span>
-                <span className="text-[12px] font-jakarta uppercase tracking-wider text-slate-300 text-right">Last</span>
-                <span className="text-[12px] font-jakarta uppercase tracking-wider text-slate-300 text-right">Chg%</span>
-                <span className="text-[12px] font-jakarta uppercase tracking-wider text-slate-300 text-right">{extHeaderLabel}</span>
+                <span className="text-[12px] font-jakarta uppercase tracking-wider text-slate-300 text-center">Last</span>
+                <span className="text-[12px] font-jakarta uppercase tracking-wider text-slate-300 text-center">Chg%</span>
+                <span className="text-[12px] font-jakarta uppercase tracking-wider text-slate-300 text-center">{extHeaderLabel}</span>
             </div>
             <div className="flex-1 overflow-y-auto px-1 py-0.5 space-y-0">
                 {tickerList.map(ticker => (
