@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Sparkles, Clock, AlertTriangle, RefreshCw, Loader2, ChevronDown, ChevronUp, TrendingUp, BarChart3, Globe, Zap } from 'lucide-react';
+import { Clock, AlertTriangle, RefreshCw, Loader2, ChevronDown, ChevronUp, TrendingUp, BarChart3, Globe, Zap } from 'lucide-react';
+import { CardTooltip, COMMAND_TOOLTIPS } from '@/components/ui/CardTooltip';
 import { useLocale } from 'next-intl';
 
 // Helper: extract locale-specific text from trilingual object or fallback string
@@ -10,6 +11,26 @@ function extractLocale(val: Trilingual | undefined, locale: string): string {
     if (!val) return '';
     if (typeof val === 'string') return val;
     return (val as any)[locale] || val.en || val.ko || '';
+}
+
+// ── SIGNUM AI Icon (brand logo with amber glow pulse) ──
+function SignumAIIcon({ size = 16, className = '', glow = true }: { size?: number; className?: string; glow?: boolean }) {
+    return (
+        <img
+            src="/signum-sg-vectorized.svg"
+            alt="AI"
+            width={size}
+            height={size}
+            className={className}
+            style={{
+                objectFit: 'contain' as const,
+                ...(glow ? {
+                    filter: 'drop-shadow(0 0 3px rgba(245,158,11,0.35)) drop-shadow(0 0 1px rgba(245,158,11,0.25))',
+                    animation: 'aiLogoPulse 2.5s ease-in-out infinite',
+                } : {}),
+            }}
+        />
+    );
 }
 
 interface DeepAnalysisResult {
@@ -236,7 +257,7 @@ export function AIDeepAnalysis({ ticker, displayPrice, session, snapshot }: Prop
 
     return (
         <div className="shrink-0 relative rounded-lg border border-amber-500/40 overflow-hidden shadow-lg transition-all duration-300"
-            style={{ background: 'linear-gradient(180deg, rgba(8,12,21,0.95) 0%, rgba(13,17,25,0.98) 100%)', boxShadow: '0 0 12px rgba(245,158,11,0.12), 0 0 4px rgba(245,158,11,0.06)' }}>
+            style={{ background: 'linear-gradient(180deg, rgba(8,12,21,0.95) 0%, rgba(13,17,25,0.98) 100%)', boxShadow: '0 0 24px rgba(245,158,11,0.18), 0 0 8px rgba(245,158,11,0.10), inset 0 0 12px rgba(245,158,11,0.04)' }}>
 
             {/* ═══ AI Neural Background ═══ */}
             <div className="absolute inset-0 pointer-events-none z-0 overflow-hidden">
@@ -285,16 +306,22 @@ export function AIDeepAnalysis({ ticker, displayPrice, session, snapshot }: Prop
                     50% { opacity: 1; }
                 }
             `}</style>
+            <style>{`
+                @keyframes aiLogoPulse {
+                    0%, 100% { filter: drop-shadow(0 0 2px rgba(245,158,11,0.2)) drop-shadow(0 0 1px rgba(245,158,11,0.15)); transform: scale(1); }
+                    50% { filter: drop-shadow(0 0 5px rgba(245,158,11,0.5)) drop-shadow(0 0 2px rgba(245,158,11,0.3)); transform: scale(1.08); }
+                }
+            `}</style>
 
             {/* ═══ Header ═══ */}
             <div className="px-3.5 py-2.5 border-b border-white/[0.06] flex items-center justify-between relative z-10"
                 style={{ background: 'linear-gradient(90deg, rgba(6,182,212,0.06) 0%, rgba(99,102,241,0.04) 50%, transparent 100%)' }}>
                 <div className="flex items-center gap-2">
                     <div className="relative">
-                        <Sparkles size={13} className="text-cyan-400" style={{ animation: 'aiPulse 3s ease-in-out infinite' }} />
+                        <SignumAIIcon size={16} />
                     </div>
                     <span className="text-[12px] font-black text-white uppercase tracking-[0.15em] font-jakarta">
-                        AI Deep Analysis
+                        <CardTooltip tooltip={COMMAND_TOOLTIPS.AI_DEEP_ANALYSIS.tooltip} badge={COMMAND_TOOLTIPS.AI_DEEP_ANALYSIS.badge}>AI Deep Analysis</CardTooltip>
                     </span>
                     <span className="text-[10px] bg-gradient-to-r from-cyan-950/80 to-indigo-950/80 text-cyan-400 px-1.5 py-0.5 rounded border border-cyan-500/20 font-bold font-jakarta">
                         CLAUDE S4
@@ -319,7 +346,7 @@ export function AIDeepAnalysis({ ticker, displayPrice, session, snapshot }: Prop
                     <div className="flex flex-col items-center gap-3">
                         <div className="relative">
                             <div className="w-10 h-10 rounded-full border-2 border-cyan-500/30 flex items-center justify-center">
-                                <Sparkles size={18} className="text-cyan-400 animate-pulse" />
+                                <SignumAIIcon size={22} />
                             </div>
                             <div className="absolute inset-0 rounded-full border-2 border-transparent border-t-cyan-400 animate-spin" style={{ animationDuration: '2s' }} />
                         </div>
@@ -374,7 +401,7 @@ export function AIDeepAnalysis({ ticker, displayPrice, session, snapshot }: Prop
                                     {verdict.label}
                                 </span>
                                 <span className="text-[12px] text-slate-400 font-jakarta">—</span>
-                                <span className="text-[12px] text-slate-300 font-semibold font-jakarta truncate">
+                                <span className="text-[12px] text-slate-300 font-semibold font-jakarta">
                                     {shortVerdict}
                                 </span>
                             </div>
@@ -384,7 +411,7 @@ export function AIDeepAnalysis({ ticker, displayPrice, session, snapshot }: Prop
                                 <div className="mt-1 px-3 py-2.5 rounded-lg border border-cyan-500/15"
                                     style={{ background: 'linear-gradient(135deg, rgba(6,182,212,0.08) 0%, rgba(99,102,241,0.06) 100%)' }}>
                                     <div className="flex items-start gap-2">
-                                        <Sparkles size={12} className="text-cyan-400 mt-0.5 shrink-0" style={{ animation: 'aiPulse 3s ease-in-out infinite' }} />
+                                        <SignumAIIcon size={14} />
                                         <p className="text-[13px] text-slate-300 font-medium leading-relaxed" style={{ fontFamily: 'Pretendard, sans-serif' }}>
                                             {extractLocale(analysis.keyInsight, locale)}
                                         </p>

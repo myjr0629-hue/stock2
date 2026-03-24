@@ -33,16 +33,26 @@ const TAG_COLORS: Record<string, string> = {
 
 const TAG_PATTERN = /(\[현황\]|\[해석\]|\[액션\]|\[전망\]|\[진단\]|\[결론\]|\[Status\]|\[Interpretation\]|\[Action\]|\[Outlook\]|\[Diagnosis\]|\[Conclusion\]|\[現況\]|\[解釈\]|\[アクション\]|\[見通し\]|\[診断\]|\[結論\])/g;
 
-/** Render text with colored section tags */
+/** Render text with colored section tags — each tag starts on a new line */
 export function renderColoredText(text: string): React.ReactNode[] {
     const parts = text.split(TAG_PATTERN);
-    return parts.map((part, i) => {
+    const nodes: React.ReactNode[] = [];
+    let isFirst = true;
+    parts.forEach((part, i) => {
         const colorClass = TAG_COLORS[part];
         if (colorClass) {
-            return <span key={i} className={colorClass}>{part}</span>;
+            // Add line break before tag (except the very first content)
+            if (!isFirst) {
+                nodes.push(<br key={`br-${i}`} />);
+            }
+            nodes.push(<span key={i} className={colorClass}>{part}</span>);
+            isFirst = false;
+        } else if (part) {
+            nodes.push(<React.Fragment key={i}>{part}</React.Fragment>);
+            isFirst = false;
         }
-        return <React.Fragment key={i}>{part}</React.Fragment>;
     });
+    return nodes;
 }
 
 export function TypewriterText({ text, speed = 30, className = "" }: TypewriterTextProps) {

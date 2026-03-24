@@ -3,7 +3,7 @@
 import React, { Suspense, useMemo } from 'react';
 import { useSearchParams } from 'next/navigation';
 import dynamic from 'next/dynamic';
-import Link from 'next/link';
+import { Link } from '@/i18n/routing';
 import { useTranslations } from 'next-intl';
 import { Loader2, BookOpen } from 'lucide-react';
 import { FavoriteToggle } from '@/components/FavoriteToggle';
@@ -168,7 +168,10 @@ export function FlowPageClient({ ticker, initialFlowData }: FlowPageClientProps)
 
                         {/* Guide Link + Sparkline grouped together */}
                         <div className="hidden sm:flex items-center gap-2 self-end mb-0.5">
-                            {/* Guide link hidden for compliance review */}
+                            <Link href="/how-it-works" className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-white/10 text-[11px] font-bold text-slate-400 hover:text-white hover:border-white/20 transition-all">
+                                <BookOpen className="w-3 h-3" />
+                                GUIDE
+                            </Link>
 
                             {/* Mini Sparkline Chart */}
                             {sparklinePath && (

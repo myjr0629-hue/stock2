@@ -3,7 +3,7 @@
 import React, { useEffect, useCallback, useState, useRef, useMemo } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import dynamic from "next/dynamic";
-import Link from "next/link";
+import { Link } from "@/i18n/routing";
 import { useSearchParams } from "next/navigation";
 import { useDashboardStore } from "@/stores/dashboardStore";
 import { useShallow } from "zustand/react/shallow";
@@ -213,7 +213,10 @@ function AlphaStatusBar() {
 
             {/* Right: Guide Link + Last Updated & Refresh */}
             <div className="flex items-center gap-3">
-                {/* Guide link hidden for compliance review */}
+                <Link href="/how-it-works" className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-white/10 text-xs font-bold text-slate-400 hover:text-white hover:border-white/20 transition-all">
+                    <BookOpen className="w-3.5 h-3.5" />
+                    <span className="hidden sm:inline">GUIDE</span>
+                </Link>
             </div>
         </div>
     );

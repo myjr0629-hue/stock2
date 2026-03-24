@@ -97,7 +97,10 @@ export default function PortfolioClientPage({
                         <ExchangeRateBadge locale={locale} />
                     </div>
                     <div className="flex items-center gap-3">
-                        {/* Guide link hidden for compliance review */}
+                        <Link href="/how-it-works" className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-white/10 text-xs font-bold text-slate-400 hover:text-white hover:border-white/20 transition-all">
+                            <BookOpen className="w-3.5 h-3.5" />
+                            <span className="hidden sm:inline">GUIDE</span>
+                        </Link>
                         <button
                             onClick={() => !isAtLimit && setShowAddModal(true)}
                             className={`flex items-center gap-1.5 px-4 py-1.5 border text-xs font-bold rounded-lg transition-all ${isAtLimit

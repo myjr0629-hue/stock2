@@ -132,7 +132,10 @@ export function OracleHeader({ }: OracleHeaderProps) {
 
                 {/* RIGHT: Guide + VERSION */}
                 <div className="flex items-center gap-3">
-                    {/* Guide link hidden for compliance review */}
+                    <Link href="/how-it-works" className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-white/10 text-[11px] font-bold text-slate-400 hover:text-white hover:border-white/20 transition-all font-jakarta">
+                        <BookOpen className="w-3 h-3" />
+                        GUIDE
+                    </Link>
                     <div className="text-[12px] text-slate-500 font-black tracking-widest uppercase opacity-70 font-jakarta">
                         V8.2 CORE ACTIVE
                     </div>

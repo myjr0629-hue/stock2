@@ -155,7 +155,10 @@ export function SectorCommandCenter({ sectorData, onNavigate }: SectorCommandCen
                                 <Eye className="w-3.5 h-3.5" />
                                 SECTOR COMMAND CENTER
                             </span>
-                            {/* Guide link hidden for compliance review */}
+                            <Link href="/how-it-works" className="flex items-center gap-1 px-2.5 py-1 rounded-lg border border-white/10 text-[11px] font-bold text-slate-400 hover:text-white hover:border-white/20 transition-all">
+                                <BookOpen className="w-3 h-3" />
+                                GUIDE
+                            </Link>
                         </div>
                         <h1 className="text-3xl md:text-4xl font-black text-white tracking-tight">
                             SECTOR <span className="bg-gradient-to-r from-cyan-400 to-indigo-400 bg-clip-text text-transparent">COMMAND</span>

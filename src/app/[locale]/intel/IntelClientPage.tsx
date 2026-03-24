@@ -14,6 +14,7 @@ import {
     Bot,
     BookOpen
 } from "lucide-react";
+import { Link } from "@/i18n/routing";
 
 // Static imports — lightweight or needed immediately
 import { TacticalCard } from "@/components/TacticalCard";
@@ -2018,7 +2019,10 @@ function IntelContent({ initialReport, initialM7Data, initialPAIData, initialSCD
                                             <Activity className="w-4 h-4 text-emerald-500" />
                                             SIGNUM INTELLIGENCE
                                         </span>
-                                        {/* Guide link hidden for compliance review */}
+                                        <Link href="/how-it-works" className="flex items-center gap-1 px-2.5 py-1 rounded-lg border border-white/10 text-[11px] font-bold text-slate-400 hover:text-white hover:border-white/20 transition-all">
+                                            <BookOpen className="w-3 h-3" />
+                                            GUIDE
+                                        </Link>
                                     </div>
                                     <h1 className="text-3xl md:text-4xl font-black text-white tracking-tight flex items-center gap-3 font-jakarta drop-shadow-[0_0_15px_rgba(16,185,129,0.2)]">
                                         <span className="text-emerald-500 font-jakarta">{t('title')}</span>

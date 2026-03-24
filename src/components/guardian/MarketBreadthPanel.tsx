@@ -315,9 +315,10 @@ export default function RLSIInsightPanel({
                     <>
                         {isMarketActive ? (
                             <>
-                                <div className={`text-xs font-bold mb-1.5 uppercase tracking-wide ${sentiment === 'BULLISH' ? 'text-emerald-300' :
+                                <div className={`text-xs font-bold mb-1.5 uppercase tracking-wide flex items-center gap-1.5 ${sentiment === 'BULLISH' ? 'text-emerald-300' :
                                     sentiment === 'BEARISH' ? 'text-rose-300' : 'text-white'
                                     }`}>
+                                    <img src="/signum-sg-vectorized.svg" alt="AI" width={13} height={13} style={{ objectFit: 'contain' as const, filter: 'drop-shadow(0 0 2px rgba(245,158,11,0.3))', animation: 'aiLogoPulse 2.5s ease-in-out infinite' }} />
                                     {insightTitle}
                                 </div>
                                 <div className="text-[13px] text-white/80 leading-[1.6]" style={{ fontFamily: 'Pretendard, sans-serif' }}>
@@ -326,9 +327,10 @@ export default function RLSIInsightPanel({
                             </>
                         ) : (insightTitle || insightDesc) ? (
                             <>
-                                <div className={`text-xs font-bold mb-1.5 uppercase tracking-wide ${sentiment === 'BULLISH' ? 'text-emerald-300' :
+                                <div className={`text-xs font-bold mb-1.5 uppercase tracking-wide flex items-center gap-1.5 ${sentiment === 'BULLISH' ? 'text-emerald-300' :
                                     sentiment === 'BEARISH' ? 'text-rose-300' : 'text-white'
                                     }`}>
+                                    <img src="/signum-sg-vectorized.svg" alt="AI" width={13} height={13} style={{ objectFit: 'contain' as const, filter: 'drop-shadow(0 0 2px rgba(245,158,11,0.3))', animation: 'aiLogoPulse 2.5s ease-in-out infinite' }} />
                                     {insightTitle}
                                 </div>
                                 <div className="text-[13px] text-white/80 leading-[1.6]" style={{ fontFamily: 'Pretendard, sans-serif' }}>

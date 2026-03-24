@@ -394,7 +394,7 @@ export default function GravityGauge({ score, loading, session, components, rlsi
 
 
             {/* [V10.0] Guardian Score Timeline — ECG-style with insights */}
-            {rlsiHistory && rlsiHistory.length >= 2 && !loading && !isHoliday && (
+            {rlsiHistory && rlsiHistory.length >= 2 && !loading && (
                 <div className="w-full max-w-[290px] border-t border-slate-800/50 pt-2 mt-1">
                     <div className="flex items-center justify-between mb-1">
                         <span className="text-[12px] font-bold uppercase tracking-[0.15em] text-slate-300 font-jakarta">SCORE TIMELINE</span>
@@ -405,7 +405,7 @@ export default function GravityGauge({ score, loading, session, components, rlsi
             )}
 
             {/* Trend Insight — full card width */}
-            {rlsiHistory && rlsiHistory.length >= 4 && !loading && !isHoliday && (
+            {rlsiHistory && rlsiHistory.length >= 4 && !loading && (
                 <TimelineInsight history={rlsiHistory} />
             )}
             </div>

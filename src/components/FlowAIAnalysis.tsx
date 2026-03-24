@@ -1,7 +1,8 @@
 "use client";
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Sparkles, Clock, AlertTriangle, RefreshCw, Loader2, ChevronDown, TrendingUp, TrendingDown, BarChart3, Zap, Shield } from 'lucide-react';
+import { Clock, AlertTriangle, RefreshCw, Loader2, ChevronDown, TrendingUp, TrendingDown, BarChart3, Zap, Shield } from 'lucide-react';
+import { CardTooltip, COMMAND_TOOLTIPS } from '@/components/ui/CardTooltip';
 import { useLocale } from 'next-intl';
 
 // Helper: extract locale-specific text from trilingual object or fallback string
@@ -10,6 +11,26 @@ function extractLocale(val: Trilingual | undefined, locale: string): string {
     if (!val) return '';
     if (typeof val === 'string') return val;
     return (val as any)[locale] || val.en || val.ko || '';
+}
+
+// ── SIGNUM AI Icon (brand logo with amber glow pulse) ──
+function SignumAIIcon({ size = 16, className = '', glow = true }: { size?: number; className?: string; glow?: boolean }) {
+    return (
+        <img
+            src="/signum-sg-vectorized.svg"
+            alt="AI"
+            width={size}
+            height={size}
+            className={className}
+            style={{
+                objectFit: 'contain' as const,
+                ...(glow ? {
+                    filter: 'drop-shadow(0 0 3px rgba(245,158,11,0.35)) drop-shadow(0 0 1px rgba(245,158,11,0.25))',
+                    animation: 'aiLogoPulse 2.5s ease-in-out infinite',
+                } : {}),
+            }}
+        />
+    );
 }
 
 interface FactorHighlight {
@@ -239,7 +260,7 @@ export function FlowAIAnalysis({ ticker, isSystemReady, isMarketClosed, flowData
 
     return (
         <div className="relative rounded-lg border border-amber-500/40 overflow-hidden shadow-lg transition-all duration-300"
-            style={{ background: 'linear-gradient(180deg, rgba(8,12,21,0.95) 0%, rgba(13,17,25,0.98) 100%)', boxShadow: '0 0 12px rgba(245,158,11,0.12), 0 0 4px rgba(245,158,11,0.06)' }}>
+            style={{ background: 'linear-gradient(180deg, rgba(8,12,21,0.95) 0%, rgba(13,17,25,0.98) 100%)', boxShadow: '0 0 24px rgba(245,158,11,0.18), 0 0 8px rgba(245,158,11,0.10), inset 0 0 12px rgba(245,158,11,0.04)' }}>
 
             {/* ═══ AI Neural Background ═══ */}
             <div className="absolute inset-0 pointer-events-none z-0 overflow-hidden">
@@ -281,14 +302,20 @@ export function FlowAIAnalysis({ ticker, isSystemReady, isMarketClosed, flowData
                     50% { opacity: 1; }
                 }
             `}</style>
+            <style>{`
+                @keyframes aiLogoPulse {
+                    0%, 100% { filter: drop-shadow(0 0 2px rgba(245,158,11,0.2)) drop-shadow(0 0 1px rgba(245,158,11,0.15)); transform: scale(1); }
+                    50% { filter: drop-shadow(0 0 5px rgba(245,158,11,0.5)) drop-shadow(0 0 2px rgba(245,158,11,0.3)); transform: scale(1.08); }
+                }
+            `}</style>
 
             {/* ═══ Header ═══ */}
             <div className="px-3 py-2 border-b border-white/[0.06] flex items-center justify-between relative z-10"
                 style={{ background: 'linear-gradient(90deg, rgba(6,182,212,0.06) 0%, rgba(99,102,241,0.04) 50%, transparent 100%)' }}>
                 <div className="flex items-center gap-2">
-                    <Sparkles size={12} className="text-cyan-400" style={{ animation: 'flowPulse 3s ease-in-out infinite' }} />
+                    <SignumAIIcon size={15} />
                     <span className="text-[12px] font-black text-white uppercase tracking-[0.15em] font-jakarta">
-                        AI Flow Intelligence
+                        <CardTooltip tooltip={COMMAND_TOOLTIPS.AI_FLOW_INTELLIGENCE.tooltip} badge={COMMAND_TOOLTIPS.AI_FLOW_INTELLIGENCE.badge}>AI Flow Intelligence</CardTooltip>
                     </span>
                     <span className="text-[10px] bg-gradient-to-r from-cyan-950/80 to-indigo-950/80 text-cyan-400 px-1.5 py-0.5 rounded border border-cyan-500/20 font-bold font-jakarta">
                         CLAUDE S4
@@ -310,7 +337,7 @@ export function FlowAIAnalysis({ ticker, isSystemReady, isMarketClosed, flowData
                     <div className="flex items-center gap-3">
                         <div className="relative">
                             <div className="w-8 h-8 rounded-full border-2 border-cyan-500/30 flex items-center justify-center">
-                                <Sparkles size={14} className="text-cyan-400 animate-pulse" />
+                                <SignumAIIcon size={18} />
                             </div>
                             <div className="absolute inset-0 rounded-full border-2 border-transparent border-t-cyan-400 animate-spin" style={{ animationDuration: '2s' }} />
                         </div>

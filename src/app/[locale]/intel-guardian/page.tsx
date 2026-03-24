@@ -229,15 +229,12 @@ export default function GuardianPage() {
     const priceIntervalRef = useRef<NodeJS.Timeout | null>(null);
     // useEffect removed to prevent double-fetch (Provider handles it)
 
-    // Auto-select the 'Target' sector if available and nothing selected
-    useEffect(() => {
-        if (data?.verdictTargetId && !selectedSectorId) {
-            setSelectedSectorId(data.verdictTargetId);
-        }
-    }, [data?.verdictTargetId, selectedSectorId]);
+    // Map popup: only opens on user click (selectedSectorId starts null)
+    // SECTOR INTEL panel: always visible, defaults to verdictTargetId
+    const intelSectorId = selectedSectorId || data?.verdictTargetId || null;
 
     // [30s POLLING] Fetch constituent prices every 30 seconds
-    const selectedSector = data?.sectors.find(s => s.id === selectedSectorId);
+    const selectedSector = data?.sectors.find(s => s.id === intelSectorId);
     const constituentSymbols = selectedSector?.topConstituents?.map(c => c.symbol) || [];
 
     // [WS] Subscribe constituent symbols to WebSocket price stream
@@ -788,6 +785,19 @@ export default function GuardianPage() {
                                         </svg>
                                         <div className="flex justify-between items-center mb-4">
                                             <div className="flex items-center gap-2">
+                                                <div className="flex-shrink-0">
+                                                    <img
+                                                        src="/signum-sg-vectorized.svg"
+                                                        alt="AI"
+                                                        width={15}
+                                                        height={15}
+                                                        style={{
+                                                            objectFit: 'contain' as const,
+                                                            filter: 'drop-shadow(0 0 3px rgba(245,158,11,0.35)) drop-shadow(0 0 1px rgba(245,158,11,0.25))',
+                                                            animation: 'aiLogoPulse 2.5s ease-in-out infinite',
+                                                        }}
+                                                    />
+                                                </div>
                                                 <GuardianTooltip sectionId="tacticalVerdict">
                                                     <h3 className="text-[12px] font-black uppercase tracking-[0.2em] text-emerald-400 font-jakarta">
                                                         TACTICAL VERDICT
@@ -795,8 +805,8 @@ export default function GuardianPage() {
                                                 </GuardianTooltip>
                                                 <span className="text-[12px] text-amber-500 font-mono font-jakarta">· {session === 'REG' ? 'Regular Session' : session === 'PRE' ? 'Pre-Market' : session === 'POST' ? 'Post-Market' : 'Off-Hours'}</span>
                                             </div>
-                                            <span className="text-[12px] bg-emerald-950 text-emerald-400 px-2 py-0.5 rounded border border-emerald-500/20 font-bold font-jakarta">
-                                                V.CLAUDE S4
+                                            <span className="text-[10px] bg-gradient-to-r from-cyan-950/80 to-indigo-950/80 text-cyan-400 px-1.5 py-0.5 rounded border border-cyan-500/20 font-bold font-jakarta">
+                                                CLAUDE S4
                                             </span>
                                         </div>
 
@@ -945,8 +955,8 @@ export default function GuardianPage() {
                                                     </div>
 
                                                     {/* [V6.0] 5-Day Trend Analysis Panel */}
-                                                    {data?.rotationIntensity?.fiveDayData?.[selectedSectorId!] && (() => {
-                                                        const td = data.rotationIntensity.fiveDayData![selectedSectorId!];
+                                                    {data?.rotationIntensity?.fiveDayData?.[intelSectorId!] && (() => {
+                                                        const td = data.rotationIntensity.fiveDayData![intelSectorId!];
                                                         const dayLabels = ['D-4', 'D-3', 'D-2', 'D-1'];
                                                         const maxAbs = Math.max(...td.changes.map(Math.abs), 0.5);
                                                         const st = SECTOR_INTEL_TEXTS[(locale as SectorLocale) || 'ko'];
@@ -1039,15 +1049,15 @@ export default function GuardianPage() {
                                                                                 onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
                                                                             />
                                                                         </div>
-                                                                        <span className="font-bold text-slate-200 group-hover:text-cyan-300 w-10">{stock.symbol}</span>
+                                                                        <span className="text-[13px] font-bold text-slate-200 group-hover:text-cyan-300 w-10">{stock.symbol}</span>
                                                                     </div>
 
-                                                                    {/* Right: Data */}
-                                                                    <div className="text-right">
-                                                                        <div className="text-slate-200 font-mono">${stock.price.toFixed(2)}</div>
-                                                                        <div className={`text-[12px] font-bold ${stock.change >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+                                                                    {/* Right: Price + Change inline */}
+                                                                    <div className="flex items-baseline gap-2">
+                                                                        <span className="text-[13px] text-slate-200 font-mono font-semibold">${stock.price.toFixed(2)}</span>
+                                                                        <span className={`text-[13px] font-mono font-bold ${stock.change >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
                                                                             {stock.change > 0 ? "+" : ""}{stock.change.toFixed(2)}%
-                                                                        </div>
+                                                                        </span>
                                                                     </div>
                                                                 </Link>
                                                             ))

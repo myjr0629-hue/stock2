@@ -11,6 +11,7 @@ import { usePriceFlash, getFlashStyle } from '@/components/ui/PriceDisplay';
 import { FavoriteToggle } from "@/components/FavoriteToggle";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Newspaper, BarChart3, AlertCircle, RefreshCw, ShieldAlert, Zap, Layers, Target, Activity, Loader2, Info, TrendingUp, TrendingDown, Crosshair, Radar, Shield, ChevronDown, ChevronUp, Sparkles, BookOpen } from "lucide-react";
+import { Link } from "@/i18n/routing";
 import { StockData, OptionData, NewsItem } from "@/services/stockTypes";
 import { OIChart } from "@/components/OIChart";
 import { useMarketStatus } from "@/hooks/useMarketStatus";
@@ -1263,7 +1264,10 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                         </div>
                     </div>
 
-                    {/* Guide Link hidden for compliance review */}
+                    <Link href="/how-it-works" className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-white/10 text-[11px] font-bold text-slate-400 hover:text-white hover:border-white/20 transition-all font-jakarta">
+                        <BookOpen className="w-3 h-3" />
+                        GUIDE
+                    </Link>
 
                     {/* Right Column: Company Description — Bloomberg DES Style */}
                     {/* 3-line clamp by default, click to reveal floating popover with full text */}
@@ -2616,42 +2620,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                         {/* SIDEBAR (4 Cols) - Glass Stack */}
                         <div className="lg:col-span-4 flex flex-col gap-3 h-full overflow-hidden">
 
-                            {/* 1. Decision Gate (Signal Core) — ELITE */}
-                            <EliteGate title="Signal Core" mode="blur">
-                                <div className="shrink-0 relative rounded-lg border border-white/10 bg-slate-900/60 backdrop-blur-md overflow-hidden group hover:border-white/20 transition-colors shadow-lg">
-                                    {/* Infographic BG: Radar Grid + Sentinel Glow */}
-                                    <div className="absolute inset-0 pointer-events-none z-0">
-                                        {/* Crosshair grid */}
-                                        <div className="absolute inset-0 bg-[linear-gradient(rgba(99,102,241,0.07)_1px,transparent_1px),linear-gradient(90deg,rgba(99,102,241,0.07)_1px,transparent_1px)] bg-[size:24px_24px]" />
-                                        {/* Radar sweep glow */}
-                                        <div className="absolute -top-20 -right-20 w-60 h-60 bg-[radial-gradient(circle,rgba(99,102,241,0.18)_0%,transparent_70%)] animate-pulse" style={{ animationDuration: '4s' }} />
-                                        {/* Bottom accent line */}
-                                        <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-indigo-500/50 to-transparent" />
-                                        {/* Corner accent */}
-                                        <div className="absolute top-0 right-0 w-20 h-20 border-r-2 border-t-2 border-indigo-500/20 rounded-tr-2xl" />
-                                        <div className="absolute bottom-0 left-0 w-20 h-20 border-l-2 border-b-2 border-indigo-500/20 rounded-bl-2xl" />
-                                    </div>
-                                    <DecisionGate
-                                        ticker={ticker}
-                                        displayPrice={displayPrice}
-                                        session={effectiveSession}
-                                        structure={structure}
-                                        krNews={krNews}
-                                        smaData={effectiveSma}
-                                        newsScore={newsScore}
-                                        liveQuote={liveQuote}
-                                        analystData={effectiveAnalyst}
-                                        fundamentalData={effectiveFund}
-                                        institutionalData={effectiveInst}
-                                        volatilityData={effectiveVol}
-                                        squeezeData={effectiveSqueeze}
-                                        convictionData={conviction}
-                                        earningsData={effectiveEarnings}
-                                    />
-                                </div>
-                            </EliteGate>
-
-                            {/* 2. AI Deep Analysis — Claude Sonnet 4 (above Flow Unit) */}
+                            {/* 1. AI Deep Analysis — Claude Sonnet 4 (HERO Position) */}
                             <AIDeepAnalysis
                                 ticker={ticker}
                                 displayPrice={displayPrice}
@@ -2744,6 +2713,41 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                     relatedTickers: effectiveRelated?.topRelated?.map((r: any) => r.ticker) || [],
                                 }}
                             />
+
+                            {/* 2. Decision Gate (Signal Core) — ELITE */}
+                            <EliteGate title="Signal Core" mode="blur">
+                                <div className="shrink-0 relative rounded-lg border border-white/10 bg-slate-900/60 backdrop-blur-md overflow-hidden group hover:border-white/20 transition-colors shadow-lg">
+                                    {/* Infographic BG: Radar Grid + Sentinel Glow */}
+                                    <div className="absolute inset-0 pointer-events-none z-0">
+                                        {/* Crosshair grid */}
+                                        <div className="absolute inset-0 bg-[linear-gradient(rgba(99,102,241,0.07)_1px,transparent_1px),linear-gradient(90deg,rgba(99,102,241,0.07)_1px,transparent_1px)] bg-[size:24px_24px]" />
+                                        {/* Radar sweep glow */}
+                                        <div className="absolute -top-20 -right-20 w-60 h-60 bg-[radial-gradient(circle,rgba(99,102,241,0.18)_0%,transparent_70%)] animate-pulse" style={{ animationDuration: '4s' }} />
+                                        {/* Bottom accent line */}
+                                        <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-indigo-500/50 to-transparent" />
+                                        {/* Corner accent */}
+                                        <div className="absolute top-0 right-0 w-20 h-20 border-r-2 border-t-2 border-indigo-500/20 rounded-tr-2xl" />
+                                        <div className="absolute bottom-0 left-0 w-20 h-20 border-l-2 border-b-2 border-indigo-500/20 rounded-bl-2xl" />
+                                    </div>
+                                    <DecisionGate
+                                        ticker={ticker}
+                                        displayPrice={displayPrice}
+                                        session={effectiveSession}
+                                        structure={structure}
+                                        krNews={krNews}
+                                        smaData={effectiveSma}
+                                        newsScore={newsScore}
+                                        liveQuote={liveQuote}
+                                        analystData={effectiveAnalyst}
+                                        fundamentalData={effectiveFund}
+                                        institutionalData={effectiveInst}
+                                        volatilityData={effectiveVol}
+                                        squeezeData={effectiveSqueeze}
+                                        convictionData={conviction}
+                                        earningsData={effectiveEarnings}
+                                    />
+                                </div>
+                            </EliteGate>
 
                             {/* 3. Flow Unit — ELITE */}
                             <EliteGate title="Flow Unit" mode="blur">

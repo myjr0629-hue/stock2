@@ -915,7 +915,7 @@ export function SectorSessionGrid({ config, quotes, loading, refreshing, lockedT
                                                 {highlightAnalysis(perplexityData[q.ticker][locale as 'ko' | 'en' | 'ja'] || perplexityData[q.ticker].en)}
                                             </p>
                                             <div className="flex items-center gap-1 mt-1.5">
-                                                <Sparkles size={10} className="text-cyan-400" />
+                                                <img src="/signum-sg-vectorized.svg" alt="AI" width={11} height={11} style={{ objectFit: 'contain' as const, filter: 'drop-shadow(0 0 2px rgba(245,158,11,0.3))', animation: 'aiLogoPulse 2.5s ease-in-out infinite' }} />
                                                 <span className="text-[12px] text-cyan-400 font-bold tracking-wider uppercase">AI News Context</span>
                                             </div>
                                         </>

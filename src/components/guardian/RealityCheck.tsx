@@ -324,7 +324,7 @@ function NewsPulseContent({
     formatAge: (minutes: number) => string;
 }) {
     const [currentIdx, setCurrentIdx] = React.useState(0);
-    const displayItems = items.slice(0, 5);
+    const displayItems = items.slice(0, 10);
     const total = displayItems.length;
 
     // Auto-rotation: 8 seconds per item
@@ -421,7 +421,19 @@ function NewsPulseContent({
                     {analysis && (
                         <div className="mt-2 pt-2 border-t border-slate-700/30">
                             <div className="flex items-start gap-1.5">
-                                <span className="text-[10px] font-black text-violet-300 bg-violet-500/15 border border-violet-400/30 rounded px-1 py-[1px] mt-0.5 flex-shrink-0 tracking-wide leading-none">AI</span>
+                                <span className="flex-shrink-0 mt-0.5">
+                                    <img
+                                        src="/signum-sg-vectorized.svg"
+                                        alt="AI"
+                                        width={12}
+                                        height={12}
+                                        style={{
+                                            objectFit: 'contain' as const,
+                                            filter: 'drop-shadow(0 0 2px rgba(245,158,11,0.3)) drop-shadow(0 0 1px rgba(245,158,11,0.2))',
+                                            animation: 'aiLogoPulse 2.5s ease-in-out infinite',
+                                        }}
+                                    />
+                                </span>
                                 <span className="text-[13px] text-cyan-300/90 leading-[1.6] font-medium" style={{ fontFamily: 'Pretendard, sans-serif' }}>
                                     {analysis}
                                 </span>

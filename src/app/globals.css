@@ -1,4 +1,4 @@
-﻿@import "tailwindcss";
+@import "tailwindcss";
 
 @plugin "tailwindcss-animate";
 
@@ -484,6 +484,18 @@
 
 .animate-fade-in {
   animation: fade-in 0.2s ease-out forwards;
+}
+
+/* [AI] SIGNUM AI Logo pulse — subtle scale + glow heartbeat */
+@keyframes aiLogoPulse {
+  0%, 100% {
+    transform: scale(1);
+    filter: drop-shadow(0 0 3px rgba(245,158,11,0.35)) drop-shadow(0 0 1px rgba(245,158,11,0.25));
+  }
+  50% {
+    transform: scale(1.08);
+    filter: drop-shadow(0 0 5px rgba(245,158,11,0.45)) drop-shadow(0 0 2px rgba(245,158,11,0.35));
+  }
 }
 
 /* [GRID] Subtle breathing glow for notable event cards ??gentle enough to avoid eye fatigue */
