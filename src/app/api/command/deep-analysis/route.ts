@@ -252,7 +252,25 @@ All text fields use { "ko": "...", "en": "...", "ja": "..." } trilingual structu
             label: 'DeepAnalysis',
         });
 
-        const analysis = JSON.parse(bedrockResult.text);
+        // [FIX] Robust JSON parsing — handle common LLM output issues
+        let rawText = bedrockResult.text.trim();
+        // Strip markdown code fences if present
+        rawText = rawText.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '');
+        // Strip any preamble text before the first {
+        const jsonStart = rawText.indexOf('{');
+        if (jsonStart > 0) rawText = rawText.slice(jsonStart);
+        // Remove trailing commas before } or ]
+        rawText = rawText.replace(/,\s*([}\]])/g, '$1');
+        // Replace single-quoted property names (e.g., 'key': → "key":)
+        rawText = rawText.replace(/(?<=[\{,]\s*)'([^']+)'\s*:/g, '"$1":');
+
+        let analysis;
+        try {
+            analysis = JSON.parse(rawText);
+        } catch (parseErr: any) {
+            console.error(`[DeepAnalysis] JSON parse failed for ${ticker}:`, parseErr.message, '\nRaw (first 500):', rawText.slice(0, 500));
+            return NextResponse.json({ error: parseErr.message }, { status: 500 });
+        }
         const elapsed = Date.now() - startTime;
 
         // --- Build News Summary (UI-rendered, not AI-generated) ---
