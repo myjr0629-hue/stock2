@@ -304,6 +304,57 @@ export default async function FlowGuidePage() {
                 </div>
             </section>
 
+            {/* ═══ AI Flow Intelligence (Claude S4) ═══ */}
+            <section className="space-y-5">
+                <div className="flex items-center justify-between">
+                    <div>
+                        <h3 className="text-xl font-bold text-white mb-1">{t('aiFlowIntel.title')}</h3>
+                        <p className="text-[12px] text-amber-400 font-medium uppercase tracking-wider">CLAUDE S4 — AI STRUCTURAL ANALYSIS</p>
+                    </div>
+                    <div className="px-3 py-1 rounded-full bg-amber-500/20 border border-amber-500/30">
+                        <span className="text-[12px] font-bold text-amber-300">{t('aiFlowIntel.badge')}</span>
+                    </div>
+                </div>
+                <p className="text-base text-slate-300 leading-relaxed">{t.rich('aiFlowIntel.desc', richTags)}</p>
+
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    <SectionCard icon={Shield} iconColor="text-cyan-400" gradientFrom="from-cyan-500/[0.06]" titleKey="aiFlowIntel.structuralThesis" descKey="aiFlowIntel.structuralThesisDesc" infoBg={<InfographicBg type="radar" />} />
+                    <SectionCard icon={BarChart3} iconColor="text-indigo-400" gradientFrom="from-indigo-500/[0.06]" titleKey="aiFlowIntel.factorHighlights" descKey="aiFlowIntel.factorHighlightsDesc" infoBg={<InfographicBg type="bars" />} />
+                    <SectionCard icon={Zap} iconColor="text-amber-400" gradientFrom="from-amber-500/[0.06]" titleKey="aiFlowIntel.repricingCondition" descKey="aiFlowIntel.repricingConditionDesc" infoBg={<InfographicBg type="circuit" />} />
+                    <SectionCard icon={AlertTriangle} iconColor="text-rose-400" gradientFrom="from-rose-500/[0.06]" titleKey="aiFlowIntel.riskConfidence" descKey="aiFlowIntel.riskConfidenceDesc" infoBg={<InfographicBg type="shield" />} />
+                </div>
+
+                {/* Auto-Trigger Info */}
+                <SectionCard icon={Cpu} iconColor="text-cyan-400" gradientFrom="from-cyan-500/[0.04]" titleKey="aiFlowIntel.autoTrigger" descKey="aiFlowIntel.autoTriggerDesc" infoBg={<InfographicBg type="scanline" />} />
+
+                {/* Quote Signal */}
+                <div className="flex items-center gap-2 mt-4 mb-2">
+                    <div className="h-px flex-1 bg-gradient-to-r from-emerald-500/30 to-transparent" />
+                    <span className="text-[12px] font-bold text-emerald-400 uppercase tracking-widest whitespace-nowrap">QUOTE SIGNAL</span>
+                    <div className="h-px flex-1 bg-gradient-to-l from-emerald-500/30 to-transparent" />
+                </div>
+                <SectionCard icon={Radio} iconColor="text-emerald-400" gradientFrom="from-emerald-500/[0.06]" titleKey="quoteSignal.title" descKey="quoteSignal.desc" infoBg={<InfographicBg type="pulse" />}>
+                    <div className="space-y-1.5 mt-2">
+                        {(['bullish', 'bearish', 'volatility', 'subdued'] as const).map((key) => (
+                            <div key={key} className="flex items-center gap-2">
+                                <div className={`w-2 h-2 rounded-full flex-shrink-0 ${key === 'bullish' ? 'bg-emerald-500' : key === 'bearish' ? 'bg-rose-500' : key === 'volatility' ? 'bg-amber-500' : 'bg-slate-500'}`} />
+                                <span className="text-[13px] text-slate-300">{t(`quoteSignal.${key}`)}</span>
+                            </div>
+                        ))}
+                    </div>
+                </SectionCard>
+
+                {/* Trading Guide */}
+                <div className="p-3 rounded-lg bg-emerald-900/15 border border-emerald-500/20 space-y-1.5">
+                    <span className="text-[13px] font-bold text-emerald-400 flex items-center gap-1.5"><TrendingUp size={14} />{t('aiFlowIntel.tradingGuide')}</span>
+                    <div className="text-[13px] text-slate-300 leading-relaxed space-y-1">
+                        <p>• {t.rich('aiFlowIntel.guide1', richTags)}</p>
+                        <p>• {t.rich('aiFlowIntel.guide2', richTags)}</p>
+                        <p>• {t.rich('aiFlowIntel.guide3', richTags)}</p>
+                    </div>
+                </div>
+            </section>
+
             {/* ═══ LEVEL 2: Market Structure ═══ */}
             <section className="space-y-5">
                 <div className="flex items-center justify-between">
@@ -830,6 +881,23 @@ export default async function FlowGuidePage() {
                         tipKey="uoa.tip"
                         tradingGuideKey="uoa.tradingGuide" guide1Key="uoa.guide1" guide2Key="uoa.guide2" guide3Key="uoa.guide3"
                         infoBg={<InfographicBg type="scanline" />}
+                    />
+                    {/* OMR (Options Market Regime) */}
+                    <IndicatorCard
+                        icon={Shield} iconColor="text-purple-400" gradientFrom="from-purple-500/[0.06]"
+                        badgeColor="border-purple-500/30" badgeBg="bg-purple-500/20 text-purple-300"
+                        mockupLabel="OMR" mockupValue="ACCUMULATION" mockupValueColor="text-emerald-400" mockupSub="" mockupSubColor=""
+                        subMetrics={[{ label: 'IVR', value: '28', color: 'text-cyan-400' }, { label: 'Skew', value: '+1.8%', color: 'text-slate-300' }, { label: 'P/C', value: '0.62', color: 'text-emerald-400' }]}
+                        titleKey="omr.title" badgeKey="omr.badge" descKey="omr.desc"
+                        bullets={[
+                            { color: 'bg-emerald-500', textKey: 'omr.accumulation' },
+                            { color: 'bg-rose-500', textKey: 'omr.distribution' },
+                            { color: 'bg-amber-500', textKey: 'omr.hedging' },
+                            { color: 'bg-purple-500', textKey: 'omr.speculation' },
+                        ]}
+                        tipKey="omr.tip"
+                        tradingGuideKey="omr.tradingGuide" guide1Key="omr.guide1" guide2Key="omr.guide2" guide3Key="omr.guide3"
+                        infoBg={<InfographicBg type="shield" />}
                     />
                 </div>
             </section>
