@@ -2,7 +2,7 @@
 // Server-persisted dashboard tickers using Supabase (replaces localStorage)
 import { createClient } from '@/lib/supabase/client';
 
-const MAX_DASHBOARD_TICKERS = 10;
+const MAX_DASHBOARD_TICKERS = 20;
 
 // Get dashboard tickers from Supabase
 export async function getDashboardTickers(): Promise<string[]> {
