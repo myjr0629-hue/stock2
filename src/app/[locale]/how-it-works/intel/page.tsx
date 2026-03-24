@@ -183,6 +183,168 @@ export default async function IntelGuidePage({ params }: { params: Promise<{ loc
                         ))}
                     </div>
                 </div>
+
+                {/* SECTOR HEATMAP */}
+                <div className={card}>
+                    <h4 className="text-base font-black text-white mb-2 flex items-center gap-2">
+                        <Flame size={14} className="text-amber-400" />
+                        {t('sectorCommand.heatmapTitle')}
+                    </h4>
+                    <p className="text-[15px] text-slate-300 leading-relaxed mb-3">{t('sectorCommand.heatmapDesc')}</p>
+
+                    {/* Heatmap Screenshot */}
+                    <div className="relative rounded-xl overflow-hidden border border-white/10 bg-slate-900/30 backdrop-blur-sm shadow-lg mb-3">
+                        <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/[0.03] via-transparent to-rose-500/[0.03] pointer-events-none" />
+                        <Image
+                            src="/guide/intel-heatmap.PNG"
+                            alt="Sector Heatmap — 10 Sectors × 70 Stocks TreeMap"
+                            width={1920}
+                            height={900}
+                            quality={85}
+                            className="w-full h-auto relative object-cover"
+                            loading="lazy"
+                        />
+                    </div>
+
+                    <div className="flex items-start gap-2 py-1.5 px-2.5 rounded-md bg-white/[0.02] mb-2">
+                        <span className="mt-0.5 shrink-0"><Eye size={12} className="text-cyan-400" /></span>
+                        <span className="text-[15px] text-slate-300">{t('sectorCommand.heatmapColor')}</span>
+                    </div>
+
+                    <div className="flex items-start gap-2 py-2 px-3 rounded-lg border border-cyan-500/15 bg-cyan-500/[0.04]">
+                        <Lightbulb size={14} className="text-cyan-400 mt-0.5 shrink-0" />
+                        <span className="text-[14px] text-slate-300 leading-relaxed">{t('sectorCommand.heatmapTip')}</span>
+                    </div>
+                </div>
+
+                {/* SECTOR MOMENTUM RANKING */}
+                <div className={card}>
+                    <h4 className="text-base font-black text-white mb-2 flex items-center gap-2">
+                        <Trophy size={14} className="text-emerald-400" />
+                        {t('sectorCommand.rankingTableTitle')}
+                    </h4>
+                    <p className="text-[15px] text-slate-300 leading-relaxed">{t('sectorCommand.rankingTableDesc')}</p>
+                </div>
+            </section>
+
+            {/* ═══════════════════════════════════════════════ */}
+            {/* Section 2.5: SESSION GRID AI ANALYSIS ENGINE    */}
+            {/* ═══════════════════════════════════════════════ */}
+            <section className="space-y-5">
+                <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-violet-400 to-purple-600 flex items-center justify-center">
+                        <Brain size={16} className="text-white" />
+                    </div>
+                    <div>
+                        <h3 className="text-xl font-bold text-white">{t('sessionGridAI.title')}</h3>
+                        <p className="text-[12px] text-slate-400 font-medium uppercase tracking-wider">{t('sessionGridAI.tagline')}</p>
+                    </div>
+                </div>
+
+                <p className="text-base text-slate-300 leading-relaxed">{t.rich('sessionGridAI.desc', richTags)}</p>
+
+                {/* 4-Block Pipeline */}
+                <div className={card}>
+                    <h4 className="text-base font-black text-white mb-3 flex items-center gap-2">
+                        <Layers size={14} className="text-cyan-400" />
+                        {t('sessionGridAI.pipelineTitle')}
+                    </h4>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        {[
+                            { key: 'block1', color: 'border-rose-500/20 bg-rose-500/[0.06]', textColor: 'text-rose-400', icon: <AlertTriangle size={12} /> },
+                            { key: 'block2', color: 'border-cyan-500/20 bg-cyan-500/[0.06]', textColor: 'text-cyan-400', icon: <Layers size={12} /> },
+                            { key: 'block3', color: 'border-purple-500/20 bg-purple-500/[0.06]', textColor: 'text-purple-400', icon: <Radio size={12} /> },
+                            { key: 'block4', color: 'border-amber-500/20 bg-amber-500/[0.06]', textColor: 'text-amber-400', icon: <Target size={12} /> },
+                        ].map((b, i) => (
+                            <div key={b.key} className={`rounded-lg border ${b.color} p-3`}>
+                                <div className="flex items-center gap-2 mb-1.5">
+                                    <span className={`text-[12px] font-bold ${b.textColor} flex items-center gap-1`}>
+                                        {b.icon}
+                                        <span className="text-slate-500 font-mono mr-1">{i + 1}</span>
+                                        {t(`sessionGridAI.${b.key}Title`)}
+                                    </span>
+                                </div>
+                                <p className="text-[14px] text-slate-300 leading-relaxed">{t(`sessionGridAI.${b.key}Desc`)}</p>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+
+                {/* 8-Category Conclusion Engine */}
+                <div className={card}>
+                    <h4 className="text-base font-black text-white mb-2 flex items-center gap-2">
+                        <Crosshair size={14} className="text-amber-400" />
+                        {t('sessionGridAI.conclusionTitle')}
+                    </h4>
+                    <p className="text-[15px] text-slate-300 leading-relaxed mb-3">{t('sessionGridAI.conclusionDesc')}</p>
+
+                    <div className="space-y-1">
+                        {(['c1', 'c2', 'c3', 'c4', 'c5', 'c6', 'c7', 'c8'] as const).map(code => {
+                            const colors: Record<string, string> = {
+                                c1: 'text-emerald-400', c2: 'text-rose-400', c3: 'text-amber-400', c4: 'text-violet-400',
+                                c5: 'text-slate-400', c6: 'text-cyan-400', c7: 'text-orange-400', c8: 'text-fuchsia-400',
+                            };
+                            return (
+                                <div key={code} className="flex items-start gap-2 py-1.5 px-2.5 rounded-md bg-white/[0.02]">
+                                    <span className={`text-[12px] font-black mt-0.5 shrink-0 ${colors[code]}`}>{code.toUpperCase()}</span>
+                                    <span className="text-[14px] text-slate-300">{t(`sessionGridAI.${code}`)}</span>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </div>
+
+                {/* DynamoDB History Context */}
+                <div className={card}>
+                    <h4 className="text-base font-black text-white mb-2 flex items-center gap-2">
+                        <Archive size={14} className="text-cyan-400" />
+                        {t('sessionGridAI.historyTitle')}
+                    </h4>
+                    <p className="text-[15px] text-slate-300 leading-relaxed">{t('sessionGridAI.historyDesc')}</p>
+                </div>
+
+                {/* Pro Tip */}
+                <div className="flex items-start gap-2 py-2 px-3 rounded-lg border border-cyan-500/15 bg-cyan-500/[0.04]">
+                    <Lightbulb size={14} className="text-cyan-400 mt-0.5 shrink-0" />
+                    <span className="text-[14px] text-slate-300 leading-relaxed">{t('sessionGridAI.tip')}</span>
+                </div>
+            </section>
+
+            {/* ═══════════════════════════════════════════════ */}
+            {/* Section 2.7: PERPLEXITY AI REAL-TIME ANALYSIS   */}
+            {/* ═══════════════════════════════════════════════ */}
+            <section className="space-y-5">
+                <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-400 to-teal-600 flex items-center justify-center">
+                        <Sparkles size={16} className="text-white" />
+                    </div>
+                    <div>
+                        <h3 className="text-xl font-bold text-white">{t('perplexityAI.title')}</h3>
+                        <p className="text-[12px] text-slate-400 font-medium uppercase tracking-wider">{t('perplexityAI.tagline')}</p>
+                    </div>
+                </div>
+
+                <p className="text-base text-slate-300 leading-relaxed">{t.rich('perplexityAI.desc', richTags)}</p>
+
+                <div className={card}>
+                    <div className="space-y-1.5">
+                        {[
+                            { key: 'feature1', icon: <Target size={12} className="text-amber-400" /> },
+                            { key: 'feature2', icon: <Globe size={12} className="text-cyan-400" /> },
+                            { key: 'feature3', icon: <Zap size={12} className="text-emerald-400" /> },
+                        ].map(el => (
+                            <div key={el.key} className="flex items-start gap-2 py-1.5 px-2.5 rounded-md bg-white/[0.02]">
+                                <span className="mt-0.5 shrink-0">{el.icon}</span>
+                                <span className="text-[15px] text-slate-300">{t(`perplexityAI.${el.key}`)}</span>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+
+                <div className="flex items-start gap-2 py-2 px-3 rounded-lg border border-emerald-500/15 bg-emerald-500/[0.04]">
+                    <Lightbulb size={14} className="text-emerald-400 mt-0.5 shrink-0" />
+                    <span className="text-[14px] text-slate-300 leading-relaxed">{t('perplexityAI.integration')}</span>
+                </div>
             </section>
 
             {/* ═══════════════════════════════════════════════ */}
