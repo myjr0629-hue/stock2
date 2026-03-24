@@ -35,14 +35,17 @@ function gradeColor(grade: string) {
     }
 }
 
-// Action → display
 function actionDisplay(action: string) {
     switch (action) {
+        case 'STRONG_BULLISH':
         case 'STRONG_BUY': return { label: 'STRONG BULLISH', color: 'text-emerald-600', icon: <ArrowUpRight className="w-3.5 h-3.5" /> };
+        case 'BULLISH':
         case 'BUY': return { label: 'BULLISH', color: 'text-emerald-500', icon: <ArrowUpRight className="w-3.5 h-3.5" /> };
         case 'WATCH': return { label: 'WATCH', color: 'text-blue-500', icon: <Activity className="w-3.5 h-3.5" /> };
-        case 'REDUCE': return { label: 'REDUCE', color: 'text-orange-500', icon: <ArrowDownRight className="w-3.5 h-3.5" /> };
-        case 'EXIT': return { label: 'EXIT', color: 'text-rose-600', icon: <ArrowDownRight className="w-3.5 h-3.5" /> };
+        case 'CAUTION':
+        case 'REDUCE': return { label: 'CAUTION', color: 'text-orange-500', icon: <ArrowDownRight className="w-3.5 h-3.5" /> };
+        case 'AVOID':
+        case 'EXIT': return { label: 'AVOID', color: 'text-rose-600', icon: <ArrowDownRight className="w-3.5 h-3.5" /> };
         default: return { label: action, color: 'text-slate-500', icon: null };
     }
 }

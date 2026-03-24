@@ -70,8 +70,8 @@ const VERDICT_GROUPS = {
 
 type GroupKey = 'ATTACK' | 'DEFEND' | 'RETREAT';
 
-// ── SVG Alpha Gauge Component ──
-function AlphaGauge({ score, size = 140 }: { score: number; size?: number }) {
+// ── SVG Context Gauge Component ──
+function ContextGauge({ score, size = 140 }: { score: number; size?: number }) {
     const radius = (size - 20) / 2;
     const cx = size / 2;
     const cy = size / 2;
@@ -114,7 +114,7 @@ function AlphaGauge({ score, size = 140 }: { score: number; size?: number }) {
             </text>
             <text x={cx} y={cy + 18} textAnchor="middle" fill="rgba(255,255,255,0.5)"
                 fontSize="9" fontWeight="700" letterSpacing="2" fontFamily="'Inter', sans-serif">
-                SECTOR ALPHA
+                CONTEXT SCORE
             </text>
         </svg>
     );
@@ -252,13 +252,13 @@ function TacticalTickerCard({ t, analysisText }: { t: TickerSnapshot; analysisTe
                     {isUp ? '+' : ''}{t.change_pct.toFixed(2)}%
                 </span>
             </div>
-            {/* Row 2: Price + Alpha */}
+            {/* Row 2: Price + Context */}
             <div className="flex items-center justify-between mb-1.5">
                 <span className="text-[13px] font-bold text-white font-num">${t.close_price.toFixed(2)}</span>
                 <div className={`flex items-center gap-1 px-2 py-0.5 rounded-md border backdrop-blur-md text-[11px] font-bold ${t.alpha_score >= 75 ? 'bg-amber-500/15 border-amber-500/30 text-amber-200' :
                     t.alpha_score >= 50 ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-200' :
                         'bg-white/[0.05] border-white/[0.10] text-white/60'}`}>
-                    <span className="opacity-80 font-jakarta">α</span>
+                    <span className="opacity-80 font-jakarta">Ctx</span>
                     <span className="text-[13px] font-bold font-num">{t.alpha_score.toFixed(0)}</span>
                 </div>
             </div>
@@ -319,7 +319,7 @@ function generateClientBriefing(sorted: TickerSnapshot[], summary: any, tr: any)
             : pcr > 1.3 ? tr('pcrPutPanic')
                 : pcr > 1.2 ? tr('pcrPutDominant')
                     : tr('pcrBalanced');
-    bullets.push(`${pcrEmoji} PCR ${tr('alphaAvg', { score: pcr.toFixed(2) }).replace('📊 ', '').replace('Sector avg Alpha', '').replace('セクター平均Alpha', '').trim()} → ${outlookKR}. ${pcrComment}`);
+    bullets.push(`${pcrEmoji} PCR ${tr('alphaAvg', { score: pcr.toFixed(2) }).replace('📊 ', '').replace('Sector avg Score', '').replace('セクター平均Score', '').replace('섹터 평균 Score', '').trim()} → ${outlookKR}. ${pcrComment}`);
 
     const avgAlpha = summary.avg_alpha || 0;
     const highAlpha = sorted.filter(t => t.alpha_score >= 60);
@@ -607,9 +607,9 @@ export function TacticalReportDeck({ config, lockedTickers }: TacticalReportDeck
                             </div>
                         </div>
 
-                        {/* CENTER: Alpha Score Gauge */}
+                        {/* CENTER: Context Score Gauge */}
                         <div className="flex flex-col items-center">
-                            <AlphaGauge score={summary.avg_alpha} size={140} />
+                            <ContextGauge score={summary.avg_alpha} size={140} />
                         </div>
 
                         {/* RIGHT: Gamma Signal Light */}

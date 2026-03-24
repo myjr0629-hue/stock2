@@ -634,49 +634,52 @@ function CircularAlphaGauge({ score, grade }: { score?: number; grade?: string }
 
 // [S-76] Portfolio Action Badge - Compact decision indicator
 function PortfolioActionBadge({ action }: { action: 'RUN' | 'HOLD' | 'TAKE' | 'EXIT' }) {
+    const locale = useLocale();
+    const tooltips: Record<string, Record<string, string>> = {
+        'RUN': { ko: '모멘텀 유지 - 보유 유효 구간', ja: 'モメンタム継続 - 保有有効区間', en: 'Momentum active — position valid' },
+        'HOLD': { ko: '관망 - 추이를 지켜보세요', ja: '様子見 - 推移を見守りましょう', en: 'Observe — monitor trend' },
+        'TAKE': { ko: '익절 검토 - 수익 확정 구간', ja: '利確検討 - 利益確定区間', en: 'Consider taking profit' },
+        'EXIT': { ko: '손절 검토 - 포지션 정리 구간', ja: '損切り検討 - ポジション整理区間', en: 'Consider exiting position' },
+    };
     const config: Record<string, {
         bg: string;
         border: string;
         text: string;
         icon: React.ReactNode;
-        tooltip: string;
     }> = {
         'RUN': {
             bg: 'bg-gradient-to-r from-emerald-500/15 to-emerald-600/10',
             border: 'border-emerald-500/30',
             text: 'text-emerald-400',
             icon: <TrendingUp className="w-3 h-3" />,
-            tooltip: '모멘텀 유지 - 보유 유효 구간'
         },
         'HOLD': {
             bg: 'bg-gradient-to-r from-amber-500/15 to-yellow-600/10',
             border: 'border-amber-500/30',
             text: 'text-amber-400',
             icon: <Activity className="w-3 h-3" />,
-            tooltip: '관망 - 추이를 지켜보세요'
         },
         'TAKE': {
             bg: 'bg-gradient-to-r from-cyan-500/15 to-blue-600/10',
             border: 'border-cyan-500/30',
             text: 'text-cyan-400',
             icon: <Target className="w-3 h-3" />,
-            tooltip: '익절 검토 - 수익 확정 구간'
         },
         'EXIT': {
             bg: 'bg-gradient-to-r from-rose-500/15 to-red-600/10',
             border: 'border-rose-500/30',
             text: 'text-rose-400',
             icon: <Zap className="w-3 h-3" />,
-            tooltip: '손절 검토 - 포지션 정리 구간'
         }
     };
 
     const c = config[action] || config['HOLD'];
+    const tip = tooltips[action]?.[locale] || tooltips[action]?.en || '';
 
     return (
         <div
             className={`flex items-center gap-1 px-2 py-1 rounded-md ${c.bg} border ${c.border}`}
-            title={c.tooltip}
+            title={tip}
         >
             <span className={c.text}>{c.icon}</span>
             <span className={`text-[12px] font-black tracking-wide ${c.text}`}>{action}</span>
@@ -686,6 +689,7 @@ function PortfolioActionBadge({ action }: { action: 'RUN' | 'HOLD' | 'TAKE' | 'E
 
 // Signal Badge with Confidence + Triggers Tooltip
 function SignalBadge({ action, confidence, triggers }: { action?: string; confidence?: number; triggers?: string[] }) {
+    const locale = useLocale();
     // Show N/A state if no data
     if (!action) {
         return (
@@ -695,25 +699,37 @@ function SignalBadge({ action, confidence, triggers }: { action?: string; confid
         );
     }
 
-    const config: Record<string, { bg: string; text: string; border: string }> = {
-        'HOLD': { bg: 'bg-emerald-500/10', text: 'text-emerald-400', border: 'border-emerald-500/30' },
-        'ADD': { bg: 'bg-cyan-500/10', text: 'text-cyan-400', border: 'border-cyan-500/30' },
-        'WATCH': { bg: 'bg-amber-500/10', text: 'text-amber-400', border: 'border-amber-500/30' },
-        'TRIM': { bg: 'bg-rose-500/10', text: 'text-rose-400', border: 'border-rose-500/30' },
+    // Map both old and new labels to display config
+    const config: Record<string, { bg: string; text: string; border: string; label: string }> = {
+        'HOLD': { bg: 'bg-emerald-500/10', text: 'text-emerald-400', border: 'border-emerald-500/30', label: 'HOLD' },
+        'ADD': { bg: 'bg-cyan-500/10', text: 'text-cyan-400', border: 'border-cyan-500/30', label: 'ADD' },
+        'WATCH': { bg: 'bg-amber-500/10', text: 'text-amber-400', border: 'border-amber-500/30', label: 'WATCH' },
+        'TRIM': { bg: 'bg-rose-500/10', text: 'text-rose-400', border: 'border-rose-500/30', label: 'TRIM' },
+        // New compliance-safe labels from alphaEngine
+        'STRONG_BULLISH': { bg: 'bg-emerald-500/15', text: 'text-emerald-400', border: 'border-emerald-500/40', label: 'BULLISH' },
+        'BULLISH': { bg: 'bg-emerald-500/10', text: 'text-emerald-400', border: 'border-emerald-500/30', label: 'BULLISH' },
+        'CAUTION': { bg: 'bg-amber-500/10', text: 'text-amber-400', border: 'border-amber-500/30', label: 'CAUTION' },
+        'AVOID': { bg: 'bg-rose-500/10', text: 'text-rose-400', border: 'border-rose-500/30', label: 'AVOID' },
+        // Backward compat for old labels
+        'BUY': { bg: 'bg-emerald-500/10', text: 'text-emerald-400', border: 'border-emerald-500/30', label: 'BULLISH' },
+        'STRONG_BUY': { bg: 'bg-emerald-500/15', text: 'text-emerald-400', border: 'border-emerald-500/40', label: 'BULLISH' },
+        'REDUCE': { bg: 'bg-amber-500/10', text: 'text-amber-400', border: 'border-amber-500/30', label: 'CAUTION' },
+        'EXIT': { bg: 'bg-rose-500/10', text: 'text-rose-400', border: 'border-rose-500/30', label: 'AVOID' },
     };
     const c = config[action] || config['HOLD'];
 
-    // Build tooltip from triggers
+    // Locale-aware tooltip
+    const tooltipHeader = locale === 'ko' ? '📊 Signal 근거' : locale === 'ja' ? '📊 シグナル根拠' : '📊 Signal Basis';
     const tooltipText = triggers && triggers.length > 0
-        ? `📊 Signal 근거\n━━━━━━━━━━━━━━\n${triggers.join('\n')}`
-        : `${action} ${confidence}%`;
+        ? `${tooltipHeader}\n━━━━━━━━━━━━━━\n${triggers.join('\n')}`
+        : `${c.label} ${confidence}%`;
 
     return (
         <div
             className={`flex items-center gap-2 px-2.5 py-1 rounded-lg ${c.bg} border ${c.border} cursor-help`}
             title={tooltipText}
         >
-            <span className={`text-[12px] font-black ${c.text}`}>{action}</span>
+            <span className={`text-[12px] font-black ${c.text}`}>{c.label}</span>
             {confidence !== undefined && (
                 <span className="text-[12px] font-bold font-num text-slate-300">{confidence}%</span>
             )}

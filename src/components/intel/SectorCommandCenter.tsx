@@ -241,7 +241,7 @@ export function SectorCommandCenter({ sectorData, onNavigate }: SectorCommandCen
                 </div>
             </section>
 
-            {/* ═══ ALPHA LEADERS / LAGGARDS ═══ */}
+            {/* ═══ CONTEXT LEADERS / LAGGARDS ═══ */}
             {(() => {
                 // Aggregate all 70 tickers with sector info
                 const allWithSector = sectorStats.flatMap(s =>
@@ -342,7 +342,7 @@ export function SectorCommandCenter({ sectorData, onNavigate }: SectorCommandCen
                         <div className="space-y-2">
                             <div className="flex items-center gap-2 px-1 mb-3">
                                 <TrendingUp className="w-4 h-4 text-emerald-400" />
-                                <span className="text-[13px] font-bold text-emerald-400 uppercase tracking-wider">ALPHA LEADERS</span>
+                                <span className="text-[13px] font-bold text-emerald-400 uppercase tracking-wider">CONTEXT LEADERS</span>
                                 <span className="text-[13px] text-slate-200 font-mono ml-auto">TOP 3 / {allWithSector.length}</span>
                             </div>
                             {top3.map((q, i) => (
@@ -360,7 +360,7 @@ export function SectorCommandCenter({ sectorData, onNavigate }: SectorCommandCen
                         <div className="space-y-2">
                             <div className="flex items-center gap-2 px-1 mb-3">
                                 <TrendingDown className="w-4 h-4 text-rose-400" />
-                                <span className="text-[13px] font-bold text-rose-400 uppercase tracking-wider">ALPHA LAGGARDS</span>
+                                <span className="text-[13px] font-bold text-rose-400 uppercase tracking-wider">CONTEXT LAGGARDS</span>
                                 <span className="text-[13px] text-slate-200 font-mono ml-auto">BOTTOM 3 / {allWithSector.length}</span>
                             </div>
                             {bottom3.map((q, i) => (
@@ -485,7 +485,7 @@ export function SectorCommandCenter({ sectorData, onNavigate }: SectorCommandCen
                                     </div>
                                 </div>
                                 <div className="text-center">
-                                    <div className="text-[13px] text-white/70 font-bold">α</div>
+                                    <div className="text-[13px] text-white/70 font-bold">Ctx</div>
                                     <div className={`text-[13px] font-bold font-mono ${stats.avgAlpha >= 65 ? 'text-amber-300' : stats.avgAlpha >= 50 ? 'text-white' : 'text-slate-300'}`}>
                                         {stats.avgAlpha > 0 ? stats.avgAlpha.toFixed(0) : '-'}
                                     </div>

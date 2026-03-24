@@ -73,7 +73,7 @@ export async function insertNewTrackRecords(
                 ticker: item.ticker || item.symbol,
                 alpha_score: item.alphaScore || item.powerScore || item.score || 0,
                 grade: item.qualityTier || item.grade || 'C',
-                action: ssot?.tacticalConclusion?.direction === 'BULLISH' ? 'STRONG_BUY' : 'BUY',
+                action: ssot?.tacticalConclusion?.direction === 'BULLISH' ? 'STRONG_BULLISH' : 'BULLISH',
                 price_at_recommendation: currentPrice,
                 entry_zone_lower: entryLower,
                 entry_zone_upper: entryUpper,

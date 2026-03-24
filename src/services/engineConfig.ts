@@ -60,12 +60,12 @@ export const ALPHA_V3_CONFIG = {
 
     // Grade Thresholds (Absolute — never change)
     GRADE_THRESHOLDS: {
-        S: 85,    // 🔥 STRONG_BUY
-        A: 70,    // ✅ BUY
+        S: 85,    // 🔥 STRONG_BULLISH
+        A: 70,    // ✅ BULLISH
         B: 55,    // 👀 WATCH
         C: 40,    // ⏸️ HOLD
-        D: 25,    // ⚠️ REDUCE
-        // Below 25 = F = 🚫 EXIT
+        D: 25,    // ⚠️ CAUTION
+        // Below 25 = F = 🚫 AVOID
     },
 
     // Session Caps (limit pillars when data is stale)

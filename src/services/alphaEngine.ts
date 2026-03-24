@@ -30,7 +30,7 @@ import {
 
 export type AlphaSession = 'PRE' | 'REG' | 'POST' | 'CLOSED';
 export type AlphaGrade = 'S' | 'A' | 'B' | 'C' | 'D' | 'F';
-export type AlphaAction = 'STRONG_BUY' | 'BUY' | 'WATCH' | 'HOLD' | 'REDUCE' | 'EXIT';
+export type AlphaAction = 'STRONG_BULLISH' | 'BULLISH' | 'WATCH' | 'HOLD' | 'CAUTION' | 'AVOID';
 
 export interface AlphaInput {
     ticker: string;
@@ -116,7 +116,7 @@ export interface AlphaResult {
     // === Core Score ===
     score: number;            // 0-100 absolute
     grade: AlphaGrade;        // S/A/B/C/D/F
-    action: AlphaAction;      // STRONG_BUY → EXIT
+    action: AlphaAction;      // STRONG_BULLISH → AVOID
     actionKR: string;         // Korean action label
 
     // === Self-Explanation (WHY) ===
@@ -1258,12 +1258,12 @@ function determineGrade(score: number): AlphaGrade {
 
 function determineAction(grade: AlphaGrade, input: AlphaInput): { action: AlphaAction; actionKR: string } {
     switch (grade) {
-        case 'S': return { action: 'STRONG_BUY', actionKR: '즉시 매수' };
-        case 'A': return { action: 'BUY', actionKR: '매수 적합' };
+        case 'S': return { action: 'STRONG_BULLISH', actionKR: '강세 신호' };
+        case 'A': return { action: 'BULLISH', actionKR: '우호 신호' };
         case 'B': return { action: 'WATCH', actionKR: '관심 등록' };
         case 'C': return { action: 'HOLD', actionKR: '관망' };
-        case 'D': return { action: 'REDUCE', actionKR: '비중 축소' };
-        case 'F': return { action: 'EXIT', actionKR: '리스크 이탈' };
+        case 'D': return { action: 'CAUTION', actionKR: '주의 신호' };
+        case 'F': return { action: 'AVOID', actionKR: '리스크 이탈' };
     }
 }
 

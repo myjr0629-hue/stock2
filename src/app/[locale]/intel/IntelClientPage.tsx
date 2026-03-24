@@ -381,10 +381,10 @@ const getOptionsStatus = (status?: string) => {
 };
 
 const getActionStyle = (action?: string) => {
-    if (action === "ENTER" || action === "STRONG_BUY") return "text-emerald-300 bg-emerald-500/20 border border-emerald-400/50 shadow-[0_0_10px_rgba(16,185,129,0.3)]";
-    if (action === "MAINTAIN") return "text-cyan-300 bg-cyan-500/20 border border-cyan-400/50 shadow-[0_0_10px_rgba(6,182,212,0.3)]";
-    if (action === "EXIT" || action === "REPLACE") return "text-rose-300 bg-rose-500/20 border border-rose-400/50 shadow-[0_0_10px_rgba(244,63,94,0.3)]";
-    if (action === "NO_TRADE") return "text-slate-300 bg-slate-800 border border-slate-600 shadow-inner";
+    if (action === "ENTER" || action === "STRONG_BUY" || action === "STRONG_BULLISH") return "text-emerald-300 bg-emerald-500/20 border border-emerald-400/50 shadow-[0_0_10px_rgba(16,185,129,0.3)]";
+    if (action === "MAINTAIN" || action === "BULLISH") return "text-cyan-300 bg-cyan-500/20 border border-cyan-400/50 shadow-[0_0_10px_rgba(6,182,212,0.3)]";
+    if (action === "EXIT" || action === "REPLACE" || action === "AVOID") return "text-rose-300 bg-rose-500/20 border border-rose-400/50 shadow-[0_0_10px_rgba(244,63,94,0.3)]";
+    if (action === "NO_TRADE" || action === "CAUTION") return "text-slate-300 bg-slate-800 border border-slate-600 shadow-inner";
     return "text-amber-300 bg-amber-500/20 border border-amber-400/50 shadow-[0_0_10px_rgba(245,158,11,0.3)]";
 };
 

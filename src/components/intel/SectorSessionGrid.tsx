@@ -767,7 +767,7 @@ export function SectorSessionGrid({ config, quotes, loading, refreshing, lockedT
                                             q.alphaScore >= 50 ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-300' :
                                                 'bg-white/[0.03] border-white/[0.06] text-white/40'
                                             }`}>
-                                            <span className="opacity-60">α</span>
+                                            <span className="opacity-60">Ctx</span>
                                             <span className="text-sm font-bold font-num">{q.alphaScore > 0 ? q.alphaScore.toFixed(1) : '-'}</span>
                                         </div>
                                     </div>

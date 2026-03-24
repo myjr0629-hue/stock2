@@ -123,7 +123,7 @@ export default async function IntelGuidePage({ params }: { params: Promise<{ loc
                     </div>
                 </div>
 
-                {/* Alpha Leaders/Laggards */}
+                {/* Context Leaders/Laggards */}
                 <div className={card}>
                     <h4 className="text-base font-black text-white mb-2 flex items-center gap-2">
                         <Crown size={14} className="text-amber-400" />
@@ -135,13 +135,13 @@ export default async function IntelGuidePage({ params }: { params: Promise<{ loc
                     <div className="grid grid-cols-2 gap-3 mb-3">
                         <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/[0.06] p-3">
                             <span className="text-[12px] font-bold text-emerald-400 uppercase tracking-wider flex items-center gap-1.5">
-                                <TrendingUp size={12} /> ALPHA LEADERS
+                                <TrendingUp size={12} /> CONTEXT LEADERS
                             </span>
                             <p className="text-[15px] text-slate-300 mt-1.5">{t('sectorCommand.leadersDesc')}</p>
                         </div>
                         <div className="rounded-lg border border-rose-500/20 bg-rose-500/[0.06] p-3">
                             <span className="text-[12px] font-bold text-rose-400 uppercase tracking-wider flex items-center gap-1.5">
-                                <TrendingDown size={12} /> ALPHA LAGGARDS
+                                <TrendingDown size={12} /> CONTEXT LAGGARDS
                             </span>
                             <p className="text-[15px] text-slate-300 mt-1.5">{t('sectorCommand.laggardsDesc')}</p>
                         </div>
@@ -186,7 +186,7 @@ export default async function IntelGuidePage({ params }: { params: Promise<{ loc
             </section>
 
             {/* ═══════════════════════════════════════════════ */}
-            {/* Section 3: Alpha Score Deep-Dive                */}
+            {/* Section 3: Context Score Deep-Dive                */}
             {/* ═══════════════════════════════════════════════ */}
             <section className="space-y-5">
                 <div className="flex items-center gap-3">
@@ -201,7 +201,7 @@ export default async function IntelGuidePage({ params }: { params: Promise<{ loc
 
                 <p className="text-base text-slate-300 leading-relaxed">{t.rich('alpha.desc', richTags)}</p>
 
-                {/* Alpha Score Visual */}
+                {/* Context Score Visual */}
                 <div className="rounded-xl border border-white/[0.08] bg-white/[0.02] overflow-hidden">
                     <div className="flex items-center gap-2 px-4 pt-3 pb-2">
                         <Brain size={14} className="text-amber-400" />
