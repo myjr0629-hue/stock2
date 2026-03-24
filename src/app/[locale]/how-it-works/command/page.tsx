@@ -4,7 +4,7 @@ import { getTranslations, getLocale } from 'next-intl/server';
 import {
     Zap, Target, Activity, ShieldAlert, Crosshair, Radar, TrendingUp,
     BarChart3, Calendar, GitBranch, Lightbulb, LineChart, Signal,
-    ArrowUpDown, Cpu, Newspaper, AlertTriangle, Layers
+    ArrowUpDown, Cpu, Newspaper, AlertTriangle, Layers, Brain
 } from 'lucide-react';
 
 export default async function CommandGuidePage() {
@@ -390,6 +390,20 @@ export default async function CommandGuidePage() {
                         tradingGuideKey="earnings.tradingGuide" guide1Key="earnings.guide1" guide2Key="earnings.guide2" guide3Key="earnings.guide3"
                         infoBg={<InfographicBg type="grid" />}
                     />
+                    <IndicatorCard
+                        icon={TrendingUp} iconColor="text-violet-400" gradientFrom="from-violet-500/[0.06]"
+                        badgeColor="border-violet-500/30" badgeBg="bg-violet-500/20 text-violet-300"
+                        mockupLabel="IV SKEW" mockupValue="PUT RICH" mockupValueColor="text-rose-400" mockupSub="+3.2%" mockupSubColor="text-rose-400"
+                        titleKey="ivSkew.title" badgeKey="ivSkew.badge" descKey="ivSkew.desc"
+                        bullets={[
+                            { color: 'bg-rose-500', textKey: 'ivSkew.putRich' },
+                            { color: 'bg-emerald-500', textKey: 'ivSkew.callRich' },
+                            { color: 'bg-slate-400', textKey: 'ivSkew.neutral' },
+                        ]}
+                        tipKey="ivSkew.tip"
+                        tradingGuideKey="ivSkew.tradingGuide" guide1Key="ivSkew.guide1" guide2Key="ivSkew.guide2" guide3Key="ivSkew.guide3"
+                        infoBg={<InfographicBg type="wave" />}
+                    />
                 </div>
             </section>
 
@@ -513,7 +527,162 @@ export default async function CommandGuidePage() {
                     <SectionCard icon={ArrowUpDown} iconColor="text-emerald-400" gradientFrom="from-emerald-500/[0.06]" titleKey="flowTitle" descKey="flowDesc" infoBg={<InfographicBg type="crosshair" />} />
                     <SectionCard icon={Cpu} iconColor="text-rose-400" gradientFrom="from-rose-500/[0.06]" titleKey="gammaTitle" descKey="gammaDesc" infoBg={<InfographicBg type="circuit" />} />
                 </div>
-                <SectionCard icon={Newspaper} iconColor="text-cyan-400" gradientFrom="from-cyan-500/[0.06]" titleKey="intelTitle" descKey="intelDesc" infoBg={<InfographicBg type="dots" />} />
+            </section>
+
+            {/* ═══ GEX Timeline / Tech Levels / IV Skew Curve — 3-Tab Panel ═══ */}
+            <section className="space-y-5">
+                <div className="flex items-center gap-2 mt-2 mb-2">
+                    <div className="h-px flex-1 bg-gradient-to-r from-cyan-500/40 to-transparent" />
+                    <span className="text-[12px] font-bold text-cyan-400 uppercase tracking-widest whitespace-nowrap">📊 3-Tab Intelligence Panel</span>
+                    <div className="h-px flex-1 bg-gradient-to-l from-cyan-500/40 to-transparent" />
+                </div>
+
+                <div className="relative overflow-hidden rounded-2xl bg-white/[0.03] backdrop-blur-xl border border-cyan-500/20 p-6">
+                    <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/[0.08] via-transparent to-indigo-500/[0.04] pointer-events-none" />
+                    <InfographicBg type="scanline" />
+
+                    {/* Corner Frames */}
+                    <div className="absolute top-3 left-3 w-6 h-6 border-l-2 border-t-2 border-cyan-500/30 pointer-events-none z-0" />
+                    <div className="absolute top-3 right-3 w-6 h-6 border-r-2 border-t-2 border-cyan-500/30 pointer-events-none z-0" />
+                    <div className="absolute bottom-3 left-3 w-6 h-6 border-l-2 border-b-2 border-cyan-500/30 pointer-events-none z-0" />
+                    <div className="absolute bottom-3 right-3 w-6 h-6 border-r-2 border-b-2 border-cyan-500/30 pointer-events-none z-0" />
+
+                    <div className="relative z-10 space-y-5">
+                        <div className="flex items-center gap-3">
+                            <div className="w-12 h-12 rounded-xl bg-cyan-500/20 border border-cyan-500/30 flex items-center justify-center">
+                                <BarChart3 size={24} className="text-cyan-400" />
+                            </div>
+                            <div>
+                                <h3 className="text-xl font-black text-white">{t('gexTimelineSection.title')}</h3>
+                                <p className="text-[13px] text-cyan-300 font-medium">{t('gexTimelineSection.subtitle')}</p>
+                            </div>
+                        </div>
+
+                        <p className="text-[15px] text-slate-300 leading-relaxed">
+                            {t.rich('gexTimelineSection.desc', richTags)}
+                        </p>
+
+                        {/* 3 Tab Cards */}
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div className="p-4 rounded-xl bg-emerald-900/20 border border-emerald-500/20">
+                                <div className="flex items-center gap-2 mb-2">
+                                    <div className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
+                                    <span className="text-[13px] font-black text-emerald-400">{t('gexTimelineSection.gexTitle')}</span>
+                                </div>
+                                <p className="text-[13px] text-slate-300 leading-relaxed">
+                                    {t.rich('gexTimelineSection.gexDesc', richTags)}
+                                </p>
+                            </div>
+                            <div className="p-4 rounded-xl bg-indigo-900/20 border border-indigo-500/20">
+                                <div className="flex items-center gap-2 mb-2">
+                                    <div className="w-2.5 h-2.5 rounded-full bg-indigo-500" />
+                                    <span className="text-[13px] font-black text-indigo-400">{t('gexTimelineSection.techTitle')}</span>
+                                </div>
+                                <p className="text-[13px] text-slate-300 leading-relaxed">
+                                    {t.rich('gexTimelineSection.techDesc', richTags)}
+                                </p>
+                            </div>
+                            <div className="p-4 rounded-xl bg-violet-900/20 border border-violet-500/20">
+                                <div className="flex items-center gap-2 mb-2">
+                                    <div className="w-2.5 h-2.5 rounded-full bg-violet-500" />
+                                    <span className="text-[13px] font-black text-violet-400">{t('gexTimelineSection.ivSkewTitle')}</span>
+                                </div>
+                                <p className="text-[13px] text-slate-300 leading-relaxed">
+                                    {t.rich('gexTimelineSection.ivSkewDesc', richTags)}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            {/* ═══ AI Deep Analysis Section ═══ */}
+            <section className="space-y-5">
+                <div className="flex items-center gap-2 mt-2 mb-2">
+                    <div className="h-px flex-1 bg-gradient-to-r from-amber-500/40 to-transparent" />
+                    <span className="text-[12px] font-bold text-amber-400 uppercase tracking-widest whitespace-nowrap">🧠 AI Deep Analysis</span>
+                    <div className="h-px flex-1 bg-gradient-to-l from-amber-500/40 to-transparent" />
+                </div>
+
+                <div className="relative overflow-hidden rounded-2xl bg-white/[0.03] backdrop-blur-xl border border-amber-500/20 p-6">
+                    <div className="absolute inset-0 bg-gradient-to-br from-amber-500/[0.08] via-transparent to-rose-500/[0.04] pointer-events-none" />
+                    <InfographicBg type="circuit" />
+
+                    {/* Corner Frames */}
+                    <div className="absolute top-3 left-3 w-6 h-6 border-l-2 border-t-2 border-amber-500/30 pointer-events-none z-0" />
+                    <div className="absolute top-3 right-3 w-6 h-6 border-r-2 border-t-2 border-amber-500/30 pointer-events-none z-0" />
+                    <div className="absolute bottom-3 left-3 w-6 h-6 border-l-2 border-b-2 border-amber-500/30 pointer-events-none z-0" />
+                    <div className="absolute bottom-3 right-3 w-6 h-6 border-r-2 border-b-2 border-amber-500/30 pointer-events-none z-0" />
+
+                    <div className="relative z-10 space-y-5">
+                        <div className="flex items-center gap-3">
+                            <div className="w-12 h-12 rounded-xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center">
+                                <Brain size={24} className="text-amber-400" />
+                            </div>
+                            <div>
+                                <h3 className="text-xl font-black text-white">{t('aiDeepAnalysis.title')}</h3>
+                                <p className="text-[13px] text-amber-300 font-medium">{t('aiDeepAnalysis.subtitle')}</p>
+                            </div>
+                        </div>
+
+                        <p className="text-[15px] text-slate-300 leading-relaxed">
+                            {t.rich('aiDeepAnalysis.desc', richTags)}
+                        </p>
+
+                        {/* AI Verdict Highlight */}
+                        <div className="p-4 rounded-xl bg-amber-900/20 border border-amber-500/20">
+                            <div className="flex items-center gap-2 mb-2">
+                                <div className="w-3 h-3 rounded-full bg-amber-500" />
+                                <span className="text-[14px] font-black text-amber-400">{t('aiDeepAnalysis.verdictTitle')}</span>
+                            </div>
+                            <p className="text-[13px] text-slate-300 leading-relaxed">
+                                {t.rich('aiDeepAnalysis.verdictDesc', richTags)}
+                            </p>
+                        </div>
+
+                        {/* 3 Analysis Axes */}
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                            <div className="p-3 rounded-lg bg-indigo-900/20 border border-indigo-500/15">
+                                <p className="text-[12px] text-indigo-300 leading-relaxed">
+                                    {t('aiDeepAnalysis.techAnalysis')}
+                                </p>
+                            </div>
+                            <div className="p-3 rounded-lg bg-cyan-900/20 border border-cyan-500/15">
+                                <p className="text-[12px] text-cyan-300 leading-relaxed">
+                                    {t('aiDeepAnalysis.optionsAnalysis')}
+                                </p>
+                            </div>
+                            <div className="p-3 rounded-lg bg-emerald-900/20 border border-emerald-500/15">
+                                <p className="text-[12px] text-emerald-300 leading-relaxed">
+                                    {t('aiDeepAnalysis.newsAnalysis')}
+                                </p>
+                            </div>
+                        </div>
+
+                        {/* Risk Tiers */}
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                            <div className="px-3 py-2 rounded-lg bg-emerald-900/20 border border-emerald-500/20 text-center">
+                                <span className="text-[12px] font-bold text-emerald-400">{t('aiDeepAnalysis.riskLow')}</span>
+                            </div>
+                            <div className="px-3 py-2 rounded-lg bg-amber-900/20 border border-amber-500/20 text-center">
+                                <span className="text-[12px] font-bold text-amber-400">{t('aiDeepAnalysis.riskMedium')}</span>
+                            </div>
+                            <div className="px-3 py-2 rounded-lg bg-rose-900/20 border border-rose-500/20 text-center">
+                                <span className="text-[12px] font-bold text-rose-400">{t('aiDeepAnalysis.riskHigh')}</span>
+                            </div>
+                            <div className="px-3 py-2 rounded-lg bg-red-900/20 border border-red-500/20 text-center">
+                                <span className="text-[12px] font-bold text-red-400">{t('aiDeepAnalysis.riskCritical')}</span>
+                            </div>
+                        </div>
+
+                        <div className="p-3 rounded-lg bg-amber-900/20 border border-amber-500/20 flex items-start gap-2">
+                            <Lightbulb size={14} className="text-amber-400 mt-0.5 flex-shrink-0" />
+                            <span className="text-[13px] text-amber-200/90 leading-relaxed">
+                                {t('aiDeepAnalysis.tip')}
+                            </span>
+                        </div>
+                    </div>
+                </div>
             </section>
 
             {/* ═══ Trading Strategy Guide ═══ */}
