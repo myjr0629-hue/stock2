@@ -159,7 +159,7 @@ Your role: CURATE the most impactful global market news and provide institutiona
 </analysis_format>
 
 <output_rules>
-- Select EXACTLY TOP 5 most impactful news (fewer if <5 unique)
+- Select EXACTLY TOP 10 most impactful news (fewer if <10 unique)
 - Prioritize: geopolitical > macro policy > market-moving > sector rotation > commentary
 - DEDUPLICATE: same event → keep most detailed article only
 - Each summary: 1-2 concise sentences with key facts and numbers
@@ -185,7 +185,7 @@ ${macroContext || 'Market data unavailable — weekend/holiday'}
 ${JSON.stringify(inputItems)}
 </articles>
 
-Select TOP 5 and output as JSON array with this exact schema per item:
+Select TOP 10 and output as JSON array with this exact schema per item:
 {"id","headline","summaryKR","summaryEN","summaryJP","analysisKR","analysisEN","analysisJP","category":"US_MARKET|GLOBAL|GEOPOLITICAL|MACRO|SECTOR","impact":"BULLISH|BEARISH|MIXED|NEUTRAL","urgency":1-10}
 
 Output ONLY the JSON array — no explanation, no markdown.`;
@@ -232,7 +232,7 @@ Output ONLY the JSON array — no explanation, no markdown.`;
     } catch (e) {
         console.error('[NewsDigest] Claude analysis failed:', e);
         // Fallback: return raw top 5 without AI
-        return articles.slice(0, 5).map((a, i) => ({
+        return articles.slice(0, 10).map((a, i) => ({
             id: a.id || `news-${i}`,
             headline: a.title || 'No Title',
             summaryKR: a.description?.substring(0, 120) || a.title,
