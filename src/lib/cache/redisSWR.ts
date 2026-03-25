@@ -2,7 +2,8 @@
  * [V8] Redis SWR (Stale-While-Revalidate) Cache Utility
  * 
  * Wraps any async data fetcher with Redis caching.
- * Returns stale data immediately while refreshing in background.
+ * When stale, fetches fresh data SYNCHRONOUSLY to guarantee
+ * the result is saved before Vercel kills the serverless function.
  * Falls back to fetcher on cache miss.
  * 
  * Used by all Polygon-calling API routes to minimize API calls
@@ -30,7 +31,7 @@ export async function swrFetch<T>(
     key: string,
     fetcher: () => Promise<T>,
     options: SWROptions
-): Promise<{ data: T; _cache: 'hit' | 'miss'; _ageMs?: number }> {
+): Promise<{ data: T; _cache: 'hit' | 'miss' | 'revalidated'; _ageMs?: number }> {
     const cacheKey = `${options.keyPrefix}:${key}`;
 
     // 1. Try Redis cache first
@@ -45,9 +46,17 @@ export async function swrFetch<T>(
                 return { data: cached.data, _cache: 'hit', _ageMs: age };
             }
 
-            // Stale data — return stale + revalidate in background (fire-and-forget)
-            revalidateInBackground(cacheKey, fetcher, options.ttlSeconds).catch(() => {});
-            return { data: cached.data, _cache: 'hit', _ageMs: age };
+            // Stale data — fetch fresh data SYNCHRONOUSLY (not fire-and-forget)
+            // This is critical for Vercel serverless: detached promises get killed
+            try {
+                const freshData = await fetcher();
+                // Save fresh data to Redis
+                await setInCache(cacheKey, { data: freshData, timestamp: Date.now() }, options.ttlSeconds * 2);
+                return { data: freshData, _cache: 'revalidated', _ageMs: 0 };
+            } catch {
+                // If fresh fetch fails, return stale data as fallback
+                return { data: cached.data, _cache: 'hit', _ageMs: age };
+            }
         }
     } catch {
         // Redis error — fall through to fetcher
@@ -56,23 +65,10 @@ export async function swrFetch<T>(
     // 2. Cache miss — fetch fresh data
     const data = await fetcher();
 
-    // 3. Store in Redis (fire-and-forget)
+    // 3. Store in Redis
     try {
         await setInCache(cacheKey, { data, timestamp: Date.now() }, options.ttlSeconds * 2); // TTL = 2x for stale window
     } catch {}
 
     return { data, _cache: 'miss' };
-}
-
-async function revalidateInBackground<T>(
-    cacheKey: string,
-    fetcher: () => Promise<T>,
-    ttlSeconds: number
-) {
-    try {
-        const freshData = await fetcher();
-        await setInCache(cacheKey, { data: freshData, timestamp: Date.now() }, ttlSeconds * 2);
-    } catch (e) {
-        console.warn(`[SWR] Background revalidation failed for ${cacheKey}:`, e);
-    }
 }
