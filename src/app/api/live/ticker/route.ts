@@ -9,6 +9,7 @@ import { getStructureData } from "@/services/structureService"; // [SQUEEZE FIX]
 import { getMacroSnapshotSSOT } from '@/services/macroHubProvider'; // [V3 PIPELINE]
 import { getFromCache, setInCache } from '@/services/redisClient'; // [PERF] Redis caching
 import { fetchTruePreMarket } from '@/services/marketDataLight'; // [V5.5 FIX] True PM Fetcher
+import { fetchRealtimeMetrics } from '@/services/realtimeMetricsService'; // [FIX] Direct import (no HTTP loopback)
 
 // [S-56.4.5c] Legacy URL building - these are used for direct fetch URLs
 const MASSIVE_API_KEY = process.env.MASSIVE_API_KEY || process.env.POLYGON_API_KEY || "iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF";
@@ -267,22 +268,13 @@ export async function GET(req: NextRequest) {
     };
 
     // [V3 PIPELINE] Fetch realtime-metrics for darkPool/shortVol
-    const fetchRealtimeMetrics = async () => {
-        for (let attempt = 0; attempt < 3; attempt++) {
-            try {
-                const baseUrl = new URL(req.url).origin;
-                const res = await fetch(`${baseUrl}/api/flow/realtime-metrics?ticker=${ticker}`);
-                if (res.ok) return await res.json();
-                throw new Error(`HTTP ${res.status}`);
-            } catch (err: any) {
-                if (attempt < 2) {
-                    console.warn(`[live/ticker] fetchRealtimeMetrics attempt ${attempt + 1} failed for ${ticker}, retrying...`);
-                    await new Promise(r => setTimeout(r, 800 * (attempt + 1)));
-                } else {
-                    console.error(`[live/ticker] fetchRealtimeMetrics FINAL FAIL for ${ticker}`);
-                    return null;
-                }
-            }
+    // [FIX] Direct import — eliminates HTTP loopback (50ms→1ms, no cold start penalty)
+    const fetchMetrics = async () => {
+        try {
+            return await fetchRealtimeMetrics(ticker);
+        } catch (err: any) {
+            console.error(`[live/ticker] fetchRealtimeMetrics FAIL for ${ticker}:`, err.message);
+            return null;
         }
     };
 
@@ -329,7 +321,7 @@ export async function GET(req: NextRequest) {
         fetchOC(),
         fetchFlow(),
         fetchStructure(),
-        fetchRealtimeMetrics(),
+        fetchMetrics(),
         fetchMacro(),
         fetchSMA20(),
         getFromCache<{ score: number; rating: string }>('cnn:feargreed').catch(() => null),

@@ -105,12 +105,25 @@ export async function GET(request: NextRequest) {
     const limit = Math.min(parseInt(searchParams.get('limit') || '50'), 100);
 
     const cacheKey = `darkpool:${ticker}`;
+    const STALE_THRESHOLD_MS = 300_000; // 5 min
 
     try {
-        // ── Fetch trades AND quotes in parallel ──
+        // [SWR] Serve cached data immediately — cold fetch of trades takes 3-6s
+        const cached = await getFromCache<any>(cacheKey).catch(() => null);
+        if (cached && cached.items) {
+            const cacheAge = cached._ts ? Date.now() - cached._ts : Infinity;
+            if (cacheAge < STALE_THRESHOLD_MS) {
+                return NextResponse.json({ ...cached, _cached: true });
+            }
+            // Stale but usable — return immediately, no background refresh here (user can manually refresh)
+            return NextResponse.json({ ...cached, _cached: true, _stale: true });
+        }
+
+        // ── Cache miss: Fetch trades AND quotes in parallel ──
+        // [PROD FIX] limit=10000 (from 50000) — sufficient for block trade detection
         const [tradesRes, quotesRes] = await Promise.all([
-            fetch(`${POLYGON_BASE}/v3/trades/${ticker}?limit=50000&order=desc&apiKey=${POLYGON_API_KEY}`, { next: { revalidate: 15 } }),
-            fetch(`${POLYGON_BASE}/v3/quotes/${ticker}?limit=5000&order=desc&apiKey=${POLYGON_API_KEY}`, { next: { revalidate: 15 } }),
+            fetch(`${POLYGON_BASE}/v3/trades/${ticker}?limit=10000&order=desc&apiKey=${POLYGON_API_KEY}`, { next: { revalidate: 15 } }),
+            fetch(`${POLYGON_BASE}/v3/quotes/${ticker}?limit=1000&order=desc&apiKey=${POLYGON_API_KEY}`, { next: { revalidate: 15 } }),
         ]);
 
         if (!tradesRes.ok) {
@@ -198,6 +211,7 @@ export async function GET(request: NextRequest) {
         const response = {
             ticker,
             timestamp: new Date().toISOString(),
+            _ts: Date.now(),
             totalDarkPoolVolume: stats.totalDarkPoolVolume,
             totalDarkPoolValue: Math.round(stats.totalDarkPoolValue),
             totalVolume: stats.totalVolume,
