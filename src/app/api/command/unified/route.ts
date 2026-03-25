@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse, after } from 'next/server';
 import { getFromCache, setInCache } from '@/services/redisClient';
 
 // Import individual route GET handlers directly to bypass HTTP overhead
@@ -283,10 +283,11 @@ export async function GET(request: NextRequest) {
         const memData = memoryGet(memKey);
         if (memData && (memData.structure || memData.options)) {
             const ageMs = Date.now() - (memData.timestamp || 0);
-            // Background refresh if stale
             if (ageMs > REFRESH_THRESHOLD_MS) {
                 const baseUrl = getBaseUrl(request);
-                triggerBackgroundRefresh(ticker, dataCacheKey, overviewCacheKey, baseUrl, locale);
+                after(() => {
+                    triggerBackgroundRefresh(ticker, dataCacheKey, overviewCacheKey, baseUrl, locale);
+                });
             }
             // Merge with language-specific overview: memory → Redis → API fetch
             let overview = memoryGet(`overview:${ticker}:${locale}`);
@@ -386,7 +387,9 @@ export async function GET(request: NextRequest) {
             // SWR: If older than threshold, refetch in background
             if (ageMs > REFRESH_THRESHOLD_MS) {
                 const baseUrl = getBaseUrl(request);
-                triggerBackgroundRefresh(ticker, dataCacheKey, overviewCacheKey, baseUrl, locale);
+                after(() => {
+                    triggerBackgroundRefresh(ticker, dataCacheKey, overviewCacheKey, baseUrl, locale);
+                });
             }
 
             return jsonResponse({ ...cachedData, overview: resolvedOverview || null, _source: 'cache', _ageMs: ageMs });

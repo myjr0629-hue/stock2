@@ -1665,8 +1665,8 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                     {/* [2-1] INSTITUTIONAL RADAR™ — PRO */}
                     <ProGate title="Inst Radar" mode="blur" compact>
                         {(() => {
-                            const dp = institutionalData?.darkPool?.percent || 0;
-                            const blockCount = institutionalData?.blockTrade?.count || 0;
+                            const dp = effectiveInst?.darkPool?.percent || 0;
+                            const blockCount = effectiveInst?.blockTrade?.count || 0;
                             const isAccumulation = dp > 40 && blockCount >= 3;
                             const isDistribution = dp < 20 && blockCount <= 1;
                             const signal = isAccumulation ? 'ACCUMULATION' : isDistribution ? 'DISTRIBUTION' : 'NEUTRAL';
@@ -1693,7 +1693,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                     </div>
                                     <div className="relative z-10 flex gap-3 mt-0.5 text-[12px] font-jakarta tabular-nums">
                                         <span className="text-white/80">{td('instBlock')} <span className="font-bold text-white">{blockCount}{td('instTrades')}</span></span>
-                                        <span className="text-white/80">{td('sqShortRatio')} <span className="font-bold text-white">{institutionalData?.shortVolume?.percent?.toFixed(0) ?? '--'}%</span></span>
+                                        <span className="text-white/80">{td('sqShortRatio')} <span className="font-bold text-white">{effectiveInst?.shortVolume?.percent?.toFixed(0) ?? '--'}%</span></span>
                                     </div>
                                     <div className="relative z-10 mt-0.5">
                                         <span className="text-[12px] text-slate-300 font-jakarta">DP·Block·Short Vol</span>
