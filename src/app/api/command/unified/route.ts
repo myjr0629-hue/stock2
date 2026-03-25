@@ -74,7 +74,8 @@ function isFieldUsable(field: string, data: any): boolean {
         case 'related': return (data.relatedTickers?.length > 0) || (data.topRelated?.length > 0) || (data.count > 0);
         case 'sma': return data.sma50 != null || data.sma200 != null || data.cross != null;
         case 'volatility': return data.regimeScore != null && data.regimeScore > 0;
-        case 'squeeze': return data.siPercent != null || data.daysToCover != null;
+        case 'squeeze': return (data.siPercent != null && data.siPercent > 0) || (data.daysToCover != null && data.daysToCover > 0);
+        case 'institutional': return (data.darkPool?.percent != null && data.darkPool.percent > 0) || (data.compositeScore != null && data.compositeScore > 0);
         case 'structure': return data.options_status === 'OK' || data.netGex != null;
         default: return true;
     }
@@ -342,10 +343,10 @@ export async function GET(request: NextRequest) {
             if (resolvedOverview) memorySet(`overview:${ticker}:${locale}`, resolvedOverview);
 
             // [GAP-FILL] Check for missing or empty-shell fields and fill them via sub-APIs
-            const CORE_FIELDS = ['analyst','fundamentals','earnings','related','sma','squeeze','volatility','structure'] as const;
+            const CORE_FIELDS = ['analyst','fundamentals','earnings','related','sma','squeeze','volatility','structure','institutional'] as const;
             const missingFields = CORE_FIELDS.filter(f => !isFieldUsable(f, cachedData[f]));
             
-            if (missingFields.length > 0 && missingFields.length <= 6) {
+            if (missingFields.length > 0 && missingFields.length <= 7) {
                 // Only gap-fill if partially complete (not completely empty)
                 const baseUrl = getBaseUrl(request);
                 const fieldHandlers: Record<string, [Function, string]> = {
@@ -357,6 +358,7 @@ export async function GET(request: NextRequest) {
                     'squeeze': [getSqueeze, `${baseUrl}/api/live/short-squeeze?t=${ticker}`],
                     'volatility': [getVolatility, `${baseUrl}/api/live/volatility-regime?t=${ticker}`],
                     'structure': [getStructure, `${baseUrl}/api/live/options/structure?t=${ticker}`],
+                    'institutional': [getInstitutional, `${baseUrl}/api/flow/realtime-metrics?ticker=${ticker}`],
                 };
                 
                 const gapPromises = missingFields.map(f => {
