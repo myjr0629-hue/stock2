@@ -593,7 +593,7 @@ async function tryDynamoFast(ticker: string): Promise<any | null> {
 
             // [핵심 FIX] DynamoDB에 없는 필드(fundamentals, sma, related)를 개별 API로 보충
             // 4초 timeout — DynamoDB 응답(~1s) + supplement(~2-3s) = 전체 ~5s 이내
-            const SUPPLEMENT_TIMEOUT = 2000;
+            const SUPPLEMENT_TIMEOUT = 5000; // 5s — squeeze/inst APIs call external Polygon/FINRA (2s was too short)
             const supplementPromises: Promise<any>[] = [fetchGexHistoryData(ticker)];
 
             const needFundamentals = !snap.fundamentals?.score;
@@ -716,22 +716,33 @@ async function tryDynamoFast(ticker: string): Promise<any | null> {
             // [FIX] Use actual API squeeze data (has siPercent, daysToCover, shortVolPercent, status)
             // Fallback to GEX heuristic only if API didn't return
             let squeezeCard = squeezeResult || null;
-            if (!squeezeCard && gex) {
-                const pcr = gex.pcr || 0;
-                const regime = gex.gammaRegime;
-                let score = 0;
-                if (regime === 'NEGATIVE') score += 40;
-                if (pcr > 1.5) score += 30;
-                else if (pcr > 1.0) score += 15;
-                if (flow?.squeezeProbability && flow.squeezeProbability > 0) score = Math.max(score, flow.squeezeProbability);
-                if (score > 0) squeezeCard = { score: Math.min(100, score), ticker };
+            if (!squeezeCard) {
+                // Fallback: construct minimal squeeze card with UI-required fields
+                const snapAny = snap as any;
+                const shortVolPct = snapAny.shortVol?.percent || 0;
+                squeezeCard = {
+                    ticker,
+                    siPercent: snapAny.squeeze?.siPercent || 0,
+                    daysToCover: snapAny.squeeze?.daysToCover || 0,
+                    siChange: 0,
+                    shortVolPercent: shortVolPct,
+                    riskScore: 0,
+                    status: 'LOW',
+                };
             }
 
             // [FIX] Use actual API institutional data (has darkPool.percent, blockTrade, shortVolume)
             // Fallback to DynamoDB flow data only if API didn't return
             let institutionalCard = instResult || null;
-            if (!institutionalCard && flow) {
-                institutionalCard = { compositeScore: flow.compositeScore, opi: flow.opi, whaleScore: flow.whaleScore, totalCallOI: flow.totalCallOI, totalPutOI: flow.totalPutOI, pcr: flow.pcr };
+            if (!institutionalCard) {
+                // Fallback: construct institutional card with UI-required fields
+                const snapAny = snap as any;
+                const shortVolPct = squeezeCard?.shortVolPercent || 0;
+                institutionalCard = {
+                    darkPool: { percent: snapAny.darkPool?.percent || 0 },
+                    blockTrade: { count: snapAny.darkPool?.blockCount || 0, volume: 0 },
+                    shortVolume: { percent: shortVolPct },
+                };
             }
 
             // Build volatility from GEX regime
