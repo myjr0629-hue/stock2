@@ -83,6 +83,12 @@ export function EChartsSectorDonut({ sectors, total, label }: {
     const option = useMemo(() => ({
         tooltip: {
             trigger: 'item',
+            appendToBody: true,
+            confine: false,
+            position: function (_point: number[], _params: any, _dom: HTMLElement, _rect: any, size: { contentSize: number[]; viewSize: number[] }) {
+                // Position tooltip above-right of the chart, never covering it
+                return { top: -size.contentSize[1] - 8, left: size.viewSize[0] / 2 };
+            },
             formatter: (params: any) => {
                 const pct = total > 0 ? ((params.data.value / total) * 100).toFixed(1) : '0.0';
                 const val = params.data.value;
@@ -100,7 +106,11 @@ export function EChartsSectorDonut({ sectors, total, label }: {
                     </div>
                 </div>`;
             },
-            ...TOOLTIP_STYLE,
+            backgroundColor: TOOLTIP_STYLE.backgroundColor,
+            borderColor: TOOLTIP_STYLE.borderColor,
+            borderWidth: TOOLTIP_STYLE.borderWidth,
+            textStyle: TOOLTIP_STYLE.textStyle,
+            extraCssText: TOOLTIP_STYLE.extraCssText,
         },
         series: [{
             type: 'pie',
