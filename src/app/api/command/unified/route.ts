@@ -195,7 +195,7 @@ async function buildUnifiedData(ticker: string, baseUrl: string, locale: string)
     const start = Date.now();
 
     // 11 Parallel Internal Fetches: 10 language-independent + 1 language-specific (overview)
-    const [
+    let [
         structure,
         optionsAtm,
         earnings,
@@ -226,25 +226,56 @@ async function buildUnifiedData(ticker: string, baseUrl: string, locale: string)
 
     // Separate data (language-independent) from overview (language-specific)
     const now = Date.now();
+
+    // [CRITICAL] Volatile fields that failed → IMMEDIATE retry (1 attempt, no caching null)
+    // This prevents 0% / null data from being cached for 30 minutes
+    const volatileRetries: Promise<any>[] = [];
+    const volatileNames: string[] = [];
+    if (!institutional) {
+        volatileNames.push('institutional');
+        volatileRetries.push(callInternalGet(getInstitutional, `${baseUrl}/api/flow/realtime-metrics?ticker=${ticker}`));
+    }
+    if (!squeeze) {
+        volatileNames.push('squeeze');
+        volatileRetries.push(callInternalGet(getSqueeze, `${baseUrl}/api/live/short-squeeze?t=${ticker}`));
+    }
+    if (!volatility) {
+        volatileNames.push('volatility');
+        volatileRetries.push(callInternalGet(getVolatility, `${baseUrl}/api/live/volatility-regime?t=${ticker}`));
+    }
+    if (volatileRetries.length > 0) {
+        console.log(`[Command Unified] RETRY null volatile fields: ${volatileNames.join(',')}`);
+        const retryResults = await Promise.all(volatileRetries);
+        for (let i = 0; i < volatileNames.length; i++) {
+            if (retryResults[i]) {
+                if (volatileNames[i] === 'institutional') institutional = retryResults[i];
+                if (volatileNames[i] === 'squeeze') squeeze = retryResults[i];
+                if (volatileNames[i] === 'volatility') volatility = retryResults[i];
+                console.log(`[Command Unified] RETRY SUCCESS: ${volatileNames[i]}`);
+            }
+        }
+    }
+
     // Stamp _ts on volatile fields for age-based staleness detection in gap-fill
     if (squeeze) squeeze._ts = now;
     if (institutional) institutional._ts = now;
     if (volatility) volatility._ts = now;
-    const data = {
+    const data: any = {
         structure,
         options: optionsAtm,
         earnings,
         sma,
         related,
         analyst,
-        volatility,
-        squeeze,
-        institutional,
-        fundamentals,
         // overview is NOT stored in data cache — stored separately
         history: gexHistory,
         timestamp: now
     };
+    // Only include volatile fields if they have data — NEVER cache null
+    if (volatility) data.volatility = volatility;
+    if (squeeze) data.squeeze = squeeze;
+    if (institutional) data.institutional = institutional;
+    if (fundamentals) data.fundamentals = fundamentals;
 
     console.log(`[Command Unified] Built aggregation for ${ticker} in ${Date.now() - start}ms execution time`);
     return { data, overview };
