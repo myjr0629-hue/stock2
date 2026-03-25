@@ -6,6 +6,7 @@ import { getFromCache, setInCache } from '@/services/redisClient';
 import { recordAlphaDaily } from '@/lib/aws/historyMiddleware';
 import { getAnalysisCacheForTickers, type AnalysisCacheEntry } from '@/services/analysisCache';
 import { fetchMassive } from '@/services/massiveClient';
+import { GET as getLiveTicker } from '@/app/api/live/ticker/route'; // [FIX] Direct import (no HTTP loopback)
 
 // [V4.1] Polygon API for technical indicators (return3D, sma20, rsi14, relVol)
 const POLYGON_API_KEY = process.env.POLYGON_API_KEY || process.env.MASSIVE_API_KEY || 'iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF';
@@ -108,6 +109,25 @@ function calculateIvSkew(rawChain: any[], price: number): number | null {
 
         return parseFloat((avgPutIV / avgCallIV).toFixed(3)); // >1 = institutional hedging
     } catch {
+        return null;
+    }
+}
+
+// [FIX] Internal API call helper — bypasses HTTP loopback (Vercel serverless has no localhost)
+// Creates a mock NextRequest and calls the handler directly, returns parsed JSON
+const DASHBOARD_INTERNAL_TIMEOUT_MS = 10000;
+async function callInternalGetForDashboard(handler: Function, url: string): Promise<any> {
+    try {
+        const mockReq = new NextRequest(url);
+        const responsePromise = handler(mockReq);
+        const timeoutPromise = new Promise((_, reject) =>
+            setTimeout(() => reject(new Error('Internal call timeout')), DASHBOARD_INTERNAL_TIMEOUT_MS)
+        );
+        const response = await Promise.race([responsePromise, timeoutPromise]) as Response;
+        if (!response || typeof response.json !== 'function') return null;
+        return await response.json();
+    } catch (e: any) {
+        console.error(`[Dashboard] callInternalGet failed for ${url}:`, e.message);
         return null;
     }
 }
@@ -909,11 +929,10 @@ async function fetchTickerData(ticker: string, request?: NextRequest, maxRetries
     let retryCount = 0;
 
     const attemptFetch = async (): Promise<any> => {
-        // [PERF] Direct Import: structure + realtime-metrics called directly (no HTTP loopback)
-        // Only ticker API still uses HTTP (monolithic 700-line route with Redis caching)
+        // [FIX] ALL direct imports — NO HTTP loopback (Vercel serverless has no localhost)
         const [structureData, tickerRes, metrics, techIndicators] = await Promise.all([
             getStructureData(ticker),
-            fetch(`${baseUrl}/api/live/ticker?t=${ticker}`),
+            callInternalGetForDashboard(getLiveTicker, `${baseUrl}/api/live/ticker?t=${ticker}`),
             fetchRealtimeMetrics(ticker).catch(() => null),
             fetchTechnicalIndicators(ticker) // [V4.1] return3D, sma20, rsi14, relVol
         ]);
@@ -931,9 +950,10 @@ async function fetchTickerData(ticker: string, request?: NextRequest, maxRetries
         }
 
         // Merge extended session data from ticker API (Command style)
+        // [FIX] tickerRes is now a parsed JSON object from callInternalGetForDashboard (not a Response)
         let tickerRawChain: any[] = [];
-        if (tickerRes.ok) {
-            const tickerData = await tickerRes.json();
+        const tickerData = tickerRes; // Already parsed JSON from callInternalGet
+        if (tickerData && !tickerData.error) {
             structureData.extended = tickerData.extended || null;
             structureData.session = tickerData.session || 'CLOSED';
             structureData.prevClose = tickerData.prices?.prevRegularClose || structureData.prevClose;
@@ -952,7 +972,6 @@ async function fetchTickerData(ticker: string, request?: NextRequest, maxRetries
             structureData.volumePcr = tickerData.flow?.volumePcr ?? null;
             structureData.volumePcrCallVol = tickerData.flow?.volumePcrCallVol ?? null;
             structureData.volumePcrPutVol = tickerData.flow?.volumePcrPutVol ?? null;
-            console.log(`[Dashboard PCR Debug] ${ticker}: volumePcr=${structureData.volumePcr}, callVol=${structureData.volumePcrCallVol}, putVol=${structureData.volumePcrPutVol}, tickerFlowKeys=${Object.keys(tickerData.flow || {}).join(',')}`);
         }
 
         // [PERF] Dark Pool % & Short Vol % — direct import (no HTTP loopback)
