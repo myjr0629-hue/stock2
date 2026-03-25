@@ -442,12 +442,41 @@ export class GuardianDataHub {
             // Logic: Compare Nasdaq Change vs RLSI Score
             const nq = macro?.nqChangePercent || 0;
             const score = rlsi.score;
+            const nqSign = nq >= 0 ? '+' : '';
+            const nqStr = `${nqSign}${nq.toFixed(2)}%`;
+            const scoreStr = score.toFixed(0);
+
+            // Dynamic reasoning builders per locale
+            const buildReason = {
+                ko: {
+                    caseA: `NASDAQ ${nqStr} 상승 중이나 RLSI ${scoreStr}(40 미만)으로 유동성 지표는 약세. 지수 표면의 강세와 내부 유동성 흐름의 괴리 관측.`,
+                    caseB: `NASDAQ ${nqStr} 하락 중이나 RLSI ${scoreStr}(60 이상)으로 유동성은 유입 중. 가격 하락 속 기관 자금 유입 패턴 관측.`,
+                    caseC: `NASDAQ ${nqStr} 상승 + RLSI ${scoreStr}(70 이상). 가격과 유동성이 동시 확장하는 강한 모멘텀 구간.`,
+                    caseD: `NASDAQ ${nqStr} 하락 + RLSI ${scoreStr}(30 미만). 가격·유동성 동시 위축으로 방향성 부재 구간.`,
+                    sync: `NASDAQ ${nqStr}, RLSI ${scoreStr}. 지수와 유동성 흐름이 동기화 상태. 이상 징후 미관측.`,
+                },
+                en: {
+                    caseA: `NASDAQ ${nqStr} rising but RLSI ${scoreStr} (below 40) signals weak liquidity. Surface strength diverges from internal capital flow weakness.`,
+                    caseB: `NASDAQ ${nqStr} declining but RLSI ${scoreStr} (above 60) shows liquidity inflow. Institutional capital accumulation observed during price decline.`,
+                    caseC: `NASDAQ ${nqStr} + RLSI ${scoreStr} (above 70). Price and liquidity expanding simultaneously — strong momentum phase.`,
+                    caseD: `NASDAQ ${nqStr} + RLSI ${scoreStr} (below 30). Price and liquidity contracting — directionless phase.`,
+                    sync: `NASDAQ ${nqStr}, RLSI ${scoreStr}. Index and liquidity flows are aligned. No divergence detected.`,
+                },
+                ja: {
+                    caseA: `NASDAQ ${nqStr}上昇中もRLSI ${scoreStr}(40未満)で流動性は弱気。指数表面の強さと内部流動性の乖離を観測。`,
+                    caseB: `NASDAQ ${nqStr}下落中もRLSI ${scoreStr}(60以上)で流動性は流入中。価格下落中の機関資金流入パターンを観測。`,
+                    caseC: `NASDAQ ${nqStr} + RLSI ${scoreStr}(70以上)。価格と流動性が同時拡大する強いモメンタム局面。`,
+                    caseD: `NASDAQ ${nqStr} + RLSI ${scoreStr}(30未満)。価格・流動性の同時収縮で方向性不在の局面。`,
+                    sync: `NASDAQ ${nqStr}、RLSI ${scoreStr}。指数と流動性フローが同期状態。乖離は未観測。`,
+                },
+            };
+            const reason = buildReason[locale] || buildReason.en;
 
             // caseId: 'N' (Neutral)
             let divCase: DivergenceAnalysis = {
                 caseId: 'N',
                 verdictTitle: VERDICT_TEXTS.SYNC[locale].title,
-                verdictDesc: VERDICT_TEXTS.SYNC[locale].desc,
+                verdictDesc: reason.sync,
                 isDivergent: false,
                 score: 0
             };
@@ -457,7 +486,7 @@ export class GuardianDataHub {
                 divCase = {
                     caseId: 'A',
                     verdictTitle: VERDICT_TEXTS.RETAIL_TRAP[locale].title,
-                    verdictDesc: VERDICT_TEXTS.RETAIL_TRAP[locale].desc,
+                    verdictDesc: reason.caseA,
                     isDivergent: true,
                     score: 90
                 };
@@ -467,7 +496,7 @@ export class GuardianDataHub {
                 divCase = {
                     caseId: 'B',
                     verdictTitle: VERDICT_TEXTS.SILENT_ACCUM[locale].title,
-                    verdictDesc: VERDICT_TEXTS.SILENT_ACCUM[locale].desc,
+                    verdictDesc: reason.caseB,
                     isDivergent: true,
                     score: 90
                 };
@@ -477,7 +506,7 @@ export class GuardianDataHub {
                 divCase = {
                     caseId: 'C',
                     verdictTitle: VERDICT_TEXTS.QUANTUM_LEAP[locale].title,
-                    verdictDesc: VERDICT_TEXTS.QUANTUM_LEAP[locale].desc,
+                    verdictDesc: reason.caseC,
                     isDivergent: false,
                     score: 0
                 };
@@ -487,7 +516,7 @@ export class GuardianDataHub {
                 divCase = {
                     caseId: 'D',
                     verdictTitle: VERDICT_TEXTS.DEEP_FREEZE[locale].title,
-                    verdictDesc: VERDICT_TEXTS.DEEP_FREEZE[locale].desc,
+                    verdictDesc: reason.caseD,
                     isDivergent: false,
                     score: 0
                 };

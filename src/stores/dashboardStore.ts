@@ -518,17 +518,39 @@ export const useDashboardStore = create<DashboardState>()(
             }
         }),
         {
-            name: 'dashboard-storage-v2',
-            // [STRATEGY C] Persist price data for instant rendering on page load
-            // Previously only dashboardTickers was persisted → blank screen until API responds.
-            // Now: tickers + market + selectedTicker are also saved → previous session data renders instantly.
-            // Signals are excluded (time-sensitive, regenerated each fetch).
-            partialize: (state) => ({
-                dashboardTickers: state.dashboardTickers,
-                selectedTicker: state.selectedTicker,
-                tickers: state.tickers,
-                market: state.market,
-            }),
+            name: 'dashboard-storage-v3',
+            // [FIX] Strip volatile price fields before persisting to localStorage.
+            // Root cause: stale prices from previous session were hydrated on page load,
+            // causing wrong changePct display until fresh API data arrived.
+            // Now: only ticker structure (GEX, levels, etc.) is persisted — price fields are
+            // cleared so first render shows loading skeleton until live data arrives.
+            partialize: (state) => {
+                // Strip volatile price data from each ticker before persisting
+                const strippedTickers: Record<string, any> = {};
+                for (const [ticker, data] of Object.entries(state.tickers)) {
+                    if (!data) continue;
+                    const { underlyingPrice, changePercent, display, intradayChangePct, regularCloseToday, prevChangePct, extended, session, ...structural } = data;
+                    strippedTickers[ticker] = {
+                        ...structural,
+                        // Keep prevClose/prevRegularClose (stable reference prices)
+                        // Clear all volatile fields → forces loading state on hydration
+                        underlyingPrice: null,
+                        changePercent: null,
+                        display: null,
+                        intradayChangePct: null,
+                        regularCloseToday: null,
+                        prevChangePct: null,
+                        extended: null,
+                        session: 'CLOSED' as const,
+                    };
+                }
+                return {
+                    dashboardTickers: state.dashboardTickers,
+                    selectedTicker: state.selectedTicker,
+                    tickers: strippedTickers,
+                    market: state.market,
+                };
+            },
             // Note: localStorage is now fallback only.
             // Primary persistence is via Supabase (loadDashboardTickers on mount).
         }
