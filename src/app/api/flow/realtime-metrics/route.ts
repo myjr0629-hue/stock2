@@ -48,8 +48,8 @@ async function fetchTradeData(ticker: string): Promise<TradeData | null> {
         // Fetch trades AND quotes in parallel for Quote Rule classification
         // limit=50000 for broad coverage + next_url follow for full-day accuracy
         const [tradesRes, quotesRes] = await Promise.all([
-            fetch(`${POLYGON_BASE}/v3/trades/${ticker}?limit=50000&apiKey=${POLYGON_API_KEY}`, { next: { revalidate: 30 } }),
-            fetch(`${POLYGON_BASE}/v3/quotes/${ticker}?limit=5000&order=desc&apiKey=${POLYGON_API_KEY}`, { next: { revalidate: 30 } }),
+            fetch(`${POLYGON_BASE}/v3/trades/${ticker}?limit=50000&apiKey=${POLYGON_API_KEY}`),
+            fetch(`${POLYGON_BASE}/v3/quotes/${ticker}?limit=5000&order=desc&apiKey=${POLYGON_API_KEY}`),
         ]);
 
         if (!tradesRes.ok) {
@@ -63,7 +63,7 @@ async function fetchTradeData(ticker: string): Promise<TradeData | null> {
         // Follow next_url once for broader coverage (~100K trades total)
         if (tradesData.next_url) {
             try {
-                const nextRes = await fetch(`${tradesData.next_url}&apiKey=${POLYGON_API_KEY}`, { next: { revalidate: 30 } });
+                const nextRes = await fetch(`${tradesData.next_url}&apiKey=${POLYGON_API_KEY}`);
                 if (nextRes.ok) {
                     const nextData = await nextRes.json();
                     trades = trades.concat(nextData.results || []);
@@ -193,7 +193,7 @@ async function fetchTradeData(ticker: string): Promise<TradeData | null> {
 async function fetchQuoteData(ticker: string): Promise<QuoteData | null> {
     try {
         const url = `${POLYGON_BASE}/v3/quotes/${ticker}?limit=1&apiKey=${POLYGON_API_KEY}`;
-        const res = await fetch(url, { next: { revalidate: 10 } });
+        const res = await fetch(url);
 
         if (!res.ok) {
             console.error(`[realtime-metrics] Quotes API error: ${res.status}`);
@@ -232,7 +232,7 @@ async function fetchQuoteData(ticker: string): Promise<QuoteData | null> {
 async function fetchShortVolumeData(ticker: string): Promise<ShortVolumeData | null> {
     try {
         const url = `${POLYGON_BASE}/stocks/v1/short-volume?ticker=${ticker}&limit=1&apiKey=${POLYGON_API_KEY}`;
-        const res = await fetch(url, { next: { revalidate: 60 } });
+        const res = await fetch(url);
 
         if (!res.ok) {
             console.error(`[realtime-metrics] Short Volume API error: ${res.status}`);

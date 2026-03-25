@@ -13,7 +13,7 @@ const POLYGON_BASE = 'https://api.polygon.io';
 async function fetchShortVolume(ticker: string) {
     try {
         const url = `${POLYGON_BASE}/stocks/v1/short-volume?ticker=${ticker}&limit=1&apiKey=${POLYGON_API_KEY}`;
-        const res = await fetch(url, { next: { revalidate: 60 } });
+        const res = await fetch(url);
         if (!res.ok) return null;
         const data = await res.json();
         const result = data.results?.[0];
