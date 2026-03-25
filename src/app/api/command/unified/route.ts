@@ -628,6 +628,19 @@ async function tryDynamoFast(ticker: string): Promise<any | null> {
                     ])
                 );
             }
+            // [FIX] Always fetch real squeeze & institutional data — DynamoDB has no SI%/darkPool%
+            supplementPromises.push(
+                Promise.race([
+                    callInternalGet(getSqueeze, `${baseUrl}/api/live/short-squeeze?t=${ticker}`),
+                    new Promise<null>(r => setTimeout(() => r(null), SUPPLEMENT_TIMEOUT))
+                ])
+            );
+            supplementPromises.push(
+                Promise.race([
+                    callInternalGet(getInstitutional, `${baseUrl}/api/flow/realtime-metrics?ticker=${ticker}`),
+                    new Promise<null>(r => setTimeout(() => r(null), SUPPLEMENT_TIMEOUT))
+                ])
+            );
 
             const supplementResults = await Promise.all(supplementPromises);
             const [gexHistory] = supplementResults;
@@ -635,6 +648,8 @@ async function tryDynamoFast(ticker: string): Promise<any | null> {
             const fundResult = needFundamentals ? supplementResults[supplementIdx++] : null;
             const smaResult = needSma ? supplementResults[supplementIdx++] : null;
             const relResult = needRelated ? supplementResults[supplementIdx++] : null;
+            const squeezeResult = supplementResults[supplementIdx++];
+            const instResult = supplementResults[supplementIdx++];
 
             // Build SMA
             let smaCard = null;
@@ -698,18 +713,25 @@ async function tryDynamoFast(ticker: string): Promise<any | null> {
                 relatedCard = relResult;
             }
 
-            // Build squeeze from GEX data (squeezeProbability or compute from PCR + regime)
-            let squeezeCard = null;
-            if (gex) {
+            // [FIX] Use actual API squeeze data (has siPercent, daysToCover, shortVolPercent, status)
+            // Fallback to GEX heuristic only if API didn't return
+            let squeezeCard = squeezeResult || null;
+            if (!squeezeCard && gex) {
                 const pcr = gex.pcr || 0;
                 const regime = gex.gammaRegime;
-                // Squeeze heuristic: high PCR + negative gamma = higher squeeze probability
                 let score = 0;
                 if (regime === 'NEGATIVE') score += 40;
                 if (pcr > 1.5) score += 30;
                 else if (pcr > 1.0) score += 15;
                 if (flow?.squeezeProbability && flow.squeezeProbability > 0) score = Math.max(score, flow.squeezeProbability);
                 if (score > 0) squeezeCard = { score: Math.min(100, score), ticker };
+            }
+
+            // [FIX] Use actual API institutional data (has darkPool.percent, blockTrade, shortVolume)
+            // Fallback to DynamoDB flow data only if API didn't return
+            let institutionalCard = instResult || null;
+            if (!institutionalCard && flow) {
+                institutionalCard = { compositeScore: flow.compositeScore, opi: flow.opi, whaleScore: flow.whaleScore, totalCallOI: flow.totalCallOI, totalPutOI: flow.totalPutOI, pcr: flow.pcr };
             }
 
             // Build volatility from GEX regime
@@ -735,7 +757,7 @@ async function tryDynamoFast(ticker: string): Promise<any | null> {
                 analyst: analystCard,
                 volatility: volatilityCard,
                 squeeze: squeezeCard,
-                institutional: flow ? { compositeScore: flow.compositeScore, opi: flow.opi, whaleScore: flow.whaleScore, totalCallOI: flow.totalCallOI, totalPutOI: flow.totalPutOI, pcr: flow.pcr } : null,
+                institutional: institutionalCard,
                 fundamentals: fundamentalsCard,
                 overview: null,
                 history: gexHistory,
