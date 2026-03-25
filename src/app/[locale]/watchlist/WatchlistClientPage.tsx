@@ -16,6 +16,28 @@ import { useDashboardStore } from '@/stores/dashboardStore';
 import { ProGate } from '@/components/gate/FeatureGate';
 import { CardTooltip, WATCHLIST_TOOLTIPS } from '@/components/ui/CardTooltip';
 import { useTier } from '@/contexts/TierContext';
+import dynamic from 'next/dynamic';
+
+const ReactECharts = dynamic(() => import('echarts-for-react'), { ssr: false });
+
+// ─── TREEMAP COLOR PALETTE (Finviz-grade) ─────────────────────────────
+function getTreemapColor(pct: number): string {
+    if (pct >= 4)    return '#1a8a4a';
+    if (pct >= 3)    return '#1e7b44';
+    if (pct >= 2)    return '#216e3e';
+    if (pct >= 1.5)  return '#235f37';
+    if (pct >= 1)    return '#1e5230';
+    if (pct >= 0.5)  return '#1a4129';
+    if (pct > 0)     return '#183520';
+    if (pct === 0)   return '#1e2430';
+    if (pct > -0.5)  return '#351a1a';
+    if (pct > -1)    return '#4d1919';
+    if (pct > -1.5)  return '#621919';
+    if (pct > -2)    return '#7d1a1a';
+    if (pct > -3)    return '#961c1c';
+    if (pct > -4)    return '#ab2020';
+    return '#c02424';
+}
 
 // ─── Sort Types ──────────────────────────────────────────────────────────
 type SortKey = 'default' | 'alpha' | 'change' | 'whale' | 'iv' | 'gex' | 'return3d';
@@ -309,7 +331,16 @@ function StatsBar({ items }: { items: EnrichedWatchlistItem[] }) {
         const avgChange = items.length > 0
             ? items.reduce((s, i) => s + i.changePct, 0) / items.length
             : 0;
-        return { total: items.length, gainers: gainers.length, losers: losers.length, avgAlpha, avgGrade, avgChange };
+        // Grade distribution
+        const grades = { A: 0, B: 0, C: 0, D: 0 };
+        alphaItems.forEach(i => {
+            const s = i.alphaScore || 0;
+            if (s >= 80) grades.A++;
+            else if (s >= 65) grades.B++;
+            else if (s >= 50) grades.C++;
+            else grades.D++;
+        });
+        return { total: items.length, gainers: gainers.length, losers: losers.length, avgAlpha, avgGrade, avgChange, grades, alphaCount: alphaItems.length };
     }, [items]);
 
     // ── ET Time & Session Logic ──
@@ -401,9 +432,28 @@ function StatsBar({ items }: { items: EnrichedWatchlistItem[] }) {
                         <StatsAlphaGauge score={stats.avgAlpha} grade={stats.avgGrade} />
                         <div>
                             <div className="text-xl font-black text-white tabular-nums">{stats.avgAlpha}</div>
-                            <div className="text-[12px] text-slate-300 uppercase tracking-[0.15em] font-bold">{t('avgScore').toUpperCase()}</div>
+                            <div className="text-[12px] text-slate-300 uppercase tracking-[0.15em] font-bold"><CardTooltip tooltip={WATCHLIST_TOOLTIPS.AVG_SCORE.tooltip} badge={WATCHLIST_TOOLTIPS.AVG_SCORE.badge}>{t('avgScore').toUpperCase()}</CardTooltip></div>
                         </div>
                     </div>
+                    {/* Grade Distribution */}
+                    {stats.alphaCount > 0 && (
+                        <div className="mt-3">
+                            <div className="h-1.5 rounded-full bg-slate-800/80 overflow-hidden flex">
+                                {stats.grades.A > 0 && <div className="bg-emerald-400 transition-all duration-700" style={{ width: `${(stats.grades.A / stats.alphaCount) * 100}%` }} />}
+                                {stats.grades.B > 0 && <div className="bg-cyan-400 transition-all duration-700" style={{ width: `${(stats.grades.B / stats.alphaCount) * 100}%` }} />}
+                                {stats.grades.C > 0 && <div className="bg-amber-400 transition-all duration-700" style={{ width: `${(stats.grades.C / stats.alphaCount) * 100}%` }} />}
+                                {stats.grades.D > 0 && <div className="bg-rose-400 transition-all duration-700" style={{ width: `${(stats.grades.D / stats.alphaCount) * 100}%` }} />}
+                            </div>
+                            <div className="flex items-center justify-between mt-1.5 gap-1">
+                                {([['A', 'text-emerald-400'], ['B', 'text-cyan-400'], ['C', 'text-amber-400'], ['D', 'text-rose-400']] as const).map(([g, c]) => (
+                                    <div key={g} className="flex items-center gap-1">
+                                        <span className={`text-[11px] font-black ${c}`}>{g}</span>
+                                        <span className="text-[11px] font-bold tabular-nums text-slate-400">{stats.grades[g]}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
                 </ProGate>
                 <svg className="absolute right-0 top-0 w-24 h-full opacity-[0.05]" viewBox="0 0 80 80">
                     <circle cx="60" cy="40" r="12" fill="none" stroke="#22d3ee" strokeWidth="1" />
@@ -440,10 +490,10 @@ function StatsBar({ items }: { items: EnrichedWatchlistItem[] }) {
                 </svg>
             </div>
 
-            {/* ── Ticker Heatmap ── */}
+            {/* ── Risk Summary (compact) ── */}
             <div className="hidden lg:block relative overflow-hidden rounded-xl border border-white/[0.12] bg-gradient-to-br from-white/[0.05] to-white/[0.02] backdrop-blur-xl p-4 hover:border-white/[0.18] transition-all duration-300 shadow-lg shadow-black/10">
-                <TickerHeatmap items={items} />
-                <div className="text-[12px] text-slate-300 uppercase tracking-[0.15em] font-bold mt-2">{t('dailyChange').toUpperCase()}</div>
+                <div className="text-[12px] text-slate-300 uppercase tracking-[0.15em] font-bold mb-2.5"><CardTooltip tooltip={WATCHLIST_TOOLTIPS.RISK_SUMMARY.tooltip}>{t('riskSummary')}</CardTooltip></div>
+                <RiskSummaryCompact items={items} />
             </div>
         </div>
     );
@@ -471,37 +521,148 @@ function StatsAlphaGauge({ score, grade }: { score: number; grade: string }) {
     );
 }
 
-function TickerHeatmap({ items }: { items: EnrichedWatchlistItem[] }) {
-    const t = useTranslations('watchlist');
+function RiskSummaryCompact({ items }: { items: EnrichedWatchlistItem[] }) {
+    const analytics = useMemo(() => {
+        const ivItems = items.filter(i => i.iv !== undefined && i.iv !== null);
+        const avgIV = ivItems.length > 0 ? ivItems.reduce((s, i) => s + (i.iv || 0), 0) / ivItems.length : 0;
+        const gexItems = items.filter(i => i.gexM !== undefined && i.gexM !== null);
+        const longGammaRatio = gexItems.length > 0 ? gexItems.filter(i => (i.gexM || 0) > 0).length / gexItems.length : 0;
+        const mpItems = items.filter(i => i.maxPainDist !== undefined && i.maxPainDist !== null);
+        const nearMPRatio = mpItems.length > 0 ? mpItems.filter(i => Math.abs(i.maxPainDist || 0) < 3).length / mpItems.length : 0;
+        return { avgIV, longGammaRatio, nearMPRatio };
+    }, [items]);
+
     return (
-        <div className="flex flex-wrap gap-1.5">
-            {items.slice(0, 14).map(item => {
-                const abs = Math.abs(item.changePct);
-                const intensity = Math.min(abs / 5, 1);
-                let bg: string;
-                if (item.changePct >= 0) {
-                    const h = 155 - intensity * 15;
-                    const s = 45 + intensity * 35;
-                    const l = 35 + (1 - intensity) * 15;
-                    bg = `hsl(${h}, ${s}%, ${l}%)`;
-                } else {
-                    const h = abs < 1.5 ? 15 : abs < 3 ? 0 : 345;
-                    const s = 40 + intensity * 40;
-                    const l = 38 + (1 - intensity) * 12;
-                    bg = `hsl(${h}, ${s}%, ${l}%)`;
-                }
-                return (
-                    <div
-                        key={item.ticker}
-                        className="px-1.5 py-1 rounded-md flex items-center justify-center text-[12px] font-bold text-white cursor-default transition-transform duration-200 hover:scale-110"
-                        style={{ backgroundColor: bg }}
-                        title={`${item.ticker} ${item.changePct > 0 ? '+' : ''}${item.changePct.toFixed(1)}%`}
-                    >
-                        {item.ticker}
+        <div className="space-y-2">
+            <div className="flex items-center justify-between">
+                <span className="text-[12px] text-slate-300">IV Avg</span>
+                <div className="flex items-center gap-2">
+                    <div className="w-14 h-1.5 rounded-full bg-slate-800 overflow-hidden">
+                        <div className={`h-full rounded-full transition-all duration-700 ${analytics.avgIV >= 50 ? 'bg-rose-400' : analytics.avgIV >= 30 ? 'bg-amber-400' : 'bg-emerald-400'}`}
+                            style={{ width: `${Math.min(analytics.avgIV, 100)}%` }} />
                     </div>
-                );
-            })}
+                    <span className={`text-[12px] font-black tabular-nums ${analytics.avgIV >= 50 ? 'text-rose-400' : analytics.avgIV >= 30 ? 'text-amber-400' : 'text-emerald-400'}`}>
+                        {analytics.avgIV.toFixed(0)}%
+                    </span>
+                </div>
+            </div>
+            <div className="flex items-center justify-between">
+                <span className="text-[12px] text-slate-300">GEX Long</span>
+                <div className="flex items-center gap-2">
+                    <div className="w-14 h-1.5 rounded-full bg-slate-800 overflow-hidden">
+                        <div className="h-full rounded-full bg-emerald-400 transition-all duration-700"
+                            style={{ width: `${analytics.longGammaRatio * 100}%` }} />
+                    </div>
+                    <span className="text-[12px] font-black tabular-nums text-emerald-400">
+                        {(analytics.longGammaRatio * 100).toFixed(0)}%
+                    </span>
+                </div>
+            </div>
+            <div className="flex items-center justify-between">
+                <span className="text-[12px] text-slate-300">MP ±3%</span>
+                <div className="flex items-center gap-2">
+                    <div className="w-14 h-1.5 rounded-full bg-slate-800 overflow-hidden">
+                        <div className="h-full rounded-full bg-cyan-400 transition-all duration-700"
+                            style={{ width: `${analytics.nearMPRatio * 100}%` }} />
+                    </div>
+                    <span className="text-[12px] font-black tabular-nums text-cyan-400">
+                        {(analytics.nearMPRatio * 100).toFixed(0)}%
+                    </span>
+                </div>
+            </div>
         </div>
+    );
+}
+
+function TickerHeatmap({ items }: { items: EnrichedWatchlistItem[] }) {
+    const router = useRouter();
+
+    const { treeData, option } = useMemo(() => {
+        if (items.length === 0) return { treeData: [], option: {} };
+
+        const data = items.map(item => {
+            const abs = Math.abs(item.changePct);
+            const sizeWeight = Math.max(abs, 0.3);
+            return {
+                name: item.ticker,
+                value: sizeWeight,
+                changePct: item.changePct,
+                price: item.currentPrice,
+                itemStyle: {
+                    color: getTreemapColor(item.changePct),
+                    borderColor: '#0d1424',
+                    borderWidth: 1.5,
+                },
+            };
+        }).sort((a, b) => Math.abs(b.changePct) - Math.abs(a.changePct));
+
+        const opt = {
+            tooltip: {
+                formatter: (params: any) => {
+                    const d = params.data;
+                    if (!d?.name) return '';
+                    const pct = d.changePct ?? 0;
+                    const color = pct >= 0 ? '#4ade80' : '#fb7185';
+                    const sign = pct >= 0 ? '+' : '';
+                    const pLabel = d.price > 0 ? `$${d.price.toFixed(2)}` : '';
+                    return `<div style="font-family:'Plus Jakarta Sans',system-ui;padding:6px 2px">
+                        <div style="font-weight:900;font-size:14px;letter-spacing:0.05em">${d.name}</div>
+                        <div style="font-size:13px;color:${color};font-family:monospace;font-weight:800;margin-top:3px">${sign}${pct.toFixed(2)}%</div>
+                        ${pLabel ? `<div style="font-size:12px;color:#94a3b8;font-family:monospace;margin-top:1px">${pLabel}</div>` : ''}
+                    </div>`;
+                },
+                backgroundColor: 'rgba(10, 14, 22, 0.95)',
+                borderColor: '#334155',
+                borderWidth: 1,
+                textStyle: { color: '#e2e8f0' },
+                extraCssText: 'box-shadow: 0 8px 32px rgba(0,0,0,0.5); border-radius: 10px; backdrop-filter: blur(8px);',
+                confine: true,
+            },
+            series: [{
+                type: 'treemap',
+                data,
+                left: 0, top: 0, right: 0, bottom: 0,
+                roam: false, nodeClick: false, squareRatio: 0.7,
+                breadcrumb: { show: false },
+                levels: [{
+                    itemStyle: { borderColor: '#0d1424', borderWidth: 1.5, gapWidth: 1.5 },
+                    label: {
+                        show: true, position: 'inside', align: 'center', verticalAlign: 'middle',
+                        color: '#ffffff', fontWeight: 900, fontSize: 11,
+                        fontFamily: '"Plus Jakarta Sans", system-ui, sans-serif',
+                        textShadowColor: 'rgba(0,0,0,0.6)', textShadowBlur: 3,
+                        formatter: (params: any) => {
+                            const d = params.data;
+                            if (!d) return '';
+                            const pct = d.changePct ?? 0;
+                            return `${d.name}\n${pct >= 0 ? '+' : ''}${pct.toFixed(1)}%`;
+                        },
+                    },
+                }],
+                emphasis: {
+                    itemStyle: { borderColor: '#60a5fa', borderWidth: 2, shadowBlur: 12, shadowColor: 'rgba(96, 165, 250, 0.4)' },
+                },
+            }],
+        };
+        return { treeData: data, option: opt };
+    }, [items]);
+
+    const onEvents = useMemo(() => ({
+        click: (params: any) => {
+            const ticker = params?.data?.name;
+            if (ticker) router.push(`/ticker?ticker=${ticker}`);
+        },
+    }), [router]);
+
+    if (treeData.length === 0) return null;
+
+    return (
+        <ReactECharts
+            option={option}
+            onEvents={onEvents}
+            style={{ height: '100%', width: '100%', minHeight: 130, cursor: 'pointer' }}
+            opts={{ renderer: 'canvas' }}
+        />
     );
 }
 
@@ -538,7 +699,7 @@ function AnalyticsRow({ items }: { items: EnrichedWatchlistItem[] }) {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             {/* ── Signal Distribution ── */}
             <div className="relative overflow-hidden rounded-xl border border-white/[0.08] bg-gradient-to-br from-white/[0.04] to-white/[0.02] backdrop-blur-xl p-4 hover:border-white/[0.12] transition-all duration-300">
-                <div className="text-[12px] text-slate-300 uppercase tracking-[0.15em] font-bold mb-3">{t('signalSummary')}</div>
+                <div className="text-[12px] text-slate-300 uppercase tracking-[0.15em] font-bold mb-3"><CardTooltip tooltip={WATCHLIST_TOOLTIPS.SIGNAL_DISTRIBUTION.tooltip}>{t('signalSummary')}</CardTooltip></div>
                 <div className="flex items-center gap-5">
                     {/* Mini donut — larger */}
                     <svg width="64" height="64" className="flex-shrink-0 -rotate-90">
@@ -575,55 +736,14 @@ function AnalyticsRow({ items }: { items: EnrichedWatchlistItem[] }) {
                 </div>
             </div>
 
-            {/* ── Risk Summary ── */}
-            <div className="relative overflow-hidden rounded-xl border border-white/[0.08] bg-gradient-to-br from-white/[0.04] to-white/[0.02] backdrop-blur-xl p-4 hover:border-white/[0.12] transition-all duration-300">
-                <div className="text-[12px] text-slate-300 uppercase tracking-[0.15em] font-bold mb-3">{t('riskSummary')}</div>
-                <div className="space-y-2.5">
-                    {/* Avg IV */}
-                    <div className="flex items-center justify-between">
-                        <span className="text-[12px] text-slate-300">IV {t('avgScore').replace(t('score'), '').trim() || 'Avg'}</span>
-                        <div className="flex items-center gap-2">
-                            <div className="w-16 h-1.5 rounded-full bg-slate-800 overflow-hidden">
-                                <div className={`h-full rounded-full transition-all duration-700 ${analytics.avgIV >= 50 ? 'bg-rose-400' : analytics.avgIV >= 30 ? 'bg-amber-400' : 'bg-emerald-400'}`}
-                                    style={{ width: `${Math.min(analytics.avgIV, 100)}%` }} />
-                            </div>
-                            <span className={`text-[12px] font-black tabular-nums ${analytics.avgIV >= 50 ? 'text-rose-400' : analytics.avgIV >= 30 ? 'text-amber-400' : 'text-emerald-400'}`}>
-                                {analytics.avgIV.toFixed(0)}%
-                            </span>
-                        </div>
-                    </div>
-                    {/* GEX Long Ratio */}
-                    <div className="flex items-center justify-between">
-                        <span className="text-[12px] text-slate-300">GEX Long</span>
-                        <div className="flex items-center gap-2">
-                            <div className="w-16 h-1.5 rounded-full bg-slate-800 overflow-hidden">
-                                <div className="h-full rounded-full bg-emerald-400 transition-all duration-700"
-                                    style={{ width: `${analytics.longGammaRatio * 100}%` }} />
-                            </div>
-                            <span className="text-[12px] font-black tabular-nums text-emerald-400">
-                                {(analytics.longGammaRatio * 100).toFixed(0)}%
-                            </span>
-                        </div>
-                    </div>
-                    {/* MaxPain Convergence */}
-                    <div className="flex items-center justify-between">
-                        <span className="text-[12px] text-slate-300">MP ±3%</span>
-                        <div className="flex items-center gap-2">
-                            <div className="w-16 h-1.5 rounded-full bg-slate-800 overflow-hidden">
-                                <div className="h-full rounded-full bg-cyan-400 transition-all duration-700"
-                                    style={{ width: `${analytics.nearMPRatio * 100}%` }} />
-                            </div>
-                            <span className="text-[12px] font-black tabular-nums text-cyan-400">
-                                {(analytics.nearMPRatio * 100).toFixed(0)}%
-                            </span>
-                        </div>
-                    </div>
-                </div>
+            {/* ── Ticker Treemap ── */}
+            <div className="relative overflow-hidden rounded-xl border border-white/[0.08] bg-[#0d1424] hover:border-white/[0.12] transition-all duration-300" style={{ minHeight: 130 }}>
+                <TickerHeatmap items={items} />
             </div>
 
             {/* ── Top Movers ── */}
             <div className="relative overflow-hidden rounded-xl border border-white/[0.08] bg-gradient-to-br from-white/[0.04] to-white/[0.02] backdrop-blur-xl p-4 hover:border-white/[0.12] transition-all duration-300">
-                <div className="text-[12px] text-slate-300 uppercase tracking-[0.15em] font-bold mb-3">TOP MOVERS</div>
+                <div className="text-[12px] text-slate-300 uppercase tracking-[0.15em] font-bold mb-3"><CardTooltip tooltip={WATCHLIST_TOOLTIPS.TOP_MOVERS.tooltip}>TOP MOVERS</CardTooltip></div>
                 <div className="space-y-2">
                     {analytics.topMovers.map(item => (
                         <div key={item.ticker} className="flex items-center gap-2">

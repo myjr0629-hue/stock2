@@ -806,4 +806,60 @@ export const WATCHLIST_TOOLTIPS = {
             ja: 'ディーラーガンマポジショニング',
         },
     },
+    AVG_SCORE: {
+        tooltip: {
+            ko: '평균 Context Score — 워치리스트 전체 종목의 복합 팩터 점수 평균. A(80+) B(65+) C(50+) D(50-) 등급 분포 포함.',
+            en: 'Average Context Score — multi-factor score average across all watchlist tickers. Includes A/B/C/D grade distribution.',
+            ja: '平均Context Score — ウォッチリスト全銘柄の複合ファクタースコア平均。A(80+)B(65+)C(50+)D(50-)等級分布含む。',
+        },
+        badge: {
+            ko: '복합 팩터 평균',
+            en: 'Multi-factor average',
+            ja: '複合ファクター平均',
+        },
+    },
+    SIGNAL_DISTRIBUTION: {
+        tooltip: {
+            ko: '시그널 분포 — 워치리스트 전체 종목의 HOLD/ADD/WATCH/TRIM 시그널 구성. Context Score 엔진 기반 복합 판정.',
+            en: 'Signal distribution — HOLD/ADD/WATCH/TRIM composition across all watchlist tickers. Based on Context Score engine.',
+            ja: 'シグナル分布 — ウォッチリスト全銘柄のHOLD/ADD/WATCH/TRIMシグナル構成。Context Scoreエンジン基盤。',
+        },
+        badge: {
+            ko: 'AI 복합 시그널 분석',
+            en: 'AI composite signal analysis',
+            ja: 'AI複合シグナル分析',
+        },
+    },
+    RISK_SUMMARY: {
+        tooltip: {
+            ko: '리스크 요약 — IV 평균(변동성), GEX Long 비율(감마 안정도), Max Pain ±3% 수렴도 3축 측정.',
+            en: 'Risk summary — IV average (volatility), GEX long ratio (gamma stability), Max Pain ±3% convergence across 3 axes.',
+            ja: 'リスク要約 — IV平均(変動性)、GEXロング比率(ガンマ安定度)、Max Pain±3%収束度の3軸測定。',
+        },
+        badge: {
+            ko: '3축 리스크 진단',
+            en: '3-axis risk diagnosis',
+            ja: '3軸リスク診断',
+        },
+    },
+    TOP_MOVERS: {
+        tooltip: {
+            ko: '변동률 상위 종목 — 워치리스트 내 당일 변동폭이 가장 큰 3개 종목. 상승(초록)/하락(빨강) 표시.',
+            en: 'Top movers — 3 tickers with the largest daily change in your watchlist. Green (up) / Red (down).',
+            ja: '変動率上位銘柄 — ウォッチリスト内の当日変動幅トップ3銘柄。上昇(緑)/下落(赤)表示。',
+        },
+        badge: null,
+    },
+    TREEMAP: {
+        tooltip: {
+            ko: '종목 히트맵 — 타일 크기는 변동률 크기, 색상은 방향. 클릭 시 해당 종목 분석 페이지로 이동.',
+            en: 'Ticker heatmap — tile size = move magnitude, color = direction. Click to navigate to analysis page.',
+            ja: '銘柄ヒートマップ — タイル面積=変動率、色=方向。クリックで分析ページへ移動。',
+        },
+        badge: {
+            ko: '인터랙티브 트리맵',
+            en: 'Interactive treemap',
+            ja: 'インタラクティブツリーマップ',
+        },
+    },
 } as const;
