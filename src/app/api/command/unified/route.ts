@@ -596,7 +596,7 @@ async function tryDynamoFast(ticker: string): Promise<any | null> {
 
             // [핵심 FIX] DynamoDB에 없는 필드(fundamentals, sma, related)를 개별 API로 보충
             // 4초 timeout — DynamoDB 응답(~1s) + supplement(~2-3s) = 전체 ~5s 이내
-            const SUPPLEMENT_TIMEOUT = 5000; // 5s — squeeze/inst APIs call external Polygon/FINRA (2s was too short)
+            const SUPPLEMENT_TIMEOUT = 10000; // 10s — realtime-metrics fetches 50K+ Polygon trades on cold start (4-8s)
             const supplementPromises: Promise<any>[] = [fetchGexHistoryData(ticker)];
 
             const needFundamentals = !snap.fundamentals?.score;

@@ -263,22 +263,26 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const ticker = searchParams.get('ticker')?.toUpperCase() || 'TSLA';
     const cacheKey = `rt-metrics:${ticker}`;
-    const REDIS_TTL = 60; // 1 minute
+    const REDIS_TTL = 120; // 2 minutes — Polygon trade data doesn't update per-second
 
     try {
-        // Fetch all data in parallel
+        // [FIX] Read from Redis FIRST — this handler fetches 50K+ trades (4-8s on Polygon)
+        // If called from unified route's callInternalGet with 5s timeout, cold fetch always times out
+        const cached = await getFromCache<any>(cacheKey).catch(() => null);
+        if (cached && cached.darkPool) {
+            return NextResponse.json({ ...cached, _cached: true });
+        }
+
+        // Cache miss or stale — Fetch all data in parallel
         const [tradeData, quoteData, shortVolumeData] = await Promise.all([
             fetchTradeData(ticker),
             fetchQuoteData(ticker),
             fetchShortVolumeData(ticker),
         ]);
 
-        // If all fetches failed, serve from Redis cache
+        // If all fetches failed, return empty
         if (!tradeData && !quoteData && !shortVolumeData) {
-            const cached = await getFromCache<any>(cacheKey);
-            if (cached) {
-                return NextResponse.json({ ...cached, _cached: true });
-            }
+            return NextResponse.json({ ticker, darkPool: null, blockTrade: null, shortVolume: null, error: 'No data available' });
         }
 
         const response = {
