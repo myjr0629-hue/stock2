@@ -659,24 +659,24 @@ async function generateMorningBriefing() {
 
             console.log(`[Briefing] ✅ Narrative briefing generated (${result.newsCount} news, ${result.calendarCount} calendar) in ${result.elapsedMs}ms`);
         } else {
-            // Fallback to template if Gemini fails
-            const fallbackText = generateFallbackBriefing(snapshot, etDateStr);
+            // Fallback to template if Claude fails
+            const fallbackTexts = generateFallbackBriefing(snapshot, etDateStr);
             for (const locale of CONFIG.LOCALES) {
                 await redis.setex(`guardian:morning_briefing:${locale}`, 24 * 60 * 60, JSON.stringify({
                     date: etDateStr,
                     generatedAt: new Date().toISOString(),
-                    briefing: fallbackText,
+                    briefing: fallbackTexts[locale] || fallbackTexts.en,
                     source: "template",
                 }));
             }
             await redis.setex("guardian:morning_briefing", 24 * 60 * 60, JSON.stringify({
                 date: etDateStr,
                 generatedAt: new Date().toISOString(),
-                text: fallbackText,
-                briefing: fallbackText,
+                text: fallbackTexts.ko || fallbackTexts.en,
+                briefing: fallbackTexts.ko || fallbackTexts.en,
                 source: "template",
             }));
-            console.log("[Briefing] ⚠️ Used fallback template (Gemini unavailable)");
+            console.log("[Briefing] ⚠️ Used fallback template (Claude unavailable)");
         }
     } catch (e) {
         console.error("[Briefing] ❌ Morning briefing failed:", e.message);
@@ -692,18 +692,55 @@ async function generateMorningBriefing() {
 }
 
 function generateFallbackBriefing(snapshot, dateStr) {
-    const parts = [];
-    parts.push(`📊 Pre-Market Snapshot (${dateStr})`);
-    if (snapshot?.rlsi?.score != null) {
-        parts.push(`RLSI: ${snapshot.rlsi.score.toFixed(0)} | Session: ${snapshot.rlsi.session || "PRE"}`);
-    }
-    const vix = snapshot?.rlsi?.components?.vix;
-    if (vix != null) parts.push(`VIX: ${vix.toFixed(1)}`);
-    const gex = snapshot?.gammaShield?.gexIndex;
-    if (gex != null) parts.push(`GEX: ${gex.toFixed(0)} | Squeeze: ${(snapshot?.gammaShield?.squeezeRisk || 0).toFixed(0)}%`);
-    const breadth = snapshot?.breadth?.breadthPct;
-    if (breadth != null) parts.push(`Breadth: ${breadth.toFixed(0)}%`);
-    return parts.join("\n");
+    // Generate locale-aware readable briefings (not raw data dumps)
+    const rlsi = snapshot?.rlsi?.score ?? null;
+    const vix = snapshot?.rlsi?.components?.vix ?? null;
+    const gex = snapshot?.gammaShield?.gexIndex ?? null;
+    const squeeze = snapshot?.gammaShield?.squeezeRisk ?? null;
+    const breadth = snapshot?.breadth?.breadthPct ?? null;
+    const regime = snapshot?.tripleA?.regime ?? "N/A";
+
+    // Risk assessment
+    const riskLevel = rlsi != null
+        ? (rlsi >= 70 ? "low" : rlsi >= 45 ? "moderate" : rlsi >= 25 ? "elevated" : "high")
+        : "unknown";
+
+    // Sectors
+    const sectors = (snapshot?.sectors || [])
+        .sort((a, b) => Math.abs(b.change || 0) - Math.abs(a.change || 0))
+        .slice(0, 3)
+        .map(s => `${s.name}(${s.change >= 0 ? "+" : ""}${(s.change || 0).toFixed(1)}%)`)
+        .join(", ");
+
+    const gammaDesc = gex != null ? (gex > 0 ? "롱 감마" : "숏 감마") : null;
+    const gammaDescEN = gex != null ? (gex > 0 ? "long gamma" : "short gamma") : null;
+    const gammaDescJA = gex != null ? (gex > 0 ? "ロングガンマ" : "ショートガンマ") : null;
+
+    return {
+        ko: [
+            `프리마켓 시장 상태 요약 (${dateStr}).`,
+            rlsi != null ? `종합 시장 건강도(RLSI) ${rlsi.toFixed(0)}으로 ${riskLevel === "low" ? "안정적" : riskLevel === "moderate" ? "보통" : riskLevel === "elevated" ? "주의" : "위험"} 구간에서 관찰됨.` : "",
+            vix != null ? `VIX ${vix.toFixed(1)} 수준${vix > 25 ? "으로 변동성 확대 구간" : vix > 20 ? "으로 경계 구간" : "으로 안정 구간"}에 위치.` : "",
+            gammaDesc && gex != null ? `감마 체제 ${gammaDesc} (GEX ${gex.toFixed(0)})${squeeze != null && squeeze > 50 ? `, 스퀴즈 리스크 ${squeeze.toFixed(0)}%로 주의 필요` : ""}.` : "",
+            breadth != null ? `시장 참여폭 ${breadth.toFixed(0)}%로 ${breadth >= 60 ? "양호한 매수세" : breadth >= 45 ? "혼조세" : "약세 참여"} 관찰됨.` : "",
+            sectors ? `주요 움직임 섹터: ${sectors}.` : "",
+        ].filter(Boolean).join(" "),
+        en: [
+            `Pre-market conditions as of ${dateStr}.`,
+            rlsi != null ? `Market health (RLSI) at ${rlsi.toFixed(0)}, indicating ${riskLevel} risk levels.` : "",
+            vix != null ? `VIX at ${vix.toFixed(1)}${vix > 25 ? " signaling elevated volatility" : vix > 20 ? " in cautionary territory" : " in stable range"}.` : "",
+            gammaDescEN && gex != null ? `Gamma regime in ${gammaDescEN} (GEX ${gex.toFixed(0)})${squeeze != null && squeeze > 50 ? ` with squeeze risk at ${squeeze.toFixed(0)}%` : ""}.` : "",
+            breadth != null ? `Market breadth at ${breadth.toFixed(0)}% showing ${breadth >= 60 ? "healthy participation" : breadth >= 45 ? "mixed conditions" : "weak participation"}.` : "",
+            sectors ? `Notable sector moves: ${sectors}.` : "",
+        ].filter(Boolean).join(" "),
+        ja: [
+            `プレマーケット市場状況 (${dateStr}).`,
+            rlsi != null ? `市場健全性(RLSI) ${rlsi.toFixed(0)}で${riskLevel === "low" ? "安定的" : riskLevel === "moderate" ? "中立" : riskLevel === "elevated" ? "注意" : "警戒"}な水準が観測.` : "",
+            vix != null ? `VIX ${vix.toFixed(1)}${vix > 25 ? "でボラティリティ拡大" : vix > 20 ? "で警戒圏" : "で安定圏"}に位置.` : "",
+            gammaDescJA && gex != null ? `ガンマ体制${gammaDescJA} (GEX ${gex.toFixed(0)})${squeeze != null && squeeze > 50 ? `、スクイーズリスク${squeeze.toFixed(0)}%` : ""}.` : "",
+            breadth != null ? `市場参加幅${breadth.toFixed(0)}%で${breadth >= 60 ? "良好な買い参加" : breadth >= 45 ? "混在" : "弱い参加"}が観測.` : "",
+        ].filter(Boolean).join(" "),
+    };
 }
 
 // ══════════════════════════════════════════════════════════════

@@ -157,7 +157,7 @@ export async function POST(req: Request) {
         const dayOfWeekJa = new Date().toLocaleDateString('ja-JP', { weekday: 'long', timeZone: 'America/New_York' });
 
         const systemPrompt = `You are a Bloomberg Terminal Pre-Market Analyst writing the MORNING BRIEFING.
-Your briefing must read like a NARRATIVE STORY, not a list of indicators.
+Your briefing must read like a NARRATIVE STORY that weaves together overnight news, market data, and risk indicators.
 
 <critical_rules>
 - TODAY IS: ${todayStr} — ${dayOfWeek} / ${dayOfWeekKo} / ${dayOfWeekJa}
@@ -165,13 +165,28 @@ Your briefing must read like a NARRATIVE STORY, not a list of indicators.
 - In English: use "${dayOfWeek}" (e.g., "${dayOfWeek} pre-market trading...")
 - In Japanese: use "${dayOfWeekJa}" (e.g., "${dayOfWeekJa}のプレマーケットで...")
 - FORBIDDEN: Do NOT use any other day of the week. Using a wrong day is a CRITICAL ERROR.
-- Write exactly 4-5 sentences per language. CONCISE but COMPLETE.
+- Write exactly 6-8 sentences per language. CONCISE but COMPLETE.
 - NEVER give investment advice. ONLY observational language: "관찰됨", "나타남", "observed", "noted".
 - Each language must be NATIVE quality — not a translation, but written as if by a native analyst.
 - Do NOT use any emoji or special Unicode symbols. Plain text only.
-- MANDATORY: Mention actual S&P 500 and NASDAQ 100 performance (price and % change) in the first or second sentence.
-- Start with day of week + big market picture, then connect to RLSI/GEX/VIX analysis.
-</critical_rules>`;
+</critical_rules>
+
+<structure>
+Your briefing MUST follow this 3-part narrative flow:
+
+PART 1 (2 sentences): Market Overview
+- Start with day of week + S&P 500 and NASDAQ 100 actual prices and % changes.
+- Include key commodities/bonds/crypto if they show significant moves.
+
+PART 2 (2-3 sentences): News & Catalysts
+- MANDATORY: Pick the 2-3 most impactful headlines from <overnight_news> and weave them naturally into the narrative.
+- If there are economic calendar events, mention them as upcoming catalysts.
+- Connect the news to WHY the market is moving the way it is.
+
+PART 3 (2-3 sentences): Risk Assessment
+- Reference RLSI, VIX, GEX, Breadth to assess the current risk environment.
+- End with the key thing to watch for the trading day ahead.
+</structure>`;
 
         const userPrompt = `<market_snapshot>
 - RLSI: ${rlsi} | Recent Trend: ${historyStr || 'N/A'}
@@ -194,13 +209,11 @@ ${marketNews.length > 0 ? marketNews.map((n, i) => `${i + 1}. ${n}`).join('\n') 
 </overnight_news>
 
 <style_examples>
-- KO: "화요일 프리마켓에서 S&P 500 선물 5,650(+0.45%)과 NASDAQ 100 선물 19,840(+0.72%)으로 시장은 소폭 상승 출발하며 인플레이션 우려 속 CPI 발표를 앞두고 관망세가 관찰됨."
-- EN: "Tuesday pre-market shows S&P 500 futures at 5,650 (+0.45%) and NASDAQ 100 futures at 19,840 (+0.72%) as markets enter a cautious stance ahead of today's 12:30 ET CPI release."
-- JA: "火曜日のプレマーケットではS&P 500先物5,650(+0.45%)、NASDAQ 100先物19,840(+0.72%)と小幅上昇で取引開始。"
+KO example: "수요일 개장 전 거래에서 S&P 500 선물이 5,650(+0.45%), NASDAQ 100 선물이 19,840(+0.72%)으로 상승 출발함. Fed 파월 의장의 '추가 금리 인하 검토 중' 발언이 전해지며 기술주 중심 매수세가 유입된 것으로 관찰됨. 한편 Nvidia가 차세대 AI칩 GB300 발표를 예고하며 반도체 섹터가 +1.2% 상승, 에너지 섹터는 원유 재고 증가 보도에 -0.8% 하락함. RLSI 62 수준에서 시장 건전성은 보통으로 관찰되며, VIX 18.5와 롱 감마(GEX +45) 환경에서 안정적 변동성이 나타남. 오늘 12:30 ET CPI 발표가 최대 변수로, 예상치 상회 시 변동성 확대 가능성이 관찰됨."
 </style_examples>
 
 Output ONLY valid JSON (no markdown fences):
-{"ko": "한국어 브리핑 (4-5문장)", "en": "English briefing (4-5 sentences)", "ja": "日本語ブリーフィング (4-5文)"}`;
+{"ko": "한국어 브리핑 (6-8문장)", "en": "English briefing (6-8 sentences)", "ja": "日本語ブリーフィング (6-8文)"}`;
 
         const client = getBedrock();
         const command = new InvokeModelCommand({
