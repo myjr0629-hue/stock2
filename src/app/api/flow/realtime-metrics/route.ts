@@ -45,11 +45,12 @@ interface ShortVolumeData {
 // Fetch Trades for Dark Pool & Block Trade analysis + Buy/Sell classification (Quote Rule)
 async function fetchTradeData(ticker: string): Promise<TradeData | null> {
     try {
-        // Fetch trades AND quotes in parallel for Quote Rule classification
-        // limit=50000 for broad coverage + next_url follow for full-day accuracy
+        // [PROD FIX] limit=5000 trades + 1000 quotes — sufficient sample for DP% calculation
+        // Previous limit=50000 + next_url follow (100K+ trades) caused Vercel serverless timeout
+        // 5000 trades is statistically representative for dark pool ratio (sampling-based)
         const [tradesRes, quotesRes] = await Promise.all([
-            fetch(`${POLYGON_BASE}/v3/trades/${ticker}?limit=50000&apiKey=${POLYGON_API_KEY}`),
-            fetch(`${POLYGON_BASE}/v3/quotes/${ticker}?limit=5000&order=desc&apiKey=${POLYGON_API_KEY}`),
+            fetch(`${POLYGON_BASE}/v3/trades/${ticker}?limit=5000&apiKey=${POLYGON_API_KEY}`),
+            fetch(`${POLYGON_BASE}/v3/quotes/${ticker}?limit=1000&order=desc&apiKey=${POLYGON_API_KEY}`),
         ]);
 
         if (!tradesRes.ok) {
@@ -58,20 +59,8 @@ async function fetchTradeData(ticker: string): Promise<TradeData | null> {
         }
 
         const tradesData = await tradesRes.json();
-        let trades = tradesData.results || [];
-
-        // Follow next_url once for broader coverage (~100K trades total)
-        if (tradesData.next_url) {
-            try {
-                const nextRes = await fetch(`${tradesData.next_url}&apiKey=${POLYGON_API_KEY}`);
-                if (nextRes.ok) {
-                    const nextData = await nextRes.json();
-                    trades = trades.concat(nextData.results || []);
-                }
-            } catch (e) {
-                console.warn(`[realtime-metrics] next_url follow failed:`, e);
-            }
-        }
+        const trades = tradesData.results || [];
+        // NO next_url follow — 5K trades is sufficient and keeps response under 2s
 
         // Parse quotes for Quote Rule — sort ascending by timestamp for binary search
         const quotesRaw = quotesRes.ok
