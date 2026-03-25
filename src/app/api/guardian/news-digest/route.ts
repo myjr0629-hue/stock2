@@ -14,6 +14,7 @@ const REDIS_KEY = 'guardian:news:digest';
 const REDIS_TTL = 35 * 60; // 35 min (5 min buffer over 30 min cron)
 
 // [FIX] Allow Vercel Pro to run up to 60s — Claude needs 30-60s for 10 items × 3 languages
+// Without this, Vercel default 10s kills the function before AI can complete.
 export const maxDuration = 60;
 
 // ===== Types =====
@@ -200,7 +201,7 @@ Output ONLY the JSON array — no explanation, no markdown.`;
             userPrompt,
             maxTokens: 8192,
             temperature: 0.3,
-            timeoutMs: 60000,
+            timeoutMs: 55000,  // 55s — within 60s maxDuration
             jsonPrefill: false,  // This route uses array '[' prefill
             fallbackModel: null, // Haiku IS the cheap model
             label: 'NewsDigest',
@@ -234,7 +235,7 @@ Output ONLY the JSON array — no explanation, no markdown.`;
         }));
     } catch (e) {
         console.error('[NewsDigest] Claude analysis failed:', e);
-        // Fallback: return raw top 5 without AI
+        // Fallback: return raw top 10 without AI
         return articles.slice(0, 10).map((a, i) => ({
             id: a.id || `news-${i}`,
             headline: a.title || 'No Title',
