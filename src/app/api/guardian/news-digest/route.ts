@@ -13,6 +13,9 @@ import { callBedrock, MODELS } from '@/services/bedrockClient';
 const REDIS_KEY = 'guardian:news:digest';
 const REDIS_TTL = 35 * 60; // 35 min (5 min buffer over 30 min cron)
 
+// [FIX] Allow Vercel Pro to run up to 60s — Claude needs 30-60s for 10 items × 3 languages
+export const maxDuration = 60;
+
 // ===== Types =====
 export interface NewsDigestItem {
     id: string;
