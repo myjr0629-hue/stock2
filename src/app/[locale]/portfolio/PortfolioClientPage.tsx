@@ -16,6 +16,9 @@ import { ProGate, EliteGate } from '@/components/gate/FeatureGate';
 import { CardTooltip, PORTFOLIO_TOOLTIPS } from '@/components/ui/CardTooltip';
 import { useTier } from '@/contexts/TierContext';
 import useSWR from 'swr';
+import { EChartsSectorDonut, EChartsPnlTreemap } from '@/components/portfolio/PortfolioCharts';
+
+
 
 // Exchange rate fetcher
 const fxFetcher = (url: string) => fetch(url).then(r => r.json());
@@ -1458,12 +1461,12 @@ function PortfolioAnalyticsDashboard({ holdings, summary, t }: { holdings: Enric
     return (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
             {/* Sector Donut Chart */}
-            <div className="relative overflow-hidden rounded-xl border border-white/[0.08] bg-gradient-to-br from-white/[0.05] to-white/[0.02] backdrop-blur-xl p-5 flex flex-col justify-between min-h-[180px]">
+            <div className="relative rounded-xl border border-white/[0.08] bg-gradient-to-br from-white/[0.05] to-white/[0.02] backdrop-blur-xl p-5 flex flex-col justify-between min-h-[180px]">
                 <CardTooltip tooltip={PORTFOLIO_TOOLTIPS.SECTOR_DISTRIBUTION.tooltip} badge={PORTFOLIO_TOOLTIPS.SECTOR_DISTRIBUTION.badge}>
                     <div className="text-[12px] text-slate-300 uppercase tracking-[0.15em] font-bold mb-4">{t('sectorDistribution')}</div>
                 </CardTooltip>
                 <div className="flex items-center gap-5 flex-1">
-                    <SectorDonut sectors={sectorData} total={summary.totalValue} label={t('sectors')} />
+                    <EChartsSectorDonut sectors={sectorData} total={summary.totalValue} label={t('sectors')} />
                     <div className="flex-1 space-y-2.5">
                         {sectorData.slice(0, 5).map(s => (
                             <div key={s.sector} className="flex items-center gap-2.5">
@@ -1527,140 +1530,19 @@ function PortfolioAnalyticsDashboard({ holdings, summary, t }: { holdings: Enric
                 </div>
             </div>
 
-            {/* P&L Treemap */}
-            <div className="relative overflow-hidden rounded-xl border border-white/[0.08] bg-gradient-to-br from-white/[0.05] to-white/[0.02] backdrop-blur-xl p-5 flex flex-col min-h-[180px]">
+            {/* P&L Treemap — ECharts Premium */}
+            <div className="relative overflow-hidden rounded-xl border border-white/[0.08] bg-gradient-to-br from-white/[0.05] to-white/[0.02] backdrop-blur-xl p-5 flex flex-col min-h-[220px]">
                 <CardTooltip tooltip={PORTFOLIO_TOOLTIPS.PNL_TREEMAP.tooltip} badge={PORTFOLIO_TOOLTIPS.PNL_TREEMAP.badge}>
-                    <div className="text-[12px] text-slate-300 uppercase tracking-[0.15em] font-bold mb-4">{t('pnlTreemap')}</div>
+                    <div className="text-[12px] text-slate-300 uppercase tracking-[0.15em] font-bold mb-3">{t('pnlTreemap')}</div>
                 </CardTooltip>
-                <div className="flex-1 flex items-center">
-                    <PnlTreemap holdings={holdings} totalValue={summary.totalValue} />
+                <div className="flex-1" style={{ minHeight: 160 }}>
+                    <EChartsPnlTreemap holdings={holdings} totalValue={summary.totalValue} />
                 </div>
             </div>
         </div>
     );
 }
 
-// === SVG SECTOR DONUT ===
-function SectorDonut({ sectors, total, label }: { sectors: { sector: string; color: string; value: number }[]; total: number; label?: string }) {
-    const r = 40, cx = 50, cy = 50, strokeWidth = 12;
-    const circ = 2 * Math.PI * r;
-    let accum = 0;
-
-    return (
-        <svg width="100" height="100" viewBox="0 0 100 100" className="flex-shrink-0">
-            <circle cx={cx} cy={cy} r={r} fill="none" stroke="#1e293b" strokeWidth={strokeWidth} />
-            {sectors.map((s) => {
-                const pct = total > 0 ? s.value / total : 0;
-                const dashLen = circ * pct;
-                const offset = circ * (1 - accum) + circ * 0.25;
-                accum += pct;
-                return <circle key={s.sector} cx={cx} cy={cy} r={r} fill="none" stroke={s.color} strokeWidth={strokeWidth}
-                    strokeDasharray={`${dashLen} ${circ - dashLen}`} strokeDashoffset={offset}
-                    style={{ transition: 'stroke-dashoffset 0.8s ease-out' }} />;
-            })}
-            <text x={cx} y={cy - 4} textAnchor="middle" className="text-[16px] font-black fill-white">{sectors.length}</text>
-            <text x={cx} y={cy + 11} textAnchor="middle" className="text-[10px] fill-slate-300 font-bold">{label || 'SECTORS'}</text>
-        </svg>
-    );
-}
-
-// === P&L TREEMAP (Squarified) ===
-function PnlTreemap({ holdings, totalValue }: { holdings: EnrichedHolding[]; totalValue: number }) {
-    const sorted = useMemo(() => [...holdings].sort((a, b) => b.marketValue - a.marketValue), [holdings]);
-    const containerW = 280, containerH = 120;
-
-    // Simple row-based treemap layout
-    const rects = useMemo(() => {
-        if (sorted.length === 0 || totalValue <= 0) return [];
-        const result: { x: number; y: number; w: number; h: number; ticker: string; changePct: number; weight: number }[] = [];
-        let x = 0, y = 0, remainW = containerW, remainH = containerH;
-        let remaining = [...sorted];
-
-        while (remaining.length > 0) {
-            const isHorizontal = remainW >= remainH;
-            const totalRemaining = remaining.reduce((s, h) => s + h.marketValue, 0);
-
-            // Take items for this row
-            const rowItems: typeof remaining = [];
-            let rowVal = 0;
-            const rowTarget = totalRemaining * (isHorizontal ? remainH / containerH : remainW / containerW);
-
-            for (const item of remaining) {
-                if (rowItems.length > 0 && rowVal + item.marketValue > rowTarget * 1.2) break;
-                rowItems.push(item);
-                rowVal += item.marketValue;
-            }
-            if (rowItems.length === 0) break;
-
-            const rowPct = totalRemaining > 0 ? rowVal / totalRemaining : 1;
-            const rowSize = isHorizontal ? remainW * rowPct : remainH * rowPct;
-            let pos = 0;
-
-            rowItems.forEach(item => {
-                const itemPct = rowVal > 0 ? item.marketValue / rowVal : 1 / rowItems.length;
-                const itemSize = (isHorizontal ? remainH : remainW) * itemPct;
-                result.push({
-                    x: isHorizontal ? x : x + pos,
-                    y: isHorizontal ? y + pos : y,
-                    w: isHorizontal ? rowSize : itemSize,
-                    h: isHorizontal ? itemSize : rowSize,
-                    ticker: item.ticker,
-                    changePct: item.changePct,
-                    weight: totalValue > 0 ? (item.marketValue / totalValue) * 100 : 0,
-                });
-                pos += itemSize;
-            });
-
-            if (isHorizontal) { x += rowSize; remainW -= rowSize; }
-            else { y += rowSize; remainH -= rowSize; }
-            remaining = remaining.filter(r => !rowItems.includes(r));
-        }
-        return result;
-    }, [sorted, totalValue, containerW, containerH]);
-
-    return (
-        <svg width="100%" viewBox={`0 0 ${containerW} ${containerH}`} className="rounded-lg overflow-hidden">
-            {rects.map(r => {
-                const abs = Math.abs(r.changePct);
-                const intensity = Math.min(abs / 5, 1);
-                // Rich color palette: green shades for gains, red-orange-pink for losses
-                let fill: string;
-                if (r.changePct >= 0) {
-                    // Greens: from muted teal to vivid emerald
-                    const h = 155 - intensity * 15; // 155→140 (teal→green)
-                    const s = 45 + intensity * 35;  // 45%→80%
-                    const l = 35 + (1 - intensity) * 15; // 35→50 (darker=stronger)
-                    fill = `hsl(${h}, ${s}%, ${l}%)`;
-                } else {
-                    // Reds: from muted rose to deep crimson, with orange tint for moderate
-                    const h = abs < 1.5 ? 15 : abs < 3 ? 0 : 345; // orange→red→crimson
-                    const s = 40 + intensity * 40;  // 40%→80%
-                    const l = 38 + (1 - intensity) * 12; // 38→50
-                    fill = `hsl(${h}, ${s}%, ${l}%)`;
-                }
-                const showLabel = r.w > 35 && r.h > 20;
-                return (
-                    <g key={r.ticker}>
-                        <rect x={r.x + 0.5} y={r.y + 0.5} width={Math.max(r.w - 1, 0)} height={Math.max(r.h - 1, 0)}
-                            fill={fill} rx="3" className="transition-all duration-500" />
-                        {showLabel && (
-                            <>
-                                <text x={r.x + r.w / 2} y={r.y + r.h / 2 - 3} textAnchor="middle"
-                                    className="text-[9px] font-black fill-white" style={{ textShadow: '0 1px 2px rgba(0,0,0,0.5)' }}>
-                                    {r.ticker}
-                                </text>
-                                <text x={r.x + r.w / 2} y={r.y + r.h / 2 + 8} textAnchor="middle"
-                                    className={`text-[8px] font-bold tabular-nums ${r.changePct >= 0 ? 'fill-emerald-200' : 'fill-rose-200'}`}>
-                                    {r.changePct >= 0 ? '+' : ''}{r.changePct.toFixed(1)}%
-                                </text>
-                            </>
-                        )}
-                    </g>
-                );
-            })}
-        </svg>
-    );
-}
 
 // === GLOBAL STYLES ===
 function GlobalStyles() {
