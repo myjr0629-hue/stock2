@@ -86,7 +86,7 @@
         },
         {
             "path": "/api/cron/warm-news-digest",
-            "schedule": "*/30 * * * *"
+            "schedule": "*/15 * * * *"
         },
         {
             "path": "/api/cron/warm-analysis",

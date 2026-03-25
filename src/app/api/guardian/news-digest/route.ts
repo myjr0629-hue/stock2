@@ -3,6 +3,11 @@
 // Polygon News (no ticker = global market news) → Claude AI Analysis/Curation
 // Uses macro snapshot context for market-reaction-linked interpretation
 // Bedrock Claude 3.5 Haiku — optimized prompt for Claude's strengths
+//
+// [V2] 5-item batch + accumulate strategy:
+//   - Each call: AI processes TOP 5 fresh articles (fast, ~25s)
+//   - Merges with existing Redis cache → displays 10 unique items
+//   - Cron runs every 15 min → fresher news, no timeout risk
 // ============================================================================
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -11,10 +16,11 @@ import { fetchMassive, CACHE_POLICY } from '@/services/massiveClient';
 import { callBedrock, MODELS } from '@/services/bedrockClient';
 
 const REDIS_KEY = 'guardian:news:digest';
-const REDIS_TTL = 35 * 60; // 35 min (5 min buffer over 30 min cron)
+const REDIS_TTL = 20 * 60; // 20 min (buffer over 15 min cron interval)
+const BATCH_SIZE = 5;       // AI processes 5 items per call (~25s, safe within timeout)
+const DISPLAY_SIZE = 10;    // UI shows 10 items total (accumulated from 2 batches)
 
-// [FIX] Allow Vercel Pro to run up to 60s — Claude needs 30-60s for 10 items × 3 languages
-// Without this, Vercel default 10s kills the function before AI can complete.
+// Allow Vercel Pro to run up to 60s — Claude needs ~25s for 5 items × 3 languages
 export const maxDuration = 60;
 
 // ===== Types =====
@@ -42,7 +48,7 @@ export interface NewsDigest {
     generatedAtET: string;
     nextRefreshAt: string;
     marketContext: string;
-    _source: 'fresh' | 'cached';
+    _source: 'fresh' | 'cached' | 'accumulated';
 }
 
 // ===== Time Helpers =====
@@ -57,10 +63,14 @@ function getAgeMinutes(iso: string): number {
     return Math.round((Date.now() - new Date(iso).getTime()) / 60000);
 }
 
+// ===== Title key for dedup =====
+function titleKey(title: string): string {
+    return (title || '').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 50);
+}
+
 // ===== Fetch Market-Wide News from Polygon =====
 async function fetchMarketNews(limit: number = 30): Promise<any[]> {
     try {
-        // No ticker = market-wide news from all publishers
         const endpoint = `/v2/reference/news?limit=${limit}&order=desc&sort=published_utc`;
         const data = await fetchMassive(endpoint, {}, true, undefined, CACHE_POLICY.DISPLAY_NEWS);
         return data?.results || [];
@@ -82,7 +92,6 @@ async function fetchFMPGeneralNews(limit: number = 15): Promise<any[]> {
         if (!res.ok) return [];
         const data = await res.json();
         if (!Array.isArray(data)) return [];
-        // Normalize FMP format to match Polygon structure
         return data.map((n: any) => ({
             id: `fmp-${n.url?.slice(-20) || Math.random()}`,
             title: n.title || '',
@@ -97,15 +106,24 @@ async function fetchFMPGeneralNews(limit: number = 15): Promise<any[]> {
     }
 }
 
-// ===== Merge & Deduplicate News =====
+// ===== Merge & Deduplicate raw articles =====
 function mergeAndDeduplicate(polygonNews: any[], fmpNews: any[]): any[] {
     const all = [...polygonNews, ...fmpNews];
-    // Sort by published time (newest first)
     all.sort((a, b) => new Date(b.published_utc || 0).getTime() - new Date(a.published_utc || 0).getTime());
-    // Deduplicate by title similarity (first 50 chars)
     const seen = new Set<string>();
     return all.filter(n => {
-        const key = (n.title || '').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 50);
+        const key = titleKey(n.title);
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+    });
+}
+
+// ===== Deduplicate digest items by headline =====
+function deduplicateItems(items: NewsDigestItem[]): NewsDigestItem[] {
+    const seen = new Set<string>();
+    return items.filter(item => {
+        const key = titleKey(item.headline);
         if (seen.has(key)) return false;
         seen.add(key);
         return true;
@@ -163,7 +181,7 @@ Your role: CURATE the most impactful global market news and provide institutiona
 </analysis_format>
 
 <output_rules>
-- Select EXACTLY TOP 10 most impactful news (fewer if <10 unique)
+- Select EXACTLY TOP ${BATCH_SIZE} most impactful news from the provided articles
 - Prioritize: geopolitical > macro policy > market-moving > sector rotation > commentary
 - DEDUPLICATE: same event → keep most detailed article only
 - Each summary: 1-2 concise sentences with key facts and numbers
@@ -172,7 +190,7 @@ Your role: CURATE the most impactful global market news and provide institutiona
 </output_rules>`;
 
 async function analyzeWithClaude(articles: any[], macroContext: string): Promise<NewsDigestItem[]> {
-    const inputItems = articles.slice(0, 30).map((a, i) => ({
+    const inputItems = articles.slice(0, 20).map((a, i) => ({
         id: a.id || `news-${i}`,
         title: a.title || '',
         desc: (a.description || '').substring(0, 200),
@@ -189,32 +207,32 @@ ${macroContext || 'Market data unavailable — weekend/holiday'}
 ${JSON.stringify(inputItems)}
 </articles>
 
-Select TOP 10 and output as JSON array with this exact schema per item:
+Select TOP ${BATCH_SIZE} and output as JSON array with this exact schema per item:
 {"id","headline","summaryKR","summaryEN","summaryJP","analysisKR","analysisEN","analysisJP","category":"US_MARKET|GLOBAL|GEOPOLITICAL|MACRO|SECTOR","impact":"BULLISH|BEARISH|MIXED|NEUTRAL","urgency":1-10}
 
 Output ONLY the JSON array — no explanation, no markdown.`;
 
     try {
+        const t0 = Date.now();
         const bedrockResult = await callBedrock({
             modelId: MODELS.HAIKU_35,
             system: SYSTEM_PROMPT,
             userPrompt,
-            maxTokens: 8192,
+            maxTokens: 4096,   // 5 items × 3 langs ≈ 3K tokens — safe within 4096
             temperature: 0.3,
-            timeoutMs: 55000,  // 55s — within 60s maxDuration
-            jsonPrefill: false,  // This route uses array '[' prefill
-            fallbackModel: null, // Haiku IS the cheap model
-            label: 'NewsDigest',
+            timeoutMs: 45000,  // 45s — plenty for 5 items
+            jsonPrefill: false,
+            fallbackModel: null,
+            label: 'NewsDigest-Batch5',
         });
 
-        // Parse as JSON array (response might start with '[' or not)
         let json = bedrockResult.text;
         if (!json.startsWith('[')) json = '[' + json;
         json = json.replace(/```json/g, '').replace(/```/g, '').trim();
         if (!json || json === '[') throw new Error('Empty Claude response');
 
         const parsed = JSON.parse(json) as any[];
-        console.log(`[NewsDigest] Claude: ${parsed.length} items (model: ${bedrockResult.model})`);
+        console.log(`[NewsDigest] Claude: ${parsed.length} items in ${Date.now() - t0}ms (model: ${bedrockResult.model})`);
 
         return parsed.map((item, i) => ({
             id: item.id || `digest-${i}`,
@@ -235,8 +253,8 @@ Output ONLY the JSON array — no explanation, no markdown.`;
         }));
     } catch (e) {
         console.error('[NewsDigest] Claude analysis failed:', e);
-        // Fallback: return raw top 10 without AI
-        return articles.slice(0, 10).map((a, i) => ({
+        // Fallback: return raw top items without AI
+        return articles.slice(0, BATCH_SIZE).map((a, i) => ({
             id: a.id || `news-${i}`,
             headline: a.title || 'No Title',
             summaryKR: a.description?.substring(0, 120) || a.title,
@@ -258,54 +276,82 @@ Output ONLY the JSON array — no explanation, no markdown.`;
 export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url);
     const forceRefresh = searchParams.get('refresh') === '1';
-    const isUrgent = searchParams.get('urgent') === '1'; // VIX spike trigger
+    const isUrgent = searchParams.get('urgent') === '1';
 
-    // Step 1: Check Redis cache (skip if urgent VIX trigger)
-    if (!forceRefresh && !isUrgent) {
-        try {
-            const cached = await getFromCache<NewsDigest>(REDIS_KEY);
-            if (cached && cached.items?.length > 0) {
-                return NextResponse.json({ ...cached, _source: 'cached' });
-            }
-        } catch { /* ignore cache miss */ }
+    // Step 1: Load existing cache (always — we need it for accumulation)
+    let existingDigest: NewsDigest | null = null;
+    try {
+        existingDigest = await getFromCache<NewsDigest>(REDIS_KEY);
+    } catch { /* ignore cache miss */ }
+
+    // Return cached if not refreshing and cache has items
+    if (!forceRefresh && !isUrgent && existingDigest && existingDigest.items?.length > 0) {
+        const items = existingDigest.items.map(it => ({
+            ...it,
+            ageMinutes: getAgeMinutes(it.publishedAt),
+        }));
+        return NextResponse.json({ ...existingDigest, items, _source: 'cached' });
     }
 
-    // Step 2: Fetch fresh data from BOTH sources
+    // Step 2: Fetch fresh articles from BOTH sources
     const baseUrl = req.url.split('/api/')[0];
+    const t0 = Date.now();
     const [polygonArticles, fmpArticles, macroContext] = await Promise.all([
         fetchMarketNews(30),
         fetchFMPGeneralNews(15),
         getMacroContext(baseUrl),
     ]);
+    console.log(`[NewsDigest] Fetch done in ${Date.now() - t0}ms: Polygon=${polygonArticles.length}, FMP=${fmpArticles.length}`);
 
-    // Merge & deduplicate: Polygon (stock/sector) + FMP (macro/geopolitical)
     const articles = mergeAndDeduplicate(polygonArticles, fmpArticles);
-    console.log(`[NewsDigest] Sources: Polygon=${polygonArticles.length}, FMP=${fmpArticles.length}, Merged=${articles.length}${isUrgent ? ' [URGENT/VIX]' : ''}`);
 
     if (articles.length === 0) {
         return NextResponse.json({ items: [], error: 'No news available', _source: 'empty' });
     }
 
-    // Step 3: AI Analysis (Claude Haiku via Bedrock)
-    const items = await analyzeWithClaude(articles, macroContext);
+    // Step 3: Filter out articles already in cache (avoid duplicates)
+    const existingKeys = new Set(
+        (existingDigest?.items || []).map(it => titleKey(it.headline))
+    );
+    const freshArticles = articles.filter(a => !existingKeys.has(titleKey(a.title)));
+    console.log(`[NewsDigest] Fresh articles: ${freshArticles.length} (filtered ${articles.length - freshArticles.length} duplicates)${isUrgent ? ' [URGENT/VIX]' : ''}`);
 
-    // Step 4: Build digest
+    // Step 4: AI Analysis — only 5 fresh items (fast, ~25s)
+    let newItems: NewsDigestItem[] = [];
+    if (freshArticles.length > 0) {
+        const t1 = Date.now();
+        newItems = await analyzeWithClaude(freshArticles, macroContext);
+        console.log(`[NewsDigest] AI done in ${Date.now() - t1}ms: ${newItems.length} new items`);
+    } else {
+        console.log('[NewsDigest] No fresh articles — keeping existing cache');
+    }
+
+    // Step 5: Accumulate — merge new + existing, keep latest 10 unique
+    const existingItems = existingDigest?.items || [];
+    const allItems = [...newItems, ...existingItems]; // New first (higher priority)
+    const uniqueItems = deduplicateItems(allItems);
+    const displayItems = uniqueItems
+        .sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime())
+        .slice(0, DISPLAY_SIZE)
+        .map(it => ({ ...it, ageMinutes: getAgeMinutes(it.publishedAt) }));
+
+    // Step 6: Build digest
     const now = new Date();
     const digest: NewsDigest = {
-        items,
+        items: displayItems,
         generatedAt: now.toISOString(),
         generatedAtET: formatET(now.toISOString()),
-        nextRefreshAt: new Date(now.getTime() + 30 * 60000).toISOString(),
+        nextRefreshAt: new Date(now.getTime() + 15 * 60000).toISOString(),
         marketContext: macroContext,
-        _source: 'fresh',
+        _source: existingItems.length > 0 && newItems.length > 0 ? 'accumulated' : 'fresh',
     };
 
-    // Step 5: Save to Redis — only full-TTL cache if analysis succeeded
-    const hasAnalysis = items.some(it => it.analysisEN && it.analysisEN.length > 0);
+    // Step 7: Save to Redis
+    const hasAnalysis = displayItems.some(it => it.analysisEN && it.analysisEN.length > 0);
     try {
-        const ttl = hasAnalysis ? REDIS_TTL : 180; // 35min if good, 3min if analysis empty (retry soon)
+        const ttl = hasAnalysis ? REDIS_TTL : 180; // 20min if good, 3min if analysis empty
         await setInCache(REDIS_KEY, digest, ttl);
-        console.log(`[NewsDigest] Saved ${items.length} items to Redis (TTL: ${ttl}s, analysis: ${hasAnalysis ? 'OK' : 'EMPTY — short TTL for retry'})`);
+        console.log(`[NewsDigest] Saved ${displayItems.length} items (new: ${newItems.length}, kept: ${existingItems.length}, TTL: ${ttl}s, analysis: ${hasAnalysis ? 'OK' : 'EMPTY'})`);
     } catch (e) {
         console.warn('[NewsDigest] Redis save failed:', e);
     }
