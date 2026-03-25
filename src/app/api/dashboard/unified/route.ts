@@ -141,7 +141,7 @@ interface CacheEntry {
     timestamp: number;
     isRevalidating?: boolean;
 }
-const CACHE_VERSION = 'v4'; // Bumped: v3→v4 (Redis hybrid cache)
+const CACHE_VERSION = 'v5'; // Bumped: v4→v5 (HTTP loopback fix - invalidate old failed cache)
 const cache: Map<string, CacheEntry> = new Map();
 const WARM_INTERVAL_MS = 90_000; // 90 seconds — auto-refresh interval for default tickers
 const REDIS_PREFIX = 'dashboard:unified:'; // Redis key prefix
