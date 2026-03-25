@@ -391,7 +391,7 @@ export const useDashboardStore = create<DashboardState>()(
                         if (!currentTickers[ticker]) {
                             currentTickers[ticker] = {
                                 underlyingPrice: q.price || 0,
-                                display: { price: q.price || 0, changePct: q.changePercent || 0 },
+                                display: { price: q.price || 0, changePctPct: q.changePercent || 0 },
                                 session: (q.session === 'regular' ? 'REG' : q.session === 'pre' ? 'PRE' : q.session === 'post' ? 'POST' : 'CLOSED') as any,
                             } as any;
                             changed = true;
