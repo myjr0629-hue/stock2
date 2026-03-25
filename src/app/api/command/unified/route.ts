@@ -225,6 +225,11 @@ async function buildUnifiedData(ticker: string, baseUrl: string, locale: string)
     ]);
 
     // Separate data (language-independent) from overview (language-specific)
+    const now = Date.now();
+    // Stamp _ts on volatile fields for age-based staleness detection in gap-fill
+    if (squeeze) squeeze._ts = now;
+    if (institutional) institutional._ts = now;
+    if (volatility) volatility._ts = now;
     const data = {
         structure,
         options: optionsAtm,
@@ -238,7 +243,7 @@ async function buildUnifiedData(ticker: string, baseUrl: string, locale: string)
         fundamentals,
         // overview is NOT stored in data cache — stored separately
         history: gexHistory,
-        timestamp: Date.now()
+        timestamp: now
     };
 
     console.log(`[Command Unified] Built aggregation for ${ticker} in ${Date.now() - start}ms execution time`);
@@ -342,9 +347,22 @@ export async function GET(request: NextRequest) {
             }
             if (resolvedOverview) memorySet(`overview:${ticker}:${locale}`, resolvedOverview);
 
-            // [GAP-FILL] Check for missing or empty-shell fields and fill them via sub-APIs
+            // [GAP-FILL V2] Check for missing, empty-shell, or STALE fields and fill them via sub-APIs
+            // CRITICAL FIX: Volatile fields (squeeze, institutional, volatility) must check _ts age,
+            // not just existence. Otherwise cached tickers serve 30-min-old stale data while fresh
+            // tickers always get live data — making cached tickers paradoxically worse.
+            const VOLATILE_FIELDS = new Set(['squeeze', 'institutional', 'volatility']);
+            const VOLATILE_STALE_MS = 300_000; // 5 minutes — force refresh volatile fields older than this
             const CORE_FIELDS = ['analyst','fundamentals','earnings','related','sma','squeeze','volatility','structure','institutional'] as const;
-            const missingFields = CORE_FIELDS.filter(f => !isFieldUsable(f, cachedData[f]));
+            const missingFields = CORE_FIELDS.filter(f => {
+                if (!isFieldUsable(f, cachedData[f])) return true;
+                // Force refresh volatile fields that are too old
+                if (VOLATILE_FIELDS.has(f)) {
+                    const fieldTs = cachedData[f]?._ts || cachedData.timestamp || 0;
+                    if (Date.now() - fieldTs > VOLATILE_STALE_MS) return true;
+                }
+                return false;
+            });
             
             if (missingFields.length > 0 && missingFields.length <= 7) {
                 // Only gap-fill if partially complete (not completely empty)
@@ -370,6 +388,10 @@ export async function GET(request: NextRequest) {
                 let filled = 0;
                 for (let i = 0; i < missingFields.length; i++) {
                     if (gapResults[i]) {
+                        // Stamp _ts on volatile fields for next staleness check
+                        if (VOLATILE_FIELDS.has(missingFields[i])) {
+                            gapResults[i]._ts = Date.now();
+                        }
                         cachedData[missingFields[i]] = gapResults[i];
                         filled++;
                     }
@@ -721,6 +743,7 @@ async function tryDynamoFast(ticker: string): Promise<any | null> {
             // [FIX] Use actual API squeeze data (has siPercent, daysToCover, shortVolPercent, status)
             // Fallback to GEX heuristic only if API didn't return
             let squeezeCard = squeezeResult || null;
+            if (squeezeCard) squeezeCard._ts = Date.now();
             if (!squeezeCard) {
                 // Fallback: construct minimal squeeze card with UI-required fields
                 const snapAny = snap as any;
@@ -733,12 +756,14 @@ async function tryDynamoFast(ticker: string): Promise<any | null> {
                     shortVolPercent: shortVolPct,
                     riskScore: 0,
                     status: 'LOW',
+                    _ts: Date.now(),
                 };
             }
 
             // [FIX] Use actual API institutional data (has darkPool.percent, blockTrade, shortVolume)
             // Fallback to DynamoDB flow data only if API didn't return
             let institutionalCard = instResult || null;
+            if (institutionalCard) institutionalCard._ts = Date.now();
             if (!institutionalCard) {
                 // Fallback: construct institutional card with UI-required fields
                 const snapAny = snap as any;
@@ -747,6 +772,7 @@ async function tryDynamoFast(ticker: string): Promise<any | null> {
                     darkPool: { percent: snapAny.darkPool?.percent || 0 },
                     blockTrade: { count: snapAny.darkPool?.blockCount || 0, volume: 0 },
                     shortVolume: { percent: shortVolPct },
+                    _ts: Date.now(),
                 };
             }
 
@@ -757,6 +783,7 @@ async function tryDynamoFast(ticker: string): Promise<any | null> {
                     regime: gex.gammaRegime === 'POSITIVE' ? 'LOW' : gex.gammaRegime === 'NEGATIVE' ? 'HIGH' : 'NORMAL',
                     gammaRegime: gex.gammaRegime,
                     pcr: gex.pcr,
+                    _ts: Date.now(),
                 };
             }
 

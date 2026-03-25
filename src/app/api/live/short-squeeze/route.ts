@@ -45,7 +45,7 @@ export async function GET(req: NextRequest) {
                 ]);
                 return { siData, svData };
             },
-            { ttlSeconds: 60, keyPrefix: 'swr:squeeze' }
+            { ttlSeconds: 300, keyPrefix: 'swr:squeeze' }
         );
 
         const { siData, svData } = squeezeData;

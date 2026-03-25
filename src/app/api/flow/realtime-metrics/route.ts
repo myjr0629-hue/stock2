@@ -259,18 +259,83 @@ async function fetchShortVolumeData(ticker: string): Promise<ShortVolumeData | n
     }
 }
 
+// [SWR Helper] Build response object from fetched data
+function buildResponse(ticker: string, tradeData: TradeData | null, quoteData: QuoteData | null, shortVolumeData: ShortVolumeData | null) {
+    return {
+        ticker,
+        timestamp: new Date().toISOString(),
+        _ts: Date.now(), // For SWR age detection
+        darkPool: tradeData ? {
+            percent: tradeData.darkPoolPercent,
+            volume: tradeData.darkPoolVolume,
+            totalVolume: tradeData.totalVolume,
+            buyPct: tradeData.buyPct,
+            sellPct: tradeData.sellPct,
+            buyVolume: tradeData.buyVolume,
+            sellVolume: tradeData.sellVolume,
+            buyVwap: tradeData.buyVwap,
+            sellVwap: tradeData.sellVwap,
+            netBuyValue: tradeData.netBuyValue,
+        } : null,
+        blockTrade: tradeData ? {
+            count: tradeData.blockTrades,
+            volume: tradeData.blockVolume,
+            largestTrade: tradeData.largestTrade,
+        } : null,
+        bidAsk: quoteData ? {
+            spread: quoteData.bidAskSpread,
+            bid: quoteData.bid,
+            ask: quoteData.ask,
+            label: quoteData.spreadLabel,
+        } : null,
+        shortVolume: shortVolumeData ? {
+            percent: shortVolumeData.shortVolPercent,
+            volume: shortVolumeData.shortVolume,
+            totalVolume: shortVolumeData.totalVolume,
+        } : null,
+    };
+}
+
+// [SWR Helper] Background fetch + cache update (fire-and-forget)
+async function fetchAndCacheMetrics(ticker: string, cacheKey: string, ttl: number) {
+    try {
+        const [tradeData, quoteData, shortVolumeData] = await Promise.all([
+            fetchTradeData(ticker),
+            fetchQuoteData(ticker),
+            fetchShortVolumeData(ticker),
+        ]);
+        if (tradeData || quoteData || shortVolumeData) {
+            const response = buildResponse(ticker, tradeData, quoteData, shortVolumeData);
+            await setInCache(cacheKey, response, ttl);
+            console.log(`[realtime-metrics] Background refresh complete for ${ticker}`);
+        }
+    } catch (e) {
+        console.warn(`[realtime-metrics] Background refresh failed for ${ticker}:`, e);
+    }
+}
+
 export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const ticker = searchParams.get('ticker')?.toUpperCase() || 'TSLA';
     const cacheKey = `rt-metrics:${ticker}`;
-    const REDIS_TTL = 120; // 2 minutes — Polygon trade data doesn't update per-second
+    const REDIS_TTL = 600; // 10 minutes — Polygon trade data is daily aggregate, no need for frequent refresh
+    const STALE_THRESHOLD_MS = 300_000; // 5 minutes — background refresh after this age
 
     try {
-        // [FIX] Read from Redis FIRST — this handler fetches 50K+ trades (4-8s on Polygon)
-        // If called from unified route's callInternalGet with 5s timeout, cold fetch always times out
+        // [FIX V2] SWR PATTERN: Always serve cached data immediately (even if stale)
+        // This handler fetches 50K+ trades (4-8s on Polygon) — cold fetch always times out
+        // when called from unified route's callInternalGet with 8s timeout
         const cached = await getFromCache<any>(cacheKey).catch(() => null);
         if (cached && cached.darkPool) {
-            return NextResponse.json({ ...cached, _cached: true });
+            const cacheAge = cached._ts ? Date.now() - cached._ts : Infinity;
+            if (cacheAge < STALE_THRESHOLD_MS) {
+                // Fresh cache — return immediately
+                return NextResponse.json({ ...cached, _cached: true, _ageMs: cacheAge });
+            }
+            // Stale cache — return immediately BUT trigger background refresh
+            // DO NOT await the refresh — user gets instant response
+            fetchAndCacheMetrics(ticker, cacheKey, REDIS_TTL).catch(() => {});
+            return NextResponse.json({ ...cached, _cached: true, _stale: true, _ageMs: cacheAge });
         }
 
         // Cache miss or stale — Fetch all data in parallel
@@ -285,41 +350,9 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ ticker, darkPool: null, blockTrade: null, shortVolume: null, error: 'No data available' });
         }
 
-        const response = {
-            ticker,
-            timestamp: new Date().toISOString(),
-            darkPool: tradeData ? {
-                percent: tradeData.darkPoolPercent,
-                volume: tradeData.darkPoolVolume,
-                totalVolume: tradeData.totalVolume,
-                // Buy/Sell classification
-                buyPct: tradeData.buyPct,
-                sellPct: tradeData.sellPct,
-                buyVolume: tradeData.buyVolume,
-                sellVolume: tradeData.sellVolume,
-                buyVwap: tradeData.buyVwap,
-                sellVwap: tradeData.sellVwap,
-                netBuyValue: tradeData.netBuyValue,
-            } : null,
-            blockTrade: tradeData ? {
-                count: tradeData.blockTrades,
-                volume: tradeData.blockVolume,
-                largestTrade: tradeData.largestTrade,
-            } : null,
-            bidAsk: quoteData ? {
-                spread: quoteData.bidAskSpread,
-                bid: quoteData.bid,
-                ask: quoteData.ask,
-                label: quoteData.spreadLabel,
-            } : null,
-            shortVolume: shortVolumeData ? {
-                percent: shortVolumeData.shortVolPercent,
-                volume: shortVolumeData.shortVolume,
-                totalVolume: shortVolumeData.totalVolume,
-            } : null,
-        };
+        const response = buildResponse(ticker, tradeData, quoteData, shortVolumeData);
 
-        // Save to Redis for fallback
+        // Save to Redis with timestamp for SWR age detection
         if (tradeData || quoteData || shortVolumeData) {
             setInCache(cacheKey, response, REDIS_TTL).catch(() => { }); // fire-and-forget
         }
