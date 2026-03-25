@@ -66,6 +66,7 @@ const TOOLTIP_STYLE = {
     borderWidth: 1,
     textStyle: { color: '#e2e8f0' },
     extraCssText: 'box-shadow: 0 8px 32px rgba(0,0,0,0.5); border-radius: 10px; backdrop-filter: blur(8px);',
+    confine: true,
 };
 
 // ═══════════════════════════════════════════════════════════════════════════
