@@ -555,11 +555,11 @@ export async function GET(request: NextRequest) {
         console.log(`[Command Unified] 🌐 Non-universe cold-start for ${ticker} — safe Polygon fetch`);
         const baseUrl = getBaseUrl(request);
         try {
-            const COLD_START_TIMEOUT = 10000; // 10s for cold start (Polygon unlimited plan)
+            const COLD_START_TIMEOUT = 20000; // 20s for cold start (maxDuration=30s, needs margin)
             const coldResult = await Promise.race([
                 buildUnifiedData(ticker, baseUrl, locale),
                 new Promise<null>(resolve => setTimeout(() => {
-                    console.warn(`[Command Unified] ⏱️ Cold-start timeout (10s) for ${ticker}`);
+                    console.warn(`[Command Unified] ⏱️ Cold-start timeout (20s) for ${ticker}`);
                     resolve(null);
                 }, COLD_START_TIMEOUT))
             ]);
