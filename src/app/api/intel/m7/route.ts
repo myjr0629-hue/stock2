@@ -3,7 +3,8 @@
 // [PERF] Reduces 14+ API calls to 1 single request
 // Caching: 15s for realtime data
 
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
+import { GET as getLiveTicker } from '@/app/api/live/ticker/route';
 import { getStockData, getOptionsData } from '@/services/stockApi';
 import { analyzeGemsTicker } from '@/services/stockTypes';
 import { fetchMassive } from '@/services/massiveClient';
@@ -40,6 +41,15 @@ export interface M7Quote {
     rvol: number;
     whaleIndex: number;
     darkPoolPct: number;
+}
+
+async function callInternalGet(handler: Function, url: string): Promise<any> {
+    try {
+        const mockReq = new NextRequest(url);
+        const res = await Promise.race([handler(mockReq), new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 10000))]) as Response;
+        if (!res || typeof res.json !== 'function') return null;
+        return await res.json();
+    } catch { return null; }
 }
 
 export async function GET(request: Request) {
@@ -162,13 +172,8 @@ export async function GET(request: Request) {
             // Fetch live price data for each ticker
             Promise.all(M7_TICKERS.map(async (ticker) => {
                 try {
-                    const res = await fetch(`${baseUrl}/api/live/ticker?t=${ticker}`, {
-                        cache: 'no-store'
-                    });
-                    if (!res.ok) return { ticker, data: null };
-                    const t = await res.text();
-                    if (!t) return { ticker, data: null };
-                    try { return { ticker, data: JSON.parse(t) }; } catch { return { ticker, data: null }; }
+                    const data = await callInternalGet(getLiveTicker, `${baseUrl}/api/live/ticker?t=${ticker}`);
+                    return { ticker, data };
                 } catch {
                     return { ticker, data: null };
                 }

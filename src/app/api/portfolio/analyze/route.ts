@@ -3,6 +3,7 @@
 
 import { NextResponse } from 'next/server';
 import { getStockData, getOptionsData } from '@/services/stockApi';
+import { getStructureData } from '@/services/structureService'; // [FIX] Direct import
 
 // Simplified Alpha calculation for portfolio holdings
 
@@ -20,14 +21,11 @@ export async function GET(request: Request) {
     try {
         const startTime = Date.now();
 
-        // [FIX] Fetch options structure from same API as Command page for consistency
-        const baseUrl = request.url.split('/api/')[0];
-
-        // Parallel fetch stock data, options, and options structure
+        // Parallel fetch stock data, options, and structure (direct import, no HTTP)
         const [stockData, optionsData, structureRes] = await Promise.all([
             getStockData(tickerUpper, '1d'),
             getOptionsData(tickerUpper).catch(() => null),
-            fetch(`${baseUrl}/api/live/options/structure?t=${tickerUpper}`).then(r => r.ok ? r.json() : null).catch(() => null)
+            getStructureData(tickerUpper).catch(() => null)
         ]);
 
         const elapsed = Date.now() - startTime;

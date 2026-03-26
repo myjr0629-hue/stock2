@@ -120,8 +120,23 @@ export async function getFromCache<T>(key: string): Promise<T | null> {
 /**
  * Set value in Redis cache with optional TTL (seconds)
  * Writes to BOTH EC2 Proxy (ElastiCache) and Upstash for consistency
+ * [GLOBAL POLICY] Rejects null, undefined, or failed data to prevent cache poisoning
  */
 export async function setInCache<T>(key: string, value: T, ttlSeconds?: number): Promise<boolean> {
+    // [GLOBAL POLICY] Never cache null, undefined, or error responses
+    if (value === null || value === undefined) {
+        console.warn(`[Redis] BLOCKED: Attempted to cache null/undefined for key=${key}`);
+        return false;
+    }
+    if (typeof value === 'object' && value !== null) {
+        const v = value as any;
+        // Block {error: "..."} responses (e.g., "fetch failed")
+        if (v.error && Object.keys(v).length <= 2) {
+            console.warn(`[Redis] BLOCKED: Attempted to cache error response for key=${key}: ${v.error}`);
+            return false;
+        }
+    }
+
     let ecOk = false;
     let upstashOk = false;
 
