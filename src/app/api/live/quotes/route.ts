@@ -80,6 +80,17 @@ export async function GET(request: Request) {
 
         const data: Record<string, any> = {};
 
+        // [FIX] Batch-fetch Redis extended price cache for all tickers
+        // These are populated by /api/live/ticker (24h TTL) and contain accurate pre/post prices
+        const extCacheMap: Record<string, any> = {};
+        await Promise.all(
+            tickers.map(async (ticker) => {
+                try {
+                    const cached = await getFromCache<any>(`flow:extended:${ticker}`);
+                    if (cached) extCacheMap[ticker] = cached;
+                } catch { /* non-critical */ }
+            })
+        );
         results.forEach(({ ticker, snapshot: S, error }) => {
             if (error || !S) {
                 data[ticker] = { price: 0, changePercent: 0, error };
@@ -119,13 +130,18 @@ export async function GET(request: Request) {
             let price = 0;
             let extendedPrice = 0;
             let extendedLabel = '';
+            // [FIX] Redis-cached extended data (populated by /api/live/ticker, 24h TTL)
+            const cachedExt = extCacheMap[ticker];
 
             if (session === 'regular') {
                 price = liveLast || dayClose || prevClose;
-                // [FIX] Provide PRE CLOSE badge during REG session from Polygon preMarket data
+                // [FIX] PRE CLOSE badge during REG: Polygon preMarket → Redis fallback
                 const preMarketClose = S.preMarket?.c || 0;
                 if (preMarketClose > 0) {
                     extendedPrice = preMarketClose;
+                    extendedLabel = 'PRE';
+                } else if (cachedExt?.prePrice > 0) {
+                    extendedPrice = cachedExt.prePrice;
                     extendedLabel = 'PRE';
                 }
             } else if (session === 'pre') {
@@ -135,6 +151,9 @@ export async function GET(request: Request) {
             } else if (session === 'post') {
                 price = dayClose || prevClose;
                 extendedPrice = S.min?.c || liveLast || 0;
+                if (!extendedPrice && cachedExt?.postPrice > 0) {
+                    extendedPrice = cachedExt.postPrice;
+                }
                 extendedLabel = 'POST';
             } else {
                 // CLOSED
@@ -142,12 +161,23 @@ export async function GET(request: Request) {
                 if (S.afterHours?.p && S.afterHours.p > 0) {
                     extendedPrice = S.afterHours.p;
                     extendedLabel = 'POST';
+                } else if (cachedExt?.postPrice > 0) {
+                    extendedPrice = cachedExt.postPrice;
+                    extendedLabel = 'POST';
                 }
             }
 
-            const extendedChangePct = (extendedPrice > 0 && price > 0)
-                ? ((extendedPrice - price) / price) * 100
-                : 0;
+            // [FIX] Use cached changePct if available (more accurate than recalculating)
+            let extendedChangePct = 0;
+            if (extendedPrice > 0 && price > 0) {
+                extendedChangePct = ((extendedPrice - price) / price) * 100;
+            }
+            // Override with cached changePct for better accuracy
+            if (extendedLabel === 'PRE' && cachedExt?.preChangePct !== undefined && extendedPrice === cachedExt?.prePrice) {
+                extendedChangePct = cachedExt.preChangePct;
+            } else if (extendedLabel === 'POST' && cachedExt?.postChangePct !== undefined && extendedPrice === cachedExt?.postPrice) {
+                extendedChangePct = cachedExt.postChangePct;
+            }
 
             data[ticker] = {
                 price,
