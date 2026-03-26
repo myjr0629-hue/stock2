@@ -416,7 +416,7 @@ async function harvestDetails() {
         if (r) {
           detailsMap[ticker].overview = { name:r.name||ticker, sector:r.sic_description||null, sectorEN:r.sic_description||null, description:r.description?.slice(0,300)||null, descriptionEN:r.description?.slice(0,300)||null, marketCap:r.market_cap||null, exchange:r.primary_exchange||null };
         }
-        await client.send(new PutCommand({ TableName:'signum-pattern-db', Item:{ pattern:'FUND:'+ticker, timestamp:Date.now(), name:r?.name||ticker, marketCap:r?.market_cap||null, sector:r?.sic_description||null, exchange:r?.primary_exchange||null, score:finalScore, grade }}));
+        await client.send(new PutCommand({ TableName:'signum-pattern-db', Item:{ pattern:'FUND:'+ticker, timestamp:Date.now(), name:r?.name||ticker, marketCap:r?.market_cap||null, sector:r?.sic_description||null, exchange:r?.primary_exchange||null, description:r?.description?.slice(0,500)||null, score:finalScore, grade, pe:pe!==null?Math.round(pe*10)/10:null, de:de!==null?Math.round(de*100)/100:null, roe:roe!==null?Math.round(roe*1000)/10:null, revenueGrowth:revenueGrowth!==null?Math.round(revenueGrowth*10)/10:null, netMargin:netMargin!==null?Math.round(netMargin*10)/10:null, fcfYield:fcfYield!==null?Math.round(fcfYield*10)/10:null, pb:pb!==null?Math.round(pb*10)/10:null, ps:ps!==null?Math.round(ps*10)/10:null, breakdown }}));
         fundOk++;
       } catch {}
     }));
@@ -816,36 +816,37 @@ exports.handler = async (event) => {
   } else {
     results.details = 'SKIP:not_daily_window';
     // Load existing details from DynamoDB for unified cache
-    // (We have them from previous runs in signum-pattern-db)
-    for (const ticker of UNIVERSE_500) {
-      try {
-        const [analystRes, earningsRes, fundRes, relRes] = await Promise.all([
-          client.send(new GetCommand({ TableName:'signum-pattern-db', Key:{pattern:'ANALYST:'+ticker} })),
-          client.send(new GetCommand({ TableName:'signum-pattern-db', Key:{pattern:'EARNINGS:'+ticker} })),
-          client.send(new GetCommand({ TableName:'signum-pattern-db', Key:{pattern:'FUND:'+ticker} })),
-          client.send(new GetCommand({ TableName:'signum-pattern-db', Key:{pattern:'RELATED:'+ticker} })),
-        ]);
-        detailsMap[ticker] = {};
-        if (analystRes.Item) {
-          const a = analystRes.Item;
-          detailsMap[ticker].analyst = { ticker, consensus:a.consensus, totalAnalysts:a.totalAnalysts, bullishPct:a.bullishPct, breakdown:a.breakdown };
-        }
-        if (earningsRes.Item) {
-          const e = earningsRes.Item;
-          const today2 = new Date().toISOString().slice(0,10);
-          const daysUntil = e.nextDate ? Math.ceil((new Date(e.nextDate).getTime()-new Date(today2).getTime())/86400000) : 0;
-          detailsMap[ticker].earnings = { ticker, nextEarningsDate:e.nextDate, daysUntilEarnings:daysUntil, daysLabel:daysUntil<=0?'today':'D-'+daysUntil, hasData:true, epsEstimate:e.epsEstimate, quarter:e.quarter, year:e.year };
-        }
-        if (fundRes.Item) {
-          const f = fundRes.Item;
-          detailsMap[ticker].fundamentals = { ticker, name:f.name||ticker, marketCap:f.marketCap, sector:f.sector };
-          detailsMap[ticker].overview = { name:f.name||ticker, sector:f.sector, sectorEN:f.sector, description:f.description?.slice(0,300), descriptionEN:f.description?.slice(0,300), marketCap:f.marketCap, exchange:f.exchange };
-        }
-        if (relRes.Item && relRes.Item.tickers) {
-          const tks = relRes.Item.tickers;
-          detailsMap[ticker].related = { ticker, count:tks.length, topRelated:tks.slice(0,4).map(t=>({ticker:t,price:0,change:0,logo:null})), relatedTickers:tks, allTickers:tks };
-        }
-      } catch {}
+    // pattern-db has composite key: pattern(HASH) + timestamp(RANGE)
+    // Must use QueryCommand (not GetCommand) with Limit=1, ScanIndexForward=false for latest
+    for (let bi = 0; bi < UNIVERSE_500.length; bi += 10) {
+      const batch2 = UNIVERSE_500.slice(bi, bi+10);
+      await Promise.all(batch2.map(async (ticker) => {
+        try {
+          const q = (prefix) => client.send(new QueryCommand({ TableName:'signum-pattern-db', KeyConditionExpression:'pattern=:p', ExpressionAttributeValues:{':p':prefix+ticker}, Limit:1, ScanIndexForward:false }));
+          const [analystRes, earningsRes, fundRes, relRes] = await Promise.all([q('ANALYST:'), q('EARNINGS:'), q('FUND:'), q('RELATED:')]);
+          detailsMap[ticker] = {};
+          const a = analystRes.Items?.[0];
+          if (a) {
+            detailsMap[ticker].analyst = { ticker, consensus:a.consensus, totalAnalysts:a.totalAnalysts, bullishPct:a.bullishPct, breakdown:a.breakdown };
+          }
+          const e = earningsRes.Items?.[0];
+          if (e) {
+            const today2 = new Date().toISOString().slice(0,10);
+            const daysUntil = e.nextDate ? Math.ceil((new Date(e.nextDate).getTime()-new Date(today2).getTime())/86400000) : 0;
+            detailsMap[ticker].earnings = { ticker, nextEarningsDate:e.nextDate, daysUntilEarnings:daysUntil, daysLabel:daysUntil<=0?'today':'D-'+daysUntil, hasData:true, epsEstimate:e.epsEstimate, quarter:e.quarter, year:e.year };
+          }
+          const f = fundRes.Items?.[0];
+          if (f) {
+            detailsMap[ticker].fundamentals = { ticker, name:f.name||ticker, marketCap:f.marketCap, sector:f.sector, description:f.description?.slice(0,500)||null, exchange:f.exchange||null, score:f.score??null, grade:f.grade||null, pe:f.pe??null, de:f.de??null, roe:f.roe??null, revenueGrowth:f.revenueGrowth??null, netMargin:f.netMargin??null, fcfYield:f.fcfYield??null, pb:f.pb??null, ps:f.ps??null, breakdown:f.breakdown||null };
+            detailsMap[ticker].overview = { name:f.name||ticker, sector:f.sector, sectorEN:f.sector, description:f.description?.slice(0,300), descriptionEN:f.description?.slice(0,300), marketCap:f.marketCap, exchange:f.exchange };
+          }
+          const rel = relRes.Items?.[0];
+          if (rel?.tickers) {
+            const tks = rel.tickers;
+            detailsMap[ticker].related = { ticker, count:tks.length, topRelated:tks.slice(0,4).map(t=>({ticker:t,price:0,change:0,logo:null})), relatedTickers:tks, allTickers:tks };
+          }
+        } catch {}
+      }));
     }
   }
   
