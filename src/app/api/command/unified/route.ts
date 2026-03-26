@@ -281,20 +281,26 @@ async function buildUnifiedData(ticker: string, baseUrl: string, locale: string)
     return { data, overview };
 }
 
-// Background Revalidator
-async function triggerBackgroundRefresh(ticker: string, dataCacheKey: string, overviewCacheKey: string, baseUrl: string, locale: string) {
-    console.log(`[Command Unified] Triggering background refresh for ${ticker}`);
+// [AWS-FIRST] Background Revalidator — reads from DynamoDB, NOT Polygon.
+// warm-command cron is responsible for populating DynamoDB. This just syncs DynamoDB→Redis.
+async function triggerBackgroundRefresh(ticker: string, dataCacheKey: string, overviewCacheKey: string, _baseUrl: string, _locale: string) {
+    console.log(`[Command Unified] SWR background sync (DynamoDB→Redis) for ${ticker}`);
     try {
-        const { data: newData, overview: newOverview } = await buildUnifiedData(ticker, baseUrl, locale);
-        if (newData.structure || newData.options) {
-            await setInCache(dataCacheKey, newData, getSmartTTL());
+        const { getUnifiedCache } = await import('@/lib/aws/unifiedCacheProvider');
+        const dynamoData = await Promise.race([
+            getUnifiedCache(ticker, 'en'),
+            new Promise<null>(r => setTimeout(() => r(null), 5000)) // 5s timeout
+        ]);
+        if (dynamoData && typeof dynamoData === 'object') {
+            const CORE_FIELDS = ['structure','analyst','fundamentals','earnings','sma','related','squeeze','volatility','institutional'] as const;
+            const fieldCount = CORE_FIELDS.filter(f => (dynamoData as any)[f]).length;
+            if (fieldCount >= 3) {
+                await setInCache(dataCacheKey, dynamoData, getSmartTTL());
+                console.log(`[Command Unified] SWR sync complete: ${ticker} (${fieldCount}/9 fields)`);
+            }
         }
-        if (newOverview) {
-            await setInCache(overviewCacheKey, newOverview, getSmartTTL());
-        }
-        console.log(`[Command Unified] Background refresh complete for ${ticker}`);
     } catch (e) {
-        console.error(`[Command Unified] Background refresh failed for ${ticker}`, e);
+        console.warn(`[Command Unified] SWR sync failed for ${ticker}:`, e);
     }
 }
 
