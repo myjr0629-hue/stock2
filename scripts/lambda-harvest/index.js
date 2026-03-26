@@ -334,21 +334,90 @@ async function harvestDetails() {
     console.log('Finnhub Earnings: '+earningsOk+'/'+earningsProcessed+' processed');
   }
   
-  // === 4c: Polygon Fundamentals — ALL tickers (no rate limit) ===
+  // === 4c: Polygon Fundamentals — Reference + Financial Ratios + vX Financials ===
+  // Fetches 3 APIs per ticker: reference (name/sector), ratios (PE/DE/ROE), vX financials (revenue/margin)
   let fundOk = 0;
-  for (let i = 0; i < UNIVERSE_500.length; i += 10) {
-    const batch = UNIVERSE_500.slice(i, i+10);
+  for (let i = 0; i < UNIVERSE_500.length; i += 5) {
+    const batch = UNIVERSE_500.slice(i, i+5);
     await Promise.all(batch.map(async (ticker) => {
       try {
-        const data = await httpsGet('https://api.polygon.io/v3/reference/tickers/'+ticker+'?apiKey='+POLYGON_KEY, 5000);
-        const r = data?.results;
-        if (r) {
-          detailsMap[ticker] = detailsMap[ticker] || {};
-          detailsMap[ticker].fundamentals = { ticker, name:r.name||ticker, marketCap:r.market_cap||null, sector:r.sic_description||null, description:r.description?.slice(0,500)||null, exchange:r.primary_exchange||null };
-          detailsMap[ticker].overview = { name:r.name||ticker, sector:r.sic_description||null, sectorEN:r.sic_description||null, description:r.description?.slice(0,300)||null, descriptionEN:r.description?.slice(0,300)||null, marketCap:r.market_cap||null, exchange:r.primary_exchange||null };
-          await client.send(new PutCommand({ TableName:'signum-pattern-db', Item:{ pattern:'FUND:'+ticker, timestamp:Date.now(), name:r.name||ticker, marketCap:r.market_cap||null, shareCount:r.share_class_shares_outstanding||null, description:r.description?.slice(0,500)||null, sector:r.sic_description||null, exchange:r.primary_exchange||null, locale:r.locale||null }}));
-          fundOk++;
+        // Parallel fetch: reference + financial ratios + vX financials
+        const [refData, ratiosData, vxData] = await Promise.all([
+          httpsGet('https://api.polygon.io/v3/reference/tickers/'+ticker+'?apiKey='+POLYGON_KEY, 5000).catch(() => null),
+          httpsGet('https://api.polygon.io/stocks/financials/v1/ratios?ticker='+ticker+'&limit=1&apiKey='+POLYGON_KEY, 5000).catch(() => null),
+          httpsGet('https://api.polygon.io/vX/reference/financials?ticker='+ticker+'&limit=5&timeframe=quarterly&order=desc&sort=period_of_report_date&apiKey='+POLYGON_KEY, 5000).catch(() => null),
+        ]);
+        
+        const r = refData?.results;
+        detailsMap[ticker] = detailsMap[ticker] || {};
+        
+        // --- Financial Ratios ---
+        const ratios = ratiosData?.results?.[0] || {};
+        const pe = ratios.price_to_earnings ?? null;
+        const de = ratios.debt_to_equity ?? null;
+        const roe = ratios.return_on_equity ?? null;
+        const pb = ratios.price_to_book ?? null;
+        const ps = ratios.price_to_sales ?? null;
+        const fcfRaw = ratios.free_cash_flow ?? null;
+        const mktCap = ratios.market_cap ?? (r?.market_cap || null);
+        let fcfYield = null;
+        if (fcfRaw !== null && mktCap !== null && mktCap > 0) fcfYield = (fcfRaw / mktCap) * 100;
+        
+        // --- vX Financials (revenue growth, net margin) ---
+        const vxResults = vxData?.results || [];
+        let revenueGrowth = null, netMargin = null;
+        if (vxResults.length >= 1) {
+          const latest = vxResults[0]?.financials?.income_statement;
+          if (latest) {
+            const revLatest = latest.revenues?.value || 0;
+            const netIncome = latest.net_income_loss?.value || 0;
+            if (revLatest > 0) netMargin = (netIncome / revLatest) * 100;
+          }
+          if (latest && vxResults.length >= 2) {
+            const revLatest = latest.revenues?.value || 0;
+            let revPrev = 0;
+            const preferredIdx = vxResults.length >= 5 ? 4 : vxResults.length - 1;
+            for (let j = preferredIdx; j >= 1; j--) {
+              const val = vxResults[j]?.financials?.income_statement?.revenues?.value;
+              if (val && val > 0) { revPrev = val; break; }
+            }
+            if (revPrev > 0 && revLatest > 0) revenueGrowth = ((revLatest - revPrev) / Math.abs(revPrev)) * 100;
+          }
         }
+        
+        // --- Score Calculation ---
+        let score = 0;
+        const breakdown = {};
+        if (pe !== null && pe > 0) { const s = pe<15?20:pe<25?16:pe<35?12:pe<50?8:4; score+=s; breakdown.pe = {value:pe.toFixed(1),score:s,label:'P/E'}; } else { breakdown.pe = {value:pe!==null?pe.toFixed(1):'N/A',score:0,label:'P/E'}; }
+        if (de !== null) { const s = de<0.3?20:de<0.6?16:de<1.0?12:de<2.0?8:4; score+=s; breakdown.de = {value:de.toFixed(2),score:s,label:'D/E'}; } else { breakdown.de = {value:'N/A',score:0,label:'D/E'}; }
+        if (fcfYield !== null) { const s = fcfYield>8?20:fcfYield>5?16:fcfYield>3?12:fcfYield>1?8:4; score+=s; breakdown.fcf = {value:fcfYield.toFixed(1)+'%',score:s,label:'FCF'}; } else { breakdown.fcf = {value:'N/A',score:0,label:'FCF'}; }
+        if (revenueGrowth !== null) { const s = revenueGrowth>50?20:revenueGrowth>25?16:revenueGrowth>10?12:revenueGrowth>0?8:4; score+=s; breakdown.rev = {value:(revenueGrowth>0?'+':'')+revenueGrowth.toFixed(0)+'%',score:s,label:'Rev'}; } else { breakdown.rev = {value:'N/A',score:0,label:'Rev'}; }
+        if (netMargin !== null) { const s = netMargin>30?20:netMargin>20?16:netMargin>10?12:netMargin>0?8:4; score+=s; breakdown.margin = {value:netMargin.toFixed(1)+'%',score:s,label:'Margin'}; } else { breakdown.margin = {value:'N/A',score:0,label:'Margin'}; }
+        
+        const hasAnyData = Object.values(breakdown).some(b => b.score > 0);
+        let grade, finalScore;
+        if (!hasAnyData) { grade = 'NO_DATA'; finalScore = null; }
+        else { finalScore = score; grade = score>=80?'A':score>=70?'A-':score>=60?'B+':score>=50?'B':score>=40?'C+':score>=30?'C':score>=20?'D':'F'; }
+        
+        detailsMap[ticker].fundamentals = {
+          ticker, name: r?.name||ticker, marketCap: r?.market_cap||mktCap, sector: r?.sic_description||null,
+          description: r?.description?.slice(0,500)||null, exchange: r?.primary_exchange||null,
+          score: finalScore, grade,
+          pe: pe!==null ? Math.round(pe*10)/10 : null,
+          de: de!==null ? Math.round(de*100)/100 : null,
+          roe: roe!==null ? Math.round(roe*1000)/10 : null,
+          revenueGrowth: revenueGrowth!==null ? Math.round(revenueGrowth*10)/10 : null,
+          netMargin: netMargin!==null ? Math.round(netMargin*10)/10 : null,
+          fcfYield: fcfYield!==null ? Math.round(fcfYield*10)/10 : null,
+          pb: pb!==null ? Math.round(pb*10)/10 : null,
+          ps: ps!==null ? Math.round(ps*10)/10 : null,
+          breakdown,
+        };
+        if (r) {
+          detailsMap[ticker].overview = { name:r.name||ticker, sector:r.sic_description||null, sectorEN:r.sic_description||null, description:r.description?.slice(0,300)||null, descriptionEN:r.description?.slice(0,300)||null, marketCap:r.market_cap||null, exchange:r.primary_exchange||null };
+        }
+        await client.send(new PutCommand({ TableName:'signum-pattern-db', Item:{ pattern:'FUND:'+ticker, timestamp:Date.now(), name:r?.name||ticker, marketCap:r?.market_cap||null, sector:r?.sic_description||null, exchange:r?.primary_exchange||null, score:finalScore, grade }}));
+        fundOk++;
       } catch {}
     }));
   }
