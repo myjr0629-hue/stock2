@@ -516,21 +516,31 @@ export async function GET(request: NextRequest) {
             }
 
             // Step 2: Fire-and-forget Lambda invoke (async — no waiting for result)
-            const { LambdaClient, InvokeCommand } = await import('@aws-sdk/client-lambda');
-            const awsAccessKeyId = process.env.AWS_ACCESS_KEY_ID;
-            const awsSecretAccessKey = process.env.AWS_SECRET_ACCESS_KEY;
-            if (awsAccessKeyId && awsSecretAccessKey) {
-                const lambdaClient = new LambdaClient({ 
-                    region: 'us-east-1',
-                    credentials: { accessKeyId: awsAccessKeyId, secretAccessKey: awsSecretAccessKey },
-                });
-                // Event = async fire-and-forget — Lambda runs in background, no timeout risk
-                await lambdaClient.send(new InvokeCommand({
-                    FunctionName: 'signum-harvest',
-                    InvocationType: 'Event', // ASYNC — returns 202 immediately
-                    Payload: JSON.stringify({ onDemandTicker: ticker }),
-                }));
-                console.log(`[Command Unified] 🚀 Lambda async invoke dispatched for ${ticker} — data will be in DynamoDB in ~60s`);
+            // [DEDUPE] Prevent duplicate Lambda invocations for the same ticker
+            // Uses Redis pending marker with 90s TTL — if already dispatched, skip
+            const pendingKey = `pending:cold:${ticker}`;
+            const alreadyPending = await getFromCache<string>(pendingKey).catch(() => null);
+            if (alreadyPending) {
+                console.log(`[Command Unified] ⏳ Lambda already dispatched for ${ticker} (${alreadyPending}) — skipping duplicate`);
+            } else {
+                const { LambdaClient, InvokeCommand } = await import('@aws-sdk/client-lambda');
+                const awsAccessKeyId = process.env.AWS_ACCESS_KEY_ID;
+                const awsSecretAccessKey = process.env.AWS_SECRET_ACCESS_KEY;
+                if (awsAccessKeyId && awsSecretAccessKey) {
+                    // Set pending marker BEFORE dispatch to prevent race condition
+                    await setInCache(pendingKey, new Date().toISOString(), 90); // 90s TTL
+                    const lambdaClient = new LambdaClient({ 
+                        region: 'us-east-1',
+                        credentials: { accessKeyId: awsAccessKeyId, secretAccessKey: awsSecretAccessKey },
+                    });
+                    // Event = async fire-and-forget — Lambda runs in background, no timeout risk
+                    await lambdaClient.send(new InvokeCommand({
+                        FunctionName: 'signum-harvest',
+                        InvocationType: 'Event', // ASYNC — returns 202 immediately
+                        Payload: JSON.stringify({ onDemandTicker: ticker }),
+                    }));
+                    console.log(`[Command Unified] 🚀 Lambda async invoke dispatched for ${ticker} — data will be in DynamoDB in ~60s`);
+                }
             }
         } catch (e) {
             console.error(`[Command Unified] Lambda cold-start error for ${ticker}:`, e);
