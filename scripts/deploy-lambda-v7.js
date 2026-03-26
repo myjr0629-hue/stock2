@@ -366,35 +366,31 @@ async function harvestDetails() {
     console.log('FMP Analyst: '+analystOk+'/'+UNIVERSE_500.length);
   }
   
-  // === 4b: Finnhub Earnings — rate-limited (60/min), process as many as possible ===
-  if (FINNHUB_KEY) {
-    let earningsProcessed = 0;
-    for (let i = 0; i < UNIVERSE_500.length; i += 2) {
-      const batch = UNIVERSE_500.slice(i, i+2);
-      await Promise.all(batch.map(async (ticker) => {
+  // === 4b: FMP Earnings Calendar — 1 API call for ALL tickers (no rate limit) ===
+  if (FMP_KEY) {
+    try {
+      const toDate = new Date(Date.now()+180*86400000).toISOString().slice(0,10);
+      const earningsAll = await httpsGet('https://financialmodelingprep.com/stable/earnings-calendar?from='+today+'&to='+toDate+'&apikey='+FMP_KEY, 15000);
+      const earningsArr = Array.isArray(earningsAll) ? earningsAll : [];
+      const tickerSet = new Set(UNIVERSE_500);
+      // Group by symbol, keep only the nearest future date per ticker
+      const earningsMap = {};
+      for (const e of earningsArr) {
+        if (!tickerSet.has(e.symbol)) continue;
+        if (!earningsMap[e.symbol] || new Date(e.date) < new Date(earningsMap[e.symbol].date)) {
+          earningsMap[e.symbol] = e;
+        }
+      }
+      for (const [ticker, e] of Object.entries(earningsMap)) {
         detailsMap[ticker] = detailsMap[ticker] || {};
-        try {
-          const from = today;
-          const toDate = new Date(Date.now()+180*86400000).toISOString().slice(0,10);
-          const eData = await httpsGet('https://finnhub.io/api/v1/calendar/earnings?symbol='+ticker+'&from='+from+'&to='+toDate+'&token='+FINNHUB_KEY, 8000);
-          const events = eData?.earningsCalendar || [];
-          if (events.length > 0) {
-            const next = events.sort((a,b) => new Date(a.date).getTime()-new Date(b.date).getTime())[0];
-            const daysUntil = Math.ceil((new Date(next.date).getTime()-new Date(today).getTime())/(86400000));
-            const daysLabel = daysUntil <= 0 ? 'today' : 'D-'+daysUntil;
-            detailsMap[ticker].earnings = { ticker, nextEarningsDate:next.date, daysUntilEarnings:daysUntil, daysLabel, hasData:true, epsEstimate:next.epsEstimate||null, quarter:next.quarter||null, year:next.year||null, hour:next.hour||null };
-            await client.send(new PutCommand({ TableName:'signum-pattern-db', Item:{ pattern:'EARNINGS:'+ticker, timestamp:Date.now(), nextDate:next.date, daysUntil, epsEstimate:next.epsEstimate||null, quarter:next.quarter||null, year:next.year||null, hour:next.hour||null }}));
-            earningsOk++;
-          }
-          earningsProcessed++;
-        } catch {}
-      }));
-      // Finnhub rate limit: 60/min → 2 per batch, wait 2.2s between batches
-      if (earningsProcessed % 10 === 0) await new Promise(r => setTimeout(r, 2200));
-      // Process ALL 509 tickers — no cap (Lambda has 600s timeout, earnings batch takes ~5min)
-      if (earningsProcessed >= 400) { console.log('Earnings: processed '+earningsProcessed+' tickers'); break; }
-    }
-    console.log('Finnhub Earnings: '+earningsOk+'/'+earningsProcessed+' processed');
+        const daysUntil = Math.ceil((new Date(e.date).getTime()-new Date(today).getTime())/(86400000));
+        const daysLabel = daysUntil <= 0 ? 'today' : 'D-'+daysUntil;
+        detailsMap[ticker].earnings = { ticker, nextEarningsDate:e.date, daysUntilEarnings:daysUntil, daysLabel, hasData:true, epsEstimate:e.epsEstimated||null, quarter:null, year:null, hour:null };
+        await client.send(new PutCommand({ TableName:'signum-pattern-db', Item:{ pattern:'EARNINGS:'+ticker, timestamp:Date.now(), nextDate:e.date, daysUntil, epsEstimate:e.epsEstimated||null, quarter:null, year:null, hour:null }})).catch(()=>{});
+        earningsOk++;
+      }
+      console.log('FMP Earnings: '+earningsOk+'/'+Object.keys(earningsMap).length+' matched from '+earningsArr.length+' total events');
+    } catch (e) { console.log('FMP Earnings err: '+e.message); }
   }
   
   // === 4c: Polygon Fundamentals — Reference + Financial Ratios + vX Financials ===
@@ -601,20 +597,41 @@ async function buildUnifiedCache(priceMap, gexMap, optionsCache, smaMap, details
           volatility = { regime: 'CALM', regimeScore: 0, gex: 0, gexLabel: 'N/A', iv: 0, flipDistance: 0, flipLevel: 0, isAboveFlip: false, squeezeScore: 0, squeezeRisk: 'LOW', gammaConcentration: 0, gammaConcentrationLabel: 'NORMAL' };
         }
         
-        // === Build squeeze (short volume from Polygon) ===
+        // === Build squeeze (short volume + short interest from Polygon) ===
         let squeeze = null;
         try {
-          const svData = await httpsGet('https://api.polygon.io/stocks/v1/short-volume?ticker='+ticker+'&limit=1&apiKey='+POLYGON_KEY, 5000);
+          const [svData, siData, floatData] = await Promise.all([
+            httpsGet('https://api.polygon.io/stocks/v1/short-volume?ticker='+ticker+'&limit=1&apiKey='+POLYGON_KEY, 5000).catch(()=>null),
+            httpsGet('https://api.polygon.io/stocks/v1/short-interest?ticker='+ticker+'&limit=2&order=desc&apiKey='+POLYGON_KEY, 5000).catch(()=>null),
+            httpsGet('https://api.polygon.io/v3/reference/tickers/'+ticker+'?apiKey='+POLYGON_KEY, 5000).catch(()=>null),
+          ]);
           const svResult = svData?.results?.[0];
-          if (svResult) {
-            const shortVol = svResult.short_volume || 0;
-            const totalVol = svResult.total_volume || 1;
-            const shortVolPct = Math.round((shortVol/totalVol)*1000)/10;
-            let riskScore = 0;
-            if (shortVolPct >= 50) riskScore += 20; else if (shortVolPct >= 40) riskScore += 10;
-            const status = riskScore >= 70 ? 'CRITICAL' : riskScore >= 45 ? 'HIGH' : riskScore >= 20 ? 'MEDIUM' : 'LOW';
-            squeeze = { ticker, siPercent:0, daysToCover:0, siChange:0, shortVolPercent:shortVolPct, riskScore, status };
+          const shortVol = svResult?.short_volume || 0;
+          const totalVol = svResult?.total_volume || 1;
+          const shortVolPct = Math.round((shortVol/totalVol)*1000)/10;
+          // SI% = (short_interest / float_shares) * 100
+          let siPercent = 0, daysToCover = 0, siChange = 0;
+          const siResults = siData?.results || [];
+          const floatShares = floatData?.results?.share_class_shares_outstanding || floatData?.results?.weighted_shares_outstanding || 0;
+          if (siResults.length > 0 && floatShares > 0) {
+            const latest = siResults[0];
+            siPercent = Math.round((latest.short_interest / floatShares) * 1000) / 10;
+            const avgVol = totalVol || 1;
+            daysToCover = Math.round((latest.short_interest / avgVol) * 10) / 10;
+            if (siResults.length >= 2) {
+              const prev = siResults[1];
+              const prevSi = Math.round((prev.short_interest / floatShares) * 1000) / 10;
+              siChange = Math.round((siPercent - prevSi) * 10) / 10;
+            }
           }
+          let riskScore = 0;
+          if (siPercent >= 20) riskScore += 40; else if (siPercent >= 10) riskScore += 25; else if (siPercent >= 5) riskScore += 10;
+          if (shortVolPct >= 50) riskScore += 20; else if (shortVolPct >= 40) riskScore += 10;
+          if (daysToCover >= 7) riskScore += 15; else if (daysToCover >= 3) riskScore += 10;
+          if (siChange > 2) riskScore += 15; else if (siChange > 0) riskScore += 5;
+          riskScore = Math.min(100, riskScore);
+          const status = riskScore >= 70 ? 'CRITICAL' : riskScore >= 45 ? 'HIGH' : riskScore >= 20 ? 'MEDIUM' : 'LOW';
+          squeeze = { ticker, siPercent, daysToCover, siChange, shortVolPercent:shortVolPct, riskScore, status, floatShares };
         } catch {}
         
         // === Build institutional (simplified — dark pool % from snapshot) ===
@@ -683,7 +700,7 @@ async function buildUnifiedCache(priceMap, gexMap, optionsCache, smaMap, details
 
 exports.handler = async (event) => {
   const start = Date.now();
-  console.log('SIGNUM Harvest Lambda v7.1 — ' + new Date().toISOString());
+  console.log('SIGNUM Harvest Lambda v8.0 — FMP Earnings + SI% Restore — ' + new Date().toISOString());
   
   // ══════════════════════════════════════════════════════════════
   // ON-DEMAND MODE: Fetch a single non-universe ticker
@@ -803,21 +820,32 @@ exports.handler = async (event) => {
         } catch {}
       }
       
-      // 5. Earnings (Finnhub)
+      // 5. Earnings (DynamoDB cache first, then FMP fallback)
       let earnings = null;
-      if (FINNHUB_KEY) {
-        try {
+      try {
+        // Try DynamoDB pattern-db first (cached by scheduled harvest)
+        const earningsRes = await client.send(new QueryCommand({ TableName:'signum-pattern-db', KeyConditionExpression:'pattern=:p', ExpressionAttributeValues:{':p':'EARNINGS:'+ticker}, Limit:1, ScanIndexForward:false })).catch(()=>({Items:[]}));
+        const cached = earningsRes.Items?.[0];
+        if (cached?.nextDate) {
           const today = new Date().toISOString().slice(0,10);
-          const toDate = new Date(Date.now()+180*86400000).toISOString().slice(0,10);
-          const eData = await httpsGet('https://finnhub.io/api/v1/calendar/earnings?symbol='+ticker+'&from='+today+'&to='+toDate+'&token='+FINNHUB_KEY, 5000);
-          const events = eData?.earningsCalendar || [];
+          const daysUntil = Math.ceil((new Date(cached.nextDate).getTime()-new Date(today).getTime())/86400000);
+          earnings = { ticker, nextEarningsDate:cached.nextDate, daysUntilEarnings:daysUntil, daysLabel:daysUntil<=0?'today':'D-'+daysUntil, hasData:true, epsEstimate:cached.epsEstimate||null };
+        }
+        // If no cached data, fetch from FMP (90-day window = much smaller response)
+        if (!earnings && FMP_KEY) {
+          const today = new Date().toISOString().slice(0,10);
+          const toDate = new Date(Date.now()+90*86400000).toISOString().slice(0,10);
+          const earningsAll = await httpsGet('https://financialmodelingprep.com/stable/earnings-calendar?from='+today+'&to='+toDate+'&apikey='+FMP_KEY, 10000);
+          const events = Array.isArray(earningsAll) ? earningsAll.filter(e => e.symbol === ticker) : [];
           if (events.length > 0) {
             const next = events.sort((a,b) => new Date(a.date).getTime()-new Date(b.date).getTime())[0];
             const daysUntil = Math.ceil((new Date(next.date).getTime()-new Date(today).getTime())/(86400000));
-            earnings = { ticker, nextEarningsDate:next.date, daysUntilEarnings:daysUntil, daysLabel:daysUntil<=0?'today':'D-'+daysUntil, hasData:true, epsEstimate:next.epsEstimate||null };
+            earnings = { ticker, nextEarningsDate:next.date, daysUntilEarnings:daysUntil, daysLabel:daysUntil<=0?'today':'D-'+daysUntil, hasData:true, epsEstimate:next.epsEstimated||null };
+            // Cache for future use
+            await client.send(new PutCommand({ TableName:'signum-pattern-db', Item:{ pattern:'EARNINGS:'+ticker, timestamp:Date.now(), nextDate:next.date, daysUntil, epsEstimate:next.epsEstimated||null }})).catch(()=>{});
           }
-        } catch {}
-      }
+        }
+      } catch {}
       
       // 6. SMA
       let sma = null;
@@ -862,19 +890,37 @@ exports.handler = async (event) => {
         volatility = { regime:'CALM', regimeScore:0, gex:0, gexLabel:'N/A', iv:0, flipDistance:0, flipLevel:0, isAboveFlip:false, squeezeScore:0, squeezeRisk:'LOW', gammaConcentration:0, gammaConcentrationLabel:'NORMAL' };
       }
       
-      // 9. Short Squeeze (Polygon short volume)
+      // 9. Short Squeeze (Polygon short volume + short interest + float)
       let squeeze = null;
       try {
-        const svData = await httpsGet('https://api.polygon.io/stocks/v1/short-volume?ticker='+ticker+'&limit=1&apiKey='+POLYGON_KEY, 5000);
+        const [svData, siData2, floatData2] = await Promise.all([
+          httpsGet('https://api.polygon.io/stocks/v1/short-volume?ticker='+ticker+'&limit=1&apiKey='+POLYGON_KEY, 5000).catch(()=>null),
+          httpsGet('https://api.polygon.io/stocks/v1/short-interest?ticker='+ticker+'&limit=2&order=desc&apiKey='+POLYGON_KEY, 5000).catch(()=>null),
+          httpsGet('https://api.polygon.io/v3/reference/tickers/'+ticker+'?apiKey='+POLYGON_KEY, 5000).catch(()=>null),
+        ]);
         const svResult = svData?.results?.[0];
-        if (svResult) {
-          const shortVol = svResult.short_volume || 0;
-          const totalVol = svResult.total_volume || 1;
-          const shortVolPct = Math.round((shortVol/totalVol)*1000)/10;
-          let riskScore = 0; if (shortVolPct >= 50) riskScore += 20; else if (shortVolPct >= 40) riskScore += 10;
-          const status = riskScore >= 70 ? 'CRITICAL' : riskScore >= 45 ? 'HIGH' : riskScore >= 20 ? 'MEDIUM' : 'LOW';
-          squeeze = { ticker, siPercent:0, daysToCover:0, siChange:0, shortVolPercent:shortVolPct, riskScore, status };
+        const shortVol = svResult?.short_volume || 0;
+        const totalVol = svResult?.total_volume || 1;
+        const shortVolPct = Math.round((shortVol/totalVol)*1000)/10;
+        let siPercent = 0, daysToCover = 0, siChange = 0;
+        const siResults2 = siData2?.results || [];
+        const floatShares2 = floatData2?.results?.share_class_shares_outstanding || floatData2?.results?.weighted_shares_outstanding || 0;
+        if (siResults2.length > 0 && floatShares2 > 0) {
+          siPercent = Math.round((siResults2[0].short_interest / floatShares2) * 1000) / 10;
+          daysToCover = Math.round((siResults2[0].short_interest / (totalVol || 1)) * 10) / 10;
+          if (siResults2.length >= 2) {
+            const prevSi = Math.round((siResults2[1].short_interest / floatShares2) * 1000) / 10;
+            siChange = Math.round((siPercent - prevSi) * 10) / 10;
+          }
         }
+        let riskScore = 0;
+        if (siPercent >= 20) riskScore += 40; else if (siPercent >= 10) riskScore += 25; else if (siPercent >= 5) riskScore += 10;
+        if (shortVolPct >= 50) riskScore += 20; else if (shortVolPct >= 40) riskScore += 10;
+        if (daysToCover >= 7) riskScore += 15; else if (daysToCover >= 3) riskScore += 10;
+        if (siChange > 2) riskScore += 15; else if (siChange > 0) riskScore += 5;
+        riskScore = Math.min(100, riskScore);
+        const status = riskScore >= 70 ? 'CRITICAL' : riskScore >= 45 ? 'HIGH' : riskScore >= 20 ? 'MEDIUM' : 'LOW';
+        squeeze = { ticker, siPercent, daysToCover, siChange, shortVolPercent:shortVolPct, riskScore, status };
       } catch {}
       
       // 10. Institutional (basic structure)
