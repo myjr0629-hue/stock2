@@ -86,3 +86,79 @@ export async function getUnifiedCache(ticker: string, locale: string, maxAgeMs =
         return null;
     }
 }
+
+// ═══════════════════════════════════════════════════════════════════
+// [v7.2] getUnifiedSnapshot() — Standardized read service
+// Fallback: Memory LRU → Redis → DynamoDB
+// Returns data with normalized freshness metadata
+// ═══════════════════════════════════════════════════════════════════
+
+export interface UnifiedSnapshot {
+    data: Record<string, any>;
+    _source: 'memory-lru' | 'cache' | 'dynamodb-unified' | 'dynamodb-gapfill' | 'unavailable';
+    _asOf: string;    // ISO timestamp of data creation
+    _ageSec: number;  // age in seconds
+    _isStale: boolean; // older than 30 minutes
+    _isPartial: boolean; // fewer than 5 core fields
+    _fieldCount: number;
+    _latencyMs: number;
+}
+
+const CORE_FIELDS = ['structure','analyst','fundamentals','earnings','sma','volatility','squeeze','institutional','related'] as const;
+const STALE_THRESHOLD_SEC = 1800; // 30 minutes
+
+export async function getUnifiedSnapshot(
+    ticker: string,
+    locale: string = 'en'
+): Promise<UnifiedSnapshot> {
+    const start = Date.now();
+
+    // Tier 1: Redis (~5ms)
+    try {
+        const { getFromCache } = await import('@/services/redisClient');
+        const cached = await getFromCache<any>(`cmd:data:${ticker}`).catch(() => null);
+        if (cached && cached.timestamp) {
+            const ageSec = Math.round((Date.now() - cached.timestamp) / 1000);
+            const fc = CORE_FIELDS.filter(f => !!cached[f]).length;
+            return {
+                data: cached,
+                _source: 'cache',
+                _asOf: new Date(cached.timestamp).toISOString(),
+                _ageSec: ageSec,
+                _isStale: ageSec > STALE_THRESHOLD_SEC,
+                _isPartial: fc < 5,
+                _fieldCount: fc,
+                _latencyMs: Date.now() - start,
+            };
+        }
+    } catch { /* Redis unavailable */ }
+
+    // Tier 3: DynamoDB (~50ms)
+    const dynData = await getUnifiedCache(ticker, locale);
+    if (dynData) {
+        const ageSec = Math.round((dynData._ageMs || 0) / 1000);
+        const fc = CORE_FIELDS.filter(f => !!dynData[f]).length;
+        return {
+            data: dynData,
+            _source: 'dynamodb-unified',
+            _asOf: new Date(dynData.timestamp || Date.now()).toISOString(),
+            _ageSec: ageSec,
+            _isStale: ageSec > STALE_THRESHOLD_SEC,
+            _isPartial: fc < 5,
+            _fieldCount: fc,
+            _latencyMs: Date.now() - start,
+        };
+    }
+
+    // All miss
+    return {
+        data: {},
+        _source: 'unavailable',
+        _asOf: new Date().toISOString(),
+        _ageSec: 0,
+        _isStale: false,
+        _isPartial: true,
+        _fieldCount: 0,
+        _latencyMs: Date.now() - start,
+    };
+}

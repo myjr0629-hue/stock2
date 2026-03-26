@@ -491,65 +491,46 @@ export async function GET(request: NextRequest) {
         }
 
         // ── Non-universe ticker: AWS Lambda cold-start ──
-        // Vercel does NOT call Polygon. Lambda does all Polygon work.
-        // Flow: Vercel → Lambda invoke → Lambda fetches Polygon → saves DynamoDB → Vercel reads DynamoDB
+        // Strategy: Try DynamoDB first (Lambda may have already saved it from a previous request)
+        // If not found: fire-and-forget Lambda invoke + return "preparing" immediately
         console.log(`[Command Unified] 🌐 Non-universe cold-start for ${ticker} — AWS Lambda on-demand`);
         try {
+            // Step 1: Check if Lambda already saved data from a previous request
+            const { getUnifiedCache } = await import('@/lib/aws/unifiedCacheProvider');
+            const existingDynData = await getUnifiedCache(ticker, locale);
+            if (existingDynData) {
+                const cacheData = (existingDynData as any).data || existingDynData;
+                await setInCache(dataCacheKey, cacheData, getSmartTTL());
+                memorySet(memKey, cacheData);
+                console.log(`[Command Unified] ✅ Cold-start HIT from previous Lambda run for ${ticker}`);
+                return jsonResponse({
+                    ...cacheData,
+                    overview: null,
+                    _source: 'dynamodb-cold-start',
+                    _asOf: new Date().toISOString(),
+                    _ageSec: Math.round((existingDynData._ageMs || 0) / 1000),
+                    _isStale: false,
+                    _isPartial: false,
+                    _latency: Date.now() - start,
+                });
+            }
+
+            // Step 2: Fire-and-forget Lambda invoke (async — no waiting for result)
             const { LambdaClient, InvokeCommand } = await import('@aws-sdk/client-lambda');
             const awsAccessKeyId = process.env.AWS_ACCESS_KEY_ID;
             const awsSecretAccessKey = process.env.AWS_SECRET_ACCESS_KEY;
-            if (!awsAccessKeyId || !awsSecretAccessKey) {
-                console.warn(`[Command Unified] ⚠️ AWS credentials not found — cannot invoke Lambda for ${ticker}`);
-                throw new Error('AWS credentials not configured');
-            }
-            const lambdaClient = new LambdaClient({ 
-                region: 'us-east-1',
-                credentials: { accessKeyId: awsAccessKeyId, secretAccessKey: awsSecretAccessKey },
-            });
-            const COLD_START_TIMEOUT = 20000; // 20s for Lambda invoke (Lambda has 600s internally)
-            
-            const invokeResult = await Promise.race([
-                lambdaClient.send(new InvokeCommand({
+            if (awsAccessKeyId && awsSecretAccessKey) {
+                const lambdaClient = new LambdaClient({ 
+                    region: 'us-east-1',
+                    credentials: { accessKeyId: awsAccessKeyId, secretAccessKey: awsSecretAccessKey },
+                });
+                // Event = async fire-and-forget — Lambda runs in background, no timeout risk
+                await lambdaClient.send(new InvokeCommand({
                     FunctionName: 'signum-harvest',
-                    InvocationType: 'RequestResponse',
+                    InvocationType: 'Event', // ASYNC — returns 202 immediately
                     Payload: JSON.stringify({ onDemandTicker: ticker }),
-                })),
-                new Promise<null>(resolve => setTimeout(() => {
-                    console.warn(`[Command Unified] ⏱️ Lambda invoke timeout (20s) for ${ticker}`);
-                    resolve(null);
-                }, COLD_START_TIMEOUT))
-            ]);
-
-            if (invokeResult && 'Payload' in invokeResult) {
-                const lambdaPayload = JSON.parse(new TextDecoder().decode(invokeResult.Payload as Uint8Array));
-                const lambdaBody = JSON.parse(lambdaPayload.body || '{}');
-                
-                if (lambdaBody.success && lambdaBody.fields > 0) {
-                    console.log(`[Command Unified] ✅ Lambda cold-start OK for ${ticker}: ${lambdaBody.fields}/5 fields in ${lambdaBody.duration}ms`);
-                    
-                    // Now read from DynamoDB (Lambda just saved it there)
-                    const { getUnifiedCache } = await import('@/lib/aws/unifiedCacheProvider');
-                    const dynData = await getUnifiedCache(ticker, locale);
-                    
-                    if (dynData) {
-                        const cacheData = (dynData as any).data || dynData;
-                        // Cache to Redis for subsequent fast reads
-                        await setInCache(dataCacheKey, cacheData, getSmartTTL());
-                        memorySet(memKey, cacheData);
-                        
-                        return jsonResponse({
-                            ...cacheData,
-                            overview: null,
-                            _source: 'lambda-cold-start',
-                            _cacheStatus: 'lambda-then-dynamo',
-                            _asOf: new Date().toISOString(),
-                            _ageSec: 0,
-                            _isStale: false,
-                            _isPartial: false,
-                            _latency: Date.now() - start,
-                        });
-                    }
-                }
+                }));
+                console.log(`[Command Unified] 🚀 Lambda async invoke dispatched for ${ticker} — data will be in DynamoDB in ~60s`);
             }
         } catch (e) {
             console.error(`[Command Unified] Lambda cold-start error for ${ticker}:`, e);
