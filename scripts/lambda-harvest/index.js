@@ -540,14 +540,29 @@ async function buildUnifiedCache(priceMap, gexMap, optionsCache, smaMap, details
           const isShortGamma = netGex < 0;
           const gammaFlip = gd.flipLevel || 0;
           const flipDistance = gammaFlip > 0 && price > 0 ? ((price - gammaFlip) / gammaFlip) * 100 : 0;
-          // ATM IV from options cache
+          // ATM IV from options cache — check BOTH greeks.implied_volatility AND top-level implied_volatility
           let atmIv = 0;
           if (optData && optData.opts) {
             const atm = optData.opts
-              .filter(o => o.greeks?.implied_volatility > 0 && o.details?.strike_price > 0)
+              .filter(o => {
+                const iv = o.implied_volatility || o.greeks?.implied_volatility || 0;
+                return iv > 0 && o.details?.strike_price > 0;
+              })
               .sort((a,b) => Math.abs((a.details?.strike_price||0)-price) - Math.abs((b.details?.strike_price||0)-price))
               .slice(0,4);
-            if (atm.length > 0) atmIv = Math.round(atm.reduce((s,o) => s + (o.greeks?.implied_volatility||0), 0) / atm.length * 100);
+            if (atm.length > 0) atmIv = Math.round(atm.reduce((s,o) => s + (o.implied_volatility || o.greeks?.implied_volatility || 0), 0) / atm.length * 100);
+          }
+          // [FIX] POST market: Polygon returns IV=0 for all options after close.
+          // Preserve the last known IV from DynamoDB instead of overwriting with 0.
+          if (atmIv === 0) {
+            try {
+              const existing = await client.send(new GetCommand({ TableName: 'signum-unified-cache', Key: { pk: ticker } }));
+              const cachedIv = existing.Item?.data?.volatility?.iv;
+              if (cachedIv && cachedIv > 0) {
+                atmIv = cachedIv;
+                // console.log('  IV preserved from cache: '+ticker+' = '+atmIv+'%');
+              }
+            } catch {}
           }
           // Regime calculation
           let regimeScore = 0;
@@ -559,8 +574,13 @@ async function buildUnifiedCache(priceMap, gexMap, optionsCache, smaMap, details
           const regime = regimeScore >= 75 ? 'ERUPTING' : regimeScore >= 50 ? 'LOADED' : regimeScore >= 25 ? 'COILING' : 'CALM';
           volatility = { regime, regimeScore: Math.round(regimeScore), gex:Math.round(netGex), gexLabel:isShortGamma?'SHORT':'LONG', iv:atmIv, flipDistance:Math.round(flipDistance*10)/10, flipLevel:gammaFlip, isAboveFlip:flipDistance>0, squeezeScore:0, squeezeRisk:'LOW', gammaConcentration:0, gammaConcentrationLabel:'NORMAL' };
         } else {
-          // Non-GEX tickers: basic volatility from SMA trend data
-          volatility = { regime: 'CALM', regimeScore: 0, gex: 0, gexLabel: 'N/A', iv: 0, flipDistance: 0, flipLevel: 0, isAboveFlip: false, squeezeScore: 0, squeezeRisk: 'LOW', gammaConcentration: 0, gammaConcentrationLabel: 'NORMAL' };
+          // Non-GEX tickers: basic volatility from SMA trend data — also preserve cached IV
+          let fallbackIv = 0;
+          try {
+            const existing = await client.send(new GetCommand({ TableName: 'signum-unified-cache', Key: { pk: ticker } }));
+            fallbackIv = existing.Item?.data?.volatility?.iv || 0;
+          } catch {}
+          volatility = { regime: 'CALM', regimeScore: 0, gex: 0, gexLabel: 'N/A', iv: fallbackIv, flipDistance: 0, flipLevel: 0, isAboveFlip: false, squeezeScore: 0, squeezeRisk: 'LOW', gammaConcentration: 0, gammaConcentrationLabel: 'NORMAL' };
         }
         
         // === Build squeeze (short volume only per cycle + cached SI% from daily detail) ===

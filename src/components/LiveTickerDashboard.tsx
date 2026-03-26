@@ -963,8 +963,16 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
             const regime = regimeScore >= 75 ? 'ERUPTING' : regimeScore >= 50 ? 'LOADED' : regimeScore >= 25 ? 'COILING' : 'CALM';
             return { regime, regimeScore, gex: Math.round(netGex), gexLabel: isShortGamma ? 'SHORT' : 'LONG', iv: iv ? Math.round(iv * 100) : 0, flipDistance: Math.round(flipDist * 10) / 10, flipLevel, isAboveFlip: flipDist > 0, squeezeScore: 0, squeezeRisk: 'LOW', gammaConcentration: 0, gammaConcentrationLabel: 'NORMAL' };
         })();
-        // Prefer structure-derived (real-time) over cached data
-        if (structureDerived) return structureDerived;
+        // [FIX] IV fallback chain: if structure-derived IV=0, enrich from cached data
+        // POST market: Polygon returns IV=0 for all options. Use last known IV from DynamoDB cache.
+        const cachedIv = volatilityData?.iv || unifiedData?.volatility?.iv || 0;
+        if (structureDerived) {
+            if (structureDerived.iv === 0 && cachedIv > 0) {
+                // Structure has real-time GEX but POST-market IV=0 → patch with cached IV
+                return { ...structureDerived, iv: cachedIv };
+            }
+            return structureDerived;
+        }
         if (volatilityData) return volatilityData;
         if (unifiedData?.volatility) return unifiedData.volatility;
         return null;
