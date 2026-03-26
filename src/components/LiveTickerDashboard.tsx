@@ -953,7 +953,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
             const netGex = structure.netGex || 0;
             const isShortGamma = netGex < 0;
             const flipLevel = structure.gammaFlipLevel || 0;
-            const price = displayPrice || 0;
+            const price = livePrice?.price || initialStockData?.price || 0;
             const flipDist = flipLevel > 0 && price > 0 ? ((price - flipLevel) / flipLevel) * 100 : 0;
             let regimeScore = 0;
             if (isShortGamma) regimeScore += Math.min(30, Math.abs(netGex) / 1000000 * 3);
@@ -965,7 +965,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
             return { regime, regimeScore, gex: Math.round(netGex), gexLabel: isShortGamma ? 'SHORT' : 'LONG', iv: iv ? Math.round(iv * 100) : 0, flipDistance: Math.round(flipDist * 10) / 10, flipLevel, isAboveFlip: flipDist > 0, squeezeScore: 0, squeezeRisk: 'LOW', gammaConcentration: 0, gammaConcentrationLabel: 'NORMAL' };
         }
         return null;
-    }, [volatilityData, unifiedData?.volatility, structure, displayPrice]);
+    }, [volatilityData, unifiedData?.volatility, structure, livePrice?.price, initialStockData?.price]);
     const effectiveSma = React.useMemo(() => smaData || unifiedData?.sma || null, [smaData, unifiedData?.sma]);
     const effectiveFund = React.useMemo(() => fundamentalData || unifiedData?.fundamentals || null, [fundamentalData, unifiedData?.fundamentals]);
     const effectiveRelated = React.useMemo(() => relatedData || (unifiedData?.related ? { count: unifiedData.related.count || 0, topRelated: unifiedData.related.topRelated || [] } : null), [relatedData, unifiedData?.related]);
