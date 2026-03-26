@@ -77,19 +77,54 @@ export async function GET(req: NextRequest) {
 
     const startTime = Date.now();
     try {
+        // ── [AWS-FIRST] Tier 1: DynamoDB unified cache ──
+        try {
+            const { getUnifiedCache } = await import('@/lib/aws/unifiedCacheProvider');
+            const dynData = await getUnifiedCache(ticker, 'en');
+            const fund = dynData?.fundamentals;
+            if (fund?.name || fund?.description) {
+                console.log(`[live/overview] ✅ DynamoDB hit for ${ticker}`);
+                const rawDesc = fund.description || null;
+                const descriptionEN = rawDesc ? rawDesc.split(/(?<=\.)\s+/).slice(0, 2).join(' ') : null;
+                let sectorEN = fund.sector || null;
+                let sector = sectorEN;
+                let description = descriptionEN;
+
+                if (sectorEN && (lang === 'ko' || lang === 'ja')) {
+                    const translation = SECTOR_TRANSLATIONS[sectorEN];
+                    if (translation) sector = translation[lang];
+                }
+                if (descriptionEN && (lang === 'ko' || lang === 'ja')) {
+                    description = await getCachedTranslation(ticker, 'desc', descriptionEN, lang);
+                    if (sectorEN && !SECTOR_TRANSLATIONS[sectorEN] && sector === sectorEN) {
+                        sector = await getCachedTranslation(ticker, 'sector', sectorEN, lang);
+                    }
+                }
+
+                return NextResponse.json({
+                    ticker, source: 'DynamoDB', sourceGrade: 'A',
+                    overview: {
+                        name: fund.name || null, sector, sectorEN,
+                        industry: null, description, descriptionEN,
+                        marketCap: fund.marketCap || null,
+                        exchange: fund.exchange || null, homepage: null,
+                    },
+                    debug: { latencyMs: Date.now() - startTime, _source: 'dynamodb' },
+                });
+            }
+        } catch (e: any) {
+            console.warn(`[live/overview] DynamoDB error for ${ticker}:`, e.message);
+        }
+
+        // ── Tier 2: Polygon + FMP fallback ──
         // Fetch Polygon company data (for name, description, marketCap, etc.)
         let data;
         try {
             data = await fetchMassive(`/v3/reference/tickers/${ticker}`, {}, true, undefined, { next: { revalidate: 86400 } });
         } catch (e) {
             return NextResponse.json({
-                ticker,
-                source: `Polygon + FMP`,
-                sourceGrade: "C",
-                overview: {
-                    name: null, sector: null, industry: null, description: null,
-                    marketCap: null, exchange: null, homepage: null
-                },
+                ticker, source: `Polygon + FMP`, sourceGrade: "C",
+                overview: { name: null, sector: null, industry: null, description: null, marketCap: null, exchange: null, homepage: null },
                 debug: { latencyMs: Date.now() - startTime }
             });
         }

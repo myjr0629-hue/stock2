@@ -5,8 +5,7 @@ const FMP_API_KEY = process.env.FMP_API_KEY || '';
 
 /**
  * GET /api/live/analyst?t=NVDA
- * Returns analyst recommendation consensus from FMP grades-consensus.
- * (Previously used Finnhub — switched to FMP for consistency with Lambda v7.1)
+ * [AWS-FIRST] DynamoDB unified cache → FMP fallback
  */
 export async function GET(req: NextRequest) {
     const ticker = req.nextUrl.searchParams.get('t');
@@ -18,6 +17,29 @@ export async function GET(req: NextRequest) {
         const result = await swrFetch(
             `analyst:${ticker.toUpperCase()}`,
             async () => {
+                // ── [AWS-FIRST] Tier 1: DynamoDB unified cache ──
+                try {
+                    const { getUnifiedCache } = await import('@/lib/aws/unifiedCacheProvider');
+                    const dynData = await getUnifiedCache(ticker.toUpperCase(), 'en');
+                    if (dynData?.analyst && dynData.analyst.totalAnalysts > 0) {
+                        const a = dynData.analyst;
+                        console.log(`[live/analyst] ✅ DynamoDB hit for ${ticker}: ${a.consensus} (${a.totalAnalysts} analysts)`);
+                        return {
+                            ticker: ticker.toUpperCase(),
+                            consensus: a.consensus || 'N/A',
+                            totalAnalysts: a.totalAnalysts || 0,
+                            bullishPct: a.bullishPct || 0,
+                            breakdown: a.breakdown || { strongBuy: 0, buy: 0, hold: 0, sell: 0, strongSell: 0 },
+                            priceTarget: null,
+                            _source: 'dynamodb',
+                        };
+                    }
+                } catch (e: any) {
+                    console.warn(`[live/analyst] DynamoDB error for ${ticker}:`, e.message);
+                }
+
+                // ── Tier 2: FMP fallback ──
+                console.log(`[live/analyst] ⚠️ DynamoDB miss for ${ticker} — falling back to FMP`);
                 if (!FMP_API_KEY) throw new Error('FMP_API_KEY not set');
 
                 const res = await fetch(
@@ -32,8 +54,7 @@ export async function GET(req: NextRequest) {
                     return {
                         ticker: ticker.toUpperCase(),
                         consensus: 'N/A' as const,
-                        totalAnalysts: 0,
-                        bullishPct: 0,
+                        totalAnalysts: 0, bullishPct: 0,
                         breakdown: { strongBuy: 0, buy: 0, hold: 0, sell: 0, strongSell: 0 },
                         priceTarget: null,
                     };
@@ -48,7 +69,6 @@ export async function GET(req: NextRequest) {
                 const bullishPct = totalAnalysts > 0 ? Math.round(((strongBuy + buy) / totalAnalysts) * 100) : 0;
 
                 let consensus: 'STRONG BUY' | 'BUY' | 'HOLD' | 'SELL' | 'STRONG SELL' | 'N/A' = 'N/A';
-                // Use FMP's consensus if available, otherwise calculate
                 if (grade.consensus) {
                     const fmpCon = grade.consensus.toUpperCase();
                     if (fmpCon === 'STRONG BUY') consensus = 'STRONG BUY';
@@ -68,12 +88,10 @@ export async function GET(req: NextRequest) {
                 }
 
                 return {
-                    ticker: ticker.toUpperCase(),
-                    consensus,
-                    totalAnalysts,
-                    bullishPct,
+                    ticker: ticker.toUpperCase(), consensus, totalAnalysts, bullishPct,
                     breakdown: { strongBuy, buy, hold, sell, strongSell },
                     priceTarget: null,
+                    _source: 'fmp-fallback',
                 };
             },
             { ttlSeconds: 3600, keyPrefix: 'swr' }

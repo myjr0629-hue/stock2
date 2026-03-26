@@ -1,9 +1,8 @@
 // API Route: /api/live/fundamentals
-// Polygon Financial Ratios + vX Financial Statements → Fundamental Health Score
+// [AWS-FIRST] DynamoDB unified cache → Redis SWR → Polygon fallback (최후)
 // Grade: A(80+) B(60+) C(40+) D(20+) F(<20)
 
 import { NextRequest, NextResponse } from 'next/server';
-import { fetchMassive } from '@/services/massiveClient';
 import { swrFetch } from '@/lib/cache/redisSWR';
 
 export const revalidate = 3600;
@@ -16,6 +15,39 @@ export async function GET(req: NextRequest) {
         const result = await swrFetch(
             `fundamentals:${ticker}`,
             async () => {
+                // ── [AWS-FIRST] Tier 1: DynamoDB unified cache ──
+                try {
+                    const { getUnifiedCache } = await import('@/lib/aws/unifiedCacheProvider');
+                    const dynData = await getUnifiedCache(ticker, 'en');
+                    if (dynData?.fundamentals) {
+                        const f = dynData.fundamentals;
+                        console.log(`[live/fundamentals] ✅ DynamoDB hit for ${ticker}: score=${f.score} grade=${f.grade}`);
+                        return {
+                            ticker,
+                            score: f.score ?? null,
+                            grade: f.grade ?? 'NO_DATA',
+                            breakdown: f.breakdown ?? {},
+                            pe: f.pe ?? null,
+                            de: f.de ?? null,
+                            roe: f.roe ?? null,
+                            revenueGrowth: f.revenueGrowth ?? null,
+                            netMargin: f.netMargin ?? null,
+                            fcfYield: f.fcfYield ?? null,
+                            pb: f.pb ?? null,
+                            ps: f.ps ?? null,
+                            name: f.name ?? ticker,
+                            marketCap: f.marketCap ?? null,
+                            sector: f.sector ?? null,
+                            _source: 'dynamodb',
+                        };
+                    }
+                } catch (e: any) {
+                    console.warn(`[live/fundamentals] DynamoDB error for ${ticker}:`, e.message);
+                }
+
+                // ── Tier 2: Polygon fallback (비유니버스 + DynamoDB 미적중) ──
+                console.log(`[live/fundamentals] ⚠️ DynamoDB miss for ${ticker} — falling back to Polygon`);
+                const { fetchMassive } = await import('@/services/massiveClient');
                 const [ratiosRes, vxFinRes] = await Promise.all([
                     fetchMassive(`/stocks/financials/v1/ratios`, { ticker, limit: '1' }, true).catch(() => null),
                     fetchMassive(`/vX/reference/financials`, { ticker, limit: '5', timeframe: 'quarterly', order: 'desc', sort: 'period_of_report_date' }, true).catch(() => null),
@@ -41,20 +73,13 @@ export async function GET(req: NextRequest) {
 
                 if (vxResults.length >= 1) {
                     const latest = vxResults[0]?.financials?.income_statement;
-
-                    // [FIX] Net Margin: latest만으로 독립 계산 (prev 의존 제거)
                     if (latest) {
                         const revLatest = latest.revenues?.value || 0;
                         const netIncome = latest.net_income_loss?.value || 0;
-                        if (revLatest > 0) {
-                            netMargin = (netIncome / revLatest) * 100;
-                        }
+                        if (revLatest > 0) netMargin = (netIncome / revLatest) * 100;
                     }
-
-                    // [FIX] Revenue Growth: prev 데이터 없으면 유효한 과거 분기 자동 탐색
                     if (latest && vxResults.length >= 2) {
                         const revLatest = latest.revenues?.value || 0;
-                        // 4분기 전(YoY) 우선, 없으면 가까운 유효 분기 탐색
                         let revPrev = 0;
                         const preferredIdx = vxResults.length >= 5 ? 4 : vxResults.length - 1;
                         for (let i = preferredIdx; i >= 1; i--) {
@@ -70,67 +95,17 @@ export async function GET(req: NextRequest) {
                 let score = 0;
                 const breakdown: Record<string, { value: string; score: number; label: string }> = {};
 
-                if (pe !== null && pe > 0) {
-                    const peScore = pe < 15 ? 20 : pe < 25 ? 16 : pe < 35 ? 12 : pe < 50 ? 8 : 4;
-                    score += peScore;
-                    breakdown.pe = { value: pe.toFixed(1), score: peScore, label: 'P/E' };
-                } else {
-                    breakdown.pe = { value: pe !== null ? pe.toFixed(1) : 'N/A', score: 0, label: 'P/E' };
-                }
+                if (pe !== null && pe > 0) { const s = pe < 15 ? 20 : pe < 25 ? 16 : pe < 35 ? 12 : pe < 50 ? 8 : 4; score += s; breakdown.pe = { value: pe.toFixed(1), score: s, label: 'P/E' }; } else { breakdown.pe = { value: pe !== null ? pe.toFixed(1) : 'N/A', score: 0, label: 'P/E' }; }
+                if (de !== null) { const s = de < 0.3 ? 20 : de < 0.6 ? 16 : de < 1.0 ? 12 : de < 2.0 ? 8 : 4; score += s; breakdown.de = { value: de.toFixed(2), score: s, label: 'D/E' }; } else { breakdown.de = { value: 'N/A', score: 0, label: 'D/E' }; }
+                if (fcfYield !== null) { const s = fcfYield > 8 ? 20 : fcfYield > 5 ? 16 : fcfYield > 3 ? 12 : fcfYield > 1 ? 8 : 4; score += s; breakdown.fcf = { value: fcfYield.toFixed(1) + '%', score: s, label: 'FCF' }; } else { breakdown.fcf = { value: 'N/A', score: 0, label: 'FCF' }; }
+                if (revenueGrowth !== null) { const s = revenueGrowth > 50 ? 20 : revenueGrowth > 25 ? 16 : revenueGrowth > 10 ? 12 : revenueGrowth > 0 ? 8 : 4; score += s; breakdown.rev = { value: (revenueGrowth > 0 ? '+' : '') + revenueGrowth.toFixed(0) + '%', score: s, label: 'Rev' }; } else { breakdown.rev = { value: 'N/A', score: 0, label: 'Rev' }; }
+                if (netMargin !== null) { const s = netMargin > 30 ? 20 : netMargin > 20 ? 16 : netMargin > 10 ? 12 : netMargin > 0 ? 8 : 4; score += s; breakdown.margin = { value: netMargin.toFixed(1) + '%', score: s, label: 'Margin' }; } else { breakdown.margin = { value: 'N/A', score: 0, label: 'Margin' }; }
 
-                if (de !== null) {
-                    const deScore = de < 0.3 ? 20 : de < 0.6 ? 16 : de < 1.0 ? 12 : de < 2.0 ? 8 : 4;
-                    score += deScore;
-                    breakdown.de = { value: de.toFixed(2), score: deScore, label: 'D/E' };
-                } else {
-                    breakdown.de = { value: 'N/A', score: 0, label: 'D/E' };
-                }
-
-                if (fcfYield !== null) {
-                    const fcfScore = fcfYield > 8 ? 20 : fcfYield > 5 ? 16 : fcfYield > 3 ? 12 : fcfYield > 1 ? 8 : 4;
-                    score += fcfScore;
-                    breakdown.fcf = { value: fcfYield.toFixed(1) + '%', score: fcfScore, label: 'FCF' };
-                } else {
-                    breakdown.fcf = { value: 'N/A', score: 0, label: 'FCF' };
-                }
-
-                if (revenueGrowth !== null) {
-                    const revScore = revenueGrowth > 50 ? 20 : revenueGrowth > 25 ? 16 : revenueGrowth > 10 ? 12 : revenueGrowth > 0 ? 8 : 4;
-                    score += revScore;
-                    breakdown.rev = { value: (revenueGrowth > 0 ? '+' : '') + revenueGrowth.toFixed(0) + '%', score: revScore, label: 'Rev' };
-                } else {
-                    breakdown.rev = { value: 'N/A', score: 0, label: 'Rev' };
-                }
-
-                if (netMargin !== null) {
-                    const marginScore = netMargin > 30 ? 20 : netMargin > 20 ? 16 : netMargin > 10 ? 12 : netMargin > 0 ? 8 : 4;
-                    score += marginScore;
-                    breakdown.margin = { value: netMargin.toFixed(1) + '%', score: marginScore, label: 'Margin' };
-                } else {
-                    breakdown.margin = { value: 'N/A', score: 0, label: 'Margin' };
-                }
-
-                // [FIX] 외국주 등 Polygon 데이터가 전혀 없는 경우 감지
-                // 모든 breakdown이 N/A면 = Polygon에서 데이터를 제공하지 않는 종목
                 const hasAnyData = Object.values(breakdown).some(b => b.score > 0);
-
                 let grade: string;
                 let finalScore: number | null;
-                if (!hasAnyData) {
-                    // 데이터 미제공 종목 (외국주, ADR 등)
-                    grade = 'NO_DATA';
-                    finalScore = null;
-                } else {
-                    finalScore = score;
-                    if (score >= 80) grade = 'A';
-                    else if (score >= 70) grade = 'A-';
-                    else if (score >= 60) grade = 'B+';
-                    else if (score >= 50) grade = 'B';
-                    else if (score >= 40) grade = 'C+';
-                    else if (score >= 30) grade = 'C';
-                    else if (score >= 20) grade = 'D';
-                    else grade = 'F';
-                }
+                if (!hasAnyData) { grade = 'NO_DATA'; finalScore = null; }
+                else { finalScore = score; grade = score >= 80 ? 'A' : score >= 70 ? 'A-' : score >= 60 ? 'B+' : score >= 50 ? 'B' : score >= 40 ? 'C+' : score >= 30 ? 'C' : score >= 20 ? 'D' : 'F'; }
 
                 return {
                     ticker, score: finalScore, grade, breakdown,
@@ -142,6 +117,7 @@ export async function GET(req: NextRequest) {
                     fcfYield: fcfYield !== null ? Math.round(fcfYield * 10) / 10 : null,
                     pb: pb !== null ? Math.round(pb * 10) / 10 : null,
                     ps: ps !== null ? Math.round(ps * 10) / 10 : null,
+                    _source: 'polygon-fallback',
                 };
             },
             { ttlSeconds: 21600, keyPrefix: 'swr' }
@@ -153,4 +129,3 @@ export async function GET(req: NextRequest) {
         return NextResponse.json({ error: 'Failed' }, { status: 500 });
     }
 }
-
