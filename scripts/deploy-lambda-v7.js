@@ -740,15 +740,48 @@ exports.handler = async (event) => {
         }
       } catch (e) { console.log('[ON-DEMAND] Options err: ' + e.message); }
       
-      // 3. Fundamentals
+      // 3. Fundamentals (full scoring: reference + ratios + vX financials)
       let fundamentals = null, overview = null;
       try {
-        const fData = await httpsGet('https://api.polygon.io/v3/reference/tickers/' + ticker + '?apiKey=' + POLYGON_KEY, 5000);
-        const r = fData?.results;
-        if (r) {
-          fundamentals = { ticker, name:r.name||ticker, marketCap:r.market_cap||null, sector:r.sic_description||null, description:r.description?.slice(0,500)||null, exchange:r.primary_exchange||null };
-          overview = { name:r.name||ticker, sector:r.sic_description||null, sectorEN:r.sic_description||null, description:r.description?.slice(0,300)||null, descriptionEN:r.description?.slice(0,300)||null, marketCap:r.market_cap||null, exchange:r.primary_exchange||null };
+        const [refData, ratiosData, vxData] = await Promise.all([
+          httpsGet('https://api.polygon.io/v3/reference/tickers/' + ticker + '?apiKey=' + POLYGON_KEY, 5000).catch(() => null),
+          httpsGet('https://api.polygon.io/stocks/financials/v1/ratios?ticker=' + ticker + '&limit=1&apiKey=' + POLYGON_KEY, 5000).catch(() => null),
+          httpsGet('https://api.polygon.io/vX/reference/financials?ticker=' + ticker + '&limit=5&timeframe=quarterly&order=desc&sort=period_of_report_date&apiKey=' + POLYGON_KEY, 5000).catch(() => null),
+        ]);
+        const r = refData?.results;
+        const ratios = ratiosData?.results?.[0] || {};
+        const pe = ratios.price_to_earnings ?? null;
+        const de = ratios.debt_to_equity ?? null;
+        const roe = ratios.return_on_equity ?? null;
+        const pb = ratios.price_to_book ?? null;
+        const ps = ratios.price_to_sales ?? null;
+        const fcfRaw = ratios.free_cash_flow ?? null;
+        const mktCap = ratios.market_cap ?? (r?.market_cap || null);
+        let fcfYield = null;
+        if (fcfRaw !== null && mktCap !== null && mktCap > 0) fcfYield = (fcfRaw / mktCap) * 100;
+        const vxResults = vxData?.results || [];
+        let revenueGrowth = null, netMargin = null;
+        if (vxResults.length >= 1) {
+          const latest = vxResults[0]?.financials?.income_statement;
+          if (latest) { const revL = latest.revenues?.value||0, ni = latest.net_income_loss?.value||0; if(revL>0) netMargin=(ni/revL)*100; }
+          if (latest && vxResults.length >= 2) {
+            const revL = latest.revenues?.value || 0;
+            let revP = 0; const pi = vxResults.length >= 5 ? 4 : vxResults.length - 1;
+            for (let j = pi; j >= 1; j--) { const v = vxResults[j]?.financials?.income_statement?.revenues?.value; if(v && v > 0){revP=v;break;} }
+            if (revP > 0 && revL > 0) revenueGrowth = ((revL - revP) / Math.abs(revP)) * 100;
+          }
         }
+        let score = 0; const breakdown = {};
+        if (pe !== null && pe > 0) { const s=pe<15?20:pe<25?16:pe<35?12:pe<50?8:4; score+=s; breakdown.pe={value:pe.toFixed(1),score:s,label:'P/E'}; } else { breakdown.pe={value:pe!==null?pe.toFixed(1):'N/A',score:0,label:'P/E'}; }
+        if (de !== null) { const s=de<0.3?20:de<0.6?16:de<1.0?12:de<2.0?8:4; score+=s; breakdown.de={value:de.toFixed(2),score:s,label:'D/E'}; } else { breakdown.de={value:'N/A',score:0,label:'D/E'}; }
+        if (fcfYield !== null) { const s=fcfYield>8?20:fcfYield>5?16:fcfYield>3?12:fcfYield>1?8:4; score+=s; breakdown.fcf={value:fcfYield.toFixed(1)+'%',score:s,label:'FCF'}; } else { breakdown.fcf={value:'N/A',score:0,label:'FCF'}; }
+        if (revenueGrowth !== null) { const s=revenueGrowth>50?20:revenueGrowth>25?16:revenueGrowth>10?12:revenueGrowth>0?8:4; score+=s; breakdown.rev={value:(revenueGrowth>0?'+':'')+revenueGrowth.toFixed(0)+'%',score:s,label:'Rev'}; } else { breakdown.rev={value:'N/A',score:0,label:'Rev'}; }
+        if (netMargin !== null) { const s=netMargin>30?20:netMargin>20?16:netMargin>10?12:netMargin>0?8:4; score+=s; breakdown.margin={value:netMargin.toFixed(1)+'%',score:s,label:'Margin'}; } else { breakdown.margin={value:'N/A',score:0,label:'Margin'}; }
+        const hasAnyData = Object.values(breakdown).some(b => b.score > 0);
+        let grade, finalScore;
+        if (!hasAnyData) { grade='NO_DATA'; finalScore=null; } else { finalScore=score; grade=score>=80?'A':score>=70?'A-':score>=60?'B+':score>=50?'B':score>=40?'C+':score>=30?'C':score>=20?'D':'F'; }
+        fundamentals = { ticker, name:r?.name||ticker, marketCap:r?.market_cap||mktCap, sector:r?.sic_description||null, description:r?.description?.slice(0,500)||null, exchange:r?.primary_exchange||null, score:finalScore, grade, pe:pe!==null?Math.round(pe*10)/10:null, de:de!==null?Math.round(de*100)/100:null, roe:roe!==null?Math.round(roe*1000)/10:null, revenueGrowth:revenueGrowth!==null?Math.round(revenueGrowth*10)/10:null, netMargin:netMargin!==null?Math.round(netMargin*10)/10:null, fcfYield:fcfYield!==null?Math.round(fcfYield*10)/10:null, pb:pb!==null?Math.round(pb*10)/10:null, ps:ps!==null?Math.round(ps*10)/10:null, breakdown };
+        if (r) { overview = { name:r.name||ticker, sector:r.sic_description||null, sectorEN:r.sic_description||null, description:r.description?.slice(0,300)||null, descriptionEN:r.description?.slice(0,300)||null, marketCap:r.market_cap||null, exchange:r.primary_exchange||null }; }
       } catch {}
       
       // 4. Analyst (FMP)
@@ -802,8 +835,53 @@ exports.handler = async (event) => {
         }
       } catch {}
       
-      // 7. Save to DynamoDB (signum-unified-cache)
-      const data = { timestamp:Date.now(), structure, analyst, fundamentals, earnings, sma, related:null, volatility:null, squeeze:null, institutional:null };
+      // 7. Related Companies (Polygon)
+      let related = null;
+      try {
+        const relData = await httpsGet('https://api.polygon.io/v1/related-companies/'+ticker+'?apiKey='+POLYGON_KEY, 5000);
+        const rels = relData?.results || [];
+        if (rels.length > 0) {
+          const relTickers = rels.slice(0,10).map(r => r.ticker);
+          related = { ticker, count:relTickers.length, topRelated:relTickers.slice(0,4).map(t=>({ticker:t,price:0,change:0,logo:null})), relatedTickers:relTickers, allTickers:relTickers };
+        }
+      } catch {}
+      
+      // 8. Volatility (derived from GEX or basic)
+      let volatility = null;
+      if (gexData) {
+        const netGex = gexData.gex || 0;
+        const isShortGamma = netGex < 0;
+        const flipDist = gexData.flipLevel && price > 0 ? ((price - gexData.flipLevel) / gexData.flipLevel) * 100 : 0;
+        let regimeScore = 0;
+        if (isShortGamma) regimeScore += Math.min(30, Math.abs(netGex)/1000000*3);
+        if (Math.abs(flipDist) < 1) regimeScore += 15; else if (Math.abs(flipDist) < 3) regimeScore += 10;
+        regimeScore = Math.min(100, regimeScore);
+        const regime = regimeScore >= 75 ? 'ERUPTING' : regimeScore >= 50 ? 'LOADED' : regimeScore >= 25 ? 'COILING' : 'CALM';
+        volatility = { regime, regimeScore:Math.round(regimeScore), gex:Math.round(netGex), gexLabel:isShortGamma?'SHORT':'LONG', iv:0, flipDistance:Math.round(flipDist*10)/10, flipLevel:gexData.flipLevel||0, isAboveFlip:flipDist>0, squeezeScore:0, squeezeRisk:'LOW', gammaConcentration:0, gammaConcentrationLabel:'NORMAL' };
+      } else {
+        volatility = { regime:'CALM', regimeScore:0, gex:0, gexLabel:'N/A', iv:0, flipDistance:0, flipLevel:0, isAboveFlip:false, squeezeScore:0, squeezeRisk:'LOW', gammaConcentration:0, gammaConcentrationLabel:'NORMAL' };
+      }
+      
+      // 9. Short Squeeze (Polygon short volume)
+      let squeeze = null;
+      try {
+        const svData = await httpsGet('https://api.polygon.io/stocks/v1/short-volume?ticker='+ticker+'&limit=1&apiKey='+POLYGON_KEY, 5000);
+        const svResult = svData?.results?.[0];
+        if (svResult) {
+          const shortVol = svResult.short_volume || 0;
+          const totalVol = svResult.total_volume || 1;
+          const shortVolPct = Math.round((shortVol/totalVol)*1000)/10;
+          let riskScore = 0; if (shortVolPct >= 50) riskScore += 20; else if (shortVolPct >= 40) riskScore += 10;
+          const status = riskScore >= 70 ? 'CRITICAL' : riskScore >= 45 ? 'HIGH' : riskScore >= 20 ? 'MEDIUM' : 'LOW';
+          squeeze = { ticker, siPercent:0, daysToCover:0, siChange:0, shortVolPercent:shortVolPct, riskScore, status };
+        }
+      } catch {}
+      
+      // 10. Institutional (basic structure)
+      const institutional = { darkPool:{percent:0}, blockTrade:{count:0,volume:0}, shortVolume:squeeze?{percent:squeeze.shortVolPercent}:null };
+      
+      // 11. Save to DynamoDB (signum-unified-cache)
+      const data = { timestamp:Date.now(), structure, analyst, fundamentals, earnings, sma, related, volatility, squeeze, institutional };
       const FIELDS = ['structure','analyst','fundamentals','earnings','sma'];
       const filled = FIELDS.filter(f => data[f]).length;
       
