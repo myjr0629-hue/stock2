@@ -555,7 +555,16 @@ export async function GET(request: NextRequest) {
         console.log(`[Command Unified] 🌐 Non-universe cold-start for ${ticker} — AWS Lambda on-demand`);
         try {
             const { LambdaClient, InvokeCommand } = await import('@aws-sdk/client-lambda');
-            const lambdaClient = new LambdaClient({ region: 'us-east-1' });
+            const awsAccessKeyId = process.env.AWS_ACCESS_KEY_ID;
+            const awsSecretAccessKey = process.env.AWS_SECRET_ACCESS_KEY;
+            if (!awsAccessKeyId || !awsSecretAccessKey) {
+                console.warn(`[Command Unified] ⚠️ AWS credentials not found — cannot invoke Lambda for ${ticker}`);
+                throw new Error('AWS credentials not configured');
+            }
+            const lambdaClient = new LambdaClient({ 
+                region: 'us-east-1',
+                credentials: { accessKeyId: awsAccessKeyId, secretAccessKey: awsSecretAccessKey },
+            });
             const COLD_START_TIMEOUT = 20000; // 20s for Lambda invoke (Lambda has 600s internally)
             
             const invokeResult = await Promise.race([
