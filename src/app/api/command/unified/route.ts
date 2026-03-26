@@ -579,67 +579,11 @@ async function tryDynamoFast(ticker: string): Promise<any | null> {
             const flow = snap.flow;
             const p = snap.price as any;
 
-            // [핵심 FIX] DynamoDB에 없는 필드(fundamentals, sma, related)를 개별 API로 보충
-            // 4초 timeout — DynamoDB 응답(~1s) + supplement(~2-3s) = 전체 ~5s 이내
-            const SUPPLEMENT_TIMEOUT = 10000; // 10s — realtime-metrics fetches 50K+ Polygon trades on cold start (4-8s)
-            const supplementPromises: Promise<any>[] = [fetchGexHistoryData(ticker)];
+            // [AWS-FIRST] NO supplement API calls in request path.
+            // DynamoDB data only. Missing fields = null (warm-command fills them).
+            const gexHistory = await fetchGexHistoryData(ticker);
 
-            const needFundamentals = !snap.fundamentals?.score;
-            const needSma = !p.sma50 || !p.sma200;
-            const needRelated = !snap.related?.tickers?.length;
-
-            const baseUrl = process.env.VERCEL_URL
-                ? `https://${process.env.VERCEL_URL}`
-                : `http://localhost:${process.env.PORT || '3000'}`;
-
-            if (needFundamentals) {
-                supplementPromises.push(
-                    Promise.race([
-                        callInternalGet(getFundamentals, `${baseUrl}/api/live/fundamentals?t=${ticker}`),
-                        new Promise<null>(r => setTimeout(() => r(null), SUPPLEMENT_TIMEOUT))
-                    ])
-                );
-            }
-            if (needSma) {
-                supplementPromises.push(
-                    Promise.race([
-                        callInternalGet(getSma, `${baseUrl}/api/live/sma?t=${ticker}`),
-                        new Promise<null>(r => setTimeout(() => r(null), SUPPLEMENT_TIMEOUT))
-                    ])
-                );
-            }
-            if (needRelated) {
-                supplementPromises.push(
-                    Promise.race([
-                        callInternalGet(getRelated, `${baseUrl}/api/live/related?t=${ticker}`),
-                        new Promise<null>(r => setTimeout(() => r(null), SUPPLEMENT_TIMEOUT))
-                    ])
-                );
-            }
-            // [FIX] Always fetch real squeeze & institutional data — DynamoDB has no SI%/darkPool%
-            supplementPromises.push(
-                Promise.race([
-                    callInternalGet(getSqueeze, `${baseUrl}/api/live/short-squeeze?t=${ticker}`),
-                    new Promise<null>(r => setTimeout(() => r(null), SUPPLEMENT_TIMEOUT))
-                ])
-            );
-            supplementPromises.push(
-                Promise.race([
-                    callInternalGet(getInstitutional, `${baseUrl}/api/flow/realtime-metrics?ticker=${ticker}`),
-                    new Promise<null>(r => setTimeout(() => r(null), SUPPLEMENT_TIMEOUT))
-                ])
-            );
-
-            const supplementResults = await Promise.all(supplementPromises);
-            const [gexHistory] = supplementResults;
-            let supplementIdx = 1;
-            const fundResult = needFundamentals ? supplementResults[supplementIdx++] : null;
-            const smaResult = needSma ? supplementResults[supplementIdx++] : null;
-            const relResult = needRelated ? supplementResults[supplementIdx++] : null;
-            const squeezeResult = supplementResults[supplementIdx++];
-            const instResult = supplementResults[supplementIdx++];
-
-            // Build SMA
+            // Build SMA from DynamoDB price data
             let smaCard = null;
             if (p.sma50 && p.sma200) {
                 const dist = ((p.sma50 - p.sma200) / p.sma200) * 100;
@@ -653,7 +597,7 @@ async function tryDynamoFast(ticker: string): Promise<any | null> {
                 };
             }
 
-            // Build cards from pattern-db
+            // Build cards from DynamoDB only
             let analystCard = null;
             if (snap.analyst) {
                 const a = snap.analyst;
@@ -673,7 +617,7 @@ async function tryDynamoFast(ticker: string): Promise<any | null> {
                 topRelated: snap.related.tickers.slice(0, 4).map((t: string) => ({ ticker: t, price: 0, change: 0, logo: null })),
                 relatedTickers: snap.related.tickers,
                 allTickers: snap.related.tickers,
-                _source: 'dynamodb-partial',
+                _source: 'dynamodb',
             } : null;
 
             let fundamentalsCard = null;
@@ -690,54 +634,34 @@ async function tryDynamoFast(ticker: string): Promise<any | null> {
                 };
             }
 
-            // [핵심 FIX] DynamoDB에 없는 필드를 supplement API 결과로 보충
-            if (!fundamentalsCard && fundResult) {
-                fundamentalsCard = fundResult;
-            }
-            if (!smaCard && smaResult) {
-                smaCard = smaResult;
-            }
-            if (!relatedCard && relResult) {
-                relatedCard = relResult;
-            }
-
-            // [FIX] Use actual API squeeze data (has siPercent, daysToCover, shortVolPercent, status)
-            // Fallback to GEX heuristic only if API didn't return
-            let squeezeCard = squeezeResult || null;
-            if (squeezeCard) squeezeCard._ts = Date.now();
-            if (!squeezeCard) {
-                // Fallback: construct minimal squeeze card with UI-required fields
-                const snapAny = snap as any;
-                const shortVolPct = snapAny.shortVol?.percent || 0;
+            // Squeeze from DynamoDB (no API call)
+            const snapAny = snap as any;
+            let squeezeCard: any = null;
+            if (snapAny.squeeze?.siPercent || snapAny.shortVol?.percent) {
                 squeezeCard = {
                     ticker,
                     siPercent: snapAny.squeeze?.siPercent || 0,
                     daysToCover: snapAny.squeeze?.daysToCover || 0,
                     siChange: 0,
-                    shortVolPercent: shortVolPct,
+                    shortVolPercent: snapAny.shortVol?.percent || 0,
                     riskScore: 0,
                     status: 'LOW',
                     _ts: Date.now(),
                 };
             }
 
-            // [FIX] Use actual API institutional data (has darkPool.percent, blockTrade, shortVolume)
-            // Fallback to DynamoDB flow data only if API didn't return
-            let institutionalCard = instResult || null;
-            if (institutionalCard) institutionalCard._ts = Date.now();
-            if (!institutionalCard) {
-                // Fallback: construct institutional card with UI-required fields
-                const snapAny = snap as any;
-                const shortVolPct = squeezeCard?.shortVolPercent || 0;
+            // Institutional from DynamoDB (no API call)
+            let institutionalCard: any = null;
+            if (snapAny.darkPool?.percent || flow) {
                 institutionalCard = {
                     darkPool: { percent: snapAny.darkPool?.percent || 0 },
                     blockTrade: { count: snapAny.darkPool?.blockCount || 0, volume: 0 },
-                    shortVolume: { percent: shortVolPct },
+                    shortVolume: { percent: snapAny.shortVol?.percent || 0 },
                     _ts: Date.now(),
                 };
             }
 
-            // Build volatility from GEX regime
+            // Volatility from GEX regime
             let volatilityCard = null;
             if (gex) {
                 volatilityCard = {
@@ -766,6 +690,7 @@ async function tryDynamoFast(ticker: string): Promise<any | null> {
                 overview: null,
                 history: gexHistory,
                 _dynamoPrice: { price: p.close, open: p.open, high: p.high, low: p.low, volume: p.volume, vwap: p.vwap, changePct: p.changePct },
+                _source: 'dynamodb-snapshot',
                 timestamp: Date.now(),
             };
         }
