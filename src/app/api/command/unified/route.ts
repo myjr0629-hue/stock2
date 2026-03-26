@@ -13,6 +13,7 @@ import { GET as getSqueeze } from '@/app/api/live/short-squeeze/route';
 import { GET as getInstitutional } from '@/app/api/flow/realtime-metrics/route';
 import { GET as getFundamentals } from '@/app/api/live/fundamentals/route';
 import { GET as getOverview } from '@/app/api/live/overview/route';
+import { UNIVERSE_500 } from '@/lib/universe';
 
 // [극강] Allow Vercel Pro to run unified aggregation up to 30s (default 10s kills it)
 export const maxDuration = 30;
@@ -522,41 +523,88 @@ export async function GET(request: NextRequest) {
         } catch { /* DynamoDB unavailable, continue to fallback */ }
 
         // ══════════════════════════════════════════════════════════════
-        // TIER 2: [AWS-FIRST] NO POLYGON IN REQUEST PATH
-        // If Memory, Redis, DynamoDB Unified, AND DynamoDB Snapshots all missed,
-        // return structured unavailable response with metadata.
-        // The warm-command cron will populate data on next cycle (≤3 min).
-        // NEVER call Polygon directly from user request path.
+        // TIER 2: ALL CACHES MISSED
         // ══════════════════════════════════════════════════════════════
-        console.warn(`[Command Unified] ⚠️ ALL CACHES MISS for ${ticker} — returning unavailable (NO Polygon in request path)`);
-        
-        // Set short negative cache to prevent thundering herd
-        const { setNegativeCache } = await import('@/services/redisClient');
-        await setNegativeCache(dataCacheKey, `all-miss:${ticker}`);
+        const isInUniverse = UNIVERSE_500.includes(ticker);
 
+        if (isInUniverse) {
+            // ── Universe ticker: warm-command cron will fill data ──
+            // DO NOT call Polygon. Return unavailable. Next cron cycle fills it.
+            console.warn(`[Command Unified] ⚠️ ALL CACHES MISS for ${ticker} (UNIVERSE) — returning unavailable`);
+            const { setNegativeCache } = await import('@/services/redisClient');
+            await setNegativeCache(dataCacheKey, `all-miss:${ticker}`);
+            return jsonResponse({
+                _source: 'unavailable',
+                _cacheStatus: 'miss',
+                _asOf: new Date().toISOString(),
+                _ageSec: 0,
+                _isStale: false,
+                _isPartial: true,
+                _latency: Date.now() - start,
+                _message: `Data for ${ticker} is being prepared. Please retry in 1-3 minutes.`,
+                structure: null, options: null, earnings: null, sma: null,
+                related: null, analyst: null, volatility: null, squeeze: null,
+                institutional: null, fundamentals: null, overview: null, history: null,
+                timestamp: Date.now(),
+            }, 200);
+        }
+
+        // ── Non-universe ticker: safe Polygon cold-start ──
+        // This is the ONLY place Polygon is called from Vercel.
+        // Rules: 5s timeout, result cached to Redis, failure = unavailable.
+        console.log(`[Command Unified] 🌐 Non-universe cold-start for ${ticker} — safe Polygon fetch`);
+        const baseUrl = getBaseUrl(request);
+        try {
+            const COLD_START_TIMEOUT = 10000; // 10s for cold start (Polygon unlimited plan)
+            const coldResult = await Promise.race([
+                buildUnifiedData(ticker, baseUrl, locale),
+                new Promise<null>(resolve => setTimeout(() => {
+                    console.warn(`[Command Unified] ⏱️ Cold-start timeout (10s) for ${ticker}`);
+                    resolve(null);
+                }, COLD_START_TIMEOUT))
+            ]);
+
+            if (coldResult && coldResult.data) {
+                const { data: newData, overview: newOverview } = coldResult;
+                if (newData.structure || newData.options || newData.fundamentals) {
+                    // Cache to Redis so next request is fast
+                    await setInCache(dataCacheKey, newData, getSmartTTL());
+                    if (newOverview) await setInCache(overviewCacheKey, newOverview, getSmartTTL());
+                    memorySet(memKey, newData);
+                    console.log(`[Command Unified] ✅ Non-universe cold-start OK for ${ticker} in ${Date.now() - start}ms`);
+                    return jsonResponse({
+                        ...newData,
+                        overview: newOverview || null,
+                        _source: 'cold-start',
+                        _cacheStatus: 'miss-then-fetched',
+                        _asOf: new Date().toISOString(),
+                        _ageSec: 0,
+                        _isStale: false,
+                        _isPartial: false,
+                        _latency: Date.now() - start,
+                    });
+                }
+            }
+        } catch (e) {
+            console.error(`[Command Unified] Cold-start error for ${ticker}:`, e);
+        }
+
+        // Cold-start failed — return unavailable
+        console.warn(`[Command Unified] ⚠️ Cold-start FAILED for ${ticker} — returning unavailable`);
         return jsonResponse({
             _source: 'unavailable',
-            _cacheStatus: 'miss',
+            _cacheStatus: 'cold-start-failed',
             _asOf: new Date().toISOString(),
             _ageSec: 0,
             _isStale: false,
             _isPartial: true,
             _latency: Date.now() - start,
-            _message: `Data for ${ticker} is being prepared. Please retry in 1-3 minutes.`,
-            structure: null,
-            options: null,
-            earnings: null,
-            sma: null,
-            related: null,
-            analyst: null,
-            volatility: null,
-            squeeze: null,
-            institutional: null,
-            fundamentals: null,
-            overview: null,
-            history: null,
+            _message: `Data for ${ticker} is temporarily unavailable. Please retry shortly.`,
+            structure: null, options: null, earnings: null, sma: null,
+            related: null, analyst: null, volatility: null, squeeze: null,
+            institutional: null, fundamentals: null, overview: null, history: null,
             timestamp: Date.now(),
-        }, 200); // 200 with metadata, not 500 — frontend handles gracefully
+        }, 200);
 
     } catch (error: any) {
         console.error('[Command Unified] API Error:', error);
