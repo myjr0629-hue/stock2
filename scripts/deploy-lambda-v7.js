@@ -600,7 +600,164 @@ async function buildUnifiedCache(priceMap, gexMap, optionsCache, smaMap, details
 
 exports.handler = async (event) => {
   const start = Date.now();
-  console.log('SIGNUM Harvest Lambda v7.0 — ' + new Date().toISOString());
+  console.log('SIGNUM Harvest Lambda v7.1 — ' + new Date().toISOString());
+  
+  // ══════════════════════════════════════════════════════════════
+  // ON-DEMAND MODE: Fetch a single non-universe ticker
+  // Triggered by: Lambda Function URL or direct invoke
+  // Input: event.onDemandTicker OR event.queryStringParameters.ticker
+  // Output: unified data saved to signum-unified-cache DynamoDB
+  // ══════════════════════════════════════════════════════════════
+  const onDemandTicker = event.onDemandTicker 
+    || event.queryStringParameters?.ticker 
+    || (event.body ? JSON.parse(event.body).ticker : null);
+  
+  if (onDemandTicker) {
+    const ticker = onDemandTicker.toUpperCase().trim();
+    console.log('[ON-DEMAND] Fetching ' + ticker + '...');
+    
+    try {
+      // 1. Price snapshot
+      const snapRes = await httpsGet('https://api.polygon.io/v2/snapshot/locale/us/markets/stocks/tickers/' + ticker + '?apiKey=' + POLYGON_KEY, 8000);
+      const snap = snapRes?.ticker;
+      const price = snap?.lastTrade?.p || snap?.day?.c || snap?.prevDay?.c || 0;
+      if (!price) {
+        return { statusCode: 404, body: JSON.stringify({ error: 'No price data for ' + ticker }) };
+      }
+      const changePct = snap?.todaysChangePerc || 0;
+      const volume = snap?.day?.v || 0;
+      
+      // 2. Options (GEX/structure)
+      let structure = null, gexData = null;
+      try {
+        const opts = await getAllOptions(ticker);
+        if (opts.length > 0) {
+          let gex=0, cw=null, pf=null, mp=null, maxCOI=0, maxPOI=0, tCOI=0, tPOI=0, mpMin=Infinity;
+          const strikes = new Set();
+          for (const o of opts) {
+            const s=o.details?.strike_price; if(!s) continue;
+            strikes.add(s);
+            const g=o.greeks?.gamma||0, oi=o.open_interest||0, t=o.details?.contract_type;
+            if(t==='call'){gex+=g*oi*100*price;tCOI+=oi;if(oi>maxCOI){maxCOI=oi;cw=s;}} 
+            else {gex-=g*oi*100*price;tPOI+=oi;if(oi>maxPOI){maxPOI=oi;pf=s;}}
+          }
+          for (const ts2 of [...strikes].sort((a,b)=>a-b)) { 
+            let c2=0; for(const o of opts){const s2=o.details?.strike_price;const oi2=o.open_interest||0;if(!s2||!oi2)continue;if(o.details.contract_type==='call')c2+=Math.max(0,ts2-s2)*oi2;else c2+=Math.max(0,s2-ts2)*oi2;} 
+            if(c2<mpMin){mpMin=c2;mp=ts2;} 
+          }
+          const fl=cw&&pf?(cw+pf)/2:null, gr=gex>0?'POSITIVE':gex<0?'NEGATIVE':'NEUTRAL', pcr=tCOI>0?tPOI/tCOI:0;
+          gexData = { gex, pcr, gammaRegime:gr, callWall:cw, putFloor:pf, maxPain:mp, flipLevel:fl, totalContracts:opts.length, totalCallOI:tCOI, totalPutOI:tPOI };
+          structure = {
+            options_status: 'OK', netGex: Math.round(gex), maxPain: mp,
+            pcRatio: Math.round(pcr*100)/100, levels: { callWall: cw, putFloor: pf },
+            gammaFlipLevel: fl, gammaRegime: gr, totalContracts: opts.length,
+            totalCallOI: tCOI, totalPutOI: tPOI, underlyingPrice: price,
+            validation: { confidence: 'HIGH', source: 'lambda-ondemand' },
+          };
+        }
+      } catch (e) { console.log('[ON-DEMAND] Options err: ' + e.message); }
+      
+      // 3. Fundamentals
+      let fundamentals = null, overview = null;
+      try {
+        const fData = await httpsGet('https://api.polygon.io/v3/reference/tickers/' + ticker + '?apiKey=' + POLYGON_KEY, 5000);
+        const r = fData?.results;
+        if (r) {
+          fundamentals = { ticker, name:r.name||ticker, marketCap:r.market_cap||null, sector:r.sic_description||null, description:r.description?.slice(0,500)||null, exchange:r.primary_exchange||null };
+          overview = { name:r.name||ticker, sector:r.sic_description||null, sectorEN:r.sic_description||null, description:r.description?.slice(0,300)||null, descriptionEN:r.description?.slice(0,300)||null, marketCap:r.market_cap||null, exchange:r.primary_exchange||null };
+        }
+      } catch {}
+      
+      // 4. Analyst (FMP)
+      let analyst = null;
+      if (FMP_KEY) {
+        try {
+          const data = await httpsGet('https://financialmodelingprep.com/stable/grades-consensus?symbol='+ticker+'&apikey='+FMP_KEY, 5000);
+          const grade = Array.isArray(data) ? data[0] : data;
+          if (grade && (grade.strongBuy || grade.buy || grade.hold)) {
+            const total = (grade.strongBuy||0)+(grade.buy||0)+(grade.hold||0)+(grade.sell||0)+(grade.strongSell||0);
+            const bullishPct = total > 0 ? Math.round(((grade.strongBuy||0)+(grade.buy||0))/total*100) : 0;
+            let consensus = grade.consensus || 'N/A';
+            if (consensus === 'N/A' && total > 0) {
+              const ws = ((grade.strongBuy||0)*5+(grade.buy||0)*4+(grade.hold||0)*3+(grade.sell||0)*2+(grade.strongSell||0))/total;
+              consensus = ws>=4.3?'STRONG BUY':ws>=3.5?'BUY':ws>=2.5?'HOLD':ws>=1.7?'SELL':'STRONG SELL';
+            }
+            analyst = { ticker, consensus, totalAnalysts:total, bullishPct, breakdown:{ strongBuy:grade.strongBuy||0, buy:grade.buy||0, hold:grade.hold||0, sell:grade.sell||0, strongSell:grade.strongSell||0 } };
+          }
+        } catch {}
+      }
+      
+      // 5. Earnings (Finnhub)
+      let earnings = null;
+      if (FINNHUB_KEY) {
+        try {
+          const today = new Date().toISOString().slice(0,10);
+          const toDate = new Date(Date.now()+180*86400000).toISOString().slice(0,10);
+          const eData = await httpsGet('https://finnhub.io/api/v1/calendar/earnings?symbol='+ticker+'&from='+today+'&to='+toDate+'&token='+FINNHUB_KEY, 5000);
+          const events = eData?.earningsCalendar || [];
+          if (events.length > 0) {
+            const next = events.sort((a,b) => new Date(a.date).getTime()-new Date(b.date).getTime())[0];
+            const daysUntil = Math.ceil((new Date(next.date).getTime()-new Date(today).getTime())/(86400000));
+            earnings = { ticker, nextEarningsDate:next.date, daysUntilEarnings:daysUntil, daysLabel:daysUntil<=0?'today':'D-'+daysUntil, hasData:true, epsEstimate:next.epsEstimate||null };
+          }
+        } catch {}
+      }
+      
+      // 6. SMA
+      let sma = null;
+      try {
+        const [s50, s200] = await Promise.all([
+          httpsGet('https://api.polygon.io/v1/indicators/sma/'+ticker+'?timespan=day&adjusted=true&window=50&series_type=close&limit=1&apiKey='+POLYGON_KEY, 5000),
+          httpsGet('https://api.polygon.io/v1/indicators/sma/'+ticker+'?timespan=day&adjusted=true&window=200&series_type=close&limit=1&apiKey='+POLYGON_KEY, 5000),
+        ]);
+        const sma50 = s50?.results?.values?.[0]?.value || null;
+        const sma200 = s200?.results?.values?.[0]?.value || null;
+        if (sma50 && sma200) {
+          const cross = sma50 > sma200 ? 'GOLDEN' : 'DEAD';
+          const distance = Math.round(((sma50-sma200)/sma200)*10000)/100;
+          sma = { ticker, cross, crossType:'EST', sma50:Math.round(sma50*100)/100, sma200:Math.round(sma200*100)/100, distance, isImminent:Math.abs(distance)<0.5, phase:cross==='GOLDEN'?'BULLISH':'BEARISH' };
+        }
+      } catch {}
+      
+      // 7. Save to DynamoDB (signum-unified-cache)
+      const data = { timestamp:Date.now(), structure, analyst, fundamentals, earnings, sma, related:null, volatility:null, squeeze:null, institutional:null };
+      const FIELDS = ['structure','analyst','fundamentals','earnings','sma'];
+      const filled = FIELDS.filter(f => data[f]).length;
+      
+      await client.send(new PutCommand({
+        TableName: 'signum-unified-cache',
+        Item: { pk:ticker, data, locale:'en', timestamp:Date.now(), updatedAt:new Date().toISOString(), fieldCount:filled, version:'v7-ondemand' },
+      }));
+      
+      // Also save overview separately
+      if (overview) {
+        await client.send(new PutCommand({
+          TableName: 'signum-unified-cache',
+          Item: { pk:ticker+':overview', data:overview, locale:'en', timestamp:Date.now(), updatedAt:new Date().toISOString(), version:'v7-ondemand' },
+        })).catch(() => {});
+      }
+      
+      const duration = Date.now() - start;
+      console.log('[ON-DEMAND] ' + ticker + ' saved: ' + filled + '/5 fields in ' + duration + 'ms');
+      
+      return { 
+        statusCode: 200, 
+        body: JSON.stringify({ 
+          success: true, ticker, fields: filled, duration,
+          hasStructure: !!structure, hasFundamentals: !!fundamentals, 
+          hasAnalyst: !!analyst, hasEarnings: !!earnings, hasSma: !!sma,
+          price, changePct: Math.round(changePct*100)/100,
+        }) 
+      };
+    } catch (e) {
+      console.error('[ON-DEMAND] Error for ' + ticker + ':', e.message);
+      return { statusCode: 500, body: JSON.stringify({ error: e.message, ticker }) };
+    }
+  }
+  
+  // ══════════════════════════════════════════════════════════════
+  // SCHEDULED MODE: Original v7 harvest (unchanged)
+  // ══════════════════════════════════════════════════════════════
   const hour = new Date().getUTCHours();
   const minute = new Date().getUTCMinutes();
   const utcMin = hour*60+minute;
@@ -721,7 +878,7 @@ async function deploy() {
   const zipBuffer = fs.readFileSync(zipPath);
   
   await lambda.send(new UpdateFunctionCodeCommand({ FunctionName: 'signum-harvest', ZipFile: zipBuffer }));
-  console.log('Lambda code updated: signum-harvest v7.0');
+  console.log('Lambda code updated: signum-harvest v7.1');
 
   await new Promise(r => setTimeout(r, 5000));
 
@@ -731,8 +888,29 @@ async function deploy() {
     MemorySize: 1024, // 1GB
     Environment: { Variables: { NODE_ENV: 'production', FINNHUB_API_KEY: FINNHUB_KEY, FMP_API_KEY: FMP_API_KEY } },
   }));
-  console.log('Lambda config updated (600s, 1024MB, Finnhub key set)');
-  console.log('v7.0: Steps 1-5 (unchanged) + Step 6 (unified cache builder)');
+  console.log('Lambda config updated (600s, 1024MB)');
+
+  // Enable Function URL for on-demand cold-start
+  try {
+    const { CreateFunctionUrlConfigCommand, GetFunctionUrlConfigCommand } = require('@aws-sdk/client-lambda');
+    try {
+      const existing = await lambda.send(new GetFunctionUrlConfigCommand({ FunctionName: 'signum-harvest' }));
+      console.log('Function URL already exists:', existing.FunctionUrl);
+    } catch {
+      const urlConfig = await lambda.send(new CreateFunctionUrlConfigCommand({
+        FunctionName: 'signum-harvest',
+        AuthType: 'NONE', // Public URL (rate-limited by Polygon API key)
+      }));
+      console.log('Function URL created:', urlConfig.FunctionUrl);
+    }
+  } catch (e) {
+    console.log('Function URL setup note:', e.message);
+    console.log('You can enable it manually in AWS Console: Lambda > signum-harvest > Function URL');
+  }
+
+  console.log('v7.1: On-demand cold-start + Steps 1-6 (unchanged)');
+  console.log('Usage: GET <function-url>?ticker=BABA → DynamoDB save');
 }
 
 deploy().catch(e => console.error('Deploy error:', e.message));
+

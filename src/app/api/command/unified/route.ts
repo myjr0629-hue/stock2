@@ -549,44 +549,60 @@ export async function GET(request: NextRequest) {
             }, 200);
         }
 
-        // ── Non-universe ticker: safe Polygon cold-start ──
-        // This is the ONLY place Polygon is called from Vercel.
-        // Rules: 5s timeout, result cached to Redis, failure = unavailable.
-        console.log(`[Command Unified] 🌐 Non-universe cold-start for ${ticker} — safe Polygon fetch`);
-        const baseUrl = getBaseUrl(request);
+        // ── Non-universe ticker: AWS Lambda cold-start ──
+        // Vercel does NOT call Polygon. Lambda does all Polygon work.
+        // Flow: Vercel → Lambda invoke → Lambda fetches Polygon → saves DynamoDB → Vercel reads DynamoDB
+        console.log(`[Command Unified] 🌐 Non-universe cold-start for ${ticker} — AWS Lambda on-demand`);
         try {
-            const COLD_START_TIMEOUT = 20000; // 20s for cold start (maxDuration=30s, needs margin)
-            const coldResult = await Promise.race([
-                buildUnifiedData(ticker, baseUrl, locale),
+            const { LambdaClient, InvokeCommand } = await import('@aws-sdk/client-lambda');
+            const lambdaClient = new LambdaClient({ region: 'us-east-1' });
+            const COLD_START_TIMEOUT = 20000; // 20s for Lambda invoke (Lambda has 600s internally)
+            
+            const invokeResult = await Promise.race([
+                lambdaClient.send(new InvokeCommand({
+                    FunctionName: 'signum-harvest',
+                    InvocationType: 'RequestResponse',
+                    Payload: JSON.stringify({ onDemandTicker: ticker }),
+                })),
                 new Promise<null>(resolve => setTimeout(() => {
-                    console.warn(`[Command Unified] ⏱️ Cold-start timeout (20s) for ${ticker}`);
+                    console.warn(`[Command Unified] ⏱️ Lambda invoke timeout (20s) for ${ticker}`);
                     resolve(null);
                 }, COLD_START_TIMEOUT))
             ]);
 
-            if (coldResult && coldResult.data) {
-                const { data: newData, overview: newOverview } = coldResult;
-                if (newData.structure || newData.options || newData.fundamentals) {
-                    // Cache to Redis so next request is fast
-                    await setInCache(dataCacheKey, newData, getSmartTTL());
-                    if (newOverview) await setInCache(overviewCacheKey, newOverview, getSmartTTL());
-                    memorySet(memKey, newData);
-                    console.log(`[Command Unified] ✅ Non-universe cold-start OK for ${ticker} in ${Date.now() - start}ms`);
-                    return jsonResponse({
-                        ...newData,
-                        overview: newOverview || null,
-                        _source: 'cold-start',
-                        _cacheStatus: 'miss-then-fetched',
-                        _asOf: new Date().toISOString(),
-                        _ageSec: 0,
-                        _isStale: false,
-                        _isPartial: false,
-                        _latency: Date.now() - start,
-                    });
+            if (invokeResult && 'Payload' in invokeResult) {
+                const lambdaPayload = JSON.parse(new TextDecoder().decode(invokeResult.Payload as Uint8Array));
+                const lambdaBody = JSON.parse(lambdaPayload.body || '{}');
+                
+                if (lambdaBody.success && lambdaBody.fields > 0) {
+                    console.log(`[Command Unified] ✅ Lambda cold-start OK for ${ticker}: ${lambdaBody.fields}/5 fields in ${lambdaBody.duration}ms`);
+                    
+                    // Now read from DynamoDB (Lambda just saved it there)
+                    const { getUnifiedCache } = await import('@/lib/aws/unifiedCacheProvider');
+                    const dynData = await getUnifiedCache(ticker, locale);
+                    
+                    if (dynData) {
+                        const cacheData = (dynData as any).data || dynData;
+                        // Cache to Redis for subsequent fast reads
+                        await setInCache(dataCacheKey, cacheData, getSmartTTL());
+                        memorySet(memKey, cacheData);
+                        
+                        return jsonResponse({
+                            ...cacheData,
+                            overview: null,
+                            _source: 'lambda-cold-start',
+                            _cacheStatus: 'lambda-then-dynamo',
+                            _asOf: new Date().toISOString(),
+                            _ageSec: 0,
+                            _isStale: false,
+                            _isPartial: false,
+                            _latency: Date.now() - start,
+                        });
+                    }
                 }
             }
         } catch (e) {
-            console.error(`[Command Unified] Cold-start error for ${ticker}:`, e);
+            console.error(`[Command Unified] Lambda cold-start error for ${ticker}:`, e);
         }
 
         // Cold-start failed — return unavailable
