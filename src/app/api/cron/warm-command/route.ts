@@ -29,11 +29,34 @@ import { NextRequest } from 'next/server';
 // Full 500 Universe — shared master list
 import { UNIVERSE_500 } from '@/lib/universe';
 
-const BATCH_SIZE = 10;
-const TOTAL_BATCHES = Math.ceil(UNIVERSE_500.length / BATCH_SIZE);
+// [AWS-FIRST] Hot set: M7 + top dashboard/flow/command tickers
+// These get priority warm-up every cycle for fastest response
+const HOT_SET = new Set([
+    // M7
+    'NVDA', 'AAPL', 'MSFT', 'GOOGL', 'AMZN', 'META', 'TSLA',
+    // Top momentum/flow
+    'PLTR', 'COIN', 'SMCI', 'ARM', 'AVGO', 'AMD', 'MU', 'MRVL',
+    'SNOW', 'NET', 'CRWD', 'PANW', 'ZS', 'DDOG', 'SHOP',
+    // Key ETFs + indices
+    'SPY', 'QQQ', 'IWM', 'DIA', 'ARKK',
+    // Sector leaders
+    'LLY', 'UNH', 'JPM', 'V', 'MA', 'GS', 'BA', 'GE', 'CAT',
+    'XOM', 'CVX', 'NEE', 'LMT', 'RTX', 'ISRG', 'RKLB',
+    // Physical AI / key small caps
+    'SERV', 'SYM', 'IONQ', 'RGTI', 'QBTS', 'PL', 'TER',
+]);
+
+// Build ordered list: hot set first, then rest of universe
+const ORDERED_UNIVERSE = [
+    ...UNIVERSE_500.filter(t => HOT_SET.has(t)),           // ~50 hot tickers first
+    ...UNIVERSE_500.filter(t => !HOT_SET.has(t)),          // ~450 long tail
+];
+
+const BATCH_SIZE = 20;  // [UPGRADE] 10→20: covers 509 in ~1.3h instead of 2.5h
+const TOTAL_BATCHES = Math.ceil(ORDERED_UNIVERSE.length / BATCH_SIZE);
 const CACHE_KEY_PREFIX = 'cache:command:unified:';
 const OVERVIEW_KEY_PREFIX = 'cache:command:overview:';
-const CACHE_TTL_MARKET = 1800;    // 30 min
+const CACHE_TTL_MARKET = 3600;    // [UPGRADE] 30min→60min: reduces re-warm pressure
 const CACHE_TTL_OFFHOURS = 259200; // 72 hours
 const OVERVIEW_LOCALES = ['ko', 'en', 'ja'] as const;
 const DYNAMO_READ_TIMEOUT_MS = 3000; // 3s timeout per DynamoDB read
@@ -80,7 +103,8 @@ export async function GET(request: Request) {
     }
 
     const batchStart = batchNum * BATCH_SIZE;
-    const batchTickers = UNIVERSE_500.slice(batchStart, batchStart + BATCH_SIZE);
+    const batchTickers = ORDERED_UNIVERSE.slice(batchStart, batchStart + BATCH_SIZE);
+    const hotInBatch = batchTickers.filter(t => HOT_SET.has(t)).length;
 
     let synced = 0;
     let skipped = 0;
@@ -88,8 +112,8 @@ export async function GET(request: Request) {
     const results: string[] = [];
 
     try {
-        // Process tickers in pairs (2 concurrent)
-        const CONCURRENCY = 2;
+        // Process tickers in groups (3 concurrent for speed)
+        const CONCURRENCY = 3;
         for (let i = 0; i < batchTickers.length; i += CONCURRENCY) {
             const chunk = batchTickers.slice(i, i + CONCURRENCY);
 
@@ -177,6 +201,10 @@ export async function GET(request: Request) {
             skipped,
             failed,
             total: batchTickers.length,
+            hotInBatch,
+            hotSetSize: HOT_SET.size,
+            orderedUniverseSize: ORDERED_UNIVERSE.length,
+            warmCoverage: `${Math.round((batchNum + 1) / TOTAL_BATCHES * 100)}%`,
             languages: OVERVIEW_LOCALES,
             timestamp: new Date().toISOString(),
         });
