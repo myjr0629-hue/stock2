@@ -409,24 +409,37 @@ export const useDashboardStore = create<DashboardState>()(
                         const sessionChanged = mappedSession !== existing.session;
 
                         if (isAfterHours) {
-                            // [FIX v2] POST/CLOSED: Do NOT touch underlyingPrice or display.price
-                            // Only update extended badge fields here.
+                            // [FIX v3] POST/CLOSED: q.price = regular session close (ALWAYS)
+                            // q.extendedPrice = POST/PRE price (badge display)
+                            // We CAN safely set underlyingPrice to q.price since it's always the regular close
+                            const regClose = q.price || q.latestPrice;
+                            const refClose = existing.prevClose ?? q.previousClose ?? q.prevClose;
                             const hasNewExtended = q.extendedPrice > 0;
-                            if (hasNewExtended || sessionChanged) {
-                                currentTickers[ticker] = {
-                                    ...existing,
-                                    session: mappedSession as any,
-                                    extended: {
-                                        ...existing.extended,
-                                        postPrice: q.extendedLabel === 'POST' ? q.extendedPrice : existing.extended?.postPrice,
-                                        postChangePct: q.extendedLabel === 'POST' ? q.extendedChangePercent : existing.extended?.postChangePct,
-                                        prePrice: q.extendedLabel === 'PRE' ? q.extendedPrice : existing.extended?.prePrice,
-                                        preChangePct: q.extendedLabel === 'PRE' ? q.extendedChangePercent : existing.extended?.preChangePct,
-                                    },
-                                };
-                                changed = true;
-                            }
-                            // No underlyingPrice/display update → no flickering
+                            const regChangePct = (regClose && refClose && refClose > 0)
+                                ? ((regClose - refClose) / refClose) * 100
+                                : (existing.changePercent ?? 0);
+                            currentTickers[ticker] = {
+                                ...existing,
+                                // [FIX] Set underlyingPrice to regular close (q.price is ALWAYS reg close)
+                                underlyingPrice: regClose || existing.underlyingPrice,
+                                changePercent: regChangePct,
+                                prevClose: refClose ?? existing.prevClose,
+                                regularCloseToday: regClose || existing.regularCloseToday,
+                                session: mappedSession as any,
+                                display: {
+                                    ...existing.display,
+                                    price: regClose || existing.display?.price,
+                                    changePctPct: regChangePct,
+                                },
+                                extended: {
+                                    ...existing.extended,
+                                    postPrice: q.extendedLabel === 'POST' ? q.extendedPrice : existing.extended?.postPrice,
+                                    postChangePct: q.extendedLabel === 'POST' ? q.extendedChangePercent : existing.extended?.postChangePct,
+                                    prePrice: q.extendedLabel === 'PRE' ? q.extendedPrice : existing.extended?.prePrice,
+                                    preChangePct: q.extendedLabel === 'PRE' ? q.extendedChangePercent : existing.extended?.preChangePct,
+                                },
+                            };
+                            changed = true;
                         } else {
                             // REG/PRE: Update everything (live price matters)
                             // [CRITICAL FIX] During REG: use q.price (live trade), NOT extendedPrice (preMarket close)
