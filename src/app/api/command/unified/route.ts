@@ -513,114 +513,44 @@ export async function GET(request: NextRequest) {
                 console.log(`[Command Unified] DynamoDB+GapFill ${ticker} ${Date.now() - start}ms (${fc}→${finalFc}/9, filled: ${gapNames.filter((n,i) => gapResults[i] && n !== 'overview').join(',')})`);
                 return jsonResponse({ ...dynData, overview: dynOv || null, _source: fc === finalFc ? 'dynamodb-unified' : 'dynamodb-gapfill', _latency: Date.now() - start });
             }
-        } catch { /* DynamoDB unavailable, continue to Tier 2 */ }
+        } catch { /* DynamoDB unavailable, continue to fallback */ }
 
         // ══════════════════════════════════════════════════════════════
-        // TIER 2: PARALLEL RACE — DynamoDB snapshots vs Polygon
-        // Start BOTH simultaneously. If DynamoDB has fresh data → return instantly.
-        // If DynamoDB fails/empty → Polygon result is already in-flight.
-        const baseUrl = getBaseUrl(request);
+        // TIER 2: [AWS-FIRST] NO POLYGON IN REQUEST PATH
+        // If Memory, Redis, DynamoDB Unified, AND DynamoDB Snapshots all missed,
+        // return structured unavailable response with metadata.
+        // The warm-command cron will populate data on next cycle (≤3 min).
+        // NEVER call Polygon directly from user request path.
+        // ══════════════════════════════════════════════════════════════
+        console.warn(`[Command Unified] ⚠️ ALL CACHES MISS for ${ticker} — returning unavailable (NO Polygon in request path)`);
+        
+        // Set short negative cache to prevent thundering herd
+        const { setNegativeCache } = await import('@/services/redisClient');
+        await setNegativeCache(dataCacheKey, `all-miss:${ticker}`);
 
-        // Start Polygon fetch immediately (don't wait for DynamoDB to fail first)
-        const polygonPromise = buildUnifiedData(ticker, baseUrl, locale);
-        // Also check if overview exists in cache (from another language's Polygon call)
-        const existingOverview = cachedOverview || await getFromCache<any>(overviewCacheKey).catch(() => null);
-
-        // Race: Try DynamoDB with 3s hard timeout (DynamoDB can hang on Vercel)
-        const dynamoResult = await Promise.race([
-            tryDynamoFast(ticker),
-            new Promise<null>(resolve => setTimeout(() => {
-                console.warn(`[Command Unified] ⏱️ DynamoDB timeout (3s) for ${ticker} — skipping to Polygon`);
-                resolve(null);
-            }, 3000))
-        ]);
-
-        if (dynamoResult) {
-            // DynamoDB had fresh data — but it's PARTIAL (no full fundamentals, related, etc.)
-            // [극강 FIX] Wait up to 15s for Polygon (unlimited plan, completes in ~5s)
-            // Previously 2s → returned incomplete data. Now we ALWAYS get complete data.
-            const POLYGON_WAIT_MS = 15000;
-            const polygonWithTimeout = Promise.race([
-                polygonPromise.then(fullData => ({ fullData, timedOut: false })),
-                new Promise<{ fullData: null; timedOut: boolean }>(resolve =>
-                    setTimeout(() => resolve({ fullData: null, timedOut: true }), POLYGON_WAIT_MS)
-                )
-            ]);
-
-            const polygonResult = await polygonWithTimeout;
-
-            if (!polygonResult.timedOut && polygonResult.fullData) {
-                const { data: polyData, overview: polyOverview } = polygonResult.fullData;
-                if (polyData.structure || polyData.options) {
-                    // Polygon completed within 2s — return FULLY MERGED data (best of both)
-                    const merged = {
-                        ...dynamoResult,
-                        volatility: polyData.volatility || dynamoResult.volatility,
-                        squeeze: polyData.squeeze || dynamoResult.squeeze,
-                        fundamentals: polyData.fundamentals || dynamoResult.fundamentals,
-                        related: polyData.related || dynamoResult.related,
-                        sma: polyData.sma || dynamoResult.sma,
-                        earnings: polyData.earnings || dynamoResult.earnings,
-                        analyst: polyData.analyst || dynamoResult.analyst,
-                        institutional: polyData.institutional || dynamoResult.institutional,
-                        structure: polyData.structure || dynamoResult.structure,
-                        options: polyData.options || dynamoResult.options,
-                        timestamp: Date.now(),
-                    };
-                    const mergedOverview = polyOverview || existingOverview || null;
-                    await setInCache(dataCacheKey, merged, getSmartTTL());
-                    if (mergedOverview) await setInCache(overviewCacheKey, mergedOverview, getSmartTTL());
-                    memorySet(memKey, merged);
-                    // Persist to DynamoDB for permanent access
-                    import('@/lib/aws/unifiedCacheProvider').then(m => m.putUnifiedCache(ticker, locale, merged)).catch(() => {});
-                    console.log(`[Command Unified] ⚡ MERGED (DynamoDB+Polygon) for ${ticker} in ${Date.now() - start}ms`);
-                    return jsonResponse({ ...merged, overview: mergedOverview, _source: 'merged', _ageMs: 0, _latency: Date.now() - start });
-                }
-            }
-
-            // [극강 FIX] Polygon timed out (15s — very rare with unlimited plan)
-            // Still return DynamoDB partial BUT do NOT cache incomplete data
-            // Background Polygon will save complete data for next request
-            polygonPromise.then(async ({ data: fullData, overview: fullOverview }) => {
-                if (fullData.structure || fullData.options) {
-                    const merged = {
-                        ...dynamoResult,
-                        volatility: fullData.volatility || dynamoResult.volatility,
-                        squeeze: fullData.squeeze || dynamoResult.squeeze,
-                        fundamentals: fullData.fundamentals || dynamoResult.fundamentals,
-                        related: fullData.related || dynamoResult.related,
-                        sma: fullData.sma || dynamoResult.sma,
-                        earnings: fullData.earnings || dynamoResult.earnings,
-                        analyst: fullData.analyst || dynamoResult.analyst,
-                        institutional: fullData.institutional || dynamoResult.institutional,
-                        structure: fullData.structure || dynamoResult.structure,
-                        options: fullData.options || dynamoResult.options,
-                        timestamp: Date.now(),
-                    };
-                    await setInCache(dataCacheKey, merged, getSmartTTL());
-                    if (fullOverview) await setInCache(overviewCacheKey, fullOverview, getSmartTTL());
-                    import('@/lib/aws/unifiedCacheProvider').then(m => m.putUnifiedCache(ticker, locale, merged)).catch(() => {});
-                }
-            }).catch(() => {});
-
-            console.log(`[Command Unified] ⚠️ DynamoDB PARTIAL for ${ticker} in ${Date.now() - start}ms (Polygon 15s timeout — bg merge)`);
-            memorySet(memKey, dynamoResult);
-            return jsonResponse({ ...dynamoResult, overview: existingOverview || null, _source: 'dynamodb-partial', _ageMs: 0, _latency: Date.now() - start });
-        }
-
-        // DynamoDB had nothing — await Polygon (which was already started in parallel)
-        const { data: newData, overview: newOverview } = await polygonPromise;
-
-        if (newData.structure || newData.options) {
-            await setInCache(dataCacheKey, newData, getSmartTTL());
-            if (newOverview) await setInCache(overviewCacheKey, newOverview, getSmartTTL());
-            memorySet(memKey, newData);
-            // Persist to DynamoDB for permanent access
-            import('@/lib/aws/unifiedCacheProvider').then(m => m.putUnifiedCache(ticker, locale, newData)).catch(() => {});
-        }
-
-        console.log(`[Command Unified] 🌐 Polygon FRESH for ${ticker} in ${Date.now() - start}ms`);
-        return jsonResponse({ ...newData, overview: newOverview || null, _source: 'fresh', _ageMs: 0, _latency: Date.now() - start });
+        return jsonResponse({
+            _source: 'unavailable',
+            _cacheStatus: 'miss',
+            _asOf: new Date().toISOString(),
+            _ageSec: 0,
+            _isStale: false,
+            _isPartial: true,
+            _latency: Date.now() - start,
+            _message: `Data for ${ticker} is being prepared. Please retry in 1-3 minutes.`,
+            structure: null,
+            options: null,
+            earnings: null,
+            sma: null,
+            related: null,
+            analyst: null,
+            volatility: null,
+            squeeze: null,
+            institutional: null,
+            fundamentals: null,
+            overview: null,
+            history: null,
+            timestamp: Date.now(),
+        }, 200); // 200 with metadata, not 500 — frontend handles gracefully
 
     } catch (error: any) {
         console.error('[Command Unified] API Error:', error);

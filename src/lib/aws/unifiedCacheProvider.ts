@@ -51,10 +51,12 @@ export async function getUnifiedCache(ticker: string, locale: string, maxAgeMs =
     if (!client) return null;
 
     try {
-        // Try new key format first (language-independent)
+        // [FIX] Use ConsistentRead for freshness-sensitive data (price, changePct)
+        // AWS DynamoDB default is eventually consistent — recent writes may not be visible
         let result = await client.send(new GetCommand({
             TableName: TABLES.UNIFIED_CACHE,
             Key: { pk: ticker },
+            ConsistentRead: true,
         }));
 
         // Fallback: try old key format (TICKER:locale) for migration

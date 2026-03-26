@@ -21,6 +21,18 @@ export const CACHE_KEYS = {
     VIX_LAST_UPDATE: 'vix:last_update'
 };
 
+/**
+ * [GLOBAL POLICY] TTL Jitter — adds ±10% random variation to prevent
+ * synchronized expiry (thundering herd) across all keys.
+ * AWS best practice for distributed caching.
+ */
+function applyJitter(ttlSeconds: number): number {
+    if (ttlSeconds <= 10) return ttlSeconds; // No jitter for very short TTLs
+    const jitterRange = Math.floor(ttlSeconds * 0.1); // ±10%
+    const jitter = Math.floor(Math.random() * (jitterRange * 2 + 1)) - jitterRange;
+    return Math.max(1, ttlSeconds + jitter);
+}
+
 /** Get Redis connection status for debugging */
 export function getRedisStatus() {
     return {
@@ -140,17 +152,20 @@ export async function setInCache<T>(key: string, value: T, ttlSeconds?: number):
     let ecOk = false;
     let upstashOk = false;
 
+    // [GLOBAL POLICY] Apply TTL jitter to prevent thundering herd
+    const effectiveTtl = ttlSeconds ? applyJitter(ttlSeconds) : undefined;
+
     // Write to EC2 Proxy (ElastiCache)
     if (ecProxyAvailable !== false) {
-        ecOk = await ecProxySet(key, value, ttlSeconds);
+        ecOk = await ecProxySet(key, value, effectiveTtl);
     }
 
     // Write to Upstash (always, for fallback consistency)
     const upstash = getUpstashClient();
     if (upstash) {
         try {
-            if (ttlSeconds) {
-                await upstash.setex(key, ttlSeconds, value);
+            if (effectiveTtl) {
+                await upstash.setex(key, effectiveTtl, value);
             } else {
                 await upstash.set(key, value);
             }
@@ -162,6 +177,23 @@ export async function setInCache<T>(key: string, value: T, ttlSeconds?: number):
     }
 
     return ecOk || upstashOk;
+}
+
+/**
+ * [GLOBAL POLICY] Short-lived negative cache for soft errors.
+ * Prevents thundering herd when a data source is temporarily down.
+ * TTL: 15-30 seconds (random). Never caches hard errors (null/undefined).
+ */
+export async function setNegativeCache(key: string, reason: string): Promise<boolean> {
+    const negativeTtl = 15 + Math.floor(Math.random() * 16); // 15-30 seconds
+    const negativePayload = {
+        _negative: true,
+        _reason: reason,
+        _cachedAt: Date.now(),
+        _expiresSec: negativeTtl,
+    };
+    console.warn(`[Redis] Negative cache set: key=${key}, reason=${reason}, ttl=${negativeTtl}s`);
+    return setInCache(key as any, negativePayload as any, negativeTtl);
 }
 
 /**
