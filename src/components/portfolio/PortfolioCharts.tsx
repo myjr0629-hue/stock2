@@ -81,6 +81,10 @@ export function EChartsSectorDonut({ sectors, total, label }: {
     const locale = useLocale();
 
     const option = useMemo(() => ({
+        animation: true,
+        animationDuration: 300,
+        animationDurationUpdate: 0,
+        animationEasing: 'cubicOut',
         tooltip: {
             trigger: 'item',
             appendToBody: true,
@@ -147,6 +151,8 @@ export function EChartsSectorDonut({ sectors, total, label }: {
             option={option}
             style={{ width: 110, height: 110 }}
             opts={{ renderer: 'canvas' }}
+            notMerge={false}
+            lazyUpdate={true}
         />
     );
 }
@@ -203,6 +209,10 @@ export function EChartsPnlTreemap({ holdings, totalValue }: {
     }, [holdings, totalValue]);
 
     const option = useMemo(() => ({
+        animation: true,
+        animationDuration: 300,
+        animationDurationUpdate: 0,
+        animationEasing: 'cubicOut',
         tooltip: {
             formatter: (params: any) => {
                 const d = params.data;
@@ -295,6 +305,8 @@ export function EChartsPnlTreemap({ holdings, totalValue }: {
             option={option}
             style={{ height: '100%', width: '100%', minHeight: 160 }}
             opts={{ renderer: 'canvas' }}
+            notMerge={false}
+            lazyUpdate={true}
         />
     );
 }
