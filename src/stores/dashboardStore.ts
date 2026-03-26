@@ -429,7 +429,11 @@ export const useDashboardStore = create<DashboardState>()(
                             // No underlyingPrice/display update → no flickering
                         } else {
                             // REG/PRE: Update everything (live price matters)
-                            const newPrice = q.extendedPrice && q.extendedPrice > 0
+                            // [CRITICAL FIX] During REG: use q.price (live trade), NOT extendedPrice (preMarket close)
+                            // extendedPrice during REG = pre-market close → badge only, NOT main price
+                            // Only during PRE: extendedPrice IS the live pre-market price → use as main
+                            const isPreSession = mappedSession === 'PRE' || q.session === 'pre';
+                            const newPrice = isPreSession && q.extendedPrice && q.extendedPrice > 0
                                 ? q.extendedPrice
                                 : q.price || q.latestPrice;
                             // [FIX] Prefer existing prevClose (from 30s ticker API — more accurate) over quotes snapshot
