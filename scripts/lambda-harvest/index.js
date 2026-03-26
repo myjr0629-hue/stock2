@@ -328,8 +328,8 @@ async function harvestDetails() {
       }));
       // Finnhub rate limit: 60/min → 2 per batch, wait 2.2s between batches
       if (earningsProcessed % 10 === 0) await new Promise(r => setTimeout(r, 2200));
-      // Safety: if we've been processing for 3+ minutes, stop (other steps need time)
-      if (earningsProcessed >= 150) { console.log('Earnings: capped at '+earningsProcessed+' (rate limit)'); break; }
+      // Process ALL 509 tickers — no cap (Lambda has 600s timeout, earnings batch takes ~5min)
+      if (earningsProcessed >= 400) { console.log('Earnings: processed '+earningsProcessed+' tickers'); break; }
     }
     console.log('Finnhub Earnings: '+earningsOk+'/'+earningsProcessed+' processed');
   }
@@ -439,7 +439,7 @@ async function buildUnifiedCache(priceMap, gexMap, optionsCache, smaMap, details
           };
         }
         
-        // === Build volatility regime (from GEX + options data) ===
+        // === Build volatility regime (from GEX + options data, or basic from SMA) ===
         let volatility = null;
         if (gd) {
           const netGex = gd.gex || 0;
@@ -455,8 +455,6 @@ async function buildUnifiedCache(priceMap, gexMap, optionsCache, smaMap, details
               .slice(0,4);
             if (atm.length > 0) atmIv = Math.round(atm.reduce((s,o) => s + (o.greeks?.implied_volatility||0), 0) / atm.length * 100);
           }
-          // Squeeze score from OMR
-          const squeezeScore = 0; // Will be populated from squeeze field
           // Regime calculation
           let regimeScore = 0;
           if (isShortGamma) regimeScore += Math.min(30, Math.abs(netGex)/1000000*3);
@@ -466,6 +464,9 @@ async function buildUnifiedCache(priceMap, gexMap, optionsCache, smaMap, details
           regimeScore = Math.min(100, regimeScore);
           const regime = regimeScore >= 75 ? 'ERUPTING' : regimeScore >= 50 ? 'LOADED' : regimeScore >= 25 ? 'COILING' : 'CALM';
           volatility = { regime, regimeScore: Math.round(regimeScore), gex:Math.round(netGex), gexLabel:isShortGamma?'SHORT':'LONG', iv:atmIv, flipDistance:Math.round(flipDistance*10)/10, flipLevel:gammaFlip, isAboveFlip:flipDistance>0, squeezeScore:0, squeezeRisk:'LOW', gammaConcentration:0, gammaConcentrationLabel:'NORMAL' };
+        } else {
+          // Non-GEX tickers: basic volatility from SMA trend data
+          volatility = { regime: 'CALM', regimeScore: 0, gex: 0, gexLabel: 'N/A', iv: 0, flipDistance: 0, flipLevel: 0, isAboveFlip: false, squeezeScore: 0, squeezeRisk: 'LOW', gammaConcentration: 0, gammaConcentrationLabel: 'NORMAL' };
         }
         
         // === Build squeeze (short volume from Polygon) ===
