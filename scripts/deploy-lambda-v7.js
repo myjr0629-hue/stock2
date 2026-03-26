@@ -501,7 +501,36 @@ async function harvestDetails() {
   }
   
   console.log('Details: analyst='+analystOk+' earnings='+earningsOk+' fund='+fundOk+' related='+relOk);
-  return { analyst:analystOk, earnings:earningsOk, fundamentals:fundOk, related:relOk, detailsMap };
+  
+  // === 4e: Polygon Short Interest + Float (SI%) — daily batch ===
+  let siOk = 0;
+  for (let i = 0; i < UNIVERSE_500.length; i += 10) {
+    const batch = UNIVERSE_500.slice(i, i+10);
+    await Promise.all(batch.map(async (ticker) => {
+      try {
+        const [siData, floatData] = await Promise.all([
+          httpsGet('https://api.polygon.io/stocks/v1/short-interest?ticker='+ticker+'&limit=2&order=desc&apiKey='+POLYGON_KEY, 5000).catch(()=>null),
+          httpsGet('https://api.polygon.io/v3/reference/tickers/'+ticker+'?apiKey='+POLYGON_KEY, 5000).catch(()=>null),
+        ]);
+        const siResults = siData?.results || [];
+        const floatShares = floatData?.results?.share_class_shares_outstanding || floatData?.results?.weighted_shares_outstanding || 0;
+        if (siResults.length > 0 && floatShares > 0) {
+          const siPercent = Math.round((siResults[0].short_interest / floatShares) * 1000) / 10;
+          const daysToCover = Math.round((siResults[0].short_interest / (floatData?.results?.weighted_shares_outstanding || 1)) * 10) / 10;
+          let siChange = 0;
+          if (siResults.length >= 2) {
+            const prevSi = Math.round((siResults[1].short_interest / floatShares) * 1000) / 10;
+            siChange = Math.round((siPercent - prevSi) * 10) / 10;
+          }
+          await client.send(new PutCommand({ TableName:'signum-pattern-db', Item:{ pattern:'SI:'+ticker, timestamp:Date.now(), siPercent, daysToCover, siChange, floatShares, shortInterest:siResults[0].short_interest }})).catch(()=>{});
+          siOk++;
+        }
+      } catch {}
+    }));
+  }
+  console.log('SI%: '+siOk+'/'+UNIVERSE_500.length);
+  
+  return { analyst:analystOk, earnings:earningsOk, fundamentals:fundOk, related:relOk, si:siOk, detailsMap };
 }
 
 // ====== Step 5: Update Alpha Scores (merge GEX into prices) ======
@@ -597,33 +626,25 @@ async function buildUnifiedCache(priceMap, gexMap, optionsCache, smaMap, details
           volatility = { regime: 'CALM', regimeScore: 0, gex: 0, gexLabel: 'N/A', iv: 0, flipDistance: 0, flipLevel: 0, isAboveFlip: false, squeezeScore: 0, squeezeRisk: 'LOW', gammaConcentration: 0, gammaConcentrationLabel: 'NORMAL' };
         }
         
-        // === Build squeeze (short volume + short interest from Polygon) ===
+        // === Build squeeze (short volume only per cycle + cached SI% from daily detail) ===
         let squeeze = null;
         try {
-          const [svData, siData, floatData] = await Promise.all([
-            httpsGet('https://api.polygon.io/stocks/v1/short-volume?ticker='+ticker+'&limit=1&apiKey='+POLYGON_KEY, 5000).catch(()=>null),
-            httpsGet('https://api.polygon.io/stocks/v1/short-interest?ticker='+ticker+'&limit=2&order=desc&apiKey='+POLYGON_KEY, 5000).catch(()=>null),
-            httpsGet('https://api.polygon.io/v3/reference/tickers/'+ticker+'?apiKey='+POLYGON_KEY, 5000).catch(()=>null),
-          ]);
+          const svData = await httpsGet('https://api.polygon.io/stocks/v1/short-volume?ticker='+ticker+'&limit=1&apiKey='+POLYGON_KEY, 5000).catch(()=>null);
           const svResult = svData?.results?.[0];
           const shortVol = svResult?.short_volume || 0;
           const totalVol = svResult?.total_volume || 1;
           const shortVolPct = Math.round((shortVol/totalVol)*1000)/10;
-          // SI% = (short_interest / float_shares) * 100
+          // Read cached SI% from daily detail (signum-pattern-db)
           let siPercent = 0, daysToCover = 0, siChange = 0;
-          const siResults = siData?.results || [];
-          const floatShares = floatData?.results?.share_class_shares_outstanding || floatData?.results?.weighted_shares_outstanding || 0;
-          if (siResults.length > 0 && floatShares > 0) {
-            const latest = siResults[0];
-            siPercent = Math.round((latest.short_interest / floatShares) * 1000) / 10;
-            const avgVol = totalVol || 1;
-            daysToCover = Math.round((latest.short_interest / avgVol) * 10) / 10;
-            if (siResults.length >= 2) {
-              const prev = siResults[1];
-              const prevSi = Math.round((prev.short_interest / floatShares) * 1000) / 10;
-              siChange = Math.round((siPercent - prevSi) * 10) / 10;
+          try {
+            const siRes = await client.send(new QueryCommand({ TableName:'signum-pattern-db', KeyConditionExpression:'pattern=:p', ExpressionAttributeValues:{':p':'SI:'+ticker}, Limit:1, ScanIndexForward:false }));
+            const siCached = siRes.Items?.[0];
+            if (siCached) {
+              siPercent = siCached.siPercent || 0;
+              daysToCover = siCached.daysToCover || 0;
+              siChange = siCached.siChange || 0;
             }
-          }
+          } catch {}
           let riskScore = 0;
           if (siPercent >= 20) riskScore += 40; else if (siPercent >= 10) riskScore += 25; else if (siPercent >= 5) riskScore += 10;
           if (shortVolPct >= 50) riskScore += 20; else if (shortVolPct >= 40) riskScore += 10;
@@ -631,7 +652,7 @@ async function buildUnifiedCache(priceMap, gexMap, optionsCache, smaMap, details
           if (siChange > 2) riskScore += 15; else if (siChange > 0) riskScore += 5;
           riskScore = Math.min(100, riskScore);
           const status = riskScore >= 70 ? 'CRITICAL' : riskScore >= 45 ? 'HIGH' : riskScore >= 20 ? 'MEDIUM' : 'LOW';
-          squeeze = { ticker, siPercent, daysToCover, siChange, shortVolPercent:shortVolPct, riskScore, status, floatShares };
+          squeeze = { ticker, siPercent, daysToCover, siChange, shortVolPercent:shortVolPct, riskScore, status };
         } catch {}
         
         // === Build institutional (simplified — dark pool % from snapshot) ===

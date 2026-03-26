@@ -946,10 +946,9 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
     // even if useEffect hasn't fired yet (bypasses intermediate step)
     // ══════════════════════════════════════════════════════════════
     const effectiveVol = React.useMemo(() => {
-        if (volatilityData) return volatilityData;
-        if (unifiedData?.volatility) return unifiedData.volatility;
-        // Fallback: derive VOL REGIME from already-loaded structure data (instant, no Lambda wait)
-        if (structure) {
+        // Derive from structure if available (instant, real-time GEX data)
+        const structureDerived = (() => {
+            if (!structure || !structure.netGex) return null;
             const netGex = structure.netGex || 0;
             const isShortGamma = netGex < 0;
             const flipLevel = structure.gammaFlipLevel || 0;
@@ -963,7 +962,11 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
             regimeScore = Math.min(100, Math.round(regimeScore));
             const regime = regimeScore >= 75 ? 'ERUPTING' : regimeScore >= 50 ? 'LOADED' : regimeScore >= 25 ? 'COILING' : 'CALM';
             return { regime, regimeScore, gex: Math.round(netGex), gexLabel: isShortGamma ? 'SHORT' : 'LONG', iv: iv ? Math.round(iv * 100) : 0, flipDistance: Math.round(flipDist * 10) / 10, flipLevel, isAboveFlip: flipDist > 0, squeezeScore: 0, squeezeRisk: 'LOW', gammaConcentration: 0, gammaConcentrationLabel: 'NORMAL' };
-        }
+        })();
+        // Prefer structure-derived (real-time) over cached data
+        if (structureDerived) return structureDerived;
+        if (volatilityData) return volatilityData;
+        if (unifiedData?.volatility) return unifiedData.volatility;
         return null;
     }, [volatilityData, unifiedData?.volatility, structure, livePrice?.price, initialStockData?.price]);
     const effectiveSma = React.useMemo(() => smaData || unifiedData?.sma || null, [smaData, unifiedData?.sma]);
