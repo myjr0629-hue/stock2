@@ -374,6 +374,32 @@ export async function GET(request: NextRequest) {
         if (cachedData && cachedData.timestamp) {
             const ageMs = Date.now() - cachedData.timestamp;
 
+            // [QUALITY CHECK] If Redis cache is severely incomplete (5+ missing core fields),
+            // try DynamoDB for better data before serving stale Redis cache
+            const QC_FIELDS = ['structure','analyst','fundamentals','earnings','sma','related','squeeze','volatility','institutional'] as const;
+            const redisFc = QC_FIELDS.filter(f => isFieldUsable(f, cachedData[f])).length;
+            if (redisFc <= 4) {
+                // Redis cache is too incomplete — check DynamoDB for better data
+                try {
+                    const { getUnifiedCache } = await import('@/lib/aws/unifiedCacheProvider');
+                    const dynData = await getUnifiedCache(ticker, locale);
+                    if (dynData) {
+                        const dynamoFc = QC_FIELDS.filter(f => !!(dynData as any)[f]).length;
+                        if (dynamoFc > redisFc) {
+                            console.log(`[Command Unified] Redis(${redisFc}/9) < DynamoDB(${dynamoFc}/9) for ${ticker} — upgrading cache`);
+                            // Merge DynamoDB data into Redis — DynamoDB wins for missing fields
+                            for (const f of QC_FIELDS) {
+                                if (!isFieldUsable(f, cachedData[f]) && (dynData as any)[f]) {
+                                    cachedData[f] = (dynData as any)[f];
+                                }
+                            }
+                            cachedData.timestamp = Date.now();
+                            setInCache(dataCacheKey, cachedData, getSmartTTL()).catch(() => {});
+                        }
+                    }
+                } catch { /* DynamoDB unavailable, continue with Redis */ }
+            }
+
             // Get overview: Redis → API fetch
             let resolvedOverview = cachedOverview;
             if (!resolvedOverview) {
