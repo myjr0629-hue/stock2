@@ -945,7 +945,27 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
     // [EFFECTIVE VALUES] useMemo fallback — guarantees card data
     // even if useEffect hasn't fired yet (bypasses intermediate step)
     // ══════════════════════════════════════════════════════════════
-    const effectiveVol = React.useMemo(() => volatilityData || unifiedData?.volatility || null, [volatilityData, unifiedData?.volatility]);
+    const effectiveVol = React.useMemo(() => {
+        if (volatilityData) return volatilityData;
+        if (unifiedData?.volatility) return unifiedData.volatility;
+        // Fallback: derive VOL REGIME from already-loaded structure data (instant, no Lambda wait)
+        if (structure) {
+            const netGex = structure.netGex || 0;
+            const isShortGamma = netGex < 0;
+            const flipLevel = structure.gammaFlipLevel || 0;
+            const price = displayPrice || 0;
+            const flipDist = flipLevel > 0 && price > 0 ? ((price - flipLevel) / flipLevel) * 100 : 0;
+            let regimeScore = 0;
+            if (isShortGamma) regimeScore += Math.min(30, Math.abs(netGex) / 1000000 * 3);
+            if (Math.abs(flipDist) < 1) regimeScore += 15; else if (Math.abs(flipDist) < 3) regimeScore += 10;
+            const iv = structure.atmIV || 0;
+            if (iv > 0.6) regimeScore += 20; else if (iv > 0.4) regimeScore += 10;
+            regimeScore = Math.min(100, Math.round(regimeScore));
+            const regime = regimeScore >= 75 ? 'ERUPTING' : regimeScore >= 50 ? 'LOADED' : regimeScore >= 25 ? 'COILING' : 'CALM';
+            return { regime, regimeScore, gex: Math.round(netGex), gexLabel: isShortGamma ? 'SHORT' : 'LONG', iv: iv ? Math.round(iv * 100) : 0, flipDistance: Math.round(flipDist * 10) / 10, flipLevel, isAboveFlip: flipDist > 0, squeezeScore: 0, squeezeRisk: 'LOW', gammaConcentration: 0, gammaConcentrationLabel: 'NORMAL' };
+        }
+        return null;
+    }, [volatilityData, unifiedData?.volatility, structure, displayPrice]);
     const effectiveSma = React.useMemo(() => smaData || unifiedData?.sma || null, [smaData, unifiedData?.sma]);
     const effectiveFund = React.useMemo(() => fundamentalData || unifiedData?.fundamentals || null, [fundamentalData, unifiedData?.fundamentals]);
     const effectiveRelated = React.useMemo(() => relatedData || (unifiedData?.related ? { count: unifiedData.related.count || 0, topRelated: unifiedData.related.topRelated || [] } : null), [relatedData, unifiedData?.related]);
