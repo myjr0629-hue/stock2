@@ -148,6 +148,9 @@ interface DashboardState {
 const DEFAULT_TICKERS = ['NVDA', 'TSLA', 'SPY'];
 
 // [FIX] Field-level deep merge helper to preserve existing non-null values
+// Key behavior: null/undefined values in newData will NOT overwrite existing non-null values.
+// This prevents fetchDashboardData (extended:null from analysis-cache) from destroying
+// the extended data that fetchPriceOnly already populated from Polygon.
 const deepMergeTicker = (existing: TickerData | undefined, newData: any): TickerData => {
     if (!existing) return newData as TickerData;
     const merged = { ...existing } as any;
@@ -164,6 +167,7 @@ const deepMergeTicker = (existing: TickerData | undefined, newData: any): Ticker
                 merged[field] = val;
             }
         }
+        // [FIX] If newData has null but existing has data, preserve existing (no overwrite)
     }
     return merged as TickerData;
 };

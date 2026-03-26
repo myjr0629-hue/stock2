@@ -2077,7 +2077,9 @@ export function DashboardClient({ initialTickers, initialQuotes }: { initialTick
                 stopPolling();
             } else {
                 fetchPriceOnly(getTickerList());
-                fetchDashboardData(getTickerList());
+                fetchDashboardData(getTickerList()).then(() => {
+                    fetchPriceOnly(getTickerList());
+                });
                 startPolling();
             }
         };
@@ -2086,7 +2088,13 @@ export function DashboardClient({ initialTickers, initialQuotes }: { initialTick
         // Now guaranteed to run AFTER Supabase load since initialized is true
         fetchPriceOnly(getTickerList());
         // Then fire full data for option indicators (slower)
-        fetchDashboardData(getTickerList());
+        // [FIX] After unified API completes, re-fire fetchPriceOnly to immediately
+        // fill extended (Pre/Post) data. Without this, extended data from the first
+        // fetchPriceOnly call gets lost because unified API returns extended:null
+        // from analysis-cache, and the next fetchPriceOnly wouldn't run for 2s.
+        fetchDashboardData(getTickerList()).then(() => {
+            fetchPriceOnly(getTickerList());
+        });
         startPolling();
         document.addEventListener('visibilitychange', handleVisibility);
 
