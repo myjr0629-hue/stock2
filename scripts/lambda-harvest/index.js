@@ -561,14 +561,27 @@ async function buildUnifiedCache(priceMap, gexMap, optionsCache, smaMap, details
         // Provide basic structure; warm-command can optionally supplement
         institutional = { darkPool: { percent: 0 }, blockTrade: { count: 0, volume: 0 }, shortVolume: squeeze ? { percent: squeeze.shortVolPercent } : null };
         
+        // === Preserve existing data from DynamoDB if current run doesn't have it ===
+        // Prevents extended-hours cron from wiping out regular-hours SMA/structure data
+        let prevSma = null, prevStructure = null;
+        if (!sma || !structure) {
+          try {
+            const existing = await client.send(new GetCommand({ TableName:'signum-unified-cache', Key:{pk:ticker} }));
+            if (existing.Item?.data) {
+              if (!sma && existing.Item.data.sma) prevSma = existing.Item.data.sma;
+              if (!structure && existing.Item.data.structure) prevStructure = existing.Item.data.structure;
+            }
+          } catch {}
+        }
+        
         // === Assemble unified data ===
         const data = {
           timestamp: Date.now(),
-          structure,
+          structure: structure || prevStructure,
           analyst: dt.analyst || null,
           fundamentals: dt.fundamentals || null,
           earnings: dt.earnings || null,
-          sma,
+          sma: sma || prevSma,
           related: dt.related || null,
           volatility,
           squeeze,
