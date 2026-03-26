@@ -5,14 +5,10 @@ import { fetchRealtimeMetrics } from '@/services/realtimeMetricsService';
 import { getFromCache, setInCache } from '@/services/redisClient';
 import { recordAlphaDaily } from '@/lib/aws/historyMiddleware';
 import { getAnalysisCacheForTickers, type AnalysisCacheEntry } from '@/services/analysisCache';
-import { fetchMassive } from '@/services/massiveClient';
 import { GET as getLiveTicker } from '@/app/api/live/ticker/route'; // [FIX] Direct import (no HTTP loopback)
 
-// [V4.1] Polygon API for technical indicators (return3D, sma20, rsi14, relVol)
-const POLYGON_API_KEY = process.env.POLYGON_API_KEY || process.env.MASSIVE_API_KEY || 'iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF';
-const POLYGON_BASE = 'https://api.polygon.io';
-
-// [V4.1] Fetch daily bars and compute return3D, sma20, rsi14, relVol in one call
+// [AWS-FIRST] Technical indicators from analysis-cache (NO Polygon API call)
+// Analysis cache is pre-computed by warm-analysis cron and stored in Redis.
 async function fetchTechnicalIndicators(ticker: string): Promise<{
     return3D: number | null;
     sma20: number | null;
@@ -20,67 +16,31 @@ async function fetchTechnicalIndicators(ticker: string): Promise<{
     relVol: number | null;
 }> {
     try {
-        const to = new Date().toISOString().split('T')[0];
-        const from = new Date(Date.now() - 45 * 86400000).toISOString().split('T')[0]; // 45 calendar days for 20+ trading days
-        const url = `${POLYGON_BASE}/v2/aggs/ticker/${ticker}/range/1/day/${from}/${to}?adjusted=true&sort=asc&limit=50&apiKey=${POLYGON_API_KEY}`;
-        const res = await fetch(url, { next: { revalidate: 300 } }); // cache 5min
-        if (!res.ok) return { return3D: null, sma20: null, rsi14: null, relVol: null };
-
-        const data = await res.json();
-        const bars = data.results || [];
-        if (bars.length < 4) return { return3D: null, sma20: null, rsi14: null, relVol: null };
-
-        const closes: number[] = bars.map((b: any) => b.c);
-        const volumes: number[] = bars.map((b: any) => b.v);
-
-        // return3D: 3-trading-day return
-        let return3D: number | null = null;
-        if (closes.length >= 4) {
-            const recent = closes.slice(-4);
-            return3D = parseFloat((((recent[3] - recent[0]) / recent[0]) * 100).toFixed(2));
+        const cached = await getFromCache<any>(`analysis:${ticker}`);
+        if (cached) {
+            return {
+                return3D: cached.return3d ?? null,
+                sma20: cached.sma20 ?? null,
+                rsi14: cached.rsi ?? null,
+                relVol: cached.relVol ?? null,
+            };
         }
-
-        // sma20: 20-day simple moving average
-        let sma20: number | null = null;
-        if (closes.length >= 20) {
-            const last20 = closes.slice(-20);
-            sma20 = parseFloat((last20.reduce((a, b) => a + b, 0) / 20).toFixed(2));
+        // Fallback: try DynamoDB unified cache
+        const { getUnifiedCache } = await import('@/lib/aws/unifiedCacheProvider');
+        const dynData = await Promise.race([
+            getUnifiedCache(ticker, 'en'),
+            new Promise<null>(r => setTimeout(() => r(null), 3000))
+        ]);
+        if (dynData) {
+            const p = (dynData as any).price || {};
+            return {
+                return3D: (dynData as any).return3d ?? null,
+                sma20: p.sma20 ?? null,
+                rsi14: (dynData as any).rsi ?? null,
+                relVol: (dynData as any).relVol ?? null,
+            };
         }
-
-        // rsi14: 14-period RSI (Wilder's smoothing)
-        let rsi14: number | null = null;
-        if (closes.length >= 15) {
-            const changes = closes.slice(1).map((c, i) => c - closes[i]);
-            let avgGain = 0, avgLoss = 0;
-            for (let i = 0; i < 14; i++) {
-                if (changes[i] > 0) avgGain += changes[i];
-                else avgLoss += Math.abs(changes[i]);
-            }
-            avgGain /= 14;
-            avgLoss /= 14;
-            // Wilder's smoothing for remaining periods
-            for (let i = 14; i < changes.length; i++) {
-                if (changes[i] > 0) {
-                    avgGain = (avgGain * 13 + changes[i]) / 14;
-                    avgLoss = (avgLoss * 13) / 14;
-                } else {
-                    avgGain = (avgGain * 13) / 14;
-                    avgLoss = (avgLoss * 13 + Math.abs(changes[i])) / 14;
-                }
-            }
-            const rs = avgLoss > 0 ? avgGain / avgLoss : 100;
-            rsi14 = parseFloat((100 - 100 / (1 + rs)).toFixed(1));
-        }
-
-        // relVol: current day volume / 20-day average volume
-        let relVol: number | null = null;
-        if (volumes.length >= 21) {
-            const todayVol = volumes[volumes.length - 1];
-            const avg20Vol = volumes.slice(-21, -1).reduce((a, b) => a + b, 0) / 20;
-            relVol = avg20Vol > 0 ? parseFloat((todayVol / avg20Vol).toFixed(2)) : null;
-        }
-
-        return { return3D, sma20, rsi14, relVol };
+        return { return3D: null, sma20: null, rsi14: null, relVol: null };
     } catch {
         return { return3D: null, sma20: null, rsi14: null, relVol: null };
     }
@@ -220,9 +180,10 @@ async function warmDefaultCache() {
     console.log('[CACHE WARMER] Starting background warm...');
 
     try {
-        // Determine base URL for internal API calls
-        const port = process.env.PORT || '3000';
-        const baseUrl = `http://localhost:${port}`;
+        // [AWS-FIRST] Use production URL, never localhost (Vercel has no localhost)
+        const baseUrl = process.env.VERCEL_URL
+            ? `https://${process.env.VERCEL_URL}`
+            : `http://localhost:${process.env.PORT || '3000'}`;
 
         const [marketData, ...tickerResults] = await Promise.all([
             fetchMarketData(),
@@ -516,45 +477,15 @@ async function buildResponseFromAnalysisCache(
             }
         }
 
-        // Polygon fallback only for DynamoDB misses
+        // [AWS-FIRST] DynamoDB misses get no price — analysis cache still provides structure
         if (missingFromDynamo.length > 0) {
-            const polygonResults = await Promise.all(
-                missingFromDynamo.map(async (ticker) => {
-                    try {
-                        const snapRes = await fetchMassive(
-                            `/v2/snapshot/locale/us/markets/stocks/tickers/${ticker}`,
-                            {}, false, undefined, { cache: 'no-store' as RequestCache }
-                        );
-                        return { ticker, snapshot: snapRes?.ticker || null };
-                    } catch {
-                        return { ticker, snapshot: null };
-                    }
-                })
-            );
-            polygonResults.forEach(({ ticker, snapshot }) => {
-                if (snapshot) priceMap[ticker] = snapshot;
-            });
+            console.log(`[Dashboard] ${missingFromDynamo.length} tickers missing from DynamoDB — using analysis cache only`);
         }
 
-        console.log(`[Dashboard] Price: DynamoDB ${tickersToFetch.length - missingFromDynamo.length}/${tickersToFetch.length}, Polygon fallback ${missingFromDynamo.length}`);
+        console.log(`[Dashboard] Price: DynamoDB ${tickersToFetch.length - missingFromDynamo.length}/${tickersToFetch.length}`);
     } catch {
-        // DynamoDB failed — fall back entirely to Polygon
-        const priceResults = await Promise.all(
-            tickers.filter(t => analysisCacheMap[t]).map(async (ticker) => {
-                try {
-                    const snapRes = await fetchMassive(
-                        `/v2/snapshot/locale/us/markets/stocks/tickers/${ticker}`,
-                        {}, false, undefined, { cache: 'no-store' as RequestCache }
-                    );
-                    return { ticker, snapshot: snapRes?.ticker || null };
-                } catch {
-                    return { ticker, snapshot: null };
-                }
-            })
-        );
-        priceResults.forEach(({ ticker, snapshot }) => {
-            if (snapshot) priceMap[ticker] = snapshot;
-        });
+        // DynamoDB failed — analysis cache still provides structure data
+        console.warn(`[Dashboard] DynamoDB price fetch failed — continuing with analysis cache`);
     }
 
     for (const ticker of tickers) {
@@ -693,15 +624,16 @@ async function revalidateCache(cacheKey: string, tickers: string[], requestOrBas
     }
 
     try {
-        // Determine baseUrl from request or fallback to localhost
+        // [AWS-FIRST] Use production URL, never localhost
         let baseUrl: string;
         if (typeof requestOrBaseUrl === 'string') {
             baseUrl = requestOrBaseUrl;
         } else if (requestOrBaseUrl) {
             baseUrl = new URL(requestOrBaseUrl.url).origin;
         } else {
-            const port = process.env.PORT || '3000';
-            baseUrl = `http://localhost:${port}`;
+            baseUrl = process.env.VERCEL_URL
+                ? `https://${process.env.VERCEL_URL}`
+                : `http://localhost:${process.env.PORT || '3000'}`;
         }
 
         const marketData = await fetchMarketData();
