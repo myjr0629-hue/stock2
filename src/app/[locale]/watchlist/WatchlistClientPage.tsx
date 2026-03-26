@@ -137,7 +137,7 @@ export default function WatchlistClientPage({
                         </div>
                     </div>
                     <div className="flex items-center gap-2 flex-wrap">
-                        <Link href="/how-it-works" className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-white/10 text-xs font-bold text-slate-400 hover:text-white hover:border-white/20 transition-all">
+                        <Link href="/how-it-works" className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-cyan-500/25 text-xs font-bold text-slate-300 hover:text-cyan-400 hover:border-cyan-400/50 transition-all backdrop-blur-sm" style={{ boxShadow: '0 0 12px rgba(34,211,238,0.08), inset 0 1px 0 rgba(255,255,255,0.06)' }}>
                             <BookOpen className="w-3.5 h-3.5" />
                             <span className="hidden sm:inline">GUIDE</span>
                         </Link>
