@@ -452,6 +452,28 @@ async function buildResponseFromAnalysisCache(
 ) {
     const tickersData: Record<string, any> = {};
 
+    // [FIX] Fetch accurate prevClose + extended prices from quotes API (fast, ~200ms)
+    // DynamoDB priceCacheStore only has today's data, no prevClose or extended prices
+    const quotesMap: Record<string, any> = {};
+    try {
+        const { GET: getQuotes } = await import('@/app/api/live/quotes/route');
+        const quotesReq = new NextRequest(`https://localhost/api/live/quotes?symbols=${tickers.join(',')}`);
+        const quotesRes = await Promise.race([
+            getQuotes(quotesReq),
+            new Promise<null>(r => setTimeout(() => r(null), 5000))
+        ]);
+        if (quotesRes && typeof (quotesRes as Response).json === 'function') {
+            const quotesJson = await (quotesRes as Response).json();
+            if (quotesJson?.data) {
+                for (const [t, q] of Object.entries(quotesJson.data) as [string, any][]) {
+                    if (q) quotesMap[t] = q;
+                }
+            }
+        }
+    } catch (e) {
+        console.warn('[Dashboard] quotes fetch failed in analysis-cache path:', e);
+    }
+
     // Fetch live prices — DynamoDB first (fast batch), Polygon fallback for misses
     const priceMap: Record<string, any> = {};
     try {
@@ -464,13 +486,21 @@ async function buildResponseFromAnalysisCache(
         const missingFromDynamo: string[] = [];
         for (const ticker of tickersToFetch) {
             const dp = dynamoPrices.get(ticker);
+            const q = quotesMap[ticker];
             if (dp && dp.close > 0) {
-                // Convert DynamoDB format to Polygon snapshot format
+                // [FIX] Use quotes API for accurate prevClose instead of approximation
+                const accuratePrevClose = q?.previousClose || q?.prevClose || dp.close;
                 priceMap[ticker] = {
                     lastTrade: { p: dp.close },
                     day: { c: dp.close, o: dp.open, h: dp.high, l: dp.low, v: dp.volume, vw: dp.vwap },
-                    prevDay: { c: dp.close }, // approximation
-                    todaysChangePerc: dp.changePct || 0,
+                    prevDay: { c: accuratePrevClose },
+                    todaysChangePerc: q?.changePercent || q?.regChangePct || dp.changePct || 0,
+                    // [FIX] Extended session prices from quotes API
+                    afterHours: q?.extendedLabel === 'POST' && q?.extendedPrice > 0 ? { p: q.extendedPrice } : undefined,
+                    preMarket: q?.extendedLabel === 'PRE' && q?.extendedPrice > 0 ? { p: q.extendedPrice } : undefined,
+                    _quotesSession: q?.session || null,
+                    _quotesExtLabel: q?.extendedLabel || null,
+                    _quotesExtChangePct: q?.extendedChangePercent || null,
                 };
             } else {
                 missingFromDynamo.push(ticker);
@@ -482,7 +512,7 @@ async function buildResponseFromAnalysisCache(
             console.log(`[Dashboard] ${missingFromDynamo.length} tickers missing from DynamoDB — using analysis cache only`);
         }
 
-        console.log(`[Dashboard] Price: DynamoDB ${tickersToFetch.length - missingFromDynamo.length}/${tickersToFetch.length}`);
+        console.log(`[Dashboard] Price: DynamoDB ${tickersToFetch.length - missingFromDynamo.length}/${tickersToFetch.length}, Quotes ${Object.keys(quotesMap).length}`);
     } catch {
         // DynamoDB failed — analysis cache still provides structure data
         console.warn(`[Dashboard] DynamoDB price fetch failed — continuing with analysis cache`);
@@ -500,10 +530,12 @@ async function buildResponseFromAnalysisCache(
         const todaysChangePerc = snap?.todaysChangePerc || 0;
         const price = livePrice || dayClose || prevClose;
 
-        // Session detection (same as getMarketStatus)
+        // Session detection: prefer quotes API session (more accurate), fallback to market status
+        const quotesSession = snap?._quotesSession;
+        const quotesSessionMap: Record<string, string> = { 'pre': 'PRE', 'regular': 'REG', 'post': 'POST', 'closed': 'CLOSED' };
         const currentSession = marketData?.marketStatus || 'CLOSED';
-        const sessionMap: Record<string, string> = { 'PRE': 'PRE', 'OPEN': 'REG', 'AFTER': 'POST', 'CLOSED': 'CLOSED' };
-        const session = sessionMap[currentSession] || 'CLOSED';
+        const marketSessionMap: Record<string, string> = { 'PRE': 'PRE', 'OPEN': 'REG', 'AFTER': 'POST', 'CLOSED': 'CLOSED' };
+        const session = (quotesSession && quotesSessionMap[quotesSession]) || marketSessionMap[currentSession] || 'CLOSED';
 
         // Calculate changePct from live data
         // [FIX] Always use todaysChangePerc first (DynamoDB dp.changePct is pre-calculated and correct)
