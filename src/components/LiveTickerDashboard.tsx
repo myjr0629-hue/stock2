@@ -849,6 +849,11 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
     // =========================================================================
 
     // 1. Fetch Unified Backend Data (11-in-1 aggregation + Redis SWR Cache)
+    // [COLD-START FIX] Dynamic polling: 3s when data incomplete → 15s when complete
+    // This ensures cold-start tickers auto-populate within seconds of Lambda completion
+    const isColdStart = !structure && !initialUnifiedData?.structure;
+    const dynamicRefreshInterval = isColdStart ? 3_000 : 15_000;
+
     const { data: unifiedData, error: unifiedError } = useSWR(
         ticker ? `/api/command/unified?t=${ticker}&lang=${locale}` : null,
         (url: string) => fetch(url).then(res => res.json()),
@@ -857,8 +862,8 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
             revalidateOnFocus: true,  // Refresh when user returns to tab
             revalidateIfStale: true,
             revalidateOnMount: true,  // [V73] ALWAYS fetch on mount — SSR data may be stale
-            refreshInterval: 15_000,  // [AWS OPTIMIZED] 15s polling
-            dedupingInterval: 5_000,  // [PERF] Prevent duplicate fetches within 5s
+            refreshInterval: dynamicRefreshInterval,  // [COLD-START] 3s aggressive → 15s normal
+            dedupingInterval: isColdStart ? 2_000 : 5_000,  // [COLD-START] Faster dedup when incomplete
         }
     );
 
