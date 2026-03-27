@@ -139,7 +139,7 @@ export default async function HowItWorksPage() {
 
     return (
         <HowItWorksLayout
-            title={<><span className="font-black tracking-tight">SIGNUM</span><span className="font-black tracking-tight text-cyan-400">HQ</span> <span className="font-bold">{t('guideSuffix')}</span></>}
+            title={<><img src="/signum-sg-vectorized.svg" alt="" width="28" height="28" className="inline-block mr-2 align-middle -mt-1" style={{ filter: 'drop-shadow(0 0 6px rgba(34,211,238,0.4))' }} /><span className="font-black tracking-tight">SIGNUM</span><span className="font-black tracking-tight text-cyan-400">HQ</span> <span className="font-bold">{t('guideSuffix')}</span></>}
             subtitle={t('guideSubtitle')}
         >
             {/* Hero Section — Premium Glassmorphism */}
@@ -175,15 +175,71 @@ export default async function HowItWorksPage() {
                 <div className="relative">
                     <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-cyan-500/10 border border-cyan-500/20 mb-4">
                         <div className="w-1.5 h-1.5 bg-cyan-400 rounded-full animate-pulse" />
-                        <span className="text-[11px] font-bold text-cyan-400 tracking-wider uppercase">
+                        <span className="text-[12px] font-bold text-cyan-400 tracking-wider uppercase">
                             Options Intelligence Platform
                         </span>
                     </div>
                     <h2 className="text-xl sm:text-2xl font-black text-white mb-3 tracking-tight">
                         {t('heroTitle')}
                     </h2>
-                    <p className="text-slate-200 text-[15px] max-w-2xl leading-[1.8]">
+                    <p className="text-slate-300 text-[14px] max-w-2xl leading-[1.8]">
                         {t.rich('heroDescription', richTags)}
+                    </p>
+                </div>
+            </div>
+
+            {/* ═══ Context Score — FOMO Section ═══ */}
+            <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-amber-500/[0.06] via-white/[0.03] to-cyan-500/[0.04] backdrop-blur-2xl border border-amber-400/[0.12] p-6 sm:p-8">
+                {/* Decorative elements */}
+                <div className="absolute -top-16 -right-16 w-48 h-48 bg-amber-400/[0.06] rounded-full blur-3xl" />
+                <div className="absolute -bottom-12 -left-8 w-36 h-36 bg-cyan-400/[0.04] rounded-full blur-3xl" />
+
+                {/* Score gauge SVG decoration */}
+                <svg className="absolute right-6 top-1/2 -translate-y-1/2 w-32 h-32 sm:w-40 sm:h-40 opacity-[0.06]" viewBox="0 0 120 120" fill="none">
+                    <circle cx="60" cy="60" r="52" stroke="#fbbf24" strokeWidth="4" strokeDasharray="200 127" strokeLinecap="round" transform="rotate(-90 60 60)" />
+                    <circle cx="60" cy="60" r="40" stroke="#22d3ee" strokeWidth="2" strokeDasharray="150 102" strokeLinecap="round" transform="rotate(-120 60 60)" />
+                    <text x="60" y="58" textAnchor="middle" fill="#fbbf24" fontSize="18" fontWeight="900">A+</text>
+                    <text x="60" y="74" textAnchor="middle" fill="#94a3b8" fontSize="9">SCORE</text>
+                </svg>
+
+                <div className="relative max-w-xl">
+                    {/* Badge */}
+                    <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/20 mb-4">
+                        <svg className="w-3 h-3 text-amber-400" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" /></svg>
+                        <span className="text-[12px] font-bold text-amber-400 tracking-wider uppercase">
+                            Context Score
+                        </span>
+                    </div>
+
+                    {/* Title */}
+                    <h3 className="text-lg sm:text-xl font-black text-white mb-3 tracking-tight leading-tight">
+                        {t('contextScoreTitle')}
+                    </h3>
+
+                    {/* Description */}
+                    <p className="text-slate-300 text-[13px] sm:text-[14px] leading-[1.8] mb-5">
+                        {t.rich('contextScoreDesc', richTags)}
+                    </p>
+
+                    {/* 5-Axis Indicator Grid — subtle value showcase */}
+                    <div className="grid grid-cols-5 gap-2 sm:gap-3 mb-5">
+                        {[
+                            { label: t('csAxisMomentum'), color: '#22d3ee', icon: 'M2 12l5 5L20 4' },
+                            { label: t('csAxisOptions'), color: '#a78bfa', icon: 'M12 2v20M2 12h20' },
+                            { label: t('csAxisFlow'), color: '#fbbf24', icon: 'M4 12h16M12 4l8 8-8 8' },
+                            { label: t('csAxisFundamental'), color: '#34d399', icon: 'M3 3v18h18M7 14l4-4 4 4 4-8' },
+                            { label: t('csAxisSentiment'), color: '#fb7185', icon: 'M12 4C7 4 3 8 3 12s4 8 9 8 9-4 9-8-4-8-9-8z' },
+                        ].map((axis, i) => (
+                            <div key={i} className="flex flex-col items-center gap-1.5 py-2 px-1 rounded-lg bg-white/[0.03] border border-white/[0.06]">
+                                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke={axis.color} strokeWidth="2" strokeLinecap="round"><path d={axis.icon} /></svg>
+                                <span className="text-[12px] text-slate-300 font-medium text-center leading-tight">{axis.label}</span>
+                            </div>
+                        ))}
+                    </div>
+
+                    {/* Compliance disclaimer */}
+                    <p className="text-[12px] text-slate-500 leading-relaxed">
+                        {t('contextScoreDisclaimer')}
                     </p>
                 </div>
             </div>

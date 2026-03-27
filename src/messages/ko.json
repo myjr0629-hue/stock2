@@ -800,7 +800,15 @@
     "flowDesc": "<gold>다크풀 프린트</gold> · 기관 블록 오더 · 대형 거래 추적 · 실시간 옵션 플로우 — 기관의 발자국 모니터링",
     "intelDesc": "<gold>M7 · Physical AI · Session Report</gold> — 매 세션 종료 후 AI가 자동 생성하는 프리미엄 브리핑",
     "portfolioDesc": "<cyan>Context Score</cyan> · 상태 표시 · 수익률 추적 — 당신의 포지션을 AI가 실시간 평가",
-    "watchlistDesc": "IV · Max Pain · <cyan>Analytics V5 Engine</cyan> — 관심 종목의 구조적 인사이트를 한눈에"
+    "watchlistDesc": "IV · Max Pain · <cyan>Analytics V5 Engine</cyan> — 관심 종목의 구조적 인사이트를 한눈에",
+    "contextScoreTitle": "5개 분석축, 하나의 판단 — Context Score",
+    "contextScoreDesc": "가격 모멘텀, <cyan>옵션 파생 구조</cyan>, <gold>기관 자금 흐름</gold>, 재무 건전성, 시장 센티먼트 — 기관 애널리스트가 수작업으로 교차 확인하던 5개 독립 데이터 축을 <cyan>단일 복합 엔진</cyan>이 실시간으로 연산합니다. 각 축은 서로 다른 시장의 단면을 포착하며, 이들이 수렴할 때 비로소 드러나는 구조적 합의를 정량화한 것이 Context Score입니다. 대부분의 투자자가 하나의 지표에 의존할 때, 이 점수는 <gold>시장 전체의 맥락</gold>을 읽고 있습니다.",
+    "contextScoreDisclaimer": "Context Score는 시장 데이터의 정량적 분석 결과이며, 투자 조언이나 매매 지시에 해당하지 않습니다. 모든 투자 판단은 이용자 본인의 책임 하에 이루어집니다.",
+    "csAxisMomentum": "모멘텀",
+    "csAxisOptions": "옵션 구조",
+    "csAxisFlow": "자금 흐름",
+    "csAxisFundamental": "재무",
+    "csAxisSentiment": "센티먼트"
   },
   "dashboardGuide": {
     "subtitle": "옵션 파생 시장 데이터를 실시간으로 집약하여 개별 종목의 구조적 현황을 한 화면에 제공합니다",

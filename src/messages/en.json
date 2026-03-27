@@ -800,7 +800,15 @@
     "flowDesc": "<gold>Dark Pool prints</gold> · Institutional blocks · Large-lot tracking · Live options flow — monitor institutional footprints",
     "intelDesc": "<gold>M7 · Physical AI · Session Report</gold> — premium AI-generated briefings after every session",
     "portfolioDesc": "<cyan>Context Score</cyan> · Status Indicator · P&L tracking — AI evaluates your positions in real-time",
-    "watchlistDesc": "IV · Max Pain · <cyan>Analytics V5 Engine</cyan> — structural insights for your watchlist at a glance"
+    "watchlistDesc": "IV · Max Pain · <cyan>Analytics V5 Engine</cyan> — structural insights for your watchlist at a glance",
+    "contextScoreTitle": "Five Independent Axes. One Definitive Score.",
+    "contextScoreDesc": "Price momentum, <cyan>options microstructure</cyan>, <gold>institutional capital flow</gold>, financial fundamentals, and market sentiment — five independent data dimensions that institutional analysts cross-reference manually, now computed by a <cyan>unified quantitative engine</cyan> in real time. Each axis captures a distinct facet of market behavior; when they converge, the structural consensus they reveal is what Context Score quantifies. While most investors rely on a single indicator, this score reads <gold>the full context of the market</gold>.",
+    "contextScoreDisclaimer": "Context Score is a quantitative analysis of market data and does not constitute investment advice or trade recommendations. All investment decisions are made at the user's sole discretion and responsibility.",
+    "csAxisMomentum": "Momentum",
+    "csAxisOptions": "Options",
+    "csAxisFlow": "Capital Flow",
+    "csAxisFundamental": "Fundamentals",
+    "csAxisSentiment": "Sentiment"
   },
   "dashboardGuide": {
     "subtitle": "Comprehensive single-ticker analytics with AI-powered structural analysis, options flow data, and institutional positioning indicators",

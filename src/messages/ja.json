@@ -800,7 +800,15 @@
     "flowDesc": "<gold>ダークプールプリント</gold> · 機関ブロックオーダー · クジラ追跡 · リアルタイムオプションフロー — 大口の足跡を追う戦場",
     "intelDesc": "<gold>M7 · Physical AI · Session Report</gold> — セッション終了後にAIが自動生成するプレミアムブリーフィング",
     "portfolioDesc": "<cyan>Context Score</cyan> · ステータス表示 · 収益率追跡 — AIがあなたのポジションをリアルタイム評価",
-    "watchlistDesc": "IV · Max Pain · <cyan>Analytics V5 Engine</cyan> — ウォッチリストの隠れたシグナルを一目で"
+    "watchlistDesc": "IV · Max Pain · <cyan>Analytics V5 Engine</cyan> — ウォッチリストの隠れたシグナルを一目で",
+    "contextScoreTitle": "5つの独立分析軸。ひとつの本格スコア。",
+    "contextScoreDesc": "価格モメンタム、<cyan>オプション微細構造</cyan>、<gold>機関資金フロー</gold>、財務ファンダメンタルズ、市場センチメント — 機関アナリストが手作業でクロスチェックしてきた5つの独立データ軸を、<cyan>統合クオンツエンジン</cyan>がリアルタイムで演算します。各軸は市場の異なる断面を捉え、それらが収束したとき初めて現れる構造的合意を定量化したものがContext Scoreです。多くの投資家が単一指標に頼るなか、このスコアは<gold>市場全体の文脈</gold>を読み取っています。",
+    "contextScoreDisclaimer": "Context Scoreは市場データの定量的分析結果であり、投資助言や売買指示には該当しません。すべての投資判断はご利用者自身の責任において行われます。",
+    "csAxisMomentum": "モメンタム",
+    "csAxisOptions": "オプション構造",
+    "csAxisFlow": "資金フロー",
+    "csAxisFundamental": "財務",
+    "csAxisSentiment": "センチメント"
   },
   "dashboardGuide": {
     "subtitle": "AI構造分析、オプションフロー、機関ポジショニング指標を統合したシングルティッカー総合分析システム",
