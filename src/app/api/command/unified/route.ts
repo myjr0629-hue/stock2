@@ -400,8 +400,24 @@ export async function GET(request: NextRequest) {
                 }
                 return false;
             });
+
+            // [AWS-FIRST] ALWAYS enrich volatility IV from Lambda DynamoDB if cached data has iv=0
+            // This fixes legacy cache entries created before Lambda volatility integration
+            if (cachedData.volatility && cachedData.volatility.iv === 0) {
+                try {
+                    const { getTickerSnapshot } = await import('@/lib/aws/dynamoDataProvider');
+                    const snap = await Promise.race([
+                        getTickerSnapshot(ticker),
+                        new Promise<any>(r => setTimeout(() => r(null), 3000))
+                    ]);
+                    if (snap?.volatility?.iv && snap.volatility.iv > 0) {
+                        cachedData.volatility = { ...snap.volatility, _ts: Date.now() };
+                    }
+                } catch { /* DynamoDB unavailable */ }
+            }
             
             if (missingFields.length > 0 && missingFields.length <= 7) {
+
                 // [AWS-FIRST] For structure & volatility, use DynamoDB GEX (0.1s) instead of Polygon (20-27s)
                 let structureFilled = false;
                 let volatilityFilled = false;
