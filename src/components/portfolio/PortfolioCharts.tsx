@@ -1,7 +1,7 @@
 'use client';
 // ============================================================================
-// Portfolio Charts — ECharts Premium Components
-// Sector Donut (Pie) + P&L TreeMap (Finviz+ Style)
+// Portfolio Charts — Sector Donut (Pure SVG) + P&L TreeMap (ECharts)
+// Donut: zero-dependency SVG for instant render on any device
 // ============================================================================
 
 import React, { useMemo } from 'react';
@@ -70,7 +70,8 @@ const TOOLTIP_STYLE = {
 };
 
 // ═══════════════════════════════════════════════════════════════════════════
-// SECTOR DONUT — ECharts Pie (Premium Interactive)
+// SECTOR DONUT — Pure SVG (Zero-dependency, instant render)
+// Replaces ECharts pie for performance — renders 3-4 sectors at 110x110px
 // ═══════════════════════════════════════════════════════════════════════════
 
 export function EChartsSectorDonut({ sectors, total, label }: {
@@ -78,82 +79,142 @@ export function EChartsSectorDonut({ sectors, total, label }: {
     total: number;
     label?: string;
 }) {
-    const locale = useLocale();
+    const [hovered, setHovered] = React.useState<number | null>(null);
 
-    const option = useMemo(() => ({
-        animation: true,
-        animationDuration: 300,
-        animationDurationUpdate: 0,
-        animationEasing: 'cubicOut',
-        tooltip: {
-            trigger: 'item',
-            appendToBody: true,
-            confine: false,
-            position: function (_point: number[], _params: any, _dom: HTMLElement, _rect: any, size: { contentSize: number[]; viewSize: number[] }) {
-                // Position tooltip above-right of the chart, never covering it
-                return { top: -size.contentSize[1] - 8, left: size.viewSize[0] / 2 };
-            },
-            formatter: (params: any) => {
-                const pct = total > 0 ? ((params.data.value / total) * 100).toFixed(1) : '0.0';
-                const val = params.data.value;
-                const amtLabel = locale === 'ko' ? '평가액' : locale === 'ja' ? '評価額' : 'Value';
-                const wtLabel = locale === 'ko' ? '비중' : locale === 'ja' ? 'ウェイト' : 'Weight';
-                return `<div style="font-family:'Plus Jakarta Sans',system-ui;padding:6px 2px">
-                    <div style="font-weight:900;font-size:13px;margin-bottom:4px">${params.data.name}</div>
-                    <div style="display:flex;justify-content:space-between;gap:16px;font-size:12px">
-                        <span style="color:#cbd5e1;font-weight:700">${amtLabel}</span>
-                        <span style="color:#e2e8f0;font-family:monospace;font-weight:800">$${val.toLocaleString('en-US', { maximumFractionDigits: 0 })}</span>
-                    </div>
-                    <div style="display:flex;justify-content:space-between;gap:16px;font-size:12px;margin-top:2px">
-                        <span style="color:#cbd5e1;font-weight:700">${wtLabel}</span>
-                        <span style="color:${params.data.itemStyle?.color || '#4ade80'};font-family:monospace;font-weight:800">${pct}%</span>
-                    </div>
-                </div>`;
-            },
-            backgroundColor: TOOLTIP_STYLE.backgroundColor,
-            borderColor: TOOLTIP_STYLE.borderColor,
-            borderWidth: TOOLTIP_STYLE.borderWidth,
-            textStyle: TOOLTIP_STYLE.textStyle,
-            extraCssText: TOOLTIP_STYLE.extraCssText,
-        },
-        series: [{
-            type: 'pie',
-            radius: ['55%', '80%'],
-            center: ['50%', '50%'],
-            padAngle: 2,
-            avoidLabelOverlap: false,
-            itemStyle: { borderRadius: 4, borderColor: '#0c1220', borderWidth: 2 },
-            label: { show: false },
-            emphasis: {
-                scaleSize: 6,
-                itemStyle: { shadowBlur: 20, shadowColor: 'rgba(96, 165, 250, 0.3)' },
-            },
-            data: sectors.map(s => ({
-                name: s.sector,
-                value: s.value,
-                itemStyle: { color: s.color },
-            })),
-        }],
-        graphic: [
-            {
-                type: 'text', left: 'center', top: '42%',
-                style: { text: `${sectors.length}`, fontSize: 18, fontWeight: 900, fill: '#ffffff', fontFamily: '"Plus Jakarta Sans", system-ui' },
-            },
-            {
-                type: 'text', left: 'center', top: '56%',
-                style: { text: label || 'SECTORS', fontSize: 12, fontWeight: 700, fill: '#cbd5e1', fontFamily: '"Plus Jakarta Sans", system-ui' },
-            },
-        ],
-    }), [sectors, total, label, locale]);
+    const size = 110;
+    const cx = size / 2;
+    const cy = size / 2;
+    const outerR = 42;
+    const innerR = 28;
+    const midR = (outerR + innerR) / 2;
+    const strokeW = outerR - innerR;
+    const circumference = 2 * Math.PI * midR;
+    const gap = 3; // gap in degrees between segments
+
+    // Calculate arc segments
+    const arcs = useMemo(() => {
+        if (!sectors.length || total <= 0) return [];
+        const totalGapDeg = gap * sectors.length;
+        const availableDeg = 360 - totalGapDeg;
+        let offset = -90; // start from top
+
+        return sectors.map((s, i) => {
+            const pct = s.value / total;
+            const deg = Math.max(pct * availableDeg, 2); // min 2deg for visibility
+            const dashLen = (deg / 360) * circumference;
+            const dashGap = circumference - dashLen;
+            const rotation = offset;
+            offset += deg + gap;
+
+            return {
+                ...s,
+                pct,
+                dashLen,
+                dashGap,
+                rotation,
+                index: i,
+            };
+        });
+    }, [sectors, total, circumference]);
 
     return (
-        <ReactECharts
-            option={option}
-            style={{ width: 110, height: 110 }}
-            opts={{ renderer: 'canvas' }}
-            notMerge={false}
-            lazyUpdate={true}
-        />
+        <div style={{ width: size, height: size, position: 'relative', flexShrink: 0 }}>
+            <svg
+                width={size}
+                height={size}
+                viewBox={`0 0 ${size} ${size}`}
+                style={{ overflow: 'visible' }}
+            >
+                {/* Background ring */}
+                <circle
+                    cx={cx} cy={cy} r={midR}
+                    fill="none"
+                    stroke="rgba(30,41,59,0.5)"
+                    strokeWidth={strokeW}
+                />
+
+                {/* Sector arcs */}
+                {arcs.map((arc) => {
+                    const isHovered = hovered === arc.index;
+                    return (
+                        <circle
+                            key={arc.index}
+                            cx={cx}
+                            cy={cy}
+                            r={midR}
+                            fill="none"
+                            stroke={arc.color}
+                            strokeWidth={isHovered ? strokeW + 3 : strokeW}
+                            strokeDasharray={`${arc.dashLen} ${arc.dashGap}`}
+                            strokeDashoffset={0}
+                            strokeLinecap="round"
+                            style={{
+                                transform: `rotate(${arc.rotation}deg)`,
+                                transformOrigin: `${cx}px ${cy}px`,
+                                transition: 'stroke-width 0.2s ease, filter 0.2s ease, transform 0.2s ease',
+                                filter: isHovered ? `drop-shadow(0 0 8px ${arc.color}80)` : 'none',
+                                cursor: 'pointer',
+                            }}
+                            onMouseEnter={() => setHovered(arc.index)}
+                            onMouseLeave={() => setHovered(null)}
+                        >
+                            <title>{`${arc.sector}: ${(arc.pct * 100).toFixed(1)}% ($${arc.value.toLocaleString('en-US', { maximumFractionDigits: 0 })})`}</title>
+                        </circle>
+                    );
+                })}
+
+                {/* Center text — count */}
+                <text
+                    x={cx} y={cy - 4}
+                    textAnchor="middle"
+                    dominantBaseline="central"
+                    fill="#ffffff"
+                    fontSize="18"
+                    fontWeight="900"
+                    fontFamily="'Plus Jakarta Sans', system-ui, sans-serif"
+                >{sectors.length}</text>
+
+                {/* Center text — label */}
+                <text
+                    x={cx} y={cy + 14}
+                    textAnchor="middle"
+                    dominantBaseline="central"
+                    fill="#cbd5e1"
+                    fontSize="9"
+                    fontWeight="700"
+                    fontFamily="'Plus Jakarta Sans', system-ui, sans-serif"
+                    letterSpacing="0.08em"
+                >{(label || 'SECTORS').toUpperCase()}</text>
+            </svg>
+
+            {/* Hover tooltip */}
+            {hovered !== null && arcs[hovered] && (
+                <div
+                    style={{
+                        position: 'absolute',
+                        top: -48,
+                        left: '50%',
+                        transform: 'translateX(-50%)',
+                        background: 'rgba(10,14,22,0.95)',
+                        border: '1px solid #334155',
+                        borderRadius: 8,
+                        padding: '6px 10px',
+                        whiteSpace: 'nowrap',
+                        pointerEvents: 'none',
+                        zIndex: 50,
+                        boxShadow: '0 8px 24px rgba(0,0,0,0.5)',
+                        backdropFilter: 'blur(8px)',
+                    }}
+                >
+                    <div style={{ fontWeight: 900, fontSize: 12, color: '#e2e8f0', marginBottom: 2 }}>
+                        {arcs[hovered].sector}
+                    </div>
+                    <div style={{ fontSize: 11, color: arcs[hovered].color, fontFamily: 'monospace', fontWeight: 800 }}>
+                        {(arcs[hovered].pct * 100).toFixed(1)}% · ${arcs[hovered].value.toLocaleString('en-US', { maximumFractionDigits: 0 })}
+                    </div>
+                </div>
+            )}
+        </div>
     );
 }
 
