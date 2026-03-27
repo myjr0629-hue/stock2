@@ -152,12 +152,11 @@ export function useWatchlist(initialWatchlist?: WatchlistItem[], initialFullData
         if (priceData?.data) {
             Object.entries(priceData.data).forEach(([ticker, d]: [string, any]) => {
                 if (d && d.price > 0) {
-                    const prevClose = d.previousClose || d.prevClose || 0;
                     const regChangePct = d.changePercent || 0;
                     const hasExtended = d.extendedPrice && d.extendedPrice > 0;
 
-                    // Display price: extended if available, else regular
-                    const displayPrice = hasExtended ? d.extendedPrice : d.price;
+                    // ★ 메인 가격은 항상 본장 가격 (d.price), extended는 별도 필드로
+                    const displayPrice = d.price;
 
                     priceMap[ticker] = {
                         price: displayPrice,
@@ -178,10 +177,10 @@ export function useWatchlist(initialWatchlist?: WatchlistItem[], initialFullData
             if (apiData?.alphaSnapshot && apiData?.realtime) {
                 return {
                     ...item,
-                    // Price: WS (instant) > fast poll (2s) > batch (30s)
-                    currentPrice: (wsPrice?.price && wsPrice.price > 0) ? wsPrice.price : (fastPrice?.price ?? apiData.realtime.price ?? 0),
-                    // changePct: ALWAYS prefer batch API (correct regular session %) over fast poll
-                    // Fast poll's changePct from Polygon todaysChangePerc is combined (prevClose→preMarket) during PRE/POST
+                    // ★ currentPrice: 항상 본장 가격 — batch API가 정확한 소스
+                    // WS는 장중에만 유효, PRE/POST에는 batch의 본장 가격 우선
+                    currentPrice: apiData.realtime.price || (fastPrice?.price ?? 0),
+                    // ★ changePct: batch API 우선 (정확한 본장 등락)
                     changePct: apiData.realtime.changePct ?? fastPrice?.regChangePct ?? 0,
                     // regChangePct: batch API is the reliable source (correct regular session %)
                     regChangePct: apiData.realtime.changePct ?? fastPrice?.regChangePct ?? 0,

@@ -174,8 +174,12 @@ export async function processWatchlistBatch(tickers: string[], mode: 'full' | 'p
         const snap = snapshotMap[ticker];
 
         // --- Helper to build Base Price Object from Snapshot ---
+        // ★ Command 페이지와 동일한 방식:
+        //   메인 가격 = 항상 본장 가격 (regular: liveTick, pre/post: dayClose)
+        //   changePct = 항상 본장 등락 (dayClose vs prevDayClose)
+        //   extendedPrice = PRE/POST 가격 (별도 표시)
         const buildBasePrice = () => {
-            if (!snap) return { displayPrice: 0, changePct: 0, extendedPrice: null, extendedLabel: undefined, vwap: null, volume: 0, prevDayClose: 0 };
+            if (!snap) return { displayPrice: 0, changePct: 0, extendedPrice: null, extendedChangePct: null, extendedLabel: undefined, vwap: null, volume: 0, prevDayClose: 0 };
 
             const liveLast = snap.lastTrade?.p || 0;
             const dayClose = snap.day?.c || 0;
@@ -183,30 +187,54 @@ export async function processWatchlistBatch(tickers: string[], mode: 'full' | 'p
             const volume = snap.day?.v || 0;
             const vwap = snap.day?.vw || null;
 
+            // ★ 메인 가격: regular=실시간, pre/post=본장 종가(dayClose)
             let displayPrice = 0;
-            if (currentSession === 'regular') displayPrice = liveLast || dayClose || prevDayClose;
-            else if (currentSession === 'pre') displayPrice = prevDayClose;
-            else displayPrice = dayClose || prevDayClose;
+            if (currentSession === 'regular') {
+                displayPrice = liveLast || dayClose || prevDayClose;
+            } else {
+                // PRE/POST/CLOSED: 항상 본장 종가를 메인으로
+                displayPrice = dayClose || prevDayClose;
+            }
 
-            let changePct = snap.todaysChangePerc || 0;
-            if (currentSession !== 'regular') {
-                // For cached items, we'll try to override this with sparkline later, but this is the snapshot fallback
+            // ★ changePct: 항상 본장 등락 (dayClose vs prevDayClose) — Command 페이지와 동일
+            let changePct = 0;
+            if (currentSession === 'regular') {
+                // Regular: 실시간 가격 기준
+                if (liveLast > 0 && prevDayClose > 0) {
+                    changePct = ((liveLast - prevDayClose) / prevDayClose) * 100;
+                } else {
+                    changePct = snap.todaysChangePerc || 0;
+                }
+            } else {
+                // PRE/POST: 본장 종가 vs 전일 종가
                 if (dayClose > 0 && prevDayClose > 0) {
                     changePct = ((dayClose - prevDayClose) / prevDayClose) * 100;
+                } else {
+                    changePct = snap.todaysChangePerc || 0;
                 }
             }
 
+            // ★ Extended: PRE/POST 가격은 별도 필드로 (Command 페이지의 서브 라인)
             let extendedPrice: number | null = null;
-            let extendedLabel = undefined;
+            let extendedLabel: string | undefined = undefined;
+            let extendedChangePct: number | null = null;
             if (currentSession === 'pre') {
-                const prePrice = snap.min?.c || liveLast;
-                if (prePrice > 0) { extendedPrice = prePrice; extendedLabel = 'PRE'; }
+                const prePrice = liveLast || snap.min?.c;
+                if (prePrice > 0 && prePrice !== displayPrice) {
+                    extendedPrice = prePrice;
+                    extendedLabel = 'PRE';
+                    extendedChangePct = displayPrice > 0 ? ((prePrice - displayPrice) / displayPrice) * 100 : 0;
+                }
             } else if (currentSession === 'post' || currentSession === 'closed') {
-                const postPrice = snap.afterHours?.p || snap.min?.c || liveLast;
-                if (postPrice > 0) { extendedPrice = postPrice; extendedLabel = 'POST'; }
+                const postPrice = liveLast || snap.afterHours?.p || snap.min?.c;
+                if (postPrice > 0 && postPrice !== displayPrice) {
+                    extendedPrice = postPrice;
+                    extendedLabel = 'POST';
+                    extendedChangePct = displayPrice > 0 ? ((postPrice - displayPrice) / displayPrice) * 100 : 0;
+                }
             }
 
-            return { displayPrice, changePct, extendedPrice, extendedLabel, vwap, volume, prevDayClose };
+            return { displayPrice, changePct, extendedPrice, extendedChangePct, extendedLabel, vwap, volume, prevDayClose };
         };
 
         // ============================================
@@ -226,20 +254,8 @@ export async function processWatchlistBatch(tickers: string[], mode: 'full' | 'p
                 } catch { /* silent */ }
             }
 
-            // [FIX] Always use buildBasePrice().changePct — based on live snapshot data
-            // Previously: sparkline-based override used stale cache data (sparkline[-2] could be wrong date)
-            let finalChangePct = base.changePct;
-            if (currentSession === 'regular') {
-                // If snapshot todaysChangePerc is 0 but we have live data, calculate directly
-                const liveLast = snap?.lastTrade?.p || 0;
-                if (base.changePct === 0 && liveLast > 0 && base.prevDayClose > 0) {
-                    finalChangePct = ((liveLast - base.prevDayClose) / base.prevDayClose) * 100;
-                }
-            }
-
-            const extendedChangePct = (base.extendedPrice && base.extendedPrice > 0 && base.displayPrice > 0)
-                ? ((base.extendedPrice - base.displayPrice) / base.displayPrice) * 100
-                : null;
+            // buildBasePrice already calculates correct changePct and extendedChangePct
+            const finalChangePct = base.changePct;
 
             const refPrice = base.extendedPrice || base.displayPrice;
 
@@ -273,8 +289,8 @@ export async function processWatchlistBatch(tickers: string[], mode: 'full' | 'p
                     netPremium: analysis.netPremium,
                     volume: base.volume,
                     relVol: analysis.relVol ?? 0,
-                    extendedPrice: (base.extendedPrice && base.extendedPrice > 0 && base.extendedPrice !== base.displayPrice) ? base.extendedPrice : null,
-                    extendedChangePct,
+                    extendedPrice: base.extendedPrice,
+                    extendedChangePct: base.extendedChangePct,
                     extendedLabel: base.extendedLabel,
                 }
             };
@@ -285,8 +301,6 @@ export async function processWatchlistBatch(tickers: string[], mode: 'full' | 'p
         // ============================================
         if (mode === 'price' || mode === 'ssr') {
             const base = buildBasePrice();
-            const extendedChangePct = (base.extendedPrice && base.extendedPrice > 0 && base.displayPrice > 0)
-                ? ((base.extendedPrice - base.displayPrice) / base.displayPrice) * 100 : null;
 
             return {
                 ticker,
@@ -294,8 +308,8 @@ export async function processWatchlistBatch(tickers: string[], mode: 'full' | 'p
                     price: base.displayPrice,
                     changePct: base.changePct,
                     session: currentSession === 'regular' ? 'reg' : currentSession,
-                    extendedPrice: base.extendedPrice || null,
-                    extendedChangePct,
+                    extendedPrice: base.extendedPrice,
+                    extendedChangePct: base.extendedChangePct,
                     extendedLabel: base.extendedLabel,
                     volume: base.volume,
                     vwap: base.vwap
