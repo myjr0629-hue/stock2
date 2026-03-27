@@ -9,7 +9,7 @@ import { useTranslations } from 'next-intl';
 import {
     TrendingUp, TrendingDown, Activity, Zap, Shield, ShieldAlert,
     Rocket, Bot, Orbit, Cpu, CreditCard, Cloud,
-    BarChart3, Eye, ChevronRight, Flame, Snowflake, BookOpen
+    BarChart3, Eye, ChevronRight, Flame, Snowflake, BookOpen, Clock
 } from 'lucide-react';
 import { Link } from '@/i18n/routing';
 import { ProGate } from '@/components/gate/FeatureGate';
@@ -105,9 +105,78 @@ export function SectorCommandCenter({ sectorData, onNavigate }: SectorCommandCen
     const [now, setNow] = useState(new Date());
 
     useEffect(() => {
-        const timer = setInterval(() => setNow(new Date()), 60000);
+        const timer = setInterval(() => setNow(new Date()), 1000);
         return () => clearInterval(timer);
     }, []);
+
+    // ── Market Session State ──
+    const sessionInfo = useMemo(() => {
+        const etStr = now.toLocaleString('en-US', { timeZone: 'America/New_York' });
+        const et = new Date(etStr);
+        const day = et.getDay(); // 0=Sun, 6=Sat
+        const h = et.getHours();
+        const m = et.getMinutes();
+        const s = et.getSeconds();
+        const totalSec = h * 3600 + m * 60 + s;
+
+        const OPEN_SEC = 9 * 3600 + 30 * 60;   // 9:30 AM ET
+        const CLOSE_SEC = 16 * 3600;            // 4:00 PM ET
+        const PRE_START_SEC = 4 * 3600;         // 4:00 AM ET
+        const POST_END_SEC = 20 * 3600;         // 8:00 PM ET
+
+        const isWeekday = day >= 1 && day <= 5;
+        const isRegular = isWeekday && totalSec >= OPEN_SEC && totalSec < CLOSE_SEC;
+        const isPre = isWeekday && totalSec >= PRE_START_SEC && totalSec < OPEN_SEC;
+        const isPost = isWeekday && totalSec >= CLOSE_SEC && totalSec < POST_END_SEC;
+
+        let countdown = 0;
+        let targetLabel = '';
+        let session: 'REGULAR' | 'PRE' | 'POST' | 'CLOSED' = 'CLOSED';
+
+        if (isRegular) {
+            session = 'REGULAR';
+            countdown = CLOSE_SEC - totalSec;
+            targetLabel = 'CLOSE';
+        } else if (isPre) {
+            session = 'PRE';
+            countdown = OPEN_SEC - totalSec;
+            targetLabel = 'OPEN';
+        } else if (isPost) {
+            session = 'POST';
+            // Next open: tomorrow 9:30 AM (or Monday if Friday)
+            const hoursUntilMidnight = 24 * 3600 - totalSec;
+            const daysToAdd = day === 5 ? 2 : 0; // Friday → skip weekend
+            countdown = hoursUntilMidnight + daysToAdd * 86400 + OPEN_SEC;
+            targetLabel = 'OPEN';
+        } else {
+            session = 'CLOSED';
+            // Calculate seconds until next Monday/weekday 9:30 AM
+            if (day === 0) {
+                countdown = (24 * 3600 - totalSec) + OPEN_SEC; // Sunday → Monday
+            } else if (day === 6) {
+                countdown = (24 * 3600 - totalSec) + 86400 + OPEN_SEC; // Saturday → Monday
+            } else if (totalSec < PRE_START_SEC) {
+                countdown = OPEN_SEC - totalSec; // Very early weekday morning
+            } else {
+                // After POST_END on weekday
+                const hoursUntilMidnight = 24 * 3600 - totalSec;
+                const daysToAdd = day === 5 ? 2 : 0;
+                countdown = hoursUntilMidnight + daysToAdd * 86400 + OPEN_SEC;
+            }
+            targetLabel = 'OPEN';
+        }
+
+        const hours = Math.floor(countdown / 3600);
+        const mins = Math.floor((countdown % 3600) / 60);
+        const secs = countdown % 60;
+        const timerStr = hours > 0
+            ? `${String(hours).padStart(2, '0')}:${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`
+            : `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
+
+        const etTimeStr = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')} ET`;
+
+        return { session, targetLabel, timerStr, etTimeStr };
+    }, [now]);
 
     const sectorStats = useMemo(() => {
         return SECTORS.map(s => ({
@@ -148,6 +217,56 @@ export function SectorCommandCenter({ sectorData, onNavigate }: SectorCommandCen
                     <div className="absolute -bottom-20 -left-20 w-60 h-60 bg-gradient-radial from-teal-400/8 to-transparent rounded-full blur-3xl" />
                 </div>
 
+                {/* ── Market Session Banner ── */}
+                <div className={`relative z-10 mb-5 flex items-center justify-between gap-4 px-4 py-2.5 rounded-xl border backdrop-blur-md ${
+                    sessionInfo.session === 'REGULAR'
+                        ? 'bg-emerald-500/[0.08] border-emerald-500/25'
+                        : 'bg-amber-500/[0.06] border-amber-500/20'
+                }`} style={{
+                    boxShadow: sessionInfo.session === 'REGULAR'
+                        ? '0 0 20px rgba(16,185,129,0.08)'
+                        : '0 0 20px rgba(245,158,11,0.06)'
+                }}>
+                    {/* Left: Session status */}
+                    <div className="flex items-center gap-3">
+                        {sessionInfo.session === 'REGULAR' ? (
+                            <>
+                                <span className="relative flex h-2 w-2">
+                                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                                    <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
+                                </span>
+                                <span className="text-[12px] font-bold text-emerald-400 tracking-[0.15em] uppercase">MARKET OPEN</span>
+                                <span className="text-[12px] text-slate-300 font-mono">{sessionInfo.etTimeStr}</span>
+                            </>
+                        ) : (
+                            <>
+                                <Clock className="w-3.5 h-3.5 text-amber-400" />
+                                <span className="text-[12px] font-bold text-amber-400 tracking-[0.15em] uppercase">
+                                    {sessionInfo.session === 'PRE' ? 'PRE-MARKET' : sessionInfo.session === 'POST' ? 'POST-MARKET' : 'MARKET CLOSED'}
+                                </span>
+                                <span className="hidden sm:inline text-[12px] text-slate-300">·</span>
+                                <span className="hidden sm:inline text-[12px] text-slate-300">Last session data displayed</span>
+                            </>
+                        )}
+                    </div>
+
+                    {/* Right: Countdown timer */}
+                    <div className="flex items-center gap-2.5">
+                        <span className={`text-[12px] font-bold tracking-wide ${
+                            sessionInfo.session === 'REGULAR' ? 'text-slate-300' : 'text-slate-300'
+                        }`}>
+                            {sessionInfo.targetLabel}
+                        </span>
+                        <div className={`px-3 py-1 rounded-lg border font-mono text-[14px] font-black tracking-wider tabular-nums ${
+                            sessionInfo.session === 'REGULAR'
+                                ? 'bg-emerald-950/40 border-emerald-500/20 text-emerald-300'
+                                : 'bg-amber-950/40 border-amber-500/20 text-amber-300'
+                        }`}>
+                            {sessionInfo.timerStr}
+                        </div>
+                    </div>
+                </div>
+
                 <div className="relative z-10 flex items-start justify-between gap-6">
                     <div>
                         <div className="flex items-center gap-2 mb-2">
@@ -164,7 +283,7 @@ export function SectorCommandCenter({ sectorData, onNavigate }: SectorCommandCen
                             SECTOR <span className="bg-gradient-to-r from-cyan-400 to-indigo-400 bg-clip-text text-transparent">COMMAND</span>
                         </h1>
                         <p className="text-slate-300 text-sm mt-1 font-mono">
-                            10 SECTORS • {marketOverview.totalTickers} ASSETS • REAL-TIME INTELLIGENCE
+                            10 SECTORS • {marketOverview.totalTickers} ASSETS • {sessionInfo.session === 'REGULAR' ? 'REAL-TIME INTELLIGENCE' : 'LAST SESSION DATA'}
                         </p>
                     </div>
 
