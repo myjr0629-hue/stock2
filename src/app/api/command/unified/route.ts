@@ -773,35 +773,29 @@ async function tryDynamoFast(ticker: string): Promise<any | null> {
                 };
             }
 
-            // [AWS-FIRST] Volatility from DynamoDB GEX — full field set matching frontend expectations
+            // [AWS-FIRST] Volatility: use Lambda's pre-computed volatility (includes IV)
+            // Fall back to GEX-derived calculation only if Lambda volatility is missing
             let volatilityCard = null;
-            if (gex) {
+            if (snapAny.volatility && snapAny.volatility.regimeScore !== undefined) {
+                // Lambda v7 stores complete volatility with IV, regimeScore, etc.
+                volatilityCard = { ...snapAny.volatility, _ts: Date.now() };
+            } else if (gex) {
                 const isShortGamma = gex.gex < 0;
                 const flipLevel = gex.flipLevel || 0;
                 const spotPrice = gex.price || p.close || 0;
                 const flipDist = flipLevel > 0 && spotPrice > 0 ? ((spotPrice - flipLevel) / spotPrice) * 100 : 0;
-                // Calculate regimeScore from available DynamoDB data
                 let regimeScore = 0;
                 if (isShortGamma) regimeScore += Math.min(30, Math.abs(gex.gex) / 1000000 * 3);
                 if (Math.abs(flipDist) < 1) regimeScore += 15; else if (Math.abs(flipDist) < 3) regimeScore += 10;
                 regimeScore = Math.min(100, Math.round(regimeScore));
                 const regime = regimeScore >= 75 ? 'ERUPTING' : regimeScore >= 50 ? 'LOADED' : regimeScore >= 25 ? 'COILING' : 'CALM';
                 volatilityCard = {
-                    regime,
-                    regimeScore,
-                    gammaRegime: gex.gammaRegime,
-                    gex: Math.round(gex.gex),
-                    gexLabel: isShortGamma ? 'SHORT' : 'LONG',
-                    iv: 0, // IV not available from DynamoDB GEX — will be enriched by structure API
-                    flipDistance: Math.round(flipDist * 10) / 10,
-                    flipLevel,
-                    isAboveFlip: flipDist > 0,
-                    squeezeScore: 0,
-                    squeezeRisk: 'LOW',
-                    gammaConcentration: 0,
-                    gammaConcentrationLabel: 'NORMAL',
-                    pcr: gex.pcr,
-                    _ts: Date.now(),
+                    regime, regimeScore, gammaRegime: gex.gammaRegime,
+                    gex: Math.round(gex.gex), gexLabel: isShortGamma ? 'SHORT' : 'LONG',
+                    iv: 0, flipDistance: Math.round(flipDist * 10) / 10, flipLevel,
+                    isAboveFlip: flipDist > 0, squeezeScore: 0, squeezeRisk: 'LOW',
+                    gammaConcentration: 0, gammaConcentrationLabel: 'NORMAL',
+                    pcr: gex.pcr, _ts: Date.now(),
                 };
             }
 
