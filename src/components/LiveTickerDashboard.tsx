@@ -682,17 +682,23 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
         const effectivePrice = stockPrice > 0 ? stockPrice : dynamoPrice;
         if (!effectivePrice || effectivePrice === 0) return undefined;
         const s = (initialStockData?.session || '').toLowerCase() as string;
+        // [V75 INSTANT PRE/POST] Use SSR-fetched extended prices from getStockDataLight
+        // Previously: prePrice was only set when session === 'pre' → PRE CLOSE badge appeared ~5s late
+        // Now: always pass through extended.prePrice/postPrice so calcPriceDisplay renders badge at 0ms
+        const ssrPrePrice = initialStockData?.extended?.prePrice || null;
+        const ssrPostPrice = initialStockData?.extended?.postPrice || null;
         return {
             price: effectivePrice,
             prices: {
                 regularCloseToday: s === 'reg' ? effectivePrice : undefined,
                 prevClose: initialStockData?.prevClose || null,
-                prePrice: s === 'pre' ? effectivePrice : undefined,
-                postPrice: s === 'post' || s === 'closed' ? effectivePrice : undefined,
+                prePrice: s === 'pre' ? effectivePrice : (ssrPrePrice || undefined),
+                postPrice: (s === 'post' || s === 'closed') ? effectivePrice : (ssrPostPrice || undefined),
             },
             extended: {
-                prePrice: s === 'pre' ? effectivePrice : undefined,
-                postPrice: s === 'post' || s === 'closed' ? effectivePrice : undefined,
+                prePrice: ssrPrePrice || (s === 'pre' ? effectivePrice : undefined),
+                preClose: ssrPrePrice || undefined,
+                postPrice: ssrPostPrice || (s === 'post' || s === 'closed' ? effectivePrice : undefined),
             },
             session: s === 'reg' ? 'REG' : s === 'pre' ? 'PRE' : s === 'post' ? 'POST' : 'CLOSED',
             changePercent: initialStockData?.changePercent || initialUnifiedData?._dynamoPrice?.changePct || 0

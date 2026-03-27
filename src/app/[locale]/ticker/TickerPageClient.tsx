@@ -58,6 +58,17 @@ export function TickerPageClient({ ticker, range, initialStockData, initialUnifi
     const showPrice = hasPrice || (dynamoPrice && dynamoPrice > 0);
     const displayPrice = hasPrice ? initialStockData.price : dynamoPrice || 0;
     const displayChange = hasPrice ? (initialStockData.changePercent || 0) : (initialUnifiedData?._dynamoPrice?.changePct || 0);
+    // [V75] SSR-instant: extended price + sector from SSR data
+    const ssrExtPrice = initialStockData?.extended?.prePrice || initialStockData?.extended?.postPrice || null;
+    const ssrExtLabel = initialStockData?.extended?.prePrice ? (initialStockData?.session === 'pre' ? 'PRE' : 'PRE CLOSE')
+        : initialStockData?.extended?.postPrice ? 'POST' : '';
+    const ssrExtChangePct = ssrExtPrice && initialStockData?.prevClose > 0
+        ? ((ssrExtPrice - initialStockData.prevClose) / initialStockData.prevClose * 100)
+        : null;
+    const ssrSector = initialUnifiedData?.overview?.overview?.sector
+        || initialUnifiedData?.overview?.overview?.sectorEN
+        || initialUnifiedData?.fundamentals?.sector
+        || null;
 
     return (
         <>
@@ -84,13 +95,38 @@ export function TickerPageClient({ ticker, range, initialStockData, initialUnifi
                                 <span className="text-xs text-slate-500 font-bold tracking-tight uppercase font-jakarta">{initialStockData?.name || ticker}</span>
                             </div>
                             {showPrice ? (
-                                <div className="ml-auto flex items-baseline gap-3">
+                                <div className="ml-auto flex items-center gap-3">
                                     <span className="text-3xl font-black text-white tracking-tighter tabular-nums">
                                         ${displayPrice.toFixed(2)}
                                     </span>
                                     <span className={`text-lg font-bold font-mono tracking-tighter ${displayChange >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
                                         {displayChange > 0 ? '+' : ''}{displayChange.toFixed(2)}%
                                     </span>
+                                    {/* [V75] SSR-instant PRE/POST badge */}
+                                    {ssrExtPrice && ssrExtPrice > 0 && ssrExtLabel && (
+                                        <div className={`flex items-center gap-1.5 px-2 py-1 rounded-full border ${
+                                            ssrExtLabel === 'PRE' ? 'bg-amber-500/10 border-amber-500/20' :
+                                            ssrExtLabel === 'PRE CLOSE' ? 'bg-amber-500/10 border-amber-500/20' :
+                                            'bg-cyan-500/10 border-cyan-500/20'
+                                        }`}>
+                                            <div className={`w-1.5 h-1.5 rounded-full ${
+                                                ssrExtLabel.includes('PRE') ? 'bg-amber-400' : 'bg-cyan-400'
+                                            }`} />
+                                            <span className={`text-[12px] font-bold ${
+                                                ssrExtLabel.includes('PRE') ? 'text-amber-400' : 'text-cyan-400'
+                                            }`}>{ssrExtLabel}</span>
+                                            <span className="text-[12px] font-black text-white tabular-nums">${ssrExtPrice.toFixed(2)}</span>
+                                            {ssrExtChangePct !== null && (
+                                                <span className={`text-[12px] font-bold tabular-nums ${ssrExtChangePct >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                                    {ssrExtChangePct > 0 ? '+' : ''}{ssrExtChangePct.toFixed(2)}%
+                                                </span>
+                                            )}
+                                        </div>
+                                    )}
+                                    {/* [V75] SSR-instant Sector badge */}
+                                    {ssrSector && (
+                                        <span className="text-[11px] font-bold text-sky-300 bg-sky-500/10 border border-sky-500/20 px-2 py-1 rounded-full">{ssrSector}</span>
+                                    )}
                                 </div>
                             ) : (
                                 <div className="ml-auto flex items-baseline gap-3 animate-pulse">

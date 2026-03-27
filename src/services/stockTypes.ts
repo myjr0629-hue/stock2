@@ -39,6 +39,10 @@ export interface StockData {
         message?: string;
     };
     flow?: any;
+    extended?: {
+        prePrice?: number | null;
+        postPrice?: number | null;
+    };
 }
 
 export interface OptionData {
