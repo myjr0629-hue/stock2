@@ -73,14 +73,14 @@ export default function GravityGauge({ score, loading, session, components, rlsi
                 ? { text: '역사적 극단 공포 · 반등 임박', color: '#f59e0b' }
                 : locale === 'ja'
                     ? { text: '歴史的極端恐怖 · 反発接近', color: '#f59e0b' }
-                    : { text: 'Extreme Fear · Reversal Imminent', color: '#f59e0b' };
+                    : { text: 'Extreme Fear · Reversal', color: '#f59e0b' };
         }
         if (zSignal === 'EXTREME_OVERHEATED') {
             return locale === 'ko'
                 ? { text: '극단적 과열 · 조정 임박', color: '#ef4444' }
                 : locale === 'ja'
                     ? { text: '極端過熱 · 調整接近', color: '#ef4444' }
-                    : { text: 'Extreme Overheated · Correction Risk', color: '#ef4444' };
+                    : { text: 'Overheated · Correction', color: '#ef4444' };
         }
 
         // SCORE + GAMMA COMBINATION
@@ -90,7 +90,7 @@ export default function GravityGauge({ score, loading, session, components, rlsi
                 ? { text: '공포 극심 · 기관 방어 중', color: '#f59e0b' }
                 : locale === 'ja'
                     ? { text: '恐怖極大 · 機関防御中', color: '#f59e0b' }
-                    : { text: 'Fear Extreme · MM Defending', color: '#f59e0b' };
+                    : { text: 'Fear · MM Defending', color: '#f59e0b' };
         }
         if (normalizedScore <= 30 && gammaIsShort) {
             // Fear extreme AND institutions amplifying
@@ -98,14 +98,14 @@ export default function GravityGauge({ score, loading, session, components, rlsi
                 ? { text: '공포 + 변동성 증폭 · 위험', color: '#ef4444' }
                 : locale === 'ja'
                     ? { text: '恐怖 + 変動性増幅 · 危険', color: '#ef4444' }
-                    : { text: 'Fear + Vol Amplifying · Danger', color: '#ef4444' };
+                    : { text: 'Fear + Vol Spike', color: '#ef4444' };
         }
         if (normalizedScore <= 30) {
             return locale === 'ko'
                 ? { text: '유동성 위축 · 방향성 부재', color: '#f87171' }
                 : locale === 'ja'
                     ? { text: '流動性収縮 · 方向性不在', color: '#f87171' }
-                    : { text: 'Liquidity Drying · Directionless', color: '#f87171' };
+                    : { text: 'Liquidity Dry · No Dir.', color: '#f87171' };
         }
 
         if (normalizedScore >= 70 && gammaIsLong) {
@@ -113,14 +113,14 @@ export default function GravityGauge({ score, loading, session, components, rlsi
                 ? { text: '모멘텀 확장 · 기관 안정화', color: '#34d399' }
                 : locale === 'ja'
                     ? { text: 'モメンタム拡大 · 安定化中', color: '#34d399' }
-                    : { text: 'Momentum Surge · MM Stabilizing', color: '#34d399' };
+                    : { text: 'Surge · MM Stable', color: '#34d399' };
         }
         if (normalizedScore >= 70) {
             return locale === 'ko'
                 ? { text: '유동성 확장 · 강세 모멘텀', color: '#34d399' }
                 : locale === 'ja'
                     ? { text: '流動性拡大 · 強気モメンタム', color: '#34d399' }
-                    : { text: 'Liquidity Expanding · Bullish', color: '#34d399' };
+                    : { text: 'Expanding · Bullish', color: '#34d399' };
         }
 
         // REGIME-BASED
@@ -129,14 +129,14 @@ export default function GravityGauge({ score, loading, session, components, rlsi
                 ? { text: '순환매 진행 · 섹터 교체', color: '#818cf8' }
                 : locale === 'ja'
                     ? { text: 'ローテーション進行中', color: '#818cf8' }
-                    : { text: 'Sector Rotation Active', color: '#818cf8' };
+                    : { text: 'Rotation Active', color: '#818cf8' };
         }
         if (regime === 'PANIC') {
             return locale === 'ko'
                 ? { text: '패닉 감지 · 전면 리스크오프', color: '#ef4444' }
                 : locale === 'ja'
                     ? { text: 'パニック検知 · 全面リスクオフ', color: '#ef4444' }
-                    : { text: 'Panic Detected · Full Risk-Off', color: '#ef4444' };
+                    : { text: 'Panic · Risk-Off', color: '#ef4444' };
         }
 
         if (normalizedScore <= 40 && gammaIsLong) {
@@ -144,21 +144,21 @@ export default function GravityGauge({ score, loading, session, components, rlsi
                 ? { text: '심리 약세 · 기관 흡수 중', color: '#60a5fa' }
                 : locale === 'ja'
                     ? { text: '心理弱気 · 機関吸収中', color: '#60a5fa' }
-                    : { text: 'Weak Sentiment · MM Absorbing', color: '#60a5fa' };
+                    : { text: 'Weak · MM Absorbing', color: '#60a5fa' };
         }
         if (normalizedScore <= 40) {
             return locale === 'ko'
                 ? { text: '심리 약세 · 관망 구간', color: '#60a5fa' }
                 : locale === 'ja'
                     ? { text: '心理弱気 · 様子見', color: '#60a5fa' }
-                    : { text: 'Weak Sentiment · Standby', color: '#60a5fa' };
+                    : { text: 'Weak · Standby', color: '#60a5fa' };
         }
         if (normalizedScore >= 60) {
             return locale === 'ko'
                 ? { text: '심리 개선 · 유동성 유입', color: '#34d399' }
                 : locale === 'ja'
                     ? { text: '心理改善 · 流動性流入', color: '#34d399' }
-                    : { text: 'Improving · Liquidity Inflow', color: '#34d399' };
+                    : { text: 'Improving · Inflow', color: '#34d399' };
         }
 
         // NEUTRAL
@@ -166,7 +166,7 @@ export default function GravityGauge({ score, loading, session, components, rlsi
             ? { text: '중립 · 방향성 확인 대기', color: '#94a3b8' }
             : locale === 'ja'
                 ? { text: '中立 · 方向性待ち', color: '#94a3b8' }
-                : { text: 'Neutral · Awaiting Direction', color: '#94a3b8' };
+                : { text: 'Neutral · Standby', color: '#94a3b8' };
     };
 
     const insight = getInsightNarrative();
@@ -344,7 +344,7 @@ export default function GravityGauge({ score, loading, session, components, rlsi
                 title: {
                     show: true,
                     offsetCenter: [0, '55%'],
-                    fontSize: 10,
+                    fontSize: 12,
                     fontWeight: 900,
                     fontFamily: 'Plus Jakarta Sans, system-ui, sans-serif',
                     color: statusColor,
@@ -352,7 +352,7 @@ export default function GravityGauge({ score, loading, session, components, rlsi
                     backgroundColor: `${statusColor}11`,
                     borderWidth: 1,
                     borderRadius: 4,
-                    padding: [2, 6, 2, 6],
+                    padding: [2, 8, 2, 8],
                 },
                 detail: {
                     valueAnimation: true,
