@@ -63,8 +63,11 @@ export default function GravityGauge({ score, loading, session, components, rlsi
     const normalizedScore = Math.min(Math.max(animatedScore, 0), 100);
 
     // [V2.0] Gamma-Aware Insight Narrative — replaces generic BEARISH/BULLISH
-    const gammaIsLong = components?.gexLevel === 'LONG_GAMMA';
-    const gammaIsShort = components?.gexLevel === 'SHORT_GAMMA';
+    // Check gexLevel first, fallback to gexIndex threshold
+    const gexLevel = components?.gexLevel;
+    const gexIndex = components?.gexIndex ?? 0;
+    const gammaIsLong = gexLevel === 'LONG_GAMMA' || (!gexLevel && gexIndex > 10);
+    const gammaIsShort = gexLevel === 'SHORT_GAMMA' || (!gexLevel && gexIndex < -10);
 
     const getInsightNarrative = (): { text: string; color: string } => {
         // EXTREME CASES
