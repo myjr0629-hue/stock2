@@ -920,9 +920,14 @@ export function SectorSessionGrid({ config, quotes, loading, refreshing, lockedT
                                             </div>
                                         </>
                                     ) : perplexityLoading ? (
-                                        <div className="flex items-center gap-2">
-                                            <div className="w-3 h-3 border border-cyan-400/50 border-t-cyan-400 rounded-full animate-spin" />
-                                            <span className="text-[13px] text-slate-400 font-medium">{locale === 'ko' ? 'AI 분석 중...' : locale === 'ja' ? 'AI分析中...' : 'AI analyzing...'}</span>
+                                        <div className="flex items-center gap-2.5 py-1">
+                                            <div className="relative flex-shrink-0">
+                                                <div className="w-6 h-6 rounded-full border border-cyan-500/30 flex items-center justify-center">
+                                                    <img src="/signum-sg-vectorized.svg" alt="AI" width={14} height={14} style={{ objectFit: 'contain' as const, filter: 'drop-shadow(0 0 3px rgba(6,182,212,0.4))' }} />
+                                                </div>
+                                                <div className="absolute inset-0 rounded-full border-2 border-transparent border-t-cyan-400 animate-spin" style={{ animationDuration: '2s' }} />
+                                            </div>
+                                            <span className="text-[13px] text-cyan-300/80 font-bold tracking-wider font-jakarta">{locale === 'ko' ? 'AI 분석 중...' : locale === 'ja' ? 'AI分析中...' : 'AI analyzing...'}</span>
                                         </div>
                                     ) : (
                                         <p className="text-[13px] font-medium text-slate-300 leading-relaxed">{analysis}</p>
