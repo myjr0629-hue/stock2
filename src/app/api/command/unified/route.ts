@@ -335,7 +335,13 @@ export async function GET(request: NextRequest) {
                     }
                 } catch { /* DynamoDB unavailable */ }
             }
-            return jsonResponse({ ...enrichedMemData, overview: overview || null, _source: 'memory-lru', _ageMs: ageMs });
+            // [FIX] Cross-reference: inject atmIV into structure from volatility
+            // Frontend's structureDerived reads structure.atmIV to display IV%
+            const finalData = enrichedMemData;
+            if (finalData.structure && !finalData.structure.atmIV && finalData.volatility?.iv > 0) {
+                finalData.structure = { ...finalData.structure, atmIV: finalData.volatility.iv / 100 };
+            }
+            return jsonResponse({ ...finalData, overview: overview || null, _source: 'memory-lru', _ageMs: ageMs });
         }
 
         // ══════════════════════════════════════════════════════════════
@@ -508,6 +514,10 @@ export async function GET(request: NextRequest) {
                 });
             }
 
+            // [FIX] Cross-reference: inject atmIV into structure from volatility
+            if (cachedData.structure && !cachedData.structure.atmIV && cachedData.volatility?.iv > 0) {
+                cachedData.structure = { ...cachedData.structure, atmIV: cachedData.volatility.iv / 100 };
+            }
             return jsonResponse({ ...cachedData, overview: resolvedOverview || null, _source: 'cache', _ageMs: ageMs });
         }
 
@@ -836,6 +846,7 @@ async function tryDynamoFast(ticker: string): Promise<any | null> {
                     pcRatio: gex.pcr, levels: { callWall: gex.callWall, putFloor: gex.putFloor },
                     gammaFlipLevel: gex.flipLevel, gammaRegime: gex.gammaRegime,
                     totalContracts: gex.totalContracts, totalCallOI: gex.totalCallOI, totalPutOI: gex.totalPutOI,
+                    atmIV: volatilityCard?.iv ? volatilityCard.iv / 100 : undefined, // Frontend expects 0.xx format
                     validation: { confidence: 'HIGH', source: 'dynamodb-lambda' },
                 } : null,
                 options: gex ? { pcr: gex.pcr } : null,
