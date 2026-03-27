@@ -432,11 +432,11 @@ export class GuardianDataHub {
             const { flows, vectors, source, target, sourceId, targetId, rotationIntensity } = sectorResult;
             console.log(`[Guardian V5.0] Step 1 Complete. RIS: ${rotationIntensity.score}, Direction: ${rotationIntensity.direction}`);
 
-            // === STEP 2: RLSI WITH RIS INTEGRATION ===
-            // [V5.0] Pass rotation score to RLSI for 4-factor calculation
-            console.log("[Guardian V5.0] Step 2: Calculating RLSI with RIS...");
-            const rlsi = await calculateRLSI(force, rotationIntensity.score);
-            console.log(`[Guardian V5.0] Step 2 Complete. RLSI: ${rlsi.score}, Session: ${rlsi.session}`);
+            // === STEP 2: RLSI V2.0 WITH GAMMA + RIS INTEGRATION ===
+            // [V2.0] Pass rotation score AND gamma shield data to RLSI
+            console.log("[Guardian V2.0] Step 2: Calculating RLSI V2.0 with Gamma+CrossAsset+ZScore+McClellan...");
+            const rlsi = await calculateRLSI(force, rotationIntensity.score, gammaShieldData);
+            console.log(`[Guardian V2.0] Step 2 Complete. RLSI: ${rlsi.score}, Regime: ${rlsi.regime}, Gamma: ${rlsi.gammaAdjustment}, Z: ${rlsi.zScore ?? 'N/A'}`);
 
             // === STEP 3: DIVERGENCE ANALYSIS (The Logic) ===
             // Logic: Compare Nasdaq Change vs RLSI Score

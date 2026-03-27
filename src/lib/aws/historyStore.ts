@@ -48,6 +48,22 @@ export interface RlsiHistoryItem {
     rotation: number;
     sentiment: number;
     regime: string;
+    // [V2.0] Extended fields
+    version?: string;           // 'V2.0'
+    marketRegime?: string;      // RISK_ON | RISK_OFF | ROTATION | PANIC | NEUTRAL
+    gammaScore?: number;        // 0-100 (Gamma Structure component)
+    gexIndex?: number;          // -100 to +100
+    squeezeRisk?: number;       // 0-100
+    volatilityScore?: number;   // 0-100
+    liquidityScore?: number;    // 0-100
+    breadthMcClellan?: number;  // 0-100 (Breadth + McClellan)
+    mcClellanOsc?: number;      // Raw McClellan Oscillator
+    crossAssetMomentum?: number;// 0-100
+    zScore?: number | null;     // Standard deviations from 20-period mean
+    zSignal?: string | null;    // EXTREME_FEAR_REVERSAL | OVERHEATED | etc.
+    gammaAdjustment?: number;   // Points contributed by gamma
+    vix?: number;
+    yieldPenalty?: number;
 }
 
 export async function saveRlsiSnapshot(data: Omit<RlsiHistoryItem, 'pk'>): Promise<void> {

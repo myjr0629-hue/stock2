@@ -1,70 +1,101 @@
 
+// src/services/guardian/rlsiEngine.ts
+// RLSI V2.0 — Gamma-Enhanced Macro Gauge
+// The world's first composite index fusing options gamma structure with macro sentiment.
+// 8 components + adaptive VIX dampening + contrarian Z-Score reversal.
+
 import { fetchMassive } from "@/services/massiveClient";
 import { getTreasuryYields } from "@/services/fedApiClient";
 import { getMacroSnapshotSSOT } from "@/services/macroHubProvider";
 import { getMarketBreadth, BreadthSnapshot } from "./breadthEngine";
 import { getYahooDataSSOT } from "@/services/yahooFinanceHub";
+import { getFromCache, setInCache } from '@/services/redisClient';
+import { GammaShieldData } from "./gammaShieldEngine";
 
 // === CONFIGURATION ===
-const MARKET_CORE_10 = [
-    'QQQ', 'SPY', 'IWM', // Indices
-    'NVDA', 'AAPL', 'MSFT', 'AMZN', 'GOOGL', 'META', 'TSLA' // M7
-];
-
 const MOMENTUM_TICKER = 'QQQ';
-const MOMENTUM_WINDOW_DAYS = 22; // Approx 1 month trading days
 
-// [V6.0] Weight Configuration — Breadth 추가, 균형 재배분
+// [V2.0] 8-Factor Weight Configuration
 const WEIGHTS = {
-    PRICE_ACTION: 0.20,    // 가격 액션 센티먼트 (M7 10종목)
-    BREADTH: 0.20,         // [V6.0] Market Breadth (5000+ 종목 A/D)
-    NEWS_SENTIMENT: 0.10,  // 뉴스 센티먼트
-    MOMENTUM: 0.30,        // 모멘텀 (20MA 대비)
-    ROTATION: 0.10,        // 순환매 강도 (외부 전달)
-    BASE_BUFFER: 10        // 기본 버퍼
+    CROSS_ASSET_MOMENTUM: 0.20,   // QQQ/20MA + RUT/SPX relative strength
+    BREADTH_MCCLELLAN: 0.15,      // A/D + McClellan Oscillator
+    GAMMA_STRUCTURE: 0.15,        // GEX Index + Squeeze + Flip distance (🆕)
+    LIQUIDITY_FLOW: 0.10,         // TLT+GLD+BTC cross-asset flow (🆕)
+    VOLATILITY_REGIME: 0.10,      // VIX level + VIX/VIX3M term structure (🆕 independent)
+    ROTATION: 0.10,               // Sector rotation intensity
+    SENTIMENT: 0.10,              // CNN F&G
+    CONTRARIAN_ZSCORE: 0.05,      // Extreme reversal signal (🆕)
+    BASE_BUFFER: 5                // Base stability buffer (reduced from 10)
 };
 
 // === TYPES ===
 export type MarketSession = 'PRE' | 'REG' | 'POST' | 'CLOSED';
 
+// [V2.0] Enhanced Market Regime
+export type MarketRegime = 'RISK_ON' | 'RISK_OFF' | 'ROTATION' | 'PANIC' | 'NEUTRAL';
+
 export interface RLSIResult {
     score: number;       // 0-100
     level: 'DANGER' | 'NEUTRAL' | 'OPTIMAL';
-    session: MarketSession; // [V5.0] Current session
+    session: MarketSession;
+    // [V2.0] New fields
+    regime: MarketRegime;
+    zScore: number | null;         // Standard deviations from 20-period mean
+    zSignal: string | null;        // 'EXTREME_FEAR_REVERSAL' | 'OVERHEATED' | null
+    gammaAdjustment: number;       // Points added/subtracted by gamma
     components: {
-        // [V5.0] Price Action Sentiment
-        priceActionRaw: number;    // 0-1 (상승 종목 비율)
-        priceActionScore: number;  // 0-100
-        // [V6.0] Market Breadth
-        breadthPct: number;        // 상승 종목 비율 (0-100)
-        breadthScore: number;      // 정규화 점수 (0-100)
-        adRatio: number;           // A/D Ratio
-        volumeBreadth: number;     // 거래량 기반 breadth (0-100)
-        breadthSignal: string;     // STRONG/HEALTHY/NEUTRAL/WEAK/CRITICAL
-        breadthDivergent: boolean; // NQ↑ but Breadth↓
-        // News Sentiment
-        sentimentRaw: number;      // -1 to 1
-        sentimentScore: number;    // 0-100
-        sentimentSource?: string;  // [V8.2] CNN F&G or VIX Fallback
+        // Cross-Asset Momentum
+        priceActionRaw: number;
+        priceActionScore: number;
+        // [V2.0] RUT/SPX Relative Strength
+        rutSpxRatio: number;          // RUT relative to SPX (>1 = small-cap outperform)
+        crossAssetMomentumScore: number;
+        // Market Breadth + McClellan
+        breadthPct: number;
+        breadthScore: number;
+        adRatio: number;
+        volumeBreadth: number;
+        breadthSignal: string;
+        breadthDivergent: boolean;
+        mcClellanOsc: number;         // [V2.0] McClellan Oscillator value
+        breadthMcClellanScore: number;
+        // [V2.0] Gamma Structure
+        gexIndex: number;             // -100 to +100
+        gexLevel: string;             // LONG_GAMMA | NEUTRAL | SHORT_GAMMA
+        squeezeRisk: number;          // 0-100
+        gammaScore: number;           // 0-100 normalized
+        // [V2.0] Liquidity Flow
+        tltChange: number;
+        gldChange: number;
+        btcChange: number;
+        safeHavenFlow: number;
+        liquidityScore: number;       // 0-100
+        // [V2.0] Volatility Regime
+        vix: number;
+        vixTermStructure: number;
+        volatilityScore: number;      // 0-100
+        // Sentiment
+        sentimentRaw: number;
+        sentimentScore: number;
+        sentimentSource?: string;
         // Momentum
-        momentumRaw: number;       // ratio (e.g. 1.05)
-        momentumScore: number;     // 0-100
-        // [V5.0] Rotation (from external)
-        rotationScore: number;     // 0-100
-        // Yield & VIX
+        momentumRaw: number;
+        momentumScore: number;
+        // Rotation
+        rotationScore: number;
+        // Yield
         yieldRaw: number;
         yieldPenalty: number;
-        vix: number;
+        // VIX (legacy compat)
         vixMultiplier: number;
-        // [V9.0] New Indicators
-        vixTermStructure: number;  // 1.0 (Contango) to <1.0 (Backwardation)
-        bondFlow: number;          // TLT Daily Change %
-        goldFlow: number;          // GLD Daily Change %
+        // [V2.0] Flow
+        bondFlow: number;
+        goldFlow: number;
     };
     timestamp: string;
 }
 
-// === [V5.0] NEW: Session Detection ===
+// === Session Detection ===
 export function getMarketSession(): MarketSession {
     const now = new Date();
     const etString = now.toLocaleString('en-US', { timeZone: 'America/New_York' });
@@ -73,7 +104,6 @@ export function getMarketSession(): MarketSession {
     const minute = et.getMinutes();
     const day = et.getDay();
 
-    // Weekend
     if (day === 0 || day === 6) return 'CLOSED';
 
     const time = hour * 100 + minute;
@@ -83,147 +113,319 @@ export function getMarketSession(): MarketSession {
     return 'CLOSED';
 }
 
-// === [V9.0] Pre-market ETF Snapshot (Liquidity Weighted) ===
+// === [V2.0] Cross-Asset Regime Detection ===
+function detectRegime(data: {
+    vix: number; vixTerm: number;
+    tltChange: number; gldChange: number; btcChange: number;
+    rutChange: number; nqChange: number;
+}): MarketRegime {
+    const { vix, tltChange, gldChange, btcChange, rutChange, nqChange } = data;
+    
+    // PANIC: VIX > 35, all risk assets down
+    if (vix > 35 && nqChange < -1 && rutChange < -1 && btcChange < -2) {
+        return 'PANIC';
+    }
+    
+    // RISK_OFF: VIX > 25, safe havens rising
+    if (vix > 25 && (tltChange + gldChange) > 0.5 && nqChange < 0) {
+        return 'RISK_OFF';
+    }
+    
+    // ROTATION: RUT up but NQ down (or vice versa, large divergence)
+    if (Math.abs(rutChange - nqChange) > 1.5) {
+        if (rutChange > 0 && nqChange < 0) return 'ROTATION';
+        if (nqChange > 0 && rutChange < -1) return 'ROTATION';
+    }
+    
+    // RISK_ON: VIX < 18, risk assets up, safe havens down
+    if (vix < 18 && nqChange > 0 && (tltChange + gldChange) < 0) {
+        return 'RISK_ON';
+    }
+    
+    return 'NEUTRAL';
+}
+
+// === [V2.0] Gamma Structure Score ===
+function calculateGammaScore(gamma: GammaShieldData | null): {
+    score: number; gexIndex: number; gexLevel: string; squeezeRisk: number;
+} {
+    if (!gamma || gamma.confidence === 'LOW') {
+        return { score: 50, gexIndex: 0, gexLevel: 'NEUTRAL', squeezeRisk: 0 };
+    }
+    
+    let score = 50; // neutral baseline
+    
+    // GEX contribution: -100~+100 → -25~+25 points
+    score += gamma.gexIndex * 0.25;
+    
+    // Squeeze Risk bonus (high squeeze = short covering pressure = potential rally)
+    if (gamma.squeezeRisk > 60) {
+        score += (gamma.squeezeRisk - 60) * 0.15; // max +6
+    }
+    
+    // Gamma Flip proximity warning
+    if (gamma.currentPrice && gamma.gammaFlipPoint && gamma.gammaFlipPoint > 0) {
+        const distPct = (gamma.currentPrice - gamma.gammaFlipPoint) / gamma.currentPrice * 100;
+        if (distPct < 5 && distPct > 0) {
+            // Close to flip point → reduce score (danger of regime change)
+            score -= (5 - distPct) * 2; // max -10
+        } else if (distPct < 0) {
+            // Already below flip → short gamma environment
+            score -= 10;
+        }
+    }
+    
+    // GEX trend: if getting worse rapidly
+    if (gamma.gexChange !== null && gamma.gexChange < -15) {
+        score -= 5; // Rapid deterioration penalty
+    }
+    
+    return {
+        score: Math.max(0, Math.min(100, Math.round(score))),
+        gexIndex: gamma.gexIndex,
+        gexLevel: gamma.gexLevel,
+        squeezeRisk: gamma.squeezeRisk
+    };
+}
+
+// === [V2.0] Z-Score Contrarian Signal ===
+const ZSCORE_HISTORY_KEY = 'rlsi:zscore_history';
+
+async function calculateZScore(currentScore: number): Promise<{
+    zScore: number | null;
+    zSignal: string | null;
+    contrarianAdjustment: number;
+}> {
+    try {
+        const history = await getFromCache<number[]>(ZSCORE_HISTORY_KEY);
+        
+        if (!history || history.length < 10) {
+            // Not enough data for meaningful Z-Score
+            return { zScore: null, zSignal: null, contrarianAdjustment: 0 };
+        }
+        
+        // Use last 20 entries (or all if less)
+        const window = history.slice(-20);
+        const mean = window.reduce((a, b) => a + b, 0) / window.length;
+        const variance = window.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / window.length;
+        const stdDev = Math.sqrt(variance);
+        
+        if (stdDev < 1) {
+            // Too little variance, Z-Score not meaningful
+            return { zScore: null, zSignal: null, contrarianAdjustment: 0 };
+        }
+        
+        const zScore = (currentScore - mean) / stdDev;
+        
+        let zSignal: string | null = null;
+        let contrarianAdjustment = 0;
+        
+        // EXTREME FEAR: Z < -2.0 → historical extreme → mean reversion likely
+        if (zScore < -2.5) {
+            zSignal = 'EXTREME_FEAR_REVERSAL';
+            contrarianAdjustment = 10; // Strong reversal boost
+        } else if (zScore < -2.0) {
+            zSignal = 'FEAR_REVERSAL';
+            contrarianAdjustment = 5;  // Moderate reversal boost
+        }
+        // OVERHEATED: Z > +2.0 → historically stretched
+        else if (zScore > 2.5) {
+            zSignal = 'EXTREME_OVERHEATED';
+            contrarianAdjustment = -8;
+        } else if (zScore > 2.0) {
+            zSignal = 'OVERHEATED';
+            contrarianAdjustment = -4;
+        }
+        
+        return { zScore: Number(zScore.toFixed(2)), zSignal, contrarianAdjustment };
+    } catch (e) {
+        console.warn('[RLSI V2.0] Z-Score calculation failed:', e);
+        return { zScore: null, zSignal: null, contrarianAdjustment: 0 };
+    }
+}
+
+async function appendZScoreHistory(score: number): Promise<void> {
+    try {
+        let history = await getFromCache<number[]>(ZSCORE_HISTORY_KEY) || [];
+        history.push(Math.round(score));
+        // Keep last 100 entries (~8 hours at 5min intervals)
+        if (history.length > 100) history = history.slice(-100);
+        await setInCache(ZSCORE_HISTORY_KEY, history, 7 * 24 * 60 * 60); // 7 days TTL
+    } catch { /* non-critical */ }
+}
+
+// === [V2.0] McClellan Oscillator (EMA-based breadth acceleration) ===
+const MCCLELLAN_KEY = 'rlsi:mcclellan';
+
+interface McClellanState {
+    ema19: number;
+    ema39: number;
+    oscillator: number;
+    lastUpdate: string;
+}
+
+async function updateMcClellan(advancers: number, decliners: number): Promise<number> {
+    const adDiff = advancers - decliners;
+    
+    try {
+        const prev = await getFromCache<McClellanState>(MCCLELLAN_KEY);
+        
+        const k19 = 2 / (19 + 1); // EMA smoothing factor
+        const k39 = 2 / (39 + 1);
+        
+        let ema19: number, ema39: number;
+        
+        if (prev) {
+            ema19 = adDiff * k19 + prev.ema19 * (1 - k19);
+            ema39 = adDiff * k39 + prev.ema39 * (1 - k39);
+        } else {
+            // Cold start: use current value as seed
+            ema19 = adDiff;
+            ema39 = adDiff;
+        }
+        
+        const oscillator = ema19 - ema39;
+        
+        const state: McClellanState = {
+            ema19: Number(ema19.toFixed(2)),
+            ema39: Number(ema39.toFixed(2)),
+            oscillator: Number(oscillator.toFixed(2)),
+            lastUpdate: new Date().toISOString()
+        };
+        
+        await setInCache(MCCLELLAN_KEY, state, 7 * 24 * 60 * 60); // 7 days
+        
+        console.log(`[RLSI V2.0] McClellan: EMA19=${ema19.toFixed(0)}, EMA39=${ema39.toFixed(0)}, Osc=${oscillator.toFixed(0)}`);
+        return oscillator;
+    } catch (e) {
+        console.warn('[RLSI V2.0] McClellan update failed:', e);
+        return 0;
+    }
+}
+
+// === [V2.0] Liquidity Flow Score ===
+function calculateLiquidityScore(tltChange: number, gldChange: number, btcChange: number): {
+    score: number; safeHavenFlow: number;
+} {
+    // Safe Haven Flow: TLT + GLD combined movement
+    const safeHavenFlow = tltChange + gldChange;
+    
+    let score = 50; // neutral
+    
+    // If money FLEEING to safety (TLT+GLD rising) → negative for equities
+    if (safeHavenFlow > 1.0) {
+        score -= safeHavenFlow * 12; // Severe flight to safety
+    } else if (safeHavenFlow > 0.5) {
+        score -= safeHavenFlow * 8;
+    } else if (safeHavenFlow < -0.5) {
+        // Money LEAVING safety → positive for equities (risk-on)
+        score -= safeHavenFlow * 6; // safeHavenFlow is negative, so this adds
+    }
+    
+    // BTC as risk sentiment proxy
+    if (btcChange > 2) score += 5;       // Strong risk-on
+    else if (btcChange < -3) score -= 8; // Risk-off signal
+    
+    return {
+        score: Math.max(0, Math.min(100, Math.round(score))),
+        safeHavenFlow
+    };
+}
+
+// === [V2.0] Volatility Regime Score ===
+function calculateVolatilityScore(vix: number, vixTermStructure: number): number {
+    let score = 50;
+    
+    // VIX Level (inverse: low VIX = high score)
+    // VIX 12 = 85, VIX 20 = 50, VIX 30 = 20, VIX 40 = 5
+    score = Math.max(5, Math.min(85, 95 - vix * 2.5));
+    
+    // VIX Term Structure adjustment
+    // Contango (VIX < VIX3M, ratio < 1.0) → normal/positive
+    // Backwardation (VIX > VIX3M, ratio > 1.0) → panic/negative
+    if (vixTermStructure > 1.05) {
+        score -= 15; // Severe backwardation = panic
+    } else if (vixTermStructure > 1.0) {
+        score -= 8;  // Mild backwardation
+    } else if (vixTermStructure < 0.85) {
+        score += 5;  // Steep contango = very relaxed
+    }
+    
+    return Math.max(0, Math.min(100, Math.round(score)));
+}
+
+// === Pre-market ETF Snapshot ===
 async function getETFPremarketData(tickers: string[]): Promise<{ avgChange: number; upRatio: number }> {
     try {
         const tickerStr = tickers.join(',');
-        const endpoint = `/v2/snapshot/locale/us/markets/stocks/tickers?tickers=${tickerStr}`;
-        const data = await fetchMassive(endpoint, {}, true);
+        const data = await fetchMassive(`/v2/snapshot/locale/us/markets/stocks/tickers?tickers=${tickerStr}`, {}, true);
 
-        if (!data.tickers || data.tickers.length === 0) {
-            return { avgChange: 0, upRatio: 0.5 };
-        }
+        if (!data.tickers || data.tickers.length === 0) return { avgChange: 0, upRatio: 0.5 };
 
-        let totalWeightedChange = 0;
-        let totalWeight = 0;
-        let upCount = 0;
-        let validCount = 0;
-
+        let totalWeightedChange = 0, totalWeight = 0, upCount = 0, validCount = 0;
         for (const t of data.tickers) {
             const change = t.todaysChangePerc || 0;
-            // Pre-market tends to have low volume fake prints. 
-            // We use log10(volume) as a weight to ensure only real flow affects the score.
             const volume = t.day?.v || t.min?.v || 10;
-
-            if (volume > 100) { // Filter out completely dead tickers
+            if (volume > 100) {
                 const weight = Math.max(1, Math.log10(volume));
                 totalWeightedChange += (change * weight);
                 totalWeight += weight;
                 validCount++;
-
                 if (change > 0) upCount++;
             }
         }
-
-        const avgChange = totalWeight > 0 ? totalWeightedChange / totalWeight : 0;
-        const upRatio = validCount > 0 ? (upCount / validCount) : 0.5;
-
-        console.log(`[RLSI V9.0] Pre-market Flow-Filtered: avgChange=${avgChange.toFixed(2)}%, upRatio=${(upRatio * 100).toFixed(0)}%, Valid/Total=${validCount}/${data.tickers.length}`);
-        return { avgChange, upRatio };
-    } catch (e) {
-        console.warn("[RLSI] Pre-market ETF fetch failed:", e);
+        return {
+            avgChange: totalWeight > 0 ? totalWeightedChange / totalWeight : 0,
+            upRatio: validCount > 0 ? (upCount / validCount) : 0.5
+        };
+    } catch {
         return { avgChange: 0, upRatio: 0.5 };
     }
 }
 
-// === [V9.0] Price Action Sentiment (Liquidity Weighted) ===
-// Uses real-time stock performance instead of news, weighted by true institutional flow
+// === Price Action Sentiment ===
 async function getPriceActionSentiment(): Promise<number> {
     try {
         const tickers = ['NVDA', 'AAPL', 'MSFT', 'AMZN', 'GOOGL', 'META', 'TSLA', 'QQQ', 'SPY', 'IWM'];
-        const tickerStr = tickers.join(',');
-        const endpoint = `/v2/snapshot/locale/us/markets/stocks/tickers?tickers=${tickerStr}`;
-        const data = await fetchMassive(endpoint, {}, true);
-
+        const data = await fetchMassive(`/v2/snapshot/locale/us/markets/stocks/tickers?tickers=${tickers.join(',')}`, {}, true);
         if (!data.tickers || data.tickers.length === 0) return 0.5;
 
-        let totalWeight = 0;
-        let upWeight = 0;
-
+        let totalWeight = 0, upWeight = 0;
         for (const t of data.tickers) {
             const change = t.todaysChangePerc || 0;
             const volume = t.day?.v || t.min?.v || 10;
-
-            // Higher volume threshold for regular trading hours
             if (volume > 1000) {
                 const weight = Math.max(1, Math.log10(volume));
                 totalWeight += weight;
                 if (change > 0) upWeight += weight;
             }
         }
-
-        return totalWeight > 0 ? (upWeight / totalWeight) : 0.5; // Flow-weighted 0-1 up ratio
-    } catch (e) {
-        console.warn("[RLSI] Price action fetch failed:", e);
-        return 0.5; // Neutral
+        return totalWeight > 0 ? (upWeight / totalWeight) : 0.5;
+    } catch {
+        return 0.5;
     }
 }
 
-// === [V9.0] NEW: Fetch Additional Flow Data (VIX Term Structure, TLT, GLD) via Redis SSOT ===
-async function getFlowDataIndicators(): Promise<{ vixContango: number, tltChange: number, gldChange: number }> {
-    try {
-        const macroData = await getYahooDataSSOT();
-
-        const tltChange = macroData.tlt?.changePct || 0;
-        const gldChange = macroData.gold?.changePct || 0;
-
-        let vixContango = 1.0;
-        const vix = macroData.vix?.price || 15;
-        const vix3m = macroData.vix3m?.price || 18;
-
-        // VIX Term Structure: VIX vs VIX3M
-        // Backwardation (Panic): VIX > VIX3M (Ratio > 1.0)
-        // Normal Contango: VIX < VIX3M
-        if (vix > 0 && vix3m > 0) {
-            const ratio = vix / vix3m;
-            if (ratio > 1.05) {
-                // Severe backwardation
-                vixContango = 0.8;
-            } else if (ratio > 1.0) {
-                // Mild backwardation
-                vixContango = 0.9;
-            } else if (ratio < 0.85) {
-                // Steep contango (very relaxed)
-                vixContango = 1.05;
-            }
-        }
-
-        return { vixContango, tltChange, gldChange };
-    } catch (e) {
-        console.warn("[RLSI] Flow data indicators fetch failed:", e);
-        return { vixContango: 1.0, tltChange: 0, gldChange: 0 };
-    }
-}
-
-// === [V8.2] CNN Fear & Greed Index ===
-// [V8.3] Reads from Redis ONLY (cron writes to 'cnn:feargreed')
-import { getFromCache } from '@/services/redisClient';
-
+// === CNN Fear & Greed Index ===
 async function fetchFearGreedIndex(): Promise<{ score: number; rating: string }> {
     try {
         const cached = await getFromCache<{ score: number; rating: string; updatedAt: string }>('cnn:feargreed');
         if (cached && typeof cached.score === 'number') {
-            console.log(`[RLSI] F&G from Redis: ${cached.score.toFixed(0)} (${cached.rating})`);
             return { score: cached.score, rating: cached.rating };
         }
-        console.warn('[RLSI] No F&G in Redis, using VIX fallback');
         return { score: -1, rating: 'fallback' };
-    } catch (e) {
-        console.warn('[RLSI] F&G Redis read failed:', e);
+    } catch {
         return { score: -1, rating: 'fallback' };
     }
 }
 
-// VIX-based sentiment fallback (0-100)
-// VIX 12 = Extreme Greed (100), VIX 35+ = Extreme Fear (0)
 function vixToSentiment(vix: number): number {
     if (vix <= 12) return 100;
     if (vix >= 35) return 0;
     return Math.round(100 - ((vix - 12) / 23) * 100);
 }
 
-// === HELPER: Momentum Calculation ===
-// Returns current / 20MA ratio (regular session only)
+// === Momentum: QQQ vs 20MA ===
 async function getQQQMomentum(): Promise<number> {
     try {
         const to = new Date().toISOString().split('T')[0];
@@ -231,55 +433,48 @@ async function getQQQMomentum(): Promise<number> {
         fromDate.setDate(fromDate.getDate() - 40);
         const from = fromDate.toISOString().split('T')[0];
 
-        const endpoint = `/v2/aggs/ticker/${MOMENTUM_TICKER}/range/1/day/${from}/${to}?adjusted=true&sort=desc&limit=${MOMENTUM_WINDOW_DAYS}`;
-        const data = await fetchMassive(endpoint, {}, true);
-
+        const data = await fetchMassive(`/v2/aggs/ticker/${MOMENTUM_TICKER}/range/1/day/${from}/${to}?adjusted=true&sort=desc&limit=22`, {}, true);
         if (!data.results || data.results.length < 5) return 1.0;
 
         const closes = data.results.map((r: any) => r.c);
         const current = closes[0];
-        const maSlice = closes.slice(0, 20);
-        const avg = maSlice.reduce((a: number, b: number) => a + b, 0) / maSlice.length;
-
-        if (avg === 0) return 1.0;
-        return current / avg;
-    } catch (e) {
-        console.warn("[RLSI] Momentum fetch failed:", e);
+        const avg = closes.slice(0, 20).reduce((a: number, b: number) => a + b, 0) / Math.min(closes.length, 20);
+        return avg === 0 ? 1.0 : current / avg;
+    } catch {
         return 1.0;
     }
 }
 
-// === CACHE STATE ===
+// === CACHE ===
 let cachedRLSI: RLSIResult | null = null;
-const CACHE_DURATION_MS = 5 * 60 * 1000; // 5 Minutes
+const CACHE_DURATION_MS = 5 * 60 * 1000;
 
-// === [V6.0] MAIN ENGINE - BREADTH INTEGRATED ===
+// === [V2.0] MAIN ENGINE — GAMMA-ENHANCED MACRO GAUGE ===
 
-export async function calculateRLSI(force: boolean = false, rotationScore: number = 50): Promise<RLSIResult> {
-    // 0. Check Cache
+export async function calculateRLSI(
+    force: boolean = false,
+    rotationScore: number = 50,
+    gammaData: GammaShieldData | null = null
+): Promise<RLSIResult> {
+    // Cache check
     if (!force && cachedRLSI) {
         const age = Date.now() - new Date(cachedRLSI.timestamp).getTime();
-        if (age < CACHE_DURATION_MS) {
-            return cachedRLSI;
-        }
+        if (age < CACHE_DURATION_MS) return cachedRLSI;
     }
 
     const session = getMarketSession();
-    console.log(`[RLSI V5.0] Session: ${session}, Calculating...`);
+    console.log(`[RLSI V2.0] Session: ${session}, Calculating with Gamma+CrossAsset+ZScore+McClellan...`);
 
     try {
-        // 1. Parallel Fetch Data based on session
+        // === 1. Parallel Data Fetch ===
         let priceActionRaw: number;
         let momentumRaw: number;
 
-        // [V5.0] Session-aware data fetching
         if (session === 'PRE' || session === 'CLOSED') {
-            // Pre-market/Closed: Use ETF snapshots for both
             const etfData = await getETFPremarketData(['QQQ', 'SPY', 'IWM', 'NVDA', 'AAPL', 'MSFT', 'AMZN']);
             priceActionRaw = etfData.upRatio;
-            momentumRaw = 1 + (etfData.avgChange / 100); // Convert % to ratio
+            momentumRaw = 1 + (etfData.avgChange / 100);
         } else {
-            // Regular/Post: Use full data
             const [priceAction, momentum] = await Promise.all([
                 getPriceActionSentiment(),
                 getQQQMomentum()
@@ -288,80 +483,114 @@ export async function calculateRLSI(force: boolean = false, rotationScore: numbe
             momentumRaw = momentum;
         }
 
-        // Fetch other data (universal across sessions)
-        // [V8.2] Removed news fetch — sentiment now from CNN Fear & Greed Index
-        const [yields, macro, breadth, flowData] = await Promise.all([
+        // Universal data fetching
+        const [yields, macro, breadth, yahooData, fgData] = await Promise.all([
             getTreasuryYields().catch(() => ({ us10y: 4.0 } as any)),
             getMacroSnapshotSSOT().catch(() => ({ vix: 15 } as any)),
             getMarketBreadth(0).catch(() => null as BreadthSnapshot | null),
-            getFlowDataIndicators()
+            getYahooDataSSOT(),
+            fetchFearGreedIndex()
         ]);
 
-        // 2. Component Calculations
+        // === 2. Component Calculations ===
 
-        // A. Price Action Score (0-100)
+        // A. Cross-Asset Momentum Score (20%)
         const priceActionScore = priceActionRaw * 100;
-
-        // B. [V6.0] Market Breadth Score (0-100)
-        const breadthScoreValue = breadth?.breadthScore ?? 50;
-
-        // C. News Sentiment Score (0-100)
-        // [V8.2] CNN Fear & Greed Index (replaces news keyword sentiment)
-        const fg = await fetchFearGreedIndex();
-        const sentimentRaw = fg.score >= 0 ? (fg.score / 50) - 1 : 0; // Convert 0-100 to -1~+1
-        const sentimentScore = fg.score >= 0 ? fg.score : vixToSentiment(macro?.vix || 15);
-
-        // D. Momentum Score (0-100)
         let momentumScore = 50 + (momentumRaw - 1) * 1000;
         momentumScore = Math.max(0, Math.min(100, momentumScore));
+        
+        // RUT/SPX relative strength
+        const rutChange = yahooData.rut?.changePct || 0;
+        const nqChange = yahooData.nq?.changePct || 0;
+        const rutSpxRatio = (100 + rutChange) / (100 + (yahooData.spx?.changePct || 0));
+        
+        // Blend: 60% momentum + 25% price action + 15% RUT relative
+        const rutRelScore = Math.max(0, Math.min(100, 50 + (rutChange - nqChange) * 10));
+        const crossAssetMomentumScore = Math.round(
+            momentumScore * 0.60 + priceActionScore * 0.25 + rutRelScore * 0.15
+        );
 
-        // E. Rotation Score (passed from SectorEngine)
+        // B. Market Breadth + McClellan (15%)
+        const breadthScoreValue = breadth?.breadthScore ?? 50;
+        const mcClellanOsc = breadth
+            ? await updateMcClellan(breadth.advancers, breadth.decliners)
+            : 0;
+        
+        // McClellan contribution: normalize -500~+500 to 0-100
+        const mcClellanNorm = Math.max(0, Math.min(100, 50 + mcClellanOsc / 10));
+        // Blend: 60% breadth score + 40% McClellan
+        const breadthMcClellanScore = Math.round(breadthScoreValue * 0.6 + mcClellanNorm * 0.4);
+
+        // C. Gamma Structure Score (15%) — 🆕
+        const gammaResult = calculateGammaScore(gammaData);
+
+        // D. Liquidity Flow Score (10%) — 🆕
+        const tltChange = yahooData.tlt?.changePct || 0;
+        const gldChange = yahooData.gold?.changePct || 0;
+        const btcChange = yahooData.btc?.changePct || 0;
+        const liquidityResult = calculateLiquidityScore(tltChange, gldChange, btcChange);
+
+        // E. Volatility Regime Score (10%) — 🆕
+        const vix = macro?.vix || 15;
+        const vix3m = yahooData.vix3m?.price || 18;
+        const vixTermStructure = (vix > 0 && vix3m > 0) ? vix / vix3m : 1.0;
+        const volatilityScore = calculateVolatilityScore(vix, vixTermStructure);
+
+        // F. Sentiment Score (10%)
+        const sentimentRaw = fgData.score >= 0 ? (fgData.score / 50) - 1 : 0;
+        const sentimentScore = fgData.score >= 0 ? fgData.score : vixToSentiment(vix);
+
+        // G. Rotation Score (10%)
         const rotationScoreNorm = Math.max(0, Math.min(100, rotationScore));
 
-        // F. Yield Penalty
+        // H. Yield Penalty (reduced from ×10 to ×5)
         const yieldRaw = yields.us10y || 4.0;
-        const yieldPenalty = Math.max(0, (yieldRaw - 3.5) * 10);
+        const yieldPenalty = Math.max(0, (yieldRaw - 3.5) * 5);
 
-        // G. VIX Filter
-        const vix = macro?.vix || 15;
-        let vixMultiplier = 1.0;
-        if (vix > 30) vixMultiplier = 0.5;
-        else if (vix > 20) vixMultiplier = 0.8;
+        // I. VIX Dampening (smoother curve)
+        // Old: VIX>30 → 0.5, VIX>20 → 0.8
+        // New: clamp(1.15 - VIX/50, 0.65, 1.1)
+        const vixMultiplier = Math.max(0.65, Math.min(1.1, 1.15 - vix / 50));
 
-        // Apply VIX Term Structure Multiplier [V9.0]
-        vixMultiplier *= flowData.vixContango;
+        // === 3. Regime Detection ===
+        const regime = detectRegime({
+            vix,
+            vixTerm: vixTermStructure,
+            tltChange, gldChange, btcChange,
+            rutChange, nqChange
+        });
 
-        // H. [V9.0] Institutional Safe Haven Rotation (Bond & Gold Flow)
-        // If money is fleeing equities to absolute safety (TLT + GLD), apply a dynamic penalty.
-        // If they are both negative (selling bonds/gold to buy risky assets), it's a Risk-On boost.
-        let flowPenalty = 0;
-        const safeHavenFlow = flowData.tltChange + flowData.gldChange;
-
-        if (safeHavenFlow > 0.5) {
-            // Severe capital flight to safety. e.g. combined +2.0% -> 10 point penalty
-            flowPenalty = safeHavenFlow * 5;
-        } else if (safeHavenFlow < -0.5) {
-            // Risk-On rally. e.g. combined -1.0% -> -2 penalty (i.e. +2 boost)
-            flowPenalty = safeHavenFlow * 2;
-        }
-
-        // 3. [V9.0] Final Calculation with Safe Haven & Breadth Integration
-        // PriceAction 20% + Breadth 20% + News 10% + Momentum 30% + Rotation 10% + Base 10 - Penalty - FlowPenalty
+        // === 4. Weighted Sum ===
         let baseScore =
-            (priceActionScore * WEIGHTS.PRICE_ACTION) +
-            (breadthScoreValue * WEIGHTS.BREADTH) +
-            (sentimentScore * WEIGHTS.NEWS_SENTIMENT) +
-            (momentumScore * WEIGHTS.MOMENTUM) +
+            (crossAssetMomentumScore * WEIGHTS.CROSS_ASSET_MOMENTUM) +
+            (breadthMcClellanScore * WEIGHTS.BREADTH_MCCLELLAN) +
+            (gammaResult.score * WEIGHTS.GAMMA_STRUCTURE) +
+            (liquidityResult.score * WEIGHTS.LIQUIDITY_FLOW) +
+            (volatilityScore * WEIGHTS.VOLATILITY_REGIME) +
             (rotationScoreNorm * WEIGHTS.ROTATION) +
+            (sentimentScore * WEIGHTS.SENTIMENT) +
             WEIGHTS.BASE_BUFFER -
-            yieldPenalty -
-            flowPenalty;
+            yieldPenalty;
 
-        // Apply VIX Multiplier
-        let finalScore = baseScore * vixMultiplier;
+        // Apply VIX dampening (smoother)
+        let dampened = baseScore * vixMultiplier;
+
+        // === 5. Z-Score Contrarian Adjustment ===
+        const zResult = await calculateZScore(dampened);
+        
+        // Apply contrarian Z-Score adjustment (max 5% weight)
+        // Scale: ±10 points max adjustment
+        const contrarianScore = 50 + (zResult.contrarianAdjustment * 5);
+        dampened += contrarianScore * WEIGHTS.CONTRARIAN_ZSCORE;
+
+        // Gamma adjustment tracking (for transparency)
+        const gammaAdjustment = Math.round((gammaResult.score - 50) * WEIGHTS.GAMMA_STRUCTURE);
 
         // Clamp 0-100
-        finalScore = Math.max(0, Math.min(100, finalScore));
+        let finalScore = Math.max(0, Math.min(100, dampened));
+
+        // Append to Z-Score history (for future calculations)
+        await appendZScoreHistory(finalScore);
 
         // Determine Level
         let level: 'DANGER' | 'NEUTRAL' | 'OPTIMAL' = 'NEUTRAL';
@@ -372,66 +601,79 @@ export async function calculateRLSI(force: boolean = false, rotationScore: numbe
             score: Number(finalScore.toFixed(1)),
             level,
             session,
+            regime,
+            zScore: zResult.zScore,
+            zSignal: zResult.zSignal,
+            gammaAdjustment,
             components: {
                 priceActionRaw: Number(priceActionRaw.toFixed(2)),
                 priceActionScore: Number(priceActionScore.toFixed(1)),
-                // [V6.0] Market Breadth
+                rutSpxRatio: Number(rutSpxRatio.toFixed(3)),
+                crossAssetMomentumScore,
                 breadthPct: breadth?.breadthPct ?? 50,
                 breadthScore: breadthScoreValue,
                 adRatio: breadth?.adRatio ?? 1,
                 volumeBreadth: breadth?.volumeBreadth ?? 50,
                 breadthSignal: breadth?.signal ?? 'NEUTRAL',
                 breadthDivergent: breadth?.isDivergent ?? false,
-                // News
+                mcClellanOsc: Number(mcClellanOsc.toFixed(0)),
+                breadthMcClellanScore,
+                gexIndex: gammaResult.gexIndex,
+                gexLevel: gammaResult.gexLevel,
+                squeezeRisk: gammaResult.squeezeRisk,
+                gammaScore: gammaResult.score,
+                tltChange: Number(tltChange.toFixed(2)),
+                gldChange: Number(gldChange.toFixed(2)),
+                btcChange: Number(btcChange.toFixed(2)),
+                safeHavenFlow: Number(liquidityResult.safeHavenFlow.toFixed(2)),
+                liquidityScore: liquidityResult.score,
+                vix: Number(vix.toFixed(2)),
+                vixTermStructure: Number(vixTermStructure.toFixed(2)),
+                volatilityScore,
                 sentimentRaw: Number(sentimentRaw.toFixed(2)),
                 sentimentScore: Number(sentimentScore.toFixed(1)),
-                sentimentSource: fg.score >= 0 ? `CNN F&G: ${fg.rating}` : 'VIX Fallback',
+                sentimentSource: fgData.score >= 0 ? `CNN F&G: ${fgData.rating}` : 'VIX Fallback',
                 momentumRaw: Number(momentumRaw.toFixed(3)),
                 momentumScore: Number(momentumScore.toFixed(1)),
                 rotationScore: Number(rotationScoreNorm.toFixed(1)),
                 yieldRaw: Number(yieldRaw.toFixed(2)),
                 yieldPenalty: Number(yieldPenalty.toFixed(1)),
-                vix: Number(vix.toFixed(2)),
-                vixMultiplier,
-                vixTermStructure: Number(flowData.vixContango.toFixed(2)),
-                bondFlow: Number(flowData.tltChange.toFixed(2)),
-                goldFlow: Number(flowData.gldChange.toFixed(2))
+                vixMultiplier: Number(vixMultiplier.toFixed(3)),
+                bondFlow: Number(tltChange.toFixed(2)),
+                goldFlow: Number(gldChange.toFixed(2))
             },
             timestamp: new Date().toISOString()
         };
 
-        // Update Cache
         cachedRLSI = result;
-        console.log(`[RLSI V6.0] Complete. Score: ${result.score}, Level: ${result.level}, Session: ${session}, Breadth: ${breadth?.breadthPct?.toFixed(1) ?? 'N/A'}%`);
+        console.log(`[RLSI V2.0] Complete. Score: ${result.score}, Level: ${result.level}, Regime: ${regime}, Gamma: ${gammaResult.gexLevel}(${gammaResult.gexIndex}), Z-Score: ${zResult.zScore ?? 'N/A'}, McClellan: ${mcClellanOsc.toFixed(0)}`);
         return result;
 
     } catch (error: any) {
-        console.error("[RLSI] CRITICAL ERROR:", error?.message || error);
+        console.error("[RLSI V2.0] CRITICAL ERROR:", error?.message || error);
         return {
             score: 50,
             level: 'NEUTRAL',
             session,
+            regime: 'NEUTRAL',
+            zScore: null,
+            zSignal: null,
+            gammaAdjustment: 0,
             components: {
-                priceActionRaw: 0.5,
-                priceActionScore: 50,
-                breadthPct: 50,
-                breadthScore: 50,
-                adRatio: 1,
-                volumeBreadth: 50,
-                breadthSignal: 'NEUTRAL',
-                breadthDivergent: false,
-                sentimentRaw: 0,
-                sentimentScore: 50,
-                momentumRaw: 1.0,
-                momentumScore: 50,
+                priceActionRaw: 0.5, priceActionScore: 50,
+                rutSpxRatio: 1, crossAssetMomentumScore: 50,
+                breadthPct: 50, breadthScore: 50, adRatio: 1,
+                volumeBreadth: 50, breadthSignal: 'NEUTRAL', breadthDivergent: false,
+                mcClellanOsc: 0, breadthMcClellanScore: 50,
+                gexIndex: 0, gexLevel: 'NEUTRAL', squeezeRisk: 0, gammaScore: 50,
+                tltChange: 0, gldChange: 0, btcChange: 0, safeHavenFlow: 0, liquidityScore: 50,
+                vix: 15, vixTermStructure: 1.0, volatilityScore: 50,
+                sentimentRaw: 0, sentimentScore: 50,
+                momentumRaw: 1.0, momentumScore: 50,
                 rotationScore: 50,
-                yieldRaw: 4.0,
-                yieldPenalty: 5,
-                vix: 15,
+                yieldRaw: 4.0, yieldPenalty: 2.5,
                 vixMultiplier: 1.0,
-                vixTermStructure: 1.0,
-                bondFlow: 0,
-                goldFlow: 0
+                bondFlow: 0, goldFlow: 0
             },
             timestamp: new Date().toISOString()
         };

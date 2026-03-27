@@ -85,26 +85,47 @@ export async function GET(request: Request) {
         }
         results.gex = gexResults.join(' ');
 
-        // ====== 2. Harvest RLSI data ======
+        // ====== 2. Harvest RLSI V2.0 data ======
         try {
-            const res = await fetch(`${baseUrl}/api/guardian`, {
+            const res = await fetch(`${baseUrl}/api/debug/guardian?force=true`, {
                 headers: process.env.VERCEL_AUTOMATION_BYPASS_SECRET
                     ? { 'x-vercel-protection-bypass': process.env.VERCEL_AUTOMATION_BYPASS_SECRET } : {},
             });
             if (res.ok) {
-                const data = await res.json();
-                if (data.rlsi !== undefined) {
+                const json = await res.json();
+                const ctx = json.data || json;
+                const rlsiData = ctx?.rlsi;
+                if (rlsiData && rlsiData.score !== undefined) {
+                    const comp = rlsiData.components || {};
                     await saveRlsiSnapshot({
                         timestamp: Date.now(),
-                        rlsi: data.rlsi || 0,
-                        momentum: data.subScores?.momentum || 0,
-                        participation: data.subScores?.participation || 0,
-                        priceTrend: data.subScores?.priceTrend || 0,
-                        rotation: data.subScores?.rotation || 0,
-                        sentiment: data.subScores?.sentiment || 0,
-                        regime: data.regime || 'NEUTRAL',
+                        rlsi: rlsiData.score || 0,
+                        momentum: comp.momentumScore || comp.crossAssetMomentumScore || 0,
+                        participation: comp.priceActionScore || 0,
+                        priceTrend: comp.breadthScore || comp.breadthMcClellanScore || 0,
+                        rotation: comp.rotationScore || 0,
+                        sentiment: comp.sentimentScore || 0,
+                        regime: rlsiData.level || 'NEUTRAL',
+                        // [V2.0] Extended fields
+                        version: 'V2.0',
+                        marketRegime: rlsiData.regime || 'NEUTRAL',
+                        gammaScore: comp.gammaScore ?? null,
+                        gexIndex: comp.gexIndex ?? null,
+                        squeezeRisk: comp.squeezeRisk ?? null,
+                        volatilityScore: comp.volatilityScore ?? null,
+                        liquidityScore: comp.liquidityScore ?? null,
+                        breadthMcClellan: comp.breadthMcClellanScore ?? null,
+                        mcClellanOsc: comp.mcClellanOsc ?? null,
+                        crossAssetMomentum: comp.crossAssetMomentumScore ?? null,
+                        zScore: rlsiData.zScore ?? null,
+                        zSignal: rlsiData.zSignal ?? null,
+                        gammaAdjustment: rlsiData.gammaAdjustment ?? null,
+                        vix: comp.vix ?? null,
+                        yieldPenalty: comp.yieldPenalty ?? null,
                     });
-                    results.rlsi = `✅ RLSI=${data.rlsi}`;
+                    results.rlsi = `✅ RLSI=${rlsiData.score} Regime=${rlsiData.regime} Gamma=${comp.gexIndex ?? 'N/A'} Z=${rlsiData.zScore ?? 'N/A'}`;
+                } else {
+                    results.rlsi = '⚠️ No RLSI in response';
                 }
             }
         } catch (e) {
