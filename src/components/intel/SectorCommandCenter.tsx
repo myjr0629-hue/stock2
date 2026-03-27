@@ -217,56 +217,6 @@ export function SectorCommandCenter({ sectorData, onNavigate }: SectorCommandCen
                     <div className="absolute -bottom-20 -left-20 w-60 h-60 bg-gradient-radial from-teal-400/8 to-transparent rounded-full blur-3xl" />
                 </div>
 
-                {/* ── Market Session Banner ── */}
-                <div className={`relative z-10 mb-5 flex items-center justify-between gap-4 px-4 py-2.5 rounded-xl border backdrop-blur-md ${
-                    sessionInfo.session === 'REGULAR'
-                        ? 'bg-emerald-500/[0.08] border-emerald-500/25'
-                        : 'bg-amber-500/[0.06] border-amber-500/20'
-                }`} style={{
-                    boxShadow: sessionInfo.session === 'REGULAR'
-                        ? '0 0 20px rgba(16,185,129,0.08)'
-                        : '0 0 20px rgba(245,158,11,0.06)'
-                }}>
-                    {/* Left: Session status */}
-                    <div className="flex items-center gap-3">
-                        {sessionInfo.session === 'REGULAR' ? (
-                            <>
-                                <span className="relative flex h-2 w-2">
-                                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-                                    <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
-                                </span>
-                                <span className="text-[12px] font-bold text-emerald-400 tracking-[0.15em] uppercase">MARKET OPEN</span>
-                                <span className="text-[12px] text-slate-300 font-mono">{sessionInfo.etTimeStr}</span>
-                            </>
-                        ) : (
-                            <>
-                                <Clock className="w-3.5 h-3.5 text-amber-400" />
-                                <span className="text-[12px] font-bold text-amber-400 tracking-[0.15em] uppercase">
-                                    {sessionInfo.session === 'PRE' ? 'PRE-MARKET' : sessionInfo.session === 'POST' ? 'POST-MARKET' : 'MARKET CLOSED'}
-                                </span>
-                                <span className="hidden sm:inline text-[12px] text-slate-300">·</span>
-                                <span className="hidden sm:inline text-[12px] text-slate-300">Last session data displayed</span>
-                            </>
-                        )}
-                    </div>
-
-                    {/* Right: Countdown timer */}
-                    <div className="flex items-center gap-2.5">
-                        <span className={`text-[12px] font-bold tracking-wide ${
-                            sessionInfo.session === 'REGULAR' ? 'text-slate-300' : 'text-slate-300'
-                        }`}>
-                            {sessionInfo.targetLabel}
-                        </span>
-                        <div className={`px-3 py-1 rounded-lg border font-mono text-[14px] font-black tracking-wider tabular-nums ${
-                            sessionInfo.session === 'REGULAR'
-                                ? 'bg-emerald-950/40 border-emerald-500/20 text-emerald-300'
-                                : 'bg-amber-950/40 border-amber-500/20 text-amber-300'
-                        }`}>
-                            {sessionInfo.timerStr}
-                        </div>
-                    </div>
-                </div>
-
                 <div className="relative z-10 flex items-start justify-between gap-6">
                     <div>
                         <div className="flex items-center gap-2 mb-2">
@@ -285,6 +235,40 @@ export function SectorCommandCenter({ sectorData, onNavigate }: SectorCommandCen
                         <p className="text-slate-300 text-sm mt-1 font-mono">
                             10 SECTORS • {marketOverview.totalTickers} ASSETS • {sessionInfo.session === 'REGULAR' ? 'REAL-TIME INTELLIGENCE' : 'LAST SESSION DATA'}
                         </p>
+                    </div>
+
+                    {/* ── Compact Session Indicator (between title & sentiment) ── */}
+                    <div className="hidden lg:flex flex-col items-center justify-center gap-1.5 flex-shrink-0">
+                        <div className="flex items-center gap-2">
+                            {sessionInfo.session === 'REGULAR' ? (
+                                <>
+                                    <span className="relative flex h-1.5 w-1.5">
+                                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                                        <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500" />
+                                    </span>
+                                    <span className="text-[12px] font-bold text-emerald-400 tracking-[0.12em]">LIVE</span>
+                                </>
+                            ) : (
+                                <>
+                                    <Clock className="w-3 h-3 text-amber-400" />
+                                    <span className="text-[12px] font-bold text-amber-400 tracking-[0.12em]">
+                                        {sessionInfo.session === 'PRE' ? 'PRE' : sessionInfo.session === 'POST' ? 'POST' : 'CLOSED'}
+                                    </span>
+                                </>
+                            )}
+                        </div>
+                        <div className={`px-2.5 py-0.5 rounded-md border font-mono text-[13px] font-black tracking-wider tabular-nums ${
+                            sessionInfo.session === 'REGULAR'
+                                ? 'bg-emerald-950/30 border-emerald-500/15 text-emerald-300'
+                                : 'bg-amber-950/30 border-amber-500/15 text-amber-300'
+                        }`}>
+                            {sessionInfo.timerStr}
+                        </div>
+                        <span className={`text-[12px] font-bold tracking-wide ${
+                            sessionInfo.session === 'REGULAR' ? 'text-slate-300' : 'text-slate-300'
+                        }`}>
+                            {sessionInfo.targetLabel}
+                        </span>
                     </div>
 
                     <div className="flex-shrink-0">
