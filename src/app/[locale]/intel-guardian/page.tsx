@@ -35,6 +35,11 @@ interface RLSIResult {
     score: number;
     level: 'DANGER' | 'NEUTRAL' | 'OPTIMAL';
     session?: 'PRE' | 'REG' | 'POST' | 'CLOSED';
+    // [V2.0] Gamma-Enhanced fields
+    regime?: string;           // RISK_ON | RISK_OFF | ROTATION | PANIC | NEUTRAL
+    zScore?: number | null;
+    zSignal?: string | null;   // EXTREME_FEAR_REVERSAL | OVERHEATED | etc.
+    gammaAdjustment?: number;
     components: {
         priceActionRaw: number;
         priceActionScore: number;
@@ -396,7 +401,7 @@ export default function GuardianPage() {
                             <div className="absolute bottom-2 right-2 w-2 h-2 border-b border-r border-slate-600"></div>
 
                             <ProGate title="Gravity Gauge" fomoMessage={gt('fomoGravityGauge')} mode="peek" compact blurPx={6}>
-                                <GravityGauge score={data?.rlsi.score || 0} loading={loading} session={data?.rlsi.session} components={data?.rlsi.components} rlsiHistory={data?.rlsiHistory} />
+                                <GravityGauge score={data?.rlsi.score || 0} loading={loading} session={data?.rlsi.session} components={data?.rlsi.components} rlsiHistory={data?.rlsiHistory} regime={data?.rlsi.regime} zSignal={data?.rlsi.zSignal} />
                             </ProGate>
 
                             {/* Scanline Overlay */}
