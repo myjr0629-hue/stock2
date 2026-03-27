@@ -505,6 +505,15 @@ async function buildUnifiedCache(priceMap, gexMap, optionsCache, smaMap, details
         // === Build structure field (from GEX data) ===
         let structure = null;
         if (gd) {
+          // Calculate atmIV from options for structure (frontend reads structure.atmIV)
+          let structAtmIv = 0;
+          if (optData && optData.opts) {
+            const atm = optData.opts
+              .filter(o => { const iv = o.implied_volatility || o.greeks?.implied_volatility || 0; return iv > 0 && o.details?.strike_price > 0; })
+              .sort((a,b) => Math.abs((a.details?.strike_price||0)-price) - Math.abs((b.details?.strike_price||0)-price))
+              .slice(0,4);
+            if (atm.length > 0) structAtmIv = atm.reduce((s,o) => s + (o.implied_volatility || o.greeks?.implied_volatility || 0), 0) / atm.length;
+          }
           structure = {
             options_status: 'OK',
             netGex: Math.round(gd.gex),
@@ -517,6 +526,7 @@ async function buildUnifiedCache(priceMap, gexMap, optionsCache, smaMap, details
             totalCallOI: gd.totalCallOI,
             totalPutOI: gd.totalPutOI,
             underlyingPrice: price,
+            atmIV: structAtmIv > 0 ? structAtmIv : undefined, // 0.xx format for frontend
             validation: { confidence: 'HIGH', source: 'lambda-v7' },
           };
         }
@@ -574,13 +584,9 @@ async function buildUnifiedCache(priceMap, gexMap, optionsCache, smaMap, details
           const regime = regimeScore >= 75 ? 'ERUPTING' : regimeScore >= 50 ? 'LOADED' : regimeScore >= 25 ? 'COILING' : 'CALM';
           volatility = { regime, regimeScore: Math.round(regimeScore), gex:Math.round(netGex), gexLabel:isShortGamma?'SHORT':'LONG', iv:atmIv, flipDistance:Math.round(flipDistance*10)/10, flipLevel:gammaFlip, isAboveFlip:flipDistance>0, squeezeScore:0, squeezeRisk:'LOW', gammaConcentration:0, gammaConcentrationLabel:'NORMAL' };
         } else {
-          // Non-GEX tickers: basic volatility from SMA trend data — also preserve cached IV
-          let fallbackIv = 0;
-          try {
-            const existing = await client.send(new GetCommand({ TableName: 'signum-unified-cache', Key: { pk: ticker } }));
-            fallbackIv = existing.Item?.data?.volatility?.iv || 0;
-          } catch {}
-          volatility = { regime: 'CALM', regimeScore: 0, gex: 0, gexLabel: 'N/A', iv: fallbackIv, flipDistance: 0, flipLevel: 0, isAboveFlip: false, squeezeScore: 0, squeezeRisk: 'LOW', gammaConcentration: 0, gammaConcentrationLabel: 'NORMAL' };
+          // Non-GEX tickers or extended hours: preserve existing volatility entirely
+          // Do NOT create a new object with gex=0 — use what's already in DynamoDB
+          volatility = null; // Will be filled by prevVolatility below
         }
         
         // === Build squeeze (short volume only per cycle + cached SI% from daily detail) ===
@@ -633,14 +639,17 @@ async function buildUnifiedCache(priceMap, gexMap, optionsCache, smaMap, details
         institutional = { darkPool: { percent: 0 }, blockTrade: { count: 0, volume: 0 }, shortVolume: squeeze ? { percent: squeeze.shortVolPercent } : null };
         
         // === Preserve existing data from DynamoDB if current run doesn't have it ===
-        // Prevents extended-hours cron from wiping out regular-hours SMA/structure data
-        let prevSma = null, prevStructure = null;
-        if (!sma || !structure) {
+        // Prevents extended-hours cron from wiping out regular-hours data
+        let prevSma = null, prevStructure = null, prevVolatility = null;
+        if (!sma || !structure || !gd) {
           try {
             const existing = await client.send(new GetCommand({ TableName:'signum-unified-cache', Key:{pk:ticker} }));
             if (existing.Item?.data) {
               if (!sma && existing.Item.data.sma) prevSma = existing.Item.data.sma;
               if (!structure && existing.Item.data.structure) prevStructure = existing.Item.data.structure;
+              // CRITICAL: Preserve volatility when no fresh GEX data (extended hours)
+              // Prevents overwriting accurate regular-hours data with gex=0, regimeScore=0
+              if (!gd && existing.Item.data.volatility) prevVolatility = existing.Item.data.volatility;
             }
           } catch {}
         }
@@ -654,7 +663,7 @@ async function buildUnifiedCache(priceMap, gexMap, optionsCache, smaMap, details
           earnings: dt.earnings || null,
           sma: sma || prevSma,
           related: dt.related || null,
-          volatility,
+          volatility: volatility || prevVolatility,
           squeeze,
           institutional,
         };
@@ -738,11 +747,18 @@ exports.handler = async (event) => {
           }
           const fl=cw&&pf?(cw+pf)/2:null, gr=gex>0?'POSITIVE':gex<0?'NEGATIVE':'NEUTRAL', pcr=tCOI>0?tPOI/tCOI:0;
           gexData = { gex, pcr, gammaRegime:gr, callWall:cw, putFloor:pf, maxPain:mp, flipLevel:fl, totalContracts:opts.length, totalCallOI:tCOI, totalPutOI:tPOI };
+          // Calculate atmIV for structure (frontend reads structure.atmIV)
+          let odAtmIv = 0;
+          if (opts.length > 0) {
+            const atm = opts.filter(o => { const iv = o.implied_volatility || o.greeks?.implied_volatility || 0; return iv > 0 && o.details?.strike_price > 0; }).sort((a,b) => Math.abs((a.details?.strike_price||0)-price) - Math.abs((b.details?.strike_price||0)-price)).slice(0,4);
+            if (atm.length > 0) odAtmIv = atm.reduce((s,o) => s + (o.implied_volatility || o.greeks?.implied_volatility || 0), 0) / atm.length;
+          }
           structure = {
             options_status: 'OK', netGex: Math.round(gex), maxPain: mp,
             pcRatio: Math.round(pcr*100)/100, levels: { callWall: cw, putFloor: pf },
             gammaFlipLevel: fl, gammaRegime: gr, totalContracts: opts.length,
             totalCallOI: tCOI, totalPutOI: tPOI, underlyingPrice: price,
+            atmIV: odAtmIv > 0 ? odAtmIv : undefined,
             validation: { confidence: 'HIGH', source: 'lambda-ondemand' },
           };
         }
