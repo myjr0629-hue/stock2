@@ -70,7 +70,7 @@ function isFieldUsable(field: string, data: any): boolean {
     if (!data) return false;
     switch (field) {
         case 'analyst': return data.totalAnalysts > 0;
-        case 'earnings': return data.hasData !== false && data.nextEarningsDate !== null;
+        case 'earnings': return data.hasData !== false && (data.nextEarningsDate !== null || data.earningsDate !== null);
         case 'fundamentals': return !!data.name || !!data.score || !!data.marketCap || !!data.grade;
         case 'related': return (data.relatedTickers?.length > 0) || (data.topRelated?.length > 0) || (data.count > 0);
         case 'sma': return data.sma50 != null || data.sma200 != null || data.cross != null;
@@ -224,6 +224,35 @@ async function getStructureFromDynamoGex(ticker: string): Promise<any | null> {
     }
 }
 
+// [AWS-FIRST] Build volatility from DynamoDB GEX data (0.1s vs Polygon 27s)
+async function getVolatilityFromDynamoGex(ticker: string): Promise<any | null> {
+    try {
+        const { getLatestGex } = await import('@/lib/aws/dynamoDataProvider');
+        const gex = await Promise.race([
+            getLatestGex(ticker),
+            new Promise<null>(r => setTimeout(() => r(null), 3000))
+        ]);
+        if (!gex) return null;
+        const isShortGamma = gex.gex < 0;
+        const flipLevel = gex.flipLevel || 0;
+        const spotPrice = gex.price || 0;
+        const flipDist = flipLevel > 0 && spotPrice > 0 ? ((spotPrice - flipLevel) / spotPrice) * 100 : 0;
+        let regimeScore = 0;
+        if (isShortGamma) regimeScore += Math.min(30, Math.abs(gex.gex) / 1000000 * 3);
+        if (Math.abs(flipDist) < 1) regimeScore += 15; else if (Math.abs(flipDist) < 3) regimeScore += 10;
+        regimeScore = Math.min(100, Math.round(regimeScore));
+        const regime = regimeScore >= 75 ? 'ERUPTING' : regimeScore >= 50 ? 'LOADED' : regimeScore >= 25 ? 'COILING' : 'CALM';
+        return {
+            regime, regimeScore, gammaRegime: gex.gammaRegime,
+            gex: Math.round(gex.gex), gexLabel: isShortGamma ? 'SHORT' : 'LONG',
+            iv: 0, flipDistance: Math.round(flipDist * 10) / 10, flipLevel,
+            isAboveFlip: flipDist > 0, squeezeScore: 0, squeezeRisk: 'LOW',
+            gammaConcentration: 0, gammaConcentrationLabel: 'NORMAL',
+            pcr: gex.pcr, _ts: Date.now(),
+            validation: { source: 'dynamodb-gex' },
+        };
+    } catch { return null; }
+}
 
 
 // [AWS-FIRST] Background Revalidator — reads from DynamoDB, NOT Polygon.
@@ -373,9 +402,10 @@ export async function GET(request: NextRequest) {
             });
             
             if (missingFields.length > 0 && missingFields.length <= 7) {
-                // [AWS-FIRST] For structure, use DynamoDB GEX (0.1s) instead of Polygon (20-27s)
-                // This prevents the 8s timeout that causes 75% of tickers to show SIGNAL CORE LOADING
+                // [AWS-FIRST] For structure & volatility, use DynamoDB GEX (0.1s) instead of Polygon (20-27s)
                 let structureFilled = false;
+                let volatilityFilled = false;
+
                 if (missingFields.includes('structure')) {
                     const dynamoStructure = await getStructureFromDynamoGex(ticker);
                     if (dynamoStructure) {
@@ -384,9 +414,20 @@ export async function GET(request: NextRequest) {
                         console.log(`[Command Unified] ✅ Structure filled from DynamoDB GEX for ${ticker}`);
                     }
                 }
+                if (missingFields.includes('volatility')) {
+                    const dynamoVol = await getVolatilityFromDynamoGex(ticker);
+                    if (dynamoVol) {
+                        cachedData.volatility = dynamoVol;
+                        volatilityFilled = true;
+                        console.log(`[Command Unified] ✅ Volatility filled from DynamoDB GEX for ${ticker}`);
+                    }
+                }
 
-                // Gap-fill remaining fields (excluding structure if already filled)
-                const remainingFields = missingFields.filter(f => !(f === 'structure' && structureFilled));
+                // Gap-fill remaining fields (excluding DynamoDB-filled ones)
+                const remainingFields = missingFields.filter(f =>
+                    !(f === 'structure' && structureFilled) &&
+                    !(f === 'volatility' && volatilityFilled)
+                );
                 if (remainingFields.length > 0) {
                     const baseUrl = getBaseUrl(request);
                     const fieldHandlers: Record<string, [Function, string]> = {
@@ -464,7 +505,16 @@ export async function GET(request: NextRequest) {
                 if (!isFieldUsable('related', dynData.related)) { gapFills.push(callInternalGet(getRelated, `${bUrl}/api/live/related?t=${ticker}`)); gapNames.push('related'); }
                 if (!isFieldUsable('sma', dynData.sma)) { gapFills.push(callInternalGet(getSma, `${bUrl}/api/live/sma?t=${ticker}`)); gapNames.push('sma'); }
                 if (!isFieldUsable('squeeze', dynData.squeeze)) { gapFills.push(callInternalGet(getSqueeze, `${bUrl}/api/live/short-squeeze?t=${ticker}`)); gapNames.push('squeeze'); }
-                if (!isFieldUsable('volatility', dynData.volatility)) { gapFills.push(callInternalGet(getVolatility, `${bUrl}/api/live/volatility-regime?t=${ticker}`)); gapNames.push('volatility'); }
+                if (!isFieldUsable('volatility', dynData.volatility)) {
+                    const dynamoVol = await getVolatilityFromDynamoGex(ticker);
+                    if (dynamoVol) {
+                        (dynData as any).volatility = dynamoVol;
+                        console.log(`[Command Unified] ✅ DynamoDB+GapFill: volatility filled from DynamoDB GEX for ${ticker}`);
+                    } else {
+                        gapFills.push(callInternalGet(getVolatility, `${bUrl}/api/live/volatility-regime?t=${ticker}`));
+                        gapNames.push('volatility');
+                    }
+                }
                 // [AWS-FIRST] Structure: use DynamoDB GEX (0.1s) instead of Polygon (20-27s)
                 if (!isFieldUsable('structure', dynData.structure)) {
                     const dynamoStruct = await getStructureFromDynamoGex(ticker);
@@ -723,12 +773,33 @@ async function tryDynamoFast(ticker: string): Promise<any | null> {
                 };
             }
 
-            // Volatility from GEX regime
+            // [AWS-FIRST] Volatility from DynamoDB GEX — full field set matching frontend expectations
             let volatilityCard = null;
             if (gex) {
+                const isShortGamma = gex.gex < 0;
+                const flipLevel = gex.flipLevel || 0;
+                const spotPrice = gex.price || p.close || 0;
+                const flipDist = flipLevel > 0 && spotPrice > 0 ? ((spotPrice - flipLevel) / spotPrice) * 100 : 0;
+                // Calculate regimeScore from available DynamoDB data
+                let regimeScore = 0;
+                if (isShortGamma) regimeScore += Math.min(30, Math.abs(gex.gex) / 1000000 * 3);
+                if (Math.abs(flipDist) < 1) regimeScore += 15; else if (Math.abs(flipDist) < 3) regimeScore += 10;
+                regimeScore = Math.min(100, Math.round(regimeScore));
+                const regime = regimeScore >= 75 ? 'ERUPTING' : regimeScore >= 50 ? 'LOADED' : regimeScore >= 25 ? 'COILING' : 'CALM';
                 volatilityCard = {
-                    regime: gex.gammaRegime === 'POSITIVE' ? 'LOW' : gex.gammaRegime === 'NEGATIVE' ? 'HIGH' : 'NORMAL',
+                    regime,
+                    regimeScore,
                     gammaRegime: gex.gammaRegime,
+                    gex: Math.round(gex.gex),
+                    gexLabel: isShortGamma ? 'SHORT' : 'LONG',
+                    iv: 0, // IV not available from DynamoDB GEX — will be enriched by structure API
+                    flipDistance: Math.round(flipDist * 10) / 10,
+                    flipLevel,
+                    isAboveFlip: flipDist > 0,
+                    squeezeScore: 0,
+                    squeezeRisk: 'LOW',
+                    gammaConcentration: 0,
+                    gammaConcentrationLabel: 'NORMAL',
                     pcr: gex.pcr,
                     _ts: Date.now(),
                 };
