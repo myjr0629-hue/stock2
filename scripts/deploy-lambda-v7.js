@@ -964,7 +964,12 @@ exports.handler = async (event) => {
         const regime = regimeScore >= 75 ? 'ERUPTING' : regimeScore >= 50 ? 'LOADED' : regimeScore >= 25 ? 'COILING' : 'CALM';
         volatility = { regime, regimeScore:Math.round(regimeScore), gex:Math.round(netGex), gexLabel:isShortGamma?'SHORT':'LONG', iv:atmIv, flipDistance:Math.round(flipDist*10)/10, flipLevel:gexData.flipLevel||0, isAboveFlip:flipDist>0, squeezeScore:0, squeezeRisk:'LOW', gammaConcentration:0, gammaConcentrationLabel:'NORMAL' };
       } else {
-        volatility = { regime:'CALM', regimeScore:0, gex:0, gexLabel:'N/A', iv:atmIv, flipDistance:0, flipLevel:0, isAboveFlip:false, squeezeScore:0, squeezeRisk:'LOW', gammaConcentration:0, gammaConcentrationLabel:'NORMAL' };
+        // Non-GEX: still calculate regimeScore from IV
+        let regimeScore = 0;
+        if (atmIv > 50) regimeScore += 20; else if (atmIv > 35) regimeScore += 12; else if (atmIv > 25) regimeScore += 6;
+        regimeScore = Math.min(100, regimeScore);
+        const regime = regimeScore >= 75 ? 'ERUPTING' : regimeScore >= 50 ? 'LOADED' : regimeScore >= 25 ? 'COILING' : 'CALM';
+        volatility = { regime, regimeScore, gex:0, gexLabel:'N/A', iv:atmIv, flipDistance:0, flipLevel:0, isAboveFlip:false, squeezeScore:0, squeezeRisk:'LOW', gammaConcentration:0, gammaConcentrationLabel:'NORMAL' };
       }
       
       // 9. Short Squeeze (Polygon short volume + short interest + float)

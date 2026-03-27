@@ -946,6 +946,31 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
     // even if useEffect hasn't fired yet (bypasses intermediate step)
     // ══════════════════════════════════════════════════════════════
     const effectiveVol = React.useMemo(() => {
+        // [HELPER] Recalculate regimeScore to ensure IV contribution is included
+        const ensureScoreIncludesIv = (vol: any): any => {
+            if (!vol) return vol;
+            const iv = vol.iv || 0;
+            if (iv <= 0) return vol;
+            // IV should contribute to regimeScore. Recalculate if it wasn't included.
+            let score = 0;
+            // GEX contribution
+            const gex = vol.gex || 0;
+            const isShort = gex < 0;
+            if (isShort) score += Math.min(30, Math.abs(gex) / 1000000 * 3);
+            // Flip distance contribution
+            const fd = Math.abs(vol.flipDistance || 0);
+            if (fd < 1) score += 15; else if (fd < 3) score += 10; else if (fd < 5) score += 5;
+            // IV contribution (iv is in % form: 32 = 32%)
+            if (iv > 50) score += 20; else if (iv > 35) score += 12; else if (iv > 25) score += 6;
+            score = Math.min(100, Math.round(score));
+            // Only upgrade score — never downgrade (avoids losing other contributions)
+            if (score > (vol.regimeScore || 0)) {
+                const regime = score >= 75 ? 'ERUPTING' : score >= 50 ? 'LOADED' : score >= 25 ? 'COILING' : 'CALM';
+                return { ...vol, regimeScore: score, regime };
+            }
+            return vol;
+        };
+
         // Derive from structure if available (instant, real-time GEX data)
         const structureDerived = (() => {
             if (!structure || !structure.netGex) return null;
@@ -963,18 +988,18 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
             const regime = regimeScore >= 75 ? 'ERUPTING' : regimeScore >= 50 ? 'LOADED' : regimeScore >= 25 ? 'COILING' : 'CALM';
             return { regime, regimeScore, gex: Math.round(netGex), gexLabel: isShortGamma ? 'SHORT' : 'LONG', iv: iv ? Math.round(iv * 100) : 0, flipDistance: Math.round(flipDist * 10) / 10, flipLevel, isAboveFlip: flipDist > 0, squeezeScore: 0, squeezeRisk: 'LOW', gammaConcentration: 0, gammaConcentrationLabel: 'NORMAL' };
         })();
-        // [FIX] IV fallback chain: if structure-derived IV=0, enrich from cached data
-        // POST market: Polygon returns IV=0 for all options. Use last known IV from DynamoDB cache.
+
+        // [FIX v4] Comprehensive IV + regimeScore correction
         const cachedIv = volatilityData?.iv || unifiedData?.volatility?.iv || 0;
         if (structureDerived) {
             if (structureDerived.iv === 0 && cachedIv > 0) {
-                // Structure has real-time GEX but POST-market IV=0 → patch with cached IV
-                return { ...structureDerived, iv: cachedIv };
+                // Structure has real-time GEX but POST-market IV=0 → patch with cached IV + recalculate score
+                return ensureScoreIncludesIv({ ...structureDerived, iv: cachedIv });
             }
-            return structureDerived;
+            return ensureScoreIncludesIv(structureDerived);
         }
-        if (volatilityData) return volatilityData;
-        if (unifiedData?.volatility) return unifiedData.volatility;
+        if (volatilityData) return ensureScoreIncludesIv(volatilityData);
+        if (unifiedData?.volatility) return ensureScoreIncludesIv(unifiedData.volatility);
         return null;
     }, [volatilityData, unifiedData?.volatility, structure, livePrice?.price, initialStockData?.price]);
     const effectiveSma = React.useMemo(() => smaData || unifiedData?.sma || null, [smaData, unifiedData?.sma]);
