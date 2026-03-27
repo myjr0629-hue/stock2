@@ -782,9 +782,9 @@ exports.handler = async (event) => {
       const volume = snap?.day?.v || 0;
       
       // 2. Options (GEX/structure)
-      let structure = null, gexData = null;
+      let structure = null, gexData = null, opts = [];
       try {
-        const opts = await getAllOptions(ticker);
+        opts = await getAllOptions(ticker);
         if (opts.length > 0) {
           let gex=0, cw=null, pf=null, mp=null, maxCOI=0, maxPOI=0, tCOI=0, tPOI=0, mpMin=Infinity;
           const strikes = new Set();
@@ -930,6 +930,28 @@ exports.handler = async (event) => {
       
       // 8. Volatility (derived from GEX or basic)
       let volatility = null;
+      // [FIX] Calculate ATM IV from options chain (same logic as Step 6)
+      let atmIv = 0;
+      if (opts && opts.length > 0) {
+        const atmCandidates = opts
+          .filter(o => {
+            const iv = o.implied_volatility || o.greeks?.implied_volatility || 0;
+            return iv > 0 && o.details?.strike_price > 0;
+          })
+          .sort((a,b) => Math.abs((a.details?.strike_price||0)-price) - Math.abs((b.details?.strike_price||0)-price))
+          .slice(0,4);
+        if (atmCandidates.length > 0) {
+          atmIv = Math.round(atmCandidates.reduce((s,o) => s + (o.implied_volatility || o.greeks?.implied_volatility || 0), 0) / atmCandidates.length * 100);
+        }
+      }
+      // [FIX] POST market: Polygon returns IV=0. Preserve last known IV from DynamoDB.
+      if (atmIv === 0) {
+        try {
+          const existing = await client.send(new GetCommand({ TableName: 'signum-unified-cache', Key: { pk: ticker } }));
+          const cachedIv = existing.Item?.data?.volatility?.iv;
+          if (cachedIv && cachedIv > 0) atmIv = cachedIv;
+        } catch {}
+      }
       if (gexData) {
         const netGex = gexData.gex || 0;
         const isShortGamma = netGex < 0;
@@ -937,11 +959,12 @@ exports.handler = async (event) => {
         let regimeScore = 0;
         if (isShortGamma) regimeScore += Math.min(30, Math.abs(netGex)/1000000*3);
         if (Math.abs(flipDist) < 1) regimeScore += 15; else if (Math.abs(flipDist) < 3) regimeScore += 10;
+        if (atmIv > 50) regimeScore += 20; else if (atmIv > 35) regimeScore += 12; else if (atmIv > 25) regimeScore += 6;
         regimeScore = Math.min(100, regimeScore);
         const regime = regimeScore >= 75 ? 'ERUPTING' : regimeScore >= 50 ? 'LOADED' : regimeScore >= 25 ? 'COILING' : 'CALM';
-        volatility = { regime, regimeScore:Math.round(regimeScore), gex:Math.round(netGex), gexLabel:isShortGamma?'SHORT':'LONG', iv:0, flipDistance:Math.round(flipDist*10)/10, flipLevel:gexData.flipLevel||0, isAboveFlip:flipDist>0, squeezeScore:0, squeezeRisk:'LOW', gammaConcentration:0, gammaConcentrationLabel:'NORMAL' };
+        volatility = { regime, regimeScore:Math.round(regimeScore), gex:Math.round(netGex), gexLabel:isShortGamma?'SHORT':'LONG', iv:atmIv, flipDistance:Math.round(flipDist*10)/10, flipLevel:gexData.flipLevel||0, isAboveFlip:flipDist>0, squeezeScore:0, squeezeRisk:'LOW', gammaConcentration:0, gammaConcentrationLabel:'NORMAL' };
       } else {
-        volatility = { regime:'CALM', regimeScore:0, gex:0, gexLabel:'N/A', iv:0, flipDistance:0, flipLevel:0, isAboveFlip:false, squeezeScore:0, squeezeRisk:'LOW', gammaConcentration:0, gammaConcentrationLabel:'NORMAL' };
+        volatility = { regime:'CALM', regimeScore:0, gex:0, gexLabel:'N/A', iv:atmIv, flipDistance:0, flipLevel:0, isAboveFlip:false, squeezeScore:0, squeezeRisk:'LOW', gammaConcentration:0, gammaConcentrationLabel:'NORMAL' };
       }
       
       // 9. Short Squeeze (Polygon short volume + short interest + float)
