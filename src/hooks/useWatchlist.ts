@@ -177,9 +177,9 @@ export function useWatchlist(initialWatchlist?: WatchlistItem[], initialFullData
             if (apiData?.alphaSnapshot && apiData?.realtime) {
                 return {
                     ...item,
-                    // ★ currentPrice: 항상 본장 가격 — batch API가 정확한 소스
-                    // WS는 장중에만 유효, PRE/POST에는 batch의 본장 가격 우선
-                    currentPrice: apiData.realtime.price || (fastPrice?.price ?? 0),
+                    // ★ Price priority: WS(장중 실시간) > batch(본장 가격) > fastPrice
+                    // 장중: WS 최우선 (실시간 틱), PRE/POST: batch 본장 가격 우선
+                    currentPrice: (wsPrice?.price && wsPrice.price > 0) ? wsPrice.price : (apiData.realtime.price || (fastPrice?.price ?? 0)),
                     // ★ changePct: batch API 우선 (정확한 본장 등락)
                     changePct: apiData.realtime.changePct ?? fastPrice?.regChangePct ?? 0,
                     // regChangePct: batch API is the reliable source (correct regular session %)
