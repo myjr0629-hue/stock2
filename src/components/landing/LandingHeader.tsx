@@ -8,7 +8,6 @@ import { clsx } from 'clsx';
 import { useFavorites } from "@/hooks/useFavorites";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { useTranslations, useLocale } from 'next-intl';
-import { CustomTickerBar } from "@/components/CustomTickerBar";
 import { createClient } from "@/lib/supabase/client";
 
 export function LandingHeader() {
@@ -99,7 +98,7 @@ export function LandingHeader() {
     };
 
     return (
-        <header className="sticky top-0 z-50 w-full bg-[#0a0f1a]/95 backdrop-blur-xl">
+        <header className="w-full bg-[#0a0f1a]/95 backdrop-blur-xl">
             {/* Navigation Row */}
             <div className="w-full flex h-12 items-center px-4 sm:px-6 gap-4">
                 {/* 1. LOGO */}
@@ -471,8 +470,6 @@ export function LandingHeader() {
                     )}
                 </div>
             </div>
-            {/* Global Market Ticker */}
-            <CustomTickerBar />
         </header>
     );
 }

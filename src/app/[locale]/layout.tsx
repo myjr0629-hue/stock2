@@ -11,6 +11,7 @@ import { LandingHeader } from '@/components/landing/LandingHeader';
 import { StickyFoundingBar } from '@/components/landing/StickyFoundingBar';
 import { Footer } from '@/components/Footer';
 import { BottomNav } from '@/components/mobile/BottomNav';
+import { CustomTickerBar } from '@/components/CustomTickerBar';
 
 export function generateStaticParams() {
     return locales.map((locale) => ({ locale }));
@@ -39,7 +40,11 @@ export default async function LocaleLayout({ children, params }: Props) {
                     <TierProvider>
                         <AuthGuard>
                             <DeactivationGuard>
-                                <LandingHeader />
+                                {/* Sticky header wrapper — nav + ticker bar persist across page transitions */}
+                                <div className="sticky top-0 z-50">
+                                    <LandingHeader />
+                                    <CustomTickerBar />
+                                </div>
                                 <WebSocketProvider>
                                     {children}
                                 </WebSocketProvider>

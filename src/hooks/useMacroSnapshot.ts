@@ -72,9 +72,13 @@ const INITIAL_SNAPSHOT: MacroSnapshot = {
     }
 };
 
+// ── Module-level cache: survives component re-mounts (page transitions) ──
+let _cachedSnapshot: MacroSnapshot | null = null;
+
 export function useMacroSnapshot() {
-    const [snapshot, setSnapshot] = useState<MacroSnapshot>(INITIAL_SNAPSHOT);
-    const [loading, setLoading] = useState(true);
+    // If we have a cached snapshot from a previous mount, start with it (no loading flash)
+    const [snapshot, setSnapshot] = useState<MacroSnapshot>(_cachedSnapshot ?? INITIAL_SNAPSHOT);
+    const [loading, setLoading] = useState(!_cachedSnapshot);
     const [error, setError] = useState<string | null>(null);
 
     const fetchSnapshot = async () => {
@@ -82,12 +86,14 @@ export function useMacroSnapshot() {
             const res = await fetch('/api/market/macro', { next: { revalidate: 30 } });
             if (!res.ok) throw new Error('Failed to fetch macro SSOT');
             const data: MacroSnapshot = await res.json();
+            _cachedSnapshot = data; // Persist across re-mounts
             setSnapshot(data);
             setLoading(false);
         } catch (err) {
             console.error(err);
             setError((err as Error).message);
             // Keep previous data on error if available
+            if (_cachedSnapshot) setLoading(false);
         }
     };
 
