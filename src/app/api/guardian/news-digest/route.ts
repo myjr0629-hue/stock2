@@ -40,6 +40,7 @@ export interface NewsDigestItem {
     publishedAt: string;
     publishedAtET: string;
     ageMinutes: number;
+    _rawTitleKey?: string;  // Original article title key for accurate dedup
 }
 
 export interface NewsDigest {
@@ -119,13 +120,16 @@ function mergeAndDeduplicate(polygonNews: any[], fmpNews: any[]): any[] {
     });
 }
 
-// ===== Deduplicate digest items by headline =====
+// ===== Deduplicate digest items by headline + raw title key =====
 function deduplicateItems(items: NewsDigestItem[]): NewsDigestItem[] {
     const seen = new Set<string>();
     return items.filter(item => {
-        const key = titleKey(item.headline);
-        if (seen.has(key)) return false;
-        seen.add(key);
+        // Check both Claude-rewritten headline AND original article title
+        const headlineKey = titleKey(item.headline);
+        const rawKey = item._rawTitleKey || '';
+        if (seen.has(headlineKey) || (rawKey && seen.has(rawKey))) return false;
+        seen.add(headlineKey);
+        if (rawKey) seen.add(rawKey);
         return true;
     });
 }
@@ -234,23 +238,27 @@ Output ONLY the JSON array — no explanation, no markdown.`;
         const parsed = JSON.parse(json) as any[];
         console.log(`[NewsDigest] Claude: ${parsed.length} items in ${Date.now() - t0}ms (model: ${bedrockResult.model})`);
 
-        return parsed.map((item, i) => ({
-            id: item.id || `digest-${i}`,
-            headline: item.headline || articles[i]?.title || 'No Title',
-            summaryKR: item.summaryKR || '',
-            summaryEN: item.summaryEN || '',
-            summaryJP: item.summaryJP || '',
-            analysisKR: item.analysisKR || '',
-            analysisEN: item.analysisEN || '',
-            analysisJP: item.analysisJP || '',
-            category: item.category || 'US_MARKET',
-            impact: item.impact || 'NEUTRAL',
-            urgency: Math.min(10, Math.max(1, item.urgency || 3)),
-            source: articles.find(a => a.id === item.id)?.publisher?.name || item.source || 'Unknown',
-            publishedAt: articles.find(a => a.id === item.id)?.published_utc || new Date().toISOString(),
-            publishedAtET: formatET(articles.find(a => a.id === item.id)?.published_utc || new Date().toISOString()),
-            ageMinutes: getAgeMinutes(articles.find(a => a.id === item.id)?.published_utc || new Date().toISOString()),
-        }));
+        return parsed.map((item, i) => {
+            const matchedArticle = articles.find(a => a.id === item.id) || articles[i];
+            return {
+                id: item.id || `digest-${i}`,
+                headline: item.headline || matchedArticle?.title || 'No Title',
+                summaryKR: item.summaryKR || '',
+                summaryEN: item.summaryEN || '',
+                summaryJP: item.summaryJP || '',
+                analysisKR: item.analysisKR || '',
+                analysisEN: item.analysisEN || '',
+                analysisJP: item.analysisJP || '',
+                category: item.category || 'US_MARKET',
+                impact: item.impact || 'NEUTRAL',
+                urgency: Math.min(10, Math.max(1, item.urgency || 3)),
+                source: matchedArticle?.publisher?.name || item.source || 'Unknown',
+                publishedAt: matchedArticle?.published_utc || new Date().toISOString(),
+                publishedAtET: formatET(matchedArticle?.published_utc || new Date().toISOString()),
+                ageMinutes: getAgeMinutes(matchedArticle?.published_utc || new Date().toISOString()),
+                _rawTitleKey: titleKey(matchedArticle?.title || ''),  // Store original for dedup
+            };
+        });
     } catch (e) {
         console.error('[NewsDigest] Claude analysis failed:', e);
         // Fallback: return raw top items without AI
@@ -268,6 +276,7 @@ Output ONLY the JSON array — no explanation, no markdown.`;
             publishedAt: a.published_utc || new Date().toISOString(),
             publishedAtET: formatET(a.published_utc || new Date().toISOString()),
             ageMinutes: getAgeMinutes(a.published_utc || new Date().toISOString()),
+            _rawTitleKey: titleKey(a.title || ''),
         }));
     }
 }
@@ -310,9 +319,12 @@ export async function GET(req: NextRequest) {
     }
 
     // Step 3: Filter out articles already in cache (avoid duplicates)
-    const existingKeys = new Set(
-        (existingDigest?.items || []).map(it => titleKey(it.headline))
-    );
+    // Use BOTH Claude-rewritten headline AND original raw title key for matching
+    const existingKeys = new Set<string>();
+    (existingDigest?.items || []).forEach(it => {
+        existingKeys.add(titleKey(it.headline));
+        if (it._rawTitleKey) existingKeys.add(it._rawTitleKey);
+    });
     const freshArticles = articles.filter(a => !existingKeys.has(titleKey(a.title)));
     console.log(`[NewsDigest] Fresh articles: ${freshArticles.length} (filtered ${articles.length - freshArticles.length} duplicates)${isUrgent ? ' [URGENT/VIX]' : ''}`);
 
