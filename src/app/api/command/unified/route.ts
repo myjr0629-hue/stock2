@@ -324,9 +324,9 @@ export async function GET(request: NextRequest) {
             let enrichedMemData = memData;
             if (memData.volatility && memData.volatility.iv === 0) {
                 try {
-                    const { getTickerSnapshot } = await import('@/lib/aws/dynamoDataProvider');
+                    const { getUnifiedCache } = await import('@/lib/aws/unifiedCacheProvider');
                     const snap = await Promise.race([
-                        getTickerSnapshot(ticker),
+                        getUnifiedCache(ticker, locale),
                         new Promise<any>(r => setTimeout(() => r(null), 2000))
                     ]);
                     if (snap?.volatility?.iv && snap.volatility.iv > 0) {
@@ -420,9 +420,9 @@ export async function GET(request: NextRequest) {
             // This fixes legacy cache entries created before Lambda volatility integration
             if (cachedData.volatility && cachedData.volatility.iv === 0) {
                 try {
-                    const { getTickerSnapshot } = await import('@/lib/aws/dynamoDataProvider');
+                    const { getUnifiedCache } = await import('@/lib/aws/unifiedCacheProvider');
                     const snap = await Promise.race([
-                        getTickerSnapshot(ticker),
+                        getUnifiedCache(ticker, locale),
                         new Promise<any>(r => setTimeout(() => r(null), 3000))
                     ]);
                     if (snap?.volatility?.iv && snap.volatility.iv > 0) {
