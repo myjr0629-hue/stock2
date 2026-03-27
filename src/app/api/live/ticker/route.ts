@@ -95,12 +95,16 @@ export async function GET(req: NextRequest) {
     }
 
     const ticker = t.toUpperCase();
+    // [PERF] Flow page skip_alpha mode — skips 5 alpha-only APIs + alpha calculation
+    const skipAlpha = req.nextUrl.searchParams.get('skip_alpha') === '1';
 
     // [PERF] Check Redis cache first — returns in ~0.1s if cache hit
+    // Use separate cache key for skip_alpha to avoid serving incomplete data to full callers
+    const cacheKey = skipAlpha ? `flow:ticker:lite:${ticker}` : tickerCacheKey(ticker);
     try {
-        const cached = await getFromCache<any>(tickerCacheKey(ticker));
+        const cached = await getFromCache<any>(cacheKey);
         if (cached) {
-            console.log(`[live/ticker] CACHE HIT for ${ticker}`);
+            console.log(`[live/ticker] CACHE HIT for ${ticker}${skipAlpha ? ' (lite)' : ''}`);
             return new Response(JSON.stringify({ ...cached, _cached: true, _cachedAt: cached.tsServer }), {
                 status: 200,
                 headers: {
@@ -317,17 +321,18 @@ export async function GET(req: NextRequest) {
         }
     };
 
+    // [PERF] skip_alpha: skip 5 alpha-only APIs (SMA20, MACD, macro, feargreed, vix3m)
     const [ocRes, flowRes, structureResult, metricsData, macroData, sma20Value, fgCacheData, truePmRes, macdData, vix3mCacheData] = await Promise.all([
         fetchOC(),
         fetchFlow(),
         fetchStructure(),
         fetchMetrics(),
-        fetchMacro(),
-        fetchSMA20(),
-        getFromCache<{ score: number; rating: string }>('cnn:feargreed').catch(() => null),
+        skipAlpha ? Promise.resolve(null) : fetchMacro(),
+        skipAlpha ? Promise.resolve(null) : fetchSMA20(),
+        skipAlpha ? Promise.resolve(null) : getFromCache<{ score: number; rating: string }>('cnn:feargreed').catch(() => null),
         fetchTruePreMarket(ticker), // [V5.5 FIX] Parallel True PM Fetcher
-        fetchMACD(),  // [V5.5+] MACD for trend crossover
-        getFromCache<{ price: number; changePct: number }>('yahoo:vix3m').catch(() => null),  // [V5.5+] VIX3M for term structure
+        skipAlpha ? Promise.resolve(null) : fetchMACD(),  // [V5.5+] MACD for trend crossover
+        skipAlpha ? Promise.resolve(null) : getFromCache<{ price: number; changePct: number }>('yahoo:vix3m').catch(() => null),  // [V5.5+] VIX3M for term structure
     ]);
 
     // Phase 2 results - extract OC data and compute derived values
@@ -608,8 +613,8 @@ export async function GET(req: NextRequest) {
         sourceGrade: snapshotRes.success ? "A" : "C",
 
         // [V3.0] Alpha Engine V3 — Real-time absolute scoring
-        // Uses already-fetched data: minimal additional API calls (metrics only)
-        alpha: (() => {
+        // [PERF] skip_alpha mode: skip entire alpha calculation for Flow page
+        alpha: skipAlpha ? null : (() => {
             try {
                 const sessionMap: Record<string, AlphaSession> = { PRE: 'PRE', REG: 'REG', POST: 'POST', CLOSED: 'CLOSED' };
                 const alphaSession: AlphaSession = sessionMap[session] || 'CLOSED';
@@ -750,7 +755,7 @@ export async function GET(req: NextRequest) {
 
     // [PERF] Cache the slimmed response in Redis (60s TTL)
     // Non-blocking: don't wait for cache write to respond
-    setInCache(tickerCacheKey(ticker), response, TICKER_CACHE_TTL).catch(e => {
+    setInCache(cacheKey, response, TICKER_CACHE_TTL).catch(e => {
         console.warn(`[live/ticker] Redis cache write failed for ${ticker}:`, e);
     });
 

@@ -21,6 +21,7 @@ import { NextResponse, NextRequest } from 'next/server';
 import { setInCache, getFromCache } from '@/services/redisClient';
 import { putFlowCache } from '@/lib/aws/flowCacheProvider';
 import { UNIVERSE_500 } from '@/lib/universe';
+import { GET as getLiveTicker } from '@/app/api/live/ticker/route';
 import { GET as getRealtimeMetrics } from '@/app/api/flow/realtime-metrics/route';
 import { GET as getDarkPoolTrades } from '@/app/api/flow/dark-pool-trades/route';
 import { GET as getWhaleTrades } from '@/app/api/live/options/trades/route';
@@ -48,13 +49,16 @@ async function callInternalGet(handler: Function, url: string) {
 async function buildFlowData(ticker: string, baseUrl: string) {
     const start = Date.now();
 
-    const [realtimeMetrics, darkPoolTrades, whaleTrades] = await Promise.all([
+    // [PERF] Include liveQuote (skip_alpha mode) so SSR page.tsx can hydrate instantly
+    const [liveQuote, realtimeMetrics, darkPoolTrades, whaleTrades] = await Promise.all([
+        callInternalGet(getLiveTicker, `${baseUrl}/api/live/ticker?t=${ticker}&skip_alpha=1`),
         callInternalGet(getRealtimeMetrics, `${baseUrl}/api/flow/realtime-metrics?t=${ticker}`),
         callInternalGet(getDarkPoolTrades, `${baseUrl}/api/flow/dark-pool-trades?t=${ticker}`),
         callInternalGet(getWhaleTrades, `${baseUrl}/api/live/options/trades?t=${ticker}`),
     ]);
 
     return {
+        liveQuote,
         timestamp: Date.now(),
         latencyMs: Date.now() - start,
         realtimeMetrics,

@@ -10,6 +10,10 @@ const fetcher = (url: string) => fetch(url).then(res => {
     return res.json();
 });
 
+// [PERF] Module-level cache — survives page unmount/navigation (same pattern as useMacroSnapshot)
+// This ensures re-entry to Flow page shows data instantly (0ms) instead of skeleton
+const _flowCache: Record<string, any> = {};
+
 interface UseFlowDataOptions {
     /** Polling interval in ms (default: 15000) */
     refreshInterval?: number;
@@ -23,15 +27,19 @@ interface UseFlowDataOptions {
  * - Auto-refreshes in background
  * - Deduplicates concurrent requests
  * - Auto-retries on error
+ * - Uses skip_alpha=1 to skip alpha-only APIs (Flow page doesn't use alpha)
  */
 export function useFlowData(ticker: string | null, options: UseFlowDataOptions = {}) {
     const { refreshInterval = 15000, fallbackData } = options;
 
+    // [PERF] Fallback priority: SSR data → module-level cache → undefined
+    const effectiveFallback = fallbackData || (ticker ? _flowCache[ticker] : undefined);
+
     const { data, error, isLoading, isValidating, mutate } = useSWR(
-        ticker ? `/api/live/ticker?t=${ticker}` : null,
+        ticker ? `/api/live/ticker?t=${ticker}&skip_alpha=1` : null,
         fetcher,
         {
-            fallbackData,
+            fallbackData: effectiveFallback,
             refreshInterval,
             revalidateOnFocus: true,       // Refresh when tab becomes active
             revalidateOnReconnect: true,    // Refresh on network reconnect
@@ -42,6 +50,11 @@ export function useFlowData(ticker: string | null, options: UseFlowDataOptions =
         }
     );
 
+    // [PERF] Persist successful fetch to module-level cache for instant re-entry
+    if (data && ticker) {
+        _flowCache[ticker] = data;
+    }
+
     return {
         data,
         error,
@@ -50,6 +63,7 @@ export function useFlowData(ticker: string | null, options: UseFlowDataOptions =
         mutate,          // Manual refresh trigger
     };
 }
+
 
 /**
  * SWR hook for whale trades API (used inside FlowRadar)
