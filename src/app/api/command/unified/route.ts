@@ -320,7 +320,22 @@ export async function GET(request: NextRequest) {
                     memorySet(`overview:${ticker}:${locale}`, overview);
                 }
             }
-            return jsonResponse({ ...memData, overview: overview || null, _source: 'memory-lru', _ageMs: ageMs });
+            // [AWS-FIRST] Enrich volatility IV from Lambda DynamoDB if memory-cached data has iv=0
+            let enrichedMemData = memData;
+            if (memData.volatility && memData.volatility.iv === 0) {
+                try {
+                    const { getTickerSnapshot } = await import('@/lib/aws/dynamoDataProvider');
+                    const snap = await Promise.race([
+                        getTickerSnapshot(ticker),
+                        new Promise<any>(r => setTimeout(() => r(null), 2000))
+                    ]);
+                    if (snap?.volatility?.iv && snap.volatility.iv > 0) {
+                        enrichedMemData = { ...memData, volatility: { ...snap.volatility, _ts: Date.now() } };
+                        memorySet(memKey, enrichedMemData); // Update LRU cache with enriched data
+                    }
+                } catch { /* DynamoDB unavailable */ }
+            }
+            return jsonResponse({ ...enrichedMemData, overview: overview || null, _source: 'memory-lru', _ageMs: ageMs });
         }
 
         // ══════════════════════════════════════════════════════════════
