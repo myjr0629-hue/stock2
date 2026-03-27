@@ -194,6 +194,35 @@ async function callInternalGet(handler: Function, url: string) {
 // [REMOVED] buildUnifiedData — replaced by AWS Lambda cold-start (v7.2)
 // All Polygon fetches now happen in Lambda, NOT in Vercel.
 
+// [AWS-FIRST] Build structure from DynamoDB GEX data (0.1s vs Polygon 20-27s)
+// This replaces the slow options/structure Polygon API call in gap-fill paths
+async function getStructureFromDynamoGex(ticker: string): Promise<any | null> {
+    try {
+        const { getLatestGex } = await import('@/lib/aws/dynamoDataProvider');
+        const gex = await Promise.race([
+            getLatestGex(ticker),
+            new Promise<null>(r => setTimeout(() => r(null), 3000)) // 3s safety timeout
+        ]);
+        if (!gex || (!gex.gex && !gex.maxPain)) return null;
+        return {
+            options_status: 'OK',
+            ticker,
+            netGex: gex.gex,
+            maxPain: gex.maxPain,
+            pcRatio: gex.pcr,
+            levels: { callWall: gex.callWall, putFloor: gex.putFloor },
+            gammaFlipLevel: gex.flipLevel,
+            gammaRegime: gex.gammaRegime,
+            totalContracts: gex.totalContracts || 0,
+            totalCallOI: gex.totalCallOI || 0,
+            totalPutOI: gex.totalPutOI || 0,
+            validation: { confidence: 'HIGH', source: 'dynamodb-gex' },
+            _ts: Date.now(),
+        };
+    } catch {
+        return null;
+    }
+}
 
 
 
@@ -344,43 +373,55 @@ export async function GET(request: NextRequest) {
             });
             
             if (missingFields.length > 0 && missingFields.length <= 7) {
-                // Only gap-fill if partially complete (not completely empty)
-                const baseUrl = getBaseUrl(request);
-                const fieldHandlers: Record<string, [Function, string]> = {
-                    'analyst': [getAnalyst, `${baseUrl}/api/live/analyst?t=${ticker}`],
-                    'fundamentals': [getFundamentals, `${baseUrl}/api/live/fundamentals?t=${ticker}`],
-                    'earnings': [getEarnings, `${baseUrl}/api/live/earnings?t=${ticker}`],
-                    'related': [getRelated, `${baseUrl}/api/live/related?t=${ticker}`],
-                    'sma': [getSma, `${baseUrl}/api/live/sma?t=${ticker}`],
-                    'squeeze': [getSqueeze, `${baseUrl}/api/live/short-squeeze?t=${ticker}`],
-                    'volatility': [getVolatility, `${baseUrl}/api/live/volatility-regime?t=${ticker}`],
-                    'structure': [getStructure, `${baseUrl}/api/live/options/structure?t=${ticker}`],
-                    'institutional': [getInstitutional, `${baseUrl}/api/flow/realtime-metrics?ticker=${ticker}`],
-                };
-                
-                const gapPromises = missingFields.map(f => {
-                    const [handler, url] = fieldHandlers[f];
-                    return callInternalGet(handler, url);
-                });
-                
-                const gapResults = await Promise.all(gapPromises);
-                let filled = 0;
-                for (let i = 0; i < missingFields.length; i++) {
-                    if (gapResults[i]) {
-                        // Stamp _ts on volatile fields for next staleness check
-                        if (VOLATILE_FIELDS.has(missingFields[i])) {
-                            gapResults[i]._ts = Date.now();
+                // [AWS-FIRST] For structure, use DynamoDB GEX (0.1s) instead of Polygon (20-27s)
+                // This prevents the 8s timeout that causes 75% of tickers to show SIGNAL CORE LOADING
+                let structureFilled = false;
+                if (missingFields.includes('structure')) {
+                    const dynamoStructure = await getStructureFromDynamoGex(ticker);
+                    if (dynamoStructure) {
+                        cachedData.structure = dynamoStructure;
+                        structureFilled = true;
+                        console.log(`[Command Unified] ✅ Structure filled from DynamoDB GEX for ${ticker}`);
+                    }
+                }
+
+                // Gap-fill remaining fields (excluding structure if already filled)
+                const remainingFields = missingFields.filter(f => !(f === 'structure' && structureFilled));
+                if (remainingFields.length > 0) {
+                    const baseUrl = getBaseUrl(request);
+                    const fieldHandlers: Record<string, [Function, string]> = {
+                        'analyst': [getAnalyst, `${baseUrl}/api/live/analyst?t=${ticker}`],
+                        'fundamentals': [getFundamentals, `${baseUrl}/api/live/fundamentals?t=${ticker}`],
+                        'earnings': [getEarnings, `${baseUrl}/api/live/earnings?t=${ticker}`],
+                        'related': [getRelated, `${baseUrl}/api/live/related?t=${ticker}`],
+                        'sma': [getSma, `${baseUrl}/api/live/sma?t=${ticker}`],
+                        'squeeze': [getSqueeze, `${baseUrl}/api/live/short-squeeze?t=${ticker}`],
+                        'volatility': [getVolatility, `${baseUrl}/api/live/volatility-regime?t=${ticker}`],
+                        'structure': [getStructure, `${baseUrl}/api/live/options/structure?t=${ticker}`],
+                        'institutional': [getInstitutional, `${baseUrl}/api/flow/realtime-metrics?ticker=${ticker}`],
+                    };
+                    
+                    const gapPromises = remainingFields.map(f => {
+                        const [handler, url] = fieldHandlers[f];
+                        return callInternalGet(handler, url);
+                    });
+                    
+                    const gapResults = await Promise.all(gapPromises);
+                    for (let i = 0; i < remainingFields.length; i++) {
+                        if (gapResults[i]) {
+                            if (VOLATILE_FIELDS.has(remainingFields[i])) {
+                                gapResults[i]._ts = Date.now();
+                            }
+                            cachedData[remainingFields[i]] = gapResults[i];
                         }
-                        cachedData[missingFields[i]] = gapResults[i];
-                        filled++;
                     }
                 }
                 
-                if (filled > 0) {
+                const totalFilled = missingFields.filter(f => isFieldUsable(f, cachedData[f])).length;
+                if (totalFilled > 0 || structureFilled) {
                     cachedData.timestamp = Date.now();
-                    // Update Redis with complete data
                     setInCache(dataCacheKey, cachedData, getSmartTTL()).catch(() => {});
-                    console.log(`[Command Unified] Redis GAP-FILL ${ticker}: filled ${missingFields.filter((_,i) => gapResults[i]).join(',')}`);
+                    console.log(`[Command Unified] Redis GAP-FILL ${ticker}: filled ${totalFilled}/${missingFields.length} fields${structureFilled ? ' (structure via DynamoDB)' : ''}`);
                 }
             }
 
@@ -424,7 +465,17 @@ export async function GET(request: NextRequest) {
                 if (!isFieldUsable('sma', dynData.sma)) { gapFills.push(callInternalGet(getSma, `${bUrl}/api/live/sma?t=${ticker}`)); gapNames.push('sma'); }
                 if (!isFieldUsable('squeeze', dynData.squeeze)) { gapFills.push(callInternalGet(getSqueeze, `${bUrl}/api/live/short-squeeze?t=${ticker}`)); gapNames.push('squeeze'); }
                 if (!isFieldUsable('volatility', dynData.volatility)) { gapFills.push(callInternalGet(getVolatility, `${bUrl}/api/live/volatility-regime?t=${ticker}`)); gapNames.push('volatility'); }
-                if (!isFieldUsable('structure', dynData.structure)) { gapFills.push(callInternalGet(getStructure, `${bUrl}/api/live/options/structure?t=${ticker}`)); gapNames.push('structure'); }
+                // [AWS-FIRST] Structure: use DynamoDB GEX (0.1s) instead of Polygon (20-27s)
+                if (!isFieldUsable('structure', dynData.structure)) {
+                    const dynamoStruct = await getStructureFromDynamoGex(ticker);
+                    if (dynamoStruct) {
+                        (dynData as any).structure = dynamoStruct;
+                        console.log(`[Command Unified] ✅ DynamoDB+GapFill: structure filled from DynamoDB GEX for ${ticker}`);
+                    } else {
+                        gapFills.push(callInternalGet(getStructure, `${bUrl}/api/live/options/structure?t=${ticker}`));
+                        gapNames.push('structure');
+                    }
+                }
                 
                 // Overview (language-specific)
                 let dynOv = await getFromCache<any>(overviewCacheKey).catch(() => null);
