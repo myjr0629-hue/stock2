@@ -602,6 +602,19 @@ async function buildUnifiedCache(priceMap, gexMap, optionsCache, smaMap, details
               siChange = siCached.siChange || 0;
             }
           } catch {}
+          // [FIX] If pattern-db has no SI data, preserve existing unified-cache squeeze values
+          // This prevents OnDemand-fetched accurate SI% from being overwritten with 0
+          if (siPercent === 0) {
+            try {
+              const existingSq = await client.send(new GetCommand({ TableName:'signum-unified-cache', Key:{pk:ticker} }));
+              const cachedSqueeze = existingSq.Item?.data?.squeeze;
+              if (cachedSqueeze && cachedSqueeze.siPercent > 0) {
+                siPercent = cachedSqueeze.siPercent;
+                daysToCover = cachedSqueeze.daysToCover || daysToCover;
+                siChange = cachedSqueeze.siChange || siChange;
+              }
+            } catch {}
+          }
           let riskScore = 0;
           if (siPercent >= 20) riskScore += 40; else if (siPercent >= 10) riskScore += 25; else if (siPercent >= 5) riskScore += 10;
           if (shortVolPct >= 50) riskScore += 20; else if (shortVolPct >= 40) riskScore += 10;
