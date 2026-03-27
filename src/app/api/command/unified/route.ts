@@ -320,9 +320,11 @@ export async function GET(request: NextRequest) {
                     memorySet(`overview:${ticker}:${locale}`, overview);
                 }
             }
-            // [AWS-FIRST] Enrich volatility IV from Lambda DynamoDB if memory-cached data has iv=0
+            // [AWS-FIRST] Enrich volatility IV if memory-cached data has iv=0
             let enrichedMemData = memData;
             if (memData.volatility && memData.volatility.iv === 0) {
+                let ivFound = false;
+                // Attempt 1: Lambda DynamoDB (unified-cache)
                 try {
                     const { getUnifiedCache } = await import('@/lib/aws/unifiedCacheProvider');
                     const snap = await Promise.race([
@@ -331,9 +333,24 @@ export async function GET(request: NextRequest) {
                     ]);
                     if (snap?.volatility?.iv && snap.volatility.iv > 0) {
                         enrichedMemData = { ...memData, volatility: { ...snap.volatility, _ts: Date.now() } };
-                        memorySet(memKey, enrichedMemData); // Update LRU cache with enriched data
+                        memorySet(memKey, enrichedMemData);
+                        ivFound = true;
                     }
                 } catch { /* DynamoDB unavailable */ }
+                // Attempt 2: Live Polygon API (always has IV during/after market)
+                if (!ivFound) {
+                    try {
+                        const baseUrl = getBaseUrl(request);
+                        const volRes = await Promise.race([
+                            callInternalGet(getVolatility, `${baseUrl}/api/live/volatility-regime?t=${ticker}`),
+                            new Promise<any>(r => setTimeout(() => r(null), 3000))
+                        ]);
+                        if (volRes?.iv && volRes.iv > 0) {
+                            enrichedMemData = { ...memData, volatility: { ...volRes, _ts: Date.now() } };
+                            memorySet(memKey, enrichedMemData);
+                        }
+                    } catch { /* Polygon unavailable */ }
+                }
             }
             // [FIX] Cross-reference: inject atmIV into structure from volatility
             // Frontend's structureDerived reads structure.atmIV to display IV%
@@ -422,9 +439,10 @@ export async function GET(request: NextRequest) {
                 return false;
             });
 
-            // [AWS-FIRST] ALWAYS enrich volatility IV from Lambda DynamoDB if cached data has iv=0
-            // This fixes legacy cache entries created before Lambda volatility integration
+            // [AWS-FIRST] ALWAYS enrich volatility IV if cached data has iv=0
             if (cachedData.volatility && cachedData.volatility.iv === 0) {
+                let ivFound = false;
+                // Attempt 1: Lambda DynamoDB
                 try {
                     const { getUnifiedCache } = await import('@/lib/aws/unifiedCacheProvider');
                     const snap = await Promise.race([
@@ -433,8 +451,22 @@ export async function GET(request: NextRequest) {
                     ]);
                     if (snap?.volatility?.iv && snap.volatility.iv > 0) {
                         cachedData.volatility = { ...snap.volatility, _ts: Date.now() };
+                        ivFound = true;
                     }
                 } catch { /* DynamoDB unavailable */ }
+                // Attempt 2: Live Polygon API
+                if (!ivFound) {
+                    try {
+                        const baseUrl = getBaseUrl(request);
+                        const volRes = await Promise.race([
+                            callInternalGet(getVolatility, `${baseUrl}/api/live/volatility-regime?t=${ticker}`),
+                            new Promise<any>(r => setTimeout(() => r(null), 3000))
+                        ]);
+                        if (volRes?.iv && volRes.iv > 0) {
+                            cachedData.volatility = { ...volRes, _ts: Date.now() };
+                        }
+                    } catch { /* Polygon unavailable */ }
+                }
             }
             
             if (missingFields.length > 0 && missingFields.length <= 7) {
