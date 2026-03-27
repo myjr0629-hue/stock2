@@ -74,8 +74,8 @@ function isFieldUsable(field: string, data: any): boolean {
         case 'fundamentals': return !!data.name || !!data.score || !!data.marketCap || !!data.grade;
         case 'related': return (data.relatedTickers?.length > 0) || (data.topRelated?.length > 0) || (data.count > 0);
         case 'sma': return data.sma50 != null || data.sma200 != null || data.cross != null;
-        case 'volatility': return data.regimeScore != null && data.regimeScore > 0;
-        case 'squeeze': return (data.siPercent != null && data.siPercent > 0) || (data.daysToCover != null && data.daysToCover > 0);
+        case 'volatility': return data.regime != null || data.regimeScore != null || data.iv != null || data.gex != null;
+        case 'squeeze': return (data.siPercent != null && data.siPercent > 0) || (data.shortVolPercent != null && data.shortVolPercent > 0) || (data.daysToCover != null && data.daysToCover > 0);
         case 'institutional': return (data.darkPool?.percent != null && data.darkPool.percent > 0) || (data.compositeScore != null && data.compositeScore > 0);
         case 'structure': return data.options_status === 'OK' || data.netGex != null;
         default: return true;
