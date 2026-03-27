@@ -57,7 +57,228 @@ export default async function GuardianGuidePage({ params }: { params: Promise<{ 
             </section>
 
             {/* ═══════════════════════════════════════════════════════════ */}
-            {/* Section 1.5: GAMMA SHIELD™ — Critical Indicator           */}
+            {/* Section 1.5: RLSI V2.0 — Premier Intelligence Engine     */}
+            {/* ═══════════════════════════════════════════════════════════ */}
+            <section className="space-y-5">
+                {/* Hero Header */}
+                <div className="relative overflow-hidden rounded-2xl border border-emerald-500/20 p-6 bg-gradient-to-br from-emerald-950/40 via-slate-900/80 to-cyan-950/30">
+                    <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_30%_50%,rgba(52,211,153,0.08),transparent_60%)] pointer-events-none" />
+                    <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_80%_20%,rgba(6,182,212,0.06),transparent_50%)] pointer-events-none" />
+                    <div className="relative flex items-start justify-between">
+                        <div className="flex items-center gap-4">
+                            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-emerald-400 via-cyan-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-emerald-500/30">
+                                <Gauge size={24} className="text-white" />
+                            </div>
+                            <div>
+                                <h3 className="text-2xl font-black text-white tracking-tight">RLSI V2.0</h3>
+                                <p className="text-[13px] text-emerald-400 font-bold uppercase tracking-[0.15em]">Institutional-Grade Macro Intelligence Engine</p>
+                            </div>
+                        </div>
+                        <div className="flex flex-col items-end gap-1">
+                            <span className="px-3 py-1 rounded-full bg-gradient-to-r from-emerald-500/25 to-cyan-500/25 border border-emerald-500/30 text-xs font-black text-emerald-300 tracking-wider shadow-[0_0_15px_rgba(52,211,153,0.15)]">FLAGSHIP</span>
+                            <span className="text-[11px] text-slate-400">8-Factor Fusion Engine</span>
+                        </div>
+                    </div>
+
+                    <div className="relative mt-5">
+                        <p className="text-[15px] text-slate-200 leading-relaxed">
+                            {locale === 'ko'
+                                ? 'RLSI(Relative Liquidity & Sentiment Index)는 SIGNUM HQ의 핵심 독자 개발 지표입니다. 8개의 거시경제·미시구조 팩터를 실시간 융합하여 단일 점수(0~100)로 시장의 본질적 건강 상태를 정량화합니다. 블룸버그, 골드만삭스 등 기관급 데스크에서만 접할 수 있는 수준의 컨텍스트 분석을 개인 투자자에게 최초로 제공합니다.'
+                                : locale === 'ja'
+                                    ? 'RLSI(Relative Liquidity & Sentiment Index)はSIGNUM HQ独自開発の中核指標です。8つのマクロ・ミクロ構造ファクターをリアルタイム融合し、単一スコア(0〜100)で市場の本質的健全性を定量化します。ブルームバーグやゴールドマン・サックス等の機関級デスクでのみアクセス可能なコンテキスト分析を個人投資家に初めて提供します。'
+                                    : 'RLSI (Relative Liquidity & Sentiment Index) is SIGNUM HQ\'s proprietary flagship indicator. It fuses 8 macro and microstructure factors in real-time into a single score (0–100) that quantifies the market\'s intrinsic health. This delivers institutional-grade context analysis—previously accessible only to Bloomberg Terminal and Goldman Sachs desk users—to individual investors for the first time.'
+                            }
+                        </p>
+                    </div>
+                </div>
+
+                {/* 8-Factor Engine Cards */}
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+                    {[
+                        { icon: '📊', factor: locale === 'ko' ? 'Cross-Asset 모멘텀' : locale === 'ja' ? 'クロスアセット・モメンタム' : 'Cross-Asset Momentum', desc: locale === 'ko' ? 'NQ·SPX·RUT 3대 지수 교차 해석' : locale === 'ja' ? 'NQ·SPX·RUT 3大指数クロス解析' : 'NQ·SPX·RUT Triple-Index Analysis', color: 'from-cyan-500/20 to-cyan-500/5 border-cyan-500/20' },
+                        { icon: '📈', factor: locale === 'ko' ? 'Breadth + McClellan' : locale === 'ja' ? 'ブレッドス + McClellan' : 'Breadth + McClellan', desc: locale === 'ko' ? '시장 참여 폭 + 가속도 오실레이터' : locale === 'ja' ? '市場参加幅 + 加速度オシレーター' : 'Market Participation + Acceleration', color: 'from-emerald-500/20 to-emerald-500/5 border-emerald-500/20' },
+                        { icon: '🛡️', factor: locale === 'ko' ? 'Gamma Structure' : locale === 'ja' ? 'ガンマ・ストラクチャー' : 'Gamma Structure', desc: locale === 'ko' ? 'GEX·스퀴즈·플립 레벨 통합' : locale === 'ja' ? 'GEX·スクイーズ·フリップレベル統合' : 'GEX·Squeeze·Flip Level Fusion', color: 'from-indigo-500/20 to-indigo-500/5 border-indigo-500/20' },
+                        { icon: '💧', factor: locale === 'ko' ? 'Liquidity Flow' : locale === 'ja' ? '流動性フロー' : 'Liquidity Flow', desc: locale === 'ko' ? 'TLT·GLD·BTC 안전자산 흐름' : locale === 'ja' ? 'TLT·GLD·BTC 安全資産フロー' : 'TLT·GLD·BTC Safe Haven Flow', color: 'from-blue-500/20 to-blue-500/5 border-blue-500/20' },
+                        { icon: '🌊', factor: locale === 'ko' ? 'Volatility Regime' : locale === 'ja' ? 'ボラティリティ・レジーム' : 'Volatility Regime', desc: locale === 'ko' ? 'VIX 기간구조 + 변동성 상태 진단' : locale === 'ja' ? 'VIX期間構造 + 変動性状態診断' : 'VIX Term Structure + Regime', color: 'from-rose-500/20 to-rose-500/5 border-rose-500/20' },
+                        { icon: '🔄', factor: locale === 'ko' ? 'Sector Rotation' : locale === 'ja' ? 'セクターローテーション' : 'Sector Rotation', desc: locale === 'ko' ? 'Risk-On/Off 자금 흐름 방향성' : locale === 'ja' ? 'Risk-On/Off 資金フロー方向性' : 'Risk-On/Off Capital Direction', color: 'from-purple-500/20 to-purple-500/5 border-purple-500/20' },
+                        { icon: '😱', factor: locale === 'ko' ? 'Sentiment Index' : locale === 'ja' ? 'センチメント指数' : 'Sentiment Index', desc: locale === 'ko' ? 'CNN Fear & Greed 실시간 반영' : locale === 'ja' ? 'CNN Fear & Greed リアルタイム反映' : 'CNN Fear & Greed Live Feed', color: 'from-amber-500/20 to-amber-500/5 border-amber-500/20' },
+                        { icon: '⚡', factor: locale === 'ko' ? 'Z-Score Contrarian' : locale === 'ja' ? 'Zスコア・コントラリアン' : 'Z-Score Contrarian', desc: locale === 'ko' ? '20기간 표준편차 역발상 신호' : locale === 'ja' ? '20期間標準偏差逆張りシグナル' : '20-Period Std Dev Reversal Signal', color: 'from-yellow-500/20 to-yellow-500/5 border-yellow-500/20' },
+                    ].map((item, i) => (
+                        <div key={i} className={`p-3 rounded-xl bg-gradient-to-br ${item.color} border space-y-1.5`}>
+                            <div className="flex items-center gap-2">
+                                <span className="text-base">{item.icon}</span>
+                                <span className="text-[12px] font-black text-white tracking-wide">{item.factor}</span>
+                            </div>
+                            <p className="text-[11px] text-slate-300 leading-snug">{item.desc}</p>
+                        </div>
+                    ))}
+                </div>
+
+                {/* V2.0 Key Innovations */}
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                    {/* Regime-Adaptive */}
+                    <div className={`${glassCard} ${glassBg}`}>
+                        <div className="absolute -right-6 -top-6 w-28 h-28 rounded-full bg-emerald-500/[0.06] blur-3xl pointer-events-none" />
+                        <div className="relative space-y-3">
+                            <div className="flex items-center gap-2">
+                                <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-emerald-400 to-cyan-600 flex items-center justify-center">
+                                    <SlidersHorizontal size={14} className="text-white" />
+                                </div>
+                                <h4 className="text-sm font-bold text-white">{locale === 'ko' ? '적응형 레짐 감지' : locale === 'ja' ? '適応型レジーム検知' : 'Regime-Adaptive Logic'}</h4>
+                                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/20 border border-emerald-500/30 text-emerald-300">V2.0</span>
+                            </div>
+                            <p className="text-[13px] text-slate-300 leading-relaxed">
+                                {locale === 'ko'
+                                    ? '시장 상황(Panic·Risk-Off·Rotation·Risk-On)을 자동 감지하고, 각 레짐에 맞게 8개 팩터의 가중치를 동적 조절합니다. 공포장에서는 Gamma·Volatility 비중이 올라가고, 상승장에서는 Momentum·Breadth가 주도합니다.'
+                                    : locale === 'ja'
+                                        ? '市場状況(Panic·Risk-Off·Rotation·Risk-On)を自動検知し、各レジームに合わせて8ファクターの加重を動的調整します。恐怖相場ではGamma·Volatilityの比重が上昇し、上昇相場ではMomentum·Breadthが主導します。'
+                                        : 'Automatically detects market regime (Panic·Risk-Off·Rotation·Risk-On) and dynamically adjusts the weight of all 8 factors. In fear regimes, Gamma and Volatility gain prominence; in bullish environments, Momentum and Breadth lead.'
+                                }
+                            </p>
+                            <div className="grid grid-cols-2 gap-1.5">
+                                {[
+                                    { regime: 'PANIC', color: 'bg-red-900/20 border-red-500/15 text-red-400' },
+                                    { regime: 'RISK-OFF', color: 'bg-amber-900/20 border-amber-500/15 text-amber-400' },
+                                    { regime: 'ROTATION', color: 'bg-purple-900/20 border-purple-500/15 text-purple-400' },
+                                    { regime: 'RISK-ON', color: 'bg-emerald-900/20 border-emerald-500/15 text-emerald-400' },
+                                ].map(r => (
+                                    <div key={r.regime} className={`p-1.5 rounded-lg border text-center text-[11px] font-bold ${r.color}`}>{r.regime}</div>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Insight Narrative */}
+                    <div className={`${glassCard} ${glassBg}`}>
+                        <div className="absolute -left-6 -bottom-6 w-28 h-28 rounded-full bg-amber-500/[0.06] blur-3xl pointer-events-none" />
+                        <div className="relative space-y-3">
+                            <div className="flex items-center gap-2">
+                                <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-amber-400 to-orange-600 flex items-center justify-center">
+                                    <Brain size={14} className="text-white" />
+                                </div>
+                                <h4 className="text-sm font-bold text-white">{locale === 'ko' ? '인사이트 내러티브' : locale === 'ja' ? 'インサイトナラティブ' : 'Insight Narrative'}</h4>
+                                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-amber-500/20 border border-amber-500/30 text-amber-300">V2.0</span>
+                            </div>
+                            <p className="text-[13px] text-slate-300 leading-relaxed">
+                                {locale === 'ko'
+                                    ? '단순한 BEARISH/BULLISH 레이블을 넘어, 점수+Gamma+Z-Score 조합에 따른 12가지 시나리오별 기관급 인사이트를 제공합니다. 예: "공포 극심 · 기관 방어 중", "모멘텀 확장 · 기관 안정화" 등 즉시 행동 가능한 판단을 돕습니다.'
+                                    : locale === 'ja'
+                                        ? '単純なBEARISH/BULLISHラベルを超え、スコア+Gamma+Zスコアの組み合わせによる12シナリオ別の機関級インサイトを提供します。例：「恐怖極大 · 機関防御中」「モメンタム拡大 · 安定化中」など即座にアクション可能な判断を支援します。'
+                                        : 'Goes beyond simple BEARISH/BULLISH labels to deliver 12 scenario-specific institutional insights based on Score + Gamma + Z-Score combinations. Examples: "Fear · MM Defending", "Surge · MM Stable" — enabling instant actionable judgment.'
+                                }
+                            </p>
+                            <div className="space-y-1.5">
+                                <div className="p-1.5 rounded-lg bg-amber-900/15 border border-amber-500/15 flex items-center gap-2">
+                                    <span className="text-[11px]">🟡</span>
+                                    <span className="text-[11px] text-amber-300 font-bold">{locale === 'ko' ? '공포 극심 · 기관 방어 중' : locale === 'ja' ? '恐怖極大 · 機関防御中' : 'Fear · MM Defending'}</span>
+                                </div>
+                                <div className="p-1.5 rounded-lg bg-emerald-900/15 border border-emerald-500/15 flex items-center gap-2">
+                                    <span className="text-[11px]">🟢</span>
+                                    <span className="text-[11px] text-emerald-300 font-bold">{locale === 'ko' ? '모멘텀 확장 · 기관 안정화' : locale === 'ja' ? 'モメンタム拡大 · 安定化中' : 'Surge · MM Stable'}</span>
+                                </div>
+                                <div className="p-1.5 rounded-lg bg-red-900/15 border border-red-500/15 flex items-center gap-2">
+                                    <span className="text-[11px]">🔴</span>
+                                    <span className="text-[11px] text-red-300 font-bold">{locale === 'ko' ? '패닉 감지 · 전면 리스크오프' : locale === 'ja' ? 'パニック検知 · 全面リスクオフ' : 'Panic · Risk-Off'}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Z-Score Contrarian */}
+                    <div className={`${glassCard} ${glassBg}`}>
+                        <div className="absolute -right-6 -bottom-6 w-28 h-28 rounded-full bg-cyan-500/[0.06] blur-3xl pointer-events-none" />
+                        <div className="relative space-y-3">
+                            <div className="flex items-center gap-2">
+                                <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-yellow-400 to-amber-600 flex items-center justify-center">
+                                    <Zap size={14} className="text-white" />
+                                </div>
+                                <h4 className="text-sm font-bold text-white">{locale === 'ko' ? 'Z-Score 역발상 엔진' : locale === 'ja' ? 'Zスコア逆張りエンジン' : 'Z-Score Contrarian Engine'}</h4>
+                                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-yellow-500/20 border border-yellow-500/30 text-yellow-300">V2.0</span>
+                            </div>
+                            <p className="text-[13px] text-slate-300 leading-relaxed">
+                                {locale === 'ko'
+                                    ? 'RLSI 히스토리 20기간의 Z-Score(표준편차)를 계산하여, 역사적 극단 구간에서 역발상 매매 신호를 자동 생성합니다. Z < -2.0이면 "역사적 극단 공포 · 반등 임박", Z > 2.0이면 "극단적 과열 · 조정 임박" 경고를 발동합니다.'
+                                    : locale === 'ja'
+                                        ? 'RLSI履歴20期間のZスコア(標準偏差)を計算し、歴史的極端区間で逆張りシグナルを自動生成します。Z < -2.0で「歴史的極端恐怖 · 反発接近」、Z > 2.0で「極端過熱 · 調整接近」警告を発動します。'
+                                        : 'Calculates Z-Score (standard deviation) from 20-period RLSI history to automatically generate contrarian signals at historical extremes. Z < -2.0 triggers "Extreme Fear · Reversal" and Z > 2.0 triggers "Overheated · Correction" alerts.'
+                                }
+                            </p>
+                            <div className="grid grid-cols-2 gap-1.5">
+                                <div className="p-2 rounded-lg bg-amber-900/15 border border-amber-500/15 text-center">
+                                    <div className="text-[12px] font-black text-amber-400">Z &lt; -2.0</div>
+                                    <div className="text-[11px] text-slate-300">{locale === 'ko' ? '반등 임박' : locale === 'ja' ? '反発接近' : 'Reversal'}</div>
+                                </div>
+                                <div className="p-2 rounded-lg bg-red-900/15 border border-red-500/15 text-center">
+                                    <div className="text-[12px] font-black text-red-400">Z &gt; 2.0</div>
+                                    <div className="text-[11px] text-slate-300">{locale === 'ko' ? '조정 임박' : locale === 'ja' ? '調整接近' : 'Correction'}</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Gauge Visual + Score Scale */}
+                <div className={`${glassCard} ${glassBg}`}>
+                    <div className="relative">
+                        <div className="flex flex-col lg:flex-row items-center gap-6">
+                            {/* Live Gauge Preview */}
+                            <div className="flex flex-col items-center gap-2">
+                                <div className="text-5xl font-black text-slate-200">21</div>
+                                <div className="px-3 py-1 rounded-md bg-amber-500/15 border border-amber-500/30">
+                                    <span className="text-[12px] font-black text-amber-400">{locale === 'ko' ? '공포 극심 · 기관 방어 중' : locale === 'ja' ? '恐怖極大 · 機関防御中' : 'Fear · MM Defending'}</span>
+                                </div>
+                                <div className="w-full max-w-[200px] h-2.5 rounded-full bg-gradient-to-r from-rose-500 via-amber-500 to-emerald-500 relative mt-1">
+                                    <div className="absolute top-1/2 -translate-y-1/2 w-3.5 h-3.5 rounded-full bg-white border-2 border-slate-700 shadow-lg" style={{ left: '21%' }} />
+                                </div>
+                                <p className="text-[11px] text-slate-400 mt-1 text-center">
+                                    {locale === 'ko' ? '단순 점수가 아닌, 시장 맥락을 읽는 인사이트' : locale === 'ja' ? '単なるスコアではなく、市場コンテキストを読むインサイト' : 'Not just a score — context-aware market intelligence'}
+                                </p>
+                            </div>
+
+                            {/* Score Interpretation */}
+                            <div className="flex-1 grid grid-cols-3 gap-2 w-full">
+                                <div className="p-3 rounded-xl bg-rose-900/20 border border-rose-500/15 text-center space-y-0.5">
+                                    <div className="text-lg font-black text-rose-400">0–40</div>
+                                    <div className="text-xs font-bold text-rose-400">{locale === 'ko' ? '위험 구간' : locale === 'ja' ? '危険区間' : 'DANGER'}</div>
+                                    <div className="text-[11px] text-slate-300 leading-tight">{locale === 'ko' ? '유동성 위축 · 방어 태세' : locale === 'ja' ? '流動性収縮 · 防御態勢' : 'Liquidity contraction'}</div>
+                                </div>
+                                <div className="p-3 rounded-xl bg-slate-800/50 border border-white/5 text-center space-y-0.5">
+                                    <div className="text-lg font-black text-slate-300">40–60</div>
+                                    <div className="text-xs font-bold text-slate-300">{locale === 'ko' ? '중립 구간' : locale === 'ja' ? '中立区間' : 'NEUTRAL'}</div>
+                                    <div className="text-[11px] text-slate-300 leading-tight">{locale === 'ko' ? '방향성 탐색 중' : locale === 'ja' ? '方向性探索中' : 'Seeking direction'}</div>
+                                </div>
+                                <div className="p-3 rounded-xl bg-emerald-900/20 border border-emerald-500/15 text-center space-y-0.5">
+                                    <div className="text-lg font-black text-emerald-400">60–100</div>
+                                    <div className="text-xs font-bold text-emerald-400">{locale === 'ko' ? '적정 구간' : locale === 'ja' ? '適正区間' : 'OPTIMAL'}</div>
+                                    <div className="text-[11px] text-slate-300 leading-tight">{locale === 'ko' ? '유동성 확장 · 강세 모멘텀' : locale === 'ja' ? '流動性拡大 · 強気モメンタム' : 'Expanding liquidity'}</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Value Proposition */}
+                <div className="p-4 rounded-xl bg-gradient-to-r from-emerald-900/20 via-cyan-900/15 to-indigo-900/20 border border-emerald-500/20">
+                    <div className="flex items-start gap-3">
+                        <div className="w-8 h-8 rounded-lg bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center flex-shrink-0 mt-0.5">
+                            <Target size={16} className="text-emerald-400" />
+                        </div>
+                        <div className="space-y-1.5">
+                            <h4 className="text-sm font-black text-emerald-400 tracking-wide">
+                                {locale === 'ko' ? '왜 RLSI V2.0인가?' : locale === 'ja' ? 'なぜRLSI V2.0なのか？' : 'Why RLSI V2.0?'}
+                            </h4>
+                            <div className="text-[13px] text-slate-300 leading-relaxed space-y-1">
+                                <p>{locale === 'ko' ? '• 블룸버그 터미널에서도 불가능한 8개 팩터 실시간 융합 — 단일 플랫폼에서 거시·미시 통합 분석' : locale === 'ja' ? '• ブルームバーグ端末でも不可能な8ファクター・リアルタイム融合 — 単一プラットフォームでマクロ・ミクロ統合分析' : '• 8-factor real-time fusion impossible even on Bloomberg Terminal — unified macro-micro analysis in one platform'}</p>
+                                <p>{locale === 'ko' ? '• Gamma Shield™와 직접 융합 — 옵션 마켓메이커의 포지셔닝을 RLSI 점수에 직접 반영' : locale === 'ja' ? '• Gamma Shield™と直接融合 — オプション・マーケットメイカーのポジショニングをRLSIスコアに直接反映' : '• Direct Gamma Shield™ fusion — options market maker positioning directly reflected in RLSI score'}</p>
+                                <p>{locale === 'ko' ? '• DynamoDB 영구 저장 — 레짐 변화 시계열 분석으로 패턴 학습 가능' : locale === 'ja' ? '• DynamoDB永続保存 — レジーム変化の時系列分析でパターン学習が可能' : '• DynamoDB persistent storage — regime time-series analysis enables pattern learning'}</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            {/* ═══════════════════════════════════════════════════════════ */}
+            {/* Section 2: GAMMA SHIELD™ — Critical Indicator           */}
             {/* ═══════════════════════════════════════════════════════════ */}
             <section className="space-y-5">
                 <div className="flex items-center justify-between">
@@ -664,62 +885,10 @@ export default async function GuardianGuidePage({ params }: { params: Promise<{ 
             </section>
 
             {/* ═══════════════════════════════════════════════════════════ */}
-            {/* Section 5 & 6: RLSI + Market Breadth (2-col)              */}
+            {/* Section 5: Market Breadth                                  */}
             {/* ═══════════════════════════════════════════════════════════ */}
             <section className="space-y-5">
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
-                    {/* ─── RLSI Insight ─── */}
-                    <div className={`${glassCard} ${glassBg}`}>
-                        <div className="absolute -right-8 -top-8 w-36 h-36 rounded-full bg-cyan-500/[0.05] blur-3xl pointer-events-none" />
-                        <div className="absolute right-2 bottom-2 w-24 h-24 rounded-full border border-cyan-500/8 pointer-events-none" />
-                        <div className="relative space-y-4">
-                            <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-3">
-                                    <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-cyan-400 to-teal-600 flex items-center justify-center shadow-lg shadow-cyan-500/25">
-                                        <Eye size={18} className="text-white" />
-                                    </div>
-                                    <div>
-                                        <h3 className="text-lg font-bold text-white">{t('rlsi.title')}</h3>
-                                        <p className="text-xs text-cyan-400 font-medium uppercase tracking-wider">Real-time Liquidity & Sentiment</p>
-                                    </div>
-                                </div>
-                                <span className="px-2.5 py-1 rounded-full bg-cyan-500/20 border border-cyan-500/30 text-xs font-bold text-cyan-300">AI</span>
-                            </div>
-
-                            <p className="text-sm text-slate-300 leading-relaxed">{t.rich('rlsi.desc', richTags)}</p>
-
-                            {/* Sample Insight Box */}
-                            <div className="p-3 rounded-lg bg-slate-800/50 border border-white/5">
-                                <div className="text-xs font-bold text-white mb-1.5">TACTICAL INSIGHT</div>
-                                <p className="text-[13px] text-slate-300 leading-relaxed">{t('rlsi.sampleInsight')}</p>
-                            </div>
-
-                            {/* Alignment States */}
-                            <div className="grid grid-cols-3 gap-2">
-                                <div className="p-2 rounded-lg bg-emerald-900/20 border border-emerald-500/15 text-center">
-                                    <div className="text-xs font-bold text-emerald-400">ALIGNMENT OK</div>
-                                    <div className="text-[12px] text-slate-300 mt-0.5">{t('rlsi.alignOk')}</div>
-                                </div>
-                                <div className="p-2 rounded-lg bg-amber-900/20 border border-amber-500/15 text-center">
-                                    <div className="text-xs font-bold text-amber-400">PARTIAL</div>
-                                    <div className="text-[12px] text-slate-300 mt-0.5">{t('rlsi.alignPartial')}</div>
-                                </div>
-                                <div className="p-2 rounded-lg bg-slate-800/50 border border-white/5 text-center">
-                                    <div className="text-xs font-bold text-slate-300">OFFLINE</div>
-                                    <div className="text-[12px] text-slate-300 mt-0.5">{t('rlsi.alignOffline')}</div>
-                                </div>
-                            </div>
-
-                            <div className="p-3 rounded-lg bg-emerald-900/15 border border-emerald-500/20 space-y-1">
-                                <span className="text-[13px] font-bold text-emerald-400 flex items-center gap-1.5"><Brain size={13} />{t('rlsi.tradingGuide')}</span>
-                                <div className="text-[13px] text-slate-300 leading-relaxed space-y-0.5">
-                                    <p>• {t.rich('rlsi.guide1', richTags)}</p>
-                                    <p>• {t.rich('rlsi.guide2', richTags)}</p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
                     {/* ─── Market Breadth ─── */}
                     <div className={`${glassCard} ${glassBg}`}>
                         <div className="absolute -left-8 -bottom-8 w-36 h-36 rounded-full bg-emerald-500/[0.05] blur-3xl pointer-events-none" />
