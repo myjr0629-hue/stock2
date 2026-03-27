@@ -217,7 +217,7 @@ export function SectorCommandCenter({ sectorData, onNavigate }: SectorCommandCen
                     <div className="absolute -bottom-20 -left-20 w-60 h-60 bg-gradient-radial from-teal-400/8 to-transparent rounded-full blur-3xl" />
                 </div>
 
-                <div className="relative z-10 flex items-start justify-between gap-6">
+                <div className="relative z-10 flex items-center justify-between gap-6">
                     <div>
                         <div className="flex items-center gap-2 mb-2">
                             <span className="text-[13px] font-bold text-cyan-400 tracking-[0.2em] uppercase flex items-center gap-1.5">
