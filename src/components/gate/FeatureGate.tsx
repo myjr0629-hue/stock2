@@ -115,10 +115,17 @@ export function FeatureGate({
         return <>{children}</>;
     }
 
-    // 로딩 중에는 children을 그대로 렌더링 (SSR↔Client 일치 = hydration mismatch 방지)
-    // tier가 resolve된 후 자동으로 게이트 적용됨
+    // 로딩 중에는 블러 처리 — FOUC(Flash of Ungated Content) 방지
+    // SSR에서도 loading=true이므로 서버 렌더링부터 블러가 적용됨
+    // tier resolve 후 자동으로 게이트 적용 또는 해제
     if (loading) {
-        return <>{children}</>;
+        return (
+            <div className={`relative ${className}`} style={{ minHeight }}>
+                <div className="pointer-events-none select-none" style={{ filter: 'blur(8px)', opacity: 0.5 }}>
+                    {children}
+                </div>
+            </div>
+        );
     }
 
     const colors = TIER_COLOR[requiredTier] || TIER_COLOR.pro;
