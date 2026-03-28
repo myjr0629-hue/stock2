@@ -386,25 +386,34 @@ async function warmTicker(ticker: string): Promise<{ ticker: string; ok: boolean
         await writeAnalysisCache(ticker, cacheEntry);
 
         // [Phase 2 + V4.6 WRITE-BACK] Record to DynamoDB history (fire-and-forget — non-blocking)
-        // This is the BATCH path — ensures ALL ~100 tracked tickers get V4.6 scores,
-        // not just user-visited ones. Runs every 2min via Vercel Cron.
+        // [MARKET CLOSE ONLY] Context Score는 장마감 시점(15:55-16:10 ET)에만 DynamoDB 저장
+        // 백테스트용 1일 1회 정확한 스냅샷 확보 (합의사항)
         try {
+            const { getETNow } = await import('@/services/timezoneUtils');
+            const etNow = getETNow();
+            const etTimeMin = etNow.hour * 60 + etNow.minute;
+            const isMarketCloseWindow = !etNow.isWeekend && etTimeMin >= 955 && etTimeMin <= 970; // 15:55-16:10 ET
+
             const { recordAlphaDaily, recordGexSnapshot } = await import('@/lib/aws/historyMiddleware');
-            recordAlphaDaily(ticker, {
-                alphaScore: alphaResult.score,
-                qualityTier: 'SSR_V46',
-                changePct: changePct,
-                gex: structureRes?.netGex ?? gex ?? 0,
-                pcr: alphaPcr ?? 0,
-                grade: alphaResult.grade,
-                momentum: alphaResult.pillars.momentum.score,
-                structure: alphaResult.pillars.structure.score,
-                flow: alphaResult.pillars.flow.score,
-                regime: alphaResult.pillars.regime.score,
-                catalyst: alphaResult.pillars.catalyst.score,
-                engineVersion: alphaResult.engineVersion,
-                price: currentPrice,
-            });
+
+            if (isMarketCloseWindow) {
+                recordAlphaDaily(ticker, {
+                    alphaScore: alphaResult.score,
+                    qualityTier: 'SSR_V46',
+                    changePct: changePct,
+                    gex: structureRes?.netGex ?? gex ?? 0,
+                    pcr: alphaPcr ?? 0,
+                    grade: alphaResult.grade,
+                    momentum: alphaResult.pillars.momentum.score,
+                    structure: alphaResult.pillars.structure.score,
+                    flow: alphaResult.pillars.flow.score,
+                    regime: alphaResult.pillars.regime.score,
+                    catalyst: alphaResult.pillars.catalyst.score,
+                    engineVersion: alphaResult.engineVersion,
+                    price: currentPrice,
+                });
+            }
+
             if (structureRes?.netGex != null) {
                 recordGexSnapshot(ticker, {
                     gex: structureRes.netGex,

@@ -173,7 +173,7 @@ async function harvestPrices() {
       items.push({ ticker:t.ticker, date:today, qualityTier:'LIVE', changePct:Math.round(ch*100)/100, open:t.day?.o||0, high:t.day?.h||0, low:t.day?.l||0, close:t.day?.c||p, volume:t.day?.v||0, vwap:t.day?.vw||0, gex:0, pcr:0, alphaScore:0 });
     }
   }
-  if (items.length > 0) await batchWrite('signum-alpha-history', items);
+  // [REMOVED] alpha-history 저장 제거 — Context Score는 Vercel cron이 장마감 시점에 저장 (SSR_V46 덮어쓰기 방지)
   console.log('Prices: '+items.length+'/'+UNIVERSE.length+' (priceMap has '+Object.keys(priceMap).length+' tickers)');
   return { count:items.length, priceMap, snapshotMap };
 }
@@ -478,8 +478,8 @@ async function updateAlphaScores(snapshotMap, gexMap) {
     const alpha = computeAlphaScore(pd, gexMap[ticker]||null);
     items.push({ ticker, date:today, changePct:Math.round(pd.changePct*100)/100, open:0,high:0,low:0, close:pd.price, volume:pd.volume, vwap:0, gex:gexMap[ticker]?gexMap[ticker].gex:0, pcr:gexMap[ticker]?gexMap[ticker].pcr:0, alphaScore:alpha, qualityTier:gexMap[ticker]?'FULL':'PRICE_ONLY' });
   }
-  if (items.length > 0) await batchWrite('signum-alpha-history', items);
-  console.log('Alpha: '+items.length+' scores');
+  // [REMOVED] alpha-history 저장 제거 — Context Score는 Vercel cron 전담 (장마감 1회 저장)
+  console.log('Alpha: '+items.length+' scores (DynamoDB write skipped — Vercel cron handles SSR_V46)');
   return items.length;
 }
 
