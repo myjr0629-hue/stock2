@@ -98,26 +98,11 @@ export function FeatureGate({
     }, []);
 
     // ──────────────────────────────────────────────
-    // 게스트 무료 미리보기 우회
-    // GuestWall이 5회까지 페이지를 열어주므로,
-    // 그 동안은 FeatureGate도 모든 콘텐츠를 열어야 함.
-    // 가입 후 free 유저부터 등급별 게이트가 작동.
+    // ⚡ FOUC 방지: loading 체크를 최우선으로 실행
+    // SSR에서 tier='guest', document=undefined → isGuestPreview=true 되어
+    // 아래 hasAccess/isGuestPreview 우회 → 콘텐츠 노출되는 것을 차단.
+    // loading이 true인 동안은 반드시 블러 처리.
     // ──────────────────────────────────────────────
-    const isGuestPreview = tier === 'guest' && (() => {
-        if (typeof document === 'undefined') return true; // SSR에서는 안전하게 열기
-        const match = document.cookie.match(/shq_gv=(\d+)/);
-        const visits = match ? parseInt(match[1], 10) : 0;
-        return visits <= 5;
-    })();
-
-    // 접근 권한이 있거나 게스트 미리보기 중이면 그대로 렌더링
-    if (hasAccess(requiredTier as UserTier) || isGuestPreview) {
-        return <>{children}</>;
-    }
-
-    // 로딩 중에는 블러 처리 — FOUC(Flash of Ungated Content) 방지
-    // SSR에서도 loading=true이므로 서버 렌더링부터 블러가 적용됨
-    // tier resolve 후 자동으로 게이트 적용 또는 해제
     if (loading) {
         return (
             <div className={`relative ${className}`} style={{ minHeight }}>
@@ -126,6 +111,24 @@ export function FeatureGate({
                 </div>
             </div>
         );
+    }
+
+    // ──────────────────────────────────────────────
+    // 게스트 무료 미리보기 우회
+    // GuestWall이 5회까지 페이지를 열어주므로,
+    // 그 동안은 FeatureGate도 모든 콘텐츠를 열어야 함.
+    // 가입 후 free 유저부터 등급별 게이트가 작동.
+    // ──────────────────────────────────────────────
+    const isGuestPreview = tier === 'guest' && (() => {
+        if (typeof document === 'undefined') return false; // SSR에서는 블러 유지 (FOUC 방지)
+        const match = document.cookie.match(/shq_gv=(\d+)/);
+        const visits = match ? parseInt(match[1], 10) : 0;
+        return visits <= 5;
+    })();
+
+    // 접근 권한이 있거나 게스트 미리보기 중이면 그대로 렌더링
+    if (hasAccess(requiredTier as UserTier) || isGuestPreview) {
+        return <>{children}</>;
     }
 
     const colors = TIER_COLOR[requiredTier] || TIER_COLOR.pro;
