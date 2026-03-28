@@ -183,7 +183,29 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
         const etNow = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' }));
         const today = new Date(etNow.getFullYear(), etNow.getMonth(), etNow.getDate());
 
-        const maxDTE = (userViewMode || 'VOLUME') === 'VOLUME' ? 7 : 35;
+        // [FIX] Dynamic DTE: detect rawChain's actual max expiry to prevent
+        // filtering out weekly expiry data after market close (e.g. Friday PM
+        // when weeklyExpiry shifts to next Friday = 13-14 DTE)
+        let baseDTE = (userViewMode || 'VOLUME') === 'VOLUME' ? 7 : 35;
+        if ((userViewMode || 'VOLUME') === 'VOLUME') {
+            let maxExpiryInChain = 0;
+            rawChain.forEach(opt => {
+                const expiryStr = opt.details?.expiration_date;
+                if (expiryStr) {
+                    const parts = expiryStr.split('-');
+                    if (parts.length === 3) {
+                        const expiry = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+                        const dte = Math.ceil((expiry.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+                        if (dte > maxExpiryInChain) maxExpiryInChain = dte;
+                    }
+                }
+            });
+            // Extend DTE to cover rawChain's weekly expiry (capped at 15 to avoid pulling in monthly)
+            if (maxExpiryInChain > baseDTE && maxExpiryInChain <= 15) {
+                baseDTE = maxExpiryInChain;
+            }
+        }
+        const maxDTE = baseDTE;
         const maxDate = new Date(today);
         maxDate.setDate(today.getDate() + maxDTE);
 
@@ -248,8 +270,25 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
 
         const etNow = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' }));
         const today = new Date(etNow.getFullYear(), etNow.getMonth(), etNow.getDate());
+
+        // [FIX] Dynamic DTE: match flowMap's adaptive DTE logic
+        let heatmapDTE = 7;
+        let maxExpiryDTE = 0;
+        rawChain.forEach(opt => {
+            const expiryStr = opt.details?.expiration_date;
+            if (expiryStr) {
+                const parts = expiryStr.split('-');
+                if (parts.length === 3) {
+                    const expiry = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+                    const dte = Math.ceil((expiry.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+                    if (dte > maxExpiryDTE) maxExpiryDTE = dte;
+                }
+            }
+        });
+        if (maxExpiryDTE > heatmapDTE && maxExpiryDTE <= 15) heatmapDTE = maxExpiryDTE;
+
         const maxDate = new Date(today);
-        maxDate.setDate(today.getDate() + 7);
+        maxDate.setDate(today.getDate() + heatmapDTE);
 
         // Build Strike × Expiry matrix
         const matrix = new Map<number, Map<string, { callVol: number; putVol: number }>>();
@@ -267,7 +306,7 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
             // Filter: ±10% from current price
             if (strike < currentPrice - range || strike > currentPrice + range) return;
 
-            // Filter: within 7 DTE
+            // Filter: within dynamic DTE
             const parts = expiryStr.split('-');
             if (parts.length !== 3) return;
             const expiry = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
