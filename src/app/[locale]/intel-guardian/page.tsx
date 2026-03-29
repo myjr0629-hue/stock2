@@ -761,15 +761,15 @@ export default function GuardianPage() {
                             </div>
                         </div>
 
-                        {/* RIGHT: INTELLIGENCE STACK (Cols 9-12) — PRO */}
+                        {/* RIGHT: INTELLIGENCE STACK (Cols 9-12) */}
                         <div className="col-span-12 lg:col-span-4 min-w-0 h-full">
-                            <ProGate title="Intelligence Stack" fomoMessage={gt('fomoIntelStack')} mode="blur">
                                 <div className="flex flex-col gap-4 h-full">
 
-                                    {/* 0. ECONOMIC CALENDAR (Compact) */}
+                                    {/* 0. ECONOMIC CALENDAR (Compact) — FREE */}
                                     <EconomicCalendarWidget locale={locale} />
 
-                                    {/* 1. TACTICAL VERDICT (Compact, Top) */}
+                                    {/* 1. TACTICAL VERDICT (Compact, Top) — PRO ONLY */}
+                                    <ProGate title="Tactical Verdict" fomoMessage={gt('fomoIntelStack')} mode="blur">
                                     <div className="border border-slate-800 rounded-lg p-5 relative flex flex-col shadow-2xl flex-none overflow-hidden"
                                         style={{
                                             background: verdict.sentiment === 'BULLISH'
@@ -919,6 +919,7 @@ export default function GuardianPage() {
                                             </div>
                                         )}
                                     </div>
+                                    </ProGate>
 
                                     {/* 2. SECTOR INTEL (Fill Rest, Bottom) */}
                                     <div className="flex-1 border border-slate-800 rounded-lg p-6 relative shadow-2xl flex flex-col min-h-0 overflow-hidden"
@@ -1113,7 +1114,6 @@ export default function GuardianPage() {
                                     </div>
 
                                 </div>
-                            </ProGate>
                         </div>
 
                     </div>
