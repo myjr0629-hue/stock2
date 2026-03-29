@@ -787,6 +787,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
     const t = useTranslations('command');
     const td = useTranslations('dashboard');
     const tIntel = useTranslations('intel');
+    const tg = useTranslations('gate');
     const locale = useLocale();
 
     // [S-45] SSOT Integration
@@ -1483,7 +1484,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                     {/* ═══ ROW 1: 실시간 / 당일 판단용 ═══ */}
 
                     {/* [1-1] VOLATILITY REGIME™ — PRO peek */}
-                    <ProGate title="Vol Regime" mode="peek" compact>
+                    <ProGate title="Vol Regime" mode="peek" compact fomoTagline={tg('taglineVolRegime')}>
                         {(() => {
                             const r = effectiveVol;
                             const isHot = r?.regime === 'ERUPTING' || r?.regime === 'LOADED';
@@ -1522,7 +1523,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                     </ProGate>
 
                     {/* [1-2] CONVICTION MATRIX™ — PRO peek */}
-                    <ProGate title="Conviction Matrix" mode="peek" compact>
+                    <ProGate title="Conviction Matrix" mode="peek" compact fomoTagline={tg('taglineConviction')}>
                         {(() => {
                             const isBull = conviction && conviction.score >= 60;
                             const isBear = conviction && conviction.score <= 40;
@@ -1585,7 +1586,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                     })()}
 
                     {/* [1-4] IV SKEW / SHORT SQUEEZE — conditional */}
-                    <ProGate title="IV Skew" mode="peek" compact>
+                    <ProGate title="IV Skew" mode="peek" compact fomoTagline={tg('taglineIVSkew')}>
                         {(() => {
                             // Try to compute IV skew from ATM options slice
                             const atmSlice = options?.atmSlice || [];
@@ -1729,7 +1730,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                     {/* ═══ ROW 2: 스윙 / 장기 판단용 ═══ */}
 
                     {/* [2-1] INSTITUTIONAL RADAR™ — PRO */}
-                    <ProGate title="Inst Radar" mode="blur" compact>
+                    <ProGate title="Inst Radar" mode="blur" compact fomoTagline={tg('taglineInstRadar')}>
                         {(() => {
                             const dp = effectiveInst?.darkPool?.percent || 0;
                             const blockCount = effectiveInst?.blockTrade?.count || 0;
@@ -2102,7 +2103,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
 
                                 {/* Tab Content */}
                                 {activeInsightTab === 'gex' ? (
-                                    <ProGate title="GEX Timeline 30D" mode="blur" fomoMessage="30-Day Gamma Exposure · Regime Shifts · Gamma Flip Events">
+                                    <ProGate title="GEX Timeline 30D" mode="blur" fomoMessage="30-Day Gamma Exposure · Regime Shifts · Gamma Flip Events" fomoTagline={tg('taglineGEXTimeline')}>
                                         <GexTimeline ticker={ticker} days={30} onEmpty={() => setActiveInsightTab('levels')} />
                                     </ProGate>
                                 ) : activeInsightTab === 'levels' ? (
@@ -2133,7 +2134,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                 <div className="min-h-[400px] grid grid-cols-1 md:grid-cols-2 gap-3 shrink-0">
 
                                     {/* 1. TACTICAL RANGE (Depth Gauge + Max Pain) — PRO */}
-                                    <ProGate title="Tactical Range" mode="blur" fomoMessage="Max Pain · Call Wall · Put Floor · Support/Resistance · Range Width">
+                                    <ProGate title="Tactical Range" mode="blur" fomoMessage="Max Pain · Call Wall · Put Floor · Support/Resistance · Range Width" fomoTagline={tg('taglineTacticalRange')}>
                                     <div className="min-h-[400px] rounded-lg border border-white/10 bg-slate-900/60 backdrop-blur-lg shadow-lg shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] flex flex-col relative group hover:border-white/20 transition-colors">
                                         {/* Infographic BG: Micro Grid + Level Lines */}
                                         <div className="absolute inset-0 pointer-events-none z-0">
@@ -2284,7 +2285,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                     </ProGate>
 
                                     {/* 2. NET GAMMA ENGINE (Infographic Style) — PRO */}
-                                    <ProGate title="Net Gamma Engine" mode="blur" fomoMessage="Net GEX · Gamma Flip Level · P/C Ratio · Squeeze Risk · Gamma Concentration">
+                                    <ProGate title="Net Gamma Engine" mode="blur" fomoMessage="Net GEX · Gamma Flip Level · P/C Ratio · Squeeze Risk · Gamma Concentration" fomoTagline={tg('taglineNetGamma')}>
                                     <div className="min-h-[400px] rounded-lg border border-white/10 bg-slate-900/60 backdrop-blur-lg shadow-lg shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] flex flex-col relative group hover:border-white/20 transition-colors">
                                         {/* Infographic BG: Scanlines + Energy Pulse */}
                                         <div className="absolute inset-0 pointer-events-none z-0">
@@ -2692,7 +2693,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                         <div className="lg:col-span-4 flex flex-col gap-3 h-full overflow-hidden">
 
                             {/* 1. AI Deep Analysis — Claude Sonnet 4 (HERO Position) — PRO */}
-                            <ProGate title="AI Deep Analysis" mode="blur" fomoMessage="AI Deep Technical · Options Positioning · News & Market Context">
+                            <ProGate title="AI Deep Analysis" mode="blur" fomoMessage="AI Deep Technical · Options Positioning · News & Market Context" fomoTagline={tg('taglineAIDeep')}>
                             <AIDeepAnalysis
                                 ticker={ticker}
                                 displayPrice={displayPrice}
@@ -2788,7 +2789,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                             </ProGate>
 
                             {/* 2. Decision Gate (Signal Core) — ELITE */}
-                            <EliteGate title="Signal Core" mode="blur">
+                            <EliteGate title="Signal Core" mode="blur" fomoTagline={tg('taglineSignalCore')}>
                                 <div className="shrink-0 relative rounded-lg border border-white/10 bg-slate-900/60 backdrop-blur-md overflow-hidden group hover:border-white/20 transition-colors shadow-lg">
                                     {/* Infographic BG: Radar Grid + Sentinel Glow */}
                                     <div className="absolute inset-0 pointer-events-none z-0">
@@ -2823,7 +2824,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                             </EliteGate>
 
                             {/* 3. Flow Unit — ELITE */}
-                            <EliteGate title="Flow Unit" mode="blur">
+                            <EliteGate title="Flow Unit" mode="blur" fomoTagline={tg('taglineFlowUnit')}>
                                 <div className="shrink-0 rounded-lg border border-white/10 bg-slate-900/60 backdrop-blur-md overflow-hidden relative group hover:border-white/20 transition-colors shadow-lg">
                                     {/* Infographic BG: Flow Pulse + Wave Pattern */}
                                     <div className="absolute inset-0 pointer-events-none z-0">
@@ -2865,7 +2866,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                             </EliteGate>
 
                             {/* 2.5 Gamma Pressure Gauge — Bloomberg-tier visual — PRO */}
-                            <ProGate title="Gamma Pressure" mode="blur" fomoMessage="Short Gamma · Call Wall · Put Floor · Gamma Flip Level · Squeeze Risk">
+                            <ProGate title="Gamma Pressure" mode="blur" fomoMessage="Short Gamma · Call Wall · Put Floor · Gamma Flip Level · Squeeze Risk" fomoTagline={tg('taglineGammaPressure')}>
                             <GammaPressureGauge
                                 netGex={structure?.netGex || 0}
                                 callWall={structure?.levels?.callWall || 0}

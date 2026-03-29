@@ -3584,7 +3584,19 @@
     "fomoPortfolioAlpha": "Context Score 확인 — 포트폴리오 AI 분석 엣지",
     "fomoPortfolioSignal": "AI 시그널 확인 — 머신 생성 방향성 전망",
     "fomoPortfolioAction": "실시간 방향성 분석 — AI 기반 포지션 인사이트",
-    "fomoPortfolioScore": "포트폴리오 등급 확인 — 전체 건강성 평가"
+    "fomoPortfolioScore": "포트폴리오 등급 확인 — 전체 건강성 평가",
+    "taglineVolRegime": "변동성 레짐이 바뀌면 전략도 바뀝니다",
+    "taglineConviction": "기관급 다중 지표 확신도 — 노이즈를 걸러냅니다",
+    "taglineIVSkew": "스마트머니가 보는 방향을 옵션 스큐가 말해줍니다",
+    "taglineInstRadar": "다크풀·블록 트레이드 — 기관의 축적과 분배",
+    "taglineIVSkewCurve": "스트라이크별 IV 프로필이 숨겨진 헤지 수요를 드러냅니다",
+    "taglineTacticalRange": "옵션 시장이 설정한 지지·저항 — 가격의 중력점",
+    "taglineNetGamma": "감마 노출이 변동성의 방향을 결정합니다",
+    "taglineAIDeep": "AI가 기술적·옵션·매크로 컨텍스트를 실시간 종합 판단",
+    "taglineGEXTimeline": "30일 감마 흐름에서 레짐 전환점을 포착합니다",
+    "taglineGammaPressure": "숏감마 환경에서는 급변동이 가속됩니다",
+    "taglineSignalCore": "6개 독립 시그널의 수렴이 고확신 방향을 만듭니다",
+    "taglineFlowUnit": "실시간 옵션 프리미엄 흐름이 수급의 진실을 보여줍니다"
   },
   "signalCoreV3": {
     "headlineDataValidating": "옵션 데이터 검증 중입니다.",

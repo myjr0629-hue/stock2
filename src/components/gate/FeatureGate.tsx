@@ -30,8 +30,10 @@ interface FeatureGateProps {
     mode?: 'blur' | 'peek' | 'gradient';
     /** 잠금 카드에 항상 표시할 지표명 (e.g. "Net GEX", "Gamma Flip") */
     title?: string;
-    /** FOMO 메시지 (블러 위에 표시, compact에서는 숨겨짐) */
+    /** FOMO 메시지 (블러 위에 표시 — 지표 목록) */
     fomoMessage?: string;
+    /** FOMO 태그라인 (fomoMessage 아래 — 블룸버그급 프리미엄 전환 문구) */
+    fomoTagline?: string;
     /** 피킹용 실제 값 (잠긴 상태에서 살짝 노출) */
     fomoValue?: string;
     /** 잠긴 상태 호버 툴팁 설명 — 기능의 가치를 전달 */
@@ -79,6 +81,7 @@ export function FeatureGate({
     mode = 'blur',
     title,
     fomoMessage,
+    fomoTagline,
     fomoValue,
     description,
     children,
@@ -167,12 +170,12 @@ export function FeatureGate({
                                 <Lock className={`w-3 h-3 ${colors.text}`} />
                             </div>
                             {/* 지표명 + FOMO 메시지 (한 줄) */}
-                            <span className="text-white font-jakarta font-bold text-[12px] tracking-wide whitespace-nowrap">
+                            <span className="text-white font-jakarta font-bold text-[12px] tracking-wide">
                                 {title}
                             </span>
-                            {fomoMessage && (
-                                <span className="text-slate-300 font-jakarta text-[12px] tracking-wide whitespace-nowrap">
-                                    {fomoMessage}
+                            {fomoTagline && (
+                                <span className="text-slate-400 font-jakarta text-[10px] italic tracking-wide w-full text-center">
+                                    {fomoTagline}
                                 </span>
                             )}
                             {/* 툴팁 아이콘 (description이 있을 때만) */}
@@ -227,6 +230,14 @@ export function FeatureGate({
                                 <p className="text-center font-medium tracking-wide font-jakarta text-[12px]
                                     text-slate-200 max-w-sm leading-relaxed">
                                     {fomoMessage}
+                                </p>
+                            )}
+
+                            {/* Bloomberg-grade FOMO tagline */}
+                            {fomoTagline && (
+                                <p className="text-center font-jakarta text-[11px] italic
+                                    text-slate-400 max-w-xs leading-relaxed">
+                                    {fomoTagline}
                                 </p>
                             )}
 

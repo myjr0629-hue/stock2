@@ -3666,7 +3666,19 @@
     "fomoPortfolioAlpha": "Context Scoreを確認 — ポートフォリオのAI分析エッジ",
     "fomoPortfolioSignal": "AIシグナルを確認 — マシン生成の方向性見通し",
     "fomoPortfolioAction": "リアルタイム方向性分析 — AI駆動ポジションインサイト",
-    "fomoPortfolioScore": "ポートフォリオグレードを確認 — 全体ヘルス評価"
+    "fomoPortfolioScore": "ポートフォリオグレードを確認 — 全体ヘルス評価",
+    "taglineVolRegime": "ボラティリティ・レジームの転換が戦略を決定づけます",
+    "taglineConviction": "機関投資家グレードの多因子確信度スコアリング",
+    "taglineIVSkew": "オプション・スキューがスマートマネーの方向を示します",
+    "taglineInstRadar": "ダークプール＆ブロック取引 — 機関の集積シグナル",
+    "taglineIVSkewCurve": "ストライク別IVプロファイルが隠れたヘッジ需要を暴きます",
+    "taglineTacticalRange": "オプション市場が設定した支持・抵抗 — 価格の重力点",
+    "taglineNetGamma": "ガンマ・エクスポージャーがボラティリティの方向を決定します",
+    "taglineAIDeep": "AIがテクニカル・オプション・マクロを統合リアルタイム分析",
+    "taglineGEXTimeline": "30日間ガンマフローからレジーム転換点を捕捉します",
+    "taglineGammaPressure": "ショートガンマ環境では方向性の急変動が加速します",
+    "taglineSignalCore": "6つの独立シグナルの収束が高い確信度の方向性を形成します",
+    "taglineFlowUnit": "リアルタイム・オプションプレミアムフローが需給の本質を映します"
   },
   "signalCoreV3": {
     "headlineDataValidating": "オプションデータを検証中です。",
