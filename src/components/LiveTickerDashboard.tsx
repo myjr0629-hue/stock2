@@ -1669,8 +1669,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                         })()}
                     </ProGate>
 
-                    {/* [1-5] ANALYST TARGET — PRO peek */}
-                    <ProGate title="Analyst Target" mode="peek" compact>
+                    {/* [1-5] ANALYST TARGET — FREE */}
                         {(() => {
                             const isBullish = analystData?.consensus === 'STRONG BUY' || analystData?.consensus === 'BUY';
                             const isBearish = analystData?.consensus === 'SELL' || analystData?.consensus === 'STRONG SELL';
@@ -1725,7 +1724,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                 </div>
                             );
                         })()}
-                    </ProGate>
+
 
                     {/* ═══ ROW 2: 스윙 / 장기 판단용 ═══ */}
 
@@ -1770,8 +1769,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                         })()}
                     </ProGate>
 
-                    {/* [2-2] TREND PHASE™ — PRO peek */}
-                    <ProGate title="Trend Phase" mode="peek" compact>
+                    {/* [2-2] TREND PHASE™ — FREE */}
                         {(() => {
                             const s = effectiveSma;
                             const phase = s?.cross === 'GOLDEN' ? td('smaGolden') : s?.cross === 'DEAD' ? td('smaDead') : s?.label === 'ABOVE' ? td('smaAbove') : s?.label === 'BELOW' ? td('smaBelow') : '...';
@@ -1806,10 +1804,9 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                 </div>
                             );
                         })()}
-                    </ProGate>
 
-                    {/* [2-3] FUNDAMENTAL VALUE™ — PRO peek */}
-                    <ProGate title="Fundamental" mode="peek" compact>
+
+                    {/* [2-3] FUNDAMENTAL VALUE™ — FREE */}
                         {(() => {
                             const f = effectiveFund;
                             const isNoData = f?.grade === 'NO_DATA';
@@ -1858,7 +1855,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                 </div>
                             );
                         })()}
-                    </ProGate>
+
 
                     {/* [2-4] EARNINGS — FREE */}
                     {(() => {
@@ -2105,7 +2102,9 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
 
                                 {/* Tab Content */}
                                 {activeInsightTab === 'gex' ? (
-                                    <GexTimeline ticker={ticker} days={30} onEmpty={() => setActiveInsightTab('levels')} />
+                                    <ProGate title="GEX Timeline 30D" mode="blur" fomoMessage="30-Day Gamma Exposure · Regime Shifts · Gamma Flip Events">
+                                        <GexTimeline ticker={ticker} days={30} onEmpty={() => setActiveInsightTab('levels')} />
+                                    </ProGate>
                                 ) : activeInsightTab === 'levels' ? (
                                     <TechnicalLevelsMap
                                         currentPrice={displayPrice}
@@ -2130,11 +2129,11 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                 )}
                             </div>
 
-                            {/* B. Advanced Options Analysis (Fixed Height: 400px) — PRO */}
-                            <ProGate title="Tactical Range & Gamma Engine" mode="blur" fomoMessage="Max Pain · Call Wall · Put Floor · Net GEX · Gamma Flip Level · Squeeze Risk">
+                            {/* B. Advanced Options Analysis — PRO (Separate Gates) */}
                                 <div className="min-h-[400px] grid grid-cols-1 md:grid-cols-2 gap-3 shrink-0">
 
-                                    {/* 1. TACTICAL RANGE (Depth Gauge + Max Pain) */}
+                                    {/* 1. TACTICAL RANGE (Depth Gauge + Max Pain) — PRO */}
+                                    <ProGate title="Tactical Range" mode="blur" fomoMessage="Max Pain · Call Wall · Put Floor · Support/Resistance · Range Width">
                                     <div className="min-h-[400px] rounded-lg border border-white/10 bg-slate-900/60 backdrop-blur-lg shadow-lg shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] flex flex-col relative group hover:border-white/20 transition-colors">
                                         {/* Infographic BG: Micro Grid + Level Lines */}
                                         <div className="absolute inset-0 pointer-events-none z-0">
@@ -2282,8 +2281,10 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                             </p>
                                         </div>
                                     </div>
+                                    </ProGate>
 
-                                    {/* 2. NET GAMMA ENGINE (Infographic Style) */}
+                                    {/* 2. NET GAMMA ENGINE (Infographic Style) — PRO */}
+                                    <ProGate title="Net Gamma Engine" mode="blur" fomoMessage="Net GEX · Gamma Flip Level · P/C Ratio · Squeeze Risk · Gamma Concentration">
                                     <div className="min-h-[400px] rounded-lg border border-white/10 bg-slate-900/60 backdrop-blur-lg shadow-lg shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] flex flex-col relative group hover:border-white/20 transition-colors">
                                         {/* Infographic BG: Scanlines + Energy Pulse */}
                                         <div className="absolute inset-0 pointer-events-none z-0">
@@ -2585,8 +2586,8 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                             </p>
                                         </div>
                                     </div>
+                                    </ProGate>
                                 </div>
-                            </ProGate>
 
 
                             <div className="hidden">
@@ -2690,7 +2691,8 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                         {/* SIDEBAR (4 Cols) - Glass Stack */}
                         <div className="lg:col-span-4 flex flex-col gap-3 h-full overflow-hidden">
 
-                            {/* 1. AI Deep Analysis — Claude Sonnet 4 (HERO Position) */}
+                            {/* 1. AI Deep Analysis — Claude Sonnet 4 (HERO Position) — PRO */}
+                            <ProGate title="AI Deep Analysis" mode="blur" fomoMessage="AI Deep Technical · Options Positioning · News & Market Context">
                             <AIDeepAnalysis
                                 ticker={ticker}
                                 displayPrice={displayPrice}
@@ -2783,6 +2785,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                     relatedTickers: effectiveRelated?.topRelated?.map((r: any) => r.ticker) || [],
                                 }}
                             />
+                            </ProGate>
 
                             {/* 2. Decision Gate (Signal Core) — ELITE */}
                             <EliteGate title="Signal Core" mode="blur">
@@ -2861,7 +2864,8 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                 </div>
                             </EliteGate>
 
-                            {/* 2.5 Gamma Pressure Gauge — Bloomberg-tier visual */}
+                            {/* 2.5 Gamma Pressure Gauge — Bloomberg-tier visual — PRO */}
+                            <ProGate title="Gamma Pressure" mode="blur" fomoMessage="Short Gamma · Call Wall · Put Floor · Gamma Flip Level · Squeeze Risk">
                             <GammaPressureGauge
                                 netGex={structure?.netGex || 0}
                                 callWall={structure?.levels?.callWall || 0}
@@ -2871,6 +2875,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                 squeezeRisk={structure?.squeezeRisk || 'LOW'}
                                 squeezeScore={structure?.squeezeScore ?? 0}
                             />
+                            </ProGate>
 
 
 
