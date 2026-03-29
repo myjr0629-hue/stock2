@@ -1922,38 +1922,11 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                                     </div>
                                 </div>
                             </div>
-                        </div>
-                    </div>
-                )}
-            </ProGate>
 
-            {/* ═══ INDIVIDUAL GATED METRIC CARDS ═══ */}
-            {analysis && (
-                <div className="bg-gradient-to-br from-slate-900/80 via-slate-800/60 to-slate-900/80 rounded-xl border border-white/10 p-3 backdrop-blur-xl shadow-lg">
-                    <div className="flex flex-col lg:flex-row gap-2">
-                        {/* Left Column: AI Verdict Summary (repeated key levels) */}
-                        <div className="lg:w-[50%]">
-                            {/* Key Levels (FREE) */}
-                            <div className="flex items-center gap-3 mb-2">
-                                <div className="flex items-center gap-1">
-                                    <span className="text-[12px] text-slate-300">{ui('supportLabel')}</span>
-                                    <span className="text-xs text-emerald-400 font-bold">${putWall}</span>
-                                </div>
-                                <div className="flex items-center gap-1">
-                                    <span className="text-[12px] text-slate-300">{ui('resistanceLabel')}</span>
-                                    <span className="text-xs text-rose-400 font-bold">${callWall}</span>
-                                </div>
-                                <div className="flex items-center gap-1">
-                                    <span className="text-[12px] text-slate-300">{ui('currentLabel')}</span>
-                                    <span className="text-xs text-white font-bold">${currentPrice.toFixed(2)}</span>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Right Column: 4 Metric Cards (50% width) */}
-                        <div className="flex flex-col gap-2 lg:w-[50%] shrink-0">
-                            {/* Top Row: 4 Metric Cards (uniform height) */}
-                            <div className="flex gap-2">
+                            {/* 2-5. 4 Metrics + 현재가위치/SQUEEZE (50% width) */}
+                            <div className="flex flex-col gap-2 lg:w-[50%] shrink-0">
+                                {/* Top Row: 4 Metric Cards (uniform height) */}
+                                <div className="flex gap-2">
                                     {/* OPI - Glowing Circular Gauge - ENLARGED */}
                                     <div className="flex-1 bg-white/5 backdrop-blur-md rounded-xl p-3 border border-white/10 flex flex-col items-center justify-center relative overflow-hidden">
                                         {/* Glow background */}
@@ -2438,7 +2411,8 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                             </div>
                         </div>
                     </div>
-            )}
+                )}
+            </ProGate>
 
             {/* Tactical Intel Panel */}
             <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-3 h-[1050px]">
