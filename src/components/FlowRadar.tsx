@@ -1740,7 +1740,8 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                 </div>
             </div>
 
-            {/* [PREMIUM] AI VERDICT - Flow Topography Map v3.0 — Individual Gating Model */}
+            {/* [PREMIUM] AI VERDICT - Flow Topography Map v3.0 Style */}
+            <ProGate title="AI Verdict" fomoMessage={gt('fomoAiVerdict')} mode="peek">
                 {!isSystemReady ? (
                     /* Compact analyzing indicator — inline next to AI VERDICT title */
                     <div className="bg-gradient-to-br from-slate-900/80 via-slate-800/60 to-slate-900/80 rounded-xl border border-white/10 p-3 backdrop-blur-xl shadow-lg">
@@ -1802,8 +1803,7 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
 
                         {/* Metrics Grid - Glassmorphism Cards - Balanced 50/50 */}
                         <div className="flex flex-col lg:flex-row gap-2">
-                            {/* 1. Analysis Summary (50% width) - PRO GATED */}
-                            <ProGate title="AI Verdict" fomoMessage={gt('fomoAiVerdict')} mode="peek">
+                            {/* 1. Analysis Summary (50% width) - EXPANDED */}
                             <div className="lg:w-[50%] bg-white/5 backdrop-blur-md rounded-xl p-3 border border-white/10 shadow-inner flex flex-col">
                                 {/* Row 1: Analysis Header + Composite Badge */}
                                 <div className="flex items-center gap-2 mb-1.5">
@@ -1922,7 +1922,6 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                                     </div>
                                 </div>
                             </div>
-                            </ProGate>
 
                             {/* 2-5. 4 Metrics + 현재가위치/SQUEEZE (50% width) */}
                             <div className="flex flex-col gap-2 lg:w-[50%] shrink-0">
@@ -1967,7 +1966,7 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                                         <div className={`text-[13px] font-bold mt-1 relative z-10 ${opi.value > 20 ? 'text-emerald-400' : opi.value < -20 ? 'text-rose-400' : 'text-white'}`}>{opi.label}</div>
                                     </div>
 
-                                    {/* ATM IV - Enhanced with Strategy Guidance — FREE */}
+                                    {/* ATM IV - Enhanced with Strategy Guidance */}
                                     <div className="flex-1 bg-white/5 backdrop-blur-md rounded-xl p-3 border border-white/10 flex flex-col items-center justify-center relative overflow-hidden">
                                         {/* Glow background */}
                                         <div className={`absolute inset-0 opacity-15 ${ivPercentile.value >= 60 ? 'bg-rose-500' : ivPercentile.value <= 25 ? 'bg-cyan-500' : 'bg-slate-500'} blur-xl`} />
@@ -1996,8 +1995,7 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                                         </div>
                                     </div>
 
-                                    {/* COMPOSITE INDEX — PRO GATED */}
-                                    <ProGate title="Composite Index" fomoMessage={gt('fomoCompositeIndex')} mode="blur" compact>
+                                    {/* COMPOSITE INDEX - replaces Confluence */}
                                     <div className="flex-1 bg-white/5 backdrop-blur-md rounded-xl p-3 border border-white/10 flex flex-col items-center justify-center relative overflow-hidden">
                                         {/* Glow background */}
                                         <div className={`absolute inset-0 opacity-15 ${analysis.probability >= 65 ? 'bg-emerald-500' : analysis.probability <= 35 ? 'bg-rose-500' : 'bg-slate-500'} blur-xl`} />
@@ -2026,10 +2024,8 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                                             }
                                         </div>
                                     </div>
-                                    </ProGate>
 
-                                    {/* WHALE POSITION + Net Premium Flow — PRO GATED (peek) */}
-                                    <ProGate title="Whale Position" fomoMessage={gt('fomoWhalePosition')} mode="peek" compact>
+                                    {/* WHALE POSITION + Net Premium Flow */}
                                     <div className={`flex-1 backdrop-blur-md rounded-xl p-2 border flex flex-col items-center justify-center relative overflow-hidden ${analysis.whaleBias?.includes('BULL')
                                         ? 'bg-emerald-500/10 border-emerald-400/30'
                                         : analysis.whaleBias?.includes('BEAR')
@@ -2081,12 +2077,11 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                                             </div>
                                         )}
                                     </div>
-                                    </ProGate>
                                 </div>
 
-                                {/* Bottom Row: 현재가 위치 (FREE) + SQUEEZE PROBABILITY (PRO) */}
+                                {/* Bottom Row: 현재가 위치 + SQUEEZE PROBABILITY */}
                                 <div className="grid grid-cols-2 gap-2">
-                                    {/* 현재가 위치 (Compact) — FREE */}
+                                    {/* 현재가 위치 (Compact) */}
                                     <div className="bg-white/5 backdrop-blur-md rounded-xl p-3 border border-white/10 relative overflow-hidden">
                                         <div className={`absolute inset-0 opacity-10 ${(() => { const range = callWall - putWall; const pos = range > 0 ? ((currentPrice - putWall) / range) * 100 : 50; return pos < 30 ? 'bg-rose-500' : pos > 70 ? 'bg-emerald-500' : 'bg-indigo-500'; })()} blur-xl`} />
                                         {/* Infographic: price range gauge */}
@@ -2123,8 +2118,7 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                                         </div>
                                     </div>
 
-                                    {/* SQUEEZE PROBABILITY (Compact) — PRO GATED */}
-                                    <ProGate title="Squeeze Probability" fomoMessage={gt('fomoSqueezeProbability')} mode="blur" compact>
+                                    {/* SQUEEZE PROBABILITY (Compact) */}
                                     <div className="relative rounded-xl p-3 bg-gradient-to-br from-amber-950/40 to-slate-900/60 border border-amber-500/30 overflow-hidden">
                                         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(251,191,36,0.1),transparent_70%)]" />
                                         {/* Infographic: spring coil */}
@@ -2171,7 +2165,6 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                                             })()}
                                         </div>
                                     </div>
-                                    </ProGate>
                                 </div>
 
                                 {/* METRICS 2x2: Dark Pool / Short Vol / P/C Ratio / GEX */}
@@ -2413,7 +2406,7 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                         </div>
                     </div>
                 )}
-
+            </ProGate>
 
             {/* Tactical Intel Panel */}
             <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-3 h-[1050px]">
