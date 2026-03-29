@@ -104,7 +104,7 @@ const GUARDIAN_SNAPSHOT_PREFIX = 'guardian:snapshot:';
 // [V9.0] RLSI Intraday History — Redis-based for Vercel persistence
 interface RlsiHistoryEntry { time: string; score: number; }
 const RLSI_HISTORY_REDIS_KEY = 'guardian:rlsi_history';
-const RLSI_HISTORY_TTL = 24 * 60 * 60; // 24 hours
+const RLSI_HISTORY_TTL = 72 * 60 * 60; // 72 hours — survive full weekend (Fri close → Mon open)
 
 import { getFromCache, setInCache } from '../redisClient';
 

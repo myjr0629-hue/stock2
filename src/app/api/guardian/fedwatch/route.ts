@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getFromCache, setInCache } from '@/services/redisClient';
 
 const REDIS_KEY = 'fedwatch:latest';
+const REDIS_FALLBACK_KEY = 'fedwatch:fallback'; // Long-lived fallback for weekends
+const TTL_PRIMARY = 72 * 60 * 60;       // 72 hours — survive full weekend
+const TTL_FALLBACK = 7 * 24 * 60 * 60;  // 7 days — absolute safety net
 
 // POST — Store FedWatch data (called by scraper script)
 export async function POST(request: NextRequest) {
@@ -20,11 +23,18 @@ export async function POST(request: NextRequest) {
             daysUntilFomc: body.daysUntilFomc || null,
             contract: body.contract || null,
             midPrice: body.midPrice || null,
+            prevEase: body.prevEase ?? null,
+            prevNoChange: body.prevNoChange ?? null,
+            prevHike: body.prevHike ?? null,
             scrapedAt: body.scrapedAt || new Date().toISOString(),
             storedAt: new Date().toISOString(),
         };
 
-        await setInCache(REDIS_KEY, data, 86400);
+        // Save to both primary and long-lived fallback
+        await Promise.all([
+            setInCache(REDIS_KEY, data, TTL_PRIMARY),
+            setInCache(REDIS_FALLBACK_KEY, data, TTL_FALLBACK),
+        ]);
         console.log('[FedWatch Store] Saved:', data.noChange + '% noChange');
         return NextResponse.json({ ok: true, data });
     } catch (e: unknown) {
@@ -34,15 +44,31 @@ export async function POST(request: NextRequest) {
     }
 }
 
+// Helper: check if FedWatch data has meaningful content
+function hasMeaningfulData(d: Record<string, unknown>): boolean {
+    const total = ((d.noChange as number) || 0) + ((d.hike as number) || 0) + ((d.ease as number) || 0);
+    return total > 0 || !!d.targetRate || !!d.daysUntilFomc;
+}
+
 // GET — Retrieve FedWatch data (called by frontend)
 export async function GET() {
     try {
+        // Try primary cache first
         const cached = await getFromCache<Record<string, unknown>>(REDIS_KEY);
-        if (cached) {
+        if (cached && typeof cached.noChange === 'number' && hasMeaningfulData(cached)) {
             return NextResponse.json(cached, {
                 headers: { 'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600' },
             });
         }
+
+        // Fallback: long-lived backup (for weekends/holidays)
+        const fallback = await getFromCache<Record<string, unknown>>(REDIS_FALLBACK_KEY);
+        if (fallback && typeof fallback.noChange === 'number' && hasMeaningfulData(fallback)) {
+            return NextResponse.json({ ...fallback, _source: 'fallback' }, {
+                headers: { 'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600' },
+            });
+        }
+
         return NextResponse.json({
             ease: 0, noChange: 0, hike: 0,
             targetRate: null, daysUntilFomc: null,

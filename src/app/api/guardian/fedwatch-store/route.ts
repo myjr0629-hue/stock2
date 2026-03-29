@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { setInCache, getFromCache } from '@/services/redisClient';
 
 const REDIS_KEY = 'fedwatch:latest';
+const REDIS_FALLBACK_KEY = 'fedwatch:fallback'; // Long-lived fallback for weekends
+const TTL_PRIMARY = 72 * 60 * 60;       // 72 hours — survive full weekend
+const TTL_FALLBACK = 7 * 24 * 60 * 60;  // 7 days — absolute safety net
 
 // POST — Store FedWatch data (called by scraper script/Lambda)
 export async function POST(request: NextRequest) {
@@ -32,7 +35,11 @@ export async function POST(request: NextRequest) {
             source: 'scraper',
         };
 
-        await setInCache(REDIS_KEY, data, 86400);
+        // Save to both primary and long-lived fallback
+        await Promise.all([
+            setInCache(REDIS_KEY, data, TTL_PRIMARY),
+            setInCache(REDIS_FALLBACK_KEY, data, TTL_FALLBACK),
+        ]);
         return NextResponse.json({ ok: true });
     } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : 'Unknown error';
