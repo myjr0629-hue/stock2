@@ -808,3 +808,14 @@
   font-size: 13px !important;
   line-height: 1.65 !important;
 }
+
+/* ===== [GATE] CSS-FIRST FOUC PREVENTION ===== */
+/* [data-gate-pending] is set by FeatureGate during SSR/loading.
+   This ensures blur is applied by CSS BEFORE React hydrates,
+   eliminating the flash of ungated content on page refresh. */
+[data-gate-pending] > *:first-child {
+  filter: blur(8px) !important;
+  opacity: 0.4 !important;
+  pointer-events: none !important;
+  user-select: none !important;
+}

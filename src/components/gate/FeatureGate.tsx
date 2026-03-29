@@ -98,17 +98,25 @@ export function FeatureGate({
     }, []);
 
     // ──────────────────────────────────────────────
-    // ⚡ FOUC 방지: loading 체크를 최우선으로 실행
-    // SSR에서 tier='guest', document=undefined → isGuestPreview=true 되어
-    // 아래 hasAccess/isGuestPreview 우회 → 콘텐츠 노출되는 것을 차단.
-    // loading이 true인 동안은 반드시 블러 처리.
+    // ⚡ FOUC 방지 V2: CSS-first + React 이중 보호
+    // [data-gate-pending] 속성으로 CSS가 hydration 전부터 blur 적용.
+    // loading 중에도 lock 오버레이를 표시하여 "게이트 없는" 순간 제거.
     // ──────────────────────────────────────────────
     if (loading) {
+        const colors = TIER_COLOR[requiredTier] || TIER_COLOR.pro;
         return (
-            <div className={`relative ${className}`} style={{ minHeight }}>
-                <div className="pointer-events-none select-none" style={{ filter: 'blur(8px)', opacity: 0.5 }}>
+            <div className={`relative ${className}`} style={{ minHeight }} data-gate-pending="">
+                <div className="pointer-events-none select-none" style={{ filter: 'blur(8px)', opacity: 0.4 }}>
                     {children}
                 </div>
+                {/* Loading 중 간단한 lock 오버레이 — 게이트가 "없는" 느낌 방지 */}
+                {!compact && (
+                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
+                        <div className={`w-9 h-9 rounded-full ${colors.bg} border ${colors.border} flex items-center justify-center opacity-60`}>
+                            <Lock className={`w-4 h-4 ${colors.text}`} />
+                        </div>
+                    </div>
+                )}
             </div>
         );
     }
