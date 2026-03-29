@@ -453,7 +453,7 @@ export function SectorCommandCenter({ sectorData, onNavigate }: SectorCommandCen
                             </div>
                             {top3.map((q, i) => (
                                 i < 2 ? (
-                                    <ProGate key={q.ticker} title={`Alpha #${i + 1}`} fomoMessage={gt('fomoAlphaLeaders')} mode="blur" compact>
+                                    <ProGate key={q.ticker} title={`Alpha #${i + 1}`} fomoMessage={gt('fomoAlphaLeaders')} mode="blur" compact description={gt('descAiDeep')}>
                                         <AlphaCard {...q} rank={i + 1} isTop={true} />
                                     </ProGate>
                                 ) : (

@@ -839,7 +839,7 @@ export function TacticalReportDeck({ config, lockedTickers }: TacticalReportDeck
                                             );
                                             if (lockedTickers?.includes(t.ticker)) {
                                                 return (
-                                                    <ProGate key={t.ticker} title={`${t.ticker} Report`} fomoMessage={gt('fomoM7LockedTicker', { ticker: t.ticker })} mode="blur" compact>
+                                                    <ProGate key={t.ticker} title={`${t.ticker} Report`} fomoMessage={gt('fomoM7LockedTicker', { ticker: t.ticker })} mode="blur" compact description={gt('descAiDeep')}>
                                                         {card}
                                                     </ProGate>
                                                 );

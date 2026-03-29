@@ -418,7 +418,7 @@ export function M7TacticalDeck({ sharedData, sharedRefreshing, lockedTickers }: 
                     // If this ticker is in the locked list, wrap with ProGate blur
                     if (lockedTickers?.includes(item.ticker)) {
                         return (
-                            <ProGate key={item.ticker} title={`${item.ticker} Report`} fomoMessage={gt('fomoM7LockedTicker', { ticker: item.ticker })} mode="blur" compact>
+                            <ProGate key={item.ticker} title={`${item.ticker} Report`} fomoMessage={gt('fomoM7LockedTicker', { ticker: item.ticker })} mode="blur" compact description={gt('descAiDeep')}>
                                 {card}
                             </ProGate>
                         );

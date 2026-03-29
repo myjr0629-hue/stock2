@@ -1688,7 +1688,7 @@ function IntelContent({ initialReport, initialM7Data, initialPAIData, initialSCD
 
                     {/* POST-MARKET BRIEF — PRO (Unified View of All Sector Reports) */}
                     {activeTab === 'POST_MARKET_ALL' && (
-                        <ProGate fomoMessage={gt('fomoPostMarket')} mode="blur">
+                        <ProGate fomoMessage={gt('fomoPostMarket')} mode="blur" description={gt('descAiDeep')}>
                             <PostMarketBriefView />
                         </ProGate>
                     )}
@@ -1702,7 +1702,7 @@ function IntelContent({ initialReport, initialM7Data, initialPAIData, initialSCD
 
                     {/* HYPER DISCOVERY CONTENT (HUNTER CORPS) — ELITE */}
                     {activeTab === 'DISCOVERY' && (
-                        <EliteGate fomoMessage="Hyper Discovery Scanner — ELITE" mode="blur">
+                        <EliteGate fomoMessage="Hyper Discovery Scanner — ELITE" mode="blur" description={gt('descAiDeep')}>
                             <div className="space-y-8">
                                 <section className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6 mb-10 pt-4">
                                     <div>
@@ -1757,7 +1757,7 @@ function IntelContent({ initialReport, initialM7Data, initialPAIData, initialSCD
 
                     {/* PHYSICAL AI CONTENT — PRO */}
                     {activeTab === 'PHYSICAL_AI' && (
-                        <ProGate fomoMessage={gt('fomoPhysicalAI')} mode="blur">
+                        <ProGate fomoMessage={gt('fomoPhysicalAI')} mode="blur" description={gt('descAiDeep')}>
                             <div className="space-y-4">
 
                                 {/* Zone A: SectorSessionGrid (통합 실시간 상황판) */}
@@ -1815,7 +1815,7 @@ function IntelContent({ initialReport, initialM7Data, initialPAIData, initialSCD
 
                     {/* SILICON CORE CONTENT — PRO */}
                     {activeTab === 'SILICON_CORE' && (
-                        <ProGate fomoMessage={gt('fomoSiliconCore')} mode="blur">
+                        <ProGate fomoMessage={gt('fomoSiliconCore')} mode="blur" description={gt('descAiDeep')}>
                             <div className="space-y-4">
                                 <section>
                                     <SectorSessionGrid config={siliconCoreConfig} quotes={sectorData.siliconCore} />
@@ -1836,7 +1836,7 @@ function IntelContent({ initialReport, initialM7Data, initialPAIData, initialSCD
 
                     {/* POWER MATRIX CONTENT — PRO */}
                     {activeTab === 'POWER_MATRIX' && (
-                        <ProGate fomoMessage={gt('fomoPowerMatrix')} mode="blur">
+                        <ProGate fomoMessage={gt('fomoPowerMatrix')} mode="blur" description={gt('descAiDeep')}>
                             <div className="space-y-4">
                                 <section>
                                     <SectorSessionGrid config={powerMatrixConfig} quotes={sectorData.powerMatrix} />
@@ -1857,7 +1857,7 @@ function IntelContent({ initialReport, initialM7Data, initialPAIData, initialSCD
 
                     {/* BIO PULSE CONTENT — PRO */}
                     {activeTab === 'BIO_PULSE' && (
-                        <ProGate fomoMessage={gt('fomoBioPulse')} mode="blur">
+                        <ProGate fomoMessage={gt('fomoBioPulse')} mode="blur" description={gt('descAiDeep')}>
                             <div className="space-y-4">
                                 <section>
                                     <SectorSessionGrid config={bioPulseConfig} quotes={sectorData.bioPulse} />
@@ -1878,7 +1878,7 @@ function IntelContent({ initialReport, initialM7Data, initialPAIData, initialSCD
 
                     {/* CYBER SHIELD CONTENT — PRO */}
                     {activeTab === 'CYBER_SHIELD' && (
-                        <ProGate fomoMessage={gt('fomoCyberShield')} mode="blur">
+                        <ProGate fomoMessage={gt('fomoCyberShield')} mode="blur" description={gt('descAiDeep')}>
                             <div className="space-y-4">
                                 <section>
                                     <SectorSessionGrid config={cyberShieldConfig} quotes={sectorData.cyberShield} />
@@ -1899,7 +1899,7 @@ function IntelContent({ initialReport, initialM7Data, initialPAIData, initialSCD
 
                     {/* ORBIT DEFENSE CONTENT — PRO */}
                     {activeTab === 'ORBIT_DEFENSE' && (
-                        <ProGate fomoMessage={gt('fomoOrbitDefense')} mode="blur">
+                        <ProGate fomoMessage={gt('fomoOrbitDefense')} mode="blur" description={gt('descAiDeep')}>
                             <div className="space-y-4">
                                 <section>
                                     <SectorSessionGrid config={orbitDefenseConfig} quotes={sectorData.orbitDefense} />
@@ -1919,7 +1919,7 @@ function IntelContent({ initialReport, initialM7Data, initialPAIData, initialSCD
                     )}
 
                     {activeTab === 'QUANTUM_EDGE' && (
-                        <EliteGate fomoMessage={gt('fomoQuantumEdge')} mode="blur">
+                        <EliteGate fomoMessage={gt('fomoQuantumEdge')} mode="blur" description={gt('descAiDeep')}>
                             <div className="space-y-4">
                                 <section>
                                     <SectorSessionGrid config={quantumEdgeConfig} quotes={sectorData.quantumEdge} />
@@ -1939,7 +1939,7 @@ function IntelContent({ initialReport, initialM7Data, initialPAIData, initialSCD
                     )}
 
                     {activeTab === 'FINTECH_PULSE' && (
-                        <EliteGate fomoMessage={gt('fomoFintechPulse')} mode="blur">
+                        <EliteGate fomoMessage={gt('fomoFintechPulse')} mode="blur" description={gt('descAiDeep')}>
                             <div className="space-y-4">
                                 <section>
                                     <SectorSessionGrid config={fintechPulseConfig} quotes={sectorData.fintechPulse} />
@@ -1959,7 +1959,7 @@ function IntelContent({ initialReport, initialM7Data, initialPAIData, initialSCD
                     )}
 
                     {activeTab === 'CLOUD_FORTRESS' && (
-                        <EliteGate fomoMessage={gt('fomoCloudFortress')} mode="blur">
+                        <EliteGate fomoMessage={gt('fomoCloudFortress')} mode="blur" description={gt('descAiDeep')}>
                             <div className="space-y-4">
                                 <section>
                                     <SectorSessionGrid config={cloudFortressConfig} quotes={sectorData.cloudFortress} />

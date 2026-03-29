@@ -312,6 +312,7 @@ export default function WatchlistClientPage({
 
 // ─── STATS DASHBOARD BAR (Mockup 1) ─────────────────────────────────────
 function StatsBar({ items }: { items: EnrichedWatchlistItem[] }) {
+    const gt = useTranslations('gate');
     const t = useTranslations('watchlist');
     const [now, setNow] = useState(new Date());
 
@@ -427,7 +428,7 @@ function StatsBar({ items }: { items: EnrichedWatchlistItem[] }) {
 
             {/* ── Avg Alpha (Radar Rings BG) — PRO gate ── */}
             <div className="relative overflow-hidden rounded-xl border border-white/[0.12] bg-gradient-to-br from-white/[0.05] to-white/[0.02] backdrop-blur-xl p-4 hover:border-white/[0.18] transition-all duration-300 shadow-lg shadow-black/10">
-                <ProGate mode="blur" compact fomoMessage="AVG SCORE">
+                <ProGate mode="blur" compact fomoMessage="AVG SCORE" description={gt('descAiDeep')}>
                     <div className="flex items-center gap-3">
                         <StatsAlphaGauge score={stats.avgAlpha} grade={stats.avgGrade} />
                         <div>
@@ -1424,6 +1425,7 @@ function AddWatchlistModal({ onClose, onAdd, existingTickers = [], isElite, cate
     const [selectedCategory, setSelectedCategory] = useState('default');
     const t = useTranslations('watchlist');
     const tCommon = useTranslations('common');
+    const gt = useTranslations('gate');
 
     const isDuplicate = ticker.length > 0 && existingTickers.includes(ticker.toUpperCase());
 

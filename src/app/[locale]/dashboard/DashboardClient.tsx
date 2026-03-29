@@ -801,7 +801,7 @@ function MainChartPanel() {
                 {/* ── ROW 1: 구조 판단 (Structure) ── */}
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                     {/* Net GEX — PRO (peek: number visible, interpretation blurred) */}
-                    {customize.cardOrder.includes('netGex') && <ProGate title="Net GEX" mode="peek" compact>
+                    {customize.cardOrder.includes('netGex') && <ProGate title="Net GEX" mode="peek" compact description={gt('descNetGamma')}>
                         <div className={`relative p-4 rounded-xl border overflow-hidden transition-all duration-200 hover:-translate-y-0.5 hover:brightness-110 hover:border-white/15 ${(data?.netGex || 0) < 0 ? 'bg-rose-500/10 backdrop-blur-md border-rose-400/40 shadow-[0_0_25px_rgba(251,113,133,0.3)]' : 'bg-[#0d1829]/80 border-white/5'}`}>
                             {(data?.netGex || 0) < 0 && <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-rose-400 to-rose-500" />}
                             <svg className="absolute right-0 bottom-0 w-24 h-16 opacity-[0.06]" viewBox="0 0 96 64"><path d="M0 50 Q12 20 24 35 T48 25 T72 40 T96 15" fill="none" stroke="currentColor" strokeWidth="2" className="text-amber-400" /><path d="M0 55 Q16 40 32 45 T64 35 T96 30" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-amber-300" /></svg>
@@ -845,7 +845,7 @@ function MainChartPanel() {
                     </ProGate>}
 
                     {/* Gamma Flip — PRO (blur: SpotGamma core data) */}
-                    {customize.cardOrder.includes('gammaFlip') && <ProGate title="Gamma Flip" mode="blur" compact>
+                    {customize.cardOrder.includes('gammaFlip') && <ProGate title="Gamma Flip" mode="blur" compact description={gt('descGexRegime')}>
                         <div className={`relative p-4 rounded-xl border overflow-hidden transition-all duration-200 hover:-translate-y-0.5 hover:brightness-110 hover:border-white/15 ${data?.gammaFlipLevel && data?.underlyingPrice && data.underlyingPrice < data.gammaFlipLevel ? 'bg-rose-500/10 backdrop-blur-md border-rose-400/40 shadow-[0_0_25px_rgba(251,113,133,0.3)]' : 'bg-[#0d1829]/80 border-white/5'}`}>
                             {data?.gammaFlipLevel && data?.underlyingPrice && data.underlyingPrice < data.gammaFlipLevel && <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-rose-400 to-rose-500" />}
                             <svg className="absolute right-1 bottom-1 w-20 h-16 opacity-[0.06]" viewBox="0 0 80 64"><circle cx="40" cy="32" r="22" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-cyan-400" /><line x1="40" y1="5" x2="40" y2="59" stroke="currentColor" strokeWidth="1" className="text-cyan-300" strokeDasharray="3 3" /><line x1="13" y1="32" x2="67" y2="32" stroke="currentColor" strokeWidth="1" className="text-cyan-300" strokeDasharray="3 3" /></svg>
@@ -898,7 +898,7 @@ function MainChartPanel() {
                     </ProGate>}
 
                     {/* Squeeze — PRO (peek: score visible, interpretation blurred) */}
-                    {customize.cardOrder.includes('squeeze') && <ProGate title="Squeeze" fomoMessage={gt('fomoSqueeze')} mode="peek" compact>
+                    {customize.cardOrder.includes('squeeze') && <ProGate title="Squeeze" fomoMessage={gt('fomoSqueeze')} mode="peek" compact description={gt('descSqueeze')}>
                         <div className={`relative p-4 rounded-xl border overflow-hidden transition-all duration-200 hover:-translate-y-0.5 hover:brightness-110 hover:border-white/15 ${data?.squeezeRisk === 'EXTREME' || data?.squeezeRisk === 'HIGH' ? 'bg-amber-500/15 backdrop-blur-md border-amber-400/50 shadow-[0_0_30px_rgba(251,191,36,0.4)]' : 'bg-[#0d1829]/80 border-white/5'}`}>
                             {(data?.squeezeRisk === 'EXTREME' || data?.squeezeRisk === 'HIGH') && <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-amber-400 via-orange-500 to-amber-400 animate-pulse" />}
                             <svg className="absolute right-0 bottom-0 w-24 h-16 opacity-[0.06]" viewBox="0 0 96 64"><path d="M0 55 L12 35 L24 50 L36 20 L48 45 L60 15 L72 40 L84 10 L96 30" fill="none" stroke="currentColor" strokeWidth="2" className="text-amber-400" /></svg>
@@ -992,7 +992,7 @@ function MainChartPanel() {
 
                     {/* ── Levels & Institutional ── */}
                     {/* Max Pain — PRO (peek: price visible, % distance blurred) */}
-                    {customize.cardOrder.includes('maxPain') && <ProGate title="Max Pain" mode="peek" compact>
+                    {customize.cardOrder.includes('maxPain') && <ProGate title="Max Pain" mode="peek" compact description={gt('descMaxPain')}>
                         {(() => {
                             const mp = data?.maxPain || 0;
                             const price = data?.underlyingPrice || 0;
@@ -1054,7 +1054,7 @@ function MainChartPanel() {
                     </ProGate>}
 
                     {/* Call Wall / Put Floor — PRO (blur: options level data) */}
-                    {customize.cardOrder.includes('callPutWall') && <ProGate title="Call Wall / Put Floor" fomoMessage={gt('fomoDashCallPut')} mode="blur" compact>
+                    {customize.cardOrder.includes('callPutWall') && <ProGate title="Call Wall / Put Floor" fomoMessage={gt('fomoDashCallPut')} mode="blur" compact description={gt('descPutFloorCallWall')}>
                         {(() => {
                             const cw = data?.levels?.callWall || 0;
                             const pf = data?.levels?.putFloor || 0;
@@ -1097,7 +1097,7 @@ function MainChartPanel() {
                     </ProGate>}
 
                     {/* Dark Pool % — PRO (blur: institutional data, FlowAlgo $149) */}
-                    {customize.cardOrder.includes('darkPool') && <ProGate title="Dark Pool %" fomoMessage={gt('fomoDarkPool')} mode="blur" compact>
+                    {customize.cardOrder.includes('darkPool') && <ProGate title="Dark Pool %" fomoMessage={gt('fomoDarkPool')} mode="blur" compact description={gt('descDarkPool')}>
                         {(() => {
                             const dp = data?.darkPoolPct ?? 0;
                             const isAlert = dp >= 45;
@@ -1144,7 +1144,7 @@ function MainChartPanel() {
                     </ProGate>}
 
                     {/* Short Vol % — PRO (blur: Ortex $49-149) */}
-                    {customize.cardOrder.includes('shortVol') && <ProGate title="Short Vol %" fomoMessage={gt('fomoShortVol')} mode="blur" compact>
+                    {customize.cardOrder.includes('shortVol') && <ProGate title="Short Vol %" fomoMessage={gt('fomoShortVol')} mode="blur" compact description={gt('descShortVol')}>
                         {(() => {
                             const sv = data?.shortVolPct ?? 0;
                             const dp = data?.darkPoolPct ?? 0;
@@ -1199,7 +1199,7 @@ function MainChartPanel() {
 
                     {/* ── Volatility & Intraday ── */}
                     {/* ATM IV — PRO (blur: advanced volatility surface, QuantData $99) */}
-                    {customize.cardOrder.includes('atmIv') && <ProGate title="ATM IV" fomoMessage={gt('fomoAtmIv')} mode="blur" compact>
+                    {customize.cardOrder.includes('atmIv') && <ProGate title="ATM IV" fomoMessage={gt('fomoAtmIv')} mode="blur" compact description={gt('descIvSkew')}>
                         <div className={`relative p-4 rounded-xl border overflow-hidden transition-all duration-200 hover:-translate-y-0.5 hover:brightness-110 hover:border-white/15 ${(data?.atmIv || 0) > 50 ? 'bg-cyan-500/10 backdrop-blur-md border-cyan-400/40 shadow-[0_0_25px_rgba(34,211,238,0.3)]' : 'bg-[#0d1829]/80 border-white/5'}`}>
                             {(data?.atmIv || 0) > 50 && <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-cyan-400 to-cyan-500" />}
                             <svg className="absolute right-0 bottom-0 w-24 h-16 opacity-[0.06]" viewBox="0 0 96 64"><path d="M0 32 Q12 10 24 32 T48 32 T72 32 T96 32" fill="none" stroke="currentColor" strokeWidth="2" className="text-purple-400" /><path d="M0 32 Q12 48 24 32 T48 32 T72 32 T96 32" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-purple-300" strokeDasharray="3 3" /></svg>
@@ -1296,7 +1296,7 @@ function MainChartPanel() {
                     })() : null}
 
                     {/* GEX REGIME — PRO (blur: SpotGamma Pro $249) */}
-                    {customize.cardOrder.includes('gexRegime') && <EliteGate title="GEX Regime" fomoMessage={gt('fomoDashGexRegime')} compact>
+                    {customize.cardOrder.includes('gexRegime') && <EliteGate title="GEX Regime" fomoMessage={gt('fomoDashGexRegime')} compact description={gt('descGexRegime')}>
                         {(() => {
                             const price = data?.underlyingPrice || 0;
                             const flip = data?.gammaFlipLevel || 0;
@@ -1371,7 +1371,7 @@ function MainChartPanel() {
                     </EliteGate>}
 
                     {/* Implied Move — ELITE (blur: advanced derivatives) */}
-                    {customize.cardOrder.includes('impliedMove') && <EliteGate title="Implied Move" fomoMessage={gt('fomoDashImpliedMove')} mode="blur" compact>
+                    {customize.cardOrder.includes('impliedMove') && <EliteGate title="Implied Move" fomoMessage={gt('fomoDashImpliedMove')} mode="blur" compact description={gt('descImpliedMove')}>
                         {(() => {
                             const im = data?.impliedMovePct ?? 0;
                             const dir = data?.impliedMoveDir ?? 'neutral';
@@ -1428,7 +1428,7 @@ function MainChartPanel() {
 
                     {/* ── Additional Pool ── */}
                     {/* Context Score — PRO */}
-                    {customize.cardOrder.includes('alphaScore') && <ProGate title="Context Score" mode="peek" compact>
+                    {customize.cardOrder.includes('alphaScore') && <ProGate title="Context Score" mode="peek" compact description={gt('descAiDeep')}>
                         {(() => {
                             const alpha = data?.alpha;
                             const score = alpha?.score ?? 0;
@@ -1456,7 +1456,7 @@ function MainChartPanel() {
                     </ProGate>}
 
                     {/* Whale Index — PRO */}
-                    {customize.cardOrder.includes('whaleIndex') && <ProGate title="Whale Index" mode="blur" compact>
+                    {customize.cardOrder.includes('whaleIndex') && <ProGate title="Whale Index" mode="blur" compact description={gt('descAiDeep')}>
                         {(() => {
                             const wi = (data as any)?.whaleIndex ?? 0;
                             const conf = (data as any)?.whaleConfidence ?? '—';
@@ -1557,7 +1557,7 @@ function MainChartPanel() {
                     })()}
 
                     {/* OPI — PRO */}
-                    {customize.cardOrder.includes('opi') && <ProGate title="OPI" mode="peek" compact>
+                    {customize.cardOrder.includes('opi') && <ProGate title="OPI" mode="peek" compact description={gt('descAiDeep')}>
                         {(() => {
                             const pcr = data?.volumePcr ?? data?.pcr ?? null;
                             const gex = data?.netGex ?? null;
@@ -1584,7 +1584,7 @@ function MainChartPanel() {
                     </ProGate>}
 
                     {/* Smart Money — ELITE */}
-                    {customize.cardOrder.includes('smartMoney') && <EliteGate title="Smart Money" compact>
+                    {customize.cardOrder.includes('smartMoney') && <EliteGate title="Smart Money" compact description={gt('descAiDeep')}>
                         {(() => {
                             const dp = data?.darkPoolPct ?? 0;
                             const sv = data?.shortVolPct ?? 0;
@@ -1612,7 +1612,7 @@ function MainChartPanel() {
                     </EliteGate>}
 
                     {/* IV Rank — PRO */}
-                    {customize.cardOrder.includes('ivRank') && <ProGate title="IV Rank" mode="peek" compact>
+                    {customize.cardOrder.includes('ivRank') && <ProGate title="IV Rank" mode="peek" compact description={gt('descAiDeep')}>
                         {(() => {
                             const iv = data?.atmIv ?? 0;
                             const ivRank = iv > 0 ? Math.min(Math.round(iv * 1.5), 100) : null;

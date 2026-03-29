@@ -971,7 +971,7 @@ export function SectorSessionGrid({ config, quotes, loading, refreshing, lockedT
                     // If this ticker is in the locked list, wrap with ProGate blur
                     if (lockedTickers?.includes(q.ticker)) {
                         return (
-                            <ProGate key={q.ticker} title={`${q.ticker} Analysis`} fomoMessage={gt('fomoM7LockedTicker', { ticker: q.ticker })} mode="blur" compact>
+                            <ProGate key={q.ticker} title={`${q.ticker} Analysis`} fomoMessage={gt('fomoM7LockedTicker', { ticker: q.ticker })} mode="blur" compact description={gt('descAiDeep')}>
                                 {card}
                             </ProGate>
                         );

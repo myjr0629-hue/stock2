@@ -400,7 +400,7 @@ export default function GuardianPage() {
                             <div className="absolute bottom-2 left-2 w-2 h-2 border-b border-l border-slate-600"></div>
                             <div className="absolute bottom-2 right-2 w-2 h-2 border-b border-r border-slate-600"></div>
 
-                            <ProGate title="Gravity Gauge" fomoMessage={gt('fomoGravityGauge')} mode="peek" compact blurPx={6}>
+                            <ProGate title="Gravity Gauge" fomoMessage={gt('fomoGravityGauge')} description={gt('descGravityGauge')} mode="peek" compact blurPx={6}>
                                 <GravityGauge score={data?.rlsi.score || 0} loading={loading} session={data?.rlsi.session} components={data?.rlsi.components} rlsiHistory={data?.rlsiHistory} regime={data?.rlsi.regime} zSignal={data?.rlsi.zSignal} />
                             </ProGate>
 
@@ -420,7 +420,7 @@ export default function GuardianPage() {
                                     backgroundPosition: '10px 10px',
                                 }}
                             />
-                            <ProGate title="Reality Check" fomoMessage={gt('fomoRealityCheck')} mode="peek" compact blurPx={6}>
+                            <ProGate title="Reality Check" fomoMessage={gt('fomoRealityCheck')} description={gt('descRealityCheck')} mode="peek" compact blurPx={6}>
                                 <RealityCheck
                                     nasdaqChange={data?.market?.nqChangePercent || 0}
                                     guardianScore={data?.rlsi.score || 0}
@@ -453,7 +453,7 @@ export default function GuardianPage() {
                                 <rect x="0" y="90%" width="20%" height="3" fill="rgba(16,185,129,0.08)" rx="1.5" />
                             </svg>
                             <div className="flex-1 flex flex-col">
-                                <ProGate title="RLSI Insight" fomoMessage={gt('fomoRlsiInsight')} mode="blur" compact>
+                                <ProGate title="RLSI Insight" fomoMessage={gt('fomoRlsiInsight')} description={gt('descRlsiInsight')} mode="blur" compact>
                                     {/* Tab Toggle */}
                                     <div className="flex items-center gap-1 px-3 pt-2 pb-1">
                                         {(['insight', 'whatif'] as const).map(tab => (
@@ -511,7 +511,7 @@ export default function GuardianPage() {
                         {/* LEFT: GAMMA SHIELD + MAP (Cols 1-8) */}
                         <div className="col-span-12 lg:col-span-8 flex flex-col gap-4">
                             {/* [V10.0] GAMMA SHIELD — PRO */}
-                            <ProGate title="Gamma Shield" fomoMessage={gt('fomoGammaShield')} mode="blur" compact>
+                            <ProGate title="Gamma Shield" fomoMessage={gt('fomoGammaShield')} description={gt('descGammaShield')} mode="blur" compact>
                                 <GammaShield data={data?.gammaShield} isMarketActive={isMarketActive} />
                             </ProGate>
 
@@ -769,7 +769,7 @@ export default function GuardianPage() {
                                     <EconomicCalendarWidget locale={locale} />
 
                                     {/* 1. TACTICAL VERDICT (Compact, Top) — PRO ONLY */}
-                                    <ProGate title="Tactical Verdict" fomoMessage={gt('fomoIntelStack')} mode="blur">
+                                    <ProGate title="Tactical Verdict" fomoMessage={gt('fomoIntelStack')} description={gt('descRlsiInsight')} mode="blur">
                                     <div className="border border-slate-800 rounded-lg p-5 relative flex flex-col shadow-2xl flex-none overflow-hidden"
                                         style={{
                                             background: verdict.sentiment === 'BULLISH'

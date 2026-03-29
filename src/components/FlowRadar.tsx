@@ -1804,7 +1804,7 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                         <div className="flex flex-col lg:flex-row gap-2">
                             {/* 1. Analysis Summary (50% width) - EXPANDED */}
                             <div className="lg:w-[50%] bg-white/5 backdrop-blur-md rounded-xl p-3 border border-white/10 shadow-inner flex flex-col">
-                              <ProGate title="AI Verdict" fomoMessage={gt('fomoAiVerdict')} mode="peek">
+                              <ProGate title="AI Verdict" fomoMessage={gt('fomoAiVerdict')} description={gt('descAiVerdict')} mode="peek">
                                 {/* Row 1: Analysis Header + Composite Badge */}
                                 <div className="flex items-center gap-2 mb-1.5">
                                     <Activity size={14} className="text-cyan-400" />
@@ -1929,7 +1929,7 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                                 {/* Top Row: 4 Metric Cards (uniform height) */}
                                 <div className="flex gap-2">
                                     {/* === PRO GATED: OPI === */}
-                                    <ProGate title="OPI" fomoMessage={gt('fomoOpi')} mode="blur" compact className="flex-1">
+                                    <ProGate title="OPI" fomoMessage={gt('fomoOpi')} description={gt('descOpi')} mode="blur" compact className="flex-1">
                                     <div className="flex-1 bg-white/5 backdrop-blur-md rounded-xl p-3 border border-white/10 flex flex-col items-center justify-center relative overflow-hidden">
                                         {/* Glow background */}
                                         <div className={`absolute inset-0 opacity-15 ${opi.value > 20 ? 'bg-emerald-500' : opi.value < -20 ? 'bg-rose-500' : 'bg-slate-500'} blur-xl`} />
@@ -1999,7 +1999,7 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                                     </div>
 
                                     {/* === PRO GATED: COMPOSITE INDEX === */}
-                                    <ProGate title="Composite Index" fomoMessage={gt('fomoComposite')} mode="blur" compact className="flex-1">
+                                    <ProGate title="Composite Index" fomoMessage={gt('fomoComposite')} description={gt('descComposite')} mode="blur" compact className="flex-1">
                                     <div className="flex-1 bg-white/5 backdrop-blur-md rounded-xl p-3 border border-white/10 flex flex-col items-center justify-center relative overflow-hidden">
                                         {/* Glow background */}
                                         <div className={`absolute inset-0 opacity-15 ${analysis.probability >= 65 ? 'bg-emerald-500' : analysis.probability <= 35 ? 'bg-rose-500' : 'bg-slate-500'} blur-xl`} />
@@ -2031,7 +2031,7 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                                     </ProGate>
 
                                     {/* === PRO GATED: WHALE POSITION === */}
-                                    <ProGate title={ui('whalePosition')} fomoMessage={gt('fomoWhalePosition')} mode="blur" compact className="flex-1">
+                                    <ProGate title={ui('whalePosition')} fomoMessage={gt('fomoWhalePosition')} description={gt('descWhale')} mode="blur" compact className="flex-1">
                                     <div className={`flex-1 backdrop-blur-md rounded-xl p-2 border flex flex-col items-center justify-center relative overflow-hidden ${analysis.whaleBias?.includes('BULL')
                                         ? 'bg-emerald-500/10 border-emerald-400/30'
                                         : analysis.whaleBias?.includes('BEAR')
@@ -2126,7 +2126,7 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                                     </div>
 
                                     {/* === PRO GATED: SQUEEZE PROBABILITY === */}
-                                    <ProGate title="Squeeze" fomoMessage={gt('fomoSqueeze')} mode="blur" compact>
+                                    <ProGate title="Squeeze" fomoMessage={gt('fomoSqueeze')} description={gt('descSqueeze')} mode="blur" compact>
                                     <div className="relative rounded-xl p-3 bg-gradient-to-br from-amber-950/40 to-slate-900/60 border border-amber-500/30 overflow-hidden">
                                         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,rgba(251,191,36,0.1),transparent_70%)]" />
                                         {/* Infographic: spring coil */}
@@ -2179,7 +2179,7 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                                 {/* METRICS 2x2: Dark Pool / Short Vol / P/C Ratio / GEX */}
                                 <div className="grid grid-cols-2 gap-2 mt-2">
                                     {/* === PRO GATED: Dark Pool % === */}
-                                    <ProGate title="Dark Pool" fomoMessage={gt('fomoDarkPool')} mode="blur" compact>
+                                    <ProGate title="Dark Pool" fomoMessage={gt('fomoDarkPool')} description={gt('descDarkPool')} mode="blur" compact>
                                     <div className="relative bg-white/5 backdrop-blur-xl rounded-xl p-3 border border-white/20 shadow-[0_8px_32px_rgba(0,0,0,0.3)] overflow-hidden group hover:border-purple-500/50 transition-all duration-300">
                                 <div className="absolute inset-0 bg-gradient-to-br from-purple-500/10 to-transparent pointer-events-none" />
                                 <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-purple-400/50 to-transparent" />
@@ -2249,7 +2249,7 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                                     </ProGate>
 
                                     {/* === PRO GATED: Short Volume % === */}
-                                    <ProGate title="Short Volume" fomoMessage={gt('fomoShortVol')} mode="blur" compact>
+                                    <ProGate title="Short Volume" fomoMessage={gt('fomoShortVol')} description={gt('descShortVol')} mode="blur" compact>
                                     <div className="relative bg-white/5 backdrop-blur-xl rounded-xl p-3 border border-white/20 shadow-[0_8px_32px_rgba(0,0,0,0.3)] overflow-hidden group hover:border-rose-500/50 transition-all duration-300">
                                 <div className="absolute inset-0 bg-gradient-to-br from-rose-500/10 to-transparent pointer-events-none" />
                                 <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-rose-400/50 to-transparent" />
@@ -2350,7 +2350,7 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                 })()}
 
                 {/* === PRO GATED: GEX Regime === */}
-                <ProGate title="GEX Regime" fomoMessage={gt('fomoGexRegime')} mode="blur" compact>
+                <ProGate title="GEX Regime" fomoMessage={gt('fomoGexRegime')} description={gt('descGexRegime')} mode="blur" compact>
                     <div className="relative bg-white/5 backdrop-blur-xl rounded-xl p-3 border border-white/20 shadow-[0_8px_32px_rgba(0,0,0,0.3)] overflow-hidden group hover:border-amber-500/50 transition-all duration-300">
                         <div className="absolute inset-0 bg-gradient-to-br from-amber-500/10 to-transparent pointer-events-none" />
                         <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-amber-400/50 to-transparent" />
@@ -2422,7 +2422,7 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                     <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.02)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.02)_1px,transparent_1px)] bg-[size:20px_20px] pointer-events-none" />
                     <CardContent className="p-6 relative z-10 flex-1 flex flex-col min-h-0 overflow-hidden">
                         {/* [TOP] HOLOGRAPHIC WHALE STREAM (Relocated) */}
-                        <EliteGate title="Institutional Order Flow" fomoMessage={gt('fomoClassifiedFlow')} mode="blur" minHeight="280px">
+                        <EliteGate title="Institutional Order Flow" fomoMessage={gt('fomoClassifiedFlow')} description={gt('descClassifiedFlow')} mode="blur" minHeight="280px">
                             <div className="relative -mx-4 -mt-1">
                                 {/* Decorative Line (The "Stream") */}
                                 <div className="absolute top-1/2 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-cyan-500/20 to-transparent blur-[1px]" />
@@ -2790,7 +2790,7 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                         </EliteGate>
 
                         {/* Visual Separator between LEVEL 3 and Bar Chart — PRO */}
-                        <ProGate title="Options Landscape" fomoMessage={gt('fomoOptionsBattlefield')} mode="blur">
+                        <ProGate title="Options Landscape" fomoMessage={gt('fomoOptionsBattlefield')} description={gt('descOptionsLandscape')} mode="blur">
                             <div className="relative my-4">
                                 <div className="absolute inset-0 flex items-center">
                                     <div className="w-full border-t border-white/10"></div>
@@ -3216,7 +3216,7 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
 
                         <CardContent className="p-4 pb-4 flex flex-col relative z-10 flex-1">
                             {/* OPTIONS MARKET REGIME (OMR) — ELITE */}
-                            <EliteGate title="Options Market Regime" fomoMessage={gt('fomoOmr')} mode="blur" compact>
+                            <EliteGate title="Options Market Regime" fomoMessage={gt('fomoOmr')} description={gt('descOmr')} mode="blur" compact>
                                 <div className={`mb-4 bg-gradient-to-br ${omr.bg} border ${omr.border} rounded-lg p-4 relative overflow-hidden group hover:border-opacity-40 transition-all`}>
                                     <div className="absolute inset-0 bg-white/[0.02] blur-xl opacity-0 group-hover:opacity-100 transition-opacity" />
                                     {/* Infographic: regime pulse grid */}
@@ -3274,7 +3274,7 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                             </EliteGate>
 
                             {/* Implied Move (기대변동폭) — PRO */}
-                            <ProGate title="Implied Move" fomoMessage={gt('fomoImpliedMove')} mode="blur" compact>
+                            <ProGate title="Implied Move" fomoMessage={gt('fomoImpliedMove')} description={gt('descImpliedMove')} mode="blur" compact>
                                 <div className="mb-4 bg-gradient-to-br from-teal-950/20 to-slate-900/40 border border-teal-500/15 rounded-lg p-4 relative overflow-hidden group hover:border-teal-500/30 transition-all">
                                     <div className="absolute inset-0 bg-teal-500/3 blur-xl opacity-0 group-hover:opacity-100 transition-opacity" />
                                     {/* Infographic: expanding arrows (implied move range) */}
@@ -3304,7 +3304,7 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                             </ProGate>
 
                             {/* PUT FLOOR + CALL WALL: 2-Column Grid — PRO peek */}
-                            <ProGate title="Put Floor / Call Wall" fomoMessage={gt('fomoPutFloorCallWall')} mode="peek" compact>
+                            <ProGate title="Put Floor / Call Wall" fomoMessage={gt('fomoPutFloorCallWall')} description={gt('descPutFloorCallWall')} mode="peek" compact>
                                 <div className="grid grid-cols-2 gap-2">
                                     {/* PUT FLOOR (Left - Support) */}
                                     <div className="bg-gradient-to-br from-rose-950/30 to-slate-900/50 border border-rose-500/20 rounded-lg p-3 relative overflow-hidden group hover:border-rose-500/40 transition-all">
@@ -3351,7 +3351,7 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                             {/* Other Indicators: 1-Column Full-Width with Spacious Layout */}
                             <div className="flex flex-col gap-3 mt-3 flex-1">
                                 {/* Smart Money Score — ELITE */}
-                                <EliteGate title="Institutional Activity" mode="blur" compact>
+                                <EliteGate title="Institutional Activity" description={gt('descInstActivity')} mode="blur" compact>
                                     <div className="bg-gradient-to-br from-indigo-950/20 to-slate-900/40 border border-indigo-500/15 rounded-lg p-4 relative overflow-hidden group hover:border-indigo-500/30 transition-all">
                                         <div className="absolute inset-0 bg-indigo-500/3 blur-xl opacity-0 group-hover:opacity-100 transition-opacity" />
                                         {/* Infographic: money flow stack */}
@@ -3379,7 +3379,7 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                                 </EliteGate>
 
                                 {/* Max Pain 거리 — PRO */}
-                                <ProGate title="Max Pain" fomoMessage={gt('fomoMaxPain')} mode="blur" compact>
+                                <ProGate title="Max Pain" fomoMessage={gt('fomoMaxPain')} description={gt('descMaxPain')} mode="blur" compact>
                                     <div className="bg-gradient-to-br from-orange-950/20 to-slate-900/40 border border-orange-500/15 rounded-lg p-4 relative overflow-hidden group hover:border-orange-500/30 transition-all">
                                         <div className="absolute inset-0 bg-orange-500/3 blur-xl opacity-0 group-hover:opacity-100 transition-opacity" />
                                         {/* Infographic: target crosshair */}
@@ -3408,7 +3408,7 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                                 </ProGate>
 
                                 {/* IV Skew — PRO */}
-                                <ProGate title="IV Skew" fomoMessage={gt('fomoIvSkew')} mode="blur" compact>
+                                <ProGate title="IV Skew" fomoMessage={gt('fomoIvSkew')} description={gt('descIvSkew')} mode="blur" compact>
                                     <div className="bg-gradient-to-br from-violet-950/20 to-slate-900/40 border border-violet-500/15 rounded-lg p-4 relative overflow-hidden group hover:border-violet-500/30 transition-all">
                                         <div className="absolute inset-0 bg-violet-500/3 blur-xl opacity-0 group-hover:opacity-100 transition-opacity" />
                                         {/* Infographic: tilted skew line */}
@@ -3436,7 +3436,7 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                                 </ProGate>
 
                                 {/* DEX (Delta Exposure) — ELITE */}
-                                <EliteGate title="DEX" fomoMessage={gt('fomoDex')} mode="blur" compact>
+                                <EliteGate title="DEX" fomoMessage={gt('fomoDex')} description={gt('descDex')} mode="blur" compact>
                                     <div className="bg-gradient-to-br from-cyan-950/20 to-slate-900/40 border border-cyan-500/15 rounded-lg p-4 relative overflow-hidden group hover:border-cyan-500/30 transition-all">
                                         <div className="absolute inset-0 bg-cyan-500/3 blur-xl opacity-0 group-hover:opacity-100 transition-opacity" />
                                         {/* Infographic: delta hedging arrows */}
@@ -3463,7 +3463,7 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                                 </EliteGate>
 
                                 {/* UOA Score — PRO */}
-                                <ProGate title={gt('titleUoa')} mode="blur" compact>
+                                <ProGate title={gt('titleUoa')} description={gt('descUoa')} mode="blur" compact>
                                     <div className="bg-gradient-to-br from-amber-950/20 to-slate-900/40 border border-amber-500/15 rounded-lg p-4 relative overflow-hidden group hover:border-amber-500/30 transition-all">
                                         <div className="absolute inset-0 bg-amber-500/3 blur-xl opacity-0 group-hover:opacity-100 transition-opacity" />
                                         {/* Infographic: alert burst */}
