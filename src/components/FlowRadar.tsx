@@ -2171,8 +2171,8 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                                 {/* METRICS 2x2: Dark Pool / Short Vol / P/C Ratio / GEX */}
                                 <div className="grid grid-cols-2 gap-2 mt-2">
                                     {/* === PRO GATED: Dark Pool % === */}
+                                    <ProGate title="Dark Pool" fomoMessage={gt('fomoDarkPool')} mode="blur" compact>
                                     <div className="relative bg-white/5 backdrop-blur-xl rounded-xl p-3 border border-white/20 shadow-[0_8px_32px_rgba(0,0,0,0.3)] overflow-hidden group hover:border-purple-500/50 transition-all duration-300">
-                              <ProGate title="Dark Pool" fomoMessage={gt('fomoDarkPool')} mode="blur">
                                 <div className="absolute inset-0 bg-gradient-to-br from-purple-500/10 to-transparent pointer-events-none" />
                                 <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-purple-400/50 to-transparent" />
                                 {/* Infographic: scattered dots (institutional distribution) */}
@@ -2237,12 +2237,12 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                                         </div>
                                     )}
                                 </div>
-                              </ProGate>
                             </div>
+                                    </ProGate>
 
-                            {/* Short Volume % */}
-                            <div className="relative bg-white/5 backdrop-blur-xl rounded-xl p-3 border border-white/20 shadow-[0_8px_32px_rgba(0,0,0,0.3)] overflow-hidden group hover:border-rose-500/50 transition-all duration-300">
-                              <ProGate title="Short Volume" fomoMessage={gt('fomoShortVol')} mode="blur">
+                                    {/* === PRO GATED: Short Volume % === */}
+                                    <ProGate title="Short Volume" fomoMessage={gt('fomoShortVol')} mode="blur" compact>
+                                    <div className="relative bg-white/5 backdrop-blur-xl rounded-xl p-3 border border-white/20 shadow-[0_8px_32px_rgba(0,0,0,0.3)] overflow-hidden group hover:border-rose-500/50 transition-all duration-300">
                                 <div className="absolute inset-0 bg-gradient-to-br from-rose-500/10 to-transparent pointer-events-none" />
                                 <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-rose-400/50 to-transparent" />
                                 {/* Infographic: descending bars (short selling pressure) */}
@@ -2273,8 +2273,8 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                                         </span>
                                     )}
                                 </div>
-                              </ProGate>
-                                    </div>
+                            </div>
+                                    </ProGate>
 
                 {/* === FREE: P/C Ratio (경쟁사 무료 제공 지표) === */}
                 {(() => {
