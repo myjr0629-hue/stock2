@@ -1741,7 +1741,6 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
             </div>
 
             {/* [PREMIUM] AI VERDICT - Flow Topography Map v3.0 — Individual Gating Model */}
-            <ProGate title="AI Verdict" fomoMessage={gt('fomoAiVerdict')} mode="peek">
                 {!isSystemReady ? (
                     /* Compact analyzing indicator — inline next to AI VERDICT title */
                     <div className="bg-gradient-to-br from-slate-900/80 via-slate-800/60 to-slate-900/80 rounded-xl border border-white/10 p-3 backdrop-blur-xl shadow-lg">
@@ -1803,7 +1802,8 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
 
                         {/* Metrics Grid - Glassmorphism Cards - Balanced 50/50 */}
                         <div className="flex flex-col lg:flex-row gap-2">
-                            {/* 1. Analysis Summary (50% width) - EXPANDED */}
+                            {/* 1. Analysis Summary (50% width) - PRO GATED */}
+                            <ProGate title="AI Verdict" fomoMessage={gt('fomoAiVerdict')} mode="peek">
                             <div className="lg:w-[50%] bg-white/5 backdrop-blur-md rounded-xl p-3 border border-white/10 shadow-inner flex flex-col">
                                 {/* Row 1: Analysis Header + Composite Badge */}
                                 <div className="flex items-center gap-2 mb-1.5">
@@ -1922,6 +1922,7 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                                     </div>
                                 </div>
                             </div>
+                            </ProGate>
 
                             {/* 2-5. 4 Metrics + 현재가위치/SQUEEZE (50% width) */}
                             <div className="flex flex-col gap-2 lg:w-[50%] shrink-0">
@@ -2412,7 +2413,7 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                         </div>
                     </div>
                 )}
-            </ProGate>
+
 
             {/* Tactical Intel Panel */}
             <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-3 h-[1050px]">
