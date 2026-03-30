@@ -48,6 +48,8 @@ interface FeatureGateProps {
     compact?: boolean;
     /** 블러 강도 직접 지정 (px) — 설정 시 기본값 대신 사용 */
     blurPx?: number;
+    /** 툴팁 수평 정렬 — 'center'(기본) 또는 'left'(오른쪽 사이드바용, 왼쪽으로 펼침) */
+    tooltipAlign?: 'center' | 'left';
 }
 
 // ============================================================
@@ -89,6 +91,7 @@ export function FeatureGate({
     minHeight,
     compact = false,
     blurPx,
+    tooltipAlign = 'center',
 }: FeatureGateProps) {
     const { hasAccess, loading, tier } = useTier();
     const gt = useTranslations('gate');
@@ -187,8 +190,8 @@ export function FeatureGate({
                                         onMouseLeave={() => setShowTooltip(false)}
                                     />
                                     {showTooltip && (
-                                        <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-52 px-3 py-2 rounded-lg bg-slate-900/95 backdrop-blur-md border border-slate-600/40 shadow-2xl shadow-black/50 z-50 pointer-events-none">
-                                            <div className="absolute bottom-full left-1/2 -translate-x-1/2 w-2 h-2 bg-slate-900/95 border-l border-t border-slate-600/40 transform rotate-45 mb-[-5px]" />
+                                        <div className={`absolute top-full mt-2 w-52 px-3 py-2 rounded-lg bg-slate-900/95 backdrop-blur-md border border-slate-600/40 shadow-2xl shadow-black/50 z-50 pointer-events-none ${tooltipAlign === 'left' ? 'right-0' : 'left-1/2 -translate-x-1/2'}`}>
+                                            <div className={`absolute bottom-full w-2 h-2 bg-slate-900/95 border-l border-t border-slate-600/40 transform rotate-45 mb-[-5px] ${tooltipAlign === 'left' ? 'right-3' : 'left-1/2 -translate-x-1/2'}`} />
                                             <p className="text-[11px] text-slate-200 leading-relaxed text-center">
                                                 {description}
                                             </p>
@@ -250,11 +253,11 @@ export function FeatureGate({
                                         onMouseLeave={() => setShowTooltip(false)}
                                     />
                                     {showTooltip && (
-                                        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-64 px-3.5 py-2.5 rounded-lg bg-slate-900/95 backdrop-blur-md border border-slate-600/40 shadow-2xl shadow-black/50 z-50 pointer-events-none">
+                                        <div className={`absolute bottom-full mb-2 w-64 px-3.5 py-2.5 rounded-lg bg-slate-900/95 backdrop-blur-md border border-slate-600/40 shadow-2xl shadow-black/50 z-50 pointer-events-none ${tooltipAlign === 'left' ? 'right-0' : 'left-1/2 -translate-x-1/2'}`}>
                                             <p className="text-[11px] text-slate-200 leading-relaxed text-center">
                                                 {description}
                                             </p>
-                                            <div className="absolute top-full left-1/2 -translate-x-1/2 w-2 h-2 bg-slate-900/95 border-r border-b border-slate-600/40 transform rotate-45 -mt-1" />
+                                            <div className={`absolute top-full w-2 h-2 bg-slate-900/95 border-r border-b border-slate-600/40 transform rotate-45 -mt-1 ${tooltipAlign === 'left' ? 'right-3' : 'left-1/2 -translate-x-1/2'}`} />
                                         </div>
                                     )}
                                 </div>

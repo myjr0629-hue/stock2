@@ -3216,7 +3216,7 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
 
                         <CardContent className="p-4 pb-4 flex flex-col relative z-10 flex-1">
                             {/* OPTIONS MARKET REGIME (OMR) — ELITE */}
-                            <EliteGate title="Options Market Regime" fomoMessage={gt('fomoOmr')} description={gt('descOmr')} mode="blur" compact>
+                            <EliteGate title="Options Market Regime" fomoMessage={gt('fomoOmr')} description={gt('descOmr')} mode="blur" compact tooltipAlign="left">
                                 <div className={`mb-4 bg-gradient-to-br ${omr.bg} border ${omr.border} rounded-lg p-4 relative overflow-hidden group hover:border-opacity-40 transition-all`}>
                                     <div className="absolute inset-0 bg-white/[0.02] blur-xl opacity-0 group-hover:opacity-100 transition-opacity" />
                                     {/* Infographic: regime pulse grid */}
@@ -3274,7 +3274,7 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                             </EliteGate>
 
                             {/* Implied Move (기대변동폭) — PRO */}
-                            <ProGate title="Implied Move" fomoMessage={gt('fomoImpliedMove')} description={gt('descImpliedMove')} mode="blur" compact>
+                            <ProGate title="Implied Move" fomoMessage={gt('fomoImpliedMove')} description={gt('descImpliedMove')} mode="blur" compact tooltipAlign="left">
                                 <div className="mb-4 bg-gradient-to-br from-teal-950/20 to-slate-900/40 border border-teal-500/15 rounded-lg p-4 relative overflow-hidden group hover:border-teal-500/30 transition-all">
                                     <div className="absolute inset-0 bg-teal-500/3 blur-xl opacity-0 group-hover:opacity-100 transition-opacity" />
                                     {/* Infographic: expanding arrows (implied move range) */}
@@ -3304,7 +3304,7 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                             </ProGate>
 
                             {/* PUT FLOOR + CALL WALL: 2-Column Grid — PRO peek */}
-                            <ProGate title="Put Floor / Call Wall" fomoMessage={gt('fomoPutFloorCallWall')} description={gt('descPutFloorCallWall')} mode="peek" compact>
+                            <ProGate title="Put Floor / Call Wall" fomoMessage={gt('fomoPutFloorCallWall')} description={gt('descPutFloorCallWall')} mode="peek" compact tooltipAlign="left">
                                 <div className="grid grid-cols-2 gap-2">
                                     {/* PUT FLOOR (Left - Support) */}
                                     <div className="bg-gradient-to-br from-rose-950/30 to-slate-900/50 border border-rose-500/20 rounded-lg p-3 relative overflow-hidden group hover:border-rose-500/40 transition-all">
@@ -3351,7 +3351,7 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                             {/* Other Indicators: 1-Column Full-Width with Spacious Layout */}
                             <div className="flex flex-col gap-3 mt-3 flex-1">
                                 {/* Smart Money Score — ELITE */}
-                                <EliteGate title="Institutional Activity" description={gt('descInstActivity')} mode="blur" compact>
+                                <EliteGate title="Institutional Activity" description={gt('descInstActivity')} mode="blur" compact tooltipAlign="left">
                                     <div className="bg-gradient-to-br from-indigo-950/20 to-slate-900/40 border border-indigo-500/15 rounded-lg p-4 relative overflow-hidden group hover:border-indigo-500/30 transition-all">
                                         <div className="absolute inset-0 bg-indigo-500/3 blur-xl opacity-0 group-hover:opacity-100 transition-opacity" />
                                         {/* Infographic: money flow stack */}
@@ -3379,7 +3379,7 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                                 </EliteGate>
 
                                 {/* Max Pain 거리 — PRO */}
-                                <ProGate title="Max Pain" fomoMessage={gt('fomoMaxPain')} description={gt('descMaxPain')} mode="blur" compact>
+                                <ProGate title="Max Pain" fomoMessage={gt('fomoMaxPain')} description={gt('descMaxPain')} mode="blur" compact tooltipAlign="left">
                                     <div className="bg-gradient-to-br from-orange-950/20 to-slate-900/40 border border-orange-500/15 rounded-lg p-4 relative overflow-hidden group hover:border-orange-500/30 transition-all">
                                         <div className="absolute inset-0 bg-orange-500/3 blur-xl opacity-0 group-hover:opacity-100 transition-opacity" />
                                         {/* Infographic: target crosshair */}
@@ -3408,7 +3408,7 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                                 </ProGate>
 
                                 {/* IV Skew — PRO */}
-                                <ProGate title="IV Skew" fomoMessage={gt('fomoIvSkew')} description={gt('descIvSkew')} mode="blur" compact>
+                                <ProGate title="IV Skew" fomoMessage={gt('fomoIvSkew')} description={gt('descIvSkew')} mode="blur" compact tooltipAlign="left">
                                     <div className="bg-gradient-to-br from-violet-950/20 to-slate-900/40 border border-violet-500/15 rounded-lg p-4 relative overflow-hidden group hover:border-violet-500/30 transition-all">
                                         <div className="absolute inset-0 bg-violet-500/3 blur-xl opacity-0 group-hover:opacity-100 transition-opacity" />
                                         {/* Infographic: tilted skew line */}
@@ -3436,7 +3436,7 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                                 </ProGate>
 
                                 {/* DEX (Delta Exposure) — ELITE */}
-                                <EliteGate title="DEX" fomoMessage={gt('fomoDex')} description={gt('descDex')} mode="blur" compact>
+                                <EliteGate title="DEX" fomoMessage={gt('fomoDex')} description={gt('descDex')} mode="blur" compact tooltipAlign="left">
                                     <div className="bg-gradient-to-br from-cyan-950/20 to-slate-900/40 border border-cyan-500/15 rounded-lg p-4 relative overflow-hidden group hover:border-cyan-500/30 transition-all">
                                         <div className="absolute inset-0 bg-cyan-500/3 blur-xl opacity-0 group-hover:opacity-100 transition-opacity" />
                                         {/* Infographic: delta hedging arrows */}
@@ -3463,7 +3463,7 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                                 </EliteGate>
 
                                 {/* UOA Score — PRO */}
-                                <ProGate title={gt('titleUoa')} description={gt('descUoa')} mode="blur" compact>
+                                <ProGate title={gt('titleUoa')} description={gt('descUoa')} mode="blur" compact tooltipAlign="left">
                                     <div className="bg-gradient-to-br from-amber-950/20 to-slate-900/40 border border-amber-500/15 rounded-lg p-4 relative overflow-hidden group hover:border-amber-500/30 transition-all">
                                         <div className="absolute inset-0 bg-amber-500/3 blur-xl opacity-0 group-hover:opacity-100 transition-opacity" />
                                         {/* Infographic: alert burst */}
