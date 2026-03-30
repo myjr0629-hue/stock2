@@ -53,7 +53,9 @@
     "noDataAvailable": "データなし",
     "upPressure": "上昇圧力",
     "downPressure": "下落圧力",
-    "guideLink": "実践ガイド"
+    "guideLink": "実践ガイド",
+    "addToDashboard": "Dashboardに追加",
+    "removeFromDashboard": "Dashboardから削除"
   },
   "home": {
     "badge": "リアルタイム米国マーケットデータ",
@@ -3623,8 +3625,8 @@
     "fomoGexRegime": "ネットGEXレジーム分析 · 機関ガンマエクスポージャー追跡",
     "fomoOpi": "オプションデルタ圧力指数 · リアルタイム売買力の均衡分析",
     "fomoComposite": "独自複合シグナルエンジン · 6指標融合確率モデル",
-    "fomoWhalePosition": "機関クジラポジション追跡 · 大口プレミアムフロー分析",
-    "fomoSqueeze": "オプション基盤スクイーズ確率エンジン · ガンマ+IV+OI融合分析",
+    "fomoWhalePosition": "クジラポジション方向 · 大口機関コール/プットプレミアムフロー追跡",
+    "fomoSqueeze": "ガンマスクイーズリスク分析 · 空売り動向＆トリガーレベル",
     "fomoClassifiedFlow": "機関ブロック取引 · 大口注文フローテープをリアルタイム公開",
     "fomoOptionsBattlefield": "オプション戦場 · 行使価格別コール/プットポジショニング＆建玉フロー",
     "fomoImpliedMove": "オプション価格から算出される予想変動幅 · 週間/月間見通し",
@@ -3636,9 +3638,7 @@
     "titleUoa": "異常オプション活動",
     "fomoNetGex": "機関級ガンマポジション分析",
     "fomoGammaFlip": "ガンマフリップレベル — ロング/ショート転換点",
-    "fomoSqueeze": "ガンマスクイーズリスク分析 · 空売り動向＆トリガーレベル",
     "fomoCompositeIndex": "11の独立ファクターをリアルタイム統合 — 機関が見ている方向確信度",
-    "fomoWhalePosition": "クジラポジション方向 · 大口機関コール/プットプレミアムフロー追跡",
     "fomoSqueezeProbability": "ボラティリティ爆発臨界測定 · スクイーズトリガー確率リアルタイム検知",
     "fomoDashMaxPain": "オプション満期収束ポイント · マックスペイン重力レベル",
     "fomoDashCallPut": "コールウォール＆プットフロア — オプション集中度によるサポート/レジスタンス",

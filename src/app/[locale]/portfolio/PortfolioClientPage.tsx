@@ -358,6 +358,7 @@ function PremiumHoldingRow({ holding, onRemove, onEdit, totalValue, index = 0, c
     fxSymbol?: string;
 }) {
     const gt = useTranslations('gate');
+    const tCommon = useTranslations('common');
     const { hasAccess } = useTier();
     const router = useRouter();
     const isPositive = holding.gainLossPct >= 0;
@@ -402,6 +403,7 @@ function PremiumHoldingRow({ holding, onRemove, onEdit, totalValue, index = 0, c
         >
             <div className="flex items-center">
                 {/* BOARD Toggle */}
+                <CardTooltip text={isInDashboard ? tCommon('removeFromDashboard') : tCommon('addToDashboard')}>
                 <button
                     type="button"
                     onClick={() => toggleDashboardTicker(holding.ticker)}
@@ -409,10 +411,10 @@ function PremiumHoldingRow({ holding, onRemove, onEdit, totalValue, index = 0, c
                         ? 'text-cyan-400 bg-cyan-400/[0.04]'
                         : 'text-slate-700 hover:text-cyan-400 hover:bg-cyan-400/[0.02]'
                         }`}
-                    title={isInDashboard ? 'Dashboard에서 제거' : 'Dashboard에 추가'}
                 >
                     <LayoutDashboard className="w-3.5 h-3.5" />
                 </button>
+                </CardTooltip>
 
                 {/* All Data in Grid */}
                 <Link

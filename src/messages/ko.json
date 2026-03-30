@@ -53,7 +53,9 @@
     "noDataAvailable": "데이터 없음",
     "upPressure": "상승압력",
     "downPressure": "하락압력",
-    "guideLink": "실전 가이드"
+    "guideLink": "실전 가이드",
+    "addToDashboard": "Dashboard에 추가",
+    "removeFromDashboard": "Dashboard에서 제거"
   },
   "home": {
     "badge": "실시간 미국 마켓 데이터",
@@ -3541,8 +3543,8 @@
     "fomoGexRegime": "넷 GEX 레짐 분석 · 기관 감마 노출 추적",
     "fomoOpi": "옵션 델타 압력지수 · 실시간 매수/매도 힘의 균형 분석",
     "fomoComposite": "독자 복합 시그널 엔진 · 6개 지표 융합 확률 모델",
-    "fomoWhalePosition": "기관 고래 포지션 추적 · 대형 프리미엄 플로우 분석",
-    "fomoSqueeze": "옵션 기반 스퀴즈 확률 엔진 · 감마 + IV + OI 융합 분석",
+    "fomoWhalePosition": "고래 포지션 방향 · 대형 기관 콜/풋 프리미엄 흐름 추적",
+    "fomoSqueeze": "감마 스퀴즈 리스크 분석 · 공매도 동향 & 트리거 레벨",
     "fomoClassifiedFlow": "기관 블록 트레이드 · 대형 주문 플로우 테이프 실시간 공개",
     "fomoOptionsBattlefield": "옵션 전장 · 행사가별 콜/풋 포지셔닝 & 미결제약정 흐름",
     "fomoImpliedMove": "옵션 가격 기반 예상 변동폭 · 주간/월간 전망",
@@ -3554,9 +3556,7 @@
     "titleUoa": "이상 옵션 활동",
     "fomoNetGex": "기관급 감마 포지션 분석",
     "fomoGammaFlip": "감마 플립 레벨 — 롱/숏 전환점",
-    "fomoSqueeze": "감마 스퀴즈 리스크 분석 · 공매도 동향 & 트리거 레벨",
     "fomoCompositeIndex": "11개 독립 팩터를 실시간 종합 — 기관이 보는 방향성 확신도",
-    "fomoWhalePosition": "고래 포지션 방향 · 대형 기관 콜/풋 프리미엄 흐름 추적",
     "fomoSqueezeProbability": "변동성 폭발 임계 측정 · 스퀴즈 트리거 확률 실시간 감지",
     "fomoDashMaxPain": "옵션 만기 수렴점 · 맥스페인 중력 레벨",
     "fomoDashCallPut": "콜월 & 풋플로어 — 옵션 집중도 기반 핵심 지지/저항선",
