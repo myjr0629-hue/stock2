@@ -1,10 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getFromCache, setInCache } from '@/services/redisClient';
+import { DynamoDBClient } from '@aws-sdk/client-dynamodb';
+import { DynamoDBDocumentClient, GetCommand } from '@aws-sdk/lib-dynamodb';
 
 const REDIS_KEY = 'fedwatch:latest';
 const REDIS_FALLBACK_KEY = 'fedwatch:fallback'; // Long-lived fallback for weekends
 const TTL_PRIMARY = 72 * 60 * 60;       // 72 hours — survive full weekend
 const TTL_FALLBACK = 7 * 24 * 60 * 60;  // 7 days — absolute safety net
+
+// DynamoDB client for permanent fallback
+const ddbClient = DynamoDBDocumentClient.from(
+    new DynamoDBClient({ region: 'us-east-1' }),
+    { marshallOptions: { removeUndefinedValues: true } }
+);
 
 // POST — Store FedWatch data (called by scraper script)
 export async function POST(request: NextRequest) {
@@ -53,7 +61,7 @@ function hasMeaningfulData(d: Record<string, unknown>): boolean {
 // GET — Retrieve FedWatch data (called by frontend)
 export async function GET() {
     try {
-        // Try primary cache first
+        // Tier 1: Primary Redis cache
         const cached = await getFromCache<Record<string, unknown>>(REDIS_KEY);
         if (cached && typeof cached.noChange === 'number' && hasMeaningfulData(cached)) {
             return NextResponse.json(cached, {
@@ -61,12 +69,42 @@ export async function GET() {
             });
         }
 
-        // Fallback: long-lived backup (for weekends/holidays)
+        // Tier 2: Long-lived Redis fallback
         const fallback = await getFromCache<Record<string, unknown>>(REDIS_FALLBACK_KEY);
         if (fallback && typeof fallback.noChange === 'number' && hasMeaningfulData(fallback)) {
             return NextResponse.json({ ...fallback, _source: 'fallback' }, {
                 headers: { 'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600' },
             });
+        }
+
+        // Tier 3: DynamoDB permanent fallback — data never expires
+        try {
+            const ddbResult = await ddbClient.send(new GetCommand({
+                TableName: 'signum-pattern-db',
+                Key: { pattern: 'FEDWATCH:latest' },
+            }));
+            const ddbData = ddbResult.Item;
+            if (ddbData && typeof ddbData.noChange === 'number' && hasMeaningfulData(ddbData)) {
+                // Re-populate Redis from DynamoDB so next calls are fast
+                const restored = {
+                    ease: ddbData.ease || 0,
+                    noChange: ddbData.noChange || 0,
+                    hike: ddbData.hike || 0,
+                    targetRate: ddbData.targetRate || null,
+                    daysUntilFomc: ddbData.daysUntilFomc || null,
+                    nextMeetingDate: ddbData.nextMeetingDate || null,
+                    scrapedAt: ddbData.scrapedAt || null,
+                    prevEase: ddbData.prevEase ?? null,
+                    prevNoChange: ddbData.prevNoChange ?? null,
+                    prevHike: ddbData.prevHike ?? null,
+                };
+                await setInCache(REDIS_FALLBACK_KEY, restored, TTL_FALLBACK).catch(() => {});
+                return NextResponse.json({ ...restored, _source: 'dynamodb' }, {
+                    headers: { 'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600' },
+                });
+            }
+        } catch (ddbErr) {
+            console.error('[FedWatch GET] DynamoDB fallback error:', ddbErr);
         }
 
         return NextResponse.json({
