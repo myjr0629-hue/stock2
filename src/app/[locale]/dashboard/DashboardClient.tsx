@@ -1657,9 +1657,10 @@ function MainChartPanel() {
                                     data={chartHistory}
                                     ticker={selectedTicker}
                                     currentPrice={
-                                        // POST/PRE: use extended price so chart tracks after-hours movement
-                                        (data?.session === 'POST' || data?.session === 'PRE') && (data?.extended?.postPrice || data?.extended?.prePrice)
-                                            ? (data?.session === 'POST' ? data?.extended?.postPrice : data?.extended?.prePrice) ?? undefined
+                                        // POST/PRE/CLOSED(with afterhours): use extended price so chart tracks after-hours movement
+                                        // [FIX] Must include CLOSED session — on weekends, underlyingPrice === prevClose → lines overlap
+                                        (data?.session === 'POST' || data?.session === 'PRE' || data?.session === 'CLOSED') && (data?.extended?.postPrice || data?.extended?.prePrice)
+                                            ? (data?.extended?.postPrice || data?.extended?.prePrice) ?? undefined
                                             : (data?.underlyingPrice ?? undefined)
                                     }
                                     prevClose={
