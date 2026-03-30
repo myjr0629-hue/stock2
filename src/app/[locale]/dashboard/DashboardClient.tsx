@@ -898,7 +898,7 @@ function MainChartPanel() {
                     </ProGate>}
 
                     {/* Squeeze — PRO (peek: score visible, interpretation blurred) */}
-                    {customize.cardOrder.includes('squeeze') && <ProGate title="Squeeze" fomoMessage={gt('fomoSqueeze')} mode="peek" compact tooltipPosition="above" description={gt('descSqueeze')}>
+                    {customize.cardOrder.includes('squeeze') && <ProGate title="Squeeze" fomoMessage={gt('fomoSqueeze')} mode="peek" compact tooltipAlign="left" tooltipPosition="above" description={gt('descSqueeze')}>
                         <div className={`relative p-4 rounded-xl border transition-all duration-200 hover:-translate-y-0.5 hover:brightness-110 hover:border-white/15 ${data?.squeezeRisk === 'EXTREME' || data?.squeezeRisk === 'HIGH' ? 'bg-amber-500/15 backdrop-blur-md border-amber-400/50 shadow-[0_0_30px_rgba(251,191,36,0.4)]' : 'bg-[#0d1829]/80 border-white/5'}`}>
                             {(data?.squeezeRisk === 'EXTREME' || data?.squeezeRisk === 'HIGH') && <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-amber-400 via-orange-500 to-amber-400 animate-pulse" />}
                             <svg className="absolute right-0 bottom-0 w-24 h-16 opacity-[0.06]" viewBox="0 0 96 64"><path d="M0 55 L12 35 L24 50 L36 20 L48 45 L60 15 L72 40 L84 10 L96 30" fill="none" stroke="currentColor" strokeWidth="2" className="text-amber-400" /></svg>
@@ -1097,7 +1097,7 @@ function MainChartPanel() {
                     </ProGate>}
 
                     {/* Dark Pool % — PRO (blur: institutional data, FlowAlgo $149) */}
-                    {customize.cardOrder.includes('darkPool') && <ProGate title="Dark Pool %" fomoMessage={gt('fomoDarkPool')} mode="blur" compact tooltipPosition="above" description={gt('descDarkPool')}>
+                    {customize.cardOrder.includes('darkPool') && <ProGate title="Dark Pool %" fomoMessage={gt('fomoDarkPool')} mode="blur" compact tooltipAlign="left" tooltipPosition="above" description={gt('descDarkPool')}>
                         {(() => {
                             const dp = data?.darkPoolPct ?? 0;
                             const isAlert = dp >= 45;
@@ -1144,7 +1144,7 @@ function MainChartPanel() {
                     </ProGate>}
 
                     {/* Short Vol % — PRO (blur: Ortex $49-149) */}
-                    {customize.cardOrder.includes('shortVol') && <ProGate title="Short Vol %" fomoMessage={gt('fomoShortVol')} mode="blur" compact tooltipPosition="above" description={gt('descShortVol')}>
+                    {customize.cardOrder.includes('shortVol') && <ProGate title="Short Vol %" fomoMessage={gt('fomoShortVol')} mode="blur" compact tooltipAlign="left" tooltipPosition="above" description={gt('descShortVol')}>
                         {(() => {
                             const sv = data?.shortVolPct ?? 0;
                             const dp = data?.darkPoolPct ?? 0;
@@ -1296,7 +1296,7 @@ function MainChartPanel() {
                     })() : null}
 
                     {/* GEX REGIME — PRO (blur: SpotGamma Pro $249) */}
-                    {customize.cardOrder.includes('gexRegime') && <EliteGate title="GEX Regime" fomoMessage={gt('fomoDashGexRegime')} compact tooltipPosition="above" description={gt('descGexRegime')}>
+                    {customize.cardOrder.includes('gexRegime') && <EliteGate title="GEX Regime" fomoMessage={gt('fomoDashGexRegime')} compact tooltipAlign="left" tooltipPosition="above" description={gt('descGexRegime')}>
                         {(() => {
                             const price = data?.underlyingPrice || 0;
                             const flip = data?.gammaFlipLevel || 0;
@@ -1371,7 +1371,7 @@ function MainChartPanel() {
                     </EliteGate>}
 
                     {/* Implied Move — ELITE (blur: advanced derivatives) */}
-                    {customize.cardOrder.includes('impliedMove') && <EliteGate title="Implied Move" fomoMessage={gt('fomoDashImpliedMove')} mode="blur" compact tooltipPosition="above" description={gt('descImpliedMove')}>
+                    {customize.cardOrder.includes('impliedMove') && <EliteGate title="Implied Move" fomoMessage={gt('fomoDashImpliedMove')} mode="blur" compact tooltipAlign="left" tooltipPosition="above" description={gt('descImpliedMove')}>
                         {(() => {
                             const im = data?.impliedMovePct ?? 0;
                             const dir = data?.impliedMoveDir ?? 'neutral';
@@ -1557,7 +1557,7 @@ function MainChartPanel() {
                     })()}
 
                     {/* OPI — PRO */}
-                    {customize.cardOrder.includes('opi') && <ProGate title="OPI" mode="peek" compact tooltipPosition="above" description={gt('descAiDeep')}>
+                    {customize.cardOrder.includes('opi') && <ProGate title="OPI" mode="peek" compact tooltipAlign="left" tooltipPosition="above" description={gt('descAiDeep')}>
                         {(() => {
                             const pcr = data?.volumePcr ?? data?.pcr ?? null;
                             const gex = data?.netGex ?? null;
@@ -1584,7 +1584,7 @@ function MainChartPanel() {
                     </ProGate>}
 
                     {/* Smart Money — ELITE */}
-                    {customize.cardOrder.includes('smartMoney') && <EliteGate title="Smart Money" compact tooltipPosition="above" description={gt('descAiDeep')}>
+                    {customize.cardOrder.includes('smartMoney') && <EliteGate title="Smart Money" compact tooltipAlign="left" tooltipPosition="above" description={gt('descAiDeep')}>
                         {(() => {
                             const dp = data?.darkPoolPct ?? 0;
                             const sv = data?.shortVolPct ?? 0;
@@ -1612,7 +1612,7 @@ function MainChartPanel() {
                     </EliteGate>}
 
                     {/* IV Rank — PRO */}
-                    {customize.cardOrder.includes('ivRank') && <ProGate title="IV Rank" mode="peek" compact tooltipPosition="above" description={gt('descAiDeep')}>
+                    {customize.cardOrder.includes('ivRank') && <ProGate title="IV Rank" mode="peek" compact tooltipAlign="left" tooltipPosition="above" description={gt('descAiDeep')}>
                         {(() => {
                             const iv = data?.atmIv ?? 0;
                             const ivRank = iv > 0 ? Math.min(Math.round(iv * 1.5), 100) : null;
