@@ -100,7 +100,11 @@ export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d
     useEffect(() => {
         const fetchData = async () => {
             const ssrHasCompleteData = chartData && chartData.length > 0 && (chartData[0] as any)?.etMinute !== undefined;
-            if (range === '1d' && !ssrHasCompleteData) {
+            // [FIX] If parent is actively feeding data (data prop has items), skip internal fetch
+            // to avoid race condition where internal fetch overwrites parent data and causes
+            // currentPrice line to flicker/disappear (dashboard 15s polling conflict)
+            const parentProvidingData = data && data.length > 0;
+            if (range === '1d' && !ssrHasCompleteData && !parentProvidingData) {
                 setLoading(true);
                 try {
                     const t = Date.now();

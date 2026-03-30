@@ -428,7 +428,7 @@ function StatsBar({ items }: { items: EnrichedWatchlistItem[] }) {
 
             {/* ── Avg Alpha (Radar Rings BG) — PRO gate ── */}
             <div className="relative rounded-xl border border-white/[0.12] bg-gradient-to-br from-white/[0.05] to-white/[0.02] backdrop-blur-xl p-4 hover:border-white/[0.18] transition-all duration-300 shadow-lg shadow-black/10">
-                <ProGate mode="blur" compact fomoMessage="AVG SCORE" description={gt('descAiDeep')}>
+                <ProGate mode="blur" compact tooltipPosition="above" fomoMessage="AVG SCORE" description={gt('descAiDeep')}>
                     <div className="flex items-center gap-3">
                         <StatsAlphaGauge score={stats.avgAlpha} grade={stats.avgGrade} />
                         <div>
