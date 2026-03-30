@@ -1556,8 +1556,8 @@ function MainChartPanel() {
                         );
                     })()}
 
-                    {/* OPI — PRO */}
-                    {customize.cardOrder.includes('opi') && <ProGate title="OPI" mode="peek" compact tooltipAlign="left" tooltipPosition="above" description={gt('descAiDeep')}>
+                    {/* OPI — FREE (pricing matrix: full access) */}
+                    {customize.cardOrder.includes('opi') && <>
                         {(() => {
                             const pcr = data?.volumePcr ?? data?.pcr ?? null;
                             const gex = data?.netGex ?? null;
@@ -1581,7 +1581,7 @@ function MainChartPanel() {
                                 </div>
                             );
                         })()}
-                    </ProGate>}
+                    </>}
 
                     {/* Smart Money — ELITE */}
                     {customize.cardOrder.includes('smartMoney') && <EliteGate title="Smart Money" compact tooltipAlign="left" tooltipPosition="above" description={gt('descAiDeep')}>

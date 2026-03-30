@@ -1928,8 +1928,8 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                             <div className="flex flex-col gap-2 lg:w-[50%] shrink-0">
                                 {/* Top Row: 4 Metric Cards (uniform height) */}
                                 <div className="flex gap-2">
-                                    {/* === PRO GATED: OPI === */}
-                                    <ProGate title="OPI" fomoMessage={gt('fomoOpi')} description={gt('descOpi')} mode="blur" compact className="flex-1">
+                                    {/* === FREE: OPI (pricing matrix: full access) === */}
+                                    <div className="flex-1">
                                     <div className="flex-1 bg-white/5 backdrop-blur-md rounded-xl p-3 border border-white/10 flex flex-col items-center justify-center relative overflow-hidden">
                                         {/* Glow background */}
                                         <div className={`absolute inset-0 opacity-15 ${opi.value > 20 ? 'bg-emerald-500' : opi.value < -20 ? 'bg-rose-500' : 'bg-slate-500'} blur-xl`} />
@@ -1967,7 +1967,7 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
 
                                         <div className={`text-[13px] font-bold mt-1 relative z-10 ${opi.value > 20 ? 'text-emerald-400' : opi.value < -20 ? 'text-rose-400' : 'text-white'}`}>{opi.label}</div>
                                     </div>
-                                    </ProGate>
+                                    </div>
 
                                     {/* ATM IV - Enhanced with Strategy Guidance */}
                                     <div className="flex-1 bg-white/5 backdrop-blur-md rounded-xl p-3 border border-white/10 flex flex-col items-center justify-center relative overflow-hidden">
@@ -2349,8 +2349,8 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                     );
                 })()}
 
-                {/* === PRO GATED: GEX Regime === */}
-                <ProGate title="GEX Regime" fomoMessage={gt('fomoGexRegime')} description={gt('descGexRegime')} mode="blur" compact>
+                {/* === ELITE GATED: GEX Regime === */}
+                <EliteGate title="GEX Regime" fomoMessage={gt('fomoGexRegime')} description={gt('descGexRegime')} mode="blur" compact>
                     <div className="relative bg-white/5 backdrop-blur-xl rounded-xl p-3 border border-white/20 shadow-[0_8px_32px_rgba(0,0,0,0.3)] overflow-hidden group hover:border-amber-500/50 transition-all duration-300">
                         <div className="absolute inset-0 bg-gradient-to-br from-amber-500/10 to-transparent pointer-events-none" />
                         <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-amber-400/50 to-transparent" />
@@ -2406,7 +2406,7 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                             </span>
                         </div>
                     </div>
-                </ProGate>
+                </EliteGate>
                                 </div>
                             </div>
                         </div>
@@ -3273,8 +3273,8 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                                 </div>
                             </EliteGate>
 
-                            {/* Implied Move (기대변동폭) — PRO */}
-                            <ProGate title="Implied Move" fomoMessage={gt('fomoImpliedMove')} description={gt('descImpliedMove')} mode="blur" compact tooltipAlign="left">
+                            {/* Implied Move (기대변동폭) — ELITE */}
+                            <EliteGate title="Implied Move" fomoMessage={gt('fomoImpliedMove')} description={gt('descImpliedMove')} mode="blur" compact tooltipAlign="left">
                                 <div className="mb-4 bg-gradient-to-br from-teal-950/20 to-slate-900/40 border border-teal-500/15 rounded-lg p-4 relative overflow-hidden group hover:border-teal-500/30 transition-all">
                                     <div className="absolute inset-0 bg-teal-500/3 blur-xl opacity-0 group-hover:opacity-100 transition-opacity" />
                                     {/* Infographic: expanding arrows (implied move range) */}
@@ -3301,7 +3301,7 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                                         </div>
                                     </div>
                                 </div>
-                            </ProGate>
+                            </EliteGate>
 
                             {/* PUT FLOOR + CALL WALL: 2-Column Grid — PRO peek */}
                             <ProGate title="Put Floor / Call Wall" fomoMessage={gt('fomoPutFloorCallWall')} description={gt('descPutFloorCallWall')} mode="peek" compact tooltipAlign="left">
