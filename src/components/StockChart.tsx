@@ -464,14 +464,17 @@ export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d
             }
         }
 
-        // Alpha Levels
-        if (alphaLevels?.callWall) {
+        // Alpha Levels — only show if within visible price range (±15%)
+        // [FIX] Prevents Y-axis stretching when options levels are stale/far from price
+        const priceRangeLow = minPrice * 0.85;
+        const priceRangeHigh = maxPrice * 1.15;
+        if (alphaLevels?.callWall && alphaLevels.callWall >= priceRangeLow && alphaLevels.callWall <= priceRangeHigh) {
             addPriceLine(alphaLevels.callWall, '#22d3ee', 'CALL', LineStyle.Dashed, 1);
         }
-        if (alphaLevels?.putFloor) {
+        if (alphaLevels?.putFloor && alphaLevels.putFloor >= priceRangeLow && alphaLevels.putFloor <= priceRangeHigh) {
             addPriceLine(alphaLevels.putFloor, '#f43f5e', 'PUT', LineStyle.Dashed, 1);
         }
-        if (alphaLevels?.maxPain) {
+        if (alphaLevels?.maxPain && alphaLevels.maxPain >= priceRangeLow && alphaLevels.maxPain <= priceRangeHigh) {
             addPriceLine(alphaLevels.maxPain, '#a855f7', 'MAX PAIN', LineStyle.Dashed, 1);
         }
 

@@ -1043,9 +1043,12 @@ export async function getStockChartData(symbol: string, range: Range = "1d"): Pr
 
   try {
     if (range === "1d") {
-      // [S-66] Fetch 5 calendar days to ensure we have data on weekends
+      // [S-66 V2] Reduced lookback: 2 days weekday (only need latest trading day),
+      // 3 days on weekend (to reach Friday's data). Cuts Polygon response 60%.
       const fromDate = new Date();
-      fromDate.setDate(now.getDate() - 5);
+      const dayOfWeek = fromDate.getDay(); // 0=Sun, 6=Sat
+      const lookbackDays = (dayOfWeek === 0 || dayOfWeek === 6) ? 3 : 2;
+      fromDate.setDate(now.getDate() - lookbackDays);
       const from = fromDate.toISOString().split('T')[0];
 
       const data = await getAggregates(symbol, 1, 'minute', from, to);

@@ -252,9 +252,24 @@ const WatchlistItem = React.memo(function WatchlistItem({ ticker, isSelected }: 
     const hasWhale = data?.netGex && Math.abs(data.netGex) > 500000000;
 
     // [UNIFIED] Use shared calcPriceDisplay
+    // [FIX V2] Feed liveExt fields from store's extended data for instant PRE/POST badge display
+    const extSession = (data?.session || 'CLOSED').toUpperCase();
+    const extPriceVal = extSession === 'POST' || extSession === 'CLOSED'
+        ? (data?.extended?.postPrice || 0)
+        : (data?.extended?.prePrice || 0);
+    const extPctVal = extSession === 'POST' || extSession === 'CLOSED'
+        ? (data?.extended?.postChangePct || 0)
+        : (data?.extended?.preChangePct || 0);
+    const extLabelVal = extPriceVal > 0
+        ? (extSession === 'POST' || extSession === 'CLOSED' ? 'POST' : 'PRE')
+        : undefined;
+
     const priceResult = calcPriceDisplay({
         livePrice: data?.display?.price || data?.underlyingPrice,
         liveChangePct: data?.display?.changePctPct ?? data?.changePercent,
+        liveExtPrice: extPriceVal > 0 ? extPriceVal : undefined,
+        liveExtChangePct: extPctVal,
+        liveExtLabel: extLabelVal,
         apiDisplayPrice: data?.display?.price || data?.underlyingPrice,
         apiDisplayChangePct: data?.display?.changePctPct ?? data?.intradayChangePct ?? data?.changePercent,
         session: data?.session || 'CLOSED',
@@ -631,6 +646,9 @@ function MainChartPanel() {
     // [P2 FIX] Optimistic update: keep previous chart visible during ticker switch (no flicker)
     // Only show loading spinner on very first load when no chart data exists
     const lastTickerRef = React.useRef<string | null>(null);
+    // [PERF] Client-side chart cache — instant display on ticker revisit (60s TTL)
+    const chartCacheRef = React.useRef<Map<string, { data: any[]; ts: number }>>(new Map());
+    const CHART_CACHE_TTL_MS = 60_000;
 
     const fetchChartData = useCallback(async () => {
         if (!selectedTicker) return;
@@ -639,7 +657,11 @@ function MainChartPanel() {
             if (res.ok) {
                 const json = await res.json();
                 const newData = json.data || [];
-                if (newData.length > 0) setChartHistory(newData);
+                if (newData.length > 0) {
+                    setChartHistory(newData);
+                    // Update client-side cache
+                    chartCacheRef.current.set(selectedTicker, { data: newData, ts: Date.now() });
+                }
             }
         } catch (e) {
             console.error('[Dashboard] Chart fetch error:', e);
@@ -648,11 +670,18 @@ function MainChartPanel() {
     }, [selectedTicker]);
 
     useEffect(() => {
-        // [FIX] Reset chart data on ticker change to prevent Y-axis stretching
-        // (old ticker's Y-range + new ticker's data = distorted chart for ~200ms)
+        // [FIX] On ticker change, check client-side cache first
         if (lastTickerRef.current && lastTickerRef.current !== selectedTicker) {
-            setChartHistory([]);
-            setChartLoading(true);
+            const cached = chartCacheRef.current.get(selectedTicker);
+            if (cached && (Date.now() - cached.ts) < CHART_CACHE_TTL_MS) {
+                // ✅ Cache hit — instant display, no spinner
+                setChartHistory(cached.data);
+                setChartLoading(false);
+            } else {
+                // ❌ Cache miss — show spinner
+                setChartHistory([]);
+                setChartLoading(true);
+            }
         }
         lastTickerRef.current = selectedTicker;
 
@@ -660,7 +689,7 @@ function MainChartPanel() {
         if (chartHistory.length === 0) setChartLoading(true);
         fetchChartData();
 
-        // Silent background refresh every 30s
+        // Silent background refresh every 15s
         const interval = setInterval(() => fetchChartData(), 15000);
 
         // [P2 FIX] Debounced handler for visibility + focus events

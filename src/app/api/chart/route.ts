@@ -4,7 +4,7 @@ import { getBuildId } from '@/services/buildIdSSOT'; // [S-56.4.6e]
 import { getFromCache, setInCache } from '@/services/redisClient';
 
 // [S-78] Edge cache for 30 seconds - faster chart load while maintaining accuracy
-export const revalidate = 15;
+export const revalidate = 30;
 
 export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
@@ -15,7 +15,8 @@ export async function GET(request: Request) {
         return NextResponse.json({ error: 'Symbol is required' }, { status: 400 });
     }
 
-    // [AWS] Redis cache first (30s TTL matching edge cache)
+    // [AWS] Redis cache first (60s TTL — charts don't need sub-minute freshness)
+    const CHART_CACHE_TTL = range === '1d' ? 60 : 300; // 1min for intraday, 5min for historical
     const cacheKey = `chart:${symbol}:${range}`;
     try {
         const cached = await getFromCache<any>(cacheKey);
@@ -27,7 +28,7 @@ export async function GET(request: Request) {
                 range, symbol, count: cached.data?.length || 0
             }), {
                 status: 200,
-                headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 's-maxage=15, stale-while-revalidate=5' }
+                headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 's-maxage=30, stale-while-revalidate=15' }
             });
         }
     } catch { /* continue to Polygon */ }
@@ -44,8 +45,8 @@ export async function GET(request: Request) {
             sessionMaskDebug.buildId = buildId;
         }
 
-        // [AWS] Cache to ElastiCache (30s TTL)
-        try { await setInCache(cacheKey, { data, sessionMaskDebug }, 15); } catch { /* non-critical */ }
+        // [AWS] Cache to ElastiCache (60s TTL — reduces Polygon API pressure)
+        try { await setInCache(cacheKey, { data, sessionMaskDebug }, CHART_CACHE_TTL); } catch { /* non-critical */ }
 
         // [S-52.2.3] Inject build metadata for staleness detection
         const response = {
@@ -65,7 +66,7 @@ export async function GET(request: Request) {
             headers: {
                 'Content-Type': 'application/json; charset=utf-8',
                 // [S-78] Allow edge cache (CDN cache) but prevent browser cache
-                'Cache-Control': 's-maxage=15, stale-while-revalidate=5'
+                'Cache-Control': 's-maxage=30, stale-while-revalidate=15'
             }
         });
     } catch (error) {

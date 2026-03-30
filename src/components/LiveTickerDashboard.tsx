@@ -691,9 +691,11 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
             price: effectivePrice,
             prices: {
                 regularCloseToday: s === 'reg' ? effectivePrice : undefined,
+                prevRegularClose: initialStockData?.prevClose || null,
                 prevClose: initialStockData?.prevClose || null,
                 prePrice: s === 'pre' ? effectivePrice : (ssrPrePrice || undefined),
                 postPrice: (s === 'post' || s === 'closed') ? effectivePrice : (ssrPostPrice || undefined),
+                lastTrade: effectivePrice,
             },
             extended: {
                 prePrice: ssrPrePrice || (s === 'pre' ? effectivePrice : undefined),
@@ -1926,7 +1928,11 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                         {(() => {
                                             // [WS] Real-time changePct from WebSocket, fallback to SSR/SWR
                                             const wsPrice = relWsConnected ? relWsGetPrice(item.ticker) : undefined;
-                                            const displayChange = wsPrice && wsPrice.changePct !== undefined ? Number(wsPrice.changePct.toFixed(2)) : item.change;
+                                            // [FIX] Don't override valid SSR changePct with WS changePct=0 during data transitions
+                                            const wsChangePct = wsPrice?.changePct;
+                                            const displayChange = (wsChangePct !== undefined && wsChangePct !== 0) 
+                                                ? Number(wsChangePct.toFixed(2)) 
+                                                : (item.change ?? 0);
                                             return (
                                                 <span className={`text-[12px] font-jakarta font-bold tabular-nums ${displayChange >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
                                                     {displayChange >= 0 ? '+' : ''}{displayChange}%

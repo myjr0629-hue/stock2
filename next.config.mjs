@@ -16,6 +16,8 @@ const nextConfig = {
         ],
     },
     // [PERF] 패키지 import 최적화 — lucide-react tree-shaking 강화
+    // [Remotion] Prevent bundling issues with Remotion renderer in Next.js
+    serverExternalPackages: ['@remotion/renderer'],
     experimental: {
         optimizePackageImports: ['lucide-react', 'recharts', 'framer-motion'],
     },

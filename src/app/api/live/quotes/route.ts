@@ -135,13 +135,20 @@ export async function GET(request: Request) {
 
             if (session === 'regular') {
                 price = liveLast || dayClose || prevClose;
-                // [FIX] PRE CLOSE badge during REG: Polygon preMarket → Redis fallback
-                const preMarketClose = S.preMarket?.c || 0;
+                // [FIX V2] PRE CLOSE badge during REG: multiple fallback chain
+                // Polygon preMarket.c is UNRELIABLE during REG (often 0/undefined)
+                // Fallback order: preMarket.c → preMarket.o/h/l → Redis cache → day.o (today's open ≈ pre-market close)
+                const preMarketClose = S.preMarket?.c || S.preMarket?.o || S.preMarket?.h || S.preMarket?.l || 0;
                 if (preMarketClose > 0) {
                     extendedPrice = preMarketClose;
                     extendedLabel = 'PRE';
                 } else if (cachedExt?.prePrice > 0) {
                     extendedPrice = cachedExt.prePrice;
+                    extendedLabel = 'PRE';
+                } else if (S.day?.o && S.day.o > 0 && prevDayClose > 0 && S.day.o !== prevDayClose) {
+                    // day.o = today's market open price ≈ pre-market close
+                    // Only use if different from prevClose (indicates pre-market activity)
+                    extendedPrice = S.day.o;
                     extendedLabel = 'PRE';
                 }
             } else if (session === 'pre') {
@@ -167,10 +174,18 @@ export async function GET(request: Request) {
                 }
             }
 
-            // [FIX] Use cached changePct if available (more accurate than recalculating)
+            // [FIX V2] Calculate extendedChangePct with correct baseline
+            // PRE: (prePrice - prevDayClose) / prevDayClose (measures pre-market movement from yesterday's close)
+            // POST: (postPrice - dayClose) / dayClose (measures after-hours movement from today's close)
             let extendedChangePct = 0;
-            if (extendedPrice > 0 && price > 0) {
-                extendedChangePct = ((extendedPrice - price) / price) * 100;
+            if (extendedPrice > 0) {
+                if (extendedLabel === 'PRE' && prevDayClose > 0) {
+                    extendedChangePct = ((extendedPrice - prevDayClose) / prevDayClose) * 100;
+                } else if (extendedLabel === 'POST' && price > 0) {
+                    extendedChangePct = ((extendedPrice - price) / price) * 100;
+                } else if (price > 0) {
+                    extendedChangePct = ((extendedPrice - price) / price) * 100;
+                }
             }
             // Override with cached changePct for better accuracy
             if (extendedLabel === 'PRE' && cachedExt?.preChangePct !== undefined && extendedPrice === cachedExt?.prePrice) {
