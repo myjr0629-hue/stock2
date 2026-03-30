@@ -50,6 +50,8 @@ interface FeatureGateProps {
     blurPx?: number;
     /** 툴팁 수평 정렬 — 'center'(기본) 또는 'left'(오른쪽 사이드바용, 왼쪽으로 펼침) */
     tooltipAlign?: 'center' | 'left';
+    /** 툴팁 수직 방향 — 'below'(기본, 아래로) 또는 'above'(위로, 하단 지표용) */
+    tooltipPosition?: 'below' | 'above';
 }
 
 // ============================================================
@@ -92,6 +94,7 @@ export function FeatureGate({
     compact = false,
     blurPx,
     tooltipAlign = 'center',
+    tooltipPosition = 'below',
 }: FeatureGateProps) {
     const { hasAccess, loading, tier } = useTier();
     const gt = useTranslations('gate');
@@ -190,11 +193,18 @@ export function FeatureGate({
                                         onMouseLeave={() => setShowTooltip(false)}
                                     />
                                     {showTooltip && (
-                                        <div className={`absolute top-full mt-2 w-52 px-3 py-2 rounded-lg bg-slate-900/95 backdrop-blur-md border border-slate-600/40 shadow-2xl shadow-black/50 z-50 pointer-events-none ${tooltipAlign === 'left' ? 'right-0' : 'left-1/2 -translate-x-1/2'}`}>
-                                            <div className={`absolute bottom-full w-2 h-2 bg-slate-900/95 border-l border-t border-slate-600/40 transform rotate-45 mb-[-5px] ${tooltipAlign === 'left' ? 'right-3' : 'left-1/2 -translate-x-1/2'}`} />
-                                            <p className="text-[11px] text-slate-200 leading-relaxed text-center">
-                                                {description}
-                                            </p>
+                                        <div className={`absolute w-52 px-3 py-2 rounded-lg bg-slate-900/95 backdrop-blur-md border border-slate-600/40 shadow-2xl shadow-black/50 z-50 pointer-events-none ${tooltipPosition === 'above' ? 'bottom-full mb-2' : 'top-full mt-2'} ${tooltipAlign === 'left' ? 'right-0' : 'left-1/2 -translate-x-1/2'}`}>
+                                            {tooltipPosition === 'above' ? (
+                                                <>
+                                                    <p className="text-[11px] text-slate-200 leading-relaxed text-center">{description}</p>
+                                                    <div className={`absolute top-full w-2 h-2 bg-slate-900/95 border-r border-b border-slate-600/40 transform rotate-45 -mt-1 ${tooltipAlign === 'left' ? 'right-3' : 'left-1/2 -translate-x-1/2'}`} />
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <div className={`absolute bottom-full w-2 h-2 bg-slate-900/95 border-l border-t border-slate-600/40 transform rotate-45 mb-[-5px] ${tooltipAlign === 'left' ? 'right-3' : 'left-1/2 -translate-x-1/2'}`} />
+                                                    <p className="text-[11px] text-slate-200 leading-relaxed text-center">{description}</p>
+                                                </>
+                                            )}
                                         </div>
                                     )}
                                 </div>

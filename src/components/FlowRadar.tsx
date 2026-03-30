@@ -3379,7 +3379,7 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                                 </EliteGate>
 
                                 {/* Max Pain 거리 — PRO */}
-                                <ProGate title="Max Pain" fomoMessage={gt('fomoMaxPain')} description={gt('descMaxPain')} mode="blur" compact tooltipAlign="left">
+                                <ProGate title="Max Pain" fomoMessage={gt('fomoMaxPain')} description={gt('descMaxPain')} mode="blur" compact tooltipPosition="above">
                                     <div className="bg-gradient-to-br from-orange-950/20 to-slate-900/40 border border-orange-500/15 rounded-lg p-4 relative overflow-hidden group hover:border-orange-500/30 transition-all">
                                         <div className="absolute inset-0 bg-orange-500/3 blur-xl opacity-0 group-hover:opacity-100 transition-opacity" />
                                         {/* Infographic: target crosshair */}
@@ -3408,7 +3408,7 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                                 </ProGate>
 
                                 {/* IV Skew — PRO */}
-                                <ProGate title="IV Skew" fomoMessage={gt('fomoIvSkew')} description={gt('descIvSkew')} mode="blur" compact tooltipAlign="left">
+                                <ProGate title="IV Skew" fomoMessage={gt('fomoIvSkew')} description={gt('descIvSkew')} mode="blur" compact tooltipPosition="above">
                                     <div className="bg-gradient-to-br from-violet-950/20 to-slate-900/40 border border-violet-500/15 rounded-lg p-4 relative overflow-hidden group hover:border-violet-500/30 transition-all">
                                         <div className="absolute inset-0 bg-violet-500/3 blur-xl opacity-0 group-hover:opacity-100 transition-opacity" />
                                         {/* Infographic: tilted skew line */}
@@ -3436,7 +3436,7 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                                 </ProGate>
 
                                 {/* DEX (Delta Exposure) — ELITE */}
-                                <EliteGate title="DEX" fomoMessage={gt('fomoDex')} description={gt('descDex')} mode="blur" compact tooltipAlign="left">
+                                <EliteGate title="DEX" fomoMessage={gt('fomoDex')} description={gt('descDex')} mode="blur" compact tooltipPosition="above">
                                     <div className="bg-gradient-to-br from-cyan-950/20 to-slate-900/40 border border-cyan-500/15 rounded-lg p-4 relative overflow-hidden group hover:border-cyan-500/30 transition-all">
                                         <div className="absolute inset-0 bg-cyan-500/3 blur-xl opacity-0 group-hover:opacity-100 transition-opacity" />
                                         {/* Infographic: delta hedging arrows */}
