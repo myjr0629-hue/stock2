@@ -150,7 +150,7 @@ export function FeatureGate({
     // ============================================================
     if (mode === 'blur') {
         return (
-            <div className={`relative rounded-xl flex flex-col overflow-hidden ${className}`}
+            <div className={`relative rounded-xl flex flex-col ${className}`}
                 style={{ minHeight: minHeight || (compact ? '80px' : '120px') }}>
                 {/* 실제 콘텐츠 (블러 처리 + overflow-hidden으로 블러 엣지 클리핑) */}
                 <div className="pointer-events-none select-none flex-1 flex flex-col overflow-hidden" style={{ filter: `blur(${blurPx ? blurPx + 'px' : (requiredTier === 'pro' ? (compact ? '4px' : '10px') : (compact ? '2.5px' : '4.5px'))})` }}>
@@ -182,7 +182,7 @@ export function FeatureGate({
                             {description && (
                                 <div className="relative">
                                     <Info
-                                        className={`w-3 h-3 text-slate-500 hover:${colors.text} transition-colors cursor-help`}
+                                        className={`w-3 h-3 text-slate-300 hover:${colors.text} transition-colors cursor-help`}
                                         onMouseEnter={() => setShowTooltip(true)}
                                         onMouseLeave={() => setShowTooltip(false)}
                                     />
@@ -245,7 +245,7 @@ export function FeatureGate({
                             {description && (
                                 <div className="relative inline-flex items-center gap-1">
                                     <Info
-                                        className={`w-3.5 h-3.5 text-slate-500 hover:${colors.text} transition-colors cursor-help`}
+                                        className={`w-3.5 h-3.5 text-slate-300 hover:${colors.text} transition-colors cursor-help`}
                                         onMouseEnter={() => setShowTooltip(true)}
                                         onMouseLeave={() => setShowTooltip(false)}
                                     />
@@ -285,7 +285,7 @@ export function FeatureGate({
     // ============================================================
     if (mode === 'peek') {
         return (
-            <div className={`relative overflow-hidden rounded-xl ${className}`}
+            <div className={`relative rounded-xl ${className}`}
                 style={{ minHeight: minHeight || (compact ? '60px' : '100px') }}>
                 {/* 실제 콘텐츠 (약한 블러 — 숫자는 읽힘) */}
                 <div className="pointer-events-none select-none" style={{ filter: `blur(${blurPx ? blurPx + 'px' : (requiredTier === 'pro' ? (compact ? '3px' : '5px') : '1.5px')})` }}>
