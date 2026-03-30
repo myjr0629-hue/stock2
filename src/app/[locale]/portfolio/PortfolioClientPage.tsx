@@ -308,7 +308,7 @@ function PortfolioStatsBar({ summary, portfolioScore, holdingsCount, locale }: {
                 <div className={`absolute inset-0 opacity-[0.04] ${isPos ? 'bg-gradient-to-r from-transparent via-emerald-400 to-transparent' : 'bg-gradient-to-r from-transparent via-rose-400 to-transparent'}`} style={{ animation: 'shimmer 3s ease-in-out infinite' }} />
             </div>
             {/* Portfolio Score — PRO gate */}
-            <div className="group relative overflow-hidden rounded-xl border border-indigo-500/[0.18] bg-gradient-to-br from-indigo-500/[0.1] via-white/[0.06] to-indigo-500/[0.04] backdrop-blur-xl p-4 hover:border-indigo-500/[0.35] transition-all duration-300" style={{ boxShadow: '0 4px 24px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.12), 0 0 40px rgba(129,140,248,0.08)' }}>
+            <div className="group relative rounded-xl border border-indigo-500/[0.18] bg-gradient-to-br from-indigo-500/[0.1] via-white/[0.06] to-indigo-500/[0.04] backdrop-blur-xl p-4 hover:border-indigo-500/[0.35] transition-all duration-300" style={{ boxShadow: '0 4px 24px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.12), 0 0 40px rgba(129,140,248,0.08)' }}>
                 <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-indigo-400/50 to-transparent" />
                 <div className="flex items-center gap-2 mb-2"><Target className="w-4 h-4 text-indigo-400" style={{ filter: 'drop-shadow(0 0 4px rgba(129,140,248,0.5))' }} /><span className="text-[12px] text-slate-300 uppercase tracking-[0.15em] font-bold">{t('portfolioScore')}</span></div>
                 <ProGate mode="blur" compact fomoMessage={gt('fomoPortfolioScore')} description={gt('descAiDeep')}>

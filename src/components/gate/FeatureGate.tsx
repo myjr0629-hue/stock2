@@ -187,11 +187,11 @@ export function FeatureGate({
                                         onMouseLeave={() => setShowTooltip(false)}
                                     />
                                     {showTooltip && (
-                                        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-52 px-3 py-2 rounded-lg bg-slate-900/95 backdrop-blur-md border border-slate-600/40 shadow-2xl shadow-black/50 z-50 pointer-events-none">
+                                        <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-52 px-3 py-2 rounded-lg bg-slate-900/95 backdrop-blur-md border border-slate-600/40 shadow-2xl shadow-black/50 z-50 pointer-events-none">
+                                            <div className="absolute bottom-full left-1/2 -translate-x-1/2 w-2 h-2 bg-slate-900/95 border-l border-t border-slate-600/40 transform rotate-45 mb-[-5px]" />
                                             <p className="text-[11px] text-slate-200 leading-relaxed text-center">
                                                 {description}
                                             </p>
-                                            <div className="absolute top-full left-1/2 -translate-x-1/2 w-2 h-2 bg-slate-900/95 border-r border-b border-slate-600/40 transform rotate-45 -mt-1" />
                                         </div>
                                     )}
                                 </div>
