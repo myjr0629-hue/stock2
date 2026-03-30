@@ -2136,7 +2136,7 @@ export function DashboardClient({ initialTickers, initialQuotes }: { initialTick
                 </div>
 
                 {/* Center Panel - Main Chart (50%) */}
-                <div className="bg-[#0a0f1a] overflow-hidden flex flex-col">
+                <div className="bg-[#0a0f1a] overflow-y-auto flex flex-col">
                     <MainChartPanel />
                 </div>
 

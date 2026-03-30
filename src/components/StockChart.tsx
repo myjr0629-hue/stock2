@@ -96,15 +96,16 @@ export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d
         setRange(initialRange);
     }, [data, ticker, initialRange]);
 
-    // ── Fetch data when needed ──
+    // ── Fetch data when needed (only when parent is NOT feeding data) ──
     useEffect(() => {
+        // [FIX] If parent is actively feeding chart data (e.g. dashboard 15s polling),
+        // skip internal fetch entirely to avoid race condition where internal fetch
+        // overwrites parent data → chart recreates → currentPrice line flickers/disappears
+        if (data && data.length > 0) return;
+
         const fetchData = async () => {
             const ssrHasCompleteData = chartData && chartData.length > 0 && (chartData[0] as any)?.etMinute !== undefined;
-            // [FIX] If parent is actively feeding data (data prop has items), skip internal fetch
-            // to avoid race condition where internal fetch overwrites parent data and causes
-            // currentPrice line to flicker/disappear (dashboard 15s polling conflict)
-            const parentProvidingData = data && data.length > 0;
-            if (range === '1d' && !ssrHasCompleteData && !parentProvidingData) {
+            if (range === '1d' && !ssrHasCompleteData) {
                 setLoading(true);
                 try {
                     const t = Date.now();
@@ -121,13 +122,10 @@ export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d
                     }
                 } catch (e) { console.error('[StockChart] Fetch error:', e); }
                 setLoading(false);
-            } else if (data && data.length > 0) {
-                setChartData(data);
-                setLoading(false);
             }
         };
         fetchData();
-    }, [ticker, range]);
+    }, [ticker, range, data]);
 
     // ── Range change handler ──
     const handleRangeChange = useCallback(async (value: string) => {
