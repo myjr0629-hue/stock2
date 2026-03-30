@@ -538,15 +538,16 @@ async function buildResponseFromAnalysisCache(
         const session = (quotesSession && quotesSessionMap[quotesSession]) || marketSessionMap[currentSession] || 'CLOSED';
 
         // Calculate changePct from live data
-        // [FIX] Always use todaysChangePerc first (DynamoDB dp.changePct is pre-calculated and correct)
-        // The dayClose/prevClose calculation fails when DynamoDB approximates prevDay as close
-        let changePercent = 0;
+        // [FIX V2] Return null instead of 0 when changePct cannot be reliably calculated.
+        // deepMergeTicker skips null values → preserves correct data from 5s quotes poller.
+        // Previously: fallback 0 was treated as valid, overwriting real values (caused 0.00% glitch).
+        let changePercent: number | null = null;
         if (todaysChangePerc && todaysChangePerc !== 0) {
             changePercent = todaysChangePerc;
         } else if (session === 'REG') {
-            changePercent = prevClose > 0 && price > 0 ? ((price - prevClose) / prevClose) * 100 : 0;
+            changePercent = prevClose > 0 && price > 0 ? ((price - prevClose) / prevClose) * 100 : null;
         } else {
-            changePercent = (dayClose > 0 && prevClose > 0 && dayClose !== prevClose) ? ((dayClose - prevClose) / prevClose) * 100 : 0;
+            changePercent = (dayClose > 0 && prevClose > 0 && dayClose !== prevClose) ? ((dayClose - prevClose) / prevClose) * 100 : null;
         }
 
         // Squeeze risk label from score
@@ -567,8 +568,11 @@ async function buildResponseFromAnalysisCache(
         }
 
         // Build display object (Command-style)
+        // [FIX V2] display and prevChangePct also use null to prevent overwrite
         const displayPrice = session === 'REG' ? price : dayClose || prevClose;
-        const display = { price: displayPrice, changePctPct: changePercent };
+        const display = changePercent !== null
+            ? { price: displayPrice, changePctPct: changePercent }
+            : null;
 
         tickersData[ticker] = {
             underlyingPrice: price,
