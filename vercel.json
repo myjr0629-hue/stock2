@@ -119,6 +119,14 @@
         {
             "path": "/api/cron/event-detect?dry_run=true",
             "schedule": "*/5 13-21 * * 1-5"
+        },
+        {
+            "path": "/api/cron/morning-briefing",
+            "schedule": "0 12 * * 1-5"
+        },
+        {
+            "path": "/api/cron/morning-briefing",
+            "schedule": "0 13 * * 1-5"
         }
     ]
 }
