@@ -195,9 +195,14 @@ export default function PricingPage() {
             const data = await res.json();
             if (data.url) {
                 window.location.href = data.url;
+            } else {
+                alert(data.error === 'No Stripe customer found'
+                    ? 'No subscription found. Please contact support.'
+                    : `Error: ${data.error || 'Unknown error'}`);
             }
         } catch (err) {
             console.error('[Pricing] Portal error:', err);
+            alert('Failed to open subscription portal. Please try again.');
         }
     }, [locale]);
 
