@@ -803,7 +803,7 @@ const WatchlistCard = memo(function WatchlistCard({ item, onRemove, locale, inde
     return (
         <div
             className={`
-                group relative rounded-xl
+                group relative rounded-2xl md:rounded-xl
                 bg-gradient-to-r from-white/[0.045] via-white/[0.03] to-white/[0.02]
                 backdrop-blur-xl
                 border border-white/[0.08] border-l-[3px] ${accentBorder}
@@ -812,8 +812,9 @@ const WatchlistCard = memo(function WatchlistCard({ item, onRemove, locale, inde
                 hover:shadow-lg hover:shadow-black/25
                 transition-all duration-300 ease-out
                 shadow-md shadow-black/10
+                md:m-0 m-card-stagger
             `}
-            style={{ animation: `fadeSlideIn 0.4s ease-out ${index * 60}ms both` }}
+            style={{ animation: `fadeSlideIn 0.4s ease-out ${index * 60}ms both`, animationDelay: `${index * 50}ms` }}
         >
             <div className="flex items-center">
                 {/* BOARD Toggle */}
@@ -830,36 +831,73 @@ const WatchlistCard = memo(function WatchlistCard({ item, onRemove, locale, inde
                 </button>
                 </CardTooltip>
 
-                {/* === MOBILE CARD LAYOUT (below md:) === */}
+                {/* === MOBILE CARD LAYOUT (below md:) — Glassmorphism Premium === */}
                 <Link
                     href={`/ticker?ticker=${item.ticker}`}
-                    className="flex md:hidden items-center gap-3 flex-1 px-3 py-3"
+                    className="flex md:hidden flex-col gap-2.5 flex-1 px-4 py-3"
                 >
-                    {/* Logo */}
-                    <div className="relative w-10 h-10 rounded-lg bg-gradient-to-br from-slate-800/90 to-slate-900/90 border border-white/[0.08] flex items-center justify-center overflow-hidden flex-shrink-0">
-                        <img loading="lazy" decoding="async" src={`/api/logo/${item.ticker}`} alt={item.ticker} className="w-6 h-6 object-contain" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
-                    </div>
-                    {/* Ticker + Price */}
-                    <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                            <span className="font-black text-[14px] text-white tracking-wide">{item.ticker}</span>
-                            <span className={`text-[12px] font-bold tabular-nums ${isPositive ? 'text-emerald-400' : 'text-rose-400'}`}>
+                    {/* Row 1: Logo + Ticker + Price */}
+                    <div className="flex items-center gap-3">
+                        <div className="relative w-11 h-11 rounded-2xl bg-gradient-to-br from-slate-800/90 to-slate-900/80 border border-white/[0.08] flex items-center justify-center overflow-hidden flex-shrink-0"
+                            style={{ boxShadow: '0 4px 12px rgba(0,0,0,0.3)' }}>
+                            <img loading="lazy" decoding="async" src={`/api/logo/${item.ticker}`} alt={item.ticker} className="w-7 h-7 object-contain" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                            <span className="text-[9px] font-bold text-slate-600 absolute">{item.ticker.slice(0, 2)}</span>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                            <div className="font-black text-[17px] text-white tracking-wide leading-tight">{item.ticker}</div>
+                        </div>
+                        <div className="text-right flex-shrink-0">
+                            <div className={`font-black tabular-nums text-[20px] tracking-tight ${pf.color}`} style={pf.style}>
+                                ${item.currentPrice.toFixed(2)}
+                            </div>
+                            <div className={`text-[14px] font-bold tabular-nums flex items-center justify-end gap-1 ${isPositive ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                {isPositive ? <TrendingUp className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
                                 {isPositive ? '+' : ''}{item.changePct.toFixed(2)}%
-                            </span>
-                        </div>
-                        <div className="flex items-center gap-2 mt-0.5">
-                            <span className={`font-bold tabular-nums text-[14px] ${pf.color}`} style={pf.style}>${item.currentPrice.toFixed(2)}</span>
-                            {item.alphaGrade && (
-                                <span className={`text-[12px] font-black px-1.5 py-0.5 rounded ${(item.alphaGrade as string) === 'S' ? 'bg-amber-500/20 text-amber-400' :
-                                    item.alphaGrade === 'A' ? 'bg-emerald-500/20 text-emerald-400' :
-                                        item.alphaGrade === 'B' ? 'bg-cyan-500/20 text-cyan-400' :
-                                            'bg-slate-500/20 text-slate-400'
-                                    }`}>{item.alphaGrade}</span>
-                            )}
+                            </div>
                         </div>
                     </div>
-                    {/* Arrow */}
-                    <ChevronRight className="w-4 h-4 text-slate-600 flex-shrink-0" />
+                    {/* Row 2: Quick Metric Pills */}
+                    <div className="flex items-center gap-1.5 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
+                        {/* Score pill */}
+                        {item.alphaScore !== undefined && item.alphaGrade && (
+                            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-lg text-[11px] font-black tabular-nums border whitespace-nowrap ${
+                                item.alphaGrade === 'A' ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' :
+                                item.alphaGrade === 'B' ? 'bg-cyan-500/10 border-cyan-500/20 text-cyan-400' :
+                                item.alphaGrade === 'C' ? 'bg-amber-500/10 border-amber-500/20 text-amber-400' :
+                                'bg-rose-500/10 border-rose-500/20 text-rose-400'
+                            }`}>{item.alphaScore} {item.alphaGrade}</span>
+                        )}
+                        {/* Signal pill */}
+                        {item.action && (
+                            <span className={`inline-flex items-center px-2 py-0.5 rounded-lg text-[11px] font-black tracking-wider border whitespace-nowrap ${
+                                item.action === 'ADD' ? 'bg-cyan-500/10 border-cyan-500/20 text-cyan-400' :
+                                item.action === 'TRIM' ? 'bg-rose-500/10 border-rose-500/20 text-rose-400' :
+                                item.action === 'HOLD' ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' :
+                                'bg-amber-500/10 border-amber-500/20 text-amber-400'
+                            }`}>{item.action}</span>
+                        )}
+                        {/* 3D Return pill */}
+                        {item.return3d !== undefined && item.return3d !== null && (
+                            <span className={`inline-flex items-center px-2 py-0.5 rounded-lg text-[11px] font-bold tabular-nums border whitespace-nowrap ${
+                                item.return3d >= 0 ? 'border-emerald-500/15 bg-emerald-500/5 text-emerald-400' : 'border-rose-500/15 bg-rose-500/5 text-rose-400'
+                            }`}>
+                                <span className="text-[9px] text-slate-500 mr-0.5">3D</span>
+                                {item.return3d >= 0 ? '+' : ''}{item.return3d.toFixed(1)}%
+                            </span>
+                        )}
+                        {/* Session pill */}
+                        {(() => {
+                            const etParts = new Date().toLocaleString('en-US', { timeZone: 'America/New_York', hour12: false, hour: '2-digit', minute: '2-digit' }).split(':');
+                            const etMins = parseInt(etParts[0]) * 60 + parseInt(etParts[1]);
+                            const etDow = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' })).getDay();
+                            const isWeekend = etDow === 0 || etDow === 6;
+                            const realSession = isWeekend ? 'closed' : etMins < 240 ? 'closed' : etMins < 570 ? 'pre' : etMins < 960 ? 'reg' : etMins < 1200 ? 'post' : 'closed';
+                            if (realSession === 'pre') return <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-cyan-500/15 text-cyan-400 border border-cyan-500/20 whitespace-nowrap">PRE</span>;
+                            if (realSession === 'post') return <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-amber-500/15 text-amber-400 border border-amber-500/20 whitespace-nowrap">POST</span>;
+                            return null;
+                        })()}
+                        <ChevronRight className="w-3.5 h-3.5 text-slate-600 flex-shrink-0 ml-auto" />
+                    </div>
                 </Link>
 
                 {/* === DESKTOP GRID LAYOUT (md: and above) === */}
