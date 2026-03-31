@@ -14,6 +14,7 @@ import { NextResponse } from 'next/server';
 import { callBedrock } from '@/services/bedrockClient';
 import { getFromCache, setInCache } from '@/services/redisClient';
 import { fetchMassive } from '@/services/massiveClient';
+import { fetchBatch8K, buildSECTextBlock } from '@/services/secFilingsService';
 
 export const maxDuration = 60;
 
@@ -171,11 +172,14 @@ export async function POST(req: Request) {
         let freshAnalyses: Record<string, { ko: string; en: string; ja: string }> = {};
 
         if (needsFetch.length > 0) {
-            // 1. Fetch Polygon news for each stock
+            // 1. Fetch Polygon news + SEC 8-K data for each stock (parallel)
             const newsMap: Record<string, { title: string; age: string; sentiment: string }[]> = {};
-            await Promise.all(needsFetch.map(async (s) => {
-                newsMap[s.ticker] = await fetchTickerNews(s.ticker);
-            }));
+            const [newsResults, sec8kMap] = await Promise.all([
+                Promise.all(needsFetch.map(async (s) => {
+                    newsMap[s.ticker] = await fetchTickerNews(s.ticker);
+                })),
+                fetchBatch8K(needsFetch.map(s => s.ticker)),
+            ]);
 
             // 2. Build prompts
             const dataBlock = buildDataBlock(needsFetch);
@@ -183,10 +187,19 @@ export async function POST(req: Request) {
 
             const newsSection = needsFetch.map(s => {
                 const articles = newsMap[s.ticker] || [];
-                if (articles.length === 0) return `${s.ticker}: No recent news available`;
-                return `${s.ticker} NEWS:\n` + articles.map(a =>
-                    `  [${a.age}] [${a.sentiment}] ${a.title}`
-                ).join('\n');
+                const sec8k = sec8kMap[s.ticker] || [];
+                let block = '';
+                if (articles.length === 0 && sec8k.length === 0) return `${s.ticker}: No recent news or filings`;
+                if (articles.length > 0) {
+                    block += `${s.ticker} NEWS:\n` + articles.map(a =>
+                        `  [${a.age}] [${a.sentiment}] ${a.title}`
+                    ).join('\n');
+                }
+                if (sec8k.length > 0) {
+                    const secText = buildSECTextBlock(sec8k);
+                    block += (block ? '\n' : `${s.ticker} `) + `SEC FILINGS:\n${secText}`;
+                }
+                return block;
             }).join('\n\n');
 
             const userPrompt = `Analyze these ${needsFetch.length} stocks using the provided indicators AND recent news.

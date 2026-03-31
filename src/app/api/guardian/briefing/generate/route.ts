@@ -15,6 +15,7 @@ import { BedrockRuntimeClient, InvokeModelCommand } from '@aws-sdk/client-bedroc
 import { fetchMassive } from '@/services/massiveClient';
 import { getFromCache, setInCache } from '@/services/redisClient';
 import { getYahooDataSSOT } from '@/services/yahooFinanceHub';
+import { fetchBatch8K, buildSECTextBlock } from '@/services/secFilingsService';
 
 export const maxDuration = 60;
 
@@ -95,6 +96,26 @@ export async function POST(req: Request) {
             }
         } catch (e) {
             console.warn('[Briefing Gen] Calendar fetch failed:', e);
+        }
+
+        // 2.3. Fetch SEC 8-K filings for major tickers
+        let sec8kSection = '';
+        try {
+            const majorTickers = ['AAPL', 'MSFT', 'NVDA', 'GOOGL', 'AMZN', 'META', 'TSLA'];
+            const sec8kMap = await fetchBatch8K(majorTickers);
+            const secLines: string[] = [];
+            for (const ticker of majorTickers) {
+                const filings = sec8kMap[ticker] || [];
+                if (filings.length > 0) {
+                    secLines.push(`${ticker}: ${buildSECTextBlock(filings)}`);
+                }
+            }
+            if (secLines.length > 0) {
+                sec8kSection = secLines.join('\n');
+                console.log(`[Briefing Gen] SEC 8-K: ${secLines.length} tickers with filings`);
+            }
+        } catch (e) {
+            console.warn('[Briefing Gen] SEC 8-K fetch failed:', e);
         }
 
         // 2.5. Fetch ALL market data from Redis (cron-updated every minute)
@@ -207,6 +228,10 @@ ${calendarEvents.length > 0 ? calendarEvents.join('\n') : 'No HIGH impact events
 <overnight_news>
 ${marketNews.length > 0 ? marketNews.map((n, i) => `${i + 1}. ${n}`).join('\n') : 'No major headlines'}
 </overnight_news>
+${sec8kSection ? `
+<recent_sec_filings note="Major company 8-K filings from recent days">
+${sec8kSection}
+</recent_sec_filings>` : ''}
 
 <style_examples>
 KO example: "수요일 개장 전 거래에서 S&P 500 선물이 5,650(+0.45%), NASDAQ 100 선물이 19,840(+0.72%)으로 상승 출발함. Fed 파월 의장의 '추가 금리 인하 검토 중' 발언이 전해지며 기술주 중심 매수세가 유입된 것으로 관찰됨. 한편 Nvidia가 차세대 AI칩 GB300 발표를 예고하며 반도체 섹터가 +1.2% 상승, 에너지 섹터는 원유 재고 증가 보도에 -0.8% 하락함. RLSI 62 수준에서 시장 건전성은 보통으로 관찰되며, VIX 18.5와 롱 감마(GEX +45) 환경에서 안정적 변동성이 나타남. 오늘 12:30 ET CPI 발표가 최대 변수로, 예상치 상회 시 변동성 확대 가능성이 관찰됨."

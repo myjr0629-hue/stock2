@@ -16,6 +16,7 @@ import { NextResponse } from 'next/server';
 import { callBedrock } from '@/services/bedrockClient';
 import { getFromCache, setInCache } from '@/services/redisClient';
 import { fetchMassive } from '@/services/massiveClient';
+import { fetchSECFilings, buildSECXmlBlock } from '@/services/secFilingsService';
 
 export const maxDuration = 60;
 
@@ -67,31 +68,49 @@ export async function POST(req: Request) {
             }
         }
 
-        // --- Fetch News (Polygon via Redis) ---
+        // --- Fetch News + SEC Data (parallel) ---
         let newsArticles: { title: string; age: string; sentiment: string; source: string; weight: string }[] = [];
-        try {
-            const newsData = await fetchMassive(
-                '/v2/reference/news',
-                { ticker, limit: '15', order: 'desc', sort: 'published_utc' },
-                true
-            );
-            const now = Date.now();
-            newsArticles = (newsData?.results || []).slice(0, 10).map((n: any) => {
-                const pubDate = new Date(n.published_utc || 0).getTime();
-                const ageMs = now - pubDate;
-                const ageHours = Math.floor(ageMs / (1000 * 60 * 60));
-                const ageStr = ageHours < 1 ? 'Now' : ageHours < 24 ? `${ageHours}h` : `${Math.floor(ageHours / 24)}d`;
-                const desc = n.description ? ` — ${n.description.slice(0, 300)}` : '';
-                return {
-                    title: (n.title || '') + desc,
-                    age: ageStr,
-                    sentiment: n.insights?.[0]?.sentiment || 'neutral',
-                    source: n.publisher?.name || 'Unknown',
-                    weight: getNewsWeight(ageHours, n.title || ''),
-                };
-            }).filter((a: any) => a.title);
-        } catch (e) {
-            console.warn('[DeepAnalysis] News fetch failed:', e);
+        let secXmlBlock = '';
+
+        const [newsResult, secResult] = await Promise.allSettled([
+            // News fetch
+            (async () => {
+                const newsData = await fetchMassive(
+                    '/v2/reference/news',
+                    { ticker, limit: '15', order: 'desc', sort: 'published_utc' },
+                    true
+                );
+                const now = Date.now();
+                return (newsData?.results || []).slice(0, 10).map((n: any) => {
+                    const pubDate = new Date(n.published_utc || 0).getTime();
+                    const ageMs = now - pubDate;
+                    const ageHours = Math.floor(ageMs / (1000 * 60 * 60));
+                    const ageStr = ageHours < 1 ? 'Now' : ageHours < 24 ? `${ageHours}h` : `${Math.floor(ageHours / 24)}d`;
+                    const desc = n.description ? ` — ${n.description.slice(0, 300)}` : '';
+                    return {
+                        title: (n.title || '') + desc,
+                        age: ageStr,
+                        sentiment: n.insights?.[0]?.sentiment || 'neutral',
+                        source: n.publisher?.name || 'Unknown',
+                        weight: getNewsWeight(ageHours, n.title || ''),
+                    };
+                }).filter((a: any) => a.title);
+            })(),
+            // SEC filings fetch (8-K + 10-K)
+            fetchSECFilings(ticker),
+        ]);
+
+        if (newsResult.status === 'fulfilled') {
+            newsArticles = newsResult.value;
+        } else {
+            console.warn('[DeepAnalysis] News fetch failed:', newsResult.reason);
+        }
+
+        if (secResult.status === 'fulfilled') {
+            secXmlBlock = buildSECXmlBlock(secResult.value);
+            if (secXmlBlock) {
+                console.log(`[DeepAnalysis] SEC data: ${secResult.value.filings8k.length} 8-K, ${secResult.value.business10k ? '1' : '0'} 10-K`);
+            }
         }
 
         // --- If news is scarce (< 2 articles in 7 days), fetch sector news ---
@@ -178,6 +197,7 @@ export async function POST(req: Request) {
   <news recency_weighted="true" count="${newsArticles.length}">
 ${newsXml}
   </news>${sectorNewsNote}
+${secXmlBlock ? '\n' + secXmlBlock : ''}
   
   <trigger_reason>${triggerReason}</trigger_reason>
 </ticker_analysis>`;
@@ -237,6 +257,7 @@ All text fields use { "ko": "...", "en": "...", "ja": "..." } trilingual structu
 - NEWS INTEGRATION: Weave news naturally into analysis.
 - If news is scarce, focus on structural indicators and sector context.
 - If trigger_reason=PRICE_MOVE, explain WHAT likely caused it.
+- SEC FILINGS (8-K/10-K): If provided in <sec_filings>, reference recent corporate events (8-K) as supporting context. Use 10-K business overview to understand the company's revenue structure and competitive positioning.
 - FORBIDDEN: investment advice, buy/sell recommendations, emojis.
 - Make connections between indicators.
 </critical_rules>`;
