@@ -1078,6 +1078,28 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
             setCompanyOverview(null);
             setRelatedData(null);
         }
+
+    // [COLD-START FIX] Client-side overview fetch when SSR overview is null
+    // /api/live/ticker does NOT include overview, so SWR never provides it.
+    // On cold start, SSR times out → overview stays null forever unless we fetch here.
+    const overviewTimer = setTimeout(async () => {
+        if (companyOverview || !ticker) return;
+        try {
+            const res = await fetch(`/api/ticker/overview?ticker=${ticker}`);
+            if (res.ok) {
+                const data = await res.json();
+                if (data?.overview) {
+                    setCompanyOverview({
+                        sector: data.overview.sector || null,
+                        sectorEN: data.overview.sectorEN || null,
+                        description: data.overview.description || null,
+                        descriptionEN: data.overview.descriptionEN || null,
+                    });
+                }
+            }
+        } catch { /* silent fail */ }
+    }, 2000); // 2s delay — wait for SSR hydration first
+    return () => clearTimeout(overviewTimer);
     }, [ticker]);
 
 
