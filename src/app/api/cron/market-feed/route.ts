@@ -121,7 +121,7 @@ async function fetchAndCacheFearGreed(): Promise<string> {
 }
 
 
-export async function GET() {
+export async function GET(request: Request) {
     const results: string[] = [];
     let ok = 0;
     let fail = 0;
@@ -167,9 +167,7 @@ export async function GET() {
 
                 // Trigger urgent news refresh (fire-and-forget)
                 try {
-                    const baseUrl = process.env.VERCEL_URL
-                        ? `https://${process.env.VERCEL_URL}`
-                        : process.env.NEXT_PUBLIC_BASE_URL || 'https://www.signumhq.com';
+                    const baseUrl = request.url.split('/api/')[0];
                     fetch(`${baseUrl}/api/guardian/news-digest?refresh=1&urgent=1`, {
                         signal: AbortSignal.timeout(10000),
                         headers: process.env.VERCEL_AUTOMATION_BYPASS_SECRET

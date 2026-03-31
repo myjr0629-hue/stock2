@@ -16,7 +16,7 @@ import { getFromCache } from '@/services/redisClient';
 
 export const maxDuration = 60;
 
-export async function GET() {
+export async function GET(request: Request) {
     const startTime = Date.now();
 
     try {
@@ -37,10 +37,8 @@ export async function GET() {
             if (Array.isArray(histRaw)) rlsiHistory = histRaw;
         } catch { }
 
-        // 3. Call the generate endpoint (self-call via absolute URL)
-        const baseUrl = process.env.VERCEL_URL
-            ? `https://${process.env.VERCEL_URL}`
-            : process.env.NEXT_PUBLIC_BASE_URL || 'https://www.signumhq.com';
+        // 3. Call the generate endpoint (self-call via same origin — matches all other crons)
+        const baseUrl = request.url.split('/api/')[0];
 
         console.log(`[Cron Briefing] Calling generate API with snapshot: ${!!snapshot}, history: ${rlsiHistory.length} entries`);
 
