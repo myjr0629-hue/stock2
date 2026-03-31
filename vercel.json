@@ -97,7 +97,7 @@
             "schedule": "5 12 * * 1-5"
         },
         {
-            "path": "/api/cron/buffer-dispatch?content=morning&dry_run=false",
+            "path": "/api/cron/buffer-dispatch?content=morning&dry_run=true",
             "schedule": "10 12 * * 1-5"
         },
         {
@@ -105,7 +105,7 @@
             "schedule": "35 20 * * 1-5"
         },
         {
-            "path": "/api/cron/buffer-dispatch?content=pulse&dry_run=false",
+            "path": "/api/cron/buffer-dispatch?content=pulse&dry_run=true",
             "schedule": "40 20 * * 1-5"
         },
         {
@@ -113,11 +113,11 @@
             "schedule": "0 16 * * 2,4"
         },
         {
-            "path": "/api/cron/buffer-dispatch?content=education&dry_run=false",
+            "path": "/api/cron/buffer-dispatch?content=education&dry_run=true",
             "schedule": "5 16 * * 2,4"
         },
         {
-            "path": "/api/cron/event-detect?dry_run=false",
+            "path": "/api/cron/event-detect?dry_run=true",
             "schedule": "*/5 13-21 * * 1-5"
         }
     ]

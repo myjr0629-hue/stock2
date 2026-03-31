@@ -98,7 +98,7 @@ export function LandingHeader() {
     };
 
     return (
-        <header className="w-full bg-[#0a0f1a]/95 backdrop-blur-xl">
+        <header className="w-full bg-[#0a0f1a]/95 backdrop-blur-xl relative z-[60]">
             {/* Navigation Row */}
             <div className="w-full flex h-12 items-center px-4 sm:px-6 gap-4">
                 {/* 1. LOGO */}
