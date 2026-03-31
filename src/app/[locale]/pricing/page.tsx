@@ -157,7 +157,7 @@ export default function PricingPage() {
         }
     }, [locale, isAnnual]);
 
-    // ── 업/다운그레이드 핸들러 ──
+    // ── 업/다운그레이드 + 결제주기 변경 핸들러 ──
     const handleUpgradeOrDowngrade = useCallback(async (targetPlan: 'pro' | 'elite') => {
         setUpgradeLoading(true);
         try {
@@ -172,39 +172,24 @@ export default function PricingPage() {
             });
             const data = await res.json();
             if (data.success) {
-                alert(data.type === 'upgrade' ? t('upgradeSuccess') : t('downgradeSuccess'));
+                const msg = data.type === 'upgrade' ? t('upgradeSuccess')
+                    : data.type === 'billing_change' ? 'Billing cycle updated!'
+                    : t('downgradeSuccess');
+                alert(msg);
                 window.location.reload();
+            } else if (data.alreadySame) {
+                alert('Already on this plan and billing cycle.');
             } else {
+                alert(data.error || 'Something went wrong');
                 console.error('[Pricing] Upgrade error:', data.error);
             }
         } catch (err) {
             console.error('[Pricing] Upgrade fetch error:', err);
+            alert('Failed to process. Please try again.');
         } finally {
             setUpgradeLoading(false);
         }
     }, [locale, isAnnual, t]);
-
-    // ── Stripe Customer Portal (결제 주기 변경/결제수단/취소) ──
-    const handleManageSubscription = useCallback(async () => {
-        try {
-            const res = await fetch('/api/stripe/portal', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ locale }),
-            });
-            const data = await res.json();
-            if (data.url) {
-                window.location.href = data.url;
-            } else {
-                alert(data.error === 'No Stripe customer found'
-                    ? 'No subscription found. Please contact support.'
-                    : `Error: ${data.error || 'Unknown error'}`);
-            }
-        } catch (err) {
-            console.error('[Pricing] Portal error:', err);
-            alert('Failed to open subscription portal. Please try again.');
-        }
-    }, [locale]);
 
     // USD Prices
     const proPriceMonthly = 69;
@@ -486,10 +471,11 @@ export default function PricingPage() {
                                     {t("currentPlan")}
                                 </button>
                                 <button
-                                    onClick={handleManageSubscription}
+                                    onClick={() => handleUpgradeOrDowngrade('pro')}
+                                    disabled={upgradeLoading}
                                     className="w-full mt-2 py-2 text-xs font-bold text-slate-500 hover:text-cyan-400 transition-colors uppercase tracking-wider font-jakarta"
                                 >
-                                    Manage Subscription →
+                                    {upgradeLoading ? '...' : isAnnual ? 'Switch to Annual ↑' : 'Switch to Monthly'}
                                 </button>
                             </>
                         ) : tier === 'elite' ? (
@@ -555,10 +541,11 @@ export default function PricingPage() {
                                     {t("currentPlan")}
                                 </button>
                                 <button
-                                    onClick={handleManageSubscription}
+                                    onClick={() => handleUpgradeOrDowngrade('elite')}
+                                    disabled={upgradeLoading}
                                     className="w-full mt-2 py-2 text-xs font-bold text-slate-500 hover:text-cyan-400 transition-colors uppercase tracking-wider font-jakarta"
                                 >
-                                    Manage Subscription →
+                                    {upgradeLoading ? '...' : isAnnual ? 'Switch to Annual ↑' : 'Switch to Monthly'}
                                 </button>
                             </>
                         ) : tier === 'pro' ? (

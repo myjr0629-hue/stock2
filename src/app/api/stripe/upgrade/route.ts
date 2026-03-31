@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getStripe, STRIPE_PRICES } from '@/lib/stripe';
+import { getStripe, STRIPE_PRICES, planFromPriceId } from '@/lib/stripe';
 import { createClient } from '@/lib/supabase/server';
 import { createClient as createServiceClient } from '@supabase/supabase-js';
 
@@ -12,8 +12,10 @@ const supabaseService = createServiceClient(
 /**
  * POST /api/stripe/upgrade
  * 
- * Handles Pro→Elite upgrade (immediate, prorated) and
- * Elite→Pro downgrade (at period end).
+ * Handles:
+ * - Pro→Elite upgrade (immediate, prorated)
+ * - Elite→Pro downgrade (immediate, no proration)
+ * - Same plan billing change: monthly↔yearly (immediate, prorated)
  */
 export async function POST(req: NextRequest) {
     try {
@@ -54,15 +56,24 @@ export async function POST(req: NextRequest) {
         // Get current subscription
         const subscription = await getStripe().subscriptions.retrieve(profile.stripe_subscription_id);
         const currentItemId = subscription.items.data[0]?.id;
+        const currentPriceId = subscription.items.data[0]?.price?.id;
 
         if (!currentItemId) {
             return NextResponse.json({ error: 'No subscription item found' }, { status: 404 });
         }
 
+        // Check if already on the same price
+        if (currentPriceId === targetPriceId) {
+            return NextResponse.json({ error: 'Already on this plan and billing', alreadySame: true }, { status: 400 });
+        }
+
+        // Determine change type
+        const currentPlan = planFromPriceId(currentPriceId || '');
         const isUpgrade = targetPlan === 'elite' && profile.tier === 'pro';
         const isDowngrade = targetPlan === 'pro' && profile.tier === 'elite';
+        const isBillingChange = targetPlan === profile.tier; // same plan, different billing
 
-        if (!isUpgrade && !isDowngrade) {
+        if (!isUpgrade && !isDowngrade && !isBillingChange) {
             return NextResponse.json({ error: 'Invalid plan change' }, { status: 400 });
         }
 
@@ -74,9 +85,8 @@ export async function POST(req: NextRequest) {
                     id: currentItemId,
                     price: targetPriceId,
                 }],
-                // Upgrade: immediate with proration
-                // Downgrade: at period end (user keeps Elite until renewal)
-                proration_behavior: isUpgrade ? 'create_prorations' : 'none',
+                // All changes: immediate with proration
+                proration_behavior: 'create_prorations',
                 metadata: {
                     plan: targetPlan,
                     billing,
@@ -85,10 +95,15 @@ export async function POST(req: NextRequest) {
             },
         );
 
+        let changeType: string;
+        if (isUpgrade) changeType = 'upgrade';
+        else if (isDowngrade) changeType = 'downgrade';
+        else changeType = 'billing_change';
+
         return NextResponse.json({
             success: true,
-            type: isUpgrade ? 'upgrade' : 'downgrade',
-            effectiveFrom: isUpgrade ? 'now' : new Date((subscription as any).current_period_end * 1000).toISOString(),
+            type: changeType,
+            effectiveFrom: 'now',
         });
     } catch (err: any) {
         console.error('[Stripe Upgrade] Error:', err.message);
