@@ -111,7 +111,7 @@ async function fetchAndCacheFearGreed(): Promise<string> {
                 score: fg.score,
                 rating: fg.rating,
                 updatedAt: new Date().toISOString(),
-            });
+            }, 600);
             return `F&G=${fg.score.toFixed(0)}(${fg.rating})`;
         }
         return 'F&G=INVALID';
@@ -130,7 +130,7 @@ export async function GET() {
     for (const { yahoo, key } of SYMBOLS) {
         const quote = await fetchOneQuote(yahoo);
         if (quote) {
-            const written = await setInCache(key, quote);
+            const written = await setInCache(key, quote, 600);
             if (written) {
                 results.push(`${yahoo}=${quote.price}`);
                 ok++;
