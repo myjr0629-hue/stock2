@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, FormEvent } from "react";
 import { createPortal } from "react-dom";
 import { useSearchParams } from "next/navigation";
-import { Search, LogOut, Settings, ChevronDown } from "lucide-react";
+import { Search, LogOut, Settings, ChevronDown, LayoutDashboard, Shield, Crosshair, Waves, Radar, Briefcase, Star, BookOpen, CreditCard } from "lucide-react";
 import { Link, useRouter, usePathname } from "@/i18n/routing";
 import { clsx } from 'clsx';
 import { useFavorites } from "@/hooks/useFavorites";
@@ -165,15 +165,15 @@ export function LandingHeader() {
                 {/* Navigation */}
                 <nav className="px-3 space-y-0.5" suppressHydrationWarning>
                     {[
-                        { label: "DASHBOARD", href: "/dashboard", icon: "📊" },
-                        { label: "GUARDIAN", href: "/intel-guardian", icon: "🛡️" },
-                        { label: "COMMAND", href: `/ticker?ticker=${currentTicker}`, icon: "⚡" },
-                        { label: "FLOW", href: `/flow?ticker=${currentTicker}`, icon: "🌊" },
-                        { label: "INTEL", href: "/intel", icon: "🔍" },
-                        { label: "PORTFOLIO", href: "/portfolio", icon: "💼" },
-                        { label: "WATCHLIST", href: "/watchlist", icon: "⭐" },
-                        { label: "GUIDE", href: "/how-it-works", icon: "📖" },
-                        { label: "PRICING", href: "/pricing", icon: "💰" },
+                        { label: "DASHBOARD", href: "/dashboard", icon: LayoutDashboard },
+                        { label: "GUARDIAN", href: "/intel-guardian", icon: Shield },
+                        { label: "COMMAND", href: `/ticker?ticker=${currentTicker}`, icon: Crosshair },
+                        { label: "FLOW", href: `/flow?ticker=${currentTicker}`, icon: Waves },
+                        { label: "INTEL", href: "/intel", icon: Radar },
+                        { label: "PORTFOLIO", href: "/portfolio", icon: Briefcase },
+                        { label: "WATCHLIST", href: "/watchlist", icon: Star },
+                        { label: "GUIDE", href: "/how-it-works", icon: BookOpen },
+                        { label: "PRICING", href: "/pricing", icon: CreditCard },
                     ].map((item) => {
                         const isActive = item.href === "/intel"
                             ? pathname === "/intel"
@@ -187,7 +187,7 @@ export function LandingHeader() {
                                         ? "text-emerald-400 bg-emerald-950/30 border border-emerald-500/20"
                                         : "text-slate-300 hover:text-white hover:bg-white/5"
                                 )}>
-                                <span className="text-base">{item.icon}</span>
+                                <item.icon className={clsx("w-[18px] h-[18px] shrink-0", isActive ? "text-emerald-400" : "text-slate-500")} />
                                 {item.label}
                                 {isActive && (
                                     <span className="ml-auto w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.8)]" />
