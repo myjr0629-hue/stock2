@@ -217,7 +217,7 @@ export function SectorCommandCenter({ sectorData, onNavigate }: SectorCommandCen
                     <div className="absolute -bottom-20 -left-20 w-60 h-60 bg-gradient-radial from-teal-400/8 to-transparent rounded-full blur-3xl" />
                 </div>
 
-                <div className="relative z-10 flex items-center justify-between gap-6">
+                <div className="relative z-10 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 sm:gap-6">
                     <div>
                         <div className="flex items-center gap-2 mb-2">
                             <span className="text-[13px] font-bold text-cyan-400 tracking-[0.2em] uppercase flex items-center gap-1.5">
@@ -271,7 +271,7 @@ export function SectorCommandCenter({ sectorData, onNavigate }: SectorCommandCen
                         </span>
                     </div>
 
-                    <div className="flex-shrink-0">
+                    <div className="flex-shrink-0 w-full sm:w-auto">
                         <div className={`relative rounded-xl border backdrop-blur-md px-5 py-3 ${marketSentiment === 'BULLISH' ? 'bg-emerald-500/20 border-emerald-400/40' :
                             marketSentiment === 'BEARISH' ? 'bg-rose-400/15 border-rose-300/30' :
                                 'bg-amber-500/20 border-amber-400/40'
@@ -310,9 +310,9 @@ export function SectorCommandCenter({ sectorData, onNavigate }: SectorCommandCen
                 </div>
 
                 {/* Macro Quick Strip */}
-                <div className="relative z-10 mt-4 grid grid-cols-3 gap-3">
+                <div className="relative z-10 mt-4 flex sm:grid sm:grid-cols-3 gap-3 overflow-x-auto pb-1 scrollbar-none">
                     {marketOverview.topSector && (
-                        <div className="flex items-center gap-2 px-3 py-2.5 rounded-lg bg-emerald-500/8 border border-emerald-500/20">
+                        <div className="flex items-center gap-2 px-3 py-2.5 rounded-lg bg-emerald-500/8 border border-emerald-500/20 min-w-[200px] sm:min-w-0 shrink-0 sm:shrink">
                             <span className="text-[13px] text-emerald-300 font-bold uppercase tracking-wider flex items-center gap-1"><TrendingUp className="w-3.5 h-3.5" /> TOP</span>
                             <span className={`text-base font-bold ${marketOverview.topSector.def.accent} flex items-center gap-1`}>
                                 {marketOverview.topSector.def.icon} {marketOverview.topSector.def.shortLabel}
@@ -323,7 +323,7 @@ export function SectorCommandCenter({ sectorData, onNavigate }: SectorCommandCen
                         </div>
                     )}
                     {marketOverview.bottomSector && (
-                        <div className="flex items-center gap-2 px-3 py-2.5 rounded-lg bg-rose-500/8 border border-rose-500/20">
+                        <div className="flex items-center gap-2 px-3 py-2.5 rounded-lg bg-rose-500/8 border border-rose-500/20 min-w-[200px] sm:min-w-0 shrink-0 sm:shrink">
                             <span className="text-[13px] text-rose-300 font-bold uppercase tracking-wider flex items-center gap-1"><TrendingDown className="w-3.5 h-3.5" /> BOT</span>
                             <span className={`text-base font-bold ${marketOverview.bottomSector.def.accent} flex items-center gap-1`}>
                                 {marketOverview.bottomSector.def.icon} {marketOverview.bottomSector.def.shortLabel}
@@ -334,7 +334,7 @@ export function SectorCommandCenter({ sectorData, onNavigate }: SectorCommandCen
                         </div>
                     )}
                     {marketOverview.hotWhale && (
-                        <div className="flex items-center gap-2 px-3 py-2.5 rounded-lg bg-violet-500/8 border border-violet-500/20">
+                        <div className="flex items-center gap-2 px-3 py-2.5 rounded-lg bg-violet-500/8 border border-violet-500/20 min-w-[200px] sm:min-w-0 shrink-0 sm:shrink">
                             <span className="text-[13px] text-violet-300 font-bold uppercase tracking-wider flex items-center gap-1"><BarChart3 className="w-3.5 h-3.5" /> WHALE</span>
                             <span className={`text-base font-bold ${marketOverview.hotWhale.def.accent} flex items-center gap-1`}>
                                 {marketOverview.hotWhale.def.icon} {marketOverview.hotWhale.def.shortLabel}
@@ -607,7 +607,7 @@ export function SectorCommandCenter({ sectorData, onNavigate }: SectorCommandCen
             </section>
 
             {/* ═══ SECTOR MOMENTUM RANKING — Premium Table ═══ */}
-            <section className="relative z-10 rounded-xl border border-emerald-500/[0.12] bg-[#0d1117]/70 backdrop-blur-sm overflow-hidden">
+            <section className="relative z-10 rounded-xl border border-emerald-500/[0.12] bg-[#0d1117]/70 backdrop-blur-sm overflow-x-auto">
                 {/* Header Row */}
                 <div className="grid items-center px-5 py-3 border-b border-white/[0.10]"
                     style={{ gridTemplateColumns: RANKING_GRID }}>

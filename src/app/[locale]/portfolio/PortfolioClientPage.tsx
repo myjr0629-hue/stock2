@@ -92,7 +92,7 @@ export default function PortfolioClientPage({
             {/* Global Header */}
             {/* Page Header - Minimal & Premium */}
             <div className="border-b border-white/5">
-                <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between">
+                <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-3 flex flex-wrap items-center justify-between gap-2">
                     <div className="flex items-center gap-2">
                         <Briefcase className="w-4 h-4 text-emerald-400/80" />
                         <span className="text-lg font-black tracking-wider text-white">PORTFOLIO</span>
@@ -175,7 +175,7 @@ export default function PortfolioClientPage({
                 ) : (
                     <div className="space-y-2">
                         {/* Column Headers (glassmorphism bar — same as watchlist) */}
-                        <div className="flex items-center rounded-lg border border-white/[0.04] bg-white/[0.03] backdrop-blur-sm">
+                        <div className="flex items-center rounded-lg border border-white/[0.04] bg-white/[0.03] backdrop-blur-sm overflow-x-auto">
                             <div className="w-11 flex-shrink-0" />
                             <div className={`flex-1 ${PORTFOLIO_GRID} px-3 py-2.5 text-[13px] font-bold text-slate-300 uppercase tracking-wider`}>
                                 <div className="pl-1">{t('ticker')}</div>
