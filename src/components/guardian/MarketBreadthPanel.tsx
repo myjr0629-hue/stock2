@@ -321,6 +321,23 @@ export default function RLSIInsightPanel({
                                     <img src="/signum-sg-vectorized.svg" alt="AI" width={13} height={13} style={{ objectFit: 'contain' as const, filter: 'drop-shadow(0 0 2px rgba(245,158,11,0.3))', animation: 'aiLogoPulse 2.5s ease-in-out infinite' }} />
                                     {insightTitle}
                                 </div>
+                                {/* [V13.0] Visual divergence label — makes divergence status immediately felt */}
+                                {isDivergent && (insightTitle?.includes('DIVERGENCE') || alignmentStatus === 'DIVERGENCE') && (
+                                    <div className="flex items-center gap-1.5 mb-2 px-2.5 py-1.5 rounded-md"
+                                        style={{ 
+                                            background: 'linear-gradient(90deg, rgba(244,63,94,0.12) 0%, rgba(244,63,94,0.03) 100%)',
+                                            border: '1px solid rgba(244,63,94,0.25)'
+                                        }}>
+                                        <AlertTriangle className="w-3.5 h-3.5 text-rose-400 flex-shrink-0" style={{ animation: 'pulse 2s ease-in-out infinite' }} />
+                                        <span className="text-[11px] font-bold text-rose-300 tracking-wider uppercase">
+                                            {sentiment === 'BEARISH' 
+                                                ? 'FALSE RALLY \u2014 INDEX \u2191 LIQUIDITY \u2193'
+                                                : sentiment === 'BULLISH'
+                                                    ? 'STEALTH INFLOW \u2014 INDEX \u2193 LIQUIDITY \u2191'
+                                                    : 'SURFACE \u2260 INTERNAL FLOW'}
+                                        </span>
+                                    </div>
+                                )}
                                 <div className="text-[13px] text-white/80 leading-[1.6]" style={{ fontFamily: 'Pretendard, sans-serif' }}>
                                     {insightDesc}
                                 </div>

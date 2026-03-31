@@ -427,6 +427,20 @@ const REALITY_PROMPTS: Record<Locale, (ctx: IntelligenceContext) => string> = {
         21. 옵션 지지선/저항선 3% 이내 접근 → 해당 레벨 돌파/이탈 시나리오 언급
         22. GEX 약(−19~+19) + Squeeze 30%+ → "감마 방어력 부족, Squeeze 에너지 축적" 언급
 
+        ${ctx.divergenceCase && ctx.divergenceCase !== 'N' ? `
+        **[출력] — DIVERGENCE 상황 전용 형식 (반드시 이 형식으로):**
+        현재 ${ctx.divergenceCase === 'A' ? '\"가짜 랠리(False Rally)\"' : ctx.divergenceCase === 'B' ? '\"은밀 매집(Stealth Inflow)\"' : ctx.divergenceCase === 'C' ? '\"모멘텀 서지\"' : '\"동반 약세\"'} 패턴이 관측됩니다.
+        상황: ${ctx.divergenceDesc || ''}
+
+        자연스러운 한국어 3문장으로 작성하세요.
+        - **첫 문장 (필수 — 괴리 진단으로 시작)**: "지수는 ~하고 있으나/~에도 불구하고, 내부 유동성은 ~" 형태로 **표면과 내부의 괴리를 대비**하며 시작. RLSI, Breadth, 거래량 등 괴리를 입증하는 수치를 반드시 포함. 뉴스가 있으면 괴리 발생 원인과 연결
+        - **두 번째 문장 (괴리의 배경)**: 왜 이 괴리가 발생했는지 설명. ${ctx.divergenceCase === 'A' ? '소수 대형주 주도 상승인지, 숏커버 반등인지, 특정 뉴스에 의한 일시적 반등인지 판별' : ctx.divergenceCase === 'B' ? '기관이 왜 하락 구간에서 매집하는지, 밸류에이션 매력인지, 정책 기대인지 판별' : '유동성과 가격이 왜 동시에 움직이는지 분석'}. 교차 자산(금/채권/달러/VIX) 으로 뒷받침
+        - **세 번째 문장 (괴리 시사점)**: 이 괴리가 지속/해소될 경우 어떤 시나리오가 전개되는지 전망. ${ctx.divergenceCase === 'A' ? '\"Breadth 참여 없는 지수 상승은 역사적으로 후행 조정 패턴\"과 같은 구체적 시사점' : ctx.divergenceCase === 'B' ? '\"유동성 유입이 가격에 선행하는 패턴으로 저점 형성 가능성\"과 같은 구체적 시사점' : '방향성 전망'}. 행동 지시 금지
+        - **핵심 원칙**: 모든 문장이 **괴리(Divergence)**를 중심축으로 전개. 뉴스와 지표는 괴리의 원인/근거로만 사용
+        - 전문가가 시장 상황을 객관적으로 전달하듯이 작성 (자문/권유 표현 절대 금지)
+        - 공백 포함 400자 이내
+        - 이모지(emoji) 사용 절대 금지. 텍스트만 사용
+        ` : `
         **[출력] — "왜 시장이 이렇게 움직이는가"를 최우선으로 작성:**
         자연스러운 한국어 3문장으로 작성하세요.
         - "[진단]" "[결론]" 같은 레이블 사용 금지
@@ -437,12 +451,7 @@ const REALITY_PROMPTS: Record<Locale, (ctx: IntelligenceContext) => string> = {
         - 전문가가 시장 상황을 객관적으로 전달하듯이 작성 (자문/권유 표현 절대 금지)
         - 공백 포함 350자 이내
         - 이모지(emoji) 사용 절대 금지. 텍스트만 사용
-
-        ${ctx.divergenceCase && ctx.divergenceCase !== 'N' ? `**[중요] DIVERGENCE 관측 — 분석에 반드시 반영:**
-        지수 표면과 내부 유동성 간 괴리가 관측됩니다.
-        - 유형: ${ctx.divergenceCase === 'A' ? '가짜 랠리(지수↑ 유동성↓) — 지수는 오르지만 내부 자금은 이탈 중' : ctx.divergenceCase === 'B' ? '은밀 매집(지수↓ 유동성↑) — 하락 속 기관 자금 유입 관측' : ctx.divergenceCase === 'C' ? '모멘텀 서지(지수↑ 유동성↑)' : '동반 약세(지수↓ 유동성↓)'}
-        - 상황: ${ctx.divergenceDesc || ''}
-        이 괴리가 시장에 어떤 의미인지 분석에 반드시 포함하세요. (False Rally라면 "소수 대형주 주도 상승으로 지속성 의문" 또는 Stealth Inflow라면 "가격 하락에도 유동성 유입이 관측되어 저점 형성 가능성 시사")` : ''}
+        `}
     `;
     },
     en: (ctx) => {
@@ -482,19 +491,26 @@ const REALITY_PROMPTS: Record<Locale, (ctx: IntelligenceContext) => string> = {
         ${ctx.marketNewsHeadlines && ctx.marketNewsHeadlines.length > 0 ? `[News]
         ${ctx.marketNewsHeadlines.map((h, i) => `${i + 1}. ${h}`).join('\n        ')}` : ''}
 
+        ${ctx.divergenceCase && ctx.divergenceCase !== 'N' ? `
+        **Output — DIVERGENCE MODE (strictly follow this format):**
+        A ${ctx.divergenceCase === 'A' ? '"False Rally"' : ctx.divergenceCase === 'B' ? '"Stealth Inflow"' : ctx.divergenceCase === 'C' ? '"Momentum Surge"' : '"Synchronized Weakness"'} pattern is detected.
+        Context: ${ctx.divergenceDesc || ''}
+
+        Write 2-3 natural sentences:
+        1. **First sentence (REQUIRED — lead with the divergence)**: Start with "Index is [rising/falling] but internal liquidity [contradicts]..." contrasting surface vs internals. Include RLSI, breadth, volume data proving the divergence. Connect to news if available
+        2. **Second sentence (divergence cause)**: Why this divergence exists — ${ctx.divergenceCase === 'A' ? 'large-cap driven rally, short-covering bounce, or news-driven temporary rebound?' : ctx.divergenceCase === 'B' ? 'institutional accumulation at value levels, policy expectations, or sector rotation?' : 'analyze why price and liquidity are moving together'}. Cross-validate with gold/bonds/dollar/VIX
+        3. **Third sentence (divergence implications)**: What happens if this divergence persists or resolves. ${ctx.divergenceCase === 'A' ? '"Narrow rallies without breadth participation historically precede corrections"' : ctx.divergenceCase === 'B' ? '"Liquidity inflows preceding price recovery suggest potential bottom formation"' : 'directional outlook'}. No action directives
+        Core principle: **Every sentence must revolve around the divergence**. News and indicators serve as evidence for the divergence story.
+        Max 350 chars. Do NOT use any emoji.
+        ` : `
         **Output — "WHY is the market moving this way" is your #1 priority:**
         Write 2-3 natural sentences.
-        1. **First sentence (REQUIRED)**: Identify the **key news event** driving today's market and explain the **causal chain** (e.g., "Hot CPI print of 3.2% dashed June rate cut hopes, driving 10Y yields to 4.31% and triggering a broad growth-stock selloff")
+        1. **First sentence (REQUIRED)**: Identify the **key news event** driving today's market and explain the **causal chain**
         2. **Second sentence**: How news impact propagated across asset classes (cross-validate with gold/bonds/oil/dollar + key indicators like RLSI/Breadth)
         3. **Third sentence**: Key variables and factual outlook (no action directives)
         Core principle: Tell the **news → market reaction causal story**, not a list of indicators. Use indicators as evidence for the narrative.
         Max 350 chars. Do NOT use any emoji.
-
-        ${ctx.divergenceCase && ctx.divergenceCase !== 'N' ? `**[CRITICAL] DIVERGENCE DETECTED — MUST ADDRESS IN ANALYSIS:**
-        Index surface and internal liquidity diverge significantly.
-        - Type: ${ctx.divergenceCase === 'A' ? 'False Rally (Index UP, Liquidity DOWN) — index rises but internal capital is exiting' : ctx.divergenceCase === 'B' ? 'Stealth Inflow (Index DOWN, Liquidity UP) — institutional capital entering during selloff' : ctx.divergenceCase === 'C' ? 'Momentum Surge (Index UP, Liquidity UP)' : 'Synchronized Weakness (Index DOWN, Liquidity DOWN)'}
-        - Context: ${ctx.divergenceDesc || ''}
-        You MUST address this divergence in your analysis. If False Rally, discuss sustainability concerns. If Stealth Inflow, discuss potential bottom formation signals.` : ''}
+        `}
     `;
     },
     ja: (ctx) => {
@@ -533,19 +549,26 @@ const REALITY_PROMPTS: Record<Locale, (ctx: IntelligenceContext) => string> = {
         ${ctx.marketNewsHeadlines && ctx.marketNewsHeadlines.length > 0 ? `[ニュース]
         ${ctx.marketNewsHeadlines.map((h, i) => `${i + 1}. ${h}`).join('\n        ')}` : ''}
 
+        ${ctx.divergenceCase && ctx.divergenceCase !== 'N' ? `
+        **出力 — DIVERGENCE専用形式（必ずこの形式で）:**
+        現在 ${ctx.divergenceCase === 'A' ? '「偽のラリー(False Rally)」' : ctx.divergenceCase === 'B' ? '「ステルス流入(Stealth Inflow)」' : ctx.divergenceCase === 'C' ? '「モメンタムサージ」' : '「同時弱体化」'} パターンが観測されています。
+        状況: ${ctx.divergenceDesc || ''}
+
+        自然な日本語3文で作成:
+        1. **第1文（必須 — 乖離の診断で開始）**: 「指数は~しているが、内部流動性は~」の形で**表面と内部の乖離を対比**して開始。RLSI、Breadth、出来高等の乖離を証明するデータを必ず含む
+        2. **第2文（乖離の背景）**: なぜこの乖離が発生しているか。クロスアセット（金/債券/ドル/VIX）で裏付け
+        3. **第3文（乖離の示唆）**: この乖離が持続/解消した場合のシナリオ。行動指示禁止
+        核心原則: **全ての文が乖離(Divergence)を中心軸**に展開。ニュースと指標は乖離の原因/根拠としてのみ使用。
+        350字以内。絵文字使用禁止。
+        ` : `
         **出力 — 「なぜ市場がこう動いているのか」を最優先で記述:**
         自然な日本語3文で作成してください。
-        1. **第1文（必須）**: 本日の市場を動かした**核心ニュースイベント**と市場反応の**因果関係**を明確に記述（例：「2月CPIが予想を上回る3.2%となり利下げ期待が後退、10Y金利が4.31%に急騰しグロース株中心の売りが拡大」）
+        1. **第1文（必須）**: 本日の市場を動かした**核心ニュースイベント**と市場反応の**因果関係**を明確に記述
         2. **第2文**: ニュースの影響が資産クラスにどう波及したか（金/債券/原油/ドルで交差検証 + RLSI/Breadth等の核心指標）
         3. **第3文**: 核心変数と今後の見通し（行動指示禁止）
         核心原則: 指標の羅列ではなく**ニュース→市場反応の因果ストーリー**を伝達。指標はナラティブの根拠として使用。
         350字以内。絵文字使用禁止。
-
-        ${ctx.divergenceCase && ctx.divergenceCase !== 'N' ? `**[重要] DIVERGENCE 観測 — 分析に必ず反映:**
-        指数表面と内部流動性の乖離が観測されています。
-        - タイプ: ${ctx.divergenceCase === 'A' ? '偽のラリー(指数↑ 流動性↓) — 指数は上昇するも内部資金は離脱中' : ctx.divergenceCase === 'B' ? 'ステルス流入(指数↓ 流動性↑) — 下落中に機関資金の流入を観測' : ctx.divergenceCase === 'C' ? 'モメンタムサージ(指数↑ 流動性↑)' : '同時弱体化(指数↓ 流動性↓)'}
-        - 状況: ${ctx.divergenceDesc || ''}
-        この乖離が市場に何を意味するか分析に必ず含めてください。` : ''}
+        `}
     `;
     }
 };
