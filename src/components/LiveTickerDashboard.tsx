@@ -877,8 +877,24 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
     );
 
     // 2. Map Unified Data to Components
-    // [극강] JSON fingerprint ensures useEffect fires whenever actual data values change
-    const unifiedFingerprint = unifiedData ? `${!!unifiedData.structure}|${!!unifiedData.volatility}|${!!unifiedData.sma}|${!!unifiedData.fundamentals}|${!!unifiedData.related}|${unifiedData.timestamp || ''}|${unifiedData._source || ''}` : '';
+    // [극강] Deep fingerprint ensures useEffect fires whenever actual data VALUES change
+    // Previous: only used boolean presence (!!field) — missed value changes within same shape
+    const unifiedFingerprint = unifiedData ? [
+        unifiedData.structure?.netGex ?? 'x',
+        unifiedData.structure?.atmIV ?? 'x',
+        unifiedData.volatility?.regimeScore ?? 'x',
+        unifiedData.volatility?.iv ?? 'x',
+        unifiedData.sma?.cross ?? 'x',
+        unifiedData.sma?.sma50 ?? 'x',
+        unifiedData.fundamentals?.score ?? 'x',
+        unifiedData.institutional?.darkPool?.percent ?? 'x',
+        unifiedData.squeeze?.status ?? 'x',
+        unifiedData.analyst?.consensus ?? 'x',
+        unifiedData.related?.count ?? 'x',
+        unifiedData.earnings?.nextEarningsDate ?? 'x',
+        unifiedData.timestamp || '',
+        unifiedData._source || '',
+    ].join('|') : '';
     useEffect(() => {
         if (!unifiedData) return;
         console.log('[Command] useEffect triggered, source:', unifiedData._source, 'has volatility:', !!unifiedData.volatility, 'has sma:', !!unifiedData.sma);
