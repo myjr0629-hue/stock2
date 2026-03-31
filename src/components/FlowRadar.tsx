@@ -1277,8 +1277,8 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
     const analysis = useMemo(() => {
         if (!flowMap || flowMap.length === 0) return null;
 
-        const distToCall = ((callWall - currentPrice) / currentPrice) * 100;
-        const distToPut = ((currentPrice - putWall) / currentPrice) * 100;
+        const distToCall = currentPrice > 0 ? ((callWall - currentPrice) / currentPrice) * 100 : 0;
+        const distToPut = currentPrice > 0 ? ((currentPrice - putWall) / currentPrice) * 100 : 0;
 
         // [Fix V2] Session-aware filter: use trades from the MOST RECENT trading session
         // instead of a rigid 16-hour cutoff (which breaks on weekends/holidays)
@@ -1879,8 +1879,8 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                                         position: {
                                             putFloor: putWall,
                                             callWall: callWall,
-                                            distToPut: `${((currentPrice - putWall) / currentPrice * 100).toFixed(1)}%`,
-                                            distToCall: `${((callWall - currentPrice) / currentPrice * 100).toFixed(1)}%`,
+                                            distToPut: currentPrice > 0 ? `${((currentPrice - putWall) / currentPrice * 100).toFixed(1)}%` : '0.0%',
+                                            distToCall: currentPrice > 0 ? `${((callWall - currentPrice) / currentPrice * 100).toFixed(1)}%` : '0.0%',
                                             zone: currentPrice > callWall ? 'ABOVE_CALL_WALL' : currentPrice < putWall ? 'BELOW_PUT_FLOOR' : 'INSIDE_RANGE',
                                         },
                                         factors: {

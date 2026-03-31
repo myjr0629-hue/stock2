@@ -7,6 +7,7 @@ import { Link } from '@/i18n/routing';
 import { useTranslations } from 'next-intl';
 import { Loader2, BookOpen } from 'lucide-react';
 import { FavoriteToggle } from '@/components/FavoriteToggle';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { useFlowData } from '@/hooks/useFlowData';
 import { useLivePrice } from '@/hooks/useLivePrice';
 import { calcPriceDisplay } from '@/utils/calcPriceDisplay';
@@ -259,6 +260,7 @@ export function FlowPageClient({ ticker, initialFlowData }: FlowPageClientProps)
                         </div>
                     ) : (
                         <div className="min-h-[600px] animate-in fade-in slide-in-from-bottom-4 duration-500">
+                            <ErrorBoundary fallbackTitle="Flow Radar Error" fallbackMessage="An error occurred while loading the options flow analysis. Please retry.">
                             <FlowRadar
                                 ticker={ticker}
                                 rawChain={rawChain}
@@ -270,6 +272,7 @@ export function FlowPageClient({ ticker, initialFlowData }: FlowPageClientProps)
                                 squeezeRisk={liveQuote?.flow?.squeezeRisk}
                                 initialFlowData={initialFlowData}
                             />
+                            </ErrorBoundary>
                         </div>
                     )}
                 </main>
