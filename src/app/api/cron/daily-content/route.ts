@@ -1,18 +1,17 @@
 // ============================================================================
 // /api/cron/daily-content — 마케팅 콘텐츠 생성 크론
 // Redis에서 시장 데이터 → 3개국어 콘텐츠 → Redis 저장
-// Build-only: vercel.json에 등록하지 않음 (수동 트리거만)
 // ============================================================================
 
 import { NextResponse } from 'next/server';
 import { getFromCache, setInCache } from '@/services/redisClient';
-import { generateMarketPulse, generateEducationContent, getEducationTopicIds } from '@/lib/marketing/contentEngines';
+import { generateMarketPulse, generateMorningBrief, generateEducationContent, getEducationTopicIds } from '@/lib/marketing/contentEngines';
 import type { MarketData, ContentOutput } from '@/lib/marketing/contentEngines';
 
 // ---------------------------------------------------------------------------
 // GET Handler
 // ?secret=xxx — CRON_SECRET 인증
-// ?type=pulse|education|all (default: pulse)
+// ?type=pulse|morning|education|all (default: pulse)
 // ?topic=gex|dark_pool|iv_percentile|pcr|max_pain (education only)
 // ---------------------------------------------------------------------------
 export async function GET(request: Request) {
@@ -42,9 +41,8 @@ export async function GET(request: Request) {
       const marketData = await fetchMarketDataFromRedis();
       const pulseContent = generateMarketPulse(marketData);
 
-      // Save to Redis
       const redisKey = `marketing:pulse:${dateKey}`;
-      await setInCache(redisKey, JSON.stringify(pulseContent), 86400); // 24h TTL
+      await setInCache(redisKey, JSON.stringify(pulseContent), 86400);
 
       results.pulse = {
         saved: true,
@@ -54,6 +52,29 @@ export async function GET(request: Request) {
           ko: pulseContent.ko.text.substring(0, 120) + '...',
         },
         imageUrl: pulseContent.en.imageUrl,
+      };
+    }
+
+    // --- Morning Briefing ---
+    if (contentType === 'morning' || contentType === 'all') {
+      const marketData = await fetchMarketDataFromRedis();
+      const briefingRaw = await safeGetCache('guardian:briefing:latest');
+      const briefingSummary = briefingRaw
+        ? (typeof briefingRaw === 'string' ? briefingRaw : JSON.stringify(briefingRaw)).substring(0, 200)
+        : undefined;
+
+      const morningContent = generateMorningBrief({ ...marketData, briefingSummary });
+
+      const redisKey = `marketing:morning:${dateKey}`;
+      await setInCache(redisKey, JSON.stringify(morningContent), 86400);
+
+      results.morning = {
+        saved: true,
+        redisKey,
+        preview: {
+          en: morningContent.en.text.substring(0, 120) + '...',
+          ko: morningContent.ko.text.substring(0, 120) + '...',
+        },
       };
     }
 

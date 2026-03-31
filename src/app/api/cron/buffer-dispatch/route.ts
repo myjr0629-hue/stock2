@@ -1,7 +1,6 @@
 // ============================================================================
 // /api/cron/buffer-dispatch — Buffer 13채널 발송 크론
-// Redis 콘텐츠 → Tier별 Buffer GraphQL 발송
-// Build-only: vercel.json에 등록하지 않음 (수동 트리거만)
+// Redis 콘텐츠 → 플랫폼별 최적화 텍스트 → Buffer GraphQL 발송
 // DRY_RUN 기본값: 실제 API 호출 없이 로그만
 // ============================================================================
 
@@ -14,16 +13,28 @@ import {
   buildUtm,
   CTA, CTA_KO, CTA_JA,
   type ChannelTier,
-  type BufferChannel,
 } from '@/lib/marketing/bufferClient';
-import type { ContentOutput } from '@/lib/marketing/contentEngines';
+import type { ContentOutput, PlatformContent } from '@/lib/marketing/contentEngines';
+
+// ---------------------------------------------------------------------------
+// Platform service → platformText key mapping
+// ---------------------------------------------------------------------------
+const SERVICE_TO_PLATFORM: Record<string, keyof PlatformContent> = {
+  twitter:   'twitter',
+  instagram: 'instagram',
+  threads:   'threads',
+  bluesky:   'bluesky',
+  pinterest: 'instagram',  // fallback to instagram style
+  tiktok:    'instagram',
+  youtube:   'instagram',
+};
 
 // ---------------------------------------------------------------------------
 // GET Handler
 // ?secret=xxx — CRON_SECRET 인증
 // ?dry_run=true|false (default: true)
-// ?tier=1|2|all (default: 1)
-// ?content=pulse|education (default: pulse)
+// ?tier=1|2|3|all (default: all) — 13채널 전체 기본값
+// ?content=pulse|morning|education|event (default: pulse)
 // ?date=YYYY-MM-DD (default: today)
 // ---------------------------------------------------------------------------
 export async function GET(request: Request) {
@@ -41,8 +52,8 @@ export async function GET(request: Request) {
     }
   }
 
-  const dryRun = searchParams.get('dry_run') !== 'false'; // default: true
-  const tierParam = searchParams.get('tier') || '1';
+  const dryRun = searchParams.get('dry_run') !== 'false';
+  const tierParam = searchParams.get('tier') || 'all';
   const contentType = searchParams.get('content') || 'pulse';
   const dateKey = searchParams.get('date') || new Date().toISOString().split('T')[0];
 
@@ -62,7 +73,7 @@ export async function GET(request: Request) {
 
     const content: ContentOutput = typeof cached === 'string' ? JSON.parse(cached) : cached;
 
-    // 2. Build dispatch plan
+    // 2. Build dispatch plan with platform-specific text
     const dispatchPlan = buildDispatchPlan(content, tier, contentType);
 
     // 3. Execute dispatch
@@ -85,7 +96,7 @@ export async function GET(request: Request) {
         dryRun: result.dryRun ?? false,
         postId: result.postId,
         error: result.error,
-        textPreview: item.text.substring(0, 80) + '...',
+        textPreview: item.text.substring(0, 100) + '...',
       });
     }
 
@@ -101,7 +112,7 @@ export async function GET(request: Request) {
       failed: results.filter(r => !r.success).length,
       results,
     };
-    await setInCache(logKey, JSON.stringify(dispatchLog), 86400 * 7); // 7d TTL
+    await setInCache(logKey, JSON.stringify(dispatchLog), 86400 * 7);
 
     return NextResponse.json({
       success: true,
@@ -151,7 +162,7 @@ interface DispatchResult {
 }
 
 // ---------------------------------------------------------------------------
-// Build dispatch plan — maps content to channels with proper text/CTA
+// Build dispatch plan — uses platform-specific text when available
 // ---------------------------------------------------------------------------
 function buildDispatchPlan(
   content: ContentOutput,
@@ -174,7 +185,14 @@ function buildDispatchPlan(
       const ctaFn = ctaMap[ctaKey];
       const cta = typeof ctaFn === 'function' ? ctaFn(utm) : '';
 
-      const fullText = `${langContent.text}\n\n${cta}`;
+      // Pick platform-specific text if available
+      const platformKey = SERVICE_TO_PLATFORM[ch.service] || 'twitter';
+      const platformText = langContent.platformText?.[platformKey] || langContent.text;
+
+      // For Twitter/Bluesky: link goes in reply (2025 trend), don't append CTA
+      // For Instagram/Threads/Others: append CTA to post
+      const isShortPlatform = ch.service === 'twitter' || ch.service === 'bluesky';
+      const fullText = isShortPlatform ? platformText : `${platformText}\n\n${cta}`;
       const truncated = truncateForPlatform(fullText, ch.service);
 
       items.push({

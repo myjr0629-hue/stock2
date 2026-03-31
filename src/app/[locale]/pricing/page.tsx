@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useTranslations, useLocale } from "next-intl";
-import { Link } from "@/i18n/routing";
+import { Link, useRouter } from "@/i18n/routing";
+import { createClient } from "@/lib/supabase/client";
 import {
     Check,
     Lock,
@@ -122,8 +123,18 @@ function FaqItem({ q, a }: { q: string; a: string }) {
 export default function PricingPage() {
     const t = useTranslations("pricing");
     const locale = useLocale();
+    const router = useRouter();
     const [isAnnual, setIsAnnual] = useState(false);
     const [checkoutLoading, setCheckoutLoading] = useState(false);
+    const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+    // Check auth state on mount
+    useEffect(() => {
+        const supabase = createClient();
+        supabase.auth.getSession().then(({ data: { session } }) => {
+            setIsLoggedIn(!!session?.user);
+        });
+    }, []);
 
     // ── 플랜 버튼 클릭 핸들러 ──
     // 모든 언어 → Stripe Checkout Session 생성 → 리다이렉트
@@ -369,12 +380,21 @@ export default function PricingPage() {
                                 </li>
                             ))}
                         </ul>
-                        <Link
-                            href="/login"
-                            className="block w-full text-center py-3.5 rounded-lg text-sm font-bold uppercase tracking-wider border border-white/20 text-white/70 hover:bg-white/5 hover:text-white transition-all font-jakarta"
-                        >
-                            {t("freeCta")}
-                        </Link>
+                        {isLoggedIn ? (
+                            <button
+                                onClick={() => router.push('/dashboard')}
+                                className="block w-full text-center py-3.5 rounded-lg text-sm font-bold uppercase tracking-wider border border-white/20 text-white/70 hover:bg-white/5 hover:text-white transition-all font-jakarta"
+                            >
+                                {t("freeCta")}
+                            </button>
+                        ) : (
+                            <Link
+                                href="/login"
+                                className="block w-full text-center py-3.5 rounded-lg text-sm font-bold uppercase tracking-wider border border-white/20 text-white/70 hover:bg-white/5 hover:text-white transition-all font-jakarta"
+                            >
+                                {t("freeCta")}
+                            </Link>
+                        )}
                     </div>
 
                     {/* PRO Card — Center */}
