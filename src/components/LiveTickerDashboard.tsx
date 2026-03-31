@@ -966,16 +966,17 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
             const iv = vol.iv || 0;
             if (iv <= 0) return vol;
             // IV should contribute to regimeScore. Recalculate if it wasn't included.
-            let score = 0;
-            // GEX contribution
+            let score = 5; // Base: valid data present
+            // GEX contribution (both SHORT and LONG)
             const gex = vol.gex || 0;
             const isShort = gex < 0;
             if (isShort) score += Math.min(30, Math.abs(gex) / 1000000 * 3);
+            else score += Math.min(10, Math.abs(gex) / 2000000 * 3);
             // Flip distance contribution
             const fd = Math.abs(vol.flipDistance || 0);
-            if (fd < 1) score += 15; else if (fd < 3) score += 10; else if (fd < 5) score += 5;
+            if (fd < 1) score += 15; else if (fd < 3) score += 10; else if (fd < 5) score += 5; else if (fd < 10) score += 2;
             // IV contribution (iv is in % form: 32 = 32%)
-            if (iv > 50) score += 20; else if (iv > 35) score += 12; else if (iv > 25) score += 6;
+            if (iv > 60) score += 25; else if (iv > 40) score += 15; else if (iv > 25) score += 8; else if (iv > 15) score += 4;
             score = Math.min(100, Math.round(score));
             // Only upgrade score — never downgrade (avoids losing other contributions)
             if (score > (vol.regimeScore || 0)) {
@@ -993,11 +994,26 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
             const flipLevel = structure.gammaFlipLevel || 0;
             const price = livePrice?.price || initialStockData?.price || 0;
             const flipDist = flipLevel > 0 && price > 0 ? ((price - flipLevel) / flipLevel) * 100 : 0;
-            let regimeScore = 0;
-            if (isShortGamma) regimeScore += Math.min(30, Math.abs(netGex) / 1000000 * 3);
-            if (Math.abs(flipDist) < 1) regimeScore += 15; else if (Math.abs(flipDist) < 3) regimeScore += 10;
+            // [FIX] Redesigned scoring — always produce meaningful non-zero when data exists
+            let regimeScore = 5; // Base: valid GEX data present
+            // GEX direction contribution (both SHORT and LONG contribute)
+            if (isShortGamma) {
+                regimeScore += Math.min(30, Math.abs(netGex) / 1000000 * 3);
+            } else {
+                // LONG gamma = stabilizing force = lower but non-zero score
+                regimeScore += Math.min(10, Math.abs(netGex) / 2000000 * 3);
+            }
+            // Flip distance (closer = more volatile potential)
+            if (Math.abs(flipDist) < 1) regimeScore += 15;
+            else if (Math.abs(flipDist) < 3) regimeScore += 10;
+            else if (Math.abs(flipDist) < 5) regimeScore += 5;
+            else if (Math.abs(flipDist) < 10) regimeScore += 2;
+            // IV contribution (lowered thresholds so even moderate IV scores)
             const iv = structure.atmIV || 0;
-            if (iv > 0.6) regimeScore += 20; else if (iv > 0.4) regimeScore += 10;
+            if (iv > 0.6) regimeScore += 25;
+            else if (iv > 0.4) regimeScore += 15;
+            else if (iv > 0.25) regimeScore += 8;
+            else if (iv > 0.15) regimeScore += 4;
             regimeScore = Math.min(100, Math.round(regimeScore));
             const regime = regimeScore >= 75 ? 'ERUPTING' : regimeScore >= 50 ? 'LOADED' : regimeScore >= 25 ? 'COILING' : 'CALM';
             return { regime, regimeScore, gex: Math.round(netGex), gexLabel: isShortGamma ? 'SHORT' : 'LONG', iv: iv ? Math.round(iv * 100) : 0, flipDistance: Math.round(flipDist * 10) / 10, flipLevel, isAboveFlip: flipDist > 0, squeezeScore: 0, squeezeRisk: 'LOW', gammaConcentration: 0, gammaConcentrationLabel: 'NORMAL' };
@@ -1736,8 +1752,10 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                         {(() => {
                             const dp = effectiveInst?.darkPool?.percent || 0;
                             const blockCount = effectiveInst?.blockTrade?.count || 0;
-                            const isAccumulation = dp > 40 && blockCount >= 3;
-                            const isDistribution = dp < 20 && blockCount <= 1;
+                            // [FIX] Require actual data presence — dp=0 means "no data", not "low activity"
+                            const hasInstData = effectiveInst && (dp > 0 || blockCount > 0);
+                            const isAccumulation = hasInstData && dp > 40 && blockCount >= 3;
+                            const isDistribution = hasInstData && dp > 0 && dp < 20 && blockCount <= 1;
                             const signal = isAccumulation ? 'ACCUMULATION' : isDistribution ? 'DISTRIBUTION' : 'NEUTRAL';
                             const sigColor = isAccumulation ? 'text-emerald-400' : isDistribution ? 'text-rose-400' : 'text-slate-400';
                             const sigBg = isAccumulation ? 'bg-emerald-950/40 border-emerald-500/30 animate-card-breathe-bull' : isDistribution ? 'bg-rose-950/40 border-rose-500/30 animate-card-breathe-bear' : 'bg-slate-800/40 border-slate-700/50';
