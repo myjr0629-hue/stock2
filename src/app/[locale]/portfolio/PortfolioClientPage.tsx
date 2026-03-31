@@ -17,6 +17,8 @@ import { CardTooltip, PORTFOLIO_TOOLTIPS } from '@/components/ui/CardTooltip';
 import { useTier } from '@/contexts/TierContext';
 import useSWR from 'swr';
 import { EChartsSectorDonut, EChartsPnlTreemap } from '@/components/portfolio/PortfolioCharts';
+import { useIsMobile } from '@/hooks/useIsMobile';
+import MobileHoldingCard from '@/components/portfolio/MobileHoldingCard';
 
 
 
@@ -51,6 +53,7 @@ export default function PortfolioClientPage({
     const { tier } = useTier();
     const [currencyMode, setCurrencyMode] = useState<'usd' | 'local'>('usd');
     const fx = useExchangeRate(locale);
+    const isMobile = useIsMobile();
     const [sortKey, setSortKey] = useState<'default' | 'score' | 'pnl' | 'weight' | 'today'>('default');
     const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
 
@@ -145,24 +148,19 @@ export default function PortfolioClientPage({
                     </div>
                 )}
 
-                {/* Premium Holdings Table - Glassmorphism */}
+                {/* Premium Holdings — Desktop: Table Grid / Mobile: Glass Cards */}
                 {loading ? (
-                    <div className="space-y-2">{[0, 1, 2, 3].map(i => (
-                        <div key={i} className="rounded-xl bg-white/[0.03] border border-white/[0.08] p-4 animate-pulse" style={{ animationDelay: `${i * 100}ms` }}>
+                    <div className={isMobile ? 'space-y-3' : 'space-y-2'}>{[0, 1, 2, 3].map(i => (
+                        <div key={i} className={`animate-pulse ${isMobile ? 'm-glass-card' : 'rounded-xl bg-white/[0.03] border border-white/[0.08] p-4'}`} style={{ animationDelay: `${i * 100}ms` }}>
                             <div className="flex items-center gap-4">
-                                <div className="w-9 h-9 rounded-lg bg-slate-700/40" />
+                                <div className={`${isMobile ? 'w-11 h-11 rounded-2xl' : 'w-9 h-9 rounded-lg'} bg-slate-700/40`} />
                                 <div className="flex-1 space-y-1.5"><div className="h-4 w-16 bg-slate-700/40 rounded" /><div className="h-2.5 w-28 bg-slate-800/40 rounded" /></div>
-                                <div className="h-4 w-12 bg-slate-700/40 rounded" />
-                                <div className="h-4 w-16 bg-slate-700/40 rounded" />
-                                <div className="h-4 w-16 bg-slate-700/40 rounded" />
-                                <div className="h-4 w-12 bg-slate-700/40 rounded" />
-                                <div className="w-9 h-9 rounded-full bg-slate-700/40" />
-                                <div className="h-7 w-16 bg-slate-700/40 rounded-full" />
+                                <div className="text-right space-y-1"><div className="h-5 w-20 bg-slate-700/40 rounded ml-auto" /><div className="h-3 w-14 bg-slate-800/40 rounded ml-auto" /></div>
                             </div>
                         </div>
                     ))}</div>
                 ) : holdings.length === 0 ? (
-                    <div className="relative rounded-2xl overflow-hidden border border-white/[0.08] bg-gradient-to-br from-white/[0.04] to-white/[0.02] backdrop-blur-xl py-20 text-center">
+                    <div className={`relative overflow-hidden border border-white/[0.08] bg-gradient-to-br from-white/[0.04] to-white/[0.02] backdrop-blur-xl py-20 text-center ${isMobile ? 'm-glass-card' : 'rounded-2xl'}`}>
                         <div className="w-20 h-20 mx-auto mb-5 rounded-2xl bg-gradient-to-br from-emerald-500/10 to-cyan-500/5 border border-emerald-500/20 flex items-center justify-center">
                             <Briefcase className="w-10 h-10 text-emerald-400/40" />
                         </div>
@@ -172,7 +170,25 @@ export default function PortfolioClientPage({
                             {t('addFirstHolding')}
                         </button>
                     </div>
+                ) : isMobile ? (
+                    /* ═══ MOBILE: Glassmorphism Card List ═══ */
+                    <div className="space-y-3">
+                        {sortedHoldings.map((holding, i) => (
+                            <MobileHoldingCard
+                                key={holding.ticker}
+                                holding={holding}
+                                onRemove={() => removeHolding(holding.ticker)}
+                                onEdit={() => setEditingHolding(holding)}
+                                totalValue={summary.totalValue}
+                                index={i}
+                                currencyMode={currencyMode}
+                                fxRate={fx.rate}
+                                fxSymbol={fx.symbol}
+                            />
+                        ))}
+                    </div>
                 ) : (
+                    /* ═══ DESKTOP: Original 12-Column Grid ═══ */
                     <div className="space-y-2">
                         {/* Column Headers (glassmorphism bar — same as watchlist) */}
                         <div className="flex items-center rounded-lg border border-white/[0.04] bg-white/[0.03] backdrop-blur-sm overflow-x-auto">
@@ -270,7 +286,7 @@ function PortfolioStatsBar({ summary, portfolioScore, holdingsCount, locale }: {
     const offset = circ - (portfolioScore / 100) * circ;
 
     return (
-        <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+        <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-5 gap-3">
             {/* Portfolio Value */}
             <div className="group relative overflow-hidden rounded-xl border border-emerald-500/[0.18] bg-gradient-to-br from-emerald-500/[0.12] via-white/[0.06] to-emerald-500/[0.04] backdrop-blur-xl p-4 hover:border-emerald-500/[0.35] transition-all duration-300" style={{ boxShadow: '0 4px 24px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.12), 0 0 40px rgba(52,211,153,0.08)' }}>
                 <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-emerald-400/50 to-transparent" />

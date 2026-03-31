@@ -135,6 +135,89 @@
   @apply bg-white/80 backdrop-blur-md border border-white/40 shadow-sm supports-[backdrop-filter]:bg-white/60;
 }
 
+/* ===== MOBILE APP GLASSMORPHISM DESIGN SYSTEM ===== */
+/* 모바일 전용 프리미엄 디자인 토큰 — 768px 이하에서만 적용 */
+/* 데스크탑: ZERO 영향 */
+
+@media (max-width: 768px) {
+  :root {
+    /* ── Background ── */
+    --m-bg: #0a1225;
+    
+    /* ── Card Glassmorphism ── */
+    --m-card-bg: rgba(255, 255, 255, 0.045);
+    --m-card-bg-hover: rgba(255, 255, 255, 0.07);
+    --m-card-border: rgba(255, 255, 255, 0.10);
+    --m-card-border-hover: rgba(255, 255, 255, 0.18);
+    --m-card-blur: 24px;
+    --m-card-shadow: 0 8px 32px rgba(0, 0, 0, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+    
+    /* ── Border Radius (앱 네이티브 느낌) ── */
+    --m-radius: 20px;
+    --m-radius-md: 16px;
+    --m-radius-sm: 12px;
+    --m-radius-pill: 9999px;
+    
+    /* ── Spacing (넉넉한 여백) ── */
+    --m-card-gap: 12px;
+    --m-card-padding: 16px;
+    --m-section-gap: 20px;
+    
+    /* ── Typography Scale ── */
+    --m-font-ticker: 17px;
+    --m-font-price: 22px;
+    --m-font-change: 15px;
+    --m-font-label: 11px;
+    --m-font-value: 14px;
+    --m-font-section: 20px;
+    
+    /* ── Accent Glows ── */
+    --m-glow-positive: 0 0 20px rgba(52, 211, 153, 0.12);
+    --m-glow-negative: 0 0 20px rgba(251, 113, 133, 0.12);
+    --m-glow-cyan: 0 0 20px rgba(34, 211, 238, 0.12);
+  }
+}
+
+/* Mobile glassmorphism card base */
+@media (max-width: 768px) {
+  .m-glass-card {
+    background: var(--m-card-bg);
+    backdrop-filter: blur(var(--m-card-blur));
+    -webkit-backdrop-filter: blur(var(--m-card-blur));
+    border: 1px solid var(--m-card-border);
+    border-radius: var(--m-radius);
+    padding: var(--m-card-padding);
+    box-shadow: var(--m-card-shadow);
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .m-glass-card:active {
+    transform: scale(0.98);
+    background: var(--m-card-bg-hover);
+    border-color: var(--m-card-border-hover);
+  }
+
+  /* Progressive disclosure expand animation */
+  .m-expand-enter {
+    animation: mExpandIn 0.3s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+  }
+
+  @keyframes mExpandIn {
+    from { opacity: 0; max-height: 0; transform: translateY(-8px); }
+    to   { opacity: 1; max-height: 200px; transform: translateY(0); }
+  }
+
+  /* Card slide-in stagger */
+  .m-card-stagger {
+    animation: mSlideUp 0.4s cubic-bezier(0.4, 0, 0.2, 1) both;
+  }
+
+  @keyframes mSlideUp {
+    from { opacity: 0; transform: translateY(16px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+}
+
 /* ===== FONT SYSTEM ===== */
 
 /* Plus Jakarta Sans for English-only elements ??next/font CSS variable */
