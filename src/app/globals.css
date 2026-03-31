@@ -632,6 +632,16 @@
   }
 }
 
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
 /* ===== [GUIDE] ENGLISH-ONLY PREMIUM READABILITY ===== */
 /* [data-guide] on HowItWorksLayout root div.                            */
 /* :lang(en) ??English ONLY. Korean/Japanese: ZERO changes.             */
