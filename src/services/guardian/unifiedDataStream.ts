@@ -525,18 +525,17 @@ export class GuardianDataHub {
             // === STEP 4: GENERATE VERDICT NARRATIVE (AI + Templates) ===
             let verdict: GuardianVerdict;
 
-            if (divCase.isDivergent && rlsi.session === 'REG') {
-                // Priority: Divergence Overrides AI (only during regular session)
-                verdict = {
-                    title: divCase.verdictTitle,
-                    description: divCase.verdictDesc,
-                    sentiment: divCase.caseId === 'B' ? 'BULLISH' : 'BEARISH'
-                };
-            } else if (rlsi.session !== 'REG' && (await loadAiVerdict(locale))) {
+            // [V13.0] Divergence info for AI context (used in all paths)
+            const divergenceForAi = {
+                divergenceCase: divCase.caseId,
+                divergenceDesc: divCase.verdictDesc,
+            };
+
+            if (rlsi.session !== 'REG' && (await loadAiVerdict(locale))) {
                 // [V12.0] After hours with cached AI verdict from Redis: use it (per-locale)
                 verdict = (await loadAiVerdict(locale))!;
             } else {
-                // Standard Market: Use Dual Stream AI
+                // Standard Market: Use Dual Stream AI (including divergence situations)
                 const staticVerdict: GuardianVerdict = {
                     title: VERDICT_TEXTS.STABLE[locale].title,
                     description: VERDICT_TEXTS.STABLE[locale].desc,
@@ -607,7 +606,9 @@ export class GuardianDataHub {
                         squeezeLevel: gammaShieldData?.squeezeLevel ?? undefined,
                         triggerSupport: gammaShieldData?.supportWall ?? undefined,
                         triggerResistance: gammaShieldData?.resistanceWall ?? undefined,
-                        triggerCurrent: gammaShieldData?.currentPrice ?? undefined
+                        triggerCurrent: gammaShieldData?.currentPrice ?? undefined,
+                        // [V13.0] DIVERGENCE CONTEXT — pass to AI for divergence-aware analysis
+                        ...divergenceForAi,
                     };
 
                     const [rotationText, realityText] = await Promise.all([
@@ -626,18 +627,35 @@ export class GuardianDataHub {
                         // [FIX] Sanitize AI text: strip emoji that breaks Upstash Redis REST API
                         const cleanRotation = rotationText.replace(/[\u{10000}-\u{10FFFF}]/gu, '').replace(/[\u2600-\u27BF\u2B50\u2934\u2935\u25AA-\u25FE\u2700-\u27BF\uFE0F]/g, '').trim();
                         const cleanReality = realityText.replace(/[\u{10000}-\u{10FFFF}]/gu, '').replace(/[\u2600-\u27BF\u2B50\u2934\u2935\u25AA-\u25FE\u2700-\u27BF\uFE0F]/g, '').trim();
+                        
+                        // [V13.0] Divergence-aware verdict:
+                        // - Title: Use divergence title (DIVERGENCE DETECTED) when divergent, else TACTICAL INSIGHT
+                        // - Description: Always use AI-generated text (now divergence-aware)
+                        // - Sentiment: Use divergence sentiment when divergent
+                        const isDivergent = divCase.isDivergent && rlsi.session === 'REG';
                         verdict = {
-                            title: "TACTICAL INSIGHT",
-                            description: cleanRotation, // Sidebar
-                            sentiment: 'NEUTRAL',
-                            realityInsight: cleanReality // Center
+                            title: isDivergent ? divCase.verdictTitle : "TACTICAL INSIGHT",
+                            description: cleanRotation, // Sidebar — AI-generated, divergence-aware
+                            sentiment: isDivergent 
+                                ? (divCase.caseId === 'B' ? 'BULLISH' : 'BEARISH')
+                                : 'NEUTRAL',
+                            realityInsight: cleanReality // Center — AI-generated, divergence-aware
                         };
                         // [V12.0] Persist AI verdict to Redis for after-hours display & deploy survival
                         await saveAiVerdict(verdict, locale);
                     }
                 } catch (e) {
                     console.warn("[Guardian] AI Verdict Failed, using fallback:", e);
-                    verdict = staticVerdict;
+                    // [V13.0] Even on AI failure, use divergence info if available
+                    if (divCase.isDivergent && rlsi.session === 'REG') {
+                        verdict = {
+                            title: divCase.verdictTitle,
+                            description: divCase.verdictDesc,
+                            sentiment: divCase.caseId === 'B' ? 'BULLISH' : 'BEARISH'
+                        };
+                    } else {
+                        verdict = staticVerdict;
+                    }
                 }
             }
             console.log("[Guardian] Step 3 Complete. AI Verdict Generated.");

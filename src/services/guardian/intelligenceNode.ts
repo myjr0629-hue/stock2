@@ -108,6 +108,9 @@ interface IntelligenceContext {
     triggerSupport?: number | null;    // S&P 500 options-based support
     triggerResistance?: number | null; // S&P 500 options-based resistance
     triggerCurrent?: number | null;    // S&P 500 current price
+    // [V13.0] DIVERGENCE CONTEXT — Surface vs Internal flow mismatch
+    divergenceCase?: 'A' | 'B' | 'C' | 'D' | 'N';  // A=FalseRally, B=StealthInflow, C=FullBull, D=DeepFreeze, N=Sync
+    divergenceDesc?: string;          // Localized divergence description
 }
 
 // === TIME-BASED GATING ===
@@ -192,6 +195,12 @@ const ROTATION_PROMPTS: Record<Locale, (ctx: IntelligenceContext, vectorDesc: st
         - 레짐(RISK_OFF_DEFENSE 등)을 반영한 실질적 조언 제공
         - **신호 충돌 시**: RLSI/나스닥은 강세이나 순환매가 RISK_OFF이면 "겉은 강세, 속은 약세" 같은 표현으로 혼재 신호를 명확히 전달. 반대로 지표는 약세이나 성장주로 자금 유입 시 "저점 매집 가능성" 표현 사용
         - **뉴스가 제공된 경우**: 수치 변동의 원인을 뉴스에서 찾아 반드시 언급 (예: "CPI 예상 상회로 인한 매도세", "연준 발언으로 금리 인하 기대 후퇴")
+
+        ${ctx.divergenceCase && ctx.divergenceCase !== 'N' ? `**[DIVERGENCE 상황 — 최우선 분석 필수]:**
+        현재 지수 표면과 내부 유동성 간 괴리(Divergence)가 관측됩니다.
+        - 유형: ${ctx.divergenceCase === 'A' ? 'False Rally (지수↑ 유동성↓)' : ctx.divergenceCase === 'B' ? 'Stealth Inflow (지수↓ 유동성↑)' : ctx.divergenceCase === 'C' ? 'Momentum Surge (지수↑ 유동성↑)' : 'Deep Freeze (지수↓ 유동성↓)'}
+        - 상황: ${ctx.divergenceDesc || ''}
+        이 Divergence가 순환매 맥락에서 무엇을 의미하는지 반드시 [해석]에 포함하세요. (예: "지수는 상승하나 스마트머니는 이미 방어주로 이동 중으로, 표면 강세의 지속 가능성이 낮다" 또는 "가격 하락 속 기관 자금 유입이 관측되어 저점 매집 가능성")` : ''}
         - **거시경제 자산 교차 검증**: 금+채권(TLT) 동반 상승 시 안전자산 선호 언급, 유가 급등 시 인플레 우려, 달러 강세 시 신흥국/원자재 약세 연결
         - **감마 쉴드 분석**: GEX가 -20 이하면 딜러 매수 헤지로 변동성 확대 경고, +20 이상이면 감마 클램핑으로 안정 언급. 스퀴즈 리스크 45% 이상이면 급변동 가능성 경고. 옵션 지지/저항선 근접 시 해당 레벨 언급
 
@@ -245,6 +254,12 @@ const ROTATION_PROMPTS: Record<Locale, (ctx: IntelligenceContext, vectorDesc: st
         - **When news is provided**: Identify the root cause of market movements from news (e.g., "CPI beat triggered selloff", "Fed hawkish tone pressures growth")
         - **Gamma Shield**: If GEX <= -20, warn about dealer hedging amplifying volatility. If GEX >= +20, note gamma clamping stabilizing prices. If squeeze risk >= 45%, warn about potential sharp moves. Reference options support/resistance levels when price is near them
 
+        ${ctx.divergenceCase && ctx.divergenceCase !== 'N' ? `**[DIVERGENCE ALERT — PRIORITIZE IN ANALYSIS]:**
+        A significant divergence between index surface and internal liquidity is detected.
+        - Type: ${ctx.divergenceCase === 'A' ? 'False Rally (Index UP, Liquidity DOWN)' : ctx.divergenceCase === 'B' ? 'Stealth Inflow (Index DOWN, Liquidity UP)' : ctx.divergenceCase === 'C' ? 'Momentum Surge (Index UP, Liquidity UP)' : 'Deep Freeze (Index DOWN, Liquidity DOWN)'}
+        - Context: ${ctx.divergenceDesc || ''}
+        You MUST address what this divergence means for sector rotation in [Interpretation]. (e.g., "Index rises but smart money is already rotating to defensives, questioning rally sustainability" or "Institutional accumulation during selloff suggests potential bottom formation")` : ''}
+
         **Output Format (strictly follow):**
         [Status] (1 sentence on 5-day sector movement)
         [Interpretation] (1 sentence on meaning + news-based cause, MUST mention signal conflicts if present)
@@ -287,6 +302,12 @@ const ROTATION_PROMPTS: Record<Locale, (ctx: IntelligenceContext, vectorDesc: st
         - ノイズ警告のあるセクターは信頼性が低い
         - レジーム(RISK_OFF_DEFENSEなど)を反映した実質的なアドバイス
         - **ニュースが提供された場合**: 数値変動の原因をニュースから特定して必ず言及
+
+        ${ctx.divergenceCase && ctx.divergenceCase !== 'N' ? `**[DIVERGENCE アラート — 分析最優先]:**
+        指数表面と内部流動性の乖離が観測されています。
+        - タイプ: ${ctx.divergenceCase === 'A' ? '偽のラリー(指数↑ 流動性↓)' : ctx.divergenceCase === 'B' ? 'ステルス流入(指数↓ 流動性↑)' : ctx.divergenceCase === 'C' ? 'モメンタムサージ(指数↑ 流動性↑)' : '同時弱体化(指数↓ 流動性↓)'}
+        - 状況: ${ctx.divergenceDesc || ''}
+        このDivergenceがセクターローテーションの文脈で何を意味するか必ず[解釈]に含めてください。` : ''}
 
         **出力形式 (必ずこの形式で):**
         [現況] (5日基準セクター移動現況 1文)
@@ -416,6 +437,12 @@ const REALITY_PROMPTS: Record<Locale, (ctx: IntelligenceContext) => string> = {
         - 전문가가 시장 상황을 객관적으로 전달하듯이 작성 (자문/권유 표현 절대 금지)
         - 공백 포함 350자 이내
         - 이모지(emoji) 사용 절대 금지. 텍스트만 사용
+
+        ${ctx.divergenceCase && ctx.divergenceCase !== 'N' ? `**[중요] DIVERGENCE 관측 — 분석에 반드시 반영:**
+        지수 표면과 내부 유동성 간 괴리가 관측됩니다.
+        - 유형: ${ctx.divergenceCase === 'A' ? '가짜 랠리(지수↑ 유동성↓) — 지수는 오르지만 내부 자금은 이탈 중' : ctx.divergenceCase === 'B' ? '은밀 매집(지수↓ 유동성↑) — 하락 속 기관 자금 유입 관측' : ctx.divergenceCase === 'C' ? '모멘텀 서지(지수↑ 유동성↑)' : '동반 약세(지수↓ 유동성↓)'}
+        - 상황: ${ctx.divergenceDesc || ''}
+        이 괴리가 시장에 어떤 의미인지 분석에 반드시 포함하세요. (False Rally라면 "소수 대형주 주도 상승으로 지속성 의문" 또는 Stealth Inflow라면 "가격 하락에도 유동성 유입이 관측되어 저점 형성 가능성 시사")` : ''}
     `;
     },
     en: (ctx) => {
@@ -462,6 +489,12 @@ const REALITY_PROMPTS: Record<Locale, (ctx: IntelligenceContext) => string> = {
         3. **Third sentence**: Key variables and factual outlook (no action directives)
         Core principle: Tell the **news → market reaction causal story**, not a list of indicators. Use indicators as evidence for the narrative.
         Max 350 chars. Do NOT use any emoji.
+
+        ${ctx.divergenceCase && ctx.divergenceCase !== 'N' ? `**[CRITICAL] DIVERGENCE DETECTED — MUST ADDRESS IN ANALYSIS:**
+        Index surface and internal liquidity diverge significantly.
+        - Type: ${ctx.divergenceCase === 'A' ? 'False Rally (Index UP, Liquidity DOWN) — index rises but internal capital is exiting' : ctx.divergenceCase === 'B' ? 'Stealth Inflow (Index DOWN, Liquidity UP) — institutional capital entering during selloff' : ctx.divergenceCase === 'C' ? 'Momentum Surge (Index UP, Liquidity UP)' : 'Synchronized Weakness (Index DOWN, Liquidity DOWN)'}
+        - Context: ${ctx.divergenceDesc || ''}
+        You MUST address this divergence in your analysis. If False Rally, discuss sustainability concerns. If Stealth Inflow, discuss potential bottom formation signals.` : ''}
     `;
     },
     ja: (ctx) => {
@@ -507,6 +540,12 @@ const REALITY_PROMPTS: Record<Locale, (ctx: IntelligenceContext) => string> = {
         3. **第3文**: 核心変数と今後の見通し（行動指示禁止）
         核心原則: 指標の羅列ではなく**ニュース→市場反応の因果ストーリー**を伝達。指標はナラティブの根拠として使用。
         350字以内。絵文字使用禁止。
+
+        ${ctx.divergenceCase && ctx.divergenceCase !== 'N' ? `**[重要] DIVERGENCE 観測 — 分析に必ず反映:**
+        指数表面と内部流動性の乖離が観測されています。
+        - タイプ: ${ctx.divergenceCase === 'A' ? '偽のラリー(指数↑ 流動性↓) — 指数は上昇するも内部資金は離脱中' : ctx.divergenceCase === 'B' ? 'ステルス流入(指数↓ 流動性↑) — 下落中に機関資金の流入を観測' : ctx.divergenceCase === 'C' ? 'モメンタムサージ(指数↑ 流動性↑)' : '同時弱体化(指数↓ 流動性↓)'}
+        - 状況: ${ctx.divergenceDesc || ''}
+        この乖離が市場に何を意味するか分析に必ず含めてください。` : ''}
     `;
     }
 };
