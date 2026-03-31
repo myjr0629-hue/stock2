@@ -119,7 +119,7 @@ export function FlowPageClient({ ticker, initialFlowData }: FlowPageClientProps)
                     <div className="sticky top-[78px] z-30 bg-white/5 backdrop-blur-xl rounded-xl py-1 px-3 border border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.3)] flex items-center justify-between">
                         <div>
                             {/* Row 1: Identity (all inline) */}
-                            <div className="flex items-center gap-2.5">
+                            <div className="flex items-center gap-2.5 min-w-0">
                                 <div className="relative w-10 h-10 lg:w-12 lg:h-12 rounded-full overflow-hidden bg-white/10 flex items-center justify-center shrink-0">
                                     <img
                                         loading="lazy"
@@ -132,8 +132,8 @@ export function FlowPageClient({ ticker, initialFlowData }: FlowPageClientProps)
                                         }}
                                     />
                                 </div>
-                                <h1 className="text-2xl lg:text-3xl font-black text-white tracking-tighter font-jakarta">{ticker}</h1>
-                                <span className="text-xs text-slate-500 font-bold tracking-tight uppercase font-jakarta">{liveQuote?.name || 'Loading...'}</span>
+                                <h1 className="text-xl sm:text-2xl lg:text-3xl font-black text-white tracking-tighter font-jakarta shrink-0">{ticker}</h1>
+                                <span className="hidden sm:inline text-xs text-slate-500 font-bold tracking-tight uppercase font-jakarta truncate max-w-[200px]">{liveQuote?.name || 'Loading...'}</span>
                                 <FavoriteToggle ticker={ticker} name={liveQuote?.name} />
                             </div>
 
@@ -202,13 +202,13 @@ export function FlowPageClient({ ticker, initialFlowData }: FlowPageClientProps)
                         </div>
 
                         {/* Mobile Price Row */}
-                        <div className="flex flex-col gap-2 sm:hidden">
-                            <div className="flex items-baseline gap-3">
-                                <div className={`text-4xl font-black tracking-tighter tabular-nums ${pf.color}`}
+                        <div className="flex flex-col gap-1 sm:hidden">
+                            <div className="flex items-baseline gap-2 flex-wrap">
+                                <div className={`text-2xl font-black tracking-tighter tabular-nums ${pf.color}`}
                                     style={pf.style}>
                                     ${displayPrice?.toFixed(2) || '—'}
                                 </div>
-                                <div className={`text-xl font-bold font-mono tracking-tighter ${isPositive ? "text-emerald-500" : "text-rose-500"}`}>
+                                <div className={`text-sm font-bold font-mono tracking-tighter ${isPositive ? "text-emerald-500" : "text-rose-500"}`}>
                                     {displayChangePct > 0 ? "+" : ""}{displayChangePct?.toFixed(2)}%
                                 </div>
                             </div>
