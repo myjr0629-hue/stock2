@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback } from "react";
 import { useTranslations, useLocale } from "next-intl";
 import { Link, useRouter } from "@/i18n/routing";
-import { createClient } from "@/lib/supabase/client";
+import { useTier } from "@/contexts/TierContext";
+
 import {
     Check,
     Lock,
@@ -124,17 +125,10 @@ export default function PricingPage() {
     const t = useTranslations("pricing");
     const locale = useLocale();
     const router = useRouter();
+    const { tier, isLoggedIn } = useTier();
     const [isAnnual, setIsAnnual] = useState(false);
     const [checkoutLoading, setCheckoutLoading] = useState(false);
-    const [isLoggedIn, setIsLoggedIn] = useState(false);
-
-    // Check auth state on mount
-    useEffect(() => {
-        const supabase = createClient();
-        supabase.auth.getSession().then(({ data: { session } }) => {
-            setIsLoggedIn(!!session?.user);
-        });
-    }, []);
+    const [upgradeLoading, setUpgradeLoading] = useState(false);
 
     // ── 플랜 버튼 클릭 핸들러 ──
     // 모든 언어 → Stripe Checkout Session 생성 → 리다이렉트
@@ -162,6 +156,33 @@ export default function PricingPage() {
             setCheckoutLoading(false);
         }
     }, [locale, isAnnual]);
+
+    // ── 업/다운그레이드 핸들러 ──
+    const handleUpgradeOrDowngrade = useCallback(async (targetPlan: 'pro' | 'elite') => {
+        setUpgradeLoading(true);
+        try {
+            const res = await fetch('/api/stripe/upgrade', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    targetPlan,
+                    billing: isAnnual ? 'yearly' : 'monthly',
+                    locale,
+                }),
+            });
+            const data = await res.json();
+            if (data.success) {
+                alert(data.type === 'upgrade' ? t('upgradeSuccess') : t('downgradeSuccess'));
+                window.location.reload();
+            } else {
+                console.error('[Pricing] Upgrade error:', data.error);
+            }
+        } catch (err) {
+            console.error('[Pricing] Upgrade fetch error:', err);
+        } finally {
+            setUpgradeLoading(false);
+        }
+    }, [locale, isAnnual, t]);
 
     // USD Prices
     const proPriceMonthly = 69;
@@ -380,7 +401,14 @@ export default function PricingPage() {
                                 </li>
                             ))}
                         </ul>
-                        {isLoggedIn ? (
+                        {isLoggedIn && tier === 'free' ? (
+                            <button
+                                disabled
+                                className="block w-full text-center py-3.5 rounded-lg text-sm font-bold uppercase tracking-wider border border-emerald-500/30 text-emerald-400 bg-emerald-500/10 cursor-default font-jakarta"
+                            >
+                                {t("currentPlan")}
+                            </button>
+                        ) : isLoggedIn ? (
                             <button
                                 onClick={() => router.push('/dashboard')}
                                 className="block w-full text-center py-3.5 rounded-lg text-sm font-bold uppercase tracking-wider border border-white/20 text-white/70 hover:bg-white/5 hover:text-white transition-all font-jakarta"
@@ -427,12 +455,29 @@ export default function PricingPage() {
                                 </li>
                             ))}
                         </ul>
-                        <button
-                            onClick={() => handlePlanClick('pro')}
-                            className="w-full py-3.5 rounded-lg text-sm font-bold uppercase tracking-wider bg-gradient-to-r from-amber-500 to-amber-600 text-black hover:brightness-110 transition-all shadow-[0_0_20px_rgba(245,158,11,0.15)] font-jakarta"
-                        >
-                            {t("proCta")}
-                        </button>
+                        {tier === 'pro' ? (
+                            <button
+                                disabled
+                                className="w-full py-3.5 rounded-lg text-sm font-bold uppercase tracking-wider border border-emerald-500/30 text-emerald-400 bg-emerald-500/10 cursor-default font-jakarta"
+                            >
+                                {t("currentPlan")}
+                            </button>
+                        ) : tier === 'elite' ? (
+                            <button
+                                onClick={() => handleUpgradeOrDowngrade('pro')}
+                                disabled={upgradeLoading}
+                                className="w-full py-3.5 rounded-lg text-sm font-bold uppercase tracking-wider border border-slate-500/30 text-slate-400 hover:text-white hover:border-slate-400/50 transition-all font-jakarta"
+                            >
+                                {upgradeLoading ? '...' : t("downgradeCta")}
+                            </button>
+                        ) : (
+                            <button
+                                onClick={() => handlePlanClick('pro')}
+                                className="w-full py-3.5 rounded-lg text-sm font-bold uppercase tracking-wider bg-gradient-to-r from-amber-500 to-amber-600 text-black hover:brightness-110 transition-all shadow-[0_0_20px_rgba(245,158,11,0.15)] font-jakarta"
+                            >
+                                {t("proCta")}
+                            </button>
+                        )}
                     </div>
 
                     {/* 👑 ELITE Card — Right (Visual Dominance) */}
@@ -471,12 +516,29 @@ export default function PricingPage() {
                                 </li>
                             ))}
                         </ul>
-                        <button
-                            onClick={() => handlePlanClick('elite')}
-                            className="w-full py-4 rounded-lg text-sm font-bold uppercase tracking-wider bg-gradient-to-r from-cyan-500 to-cyan-600 text-black hover:brightness-110 transition-all shadow-[0_0_30px_rgba(34,211,238,0.2)] flex items-center justify-center gap-2 font-jakarta"
-                        >
-                            {t("eliteCta")} <ArrowRight className="w-4 h-4" />
-                        </button>
+                        {tier === 'elite' ? (
+                            <button
+                                disabled
+                                className="w-full py-4 rounded-lg text-sm font-bold uppercase tracking-wider border border-emerald-500/30 text-emerald-400 bg-emerald-500/10 cursor-default flex items-center justify-center gap-2 font-jakarta"
+                            >
+                                {t("currentPlan")}
+                            </button>
+                        ) : tier === 'pro' ? (
+                            <button
+                                onClick={() => handleUpgradeOrDowngrade('elite')}
+                                disabled={upgradeLoading}
+                                className="w-full py-4 rounded-lg text-sm font-bold uppercase tracking-wider bg-gradient-to-r from-cyan-500 to-cyan-600 text-black hover:brightness-110 transition-all shadow-[0_0_30px_rgba(34,211,238,0.2)] flex items-center justify-center gap-2 font-jakarta"
+                            >
+                                {upgradeLoading ? '...' : t("upgradeCta")} {!upgradeLoading && <ArrowRight className="w-4 h-4" />}
+                            </button>
+                        ) : (
+                            <button
+                                onClick={() => handlePlanClick('elite')}
+                                className="w-full py-4 rounded-lg text-sm font-bold uppercase tracking-wider bg-gradient-to-r from-cyan-500 to-cyan-600 text-black hover:brightness-110 transition-all shadow-[0_0_30px_rgba(34,211,238,0.2)] flex items-center justify-center gap-2 font-jakarta"
+                            >
+                                {t("eliteCta")} <ArrowRight className="w-4 h-4" />
+                            </button>
+                        )}
                     </div>
                 </div>
             </section>
