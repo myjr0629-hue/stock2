@@ -430,7 +430,7 @@ export default function RLSIInsightPanel({
                 </div>
 
                 {/* A/D Ratio + Volume Breadth — Card Style */}
-                <div className="grid grid-cols-2 gap-2 flex-none">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 flex-none">
                     {/* A/D Ratio Card — Glassmorphism */}
                     <div className="rounded-lg backdrop-blur-md bg-white/[0.04] border border-white/10 p-2.5 shadow-lg">
                         <div className="flex items-center justify-between mb-1">

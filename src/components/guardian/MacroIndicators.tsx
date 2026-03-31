@@ -56,7 +56,7 @@ export const MacroIndicators = memo(() => {
     return (
         <div className="h-full flex flex-col gap-2">
             {/* Row 1: VIX + DXY */}
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 {/* VIX Indicator */}
                 <div className={`flex flex-col p-2 rounded-lg border ${vix?.level ? getVixColor(vix.level) : 'border-slate-700'}`}>
                     <div className="flex items-center gap-1 mb-1">
@@ -89,7 +89,7 @@ export const MacroIndicators = memo(() => {
             </div>
 
             {/* Row 2: 2s10s Yield Curve + Real Yield */}
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 {/* 2s10s Yield Curve */}
                 <div className={`flex flex-col p-2 rounded-lg border ${yieldCurve ? getSpreadColor(yieldCurve.spread2s10s, yieldCurve.trend) : 'border-slate-700'}`}>
                     <div className="flex items-center gap-1 mb-1">

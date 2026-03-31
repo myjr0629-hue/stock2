@@ -828,7 +828,7 @@ function MainChartPanel() {
             )}
             <div className="px-4 pb-4 flex flex-col gap-1">
                 {/* ── ROW 1: 구조 판단 (Structure) ── */}
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
                     {/* Net GEX — PRO (peek: number visible, interpretation blurred) */}
                     {customize.cardOrder.includes('netGex') && <ProGate title="Net GEX" mode="peek" compact tooltipPosition="above" description={gt('descNetGamma')}>
                         <div className={`relative p-4 rounded-xl border transition-all duration-200 hover:-translate-y-0.5 hover:brightness-110 hover:border-white/15 ${(data?.netGex || 0) < 0 ? 'bg-rose-500/10 backdrop-blur-md border-rose-400/40 shadow-[0_0_25px_rgba(251,113,133,0.3)]' : 'bg-[#0d1829]/80 border-white/5'}`}>

@@ -2087,7 +2087,7 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                                 </div>
 
                                 {/* Bottom Row: 현재가 위치 + SQUEEZE PROBABILITY */}
-                                <div className="grid grid-cols-2 gap-2">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                                     {/* 현재가 위치 (Compact) */}
                                     <div className="bg-white/5 backdrop-blur-md rounded-xl p-3 border border-white/10 relative overflow-hidden">
                                         <div className={`absolute inset-0 opacity-10 ${(() => { const range = callWall - putWall; const pos = range > 0 ? ((currentPrice - putWall) / range) * 100 : 50; return pos < 30 ? 'bg-rose-500' : pos > 70 ? 'bg-emerald-500' : 'bg-indigo-500'; })()} blur-xl`} />
@@ -3305,7 +3305,7 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
 
                             {/* PUT FLOOR + CALL WALL: 2-Column Grid — PRO peek */}
                             <ProGate title="Put Floor / Call Wall" fomoMessage={gt('fomoPutFloorCallWall')} description={gt('descPutFloorCallWall')} mode="peek" compact tooltipAlign="left">
-                                <div className="grid grid-cols-2 gap-2">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                                     {/* PUT FLOOR (Left - Support) */}
                                     <div className="bg-gradient-to-br from-rose-950/30 to-slate-900/50 border border-rose-500/20 rounded-lg p-3 relative overflow-hidden group hover:border-rose-500/40 transition-all">
                                         <div className="absolute inset-0 bg-rose-500/5 blur-xl opacity-0 group-hover:opacity-100 transition-opacity" />

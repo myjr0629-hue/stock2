@@ -42,7 +42,7 @@ export function VitalsPanel({ marketStatus, mode = 'STANDARD', rvol, loading = f
     return (
         <div className="w-full h-full flex flex-col justify-center gap-4">
             {/* Top Row: System Status */}
-            <div className="grid grid-cols-2 gap-4 border-b border-white/5 pb-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 border-b border-white/5 pb-3">
                 {/* 1. Market Status */}
                 <div>
                     <div className="text-[12px] font-bold text-slate-400 uppercase flex items-center gap-1 mb-1 font-jakarta">
@@ -73,7 +73,7 @@ export function VitalsPanel({ marketStatus, mode = 'STANDARD', rvol, loading = f
             </div>
 
             {/* Bottom Row: RVOL (Flow Power) */}
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {/* NASDAQ RVOL */}
                 <div>
                     <div className="text-[12px] font-bold text-slate-400 uppercase flex items-center gap-1 mb-1 font-jakarta">

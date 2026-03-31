@@ -481,7 +481,7 @@ export function SectorCommandCenter({ sectorData, onNavigate }: SectorCommandCen
             <SectorHeatmap sectorData={sectorData} onNavigate={onNavigate} />
 
             {/* ═══ SECTOR GRID (5×2) ═══ */}
-            <section className="relative z-10 grid grid-cols-2 lg:grid-cols-5 gap-3">
+            <section className="relative z-10 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
                 {sectorStats.map(({ def, stats }) => (
                     <div
                         key={def.key}
