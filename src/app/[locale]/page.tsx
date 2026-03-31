@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, useCallback, useRef } from "react";
+import React, { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import {
   ArrowRight,
@@ -298,6 +298,80 @@ function LiveTickerCard({ symbol }: { symbol: string }) {
 }
 
 
+// --- Structure Awareness Section ---
+function StructureAwarenessSection() {
+  const t = useTranslations();
+  const [lineIndex, setLineIndex] = useState(0);
+  const lines = useMemo(() => [
+    t('home.structureLine1'),
+    t('home.structureLine2'),
+    t('home.structureLine3'),
+    t('home.structureLine4'),
+  ], [t]);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setLineIndex(prev => (prev + 1) % lines.length);
+    }, 4000);
+    return () => clearInterval(timer);
+  }, [lines.length]);
+
+  return (
+    <section className="relative py-16 px-6 overflow-hidden">
+      {/* Subtle ambient glow */}
+      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[200px] bg-amber-500/[0.04] rounded-full blur-[100px] pointer-events-none" />
+
+      <div className="max-w-3xl mx-auto text-center relative z-10">
+        {/* Gradient Separator */}
+        <div className="w-24 h-px mx-auto mb-10 bg-gradient-to-r from-transparent via-amber-500/40 to-transparent" />
+
+        {/* Rotating Structure Insight */}
+        <div className="relative h-[80px] md:h-[64px] flex items-center justify-center">
+          {lines.map((line, i) => (
+            <p
+              key={i}
+              className={`absolute inset-0 flex items-center justify-center text-xl md:text-2xl font-light text-slate-300 italic tracking-wide leading-relaxed transition-all duration-700 ease-in-out ${
+                i === lineIndex
+                  ? 'opacity-100 translate-y-0'
+                  : 'opacity-0 translate-y-3'
+              }`}
+            >
+              &ldquo;{line}&rdquo;
+            </p>
+          ))}
+        </div>
+
+        {/* Subtle progress dots */}
+        <div className="flex items-center justify-center gap-2 mt-6 mb-8">
+          {lines.map((_, i) => (
+            <div
+              key={i}
+              className={`h-1 rounded-full transition-all duration-500 ${
+                i === lineIndex
+                  ? 'w-6 bg-amber-400/60'
+                  : 'w-1.5 bg-white/10'
+              }`}
+            />
+          ))}
+        </div>
+
+        {/* CTA */}
+        <Link
+          href="/flow"
+          className="inline-flex items-center gap-2 text-sm text-slate-400 hover:text-cyan-400 transition-colors duration-300 group"
+        >
+          <span className="font-medium">{t('home.structureCta')}</span>
+          <ArrowRight size={14} className="group-hover:translate-x-1 transition-transform" />
+        </Link>
+
+        {/* Bottom Separator */}
+        <div className="w-24 h-px mx-auto mt-10 bg-gradient-to-r from-transparent via-cyan-500/30 to-transparent" />
+      </div>
+    </section>
+  );
+}
+
+
 export default function Page() {
   const t = useTranslations();
   const pathname = usePathname();
@@ -567,6 +641,9 @@ export default function Page() {
           </div>
         </div>
       </section>
+
+      {/* STRUCTURE AWARENESS — Rotating Insight Band */}
+      <StructureAwarenessSection />
 
       {/* LIVE ANALYTICS DASHBOARD */}
       <section id="live-demo" className="py-14 px-6">
