@@ -294,9 +294,43 @@ export const CustomTickerBar = memo(() => {
         );
     }
 
+    // Render a single ticker item (reusable for both static & marquee)
+    const renderTickerItem = (item: TickerItem, keyPrefix = '') => {
+        const flash = flashStates[item.key];
+        return (
+            <div
+                key={`${keyPrefix}${item.key}`}
+                className={`flex items-center gap-[6px] h-full px-3 md:px-4 shrink-0 ${flash === 'up' ? 'tv-flash-up-bg' : flash === 'down' ? 'tv-flash-down-bg' : ''}`}
+                style={{ transition: 'background-color 0.15s' }}
+            >
+                {item.isLive && (
+                    <span className="relative flex h-[6px] w-[6px] shrink-0">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                        <span className="relative inline-flex rounded-full h-[6px] w-[6px] bg-emerald-500" />
+                    </span>
+                )}
+                <img src={item.logoUrl} alt={item.label} width={18} height={18}
+                    className="rounded-full shrink-0" style={{ minWidth: 18 }}
+                    onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                <span className="shrink-0" style={{ fontSize: '12px', fontFamily: '-apple-system, BlinkMacSystemFont, "Trebuchet MS", Roboto, Ubuntu, sans-serif', fontWeight: 700, color: '#d1d4dc', letterSpacing: '0.02em' }}>
+                    {item.label}
+                </span>
+                <span className={`tabular-nums shrink-0 ${flash === 'up' ? 'tv-flash-up-text' : flash === 'down' ? 'tv-flash-down-text' : ''}`}
+                    style={{ fontSize: '12px', fontFamily: '-apple-system, BlinkMacSystemFont, "Trebuchet MS", Roboto, Ubuntu, sans-serif', fontWeight: 400, color: '#d1d4dc' }}>
+                    {formatValue(item)}
+                </span>
+                {item.change !== null && (
+                    <span className={`tabular-nums shrink-0 ${flash === 'up' ? 'tv-flash-up-pct' : flash === 'down' ? 'tv-flash-down-pct' : ''}`}
+                        style={{ fontSize: '12px', fontFamily: '-apple-system, BlinkMacSystemFont, "Trebuchet MS", Roboto, Ubuntu, sans-serif', fontWeight: 400, color: item.change >= 0 ? '#089981' : '#f23645' }}>
+                        {formatChange(item.change)}
+                    </span>
+                )}
+            </div>
+        );
+    };
+
     return (
         <div className="w-full h-[30px] bg-[#131722] overflow-hidden relative z-40">
-            {/* TradingView-style tick flash: background pulse + text color */}
             <style>{`
                 @keyframes tvFlashUpBg {
                     0% { background-color: rgba(38,166,154,0.35); }
@@ -324,104 +358,42 @@ export const CustomTickerBar = memo(() => {
                     0% { color: #ff7b7b; }
                     100% { color: #f23645; }
                 }
-                .tv-flash-up-bg {
-                    animation: tvFlashUpBg 0.9s ease-out forwards;
+                .tv-flash-up-bg { animation: tvFlashUpBg 0.9s ease-out forwards; }
+                .tv-flash-down-bg { animation: tvFlashDownBg 0.9s ease-out forwards; }
+                .tv-flash-up-text { animation: tvFlashUpText 0.9s ease-out forwards; }
+                .tv-flash-down-text { animation: tvFlashDownText 0.9s ease-out forwards; }
+                .tv-flash-up-pct { animation: tvFlashUpPct 0.9s ease-out forwards; }
+                .tv-flash-down-pct { animation: tvFlashDownPct 0.9s ease-out forwards; }
+
+                /* ── Mobile Marquee ── */
+                @keyframes tickerMarquee {
+                    0% { transform: translateX(0); }
+                    100% { transform: translateX(-50%); }
                 }
-                .tv-flash-down-bg {
-                    animation: tvFlashDownBg 0.9s ease-out forwards;
+                .ticker-marquee {
+                    display: flex;
+                    width: max-content;
+                    animation: tickerMarquee 30s linear infinite;
                 }
-                .tv-flash-up-text {
-                    animation: tvFlashUpText 0.9s ease-out forwards;
+                .ticker-marquee:hover,
+                .ticker-marquee:active {
+                    animation-play-state: paused;
                 }
-                .tv-flash-down-text {
-                    animation: tvFlashDownText 0.9s ease-out forwards;
-                }
-                .tv-flash-up-pct {
-                    animation: tvFlashUpPct 0.9s ease-out forwards;
-                }
-                .tv-flash-down-pct {
-                    animation: tvFlashDownPct 0.9s ease-out forwards;
-                }
-                .ticker-scroll::-webkit-scrollbar { display: none; }
-                .ticker-scroll { -ms-overflow-style: none; scrollbar-width: none; }
             `}</style>
-            <div className="h-full flex items-center justify-evenly lg:justify-evenly gap-0 overflow-x-auto ticker-scroll">
-                {items.map((item, idx) => {
-                    const flash = flashStates[item.key];
 
-                    return (
-                        <div
-                            key={item.key}
-                            className={`flex items-center gap-[6px] h-full px-4 ${flash === 'up' ? 'tv-flash-up-bg' : flash === 'down' ? 'tv-flash-down-bg' : ''}`}
-                            style={{
-                                transition: 'background-color 0.15s'
-                            }}
-                        >
-                            {/* Live Pulse Dot */}
-                            {item.isLive && (
-                                <span className="relative flex h-[6px] w-[6px] shrink-0">
-                                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-                                    <span className="relative inline-flex rounded-full h-[6px] w-[6px] bg-emerald-500" />
-                                </span>
-                            )}
+            {/* ═══ Desktop: static, evenly spaced ═══ */}
+            <div className="hidden md:flex h-full items-center justify-evenly gap-0">
+                {items.map(item => renderTickerItem(item))}
+            </div>
 
-                            {/* Logo */}
-                            <img
-                                src={item.logoUrl}
-                                alt={item.label}
-                                width={18}
-                                height={18}
-                                className="rounded-full shrink-0"
-                                style={{ minWidth: 18 }}
-                                onError={(e) => {
-                                    (e.target as HTMLImageElement).style.display = 'none';
-                                }}
-                            />
-
-                            {/* Label */}
-                            <span
-                                className="shrink-0"
-                                style={{
-                                    fontSize: '12px',
-                                    fontFamily: '-apple-system, BlinkMacSystemFont, "Trebuchet MS", Roboto, Ubuntu, sans-serif',
-                                    fontWeight: 700,
-                                    color: '#d1d4dc',
-                                    letterSpacing: '0.02em'
-                                }}
-                            >
-                                {item.label}
-                            </span>
-
-                            {/* Value — TradingView-style text + background flash */}
-                            <span
-                                className={`tabular-nums shrink-0 ${flash === 'up' ? 'tv-flash-up-text' : flash === 'down' ? 'tv-flash-down-text' : ''}`}
-                                style={{
-                                    fontSize: '12px',
-                                    fontFamily: '-apple-system, BlinkMacSystemFont, "Trebuchet MS", Roboto, Ubuntu, sans-serif',
-                                    fontWeight: 400,
-                                    color: '#d1d4dc'
-                                }}
-                            >
-                                {formatValue(item)}
-                            </span>
-
-                            {/* Change % — brighter flash then settle to base color */}
-                            {item.change !== null && (
-                                <span
-                                    className={`tabular-nums shrink-0 ${flash === 'up' ? 'tv-flash-up-pct' : flash === 'down' ? 'tv-flash-down-pct' : ''}`}
-                                    style={{
-                                        fontSize: '12px',
-                                        fontFamily: '-apple-system, BlinkMacSystemFont, "Trebuchet MS", Roboto, Ubuntu, sans-serif',
-                                        fontWeight: 400,
-                                        color: item.change >= 0 ? '#089981' : '#f23645'
-                                    }}
-                                >
-                                    {formatChange(item.change)}
-                                </span>
-                            )}
-                        </div>
-                    );
-                })}
+            {/* ═══ Mobile: marquee scrolling ═══ */}
+            <div className="md:hidden h-full flex items-center">
+                <div className="ticker-marquee">
+                    {/* Original set */}
+                    {items.map(item => renderTickerItem(item, 'a-'))}
+                    {/* Duplicate for seamless loop */}
+                    {items.map(item => renderTickerItem(item, 'b-'))}
+                </div>
             </div>
         </div>
     );
