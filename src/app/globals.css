@@ -593,19 +593,19 @@
 }
 
 /* ===== [MOBILE] TOUCH TARGET ENFORCEMENT ===== */
-/* Only on mobile ??desktop untouched */
+/* Only on mobile — desktop untouched */
 @media (max-width: 768px) {
 
-  /* Ensure all interactive elements meet 44px min touch target */
-  button,
-  a,
+  /* Ensure primary interactive elements meet 44px min touch target */
+  /* Excludes inline spans, badges, SVG elements, and small indicators */
+  button:not([class*="shrink"]):not([class*="w-3"]):not([class*="w-4"]),
+  a:not([class*="inline"]):not([class*="text-\["]),
   [role="button"],
   [role="tab"],
   input,
   select,
   textarea {
     min-height: 44px;
-    min-width: 44px;
   }
 
   /* Fix body for PWA: prevent overscroll bounce on iOS */
@@ -618,6 +618,21 @@
   html {
     -webkit-text-size-adjust: 100%;
     text-size-adjust: 100%;
+  }
+
+  /* Bottom content padding to prevent StickyFoundingBar from covering content */
+  main, [data-guardian], [data-flow], [data-intel] {
+    padding-bottom: 60px;
+  }
+
+  /* Flow Topography — scale bubble text for mobile readability */
+  [data-guardian] .flow-topography-bubble {
+    transform: scale(0.85);
+  }
+
+  /* AI analysis text — better mobile readability */
+  [data-guardian] .text-\[13px\][style*="Pretendard"] {
+    line-height: 1.75 !important;
   }
 }
 

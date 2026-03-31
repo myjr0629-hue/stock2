@@ -137,9 +137,9 @@ export function LandingHeader() {
                     </form>
                 </div>
 
-                {/* User Card */}
                 {user && (
-                    <div className="mx-5 mb-4 p-3 rounded-xl bg-white/[0.03] border border-white/5">
+                    <Link href="/settings" onClick={() => setMobileMenuOpen(false)}
+                        className="block mx-5 mb-4 p-3 rounded-xl bg-white/[0.03] border border-white/5 hover:bg-white/[0.06] hover:border-white/10 active:bg-white/[0.08] transition-all cursor-pointer">
                         <div className="flex items-center gap-3">
                             {getAvatarUrl() ? (
                                 <img src={getAvatarUrl()!} alt="Profile"
@@ -150,7 +150,7 @@ export function LandingHeader() {
                                     {getInitials()}
                                 </div>
                             )}
-                            <div className="min-w-0">
+                            <div className="min-w-0 flex-1">
                                 <p className="text-sm font-bold text-white truncate">
                                     {user?.user_metadata?.full_name || user?.email}
                                 </p>
@@ -158,8 +158,9 @@ export function LandingHeader() {
                                     <p className="text-xs text-slate-400 truncate">{user?.email}</p>
                                 )}
                             </div>
+                            <Settings className="w-4 h-4 text-slate-500 shrink-0" />
                         </div>
-                    </div>
+                    </Link>
                 )}
 
                 {/* Navigation */}

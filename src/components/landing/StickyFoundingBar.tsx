@@ -41,7 +41,8 @@ export function StickyFoundingBar() {
             {/* 상단 그라데이션 경계 */}
             <div className="h-[1px] bg-gradient-to-r from-transparent via-amber-500/50 to-transparent" />
 
-            <div className="bg-[#070e1b]/95 backdrop-blur-md border-t border-white/5 px-4 py-3">
+            <div className="bg-[#070e1b]/95 backdrop-blur-md border-t border-white/5 px-4 py-2 sm:py-3"
+                style={{ paddingBottom: `max(8px, env(safe-area-inset-bottom, 8px))` }}>
                 <div className="max-w-5xl mx-auto flex items-center justify-between gap-4">
                     {/* Left: Founding badge + pricing */}
                     <div className="flex items-center gap-3 min-w-0">

@@ -446,8 +446,8 @@ export default function GammaShield({ data, isMarketActive }: Props) {
                 </div>
             </div>
 
-            {/* Content Grid — 3 columns */}
-            <div className="grid grid-cols-3 gap-3 px-4 pb-4">
+            {/* Content Grid — responsive: 1 col mobile, 3 col desktop */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 px-4 pb-4">
 
                 {/* Column 1: GEX Pressure Index */}
                 <div className="flex flex-col items-center gap-2">
@@ -503,7 +503,7 @@ export default function GammaShield({ data, isMarketActive }: Props) {
                 </div>
 
                 {/* Column 2: Squeeze Risk */}
-                <div className="flex flex-col items-center gap-2 border-x border-slate-700/25 px-2">
+                <div className="flex flex-col items-center gap-2 border-t sm:border-t-0 sm:border-x border-slate-700/25 pt-3 sm:pt-0 px-2">
                     <span className="text-[12px] font-bold font-jakarta tracking-[0.10em] text-slate-300 uppercase">
                         Squeeze Risk
                     </span>
@@ -548,7 +548,7 @@ export default function GammaShield({ data, isMarketActive }: Props) {
                 </div>
 
                 {/* Column 3: Trigger Band */}
-                <div className="flex flex-col gap-1.5">
+                <div className="flex flex-col gap-1.5 border-t sm:border-t-0 border-slate-700/25 pt-3 sm:pt-0">
                     <span className="text-[12px] font-bold font-jakarta tracking-[0.10em] text-slate-300 uppercase text-center">
                         Trigger Band
                     </span>
