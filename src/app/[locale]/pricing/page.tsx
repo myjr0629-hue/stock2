@@ -184,6 +184,23 @@ export default function PricingPage() {
         }
     }, [locale, isAnnual, t]);
 
+    // ── Stripe Customer Portal (결제 주기 변경/결제수단/취소) ──
+    const handleManageSubscription = useCallback(async () => {
+        try {
+            const res = await fetch('/api/stripe/portal', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ locale }),
+            });
+            const data = await res.json();
+            if (data.url) {
+                window.location.href = data.url;
+            }
+        } catch (err) {
+            console.error('[Pricing] Portal error:', err);
+        }
+    }, [locale]);
+
     // USD Prices
     const proPriceMonthly = 69;
     const proFoundingMonthly = 49;
@@ -456,12 +473,20 @@ export default function PricingPage() {
                             ))}
                         </ul>
                         {tier === 'pro' ? (
-                            <button
-                                disabled
-                                className="w-full py-3.5 rounded-lg text-sm font-bold uppercase tracking-wider border border-emerald-500/30 text-emerald-400 bg-emerald-500/10 cursor-default font-jakarta"
-                            >
-                                {t("currentPlan")}
-                            </button>
+                            <>
+                                <button
+                                    disabled
+                                    className="w-full py-3.5 rounded-lg text-sm font-bold uppercase tracking-wider border border-emerald-500/30 text-emerald-400 bg-emerald-500/10 cursor-default font-jakarta"
+                                >
+                                    {t("currentPlan")}
+                                </button>
+                                <button
+                                    onClick={handleManageSubscription}
+                                    className="w-full mt-2 py-2 text-xs font-bold text-slate-500 hover:text-cyan-400 transition-colors uppercase tracking-wider font-jakarta"
+                                >
+                                    Manage Subscription →
+                                </button>
+                            </>
                         ) : tier === 'elite' ? (
                             <button
                                 onClick={() => handleUpgradeOrDowngrade('pro')}
@@ -517,12 +542,20 @@ export default function PricingPage() {
                             ))}
                         </ul>
                         {tier === 'elite' ? (
-                            <button
-                                disabled
-                                className="w-full py-4 rounded-lg text-sm font-bold uppercase tracking-wider border border-emerald-500/30 text-emerald-400 bg-emerald-500/10 cursor-default flex items-center justify-center gap-2 font-jakarta"
-                            >
-                                {t("currentPlan")}
-                            </button>
+                            <>
+                                <button
+                                    disabled
+                                    className="w-full py-4 rounded-lg text-sm font-bold uppercase tracking-wider border border-emerald-500/30 text-emerald-400 bg-emerald-500/10 cursor-default flex items-center justify-center gap-2 font-jakarta"
+                                >
+                                    {t("currentPlan")}
+                                </button>
+                                <button
+                                    onClick={handleManageSubscription}
+                                    className="w-full mt-2 py-2 text-xs font-bold text-slate-500 hover:text-cyan-400 transition-colors uppercase tracking-wider font-jakarta"
+                                >
+                                    Manage Subscription →
+                                </button>
+                            </>
                         ) : tier === 'pro' ? (
                             <button
                                 onClick={() => handleUpgradeOrDowngrade('elite')}
