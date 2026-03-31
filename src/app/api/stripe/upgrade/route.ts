@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getStripe, STRIPE_PRICES } from '@/lib/stripe';
-import { createClient } from '@supabase/supabase-js';
+import { createClient } from '@/lib/supabase/server';
+import { createClient as createServiceClient } from '@supabase/supabase-js';
 
-const supabase = createClient(
+// Service-level client for reading user_profiles (not tied to user session)
+const supabaseService = createServiceClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
 );
@@ -28,31 +30,18 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: 'Invalid plan or billing' }, { status: 400 });
         }
 
-        // Get current user from auth cookie
-        const authHeader = req.headers.get('cookie') || '';
-        const tokenMatch = authHeader.match(/sb-[^=]+-auth-token[^=]*=([^;]+)/);
-        if (!tokenMatch) {
+        // Use Supabase SSR server client (handles chunked cookies automatically)
+        const supabase = await createClient();
+        const { data: { user }, error } = await supabase.auth.getUser();
+
+        if (error || !user) {
             return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
         }
 
-        let userId: string | undefined;
-        try {
-            const tokenData = JSON.parse(decodeURIComponent(tokenMatch[1]));
-            const accessToken = Array.isArray(tokenData) ? tokenData[0] : tokenData?.access_token;
-            if (accessToken) {
-                const { data: { user } } = await supabase.auth.getUser(accessToken);
-                userId = user?.id;
-            }
-        } catch {
-            return NextResponse.json({ error: 'Auth token invalid' }, { status: 401 });
-        }
-
-        if (!userId) {
-            return NextResponse.json({ error: 'User not found' }, { status: 401 });
-        }
+        const userId = user.id;
 
         // Get user's Stripe subscription ID from user_profiles
-        const { data: profile } = await supabase
+        const { data: profile } = await supabaseService
             .from('user_profiles')
             .select('stripe_subscription_id, stripe_customer_id, tier')
             .eq('user_id', userId)
@@ -78,7 +67,7 @@ export async function POST(req: NextRequest) {
         }
 
         // Update the subscription
-        const updatedSubscription = await getStripe().subscriptions.update(
+        await getStripe().subscriptions.update(
             profile.stripe_subscription_id,
             {
                 items: [{
@@ -88,10 +77,6 @@ export async function POST(req: NextRequest) {
                 // Upgrade: immediate with proration
                 // Downgrade: at period end (user keeps Elite until renewal)
                 proration_behavior: isUpgrade ? 'create_prorations' : 'none',
-                ...(isDowngrade && {
-                    // For downgrade, apply at the end of the current billing period
-                    cancel_at_period_end: false,
-                }),
                 metadata: {
                     plan: targetPlan,
                     billing,
@@ -99,27 +84,6 @@ export async function POST(req: NextRequest) {
                 },
             },
         );
-
-        // If downgrade, we need to schedule the change for period end
-        if (isDowngrade) {
-            // Use subscription_schedule for deferred downgrade
-            await getStripe().subscriptions.update(
-                profile.stripe_subscription_id,
-                {
-                    items: [{
-                        id: currentItemId,
-                        price: targetPriceId,
-                    }],
-                    proration_behavior: 'none',
-                    billing_cycle_anchor: 'unchanged',
-                    metadata: {
-                        plan: targetPlan,
-                        billing,
-                        supabase_user_id: userId,
-                    },
-                },
-            );
-        }
 
         return NextResponse.json({
             success: true,

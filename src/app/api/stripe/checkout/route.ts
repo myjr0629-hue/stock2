@@ -1,12 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getStripe, STRIPE_PRICES } from '@/lib/stripe';
-import { createClient } from '@supabase/supabase-js';
-
-// Supabase service-role client for reading user data
-const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-);
+import { createClient } from '@/lib/supabase/server';
 
 export async function POST(req: NextRequest) {
     try {
@@ -23,28 +17,11 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: 'Invalid plan or billing' }, { status: 400 });
         }
 
-        // Try to get current user from auth header (cookie-based)
-        const authHeader = req.headers.get('cookie') || '';
-        let userId: string | undefined;
-        let userEmail: string | undefined;
-
-        // Extract Supabase token from cookies
-        const tokenMatch = authHeader.match(/sb-[^=]+-auth-token[^=]*=([^;]+)/);
-        if (tokenMatch) {
-            try {
-                const tokenData = JSON.parse(decodeURIComponent(tokenMatch[1]));
-                const accessToken = Array.isArray(tokenData) ? tokenData[0] : tokenData?.access_token;
-                if (accessToken) {
-                    const { data: { user } } = await supabase.auth.getUser(accessToken);
-                    if (user) {
-                        userId = user.id;
-                        userEmail = user.email;
-                    }
-                }
-            } catch {
-                // Token parsing failed — continue without user
-            }
-        }
+        // Use Supabase SSR server client (handles chunked cookies automatically)
+        const supabase = await createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        const userId = user?.id;
+        const userEmail = user?.email;
 
         // Build Checkout Session params
         const origin = req.headers.get('origin') || 'https://signumhq.com';

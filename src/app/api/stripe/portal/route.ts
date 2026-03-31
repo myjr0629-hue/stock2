@@ -1,43 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getStripe } from '@/lib/stripe';
-import { createClient } from '@supabase/supabase-js';
-
-const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-);
+import { createClient } from '@/lib/supabase/server';
 
 export async function POST(req: NextRequest) {
     try {
         const body = await req.json();
         const { locale } = body as { locale: string };
 
-        // Get current user from auth cookie
-        const authHeader = req.headers.get('cookie') || '';
-        const tokenMatch = authHeader.match(/sb-[^=]+-auth-token[^=]*=([^;]+)/);
+        // Use Supabase SSR server client (handles chunked cookies automatically)
+        const supabase = await createClient();
+        const { data: { user }, error } = await supabase.auth.getUser();
 
-        if (!tokenMatch) {
+        if (error || !user?.email) {
             return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
         }
 
-        let userEmail: string | undefined;
-        try {
-            const tokenData = JSON.parse(decodeURIComponent(tokenMatch[1]));
-            const accessToken = Array.isArray(tokenData) ? tokenData[0] : tokenData?.access_token;
-            if (accessToken) {
-                const { data: { user } } = await supabase.auth.getUser(accessToken);
-                userEmail = user?.email;
-            }
-        } catch {
-            return NextResponse.json({ error: 'Auth token invalid' }, { status: 401 });
-        }
-
-        if (!userEmail) {
-            return NextResponse.json({ error: 'User email not found' }, { status: 401 });
-        }
-
         // Find Stripe customer by email
-        const customers = await getStripe().customers.list({ email: userEmail, limit: 1 });
+        const customers = await getStripe().customers.list({ email: user.email, limit: 1 });
         if (customers.data.length === 0) {
             return NextResponse.json({ error: 'No Stripe customer found' }, { status: 404 });
         }
