@@ -987,7 +987,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
 
         // Derive from structure if available (instant, real-time GEX data)
         const structureDerived = (() => {
-            if (!structure || !structure.netGex) return null;
+            if (!structure || structure.netGex == null) return null;
             const netGex = structure.netGex || 0;
             const isShortGamma = netGex < 0;
             const flipLevel = structure.gammaFlipLevel || 0;
@@ -1512,8 +1512,8 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                         <span className="text-[12px] font-jakarta text-white ml-0.5">{regimeDesc}</span>
                                     </div>
                                     <div className="relative z-10 flex gap-3 mt-1 text-[12px] font-jakarta tabular-nums">
-                                        <span className="text-white/80 font-jakarta">GEX <span className={`font-bold ${r?.gexLabel === 'SHORT' ? 'text-rose-400' : 'text-emerald-400'}`}>{r?.gexLabel || '--'}</span></span>
-                                        <span className="text-white/80 font-jakarta">IV <span className="font-bold text-white">{r?.iv || '--'}%</span></span>
+                                        <span className="text-white/80 font-jakarta">GEX <span className={`font-bold ${r?.gexLabel === 'SHORT' ? 'text-rose-400' : 'text-emerald-400'}`}>{r?.gexLabel ?? '--'}</span></span>
+                                        <span className="text-white/80 font-jakarta">IV <span className="font-bold text-white">{r?.iv != null ? `${r.iv}%` : '--%'}</span></span>
                                         <span className="text-white/80 font-jakarta">Flip <span className="font-bold text-white">{r?.flipDistance ? `${r.flipDistance > 0 ? '+' : ''}${r.flipDistance}%` : '--'}</span></span>
                                     </div>
                                     <div className="relative z-10 mt-0.5">
