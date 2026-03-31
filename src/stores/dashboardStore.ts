@@ -240,15 +240,15 @@ export const useDashboardStore = create<DashboardState>()(
                         if (!currentTickers[ticker]) {
                             currentTickers[ticker] = {
                                 underlyingPrice: q.price || 0,
-                                changePercent: q.changesPercentage || 0,
-                                prevClose: q.previousClose || 0,
+                                changePercent: q.changePercent || q.changesPercentage || 0,
+                                prevClose: q.previousClose || q.prevClose || 0,
                                 regularCloseToday: null,
                                 intradayChangePct: null,
                                 // [FIX] Populate display & prevRegularClose from SSR data
                                 // so calcPriceDisplay has accurate CHG% from first render
-                                display: { price: q.price || 0, changePctPct: q.changesPercentage || 0 },
-                                prevChangePct: q.changesPercentage || null,
-                                prevRegularClose: q.previousClose || null,
+                                display: { price: q.price || 0, changePctPct: q.changePercent || q.changesPercentage || 0 },
+                                prevChangePct: q.changePercent || q.changesPercentage || null,
+                                prevRegularClose: q.previousClose || q.prevClose || null,
                                 extended: null,
                                 session: (q.marketState && sessionMap[q.marketState]) || 'REG',
                                 netGex: null, maxPain: null, pcr: null, isGammaSqueeze: false,
@@ -262,11 +262,11 @@ export const useDashboardStore = create<DashboardState>()(
                         } else {
                             currentTickers[ticker] = deepMergeTicker(currentTickers[ticker], {
                                 underlyingPrice: q.price,
-                                changePercent: q.changesPercentage,
-                                prevClose: q.previousClose,
+                                changePercent: q.changePercent || q.changesPercentage,
+                                prevClose: q.previousClose || q.prevClose,
                                 // [FIX] Also merge prevRegularClose and display for accurate CHG%
-                                prevRegularClose: q.previousClose,
-                                display: { price: q.price, changePctPct: q.changesPercentage },
+                                prevRegularClose: q.previousClose || q.prevClose,
+                                display: { price: q.price, changePctPct: q.changePercent || q.changesPercentage },
                                 session: (q.marketState && sessionMap[q.marketState]) || currentTickers[ticker].session
                             });
                         }
@@ -477,6 +477,22 @@ export const useDashboardStore = create<DashboardState>()(
                                     },
                                 };
                                 changed = true;
+                            }
+                        }
+                        // [FIX] Even if price unchanged, correct changePct if it was 0 due to SSR field mismatch
+                        const refCloseForFix = existing.prevClose || q.previousClose || q.prevClose || 0;
+                        if (!changed && existing.changePercent === 0 && refCloseForFix > 0) {
+                            const currentPrice = existing.underlyingPrice || 0;
+                            if (currentPrice > 0) {
+                                const correctedPct = ((currentPrice - refCloseForFix) / refCloseForFix) * 100;
+                                if (correctedPct !== 0) {
+                                    currentTickers[ticker] = {
+                                        ...existing,
+                                        changePercent: correctedPct,
+                                        display: { ...existing.display, changePctPct: correctedPct },
+                                    };
+                                    changed = true;
+                                }
                             }
                         }
                     }
