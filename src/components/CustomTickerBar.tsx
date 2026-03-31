@@ -342,8 +342,10 @@ export const CustomTickerBar = memo(() => {
                 .tv-flash-down-pct {
                     animation: tvFlashDownPct 0.9s ease-out forwards;
                 }
+                .ticker-scroll::-webkit-scrollbar { display: none; }
+                .ticker-scroll { -ms-overflow-style: none; scrollbar-width: none; }
             `}</style>
-            <div className="h-full flex items-center justify-evenly gap-0">
+            <div className="h-full flex items-center justify-evenly lg:justify-evenly gap-0 overflow-x-auto ticker-scroll">
                 {items.map((item, idx) => {
                     const flash = flashStates[item.key];
 

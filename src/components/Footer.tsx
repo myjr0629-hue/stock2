@@ -25,21 +25,23 @@ export function Footer() {
             <div className="px-4 sm:px-6 pt-8 pb-4 lg:px-8 max-w-[1400px] mx-auto" suppressHydrationWarning>
 
                 {/* ── Legal Links Row ── */}
-                <div className="text-[12px] text-slate-400 text-center mb-3 flex items-center justify-center gap-2 flex-wrap">
+                <div className="text-[12px] text-slate-400 text-center mb-3 flex flex-col sm:flex-row items-center justify-center gap-1.5 sm:gap-2 flex-wrap">
                     <span className="text-slate-500">© 2026 SIGNUM HQ, LLC. All rights reserved.</span>
-                    <span className="text-slate-600 mx-1">|</span>
-                    <Link href={`/${locale}/terms`} className="underline hover:text-white transition-colors">
-                        {isKorean ? '이용약관' : locale === 'ja' ? '利用規約' : 'Terms of Service'}
-                    </Link>
-                    <span className="text-slate-600 mx-1">|</span>
-                    <Link href={`/${locale}/privacy`} className="underline hover:text-white transition-colors">
-                        {isKorean ? '개인정보처리방침' : locale === 'ja' ? 'プライバシーポリシー' : 'Privacy Policy'}
-                    </Link>
-                    <span className="text-slate-600 mx-1">|</span>
-                    <Link href={`/${locale}/refund`} className="underline hover:text-white transition-colors">
-                        {isKorean ? '환불정책' : locale === 'ja' ? '返金ポリシー' : 'Refund Policy'}
-                    </Link>
-                    <span className="text-slate-600 mx-1">|</span>
+                    <span className="text-slate-600 mx-1 hidden sm:inline">|</span>
+                    <div className="flex items-center gap-2 flex-wrap justify-center">
+                        <Link href={`/${locale}/terms`} className="underline hover:text-white transition-colors">
+                            {isKorean ? '이용약관' : locale === 'ja' ? '利用規約' : 'Terms of Service'}
+                        </Link>
+                        <span className="text-slate-600">|</span>
+                        <Link href={`/${locale}/privacy`} className="underline hover:text-white transition-colors">
+                            {isKorean ? '개인정보처리방침' : locale === 'ja' ? 'プライバシーポリシー' : 'Privacy Policy'}
+                        </Link>
+                        <span className="text-slate-600">|</span>
+                        <Link href={`/${locale}/refund`} className="underline hover:text-white transition-colors">
+                            {isKorean ? '환불정책' : locale === 'ja' ? '返金ポリシー' : 'Refund Policy'}
+                        </Link>
+                    </div>
+                    <span className="text-slate-600 mx-1 hidden sm:inline">|</span>
                     <span>{isKorean ? '연락처' : locale === 'ja' ? 'お問い合わせ' : 'Contact'}: <a href="mailto:contact@signumhq.com" className="underline hover:text-white transition-colors">contact@signumhq.com</a></span>
                 </div>
 
