@@ -228,7 +228,7 @@ async function synthesizeTTS(text, lang, dryRun) {
     const buf = Buffer.concat(chunks);
     const key = `tts/${lang}/${new Date().toISOString().split('T')[0]}/${Date.now()}.mp3`;
     const s3 = new S3Client({ region: AWS_REGION });
-    await s3.send(new PutObjectCommand({ Bucket: S3_BUCKET, Key: key, Body: buf, ContentType: 'audio/mpeg', ACL: 'public-read' }));
+    await s3.send(new PutObjectCommand({ Bucket: S3_BUCKET, Key: key, Body: buf, ContentType: 'audio/mpeg' }));
     return { audioUrl: `https://${S3_BUCKET}.s3.amazonaws.com/${key}`, dryRun: false };
   } catch (e) { console.error('[TTS]', e.message); return { audioUrl: '', dryRun: true }; }
 }
@@ -251,7 +251,7 @@ async function renderVideo(data, lang, dryRun) {
     const dateKey = new Date().toISOString().split('T')[0];
     const s3 = new S3Client({ region: AWS_REGION });
     const htmlKey = `videos/pulse/${lang}/${dateKey}/${Date.now()}.html`;
-    await s3.send(new PutObjectCommand({ Bucket: S3_BUCKET, Key: htmlKey, Body: html, ContentType: 'text/html', ACL: 'public-read' }));
+    await s3.send(new PutObjectCommand({ Bucket: S3_BUCKET, Key: htmlKey, Body: html, ContentType: 'text/html' }));
     const manifest = { type: 'pulse', lang, dateKey, htmlUrl: `https://${S3_BUCKET}.s3.amazonaws.com/${htmlKey}`, ttsUrl: tts.audioUrl, status: 'ready', createdAt: new Date().toISOString() };
     const mKey = `videos/manifest/${dateKey}-pulse-${lang}.json`;
     await s3.send(new PutObjectCommand({ Bucket: S3_BUCKET, Key: mKey, Body: JSON.stringify(manifest, null, 2), ContentType: 'application/json' }));
