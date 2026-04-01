@@ -40,17 +40,21 @@ function getNewsWeight(ageHours: number, title: string): string {
     return '1x';
 }
 
+// [V10] Request Coalescing — prevent duplicate Bedrock calls for the same ticker
+// If user A is generating NVDA analysis, user B gets the same Promise instead of a new Bedrock call
+const _inflightRequests = new Map<string, Promise<any>>();
+
 export async function POST(req: Request) {
     const startTime = Date.now();
+    let body: any = {};
 
     try {
-        const body = await req.json();
+        body = await req.json();
         const { ticker, locale = 'ko', snapshot, triggerReason = 'FIRST_VIEW' } = body;
 
         if (!ticker) {
             return NextResponse.json({ error: 'ticker required' }, { status: 400 });
         }
-
 
         const session = snapshot?.session || 'CLOSED';
         const cacheKey = `ai-deep-analysis:${ticker}`;
@@ -65,6 +69,17 @@ export async function POST(req: Request) {
                     ...cached,
                     fromCache: true,
                 });
+            }
+        }
+
+        // --- Request Coalescing: if same ticker is already being generated, wait for it ---
+        if (!forceRefresh && _inflightRequests.has(ticker)) {
+            console.log(`[DeepAnalysis] Coalescing request for ${ticker} — waiting for in-flight`);
+            try {
+                const result = await _inflightRequests.get(ticker);
+                return NextResponse.json({ ...result, fromCache: true, coalesced: true });
+            } catch {
+                // In-flight failed, fall through to generate new
             }
         }
 
@@ -265,13 +280,22 @@ All text fields use { "ko": "...", "en": "...", "ja": "..." } trilingual structu
         const userPrompt = xmlContext;
 
         // --- Call Bedrock (with retry + fallback) ---
-        const bedrockResult = await callBedrock({
+        // Register as in-flight so concurrent requests for same ticker coalesce
+        const generatePromise = callBedrock({
             system: systemPrompt,
             userPrompt,
             maxTokens: 4096,
             temperature: 0.4,
             label: 'DeepAnalysis',
         });
+        _inflightRequests.set(ticker, generatePromise.then(r => r).catch(() => null));
+        
+        let bedrockResult;
+        try {
+            bedrockResult = await generatePromise;
+        } finally {
+            _inflightRequests.delete(ticker);
+        }
 
         // [FIX] Robust JSON parsing — handle common LLM output issues
         let rawText = bedrockResult.text.trim();
@@ -337,6 +361,51 @@ All text fields use { "ko": "...", "en": "...", "ja": "..." } trilingual structu
 
     } catch (e: any) {
         console.error('[DeepAnalysis] Error:', e.message);
-        return NextResponse.json({ error: e.message }, { status: 500 });
+        _inflightRequests.delete(body?.ticker || '');
+        
+        // [V10] Graceful fallback — NEVER show "Analysis Error" to users
+        // Generate a basic analysis from snapshot data instead
+        try {
+            const t = body?.ticker || '???';
+            const s = body?.snapshot || {};
+            const sc = s.signalCore || {};
+            const dir = sc.direction || 'NEUTRAL';
+            const fallback = {
+                currentState: {
+                    ko: `${dir} — 분석 데이터 업데이트 대기 중`,
+                    en: `${dir} — Analysis update pending`,
+                    ja: `${dir} — 分析データ更新待ち`,
+                },
+                sections: [],
+                keyInsight: {
+                    ko: `${t}의 현재 세션 상태를 기반으로 한 기본 관측입니다. 잠시 후 전체 AI 분석이 갱신됩니다.`,
+                    en: `Basic observation based on ${t}'s current session. Full AI analysis will refresh shortly.`,
+                    ja: `${t}の現在のセッション状態に基づく基本観測です。まもなくAI分析が更新されます。`,
+                },
+                riskFlag: 'NONE',
+                confidence: 'LOW',
+                generatedAt: new Date().toISOString(),
+                elapsedMs: Date.now() - startTime,
+                newsCount: 0,
+                fromCache: false,
+                triggerReason: 'FALLBACK',
+                session: s.session || 'CLOSED',
+                model: 'fallback',
+                usedFallback: true,
+            };
+            // Cache fallback briefly (3 min) so repeated errors don't hammer Bedrock
+            const cacheKey = `ai-deep-analysis:${t}`;
+            await setInCache(cacheKey, fallback, 180).catch(() => {});
+            return NextResponse.json(fallback);
+        } catch {
+            // Last resort — still return 200 with minimal data
+            return NextResponse.json({
+                currentState: { ko: 'NEUTRAL — 분석 준비 중', en: 'NEUTRAL — Preparing analysis', ja: 'NEUTRAL — 分析準備中' },
+                sections: [], riskFlag: 'NONE', confidence: 'LOW',
+                generatedAt: new Date().toISOString(), elapsedMs: 0,
+                newsCount: 0, fromCache: false, triggerReason: 'FALLBACK',
+                session: 'CLOSED', model: 'fallback', usedFallback: true,
+            });
+        }
     }
 }

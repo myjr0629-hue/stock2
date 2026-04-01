@@ -33,7 +33,7 @@ function getClient(): BedrockRuntimeClient {
 }
 
 // --- Concurrency Limiter ---
-const MAX_CONCURRENT = 3;
+const MAX_CONCURRENT = 5;  // [V10] Raised from 3 — AWS Bedrock has no strict concurrency limit
 let _activeRequests = 0;
 const _waitQueue: Array<() => void> = [];
 

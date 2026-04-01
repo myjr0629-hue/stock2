@@ -128,9 +128,16 @@ export function AIDeepAnalysis({ ticker, displayPrice, session, snapshot }: Prop
     const refreshTimerRef = useRef<NodeJS.Timeout | null>(null);
     const [countdown, setCountdown] = useState<string>('');
     const nextRefreshRef = useRef<number>(0);
+    // [V10] AbortController — cancel in-flight Bedrock request on ticker change
+    const abortRef = useRef<AbortController | null>(null);
 
     const fetchAnalysis = useCallback(async (triggerReason: string = 'FIRST_VIEW') => {
         if (loading) return;
+        
+        // Cancel any in-flight request before starting new one
+        abortRef.current?.abort();
+        abortRef.current = new AbortController();
+        
         setLoading(true);
         setError(null);
 
@@ -139,6 +146,7 @@ export function AIDeepAnalysis({ ticker, displayPrice, session, snapshot }: Prop
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ ticker, locale, snapshot, triggerReason }),
+                signal: abortRef.current.signal,
             });
 
             if (!res.ok) {
@@ -158,6 +166,8 @@ export function AIDeepAnalysis({ ticker, displayPrice, session, snapshot }: Prop
                 refreshTimerRef.current = setTimeout(() => fetchAnalysis('SCHEDULED'), interval);
             }
         } catch (e: any) {
+            // Don't show error for aborted requests (user navigated away)
+            if (e.name === 'AbortError') return;
             setError(e.message);
             console.error('[AIDeepAnalysis] Error:', e.message);
         } finally {
@@ -166,8 +176,15 @@ export function AIDeepAnalysis({ ticker, displayPrice, session, snapshot }: Prop
     }, [ticker, locale, snapshot, session, displayPrice, loading]);
 
     useEffect(() => {
+        // Reset analysis for new ticker, cancel previous
+        abortRef.current?.abort();
+        setAnalysis(null);
+        setError(null);
         fetchAnalysis('FIRST_VIEW');
-        return () => { if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current); };
+        return () => {
+            abortRef.current?.abort();
+            if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
+        };
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [ticker]);
 
