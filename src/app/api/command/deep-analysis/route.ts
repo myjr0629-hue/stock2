@@ -40,9 +40,7 @@ function getNewsWeight(ageHours: number, title: string): string {
     return '1x';
 }
 
-// [V10] Request Coalescing — prevent duplicate Bedrock calls for the same ticker
-// If user A is generating NVDA analysis, user B gets the same Promise instead of a new Bedrock call
-const _inflightRequests = new Map<string, Promise<any>>();
+
 
 export async function POST(req: Request) {
     const startTime = Date.now();
@@ -72,16 +70,7 @@ export async function POST(req: Request) {
             }
         }
 
-        // --- Request Coalescing: if same ticker is already being generated, wait for it ---
-        if (!forceRefresh && _inflightRequests.has(ticker)) {
-            console.log(`[DeepAnalysis] Coalescing request for ${ticker} — waiting for in-flight`);
-            try {
-                const result = await _inflightRequests.get(ticker);
-                return NextResponse.json({ ...result, fromCache: true, coalesced: true });
-            } catch {
-                // In-flight failed, fall through to generate new
-            }
-        }
+
 
         // --- Fetch News + SEC Data (parallel) ---
         let newsArticles: { title: string; age: string; sentiment: string; source: string; weight: string }[] = [];
@@ -280,22 +269,13 @@ All text fields use { "ko": "...", "en": "...", "ja": "..." } trilingual structu
         const userPrompt = xmlContext;
 
         // --- Call Bedrock (with retry + fallback) ---
-        // Register as in-flight so concurrent requests for same ticker coalesce
-        const generatePromise = callBedrock({
+        const bedrockResult = await callBedrock({
             system: systemPrompt,
             userPrompt,
             maxTokens: 4096,
             temperature: 0.4,
             label: 'DeepAnalysis',
         });
-        _inflightRequests.set(ticker, generatePromise.then(r => r).catch(() => null));
-        
-        let bedrockResult;
-        try {
-            bedrockResult = await generatePromise;
-        } finally {
-            _inflightRequests.delete(ticker);
-        }
 
         // [FIX] Robust JSON parsing — handle common LLM output issues
         let rawText = bedrockResult.text.trim();
@@ -361,7 +341,6 @@ All text fields use { "ko": "...", "en": "...", "ja": "..." } trilingual structu
 
     } catch (e: any) {
         console.error('[DeepAnalysis] Error:', e.message);
-        _inflightRequests.delete(body?.ticker || '');
         
         // [V10] Graceful fallback — NEVER show "Analysis Error" to users
         // Generate a basic analysis from snapshot data instead

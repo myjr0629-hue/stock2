@@ -47,6 +47,7 @@ interface DeepAnalysisResult {
     fromCache: boolean;
     triggerReason: string;
     session: string;
+    model?: string;
 }
 
 interface Props {
@@ -203,6 +204,7 @@ export function AIDeepAnalysis({ ticker, displayPrice, session, snapshot }: Prop
     useEffect(() => {
         // Reset analysis for new ticker, cancel previous
         abortRef.current?.abort();
+        loadingRef.current = false;
         setAnalysis(null);
         setError(null);
         fetchAnalysis('FIRST_VIEW');
@@ -212,6 +214,19 @@ export function AIDeepAnalysis({ ticker, displayPrice, session, snapshot }: Prop
         };
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [ticker]);
+
+    // [V11] Auto-retry if server returned fallback (no real AI analysis)
+    useEffect(() => {
+        if (!analysis) return;
+        if (analysis.triggerReason === 'FALLBACK' || analysis.model === 'fallback') {
+            const retryTimer = setTimeout(() => {
+                loadingRef.current = false; // Force unlock
+                fetchAnalysis('FIRST_VIEW');
+            }, 15_000); // Retry after 15 seconds
+            return () => clearTimeout(retryTimer);
+        }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [analysis?.triggerReason, analysis?.model]);
 
     // Price move trigger (>1%)
     useEffect(() => {
