@@ -12,6 +12,7 @@ import { StickyFoundingBar } from '@/components/landing/StickyFoundingBar';
 import { Footer } from '@/components/Footer';
 import { BottomNav } from '@/components/mobile/BottomNav';
 import { CustomTickerBar } from '@/components/CustomTickerBar';
+import { AdminVisitorWidget } from '@/components/admin/AdminVisitorWidget';
 
 export function generateStaticParams() {
     return locales.map((locale) => ({ locale }));
@@ -50,6 +51,7 @@ export default async function LocaleLayout({ children, params }: Props) {
                                 </WebSocketProvider>
                                 <Footer />
                                 <BottomNav />
+                                <AdminVisitorWidget />
                                 <StickyFoundingBar />
                             </DeactivationGuard>
                         </AuthGuard>
