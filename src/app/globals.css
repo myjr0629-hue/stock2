@@ -1239,4 +1239,74 @@
     width: 100% !important;
     text-align: center !important;
   }
+
+  /* ────────────────────────────────────────────────────────────
+     K. DASHBOARD PAGE — 2-col Cards + Compact Hero + Tab Fix
+     ──────────────────────────────────────────────────────────── */
+
+  /* K1. Hero header: compact price + ticker row */
+  [data-dashboard-hero] {
+    padding: 8px 12px !important;
+    gap: 4px !important;
+  }
+  [data-dashboard-hero] .text-2xl {
+    font-size: 18px !important;
+  }
+  [data-dashboard-hero] .w-8 {
+    width: 24px !important;
+    height: 24px !important;
+  }
+
+  /* K2. Dashboard gauge cards: compact in 2-col */
+  [data-dashboard-cards] {
+    gap: 6px !important;
+  }
+  [data-dashboard-cards] > * {
+    min-height: auto !important;
+  }
+  /* Card inner padding: tighter */
+  [data-dashboard-cards] .p-4 {
+    padding: 8px 10px !important;
+  }
+  /* Card title row */
+  [data-dashboard-cards] .text-\[12px\] {
+    font-size: 10px !important;
+  }
+  /* Card main value: 20px → 15px */
+  [data-dashboard-cards] .text-xl {
+    font-size: 15px !important;
+  }
+  /* Card sub labels */
+  [data-dashboard-cards] .text-xs {
+    font-size: 10px !important;
+  }
+  /* Gauge track: narrower */
+  [data-dashboard-cards] .h-2 {
+    height: 6px !important;
+  }
+  /* Gauge labels: smaller */
+  [data-dashboard-cards] .text-\[11px\] {
+    font-size: 9px !important;
+  }
+
+  /* K3. Dashboard tab bar (moved to sticky top) */
+  [data-dashboard-tab] {
+    padding: 4px 8px !important;
+  }
+  [data-dashboard-tab] button {
+    padding: 4px 8px !important;
+  }
+  [data-dashboard-tab] .text-\[12px\] {
+    font-size: 10px !important;
+  }
+  [data-dashboard-tab] .w-5 {
+    width: 16px !important;
+    height: 16px !important;
+  }
+
+  /* K4. Customize button: smaller on mobile */
+  [data-dashboard-hero] .px-3.py-0\.5 {
+    padding: 2px 8px !important;
+    font-size: 10px !important;
+  }
 }

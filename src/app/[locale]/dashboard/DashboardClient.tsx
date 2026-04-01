@@ -723,9 +723,9 @@ function MainChartPanel() {
 
 
     return (
-        <div className="flex flex-col h-full">
+        <div className="flex flex-col h-full" data-dashboard-main>
             {/* Header */}
-            <div className="flex items-center justify-between p-4 border-b border-white/5">
+            <div className="flex items-center justify-between p-4 border-b border-white/5 flex-wrap gap-2" data-dashboard-hero>
                 <div className="flex items-center gap-3">
                     <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-slate-800 to-slate-800/50 border border-slate-700 flex items-center justify-center overflow-hidden relative">
                         <img
@@ -828,7 +828,7 @@ function MainChartPanel() {
             )}
             <div className="px-4 pb-4 flex flex-col gap-1">
                 {/* ── ROW 1: 구조 판단 (Structure) ── */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+                <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-3" data-dashboard-cards>
                     {/* Net GEX — PRO (peek: number visible, interpretation blurred) */}
                     {customize.cardOrder.includes('netGex') && <ProGate title="Net GEX" mode="peek" compact tooltipPosition="above" description={gt('descNetGamma')}>
                         <div className={`relative p-4 rounded-xl border transition-all duration-200 hover:-translate-y-0.5 hover:brightness-110 hover:border-white/15 ${(data?.netGex || 0) < 0 ? 'bg-rose-500/10 backdrop-blur-md border-rose-400/40 shadow-[0_0_25px_rgba(251,113,133,0.3)]' : 'bg-[#0d1829]/80 border-white/5'}`}>
@@ -2013,7 +2013,7 @@ function MobileTabBar({ activeTab, setActiveTab }: { activeTab: string; setActiv
     ];
 
     return (
-        <div className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-[#0a0f1a] border-t border-white/10 px-2 py-2 safe-area-pb">
+        <div className="lg:hidden sticky top-[56px] z-40 bg-[#0a0f1a]/95 backdrop-blur-xl border-b border-white/10 px-2 py-1.5" data-dashboard-tab>
             <div className="flex justify-around">
                 {tabs.map(tab => (
                     <button
@@ -2177,7 +2177,7 @@ export function DashboardClient({ initialTickers, initialQuotes }: { initialTick
             </div>
 
             {/* Mobile: Tabbed Content */}
-            <div className="lg:hidden flex-1 bg-[#0a0f1a] pb-20">
+            <div className="lg:hidden flex-1 bg-[#0a0f1a] pb-4">
                 {mobileTab === 'chart' && <MainChartPanel />}
                 {mobileTab === 'list' && <WatchlistPanel />}
                 {mobileTab === 'signal' && <SignalFeedPanel />}
