@@ -29,7 +29,7 @@ export function AdminVisitorWidget() {
     const [adminEmail, setAdminEmail] = useState('');
     const [stats, setStats] = useState<VisitorStats | null>(null);
     const [expanded, setExpanded] = useState(false);
-    const [minimized, setMinimized] = useState(false);
+    const [minimized, setMinimized] = useState(typeof window !== 'undefined' && window.innerWidth < 768);
     const sessionIdRef = useRef<string>('');
     const { tier } = useTier();
     const pathname = usePathname();

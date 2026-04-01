@@ -1615,7 +1615,7 @@ function IntelContent({ initialReport, initialM7Data, initialPAIData, initialSCD
 
 
     return (
-        <main className="min-h-screen bg-[conic-gradient(at_top_left,_var(--tw-gradient-stops))] from-slate-950 via-[#0f172a] to-[#1e1b4b] font-sans selection:bg-cyan-500/30 selection:text-cyan-200 flex overflow-hidden">
+        <main className="min-h-screen bg-[conic-gradient(at_top_left,_var(--tw-gradient-stops))] from-slate-950 via-[#0f172a] to-[#1e1b4b] font-sans selection:bg-cyan-500/30 selection:text-cyan-200 flex overflow-hidden" data-intel-page>
 
 
             {/* Ambient Glow Effects (Global) */}

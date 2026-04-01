@@ -1549,7 +1549,7 @@ function PortfolioAnalyticsDashboard({ holdings, summary, t }: { holdings: Enric
             </div>
 
             {/* P&L Treemap — ECharts Premium */}
-            <div className="relative overflow-hidden rounded-xl border border-white/[0.08] bg-gradient-to-br from-white/[0.05] to-white/[0.02] backdrop-blur-xl p-5 flex flex-col min-h-[220px]">
+            <div className="relative overflow-hidden rounded-xl border border-white/[0.08] bg-gradient-to-br from-white/[0.05] to-white/[0.02] backdrop-blur-xl p-5 flex flex-col min-h-[220px]" data-portfolio-treemap>
                 <CardTooltip tooltip={PORTFOLIO_TOOLTIPS.PNL_TREEMAP.tooltip} badge={PORTFOLIO_TOOLTIPS.PNL_TREEMAP.badge}>
                     <div className="text-[12px] text-slate-300 uppercase tracking-[0.15em] font-bold mb-3">{t('pnlTreemap')}</div>
                 </CardTooltip>

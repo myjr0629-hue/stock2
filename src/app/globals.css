@@ -1,4 +1,4 @@
-@import "tailwindcss";
+﻿@import "tailwindcss";
 
 @plugin "tailwindcss-animate";
 
@@ -136,15 +136,15 @@
 }
 
 /* ===== MOBILE APP GLASSMORPHISM DESIGN SYSTEM ===== */
-/* 모바???�용 ?�리미엄 ?�자???�큰 ??768px ?�하?�서�??�용 */
-/* ?�스?�탑: ZERO ?�향 */
+/* 모바???�용 ?�리미엄 ?�자???�큰 ??768px ?�하?�서�??�용 */
+/* ?�스?�탑: ZERO ?�향 */
 
 @media (max-width: 768px) {
   :root {
-    /* ?�?� Background ?�?� */
+    /* ?�?� Background ?�?� */
     --m-bg: #0a1225;
     
-    /* ?�?� Card Glassmorphism ?�?� */
+    /* ?�?� Card Glassmorphism ?�?� */
     --m-card-bg: rgba(255, 255, 255, 0.045);
     --m-card-bg-hover: rgba(255, 255, 255, 0.07);
     --m-card-border: rgba(255, 255, 255, 0.10);
@@ -152,18 +152,18 @@
     --m-card-blur: 24px;
     --m-card-shadow: 0 8px 32px rgba(0, 0, 0, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.05);
     
-    /* ?�?� Border Radius (???�이?�브 ?�낌) ?�?� */
+    /* ?�?� Border Radius (???�이?�브 ?�낌) ?�?� */
     --m-radius: 20px;
     --m-radius-md: 16px;
     --m-radius-sm: 12px;
     --m-radius-pill: 9999px;
     
-    /* ?�?� Spacing (?�넉???�백) ?�?� */
+    /* ?�?� Spacing (?�넉???�백) ?�?� */
     --m-card-gap: 12px;
     --m-card-padding: 16px;
     --m-section-gap: 20px;
     
-    /* ?�?� Typography Scale ?�?� */
+    /* ?�?� Typography Scale ?�?� */
     --m-font-ticker: 17px;
     --m-font-price: 22px;
     --m-font-change: 15px;
@@ -171,7 +171,7 @@
     --m-font-value: 14px;
     --m-font-section: 20px;
     
-    /* ?�?� Accent Glows ?�?� */
+    /* ?�?� Accent Glows ?�?� */
     --m-glow-positive: 0 0 20px rgba(52, 211, 153, 0.12);
     --m-glow-negative: 0 0 20px rgba(251, 113, 133, 0.12);
     --m-glow-cyan: 0 0 20px rgba(34, 211, 238, 0.12);
@@ -625,7 +625,7 @@
   }
 }
 
-/* [PERF] content-visibility: ?�고�??�??????뱀??????���?吏?????�덇�???�씤??媛??*/
+/* [PERF] content-visibility: ?�고�??�??????뱀??????���?吏?????�덇�???�씤??媛??*/
 .cv-auto {
   content-visibility: auto;
   contain-intrinsic-size: auto 500px;
@@ -928,56 +928,50 @@
   user-select: none !important;
 }
 
-/* ?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═??
-   [MOBILE APP-NATIVE] Command/Ticker Page ??Robinhood/Bloomberg Grade
+/* ═══════════════════════════════════════════════════════════════
+   [MOBILE APP-NATIVE] Full Platform — Robinhood/Bloomberg Grade
    Desktop: ZERO影響. All selectors scoped to max-width: 768px.
-   Strategy: data-attribute selectors (stable across Tailwind builds)
-   ?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═??*/
+   Strategy: data-attribute + page-level selectors
+   ═══════════════════════════════════════════════════════════════ */
 
 @media (max-width: 768px) {
 
-  /* ?�?� 1. COMMAND GRID: Compact gaps, no min-height ?�?� */
+  /* ────────────────────────────────────────────────────────────
+     A. COMMAND/TICKER PAGE (data-attribute selectors)
+     ──────────────────────────────────────────────────────────── */
+
   [data-command-grid] {
     gap: 12px !important;
     min-height: auto !important;
   }
 
-  /* ?�?� 2. CHART: 580px ??280px (Robinhood compact) ?�?� */
   [data-command-chart] {
     height: 280px !important;
     min-height: 0 !important;
   }
 
-  /* ?�?� 3. INDICATORS: 2-Column Bento Grid ?�?� */
   [data-command-indicators] {
     grid-template-columns: repeat(2, 1fr) !important;
     gap: 8px !important;
     min-height: auto !important;
   }
-
-  /* Indicator inner cards ??compact */
   [data-command-indicators] > * {
     min-height: 160px !important;
   }
 
-  /* ?�?� 4. SIDEBAR: Stack below main, compact ?�?� */
   [data-command-sidebar] {
     gap: 8px !important;
   }
 
-  /* ?�?� 5. SSR CARDS: 2-column Bento ?�?� */
   [data-command-cards] {
     grid-template-columns: repeat(2, 1fr) !important;
     gap: 6px !important;
   }
-
-  /* SSR card shells compact */
   [data-command-cards] > * {
     min-height: 100px !important;
     padding: 8px 10px !important;
   }
 
-  /* ?�?� 6. SCROLL OPTIMIZATION ?�?� */
   [data-command-grid],
   [data-command-indicators],
   [data-command-sidebar] {
@@ -985,25 +979,121 @@
     overscroll-behavior: contain;
   }
 
-  /* ?�?� 7. TYPOGRAPHY: App-grade price sizing ?�?� */
   [data-command-grid] [class*="text-3xl"] {
     font-size: 24px !important;
   }
 
-  /* ?�?� 8. SIGNAL CORE: Compact padding ?�?� */
   [data-command-grid] [class*="p-3"][class*="border-b"] {
     padding: 8px 10px !important;
   }
 
-  /* ?�?� 9. INSIGHT TAB BUTTONS: Touch targets ?�?� */
   [data-command-grid] [class*="mb-2"] > button {
     padding: 8px 12px !important;
     min-height: 38px !important;
   }
 
-  /* ?�?� 10. CARD CONTENT: Tighter padding ?�?� */
   [data-command-indicators] [class*="rounded-lg"][class*="border"][class*="bg-slate"] {
     min-height: auto !important;
   }
-}
 
+  /* ────────────────────────────────────────────────────────────
+     B. GUARDIAN PAGE
+     ──────────────────────────────────────────────────────────── */
+
+  [data-guardian] .grid.grid-cols-3 {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+
+  [data-guardian] [class*="min-h-"] {
+    min-height: auto !important;
+  }
+
+  /* ────────────────────────────────────────────────────────────
+     C. INTEL PAGE
+     ──────────────────────────────────────────────────────────── */
+
+  [data-intel-page] {
+    overflow-x: hidden !important;
+  }
+
+  [data-intel-page] [class*="grid-cols-3"] {
+    grid-template-columns: repeat(1, 1fr) !important;
+  }
+
+  /* ────────────────────────────────────────────────────────────
+     D. PORTFOLIO PAGE
+     ──────────────────────────────────────────────────────────── */
+
+  [data-portfolio-treemap] {
+    display: none !important;
+  }
+
+  /* ────────────────────────────────────────────────────────────
+     E. FLOW PAGE
+     ──────────────────────────────────────────────────────────── */
+
+  [data-flow] {
+    overflow-x: hidden !important;
+  }
+
+  /* ────────────────────────────────────────────────────────────
+     F. ADMIN LIVE MONITOR
+     ──────────────────────────────────────────────────────────── */
+
+  .fixed.bottom-20.right-4.z-\[9999\] {
+    bottom: 72px !important;
+    right: 8px !important;
+    max-width: 200px !important;
+    font-size: 11px !important;
+  }
+  .fixed.bottom-20.right-4.z-\[9999\].w-10 {
+    bottom: 72px !important;
+    right: 8px !important;
+  }
+
+  /* ────────────────────────────────────────────────────────────
+     G. GLOBAL MOBILE OPTIMIZATIONS
+     ──────────────────────────────────────────────────────────── */
+
+  .overflow-x-auto {
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .overflow-x-auto::-webkit-scrollbar {
+    display: none;
+  }
+
+  .absolute.-top-3.right-4.z-20.flex.items-center.gap-2 {
+    position: relative !important;
+    top: 0 !important;
+    right: 0 !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
+    padding: 4px 0 !important;
+  }
+
+  .text-\[12px\].font-black.uppercase {
+    font-size: 10px !important;
+  }
+
+  .h-\[320px\] {
+    height: 200px !important;
+  }
+  .h-\[250px\], .h-\[200px\] {
+    max-height: 180px !important;
+  }
+
+  .p-4.space-y-3 {
+    padding: 10px !important;
+  }
+
+  .flex.items-center.gap-2.flex-wrap {
+    flex-wrap: nowrap !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .flex.items-center.gap-2.flex-wrap::-webkit-scrollbar {
+    display: none;
+  }
+}
