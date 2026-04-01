@@ -1,0 +1,649 @@
+{
+  "timestamp": "2026-04-01T05:19:41.391Z",
+  "phase1": {
+    "dynamo": {
+      "unifiedCache": {
+        "found": 509,
+        "total": 509,
+        "missing": 0,
+        "missingList": [],
+        "fieldStats": {
+          "6": 11,
+          "7": 2,
+          "8": 41,
+          "9": 455,
+          "lt6": 0
+        },
+        "fresh": 487,
+        "stale": 22,
+        "avgAgeH": 10.7
+      },
+      "GEX History": {
+        "exists": true,
+        "sampleCount": 5
+      },
+      "RLSI History": {
+        "exists": true,
+        "sampleCount": 5
+      },
+      "Sector Daily": {
+        "exists": true,
+        "sampleCount": 5
+      },
+      "Alpha History": {
+        "exists": true,
+        "sampleCount": 5
+      },
+      "Flow History": {
+        "exists": true,
+        "sampleCount": 5
+      }
+    }
+  },
+  "phase2": {
+    "redis": {
+      "NVDA": {
+        "cold": 526,
+        "warm": 169,
+        "source1": "cache",
+        "source2": "cache",
+        "fields": 9,
+        "ageMin": "236.5"
+      },
+      "TSLA": {
+        "cold": 160,
+        "warm": 154,
+        "source1": "cache",
+        "source2": "cache",
+        "fields": 9,
+        "ageMin": "236.4"
+      },
+      "AAPL": {
+        "cold": 152,
+        "warm": 153,
+        "source1": "cache",
+        "source2": "cache",
+        "fields": 9,
+        "ageMin": "236.9"
+      },
+      "AMD": {
+        "cold": 162,
+        "warm": 155,
+        "source1": "cache",
+        "source2": "cache",
+        "fields": 9,
+        "ageMin": "59.3"
+      },
+      "CEG": {
+        "cold": 156,
+        "warm": 159,
+        "source1": "cache",
+        "source2": "cache",
+        "fields": 9,
+        "ageMin": "2.7"
+      }
+    }
+  },
+  "phase3": {
+    "api": [
+      {
+        "name": "command/unified",
+        "elapsed": 152,
+        "ok": true,
+        "keys": 13
+      },
+      {
+        "name": "dashboard/unified",
+        "elapsed": 289,
+        "ok": true,
+        "keys": 9
+      },
+      {
+        "name": "dashboard/signals",
+        "elapsed": 4485,
+        "ok": true,
+        "keys": 2
+      },
+      {
+        "name": "dashboard/daily-history",
+        "elapsed": 4750,
+        "ok": false,
+        "error": "HTTP 400",
+        "keys": 0
+      },
+      {
+        "name": "dashboard/alerts",
+        "elapsed": 731,
+        "ok": false,
+        "error": "HTTP 401",
+        "keys": 0
+      },
+      {
+        "name": "dashboard/preferences",
+        "elapsed": 294,
+        "ok": false,
+        "error": "HTTP 401",
+        "keys": 0
+      },
+      {
+        "name": "flow/unified",
+        "elapsed": 15003,
+        "ok": false,
+        "error": "TIMEOUT",
+        "keys": 0
+      },
+      {
+        "name": "flow/realtime-metrics",
+        "elapsed": 552,
+        "ok": true,
+        "keys": 9
+      },
+      {
+        "name": "flow/enhanced-metrics",
+        "elapsed": 520,
+        "ok": true,
+        "keys": 5
+      },
+      {
+        "name": "flow/iv-percentile",
+        "elapsed": 245,
+        "ok": true,
+        "keys": 5
+      },
+      {
+        "name": "flow/dark-pool-trades",
+        "elapsed": 252,
+        "ok": true,
+        "keys": 11
+      },
+      {
+        "name": "guardian/briefing",
+        "elapsed": 2218,
+        "ok": true,
+        "keys": 7
+      },
+      {
+        "name": "guardian/history",
+        "elapsed": 461,
+        "ok": true,
+        "keys": 4
+      },
+      {
+        "name": "guardian/fedwatch",
+        "elapsed": 326,
+        "ok": true,
+        "keys": 14
+      },
+      {
+        "name": "guardian/economic-calendar",
+        "elapsed": 250,
+        "ok": true,
+        "keys": 7
+      },
+      {
+        "name": "guardian/news-digest",
+        "elapsed": 244,
+        "ok": true,
+        "keys": 6
+      },
+      {
+        "name": "intel/m7",
+        "elapsed": 283,
+        "ok": true,
+        "keys": 3
+      },
+      {
+        "name": "intel/quantumedge",
+        "elapsed": 259,
+        "ok": true,
+        "keys": 3
+      },
+      {
+        "name": "intel/physicalai",
+        "elapsed": 13743,
+        "ok": true,
+        "keys": 3
+      },
+      {
+        "name": "intel/powermatrix",
+        "elapsed": 415,
+        "ok": true,
+        "keys": 3
+      },
+      {
+        "name": "intel/snapshot",
+        "elapsed": 1708,
+        "ok": true,
+        "keys": 4
+      },
+      {
+        "name": "intel/fast",
+        "elapsed": 400,
+        "ok": false,
+        "error": "HTTP 400",
+        "keys": 0
+      },
+      {
+        "name": "intel/cross-sector-brief",
+        "elapsed": 849,
+        "ok": true,
+        "keys": 10
+      },
+      {
+        "name": "market/macro",
+        "elapsed": 245,
+        "ok": true,
+        "keys": 14
+      },
+      {
+        "name": "market/status",
+        "elapsed": 248,
+        "ok": true,
+        "keys": 8
+      },
+      {
+        "name": "market/index-close",
+        "elapsed": 274,
+        "ok": true,
+        "keys": 3
+      },
+      {
+        "name": "watchlist/batch",
+        "elapsed": 255,
+        "ok": true,
+        "keys": 2
+      },
+      {
+        "name": "portfolio/batch",
+        "elapsed": 475,
+        "ok": true,
+        "keys": 2
+      },
+      {
+        "name": "sparkline",
+        "elapsed": 245,
+        "ok": false,
+        "error": "HTTP 400",
+        "keys": 0
+      },
+      {
+        "name": "exchange-rates",
+        "elapsed": 415,
+        "ok": true,
+        "keys": 5
+      },
+      {
+        "name": "tickers/search",
+        "elapsed": 460,
+        "ok": true,
+        "keys": 1
+      }
+    ],
+    "cron": []
+  },
+  "phase4": {
+    "integrity": [
+      {
+        "ticker": "NVDA",
+        "ok": 19,
+        "null": 0,
+        "anomaly": 1,
+        "price": 174.3,
+        "elapsed": 162
+      },
+      {
+        "ticker": "AAPL",
+        "ok": 18,
+        "null": 0,
+        "anomaly": 2,
+        "price": 253.25,
+        "elapsed": 202
+      },
+      {
+        "ticker": "TSLA",
+        "ok": 18,
+        "null": 0,
+        "anomaly": 2,
+        "price": 372.5,
+        "elapsed": 162
+      },
+      {
+        "ticker": "MSFT",
+        "ok": 17,
+        "null": 0,
+        "anomaly": 3,
+        "price": 371.01,
+        "elapsed": 162
+      },
+      {
+        "ticker": "AMZN",
+        "ok": 19,
+        "null": 0,
+        "anomaly": 1,
+        "price": 208.1,
+        "elapsed": 173
+      },
+      {
+        "ticker": "GOOGL",
+        "ok": 20,
+        "null": 0,
+        "anomaly": 0,
+        "price": 287.45,
+        "elapsed": 169
+      },
+      {
+        "ticker": "META",
+        "ok": 18,
+        "null": 0,
+        "anomaly": 2,
+        "price": 572.8,
+        "elapsed": 170
+      },
+      {
+        "ticker": "AMD",
+        "ok": 19,
+        "null": 0,
+        "anomaly": 1,
+        "price": 202.81,
+        "elapsed": 163
+      },
+      {
+        "ticker": "CEG",
+        "ok": 20,
+        "null": 0,
+        "anomaly": 0,
+        "price": 279.0901,
+        "elapsed": 167
+      },
+      {
+        "ticker": "PLTR",
+        "ok": 18,
+        "null": 0,
+        "anomaly": 2,
+        "price": 146.5,
+        "elapsed": 163
+      },
+      {
+        "ticker": "COP",
+        "ok": 18,
+        "null": 0,
+        "anomaly": 2,
+        "price": 133.3286,
+        "elapsed": 164
+      },
+      {
+        "ticker": "UPS",
+        "ok": 20,
+        "null": 0,
+        "anomaly": 0,
+        "price": 97.77,
+        "elapsed": 165
+      },
+      {
+        "ticker": "MU",
+        "ok": 19,
+        "null": 0,
+        "anomaly": 1,
+        "price": 336.4101,
+        "elapsed": 161
+      },
+      {
+        "ticker": "AVGO",
+        "ok": 19,
+        "null": 0,
+        "anomaly": 1,
+        "price": 309,
+        "elapsed": 165
+      },
+      {
+        "ticker": "INTC",
+        "ok": 17,
+        "null": 1,
+        "anomaly": 2,
+        "price": 44.4174,
+        "elapsed": 164
+      }
+    ],
+    "sanity": {
+      "totalPoints": 300,
+      "validPoints": 279,
+      "nullPoints": 1,
+      "nullPct": "0.3",
+      "anomalyCount": 20,
+      "anomalies": [
+        "NVDA.callWall=140 (expected 157~261)",
+        "AAPL.inst.darkPool%=95.1 (expected 5~90)",
+        "AAPL.analyst.total=109 (expected 0~100)",
+        "TSLA.callWall=680 (expected 335~559)",
+        "TSLA.putFloor=160 (expected 186~410)",
+        "MSFT.callWall=575 (expected 334~557)",
+        "MSFT.putFloor=475 (expected 186~408)",
+        "MSFT.gammaFlip=525 (expected 260~482)",
+        "AMZN.inst.darkPool%=95.5 (expected 5~90)",
+        "META.callWall=1030 (expected 516~859)",
+        "META.putFloor=5 (expected 286~630)",
+        "AMD.callWall=180 (expected 183~304)",
+        "PLTR.putFloor=50 (expected 73~161)",
+        "PLTR.gammaFlip=100 (expected 103~190)",
+        "COP.callWall=95 (expected 120~200)",
+        "COP.inst.darkPool%=4.6 (expected 5~90)",
+        "MU.putFloor=390 (expected 168~370)",
+        "AVGO.inst.darkPool%=96.9 (expected 5~90)",
+        "INTC.putFloor=15 (expected 22~49)",
+        "INTC.gammaFlip=27.5 (expected 31~58)"
+      ]
+    }
+  },
+  "phase5": {
+    "pages": [
+      {
+        "name": "Home",
+        "p50": 372,
+        "p95": 473,
+        "avg": 401,
+        "times": [
+          357,
+          372,
+          473
+        ]
+      },
+      {
+        "name": "Dashboard",
+        "p50": 375,
+        "p95": 405,
+        "avg": 362,
+        "times": [
+          306,
+          375,
+          405
+        ]
+      },
+      {
+        "name": "Command",
+        "p50": 364,
+        "p95": 386,
+        "avg": 369,
+        "times": [
+          357,
+          364,
+          386
+        ]
+      },
+      {
+        "name": "Cmd(TSLA)",
+        "p50": 431,
+        "p95": 484,
+        "avg": 424,
+        "times": [
+          357,
+          431,
+          484
+        ]
+      },
+      {
+        "name": "Guardian",
+        "p50": 322,
+        "p95": 358,
+        "avg": 325,
+        "times": [
+          296,
+          322,
+          358
+        ]
+      },
+      {
+        "name": "Flow",
+        "p50": 322,
+        "p95": 356,
+        "avg": 330,
+        "times": [
+          311,
+          322,
+          356
+        ]
+      },
+      {
+        "name": "Intel",
+        "p50": 516,
+        "p95": 1391,
+        "avg": 767,
+        "times": [
+          393,
+          516,
+          1391
+        ]
+      },
+      {
+        "name": "Portfolio",
+        "p50": 358,
+        "p95": 402,
+        "avg": 362,
+        "times": [
+          326,
+          358,
+          402
+        ]
+      },
+      {
+        "name": "Watchlist",
+        "p50": 360,
+        "p95": 377,
+        "avg": 357,
+        "times": [
+          333,
+          360,
+          377
+        ]
+      },
+      {
+        "name": "Pricing",
+        "p50": 406,
+        "p95": 433,
+        "avg": 390,
+        "times": [
+          330,
+          406,
+          433
+        ]
+      },
+      {
+        "name": "Cmd(EN)",
+        "p50": 353,
+        "p95": 467,
+        "avg": 384,
+        "times": [
+          331,
+          353,
+          467
+        ]
+      },
+      {
+        "name": "Cmd(JA)",
+        "p50": 367,
+        "p95": 420,
+        "avg": 382,
+        "times": [
+          359,
+          367,
+          420
+        ]
+      }
+    ],
+    "concurrent": [
+      {
+        "name": "Normal (10명)",
+        "concurrency": 10,
+        "p50": 1444,
+        "p95": 1595,
+        "p99": 1595,
+        "avg": 1074,
+        "totalTime": 2901,
+        "errors": 0,
+        "timeouts": 0
+      },
+      {
+        "name": "Peak (30명)",
+        "concurrency": 30,
+        "p50": 1455,
+        "p95": 1774,
+        "p99": 1980,
+        "avg": 1246,
+        "totalTime": 3240,
+        "errors": 0,
+        "timeouts": 0
+      },
+      {
+        "name": "Spike (50명)",
+        "concurrency": 50,
+        "p50": 800,
+        "p95": 1626,
+        "p99": 1682,
+        "avg": 1003,
+        "totalTime": 4070,
+        "errors": 0,
+        "timeouts": 0
+      }
+    ]
+  },
+  "phase6": {
+    "e2e": {
+      "dynPrice": 174.3,
+      "cmdPrice": 174.3,
+      "drift": 0
+    },
+    "unused": []
+  },
+  "errors": [
+    "API_FAIL: dashboard/daily-history — HTTP 400",
+    "API_FAIL: dashboard/alerts — HTTP 401",
+    "API_FAIL: dashboard/preferences — HTTP 401",
+    "API_FAIL: flow/unified — TIMEOUT",
+    "API_FAIL: intel/fast — HTTP 400",
+    "API_FAIL: sparkline — HTTP 400"
+  ],
+  "warnings": [
+    "API_SLOW: dashboard/signals took 4485ms",
+    "API_SLOW: intel/physicalai took 13743ms",
+    "ANOMALY: NVDA.callWall=140 (expected 157~261)",
+    "ANOMALY: AAPL.inst.darkPool%=95.1 (expected 5~90)",
+    "ANOMALY: AAPL.analyst.total=109 (expected 0~100)",
+    "ANOMALY: TSLA.callWall=680 (expected 335~559)",
+    "ANOMALY: TSLA.putFloor=160 (expected 186~410)",
+    "ANOMALY: MSFT.callWall=575 (expected 334~557)",
+    "ANOMALY: MSFT.putFloor=475 (expected 186~408)",
+    "ANOMALY: MSFT.gammaFlip=525 (expected 260~482)",
+    "ANOMALY: AMZN.inst.darkPool%=95.5 (expected 5~90)",
+    "ANOMALY: META.callWall=1030 (expected 516~859)",
+    "ANOMALY: META.putFloor=5 (expected 286~630)",
+    "ANOMALY: AMD.callWall=180 (expected 183~304)",
+    "ANOMALY: PLTR.putFloor=50 (expected 73~161)",
+    "ANOMALY: PLTR.gammaFlip=100 (expected 103~190)",
+    "ANOMALY: COP.callWall=95 (expected 120~200)",
+    "ANOMALY: COP.inst.darkPool%=4.6 (expected 5~90)",
+    "ANOMALY: MU.putFloor=390 (expected 168~370)",
+    "ANOMALY: AVGO.inst.darkPool%=96.9 (expected 5~90)",
+    "ANOMALY: INTC.putFloor=15 (expected 22~49)",
+    "ANOMALY: INTC.gammaFlip=27.5 (expected 31~58)"
+  ],
+  "optimizations": []
+}

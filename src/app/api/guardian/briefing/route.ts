@@ -13,20 +13,32 @@ export async function GET(req: NextRequest) {
     try {
         const locale = req.nextUrl.searchParams.get('locale') || 'ko';
 
+        // Today's date in ET (briefing is only valid for the current trading day)
+        const todayET = new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
+        // Also accept US format (M/D/YYYY) since generate stores in en-US format
+        const todayUS = new Date().toLocaleDateString('en-US', { timeZone: 'America/New_York' });
+
         // Try locale-specific key first (V8.0 format)
         const localeKey = `guardian:morning_briefing:${locale}`;
         const localeBriefing = await getFromCache<any>(localeKey);
 
         if (localeBriefing) {
-            return NextResponse.json({
-                success: true,
-                briefing: localeBriefing.briefing,
-                date: localeBriefing.date,
-                source: localeBriefing.source,
-                generatedAt: localeBriefing.generatedAt,
-                newsCount: localeBriefing.newsCount || 0,
-                calendarCount: localeBriefing.calendarCount || 0,
-            });
+            // Check if briefing is from today (skip stale data)
+            const briefingDate = localeBriefing.date || '';
+            const isToday = briefingDate === todayET || briefingDate === todayUS;
+
+            if (isToday) {
+                return NextResponse.json({
+                    success: true,
+                    briefing: localeBriefing.briefing,
+                    date: localeBriefing.date,
+                    source: localeBriefing.source,
+                    generatedAt: localeBriefing.generatedAt,
+                    newsCount: localeBriefing.newsCount || 0,
+                    calendarCount: localeBriefing.calendarCount || 0,
+                });
+            }
+            // Stale briefing — fall through to "no briefing" response
         }
 
         // Fallback to legacy key (backward compat)
@@ -34,14 +46,19 @@ export async function GET(req: NextRequest) {
         const legacyBriefing = await getFromCache<any>(legacyKey);
 
         if (legacyBriefing) {
-            return NextResponse.json({
-                success: true,
-                briefing: legacyBriefing.text || legacyBriefing.briefing,
-                date: legacyBriefing.date,
-                source: legacyBriefing.source,
-                generatedAt: legacyBriefing.generatedAt,
-                preMarket: legacyBriefing.preMarket,
-            });
+            const briefingDate = legacyBriefing.date || '';
+            const isToday = briefingDate === todayET || briefingDate === todayUS;
+
+            if (isToday) {
+                return NextResponse.json({
+                    success: true,
+                    briefing: legacyBriefing.text || legacyBriefing.briefing,
+                    date: legacyBriefing.date,
+                    source: legacyBriefing.source,
+                    generatedAt: legacyBriefing.generatedAt,
+                    preMarket: legacyBriefing.preMarket,
+                });
+            }
         }
 
         return NextResponse.json({

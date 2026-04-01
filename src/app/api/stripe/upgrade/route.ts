@@ -3,10 +3,10 @@ import { getStripe, STRIPE_PRICES, planFromPriceId } from '@/lib/stripe';
 import { createClient } from '@/lib/supabase/server';
 import { createClient as createServiceClient } from '@supabase/supabase-js';
 
-// Service-level client for reading user_profiles (not tied to user session)
+// Service-level client for reading user_profiles (bypasses RLS)
 const supabaseService = createServiceClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
 );
 
 /**

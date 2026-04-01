@@ -1,0 +1,633 @@
+{
+  "timestamp": "2026-04-01T04:54:16.566Z",
+  "layer1_api_speed": [
+    {
+      "endpoint": "Command Unified (NVDA)",
+      "elapsed": 640,
+      "ok": true,
+      "error": null
+    },
+    {
+      "endpoint": "Command Unified (TSLA)",
+      "elapsed": 320,
+      "ok": true,
+      "error": null
+    },
+    {
+      "endpoint": "Dashboard Unified (5-batch)",
+      "elapsed": 271,
+      "ok": true,
+      "error": null
+    },
+    {
+      "endpoint": "Flow Unified (NVDA)",
+      "elapsed": 10669,
+      "ok": true,
+      "error": null
+    },
+    {
+      "endpoint": "Flow Unified (TSLA)",
+      "elapsed": 279,
+      "ok": true,
+      "error": null
+    },
+    {
+      "endpoint": "Flow AI Analysis (NVDA)",
+      "elapsed": 245,
+      "ok": false,
+      "error": "HTTP 405"
+    },
+    {
+      "endpoint": "Guardian Briefing (KO)",
+      "elapsed": 2349,
+      "ok": true,
+      "error": null
+    },
+    {
+      "endpoint": "Guardian History",
+      "elapsed": 538,
+      "ok": true,
+      "error": null
+    },
+    {
+      "endpoint": "Intel M7 Report",
+      "elapsed": 273,
+      "ok": true,
+      "error": null
+    },
+    {
+      "endpoint": "Intel QuantumEdge",
+      "elapsed": 279,
+      "ok": true,
+      "error": null
+    },
+    {
+      "endpoint": "Market Macro Data",
+      "elapsed": 229,
+      "ok": true,
+      "error": null
+    },
+    {
+      "endpoint": "Stock Data (NVDA)",
+      "elapsed": 244,
+      "ok": false,
+      "error": "HTTP 400"
+    },
+    {
+      "endpoint": "Watchlist Batch (3)",
+      "elapsed": 636,
+      "ok": true,
+      "error": null
+    },
+    {
+      "endpoint": "Live Quotes (NVDA)",
+      "elapsed": 236,
+      "ok": false,
+      "error": "HTTP 400"
+    },
+    {
+      "endpoint": "Market Status",
+      "elapsed": 239,
+      "ok": true,
+      "error": null
+    },
+    {
+      "endpoint": "Health Check",
+      "elapsed": 156,
+      "ok": false,
+      "error": "HTTP 404"
+    }
+  ],
+  "layer2_data_integrity": [
+    {
+      "ticker": "NVDA",
+      "ok": false,
+      "fields": 0,
+      "total": 15,
+      "missing": [
+        "underlyingPrice",
+        "changePercent",
+        "netGex",
+        "gammaFlip",
+        "squeeze",
+        "maxPain",
+        "callWall",
+        "putFloor",
+        "darkPoolPct",
+        "shortVolPct",
+        "atmIv",
+        "pcRatio",
+        "session",
+        "impliedMove",
+        "vwap"
+      ],
+      "elapsed": 157,
+      "price": null,
+      "changePct": null
+    },
+    {
+      "ticker": "AAPL",
+      "ok": false,
+      "fields": 0,
+      "total": 15,
+      "missing": [
+        "underlyingPrice",
+        "changePercent",
+        "netGex",
+        "gammaFlip",
+        "squeeze",
+        "maxPain",
+        "callWall",
+        "putFloor",
+        "darkPoolPct",
+        "shortVolPct",
+        "atmIv",
+        "pcRatio",
+        "session",
+        "impliedMove",
+        "vwap"
+      ],
+      "elapsed": 269,
+      "price": null,
+      "changePct": null
+    },
+    {
+      "ticker": "TSLA",
+      "ok": false,
+      "fields": 0,
+      "total": 15,
+      "missing": [
+        "underlyingPrice",
+        "changePercent",
+        "netGex",
+        "gammaFlip",
+        "squeeze",
+        "maxPain",
+        "callWall",
+        "putFloor",
+        "darkPoolPct",
+        "shortVolPct",
+        "atmIv",
+        "pcRatio",
+        "session",
+        "impliedMove",
+        "vwap"
+      ],
+      "elapsed": 155,
+      "price": null,
+      "changePct": null
+    },
+    {
+      "ticker": "MSFT",
+      "ok": false,
+      "fields": 0,
+      "total": 15,
+      "missing": [
+        "underlyingPrice",
+        "changePercent",
+        "netGex",
+        "gammaFlip",
+        "squeeze",
+        "maxPain",
+        "callWall",
+        "putFloor",
+        "darkPoolPct",
+        "shortVolPct",
+        "atmIv",
+        "pcRatio",
+        "session",
+        "impliedMove",
+        "vwap"
+      ],
+      "elapsed": 540,
+      "price": null,
+      "changePct": null
+    },
+    {
+      "ticker": "AMZN",
+      "ok": false,
+      "fields": 0,
+      "total": 15,
+      "missing": [
+        "underlyingPrice",
+        "changePercent",
+        "netGex",
+        "gammaFlip",
+        "squeeze",
+        "maxPain",
+        "callWall",
+        "putFloor",
+        "darkPoolPct",
+        "shortVolPct",
+        "atmIv",
+        "pcRatio",
+        "session",
+        "impliedMove",
+        "vwap"
+      ],
+      "elapsed": 434,
+      "price": null,
+      "changePct": null
+    },
+    {
+      "ticker": "GOOGL",
+      "ok": false,
+      "fields": 0,
+      "total": 15,
+      "missing": [
+        "underlyingPrice",
+        "changePercent",
+        "netGex",
+        "gammaFlip",
+        "squeeze",
+        "maxPain",
+        "callWall",
+        "putFloor",
+        "darkPoolPct",
+        "shortVolPct",
+        "atmIv",
+        "pcRatio",
+        "session",
+        "impliedMove",
+        "vwap"
+      ],
+      "elapsed": 497,
+      "price": null,
+      "changePct": null
+    },
+    {
+      "ticker": "META",
+      "ok": false,
+      "fields": 0,
+      "total": 15,
+      "missing": [
+        "underlyingPrice",
+        "changePercent",
+        "netGex",
+        "gammaFlip",
+        "squeeze",
+        "maxPain",
+        "callWall",
+        "putFloor",
+        "darkPoolPct",
+        "shortVolPct",
+        "atmIv",
+        "pcRatio",
+        "session",
+        "impliedMove",
+        "vwap"
+      ],
+      "elapsed": 445,
+      "price": null,
+      "changePct": null
+    },
+    {
+      "ticker": "AMD",
+      "ok": false,
+      "fields": 0,
+      "total": 15,
+      "missing": [
+        "underlyingPrice",
+        "changePercent",
+        "netGex",
+        "gammaFlip",
+        "squeeze",
+        "maxPain",
+        "callWall",
+        "putFloor",
+        "darkPoolPct",
+        "shortVolPct",
+        "atmIv",
+        "pcRatio",
+        "session",
+        "impliedMove",
+        "vwap"
+      ],
+      "elapsed": 493,
+      "price": null,
+      "changePct": null
+    },
+    {
+      "ticker": "CEG",
+      "ok": false,
+      "fields": 0,
+      "total": 15,
+      "missing": [
+        "underlyingPrice",
+        "changePercent",
+        "netGex",
+        "gammaFlip",
+        "squeeze",
+        "maxPain",
+        "callWall",
+        "putFloor",
+        "darkPoolPct",
+        "shortVolPct",
+        "atmIv",
+        "pcRatio",
+        "session",
+        "impliedMove",
+        "vwap"
+      ],
+      "elapsed": 245,
+      "price": null,
+      "changePct": null
+    },
+    {
+      "ticker": "PLTR",
+      "ok": false,
+      "fields": 0,
+      "total": 15,
+      "missing": [
+        "underlyingPrice",
+        "changePercent",
+        "netGex",
+        "gammaFlip",
+        "squeeze",
+        "maxPain",
+        "callWall",
+        "putFloor",
+        "darkPoolPct",
+        "shortVolPct",
+        "atmIv",
+        "pcRatio",
+        "session",
+        "impliedMove",
+        "vwap"
+      ],
+      "elapsed": 555,
+      "price": null,
+      "changePct": null
+    },
+    {
+      "ticker": "COP",
+      "ok": false,
+      "fields": 0,
+      "total": 15,
+      "missing": [
+        "underlyingPrice",
+        "changePercent",
+        "netGex",
+        "gammaFlip",
+        "squeeze",
+        "maxPain",
+        "callWall",
+        "putFloor",
+        "darkPoolPct",
+        "shortVolPct",
+        "atmIv",
+        "pcRatio",
+        "session",
+        "impliedMove",
+        "vwap"
+      ],
+      "elapsed": 516,
+      "price": null,
+      "changePct": null
+    },
+    {
+      "ticker": "UPS",
+      "ok": false,
+      "fields": 0,
+      "total": 15,
+      "missing": [
+        "underlyingPrice",
+        "changePercent",
+        "netGex",
+        "gammaFlip",
+        "squeeze",
+        "maxPain",
+        "callWall",
+        "putFloor",
+        "darkPoolPct",
+        "shortVolPct",
+        "atmIv",
+        "pcRatio",
+        "session",
+        "impliedMove",
+        "vwap"
+      ],
+      "elapsed": 545,
+      "price": null,
+      "changePct": null
+    },
+    {
+      "ticker": "MU",
+      "ok": false,
+      "fields": 0,
+      "total": 15,
+      "missing": [
+        "underlyingPrice",
+        "changePercent",
+        "netGex",
+        "gammaFlip",
+        "squeeze",
+        "maxPain",
+        "callWall",
+        "putFloor",
+        "darkPoolPct",
+        "shortVolPct",
+        "atmIv",
+        "pcRatio",
+        "session",
+        "impliedMove",
+        "vwap"
+      ],
+      "elapsed": 438,
+      "price": null,
+      "changePct": null
+    },
+    {
+      "ticker": "AVGO",
+      "ok": false,
+      "fields": 0,
+      "total": 15,
+      "missing": [
+        "underlyingPrice",
+        "changePercent",
+        "netGex",
+        "gammaFlip",
+        "squeeze",
+        "maxPain",
+        "callWall",
+        "putFloor",
+        "darkPoolPct",
+        "shortVolPct",
+        "atmIv",
+        "pcRatio",
+        "session",
+        "impliedMove",
+        "vwap"
+      ],
+      "elapsed": 435,
+      "price": null,
+      "changePct": null
+    },
+    {
+      "ticker": "INTC",
+      "ok": false,
+      "fields": 0,
+      "total": 15,
+      "missing": [
+        "underlyingPrice",
+        "changePercent",
+        "netGex",
+        "gammaFlip",
+        "squeeze",
+        "maxPain",
+        "callWall",
+        "putFloor",
+        "darkPoolPct",
+        "shortVolPct",
+        "atmIv",
+        "pcRatio",
+        "session",
+        "impliedMove",
+        "vwap"
+      ],
+      "elapsed": 526,
+      "price": null,
+      "changePct": null
+    }
+  ],
+  "layer3_cross_page_consistency": [
+    {
+      "ticker": "NVDA",
+      "consistent": true,
+      "maxDiff": "0.00",
+      "unified": null,
+      "dashboard": null,
+      "flow": null
+    },
+    {
+      "ticker": "TSLA",
+      "consistent": true,
+      "maxDiff": "0.00",
+      "unified": null,
+      "dashboard": null,
+      "flow": null
+    },
+    {
+      "ticker": "AAPL",
+      "consistent": true,
+      "maxDiff": "0.00",
+      "unified": null,
+      "dashboard": null,
+      "flow": null
+    }
+  ],
+  "layer4_page_speed": [
+    {
+      "page": "Home",
+      "elapsed": 374,
+      "ok": true,
+      "sizeKB": 228,
+      "status": 200
+    },
+    {
+      "page": "Dashboard",
+      "elapsed": 367,
+      "ok": true,
+      "sizeKB": 199,
+      "status": 200
+    },
+    {
+      "page": "Command (NVDA)",
+      "elapsed": 321,
+      "ok": true,
+      "sizeKB": 435,
+      "status": 200
+    },
+    {
+      "page": "Command (TSLA)",
+      "elapsed": 301,
+      "ok": true,
+      "sizeKB": 434,
+      "status": 200
+    },
+    {
+      "page": "Guardian",
+      "elapsed": 325,
+      "ok": true,
+      "sizeKB": 236,
+      "status": 200
+    },
+    {
+      "page": "Flow",
+      "elapsed": 285,
+      "ok": true,
+      "sizeKB": 1187,
+      "status": 200
+    },
+    {
+      "page": "Intel",
+      "elapsed": 405,
+      "ok": true,
+      "sizeKB": 280,
+      "status": 200
+    },
+    {
+      "page": "Portfolio",
+      "elapsed": 291,
+      "ok": true,
+      "sizeKB": 195,
+      "status": 200
+    },
+    {
+      "page": "Watchlist",
+      "elapsed": 324,
+      "ok": true,
+      "sizeKB": 197,
+      "status": 200
+    },
+    {
+      "page": "Pricing",
+      "elapsed": 378,
+      "ok": true,
+      "sizeKB": 293,
+      "status": 200
+    },
+    {
+      "page": "Command EN",
+      "elapsed": 331,
+      "ok": true,
+      "sizeKB": 515,
+      "status": 200
+    },
+    {
+      "page": "Command JA",
+      "elapsed": 325,
+      "ok": true,
+      "sizeKB": 431,
+      "status": 200
+    }
+  ],
+  "layer5_redis_cache": [
+    {
+      "ticker": "NVDA",
+      "cold": 152,
+      "warm": 187,
+      "speedup": -23
+    },
+    {
+      "ticker": "AAPL",
+      "cold": 162,
+      "warm": 156,
+      "speedup": 4
+    }
+  ],
+  "errors": [
+    "API_FAIL: Flow AI Analysis (NVDA) — HTTP 405",
+    "API_FAIL: Stock Data (NVDA) — HTTP 400",
+    "API_FAIL: Live Quotes (NVDA) — HTTP 400",
+    "API_FAIL: Health Check — HTTP 404"
+  ],
+  "warnings": [
+    "SLOW_API: Flow Unified (NVDA) took 10669ms",
+    "SLOW_API: Guardian Briefing (KO) took 2349ms",
+    "GUARDIAN_MISS: score missing from history"
+  ],
+  "optimizations": [
+    "CRITICAL_SLOW: Flow Unified (NVDA) (10669ms) — Redis SWR 또는 Edge 캐싱 필요"
+  ]
+}

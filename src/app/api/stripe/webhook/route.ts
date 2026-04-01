@@ -2,10 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getStripe, planFromPriceId } from '@/lib/stripe';
 import { createClient } from '@supabase/supabase-js';
 
-// Supabase service-role — use anon key for now (RLS should allow user_profiles upsert)
+// Supabase service-role — bypasses RLS for tier upsert
 const supabaseAdmin = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
 );
 
 // Disable Next.js body parsing — Stripe needs raw body for signature verification

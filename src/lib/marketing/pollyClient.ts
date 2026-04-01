@@ -131,7 +131,8 @@ const EVENT_SCRIPTS = {
 };
 
 // ---------------------------------------------------------------------------
-// Polly TTS API (stub — actual implementation needs AWS SDK)
+// Polly TTS API — Real AWS Implementation
+// AWS Polly → mp3 buffer → S3 upload → public URL return
 // ---------------------------------------------------------------------------
 export async function synthesizeSpeech(opts: {
   text: string;
@@ -149,19 +150,72 @@ export async function synthesizeSpeech(opts: {
     return { audioUrl: '', dryRun: true };
   }
 
-  // Real implementation would use AWS SDK:
-  // import { PollyClient, SynthesizeSpeechCommand } from '@aws-sdk/client-polly';
-  // const polly = new PollyClient({ region: 'us-east-1' });
-  // const cmd = new SynthesizeSpeechCommand({
-  //   Text: text,
-  //   VoiceId: voice.voiceId,
-  //   Engine: voice.engine,
-  //   LanguageCode: voice.langCode,
-  //   OutputFormat: 'mp3',
-  // });
-  // const result = await polly.send(cmd);
-  // ... upload to S3 and return URL
+  // Check AWS credentials
+  const accessKeyId = process.env.AWS_ACCESS_KEY_ID;
+  const secretAccessKey = process.env.AWS_SECRET_ACCESS_KEY;
+  if (!accessKeyId || !secretAccessKey) {
+    console.warn('[PollyTTS] AWS credentials not configured — falling back to dry run');
+    return { audioUrl: '', dryRun: true };
+  }
 
-  console.log(`[PollyTTS] Would synthesize: ${voice.voiceId} / ${text.substring(0, 50)}...`);
-  return { audioUrl: `s3://signum-marketing/tts/${lang}/${Date.now()}.mp3`, dryRun: false };
+  try {
+    const { PollyClient, SynthesizeSpeechCommand } = await import('@aws-sdk/client-polly');
+    const { S3Client, PutObjectCommand } = await import('@aws-sdk/client-s3');
+
+    const region = process.env.AWS_REGION || 'us-east-1';
+    const bucket = process.env.S3_MARKETING_BUCKET || 'signum-marketing';
+    const credentials = { accessKeyId, secretAccessKey };
+
+    // 1. Synthesize speech with Polly
+    const polly = new PollyClient({ region, credentials });
+    const pollyCmd = new SynthesizeSpeechCommand({
+      Text: text,
+      VoiceId: voice.voiceId,
+      Engine: voice.engine,
+      LanguageCode: voice.langCode,
+      OutputFormat: 'mp3',
+    });
+    const pollyResult = await polly.send(pollyCmd);
+
+    if (!pollyResult.AudioStream) {
+      throw new Error('Polly returned empty AudioStream');
+    }
+
+    // 2. Convert stream to buffer
+    const chunks: Uint8Array[] = [];
+    const stream = pollyResult.AudioStream as any;
+    if (typeof stream[Symbol.asyncIterator] === 'function') {
+      for await (const chunk of stream) {
+        chunks.push(chunk);
+      }
+    } else if (stream.transformToByteArray) {
+      chunks.push(await stream.transformToByteArray());
+    } else {
+      throw new Error('Unsupported AudioStream format');
+    }
+    const audioBuffer = Buffer.concat(chunks);
+
+    // 3. Upload to S3
+    const dateKey = new Date().toISOString().split('T')[0];
+    const s3Key = `tts/${lang}/${dateKey}/${Date.now()}.mp3`;
+
+    const s3 = new S3Client({ region, credentials });
+    await s3.send(new PutObjectCommand({
+      Bucket: bucket,
+      Key: s3Key,
+      Body: audioBuffer,
+      ContentType: 'audio/mpeg',
+      ACL: 'public-read',
+    }));
+
+    const audioUrl = `https://${bucket}.s3.amazonaws.com/${s3Key}`;
+    console.log(`[PollyTTS] Synthesized: ${voice.voiceId}/${lang} → ${audioUrl} (${audioBuffer.length} bytes)`);
+
+    return { audioUrl, dryRun: false };
+  } catch (e: any) {
+    console.error(`[PollyTTS] Error:`, e.message);
+    // Graceful fallback — don't break the pipeline
+    return { audioUrl: '', dryRun: true };
+  }
 }
+
