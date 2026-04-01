@@ -65,15 +65,19 @@ export async function GET(req: NextRequest) {
 
         // Step 2: Fetch LIVE prices for top 4 via Polygon snapshot
         // Calculate changePct manually from prevDay.c — NEVER use todaysChangePerc
+        // [V10] GOOG→GOOGL alias: Polygon snapshot for GOOG has broken prevDay.c
+        // GOOG (Class C) and GOOGL (Class A) are same company with same price movement
+        const SNAPSHOT_ALIAS: Record<string, string> = { 'GOOG': 'GOOGL' };
         const top4 = relatedTickers.slice(0, 4);
-        const snapPromises = top4.map((relT: string) =>
-            fetchMassive(`/v2/snapshot/locale/us/markets/stocks/tickers/${relT}`, {}, true)
+        const snapPromises = top4.map((relT: string) => {
+            const snapTicker = SNAPSHOT_ALIAS[relT] || relT;
+            return fetchMassive(`/v2/snapshot/locale/us/markets/stocks/tickers/${snapTicker}`, {}, true)
                 .then((snap: any) => {
                     const { price, change } = calcChangeFromSnapshot(snap?.ticker);
                     return { ticker: relT, price, change, logo: null };
                 })
-                .catch(() => ({ ticker: relT, price: 0, change: 0, logo: null }))
-        );
+                .catch(() => ({ ticker: relT, price: 0, change: 0, logo: null }));
+        });
 
         const topRelated = await Promise.race([
             Promise.all(snapPromises),

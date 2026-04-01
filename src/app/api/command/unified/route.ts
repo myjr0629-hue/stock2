@@ -802,11 +802,14 @@ async function tryDynamoFast(ticker: string): Promise<any | null> {
                 const relTickers = snap.related.tickers;
                 const top4 = relTickers.slice(0, 4);
                 // [V10] Polygon snapshot with manual changePct from prevDay.c — accurate for ALL tickers
+                // GOOG→GOOGL alias: Polygon snapshot for GOOG has broken prevDay.c
+                const SNAPSHOT_ALIAS: Record<string, string> = { 'GOOG': 'GOOGL' };
                 let topRelated = top4.map((t: string) => ({ ticker: t, price: 0, change: 0, logo: null }));
                 try {
                     const snapResults = await Promise.race([
-                        Promise.all(top4.map((t: string) =>
-                            fetchMassive(`/v2/snapshot/locale/us/markets/stocks/tickers/${t}`, {}, true)
+                        Promise.all(top4.map((t: string) => {
+                            const snapT = SNAPSHOT_ALIAS[t] || t;
+                            return fetchMassive(`/v2/snapshot/locale/us/markets/stocks/tickers/${snapT}`, {}, true)
                                 .then((snap: any) => {
                                     const td = snap?.ticker;
                                     const currentPrice = td?.lastTrade?.p || td?.day?.c || 0;
@@ -816,8 +819,8 @@ async function tryDynamoFast(ticker: string): Promise<any | null> {
                                         : 0;
                                     return { ticker: t, price: Math.round(currentPrice * 100) / 100, change, logo: null };
                                 })
-                                .catch(() => ({ ticker: t, price: 0, change: 0, logo: null }))
-                        )),
+                                .catch(() => ({ ticker: t, price: 0, change: 0, logo: null }));
+                        })),
                         new Promise<typeof topRelated>(r => setTimeout(() => r(topRelated), 2000))
                     ]);
                     topRelated = snapResults;
