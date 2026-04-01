@@ -1,13 +1,25 @@
 // [S-124.6] Related Tickers API Endpoint for Command Quick Intel Gauges
-// V8: DynamoDB-first — Lambda stores related tickers daily
+// V10: Polygon snapshot with manual changePct calculation — works for ALL tickers
 import { NextRequest } from 'next/server';
 import { fetchMassive, CACHE_POLICY } from "@/services/massiveClient";
 
-const MASSIVE_API_KEY = process.env.MASSIVE_API_KEY || process.env.POLYGON_API_KEY;
-const MASSIVE_BASE_URL = process.env.MASSIVE_BASE_URL || "https://api.polygon.io";
-
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
+
+// [V10] Calculate changePct from Polygon snapshot — NEVER trust todaysChangePerc
+// Uses prevDay.c (yesterday's close) and current price to calculate accurate change
+function calcChangeFromSnapshot(tickerData: any): { price: number; change: number } {
+    const currentPrice = tickerData?.lastTrade?.p || tickerData?.day?.c || 0;
+    const prevClose = tickerData?.prevDay?.c || 0;
+    if (currentPrice > 0 && prevClose > 0) {
+        const change = ((currentPrice - prevClose) / prevClose) * 100;
+        return {
+            price: Math.round(currentPrice * 100) / 100,
+            change: Math.round(change * 100) / 100,
+        };
+    }
+    return { price: Math.round(currentPrice * 100) / 100, change: 0 };
+}
 
 export async function GET(req: NextRequest) {
     const t = req.nextUrl.searchParams.get('t');
@@ -21,123 +33,68 @@ export async function GET(req: NextRequest) {
     const ticker = t.toUpperCase();
 
     try {
-        // ====== V8: DynamoDB-first — check if Lambda already has related tickers ======
+        // Step 1: Get related ticker LIST (DynamoDB first, Polygon fallback)
+        let relatedTickers: string[] = [];
+        let source = 'polygon';
+
         try {
             const { getRelatedData } = await import('@/lib/aws/dynamoDataProvider');
             const dynRelated = await getRelatedData(ticker);
             if (dynRelated?.tickers && dynRelated.tickers.length > 0) {
-                const relTickers = dynRelated.tickers.slice(0, 10);
-                const top4 = relTickers.slice(0, 4);
-
-                // [V9 ROOT-FIX] Use DynamoDB changePct (Lambda 정확 계산) instead of Polygon todaysChangePerc (부정확)
-                // DynamoDB has accurate changePct = (close - prevClose) / prevClose * 100 for all 500+ universe tickers
-                let topRelated = top4.map((t: string) => ({ ticker: t, price: 0, change: 0, logo: null }));
-                try {
-                    const { getLatestPrices } = await import('@/lib/aws/dynamoDataProvider');
-                    const priceMap = await Promise.race([
-                        getLatestPrices(top4),
-                        new Promise<Map<string, any>>(r => setTimeout(() => r(new Map()), 2000))
-                    ]);
-                    topRelated = top4.map((relT: string) => {
-                        const p = priceMap.get(relT);
-                        return {
-                            ticker: relT,
-                            price: p ? Math.round(p.close * 100) / 100 : 0,
-                            change: p ? Math.round((p.changePct || 0) * 100) / 100 : 0,
-                            logo: null
-                        };
-                    });
-                    // Fallback: if DynamoDB had no data for some tickers, try Polygon snapshot
-                    const missing = topRelated.filter((t: { ticker: string; price: number; change: number; logo: null }) => t.price === 0);
-                    if (missing.length > 0) {
-                        const snapResults = await Promise.race([
-                            Promise.all(missing.map((m: { ticker: string; price: number; change: number; logo: null }) =>
-                                fetchMassive(`/v2/snapshot/locale/us/markets/stocks/tickers/${m.ticker}`, {}, true)
-                                    .then((snap: any) => ({
-                                        ticker: m.ticker,
-                                        price: Math.round((snap?.ticker?.lastTrade?.p || snap?.ticker?.day?.c || 0) * 100) / 100,
-                                        change: Math.round((snap?.ticker?.todaysChangePerc || 0) * 100) / 100,
-                                        logo: null
-                                    }))
-                                    .catch(() => m)
-                            )),
-                            new Promise<typeof missing>(r => setTimeout(() => r(missing), 2000))
-                        ]);
-                        for (const sr of snapResults) {
-                            const idx = topRelated.findIndex((t: { ticker: string }) => t.ticker === sr.ticker);
-                            if (idx >= 0 && sr.price > 0) topRelated[idx] = sr;
-                        }
-                    }
-                } catch {}
-
-                return new Response(JSON.stringify({
-                    ticker, count: relTickers.length,
-                    label: relTickers.length >= 10 ? '다수' : relTickers.length >= 5 ? '보통' : '소수',
-                    topRelated,
-                    allTickers: relTickers,
-                    _source: 'dynamodb',
-                }), { status: 200, headers: { 'Content-Type': 'application/json; charset=utf-8' } });
+                relatedTickers = dynRelated.tickers.slice(0, 10);
+                source = 'dynamodb';
             }
         } catch {}
 
-        // ====== Polygon fallback ======
-        // Fetch Related Companies from Polygon/Massive API
-        const url = `${MASSIVE_BASE_URL}/v1/related-companies/${ticker}?apiKey=${MASSIVE_API_KEY}`;
-        const data = await fetchMassive(url, {}, true, undefined, CACHE_POLICY.LIVE);
-
-        const results = data?.results || [];
-        const count = results.length;
-
-        // Get top 4 related tickers — snapshot for prices only, NO logo fetch
-        const top4Tickers = results.slice(0, 4).map((item: any) => item.ticker);
-
-        const pricePromises = top4Tickers.map(async (relTicker: string) => {
+        // Polygon fallback for ticker list
+        if (relatedTickers.length === 0) {
             try {
-                // Fetch snapshot for price only (로고는 프론트에서 parqet.com 사용)
-                const snapshot = await fetchMassive(
-                    `/v2/snapshot/locale/us/markets/stocks/tickers/${relTicker}`,
-                    {}, true  // useCache=true for speed
+                const data = await fetchMassive(
+                    `/v1/related-companies/${ticker}`,
+                    {}, true, undefined, CACHE_POLICY.LIVE
                 );
-                const tickerData = snapshot?.ticker || {};
-                const price = tickerData.lastTrade?.p || tickerData.day?.c || tickerData.prevDay?.c || 0;
-                const change = tickerData.todaysChangePerc || 0;
+                relatedTickers = (data?.results || []).map((item: any) => item.ticker).slice(0, 10);
+            } catch {}
+        }
 
-                return {
-                    ticker: relTicker,
-                    price: Math.round(price * 100) / 100,
-                    change: Math.round(change * 100) / 100,
-                    logo: null  // 프론트에서 parqet.com 로고 사용
-                };
-            } catch (e) {
-                return { ticker: relTicker, price: 0, change: 0, logo: null };
-            }
-        });
+        if (relatedTickers.length === 0) {
+            return new Response(JSON.stringify({
+                ticker, count: 0, label: '없음', topRelated: [], allTickers: [], _source: source,
+            }), { status: 200, headers: { 'Content-Type': 'application/json; charset=utf-8' } });
+        }
 
-        const topRelatedWithPrices = await Promise.all(pricePromises);
+        // Step 2: Fetch LIVE prices for top 4 via Polygon snapshot
+        // Calculate changePct manually from prevDay.c — NEVER use todaysChangePerc
+        const top4 = relatedTickers.slice(0, 4);
+        const snapPromises = top4.map((relT: string) =>
+            fetchMassive(`/v2/snapshot/locale/us/markets/stocks/tickers/${relT}`, {}, true)
+                .then((snap: any) => {
+                    const { price, change } = calcChangeFromSnapshot(snap?.ticker);
+                    return { ticker: relT, price, change, logo: null };
+                })
+                .catch(() => ({ ticker: relT, price: 0, change: 0, logo: null }))
+        );
+
+        const topRelated = await Promise.race([
+            Promise.all(snapPromises),
+            new Promise<{ ticker: string; price: number; change: number; logo: null }[]>(
+                r => setTimeout(() => r(top4.map((relT: string) => ({ ticker: relT, price: 0, change: 0, logo: null }))), 3000)
+            )
+        ]);
 
         return new Response(JSON.stringify({
             ticker,
-            count,
-            label: count >= 10 ? '다수' : count >= 5 ? '보통' : '소수',
-            topRelated: topRelatedWithPrices,
-            allTickers: results.map((item: any) => item.ticker)
-        }), {
-            status: 200,
-            headers: { 'Content-Type': 'application/json; charset=utf-8' }
-        });
+            count: relatedTickers.length,
+            label: relatedTickers.length >= 10 ? '다수' : relatedTickers.length >= 5 ? '보통' : '소수',
+            topRelated,
+            allTickers: relatedTickers,
+            _source: source,
+        }), { status: 200, headers: { 'Content-Type': 'application/json; charset=utf-8' } });
 
     } catch (error: any) {
         console.error('[Related Tickers API] Error:', error);
         return new Response(JSON.stringify({
-            ticker,
-            count: 0,
-            label: '오류',
-            topRelated: [],
-            allTickers: [],
-            error: error.message
-        }), {
-            status: 200,
-            headers: { 'Content-Type': 'application/json; charset=utf-8' }
-        });
+            ticker, count: 0, label: '오류', topRelated: [], allTickers: [], error: error.message
+        }), { status: 200, headers: { 'Content-Type': 'application/json; charset=utf-8' } });
     }
 }

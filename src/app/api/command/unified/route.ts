@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse, after } from 'next/server';
 import { getFromCache, setInCache } from '@/services/redisClient';
+import { fetchMassive } from '@/services/massiveClient';
 
 // Import individual route GET handlers directly to bypass HTTP overhead
 import { GET as getStructure } from '@/app/api/live/options/structure/route';
@@ -800,23 +801,26 @@ async function tryDynamoFast(ticker: string): Promise<any | null> {
             if (snap.related?.tickers && snap.related.tickers.length > 0) {
                 const relTickers = snap.related.tickers;
                 const top4 = relTickers.slice(0, 4);
-                // [V9] Enrich related tickers with DynamoDB price data (accurate changePct)
+                // [V10] Polygon snapshot with manual changePct from prevDay.c — accurate for ALL tickers
                 let topRelated = top4.map((t: string) => ({ ticker: t, price: 0, change: 0, logo: null }));
                 try {
-                    const { getLatestPrices } = await import('@/lib/aws/dynamoDataProvider');
-                    const priceMap = await Promise.race([
-                        getLatestPrices(top4),
-                        new Promise<Map<string, any>>(r => setTimeout(() => r(new Map()), 1500))
+                    const snapResults = await Promise.race([
+                        Promise.all(top4.map((t: string) =>
+                            fetchMassive(`/v2/snapshot/locale/us/markets/stocks/tickers/${t}`, {}, true)
+                                .then((snap: any) => {
+                                    const td = snap?.ticker;
+                                    const currentPrice = td?.lastTrade?.p || td?.day?.c || 0;
+                                    const prevClose = td?.prevDay?.c || 0;
+                                    const change = currentPrice > 0 && prevClose > 0
+                                        ? Math.round(((currentPrice - prevClose) / prevClose) * 10000) / 100
+                                        : 0;
+                                    return { ticker: t, price: Math.round(currentPrice * 100) / 100, change, logo: null };
+                                })
+                                .catch(() => ({ ticker: t, price: 0, change: 0, logo: null }))
+                        )),
+                        new Promise<typeof topRelated>(r => setTimeout(() => r(topRelated), 2000))
                     ]);
-                    topRelated = top4.map((t: string) => {
-                        const p = priceMap.get(t);
-                        return {
-                            ticker: t,
-                            price: p ? Math.round(p.close * 100) / 100 : 0,
-                            change: p ? Math.round((p.changePct || 0) * 100) / 100 : 0,
-                            logo: null
-                        };
-                    });
+                    topRelated = snapResults;
                 } catch {}
                 relatedCard = {
                     ticker,
