@@ -128,16 +128,30 @@ export function AIDeepAnalysis({ ticker, displayPrice, session, snapshot }: Prop
     const refreshTimerRef = useRef<NodeJS.Timeout | null>(null);
     const [countdown, setCountdown] = useState<string>('');
     const nextRefreshRef = useRef<number>(0);
-    // [V10] AbortController — cancel in-flight Bedrock request on ticker change
+    // [V11] Use ref for loading to avoid stale closure in useCallback
     const abortRef = useRef<AbortController | null>(null);
+    const loadingRef = useRef(false);
+    // Keep refs up to date for use in fetchAnalysis closure
+    const tickerRef = useRef(ticker);
+    const localeRef = useRef(locale);
+    const snapshotRef = useRef(snapshot);
+    const sessionRef = useRef(session);
+    const displayPriceRef = useRef(displayPrice);
+    tickerRef.current = ticker;
+    localeRef.current = locale;
+    snapshotRef.current = snapshot;
+    sessionRef.current = session;
+    displayPriceRef.current = displayPrice;
 
     const fetchAnalysis = useCallback(async (triggerReason: string = 'FIRST_VIEW') => {
-        if (loading) return;
+        // Use ref to check loading — avoids stale closure
+        if (loadingRef.current) return;
         
         // Cancel any in-flight request before starting new one
         abortRef.current?.abort();
         abortRef.current = new AbortController();
         
+        loadingRef.current = true;
         setLoading(true);
         setError(null);
 
@@ -145,7 +159,12 @@ export function AIDeepAnalysis({ ticker, displayPrice, session, snapshot }: Prop
             const res = await fetch('/api/command/deep-analysis', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ ticker, locale, snapshot, triggerReason }),
+                body: JSON.stringify({
+                    ticker: tickerRef.current,
+                    locale: localeRef.current,
+                    snapshot: snapshotRef.current,
+                    triggerReason,
+                }),
                 signal: abortRef.current.signal,
             });
 
@@ -156,24 +175,30 @@ export function AIDeepAnalysis({ ticker, displayPrice, session, snapshot }: Prop
 
             const data = await res.json();
             setAnalysis(data);
-            lastAnalysisPriceRef.current = displayPrice;
-            lastGammaFlipRef.current = snapshot.structure?.gammaFlipLevel || 0;
+            lastAnalysisPriceRef.current = displayPriceRef.current;
+            lastGammaFlipRef.current = snapshotRef.current.structure?.gammaFlipLevel || 0;
 
-            const interval = getEffectiveInterval(session, snapshot.earnings?.daysUntil || 999);
+            const interval = getEffectiveInterval(sessionRef.current, snapshotRef.current.earnings?.daysUntil || 999);
             if (interval > 0) {
                 nextRefreshRef.current = Date.now() + interval;
                 if (refreshTimerRef.current) clearTimeout(refreshTimerRef.current);
                 refreshTimerRef.current = setTimeout(() => fetchAnalysis('SCHEDULED'), interval);
             }
         } catch (e: any) {
-            // Don't show error for aborted requests (user navigated away)
-            if (e.name === 'AbortError') return;
+            // Don't show error or update state for aborted requests
+            if (e.name === 'AbortError') {
+                loadingRef.current = false;
+                setLoading(false);
+                return;
+            }
             setError(e.message);
             console.error('[AIDeepAnalysis] Error:', e.message);
         } finally {
+            loadingRef.current = false;
             setLoading(false);
         }
-    }, [ticker, locale, snapshot, session, displayPrice, loading]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     useEffect(() => {
         // Reset analysis for new ticker, cancel previous
