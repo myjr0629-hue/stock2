@@ -113,7 +113,7 @@ export function CommandSSRCards({ data, stockData, ticker }: CommandSSRCardsProp
     return (
         <div className="relative -mt-4 mb-3" id="ssr-card-preview">
             <div className="absolute inset-0 rounded-xl pointer-events-none" style={{ background: 'radial-gradient(ellipse at 20% 30%, rgba(99,102,241,0.08) 0%, transparent 50%), radial-gradient(ellipse at 80% 70%, rgba(16,185,129,0.06) 0%, transparent 50%)' }} />
-            <div className="relative grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-1.5">
+            <div className="relative grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-1.5" data-command-cards>
                 {/* ROW 1 */}
 
                 {/* 1-1: VOL REGIME */}

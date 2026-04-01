@@ -2012,13 +2012,13 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
             {/* COMMAND GRID (2 Columns: Main vs Sidebar) */}
             {
                 (
-                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 min-h-[800px]">
+                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 min-h-[800px]" data-command-grid>
 
                         {/* MAIN COLUMN (8 Cols) - Flex Structure */}
                         <div className="lg:col-span-8 flex flex-col items-stretch gap-3 h-full">
                             {/* A. Main Chart Section */}
                             {/* A. Main Chart Section (Height: 580px) */}
-                            <div className="h-[580px] min-h-0 relative flex flex-col group shrink-0">
+                            <div className="h-[580px] min-h-0 relative flex flex-col group shrink-0" data-command-chart>
                                 {/* Decorative Label (Absolute) */}
                                 <div className="absolute -top-3 left-4 px-2 py-0.5 bg-indigo-950/80 border border-indigo-500/30 rounded text-[12px] font-black text-indigo-300 uppercase tracking-widest z-20 backdrop-blur-md shadow-lg flex items-center gap-2 font-jakarta">
                                     <div className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse" /> <CardTooltip tooltip={COMMAND_TOOLTIPS.PRICE_HISTORY.tooltip}>Price History</CardTooltip>
@@ -2193,7 +2193,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                             </div>
 
                             {/* B. Advanced Options Analysis — PRO (Separate Gates) */}
-                                <div className="min-h-[400px] grid grid-cols-1 md:grid-cols-2 gap-3 shrink-0">
+                                <div className="min-h-[400px] grid grid-cols-1 md:grid-cols-2 gap-3 shrink-0" data-command-indicators>
 
                                     {/* 1. TACTICAL RANGE (Depth Gauge + Max Pain) — PRO */}
                                     <ProGate title="Tactical Range" mode="blur" fomoMessage="Max Pain · Call Wall · Put Floor · Support/Resistance · Range Width" fomoTagline={tg('taglineTacticalRange')} description={tg('descPutFloorCallWall')}>
@@ -2752,7 +2752,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                         </div>
 
                         {/* SIDEBAR (4 Cols) - Glass Stack */}
-                        <div className="lg:col-span-4 flex flex-col gap-3 h-full overflow-hidden">
+                        <div className="lg:col-span-4 flex flex-col gap-3 h-full overflow-hidden" data-command-sidebar>
 
                             {/* 1. AI Deep Analysis — Claude Sonnet 4 (HERO Position) — PRO */}
                             <ProGate title="AI Deep Analysis" mode="blur" fomoMessage="AI Deep Technical · Options Positioning · News & Market Context" fomoTagline={tg('taglineAIDeep')} description={tg('descAiDeep')}>

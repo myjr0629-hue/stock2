@@ -136,15 +136,15 @@
 }
 
 /* ===== MOBILE APP GLASSMORPHISM DESIGN SYSTEM ===== */
-/* 모바일 전용 프리미엄 디자인 토큰 — 768px 이하에서만 적용 */
-/* 데스크탑: ZERO 영향 */
+/* 모바???�용 ?�리미엄 ?�자???�큰 ??768px ?�하?�서�??�용 */
+/* ?�스?�탑: ZERO ?�향 */
 
 @media (max-width: 768px) {
   :root {
-    /* ── Background ── */
+    /* ?�?� Background ?�?� */
     --m-bg: #0a1225;
     
-    /* ── Card Glassmorphism ── */
+    /* ?�?� Card Glassmorphism ?�?� */
     --m-card-bg: rgba(255, 255, 255, 0.045);
     --m-card-bg-hover: rgba(255, 255, 255, 0.07);
     --m-card-border: rgba(255, 255, 255, 0.10);
@@ -152,18 +152,18 @@
     --m-card-blur: 24px;
     --m-card-shadow: 0 8px 32px rgba(0, 0, 0, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.05);
     
-    /* ── Border Radius (앱 네이티브 느낌) ── */
+    /* ?�?� Border Radius (???�이?�브 ?�낌) ?�?� */
     --m-radius: 20px;
     --m-radius-md: 16px;
     --m-radius-sm: 12px;
     --m-radius-pill: 9999px;
     
-    /* ── Spacing (넉넉한 여백) ── */
+    /* ?�?� Spacing (?�넉???�백) ?�?� */
     --m-card-gap: 12px;
     --m-card-padding: 16px;
     --m-section-gap: 20px;
     
-    /* ── Typography Scale ── */
+    /* ?�?� Typography Scale ?�?� */
     --m-font-ticker: 17px;
     --m-font-price: 22px;
     --m-font-change: 15px;
@@ -171,7 +171,7 @@
     --m-font-value: 14px;
     --m-font-section: 20px;
     
-    /* ── Accent Glows ── */
+    /* ?�?� Accent Glows ?�?� */
     --m-glow-positive: 0 0 20px rgba(52, 211, 153, 0.12);
     --m-glow-negative: 0 0 20px rgba(251, 113, 133, 0.12);
     --m-glow-cyan: 0 0 20px rgba(34, 211, 238, 0.12);
@@ -569,7 +569,7 @@
   animation: fade-in 0.2s ease-out forwards;
 }
 
-/* [AI] SIGNUM AI Logo pulse — subtle scale + glow heartbeat */
+/* [AI] SIGNUM AI Logo pulse ??subtle scale + glow heartbeat */
 @keyframes aiLogoPulse {
   0%, 100% {
     transform: scale(1);
@@ -625,7 +625,7 @@
   }
 }
 
-/* [PERF] content-visibility: 酉고룷??諛?????뱀뀡???뚮뜑留?吏????珥덇린 ?섏씤??媛??*/
+/* [PERF] content-visibility: ?�고�??�??????뱀??????���?吏?????�덇�???�씤??媛??*/
 .cv-auto {
   content-visibility: auto;
   contain-intrinsic-size: auto 500px;
@@ -676,7 +676,7 @@
 }
 
 /* ===== [MOBILE] TOUCH TARGET ENFORCEMENT ===== */
-/* Only on mobile — desktop untouched */
+/* Only on mobile ??desktop untouched */
 @media (max-width: 768px) {
 
   /* Ensure primary interactive elements meet 44px min touch target */
@@ -708,12 +708,12 @@
     padding-bottom: 60px;
   }
 
-  /* Flow Topography — scale bubble text for mobile readability */
+  /* Flow Topography ??scale bubble text for mobile readability */
   [data-guardian] .flow-topography-bubble {
     transform: scale(0.85);
   }
 
-  /* AI analysis text — better mobile readability */
+  /* AI analysis text ??better mobile readability */
   [data-guardian] .text-\[13px\][style*="Pretendard"] {
     line-height: 1.75 !important;
   }
@@ -823,9 +823,9 @@
 
 /* ===== [LANDING] LANDING PAGE READABILITY (ALL LOCALES) ===== */
 /* [data-landing] on main page root div.                        */
-/* Hero text is always English — same sizing for all locales.   */
+/* Hero text is always English ??same sizing for all locales.   */
 
-/* Hero headline: 96px → 72px, leading 0.9 → 1.05 */
+/* Hero headline: 96px ??72px, leading 0.9 ??1.05 */
 [data-landing] h1 {
   font-size: 3rem !important;
   /* 48px mobile */
@@ -840,14 +840,14 @@
   }
 }
 
-/* Subheadline: 18px → 20px */
+/* Subheadline: 18px ??20px */
 [data-landing] h1+p {
   font-size: 1.25rem !important;
   /* 20px */
   line-height: 1.65;
 }
 
-/* Feature card body text: 13px → 14px */
+/* Feature card body text: 13px ??14px */
 [data-landing] .text-\[13px\] {
   font-size: 14px !important;
   line-height: 1.7 !important;
@@ -861,15 +861,15 @@
 
 /* ===== [GUARDIAN] ENGLISH-ONLY GUARDIAN PAGE READABILITY ===== */
 /* [data-guardian] on Guardian page root div.                    */
-/* :lang(en) → English ONLY. Korean/Japanese: ZERO changes.     */
+/* :lang(en) ??English ONLY. Korean/Japanese: ZERO changes.     */
 
-/* AI analysis prose: 13px → 14px (Tactical Verdict, RLSI Insight, macro alerts, GammaShield) */
+/* AI analysis prose: 13px ??14px (Tactical Verdict, RLSI Insight, macro alerts, GammaShield) */
 :lang(en) [data-guardian] .text-\[13px\] {
   font-size: 14px !important;
   line-height: 1.7 !important;
 }
 
-/* Market Breadth interpretation & divergence text: 12px → 13px */
+/* Market Breadth interpretation & divergence text: 12px ??13px */
 :lang(en) [data-guardian] .text-\[12px\] {
   font-size: 12.5px !important;
 }
@@ -880,37 +880,37 @@
   line-height: 1.65 !important;
 }
 
-/* Noise bounce / small warning text: 11px → 12px */
+/* Noise bounce / small warning text: 11px ??12px */
 :lang(en) [data-guardian] .text-\[11px\] {
   font-size: 12px !important;
 }
 
 /* ===== [FLOW] ENGLISH-ONLY FLOW PAGE READABILITY ===== */
 /* [data-flow] on Flow page root div.                    */
-/* :lang(en) → English ONLY. Korean/Japanese: ZERO.      */
+/* :lang(en) ??English ONLY. Korean/Japanese: ZERO.      */
 
-/* AI analysis prose + sidebar rationale + strategy text: 13px → 14px */
+/* AI analysis prose + sidebar rationale + strategy text: 13px ??14px */
 :lang(en) [data-flow] .text-\[13px\] {
   font-size: 14px !important;
   line-height: 1.7 !important;
 }
 
-/* Factor breakdown labels + sub-badges: 11px → 12px */
+/* Factor breakdown labels + sub-badges: 11px ??12px */
 :lang(en) [data-flow] .text-\[11px\] {
   font-size: 12px !important;
 }
 
 /* ===== [INTEL] ENGLISH-ONLY INTEL PAGE READABILITY ===== */
 /* [data-intel] on Intel page root div.                    */
-/* :lang(en) → English ONLY. Korean/Japanese: ZERO.        */
+/* :lang(en) ??English ONLY. Korean/Japanese: ZERO.        */
 
-/* M7TacticalDeck AI analysis + EvidenceCard interpretation/action: 12px → 13px */
+/* M7TacticalDeck AI analysis + EvidenceCard interpretation/action: 12px ??13px */
 :lang(en) [data-intel] .text-\[12px\] {
   font-size: 13px !important;
   line-height: 1.65 !important;
 }
 
-/* AlphaCard AI analysis prose + whyKR narrative: text-xs → 13px */
+/* AlphaCard AI analysis prose + whyKR narrative: text-xs ??13px */
 /* Uses [data-ai-prose] on specific <p> elements only (not all text-xs) */
 :lang(en) [data-intel] [data-ai-prose] {
   font-size: 13px !important;
@@ -928,192 +928,82 @@
   user-select: none !important;
 }
 
-/* ═══════════════════════════════════════════════════════════════
-   [MOBILE APP-NATIVE] Command/Ticker Page — Robinhood/Bloomberg Grade
+/* ?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═??
+   [MOBILE APP-NATIVE] Command/Ticker Page ??Robinhood/Bloomberg Grade
    Desktop: ZERO影響. All selectors scoped to max-width: 768px.
-   Strategy: CSS-only layout transform (zero component code changes)
-   ═══════════════════════════════════════════════════════════════ */
+   Strategy: data-attribute selectors (stable across Tailwind builds)
+   ?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═?�═??*/
 
 @media (max-width: 768px) {
 
-  /* ── 1. COMMAND GRID: 12-col → single column compact ── */
-  /* The main 8/4 grid becomes 1-col stacked on mobile */
-  .grid.grid-cols-1.lg\:grid-cols-12 {
+  /* ?�?� 1. COMMAND GRID: Compact gaps, no min-height ?�?� */
+  [data-command-grid] {
     gap: 12px !important;
     min-height: auto !important;
   }
 
-  /* ── 2. CHART: 580px → 280px (Robinhood-style compact) ── */
-  /* Target the fixed-height chart container */
-  .h-\[580px\] {
+  /* ?�?� 2. CHART: 580px ??280px (Robinhood compact) ?�?� */
+  [data-command-chart] {
     height: 280px !important;
     min-height: 0 !important;
   }
 
-  /* ── 3. INDICATOR CARDS: Full-width → 2-Column Bento Grid ── */
-  /* The options analysis section turns into a tight 2-col grid */
-  .min-h-\[400px\].grid.grid-cols-1.md\:grid-cols-2 {
+  /* ?�?� 3. INDICATORS: 2-Column Bento Grid ?�?� */
+  [data-command-indicators] {
     grid-template-columns: repeat(2, 1fr) !important;
     gap: 8px !important;
     min-height: auto !important;
   }
 
-  /* Individual indicator cards — compact on mobile */
-  .min-h-\[400px\].grid.grid-cols-1.md\:grid-cols-2 > * {
+  /* Indicator inner cards ??compact */
+  [data-command-indicators] > * {
     min-height: 160px !important;
   }
 
-  /* Inner card content — tighter padding */
-  .min-h-\[400px\].rounded-lg.border {
-    min-height: 140px !important;
-    padding: 10px !important;
-  }
-
-  /* ── 4. SIDEBAR: Stack below main, compact gaps ── */
-  .lg\:col-span-4.flex.flex-col {
+  /* ?�?� 4. SIDEBAR: Stack below main, compact ?�?� */
+  [data-command-sidebar] {
     gap: 8px !important;
   }
 
-  /* ── 5. TICKER HERO HEADER: Sticky + App-grade typography ── */
-  /* The SSR preview header with price — make sticky on scroll */
-  .sticky.top-\[78px\] {
-    top: 52px !important; /* Below mobile nav bar */
-    border-radius: 0 !important;
-    margin: 0 -4px !important;
-    padding: 8px 12px !important;
-  }
-
-  /* Price text larger on mobile (Robinhood uses 28-32px) */
-  .text-3xl.font-black.text-white.tracking-tighter.tabular-nums {
-    font-size: 26px !important;
-  }
-
-  /* Ticker name more prominent */
-  .text-2xl.font-black.text-white.tracking-tighter.font-jakarta,
-  .text-xl.font-black.text-white.tracking-tight {
-    font-size: 20px !important;
-  }
-
-  /* ── 6. SSR SKELETON: Compact on mobile ── */
-  .grid.grid-cols-2.md\:grid-cols-3.lg\:grid-cols-5 {
+  /* ?�?� 5. SSR CARDS: 2-column Bento ?�?� */
+  [data-command-cards] {
     grid-template-columns: repeat(2, 1fr) !important;
     gap: 6px !important;
   }
 
-  /* ── 7. SIGNAL CORE: Full-width card on mobile ── */
-  /* The signal core verdict panel */
-  .flex.flex-col.h-full.bg-transparent > .p-3.border-b {
-    padding: 8px 12px !important;
-    flex-wrap: wrap;
-    gap: 4px !important;
+  /* SSR card shells compact */
+  [data-command-cards] > * {
+    min-height: 100px !important;
+    padding: 8px 10px !important;
   }
 
-  /* ── 8. INSIGHT TAB BUTTONS: Larger touch targets ── */
-  .flex.items-center.gap-1\.5.mb-2 > button {
-    padding: 8px 14px !important;
-    font-size: 11px !important;
+  /* ?�?� 6. SCROLL OPTIMIZATION ?�?� */
+  [data-command-grid],
+  [data-command-indicators],
+  [data-command-sidebar] {
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior: contain;
+  }
+
+  /* ?�?� 7. TYPOGRAPHY: App-grade price sizing ?�?� */
+  [data-command-grid] [class*="text-3xl"] {
+    font-size: 24px !important;
+  }
+
+  /* ?�?� 8. SIGNAL CORE: Compact padding ?�?� */
+  [data-command-grid] [class*="p-3"][class*="border-b"] {
+    padding: 8px 10px !important;
+  }
+
+  /* ?�?� 9. INSIGHT TAB BUTTONS: Touch targets ?�?� */
+  [data-command-grid] [class*="mb-2"] > button {
+    padding: 8px 12px !important;
     min-height: 38px !important;
   }
 
-  /* ── 9. PRO GATE CARDS: Compact padding ── */
-  /* Cards within ProGate wrappers */
-  .rounded-lg.border.border-white\/10.bg-slate-900\/60 {
-    padding: 8px !important;
-  }
-
-  /* ── 10. RELATED PEERS: Horizontal scroll on mobile ── */
-  .flex.items-center.gap-2.flex-wrap {
-    flex-wrap: nowrap !important;
-    overflow-x: auto !important;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: none;
-    padding-bottom: 4px;
-  }
-  .flex.items-center.gap-2.flex-wrap::-webkit-scrollbar {
-    display: none;
-  }
-
-  /* ── 11. MARKET PULSE BAR: Stack instead of inline ── */
-  /* The gamma/sqz/flow badges at chart top */
-  .absolute.-top-3.right-4.z-20.flex.items-center.gap-2 {
-    position: relative !important;
-    top: 0 !important;
-    right: 0 !important;
-    margin-bottom: 4px !important;
-    padding: 4px 0 !important;
-    justify-content: flex-start !important;
-    overflow-x: auto !important;
-    -webkit-overflow-scrolling: touch;
-  }
-
-  /* ── 12. GEX TIMELINE / TECH LEVELS: Reduce height ── */
-  .h-\[250px\], .h-\[200px\] {
-    max-height: 200px !important;
-  }
-
-  /* ── 13. ADMIN LIVE MONITOR: Reposition for mobile ── */
-  /* Move above bottom nav, reduce size */
-  .fixed.bottom-20.right-4.z-\[9999\] {
-    bottom: 72px !important;
-    right: 8px !important;
-  }
-
-  /* Minimized monitor button */
-  .fixed.bottom-20.right-4.z-\[9999\].w-10 {
-    bottom: 72px !important;
-    right: 8px !important;
-  }
-
-  /* ── 14. HEADER/PRICE ROW: Optimize for narrow screens ── */
-  /* Force flex-wrap on header items when space is tight */
-  .bg-white\/5.backdrop-blur-xl .flex.items-center.gap-3 {
-    flex-wrap: wrap !important;
-    gap: 6px !important;
-  }
-
-  /* Extended price badge compact */
-  .flex.items-center.gap-1\.5.px-2.py-1.rounded-full.border {
-    padding: 3px 8px !important;
-    font-size: 10px !important;
-  }
-
-  /* ── 15. OPTIONS BATTLEFIELD: Compact table ── */
-  .overflow-x-auto {
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: none;
-  }
-  .overflow-x-auto::-webkit-scrollbar {
-    display: none;
-  }
-
-  /* ── 16. SECTION LABELS: Consistent mobile sizing ── */
-  .text-\[12px\].font-black.uppercase.tracking-wider.font-jakarta {
-    font-size: 10px !important;
-    letter-spacing: 0.1em !important;
-  }
-
-  /* ── 17. COMMAND SSR CARDS: Bento grid on mobile ── */
-  /* The 5-column indicator grid from CommandSSRCards */
-  .grid.grid-cols-2.sm\:grid-cols-3.lg\:grid-cols-5 {
-    grid-template-columns: repeat(2, 1fr) !important;
-    gap: 6px !important;
-  }
-
-  /* ── 18. SPARKLINE & MINI CHARTS: Touch-friendly ── */
-  .h-\[320px\] {
-    height: 200px !important;
-  }
-
-  /* ── 19. TOOLTIP BADGE: Compact ── */
-  [class*="CardTooltip"] {
-    font-size: 10px !important;
-  }
-
-  /* ── 20. EARNINGS & RELATED CARDS: Compact ── */
-  .p-4.space-y-3 {
-    padding: 10px !important;
-  }
-  .p-4.space-y-3 > * + * {
-    margin-top: 8px !important;
+  /* ?�?� 10. CARD CONTENT: Tighter padding ?�?� */
+  [data-command-indicators] [class*="rounded-lg"][class*="border"][class*="bg-slate"] {
+    min-height: auto !important;
   }
 }
+
