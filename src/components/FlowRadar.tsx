@@ -60,7 +60,22 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
     const { metrics: realtimeMetrics } = useRealtimeMetrics(ticker, hasData, initialFlowData?.realtimeMetrics);
     const { trades: darkPoolTrades } = useDarkPoolTrades(ticker, hasData, initialFlowData?.darkPoolTrades);
     const [flowViewMode, setFlowViewMode] = useState<'WHALE' | 'DARKPOOL' | 'LIVE'>('WHALE');
+    const hasUserSwitchedTab = useRef(false);
     const { optionsTrades: wsOptionsTrades, optionsQuotes: wsOptionsQuotes, connected: wsFlowConnected } = useRealtimeData([ticker]);
+
+    // [V11] Auto-select best tab: if no whale trades but dark pool data exists, show dark pool first
+    useEffect(() => {
+        if (hasUserSwitchedTab.current) return; // Don't override manual selection
+        if (!tradesLoading && (!restWhaleTrades || restWhaleTrades.length === 0) && darkPoolTrades && darkPoolTrades.length > 0) {
+            setFlowViewMode('DARKPOOL');
+        }
+    }, [restWhaleTrades, darkPoolTrades, tradesLoading]);
+
+    // Reset on ticker change
+    useEffect(() => {
+        hasUserSwitchedTab.current = false;
+        setFlowViewMode('WHALE');
+    }, [ticker]);
     // Filter WS trades for current ticker
     const liveOptionsTrades = useMemo(() => {
         return wsOptionsTrades.filter(t => t.underlying === ticker).slice(0, 50);
@@ -2439,7 +2454,7 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                                         {/* Whale / Dark Pool Toggle */}
                                         <div className="flex bg-slate-950/80 backdrop-blur-xl rounded-lg p-1 border border-white/10 shrink-0 ml-auto gap-1">
                                             <button
-                                                onClick={() => setFlowViewMode('WHALE')}
+                                                onClick={() => { hasUserSwitchedTab.current = true; setFlowViewMode('WHALE'); }}
                                                 className={`flex items-center gap-1.5 px-2 py-1 rounded-md transition-all duration-300 ${flowViewMode === 'WHALE'
                                                     ? 'bg-cyan-500/20 backdrop-blur-md text-white border border-cyan-400/40 shadow-[0_0_15px_rgba(34,211,238,0.3)]'
                                                     : 'text-slate-400 hover:text-slate-300 hover:bg-white/5'}`}
@@ -2456,7 +2471,7 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                                                 )}
                                             </button>
                                             <button
-                                                onClick={() => setFlowViewMode('DARKPOOL')}
+                                                onClick={() => { hasUserSwitchedTab.current = true; setFlowViewMode('DARKPOOL'); }}
                                                 className={`flex items-center gap-1.5 px-2 py-1 rounded-md transition-all duration-300 ${flowViewMode === 'DARKPOOL'
                                                     ? 'bg-teal-500/20 backdrop-blur-md text-white border border-teal-400/40 shadow-[0_0_15px_rgba(20,184,166,0.3)]'
                                                     : 'text-slate-400 hover:text-slate-300 hover:bg-white/5'}`}
@@ -2473,7 +2488,7 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                                                 )}
                                             </button>
                                             <button
-                                                onClick={() => setFlowViewMode('LIVE')}
+                                                onClick={() => { hasUserSwitchedTab.current = true; setFlowViewMode('LIVE'); }}
                                                 className={`flex items-center gap-1.5 px-2 py-1 rounded-md transition-all duration-300 ${flowViewMode === 'LIVE'
                                                     ? 'bg-amber-500/20 backdrop-blur-md text-white border border-amber-400/40 shadow-[0_0_15px_rgba(245,158,11,0.3)]'
                                                     : 'text-slate-400 hover:text-slate-300 hover:bg-white/5'}`}
