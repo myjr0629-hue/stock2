@@ -29,23 +29,45 @@ export async function GET(req: NextRequest) {
                 const relTickers = dynRelated.tickers.slice(0, 10);
                 const top4 = relTickers.slice(0, 4);
 
-                // [FIX] 4개 종목 changePct를 한번에 가져오기 (2초 timeout)
+                // [V9 ROOT-FIX] Use DynamoDB changePct (Lambda 정확 계산) instead of Polygon todaysChangePerc (부정확)
+                // DynamoDB has accurate changePct = (close - prevClose) / prevClose * 100 for all 500+ universe tickers
                 let topRelated = top4.map((t: string) => ({ ticker: t, price: 0, change: 0, logo: null }));
                 try {
-                    const snapPromises = top4.map((relT: string) =>
-                        fetchMassive(`/v2/snapshot/locale/us/markets/stocks/tickers/${relT}`, {}, true)
-                            .then((snap: any) => ({
-                                ticker: relT,
-                                price: Math.round((snap?.ticker?.lastTrade?.p || snap?.ticker?.day?.c || 0) * 100) / 100,
-                                change: Math.round((snap?.ticker?.todaysChangePerc || 0) * 100) / 100,
-                                logo: null
-                            }))
-                            .catch(() => ({ ticker: relT, price: 0, change: 0, logo: null }))
-                    );
-                    topRelated = await Promise.race([
-                        Promise.all(snapPromises),
-                        new Promise<typeof topRelated>(r => setTimeout(() => r(topRelated), 2000))
+                    const { getLatestPrices } = await import('@/lib/aws/dynamoDataProvider');
+                    const priceMap = await Promise.race([
+                        getLatestPrices(top4),
+                        new Promise<Map<string, any>>(r => setTimeout(() => r(new Map()), 2000))
                     ]);
+                    topRelated = top4.map((relT: string) => {
+                        const p = priceMap.get(relT);
+                        return {
+                            ticker: relT,
+                            price: p ? Math.round(p.close * 100) / 100 : 0,
+                            change: p ? Math.round((p.changePct || 0) * 100) / 100 : 0,
+                            logo: null
+                        };
+                    });
+                    // Fallback: if DynamoDB had no data for some tickers, try Polygon snapshot
+                    const missing = topRelated.filter((t: { ticker: string; price: number; change: number; logo: null }) => t.price === 0);
+                    if (missing.length > 0) {
+                        const snapResults = await Promise.race([
+                            Promise.all(missing.map((m: { ticker: string; price: number; change: number; logo: null }) =>
+                                fetchMassive(`/v2/snapshot/locale/us/markets/stocks/tickers/${m.ticker}`, {}, true)
+                                    .then((snap: any) => ({
+                                        ticker: m.ticker,
+                                        price: Math.round((snap?.ticker?.lastTrade?.p || snap?.ticker?.day?.c || 0) * 100) / 100,
+                                        change: Math.round((snap?.ticker?.todaysChangePerc || 0) * 100) / 100,
+                                        logo: null
+                                    }))
+                                    .catch(() => m)
+                            )),
+                            new Promise<typeof missing>(r => setTimeout(() => r(missing), 2000))
+                        ]);
+                        for (const sr of snapResults) {
+                            const idx = topRelated.findIndex((t: { ticker: string }) => t.ticker === sr.ticker);
+                            if (idx >= 0 && sr.price > 0) topRelated[idx] = sr;
+                        }
+                    }
                 } catch {}
 
                 return new Response(JSON.stringify({

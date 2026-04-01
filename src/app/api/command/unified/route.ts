@@ -796,14 +796,37 @@ async function tryDynamoFast(ticker: string): Promise<any | null> {
                 earningsCard = { ticker, nextEarningsDate: e.nextDate || null, daysUntilEarnings: days, daysLabel: days < 0 ? `D+${Math.abs(days)}` : days === 0 ? 'today' : `D-${days}`, epsEstimate: e.epsEstimate || null, quarter: e.quarter || null, year: e.year || null, hourLabel: e.hour || '', color: days <= 3 && days >= 0 ? 'text-rose-400' : days <= 7 && days >= 0 ? 'text-amber-400' : 'text-slate-400', hasData: true };
             }
 
-            let relatedCard = snap.related?.tickers ? {
-                ticker,
-                count: snap.related.tickers.length,
-                topRelated: snap.related.tickers.slice(0, 4).map((t: string) => ({ ticker: t, price: 0, change: 0, logo: null })),
-                relatedTickers: snap.related.tickers,
-                allTickers: snap.related.tickers,
-                _source: 'dynamodb',
-            } : null;
+            let relatedCard = null;
+            if (snap.related?.tickers && snap.related.tickers.length > 0) {
+                const relTickers = snap.related.tickers;
+                const top4 = relTickers.slice(0, 4);
+                // [V9] Enrich related tickers with DynamoDB price data (accurate changePct)
+                let topRelated = top4.map((t: string) => ({ ticker: t, price: 0, change: 0, logo: null }));
+                try {
+                    const { getLatestPrices } = await import('@/lib/aws/dynamoDataProvider');
+                    const priceMap = await Promise.race([
+                        getLatestPrices(top4),
+                        new Promise<Map<string, any>>(r => setTimeout(() => r(new Map()), 1500))
+                    ]);
+                    topRelated = top4.map((t: string) => {
+                        const p = priceMap.get(t);
+                        return {
+                            ticker: t,
+                            price: p ? Math.round(p.close * 100) / 100 : 0,
+                            change: p ? Math.round((p.changePct || 0) * 100) / 100 : 0,
+                            logo: null
+                        };
+                    });
+                } catch {}
+                relatedCard = {
+                    ticker,
+                    count: relTickers.length,
+                    topRelated,
+                    relatedTickers: relTickers,
+                    allTickers: relTickers,
+                    _source: 'dynamodb',
+                };
+            }
 
             let fundamentalsCard = null;
             if (snap.fundamentals) {
