@@ -927,3 +927,193 @@
   pointer-events: none !important;
   user-select: none !important;
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   [MOBILE APP-NATIVE] Command/Ticker Page — Robinhood/Bloomberg Grade
+   Desktop: ZERO影響. All selectors scoped to max-width: 768px.
+   Strategy: CSS-only layout transform (zero component code changes)
+   ═══════════════════════════════════════════════════════════════ */
+
+@media (max-width: 768px) {
+
+  /* ── 1. COMMAND GRID: 12-col → single column compact ── */
+  /* The main 8/4 grid becomes 1-col stacked on mobile */
+  .grid.grid-cols-1.lg\:grid-cols-12 {
+    gap: 12px !important;
+    min-height: auto !important;
+  }
+
+  /* ── 2. CHART: 580px → 280px (Robinhood-style compact) ── */
+  /* Target the fixed-height chart container */
+  .h-\[580px\] {
+    height: 280px !important;
+    min-height: 0 !important;
+  }
+
+  /* ── 3. INDICATOR CARDS: Full-width → 2-Column Bento Grid ── */
+  /* The options analysis section turns into a tight 2-col grid */
+  .min-h-\[400px\].grid.grid-cols-1.md\:grid-cols-2 {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 8px !important;
+    min-height: auto !important;
+  }
+
+  /* Individual indicator cards — compact on mobile */
+  .min-h-\[400px\].grid.grid-cols-1.md\:grid-cols-2 > * {
+    min-height: 160px !important;
+  }
+
+  /* Inner card content — tighter padding */
+  .min-h-\[400px\].rounded-lg.border {
+    min-height: 140px !important;
+    padding: 10px !important;
+  }
+
+  /* ── 4. SIDEBAR: Stack below main, compact gaps ── */
+  .lg\:col-span-4.flex.flex-col {
+    gap: 8px !important;
+  }
+
+  /* ── 5. TICKER HERO HEADER: Sticky + App-grade typography ── */
+  /* The SSR preview header with price — make sticky on scroll */
+  .sticky.top-\[78px\] {
+    top: 52px !important; /* Below mobile nav bar */
+    border-radius: 0 !important;
+    margin: 0 -4px !important;
+    padding: 8px 12px !important;
+  }
+
+  /* Price text larger on mobile (Robinhood uses 28-32px) */
+  .text-3xl.font-black.text-white.tracking-tighter.tabular-nums {
+    font-size: 26px !important;
+  }
+
+  /* Ticker name more prominent */
+  .text-2xl.font-black.text-white.tracking-tighter.font-jakarta,
+  .text-xl.font-black.text-white.tracking-tight {
+    font-size: 20px !important;
+  }
+
+  /* ── 6. SSR SKELETON: Compact on mobile ── */
+  .grid.grid-cols-2.md\:grid-cols-3.lg\:grid-cols-5 {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 6px !important;
+  }
+
+  /* ── 7. SIGNAL CORE: Full-width card on mobile ── */
+  /* The signal core verdict panel */
+  .flex.flex-col.h-full.bg-transparent > .p-3.border-b {
+    padding: 8px 12px !important;
+    flex-wrap: wrap;
+    gap: 4px !important;
+  }
+
+  /* ── 8. INSIGHT TAB BUTTONS: Larger touch targets ── */
+  .flex.items-center.gap-1\.5.mb-2 > button {
+    padding: 8px 14px !important;
+    font-size: 11px !important;
+    min-height: 38px !important;
+  }
+
+  /* ── 9. PRO GATE CARDS: Compact padding ── */
+  /* Cards within ProGate wrappers */
+  .rounded-lg.border.border-white\/10.bg-slate-900\/60 {
+    padding: 8px !important;
+  }
+
+  /* ── 10. RELATED PEERS: Horizontal scroll on mobile ── */
+  .flex.items-center.gap-2.flex-wrap {
+    flex-wrap: nowrap !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    padding-bottom: 4px;
+  }
+  .flex.items-center.gap-2.flex-wrap::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* ── 11. MARKET PULSE BAR: Stack instead of inline ── */
+  /* The gamma/sqz/flow badges at chart top */
+  .absolute.-top-3.right-4.z-20.flex.items-center.gap-2 {
+    position: relative !important;
+    top: 0 !important;
+    right: 0 !important;
+    margin-bottom: 4px !important;
+    padding: 4px 0 !important;
+    justify-content: flex-start !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* ── 12. GEX TIMELINE / TECH LEVELS: Reduce height ── */
+  .h-\[250px\], .h-\[200px\] {
+    max-height: 200px !important;
+  }
+
+  /* ── 13. ADMIN LIVE MONITOR: Reposition for mobile ── */
+  /* Move above bottom nav, reduce size */
+  .fixed.bottom-20.right-4.z-\[9999\] {
+    bottom: 72px !important;
+    right: 8px !important;
+  }
+
+  /* Minimized monitor button */
+  .fixed.bottom-20.right-4.z-\[9999\].w-10 {
+    bottom: 72px !important;
+    right: 8px !important;
+  }
+
+  /* ── 14. HEADER/PRICE ROW: Optimize for narrow screens ── */
+  /* Force flex-wrap on header items when space is tight */
+  .bg-white\/5.backdrop-blur-xl .flex.items-center.gap-3 {
+    flex-wrap: wrap !important;
+    gap: 6px !important;
+  }
+
+  /* Extended price badge compact */
+  .flex.items-center.gap-1\.5.px-2.py-1.rounded-full.border {
+    padding: 3px 8px !important;
+    font-size: 10px !important;
+  }
+
+  /* ── 15. OPTIONS BATTLEFIELD: Compact table ── */
+  .overflow-x-auto {
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .overflow-x-auto::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* ── 16. SECTION LABELS: Consistent mobile sizing ── */
+  .text-\[12px\].font-black.uppercase.tracking-wider.font-jakarta {
+    font-size: 10px !important;
+    letter-spacing: 0.1em !important;
+  }
+
+  /* ── 17. COMMAND SSR CARDS: Bento grid on mobile ── */
+  /* The 5-column indicator grid from CommandSSRCards */
+  .grid.grid-cols-2.sm\:grid-cols-3.lg\:grid-cols-5 {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 6px !important;
+  }
+
+  /* ── 18. SPARKLINE & MINI CHARTS: Touch-friendly ── */
+  .h-\[320px\] {
+    height: 200px !important;
+  }
+
+  /* ── 19. TOOLTIP BADGE: Compact ── */
+  [class*="CardTooltip"] {
+    font-size: 10px !important;
+  }
+
+  /* ── 20. EARNINGS & RELATED CARDS: Compact ── */
+  .p-4.space-y-3 {
+    padding: 10px !important;
+  }
+  .p-4.space-y-3 > * + * {
+    margin-top: 8px !important;
+  }
+}
