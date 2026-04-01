@@ -1,4 +1,4 @@
-﻿@import "tailwindcss";
+@import "tailwindcss";
 
 @plugin "tailwindcss-animate";
 
@@ -1095,5 +1095,148 @@
   }
   .flex.items-center.gap-2.flex-wrap::-webkit-scrollbar {
     display: none;
+  }
+
+  /* ────────────────────────────────────────────────────────────
+     H. COMMAND PAGE — Compact Cards (Robinhood-grade density)
+     ──────────────────────────────────────────────────────────── */
+
+  /* H1. Sticky ticker header: compact on mobile */
+  [data-command-header] {
+    padding: 4px 8px !important;
+    top: 56px !important;
+    border-radius: 8px !important;
+  }
+  [data-command-header] .text-xl {
+    font-size: 18px !important;
+  }
+  [data-command-header] .w-10,
+  [data-command-header] .w-12 {
+    width: 28px !important;
+    height: 28px !important;
+  }
+
+  /* H2. SSR Cards: ultra-compact */
+  [data-command-cards] > * {
+    min-height: 80px !important;
+    padding: 6px 8px !important;
+  }
+  /* Card title row */
+  [data-command-cards] .text-\[13px\] {
+    font-size: 11px !important;
+  }
+  /* Card main value */
+  [data-command-cards] .text-\[20px\] {
+    font-size: 16px !important;
+  }
+  /* Card sub text */
+  [data-command-cards] .text-\[12px\] {
+    font-size: 10px !important;
+  }
+  /* Card badge */
+  [data-command-cards] .text-\[12px\].font-black {
+    font-size: 10px !important;
+    padding: 1px 4px !important;
+  }
+
+  /* H3. Indicator analysis cards: compact min-height */
+  [data-command-indicators] > * {
+    min-height: 120px !important;
+  }
+  /* Tactical Range card: reduce height */
+  [data-command-indicators] .min-h-\[400px\] {
+    min-height: 240px !important;
+  }
+  /* Indicators interior padding */
+  [data-command-indicators] .px-3.py-2 {
+    padding: 6px 8px !important;
+  }
+
+  /* H4. Main container: reduce top spacing */
+  [data-command-grid] {
+    margin-top: 0 !important;
+  }
+
+  /* ────────────────────────────────────────────────────────────
+     I. WATCHLIST — Compact Summary + Card Density
+     ──────────────────────────────────────────────────────────── */
+
+  /* I1. Watchlist summary grid: reduce stat card height */
+  [data-watchlist] .grid.grid-cols-2 {
+    gap: 6px !important;
+  }
+
+  /* I2. Summary stat cards: compact padding */
+  [data-watchlist] .rounded-2xl {
+    padding: 10px 12px !important;
+  }
+
+  /* I3. Signal dist section: reduce padding  */
+  [data-watchlist] .rounded-2xl .text-\[15px\] {
+    font-size: 13px !important;
+  }
+
+  /* I4. Heatmap cells: better touch targets */
+  [data-watchlist] .grid.gap-0\.5 > * {
+    min-height: 28px !important;
+    min-width: 40px !important;
+  }
+
+  /* I5. Stock card mobile row: tighter vertical */
+  [data-watchlist] .flex.md\:hidden {
+    padding-top: 8px !important;
+    padding-bottom: 8px !important;
+    gap: 6px !important;
+  }
+  /* Logo size: 44px → 32px */
+  [data-watchlist] .flex.md\:hidden .w-11 {
+    width: 32px !important;
+    height: 32px !important;
+  }
+  /* Ticker name: 17px → 14px */
+  [data-watchlist] .flex.md\:hidden .text-\[17px\] {
+    font-size: 14px !important;
+  }
+  /* Price: 20px → 16px */
+  [data-watchlist] .flex.md\:hidden .text-\[20px\] {
+    font-size: 16px !important;
+  }
+  /* Change: 14px → 12px */
+  [data-watchlist] .flex.md\:hidden .text-\[14px\] {
+    font-size: 12px !important;
+  }
+  /* Metric pills row: tighter */
+  [data-watchlist] .flex.md\:hidden + .flex.md\:hidden,
+  [data-watchlist] .flex.md\:hidden .gap-1\.5 {
+    gap: 4px !important;
+  }
+  /* Pill badges: smaller */
+  [data-watchlist] .flex.md\:hidden .text-\[11px\] {
+    font-size: 10px !important;
+    padding: 1px 5px !important;
+  }
+
+  /* I6. Board toggle button: slimmer */
+  [data-watchlist] .w-11.h-full {
+    width: 32px !important;
+    padding-top: 8px !important;
+    padding-bottom: 8px !important;
+  }
+
+  /* ────────────────────────────────────────────────────────────
+     J. HOMEPAGE LANDING — Mobile polish
+     ──────────────────────────────────────────────────────────── */
+
+  /* J1. Hero section vertical spacing */
+  .text-5xl.font-black,
+  .text-4xl.font-black {
+    font-size: 28px !important;
+    line-height: 1.1 !important;
+  }
+
+  /* J2. CTA button: full width */
+  .rounded-xl.bg-gradient-to-r.text-lg {
+    width: 100% !important;
+    text-align: center !important;
   }
 }

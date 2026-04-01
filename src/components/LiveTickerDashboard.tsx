@@ -1303,7 +1303,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
         <div className="w-full max-w-[1600px] mx-auto space-y-6">
 
             {/* 1. TOP HEADER (2-Row Layout matching Flow page) - Sticky below main header */}
-            <div className="sticky top-[78px] z-30 bg-white/5 backdrop-blur-xl rounded-xl py-1 px-3 border border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.3)]">
+            <div className="sticky top-[78px] z-30 bg-white/5 backdrop-blur-xl rounded-xl py-1 px-3 border border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.3)]" data-command-header>
                 <div className="flex items-stretch gap-3">
                     {/* Left Column: Identity + Price */}
                     <div className="flex flex-col justify-center min-w-0 shrink-0">

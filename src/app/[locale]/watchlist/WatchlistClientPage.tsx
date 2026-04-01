@@ -119,7 +119,7 @@ export default function WatchlistClientPage({
     };
 
     return (
-        <div className="min-h-screen bg-gradient-to-b from-[#0b1120] via-[#0d1424] to-[#0b1120] text-slate-100">
+        <div className="min-h-screen bg-gradient-to-b from-[#0b1120] via-[#0d1424] to-[#0b1120] text-slate-100" data-watchlist>
             <GlobalStyles />
             {/* ── Gradient Accent Line ── */}
             <div className="h-px bg-gradient-to-r from-transparent via-amber-500/30 to-transparent" />
