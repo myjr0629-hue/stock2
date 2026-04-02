@@ -812,7 +812,9 @@ async function tryDynamoFast(ticker: string): Promise<any | null> {
                             return fetchMassive(`/v2/snapshot/locale/us/markets/stocks/tickers/${snapT}`, {}, true)
                                 .then((snap: any) => {
                                     const td = snap?.ticker;
-                                    const currentPrice = td?.lastTrade?.p || td?.day?.c || 0;
+                                    // [FIX] day.c (regular close) first — lastTrade.p during POST/PRE
+                                    // contains after-hours/pre-market trades → incorrect changePct
+                                    const currentPrice = td?.day?.c || td?.lastTrade?.p || 0;
                                     const prevClose = td?.prevDay?.c || 0;
                                     const change = currentPrice > 0 && prevClose > 0
                                         ? Math.round(((currentPrice - prevClose) / prevClose) * 10000) / 100

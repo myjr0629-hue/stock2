@@ -92,18 +92,26 @@ export function calcPriceDisplay(input: PriceDisplayInput): PriceDisplayResult {
     let displayPrice = livePrice || apiDisplayPrice || resolvedPrevClose || 0;
     let displayChangePct = liveChangePct ?? apiDisplayChangePct ?? null;
 
-    // POST/CLOSED: Main display = today's regular close
+    // POST/CLOSED: Main display = today's regular close, NOT live after-hours trades
+    // [FIX 2026-04-03] WebSocket livePrice during POST/CLOSED contains after-hours trade prices
+    // (e.g. $361.25) which must NOT appear as the main display — must show regular close ($360.59)
     if (s === 'POST' || s === 'CLOSED') {
-        if (regularCloseToday && regularCloseToday > 0) {
-            displayPrice = regularCloseToday;
+        // Priority: regularCloseToday > apiDisplayPrice > resolvedPrevClose
+        // livePrice deliberately EXCLUDED — may be WebSocket POST-market trade
+        const regClose = (regularCloseToday && regularCloseToday > 0) ? regularCloseToday
+            : (apiDisplayPrice && apiDisplayPrice > 0) ? apiDisplayPrice
+            : resolvedPrevClose || 0;
+
+        if (regClose > 0) {
+            displayPrice = regClose;
 
             // Detect "No New Trading Day" (weekend/holiday)
             const isNewTradingDay = resolvedPrevClose > 0
-                ? Math.abs(regularCloseToday - resolvedPrevClose) > 0.001
+                ? Math.abs(regClose - resolvedPrevClose) > 0.001
                 : false;
 
             if (isNewTradingDay && resolvedPrevClose > 0) {
-                displayChangePct = ((regularCloseToday - resolvedPrevClose) / resolvedPrevClose) * 100;
+                displayChangePct = ((regClose - resolvedPrevClose) / resolvedPrevClose) * 100;
             } else {
                 // Weekend/holiday: show previous session's change
                 displayChangePct = prevChangePct ?? fallbackChangePct ?? 0;
