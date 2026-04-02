@@ -2,6 +2,36 @@
 const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
 const { DynamoDBDocumentClient, PutCommand, BatchWriteCommand, QueryCommand } = require('@aws-sdk/lib-dynamodb');
 const https = require('https');
+const { Redis } = require('@upstash/redis');
+
+// Upstash Redis — direct REST API (no VPC needed)
+const UPSTASH_URL = process.env.UPSTASH_REDIS_REST_URL || '';
+const UPSTASH_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN || '';
+let redisClient = null;
+
+function getRedis() {
+  if (redisClient) return redisClient;
+  if (!UPSTASH_URL || !UPSTASH_TOKEN) {
+    console.warn('[Redis] Upstash not configured — flow cache warming disabled');
+    return null;
+  }
+  redisClient = new Redis({ url: UPSTASH_URL, token: UPSTASH_TOKEN });
+  console.log('[Redis] Upstash client initialized');
+  return redisClient;
+}
+
+async function redisSet(key, value, ttlSec) {
+  const r = getRedis();
+  if (!r) return false;
+  try {
+    if (ttlSec) await r.setex(key, ttlSec, value);
+    else await r.set(key, value);
+    return true;
+  } catch (e) {
+    console.warn('[Redis] set(' + key + ') failed: ' + e.message);
+    return false;
+  }
+}
 
 const client = DynamoDBDocumentClient.from(new DynamoDBClient({ region: 'us-east-1' }), {
   marshallOptions: { removeUndefinedValues: true }
@@ -447,32 +477,197 @@ async function warmRedisCache() {
   return { success, fail, duration };
 }
 
-// ====== Flow Cache Warming Orchestrator ======
-// Triggers Vercel /api/cron/warm-flow for all 30 batches (300 tickers)
-// Mirrors warmRedisCache() pattern for complete universe coverage
-const FLOW_BATCHES = 50; // 500 tickers / 10 per batch
+// ====== Flow Cache Warming — DIRECT Polygon→Redis (No Vercel) ======
+// Lambda directly fetches options chain from Polygon and writes to Redis
+// Eliminates Vercel 60s timeout bottleneck entirely
+// Writes to flow:ticker:lite:{ticker} (read by live/ticker API)
 
-async function warmFlowCache() {
-  console.log('[FlowWarm] Starting full Flow cache warming — ' + FLOW_BATCHES + ' batches...');
+async function warmFlowCache(snapshotMap) {
+  const redis = getRedis();
+  if (!redis) {
+    console.log('[FlowWarm] SKIP: Redis not configured');
+    return { success: 0, fail: 0, duration: 0 };
+  }
+
+  console.log('[FlowWarm] Starting DIRECT flow cache warming — ' + UNIVERSE.length + ' tickers...');
   const start = Date.now();
-  const CONCURRENCY = 3; // 3 concurrent Vercel function invocations
+  const CONCURRENCY = 5; // 5 concurrent Polygon calls
+  const CACHE_TTL = 900; // 15 minutes (generous TTL, Lambda refreshes every 10 min)
   let success = 0, fail = 0;
 
-  for (let i = 0; i < FLOW_BATCHES; i += CONCURRENCY) {
-    const batchPromises = [];
-    for (let j = 0; j < CONCURRENCY && (i + j) < FLOW_BATCHES; j++) {
-      const batchNum = i + j;
-      const url = VERCEL_URL + '/api/cron/warm-flow?batch=' + batchNum;
-      batchPromises.push(
-        httpsGet(url.replace('http://', 'https://'), 55000)
-          .then(r => { success++; return r; })
-          .catch(e => { fail++; console.warn('[FlowWarm] Batch ' + batchNum + ' failed: ' + e.message); })
-      );
+  for (let i = 0; i < UNIVERSE.length; i += CONCURRENCY) {
+    const batch = UNIVERSE.slice(i, i + CONCURRENCY);
+    await Promise.all(batch.map(async (ticker) => {
+      try {
+        const snap = snapshotMap[ticker];
+        const price = snap?.price || 0;
+        if (price <= 0) { fail++; return; }
+
+        // Fetch weekly expiration options chain from Polygon
+        const todayStr = new Date().toISOString().slice(0, 10);
+
+        // Phase 1: Probe for available expirations (250 contracts, sorted by expiry)
+        const probeUrl = 'https://api.polygon.io/v3/snapshot/options/' + ticker
+          + '?limit=250&expiration_date.gte=' + todayStr
+          + '&sort=expiration_date&order=asc&apiKey=' + POLYGON_KEY;
+        const probeRes = await httpsGet(probeUrl, 12000).catch(() => null);
+        const probeResults = probeRes?.results || [];
+
+        if (probeResults.length === 0) { fail++; return; }
+
+        // Find weekly expiration (Friday first, then Thursday)
+        const expirations = [...new Set(probeResults.map(c => c.details?.expiration_date).filter(Boolean))].sort();
+        let weeklyExpiry = null;
+        for (const exp of expirations) {
+          const d = new Date(exp + 'T12:00:00');
+          if (d.getDay() === 5) { weeklyExpiry = exp; break; }
+        }
+        if (!weeklyExpiry) {
+          for (const exp of expirations) {
+            const d = new Date(exp + 'T12:00:00');
+            if (d.getDay() === 4) { weeklyExpiry = exp; break; }
+          }
+        }
+        if (!weeklyExpiry && expirations.length > 0) weeklyExpiry = expirations[0];
+        if (!weeklyExpiry) { fail++; return; }
+
+        // Phase 2: Fetch exact weekly expiration
+        const exactUrl = 'https://api.polygon.io/v3/snapshot/options/' + ticker
+          + '?limit=250&expiration_date=' + weeklyExpiry + '&apiKey=' + POLYGON_KEY;
+        const exactRes = await httpsGet(exactUrl, 12000).catch(() => null);
+        const results = exactRes?.results || [];
+
+        // Calculate flow metrics (matching centralDataHub._fetchOptionsChain format)
+        let callPremium = 0, putPremium = 0, totalGamma = 0, contractsProcessed = 0;
+        let hasLiveVolume = false;
+
+        for (const c of results) {
+          const gamma = c.greeks?.gamma || 0;
+          const oi = c.open_interest || 0;
+          const cType = c.details?.contract_type;
+          if (cType === 'call') totalGamma += (gamma * oi * 100);
+          else if (cType === 'put') totalGamma -= (gamma * oi * 100);
+
+          const vol = c.day?.volume || 0;
+          const priceUsed = c.day?.close || c.details?.close_price || 0;
+          if (vol > 0 && priceUsed > 0) {
+            hasLiveVolume = true;
+            const premium = vol * priceUsed * 100;
+            if (cType === 'call') callPremium += premium;
+            else if (cType === 'put') putPremium += premium;
+            contractsProcessed++;
+          }
+        }
+
+        // Fallback: if no live volume, use OI * prev close
+        if (!hasLiveVolume && results.length > 0) {
+          callPremium = 0; putPremium = 0; contractsProcessed = 0;
+          for (const c of results) {
+            const oi = c.open_interest || 0;
+            const priceUsed = c.day?.previous_close || c.details?.prev_close || 0;
+            const cType = c.details?.contract_type;
+            if (!oi || !priceUsed) continue;
+            const val = oi * priceUsed * 100;
+            if (cType === 'call') callPremium += val;
+            else if (cType === 'put') putPremium += val;
+            contractsProcessed++;
+          }
+        }
+
+        // Calc MaxPain, CallWall, PutFloor, PinZone
+        let maxCOI = 0, maxPOI = 0, callWall = null, putFloor = null;
+        const strikeOI = {};
+        for (const c of results) {
+          const s = c.details?.strike_price; if (!s) continue;
+          const oi = c.open_interest || 0;
+          if (c.details.contract_type === 'call' && oi > maxCOI) { maxCOI = oi; callWall = s; }
+          if (c.details.contract_type === 'put' && oi > maxPOI) { maxPOI = oi; putFloor = s; }
+          strikeOI[s] = (strikeOI[s] || 0) + oi;
+        }
+        let pinZone = null, maxTotalOI = 0;
+        for (const [s, oi] of Object.entries(strikeOI)) {
+          if (oi > maxTotalOI) { maxTotalOI = oi; pinZone = parseFloat(s); }
+        }
+
+        // MaxPain calculation
+        const strikes = Object.keys(strikeOI).map(Number).sort((a, b) => a - b);
+        let maxPain = null, minPain = Infinity;
+        for (const pp of strikes) {
+          let pain = 0;
+          for (const c of results) {
+            const K = c.details?.strike_price; if (!K) continue;
+            const oi = c.open_interest || 0;
+            if (c.details.contract_type === 'call' && pp > K) pain += (pp - K) * oi;
+            else if (c.details.contract_type === 'put' && pp < K) pain += (K - pp) * oi;
+          }
+          if (pain < minPain) { minPain = pain; maxPain = pp; }
+        }
+
+        // Slim chain (matching slimOptionChain format from live/ticker)
+        const rawChain = results.map(opt => ({
+          details: {
+            strike_price: opt.details?.strike_price,
+            contract_type: opt.details?.contract_type,
+            expiration_date: opt.details?.expiration_date,
+          },
+          open_interest: opt.open_interest,
+          greeks: { delta: opt.greeks?.delta, gamma: opt.greeks?.gamma, implied_volatility: opt.greeks?.implied_volatility },
+          day: { volume: opt.day?.volume, close: opt.day?.close, open_interest: opt.day?.open_interest },
+          implied_volatility: opt.implied_volatility,
+          ...(opt.last_quote?.midpoint !== undefined ? { last_quote: { midpoint: opt.last_quote.midpoint } } : {}),
+        }));
+        const allExpiryChain = probeResults.map(opt => ({
+          details: { strike_price: opt.details?.strike_price, contract_type: opt.details?.contract_type, expiration_date: opt.details?.expiration_date },
+          open_interest: opt.open_interest,
+          greeks: { delta: opt.greeks?.delta, gamma: opt.greeks?.gamma },
+          day: { volume: opt.day?.volume },
+        }));
+
+        const dataSource = hasLiveVolume ? 'LIVE' : contractsProcessed > 0 ? 'CALCULATED' : 'NONE';
+
+        // Build response matching live/ticker format
+        const flowPayload = {
+          ticker,
+          session: 'REG', // Lambda runs during market hours
+          tsServer: Date.now(),
+          price: price,
+          changePct: snap.changePct || 0,
+          prevClose: 0,
+          volume: snap.volume || 0,
+          flow: {
+            netPremium: callPremium - putPremium,
+            callPremium, putPremium,
+            totalPremium: callPremium + putPremium,
+            optionsCount: results.length,
+            contractsProcessed, dataSource,
+            isAfterHours: false,
+            gamma: totalGamma,
+            rawChain, allExpiryChain,
+            allExpirations: expirations,
+            weeklyExpiration: weeklyExpiry,
+            callWall, putFloor, pinZone, maxPain,
+            error: null,
+          },
+          _source: 'lambda-direct',
+        };
+
+        // Write to Redis — flow:ticker:lite:{ticker}
+        await redisSet('flow:ticker:lite:' + ticker, flowPayload, CACHE_TTL);
+        success++;
+      } catch (e) {
+        fail++;
+        if (fail <= 5) console.warn('[FlowWarm] ' + ticker + ' failed: ' + e.message);
+      }
+    }));
+
+    // Small delay between batches to respect Polygon rate limits
+    if (i + CONCURRENCY < UNIVERSE.length) {
+      await new Promise(r => setTimeout(r, 500));
     }
-    await Promise.all(batchPromises);
-    // Small delay between batch groups
-    if (i + CONCURRENCY < FLOW_BATCHES) {
-      await new Promise(r => setTimeout(r, 2000));
+
+    // Progress log every 50 tickers
+    if ((i + CONCURRENCY) % 50 === 0) {
+      console.log('[FlowWarm] Progress: ' + (i + CONCURRENCY) + '/' + UNIVERSE.length + ' (' + success + ' ok, ' + fail + ' fail)');
     }
   }
 
@@ -726,7 +921,7 @@ exports.handler = async (event) => {
   // Flow data is critical during pre/post market trading
   if (isExtended || forceRun) {
     try {
-      results.flowWarm = await warmFlowCache();
+      results.flowWarm = await warmFlowCache(snapshotMap);
     } catch (e) {
       results.flowWarm = { error: e.message };
     }

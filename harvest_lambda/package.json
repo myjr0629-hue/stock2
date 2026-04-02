@@ -3,6 +3,7 @@
   "version": "5.0.0",
   "dependencies": {
     "@aws-sdk/client-dynamodb": "^3.0.0",
-    "@aws-sdk/lib-dynamodb": "^3.0.0"
+    "@aws-sdk/lib-dynamodb": "^3.0.0",
+    "@upstash/redis": "^1.37.0"
   }
 }

@@ -80,14 +80,10 @@ function slimOptionChain(chain: any[], includeGreeksDetail: boolean = true): any
 }
 
 // [PERF] Redis cache key for ticker response
-// ALWAYS-SERVE pattern: cached data is always returned instantly.
-// Data freshness is the responsibility of cron/Lambda, NOT this API.
-const CACHE_REDIS_TTL = 600;       // Redis TTL: 10min (outer bound for fresh writes)
-
+const TICKER_CACHE_TTL = 60; // 60 seconds
 function tickerCacheKey(ticker: string): string {
     return `flow:ticker:${ticker}`;
 }
-
 
 export async function GET(req: NextRequest) {
     const t = req.nextUrl.searchParams.get('t');
@@ -102,110 +98,24 @@ export async function GET(req: NextRequest) {
     // [PERF] Flow page skip_alpha mode — skips 5 alpha-only APIs + alpha calculation
     const skipAlpha = req.nextUrl.searchParams.get('skip_alpha') === '1';
 
-    // [ALWAYS-SERVE] Multi-tier cache read: 3 fallbacks before Polygon direct call
-    // Tier 1: flow:ticker:lite:{ticker} (written by this API on fresh fetch)
-    // Tier 2: flow:ticker:{ticker} (written by full-alpha calls)
-    // Tier 3: cache:flow:unified:{ticker} → liveQuote (written by warm-flow cron)
-    // Tier 4: DynamoDB signum-flow-history FLOW_CACHE:{ticker} (permanent)
-    // Tier 5: Polygon direct call (slowest, 12-65s, last resort)
-
+    // [PERF] Check Redis cache first — returns in ~0.1s if cache hit
+    // Use separate cache key for skip_alpha to avoid serving incomplete data to full callers
     const cacheKey = skipAlpha ? `flow:ticker:lite:${ticker}` : tickerCacheKey(ticker);
-
     try {
-        // --- TIER 1: Primary cache key ---
         const cached = await getFromCache<any>(cacheKey);
-        if (cached && cached.tsServer) {
-            const ageSec = (Date.now() - cached.tsServer) / 1000;
-            console.log(`[live/ticker] CACHE HIT for ${ticker} (age: ${ageSec.toFixed(0)}s, key: ${cacheKey})`);
-            return new Response(JSON.stringify({
-                ...cached,
-                _cached: true,
-                _cacheStatus: ageSec <= 60 ? 'FRESH' : 'STALE',
-                _cacheAge: Math.round(ageSec),
-            }), {
+        if (cached) {
+            console.log(`[live/ticker] CACHE HIT for ${ticker}${skipAlpha ? ' (lite)' : ''}`);
+            return new Response(JSON.stringify({ ...cached, _cached: true, _cachedAt: cached.tsServer }), {
                 status: 200,
                 headers: {
                     'Content-Type': 'application/json; charset=utf-8',
                     'Cache-Control': 'no-store, max-age=0, must-revalidate',
-                    'X-Cache': 'HIT',
+                    'X-Cache': 'HIT'
                 }
             });
         }
-
-        // --- TIER 2: Try alternate cache key (lite vs full) ---
-        const altKey = skipAlpha ? tickerCacheKey(ticker) : `flow:ticker:lite:${ticker}`;
-        const altCached = await getFromCache<any>(altKey);
-        if (altCached && altCached.tsServer) {
-            const ageSec = (Date.now() - altCached.tsServer) / 1000;
-            console.log(`[live/ticker] CACHE HIT (alt key) for ${ticker} (age: ${ageSec.toFixed(0)}s, key: ${altKey})`);
-            return new Response(JSON.stringify({
-                ...altCached,
-                _cached: true,
-                _cacheStatus: 'STALE',
-                _cacheAge: Math.round(ageSec),
-            }), {
-                status: 200,
-                headers: {
-                    'Content-Type': 'application/json; charset=utf-8',
-                    'Cache-Control': 'no-store, max-age=0, must-revalidate',
-                    'X-Cache': 'HIT_ALT',
-                }
-            });
-        }
-
-        // --- TIER 3: warm-flow cron's unified cache → extract liveQuote ---
-        const unifiedCached = await getFromCache<any>(`cache:flow:unified:${ticker}`);
-        if (unifiedCached?.liveQuote?.tsServer) {
-            const ageSec = (Date.now() - unifiedCached.liveQuote.tsServer) / 1000;
-            console.log(`[live/ticker] CACHE HIT (unified) for ${ticker} (age: ${ageSec.toFixed(0)}s)`);
-            // Re-warm the primary key so next call hits Tier 1
-            setInCache(cacheKey, unifiedCached.liveQuote, CACHE_REDIS_TTL).catch(() => {});
-            return new Response(JSON.stringify({
-                ...unifiedCached.liveQuote,
-                _cached: true,
-                _cacheStatus: 'STALE',
-                _cacheAge: Math.round(ageSec),
-            }), {
-                status: 200,
-                headers: {
-                    'Content-Type': 'application/json; charset=utf-8',
-                    'Cache-Control': 'no-store, max-age=0, must-revalidate',
-                    'X-Cache': 'HIT_UNIFIED',
-                }
-            });
-        }
-
-        // --- TIER 4: DynamoDB permanent fallback ---
-        try {
-            const { getFlowCache } = await import('@/lib/aws/flowCacheProvider');
-            const dynamoData = await getFlowCache(ticker, 3600000); // max 1 hour old
-            if (dynamoData?.liveQuote?.tsServer) {
-                const ageSec = (Date.now() - dynamoData.liveQuote.tsServer) / 1000;
-                console.log(`[live/ticker] CACHE HIT (DynamoDB) for ${ticker} (age: ${ageSec.toFixed(0)}s)`);
-                // Re-warm Redis from DynamoDB
-                setInCache(cacheKey, dynamoData.liveQuote, CACHE_REDIS_TTL).catch(() => {});
-                return new Response(JSON.stringify({
-                    ...dynamoData.liveQuote,
-                    _cached: true,
-                    _cacheStatus: 'STALE',
-                    _cacheAge: Math.round(ageSec),
-                }), {
-                    status: 200,
-                    headers: {
-                        'Content-Type': 'application/json; charset=utf-8',
-                        'Cache-Control': 'no-store, max-age=0, must-revalidate',
-                        'X-Cache': 'HIT_DYNAMO',
-                    }
-                });
-            }
-        } catch (e) {
-            console.warn(`[live/ticker] DynamoDB fallback failed for ${ticker}:`, e);
-        }
-
-        // --- TIER 5: All caches missed — Polygon direct call (slow path) ---
-        console.log(`[live/ticker] ALL CACHES MISS for ${ticker} — falling through to Polygon direct fetch`);
     } catch (e) {
-        console.warn(`[live/ticker] Cache lookup failed for ${ticker}, proceeding to Polygon:`, e);
+        console.warn(`[live/ticker] Redis cache check failed for ${ticker}, proceeding without cache`);
     }
 
     const serverTs = Date.now();
@@ -843,9 +753,9 @@ export async function GET(req: NextRequest) {
         }
     };
 
-    // [PERF-SWR] Cache response in Redis (10min TTL outer bound)
-    // Freshness is determined by tsServer age, not Redis TTL
-    setInCache(cacheKey, response, CACHE_REDIS_TTL).catch(e => {
+    // [PERF] Cache the slimmed response in Redis (60s TTL)
+    // Non-blocking: don't wait for cache write to respond
+    setInCache(cacheKey, response, TICKER_CACHE_TTL).catch(e => {
         console.warn(`[live/ticker] Redis cache write failed for ${ticker}:`, e);
     });
 
