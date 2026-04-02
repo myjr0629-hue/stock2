@@ -111,13 +111,17 @@ export function calcPriceDisplay(input: PriceDisplayInput): PriceDisplayResult {
         }
     }
 
-    // PRE: Main display = prevClose (static), change = yesterday's regular session change
+    // PRE: Main display = regular close (static), change = yesterday's regular session change
     if (s === 'PRE') {
-        if (resolvedPrevClose > 0) {
+        // During PRE, show last regular close as the main price
+        if (regularCloseToday && regularCloseToday > 0) {
+            displayPrice = regularCloseToday;
+        } else if (resolvedPrevClose > 0) {
             displayPrice = resolvedPrevClose;
-            // ONLY use prevChangePct — apiDisplayChangePct contains pre-market change during PRE
-            displayChangePct = prevChangePct ?? fallbackChangePct ?? 0;
         }
+        // ALWAYS use prevChangePct during PRE — it contains confirmed daily bar change
+        // apiDisplayChangePct/liveChangePct contain pre-market change which must NOT leak here
+        displayChangePct = prevChangePct ?? fallbackChangePct ?? 0;
     }
 
     // Final fallback for displayChangePct

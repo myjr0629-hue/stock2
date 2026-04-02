@@ -462,8 +462,9 @@ export const useDashboardStore = create<DashboardState>()(
                                     session: mappedSession as any,
                                     display: {
                                         ...existing.display,
-                                        price: prePrice || existing.display?.price,
-                                        changePctPct: preChangePct,
+                                        price: existing.regularCloseToday || refClose || existing.display?.price,
+                                        // display.changePctPct = REGULAR session change (NOT pre-market!)
+                                        changePctPct: existing.prevChangePct ?? existing.intradayChangePct ?? 0,
                                     },
                                     extended: {
                                         ...existing.extended,
