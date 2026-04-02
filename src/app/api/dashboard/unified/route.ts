@@ -6,6 +6,60 @@ import { getFromCache, setInCache } from '@/services/redisClient';
 import { recordAlphaDaily } from '@/lib/aws/historyMiddleware';
 import { getAnalysisCacheForTickers, type AnalysisCacheEntry } from '@/services/analysisCache';
 import { GET as getLiveTicker } from '@/app/api/live/ticker/route'; // [FIX] Direct import (no HTTP loopback)
+import { fetchMassive } from '@/services/massiveClient';
+
+// ============================================================
+// [PREV-CHANGE FIX] Accurate previous regular session change from Polygon Daily Bars
+// Same data source as 5-DAY HISTORY — always correct
+// ============================================================
+async function getDailyChangeBatch(tickers: string[]): Promise<Map<string, { changePct: number; close: number; prevClose: number }>> {
+    const result = new Map<string, { changePct: number; close: number; prevClose: number }>();
+    const REDIS_KEY_PREFIX = 'prev-day-pct:';
+    const CACHE_TTL = 600; // 10 min — daily bars are confirmed data, rarely change
+
+    // 1. Check Redis cache for all tickers
+    const missingTickers: string[] = [];
+    await Promise.all(tickers.map(async (ticker) => {
+        try {
+            const cached = await getFromCache<{ changePct: number; close: number; prevClose: number }>(`${REDIS_KEY_PREFIX}${ticker}`);
+            if (cached && typeof cached.changePct === 'number') {
+                result.set(ticker, cached);
+                return;
+            }
+        } catch { /* cache miss */ }
+        missingTickers.push(ticker);
+    }));
+
+    if (missingTickers.length === 0) return result;
+
+    // 2. Fetch Polygon Daily Bars for cache misses (parallel, 2 bars each)
+    const to = new Date().toISOString().split('T')[0];
+    const from = new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]; // 10 days back
+
+    await Promise.all(missingTickers.map(async (ticker) => {
+        try {
+            const data = await fetchMassive(
+                `/v2/aggs/ticker/${ticker}/range/1/day/${from}/${to}`,
+                { adjusted: 'true', sort: 'desc', limit: '3' },
+                true
+            );
+            const bars = data?.results || [];
+            if (bars.length >= 2) {
+                const todayBar = bars[0]; // Most recent trading day
+                const prevBar = bars[1];  // Previous trading day
+                const changePct = prevBar.c > 0 ? ((todayBar.c - prevBar.c) / prevBar.c) * 100 : 0;
+                const entry = { changePct, close: todayBar.c, prevClose: prevBar.c };
+                result.set(ticker, entry);
+                // Cache to Redis
+                try { await setInCache(`${REDIS_KEY_PREFIX}${ticker}`, entry, CACHE_TTL); } catch { /* non-critical */ }
+            }
+        } catch (e) {
+            console.warn(`[getDailyChangeBatch] Failed for ${ticker}:`, e);
+        }
+    }));
+
+    return result;
+}
 
 // [AWS-FIRST] Technical indicators from analysis-cache (NO Polygon API call)
 // Analysis cache is pre-computed by warm-analysis cron and stored in Redis.
@@ -197,7 +251,7 @@ async function warmDefaultCache() {
             })
         ]);
 
-        const response = buildResponseFromResults(tickerResults, marketData);
+        const response = await buildResponseFromResults(tickerResults, marketData);
         const ts = Date.now();
         cache.set(cacheKey, { data: response, timestamp: ts });
         // [REDIS] Also write to Redis for cross-instance sharing
@@ -240,27 +294,35 @@ function startCacheWarmer() {
 startCacheWarmer();
 
 // [PERFORMANCE] Build response object from fetched results
-function buildResponseFromResults(
+async function buildResponseFromResults(
     tickerResults: { ticker: string; data: any; error: string | null }[],
     marketData: any
 ) {
     const tickersData: Record<string, any> = {};
     const signals: any[] = [];
 
+    // [PREV-CHANGE FIX] Get accurate daily bars for all tickers
+    const allTickers = tickerResults.filter(r => r.data).map(r => r.ticker);
+    const dailyChanges = await getDailyChangeBatch(allTickers);
+
     tickerResults.forEach(({ ticker, data, error }) => {
         if (data) {
+            const dailyBar = dailyChanges.get(ticker);
+            // Use daily bars as authoritative source for prevChangePct
+            const accuratePrevChangePct = dailyBar?.changePct ?? data.prevChangePct ?? null;
+
             tickersData[ticker] = {
                 underlyingPrice: data.underlyingPrice,
                 changePercent: data.changePercent,
-                prevClose: data.prevClose,
+                prevClose: dailyBar?.prevClose || data.prevClose,
                 // [INTRADAY FIX] Today's regular session close
-                regularCloseToday: data.regularCloseToday || null,
+                regularCloseToday: dailyBar?.close || data.regularCloseToday || null,
                 // [INTRADAY FIX] Intraday-only change (regularCloseToday vs prevClose)
-                intradayChangePct: data.intradayChangePct || data.prevChangePct || null,
+                intradayChangePct: accuratePrevChangePct || data.intradayChangePct || null,
                 // [FIX] Command-style price display data
                 display: data.display || null,
-                prevChangePct: data.prevChangePct ?? null,
-                prevRegularClose: data.prevRegularClose ?? null,
+                prevChangePct: accuratePrevChangePct,
+                prevRegularClose: dailyBar?.prevClose || (data.prevRegularClose ?? null),
                 extended: data.extended || null,
                 session: data.session || 'CLOSED',
                 netGex: data.netGex,
@@ -518,6 +580,9 @@ async function buildResponseFromAnalysisCache(
         console.warn(`[Dashboard] DynamoDB price fetch failed — continuing with analysis cache`);
     }
 
+    // [PREV-CHANGE FIX] Fetch accurate daily bars for all tickers (Redis cached, ~0ms after first call)
+    const dailyChanges = await getDailyChangeBatch(tickers);
+
     for (const ticker of tickers) {
         const ac = analysisCacheMap[ticker];
         if (!ac) continue;
@@ -574,15 +639,24 @@ async function buildResponseFromAnalysisCache(
             ? { price: displayPrice, changePctPct: changePercent }
             : null;
 
+        // [PREV-CHANGE FIX] Use accurate daily bars data when available
+        const dailyBar = dailyChanges.get(ticker);
+        const accuratePrevChangePct = dailyBar?.changePct ?? changePercent;
+        const accurateClose = dailyBar?.close || dayClose || price;
+        const accuratePrevClose = dailyBar?.prevClose || prevClose;
+
         tickersData[ticker] = {
-            underlyingPrice: price,
-            changePercent,
-            prevClose,
-            regularCloseToday: dayClose || null,
-            intradayChangePct: changePercent,
-            display,
-            prevChangePct: changePercent,
-            prevRegularClose: prevClose,
+            underlyingPrice: session === 'PRE' ? (accurateClose || price) : price,
+            changePercent: session === 'PRE' ? accuratePrevChangePct : changePercent,
+            prevClose: accuratePrevClose || prevClose,
+            regularCloseToday: accurateClose || dayClose || null,
+            intradayChangePct: accuratePrevChangePct,
+            display: {
+                price: session === 'PRE' ? accurateClose : (displayPrice || price),
+                changePctPct: accuratePrevChangePct ?? changePercent ?? 0
+            },
+            prevChangePct: accuratePrevChangePct,
+            prevRegularClose: accuratePrevClose || prevClose,
             extended,
             session,
             netGex: ac.gex,
@@ -783,7 +857,7 @@ export async function GET(request: NextRequest) {
                         }
                     })
                 );
-                const missingResponse = buildResponseFromResults(missingResults, marketData);
+                const missingResponse = await buildResponseFromResults(missingResults, marketData);
                 // Merge missing tickers into the response
                 response.tickers = { ...response.tickers, ...missingResponse.tickers };
                 response.signals = [...response.signals, ...missingResponse.signals].slice(0, 20);
@@ -819,7 +893,7 @@ export async function GET(request: NextRequest) {
             })
         );
 
-        const response = buildResponseFromResults(tickerResults, marketData);
+        const response = await buildResponseFromResults(tickerResults, marketData);
 
         // Store in BOTH in-memory and Redis
         const ts = Date.now();

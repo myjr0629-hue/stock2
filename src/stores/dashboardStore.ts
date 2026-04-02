@@ -454,16 +454,10 @@ export const useDashboardStore = create<DashboardState>()(
                                     : (q.extendedChangePercent ?? 0);
                                 currentTickers[ticker] = {
                                     ...existing,
-                                    // underlyingPrice stays as prevClose (regular session close)
-                                    underlyingPrice: refClose || existing.underlyingPrice,
-                                    // changePercent = previous regular session change (NOT pre-market!)
-                                    // When prevChangePct is null (analysis-cache cold start), calculate from sparkline
-                                    changePercent: existing.prevChangePct
-                                        ?? ((existing as any).sparkline && (existing as any).sparkline.length >= 2 && refClose && refClose > 0
-                                            ? ((refClose - (existing as any).sparkline[(existing as any).sparkline.length - 2]) / (existing as any).sparkline[(existing as any).sparkline.length - 2]) * 100
-                                            : null)
-                                        ?? existing.intradayChangePct
-                                        ?? 0,
+                                    // underlyingPrice = last regular close (NOT pre-market price)
+                                    underlyingPrice: existing.regularCloseToday || refClose || existing.underlyingPrice,
+                                    // changePercent = previous regular session change (from Polygon Daily Bars via unified API)
+                                    changePercent: existing.prevChangePct ?? existing.intradayChangePct ?? 0,
                                     prevClose: refClose ?? existing.prevClose,
                                     session: mappedSession as any,
                                     display: {
