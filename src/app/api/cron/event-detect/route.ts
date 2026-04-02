@@ -125,10 +125,10 @@ export async function GET(request: Request) {
     await setInCache('marketing:event:last_time', String(Date.now()), COOLDOWN_MS / 1000);
     await setInCache(`marketing:event:count:${dateKey}`, String(dailyCount + 1), 86400);
 
-    // Trigger buffer-dispatch (internal call or direct dispatch)
+    // Trigger multi-platform dispatch (new marketing-dispatch route)
     if (!dryRun) {
       const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://signumhq.com';
-      const dispatchUrl = `${baseUrl}/api/cron/buffer-dispatch?content=event&tier=all&dry_run=false&date=${dateKey}&secret=${cronSecret || ''}`;
+      const dispatchUrl = `${baseUrl}/api/cron/marketing-dispatch?action=event&dry_run=false&date=${dateKey}&secret=${cronSecret || ''}`;
       try {
         await fetch(dispatchUrl, { method: 'GET' });
       } catch (e) {

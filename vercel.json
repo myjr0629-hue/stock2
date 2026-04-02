@@ -99,6 +99,65 @@
         {
             "path": "/api/cron/morning-briefing",
             "schedule": "0 13 * * 1-5"
+        },
+        {
+            "path": "/api/cron/daily-content?type=all",
+            "schedule": "30 20 * * 1-5"
+        },
+
+        {
+            "path": "/api/cron/marketing-dispatch?action=morning&region=en",
+            "schedule": "30 10 * * 1-5"
+        },
+        {
+            "path": "/api/cron/marketing-dispatch?action=morning_ig&region=en",
+            "schedule": "0 12 * * 1-5"
+        },
+        {
+            "path": "/api/cron/marketing-dispatch?action=midday&region=en",
+            "schedule": "0 16 * * 1-5"
+        },
+        {
+            "path": "/api/cron/marketing-dispatch?action=pulse&region=en",
+            "schedule": "30 20 * * 1-5"
+        },
+        {
+            "path": "/api/cron/marketing-dispatch?action=pulse_ig&region=en",
+            "schedule": "0 22 * * 1-5"
+        },
+        {
+            "path": "/api/cron/marketing-dispatch?action=education&region=en",
+            "schedule": "0 0 * * 2-6"
+        },
+        {
+            "path": "/api/cron/marketing-dispatch?action=edu_bsky&region=en",
+            "schedule": "0 2 * * 2-6"
+        },
+
+        {
+            "path": "/api/cron/marketing-dispatch?action=pulse&region=asia",
+            "schedule": "0 22 * * 1-5"
+        },
+        {
+            "path": "/api/cron/marketing-dispatch?action=morning_ig&region=asia",
+            "schedule": "0 23 * * 1-5"
+        },
+        {
+            "path": "/api/cron/marketing-dispatch?action=education&region=asia",
+            "schedule": "0 3 * * 2-6"
+        },
+        {
+            "path": "/api/cron/marketing-dispatch?action=morning&region=asia",
+            "schedule": "0 13 * * 1-5"
+        },
+        {
+            "path": "/api/cron/marketing-dispatch?action=midday&region=asia",
+            "schedule": "0 5 * * 2-6"
+        },
+
+        {
+            "path": "/api/cron/event-detect",
+            "schedule": "*/5 13-21 * * 1-5"
         }
     ]
 }

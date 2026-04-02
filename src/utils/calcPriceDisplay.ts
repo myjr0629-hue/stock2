@@ -115,7 +115,8 @@ export function calcPriceDisplay(input: PriceDisplayInput): PriceDisplayResult {
     if (s === 'PRE') {
         if (resolvedPrevClose > 0) {
             displayPrice = resolvedPrevClose;
-            displayChangePct = prevChangePct ?? 0;
+            // Use prevChangePct first, then apiDisplayChangePct, then fallbackChangePct
+            displayChangePct = prevChangePct ?? apiDisplayChangePct ?? fallbackChangePct ?? 0;
         }
     }
 

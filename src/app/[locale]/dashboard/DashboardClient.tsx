@@ -646,9 +646,36 @@ function MainChartPanel() {
     // [P2 FIX] Optimistic update: keep previous chart visible during ticker switch (no flicker)
     // Only show loading spinner on very first load when no chart data exists
     const lastTickerRef = React.useRef<string | null>(null);
-    // [PERF] Client-side chart cache — instant display on ticker revisit (60s TTL)
+    // [PERF] Client-side chart cache — instant display on ticker revisit
     const chartCacheRef = React.useRef<Map<string, { data: any[]; ts: number }>>(new Map());
-    const CHART_CACHE_TTL_MS = 60_000;
+    const CHART_CACHE_TTL_MS = 60_000; // 60s — fresh data, but instant on revisit
+
+    // [SPEED] Prefetch ALL watchlist charts in parallel on mount
+    // → Every ticker click is instant (cache always warm)
+    const prefetchedRef = React.useRef(false);
+    const dashboardTickers = useDashboardStore(s => s.dashboardTickers);
+    useEffect(() => {
+        if (prefetchedRef.current || dashboardTickers.length === 0) return;
+        prefetchedRef.current = true;
+        // Fire-and-forget parallel fetch for ALL watchlist tickers
+        const prefetchAll = async () => {
+            const promises = dashboardTickers.map(async (t) => {
+                if (chartCacheRef.current.has(t)) return; // already cached
+                try {
+                    const res = await fetch(`/api/chart?symbol=${t}&range=1d`);
+                    if (res.ok) {
+                        const json = await res.json();
+                        const d = json.data || [];
+                        if (d.length > 0) {
+                            chartCacheRef.current.set(t, { data: d, ts: Date.now() });
+                        }
+                    }
+                } catch { /* silent */ }
+            });
+            await Promise.all(promises);
+        };
+        prefetchAll();
+    }, [dashboardTickers]);
 
     const fetchChartData = useCallback(async () => {
         if (!selectedTicker) return;
@@ -670,7 +697,7 @@ function MainChartPanel() {
     }, [selectedTicker]);
 
     useEffect(() => {
-        // [FIX] On ticker change, check client-side cache first
+        // [FIX] On ticker change, check client-side cache first (instant from prefetch)
         if (lastTickerRef.current && lastTickerRef.current !== selectedTicker) {
             const cached = chartCacheRef.current.get(selectedTicker);
             if (cached && (Date.now() - cached.ts) < CHART_CACHE_TTL_MS) {
@@ -678,14 +705,22 @@ function MainChartPanel() {
                 setChartHistory(cached.data);
                 setChartLoading(false);
             } else {
-                // ❌ Cache miss — show spinner
-                setChartHistory([]);
-                setChartLoading(true);
+                // ❌ Cache miss — keep previous chart visible while loading (no flicker)
+                if (chartHistory.length === 0) {
+                    setChartLoading(true);
+                }
+            }
+        } else if (!lastTickerRef.current) {
+            // First mount — check prefetch cache
+            const cached = chartCacheRef.current.get(selectedTicker);
+            if (cached) {
+                setChartHistory(cached.data);
+                setChartLoading(false);
             }
         }
         lastTickerRef.current = selectedTicker;
 
-        // Show spinner on initial empty state
+        // Show spinner only on initial empty state (very first load)
         if (chartHistory.length === 0) setChartLoading(true);
         fetchChartData();
 

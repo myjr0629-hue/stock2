@@ -90,6 +90,16 @@ function vixLevel(v: number) {
 // ---------------------------------------------------------------------------
 // GET Handler
 // ---------------------------------------------------------------------------
+// Format → dimensions mapping
+const FORMAT_SIZES: Record<string, { width: number; height: number }> = {
+  og:       { width: 1200, height: 630 },   // OG link card
+  tweet:    { width: 1200, height: 675 },   // X tweet attachment (16:9)
+  carousel: { width: 1080, height: 1350 },  // IG carousel (4:5)
+  pin:      { width: 1000, height: 1500 },  // Pinterest (2:3)
+  square:   { width: 1080, height: 1080 },  // Universal square
+  story:    { width: 1080, height: 1920 },  // IG Story / Shorts
+};
+
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
 
@@ -102,12 +112,25 @@ export async function GET(req: NextRequest) {
   const ticker = searchParams.get('ticker') || '';
   const event  = decodeURIComponent(searchParams.get('event') || '');
   const date   = searchParams.get('date') || new Date().toISOString().split('T')[0];
+  const format = searchParams.get('format') || 'og';
+  const variant = parseInt(searchParams.get('variant') || '1');
+
+  const { width: imgWidth, height: imgHeight } = FORMAT_SIZES[format] || FORMAT_SIZES.og;
+  const isVertical = imgHeight > imgWidth;
+  const isStory = format === 'story';
 
   const l = L[lang] || L.en;
   const title = l[type] || l.pulse;
   const gexStyle = gexGradient(gex);
   const gexLabel = l[gex.toLowerCase() as keyof typeof l] || gex.toUpperCase();
   const vl = vixLevel(vix);
+
+  // Scale factors for different formats
+  const scale = imgWidth / 1200;
+  const pad = Math.round(36 * scale);
+  const titleSize = Math.round(26 * scale);
+  const dataSize = Math.round(isVertical ? 44 : 56) * scale;
+  const labelSize = Math.round(15 * scale);
 
   return new ImageResponse(
     (
@@ -140,7 +163,7 @@ export async function GET(req: NextRequest) {
         }} />
 
         {/* Content */}
-        <div style={{ display: 'flex', flexDirection: 'column', padding: '36px 44px', flex: 1, position: 'relative' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', padding: `${pad}px ${Math.round(44 * scale)}px`, flex: 1, position: 'relative' }}>
           
           {/* Top bar: Logo + Title + GEX Badge */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '28px' }}>
@@ -205,8 +228,8 @@ export async function GET(req: NextRequest) {
             </div>
           </div>
 
-          {/* Main data row: SPY | QQQ | VIX */}
-          <div style={{ display: 'flex', flex: 1, gap: '16px' }}>
+          {/* Main data row: SPY | QQQ | VIX — vertical stack for portrait formats */}
+          <div style={{ display: 'flex', flexDirection: isVertical ? 'column' : 'row', flex: 1, gap: `${Math.round(16 * scale)}px` }}>
             
             {/* SPY Card */}
             <div style={{
@@ -338,6 +361,6 @@ export async function GET(req: NextRequest) {
         </div>
       </div>
     ),
-    { width: 1200, height: 630 }
+    { width: imgWidth, height: imgHeight }
   );
 }
