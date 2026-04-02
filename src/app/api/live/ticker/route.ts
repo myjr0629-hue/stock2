@@ -80,10 +80,17 @@ function slimOptionChain(chain: any[], includeGreeksDetail: boolean = true): any
 }
 
 // [PERF] Redis cache key for ticker response
-const TICKER_CACHE_TTL = 60; // 60 seconds
+// SWR Pattern: fresh → return, stale → return + background refresh, expired → fetch
+const CACHE_FRESH_SEC_REG = 10;     // REG: 10s fresh (real-time feel)
+const CACHE_FRESH_SEC_OTHER = 30;  // PRE/POST/CLOSED: 30s fresh
+const CACHE_STALE_SEC_REG = 60;    // REG: serve stale up to 60s
+const CACHE_STALE_SEC_OTHER = 300; // Non-REG: serve stale up to 5min
+const CACHE_REDIS_TTL = 600;       // Redis TTL: 10min (outer bound)
+
 function tickerCacheKey(ticker: string): string {
     return `flow:ticker:${ticker}`;
 }
+
 
 export async function GET(req: NextRequest) {
     const t = req.nextUrl.searchParams.get('t');
@@ -97,25 +104,58 @@ export async function GET(req: NextRequest) {
     const ticker = t.toUpperCase();
     // [PERF] Flow page skip_alpha mode — skips 5 alpha-only APIs + alpha calculation
     const skipAlpha = req.nextUrl.searchParams.get('skip_alpha') === '1';
+    const isBackgroundRefresh = req.nextUrl.searchParams.get('_bg') === '1';
 
-    // [PERF] Check Redis cache first — returns in ~0.1s if cache hit
+    // [PERF-SWR] Stale-While-Revalidate cache pattern
     // Use separate cache key for skip_alpha to avoid serving incomplete data to full callers
     const cacheKey = skipAlpha ? `flow:ticker:lite:${ticker}` : tickerCacheKey(ticker);
-    try {
-        const cached = await getFromCache<any>(cacheKey);
-        if (cached) {
-            console.log(`[live/ticker] CACHE HIT for ${ticker}${skipAlpha ? ' (lite)' : ''}`);
-            return new Response(JSON.stringify({ ...cached, _cached: true, _cachedAt: cached.tsServer }), {
-                status: 200,
-                headers: {
-                    'Content-Type': 'application/json; charset=utf-8',
-                    'Cache-Control': 'no-store, max-age=0, must-revalidate',
-                    'X-Cache': 'HIT'
+
+    if (!isBackgroundRefresh) {
+        try {
+            const cached = await getFromCache<any>(cacheKey);
+            if (cached && cached.tsServer) {
+                const ageMs = Date.now() - cached.tsServer;
+                const ageSec = ageMs / 1000;
+
+                // Determine freshness thresholds based on session
+                const session = cached.session || 'CLOSED';
+                const freshSec = session === 'REG' ? CACHE_FRESH_SEC_REG : CACHE_FRESH_SEC_OTHER;
+                const staleSec = session === 'REG' ? CACHE_STALE_SEC_REG : CACHE_STALE_SEC_OTHER;
+
+                if (ageSec <= staleSec) {
+                    // FRESH or STALE: return immediately
+                    const isFresh = ageSec <= freshSec;
+                    const cacheStatus = isFresh ? 'FRESH' : 'STALE';
+                    console.log(`[live/ticker] CACHE ${cacheStatus} for ${ticker} (age: ${ageSec.toFixed(0)}s, limit: ${freshSec}s/${staleSec}s)`);
+
+                    // If STALE, trigger background refresh (non-blocking)
+                    if (!isFresh) {
+                        // Fire background refresh by fetching ourselves with _bg=1
+                        const bgUrl = new URL(req.url);
+                        bgUrl.searchParams.set('_bg', '1');
+                        fetch(bgUrl.toString(), { cache: 'no-store' }).catch(() => {});
+                    }
+
+                    return new Response(JSON.stringify({
+                        ...cached,
+                        _cached: true,
+                        _cacheStatus: cacheStatus,
+                        _cacheAge: Math.round(ageSec),
+                    }), {
+                        status: 200,
+                        headers: {
+                            'Content-Type': 'application/json; charset=utf-8',
+                            'Cache-Control': 'no-store, max-age=0, must-revalidate',
+                            'X-Cache': cacheStatus,
+                        }
+                    });
                 }
-            });
+                // EXPIRED (age > staleSec): fall through to fresh fetch
+                console.log(`[live/ticker] CACHE EXPIRED for ${ticker} (age: ${ageSec.toFixed(0)}s > ${staleSec}s)`);
+            }
+        } catch (e) {
+            console.warn(`[live/ticker] Redis cache check failed for ${ticker}, proceeding without cache`);
         }
-    } catch (e) {
-        console.warn(`[live/ticker] Redis cache check failed for ${ticker}, proceeding without cache`);
     }
 
     const serverTs = Date.now();
@@ -753,9 +793,9 @@ export async function GET(req: NextRequest) {
         }
     };
 
-    // [PERF] Cache the slimmed response in Redis (60s TTL)
-    // Non-blocking: don't wait for cache write to respond
-    setInCache(cacheKey, response, TICKER_CACHE_TTL).catch(e => {
+    // [PERF-SWR] Cache response in Redis (10min TTL outer bound)
+    // Freshness is determined by tsServer age, not Redis TTL
+    setInCache(cacheKey, response, CACHE_REDIS_TTL).catch(e => {
         console.warn(`[live/ticker] Redis cache write failed for ${ticker}:`, e);
     });
 

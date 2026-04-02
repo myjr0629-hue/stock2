@@ -22,12 +22,17 @@ export async function GET(request: NextRequest) {
     // Check Redis first
     try {
         const cached = await getFromCache<any>(cacheKey);
-        if (cached) return NextResponse.json(cached);
+        if (cached) return NextResponse.json({ ...cached, _cached: true });
     } catch { /* continue */ }
 
     try {
         // Fetch last 200 GEX history entries (~17 days at 12/day)
-        const history = await getGexHistory(ticker, 200);
+        // [FIX] Add 5s timeout to prevent 15s+ DynamoDB hangs
+        const historyPromise = getGexHistory(ticker, 200);
+        const timeoutPromise = new Promise<null>((_, reject) =>
+            setTimeout(() => reject(new Error('DynamoDB timeout (5s)')), 5000)
+        );
+        const history = await Promise.race([historyPromise, timeoutPromise]);
 
         if (!history || history.length < 5) {
             return NextResponse.json({
