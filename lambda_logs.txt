@@ -1,0 +1,18 @@
+﻿{
+    "events": [
+        {
+            "logStreamName": "2026/04/02/[$LATEST]978bcf85e16e411d804c2737b3456825",
+            "timestamp": 1775149853463,
+aws : 
+위치 줄:1 문자:274
++ ... lliseconds; aws logs filter-log-events --log-group-name
+ /aws/lambda/s ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (:String) [], Re 
+   moteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+aws: [ERROR]: 'cp949' codec can't encode character '\u2014' i
+n position 117: illegal multibyte sequence
+            "message": 
