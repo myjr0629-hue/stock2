@@ -491,9 +491,46 @@ async function warmFlowCache(snapshotMap) {
 
   console.log('[FlowWarm] Starting DIRECT flow cache warming — ' + UNIVERSE.length + ' tickers...');
   const start = Date.now();
-  const CONCURRENCY = 5; // 5 concurrent Polygon calls
-  const CACHE_TTL = 900; // 15 minutes (generous TTL, Lambda refreshes every 10 min)
+  const CONCURRENCY = 5;
+  const CACHE_TTL = 900; // 15 minutes
   let success = 0, fail = 0;
+
+  // ====== PRE-CALCULATE weekly expiry ONCE (not per-ticker) ======
+  // Use ET timezone for market-accurate date
+  const now = new Date();
+  const etStr = now.toLocaleString('en-US', { timeZone: 'America/New_York' });
+  const etNow = new Date(etStr);
+  const etDay = etNow.getDay();
+  const etHour = etNow.getHours();
+
+  let daysToFri = (5 - etDay + 7) % 7;
+  if (daysToFri === 0 && etHour >= 16) daysToFri = 7;
+
+  const pad = (n) => String(n).padStart(2, '0');
+  const calcDate = (addDays) => {
+    const d = new Date(etNow.getFullYear(), etNow.getMonth(), etNow.getDate() + addDays);
+    return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+  };
+
+  // Determine correct weekly expiry using SPY as pilot (most liquid, always has options)
+  const candidates = [
+    calcDate(daysToFri),       // Friday
+    calcDate(daysToFri - 1),   // Thursday (Good Friday etc.)
+    calcDate(daysToFri - 2),   // Wednesday (rare)
+  ];
+
+  let globalWeeklyExpiry = null;
+  for (const candidate of candidates) {
+    const pilotUrl = 'https://api.polygon.io/v3/snapshot/options/SPY?limit=5&expiration_date=' + candidate + '&apiKey=' + POLYGON_KEY;
+    const pilotRes = await httpsGet(pilotUrl, 8000).catch(() => null);
+    if (pilotRes?.results?.length > 0) {
+      globalWeeklyExpiry = candidate;
+      break;
+    }
+  }
+  if (!globalWeeklyExpiry) globalWeeklyExpiry = candidates[0]; // ultimate fallback
+  console.log('[FlowWarm] Weekly expiry determined: ' + globalWeeklyExpiry + ' (candidates: ' + candidates.join(', ') + ')');
+  const todayStr = now.toISOString().slice(0, 10);
 
   for (let i = 0; i < UNIVERSE.length; i += CONCURRENCY) {
     const batch = UNIVERSE.slice(i, i + CONCURRENCY);
@@ -503,39 +540,36 @@ async function warmFlowCache(snapshotMap) {
         const price = snap?.price || 0;
         if (price <= 0) { fail++; return; }
 
-        // Fetch weekly expiration options chain from Polygon
-        const todayStr = new Date().toISOString().slice(0, 10);
 
-        // Phase 1: Probe for available expirations (250 contracts, sorted by expiry)
+        // Use pre-calculated globalWeeklyExpiry (determined via SPY pilot)
+        let weeklyExpiry = globalWeeklyExpiry;
+        let results = [];
+        let probeResults = [];
+
+        // Fetch probe for allExpiryChain (all expirations, for OI mode)
         const probeUrl = 'https://api.polygon.io/v3/snapshot/options/' + ticker
           + '?limit=250&expiration_date.gte=' + todayStr
           + '&sort=expiration_date&order=asc&apiKey=' + POLYGON_KEY;
-        const probeRes = await httpsGet(probeUrl, 12000).catch(() => null);
-        const probeResults = probeRes?.results || [];
+        probeResults = (await httpsGet(probeUrl, 12000).catch(() => null))?.results || [];
 
-        if (probeResults.length === 0) { fail++; return; }
-
-        // Find weekly expiration (Friday first, then Thursday)
-        const expirations = [...new Set(probeResults.map(c => c.details?.expiration_date).filter(Boolean))].sort();
-        let weeklyExpiry = null;
-        for (const exp of expirations) {
-          const d = new Date(exp + 'T12:00:00');
-          if (d.getDay() === 5) { weeklyExpiry = exp; break; }
-        }
-        if (!weeklyExpiry) {
-          for (const exp of expirations) {
-            const d = new Date(exp + 'T12:00:00');
-            if (d.getDay() === 4) { weeklyExpiry = exp; break; }
-          }
-        }
-        if (!weeklyExpiry && expirations.length > 0) weeklyExpiry = expirations[0];
-        if (!weeklyExpiry) { fail++; return; }
-
-        // Phase 2: Fetch exact weekly expiration
+        // Fetch exact weekly chain using globalWeeklyExpiry
         const exactUrl = 'https://api.polygon.io/v3/snapshot/options/' + ticker
           + '?limit=250&expiration_date=' + weeklyExpiry + '&apiKey=' + POLYGON_KEY;
         const exactRes = await httpsGet(exactUrl, 12000).catch(() => null);
-        const results = exactRes?.results || [];
+        results = exactRes?.results || [];
+
+        // Fallback: if no results for globalWeeklyExpiry, use first expiration from probe
+        if (results.length === 0 && probeResults.length > 0) {
+          const expirations = [...new Set(probeResults.map(c => c.details?.expiration_date).filter(Boolean))].sort();
+          if (expirations.length > 0) {
+            weeklyExpiry = expirations[0];
+            results = probeResults.filter(c => c.details?.expiration_date === weeklyExpiry);
+          }
+        }
+
+        if (results.length === 0) { fail++; return; }
+
+        const allExpirations = [...new Set(probeResults.map(c => c.details?.expiration_date).filter(Boolean))].sort();
 
         // Calculate flow metrics (matching centralDataHub._fetchOptionsChain format)
         let callPremium = 0, putPremium = 0, totalGamma = 0, contractsProcessed = 0;
@@ -643,7 +677,7 @@ async function warmFlowCache(snapshotMap) {
             isAfterHours: false,
             gamma: totalGamma,
             rawChain, allExpiryChain,
-            allExpirations: expirations,
+            allExpirations: allExpirations,
             weeklyExpiration: weeklyExpiry,
             callWall, putFloor, pinZone, maxPain,
             error: null,
