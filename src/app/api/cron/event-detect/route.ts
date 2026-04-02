@@ -7,6 +7,7 @@
 import { NextResponse } from 'next/server';
 import { getFromCache, setInCache } from '@/services/redisClient';
 import { generateEventSpike } from '@/lib/marketing/contentEngines';
+import { generateAIEventSpike } from '@/lib/marketing/aiContentEngine';
 import type { EventData, MarketData } from '@/lib/marketing/contentEngines';
 
 // ---------------------------------------------------------------------------
@@ -104,7 +105,13 @@ export async function GET(request: Request) {
 
     // Process first event only (one at a time)
     const event = newEvents[0];
-    const content = generateEventSpike(event, marketData);
+    let content;
+    try {
+      content = await generateAIEventSpike(event, marketData);
+    } catch (err: any) {
+      console.warn('[EventDetect] AI event failed, using template:', err.message);
+      content = generateEventSpike(event, marketData);
+    }
 
     // Save to Redis for buffer-dispatch
     const contentKey = `marketing:event:${dateKey}`;

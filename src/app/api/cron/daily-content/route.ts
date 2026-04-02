@@ -1,17 +1,22 @@
 // ============================================================================
 // /api/cron/daily-content — 마케팅 콘텐츠 생성 크론
-// Redis에서 시장 데이터 → 3개국어 콘텐츠 → Redis 저장
+// Redis에서 시장 데이터 → AI 3개국어 콘텐츠 → Redis 저장
+// [V11] AI-powered by default (Bedrock Haiku), template fallback
 // ============================================================================
 
 import { NextResponse } from 'next/server';
 import { getFromCache, setInCache } from '@/services/redisClient';
+// Template engines (fallback)
 import { generateMarketPulse, generateMorningBrief, generateEducationContent, getEducationTopicIds } from '@/lib/marketing/contentEngines';
+// AI engines (primary)
+import { generateAIMarketPulse, generateAIMorningBrief, generateAIEducation, getAIEducationTopicIds } from '@/lib/marketing/aiContentEngine';
 import type { MarketData, ContentOutput } from '@/lib/marketing/contentEngines';
 
 // ---------------------------------------------------------------------------
 // GET Handler
 // ?secret=xxx — CRON_SECRET 인증
 // ?type=pulse|morning|education|all (default: pulse)
+// ?engine=ai|template (default: ai)
 // ?topic=gex|dark_pool|iv_percentile|pcr|max_pain (education only)
 // ---------------------------------------------------------------------------
 export async function GET(request: Request) {
@@ -31,6 +36,7 @@ export async function GET(request: Request) {
 
   const contentType = searchParams.get('type') || 'pulse';
   const topicId = searchParams.get('topic') || undefined;
+  const useAI = searchParams.get('engine') !== 'template'; // AI by default
 
   try {
     const dateKey = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
@@ -39,13 +45,27 @@ export async function GET(request: Request) {
     // --- Market Pulse ---
     if (contentType === 'pulse' || contentType === 'all') {
       const marketData = await fetchMarketDataFromRedis();
-      const pulseContent = generateMarketPulse(marketData);
+      let pulseContent: ContentOutput;
+      let engine = 'template';
+
+      if (useAI) {
+        try {
+          pulseContent = await generateAIMarketPulse(marketData);
+          engine = 'ai';
+        } catch (err: any) {
+          console.warn('[DailyContent] AI pulse failed, using template:', err.message);
+          pulseContent = generateMarketPulse(marketData);
+        }
+      } else {
+        pulseContent = generateMarketPulse(marketData);
+      }
 
       const redisKey = `marketing:pulse:${dateKey}`;
       await setInCache(redisKey, JSON.stringify(pulseContent), 86400);
 
       results.pulse = {
         saved: true,
+        engine,
         redisKey,
         preview: {
           en: pulseContent.en.text.substring(0, 120) + '...',
@@ -63,13 +83,27 @@ export async function GET(request: Request) {
         ? (typeof briefingRaw === 'string' ? briefingRaw : JSON.stringify(briefingRaw)).substring(0, 200)
         : undefined;
 
-      const morningContent = generateMorningBrief({ ...marketData, briefingSummary });
+      let morningContent: ContentOutput;
+      let engine = 'template';
+
+      if (useAI) {
+        try {
+          morningContent = await generateAIMorningBrief({ ...marketData, briefingSummary });
+          engine = 'ai';
+        } catch (err: any) {
+          console.warn('[DailyContent] AI morning failed, using template:', err.message);
+          morningContent = generateMorningBrief({ ...marketData, briefingSummary });
+        }
+      } else {
+        morningContent = generateMorningBrief({ ...marketData, briefingSummary });
+      }
 
       const redisKey = `marketing:morning:${dateKey}`;
       await setInCache(redisKey, JSON.stringify(morningContent), 86400);
 
       results.morning = {
         saved: true,
+        engine,
         redisKey,
         preview: {
           en: morningContent.en.text.substring(0, 120) + '...',
@@ -80,15 +114,29 @@ export async function GET(request: Request) {
 
     // --- Education ---
     if (contentType === 'education' || contentType === 'all') {
-      const eduContent = generateEducationContent(topicId);
+      let eduContent: ContentOutput;
+      let engine = 'template';
+
+      if (useAI) {
+        try {
+          eduContent = await generateAIEducation(topicId);
+          engine = 'ai';
+        } catch (err: any) {
+          console.warn('[DailyContent] AI education failed, using template:', err.message);
+          eduContent = generateEducationContent(topicId);
+        }
+      } else {
+        eduContent = generateEducationContent(topicId);
+      }
 
       const redisKey = `marketing:education:${dateKey}`;
       await setInCache(redisKey, JSON.stringify(eduContent), 86400 * 7); // 7d TTL
 
       results.education = {
         saved: true,
+        engine,
         redisKey,
-        availableTopics: getEducationTopicIds(),
+        availableTopics: useAI ? getAIEducationTopicIds() : getEducationTopicIds(),
         preview: {
           en: eduContent.en.text.substring(0, 120) + '...',
           ko: eduContent.ko.text.substring(0, 120) + '...',
