@@ -1122,7 +1122,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
 
     // [UNIFIED] All price display logic via shared calcPriceDisplay()
     const { displayPrice, displayChangePct, activeExtPrice, activeExtType, activeExtLabel, activeExtPct } = calcPriceDisplay({
-        livePrice: wsPrice?.price || livePrice?.price, // [AWS Phase 3] WebSocket price has highest priority
+        livePrice: wsPrice?.price || livePrice?.price,
         liveChangePct: wsPrice?.changePct || livePrice?.changePercent,
         liveExtPrice: livePrice?.extendedPrice,
         liveExtChangePct: livePrice?.extendedChangePercent,

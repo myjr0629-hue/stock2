@@ -93,13 +93,14 @@ export function calcPriceDisplay(input: PriceDisplayInput): PriceDisplayResult {
     let displayChangePct = liveChangePct ?? apiDisplayChangePct ?? null;
 
     // POST/CLOSED: Main display = today's regular close, NOT live after-hours trades
-    // [FIX 2026-04-03] WebSocket livePrice during POST/CLOSED contains after-hours trade prices
-    // (e.g. $361.25) which must NOT appear as the main display — must show regular close ($360.59)
+    // [FIX 2026-04-03 V2] Both livePrice (WebSocket) AND apiDisplayPrice (ticker API display.price)
+    // contain POST-market prices during POST session. ticker API sets display.price = postPrice || liveLast.
+    // Only regularCloseToday (= S.day?.c = today's regular close) and resolvedPrevClose are safe.
     if (s === 'POST' || s === 'CLOSED') {
-        // Priority: regularCloseToday > apiDisplayPrice > resolvedPrevClose
-        // livePrice deliberately EXCLUDED — may be WebSocket POST-market trade
-        const regClose = (regularCloseToday && regularCloseToday > 0) ? regularCloseToday
-            : (apiDisplayPrice && apiDisplayPrice > 0) ? apiDisplayPrice
+        // Priority: regularCloseToday (today's reg close) > resolvedPrevClose (yesterday's close)
+        // BOTH livePrice AND apiDisplayPrice are EXCLUDED — they contain POST-market trades
+        const regClose = (regularCloseToday && regularCloseToday > 0)
+            ? regularCloseToday
             : resolvedPrevClose || 0;
 
         if (regClose > 0) {

@@ -53,15 +53,27 @@ export function useLivePrice(ticker: string | null, refreshInterval = 5000): Liv
         if (wsPrice && wsPrice.price > 0) {
             // Merge WS real-time price with SWR extended session data
             const q = data?.data?.[ticker];
+            const session = q?.session || data?.session || 'closed';
+
+            // [FIX 2026-04-03] During POST/CLOSED/PRE, wsPrice.price = lastTrade = after-hours trade
+            // which must NOT be the main display price. SWR q.price is session-aware:
+            //   REG  → lastTrade (real-time) ← use WS for speed
+            //   POST → dayClose ($360.59)   ← use SWR (correct regular close)
+            //   PRE  → prevClose            ← use SWR (correct previous close)
+            const isRegular = session === 'regular' || session === 'reg';
+            const mainPrice = isRegular ? wsPrice.price : (q?.price || wsPrice.price);
+
             return {
-                price: wsPrice.price,
-                changePercent: wsPrice.changePct || q?.changePercent || q?.regChangePct || 0,
+                price: mainPrice,
+                changePercent: isRegular
+                    ? (wsPrice.changePct || q?.changePercent || q?.regChangePct || 0)
+                    : (q?.changePercent || q?.regChangePct || wsPrice.changePct || 0),
                 prevClose: q?.previousClose || q?.prevClose || 0,
                 extendedPrice: q?.extendedPrice || 0,
                 extendedChangePercent: q?.extendedChangePercent || 0,
                 extendedLabel: q?.extendedLabel || '',
                 volume: wsPrice.volume || q?.volume || 0,
-                session: q?.session || data?.session || 'closed',
+                session,
             };
         }
     }
