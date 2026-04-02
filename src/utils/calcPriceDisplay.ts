@@ -111,12 +111,12 @@ export function calcPriceDisplay(input: PriceDisplayInput): PriceDisplayResult {
         }
     }
 
-    // PRE: Main display = prevClose (static), change = yesterday's change
+    // PRE: Main display = prevClose (static), change = yesterday's regular session change
     if (s === 'PRE') {
         if (resolvedPrevClose > 0) {
             displayPrice = resolvedPrevClose;
-            // Use prevChangePct first, then apiDisplayChangePct, then fallbackChangePct
-            displayChangePct = prevChangePct ?? apiDisplayChangePct ?? fallbackChangePct ?? 0;
+            // ONLY use prevChangePct — apiDisplayChangePct contains pre-market change during PRE
+            displayChangePct = prevChangePct ?? fallbackChangePct ?? 0;
         }
     }
 

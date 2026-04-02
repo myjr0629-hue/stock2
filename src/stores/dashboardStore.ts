@@ -441,42 +441,69 @@ export const useDashboardStore = create<DashboardState>()(
                             };
                             changed = true;
                         } else {
-                            // REG/PRE: Update everything (live price matters)
-                            // [CRITICAL FIX] During REG: use q.price (live trade), NOT extendedPrice (preMarket close)
-                            // extendedPrice during REG = pre-market close → badge only, NOT main price
-                            // Only during PRE: extendedPrice IS the live pre-market price → use as main
+                            // REG/PRE: Update prices
                             const isPreSession = mappedSession === 'PRE' || q.session === 'pre';
-                            const newPrice = isPreSession && q.extendedPrice && q.extendedPrice > 0
-                                ? q.extendedPrice
-                                : q.price || q.latestPrice;
-                            // [FIX] Prefer existing prevClose (from 30s ticker API — more accurate) over quotes snapshot
                             const refClose = existing.prevClose ?? q.previousClose ?? q.prevClose;
-                            if ((newPrice && newPrice !== existing.underlyingPrice) || sessionChanged) {
-                                // [FIX] Calculate changePct directly — API's changePercent is unreliable
-                                const calculatedChangePct = (newPrice && refClose && refClose > 0)
-                                    ? ((newPrice - refClose) / refClose) * 100
-                                    : (q.changePercent ?? existing.changePercent);
+
+                            if (isPreSession) {
+                                // [FIX V5] PRE session: underlyingPrice = prevClose (regular close)
+                                // PRE price goes ONLY to extended.prePrice — matches Command page behavior
+                                const prePrice = q.extendedPrice && q.extendedPrice > 0 ? q.extendedPrice : 0;
+                                const preChangePct = prePrice > 0 && refClose && refClose > 0
+                                    ? ((prePrice - refClose) / refClose) * 100
+                                    : (q.extendedChangePercent ?? 0);
                                 currentTickers[ticker] = {
                                     ...existing,
-                                    underlyingPrice: newPrice || existing.underlyingPrice,
-                                    changePercent: calculatedChangePct,
+                                    // underlyingPrice stays as prevClose (regular session close)
+                                    underlyingPrice: refClose || existing.underlyingPrice,
+                                    // changePercent = previous regular session change (NOT pre-market!)
+                                    // When prevChangePct is null (analysis-cache cold start), calculate from sparkline
+                                    changePercent: existing.prevChangePct
+                                        ?? ((existing as any).sparkline && (existing as any).sparkline.length >= 2 && refClose && refClose > 0
+                                            ? ((refClose - (existing as any).sparkline[(existing as any).sparkline.length - 2]) / (existing as any).sparkline[(existing as any).sparkline.length - 2]) * 100
+                                            : null)
+                                        ?? existing.intradayChangePct
+                                        ?? 0,
                                     prevClose: refClose ?? existing.prevClose,
                                     session: mappedSession as any,
                                     display: {
                                         ...existing.display,
-                                        price: newPrice || existing.display?.price,
-                                        changePctPct: calculatedChangePct,
+                                        price: prePrice || existing.display?.price,
+                                        changePctPct: preChangePct,
                                     },
                                     extended: {
                                         ...existing.extended,
-                                        postPrice: q.extendedPrice > 0 && q.extendedLabel === 'POST' ? q.extendedPrice : existing.extended?.postPrice,
-                                        postChangePct: q.extendedLabel === 'POST' ? q.extendedChangePercent : existing.extended?.postChangePct,
-                                        // [RESTORED] Keep existing prePrice during REG as "PRE CLOSE" badge
-                                        prePrice: q.extendedPrice > 0 && q.extendedLabel === 'PRE' ? q.extendedPrice : existing.extended?.prePrice,
-                                        preChangePct: q.extendedLabel === 'PRE' ? q.extendedChangePercent : existing.extended?.preChangePct,
+                                        prePrice: prePrice || existing.extended?.prePrice,
+                                        preChangePct: preChangePct,
                                     },
                                 };
                                 changed = true;
+                            } else {
+                                // REG: use q.price (live trade)
+                                const newPrice = q.price || q.latestPrice;
+                                if ((newPrice && newPrice !== existing.underlyingPrice) || sessionChanged) {
+                                    const calculatedChangePct = (newPrice && refClose && refClose > 0)
+                                        ? ((newPrice - refClose) / refClose) * 100
+                                        : (q.changePercent ?? existing.changePercent);
+                                    currentTickers[ticker] = {
+                                        ...existing,
+                                        underlyingPrice: newPrice || existing.underlyingPrice,
+                                        changePercent: calculatedChangePct,
+                                        prevClose: refClose ?? existing.prevClose,
+                                        session: mappedSession as any,
+                                        display: {
+                                            ...existing.display,
+                                            price: newPrice || existing.display?.price,
+                                            changePctPct: calculatedChangePct,
+                                        },
+                                        extended: {
+                                            ...existing.extended,
+                                            prePrice: q.extendedPrice > 0 && q.extendedLabel === 'PRE' ? q.extendedPrice : existing.extended?.prePrice,
+                                            preChangePct: q.extendedLabel === 'PRE' ? q.extendedChangePercent : existing.extended?.preChangePct,
+                                        },
+                                    };
+                                    changed = true;
+                                }
                             }
                         }
                         // [FIX] Even if price unchanged, correct changePct if it was 0 due to SSR field mismatch
