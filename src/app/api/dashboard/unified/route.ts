@@ -670,10 +670,10 @@ async function buildResponseFromAnalysisCache(
             squeezeScore: ac.squeezeScore,
             squeezeRisk,
             vwap: null, // VWAP absolute price needs live data (vwapDist is relative)
-            darkPoolPct: ac.darkPoolPct ?? null,           // [FIX] Use cached last-session data
+            darkPoolPct: ac.darkPoolPct != null ? Math.round(ac.darkPoolPct * 10) / 10 : null,
             shortVolPct: null,       // Not stored in analysis cache
             zeroDtePct: null,        // Not stored in analysis cache
-            impliedMovePct: ac.impliedMovePct ?? null,     // [FIX] Use cached last-session data
+            impliedMovePct: ac.impliedMovePct != null ? Math.round(ac.impliedMovePct * 10) / 10 : null,
             impliedMoveDir: null,
             gammaConcentration: null,
             volumePcr: null,
