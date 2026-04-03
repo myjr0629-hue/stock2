@@ -642,6 +642,13 @@ export const useDashboardStore = create<DashboardState>()(
                     // from a morning session) would show "LIVE PRE" badge on evening visits
                 };
             },
+            // [FIX] Custom merge: strip market from hydrated state to prevent stale PRE/OPEN
+            // from previous browser session contaminating current state
+            merge: (persisted: any, current: any) => ({
+                ...current,
+                ...persisted,
+                market: null,  // Always start fresh — fetchDashboardData will set correct value
+            }),
             // Note: localStorage is now fallback only.
             // Primary persistence is via Supabase (loadDashboardTickers on mount).
         }
