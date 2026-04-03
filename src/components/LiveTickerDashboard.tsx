@@ -1152,8 +1152,21 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
         prevChangePct: liveQuote?.prices?.prevChangePct,
         fallbackChangePct: (initialStockData && initialStockData.changePercent) || 0,
         lastTrade: liveQuote?.prices?.lastTrade || liveQuote?.price,
-        extended: liveQuote?.extended,
-        prices: liveQuote?.prices,
+        // [ROOT FIX] Merge SSR fallback → SWR can't erase valid extended/prices
+        // SSR has correct postPrice/prePrice, but SWR ticker API may return null (wrong session)
+        extended: {
+            ...(ssrFallback?.extended || {}),
+            ...(liveQuote?.extended || {}),
+            // Keep SSR postPrice if SWR didn't provide one
+            postPrice: liveQuote?.extended?.postPrice || ssrFallback?.extended?.postPrice || undefined,
+            prePrice: liveQuote?.extended?.prePrice || ssrFallback?.extended?.prePrice || undefined,
+        },
+        prices: {
+            ...(ssrFallback?.prices || {}),
+            ...(liveQuote?.prices || {}),
+            postPrice: liveQuote?.prices?.postPrice || ssrFallback?.prices?.postPrice || undefined,
+            prePrice: liveQuote?.prices?.prePrice || ssrFallback?.prices?.prePrice || undefined,
+        },
     });
 
     const pSource = liveQuote?.priceSource || initialStockData?.priceSource;
