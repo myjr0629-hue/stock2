@@ -470,14 +470,18 @@ function WatchlistPanel() {
 
     // Determine ext header label from market session
     const market = useDashboardStore(s => s.market);
+    // [FIX] Must use reactive selector, not getState() — getState() is a snapshot,
+    // doesn't trigger re-render when fetchPriceOnly updates extended data
+    const allTickerData = useDashboardStore(useShallow(s => s.tickers));
     const extHeaderLabel = (() => {
         const status = market?.marketStatus;
         if (status === 'PRE') return 'Pre';
         if (status === 'AFTER') return 'Post';
-        // During regular hours or closed, check if any ticker has ext data
-        const firstTickerData = dashboardTickers.length > 0 ? useDashboardStore.getState().tickers[dashboardTickers[0]] : null;
-        if (firstTickerData?.extended?.postPrice) return 'Post';
-        if (firstTickerData?.extended?.prePrice) return 'Pre';
+        // During regular hours or closed, check ALL tickers for ext data
+        const hasAnyPost = dashboardTickers.some(t => allTickerData[t]?.extended?.postPrice && allTickerData[t].extended!.postPrice! > 0);
+        if (hasAnyPost) return 'Post';
+        const hasAnyPre = dashboardTickers.some(t => allTickerData[t]?.extended?.prePrice && allTickerData[t].extended!.prePrice! > 0);
+        if (hasAnyPre) return 'Pre';
         return 'Ext';
     })();
 
