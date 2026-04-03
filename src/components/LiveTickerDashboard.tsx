@@ -690,7 +690,8 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
         return {
             price: effectivePrice,
             prices: {
-                regularCloseToday: s === 'reg' ? effectivePrice : undefined,
+                // [FIX] POST/CLOSED: use todayClose (day.c = regular session close) not effectivePrice (lastTrade = POST trade)
+                regularCloseToday: s === 'reg' ? effectivePrice : (initialStockData?.todayClose || undefined),
                 prevRegularClose: initialStockData?.prevClose || null,
                 prevClose: initialStockData?.prevClose || null,
                 prePrice: s === 'pre' ? effectivePrice : (ssrPrePrice || undefined),

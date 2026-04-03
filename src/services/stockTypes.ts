@@ -26,6 +26,7 @@ export interface StockData {
     return3d?: number; marketCap?: number; description?: string;
     extPrice?: number; extChange?: number; extChangePercent?: number; session?: 'pre' | 'reg' | 'post';
     vwap?: number;
+    todayClose?: number | null; // [FIX] Regular session close (day.c) — separate from price which may be POST trade
     prevClose?: number; // [Phase 31] Previous day's close price
     regPrice?: number; regChange?: number; regChangePercent?: number;
     prevChangePercent?: number; // [Phase 56] Change % of the previous trading day (for Pre-market static display)

@@ -99,6 +99,7 @@ async function _fetchStockDataLight(symbol: string) {
     return {
         symbol,
         price: latestPrice,
+        todayClose: todayClose > 0 ? todayClose : null, // [FIX] regular session close (day.c) — separate from latestPrice which may be POST trade
         changePercent: isExtended ? 0 : regChangePercent,
         volume: t?.day?.v,
         prevClose,
