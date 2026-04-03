@@ -1144,7 +1144,11 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
         session: effectiveSession,
         prevRegularClose: liveQuote?.prices?.prevRegularClose,
         prevClose: liveQuote?.prevClose || (initialStockData && initialStockData.prevClose) || 0,
-        regularCloseToday: liveQuote?.prices?.regularCloseToday,
+        // [ROOT FIX] ticker API has NO regularCloseToday field → SWR load kills SSR value
+        // Fallback to SSR's todayClose (= Polygon day.c) ONLY during non-REG sessions
+        // During REG: regularCloseToday must be undefined → WebSocket real-time used
+        regularCloseToday: liveQuote?.prices?.regularCloseToday
+            || (effectiveSession !== 'REG' ? (initialStockData?.todayClose || undefined) : undefined),
         prevChangePct: liveQuote?.prices?.prevChangePct,
         fallbackChangePct: (initialStockData && initialStockData.changePercent) || 0,
         lastTrade: liveQuote?.prices?.lastTrade || liveQuote?.price,
