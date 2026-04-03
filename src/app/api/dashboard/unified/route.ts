@@ -772,10 +772,9 @@ async function revalidateCache(cacheKey: string, tickers: string[], requestOrBas
     }
 }
 
-// [FIX] Fill missing ticker data from analysis-cache before returning cached response.
-// If a previous request failed for some tickers, those would be permanently missing
-// from the cache. This ensures ALL requested tickers have data regardless of cache state.
-async function fillMissingTickers(cachedData: any, requestedTickers: string[]): Promise<any> {
+// [FIX] Fill missing ticker data — NEVER allow blank cards.
+// Layer 1: analysis-cache (fast ~10ms) → Layer 2: fetchTickerData API (guaranteed data)
+async function fillMissingTickers(cachedData: any, requestedTickers: string[], baseUrl?: string): Promise<any> {
     if (!cachedData || !requestedTickers?.length) return cachedData;
     const existingTickers = cachedData.tickers || {};
     const missingTickers = requestedTickers.filter(t =>
@@ -783,28 +782,45 @@ async function fillMissingTickers(cachedData: any, requestedTickers: string[]): 
     );
     if (missingTickers.length === 0) return cachedData;
 
-    // Fill from analysis-cache (fast: ~10ms per ticker from Redis)
-    console.log(`[CACHE FIX] Filling ${missingTickers.length} missing tickers from analysis-cache: ${missingTickers.join(',')}`);
+    console.log(`[CACHE FIX] Filling ${missingTickers.length} missing tickers: ${missingTickers.join(',')}`);
+    const marketData = cachedData.market || await fetchMarketData();
+    let stillMissing: string[] = [...missingTickers];
+
+    // Layer 1: analysis-cache (fast ~10ms per ticker from Redis)
     try {
-        const [analysisCacheMap, marketData] = await Promise.all([
-            getAnalysisCacheForTickers(missingTickers),
-            cachedData.market ? Promise.resolve(cachedData.market) : fetchMarketData(),
-        ]);
-        if (Object.keys(analysisCacheMap).length > 0) {
-            const filled = await buildResponseFromAnalysisCache(
-                missingTickers.filter(t => analysisCacheMap[t.toUpperCase()]),
-                analysisCacheMap,
-                marketData
-            );
-            cachedData = {
-                ...cachedData,
-                tickers: { ...existingTickers, ...filled.tickers },
-            };
+        const analysisCacheMap = await getAnalysisCacheForTickers(missingTickers);
+        const acHits = missingTickers.filter(t => analysisCacheMap[t.toUpperCase()]);
+        if (acHits.length > 0) {
+            const filled = await buildResponseFromAnalysisCache(acHits, analysisCacheMap, marketData);
+            existingTickers && Object.assign(existingTickers, filled.tickers);
+            stillMissing = missingTickers.filter(t => !analysisCacheMap[t.toUpperCase()]);
         }
     } catch (e) {
-        console.warn('[CACHE FIX] Failed to fill missing tickers:', e);
+        console.warn('[CACHE FIX] Analysis-cache fill failed:', e);
     }
-    return cachedData;
+
+    // Layer 2: Direct API fetch for any remaining misses (universe 외 종목 등)
+    if (stillMissing.length > 0 && baseUrl) {
+        console.log(`[CACHE FIX] Fetching ${stillMissing.length} tickers via API: ${stillMissing.join(',')}`);
+        try {
+            const results = await Promise.all(
+                stillMissing.map(async (ticker) => {
+                    try {
+                        const data = await fetchTickerData(ticker, undefined, 2, baseUrl);
+                        return { ticker, data, error: null };
+                    } catch (e: any) {
+                        return { ticker, data: null, error: e.message };
+                    }
+                })
+            );
+            const apiResponse = await buildResponseFromResults(results, marketData);
+            Object.assign(existingTickers, apiResponse.tickers);
+        } catch (e) {
+            console.warn('[CACHE FIX] API fetch fallback failed:', e);
+        }
+    }
+
+    return { ...cachedData, tickers: existingTickers };
 }
 
 export async function GET(request: NextRequest) {
@@ -821,7 +837,7 @@ export async function GET(request: NextRequest) {
 
     // [WARM] Fresh cache — return immediately (fill missing tickers if any)
     if (cached && (now - cached.timestamp) < getDashboardSmartTTL().memoryMs) {
-        const filledData = await fillMissingTickers(cached.data, tickers);
+        const filledData = await fillMissingTickers(cached.data, tickers, baseUrl);
         // Update cache if we filled anything
         if (filledData !== cached.data) {
             cache.set(cacheKey, { data: filledData, timestamp: cached.timestamp });
@@ -839,7 +855,7 @@ export async function GET(request: NextRequest) {
         // Non-blocking background revalidation
         revalidateCache(cacheKey, tickers, baseUrl);
 
-        const filledData = await fillMissingTickers(cached.data, tickers);
+        const filledData = await fillMissingTickers(cached.data, tickers, baseUrl);
         if (filledData !== cached.data) {
             cache.set(cacheKey, { data: filledData, timestamp: cached.timestamp });
         }
@@ -854,7 +870,7 @@ export async function GET(request: NextRequest) {
     // [REDIS FALLBACK] In-memory miss — check Redis (shared across Vercel instances)
     const redisCached = await getFromRedisCache(cacheKey);
     if (redisCached) {
-        const filledData = await fillMissingTickers(redisCached.data, tickers);
+        const filledData = await fillMissingTickers(redisCached.data, tickers, baseUrl);
         // Hydrate in-memory cache from Redis (with filled data)
         cache.set(cacheKey, { data: filledData, timestamp: redisCached.timestamp });
         console.log(`[CACHE] ✅ Redis hit for ${cacheKey} (age: ${Math.round((now - redisCached.timestamp) / 1000)}s)`);
