@@ -803,7 +803,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
     // 2. livePrice?.session (from /api/live/quotes) → ACCURATE, time-based session detection
     // 3. liveQuote?.session (from /api/live/ticker) → UNRELIABLE, CentralDataHub sometimes returns "REG" when CLOSED
     // 4. ssrFallback session (from getStockDataLight) → time-based, accurate
-    const quotesSession = (livePrice?.session || '').toUpperCase();
+    const quotesSession = (livePrice?.session || initialStockData?.session || '').toUpperCase();
     const effectiveSession = (marketStatus.isHoliday || marketStatus.market === 'closed')
         ? 'CLOSED'
         : (['POST', 'CLOSED', 'PRE'].includes(quotesSession))
