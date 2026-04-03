@@ -470,20 +470,24 @@ function WatchlistPanel() {
 
     // Determine ext header label from market session
     const market = useDashboardStore(s => s.market);
-    // [FIX] Must use reactive selector, not getState() — getState() is a snapshot,
-    // doesn't trigger re-render when fetchPriceOnly updates extended data
-    const allTickerData = useDashboardStore(useShallow(s => s.tickers));
-    const extHeaderLabel = (() => {
+    // [FIX] Use market status + ET time to determine header — no dependency on store extended data
+    // which may not be populated yet due to localStorage hydration timing
+    const extHeaderLabel = useMemo(() => {
         const status = market?.marketStatus;
         if (status === 'PRE') return 'Pre';
         if (status === 'AFTER') return 'Post';
-        // During regular hours or closed, check ALL tickers for ext data
-        const hasAnyPost = dashboardTickers.some(t => allTickerData[t]?.extended?.postPrice && allTickerData[t].extended!.postPrice! > 0);
-        if (hasAnyPost) return 'Post';
-        const hasAnyPre = dashboardTickers.some(t => allTickerData[t]?.extended?.prePrice && allTickerData[t].extended!.prePrice! > 0);
-        if (hasAnyPre) return 'Pre';
-        return 'Ext';
-    })();
+        if (status === 'OPEN') return 'Ext';
+        // CLOSED: determine based on ET time which session just ended
+        // 04:00-09:30 = Pre upcoming, 16:00-20:00 = Post active, 20:00-04:00 = Post ended
+        const now = new Date();
+        const etStr = now.toLocaleString('en-US', { timeZone: 'America/New_York' });
+        const et = new Date(etStr);
+        const etHour = et.getHours();
+        const etMin = et.getMinutes();
+        const etMinutes = etHour * 60 + etMin;
+        if (etMinutes >= 4 * 60 && etMinutes < 9 * 60 + 30) return 'Pre';  // Pre-market active
+        return 'Post'; // After 16:00 or before 04:00 — Post is the last/current extended session
+    }, [market?.marketStatus]);
 
     return (
         <div className="flex flex-col h-full">

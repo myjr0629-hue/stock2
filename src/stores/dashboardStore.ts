@@ -238,6 +238,22 @@ export const useDashboardStore = create<DashboardState>()(
                     for (const [ticker, q] of Object.entries(quotes) as [string, any][]) {
                         if (!q) continue;
                         if (!currentTickers[ticker]) {
+                            // Build extended data from SSR quotes (extendedPrice/Label available from quotes API)
+                            const ssrExtended = (() => {
+                                if (!q.extendedPrice || q.extendedPrice <= 0) return null;
+                                const isPost = q.extendedLabel === 'POST';
+                                const isPre = q.extendedLabel === 'PRE';
+                                const dayClose = q.price || 0;
+                                const prevCl = q.previousClose || q.prevClose || 0;
+                                return {
+                                    postPrice: isPost ? q.extendedPrice : undefined,
+                                    postChangePct: isPost && dayClose > 0 ? ((q.extendedPrice - dayClose) / dayClose) * 100 : undefined,
+                                    prePrice: isPre ? q.extendedPrice : undefined,
+                                    preChangePct: isPre && prevCl > 0 ? ((q.extendedPrice - prevCl) / prevCl) * 100 : undefined,
+                                };
+                            })();
+                            // Session: quotes API returns 'session' field (not 'marketState')
+                            const mappedSession = sessionMap[q.session] || sessionMap[q.marketState] || 'CLOSED';
                             currentTickers[ticker] = {
                                 underlyingPrice: q.price || 0,
                                 changePercent: q.changePercent || q.changesPercentage || 0,
@@ -249,8 +265,8 @@ export const useDashboardStore = create<DashboardState>()(
                                 display: { price: q.price || 0, changePctPct: q.changePercent || q.changesPercentage || 0 },
                                 prevChangePct: q.changePercent || q.changesPercentage || null,
                                 prevRegularClose: q.previousClose || q.prevClose || null,
-                                extended: null,
-                                session: (q.marketState && sessionMap[q.marketState]) || 'REG',
+                                extended: ssrExtended,
+                                session: mappedSession as any,
                                 netGex: null, maxPain: null, pcr: null, isGammaSqueeze: false,
                                 gammaFlipLevel: null, atmIv: null, atmIvExpiry: null,
                                 squeezeScore: null, squeezeRisk: null,
@@ -260,6 +276,20 @@ export const useDashboardStore = create<DashboardState>()(
                                 volumePcrPutVol: null, levels: null, expiration: null, options_status: null
                             };
                         } else {
+                            // Build extended from SSR quotes for existing tickers too
+                            const mergeExtended = (() => {
+                                if (!q.extendedPrice || q.extendedPrice <= 0) return undefined;
+                                const isPost = q.extendedLabel === 'POST';
+                                const isPre = q.extendedLabel === 'PRE';
+                                const dayClose = q.price || 0;
+                                const prevCl = q.previousClose || q.prevClose || 0;
+                                return {
+                                    postPrice: isPost ? q.extendedPrice : undefined,
+                                    postChangePct: isPost && dayClose > 0 ? ((q.extendedPrice - dayClose) / dayClose) * 100 : undefined,
+                                    prePrice: isPre ? q.extendedPrice : undefined,
+                                    preChangePct: isPre && prevCl > 0 ? ((q.extendedPrice - prevCl) / prevCl) * 100 : undefined,
+                                };
+                            })();
                             currentTickers[ticker] = deepMergeTicker(currentTickers[ticker], {
                                 underlyingPrice: q.price,
                                 changePercent: q.changePercent || q.changesPercentage,
@@ -267,7 +297,8 @@ export const useDashboardStore = create<DashboardState>()(
                                 // [FIX] Also merge prevRegularClose and display for accurate CHG%
                                 prevRegularClose: q.previousClose || q.prevClose,
                                 display: { price: q.price, changePctPct: q.changePercent || q.changesPercentage },
-                                session: (q.marketState && sessionMap[q.marketState]) || currentTickers[ticker].session
+                                extended: mergeExtended,
+                                session: sessionMap[q.session] || sessionMap[q.marketState] || currentTickers[ticker].session
                             });
                         }
                     }
