@@ -61,7 +61,7 @@ async function _fetchStockDataLight(symbol: string) {
         if (etTime >= 4 && etTime < 9.5) session = 'pre';
         else if (etTime >= 16 && etTime < 20) session = 'post';
         else if (etTime >= 9.5 && etTime < 16) session = 'reg';
-        else session = (etTime >= 20 || etTime < 4) ? 'post' : 'reg';
+        else session = 'closed'; // 20:00-04:00 ET → market fully closed
     } else {
         session = 'closed';
     }

@@ -800,25 +800,23 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
     // [S-46] Macro SSOT Integration
     const { snapshot: macroData } = useMacroSnapshot();
 
-    // [FIX 2026-04-03] Session priority:
-    // 1. marketStatus (holiday/weekend) → always CLOSED
-    // 2. livePrice?.session (from /api/live/quotes) → ACCURATE, time-based session detection
-    // 3. liveQuote?.session (from /api/live/ticker) → UNRELIABLE, CentralDataHub sometimes returns "REG" when CLOSED
-    // 4. ssrFallback session (from getStockDataLight) → time-based, accurate
-    const quotesSession = (livePrice?.session || initialStockData?.session || '').toUpperCase();
+    // [PHASE 2] Session also uses SSR as ground truth, same principle as price.
+    // SSR session comes from getStockDataLight which uses time-based detection (accurate).
+    // quotes API (livePrice?.session) may return 'post' when market is actually fully closed.
+    // Rule: SSR session is authoritative. Only upgrade to REG if livePrice says so (trading started).
+    const ssrSession = (initialStockData?.session || 'closed').toUpperCase();
+    const quotesSession = (livePrice?.session || '').toUpperCase();
     const effectiveSession = (marketStatus.isHoliday || marketStatus.market === 'closed')
         ? 'CLOSED'
-        : (['POST', 'CLOSED', 'PRE'].includes(quotesSession))
-            ? quotesSession
-            : liveQuote?.session || 'CLOSED';
+        : (quotesSession === 'REG' || quotesSession === 'REGULAR')
+            ? 'REG'  // Only quotes API can upgrade to REG (trading started)
+            : ssrSession || 'CLOSED';  // Otherwise trust SSR
 
     const displayLabel = marketStatus.isHoliday
         ? `CLOSED (${marketStatus.holidayName})`
         : marketStatus.market === 'closed'
             ? 'CLOSED'
-            : (['POST', 'CLOSED', 'PRE'].includes(quotesSession))
-                ? quotesSession
-                : liveQuote?.session || 'CLOSED';
+            : effectiveSession;  // Same as effectiveSession — SSR authoritative
 
     // [PERF] fetchQuote removed — replaced by SWR useFlowData hook above
     // SWR handles: caching, deduplication, background refresh (15s), error retry
@@ -1132,41 +1130,29 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
 
     if (!initialStockData) return <div>Data Unavailable</div>;
 
-    // [UNIFIED] All price display logic via shared calcPriceDisplay()
+    // [PHASE 2] Price COMPLETELY separated from SWR.
+    // Price sources: SSR (Polygon day.c) + WebSocket (real-time) ONLY.
+    // SWR ticker API is for options flow/alpha/gamma ONLY — never touches price.
     const { displayPrice, displayChangePct, activeExtPrice, activeExtType, activeExtLabel, activeExtPct } = calcPriceDisplay({
+        // WebSocket real-time (REG 본장 중 실시간 업데이트)
         livePrice: wsPrice?.price || livePrice?.price,
         liveChangePct: wsPrice?.changePct || livePrice?.changePercent,
         liveExtPrice: livePrice?.extendedPrice,
         liveExtChangePct: livePrice?.extendedChangePercent,
         liveExtLabel: livePrice?.extendedLabel,
-        apiDisplayPrice: liveQuote?.display?.price || initialStockData?.price,
-        apiDisplayChangePct: liveQuote?.display?.changePctPct || initialStockData?.changePercent,
+        // SSR에서만 가격 가져옴 — SWR(liveQuote) 가격 완전 무시
+        apiDisplayPrice: initialStockData?.price || 0,
+        apiDisplayChangePct: initialStockData?.changePercent || 0,
         session: effectiveSession,
-        prevRegularClose: liveQuote?.prices?.prevRegularClose,
-        prevClose: liveQuote?.prevClose || (initialStockData && initialStockData.prevClose) || 0,
-        // [ROOT FIX] ticker API has NO regularCloseToday field → SWR load kills SSR value
-        // Fallback to SSR's todayClose (= Polygon day.c) ONLY during non-REG sessions
-        // During REG: regularCloseToday must be undefined → WebSocket real-time used
-        regularCloseToday: liveQuote?.prices?.regularCloseToday
-            || (effectiveSession !== 'REG' ? (initialStockData?.todayClose || undefined) : undefined),
-        prevChangePct: liveQuote?.prices?.prevChangePct,
-        fallbackChangePct: (initialStockData && initialStockData.changePercent) || 0,
-        lastTrade: liveQuote?.prices?.lastTrade || liveQuote?.price,
-        // [ROOT FIX] Merge SSR fallback → SWR can't erase valid extended/prices
-        // SSR has correct postPrice/prePrice, but SWR ticker API may return null (wrong session)
-        extended: {
-            ...(ssrFallback?.extended || {}),
-            ...(liveQuote?.extended || {}),
-            // Keep SSR postPrice if SWR didn't provide one
-            postPrice: liveQuote?.extended?.postPrice || ssrFallback?.extended?.postPrice || undefined,
-            prePrice: liveQuote?.extended?.prePrice || ssrFallback?.extended?.prePrice || undefined,
-        },
-        prices: {
-            ...(ssrFallback?.prices || {}),
-            ...(liveQuote?.prices || {}),
-            postPrice: liveQuote?.prices?.postPrice || ssrFallback?.prices?.postPrice || undefined,
-            prePrice: liveQuote?.prices?.prePrice || ssrFallback?.prices?.prePrice || undefined,
-        },
+        prevRegularClose: ssrFallback?.prices?.prevRegularClose || initialStockData?.prevClose || null,
+        prevClose: initialStockData?.prevClose || 0,
+        regularCloseToday: (effectiveSession !== 'REG') ? (initialStockData?.todayClose || undefined) : undefined,
+        prevChangePct: liveQuote?.prices?.prevChangePct || null,
+        fallbackChangePct: initialStockData?.changePercent || 0,
+        lastTrade: initialStockData?.price || 0,
+        // Extended prices: SSR only
+        extended: ssrFallback?.extended || {},
+        prices: ssrFallback?.prices || {},
     });
 
     const pSource = liveQuote?.priceSource || initialStockData?.priceSource;

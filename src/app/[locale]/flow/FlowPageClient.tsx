@@ -68,21 +68,23 @@ export function FlowPageClient({ ticker, initialFlowData }: FlowPageClientProps)
     // [PERF] 5s real-time price polling (separate from heavy 60s ticker API)
     const livePrice = useLivePrice(ticker);
 
-    // [UNIFIED] All price display logic via shared calcPriceDisplay()
+    // [PHASE 2] Price separated from SWR — SSR + WebSocket only
+    const flowSsrFallback = initialFlowData?.liveQuote;
+    const flowSession = (liveQuote?.session || flowSsrFallback?.session || 'CLOSED').toUpperCase();
     const { displayPrice, displayChangePct, activeExtPrice, activeExtType, activeExtLabel, activeExtPct } = calcPriceDisplay({
         livePrice: livePrice?.price,
         liveChangePct: livePrice?.changePercent,
-        apiDisplayPrice: liveQuote?.display?.price,
-        apiDisplayChangePct: liveQuote?.display?.changePctPct,
-        session: liveQuote?.session || 'CLOSED',
-        prevRegularClose: liveQuote?.prices?.prevRegularClose,
-        prevClose: liveQuote?.prevClose,
-        regularCloseToday: liveQuote?.prices?.regularCloseToday,
+        apiDisplayPrice: flowSsrFallback?.display?.price || liveQuote?.display?.price,
+        apiDisplayChangePct: flowSsrFallback?.display?.changePctPct || liveQuote?.display?.changePctPct,
+        session: flowSession === 'REG' ? 'REG' : (flowSsrFallback?.session || liveQuote?.session || 'CLOSED'),
+        prevRegularClose: flowSsrFallback?.prices?.prevRegularClose || liveQuote?.prices?.prevRegularClose,
+        prevClose: flowSsrFallback?.prevClose || liveQuote?.prevClose,
+        regularCloseToday: flowSsrFallback?.prices?.regularCloseToday || liveQuote?.prices?.regularCloseToday,
         prevChangePct: liveQuote?.prices?.prevChangePct,
-        fallbackChangePct: liveQuote?.changePercent || 0,
-        lastTrade: liveQuote?.prices?.lastTrade || liveQuote?.price,
-        extended: liveQuote?.extended,
-        prices: liveQuote?.prices,
+        fallbackChangePct: flowSsrFallback?.changePercent || liveQuote?.changePercent || 0,
+        lastTrade: flowSsrFallback?.prices?.lastTrade || liveQuote?.prices?.lastTrade || liveQuote?.price,
+        extended: flowSsrFallback?.extended || liveQuote?.extended,
+        prices: flowSsrFallback?.prices || liveQuote?.prices,
     });
 
     const isPositive = displayChangePct >= 0;
