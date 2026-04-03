@@ -772,11 +772,46 @@ async function revalidateCache(cacheKey: string, tickers: string[], requestOrBas
     }
 }
 
+// [FIX] Fill missing ticker data from analysis-cache before returning cached response.
+// If a previous request failed for some tickers, those would be permanently missing
+// from the cache. This ensures ALL requested tickers have data regardless of cache state.
+async function fillMissingTickers(cachedData: any, requestedTickers: string[]): Promise<any> {
+    if (!cachedData || !requestedTickers?.length) return cachedData;
+    const existingTickers = cachedData.tickers || {};
+    const missingTickers = requestedTickers.filter(t =>
+        !existingTickers[t] || existingTickers[t].error || existingTickers[t].netGex === undefined
+    );
+    if (missingTickers.length === 0) return cachedData;
+
+    // Fill from analysis-cache (fast: ~10ms per ticker from Redis)
+    console.log(`[CACHE FIX] Filling ${missingTickers.length} missing tickers from analysis-cache: ${missingTickers.join(',')}`);
+    try {
+        const [analysisCacheMap, marketData] = await Promise.all([
+            getAnalysisCacheForTickers(missingTickers),
+            cachedData.market ? Promise.resolve(cachedData.market) : fetchMarketData(),
+        ]);
+        if (Object.keys(analysisCacheMap).length > 0) {
+            const filled = await buildResponseFromAnalysisCache(
+                missingTickers.filter(t => analysisCacheMap[t.toUpperCase()]),
+                analysisCacheMap,
+                marketData
+            );
+            cachedData = {
+                ...cachedData,
+                tickers: { ...existingTickers, ...filled.tickers },
+            };
+        }
+    } catch (e) {
+        console.warn('[CACHE FIX] Failed to fill missing tickers:', e);
+    }
+    return cachedData;
+}
+
 export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const tickersParam = searchParams.get('tickers');
     const tickers = tickersParam
-        ? tickersParam.split(',').slice(0, 10) // Max 10 tickers
+        ? tickersParam.split(',').slice(0, 20) // Max 20 tickers (dashboard supports up to 20 slots)
         : DEFAULT_TICKERS;
 
     const cacheKey = `${CACHE_VERSION}:${tickers.sort().join(',')}`;
@@ -784,10 +819,15 @@ export async function GET(request: NextRequest) {
     const now = Date.now();
     const baseUrl = new URL(request.url).origin;
 
-    // [WARM] Fresh cache — return immediately
+    // [WARM] Fresh cache — return immediately (fill missing tickers if any)
     if (cached && (now - cached.timestamp) < getDashboardSmartTTL().memoryMs) {
+        const filledData = await fillMissingTickers(cached.data, tickers);
+        // Update cache if we filled anything
+        if (filledData !== cached.data) {
+            cache.set(cacheKey, { data: filledData, timestamp: cached.timestamp });
+        }
         return NextResponse.json({
-            ...cached.data,
+            ...filledData,
             _cached: true,
             _cacheAge: Math.round((now - cached.timestamp) / 1000),
             _status: 'fresh'
@@ -799,8 +839,12 @@ export async function GET(request: NextRequest) {
         // Non-blocking background revalidation
         revalidateCache(cacheKey, tickers, baseUrl);
 
+        const filledData = await fillMissingTickers(cached.data, tickers);
+        if (filledData !== cached.data) {
+            cache.set(cacheKey, { data: filledData, timestamp: cached.timestamp });
+        }
         return NextResponse.json({
-            ...cached.data,
+            ...filledData,
             _cached: true,
             _cacheAge: Math.round((now - cached.timestamp) / 1000),
             _status: 'warming'
@@ -810,15 +854,16 @@ export async function GET(request: NextRequest) {
     // [REDIS FALLBACK] In-memory miss — check Redis (shared across Vercel instances)
     const redisCached = await getFromRedisCache(cacheKey);
     if (redisCached) {
-        // Hydrate in-memory cache from Redis
-        cache.set(cacheKey, { data: redisCached.data, timestamp: redisCached.timestamp });
+        const filledData = await fillMissingTickers(redisCached.data, tickers);
+        // Hydrate in-memory cache from Redis (with filled data)
+        cache.set(cacheKey, { data: filledData, timestamp: redisCached.timestamp });
         console.log(`[CACHE] ✅ Redis hit for ${cacheKey} (age: ${Math.round((now - redisCached.timestamp) / 1000)}s)`);
 
         // Non-blocking background revalidation to keep data fresh
         revalidateCache(cacheKey, tickers, baseUrl);
 
         return NextResponse.json({
-            ...redisCached.data,
+            ...filledData,
             _cached: true,
             _cacheAge: Math.round((now - redisCached.timestamp) / 1000),
             _status: 'redis-hit'
