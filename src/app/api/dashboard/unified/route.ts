@@ -669,11 +669,11 @@ async function buildResponseFromAnalysisCache(
             atmIvExpiry: null,
             squeezeScore: ac.squeezeScore,
             squeezeRisk,
-            vwap: null, // VWAP price needs live data, vwapDist is distance only
-            darkPoolPct: null,       // Not in analysis cache (comes from realtimeMetrics)
-            shortVolPct: null,       // Not in analysis cache
-            zeroDtePct: null,        // Not in analysis cache
-            impliedMovePct: null,    // Not in analysis cache
+            vwap: null, // VWAP absolute price needs live data (vwapDist is relative)
+            darkPoolPct: ac.darkPoolPct ?? null,           // [FIX] Use cached last-session data
+            shortVolPct: null,       // Not stored in analysis cache
+            zeroDtePct: null,        // Not stored in analysis cache
+            impliedMovePct: ac.impliedMovePct ?? null,     // [FIX] Use cached last-session data
             impliedMoveDir: null,
             gammaConcentration: null,
             volumePcr: null,
