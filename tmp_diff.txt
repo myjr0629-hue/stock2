@@ -1,0 +1,32 @@
+﻿diff --git a/src/components/LiveTickerDashboard.tsx b/src/components/LiveTickerDashboard.tsx
+index f43a9153..07c63566 100644
+--- a/src/components/LiveTickerDashboard.tsx
++++ b/src/components/LiveTickerDashboard.tsx
+@@ -1982,18 +1982,20 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
+                                             <span className="text-[12px] font-bold text-white font-jakarta hover:text-indigo-300 transition-colors">{item.ticker}</span>
+                                         </div>
+                                         {(() => {
+-                                            // [V9] Priority: DynamoDB changePct (?뺥솗) > WebSocket changePct (Polygon, 遺?뺥솗 媛??
+-                                            // DynamoDB??changePct = Lambda媛 (close-prevClose)/prevClose*100 ?쇰줈 ?뺥솗 怨꾩궛
+-                                            // WebSocket changePct = Polygon todaysChangePerc 洹몃?濡??꾨떖 (prevDay 湲곗? ?ㅻ쪟 媛??
++                                            // [V10] Server calculates changePct from Polygon prevDay.c (accurate)
++                                            // Only fallback to WS if server gave valid price but 0% change (flat day)
++                                            // If server price=0 ??Polygon has no data ??WS also unreliable ??show 0%
+                                             const serverChange = item.change ?? 0;
++                                            const serverPrice = item.price ?? 0;
+                                             const wsPrice = relWsConnected ? relWsGetPrice(item.ticker) : undefined;
+                                             const wsChangePct = wsPrice?.changePct;
+-                                            // Use DynamoDB value if available; fallback to WS only if server has no data
+                                             const displayChange = serverChange !== 0
+                                                 ? serverChange
+-                                                : (wsChangePct !== undefined && wsChangePct !== 0)
+-                                                    ? Number(wsChangePct.toFixed(2))
+-                                                    : 0;
++                                                : (serverPrice > 0)
++                                                    ? 0  // Server has price but 0% change = legitimate flat day
++                                                    : (wsChangePct !== undefined && wsChangePct !== 0 && Math.abs(wsChangePct) < 15)
++                                                        ? Number(wsChangePct.toFixed(2))
++                                                        : 0;
+                                             return (
+                                                 <span className={`text-[12px] font-jakarta font-bold tabular-nums ${displayChange >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                                     {displayChange >= 0 ? '+' : ''}{displayChange}%

@@ -92,45 +92,21 @@ export function calcPriceDisplay(input: PriceDisplayInput): PriceDisplayResult {
     let displayPrice = livePrice || apiDisplayPrice || resolvedPrevClose || 0;
     let displayChangePct = liveChangePct ?? apiDisplayChangePct ?? null;
 
-    // POST/CLOSED: Main display = today's regular close, NOT live after-hours trades
-    // [FIX 2026-04-03 V2] Both livePrice (WebSocket) AND apiDisplayPrice (ticker API display.price)
-    // contain POST-market prices during POST session. ticker API sets display.price = postPrice || liveLast.
-    // Only regularCloseToday (= S.day?.c = today's regular close) and resolvedPrevClose are safe.
-    if (s === 'POST' || s === 'CLOSED') {
-        // Priority: regularCloseToday (today's reg close) > resolvedPrevClose (yesterday's close)
-        // BOTH livePrice AND apiDisplayPrice are EXCLUDED — they contain POST-market trades
-        const regClose = (regularCloseToday && regularCloseToday > 0)
-            ? regularCloseToday
-            : resolvedPrevClose || 0;
+    // [BULLETPROOF FIX 2026-04-03]
+    // regularCloseToday = S.day?.c (Polygon) — ONLY available AFTER regular session closes (4pm ET+).
+    // During REG session: regularCloseToday = null → this block is skipped → WebSocket real-time used.
+    // After REG close: regularCloseToday = $360.59 → USE IT, regardless of session detection.
+    // This eliminates ALL dependency on session detection (CentralDataHub, effectiveSession, etc.)
+    if (regularCloseToday && regularCloseToday > 0) {
+        displayPrice = regularCloseToday;
 
-        if (regClose > 0) {
-            displayPrice = regClose;
-
-            // Detect "No New Trading Day" (weekend/holiday)
-            const isNewTradingDay = resolvedPrevClose > 0
-                ? Math.abs(regClose - resolvedPrevClose) > 0.001
-                : false;
-
-            if (isNewTradingDay && resolvedPrevClose > 0) {
-                displayChangePct = ((regClose - resolvedPrevClose) / resolvedPrevClose) * 100;
-            } else {
-                // Weekend/holiday: show previous session's change
-                displayChangePct = prevChangePct ?? fallbackChangePct ?? 0;
-            }
+        // Calculate change vs yesterday's close
+        if (resolvedPrevClose > 0 && Math.abs(regularCloseToday - resolvedPrevClose) > 0.001) {
+            displayChangePct = ((regularCloseToday - resolvedPrevClose) / resolvedPrevClose) * 100;
+        } else {
+            // Same as prevClose → weekend/holiday → show previous session's change
+            displayChangePct = prevChangePct ?? fallbackChangePct ?? 0;
         }
-    }
-
-    // PRE: Main display = regular close (static), change = yesterday's regular session change
-    if (s === 'PRE') {
-        // During PRE, show last regular close as the main price
-        if (regularCloseToday && regularCloseToday > 0) {
-            displayPrice = regularCloseToday;
-        } else if (resolvedPrevClose > 0) {
-            displayPrice = resolvedPrevClose;
-        }
-        // ALWAYS use prevChangePct during PRE — it contains confirmed daily bar change
-        // apiDisplayChangePct/liveChangePct contain pre-market change which must NOT leak here
-        displayChangePct = prevChangePct ?? fallbackChangePct ?? 0;
     }
 
     // Final fallback for displayChangePct
