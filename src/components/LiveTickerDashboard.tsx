@@ -705,7 +705,20 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                 preClose: ssrPrePrice || undefined,
                 postPrice: ssrPostPrice || (s === 'post' || s === 'closed' ? effectivePrice : undefined),
             },
-            session: s === 'reg' ? 'REG' : s === 'pre' ? 'PRE' : s === 'post' ? 'POST' : 'CLOSED',
+            // Session: 'post' from SSR may be stale (Redis cache). 
+            // If actual post-market (16:00-20:00 ET) ended, correct to CLOSED.
+            session: (() => {
+                if (s === 'reg') return 'REG';
+                if (s === 'pre') return 'PRE';
+                if (s === 'closed') return 'CLOSED';
+                if (s === 'post') {
+                    // Verify we're truly in POST hours (16:00-20:00 ET)
+                    const etNow = new Date(new Date().toLocaleString("en-US", { timeZone: "America/New_York" }));
+                    const etH = etNow.getHours();
+                    return (etH >= 16 && etH < 20) ? 'POST' : 'CLOSED';
+                }
+                return 'CLOSED';
+            })(),
             changePercent: initialStockData?.changePercent || initialUnifiedData?._dynamoPrice?.changePct || 0
         };
     }, [initialStockData, initialUnifiedData]);
@@ -800,17 +813,12 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
     // [S-46] Macro SSOT Integration
     const { snapshot: macroData } = useMacroSnapshot();
 
-    // [PHASE 2] Session also uses SSR as ground truth, same principle as price.
-    // SSR session comes from getStockDataLight which uses time-based detection (accurate).
-    // quotes API (livePrice?.session) may return 'post' when market is actually fully closed.
-    // Rule: SSR session is authoritative. Only upgrade to REG if livePrice says so (trading started).
-    const ssrSession = (initialStockData?.session || 'closed').toUpperCase();
-    const quotesSession = (livePrice?.session || '').toUpperCase();
+    // [PHASE 2] Session: same source as Flow page for consistency.
+    // ticker API session (liveQuote?.session) is authoritative — CentralDataHub computes it server-side.
+    // Price is already separated from SWR, so session only affects labels (POST vs POST CLOSED).
     const effectiveSession = (marketStatus.isHoliday || marketStatus.market === 'closed')
         ? 'CLOSED'
-        : (quotesSession === 'REG' || quotesSession === 'REGULAR')
-            ? 'REG'  // Only quotes API can upgrade to REG (trading started)
-            : ssrSession || 'CLOSED';  // Otherwise trust SSR
+        : liveQuote?.session || (initialStockData?.session || 'closed').toUpperCase() || 'CLOSED';
 
     const displayLabel = marketStatus.isHoliday
         ? `CLOSED (${marketStatus.holidayName})`
@@ -1137,9 +1145,16 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
         // WebSocket real-time (REG 본장 중 실시간 업데이트)
         livePrice: wsPrice?.price || livePrice?.price,
         liveChangePct: wsPrice?.changePct || livePrice?.changePercent,
+        // liveExtPrice/Label from quotes API — but label needs session context
+        // quotes API always returns 'POST'/'PRE' regardless of market state
+        // Must append '(CLOSED)' when session is CLOSED for consistency with Flow page
         liveExtPrice: livePrice?.extendedPrice,
         liveExtChangePct: livePrice?.extendedChangePercent,
-        liveExtLabel: livePrice?.extendedLabel,
+        liveExtLabel: livePrice?.extendedLabel
+            ? (effectiveSession === 'CLOSED'
+                ? `${livePrice.extendedLabel} (CLOSED)`  // POST → POST (CLOSED)
+                : livePrice.extendedLabel)
+            : undefined,
         // SSR에서만 가격 가져옴 — SWR(liveQuote) 가격 완전 무시
         apiDisplayPrice: initialStockData?.price || 0,
         apiDisplayChangePct: initialStockData?.changePercent || 0,
