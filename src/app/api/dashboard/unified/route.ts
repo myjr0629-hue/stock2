@@ -774,6 +774,7 @@ async function revalidateCache(cacheKey: string, tickers: string[], requestOrBas
 
 // [FIX] Fill missing ticker data — NEVER allow blank cards.
 // Layer 1: analysis-cache (fast ~10ms) → Layer 2: fetchTickerData API (guaranteed data)
+// IMPORTANT: Creates NEW object, never mutates cached data (prevents race conditions)
 async function fillMissingTickers(cachedData: any, requestedTickers: string[], baseUrl?: string): Promise<any> {
     if (!cachedData || !requestedTickers?.length) return cachedData;
     const existingTickers = cachedData.tickers || {};
@@ -784,6 +785,7 @@ async function fillMissingTickers(cachedData: any, requestedTickers: string[], b
 
     console.log(`[CACHE FIX] Filling ${missingTickers.length} missing tickers: ${missingTickers.join(',')}`);
     const marketData = cachedData.market || await fetchMarketData();
+    const newTickers: Record<string, any> = {}; // Only new data, never overwrite existing
     let stillMissing: string[] = [...missingTickers];
 
     // Layer 1: analysis-cache (fast ~10ms per ticker from Redis)
@@ -792,7 +794,9 @@ async function fillMissingTickers(cachedData: any, requestedTickers: string[], b
         const acHits = missingTickers.filter(t => analysisCacheMap[t.toUpperCase()]);
         if (acHits.length > 0) {
             const filled = await buildResponseFromAnalysisCache(acHits, analysisCacheMap, marketData);
-            existingTickers && Object.assign(existingTickers, filled.tickers);
+            for (const [t, data] of Object.entries(filled.tickers)) {
+                if (!existingTickers[t]) newTickers[t] = data; // Only add MISSING tickers
+            }
             stillMissing = missingTickers.filter(t => !analysisCacheMap[t.toUpperCase()]);
         }
     } catch (e) {
@@ -814,13 +818,21 @@ async function fillMissingTickers(cachedData: any, requestedTickers: string[], b
                 })
             );
             const apiResponse = await buildResponseFromResults(results, marketData);
-            Object.assign(existingTickers, apiResponse.tickers);
+            for (const [t, data] of Object.entries(apiResponse.tickers)) {
+                if (!existingTickers[t]) newTickers[t] = data; // Only add MISSING tickers
+            }
         } catch (e) {
             console.warn('[CACHE FIX] API fetch fallback failed:', e);
         }
     }
 
-    return { ...cachedData, tickers: existingTickers };
+    if (Object.keys(newTickers).length === 0) return cachedData;
+
+    // Return NEW object (immutable — original cachedData untouched)
+    return {
+        ...cachedData,
+        tickers: { ...existingTickers, ...newTickers },
+    };
 }
 
 export async function GET(request: NextRequest) {
