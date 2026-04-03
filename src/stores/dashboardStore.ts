@@ -638,7 +638,8 @@ export const useDashboardStore = create<DashboardState>()(
                     dashboardTickers: state.dashboardTickers,
                     selectedTicker: state.selectedTicker,
                     tickers: strippedTickers,
-                    market: state.market,
+                    // [FIX] market is intentionally NOT persisted — stale marketStatus (e.g. 'PRE'
+                    // from a morning session) would show "LIVE PRE" badge on evening visits
                 };
             },
             // Note: localStorage is now fallback only.
