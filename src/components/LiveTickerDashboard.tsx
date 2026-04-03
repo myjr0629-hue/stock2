@@ -798,16 +798,25 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
     // [S-46] Macro SSOT Integration
     const { snapshot: macroData } = useMacroSnapshot();
 
-    // SSOT Override for session status (S-45)SOT says Closed/Holiday, we force "CLOSED" even if liveQuote says "PRE"
+    // [FIX 2026-04-03] Session priority:
+    // 1. marketStatus (holiday/weekend) → always CLOSED
+    // 2. livePrice?.session (from /api/live/quotes) → ACCURATE, time-based session detection
+    // 3. liveQuote?.session (from /api/live/ticker) → UNRELIABLE, CentralDataHub sometimes returns "REG" when CLOSED
+    // 4. ssrFallback session (from getStockDataLight) → time-based, accurate
+    const quotesSession = (livePrice?.session || '').toUpperCase();
     const effectiveSession = (marketStatus.isHoliday || marketStatus.market === 'closed')
         ? 'CLOSED'
-        : liveQuote?.session || 'CLOSED'; // Fallback if liveQuote null
+        : (['POST', 'CLOSED', 'PRE'].includes(quotesSession))
+            ? quotesSession
+            : liveQuote?.session || 'CLOSED';
 
     const displayLabel = marketStatus.isHoliday
         ? `CLOSED (${marketStatus.holidayName})`
         : marketStatus.market === 'closed'
             ? 'CLOSED'
-            : liveQuote?.session || 'CLOSED';
+            : (['POST', 'CLOSED', 'PRE'].includes(quotesSession))
+                ? quotesSession
+                : liveQuote?.session || 'CLOSED';
 
     // [PERF] fetchQuote removed — replaced by SWR useFlowData hook above
     // SWR handles: caching, deduplication, background refresh (15s), error retry
