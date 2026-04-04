@@ -1,0 +1,141 @@
+═══════════════════════════════════════════════════════════
+SIGNUM HQ 전수 실사 — 2026-04-03T15:26:45.346Z
+═══════════════════════════════════════════════════════════
+
+═══ 1. REDIS 키 패턴별 현황 ═══
+cache:analysis:*                    → 996 keys
+cache:command:unified:*             → 381 keys
+cache:command:overview:*            → 1179 keys
+cache:flow:unified:*                → 0 keys
+guardian:morning_briefing:*         → 0 keys
+guardian:snapshot:*                 → 3 keys
+  samples: guardian:snapshot:en, guardian:snapshot:ja, guardian:snapshot:ko
+macro:*                             → 0 keys
+yahoo:*                             → 16 keys
+
+═══ 2. TSLA 3-WAY 데이터 비교 ═══
+
+--- cache:analysis:TSLA (warm-analysis → Dashboard/Watchlist용) ---
+  timestamp: 1775227814817 (2026-04-03T14:50:14.817Z)
+  age: 37분 전
+  expiration: undefined
+  netGex: 7881489.110748695 (7.88M)
+  maxPain: 375
+  callWall: 400
+  putFloor: 350
+  gammaFlipLevel: 307.5
+  pcr: 1.2432341144184083
+  iv: 41
+  squeezeScore: 5
+  whaleIndex: 35
+  darkPoolPct: 62.6
+  netPremium: -30790852
+  ivSkew: 1.22
+  impliedMovePct: 31.892176710391308
+  rsi: 38.65042123023499
+  relVol: null
+  alpha.score: 39
+  alpha.grade: D
+
+--- cache:command:unified:TSLA (Lambda→DynamoDB→warm-command→Command용) ---
+  timestamp: 1775149636249 (2026-04-02T17:07:16.249Z)
+  age: 1340분 전
+  top-keys: analyst, earnings, fundamentals, institutional, related, sma, squeeze, structure, timestamp, volatility
+  structure.expiration: undefined
+  structure.netGex: -50430418
+  structure.maxPain: 367.5
+  structure.callWall: N/A (check levels)
+  structure.putFloor: N/A (check levels)
+  structure.gammaFlipLevel: 420
+  structure.levels: {"putFloor":160,"callWall":680}
+  structure.pcRatio: 0.67
+  structure.atmIv: undefined
+  squeeze: {"shortVolPercent":44.9,"ticker":"TSLA","siPercent":0.8,"daysToCover":0,"siChange":0,"riskScore":10,
+  volatility.regime: COILING (score: 36)
+  volatility.flipLevel: 420
+
+--- DynamoDB signum-unified-cache TSLA (Lambda v7 원본) ---
+  updatedAt: 2026-04-02T17:07:16.249Z
+  age: 1340분 전
+  version: v7
+  fieldCount: 9
+  data.structure.expiration: undefined
+  data.structure.netGex: -50430418
+  data.structure.maxPain: 367.5
+  data.structure.underlyingPrice: 363.97
+  data.structure.gammaFlipLevel: 420
+  data.structure.pcRatio: 0.67
+  data.structure.totalCallOI: 3632645
+  data.structure.totalPutOI: 2428535
+  data.structure.levels: {"putFloor":160,"callWall":680}
+  data.structure.options_status: OK
+  data sub-fields: analyst, earnings, fundamentals, institutional, related, sma, squeeze, structure, timestamp, volatility
+  data.analyst: EXISTS (5 keys)
+  data.fundamentals: EXISTS (17 keys)
+  data.earnings: EXISTS (8 keys)
+  data.sma: EXISTS (9 keys)
+  data.related: EXISTS (5 keys)
+  data.squeeze: EXISTS (7 keys)
+  data.institutional: EXISTS (3 keys)
+  data.volatility: EXISTS (12 keys)
+
+═══ 3. FLOW 데이터 확인 ═══
+flow Redis TSLA: ❌ 없음 (warm-flow 비활성 확인)
+
+═══ 4. 주요 7종목 cache:analysis 상태 ═══
+TSLA  : ✅ age=37min exp=NULL GEX=7.88M CW=400 PF=350 MP=375 SQ=5 IV=41
+NVDA  : ✅ age=54min exp=NULL GEX=-54.54M CW=190 PF=170 MP=172.5 SQ=18 IV=31
+AAPL  : ✅ age=26min exp=NULL GEX=-19.43M CW=265 PF=245 MP=250 SQ=22 IV=24
+MSFT  : ✅ age=58min exp=NULL GEX=-8.81M CW=380 PF=370 MP=370 SQ=14 IV=26
+GOOGL : ✅ age=4min exp=NULL GEX=-7.4M CW=310 PF=265 MP=290 SQ=9 IV=29
+META  : ✅ age=58min exp=NULL GEX=-1.95M CW=597.5 PF=560 MP=575 SQ=13 IV=34
+AMZN  : ✅ age=24min exp=NULL GEX=-13.65M CW=220 PF=190 MP=207.5 SQ=14 IV=31
+
+═══ 5. 주요 7종목 cache:command:unified 상태 ═══
+TSLA  : ✅ age=1340min exp=NULL GEX=-50.4M levels={"putFloor":160,"callWall":680} MP=367.5
+NVDA  : ✅ age=1340min exp=NULL GEX=528.7M levels={"putFloor":140,"callWall":140} MP=160
+AAPL  : ✅ age=1340min exp=NULL GEX=236.6M levels={"putFloor":250,"callWall":280} MP=247.5
+MSFT  : ✅ age=1340min exp=NULL GEX=110.4M levels={"putFloor":475,"callWall":575} MP=390
+GOOGL : ✅ age=1340min exp=NULL GEX=87.9M levels={"putFloor":215,"callWall":345} MP=280
+META  : ✅ age=1340min exp=NULL GEX=1.5M levels={"putFloor":5,"callWall":1030} MP=592.5
+AMZN  : ✅ age=1340min exp=NULL GEX=255.1M levels={"putFloor":200,"callWall":275} MP=210
+
+═══ 6. DynamoDB 7종목 unified-cache 상태 ═══
+TSLA  : ✅ age=1340min exp=NULL GEX=-50.4M levels={"putFloor":160,"callWall":680} MP=367.5
+NVDA  : ✅ age=1340min exp=NULL GEX=528.7M levels={"putFloor":140,"callWall":140} MP=160
+AAPL  : ✅ age=1340min exp=NULL GEX=236.6M levels={"putFloor":250,"callWall":280} MP=247.5
+MSFT  : ✅ age=1340min exp=NULL GEX=110.4M levels={"putFloor":475,"callWall":575} MP=390
+GOOGL : ✅ age=1340min exp=NULL GEX=87.9M levels={"putFloor":215,"callWall":345} MP=280
+META  : ✅ age=1340min exp=NULL GEX=1.5M levels={"putFloor":5,"callWall":1030} MP=592.5
+AMZN  : ✅ age=1340min exp=NULL GEX=255.1M levels={"putFloor":200,"callWall":275} MP=210
+
+═══ 7. cache:analysis 총 커버리지 ═══
+cache:analysis:* : 996종목 캐시됨
+cache:command:unified:* : 381종목 캐시됨
+cache:flow:unified:* : 0종목 캐시됨
+
+═══ 8. 프로덕션 API 응답 확인 ═══
+/api/dashboard/unified?ticker=TSLA                 → 200 12222ms keys=[timestamp,market,tickers,signals,meta,_cached,_status,_analysisHits]
+  dashboard 응답 structure 관련:
+    expiration: undefined
+    gex: undefined (undefinedM)
+    maxPain: undefined
+    callWall: undefined
+    putFloor: undefined
+/api/command/unified?ticker=TSLA                   → 400 3132ms ❌
+/api/live/ticker?t=TSLA                            → 200 9561ms keys=[ticker,name,timestampET,session,tsServer,seq,price,changePct]
+/api/live/options/structure?ticker=TSLA            → 400 830ms ❌
+
+═══ 9. Universe 파일 비교 ═══
+stock_universe_us300.json      → 300 tickers
+universe_500.json              → 509 tickers
+stock_universe_us800.json      → 1000 tickers
+lib/universe.ts UNIVERSE_500    → ~510 tickers (warm-command 사용)
+Lambda GEX_TICKERS             → ~99 tickers (GEX 계산 대상)
+
+═══ 10. DynamoDB unified-cache 전체 구조 분석 ═══
+총 레코드 (overview 제외): 685
+structure 있음: 680/685 (99%)
+expiration 있음: 144/685 (21%)
+volatility 있음: 685/685 (100%)
+squeeze 있음: 685/685 (100%)

@@ -1,0 +1,141 @@
+1: ???????????????????????????????????????????????????????????
+2: SIGNUM HQ ?? ?? ? 2026-04-03T15:26:45.346Z
+3: ???????????????????????????????????????????????????????????
+4: 
+5: ??? 1. REDIS ? ??? ?? ???
+6: cache:analysis:*                    ? 996 keys
+7: cache:command:unified:*             ? 381 keys
+8: cache:command:overview:*            ? 1179 keys
+9: cache:flow:unified:*                ? 0 keys
+10: guardian:morning_briefing:*         ? 0 keys
+11: guardian:snapshot:*                 ? 3 keys
+12:   samples: guardian:snapshot:en, guardian:snapshot:ja, guardian:snapshot:ko
+13: macro:*                             ? 0 keys
+14: yahoo:*                             ? 16 keys
+15: 
+16: ??? 2. TSLA 3-WAY ??? ?? ???
+17: 
+18: --- cache:analysis:TSLA (warm-analysis ? Dashboard/Watchlist?) ---
+19:   timestamp: 1775227814817 (2026-04-03T14:50:14.817Z)
+20:   age: 37? ?
+21:   expiration: undefined
+22:   netGex: 7881489.110748695 (7.88M)
+23:   maxPain: 375
+24:   callWall: 400
+25:   putFloor: 350
+26:   gammaFlipLevel: 307.5
+27:   pcr: 1.2432341144184083
+28:   iv: 41
+29:   squeezeScore: 5
+30:   whaleIndex: 35
+31:   darkPoolPct: 62.6
+32:   netPremium: -30790852
+33:   ivSkew: 1.22
+34:   impliedMovePct: 31.892176710391308
+35:   rsi: 38.65042123023499
+36:   relVol: null
+37:   alpha.score: 39
+38:   alpha.grade: D
+39: 
+40: --- cache:command:unified:TSLA (Lambda?DynamoDB?warm-command?Command?) ---
+41:   timestamp: 1775149636249 (2026-04-02T17:07:16.249Z)
+42:   age: 1340? ?
+43:   top-keys: analyst, earnings, fundamentals, institutional, related, sma, squeeze, structure, timestamp, volatility
+44:   structure.expiration: undefined
+45:   structure.netGex: -50430418
+46:   structure.maxPain: 367.5
+47:   structure.callWall: N/A (check levels)
+48:   structure.putFloor: N/A (check levels)
+49:   structure.gammaFlipLevel: 420
+50:   structure.levels: {"putFloor":160,"callWall":680}
+51:   structure.pcRatio: 0.67
+52:   structure.atmIv: undefined
+53:   squeeze: {"shortVolPercent":44.9,"ticker":"TSLA","siPercent":0.8,"daysToCover":0,"siChange":0,"riskScore":10,
+54:   volatility.regime: COILING (score: 36)
+55:   volatility.flipLevel: 420
+56: 
+57: --- DynamoDB signum-unified-cache TSLA (Lambda v7 ??) ---
+58:   updatedAt: 2026-04-02T17:07:16.249Z
+59:   age: 1340? ?
+60:   version: v7
+61:   fieldCount: 9
+62:   data.structure.expiration: undefined
+63:   data.structure.netGex: -50430418
+64:   data.structure.maxPain: 367.5
+65:   data.structure.underlyingPrice: 363.97
+66:   data.structure.gammaFlipLevel: 420
+67:   data.structure.pcRatio: 0.67
+68:   data.structure.totalCallOI: 3632645
+69:   data.structure.totalPutOI: 2428535
+70:   data.structure.levels: {"putFloor":160,"callWall":680}
+71:   data.structure.options_status: OK
+72:   data sub-fields: analyst, earnings, fundamentals, institutional, related, sma, squeeze, structure, timestamp, volatility
+73:   data.analyst: EXISTS (5 keys)
+74:   data.fundamentals: EXISTS (17 keys)
+75:   data.earnings: EXISTS (8 keys)
+76:   data.sma: EXISTS (9 keys)
+77:   data.related: EXISTS (5 keys)
+78:   data.squeeze: EXISTS (7 keys)
+79:   data.institutional: EXISTS (3 keys)
+80:   data.volatility: EXISTS (12 keys)
+81: 
+82: ??? 3. FLOW ??? ?? ???
+83: flow Redis TSLA: ? ?? (warm-flow ??? ??)
+84: 
+85: ??? 4. ?? 7?? cache:analysis ?? ???
+86: TSLA  : ? age=37min exp=NULL GEX=7.88M CW=400 PF=350 MP=375 SQ=5 IV=41
+87: NVDA  : ? age=54min exp=NULL GEX=-54.54M CW=190 PF=170 MP=172.5 SQ=18 IV=31
+88: AAPL  : ? age=26min exp=NULL GEX=-19.43M CW=265 PF=245 MP=250 SQ=22 IV=24
+89: MSFT  : ? age=58min exp=NULL GEX=-8.81M CW=380 PF=370 MP=370 SQ=14 IV=26
+90: GOOGL : ? age=4min exp=NULL GEX=-7.4M CW=310 PF=265 MP=290 SQ=9 IV=29
+91: META  : ? age=58min exp=NULL GEX=-1.95M CW=597.5 PF=560 MP=575 SQ=13 IV=34
+92: AMZN  : ? age=24min exp=NULL GEX=-13.65M CW=220 PF=190 MP=207.5 SQ=14 IV=31
+93: 
+94: ??? 5. ?? 7?? cache:command:unified ?? ???
+95: TSLA  : ? age=1340min exp=NULL GEX=-50.4M levels={"putFloor":160,"callWall":680} MP=367.5
+96: NVDA  : ? age=1340min exp=NULL GEX=528.7M levels={"putFloor":140,"callWall":140} MP=160
+97: AAPL  : ? age=1340min exp=NULL GEX=236.6M levels={"putFloor":250,"callWall":280} MP=247.5
+98: MSFT  : ? age=1340min exp=NULL GEX=110.4M levels={"putFloor":475,"callWall":575} MP=390
+99: GOOGL : ? age=1340min exp=NULL GEX=87.9M levels={"putFloor":215,"callWall":345} MP=280
+100: META  : ? age=1340min exp=NULL GEX=1.5M levels={"putFloor":5,"callWall":1030} MP=592.5
+101: AMZN  : ? age=1340min exp=NULL GEX=255.1M levels={"putFloor":200,"callWall":275} MP=210
+102: 
+103: ??? 6. DynamoDB 7?? unified-cache ?? ???
+104: TSLA  : ? age=1340min exp=NULL GEX=-50.4M levels={"putFloor":160,"callWall":680} MP=367.5
+105: NVDA  : ? age=1340min exp=NULL GEX=528.7M levels={"putFloor":140,"callWall":140} MP=160
+106: AAPL  : ? age=1340min exp=NULL GEX=236.6M levels={"putFloor":250,"callWall":280} MP=247.5
+107: MSFT  : ? age=1340min exp=NULL GEX=110.4M levels={"putFloor":475,"callWall":575} MP=390
+108: GOOGL : ? age=1340min exp=NULL GEX=87.9M levels={"putFloor":215,"callWall":345} MP=280
+109: META  : ? age=1340min exp=NULL GEX=1.5M levels={"putFloor":5,"callWall":1030} MP=592.5
+110: AMZN  : ? age=1340min exp=NULL GEX=255.1M levels={"putFloor":200,"callWall":275} MP=210
+111: 
+112: ??? 7. cache:analysis ? ???? ???
+113: cache:analysis:* : 996?? ???
+114: cache:command:unified:* : 381?? ???
+115: cache:flow:unified:* : 0?? ???
+116: 
+117: ??? 8. ???? API ?? ?? ???
+118: /api/dashboard/unified?ticker=TSLA                 ? 200 12222ms keys=[timestamp,market,tickers,signals,meta,_cached,_status,_analysisHits]
+119:   dashboard ?? structure ??:
+120:     expiration: undefined
+121:     gex: undefined (undefinedM)
+122:     maxPain: undefined
+123:     callWall: undefined
+124:     putFloor: undefined
+125: /api/command/unified?ticker=TSLA                   ? 400 3132ms ?
+126: /api/live/ticker?t=TSLA                            ? 200 9561ms keys=[ticker,name,timestampET,session,tsServer,seq,price,changePct]
+127: /api/live/options/structure?ticker=TSLA            ? 400 830ms ?
+128: 
+129: ??? 9. Universe ?? ?? ???
+130: stock_universe_us300.json      ? 300 tickers
+131: universe_500.json              ? 509 tickers
+132: stock_universe_us800.json      ? 1000 tickers
+133: lib/universe.ts UNIVERSE_500    ? ~510 tickers (warm-command ??)
+134: Lambda GEX_TICKERS             ? ~99 tickers (GEX ?? ??)
+135: 
+136: ??? 10. DynamoDB unified-cache ?? ?? ?? ???
+137: ? ??? (overview ??): 685
+138: structure ??: 680/685 (99%)
+139: expiration ??: 144/685 (21%)
+140: volatility ??: 685/685 (100%)
+141: squeeze ??: 685/685 (100%)

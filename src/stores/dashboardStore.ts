@@ -443,7 +443,7 @@ export const useDashboardStore = create<DashboardState>()(
                             // [FIX v3] POST/CLOSED: q.price = regular session close (ALWAYS)
                             // q.extendedPrice = POST/PRE price (badge display)
                             // We CAN safely set underlyingPrice to q.price since it's always the regular close
-                            const regClose = q.price || q.latestPrice;
+                            const regClose = (q.price > 0 ? q.price : null) || (q.latestPrice > 0 ? q.latestPrice : null);
                             const refClose = existing.prevClose ?? q.previousClose ?? q.prevClose;
                             const hasNewExtended = q.extendedPrice > 0;
                             const regChangePct = (regClose && refClose && refClose > 0)
@@ -451,7 +451,7 @@ export const useDashboardStore = create<DashboardState>()(
                                 : (existing.changePercent ?? 0);
                             currentTickers[ticker] = {
                                 ...existing,
-                                // [FIX] Set underlyingPrice to regular close (q.price is ALWAYS reg close)
+                                // [FIX] Only update underlyingPrice when regClose is a valid positive number
                                 underlyingPrice: regClose || existing.underlyingPrice,
                                 changePercent: regChangePct,
                                 prevClose: refClose ?? existing.prevClose,
@@ -506,7 +506,7 @@ export const useDashboardStore = create<DashboardState>()(
                                 changed = true;
                             } else {
                                 // REG: use q.price (live trade)
-                                const newPrice = q.price || q.latestPrice;
+                                const newPrice = (q.price > 0 ? q.price : null) || (q.latestPrice > 0 ? q.latestPrice : null);
                                 if ((newPrice && newPrice !== existing.underlyingPrice) || sessionChanged) {
                                     const calculatedChangePct = (newPrice && refClose && refClose > 0)
                                         ? ((newPrice - refClose) / refClose) * 100

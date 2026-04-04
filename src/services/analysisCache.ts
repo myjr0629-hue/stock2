@@ -45,6 +45,7 @@ export interface AnalysisCacheEntry {
     relVol: number | null;
 
     // Options structure data
+    expiration: string | null; // Target options expiration date (YYYY-MM-DD) from structureService
     maxPain: number | null;
     gex: number | null;        // netGex (raw)
     gexM: number | null;       // netGex in millions

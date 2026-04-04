@@ -62,7 +62,7 @@ async function getDailyChangeBatch(tickers: string[]): Promise<Map<string, { cha
 }
 
 // [AWS-FIRST] Technical indicators from analysis-cache (NO Polygon API call)
-// Analysis cache is pre-computed by warm-analysis cron and stored in Redis.
+// Analysis cache is pre-computed by Lambda harvest and stored in Redis.
 async function fetchTechnicalIndicators(ticker: string): Promise<{
     return3D: number | null;
     sma20: number | null;
@@ -70,11 +70,13 @@ async function fetchTechnicalIndicators(ticker: string): Promise<{
     relVol: number | null;
 }> {
     try {
-        const cached = await getFromCache<any>(`analysis:${ticker}`);
+        // [FIX] Use correct cache:analysis: key (not analysis:)
+        const { getAnalysisCache } = await import('@/services/analysisCache');
+        const cached = await getAnalysisCache(ticker);
         if (cached) {
             return {
                 return3D: cached.return3d ?? null,
-                sma20: cached.sma20 ?? null,
+                sma20: null,
                 rsi14: cached.rsi ?? null,
                 relVol: cached.relVol ?? null,
             };
@@ -683,7 +685,7 @@ async function buildResponseFromAnalysisCache(
                 callWall: ac.callWall,
                 putFloor: ac.putFloor,
             },
-            expiration: null,
+            expiration: ac.expiration ?? null,
             options_status: ac.maxPain || ac.gex ? 'OK' : null,
             // [D] Technical indicators from analysis cache (used for Alpha recalc on full refresh)
             _rsi14: ac.rsi,

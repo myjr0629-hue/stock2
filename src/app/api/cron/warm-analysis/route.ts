@@ -362,6 +362,7 @@ async function warmTicker(ticker: string): Promise<{ ticker: string; ok: boolean
             return3d: return3D,
             sparkline: stockData.sparkline || [],
             relVol,
+            expiration: structureRes?.expiration ?? null,  // [FIX] Options expiration from structureService
             maxPain: finalMaxPain,
             gex: structureRes?.netGex ?? gex,
             gexM: structureGexM ?? gexM,

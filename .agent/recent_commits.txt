@@ -1,0 +1,30 @@
+﻿5fed220f fix(dashboard): immutable cache fill ??prevent data corruption
+2583c568 fix(dashboard): guarantee no blank cards for ANY ticker
+71cb86b1 fix(dashboard): round impliedMovePct/darkPoolPct to 1 decimal
+3b7acb99 fix(dashboard): show last-session darkPool/impliedMove from analysis-cache
+c86eb19a fix(dashboard): ASTS empty cards ??ticker limit was 10, should be 20 (Elite)
+f71b5fd4 fix(build): correct DashboardState type in persist merge
+0c337cb7 fix(dashboard): merge guard to strip stale market on hydration
+a9280a5a fix(dashboard): remove stale market persist + time-only header
+ebffa479 fix(dashboard): instant POST data on page load + time-based header label
+568619bb fix(dashboard): watchlist header PRE?뭁ost fix - check ALL tickers not just first, use reactive selector
+eeb5b431 fix(badge): POST badge session-aware - append (CLOSED) when market closed, fix liveExtLabel overriding session state
+64b49f8c fix(price): PHASE 2 complete - price+session fully separated from SWR. SSR+WebSocket only. Fixed 20:00+ session to CLOSED (was incorrectly POST). Flow page also updated.
+4e92a98f fix(price): merge SSR fallback into extended/prices - prevent SWR from erasing postPrice/prePrice badges
+e6dd24bb fix(price): ROOT CAUSE - ticker API regularCloseToday=null when CentralDataHub misreports session, fallback to SSR todayClose (Polygon day.c)
+38601ef8 fix(price): bulletproof regularCloseToday - session-independent price display + ssrFallback REG cleanup
+4fd735de fix(session): use SSR session as fallback to prevent ticker API REG override flicker
+cbc40505 fix(session): use quotes API session (accurate) over ticker API session (CentralDataHub bug)
+64d4b205 fix(price): revert useLivePrice, expose todayClose from SSR, use it as regularCloseToday in POST/CLOSED
+9b68654f fix(price): source fix ??useLivePrice uses SWR session-aware price during POST/PRE, WebSocket only for REG
+b7d466e1 fix(price): POST/CLOSED session ??lock main display to regular close, block WebSocket after-hours leak
+65b28d1e fix(lambda): holiday-aware weekly expiry via SPY pilot ??matches Vercel getNextWeeklyExpiration logic
+83470f62 chore: disable warm-flow Vercel cron ??Lambda handles 500 tickers directly via Upstash
+c945eb09 revert: restore live/ticker to pre-SWR state ??fix empty Flow page
+89f93496 fix(flow): ALWAYS-SERVE cache pattern ??eliminate 64s latency and blank screens
+78a8a154 perf: SWR cache pattern for live/ticker API (12s ??1ms)
+fbe79847 fix: prevent pre-market data from leaking into CHG% display
+4ba38147 fix: use Polygon Daily Bars for accurate prevChangePct (same source as 5-DAY HISTORY)
+90b1f22f fix: PRE session CHG% showing pre-market instead of regular session change
+385d60ca feat: 5-platform SNS marketing automation + dashboard bugfix
+0aedcd55 fix: OG image ??real SIGNUM logo + slate-300 min text for readability

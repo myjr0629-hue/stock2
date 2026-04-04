@@ -517,6 +517,7 @@ export async function processWatchlistBatch(tickers: string[], mode: 'full' | 'p
                 return3d: fullObj.realtime.return3d,
                 sparkline: fullObj.realtime.sparkline,
                 relVol: fullObj.realtime.relVol,
+                expiration: structureRes?.expiration ?? null,
                 maxPain: fullObj.realtime.maxPain,
                 gex: fullObj.realtime.gex,
                 gexM: fullObj.realtime.gexM,

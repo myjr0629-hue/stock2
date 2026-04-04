@@ -23,36 +23,16 @@ const path = require('path');
 const { execSync } = require('child_process');
 const { LambdaClient, UpdateFunctionCodeCommand, UpdateFunctionConfigurationCommand } = require('@aws-sdk/client-lambda');
 
-const universe = JSON.parse(fs.readFileSync('data/stock_universe_us300.json', 'utf-8')).symbols;
-console.log('Universe:', universe.length, 'tickers');
+// [v8 UNIFIED] Single universe: 1000 tickers from us800
+const universe = JSON.parse(fs.readFileSync('data/stock_universe_us800.json', 'utf-8')).symbols;
+console.log('Unified Universe:', universe.length, 'tickers');
 
-// Import UNIVERSE_500 from pre-extracted JSON (avoids regex parsing issues)
-let universe500 = [];
-try {
-  universe500 = JSON.parse(fs.readFileSync('data/universe_500.json', 'utf-8')).symbols;
-} catch {
-  console.warn('WARNING: data/universe_500.json not found, using universe 300');
-  universe500 = universe;
-}
-console.log('Universe 500 for unified cache:', universe500.length, 'tickers');
+// UNIVERSE_500 now = full universe (all tickers get unified cache)
+const universe500 = universe;
+console.log('Unified cache target:', universe500.length, 'tickers');
 
-const GEX_TICKERS = [
-  'AAPL','MSFT','AMZN','NVDA','GOOGL','META','TSLA',
-  'AMD','AVGO','PLTR','SMCI','ARM','COIN','AI','MRVL','MU','TSM','ASML',
-  'SERV','PL','TER','SYM','RKLB','ISRG',
-  'CEG','VST','GEV','PWR','CCJ','SMR','ETN',
-  'LLY','NVO','VRTX','REGN','VKTX','AMGN','GILD',
-  'CRWD','PANW','FTNT','ZS','S','OKTA','NET',
-  'LMT','RTX','AXON','KTOS','LDOS','ASTS','LUNR',
-  'SNOW','IONQ','DELL','PATH','TWLO',
-  'XYZ','PYPL','SOFI','AFRM','HOOD','UPST',
-  'CRM','NOW','DDOG','WDAY','MDB','TEAM','HUBS',
-  'JPM','BAC','GS','WFC','V','MA',
-  'XOM','CVX','UNH','JNJ','MRK',
-  'HD','COST','WMT','DIS','NFLX',
-  'BA','CAT','GE','MSTR','MARA','RIOT',
-  'SPY','QQQ','IWM','UBER','ABNB','SHOP','BABA',
-];
+// [v8 UNIFIED] ALL tickers get GEX calculation (structureService-compatible)
+const GEX_TICKERS = [...universe];
 
 const DETAIL_TICKERS = [...new Set([...GEX_TICKERS])];
 
@@ -89,6 +69,177 @@ const UNIVERSE_500 = ${JSON.stringify(universe500)};
 const GEX_TICKERS = ${JSON.stringify(GEX_TICKERS)};
 const DETAIL_TICKERS = ${JSON.stringify(DETAIL_TICKERS)};
 
+// [v8] Upstash Redis REST — direct cache:analysis write from Lambda
+const UPSTASH_URL = process.env.UPSTASH_REDIS_REST_URL || '';
+const UPSTASH_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN || '';
+const REDIS_TTL = 259200; // 3 days (same as analysisCache.ts)
+
+async function redisSet(key, value, ttl) {
+  if (!UPSTASH_URL || !UPSTASH_TOKEN) return false;
+  try {
+    const body = JSON.stringify(['SET', key, JSON.stringify(value), 'EX', String(ttl || REDIS_TTL)]);
+    const url = new URL(UPSTASH_URL);
+    const options = {
+      hostname: url.hostname,
+      port: 443,
+      path: '/',
+      method: 'POST',
+      headers: {
+        'Authorization': 'Bearer ' + UPSTASH_TOKEN,
+        'Content-Type': 'application/json',
+        'Content-Length': Buffer.byteLength(body),
+      },
+    };
+    return new Promise((resolve) => {
+      const req = https.request(options, (res) => {
+        let data = '';
+        res.on('data', chunk => data += chunk);
+        res.on('end', () => resolve(true));
+      });
+      req.on('error', () => resolve(false));
+      req.setTimeout(3000, () => { req.destroy(); resolve(false); });
+      req.write(body);
+      req.end();
+    });
+  } catch { return false; }
+}
+
+// Batch Redis pipeline (up to 20 commands at once)
+async function redisPipeline(commands) {
+  if (!UPSTASH_URL || !UPSTASH_TOKEN) return 0;
+  try {
+    const body = JSON.stringify(commands);
+    const url = new URL(UPSTASH_URL + '/pipeline');
+    const options = {
+      hostname: url.hostname,
+      port: 443,
+      path: '/pipeline',
+      method: 'POST',
+      headers: {
+        'Authorization': 'Bearer ' + UPSTASH_TOKEN,
+        'Content-Type': 'application/json',
+        'Content-Length': Buffer.byteLength(body),
+      },
+    };
+    return new Promise((resolve) => {
+      const req = https.request(options, (res) => {
+        let data = '';
+        res.on('data', chunk => data += chunk);
+        res.on('end', () => resolve(commands.length));
+      });
+      req.on('error', () => resolve(0));
+      req.setTimeout(5000, () => { req.destroy(); resolve(0); });
+      req.write(body);
+      req.end();
+    });
+  } catch { return 0; }
+}
+
+function getNextTradingDayET() {
+  // Simple ET approximation: UTC - 4 (EDT) or UTC - 5 (EST)
+  const now = new Date();
+  const month = now.getUTCMonth() + 1;
+  const isDST = month >= 3 && month <= 11; // Approximate DST
+  const etOffset = isDST ? 4 : 5;
+  const etHour = (now.getUTCHours() - etOffset + 24) % 24;
+  const day = now.getUTCDay();
+  
+  let daysToAdd = 0;
+  if (day === 6) daysToAdd = 2; // Saturday -> Monday
+  else if (day === 0) daysToAdd = 1; // Sunday -> Monday
+  
+  const target = new Date(now);
+  target.setUTCDate(target.getUTCDate() + daysToAdd);
+  return target.toISOString().slice(0, 10);
+}
+
+// [STRUCTURE-SERVICE COMPAT] Find weekly expiration from available dates
+function findWeeklyExp(expirations) {
+  if (!expirations || expirations.length === 0) return '';
+  const sorted = [...expirations].sort();
+  
+  // Calculate expected Friday
+  const now = new Date();
+  const day = now.getUTCDay();
+  const month = now.getUTCMonth() + 1;
+  const isDST = month >= 3 && month <= 11;
+  const etOffset = isDST ? 4 : 5;
+  const etHour = (now.getUTCHours() - etOffset + 24) % 24;
+  
+  let daysToFriday = (5 - day + 7) % 7;
+  if (daysToFriday === 0 && etHour >= 16) daysToFriday = 7; // After market close
+  
+  const friday = new Date(now);
+  friday.setUTCDate(friday.getUTCDate() + daysToFriday);
+  const expectedWeekly = friday.toISOString().slice(0, 10);
+  
+  if (sorted.includes(expectedWeekly)) return expectedWeekly;
+  
+  // Fallback: first Friday expiration
+  const fridayExp = sorted.find(exp => {
+    const d = new Date(exp + 'T12:00:00');
+    return d.getDay() === 5;
+  });
+  if (fridayExp) return fridayExp;
+  
+  // Fallback: first Thursday (holiday)
+  const thursdayExp = sorted.find(exp => {
+    const d = new Date(exp + 'T12:00:00');
+    return d.getDay() === 4;
+  });
+  if (thursdayExp) return thursdayExp;
+  
+  return sorted[0]; // Ultimate fallback
+}
+
+// [STRUCTURE-SERVICE COMPAT] Get weekly expiration options only (not all expirations)
+async function getWeeklyOptions(ticker) {
+  const todayStr = getNextTradingDayET();
+  
+  // Phase 1: Get available expirations via reference API
+  let availableExps = [];
+  let targetExpiry = '';
+  try {
+    const refUrl = 'https://api.polygon.io/v3/reference/options/contracts?underlying_ticker=' + ticker + '&expiration_date.gte=' + todayStr + '&order=asc&limit=1000&apiKey=' + POLYGON_KEY;
+    const refData = await httpsGet(refUrl, 8000);
+    if (refData && refData.results) {
+      const exps = [...new Set(refData.results.map(c => c.expiration_date))].filter(Boolean).sort();
+      availableExps = exps.slice(0, 10);
+      targetExpiry = findWeeklyExp(exps);
+    }
+  } catch (e) { console.log('[OPTIONS] Reference API failed for ' + ticker + ': ' + e.message); }
+  
+  // Fallback: snapshot probe
+  if (!targetExpiry) {
+    try {
+      const probeUrl = 'https://api.polygon.io/v3/snapshot/options/' + ticker + '?expiration_date.gte=' + todayStr + '&limit=250&sort=expiration_date&order=asc&apiKey=' + POLYGON_KEY;
+      const probeData = await httpsGet(probeUrl, 8000);
+      if (probeData && probeData.results) {
+        const exps = [...new Set(probeData.results.map(c => c.details?.expiration_date || c.expiration_date))].filter(Boolean).sort();
+        availableExps = exps.slice(0, 10);
+        targetExpiry = findWeeklyExp(exps);
+      }
+    } catch (e) { console.log('[OPTIONS] Snapshot probe failed for ' + ticker + ': ' + e.message); }
+  }
+  
+  if (!targetExpiry) targetExpiry = todayStr;
+  
+  // Phase 2: Fetch EXACT weekly expiration (much fewer contracts than all expirations)
+  let allContracts = [];
+  let pages = 0;
+  let url = 'https://api.polygon.io/v3/snapshot/options/' + ticker + '?expiration_date=' + targetExpiry + '&limit=250&apiKey=' + POLYGON_KEY;
+  while (url && pages < 10) {
+    const data = await httpsGet(url, 10000);
+    if (!data || !data.results) break;
+    allContracts = allContracts.concat(data.results);
+    url = data.next_url ? data.next_url + '&apiKey=' + POLYGON_KEY : null;
+    pages++;
+  }
+  
+  return { contracts: allContracts, expiration: targetExpiry, availableExps, pages };
+}
+
+// Legacy: fetch ALL options (kept for backward compat, used by non-structure flows)
 async function getAllOptions(ticker) {
   let allResults = [];
   let url = 'https://api.polygon.io/v3/snapshot/options/' + ticker + '?limit=250&apiKey=' + POLYGON_KEY;
@@ -241,44 +392,271 @@ async function harvestPrices() {
   return { count:items.length, priceMap, snapshotMap };
 }
 
-// ====== Step 2: GEX ======
+// ====== Step 2: GEX (structureService-compatible) ======
 async function harvestGex(priceMap) {
-  console.log('Step 2: GEX '+GEX_TICKERS.length+' tickers...');
+  console.log('Step 2: GEX (structureService mode) '+GEX_TICKERS.length+' tickers...');
   const ts = Date.now();
   const gexMap = {};
-  const optionsCache = {}; // Cache options data for Step 6 reuse
+  const optionsCache = {};
   let ok = 0;
-  for (let i = 0; i < GEX_TICKERS.length; i += 5) {
-    const batch = GEX_TICKERS.slice(i, i+5);
+  for (let i = 0; i < GEX_TICKERS.length; i += 10) {
+    const batch = GEX_TICKERS.slice(i, i+10);
     await Promise.all(batch.map(async (ticker) => {
       try {
         const price = priceMap[ticker]; if(!price) return;
-        const opts = await getAllOptions(ticker); if(!opts.length) return;
-        optionsCache[ticker] = { opts, price }; // Store for unified cache
-        let gex=0, cw=null, pf=null, mp=null, maxCOI=0, maxPOI=0, tCOI=0, tPOI=0, mpMin=Infinity;
-        const strikes = new Set();
-        for (const o of opts) {
-          const s=o.details?.strike_price; if(!s) continue;
-          strikes.add(s);
-          const g=o.greeks?.gamma||0, oi=o.open_interest||0, t=o.details?.contract_type;
-          if(t==='call'){gex+=g*oi*100*price;tCOI+=oi;if(oi>maxCOI){maxCOI=oi;cw=s;}} else {gex-=g*oi*100*price;tPOI+=oi;if(oi>maxPOI){maxPOI=oi;pf=s;}}
+        
+        // [STRUCTURE-SERVICE] Use weekly options only (not all expirations)
+        const weeklyResult = await getWeeklyOptions(ticker);
+        const opts = weeklyResult.contracts;
+        const expiration = weeklyResult.expiration;
+        const availableExps = weeklyResult.availableExps;
+        if (!opts.length) return;
+        
+        optionsCache[ticker] = { opts, price, expiration, availableExps };
+        
+        // Parse contracts (matching structureService L336-354)
+        const cleanContracts = [];
+        let totalCallOI = 0, totalPutOI = 0;
+        const strikesSet = new Set();
+        const callsMap = new Map(), putsMap = new Map();
+        
+        for (const c of opts) {
+          const k = c.details?.strike_price || c.strike_price || 0;
+          const type = (c.details?.contract_type || c.contract_type || 'call').toLowerCase();
+          const oi = c.open_interest;
+          strikesSet.add(k);
+          if (oi !== undefined && oi !== null) {
+            cleanContracts.push({ ...c, k, type, oi });
+            if (type === 'call') totalCallOI += oi;
+            else totalPutOI += oi;
+          }
+          const val = typeof oi === 'number' ? oi : 0;
+          if (type === 'call') callsMap.set(k, (callsMap.get(k) || 0) + val);
+          else putsMap.set(k, (putsMap.get(k) || 0) + val);
         }
-        for (const ts2 of [...strikes].sort((a,b)=>a-b)) { let c2=0; for(const o of opts){const s2=o.details?.strike_price;const oi2=o.open_interest||0;if(!s2||!oi2)continue;if(o.details.contract_type==='call')c2+=Math.max(0,ts2-s2)*oi2;else c2+=Math.max(0,s2-ts2)*oi2;} if(c2<mpMin){mpMin=c2;mp=ts2;} }
-        const fl=cw&&pf?(cw+pf)/2:null, gr=gex>0?'POSITIVE':gex<0?'NEGATIVE':'NEUTRAL', pcr=tCOI>0?tPOI/tCOI:0;
-        gexMap[ticker] = { gex, pcr, gammaRegime:gr, callWall:cw, putFloor:pf, maxPain:mp, flipLevel:fl, totalContracts:opts.length, totalCallOI:tCOI, totalPutOI:tPOI };
-        await client.send(new PutCommand({ TableName:'signum-gex-history', Item:{ticker,timestamp:ts,gex:Math.round(gex),flipLevel:fl,callWall:cw,putFloor:pf,maxPain:mp,price,gammaRegime:gr,totalContracts:opts.length,totalCallOI:tCOI,totalPutOI:tPOI,pcr:Math.round(pcr*100)/100}}));
-        await client.send(new PutCommand({ TableName:'signum-flow-history', Item:{ticker,timestamp:ts,compositeScore:0,opi:tCOI-tPOI,whaleScore:0,dex:0,ivSkew:0,squeezeProbability:0,smartMoneyScore:0,totalCallOI:tCOI,totalPutOI:tPOI,pcr:Math.round(pcr*100)/100}})).catch(()=>{});
+        
+        const pcr = totalCallOI > 0 ? Math.round((totalPutOI / totalCallOI) * 100) / 100 : 0;
+        const sortedStrikes = [...strikesSet].sort((a, b) => a - b);
+        
+        // ── GEX calculation (structureService L385-440) ──
+        const gexByStrike = new Map();
+        let gammaCount = 0;
+        const ATM_RANGE = 0.15;
+        const atmMin = price * (1 - ATM_RANGE);
+        const atmMax = price * (1 + ATM_RANGE);
+        
+        let gammaFlipLevel = null;
+        let gammaFlipType = 'NO_DATA';
+        let gammaFlipCrossings = [];
+        
+        cleanContracts.forEach(c => {
+          const g = c.greeks?.gamma;
+          if (typeof g === 'number' && isFinite(g) && g !== 0) {
+            const dir = c.type === 'call' ? -1 : 1;
+            const gex = g * c.oi * 100 * dir;
+            gexByStrike.set(c.k, (gexByStrike.get(c.k) || 0) + gex);
+            gammaCount++;
+          }
+        });
+        
+        if (gammaCount > 0) {
+          const strikesWithGex = [...gexByStrike.entries()].sort((a, b) => a[0] - b[0]);
+          let cumulativeGex = 0;
+          const allCrossings = [];
+          const atmNearZero = [];
+          let finalCumulativeGex = 0;
+          
+          for (let ii = 0; ii < strikesWithGex.length; ii++) {
+            const [strike, gexAtStrike] = strikesWithGex[ii];
+            const prevGex = cumulativeGex;
+            cumulativeGex += gexAtStrike;
+            finalCumulativeGex = cumulativeGex;
+            if (ii > 0) {
+              if ((prevGex < 0 && cumulativeGex >= 0) || (prevGex > 0 && cumulativeGex <= 0)) {
+                allCrossings.push(strike);
+              }
+            }
+            if (strike >= atmMin && strike <= atmMax) {
+              atmNearZero.push({ strike, absGex: Math.abs(cumulativeGex) });
+            }
+          }
+          
+          gammaFlipCrossings = [...allCrossings];
+          const atmCrossings = allCrossings.filter(s => s >= atmMin && s <= atmMax);
+          if (atmCrossings.length > 0) {
+            gammaFlipLevel = atmCrossings.reduce((closest, strike) =>
+              Math.abs(strike - price) < Math.abs(closest - price) ? strike : closest
+            );
+            gammaFlipType = 'EXACT';
+          } else if (atmNearZero.length > 0) {
+            atmNearZero.sort((a, b) => a.absGex - b.absGex);
+            gammaFlipLevel = atmNearZero[0].strike;
+            gammaFlipType = 'NEAR_ZERO';
+          } else {
+            gammaFlipLevel = null;
+            gammaFlipType = finalCumulativeGex > 0 ? 'ALL_LONG' : 'ALL_SHORT';
+          }
+        }
+        
+        // ── Max Pain (structureService L442-458) ──
+        let maxPain = null;
+        if (cleanContracts.length > 0) {
+          let minLoss = Infinity;
+          const distinctStrikes = [...new Set(cleanContracts.map(c => c.k))].sort((a, b) => a - b);
+          distinctStrikes.forEach(testStrike => {
+            let loss = 0;
+            cleanContracts.forEach(c => {
+              if (c.type === 'call' && testStrike > c.k) loss += (testStrike - c.k) * c.oi;
+              else if (c.type === 'put' && testStrike < c.k) loss += (c.k - testStrike) * c.oi;
+            });
+            if (loss < minLoss) { minLoss = loss; maxPain = testStrike; }
+          });
+        }
+        
+        // ── Net GEX (structureService L460-503) ──
+        let netGex = 0;
+        let callWall = null, putFloor = null;
+        let maxCallOi = -1, maxPutOi = -1;
+        let callPremiumVol = 0, putPremiumVol = 0;
+        const maxResist = price * 1.20;
+        const minSupport = price * 0.80;
+        
+        cleanContracts.forEach(c => {
+          const g = c.greeks?.gamma;
+          if (typeof g === 'number' && isFinite(g)) {
+            const dir = c.type === 'call' ? -1 : 1;
+            netGex += g * c.oi * 100 * dir * price;
+            gammaCount++;
+          }
+          // callWall: max OI call within +20% (structureService L478-483)
+          if (c.type === 'call' && c.k > price && c.k <= maxResist && c.oi > maxCallOi) {
+            maxCallOi = c.oi; callWall = c.k;
+          }
+          // putFloor: max OI put within -20% (structureService L484-487)
+          if (c.type === 'put' && c.k < price && c.k >= minSupport && c.oi > maxPutOi) {
+            maxPutOi = c.oi; putFloor = c.k;
+          }
+          // Net Premium (structureService L488-496)
+          const vol = c.day?.volume || c.day?.v || 0;
+          const lastPrice = c.last_trade?.price || c.last_trade?.p || c.last_quote?.midpoint || 0;
+          if (vol > 0 && lastPrice > 0) {
+            if (c.type === 'call') callPremiumVol += vol * lastPrice * 100;
+            else putPremiumVol += vol * lastPrice * 100;
+          }
+        });
+        
+        const netPremium = Math.round(callPremiumVol - putPremiumVol);
+        const gammaCoverage = cleanContracts.length > 0 ? gammaCount / cleanContracts.length : 0;
+        const gexConfidence = gammaCoverage >= 0.80 ? 'HIGH' : gammaCoverage >= 0.60 ? 'MEDIUM' : 'LOW';
+        const gammaRegime = netGex > 0 ? 'POSITIVE' : netGex < 0 ? 'NEGATIVE' : 'NEUTRAL';
+        
+        // ── ATM IV (structureService L677-741) ──
+        let atmIv = null;
+        if (price > 0 && cleanContracts.length > 0) {
+          const ivStrikes = [...new Set(cleanContracts.map(c => c.k))].filter(Boolean).sort((a, b) => a - b);
+          const atmStrike = ivStrikes.reduce((closest, strike) =>
+            Math.abs(strike - price) < Math.abs(closest - price) ? strike : closest
+          );
+          const extractIv = (c) => {
+            const raw = c?.implied_volatility || c?.greeks?.implied_volatility || c?.iv;
+            return typeof raw === 'number' && raw > 0 ? (raw > 1 ? raw : raw * 100) : null;
+          };
+          const callIv = extractIv(cleanContracts.find(c => c.k === atmStrike && c.type === 'call'));
+          const putIv = extractIv(cleanContracts.find(c => c.k === atmStrike && c.type === 'put'));
+          if (callIv !== null && putIv !== null) {
+            const spread = Math.abs(callIv - putIv);
+            atmIv = Math.round(spread > 40 ? Math.min(callIv, putIv) : (callIv + putIv) / 2);
+          } else {
+            const fallback = callIv || putIv;
+            atmIv = fallback !== null ? Math.round(fallback) : null;
+          }
+        }
+        
+        // ── Gamma Concentration (structureService L584-598) ──
+        const priceRange5 = price * 0.05;
+        const nearPriceOI = cleanContracts.reduce((sum, c) => {
+          if (Math.abs(c.k - price) <= priceRange5) return sum + c.oi;
+          return sum;
+        }, 0);
+        const totalOI = totalCallOI + totalPutOI;
+        const gammaConcentration = totalOI > 0 ? Math.round((nearPriceOI / totalOI) * 100) : 0;
+        
+        // ── DTE (structureService L572-580) ──
+        const todayStr = new Date().toISOString().slice(0, 10);
+        const targetParts = expiration.split('-').map(Number);
+        const todayParts = todayStr.split('-').map(Number);
+        const targetDate = new Date(targetParts[0], targetParts[1] - 1, targetParts[2]);
+        const todayDate = new Date(todayParts[0], todayParts[1] - 1, todayParts[2]);
+        const zeroDteImpact = Math.max(0, Math.round((targetDate.getTime() - todayDate.getTime()) / (1000 * 60 * 60 * 24)));
+        
+        // ── Squeeze Score (structureService L600-665) ──
+        let squeezeScore = 0;
+        const isShortGamma = netGex < 0;
+        if (isShortGamma) {
+          squeezeScore += Math.min(35, Math.round(Math.abs(netGex) / 10_000_000));
+        } else if (netGex > 0) {
+          squeezeScore += Math.min(10, Math.round(Math.abs(netGex) / 100_000_000));
+        }
+        if (gammaConcentration >= 70) squeezeScore += 20;
+        else if (gammaConcentration >= 50) squeezeScore += 15;
+        else if (gammaConcentration >= 30) squeezeScore += 8;
+        if (zeroDteImpact === 0) squeezeScore += 20;
+        else if (zeroDteImpact === 1) squeezeScore += 15;
+        else if (zeroDteImpact <= 3) squeezeScore += 10;
+        else if (zeroDteImpact <= 5) squeezeScore += 5;
+        if (atmIv !== null) {
+          if (atmIv >= 60) squeezeScore += 15;
+          else if (atmIv >= 45) squeezeScore += 10;
+          else if (atmIv >= 30) squeezeScore += 5;
+        }
+        if (pcr <= 0.4 || pcr >= 1.8) squeezeScore += 10;
+        else if (pcr <= 0.6 || pcr >= 1.5) squeezeScore += 5;
+        squeezeScore = Math.min(100, Math.max(0, squeezeScore));
+        
+        // Store results (structureService-compatible format)
+        gexMap[ticker] = {
+          gex: netGex, pcr, gammaRegime, callWall, putFloor, maxPain,
+          flipLevel: gammaFlipLevel, gammaFlipType,
+          totalContracts: opts.length, totalCallOI, totalPutOI,
+          expiration, atmIv, squeezeScore, gexConfidence,
+          gammaConcentration, netPremium, gammaCoverage
+        };
+        
+        // Write to signum-gex-history (now with structureService values)
+        await client.send(new PutCommand({ TableName:'signum-gex-history', Item:{
+          ticker, timestamp:ts, gex:Math.round(netGex), flipLevel:gammaFlipLevel,
+          callWall, putFloor, maxPain, price, gammaRegime,
+          totalContracts:opts.length, totalCallOI, totalPutOI,
+          pcr: Math.round(pcr*100)/100, expiration, squeezeScore, atmIv
+        }}));
+        
+        // Write to signum-flow-history
+        await client.send(new PutCommand({ TableName:'signum-flow-history', Item:{
+          ticker, timestamp:ts, compositeScore:squeezeScore,
+          opi:totalCallOI-totalPutOI, whaleScore:0, dex:0,
+          ivSkew:0, squeezeProbability:squeezeScore,
+          smartMoneyScore:0, totalCallOI, totalPutOI,
+          pcr:Math.round(pcr*100)/100
+        }})).catch(()=>{});
+        
+        // OMR calculation (reuse opts)
         try {
-          const omr = computeOMR(opts, price, { gex, pcr, tCOI, tPOI });
+          const omr = computeOMR(opts, price, { gex: netGex, pcr, tCOI: totalCallOI, tPOI: totalPutOI });
           if (omr) {
-            await client.send(new PutCommand({ TableName:'signum-omr-history', Item:{ ticker, timestamp:ts, regime:omr.regime, confidence:omr.confidence, ivVal:omr.ivVal, skewVal:omr.skewVal, pcr:omr.pcr, uoaScore:omr.uoaScore, opiVal:omr.opiVal, isLongGamma:omr.isLongGamma, closePrice:price }}));
+            await client.send(new PutCommand({ TableName:'signum-omr-history', Item:{
+              ticker, timestamp:ts, regime:omr.regime, confidence:omr.confidence,
+              ivVal:omr.ivVal, skewVal:omr.skewVal, pcr:omr.pcr,
+              uoaScore:omr.uoaScore, opiVal:omr.opiVal,
+              isLongGamma:omr.isLongGamma, closePrice:price
+            }}));
           }
         } catch(omrErr) { console.log('OMR err '+ticker+': '+omrErr.message); }
+        
         ok++;
       } catch {}
     }));
   }
-  console.log('GEX: '+ok+'/'+GEX_TICKERS.length);
+  console.log('GEX (structureService): '+ok+'/'+GEX_TICKERS.length);
   return { gexMap, optionsCache };
 }
 
@@ -552,6 +930,7 @@ async function updateAlphaScores(snapshotMap, gexMap) {
 async function buildUnifiedCache(priceMap, gexMap, optionsCache, smaMap, detailsMap) {
   console.log('Step 6: Building unified cache for '+UNIVERSE_500.length+' tickers...');
   let ok = 0, partial = 0;
+  const redisBatch = []; // [v8] Collect Redis cache:analysis commands
   
   for (let i = 0; i < UNIVERSE_500.length; i += 10) {
     const batch = UNIVERSE_500.slice(i, i+10);
@@ -565,18 +944,9 @@ async function buildUnifiedCache(priceMap, gexMap, optionsCache, smaMap, details
         const dt = detailsMap[ticker] || {};
         const optData = optionsCache[ticker] || null;
         
-        // === Build structure field (from GEX data) ===
+        // === Build structure field (structureService-compatible from gexMap) ===
         let structure = null;
         if (gd) {
-          // Calculate atmIV from options for structure (frontend reads structure.atmIV)
-          let structAtmIv = 0;
-          if (optData && optData.opts) {
-            const atm = optData.opts
-              .filter(o => { const iv = o.implied_volatility || o.greeks?.implied_volatility || 0; return iv > 0 && o.details?.strike_price > 0; })
-              .sort((a,b) => Math.abs((a.details?.strike_price||0)-price) - Math.abs((b.details?.strike_price||0)-price))
-              .slice(0,4);
-            if (atm.length > 0) structAtmIv = atm.reduce((s,o) => s + (o.implied_volatility || o.greeks?.implied_volatility || 0), 0) / atm.length;
-          }
           structure = {
             options_status: 'OK',
             netGex: Math.round(gd.gex),
@@ -584,13 +954,20 @@ async function buildUnifiedCache(priceMap, gexMap, optionsCache, smaMap, details
             pcRatio: Math.round(gd.pcr*100)/100,
             levels: { callWall: gd.callWall, putFloor: gd.putFloor },
             gammaFlipLevel: gd.flipLevel,
+            gammaFlipType: gd.gammaFlipType || 'NO_DATA',
             gammaRegime: gd.gammaRegime,
             totalContracts: gd.totalContracts,
             totalCallOI: gd.totalCallOI,
             totalPutOI: gd.totalPutOI,
             underlyingPrice: price,
-            atmIV: structAtmIv > 0 ? structAtmIv : undefined, // 0.xx format for frontend
-            validation: { confidence: 'HIGH', source: 'lambda-v7' },
+            expiration: gd.expiration || null,
+            atmIv: gd.atmIv || null,
+            squeezeScore: gd.squeezeScore || 0,
+            gexConfidence: gd.gexConfidence || 'LOW',
+            gammaConcentration: gd.gammaConcentration || 0,
+            netPremium: gd.netPremium || 0,
+            gammaCoverage: gd.gammaCoverage || 0,
+            validation: { confidence: gd.gexConfidence || 'LOW', source: 'lambda-v7-structureService' },
           };
         }
         
@@ -613,18 +990,8 @@ async function buildUnifiedCache(priceMap, gexMap, optionsCache, smaMap, details
           const isShortGamma = netGex < 0;
           const gammaFlip = gd.flipLevel || 0;
           const flipDistance = gammaFlip > 0 && price > 0 ? ((price - gammaFlip) / gammaFlip) * 100 : 0;
-          // ATM IV from options cache — check BOTH greeks.implied_volatility AND top-level implied_volatility
-          let atmIv = 0;
-          if (optData && optData.opts) {
-            const atm = optData.opts
-              .filter(o => {
-                const iv = o.implied_volatility || o.greeks?.implied_volatility || 0;
-                return iv > 0 && o.details?.strike_price > 0;
-              })
-              .sort((a,b) => Math.abs((a.details?.strike_price||0)-price) - Math.abs((b.details?.strike_price||0)-price))
-              .slice(0,4);
-            if (atm.length > 0) atmIv = Math.round(atm.reduce((s,o) => s + (o.implied_volatility || o.greeks?.implied_volatility || 0), 0) / atm.length * 100);
-          }
+          // [STRUCTURE-SERVICE] Use ATM IV from gexMap (already structureService-compatible)
+          let atmIv = gd.atmIv || 0;
           // [FIX] POST market: Polygon returns IV=0 for all options after close.
           // Preserve the last known IV from DynamoDB instead of overwriting with 0.
           if (atmIv === 0) {
@@ -633,7 +1000,6 @@ async function buildUnifiedCache(priceMap, gexMap, optionsCache, smaMap, details
               const cachedIv = existing.Item?.data?.volatility?.iv;
               if (cachedIv && cachedIv > 0) {
                 atmIv = cachedIv;
-                // console.log('  IV preserved from cache: '+ticker+' = '+atmIv+'%');
               }
             } catch {}
           }
@@ -645,7 +1011,16 @@ async function buildUnifiedCache(priceMap, gexMap, optionsCache, smaMap, details
           if (flipDist < 1) regimeScore += 15; else if (flipDist < 3) regimeScore += 10; else if (flipDist < 5) regimeScore += 5;
           regimeScore = Math.min(100, regimeScore);
           const regime = regimeScore >= 75 ? 'ERUPTING' : regimeScore >= 50 ? 'LOADED' : regimeScore >= 25 ? 'COILING' : 'CALM';
-          volatility = { regime, regimeScore: Math.round(regimeScore), gex:Math.round(netGex), gexLabel:isShortGamma?'SHORT':'LONG', iv:atmIv, flipDistance:Math.round(flipDistance*10)/10, flipLevel:gammaFlip, isAboveFlip:flipDistance>0, squeezeScore:0, squeezeRisk:'LOW', gammaConcentration:0, gammaConcentrationLabel:'NORMAL' };
+          volatility = {
+            regime, regimeScore: Math.round(regimeScore), gex:Math.round(netGex),
+            gexLabel:isShortGamma?'SHORT':'LONG', iv:atmIv,
+            flipDistance:Math.round(flipDistance*10)/10, flipLevel:gammaFlip,
+            isAboveFlip:flipDistance>0,
+            squeezeScore: gd.squeezeScore || 0,
+            squeezeRisk: (gd.squeezeScore || 0) >= 70 ? 'EXTREME' : (gd.squeezeScore || 0) >= 45 ? 'HIGH' : (gd.squeezeScore || 0) >= 20 ? 'MEDIUM' : 'LOW',
+            gammaConcentration: gd.gammaConcentration || 0,
+            gammaConcentrationLabel: (gd.gammaConcentration || 0) >= 70 ? 'STICKY' : (gd.gammaConcentration || 0) >= 40 ? 'NORMAL' : 'LOOSE',
+          };
         } else {
           // Non-GEX tickers or extended hours: preserve existing volatility entirely
           // Do NOT create a new object with gex=0 — use what's already in DynamoDB
@@ -746,10 +1121,39 @@ async function buildUnifiedCache(priceMap, gexMap, optionsCache, smaMap, details
               timestamp: Date.now(),
               updatedAt: new Date().toISOString(),
               fieldCount: filled,
-              version: 'v7',
+              version: 'v8-structureService',
             },
           }));
           if (filled >= 7) ok++; else partial++;
+          
+          // [v8] Build cache:analysis entry for Redis (matching AnalysisCacheEntry type)
+          if (structure) {
+            const analysisEntry = {
+              ticker,
+              timestamp: Date.now(),
+              alphaSnapshot: { score: 0, grade: 'N/A', action: 'HOLD', confidence: 0, triggers: [], engineVersion: 'lambda-v8', capturedAt: new Date().toISOString() },
+              rsi: null, return3d: null, sparkline: [], relVol: null,
+              expiration: structure.expiration || null,
+              maxPain: structure.maxPain || null,
+              gex: structure.netGex || null,
+              gexM: structure.netGex ? Math.round(structure.netGex / 1000000 * 10) / 10 : null,
+              pcr: structure.pcRatio || null,
+              callWall: structure.levels?.callWall || null,
+              putFloor: structure.levels?.putFloor || null,
+              gammaFlipLevel: structure.gammaFlipLevel || null,
+              squeezeScore: structure.squeezeScore || null,
+              iv: structure.atmIv || null,
+              whaleIndex: 0, whaleConfidence: 'NONE',
+              darkPoolPct: 0, netPremium: structure.netPremium || null,
+              vwapDist: null, volume: null, ivSkew: null, impliedMovePct: null,
+            };
+            redisBatch.push(['SET', 'cache:analysis:' + ticker, JSON.stringify(analysisEntry), 'EX', String(REDIS_TTL)]);
+          }
+          
+          // [v8] Also write cache:command:unified:{TICKER} — full 9-field data for Command/Ticker pages
+          // This replaces the dead warm-command cron (DynamoDB→Redis sync)
+          const commandEntry = { ...data, timestamp: Date.now() };
+          redisBatch.push(['SET', 'cache:command:unified:' + ticker, JSON.stringify(commandEntry), 'EX', String(REDIS_TTL)]);
         }
       } catch (e) {
         console.log('Unified err '+ticker+': '+(e.message||e));
@@ -757,8 +1161,20 @@ async function buildUnifiedCache(priceMap, gexMap, optionsCache, smaMap, details
     }));
   }
   
-  console.log('Unified Cache: '+ok+' complete, '+partial+' partial, total='+(ok+partial)+'/'+UNIVERSE_500.length);
-  return { complete: ok, partial };
+  // [v8] Flush Redis pipeline (batches of 20)
+  let redisOk = 0;
+  if (redisBatch.length > 0) {
+    console.log('Writing ' + redisBatch.length + ' Redis entries (cache:analysis + cache:command:unified)...');
+    for (let i = 0; i < redisBatch.length; i += 20) {
+      const batch = redisBatch.slice(i, i + 20);
+      const written = await redisPipeline(batch);
+      redisOk += written;
+    }
+    console.log('Redis: ' + redisOk + '/' + redisBatch.length + ' entries written (analysis+command)');
+  }
+  
+  console.log('Unified Cache: '+ok+' complete, '+partial+' partial, total='+(ok+partial)+'/'+UNIVERSE_500.length+', redis='+redisOk);
+  return { complete: ok, partial, redisWritten: redisOk };
 }
 
 exports.handler = async (event) => {
@@ -790,39 +1206,118 @@ exports.handler = async (event) => {
       const changePct = snap?.todaysChangePerc || 0;
       const volume = snap?.day?.v || 0;
       
-      // 2. Options (GEX/structure)
+      // 2. Options (GEX/structure) — structureService-compatible
       let structure = null, gexData = null, opts = [];
       try {
-        opts = await getAllOptions(ticker);
+        const weeklyResult = await getWeeklyOptions(ticker);
+        opts = weeklyResult.contracts;
+        const expiration = weeklyResult.expiration;
         if (opts.length > 0) {
-          let gex=0, cw=null, pf=null, mp=null, maxCOI=0, maxPOI=0, tCOI=0, tPOI=0, mpMin=Infinity;
-          const strikes = new Set();
-          for (const o of opts) {
-            const s=o.details?.strike_price; if(!s) continue;
-            strikes.add(s);
-            const g=o.greeks?.gamma||0, oi=o.open_interest||0, t=o.details?.contract_type;
-            if(t==='call'){gex+=g*oi*100*price;tCOI+=oi;if(oi>maxCOI){maxCOI=oi;cw=s;}} 
-            else {gex-=g*oi*100*price;tPOI+=oi;if(oi>maxPOI){maxPOI=oi;pf=s;}}
+          // Parse contracts
+          const cleanContracts = [];
+          let totalCallOI = 0, totalPutOI = 0;
+          for (const c of opts) {
+            const k = c.details?.strike_price || c.strike_price || 0;
+            const type = (c.details?.contract_type || c.contract_type || 'call').toLowerCase();
+            const oi = c.open_interest;
+            if (oi !== undefined && oi !== null) {
+              cleanContracts.push({ ...c, k, type, oi });
+              if (type === 'call') totalCallOI += oi;
+              else totalPutOI += oi;
+            }
           }
-          for (const ts2 of [...strikes].sort((a,b)=>a-b)) { 
-            let c2=0; for(const o of opts){const s2=o.details?.strike_price;const oi2=o.open_interest||0;if(!s2||!oi2)continue;if(o.details.contract_type==='call')c2+=Math.max(0,ts2-s2)*oi2;else c2+=Math.max(0,s2-ts2)*oi2;} 
-            if(c2<mpMin){mpMin=c2;mp=ts2;} 
+          const pcr = totalCallOI > 0 ? Math.round((totalPutOI / totalCallOI) * 100) / 100 : 0;
+          
+          // Net GEX with ±20% callWall/putFloor
+          let netGex = 0, callWall = null, putFloor = null;
+          let maxCallOi = -1, maxPutOi = -1, gammaCount = 0;
+          const maxResist = price * 1.20;
+          const minSupport = price * 0.80;
+          let callPremiumVol = 0, putPremiumVol = 0;
+          
+          cleanContracts.forEach(c => {
+            const g = c.greeks?.gamma;
+            if (typeof g === 'number' && isFinite(g)) {
+              netGex += g * c.oi * 100 * (c.type === 'call' ? -1 : 1) * price;
+              gammaCount++;
+            }
+            if (c.type === 'call' && c.k > price && c.k <= maxResist && c.oi > maxCallOi) { maxCallOi = c.oi; callWall = c.k; }
+            if (c.type === 'put' && c.k < price && c.k >= minSupport && c.oi > maxPutOi) { maxPutOi = c.oi; putFloor = c.k; }
+            const vol = c.day?.volume || c.day?.v || 0;
+            const lp = c.last_trade?.price || c.last_trade?.p || 0;
+            if (vol > 0 && lp > 0) { if (c.type === 'call') callPremiumVol += vol * lp * 100; else putPremiumVol += vol * lp * 100; }
+          });
+          
+          // Max Pain
+          let maxPain = null, minLoss = Infinity;
+          const distinctStrikes = [...new Set(cleanContracts.map(c => c.k))].sort((a, b) => a - b);
+          distinctStrikes.forEach(ts => {
+            let loss = 0;
+            cleanContracts.forEach(c => {
+              if (c.type === 'call' && ts > c.k) loss += (ts - c.k) * c.oi;
+              else if (c.type === 'put' && ts < c.k) loss += (c.k - ts) * c.oi;
+            });
+            if (loss < minLoss) { minLoss = loss; maxPain = ts; }
+          });
+          
+          // Gamma Flip (crossover search)
+          const gexByStrike = new Map();
+          cleanContracts.forEach(c => {
+            const g = c.greeks?.gamma;
+            if (typeof g === 'number' && isFinite(g) && g !== 0) {
+              gexByStrike.set(c.k, (gexByStrike.get(c.k) || 0) + g * c.oi * 100 * (c.type === 'call' ? -1 : 1));
+            }
+          });
+          let gammaFlipLevel = null;
+          if (gexByStrike.size > 0) {
+            const strikesGex = [...gexByStrike.entries()].sort((a, b) => a[0] - b[0]);
+            let cum = 0;
+            const crossings = [];
+            for (let j = 0; j < strikesGex.length; j++) {
+              const prev = cum;
+              cum += strikesGex[j][1];
+              if (j > 0 && ((prev < 0 && cum >= 0) || (prev > 0 && cum <= 0))) crossings.push(strikesGex[j][0]);
+            }
+            const atmRange = price * 0.15;
+            const atmCrossings = crossings.filter(s => Math.abs(s - price) <= atmRange);
+            if (atmCrossings.length > 0) gammaFlipLevel = atmCrossings.reduce((c, s) => Math.abs(s - price) < Math.abs(c - price) ? s : c);
           }
-          const fl=cw&&pf?(cw+pf)/2:null, gr=gex>0?'POSITIVE':gex<0?'NEGATIVE':'NEUTRAL', pcr=tCOI>0?tPOI/tCOI:0;
-          gexData = { gex, pcr, gammaRegime:gr, callWall:cw, putFloor:pf, maxPain:mp, flipLevel:fl, totalContracts:opts.length, totalCallOI:tCOI, totalPutOI:tPOI };
-          // Calculate atmIV for structure (frontend reads structure.atmIV)
-          let odAtmIv = 0;
-          if (opts.length > 0) {
-            const atm = opts.filter(o => { const iv = o.implied_volatility || o.greeks?.implied_volatility || 0; return iv > 0 && o.details?.strike_price > 0; }).sort((a,b) => Math.abs((a.details?.strike_price||0)-price) - Math.abs((b.details?.strike_price||0)-price)).slice(0,4);
-            if (atm.length > 0) odAtmIv = atm.reduce((s,o) => s + (o.implied_volatility || o.greeks?.implied_volatility || 0), 0) / atm.length;
+          
+          // ATM IV
+          let atmIv = null;
+          if (cleanContracts.length > 0) {
+            const ivStrikes = [...new Set(cleanContracts.map(c => c.k))].sort((a, b) => a - b);
+            const atmStrike = ivStrikes.reduce((cl, s) => Math.abs(s - price) < Math.abs(cl - price) ? s : cl);
+            const getIv = (c) => { const r = c?.implied_volatility || c?.greeks?.implied_volatility; return typeof r === 'number' && r > 0 ? (r > 1 ? r : r * 100) : null; };
+            const cIv = getIv(cleanContracts.find(c => c.k === atmStrike && c.type === 'call'));
+            const pIv = getIv(cleanContracts.find(c => c.k === atmStrike && c.type === 'put'));
+            if (cIv !== null && pIv !== null) { const sp = Math.abs(cIv - pIv); atmIv = Math.round(sp > 40 ? Math.min(cIv, pIv) : (cIv + pIv) / 2); }
+            else atmIv = cIv !== null ? Math.round(cIv) : (pIv !== null ? Math.round(pIv) : null);
           }
+          
+          const gammaCoverage = cleanContracts.length > 0 ? gammaCount / cleanContracts.length : 0;
+          const gexConfidence = gammaCoverage >= 0.80 ? 'HIGH' : gammaCoverage >= 0.60 ? 'MEDIUM' : 'LOW';
+          const gammaRegime = netGex > 0 ? 'POSITIVE' : netGex < 0 ? 'NEGATIVE' : 'NEUTRAL';
+          
+          gexData = { gex: netGex, pcr, gammaRegime, callWall, putFloor, maxPain, flipLevel: gammaFlipLevel, totalContracts: opts.length, totalCallOI, totalPutOI, expiration };
+          
+          // Squeeze Score (basic version for on-demand)
+          let squeezeScore = 0;
+          if (netGex < 0) squeezeScore += Math.min(35, Math.round(Math.abs(netGex) / 10000000));
+          if (pcr <= 0.4 || pcr >= 1.8) squeezeScore += 10;
+          else if (pcr <= 0.6 || pcr >= 1.5) squeezeScore += 5;
+          if (atmIv !== null && atmIv >= 60) squeezeScore += 15;
+          else if (atmIv !== null && atmIv >= 45) squeezeScore += 10;
+          squeezeScore = Math.min(100, squeezeScore);
+          
           structure = {
-            options_status: 'OK', netGex: Math.round(gex), maxPain: mp,
-            pcRatio: Math.round(pcr*100)/100, levels: { callWall: cw, putFloor: pf },
-            gammaFlipLevel: fl, gammaRegime: gr, totalContracts: opts.length,
-            totalCallOI: tCOI, totalPutOI: tPOI, underlyingPrice: price,
-            atmIV: odAtmIv > 0 ? odAtmIv : undefined,
-            validation: { confidence: 'HIGH', source: 'lambda-ondemand' },
+            options_status: 'OK', netGex: Math.round(netGex), maxPain,
+            pcRatio: pcr, levels: { callWall, putFloor },
+            gammaFlipLevel, gammaRegime, totalContracts: opts.length,
+            totalCallOI, totalPutOI, underlyingPrice: price,
+            expiration, atmIv, gexConfidence, squeezeScore,
+            netPremium: Math.round(callPremiumVol - putPremiumVol),
+            validation: { confidence: gexConfidence, source: 'lambda-ondemand-structureService' },
           };
         }
       } catch (e) { console.log('[ON-DEMAND] Options err: ' + e.message); }
@@ -946,20 +1441,8 @@ exports.handler = async (event) => {
       
       // 8. Volatility (derived from GEX or basic)
       let volatility = null;
-      // [FIX] Calculate ATM IV from options chain (same logic as Step 6)
-      let atmIv = 0;
-      if (opts && opts.length > 0) {
-        const atmCandidates = opts
-          .filter(o => {
-            const iv = o.implied_volatility || o.greeks?.implied_volatility || 0;
-            return iv > 0 && o.details?.strike_price > 0;
-          })
-          .sort((a,b) => Math.abs((a.details?.strike_price||0)-price) - Math.abs((b.details?.strike_price||0)-price))
-          .slice(0,4);
-        if (atmCandidates.length > 0) {
-          atmIv = Math.round(atmCandidates.reduce((s,o) => s + (o.implied_volatility || o.greeks?.implied_volatility || 0), 0) / atmCandidates.length * 100);
-        }
-      }
+      // [STRUCTURE-SERVICE] Use ATM IV already calculated in structure
+      let atmIv = (structure && structure.atmIv) ? structure.atmIv : 0;
       // [FIX] POST market: Polygon returns IV=0. Preserve last known IV from DynamoDB.
       if (atmIv === 0) {
         try {
@@ -1042,8 +1525,34 @@ exports.handler = async (event) => {
         })).catch(() => {});
       }
       
+      // [v8] Write to Redis: cache:command:unified + cache:analysis
+      if (structure) {
+        // cache:command:unified — full 9-field data for Command/Ticker pages
+        await redisSet('cache:command:unified:' + ticker, data, REDIS_TTL).catch(() => {});
+        // cache:analysis — analysis summary for Dashboard/Watchlist/Portfolio
+        const analysisEntry = {
+          ticker, timestamp: Date.now(),
+          alphaSnapshot: { score: 0, grade: 'N/A', action: 'HOLD', confidence: 0, triggers: [], engineVersion: 'lambda-v8-ondemand', capturedAt: new Date().toISOString() },
+          rsi: null, return3d: null, sparkline: [], relVol: null,
+          expiration: structure.expiration || null,
+          maxPain: structure.maxPain || null,
+          gex: structure.netGex || null,
+          gexM: structure.netGex ? Math.round(structure.netGex / 1000000 * 10) / 10 : null,
+          pcr: structure.pcRatio || null,
+          callWall: structure.levels?.callWall || null,
+          putFloor: structure.levels?.putFloor || null,
+          gammaFlipLevel: structure.gammaFlipLevel || null,
+          squeezeScore: structure.squeezeScore || null,
+          iv: structure.atmIv || null,
+          whaleIndex: 0, whaleConfidence: 'NONE',
+          darkPoolPct: 0, netPremium: structure.netPremium || null,
+          vwapDist: null, volume: null, ivSkew: null, impliedMovePct: null,
+        };
+        await redisSet('cache:analysis:' + ticker, analysisEntry, REDIS_TTL).catch(() => {});
+      }
+      
       const duration = Date.now() - start;
-      console.log('[ON-DEMAND] ' + ticker + ' saved: ' + filled + '/5 fields in ' + duration + 'ms');
+      console.log('[ON-DEMAND] ' + ticker + ' saved: ' + filled + '/5 fields + Redis in ' + duration + 'ms');
       
       return { 
         statusCode: 200, 
@@ -1190,9 +1699,15 @@ async function deploy() {
 
   await lambda.send(new UpdateFunctionConfigurationCommand({
     FunctionName: 'signum-harvest',
-    Timeout: 600,  // 10 minutes
-    MemorySize: 1024, // 1GB
-    Environment: { Variables: { NODE_ENV: 'production', FINNHUB_API_KEY: FINNHUB_KEY, FMP_API_KEY: FMP_API_KEY } },
+    Timeout: 900,  // 15 minutes (1000 tickers)
+    MemorySize: 2048, // 2GB for 1000 tickers
+    Environment: { Variables: {
+      NODE_ENV: 'production',
+      FINNHUB_API_KEY: FINNHUB_KEY,
+      FMP_API_KEY: FMP_API_KEY,
+      UPSTASH_REDIS_REST_URL: process.env.UPSTASH_REDIS_REST_URL || '',
+      UPSTASH_REDIS_REST_TOKEN: process.env.UPSTASH_REDIS_REST_TOKEN || '',
+    } },
   }));
   console.log('Lambda config updated (600s, 1024MB)');
 

@@ -914,8 +914,8 @@ function MainChartPanel() {
 
                     {/* Gamma Flip — PRO (blur: SpotGamma core data) */}
                     {customize.cardOrder.includes('gammaFlip') && <ProGate title="Gamma Flip" mode="blur" compact tooltipPosition="above" description={gt('descGexRegime')}>
-                        <div className={`relative p-4 rounded-xl border transition-all duration-200 hover:-translate-y-0.5 hover:brightness-110 hover:border-white/15 ${data?.gammaFlipLevel && data?.underlyingPrice && data.underlyingPrice < data.gammaFlipLevel ? 'bg-rose-500/10 backdrop-blur-md border-rose-400/40 shadow-[0_0_25px_rgba(251,113,133,0.3)]' : 'bg-[#0d1829]/80 border-white/5'}`}>
-                            {data?.gammaFlipLevel && data?.underlyingPrice && data.underlyingPrice < data.gammaFlipLevel && <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-rose-400 to-rose-500" />}
+                        <div className={`relative p-4 rounded-xl border transition-all duration-200 hover:-translate-y-0.5 hover:brightness-110 hover:border-white/15 ${data?.gammaFlipLevel && (data?.underlyingPrice ?? 0) > 0 && data.underlyingPrice! < data.gammaFlipLevel ? 'bg-rose-500/10 backdrop-blur-md border-rose-400/40 shadow-[0_0_25px_rgba(251,113,133,0.3)]' : 'bg-[#0d1829]/80 border-white/5'}`}>
+                            {data?.gammaFlipLevel && (data?.underlyingPrice ?? 0) > 0 && data.underlyingPrice! < data.gammaFlipLevel && <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-rose-400 to-rose-500" />}
                             <svg className="absolute right-1 bottom-1 w-20 h-16 opacity-[0.06]" viewBox="0 0 80 64"><circle cx="40" cy="32" r="22" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-cyan-400" /><line x1="40" y1="5" x2="40" y2="59" stroke="currentColor" strokeWidth="1" className="text-cyan-300" strokeDasharray="3 3" /><line x1="13" y1="32" x2="67" y2="32" stroke="currentColor" strokeWidth="1" className="text-cyan-300" strokeDasharray="3 3" /></svg>
                             <div className="relative z-10 flex items-center gap-2 mb-2 whitespace-nowrap">
                                 <Radio className="w-4 h-4 text-cyan-400" />
@@ -925,16 +925,16 @@ function MainChartPanel() {
                                 <span className="text-xl font-mono font-bold text-white">
                                     ${data?.gammaFlipLevel?.toFixed(0) || "—"}
                                 </span>
-                                {data?.gammaFlipLevel && data?.underlyingPrice && (
-                                    <span className={`text-xs font-medium ${data.underlyingPrice > data.gammaFlipLevel ? "text-emerald-400" : "text-rose-400"}`}>
-                                        {data.underlyingPrice > data.gammaFlipLevel ? "LONG" : "SHORT"}
+                                {data?.gammaFlipLevel && (data?.underlyingPrice ?? 0) > 0 && (
+                                    <span className={`text-xs font-medium ${data.underlyingPrice! > data.gammaFlipLevel ? "text-emerald-400" : "text-rose-400"}`}>
+                                        {data.underlyingPrice! > data.gammaFlipLevel ? "LONG" : "SHORT"}
                                     </span>
                                 )}
                             </div>
                             {/* Gamma Flip Distance Bar — price position relative to flip level */}
-                            {data?.gammaFlipLevel && data?.underlyingPrice && (() => {
+                            {data?.gammaFlipLevel && (data?.underlyingPrice ?? 0) > 0 && (() => {
                                 const flip = data.gammaFlipLevel;
-                                const price = data.underlyingPrice;
+                                const price = data.underlyingPrice!;
                                 const dist = ((price - flip) / flip) * 100;
                                 const rangeMin = flip * 0.95;
                                 const rangeMax = flip * 1.05;

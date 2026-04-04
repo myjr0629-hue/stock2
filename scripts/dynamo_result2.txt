@@ -1,0 +1,108 @@
+[dotenv@17.3.1] injecting env (33) from .env.local -- tip: ??  write to custom object with { processEnv: myObject }
+=== TSLA data.structure ===
+ALL structure keys: atmIV, gammaFlipLevel, gammaRegime, levels, maxPain, netGex, options_status, pcRatio, totalCallOI, totalContracts, totalPutOI, underlyingPrice, validation
+netGex: -50430418
+maxPain: 367.5
+callWall: undefined
+putFloor: undefined
+gammaFlipLevel: 420
+pcRatio: 0.67
+underlyingPrice: 363.97
+totalCallOI: 3632645
+totalPutOI: 2428535
+expiration: undefined
+options_status: OK
+atmIv: undefined
+squeezeScore: undefined
+squeezeRisk: undefined
+gammaFlipType: undefined
+gexConfidence: undefined
+levels: {"putFloor":160,"callWall":680}
+gammaConcentration: undefined
+gammaConcentrationLabel: undefined
+netPremium: undefined
+
+=== TSLA data.volatility ===
+ALL volatility keys: flipDistance, flipLevel, gammaConcentration, gammaConcentrationLabel, gex, gexLabel, isAboveFlip, iv, regime, regimeScore, squeezeRisk, squeezeScore
+flipLevel: 420
+gammaFlipLevel: undefined
+regime: COILING
+regimeScore: 36
+squeezeRisk: LOW
+gammaConcentration: 0
+
+=== TSLA data.squeeze ===
+ALL squeeze keys: daysToCover, riskScore, shortVolPercent, siChange, siPercent, status, ticker
+siPercent: 0.8
+shortVolPercent: 44.9
+daysToCover: 0
+
+=== Structure & Expiration check (20 tickers) ===
+TSLA  : struct=Y exp=NULL         GEX=-50.4M CW=N/A PF=N/A MP=367.5 updated=2026-04-02T17:07:16.249Z
+NVDA  : struct=Y exp=NULL         GEX=528.7M CW=N/A PF=N/A MP=160 updated=2026-04-02T17:07:15.274Z
+AAPL  : struct=Y exp=NULL         GEX=236.6M CW=N/A PF=N/A MP=247.5 updated=2026-04-02T17:07:12.239Z
+MSFT  : struct=Y exp=NULL         GEX=110.4M CW=N/A PF=N/A MP=390 updated=2026-04-02T17:07:14.955Z
+GOOGL : struct=Y exp=NULL         GEX=87.9M CW=N/A PF=N/A MP=280 updated=2026-04-02T17:07:13.708Z
+META  : struct=Y exp=NULL         GEX=1.5M CW=N/A PF=N/A MP=592.5 updated=2026-04-02T17:07:14.621Z
+AMZN  : struct=Y exp=NULL         GEX=255.1M CW=N/A PF=N/A MP=210 updated=2026-04-02T17:07:12.351Z
+AMD   : struct=Y exp=NULL         GEX=76.1M CW=N/A PF=N/A MP=195 updated=2026-04-02T17:07:12.444Z
+PLTR  : struct=Y exp=NULL         GEX=61.4M CW=N/A PF=N/A MP=140 updated=2026-04-02T17:07:15.550Z
+COIN  : struct=Y exp=NULL         GEX=11.0M CW=N/A PF=N/A MP=190 updated=2026-04-02T17:07:13.026Z
+SPY   : struct=Y exp=NULL         GEX=-1407.6M CW=N/A PF=N/A MP=655 updated=2026-04-02T17:07:18.958Z
+QQQ   : struct=Y exp=NULL         GEX=-268.2M CW=N/A PF=N/A MP=585 updated=2026-04-02T17:07:19.056Z
+ARM   : struct=Y exp=NULL         GEX=13.5M CW=N/A PF=N/A MP=130 updated=2026-04-02T17:07:12.426Z
+SMCI  : struct=Y exp=NULL         GEX=129.0M CW=N/A PF=N/A MP=26 updated=2026-04-02T17:07:15.867Z
+LLY   : struct=Y exp=NULL         GEX=0.7M CW=N/A PF=N/A MP=910 updated=2026-04-02T17:07:14.274Z
+JPM   : struct=Y exp=NULL         GEX=26.3M CW=N/A PF=N/A MP=290 updated=2026-04-02T17:07:14.039Z
+BA    : struct=Y exp=NULL         GEX=5.2M CW=N/A PF=N/A MP=210 updated=2026-04-02T17:07:12.646Z
+GE    : struct=Y exp=NULL         GEX=-2.0M CW=N/A PF=N/A MP=290 updated=2026-04-02T17:07:13.514Z
+CRWD  : struct=Y exp=NULL         GEX=10.4M CW=N/A PF=N/A MP=400 updated=2026-04-02T17:07:12.982Z
+PANW  : struct=Y exp=NULL         GEX=8.7M CW=N/A PF=N/A MP=165 updated=2026-04-02T17:07:15.369Z
+
+=== Flow History: All unique tickers ===
+node : FATAL: ValidationException: Invalid ProjectionExpression: 
+Syntax error; token: "_", near: ", _type"
+?? ?:1 ??:1
++ node scripts/check_dynamo_data.js 2>&1 | Out-File -Encoding asc
+ii scr ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (FATAL: Validati...n 
+   ear: ", _type":String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+    at ProtocolLib.getErrorSchemaOrThrowBaseException (C:\Users\s
+eamo\backup\stock2\node_modules\@aws-sdk\core\dist-cjs\submodules
+\protocols\index.js:72:67)
+    at AwsJson1_0Protocol.handleError (C:\Users\seamo\backup\stoc
+k2\node_modules\@aws-sdk\core\dist-cjs\submodules\protocols\index
+.js:784:65)
+    at AwsJson1_0Protocol.deserializeResponse (C:\Users\seamo\bac
+kup\stock2\node_modules\@smithy\core\dist-cjs\submodules\protocol
+s\index.js:509:24)
+    at process.processTicksAndRejections (node:internal/process/t
+ask_queues:103:5)
+    at async C:\Users\seamo\backup\stock2\node_modules\@smithy\co
+re\dist-cjs\submodules\schema\index.js:27:24
+    at async C:\Users\seamo\backup\stock2\node_modules\@aws-sdk\l
+ib-dynamodb\dist-cjs\index.js:107:34
+    at async C:\Users\seamo\backup\stock2\node_modules\@smithy\co
+re\dist-cjs\index.js:120:20
+    at async C:\Users\seamo\backup\stock2\node_modules\@smithy\mi
+ddleware-retry\dist-cjs\index.js:251:46
+    at async C:\Users\seamo\backup\stock2\node_modules\@aws-sdk\m
+iddleware-logger\dist-cjs\index.js:5:26
+    at async main (C:\Users\seamo\backup\stock2\scripts\check_dyn
+amo_data.js:99:20) {
+  '$fault': 'client',
+  '$retryable': undefined,
+  '$metadata': {
+    httpStatusCode: 400,
+    requestId: 'MBGBCMB9BN8H7V9K994PO5FD9BVV4KQNSO5AEMVJF66Q9ASUA
+AJG',
+    extendedRequestId: undefined,
+    cfId: undefined,
+    attempts: 1,
+    totalRetryDelay: 0
+  },
+  __type: 'com.amazon.coral.validate#ValidationException'
+}

@@ -84,12 +84,21 @@ export default async function TickerPage({ params, searchParams }: Props) {
                 if (snap.price && (isDataFresh(snap.price.date) || isWithin3Days(snap.price.date))) {
                 const gex = snap.gex;
                 const p = snap.price as any;
+                // [FIX] Get expiration from analysis cache (warm-analysis stores it from structureService)
+                let ssrExpiration: string | null = null;
+                try {
+                    const { getAnalysisCacheForTickers } = await import('@/services/analysisCache');
+                    const acMap = await getAnalysisCacheForTickers([ticker]);
+                    const ac = acMap[ticker.toUpperCase()];
+                    if (ac?.expiration) ssrExpiration = ac.expiration;
+                } catch { /* non-critical */ }
                 initialUnifiedData = {
                     structure: gex ? {
                         options_status: 'OK', netGex: gex.gex, maxPain: gex.maxPain,
                         pcRatio: gex.pcr, levels: { callWall: gex.callWall, putFloor: gex.putFloor },
                         gammaFlipLevel: gex.flipLevel, gammaRegime: gex.gammaRegime,
                         totalContracts: gex.totalContracts, totalCallOI: gex.totalCallOI, totalPutOI: gex.totalPutOI,
+                        expiration: ssrExpiration,
                         validation: { confidence: 'HIGH', source: 'ssr-dynamodb' },
                     } : null,
                     options: gex ? { pcr: gex.pcr } : null,

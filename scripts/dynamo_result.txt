@@ -1,0 +1,84 @@
+[dotenv@17.3.1] injecting env (33) from .env.local -- tip: ?? encrypt with Dotenvx: https://dotenvx.com
+=== TSLA Full Unified Cache Dump ===
+pk: TSLA
+data: [object] keys=fundamentals,earnings,squeeze,related,institutional,sma,analyst,volatility,structure,timestamp
+  .fundamentals = {"marketCap":1430652218219.84,"de":0.1,"ticker":"TSLA","fcfYield":0.4,"ps":15.1,"breakdown":{"fcf":{
+  .earnings = {"nextEarningsDate":"2026-04-20","daysUntilEarnings":18,"ticker":"TSLA","daysLabel":"D-18","epsEstim
+  .squeeze = {"shortVolPercent":44.9,"ticker":"TSLA","siPercent":0.8,"daysToCover":0,"siChange":0,"riskScore":10,
+  .related = {"count":10,"topRelated":[{"logo":null,"ticker":"RIVN","price":0,"change":0},{"logo":null,"ticker":"
+  .institutional = {"blockTrade":{"count":0,"volume":0},"shortVolume":{"percent":44.9},"darkPool":{"percent":0}}
+  .sma = {"crossType":"EST","phase":"BULLISH","sma200":396.94,"ticker":"TSLA","isImminent":false,"distance":1
+  .analyst = {"consensus":"Hold","ticker":"TSLA","bullishPct":37,"totalAnalysts":81,"breakdown":{"strongSell":0,"
+  .volatility = {"gammaConcentration":0,"gammaConcentrationLabel":"NORMAL","regimeScore":36,"regime":"COILING","flip
+  .structure = {"underlyingPrice":363.97,"pcRatio":0.67,"totalPutOI":2428535,"netGex":-50430418,"gammaFlipLevel":42
+  .timestamp = 1775149636249
+updatedAt: 2026-04-02T17:07:16.249Z
+locale: en
+timestamp: 1775149636249
+version: v7
+fieldCount: 9
+
+=== NVDA Full Unified Cache ===
+Top-level keys: data, fieldCount, locale, pk, timestamp, updatedAt, version
+
+=== Structure field presence check (sample 50) ===
+With structure: 0/50
+Without structure: 50/50
+Tickers WITH structure: 
+Tickers WITHOUT structure: DIA:overview, FOX, MRNA:overview, AMP, BRZE:overview, QQQ, ACHR:overview, ABBV, TRIP, TDG, MASI:overview, ED:overview, OLED:overview, RGLD, ZBRA:overview, ZM:overview, STX:overview, NFLX:overview, NVDA, ELV
+
+=== AAPL Unified Cache (GEX ticker) ===
+Top-level keys: data, fieldCount, locale, pk, timestamp, updatedAt, version
+
+=== Flow History: TSLA check ===
+Total records scanned: 10
+
+  ticker: FLOW_CACHE:KO
+  timestamp: 1774467418362 (2026-03-25T19:36:58.362Z)
+  _type: flow-unified-cache
+  data keys: realtimeMetrics, darkPoolTrades, whaleTrades, _source, latencyMs, timestamp
+
+  ticker: FLOW_CACHE:KO
+  timestamp: 1774532177272 (2026-03-26T13:36:17.272Z)
+  _type: flow-unified-cache
+  data keys: realtimeMetrics, darkPoolTrades, whaleTrades, _source, latencyMs, timestamp
+
+  ticker: FLOW_CACHE:KO
+  timestamp: 1774546609156 (2026-03-26T17:36:49.156Z)
+  _type: flow-unified-cache
+  data keys: realtimeMetrics, darkPoolTrades, whaleTrades, _source, latencyMs, timestamp
+
+  ticker: FLOW_CACHE:KO
+  timestamp: 1774654602753 (2026-03-27T23:36:42.753Z)
+  _type: flow-unified-cache
+  data keys: realtimeMetrics, darkPoolTrades, whaleTrades, _source, latencyMs, liveQuote, timestamp
+
+  ticker: FLOW_CACHE:KO
+  timestamp: 1774859795209 (2026-03-30T08:36:35.209Z)
+  _type: flow-unified-cache
+  data keys: realtimeMetrics, darkPoolTrades, whaleTrades, _source, latencyMs, liveQuote, timestamp
+
+  ticker: FLOW_CACHE:KO
+  timestamp: 1774946211400 (2026-03-31T08:36:51.400Z)
+  _type: flow-unified-cache
+  data keys: realtimeMetrics, darkPoolTrades, whaleTrades, _source, latencyMs, liveQuote, timestamp
+
+  ticker: FLOW_CACHE:KO
+  timestamp: 1774949811290 (2026-03-31T09:36:51.290Z)
+  _type: flow-unified-cache
+  data keys: realtimeMetrics, darkPoolTrades, whaleTrades, _source, latencyMs, liveQuote, timestamp
+
+  ticker: FLOW_CACHE:KO
+  timestamp: 1774953413451 (2026-03-31T10:36:53.451Z)
+  _type: flow-unified-cache
+  data keys: realtimeMetrics, darkPoolTrades, whaleTrades, _source, latencyMs, liveQuote, timestamp
+
+  ticker: FLOW_CACHE:KO
+  timestamp: 1774971410607 (2026-03-31T15:36:50.607Z)
+  _type: flow-unified-cache
+  data keys: realtimeMetrics, darkPoolTrades, whaleTrades, _source, latencyMs, liveQuote, timestamp
+
+  ticker: FLOW_CACHE:KO
+  timestamp: 1775032619872 (2026-04-01T08:36:59.872Z)
+  _type: flow-unified-cache
+  data keys: realtimeMetrics, darkPoolTrades, whaleTrades, _source, latencyMs, liveQuote, timestamp

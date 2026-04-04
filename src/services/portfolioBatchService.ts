@@ -314,7 +314,8 @@ export async function processPortfolioBatch(tickers: string[], mode: 'full' | 'p
             writeAnalysisCache(ticker, {
                 ticker, timestamp: Date.now(), alphaSnapshot: fullObj.alphaSnapshot,
                 rsi: fullObj.realtime.rsi, return3d: fullObj.realtime.threeDay, sparkline: fullObj.realtime.sparkline,
-                relVol: fullObj.realtime.rvol, maxPain: fullObj.realtime.maxPain, gex: fullObj.realtime.gex,
+                relVol: fullObj.realtime.rvol, expiration: structureRes?.expiration ?? null,
+                maxPain: fullObj.realtime.maxPain, gex: fullObj.realtime.gex,
                 gexM: fullObj.realtime.gexM, pcr: fullObj.realtime.pcr, gammaFlipLevel: fullObj.realtime.gammaFlipLevel,
                 whaleIndex: 0, whaleConfidence: 'NONE', putFloor: null, callWall: null, netPremium: null,
                 vwapDist: null, volume: null, squeezeScore: null, iv: null, darkPoolPct: 0,

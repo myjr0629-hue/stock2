@@ -140,6 +140,24 @@ async function fetchGexHistoryData(ticker: string): Promise<any> {
 // [극강 Layer 5] JSON response with Vercel CDN edge caching headers
 // s-maxage: Vercel CDN caches at edge (서버 함수 호출 자체가 없음)
 // stale-while-revalidate: 만료 후에도 즉시 stale 응답 + 백그라운드 갱신
+async function enrichExpiration(data: any): Promise<any> {
+    // [FIX] If structure exists but has no expiration, supplement from analysis cache
+    if (data?.structure && !data.structure.expiration) {
+        try {
+            const { getAnalysisCacheForTickers } = await import('@/services/analysisCache');
+            const ticker = data.structure.ticker || data.ticker;
+            if (ticker) {
+                const acMap = await getAnalysisCacheForTickers([ticker]);
+                const ac = acMap[ticker.toUpperCase()];
+                if (ac?.expiration) {
+                    data.structure = { ...data.structure, expiration: ac.expiration };
+                }
+            }
+        } catch { /* non-critical */ }
+    }
+    return data;
+}
+
 function jsonResponse(data: any, status = 200) {
     const isMarket = isMarketHoursNow();
     return NextResponse.json(data, {
@@ -205,9 +223,20 @@ async function getStructureFromDynamoGex(ticker: string): Promise<any | null> {
             new Promise<null>(r => setTimeout(() => r(null), 3000)) // 3s safety timeout
         ]);
         if (!gex || (!gex.gex && !gex.maxPain)) return null;
+
+        // [FIX] Get expiration from analysis cache (warm-analysis stores it from structureService)
+        let expiration: string | null = null;
+        try {
+            const { getAnalysisCacheForTickers } = await import('@/services/analysisCache');
+            const acMap = await getAnalysisCacheForTickers([ticker]);
+            const ac = acMap[ticker.toUpperCase()];
+            if (ac?.expiration) expiration = ac.expiration;
+        } catch { /* analysis cache unavailable, expiration stays null */ }
+
         return {
             options_status: 'OK',
             ticker,
+            expiration,
             netGex: gex.gex,
             maxPain: gex.maxPain,
             pcRatio: gex.pcr,
@@ -359,6 +388,7 @@ export async function GET(request: NextRequest) {
             if (finalData.structure && !finalData.structure.atmIV && finalData.volatility?.iv > 0) {
                 finalData.structure = { ...finalData.structure, atmIV: finalData.volatility.iv / 100 };
             }
+            await enrichExpiration(finalData);
             return jsonResponse({ ...finalData, overview: overview || null, _source: 'memory-lru', _ageMs: ageMs });
         }
 
@@ -551,6 +581,7 @@ export async function GET(request: NextRequest) {
             if (cachedData.structure && !cachedData.structure.atmIV && cachedData.volatility?.iv > 0) {
                 cachedData.structure = { ...cachedData.structure, atmIV: cachedData.volatility.iv / 100 };
             }
+            await enrichExpiration(cachedData);
             return jsonResponse({ ...cachedData, overview: resolvedOverview || null, _source: 'cache', _ageMs: ageMs });
         }
 
@@ -634,6 +665,7 @@ export async function GET(request: NextRequest) {
                 
                 const finalFc = CF.filter(f => (dynData as any)[f]).length;
                 console.log(`[Command Unified] DynamoDB+GapFill ${ticker} ${Date.now() - start}ms (${fc}→${finalFc}/9, filled: ${gapNames.filter((n,i) => gapResults[i] && n !== 'overview').join(',')})`);
+                await enrichExpiration(dynData);
                 return jsonResponse({ ...dynData, overview: dynOv || null, _source: fc === finalFc ? 'dynamodb-unified' : 'dynamodb-gapfill', _latency: Date.now() - start });
             }
         } catch { /* DynamoDB unavailable, continue to fallback */ }

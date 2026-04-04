@@ -1,0 +1,11 @@
+﻿[dotenv@17.3.1] injecting env (33) from .env.local -- tip: ⚙️  load multiple .env files with { path: ['.env.local', '.env'] }
+expiration: 2026-04-10
+squeezeScore: 0
+atmIv: 42
+gexConfidence: HIGH
+gammaFlipLevel: null
+netGex: 7885612
+maxPain: 375
+callWall: 400
+putFloor: 350
+validation: lambda-ondemand-structureService
