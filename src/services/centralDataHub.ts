@@ -406,9 +406,17 @@ export const CentralDataHub = {
             // [S-72] Phase 1: Probe for available expirations
             // [S-76] Fix: Sort by expiration_date to ensure we capture multiple expirations
             // Without sort, API may return 100 contracts all from the same expiration date
+            // [PERF] Limit to 35 DTE — all FlowRadar indicators use max 35 DTE
+            // Before: fetched ALL expiries (SPY 5,000+ contracts, 21s)
+            // After: 35 DTE only (~800 contracts, ~4s estimated)
+            const maxProbeDate = new Date(today);
+            maxProbeDate.setDate(today.getDate() + 35);
+            const maxProbeDateStr = `${maxProbeDate.getFullYear()}-${String(maxProbeDate.getMonth() + 1).padStart(2, '0')}-${String(maxProbeDate.getDate()).padStart(2, '0')}`;
+
             const probeParams: any = {
                 limit: '250',
                 'expiration_date.gte': todayStr,
+                'expiration_date.lte': maxProbeDateStr,
                 'sort': 'expiration_date',
                 'order': 'asc'
             };

@@ -118,16 +118,10 @@ export async function GET(req: NextRequest) {
             }
         };
 
-        // ── Save to Redis if we have data ──
-        if (whaleTrades.length > 0) {
-            setInCache(cacheKey, response, REDIS_TTL).catch(() => { }); // fire-and-forget
-        } else {
-            // Valid chain but 0 whale trades → serve Redis cache if available
-            const cached = await getFromCache<any>(cacheKey);
-            if (cached) {
-                return NextResponse.json({ ...cached, _cached: true });
-            }
-        }
+        // ── Always save to Redis (even 0 results to prevent perpetual cold starts) ──
+        // [FIX] Before: 0 whale trades → no cache → every call = 5s cold start
+        // After: 0 results cached → 2nd call returns instantly from Redis
+        setInCache(cacheKey, response, REDIS_TTL).catch(() => { });
 
         return NextResponse.json(response);
 

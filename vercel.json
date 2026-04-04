@@ -69,29 +69,8 @@
             "schedule": "0 */4 * * *"
         },
         {
-            "path": "/api/cron/warm-command",
-            "schedule": "*/3 8-23 * * 1-5"
-        },
-        {
-            "path": "/api/cron/warm-command",
-            "schedule": "0 0,6,12,18 * * 0,6"
-        },
-
-        {
             "path": "/api/cron/warm-news-digest",
             "schedule": "*/15 * * * *"
-        },
-        {
-            "path": "/api/cron/warm-analysis",
-            "schedule": "*/2 13-21 * * 1-5"
-        },
-        {
-            "path": "/api/cron/morning-briefing",
-            "schedule": "0 12 * * 1-5"
-        },
-        {
-            "path": "/api/cron/morning-briefing",
-            "schedule": "0 13 * * 1-5"
         },
         {
             "path": "/api/cron/daily-content?type=all",
