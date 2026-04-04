@@ -12,6 +12,7 @@ import {
     BarChart3, Eye, ChevronRight, Flame, Snowflake, BookOpen, Clock
 } from 'lucide-react';
 import { Link } from '@/i18n/routing';
+import { useMarketStatus } from '@/hooks/useMarketStatus';
 import { ProGate } from '@/components/gate/FeatureGate';
 import { SectorHeatmap } from '@/components/intel/SectorHeatmap';
 import type { IntelQuote, IntelSharedData } from '@/hooks/useIntelSharedData';
@@ -101,6 +102,7 @@ interface SectorCommandCenterProps {
 export function SectorCommandCenter({ sectorData, onNavigate }: SectorCommandCenterProps) {
     const gt = useTranslations('gate');
     const tCommon = useTranslations('common');
+    const { status: apiMarketStatus } = useMarketStatus();
     const [hoveredSector, setHoveredSector] = useState<string | null>(null);
     const [now, setNow] = useState(new Date());
 
@@ -124,10 +126,15 @@ export function SectorCommandCenter({ sectorData, onNavigate }: SectorCommandCen
         const PRE_START_SEC = 4 * 3600;         // 4:00 AM ET
         const POST_END_SEC = 20 * 3600;         // 8:00 PM ET
 
-        const isWeekday = day >= 1 && day <= 5;
-        const isRegular = isWeekday && totalSec >= OPEN_SEC && totalSec < CLOSE_SEC;
-        const isPre = isWeekday && totalSec >= PRE_START_SEC && totalSec < OPEN_SEC;
-        const isPost = isWeekday && totalSec >= CLOSE_SEC && totalSec < POST_END_SEC;
+        // [FIX] Holiday/Weekend awareness from SSOT API
+        const isHoliday = apiMarketStatus.isHoliday || false;
+        const holidayName = (apiMarketStatus as any).holidayName || 'Market Holiday';
+        const isWeekend = day === 0 || day === 6;
+        const isTradingDay = !isWeekend && !isHoliday;
+
+        const isRegular = isTradingDay && totalSec >= OPEN_SEC && totalSec < CLOSE_SEC;
+        const isPre = isTradingDay && totalSec >= PRE_START_SEC && totalSec < OPEN_SEC;
+        const isPost = isTradingDay && totalSec >= CLOSE_SEC && totalSec < POST_END_SEC;
 
         let countdown = 0;
         let targetLabel = '';
@@ -150,11 +157,16 @@ export function SectorCommandCenter({ sectorData, onNavigate }: SectorCommandCen
             targetLabel = 'OPEN';
         } else {
             session = 'CLOSED';
-            // Calculate seconds until next Monday/weekday 9:30 AM
+            // Calculate seconds until next trading day 9:30 AM
             if (day === 0) {
                 countdown = (24 * 3600 - totalSec) + OPEN_SEC; // Sunday → Monday
             } else if (day === 6) {
                 countdown = (24 * 3600 - totalSec) + 86400 + OPEN_SEC; // Saturday → Monday
+            } else if (isHoliday) {
+                // Holiday on weekday — next open is tomorrow (or Monday if Friday)
+                const hoursUntilMidnight = 24 * 3600 - totalSec;
+                const daysToAdd = day === 5 ? 2 : 0;
+                countdown = hoursUntilMidnight + daysToAdd * 86400 + OPEN_SEC;
             } else if (totalSec < PRE_START_SEC) {
                 countdown = OPEN_SEC - totalSec; // Very early weekday morning
             } else {
@@ -175,8 +187,8 @@ export function SectorCommandCenter({ sectorData, onNavigate }: SectorCommandCen
 
         const etTimeStr = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')} ET`;
 
-        return { session, targetLabel, timerStr, etTimeStr };
-    }, [now]);
+        return { session, targetLabel, timerStr, etTimeStr, isHoliday, isWeekend, holidayName };
+    }, [now, apiMarketStatus]);
 
     const sectorStats = useMemo(() => {
         return SECTORS.map(s => ({
@@ -233,7 +245,7 @@ export function SectorCommandCenter({ sectorData, onNavigate }: SectorCommandCen
                             SECTOR <span className="bg-gradient-to-r from-cyan-400 to-indigo-400 bg-clip-text text-transparent">COMMAND</span>
                         </h1>
                         <p className="text-slate-300 text-sm mt-1 font-mono">
-                            10 SECTORS • {marketOverview.totalTickers} ASSETS • {sessionInfo.session === 'REGULAR' ? 'REAL-TIME INTELLIGENCE' : 'LAST SESSION DATA'}
+                            10 SECTORS • {marketOverview.totalTickers} ASSETS • {sessionInfo.session === 'REGULAR' ? 'REAL-TIME INTELLIGENCE' : sessionInfo.isHoliday ? `HOLIDAY · ${sessionInfo.holidayName}` : sessionInfo.isWeekend ? 'WEEKEND · LAST SESSION DATA' : 'LAST SESSION DATA'}
                         </p>
                     </div>
 
@@ -248,6 +260,22 @@ export function SectorCommandCenter({ sectorData, onNavigate }: SectorCommandCen
                                     </span>
                                     <span className="text-[12px] font-bold text-emerald-400 tracking-[0.12em]">LIVE</span>
                                 </>
+                            ) : sessionInfo.isHoliday ? (
+                                <>
+                                    <span className="relative flex h-1.5 w-1.5">
+                                        <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-amber-500" />
+                                    </span>
+                                    <span className="text-[12px] font-bold text-amber-400 tracking-[0.12em]">HOLIDAY</span>
+                                    <span className="text-[12px] text-amber-300 font-semibold">· {sessionInfo.holidayName}</span>
+                                </>
+                            ) : sessionInfo.isWeekend ? (
+                                <>
+                                    <span className="relative flex h-1.5 w-1.5">
+                                        <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-slate-400" />
+                                    </span>
+                                    <span className="text-[12px] font-bold text-slate-300 tracking-[0.12em]">CLOSED</span>
+                                    <span className="text-[12px] text-slate-400 font-semibold">· Weekend</span>
+                                </>
                             ) : (
                                 <>
                                     <Clock className="w-3 h-3 text-amber-400" />
@@ -257,18 +285,21 @@ export function SectorCommandCenter({ sectorData, onNavigate }: SectorCommandCen
                                 </>
                             )}
                         </div>
-                        <div className={`px-2.5 py-0.5 rounded-md border font-mono text-[13px] font-black tracking-wider tabular-nums ${
-                            sessionInfo.session === 'REGULAR'
-                                ? 'bg-emerald-950/30 border-emerald-500/15 text-emerald-300'
-                                : 'bg-amber-950/30 border-amber-500/15 text-amber-300'
-                        }`}>
-                            {sessionInfo.timerStr}
-                        </div>
-                        <span className={`text-[12px] font-bold tracking-wide ${
-                            sessionInfo.session === 'REGULAR' ? 'text-slate-300' : 'text-slate-300'
-                        }`}>
-                            {sessionInfo.targetLabel}
-                        </span>
+                        {/* Timer + Target label — hide on holiday/weekend (countdown not meaningful) */}
+                        {!sessionInfo.isHoliday && !sessionInfo.isWeekend && (
+                            <>
+                                <div className={`px-2.5 py-0.5 rounded-md border font-mono text-[13px] font-black tracking-wider tabular-nums ${
+                                    sessionInfo.session === 'REGULAR'
+                                        ? 'bg-emerald-950/30 border-emerald-500/15 text-emerald-300'
+                                        : 'bg-amber-950/30 border-amber-500/15 text-amber-300'
+                                }`}>
+                                    {sessionInfo.timerStr}
+                                </div>
+                                <span className="text-[12px] font-bold tracking-wide text-slate-300">
+                                    {sessionInfo.targetLabel}
+                                </span>
+                            </>
+                        )}
                     </div>
 
                     <div className="flex-shrink-0 w-full sm:w-auto">
