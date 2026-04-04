@@ -43,7 +43,7 @@ export default function PortfolioClientPage({
     initialHoldings?: any[];
     initialFullData?: any[];
 }) {
-    const { holdings, summary, loading, isRefreshing, refresh, removeHolding } = usePortfolio(initialHoldings, initialFullData);
+    const { holdings, summary, loading, isRefreshing, refresh, removeHolding, addHolding } = usePortfolio(initialHoldings, initialFullData);
     const [showAddModal, setShowAddModal] = useState(false);
     const [editingHolding, setEditingHolding] = useState<EnrichedHolding | null>(null);
     const t = useTranslations('portfolio');
@@ -235,7 +235,7 @@ export default function PortfolioClientPage({
             {showAddModal && (
                 <AddHoldingModal
                     onClose={() => setShowAddModal(false)}
-                    onHoldingAdded={refresh}
+                    onAdd={addHolding}
                 />
             )}
 
@@ -860,12 +860,7 @@ function Sparkline({ data, isPositive }: { data: number[]; isPositive: boolean }
     );
 }
 
-function AddHoldingModal({ onClose, onHoldingAdded }: { onClose: () => void; onHoldingAdded: () => void }) {
-    // Import addHolding directly from store to avoid separate hook instance
-    const storeAddHolding = async (holding: any) => {
-        const { addHolding } = await import('@/lib/storage/portfolioStore');
-        addHolding(holding);
-    };
+function AddHoldingModal({ onClose, onAdd }: { onClose: () => void; onAdd: (h: any) => Promise<void> }) {
     const [ticker, setTicker] = useState('');
     const [quantity, setQuantity] = useState('');
     const [avgPrice, setAvgPrice] = useState('');
@@ -946,8 +941,8 @@ function AddHoldingModal({ onClose, onHoldingAdded }: { onClose: () => void; onH
                 alphaSnapshot = analyzeData.alphaSnapshot;
             }
 
-            // Add holding with Alpha snapshot
-            await storeAddHolding({
+            // [FIX] Use hook's addHolding — updates portfolioData state + SWR key + triggers mutate
+            await onAdd({
                 ticker: ticker.toUpperCase(),
                 name: companyName || ticker.toUpperCase(),
                 quantity: qty,
@@ -955,19 +950,16 @@ function AddHoldingModal({ onClose, onHoldingAdded }: { onClose: () => void; onH
                 alphaSnapshot
             });
 
-            // Trigger refresh in parent BEFORE closing modal
-            onHoldingAdded();
             onClose();
         } catch (err) {
             console.error('Failed to analyze ticker:', err);
             // Still add holding without alpha data
-            await storeAddHolding({
+            await onAdd({
                 ticker: ticker.toUpperCase(),
                 name: companyName || ticker.toUpperCase(),
                 quantity: qty,
                 avgPrice: avg
             });
-            onHoldingAdded();
             onClose();
         } finally {
             setLoading(false);
