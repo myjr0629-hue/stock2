@@ -414,9 +414,6 @@ bash scripts/ec2-deploy-guardian.sh
   - 실행 시간, 429 에러 여부, 성공률 체크
 
 ### 🟡 단기
-- [ ] **Dashboard 장마감 시 추가 종목 라벨 비어있는 문제**:
-  - POST/CLOSED 세션에 종목 추가하면 EXT 칼럼 등이 "—" 으로 표시
-  - `LiveTickerDashboard.tsx` + `watchlistBatchService.ts` 조사
 - [ ] **GammaFlip 가격 변동 원인 정밀 조사**:
   - Lambda(누적 GEX 교차점) vs Vercel(structureService) 계산 차이 가능성
   - 양쪽 로직 비교 + Redis 캐시 갱신 타이밍 정밀 조사
@@ -427,12 +424,6 @@ bash scripts/ec2-deploy-guardian.sh
 - [ ] **Lambda `signum-flow-harvest` 구현** (설계 완료, 구현 대기):
   - TOP 100 종목 5분마다 Flow 데이터 사전 수집 → Redis cache:flow:unified
   - EventBridge 스케줄링 (장중만)
-- [ ] **홀리데이/장 오픈 상태 정확 표시**:
-  - Polygon Market Status API 활용, `holidayCache.ts` 연동
-  - Good Friday 같은 휴장일에 "HOLIDAY" 표시
-- [ ] warm-command 코드 폴더 삭제 (`src/app/api/cron/warm-command/`)
-- [ ] warm-analysis 코드 폴더 삭제 (`src/app/api/cron/warm-analysis/`)
-- [ ] morning-briefing 코드 폴더 삭제 (`src/app/api/cron/morning-briefing/`)
 - [ ] 모바일 최적화 (앱 수준 UX)
 - [ ] 짜잘한 UI 버그 전수 조사 및 수정
 
@@ -444,7 +435,9 @@ bash scripts/ec2-deploy-guardian.sh
 - [x] warm-flow 병목 분석 완료 — 실측 데이터 기반 보고서 작성 (2026-04-04)
 - [x] Dashboard 장마감 라벨 비어있는 문제 — 코드 버그 아님, MCD 등 post-market 데이터 없는 종목 정상 동작 확인 (2026-04-04)
 - [x] GammaFlip 카드 깜빡임 수정 — `underlyingPrice=0` falsy 판정으로 SHORT/LONG 라벨 소멸 + fetchPriceOnly 0가격 덮어쓰기 방어 (2026-04-04)
+- [x] Intel SectorCommand Holiday/Weekend 인식 — `useMarketStatus()` SSOT 통합, Holiday 라벨 + Weekend 표시 + 카운트다운 숨김 (2026-04-05)
+- [x] 미사용 cron 폴더 3개 삭제 — `warm-command`, `warm-analysis`, `morning-briefing` (2026-04-05)
 
 ---
 
-*마지막 업데이트: 2026-04-04T23:59 KST*
+*마지막 업데이트: 2026-04-05T00:55 KST*
