@@ -37,11 +37,36 @@ const POLYGON_KEY = process.env.POLYGON_API_KEY || 'iKNEA6cQ6kqWWuHwURT_AyUqMprD
 const UPSTASH_URL = process.env.UPSTASH_REDIS_REST_URL || '';
 const UPSTASH_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN || '';
 
-// TTLs matching Vercel API routes exactly
+// TTLs matching Vercel API routes exactly (MARKET HOURS)
 const RT_METRICS_TTL = 600;    // 10 min (realtime-metrics route L310)
 const DARKPOOL_TTL = 300;      // 5 min (dark-pool-trades route L21)
 const FLOW_UNIFIED_TTL = 300;  // 5 min (flow/unified route L13)
-const OPTIONS_SNAPSHOT_TTL = 600; // 10 min (options snapshot raw cache — must survive between Lambda runs)
+const OPTIONS_SNAPSHOT_TTL = 600; // 10 min (options snapshot raw cache)
+
+// [FIX] Extended TTLs for off-hours/weekends — preserve last data until next market open
+// Without this, data expires 10 min after market close and shows nothing overnight/weekends
+const OFF_HOURS_TTL = 86400;   // 24 hours (weekday after-close)
+const WEEKEND_TTL = 259200;    // 72 hours (Friday close → Monday open)
+
+function getEffectiveTTL(baseTTL) {
+  const now = new Date();
+  const month = now.getUTCMonth() + 1;
+  const isDST = month >= 3 && month <= 11;
+  const etOffset = isDST ? 4 : 5;
+  const etHour = (now.getUTCHours() - etOffset + 24) % 24;
+  const day = now.getUTCDay(); // 0=Sun, 5=Fri, 6=Sat
+
+  // Weekend: use 72h TTL (Fri close → Mon open)
+  if (day === 0 || day === 6 || (day === 5 && etHour >= 20)) {
+    return WEEKEND_TTL;
+  }
+  // After market close (20:00+ ET): use 24h TTL
+  if (etHour >= 19) {
+    return OFF_HOURS_TTL;
+  }
+  // During market hours: use normal short TTL
+  return baseTTL;
+}
 
 // Dark Pool Exchange IDs (FINRA TRF/ADF = Dark Pool) — matches realtime-metrics route L12
 const DARK_POOL_EXCHANGES = new Set([4, 15, 16, 19]);
@@ -229,7 +254,7 @@ async function fetchOptionsSnapshotRaw(ticker) {
       _source: 'lambda-flow-harvest',
     };
 
-    await redisSet('polygon:snapshot:probe:' + ticker, cachePayload, OPTIONS_SNAPSHOT_TTL);
+    await redisSet('polygon:snapshot:probe:' + ticker, cachePayload, getEffectiveTTL(OPTIONS_SNAPSHOT_TTL));
     return true;
   } catch (e) {
     console.log('[flow-harvest] options-snapshot err ' + ticker + ': ' + e.message);
@@ -491,11 +516,11 @@ async function harvestTicker(ticker) {
 
     // Step 4: Save to Redis (3 keys) — pipeline for efficiency
     const commands = [
-      ['SET', 'rt-metrics:' + ticker, JSON.stringify(rtMetrics), 'EX', String(RT_METRICS_TTL)],
-      ['SET', 'cache:flow:unified:' + ticker, JSON.stringify(flowUnified), 'EX', String(FLOW_UNIFIED_TTL)],
+      ['SET', 'rt-metrics:' + ticker, JSON.stringify(rtMetrics), 'EX', String(getEffectiveTTL(RT_METRICS_TTL))],
+      ['SET', 'cache:flow:unified:' + ticker, JSON.stringify(flowUnified), 'EX', String(getEffectiveTTL(FLOW_UNIFIED_TTL))],
     ];
     if (darkPool) {
-      commands.push(['SET', 'darkpool:' + ticker, JSON.stringify(darkPool), 'EX', String(DARKPOOL_TTL)]);
+      commands.push(['SET', 'darkpool:' + ticker, JSON.stringify(darkPool), 'EX', String(getEffectiveTTL(DARKPOOL_TTL))]);
     }
     await redisPipeline(commands);
 
@@ -528,7 +553,11 @@ exports.handler = async (event) => {
   const forceRun = event?.forceRun || event?.test || false;
   console.log('[flow-harvest] Starting — ' + UNIVERSE.length + ' tickers' + (forceRun ? ' (FORCE)' : ''));
 
-  // Market hours check (장중만 실행) — forceRun bypasses
+  // Market hours check
+  // [FIX] 장외시간/주말에도 마지막 데이터를 보존하기 위해:
+  //   - 첫 장외 실행(20:00 ET): 정상 실행 + 긴 TTL (24h/72h)
+  //   - 이후 장외 실행: 스킵 (데이터 이미 보존됨)
+  //   - forceRun: 항상 실행
   if (!forceRun) {
     const now = new Date();
     const month = now.getUTCMonth() + 1;
@@ -537,15 +566,25 @@ exports.handler = async (event) => {
     const etHour = (now.getUTCHours() - etOffset + 24) % 24;
     const day = now.getUTCDay();
 
-    if (day === 0 || day === 6) {
-      console.log('[flow-harvest] Weekend — skipping');
-      return { statusCode: 200, body: JSON.stringify({ skipped: true, reason: 'weekend' }) };
+    const isWeekend = day === 0 || day === 6;
+    const isAfterHours = etHour < 8 || etHour >= 21; // 21:00 이후만 스킵 (20:00 실행은 허용)
+
+    if (isWeekend && etHour !== 20) {
+      // 주말: 토요일 20:00에 1회 실행 (Fri close 데이터 refresh)
+      // 그 외에는 스킵 (72h TTL로 보존 중)
+      console.log('[flow-harvest] Weekend — skipping (data preserved with 72h TTL)');
+      return { statusCode: 200, body: JSON.stringify({ skipped: true, reason: 'weekend-preserved' }) };
     }
 
-    // Allow extended hours: pre-market 8:00 to after-hours 20:00
-    if (etHour < 8 || etHour >= 20) {
-      console.log('[flow-harvest] Outside trading hours (ET: ' + etHour + ') — skipping');
-      return { statusCode: 200, body: JSON.stringify({ skipped: true, reason: 'outside-hours', etHour }) };
+    if (!isWeekend && isAfterHours) {
+      // 평일 장마감 후: 21:00 이후 스킵 (20:00 실행에서 24h TTL로 보존)
+      console.log('[flow-harvest] After hours (ET: ' + etHour + ') — skipping (data preserved with 24h TTL)');
+      return { statusCode: 200, body: JSON.stringify({ skipped: true, reason: 'after-hours-preserved', etHour }) };
+    }
+
+    if (!isWeekend && etHour < 8) {
+      console.log('[flow-harvest] Pre-market (ET: ' + etHour + ') — skipping');
+      return { statusCode: 200, body: JSON.stringify({ skipped: true, reason: 'pre-market', etHour }) };
     }
   }
 

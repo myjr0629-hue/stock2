@@ -425,7 +425,7 @@ export const CentralDataHub = {
             try {
                 const lambdaCache = await getFromCache<any>(`polygon:snapshot:probe:${ticker}`);
                 if (lambdaCache && lambdaCache.probeResults && lambdaCache.exactResults
-                    && lambdaCache._ts && (Date.now() - lambdaCache._ts) < 600000) {
+                    && lambdaCache._ts && (Date.now() - lambdaCache._ts) < 259200000) { // 72h max (weekend preservation)
                     // Lambda cache hit — skip all Polygon API calls
                     probeResults = lambdaCache.probeResults;
                     expirations = lambdaCache.expirations || [];

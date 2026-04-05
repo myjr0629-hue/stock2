@@ -241,7 +241,7 @@ export async function getStructureData(ticker: string, requestedExp?: string | n
     // [PERF] Check Lambda-warmed raw snapshot cache FIRST — skip ALL Polygon calls if hit
     try {
         const lambdaCache = await getFromCache<any>(`polygon:snapshot:probe:${ticker}`);
-        if (lambdaCache && lambdaCache._ts && (Date.now() - lambdaCache._ts) < 600000
+        if (lambdaCache && lambdaCache._ts && (Date.now() - lambdaCache._ts) < 259200000 // 72h max (weekend preservation)
             && lambdaCache.exactResults && lambdaCache.exactResults.length > 0
             && lambdaCache.weeklyExpiry) {
             
