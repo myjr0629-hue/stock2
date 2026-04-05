@@ -2,7 +2,7 @@
 import { fetchMassive, fetchMassiveAll, CACHE_POLICY } from './massiveClient';
 import { getMarketStatusSSOT } from './marketStatusProvider';
 import { findWeeklyExpirationSync } from './holidayCache';
-import { getFromCache } from './redisClient';
+import { getFromCache, setInCache } from './redisClient';
 
 // [Phase 24.1] Central Data Hub Structure
 export interface UnifiedQuote {
@@ -479,6 +479,42 @@ export const CentralDataHub = {
 
                 const exactRes = await fetchMassiveAll(`/v3/snapshot/options/${ticker}`, exactParams, true);
                 results = exactRes.results || [];
+
+                // [DEMAND-DRIVEN CACHE] Save raw data to Redis in Lambda format
+                // Non-universe tickers get the same cache structure as Lambda-warmed tickers
+                // So subsequent requests hit the fast path (Redis instead of Polygon)
+                if (probeResults.length > 0 && results.length > 0 && weeklyExpiry) {
+                    try {
+                        const rawCachePayload = {
+                            probeResults,
+                            exactResults: results,
+                            expirations,
+                            weeklyExpiry,
+                            _ts: Date.now(),
+                            _ticker: ticker,
+                            _source: 'vercel-ondemand',
+                        };
+                        // TTL: 10 min (Lambda will take over refreshing within 5 min)
+                        await setInCache(`polygon:snapshot:probe:${ticker}`, rawCachePayload, 600);
+
+                        // Register in dynamic universe — Lambda reads this list
+                        // Use individual key per ticker (Lambda scans known pattern)
+                        const nowET = new Date().toLocaleString('en-US', { timeZone: 'America/New_York' });
+                        const etHour = new Date(nowET).getHours();
+                        const hoursUntilClose = Math.max(1, 21 - etHour);
+                        const dynamicTTL = hoursUntilClose * 3600;
+
+                        // Also maintain a master list for Lambda to read
+                        const existingList = await getFromCache<string[]>('flow:dynamic-universe') || [];
+                        if (!existingList.includes(ticker)) {
+                            existingList.push(ticker);
+                            await setInCache('flow:dynamic-universe', existingList, dynamicTTL);
+                        }
+                        console.log(`[CentralDataHub] DEMAND-CACHE: ${ticker} raw saved + registered for Lambda (TTL ${hoursUntilClose}h, list=${existingList.length})`);
+                    } catch {
+                        // Non-critical — don't fail the request
+                    }
+                }
             }
 
             let callPremium = 0;

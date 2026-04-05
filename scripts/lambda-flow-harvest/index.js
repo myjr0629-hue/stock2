@@ -115,6 +115,37 @@ async function redisSet(key, value, ttl) {
   } catch { return false; }
 }
 
+// Redis GET via Upstash REST API
+async function redisGet(key) {
+  if (!UPSTASH_URL || !UPSTASH_TOKEN) return null;
+  try {
+    const body = JSON.stringify(['GET', key]);
+    const url = new URL(UPSTASH_URL);
+    const options = {
+      hostname: url.hostname, port: 443, path: '/', method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + UPSTASH_TOKEN, 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) },
+    };
+    return new Promise((resolve) => {
+      const req = https.request(options, (res) => {
+        let data = '';
+        res.on('data', chunk => data += chunk);
+        res.on('end', () => {
+          try {
+            const parsed = JSON.parse(data);
+            if (parsed.result) {
+              try { resolve(JSON.parse(parsed.result)); } catch { resolve(parsed.result); }
+            } else { resolve(null); }
+          } catch { resolve(null); }
+        });
+      });
+      req.on('error', () => resolve(null));
+      req.setTimeout(5000, () => { req.destroy(); resolve(null); });
+      req.write(body);
+      req.end();
+    });
+  } catch { return null; }
+}
+
 // Batch Redis pipeline (up to 20 commands at once)
 async function redisPipeline(commands) {
   if (!UPSTASH_URL || !UPSTASH_TOKEN) return 0;
@@ -606,15 +637,51 @@ exports.handler = async (event) => {
   }
 
   const duration = Math.round((Date.now() - start) / 1000);
-  console.log('[flow-harvest] Complete: ' + ok + '/' + UNIVERSE.length + ' in ' + duration + 's (fail=' + fail + ')');
+  console.log('[flow-harvest] Universe complete: ' + ok + '/' + UNIVERSE.length + ' in ' + duration + 's (fail=' + fail + ')');
+
+  // ── DEMAND-DRIVEN DYNAMIC UNIVERSE ──
+  // Process non-universe tickers that users queried during this market session.
+  // Vercel registers them in Redis 'flow:dynamic-universe' list.
+  // This block is completely independent — universe data is ALREADY saved above.
+  let dynamicOk = 0, dynamicFail = 0;
+  try {
+    const dynamicList = await redisGet('flow:dynamic-universe');
+    if (dynamicList && Array.isArray(dynamicList) && dynamicList.length > 0) {
+      // Filter out any tickers already in UNIVERSE (safety)
+      const universeSet = new Set(UNIVERSE);
+      const dynamicTickers = dynamicList.filter(t => !universeSet.has(t));
+
+      if (dynamicTickers.length > 0) {
+        console.log('[flow-harvest] Dynamic universe: ' + dynamicTickers.length + ' tickers: ' + dynamicTickers.join(', '));
+
+        for (let i = 0; i < dynamicTickers.length; i += BATCH_SIZE) {
+          const batch = dynamicTickers.slice(i, i + BATCH_SIZE);
+          const results = await Promise.all(batch.map(t => harvestTicker(t)));
+          for (const r of results) {
+            if (r.ok) dynamicOk++;
+            else dynamicFail++;
+          }
+        }
+        console.log('[flow-harvest] Dynamic complete: ' + dynamicOk + '/' + dynamicTickers.length + ' (fail=' + dynamicFail + ')');
+      }
+    }
+  } catch (e) {
+    // Dynamic universe failure NEVER affects fixed universe
+    console.log('[flow-harvest] Dynamic universe error (non-critical): ' + (e.message || e));
+  }
+
+  const totalDuration = Math.round((Date.now() - start) / 1000);
+  console.log('[flow-harvest] Total complete: ' + (ok + dynamicOk) + ' ok in ' + totalDuration + 's');
 
   return {
     statusCode: 200,
     body: JSON.stringify({
       success: true,
-      version: '2.0',
+      version: '2.1',
       tickers: UNIVERSE.length,
       ok, fail, duration,
+      dynamic: { count: dynamicOk + dynamicFail, ok: dynamicOk, fail: dynamicFail },
+      totalDuration,
       timestamp: new Date().toISOString(),
     })
   };
