@@ -20,7 +20,7 @@
 
 ---
 
-## 2. 전체 아키텍처 (v8 — 2026-04-04 기준)
+## 2. 전체 아키텍처 (v9 — 2026-04-06 기준)
 
 ```
 [Polygon API (최고 티어, 무제한)]
@@ -42,7 +42,9 @@
 - **Lambda가 유일한 데이터 생산자** — 모든 계산 수행, 3곳에 동시 저장
 - **Vercel은 읽기 전용** — Redis/DynamoDB에서 읽기만 (데이터 계산 없음)
 - **warm-analysis, warm-command, morning-briefing cron: 삭제 완료** (2026-04-04)
-- **Flow 페이지**: probe API 35 DTE 제한 적용, whale-trades 캐시 항상 저장
+- **Flow 페이지**: Lambda Raw Cache → Vercel 계산 (2계층 캐시), 35 DTE 제한
+- **Flow warm (signum-flow-harvest)**: 옵션 raw 데이터만 저장, 계산은 Vercel 담당 (업계표준 CQRS)
+- **Demand-Driven Dynamic Universe**: 비유니버스 종목도 1회 조회 후 Lambda 자동 수집 (2026-04-06)
 
 ---
 
@@ -128,7 +130,61 @@
 - **Node**: `new LambdaClient().send(new InvokeCommand({FunctionName:'signum-harvest',Payload:JSON.stringify({onDemandTicker:'BABA'})}))`
 - **저장**: DynamoDB + Redis (cache:analysis + cache:command:unified) 동시
 
-### 4.2 EC2 워커 (52.23.98.13)
+### 4.2 Lambda v2.1 (signum-flow-harvest) — Flow 페이지 전용
+- **코드 위치**: `scripts/lambda-flow-harvest/index.js`
+- **배포 스크립트**: `scripts/deploy-flow-harvest.js`
+- **배포 명령**: `node scripts/deploy-flow-harvest.js`
+- **설정**: timeout=600s (10분), memory=1024MB (1GB)
+- **런타임**: nodejs20.x
+- **EventBridge**: `signum-flow-harvest-5min` (rate(5 minutes), ENABLED)
+- **유니버스**: 1,000종목 (`data/stock_universe_us800.json`) + **동적 유니버스** (비유니버스 종목)
+- **실행 시간**: ~288초 (4분48초), 1000종목, fail=0
+- **완전 독립**: signum-harvest와 코드/스케줄/실행 완전 분리
+
+#### Flow Harvest 아키텍처 (CQRS — Raw Cache Only)
+```
+[Lambda v2.1] → Polygon API → raw 원본 → Redis 저장 (계산 0, 가공 0)
+                                  ↓
+[Vercel API]  → Redis에서 raw 읽기 → Max Pain, GEX, Gamma Flip 등 계산
+```
+
+#### 저장 키 / TTL
+| Redis 키 | TTL (장중) | TTL (장외) | 내용 |
+|----------|:---:|:---:|------|
+| `polygon:snapshot:probe:{TICKER}` | 10분 | 24h/72h | Polygon 옵션 스냅샷 원본 (probe+exact) |
+| `rt-metrics:{TICKER}` | 10분 | 24h/72h | 실시간 메트릭스 (DP%, Short%, Block) |
+| `cache:flow:unified:{TICKER}` | 5분 | 24h/72h | 플로우 통합 캐시 |
+| `darkpool:{TICKER}` | 5분 | 24h/72h | 다크풀 트레이드 상세 |
+
+#### 장외시간/주말 TTL 보존 (Dynamic TTL)
+| 시간대 | TTL | 설명 |
+|--------|:---:|------|
+| 장중 (8:00-19:00 ET) | 5-10분 | 데이터 신선도 최우선 |
+| 장 마감 직후 (19:00-20:00 ET) | **24시간** | 마지막 데이터 보존 |
+| 금요일 장 마감 / 주말 | **72시간** | 월요일까지 보존 |
+
+#### Demand-Driven Dynamic Universe (비유니버스 종목)
+```
+1. 사용자가 AMC(비유니버스) 조회 → Vercel: Polygon 직접 호출 (첫 1회, 느림)
+2. Vercel: raw 데이터를 polygon:snapshot:probe:AMC에 저장 (10분 TTL)
+3. Vercel: 'flow:dynamic-universe' 리스트에 AMC 등록 (장 마감까지 TTL)
+4. Lambda 다음 실행(5분 이내): dynamic-universe 읽기 → AMC 발견 → 수집 시작
+5. 이후 AMC = 유니버스 종목과 동일 속도 (5분마다 자동 갱신)
+6. 장 마감 → Lambda 정지 → dynamic-universe TTL 만료 → AMC 수집 중단
+7. 다음날: 아무도 조회 안 하면 수집 안 함 / 다시 조회하면 다시 등록
+```
+- Redis 키: `flow:dynamic-universe` (JSON 배열, 장 마감까지 TTL)
+- Lambda 코드: 유니버스 처리 완료 후 별도 try/catch 블록에서 실행
+- **유니버스 코드 무변경** — 동적 처리는 완전 분리
+
+#### Vercel 측 Cache-First 연동
+| 파일 | 변경 내용 |
+|------|----------|
+| `centralDataHub.ts` | Lambda 캐시 체크 (L425-439) → HIT 시 Polygon 스킵 + Demand-Cache 저장 |
+| `structureService.ts` | Lambda 캐시를 Reference API 전에 체크 (L241-260) → HIT 시 3단계 전부 스킵 |
+| `FlowPageClient.tsx` | `displayPrice > 0` 블로킹 가드 제거 → Progressive Rendering |
+
+### 4.3 EC2 워커 (52.23.98.13)
 | 워커 | 파일 | 역할 |
 |------|------|------|
 | Guardian Worker | `scripts/ec2-guardian-worker.js` (42KB) | Morning Briefing AI, DynamoDB→Redis |
@@ -138,7 +194,7 @@
 - **WebSocket URL**: `wss://ws.signumhq.com`
 - **배포**: `bash scripts/ec2-deploy-guardian.sh`
 
-### 4.3 DynamoDB 테이블
+### 4.4 DynamoDB 테이블
 | 테이블명 | PK | SK | 용도 |
 |---------|----|----|------|
 | `signum-unified-cache` | ticker (string) | — | 전체 unified 9섹션 데이터 |
@@ -150,7 +206,7 @@
 | `signum-pattern-db` | pattern | — | ANALYST:, EARNINGS:, FUND:, SI:, RELATED: 패턴 |
 | `signum-backtest-results` | — | — | 백테스트 결과 |
 
-### 4.4 DynamoDB 클라이언트 (Vercel 측 읽기)
+### 4.5 DynamoDB 클라이언트 (Vercel 측 읽기)
 | 파일 | 역할 |
 |------|------|
 | `src/lib/aws/dynamoClient.ts` | DynamoDB 연결, TABLES 상수 |
@@ -161,7 +217,7 @@
 | `src/lib/aws/flowCacheProvider.ts` | 플로우 캐시 |
 | `src/lib/aws/priceCacheStore.ts` | 가격 캐시 |
 
-### 4.5 S3
+### 4.6 S3
 - **버킷**: `signum-hq-archive`
 - **용도**: 보고서 아카이빙
 
@@ -204,6 +260,12 @@
 | `yahoo:vix3m` | market-feed cron | — | VIX3M |
 | `prev-day-pct:{TICKER}` | dashboard/unified | 10min | 전일 대비 변화율 |
 | `macro:snapshot` | market-feed cron | — | 매크로 스냅샷 |
+| `polygon:snapshot:probe:{TICKER}` | **Lambda flow-harvest / Vercel on-demand** | 10min~72h | Polygon 옵션 스냅샷 원본 (raw) |
+| `rt-metrics:{TICKER}` | **Lambda flow-harvest** | 10min~72h | 실시간 메트릭스 (DP/Short/Block) |
+| `cache:flow:unified:{TICKER}` | **Lambda flow-harvest** | 5min~72h | 플로우 통합 캐시 |
+| `darkpool:{TICKER}` | **Lambda flow-harvest** | 5min~72h | 다크풀 트레이드 |
+| `flow:dynamic-universe` | **Vercel (on-demand)** | 장 마감까지 | 동적 유니버스 목록 (JSON 배열) |
+| `flow:ticker:lite:{TICKER}` | Vercel /api/live/ticker | 60초 | API 응답 전체 캐시 |
 
 ### ⚠️ Redis 키 접근 규칙
 ```
@@ -445,7 +507,30 @@ bash scripts/ec2-deploy-guardian.sh
 - [x] Intel SectorCommand Holiday/Weekend 인식 — `useMarketStatus()` SSOT 통합, Holiday 라벨 + Weekend 표시 + 카운트다운 숨김 (2026-04-05)
 - [x] 미사용 cron 폴더 3개 삭제 — `warm-command`, `warm-analysis`, `morning-briefing` (2026-04-05)
 
+### 2026-04-05~06 (Flow 페이지 성능 최적화 — Lambda Raw Cache + Demand-Driven Dynamic Universe)
+1. **Lambda v2.1 (signum-flow-harvest)**: Polygon 옵션 스냅샷 raw 데이터를 Redis에 사전 캐싱
+   - 원본 데이터만 저장 (계산 0), 업계표준 CQRS 패턴
+   - 계산(Max Pain, GEX 등)은 Vercel 기존 코드 100% 사용 → 정합성 100%
+2. **Vercel Cache-First 연동**: centralDataHub + structureService에서 Redis 먼저 체크
+   - HIT 시 Polygon Reference(1-2초) + Snapshot(1-2초) + Exact(1-2초) 전부 스킵
+3. **Progressive Rendering**: `displayPrice > 0` 블로킹 가드 제거 → FlowRadar 즉시 마운트
+4. **장외시간/주말 TTL 동적 조절**: 장중 5-10분, 장외 24h, 주말 72h
+   - 기존 문제: TTL 10분 → 장 마감 10분 후 모든 데이터 소멸
+   - 수정: `getEffectiveTTL()` 함수로 시간대별 자동 조절
+5. **Demand-Driven Dynamic Universe**: 비유니버스 종목 1회 조회 후 Lambda 자동 수집
+   - Vercel: raw 캐시 저장 + `flow:dynamic-universe` 리스트 등록
+   - Lambda: 유니버스 처리 후 dynamic list 읽어서 추가 수집 (완전 분리)
+   - 장 마감 → 리스트 TTL 만료 → 자동 소멸 (다음날 재조회 시만 재등록)
+
+#### 성능 검증 결과
+| 종목 | Before (Cold) | After (Lambda Hit) | 개선율 |
+|------|:---:|:---:|:---:|
+| TSLA (유니버스) | 13,543ms | **1,616ms** | **88%↓** |
+| NVDA (유니버스) | 3,829ms | **692ms** | **82%↓** |
+| AMC (비유니버스 1회차) | 7,468ms | 7,468ms | 변동없음 |
+| AMC (비유니버스 2회차+) | 7,468ms | **유니버스 동일** | Lambda 자동 수집 |
+
 ---
 
-*마지막 업데이트: 2026-04-05T18:50 KST*
+*마지막 업데이트: 2026-04-06T00:56 KST*
 
