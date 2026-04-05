@@ -67,14 +67,34 @@ export async function GET(req: NextRequest) {
         // Calculate changePct manually from prevDay.c — NEVER use todaysChangePerc
         // [V10] GOOG→GOOGL alias: Polygon snapshot for GOOG has broken prevDay.c
         // GOOG (Class C) and GOOGL (Class A) are same company with same price movement
+        // [V11] Weekend/after-hours fallback: if snapshot returns price=0, use v2/aggs 2-day bar
         const SNAPSHOT_ALIAS: Record<string, string> = { 'GOOG': 'GOOGL' };
         const top4 = relatedTickers.slice(0, 4);
         const snapPromises = top4.map((relT: string) => {
             const snapTicker = SNAPSHOT_ALIAS[relT] || relT;
             return fetchMassive(`/v2/snapshot/locale/us/markets/stocks/tickers/${snapTicker}`, {}, true)
-                .then((snap: any) => {
+                .then(async (snap: any) => {
                     const { price, change } = calcChangeFromSnapshot(snap?.ticker);
-                    return { ticker: relT, price, change, logo: null };
+                    if (price > 0) return { ticker: relT, price, change, logo: null };
+                    // [V11] Snapshot failed (weekend/after-hours) — fallback to v2/aggs 2-day bar
+                    try {
+                        const today = new Date();
+                        const from = new Date(today.getTime() - 10 * 86400000).toISOString().split('T')[0]; // 10 days back
+                        const to = today.toISOString().split('T')[0];
+                        const aggs = await fetchMassive(
+                            `/v2/aggs/ticker/${snapTicker}/range/1/day/${from}/${to}?adjusted=true&sort=desc&limit=2`,
+                            {}, true
+                        );
+                        if (aggs?.results?.length >= 2) {
+                            const lastBar = aggs.results[0];
+                            const prevBar = aggs.results[1];
+                            const aggChange = prevBar.c > 0
+                                ? Math.round(((lastBar.c - prevBar.c) / prevBar.c) * 10000) / 100
+                                : 0;
+                            return { ticker: relT, price: Math.round(lastBar.c * 100) / 100, change: aggChange, logo: null };
+                        }
+                    } catch {}
+                    return { ticker: relT, price: 0, change: 0, logo: null };
                 })
                 .catch(() => ({ ticker: relT, price: 0, change: 0, logo: null }));
         });

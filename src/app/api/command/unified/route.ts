@@ -835,6 +835,7 @@ async function tryDynamoFast(ticker: string): Promise<any | null> {
                 const top4 = relTickers.slice(0, 4);
                 // [V10] Polygon snapshot with manual changePct from prevDay.c — accurate for ALL tickers
                 // GOOG→GOOGL alias: Polygon snapshot for GOOG has broken prevDay.c
+                // [V11] Weekend/after-hours fallback: if snapshot returns price=0, use v2/aggs 2-day bar
                 const SNAPSHOT_ALIAS: Record<string, string> = { 'GOOG': 'GOOGL' };
                 let topRelated = top4.map((t: string) => ({ ticker: t, price: 0, change: 0, logo: null }));
                 try {
@@ -842,20 +843,37 @@ async function tryDynamoFast(ticker: string): Promise<any | null> {
                         Promise.all(top4.map((t: string) => {
                             const snapT = SNAPSHOT_ALIAS[t] || t;
                             return fetchMassive(`/v2/snapshot/locale/us/markets/stocks/tickers/${snapT}`, {}, true)
-                                .then((snap: any) => {
+                                .then(async (snap: any) => {
                                     const td = snap?.ticker;
-                                    // [FIX] day.c (regular close) first — lastTrade.p during POST/PRE
-                                    // contains after-hours/pre-market trades → incorrect changePct
                                     const currentPrice = td?.day?.c || td?.lastTrade?.p || 0;
                                     const prevClose = td?.prevDay?.c || 0;
                                     const change = currentPrice > 0 && prevClose > 0
                                         ? Math.round(((currentPrice - prevClose) / prevClose) * 10000) / 100
                                         : 0;
-                                    return { ticker: t, price: Math.round(currentPrice * 100) / 100, change, logo: null };
+                                    if (currentPrice > 0) return { ticker: t, price: Math.round(currentPrice * 100) / 100, change, logo: null };
+                                    // [V11] Snapshot failed — fallback to v2/aggs 2-day bar
+                                    try {
+                                        const today = new Date();
+                                        const from = new Date(today.getTime() - 10 * 86400000).toISOString().split('T')[0];
+                                        const to = today.toISOString().split('T')[0];
+                                        const aggs = await fetchMassive(
+                                            `/v2/aggs/ticker/${snapT}/range/1/day/${from}/${to}?adjusted=true&sort=desc&limit=2`,
+                                            {}, true
+                                        );
+                                        if (aggs?.results?.length >= 2) {
+                                            const lastBar = aggs.results[0];
+                                            const prevBar = aggs.results[1];
+                                            const aggChange = prevBar.c > 0
+                                                ? Math.round(((lastBar.c - prevBar.c) / prevBar.c) * 10000) / 100
+                                                : 0;
+                                            return { ticker: t, price: Math.round(lastBar.c * 100) / 100, change: aggChange, logo: null };
+                                        }
+                                    } catch {}
+                                    return { ticker: t, price: 0, change: 0, logo: null };
                                 })
                                 .catch(() => ({ ticker: t, price: 0, change: 0, logo: null }));
                         })),
-                        new Promise<typeof topRelated>(r => setTimeout(() => r(topRelated), 2000))
+                        new Promise<typeof topRelated>(r => setTimeout(() => r(topRelated), 4000))
                     ]);
                     topRelated = snapResults;
                 } catch {}
