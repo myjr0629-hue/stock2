@@ -411,7 +411,8 @@ bash scripts/ec2-deploy-guardian.sh
 
 ### 🔴 즉시
 - [ ] **장중 1000종목 전체 harvest 모니터링** — CloudWatch Logs 확인
-  - 실행 시간, 429 에러 여부, 성공률 체크
+  - `signum-harvest` + `signum-flow-harvest` 동시 모니터링
+  - 실행 시간, 429 에러 여부, 성공률, API 충돌 여부 체크
 
 ### 🟡 단기
 - [ ] **GammaFlip 가격 변동 원인 정밀 조사**:
@@ -419,15 +420,21 @@ bash scripts/ec2-deploy-guardian.sh
   - 양쪽 로직 비교 + Redis 캐시 갱신 타이밍 정밀 조사
 - [ ] **Lambda 동시성 튜닝** (장중 테스트 결과에 따라):
   - 현재: 배치 10종목 동시, 목표: 15~20
+- [ ] **Vercel `warm-flow` 폴더 삭제** — Lambda 이관 완료 확인 후 제거
 
 ### 🟢 중기
-- [ ] **Lambda `signum-flow-harvest` 구현** (설계 완료, 구현 대기):
-  - TOP 100 종목 5분마다 Flow 데이터 사전 수집 → Redis cache:flow:unified
-  - EventBridge 스케줄링 (장중만)
 - [ ] 모바일 최적화 (앱 수준 UX)
 - [ ] 짜잘한 UI 버그 전수 조사 및 수정
 
 ### ✅ 완료
+- [x] **`signum-flow-harvest` Lambda 배포 및 검증 완료 (2026-04-05)**:
+  - Lambda 함수: `signum-flow-harvest` (nodejs20.x, 600s, 1024MB)
+  - EventBridge: `signum-flow-harvest-5min` (rate(5 minutes), ENABLED)
+  - 1000종목 완전 독립 warm — 249초(4분9초)에 1000종목 처리, fail=0
+  - Redis 키: `rt-metrics:{TICKER}`, `cache:flow:unified:{TICKER}`, `darkpool:{TICKER}`
+  - 프로덕션 검증: NVDA cached:true DP:56.6%, AAPL cached:true DP:22.3%, META cached:true DP:19.9%
+  - Vercel 코드 수정 0줄 — 기존 API가 Redis-first이므로 자동 캐시 히트
+  - `signum-data-harvest` 영향 0 — 완전 독립 파이프라인
 - [x] vercel.json cron 5개 삭제 (2026-04-04)
 - [x] Flow 35 DTE 최적화 — SPY 21초→1.9초 실측 확인 (2026-04-04)
 - [x] whale-trades 캐시 항상 저장 (2026-04-04)
@@ -440,4 +447,5 @@ bash scripts/ec2-deploy-guardian.sh
 
 ---
 
-*마지막 업데이트: 2026-04-05T00:55 KST*
+*마지막 업데이트: 2026-04-05T18:50 KST*
+

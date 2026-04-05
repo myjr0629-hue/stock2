@@ -1,6 +1,7 @@
 import { fetchMassive, CACHE_POLICY } from "@/services/massiveClient";
 import { getETComponents, getTodayETString } from "@/services/marketDaySSOT";
 import { findWeeklyExpiration } from "@/services/holidayCache";
+import { getFromCache } from "@/services/redisClient";
 
 // [S-69] Get next valid trading day for options expiration (skips weekends)
 // [V45.17 FIX] Uses getETComponents for reliable ET timezone handling
@@ -286,30 +287,50 @@ export async function getStructureData(ticker: string, requestedExp?: string | n
     }
 
     // Phase 2: Fetch EXACT expiration
-    const exactUrl = `/v3/snapshot/options/${ticker}?expiration_date=${targetExpiry}&limit=250`;
-
+    // [PERF] Check Lambda-warmed raw snapshot cache first
     let allContracts: any[] = [];
     let pagesFetched = 0;
     let latencyTotal = 0;
     let attemptsTotal = 0;
-    let chainUrl = exactUrl;
+    let usedLambdaCache = false;
 
     try {
-        // [DATA INTEGRITY] Fetch up to 10 pages
-        while (chainUrl && pagesFetched < 10) {
-            const res = await fetchMassiveWithRetry(chainUrl, 3);
-            attemptsTotal += res.attempts || 1;
-            latencyTotal += res.latency || 0;
-
-            if (!res.success || !res.data?.results) break;
-
-            allContracts = allContracts.concat(res.data.results);
-            pagesFetched++;
-
-            chainUrl = res.data.next_url || '';
+        const lambdaCache = await getFromCache<any>(`polygon:snapshot:probe:${ticker}`);
+        if (lambdaCache && lambdaCache._ts && (Date.now() - lambdaCache._ts) < 300000) {
+            // Check if Lambda has data for matching or close expiry
+            if (lambdaCache.exactResults && lambdaCache.exactResults.length > 0 && lambdaCache.weeklyExpiry === targetExpiry) {
+                allContracts = lambdaCache.exactResults;
+                pagesFetched = 1;
+                usedLambdaCache = true;
+                console.log(`[STRUCTURE] LAMBDA CACHE HIT for ${ticker}: ${allContracts.length} contracts, expiry=${targetExpiry}`);
+            }
         }
-    } catch (e) {
-        console.log(`[OPTIONS] Fetch error for ${ticker}:`, e);
+    } catch {
+        // Redis unavailable — fall through to Polygon
+    }
+
+    if (!usedLambdaCache) {
+        // Original Polygon fetch path (unchanged)
+        const exactUrl = `/v3/snapshot/options/${ticker}?expiration_date=${targetExpiry}&limit=250`;
+        let chainUrl = exactUrl;
+
+        try {
+            // [DATA INTEGRITY] Fetch up to 10 pages
+            while (chainUrl && pagesFetched < 10) {
+                const res = await fetchMassiveWithRetry(chainUrl, 3);
+                attemptsTotal += res.attempts || 1;
+                latencyTotal += res.latency || 0;
+
+                if (!res.success || !res.data?.results) break;
+
+                allContracts = allContracts.concat(res.data.results);
+                pagesFetched++;
+
+                chainUrl = res.data.next_url || '';
+            }
+        } catch (e) {
+            console.log(`[OPTIONS] Fetch error for ${ticker}:`, e);
+        }
     }
 
     if (allContracts.length === 0) {

@@ -2,6 +2,7 @@
 import { fetchMassive, fetchMassiveAll, CACHE_POLICY } from './massiveClient';
 import { getMarketStatusSSOT } from './marketStatusProvider';
 import { findWeeklyExpirationSync } from './holidayCache';
+import { getFromCache } from './redisClient';
 
 // [Phase 24.1] Central Data Hub Structure
 export interface UnifiedQuote {
@@ -413,45 +414,72 @@ export const CentralDataHub = {
             maxProbeDate.setDate(today.getDate() + 35);
             const maxProbeDateStr = `${maxProbeDate.getFullYear()}-${String(maxProbeDate.getMonth() + 1).padStart(2, '0')}-${String(maxProbeDate.getDate()).padStart(2, '0')}`;
 
-            const probeParams: any = {
-                limit: '250',
-                'expiration_date.gte': todayStr,
-                'expiration_date.lte': maxProbeDateStr,
-                'sort': 'expiration_date',
-                'order': 'asc'
-            };
+            // [PERF] Check Lambda-warmed raw snapshot cache first
+            // Lambda stores raw Polygon response → zero calculation change, only source changes
+            let probeResults: any[] = [];
+            let expirations: string[] = [];
+            let weeklyExpiry = '';
+            let results: any[] = [];
+            let usedLambdaCache = false;
 
-            const probeRes = await fetchMassiveAll(`/v3/snapshot/options/${ticker}`, probeParams, true);
-            const probeResults = probeRes.results || [];
-
-            // Find weekly expiration
-            const expirations = Array.from(new Set(
-                probeResults.map((c: any) => c.details?.expiration_date)
-            )).filter(Boolean).sort() as string[];
-
-            // [DEBUG] Log all available expirations
-            console.log(`[CentralDataHub] ${ticker} available expirations (${expirations.length}):`, JSON.stringify(expirations.slice(0, 10)));
-
-            const weeklyExpiry = findWeeklyExpirationSync(expirations);
-
-            if (!weeklyExpiry) {
-                console.warn(`[CentralDataHub] No weekly expiration found for ${ticker}`);
-                return {
-                    netPremium: 0, callPremium: 0, putPremium: 0, totalPremium: 0,
-                    optionsCount: 0, dataSource: 'NONE', isAfterHours: false
-                };
+            try {
+                const lambdaCache = await getFromCache<any>(`polygon:snapshot:probe:${ticker}`);
+                if (lambdaCache && lambdaCache.probeResults && lambdaCache.exactResults
+                    && lambdaCache._ts && (Date.now() - lambdaCache._ts) < 300000) {
+                    // Lambda cache hit — skip all Polygon API calls
+                    probeResults = lambdaCache.probeResults;
+                    expirations = lambdaCache.expirations || [];
+                    weeklyExpiry = lambdaCache.weeklyExpiry || '';
+                    results = lambdaCache.exactResults;
+                    usedLambdaCache = true;
+                    console.log(`[CentralDataHub] LAMBDA CACHE HIT for ${ticker}: ${probeResults.length} probe, ${results.length} exact, expiry=${weeklyExpiry}`);
+                }
+            } catch {
+                // Redis unavailable — fall through to Polygon
             }
 
-            console.log(`[CentralDataHub] Fetching EXACT weekly expiration for ${ticker}: ${weeklyExpiry}`);
+            if (!usedLambdaCache) {
+                // Original Polygon fetch path (unchanged)
+                const probeParams: any = {
+                    limit: '250',
+                    'expiration_date.gte': todayStr,
+                    'expiration_date.lte': maxProbeDateStr,
+                    'sort': 'expiration_date',
+                    'order': 'asc'
+                };
 
-            // [S-72] Phase 2: Fetch exact weekly expiration (full data for accurate Max Pain)
-            const exactParams: any = {
-                limit: '250',
-                'expiration_date': weeklyExpiry
-            };
+                const probeRes = await fetchMassiveAll(`/v3/snapshot/options/${ticker}`, probeParams, true);
+                probeResults = probeRes.results || [];
 
-            const exactRes = await fetchMassiveAll(`/v3/snapshot/options/${ticker}`, exactParams, true);
-            const results = exactRes.results || [];
+                // Find weekly expiration
+                expirations = Array.from(new Set(
+                    probeResults.map((c: any) => c.details?.expiration_date)
+                )).filter(Boolean).sort() as string[];
+
+                // [DEBUG] Log all available expirations
+                console.log(`[CentralDataHub] ${ticker} available expirations (${expirations.length}):`, JSON.stringify(expirations.slice(0, 10)));
+
+                weeklyExpiry = findWeeklyExpirationSync(expirations);
+
+                if (!weeklyExpiry) {
+                    console.warn(`[CentralDataHub] No weekly expiration found for ${ticker}`);
+                    return {
+                        netPremium: 0, callPremium: 0, putPremium: 0, totalPremium: 0,
+                        optionsCount: 0, dataSource: 'NONE', isAfterHours: false
+                    };
+                }
+
+                console.log(`[CentralDataHub] Fetching EXACT weekly expiration for ${ticker}: ${weeklyExpiry}`);
+
+                // [S-72] Phase 2: Fetch exact weekly expiration (full data for accurate Max Pain)
+                const exactParams: any = {
+                    limit: '250',
+                    'expiration_date': weeklyExpiry
+                };
+
+                const exactRes = await fetchMassiveAll(`/v3/snapshot/options/${ticker}`, exactParams, true);
+                results = exactRes.results || [];
+            }
 
             let callPremium = 0;
             let putPremium = 0;
