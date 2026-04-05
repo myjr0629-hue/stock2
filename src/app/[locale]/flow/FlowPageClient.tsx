@@ -263,8 +263,9 @@ export function FlowPageClient({ ticker, initialFlowData }: FlowPageClientProps)
                     ) : (
                         <div className="min-h-[600px] animate-in fade-in slide-in-from-bottom-4 duration-500">
                             <ErrorBoundary key={ticker} fallbackTitle="Flow Radar Error" fallbackMessage="An error occurred while loading the options flow analysis. Please retry.">
-                            {/* [V11] Guard: don't render FlowRadar until we have price data to prevent render crash */}
-                            {displayPrice > 0 ? (
+                            {/* [V11 → PERF] Progressive Rendering: render FlowRadar immediately.
+                                FlowRadar internally handles currentPrice=0 with isLoading skeleton states.
+                                Data fills in progressively as /api/live/ticker responds. */}
                             <FlowRadar
                                 ticker={ticker}
                                 rawChain={rawChain}
@@ -276,11 +277,6 @@ export function FlowPageClient({ ticker, initialFlowData }: FlowPageClientProps)
                                 squeezeRisk={liveQuote?.flow?.squeezeRisk}
                                 initialFlowData={initialFlowData}
                             />
-                            ) : (
-                            <div className="flex items-center justify-center min-h-[400px]">
-                                <Loader2 className="w-8 h-8 animate-spin text-cyan-500/50" />
-                            </div>
-                            )}
                             </ErrorBoundary>
                         </div>
                     )}
