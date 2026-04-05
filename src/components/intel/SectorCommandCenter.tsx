@@ -279,7 +279,7 @@ export function SectorCommandCenter({ sectorData, onNavigate }: SectorCommandCen
                                         <span className="text-[10px] text-indigo-400/60 font-bold">│</span>
                                         <span className="text-[12px] font-semibold text-indigo-300/80 tracking-wide">Weekend</span>
                                     </div>
-                                    <span className="text-[10px] text-indigo-400/50 font-medium tracking-wider">MARKETS RESUME MONDAY</span>
+                                    <span className="text-[12px] text-slate-300 font-medium tracking-wider">MARKETS RESUME MONDAY</span>
                                 </div>
                             ) : (
                                 <>
