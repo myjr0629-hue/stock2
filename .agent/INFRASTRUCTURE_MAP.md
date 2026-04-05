@@ -482,11 +482,16 @@ bash scripts/ec2-deploy-guardian.sh
   - 양쪽 로직 비교 + Redis 캐시 갱신 타이밍 정밀 조사
 - [ ] **Lambda 동시성 튜닝** (장중 테스트 결과에 따라):
   - 현재: 배치 10종목 동시, 목표: 15~20
-- [ ] **Vercel `warm-flow` 폴더 삭제** — Lambda 이관 완료 확인 후 제거
 
 ### 🟢 중기
 - [ ] 모바일 최적화 (앱 수준 UX)
 - [ ] 짜잘한 UI 버그 전수 조사 및 수정
+- [ ] **사용자 증가 시 유니버스 확장 검토** (1000 → 1500+)
+  - signum-harvest: 종목당 ~0.9초, 현재 900초/900초 한도 → 동시성 튜닝 또는 Lambda 분할 필요
+  - signum-flow-harvest: 종목당 ~0.29초, 여유 312초 → 1000종목 추가 가능
+- [ ] **Command 페이지 비유니버스 on-demand 최적화** (우선순위 낮음)
+  - 실측: BEFORE 1,649ms → AFTER 1,066ms (35%↓) — 체감 크지 않음
+  - 유니버스 확장이 더 근본적 해결책
 
 ### ✅ 완료
 - [x] **`signum-flow-harvest` Lambda 배포 및 검증 완료 (2026-04-05)**:
@@ -506,6 +511,7 @@ bash scripts/ec2-deploy-guardian.sh
 - [x] GammaFlip 카드 깜빡임 수정 — `underlyingPrice=0` falsy 판정으로 SHORT/LONG 라벨 소멸 + fetchPriceOnly 0가격 덮어쓰기 방어 (2026-04-04)
 - [x] Intel SectorCommand Holiday/Weekend 인식 — `useMarketStatus()` SSOT 통합, Holiday 라벨 + Weekend 표시 + 카운트다운 숨김 (2026-04-05)
 - [x] 미사용 cron 폴더 3개 삭제 — `warm-command`, `warm-analysis`, `morning-briefing` (2026-04-05)
+- [x] **`warm-flow` 폴더 삭제** — signum-flow-harvest Lambda가 완전 대체, vercel.json 에서 이미 제거 확인 후 삭제 (2026-04-06)
 
 ### 2026-04-05~06 (Flow 페이지 성능 최적화 — Lambda Raw Cache + Demand-Driven Dynamic Universe)
 1. **Lambda v2.1 (signum-flow-harvest)**: Polygon 옵션 스냅샷 raw 데이터를 Redis에 사전 캐싱
@@ -532,5 +538,5 @@ bash scripts/ec2-deploy-guardian.sh
 
 ---
 
-*마지막 업데이트: 2026-04-06T00:56 KST*
+*마지막 업데이트: 2026-04-06T01:14 KST*
 
