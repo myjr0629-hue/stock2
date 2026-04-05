@@ -1,4 +1,4 @@
-// Master Universe — 500 tickers shared by warm-command, warm-flow, Lambda
+// Master Universe — 500 tickers shared by Lambda\n// Used by:\n//   1. scripts/deploy-lambda-v7.js (signum-harvest)\n//   2. scripts/lambda-flow-harvest/index.js (signum-flow-harvest)
 // Individual stocks: ~490 | ETFs: ~10 (SPY, QQQ, IWM, DIA, XLF, XLE, XLK, XLV, GLD, TLT)
 //
 // Sorted alphabetically. Keep in sync across:
