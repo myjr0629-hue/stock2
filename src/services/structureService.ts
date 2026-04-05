@@ -232,74 +232,24 @@ export async function getStructureData(ticker: string, requestedExp?: string | n
 
     let availableExpirations: string[] = [];
     let targetExpiry: string = '';
-
-    const refUrl = `/v3/reference/options/contracts?underlying_ticker=${ticker}&expiration_date.gte=${todayStr}&order=asc&limit=1000`;
-
-    try {
-        const refRes = await fetchMassiveWithRetry(refUrl, 2);
-        if (refRes.success && refRes.data?.results) {
-            const exps = Array.from(new Set(
-                refRes.data.results.map((c: any) => c.expiration_date)
-            )).filter(Boolean).sort() as string[];
-
-            console.log(`[OPTIONS] ${ticker} reference expirations:`, exps.slice(0, 8).join(', '));
-
-            if (exps.length > 0) {
-                availableExpirations = exps.slice(0, 10);
-
-                if (requestedExp && exps.includes(requestedExp)) {
-                    targetExpiry = requestedExp;
-                } else {
-                    targetExpiry = await findWeeklyExpiration(exps);
-                }
-                console.log(`[OPTIONS] ${ticker} target expiry: ${targetExpiry}`);
-            }
-        }
-    } catch (e) {
-        console.error(`[OPTIONS] Reference API failed for ${ticker}:`, e);
-    }
-
-    // Fallback to snapshot API if reference failed
-    if (!targetExpiry) {
-        const probeUrl = `/v3/snapshot/options/${ticker}?expiration_date.gte=${todayStr}&limit=250&sort=expiration_date&order=asc`;
-        try {
-            const probeRes = await fetchMassiveWithRetry(probeUrl, 2);
-            if (probeRes.success && probeRes.data?.results) {
-                const exps = Array.from(new Set(
-                    probeRes.data.results.map((c: any) => c.details?.expiration_date || c.expiration_date)
-                )).filter(Boolean).sort() as string[];
-                availableExpirations = exps.slice(0, 10);
-
-                if (requestedExp && exps.includes(requestedExp)) {
-                    targetExpiry = requestedExp;
-                } else {
-                    targetExpiry = await findWeeklyExpiration(exps);
-                }
-            }
-        } catch (e) {
-            console.error(`[OPTIONS] Snapshot probe failed for ${ticker}:`, e);
-        }
-    }
-
-    // Ultimate fallback
-    if (!targetExpiry) {
-        targetExpiry = requestedExp || todayStr;
-    }
-
-    // Phase 2: Fetch EXACT expiration
-    // [PERF] Check Lambda-warmed raw snapshot cache first
     let allContracts: any[] = [];
     let pagesFetched = 0;
     let latencyTotal = 0;
     let attemptsTotal = 0;
     let usedLambdaCache = false;
 
+    // [PERF] Check Lambda-warmed raw snapshot cache FIRST — skip ALL Polygon calls if hit
     try {
         const lambdaCache = await getFromCache<any>(`polygon:snapshot:probe:${ticker}`);
-        if (lambdaCache && lambdaCache._ts && (Date.now() - lambdaCache._ts) < 600000) {
-            // Check if Lambda has data for matching or close expiry
-            if (lambdaCache.exactResults && lambdaCache.exactResults.length > 0 && lambdaCache.weeklyExpiry === targetExpiry) {
+        if (lambdaCache && lambdaCache._ts && (Date.now() - lambdaCache._ts) < 600000
+            && lambdaCache.exactResults && lambdaCache.exactResults.length > 0
+            && lambdaCache.weeklyExpiry) {
+            
+            // Lambda has everything we need: expiry + full chain
+            if (!requestedExp || lambdaCache.weeklyExpiry === requestedExp) {
                 allContracts = lambdaCache.exactResults;
+                targetExpiry = lambdaCache.weeklyExpiry;
+                availableExpirations = lambdaCache.expirations || [];
                 pagesFetched = 1;
                 usedLambdaCache = true;
                 console.log(`[STRUCTURE] LAMBDA CACHE HIT for ${ticker}: ${allContracts.length} contracts, expiry=${targetExpiry}`);
@@ -310,7 +260,61 @@ export async function getStructureData(ticker: string, requestedExp?: string | n
     }
 
     if (!usedLambdaCache) {
-        // Original Polygon fetch path (unchanged)
+        // Original Two-Phase fetch: reference API → snapshot probe → exact fetch
+        const refUrl = `/v3/reference/options/contracts?underlying_ticker=${ticker}&expiration_date.gte=${todayStr}&order=asc&limit=1000`;
+
+        try {
+            const refRes = await fetchMassiveWithRetry(refUrl, 2);
+            if (refRes.success && refRes.data?.results) {
+                const exps = Array.from(new Set(
+                    refRes.data.results.map((c: any) => c.expiration_date)
+                )).filter(Boolean).sort() as string[];
+
+                console.log(`[OPTIONS] ${ticker} reference expirations:`, exps.slice(0, 8).join(', '));
+
+                if (exps.length > 0) {
+                    availableExpirations = exps.slice(0, 10);
+
+                    if (requestedExp && exps.includes(requestedExp)) {
+                        targetExpiry = requestedExp;
+                    } else {
+                        targetExpiry = await findWeeklyExpiration(exps);
+                    }
+                    console.log(`[OPTIONS] ${ticker} target expiry: ${targetExpiry}`);
+                }
+            }
+        } catch (e) {
+            console.error(`[OPTIONS] Reference API failed for ${ticker}:`, e);
+        }
+
+        // Fallback to snapshot API if reference failed
+        if (!targetExpiry) {
+            const probeUrl = `/v3/snapshot/options/${ticker}?expiration_date.gte=${todayStr}&limit=250&sort=expiration_date&order=asc`;
+            try {
+                const probeRes = await fetchMassiveWithRetry(probeUrl, 2);
+                if (probeRes.success && probeRes.data?.results) {
+                    const exps = Array.from(new Set(
+                        probeRes.data.results.map((c: any) => c.details?.expiration_date || c.expiration_date)
+                    )).filter(Boolean).sort() as string[];
+                    availableExpirations = exps.slice(0, 10);
+
+                    if (requestedExp && exps.includes(requestedExp)) {
+                        targetExpiry = requestedExp;
+                    } else {
+                        targetExpiry = await findWeeklyExpiration(exps);
+                    }
+                }
+            } catch (e) {
+                console.error(`[OPTIONS] Snapshot probe failed for ${ticker}:`, e);
+            }
+        }
+
+        // Ultimate fallback
+        if (!targetExpiry) {
+            targetExpiry = requestedExp || todayStr;
+        }
+
+        // Phase 2: Fetch EXACT expiration from Polygon
         const exactUrl = `/v3/snapshot/options/${ticker}?expiration_date=${targetExpiry}&limit=250`;
         let chainUrl = exactUrl;
 
@@ -332,6 +336,7 @@ export async function getStructureData(ticker: string, requestedExp?: string | n
             console.log(`[OPTIONS] Fetch error for ${ticker}:`, e);
         }
     }
+
 
     if (allContracts.length === 0) {
         return {
