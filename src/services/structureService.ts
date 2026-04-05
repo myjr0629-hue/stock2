@@ -296,7 +296,7 @@ export async function getStructureData(ticker: string, requestedExp?: string | n
 
     try {
         const lambdaCache = await getFromCache<any>(`polygon:snapshot:probe:${ticker}`);
-        if (lambdaCache && lambdaCache._ts && (Date.now() - lambdaCache._ts) < 300000) {
+        if (lambdaCache && lambdaCache._ts && (Date.now() - lambdaCache._ts) < 600000) {
             // Check if Lambda has data for matching or close expiry
             if (lambdaCache.exactResults && lambdaCache.exactResults.length > 0 && lambdaCache.weeklyExpiry === targetExpiry) {
                 allContracts = lambdaCache.exactResults;

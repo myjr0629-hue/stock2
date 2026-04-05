@@ -41,7 +41,7 @@ const UPSTASH_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN || '';
 const RT_METRICS_TTL = 600;    // 10 min (realtime-metrics route L310)
 const DARKPOOL_TTL = 300;      // 5 min (dark-pool-trades route L21)
 const FLOW_UNIFIED_TTL = 300;  // 5 min (flow/unified route L13)
-const OPTIONS_SNAPSHOT_TTL = 300; // 5 min (options snapshot raw cache)
+const OPTIONS_SNAPSHOT_TTL = 600; // 10 min (options snapshot raw cache — must survive between Lambda runs)
 
 // Dark Pool Exchange IDs (FINRA TRF/ADF = Dark Pool) — matches realtime-metrics route L12
 const DARK_POOL_EXCHANGES = new Set([4, 15, 16, 19]);
