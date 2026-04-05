@@ -269,13 +269,18 @@ export function SectorCommandCenter({ sectorData, onNavigate }: SectorCommandCen
                                     <span className="text-[12px] text-amber-300 font-semibold">· {sessionInfo.holidayName}</span>
                                 </>
                             ) : sessionInfo.isWeekend ? (
-                                <>
-                                    <span className="relative flex h-1.5 w-1.5">
-                                        <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-slate-400" />
-                                    </span>
-                                    <span className="text-[12px] font-bold text-slate-300 tracking-[0.12em]">CLOSED</span>
-                                    <span className="text-[12px] text-slate-400 font-semibold">· Weekend</span>
-                                </>
+                                <div className="flex flex-col items-center gap-1.5">
+                                    <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-indigo-500/20 bg-gradient-to-r from-indigo-950/40 via-slate-900/60 to-violet-950/40 backdrop-blur-sm shadow-[0_0_15px_rgba(99,102,241,0.08)]">
+                                        <span className="relative flex h-2 w-2">
+                                            <span className="absolute inline-flex h-full w-full rounded-full bg-indigo-400/30 animate-[pulse_3s_ease-in-out_infinite]" />
+                                            <span className="relative inline-flex rounded-full h-2 w-2 bg-indigo-400" />
+                                        </span>
+                                        <span className="text-[12px] font-black bg-gradient-to-r from-indigo-300 to-violet-300 bg-clip-text text-transparent tracking-[0.15em]">CLOSED</span>
+                                        <span className="text-[10px] text-indigo-400/60 font-bold">│</span>
+                                        <span className="text-[12px] font-semibold text-indigo-300/80 tracking-wide">Weekend</span>
+                                    </div>
+                                    <span className="text-[10px] text-indigo-400/50 font-medium tracking-wider">MARKETS RESUME MONDAY</span>
+                                </div>
                             ) : (
                                 <>
                                     <Clock className="w-3 h-3 text-amber-400" />
