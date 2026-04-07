@@ -1,0 +1,147 @@
+=== 1. FLOW-HARVEST LAMBDA LOGS (last 2 hours) ===
+Events found: 100
+[14:20:01] 2026-04-06T14:20:01.060Z	d7cbf017-5b5b-48cc-b947-efec0ce9b05a	INFO	[flow-harvest] Progress: 700/1000 (ok=695 fail=5)
+[14:20:13] 2026-04-06T14:20:13.612Z	d7cbf017-5b5b-48cc-b947-efec0ce9b05a	INFO	[flow-harvest] rt-metrics err RIVN: TIMEOUT
+[14:20:15] 2026-04-06T14:20:15.704Z	7b2d52c6-d1d1-4445-abaf-006e75c0f572	INFO	[flow-harvest] rt-metrics err EOG: TIMEOUT
+[14:20:16] 2026-04-06T14:20:16.259Z	7b2d52c6-d1d1-4445-abaf-006e75c0f572	INFO	[flow-harvest] darkpool err EPD: TIMEOUT
+[14:20:17] 2026-04-06T14:20:17.554Z	d7cbf017-5b5b-48cc-b947-efec0ce9b05a	INFO	[flow-harvest] rt-metrics err RKLX: TIMEOUT
+[14:20:32] 2026-04-06T14:20:32.374Z	7b2d52c6-d1d1-4445-abaf-006e75c0f572	INFO	[flow-harvest] Progress: 300/1000 (ok=298 fail=2)
+[14:20:57] 2026-04-06T14:20:57.362Z	3170de4e-eb8c-4463-8b5c-3f20ef9cdba3	INFO	[flow-harvest] Progress: 800/1000 (ok=795 fail=5)
+[14:21:05] 2026-04-06T14:21:05.940Z	c2e85db2-4c0c-47e1-ad9c-ab43a6d27b14	INFO	[flow-harvest] Progress: 200/1000 (ok=197 fail=3)
+[14:21:19] 2026-04-06T14:21:19.554Z	3170de4e-eb8c-4463-8b5c-3f20ef9cdba3	INFO	[flow-harvest] rt-metrics err SPYM: TIMEOUT
+[14:21:21] 2026-04-06T14:21:21.438Z	d7cbf017-5b5b-48cc-b947-efec0ce9b05a	INFO	[flow-harvest] Progress: 800/1000 (ok=793 fail=7)
+[14:21:35] 2026-04-06T14:21:35.458Z	7b2d52c6-d1d1-4445-abaf-006e75c0f572	INFO	[flow-harvest] rt-metrics err GM: TIMEOUT
+[14:21:38] 2026-04-06T14:21:38.285Z	3170de4e-eb8c-4463-8b5c-3f20ef9cdba3	INFO	[flow-harvest] rt-metrics err TECK: TIMEOUT
+[14:21:46] 2026-04-06T14:21:46.084Z	d7cbf017-5b5b-48cc-b947-efec0ce9b05a	INFO	[flow-harvest] darkpool err SUZ: TIMEOUT
+[14:21:49] 2026-04-06T14:21:49.779Z	7b2d52c6-d1d1-4445-abaf-006e75c0f572	INFO	[flow-harvest] rt-metrics err GUSH: TIMEOUT
+[14:21:59] 2026-04-06T14:21:59.080Z	7b2d52c6-d1d1-4445-abaf-006e75c0f572	INFO	[flow-harvest] Progress: 400/1000 (ok=396 fail=4)
+[14:22:01] 2026-04-06T14:22:01.465Z	3170de4e-eb8c-4463-8b5c-3f20ef9cdba3	INFO	[flow-harvest] darkpool err TNDM: TIMEOUT
+[14:22:03] INIT_START Runtime Version: nodejs:20.v95	Runtime Version ARN: arn:aws:lambda:us-east-1::runtime:2d788b26ac416854c5eb831c9f46cb2e0a0ddcee84b1a9b114acbdfdb644c8c1
+[14:22:04] REPORT RequestId: 3170de4e-eb8c-4463-8b5c-3f20ef9cdba3	Duration: 600000.00 ms	Billed Duration: 600000 ms	Memory Size: 1024 MB	Max Memory Used: 300 MB	Status: timeout
+[14:22:04] 2026-04-06T14:22:04.362Z	c2e85db2-4c0c-47e1-ad9c-ab43a6d27b14	INFO	[flow-harvest] Progress: 300/1000 (ok=297 fail=3)
+[14:22:04] 2026-04-06T14:22:04.425Z	cbca109e-2899-42b8-992d-9143b3c51f28	INFO	[flow-harvest] Starting — 1000 tickers
+[14:22:19] 2026-04-06T14:22:19.269Z	d7cbf017-5b5b-48cc-b947-efec0ce9b05a	INFO	[flow-harvest] Progress: 900/1000 (ok=893 fail=7)
+[14:22:47] 2026-04-06T14:22:47.100Z	7b2d52c6-d1d1-4445-abaf-006e75c0f572	INFO	[flow-harvest] Progress: 500/1000 (ok=496 fail=4)
+[14:23:01] 2026-04-06T14:23:01.248Z	c2e85db2-4c0c-47e1-ad9c-ab43a6d27b14	INFO	[flow-harvest] Progress: 400/1000 (ok=397 fail=3)
+[14:23:02] 2026-04-06T14:23:02.448Z	3170de4e-eb8c-4463-8b5c-3f20ef9cdba3	INFO	[flow-harvest] Starting — 1000 tickers
+[14:23:10] REPORT RequestId: d7cbf017-5b5b-48cc-b947-efec0ce9b05a	Duration: 600000.00 ms	Billed Duration: 600410 ms	Memory Size: 1024 MB	Max Memory Used: 330 MB	Init Duration: 409.29 ms	Status: timeout
+[14:23:12] 2026-04-06T14:23:12.172Z	cbca109e-2899-42b8-992d-9143b3c51f28	INFO	[flow-harvest] Progress: 100/1000 (ok=100 fail=0)
+[14:23:46] 2026-04-06T14:23:46.645Z	c2e85db2-4c0c-47e1-ad9c-ab43a6d27b14	INFO	[flow-harvest] Progress: 500/1000 (ok=497 fail=3)
+[14:23:50] 2026-04-06T14:23:50.519Z	7b2d52c6-d1d1-4445-abaf-006e75c0f572	INFO	[flow-harvest] Progress: 600/1000 (ok=596 fail=4)
+[14:23:51] 2026-04-06T14:23:51.777Z	cbca109e-2899-42b8-992d-9143b3c51f28	INFO	[flow-harvest] Progress: 200/1000 (ok=200 fail=0)
+[14:23:55] 2026-04-06T14:23:55.886Z	3170de4e-eb8c-4463-8b5c-3f20ef9cdba3	INFO	[flow-harvest] Progress: 100/1000 (ok=100 fail=0)
+[14:24:07] 2026-04-06T14:24:07.898Z	3170de4e-eb8c-4463-8b5c-3f20ef9cdba3	INFO	[flow-harvest] rt-metrics err BIV: TIMEOUT
+[14:24:28] 2026-04-06T14:24:28.695Z	c2e85db2-4c0c-47e1-ad9c-ab43a6d27b14	INFO	[flow-harvest] Progress: 600/1000 (ok=597 fail=3)
+[14:24:28] 2026-04-06T14:24:28.892Z	cbca109e-2899-42b8-992d-9143b3c51f28	INFO	[flow-harvest] Progress: 300/1000 (ok=300 fail=0)
+[14:24:39] 2026-04-06T14:24:39.595Z	7b2d52c6-d1d1-4445-abaf-006e75c0f572	INFO	[flow-harvest] Progress: 700/1000 (ok=696 fail=4)
+[14:24:45] 2026-04-06T14:24:45.713Z	3170de4e-eb8c-4463-8b5c-3f20ef9cdba3	INFO	[flow-harvest] Progress: 200/1000 (ok=199 fail=1)
+[14:25:09] 2026-04-06T14:25:09.997Z	cbca109e-2899-42b8-992d-9143b3c51f28	INFO	[flow-harvest] Progress: 400/1000 (ok=400 fail=0)
+[14:25:11] 2026-04-06T14:25:11.805Z	c2e85db2-4c0c-47e1-ad9c-ab43a6d27b14	INFO	[flow-harvest] Progress: 700/1000 (ok=697 fail=3)
+[14:25:12] 2026-04-06T14:25:12.966Z	7b2d52c6-d1d1-4445-abaf-006e75c0f572	INFO	[flow-harvest] rt-metrics err SMCI: TIMEOUT
+[14:25:14] 2026-04-06T14:25:14.186Z	d7cbf017-5b5b-48cc-b947-efec0ce9b05a	INFO	[flow-harvest] Starting — 1000 tickers
+[14:25:23] 2026-04-06T14:25:23.853Z	7b2d52c6-d1d1-4445-abaf-006e75c0f572	INFO	[flow-harvest] Progress: 800/1000 (ok=795 fail=5)
+[14:25:27] 2026-04-06T14:25:27.632Z	c2e85db2-4c0c-47e1-ad9c-ab43a6d27b14	INFO	[flow-harvest] rt-metrics err SAIL: TIMEOUT
+[14:25:31] 2026-04-06T14:25:31.886Z	3170de4e-eb8c-4463-8b5c-3f20ef9cdba3	INFO	[flow-harvest] Progress: 300/1000 (ok=299 fail=1)
+[14:25:56] 2026-04-06T14:25:56.394Z	c2e85db2-4c0c-47e1-ad9c-ab43a6d27b14	INFO	[flow-harvest] Progress: 800/1000 (ok=796 fail=4)
+[14:25:59] 2026-04-06T14:25:59.631Z	cbca109e-2899-42b8-992d-9143b3c51f28	INFO	[flow-harvest] Progress: 500/1000 (ok=500 fail=0)
+[14:26:00] 2026-04-06T14:26:00.879Z	d7cbf017-5b5b-48cc-b947-efec0ce9b05a	INFO	[flow-harvest] Progress: 100/1000 (ok=100 fail=0)
+[14:26:14] 2026-04-06T14:26:14.095Z	7b2d52c6-d1d1-4445-abaf-006e75c0f572	INFO	[flow-harvest] Progress: 900/1000 (ok=895 fail=5)
+[14:26:14] 2026-04-06T14:26:14.440Z	3170de4e-eb8c-4463-8b5c-3f20ef9cdba3	INFO	[flow-harvest] Progress: 400/1000 (ok=399 fail=1)
+[14:26:41] 2026-04-06T14:26:41.682Z	c2e85db2-4c0c-47e1-ad9c-ab43a6d27b14	INFO	[flow-harvest] Progress: 900/1000 (ok=896 fail=4)
+[14:26:44] 2026-04-06T14:26:44.180Z	cbca109e-2899-42b8-992d-9143b3c51f28	INFO	[flow-harvest] Progress: 600/1000 (ok=600 fail=0)
+[14:26:48] 2026-04-06T14:26:48.450Z	3170de4e-eb8c-4463-8b5c-3f20ef9cdba3	INFO	[flow-harvest] Progress: 500/1000 (ok=499 fail=1)
+[14:26:51] 2026-04-06T14:26:51.065Z	d7cbf017-5b5b-48cc-b947-efec0ce9b05a	INFO	[flow-harvest] Progress: 200/1000 (ok=200 fail=0)
+[14:26:55] 2026-04-06T14:26:55.189Z	7b2d52c6-d1d1-4445-abaf-006e75c0f572	INFO	[flow-harvest] Progress: 1000/1000 (ok=995 fail=5)
+[14:26:55] 2026-04-06T14:26:55.190Z	7b2d52c6-d1d1-4445-abaf-006e75c0f572	INFO	[flow-harvest] Universe complete: 995/1000 in 591s (fail=5)
+[14:26:55] 2026-04-06T14:26:55.193Z	7b2d52c6-d1d1-4445-abaf-006e75c0f572	INFO	[flow-harvest] Dynamic universe: 12 tickers: LHX, TXT, AMT, TVTX, AEHR, AAOX, SIDU, HOLX, SLNO, BMNU, PLUG, SPCE
+[14:27:01] 2026-04-06T14:27:01.444Z	7b2d52c6-d1d1-4445-abaf-006e75c0f572	INFO	[flow-harvest] Dynamic complete: 12/12 (fail=0)
+[14:27:01] 2026-04-06T14:27:01.445Z	7b2d52c6-d1d1-4445-abaf-006e75c0f572	INFO	[flow-harvest] Total complete: 1007 ok in 597s
+[14:27:01] REPORT RequestId: 7b2d52c6-d1d1-4445-abaf-006e75c0f572	Duration: 597422.41 ms	Billed Duration: 597423 ms	Memory Size: 1024 MB	Max Memory Used: 327 MB
+[14:27:03] 2026-04-06T14:27:03.823Z	b90dbda9-17dc-459f-b4c1-863c954068c9	INFO	[flow-harvest] Starting — 1000 tickers
+[14:27:23] 2026-04-06T14:27:23.094Z	c2e85db2-4c0c-47e1-ad9c-ab43a6d27b14	INFO	[flow-harvest] Progress: 1000/1000 (ok=996 fail=4)
+[14:27:23] 2026-04-06T14:27:23.095Z	c2e85db2-4c0c-47e1-ad9c-ab43a6d27b14	INFO	[flow-harvest] Universe complete: 996/1000 in 555s (fail=4)
+[14:27:23] 2026-04-06T14:27:23.097Z	c2e85db2-4c0c-47e1-ad9c-ab43a6d27b14	INFO	[flow-harvest] Dynamic universe: 12 tickers: LHX, TXT, AMT, TVTX, AEHR, AAOX, SIDU, HOLX, SLNO, BMNU, PLUG, SPCE
+[14:27:25] 2026-04-06T14:27:25.236Z	cbca109e-2899-42b8-992d-9143b3c51f28	INFO	[flow-harvest] Progress: 700/1000 (ok=700 fail=0)
+[14:27:28] 2026-04-06T14:27:28.688Z	c2e85db2-4c0c-47e1-ad9c-ab43a6d27b14	INFO	[flow-harvest] Dynamic complete: 12/12 (fail=0)
+[14:27:28] 2026-04-06T14:27:28.688Z	c2e85db2-4c0c-47e1-ad9c-ab43a6d27b14	INFO	[flow-harvest] Total complete: 1008 ok in 561s
+[14:27:28] REPORT RequestId: c2e85db2-4c0c-47e1-ad9c-ab43a6d27b14	Duration: 561080.44 ms	Billed Duration: 561502 ms	Memory Size: 1024 MB	Max Memory Used: 319 MB	Init Duration: 420.63 ms
+[14:27:35] 2026-04-06T14:27:35.631Z	d7cbf017-5b5b-48cc-b947-efec0ce9b05a	INFO	[flow-harvest] Progress: 300/1000 (ok=300 fail=0)
+[14:27:40] 2026-04-06T14:27:40.290Z	3170de4e-eb8c-4463-8b5c-3f20ef9cdba3	INFO	[flow-harvest] Progress: 600/1000 (ok=599 fail=1)
+[14:27:47] 2026-04-06T14:27:47.399Z	b90dbda9-17dc-459f-b4c1-863c954068c9	INFO	[flow-harvest] Progress: 100/1000 (ok=100 fail=0)
+[14:28:11] 2026-04-06T14:28:11.552Z	cbca109e-2899-42b8-992d-9143b3c51f28	INFO	[flow-harvest] Progress: 800/1000 (ok=800 fail=0)
+[14:28:19] 2026-04-06T14:28:19.684Z	d7cbf017-5b5b-48cc-b947-efec0ce9b05a	INFO	[flow-harvest] Progress: 400/1000 (ok=400 fail=0)
+[14:28:21] 2026-04-06T14:28:21.612Z	3170de4e-eb8c-4463-8b5c-3f20ef9cdba3	INFO	[flow-harvest] Progress: 700/1000 (ok=699 fail=1)
+[14:28:29] 2026-04-06T14:28:29.434Z	b90dbda9-17dc-459f-b4c1-863c954068c9	INFO	[flow-harvest] Progress: 200/1000 (ok=200 fail=0)
+[14:28:49] 2026-04-06T14:28:49.696Z	cbca109e-2899-42b8-992d-9143b3c51f28	INFO	[flow-harvest] Progress: 900/1000 (ok=900 fail=0)
+[14:28:55] 2026-04-06T14:28:55.418Z	d7cbf017-5b5b-48cc-b947-efec0ce9b05a	INFO	[flow-harvest] Progress: 500/1000 (ok=500 fail=0)
+[14:28:58] 2026-04-06T14:28:58.966Z	3170de4e-eb8c-4463-8b5c-3f20ef9cdba3	INFO	[flow-harvest] Progress: 800/1000 (ok=799 fail=1)
+[14:29:05] 2026-04-06T14:29:05.134Z	b90dbda9-17dc-459f-b4c1-863c954068c9	INFO	[flow-harvest] Progress: 300/1000 (ok=300 fail=0)
+[14:29:30] 2026-04-06T14:29:30.548Z	cbca109e-2899-42b8-992d-9143b3c51f28	INFO	[flow-harvest] Progress: 1000/1000 (ok=1000 fail=0)
+[14:29:30] 2026-04-06T14:29:30.549Z	cbca109e-2899-42b8-992d-9143b3c51f28	INFO	[flow-harvest] Universe complete: 1000/1000 in 446s (fail=0)
+[14:29:30] 2026-04-06T14:29:30.551Z	cbca109e-2899-42b8-992d-9143b3c51f28	INFO	[flow-harvest] Dynamic universe: 12 tickers: LHX, TXT, AMT, TVTX, AEHR, AAOX, SIDU, HOLX, SLNO, BMNU, PLUG, SPCE
+[14:29:34] 2026-04-06T14:29:34.067Z	d7cbf017-5b5b-48cc-b947-efec0ce9b05a	INFO	[flow-harvest] Progress: 600/1000 (ok=600 fail=0)
+[14:29:35] 2026-04-06T14:29:35.740Z	cbca109e-2899-42b8-992d-9143b3c51f28	INFO	[flow-harvest] Dynamic complete: 12/12 (fail=0)
+[14:29:35] 2026-04-06T14:29:35.740Z	cbca109e-2899-42b8-992d-9143b3c51f28	INFO	[flow-harvest] Total complete: 1012 ok in 451s
+[14:29:35] REPORT RequestId: cbca109e-2899-42b8-992d-9143b3c51f28	Duration: 451319.75 ms	Billed Duration: 451753 ms	Memory Size: 1024 MB	Max Memory Used: 318 MB	Init Duration: 432.25 ms
+[14:29:36] 2026-04-06T14:29:36.975Z	3170de4e-eb8c-4463-8b5c-3f20ef9cdba3	INFO	[flow-harvest] Progress: 900/1000 (ok=899 fail=1)
+[14:29:41] 2026-04-06T14:29:41.674Z	b90dbda9-17dc-459f-b4c1-863c954068c9	INFO	[flow-harvest] Progress: 400/1000 (ok=400 fail=0)
+[14:30:13] 2026-04-06T14:30:13.903Z	b90dbda9-17dc-459f-b4c1-863c954068c9	INFO	[flow-harvest] rt-metrics err JHX: TIMEOUT
+[14:30:14] 2026-04-06T14:30:14.974Z	d7cbf017-5b5b-48cc-b947-efec0ce9b05a	INFO	[flow-harvest] rt-metrics err QQQI: TIMEOUT
+[14:30:14] 2026-04-06T14:30:14.975Z	d7cbf017-5b5b-48cc-b947-efec0ce9b05a	INFO	[flow-harvest] Progress: 700/1000 (ok=699 fail=1)
+[14:30:28] 2026-04-06T14:30:28.271Z	b90dbda9-17dc-459f-b4c1-863c954068c9	INFO	[flow-harvest] Progress: 500/1000 (ok=499 fail=1)
+[14:30:37] 2026-04-06T14:30:37.661Z	3170de4e-eb8c-4463-8b5c-3f20ef9cdba3	INFO	[flow-harvest] Progress: 1000/1000 (ok=999 fail=1)
+[14:30:37] 2026-04-06T14:30:37.679Z	3170de4e-eb8c-4463-8b5c-3f20ef9cdba3	INFO	[flow-harvest] Universe complete: 999/1000 in 455s (fail=1)
+
+=== 2. REDIS FLOW-HARVEST DATA CHECK ===
+
+--- NVDA ---
+  rt-metrics: DP=N/A%, Short=N/A%, Block=N/A
+  cache:flow:unified: EXISTS (7 keys: liveQuote, whaleTrades, darkPoolTrades, darkPoolStats, realtimeMetrics, timestamp, _source)
+  polygon:snapshot:probe: EXISTS (unknown contracts)
+  darkpool: EXISTS
+
+--- TSLA ---
+  rt-metrics: DP=N/A%, Short=N/A%, Block=N/A
+  cache:flow:unified: EXISTS (7 keys: liveQuote, whaleTrades, darkPoolTrades, darkPoolStats, realtimeMetrics, timestamp, _source)
+  polygon:snapshot:probe: EXISTS (unknown contracts)
+  darkpool: EXISTS
+
+--- AAPL ---
+  rt-metrics: DP=N/A%, Short=N/A%, Block=N/A
+  cache:flow:unified: EXISTS (7 keys: liveQuote, whaleTrades, darkPoolTrades, darkPoolStats, realtimeMetrics, timestamp, _source)
+  polygon:snapshot:probe: EXISTS (unknown contracts)
+  darkpool: EXISTS
+
+--- MSFT ---
+  rt-metrics: DP=N/A%, Short=N/A%, Block=N/A
+  cache:flow:unified: EXISTS (7 keys: liveQuote, whaleTrades, darkPoolTrades, darkPoolStats, realtimeMetrics, timestamp, _source)
+  polygon:snapshot:probe: EXISTS (unknown contracts)
+  darkpool: EXISTS
+
+--- META ---
+  rt-metrics: DP=N/A%, Short=N/A%, Block=N/A
+  cache:flow:unified: EXISTS (7 keys: liveQuote, whaleTrades, darkPoolTrades, darkPoolStats, realtimeMetrics, timestamp, _source)
+  polygon:snapshot:probe: EXISTS (unknown contracts)
+  darkpool: EXISTS
+
+=== 3. INTERFERENCE CHECK - signum-harvest vs signum-flow-harvest ===
+signum-harvest completions (last 30min): 5
+  [15:55:01] 2026-04-06T15:55:01.875Z	70969409-0b38-4da8-9bf2-640438319452	INFO	Done in 138s
+  [15:59:17] 2026-04-06T15:59:17.062Z	bc5c6fdc-d0ea-4322-bb72-a8f06c2d5885	INFO	Done in 94s
+  [16:05:57] 2026-04-06T16:05:57.098Z	5ba55621-6079-443c-9c72-b51a20ff9206	INFO	Done in 194s
+  [16:09:57] 2026-04-06T16:09:57.826Z	43cd7069-7846-4748-a7bb-d41938d7f8c5	INFO	Done in 134s
+  [16:14:41] 2026-04-06T16:14:41.576Z	9118f0e7-276e-4f43-9a93-194e5ca2f487	INFO	Done in 118s
+signum-flow-harvest completions (last 30min): 0
+
+=== 4. FLOW API CHECK ===
+Flow API /api/live/ticker?ticker=NVDA:
+  cached: undefined
+  maxPain: undefined
+  gex: undefined
+  displayPrice: undefined
+  callWall: undefined
+  putFloor: undefined
+  iv: undefined
+  darkPoolPercent: undefined
+  shortVolumePercent: undefined
+  elapsed: undefinedms

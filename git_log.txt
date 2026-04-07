@@ -1,0 +1,20 @@
+﻿acddbc60 revert: rollback price cache removal - caused dashboard issues
+a06cc01a fix: remove flow:extended stale cache from intel/fast and ticker APIs
+a66c3716 fix: session-aware price display + remove price caching
+3e42f9d2 fix: flow livePrice only during REG - prevents WS pre-market price as main price
+10f99b85 fix: flow apiDisplayPrice uses closing price (prevRegularClose) not activePrice
+438591fb fix: flow main price uses SSR-only (closing price), matches command page
+d8fe0444 fix: flow page PRE/POST price display to match command page
+d1b57e13 fix: flow cache poisoning prevention + Lambda data slimming
+1a697d57 Flow mobile: opaque sticky header with price + 2x2 gauge cards grid
+2a1a65fe Command mobile: remove duplicate price row + opaque sticky header background
+7ea7eae0 Fix Command sticky: overflow-x clip instead of hidden to preserve sticky positioning
+ea2e58ae Mobile Phase7: Command sticky price + Guardian briefing overlap + BottomNav NVDA default
+334f6b11 fix: COMMAND nav button dynamic ticker, POST price wrap below, Flow sticky header mobile offset
+a728b4a3 fix: force grid-template-columns 1fr on mobile for command indicators
+89142764 fix: mobile overflow ??Command grid cols-1 on mobile, Guardian RLSI overflow-clip, Topography height responsive, body overflow-x prevention
+d79b1102 mobile: Dashboard chart height responsive + Dashboard/Command CSS optimization
+257f382b mobile: Command page optimization - 2col cards, chart height, sticky header, CSS (S-66 V4)
+f9a2635d fix: 1D chart always lookback 7 days - covers weekends+holidays+timezone (S-66 V3)
+d878f127 fix: enrich related prices in Command unified when cached prices are 0 (V11)
+619d044f fix: related tickers show changePct on weekends via v2/aggs fallback (V11)

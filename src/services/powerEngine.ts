@@ -354,7 +354,12 @@ export function computeQualityTier(
         const netFlow = evidence?.flow?.netFlow ?? evidence?.flow?.largeTradesUsd ?? null;
         const darkPoolPct = evidence?.stealth?.darkPoolPct ?? ((evidence?.flow?.offExPct ?? 0) > 0 ? evidence.flow.offExPct : null);
         const shortVolPct = evidence?.stealth?.shortVolPct ?? null;
-        const whaleIdx = evidence?.flow?.whaleIndex ?? (gex !== null ? calculateWhaleIndex(gex) : null);
+        const whaleIdx = evidence?.flow?.whaleIndex ?? (gex !== null ? calculateWhaleIndex(
+            gex,
+            darkPoolPct,
+            evidence?.stealth?.blockTrades ?? evidence?.flow?.blockTrades ?? null,
+            evidence?.flow?.netFlow ?? null,
+        ) : null);
         const rsi14Raw = evidence?.price?.rsi14;
         const rsi14 = (rsi14Raw && rsi14Raw !== 50 && rsi14Raw !== 0) ? rsi14Raw : null;
         const ndxChangePct = evidence?.macro?.ndx?.changePct ?? null;

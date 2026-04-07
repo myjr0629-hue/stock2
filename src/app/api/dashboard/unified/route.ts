@@ -357,7 +357,7 @@ async function buildResponseFromResults(
             try {
                 const sessionMap: Record<string, AlphaSession> = { PRE: 'PRE', REG: 'REG', POST: 'POST', CLOSED: 'CLOSED' };
                 const alphaSession: AlphaSession = sessionMap[data.session || 'CLOSED'] || 'CLOSED';
-                const whaleIndex = calculateWhaleIndex(data.netGex);
+                const whaleIndex = calculateWhaleIndex(data.netGex, data.darkPoolPct, data._blockTrades, data._netPremium);
                 const alphaResult = calculateAlphaScore({
                     ticker,
                     session: alphaSession,

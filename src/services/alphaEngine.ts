@@ -1481,17 +1481,49 @@ function round1(val: number): number {
 }
 
 /**
- * Calculate Whale Index from GEX — centralized logic for all endpoints.
- * High absolute GEX = institutional involvement = higher whale score.
- * Exported for use by API endpoints.
+ * Composite WhaleIndex — Lambda 공식과 100% 동일
+ * 4개 지표 각 25점, 총 0-100
+ * GEX(25) + DarkPool(25) + BlockTrades(25) + NetPremium(25)
+ *
+ * Confidence: 4개 중 강한 신호 3+개=HIGH, 2개=MED, 1개=LOW, 0=NONE
  */
-export function calculateWhaleIndex(gex: number | null | undefined): number {
-    if (gex === null || gex === undefined) return 0;
-    const absGex = Math.abs(gex);
-    if (absGex > 50_000_000) return Math.min(90, 60 + Math.floor(absGex / 100_000));
-    if (absGex > 10_000_000) return Math.min(70, 40 + Math.floor(absGex / 200_000));
-    if (absGex > 1_000_000) return Math.max(10, 30 - Math.floor(absGex / 500_000));
-    return 35; // Neutral baseline
+export function calculateWhaleIndex(
+    gex: number | null | undefined,
+    darkPoolPct?: number | null,
+    blockTrades?: number | null,
+    netPremium?: number | null,
+): number {
+    let total = 0;
+
+    // 1. GEX (0-25)
+    const absGex = Math.abs(gex ?? 0);
+    if (absGex > 50_000_000) total += 25;
+    else if (absGex > 10_000_000) total += 20;
+    else if (absGex > 1_000_000) total += 15;
+    else if (absGex > 100_000) total += 8;
+
+    // 2. DarkPool (0-25)
+    const dp = darkPoolPct ?? 0;
+    if (dp >= 60) total += 25;
+    else if (dp >= 45) total += 20;
+    else if (dp >= 30) total += 12;
+    else if (dp > 0) total += 5;
+
+    // 3. BlockTrades (0-25)
+    const bt = blockTrades ?? 0;
+    if (bt >= 10) total += 25;
+    else if (bt >= 5) total += 20;
+    else if (bt >= 2) total += 15;
+    else if (bt >= 1) total += 8;
+
+    // 4. NetPremium (0-25)
+    const absNP = Math.abs(netPremium ?? 0);
+    if (absNP > 10_000_000) total += 25;
+    else if (absNP > 5_000_000) total += 20;
+    else if (absNP > 1_000_000) total += 15;
+    else if (absNP > 100_000) total += 8;
+
+    return total;
 }
 
 

@@ -1,0 +1,85 @@
+﻿2: * Deploy Lambda v7.0 — Unified Cache Builder
+5: * - Step 6: Build COMPLETE unified data for command page (10 fields)
+14: * - Step 4: Details — Analyst/Earnings/Fundamentals/Related (100 tickers)
+15: * - Step 5: Alpha Scores
+30: // UNIVERSE_500 now = full universe (all tickers get unified cache)
+32: console.log('Unified cache target:', universe500.length, 'tickers');
+40: const FMP_API_KEY = process.env.FMP_API_KEY || '';
+42: if (!FMP_API_KEY) console.warn('WARNING: FMP_API_KEY not set!');
+66: const FMP_KEY = process.env.FMP_API_KEY || '';
+312: // ====== Alpha Score ======
+313: function computeAlphaScore(priceData, gexData) {
+378: // Also include UNIVERSE_500 tickers in priceMap for unified cache
+387: items.push({ ticker:t.ticker, date:today, qualityTier:'LIVE', changePct:Math.round(ch*100)/100, open:t.day?.o||0, high:t.day?.h||0, low:t.day?.l||0, close:t.day?.c||p, volume:t.day?.v||0, vwap:t.day?.vw||0, gex:0, pcr:0, alphaScore:0 });
+390: // [REMOVED] alpha-history 저장 제거 — Context Score는 Vercel cron이 장마감 시점에 저장 (SSR_V46 덮어쓰기 방지)
+668: const smaMap = {}; // Store for unified cache
+695: items.push({ ticker:r.ticker, date:today, sma50:r.sma50, sma200:r.sma200, cross:r.cross, crossType:r.crossType, close:priceMap[r.ticker]||0, changePct:0, open:0, high:0, low:0, volume:0, vwap:0, gex:0, pcr:0, alphaScore:0, qualityTier:'SMA' });
+702: const existing = await client.send(new QueryCommand({ TableName:'signum-alpha-history', KeyConditionExpression:'ticker=:tk AND #d=:d', ExpressionAttributeValues:{':tk':item.ticker,':d':item.date}, ExpressionAttributeNames:{'#d':'date'}, Limit:1 }));
+704: await client.send(new PutCommand({ TableName:'signum-alpha-history', Item:merged }));
+713: // ====== Step 4: Analyst(FMP) + Earnings(Finnhub) + Fundamentals + Related — ALL 509 tickers ======
+715: console.log('Step 4: Details for ALL '+UNIVERSE_500.length+' tickers (FMP analyst + Finnhub earnings + Polygon fund/related)...');
+717: let analystOk = 0, earningsOk = 0;
+720: // === 4a: FMP Analyst Grades — ALL tickers (no rate limit issues) ===
+721: if (FMP_KEY) {
+727: const data = await httpsGet('https://financialmodelingprep.com/stable/grades-consensus?symbol='+ticker+'&apikey='+FMP_KEY, 5000);
+737: detailsMap[ticker].analyst = { ticker, consensus, totalAnalysts:total, bullishPct, breakdown:{ strongBuy:grade.strongBuy||0, buy:grade.buy||0, hold:grade.hold||0, sell:grade.sell||0, strongSell:grade.strongSell||0 } };
+738: await client.send(new PutCommand({ TableName:'signum-pattern-db', Item:{ pattern:'ANALYST:'+ticker, timestamp:Date.now(), consensus, totalAnalysts:total, bullishPct, breakdown:detailsMap[ticker].analyst.breakdown }}));
+739: analystOk++;
+744: console.log('FMP Analyst: '+analystOk+'/'+UNIVERSE_500.length);
+747: // === 4b: FMP Earnings Calendar — 1 API call for ALL tickers (no rate limit) ===
+748: if (FMP_KEY) {
+751: const earningsAll = await httpsGet('https://financialmodelingprep.com/stable/earnings-calendar?from='+today+'&to='+toDate+'&apikey='+FMP_KEY, 15000);
+770: console.log('FMP Earnings: '+earningsOk+'/'+Object.keys(earningsMap).length+' matched from '+earningsArr.length+' total events');
+771: } catch (e) { console.log('FMP Earnings err: '+e.message); }
+881: console.log('Details: analyst='+analystOk+' earnings='+earningsOk+' fund='+fundOk+' related='+relOk);
+911: return { analyst:analystOk, earnings:earningsOk, fundamentals:fundOk, related:relOk, si:siOk, detailsMap };
+914: // ====== Step 5: Update Alpha Scores (merge GEX into prices) ======
+915: async function updateAlphaScores(snapshotMap, gexMap) {
+919: const alpha = computeAlphaScore(pd, gexMap[ticker]||null);
+920: items.push({ ticker, date:today, changePct:Math.round(pd.changePct*100)/100, open:0,high:0,low:0, close:pd.price, volume:pd.volume, vwap:0, gex:gexMap[ticker]?gexMap[ticker].gex:0, pcr:gexMap[ticker]?gexMap[ticker].pcr:0, alphaScore:alpha, qualityTie
+922: // [REMOVED] alpha-history 저장 제거 — Context Score는 Vercel cron 전담 (장마감 1회 저장)
+923: console.log('Alpha: '+items.length+' scores (DynamoDB write skipped — Vercel cron handles SSR_V46)');
+927: // ====== [v7 NEW] Step 6: Build Unified Cache ======
+928: // Combines ALL data from Steps 1-5 into complete unified objects
+931: console.log('Step 6: Building unified cache for '+UNIVERSE_500.length+' tickers...');
+932: let ok = 0, partial = 0;
+1077: institutional = { darkPool: { percent: 0 }, blockTrade: { count: 0, volume: 0 }, shortVolume: squeeze ? { percent: squeeze.shortVolPercent } : null };
+1099: analyst: dt.analyst || null,
+1110: const FIELDS = ['structure','analyst','fundamentals','earnings','sma','related','squeeze','volatility','institutional'];
+1127: if (filled >= 7) ok++; else partial++;
+1131: const analysisEntry = {
+1134: alphaSnapshot: { score: 0, grade: 'N/A', action: 'HOLD', confidence: 0, triggers: [], engineVersion: 'lambda-v8', capturedAt: new Date().toISOString() },
+1135: rsi: null, return3d: null, sparkline: [], relVol: null,
+1147: darkPoolPct: 0, netPremium: structure.netPremium || null,
+1150: redisBatch.push(['SET', 'cache:analysis:' + ticker, JSON.stringify(analysisEntry), 'EX', String(REDIS_TTL)]);
+1176: console.log('Unified Cache: '+ok+' complete, '+partial+' partial, total='+(ok+partial)+'/'+UNIVERSE_500.length+', redis='+redisOk);
+1177: return { complete: ok, partial, redisWritten: redisOk };
+1182: console.log('SIGNUM Harvest Lambda v8.0 — FMP Earnings + SI% Restore — ' + new Date().toISOString());
+1369: // 4. Analyst (FMP)
+1370: let analyst = null;
+1371: if (FMP_KEY) {
+1373: const data = await httpsGet('https://financialmodelingprep.com/stable/grades-consensus?symbol='+ticker+'&apikey='+FMP_KEY, 5000);
+1383: analyst = { ticker, consensus, totalAnalysts:total, bullishPct, breakdown:{ strongBuy:grade.strongBuy||0, buy:grade.buy||0, hold:grade.hold||0, sell:grade.sell||0, strongSell:grade.strongSell||0 } };
+1388: // 5. Earnings (DynamoDB cache first, then FMP fallback)
+1399: // If no cached data, fetch from FMP (90-day window = much smaller response)
+1400: if (!earnings && FMP_KEY) {
+1403: const earningsAll = await httpsGet('https://financialmodelingprep.com/stable/earnings-calendar?from='+today+'&to='+toDate+'&apikey='+FMP_KEY, 10000);
+1508: const institutional = { darkPool:{percent:0}, blockTrade:{count:0,volume:0}, shortVolume:squeeze?{percent:squeeze.shortVolPercent}:null };
+1511: const data = { timestamp:Date.now(), structure, analyst, fundamentals, earnings, sma, related, volatility, squeeze, institutional };
+1512: const FIELDS = ['structure','analyst','fundamentals','earnings','sma'];
+1533: const analysisEntry = {
+1535: alphaSnapshot: { score: 0, grade: 'N/A', action: 'HOLD', confidence: 0, triggers: [], engineVersion: 'lambda-v8-ondemand', capturedAt: new Date().toISOString() },
+1536: rsi: null, return3d: null, sparkline: [], relVol: null,
+1548: darkPoolPct: 0, netPremium: structure.netPremium || null,
+1551: await redisSet('cache:analysis:' + ticker, analysisEntry, REDIS_TTL).catch(() => {});
+1562: hasAnalyst: !!analyst, hasEarnings: !!earnings, hasSma: !!sma,
+1600: // Regular hours: GEX + Alpha + SMA + Unified Cache
+1607: results.alpha = await updateAlphaScores(snapshotMap, gexMap);
+1621: results.details = { analyst: detailResult.analyst, earnings: detailResult.earnings, fundamentals: detailResult.fundamentals, related: detailResult.related };
+1625: // Load existing details from DynamoDB for unified cache
+1633: const [analystRes, earningsRes, fundRes, relRes] = await Promise.all([q('ANALYST:'), q('EARNINGS:'), q('FUND:'), q('RELATED:')]);
+1635: const a = analystRes.Items?.[0];
+1637: detailsMap[ticker].analyst = { ticker, consensus:a.consensus, totalAnalysts:a.totalAnalysts, bullishPct:a.bullishPct, breakdown:a.breakdown };
+1660: // [v7] Step 6: Build Unified Cache — ALWAYS run (regular + extended)
+1664: // Extended hours: still build unified cache with whatever data we have
+1707: FMP_API_KEY: FMP_API_KEY,

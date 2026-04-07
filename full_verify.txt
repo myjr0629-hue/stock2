@@ -1,0 +1,19 @@
+=== CloudWatch Logs (last 6min) ===
+[17:12:43] SIGNUM Harvest Lambda v8.0 — FMP Earnings + SI% Restore — 2026-04-06T17:12:43.898Z
+[17:12:43] Step 1: Price snapshot 1000 tickers...
+[17:12:44] Prices: 994/1000 (priceMap has 994 tickers)
+[17:12:44] RLSI self-calculation...
+[17:12:45] RLSI: 57 (NEUTRAL)
+[17:12:45] Step 2: GEX (structureService mode) 1000 tickers...
+[17:13:22] GEX (structureService): 994/1000
+[17:13:22] Alpha: 994 scores (DynamoDB write skipped — Vercel cron handles SSR_V46)
+[17:13:22] Step 3: SMA 50/200...
+[17:16:33] SMA: 960/994 with both SMA50+200
+[17:16:36] Step 5.5: RSI + Daily Bars for 1000 tickers...
+
+=== Redis Data Sample (5 tickers) ===
+TSLA: alpha=48 rsi=NULL return3d=NULL sparkline=0pts relVol=NULL ivSkew=NULL implMove=0% dp=72.2%
+NVDA: alpha=50 rsi=NULL return3d=NULL sparkline=0pts relVol=NULL ivSkew=NULL implMove=0% dp=60.4%
+AAPL: alpha=60 rsi=NULL return3d=NULL sparkline=0pts relVol=NULL ivSkew=NULL implMove=0% dp=54.1%
+MSFT: alpha=45 rsi=NULL return3d=NULL sparkline=0pts relVol=NULL ivSkew=NULL implMove=0% dp=64.5%
+AMZN: alpha=60 rsi=NULL return3d=NULL sparkline=0pts relVol=NULL ivSkew=NULL implMove=0% dp=54%

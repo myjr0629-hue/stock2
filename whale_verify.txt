@@ -1,0 +1,14 @@
+=== Lambda Status ===
+2026-04-06T17:30:49.725Z	6278b04f-83f7-4740-b565-a2d2a4c025ad	INFO	Done in 186s
+
+=== Redis Data (10 tickers) ===
+TSLA: alpha=48 rsi=35.31 r3d=-6.15 spark=17pts relV=0.59 whale=0(NONE) dp=78.9% ivSk=28.67 impl=28.67%
+NVDA: alpha=50 rsi=48.54 r3d=1.47 spark=17pts relV=0.47 whale=0(NONE) dp=69.4% ivSk=4.24 impl=4.24%
+AAPL: alpha=60 rsi=54.13 r3d=1.97 spark=17pts relV=0.46 whale=0(NONE) dp=57% ivSk=7.73 impl=7.73%
+MSFT: alpha=45 rsi=38.61 r3d=0.55 spark=17pts relV=0.38 whale=0(NONE) dp=66.5% ivSk=2.69 impl=2.69%
+AMZN: alpha=60 rsi=51.96 r3d=1.76 spark=17pts relV=0.42 whale=0(NONE) dp=50% ivSk=14.16 impl=14.16%
+META: alpha=50 rsi=42.01 r3d=0.84 spark=17pts relV=0.33 whale=0(NONE) dp=75.8% ivSk=8.67 impl=8.67%
+GOOG: alpha=55 rsi=49.47 r3d=3.59 spark=17pts relV=0.39 whale=0(NONE) dp=64.8% ivSk=3.37 impl=3.37%
+AMD: alpha=53 rsi=58.66 r3d=7.92 spark=17pts relV=0.57 whale=0(NONE) dp=67.6% ivSk=13.67 impl=13.67%
+NFLX: alpha=53 rsi=65.88 r3d=2.96 spark=17pts relV=0.66 whale=0(NONE) dp=75.1% ivSk=5.05 impl=5.05%
+BA: alpha=55 rsi=51.58 r3d=6.16 spark=17pts relV=0.33 whale=0(NONE) dp=62.4% ivSk=14.2 impl=14.2%

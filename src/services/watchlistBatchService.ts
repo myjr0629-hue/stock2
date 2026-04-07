@@ -137,11 +137,11 @@ export async function processWatchlistBatch(tickers: string[], mode: 'full' | 'p
     const marketStatus = await getMarketStatusSSOT();
     const currentSession = marketStatus.session; // 'pre', 'regular', 'post', 'closed'
 
+    // [V8 UNIFIED] Always fetch macro data — needed for V4.6 Alpha Score in BOTH cache hit and miss paths
+    // Regime pillar (15점) requires VIX, NDX, TLT, GLD regardless of cache status
     let macroData: any = null;
     let fearGreedScore: number | null = null;
-
-    // Optional: Fetch Macro & F&G only if we need to do full compute
-    if (missingTickers.length > 0 && mode === 'full') {
+    if (mode === 'full') {
         try {
             const macro = await getMacroSnapshotSSOT();
             macroData = {
@@ -238,7 +238,9 @@ export async function processWatchlistBatch(tickers: string[], mode: 'full' | 'p
         };
 
         // ============================================
-        // A. CACHE HIT: FAST RETURN (Instant)
+        // A. CACHE HIT: V4.6 RECALCULATION (ONE ENGINE, ONE RESULT)
+        // [V8 UNIFIED] Lambda alphaSnapshot을 무시하고, 캐시된 raw 데이터 + live 가격으로
+        // Vercel V4.6 엔진으로 재계산. 유니버스/비유니버스/CACHE HIT/MISS 모두 동일 결과.
         // ============================================
         if (analysis) {
             const base = buildBasePrice();
@@ -254,14 +256,76 @@ export async function processWatchlistBatch(tickers: string[], mode: 'full' | 'p
                 } catch { /* silent */ }
             }
 
-            // buildBasePrice already calculates correct changePct and extendedChangePct
             const finalChangePct = base.changePct;
-
             const refPrice = base.extendedPrice || base.displayPrice;
+
+            // [V8] V4.6 Alpha Score — 항상 재계산 (Lambda 간단 점수 사용 금지)
+            const sessionMap: Record<string, AlphaSession> = { pre: 'PRE', regular: 'REG', post: 'POST', closed: 'CLOSED' };
+            const alphaSession: AlphaSession = sessionMap[currentSession] || 'CLOSED';
+            let alphaSnapshotV4: any = analysis.alphaSnapshot; // fallback
+
+            try {
+                const alphaResult = calculateAlphaScore({
+                    ticker: ticker.toUpperCase(),
+                    session: alphaSession,
+                    price: base.displayPrice,
+                    prevClose: base.prevDayClose || 0,
+                    changePct: finalChangePct,
+                    vwap: base.vwap ?? null,
+                    return3D: analysis.return3d ?? null,
+                    rsi14: analysis.rsi ?? null,
+                    pcr: analysis.pcr ?? null,
+                    gex: analysis.gex ?? null,
+                    callWall: analysis.callWall ?? null,
+                    putFloor: analysis.putFloor ?? null,
+                    gammaFlipLevel: analysis.gammaFlipLevel ?? null,
+                    squeezeScore: analysis.squeezeScore ?? null,
+                    atmIv: analysis.iv ?? null,
+                    ivSkew: analysis.ivSkew ?? null,
+                    darkPoolPct: liveDarkPoolPct,
+                    shortVolPct: null,
+                    whaleIndex: analysis.whaleIndex ?? 0,
+                    relVol: analysis.relVol ?? null,
+                    netFlow: analysis.netPremium ?? null,
+                    blockTrades: null,
+                    impliedMovePct: analysis.impliedMovePct ?? null,
+                    optionsDataAvailable: analysis.gex !== null,
+                    ndxChangePct: macroData?.ndxChangePct ?? null,
+                    vixValue: macroData?.vixValue ?? null,
+                    vixChangePct: macroData?.vixChangePct ?? null,
+                    tltChangePct: macroData?.tltChangePct ?? null,
+                    gldChangePct: macroData?.gldChangePct ?? null,
+                    dxy: macroData?.dxy ?? null,
+                    realYieldStance: macroData?.realYieldStance ?? null,
+                    fearGreedScore,
+                    vix3mValue: macroData?.vix3mValue ?? null,
+                });
+                alphaSnapshotV4 = {
+                    score: alphaResult.score,
+                    grade: alphaResult.grade,
+                    action: alphaResult.action,
+                    actionKR: alphaResult.actionKR,
+                    whyKR: alphaResult.whyKR,
+                    confidence: Math.round(alphaResult.dataCompleteness),
+                    triggers: alphaResult.triggerCodes,
+                    pillars: {
+                        momentum: alphaResult.pillars.momentum.score,
+                        structure: alphaResult.pillars.structure.score,
+                        flow: alphaResult.pillars.flow.score,
+                        regime: alphaResult.pillars.regime.score,
+                        catalyst: alphaResult.pillars.catalyst.score,
+                    },
+                    gatesApplied: alphaResult.gatesApplied,
+                    engineVersion: alphaResult.engineVersion,
+                    capturedAt: new Date().toISOString(),
+                };
+            } catch (e) {
+                console.warn(`[Watchlist CACHE HIT] V4.6 recalc failed for ${ticker}, using cached:`, e);
+            }
 
             return {
                 ticker,
-                alphaSnapshot: analysis.alphaSnapshot,
+                alphaSnapshot: alphaSnapshotV4,
                 realtime: {
                     price: base.displayPrice,
                     changePct: finalChangePct,
@@ -406,11 +470,11 @@ export async function processWatchlistBatch(tickers: string[], mode: 'full' | 'p
                 impliedMovePct = computeImpliedMovePct(rawContracts, currentPrice);
             }
 
-            const whaleIndex = calculateWhaleIndex(alphaGex);
             const darkPoolPct = tradeData?.darkPoolPercent ?? null;
             const shortVolPct = shortVolData?.shortVolPercent ?? null;
             const blockTradesCount = tradeData?.blockTrades ?? null;
             const netPremium = structureRes?.netPremium ?? null;
+            const whaleIndex = calculateWhaleIndex(alphaGex, darkPoolPct, blockTradesCount, netPremium);
 
             let alphaResult;
             try {

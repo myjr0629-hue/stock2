@@ -4,6 +4,21 @@
 > AWS/Vercel/Redis 전체 구조, 코드 위치, 배포 방법을 기록합니다.
 > 기억 못하면 이 파일 확인. 추측하지 말 것.
 
+## 0. 핵심 개발 철학 (ABSOLUTE RULES — 모든 작업의 대전제)
+
+> **주식 사이트의 3대 원칙: 무결성, 일관성, 속도**
+> 이 원칙을 위반하는 코드는 존재해서는 안 된다.
+
+### 🔴 절대 원칙
+1. **데이터 무결성**: 모든 지표, 점수, 수치는 정확해야 한다. 근사값, 간이 계산, 하드코딩 0은 허용하지 않는다.
+2. **일관성**: 동일한 티커는 어디서든(Lambda/Vercel, CACHE HIT/MISS, 유니버스/비유니버스) **같은 공식으로 같은 결과**를 보여야 한다. 두 개의 엔진이 같은 역할을 하면 안 된다.
+3. **속도**: 빛의 속도로 출력될 수 있는 구조. 캐시 우선, SWR 패턴, 불필요한 API 호출 제거.
+
+### 🔴 능동적 자세
+- 유저가 물어보기 전에 불일치/비효율을 찾아내야 한다
+- 하나를 수정할 때 전체 파이프라인을 추적하여 모든 사용처를 확인해야 한다
+- "이 파일만 수정하면 충분하다"는 가정을 하지 말 것 — 반드시 grep으로 전수조사
+
 ---
 
 ## 1. 프로젝트 기본 정보
@@ -20,7 +35,7 @@
 
 ---
 
-## 2. 전체 아키텍처 (v9 — 2026-04-06 기준)
+## 2. 전체 아키텍처 (v10 — 2026-04-07 기준)
 
 ```
 [Polygon API (최고 티어, 무제한)]
@@ -41,6 +56,8 @@
 ### 핵심 원칙
 - **Lambda가 유일한 데이터 생산자** — 모든 계산 수행, 3곳에 동시 저장
 - **Vercel은 읽기 전용** — Redis/DynamoDB에서 읽기만 (데이터 계산 없음)
+- **⚠️ Lambda ↔ Vercel 구조 일치 필수** — Lambda가 저장하는 필드와 Vercel이 읽는 필드는 반드시 1:1 일치. 한쪽만 수정 시 데이터 불일치 발생. Lambda 수정 시 반드시 Vercel 읽기 측 확인 필수
+- **Fundamentals 보존**: score=null이면 DynamoDB 이전 데이터 보존 (한번 성공한 데이터 절대 안 비어짐) — analyst/earnings/related도 동일
 - **warm-analysis, warm-command, morning-briefing cron: 삭제 완료** (2026-04-04)
 - **Flow 페이지**: Lambda Raw Cache → Vercel 계산 (2계층 캐시), 35 DTE 제한
 - **Flow warm (signum-flow-harvest)**: 옵션 raw 데이터만 저장, 계산은 Vercel 담당 (업계표준 CQRS)
@@ -85,15 +102,16 @@
 
 ## 4. AWS 구성요소
 
-### 4.1 Lambda v8 (signum-harvest)
-- **코드 위치**: `scripts/deploy-lambda-v7.js` (95KB, Lambda 전체 코드 포함)
+### 4.1 Lambda v8 → v7.1 (signum-harvest) — 2026-04-07 배포 완료
+- **코드 위치**: `scripts/deploy-lambda-v7.js` (~105KB, Lambda 전체 코드 포함)
 - **배포 명령**: `node scripts/deploy-lambda-v7.js`
   - zip 생성 → UpdateFunctionCode → UpdateFunctionConfiguration 자동
-- **설정**: timeout=900s (15분), memory=2GB
+- **설정**: timeout=900s (15분), memory=1024MB
 - **Function URL**: `https://76qkndxbhb5zknqt63g2t4cvqd.lambda-url.us-east-1.on.aws/`
 - **유니버스**: **1,000종목** (`data/stock_universe_us800.json` 기준)
 - **GEX 계산**: **전 1,000종목** (structureService 100% 호환)
-- **동시성**: 배치 10종목 (최적화 여지: 15~20 가능)
+- **동시성**: GEX 배치 10종목, RSI+DailyBars 배치 50종목
+- **실행 시간**: ~88초 (5분 크론 내 여유)
 - **Polygon API**: 최고 티어 (무제한 호출, rate limit 없음)
 
 #### Lambda Step별 처리
@@ -102,10 +120,17 @@
 | 1. Price | 1000 | 전종목 snapshot (1 API 호출) | 1 |
 | 2. GEX | 1000 | structureService 호환 12개 지표 | ~3,000 |
 | 3. SMA | 1000 | SMA50/200 Golden/Dead Cross | ~2,000 |
-| 4. Details | 1000 | Analyst(FMP) + Earnings + Fundamentals + Related + SI% | ~2,500 |
+| 4. Details | 1000 | Analyst(FMP) + Earnings + Fundamentals + Related + **SI%** (Polygon SI+Float) | ~2,500 |
 | 5. Alpha | 1000 | 점수 계산 (API 호출 없음) | 0 |
-| 6. Unified | 1000 | DynamoDB + Redis 2키 동시 저장 | ~500 |
+| **5.5. RSI+DailyBars** | **1000** | **Polygon RSI + daily aggs (sparkline/return3d/relVol)** | **~2,000** |
+| 6. Unified | 1000 | DynamoDB + Redis 2키 동시 저장 + cache:analysis 빌드 | ~500 |
 | RLSI | 1 | 시장 전체 RLSI 지표 | 3 |
+
+#### Step 5.5 상세 (RSI + Daily Bars)
+- **RSI**: Polygon `/v1/indicators/rsi/{ticker}?timespan=day&window=14&limit=1`
+- **Daily Bars**: Polygon `/v2/aggs/ticker/{ticker}/range/1/day/{from}/{to}?limit=30&adjusted=true&sort=asc`
+- 25일치 데이터 → sparkline(last 20 closes), return3d(3일 수익률), relVol(금일/전일 거래량비)
+- 배치 50종목 동시 → 1000종목 ~25초
 
 #### GEX 계산 로직 (structureService.ts 호환)
 - **만기 필터**: `getWeeklyOptions()` — 주간만기 1개만 (전체 만기 아님)
@@ -119,10 +144,48 @@
 #### Lambda Redis 저장
 | Redis 키 | 형식 | 용도 |
 |----------|------|------|
-| `cache:analysis:{TICKER}` | AnalysisCacheEntry (15필드) | Dashboard/Watchlist/Portfolio |
+| `cache:analysis:{TICKER}` | AnalysisCacheEntry (**20+필드**) | Dashboard/Watchlist/Portfolio |
 | `cache:command:unified:{TICKER}` | 9개 섹션 전체 데이터 | Command/Ticker 페이지 |
 - TTL: 259,200초 (3일)
 - 방식: Upstash REST API pipeline (배치 20개씩)
+
+#### cache:analysis 필드 완전 목록 (2026-04-07)
+| 필드 | 소스 | 커버리지 |
+|------|------|:---:|
+| alphaSnapshot (score/grade/action) | computeAlphaScore() | 100% |
+| rsi | Polygon `/v1/indicators/rsi` | 100% |
+| return3d | Polygon daily bars (3일 수익률) | 100% |
+| sparkline | Polygon daily bars (last 20 closes) | 100% |
+| relVol | today/yesterday volume ratio | 100% |
+| whaleIndex | **Composite** (GEX+DP+Block+NP 각 25%) | 99% |
+| whaleConfidence | 다중 신호 기반 (HIGH/MED/LOW/NONE) | 99% |
+| darkPoolPct | rt-metrics (flow-harvest) | 100% |
+| volume | Polygon snapshot | 100% |
+| vwapDist | Polygon snapshot vwap | 100% |
+| ivSkew | callWall-putFloor spread / price | 96.8% |
+| impliedMovePct | callWall-putFloor spread / price | 96.8% |
+| maxPain | structureService | 100% |
+| gex | structureService netGex | 99% |
+| pcr | structureService pcRatio | 97.3% |
+| iv | structureService atmIv | 99.4% |
+| callWall / putFloor | structureService levels | 98%+ |
+| squeezeScore | structureService 5요인 | 98% |
+| netPremium | structureService | 99.4% |
+| expiration | structureService | 100% |
+
+#### Composite WhaleIndex 공식 (2026-04-07)
+```
+WhaleIndex (0-100) = GEX(25) + DarkPool(25) + BlockTrades(25) + NetPremium(25)
+
+1. GEX (0-25):    |GEX| > 50M=25, >10M=20, >1M=15, >100K=8
+2. DarkPool (0-25): DP% >= 60=25, >=45=20, >=30=12, >0=5
+3. BlockTrades (0-25): BT >= 10=25, >=5=20, >=2=15, >=1=8
+4. NetPremium (0-25): |NP| > 10M=25, >5M=20, >1M=15, >100K=8
+
+Confidence: 4개 중 강한 신호 3+개=HIGH, 2개=MED, 1개=LOW, 0=NONE
+```
+✅ **완료 (2026-04-07)**: Lambda Composite WhaleIndex가 Vercel 실시간 경로와 100% 통합됨.
+`calculateWhaleIndex(gex, darkPoolPct, blockTrades, netPremium)` — Lambda/Vercel 동일 공식.
 
 #### Lambda On-demand 모드
 - **URL**: `GET https://76qkndxbhb5zknqt63g2t4cvqd.lambda-url.us-east-1.on.aws/?ticker=BABA`
@@ -382,7 +445,7 @@
 |------|------|
 | `MASSIVE_API_KEY` | Polygon "Massive" API (⚠️ 이것이 Polygon 키) |
 | `POLYGON_API_KEY` | Lambda용 Polygon 키 (deploy 스크립트에 하드코딩 fallback도 있음) |
-| `FINNHUB_API_KEY` | Finnhub API |
+| `FINNHUB_API_KEY` | Finnhub API (**Vercel Intel 페이지 전용**: Earnings Calendar, Analyst Recommendation; Lambda에서는 미사용) |
 | `FMP_API_KEY` | Financial Modeling Prep API |
 
 ### 9.4 인증/결제
@@ -441,6 +504,21 @@ bash scripts/ec2-deploy-guardian.sh
 
 ## 11. 작업 이력
 
+### 2026-04-06~07 (cache:analysis 완전 복원 + Composite WhaleIndex)
+1. **RSI 추가**: Polygon `/v1/indicators/rsi` — Step 5.5로 배치 호출 (995/1000)
+2. **Daily Bars 추가**: Polygon `/v2/aggs/range/1/day` — sparkline/return3d/relVol 계산
+3. **ivSkew/impliedMovePct 수정**: OMR 방식 → callWall-putFloor spread 방식으로 변경
+4. **WhaleIndex Composite 전환**: GEX-only(버그) → GEX+DarkPool+BlockTrades+NetPremium
+5. **Lambda 성능 최적화**: RSI+DailyBars 배치 10→50, 총 실행 380초→88초
+6. **전체 유니버스 감사**: 994/1000 (99.4%), 전 필드 96%+ 커버리지 확인
+7. **디버그 로그 정리**: TSLA OMR 디버그 제거, 타임아웃 로그 수정 (600s→900s)
+
+#### 감사 결과 (2026-04-07)
+- 유니버스: 994/1000 (99.4%) — 누락 6: ANSS,NGD,PARA,PEAK,SQ,TGNA (Polygon 미제공)
+- alpha: 100%, rsi: 100%, return3d: 100%, sparkline: 100%, relVol: 100%
+- whaleIndex: 99%, darkPoolPct: 100%, volume: 100%, vwapDist: 100%
+- ivSkew/impliedMovePct: 96.8%, maxPain: 100%, gex: 99%, pcr: 97.3%
+
 ### 2026-04-03~04 (Lambda v8 단일 파이프라인 통합)
 1. **Phase 1**: Lambda structureService 100% 이식 (12개 지표, ±20% callWall/putFloor)
 2. **Phase 2**: 유니버스 509→1000 확장, GEX 99→1000 전체 확장
@@ -449,11 +527,6 @@ bash scripts/ec2-deploy-guardian.sh
 5. **Phase 5**: warm-analysis/warm-command/morning-briefing cron 역할 제거 확인
 6. **Phase 6**: AWS Lambda 배포 + on-demand TSLA 검증 (9/9 필드)
 7. **Phase 7**: Lambda→Redis cache:command:unified 직접 저장 (warm-command 완전 대체)
-
-### 검증 결과
-- TSLA on-demand: success=true, 964ms, 9/9 필드
-- Redis cache:command:unified:TSLA: 9/9 ✅
-- Redis cache:analysis:TSLA: callWall=$400, putFloor=$350, maxPain=$375, iv=42% ✅
 ### 2026-04-04 (Flow 최적화 + 정리)
 1. **vercel.json cron 5개 삭제** — warm-command(×2), warm-analysis(×1), morning-briefing(×2)
 2. **Flow 페이지 35 DTE 최적화** — `centralDataHub.ts` probe API에 `expiration_date.lte` 추가
@@ -472,26 +545,30 @@ bash scripts/ec2-deploy-guardian.sh
 ## 12. 미완료 / 향후 작업 (TODO)
 
 ### 🔴 즉시
+- [x] **Composite WhaleIndex → Alpha Score 연결 (2026-04-07 완료)**
+  - Vercel `alphaEngine.ts` `calculateWhaleIndex(gex)` → `(gex, darkPoolPct, blockTrades, netPremium)` Composite 교체
+  - 변경: `alphaEngine.ts`, `watchlistBatchService.ts`, `powerEngine.ts`, `dashboard/unified/route.ts`, `live/ticker/route.ts`
+- [x] **Alpha Score V4.6 엔진 통일 (2026-04-07 완료)**
+  - Lambda 간단 3요인 `computeAlphaScore` → CACHE HIT에서도 Vercel V4.6로 재계산
+  - 유니버스/비유니버스/CACHE HIT/MISS 모두 동일 V4.6 엔진 사용
+  - 변경: `watchlistBatchService.ts`, `portfolioBatchService.ts` CACHE HIT 경로
+  - macroData 항상 fetch (CACHE HIT에서 Regime pillar용)
 - [ ] **장중 1000종목 전체 harvest 모니터링** — CloudWatch Logs 확인
   - `signum-harvest` + `signum-flow-harvest` 동시 모니터링
-  - 실행 시간, 429 에러 여부, 성공률, API 충돌 여부 체크
 
 ### 🟡 단기
-- [ ] **GammaFlip 가격 변동 원인 정밀 조사**:
-  - Lambda(누적 GEX 교차점) vs Vercel(structureService) 계산 차이 가능성
-  - 양쪽 로직 비교 + Redis 캐시 갱신 타이밍 정밀 조사
-- [ ] **Lambda 동시성 튜닝** (장중 테스트 결과에 따라):
-  - 현재: 배치 10종목 동시, 목표: 15~20
+- [ ] **WhaleIndex → 적절한 이름 리네이밍** (예: Flow Score, Smart Flow)
+  - 현재 4가지 흐름 종합 지표인데 이름이 "Whale"이라 부정확
+  - UI 표시명 + 코드 변수명 리팩토링 (영향 범위 넓음: ~50파일)
+- [ ] **UNIVERSE_500 변수명 정리** — `UNIVERSE` 또는 `ALL_TICKERS`로 통일 (25곳)
+- [ ] **GammaFlip 가격 변동 원인 정밀 조사**
 
 ### 🟢 중기
 - [ ] 모바일 최적화 (앱 수준 UX)
 - [ ] 짜잘한 UI 버그 전수 조사 및 수정
 - [ ] **사용자 증가 시 유니버스 확장 검토** (1000 → 1500+)
-  - signum-harvest: 종목당 ~0.9초, 현재 900초/900초 한도 → 동시성 튜닝 또는 Lambda 분할 필요
+  - signum-harvest: 현재 88초/900초 한도 → 여유 충분
   - signum-flow-harvest: 종목당 ~0.29초, 여유 312초 → 1000종목 추가 가능
-- [ ] **Command 페이지 비유니버스 on-demand 최적화** (우선순위 낮음)
-  - 실측: BEFORE 1,649ms → AFTER 1,066ms (35%↓) — 체감 크지 않음
-  - 유니버스 확장이 더 근본적 해결책
 
 ### ✅ 완료
 - [x] **`signum-flow-harvest` Lambda 배포 및 검증 완료 (2026-04-05)**:
@@ -501,42 +578,145 @@ bash scripts/ec2-deploy-guardian.sh
   - Redis 키: `rt-metrics:{TICKER}`, `cache:flow:unified:{TICKER}`, `darkpool:{TICKER}`
   - 프로덕션 검증: NVDA cached:true DP:56.6%, AAPL cached:true DP:22.3%, META cached:true DP:19.9%
   - Vercel 코드 수정 0줄 — 기존 API가 Redis-first이므로 자동 캐시 히트
-  - `signum-data-harvest` 영향 0 — 완전 독립 파이프라인
-- [x] vercel.json cron 5개 삭제 (2026-04-04)
-- [x] Flow 35 DTE 최적화 — SPY 21초→1.9초 실측 확인 (2026-04-04)
-- [x] whale-trades 캐시 항상 저장 (2026-04-04)
-- [x] 포트폴리오 종목 추가 즉시 반영 수정 (2026-04-04)
-- [x] warm-flow 병목 분석 완료 — 실측 데이터 기반 보고서 작성 (2026-04-04)
-- [x] Dashboard 장마감 라벨 비어있는 문제 — 코드 버그 아님, MCD 등 post-market 데이터 없는 종목 정상 동작 확인 (2026-04-04)
-- [x] GammaFlip 카드 깜빡임 수정 — `underlyingPrice=0` falsy 판정으로 SHORT/LONG 라벨 소멸 + fetchPriceOnly 0가격 덮어쓰기 방어 (2026-04-04)
-- [x] Intel SectorCommand Holiday/Weekend 인식 — `useMarketStatus()` SSOT 통합, Holiday 라벨 + Weekend 표시 + 카운트다운 숨김 (2026-04-05)
-- [x] 미사용 cron 폴더 3개 삭제 — `warm-command`, `warm-analysis`, `morning-briefing` (2026-04-05)
-- [x] **`warm-flow` 폴더 삭제** — signum-flow-harvest Lambda가 완전 대체, vercel.json 에서 이미 제거 확인 후 삭제 (2026-04-06)
-
-### 2026-04-05~06 (Flow 페이지 성능 최적화 — Lambda Raw Cache + Demand-Driven Dynamic Universe)
-1. **Lambda v2.1 (signum-flow-harvest)**: Polygon 옵션 스냅샷 raw 데이터를 Redis에 사전 캐싱
-   - 원본 데이터만 저장 (계산 0), 업계표준 CQRS 패턴
-   - 계산(Max Pain, GEX 등)은 Vercel 기존 코드 100% 사용 → 정합성 100%
-2. **Vercel Cache-First 연동**: centralDataHub + structureService에서 Redis 먼저 체크
-   - HIT 시 Polygon Reference(1-2초) + Snapshot(1-2초) + Exact(1-2초) 전부 스킵
-3. **Progressive Rendering**: `displayPrice > 0` 블로킹 가드 제거 → FlowRadar 즉시 마운트
-4. **장외시간/주말 TTL 동적 조절**: 장중 5-10분, 장외 24h, 주말 72h
-   - 기존 문제: TTL 10분 → 장 마감 10분 후 모든 데이터 소멸
-   - 수정: `getEffectiveTTL()` 함수로 시간대별 자동 조절
-5. **Demand-Driven Dynamic Universe**: 비유니버스 종목 1회 조회 후 Lambda 자동 수집
-   - Vercel: raw 캐시 저장 + `flow:dynamic-universe` 리스트 등록
-   - Lambda: 유니버스 처리 후 dynamic list 읽어서 추가 수집 (완전 분리)
-   - 장 마감 → 리스트 TTL 만료 → 자동 소멸 (다음날 재조회 시만 재등록)
-
-#### 성능 검증 결과
-| 종목 | Before (Cold) | After (Lambda Hit) | 개선율 |
-|------|:---:|:---:|:---:|
-| TSLA (유니버스) | 13,543ms | **1,616ms** | **88%↓** |
-| NVDA (유니버스) | 3,829ms | **692ms** | **82%↓** |
-| AMC (비유니버스 1회차) | 7,468ms | 7,468ms | 변동없음 |
-| AMC (비유니버스 2회차+) | 7,468ms | **유니버스 동일** | Lambda 자동 수집 |
-
 ---
 
-*마지막 업데이트: 2026-04-06T01:14 KST*
+## 12. Massive (Polygon) API 전체 엔드포인트 레퍼런스
 
+> **최고 티어** — 무제한 호출, rate limit 없음
+> Base URL: `https://api.polygon.io`
+
+### 12.1 시장 데이터 (Market Data)
+| 엔드포인트 | 설명 | 현재 사용처 |
+|---|---|---|
+| `/v3/snapshot` | Unified Snapshot (다양한 자산) | — |
+| `/v2/snapshot/locale/us/markets/stocks/tickers/{ticker}` | Single Ticker Snapshot | Lambda Step 1 |
+| `/v2/snapshot/locale/us/markets/stocks/tickers` | Full Market Snapshot (10,000+) | massiveClient |
+| `/v2/snapshot/locale/us/markets/stocks/{direction}` | Top Movers (gainers/losers) | massiveClient |
+| `/v2/aggs/ticker/{ticker}/range/{mult}/{timespan}/{from}/{to}` | Custom OHLC Bars | Lambda Step 5.5 |
+| `/v2/aggs/grouped/locale/us/market/stocks/{date}` | Daily Market Summary | — |
+| `/v1/open-close/{ticker}/{date}` | Daily Ticker Summary | — |
+| `/v2/aggs/ticker/{ticker}/prev` | Previous Day Bar | — |
+
+### 12.2 기술 지표 (Technical Indicators)
+| 엔드포인트 | 설명 | 현재 사용처 |
+|---|---|---|
+| `/v1/indicators/sma/{ticker}` | SMA | Lambda Step 3 |
+| `/v1/indicators/ema/{ticker}` | EMA | — |
+| `/v1/indicators/macd/{ticker}` | MACD | — |
+| `/v1/indicators/rsi/{ticker}` | RSI | Lambda Step 5.5 |
+
+### 12.3 종목 참조 (Reference)
+| 엔드포인트 | 설명 | 현재 사용처 |
+|---|---|---|
+| `/v3/reference/tickers` | All Tickers 목록 | — |
+| `/v3/reference/tickers/{ticker}` | Ticker Overview (name/sector/CIK) | Lambda Step 4c |
+| `/v3/reference/tickers/types` | Ticker Types | — |
+| `/v1/related-companies/{ticker}` | Related Tickers | Lambda Step 4d |
+| `/v3/reference/exchanges` | Exchanges 목록 | — |
+| `/v1/marketstatus/upcoming` | Market Holidays | — |
+| `/v1/marketstatus/now` | Market Status (open/closed) | massiveClient |
+| `/v3/reference/conditions` | Condition Codes | — |
+| `/vX/reference/tickers/{id}/events` | Ticker Events | — |
+
+### 12.4 재무 데이터 (Financials)
+| 엔드포인트 | 설명 | 현재 사용처 |
+|---|---|---|
+| `/stocks/financials/v1/ratios` | **Ratios** (PE/PB/PS/DE/ROE/FCF) | Lambda Step 4c |
+| `/stocks/financials/v1/income-statements` | Income Statements | — |
+| `/stocks/financials/v1/balance-sheets` | Balance Sheets | — |
+| `/stocks/financials/v1/cash-flow-statements` | Cash Flow Statements | — |
+| `/vX/reference/financials` | vX Financials (revenue/margin/quarterly) | Lambda Step 4c |
+
+### 12.5 공매도/유동주식 (Short Interest / Float)
+| 엔드포인트 | 설명 | 현재 사용처 |
+|---|---|---|
+| `/stocks/v1/short-interest` | **Short Interest** (FINRA 격월 보고) | ✅ Lambda Step 4e + On-demand |
+| `/stocks/v1/short-volume` | **Short Volume** (일일 FINRA 보고) | ✅ Lambda 5분 크론 |
+| `/stocks/vX/float` | **Float** (유동주식수, free_float) | ✅ Lambda Step 4e + On-demand |
+
+### 12.6 옵션 (Options)
+| 엔드포인트 | 설명 | 현재 사용처 |
+|---|---|---|
+| `/v3/reference/options/contracts` | All Option Contracts | — |
+| `/v3/reference/options/contracts/{ticker}` | Contract Overview | — |
+| `/v3/snapshot/options/{underlyingAsset}` | **Option Chain Snapshot** (Greeks/OI/IV) | Lambda Step 2 + massiveClient |
+| `/v3/snapshot/options/{asset}/{contract}` | Option Contract Snapshot | massiveClient |
+| `/v3/trades/{optionsTicker}` | Option Trades (tick-level) | massiveClient |
+| `/v2/last/trade/{optionsTicker}` | Last Option Trade | massiveClient |
+| `/v1/open-close/{optionsTicker}/{date}` | Option Daily Summary | — |
+
+### 12.7 주식 거래/호가 (Trades / Quotes)
+| 엔드포인트 | 설명 | 현재 사용처 |
+|---|---|---|
+| `/v3/trades/{stockTicker}` | Stock Trades (tick-level) | — |
+| `/v2/last/trade/{stocksTicker}` | Last Trade | — |
+| `/v3/quotes/{stockTicker}` | NBBO Quotes | — |
+| `/v2/last/nbbo/{stocksTicker}` | Last Quote (NBBO) | — |
+
+### 12.8 기업 공시/이벤트 (SEC / Corporate)
+| 엔드포인트 | 설명 | 현재 사용처 |
+|---|---|---|
+| `/stocks/filings/vX/risk-factors` | Risk Factors (SEC) | — |
+| `/stocks/taxonomies/vX/risk-factors` | Risk Categories | — |
+| `/stocks/filings/10-K/vX/sections` | 10-K Sections | — |
+| `/stocks/filings/8-K/vX/text` | 8-K Text | — |
+| `/vX/reference/ipos` | IPO Calendar | — |
+| `/stocks/v1/splits` | Stock Splits | — |
+| `/stocks/v1/dividends` | Dividends | — |
+
+### 12.9 뉴스/매크로 (News / Macro)
+| 엔드포인트 | 설명 | 현재 사용처 |
+|---|---|---|
+| `/v2/reference/news` | News (sentiment 포함) | massiveClient |
+| `/fed/v1/treasury-yields` | Treasury Yields | — |
+| `/fed/v1/inflation` | Inflation (CPI/PCE) | — |
+| `/fed/v1/inflation-expectations` | Inflation Expectations | — |
+---
+
+## 14. 세션 핸드오프 (2026-04-07T12:40 KST)
+
+### 현재 상태
+- **Lambda v7.1** 배포 완료 (SI% 수정 + Fundamentals 보존)
+- 다음 **장중 크론** 실행 시 GOOGL SI%=0 → 정확한 값(~1.1%)으로 업데이트 예정
+- Vercel 코드 변경 없음 — Vercel `massiveClient.ts`는 이미 올바른 엔드포인트 사용 중
+- **Vercel 배포 불필요** (Lambda만 변경)
+
+### ⚠️ 핵심 규칙 (반드시 기억)
+1. **Lambda ↔ Vercel 구조 일치 필수** — 한쪽 필드 수정 시 반드시 다른 쪽 확인
+2. **변수명 `whaleIndex` 유지** — `flowScore`로 리네이밍 하지 않음 (기억만)
+3. **코드 변수명 전체 리팩토링 금지** — 기능 수정만, 네이밍은 기억으로 관리
+4. **INFRASTRUCTURE_MAP.md가 SSOT** — 구조 변경 전 반드시 여기 확인
+
+### 📋 미완료 TODO
+1. ~~Composite WhaleIndex → Alpha Score 연결~~ ✅ **완료 (2026-04-07)**
+   - Lambda/Vercel 모두 동일한 4요인 Composite 공식 사용
+   - `calculateWhaleIndex(gex, darkPoolPct, blockTrades, netPremium)` — 5개 파일 수정 완료
+2. **UNIVERSE_500 변수명 정리** — 실제 1000종목이므로 혼란. 코드 변수명까지 전부 리팩토링은 안 함
+3. **WhaleIndex UI 배치** — Command/Flow 페이지에 게이지 형태로 배치 검토
+
+### 🚀 런칭 마무리 TODO
+1. **사이트 전체 버그 전수조사** — 모든 페이지 돌면서 버그 리스트업
+2. **모바일 UI 최적화** — 롤백 기반, 망가뜨리지 않도록 단계적 수정
+3. 발견된 버그 수정 (우선순위순)
+4. 최종 프로덕션 검증
+
+### Finnhub 사용 현황 (참고)
+- **Lambda**: Finnhub **미사용** (키만 주입, 실제 호출 없음)
+- **Vercel Intel 페이지**: Finnhub 사용 중 (`finnhubClient.ts`)
+  - Earnings Calendar, Analyst Recommendation, Insider Transactions, Price Target
+  - 사용 위치: `/api/intel/*-calendar/route.ts` (10개 섹터), `/api/live/earnings/route.ts`
+  - 무료 티어 (60 calls/min) — 현재 동작 정상
+
+### Polygon (Massive) API 사용 현황
+- **Lambda**: 옵션/가격/SMA/RSI/SI%/Float/Ratios/Financials/Related/News
+- **Vercel**: massiveClient.ts 통해 fallback으로 사용 (DynamoDB miss 시)
+- 전체 엔드포인트: 섹션 12 참조 (50+ endpoints)
+
+### 외부 API 키 구조
+| API | Lambda 키 | Vercel 키 | 비고 |
+|---|---|---|---|
+| Polygon | `iKNEA...` (하드코딩 fallback) | `MASSIVE_API_KEY` / `POLYGON_API_KEY` | 같은 계정, 같은 티어 |
+| FMP | `FMP_API_KEY` (env 주입) | `FMP_API_KEY` | Lambda Step 4a,4b |
+| Finnhub | `FINNHUB_API_KEY` (env 주입) | `FINNHUB_API_KEY` | Vercel만 실사용 |
+
+*마지막 업데이트: 2026-04-07T12:40 KST*

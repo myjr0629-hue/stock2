@@ -1,0 +1,17 @@
+=== LMT Polygon Ratios ===
+{"status":"ERROR","request_id":"e48c38ffe3dae293714b621957011a00","error":"Unknown API Key"}
+
+=== LMT Polygon vX Financials ===
+Full(500): {"status":"ERROR","request_id":"36054e549551bf74fc9235c9962fe29e","error":"Unknown API Key"}
+
+=== GOOGL Reference ===
+share_class_shares_outstanding: undefined
+weighted_shares_outstanding: undefined
+
+=== GOOGL Squeeze (from Lambda) ===
+siPercent=0
+daysToCover=0
+shortVolPercent=32.3
+floatShares=0
+settlementDate=null
+Full: {"ticker":"GOOGL","siPercent":0,"daysToCover":0,"siChange":0,"shortVolPercent":32.3,"riskScore":5,"status":"LOW","floatShares":0,"settlementDate":null,"_ts":1775529983357}

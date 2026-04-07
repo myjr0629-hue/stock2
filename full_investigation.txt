@@ -1,0 +1,23 @@
+=== 1. LMT Ratios (Lambda key) ===
+{"status":"OK","request_id":"136a2479b9e046328f722266c937d1fe","results":[{"ticker":"LMT","cik":"0000936468","date":"2026-04-02","price":622.79,"average_volume":1703489,"market_cap":143529502469,"earnings_per_share":21.77,"price_to_earnings":28.61,"price_to_book":21.36,"price_to_sales":1.91,"price_t
+
+=== 2. GOOGL Ratios (Lambda key) ===
+{"status":"OK","request_id":"4c655475b9f548169b1160744a1622ff","results":[{"ticker":"GOOGL","cik":"0001652044","date":"2026-04-02","price":295.77,"average_volume":31721726,"market_cap":3577929690000,"earnings_per_share":10.93,"price_to_earnings":27.07,"price_to_book":8.62,"price_to_sales":8.88,"pric
+
+=== 3. TSLA Ratios (Lambda key) ===
+{"status":"OK","request_id":"9486848225ff4d5e927bd4bc7fef714d","results":[{"ticker":"TSLA","cik":"0001318605","date":"2026-04-02","price":360.59,"average_volume":61862034,"market_cap":1353089449111,"earnings_per_share":1.01,"price_to_earnings":356.64,"price_to_book":16.47,"price_to_sales":14.27,"pri
+
+=== 4. LMT vX Financials (Lambda key) ===
+Revenue: 20321000000
+NetIncome: 1344000000
+
+=== 5. Polygon Short Interest (GOOGL) ===
+v2/reference/shorts: "404 page not found"
+v3/reference/tickers (shares_outstanding): 5822000000
+weighted_shares_outstanding: 12097000000
+
+=== 6. FMP Short Interest ===
+FMP institutional: {"Error Message":"Legacy Endpoint : Due to Legacy endpoints being no longer supported - This endpoint is only available for legacy users who have valid subscriptions prior August 31, 2025. Please visi
+
+=== 7. Finnhub Short Interest (GOOGL) ===
+{"error":"You don't have access to this resource."}

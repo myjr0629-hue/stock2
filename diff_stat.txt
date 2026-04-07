@@ -1,0 +1,12 @@
+﻿ .agent/INFRASTRUCTURE_MAP.md                   |  26 +++-
+ src/app/[locale]/dashboard/DashboardClient.tsx |   2 +-
+ src/app/[locale]/flow/FlowPageClient.tsx       |  40 +++--
+ src/app/[locale]/intel-guardian/page.tsx       |   6 +-
+ src/app/api/command/unified/route.ts           |  20 +++
+ src/app/globals.css                            | 205 +++++++++++++++++++++++++
+ src/components/FlowRadar.tsx                   |   4 +-
+ src/components/LiveTickerDashboard.tsx         |  69 ++++-----
+ src/components/mobile/BottomNav.tsx            |  78 +++++++---
+ src/components/ui/PriceDisplay.tsx             |   2 +-
+ src/services/stockApi.ts                       |   8 +-
+ 11 files changed, 378 insertions(+), 82 deletions(-)

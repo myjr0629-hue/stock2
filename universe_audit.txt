@@ -1,0 +1,28 @@
+======================================
+  UNIVERSE FULL AUDIT (1000 tickers)
+======================================
+
+--- ENTRY COVERAGE ---
+Total universe:   1000
+Has cache:analysis: 994/1000 (99.4%)
+Missing entries:  6 → ANSS,NGD,PARA,PEAK,SQ,TGNA
+
+--- FIELD FILL RATES (of 994 entries) ---
+alphaSnapshot:    994/994 (100%)
+darkPoolPct:      994/994 (100%)
+volume:           994/994 (100%)
+vwapDist:         994/994 (100%)
+ivSkew:           0/994 (0%)
+impliedMovePct:   0/994 (0%)
+maxPain:          994/994 (100%)
+gex:              984/994 (99%)
+pcr:              967/994 (97.3%)
+iv (ATM):         987/994 (99.3%)
+callWall:         976/994 (98.2%)
+putFloor:         978/994 (98.4%)
+squeezeScore:     976/994 (98.2%)
+netPremium:       988/994 (99.4%)
+expiration:       994/994 (100%)
+
+--- ALPHA=0 or N/A (0) ---
+NONE

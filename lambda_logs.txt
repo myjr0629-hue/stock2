@@ -1,18 +1,202 @@
-﻿{
-    "events": [
-        {
-            "logStreamName": "2026/04/02/[$LATEST]978bcf85e16e411d804c2737b3456825",
-            "timestamp": 1775149853463,
-aws : 
-위치 줄:1 문자:274
-+ ... lliseconds; aws logs filter-log-events --log-group-name
- /aws/lambda/s ...
-+                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-~~~~~~~~~~~~~~
-    + CategoryInfo          : NotSpecified: (:String) [], Re 
-   moteException
-    + FullyQualifiedErrorId : NativeCommandError
- 
-aws: [ERROR]: 'cp949' codec can't encode character '\u2014' i
-n position 117: illegal multibyte sequence
-            "message": 
+=== FOUND 200 events ===
+
+[14:04:08] 2026-04-06T14:04:08.649Z	9614fe7f-4588-4ead-b7f7-01d1dfb9534b	INFO	GEX (structureService): 994/1000
+[14:04:08] 2026-04-06T14:04:08.651Z	9614fe7f-4588-4ead-b7f7-01d1dfb9534b	INFO	Alpha: 994 scores (DynamoDB write skipped — Vercel cron handles SSR_V46)
+[14:04:08] 2026-04-06T14:04:08.651Z	9614fe7f-4588-4ead-b7f7-01d1dfb9534b	INFO	Step 3: SMA 50/200...
+[14:07:43] INIT_START Runtime Version: nodejs:20.v95	Runtime Version ARN: arn:aws:lambda:us-east-1::runtime:2d788b26ac416854c5eb831c9f46cb2e0a0ddcee84b1a9b114acbdfdb644c8c1
+[14:07:43] START RequestId: d4b53ff6-12ae-4552-9f4d-81d4a7f26751 Version: $LATEST
+[14:07:43] 2026-04-06T14:07:43.877Z	d4b53ff6-12ae-4552-9f4d-81d4a7f26751	INFO	SIGNUM Harvest Lambda v8.0 — FMP Earnings + SI% Restore — 2026-04-06T14:07:43.874Z
+[14:07:43] 2026-04-06T14:07:43.878Z	d4b53ff6-12ae-4552-9f4d-81d4a7f26751	INFO	Step 1: Price snapshot 1000 tickers...
+[14:07:44] 2026-04-06T14:07:44.805Z	d4b53ff6-12ae-4552-9f4d-81d4a7f26751	INFO	Prices: 994/1000 (priceMap has 994 tickers)
+[14:07:44] 2026-04-06T14:07:44.806Z	d4b53ff6-12ae-4552-9f4d-81d4a7f26751	INFO	RLSI self-calculation...
+[14:07:44] 2026-04-06T14:07:44.976Z	d4b53ff6-12ae-4552-9f4d-81d4a7f26751	INFO	RLSI: 56 (NEUTRAL)
+[14:07:44] 2026-04-06T14:07:44.977Z	d4b53ff6-12ae-4552-9f4d-81d4a7f26751	INFO	Step 2: GEX (structureService mode) 1000 tickers...
+[14:08:25] 2026-04-06T14:08:25.966Z	1cc1ecff-e3c8-4c58-a5ef-cdf0d4427ce9	INFO	SMA: 893/994 with both SMA50+200
+[14:08:29] 2026-04-06T14:08:29.319Z	1cc1ecff-e3c8-4c58-a5ef-cdf0d4427ce9	INFO	Step 6: Building unified cache for 1000 tickers...
+[14:08:43] 2026-04-06T14:08:43.673Z	1cc1ecff-e3c8-4c58-a5ef-cdf0d4427ce9	INFO	Writing 1988 Redis entries (cache:analysis + cache:command:unified)...
+[14:08:43] 2026-04-06T14:08:43.963Z	1cc1ecff-e3c8-4c58-a5ef-cdf0d4427ce9	INFO	Redis: 1988/1988 entries written (analysis+command)
+[14:08:43] 2026-04-06T14:08:43.963Z	1cc1ecff-e3c8-4c58-a5ef-cdf0d4427ce9	INFO	Unified Cache: 359 complete, 635 partial, total=994/1000, redis=1988
+[14:08:43] 2026-04-06T14:08:43.963Z	1cc1ecff-e3c8-4c58-a5ef-cdf0d4427ce9	INFO	Done in 661s
+[14:08:43] END RequestId: 1cc1ecff-e3c8-4c58-a5ef-cdf0d4427ce9
+[14:08:43] REPORT RequestId: 1cc1ecff-e3c8-4c58-a5ef-cdf0d4427ce9	Duration: 660625.49 ms	Billed Duration: 660626 ms	Memory Size: 2048 MB	Max Memory Used: 394 MB
+[14:09:05] 2026-04-06T14:09:05.573Z	d4b53ff6-12ae-4552-9f4d-81d4a7f26751	INFO	GEX (structureService): 994/1000
+[14:09:05] 2026-04-06T14:09:05.576Z	d4b53ff6-12ae-4552-9f4d-81d4a7f26751	INFO	Alpha: 994 scores (DynamoDB write skipped — Vercel cron handles SSR_V46)
+[14:09:05] 2026-04-06T14:09:05.576Z	d4b53ff6-12ae-4552-9f4d-81d4a7f26751	INFO	Step 3: SMA 50/200...
+[14:12:43] START RequestId: f6458154-e134-4ffa-a26b-3a6c16165cc5 Version: $LATEST
+[14:12:43] 2026-04-06T14:12:43.305Z	f6458154-e134-4ffa-a26b-3a6c16165cc5	INFO	SIGNUM Harvest Lambda v8.0 — FMP Earnings + SI% Restore — 2026-04-06T14:12:43.305Z
+[14:12:43] 2026-04-06T14:12:43.305Z	f6458154-e134-4ffa-a26b-3a6c16165cc5	INFO	Step 1: Price snapshot 1000 tickers...
+[14:12:44] 2026-04-06T14:12:44.153Z	f6458154-e134-4ffa-a26b-3a6c16165cc5	INFO	Prices: 994/1000 (priceMap has 994 tickers)
+[14:12:44] 2026-04-06T14:12:44.153Z	f6458154-e134-4ffa-a26b-3a6c16165cc5	INFO	RLSI self-calculation...
+[14:12:44] 2026-04-06T14:12:44.386Z	f6458154-e134-4ffa-a26b-3a6c16165cc5	INFO	RLSI: 57 (NEUTRAL)
+[14:12:44] 2026-04-06T14:12:44.387Z	f6458154-e134-4ffa-a26b-3a6c16165cc5	INFO	Step 2: GEX (structureService mode) 1000 tickers...
+[14:13:35] 2026-04-06T14:13:35.125Z	f6458154-e134-4ffa-a26b-3a6c16165cc5	INFO	GEX (structureService): 994/1000
+[14:13:35] 2026-04-06T14:13:35.127Z	f6458154-e134-4ffa-a26b-3a6c16165cc5	INFO	Alpha: 994 scores (DynamoDB write skipped — Vercel cron handles SSR_V46)
+[14:13:35] 2026-04-06T14:13:35.127Z	f6458154-e134-4ffa-a26b-3a6c16165cc5	INFO	Step 3: SMA 50/200...
+[14:13:36] 2026-04-06T14:13:36.821Z	9614fe7f-4588-4ead-b7f7-01d1dfb9534b	INFO	SMA: 902/994 with both SMA50+200
+[14:13:39] 2026-04-06T14:13:39.744Z	9614fe7f-4588-4ead-b7f7-01d1dfb9534b	INFO	Step 6: Building unified cache for 1000 tickers...
+[14:13:50] 2026-04-06T14:13:50.735Z	9614fe7f-4588-4ead-b7f7-01d1dfb9534b	INFO	Writing 1988 Redis entries (cache:analysis + cache:command:unified)...
+[14:13:51] 2026-04-06T14:13:51.064Z	9614fe7f-4588-4ead-b7f7-01d1dfb9534b	INFO	Redis: 1988/1988 entries written (analysis+command)
+[14:13:51] 2026-04-06T14:13:51.065Z	9614fe7f-4588-4ead-b7f7-01d1dfb9534b	INFO	Unified Cache: 359 complete, 635 partial, total=994/1000, redis=1988
+[14:13:51] 2026-04-06T14:13:51.065Z	9614fe7f-4588-4ead-b7f7-01d1dfb9534b	INFO	Done in 668s
+[14:13:51] END RequestId: 9614fe7f-4588-4ead-b7f7-01d1dfb9534b
+[14:13:51] REPORT RequestId: 9614fe7f-4588-4ead-b7f7-01d1dfb9534b	Duration: 667696.61 ms	Billed Duration: 667697 ms	Memory Size: 2048 MB	Max Memory Used: 374 MB
+[14:17:06] 2026-04-06T14:17:06.220Z	d4b53ff6-12ae-4552-9f4d-81d4a7f26751	INFO	SMA: 906/994 with both SMA50+200
+[14:17:10] 2026-04-06T14:17:10.468Z	d4b53ff6-12ae-4552-9f4d-81d4a7f26751	INFO	Step 6: Building unified cache for 1000 tickers...
+[14:17:26] 2026-04-06T14:17:26.088Z	d4b53ff6-12ae-4552-9f4d-81d4a7f26751	INFO	Writing 1988 Redis entries (cache:analysis + cache:command:unified)...
+[14:17:26] 2026-04-06T14:17:26.417Z	d4b53ff6-12ae-4552-9f4d-81d4a7f26751	INFO	Redis: 1988/1988 entries written (analysis+command)
+[14:17:26] 2026-04-06T14:17:26.417Z	d4b53ff6-12ae-4552-9f4d-81d4a7f26751	INFO	Unified Cache: 359 complete, 635 partial, total=994/1000, redis=1988
+[14:17:26] 2026-04-06T14:17:26.417Z	d4b53ff6-12ae-4552-9f4d-81d4a7f26751	INFO	Done in 583s
+[14:17:26] END RequestId: d4b53ff6-12ae-4552-9f4d-81d4a7f26751
+[14:17:26] REPORT RequestId: d4b53ff6-12ae-4552-9f4d-81d4a7f26751	Duration: 582549.42 ms	Billed Duration: 582942 ms	Memory Size: 2048 MB	Max Memory Used: 367 MB	Init Duration: 392.29 ms
+[14:17:43] START RequestId: fca3a15a-7175-4a3c-bd66-e787e8e56009 Version: $LATEST
+[14:17:43] 2026-04-06T14:17:43.359Z	fca3a15a-7175-4a3c-bd66-e787e8e56009	INFO	SIGNUM Harvest Lambda v8.0 — FMP Earnings + SI% Restore — 2026-04-06T14:17:43.359Z
+[14:17:43] 2026-04-06T14:17:43.359Z	fca3a15a-7175-4a3c-bd66-e787e8e56009	INFO	Step 1: Price snapshot 1000 tickers...
+[14:17:44] 2026-04-06T14:17:44.170Z	fca3a15a-7175-4a3c-bd66-e787e8e56009	INFO	Prices: 994/1000 (priceMap has 994 tickers)
+[14:17:44] 2026-04-06T14:17:44.170Z	fca3a15a-7175-4a3c-bd66-e787e8e56009	INFO	RLSI self-calculation...
+[14:17:44] 2026-04-06T14:17:44.341Z	fca3a15a-7175-4a3c-bd66-e787e8e56009	INFO	RLSI: 58 (NEUTRAL)
+[14:17:44] 2026-04-06T14:17:44.341Z	fca3a15a-7175-4a3c-bd66-e787e8e56009	INFO	Step 2: GEX (structureService mode) 1000 tickers...
+[14:19:01] 2026-04-06T14:19:01.437Z	fca3a15a-7175-4a3c-bd66-e787e8e56009	INFO	GEX (structureService): 994/1000
+[14:19:01] 2026-04-06T14:19:01.439Z	fca3a15a-7175-4a3c-bd66-e787e8e56009	INFO	Alpha: 994 scores (DynamoDB write skipped — Vercel cron handles SSR_V46)
+[14:19:01] 2026-04-06T14:19:01.439Z	fca3a15a-7175-4a3c-bd66-e787e8e56009	INFO	Step 3: SMA 50/200...
+[14:20:35] 2026-04-06T14:20:35.709Z	f6458154-e134-4ffa-a26b-3a6c16165cc5	INFO	SMA: 910/994 with both SMA50+200
+[14:20:38] 2026-04-06T14:20:38.662Z	f6458154-e134-4ffa-a26b-3a6c16165cc5	INFO	Step 6: Building unified cache for 1000 tickers...
+[14:20:48] 2026-04-06T14:20:48.535Z	f6458154-e134-4ffa-a26b-3a6c16165cc5	INFO	Writing 1988 Redis entries (cache:analysis + cache:command:unified)...
+[14:20:48] 2026-04-06T14:20:48.846Z	f6458154-e134-4ffa-a26b-3a6c16165cc5	INFO	Redis: 1988/1988 entries written (analysis+command)
+[14:20:48] 2026-04-06T14:20:48.846Z	f6458154-e134-4ffa-a26b-3a6c16165cc5	INFO	Unified Cache: 359 complete, 635 partial, total=994/1000, redis=1988
+[14:20:48] 2026-04-06T14:20:48.846Z	f6458154-e134-4ffa-a26b-3a6c16165cc5	INFO	Done in 486s
+[14:20:48] END RequestId: f6458154-e134-4ffa-a26b-3a6c16165cc5
+[14:20:48] REPORT RequestId: f6458154-e134-4ffa-a26b-3a6c16165cc5	Duration: 485573.20 ms	Billed Duration: 485574 ms	Memory Size: 2048 MB	Max Memory Used: 394 MB
+[14:22:43] START RequestId: 5225e908-1496-47d3-b901-c76edc32fc2c Version: $LATEST
+[14:22:43] 2026-04-06T14:22:43.323Z	5225e908-1496-47d3-b901-c76edc32fc2c	INFO	SIGNUM Harvest Lambda v8.0 — FMP Earnings + SI% Restore — 2026-04-06T14:22:43.323Z
+[14:22:43] 2026-04-06T14:22:43.326Z	5225e908-1496-47d3-b901-c76edc32fc2c	INFO	Step 1: Price snapshot 1000 tickers...
+[14:22:44] 2026-04-06T14:22:44.247Z	5225e908-1496-47d3-b901-c76edc32fc2c	INFO	Prices: 994/1000 (priceMap has 994 tickers)
+[14:22:44] 2026-04-06T14:22:44.247Z	5225e908-1496-47d3-b901-c76edc32fc2c	INFO	RLSI self-calculation...
+[14:22:44] 2026-04-06T14:22:44.486Z	5225e908-1496-47d3-b901-c76edc32fc2c	INFO	RLSI: 59 (NEUTRAL)
+[14:22:44] 2026-04-06T14:22:44.487Z	5225e908-1496-47d3-b901-c76edc32fc2c	INFO	Step 2: GEX (structureService mode) 1000 tickers...
+[14:23:39] 2026-04-06T14:23:39.796Z	5225e908-1496-47d3-b901-c76edc32fc2c	INFO	GEX (structureService): 994/1000
+[14:23:39] 2026-04-06T14:23:39.798Z	5225e908-1496-47d3-b901-c76edc32fc2c	INFO	Alpha: 994 scores (DynamoDB write skipped — Vercel cron handles SSR_V46)
+[14:23:39] 2026-04-06T14:23:39.798Z	5225e908-1496-47d3-b901-c76edc32fc2c	INFO	Step 3: SMA 50/200...
+[14:26:07] 2026-04-06T14:26:07.006Z	fca3a15a-7175-4a3c-bd66-e787e8e56009	INFO	SMA: 916/994 with both SMA50+200
+[14:26:10] 2026-04-06T14:26:10.511Z	fca3a15a-7175-4a3c-bd66-e787e8e56009	INFO	Step 6: Building unified cache for 1000 tickers...
+[14:26:20] 2026-04-06T14:26:20.699Z	fca3a15a-7175-4a3c-bd66-e787e8e56009	INFO	Writing 1988 Redis entries (cache:analysis + cache:command:unified)...
+[14:26:20] 2026-04-06T14:26:20.947Z	fca3a15a-7175-4a3c-bd66-e787e8e56009	INFO	Redis: 1988/1988 entries written (analysis+command)
+[14:26:20] 2026-04-06T14:26:20.947Z	fca3a15a-7175-4a3c-bd66-e787e8e56009	INFO	Unified Cache: 359 complete, 635 partial, total=994/1000, redis=1988
+[14:26:20] 2026-04-06T14:26:20.947Z	fca3a15a-7175-4a3c-bd66-e787e8e56009	INFO	Done in 518s
+[14:26:20] END RequestId: fca3a15a-7175-4a3c-bd66-e787e8e56009
+[14:26:20] REPORT RequestId: fca3a15a-7175-4a3c-bd66-e787e8e56009	Duration: 517591.63 ms	Billed Duration: 517592 ms	Memory Size: 2048 MB	Max Memory Used: 393 MB
+[14:27:43] START RequestId: 439479d1-8377-46e8-99f2-bf8b81770f64 Version: $LATEST
+[14:27:43] 2026-04-06T14:27:43.256Z	439479d1-8377-46e8-99f2-bf8b81770f64	INFO	SIGNUM Harvest Lambda v8.0 — FMP Earnings + SI% Restore — 2026-04-06T14:27:43.256Z
+[14:27:43] 2026-04-06T14:27:43.256Z	439479d1-8377-46e8-99f2-bf8b81770f64	INFO	Step 1: Price snapshot 1000 tickers...
+[14:27:43] 2026-04-06T14:27:43.936Z	439479d1-8377-46e8-99f2-bf8b81770f64	INFO	Prices: 994/1000 (priceMap has 994 tickers)
+[14:27:43] 2026-04-06T14:27:43.936Z	439479d1-8377-46e8-99f2-bf8b81770f64	INFO	RLSI self-calculation...
+[14:27:44] 2026-04-06T14:27:44.285Z	439479d1-8377-46e8-99f2-bf8b81770f64	INFO	RLSI: 58 (NEUTRAL)
+[14:27:44] 2026-04-06T14:27:44.285Z	439479d1-8377-46e8-99f2-bf8b81770f64	INFO	Step 2: GEX (structureService mode) 1000 tickers...
+[14:28:29] 2026-04-06T14:28:29.922Z	439479d1-8377-46e8-99f2-bf8b81770f64	INFO	GEX (structureService): 994/1000
+[14:28:29] 2026-04-06T14:28:29.924Z	439479d1-8377-46e8-99f2-bf8b81770f64	INFO	Alpha: 994 scores (DynamoDB write skipped — Vercel cron handles SSR_V46)
+[14:28:29] 2026-04-06T14:28:29.924Z	439479d1-8377-46e8-99f2-bf8b81770f64	INFO	Step 3: SMA 50/200...
+[14:29:28] 2026-04-06T14:29:28.715Z	5225e908-1496-47d3-b901-c76edc32fc2c	INFO	SMA: 936/994 with both SMA50+200
+[14:29:32] 2026-04-06T14:29:32.306Z	5225e908-1496-47d3-b901-c76edc32fc2c	INFO	Step 6: Building unified cache for 1000 tickers...
+[14:29:42] 2026-04-06T14:29:42.197Z	5225e908-1496-47d3-b901-c76edc32fc2c	INFO	Writing 1988 Redis entries (cache:analysis + cache:command:unified)...
+[14:29:42] 2026-04-06T14:29:42.492Z	5225e908-1496-47d3-b901-c76edc32fc2c	INFO	Redis: 1988/1988 entries written (analysis+command)
+[14:29:42] 2026-04-06T14:29:42.492Z	5225e908-1496-47d3-b901-c76edc32fc2c	INFO	Unified Cache: 359 complete, 635 partial, total=994/1000, redis=1988
+[14:29:42] 2026-04-06T14:29:42.492Z	5225e908-1496-47d3-b901-c76edc32fc2c	INFO	Done in 419s
+[14:29:42] END RequestId: 5225e908-1496-47d3-b901-c76edc32fc2c
+[14:29:42] REPORT RequestId: 5225e908-1496-47d3-b901-c76edc32fc2c	Duration: 419193.71 ms	Billed Duration: 419194 ms	Memory Size: 2048 MB	Max Memory Used: 394 MB
+[14:32:43] START RequestId: 48adbcc7-b4a7-42e5-91b1-7301c9d94353 Version: $LATEST
+[14:32:43] 2026-04-06T14:32:43.386Z	48adbcc7-b4a7-42e5-91b1-7301c9d94353	INFO	SIGNUM Harvest Lambda v8.0 — FMP Earnings + SI% Restore — 2026-04-06T14:32:43.386Z
+[14:32:43] 2026-04-06T14:32:43.386Z	48adbcc7-b4a7-42e5-91b1-7301c9d94353	INFO	Step 1: Price snapshot 1000 tickers...
+[14:32:44] 2026-04-06T14:32:44.549Z	48adbcc7-b4a7-42e5-91b1-7301c9d94353	INFO	Prices: 994/1000 (priceMap has 994 tickers)
+[14:32:44] 2026-04-06T14:32:44.549Z	48adbcc7-b4a7-42e5-91b1-7301c9d94353	INFO	RLSI self-calculation...
+[14:32:44] 2026-04-06T14:32:44.725Z	48adbcc7-b4a7-42e5-91b1-7301c9d94353	INFO	RLSI: 59 (NEUTRAL)
+[14:32:44] 2026-04-06T14:32:44.725Z	48adbcc7-b4a7-42e5-91b1-7301c9d94353	INFO	Step 2: GEX (structureService mode) 1000 tickers...
+[14:33:47] 2026-04-06T14:33:47.150Z	48adbcc7-b4a7-42e5-91b1-7301c9d94353	INFO	GEX (structureService): 994/1000
+[14:33:47] 2026-04-06T14:33:47.151Z	48adbcc7-b4a7-42e5-91b1-7301c9d94353	INFO	Alpha: 994 scores (DynamoDB write skipped — Vercel cron handles SSR_V46)
+[14:33:47] 2026-04-06T14:33:47.151Z	48adbcc7-b4a7-42e5-91b1-7301c9d94353	INFO	Step 3: SMA 50/200...
+[14:35:02] 2026-04-06T14:35:02.593Z	439479d1-8377-46e8-99f2-bf8b81770f64	INFO	SMA: 924/994 with both SMA50+200
+[14:35:02] 2026-04-06T14:35:02.593Z	439479d1-8377-46e8-99f2-bf8b81770f64	INFO	Step 4: Details for ALL 1000 tickers (FMP analyst + Finnhub earnings + Polygon fund/related)...
+[14:35:11] 2026-04-06T14:35:11.700Z	439479d1-8377-46e8-99f2-bf8b81770f64	INFO	FMP Analyst: 252/1000
+[14:35:11] 2026-04-06T14:35:11.721Z	439479d1-8377-46e8-99f2-bf8b81770f64	INFO	FMP Earnings: 0/0 matched from 0 total events
+[14:35:43] 2026-04-06T14:35:43.092Z	439479d1-8377-46e8-99f2-bf8b81770f64	INFO	Details: analyst=252 earnings=0 fund=1000 related=564
+[14:35:58] 2026-04-06T14:35:58.352Z	439479d1-8377-46e8-99f2-bf8b81770f64	INFO	SI%: 985/1000
+[14:35:58] 2026-04-06T14:35:58.352Z	439479d1-8377-46e8-99f2-bf8b81770f64	INFO	Step 6: Building unified cache for 1000 tickers...
+[14:36:09] 2026-04-06T14:36:09.102Z	439479d1-8377-46e8-99f2-bf8b81770f64	INFO	Writing 1988 Redis entries (cache:analysis + cache:command:unified)...
+[14:36:09] 2026-04-06T14:36:09.365Z	439479d1-8377-46e8-99f2-bf8b81770f64	INFO	Redis: 1988/1988 entries written (analysis+command)
+[14:36:09] 2026-04-06T14:36:09.365Z	439479d1-8377-46e8-99f2-bf8b81770f64	INFO	Unified Cache: 633 complete, 361 partial, total=994/1000, redis=1988
+[14:36:09] 2026-04-06T14:36:09.365Z	439479d1-8377-46e8-99f2-bf8b81770f64	INFO	Done in 506s
+[14:36:09] END RequestId: 439479d1-8377-46e8-99f2-bf8b81770f64
+[14:36:09] REPORT RequestId: 439479d1-8377-46e8-99f2-bf8b81770f64	Duration: 506113.39 ms	Billed Duration: 506114 ms	Memory Size: 2048 MB	Max Memory Used: 393 MB
+[14:37:43] START RequestId: cbb74a68-9dea-4a08-85b4-25e9a13af7b2 Version: $LATEST
+[14:37:43] 2026-04-06T14:37:43.425Z	cbb74a68-9dea-4a08-85b4-25e9a13af7b2	INFO	SIGNUM Harvest Lambda v8.0 — FMP Earnings + SI% Restore — 2026-04-06T14:37:43.425Z
+[14:37:43] 2026-04-06T14:37:43.427Z	cbb74a68-9dea-4a08-85b4-25e9a13af7b2	INFO	Step 1: Price snapshot 1000 tickers...
+[14:37:44] 2026-04-06T14:37:44.131Z	cbb74a68-9dea-4a08-85b4-25e9a13af7b2	INFO	Prices: 994/1000 (priceMap has 994 tickers)
+[14:37:44] 2026-04-06T14:37:44.132Z	cbb74a68-9dea-4a08-85b4-25e9a13af7b2	INFO	RLSI self-calculation...
+[14:37:44] 2026-04-06T14:37:44.236Z	cbb74a68-9dea-4a08-85b4-25e9a13af7b2	INFO	RLSI: 58 (NEUTRAL)
+[14:37:44] 2026-04-06T14:37:44.237Z	cbb74a68-9dea-4a08-85b4-25e9a13af7b2	INFO	Step 2: GEX (structureService mode) 1000 tickers...
+[14:38:38] 2026-04-06T14:38:38.920Z	cbb74a68-9dea-4a08-85b4-25e9a13af7b2	INFO	GEX (structureService): 994/1000
+[14:38:38] 2026-04-06T14:38:38.922Z	cbb74a68-9dea-4a08-85b4-25e9a13af7b2	INFO	Alpha: 994 scores (DynamoDB write skipped — Vercel cron handles SSR_V46)
+[14:38:38] 2026-04-06T14:38:38.922Z	cbb74a68-9dea-4a08-85b4-25e9a13af7b2	INFO	Step 3: SMA 50/200...
+[14:39:37] 2026-04-06T14:39:37.557Z	48adbcc7-b4a7-42e5-91b1-7301c9d94353	INFO	SMA: 927/994 with both SMA50+200
+[14:39:37] 2026-04-06T14:39:37.558Z	48adbcc7-b4a7-42e5-91b1-7301c9d94353	INFO	Step 4: Details for ALL 1000 tickers (FMP analyst + Finnhub earnings + Polygon fund/related)...
+[14:39:41] 2026-04-06T14:39:41.782Z	48adbcc7-b4a7-42e5-91b1-7301c9d94353	INFO	FMP Analyst: 252/1000
+[14:39:41] 2026-04-06T14:39:41.794Z	48adbcc7-b4a7-42e5-91b1-7301c9d94353	INFO	FMP Earnings: 0/0 matched from 0 total events
+[14:40:30] 2026-04-06T14:40:30.067Z	48adbcc7-b4a7-42e5-91b1-7301c9d94353	INFO	Details: analyst=252 earnings=0 fund=1000 related=564
+[14:40:49] 2026-04-06T14:40:49.355Z	48adbcc7-b4a7-42e5-91b1-7301c9d94353	INFO	SI%: 985/1000
+[14:40:49] 2026-04-06T14:40:49.355Z	48adbcc7-b4a7-42e5-91b1-7301c9d94353	INFO	Step 6: Building unified cache for 1000 tickers...
+[14:41:01] 2026-04-06T14:41:01.631Z	48adbcc7-b4a7-42e5-91b1-7301c9d94353	INFO	Writing 1988 Redis entries (cache:analysis + cache:command:unified)...
+[14:41:01] 2026-04-06T14:41:01.937Z	48adbcc7-b4a7-42e5-91b1-7301c9d94353	INFO	Redis: 1988/1988 entries written (analysis+command)
+[14:41:01] 2026-04-06T14:41:01.937Z	48adbcc7-b4a7-42e5-91b1-7301c9d94353	INFO	Unified Cache: 633 complete, 361 partial, total=994/1000, redis=1988
+[14:41:01] 2026-04-06T14:41:01.937Z	48adbcc7-b4a7-42e5-91b1-7301c9d94353	INFO	Done in 499s
+[14:41:01] END RequestId: 48adbcc7-b4a7-42e5-91b1-7301c9d94353
+[14:41:01] REPORT RequestId: 48adbcc7-b4a7-42e5-91b1-7301c9d94353	Duration: 498587.33 ms	Billed Duration: 498588 ms	Memory Size: 2048 MB	Max Memory Used: 394 MB
+[14:42:43] START RequestId: 6a7beb37-0dc3-4682-adae-8b4443cbb773 Version: $LATEST
+[14:42:43] 2026-04-06T14:42:43.426Z	6a7beb37-0dc3-4682-adae-8b4443cbb773	INFO	SIGNUM Harvest Lambda v8.0 — FMP Earnings + SI% Restore — 2026-04-06T14:42:43.426Z
+[14:42:43] 2026-04-06T14:42:43.426Z	6a7beb37-0dc3-4682-adae-8b4443cbb773	INFO	Step 1: Price snapshot 1000 tickers...
+[14:42:44] 2026-04-06T14:42:44.399Z	6a7beb37-0dc3-4682-adae-8b4443cbb773	INFO	Prices: 994/1000 (priceMap has 994 tickers)
+[14:42:44] 2026-04-06T14:42:44.399Z	6a7beb37-0dc3-4682-adae-8b4443cbb773	INFO	RLSI self-calculation...
+[14:42:44] 2026-04-06T14:42:44.650Z	6a7beb37-0dc3-4682-adae-8b4443cbb773	INFO	RLSI: 58 (NEUTRAL)
+[14:42:44] 2026-04-06T14:42:44.651Z	6a7beb37-0dc3-4682-adae-8b4443cbb773	INFO	Step 2: GEX (structureService mode) 1000 tickers...
+[14:43:28] 2026-04-06T14:43:28.422Z	6a7beb37-0dc3-4682-adae-8b4443cbb773	INFO	GEX (structureService): 994/1000
+[14:43:28] 2026-04-06T14:43:28.424Z	6a7beb37-0dc3-4682-adae-8b4443cbb773	INFO	Alpha: 994 scores (DynamoDB write skipped — Vercel cron handles SSR_V46)
+[14:43:28] 2026-04-06T14:43:28.424Z	6a7beb37-0dc3-4682-adae-8b4443cbb773	INFO	Step 3: SMA 50/200...
+[14:44:14] 2026-04-06T14:44:14.104Z	cbb74a68-9dea-4a08-85b4-25e9a13af7b2	INFO	SMA: 935/994 with both SMA50+200
+[14:44:17] 2026-04-06T14:44:17.482Z	cbb74a68-9dea-4a08-85b4-25e9a13af7b2	INFO	Step 6: Building unified cache for 1000 tickers...
+[14:44:27] 2026-04-06T14:44:27.288Z	cbb74a68-9dea-4a08-85b4-25e9a13af7b2	INFO	Writing 1988 Redis entries (cache:analysis + cache:command:unified)...
+[14:44:27] 2026-04-06T14:44:27.600Z	cbb74a68-9dea-4a08-85b4-25e9a13af7b2	INFO	Redis: 1988/1988 entries written (analysis+command)
+[14:44:27] 2026-04-06T14:44:27.600Z	cbb74a68-9dea-4a08-85b4-25e9a13af7b2	INFO	Unified Cache: 653 complete, 341 partial, total=994/1000, redis=1988
+[14:44:27] 2026-04-06T14:44:27.600Z	cbb74a68-9dea-4a08-85b4-25e9a13af7b2	INFO	Done in 404s
+[14:44:27] END RequestId: cbb74a68-9dea-4a08-85b4-25e9a13af7b2
+[14:44:27] REPORT RequestId: cbb74a68-9dea-4a08-85b4-25e9a13af7b2	Duration: 404192.05 ms	Billed Duration: 404193 ms	Memory Size: 2048 MB	Max Memory Used: 393 MB
+[14:47:43] START RequestId: d2181824-9b59-47d7-9223-f518fd480882 Version: $LATEST
+[14:47:43] 2026-04-06T14:47:43.324Z	d2181824-9b59-47d7-9223-f518fd480882	INFO	SIGNUM Harvest Lambda v8.0 — FMP Earnings + SI% Restore — 2026-04-06T14:47:43.324Z
+[14:47:43] 2026-04-06T14:47:43.324Z	d2181824-9b59-47d7-9223-f518fd480882	INFO	Step 1: Price snapshot 1000 tickers...
+[14:47:44] 2026-04-06T14:47:44.473Z	d2181824-9b59-47d7-9223-f518fd480882	INFO	Prices: 994/1000 (priceMap has 994 tickers)
+[14:47:44] 2026-04-06T14:47:44.473Z	d2181824-9b59-47d7-9223-f518fd480882	INFO	RLSI self-calculation...
+[14:47:44] 2026-04-06T14:47:44.624Z	d2181824-9b59-47d7-9223-f518fd480882	INFO	RLSI: 58 (NEUTRAL)
+[14:47:44] 2026-04-06T14:47:44.624Z	d2181824-9b59-47d7-9223-f518fd480882	INFO	Step 2: GEX (structureService mode) 1000 tickers...
+[14:48:40] 2026-04-06T14:48:40.035Z	d2181824-9b59-47d7-9223-f518fd480882	INFO	GEX (structureService): 994/1000
+[14:48:40] 2026-04-06T14:48:40.037Z	d2181824-9b59-47d7-9223-f518fd480882	INFO	Alpha: 994 scores (DynamoDB write skipped — Vercel cron handles SSR_V46)
+[14:48:40] 2026-04-06T14:48:40.037Z	d2181824-9b59-47d7-9223-f518fd480882	INFO	Step 3: SMA 50/200...
+[14:49:11] 2026-04-06T14:49:11.668Z	6a7beb37-0dc3-4682-adae-8b4443cbb773	INFO	SMA: 942/994 with both SMA50+200
+[14:49:15] 2026-04-06T14:49:15.347Z	6a7beb37-0dc3-4682-adae-8b4443cbb773	INFO	Step 6: Building unified cache for 1000 tickers...
+[14:49:25] 2026-04-06T14:49:25.251Z	6a7beb37-0dc3-4682-adae-8b4443cbb773	INFO	Writing 1988 Redis entries (cache:analysis + cache:command:unified)...
+[14:49:25] 2026-04-06T14:49:25.557Z	6a7beb37-0dc3-4682-adae-8b4443cbb773	INFO	Redis: 1988/1988 entries written (analysis+command)
+[14:49:25] 2026-04-06T14:49:25.557Z	6a7beb37-0dc3-4682-adae-8b4443cbb773	INFO	Unified Cache: 653 complete, 341 partial, total=994/1000, redis=1988
+[14:49:25] 2026-04-06T14:49:25.557Z	6a7beb37-0dc3-4682-adae-8b4443cbb773	INFO	Done in 402s
+[14:49:25] END RequestId: 6a7beb37-0dc3-4682-adae-8b4443cbb773
+[14:49:25] REPORT RequestId: 6a7beb37-0dc3-4682-adae-8b4443cbb773	Duration: 402148.29 ms	Billed Duration: 402149 ms	Memory Size: 2048 MB	Max Memory Used: 394 MB
+[14:52:43] START RequestId: 7aec23ef-8817-497e-998b-bde845d6fc68 Version: $LATEST
+[14:52:43] 2026-04-06T14:52:43.300Z	7aec23ef-8817-497e-998b-bde845d6fc68	INFO	SIGNUM Harvest Lambda v8.0 — FMP Earnings + SI% Restore — 2026-04-06T14:52:43.300Z
+[14:52:43] 2026-04-06T14:52:43.300Z	7aec23ef-8817-497e-998b-bde845d6fc68	INFO	Step 1: Price snapshot 1000 tickers...
+[14:52:43] 2026-04-06T14:52:43.905Z	7aec23ef-8817-497e-998b-bde845d6fc68	INFO	Prices: 994/1000 (priceMap has 994 tickers)
+[14:52:43] 2026-04-06T14:52:43.905Z	7aec23ef-8817-497e-998b-bde845d6fc68	INFO	RLSI self-calculation...
+[14:52:44] 2026-04-06T14:52:44.078Z	7aec23ef-8817-497e-998b-bde845d6fc68	INFO	RLSI: 58 (NEUTRAL)
+[14:52:44] 2026-04-06T14:52:44.078Z	7aec23ef-8817-497e-998b-bde845d6fc68	INFO	Step 2: GEX (structureService mode) 1000 tickers...
+[14:53:28] 2026-04-06T14:53:28.515Z	7aec23ef-8817-497e-998b-bde845d6fc68	INFO	GEX (structureService): 994/1000
+[14:53:28] 2026-04-06T14:53:28.517Z	7aec23ef-8817-497e-998b-bde845d6fc68	INFO	Alpha: 994 scores (DynamoDB write skipped — Vercel cron handles SSR_V46)
+[14:53:28] 2026-04-06T14:53:28.517Z	7aec23ef-8817-497e-998b-bde845d6fc68	INFO	Step 3: SMA 50/200...
+[14:53:58] 2026-04-06T14:53:58.624Z	d2181824-9b59-47d7-9223-f518fd480882	INFO	SMA: 945/994 with both SMA50+200
+[14:54:02] 2026-04-06T14:54:02.113Z	d2181824-9b59-47d7-9223-f518fd480882	INFO	Step 6: Building unified cache for 1000 tickers...
+[14:54:12] 2026-04-06T14:54:12.139Z	d2181824-9b59-47d7-9223-f518fd480882	INFO	Writing 1988 Redis entries (cache:analysis + cache:command:unified)...
+[14:54:12] 2026-04-06T14:54:12.436Z	d2181824-9b59-47d7-9223-f518fd480882	INFO	Redis: 1988/1988 entries written (analysis+command)
+[14:54:12] 2026-04-06T14:54:12.436Z	d2181824-9b59-47d7-9223-f518fd480882	INFO	Unified Cache: 653 complete, 341 partial, total=994/1000, redis=1988
+[14:54:12] 2026-04-06T14:54:12.436Z	d2181824-9b59-47d7-9223-f518fd480882	INFO	Done in 389s

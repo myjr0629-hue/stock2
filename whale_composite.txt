@@ -1,0 +1,11 @@
+=== TIMING ===
+2026-04-06T17:54:12.262Z	8a11fcbc-ecee-4b80-9df0-4d0fb8a6eb3b	INFO	Done in 88s
+
+=== M7 WHALE (Composite) ===
+TSLA: whale=65 conf=MED | gex=9M dp=74.9% np=$-204M
+NVDA: whale=65 conf=MED | gex=-174M dp=63.5% np=$2M
+AAPL: whale=65 conf=HIGH | gex=-39M dp=74.3% np=$9M
+MSFT: whale=65 conf=HIGH | gex=-15M dp=71.4% np=$5M
+AMZN: whale=60 conf=HIGH | gex=-46M dp=55.5% np=$8M
+META: whale=48 conf=LOW | gex=-6M dp=70.4% np=$-1M
+GOOG: whale=55 conf=MED | gex=-16M dp=56.9% np=$4M

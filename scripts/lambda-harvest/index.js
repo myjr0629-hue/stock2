@@ -82,7 +82,18 @@ async function redisPipeline(commands) {
       const req = https.request(options, (res) => {
         let data = '';
         res.on('data', chunk => data += chunk);
-        res.on('end', () => resolve(commands.length));
+        res.on('end', () => {
+          try {
+            const parsed = JSON.parse(data);
+            // If any command is a GET, return parsed results for data retrieval
+            const hasGet = commands.some(c => c[0] === 'GET');
+            if (hasGet) {
+              resolve(parsed.map(r => r.result));
+            } else {
+              resolve(commands.length);
+            }
+          } catch { resolve(commands.length); }
+        });
       });
       req.on('error', () => resolve(0));
       req.setTimeout(5000, () => { req.destroy(); resolve(0); });
@@ -339,7 +350,7 @@ async function harvestPrices() {
     const p = t.lastTrade?.p || t.day?.c || t.prevDay?.c || 0;
     const ch = t.todaysChangePerc || 0;
     priceMap[t.ticker] = p;
-    snapshotMap[t.ticker] = { changePct:ch, volume:t.day?.v||0, price:p };
+    snapshotMap[t.ticker] = { changePct:ch, volume:t.day?.v||0, price:p, vwap:t.day?.vw||0 };
     if (us.has(t.ticker)) {
       items.push({ ticker:t.ticker, date:today, qualityTier:'LIVE', changePct:Math.round(ch*100)/100, open:t.day?.o||0, high:t.day?.h||0, low:t.day?.l||0, close:t.day?.c||p, volume:t.day?.v||0, vwap:t.day?.vw||0, gex:0, pcr:0, alphaScore:0 });
     }
@@ -838,26 +849,29 @@ async function harvestDetails() {
   console.log('Details: analyst='+analystOk+' earnings='+earningsOk+' fund='+fundOk+' related='+relOk);
   
   // === 4e: Polygon Short Interest + Float (SI%) — daily batch ===
+  // [FIX 2026-04-07] settlement_date.gte + /stocks/vX/float for accurate SI%
   let siOk = 0;
   for (let i = 0; i < UNIVERSE_500.length; i += 10) {
     const batch = UNIVERSE_500.slice(i, i+10);
     await Promise.all(batch.map(async (ticker) => {
       try {
         const [siData, floatData] = await Promise.all([
-          httpsGet('https://api.polygon.io/stocks/v1/short-interest?ticker='+ticker+'&limit=2&order=desc&apiKey='+POLYGON_KEY, 5000).catch(()=>null),
-          httpsGet('https://api.polygon.io/v3/reference/tickers/'+ticker+'?apiKey='+POLYGON_KEY, 5000).catch(()=>null),
+          httpsGet('https://api.polygon.io/stocks/v1/short-interest?ticker='+ticker+'&settlement_date.gte=2024-01-01&limit=2&order=desc&sort=settlement_date&apiKey='+POLYGON_KEY, 8000).catch(()=>null),
+          httpsGet('https://api.polygon.io/stocks/vX/float?ticker='+ticker+'&apiKey='+POLYGON_KEY, 8000).catch(()=>null),
         ]);
         const siResults = siData?.results || [];
-        const floatShares = floatData?.results?.share_class_shares_outstanding || floatData?.results?.weighted_shares_outstanding || 0;
+        // Sort desc by settlement_date (API may not respect order param consistently)
+        siResults.sort((a,b) => (b.settlement_date||'').localeCompare(a.settlement_date||''));
+        const floatShares = floatData?.results?.[0]?.free_float || 0;
         if (siResults.length > 0 && floatShares > 0) {
           const siPercent = Math.round((siResults[0].short_interest / floatShares) * 1000) / 10;
-          const daysToCover = Math.round((siResults[0].short_interest / (floatData?.results?.weighted_shares_outstanding || 1)) * 10) / 10;
+          const daysToCover = siResults[0].days_to_cover || 0;
           let siChange = 0;
           if (siResults.length >= 2) {
             const prevSi = Math.round((siResults[1].short_interest / floatShares) * 1000) / 10;
             siChange = Math.round((siPercent - prevSi) * 10) / 10;
           }
-          await client.send(new PutCommand({ TableName:'signum-pattern-db', Item:{ pattern:'SI:'+ticker, timestamp:Date.now(), siPercent, daysToCover, siChange, floatShares, shortInterest:siResults[0].short_interest }})).catch(()=>{});
+          await client.send(new PutCommand({ TableName:'signum-pattern-db', Item:{ pattern:'SI:'+ticker, timestamp:Date.now(), siPercent, daysToCover, siChange, floatShares, shortInterest:siResults[0].short_interest, settlementDate:siResults[0].settlement_date||null }})).catch(()=>{});
           siOk++;
         }
       } catch {}
@@ -881,13 +895,72 @@ async function updateAlphaScores(snapshotMap, gexMap) {
   return items.length;
 }
 
+// ====== Step 5.5: RSI + Daily Bars (sparkline, return3d, relVol) ======
+// Same Polygon endpoints as Vercel watchlistBatchService.getStockDataLight()
+async function harvestRsiAndDailyBars(universe) {
+  console.log('Step 5.5: RSI + Daily Bars for ' + universe.length + ' tickers...');
+  const rsiMap = {};
+  const dailyBarsMap = {};
+  const to = new Date().toISOString().slice(0, 10);
+  const fromDate = new Date(Date.now() - 25 * 86400000).toISOString().slice(0, 10); // 25 days for sparkline(20) + return3d(4)
+  
+  for (let i = 0; i < universe.length; i += 50) {
+    const batch = universe.slice(i, i + 50);
+    await Promise.all(batch.map(async (ticker) => {
+      // RSI: /v1/indicators/rsi/{ticker}?timespan=day&window=14&limit=1
+      try {
+        const rsiUrl = 'https://api.polygon.io/v1/indicators/rsi/' + ticker + '?timespan=day&window=14&limit=1&apiKey=' + POLYGON_KEY;
+        const rsiData = await httpsGet(rsiUrl, 5000);
+        if (rsiData?.results?.values?.[0]?.value) {
+          rsiMap[ticker] = Math.round(rsiData.results.values[0].value * 100) / 100;
+        }
+      } catch {}
+      
+      // Daily Bars: /v2/aggs/ticker/{ticker}/range/1/day/{from}/{to}
+      try {
+        const aggUrl = 'https://api.polygon.io/v2/aggs/ticker/' + ticker + '/range/1/day/' + fromDate + '/' + to + '?limit=30&adjusted=true&sort=asc&apiKey=' + POLYGON_KEY;
+        const aggData = await httpsGet(aggUrl, 5000);
+        if (aggData?.results?.length > 0) {
+          dailyBarsMap[ticker] = aggData.results.map(r => ({ close: r.c, volume: r.v || 0 }));
+        }
+      } catch {}
+    }));
+  }
+  
+  console.log('RSI: ' + Object.keys(rsiMap).length + ', DailyBars: ' + Object.keys(dailyBarsMap).length);
+  return { rsiMap, dailyBarsMap };
+}
+
 // ====== [v7 NEW] Step 6: Build Unified Cache ======
-// Combines ALL data from Steps 1-5 into complete unified objects
+// Combines ALL data from Steps 1-5.5 into complete unified objects
 // Saves to signum-unified-cache for instant Vercel reads
-async function buildUnifiedCache(priceMap, gexMap, optionsCache, smaMap, detailsMap) {
+async function buildUnifiedCache(priceMap, gexMap, optionsCache, smaMap, detailsMap, snapshotMap, rsiMap, dailyBarsMap) {
   console.log('Step 6: Building unified cache for '+UNIVERSE_500.length+' tickers...');
   let ok = 0, partial = 0;
   const redisBatch = []; // [v8] Collect Redis cache:analysis commands
+  
+  // [v8] Pre-fetch darkPool + blockTrades from flow-harvest Redis (rt-metrics:{TICKER})
+  const darkPoolMap = {};
+  const blockTradesMap = {};
+  for (let i = 0; i < UNIVERSE_500.length; i += 20) {
+    const dpBatch = UNIVERSE_500.slice(i, i + 20);
+    try {
+      const getCmds = dpBatch.map(t => ['GET', 'rt-metrics:' + t]);
+      const results = await redisPipeline(getCmds);
+      if (Array.isArray(results)) {
+        results.forEach((r, idx) => {
+          if (r) {
+            try {
+              const parsed = typeof r === 'string' ? JSON.parse(r) : r;
+              darkPoolMap[dpBatch[idx]] = parsed?.darkPool?.percent || 0;
+              blockTradesMap[dpBatch[idx]] = parsed?.blockTrade?.count || 0;
+            } catch { darkPoolMap[dpBatch[idx]] = 0; blockTradesMap[dpBatch[idx]] = 0; }
+          }
+        });
+      }
+    } catch {}
+  }
+  console.log('DarkPool pre-fetch: ' + Object.keys(darkPoolMap).length + ' tickers');
   
   for (let i = 0; i < UNIVERSE_500.length; i += 10) {
     const batch = UNIVERSE_500.slice(i, i+10);
@@ -1035,8 +1108,11 @@ async function buildUnifiedCache(priceMap, gexMap, optionsCache, smaMap, details
         
         // === Preserve existing data from DynamoDB if current run doesn't have it ===
         // Prevents extended-hours cron from wiping out regular-hours data
+        // [FIX 2026-04-07] Also preserve fundamentals/analyst/earnings/related when current run returns null
         let prevSma = null, prevStructure = null, prevVolatility = null;
-        if (!sma || !structure || !gd) {
+        let prevFundamentals = null, prevAnalyst = null, prevEarnings = null, prevRelated = null;
+        const needsPreserve = !sma || !structure || !gd || !dt.fundamentals?.score || !dt.analyst || !dt.earnings || !dt.related;
+        if (needsPreserve) {
           try {
             const existing = await client.send(new GetCommand({ TableName:'signum-unified-cache', Key:{pk:ticker} }));
             if (existing.Item?.data) {
@@ -1045,19 +1121,28 @@ async function buildUnifiedCache(priceMap, gexMap, optionsCache, smaMap, details
               // CRITICAL: Preserve volatility when no fresh GEX data (extended hours)
               // Prevents overwriting accurate regular-hours data with gex=0, regimeScore=0
               if (!gd && existing.Item.data.volatility) prevVolatility = existing.Item.data.volatility;
+              // Preserve fundamentals when current run failed (score=null → keep previous good data)
+              if ((!dt.fundamentals || dt.fundamentals.score === null) && existing.Item.data.fundamentals?.score !== null) {
+                prevFundamentals = existing.Item.data.fundamentals;
+              }
+              if (!dt.analyst && existing.Item.data.analyst) prevAnalyst = existing.Item.data.analyst;
+              if (!dt.earnings && existing.Item.data.earnings) prevEarnings = existing.Item.data.earnings;
+              if (!dt.related && existing.Item.data.related) prevRelated = existing.Item.data.related;
             }
           } catch {}
         }
         
         // === Assemble unified data ===
+        // Use current data if valid, otherwise fall back to preserved DynamoDB data
+        const effectiveFundamentals = (dt.fundamentals && dt.fundamentals.score !== null) ? dt.fundamentals : (prevFundamentals || dt.fundamentals || null);
         const data = {
           timestamp: Date.now(),
           structure: structure || prevStructure,
-          analyst: dt.analyst || null,
-          fundamentals: dt.fundamentals || null,
-          earnings: dt.earnings || null,
+          analyst: dt.analyst || prevAnalyst || null,
+          fundamentals: effectiveFundamentals,
+          earnings: dt.earnings || prevEarnings || null,
           sma: sma || prevSma,
-          related: dt.related || null,
+          related: dt.related || prevRelated || null,
           volatility: volatility || prevVolatility,
           squeeze,
           institutional,
@@ -1085,11 +1170,52 @@ async function buildUnifiedCache(priceMap, gexMap, optionsCache, smaMap, details
           
           // [v8] Build cache:analysis entry for Redis (matching AnalysisCacheEntry type)
           if (structure) {
+            // --- Compute REAL alpha score ---
+            const snap = snapshotMap?.[ticker] || {};
+            const alphaRaw = computeAlphaScore(snap, gd || null);
+            const alphaGrade = alphaRaw >= 80 ? 'S' : alphaRaw >= 65 ? 'A' : alphaRaw >= 50 ? 'B' : alphaRaw >= 35 ? 'C' : 'D';
+            const alphaAction = alphaRaw >= 65 ? 'BUY' : alphaRaw >= 50 ? 'HOLD' : alphaRaw >= 35 ? 'WATCH' : 'AVOID';
+            const alphaTriggers = [];
+            if (snap.changePct > 3) alphaTriggers.push('MOMENTUM_SURGE');
+            if (snap.changePct < -3) alphaTriggers.push('SELL_PRESSURE');
+            if (gd?.gammaRegime === 'POSITIVE') alphaTriggers.push('LONG_GAMMA');
+            if (gd?.gammaRegime === 'NEGATIVE') alphaTriggers.push('SHORT_GAMMA');
+            if (gd?.pcr > 1.3) alphaTriggers.push('HIGH_PCR');
+            if (gd?.pcr < 0.7) alphaTriggers.push('LOW_PCR');
+            if (snap.volume > 50000000) alphaTriggers.push('HIGH_VOLUME');
+            
+            // --- Compute ivSkew from callWall/putFloor (matching frontend computeIVSkew) ---
+            const cw = structure.levels?.callWall || 0;
+            const pf = structure.levels?.putFloor || 0;
+            const ivSkew = (cw > 0 && pf > 0 && price > 0) ? Math.round((cw - pf) / price * 10000) / 100 : null;
+            
+            // --- Compute impliedMovePct from callWall-putFloor spread ---
+            const impliedMovePct = (cw > 0 && pf > 0 && price > 0) ? Math.round((cw - pf) / price * 10000) / 100 : null;
+            
+            // --- Compute REAL vwapDist ---
+            const snapVwap = snap.vwap || 0;
+            const vwapDist = snapVwap > 0 ? Math.round(((price - snapVwap) / snapVwap) * 10000) / 100 : null;
+            
+            // --- Read darkPoolPct from pre-fetched darkPoolMap ---
+            let darkPoolPct = darkPoolMap[ticker] || 0;
+            
             const analysisEntry = {
               ticker,
               timestamp: Date.now(),
-              alphaSnapshot: { score: 0, grade: 'N/A', action: 'HOLD', confidence: 0, triggers: [], engineVersion: 'lambda-v8', capturedAt: new Date().toISOString() },
-              rsi: null, return3d: null, sparkline: [], relVol: null,
+              alphaSnapshot: {
+                score: alphaRaw,
+                grade: alphaGrade,
+                action: alphaAction,
+                actionKR: alphaAction === 'BUY' ? '매수' : alphaAction === 'HOLD' ? '관망' : alphaAction === 'WATCH' ? '주의' : '회피',
+                confidence: Math.min(100, Math.max(0, Math.abs(alphaRaw - 50) * 2)),
+                triggers: alphaTriggers,
+                engineVersion: 'lambda-v8',
+                capturedAt: new Date().toISOString(),
+              },
+              rsi: rsiMap?.[ticker] ?? null,
+              return3d: (() => { const db = dailyBarsMap?.[ticker]; if (!db || db.length < 4) return null; const r = db.slice(-4); return Math.round(((r[r.length-1].close - r[0].close) / r[0].close) * 10000) / 100; })(),
+              sparkline: dailyBarsMap?.[ticker]?.slice(-20).map(d => d.close) || [],
+              relVol: (() => { const db = dailyBarsMap?.[ticker]; if (!db || db.length < 2) return null; const lv = db[db.length-1].volume; const pv = db[db.length-2].volume; return pv > 0 ? Math.round((lv/pv)*100)/100 : null; })(),
               expiration: structure.expiration || null,
               maxPain: structure.maxPain || null,
               gex: structure.netGex || null,
@@ -1100,9 +1226,53 @@ async function buildUnifiedCache(priceMap, gexMap, optionsCache, smaMap, details
               gammaFlipLevel: structure.gammaFlipLevel || null,
               squeezeScore: structure.squeezeScore || null,
               iv: structure.atmIv || null,
-              whaleIndex: 0, whaleConfidence: 'NONE',
-              darkPoolPct: 0, netPremium: structure.netPremium || null,
-              vwapDist: null, volume: null, ivSkew: null, impliedMovePct: null,
+              whaleIndex: (() => {
+                // Composite Whale Index: GEX(25%) + DarkPool(25%) + BlockTrades(25%) + NetPremium(25%)
+                let score = 0;
+                // 1. GEX component (0-25): higher abs GEX = more institutional hedging
+                const absGex = Math.abs(structure.netGex || 0);
+                if (absGex > 50000000) score += 25;
+                else if (absGex > 10000000) score += 20;
+                else if (absGex > 1000000) score += 15;
+                else if (absGex > 100000) score += 8;
+                // 2. DarkPool component (0-25): higher DP% = more institutional trading
+                const dp = darkPoolPct || 0;
+                if (dp >= 60) score += 25;
+                else if (dp >= 45) score += 20;
+                else if (dp >= 30) score += 12;
+                else if (dp > 0) score += 5;
+                // 3. BlockTrades component (0-25): more blocks = whale activity
+                const bt = blockTradesMap[ticker] || 0;
+                if (bt >= 10) score += 25;
+                else if (bt >= 5) score += 20;
+                else if (bt >= 2) score += 15;
+                else if (bt >= 1) score += 8;
+                // 4. NetPremium component (0-25): larger abs premium flow = institutional conviction
+                const absNp = Math.abs(structure.netPremium || 0);
+                if (absNp > 10000000) score += 25;
+                else if (absNp > 5000000) score += 20;
+                else if (absNp > 1000000) score += 15;
+                else if (absNp > 100000) score += 8;
+                return Math.min(100, score);
+              })(),
+              whaleConfidence: (() => {
+                const dp = darkPoolPct || 0;
+                const bt = blockTradesMap[ticker] || 0;
+                const absNp = Math.abs(structure.netPremium || 0);
+                // HIGH: multiple strong signals, MED: some signals, LOW: weak
+                let signals = 0;
+                if (dp >= 50) signals++;
+                if (bt >= 3) signals++;
+                if (absNp > 5000000) signals++;
+                if (Math.abs(structure.netGex || 0) > 10000000) signals++;
+                return signals >= 3 ? 'HIGH' : signals >= 2 ? 'MED' : signals >= 1 ? 'LOW' : 'NONE';
+              })(),
+              darkPoolPct: darkPoolPct,
+              netPremium: structure.netPremium || null,
+              vwapDist: vwapDist,
+              volume: snap.volume || null,
+              ivSkew: ivSkew,
+              impliedMovePct: impliedMovePct,
             };
             redisBatch.push(['SET', 'cache:analysis:' + ticker, JSON.stringify(analysisEntry), 'EX', String(REDIS_TTL)]);
           }
@@ -1429,23 +1599,24 @@ exports.handler = async (event) => {
       }
       
       // 9. Short Squeeze (Polygon short volume + short interest + float)
+      // [FIX 2026-04-07] settlement_date.gte + /stocks/vX/float (matching Step 4e fix)
       let squeeze = null;
       try {
         const [svData, siData2, floatData2] = await Promise.all([
-          httpsGet('https://api.polygon.io/stocks/v1/short-volume?ticker='+ticker+'&limit=1&apiKey='+POLYGON_KEY, 5000).catch(()=>null),
-          httpsGet('https://api.polygon.io/stocks/v1/short-interest?ticker='+ticker+'&limit=2&order=desc&apiKey='+POLYGON_KEY, 5000).catch(()=>null),
-          httpsGet('https://api.polygon.io/v3/reference/tickers/'+ticker+'?apiKey='+POLYGON_KEY, 5000).catch(()=>null),
+          httpsGet('https://api.polygon.io/stocks/v1/short-volume?ticker='+ticker+'&limit=1&apiKey='+POLYGON_KEY, 8000).catch(()=>null),
+          httpsGet('https://api.polygon.io/stocks/v1/short-interest?ticker='+ticker+'&settlement_date.gte=2024-01-01&limit=2&order=desc&sort=settlement_date&apiKey='+POLYGON_KEY, 8000).catch(()=>null),
+          httpsGet('https://api.polygon.io/stocks/vX/float?ticker='+ticker+'&apiKey='+POLYGON_KEY, 8000).catch(()=>null),
         ]);
         const svResult = svData?.results?.[0];
         const shortVol = svResult?.short_volume || 0;
         const totalVol = svResult?.total_volume || 1;
         const shortVolPct = Math.round((shortVol/totalVol)*1000)/10;
         let siPercent = 0, daysToCover = 0, siChange = 0;
-        const siResults2 = siData2?.results || [];
-        const floatShares2 = floatData2?.results?.share_class_shares_outstanding || floatData2?.results?.weighted_shares_outstanding || 0;
+        const siResults2 = (siData2?.results || []).sort((a,b) => (b.settlement_date||'').localeCompare(a.settlement_date||''));
+        const floatShares2 = floatData2?.results?.[0]?.free_float || 0;
         if (siResults2.length > 0 && floatShares2 > 0) {
           siPercent = Math.round((siResults2[0].short_interest / floatShares2) * 1000) / 10;
-          daysToCover = Math.round((siResults2[0].short_interest / (totalVol || 1)) * 10) / 10;
+          daysToCover = siResults2[0].days_to_cover || 0;
           if (siResults2.length >= 2) {
             const prevSi = Math.round((siResults2[1].short_interest / floatShares2) * 1000) / 10;
             siChange = Math.round((siPercent - prevSi) * 10) / 10;
@@ -1458,7 +1629,7 @@ exports.handler = async (event) => {
         if (siChange > 2) riskScore += 15; else if (siChange > 0) riskScore += 5;
         riskScore = Math.min(100, riskScore);
         const status = riskScore >= 70 ? 'CRITICAL' : riskScore >= 45 ? 'HIGH' : riskScore >= 20 ? 'MEDIUM' : 'LOW';
-        squeeze = { ticker, siPercent, daysToCover, siChange, shortVolPercent:shortVolPct, riskScore, status };
+        squeeze = { ticker, siPercent, daysToCover, siChange, shortVolPercent:shortVolPct, riskScore, status, floatShares:floatShares2, settlementDate:siResults2[0]?.settlement_date||null };
       } catch {}
       
       // 10. Institutional (basic structure)
@@ -1614,12 +1785,20 @@ exports.handler = async (event) => {
     }
   }
   
+  // [v8] Step 5.5: RSI + Daily Bars (sparkline, return3d, relVol)
+  let rsiMap = {}, dailyBarsMap = {};
+  if (isRegular || forceRun) {
+    const rsiResult = await harvestRsiAndDailyBars(UNIVERSE_500);
+    rsiMap = rsiResult.rsiMap;
+    dailyBarsMap = rsiResult.dailyBarsMap;
+  }
+  
   // [v7] Step 6: Build Unified Cache — ALWAYS run (regular + extended)
   if (isRegular || forceRun) {
-    results.unified = await buildUnifiedCache(priceMap, gexMap, optionsCache, smaMap, detailsMap);
+    results.unified = await buildUnifiedCache(priceMap, gexMap, optionsCache, smaMap, detailsMap, snapshotMap, rsiMap, dailyBarsMap);
   } else {
     // Extended hours: still build unified cache with whatever data we have
-    results.unified = await buildUnifiedCache(priceMap, {}, {}, smaMap, detailsMap);
+    results.unified = await buildUnifiedCache(priceMap, {}, {}, smaMap, detailsMap, snapshotMap, rsiMap, dailyBarsMap);
   }
   
   const duration = Math.round((Date.now()-start)/1000);

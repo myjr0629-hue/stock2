@@ -1,0 +1,15 @@
+=== LMT ===
+Keys: fundamentals, earnings, squeeze, related, institutional, sma, analyst, volatility, structure, timestamp
+Fund keys: marketCap, de, ticker, fcfYield, ps, breakdown, description, roe, netMargin, score, pb, pe, grade, name, exchange, sector, revenueGrowth
+pe=null marketCap=143529502469.22
+score=null grade=null
+JSON(300): {"marketCap":143529502469.22,"de":null,"ticker":"LMT","fcfYield":null,"ps":null,"breakdown":null,"description":"Lockheed Martin is the world's largest defense contractor and has dominated the Western market for high-end fighter aircraft since it won the F-35 Joint Strike Fighter program in 2001. Aer
+squeeze: {"ticker":"LMT","siPercent":1.1,"daysToCover":0,"siChange":0,"shortVolPercent":45.9,"riskScore":10,"status":"LOW","floatShares":0,"settlementDate":null,"_ts":1775529724293}
+
+=== GOOGL ===
+Keys: timestamp, structure, analyst, fundamentals, earnings, sma, related, volatility, squeeze, institutional
+squeeze: {"ticker":"GOOGL","siPercent":0,"daysToCover":0,"siChange":0,"shortVolPercent":32.3,"riskScore":0,"status":"LOW"}
+shortSqueeze: MISSING
+
+=== Finnhub GOOGL Short Interest ===
+Response: {"error":"You don't have access to this resource."}

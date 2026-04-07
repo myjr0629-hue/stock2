@@ -1,0 +1,10 @@
+TSLA: alpha=53 dp=75.9% vol=40807396 vwap=-1.79% ivSkew=NULL implMove=0%
+NVDA: alpha=50 dp=68.3% vol=59930916 vwap=0.1% ivSkew=NULL implMove=0%
+AAPL: alpha=60 dp=62.6% vol=13269259 vwap=-0.14% ivSkew=NULL implMove=0%
+MSFT: alpha=45 dp=78.5% vol=8118678 vwap=0.05% ivSkew=NULL implMove=0%
+AMZN: alpha=60 dp=53.8% vol=11115247 vwap=0.16% ivSkew=NULL implMove=0%
+META: alpha=50 dp=72.1% vol=3988439 vwap=0.2% ivSkew=NULL implMove=0%
+GOOG: alpha=60 dp=53.6% vol=4628325 vwap=0.52% ivSkew=NULL implMove=0%
+AMD: alpha=50 dp=60% vol=19687351 vwap=-1.13% ivSkew=NULL implMove=0%
+NFLX: alpha=43 dp=73.8% vol=22537354 vwap=-1.08% ivSkew=NULL implMove=0%
+SPY: MISSING

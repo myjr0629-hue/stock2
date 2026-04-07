@@ -649,7 +649,12 @@ export async function GET(req: NextRequest) {
                 const structGex = (structureResult as any)?.netGex ?? null;
                 const flowGex = (flowData as any)?.netGex ?? null;
                 const effectiveGex = structGex ?? flowGex;
-                const whaleIndex = calculateWhaleIndex(effectiveGex);
+                const whaleIndex = calculateWhaleIndex(
+                    effectiveGex,
+                    metricsData?.darkPool?.percent ?? null,
+                    metricsData?.blockTrade?.count ?? null,
+                    (flowData as any)?.netPremium ?? null,
+                );
 
                 // return3D: REG → activePrice vs 4일전, NOT REG → 직전장 종가 vs 4일전
                 let return3D: number | null = null;

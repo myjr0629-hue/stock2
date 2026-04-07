@@ -1,0 +1,38 @@
+=== LAMBDA TIMING ===
+2026-04-06T17:36:47.992Z	cf1457d6-c93e-4681-a51e-35900df7bace	INFO	Done in 244s
+2026-04-06T17:39:42.251Z	66638fc1-7a12-41c5-b3f1-76c6cbd45103	INFO	Done in 118s
+
+=== UNIVERSE AUDIT (1000 tickers) ===
+Entries: 994/1000 (99.4%)
+Missing: 6 → ANSS,NGD,PARA,PEAK,SQ,TGNA
+
+FIELD          FILLED   RATE
+alpha          994/994  100%
+rsi            994/994  100%
+return3d       994/994  100%
+sparkline      994/994  100%
+relVol         994/994  100%
+whaleIndex     984/994  99%
+darkPoolPct    994/994  100%
+volume         994/994  100%
+vwapDist       994/994  100%
+ivSkew         962/994  96.8%
+impliedMovePct 962/994  96.8%
+maxPain        994/994  100%
+gex            984/994  99%
+pcr            967/994  97.3%
+iv             988/994  99.4%
+callWall       976/994  98.2%
+putFloor       980/994  98.6%
+squeezeScore   974/994  98%
+netPremium     988/994  99.4%
+expiration     994/994  100%
+
+=== SAMPLE (M7) ===
+TSLA: a=48 rsi=35.1 r3d=-6.35 sp=17 rV=0.61 wh=13(HIGH) dp=73.4 ivS=28.72 impl=28.72
+NVDA: a=50 rsi=48.46 r3d=1.43 sp=17 rV=0.48 wh=90(LOW) dp=53.9 ivS=4.24 impl=4.24
+AAPL: a=60 rsi=54.14 r3d=1.97 sp=17 rV=0.47 wh=70(LOW) dp=60.9 ivS=7.73 impl=7.73
+MSFT: a=45 rsi=38.52 r3d=0.52 sp=17 rV=0.39 wh=70(LOW) dp=68.2 ivS=2.69 impl=2.69
+AMZN: a=60 rsi=51.85 r3d=1.71 sp=17 rV=0.43 wh=70(LOW) dp=52.9 ivS=14.16 impl=14.16
+META: a=50 rsi=42.03 r3d=0.85 sp=17 rV=0.34 wh=19(LOW) dp=77.4 ivS=8.67 impl=8.67
+GOOG: a=55 rsi=49.58 r3d=3.64 sp=17 rV=0.39 wh=70(LOW) dp=52.7 ivS=3.36 impl=3.36

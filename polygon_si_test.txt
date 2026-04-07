@@ -1,0 +1,17 @@
+=== 1. GOOGL Short Interest /stocks/v1/short-interest ===
+{"status":"OK","request_id":"c21e9c7293554431bff32a986f3bd468","results":[{"settlement_date":"2017-12-29","ticker":"GOOGL","short_interest":2717566,"avg_daily_volume":1185517,"days_to_cover":2.29},{"settlement_date":"2018-01-12","ticker":"GOOGL","short_interest":2880049,"avg_daily_volume":1403281,"days_to_cover":2.05},{"settlement_date":"2018-01-31","ticker":"GOOGL","short_interest":3156426,"avg_daily_volume":1696770,"days_to_cover":1.86}],"next_url":"https://api.polygon.io/stocks/v1/short-inter
+
+=== 2. GOOGL Short Volume /stocks/v1/short-volume ===
+{"status":"OK","request_id":"efd28172618d454ca76fb26c48b8ac3a","results":[{"ticker":"GOOGL","date":"2024-02-06","total_volume":9166778,"short_volume":2963791,"exempt_volume":55486,"non_exempt_volume":2908305,"short_volume_ratio":32.33,"nyse_short_volume":139304,"nyse_short_volume_exempt":11017,"nasdaq_carteret_short_volume":2806917,"nasdaq_carteret_short_volume_exempt":44469,"nasdaq_chicago_short_volume":17570,"nasdaq_chicago_short_volume_exempt":0,"adf_short_volume":0,"adf_short_volume_exempt":
+
+=== 3. GOOGL Float /stocks/vX/float ===
+{"status":"OK","request_id":"a9acfeacbfa9428ab816a2d037f7ec10","results":[{"ticker":"GOOGL","free_float":5770766400,"effective_date":"2026-02-24","free_float_percent":99.1}]}
+
+=== 4. LMT Short Interest ===
+{"status":"OK","request_id":"e7ff20aba5fb4eb990ae7600b5ac6a02","results":[{"settlement_date":"2017-12-29","ticker":"LMT","short_interest":2430158,"avg_daily_volume":786052,"days_to_cover":3.09},{"settlement_date":"2018-01-12","ticker":"LMT","short_interest":2627557,"avg_daily_volume":1200255,"days_to_cover":2.19},{"settlement_date":"2018-01-31","ticker":"LMT","short_interest":2571241,"avg_daily_volume":1616728,"days_to_cover":1.59}],"next_url":"https://api.polygon.io/stocks/v1/short-interest?cur
+
+=== 5. LMT Ratios (confirm PE) ===
+PE=28.61 DE=3.23 ROE=0.7465 PB=21.36 PS=1.91 FCF=6908000000 MktCap=143529502469
+
+=== 6. TSLA Short Interest ===
+{"status":"OK","request_id":"c022b541bd064a489e9df89070094cea","results":[{"settlement_date":"2017-12-29","ticker":"TSLA","short_interest":30434366,"avg_daily_volume":4898906,"days_to_cover":6.21},{"settlement_date":"2018-01-12","ticker":"TSLA","short_interest":30684061,"avg_daily_volume":6245967,"days_to_cover":4.91},{"settlement_date":"2018-01-31","ticker":"TSLA","short_interest":29805706,"avg_daily_volume":5674515,"days_to_cover":5.25}],"next_url":"https://api.polygon.io/stocks/v1/short-inter

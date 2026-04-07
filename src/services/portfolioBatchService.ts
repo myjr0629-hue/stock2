@@ -5,7 +5,7 @@
 
 
 import { getOptionsData } from '@/services/stockApi';
-import { calculateAlphaScore, type AlphaSession } from '@/services/alphaEngine';
+import { calculateAlphaScore, calculateWhaleIndex, type AlphaSession } from '@/services/alphaEngine';
 import { getStructureData } from '@/services/structureService';
 import { fetchMassive } from '@/services/massiveClient';
 import { getAnalysisCacheForTickers, type AnalysisCacheEntry, writeAnalysisCache } from '@/services/analysisCache';
@@ -149,15 +149,13 @@ export async function processPortfolioBatch(tickers: string[], mode: 'full' | 'p
             return { displayPrice, changePct, extendedPrice, extendedLabel, vwap, volume, prevDayClose, liveLast, dayClose, change, isExtended: currentSession !== 'regular' };
         };
 
-        // A. CACHE HIT
+        // A. CACHE HIT: V4.6 RECALCULATION (ONE ENGINE, ONE RESULT)
+        // [V8 UNIFIED] Lambda alphaSnapshot 무시, V4.6 엔진으로 재계산
         if (analysis) {
             const base = buildBasePrice();
 
-            // [FIX] Always use buildBasePrice().changePct — based on live snapshot data
-            // Previously: sparkline-based override used stale cache data (sparkline[-2] could be wrong date)
             let finalChangePct = base.changePct;
             if (currentSession === 'regular') {
-                // If snapshot todaysChangePerc is 0 but we have live data, calculate directly
                 if (base.changePct === 0 && base.liveLast > 0 && base.prevDayClose > 0) {
                     finalChangePct = ((base.liveLast - base.prevDayClose) / base.prevDayClose) * 100;
                 }
@@ -167,7 +165,50 @@ export async function processPortfolioBatch(tickers: string[], mode: 'full' | 'p
                 ? ((base.extendedPrice - base.displayPrice) / base.displayPrice) * 100 : null;
             const refPrice = base.extendedPrice || base.displayPrice;
 
-            // Triple A fallback calculation
+            // [V8] V4.6 Alpha Score — 항상 재계산
+            const sessionMap: Record<string, AlphaSession> = { pre: 'PRE', regular: 'REG', post: 'POST', closed: 'CLOSED' };
+            const alphaSession: AlphaSession = sessionMap[currentSession] || 'CLOSED';
+            let alphaSnapshotV4: any = analysis.alphaSnapshot; // fallback
+
+            try {
+                const alphaResult = calculateAlphaScore({
+                    ticker: ticker.toUpperCase(),
+                    session: alphaSession,
+                    price: base.displayPrice,
+                    prevClose: base.prevDayClose || 0,
+                    changePct: finalChangePct,
+                    vwap: base.vwap ?? null,
+                    return3D: analysis.return3d ?? null,
+                    rsi14: analysis.rsi ?? null,
+                    pcr: analysis.pcr ?? null,
+                    gex: analysis.gex ?? null,
+                    callWall: analysis.callWall ?? null,
+                    putFloor: analysis.putFloor ?? null,
+                    gammaFlipLevel: analysis.gammaFlipLevel ?? null,
+                    squeezeScore: analysis.squeezeScore ?? null,
+                    atmIv: analysis.iv ?? null,
+                    whaleIndex: analysis.whaleIndex ?? 0,
+                    darkPoolPct: analysis.darkPoolPct ?? 0,
+                    relVol: analysis.relVol ?? null,
+                    netFlow: analysis.netPremium ?? null,
+                    impliedMovePct: analysis.impliedMovePct ?? null,
+                    ivSkew: analysis.ivSkew ?? null,
+                    optionsDataAvailable: analysis.gex !== null,
+                });
+                alphaSnapshotV4 = {
+                    score: alphaResult.score,
+                    grade: alphaResult.grade,
+                    action: alphaResult.action,
+                    actionKR: alphaResult.actionKR,
+                    confidence: Math.round(alphaResult.dataCompleteness),
+                    triggers: alphaResult.triggerCodes,
+                    engineVersion: alphaResult.engineVersion,
+                    capturedAt: new Date().toISOString(),
+                };
+            } catch (e) {
+                console.warn(`[Portfolio CACHE HIT] V4.6 recalc failed for ${ticker}, using cached:`, e);
+            }
+
             const tripleA = {
                 direction: finalChangePct > 0,
                 acceleration: Math.abs(finalChangePct) > 1,
@@ -176,7 +217,7 @@ export async function processPortfolioBatch(tickers: string[], mode: 'full' | 'p
 
             return {
                 ticker,
-                alphaSnapshot: analysis.alphaSnapshot,
+                alphaSnapshot: alphaSnapshotV4,
                 realtime: {
                     price: base.displayPrice,
                     change: base.change,
@@ -268,6 +309,12 @@ export async function processPortfolioBatch(tickers: string[], mode: 'full' | 'p
             const alphaGammaFlip = structureRes?.gammaFlipLevel ?? opts?.gems?.gammaFlipLevel ?? null;
             const alphaSqueezeScore = structureRes?.squeezeScore ?? null;
 
+            // [V8] Flow pillar data for Composite WhaleIndex
+            const darkPoolPct = (structureRes as any)?.darkPoolPct ?? null;
+            const blockTradesCount = (structureRes as any)?.blockTrades ?? null;
+            const netPremium = structureRes?.netPremium ?? null;
+            const whaleIndex = calculateWhaleIndex(alphaGex, darkPoolPct, blockTradesCount, netPremium);
+
             let alphaResult;
             try {
                 alphaResult = calculateAlphaScore({
@@ -276,6 +323,7 @@ export async function processPortfolioBatch(tickers: string[], mode: 'full' | 'p
                     return3D, rsi14: stockData.rsi ?? null, pcr: alphaPcr, gex: alphaGex,
                     callWall: alphaCallWall, putFloor: alphaPutFloor, gammaFlipLevel: alphaGammaFlip,
                     rawChain: opts?.rawChain || [], squeezeScore: alphaSqueezeScore, relVol,
+                    darkPoolPct, blockTrades: blockTradesCount, whaleIndex, netFlow: netPremium,
                     optionsDataAvailable: !!opts, preMarketChangePct: (stockData as any).extendedChangePct ?? null,
                 });
             } catch (e) {
@@ -317,8 +365,9 @@ export async function processPortfolioBatch(tickers: string[], mode: 'full' | 'p
                 relVol: fullObj.realtime.rvol, expiration: structureRes?.expiration ?? null,
                 maxPain: fullObj.realtime.maxPain, gex: fullObj.realtime.gex,
                 gexM: fullObj.realtime.gexM, pcr: fullObj.realtime.pcr, gammaFlipLevel: fullObj.realtime.gammaFlipLevel,
-                whaleIndex: 0, whaleConfidence: 'NONE', putFloor: null, callWall: null, netPremium: null,
-                vwapDist: null, volume: null, squeezeScore: null, iv: null, darkPoolPct: 0,
+                whaleIndex, whaleConfidence: whaleIndex >= 70 ? 'HIGH' : whaleIndex >= 40 ? 'MED' : whaleIndex >= 15 ? 'LOW' : 'NONE',
+                putFloor: alphaPutFloor, callWall: alphaCallWall, netPremium,
+                vwapDist: null, volume: stockData.volume || null, squeezeScore: alphaSqueezeScore, iv: structureRes?.atmIv ?? null, darkPoolPct: darkPoolPct || 0,
                 ivSkew: null, impliedMovePct: null
             }).catch(e => console.error(`Failed to cache ${ticker}`, e));
 

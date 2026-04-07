@@ -1,0 +1,10 @@
+=== RSI Logs ===
+2026-04-06T17:16:36.643Z	ec0d470d-c5cf-46cf-a740-2291968067c3	INFO	Step 5.5: RSI + Daily Bars for 1000 tickers...
+2026-04-06T17:18:53.299Z	ec0d470d-c5cf-46cf-a740-2291968067c3	INFO	RSI: 995, DailyBars: 993
+=== Done Logs ===
+2026-04-06T17:19:03.734Z	ec0d470d-c5cf-46cf-a740-2291968067c3	INFO	Done in 380s
+
+=== Redis Sample ===
+TSLA: rsi=35.01 r3d=-6.44 spark=17 relV=0.56 ivSk=28.79 impl=28.79
+NVDA: rsi=48.04 r3d=1.21 spark=17 relV=0.46 ivSk=4.25 impl=4.25
+AAPL: rsi=53.45 r3d=1.76 spark=17 relV=0.45 ivSk=7.74 impl=7.74

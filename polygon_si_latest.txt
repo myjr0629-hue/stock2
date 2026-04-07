@@ -1,0 +1,58 @@
+=== GOOGL SI (order=desc, sort=settlement_date) ===
+{
+  "status": "OK",
+  "request_id": "10044ada30d24d3a8b7c54fea84715cd",
+  "results": [
+    {
+      "settlement_date": "2017-12-29",
+      "ticker": "GOOGL",
+      "short_interest": 2717566,
+      "avg_daily_volume": 1185517,
+      "days_to_cover": 2.29
+    },
+    {
+      "settlement_date": "2018-01-12",
+      "ticker": "GOOGL",
+      "short_interest": 2880049,
+      "avg_daily_volume": 1403281,
+      "days_to_cover": 2.05
+    },
+    {
+      "settlement_date": "2018-01-31",
+      "ticker": "GOOGL",
+      "short_interest": 3156426,
+      "avg_daily_volume": 1696770,
+      "days_to_cover": 1.86
+ 
+
+=== GOOGL Short Volume (order=desc, sort=date) ===
+{
+  "status": "OK",
+  "request_id": "66557fc05f7241eabdd5c26ee7f3ffb6",
+  "results": [
+    {
+      "ticker": "GOOGL",
+      "date": "2024-02-06",
+      "total_volume": 9166778,
+      "short_volume": 2963791,
+      "exempt_volume": 55486,
+      "non_exempt_volume": 2908305,
+      "short_volume_ratio": 32.33,
+      "nyse_short_volume": 139304,
+      "nyse_short_volume_exempt": 11017,
+      "nasdaq_carteret_short_volume": 2806917,
+      "nasdaq_carteret_short_volume_exempt": 44469,
+      "nasdaq_chicago_short_volume": 17570,
+      "nasdaq_chicago_short_volume_exempt": 0,
+      "adf_short_volume":
+
+=== SI% Calculation ===
+Float: 5770766400
+Latest SI: {"settlement_date":"2017-12-29","ticker":"GOOGL","short_interest":2717566,"avg_daily_volume":1185517,"days_to_cover":2.29}
+SI% = 0.05%
+
+=== GOOGL SI with date filter (2026) ===
+{"status":"OK","request_id":"f5d93f39953c4b01b1111cbeb9ef70e5","results":[{"settlement_date":"2025-01-15","ticker":"GOOGL","short_interest":65507753,"avg_daily_volume":22849132,"days_to_cover":2.87},{"settlement_date":"2025-01-31","ticker":"GOOGL","short_interest":60154669,"avg_daily_volume":26393461,"days_to_cover":2.28},{"settlement_date":"2025-02-14","ticker":"GOOGL","short_interest":66236057,"avg_daily_volume":32611873,"days_to_cover":2.03}],"next_url":"https://api.polygon.io/stocks/v1/short
+
+=== GOOGL Short Volume date filter (2026) ===
+{"status":"OK","request_id":"4bfe77ca5c5a4d1a9bf9b2b8afc2a301","results":[{"ticker":"GOOGL","date":"2026-01-02","total_volume":11907186,"short_volume":4358374,"exempt_volume":16892,"non_exempt_volume":4341482,"short_volume_ratio":36.6,"nyse_short_volume":449747,"nyse_short_volume_exempt":200,"nasdaq_carteret_short_volume":3847827,"nasdaq_carteret_short_volume_exempt":16692,"nasdaq_chicago_short_volume":60800,"nasdaq_chicago_short_volume_exempt":0,"adf_short_volume":0,"adf_short_volume_exempt":0}

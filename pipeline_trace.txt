@@ -1,0 +1,39 @@
+=== FULL PIPELINE TRACE: TSLA ===
+
+[1] Redis rt-metrics:TSLA
+  darkPool.percent: 77
+  shortVolume.percent: 44.9
+  blockTrade.count: 0
+  timestamp: 2026-04-06T16:27:47.787Z
+
+[2] Redis cache:flow:unified:TSLA
+  keys: liveQuote, whaleTrades, darkPoolTrades, darkPoolStats, realtimeMetrics, timestamp, _source
+  _source: lambda-flow-harvest
+  timestamp: 1775492868772
+  realtimeMetrics.darkPool.percent: 77
+  darkPoolStats.percent: 88.4
+
+[3] Redis polygon:snapshot:probe:TSLA
+  data exists: YES (obj items)
+
+[4] Vercel API /api/live/ticker?t=TSLA
+  ALL keys: ["ticker","name","timestampET","session","tsServer","seq","price","changePct","prevClose","vwap","flow","display","changesFrac","changesPct","prices","extended","calc","baseline","tz","sourceGrade","alpha","meta","debug","_cached","_cachedAt"]
+  price: 352.06
+  vwap: 358.1872
+  session: REG
+  flow.dataSource: LIVE
+  flow.netPremium: -122494184
+  flow.contractsProcessed: 241
+  flow.rawChain count: 282
+  flow.allExpiryChain count: 1786
+  calc: {"activePrice":352.06,"baselinePrice":360.59,"numerator":-8.53,"denom":360.59,"changePctFracComputed":-0.023655675420837997,"changePctFracDisplay":-0.023655675420837997,"changePctPctComputed":-2.37,"changePctPctDisplay":-2.37,"match":true}
+  darkPool: NOT PRESENT
+  whale: NOT PRESENT
+
+[5] PIPELINE VERDICT
+  Lambda→Redis rt-metrics: ✅ OK
+  Lambda→Redis flow:unified: ✅ OK
+  Lambda→Redis probe: ✅ OK
+  Redis→Vercel price: ✅ 352.06
+  Redis→Vercel flow data: ✅ 282 contracts
+  darkPool-related API keys: []
