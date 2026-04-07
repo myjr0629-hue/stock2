@@ -589,16 +589,17 @@ async function buildResponseFromAnalysisCache(
         const ac = analysisCacheMap[ticker];
         if (!ac) continue;
 
-        // Merge live price from snapshot with cached analysis data
+        // [FIX V3] quotes API fallback — DynamoDB miss 시 가격/세션/extended 유실 방지
         const snap = priceMap[ticker];
-        const livePrice = snap?.lastTrade?.p || snap?.min?.c || snap?.day?.c || 0;
-        const prevClose = snap?.prevDay?.c || 0;
-        const dayClose = snap?.day?.c || prevClose;
-        const todaysChangePerc = snap?.todaysChangePerc || 0;
+        const q = quotesMap[ticker];
+        const livePrice = snap?.lastTrade?.p || snap?.min?.c || snap?.day?.c || q?.price || 0;
+        const prevClose = snap?.prevDay?.c || q?.previousClose || q?.prevClose || 0;
+        const dayClose = snap?.day?.c || q?.price || prevClose;
+        const todaysChangePerc = snap?.todaysChangePerc || q?.changePercent || q?.regChangePct || 0;
         const price = livePrice || dayClose || prevClose;
 
-        // Session detection: prefer quotes API session (more accurate), fallback to market status
-        const quotesSession = snap?._quotesSession;
+        // Session detection: quotes API > DynamoDB snap > market status
+        const quotesSession = snap?._quotesSession || q?.session;
         const quotesSessionMap: Record<string, string> = { 'pre': 'PRE', 'regular': 'REG', 'post': 'POST', 'closed': 'CLOSED' };
         const currentSession = marketData?.marketStatus || 'CLOSED';
         const marketSessionMap: Record<string, string> = { 'PRE': 'PRE', 'OPEN': 'REG', 'AFTER': 'POST', 'CLOSED': 'CLOSED' };
@@ -621,16 +622,16 @@ async function buildResponseFromAnalysisCache(
         const sqScore = ac.squeezeScore ?? 0;
         const squeezeRisk = sqScore >= 70 ? 'EXTREME' : sqScore >= 50 ? 'HIGH' : sqScore >= 30 ? 'MEDIUM' : 'LOW';
 
-        // Build extended session data from snapshot
+        // [FIX V3] Build extended session data — snap OR quotes API (never miss)
         let extended: any = null;
-        if (snap) {
-            const afterHoursPrice = snap.afterHours?.p || 0;
-            const preMarketPrice = snap.preMarket?.p || 0;
+        const afterHoursPrice = snap?.afterHours?.p || (q?.extendedLabel === 'POST' && q?.extendedPrice > 0 ? q.extendedPrice : 0);
+        const preMarketPrice = snap?.preMarket?.p || (q?.extendedLabel === 'PRE' && q?.extendedPrice > 0 ? q.extendedPrice : 0);
+        if (afterHoursPrice > 0 || preMarketPrice > 0) {
             extended = {
                 postPrice: afterHoursPrice > 0 ? afterHoursPrice : undefined,
-                postChangePct: afterHoursPrice > 0 && dayClose > 0 ? ((afterHoursPrice - dayClose) / dayClose) * 100 : undefined,
+                postChangePct: afterHoursPrice > 0 && dayClose > 0 ? ((afterHoursPrice - dayClose) / dayClose) * 100 : (q?.extendedLabel === 'POST' ? q?.extendedChangePercent : undefined),
                 prePrice: preMarketPrice > 0 ? preMarketPrice : undefined,
-                preChangePct: preMarketPrice > 0 && prevClose > 0 ? ((preMarketPrice - prevClose) / prevClose) * 100 : undefined,
+                preChangePct: preMarketPrice > 0 && prevClose > 0 ? ((preMarketPrice - prevClose) / prevClose) * 100 : (q?.extendedLabel === 'PRE' ? q?.extendedChangePercent : undefined),
             };
         }
 

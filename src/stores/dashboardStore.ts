@@ -156,10 +156,19 @@ const deepMergeTicker = (existing: TickerData | undefined, newData: any): Ticker
     const merged = { ...existing } as any;
     for (const [field, val] of Object.entries(newData)) {
         if (val !== null && val !== undefined && val !== '') {
+            // [FIX V3] Protect valid prices from being overwritten by 0
+            // A stock price of $0 is never valid — always a data miss (DynamoDB/API failure)
+            if (val === 0 && field === 'underlyingPrice' && (existing as any)[field] > 0) {
+                continue; // Preserve existing valid price
+            }
             if (typeof val === 'object' && !Array.isArray(val)) {
                 merged[field] = { ...(existing as any)[field] };
                 for (const [subField, subVal] of Object.entries(val)) {
                     if (subVal !== null && subVal !== undefined && subVal !== '') {
+                        // [FIX V3] Protect display.price from 0 overwrite
+                        if (subVal === 0 && subField === 'price' && merged[field]?.[subField] > 0) {
+                            continue;
+                        }
                         merged[field][subField] = subVal;
                     }
                 }
