@@ -542,7 +542,72 @@ bash scripts/ec2-deploy-guardian.sh
 
 ---
 
-## 12. 미완료 / 향후 작업 (TODO)
+## 12. 배포 가이드 (ALL PLATFORMS)
+
+> **배포 누락 방지**: 코드 변경 시 어떤 플랫폼에 배포해야 하는지 반드시 확인할 것.
+
+### 12.1 Vercel (프론트엔드 + API Routes + Cron)
+```powershell
+# 1) 빌드 확인
+npx tsc --noEmit
+# 2) 커밋 & 배포 (main 브랜치 push = 자동 배포)
+git add -A; git commit -m "설명"; git push
+```
+- **영향 범위**: `src/` 하위 모든 파일, `vercel.json` (cron)
+- **확인**: Vercel Dashboard → Deployments
+
+### 12.2 Lambda: signum-harvest (메인 데이터 수집)
+```powershell
+node scripts/deploy-lambda-v7.js
+```
+- **영향 범위**: `scripts/deploy-lambda-v7.js` (~105KB, Lambda 전체 코드 내장)
+- **동작**: zip 생성 → UpdateFunctionCode → UpdateFunctionConfiguration 자동
+- **Function**: `signum-harvest` (us-east-1)
+
+### 12.3 Lambda: signum-flow-harvest (Flow 데이터 수집)
+```powershell
+node scripts/deploy-flow-harvest.js
+```
+- **영향 범위**: `scripts/lambda-flow-harvest/index.js`
+- **Function**: `signum-flow-harvest` (us-east-1)
+
+### 12.4 EC2 Guardian Worker (Morning Briefing + RLSI + 알림)
+```powershell
+# SSH 키: signum-websocket-key.pem (프로젝트 루트)
+# EC2 IP: 52.23.98.13 (Instance: i-0c8e51d26ddc9b3c1, t3.small)
+
+# 방법 A: SCP + PM2 (수동)
+scp -i "signum-websocket-key.pem" scripts/ec2-guardian-worker.js ec2-user@52.23.98.13:/home/ec2-user/guardian/ec2-guardian-worker.js
+ssh -i "signum-websocket-key.pem" ec2-user@52.23.98.13 "pm2 restart guardian-worker"
+
+# 방법 B: 배포 스크립트 (3개 워커 일괄)
+bash scripts/ec2-deploy-guardian.sh
+```
+- **영향 범위**: `scripts/ec2-guardian-worker.js` (42KB)
+- **디렉토리**: `/home/ec2-user/guardian/`
+- **PM2 프로세스명**: `guardian-worker`
+- **확인**: `ssh ... "pm2 logs guardian-worker --lines 10 --nostream"`
+
+### 12.5 EC2 기타 워커
+| 워커 | 파일 | EC2 경로 | PM2 이름 |
+|------|------|---------|---------|
+| Guardian Worker | `scripts/ec2-guardian-worker.js` | `/home/ec2-user/guardian/` | `guardian-worker` |
+| Price WebSocket | `scripts/ec2-price-ws.js` | `/home/ec2-user/signum/` | — |
+| Redis Proxy | `scripts/ec2-redis-proxy.js` | `/home/ec2-user/signum/` | — |
+
+### 12.6 변경 → 배포 대상 매핑
+| 수정한 파일 | 배포 대상 |
+|-------------|----------|
+| `src/**/*.ts`, `src/**/*.tsx` | **Vercel** (`git push`) |
+| `vercel.json` | **Vercel** (`git push`) |
+| `scripts/deploy-lambda-v7.js` | **Lambda signum-harvest** (`node scripts/deploy-lambda-v7.js`) |
+| `scripts/lambda-flow-harvest/**` | **Lambda signum-flow-harvest** (`node scripts/deploy-flow-harvest.js`) |
+| `scripts/ec2-guardian-worker.js` | **EC2** (`scp` + `pm2 restart`) |
+| `scripts/ec2-price-ws.js` | **EC2** (`scp` + `pm2 restart`) |
+
+---
+
+## 13. 미완료 / 향후 작업 (TODO)
 
 ### 🔴 즉시
 - [x] **Composite WhaleIndex → Alpha Score 연결 (2026-04-07 완료)**
@@ -555,11 +620,14 @@ bash scripts/ec2-deploy-guardian.sh
   - macroData 항상 fetch (CACHE HIT에서 Regime pillar용)
 - [ ] **장중 1000종목 전체 harvest 모니터링** — CloudWatch Logs 확인
   - `signum-harvest` + `signum-flow-harvest` 동시 모니터링
-- [ ] **Morning Briefing 생성 모니터링 (2026-04-07 KST 21:00 = ET 08:00)**
-  - EC2 Worker → POST `/api/guardian/briefing/generate` → Bedrock Claude → Redis
-  - Self-Healing: GET `/api/guardian/briefing` → 08:05+ ET 자동 트리거
-  - 4/6(일) 에러: `"Briefing generation temporarily unavailable"` — Bedrock/Vercel 호출 실패 추정
-  - Vercel cron에 briefing generate 없음 — EC2 Worker + Self-Healing 이중 안전장치만 존재
+- [x] **Morning Briefing 재시도 로직 추가 (2026-04-07 완료)**
+  - EC2 Worker: 3회 재시도 (0s/15s/30s 간격) + 전 실패 시 데이터 기반 템플릿 fallback
+  - Vercel Self-Healing: 2회 재시도 (10s 간격) + rate limit 10분→5분 단축
+  - "temporarily unavailable" 에러 메시지 완전 제거 — 유저에게 에러 노출 금지
+  - **배포 완료**: Vercel (`git push`) + EC2 (`scp` + `pm2 restart`)
+  - 수동 테스트: POST `/api/guardian/briefing/generate` → Status 200, 16초, 5뉴스, 3캘린더
+- [ ] **Morning Briefing 정상 생성 확인 (2026-04-07 KST 21:00 = ET 08:00)**
+  - 재시도 로직 적용 후 첫 자동 생성 결과 모니터링
 
 ### 🟡 단기
 - [ ] **WhaleIndex → 적절한 이름 리네이밍** (예: Flow Score, Smart Flow)
