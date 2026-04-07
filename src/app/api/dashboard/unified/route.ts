@@ -162,16 +162,20 @@ const cache: Map<string, CacheEntry> = new Map();
 const WARM_INTERVAL_MS = 90_000; // 90 seconds — auto-refresh interval for default tickers
 const REDIS_PREFIX = 'dashboard:unified:'; // Redis key prefix
 
-// Smart TTL: short during market, long during off-hours (data doesn't change)
+// Smart TTL: short during active sessions (pre+regular+after), long during true off-hours
 function getDashboardSmartTTL(): { memoryMs: number; redisSeconds: number } {
     const now = new Date();
     const utcHour = now.getUTCHours();
     const utcMin = utcHour * 60 + now.getUTCMinutes();
     const day = now.getUTCDay();
-    const isMarketHours = day >= 1 && day <= 5 && utcMin >= 13 * 60 + 30 && utcMin <= 21 * 60;
-    return isMarketHours
-        ? { memoryMs: 120_000, redisSeconds: 180 } // 2min/3min during market
-        : { memoryMs: 3600_000, redisSeconds: 43200 }; // 1h/12h during off-hours
+    // [FIX] Include PRE-market (04:00 ET = 08:00 UTC) through AFTER-hours close (20:00 ET = 00:00+1 UTC)
+    // Active window: 08:00 UTC onwards on weekdays (covers pre+regular+after)
+    // After midnight UTC (Mon-Fri 00:00-01:00) = still after-hours in ET (20:00-21:00)
+    const isWeekday = day >= 1 && day <= 5;
+    const isMarketActive = isWeekday && utcMin >= 8 * 60; // 08:00+ UTC = 04:00+ ET
+    return isMarketActive
+        ? { memoryMs: 120_000, redisSeconds: 180 } // 2min/3min during active sessions
+        : { memoryMs: 3600_000, redisSeconds: 43200 }; // 1h/12h during true off-hours (21:00-04:00 ET)
 }
 
 // Default tickers for dashboard
