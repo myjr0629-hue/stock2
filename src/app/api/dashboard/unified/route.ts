@@ -589,6 +589,21 @@ async function buildResponseFromAnalysisCache(
     // [PREV-CHANGE FIX] Fetch accurate daily bars for all tickers (Redis cached, ~0ms after first call)
     const dailyChanges = await getDailyChangeBatch(tickers);
 
+    // [ROOT FIX] 캐시에 shortVolPct 없는 종목만 라이브로 가져옴 — "없으면 실데이터" 원칙
+    const shortVolMap: Record<string, number | null> = {};
+    const tickersNeedingShortVol = tickers.filter(t => analysisCacheMap[t] && analysisCacheMap[t].shortVolPct == null);
+    if (tickersNeedingShortVol.length > 0) {
+        try {
+            const { fetchShortVolumeData } = await import('@/services/realtimeMetricsService');
+            const results = await Promise.all(
+                tickersNeedingShortVol.map(t => fetchShortVolumeData(t).catch(() => null))
+            );
+            tickersNeedingShortVol.forEach((t, i) => {
+                shortVolMap[t] = results[i]?.shortVolPercent ?? null;
+            });
+        } catch { /* silent — cache data still used */ }
+    }
+
     for (const ticker of tickers) {
         const ac = analysisCacheMap[ticker];
         if (!ac) continue;
@@ -676,14 +691,17 @@ async function buildResponseFromAnalysisCache(
             atmIvExpiry: null,
             squeezeScore: ac.squeezeScore,
             squeezeRisk,
-            vwap: ac.vwap ?? null,  // [V3 FIX] Now stored in analysis cache
+            // [ROOT FIX] 캐시에 없으면 → 이미 가져온 라이브 데이터에서 직접 채움
+            // 원칙: "있으면 캐시, 없으면 실데이터" — 복잡한 캐시 의존 제거
+            vwap: ac.vwap || snap?.day?.vw || snap?.prevDay?.vw || null,
             darkPoolPct: ac.darkPoolPct != null ? Math.round(ac.darkPoolPct * 10) / 10 : null,
-            shortVolPct: ac.shortVolPct != null ? Math.round(ac.shortVolPct * 10) / 10 : null,
+            shortVolPct: (() => { const v = ac.shortVolPct ?? shortVolMap[ticker] ?? null; return v != null ? Math.round(v * 10) / 10 : null; })(),
             zeroDtePct: ac.zeroDtePct ?? null,
             impliedMovePct: ac.impliedMovePct != null ? Math.round(ac.impliedMovePct * 10) / 10 : null,
             impliedMoveDir: ac.impliedMoveDir ?? null,
-            gammaConcentration: null,  // Requires complex gamma calc, stays live-only
-            volumePcr: ac.volumePcr ?? null,
+            gammaConcentration: null,
+            // [ROOT FIX] volumePcr: 캐시에 없으면 OI 기반 pcr 폴백 (같은 데이터 소스)
+            volumePcr: ac.volumePcr ?? ac.pcr ?? null,
             volumePcrCallVol: ac.volumePcrCallVol ?? null,
             volumePcrPutVol: ac.volumePcrPutVol ?? null,
             levels: {
