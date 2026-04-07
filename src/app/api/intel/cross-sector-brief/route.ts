@@ -91,8 +91,9 @@ export interface CrossSectorBriefV3 {
 /**
  * GET /api/intel/cross-sector-brief
  * Returns the latest AI-generated cross-sector analysis
+ * Self-Healing: If no cached brief exists, auto-triggers generation
  */
-export async function GET() {
+export async function GET(req: Request) {
     try {
         // Check today + up to 4 days back (covers weekends & holidays)
         for (let daysBack = 0; daysBack <= 4; daysBack++) {
@@ -108,6 +109,55 @@ export async function GET() {
             const cachedV2 = await getFromCache<any>(`postmarket:cross-brief-v2:${dateStr}`);
             if (cachedV2) {
                 return NextResponse.json({ success: true, ...cachedV2 });
+            }
+        }
+
+        // ══════════════════════════════════════════════════════════
+        // SELF-HEALING: No brief cached for last 4 days
+        // Auto-trigger generation (rate-limited to prevent stampede)
+        // ══════════════════════════════════════════════════════════
+        const healingKey = 'cross-brief:healing:lock';
+        const lastAttempt = await getFromCache<number>(healingKey);
+        const now = Date.now();
+
+        if (!lastAttempt || (now - lastAttempt) > 5 * 60 * 1000) {
+            // Set lock (5 min cooldown)
+            await setInCache(healingKey, now, 600);
+
+            console.log('[CrossSectorBrief] 🔧 Self-healing: No brief cached, triggering generation...');
+
+            // Retry up to 2 attempts with 10s delay
+            for (let attempt = 1; attempt <= 2; attempt++) {
+                try {
+                    const baseUrl = new URL(req.url).origin;
+                    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+                    if (process.env.VERCEL_AUTOMATION_BYPASS_SECRET) {
+                        headers['x-vercel-protection-bypass'] = process.env.VERCEL_AUTOMATION_BYPASS_SECRET;
+                    }
+
+                    const res = await fetch(`${baseUrl}/api/intel/cross-sector-brief`, {
+                        method: 'POST',
+                        headers,
+                        signal: AbortSignal.timeout(55000),
+                    });
+
+                    if (res.ok) {
+                        const result = await res.json();
+                        if (result.success && result.structured) {
+                            console.log(`[CrossSectorBrief] ✅ Self-healing success (attempt ${attempt}): ${result.sectorCount} sectors in ${result.elapsedMs}ms`);
+                            return NextResponse.json({ success: true, ...result, selfHealed: true });
+                        }
+                        break; // Got a response but no structured data
+                    } else {
+                        console.error(`[CrossSectorBrief] Self-healing attempt ${attempt}/2 failed: ${res.status}`);
+                    }
+                } catch (e: any) {
+                    console.error(`[CrossSectorBrief] Self-healing attempt ${attempt}/2 error:`, e.message);
+                }
+
+                if (attempt < 2) {
+                    await new Promise(r => setTimeout(r, 10000));
+                }
             }
         }
 
