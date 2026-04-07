@@ -368,7 +368,12 @@ export async function processPortfolioBatch(tickers: string[], mode: 'full' | 'p
                 whaleIndex, whaleConfidence: whaleIndex >= 70 ? 'HIGH' : whaleIndex >= 40 ? 'MED' : whaleIndex >= 15 ? 'LOW' : 'NONE',
                 putFloor: alphaPutFloor, callWall: alphaCallWall, netPremium,
                 vwapDist: null, volume: stockData.volume || null, squeezeScore: alphaSqueezeScore, iv: structureRes?.atmIv ?? null, darkPoolPct: darkPoolPct || 0,
-                ivSkew: null, impliedMovePct: null
+                ivSkew: null, impliedMovePct: null,
+                // [V3 FIX] Dashboard card fields
+                shortVolPct: null,
+                vwap: stockData.vwap ?? null,
+                volumePcr: null, volumePcrCallVol: null, volumePcrPutVol: null,
+                zeroDtePct: null, impliedMoveDir: null,
             }).catch(e => console.error(`Failed to cache ${ticker}`, e));
 
             // 🔥 [V4.6 WRITE-BACK] Record accurate SSR Alpha Score to DynamoDB

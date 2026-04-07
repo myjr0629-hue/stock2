@@ -473,6 +473,49 @@ export async function processWatchlistBatch(tickers: string[], mode: 'full' | 'p
             const darkPoolPct = tradeData?.darkPoolPercent ?? null;
             const shortVolPct = shortVolData?.shortVolPercent ?? null;
             const blockTradesCount = tradeData?.blockTrades ?? null;
+
+            // [V3 FIX] Volume P/C Ratio — from rawContracts volume (same source as structureService)
+            let volumePcrVal: number | null = null;
+            let volumePcrCallVolVal: number | null = null;
+            let volumePcrPutVolVal: number | null = null;
+            if (rawContracts.length > 0) {
+                let callVol = 0, putVol = 0;
+                for (const c of rawContracts) {
+                    const vol = c.day?.volume || c.volume || 0;
+                    if (c.contract_type === 'call') callVol += vol;
+                    else if (c.contract_type === 'put') putVol += vol;
+                }
+                if (callVol > 0) {
+                    volumePcrVal = parseFloat((putVol / callVol).toFixed(3));
+                }
+                volumePcrCallVolVal = callVol > 0 ? callVol : null;
+                volumePcrPutVolVal = putVol > 0 ? putVol : null;
+            }
+
+            // [V3 FIX] 0DTE Options % — OI of today's expiry / total OI
+            let zeroDtePctVal: number | null = null;
+            if (rawContracts.length > 0) {
+                const today = new Date().toISOString().split('T')[0];
+                let todayOI = 0, totalOI = 0;
+                for (const c of rawContracts) {
+                    const oi = c.open_interest || 0;
+                    totalOI += oi;
+                    const exp = c.details?.expiration_date || c.expiration_date || '';
+                    if (exp === today) todayOI += oi;
+                }
+                if (totalOI > 0) {
+                    zeroDtePctVal = parseFloat(((todayOI / totalOI) * 100).toFixed(1));
+                }
+            }
+
+            // [V3 FIX] Implied Move Direction — call vs put volume bias
+            let impliedMoveDirVal: string | null = null;
+            if (volumePcrCallVolVal && volumePcrPutVolVal) {
+                const ratio = volumePcrPutVolVal / volumePcrCallVolVal;
+                if (ratio > 1.3) impliedMoveDirVal = 'PUT';
+                else if (ratio < 0.7) impliedMoveDirVal = 'CALL';
+                else impliedMoveDirVal = 'NEUTRAL';
+            }
             const netPremium = structureRes?.netPremium ?? null;
             const whaleIndex = calculateWhaleIndex(alphaGex, darkPoolPct, blockTradesCount, netPremium);
 
@@ -598,7 +641,15 @@ export async function processWatchlistBatch(tickers: string[], mode: 'full' | 'p
                 volume: fullObj.realtime.volume,
                 darkPoolPct: darkPoolPct ?? 0,
                 ivSkew: typeof ivSkew === 'number' ? ivSkew : (typeof ivSkew === 'object' && ivSkew !== null ? (ivSkew as any).value ?? null : null),
-                impliedMovePct: impliedMovePct ?? null
+                impliedMovePct: impliedMovePct ?? null,
+                // [V3 FIX] Dashboard card fields
+                shortVolPct: shortVolPct ?? null,
+                vwap: stockData.vwap ?? null,
+                volumePcr: volumePcrVal,
+                volumePcrCallVol: volumePcrCallVolVal,
+                volumePcrPutVol: volumePcrPutVolVal,
+                zeroDtePct: zeroDtePctVal,
+                impliedMoveDir: impliedMoveDirVal,
             }).catch(e => console.error(`Failed to write analysis cache for ${ticker}`, e));
 
             // 🔥 [V4.6 WRITE-BACK] Record accurate SSR Alpha Score to DynamoDB

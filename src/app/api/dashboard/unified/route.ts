@@ -672,16 +672,16 @@ async function buildResponseFromAnalysisCache(
             atmIvExpiry: null,
             squeezeScore: ac.squeezeScore,
             squeezeRisk,
-            vwap: null, // VWAP absolute price needs live data (vwapDist is relative)
+            vwap: ac.vwap ?? null,  // [V3 FIX] Now stored in analysis cache
             darkPoolPct: ac.darkPoolPct != null ? Math.round(ac.darkPoolPct * 10) / 10 : null,
-            shortVolPct: null,       // Not stored in analysis cache
-            zeroDtePct: null,        // Not stored in analysis cache
+            shortVolPct: ac.shortVolPct != null ? Math.round(ac.shortVolPct * 10) / 10 : null,
+            zeroDtePct: ac.zeroDtePct ?? null,
             impliedMovePct: ac.impliedMovePct != null ? Math.round(ac.impliedMovePct * 10) / 10 : null,
-            impliedMoveDir: null,
-            gammaConcentration: null,
-            volumePcr: null,
-            volumePcrCallVol: null,
-            volumePcrPutVol: null,
+            impliedMoveDir: ac.impliedMoveDir ?? null,
+            gammaConcentration: null,  // Requires complex gamma calc, stays live-only
+            volumePcr: ac.volumePcr ?? null,
+            volumePcrCallVol: ac.volumePcrCallVol ?? null,
+            volumePcrPutVol: ac.volumePcrPutVol ?? null,
             levels: {
                 callWall: ac.callWall,
                 putFloor: ac.putFloor,

@@ -65,6 +65,15 @@ export interface AnalysisCacheEntry {
     volume: number | null;     // for reference
     ivSkew: number | null;             // IV skew (put vs call IV difference)
     impliedMovePct: number | null;     // Implied move % from ATM straddle
+
+    // [V3 FIX] Dashboard card fields — previously computed but not cached
+    shortVolPct: number | null;        // Short Volume % (FINRA daily data)
+    vwap: number | null;               // Absolute VWAP price
+    volumePcr: number | null;          // Volume-based Put/Call Ratio
+    volumePcrCallVol: number | null;   // Call volume total
+    volumePcrPutVol: number | null;    // Put volume total
+    zeroDtePct: number | null;         // 0DTE options OI percentage
+    impliedMoveDir: string | null;     // CALL/PUT/NEUTRAL direction bias
 }
 
 /**
