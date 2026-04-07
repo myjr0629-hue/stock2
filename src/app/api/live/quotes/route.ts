@@ -19,16 +19,9 @@ export async function GET(request: Request) {
         const marketStatus = await getMarketStatusSSOT();
         const session = marketStatus.session; // 'pre', 'regular', 'post', 'closed'
 
-        // [AWS] Redis cache check (2s TTL — same symbols batch within polling interval)
-        const cacheKey = `live-quotes:${tickers.sort().join(',')}`;
-        try {
-            const cached = await getFromCache<any>(cacheKey);
-            if (cached) {
-                return NextResponse.json({ data: cached, session, timestamp: Date.now(), _cached: true }, {
-                    headers: { 'Cache-Control': 'private, max-age=1, stale-while-revalidate=3' }
-                });
-            }
-        } catch { /* continue to Polygon */ }
+        // [FIX] Redis cache REMOVED — 2s TTL was conflicting with 2s polling interval,
+        // causing stale prices to be returned repeatedly. Prices must ALWAYS be fresh from Polygon.
+        // Browser-level Cache-Control header provides sufficient caching.
 
         // ── [STRATEGY B] Batch Polygon snapshot — 1 API call instead of N ──
         // Previous: N parallel calls to /v2/snapshot/locale/us/markets/stocks/tickers/${ticker}
@@ -211,8 +204,7 @@ export async function GET(request: Request) {
             };
         });
 
-        // [AWS] Cache to ElastiCache (2s TTL — matches polling interval)
-        try { await setInCache(cacheKey, data, 2); } catch { /* non-critical */ }
+        // [FIX] Redis cache write REMOVED — see cache read removal above
 
         return NextResponse.json({
             data,

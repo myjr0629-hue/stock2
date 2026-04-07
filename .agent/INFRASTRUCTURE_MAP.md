@@ -56,6 +56,7 @@
 ### 핵심 원칙
 - **Lambda가 유일한 데이터 생산자** — 모든 계산 수행, 3곳에 동시 저장
 - **Vercel은 읽기 전용** — Redis/DynamoDB에서 읽기만 (데이터 계산 없음)
+- **⚠️ 있으면 캐시, 없으면 실데이터** — 캐시에 null이면 Polygon/FINRA에서 직접 가져옴. 캐시에만 의존하여 빈 카드 방치 금지 (2026-04-08 ROOT FIX)
 - **⚠️ Lambda ↔ Vercel 구조 일치 필수** — Lambda가 저장하는 필드와 Vercel이 읽는 필드는 반드시 1:1 일치. 한쪽만 수정 시 데이터 불일치 발생. Lambda 수정 시 반드시 Vercel 읽기 측 확인 필수
 - **Fundamentals 보존**: score=null이면 DynamoDB 이전 데이터 보존 (한번 성공한 데이터 절대 안 비어짐) — analyst/earnings/related도 동일
 - **warm-analysis, warm-command, morning-briefing cron: 삭제 완료** (2026-04-04)
@@ -346,7 +347,7 @@ Confidence: 4개 중 강한 신호 3+개=HIGH, 2개=MED, 1개=LOW, 0=NONE
 | 경로 | 역할 | 데이터 소스 |
 |------|------|------------|
 | `/api/command/unified?t=TSLA&lang=ko` | Command 페이지 | Memory → Redis → DynamoDB → Polygon |
-| `/api/dashboard/unified?t=TSLA` | Dashboard | Redis cache:analysis → DynamoDB |
+| `/api/dashboard/unified?t=TSLA` | Dashboard | Redis cache:analysis → DynamoDB → **Polygon 라이브 폴백** (VWAP/ShortVol/PCR) |
 | `/api/watchlist/batch` (POST) | Watchlist | Redis → structureService fallback |
 | `/api/portfolio/batch` (POST) | Portfolio | Redis → structureService fallback |
 
@@ -504,6 +505,44 @@ bash scripts/ec2-deploy-guardian.sh
 
 ## 11. 작업 이력
 
+### 2026-04-07~08 (Dashboard 데이터 무결성 ROOT FIX)
+
+> **근본 원칙**: "있으면 캐시, 없으면 실데이터" — 캐시 null 시 빈 카드 방치 금지
+
+1. **Market Status Badge 수정**: API 캐시 의존 → **클라이언트 ET 시간 직접 계산**
+   - 이전: `market?.marketStatus` (API null → CLOSED 표시 버그)
+   - 이후: `getETSession()` 클라이언트 함수 (ET 시간 기반 PRE/OPEN/AFTER/CLOSED)
+   - 파일: `DashboardClient.tsx`
+2. **Stale V3 Cache 감지**: V3.1 필드 없는 분석 캐시 자동 재계산
+   - `isStaleV3Cache = analysis && !('shortVolPct' in analysis)` → FULL 경로 강제
+   - 파일: `watchlistBatchService.ts`
+3. **Dashboard Unified API 라이브 폴백 (ROOT FIX)**:
+   - **VWAP**: `ac.vwap` → `snap.day.vw` → `snap.prevDay.vw` → **Polygon 스냅샷 API**
+   - **Short Vol %**: `ac.shortVolPct` → **`fetchShortVolumeData()` 라이브 호출**
+   - **Volume PCR**: `ac.volumePcr` → `ac.pcr` (OI 기반 폴백)
+   - 파일: `unified/route.ts` (Lines 592-626, 710-715)
+4. **Pre-market 데이터 폴백 (watchlistBatchService)**:
+   - VWAP: `day.vw || prevDay.vw` (전일 VWAP 폴백)
+   - Volume PCR: 볼륨=0 → OI 기반 PCR 폴백
+   - 파일: `watchlistBatchService.ts` (Lines 106, 480-503)
+5. **DynamoDB VWAP 미저장 발견**: `priceCacheStore.ts`에 VWAP 필드 없음
+   - 해결: Polygon 스냅샷 API 직접 호출 (`/v2/snapshot/locale/us/markets/stocks/tickers`)
+
+#### 수정 전후 비교 (ASTS 기준)
+| 필드 | 수정 전 | 수정 후 |
+|------|---------|--------|
+| Market Badge | CLOSED (프리마켓 중) | LIVE PRE / LIVE OPEN |
+| VWAP | — (null) | $91.76 |
+| Short Vol % | — (null) | 54.1% HIGH |
+| P/C RATIO | — — (null) | 0.79 Balanced |
+| Dark Pool % | — (null) | 64.7% |
+
+#### 커밋 이력
+- `013bfe1e` Market badge + stale analysis cache fix
+- `1772f93c` VWAP/PCR pre-market fallback
+- `275e964c` ROOT FIX: 캐시 없으면 실데이터 원칙
+- `ae5eeb46` ROOT FIX: VWAP from Polygon snapshot
+
 ### 2026-04-06~07 (cache:analysis 완전 복원 + Composite WhaleIndex)
 1. **RSI 추가**: Polygon `/v1/indicators/rsi` — Step 5.5로 배치 호출 (995/1000)
 2. **Daily Bars 추가**: Polygon `/v2/aggs/range/1/day` — sparkline/return3d/relVol 계산
@@ -639,6 +678,16 @@ bash scripts/ec2-deploy-guardian.sh
   - Fix 2 (`dashboardStore.ts`): deepMergeTicker에서 price=0이 기존 유효값 덮어쓰기 방지
   - 결과: POST 가격 14종목 전부 일관 표시, Gamma Flip/GEX 슬라이더 깜빡임 제거
   - **배포 완료**: Vercel (`git push`)
+- [x] **Dashboard ROOT FIX: 빈 카드 완전 해결 (2026-04-08 완료)**
+  - ROOT CAUSE: `buildResponseFromAnalysisCache`가 캐시 null이면 그대로 반환 → UI '—' 표시
+  - 원칙: **"있으면 캐시, 없으면 실데이터"** — Polygon/FINRA 라이브 폴백
+  - Fix 1 (`unified/route.ts`): VWAP → Polygon 스냅샷 API 폴백
+  - Fix 2 (`unified/route.ts`): shortVolPct → `fetchShortVolumeData()` 라이브 호출
+  - Fix 3 (`unified/route.ts`): volumePcr → `ac.pcr` OI 기반 폴백
+  - Fix 4 (`DashboardClient.tsx`): Market badge → 클라이언트 ET 시간 직접 계산
+  - Fix 5 (`watchlistBatchService.ts`): Pre-market VWAP/PCR prevDay/OI 폴백
+  - 결과: ASTS 포함 전 종목 VWAP/ShortVol/PCR/DarkPool 100% 표시
+  - **배포 완료**: Vercel (`git push`, 4 commits)
 
 ### 🟡 단기
 - [ ] **WhaleIndex → 적절한 이름 리네이밍** (예: Flow Score, Smart Flow)
@@ -757,26 +806,43 @@ bash scripts/ec2-deploy-guardian.sh
 | `/fed/v1/inflation-expectations` | Inflation Expectations | — |
 ---
 
-## 14. 세션 핸드오프 (2026-04-07T12:40 KST)
+## 14. 세션 핸드오프 (2026-04-08T00:40 KST)
 
 ### 현재 상태
-- **Lambda v7.1** 배포 완료 (SI% 수정 + Fundamentals 보존)
-- 다음 **장중 크론** 실행 시 GOOGL SI%=0 → 정확한 값(~1.1%)으로 업데이트 예정
-- Vercel 코드 변경 없음 — Vercel `massiveClient.ts`는 이미 올바른 엔드포인트 사용 중
-- **Vercel 배포 불필요** (Lambda만 변경)
+- **Dashboard ROOT FIX 완료** — 빈 카드(VWAP/ShortVol/PCR) 100% 해결
+- **시장 배지 수정 완료** — CLOSED 버그 → LIVE PRE/OPEN 정상 표시
+- Lambda v7.1 운영 정상 (SI% + Fundamentals 보존 + WhaleIndex Composite)
+- Vercel 4 commits 배포 완료 (013bfe1e → 1772f93c → 275e964c → ae5eeb46)
 
 ### ⚠️ 핵심 규칙 (반드시 기억)
-1. **Lambda ↔ Vercel 구조 일치 필수** — 한쪽 필드 수정 시 반드시 다른 쪽 확인
-2. **변수명 `whaleIndex` 유지** — `flowScore`로 리네이밍 하지 않음 (기억만)
-3. **코드 변수명 전체 리팩토링 금지** — 기능 수정만, 네이밍은 기억으로 관리
-4. **INFRASTRUCTURE_MAP.md가 SSOT** — 구조 변경 전 반드시 여기 확인
+1. **"있으면 캐시, 없으면 실데이터"** — Dashboard에서 캐시 null이면 Polygon/FINRA 직접 호출 (2026-04-08 확립)
+2. **Lambda ↔ Vercel 구조 일치 필수** — 한쪽 필드 수정 시 반드시 다른 쪽 확인
+3. **DynamoDB priceCacheStore에는 VWAP 없음** — VWAP은 항상 Polygon 스냅샷 또는 분석 캐시에서
+4. **변수명 `whaleIndex` 유지** — `flowScore`로 리네이밍 하지 않음 (기억만)
+5. **INFRASTRUCTURE_MAP.md가 SSOT** — 구조 변경 전 반드시 여기 확인
+
+### Dashboard Unified API 데이터 폴백 체인 (2026-04-08)
+```
+[1차] Redis Analysis Cache (ac.vwap, ac.shortVolPct, ac.volumePcr)
+  ↓ null이면
+[2차] DynamoDB Snapshot (snap.day.vw) — VWAP only
+  ↓ null이면
+[3차] Polygon 라이브 API — VWAP: snapshot, ShortVol: short-volume, PCR: ac.pcr 폴백
+```
+
+### 수정된 파일 (2026-04-07~08)
+| 파일 | 변경 내용 |
+|------|----------|
+| `DashboardClient.tsx` | Market status badge → 클라이언트 ET 시간 직접 계산 |
+| `watchlistBatchService.ts` | VWAP prevDay 폴백, OI 기반 PCR 폴백, isStaleV3Cache 감지 |
+| `dashboard/unified/route.ts` | VWAP/ShortVol/PCR 라이브 폴백 체인 (Polygon API) |
 
 ### 📋 미완료 TODO
 1. ~~Composite WhaleIndex → Alpha Score 연결~~ ✅ **완료 (2026-04-07)**
-   - Lambda/Vercel 모두 동일한 4요인 Composite 공식 사용
-   - `calculateWhaleIndex(gex, darkPoolPct, blockTrades, netPremium)` — 5개 파일 수정 완료
-2. **UNIVERSE_500 변수명 정리** — 실제 1000종목이므로 혼란. 코드 변수명까지 전부 리팩토링은 안 함
-3. **WhaleIndex UI 배치** — Command/Flow 페이지에 게이지 형태로 배치 검토
+2. ~~Dashboard 빈 카드 (VWAP/ShortVol/PCR)~~ ✅ **완료 (2026-04-08)**
+3. **UNIVERSE_500 변수명 정리** — 실제 1000종목이므로 혼란
+4. **WhaleIndex UI 배치** — Command/Flow 페이지에 게이지 형태로 배치 검토
+5. **DynamoDB priceCacheStore에 VWAP 추가 검토** — 현재 Polygon 폴백으로 우회 중
 
 ### 🚀 런칭 마무리 TODO
 1. **사이트 전체 버그 전수조사** — 모든 페이지 돌면서 버그 리스트업
@@ -794,6 +860,7 @@ bash scripts/ec2-deploy-guardian.sh
 ### Polygon (Massive) API 사용 현황
 - **Lambda**: 옵션/가격/SMA/RSI/SI%/Float/Ratios/Financials/Related/News
 - **Vercel**: massiveClient.ts 통해 fallback으로 사용 (DynamoDB miss 시)
+- **Dashboard unified**: VWAP 폴백 (`/v2/snapshot`), ShortVol 폴백 (`/stocks/v1/short-volume`)
 - 전체 엔드포인트: 섹션 12 참조 (50+ endpoints)
 
 ### 외부 API 키 구조
@@ -803,4 +870,4 @@ bash scripts/ec2-deploy-guardian.sh
 | FMP | `FMP_API_KEY` (env 주입) | `FMP_API_KEY` | Lambda Step 4a,4b |
 | Finnhub | `FINNHUB_API_KEY` (env 주입) | `FINNHUB_API_KEY` | Vercel만 실사용 |
 
-*마지막 업데이트: 2026-04-07T12:40 KST*
+*마지막 업데이트: 2026-04-08T00:40 KST*

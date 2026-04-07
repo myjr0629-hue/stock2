@@ -384,7 +384,21 @@ export const useDashboardStore = create<DashboardState>()(
 
                     for (const [key, value] of Object.entries(newTickers)) {
                         if (value && typeof value === 'object' && !(value as any).error) {
-                            mergedTickers[key] = deepMergeTicker(mergedTickers[key], value);
+                            // [FIX] Price/Indicator separation:
+                            // unified API (30s) provides INDICATORS only.
+                            // Prices come from fetchPriceOnly (2s) / WebSocket.
+                            // If store already has a valid price, strip price fields
+                            // from unified response to prevent stale overwrite.
+                            const existing = mergedTickers[key];
+                            const hasValidPrice = existing?.underlyingPrice != null && existing.underlyingPrice > 0;
+                            if (hasValidPrice) {
+                                // Strip volatile price fields — keep indicators only
+                                const { underlyingPrice, changePercent, display, intradayChangePct, ...indicatorData } = value as any;
+                                mergedTickers[key] = deepMergeTicker(existing, indicatorData);
+                            } else {
+                                // First load: no price yet → use unified data including prices
+                                mergedTickers[key] = deepMergeTicker(existing, value);
+                            }
                         }
                         // If value has error, keep existing data
                     }
