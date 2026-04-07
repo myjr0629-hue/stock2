@@ -103,7 +103,7 @@ async function getStockDataLight(symbol: string) {
         session,
         rsi,
         return3d,
-        vwap: t?.day?.vw,
+        vwap: t?.day?.vw || t?.prevDay?.vw || null,  // [FIX] Fallback to prev-day VWAP during pre-market
         history: sparkline.map((close: number) => ({ close })), // Compatible format
         dailyResults, // [V3.2] For session-aware changePct/relVol
         extendedChangePct, // [V5] For PM Gate 11 (preMarketChangePct)
@@ -483,16 +483,24 @@ export async function processWatchlistBatch(tickers: string[], mode: 'full' | 'p
             let volumePcrPutVolVal: number | null = null;
             if (rawContracts.length > 0) {
                 let callVol = 0, putVol = 0;
+                let callOI = 0, putOI = 0;
                 for (const c of rawContracts) {
                     const vol = c.day?.volume || c.volume || 0;
-                    if (c.contract_type === 'call') callVol += vol;
-                    else if (c.contract_type === 'put') putVol += vol;
+                    const oi = c.open_interest || 0;
+                    if (c.contract_type === 'call') { callVol += vol; callOI += oi; }
+                    else if (c.contract_type === 'put') { putVol += vol; putOI += oi; }
                 }
+                // Primary: volume-based PCR. Fallback: OI-based PCR (for pre-market when volume=0)
                 if (callVol > 0) {
                     volumePcrVal = parseFloat((putVol / callVol).toFixed(3));
+                    volumePcrCallVolVal = callVol;
+                    volumePcrPutVolVal = putVol;
+                } else if (callOI > 0) {
+                    // [FIX] Pre-market fallback: use OI when no volume yet
+                    volumePcrVal = parseFloat((putOI / callOI).toFixed(3));
+                    volumePcrCallVolVal = callOI;
+                    volumePcrPutVolVal = putOI;
                 }
-                volumePcrCallVolVal = callVol > 0 ? callVol : null;
-                volumePcrPutVolVal = putVol > 0 ? putVol : null;
             }
 
             // [V3 FIX] 0DTE Options % — OI of today's expiry / total OI
