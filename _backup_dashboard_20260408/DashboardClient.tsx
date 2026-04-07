@@ -2133,10 +2133,8 @@ export function DashboardClient({ initialTickers, initialQuotes }: { initialTick
         setInitialized(true);
     }, [searchParams, setSelectedTicker]);
 
-    // [V4] Clean visibility-aware polling — price and indicators are independent
-    // Price (2s): fetchPriceOnly → writes ONLY price fields
-    // Indicators (30s): fetchDashboardData → writes ONLY indicator fields
-    // No chain needed — they can never overwrite each other
+    // [OPTIMIZED] Visibility-aware polling — pauses when tab hidden, resumes on focus
+    // Price interval: 2s for near-real-time feel
     useEffect(() => {
         if (!initialized) return;
 
@@ -2147,8 +2145,14 @@ export function DashboardClient({ initialTickers, initialQuotes }: { initialTick
         const startPolling = () => {
             if (fullInterval) clearInterval(fullInterval);
             if (priceInterval) clearInterval(priceInterval);
-            fullInterval = setInterval(() => fetchDashboardData(getTickerList()), 30000);
-            priceInterval = setInterval(() => fetchPriceOnly(getTickerList()), 2000);
+
+            fullInterval = setInterval(() => {
+                fetchDashboardData(getTickerList());
+            }, 30000);
+
+            priceInterval = setInterval(() => {
+                fetchPriceOnly(getTickerList());
+            }, 2000);
         };
 
         const stopPolling = () => {
@@ -2160,16 +2164,25 @@ export function DashboardClient({ initialTickers, initialQuotes }: { initialTick
             if (document.hidden) {
                 stopPolling();
             } else {
-                // TAB 복귀: 즉시 refresh
                 fetchPriceOnly(getTickerList());
-                fetchDashboardData(getTickerList());
+                fetchDashboardData(getTickerList()).then(() => {
+                    fetchPriceOnly(getTickerList());
+                });
                 startPolling();
             }
         };
 
-        // Initial fetch — price first (instant), then indicators (slower)
+        // [PROGRESSIVE] Fire price-only FIRST for instant price display
+        // Now guaranteed to run AFTER Supabase load since initialized is true
         fetchPriceOnly(getTickerList());
-        fetchDashboardData(getTickerList());
+        // Then fire full data for option indicators (slower)
+        // [FIX] After unified API completes, re-fire fetchPriceOnly to immediately
+        // fill extended (Pre/Post) data. Without this, extended data from the first
+        // fetchPriceOnly call gets lost because unified API returns extended:null
+        // from analysis-cache, and the next fetchPriceOnly wouldn't run for 2s.
+        fetchDashboardData(getTickerList()).then(() => {
+            fetchPriceOnly(getTickerList());
+        });
         startPolling();
         document.addEventListener('visibilitychange', handleVisibility);
 

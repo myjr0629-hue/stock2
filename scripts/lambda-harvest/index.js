@@ -1273,6 +1273,12 @@ async function buildUnifiedCache(priceMap, gexMap, optionsCache, smaMap, details
               volume: snap.volume || null,
               ivSkew: ivSkew,
               impliedMovePct: impliedMovePct,
+              // [FIX] V3.1 dashboard fields — previously missing from Lambda cache
+              vwap: snap.vw || null,  // Polygon snapshot VWAP (day.vw)
+              // Volume PCR: use OI-based callVol/putVol from gexMap (volume data not available in Lambda)
+              volumePcr: structure.totalCallOI > 0 ? Math.round((structure.totalPutOI / structure.totalCallOI) * 1000) / 1000 : (structure.pcRatio || null),
+              volumePcrCallVol: structure.totalCallOI || null,
+              volumePcrPutVol: structure.totalPutOI || null,
             };
             redisBatch.push(['SET', 'cache:analysis:' + ticker, JSON.stringify(analysisEntry), 'EX', String(REDIS_TTL)]);
           }

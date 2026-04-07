@@ -806,44 +806,116 @@ bash scripts/ec2-deploy-guardian.sh
 | `/fed/v1/inflation-expectations` | Inflation Expectations | — |
 ---
 
-## 14. 세션 핸드오프 (2026-04-08T00:40 KST)
+## 14. 세션 핸드오프 (2026-04-08T03:54 KST)
 
 ### 현재 상태
-- **Dashboard ROOT FIX 완료** — 빈 카드(VWAP/ShortVol/PCR) 100% 해결
+- **Dashboard 가격 파이프라인 분리 배포됨** — Vercel `a28995f7` + Lambda v7.1
 - **시장 배지 수정 완료** — CLOSED 버그 → LIVE PRE/OPEN 정상 표시
-- Lambda v7.1 운영 정상 (SI% + Fundamentals 보존 + WhaleIndex Composite)
-- Vercel 4 commits 배포 완료 (013bfe1e → 1772f93c → 275e964c → ae5eeb46)
+- Lambda v7.1 운영 정상 (SI% + Fundamentals 보존 + WhaleIndex Composite + V3.1 필드 추가)
+- Vercel 배포 완료 (013bfe1e → ... → ae5eeb46 → a28995f7)
 
 ### ⚠️ 핵심 규칙 (반드시 기억)
-1. **"있으면 캐시, 없으면 실데이터"** — Dashboard에서 캐시 null이면 Polygon/FINRA 직접 호출 (2026-04-08 확립)
+1. **「1필드 = 1생산자」원칙** — 가격은 quotes/WS만, 인디케이터는 unified만 (2026-04-08 확립)
 2. **Lambda ↔ Vercel 구조 일치 필수** — 한쪽 필드 수정 시 반드시 다른 쪽 확인
 3. **DynamoDB priceCacheStore에는 VWAP 없음** — VWAP은 항상 Polygon 스냅샷 또는 분석 캐시에서
 4. **변수명 `whaleIndex` 유지** — `flowScore`로 리네이밍 하지 않음 (기억만)
 5. **INFRASTRUCTURE_MAP.md가 SSOT** — 구조 변경 전 반드시 여기 확인
 
-### Dashboard Unified API 데이터 폴백 체인 (2026-04-08)
+### 🔴 Dashboard 데이터 파이프라인 V4 (2026-04-09 재작성)
 ```
-[1차] Redis Analysis Cache (ac.vwap, ac.shortVolPct, ac.volumePcr)
-  ↓ null이면
-[2차] DynamoDB Snapshot (snap.day.vw) — VWAP only
-  ↓ null이면
-[3차] Polygon 라이브 API — VWAP: snapshot, ShortVol: short-volume, PCR: ac.pcr 폴백
+[가격 업데이트] (2초/즉시) — fetchPriceOnly + updateRealtimePrice
+  → ONLY writes: underlyingPrice, changePercent, display, extended, session, prevClose
+  → NEVER writes: indicator fields (netGex, maxPain, pcr, etc.)
+
+[인디케이터 업데이트] (30초) — fetchDashboardData
+  → ONLY writes: INDICATOR_FIELDS (netGex, maxPain, pcr, levels, alpha, etc.)
+  → NEVER writes: price fields
+  → EXCEPTION: 첫 로드 시 store에 가격 없으면 unified에서 가져옴
+
+[WebSocket] — updateRealtimePrice (즉시)
+  → underlyingPrice, changePercent, display만 write
+  → 기존 ticker가 store에 있을 때만 (new ticker는 무시)
+
+[차트] — /api/chart → 30초 자체 SWR (store 무관, 독립)
+
+★ deepMergeTicker 삭제 — 구조적으로 충돌 불가
+★ INDICATOR_FIELDS 상수로 필드 분리 명시적 보장
+★ catch (e) {} 제거 — 모든 에러 console.error로 출력
 ```
 
-### 수정된 파일 (2026-04-07~08)
+### 수정 이력 (2026-04-08)
+
+#### P0 FIX: Dashboard Price Pipeline Separation (a28995f7)
+| 파일 | 변경 내용 |
+|------|----------|
+| `api/live/quotes/route.ts` | Redis 2s 캐시 제거 (2s 폴링과 충돌 → 동일 데이터 반복 반환 방지) |
+| `stores/dashboardStore.ts` | fetchDashboardData에서 unified 응답의 가격 필드 strip 후 merge (stale 가격 덮어쓰기 방지) |
+| `scripts/deploy-lambda-v7.js` | analysisEntry에 `vwap`, `volumePcr`, `volumePcrCallVol`, `volumePcrPutVol` 추가 |
+
+#### 이전 ROOT FIX: Cache-First, Live-Fallback (ae5eeb46)
 | 파일 | 변경 내용 |
 |------|----------|
 | `DashboardClient.tsx` | Market status badge → 클라이언트 ET 시간 직접 계산 |
 | `watchlistBatchService.ts` | VWAP prevDay 폴백, OI 기반 PCR 폴백, isStaleV3Cache 감지 |
 | `dashboard/unified/route.ts` | VWAP/ShortVol/PCR 라이브 폴백 체인 (Polygon API) |
 
+### ⚠️ 아직 미해결 — 대시보드 엉망인 부분
+> **배포 후 검증 필요 — 아래 항목이 완전 해결되었는지 실 프로덕션에서 확인 필수**
+
+1. **사이드바 가격 실시간 업데이트** — quotes 캐시 제거 + deepMerge 보호 적용했지만, 실 프로덕션에서 가격이 2초마다 움직이는지 반드시 확인
+2. **P/C Ratio VOLUME 바 게이지** — Lambda에 OI 기반 callVol/putVol 추가했지만, 다음 Lambda cron 실행 후 실제 바 표시 확인 필요
+3. **WebSocket EC2 서버 상태 미확인** — wss://ws.signumhq.com가 가격 데이터를 보내는지 미검증. WS 꺼져있으면 2초 HTTP 폴링으로 대체 (동작은 하지만 최적이 아님)
+4. **상단 헤더 가격** — 사이드바와 동일 store 참조이므로 같이 수정되어야 하지만 확인 필요
+
 ### 📋 미완료 TODO
 1. ~~Composite WhaleIndex → Alpha Score 연결~~ ✅ **완료 (2026-04-07)**
 2. ~~Dashboard 빈 카드 (VWAP/ShortVol/PCR)~~ ✅ **완료 (2026-04-08)**
-3. **UNIVERSE_500 변수명 정리** — 실제 1000종목이므로 혼란
-4. **WhaleIndex UI 배치** — Command/Flow 페이지에 게이지 형태로 배치 검토
-5. **DynamoDB priceCacheStore에 VWAP 추가 검토** — 현재 Polygon 폴백으로 우회 중
+3. ~~Dashboard 가격 파이프라인 분리~~ ❌ **배포했으나 미작동 확인 (2026-04-08)** — 재작성 필요
+4. **대시보드 프로덕션 전수 검증** — 가격, 인디케이터, PCR 바, 세션 전환 등
+5. **UNIVERSE_500 변수명 정리** — 실제 1000종목이므로 혼란
+6. **WhaleIndex UI 배치** — Command/Flow 페이지에 게이지 형태로 배치 검토
+7. **DynamoDB priceCacheStore에 VWAP 추가 검토** — 현재 Polygon 폴백으로 우회 중
 
+### 🔴 내일 작업 (2026-04-09 예정) — 우선순위순
+
+> **대원칙 (가장 단순한 원칙)**
+> 1. **가격은 항상 실시간** — WebSocket 우선, 폴링 보조
+> 2. **유니버스 종목 = 빛의 속도** — AWS 캐시에 이미 있으니 1회 GET → 즉시 렌더링
+> 3. **비유니버스 종목 = API 호출이든 뭐든 빠르게** — 방법 불문, UI에 최대한 빠르게 렌더링
+> 
+> 복잡한 merge, 폴백 체인, 재계산 전부 제거. 대시보드/워치리스트/전 페이지 동일.
+
+#### ✅ P0 완료: 전체 데이터 파이프 재조립 (대시보드 — 2026-04-09)
+- `dashboardStore.ts` 전면 재작성 (692줄 → 587줄, deepMergeTicker 삭제)
+- `fetchPriceOnly`: 155줄 → 50줄 (세션 분기 단순화, 에러 로깅 추가)
+- `fetchDashboardData`: 95줄 → 45줄 (INDICATOR_FIELDS만 write)
+- `DashboardClient.tsx` 폴링 로직 정리 (.then() 체인 제거, 독립 intervals)
+- **가격/인디케이터 구조적 분리** — INDICATOR_FIELDS 상수로 명시적 보장
+- TypeScript 에러 0개, 프로덕션 빌드 성공
+- 다른 페이지 영향 0% (dashboardTickers/toggleDashboardTicker 인터페이스 유지)
+
+#### P0: Redis 요금 폭탄 최적화 ($26→$3)
+- 현재: 140M commands/월, 271GB bandwidth → 매월 요금 폭증
+- **원인 1**: unified API가 종목당 10+회 Redis GET → **서버 메모리 캐시로 교체** (Map + 30초 TTL)
+- **원인 2**: quotes API extended cache GET 14회/2초 → **불필요, 제거**
+- **원인 3**: EventBridge 24/7 Lambda 실행 → **장중만**: `cron(0/5 13-21 ? * MON-FRI *)`
+- 목표: 월 Redis 명령 수 90% 감소 (140M → 15M 이하)
+
+#### P1: 메인 대시보드 워치리스트 데이터 누락
+- 현상: 데이터가 한번에 다 표시 안 됨 — 일부만 먼저 표시
+- 현상: 다른 페이지 갔다 오면 일부 자료 누락
+- 원인: unified API 응답이 불완전하거나, store merge 시 데이터 유실 추정
+- 점검: 종목별 필드 누락 패턴 파악, unified API ↔ store ↔ UI 완전 추적
+
+#### P1: Lambda 유니버스 + Flow Lambda 데이터 인입 파이프 전수 점검
+- `deploy-lambda-v7.js` (signum-harvest): 1000종목 데이터 수집 → Redis/DynamoDB 저장 파이프 점검
+- `deploy-flow-harvest.js` (signum-flow-harvest): Flow 데이터 수집 파이프 점검
+- 점검 항목:
+  - 각 Step(1-6)에서 수집하는 데이터가 빠짐없이 Redis/DynamoDB에 저장되는지
+  - 저장된 필드와 Vercel이 읽는 필드가 1:1 매칭되는지
+  - EventBridge 스케줄 최적화 (장중만 실행)
+  - Pipeline 배치 크기 최적화
+  
 ### 🚀 런칭 마무리 TODO
 1. **사이트 전체 버그 전수조사** — 모든 페이지 돌면서 버그 리스트업
 2. **모바일 UI 최적화** — 롤백 기반, 망가뜨리지 않도록 단계적 수정
@@ -861,6 +933,7 @@ bash scripts/ec2-deploy-guardian.sh
 - **Lambda**: 옵션/가격/SMA/RSI/SI%/Float/Ratios/Financials/Related/News
 - **Vercel**: massiveClient.ts 통해 fallback으로 사용 (DynamoDB miss 시)
 - **Dashboard unified**: VWAP 폴백 (`/v2/snapshot`), ShortVol 폴백 (`/stocks/v1/short-volume`)
+- **Dashboard quotes** (2s 폴링): `/v2/snapshot/locale/us/markets/stocks/tickers` — Redis 캐시 없음 (직접 호출)
 - 전체 엔드포인트: 섹션 12 참조 (50+ endpoints)
 
 ### 외부 API 키 구조
@@ -870,4 +943,4 @@ bash scripts/ec2-deploy-guardian.sh
 | FMP | `FMP_API_KEY` (env 주입) | `FMP_API_KEY` | Lambda Step 4a,4b |
 | Finnhub | `FINNHUB_API_KEY` (env 주입) | `FINNHUB_API_KEY` | Vercel만 실사용 |
 
-*마지막 업데이트: 2026-04-08T00:40 KST*
+*마지막 업데이트: 2026-04-08T03:54 KST*
