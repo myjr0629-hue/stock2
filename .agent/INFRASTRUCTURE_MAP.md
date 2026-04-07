@@ -628,6 +628,11 @@ bash scripts/ec2-deploy-guardian.sh
   - 수동 테스트: POST `/api/guardian/briefing/generate` → Status 200, 16초, 5뉴스, 3캘린더
 - [ ] **Morning Briefing 정상 생성 확인 (2026-04-07 KST 21:00 = ET 08:00)**
   - 재시도 로직 적용 후 첫 자동 생성 결과 모니터링
+- [x] **Cross-Sector Intelligence Self-Healing 추가 (2026-04-07 완료)**
+  - ROOT CAUSE: 4/4(금) Vercel 크론이 sector snapshot 10개 전부 미실행 → Redis 캐시 없음
+  - GET `/api/intel/cross-sector-brief`: 캐시 없으면 자동으로 POST 트리거 (2회 재시도, 5분 rate limit)
+  - 유저에게 빈 화면 절대 노출 금지 — Self-Healing으로 자동 복구
+  - **배포 완료**: Vercel (`git push`)
 
 ### 🟡 단기
 - [ ] **WhaleIndex → 적절한 이름 리네이밍** (예: Flow Score, Smart Flow)
