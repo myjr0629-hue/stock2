@@ -633,6 +633,12 @@ bash scripts/ec2-deploy-guardian.sh
   - GET `/api/intel/cross-sector-brief`: 캐시 없으면 자동으로 POST 트리거 (2회 재시도, 5분 rate limit)
   - 유저에게 빈 화면 절대 노출 금지 — Self-Healing으로 자동 복구
   - **배포 완료**: Vercel (`git push`)
+- [x] **Dashboard Fix V3: POST 가격 불일치 + 카드 깜빡임 해결 (2026-04-07 완료)**
+  - ROOT CAUSE: `buildResponseFromAnalysisCache`에서 DynamoDB miss 시 quotes API 데이터 유실
+  - Fix 1 (`unified/route.ts`): DynamoDB miss → quotes API fallback으로 가격/세션/extended 직접 추출
+  - Fix 2 (`dashboardStore.ts`): deepMergeTicker에서 price=0이 기존 유효값 덮어쓰기 방지
+  - 결과: POST 가격 14종목 전부 일관 표시, Gamma Flip/GEX 슬라이더 깜빡임 제거
+  - **배포 완료**: Vercel (`git push`)
 
 ### 🟡 단기
 - [ ] **WhaleIndex → 적절한 이름 리네이밍** (예: Flow Score, Smart Flow)
