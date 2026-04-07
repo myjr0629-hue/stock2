@@ -77,51 +77,60 @@ export async function GET(req: NextRequest) {
         // This covers: cron failure, deployment timing, cold start issues
         // ================================================================
         if (isWeekday && etTime >= 8.08) {
-            // Rate limit: only attempt once per 10 minutes (prevent stampede)
+            // Rate limit: only attempt once per 5 minutes (prevent stampede)
             const healingKey = `briefing:healing:${todayET}`;
             const lastAttempt = await getFromCache<number>(healingKey);
             const now = Date.now();
 
-            if (!lastAttempt || (now - lastAttempt) > 10 * 60 * 1000) {
+            if (!lastAttempt || (now - lastAttempt) > 5 * 60 * 1000) {
                 // Mark healing attempt (expires in 1 hour)
                 await setInCache(healingKey, now, 3600);
 
                 console.log(`[Guardian Briefing] 🔧 Self-healing: No briefing for ${todayET}, triggering generation...`);
 
-                try {
-                    // Build base URL from request
-                    const baseUrl = req.nextUrl.origin || req.url.split('/api/')[0];
+                // Retry up to 2 times with 10s delay
+                const MAX_RETRIES = 2;
+                for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+                    try {
+                        const baseUrl = req.nextUrl.origin || req.url.split('/api/')[0];
 
-                    const res = await fetch(`${baseUrl}/api/guardian/briefing/generate`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ snapshot: null, rlsiHistory: [] }),
-                        signal: AbortSignal.timeout(55000),
-                    });
+                        const res = await fetch(`${baseUrl}/api/guardian/briefing/generate`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ snapshot: null, rlsiHistory: [] }),
+                            signal: AbortSignal.timeout(55000),
+                        });
 
-                    if (res.ok) {
-                        const result = await res.json();
-                        console.log(`[Guardian Briefing] ✅ Self-healing success: ${result.newsCount} news, ${result.calendarCount} calendar`);
+                        if (res.ok) {
+                            const result = await res.json();
+                            console.log(`[Guardian Briefing] ✅ Self-healing success (attempt ${attempt}): ${result.newsCount} news, ${result.calendarCount} calendar`);
 
-                        // Re-read the just-generated briefing
-                        const freshBriefing = await getFromCache<any>(localeKey);
-                        if (freshBriefing?.briefing) {
-                            return NextResponse.json({
-                                success: true,
-                                briefing: freshBriefing.briefing,
-                                date: freshBriefing.date,
-                                source: freshBriefing.source,
-                                generatedAt: freshBriefing.generatedAt,
-                                newsCount: freshBriefing.newsCount || 0,
-                                calendarCount: freshBriefing.calendarCount || 0,
-                                selfHealed: true,
-                            });
+                            // Re-read the just-generated briefing
+                            const freshBriefing = await getFromCache<any>(localeKey);
+                            if (freshBriefing?.briefing) {
+                                return NextResponse.json({
+                                    success: true,
+                                    briefing: freshBriefing.briefing,
+                                    date: freshBriefing.date,
+                                    source: freshBriefing.source,
+                                    generatedAt: freshBriefing.generatedAt,
+                                    newsCount: freshBriefing.newsCount || 0,
+                                    calendarCount: freshBriefing.calendarCount || 0,
+                                    selfHealed: true,
+                                });
+                            }
+                            break; // Success but no cached result, don't retry
+                        } else {
+                            console.error(`[Guardian Briefing] Self-healing attempt ${attempt}/${MAX_RETRIES} failed: ${res.status}`);
                         }
-                    } else {
-                        console.error(`[Guardian Briefing] Self-healing failed: ${res.status}`);
+                    } catch (e: any) {
+                        console.error(`[Guardian Briefing] Self-healing attempt ${attempt}/${MAX_RETRIES} error:`, e.message);
                     }
-                } catch (e: any) {
-                    console.error(`[Guardian Briefing] Self-healing error:`, e.message);
+
+                    // Wait before retry
+                    if (attempt < MAX_RETRIES) {
+                        await new Promise(r => setTimeout(r, 10000));
+                    }
                 }
             }
         }

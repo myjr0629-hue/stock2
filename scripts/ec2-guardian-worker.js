@@ -592,102 +592,123 @@ async function generateMorningBriefing() {
     console.log("[Briefing] 🌅 Generating narrative morning briefing...");
     lastBriefingDate = etDateStr;
 
-    try {
-        // Get current snapshot from Redis
-        const snapshotRaw = await redis.get(`${CONFIG.SNAPSHOT_KEY_PREFIX}ko`);
-        const snapshot = snapshotRaw ? JSON.parse(snapshotRaw) : null;
+    // Get current snapshot from Redis
+    const snapshotRaw = await redis.get(`${CONFIG.SNAPSHOT_KEY_PREFIX}ko`);
+    const snapshot = snapshotRaw ? JSON.parse(snapshotRaw) : null;
 
-        // Get RLSI history
-        const historyRaw = await redis.get(CONFIG.RLSI_HISTORY_KEY);
-        const rlsiHistory = historyRaw ? JSON.parse(historyRaw) : [];
+    // Get RLSI history
+    const historyRaw = await redis.get(CONFIG.RLSI_HISTORY_KEY);
+    const rlsiHistory = historyRaw ? JSON.parse(historyRaw) : [];
 
-        // Call Vercel API for Gemini narrative generation
-        const apiUrl = `${CONFIG.VERCEL_API_URL}/api/guardian/briefing/generate`;
+    // ══════════════════════════════════════════════════════════
+    // RETRY LOGIC: 3 attempts with exponential backoff
+    // Attempt 1: immediate, Attempt 2: +15s, Attempt 3: +30s
+    // Total window: ~60s — well within PRE session
+    // ══════════════════════════════════════════════════════════
+    const MAX_RETRIES = 3;
+    const RETRY_DELAYS = [0, 15000, 30000]; // ms delays before each attempt
+    let lastError = null;
 
-        const response = await fetch(apiUrl, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ snapshot, rlsiHistory }),
-            signal: AbortSignal.timeout(55000), // 55s timeout (Gemini needs time)
-        });
-
-        if (!response.ok) {
-            throw new Error(`API responded ${response.status}`);
+    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+        if (attempt > 1) {
+            const delay = RETRY_DELAYS[attempt - 1] || 30000;
+            console.log(`[Briefing] ⏳ Retry ${attempt}/${MAX_RETRIES} in ${delay / 1000}s...`);
+            await new Promise(resolve => setTimeout(resolve, delay));
         }
 
-        const result = await response.json();
+        try {
+            const apiUrl = `${CONFIG.VERCEL_API_URL}/api/guardian/briefing/generate`;
+            const response = await fetch(apiUrl, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ snapshot, rlsiHistory }),
+                signal: AbortSignal.timeout(55000),
+            });
 
-        if (result.success && result.briefing) {
-            const briefingTexts = result.briefing; // { ko: "...", en: "...", ja: "..." }
+            if (!response.ok) {
+                throw new Error(`API responded ${response.status}`);
+            }
 
-            // Store per-locale in Redis (24h TTL)
-            for (const locale of CONFIG.LOCALES) {
-                const briefing = {
+            const result = await response.json();
+
+            if (result.success && result.briefing) {
+                const briefingTexts = result.briefing; // { ko: "...", en: "...", ja: "..." }
+
+                // Store per-locale in Redis (24h TTL)
+                for (const locale of CONFIG.LOCALES) {
+                    const briefing = {
+                        date: etDateStr,
+                        generatedAt: new Date().toISOString(),
+                        briefing: briefingTexts[locale] || briefingTexts.en || "Briefing not available",
+                        source: "claude",
+                        newsCount: result.newsCount || 0,
+                        calendarCount: result.calendarCount || 0,
+                    };
+                    await redis.setex(`guardian:morning_briefing:${locale}`, 24 * 60 * 60, JSON.stringify(briefing));
+                }
+
+                // Also store default key (backward compat)
+                await redis.setex("guardian:morning_briefing", 24 * 60 * 60, JSON.stringify({
                     date: etDateStr,
                     generatedAt: new Date().toISOString(),
-                    briefing: briefingTexts[locale] || briefingTexts.en || "Briefing not available",
-                    source: "gemini",
-                    newsCount: result.newsCount || 0,
-                    calendarCount: result.calendarCount || 0,
-                };
-                await redis.setex(`guardian:morning_briefing:${locale}`, 24 * 60 * 60, JSON.stringify(briefing));
+                    text: briefingTexts.ko || briefingTexts.en,
+                    briefing: briefingTexts.ko || briefingTexts.en,
+                    source: "claude",
+                    preMarket: {
+                        preMarketRlsi: snapshot?.rlsi?.score || null,
+                        gexIndex: snapshot?.gammaShield?.gexIndex || null,
+                        vix: snapshot?.rlsi?.components?.vix || null,
+                    },
+                }));
+
+                // Publish to WebSocket clients
+                for (const locale of CONFIG.LOCALES) {
+                    await redisPub.publish(CONFIG.UPDATE_CHANNEL, JSON.stringify({
+                        locale,
+                        type: "morning_briefing",
+                        briefing: briefingTexts[locale],
+                        timestamp: new Date().toISOString(),
+                    }));
+                }
+
+                console.log(`[Briefing] ✅ Narrative briefing generated on attempt ${attempt}/${MAX_RETRIES} (${result.newsCount} news, ${result.calendarCount} calendar) in ${result.elapsedMs}ms`);
+                return; // SUCCESS — exit retry loop
+            } else {
+                throw new Error("API returned success=false or empty briefing");
             }
 
-            // Also store default key (backward compat)
-            await redis.setex("guardian:morning_briefing", 24 * 60 * 60, JSON.stringify({
+        } catch (e) {
+            lastError = e;
+            console.error(`[Briefing] ❌ Attempt ${attempt}/${MAX_RETRIES} failed:`, e.message);
+        }
+    }
+
+    // ══════════════════════════════════════════════════════════
+    // ALL RETRIES EXHAUSTED — Use data-driven template fallback
+    // Users should NEVER see "temporarily unavailable"
+    // ══════════════════════════════════════════════════════════
+    console.error(`[Briefing] 🔴 All ${MAX_RETRIES} attempts failed. Using template fallback. Last error:`, lastError?.message);
+
+    try {
+        const fallbackTexts = generateFallbackBriefing(snapshot, etDateStr);
+        for (const locale of CONFIG.LOCALES) {
+            await redis.setex(`guardian:morning_briefing:${locale}`, 24 * 60 * 60, JSON.stringify({
                 date: etDateStr,
                 generatedAt: new Date().toISOString(),
-                text: briefingTexts.ko || briefingTexts.en,
-                briefing: briefingTexts.ko || briefingTexts.en,
-                source: "gemini",
-                preMarket: {
-                    preMarketRlsi: snapshot?.rlsi?.score || null,
-                    gexIndex: snapshot?.gammaShield?.gexIndex || null,
-                    vix: snapshot?.rlsi?.components?.vix || null,
-                },
-            }));
-
-            // Publish to WebSocket clients
-            for (const locale of CONFIG.LOCALES) {
-                await redisPub.publish(CONFIG.UPDATE_CHANNEL, JSON.stringify({
-                    locale,
-                    type: "morning_briefing",
-                    briefing: briefingTexts[locale],
-                    timestamp: new Date().toISOString(),
-                }));
-            }
-
-            console.log(`[Briefing] ✅ Narrative briefing generated (${result.newsCount} news, ${result.calendarCount} calendar) in ${result.elapsedMs}ms`);
-        } else {
-            // Fallback to template if Claude fails
-            const fallbackTexts = generateFallbackBriefing(snapshot, etDateStr);
-            for (const locale of CONFIG.LOCALES) {
-                await redis.setex(`guardian:morning_briefing:${locale}`, 24 * 60 * 60, JSON.stringify({
-                    date: etDateStr,
-                    generatedAt: new Date().toISOString(),
-                    briefing: fallbackTexts[locale] || fallbackTexts.en,
-                    source: "template",
-                }));
-            }
-            await redis.setex("guardian:morning_briefing", 24 * 60 * 60, JSON.stringify({
-                date: etDateStr,
-                generatedAt: new Date().toISOString(),
-                text: fallbackTexts.ko || fallbackTexts.en,
-                briefing: fallbackTexts.ko || fallbackTexts.en,
+                briefing: fallbackTexts[locale] || fallbackTexts.en,
                 source: "template",
             }));
-            console.log("[Briefing] ⚠️ Used fallback template (Claude unavailable)");
         }
-    } catch (e) {
-        console.error("[Briefing] ❌ Morning briefing failed:", e.message);
-        // Don't block — store minimal fallback
-        try {
-            const fallback = `📊 Pre-Market (${etDateStr}): Briefing generation temporarily unavailable.`;
-            await redis.setex("guardian:morning_briefing", 24 * 60 * 60, JSON.stringify({
-                date: etDateStr, generatedAt: new Date().toISOString(),
-                text: fallback, briefing: fallback, source: "error",
-            }));
-        } catch { }
+        await redis.setex("guardian:morning_briefing", 24 * 60 * 60, JSON.stringify({
+            date: etDateStr,
+            generatedAt: new Date().toISOString(),
+            text: fallbackTexts.ko || fallbackTexts.en,
+            briefing: fallbackTexts.ko || fallbackTexts.en,
+            source: "template",
+        }));
+        console.log("[Briefing] ⚠️ Template fallback saved (users will see data-driven briefing, not an error)");
+    } catch (fallbackErr) {
+        console.error("[Briefing] 🔴 Even template fallback failed:", fallbackErr.message);
     }
 }
 

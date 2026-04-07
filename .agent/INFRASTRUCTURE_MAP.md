@@ -555,6 +555,11 @@ bash scripts/ec2-deploy-guardian.sh
   - macroData 항상 fetch (CACHE HIT에서 Regime pillar용)
 - [ ] **장중 1000종목 전체 harvest 모니터링** — CloudWatch Logs 확인
   - `signum-harvest` + `signum-flow-harvest` 동시 모니터링
+- [ ] **Morning Briefing 생성 모니터링 (2026-04-07 KST 21:00 = ET 08:00)**
+  - EC2 Worker → POST `/api/guardian/briefing/generate` → Bedrock Claude → Redis
+  - Self-Healing: GET `/api/guardian/briefing` → 08:05+ ET 자동 트리거
+  - 4/6(일) 에러: `"Briefing generation temporarily unavailable"` — Bedrock/Vercel 호출 실패 추정
+  - Vercel cron에 briefing generate 없음 — EC2 Worker + Self-Healing 이중 안전장치만 존재
 
 ### 🟡 단기
 - [ ] **WhaleIndex → 적절한 이름 리네이밍** (예: Flow Score, Smart Flow)
