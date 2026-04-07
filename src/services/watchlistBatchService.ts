@@ -242,7 +242,10 @@ export async function processWatchlistBatch(tickers: string[], mode: 'full' | 'p
         // [V8 UNIFIED] Lambda alphaSnapshot을 무시하고, 캐시된 raw 데이터 + live 가격으로
         // Vercel V4.6 엔진으로 재계산. 유니버스/비유니버스/CACHE HIT/MISS 모두 동일 결과.
         // ============================================
-        if (analysis) {
+        // [V3.1 FIX] If cache entry is from pre-V3.1 (missing dashboard fields),
+        // skip cache hit → force FULL recalculation so writeAnalysisCache stores new fields
+        const isStaleV3Cache = analysis && !('shortVolPct' in analysis);
+        if (analysis && !isStaleV3Cache) {
             const base = buildBasePrice();
 
             // [FIX] Live dark pool enrichment when cache has stale 0 value

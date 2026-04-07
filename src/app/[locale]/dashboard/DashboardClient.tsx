@@ -165,48 +165,67 @@ function AlphaStatusBar() {
 
             {/* Center: Market Status Indicator + Countdown */}
             <div className="flex items-center gap-2">
-                {market?.marketStatus && market.marketStatus !== 'CLOSED' && !market?.isHoliday ? (
-                    <>
-                        {/* LIVE — Pre-Market, Regular, After-Hours */}
-                        <span className="relative flex h-2.5 w-2.5">
-                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-                            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500" />
-                        </span>
-                        <span className="text-[12px] uppercase tracking-wider text-emerald-400 font-bold">LIVE</span>
-                        <span className={`ml-1 px-2 py-0.5 text-[12px] uppercase font-bold rounded border ${STATUS_COLORS[market.marketStatus]}`}>
-                            {market.marketStatus}
-                        </span>
-                    </>
-                ) : (
-                    <>
-                        {/* CLOSED — no pulse */}
-                        <span className="relative flex h-2.5 w-2.5">
-                            <span className={`relative inline-flex rounded-full h-2.5 w-2.5 ${market?.isHoliday ? 'bg-amber-500' : 'bg-slate-400'}`} />
-                        </span>
-                        {market?.isHoliday ? (
+                {(() => {
+                    // [FIX] Compute session status client-side — no API cache dependency
+                    const now = new Date();
+                    const etStr = now.toLocaleString('en-US', { timeZone: 'America/New_York' });
+                    const et = new Date(etStr);
+                    const etDay = et.getDay();
+                    const etMinutes = et.getHours() * 60 + et.getMinutes();
+
+                    const isWeekend = etDay === 0 || etDay === 6;
+                    const isHoliday = market?.isHoliday || false;
+
+                    // Determine session from ET time
+                    let sessionLabel: 'PRE' | 'OPEN' | 'AFTER' | 'CLOSED' = 'CLOSED';
+                    if (!isWeekend && !isHoliday) {
+                        if (etMinutes >= 240 && etMinutes < 570) sessionLabel = 'PRE';       // 04:00-09:29
+                        else if (etMinutes >= 570 && etMinutes < 960) sessionLabel = 'OPEN';  // 09:30-15:59
+                        else if (etMinutes >= 960 && etMinutes < 1200) sessionLabel = 'AFTER'; // 16:00-19:59
+                    }
+
+                    const isLive = sessionLabel !== 'CLOSED';
+
+                    if (isHoliday) {
+                        return (
                             <>
+                                <span className="relative flex h-2.5 w-2.5">
+                                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-amber-500" />
+                                </span>
                                 <span className="text-[12px] uppercase tracking-wider text-amber-400 font-bold">HOLIDAY</span>
-                                {market.holidayName && (
+                                {market?.holidayName && (
                                     <span className="text-[12px] text-amber-300 font-semibold">· {market.holidayName}</span>
                                 )}
                             </>
-                        ) : (() => {
-                            // Check if weekend (client-side ET calculation)
-                            const now = new Date();
-                            const etStr = now.toLocaleString('en-US', { timeZone: 'America/New_York' });
-                            const etDay = new Date(etStr).getDay();
-                            const isWeekend = etDay === 0 || etDay === 6;
-                            return isWeekend ? (
-                                <>
-                                    <span className="text-[12px] uppercase tracking-wider text-slate-300 font-bold">CLOSED</span>
-                                    <span className="text-[12px] text-slate-400 font-semibold">· Weekend</span>
-                                </>
-                            ) : (
-                                <span className="text-[12px] uppercase tracking-wider text-slate-300 font-bold">CLOSED</span>
-                            );
-                        })()}
-                    </>
-                )}
+                        );
+                    }
+
+                    if (isLive) {
+                        return (
+                            <>
+                                <span className="relative flex h-2.5 w-2.5">
+                                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                                    <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500" />
+                                </span>
+                                <span className="text-[12px] uppercase tracking-wider text-emerald-400 font-bold">LIVE</span>
+                                <span className={`ml-1 px-2 py-0.5 text-[12px] uppercase font-bold rounded border ${STATUS_COLORS[sessionLabel]}`}>
+                                    {sessionLabel}
+                                </span>
+                            </>
+                        );
+                    }
+
+                    // CLOSED
+                    return (
+                        <>
+                            <span className="relative flex h-2.5 w-2.5">
+                                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-slate-400" />
+                            </span>
+                            <span className="text-[12px] uppercase tracking-wider text-slate-300 font-bold">CLOSED</span>
+                            {isWeekend && <span className="text-[12px] text-slate-400 font-semibold">· Weekend</span>}
+                        </>
+                    );
+                })()}
 
                 <MarketCountdown marketStatus={market?.marketStatus} isHoliday={market?.isHoliday} />
             </div>
