@@ -604,6 +604,23 @@ async function buildResponseFromAnalysisCache(
         } catch { /* silent — cache data still used */ }
     }
 
+    // [ROOT FIX] VWAP: DynamoDB에 저장 안 됨 → Polygon 스냅샷에서 직접 가져옴
+    const vwapMap: Record<string, number | null> = {};
+    const tickersNeedingVwap = tickers.filter(t => {
+        const ac = analysisCacheMap[t];
+        const snap = priceMap[t];
+        return ac && !ac.vwap && !(snap?.day?.vw);
+    });
+    if (tickersNeedingVwap.length > 0) {
+        try {
+            const { fetchMassive } = await import('@/services/massiveClient');
+            const snapRes = await fetchMassive(`/v2/snapshot/locale/us/markets/stocks/tickers`, { tickers: tickersNeedingVwap.join(',') }).catch(() => null);
+            for (const t of (snapRes?.tickers || [])) {
+                vwapMap[t.ticker] = t?.day?.vw || t?.prevDay?.vw || null;
+            }
+        } catch { /* silent */ }
+    }
+
     for (const ticker of tickers) {
         const ac = analysisCacheMap[ticker];
         if (!ac) continue;
@@ -693,7 +710,7 @@ async function buildResponseFromAnalysisCache(
             squeezeRisk,
             // [ROOT FIX] 캐시에 없으면 → 이미 가져온 라이브 데이터에서 직접 채움
             // 원칙: "있으면 캐시, 없으면 실데이터" — 복잡한 캐시 의존 제거
-            vwap: ac.vwap || snap?.day?.vw || snap?.prevDay?.vw || null,
+            vwap: ac.vwap || snap?.day?.vw || snap?.prevDay?.vw || vwapMap[ticker] || null,
             darkPoolPct: ac.darkPoolPct != null ? Math.round(ac.darkPoolPct * 10) / 10 : null,
             shortVolPct: (() => { const v = ac.shortVolPct ?? shortVolMap[ticker] ?? null; return v != null ? Math.round(v * 10) / 10 : null; })(),
             zeroDtePct: ac.zeroDtePct ?? null,
