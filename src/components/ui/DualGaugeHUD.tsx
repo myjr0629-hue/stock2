@@ -2,6 +2,7 @@ import React, { useMemo } from 'react';
 
 interface DualGaugeHUDProps {
   contextScore?: number;
+  contextGrade?: string;
   smartFlow?: number;
 }
 
@@ -21,7 +22,7 @@ const getContextConfig = (val: number) => {
   return { color: '#ef4444', label: 'WEAK CONTEXT', glow: 'rgba(239,68,68,0.5)' };
 };
 
-const SemiCircleGauge = ({ value, config, title }: { value: number, config: any, title: string }) => {
+const SemiCircleGauge = ({ value, config, title, grade }: { value: number, config: any, title: string, grade?: string }) => {
   // SVG Math
   const radius = 42;
   const arcLength = Math.PI * radius; // Approx 131.95
@@ -32,7 +33,7 @@ const SemiCircleGauge = ({ value, config, title }: { value: number, config: any,
 
   return (
     <div className="flex flex-col items-center justify-center relative w-[120px] h-[70px] shrink-0 scale-90">
-      <div className="absolute -top-1 text-[10px] font-black text-slate-300 uppercase tracking-widest font-jakarta z-10">
+      <div className="absolute -top-3 text-[12px] font-black text-slate-200 uppercase tracking-widest font-jakarta z-10 whitespace-nowrap">
         {title}
       </div>
 
@@ -58,20 +59,30 @@ const SemiCircleGauge = ({ value, config, title }: { value: number, config: any,
       </svg>
 
       <div className="absolute bottom-5 left-0 right-0 flex flex-col items-center">
-        <div 
-          className="text-2xl font-black tabular-nums tracking-tighter text-slate-300" 
-          style={{ 
-            color: config.color, 
-            textShadow: value > 0 ? `0 0 12px ${config.glow}` : 'none' 
-          }}
-        >
-          {Math.round(value)}
+        <div className="flex items-baseline gap-1">
+            <div 
+              className="text-[26px] font-black tabular-nums tracking-tighter text-slate-200" 
+              style={{ 
+                color: config.color, 
+                textShadow: value > 0 ? `0 0 12px ${config.glow}` : 'none' 
+              }}
+            >
+              {Math.round(value)}
+            </div>
+            {grade && (
+               <span 
+                 className="text-lg font-black tracking-tighter ml-0.5"
+                 style={{ color: config.color, textShadow: value > 0 ? `0 0 12px ${config.glow}` : 'none' }}
+               >
+                 {grade}
+               </span>
+            )}
         </div>
       </div>
 
-      <div className="absolute -bottom-2 w-[140%] text-center">
+      <div className="absolute -bottom-3 w-[150%] text-center">
         <div 
-          className="text-[9px] font-bold tracking-widest uppercase truncate px-1 font-jakarta text-slate-300" 
+          className="text-[12px] font-extrabold tracking-widest uppercase truncate px-1 font-jakarta text-slate-200" 
           style={{ color: config.color }}
         >
           {config.label}
@@ -81,14 +92,14 @@ const SemiCircleGauge = ({ value, config, title }: { value: number, config: any,
   );
 };
 
-export const DualGaugeHUD = ({ contextScore = 0, smartFlow = 0 }: DualGaugeHUDProps) => {
+export const DualGaugeHUD = ({ contextScore = 0, contextGrade, smartFlow = 0 }: DualGaugeHUDProps) => {
   const sfConfig = getSmartFlowConfig(smartFlow);
   const cxConfig = getContextConfig(contextScore);
   
   return (
-    <div className="hidden lg:flex items-center gap-5 py-0 px-4 ml-3 border-l border-white/[0.08]">
-      <SemiCircleGauge value={contextScore} config={cxConfig} title="CONTEXT" />
-      <div className="w-px h-12 bg-white/[0.04]" />
+    <div className="hidden lg:flex items-center gap-6 py-0 px-6 ml-3 border-l border-white/[0.08]">
+      <SemiCircleGauge value={contextScore} grade={contextGrade} config={cxConfig} title="CONTEXT SCORE" />
+      <div className="w-px h-14 bg-white/[0.04]" />
       <SemiCircleGauge value={smartFlow} config={sfConfig} title="SMART FLOW" />
     </div>
   );

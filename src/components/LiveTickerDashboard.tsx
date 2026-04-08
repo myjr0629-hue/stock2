@@ -1429,6 +1429,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                         // Rely strictly on single source of truth from Unified Cache / Lambda Analysis Engine.
                         const liveSmartFlow = _swrQuote?.smartFlow ?? initialUnifiedData?.smartFlow ?? (ssrFallback as any)?.smartFlow ?? 0;
                         const liveContextScore = _swrQuote?.alpha?.score ?? initialUnifiedData?.alpha?.score ?? (ssrFallback as any)?.alpha?.score ?? 0;
+                        const liveContextGrade = _swrQuote?.alpha?.grade ?? initialUnifiedData?.alpha?.grade ?? (ssrFallback as any)?.alpha?.grade ?? '';
 
                         return (
                             <div className="flex-1 flex items-center justify-end gap-3 min-w-0" style={{ zIndex: descPopoverOpen ? 50 : 'auto' }}>
@@ -1439,7 +1440,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                         onClick={() => isLong && setDescPopoverOpen(!descPopoverOpen)}
                                         style={{ boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.02), 0 0 12px rgba(0,0,0,0.1)' }}
                                     >
-                                        <p className="text-[11.5px] text-slate-300 leading-snug font-medium"
+                                        <p className="text-[12px] text-slate-300 leading-relaxed font-medium"
                                             style={{ fontFamily: descFontFamily, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as any, overflow: 'hidden' }}>
                                             {descText}
                                         </p>
@@ -1450,11 +1451,12 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                 <div className="hidden sm:flex items-center shrink-0">
                                     <DualGaugeHUD 
                                         contextScore={liveContextScore} 
+                                        contextGrade={liveContextGrade}
                                         smartFlow={liveSmartFlow} 
                                     />
                                     
                                     <div className="ml-2 self-center">
-                                        <Link href="/how-it-works" className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-cyan-500/20 text-[10px] font-bold text-cyan-500/80 hover:text-cyan-300 hover:border-cyan-400/50 hover:bg-cyan-950/30 hover:shadow-[0_0_12px_rgba(6,182,212,0.2)] transition-all duration-300 font-jakarta bg-cyan-950/10 backdrop-blur-sm">
+                                        <Link href="/how-it-works" className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-cyan-500/20 text-[12px] font-bold text-cyan-500/80 hover:text-cyan-300 hover:border-cyan-400/50 hover:bg-cyan-950/30 hover:shadow-[0_0_12px_rgba(6,182,212,0.2)] transition-all duration-300 font-jakarta bg-cyan-950/10 backdrop-blur-sm">
                                             <BookOpen className="w-3 h-3" />
                                             GUIDE
                                         </Link>
