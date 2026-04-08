@@ -145,10 +145,17 @@
 #### Lambda Redis 저장
 | Redis 키 | 형식 | 용도 |
 |----------|------|------|
-| `cache:analysis:{TICKER}` | AnalysisCacheEntry (**20+필드**) | Dashboard/Watchlist/Portfolio |
+| `cache:analysis:{TICKER}` | AnalysisCacheEntry (**31필드**) | Dashboard/Watchlist/Portfolio |
 | `cache:command:unified:{TICKER}` | 9개 섹션 전체 데이터 | Command/Ticker 페이지 |
 - TTL: 259,200초 (3일)
 - 방식: Upstash REST API pipeline (배치 20개씩)
+- **cache:analysis**: structure 없어도 항상 기록 (가격/RSI/sparkline만으로도 캐시 HIT 보장)
+
+#### 유니버스 단일 소스
+- **소스**: `data/stock_universe_us800.json` (1,000종목)
+- **Lambda 변수**: `UNIVERSE` (기존 `UNIVERSE_500` 완전 제거)
+- **Vercel 변수**: `src/lib/universe.ts` → `export const UNIVERSE` (us800.json 직접 import)
+- **Command 유니버스 판별**: `src/app/api/command/unified/route.ts` → `UNIVERSE.includes(ticker)`
 
 #### cache:analysis 필드 완전 목록 (2026-04-07)
 | 필드 | 소스 | 커버리지 |

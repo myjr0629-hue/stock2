@@ -1,66 +1,11 @@
-// Master Universe — 500 tickers shared by Lambda\n// Used by:\n//   1. scripts/deploy-lambda-v7.js (signum-harvest)\n//   2. scripts/lambda-flow-harvest/index.js (signum-flow-harvest)
-// Individual stocks: ~490 | ETFs: ~10 (SPY, QQQ, IWM, DIA, XLF, XLE, XLK, XLV, GLD, TLT)
+// Master Universe — 1000 tickers (Lambda와 동일 소스)
+// 단일 소스: data/stock_universe_us800.json
+// Lambda (signum-harvest)와 Vercel이 항상 동기화됨
 //
-// Sorted alphabetically. Keep in sync across:
-//   1. src/app/api/cron/warm-command/route.ts
-//   2. src/app/api/cron/warm-flow/route.ts
-//   3. scripts/lambda-harvest/index.js
+// Used by:
+//   1. scripts/deploy-lambda-v7.js (signum-harvest) — Lambda 빌드 시 직접 읽음
+//   2. src/app/api/command/unified/route.ts — 유니버스 판별
 
-export const UNIVERSE_500 = [
-    // === Original 300 ===
-    "AAPL","ABBV","ABNB","ABT","ACN","ADBE","ADI","ADP","AEP","AFRM",
-    "AI","AMAT","AMD","AMGN","AMZN","ANET","ANSS","APD","ARE","ARM",
-    "ASML","ASTS","AVGO","AWK","AXP","BA","BAC","BBY","BIIB","BKNG",
-    "BLK","BMY","BSX","C","CARR","CAT","CCI","CCJ","CDNS","CEG",
-    "CF","CHTR","CL","CMCSA","COIN","COP","COST","CPRT","CRM","CRWD",
-    "CTAS","CTSH","CVS","CVX","D","DASH","DD","DDOG","DE","DELL",
-    "DHR","DIS","DKNG","DLR","DOV","DOW","DPZ","DUK","DVN","DXCM",
-    "EA","EBAY","ECL","EL","EMR","ENPH","EOG","EQIX","EQR","ETN",
-    "FAST","FCX","FDX","FSLR","FTNT","FTV","GD","GE","GEV","GILD",
-    "GIS","GM","GOOGL","GRMN","GS","HAL","HCA","HD","HON","HOOD",
-    "HSIC","HSY","HUBS","HUM","IBM","ICE","IDXX","IFF","ILMN","INCY",
-    "INTC","IONQ","IP","IQV","IR","ISRG","IT","ITW","JNJ","JPM",
-    "KDP","KEY","KHC","KLAC","KMB","KO","KR","KTOS","LDOS","LIN",
-    "LLY","LMT","LOW","LRCX","LULU","LUNR","LVS","LYB","LYV","MA",
-    "MAR","MARA","MBLY","MCD","MCHP","MCO","MDB","MDLZ","MDT","MELI",
-    "MET","META","MGM","MNST","MO","MPC","MPWR","MRK","MRNA","MRVL",
-    "MS","MSCI","MSFT","MSI","MSTR","MTB","MTD","MU","NDAQ","NDSN",
-    "NEE","NEM","NET","NFLX","NKE","NOC","NOW","NSC","NTRS","NUE",
-    "NVDA","NVO","O","ODFL","OKTA","ON","ORCL","ORLY","OTIS","OXY",
-    "PANW","PARA","PATH","PAYX","PCAR","PCG","PEAK","PEG","PEP","PFE",
-    "PG","PHM","PL","PLD","PLTR","PM","PNC","PONY","POOL","PPG",
-    "PSA","PSX","PTC","PWR","PYPL","QCOM","REGN","RIOT","RIVN","RKLB",
-    "ROK","ROKU","ROP","ROST","RSG","RTX","S","SBAC","SBUX","SCHW",
-    "SE","SEDG","SERV","SHOP","SHW","SLB","SMCI","SMR","SNA","SNOW",
-    "SNPS","SO","SOFI","SPG","SQ","SRE","STE","STT","STX","STZ",
-    "SWK","SWKS","SYK","SYM","SYY","T","TDG","TEAM","TEL","TER",
-    "TFC","TJX","TMO","TMUS","TRGP","TROW","TRV","TSLA","TSM","TT",
-    "TTWO","TWLO","TXN","TYL","UBER","UNH","UNP","UPS","UPST","URI",
-    "USB","V","VFC","VICI","VKTX","VLO","VMC","VRSK","VRTX","VST",
-    "VTR","VTRS","VZ","WDAY","WELL","WFC","WMT","XOM","XYZ","ZS",
+import universeData from '../../data/stock_universe_us800.json';
 
-    // === New 200: Individual Stocks (High Options Volume + S&P) ===
-    "AAL","ACHR","AFL","AIG","AKAM","ALB","ALGN","ALL","ALLY","AMPH",
-    "APA","APH","APO","APTV","ARKG","AWR","AZN","AZO","BALL","BDX",
-    "BEN","BG","BILL","BIO","BK","BR","BRK.B","BURL","BWA","BYND",
-    "CB","CELH","CHWY","CI","CINF","CIVI","CLF","CLX","CME","CMG",
-    "CMI","CNC","CNP","COF","COHR","CPNG","CR","CRL","CSCO","CSX",
-    "CTRA","CTVA","DAL","DECK","DFS","DG","DLTR","DOC","DOCU","DRI",
-    "DT","DUOL","DVA","EFX","EIX","ELV","EMN","ENTG","EPAM","EQT",
-    "ES","ESS","ESTC","ETSY","EVR","EXPE","F","FANG","FE","FI",
-    "FICO","FIS","FIVE","FLT","FMC","FOX","FROG","FRT","FUBO","GAP",
-    "GEN","GLOB","GLW","GNRC","GPC","GOOG","GPS","GWW","HAS","HIG",
-    "HIMS","HLT","HPE","HPQ","HRL","HSBC","HST","HUBB","HWM","HXL",
-    "IAC","IEX","IOVA","IPG","IRM","IVZ","J","JBHT","JCI","JKHY",
-    "KEYS","KIM","KMI","KMX","KNX","KVUE","L","LBRDA","LH","LI",
-    "LKQ","LSCC","LYFT","LZB","MAA","MANH","MAS","MASI","MKTX","MLM",
-    "MMC","MMM","MOH","MPLN","MRO","MTN","MTTR","NCLH","NDSN","NIO",
-    "NTNX","NTRA","NUAN","NVR","NWL","NWS","OC","OLED","OMC","OPEN",
-    "ORI","OSK","OTEX","OVV","PAYC","PEN","PINS","PNR","PNW","PODD",
-    "PSTG","PVH","RBLX","RCL","RE","RFP","RGLD","RHI","RL","RMD",
-    "RPM","RVTY","SAIA","SCI","SEB","SFM","SGEN","SIRI","SIVB","SKX",
-    "SNAP","SSNC","STLD","SWAV","SWN","TAP","TECK","TFX","TGT","TPR",
-
-    // === ETFs (10 Major Only) ===
-    "SPY","QQQ","IWM","DIA","XLF","XLE","XLK","XLV","GLD","TLT",
-];
+export const UNIVERSE: string[] = universeData.symbols;

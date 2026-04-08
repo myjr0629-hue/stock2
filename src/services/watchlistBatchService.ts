@@ -385,8 +385,132 @@ export async function processWatchlistBatch(tickers: string[], mode: 'full' | 'p
         }
 
         // ============================================
-        // C. CACHE MISS & FULL MODE (HEAVY COMPUTE)
+        // C. CACHE MISS & FULL MODE — AWS-FIRST STRATEGY
+        // Step 1: Try DynamoDB unified-cache (Lambda saves all 1000 tickers here)
+        // Step 2: Only fall back to Polygon if DynamoDB also misses (non-universe tickers)
         // ============================================
+        // [Step 1] DynamoDB Fallback (~50ms vs Polygon 5-280s)
+        try {
+            const { getUnifiedCache } = await import('@/lib/aws/unifiedCacheProvider');
+            const dynamoData = await Promise.race([
+                getUnifiedCache(ticker, 'en'),
+                new Promise<null>(r => setTimeout(() => r(null), 3000)) // 3s safety timeout
+            ]).catch(() => null);
+
+            if (dynamoData) {
+                const dynAny = dynamoData as any;
+                const base = buildBasePrice();
+                const gd = dynAny.structure;
+                
+                // Build analysisEntry from DynamoDB data and write to Redis cache
+                const dynamoAnalysis: Record<string, any> = {
+                    ticker,
+                    timestamp: Date.now(),
+                    rsi: dynAny._dynamoPrice?.rsi ?? null,
+                    return3d: dynAny._dynamoPrice?.return3d ?? null,
+                    sparkline: [],
+                    relVol: null,
+                    expiration: gd?.expiration || null,
+                    maxPain: gd?.maxPain || null,
+                    gex: gd?.netGex || null,
+                    gexM: gd?.netGex ? Math.round(gd.netGex / 1000000 * 10) / 10 : null,
+                    pcr: gd?.pcRatio || null,
+                    callWall: gd?.levels?.callWall || null,
+                    putFloor: gd?.levels?.putFloor || null,
+                    gammaFlipLevel: gd?.gammaFlipLevel || null,
+                    squeezeScore: dynAny.squeeze?.riskScore ?? null,
+                    iv: dynAny.volatility?.iv || null,
+                    whaleIndex: 0,
+                    whaleConfidence: 'NONE',
+                    darkPoolPct: dynAny.institutional?.darkPool?.percent || 0,
+                    netPremium: null,
+                    vwapDist: null,
+                    volume: base.volume || null,
+                    ivSkew: null,
+                    impliedMovePct: null,
+                    shortVolPct: dynAny.squeeze?.shortVolPercent || null,
+                    vwap: base.vwap || null,
+                    volumePcr: null,
+                    volumePcrCallVol: null,
+                    volumePcrPutVol: null,
+                    impliedMoveDir: null,
+                    zeroDtePct: null,
+                };
+
+                // V4.6 Alpha recalculation (same as CACHE HIT path)
+                const sessionMap2: Record<string, AlphaSession> = { pre: 'PRE', regular: 'REG', post: 'POST', closed: 'CLOSED' };
+                const alphaSession2: AlphaSession = sessionMap2[currentSession] || 'CLOSED';
+                let alphaSnapshot2: any = { score: 50, grade: 'C', action: 'HOLD' };
+                try {
+                    const ar = calculateAlphaScore({
+                        ticker: ticker.toUpperCase(),
+                        session: alphaSession2,
+                        price: base.displayPrice,
+                        prevClose: base.prevDayClose || 0,
+                        changePct: base.changePct,
+                        vwap: base.vwap ?? null,
+                        return3D: dynamoAnalysis.return3d ?? null,
+                        rsi14: dynamoAnalysis.rsi ?? null,
+                        pcr: dynamoAnalysis.pcr ?? null,
+                        gex: dynamoAnalysis.gex ?? null,
+                        callWall: dynamoAnalysis.callWall ?? null,
+                        putFloor: dynamoAnalysis.putFloor ?? null,
+                        gammaFlipLevel: dynamoAnalysis.gammaFlipLevel ?? null,
+                        squeezeScore: dynamoAnalysis.squeezeScore ?? null,
+                        atmIv: dynamoAnalysis.iv ?? null,
+                        darkPoolPct: dynamoAnalysis.darkPoolPct ?? null,
+                        shortVolPct: null,
+                        whaleIndex: dynamoAnalysis.whaleIndex ?? 0,
+                        relVol: dynamoAnalysis.relVol ?? null,
+                        netFlow: dynamoAnalysis.netPremium ?? null,
+                        blockTrades: null,
+                        impliedMovePct: dynamoAnalysis.impliedMovePct ?? null,
+                        optionsDataAvailable: dynamoAnalysis.gex !== null,
+                        ndxChangePct: macroData?.ndxChangePct ?? null,
+                        vixValue: macroData?.vixValue ?? null,
+                        vixChangePct: macroData?.vixChangePct ?? null,
+                        tltChangePct: macroData?.tltChangePct ?? null,
+                        gldChangePct: macroData?.gldChangePct ?? null,
+                        dxy: macroData?.dxy ?? null,
+                        realYieldStance: macroData?.realYieldStance ?? null,
+                        fearGreedScore,
+                        vix3mValue: macroData?.vix3mValue ?? null,
+                    });
+                    alphaSnapshot2 = {
+                        score: ar.score, grade: ar.grade, action: ar.action,
+                        actionKR: ar.actionKR,
+                        confidence: Math.min(100, Math.max(0, Math.abs(ar.score - 50) * 2)),
+                        triggers: [],
+                        engineVersion: ar.engineVersion,
+                    };
+                } catch { /* use default */ }
+
+                // Write to Redis cache for next time (CACHE HIT path)
+                dynamoAnalysis.alphaSnapshot = alphaSnapshot2;
+                writeAnalysisCache(ticker, dynamoAnalysis as any).catch(() => {});
+
+                return {
+                    ticker,
+                    realtime: {
+                        price: base.displayPrice,
+                        changePct: base.changePct,
+                        session: currentSession === 'regular' ? 'reg' : currentSession,
+                        extendedPrice: base.extendedPrice,
+                        extendedChangePct: base.extendedChangePct,
+                        extendedLabel: base.extendedLabel,
+                        volume: base.volume,
+                        vwap: base.vwap,
+                    },
+                    analysis: {
+                        ...dynamoAnalysis,
+                        alphaSnapshot: alphaSnapshot2,
+                    },
+                    _source: 'dynamodb-fallback',
+                };
+            }
+        } catch { /* DynamoDB unavailable, continue to Polygon */ }
+
+        // [Step 2] Polygon Full Compute (original path — only reaches here if DynamoDB also missed)
         try {
             const [stockData, optionsData, structureRes, tradeData, shortVolData] = await Promise.all([
                 getStockDataLight(ticker).catch(() => null),

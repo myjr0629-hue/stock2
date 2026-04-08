@@ -22,7 +22,7 @@ const POLYGON_KEY = process.env.POLYGON_API_KEY || 'iKNEA6cQ6kqWWuHwURT_AyUqMprD
 const FINNHUB_KEY = process.env.FINNHUB_API_KEY || '';
 const FMP_KEY = process.env.FMP_API_KEY || '';
 const UNIVERSE = ["AA","AAAU","AAL","AAOI","AAPL","ABBV","ABNB","ABT","ACHR","ACI","ACN","ACWI","ACWX","ADBE","ADI","ADM","ADMA","ADP","ADT","ADTN","AEG","AEM","AEO","AEP","AES","AFRM","AG","AGI","AGNC","AGQ","AGRO","AHRT","AI","AIG","AKAM","AKR","ALAB","ALGN","ALHC","ALK","ALLY","ALM","AMAT","AMCR","AMD","AMDD","AMGN","AMPX","AMRZ","AMZN","ANET","ANSS","APA","APD","APH","APLD","APO","APP","AQN","AR","ARCC","ARDX","ARE","ARES","ARIS","ARKB","ARM","ARR","ARRY","AS","ASAN","ASHR","ASM","ASML","ASST","ASTS","ASX","ATAT","AU","AUGO","AVGO","AVTR","AWK","AXP","AXTA","AXTI","B","BA","BABA","BABX","BAC","BAM","BAX","BBJP","BBVA","BBWI","BBY","BCE","BCRX","BCS","BE","BEKE","BEN","BETA","BF.B","BHP","BIDU","BIIB","BIL","BILI","BIRK","BITB","BITI","BIV","BIZD","BKLN","BKNG","BKR","BLK","BLMN","BMNR","BMY","BN","BNDX","BNO","BP","BRK.B","BROS","BSV","BSX","BTC","BTCZ","BTDR","BTI","BTU","BULL","BVN","BW","BX","BZ","C","CAG","CALY","CARR","CAT","CCC","CCI","CCJ","CCL","CCUP","CDE","CDNS","CEG","CELH","CENX","CF","CFG","CG","CGAU","CGDV","CGGR","CHTR","CHWY","CHYM","CIEN","CIFR","CL","CLF","CLSK","CMCSA","CMG","CMPS","CNC","CNH","CNQ","CNR","COF","COHR","COIN","COLB","COMP","COP","COPX","CORN","CORZ","COST","COUR","CPB","CPER","CPNG","CPRT","CRCA","CRCG","CRCL","CRDO","CRGY","CRH","CRK","CRM","CRML","CRWD","CRWV","CSCO","CSGP","CSIQ","CSTM","CSX","CTAS","CTMX","CTRA","CTSH","CTVA","CUK","CVE","CVI","CVNA","CVS","CVX","CWAN","CWH","CX","CZR","D","DAL","DAR","DASH","DAWN","DB","DBRG","DCH","DD","DDOG","DE","DELL","DFAC","DHR","DHT","DIS","DJT","DKNG","DLO","DLR","DLTR","DOC","DOCN","DOCU","DOG","DOV","DOW","DPZ","DRI","DRVN","DT","DUK","DVN","DX","DXCM","DYN","DYNF","EA","EBAY","EC","ECL","EFV","EGO","EL","ELA","ELAN","EMB","EMBJ","EMLC","EMR","EMXC","ENB","ENPH","EOG","EOSE","EPD","EQIX","EQNR","EQR","EQT","EQX","ERAS","ERIC","ERY","ET","ETH","ETHA","ETHE","ETHT","ETHU","ETN","EW","EWA","EWC","EWG","EWH","EWT","EXC","EXE","EXK","EZU","F","FANG","FAST","FBTC","FCG","FCX","FDX","FE","FENY","FETH","FEZ","FHN","FIG","FIGR","FINV","FISV","FITB","FIVE","FLG","FLNC","FLO","FLR","FLY","FMC","FNB","FND","FNDE","FNDX","FNF","FORM","FOXA","FRMI","FRO","FRSH","FSK","FSLR","FSLY","FSM","FTI","FTNT","FTV","FUTU","FXN","GAP","GBDC","GD","GDX","GDXJ","GDXY","GE","GEHC","GEMI","GEN","GEV","GFI","GFS","GGLS","GILD","GIS","GLL","GLNG","GLW","GLXY","GM","GME","GO","GOOG","GOOGL","GOVT","GOVZ","GPGI","GPK","GPN","GPZ","GRDN","GRMN","GS","GSIT","GSK","GSLC","GT","GTLB","GTM","GUSH","HAFN","HAL","HBAN","HBM","HCA","HD","HDB","HE","HEFA","HGER","HIMS","HIMX","HL","HLN","HMY","HOG","HON","HOOD","HPE","HPQ","HSBC","HSIC","HST","HSY","HTFL","HUBS","HUM","HUN","HUT","HYMC","IAG","IBKR","IBM","IBN","IBRX","ICE","ICL","IDXX","IE","IEFA","IEI","IEMG","IEUR","IFF","IGIB","IGLB","IGLD","IGSB","IGV","ILF","ILMN","IMSR","INCY","INFQ","INFY","ING","INTC","INTU","INVH","IONQ","IOT","IP","IQV","IR","IREN","IREZ","ISRG","IT","ITB","ITOT","ITUB","ITW","IUSB","IUSV","IVW","IWD","IWF","IWR","IXUS","IYE","IYH","IYR","JAAA","JBS","JCI","JD","JETS","JHG","JHX","JNJ","JOBY","JPM","JPST","KBWB","KC","KDP","KEY","KGC","KHC","KIM","KKR","KLAC","KLAR","KMB","KMI","KO","KR","KSS","KTOS","KVUE","LAR","LBRT","LCID","LDOS","LI","LIN","LITE","LITX","LKQ","LLY","LMND","LMT","LNG","LOW","LRCX","LTRX","LULU","LUMN","LUNR","LUV","LVS","LWLG","LXU","LYB","LYFT","LYG","LYV","M","MA","MAR","MARA","MASI","MAT","MBLY","MCD","MCHP","MCO","MCW","MDB","MDLN","MDLZ","MDT","MELI","MEOH","MET","META","METC","METU","MFG","MGA","MGM","MNST","MO","MOS","MP","MPC","MPWR","MRK","MRNA","MRVL","MS","MSCI","MSFT","MSFU","MSI","MSTR","MT","MTB","MTCH","MTD","MU","MUB","MUFG","MUX","NAIL","NAT","NBIG","NBIS","NBIZ","NCLH","NDAQ","NDSN","NEE","NEM","NET","NEXT","NFLX","NG","NGD","NIO","NKE","NLY","NOC","NOG","NOK","NOV","NOW","NSC","NTLA","NTR","NTRS","NTSK","NU","NUE","NVAX","NVD","NVDA","NVDQ","NVO","NVS","NVTS","NWG","NXE","O","OBDC","OCUL","ODFL","OKE","OKLL","OKLO","OKTA","OMC","ON","ONDG","ONDS","ONON","OPEN","ORC","ORCL","ORCX","ORLA","ORLY","OSCR","OSS","OTIS","OUNZ","OVV","OWL","OXY","PAA","PAAS","PAGP","PANW","PARA","PATH","PAYX","PBF","PBI","PBR","PBR.A","PCAR","PCG","PCT","PDBC","PDD","PDYN","PEAK","PEG","PEP","PFE","PG","PGX","PHM","PHYS","PINS","PL","PLD","PLTD","PLTR","PM","PNC","POET","PONY","POOL","PPG","PPL","PPTA","PR","PRMB","PSA","PSKY","PSQ","PSX","PTC","PTEN","PTIR","PULS","PWR","PYPL","QBTS","QBTX","QCOM","QFIN","QQQI","QQQM","QS","QSR","QUAL","QUBT","QXO","RBLX","RBRK","RCAT","RDDT","RDW","REGN","RELX","RES","RF","RGTI","RIG","RIO","RIOT","RITM","RIVN","RKLB","RKLX","RKT","ROIV","ROK","ROKU","ROP","ROST","RRC","RSG","RSP","RTX","RUN","RWM","RYN","S","SA","SAIL","SAN","SAP","SATS","SBAC","SBET","SBIT","SBSW","SBUX","SCCO","SCHB","SCHE","SCHF","SCHG","SCHH","SCHI","SCHK","SCHO","SCHP","SCHV","SCHW","SCHX","SDOW","SDVY","SE","SEDG","SEI","SEM","SERV","SFM","SG","SGML","SGOL","SGOV","SH","SHEL","SHLS","SHO","SHOP","SHV","SHW","SIG","SIL","SILJ","SIVR","SJNK","SKE","SLB","SLVP","SM","SMCI","SMR","SNA","SNDK","SNOW","SNPS","SNXX","SNY","SO","SOC","SOFI","SONY","SOUN","SPAB","SPDN","SPDW","SPEM","SPG","SPHY","SPIB","SPLB","SPLV","SPMD","SPMO","SPOT","SPSB","SPSM","SPTI","SPTL","SPTM","SPXU","SPYD","SPYG","SPYI","SPYM","SPYV","SQ","SRE","SRLN","SRTY","SSL","SSRM","STAA","STE","STLA","STM","STNG","STT","STUB","STX","STZ","SU","SUNB","SUZ","SVM","SW","SWK","SWKS","SYF","SYK","SYM","SYY","T","TALK","TBIL","TCOM","TDG","TDOC","TE","TEAM","TECK","TEL","TEM","TER","TERN","TEVA","TFC","TGB","TGNA","TGT","TGTX","TIGR","TIP","TJX","TLRY","TMC","TME","TMO","TMUS","TNDM","TNGX","TOST","TPH","TRGP","TRIP","TROW","TROX","TRV","TSCO","TSDD","TSEM","TSLA","TSLG","TSLQ","TSLT","TSLZ","TSM","TSN","TT","TTD","TTE","TTWO","TU","TWLO","TWO","TXN","TYL","U","UAA","UAL","UAMY","UBER","UBS","UDOW","UEC","UGL","UGP","UL","UMAC","UMC","UNH","UNP","UPS","UPST","URA","URI","USAR","USAS","USB","USFR","USHY","USIG","USMV","UUUU","V","VALE","VCIT","VCLT","VCSH","VELO","VET","VEU","VFC","VG","VGIT","VGK","VGLT","VGSH","VIAV","VICI","VIST","VITL","VKTX","VLO","VLY","VMC","VNET","VNOM","VOD","VONV","VRSK","VRT","VRTX","VST","VT","VTEB","VTIP","VTR","VTRS","VTWO","VXUS","VZ","WBD","WBS","WDAY","WDC","WDS","WELL","WEN","WFC","WIX","WMB","WMG","WMT","WPM","WRD","WSC","WU","WULF","WVE","WY","XEL","XLC","XLG","XME","XOM","XP","XPEV","XRAY","XYZ","YANG","YEXT","YINN","YMM","YPF","Z","ZETA","ZS","ZSL","ZTO","ZTS"];
-const UNIVERSE_500 = ["AA","AAAU","AAL","AAOI","AAPL","ABBV","ABNB","ABT","ACHR","ACI","ACN","ACWI","ACWX","ADBE","ADI","ADM","ADMA","ADP","ADT","ADTN","AEG","AEM","AEO","AEP","AES","AFRM","AG","AGI","AGNC","AGQ","AGRO","AHRT","AI","AIG","AKAM","AKR","ALAB","ALGN","ALHC","ALK","ALLY","ALM","AMAT","AMCR","AMD","AMDD","AMGN","AMPX","AMRZ","AMZN","ANET","ANSS","APA","APD","APH","APLD","APO","APP","AQN","AR","ARCC","ARDX","ARE","ARES","ARIS","ARKB","ARM","ARR","ARRY","AS","ASAN","ASHR","ASM","ASML","ASST","ASTS","ASX","ATAT","AU","AUGO","AVGO","AVTR","AWK","AXP","AXTA","AXTI","B","BA","BABA","BABX","BAC","BAM","BAX","BBJP","BBVA","BBWI","BBY","BCE","BCRX","BCS","BE","BEKE","BEN","BETA","BF.B","BHP","BIDU","BIIB","BIL","BILI","BIRK","BITB","BITI","BIV","BIZD","BKLN","BKNG","BKR","BLK","BLMN","BMNR","BMY","BN","BNDX","BNO","BP","BRK.B","BROS","BSV","BSX","BTC","BTCZ","BTDR","BTI","BTU","BULL","BVN","BW","BX","BZ","C","CAG","CALY","CARR","CAT","CCC","CCI","CCJ","CCL","CCUP","CDE","CDNS","CEG","CELH","CENX","CF","CFG","CG","CGAU","CGDV","CGGR","CHTR","CHWY","CHYM","CIEN","CIFR","CL","CLF","CLSK","CMCSA","CMG","CMPS","CNC","CNH","CNQ","CNR","COF","COHR","COIN","COLB","COMP","COP","COPX","CORN","CORZ","COST","COUR","CPB","CPER","CPNG","CPRT","CRCA","CRCG","CRCL","CRDO","CRGY","CRH","CRK","CRM","CRML","CRWD","CRWV","CSCO","CSGP","CSIQ","CSTM","CSX","CTAS","CTMX","CTRA","CTSH","CTVA","CUK","CVE","CVI","CVNA","CVS","CVX","CWAN","CWH","CX","CZR","D","DAL","DAR","DASH","DAWN","DB","DBRG","DCH","DD","DDOG","DE","DELL","DFAC","DHR","DHT","DIS","DJT","DKNG","DLO","DLR","DLTR","DOC","DOCN","DOCU","DOG","DOV","DOW","DPZ","DRI","DRVN","DT","DUK","DVN","DX","DXCM","DYN","DYNF","EA","EBAY","EC","ECL","EFV","EGO","EL","ELA","ELAN","EMB","EMBJ","EMLC","EMR","EMXC","ENB","ENPH","EOG","EOSE","EPD","EQIX","EQNR","EQR","EQT","EQX","ERAS","ERIC","ERY","ET","ETH","ETHA","ETHE","ETHT","ETHU","ETN","EW","EWA","EWC","EWG","EWH","EWT","EXC","EXE","EXK","EZU","F","FANG","FAST","FBTC","FCG","FCX","FDX","FE","FENY","FETH","FEZ","FHN","FIG","FIGR","FINV","FISV","FITB","FIVE","FLG","FLNC","FLO","FLR","FLY","FMC","FNB","FND","FNDE","FNDX","FNF","FORM","FOXA","FRMI","FRO","FRSH","FSK","FSLR","FSLY","FSM","FTI","FTNT","FTV","FUTU","FXN","GAP","GBDC","GD","GDX","GDXJ","GDXY","GE","GEHC","GEMI","GEN","GEV","GFI","GFS","GGLS","GILD","GIS","GLL","GLNG","GLW","GLXY","GM","GME","GO","GOOG","GOOGL","GOVT","GOVZ","GPGI","GPK","GPN","GPZ","GRDN","GRMN","GS","GSIT","GSK","GSLC","GT","GTLB","GTM","GUSH","HAFN","HAL","HBAN","HBM","HCA","HD","HDB","HE","HEFA","HGER","HIMS","HIMX","HL","HLN","HMY","HOG","HON","HOOD","HPE","HPQ","HSBC","HSIC","HST","HSY","HTFL","HUBS","HUM","HUN","HUT","HYMC","IAG","IBKR","IBM","IBN","IBRX","ICE","ICL","IDXX","IE","IEFA","IEI","IEMG","IEUR","IFF","IGIB","IGLB","IGLD","IGSB","IGV","ILF","ILMN","IMSR","INCY","INFQ","INFY","ING","INTC","INTU","INVH","IONQ","IOT","IP","IQV","IR","IREN","IREZ","ISRG","IT","ITB","ITOT","ITUB","ITW","IUSB","IUSV","IVW","IWD","IWF","IWR","IXUS","IYE","IYH","IYR","JAAA","JBS","JCI","JD","JETS","JHG","JHX","JNJ","JOBY","JPM","JPST","KBWB","KC","KDP","KEY","KGC","KHC","KIM","KKR","KLAC","KLAR","KMB","KMI","KO","KR","KSS","KTOS","KVUE","LAR","LBRT","LCID","LDOS","LI","LIN","LITE","LITX","LKQ","LLY","LMND","LMT","LNG","LOW","LRCX","LTRX","LULU","LUMN","LUNR","LUV","LVS","LWLG","LXU","LYB","LYFT","LYG","LYV","M","MA","MAR","MARA","MASI","MAT","MBLY","MCD","MCHP","MCO","MCW","MDB","MDLN","MDLZ","MDT","MELI","MEOH","MET","META","METC","METU","MFG","MGA","MGM","MNST","MO","MOS","MP","MPC","MPWR","MRK","MRNA","MRVL","MS","MSCI","MSFT","MSFU","MSI","MSTR","MT","MTB","MTCH","MTD","MU","MUB","MUFG","MUX","NAIL","NAT","NBIG","NBIS","NBIZ","NCLH","NDAQ","NDSN","NEE","NEM","NET","NEXT","NFLX","NG","NGD","NIO","NKE","NLY","NOC","NOG","NOK","NOV","NOW","NSC","NTLA","NTR","NTRS","NTSK","NU","NUE","NVAX","NVD","NVDA","NVDQ","NVO","NVS","NVTS","NWG","NXE","O","OBDC","OCUL","ODFL","OKE","OKLL","OKLO","OKTA","OMC","ON","ONDG","ONDS","ONON","OPEN","ORC","ORCL","ORCX","ORLA","ORLY","OSCR","OSS","OTIS","OUNZ","OVV","OWL","OXY","PAA","PAAS","PAGP","PANW","PARA","PATH","PAYX","PBF","PBI","PBR","PBR.A","PCAR","PCG","PCT","PDBC","PDD","PDYN","PEAK","PEG","PEP","PFE","PG","PGX","PHM","PHYS","PINS","PL","PLD","PLTD","PLTR","PM","PNC","POET","PONY","POOL","PPG","PPL","PPTA","PR","PRMB","PSA","PSKY","PSQ","PSX","PTC","PTEN","PTIR","PULS","PWR","PYPL","QBTS","QBTX","QCOM","QFIN","QQQI","QQQM","QS","QSR","QUAL","QUBT","QXO","RBLX","RBRK","RCAT","RDDT","RDW","REGN","RELX","RES","RF","RGTI","RIG","RIO","RIOT","RITM","RIVN","RKLB","RKLX","RKT","ROIV","ROK","ROKU","ROP","ROST","RRC","RSG","RSP","RTX","RUN","RWM","RYN","S","SA","SAIL","SAN","SAP","SATS","SBAC","SBET","SBIT","SBSW","SBUX","SCCO","SCHB","SCHE","SCHF","SCHG","SCHH","SCHI","SCHK","SCHO","SCHP","SCHV","SCHW","SCHX","SDOW","SDVY","SE","SEDG","SEI","SEM","SERV","SFM","SG","SGML","SGOL","SGOV","SH","SHEL","SHLS","SHO","SHOP","SHV","SHW","SIG","SIL","SILJ","SIVR","SJNK","SKE","SLB","SLVP","SM","SMCI","SMR","SNA","SNDK","SNOW","SNPS","SNXX","SNY","SO","SOC","SOFI","SONY","SOUN","SPAB","SPDN","SPDW","SPEM","SPG","SPHY","SPIB","SPLB","SPLV","SPMD","SPMO","SPOT","SPSB","SPSM","SPTI","SPTL","SPTM","SPXU","SPYD","SPYG","SPYI","SPYM","SPYV","SQ","SRE","SRLN","SRTY","SSL","SSRM","STAA","STE","STLA","STM","STNG","STT","STUB","STX","STZ","SU","SUNB","SUZ","SVM","SW","SWK","SWKS","SYF","SYK","SYM","SYY","T","TALK","TBIL","TCOM","TDG","TDOC","TE","TEAM","TECK","TEL","TEM","TER","TERN","TEVA","TFC","TGB","TGNA","TGT","TGTX","TIGR","TIP","TJX","TLRY","TMC","TME","TMO","TMUS","TNDM","TNGX","TOST","TPH","TRGP","TRIP","TROW","TROX","TRV","TSCO","TSDD","TSEM","TSLA","TSLG","TSLQ","TSLT","TSLZ","TSM","TSN","TT","TTD","TTE","TTWO","TU","TWLO","TWO","TXN","TYL","U","UAA","UAL","UAMY","UBER","UBS","UDOW","UEC","UGL","UGP","UL","UMAC","UMC","UNH","UNP","UPS","UPST","URA","URI","USAR","USAS","USB","USFR","USHY","USIG","USMV","UUUU","V","VALE","VCIT","VCLT","VCSH","VELO","VET","VEU","VFC","VG","VGIT","VGK","VGLT","VGSH","VIAV","VICI","VIST","VITL","VKTX","VLO","VLY","VMC","VNET","VNOM","VOD","VONV","VRSK","VRT","VRTX","VST","VT","VTEB","VTIP","VTR","VTRS","VTWO","VXUS","VZ","WBD","WBS","WDAY","WDC","WDS","WELL","WEN","WFC","WIX","WMB","WMG","WMT","WPM","WRD","WSC","WU","WULF","WVE","WY","XEL","XLC","XLG","XME","XOM","XP","XPEV","XRAY","XYZ","YANG","YEXT","YINN","YMM","YPF","Z","ZETA","ZS","ZSL","ZTO","ZTS"];
+// UNIVERSE removed — use UNIVERSE only (1000 tickers, single source)
 const GEX_TICKERS = ["AA","AAAU","AAL","AAOI","AAPL","ABBV","ABNB","ABT","ACHR","ACI","ACN","ACWI","ACWX","ADBE","ADI","ADM","ADMA","ADP","ADT","ADTN","AEG","AEM","AEO","AEP","AES","AFRM","AG","AGI","AGNC","AGQ","AGRO","AHRT","AI","AIG","AKAM","AKR","ALAB","ALGN","ALHC","ALK","ALLY","ALM","AMAT","AMCR","AMD","AMDD","AMGN","AMPX","AMRZ","AMZN","ANET","ANSS","APA","APD","APH","APLD","APO","APP","AQN","AR","ARCC","ARDX","ARE","ARES","ARIS","ARKB","ARM","ARR","ARRY","AS","ASAN","ASHR","ASM","ASML","ASST","ASTS","ASX","ATAT","AU","AUGO","AVGO","AVTR","AWK","AXP","AXTA","AXTI","B","BA","BABA","BABX","BAC","BAM","BAX","BBJP","BBVA","BBWI","BBY","BCE","BCRX","BCS","BE","BEKE","BEN","BETA","BF.B","BHP","BIDU","BIIB","BIL","BILI","BIRK","BITB","BITI","BIV","BIZD","BKLN","BKNG","BKR","BLK","BLMN","BMNR","BMY","BN","BNDX","BNO","BP","BRK.B","BROS","BSV","BSX","BTC","BTCZ","BTDR","BTI","BTU","BULL","BVN","BW","BX","BZ","C","CAG","CALY","CARR","CAT","CCC","CCI","CCJ","CCL","CCUP","CDE","CDNS","CEG","CELH","CENX","CF","CFG","CG","CGAU","CGDV","CGGR","CHTR","CHWY","CHYM","CIEN","CIFR","CL","CLF","CLSK","CMCSA","CMG","CMPS","CNC","CNH","CNQ","CNR","COF","COHR","COIN","COLB","COMP","COP","COPX","CORN","CORZ","COST","COUR","CPB","CPER","CPNG","CPRT","CRCA","CRCG","CRCL","CRDO","CRGY","CRH","CRK","CRM","CRML","CRWD","CRWV","CSCO","CSGP","CSIQ","CSTM","CSX","CTAS","CTMX","CTRA","CTSH","CTVA","CUK","CVE","CVI","CVNA","CVS","CVX","CWAN","CWH","CX","CZR","D","DAL","DAR","DASH","DAWN","DB","DBRG","DCH","DD","DDOG","DE","DELL","DFAC","DHR","DHT","DIS","DJT","DKNG","DLO","DLR","DLTR","DOC","DOCN","DOCU","DOG","DOV","DOW","DPZ","DRI","DRVN","DT","DUK","DVN","DX","DXCM","DYN","DYNF","EA","EBAY","EC","ECL","EFV","EGO","EL","ELA","ELAN","EMB","EMBJ","EMLC","EMR","EMXC","ENB","ENPH","EOG","EOSE","EPD","EQIX","EQNR","EQR","EQT","EQX","ERAS","ERIC","ERY","ET","ETH","ETHA","ETHE","ETHT","ETHU","ETN","EW","EWA","EWC","EWG","EWH","EWT","EXC","EXE","EXK","EZU","F","FANG","FAST","FBTC","FCG","FCX","FDX","FE","FENY","FETH","FEZ","FHN","FIG","FIGR","FINV","FISV","FITB","FIVE","FLG","FLNC","FLO","FLR","FLY","FMC","FNB","FND","FNDE","FNDX","FNF","FORM","FOXA","FRMI","FRO","FRSH","FSK","FSLR","FSLY","FSM","FTI","FTNT","FTV","FUTU","FXN","GAP","GBDC","GD","GDX","GDXJ","GDXY","GE","GEHC","GEMI","GEN","GEV","GFI","GFS","GGLS","GILD","GIS","GLL","GLNG","GLW","GLXY","GM","GME","GO","GOOG","GOOGL","GOVT","GOVZ","GPGI","GPK","GPN","GPZ","GRDN","GRMN","GS","GSIT","GSK","GSLC","GT","GTLB","GTM","GUSH","HAFN","HAL","HBAN","HBM","HCA","HD","HDB","HE","HEFA","HGER","HIMS","HIMX","HL","HLN","HMY","HOG","HON","HOOD","HPE","HPQ","HSBC","HSIC","HST","HSY","HTFL","HUBS","HUM","HUN","HUT","HYMC","IAG","IBKR","IBM","IBN","IBRX","ICE","ICL","IDXX","IE","IEFA","IEI","IEMG","IEUR","IFF","IGIB","IGLB","IGLD","IGSB","IGV","ILF","ILMN","IMSR","INCY","INFQ","INFY","ING","INTC","INTU","INVH","IONQ","IOT","IP","IQV","IR","IREN","IREZ","ISRG","IT","ITB","ITOT","ITUB","ITW","IUSB","IUSV","IVW","IWD","IWF","IWR","IXUS","IYE","IYH","IYR","JAAA","JBS","JCI","JD","JETS","JHG","JHX","JNJ","JOBY","JPM","JPST","KBWB","KC","KDP","KEY","KGC","KHC","KIM","KKR","KLAC","KLAR","KMB","KMI","KO","KR","KSS","KTOS","KVUE","LAR","LBRT","LCID","LDOS","LI","LIN","LITE","LITX","LKQ","LLY","LMND","LMT","LNG","LOW","LRCX","LTRX","LULU","LUMN","LUNR","LUV","LVS","LWLG","LXU","LYB","LYFT","LYG","LYV","M","MA","MAR","MARA","MASI","MAT","MBLY","MCD","MCHP","MCO","MCW","MDB","MDLN","MDLZ","MDT","MELI","MEOH","MET","META","METC","METU","MFG","MGA","MGM","MNST","MO","MOS","MP","MPC","MPWR","MRK","MRNA","MRVL","MS","MSCI","MSFT","MSFU","MSI","MSTR","MT","MTB","MTCH","MTD","MU","MUB","MUFG","MUX","NAIL","NAT","NBIG","NBIS","NBIZ","NCLH","NDAQ","NDSN","NEE","NEM","NET","NEXT","NFLX","NG","NGD","NIO","NKE","NLY","NOC","NOG","NOK","NOV","NOW","NSC","NTLA","NTR","NTRS","NTSK","NU","NUE","NVAX","NVD","NVDA","NVDQ","NVO","NVS","NVTS","NWG","NXE","O","OBDC","OCUL","ODFL","OKE","OKLL","OKLO","OKTA","OMC","ON","ONDG","ONDS","ONON","OPEN","ORC","ORCL","ORCX","ORLA","ORLY","OSCR","OSS","OTIS","OUNZ","OVV","OWL","OXY","PAA","PAAS","PAGP","PANW","PARA","PATH","PAYX","PBF","PBI","PBR","PBR.A","PCAR","PCG","PCT","PDBC","PDD","PDYN","PEAK","PEG","PEP","PFE","PG","PGX","PHM","PHYS","PINS","PL","PLD","PLTD","PLTR","PM","PNC","POET","PONY","POOL","PPG","PPL","PPTA","PR","PRMB","PSA","PSKY","PSQ","PSX","PTC","PTEN","PTIR","PULS","PWR","PYPL","QBTS","QBTX","QCOM","QFIN","QQQI","QQQM","QS","QSR","QUAL","QUBT","QXO","RBLX","RBRK","RCAT","RDDT","RDW","REGN","RELX","RES","RF","RGTI","RIG","RIO","RIOT","RITM","RIVN","RKLB","RKLX","RKT","ROIV","ROK","ROKU","ROP","ROST","RRC","RSG","RSP","RTX","RUN","RWM","RYN","S","SA","SAIL","SAN","SAP","SATS","SBAC","SBET","SBIT","SBSW","SBUX","SCCO","SCHB","SCHE","SCHF","SCHG","SCHH","SCHI","SCHK","SCHO","SCHP","SCHV","SCHW","SCHX","SDOW","SDVY","SE","SEDG","SEI","SEM","SERV","SFM","SG","SGML","SGOL","SGOV","SH","SHEL","SHLS","SHO","SHOP","SHV","SHW","SIG","SIL","SILJ","SIVR","SJNK","SKE","SLB","SLVP","SM","SMCI","SMR","SNA","SNDK","SNOW","SNPS","SNXX","SNY","SO","SOC","SOFI","SONY","SOUN","SPAB","SPDN","SPDW","SPEM","SPG","SPHY","SPIB","SPLB","SPLV","SPMD","SPMO","SPOT","SPSB","SPSM","SPTI","SPTL","SPTM","SPXU","SPYD","SPYG","SPYI","SPYM","SPYV","SQ","SRE","SRLN","SRTY","SSL","SSRM","STAA","STE","STLA","STM","STNG","STT","STUB","STX","STZ","SU","SUNB","SUZ","SVM","SW","SWK","SWKS","SYF","SYK","SYM","SYY","T","TALK","TBIL","TCOM","TDG","TDOC","TE","TEAM","TECK","TEL","TEM","TER","TERN","TEVA","TFC","TGB","TGNA","TGT","TGTX","TIGR","TIP","TJX","TLRY","TMC","TME","TMO","TMUS","TNDM","TNGX","TOST","TPH","TRGP","TRIP","TROW","TROX","TRV","TSCO","TSDD","TSEM","TSLA","TSLG","TSLQ","TSLT","TSLZ","TSM","TSN","TT","TTD","TTE","TTWO","TU","TWLO","TWO","TXN","TYL","U","UAA","UAL","UAMY","UBER","UBS","UDOW","UEC","UGL","UGP","UL","UMAC","UMC","UNH","UNP","UPS","UPST","URA","URI","USAR","USAS","USB","USFR","USHY","USIG","USMV","UUUU","V","VALE","VCIT","VCLT","VCSH","VELO","VET","VEU","VFC","VG","VGIT","VGK","VGLT","VGSH","VIAV","VICI","VIST","VITL","VKTX","VLO","VLY","VMC","VNET","VNOM","VOD","VONV","VRSK","VRT","VRTX","VST","VT","VTEB","VTIP","VTR","VTRS","VTWO","VXUS","VZ","WBD","WBS","WDAY","WDC","WDS","WELL","WEN","WFC","WIX","WMB","WMG","WMT","WPM","WRD","WSC","WU","WULF","WVE","WY","XEL","XLC","XLG","XME","XOM","XP","XPEV","XRAY","XYZ","YANG","YEXT","YINN","YMM","YPF","Z","ZETA","ZS","ZSL","ZTO","ZTS"];
 const DETAIL_TICKERS = ["AA","AAAU","AAL","AAOI","AAPL","ABBV","ABNB","ABT","ACHR","ACI","ACN","ACWI","ACWX","ADBE","ADI","ADM","ADMA","ADP","ADT","ADTN","AEG","AEM","AEO","AEP","AES","AFRM","AG","AGI","AGNC","AGQ","AGRO","AHRT","AI","AIG","AKAM","AKR","ALAB","ALGN","ALHC","ALK","ALLY","ALM","AMAT","AMCR","AMD","AMDD","AMGN","AMPX","AMRZ","AMZN","ANET","ANSS","APA","APD","APH","APLD","APO","APP","AQN","AR","ARCC","ARDX","ARE","ARES","ARIS","ARKB","ARM","ARR","ARRY","AS","ASAN","ASHR","ASM","ASML","ASST","ASTS","ASX","ATAT","AU","AUGO","AVGO","AVTR","AWK","AXP","AXTA","AXTI","B","BA","BABA","BABX","BAC","BAM","BAX","BBJP","BBVA","BBWI","BBY","BCE","BCRX","BCS","BE","BEKE","BEN","BETA","BF.B","BHP","BIDU","BIIB","BIL","BILI","BIRK","BITB","BITI","BIV","BIZD","BKLN","BKNG","BKR","BLK","BLMN","BMNR","BMY","BN","BNDX","BNO","BP","BRK.B","BROS","BSV","BSX","BTC","BTCZ","BTDR","BTI","BTU","BULL","BVN","BW","BX","BZ","C","CAG","CALY","CARR","CAT","CCC","CCI","CCJ","CCL","CCUP","CDE","CDNS","CEG","CELH","CENX","CF","CFG","CG","CGAU","CGDV","CGGR","CHTR","CHWY","CHYM","CIEN","CIFR","CL","CLF","CLSK","CMCSA","CMG","CMPS","CNC","CNH","CNQ","CNR","COF","COHR","COIN","COLB","COMP","COP","COPX","CORN","CORZ","COST","COUR","CPB","CPER","CPNG","CPRT","CRCA","CRCG","CRCL","CRDO","CRGY","CRH","CRK","CRM","CRML","CRWD","CRWV","CSCO","CSGP","CSIQ","CSTM","CSX","CTAS","CTMX","CTRA","CTSH","CTVA","CUK","CVE","CVI","CVNA","CVS","CVX","CWAN","CWH","CX","CZR","D","DAL","DAR","DASH","DAWN","DB","DBRG","DCH","DD","DDOG","DE","DELL","DFAC","DHR","DHT","DIS","DJT","DKNG","DLO","DLR","DLTR","DOC","DOCN","DOCU","DOG","DOV","DOW","DPZ","DRI","DRVN","DT","DUK","DVN","DX","DXCM","DYN","DYNF","EA","EBAY","EC","ECL","EFV","EGO","EL","ELA","ELAN","EMB","EMBJ","EMLC","EMR","EMXC","ENB","ENPH","EOG","EOSE","EPD","EQIX","EQNR","EQR","EQT","EQX","ERAS","ERIC","ERY","ET","ETH","ETHA","ETHE","ETHT","ETHU","ETN","EW","EWA","EWC","EWG","EWH","EWT","EXC","EXE","EXK","EZU","F","FANG","FAST","FBTC","FCG","FCX","FDX","FE","FENY","FETH","FEZ","FHN","FIG","FIGR","FINV","FISV","FITB","FIVE","FLG","FLNC","FLO","FLR","FLY","FMC","FNB","FND","FNDE","FNDX","FNF","FORM","FOXA","FRMI","FRO","FRSH","FSK","FSLR","FSLY","FSM","FTI","FTNT","FTV","FUTU","FXN","GAP","GBDC","GD","GDX","GDXJ","GDXY","GE","GEHC","GEMI","GEN","GEV","GFI","GFS","GGLS","GILD","GIS","GLL","GLNG","GLW","GLXY","GM","GME","GO","GOOG","GOOGL","GOVT","GOVZ","GPGI","GPK","GPN","GPZ","GRDN","GRMN","GS","GSIT","GSK","GSLC","GT","GTLB","GTM","GUSH","HAFN","HAL","HBAN","HBM","HCA","HD","HDB","HE","HEFA","HGER","HIMS","HIMX","HL","HLN","HMY","HOG","HON","HOOD","HPE","HPQ","HSBC","HSIC","HST","HSY","HTFL","HUBS","HUM","HUN","HUT","HYMC","IAG","IBKR","IBM","IBN","IBRX","ICE","ICL","IDXX","IE","IEFA","IEI","IEMG","IEUR","IFF","IGIB","IGLB","IGLD","IGSB","IGV","ILF","ILMN","IMSR","INCY","INFQ","INFY","ING","INTC","INTU","INVH","IONQ","IOT","IP","IQV","IR","IREN","IREZ","ISRG","IT","ITB","ITOT","ITUB","ITW","IUSB","IUSV","IVW","IWD","IWF","IWR","IXUS","IYE","IYH","IYR","JAAA","JBS","JCI","JD","JETS","JHG","JHX","JNJ","JOBY","JPM","JPST","KBWB","KC","KDP","KEY","KGC","KHC","KIM","KKR","KLAC","KLAR","KMB","KMI","KO","KR","KSS","KTOS","KVUE","LAR","LBRT","LCID","LDOS","LI","LIN","LITE","LITX","LKQ","LLY","LMND","LMT","LNG","LOW","LRCX","LTRX","LULU","LUMN","LUNR","LUV","LVS","LWLG","LXU","LYB","LYFT","LYG","LYV","M","MA","MAR","MARA","MASI","MAT","MBLY","MCD","MCHP","MCO","MCW","MDB","MDLN","MDLZ","MDT","MELI","MEOH","MET","META","METC","METU","MFG","MGA","MGM","MNST","MO","MOS","MP","MPC","MPWR","MRK","MRNA","MRVL","MS","MSCI","MSFT","MSFU","MSI","MSTR","MT","MTB","MTCH","MTD","MU","MUB","MUFG","MUX","NAIL","NAT","NBIG","NBIS","NBIZ","NCLH","NDAQ","NDSN","NEE","NEM","NET","NEXT","NFLX","NG","NGD","NIO","NKE","NLY","NOC","NOG","NOK","NOV","NOW","NSC","NTLA","NTR","NTRS","NTSK","NU","NUE","NVAX","NVD","NVDA","NVDQ","NVO","NVS","NVTS","NWG","NXE","O","OBDC","OCUL","ODFL","OKE","OKLL","OKLO","OKTA","OMC","ON","ONDG","ONDS","ONON","OPEN","ORC","ORCL","ORCX","ORLA","ORLY","OSCR","OSS","OTIS","OUNZ","OVV","OWL","OXY","PAA","PAAS","PAGP","PANW","PARA","PATH","PAYX","PBF","PBI","PBR","PBR.A","PCAR","PCG","PCT","PDBC","PDD","PDYN","PEAK","PEG","PEP","PFE","PG","PGX","PHM","PHYS","PINS","PL","PLD","PLTD","PLTR","PM","PNC","POET","PONY","POOL","PPG","PPL","PPTA","PR","PRMB","PSA","PSKY","PSQ","PSX","PTC","PTEN","PTIR","PULS","PWR","PYPL","QBTS","QBTX","QCOM","QFIN","QQQI","QQQM","QS","QSR","QUAL","QUBT","QXO","RBLX","RBRK","RCAT","RDDT","RDW","REGN","RELX","RES","RF","RGTI","RIG","RIO","RIOT","RITM","RIVN","RKLB","RKLX","RKT","ROIV","ROK","ROKU","ROP","ROST","RRC","RSG","RSP","RTX","RUN","RWM","RYN","S","SA","SAIL","SAN","SAP","SATS","SBAC","SBET","SBIT","SBSW","SBUX","SCCO","SCHB","SCHE","SCHF","SCHG","SCHH","SCHI","SCHK","SCHO","SCHP","SCHV","SCHW","SCHX","SDOW","SDVY","SE","SEDG","SEI","SEM","SERV","SFM","SG","SGML","SGOL","SGOV","SH","SHEL","SHLS","SHO","SHOP","SHV","SHW","SIG","SIL","SILJ","SIVR","SJNK","SKE","SLB","SLVP","SM","SMCI","SMR","SNA","SNDK","SNOW","SNPS","SNXX","SNY","SO","SOC","SOFI","SONY","SOUN","SPAB","SPDN","SPDW","SPEM","SPG","SPHY","SPIB","SPLB","SPLV","SPMD","SPMO","SPOT","SPSB","SPSM","SPTI","SPTL","SPTM","SPXU","SPYD","SPYG","SPYI","SPYM","SPYV","SQ","SRE","SRLN","SRTY","SSL","SSRM","STAA","STE","STLA","STM","STNG","STT","STUB","STX","STZ","SU","SUNB","SUZ","SVM","SW","SWK","SWKS","SYF","SYK","SYM","SYY","T","TALK","TBIL","TCOM","TDG","TDOC","TE","TEAM","TECK","TEL","TEM","TER","TERN","TEVA","TFC","TGB","TGNA","TGT","TGTX","TIGR","TIP","TJX","TLRY","TMC","TME","TMO","TMUS","TNDM","TNGX","TOST","TPH","TRGP","TRIP","TROW","TROX","TRV","TSCO","TSDD","TSEM","TSLA","TSLG","TSLQ","TSLT","TSLZ","TSM","TSN","TT","TTD","TTE","TTWO","TU","TWLO","TWO","TXN","TYL","U","UAA","UAL","UAMY","UBER","UBS","UDOW","UEC","UGL","UGP","UL","UMAC","UMC","UNH","UNP","UPS","UPST","URA","URI","USAR","USAS","USB","USFR","USHY","USIG","USMV","UUUU","V","VALE","VCIT","VCLT","VCSH","VELO","VET","VEU","VFC","VG","VGIT","VGK","VGLT","VGSH","VIAV","VICI","VIST","VITL","VKTX","VLO","VLY","VMC","VNET","VNOM","VOD","VONV","VRSK","VRT","VRTX","VST","VT","VTEB","VTIP","VTR","VTRS","VTWO","VXUS","VZ","WBD","WBS","WDAY","WDC","WDS","WELL","WEN","WFC","WIX","WMB","WMG","WMT","WPM","WRD","WSC","WU","WULF","WVE","WY","XEL","XLC","XLG","XME","XOM","XP","XPEV","XRAY","XYZ","YANG","YEXT","YINN","YMM","YPF","Z","ZETA","ZS","ZSL","ZTO","ZTS"];
 
@@ -343,10 +343,9 @@ async function harvestPrices() {
   const all = snap?.tickers || [];
   const items = [], priceMap = {}, snapshotMap = {};
   const us = new Set(UNIVERSE);
-  // Also include UNIVERSE_500 tickers in priceMap for unified cache
-  const all500 = new Set(UNIVERSE_500);
+  // All tickers use single UNIVERSE set
   for (const t of all) {
-    if (!us.has(t.ticker) && !all500.has(t.ticker)) continue;
+    if (!us.has(t.ticker)) continue;
     const p = t.lastTrade?.p || t.day?.c || t.prevDay?.c || 0;
     const ch = t.todaysChangePerc || 0;
     priceMap[t.ticker] = p;
@@ -680,15 +679,15 @@ async function harvestSMA(priceMap) {
 
 // ====== Step 4: Analyst(FMP) + Earnings(Finnhub) + Fundamentals + Related — ALL 509 tickers ======
 async function harvestDetails() {
-  console.log('Step 4: Details for ALL '+UNIVERSE_500.length+' tickers (FMP analyst + Finnhub earnings + Polygon fund/related)...');
+  console.log('Step 4: Details for ALL '+UNIVERSE.length+' tickers (FMP analyst + Finnhub earnings + Polygon fund/related)...');
   const today = new Date().toISOString().slice(0,10);
   let analystOk = 0, earningsOk = 0;
   const detailsMap = {};
   
   // === 4a: FMP Analyst Grades — ALL tickers (no rate limit issues) ===
   if (FMP_KEY) {
-    for (let i = 0; i < UNIVERSE_500.length; i += 10) {
-      const batch = UNIVERSE_500.slice(i, i+10);
+    for (let i = 0; i < UNIVERSE.length; i += 10) {
+      const batch = UNIVERSE.slice(i, i+10);
       await Promise.all(batch.map(async (ticker) => {
         detailsMap[ticker] = detailsMap[ticker] || {};
         try {
@@ -709,7 +708,7 @@ async function harvestDetails() {
         } catch {}
       }));
     }
-    console.log('FMP Analyst: '+analystOk+'/'+UNIVERSE_500.length);
+    console.log('FMP Analyst: '+analystOk+'/'+UNIVERSE.length);
   }
   
   // === 4b: FMP Earnings Calendar — 1 API call for ALL tickers (no rate limit) ===
@@ -718,7 +717,7 @@ async function harvestDetails() {
       const toDate = new Date(Date.now()+180*86400000).toISOString().slice(0,10);
       const earningsAll = await httpsGet('https://financialmodelingprep.com/stable/earnings-calendar?from='+today+'&to='+toDate+'&apikey='+FMP_KEY, 15000);
       const earningsArr = Array.isArray(earningsAll) ? earningsAll : [];
-      const tickerSet = new Set(UNIVERSE_500);
+      const tickerSet = new Set(UNIVERSE);
       // Group by symbol, keep only the nearest future date per ticker
       const earningsMap = {};
       for (const e of earningsArr) {
@@ -742,8 +741,8 @@ async function harvestDetails() {
   // === 4c: Polygon Fundamentals — Reference + Financial Ratios + vX Financials ===
   // Fetches 3 APIs per ticker: reference (name/sector), ratios (PE/DE/ROE), vX financials (revenue/margin)
   let fundOk = 0;
-  for (let i = 0; i < UNIVERSE_500.length; i += 5) {
-    const batch = UNIVERSE_500.slice(i, i+5);
+  for (let i = 0; i < UNIVERSE.length; i += 5) {
+    const batch = UNIVERSE.slice(i, i+5);
     await Promise.all(batch.map(async (ticker) => {
       try {
         // Parallel fetch: reference + financial ratios + vX financials
@@ -829,8 +828,8 @@ async function harvestDetails() {
   
   // === 4d: Polygon Related Companies — ALL tickers (no rate limit) ===
   let relOk = 0;
-  for (let i = 0; i < UNIVERSE_500.length; i += 10) {
-    const batch = UNIVERSE_500.slice(i, i+10);
+  for (let i = 0; i < UNIVERSE.length; i += 10) {
+    const batch = UNIVERSE.slice(i, i+10);
     await Promise.all(batch.map(async (ticker) => {
       try {
         const data = await httpsGet('https://api.polygon.io/v1/related-companies/'+ticker+'?apiKey='+POLYGON_KEY, 5000);
@@ -851,8 +850,8 @@ async function harvestDetails() {
   // === 4e: Polygon Short Interest + Float (SI%) — daily batch ===
   // [FIX 2026-04-07] settlement_date.gte + /stocks/vX/float for accurate SI%
   let siOk = 0;
-  for (let i = 0; i < UNIVERSE_500.length; i += 10) {
-    const batch = UNIVERSE_500.slice(i, i+10);
+  for (let i = 0; i < UNIVERSE.length; i += 10) {
+    const batch = UNIVERSE.slice(i, i+10);
     await Promise.all(batch.map(async (ticker) => {
       try {
         const [siData, floatData] = await Promise.all([
@@ -877,7 +876,7 @@ async function harvestDetails() {
       } catch {}
     }));
   }
-  console.log('SI%: '+siOk+'/'+UNIVERSE_500.length);
+  console.log('SI%: '+siOk+'/'+UNIVERSE.length);
   
   return { analyst:analystOk, earnings:earningsOk, fundamentals:fundOk, related:relOk, si:siOk, detailsMap };
 }
@@ -935,15 +934,15 @@ async function harvestRsiAndDailyBars(universe) {
 // Combines ALL data from Steps 1-5.5 into complete unified objects
 // Saves to signum-unified-cache for instant Vercel reads
 async function buildUnifiedCache(priceMap, gexMap, optionsCache, smaMap, detailsMap, snapshotMap, rsiMap, dailyBarsMap) {
-  console.log('Step 6: Building unified cache for '+UNIVERSE_500.length+' tickers...');
+  console.log('Step 6: Building unified cache for '+UNIVERSE.length+' tickers...');
   let ok = 0, partial = 0;
   const redisBatch = []; // [v8] Collect Redis cache:analysis commands
   
   // [v8] Pre-fetch darkPool + blockTrades from flow-harvest Redis (rt-metrics:{TICKER})
   const darkPoolMap = {};
   const blockTradesMap = {};
-  for (let i = 0; i < UNIVERSE_500.length; i += 20) {
-    const dpBatch = UNIVERSE_500.slice(i, i + 20);
+  for (let i = 0; i < UNIVERSE.length; i += 20) {
+    const dpBatch = UNIVERSE.slice(i, i + 20);
     try {
       const getCmds = dpBatch.map(t => ['GET', 'rt-metrics:' + t]);
       const results = await redisPipeline(getCmds);
@@ -962,8 +961,8 @@ async function buildUnifiedCache(priceMap, gexMap, optionsCache, smaMap, details
   }
   console.log('DarkPool pre-fetch: ' + Object.keys(darkPoolMap).length + ' tickers');
   
-  for (let i = 0; i < UNIVERSE_500.length; i += 10) {
-    const batch = UNIVERSE_500.slice(i, i+10);
+  for (let i = 0; i < UNIVERSE.length; i += 10) {
+    const batch = UNIVERSE.slice(i, i+10);
     await Promise.all(batch.map(async (ticker) => {
       try {
         const price = priceMap[ticker];
@@ -1169,7 +1168,8 @@ async function buildUnifiedCache(priceMap, gexMap, optionsCache, smaMap, details
           if (filled >= 7) ok++; else partial++;
           
           // [v8] Build cache:analysis entry for Redis (matching AnalysisCacheEntry type)
-          if (structure) {
+          // ALWAYS write cache:analysis — even without structure (ensures 0 CACHE MISS)
+          {
             // --- Compute REAL alpha score ---
             const snap = snapshotMap?.[ticker] || {};
             const alphaRaw = computeAlphaScore(snap, gd || null);
@@ -1185,8 +1185,8 @@ async function buildUnifiedCache(priceMap, gexMap, optionsCache, smaMap, details
             if (snap.volume > 50000000) alphaTriggers.push('HIGH_VOLUME');
             
             // --- Compute ivSkew from callWall/putFloor (matching frontend computeIVSkew) ---
-            const cw = structure.levels?.callWall || 0;
-            const pf = structure.levels?.putFloor || 0;
+            const cw = structure?.levels?.callWall || 0;
+            const pf = structure?.levels?.putFloor || 0;
             const ivSkew = (cw > 0 && pf > 0 && price > 0) ? Math.round((cw - pf) / price * 10000) / 100 : null;
             
             // --- Compute impliedMovePct from callWall-putFloor spread ---
@@ -1216,21 +1216,21 @@ async function buildUnifiedCache(priceMap, gexMap, optionsCache, smaMap, details
               return3d: (() => { const db = dailyBarsMap?.[ticker]; if (!db || db.length < 4) return null; const r = db.slice(-4); return Math.round(((r[r.length-1].close - r[0].close) / r[0].close) * 10000) / 100; })(),
               sparkline: dailyBarsMap?.[ticker]?.slice(-20).map(d => d.close) || [],
               relVol: (() => { const db = dailyBarsMap?.[ticker]; if (!db || db.length < 2) return null; const lv = db[db.length-1].volume; const pv = db[db.length-2].volume; return pv > 0 ? Math.round((lv/pv)*100)/100 : null; })(),
-              expiration: structure.expiration || null,
-              maxPain: structure.maxPain || null,
-              gex: structure.netGex || null,
-              gexM: structure.netGex ? Math.round(structure.netGex / 1000000 * 10) / 10 : null,
-              pcr: structure.pcRatio || null,
-              callWall: structure.levels?.callWall || null,
-              putFloor: structure.levels?.putFloor || null,
-              gammaFlipLevel: structure.gammaFlipLevel || null,
-              squeezeScore: structure.squeezeScore || null,
-              iv: structure.atmIv || null,
+              expiration: structure?.expiration || null,
+              maxPain: structure?.maxPain || null,
+              gex: structure?.netGex || null,
+              gexM: structure?.netGex ? Math.round(structure.netGex / 1000000 * 10) / 10 : null,
+              pcr: structure?.pcRatio || null,
+              callWall: structure?.levels?.callWall || null,
+              putFloor: structure?.levels?.putFloor || null,
+              gammaFlipLevel: structure?.gammaFlipLevel || null,
+              squeezeScore: structure?.squeezeScore || null,
+              iv: structure?.atmIv || null,
               whaleIndex: (() => {
                 // Composite Whale Index: GEX(25%) + DarkPool(25%) + BlockTrades(25%) + NetPremium(25%)
                 let score = 0;
                 // 1. GEX component (0-25): higher abs GEX = more institutional hedging
-                const absGex = Math.abs(structure.netGex || 0);
+                const absGex = Math.abs(structure?.netGex || 0);
                 if (absGex > 50000000) score += 25;
                 else if (absGex > 10000000) score += 20;
                 else if (absGex > 1000000) score += 15;
@@ -1248,7 +1248,7 @@ async function buildUnifiedCache(priceMap, gexMap, optionsCache, smaMap, details
                 else if (bt >= 2) score += 15;
                 else if (bt >= 1) score += 8;
                 // 4. NetPremium component (0-25): larger abs premium flow = institutional conviction
-                const absNp = Math.abs(structure.netPremium || 0);
+                const absNp = Math.abs(structure?.netPremium || 0);
                 if (absNp > 10000000) score += 25;
                 else if (absNp > 5000000) score += 20;
                 else if (absNp > 1000000) score += 15;
@@ -1258,17 +1258,17 @@ async function buildUnifiedCache(priceMap, gexMap, optionsCache, smaMap, details
               whaleConfidence: (() => {
                 const dp = darkPoolPct || 0;
                 const bt = blockTradesMap[ticker] || 0;
-                const absNp = Math.abs(structure.netPremium || 0);
+                const absNp = Math.abs(structure?.netPremium || 0);
                 // HIGH: multiple strong signals, MED: some signals, LOW: weak
                 let signals = 0;
                 if (dp >= 50) signals++;
                 if (bt >= 3) signals++;
                 if (absNp > 5000000) signals++;
-                if (Math.abs(structure.netGex || 0) > 10000000) signals++;
+                if (Math.abs(structure?.netGex || 0) > 10000000) signals++;
                 return signals >= 3 ? 'HIGH' : signals >= 2 ? 'MED' : signals >= 1 ? 'LOW' : 'NONE';
               })(),
               darkPoolPct: darkPoolPct,
-              netPremium: structure.netPremium || null,
+              netPremium: structure?.netPremium || null,
               vwapDist: vwapDist,
               volume: snap.volume || null,
               ivSkew: ivSkew,
@@ -1276,9 +1276,13 @@ async function buildUnifiedCache(priceMap, gexMap, optionsCache, smaMap, details
               // [FIX] V3.1 dashboard fields — previously missing from Lambda cache
               vwap: snap.vw || null,  // Polygon snapshot VWAP (day.vw)
               // Volume PCR: use OI-based callVol/putVol from gexMap (volume data not available in Lambda)
-              volumePcr: structure.totalCallOI > 0 ? Math.round((structure.totalPutOI / structure.totalCallOI) * 1000) / 1000 : (structure.pcRatio || null),
-              volumePcrCallVol: structure.totalCallOI || null,
-              volumePcrPutVol: structure.totalPutOI || null,
+              volumePcr: (structure?.totalCallOI > 0) ? Math.round((structure.totalPutOI / structure.totalCallOI) * 1000) / 1000 : (structure?.pcRatio || null),
+              volumePcrCallVol: structure?.totalCallOI || null,
+              volumePcrPutVol: structure?.totalPutOI || null,
+              // [V3.1] shortVolPct — required for stale cache detection in watchlistBatchService
+              shortVolPct: squeeze?.shortVolPercent || null,
+              impliedMoveDir: null,
+              zeroDtePct: null,
             };
             redisBatch.push(['SET', 'cache:analysis:' + ticker, JSON.stringify(analysisEntry), 'EX', String(REDIS_TTL)]);
           }
@@ -1306,7 +1310,7 @@ async function buildUnifiedCache(priceMap, gexMap, optionsCache, smaMap, details
     console.log('Redis: ' + redisOk + '/' + redisBatch.length + ' entries written (analysis+command)');
   }
   
-  console.log('Unified Cache: '+ok+' complete, '+partial+' partial, total='+(ok+partial)+'/'+UNIVERSE_500.length+', redis='+redisOk);
+  console.log('Unified Cache: '+ok+' complete, '+partial+' partial, total='+(ok+partial)+'/'+UNIVERSE.length+', redis='+redisOk);
   return { complete: ok, partial, redisWritten: redisOk };
 }
 
@@ -1759,8 +1763,8 @@ exports.handler = async (event) => {
     // Load existing details from DynamoDB for unified cache
     // pattern-db has composite key: pattern(HASH) + timestamp(RANGE)
     // Must use QueryCommand (not GetCommand) with Limit=1, ScanIndexForward=false for latest
-    for (let bi = 0; bi < UNIVERSE_500.length; bi += 10) {
-      const batch2 = UNIVERSE_500.slice(bi, bi+10);
+    for (let bi = 0; bi < UNIVERSE.length; bi += 10) {
+      const batch2 = UNIVERSE.slice(bi, bi+10);
       await Promise.all(batch2.map(async (ticker) => {
         try {
           const q = (prefix) => client.send(new QueryCommand({ TableName:'signum-pattern-db', KeyConditionExpression:'pattern=:p', ExpressionAttributeValues:{':p':prefix+ticker}, Limit:1, ScanIndexForward:false }));
@@ -1794,7 +1798,7 @@ exports.handler = async (event) => {
   // [v8] Step 5.5: RSI + Daily Bars (sparkline, return3d, relVol)
   let rsiMap = {}, dailyBarsMap = {};
   if (isRegular || forceRun) {
-    const rsiResult = await harvestRsiAndDailyBars(UNIVERSE_500);
+    const rsiResult = await harvestRsiAndDailyBars(UNIVERSE);
     rsiMap = rsiResult.rsiMap;
     dailyBarsMap = rsiResult.dailyBarsMap;
   }

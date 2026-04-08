@@ -14,7 +14,7 @@ import { GET as getSqueeze } from '@/app/api/live/short-squeeze/route';
 import { GET as getInstitutional } from '@/app/api/flow/realtime-metrics/route';
 import { GET as getFundamentals } from '@/app/api/live/fundamentals/route';
 import { GET as getOverview } from '@/app/api/live/overview/route';
-import { UNIVERSE_500 } from '@/lib/universe';
+import { UNIVERSE } from '@/lib/universe';
 
 // [극강] Allow Vercel Pro to run unified aggregation up to 30s (default 10s kills it)
 export const maxDuration = 30;
@@ -673,7 +673,7 @@ export async function GET(request: NextRequest) {
         // ══════════════════════════════════════════════════════════════
         // TIER 2: ALL CACHES MISSED
         // ══════════════════════════════════════════════════════════════
-        const isInUniverse = UNIVERSE_500.includes(ticker);
+        const isInUniverse = UNIVERSE.includes(ticker);
 
         if (isInUniverse) {
             // ── Universe ticker: warm-command cron will fill data ──
