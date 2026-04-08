@@ -186,6 +186,15 @@ export async function GET(request: Request) {
                 if (S.afterHours?.p && S.afterHours.p > 0) {
                     extendedPrice = S.afterHours.p;
                     extendedLabel = 'POST';
+                } else if (liveLast > 0 && dayClose > 0 && liveLast !== dayClose) {
+                    // [FIX] lastTrade differs from regular close → after-hours trade occurred
+                    // Polygon day.c = regular session close, lastTrade.p includes AH trades
+                    // Threshold: prices must differ by >0.01% to avoid floating-point noise
+                    const diff = Math.abs(liveLast - dayClose) / dayClose;
+                    if (diff > 0.0001) {
+                        extendedPrice = liveLast;
+                        extendedLabel = 'POST';
+                    }
                 } else if (cachedExt?.postPrice > 0) {
                     extendedPrice = cachedExt.postPrice;
                     extendedLabel = 'POST';
