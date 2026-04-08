@@ -714,6 +714,14 @@ bash scripts/ec2-deploy-guardian.sh
   - Fix: `quotes/route.ts` — `lastTrade.p ≠ day.c`이면 시간외 거래 감지 → POST 즉시 표시
   - Fallback 순서: `afterHours.p` → `lastTrade vs dayClose diff` → `flow:extended` Redis
 
+- [x] **Dashboard PRE/POST UI 깜빡임 및 데이터 분리 완벽 해결 (2026-04-08 완료)**
+  - 문제: PRE/POST 마켓 시간 중 웹소켓 가격이 무조건 본장 `underlyingPrice`를 덮어씌웠고, 이후 2초 가격 폴링이 어제 종가로 되돌리면서 수익률이 +5.18% ↔ +0.00%로 미친 듯이 깜빡이는 현상 (Watchlist 헤더 오류 포함).
+  - Fix 1 (`DashboardClient.tsx`): 워치리스트 헤더(`extHeaderLabel`)의 react `useMemo` 캐싱 의존성을 제거하여 접속 즉시 로컬 ET 시간에 기반해 `PRE` / `POST` 로 강제 동기화.
+  - Fix 2 (`dashboardStore.ts`): 30초 인디케이터 데이터 병합 지점에서 `prevChangePct`, `intradayChangePct` 변수를 `INDICATOR_FIELDS` 허용 목록에 추가. 30초마다 이전 장 변화율이 0%로 날아가는 버그 차단.
+  - Fix 3 (`dashboardStore.ts`): 웹소켓(`updateRealtimePrice`) 전용 라우터 구축. 세션(`session`) 감지 로직을 도입해 프리마켓/애프터마켓 실시간 데이터를 본장 필드 대신 `extended.prePrice/postPrice`로만 흐르게 격리.
+  - Fix 4 (`quotes/route.ts`): Polygon의 엉뚱한 PRE마켓 `todaysChangePerc`가 스토어를 덮어씌우지 못하게 `null` 폴백.
+  - 원칙 실현: 본장 데이터는 어제의 결과를 유지하며, 확장 세션(Extended Session) 컬럼만 완전히 독립적으로 실시간 업데이트.
+
 - [x] **워치리스트 히트맵 성능 최적화** (2026-04-08)
   - ECharts treemap → 순수 CSS squarify 알고리즘으로 교체 (~800KB 번들 제거)
   - SessionStatusCard 분리 → 1초 타이머가 StatsBar 전체 리렌더 방지
