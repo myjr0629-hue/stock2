@@ -16,9 +16,7 @@ import { useDashboardStore } from '@/stores/dashboardStore';
 import { ProGate } from '@/components/gate/FeatureGate';
 import { CardTooltip, WATCHLIST_TOOLTIPS } from '@/components/ui/CardTooltip';
 import { useTier } from '@/contexts/TierContext';
-import dynamic from 'next/dynamic';
-
-const ReactECharts = dynamic(() => import('echarts-for-react'), { ssr: false });
+// [PERF] ECharts removed — CSS treemap replaces 800KB echarts bundle
 
 // ─── TREEMAP COLOR PALETTE (Finviz-grade) ─────────────────────────────
 function getTreemapColor(pct: number): string {
@@ -314,12 +312,6 @@ export default function WatchlistClientPage({
 function StatsBar({ items }: { items: EnrichedWatchlistItem[] }) {
     const gt = useTranslations('gate');
     const t = useTranslations('watchlist');
-    const [now, setNow] = useState(new Date());
-
-    useEffect(() => {
-        const timer = setInterval(() => setNow(new Date()), 1000);
-        return () => clearInterval(timer);
-    }, []);
 
     const stats = useMemo(() => {
         const gainers = items.filter(i => i.changePct > 0);
@@ -343,43 +335,6 @@ function StatsBar({ items }: { items: EnrichedWatchlistItem[] }) {
         });
         return { total: items.length, gainers: gainers.length, losers: losers.length, avgAlpha, avgGrade, avgChange, grades, alphaCount: alphaItems.length };
     }, [items]);
-
-    // ── ET Time & Session Logic ──
-    const etInfo = useMemo(() => {
-        const etStr = now.toLocaleString('en-US', { timeZone: 'America/New_York', hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
-        const etDateStr = now.toLocaleString('en-US', { timeZone: 'America/New_York', weekday: 'short', month: 'short', day: 'numeric' });
-        const etParts = now.toLocaleString('en-US', { timeZone: 'America/New_York', hour12: false, hour: '2-digit', minute: '2-digit' }).split(':');
-        const h = parseInt(etParts[0]), m = parseInt(etParts[1]);
-        const mins = h * 60 + m;
-        const etDow = new Date(now.toLocaleString('en-US', { timeZone: 'America/New_York' })).getDay();
-        const isWeekend = etDow === 0 || etDow === 6;
-        let session: string, nextLabel: string, countdown: string;
-        if (isWeekend) {
-            session = 'closed'; nextLabel = 'Pre-Market opens';
-            const daysToMon = etDow === 0 ? 1 : 2;
-            const minsToOpen = daysToMon * 24 * 60 + (240 - mins);
-            const dH = Math.floor(minsToOpen / 60);
-            countdown = dH > 24 ? `${Math.floor(dH / 24)}d ${dH % 24}h` : `${dH}h ${minsToOpen % 60}m`;
-        } else if (mins < 240) {
-            session = 'closed'; nextLabel = 'Pre-Market opens';
-            const diff = 240 - mins; countdown = `${Math.floor(diff / 60)}h ${diff % 60}m`;
-        } else if (mins < 570) {
-            session = 'pre'; nextLabel = 'Regular opens';
-            const diff = 570 - mins; countdown = `${Math.floor(diff / 60)}h ${diff % 60}m`;
-        } else if (mins < 960) {
-            session = 'reg'; nextLabel = 'Market closes';
-            const diff = 960 - mins; countdown = `${Math.floor(diff / 60)}h ${diff % 60}m`;
-        } else if (mins < 1200) {
-            session = 'post'; nextLabel = 'Post closes';
-            const diff = 1200 - mins; countdown = `${Math.floor(diff / 60)}h ${diff % 60}m`;
-        } else {
-            session = 'closed'; nextLabel = 'Pre-Market opens';
-            const diff = 24 * 60 + 240 - mins; countdown = `${Math.floor(diff / 60)}h ${diff % 60}m`;
-        }
-        return { etStr, etDateStr, session, nextLabel, countdown };
-    }, [now]);
-
-    const sc = etInfo.session === 'reg' ? 'emerald' : etInfo.session === 'pre' ? 'cyan' : etInfo.session === 'post' ? 'amber' : 'slate';
 
     return (
         <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
@@ -466,36 +421,85 @@ function StatsBar({ items }: { items: EnrichedWatchlistItem[] }) {
             </div>
 
             {/* ── Session Status (Clock + ET Time + Countdown) ── */}
-            <div className="relative overflow-hidden rounded-xl border border-white/[0.12] bg-gradient-to-br from-white/[0.05] to-white/[0.02] backdrop-blur-xl p-4 hover:border-white/[0.18] transition-all duration-300 shadow-lg shadow-black/10">
-                <div className="flex items-center gap-2">
-                    <div className={`w-2.5 h-2.5 rounded-full shadow-lg flex-shrink-0 ${sc === 'emerald' ? 'bg-emerald-400 shadow-emerald-400/40 animate-pulse' :
-                        sc === 'cyan' ? 'bg-cyan-400 shadow-cyan-400/40 animate-pulse' :
-                            sc === 'amber' ? 'bg-amber-400 shadow-amber-400/40 animate-pulse' : 'bg-slate-600'
-                        }`} />
-                    <span className="text-sm font-black text-white uppercase tracking-wide leading-none">
-                        {etInfo.session === 'reg' ? 'REGULAR' : etInfo.session === 'pre' ? 'PRE-MARKET' : etInfo.session === 'post' ? 'POST-MARKET' : 'CLOSED'}
-                    </span>
-                </div>
-                <div className="text-[13px] font-bold tabular-nums text-white/90 mt-1.5">{etInfo.etStr} <span className="text-xs text-slate-300 font-bold">ET</span></div>
-                <div className="text-xs text-white tabular-nums">{etInfo.etDateStr}</div>
-                <div className="mt-1 flex items-center gap-1.5">
-                    <span className={`text-xs font-bold ${sc === 'emerald' ? 'text-emerald-400' : sc === 'cyan' ? 'text-cyan-400' : sc === 'amber' ? 'text-amber-400' : 'text-slate-400'
-                        }`}>{etInfo.nextLabel}</span>
-                    <span className="text-xs font-black tabular-nums text-white/90">{etInfo.countdown}</span>
-                </div>
-                <svg className="absolute right-1 top-1 w-16 h-16 opacity-[0.05] text-white" viewBox="0 0 60 60">
-                    <circle cx="30" cy="30" r="25" fill="none" stroke="currentColor" strokeWidth="1.5" />
-                    <line x1="30" y1="30" x2="30" y2="14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-                    <line x1="30" y1="30" x2="42" y2="30" stroke="currentColor" strokeWidth="1" strokeLinecap="round" />
-                    <circle cx="30" cy="30" r="2" fill="currentColor" />
-                </svg>
-            </div>
+            <SessionStatusCard />
 
             {/* ── Risk Summary (compact) ── */}
             <div className="hidden lg:block relative overflow-hidden rounded-xl border border-white/[0.12] bg-gradient-to-br from-white/[0.05] to-white/[0.02] backdrop-blur-xl p-4 hover:border-white/[0.18] transition-all duration-300 shadow-lg shadow-black/10">
                 <div className="text-[12px] text-slate-300 uppercase tracking-[0.15em] font-bold mb-2.5"><CardTooltip tooltip={WATCHLIST_TOOLTIPS.RISK_SUMMARY.tooltip}>{t('riskSummary')}</CardTooltip></div>
                 <RiskSummaryCompact items={items} />
             </div>
+        </div>
+    );
+}
+
+// [PERF] SessionStatusCard — isolated 1s timer, won't cascade re-render to StatsBar/parent
+function SessionStatusCard() {
+    const [now, setNow] = useState(new Date());
+    useEffect(() => {
+        const timer = setInterval(() => setNow(new Date()), 1000);
+        return () => clearInterval(timer);
+    }, []);
+
+    const etInfo = useMemo(() => {
+        const etStr = now.toLocaleString('en-US', { timeZone: 'America/New_York', hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        const etDateStr = now.toLocaleString('en-US', { timeZone: 'America/New_York', weekday: 'short', month: 'short', day: 'numeric' });
+        const etParts = now.toLocaleString('en-US', { timeZone: 'America/New_York', hour12: false, hour: '2-digit', minute: '2-digit' }).split(':');
+        const h = parseInt(etParts[0]), m = parseInt(etParts[1]);
+        const mins = h * 60 + m;
+        const etDow = new Date(now.toLocaleString('en-US', { timeZone: 'America/New_York' })).getDay();
+        const isWeekend = etDow === 0 || etDow === 6;
+        let session: string, nextLabel: string, countdown: string;
+        if (isWeekend) {
+            session = 'closed'; nextLabel = 'Pre-Market opens';
+            const daysToMon = etDow === 0 ? 1 : 2;
+            const minsToOpen = daysToMon * 24 * 60 + (240 - mins);
+            const dH = Math.floor(minsToOpen / 60);
+            countdown = dH > 24 ? `${Math.floor(dH / 24)}d ${dH % 24}h` : `${dH}h ${minsToOpen % 60}m`;
+        } else if (mins < 240) {
+            session = 'closed'; nextLabel = 'Pre-Market opens';
+            const diff = 240 - mins; countdown = `${Math.floor(diff / 60)}h ${diff % 60}m`;
+        } else if (mins < 570) {
+            session = 'pre'; nextLabel = 'Regular opens';
+            const diff = 570 - mins; countdown = `${Math.floor(diff / 60)}h ${diff % 60}m`;
+        } else if (mins < 960) {
+            session = 'reg'; nextLabel = 'Market closes';
+            const diff = 960 - mins; countdown = `${Math.floor(diff / 60)}h ${diff % 60}m`;
+        } else if (mins < 1200) {
+            session = 'post'; nextLabel = 'Post closes';
+            const diff = 1200 - mins; countdown = `${Math.floor(diff / 60)}h ${diff % 60}m`;
+        } else {
+            session = 'closed'; nextLabel = 'Pre-Market opens';
+            const diff = 24 * 60 + 240 - mins; countdown = `${Math.floor(diff / 60)}h ${diff % 60}m`;
+        }
+        return { etStr, etDateStr, session, nextLabel, countdown };
+    }, [now]);
+
+    const sc = etInfo.session === 'reg' ? 'emerald' : etInfo.session === 'pre' ? 'cyan' : etInfo.session === 'post' ? 'amber' : 'slate';
+
+    return (
+        <div className="relative overflow-hidden rounded-xl border border-white/[0.12] bg-gradient-to-br from-white/[0.05] to-white/[0.02] backdrop-blur-xl p-4 hover:border-white/[0.18] transition-all duration-300 shadow-lg shadow-black/10">
+            <div className="flex items-center gap-2">
+                <div className={`w-2.5 h-2.5 rounded-full shadow-lg flex-shrink-0 ${sc === 'emerald' ? 'bg-emerald-400 shadow-emerald-400/40 animate-pulse' :
+                    sc === 'cyan' ? 'bg-cyan-400 shadow-cyan-400/40 animate-pulse' :
+                        sc === 'amber' ? 'bg-amber-400 shadow-amber-400/40 animate-pulse' : 'bg-slate-600'
+                    }`} />
+                <span className="text-sm font-black text-white uppercase tracking-wide leading-none">
+                    {etInfo.session === 'reg' ? 'REGULAR' : etInfo.session === 'pre' ? 'PRE-MARKET' : etInfo.session === 'post' ? 'POST-MARKET' : 'CLOSED'}
+                </span>
+            </div>
+            <div className="text-[13px] font-bold tabular-nums text-white/90 mt-1.5">{etInfo.etStr} <span className="text-xs text-slate-300 font-bold">ET</span></div>
+            <div className="text-xs text-white tabular-nums">{etInfo.etDateStr}</div>
+            <div className="mt-1 flex items-center gap-1.5">
+                <span className={`text-xs font-bold ${sc === 'emerald' ? 'text-emerald-400' : sc === 'cyan' ? 'text-cyan-400' : sc === 'amber' ? 'text-amber-400' : 'text-slate-400'
+                    }`}>{etInfo.nextLabel}</span>
+                <span className="text-xs font-black tabular-nums text-white/90">{etInfo.countdown}</span>
+            </div>
+            <svg className="absolute right-1 top-1 w-16 h-16 opacity-[0.05] text-white" viewBox="0 0 60 60">
+                <circle cx="30" cy="30" r="25" fill="none" stroke="currentColor" strokeWidth="1.5" />
+                <line x1="30" y1="30" x2="30" y2="14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                <line x1="30" y1="30" x2="42" y2="30" stroke="currentColor" strokeWidth="1" strokeLinecap="round" />
+                <circle cx="30" cy="30" r="2" fill="currentColor" />
+            </svg>
         </div>
     );
 }
@@ -575,97 +579,137 @@ function RiskSummaryCompact({ items }: { items: EnrichedWatchlistItem[] }) {
     );
 }
 
-function TickerHeatmap({ items }: { items: EnrichedWatchlistItem[] }) {
+// ─── SQUARIFY TREEMAP (Pure CSS — replaces 800KB ECharts) ────────────────
+interface SquarifyRect {
+    x: number; y: number; w: number; h: number;
+    ticker: string; changePct: number; price: number;
+}
+
+function squarifyLayout(
+    items: { ticker: string; value: number; changePct: number; price: number }[],
+    W: number, H: number
+): SquarifyRect[] {
+    if (items.length === 0 || W <= 0 || H <= 0) return [];
+    const sorted = [...items].sort((a, b) => b.value - a.value);
+    const totalValue = sorted.reduce((s, i) => s + i.value, 0);
+    if (totalValue <= 0) return [];
+    const totalArea = W * H;
+    const nodes = sorted.map(i => ({ ...i, area: (i.value / totalValue) * totalArea }));
+    return _layoutStrip(nodes, { x: 0, y: 0, w: W, h: H });
+}
+
+function _layoutStrip(items: any[], rect: { x: number; y: number; w: number; h: number }): SquarifyRect[] {
+    if (items.length === 0) return [];
+    if (items.length === 1) {
+        return [{ x: rect.x, y: rect.y, w: rect.w, h: rect.h, ticker: items[0].ticker, changePct: items[0].changePct, price: items[0].price }];
+    }
+    const isWide = rect.w >= rect.h;
+    const side = isWide ? rect.h : rect.w;
+    let row: any[] = [];
+    let rowArea = 0;
+    let best = Infinity;
+    let splitIdx = 1;
+    for (let i = 0; i < items.length; i++) {
+        row.push(items[i]);
+        rowArea += items[i].area;
+        const worst = _worstAspect(row, rowArea, side);
+        if (worst <= best) { best = worst; splitIdx = i + 1; } else break;
+    }
+    const rowItems = items.slice(0, splitIdx);
+    const remaining = items.slice(splitIdx);
+    const rowTotalArea = rowItems.reduce((s, i) => s + i.area, 0);
+    const rects: SquarifyRect[] = [];
+    if (isWide) {
+        const rowW = rowTotalArea / rect.h;
+        let y = rect.y;
+        for (const item of rowItems) {
+            const h = item.area / rowW;
+            rects.push({ x: rect.x, y, w: rowW, h, ticker: item.ticker, changePct: item.changePct, price: item.price });
+            y += h;
+        }
+        if (remaining.length > 0) rects.push(..._layoutStrip(remaining, { x: rect.x + rowW, y: rect.y, w: rect.w - rowW, h: rect.h }));
+    } else {
+        const rowH = rowTotalArea / rect.w;
+        let x = rect.x;
+        for (const item of rowItems) {
+            const w = item.area / rowH;
+            rects.push({ x, y: rect.y, w, h: rowH, ticker: item.ticker, changePct: item.changePct, price: item.price });
+            x += w;
+        }
+        if (remaining.length > 0) rects.push(..._layoutStrip(remaining, { x: rect.x, y: rect.y + rowH, w: rect.w, h: rect.h - rowH }));
+    }
+    return rects;
+}
+
+function _worstAspect(row: any[], rowArea: number, side: number): number {
+    const rowW = rowArea / side;
+    let worst = 0;
+    for (const item of row) {
+        const h = item.area / rowW;
+        worst = Math.max(worst, Math.max(rowW / h, h / rowW));
+    }
+    return worst;
+}
+
+const TickerHeatmap = memo(function TickerHeatmap({ items }: { items: EnrichedWatchlistItem[] }) {
     const router = useRouter();
+    const containerRef = useRef<HTMLDivElement>(null);
+    const [dims, setDims] = useState({ w: 400, h: 130 });
 
-    const { treeData, option } = useMemo(() => {
-        if (items.length === 0) return { treeData: [], option: {} };
+    useEffect(() => {
+        if (!containerRef.current) return;
+        const obs = new ResizeObserver(entries => {
+            const { width, height } = entries[0].contentRect;
+            if (width > 0 && height > 0) setDims({ w: width, h: height });
+        });
+        obs.observe(containerRef.current);
+        return () => obs.disconnect();
+    }, []);
 
-        const data = items.map(item => {
-            const abs = Math.abs(item.changePct);
-            const sizeWeight = Math.max(abs, 0.3);
-            return {
-                name: item.ticker,
-                value: sizeWeight,
-                changePct: item.changePct,
-                price: item.currentPrice,
-                itemStyle: {
-                    color: getTreemapColor(item.changePct),
-                    borderColor: '#0d1424',
-                    borderWidth: 1.5,
-                },
-            };
-        }).sort((a, b) => Math.abs(b.changePct) - Math.abs(a.changePct));
+    const rects = useMemo(() => {
+        if (items.length === 0) return [];
+        const data = items.map(item => ({
+            ticker: item.ticker,
+            value: Math.max(Math.abs(item.changePct), 0.3),
+            changePct: item.changePct,
+            price: item.currentPrice,
+        }));
+        return squarifyLayout(data, dims.w, dims.h);
+    }, [items, dims.w, dims.h]);
 
-        const opt = {
-            tooltip: {
-                formatter: (params: any) => {
-                    const d = params.data;
-                    if (!d?.name) return '';
-                    const pct = d.changePct ?? 0;
-                    const color = pct >= 0 ? '#4ade80' : '#fb7185';
-                    const sign = pct >= 0 ? '+' : '';
-                    const pLabel = d.price > 0 ? `$${d.price.toFixed(2)}` : '';
-                    return `<div style="font-family:'Plus Jakarta Sans',system-ui;padding:6px 2px">
-                        <div style="font-weight:900;font-size:14px;letter-spacing:0.05em">${d.name}</div>
-                        <div style="font-size:13px;color:${color};font-family:monospace;font-weight:800;margin-top:3px">${sign}${pct.toFixed(2)}%</div>
-                        ${pLabel ? `<div style="font-size:12px;color:#94a3b8;font-family:monospace;margin-top:1px">${pLabel}</div>` : ''}
-                    </div>`;
-                },
-                backgroundColor: 'rgba(10, 14, 22, 0.95)',
-                borderColor: '#334155',
-                borderWidth: 1,
-                textStyle: { color: '#e2e8f0' },
-                extraCssText: 'box-shadow: 0 8px 32px rgba(0,0,0,0.5); border-radius: 10px; backdrop-filter: blur(8px);',
-                confine: true,
-            },
-            series: [{
-                type: 'treemap',
-                data,
-                left: 0, top: 0, right: 0, bottom: 0,
-                roam: false, nodeClick: false, squareRatio: 0.7,
-                breadcrumb: { show: false },
-                levels: [{
-                    itemStyle: { borderColor: '#0d1424', borderWidth: 1.5, gapWidth: 1.5 },
-                    label: {
-                        show: true, position: 'inside', align: 'center', verticalAlign: 'middle',
-                        color: '#ffffff', fontWeight: 900, fontSize: 11,
-                        fontFamily: '"Plus Jakarta Sans", system-ui, sans-serif',
-                        textShadowColor: 'rgba(0,0,0,0.6)', textShadowBlur: 3,
-                        formatter: (params: any) => {
-                            const d = params.data;
-                            if (!d) return '';
-                            const pct = d.changePct ?? 0;
-                            return `${d.name}\n${pct >= 0 ? '+' : ''}${pct.toFixed(1)}%`;
-                        },
-                    },
-                }],
-                emphasis: {
-                    itemStyle: { borderColor: '#60a5fa', borderWidth: 2, shadowBlur: 12, shadowColor: 'rgba(96, 165, 250, 0.4)' },
-                },
-            }],
-        };
-        return { treeData: data, option: opt };
-    }, [items]);
-
-    const onEvents = useMemo(() => ({
-        click: (params: any) => {
-            const ticker = params?.data?.name;
-            if (ticker) router.push(`/ticker?ticker=${ticker}`);
-        },
-    }), [router]);
-
-    if (treeData.length === 0) return null;
+    if (items.length === 0) return null;
 
     return (
-        <ReactECharts
-            option={option}
-            onEvents={onEvents}
-            style={{ height: '100%', width: '100%', minHeight: 130, cursor: 'pointer' }}
-            opts={{ renderer: 'canvas' }}
-        />
+        <div ref={containerRef} className="w-full h-full relative" style={{ minHeight: 130 }}>
+            {rects.map(r => {
+                const pct = r.changePct;
+                const isSmall = r.w < 50 || r.h < 30;
+                return (
+                    <div
+                        key={r.ticker}
+                        onClick={() => router.push(`/ticker?ticker=${r.ticker}`)}
+                        className="absolute cursor-pointer flex flex-col items-center justify-center overflow-hidden transition-[border-color,box-shadow] duration-200 hover:border-blue-400/60 hover:shadow-[0_0_12px_rgba(96,165,250,0.3)] hover:z-10"
+                        style={{
+                            left: r.x, top: r.y, width: r.w, height: r.h,
+                            backgroundColor: getTreemapColor(pct),
+                            border: '1.5px solid #0d1424',
+                        }}
+                        title={`${r.ticker} ${pct >= 0 ? '+' : ''}${pct.toFixed(2)}% $${r.price.toFixed(2)}`}
+                    >
+                        <span className="text-white font-black text-[11px] leading-none tracking-wide" style={{ textShadow: '0 1px 3px rgba(0,0,0,0.6)' }}>
+                            {isSmall ? r.ticker.slice(0, 3) + (r.ticker.length > 3 ? '…' : '') : r.ticker}
+                        </span>
+                        {!isSmall && (
+                            <span className="text-white/90 font-bold text-[10px] tabular-nums leading-tight mt-0.5" style={{ textShadow: '0 1px 2px rgba(0,0,0,0.5)' }}>
+                                {pct >= 0 ? '+' : ''}{pct.toFixed(1)}%
+                            </span>
+                        )}
+                    </div>
+                );
+            })}
+        </div>
     );
-}
+});
 
 // ─── ANALYTICS ROW (Signal + Risk + Top Movers) ─────────────────────────
 function AnalyticsRow({ items }: { items: EnrichedWatchlistItem[] }) {
