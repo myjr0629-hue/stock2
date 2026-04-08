@@ -954,6 +954,47 @@ for (let i = 0; i < redisBatch.length; i += 20) {
 // 1000종목 × 2 = 2000 SET → 100회 pipeline (개별 SET 대비 1/20)
 ```
 
+**코드 분석 결과 (현재 Redis 호출 지도):**
+```
+[2초마다 — quotes/route.ts] 대시보드 1명 접속 시:
+  L80-86: 14종목 × getFromCache("flow:extended:{ticker}") = 14 Redis GET
+  합계: 14 GET / 2초 = 420 GET/분 ★ 가장 빈번한 호출
+
+[30초마다 — unified/route.ts] 대시보드 1명 접속 시:
+  L925: getFromRedisCache (1 GET) — in-memory hit이면 스킵
+  L835: getAnalysisCacheForTickers (1 bulk GET) — 14종목 일괄
+  L24: getDailyChangeBatch → 종목당 getFromCache("prev-day-pct:{ticker}") = 14 GET
+  L54: getDailyChangeBatch → miss 시 setInCache = 최대 14 SET
+  L207: writeToRedisCache (1 SET)
+  합계: miss 시 ~30 GET+SET / 30초
+
+[참고] unified/route.ts L161에 이미 `const cache: Map<string, CacheEntry>` 존재
+  → 2분(memoryMs=120000) TTL. 보통 in-memory hit → Redis 0회
+  → 문제는 cold start 또는 Vercel 인스턴스 교체 시 Redis fallback 발생
+```
+
+**실행 계획 (코드 레벨):**
+
+```
+작업 1: quotes/route.ts — flow:extended 메모리 캐시 (10분, 효과 -50% 전체)
+  위치: L78-86
+  변경: 파일 상단에 `const extMemoryCache = new Map()` 추가
+       Redis GET 전에 메모리 캐시 확인 (60초 TTL)
+       Redis hit 시 메모리에 저장 → 60초간 재사용
+  효과: 14 Redis GET/2초 → 14 Redis GET/60초 (96.7% 감소)
+
+작업 2: unified/route.ts — prev-day-pct 메모리 캐시 (15분, 효과 -5%)
+  위치: L15-55 (getDailyChangeBatch 함수)
+  변경: 함수 밖에 `const prevDayCache = new Map()` 추가 (1시간 TTL)
+       daily bars는 하루 한번만 바뀌므로 1시간 캐시 안전
+  효과: 14 Redis GET/30초 → 14 Redis GET/3600초
+
+작업 3: EventBridge cron 제한 (5분, 효과 -5%)
+  위치: AWS EventBridge 콘솔
+  변경: rate(5 minutes) → cron(0/5 13-21 ? * MON-FRI *)
+  효과: 주말+야간 Lambda 정지 → Redis write -60%
+```
+
 #### P1: 메인 대시보드 워치리스트 데이터 누락
 - 현상: 데이터가 한번에 다 표시 안 됨 — 일부만 먼저 표시
 - 현상: 다른 페이지 갔다 오면 일부 자료 누락
