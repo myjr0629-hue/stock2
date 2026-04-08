@@ -28,6 +28,7 @@ import { GammaPressureGauge } from '@/components/GammaPressureGauge';
 import { AIDeepAnalysis } from '@/components/AIDeepAnalysis';
 import { CardTooltip, COMMAND_TOOLTIPS } from '@/components/ui/CardTooltip';
 import IVSkewCurve from '@/components/IVSkewCurve';
+import DualGaugeHUD from '@/components/ui/DualGaugeHUD';
 
 // [FIX] Dynamic import with SSR disabled - Recharts requires DOM measurements
 const StockChart = dynamic(() => import("@/components/StockChart").then(mod => mod.StockChart), {
@@ -1418,66 +1419,75 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                         </div>
                     </div>
 
-                    {/* Right Group: Guide + Company Description */}
-                    <div className="hidden sm:flex items-center gap-2 ml-auto self-end mb-0.5">
-                        <Link href="/how-it-works" className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-cyan-500/30 text-[11px] font-bold text-cyan-400 hover:text-white hover:border-cyan-400/50 hover:shadow-[0_0_16px_rgba(6,182,212,0.3)] transition-all duration-300 font-jakarta shrink-0 shadow-[0_0_8px_rgba(6,182,212,0.15)] bg-cyan-950/20">
-                            <BookOpen className="w-3 h-3" />
-                            GUIDE
-                        </Link>
-                    </div>
-
-                    {/* Right Column: Company Description — Bloomberg DES Style */}
-                    {/* 3-line clamp by default, click to reveal floating popover with full text */}
+                    {/* Middle + Right Column: Description, Dual HUD & Guide */}
                     {companyOverview?.description && (() => {
                         const descText = companyOverview.description;
-                        const isLong = descText.length > 180;
+                        const isLong = descText.length > 80;
                         const descFontFamily = locale === 'ko' ? 'Pretendard, sans-serif' : locale === 'ja' ? "'Noto Sans JP', sans-serif" : "'Plus Jakarta Sans', sans-serif";
 
+                        // [ZERO-LATENCY] Realtime Client-Side Smart Flow Calculation
+                        let sfValue = 0;
+                        const sfGex = structure?.netGex || initialUnifiedData?.structure?.netGex || 0;
+                        const sfDP = (institutionalData?.darkPool as any)?.buyPct || (initialUnifiedData?.institutional?.darkPool as any)?.percent || 0;
+                        const sfBlock = institutionalData?.blockTrade?.count || initialUnifiedData?.institutional?.blockTrade?.count || 0;
+                        const sfNP = liveQuote?.flow?.netPremium || 0;
+
+                        const absGex = Math.abs(sfGex);
+                        if (absGex > 50_000_000) sfValue += 25;
+                        else if (absGex > 10_000_000) sfValue += 20;
+                        else if (absGex > 1_000_000) sfValue += 15;
+                        else if (absGex > 100_000) sfValue += 8;
+
+                        const dp = sfDP;
+                        if (dp >= 60) sfValue += 25;
+                        else if (dp >= 45) sfValue += 20;
+                        else if (dp >= 30) sfValue += 12;
+                        else if (dp > 0) sfValue += 5;
+
+                        const bt = sfBlock;
+                        if (bt >= 10) sfValue += 25;
+                        else if (bt >= 5) sfValue += 20;
+                        else if (bt >= 2) sfValue += 15;
+                        else if (bt >= 1) sfValue += 8;
+
+                        const absNP = Math.abs(sfNP);
+                        if (absNP > 10_000_000) sfValue += 25;
+                        else if (absNP > 5_000_000) sfValue += 20;
+                        else if (absNP > 1_000_000) sfValue += 15;
+                        else if (absNP > 100_000) sfValue += 8;
+                        
+                        const liveSmartFlow = sfValue > 0 ? sfValue : (initialUnifiedData?.smartFlow || 0);
+                        const liveContextScore = initialUnifiedData?.alpha?.score || (ssrFallback as any)?.alpha?.score || 0;
+
                         return (
-                            <div className="hidden lg:flex items-center max-w-[45%] relative" style={{ zIndex: descPopoverOpen ? 50 : 'auto' }}>
-                                {/* Clamped Preview Card */}
-                                <div
-                                    className={`relative overflow-hidden rounded-xl px-5 py-2.5 border w-full transition-all duration-200 ${isLong ? 'cursor-pointer group border-white/[0.06] hover:border-white/[0.12]' : 'border-white/[0.06]'}`}
-                                    style={{
-                                        background: 'linear-gradient(135deg, rgba(99,102,241,0.08) 0%, rgba(59,130,246,0.05) 50%, rgba(15,23,42,0.3) 100%)',
-                                        boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.04), 0 0 20px rgba(99,102,241,0.06)'
-                                    }}
-                                    onClick={() => isLong && setDescPopoverOpen(!descPopoverOpen)}
-                                >
-                                    {/* Infographic SVG background */}
-                                    <svg className="absolute inset-0 w-full h-full opacity-[0.12]" preserveAspectRatio="none" viewBox="0 0 400 80">
-                                        <pattern id="headerDots" x="0" y="0" width="24" height="24" patternUnits="userSpaceOnUse">
-                                            <circle cx="2" cy="2" r="0.5" fill="rgb(148,163,184)" />
-                                        </pattern>
-                                        <rect width="400" height="80" fill="url(#headerDots)" />
-                                        <polyline points="0,60 40,55 80,42 120,48 160,32 200,36 240,22 280,26 320,16 360,19 400,12"
-                                            fill="none" stroke="rgb(129,140,248)" strokeWidth="1" strokeLinecap="round" strokeLinejoin="round" opacity="0.7" />
-                                        <polygon points="0,60 40,55 80,42 120,48 160,32 200,36 240,22 280,26 320,16 360,19 400,12 400,80 0,80"
-                                            fill="url(#headerAreaGrad)" />
-                                        <linearGradient id="headerAreaGrad" x1="0" y1="0" x2="0" y2="1">
-                                            <stop offset="0%" stopColor="rgb(129,140,248)" stopOpacity="0.15" />
-                                            <stop offset="100%" stopColor="rgb(129,140,248)" stopOpacity="0" />
-                                        </linearGradient>
-                                    </svg>
-                                    <p className="relative text-[13px] text-slate-300 leading-relaxed z-10"
-                                        style={{
-                                            fontFamily: descFontFamily,
-                                            display: '-webkit-box',
-                                            WebkitLineClamp: 3,
-                                            WebkitBoxOrient: 'vertical' as any,
-                                            overflow: 'hidden',
-                                        }}>
-                                        {descText}
-                                    </p>
-                                    {/* "more →" — inside card, bottom-right, wide gradient fade */}
-                                    {isLong && !descPopoverOpen && (
-                                        <div className="absolute bottom-0 right-0 z-20 flex items-end justify-end pl-10 pr-3 py-1.5 rounded-br-xl"
-                                            style={{ background: 'linear-gradient(to right, transparent 0%, rgba(15,20,35,0.7) 30%, rgba(15,20,35,0.92) 70%, rgba(15,20,35,0.97) 100%)' }}>
-                                            <span className="text-[13px] font-semibold text-emerald-400 group-hover:text-emerald-300 group-hover:underline underline-offset-2 transition-all duration-150 font-jakarta">
-                                                more →
-                                            </span>
-                                        </div>
-                                    )}
+                            <div className="flex-1 flex items-center justify-end gap-3 min-w-0" style={{ zIndex: descPopoverOpen ? 50 : 'auto' }}>
+                                {/* Middle: Compressed Description */}
+                                <div className="hidden xl:flex flex-col justify-center min-w-[200px] max-w-[420px] relative px-3">
+                                    <div 
+                                        className={`relative overflow-hidden rounded-lg px-4 py-2 border transition-all duration-200 ${isLong ? 'cursor-pointer hover:bg-white/[0.04]' : ''} border-white/[0.03] bg-white/[0.015]`}
+                                        onClick={() => isLong && setDescPopoverOpen(!descPopoverOpen)}
+                                        style={{ boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.02), 0 0 12px rgba(0,0,0,0.1)' }}
+                                    >
+                                        <p className="text-[11.5px] text-slate-400/80 leading-snug font-medium"
+                                            style={{ fontFamily: descFontFamily, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as any, overflow: 'hidden' }}>
+                                            {descText}
+                                        </p>
+                                    </div>
+                                </div>
+                                
+                                {/* Right: Dual HUD + Guide */}
+                                <div className="hidden sm:flex items-center shrink-0">
+                                    <DualGaugeHUD 
+                                        contextScore={liveContextScore} 
+                                        smartFlow={liveSmartFlow} 
+                                    />
+                                    
+                                    <div className="ml-2 self-center">
+                                        <Link href="/how-it-works" className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-cyan-500/20 text-[10px] font-bold text-cyan-500/80 hover:text-cyan-300 hover:border-cyan-400/50 hover:bg-cyan-950/30 hover:shadow-[0_0_12px_rgba(6,182,212,0.2)] transition-all duration-300 font-jakarta bg-cyan-950/10 backdrop-blur-sm">
+                                            <BookOpen className="w-3 h-3" />
+                                            GUIDE
+                                        </Link>
+                                    </div>
                                 </div>
 
                                 {/* Bloomberg-style Floating Popover — full description */}

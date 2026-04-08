@@ -440,6 +440,7 @@ async function buildResponseFromResults(
                     dataCompleteness: alphaResult.dataCompleteness,
                     engineVersion: alphaResult.engineVersion,
                 };
+                tickersData[ticker].smartFlow = whaleIndex;
 
                 // 🔥 [V4.6 WRITE-BACK] Record accurate SSR Alpha Score to DynamoDB
                 recordAlphaDaily(ticker, {
@@ -764,6 +765,7 @@ async function buildResponseFromAnalysisCache(
             sparkline: ac.sparkline,
             whaleIndex: ac.whaleIndex,
             whaleConfidence: ac.whaleConfidence,
+            smartFlow: ac.whaleIndex,
             // Alpha from pre-computed cache
             alpha: ac.alphaSnapshot ? {
                 score: ac.alphaSnapshot.score,
