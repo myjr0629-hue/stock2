@@ -1456,7 +1456,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                     />
                                     
                                     <div className="ml-2 self-center">
-                                        <Link href="/how-it-works" className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-cyan-500/20 text-[12px] font-bold text-cyan-500/80 hover:text-cyan-300 hover:border-cyan-400/50 hover:bg-cyan-950/30 hover:shadow-[0_0_12px_rgba(6,182,212,0.2)] transition-all duration-300 font-jakarta bg-cyan-950/10 backdrop-blur-sm">
+                                        <Link href="/how-it-works" className="flex items-center gap-1.5 px-2 py-0.5 rounded border border-cyan-500/20 text-[12px] font-bold text-cyan-500/80 hover:text-cyan-300 hover:border-cyan-400/50 hover:bg-cyan-950/30 hover:shadow-[0_0_12px_rgba(6,182,212,0.2)] transition-all duration-300 font-jakarta bg-cyan-950/10 backdrop-blur-sm">
                                             <BookOpen className="w-3 h-3" />
                                             GUIDE
                                         </Link>

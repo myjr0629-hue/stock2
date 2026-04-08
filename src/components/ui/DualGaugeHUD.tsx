@@ -32,47 +32,47 @@ const SemiCircleGauge = ({ value, config, title, grade }: { value: number, confi
   }, [value, arcLength]);
 
   return (
-    <div className="flex flex-col items-center justify-center relative w-[120px] h-[70px] shrink-0 scale-90">
-      <div className="absolute -top-3 text-[12px] font-black text-slate-200 uppercase tracking-widest font-jakarta z-10 whitespace-nowrap">
-        {title}
-      </div>
-
-      <svg viewBox="0 0 100 55" className="w-[120px] h-full mt-3 overflow-visible pointer-events-none">
+    <div className="flex flex-col items-center justify-end relative w-[106px] h-[54px] shrink-0">
+      
+      <svg viewBox="0 0 100 55" className="absolute top-0 left-0 w-full h-full overflow-visible pointer-events-none">
         <path 
           d="M 8 50 A 42 42 0 0 1 92 50" 
           fill="none" 
           stroke="rgba(255,255,255,0.06)" 
-          strokeWidth="5" 
+          strokeWidth="6" 
           strokeLinecap="round" 
         />
         <path 
           d="M 8 50 A 42 42 0 0 1 92 50" 
           fill="none" 
           stroke={config.color} 
-          strokeWidth="5" 
+          strokeWidth="6" 
           strokeLinecap="round"
           strokeDasharray={arcLength}
           strokeDashoffset={dashOffset}
           className="transition-all duration-1000 ease-out"
-          style={{ filter: `drop-shadow(0 0 6px ${config.glow})` }}
+          style={{ filter: `drop-shadow(0 0 5px ${config.glow})` }}
         />
       </svg>
 
-      <div className="absolute bottom-5 left-0 right-0 flex flex-col items-center">
-        <div className="flex items-baseline gap-1">
+      <div className="absolute inset-0 flex flex-col items-center justify-end pb-1.5 z-10">
+        <div className="text-[12px] font-bold text-slate-400 uppercase tracking-wider font-jakarta mb-0 whitespace-nowrap">
+          {title}
+        </div>
+        <div className="flex items-baseline gap-0.5 -mt-1">
             <div 
-              className="text-[26px] font-black tabular-nums tracking-tighter text-slate-200" 
+              className="text-[24px] font-black tabular-nums tracking-tighter text-slate-200 leading-none" 
               style={{ 
                 color: config.color, 
-                textShadow: value > 0 ? `0 0 12px ${config.glow}` : 'none' 
+                textShadow: value > 0 ? `0 0 10px ${config.glow}` : 'none' 
               }}
             >
               {Math.round(value)}
             </div>
             {grade && (
                <span 
-                 className="text-lg font-black tracking-tighter ml-0.5"
-                 style={{ color: config.color, textShadow: value > 0 ? `0 0 12px ${config.glow}` : 'none' }}
+                 className="text-[14px] font-black tracking-tighter leading-none ml-0.5"
+                 style={{ color: config.color, textShadow: value > 0 ? `0 0 10px ${config.glow}` : 'none' }}
                >
                  {grade}
                </span>
@@ -80,7 +80,7 @@ const SemiCircleGauge = ({ value, config, title, grade }: { value: number, confi
         </div>
       </div>
 
-      <div className="absolute -bottom-3 w-[150%] text-center">
+      <div className="absolute -bottom-4 w-[160%] text-center">
         <div 
           className="text-[12px] font-extrabold tracking-widest uppercase truncate px-1 font-jakarta text-slate-200" 
           style={{ color: config.color }}
@@ -97,9 +97,9 @@ export const DualGaugeHUD = ({ contextScore = 0, contextGrade, smartFlow = 0 }: 
   const cxConfig = getContextConfig(contextScore);
   
   return (
-    <div className="hidden lg:flex items-center gap-6 py-0 px-6 ml-3 border-l border-white/[0.08]">
+    <div className="hidden lg:flex items-center gap-5 py-0 px-4 ml-3 border-l border-white/[0.08]">
       <SemiCircleGauge value={contextScore} grade={contextGrade} config={cxConfig} title="CONTEXT SCORE" />
-      <div className="w-px h-14 bg-white/[0.04]" />
+      <div className="w-px h-10 bg-white/[0.04]" />
       <SemiCircleGauge value={smartFlow} config={sfConfig} title="SMART FLOW" />
     </div>
   );
