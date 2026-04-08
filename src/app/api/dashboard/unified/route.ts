@@ -12,18 +12,44 @@ import { fetchMassive } from '@/services/massiveClient';
 // [PREV-CHANGE FIX] Accurate previous regular session change from Polygon Daily Bars
 // Same data source as 5-DAY HISTORY — always correct
 // ============================================================
-async function getDailyChangeBatch(tickers: string[]): Promise<Map<string, { changePct: number; close: number; prevClose: number }>> {
-    const result = new Map<string, { changePct: number; close: number; prevClose: number }>();
+
+// ── [REDIS OPT] In-memory cache for prev-day-pct — 1h TTL ──
+// Daily bars are confirmed data that only change once per day at market close.
+// 1-hour memory cache eliminates ~99% of Redis GET calls for this data.
+// Before: 14 tickers × Redis GET / 30s = 28 GET/min
+// After:  14 tickers × Redis GET / 3600s = 0.23 GET/min
+type PrevDayEntry = { changePct: number; close: number; prevClose: number };
+const PREV_DAY_MEM_CACHE = new Map<string, { data: PrevDayEntry; expiry: number }>();
+const PREV_DAY_MEM_TTL_MS = 3600_000; // 1 hour — daily bars change once per day, safe to cache long
+
+async function getDailyChangeBatch(tickers: string[]): Promise<Map<string, PrevDayEntry>> {
+    const result = new Map<string, PrevDayEntry>();
     const REDIS_KEY_PREFIX = 'prev-day-pct:';
     const CACHE_TTL = 600; // 10 min — daily bars are confirmed data, rarely change
 
-    // 1. Check Redis cache for all tickers
+    // 0. Check in-memory cache FIRST — avoids Redis entirely for cached tickers
+    const tickersAfterMem: string[] = [];
+    const now = Date.now();
+    for (const ticker of tickers) {
+        const memEntry = PREV_DAY_MEM_CACHE.get(ticker);
+        if (memEntry && now < memEntry.expiry) {
+            result.set(ticker, memEntry.data);
+        } else {
+            if (memEntry) PREV_DAY_MEM_CACHE.delete(ticker);
+            tickersAfterMem.push(ticker);
+        }
+    }
+    if (tickersAfterMem.length === 0) return result;
+
+    // 1. Check Redis cache for remaining tickers
     const missingTickers: string[] = [];
-    await Promise.all(tickers.map(async (ticker) => {
+    await Promise.all(tickersAfterMem.map(async (ticker) => {
         try {
-            const cached = await getFromCache<{ changePct: number; close: number; prevClose: number }>(`${REDIS_KEY_PREFIX}${ticker}`);
+            const cached = await getFromCache<PrevDayEntry>(`${REDIS_KEY_PREFIX}${ticker}`);
             if (cached && typeof cached.changePct === 'number') {
                 result.set(ticker, cached);
+                // Store in memory cache for future calls
+                PREV_DAY_MEM_CACHE.set(ticker, { data: cached, expiry: Date.now() + PREV_DAY_MEM_TTL_MS });
                 return;
             }
         } catch { /* cache miss */ }
@@ -48,9 +74,10 @@ async function getDailyChangeBatch(tickers: string[]): Promise<Map<string, { cha
                 const todayBar = bars[0]; // Most recent trading day
                 const prevBar = bars[1];  // Previous trading day
                 const changePct = prevBar.c > 0 ? ((todayBar.c - prevBar.c) / prevBar.c) * 100 : 0;
-                const entry = { changePct, close: todayBar.c, prevClose: prevBar.c };
+                const entry: PrevDayEntry = { changePct, close: todayBar.c, prevClose: prevBar.c };
                 result.set(ticker, entry);
-                // Cache to Redis
+                // Store in both memory and Redis cache
+                PREV_DAY_MEM_CACHE.set(ticker, { data: entry, expiry: Date.now() + PREV_DAY_MEM_TTL_MS });
                 try { await setInCache(`${REDIS_KEY_PREFIX}${ticker}`, entry, CACHE_TTL); } catch { /* non-critical */ }
             }
         } catch (e) {

@@ -6,6 +6,14 @@ import { getFromCache, setInCache } from '@/services/redisClient';
 
 export const dynamic = 'force-dynamic'; // No caching allowed
 
+// ── [REDIS OPT] In-memory cache for flow:extended — 60s TTL ──
+// flow:extended data has 24h Redis TTL and changes rarely (pre/post prices).
+// Caching in memory for 60s eliminates ~96% of Redis GET calls from 2s polling.
+// Before: 14 tickers × Redis GET / 2s = 420 GET/min
+// After:  14 tickers × Redis GET / 60s = 14 GET/min
+const EXT_MEM_CACHE = new Map<string, { data: any; expiry: number }>();
+const EXT_MEM_TTL_MS = 60_000; // 60 seconds
+
 export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const symbolsParam = searchParams.get('symbols');
@@ -73,17 +81,34 @@ export async function GET(request: Request) {
 
         const data: Record<string, any> = {};
 
-        // [FIX] Batch-fetch Redis extended price cache for all tickers
-        // These are populated by /api/live/ticker (24h TTL) and contain accurate pre/post prices
+        // [REDIS OPT] Batch-fetch extended price cache — memory-first, Redis fallback
+        // These are populated by /api/live/ticker (24h Redis TTL) and contain accurate pre/post prices.
+        // Memory cache (60s TTL) avoids hitting Redis on every 2s poll cycle.
         const extCacheMap: Record<string, any> = {};
-        await Promise.all(
-            tickers.map(async (ticker) => {
-                try {
-                    const cached = await getFromCache<any>(`flow:extended:${ticker}`);
-                    if (cached) extCacheMap[ticker] = cached;
-                } catch { /* non-critical */ }
-            })
-        );
+        const tickersNeedRedisExt: string[] = [];
+        const now = Date.now();
+        for (const ticker of tickers) {
+            const memEntry = EXT_MEM_CACHE.get(ticker);
+            if (memEntry && now < memEntry.expiry) {
+                extCacheMap[ticker] = memEntry.data;
+            } else {
+                if (memEntry) EXT_MEM_CACHE.delete(ticker);
+                tickersNeedRedisExt.push(ticker);
+            }
+        }
+        if (tickersNeedRedisExt.length > 0) {
+            await Promise.all(
+                tickersNeedRedisExt.map(async (ticker) => {
+                    try {
+                        const cached = await getFromCache<any>(`flow:extended:${ticker}`);
+                        if (cached) {
+                            extCacheMap[ticker] = cached;
+                            EXT_MEM_CACHE.set(ticker, { data: cached, expiry: Date.now() + EXT_MEM_TTL_MS });
+                        }
+                    } catch { /* non-critical */ }
+                })
+            );
+        }
         results.forEach(({ ticker, snapshot: S, error }) => {
             if (error || !S) {
                 data[ticker] = { price: 0, changePercent: 0, error };
