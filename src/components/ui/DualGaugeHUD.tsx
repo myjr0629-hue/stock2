@@ -55,11 +55,12 @@ const SemiCircleGauge = ({ value, config, title, grade }: { value: number, confi
         />
       </svg>
 
+      <div className="absolute top-[-16px] text-[12px] font-bold text-white uppercase tracking-wider font-jakarta whitespace-nowrap z-10">
+        {title}
+      </div>
+
       <div className="absolute inset-0 flex flex-col items-center justify-end pb-1.5 z-10">
-        <div className="text-[12px] font-bold text-slate-400 uppercase tracking-wider font-jakarta mb-0 whitespace-nowrap">
-          {title}
-        </div>
-        <div className="flex items-baseline gap-0.5 -mt-1">
+        <div className="flex items-baseline gap-0.5">
             <div 
               className="text-[24px] font-black tabular-nums tracking-tighter text-slate-200 leading-none" 
               style={{ 
@@ -82,7 +83,7 @@ const SemiCircleGauge = ({ value, config, title, grade }: { value: number, confi
 
       <div className="absolute -bottom-4 w-[160%] text-center">
         <div 
-          className="text-[12px] font-extrabold tracking-widest uppercase truncate px-1 font-jakarta text-slate-200" 
+          className="text-[11px] font-extrabold tracking-widest uppercase truncate px-1 font-jakarta text-slate-200" 
           style={{ color: config.color }}
         >
           {config.label}
