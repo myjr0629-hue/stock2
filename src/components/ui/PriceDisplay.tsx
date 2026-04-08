@@ -137,13 +137,18 @@ export function tickerDelay(ticker: string): number {
 
 /** Returns inline style + className for price flash. Reusable across pages. */
 export function getFlashStyle(flash: 'up' | 'down' | null) {
-    const color = flash === 'up' ? 'text-green-200' :
-        flash === 'down' ? 'text-red-200' : 'text-white';
-    const style: React.CSSProperties = flash ? {
-        transition: 'color 0.1s ease-in, text-shadow 0.1s ease-in',
-        textShadow: flash === 'up' ? '0 0 12px rgba(74,222,128,0.8)' : '0 0 12px rgba(248,113,113,0.8)',
+    const color = ''; // Controlled via inline style to ensure transition priority
+    const style: React.CSSProperties = flash === 'up' ? {
+        color: '#10b981', // Crisp Emerald
+        transition: 'color 0.05s ease-out', // Instant byte
+        textShadow: 'none',
+    } : flash === 'down' ? {
+        color: '#f43f5e', // Crisp Rose
+        transition: 'color 0.05s ease-out',
+        textShadow: 'none',
     } : {
-        transition: 'color 0.5s ease-out, text-shadow 0.5s ease-out',
+        color: '#ffffff', // Static White
+        transition: 'color 0.8s ease-in', // Luxurious long fade
         textShadow: 'none',
     };
     return { color, style };
@@ -186,12 +191,18 @@ export function PriceDisplay({
     const priceColor = flash === 'up' ? 'text-green-200' :
         flash === 'down' ? 'text-red-200' : 'text-white';
 
-    // [STRONG] Triple combo: background highlight + text color + glow
-    const flashStyle: React.CSSProperties = flash ? {
-        transition: 'color 0.1s ease-in, text-shadow 0.1s ease-in',
-        textShadow: flash === 'up' ? '0 0 12px rgba(74,222,128,0.8)' : '0 0 12px rgba(248,113,113,0.8)',
+    // [PREMIUM HYBRID] Solid color flash + slow fade out. Kills the glow.
+    const flashStyle: React.CSSProperties = flash === 'up' ? {
+        color: '#10b981',
+        transition: 'color 0.05s ease-out',
+        textShadow: 'none',
+    } : flash === 'down' ? {
+        color: '#f43f5e',
+        transition: 'color 0.05s ease-out',
+        textShadow: 'none',
     } : {
-        transition: 'color 0.5s ease-out, text-shadow 0.5s ease-out',
+        color: '#ffffff',
+        transition: 'color 0.8s ease-in',
         textShadow: 'none',
     };
 
