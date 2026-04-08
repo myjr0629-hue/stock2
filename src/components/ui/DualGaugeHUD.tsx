@@ -31,15 +31,12 @@ const SemiCircleGauge = ({ value, config, title }: { value: number, config: any,
   }, [value, arcLength]);
 
   return (
-    <div className="flex flex-col items-center justify-center relative w-[130px] h-[75px] shrink-0">
-      {/* HUD Title */}
-      <div className="absolute -top-1 text-[10px] font-black text-slate-500 uppercase tracking-widest font-jakarta z-10">
+    <div className="flex flex-col items-center justify-center relative w-[120px] h-[70px] shrink-0 scale-90">
+      <div className="absolute -top-1 text-[10px] font-black text-slate-300 uppercase tracking-widest font-jakarta z-10">
         {title}
       </div>
 
-      {/* SVG Arc Gauge */}
       <svg viewBox="0 0 100 55" className="w-[120px] h-full mt-3 overflow-visible pointer-events-none">
-        {/* Track Background */}
         <path 
           d="M 8 50 A 42 42 0 0 1 92 50" 
           fill="none" 
@@ -47,7 +44,6 @@ const SemiCircleGauge = ({ value, config, title }: { value: number, config: any,
           strokeWidth="5" 
           strokeLinecap="round" 
         />
-        {/* Dynamic Data Arc Fill */}
         <path 
           d="M 8 50 A 42 42 0 0 1 92 50" 
           fill="none" 
@@ -61,10 +57,9 @@ const SemiCircleGauge = ({ value, config, title }: { value: number, config: any,
         />
       </svg>
 
-      {/* Numeric Score */}
       <div className="absolute bottom-5 left-0 right-0 flex flex-col items-center">
         <div 
-          className="text-2xl font-black tabular-nums tracking-tighter" 
+          className="text-2xl font-black tabular-nums tracking-tighter text-slate-300" 
           style={{ 
             color: config.color, 
             textShadow: value > 0 ? `0 0 12px ${config.glow}` : 'none' 
@@ -74,10 +69,9 @@ const SemiCircleGauge = ({ value, config, title }: { value: number, config: any,
         </div>
       </div>
 
-      {/* Sub-label (Heavy Accumulation etc.) */}
       <div className="absolute -bottom-2 w-[140%] text-center">
         <div 
-          className="text-[9px] font-bold tracking-widest uppercase truncate px-1 font-jakarta" 
+          className="text-[9px] font-bold tracking-widest uppercase truncate px-1 font-jakarta text-slate-300" 
           style={{ color: config.color }}
         >
           {config.label}

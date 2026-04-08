@@ -993,7 +993,7 @@ async function tryDynamoFast(ticker: string): Promise<any | null> {
                 squeeze: ad.squeezeScore != null ? { score: ad.squeezeScore } : null,
                 institutional: ad.darkPoolPct ? { darkPool: { percent: ad.darkPoolPct } } : null,
                 fundamentals: null, overview: null,
-                history: gexHistory, _alpha: ad.alphaSnapshot,
+                history: gexHistory, alpha: ad.alphaSnapshot ? { score: ad.alphaSnapshot.score, grade: ad.alphaSnapshot.grade } : null, smartFlow: ad.whaleIndex || 0,
                 timestamp: ad.timestamp,
             };
         }

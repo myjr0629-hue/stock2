@@ -84,13 +84,17 @@ export default async function TickerPage({ params, searchParams }: Props) {
                 if (snap.price && (isDataFresh(snap.price.date) || isWithin3Days(snap.price.date))) {
                 const gex = snap.gex;
                 const p = snap.price as any;
-                // [FIX] Get expiration from analysis cache (warm-analysis stores it from structureService)
+                // [FIX] Get expiration and alpha from analysis cache (warm-analysis stores it)
                 let ssrExpiration: string | null = null;
+                let ssrAlpha: any = null;
+                let ssrSmartFlow: number = 0;
                 try {
                     const { getAnalysisCacheForTickers } = await import('@/services/analysisCache');
                     const acMap = await getAnalysisCacheForTickers([ticker]);
                     const ac = acMap[ticker.toUpperCase()];
                     if (ac?.expiration) ssrExpiration = ac.expiration;
+                    if (ac?.alphaSnapshot) ssrAlpha = ac.alphaSnapshot;
+                    if (ac?.whaleIndex) ssrSmartFlow = ac.whaleIndex;
                 } catch { /* non-critical */ }
                 initialUnifiedData = {
                     structure: gex ? {
@@ -102,6 +106,8 @@ export default async function TickerPage({ params, searchParams }: Props) {
                         validation: { confidence: 'HIGH', source: 'ssr-dynamodb' },
                     } : null,
                     options: gex ? { pcr: gex.pcr } : null,
+                    alpha: ssrAlpha ? { score: ssrAlpha.score, grade: ssrAlpha.grade } : null,
+                    smartFlow: ssrSmartFlow,
                     sma: p.sma50 && p.sma200 ? { ticker, cross: p.cross || 'NONE', crossType: p.crossType || '', sma50: p.sma50, sma200: p.sma200, distance: Math.round(((p.sma50 - p.sma200) / p.sma200) * 10000) / 100, isImminent: Math.abs(((p.sma50 - p.sma200) / p.sma200) * 100) < 0.5, phase: 'NEUTRAL', label: '' } : null,
                     earnings: snap.earnings ? { ticker, nextEarningsDate: snap.earnings.nextDate, daysUntilEarnings: snap.earnings.daysUntil || 0, daysLabel: (snap.earnings.daysUntil || 0) <= 0 ? 'today' : `D-${snap.earnings.daysUntil}`, hasData: true } : null,
                     analyst: snap.analyst ? { ticker, consensus: snap.analyst.consensus || 'N/A', totalAnalysts: snap.analyst.totalAnalysts || 0, bullishPct: snap.analyst.bullishPct || 0, breakdown: snap.analyst.breakdown || {} } : null,

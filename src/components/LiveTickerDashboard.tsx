@@ -1468,7 +1468,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                         onClick={() => isLong && setDescPopoverOpen(!descPopoverOpen)}
                                         style={{ boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.02), 0 0 12px rgba(0,0,0,0.1)' }}
                                     >
-                                        <p className="text-[11.5px] text-slate-400/80 leading-snug font-medium"
+                                        <p className="text-[11.5px] text-slate-300 leading-snug font-medium"
                                             style={{ fontFamily: descFontFamily, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as any, overflow: 'hidden' }}>
                                             {descText}
                                         </p>
