@@ -655,6 +655,8 @@ const TickerHeatmap = memo(function TickerHeatmap({ items }: { items: EnrichedWa
     const router = useRouter();
     const containerRef = useRef<HTMLDivElement>(null);
     const [dims, setDims] = useState({ w: 400, h: 130 });
+    const [hoveredTicker, setHoveredTicker] = useState<string | null>(null);
+    const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
 
     useEffect(() => {
         if (!containerRef.current) return;
@@ -677,36 +679,92 @@ const TickerHeatmap = memo(function TickerHeatmap({ items }: { items: EnrichedWa
         return squarifyLayout(data, dims.w, dims.h);
     }, [items, dims.w, dims.h]);
 
+    const handleMouseMove = useCallback((e: React.MouseEvent, ticker: string) => {
+        if (!containerRef.current) return;
+        const rect = containerRef.current.getBoundingClientRect();
+        setTooltipPos({ x: e.clientX - rect.left, y: e.clientY - rect.top });
+        setHoveredTicker(ticker);
+    }, []);
+
+    const hoveredData = useMemo(() => {
+        if (!hoveredTicker) return null;
+        return rects.find(r => r.ticker === hoveredTicker) || null;
+    }, [hoveredTicker, rects]);
+
     if (items.length === 0) return null;
 
     return (
-        <div ref={containerRef} className="w-full h-full relative" style={{ minHeight: 130 }}>
+        <div ref={containerRef} className="w-full h-full relative" style={{ minHeight: 130 }} onMouseLeave={() => setHoveredTicker(null)}>
             {rects.map(r => {
                 const pct = r.changePct;
                 const isSmall = r.w < 50 || r.h < 30;
+                const isHovered = hoveredTicker === r.ticker;
                 return (
                     <div
                         key={r.ticker}
                         onClick={() => router.push(`/ticker?ticker=${r.ticker}`)}
-                        className="absolute cursor-pointer flex flex-col items-center justify-center overflow-hidden transition-[border-color,box-shadow] duration-200 hover:border-blue-400/60 hover:shadow-[0_0_12px_rgba(96,165,250,0.3)] hover:z-10"
+                        onMouseMove={(e) => handleMouseMove(e, r.ticker)}
+                        onMouseLeave={() => setHoveredTicker(null)}
+                        className="absolute cursor-pointer flex flex-col items-center justify-center overflow-hidden"
                         style={{
                             left: r.x, top: r.y, width: r.w, height: r.h,
                             backgroundColor: getTreemapColor(pct),
-                            border: '1.5px solid #0d1424',
+                            border: isHovered ? '1.5px solid rgba(148, 163, 184, 0.5)' : '1.5px solid #0d1424',
+                            filter: isHovered ? 'brightness(1.35)' : 'brightness(1)',
+                            transform: isHovered ? 'scale(1.03)' : 'scale(1)',
+                            zIndex: isHovered ? 20 : 1,
+                            transition: 'filter 0.15s ease, transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease',
+                            boxShadow: isHovered ? '0 0 16px rgba(148, 163, 184, 0.25), 0 4px 12px rgba(0,0,0,0.4)' : 'none',
                         }}
-                        title={`${r.ticker} ${pct >= 0 ? '+' : ''}${pct.toFixed(2)}% $${r.price.toFixed(2)}`}
                     >
-                        <span className="text-white font-black text-[11px] leading-none tracking-wide" style={{ textShadow: '0 1px 3px rgba(0,0,0,0.6)' }}>
-                            {isSmall ? r.ticker.slice(0, 3) + (r.ticker.length > 3 ? '…' : '') : r.ticker}
+                        <span className="text-white font-black text-[11px] leading-none tracking-wide pointer-events-none" style={{ textShadow: '0 1px 3px rgba(0,0,0,0.6)' }}>
+                            {isSmall ? r.ticker.slice(0, 3) + (r.ticker.length > 3 ? '\u2026' : '') : r.ticker}
                         </span>
                         {!isSmall && (
-                            <span className="text-white/90 font-bold text-[10px] tabular-nums leading-tight mt-0.5" style={{ textShadow: '0 1px 2px rgba(0,0,0,0.5)' }}>
+                            <span className="text-white/90 font-bold text-[10px] tabular-nums leading-tight mt-0.5 pointer-events-none" style={{ textShadow: '0 1px 2px rgba(0,0,0,0.5)' }}>
                                 {pct >= 0 ? '+' : ''}{pct.toFixed(1)}%
                             </span>
                         )}
                     </div>
                 );
             })}
+
+            {/* Premium Glassmorphism Tooltip */}
+            {hoveredData && (
+                <div
+                    className="absolute pointer-events-none z-50"
+                    style={{
+                        left: Math.min(tooltipPos.x + 14, dims.w - 150),
+                        top: tooltipPos.y < 60 ? tooltipPos.y + 18 : tooltipPos.y - 76,
+                        animation: 'fadeSlideIn 0.1s ease-out',
+                    }}
+                >
+                    <div className="px-3 py-2.5 rounded-xl border border-white/[0.12] shadow-2xl"
+                        style={{
+                            background: 'rgba(10, 14, 28, 0.92)',
+                            backdropFilter: 'blur(16px)',
+                            boxShadow: '0 8px 32px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.06)',
+                        }}
+                    >
+                        <div className="flex items-center gap-2">
+                            <div className="w-5 h-5 rounded-md bg-gradient-to-br from-slate-700 to-slate-800 border border-white/[0.08] flex items-center justify-center overflow-hidden flex-shrink-0">
+                                <img loading="lazy" src={`/api/logo/${hoveredData.ticker}`} alt="" className="w-3.5 h-3.5 object-contain" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                            </div>
+                            <span className="text-[13px] font-black text-white tracking-wider">{hoveredData.ticker}</span>
+                        </div>
+                        <div className="flex items-baseline gap-2 mt-1.5">
+                            <span className="text-[13px] font-bold tabular-nums text-white/90" style={{ fontFamily: 'ui-monospace, "SF Mono", monospace' }}>
+                                ${hoveredData.price.toFixed(2)}
+                            </span>
+                            <span className={`text-[12px] font-black tabular-nums ${hoveredData.changePct >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}
+                                style={{ fontFamily: 'ui-monospace, "SF Mono", monospace' }}
+                            >
+                                {hoveredData.changePct >= 0 ? '+' : ''}{hoveredData.changePct.toFixed(2)}%
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 });
