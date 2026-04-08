@@ -387,7 +387,10 @@ export default function RLSIInsightPanel({
                                         {briefingData.date}
                                     </span>
                                 </div>
-                                <div className="text-[13px] text-white/80 leading-[1.6] whitespace-pre-line" style={{ fontFamily: 'Pretendard, sans-serif' }}>
+                                <div 
+                                    className="text-[13px] text-white/80 leading-[1.6] whitespace-pre-line overflow-y-auto custom-briefing-scroll pr-1.5" 
+                                    style={{ fontFamily: 'Pretendard, sans-serif', maxHeight: '155px' }}
+                                >
                                     {briefingData.briefing}
                                 </div>
                                 {briefingData.generatedAt && (
@@ -410,6 +413,32 @@ export default function RLSIInsightPanel({
                     </>
                 )}
             </div>
+
+            {/* ─── PREMIUM INVISIBLE SCROLLBAR CSS ─── */}
+            <style dangerouslySetInnerHTML={{__html: `
+                .custom-briefing-scroll {
+                    scrollbar-width: thin;
+                    scrollbar-color: transparent transparent;
+                    transition: scrollbar-color 0.3s ease;
+                }
+                .custom-briefing-scroll:hover {
+                    scrollbar-color: rgba(245, 158, 11, 0.4) transparent;
+                }
+                .custom-briefing-scroll::-webkit-scrollbar {
+                    width: 3.5px;
+                }
+                .custom-briefing-scroll::-webkit-scrollbar-track {
+                    background: transparent;
+                }
+                .custom-briefing-scroll::-webkit-scrollbar-thumb {
+                    background-color: transparent;
+                    border-radius: 4px;
+                    transition: background-color 0.3s ease;
+                }
+                .custom-briefing-scroll:hover::-webkit-scrollbar-thumb {
+                    background-color: rgba(245, 158, 11, 0.4);
+                }
+            `}} />
 
             {/* ─── MARKET BREADTH — Enhanced Visual Section ─── */}
             <div className="flex-1 flex flex-col space-y-3">
