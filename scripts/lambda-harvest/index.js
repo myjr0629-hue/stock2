@@ -1735,21 +1735,16 @@ exports.handler = async (event) => {
   results.prices = count;
   results.rlsi = await computeRlsi();
   
-  // Regular hours: GEX + Alpha + SMA + Unified Cache
+  // ALWAYS run: GEX + Alpha + SMA + Unified Cache (Pre-market, Regular, Post-market)
   let gexMap = {}, optionsCache = {}, smaMap = {};
-  if (isRegular || forceRun) {
-    const gexResult = await harvestGex(priceMap);
-    gexMap = gexResult.gexMap;
-    optionsCache = gexResult.optionsCache;
-    results.gex = Object.keys(gexMap).length;
-    results.alpha = await updateAlphaScores(snapshotMap, gexMap);
-    const smaResult = await harvestSMA(priceMap);
-    results.sma = smaResult.smaCount;
-    smaMap = smaResult.smaMap;
-  } else {
-    results.gex = 'SKIP:extended';
-    results.sma = 'SKIP:extended';
-  }
+  const gexResult = await harvestGex(priceMap);
+  gexMap = gexResult.gexMap;
+  optionsCache = gexResult.optionsCache;
+  results.gex = Object.keys(gexMap).length;
+  results.alpha = await updateAlphaScores(snapshotMap, gexMap);
+  const smaResult = await harvestSMA(priceMap);
+  results.sma = smaResult.smaCount;
+  smaMap = smaResult.smaMap;
   
   // Daily details: run once at 14:30 UTC (market open + 1hr) or forceRun
   let detailsMap = {};
@@ -1797,19 +1792,12 @@ exports.handler = async (event) => {
   
   // [v8] Step 5.5: RSI + Daily Bars (sparkline, return3d, relVol)
   let rsiMap = {}, dailyBarsMap = {};
-  if (isRegular || forceRun) {
-    const rsiResult = await harvestRsiAndDailyBars(UNIVERSE);
-    rsiMap = rsiResult.rsiMap;
-    dailyBarsMap = rsiResult.dailyBarsMap;
-  }
+  const rsiResult = await harvestRsiAndDailyBars(UNIVERSE);
+  rsiMap = rsiResult.rsiMap;
+  dailyBarsMap = rsiResult.dailyBarsMap;
   
   // [v7] Step 6: Build Unified Cache — ALWAYS run (regular + extended)
-  if (isRegular || forceRun) {
-    results.unified = await buildUnifiedCache(priceMap, gexMap, optionsCache, smaMap, detailsMap, snapshotMap, rsiMap, dailyBarsMap);
-  } else {
-    // Extended hours: still build unified cache with whatever data we have
-    results.unified = await buildUnifiedCache(priceMap, {}, {}, smaMap, detailsMap, snapshotMap, rsiMap, dailyBarsMap);
-  }
+  results.unified = await buildUnifiedCache(priceMap, gexMap, optionsCache, smaMap, detailsMap, snapshotMap, rsiMap, dailyBarsMap);
   
   const duration = Math.round((Date.now()-start)/1000);
   console.log('Done in '+duration+'s');

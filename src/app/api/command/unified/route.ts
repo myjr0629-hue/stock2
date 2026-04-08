@@ -29,7 +29,7 @@ const REFRESH_THRESHOLD_MS = 300 * 1000; // [극강] 5 minutes — background re
 // [ROOT FIX] Bypass injection for Alpha & Smart Flow from Lambda's direct Analysis Cache.
 // Prevents "Context Score 0" issue for Universe tickers by sourcing exact scores from signum-harvest.
 async function injectAlphaBypass(data: any, ticker: string) {
-    if (!data) return;
+    if (!data || (data.alpha && data.smartFlow !== undefined)) return; // [초격차 속도] 이미 메모리에 삽입되었으면 0ms 조기 종료 (Redis 호출 일절 없음)
     try {
         const { getAnalysisCache } = await import('@/services/analysisCache');
         const ac = await getAnalysisCache(ticker);

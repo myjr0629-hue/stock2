@@ -1115,13 +1115,16 @@ for (let i = 0; i < redisBatch.length; i += 20) {
 
 ## 🔄 세션 핸드오프 (2026-04-09 세션 종료 시점)
 
-### 완료된 작업
+### 완료된 작업 (2026-04-09 추가 반영)
 | 작업 | commit | 상태 |
 |------|--------|:----:|
 | Dashboard V4 Store 전면 재작성 | `ec0c6865` | ✅ 배포됨 |
 | DashboardClient 폴링 로직 정리 | `ec0c6865` | ✅ 배포됨 |
 | Redis 요금 분석 + 실행 계획 문서화 | `e992d690` | ✅ 기록됨 |
-| INFRASTRUCTURE_MAP 전체 업데이트 | 이 커밋 | ✅ |
+| Guardian Morning Briefing 큰따옴표 파싱 에러 복구 | 최신 | ✅ 배포됨 |
+| Command Fundamental Grid 가독성/레이아웃 복구 (6열 구조) | 최신 | ✅ 배포됨 |
+| 전역 타겟 Price Flash 엔진 교체 (Premium Solid Hybrid) | 최신 | ✅ 배포됨 |
+| 인텔 M7 Session Grid 전용 CSS 애니메이션 동기화 제거 | `6be63649` | ✅ 배포됨 |
 
 ### 다음 세션 즉시 할 작업 (우선순위순)
 1. **대시보드 장중 실시간 검증** — PRE~POST 동안 위 체크리스트 8개 항목 확인
@@ -1143,3 +1146,44 @@ for (let i = 0; i < redisBatch.length; i += 20) {
 - **unified/route.ts에는 이미 in-memory cache 있음** (L161 `const cache: Map`)
 - **quotes/route.ts에는 메모리 캐시 없음** ← 이것이 요금 폭탄의 핵심 원인
 - **장중 = PRE(04:00 ET) ~ POST(20:00 ET)** — 본장만이 아님
+
+---
+
+## 📈 [NEXT PHASE] 소셜 마케팅 자동화 파이프라인 확장 제안 (Growth Hacking)
+> **대상 파일:** `src/lib/marketing/aiContentEngine.ts` & `marketing-dispatch/route.ts`
+> **목적:** 3개국어(EN/KO/JA) 자동 배포 엔진의 노출 도달률(Reach) 및 CTR 폭발적 증가
+
+1. **글로벌 옵션 Ticker 태깅 엔진 추가 ($Cashtag 타겟팅)**
+   - **구현 방식:** AI 프롬프트에 당일 주도주(핫 티커)의 Cashtag(예: `$TSLA`, `$NVDA`)를 첫 줄에 강제 주입.
+   - **효과:** X(트위터) 및 Bluesky 검색 해시태그 알고리즘 노출을 통한 오가닉 트래픽 펌핑.
+2. **인터랙티브 숏폼 제네레이터 구축 (Reels / Shorts / TikTok)**
+   - **구현 방식:** 기존의 정적이고 지루한 AI 영상 탈피. 줌인(Zoom-in) 카메라 무빙, 수치 롤링 아웃, 타이포그래피의 타격감, 비트에 맞춘 효과음 등 **숏폼 전용 도파민 메커니즘** 렌더링 적용. 
+   - **효과:** "프리미엄 지표 + 숏폼 특유의 시각적 인터랙션" 결합으로 1.5초 이탈 방어 및 폭발적 바이럴 유도.
+3. **소셜 노출용 OG Image 'Premium Glassmorphism' 전면 개편**
+   - **구현 방식:** 현재 데이터 구조는 유지하되, 렌더링 디자인을 웹사이트 본판과 동일한 '고급 크리스탈 마감, 다크모드 네온 글로우, 솔리드 텍스트' 질감으로 대수술 (`/api/og/market` 수정).
+   - **효과:** 타임라인 스크롤 중 시선을 잡아채는 럭셔리한 브랜드 이미지 구축 및 클릭 유도(CTR 극대화).
+4. **'승률 통계(Statistical Win-rate)' 폴백 강제 삽입**
+   - **구현 방식:** "지표 충족 시 역사적 3일 내 상승 확률 78%" 와 같은 백테스팅 통계 숫자를 AI 요약본에 강제 주입.
+   - **효과:** 직관적 숫자로 인한 유저의 호기심 극대화 및 사이트로의 클릭 전환.
+
+---
+
+## 🐳 [NEXT PHASE] Whale Index 리빌딩: "Smart Flow" 시그니처 지표 승격
+> **대상 파일:** `src/components/Command/...` (UI 계기판), `src/lib/utils/formatters.ts` (라벨링), `src/app/[locale]/guide/...` (가이드)
+> **목적:** 기존 Whale Index를 기관급 지표인 'Smart Flow'로 네이밍을 변경하고, Command 페이지 최상단에 반원형 RPM 게이지(HUD) 형태로 시각화하여 플랫폼 핵심 결제 유도 트리거 및 마케팅 셀링 포인트로 활용.
+
+### 1. Smart Flow (스마트 플로우) 계급 체계 및 프리미엄 라벨링
+컴플라이언스 리스크(주가 예측)를 방어하면서 기관 트레이더들이 쓰는 극도로 세련된 단어로 리빌딩 적용:
+- **80 ~ 100점**: `HEAVY ACCUMULATION` (강력 매집 / 스마트머니 폭주) — 진한 에메랄드 네온 글로우
+- **60 ~ 79점**: `INFLOW TREND` (지속 유입 / 긍정적 흐름) — 밝은 초록색
+- **40 ~ 59점**: `NEUTRAL RANGE` (방향 탐색 / 관망 대기) — 슬레이트 / 회색
+- **20 ~ 39점**: `OUTFLOW TREND` (자금 유출 / 하방 압력) — 앰버/주황색
+- **0 ~ 19점**: `HEAVY DISTRIBUTION` (대규모 청산 / 헷지 붕괴) — 크림슨 레드 (핏빛 점멸)
+
+### 2. UI/UX 시각화 방안 (Dashboard HUD)
+- **RPM 게이지**: Command 페이지 최상단 가격/알파스코어 옆에 반원형 게이지를 배치. 바늘이 0~100 사이를 가리키며 점수에 맞는 컬러 불빛을 뿜어냄.
+- **Teasing (Free Tier)**: 무료 유저에게는 게이지 뼈대만 보여주고 수치/라벨을 블러 처리. "Pro로 업그레이드하고 실시간 스마트 플로우를 확인하세요" 문구로 강력한 결제 전환 유도.
+
+### 3. 가이드 페이지(Guide Page) 문서화 작업
+- **가이드라인 추가**: "수치만 보면 알 수 없다"는 페인 포인트를 해결하기 위해 `/guide` 페이지 내에 단독 섹션을 신설.
+- **포함 내용**: Smart Flow가 GEX, Dark Pool, Block Trades, Net Premium 4가지를 융합한 시그니처 지표임을 강조하고, 위 5단계 계급 체계를 컬러 차트와 함께 직관적으로 설명. 마케팅(숏폼)에서 "스마트 플로우 하나만 보라"고 교육할 때 랜딩되는 공식 매뉴얼 역할 수행.
