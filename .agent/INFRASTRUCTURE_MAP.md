@@ -289,12 +289,12 @@ Confidence: 4개 중 강한 신호 3+개=HIGH, 2개=MED, 1개=LOW, 0=NONE
 
 ## 5. Vercel Cron Jobs (vercel.json)
 
-### 5.1 ⚠️ 제거 필요 (Lambda가 대체)
-| 크론 | vercel.json 라인 | 상태 |
-|------|:---:|------|
-| `warm-analysis` | L85-87 | ❌ Lambda가 cache:analysis 직접 저장 → 제거 필요 |
-| `warm-command` (2개) | L72-78 | ❌ Lambda가 cache:command:unified 직접 저장 → 제거 필요 |
-| `morning-briefing` (2개) | L89-95 | ❌ EC2 Guardian으로 이관 → 제거 필요 |
+### 5.1 ✅ 삭제 완료 (2026-04-04)
+| 크론 | 상태 |
+|------|------|
+| `warm-analysis` | ✅ 삭제됨 — Lambda가 cache:analysis 직접 저장 |
+| `warm-command` (2개) | ✅ 삭제됨 — Lambda가 cache:command:unified 직접 저장 |
+| `morning-briefing` (2개) | ✅ 삭제됨 — EC2 Guardian으로 이관 |
 
 ### 5.2 현재 활성 크론 (vercel.json 등록)
 | 크론 | 스케줄 (UTC) | 역할 |
@@ -322,7 +322,7 @@ Confidence: 4개 중 강한 신호 3+개=HIGH, 2개=MED, 1개=LOW, 0=NONE
 | `cache:command:overview:{TICKER}:{locale}` | Command API 요청 시 | 1h | 번역된 오버뷰 |
 | `cnn:feargreed` | market-feed cron | — | Fear & Greed |
 | `yahoo:vix3m` | market-feed cron | — | VIX3M |
-| `prev-day-pct:{TICKER}` | dashboard/unified | 10min | 전일 대비 변화율 |
+| `prev-day-pct:{TICKER}` | dashboard/unified | 10min | 전일 대비 변화율 (**Vercel 1h 메모리 캐시**) |
 | `macro:snapshot` | market-feed cron | — | 매크로 스냅샷 |
 | `polygon:snapshot:probe:{TICKER}` | **Lambda flow-harvest / Vercel on-demand** | 10min~72h | Polygon 옵션 스냅샷 원본 (raw) |
 | `rt-metrics:{TICKER}` | **Lambda flow-harvest** | 10min~72h | 실시간 메트릭스 (DP/Short/Block) |
@@ -368,7 +368,7 @@ Confidence: 4개 중 강한 신호 3+개=HIGH, 2개=MED, 1개=LOW, 0=NONE
 | `/api/live/macd?t=TSLA` | MACD |
 | `/api/live/prev-day?t=TSLA` | 전일 가격 |
 | `/api/live/prices?symbols=TSLA,AAPL` | 실시간 가격 |
-| `/api/live/quotes` | 실시간 호가 |
+| `/api/live/quotes` | 실시간 호가 (**flow:extended 60s 메모리 캐시**) |
 | `/api/live/market` | 마켓 상태 |
 | `/api/live/treasury` | 국채 수익률 |
 | `/api/live/risk-factors?t=TSLA` | 리스크 팩터 |
@@ -688,7 +688,30 @@ bash scripts/ec2-deploy-guardian.sh
   - Fix 5 (`watchlistBatchService.ts`): Pre-market VWAP/PCR prevDay/OI 폴백
   - 결과: ASTS 포함 전 종목 VWAP/ShortVol/PCR/DarkPool 100% 표시
   - **배포 완료**: Vercel (`git push`, 4 commits)
+- [x] **Redis 요금 최적화 (2026-04-08 완료)** — `f5cfc053`
+  - 문제: 개발자 1명 브라우저로 월 134M Redis GET ($26/월)
+  - 원인: `quotes/route.ts` 매 2초 14개 Redis GET (메모리 캐시 없음)
+  - Fix 1: `quotes/route.ts` — `flow:extended` 60초 메모리 캐시 (420→14 GET/분, -96.7%)
+  - Fix 2: `unified/route.ts` — `prev-day-pct` 1시간 메모리 캐시 (28→0.23 GET/분, -99%)
+  - EventBridge 변경: **불필요** (두 Lambda 모두 자체 장외/주말 스킵 로직 내장)
+  - 예상 효과: 134M→15M GET/월, $26→$5/월 (-80%)
+  - 기능 영향: **없음** (확정 데이터를 메모리에서 재전달하는 것뿐)
+- [x] **POST-MARKET REPORT 타임스탬프 KST→ET 버그 수정 (2026-04-08 완료)** — `4b5035af`
+  - 문제: M7 POST-MARKET REPORT 시간이 `04. 08. 06:00 ET`로 표시 (실제 ET는 5:00 PM)
+  - 원인: `TacticalReportDeck.tsx` L447 `toLocaleString('ko-KR')` → timeZone 미지정 → 브라우저 KST 사용
+  - Fix: `toLocaleString('en-US', { timeZone: 'America/New_York' })` 추가
+  - 영향: 전 10개 섹터 POST-MARKET REPORT 타임스탬프 정확화
+- [x] **Dashboard POST 가격 즉시 표시 (2026-04-08 완료)** — `3dfc6496`
+  - 문제: CLOSED 세션에서 POST 컬럼이 일부 종목만 표시, 나머지는 느리게 나타남
+  - 원인: `afterHours.p` (Polygon 일부만 제공) + `flow:extended` (Command 방문 시에만 캐시)
+  - Fix: `quotes/route.ts` — `lastTrade.p ≠ day.c`이면 시간외 거래 감지 → POST 즉시 표시
+  - Fallback 순서: `afterHours.p` → `lastTrade vs dayClose diff` → `flow:extended` Redis
 
+- [x] **워치리스트 히트맵 성능 최적화** (2026-04-08)
+  - ECharts treemap → 순수 CSS squarify 알고리즘으로 교체 (~800KB 번들 제거)
+  - SessionStatusCard 분리 → 1초 타이머가 StatsBar 전체 리렌더 방지
+  - TickerHeatmap `memo` 적용 + `ResizeObserver` 기반 반응형 레이아웃
+  - 렌더 시간 ~200-400ms → ~30-50ms 예상
 ### 🟡 단기
 - [ ] **WhaleIndex → 적절한 이름 리네이밍** (예: Flow Score, Smart Flow)
   - 현재 4가지 흐름 종합 지표인데 이름이 "Whale"이라 부정확
