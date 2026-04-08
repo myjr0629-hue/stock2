@@ -179,7 +179,7 @@ export function PriceDisplay({
     const hasExtended = showExtended && extendedPrice && extendedPrice > 0 && extendedLabel;
 
     const containerClass = layout === 'horizontal'
-        ? `flex items-center ${config.gap}`
+        ? `flex items-center flex-wrap ${config.gap}`
         : `flex flex-col ${config.gap}`;
 
     // Flash color: text briefly turns bright green/red then fades back (Yahoo style)
@@ -225,7 +225,7 @@ export function PriceDisplay({
                     <div className={`w-1.5 h-1.5 rounded-full ${extendedLabel.includes('PRE') ? 'bg-amber-500' : 'bg-indigo-500'
                         } animate-pulse`} />
                     <div className="flex items-baseline gap-1.5">
-                        <span className={`text-[11px] font-black uppercase tracking-widest ${EXT_LABEL_COLORS[extendedLabel]}`}>
+                        <span className={`text-[11px] font-black uppercase tracking-widest whitespace-nowrap ${EXT_LABEL_COLORS[extendedLabel]}`}>
                             {extendedLabel}
                         </span>
                         <span className={`text-xs font-mono font-bold transition-all duration-300 ${extFlash === 'up' ? 'text-green-200' :

@@ -95,29 +95,29 @@ export function TickerPageClient({ ticker, range, initialStockData, initialUnifi
                                 <span className="text-xs text-slate-500 font-bold tracking-tight uppercase font-jakarta">{initialStockData?.name || ticker}</span>
                             </div>
                             {showPrice ? (
-                                <div className="ml-auto flex items-center gap-3">
-                                    <span className="text-3xl font-black text-white tracking-tighter tabular-nums">
+                                <div className="ml-auto flex items-center gap-3 flex-wrap justify-end">
+                                    <span className="text-3xl font-black text-white tracking-tighter tabular-nums shrink-0">
                                         ${displayPrice.toFixed(2)}
                                     </span>
-                                    <span className={`text-lg font-bold font-mono tracking-tighter ${displayChange >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
+                                    <span className={`text-lg font-bold font-mono tracking-tighter shrink-0 ${displayChange >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
                                         {displayChange > 0 ? '+' : ''}{displayChange.toFixed(2)}%
                                     </span>
                                     {/* [V75] SSR-instant PRE/POST badge */}
                                     {ssrExtPrice && ssrExtPrice > 0 && ssrExtLabel && (
-                                        <div className={`flex items-center gap-1.5 px-2 py-1 rounded-full border ${
+                                        <div className={`flex items-center gap-1.5 px-2 py-1 rounded-full border shrink-0 ${
                                             ssrExtLabel === 'PRE' ? 'bg-amber-500/10 border-amber-500/20' :
                                             ssrExtLabel === 'PRE CLOSE' ? 'bg-amber-500/10 border-amber-500/20' :
                                             'bg-cyan-500/10 border-cyan-500/20'
                                         }`}>
-                                            <div className={`w-1.5 h-1.5 rounded-full ${
+                                            <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${
                                                 ssrExtLabel.includes('PRE') ? 'bg-amber-400' : 'bg-cyan-400'
                                             }`} />
-                                            <span className={`text-[12px] font-bold ${
+                                            <span className={`text-[12px] font-bold whitespace-nowrap ${
                                                 ssrExtLabel.includes('PRE') ? 'text-amber-400' : 'text-cyan-400'
                                             }`}>{ssrExtLabel}</span>
-                                            <span className="text-[12px] font-black text-white tabular-nums">${ssrExtPrice.toFixed(2)}</span>
+                                            <span className="text-[12px] font-black text-white tabular-nums shrink-0">${ssrExtPrice.toFixed(2)}</span>
                                             {ssrExtChangePct !== null && (
-                                                <span className={`text-[12px] font-bold tabular-nums ${ssrExtChangePct >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                                <span className={`text-[12px] font-bold tabular-nums whitespace-nowrap ${ssrExtChangePct >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
                                                     {ssrExtChangePct > 0 ? '+' : ''}{ssrExtChangePct.toFixed(2)}%
                                                 </span>
                                             )}
@@ -125,18 +125,18 @@ export function TickerPageClient({ ticker, range, initialStockData, initialUnifi
                                     )}
                                     {/* [V75] SSR-instant Sector badge */}
                                     {ssrSector && (
-                                        <span className="text-[11px] font-bold text-sky-300 bg-sky-500/10 border border-sky-500/20 px-2 py-1 rounded-full">{ssrSector}</span>
+                                        <span className="text-[11px] font-bold text-sky-300 bg-sky-500/10 border border-sky-500/20 px-2 py-1 rounded-full whitespace-nowrap">{ssrSector}</span>
                                     )}
                                 </div>
                             ) : (
-                                <div className="ml-auto flex items-baseline gap-3 animate-pulse">
-                                    <div className="h-8 w-28 bg-slate-700/30 rounded" />
-                                    <div className="h-5 w-16 bg-slate-700/20 rounded" />
+                                <div className="ml-auto flex items-baseline gap-3 flex-wrap justify-end animate-pulse">
+                                    <div className="h-8 w-28 bg-slate-700/30 rounded shrink-0" />
+                                    <div className="h-5 w-16 bg-slate-700/20 rounded shrink-0" />
                                 </div>
                             )}
-                            <div className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20">
-                                <div className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-pulse" />
-                                <span className="text-[12px] font-mono text-indigo-300 font-jakarta">LOADING</span>
+                            <div className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 shrink-0">
+                                <div className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-pulse shrink-0" />
+                                <span className="text-[12px] font-mono text-indigo-300 font-jakarta whitespace-nowrap">LOADING</span>
                             </div>
                         </div>
                     </div>

@@ -1358,7 +1358,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                         </div>
 
                         {/* Row 2: Price + Extended Badge + Sector Badge */}
-                        <div className="hidden sm:flex items-baseline gap-3 -mt-0.5 pl-[50px] lg:pl-[58px]">
+                        <div className="hidden sm:flex items-baseline gap-3 -mt-0.5 pl-[50px] lg:pl-[58px] flex-wrap">
                             <div className={`text-2xl font-black tracking-tighter tabular-nums leading-none ${pf.color}`}
                                 style={pf.style}>
                                 ${displayPrice?.toFixed(2) || '—'}
@@ -1369,16 +1369,16 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
 
                             {/* Extended Session Badge */}
                             {activeExtPrice > 0 && (
-                                <div className="flex items-center gap-2 px-2.5 py-0.5 rounded bg-slate-800/50 border border-slate-700/50 backdrop-blur-md">
-                                    <div className={`w-1.5 h-1.5 rounded-full ${activeExtType.includes('PRE') ? 'bg-amber-500' : 'bg-indigo-500'} animate-pulse`} />
+                                <div className="flex items-center gap-2 px-2.5 py-0.5 rounded bg-slate-800/50 border border-slate-700/50 backdrop-blur-md shrink-0">
+                                    <div className={`w-1.5 h-1.5 rounded-full ${activeExtType.includes('PRE') ? 'bg-amber-500' : 'bg-indigo-500'} animate-pulse shrink-0`} />
                                     <div className="flex items-baseline gap-2">
-                                        <span className={`text-[12px] font-black uppercase tracking-widest font-jakarta ${activeExtType.includes('PRE') ? 'text-amber-400' : 'text-indigo-400'}`}>
+                                        <span className={`text-[12px] font-black uppercase tracking-widest whitespace-nowrap font-jakarta ${activeExtType.includes('PRE') ? 'text-amber-400' : 'text-indigo-400'}`}>
                                             {activeExtLabel}
                                         </span>
-                                        <span className="text-xs font-bold text-slate-200 tabular-nums">
+                                        <span className="text-xs font-bold text-slate-200 tabular-nums shrink-0">
                                             ${activeExtPrice.toFixed(2)}
                                         </span>
-                                        <span className={`text-[12px] tabular-nums font-bold ${(activeExtPct || 0) >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+                                        <span className={`text-[12px] tabular-nums font-bold whitespace-nowrap ${ (activeExtPct || 0) >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
                                             {(activeExtPct || 0) > 0 ? "+" : ""}{(activeExtPct || 0).toFixed(2)}%
                                         </span>
                                     </div>
@@ -1543,17 +1543,17 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                     </div>
 
                     {/* Extended Mobile */}
-                    {activeExtPrice && (
-                        <div className="flex items-center gap-2 px-3 py-1.5 rounded bg-slate-800/50 border border-slate-700/50 backdrop-blur-md w-fit">
-                            <div className={`w-1.5 h-1.5 rounded-full ${activeExtType === 'PRE' ? 'bg-amber-500' : 'bg-indigo-500'} animate-pulse`} />
+                    {activeExtPrice > 0 && (
+                        <div className="flex items-center gap-2 px-3 py-1.5 rounded bg-slate-800/50 border border-slate-700/50 backdrop-blur-md w-fit shrink-0">
+                            <div className={`w-1.5 h-1.5 rounded-full ${activeExtType === 'PRE' ? 'bg-amber-500' : 'bg-indigo-500'} animate-pulse shrink-0`} />
                             <div className="flex items-baseline gap-2">
-                                <span className={`text-[12px] font-black uppercase tracking-widest font-jakarta ${activeExtType === 'PRE' ? 'text-amber-400' : 'text-indigo-400'}`}>
+                                <span className={`text-[12px] font-black uppercase tracking-widest whitespace-nowrap font-jakarta ${activeExtType === 'PRE' ? 'text-amber-400' : 'text-indigo-400'}`}>
                                     {activeExtType === 'PRE' ? 'Pre' : 'Post'}
                                 </span>
-                                <span className="text-sm font-bold text-slate-200 tabular-nums">
+                                <span className="text-sm font-bold text-slate-200 tabular-nums shrink-0">
                                     ${activeExtPrice.toFixed(2)}
                                 </span>
-                                <span className={`text-xs font-mono font-bold ${(activeExtPct || 0) >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+                                <span className={`text-xs font-mono font-bold whitespace-nowrap ${(activeExtPct || 0) >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
                                     {(activeExtPct || 0) > 0 ? "+" : ""}{(activeExtPct || 0).toFixed(2)}%
                                 </span>
                             </div>
