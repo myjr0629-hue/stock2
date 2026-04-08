@@ -859,40 +859,48 @@ bash scripts/ec2-deploy-guardian.sh
 | `watchlistBatchService.ts` | VWAP prevDay 폴백, OI 기반 PCR 폴백, isStaleV3Cache 감지 |
 | `dashboard/unified/route.ts` | VWAP/ShortVol/PCR 라이브 폴백 체인 (Polygon API) |
 
-### ⚠️ 아직 미해결 — 대시보드 엉망인 부분
-> **배포 후 검증 필요 — 아래 항목이 완전 해결되었는지 실 프로덕션에서 확인 필수**
+### ⚠️ 대시보드 장중 검증 필요 (V4 재작성 완료, 장마감 상태에서만 검증)
+> **장중(PRE~POST)에 반드시 확인해야 할 항목:**
 
-1. **사이드바 가격 실시간 업데이트** — quotes 캐시 제거 + deepMerge 보호 적용했지만, 실 프로덕션에서 가격이 2초마다 움직이는지 반드시 확인
-2. **P/C Ratio VOLUME 바 게이지** — Lambda에 OI 기반 callVol/putVol 추가했지만, 다음 Lambda cron 실행 후 실제 바 표시 확인 필요
-3. **WebSocket EC2 서버 상태 미확인** — wss://ws.signumhq.com가 가격 데이터를 보내는지 미검증. WS 꺼져있으면 2초 HTTP 폴링으로 대체 (동작은 하지만 최적이 아님)
-4. **상단 헤더 가격** — 사이드바와 동일 store 참조이므로 같이 수정되어야 하지만 확인 필요
+1. **2초 폴링으로 사이드바 가격이 실시간 업데이트되는지** — 장마감에서는 고정값이라 확인 불가
+2. **30초 unified 응답이 가격을 덮어쓰지 않는지** — V4의 핵심 수정. 장중에만 확인 가능
+3. **WebSocket 가격이 store에 즉시 반영되는지** — wss://ws.signumhq.com 상태 미확인
+4. **PRE→REG 세션 전환 시 가격/배지 표시 전환** — 프리마켓에서만 확인 가능
+5. **종목 클릭 전환 시 모든 카드 데이터가 전환되는지**
+6. **워치리스트에서 종목 추가/제거 후 데이터 로딩**
+7. **탭 이동 후 복귀 시 데이터 유지**
+8. **P/C Ratio VOLUME 바 게이지** — Lambda에 callVol/putVol 추가 완료, 실제 바 표시 확인
 
 ### 📋 미완료 TODO
 1. ~~Composite WhaleIndex → Alpha Score 연결~~ ✅ **완료 (2026-04-07)**
 2. ~~Dashboard 빈 카드 (VWAP/ShortVol/PCR)~~ ✅ **완료 (2026-04-08)**
-3. ~~Dashboard 가격 파이프라인 분리~~ ❌ **배포했으나 미작동 확인 (2026-04-08)** — 재작성 필요
-4. **대시보드 프로덕션 전수 검증** — 가격, 인디케이터, PCR 바, 세션 전환 등
-5. **UNIVERSE_500 변수명 정리** — 실제 1000종목이므로 혼란
-6. **WhaleIndex UI 배치** — Command/Flow 페이지에 게이지 형태로 배치 검토
-7. **DynamoDB priceCacheStore에 VWAP 추가 검토** — 현재 Polygon 폴백으로 우회 중
+3. ~~Dashboard 가격 파이프라인 분리~~ ✅ **V4 전면 재작성 완료 (2026-04-09)** — 장중 검증 필요
+4. **⏳ Redis 요금 최적화** — 코드 분석 완료, 실행 미착수 (위 P0 섹션 참조)
+5. **⏳ 대시보드 장중 전수 검증** — 위 체크리스트
+6. **UNIVERSE_500 변수명 정리** — 실제 1000종목이므로 혼란
+7. **WhaleIndex UI 배치** — Command/Flow 페이지에 게이지 형태로 배치 검토
+8. **DynamoDB priceCacheStore에 VWAP 추가 검토** — 현재 Polygon 폴백으로 우회 중
 
-### 🔴 내일 작업 (2026-04-09 예정) — 우선순위순
+### 🔴 다음 작업 — 우선순위순
 
 > **대원칙 (가장 단순한 원칙)**
 > 1. **가격은 항상 실시간** — WebSocket 우선, 폴링 보조
 > 2. **유니버스 종목 = 빛의 속도** — AWS 캐시에 이미 있으니 1회 GET → 즉시 렌더링
 > 3. **비유니버스 종목 = API 호출이든 뭐든 빠르게** — 방법 불문, UI에 최대한 빠르게 렌더링
-> 
-> 복잡한 merge, 폴백 체인, 재계산 전부 제거. 대시보드/워치리스트/전 페이지 동일.
+> 4. **기능에 문제가 생기는 방식은 절대 하면 안 됨** — 최적화가 기능을 깨뜨리면 안 됨
 
-#### ✅ P0 완료: 전체 데이터 파이프 재조립 (대시보드 — 2026-04-09)
-- `dashboardStore.ts` 전면 재작성 (692줄 → 587줄, deepMergeTicker 삭제)
+#### ✅ P0 완료: Dashboard V4 전면 재작성 (2026-04-09, commit ec0c6865)
+- `dashboardStore.ts` 전면 재작성 (692줄 → 587줄, deepMergeTicker 완전 삭제)
 - `fetchPriceOnly`: 155줄 → 50줄 (세션 분기 단순화, 에러 로깅 추가)
 - `fetchDashboardData`: 95줄 → 45줄 (INDICATOR_FIELDS만 write)
 - `DashboardClient.tsx` 폴링 로직 정리 (.then() 체인 제거, 독립 intervals)
 - **가격/인디케이터 구조적 분리** — INDICATOR_FIELDS 상수로 명시적 보장
 - TypeScript 에러 0개, 프로덕션 빌드 성공
-- 다른 페이지 영향 0% (dashboardTickers/toggleDashboardTicker 인터페이스 유지)
+- **외부 페이지 영향 0%** — 4개 consumer 전수 확인 (Portfolio, Watchlist, MobileHoldingCard, Command)
+  - 모두 `toggleDashboardTicker`, `dashboardTickers`만 사용 → 인터페이스 100% 유지
+- **API 라우트 변경 0건** — unified/route.ts, quotes/route.ts 동작에 문제 없어 건드리지 않음
+- **백업 위치**: `c:\Users\seamo\backup\stock2\_backup_dashboard_20260408\`
+- **⚠️ 장마감 상태에서만 검증됨** — 장중 실시간 동작 검증 필요
 
 #### P0: Redis 요금 폭탄 최적화 ($26→$3) — 미착수
 - **현재 상태**: $14.67 → $26.21 (두 배 폭등), Commands 140.4M, Bandwidth 271.6GB
@@ -935,7 +943,7 @@ fetchDashboardData (30초): 14종목 × ~15 Redis calls = 210 calls/30초 = 7 ca
 |---|------|------|------|----------|
 | 1 | unified API Redis GET → 서버 메모리 캐시 | `unified/route.ts` | `Map<string, {data, expiry}>` 30초 TTL. Redis 1회 bulk GET → Map 저장 → 재사용 | **요금 -80%** (최대 효과) |
 | 2 | quotes API extended cache GET 제거 | `quotes/route.ts` L78-86 | `flow:extended:{ticker}` 14종목 GET/2초 → 메모리 캐시 또는 완전 제거 | 요금 -10% |
-| 3 | EventBridge cron 장중 제한 | AWS EventBridge | `cron(0/5 13-21 ? * MON-FRI *)` ET 장중만 | 요금 -5% |
+| 3 | EventBridge cron 장중 제한 | AWS EventBridge | `cron(0/5 8-24,0-1 ? * MON-FRI *)` UTC = PRE(04:00ET)~POST(20:00ET) | 요금 -5% |
 
 **추가 최적화 (선택):**
 
@@ -991,8 +999,9 @@ for (let i = 0; i < redisBatch.length; i += 20) {
 
 작업 3: EventBridge cron 제한 (5분, 효과 -5%)
   위치: AWS EventBridge 콘솔
-  변경: rate(5 minutes) → cron(0/5 13-21 ? * MON-FRI *)
-  효과: 주말+야간 Lambda 정지 → Redis write -60%
+  변경: rate(5 minutes) → cron(0/5 8-24,0-1 ? * MON-FRI *) UTC
+       = PRE(04:00ET) ~ POST(20:00ET) 커버. 본장만이 아닌 PRE~POST 전체
+  효과: 주말+야간(POST 이후) Lambda 정지 → Redis write -40%
 ```
 
 #### P1: 메인 대시보드 워치리스트 데이터 누락
@@ -1037,4 +1046,37 @@ for (let i = 0; i < redisBatch.length; i += 20) {
 | FMP | `FMP_API_KEY` (env 주입) | `FMP_API_KEY` | Lambda Step 4a,4b |
 | Finnhub | `FINNHUB_API_KEY` (env 주입) | `FINNHUB_API_KEY` | Vercel만 실사용 |
 
-*마지막 업데이트: 2026-04-08T03:54 KST*
+*마지막 업데이트: 2026-04-08T09:31 KST*
+
+---
+
+## 🔄 세션 핸드오프 (2026-04-09 세션 종료 시점)
+
+### 완료된 작업
+| 작업 | commit | 상태 |
+|------|--------|:----:|
+| Dashboard V4 Store 전면 재작성 | `ec0c6865` | ✅ 배포됨 |
+| DashboardClient 폴링 로직 정리 | `ec0c6865` | ✅ 배포됨 |
+| Redis 요금 분석 + 실행 계획 문서화 | `e992d690` | ✅ 기록됨 |
+| INFRASTRUCTURE_MAP 전체 업데이트 | 이 커밋 | ✅ |
+
+### 다음 세션 즉시 할 작업 (우선순위순)
+1. **대시보드 장중 실시간 검증** — PRE~POST 동안 위 체크리스트 8개 항목 확인
+2. **Redis 최적화 실행** — 3가지 (quotes 메모리 캐시 → unified prev-day-pct 캐시 → EventBridge cron)
+   - 작업 1: `quotes/route.ts` L78-86에 `Map` 메모리 캐시 추가 (60초 TTL) → 효과 -50%
+   - 작업 2: `unified/route.ts` getDailyChangeBatch에 `Map` 메모리 캐시 추가 (1시간 TTL) → 효과 -5%
+   - 작업 3: AWS EventBridge `rate(5 minutes)` → `cron(0/5 8-24,0-1 ? * MON-FRI *)` → PRE~POST만
+3. **워치리스트 데이터 누락 점검** — 데이터 일부만 먼저 표시되는 현상 조사
+
+### 건드리면 안 되는 것
+- `LiveTickerDashboard.tsx` — Command 페이지 공유 컴포넌트
+- `WebSocketProvider.tsx` — 전역 provider
+- `TickerData` 인터페이스 — 변경 시 4개 페이지 동시 깨짐
+- API 라우트 (unified/quotes) — 정상 동작 중, Redis 최적화 시에만 가볍게 터치
+
+### 아키텍처 핵심 기억사항
+- **Lambda는 1000종목 → Redis/DynamoDB 전부 push (정상: pre-compute 설계)**
+- **요금 주범은 Lambda WRITE가 아니라 Vercel READ** (quotes API 2초마다 14종목 Redis GET)
+- **unified/route.ts에는 이미 in-memory cache 있음** (L161 `const cache: Map`)
+- **quotes/route.ts에는 메모리 캐시 없음** ← 이것이 요금 폭탄의 핵심 원인
+- **장중 = PRE(04:00 ET) ~ POST(20:00 ET)** — 본장만이 아님
