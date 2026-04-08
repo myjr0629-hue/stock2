@@ -190,6 +190,8 @@ Your briefing must read like a NARRATIVE STORY that weaves together overnight ne
 - NEVER give investment advice. ONLY observational language: "관찰됨", "나타남", "observed", "noted".
 - Each language must be NATIVE quality — not a translation, but written as if by a native analyst.
 - Do NOT use any emoji or special Unicode symbols. Plain text only.
+- JSON SAFETY: DO NOT use double quotes (") anywhere inside your sentences. If you must quote a title, word, or headline, use single quotes (') instead. Unescaped double quotes will CRASH the system.
+- FORMATTING: Do NOT use line breaks (\\n) inside your translated strings. Keep each language's briefing as a single continuous paragraph.
 </critical_rules>
 
 <structure>

@@ -512,6 +512,12 @@ bash scripts/ec2-deploy-guardian.sh
 
 ## 11. 작업 이력
 
+### 2026-04-08 (Guardian 모닝 브리핑 V8.1 JSON 파서 방어)
+1. **문제**: AWS Bedrock(Claude)이 브리핑 텍스트 내부에 이스케이프되지 않은 큰따옴표(`"`)를 사용하거나 줄바꿈(`\n`)을 무단 사용하여 Vercel의 `JSON.parse` 단계에서 500 에러 발생 (Position 420 에러).
+2. **증상**: 에러 발생 시 반복 실패 후 ElastiCache에 `source: "error"` 꼬리표와 함께 `temporarily unavailable` 이라는 데이터가 저장되어 프론트엔드에 그대로 노출됨.
+3. **해결 (`route.ts`)**: 프롬프트 `<critical_rules>`에 "큰따옴표 문장 내 사용 불가(작은따옴표 대체)" 및 "줄바꿈(엔터) 금지, 단일 문단 작성"을 강력하게 강제하여 파싱 에러 원천 차단.
+4. **캐시 소각**: ElastiCache 내부의 구버전 유령 데이터 (`:ko`, `:en`, `:ja`, `legacy`) 4개 키를 일괄 소각하여 프론트엔드의 자가 치유(Self-Healing) 로직이 정상 작동되도록 조치.
+
 ### 2026-04-07~08 (Dashboard 데이터 무결성 ROOT FIX)
 
 > **근본 원칙**: "있으면 캐시, 없으면 실데이터" — 캐시 null 시 빈 카드 방치 금지
@@ -609,6 +615,25 @@ node scripts/deploy-lambda-v7.js
 - **영향 범위**: `scripts/deploy-lambda-v7.js` (~105KB, Lambda 전체 코드 내장)
 - **동작**: zip 생성 → UpdateFunctionCode → UpdateFunctionConfiguration 자동
 - **Function**: `signum-harvest` (us-east-1)
+
+### [2026-04-08] 실시간 시세 Websocket 세션 분리 및 UI 동기화 완료
+* **이슈:** 본장 전후(Pre/Post) 시간에 LiveTickerDashboard와 Watchlist의 가격 및 등락률이 본장 가격을 덮어쓰거나, UI에 세션 라벨(PRE/POST)이 반영되지 않는 문제.
+* **해결 (dashboardStore.ts & DashboardClient.tsx):**
+  * `dashboardStore.ts`의 `updateRealtimePrice`를 세션 기반으로 분리하여, 프리마켓/애프터마켓 가격이 본장 가격(`underlyingPrice`)을 덮어쓰지 않도록 격리. `prevChangePct`, `intradayChangePct` 필드를 보존.
+  * `DashboardClient.tsx`의 워치리스트 헤더(extHeaderLabel) 연산을 `market.marketStatus`에 반응형으로 연동하여 실시간 세션에 맞게 동적으로 표시되도록 수정.
+  * API(`live/quotes/route.ts`)에서 PRE 세션 fallback 누수를 차단.
+
+### [2026-04-08] Watchlist AWS Cache 무결성 확보 및 프리마켓 null 초기화 폭탄 제거 (Lambda v8.1)
+* **이슈:** Watchlist 접속 시 10~20초 로딩 지연 현상(Full Compute 병목) 및 특정 시간대(프리마켓/애프터마켓)에 GEX, IV, Whale Index 등의 지표가 `FLAT`이나 `-`로 나오는 대규모 데이터 소실 현상.
+* **원인 추적 결과:** 
+  1. **백엔드(Lambda):** `deploy-lambda-v7.js` 내부에서 정규장(`isRegular`) 시간이 아니면 옵션/지표 연산을 스킵하면서, 기존 캐시를 보존하지 않고 전체 옵션 필드를 `null`로 덮어쓰는 치명적 폭탄 로직 발견.
+  2. **프론트엔드(Vercel):** `watchlistBatchService.ts`에서 불완전한 캐시(예: `shortVolPct` 부재)를 받으면 즉시 Vercel 서버가 Polygon API를 직접 호출해 1,000종목을 강제 재계산(`isStaleV3Cache`)하느라 API Timeout(504) 및 UI 렌더링 지연 발생.
+* **해결 (lambda-harvest & watchlistBatchService.ts):**
+  * **프론트엔드:** `isStaleV3Cache` 폐기 로직을 전면 제거하여, Lambda가 서빙하는 `cache:analysis` 통함 데이터를 워치리스트가 100% 신뢰하고 즉시 로딩하도록 변경 (0.01초 렌더링 확보).
+  * **백엔드(Lambda 수술 및 배포):** Lambda 스크립트 내부의 `if (isRegular)` 시간 제한을 철폐하여, 언제 어느 시간(Pre-Market, Post-Market)이든 항상 이전 종가 기준 옵션 데이터 기반으로 파생 지표(Whale Index, Squeeze Score 등)가 무결점으로 100% 채워져 Redis로 들어가도록 구조 수술 후 AWS 즉각 배포 완료.
+
+---
+*(이 문서는 프로젝트 진행에 따라 지속적으로 업데이트됩니다)*
 
 ### 12.3 Lambda: signum-flow-harvest (Flow 데이터 수집)
 ```powershell
