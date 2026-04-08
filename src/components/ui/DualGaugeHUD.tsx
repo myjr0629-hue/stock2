@@ -1,4 +1,5 @@
 import React, { useMemo } from 'react';
+import { CardTooltip, COMMAND_TOOLTIPS } from './CardTooltip';
 
 interface DualGaugeHUDProps {
   contextScore?: number;
@@ -22,7 +23,7 @@ const getContextConfig = (val: number) => {
   return { color: '#ef4444', label: 'WEAK CONTEXT', glow: 'rgba(239,68,68,0.5)' };
 };
 
-const SemiCircleGauge = ({ value, config, title, grade }: { value: number, config: any, title: string, grade?: string }) => {
+const SemiCircleGauge = ({ value, config, title, grade, tooltipContent }: { value: number, config: any, title: string, grade?: string, tooltipContent?: any }) => {
   // SVG Math
   const radius = 42;
   const arcLength = Math.PI * radius; // Approx 131.95
@@ -55,8 +56,18 @@ const SemiCircleGauge = ({ value, config, title, grade }: { value: number, confi
         />
       </svg>
 
-      <div className="absolute top-[-16px] text-[12px] font-bold text-white uppercase tracking-wider font-jakarta whitespace-nowrap z-10">
-        {title}
+      <div className="absolute top-[-16px] z-10">
+        {tooltipContent ? (
+          <CardTooltip tooltip={tooltipContent.tooltip} badge={tooltipContent.badge}>
+            <div className="text-[12px] font-bold text-white/90 hover:text-white uppercase tracking-wider font-jakarta whitespace-nowrap cursor-help border-b border-dashed border-white/30 pb-[1px] transition-colors">
+              {title}
+            </div>
+          </CardTooltip>
+        ) : (
+          <div className="text-[12px] font-bold text-white uppercase tracking-wider font-jakarta whitespace-nowrap">
+            {title}
+          </div>
+        )}
       </div>
 
       <div className="absolute inset-0 flex flex-col items-center justify-end pb-1.5 z-10">
@@ -99,9 +110,9 @@ export const DualGaugeHUD = ({ contextScore = 0, contextGrade, smartFlow = 0 }: 
   
   return (
     <div className="hidden lg:flex items-center gap-5 py-0 px-4 ml-3 border-l border-white/[0.08]">
-      <SemiCircleGauge value={contextScore} grade={contextGrade} config={cxConfig} title="CONTEXT SCORE" />
+      <SemiCircleGauge value={contextScore} grade={contextGrade} config={cxConfig} title="CONTEXT SCORE" tooltipContent={COMMAND_TOOLTIPS.CONTEXT_SCORE} />
       <div className="w-px h-10 bg-white/[0.04]" />
-      <SemiCircleGauge value={smartFlow} config={sfConfig} title="SMART FLOW" />
+      <SemiCircleGauge value={smartFlow} config={sfConfig} title="SMART FLOW" tooltipContent={COMMAND_TOOLTIPS.SMART_FLOW} />
     </div>
   );
 };

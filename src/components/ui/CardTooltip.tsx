@@ -113,6 +113,30 @@ export function CardTooltip({ children, tooltip, text: textProp, badge }: CardTo
  * All text is observational/descriptive — compliance-safe.
  */
 export const COMMAND_TOOLTIPS = {
+    CONTEXT_SCORE: {
+        tooltip: {
+            ko: '람다 엔진 기반 복합 컨텍스트 스코어 — SMA, 기술적 구조, 옵션 플로우를 융합하여 판정한 실시간 시장 상황 점수입니다.',
+            en: 'Lambda engine-based composite context score — evaluates real-time market conditions by fusing SMA, technicals, and options flow.',
+            ja: 'ラムダエンジン基盤複合コンテキストスコア — SMA、テクニカル構造、オプションフローを融合判定したリアルタイム市場状況スコアです。',
+        },
+        badge: {
+            ko: '기관급 컨텍스트 분석',
+            en: 'Institutional Context',
+            ja: '機関級コンテキスト分析',
+        },
+    },
+    SMART_FLOW: {
+        tooltip: {
+            ko: '스마트 플로우 지수 — 대형 기관 주도의 실시간 옵션 프리미엄 누적 흐름을 점수화하여 스마트 머니의 매집 방향과 강도를 추적합니다.',
+            en: 'Smart Flow Index — scores real-time cumulative options premium flows driven by large institutions to track accumulation strength.',
+            ja: 'スマートフロー指数 — 大手機関主導のリアルタイムオプションプレミアム累積フローをスコア化し、買い集め強度を追跡します。',
+        },
+        badge: {
+            ko: '스마트 머니 플로우',
+            en: 'Smart Money Flow',
+            ja: 'スマートマネーフロー',
+        },
+    },
     SIGNAL_CORE: {
         tooltip: {
             ko: '복합 시그널 엔진 — SMA, 플로우, 센티먼트 융합 분석',
