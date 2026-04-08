@@ -444,7 +444,8 @@ export function TacticalReportDeck({ config, lockedTickers }: TacticalReportDeck
     const lockedUntil = new Date(meta.locked_until);
     const isLocked = new Date() < lockedUntil;
 
-    const timeStr = snapshotTime.toLocaleString('ko-KR', {
+    const timeStr = snapshotTime.toLocaleString('en-US', {
+        timeZone: 'America/New_York',
         month: '2-digit', day: '2-digit',
         hour: '2-digit', minute: '2-digit', hour12: false
     });
