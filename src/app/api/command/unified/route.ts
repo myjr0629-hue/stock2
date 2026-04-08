@@ -26,6 +26,21 @@ const CACHE_TTL_MARKET = 1800; // [극강] 30 minutes during market hours (was 5
 const CACHE_TTL_OFFHOURS = 259200; // 72 hours off-hours (covers Friday→Monday)
 const REFRESH_THRESHOLD_MS = 300 * 1000; // [극강] 5 minutes — background refresh after 5 min (was 2 min)
 
+// [ROOT FIX] Bypass injection for Alpha & Smart Flow from Lambda's direct Analysis Cache.
+// Prevents "Context Score 0" issue for Universe tickers by sourcing exact scores from signum-harvest.
+async function injectAlphaBypass(data: any, ticker: string) {
+    if (!data) return;
+    try {
+        const { getAnalysisCache } = await import('@/services/analysisCache');
+        const ac = await getAnalysisCache(ticker);
+        if (ac) {
+            if (ac.alphaSnapshot && !data.alpha) data.alpha = ac.alphaSnapshot;
+            if (ac.whaleIndex !== undefined && data.smartFlow === undefined) data.smartFlow = ac.whaleIndex;
+        }
+    } catch { /* graceful fallback */ }
+}
+
+
 // ══════════════════════════════════════════════════════════════
 // [극강 Layer 1] IN-MEMORY LRU CACHE — 0ms response
 // Survives within the same serverless instance (Vercel keeps warm ~5-15 min)
@@ -389,6 +404,7 @@ export async function GET(request: NextRequest) {
                 finalData.structure = { ...finalData.structure, atmIV: finalData.volatility.iv / 100 };
             }
             await enrichExpiration(finalData);
+            await injectAlphaBypass(finalData, ticker);
             return jsonResponse({ ...finalData, overview: overview || null, _source: 'memory-lru', _ageMs: ageMs });
         }
 
@@ -582,6 +598,7 @@ export async function GET(request: NextRequest) {
                 cachedData.structure = { ...cachedData.structure, atmIV: cachedData.volatility.iv / 100 };
             }
             await enrichExpiration(cachedData);
+            await injectAlphaBypass(cachedData, ticker);
             return jsonResponse({ ...cachedData, overview: resolvedOverview || null, _source: 'cache', _ageMs: ageMs });
         }
 
@@ -666,6 +683,7 @@ export async function GET(request: NextRequest) {
                 const finalFc = CF.filter(f => (dynData as any)[f]).length;
                 console.log(`[Command Unified] DynamoDB+GapFill ${ticker} ${Date.now() - start}ms (${fc}→${finalFc}/9, filled: ${gapNames.filter((n,i) => gapResults[i] && n !== 'overview').join(',')})`);
                 await enrichExpiration(dynData);
+                await injectAlphaBypass(dynData, ticker);
                 return jsonResponse({ ...dynData, overview: dynOv || null, _source: fc === finalFc ? 'dynamodb-unified' : 'dynamodb-gapfill', _latency: Date.now() - start });
             }
         } catch { /* DynamoDB unavailable, continue to fallback */ }
@@ -710,6 +728,7 @@ export async function GET(request: NextRequest) {
                 await setInCache(dataCacheKey, cacheData, getSmartTTL());
                 memorySet(memKey, cacheData);
                 console.log(`[Command Unified] ✅ Cold-start HIT from previous Lambda run for ${ticker}`);
+                await injectAlphaBypass(cacheData, ticker);
                 return jsonResponse({
                     ...cacheData,
                     overview: null,
