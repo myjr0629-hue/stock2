@@ -337,7 +337,7 @@ function StatsBar({ items }: { items: EnrichedWatchlistItem[] }) {
     }, [items]);
 
     return (
-        <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
             {/* ── Total Items (Pulse Wave BG) ── */}
             <div className="relative overflow-hidden rounded-xl border border-white/[0.12] bg-gradient-to-br from-white/[0.05] to-white/[0.02] backdrop-blur-xl p-4 group hover:border-white/[0.18] transition-all duration-300 shadow-lg shadow-black/10">
                 <div className="flex items-baseline gap-1.5">
@@ -946,7 +946,7 @@ const WatchlistCard = memo(function WatchlistCard({ item, onRemove, locale, inde
                             <span className="text-[9px] font-bold text-slate-600 absolute">{item.ticker.slice(0, 2)}</span>
                         </div>
                         <div className="flex-1 min-w-0">
-                            <div className="font-black text-[17px] text-white tracking-wide leading-tight">{item.ticker}</div>
+                            <div className="font-black text-[17px] text-white tracking-wide leading-tight truncate">{item.ticker}</div>
                         </div>
                         <div className="text-right flex-shrink-0">
                             <div className={`font-black tabular-nums text-[20px] tracking-tight ${pf.color}`} style={pf.style}>
@@ -1022,7 +1022,7 @@ const WatchlistCard = memo(function WatchlistCard({ item, onRemove, locale, inde
                         </div>
                         <div className="min-w-0">
                             <div className="flex items-center gap-1">
-                                <span className="font-black text-[13px] text-white tracking-wide">{item.ticker}</span>
+                                <span className="font-black text-[13px] text-white tracking-wide truncate">{item.ticker}</span>
                                 <ConditionBadge item={item} />
                             </div>
                         </div>

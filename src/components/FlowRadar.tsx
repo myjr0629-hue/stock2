@@ -1941,8 +1941,8 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
 
                             {/* 2-5. 4 Metrics + 현재가위치/SQUEEZE (50% width) */}
                             <div className="flex flex-col gap-2 lg:w-[50%] shrink-0">
-                                {/* Top Row: 4 Metric Cards (uniform height) */}
-                                <div className="flex gap-2">
+                                {/* Top Row: 4 Metric Cards (uniform height) - 2x2 grid on mobile, row on desktop */}
+                                <div className="grid grid-cols-2 lg:flex gap-2">
                                     {/* === FREE: OPI (pricing matrix: full access) === */}
                                     <div className="flex-1">
                                     <div className="flex-1 bg-white/5 backdrop-blur-md rounded-xl p-3 border border-white/10 flex flex-col items-center justify-center relative overflow-hidden">

@@ -1595,10 +1595,10 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                         <span className="text-[14px] font-jakarta text-white font-bold">/100</span>
                                         <span className="text-[12px] font-jakarta text-white ml-0.5">{regimeDesc}</span>
                                     </div>
-                                    <div className="relative z-10 flex gap-3 mt-1 text-[12px] font-jakarta tabular-nums">
-                                        <span className="text-white/80 font-jakarta">GEX <span className={`font-bold ${r?.gexLabel === 'SHORT' ? 'text-rose-400' : 'text-emerald-400'}`}>{r?.gexLabel ?? '--'}</span></span>
-                                        <span className="text-white/80 font-jakarta">IV <span className="font-bold text-white">{r?.iv != null ? `${r.iv}%` : '--%'}</span></span>
-                                        <span className="text-white/80 font-jakarta">Flip <span className="font-bold text-white">{r?.flipDistance ? `${r.flipDistance > 0 ? '+' : ''}${r.flipDistance}%` : '--'}</span></span>
+                                    <div className="relative z-10 grid grid-cols-2 gap-1 mt-1.5 text-[12px] font-jakarta tabular-nums">
+                                        <div className="flex items-center justify-between gap-1 text-white/80 bg-white/5 rounded px-1.5 py-[1px]"><span>GEX</span><span className={`font-bold ${r?.gexLabel === 'SHORT' ? 'text-rose-400' : 'text-emerald-400'}`}>{r?.gexLabel ?? '--'}</span></div>
+                                        <div className="flex items-center justify-between gap-1 text-white/80 bg-white/5 rounded px-1.5 py-[1px]"><span>IV</span><span className="font-bold text-white">{r?.iv != null ? `${r.iv}%` : '--%'}</span></div>
+                                        <div className="flex items-center justify-between gap-1 text-white/80 bg-white/5 rounded px-1.5 py-[1px] col-span-2"><span>Gamma Flip</span><span className="font-bold text-white">{r?.flipDistance ? `${r.flipDistance > 0 ? '+' : ''}${r.flipDistance}%` : '--'}</span></div>
                                     </div>
                                     <div className="relative z-10 mt-0.5">
                                         <span className="text-[12px] text-slate-300 font-jakarta">GEX·IV·Gamma Flip·Squeeze</span>
@@ -1707,10 +1707,10 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                             <span className={`text-[20px] font-black tabular-nums leading-none ${skewColor}`}>{atmIV.toFixed(1)}%</span>
                                             <span className="text-[14px] font-jakarta text-white font-bold">ATM IV</span>
                                         </div>
-                                        <div className="relative z-10 flex gap-3 mt-0.5 text-[12px] font-jakarta tabular-nums">
-                                            <span className="text-white/80">Call <span className="font-bold text-emerald-400">{(avgCallIV * 100).toFixed(0)}%</span></span>
-                                            <span className="text-white/80">Put <span className="font-bold text-rose-400">{(avgPutIV * 100).toFixed(0)}%</span></span>
-                                            <span className="text-white/80">Δ <span className={`font-bold ${skewColor}`}>{skewSpread > 0 ? '+' : ''}{skewSpread.toFixed(1)}%</span></span>
+                                        <div className="relative z-10 grid grid-cols-2 gap-1 mt-1.5 text-[12px] font-jakarta tabular-nums">
+                                            <div className="flex items-center justify-between gap-1 text-white/80 bg-white/5 rounded px-1.5 py-[1px]"><span>Call</span><span className="font-bold text-emerald-400">{(avgCallIV * 100).toFixed(0)}%</span></div>
+                                            <div className="flex items-center justify-between gap-1 text-white/80 bg-white/5 rounded px-1.5 py-[1px]"><span>Put</span><span className="font-bold text-rose-400">{(avgPutIV * 100).toFixed(0)}%</span></div>
+                                            <div className="flex items-center justify-between gap-1 text-white/80 bg-white/5 rounded px-1.5 py-[1px] col-span-2"><span>Skew Spread</span><span className={`font-bold ${skewColor}`}>{skewSpread > 0 ? '+' : ''}{skewSpread.toFixed(1)}%</span></div>
                                         </div>
                                         <div className="relative z-10 text-[12px] font-jakarta text-white mt-0.5">{skewInsight}</div>
                                         <div className="relative z-10 mt-0.5">
@@ -1744,9 +1744,9 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                         <span className="text-[14px] text-white font-bold font-jakarta">SI%</span>
                                         <span className="text-[12px] font-jakarta text-white ml-0.5">{sqDesc}</span>
                                     </div>
-                                    <div className="relative z-10 flex gap-3 mt-0.5 text-[12px] font-jakarta tabular-nums">
-                                        <span className="text-white/80">{td('sqDaysToCover')} <span className="font-bold text-white">{s?.daysToCover?.toFixed(1) ?? '--'}{td('sqDays')}</span></span>
-                                        <span className="text-white/80">{td('sqShortRatio')} <span className="font-bold text-white">{s?.shortVolPercent?.toFixed(0) ?? '--'}%</span></span>
+                                    <div className="relative z-10 grid grid-cols-2 gap-1 mt-1.5 text-[12px] font-jakarta tabular-nums">
+                                        <div className="flex items-center justify-between gap-1 text-white/80 bg-white/5 rounded px-1.5 py-[1px]"><span>{td('sqDaysToCover')}</span><span className="font-bold text-white">{s?.daysToCover?.toFixed(1) ?? '--'}{td('sqDays')}</span></div>
+                                        <div className="flex items-center justify-between gap-1 text-white/80 bg-white/5 rounded px-1.5 py-[1px]"><span>{td('sqShortRatio')}</span><span className="font-bold text-white">{s?.shortVolPercent?.toFixed(0) ?? '--'}%</span></div>
                                     </div>
                                     <div className="relative z-10 mt-0.5">
                                         <span className="text-[12px] text-slate-300 font-jakarta">SI%·DTC·Short Vol</span>
@@ -1846,9 +1846,9 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                         <span className="text-[14px] font-jakarta text-white font-bold">{td('instDarkPool')}</span>
                                         <span className="text-[12px] font-jakarta text-white ml-0.5">{instDesc}</span>
                                     </div>
-                                    <div className="relative z-10 flex gap-3 mt-0.5 text-[12px] font-jakarta tabular-nums">
-                                        <span className="text-white/80">{td('instBlock')} <span className="font-bold text-white">{blockCount}{td('instTrades')}</span></span>
-                                        <span className="text-white/80">{td('sqShortRatio')} <span className="font-bold text-white">{effectiveInst?.shortVolume?.percent?.toFixed(0) ?? '--'}%</span></span>
+                                    <div className="relative z-10 grid grid-cols-2 gap-1 mt-1.5 text-[12px] font-jakarta tabular-nums">
+                                        <div className="flex items-center justify-between gap-1 text-white/80 bg-white/5 rounded px-1.5 py-[1px]"><span>{td('instBlock')}</span><span className="font-bold text-white">{blockCount}{td('instTrades')}</span></div>
+                                        <div className="flex items-center justify-between gap-1 text-white/80 bg-white/5 rounded px-1.5 py-[1px]"><span>Short Vol</span><span className="font-bold text-white">{effectiveInst?.shortVolume?.percent?.toFixed(0) ?? '--'}%</span></div>
                                     </div>
                                     <div className="relative z-10 mt-0.5">
                                         <span className="text-[12px] text-slate-300 font-jakarta">DP·Block·Short Vol</span>
@@ -1930,13 +1930,13 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                             <span className="text-sm font-bold text-white/40 leading-none">{fundDesc}</span>
                                         </div>
                                     )}
-                                    <div className="relative z-10 flex flex-wrap gap-x-2 mt-1 text-[12px] font-jakarta tabular-nums">
-                                        {pe !== null && pe !== undefined && <span className="text-white/80 font-jakarta">PE <span className="font-bold text-white">{pe}</span></span>}
-                                        {roe !== null && roe !== undefined && <span className="text-white/80 font-jakarta">ROE <span className="font-bold text-white">{roe}%</span></span>}
-                                        {rev !== null && rev !== undefined && <span className="text-white/80">{td('fundRevenue')} <span className="font-bold text-white">{rev > 0 ? '+' : ''}{rev}%</span></span>}
-                                        {margin !== null && margin !== undefined && <span className="text-white/80">{td('fundMargin')} <span className="font-bold text-white">{margin}%</span></span>}
-                                        {de !== null && de !== undefined && <span className="text-white/80 font-jakarta">D/E <span className="font-bold text-white">{de}</span></span>}
-                                        {!pe && !roe && !rev && !margin && !de && <span className="text-white/40">{td('fundApiWaiting')}</span>}
+                                    <div className="relative z-10 grid grid-cols-2 gap-1 mt-1.5 text-[12px] font-jakarta tabular-nums">
+                                        {pe !== null && pe !== undefined && <div className="flex items-center justify-between gap-1 text-white/80 bg-white/5 rounded px-1.5 py-[1px]"><span>PE</span><span className="font-bold text-white">{pe}</span></div>}
+                                        {roe !== null && roe !== undefined && <div className="flex items-center justify-between gap-1 text-white/80 bg-white/5 rounded px-1.5 py-[1px]"><span>ROE</span><span className="font-bold text-white">{roe}%</span></div>}
+                                        {rev !== null && rev !== undefined && <div className="flex items-center justify-between gap-1 text-white/80 bg-white/5 rounded px-1.5 py-[1px]"><span className="truncate max-w-[50px]">{td('fundRevenue')}</span><span className="font-bold text-white">{rev > 0 ? '+' : ''}{rev}%</span></div>}
+                                        {margin !== null && margin !== undefined && <div className="flex items-center justify-between gap-1 text-white/80 bg-white/5 rounded px-1.5 py-[1px]"><span className="truncate max-w-[50px]">{td('fundMargin')}</span><span className="font-bold text-white">{margin}%</span></div>}
+                                        {de !== null && de !== undefined && <div className="flex items-center justify-between gap-1 text-white/80 bg-white/5 rounded px-1.5 py-[1px] col-span-2"><span>D/E</span><span className="font-bold text-white">{de}</span></div>}
+                                        {!pe && !roe && !rev && !margin && !de && <div className="text-white/40">{td('fundApiWaiting')}</div>}
                                     </div>
                                     <div className="relative z-10 mt-0.5">
                                         <span className="text-[12px] text-slate-300 font-jakarta">PE·FCF·Rev·Margin·DE</span>

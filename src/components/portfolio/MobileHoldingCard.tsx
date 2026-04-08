@@ -83,39 +83,39 @@ export default function MobileHoldingCard({
             {/* ── Row 1: Primary (Always Visible) ── */}
             <Link
                 href={`/ticker?ticker=${holding.ticker}`}
-                className="flex items-center gap-3"
+                className="flex items-center gap-2.5"
                 onClick={(e) => { if (expanded) { e.preventDefault(); } }}
             >
                 {/* Logo */}
-                <div className="relative w-11 h-11 rounded-2xl bg-gradient-to-br from-slate-800/90 to-slate-900/80 border border-white/[0.08] flex items-center justify-center overflow-hidden flex-shrink-0"
+                <div className="relative w-10 h-10 rounded-xl bg-gradient-to-br from-slate-800/90 to-slate-900/80 border border-white/[0.08] flex items-center justify-center overflow-hidden flex-shrink-0"
                     style={{ boxShadow: '0 4px 12px rgba(0,0,0,0.3)' }}>
                     <img
                         loading="lazy"
                         decoding="async"
                         src={`/api/logo/${holding.ticker}`}
                         alt={holding.ticker}
-                        className="w-7 h-7 object-contain"
+                        className="w-6 h-6 object-contain"
                         onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
                     />
-                    <span className="text-[9px] font-bold text-slate-600 absolute">{holding.ticker.slice(0, 2)}</span>
+                    <span className="text-[8px] font-bold text-slate-600 absolute">{holding.ticker.slice(0, 2)}</span>
                 </div>
 
                 {/* Ticker + Company */}
                 <div className="flex-1 min-w-0">
-                    <div className="font-black text-[var(--m-font-ticker)] text-white tracking-wide leading-tight">
+                    <div className="font-black text-[15px] text-white tracking-wide leading-tight">
                         {holding.ticker}
                     </div>
-                    <div className="text-[11px] text-slate-500 truncate">
+                    <div className="text-[11px] text-slate-500 truncate mt-[1px]">
                         {holding.ticker}
                     </div>
                 </div>
 
                 {/* Price + Change */}
                 <div className="text-right flex-shrink-0">
-                    <div className={`font-black tabular-nums text-[var(--m-font-price)] tracking-tight ${pf.color}`} style={pf.style}>
+                    <div className={`font-black tabular-nums text-[15px] tracking-tight ${pf.color}`} style={pf.style}>
                         ${holding.currentPrice.toFixed(2)}
                     </div>
-                    <div className={`text-[var(--m-font-change)] font-bold tabular-nums flex items-center justify-end gap-1 ${isTodayPositive ? 'text-emerald-400' : 'text-rose-400'}`}>
+                    <div className={`text-[12px] font-bold tabular-nums flex items-center justify-end gap-1 ${isTodayPositive ? 'text-emerald-400' : 'text-rose-400'}`}>
                         {isTodayPositive ? <TrendingUp className="w-3 h-3" /> : <TrendingDown className="w-3 h-3" />}
                         {isTodayPositive ? '+' : ''}{holding.changePct.toFixed(2)}%
                     </div>

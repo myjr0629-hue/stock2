@@ -1,0 +1,46 @@
+﻿5: import { getFromCache, setInCache } from '@/services/redisClient';
+7: import { getAnalysisCacheForTickers, type AnalysisCacheEntry } from '@/services/analysisCache';
+17: const REDIS_KEY_PREFIX = 'prev-day-pct:';
+20: // 1. Check Redis cache for all tickers
+24: const cached = await getFromCache<{ changePct: number; close: number; prevClose: number }>(`${REDIS_KEY_PREFIX}${ticker}`);
+53: // Cache to Redis
+54: try { await setInCache(`${REDIS_KEY_PREFIX}${ticker}`, entry, CACHE_TTL); } catch { /* non-critical */ }
+65: // Analysis cache is pre-computed by Lambda harvest and stored in Redis.
+74: const { getAnalysisCache } = await import('@/services/analysisCache');
+75: const cached = await getAnalysisCache(ticker);
+163: const REDIS_PREFIX = 'dashboard:unified:'; // Redis key prefix
+166: function getDashboardSmartTTL(): { memoryMs: number; redisSeconds: number } {
+177: ? { memoryMs: 120_000, redisSeconds: 180 } // 2min/3min during active sessions
+178: : { memoryMs: 3600_000, redisSeconds: 43200 }; // 1h/12h during true off-hours (21:00-04:00 ET)
+184: // ── Redis cache helpers ──
+185: function redisKey(cacheKey: string): string {
+186: return `${REDIS_PREFIX}${cacheKey}`;
+189: async function getFromRedisCache(cacheKey: string): Promise<CacheEntry | null> {
+191: const entry = await getFromCache<CacheEntry>(redisKey(cacheKey));
+193: // Check freshness (Redis TTL handles expiry, but double-check)
+195: if (age < getDashboardSmartTTL().redisSeconds * 1000) {
+205: async function writeToRedisCache(cacheKey: string, data: any, timestamp: number): Promise<void> {
+207: await setInCache(redisKey(cacheKey), { data, timestamp }, getDashboardSmartTTL().redisSeconds);
+209: // Redis write failure is non-critical — in-memory cache still works
+263: // [REDIS] Also write to Redis for cross-instance sharing
+264: writeToRedisCache(cacheKey, response, ts);
+512: // [STRATEGY A] Build response from warm-analysis Redis cache
+589: // [PREV-CHANGE FIX] Fetch accurate daily bars for all tickers (Redis cached, ~0ms after first call)
+806: // [REDIS] Also write to Redis for cross-instance sharing
+807: writeToRedisCache(cacheKey, response, ts);
+833: // Layer 1: analysis-cache (fast ~10ms per ticker from Redis)
+835: const analysisCacheMap = await getAnalysisCacheForTickers(missingTickers);
+924: // [REDIS FALLBACK] In-memory miss — check Redis (shared across Vercel instances)
+925: const redisCached = await getFromRedisCache(cacheKey);
+926: if (redisCached) {
+927: const filledData = await fillMissingTickers(redisCached.data, tickers, baseUrl);
+928: // Hydrate in-memory cache from Redis (with filled data)
+929: cache.set(cacheKey, { data: filledData, timestamp: redisCached.timestamp });
+930: console.log(`[CACHE] ✅ Redis hit for ${cacheKey} (age: ${Math.round((now - redisCached.timestamp) / 1000)}s)`);
+938: _cacheAge: Math.round((now - redisCached.timestamp) / 1000),
+939: _status: 'redis-hit'
+943: // [COLD START + STRATEGY A] Check warm-analysis Redis cache before expensive API calls
+950: getAnalysisCacheForTickers(tickers)
+984: writeToRedisCache(cacheKey, response, ts);
+1013: // Store in BOTH in-memory and Redis
+1016: writeToRedisCache(cacheKey, response, ts);

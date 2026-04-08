@@ -286,7 +286,7 @@ function PortfolioStatsBar({ summary, portfolioScore, holdingsCount, locale }: {
     const offset = circ - (portfolioScore / 100) * circ;
 
     return (
-        <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-5 gap-3">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-3">
             {/* Portfolio Value */}
             <div className="group relative overflow-hidden rounded-xl border border-emerald-500/[0.18] bg-gradient-to-br from-emerald-500/[0.12] via-white/[0.06] to-emerald-500/[0.04] backdrop-blur-xl p-4 hover:border-emerald-500/[0.35] transition-all duration-300" style={{ boxShadow: '0 4px 24px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.12), 0 0 40px rgba(52,211,153,0.08)' }}>
                 <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-emerald-400/50 to-transparent" />

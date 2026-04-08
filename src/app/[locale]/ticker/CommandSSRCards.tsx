@@ -120,9 +120,9 @@ export function CommandSSRCards({ data, stockData, ticker }: CommandSSRCardsProp
                 <CardShell bg={volBg}>
                     <CardHeader icon="⚡" title="VOL REGIME" badge={volRegime} badgeColor={`${volRegime === 'ERUPTING' ? 'bg-rose-500/20' : 'bg-slate-700/30'} ${volColor}`} />
                     <MetricRow value={String(volScore)} suffix="/100" color={volColor} />
-                    <div className="flex gap-3 mt-1 text-[12px] font-jakarta tabular-nums">
-                        <span className="text-white/80">GEX <span className={`font-bold ${vol?.gexLabel === 'SHORT' ? 'text-rose-400' : 'text-emerald-400'}`}>{vol?.gexLabel || (structure?.netGex && structure.netGex < 0 ? 'SHORT' : 'LONG')}</span></span>
-                        <span className="text-white/80">IV <span className="font-bold text-white">{vol?.iv || '--'}%</span></span>
+                    <div className="grid grid-cols-2 gap-1 mt-1.5 text-[12px] font-jakarta tabular-nums">
+                        <div className="flex items-center justify-between gap-1 text-white/80 bg-white/5 rounded px-1.5 py-[1px]"><span>GEX</span><span className={`font-bold ${vol?.gexLabel === 'SHORT' ? 'text-rose-400' : 'text-emerald-400'}`}>{vol?.gexLabel || (structure?.netGex && structure.netGex < 0 ? 'SHORT' : 'LONG')}</span></div>
+                        <div className="flex items-center justify-between gap-1 text-white/80 bg-white/5 rounded px-1.5 py-[1px]"><span>IV</span><span className="font-bold text-white">{vol?.iv || '--'}%</span></div>
                     </div>
                     <div className="mt-0.5"><span className="text-[12px] text-slate-300 font-jakarta">GEX·IV·Gamma Flip·Squeeze</span></div>
                 </CardShell>
@@ -166,10 +166,10 @@ export function CommandSSRCards({ data, stockData, ticker }: CommandSSRCardsProp
                             <CardShell bg={skewBg}>
                                 <CardHeader icon="📐" title="IV SKEW" badge={skewDir} badgeColor={`${skewDir === 'PUT RICH' ? 'bg-rose-500/20' : skewDir === 'CALL RICH' ? 'bg-emerald-500/20' : 'bg-slate-700/30'} ${skewColor}`} />
                                 <MetricRow value={`${atmIV.toFixed(1)}%`} suffix="ATM IV" color={skewColor} />
-                                <div className="flex gap-3 mt-0.5 text-[12px] font-jakarta tabular-nums">
-                                    <span className="text-white/80">Call <span className="font-bold text-emerald-400">{(avgCallIV * 100).toFixed(0)}%</span></span>
-                                    <span className="text-white/80">Put <span className="font-bold text-rose-400">{(avgPutIV * 100).toFixed(0)}%</span></span>
-                                    <span className="text-white/80">Δ <span className={`font-bold ${skewColor}`}>{skewSpread > 0 ? '+' : ''}{skewSpread.toFixed(1)}%</span></span>
+                                <div className="grid grid-cols-2 gap-1 mt-1.5 text-[12px] font-jakarta tabular-nums">
+                                    <div className="flex items-center justify-between gap-1 text-white/80 bg-white/5 rounded px-1.5 py-[1px]"><span>Call</span><span className="font-bold text-emerald-400">{(avgCallIV * 100).toFixed(0)}%</span></div>
+                                    <div className="flex items-center justify-between gap-1 text-white/80 bg-white/5 rounded px-1.5 py-[1px]"><span>Put</span><span className="font-bold text-rose-400">{(avgPutIV * 100).toFixed(0)}%</span></div>
+                                    <div className="flex items-center justify-between gap-1 text-white/80 bg-white/5 rounded px-1.5 py-[1px] col-span-2"><span>Skew Spread</span><span className={`font-bold ${skewColor}`}>{skewSpread > 0 ? '+' : ''}{skewSpread.toFixed(1)}%</span></div>
                                 </div>
                                 <div className="mt-0.5"><span className="text-[12px] text-slate-300 font-jakarta">Call IV·Put IV·Skew Spread</span></div>
                             </CardShell>
@@ -181,8 +181,8 @@ export function CommandSSRCards({ data, stockData, ticker }: CommandSSRCardsProp
                         <CardShell bg={sqStatus === 'CRITICAL' ? 'bg-rose-950/40 border-rose-500/30' : sqStatus === 'HIGH' ? 'bg-amber-950/40 border-amber-500/30' : 'bg-slate-800/40 border-slate-700/50'}>
                             <CardHeader icon="🛡️" title="SHORT SQUEEZE" badge={sqStatus} badgeColor={`${sqStatus === 'CRITICAL' ? 'bg-rose-500/20' : 'bg-slate-700/30'} ${sqColor}`} />
                             <MetricRow value={sqScore !== null ? `${typeof sqScore === 'number' ? sqScore.toFixed(1) : sqScore}%` : '--'} suffix="SI%" color={sqColor} />
-                            <div className="flex gap-3 mt-0.5 text-[12px] font-jakarta tabular-nums">
-                                <span className="text-white/80">DTC <span className="font-bold text-white">{squeeze?.daysToCover?.toFixed(1) ?? '--'}</span></span>
+                            <div className="grid grid-cols-2 gap-1 mt-1.5 text-[12px] font-jakarta tabular-nums">
+                                <div className="flex items-center justify-between gap-1 text-white/80 bg-white/5 rounded px-1.5 py-[1px]"><span>DTC</span><span className="font-bold text-white">{squeeze?.daysToCover?.toFixed(1) ?? '--'}</span></div>
                             </div>
                             <div className="mt-0.5"><span className="text-[12px] text-slate-300 font-jakarta">SI%·DTC·Short Vol</span></div>
                         </CardShell>
@@ -236,9 +236,9 @@ export function CommandSSRCards({ data, stockData, ticker }: CommandSSRCardsProp
                     ) : (
                         <span className="text-sm font-bold text-white/40 leading-none">Collecting...</span>
                     )}
-                    <div className="flex flex-wrap gap-x-2 mt-1 text-[12px] font-jakarta tabular-nums">
-                        {fund?.pe != null && <span className="text-white/80">PE <span className="font-bold text-white">{fund.pe}</span></span>}
-                        {fund?.roe != null && <span className="text-white/80">ROE <span className="font-bold text-white">{fund.roe}%</span></span>}
+                    <div className="grid grid-cols-2 gap-1 mt-1.5 text-[12px] font-jakarta tabular-nums">
+                        {fund?.pe != null && <div className="flex items-center justify-between gap-1 text-white/80 bg-white/5 rounded px-1.5 py-[1px]"><span>PE</span><span className="font-bold text-white">{fund.pe}</span></div>}
+                        {fund?.roe != null && <div className="flex items-center justify-between gap-1 text-white/80 bg-white/5 rounded px-1.5 py-[1px]"><span>ROE</span><span className="font-bold text-white">{fund.roe}%</span></div>}
                     </div>
                 </CardShell>
 

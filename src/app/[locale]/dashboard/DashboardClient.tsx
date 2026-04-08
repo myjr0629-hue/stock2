@@ -886,7 +886,7 @@ function MainChartPanel() {
             )}
             <div className="px-4 pb-4 flex flex-col gap-1">
                 {/* ── ROW 1: 구조 판단 (Structure) ── */}
-                <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-4 gap-3" data-dashboard-cards>
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3" data-dashboard-cards>
                     {/* Net GEX — PRO (peek: number visible, interpretation blurred) */}
                     {customize.cardOrder.includes('netGex') && <ProGate title="Net GEX" mode="peek" compact tooltipPosition="above" description={gt('descNetGamma')}>
                         <div className={`relative p-4 rounded-xl border transition-all duration-200 hover:-translate-y-0.5 hover:brightness-110 hover:border-white/15 ${(data?.netGex || 0) < 0 ? 'bg-rose-500/10 backdrop-blur-md border-rose-400/40 shadow-[0_0_25px_rgba(251,113,133,0.3)]' : 'bg-[#0d1829]/80 border-white/5'}`}>
@@ -1783,7 +1783,9 @@ function MainChartPanel() {
                             <List className="w-3.5 h-3.5 text-cyan-400" />
                             <span className="text-[13px] font-bold uppercase tracking-wider text-slate-400">5-Day History</span>
                         </div>
-                        <div className="overflow-x-auto">
+
+                        {/* PC Table View */}
+                        <div className="hidden sm:block overflow-x-auto">
                             <table className="w-full text-[13px]">
                                 <thead>
                                     <tr className="bg-white/5 border-b border-white/10 text-white">
@@ -1825,6 +1827,49 @@ function MainChartPanel() {
                                     ))}
                                 </tbody>
                             </table>
+                        </div>
+
+                        {/* Mobile Card View */}
+                        <div className="block sm:hidden flex-col divide-y divide-white/5">
+                            {dailyHistory.map((day: any, idx: number) => (
+                                <div key={idx} className="p-3 hover:bg-white/5 transition-colors">
+                                    <div className="flex justify-between items-center mb-2">
+                                        <span className="text-white font-mono font-bold tracking-wider">{day.date}</span>
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-white font-mono font-bold">${day.close?.toFixed(2)}</span>
+                                            <span className={`font-mono text-xs font-bold ${(day.changePct || 0) >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                                {day.changePct != null ? `${day.changePct > 0 ? '+' : ''}${day.changePct.toFixed(2)}%` : '—'}
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <div className="grid grid-cols-4 gap-2 text-[12px] font-mono">
+                                        <div>
+                                            <div className="text-slate-500 font-sans tracking-wide text-[10px] mb-0.5 font-semibold">VOL</div>
+                                            <div className={(() => {
+                                                    const prevVolume = dailyHistory[idx + 1]?.volume;
+                                                    if (!prevVolume || !day.volume) return 'text-white';
+                                                    return day.volume > prevVolume ? 'text-emerald-400' : 'text-rose-400';
+                                                })()}>
+                                                {day.volume ? `${(day.volume / 1e6).toFixed(1)}M` : '—'}
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <div className="text-slate-500 font-sans tracking-wide text-[10px] mb-0.5 font-semibold">VWAP</div>
+                                            <div className="text-white">${day.vwap?.toFixed(2) || '—'}</div>
+                                        </div>
+                                        <div>
+                                            <div className="text-slate-500 font-sans tracking-wide text-[10px] mb-0.5 font-semibold">GAP</div>
+                                            <div className={(day.gapPct || 0) >= 0 ? 'text-emerald-400' : 'text-rose-400'}>
+                                                {day.gapPct != null ? `${day.gapPct > 0 ? '+' : ''}${day.gapPct.toFixed(2)}%` : '—'}
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <div className="text-slate-500 font-sans tracking-wide text-[10px] mb-0.5 font-semibold">RNG</div>
+                                            <div className="text-amber-400">{day.rangePct != null ? `${day.rangePct.toFixed(2)}%` : '—'}</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
                         </div>
                     </div>
                 </div>
