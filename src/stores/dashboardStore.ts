@@ -168,6 +168,7 @@ const INDICATOR_FIELDS = [
     'alpha', 'whaleIndex', 'whaleConfidence',
     'rsi14', 'return3D', 'relVol', 'ivRank',
     '_rsi14', '_return3D', '_relVol',
+    'prevChangePct', 'intradayChangePct', // [FIX] Prevents changePercent falling back to 0 during PRE/POST
 ] as const;
 
 // ============================================================================
@@ -516,26 +517,69 @@ export const useDashboardStore = create<DashboardState>()(
             updateRealtimePrice: (ticker: string, price: number, changePct?: number) => {
                 const existing = get().tickers[ticker];
                 if (!existing) return;
-                if (existing.underlyingPrice === price) return; // Skip unchanged
 
-                const refClose = existing.prevClose || existing.underlyingPrice || price;
-                const calculatedChangePct = changePct ?? (refClose > 0 ? ((price - refClose) / refClose) * 100 : 0);
+                const session = existing.session;
 
-                set({
-                    tickers: {
-                        ...get().tickers,
-                        [ticker]: {
-                            ...existing,
-                            underlyingPrice: price,
-                            changePercent: calculatedChangePct,
-                            display: {
-                                ...existing.display,
-                                price,
-                                changePctPct: calculatedChangePct,
-                            },
+                if (session === 'REG') {
+                    if (existing.underlyingPrice === price) return; // Skip unchanged
+                    const refClose = existing.prevClose || existing.underlyingPrice || price;
+                    const calculatedChangePct = changePct ?? (refClose > 0 ? ((price - refClose) / refClose) * 100 : 0);
+
+                    set({
+                        tickers: {
+                            ...get().tickers,
+                            [ticker]: {
+                                ...existing,
+                                underlyingPrice: price,
+                                changePercent: calculatedChangePct,
+                                display: {
+                                    ...existing.display,
+                                    price,
+                                    changePctPct: calculatedChangePct,
+                                },
+                            }
                         }
-                    }
-                });
+                    });
+                } else if (session === 'PRE') {
+                    // During PRE, realtime writes to extended.prePrice
+                    if (existing.extended?.prePrice === price) return;
+                    const prevCl = existing.prevClose || existing.underlyingPrice || 1;
+                    const calculatedChangePct = changePct ?? ((price - prevCl) / prevCl) * 100;
+                    
+                    set({
+                        tickers: {
+                            ...get().tickers,
+                            [ticker]: {
+                                ...existing,
+                                extended: {
+                                    ...existing.extended,
+                                    prePrice: price,
+                                    preChangePct: calculatedChangePct,
+                                }
+                            }
+                        }
+                    });
+                } else if (session === 'POST' || session === 'CLOSED') {
+                    // During POST/CLOSED, realtime writes to extended.postPrice
+                    if (existing.extended?.postPrice === price) return;
+                    // POST change is relative to today's regular close
+                    const dayCl = existing.regularCloseToday || existing.underlyingPrice || existing.prevClose || 1;
+                    const calculatedChangePct = changePct ?? ((price - dayCl) / dayCl) * 100;
+                    
+                    set({
+                        tickers: {
+                            ...get().tickers,
+                            [ticker]: {
+                                ...existing,
+                                extended: {
+                                    ...existing.extended,
+                                    postPrice: price,
+                                    postChangePct: calculatedChangePct,
+                                }
+                            }
+                        }
+                    });
+                }
             },
         }),
         {

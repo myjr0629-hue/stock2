@@ -125,7 +125,7 @@ export async function GET(request: Request) {
             // REG: Always use manual calc — Polygon todaysChangePerc uses inconsistent base for some tickers
             // PRE/POST/CLOSED: Calculate from day.c vs prevDay.c (regular session close)
             // [FIX V3] Polygon todaysChangePerc completely removed for REG — manual calc matches SSR formula exactly
-            let changePercent = 0;
+            let changePercent: number | null = 0;
             const manualCalc = (liveLast > 0 && prevDayClose > 0) ? ((liveLast - prevDayClose) / prevDayClose) * 100 : 0;
 
             if (session === 'regular') {
@@ -140,7 +140,7 @@ export async function GET(request: Request) {
                     // todaysChangePerc might hold the correct previous day's regular change.
                     changePercent = todaysChangePerc;
                 } else {
-                    changePercent = 0;
+                    changePercent = null; // [FIX] Return null instead of 0 to prevent 0.00% flickering in UI
                 }
             }
 

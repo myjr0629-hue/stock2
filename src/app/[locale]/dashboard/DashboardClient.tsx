@@ -489,19 +489,19 @@ function WatchlistPanel() {
 
     // Determine ext header label from market session
     const market = useDashboardStore(s => s.market);
-    // [FIX] Only trust OPEN status from store (always fresh from SSR).
-    // For all other states, derive from ET time because market can be stale
-    // (persisted in localStorage from a previous session — e.g. 'PRE' from morning visit)
+    // [FIX] Determine ext header label from market session (reactive)
     const extHeaderLabel = useMemo(() => {
-        const status = market?.marketStatus;
-        if (status === 'OPEN') return 'Ext';
-        // Derive from ET time — always accurate regardless of store staleness
+        const ms = market?.marketStatus;
+        if (ms === 'PRE') return 'PRE';
+        if (ms === 'AFTER' || ms === 'CLOSED') return 'POST';
+
+        // Derive from ET time as a fallback
         const now = new Date();
         const etStr = now.toLocaleString('en-US', { timeZone: 'America/New_York' });
         const et = new Date(etStr);
         const etMinutes = et.getHours() * 60 + et.getMinutes();
-        if (etMinutes >= 4 * 60 && etMinutes < 9 * 60 + 30) return 'Pre';  // 04:00-09:30 ET
-        return 'Post'; // After close or before 04:00
+        if (etMinutes >= 4 * 60 && etMinutes < 9 * 60 + 30) return 'PRE';
+        return 'POST';
     }, [market?.marketStatus]);
 
     return (
