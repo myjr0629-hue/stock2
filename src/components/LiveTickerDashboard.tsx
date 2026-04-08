@@ -1425,39 +1425,10 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                         const isLong = descText.length > 80;
                         const descFontFamily = locale === 'ko' ? 'Pretendard, sans-serif' : locale === 'ja' ? "'Noto Sans JP', sans-serif" : "'Plus Jakarta Sans', sans-serif";
 
-                        // [ZERO-LATENCY] Realtime Client-Side Smart Flow Calculation
-                        let sfValue = 0;
-                        const sfGex = structure?.netGex || initialUnifiedData?.structure?.netGex || 0;
-                        const sfDP = (institutionalData?.darkPool as any)?.buyPct || (initialUnifiedData?.institutional?.darkPool as any)?.percent || 0;
-                        const sfBlock = institutionalData?.blockTrade?.count || initialUnifiedData?.institutional?.blockTrade?.count || 0;
-                        const sfNP = liveQuote?.flow?.netPremium || 0;
-
-                        const absGex = Math.abs(sfGex);
-                        if (absGex > 50_000_000) sfValue += 25;
-                        else if (absGex > 10_000_000) sfValue += 20;
-                        else if (absGex > 1_000_000) sfValue += 15;
-                        else if (absGex > 100_000) sfValue += 8;
-
-                        const dp = sfDP;
-                        if (dp >= 60) sfValue += 25;
-                        else if (dp >= 45) sfValue += 20;
-                        else if (dp >= 30) sfValue += 12;
-                        else if (dp > 0) sfValue += 5;
-
-                        const bt = sfBlock;
-                        if (bt >= 10) sfValue += 25;
-                        else if (bt >= 5) sfValue += 20;
-                        else if (bt >= 2) sfValue += 15;
-                        else if (bt >= 1) sfValue += 8;
-
-                        const absNP = Math.abs(sfNP);
-                        if (absNP > 10_000_000) sfValue += 25;
-                        else if (absNP > 5_000_000) sfValue += 20;
-                        else if (absNP > 1_000_000) sfValue += 15;
-                        else if (absNP > 100_000) sfValue += 8;
-                        
-                        const liveSmartFlow = sfValue > 0 ? sfValue : (initialUnifiedData?.smartFlow || 0);
-                        const liveContextScore = initialUnifiedData?.alpha?.score || (ssrFallback as any)?.alpha?.score || 0;
+                        // [PERF FIX] Remove hardcoded frontend smart flow calculator. 
+                        // Rely strictly on single source of truth from Unified Cache / Lambda Analysis Engine.
+                        const liveSmartFlow = _swrQuote?.smartFlow ?? initialUnifiedData?.smartFlow ?? (ssrFallback as any)?.smartFlow ?? 0;
+                        const liveContextScore = _swrQuote?.alpha?.score ?? initialUnifiedData?.alpha?.score ?? (ssrFallback as any)?.alpha?.score ?? 0;
 
                         return (
                             <div className="flex-1 flex items-center justify-end gap-3 min-w-0" style={{ zIndex: descPopoverOpen ? 50 : 'auto' }}>

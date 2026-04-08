@@ -168,6 +168,18 @@ export default async function TickerPage({ params, searchParams }: Props) {
         }
     }
 
+    // [FINAL SSR BYPASS] Guarantee Alpha and SmartFlow injection for all Cache combinations
+    if (initialUnifiedData) {
+        try {
+            const { getAnalysisCache } = await import('@/services/analysisCache');
+            const ac = await getAnalysisCache(ticker);
+            if (ac) {
+                if (ac.alphaSnapshot && !initialUnifiedData.alpha) initialUnifiedData.alpha = ac.alphaSnapshot;
+                if (ac.whaleIndex !== undefined && initialUnifiedData.smartFlow === undefined) initialUnifiedData.smartFlow = ac.whaleIndex;
+            }
+        } catch { /* safe */ }
+    }
+
     // ── Apply DynamoDB price to stockData if Polygon failed ──
     // This prevents the price=0 loading gate deadlock
     const dynamoPrice = initialUnifiedData?._dynamoPrice;
