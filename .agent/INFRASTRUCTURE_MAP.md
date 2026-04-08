@@ -894,12 +894,65 @@ bash scripts/ec2-deploy-guardian.sh
 - TypeScript 에러 0개, 프로덕션 빌드 성공
 - 다른 페이지 영향 0% (dashboardTickers/toggleDashboardTicker 인터페이스 유지)
 
-#### P0: Redis 요금 폭탄 최적화 ($26→$3)
-- 현재: 140M commands/월, 271GB bandwidth → 매월 요금 폭증
-- **원인 1**: unified API가 종목당 10+회 Redis GET → **서버 메모리 캐시로 교체** (Map + 30초 TTL)
-- **원인 2**: quotes API extended cache GET 14회/2초 → **불필요, 제거**
-- **원인 3**: EventBridge 24/7 Lambda 실행 → **장중만**: `cron(0/5 13-21 ? * MON-FRI *)`
-- 목표: 월 Redis 명령 수 90% 감소 (140M → 15M 이하)
+#### P0: Redis 요금 폭탄 최적화 ($26→$3) — 미착수
+- **현재 상태**: $14.67 → $26.21 (두 배 폭등), Commands 140.4M, Bandwidth 271.6GB
+- **목표**: 월 Redis 명령 수 90% 감소 (140M → 15M 이하), $3-5 수준
+
+**⚠️ 참고: 대시보드 V4 재작성 시 같이 하겠다고 했으나 미착수. 별도 작업 필요.**
+
+---
+
+**팩트 체크 결과:**
+
+| 원인 | 상태 | 설명 |
+|------|:----:|------|
+| 1. Lambda "1000번 노가다 쓰기" | 반만 맞음 | 이미 `redisPipeline` 20개 배치 사용 중 (L107-108). 하루 ~3만 명령. 합리적 수준 |
+| 2. 프론트엔드 "무지성 새로고침" | **주범 (90%)** | Vercel API에서 Redis GET 폭주. 아래 상세 |
+| 3. EventBridge 24/7 가동 | 맞음 | `rate(5 minutes)` — 장마감/주말에도 계속 실행 |
+
+**원인 2 상세 (프론트엔드 Redis 폭주):**
+```
+fetchPriceOnly (2초): 14종목 × ~5 Redis calls = 70 calls/2초 = 35 calls/초
+fetchDashboardData (30초): 14종목 × ~15 Redis calls = 210 calls/30초 = 7 calls/초
+합계: ~42 Redis calls/초/유저
+
+42 × 3600 × 24 = 하루 360만 calls (브라우저 1명으로!)
+개발 중 브라우저 1개만 열어도 하루 360만 calls → 이게 1억 4천만의 정체
+```
+
+**요금 명세 추정:**
+
+| 출처 | 명령/일 | 비중 |
+|------|---------|:----:|
+| Vercel 프론트엔드 (1 유저) | ~360만 | 90% |
+| Lambda 쓰기 | ~3만 | 1% |
+| EC2 Worker (Guardian 등) | ~5만 | 1% |
+| Vercel cron/SWR 백그라운드 | ~30만 | 8% |
+
+**즉시 조치 3가지 (우선순위순):**
+
+| # | 조치 | 파일 | 방법 | 예상 효과 |
+|---|------|------|------|----------|
+| 1 | unified API Redis GET → 서버 메모리 캐시 | `unified/route.ts` | `Map<string, {data, expiry}>` 30초 TTL. Redis 1회 bulk GET → Map 저장 → 재사용 | **요금 -80%** (최대 효과) |
+| 2 | quotes API extended cache GET 제거 | `quotes/route.ts` L78-86 | `flow:extended:{ticker}` 14종목 GET/2초 → 메모리 캐시 또는 완전 제거 | 요금 -10% |
+| 3 | EventBridge cron 장중 제한 | AWS EventBridge | `cron(0/5 13-21 ? * MON-FRI *)` ET 장중만 | 요금 -5% |
+
+**추가 최적화 (선택):**
+
+| # | 조치 | 파일 | 효과 |
+|---|------|------|------|
+| 4 | `prev-day-pct:` Redis 캐시 TTL 600s→3600s | `unified/route.ts` L15-55 | -3% |
+| 5 | `analysisCache` 메모리 캐시 30s 추가 | `analysisCache.ts` | -2% |
+
+**Lambda Pipeline 상태 (이미 최적화됨 — 추가 조치 불필요):**
+```js
+// deploy-lambda-v7.js L107-108, L1344-1346
+for (let i = 0; i < redisBatch.length; i += 20) {
+    const batch = redisBatch.slice(i, i + 20);
+    await redisPipeline(batch);  // 1회 HTTP로 20개 SET
+}
+// 1000종목 × 2 = 2000 SET → 100회 pipeline (개별 SET 대비 1/20)
+```
 
 #### P1: 메인 대시보드 워치리스트 데이터 누락
 - 현상: 데이터가 한번에 다 표시 안 됨 — 일부만 먼저 표시
