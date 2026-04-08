@@ -1930,13 +1930,13 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                             <span className="text-sm font-bold text-white/40 leading-none">{fundDesc}</span>
                                         </div>
                                     )}
-                                    <div className="relative z-10 grid grid-cols-2 gap-1 mt-1.5 text-[12px] font-jakarta tabular-nums">
-                                        {pe !== null && pe !== undefined && <div className="flex items-center justify-between gap-1 text-white/80 bg-white/5 rounded px-1.5 py-[1px]"><span>PE</span><span className="font-bold text-white">{pe}</span></div>}
-                                        {roe !== null && roe !== undefined && <div className="flex items-center justify-between gap-1 text-white/80 bg-white/5 rounded px-1.5 py-[1px]"><span>ROE</span><span className="font-bold text-white">{roe}%</span></div>}
-                                        {rev !== null && rev !== undefined && <div className="flex items-center justify-between gap-1 text-white/80 bg-white/5 rounded px-1.5 py-[1px]"><span className="truncate max-w-[50px]">{td('fundRevenue')}</span><span className="font-bold text-white">{rev > 0 ? '+' : ''}{rev}%</span></div>}
-                                        {margin !== null && margin !== undefined && <div className="flex items-center justify-between gap-1 text-white/80 bg-white/5 rounded px-1.5 py-[1px]"><span className="truncate max-w-[50px]">{td('fundMargin')}</span><span className="font-bold text-white">{margin}%</span></div>}
-                                        {de !== null && de !== undefined && <div className="flex items-center justify-between gap-1 text-white/80 bg-white/5 rounded px-1.5 py-[1px] col-span-2"><span>D/E</span><span className="font-bold text-white">{de}</span></div>}
-                                        {!pe && !roe && !rev && !margin && !de && <div className="text-white/40">{td('fundApiWaiting')}</div>}
+                                    <div className="relative z-10 grid grid-cols-6 gap-1 mt-1.5 text-[11px] xl:text-[12px] font-jakarta tabular-nums">
+                                        {pe !== null && pe !== undefined && <div className="flex items-center justify-between gap-0.5 text-white/80 bg-white/5 rounded px-1.5 py-[1px] col-span-3"><span>PE</span><span className="font-bold text-white">{pe}</span></div>}
+                                        {roe !== null && roe !== undefined && <div className="flex items-center justify-between gap-0.5 text-white/80 bg-white/5 rounded px-1.5 py-[1px] col-span-3"><span>ROE</span><span className="font-bold text-white">{roe}%</span></div>}
+                                        {rev !== null && rev !== undefined && <div className="flex items-center justify-between gap-0.5 text-white/80 bg-white/5 rounded px-1 py-[1px] col-span-2"><span className="truncate max-w-[40px] tracking-tighter">{td('fundRevenue')}</span><span className="font-bold text-white">{rev > 0 ? '+' : ''}{rev}%</span></div>}
+                                        {margin !== null && margin !== undefined && <div className="flex items-center justify-between gap-0.5 text-white/80 bg-white/5 rounded px-1 py-[1px] col-span-2"><span className="truncate max-w-[40px] tracking-tighter">{td('fundMargin')}</span><span className="font-bold text-white">{margin}%</span></div>}
+                                        {de !== null && de !== undefined && <div className="flex items-center justify-between gap-0.5 text-white/80 bg-white/5 rounded px-1 py-[1px] col-span-2"><span>D/E</span><span className="font-bold text-white">{de}</span></div>}
+                                        {!pe && !roe && !rev && !margin && !de && <div className="text-white/40 col-span-6">{td('fundApiWaiting')}</div>}
                                     </div>
                                     <div className="relative z-10 mt-0.5">
                                         <span className="text-[12px] text-slate-300 font-jakarta">PE·FCF·Rev·Margin·DE</span>
