@@ -513,6 +513,17 @@ bash scripts/ec2-deploy-guardian.sh
 
 ## 11. 작업 이력
 
+### [2026-04-09] Dashboard Signal Feed Pipeline 복구 및 분리 추적 완료
+1. **문제**: Dashboard의 "Signal Feed" (최근 24시간 알림 내역) 섹션이 며칠째 빈값을 나타내고, `Waiting for signals...` 상태로 유지되던 현상 적발.
+2. **원인**: 
+   - 기존에는 Lambda가 DynamoDB(`signum-pattern-db` PK: `SIGNAL`)에 영구 저장하던 방식이었으나, SWR(On-the-fly) 아키텍처로 리팩토링 되면서 시그널을 DB에 적재하는 로직이 공중분해(누락) 됨.
+   - SWR 캐시에만 임시 존재하므로 새로고침을 할 때마다 과거 내역이 증발하였음 (상태 휘발).
+3. **해결 (`unified/route.ts`, `signals/route.ts`)**:
+   - 정규장(REG)에 On-the-fly로 생성된 시그널을 Redis ElastiCache (`dashboard:signals:daily`)에 브릿지 삽입(`persistDailySignals()`)하도록 백엔드에 Write-Back 로직 신설. 
+   - 중복 생성 방지를 위한 엄격한 Deduplication 로직 적용.
+   - **User Requirement (본장 당일 폐기 원칙)**: TTL을 12시간(`43200s`)으로 설정. 장이 끝나면 당일 축적된 시그널 기록들은 다음 날 스스로 만료되어 완벽하게 리셋되도록 무결성 조치.
+   - `/api/dashboard/signals`가 더 이상 죽어있는 DynamoDB를 찌르지 않고 가장 빠른 Redis Fast-Path(`dashboard:signals:daily`)를 조회하도록 재결선 완료 (Cost Optimization).
+
 ### 2026-04-08 (Guardian 모닝 브리핑 V8.1 JSON 파서 방어)
 1. **문제**: AWS Bedrock(Claude)이 브리핑 텍스트 내부에 이스케이프되지 않은 큰따옴표(`"`)를 사용하거나 줄바꿈(`\n`)을 무단 사용하여 Vercel의 `JSON.parse` 단계에서 500 에러 발생 (Position 420 에러).
 2. **증상**: 에러 발생 시 반복 실패 후 ElastiCache에 `source: "error"` 꼬리표와 함께 `temporarily unavailable` 이라는 데이터가 저장되어 프론트엔드에 그대로 노출됨.

@@ -29,7 +29,7 @@ const NAV_ITEMS = [
     },
     {
         label: 'COMMAND',
-        href: '/ticker',
+        href: '/ticker?ticker=NVDA',
         icon: (active: boolean) => (
             <svg className="w-5 h-5" fill={active ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24" strokeWidth={active ? 0 : 1.5}>
                 {active ? (

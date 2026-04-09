@@ -320,7 +320,7 @@ const WatchlistItem = React.memo(function WatchlistItem({ ticker, isSelected }: 
                 onClick={() => setSelectedTicker(ticker)}
                 onMouseEnter={handleHoverPrefetch}
                 onMouseLeave={handleHoverCancel}
-                className={`flex-1 grid grid-cols-[minmax(0,1fr)_72px_58px_58px] items-center gap-x-1.5 px-2.5 py-2 rounded-lg transition-all duration-200
+                className={`flex-1 flex flex-row items-center justify-between md:grid md:grid-cols-[minmax(0,1fr)_72px_58px_58px] md:justify-start gap-x-1.5 px-3 py-2.5 md:py-2 rounded-lg transition-all duration-200
                     ${isSelected
                         ? "bg-cyan-500/10 border border-cyan-500/30"
                         : "bg-[#0d1829]/40 border border-transparent hover:border-white/8 hover:bg-[#0d1829]/70"
@@ -342,16 +342,36 @@ const WatchlistItem = React.memo(function WatchlistItem({ ticker, isSelected }: 
                             (e.target as HTMLImageElement).className = 'w-4 h-4 rounded bg-slate-700 hidden';
                         }}
                     />
-                    <span className={`font-jakarta font-bold text-[13px] truncate ${isSelected ? "text-cyan-400" : "text-white"}`}>
-                        {ticker}
-                    </span>
-                    {/* Live indicator dot — pulses during PRE/OPEN/AFTER */}
-                    {data?.session && data.session !== 'CLOSED' && (
-                        <span className="relative flex h-1.5 w-1.5 flex-shrink-0">
-                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-                            <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500" />
-                        </span>
-                    )}
+                    <div className="flex flex-col items-start min-w-0">
+                        <div className="flex items-center gap-1.5 min-w-0">
+                            <span className={`font-jakarta font-bold text-[14px] md:text-[13px] truncate ${isSelected ? "text-cyan-400" : "text-white"}`}>
+                                {ticker}
+                            </span>
+                            {/* Live indicator dot — pulses during PRE/OPEN/AFTER */}
+                            {data?.session && data.session !== 'CLOSED' && (
+                                <span className="relative flex h-1.5 w-1.5 flex-shrink-0">
+                                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                                    <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500" />
+                                </span>
+                            )}
+                        </div>
+                        {/* Mobile: Ticker badges below the ticker */}
+                        <div className="flex items-center gap-1 md:hidden mt-0.5">
+                            {hasGammaSqueeze && (
+                                <span className="px-1 py-0.5 rounded bg-indigo-500/20 border border-indigo-500/30 text-[9px] font-bold text-indigo-400">SQZ</span>
+                            )}
+                            {hasWhale && !hasGammaSqueeze && (
+                                <span className="px-1 py-0.5 rounded bg-amber-500/20 border border-amber-500/30 text-[9px] font-bold text-amber-400">WHALE</span>
+                            )}
+                            {isSelected && (
+                                <span className="px-1 py-0.5 rounded bg-cyan-500/20 border border-cyan-500/30 text-[9px] font-bold text-cyan-400">VIEWING</span>
+                            )}
+                        </div>
+                    </div>
+                </div>
+
+                {/* Desktop: Ticker badges inline */}
+                <div className="hidden md:flex items-center gap-1 min-w-0">
                     {hasGammaSqueeze && (
                         <span className="px-0.5 text-[8px] font-bold text-indigo-400 flex-shrink-0">SQ</span>
                     )}
@@ -360,8 +380,31 @@ const WatchlistItem = React.memo(function WatchlistItem({ ticker, isSelected }: 
                     )}
                 </div>
 
-                {/* Col 2: Last Price */}
-                <div className="text-center flex-shrink-0">
+                {/* Mobile Right Side: Stack of Prices */}
+                <div className="flex flex-col items-end md:hidden">
+                    <div className="flex items-center gap-2">
+                        {mainPrice > 0 ? (
+                            <span className={`font-mono text-[15px] ${wf.color}`} style={wf.style}>{mainPrice.toFixed(2)}</span>
+                        ) : (
+                            <div className="h-4 w-14 bg-slate-700/50 rounded animate-pulse" />
+                        )}
+                    </div>
+                    <div className="flex items-center gap-2 mt-0.5">
+                        {mainPrice > 0 && (
+                            <span className={`font-mono text-[13px] font-medium ${isPositive ? "text-emerald-400" : "text-rose-400"}`}>
+                                {isPositive ? "+" : ""}{mainChangePct.toFixed(2)}%
+                            </span>
+                        )}
+                        {extPrice > 0 && (
+                            <span className={`font-mono text-[11px] font-medium ${extChangePct >= 0 ? "text-emerald-400/80" : "text-rose-400/80"} bg-slate-900/50 px-1 rounded`}>
+                                {displayExtLabel}: {extChangePct > 0 ? "+" : ""}{extChangePct.toFixed(2)}%
+                            </span>
+                        )}
+                    </div>
+                </div>
+
+                {/* Col 2: Last Price (Desktop) */}
+                <div className="text-center flex-shrink-0 hidden md:block">
                     {mainPrice > 0 ? (
                         <span className={`font-mono text-[14px] ${wf.color}`}
                             style={wf.style}>
@@ -372,8 +415,8 @@ const WatchlistItem = React.memo(function WatchlistItem({ ticker, isSelected }: 
                     )}
                 </div>
 
-                {/* Col 3: Chg% */}
-                <div className="text-center flex-shrink-0">
+                {/* Col 3: Chg% (Desktop) */}
+                <div className="text-center flex-shrink-0 hidden md:block">
                     {mainPrice > 0 ? (
                         <span className={`font-mono text-[14px] font-medium ${isPositive ? "text-emerald-400" : "text-rose-400"}`}>
                             {isPositive ? "+" : ""}{mainChangePct.toFixed(2)}%
@@ -383,8 +426,8 @@ const WatchlistItem = React.memo(function WatchlistItem({ ticker, isSelected }: 
                     )}
                 </div>
 
-                {/* Col 4: Ext% (no label, just the number) */}
-                <div className="text-center flex-shrink-0">
+                {/* Col 4: Ext% (Desktop) */}
+                <div className="text-center flex-shrink-0 hidden md:block">
                     {extPrice > 0 ? (
                         <span className={`font-mono text-[14px] font-medium ${extChangePct >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
                             {extChangePct > 0 ? "+" : ""}{extChangePct.toFixed(2)}%
@@ -584,7 +627,7 @@ function WatchlistPanel() {
                 </div>
             )}
             {/* Column Headers — TradingView style */}
-            <div className="grid grid-cols-[minmax(0,1fr)_72px_58px_58px] items-center gap-x-1.5 pl-[14px] pr-[32px] py-1.5 border-b border-white/5">
+            <div className="hidden md:grid grid-cols-[minmax(0,1fr)_72px_58px_58px] items-center gap-x-1.5 pl-[14px] pr-[32px] py-1.5 border-b border-white/5">
                 <span className="text-[12px] font-jakarta uppercase tracking-wider text-slate-300">Symbol</span>
                 <span className="text-[12px] font-jakarta uppercase tracking-wider text-slate-300 text-center">Last</span>
                 <span className="text-[12px] font-jakarta uppercase tracking-wider text-slate-300 text-center">Chg%</span>
@@ -886,7 +929,7 @@ function MainChartPanel() {
             )}
             <div className="px-4 pb-4 flex flex-col gap-1">
                 {/* ── ROW 1: 구조 판단 (Structure) ── */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3" data-dashboard-cards>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3" data-dashboard-cards>
                     {/* Net GEX — PRO (peek: number visible, interpretation blurred) */}
                     {customize.cardOrder.includes('netGex') && <ProGate title="Net GEX" mode="peek" compact tooltipPosition="above" description={gt('descNetGamma')}>
                         <div className={`relative p-4 rounded-xl border transition-all duration-200 hover:-translate-y-0.5 hover:brightness-110 hover:border-white/15 ${(data?.netGex || 0) < 0 ? 'bg-rose-500/10 backdrop-blur-md border-rose-400/40 shadow-[0_0_25px_rgba(251,113,133,0.3)]' : 'bg-[#0d1829]/80 border-white/5'}`}>
@@ -2266,15 +2309,22 @@ export function DashboardClient({ initialTickers, initialQuotes }: { initialTick
                 </div>
             </div>
 
-            {/* Mobile: Tabbed Content */}
-            <div className="lg:hidden flex-1 bg-[#0a0f1a] pb-4">
-                {mobileTab === 'chart' && <MainChartPanel />}
-                {mobileTab === 'list' && <WatchlistPanel />}
-                {mobileTab === 'signal' && <SignalFeedPanel />}
-            </div>
+            {/* Mobile: Vertical Stack Native Layout */}
+            <div className="lg:hidden flex-1 bg-[#0a0f1a] overflow-y-auto w-full pb-8">
+                <div className="flex flex-col">
+                    <MainChartPanel />
 
-            {/* Mobile Tab Bar */}
-            <MobileTabBar activeTab={mobileTab} setActiveTab={setMobileTab} />
+                    {/* Left Panel: Watchlist (Stacked) */}
+                    <div className="h-[400px] border-t border-white/10 mt-6 pt-1">
+                        <WatchlistPanel />
+                    </div>
+
+                    {/* Right Panel: Signal Feed (Stacked) */}
+                    <div className="h-[400px] border-t border-white/10 mt-6 pt-1">
+                        <SignalFeedPanel />
+                    </div>
+                </div>
+            </div>
         </div>
     );
 }

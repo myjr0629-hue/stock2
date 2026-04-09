@@ -1337,9 +1337,11 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
     return (
         <div className="w-full max-w-[1600px] mx-auto space-y-6">
 
-            {/* 1. TOP HEADER (2-Row Layout matching Flow page) - Sticky below main header */}
-            <div className="sticky top-[78px] z-30 bg-white/5 backdrop-blur-xl rounded-xl py-1 px-3 border border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.3)]" data-command-header>
-                <div className="flex items-stretch gap-3">
+            {/* 1. TOP HEADER (Mobile / Desktop Split) */}
+            <div className="sticky top-[58px] md:top-[78px] z-30 bg-[#0a0f1a]/90 md:bg-white/5 backdrop-blur-xl rounded-b-xl md:rounded-xl py-2 px-3 md:py-1 border-b border-white/10 md:border md:shadow-[0_8px_32px_rgba(0,0,0,0.3)] transition-all duration-300" data-command-header>
+                
+                {/* === DESKTOP HEADER (Restored untouched, hidden on mobile) === */}
+                <div className="hidden md:flex items-stretch gap-3">
                     {/* Left Column: Identity + Price */}
                     <div className="flex flex-col justify-center min-w-0 flex-1">
                         {/* Row 1: Identity */}
@@ -1523,48 +1525,76 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                     })()}
                 </div>
 
-                {/* Mobile Only: Price & Extended Row */}
-                {/* [Fix] ALWAYS use displayPrice = Intraday Close. No fallback to lastTrade. */}
-                <div className="flex flex-col gap-1 sm:hidden">
-                    <div className="flex items-baseline gap-2 flex-wrap">
-                        <div className={`text-2xl font-black tracking-tighter tabular-nums ${pf.color}`}
-                            style={pf.style}>
-                            ${displayPrice?.toFixed(2) || '—'}
+                {/* === MOBILE HEADER (Fully Native App Experience) === */}
+                <div className="flex flex-col gap-2.5 md:hidden w-full">
+                    {/* Row 1: Logo + Ticker + Context Scores */}
+                    <div className="flex items-center justify-between w-full">
+                        <div className="flex items-center gap-2">
+                            <div className="w-8 h-8 rounded-full overflow-hidden bg-white/10 flex items-center justify-center shrink-0">
+                                <img
+                                    src={`https://assets.parqet.com/logos/symbol/${ticker}?format=png`}
+                                    alt={`${ticker} logo`}
+                                    className="w-full h-full object-cover"
+                                    onError={(e) => {
+                                        (e.target as HTMLImageElement).style.display = 'none';
+                                        (e.target as HTMLImageElement).parentElement!.classList.add('hidden');
+                                    }}
+                                />
+                            </div>
+                            <div className="flex flex-col leading-tight -mt-0.5">
+                                <h1 className="text-xl font-black text-white tracking-tighter font-jakarta">{ticker}</h1>
+                                {/* Star hidden intentionally on mobile to save space, but functional */}
+                                <div className="hidden"><FavoriteToggle ticker={ticker} name={initialStockData.name} /></div>
+                            </div>
                         </div>
-                        <div className={`text-sm font-bold font-mono tracking-tighter ${displayChangePct >= 0 ? "text-emerald-500" : "text-rose-500"}`}>
-                            {displayChangePct > 0 ? "+" : ""}{displayChangePct?.toFixed(2)}%
+
+                        {/* Mobile HUD Injection */}
+                        <div className="flex items-center gap-1.5 shrink-0 scale-95 origin-right">
+                            {(() => {
+                                const liveSmartFlow = _swrQuote?.smartFlow ?? initialUnifiedData?.smartFlow ?? (ssrFallback as any)?.smartFlow ?? 0;
+                                const liveContextScore = _swrQuote?.alpha?.score ?? initialUnifiedData?.alpha?.score ?? (ssrFallback as any)?.alpha?.score ?? 0;
+                                const liveContextGrade = _swrQuote?.alpha?.grade ?? initialUnifiedData?.alpha?.grade ?? (ssrFallback as any)?.alpha?.grade ?? '';
+                                return <DualGaugeHUD contextScore={liveContextScore} contextGrade={liveContextGrade as any} smartFlow={liveSmartFlow} />;
+                            })()}
                         </div>
                     </div>
 
-                    {/* Extended Mobile */}
-                    {activeExtPrice > 0 && (
-                        <div className="flex items-center gap-2 px-3 py-1.5 rounded bg-slate-800/50 border border-slate-700/50 backdrop-blur-md w-fit shrink-0">
-                            <div className={`w-1.5 h-1.5 rounded-full ${activeExtType === 'PRE' ? 'bg-amber-500' : 'bg-indigo-500'} animate-pulse shrink-0`} />
-                            <div className="flex items-baseline gap-2">
-                                <span className={`text-[12px] font-black uppercase tracking-widest whitespace-nowrap font-jakarta ${activeExtType === 'PRE' ? 'text-amber-400' : 'text-indigo-400'}`}>
-                                    {activeExtType === 'PRE' ? 'Pre' : 'Post'}
-                                </span>
-                                <span className="text-sm font-bold text-slate-200 tabular-nums shrink-0">
-                                    ${activeExtPrice.toFixed(2)}
-                                </span>
-                                <span className={`text-xs font-mono font-bold whitespace-nowrap ${(activeExtPct || 0) >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
-                                    {(activeExtPct || 0) > 0 ? "+" : ""}{(activeExtPct || 0).toFixed(2)}%
-                                </span>
+                    {/* Row 2: Price + Ext Session */}
+                    <div className="flex items-end justify-between w-full">
+                        <div className="flex items-baseline gap-2 flex-wrap">
+                            <div className={`text-3xl font-black tracking-tighter tabular-nums leading-none ${pf.color}`} style={pf.style}>
+                                ${displayPrice?.toFixed(2) || '—'}
+                            </div>
+                            <div className={`text-base font-bold tabular-nums tracking-tighter ${displayChangePct >= 0 ? "text-emerald-500" : "text-rose-500"}`}>
+                                {displayChangePct > 0 ? "+" : ""}{displayChangePct?.toFixed(2)}%
                             </div>
                         </div>
-                    )}
+
+                        {/* Extended Mobile */}
+                        {activeExtPrice > 0 && (
+                            <div className="flex items-center gap-1.5 px-2 py-1 rounded bg-slate-800/80 border border-slate-700 backdrop-blur-md shrink-0">
+                                <div className={`w-1.5 h-1.5 rounded-full ${activeExtType.includes('PRE') ? 'bg-amber-500' : 'bg-indigo-500'} animate-pulse shrink-0`} />
+                                <span className={`text-[10px] font-black uppercase tracking-widest font-jakarta ${activeExtType.includes('PRE') ? 'text-amber-400' : 'text-indigo-400'}`}>
+                                    {activeExtType.includes('PRE') ? 'PRE' : 'POST'}
+                                </span>
+                                <span className="text-xs font-bold text-slate-200 tabular-nums">
+                                    ${activeExtPrice.toFixed(2)}
+                                </span>
+                            </div>
+                        )}
+                    </div>
                 </div>
             </div>
 
             {/* [PREMIUM-5x2] Quick Intel Gauges — 5 Columns × 2 Rows */}
             <div className="relative -mt-4 mb-3">
                 <div className="absolute inset-0 rounded-xl pointer-events-none" style={{ background: 'radial-gradient(ellipse at 20% 30%, rgba(99,102,241,0.08) 0%, transparent 50%), radial-gradient(ellipse at 80% 70%, rgba(16,185,129,0.06) 0%, transparent 50%), radial-gradient(ellipse at 50% 50%, rgba(139,92,246,0.04) 0%, transparent 60%)' }} />
-                <div className="relative grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-1.5">
+                <div className="relative flex overflow-x-auto snap-x snap-mandatory md:grid md:grid-cols-3 lg:grid-cols-5 gap-1.5 pb-2 md:pb-0 scrollbar-hide" style={{ WebkitOverflowScrolling: 'touch' }}>
 
                     {/* ═══ ROW 1: 실시간 / 당일 판단용 ═══ */}
 
                     {/* [1-1] VOLATILITY REGIME™ — PRO peek */}
-                    <ProGate title="Vol Regime" mode="peek" compact fomoTagline={tg('taglineVolRegime')} description={tg('descVolRegime')}>
+                    <ProGate title="Vol Regime" mode="peek" compact fomoTagline={tg('taglineVolRegime')} description={tg('descVolRegime')} className="w-[85vw] max-w-[280px] md:w-auto md:max-w-none md:min-w-0 snap-center shrink-0">
                         {(() => {
                             const r = effectiveVol;
                             const isHot = r?.regime === 'ERUPTING' || r?.regime === 'LOADED';
@@ -1603,7 +1633,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                     </ProGate>
 
                     {/* [1-2] CONVICTION MATRIX™ — PRO peek */}
-                    <ProGate title="Conviction Matrix" mode="peek" compact fomoTagline={tg('taglineConviction')} description={tg('descConviction')}>
+                    <ProGate title="Conviction Matrix" mode="peek" compact fomoTagline={tg('taglineConviction')} description={tg('descConviction')} className="w-[85vw] max-w-[280px] md:w-auto md:max-w-none md:min-w-0 snap-center shrink-0">
                         {(() => {
                             const isBull = conviction && conviction.score >= 60;
                             const isBear = conviction && conviction.score <= 40;
@@ -1640,7 +1670,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                         const vwapDiff = vwap > 0 && price > 0 ? ((price - vwap) / vwap) * 100 : 0;
                         const vwapDesc = vwapDiff > 2 ? td('vwapAbove') : vwapDiff < -2 ? td('vwapBelow') : td('vwapNear');
                         return (
-                            <div className={`relative overflow-hidden rounded-lg py-2 px-2.5 min-h-[120px] transition-all duration-500 backdrop-blur-xl border cursor-default hover:-translate-y-0.5 hover:brightness-110 hover:border-white/20 hover:shadow-[0_4px_20px_rgba(99,102,241,0.1)] ${vwapDiff > 2 ? 'bg-emerald-950/40 border-emerald-500/30 animate-card-breathe-bull' : vwapDiff < -2 ? 'bg-rose-950/40 border-rose-500/30 animate-card-breathe-bear' : 'bg-slate-800/40 border-slate-700/50'}`}>
+                            <div className={`relative overflow-hidden rounded-lg py-2 px-2.5 min-h-[120px] transition-all duration-500 backdrop-blur-xl border cursor-default hover:-translate-y-0.5 hover:brightness-110 hover:border-white/20 hover:shadow-[0_4px_20px_rgba(99,102,241,0.1)] w-[85vw] max-w-[280px] md:w-auto md:max-w-none md:min-w-0 snap-center shrink-0 ${vwapDiff > 2 ? 'bg-emerald-950/40 border-emerald-500/30 animate-card-breathe-bull' : vwapDiff < -2 ? 'bg-rose-950/40 border-rose-500/30 animate-card-breathe-bear' : 'bg-slate-800/40 border-slate-700/50'}`}>
                                 <div className="absolute inset-0 bg-gradient-to-br from-white/[0.06] via-transparent to-transparent pointer-events-none" />
                                 <div className="absolute inset-0 pointer-events-none opacity-[0.12]" style={{ backgroundImage: "repeating-linear-gradient(0deg, transparent, transparent 8px, rgba(255,255,255,0.3) 8px, rgba(255,255,255,0.3) 9px)" }} />
                                 <div className="relative z-10 flex items-center justify-between mb-1">
@@ -1666,7 +1696,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                     })()}
 
                     {/* [1-4] IV SKEW / SHORT SQUEEZE — conditional */}
-                    <ProGate title="IV Skew" mode="peek" compact fomoTagline={tg('taglineIVSkew')} description={tg('descIvSkew')}>
+                    <ProGate title="IV Skew" mode="peek" compact fomoTagline={tg('taglineIVSkew')} description={tg('descIvSkew')} className="w-[85vw] max-w-[280px] md:w-auto md:max-w-none md:min-w-0 snap-center shrink-0">
                         {(() => {
                             // Try to compute IV skew from ATM options slice
                             const atmSlice = options?.atmSlice || [];
@@ -1761,7 +1791,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                             const buyPct = total > 0 ? Math.round((buyCount / total) * 100) : 0;
                             const consensusKr = analystData?.consensus === 'STRONG BUY' ? td('analystStrongBuy') : analystData?.consensus === 'BUY' ? td('analystBuy') : analystData?.consensus === 'HOLD' ? td('analystHold') : analystData?.consensus === 'SELL' ? td('analystSell') : analystData?.consensus === 'STRONG SELL' ? td('analystStrongSell') : '...';
                             return (
-                                <div className={`relative overflow-hidden rounded-lg py-2 px-2.5 min-h-[120px] transition-all duration-500 backdrop-blur-xl border cursor-default hover:-translate-y-0.5 hover:brightness-110 hover:border-white/20 hover:shadow-[0_4px_20px_rgba(99,102,241,0.1)] ${isBullish ? 'bg-emerald-950/40 border-emerald-500/30 animate-card-breathe-bull' : isBearish ? 'bg-rose-950/40 border-rose-500/30 animate-card-breathe-bear' : 'bg-slate-800/40 border-slate-700/50'}`}>
+                                <div className={`relative overflow-hidden rounded-lg py-2 px-2.5 min-h-[120px] transition-all duration-500 backdrop-blur-xl border cursor-default hover:-translate-y-0.5 hover:brightness-110 hover:border-white/20 hover:shadow-[0_4px_20px_rgba(99,102,241,0.1)] w-[85vw] max-w-[280px] md:w-auto md:max-w-none md:min-w-0 snap-center shrink-0 ${isBullish ? 'bg-emerald-950/40 border-emerald-500/30 animate-card-breathe-bull' : isBearish ? 'bg-rose-950/40 border-rose-500/30 animate-card-breathe-bear' : 'bg-slate-800/40 border-slate-700/50'}`}>
                                     <div className="absolute inset-0 bg-gradient-to-br from-white/[0.06] via-transparent to-transparent pointer-events-none" />
                                     <div className="absolute inset-0 pointer-events-none opacity-[0.12]" style={{ backgroundImage: "radial-gradient(circle at 80% 50%, rgba(255,255,255,0.6) 0%, transparent 10%, transparent 18%, rgba(255,255,255,0.3) 19%, transparent 20%, transparent 30%, rgba(255,255,255,0.15) 31%, transparent 32%)" }} />
                                     <div className="relative z-10 flex items-center justify-between mb-1">
@@ -1810,7 +1840,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                     {/* ═══ ROW 2: 스윙 / 장기 판단용 ═══ */}
 
                     {/* [2-1] INSTITUTIONAL RADAR™ — PRO */}
-                    <ProGate title="Inst Radar" mode="blur" compact fomoTagline={tg('taglineInstRadar')} description={tg('descInstRadar')}>
+                    <ProGate title="Inst Radar" mode="blur" compact fomoTagline={tg('taglineInstRadar')} description={tg('descInstRadar')} className="min-w-[280px] md:min-w-0 snap-center shrink-0">
                         {(() => {
                             const dp = effectiveInst?.darkPool?.percent || 0;
                             const blockCount = effectiveInst?.blockTrade?.count || 0;
@@ -1857,7 +1887,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                             const s = effectiveSma;
                             const phase = s?.cross === 'GOLDEN' ? td('smaGolden') : s?.cross === 'DEAD' ? td('smaDead') : s?.label === 'ABOVE' ? td('smaAbove') : s?.label === 'BELOW' ? td('smaBelow') : '...';
                             return (
-                                <div className={`relative overflow-hidden rounded-lg py-2 px-2.5 min-h-[120px] transition-all duration-500 backdrop-blur-xl border cursor-default hover:-translate-y-0.5 hover:brightness-110 hover:border-white/20 hover:shadow-[0_4px_20px_rgba(99,102,241,0.1)] ${s?.cross === 'GOLDEN' ? 'bg-emerald-950/40 border-emerald-500/30 animate-card-breathe-bull' : s?.cross === 'DEAD' ? 'bg-rose-950/40 border-rose-500/30 animate-card-breathe-bear' : 'bg-slate-800/40 border-slate-700/50'}`}>
+                                <div className={`relative overflow-hidden rounded-lg py-2 px-2.5 min-h-[120px] transition-all duration-500 backdrop-blur-xl border cursor-default hover:-translate-y-0.5 hover:brightness-110 hover:border-white/20 hover:shadow-[0_4px_20px_rgba(99,102,241,0.1)] min-w-[280px] md:min-w-0 snap-center shrink-0 ${s?.cross === 'GOLDEN' ? 'bg-emerald-950/40 border-emerald-500/30 animate-card-breathe-bull' : s?.cross === 'DEAD' ? 'bg-rose-950/40 border-rose-500/30 animate-card-breathe-bear' : 'bg-slate-800/40 border-slate-700/50'}`}>
                                     <div className="absolute inset-0 bg-gradient-to-br from-white/[0.06] via-transparent to-transparent pointer-events-none" />
                                     <div className="absolute inset-0 pointer-events-none opacity-[0.12]" style={{ backgroundImage: "repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(255,255,255,0.2) 10px, rgba(255,255,255,0.2) 11px)" }} />
                                     <div className="relative z-10 flex items-center justify-between mb-1">
@@ -1901,7 +1931,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                             // Display raw values even when score is 0
                             const pe = f?.pe; const de = f?.de; const roe = f?.roe; const rev = f?.revenueGrowth; const margin = f?.netMargin;
                             return (
-                                <div className={`relative overflow-hidden rounded-lg py-2 px-2.5 min-h-[120px] transition-all duration-500 backdrop-blur-xl border cursor-default hover:-translate-y-0.5 hover:brightness-110 hover:border-white/20 hover:shadow-[0_4px_20px_rgba(99,102,241,0.1)] ${gradeBg}`}>
+                                <div className={`relative overflow-hidden rounded-lg py-2 px-2.5 min-h-[120px] transition-all duration-500 backdrop-blur-xl border cursor-default hover:-translate-y-0.5 hover:brightness-110 hover:border-white/20 hover:shadow-[0_4px_20px_rgba(99,102,241,0.1)] min-w-[280px] md:min-w-0 snap-center shrink-0 ${gradeBg}`}>
                                     <div className="absolute inset-0 bg-gradient-to-br from-white/[0.06] via-transparent to-transparent pointer-events-none" />
                                     <div className="absolute inset-0 pointer-events-none opacity-[0.15]" style={{ backgroundImage: "repeating-linear-gradient(90deg, transparent, transparent 12px, rgba(255,255,255,0.15) 12px, rgba(255,255,255,0.15) 14px, transparent 14px, transparent 16px), linear-gradient(0deg, rgba(255,255,255,0.2) 0%, transparent 40%)" }} />
                                     <div className="relative z-10 flex items-center justify-between mb-1">
@@ -1948,7 +1978,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                         const isImminent = isValidDays && daysNum >= 0 && daysNum <= 7;
                         const earnDesc = isValidDays ? (daysNum === 0 ? td('earnToday') : daysNum <= 3 ? td('earnImminent') : daysNum <= 14 ? `${daysNum}${td('earnDaysLater')}` : `${daysNum}${td('earnDaysAfter')}`) : '';
                         return (
-                            <div className={`relative overflow-hidden rounded-lg py-2 px-2.5 min-h-[120px] transition-all duration-500 backdrop-blur-xl border cursor-default hover:-translate-y-0.5 hover:brightness-110 hover:border-white/20 hover:shadow-[0_4px_20px_rgba(99,102,241,0.1)] ${isImminent ? 'bg-amber-950/40 border-amber-500/30 shadow-[0_0_12px_rgba(245,158,11,0.15)]' : 'bg-slate-800/40 border-slate-700/50'}`}>
+                            <div className={`relative overflow-hidden rounded-lg py-2 px-2.5 min-h-[120px] transition-all duration-500 backdrop-blur-xl border cursor-default hover:-translate-y-0.5 hover:brightness-110 hover:border-white/20 hover:shadow-[0_4px_20px_rgba(99,102,241,0.1)] min-w-[280px] md:min-w-0 snap-center shrink-0 ${isImminent ? 'bg-amber-950/40 border-amber-500/30 shadow-[0_0_12px_rgba(245,158,11,0.15)]' : 'bg-slate-800/40 border-slate-700/50'}`}>
                                 <div className="absolute inset-0 bg-gradient-to-br from-white/[0.06] via-transparent to-transparent pointer-events-none" />
                                 <div className="absolute inset-0 pointer-events-none opacity-[0.12]" style={{ backgroundImage: "repeating-linear-gradient(0deg, transparent, transparent 14px, rgba(255,255,255,0.2) 14px, rgba(255,255,255,0.2) 15px), repeating-linear-gradient(90deg, transparent, transparent 14px, rgba(255,255,255,0.2) 14px, rgba(255,255,255,0.2) 15px)" }} />
                                 <div className="relative z-10 flex items-center justify-between mb-1">
@@ -1979,7 +2009,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                     })()}
 
                     {/* [2-5] RELATED */}
-                    <div className="relative overflow-hidden rounded-lg py-2 px-2.5 min-h-[120px] transition-all duration-500 backdrop-blur-xl bg-slate-800/40 border border-slate-700/50 cursor-default hover:-translate-y-0.5 hover:brightness-110 hover:border-white/20 hover:shadow-[0_4px_20px_rgba(99,102,241,0.1)]">
+                    <div className="relative overflow-hidden rounded-lg py-2 px-2.5 min-h-[120px] transition-all duration-500 backdrop-blur-xl bg-slate-800/40 border border-slate-700/50 cursor-default hover:-translate-y-0.5 hover:brightness-110 hover:border-white/20 hover:shadow-[0_4px_20px_rgba(99,102,241,0.1)] min-w-[280px] md:min-w-0 snap-center shrink-0">
                         <div className="absolute inset-0 bg-gradient-to-br from-white/[0.06] via-transparent to-transparent pointer-events-none" />
                         <div className="absolute inset-0 pointer-events-none opacity-[0.12]" style={{ backgroundImage: "radial-gradient(circle, rgba(255,255,255,0.4) 1px, transparent 1px)", backgroundSize: "12px 12px" }} />
                         <div className="relative z-10 flex items-center justify-between mb-1">
@@ -2048,8 +2078,8 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                         {/* MAIN COLUMN (8 Cols) - Flex Structure */}
                         <div className="lg:col-span-8 flex flex-col items-stretch gap-3 h-full">
                             {/* A. Main Chart Section */}
-                            {/* A. Main Chart Section (Height: 580px) */}
-                            <div className="h-[580px] min-h-0 relative flex flex-col group shrink-0" data-command-chart>
+                            {/* A. Main Chart Section (Responsive Height) */}
+                            <div className="h-[360px] md:h-[580px] min-h-0 relative flex flex-col group shrink-0" data-command-chart>
                                 {/* Decorative Label (Absolute) */}
                                 <div className="absolute -top-3 left-4 px-2 py-0.5 bg-indigo-950/80 border border-indigo-500/30 rounded text-[12px] font-black text-indigo-300 uppercase tracking-widest z-20 backdrop-blur-md shadow-lg flex items-center gap-2 font-jakarta">
                                     <div className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse" /> <CardTooltip tooltip={COMMAND_TOOLTIPS.PRICE_HISTORY.tooltip}>Price History</CardTooltip>
@@ -2158,10 +2188,10 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                             {/* GEX Timeline ↔ Technical Levels Map — Toggle Section */}
                             <div className="shrink-0">
                                 {/* Tab Header */}
-                                <div className="flex items-center gap-1.5 mb-2">
+                                <div className="flex items-center gap-1.5 mb-2 overflow-x-auto scrollbar-hide pb-1" style={{ WebkitOverflowScrolling: 'touch' }}>
                                     <button
                                         onClick={() => setActiveInsightTab('gex')}
-                                        className={`px-3 py-1.5 rounded-lg text-[12px] font-black uppercase tracking-wider transition-all duration-200 font-jakarta flex items-center gap-1.5 ${
+                                        className={`shrink-0 px-3 py-1.5 rounded-lg text-[12px] font-black uppercase tracking-wider transition-all duration-200 font-jakarta flex items-center gap-1.5 ${
                                             activeInsightTab === 'gex'
                                                 ? 'bg-indigo-500/20 text-white border border-indigo-500/40 shadow-[0_0_10px_rgba(99,102,241,0.15)]'
                                                 : 'bg-slate-800/40 text-slate-400 border border-slate-700/30 hover:text-slate-300 hover:border-slate-600/50'
@@ -2172,7 +2202,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                     </button>
                                     <button
                                         onClick={() => setActiveInsightTab('levels')}
-                                        className={`px-3 py-1.5 rounded-lg text-[12px] font-black uppercase tracking-wider transition-all duration-200 font-jakarta flex items-center gap-1.5 ${
+                                        className={`shrink-0 px-3 py-1.5 rounded-lg text-[12px] font-black uppercase tracking-wider transition-all duration-200 font-jakarta flex items-center gap-1.5 ${
                                             activeInsightTab === 'levels'
                                                 ? 'bg-indigo-500/20 text-white border border-indigo-500/40 shadow-[0_0_10px_rgba(99,102,241,0.15)]'
                                                 : 'bg-slate-800/40 text-slate-400 border border-slate-700/30 hover:text-slate-300 hover:border-slate-600/50'
@@ -2183,7 +2213,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                     </button>
                                     <button
                                         onClick={() => setActiveInsightTab('ivskew')}
-                                        className={`px-3 py-1.5 rounded-lg text-[12px] font-black uppercase tracking-wider transition-all duration-200 font-jakarta flex items-center gap-1.5 ${
+                                        className={`shrink-0 px-3 py-1.5 rounded-lg text-[12px] font-black uppercase tracking-wider transition-all duration-200 font-jakarta flex items-center gap-1.5 ${
                                             activeInsightTab === 'ivskew'
                                                 ? 'bg-indigo-500/20 text-white border border-indigo-500/40 shadow-[0_0_10px_rgba(99,102,241,0.15)]'
                                                 : 'bg-slate-800/40 text-slate-400 border border-slate-700/30 hover:text-slate-300 hover:border-slate-600/50'
@@ -2707,7 +2737,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                 </div>
 
 
-                            <div className="hidden">
+                            <div className="space-y-4 mt-4">
                                 {/* Gamma Structure */}
                                 <div className="space-y-2">
                                     <div className="flex items-center justify-between px-1">
@@ -2806,7 +2836,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                         </div>
 
                         {/* SIDEBAR (4 Cols) - Glass Stack */}
-                        <div className="lg:col-span-4 flex flex-col gap-3 h-full overflow-hidden" data-command-sidebar>
+                        <div className="lg:col-span-4 flex flex-col gap-3 h-full" data-command-sidebar>
 
                             {/* 1. AI Deep Analysis — Claude Sonnet 4 (HERO Position) — PRO */}
                             <ProGate title="AI Deep Analysis" mode="blur" fomoMessage="AI Deep Technical · Options Positioning · News & Market Context" fomoTagline={tg('taglineAIDeep')} description={tg('descAiDeep')}>
