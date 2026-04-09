@@ -1840,7 +1840,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                     {/* ═══ ROW 2: 스윙 / 장기 판단용 ═══ */}
 
                     {/* [2-1] INSTITUTIONAL RADAR™ — PRO */}
-                    <ProGate title="Inst Radar" mode="blur" compact fomoTagline={tg('taglineInstRadar')} description={tg('descInstRadar')} className="min-w-[280px] md:min-w-0 snap-center shrink-0">
+                    <ProGate title="Inst Radar" mode="blur" compact fomoTagline={tg('taglineInstRadar')} description={tg('descInstRadar')} className="w-[85vw] max-w-[280px] md:w-auto md:max-w-none md:min-w-0 snap-center shrink-0">
                         {(() => {
                             const dp = effectiveInst?.darkPool?.percent || 0;
                             const blockCount = effectiveInst?.blockTrade?.count || 0;
@@ -1887,7 +1887,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                             const s = effectiveSma;
                             const phase = s?.cross === 'GOLDEN' ? td('smaGolden') : s?.cross === 'DEAD' ? td('smaDead') : s?.label === 'ABOVE' ? td('smaAbove') : s?.label === 'BELOW' ? td('smaBelow') : '...';
                             return (
-                                <div className={`relative overflow-hidden rounded-lg py-2 px-2.5 min-h-[120px] transition-all duration-500 backdrop-blur-xl border cursor-default hover:-translate-y-0.5 hover:brightness-110 hover:border-white/20 hover:shadow-[0_4px_20px_rgba(99,102,241,0.1)] min-w-[280px] md:min-w-0 snap-center shrink-0 ${s?.cross === 'GOLDEN' ? 'bg-emerald-950/40 border-emerald-500/30 animate-card-breathe-bull' : s?.cross === 'DEAD' ? 'bg-rose-950/40 border-rose-500/30 animate-card-breathe-bear' : 'bg-slate-800/40 border-slate-700/50'}`}>
+                                <div className={`relative overflow-hidden rounded-lg py-2 px-2.5 min-h-[120px] transition-all duration-500 backdrop-blur-xl border cursor-default hover:-translate-y-0.5 hover:brightness-110 hover:border-white/20 hover:shadow-[0_4px_20px_rgba(99,102,241,0.1)] w-[85vw] max-w-[280px] md:w-auto md:max-w-none md:min-w-0 snap-center shrink-0 ${s?.cross === 'GOLDEN' ? 'bg-emerald-950/40 border-emerald-500/30 animate-card-breathe-bull' : s?.cross === 'DEAD' ? 'bg-rose-950/40 border-rose-500/30 animate-card-breathe-bear' : 'bg-slate-800/40 border-slate-700/50'}`}>
                                     <div className="absolute inset-0 bg-gradient-to-br from-white/[0.06] via-transparent to-transparent pointer-events-none" />
                                     <div className="absolute inset-0 pointer-events-none opacity-[0.12]" style={{ backgroundImage: "repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(255,255,255,0.2) 10px, rgba(255,255,255,0.2) 11px)" }} />
                                     <div className="relative z-10 flex items-center justify-between mb-1">
@@ -1931,7 +1931,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                             // Display raw values even when score is 0
                             const pe = f?.pe; const de = f?.de; const roe = f?.roe; const rev = f?.revenueGrowth; const margin = f?.netMargin;
                             return (
-                                <div className={`relative overflow-hidden rounded-lg py-2 px-2.5 min-h-[120px] transition-all duration-500 backdrop-blur-xl border cursor-default hover:-translate-y-0.5 hover:brightness-110 hover:border-white/20 hover:shadow-[0_4px_20px_rgba(99,102,241,0.1)] min-w-[280px] md:min-w-0 snap-center shrink-0 ${gradeBg}`}>
+                                <div className={`relative overflow-hidden rounded-lg py-2 px-2.5 min-h-[120px] transition-all duration-500 backdrop-blur-xl border cursor-default hover:-translate-y-0.5 hover:brightness-110 hover:border-white/20 hover:shadow-[0_4px_20px_rgba(99,102,241,0.1)] w-[85vw] max-w-[280px] md:w-auto md:max-w-none md:min-w-0 snap-center shrink-0 ${gradeBg}`}>
                                     <div className="absolute inset-0 bg-gradient-to-br from-white/[0.06] via-transparent to-transparent pointer-events-none" />
                                     <div className="absolute inset-0 pointer-events-none opacity-[0.15]" style={{ backgroundImage: "repeating-linear-gradient(90deg, transparent, transparent 12px, rgba(255,255,255,0.15) 12px, rgba(255,255,255,0.15) 14px, transparent 14px, transparent 16px), linear-gradient(0deg, rgba(255,255,255,0.2) 0%, transparent 40%)" }} />
                                     <div className="relative z-10 flex items-center justify-between mb-1">
@@ -1978,7 +1978,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                         const isImminent = isValidDays && daysNum >= 0 && daysNum <= 7;
                         const earnDesc = isValidDays ? (daysNum === 0 ? td('earnToday') : daysNum <= 3 ? td('earnImminent') : daysNum <= 14 ? `${daysNum}${td('earnDaysLater')}` : `${daysNum}${td('earnDaysAfter')}`) : '';
                         return (
-                            <div className={`relative overflow-hidden rounded-lg py-2 px-2.5 min-h-[120px] transition-all duration-500 backdrop-blur-xl border cursor-default hover:-translate-y-0.5 hover:brightness-110 hover:border-white/20 hover:shadow-[0_4px_20px_rgba(99,102,241,0.1)] min-w-[280px] md:min-w-0 snap-center shrink-0 ${isImminent ? 'bg-amber-950/40 border-amber-500/30 shadow-[0_0_12px_rgba(245,158,11,0.15)]' : 'bg-slate-800/40 border-slate-700/50'}`}>
+                            <div className={`relative overflow-hidden rounded-lg py-2 px-2.5 min-h-[120px] transition-all duration-500 backdrop-blur-xl border cursor-default hover:-translate-y-0.5 hover:brightness-110 hover:border-white/20 hover:shadow-[0_4px_20px_rgba(99,102,241,0.1)] w-[85vw] max-w-[280px] md:w-auto md:max-w-none md:min-w-0 snap-center shrink-0 ${isImminent ? 'bg-amber-950/40 border-amber-500/30 shadow-[0_0_12px_rgba(245,158,11,0.15)]' : 'bg-slate-800/40 border-slate-700/50'}`}>
                                 <div className="absolute inset-0 bg-gradient-to-br from-white/[0.06] via-transparent to-transparent pointer-events-none" />
                                 <div className="absolute inset-0 pointer-events-none opacity-[0.12]" style={{ backgroundImage: "repeating-linear-gradient(0deg, transparent, transparent 14px, rgba(255,255,255,0.2) 14px, rgba(255,255,255,0.2) 15px), repeating-linear-gradient(90deg, transparent, transparent 14px, rgba(255,255,255,0.2) 14px, rgba(255,255,255,0.2) 15px)" }} />
                                 <div className="relative z-10 flex items-center justify-between mb-1">
@@ -2009,7 +2009,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                     })()}
 
                     {/* [2-5] RELATED */}
-                    <div className="relative overflow-hidden rounded-lg py-2 px-2.5 min-h-[120px] transition-all duration-500 backdrop-blur-xl bg-slate-800/40 border border-slate-700/50 cursor-default hover:-translate-y-0.5 hover:brightness-110 hover:border-white/20 hover:shadow-[0_4px_20px_rgba(99,102,241,0.1)] min-w-[280px] md:min-w-0 snap-center shrink-0">
+                    <div className="relative overflow-hidden rounded-lg py-2 px-2.5 min-h-[120px] transition-all duration-500 backdrop-blur-xl bg-slate-800/40 border border-slate-700/50 cursor-default hover:-translate-y-0.5 hover:brightness-110 hover:border-white/20 hover:shadow-[0_4px_20px_rgba(99,102,241,0.1)] w-[85vw] max-w-[280px] md:w-auto md:max-w-none md:min-w-0 snap-center shrink-0">
                         <div className="absolute inset-0 bg-gradient-to-br from-white/[0.06] via-transparent to-transparent pointer-events-none" />
                         <div className="absolute inset-0 pointer-events-none opacity-[0.12]" style={{ backgroundImage: "radial-gradient(circle, rgba(255,255,255,0.4) 1px, transparent 1px)", backgroundSize: "12px 12px" }} />
                         <div className="relative z-10 flex items-center justify-between mb-1">
@@ -2290,7 +2290,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                             </div>
                                         )}
                                         {/* Header */}
-                                        <div className="p-3 border-b border-white/5 flex items-center justify-between bg-white/5">
+                                        <div className="p-3 border-b border-white/5 flex flex-col md:flex-row md:items-center justify-between gap-2 bg-white/5">
                                             <div className="flex items-center gap-2">
                                                 <h4 className="text-xs font-black text-white uppercase tracking-widest flex items-center gap-2">
                                                     <div className="w-1.5 h-1.5 bg-indigo-500 rounded-sm animate-pulse" />
@@ -2307,13 +2307,13 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                                     ) : null;
                                                 })()}
                                             </div>
-                                            <div className="flex items-center gap-2">
-                                                <span className="text-xs font-black text-amber-500 bg-amber-950/40 px-2 py-1 rounded border border-amber-500/30 flex items-center gap-2 shadow-lg">
-                                                    <span className="text-[12px] font-black tracking-tighter font-jakarta">MAX PAIN</span>
-                                                    <span className="text-[12px] text-amber-300/70 font-medium uppercase tracking-tighter">({t('maxPainLabel')})</span>
+                                            <div className="flex items-center gap-1.5 flex-wrap">
+                                                <span className="text-xs font-black text-amber-500 bg-amber-950/40 px-2 py-1 rounded border border-amber-500/30 flex items-center gap-1.5 shadow-lg flex-wrap">
+                                                    <span className="text-[12px] font-black tracking-tighter font-jakarta whitespace-nowrap">MAX PAIN</span>
+                                                    <span className="text-[11px] text-amber-300/70 font-medium uppercase tracking-tighter hidden sm:inline">({t('maxPainLabel')})</span>
                                                     <span className="text-sm font-black pl-1 border-l border-amber-500/20">${structure?.maxPain || initialStockData.flow?.maxPain || "---"}</span>
                                                     {(structure?.maxPain || initialStockData.flow?.maxPain) && (
-                                                        <span className={`text-[12px] font-bold ml-1 font-jakarta ${((displayPrice - (structure?.maxPain || initialStockData.flow?.maxPain)) / (structure?.maxPain || initialStockData.flow?.maxPain)) > 0 ? "text-emerald-400" : "text-rose-400"}`}>
+                                                        <span className={`text-[12px] font-bold ml-0.5 font-jakarta ${((displayPrice - (structure?.maxPain || initialStockData.flow?.maxPain)) / (structure?.maxPain || initialStockData.flow?.maxPain)) > 0 ? "text-emerald-400" : "text-rose-400"}`}>
                                                             ({((displayPrice - (structure?.maxPain || initialStockData.flow?.maxPain)) / (structure?.maxPain || initialStockData.flow?.maxPain) * 100).toFixed(1)}%)
                                                         </span>
                                                     )}
@@ -2454,10 +2454,10 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                         {/* Main Content - Infographic Layout */}
                                         <div className="flex-1 p-3 flex flex-col gap-2 overflow-hidden">
                                             {/* Top Row: Core GEX + Status + P/C OI Circle */}
-                                            <div className="flex items-center justify-between gap-3">
+                                            <div className="flex items-center justify-between gap-1.5 md:gap-3">
                                                 {/* Left: Reactor Core (GEX Only) */}
                                                 <div className="relative shrink-0">
-                                                    <div className={`w-20 h-20 rounded-full border-4 border-dashed ${structure?.netGex > 0 ? "border-emerald-500/40 shadow-[0_0_15px_rgba(16,185,129,0.5)]" : "border-rose-500/40 shadow-[0_0_15px_rgba(244,63,94,0.5)]"} flex items-center justify-center animate-[spin_10s_linear_infinite]`} />
+                                                    <div className={`w-16 h-16 md:w-20 md:h-20 rounded-full border-4 border-dashed ${structure?.netGex > 0 ? "border-emerald-500/40 shadow-[0_0_15px_rgba(16,185,129,0.5)]" : "border-rose-500/40 shadow-[0_0_15px_rgba(244,63,94,0.5)]"} flex items-center justify-center animate-[spin_10s_linear_infinite]`} />
                                                     <div className={`absolute inset-2 rounded-full bg-slate-900/95 flex flex-col items-center justify-center border ${structure?.netGex > 0 ? "border-emerald-500/50" : "border-rose-500/50"}`}>
                                                         <div className="text-[12px] text-slate-400 uppercase font-bold font-jakarta">NET GEX</div>
                                                         <div className={`text-lg font-black ${structure?.netGex > 0 ? "text-emerald-300" : "text-rose-300"}`}>
@@ -2480,7 +2480,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
 
                                                 {/* Right: P/C & OI Circle (White Dashed) */}
                                                 <div className="relative shrink-0">
-                                                    <div className="w-20 h-20 rounded-full border-2 border-dashed border-white/30 flex items-center justify-center" />
+                                                    <div className="w-16 h-16 md:w-20 md:h-20 rounded-full border-2 border-dashed border-white/30 flex items-center justify-center" />
                                                     <div className="absolute inset-1 rounded-full bg-slate-900/80 flex flex-col items-center justify-center">
                                                         {(() => {
                                                             const callsTotal = structure?.structure?.callsOI?.reduce((a: number, b: number) => a + (b || 0), 0) || 0;
@@ -2492,10 +2492,10 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                                             const pcrColor = pcr > 1.2 ? "text-rose-400" : pcr < 0.8 ? "text-emerald-400" : "text-white";
                                                             return (
                                                                 <>
-                                                                    <div className="text-[12px] text-white/90 uppercase font-bold font-jakarta">P/C Ratio</div>
-                                                                    <div className={`text-sm font-black ${pcrColor}`}>{pcr.toFixed(2)}</div>
-                                                                    <div className="text-[12px] text-white/90 uppercase font-bold font-jakarta mt-1">Total OI</div>
-                                                                    <div className="text-sm font-black text-indigo-300">{oiFormatted}</div>
+                                                                    <div className="text-[10px] md:text-[12px] text-white/90 uppercase font-bold font-jakarta">P/C Ratio</div>
+                                                                    <div className={`text-xs md:text-sm font-black ${pcrColor}`}>{pcr.toFixed(2)}</div>
+                                                                    <div className="text-[10px] md:text-[12px] text-white/90 uppercase font-bold font-jakarta md:mt-1 hidden md:block">Total OI</div>
+                                                                    <div className="text-xs md:text-sm font-black text-indigo-300 hidden md:block">{oiFormatted}</div>
                                                                 </>
                                                             );
                                                         })()}
