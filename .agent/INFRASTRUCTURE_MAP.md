@@ -54,10 +54,10 @@
 ```
 
 ### 핵심 원칙
-- **Lambda가 유일한 데이터 생산자** — 모든 계산 수행, 3곳에 동시 저장
-- **Vercel은 읽기 전용** — Redis/DynamoDB에서 읽기만 (데이터 계산 없음)
+- **Lambda (Data Gatherer)** — 원시 데이터(Raw Data)를 수집하여 Redis/DynamoDB에 임시 저장하는 수집꾼 역할.
+- **Vercel (Main Brain / SSOT)** — 읽기 전용이 아님! Lambda가 모은 데이터를 V4.6 알파 엔진으로 재계산 후 **Redis 및 DynamoDB 히스토리(SSR_V46)에 강제 역-주입(Write-Back)**하여 데이터를 무결점 해상도로 업그레이드함 (2026-04-09 SSOT FIX).
 - **⚠️ 있으면 캐시, 없으면 실데이터** — 캐시에 null이면 Polygon/FINRA에서 직접 가져옴. 캐시에만 의존하여 빈 카드 방치 금지 (2026-04-08 ROOT FIX)
-- **⚠️ Lambda ↔ Vercel 구조 일치 필수** — Lambda가 저장하는 필드와 Vercel이 읽는 필드는 반드시 1:1 일치. 한쪽만 수정 시 데이터 불일치 발생. Lambda 수정 시 반드시 Vercel 읽기 측 확인 필수
+- **⚠️ Lambda ↔ Vercel 구조 일치 필수** — Lambda가 저장하는 필드와 Vercel이 읽는 필드는 반드시 1:1 일치. 단, Vercel이 계산 가능한 지표(Context Score)는 Vercel이 최종 권한을 가짐.
 - **Fundamentals 보존**: score=null이면 DynamoDB 이전 데이터 보존 (한번 성공한 데이터 절대 안 비어짐) — analyst/earnings/related도 동일
 - **warm-analysis, warm-command, morning-briefing cron: 삭제 완료** (2026-04-04)
 - **Flow 페이지**: Lambda Raw Cache → Vercel 계산 (2계층 캐시), 35 DTE 제한
