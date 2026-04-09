@@ -715,19 +715,18 @@ export async function GET(request: NextRequest) {
             }, 200);
         }
 
-        // ── Non-universe ticker: AWS Lambda cold-start ──
-        // Strategy: Try DynamoDB first (Lambda may have already saved it from a previous request)
-        // If not found: fire-and-forget Lambda invoke + return "preparing" immediately
-        console.log(`[Command Unified] 🌐 Non-universe cold-start for ${ticker} — AWS Lambda on-demand`);
+        // ── Non-universe ticker: Vercel Direct Live Fetch (BFF Pattern) ──
+        console.log(`[Command Unified] 🌐 Non-universe cold-start for ${ticker} — Vercel Direct Fetch`);
         try {
-            // Step 1: Check if Lambda already saved data from a previous request
-            const { getUnifiedCache } = await import('@/lib/aws/unifiedCacheProvider');
+            const { getUnifiedCache, putUnifiedCache } = await import('@/lib/aws/unifiedCacheProvider');
+            
+            // Step 1: Check if DynamoDB already has it from previous access
             const existingDynData = await getUnifiedCache(ticker, locale);
             if (existingDynData) {
                 const cacheData = (existingDynData as any).data || existingDynData;
                 await setInCache(dataCacheKey, cacheData, getSmartTTL());
                 memorySet(memKey, cacheData);
-                console.log(`[Command Unified] ✅ Cold-start HIT from previous Lambda run for ${ticker}`);
+                console.log(`[Command Unified] ✅ Cold-start HIT from previous DynamoDB record for ${ticker}`);
                 await injectAlphaBypass(cacheData, ticker);
                 return jsonResponse({
                     ...cacheData,
@@ -741,53 +740,114 @@ export async function GET(request: NextRequest) {
                 });
             }
 
-            // Step 2: Fire-and-forget Lambda invoke (async — no waiting for result)
-            // [DEDUPE] Prevent duplicate Lambda invocations for the same ticker
-            // Uses Redis pending marker with 90s TTL — if already dispatched, skip
-            const pendingKey = `pending:cold:${ticker}`;
-            const alreadyPending = await getFromCache<string>(pendingKey).catch(() => null);
-            if (alreadyPending) {
-                console.log(`[Command Unified] ⏳ Lambda already dispatched for ${ticker} (${alreadyPending}) — skipping duplicate`);
+            // Step 2: DIRECT LIVE FETCH (Parallel Aggregation)
+            console.log(`[Command Unified] ⚡ Executing live parallel fetch for ${ticker}...`);
+            const bUrl = getBaseUrl(request);
+            const gapFills: Promise<any>[] = [];
+            const gapNames: string[] = [];
+
+            // All core endpoints required for initial render
+            gapFills.push(callInternalGet(getAnalyst, `${bUrl}/api/live/analyst?t=${ticker}`)); gapNames.push('analyst');
+            gapFills.push(callInternalGet(getFundamentals, `${bUrl}/api/live/fundamentals?t=${ticker}`)); gapNames.push('fundamentals');
+            gapFills.push(callInternalGet(getEarnings, `${bUrl}/api/live/earnings?t=${ticker}`)); gapNames.push('earnings');
+            gapFills.push(callInternalGet(getRelated, `${bUrl}/api/live/related?t=${ticker}`)); gapNames.push('related');
+            gapFills.push(callInternalGet(getSma, `${bUrl}/api/live/sma?t=${ticker}`)); gapNames.push('sma');
+            gapFills.push(callInternalGet(getSqueeze, `${bUrl}/api/live/short-squeeze?t=${ticker}`)); gapNames.push('squeeze');
+            gapFills.push(callInternalGet(getInstitutional, `${bUrl}/api/flow/realtime-metrics?ticker=${ticker}`)); gapNames.push('institutional');
+            
+            // Structure & Volatility: DynamoDB GEX is unlikely for non-universe, but we check. If missing, live Polygon.
+            const dynamoVol = await getVolatilityFromDynamoGex(ticker);
+            if (dynamoVol) {
+                gapFills.push(Promise.resolve(dynamoVol)); gapNames.push('volatility');
             } else {
-                const { LambdaClient, InvokeCommand } = await import('@aws-sdk/client-lambda');
-                const awsAccessKeyId = process.env.AWS_ACCESS_KEY_ID;
-                const awsSecretAccessKey = process.env.AWS_SECRET_ACCESS_KEY;
-                if (awsAccessKeyId && awsSecretAccessKey) {
-                    // Set pending marker BEFORE dispatch to prevent race condition
-                    await setInCache(pendingKey, new Date().toISOString(), 90); // 90s TTL
-                    const lambdaClient = new LambdaClient({ 
-                        region: 'us-east-1',
-                        credentials: { accessKeyId: awsAccessKeyId, secretAccessKey: awsSecretAccessKey },
-                    });
-                    // Event = async fire-and-forget — Lambda runs in background, no timeout risk
-                    await lambdaClient.send(new InvokeCommand({
-                        FunctionName: 'signum-harvest',
-                        InvocationType: 'Event', // ASYNC — returns 202 immediately
-                        Payload: JSON.stringify({ onDemandTicker: ticker }),
-                    }));
-                    console.log(`[Command Unified] 🚀 Lambda async invoke dispatched for ${ticker} — data will be in DynamoDB in ~60s`);
+                gapFills.push(callInternalGet(getVolatility, `${bUrl}/api/live/volatility-regime?t=${ticker}`)); gapNames.push('volatility');
+            }
+
+            const dynamoStruct = await getStructureFromDynamoGex(ticker);
+            if (dynamoStruct) {
+                gapFills.push(Promise.resolve(dynamoStruct)); gapNames.push('structure');
+            } else {
+                gapFills.push(callInternalGet(getStructure, `${bUrl}/api/live/options/structure?t=${ticker}`)); gapNames.push('structure');
+            }
+
+            // Language specific overview
+            gapFills.push(callInternalGet(getOverview, `${bUrl}/api/live/overview?t=${ticker}&lang=${locale}`)); gapNames.push('overview');
+
+            // Wait for all fetchers (limited by INTERNAL_CALL_TIMEOUT_MS)
+            const gapResults = await Promise.all(gapFills);
+
+            // Assemble Unified Data
+            const freshData: any = {};
+            let freshOverview = null;
+
+            for (let gi = 0; gi < gapNames.length; gi++) {
+                const name = gapNames[gi];
+                const result = gapResults[gi];
+                if (result) {
+                    if (name === 'overview') {
+                        freshOverview = result;
+                    } else {
+                        // Stamp volatile fields to ensure they refresh properly later
+                        if (['squeeze', 'institutional', 'volatility'].includes(name)) {
+                            result._ts = Date.now();
+                        }
+                        freshData[name] = result;
+                    }
                 }
             }
-        } catch (e) {
-            console.error(`[Command Unified] Lambda cold-start error for ${ticker}:`, e);
-        }
 
-        // Cold-start failed — return unavailable
-        console.warn(`[Command Unified] ⚠️ Cold-start FAILED for ${ticker} — returning unavailable`);
-        return jsonResponse({
-            _source: 'unavailable',
-            _cacheStatus: 'cold-start-failed',
-            _asOf: new Date().toISOString(),
-            _ageSec: 0,
-            _isStale: false,
-            _isPartial: true,
-            _latency: Date.now() - start,
-            _message: `Data for ${ticker} is temporarily unavailable. Please retry shortly.`,
-            structure: null, options: null, earnings: null, sma: null,
-            related: null, analyst: null, volatility: null, squeeze: null,
-            institutional: null, fundamentals: null, overview: null, history: null,
-            timestamp: Date.now(),
-        }, 200);
+            // Fallback for empty/partial fetches
+            freshData.timestamp = Date.now();
+            
+            // Cross-reference injection
+            if (freshData.structure && !freshData.structure.atmIV && freshData.volatility?.iv > 0) {
+                freshData.structure = { ...freshData.structure, atmIV: freshData.volatility.iv / 100 };
+            }
+
+            // Persist to all 3 Cache Layers (Memory, Redis, DynamoDB) so future users get 5ms response
+            memorySet(memKey, freshData);
+            setInCache(dataCacheKey, freshData, getSmartTTL()).catch(() => {});
+            if (freshOverview) {
+                memorySet(`overview:${ticker}:${locale}`, freshOverview);
+                setInCache(overviewCacheKey, freshOverview, getSmartTTL()).catch(() => {});
+            }
+            
+            // Background permanent persist to DynamoDB
+            putUnifiedCache(ticker, locale, { ...freshData, overview: freshOverview }).catch((e) => console.error('[Command Unified] putUnifiedCache error:', e));
+
+            await enrichExpiration(freshData);
+            await injectAlphaBypass(freshData, ticker);
+
+            console.log(`[Command Unified] 🚀 Direct Fetch completed for ${ticker} in ${Date.now() - start}ms`);
+            
+            return jsonResponse({
+                ...freshData,
+                overview: freshOverview,
+                _source: 'live-direct',
+                _asOf: new Date().toISOString(),
+                _ageSec: 0,
+                _isStale: false,
+                _isPartial: false,
+                _latency: Date.now() - start,
+            });
+
+        } catch (e) {
+            console.error(`[Command Unified] Vercel cold-start error for ${ticker}:`, e);
+            return jsonResponse({
+                _source: 'unavailable',
+                _cacheStatus: 'live-direct-failed',
+                _asOf: new Date().toISOString(),
+                _ageSec: 0,
+                _isStale: false,
+                _isPartial: true,
+                _latency: Date.now() - start,
+                _message: `Data for ${ticker} fetch failed. Please retry.`,
+                structure: null, options: null, earnings: null, sma: null,
+                related: null, analyst: null, volatility: null, squeeze: null,
+                institutional: null, fundamentals: null, overview: null, history: null,
+                timestamp: Date.now(),
+            }, 200);
+        }
 
     } catch (error: any) {
         console.error('[Command Unified] API Error:', error);

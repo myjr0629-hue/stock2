@@ -761,6 +761,11 @@ bash scripts/ec2-deploy-guardian.sh
   - 마우스 호버 시 우측의 `GUIDE` 버튼과 디자인 언어를 통일시킨 사이언(Cyan) 네온 테두리 박스 글래스모피즘 효과(`hover:border-cyan-400/40 hover:bg-cyan-950/30`)를 적용해 클릭을 유도.
   - 클릭 시 즉각 전체 종목 설명이 플로팅 박스로 나타나는 Bloomberg 스타일 `Popover` 로직 완벽 복원.
 - **수술 3 (치명적 의존성 버그 파괴)**: 기존 구조에서 DB 상에 종목 설명 데이터가 비어있을 경우, 우측의 핵심 지표인 `CONTEXT SCORE`, `SMART FLOW` 게이지까지 통째로 화면에서 증발해버리던 잠수함 버그를 적발. 어떠한 상황에서도 게이지는 무조건 독립적으로 렌더링되도록 완전히 분리 완료.
+### [2026-04-09] AI Deep Analysis 프롬프트 엔진 고도화 완료
+- **결과**: COMMAND 페이지 최상단 핵심 게이지 지표인 `Context Score` 와 `Smart Flow`를 AI 분석 리포트에 통합.
+- **프론트엔드**: `AIDeepAnalysis` 컴포넌트 호출 시 주입되는 `snapshot` 데이터셋에 해당 두 스코어 값을 맵핑하여 백엔드 송출.
+- **백엔드**: `/api/command/deep-analysis/route.ts` 내 XML 프롬프트 영역에 `<high_level_gauges>` 요소 생성 및 주입.
+- **프롬프트 튜닝**: 두 스코어가 리포트 전체를 호도하지 않도록 `Technical Structure Analysis` 와 `Options Positioning` 측면에 "단순 강력한 보조 증거(Supporting Evidence)"로써 자연스럽게 스며들도록 `<critical_rules>` 전면 수정 완료 (뉴스 보존).
 
 ### [2026-04-09] PRE/POST 시간외 가격 웹소켓 미연동 원인 분석 및 UX 착시 현상 규명
 - **이슈**: 대시보드는 PRE/POST 가격이 실시간으로 업데이트되는 반면, COMMAND 페이지는 5초 갱신으로 느리게 체감되는 현상.
