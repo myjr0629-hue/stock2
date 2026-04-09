@@ -1,0 +1,51 @@
+{"currentState": {
+    "ko": "NVDA는 골든크로스 형성과 함께 기술적 전환점에 위치하나, 네거티브 감마 환경에서 변동성 위험 잠재",
+    "en": "NVDA sits at a technical inflection point with golden cross formation, but faces volatility risks in negative gamma environment",
+    "ja": "NVDAはゴールデンクロス形成により技術的転換点に位置するが、ネガティブガンマ環境での変動性リスクが潜在"
+  },
+  "sections": [
+    {
+      "title": {
+        "ko": "기술적 구조 분석",
+        "en": "Technical Structure Analysis",
+        "ja": "テクニカル構造分析"
+      },
+      "content": {
+        "ko": "50일선(182.23)이 200일선(180.34)을 상향 돌파하며 골든크로스가 완성되었으나, 현재가 182.08은 50일선 하단에 위치해 크로스 직후 매물 출회를 시사한다. VWAP 182.26 대비 0.10% 디스카운트는 단기 매수세 부족을 반영하며, 66점의 견고한 컨텍스트 스코어가 중장기 모멘텀 지속 가능성을 뒷받침한다. 다만 컨빅션 스코어 50(C등급)은 골든크로스에도 불구하고 방향성 확신도가 제한적임을 나타낸다.",
+        "en": "The golden cross completion with SMA50 (182.23) breaking above SMA200 (180.34) signals a technical regime shift, yet current price at 182.08 sits below the 50-day line, suggesting immediate selling pressure post-crossover. The 0.10% discount to VWAP at 182.26 reflects near-term buying weakness, though a solid Context Score of 66 supports medium-term momentum sustainability. However, the conviction score of 50 (C-grade) indicates limited directional confidence despite the golden cross formation.",
+        "ja": "50日線（182.23）が200日線（180.34）を上抜けしゴールデンクロスが完成したが、現在価格182.08は50日線下方に位置し、クロス直後の売り圧力を示唆している。VWAP182.26に対する0.10%ディスカウントは短期買い勢力の不足を反映するが、66ポイントの堅調なコンテキストスコアが中長期モメンタム持続可能性を支えている。ただし、コンビクションスコア50（Cグレード）はゴールデンクロスにも関わらず方向性確信度が限定的であることを示している。"
+      }
+    },
+    {
+      "title": {
+        "ko": "옵션 포지셔닝",
+        "en": "Options Positioning",
+        "ja": "オプションポジショニング"
+      },
+      "content": {
+        "ko": "네거티브 감마 -266.9M 환경에서 감마 플립 레벨 175달러 상단의 롱 감마 존에 위치하나, 콜월 182.5달러가 현재가 근접에 형성되어 상승 저항으로 작용한다. 65포인트의 스마트 플로우 유입 트렌드가 기관 자금의 지속적 관심을 확인하며, 0.66 P/C 비율과 42.9M달러 순 콜 프리미엄이 강세 포지셔닝을 뒷받침한다. 맥스페인 175달러와 풋플로어 170달러 간 구간이 핵심 지지대로 기능할 전망이다.",
+        "en": "Operating in a negative gamma environment of -266.9M, NVDA sits in the long gamma zone above the 175 gamma flip level, yet faces immediate resistance at the 182.5 call wall near current levels. Smart Flow inflow trend at 65 points confirms sustained institutional interest, while the 0.66 P/C ratio and +42.9M net call premium underscore bullish positioning. The corridor between max pain at 175 and put floor at 170 should serve as critical support infrastructure.",
+        "ja": "ネガティブガンマ-266.9M環境下で、ガンマフリップレベル175ドル上方のロングガンマゾーンに位置するが、現在価格近辺の182.5ドルコールウォールが上昇抵抗として機能する。65ポイントのスマートフロー流入トレンドが機関資金の継続的関心を確認し、0.66のP/C比率と42.9百万ドルのネットコールプレミアムが強気ポジショニングを裏付けている。マックスペイン175ドルとプットフロア170ドル間の回廊が重要な支持インフラとして機能する見込みだ。"
+      }
+    },
+    {
+      "title": {
+        "ko": "뉴스 및 시장 맥락",
+        "en": "News & Market Context",
+        "ja": "ニュース及び市場コンテキスト"
+      },
+      "content": {
+        "ko": "이란 휴전으로 지정학적 리스크가 완화되며 매그니피센트 7 전반의 랠리가 관찰되고 있어, NVDA에게 우호적 섹터 로테이션 환경을 제공한다. Marvell Tech에 대한 20억달러 NVLink 생태계 투자는 AI 인프라 확장 전략의 구체화로 해석되며, 데이터센터 수요 지속성에 대한 시장 신뢰도를 제고시킨다. 이러한 펀더멘털 모멘텀이 기술적 골든크로스와 결합되어 상승 모멘텀 가속화 가능성을 시사한다.",
+        "en": "Geopolitical risk mitigation from the Iran ceasefire is driving a broad Magnificent 7 rally, creating favorable sector rotation dynamics for NVDA. The $2B investment in Marvell Tech for NVLink ecosystem expansion represents a concrete manifestation of AI infrastructure strategy, reinforcing market confidence in sustained data center demand. This fundamental momentum convergence with the technical golden cross suggests potential for accelerated upside momentum.",
+        "ja": "イラン停戦による地政学的リスク緩和がマグニフィセント7全体のラリーを牽引し、NVDAに有利なセクターローテーション環境を提供している。NVLinkエコシステム拡張に向けたMarvell Techへの20億ドル投資は、AIインフラ戦略の具体化を示し、データセンター需要持続性への市場信頼度を向上させている。このファンダメンタルモメンタムがテクニカルなゴールデンクロスと融合し、上昇モメンタム加速の可能性を示唆している。"
+      }
+    }
+  ],
+  "keyInsight": {
+    "ko": "골든크로스 완성과 AI 투자 확대가 결합되나, 콜월 근접과 네거티브 감마가 단기 변동성 확대 요인",
+    "en": "Golden cross completion combines with AI investment expansion, but call wall proximity and negative gamma create near-term volatility amplification factors",
+    "ja": "ゴールデンクロス完成とAI投資拡大が結合するが、コールウォール近接とネガティブガンマが短期変動性拡大要因となる"
+  },
+  "riskFlag": "MEDIUM",
+  "confidence": "MEDIUM"
+}

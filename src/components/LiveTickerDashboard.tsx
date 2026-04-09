@@ -2801,6 +2801,14 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                         bullSignals: '',
                                         bearSignals: '',
                                     },
+                                    contextScore: {
+                                        value: _swrQuote?.alpha?.score ?? initialUnifiedData?.alpha?.score ?? (ssrFallback as any)?.alpha?.score ?? 0,
+                                        grade: _swrQuote?.alpha?.grade ?? initialUnifiedData?.alpha?.grade ?? (ssrFallback as any)?.alpha?.grade ?? 'C',
+                                    },
+                                    smartFlow: {
+                                        value: _swrQuote?.smartFlow ?? initialUnifiedData?.smartFlow ?? (ssrFallback as any)?.smartFlow ?? 0,
+                                        trend: (_swrQuote?.smartFlow ?? initialUnifiedData?.smartFlow ?? (ssrFallback as any)?.smartFlow ?? 0) >= 50 ? 'INFLOW TREND' : 'OUTFLOW TREND',
+                                    },
                                     sma: {
                                         cross: effectiveSma?.cross || 'NONE',
                                         sma50: effectiveSma?.sma50 || 0,

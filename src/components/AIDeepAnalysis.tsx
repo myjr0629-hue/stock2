@@ -68,6 +68,8 @@ interface Props {
             bullSignals: string;
             bearSignals: string;
         };
+        contextScore?: { value: number; grade: string };
+        smartFlow?: { value: number; trend: string };
         sma: { cross: string; sma50: number; sma200: number; trendPhase: string };
         vwap: number;
         vwapDistance: string;

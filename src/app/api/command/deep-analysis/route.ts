@@ -167,6 +167,11 @@ export async function POST(req: Request) {
     <bear_signals count="${signalCore.bearCount || 0}">${signalCore.bearSignals || 'None'}</bear_signals>
   </signal_core>
   
+  <high_level_gauges>
+    <context_score value="${s.contextScore?.value ?? 'N/A'}" grade="${s.contextScore?.grade ?? 'N/A'}"/>
+    <smart_flow value="${s.smartFlow?.value ?? 'N/A'}" trend="${s.smartFlow?.trend ?? 'N/A'}"/>
+  </high_level_gauges>
+  
   <technicals>
     <sma cross="${sma.cross || 'NONE'}" sma50="${sma.sma50 || 'N/A'}" sma200="${sma.sma200 || 'N/A'}"/>
     <vwap value="${s.vwap || 'N/A'}" distance="${s.vwapDistance || 'N/A'}"/>
@@ -258,7 +263,11 @@ All text fields use { "ko": "...", "en": "...", "ja": "..." } trilingual structu
 - SECTIONS: 2-4 sections with clear titles. Each section 2-4 sentences of DEEP analysis.
 - DATA ACCURACY: Use EXACT values from the XML data. call_wall ≠ gamma_flip_level.
 - NO DUPLICATE METRICS: Focus purely on narrative insight.
-- NEWS INTEGRATION: Weave news naturally into analysis.
+- NEWS INTEGRATION: Weave news naturally into analysis. DO NOT put indicator data in the News section.
+- NEW GAUGES INTEGRATION: The XML now provides <context_score> (overall momentum/fundamentals) and <smart_flow> (institutional money flow).
+   -> MUST blend <context_score> NATURALLY into "Technical Structure Analysis".
+   -> MUST blend <smart_flow> NATURALLY into "Options Positioning".
+   -> IMPORTANT: Do NOT make the entire section about these two scores. They should act as supporting evidence (e.g., "The SMA golden cross is further validated by a solid Context Score of 66...") alongside the existing deep technical/options indicators.
 - If news is scarce, focus on structural indicators and sector context.
 - If trigger_reason=PRICE_MOVE, explain WHAT likely caused it.
 - SEC FILINGS (8-K/10-K): If provided in <sec_filings>, reference recent corporate events (8-K) as supporting context. Use 10-K business overview to understand the company's revenue structure and competitive positioning.
