@@ -1337,9 +1337,9 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
             <div className="sticky top-[78px] z-30 bg-white/5 backdrop-blur-xl rounded-xl py-1 px-3 border border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.3)]" data-command-header>
                 <div className="flex items-stretch gap-3">
                     {/* Left Column: Identity + Price */}
-                    <div className="flex flex-col justify-center min-w-0 shrink-0">
+                    <div className="flex flex-col justify-center min-w-0 flex-1">
                         {/* Row 1: Identity */}
-                        <div className="flex items-center gap-2.5 min-w-0">
+                        <div className="flex items-center gap-2.5 min-w-0 w-full">
                             <div className="relative w-10 h-10 lg:w-12 lg:h-12 rounded-full overflow-hidden bg-white/10 flex items-center justify-center shrink-0">
                                 <img
                                     loading="lazy"
@@ -1355,11 +1355,26 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                             </div>
                             <h1 className="text-xl sm:text-2xl lg:text-3xl font-black text-white tracking-tighter font-jakarta shrink-0">{ticker}</h1>
                             <span className="hidden sm:inline text-xs text-slate-500 font-bold tracking-tight uppercase font-jakarta truncate max-w-[200px] shrink-0">{initialStockData.name}</span>
-                            <FavoriteToggle ticker={ticker} name={initialStockData.name} />
+                            <div className="shrink-0">
+                                <FavoriteToggle ticker={ticker} name={initialStockData.name} />
+                            </div>
+
+                            {/* Middle: Compressed Description (Moved to Row 1) */}
+                            {companyOverview?.description && (() => {
+                                const descText = companyOverview.description;
+                                const descFontFamily = locale === 'ko' ? 'Pretendard, sans-serif' : locale === 'ja' ? "'Noto Sans JP', sans-serif" : "'Plus Jakarta Sans', sans-serif";
+                                return (
+                                    <div className="hidden xl:flex flex-1 min-w-0 items-center pl-3 pr-2 opacity-80 hover:opacity-100 transition-opacity">
+                                        <p className="text-[13px] text-white font-medium truncate" style={{ fontFamily: descFontFamily }}>
+                                            {descText}
+                                        </p>
+                                    </div>
+                                );
+                            })()}
                         </div>
 
                         {/* Row 2: Price + Extended Badge + Sector Badge */}
-                        <div className="hidden sm:flex items-baseline gap-3 -mt-0.5 pl-[50px] lg:pl-[58px] flex-wrap">
+                        <div className="hidden sm:flex items-baseline gap-3 -mt-0.5 pl-[50px] lg:pl-[58px] flex-wrap w-full">
                             <div className={`text-2xl font-black tracking-tighter tabular-nums leading-none ${pf.color}`}
                                 style={pf.style}>
                                 ${displayPrice?.toFixed(2) || '—'}
@@ -1419,12 +1434,8 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                         </div>
                     </div>
 
-                    {/* Middle + Right Column: Description, Dual HUD & Guide */}
-                    {companyOverview?.description && (() => {
-                        const descText = companyOverview.description;
-                        const isLong = descText.length > 80;
-                        const descFontFamily = locale === 'ko' ? 'Pretendard, sans-serif' : locale === 'ja' ? "'Noto Sans JP', sans-serif" : "'Plus Jakarta Sans', sans-serif";
-
+                    {/* Right Column: Dual HUD & Guide */}
+                    {(() => {
                         // [PERF FIX] Remove hardcoded frontend smart flow calculator. 
                         // Rely strictly on single source of truth from Unified Cache / Lambda Analysis Engine.
                         const liveSmartFlow = _swrQuote?.smartFlow ?? initialUnifiedData?.smartFlow ?? (ssrFallback as any)?.smartFlow ?? 0;
@@ -1432,26 +1443,12 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                         const liveContextGrade = _swrQuote?.alpha?.grade ?? initialUnifiedData?.alpha?.grade ?? (ssrFallback as any)?.alpha?.grade ?? '';
 
                         return (
-                            <div className="flex-1 flex items-center justify-end gap-3 min-w-0" style={{ zIndex: descPopoverOpen ? 50 : 'auto' }}>
-                                {/* Middle: Compressed Description */}
-                                <div className="hidden xl:flex flex-col justify-center min-w-[200px] max-w-[420px] relative px-3">
-                                    <div 
-                                        className={`relative overflow-hidden rounded-lg px-4 py-2 border transition-all duration-200 ${isLong ? 'cursor-pointer hover:bg-white/[0.04]' : ''} border-white/[0.03] bg-white/[0.015]`}
-                                        onClick={() => isLong && setDescPopoverOpen(!descPopoverOpen)}
-                                        style={{ boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.02), 0 0 12px rgba(0,0,0,0.1)' }}
-                                    >
-                                        <p className="text-[12px] text-slate-300 leading-relaxed font-medium"
-                                            style={{ fontFamily: descFontFamily, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical' as any, overflow: 'hidden' }}>
-                                            {descText}
-                                        </p>
-                                    </div>
-                                </div>
-                                
+                            <div className="flex items-center justify-end shrink-0 gap-3 ml-auto">
                                 {/* Right: Dual HUD + Guide */}
                                 <div className="hidden sm:flex items-center shrink-0">
                                     <DualGaugeHUD 
                                         contextScore={liveContextScore} 
-                                        contextGrade={liveContextGrade}
+                                        contextGrade={liveContextGrade as any}
                                         smartFlow={liveSmartFlow} 
                                     />
                                     
@@ -1462,51 +1459,6 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                         </Link>
                                     </div>
                                 </div>
-
-                                {/* Bloomberg-style Floating Popover — full description */}
-                                {descPopoverOpen && (
-                                    <>
-                                        {/* Backdrop click-away */}
-                                        <div className="fixed inset-0 z-40" onClick={() => setDescPopoverOpen(false)} />
-                                        {/* Floating Card */}
-                                        <div
-                                            className="absolute top-full mt-2 right-0 z-50 w-[480px] max-h-[360px] overflow-y-auto rounded-xl border border-white/10 shadow-2xl"
-                                            style={{
-                                                background: 'linear-gradient(135deg, rgba(15,23,42,0.97) 0%, rgba(30,41,59,0.95) 50%, rgba(15,23,42,0.98) 100%)',
-                                                backdropFilter: 'blur(24px)',
-                                                boxShadow: '0 25px 60px rgba(0,0,0,0.5), 0 0 30px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.06)',
-                                            }}
-                                            onClick={e => e.stopPropagation()}
-                                        >
-                                            {/* Header bar */}
-                                            <div className="sticky top-0 z-10 flex items-center justify-between px-4 py-2.5 border-b border-white/[0.06]"
-                                                style={{ background: 'rgba(15,23,42,0.95)', backdropFilter: 'blur(12px)' }}>
-                                                <div className="flex items-center gap-2">
-                                                    <div className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                                                    <span className="text-[12px] font-bold tracking-wider text-slate-300 uppercase font-jakarta">COMPANY OVERVIEW</span>
-                                                </div>
-                                                <button
-                                                    onClick={() => setDescPopoverOpen(false)}
-                                                    className="w-7 h-7 rounded-md flex items-center justify-center text-slate-400 hover:text-slate-200 hover:bg-white/10 transition-all duration-150"
-                                                >
-                                                    <svg width="14" height="14" viewBox="0 0 14 14"><path d="M3 3 L11 11 M11 3 L3 11" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" /></svg>
-                                                </button>
-                                            </div>
-                                            {/* Full description */}
-                                            <div className="px-5 py-4">
-                                                <p className="text-[13px] text-slate-300 leading-[1.8]"
-                                                    style={{ fontFamily: descFontFamily }}>
-                                                    {descText}
-                                                </p>
-                                            </div>
-                                            {/* Bottom bar */}
-                                            <div className="px-4 py-2 border-t border-white/[0.06] flex items-center justify-between">
-                                                <span className="text-[12px] text-slate-300 font-mono">{ticker} • {companyOverview.sector || 'N/A'}</span>
-                                                <span className="text-[12px] text-slate-400 font-mono">ESC to close</span>
-                                            </div>
-                                        </div>
-                                    </>
-                                )}
                             </div>
                         );
                     })()}

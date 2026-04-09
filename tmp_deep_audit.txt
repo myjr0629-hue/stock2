@@ -1,0 +1,36 @@
+--- COMPREHENSIVE LAMBDA CACHE AUDIT ---
+
+[NVDA] Data Integrity Check:
+  1. ALPHA ENGINE : Score=65, Grade=A, Action=BUY
+  2. OPTIONS CORE : GEX=-226M, IV=6%, PCR=0.66
+  3. INST. LEVELS : MaxPain=175, GammaFlip=185
+  4. SQUEEZE/WHALE: SqueezeScore=41, WhaleIdx=55 (MED)
+  5. RISK/WALLS   : CallWall=190, PutFloor=170, DP%=26.3%
+
+[AAPL] Data Integrity Check:
+  1. ALPHA ENGINE : Score=55, Grade=B, Action=HOLD
+  2. OPTIONS CORE : GEX=-61M, IV=14%, PCR=0.75
+  3. INST. LEVELS : MaxPain=252.5, GammaFlip=260
+  4. SQUEEZE/WHALE: SqueezeScore=31, WhaleIdx=62 (MED)
+  5. RISK/WALLS   : CallWall=265, PutFloor=247.5, DP%=34.7%
+
+[TSLA] Data Integrity Check:
+  1. ALPHA ENGINE : Score=65, Grade=A, Action=BUY
+  2. OPTIONS CORE : GEX=-73M, IV=8%, PCR=0.49
+  3. INST. LEVELS : MaxPain=357.5, GammaFlip=365
+  4. SQUEEZE/WHALE: SqueezeScore=22, WhaleIdx=95 (HIGH)
+  5. RISK/WALLS   : CallWall=370, PutFloor=300, DP%=84.1%
+
+[WMT] Data Integrity Check:
+  1. ALPHA ENGINE : Score=50, Grade=B, Action=HOLD
+  2. OPTIONS CORE : GEX=-10M, IV=19%, PCR=1.54
+  3. INST. LEVELS : MaxPain=124, GammaFlip=125
+  4. SQUEEZE/WHALE: SqueezeScore=31, WhaleIdx=73 (HIGH)
+  5. RISK/WALLS   : CallWall=130, PutFloor=113, DP%=90.6%
+
+[HLF] Data Integrity Check:
+  1. ALPHA ENGINE : Score=47, Grade=C, Action=HOLD
+  2. OPTIONS CORE : GEX=0M, IV=72%, PCR=0.4324817518248175
+  3. INST. LEVELS : MaxPain=14, GammaFlip=12.5
+  4. SQUEEZE/WHALE: SqueezeScore=45, WhaleIdx=33 (LOW)
+  5. RISK/WALLS   : CallWall=15.5, PutFloor=14, DP%=16.8%
