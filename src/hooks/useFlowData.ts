@@ -19,6 +19,8 @@ interface UseFlowDataOptions {
     refreshInterval?: number;
     /** Next.js SSR Hydration Data */
     fallbackData?: any;
+    /** Skip Alpha calculation algorithms. Defaults to true to keep Flow page fast. */
+    skipAlpha?: boolean;
 }
 
 /**
@@ -30,13 +32,13 @@ interface UseFlowDataOptions {
  * - Uses skip_alpha=1 to skip alpha-only APIs (Flow page doesn't use alpha)
  */
 export function useFlowData(ticker: string | null, options: UseFlowDataOptions = {}) {
-    const { refreshInterval = 15000, fallbackData } = options;
+    const { refreshInterval = 15000, fallbackData, skipAlpha = true } = options;
 
     // [PERF] Fallback priority: SSR data → module-level cache → undefined
     const effectiveFallback = fallbackData || (ticker ? _flowCache[ticker] : undefined);
 
     const { data, error, isLoading, isValidating, mutate } = useSWR(
-        ticker ? `/api/live/ticker?t=${ticker}&skip_alpha=1` : null,
+        ticker ? `/api/live/ticker?t=${ticker}${skipAlpha ? '&skip_alpha=1' : ''}` : null,
         fetcher,
         {
             fallbackData: effectiveFallback,

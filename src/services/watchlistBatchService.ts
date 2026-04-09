@@ -322,6 +322,12 @@ export async function processWatchlistBatch(tickers: string[], mode: 'full' | 'p
                     engineVersion: alphaResult.engineVersion,
                     capturedAt: new Date().toISOString(),
                 };
+
+                // 🔥 [ROOT FIX] WRITING BACK THE RECALCULATED V4.6 SCORE TO CACHE
+                // This upgrades the Lambda's simplified score to the HD V4.6 Sector Grid score globally
+                // Ensuring SSOT (Single Source of Truth) across Command Page SSR and Grid.
+                const updatedAnalysis = { ...analysis, alphaSnapshot: alphaSnapshotV4 };
+                import('@/services/analysisCache').then(m => m.writeAnalysisCache(ticker, updatedAnalysis as any).catch(() => {}));
             } catch (e) {
                 console.warn(`[Watchlist CACHE HIT] V4.6 recalc failed for ${ticker}, using cached:`, e);
             }
