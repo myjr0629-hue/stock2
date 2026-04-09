@@ -728,7 +728,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
     }, [initialStockData, initialUnifiedData]);
     const { data: _swrQuote, isValidating: quoteLoading } = useFlowData(ticker, {
         refreshInterval: 2000, // [UX] Near-real-time price feel
-        skipAlpha: false, // [FIX] Command Page needs full SSOT Context Score calculation
+        skipAlpha: true, // [SSOT FIX] Do NOT recalculate Alpha in real-time. Trust the SSR unified cache (Sector Grid SSOT).
     });
     // [PERF] 5s real-time price polling (separate from heavy 60s ticker API)
     const livePrice = useLivePrice(ticker);
