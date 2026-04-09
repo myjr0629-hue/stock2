@@ -1367,7 +1367,11 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                 return (
                                     <div className="hidden xl:flex relative items-center ml-8 max-w-[550px] min-w-[200px]">
                                         <div 
-                                            className={`w-full items-center px-4 py-1.5 rounded-md opacity-80 hover:opacity-100 transition-all duration-200 ${isLong ? 'cursor-pointer hover:bg-white/[0.04]' : ''}`}
+                                            className={`w-full items-center px-4 py-1.5 rounded-md border transition-all duration-300 ${
+                                                isLong 
+                                                    ? 'border-transparent cursor-pointer opacity-70 hover:opacity-100 hover:border-cyan-400/40 hover:bg-cyan-950/30 hover:shadow-[0_0_12px_rgba(6,182,212,0.15)]' 
+                                                    : 'border-transparent opacity-80'
+                                            }`}
                                             onClick={() => isLong && setDescPopoverOpen(!descPopoverOpen)}
                                         >
                                             <p className="text-[13px] text-white font-medium truncate" style={{ fontFamily: descFontFamily }}>
