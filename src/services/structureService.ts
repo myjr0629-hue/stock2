@@ -237,6 +237,7 @@ export async function getStructureData(ticker: string, requestedExp?: string | n
     let latencyTotal = 0;
     let attemptsTotal = 0;
     let usedLambdaCache = false;
+    let isNoMarketDetected = false; // [NEW] Track definitive lack of options
 
     // [PERF] Check Lambda-warmed raw snapshot cache FIRST — skip ALL Polygon calls if hit
     try {
@@ -265,22 +266,26 @@ export async function getStructureData(ticker: string, requestedExp?: string | n
 
         try {
             const refRes = await fetchMassiveWithRetry(refUrl, 2);
-            if (refRes.success && refRes.data?.results) {
-                const exps = Array.from(new Set(
-                    refRes.data.results.map((c: any) => c.expiration_date)
-                )).filter(Boolean).sort() as string[];
+            if (refRes.success) {
+                if (refRes.data?.results?.length === 0) {
+                    isNoMarketDetected = true; // DEFINITIVE PROOF! Polygon returned 200 OK with empty results array!
+                } else if (refRes.data?.results) {
+                    const exps = Array.from(new Set(
+                        refRes.data.results.map((c: any) => c.expiration_date)
+                    )).filter(Boolean).sort() as string[];
 
-                console.log(`[OPTIONS] ${ticker} reference expirations:`, exps.slice(0, 8).join(', '));
+                    console.log(`[OPTIONS] ${ticker} reference expirations:`, exps.slice(0, 8).join(', '));
 
-                if (exps.length > 0) {
-                    availableExpirations = exps.slice(0, 10);
+                    if (exps.length > 0) {
+                        availableExpirations = exps.slice(0, 10);
 
-                    if (requestedExp && exps.includes(requestedExp)) {
-                        targetExpiry = requestedExp;
-                    } else {
-                        targetExpiry = await findWeeklyExpiration(exps);
+                        if (requestedExp && exps.includes(requestedExp)) {
+                            targetExpiry = requestedExp;
+                        } else {
+                            targetExpiry = await findWeeklyExpiration(exps);
+                        }
+                        console.log(`[OPTIONS] ${ticker} target expiry: ${targetExpiry}`);
                     }
-                    console.log(`[OPTIONS] ${ticker} target expiry: ${targetExpiry}`);
                 }
             }
         } catch (e) {
@@ -292,16 +297,21 @@ export async function getStructureData(ticker: string, requestedExp?: string | n
             const probeUrl = `/v3/snapshot/options/${ticker}?expiration_date.gte=${todayStr}&limit=250&sort=expiration_date&order=asc`;
             try {
                 const probeRes = await fetchMassiveWithRetry(probeUrl, 2);
-                if (probeRes.success && probeRes.data?.results) {
-                    const exps = Array.from(new Set(
-                        probeRes.data.results.map((c: any) => c.details?.expiration_date || c.expiration_date)
-                    )).filter(Boolean).sort() as string[];
-                    availableExpirations = exps.slice(0, 10);
+                if (probeRes.success) {
+                    if (probeRes.data?.results?.length === 0) {
+                        isNoMarketDetected = true;
+                    } else if (probeRes.data?.results) {
+                        isNoMarketDetected = false; // Reset just in case
+                        const exps = Array.from(new Set(
+                            probeRes.data.results.map((c: any) => c.details?.expiration_date || c.expiration_date)
+                        )).filter(Boolean).sort() as string[];
+                        availableExpirations = exps.slice(0, 10);
 
-                    if (requestedExp && exps.includes(requestedExp)) {
-                        targetExpiry = requestedExp;
-                    } else {
-                        targetExpiry = await findWeeklyExpiration(exps);
+                        if (requestedExp && exps.includes(requestedExp)) {
+                            targetExpiry = requestedExp;
+                        } else {
+                            targetExpiry = await findWeeklyExpiration(exps);
+                        }
                     }
                 }
             } catch (e) {
@@ -315,32 +325,40 @@ export async function getStructureData(ticker: string, requestedExp?: string | n
         }
 
         // Phase 2: Fetch EXACT expiration from Polygon
-        const exactUrl = `/v3/snapshot/options/${ticker}?expiration_date=${targetExpiry}&limit=250`;
-        let chainUrl = exactUrl;
+        if (!isNoMarketDetected) {
+            const exactUrl = `/v3/snapshot/options/${ticker}?expiration_date=${targetExpiry}&limit=250`;
+            let chainUrl = exactUrl;
 
-        try {
-            // [DATA INTEGRITY] Fetch up to 10 pages
-            while (chainUrl && pagesFetched < 10) {
-                const res = await fetchMassiveWithRetry(chainUrl, 3);
-                attemptsTotal += res.attempts || 1;
-                latencyTotal += res.latency || 0;
+            try {
+                // [DATA INTEGRITY] Fetch up to 10 pages
+                while (chainUrl && pagesFetched < 10) {
+                    const res = await fetchMassiveWithRetry(chainUrl, 3);
+                    attemptsTotal += res.attempts || 1;
+                    latencyTotal += res.latency || 0;
 
-                if (!res.success || !res.data?.results) break;
+                    if (!res.success || !res.data?.results) break;
+                    
+                    if (res.data.results.length === 0 && pagesFetched === 0) {
+                        isNoMarketDetected = true;
+                        break;
+                    }
 
-                allContracts = allContracts.concat(res.data.results);
-                pagesFetched++;
+                    allContracts = allContracts.concat(res.data.results);
+                    pagesFetched++;
 
-                chainUrl = res.data.next_url || '';
+                    chainUrl = res.data.next_url || '';
+                }
+            } catch (e) {
+                console.log(`[OPTIONS] Fetch error for ${ticker}:`, e);
             }
-        } catch (e) {
-            console.log(`[OPTIONS] Fetch error for ${ticker}:`, e);
         }
     }
 
 
     if (allContracts.length === 0) {
         return {
-            ticker, expiration: targetExpiry, underlyingPrice, options_status: "PENDING",
+            ticker, expiration: targetExpiry, underlyingPrice, 
+            options_status: isNoMarketDetected ? "NO_MARKET" : "PENDING",
             structure: { strikes: [], callsOI: [], putsOI: [] },
             maxPain: null, netGex: null, sourceGrade: "C",
             availableExpirations,

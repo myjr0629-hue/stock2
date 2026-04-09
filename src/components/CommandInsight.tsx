@@ -126,7 +126,7 @@ export function CommandInsight({
     let verdict: Verdict = 'NEUTRAL';
     const diff = bullScore - bearScore;
 
-    if (optionsStatus !== 'OK') {
+    if (optionsStatus !== 'OK' && optionsStatus !== 'NO_MARKET') {
         verdict = 'CAUTION';
     } else if (diff >= 25) {
         verdict = 'BULLISH';
@@ -141,7 +141,7 @@ export function CommandInsight({
     // === Generate Briefing ===
     let briefing = '';
 
-    if (optionsStatus !== 'OK') {
+    if (optionsStatus !== 'OK' && optionsStatus !== 'NO_MARKET') {
         briefing = `${ticker} — ${td('briefing.dataValidating')}`;
     } else if (verdict === 'BULLISH') {
         if (smaData?.cross === 'GOLDEN' && netGex > 0) {

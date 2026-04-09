@@ -66,11 +66,12 @@ const DecisionGate = ({ ticker, displayPrice, session, structure, krNews, smaDat
     const ts = useTranslations('signalCoreV3');
 
     // === Data Completeness Check ===
-    const hasStructure = structure && structure.options_status === 'OK';
+    const options_status = structure?.options_status;
+    const isNoMarket = options_status === 'NO_MARKET';
+    const hasStructure = structure && (options_status === 'OK' || isNoMarket);
     const validation = structure?.validation;
     const isLoading = !hasStructure;
-    const options_status = structure?.options_status;
-    const isFail = options_status !== 'OK' || validation?.confidence === 'LOW';
+    const isFail = (!isNoMarket && options_status !== 'OK') || (!isNoMarket && validation?.confidence === 'LOW');
 
     // === Data Extraction ===
     const callWall = structure?.levels?.callWall || 0;
@@ -462,7 +463,9 @@ const DecisionGate = ({ ticker, displayPrice, session, structure, krNews, smaDat
 
     // --- Tier 4: Key Observation (structural-importance) ---
     let keyObservation = '';
-    if (isREG && !isFail && callWall > 0 && putFloor > 0) {
+    if (isNoMarket) {
+        keyObservation = 'EQUITIES ONLY: NO OPTIONS MARKET';
+    } else if (isREG && !isFail && callWall > 0 && putFloor > 0) {
         const cwDist = ((callWall - displayPrice) / displayPrice * 100);
         const pfDist = ((displayPrice - putFloor) / displayPrice * 100);
         const gfDist = gammaFlip > 0 ? Math.abs(displayPrice - gammaFlip) / displayPrice * 100 : 999;
@@ -2239,8 +2242,15 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                             <div className="absolute bottom-2 left-2 w-4 h-4 border-l-2 border-b-2 border-amber-500/30" />
                                             <div className="absolute bottom-2 right-2 w-4 h-4 border-r-2 border-b-2 border-amber-500/30" />
                                         </div>
-                                        {/* Loading Overlay - 첫 로드시에만 표시 (폴링 깜빡임 방지) */}
-                                        {structLoading && !structure && (
+                                        {/* Loading / NO MARKET Overlay - 첫 로드시에만 표시 (폴링 깜빡임 방지) */}
+                                        {structure?.options_status === "NO_MARKET" ? (
+                                            <div className="absolute inset-0 bg-slate-900/80 backdrop-blur-sm z-50 flex items-center justify-center">
+                                                <div className="flex flex-col items-center gap-2 grayscale opacity-80">
+                                                    <Activity className="w-6 h-6 text-slate-500" />
+                                                    <span className="text-[12px] text-slate-400/80 font-bold tracking-wider font-jakarta">NO OPTIONS AVAILABLE</span>
+                                                </div>
+                                            </div>
+                                        ) : structLoading && !structure && (
                                             <div className="absolute inset-0 bg-slate-900/90 backdrop-blur-sm z-50 flex items-center justify-center">
                                                 <div className="flex flex-col items-center gap-2">
                                                     <div className="w-6 h-6 border-2 border-cyan-500/30 border-t-cyan-500 rounded-full animate-spin" />
@@ -2535,6 +2545,22 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                                             <span>${(structure.gammaFlipLevel * 0.93).toFixed(0)}</span>
                                                             <span className="text-amber-300 font-bold">${structure.gammaFlipLevel}</span>
                                                             <span>${(structure.gammaFlipLevel * 1.07).toFixed(0)}</span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            ) : structure && structure.options_status === "NO_MARKET" ? (
+                                                /* NO MARKET State - Explicitly show that this stock has no options */
+                                                <div className="relative p-3 rounded-xl bg-slate-900/40 border border-slate-700/50 overflow-hidden opacity-75">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="w-9 h-9 rounded-lg bg-slate-800/80 flex items-center justify-center border border-slate-700/50 grayscale opacity-80">
+                                                            <Activity className="w-4 h-4 text-slate-500" />
+                                                        </div>
+                                                        <div>
+                                                            <div className="text-xs text-slate-400 font-black uppercase tracking-wider flex items-center gap-2 font-jakarta">
+                                                                Gamma Flip Level
+                                                                <span className="text-[12px] bg-slate-700/50 text-slate-400 px-1.5 py-0.5 rounded font-bold font-jakarta border border-slate-600/30">N/A</span>
+                                                            </div>
+                                                            <div className="text-[12px] text-slate-500">NO OPTIONS AVAILABLE</div>
                                                         </div>
                                                     </div>
                                                 </div>
