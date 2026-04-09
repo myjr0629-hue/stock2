@@ -524,11 +524,47 @@ async function buildResponseFromResults(
         }
     });
 
+// [V3.5] Persist signals to ElastiCache for daily session only
+async function persistDailySignals(newSignals: any[]) {
+    const DAILY_SIGNALS_KEY = 'dashboard:signals:daily';
+    try {
+        if (!newSignals.length) {
+            const existing = await getFromCache<any[]>(DAILY_SIGNALS_KEY) || [];
+            return existing.slice(0, 50);
+        }
+        
+        const existing = await getFromCache<any[]>(DAILY_SIGNALS_KEY) || [];
+        const merged = [...newSignals, ...existing];
+        
+        // Deduplicate
+        const unique = [];
+        const seen = new Set();
+        for (const s of merged) {
+            const key = `${s.ticker}|${s.type}|${s.message}`;
+            if (!seen.has(key)) {
+                seen.add(key);
+                unique.push(s);
+            }
+        }
+        
+        // Keep up to 50 signals
+        const final = unique.slice(0, 50);
+        
+        // 12-hour TTL (43200s); signals naturally expire before the next market session
+        await setInCache(DAILY_SIGNALS_KEY, final, 43200);
+        return final;
+    } catch {
+        return newSignals; // fallback
+    }
+}
+
+    const finalSignals = await persistDailySignals(signals);
+
     return {
         timestamp: new Date().toISOString(),
         market: marketData,
         tickers: tickersData,
-        signals: signals.slice(0, 20),
+        signals: finalSignals.slice(0, 20),
         meta: {
             tickerCount: Object.keys(tickersData).length,
             cacheTTL: getDashboardSmartTTL().memoryMs / 1000

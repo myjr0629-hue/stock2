@@ -1,54 +1,32 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getFromCache, setInCache } from '@/services/redisClient';
-import { queryItems } from '@/lib/aws/dynamoClient';
+import { getFromCache } from '@/services/redisClient';
 
 /**
  * GET /api/dashboard/signals
- * Fetch recent signals (24h) from DynamoDB signum-pattern-db
- * Uses ElastiCache as fast layer (60s TTL)
+ * Fetch recent signals (daily session) from ElastiCache
+ * No longer uses DynamoDB signum-pattern-db as signals are ephemeral (current day only)
  */
 export async function GET(request: NextRequest) {
-    const cacheKey = 'dashboard:signals:latest';
+    const cacheKey = 'dashboard:signals:daily';
 
-    // Fast path: ElastiCache
     try {
         const cached = await getFromCache<any[]>(cacheKey);
+        
         if (cached && Array.isArray(cached) && cached.length > 0) {
-            return NextResponse.json({ signals: cached, _cached: true });
+            // Keep only signals from the last 12 hours (same-day principle)
+            const now = Date.now();
+            const valid = cached.filter(s => {
+                if (!s.time && !s.timestamp && !s.ts) return false;
+                const ts = new Date(s.time || s.timestamp || s.ts).getTime();
+                return (now - ts) < 12 * 60 * 60 * 1000;
+            });
+            
+            return NextResponse.json({ signals: valid, _cached: true });
         }
-    } catch { /* continue to DynamoDB */ }
-
-    // DynamoDB query: last 24 hours
-    try {
-        const now = Date.now();
-        const oneDayAgo = now - 24 * 60 * 60 * 1000;
-
-        const items = await queryItems<any>(
-            'signum-pattern-db',
-            'pk = :pk AND #ts > :since',
-            { ':pk': 'SIGNAL', ':since': oneDayAgo },
-            { limit: 50, scanForward: false, expressionNames: { '#ts': 'timestamp' } }
-        );
-
-        const signals = (items || []).map((item: any) => {
-            const data = typeof item.data === 'string' ? JSON.parse(item.data) : item.data;
-            return {
-                ticker: item.ticker || data?.ticker || '—',
-                type: item.signalType || data?.type || 'UNKNOWN',
-                timestamp: item.timestamp || data?.ts || now,
-                gex: data?.gex,
-                prevGex: data?.prevGex,
-            };
-        });
-
-        // Cache to ElastiCache (60s TTL)
-        if (signals.length > 0) {
-            try { await setInCache(cacheKey, signals, 60); } catch { /* non-critical */ }
-        }
-
-        return NextResponse.json({ signals, _cached: false });
+        
+        return NextResponse.json({ signals: [], _cached: false });
     } catch (error: any) {
-        console.error('[Signals API] Error:', error);
+        console.error('[Signals API] Redis fetch error:', error);
         return NextResponse.json({ signals: [], error: error.message }, { status: 500 });
     }
 }
