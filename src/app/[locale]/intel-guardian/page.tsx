@@ -376,9 +376,10 @@ export default function GuardianPage() {
                     Bot Right: Login/Force (Control Bar)
                 */}
 
-                    <div className="flex-1 grid grid-cols-12 grid-rows-[auto_auto_1fr_30px] gap-4 min-h-0">
-                        {/* BLOCK A: GAUGE (6 cols) */}
-                        <div className="col-span-12 lg:col-span-6 backdrop-blur-md border border-slate-800 rounded-lg p-4 relative shadow-2xl flex flex-col justify-center overflow-hidden transition-all duration-300 hover:border-emerald-500/30 hover:shadow-[0_0_25px_rgba(52,211,153,0.08)] hover:scale-[1.003]"
+                    <div className="flex-1 grid grid-cols-12 grid-rows-[auto_1fr_30px] gap-4 min-h-0">
+
+                        {/* BLOCK A: GAUGE (4 cols) */}
+                        <div className="col-span-12 lg:col-span-4 backdrop-blur-md border border-slate-800 rounded-lg p-4 relative shadow-2xl flex flex-col justify-center overflow-hidden transition-all duration-300 hover:border-emerald-500/30 hover:shadow-[0_0_25px_rgba(52,211,153,0.08)] hover:scale-[1.003]"
                             style={{ background: 'radial-gradient(circle at 50% 70%, rgba(52,211,153,0.12) 0%, transparent 50%), radial-gradient(circle at 20% 30%, rgba(6,182,212,0.06) 0%, transparent 40%), rgba(10,14,20,0.85)' }}
                         >
                             {/* Premium HUD Background */}
@@ -407,8 +408,8 @@ export default function GuardianPage() {
                             <div className="absolute inset-0 bg-[url('/scanline.png')] opacity-5 pointer-events-none"></div>
                         </div>
 
-                        {/* BLOCK B: REALITY CHECK (6 cols) */}
-                        <div className="col-span-12 lg:col-span-6 backdrop-blur-md border border-slate-800 rounded-lg p-3 relative shadow-2xl flex flex-col justify-center overflow-hidden transition-all duration-300 hover:border-cyan-500/30 hover:shadow-[0_0_25px_rgba(6,182,212,0.08)] hover:scale-[1.003]"
+                        {/* BLOCK B: REALITY CHECK (4 cols) */}
+                        <div className="col-span-12 lg:col-span-4 backdrop-blur-md border border-slate-800 rounded-lg p-3 relative shadow-2xl flex flex-col justify-center overflow-hidden transition-all duration-300 hover:border-cyan-500/30 hover:shadow-[0_0_25px_rgba(6,182,212,0.08)] hover:scale-[1.003]"
                             style={{ background: 'linear-gradient(135deg, rgba(6,182,212,0.10) 0%, rgba(6,182,212,0.03) 40%, transparent 70%), rgba(10,14,20,0.85)' }}
                         >
                             {/* Infographic: Dot Matrix Grid */}
@@ -438,8 +439,8 @@ export default function GuardianPage() {
                             </ProGate>
                         </div>
 
-                        {/* BLOCK C: RLSI INSIGHT + BREADTH COMPACT (12 cols) */}
-                        <div className="col-span-12 lg:col-span-12 backdrop-blur-md border border-slate-800 rounded-lg relative shadow-2xl flex flex-col overflow-hidden transition-all duration-300 hover:border-emerald-500/30 hover:shadow-[0_0_25px_rgba(16,185,129,0.08)] hover:scale-[1.003]"
+                        {/* BLOCK C: RLSI INSIGHT + BREADTH COMPACT (4 cols) */}
+                        <div className="col-span-12 lg:col-span-4 backdrop-blur-md border border-slate-800 rounded-lg relative shadow-2xl flex flex-col overflow-hidden transition-all duration-300 hover:border-emerald-500/30 hover:shadow-[0_0_25px_rgba(16,185,129,0.08)] hover:scale-[1.003]"
                             style={{ background: 'linear-gradient(180deg, rgba(16,185,129,0.10) 0%, rgba(16,185,129,0.03) 30%, transparent 50%), rgba(10,14,20,0.85)' }}
                         >
                             {/* Infographic: Horizontal Data Bars */}
