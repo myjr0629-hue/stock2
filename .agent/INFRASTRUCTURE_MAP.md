@@ -256,7 +256,15 @@ Confidence: 4개 중 강한 신호 3+개=HIGH, 2개=MED, 1개=LOW, 0=NONE
 | `structureService.ts` | Lambda 캐시를 Reference API 전에 체크 (L241-260) → HIT 시 3단계 전부 스킵 |
 | `FlowPageClient.tsx` | `displayPrice > 0` 블로킹 가드 제거 → Progressive Rendering |
 
-### 4.3 EC2 워커 (52.23.98.13)
+### 4.3 Lambda v3.0 (signum-cross-sector-intel) — Cross-Sector 브리프 전용 (2026-04-10)
+- **코드 위치**: `scripts/lambda-cross-sector/index.js`
+- **배포 스크립트**: `scripts/deploy-cross-sector.js`
+- **런타임**: `nodejs20.x` (AWS SDK `client-bedrock-runtime` 내장)
+- **설정**: timeout=900s (15분), memory=512MB
+- **EventBridge**: `signum-cross-sector-cron` (cron(50 21 ? * MON-FRI *))
+- **역할**: 매일 장 마감 후 매크로 뉴스, 10개 섹터 요합, 옵션 포지션 기반으로 Claude Sonnet 4 AI 엔진을 구동해 기관급(Bloomberg-level) JSON 결과를 Upstash Redis에 캐싱. 
+
+### 4.4 EC2 워커 (52.23.98.13)
 | 워커 | 파일 | 역할 |
 |------|------|------|
 | Guardian Worker | `scripts/ec2-guardian-worker.js` (42KB) | Morning Briefing AI, DynamoDB→Redis |
@@ -303,6 +311,7 @@ Confidence: 4개 중 강한 신호 3+개=HIGH, 2개=MED, 1개=LOW, 0=NONE
 | `warm-analysis` | ✅ 삭제됨 — Lambda가 cache:analysis 직접 저장 |
 | `warm-command` (2개) | ✅ 삭제됨 — Lambda가 cache:command:unified 직접 저장 |
 | `morning-briefing` (2개) | ✅ 삭제됨 — EC2 Guardian으로 이관 |
+| `cross-sector-brief` | ✅ 삭제됨 — AWS EventBridge Lambda(`signum-cross-sector-intel`)로 100% 이관 완료 (2026-04-10) |
 
 ### 5.2 현재 활성 크론 (vercel.json 등록)
 | 크론 | 스케줄 (UTC) | 역할 |
@@ -314,10 +323,24 @@ Confidence: 4개 중 강한 신호 3+개=HIGH, 2개=MED, 1개=LOW, 0=NONE
 | `warm-news-digest` | `*/15 * * * *` | 뉴스 다이제스트 |
 | `event-detect` | `*/5 13-21 * * 1-5` | 이벤트 감지 |
 | `track-verify` | `30 21 * * 1-5` | 트랙 레코드 검증 |
-| `cross-sector-brief` | `50 21 * * 1-5` | 크로스섹터 브리프 |
+
 | `economic-calendar` | `*/30 13-21 * * 1-5` + `0 */4 * * *` | 경제 캘린더 |
 | `daily-content?type=all` | `30 20 * * 1-5` | 일일 콘텐츠 |
-| `marketing-dispatch` (10개) | 다양 | 마케팅 자동화 (Buffer API) |
+
+### 5.3 마케팅 자동화 파이프라인 (Buffer 연동)
+전 구성 파일들은 `vercel.json`에서 `marketing-dispatch`로 크론 스케줄 관리 중. 
+`dry_run=true` 모드로 호출 시 SNS 업로드 없이 전체 생성 파이프라인을 테스트 가능.
+
+| KST 시간 | 종류 (`action`) | 타겟 플랫폼 | 발송 콘텐츠 (Theme) |
+|---|---|---|---|
+| **05:30**(+1) | `pulse` | X, Bluesky, IG스토리, Pinterest | 장 마감 직후 Pulse 요약 브리핑 |
+| **06:30** | `morning` | X, Bluesky, IG스토리 | 모닝 뷰 브리핑 (프리마켓 진입 전) |
+| **07:00**(+1) | `pulse_ig` | IG Carousel, Threads | 밤사이 기관 옵션 동향 다중 사진(Carousel) |
+| **08:00** | `morning_ig`| IG Carousel, Threads | 본장 브리핑 다중 사진 (출근길 전략) |
+| **11:00** | `midday` | X, Bluesky, IG스토리, Pinterest | 오전장 체감 코멘터리 |
+| **14:00** | `education`| X (4장 Thread), Pinterest | 구조 분석 교육 (스마트 머니의 움직임, GEX 등) |
+| **17:00** | `edu_bsky`| Bluesky, Pinterest | 타 채널 퇴근 시간대 집중 공략 |
+| **실시간** | `event` | X, Bluesky | 지정된 조건 발생 시 속보(Breaking) 즉시 발송 |
 
 ---
 
@@ -788,7 +811,19 @@ bash scripts/ec2-deploy-guardian.sh
   - **COMMAND 페이지**: 상단 헤더에 단일 종목만 노출되며, 장중 0.1초마다 엄청나게 점멸하던 정규장 가격 움직임과 대비되어 5초 갱신이 상대적으로 끊긴 것처럼 역체감됨.
 - **차후 백엔드 개발 과제**: 시간외 가격의 완전한 실시간성 확보를 원할 경우, 프론트엔드가 아닌 **EC2 웹소켓 서버단에서 폴리곤의 POST/PRE 페이로드(`extendedPrice`)를 추가 파싱 및 구조화하여 브로드캐스트** 하도록 서버 아키텍처 확장이 요구됨.
 
-### 🟡 단기
+### 🟡 단기 (마케팅 자동화 파이프라인 스케일업 전략 - 2026-04-10 제안)
+- [ ] **Glassmorphism 마케팅 통합 디자인 검증 (Dry-Run)** 
+  - `/api/og/market` 렌더링 퀄리티 (Twitter 16:9, IG 9:16 타일, Carousel 6장 멀티플라이) 실제 눈으로 점검.
+- [ ] **Buffer 실계정 큐(Queue) 연동 테스트**
+  - `dry_run=false` 부여 후, X 타래(Thread)와 IG Carousel이 Buffer 큐에 에러 없이 꽂히는지 최종 Integration Test 필요.
+- [ ] **'특보 (Event-Driven)' 상황 포스팅 확대 (가장 강력함)**
+  - 장중 VIX 10% 급등, 특정 주식(NVDA 등) 풋매도 방벽 $50M 감지 등 고래 출몰 시 `event` 액션을 실시간으로 트리거.
+- [ ] **'특정 종목 해부(Ticker Spotlight)' 게릴라 포스팅**
+  - 매일 4~6회 무작위 대형주 전용 대시보드를 생성하여 종목 캐시태그(`$TSLA`)와 함께 노출, 트래픽 유입 극대화.
+- [ ] **Pinterest 전용 "Evergreen" 영구 정보 봇(Pump) 구축**
+  - 다크풀, GEX 교육 자료를 인스타버전 카드로 가공하여 핀터레스트에 매일 10~20장씩 무한 배포해 유기적 검색(SEO) 완전 장악.
+
+### 🟡 단기 (일반)
 - [ ] **WhaleIndex → 적절한 이름 리네이밍** (예: Flow Score, Smart Flow)
   - 현재 4가지 흐름 종합 지표인데 이름이 "Whale"이라 부정확
   - UI 표시명 + 코드 변수명 리팩토링 (영향 범위 넓음: ~50파일)
