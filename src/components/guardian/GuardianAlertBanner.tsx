@@ -137,36 +137,39 @@ export default function GuardianAlertBanner({ alerts, connectionMode }: Props) {
                         {/* Scanline overlay */}
                         <div className="absolute inset-0 bg-[url('/scanline.png')] opacity-[0.02] pointer-events-none" />
 
-                        <div className="relative flex items-start gap-3 px-4 py-3">
+                        <div className="relative flex items-start gap-3 px-4 py-2.5">
                             {/* Icon */}
-                            <div className={`flex-shrink-0 mt-0.5 ${config.textClass}`}>
+                            <div className={`flex-shrink-0 mt-0.5 md:mt-1 ${config.textClass}`}>
                                 <AlertIcon size={18} strokeWidth={2} />
                             </div>
 
                             {/* Content */}
-                            <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-2 flex-wrap">
-                                    <h4 className={`text-sm font-bold tracking-wide ${config.textClass}`}>
-                                        {alert.title}
-                                    </h4>
-                                    <span className={`text-xs px-2 py-0.5 rounded font-mono uppercase tracking-wider ${config.bgClass} ${config.textClass}`}>
+                            <div className="flex-1 min-w-0 flex flex-col justify-center pt-0.5">
+                                <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5">
+                                    <span className={`text-[10px] px-1.5 py-[3px] rounded font-mono uppercase tracking-wider ${config.bgClass} ${config.textClass} leading-none whitespace-nowrap`}>
                                         {alert.severity}
                                     </span>
-                                </div>
-                                <p className="text-xs text-slate-300 mt-1 leading-relaxed">
-                                    {alert.description}
-                                </p>
+                                    <h4 className={`text-[13px] md:text-sm font-bold tracking-wide ${config.textClass} leading-tight`}>
+                                        {alert.title}
+                                    </h4>
+                                    
+                                    <span className="hidden lg:inline text-slate-600 flex-shrink-0 leading-none">/</span>
+                                    
+                                    <p className="w-full lg:w-auto text-[12px] md:text-[13px] text-slate-300 leading-snug break-words flex-1 min-w-[200px]">
+                                        {alert.description}
+                                    </p>
 
-                                {/* Metrics pills */}
-                                {alert.metrics && Object.keys(alert.metrics).length > 0 && (
-                                    <div className="flex flex-wrap gap-1.5 mt-2">
-                                        {Object.entries(alert.metrics).map(([key, val]) => (
-                                            <span key={key} className="text-xs px-2 py-0.5 rounded bg-slate-800/60 text-slate-300 font-mono">
-                                                {key.toUpperCase()}: {typeof val === 'number' ? val.toFixed(1) : val}
-                                            </span>
-                                        ))}
-                                    </div>
-                                )}
+                                    {/* Metrics pills strictly inline on desktop, wrap on mobile */}
+                                    {alert.metrics && Object.keys(alert.metrics).length > 0 && (
+                                        <div className="flex flex-wrap items-center gap-1.5 flex-shrink-0 lg:ml-auto w-full lg:w-auto mt-1 lg:mt-0">
+                                            {Object.entries(alert.metrics).map(([key, val]) => (
+                                                <span key={key} className="text-[10px] px-1.5 py-[3px] rounded bg-slate-800/80 text-slate-300 font-mono leading-none border border-slate-700/50 whitespace-nowrap">
+                                                    {key.toUpperCase()}: {typeof val === 'number' ? val.toFixed(1) : val}
+                                                </span>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
                             </div>
 
                             {/* Dismiss button */}

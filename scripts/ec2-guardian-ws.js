@@ -164,17 +164,23 @@ wss.on("connection", async (ws, req) => {
             console.log(`[WS Hub] 📦 Sent initial snapshot to client (locale: ${locale})`);
         }
 
-        // Also send latest alerts if any
-        const alertsRaw = await redisData.get("guardian:latest_alerts");
-        if (alertsRaw) {
+        // Also send latest alerts matching client's locale
+        const alertsKey = `guardian:latest_alerts:${locale}`;
+        const alertsRaw = await redisData.get(alertsKey);
+        
+        // Fallback to legacy key formatting if locale specific not found (backward compat)
+        const fallbackAlerts = !alertsRaw && locale === 'ko' ? await redisData.get("guardian:latest_alerts") : null;
+        const finalAlertsRaw = alertsRaw || fallbackAlerts;
+
+        if (finalAlertsRaw) {
             ws.send(JSON.stringify({
                 type: "alerts",
-                data: JSON.parse(alertsRaw),
+                data: JSON.parse(finalAlertsRaw),
                 timestamp: new Date().toISOString(),
             }));
         }
     } catch (e) {
-        console.warn("[WS Hub] Failed to send initial snapshot:", e.message);
+        console.warn("[WS Hub] Failed to send initial snapshot/alerts:", e.message);
     }
 
     // Handle client messages (ping/pong, subscription changes)
@@ -241,14 +247,15 @@ redisSub.on("message", (channel, message) => {
         }
 
         if (channel === "guardian:alert") {
-            // Alerts go to ALL clients
-            const sent = broadcastToAll({
+            // Alerts go to specific locale clients
+            const locale = data.locale || "ko";
+            const sent = broadcastToLocale(locale, {
                 type: "alert",
                 data,
                 timestamp: new Date().toISOString(),
             });
             if (sent > 0) {
-                console.log(`[WS Hub] 🚨 Pushed alert to ${sent} clients: ${data.title || "Unknown"}`);
+                console.log(`[WS Hub] 🚨 Pushed alert to ${sent} clients (${locale}): ${data.title || "Unknown"}`);
             }
         }
     } catch (e) {
