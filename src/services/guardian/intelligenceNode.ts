@@ -740,8 +740,8 @@ export class IntelligenceNode {
         if (!process.env.AWS_ACCESS_KEY_ID) return "SETUP REQUIRED: ADD AWS_ACCESS_KEY_ID";
 
         const prompt = REALITY_PROMPTS[locale](ctx);
-        // [V11.0] Reality Insight uses Claude Sonnet 3.5 for deeper reasoning
-        const result = await IntelligenceNode.callClaude(prompt, `REALITY_${locale}`, MODELS.SONNET_35);
+        // [V11.0] Reality Insight uses Claude Sonnet 4 for deeper reasoning
+        const result = await IntelligenceNode.callClaude(prompt, `REALITY_${locale}`, MODELS.SONNET_4);
 
         if (result && !result.includes("failed")) {
             _cachedReality[locale] = result;
@@ -760,7 +760,7 @@ export class IntelligenceNode {
                 maxTokens: 1024,
                 temperature: 0.2,
                 timeoutMs: 30000,
-                fallbackModel: modelId === MODELS.SONNET_35 ? MODELS.HAIKU_35 : null,
+                fallbackModel: modelId === MODELS.SONNET_4 ? MODELS.HAIKU_35 : null,
                 jsonPrefill: false,
                 label: `Guardian/${cacheKeySuffix}`,
             });
