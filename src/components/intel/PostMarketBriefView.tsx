@@ -416,43 +416,62 @@ export function PostMarketBriefView() {
                             {/* ── 0. MACRO INDICATORS DASHBOARD (Bloomberg-Grade) ── */}
                             {macroIndicators.length > 0 && (
                                 <div style={staggerStyle(2)}>
-                                    <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-7 gap-2 mb-3">
-                                        {macroIndicators
-                                            .filter((m: any) => m.key !== 'Fear & Greed')
-                                            .filter((m: any) => {
-                                                // Locale-specific currency filtering
-                                                if (m.key === 'USD/KRW') return locale === 'ko';
-                                                if (m.key === 'USD/JPY') return locale === 'ja';
-                                                return true;
-                                            })
-                                            .map((m: any, i: number) => {
-                                            const isNeg = m.changePct < 0;
-                                            const meta = INDICATOR_META[m.key];
-                                            const catColor = meta?.color || 'text-slate-300';
-                                            const borderCol = meta?.borderColor || 'border-white/10';
-                                            const bgCol = meta?.bgColor || 'rgba(255,255,255,0.03)';
-                                            const glowColor = isNeg ? 'rgba(239,68,68,0.12)' : 'rgba(34,197,94,0.12)';
-                                            return (
-                                                <div key={m.key} className={`p-2.5 rounded-lg border ${borderCol} text-center transition-all hover:border-white/25 hover:scale-[1.02]`}
-                                                    style={{ background: bgCol, boxShadow: `0 0 10px ${glowColor}` }}>
-                                                    <div className="flex items-center justify-center gap-1.5 mb-1">
-                                                        {meta?.logoUrl && (
-                                                            <img loading="lazy" decoding="async"
-                                                                src={meta.logoUrl}
-                                                                alt="" className="w-4 h-4 rounded-full object-cover"
-                                                                onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
-                                                        )}
-                                                        <span className={`text-[12px] font-bold uppercase tracking-wider ${catColor}`}>{m.key}</span>
-                                                    </div>
-                                                    <span className="text-[14px] font-black text-white font-mono block">
-                                                        {m.value > 1000 ? m.value.toLocaleString(undefined, { maximumFractionDigits: 0 }) : m.value.toFixed(2)}
-                                                    </span>
-                                                    <span className={`text-[12px] font-bold font-mono ${isNeg ? 'text-rose-400' : 'text-emerald-400'}`}>
-                                                        {isNeg ? '' : '+'}{m.changePct.toFixed(2)}%
-                                                    </span>
+                                    <div className="flex flex-wrap gap-3 mb-4">
+                                        {(() => {
+                                            const filtered = macroIndicators
+                                                .filter((m: any) => m.key !== 'Fear & Greed')
+                                                .filter((m: any) => {
+                                                    if (m.key === 'USD/KRW') return locale === 'ko';
+                                                    if (m.key === 'USD/JPY') return locale === 'ja';
+                                                    return true;
+                                                });
+
+                                            // Group by contiguous categories
+                                            const grouped: { cat: string; items: any[] }[] = [];
+                                            let currentCat = '';
+                                            filtered.forEach((m: any) => {
+                                                const cat = INDICATOR_META[m.key]?.category || 'market';
+                                                if (cat !== currentCat) {
+                                                    currentCat = cat;
+                                                    grouped.push({ cat, items: [m] });
+                                                } else {
+                                                    grouped[grouped.length - 1].items.push(m);
+                                                }
+                                            });
+
+                                            return grouped.map((g, gi) => (
+                                                <div key={gi} className="flex flex-wrap gap-2 p-1.5 rounded-xl border border-white/5 bg-white/[0.02]">
+                                                    {g.items.map((m: any) => {
+                                                        const isNeg = m.changePct < 0;
+                                                        const meta = INDICATOR_META[m.key];
+                                                        const catColor = meta?.color || 'text-slate-300';
+                                                        const borderCol = meta?.borderColor || 'border-white/10';
+                                                        const bgCol = meta?.bgColor || 'rgba(255,255,255,0.03)';
+                                                        const glowColor = isNeg ? 'rgba(239,68,68,0.12)' : 'rgba(34,197,94,0.12)';
+                                                        return (
+                                                            <div key={m.key} className={`p-2.5 rounded-lg border ${borderCol} text-center transition-all hover:border-white/25 hover:scale-[1.02] w-[calc(50vw-1.5rem)] sm:w-auto min-w-[100px] flex-1 sm:flex-none`}
+                                                                style={{ background: bgCol, boxShadow: `0 0 10px ${glowColor}` }}>
+                                                                <div className="flex items-center justify-center gap-1.5 mb-1">
+                                                                    {meta?.logoUrl && (
+                                                                        <img loading="lazy" decoding="async"
+                                                                            src={meta.logoUrl}
+                                                                            alt="" className="w-4 h-4 rounded-full object-cover"
+                                                                            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                                                                    )}
+                                                                    <span className={`text-[12px] font-bold uppercase tracking-wider ${catColor}`}>{m.key}</span>
+                                                                </div>
+                                                                <span className="text-[14px] font-black text-white font-mono block">
+                                                                    {m.value > 1000 ? m.value.toLocaleString(undefined, { maximumFractionDigits: 0 }) : m.value.toFixed(2)}
+                                                                </span>
+                                                                <span className={`text-[12px] font-bold font-mono ${isNeg ? 'text-rose-400' : 'text-emerald-400'}`}>
+                                                                    {isNeg ? '' : '+'}{m.changePct.toFixed(2)}%
+                                                                </span>
+                                                            </div>
+                                                        );
+                                                    })}
                                                 </div>
-                                            );
-                                        })}
+                                            ));
+                                        })()}
                                     </div>
                                     {/* Fear & Greed + VIX Term Structure row */}
                                     <div className="flex flex-wrap gap-3 items-center justify-center">
