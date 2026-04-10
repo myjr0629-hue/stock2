@@ -1976,11 +1976,12 @@ function SignalItem({ signal, locale }: { signal: { time: string; ticker: string
 
     const style = styles[signal.type] || styles.ALERT;
 
-    // Format time based on locale
-    const localeMap: Record<string, string> = { ko: 'ko-KR', ja: 'ja-JP', en: 'en-US' };
-    const formattedTime = new Date(signal.time).toLocaleTimeString(localeMap[locale] || 'en-US', {
+    // Format time fixed to EST/EDT (America/New_York)
+    const formattedTime = new Date(signal.time).toLocaleTimeString('en-US', {
+        timeZone: 'America/New_York',
         hour: '2-digit',
-        minute: '2-digit'
+        minute: '2-digit',
+        hour12: false
     });
 
     // Translate message based on locale
@@ -2006,7 +2007,9 @@ function SignalItem({ signal, locale }: { signal: { time: string; ticker: string
                 </div>
                 <span className="font-jakarta font-semibold text-xs text-white">{signal.ticker}</span>
                 <span className={`text-[12px] font-jakarta font-bold ${style.text}`}>{signal.type}</span>
-                <span className="text-[12px] font-jakarta text-slate-300 ml-auto">{formattedTime}</span>
+                <span className="text-[11px] font-jakarta text-slate-400 ml-auto flex items-center gap-1 bg-slate-800/50 px-1.5 py-0.5 rounded">
+                    {formattedTime} <span className="text-[9px] font-bold text-slate-500">ET</span>
+                </span>
             </div>
 
             {/* Message */}
