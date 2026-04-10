@@ -368,16 +368,16 @@ const WatchlistItem = React.memo(function WatchlistItem({ ticker, isSelected }: 
                             )}
                         </div>
                     </div>
-                </div>
 
-                {/* Desktop: Ticker badges inline */}
-                <div className="hidden md:flex items-center gap-1 min-w-0">
-                    {hasGammaSqueeze && (
-                        <span className="px-0.5 text-[8px] font-bold text-indigo-400 flex-shrink-0">SQ</span>
-                    )}
-                    {hasWhale && !hasGammaSqueeze && (
-                        <span className="px-0.5 text-[8px] font-bold text-amber-400 flex-shrink-0">WH</span>
-                    )}
+                    {/* Desktop: Ticker badges inline */}
+                    <div className="hidden md:flex items-center gap-1 min-w-0 ml-1 mt-0.5">
+                        {hasGammaSqueeze && (
+                            <span className="px-0.5 text-[8px] font-bold text-indigo-400 flex-shrink-0">SQ</span>
+                        )}
+                        {hasWhale && !hasGammaSqueeze && (
+                            <span className="px-0.5 text-[8px] font-bold text-amber-400 flex-shrink-0">WH</span>
+                        )}
+                    </div>
                 </div>
 
                 {/* Mobile Right Side: Stack of Prices */}
