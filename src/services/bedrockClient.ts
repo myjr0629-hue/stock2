@@ -14,7 +14,7 @@ import { BedrockRuntimeClient, InvokeModelCommand } from '@aws-sdk/client-bedroc
 
 // --- Model Constants ---
 export const MODELS = {
-    SONNET_4: 'us.anthropic.claude-sonnet-4-20250514-v1:0',
+    SONNET_35: 'us.anthropic.claude-3-5-sonnet-20241022-v2:0',
     HAIKU_35: 'us.anthropic.claude-3-5-haiku-20241022-v1:0',
 } as const;
 
@@ -118,7 +118,7 @@ export interface CallBedrockResult {
  */
 export async function callBedrock(options: CallBedrockOptions): Promise<CallBedrockResult> {
     const {
-        modelId = MODELS.SONNET_4,
+        modelId = MODELS.SONNET_35,
         system,
         userPrompt,
         maxTokens = 4096,

@@ -19,7 +19,7 @@ import { fetchBatch8K, buildSECTextBlock } from '@/services/secFilingsService';
 
 export const maxDuration = 60;
 
-const BEDROCK_MODEL = 'us.anthropic.claude-sonnet-4-20250514-v1:0';
+const BEDROCK_MODEL = 'us.anthropic.claude-3-5-sonnet-20241022-v2:0';
 
 let _bedrockClient: BedrockRuntimeClient | null = null;
 function getBedrock(): BedrockRuntimeClient {

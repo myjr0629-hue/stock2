@@ -93,12 +93,28 @@ export async function getMarketStatusSSOT(): Promise<MarketStatusResult> {
         let session: "pre" | "regular" | "post" | "closed" = "closed";
 
         if (isOpen) {
-            session = "regular";
+            // [V4.5 BUG FIX] Polygon occasionally flags `open` early. Enforce strictly.
+            if (etTime < 570) {
+                // Before 09:30 ET
+                session = "pre";
+            } else if (etTime >= 960) {
+                // After 16:00 ET
+                session = "post";
+            } else {
+                session = "regular";
+            }
         } else if (isExtended) {
-            // Polygon says "extended", we clarify Pre vs Post using ET time
-            if (etTime >= 240 && etTime < 570) session = "pre"; // 04:00 - 09:30
-            else if (etTime >= 960 && etTime < 1200) session = "post"; // 16:00 - 20:00
-            else session = "closed";
+            // Polygon says "extended-hours". Disambiguate PRE vs POST.
+            if (etTime < 570) {
+                // Before 09:30 ET
+                session = "pre";
+            } else if (etTime < 1200) {
+                // After 09:30 ET (handles 13:00 early closes gracefully!)
+                session = "post";
+            } else {
+                // After 20:00 (extended hours legally ends at 20:00)
+                session = "closed";
+            }
         } else {
             session = "closed";
         }
