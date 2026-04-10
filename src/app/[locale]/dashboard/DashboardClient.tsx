@@ -2091,11 +2091,18 @@ function SignalFeedPanel() {
         <div className="flex flex-col h-full">
             <div className="flex items-center justify-between p-3 border-b border-white/5">
                 <div className="flex items-center gap-2">
-                    <Radio className={`w-3.5 h-3.5 ${isOpen ? 'text-cyan-400 animate-pulse' : 'text-emerald-400'}`} />
+                    <Radio className={`w-3.5 h-3.5 ${isOpen ? 'text-cyan-400 animate-pulse' : 'text-slate-500'}`} />
                     <h2 className="text-xs font-jakarta font-bold uppercase tracking-wider text-slate-300">Signal Feed</h2>
-                    <span className={`text-[12px] font-bold px-1.5 py-0.5 rounded ${isOpen ? 'bg-emerald-500/20 text-emerald-400' : 'bg-slate-700/50 text-slate-300'}`}>
-                        {isOpen ? '● LIVE' : 'REGULAR HOURS'}
-                    </span>
+                    {isOpen ? (
+                        <span className="text-[12px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 flex items-center gap-1">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                            LIVE
+                        </span>
+                    ) : (
+                        <span className="text-[12px] font-bold px-1.5 py-0.5 rounded bg-slate-700/50 text-slate-300">
+                            PREV SESSION
+                        </span>
+                    )}
                 </div>
                 <span style={{ fontSize: '12px' }} className="text-slate-300">{mergedSignals.length}</span>
             </div>
