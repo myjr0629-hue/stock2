@@ -440,7 +440,7 @@ export default function GuardianPage() {
                         </div>
 
                         {/* BLOCK C: RLSI INSIGHT + BREADTH COMPACT (4 cols) */}
-                        <div className="col-span-12 lg:col-span-4 backdrop-blur-md border border-slate-800 rounded-lg relative shadow-2xl flex flex-col overflow-hidden transition-all duration-300 hover:border-emerald-500/30 hover:shadow-[0_0_25px_rgba(16,185,129,0.08)] hover:scale-[1.003]"
+                        <div className="col-span-12 lg:col-span-4 min-h-[450px] lg:min-h-0 backdrop-blur-md border border-slate-800 rounded-lg relative shadow-2xl flex flex-col overflow-hidden transition-all duration-300 hover:border-emerald-500/30 hover:shadow-[0_0_25px_rgba(16,185,129,0.08)] hover:scale-[1.003]"
                             style={{ background: 'linear-gradient(180deg, rgba(16,185,129,0.10) 0%, rgba(16,185,129,0.03) 30%, transparent 50%), rgba(10,14,20,0.85)' }}
                         >
                             {/* Infographic: Horizontal Data Bars */}

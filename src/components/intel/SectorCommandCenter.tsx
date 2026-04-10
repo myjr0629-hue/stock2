@@ -458,15 +458,19 @@ export function SectorCommandCenter({ sectorData, onNavigate }: SectorCommandCen
                                     onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
                             </div>
 
-                            {/* Ticker → Change% → Sector (한줄) */}
-                            <div className="flex items-center gap-2 flex-1 min-w-0">
-                                <span className="text-[17px] font-bold text-white">{ticker}</span>
-                                <span className={`text-[15px] ${changePct >= 0 ? 'text-emerald-400' : 'text-rose-400'} font-mono font-bold`}>
-                                    {changePct >= 0 ? '+' : ''}{changePct.toFixed(2)}%
-                                </span>
-                                <span className="text-slate-200/40">|</span>
-                                <span className={`${sectorAccent}`}>{sectorIcon}</span>
-                                <span className="text-[17px] text-slate-200 font-mono">{sectorLabel}</span>
+                            {/* Ticker → Change% → Sector (wrap on mobile) */}
+                            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-0.5 sm:gap-2 flex-1 min-w-0">
+                                <div className="flex items-center gap-2">
+                                    <span className="text-base sm:text-[17px] font-bold text-white">{ticker}</span>
+                                    <span className={`text-[14px] sm:text-[15px] ${changePct >= 0 ? 'text-emerald-400' : 'text-rose-400'} font-mono font-bold`}>
+                                        {changePct >= 0 ? '+' : ''}{changePct.toFixed(2)}%
+                                    </span>
+                                </div>
+                                <div className="flex items-center gap-1.5 opacity-80 sm:opacity-100">
+                                    <span className="hidden sm:inline text-slate-200/40">|</span>
+                                    <span className={`${sectorAccent} w-3 h-3 sm:w-auto sm:h-auto flex items-center justify-center`}>{sectorIcon}</span>
+                                    <span className="text-[11px] sm:text-[17px] text-slate-300 sm:text-slate-200 font-mono tracking-wider sm:tracking-normal truncate max-w-[100px] sm:max-w-none">{sectorLabel}</span>
+                                </div>
                             </div>
 
                             {/* Alpha Gauge */}
@@ -645,7 +649,7 @@ export function SectorCommandCenter({ sectorData, onNavigate }: SectorCommandCen
             {/* ═══ SECTOR MOMENTUM RANKING — Premium Table ═══ */}
             <section className="relative z-10 rounded-xl border border-emerald-500/[0.12] bg-[#0d1117]/70 backdrop-blur-sm overflow-x-auto">
                 {/* Header Row */}
-                <div className="grid items-center px-5 py-3 border-b border-white/[0.10]"
+                <div className="grid items-center px-5 py-3 border-b border-white/[0.10] min-w-[750px]"
                     style={{ gridTemplateColumns: RANKING_GRID }}>
                     <span />
                     <div className="flex items-center gap-2">
@@ -674,7 +678,7 @@ export function SectorCommandCenter({ sectorData, onNavigate }: SectorCommandCen
                         return (
                             <div
                                 key={s.def.key}
-                                className={`grid items-center px-5 py-2.5 cursor-pointer transition-colors group
+                                className={`grid items-center px-5 py-2.5 cursor-pointer transition-colors group min-w-[750px]
                                     ${idx % 2 === 0 ? 'bg-white/[0.025]' : 'bg-transparent'}
                                     hover:bg-white/[0.06]`}
                                 style={{ gridTemplateColumns: RANKING_GRID }}
