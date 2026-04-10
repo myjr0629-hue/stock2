@@ -1,0 +1,9 @@
+{
+  "name": "lambda-cross-sector",
+  "version": "1.0.0",
+  "description": "Cross-sector Intel AI Generation Lambda",
+  "main": "index.js",
+  "dependencies": {
+    "@aws-sdk/client-bedrock-runtime": "^3.500.0"
+  }
+}

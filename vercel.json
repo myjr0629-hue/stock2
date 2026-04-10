@@ -56,10 +56,7 @@
             "path": "/api/cron/track-verify",
             "schedule": "30 21 * * 1-5"
         },
-        {
-            "path": "/api/cron/cross-sector-brief",
-            "schedule": "50 21 * * 1-5"
-        },
+
         {
             "path": "/api/cron/economic-calendar",
             "schedule": "*/30 13-21 * * 1-5"
