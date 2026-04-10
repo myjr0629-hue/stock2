@@ -2053,49 +2053,39 @@ function SignalFeedPanel() {
         ALPHA_JUMP: { icon: '🔥', color: 'text-orange-400', label: 'Alpha Jump' },
     };
 
-    // Merge store signals + DynamoDB signals, deduplicate, sort newest first
+    // Merge store signals + Redis signals, deduplicate, sort newest first
     const mergedSignals = useMemo(() => {
-        const allSignals: any[] = [];
+        const signalMap = new Map<string, any>();
 
-        // Store signals (from unified API)
-        for (const s of signals) {
-            allSignals.push({
-                ticker: s.ticker,
-                type: s.type,
-                message: s.message,
-                messageKey: s.messageKey,
-                params: s.params,
-                timestamp: new Date(s.time).getTime(),
-                source: 'store',
-            });
-        }
+        const addSignal = (s: any) => {
+            const ts = new Date(s.timestamp || s.time || s.ts || Date.now()).getTime();
+            // Deduplicate by ticker + type + minute bucket to prevent near-duplicates
+            const minuteKey = Math.floor(ts / 60000);
+            const key = `${s.ticker}-${s.type}-${minuteKey}`;
+            
+            if (!signalMap.has(key) || signalMap.get(key).timestamp < ts) {
+                signalMap.set(key, {
+                    ticker: s.ticker,
+                    type: s.type,
+                    message: s.message,
+                    messageKey: s.messageKey,
+                    params: s.params,
+                    timestamp: ts,
+                    source: 'store',
+                });
+            }
+        };
 
-        // DynamoDB signals (persisted 24h)
-        for (const s of dbSignals) {
-            allSignals.push({
-                ticker: s.ticker,
-                type: s.type,
-                timestamp: s.timestamp,
-                gex: s.gex,
-                prevGex: s.prevGex,
-                source: 'dynamodb',
-            });
-        }
+        // Store signals (from unified API, current session)
+        for (const s of signals) addSignal(s);
 
-        // Sort newest first, limit 20
-        return allSignals
+        // Redis signals (persisted from daily cache)
+        for (const s of dbSignals) addSignal(s);
+
+        return Array.from(signalMap.values())
             .sort((a, b) => b.timestamp - a.timestamp)
             .slice(0, 20);
     }, [signals, dbSignals]);
-
-    // Format relative time
-    const formatRelativeTime = (ts: number) => {
-        const diff = Math.floor((Date.now() - ts) / 1000);
-        if (diff < 60) return `${diff}s`;
-        if (diff < 3600) return `${Math.floor(diff / 60)}m`;
-        if (diff < 86400) return `${Math.floor(diff / 3600)}h`;
-        return `${Math.floor(diff / 86400)}d`;
-    };
 
     return (
         <div className="flex flex-col h-full">
@@ -2104,7 +2094,7 @@ function SignalFeedPanel() {
                     <Radio className={`w-3.5 h-3.5 ${isOpen ? 'text-cyan-400 animate-pulse' : 'text-emerald-400'}`} />
                     <h2 className="text-xs font-jakarta font-bold uppercase tracking-wider text-slate-300">Signal Feed</h2>
                     <span className={`text-[12px] font-bold px-1.5 py-0.5 rounded ${isOpen ? 'bg-emerald-500/20 text-emerald-400' : 'bg-slate-700/50 text-slate-300'}`}>
-                        {isOpen ? '● LIVE' : '24H'}
+                        {isOpen ? '● LIVE' : 'REGULAR HOURS'}
                     </span>
                 </div>
                 <span style={{ fontSize: '12px' }} className="text-slate-300">{mergedSignals.length}</span>
@@ -2112,28 +2102,7 @@ function SignalFeedPanel() {
             <div className="overflow-y-auto p-2 space-y-1.5 max-h-[calc(100vh-200px)]">
                 {mergedSignals.length > 0 ? (
                     mergedSignals.map((signal, i) => {
-                        // DynamoDB signals
-                        if (signal.source === 'dynamodb') {
-                            const display = SIGNAL_DISPLAY[signal.type] || { icon: '📌', color: 'text-slate-300', label: signal.type };
-                            const gexDisplay = signal.gex ? `$${(signal.gex / 1e9).toFixed(2)}B` : '';
-                            return (
-                                <div key={`db-${i}`} className="flex items-start gap-2 p-2 rounded-lg bg-[#0d1829]/80 border border-white/5 hover:border-white/10 transition-colors">
-                                    <span className="text-sm flex-shrink-0 mt-0.5">{display.icon}</span>
-                                    <div className="flex-1 min-w-0">
-                                        <div className="flex items-center gap-1.5">
-                                            <span className="text-[13px] font-bold text-white">{signal.ticker}</span>
-                                            <span className={`text-[12px] font-medium ${display.color}`}>{display.label}</span>
-                                        </div>
-                                        {gexDisplay && (
-                                            <span style={{ fontSize: '12px' }} className="text-slate-300 font-mono">{gexDisplay}</span>
-                                        )}
-                                    </div>
-                                    <span style={{ fontSize: '12px' }} className="text-slate-400 flex-shrink-0">{formatRelativeTime(signal.timestamp)}</span>
-                                </div>
-                            );
-                        }
-                        // Store signals (existing)
-                        return <SignalItem key={`store-${i}`} signal={{ ...signal, time: new Date(signal.timestamp).toISOString() }} locale={locale} />;
+                        return <SignalItem key={`sig-${i}`} signal={{ ...signal, time: new Date(signal.timestamp).toISOString() }} locale={locale} />;
                     })
                 ) : (
                     <div className="flex flex-col items-center justify-center h-32 gap-2">
