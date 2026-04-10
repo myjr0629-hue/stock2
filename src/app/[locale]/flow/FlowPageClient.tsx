@@ -118,8 +118,8 @@ export function FlowPageClient({ ticker, initialFlowData }: FlowPageClientProps)
                 {/* Content - pt adjusted for fixed header (nav 48px + ticker ~40px) */}
                 <main className="relative z-10 mx-auto max-w-[1440px] w-full px-4 sm:px-6 pb-48 min-h-screen">
 
-                    <div className="sticky top-[78px] z-40 bg-[#0a0f1a]/95 backdrop-blur-xl rounded-xl py-2 px-3 border border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.3)] flex flex-wrap sm:flex-nowrap items-center justify-between gap-x-3 gap-y-1">
-                        <div className="flex-1 min-w-0">
+                    <div className="sticky top-[78px] z-40 bg-[#0a0f1a]/95 backdrop-blur-xl rounded-xl py-2 px-3 border border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.3)] flex flex-col sm:flex-row sm:items-center justify-between gap-y-1 sm:gap-x-3">
+                        <div className="flex-1 min-w-0 flex flex-col sm:flex-row sm:items-center">
                             {/* Row 1: Identity (all inline) */}
                             <div className="flex items-center gap-2 sm:gap-2.5 min-w-0">
                                 <div className="relative w-8 h-8 sm:w-10 sm:h-10 lg:w-12 lg:h-12 rounded-full overflow-hidden bg-white/10 flex items-center justify-center shrink-0">
@@ -139,7 +139,18 @@ export function FlowPageClient({ ticker, initialFlowData }: FlowPageClientProps)
                                 <FavoriteToggle ticker={ticker} name={liveQuote?.name} />
                             </div>
 
-                            {/* Row 2: Price + Extended Badge (fixed position, independent of ticker) */}
+                            {/* Mobile Price Row (Stacked below ticker directly) */}
+                            <div className="flex items-baseline gap-1.5 sm:hidden pl-[40px] mt-0.5">
+                                <div className={`text-[22px] leading-none font-black tracking-tighter tabular-nums ${pf.color}`}
+                                    style={pf.style}>
+                                    ${displayPrice?.toFixed(2) || '—'}
+                                </div>
+                                <div className={`text-[13px] font-bold font-mono tracking-tighter ${isPositive ? "text-emerald-500" : "text-rose-500"}`}>
+                                    {displayChangePct > 0 ? "+" : ""}{displayChangePct?.toFixed(2)}%
+                                </div>
+                            </div>
+
+                            {/* Row 2: Desktop Price + Extended Badge (fixed position) */}
                             <div className="hidden sm:flex items-baseline gap-3 -mt-0.5 pl-[40px] sm:pl-[50px] lg:pl-[58px]">
                                 <div className={`text-2xl font-black tracking-tighter tabular-nums leading-none ${pf.color}`}
                                     style={pf.style}>
@@ -201,19 +212,6 @@ export function FlowPageClient({ ticker, initialFlowData }: FlowPageClientProps)
                                     </svg>
                                 </div>
                             )}
-                        </div>
-
-                        {/* Mobile Price Row */}
-                        <div className="flex flex-col justify-end sm:hidden shrink-0 ml-auto pl-2">
-                            <div className="flex items-baseline gap-1.5 justify-end">
-                                <div className={`text-[19px] leading-none font-black tracking-tighter tabular-nums ${pf.color}`}
-                                    style={pf.style}>
-                                    ${displayPrice?.toFixed(2) || '—'}
-                                </div>
-                                <div className={`text-[12px] font-bold font-mono tracking-tighter ${isPositive ? "text-emerald-500" : "text-rose-500"}`}>
-                                    {displayChangePct > 0 ? "+" : ""}{displayChangePct?.toFixed(2)}%
-                                </div>
-                            </div>
                         </div>
                     </div>
 
