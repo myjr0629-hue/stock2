@@ -118,7 +118,7 @@ export function FlowPageClient({ ticker, initialFlowData }: FlowPageClientProps)
                 {/* Content - pt adjusted for fixed header (nav 48px + ticker ~40px) */}
                 <main className="relative z-10 mx-auto max-w-[1440px] w-full px-4 sm:px-6 pb-48 min-h-screen">
 
-                    <div className="sticky top-[78px] z-40 bg-[#0a0f1a]/95 backdrop-blur-xl rounded-xl py-2.5 px-3 sm:py-1 sm:px-3 border border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.3)] flex items-center justify-between gap-2">
+                    <div className="sticky top-[78px] sm:top-[78px] z-50 bg-[#0a0f1a] rounded-xl py-2.5 px-3 sm:py-1 sm:px-3 border border-slate-700/50 shadow-[0_8px_32px_rgba(0,0,0,0.6)] flex items-center justify-between gap-2">
                         {/* LEFT ALIGNED: Identity & Desktop Price */}
                         <div className="flex-1 min-w-0">
                             {/* Row 1: Identity (all inline) */}
