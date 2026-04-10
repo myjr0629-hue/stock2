@@ -1854,11 +1854,11 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                                 {/* Row 4: Factor Breakdown - Compact Glassmorphism */}
                                 {analysis.factorBreakdown && (
                                     <div className="bg-white/[0.03] backdrop-blur-sm rounded-lg p-2 border border-white/10 mb-2">
-                                        <div className="grid grid-cols-3 gap-x-3 gap-y-1.5">
+                                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-2 sm:gap-x-3 gap-y-1.5 sm:gap-y-1.5">
                                             {analysis.factorBreakdown.map((f: any) => (
                                                 <div key={f.key} className="flex items-center gap-1">
-                                                    <span className={`text-[12px] w-[36px] shrink-0 text-right font-bold ${f.score > 0 ? 'text-emerald-400' : f.score < 0 ? 'text-rose-400' : 'text-slate-300'}`}>{f.name}</span>
-                                                    <div className="flex-1 h-2.5 bg-slate-900/60 rounded-full overflow-hidden relative min-w-0 border border-white/5">
+                                                    <span className={`text-[11px] sm:text-[12px] w-[34px] sm:w-[36px] shrink-0 text-right font-bold ${f.score > 0 ? 'text-emerald-400' : f.score < 0 ? 'text-rose-400' : 'text-slate-300'}`}>{f.name}</span>
+                                                    <div className="flex-1 h-2 sm:h-2.5 bg-slate-900/60 rounded-full overflow-hidden relative min-w-0 border border-white/5">
                                                         {/* Center line */}
                                                         <div className="absolute left-1/2 top-0 bottom-0 w-px bg-white/20 z-10" />
                                                         {f.score > 0 ? (
@@ -1873,7 +1873,7 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                                                             />
                                                         ) : null}
                                                     </div>
-                                                    <span className={`text-[12px] font-black w-[20px] shrink-0 text-right ${f.score > 0 ? 'text-emerald-400' : f.score < 0 ? 'text-rose-400' : 'text-slate-300'}`}>
+                                                    <span className={`text-[11px] sm:text-[12px] font-black w-[18px] sm:w-[20px] shrink-0 text-right ${f.score > 0 ? 'text-emerald-400' : f.score < 0 ? 'text-rose-400' : 'text-slate-300'}`}>
                                                         {f.score > 0 ? '+' : ''}{f.score}
                                                     </span>
                                                 </div>
@@ -1942,7 +1942,7 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                             {/* 2-5. 4 Metrics + 현재가위치/SQUEEZE (50% width) */}
                             <div className="flex flex-col gap-2 lg:w-[50%] shrink-0">
                                 {/* Top Row: 4 Metric Cards (uniform height) - 2x2 grid on mobile, row on desktop */}
-                                <div className="grid grid-cols-2 lg:flex gap-2">
+                                <div className="grid grid-cols-2 lg:flex gap-1.5 sm:gap-2">
                                     {/* === FREE: OPI (pricing matrix: full access) === */}
                                     <div className="flex-1">
                                     <div className="flex-1 bg-white/5 backdrop-blur-md rounded-xl p-3 border border-white/10 flex flex-col items-center justify-center relative overflow-hidden">

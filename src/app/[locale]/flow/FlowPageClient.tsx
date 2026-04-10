@@ -118,7 +118,7 @@ export function FlowPageClient({ ticker, initialFlowData }: FlowPageClientProps)
                 {/* Content - pt adjusted for fixed header (nav 48px + ticker ~40px) */}
                 <main className="relative z-10 mx-auto max-w-[1440px] w-full px-4 sm:px-6 pb-48 min-h-screen">
 
-                    <div className="sticky top-[78px] z-40 bg-[#0a0f1a]/95 backdrop-blur-xl rounded-xl py-2 px-3 sm:py-1 border border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.3)] flex items-center justify-between gap-2">
+                    <div className="sticky top-[78px] z-40 bg-[#0a0f1a]/95 backdrop-blur-xl rounded-xl py-2.5 px-3 sm:py-1 sm:px-3 border border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.3)] flex items-center justify-between gap-2">
                         {/* LEFT ALIGNED: Identity & Desktop Price */}
                         <div className="flex-1 min-w-0">
                             {/* Row 1: Identity (all inline) */}
@@ -171,12 +171,12 @@ export function FlowPageClient({ ticker, initialFlowData }: FlowPageClientProps)
                         </div>
 
                         {/* RIGHT ALIGNED (MOBILE): Price Stack */}
-                        <div className="flex flex-col items-end sm:hidden shrink-0 ml-auto pl-2">
+                        <div className="flex flex-col items-end justify-center h-full sm:hidden shrink-0 ml-auto pl-2 mt-0.5">
                             <div className={`text-[20px] leading-none font-black tracking-tighter tabular-nums ${pf.color}`}
                                 style={pf.style}>
                                 ${displayPrice?.toFixed(2) || '—'}
                             </div>
-                            <div className={`text-[12px] font-bold font-mono tracking-tighter mt-0.5 ${isPositive ? "text-emerald-500" : "text-rose-500"}`}>
+                            <div className={`text-[12px] font-bold font-mono tracking-tighter mt-1 ${isPositive ? "text-emerald-500" : "text-rose-500"}`}>
                                 {displayChangePct > 0 ? "+" : ""}{displayChangePct?.toFixed(2)}%
                             </div>
                         </div>
