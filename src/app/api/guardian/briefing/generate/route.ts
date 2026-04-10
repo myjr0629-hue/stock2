@@ -16,6 +16,7 @@ import { fetchMassive } from '@/services/massiveClient';
 import { getFromCache, setInCache } from '@/services/redisClient';
 import { getYahooDataSSOT } from '@/services/yahooFinanceHub';
 import { fetchBatch8K, buildSECTextBlock } from '@/services/secFilingsService';
+import { GuardianDataHub } from '@/services/guardian/unifiedDataStream';
 
 export const maxDuration = 60;
 
@@ -39,7 +40,13 @@ export async function POST(req: Request) {
 
     try {
         const body = await req.json();
-        const { snapshot, rlsiHistory } = body;
+        let { snapshot, rlsiHistory } = body;
+
+        // [V8.1] Self-Healing Data Injection
+        if (!snapshot) {
+            console.log('[Briefing Gen] Snapshot missing or null, fetching via GuardianDataHub...');
+            snapshot = await GuardianDataHub.getGuardianSnapshot(false);
+        }
 
         // 1. Fetch Polygon broad market news (stock/sector)
         let marketNews: string[] = [];
@@ -271,6 +278,22 @@ Output ONLY valid JSON (no markdown fences):
         }
 
         const briefing = JSON.parse(rawText);
+
+        // [V8.1] AI Refusal / Hallucination Validation
+        const isInvalid = (text: string) => {
+            if (!text || text.length < 50) return true;
+            const lower = text.toLowerCase();
+            return lower.includes('temporarily unavailable') || 
+                   lower.includes('cannot generate') || 
+                   lower.includes('할 수 없습니다') ||
+                   lower.includes('불가능');
+        };
+
+        if (isInvalid(briefing.ko) || isInvalid(briefing.en)) {
+            console.error('[Briefing Gen] AI generated a refusal or suspiciously short response. Rejecting cache storage to prevent UI pollution.');
+            return NextResponse.json({ error: 'AI generated invalid/refusal response' }, { status: 500 });
+        }
+
         const elapsed = Date.now() - startTime;
         const etDateStr = new Date().toLocaleDateString('en-US', { timeZone: 'America/New_York' });
 
