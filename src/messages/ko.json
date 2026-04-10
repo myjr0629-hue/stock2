@@ -251,7 +251,13 @@
     "stanceNeutral": "중립",
     "bullMomentum": "상승 모멘텀",
     "bearPressure": "하락 압력",
-    "mixedSignal": "혼조세"
+    "mixedSignal": "혼조세",
+    "CROSS_INTELLIGENCE": "크로스 인텔리전스",
+    "LIVE": "LIVE",
+    "POLLING": "POLLING",
+    "CONNECTING": "연결 중",
+    "COLLAPSE": "접기",
+    "ALERTS": "알림"
   },
   "command": {
     "title": "COMMAND",

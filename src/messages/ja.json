@@ -251,7 +251,13 @@
     "stanceNeutral": "中立",
     "bullMomentum": "上昇モメンタム",
     "bearPressure": "下落圧力",
-    "mixedSignal": "まちまち"
+    "mixedSignal": "まちまち",
+    "CROSS_INTELLIGENCE": "クロスインテリジェンス",
+    "LIVE": "LIVE",
+    "POLLING": "POLLING",
+    "CONNECTING": "接続中",
+    "COLLAPSE": "閉じる",
+    "ALERTS": "アラート"
   },
   "command": {
     "title": "COMMAND",

@@ -49,7 +49,7 @@ export async function POST(req: Request) {
         const cacheKey = `ai-flow-analysis:${ticker}`;
 
         // --- Check Cache (unless event trigger forces refresh) ---
-        const forceRefresh = triggerReason === 'PRICE_MOVE' || triggerReason === 'SQUEEZE_CHANGE';
+        const forceRefresh = triggerReason === 'PRICE_MOVE' || triggerReason === 'SQUEEZE_CHANGE' || triggerReason === 'MANUAL_REFRESH';
         if (!forceRefresh) {
             const cached = await getFromCache<any>(cacheKey);
             if (cached && cached.structuralThesis) {

@@ -361,7 +361,7 @@ export function FlowAIAnalysis({ ticker, isSystemReady, isMarketClosed, flowData
                         <span className="text-[12px] font-bold font-jakarta">Analysis Error</span>
                     </div>
                     <p className="text-[12px] text-slate-300">{error}</p>
-                    <button onClick={() => fetchAnalysis('FIRST_LOAD')} className="mt-1.5 text-[12px] text-cyan-400 hover:text-cyan-300 flex items-center gap-1 font-jakarta">
+                    <button onClick={() => fetchAnalysis('MANUAL_REFRESH')} className="mt-1.5 text-[12px] text-cyan-400 hover:text-cyan-300 flex items-center gap-1 font-jakarta">
                         <RefreshCw size={10} /> {locale === 'ko' ? '재시도' : locale === 'ja' ? '再試行' : 'Retry'}
                     </button>
                 </div>
@@ -470,11 +470,11 @@ export function FlowAIAnalysis({ ticker, isSystemReady, isMarketClosed, flowData
                                 </span>
                             )}
                             <button
-                                onClick={() => fetchAnalysis('SCHEDULED')}
+                                onClick={() => fetchAnalysis('MANUAL_REFRESH')}
                                 className="text-slate-400 hover:text-cyan-400 transition-colors"
                                 disabled={loading}
                             >
-                                <RefreshCw size={12} />
+                                <RefreshCw size={12} className={loading ? "animate-spin" : ""} />
                             </button>
                         </div>
                     </div>

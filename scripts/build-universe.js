@@ -53,6 +53,9 @@ const ETF_NAME_PATTERNS = [
 ];
 
 function isETF(ticker, name) {
+    const ESSENTIAL_PROXIES = new Set(['SPY', 'QQQ', 'IWM', 'DIA', '^VIX']);
+    if (ESSENTIAL_PROXIES.has(ticker)) return false;
+
     if (KNOWN_ETFS.has(ticker)) return true;
     if (name) {
         for (const pattern of ETF_NAME_PATTERNS) {

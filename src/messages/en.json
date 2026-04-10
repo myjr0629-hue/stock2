@@ -251,7 +251,13 @@
     "stanceNeutral": "Neutral",
     "bullMomentum": "BULLISH",
     "bearPressure": "BEARISH",
-    "mixedSignal": "MIXED"
+    "mixedSignal": "MIXED",
+    "CROSS_INTELLIGENCE": "CROSS-INTELLIGENCE",
+    "LIVE": "LIVE",
+    "POLLING": "POLLING",
+    "CONNECTING": "CONNECTING",
+    "COLLAPSE": "COLLAPSE",
+    "ALERTS": "ALERTS"
   },
   "command": {
     "title": "COMMAND",

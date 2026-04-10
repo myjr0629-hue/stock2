@@ -559,12 +559,18 @@ async function persistDailySignals(newSignals: any[]) {
 }
 
     const finalSignals = await persistDailySignals(signals);
+    
+    // [FIX] Global State Bleed Isolation
+    // Only return signals that belong to the tickers currently being requested.
+    // The global `dashboard:signals:daily` pool may contain SPY from the cache warmer or other users.
+    const requestedTickersSet = new Set(Object.keys(tickersData));
+    const filteredSignals = finalSignals.filter(s => requestedTickersSet.has(s.ticker));
 
     return {
         timestamp: new Date().toISOString(),
         market: marketData,
         tickers: tickersData,
-        signals: finalSignals.slice(0, 20),
+        signals: filteredSignals.slice(0, 20),
         meta: {
             tickerCount: Object.keys(tickersData).length,
             cacheTTL: getDashboardSmartTTL().memoryMs / 1000

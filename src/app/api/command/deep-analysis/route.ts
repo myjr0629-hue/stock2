@@ -58,7 +58,7 @@ export async function POST(req: Request) {
         const cacheKey = `ai-deep-analysis:${ticker}`;
 
         // --- Check Cache (unless PRICE_MOVE or GAMMA_FLIP forces refresh) ---
-        const forceRefresh = triggerReason === 'PRICE_MOVE' || triggerReason === 'GAMMA_FLIP';
+        const forceRefresh = triggerReason === 'PRICE_MOVE' || triggerReason === 'GAMMA_FLIP' || triggerReason === 'MANUAL_REFRESH';
         if (!forceRefresh) {
             const cached = await getFromCache<any>(cacheKey);
             if (cached && (cached.currentState || cached.narrative)) {

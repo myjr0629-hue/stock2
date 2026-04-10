@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { AlertTriangle, TrendingDown, TrendingUp, Zap, Shield, X, BarChart3, type LucideIcon } from 'lucide-react';
+import { useTranslations } from 'next-intl';
 
 // ══════════════════════════════════════════════════════════════
 // TYPES
@@ -91,6 +92,14 @@ export default function GuardianAlertBanner({ alerts, connectionMode }: Props) {
         setDismissed(prev => new Set([...prev, id]));
     };
 
+    const t = useTranslations('guardian');
+    const tLive = t('LIVE', { fallback: 'LIVE' });
+    const tPolling = t('POLLING', { fallback: 'POLLING' });
+    const tConnecting = t('CONNECTING', { fallback: 'CONNECTING' });
+    const tCrossIntel = t('CROSS_INTELLIGENCE', { fallback: 'CROSS-INTELLIGENCE' });
+    const tCollapse = t('COLLAPSE', { fallback: 'COLLAPSE' });
+    const tAlerts = t('ALERTS', { fallback: 'ALERTS' });
+
     return (
         <div className="space-y-2" id="guardian-alert-banner">
             {/* Header bar */}
@@ -100,8 +109,8 @@ export default function GuardianAlertBanner({ alerts, connectionMode }: Props) {
                         connectionMode === 'polling' ? 'bg-amber-400' : 'bg-slate-500'
                         }`} />
                     <span className="text-xs uppercase tracking-widest text-slate-300 font-mono">
-                        {connectionMode === 'websocket' ? 'LIVE' : connectionMode === 'polling' ? 'POLLING' : 'CONNECTING'}
-                        {' · '}CROSS-INTELLIGENCE
+                        {connectionMode === 'websocket' ? tLive : connectionMode === 'polling' ? tPolling : tConnecting}
+                        {' · '}{tCrossIntel}
                     </span>
                 </div>
 
@@ -110,7 +119,7 @@ export default function GuardianAlertBanner({ alerts, connectionMode }: Props) {
                         onClick={() => setIsCollapsed(!isCollapsed)}
                         className="text-xs text-slate-400 hover:text-slate-200 transition-colors font-mono"
                     >
-                        {isCollapsed ? `▼ ${visibleAlerts.length} ALERTS` : '▲ COLLAPSE'}
+                        {isCollapsed ? `▼ ${visibleAlerts.length} ${tAlerts}` : `▲ ${tCollapse}`}
                     </button>
                 )}
             </div>
@@ -155,13 +164,13 @@ export default function GuardianAlertBanner({ alerts, connectionMode }: Props) {
                                     
                                     <span className="hidden lg:inline text-slate-600 flex-shrink-0 leading-none">/</span>
                                     
-                                    <p className="w-full lg:w-auto text-[12px] md:text-[13px] text-slate-300 leading-snug break-words flex-1 min-w-[200px]">
+                                    <p className="text-[12px] md:text-[13px] text-slate-300 leading-snug break-words flex-1 min-w-[200px]">
                                         {alert.description}
                                     </p>
 
-                                    {/* Metrics pills strictly inline on desktop, wrap on mobile */}
+                                    {/* Metrics pills strictly inline on desktop, wrap gracefully on mobile without forcing new line */}
                                     {alert.metrics && Object.keys(alert.metrics).length > 0 && (
-                                        <div className="flex flex-wrap items-center gap-1.5 flex-shrink-0 lg:ml-auto w-full lg:w-auto mt-1 lg:mt-0">
+                                        <div className="flex flex-wrap items-center gap-1.5 flex-shrink-0 lg:ml-auto">
                                             {Object.entries(alert.metrics).map(([key, val]) => (
                                                 <span key={key} className="text-[10px] px-1.5 py-[3px] rounded bg-slate-800/80 text-slate-300 font-mono leading-none border border-slate-700/50 whitespace-nowrap">
                                                     {key.toUpperCase()}: {typeof val === 'number' ? val.toFixed(1) : val}
