@@ -118,11 +118,11 @@ export function FlowPageClient({ ticker, initialFlowData }: FlowPageClientProps)
                 {/* Content - pt adjusted for fixed header (nav 48px + ticker ~40px) */}
                 <main className="relative z-10 mx-auto max-w-[1440px] w-full px-4 sm:px-6 pb-48 min-h-screen">
 
-                    <div className="sticky top-[78px] z-40 bg-[#0a0f1a]/95 backdrop-blur-xl rounded-xl py-1 px-3 border border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.3)] flex items-center justify-between">
-                        <div>
+                    <div className="sticky top-[78px] z-40 bg-[#0a0f1a]/95 backdrop-blur-xl rounded-xl py-2 px-3 border border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.3)] flex flex-wrap sm:flex-nowrap items-center justify-between gap-x-3 gap-y-1">
+                        <div className="flex-1 min-w-0">
                             {/* Row 1: Identity (all inline) */}
-                            <div className="flex items-center gap-2.5 min-w-0">
-                                <div className="relative w-10 h-10 lg:w-12 lg:h-12 rounded-full overflow-hidden bg-white/10 flex items-center justify-center shrink-0">
+                            <div className="flex items-center gap-2 sm:gap-2.5 min-w-0">
+                                <div className="relative w-8 h-8 sm:w-10 sm:h-10 lg:w-12 lg:h-12 rounded-full overflow-hidden bg-white/10 flex items-center justify-center shrink-0">
                                     <img
                                         loading="lazy"
                                         decoding="async"
@@ -134,13 +134,13 @@ export function FlowPageClient({ ticker, initialFlowData }: FlowPageClientProps)
                                         }}
                                     />
                                 </div>
-                                <h1 className="text-xl sm:text-2xl lg:text-3xl font-black text-white tracking-tighter font-jakarta shrink-0">{ticker}</h1>
+                                <h1 className="text-lg sm:text-2xl lg:text-3xl font-black text-white tracking-tighter font-jakarta shrink-0 truncate">{ticker}</h1>
                                 <span className="hidden sm:inline text-xs text-slate-500 font-bold tracking-tight uppercase font-jakarta truncate max-w-[200px]">{liveQuote?.name || 'Loading...'}</span>
                                 <FavoriteToggle ticker={ticker} name={liveQuote?.name} />
                             </div>
 
                             {/* Row 2: Price + Extended Badge (fixed position, independent of ticker) */}
-                            <div className="hidden sm:flex items-baseline gap-3 -mt-0.5 pl-[50px] lg:pl-[58px]">
+                            <div className="hidden sm:flex items-baseline gap-3 -mt-0.5 pl-[40px] sm:pl-[50px] lg:pl-[58px]">
                                 <div className={`text-2xl font-black tracking-tighter tabular-nums leading-none ${pf.color}`}
                                     style={pf.style}>
                                     ${displayPrice?.toFixed(2) || '—'}
@@ -170,7 +170,7 @@ export function FlowPageClient({ ticker, initialFlowData }: FlowPageClientProps)
                         </div>
 
                         {/* Guide Link + Sparkline grouped together */}
-                        <div className="hidden sm:flex items-center gap-2 self-end mb-0.5">
+                        <div className="hidden sm:flex items-center gap-2 self-end mb-0.5 shrink-0">
                             <Link href="/how-it-works" className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-cyan-500/30 text-[11px] font-bold text-cyan-400 hover:text-white hover:border-cyan-400/50 hover:shadow-[0_0_16px_rgba(6,182,212,0.3)] transition-all duration-300 shadow-[0_0_8px_rgba(6,182,212,0.15)] bg-cyan-950/20">
                                 <BookOpen className="w-3 h-3" />
                                 GUIDE
@@ -204,13 +204,13 @@ export function FlowPageClient({ ticker, initialFlowData }: FlowPageClientProps)
                         </div>
 
                         {/* Mobile Price Row */}
-                        <div className="flex flex-col gap-1 sm:hidden">
-                            <div className="flex items-baseline gap-2 flex-wrap">
-                                <div className={`text-2xl font-black tracking-tighter tabular-nums ${pf.color}`}
+                        <div className="flex flex-col justify-end sm:hidden shrink-0 ml-auto pl-2">
+                            <div className="flex items-baseline gap-1.5 justify-end">
+                                <div className={`text-[19px] leading-none font-black tracking-tighter tabular-nums ${pf.color}`}
                                     style={pf.style}>
                                     ${displayPrice?.toFixed(2) || '—'}
                                 </div>
-                                <div className={`text-sm font-bold font-mono tracking-tighter ${isPositive ? "text-emerald-500" : "text-rose-500"}`}>
+                                <div className={`text-[12px] font-bold font-mono tracking-tighter ${isPositive ? "text-emerald-500" : "text-rose-500"}`}>
                                     {displayChangePct > 0 ? "+" : ""}{displayChangePct?.toFixed(2)}%
                                 </div>
                             </div>
