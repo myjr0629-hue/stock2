@@ -503,7 +503,7 @@ export default function Page() {
             <div className="relative z-10 mx-auto w-[85%] md:w-[65%] group transition-transform duration-700 hover:scale-[1.02]"
               style={{ transform: 'rotateX(6deg)', transformOrigin: 'center bottom' }}>
               <div className="rounded-xl overflow-hidden border border-white/15 shadow-[0_20px_60px_rgba(34,211,238,0.12),0_8px_24px_rgba(0,0,0,0.5)]">
-                <img src="/images/command.PNG" alt="SIGNUM HQ Command Dashboard" className="w-full h-auto" />
+                <img src="/images/command-v2.png" alt="SIGNUM HQ Command Dashboard" className="w-full h-auto" />
               </div>
               {/* Reflection glow on bottom edge */}
               <div className="absolute -bottom-3 left-[15%] right-[15%] h-6 bg-cyan-500/15 blur-[25px] rounded-full" />
