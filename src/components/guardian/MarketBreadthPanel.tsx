@@ -338,7 +338,7 @@ export default function RLSIInsightPanel({
                                         </span>
                                     </div>
                                 )}
-                                <div className="text-[13px] text-white/80 leading-[1.6]" style={{ fontFamily: 'Pretendard, sans-serif' }}>
+                                <div className="text-[13px] text-white/80 leading-[1.6] whitespace-pre-line overflow-y-auto custom-briefing-scroll pr-1.5" style={{ fontFamily: 'Pretendard, sans-serif', maxHeight: '145px' }}>
                                     {insightDesc}
                                 </div>
                             </>
@@ -350,7 +350,7 @@ export default function RLSIInsightPanel({
                                     <img src="/signum-sg-vectorized.svg" alt="AI" width={13} height={13} style={{ objectFit: 'contain' as const, filter: 'drop-shadow(0 0 2px rgba(245,158,11,0.3))', animation: 'aiLogoPulse 2.5s ease-in-out infinite' }} />
                                     {insightTitle}
                                 </div>
-                                <div className="text-[13px] text-white/80 leading-[1.6]" style={{ fontFamily: 'Pretendard, sans-serif' }}>
+                                <div className="text-[13px] text-white/80 leading-[1.6] whitespace-pre-line overflow-y-auto custom-briefing-scroll pr-1.5" style={{ fontFamily: 'Pretendard, sans-serif', maxHeight: '145px' }}>
                                     {insightDesc}
                                 </div>
                                 <div className="text-xs text-amber-500/50 font-mono mt-1.5 font-jakarta">Last session analysis</div>
