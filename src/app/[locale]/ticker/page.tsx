@@ -194,6 +194,8 @@ export default async function TickerPage({ params, searchParams }: Props) {
         currency: "USD",
         history: [],
         session: 'closed',
+        // [FIX] Add explicit todayClose so calcPriceDisplay retains the regular session price
+        todayClose: dynamoPrice.price,
     } : {
         symbol: ticker,
         name: ticker,

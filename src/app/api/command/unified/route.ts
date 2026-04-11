@@ -977,6 +977,9 @@ async function tryDynamoFast(ticker: string): Promise<any | null> {
                     pe: f.pe ?? null, roe: f.roe ?? null, de: f.de ?? null,
                     revenueGrowth: f.revenueGrowth ?? null, netMargin: f.netMargin ?? null,
                     breakdown: f.breakdown ?? null,
+                    // [FIX] Add explicit fundamentals.price
+                    price: p.close || null,
+                    changePercent: p.changePct || null,
                 };
             }
 

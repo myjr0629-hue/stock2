@@ -356,6 +356,13 @@ async function buildResponseFromResults(
                 display: data.display || null,
                 prevChangePct: accuratePrevChangePct,
                 prevRegularClose: dailyBar?.prevClose || (data.prevRegularClose ?? null),
+                // [FIX] Add explicit fundamentals.price
+                fundamentals: {
+                    price: data.display?.price || data.underlyingPrice || 0,
+                    changePercent: accuratePrevChangePct || data.changePercent || 0,
+                    extendedPrice: data.extended ? (data.extended.postPrice || data.extended.prePrice || null) : null,
+                    extendedChangePct: data.extended ? (data.extended.postChangePct || data.extended.preChangePct || null) : null,
+                },
                 extended: data.extended || null,
                 session: data.session || 'CLOSED',
                 netGex: data.netGex,
@@ -766,6 +773,13 @@ async function buildResponseFromAnalysisCache(
             },
             prevChangePct: accuratePrevChangePct,
             prevRegularClose: accuratePrevClose || prevClose,
+            // [FIX] Add explicit fundamentals.price as requested by user
+            fundamentals: {
+                price: displayPrice || price,
+                changePercent: accuratePrevChangePct ?? changePercent ?? 0,
+                extendedPrice: extended ? (extended.postPrice || extended.prePrice || null) : null,
+                extendedChangePct: extended ? (extended.postChangePct || extended.preChangePct || null) : null,
+            },
             extended,
             session,
             netGex: ac.gex,

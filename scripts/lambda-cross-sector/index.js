@@ -123,20 +123,21 @@ function getDayOfWeekET() {
 }
 
 const YAHOO_CACHE_KEYS = {
-    VIX: 'yahoo:quote:^VIX',
-    VIX3M: 'yahoo:quote:^VIX3M',
-    SPX: 'yahoo:quote:ES=F',
-    NQ: 'yahoo:quote:NQ=F',
-    TNX: 'yahoo:quote:^TNX',
-    GOLD: 'yahoo:quote:GC=F',
-    OIL: 'yahoo:quote:CL=F',
-    TLT: 'yahoo:quote:TLT',
-    RUT: 'yahoo:quote:RTY=F',
-    USDKRW: 'yahoo:quote:KRW=X',
-    USDJPY: 'yahoo:quote:JPY=X',
-    IDX_NASDAQ: 'yahoo:quote:^IXIC',
-    IDX_DOW: 'yahoo:quote:^DJI',
-    IDX_SPX: 'yahoo:quote:^GSPC'
+    VIX: 'yahoo:vix',
+    VIX3M: 'yahoo:vix3m',
+    NQ: 'yahoo:nq',
+    TNX: 'yahoo:tnx',
+    SPX: 'yahoo:spx',
+    BTC: 'yahoo:btc',
+    GOLD: 'yahoo:gold',
+    TLT: 'yahoo:tlt',
+    OIL: 'yahoo:oil',
+    RUT: 'yahoo:rut',
+    USDKRW: 'yahoo:usdkrw',
+    USDJPY: 'yahoo:usdjpy',
+    IDX_NASDAQ: 'yahoo:idx:nasdaq',
+    IDX_DOW: 'yahoo:idx:dow',
+    IDX_SPX: 'yahoo:idx:spx'
 };
 
 exports.handler = async (event, context) => {

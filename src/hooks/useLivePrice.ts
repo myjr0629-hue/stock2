@@ -53,15 +53,24 @@ export function useLivePrice(ticker: string | null, refreshInterval = 5000): Liv
         if (wsPrice && wsPrice.price > 0) {
             // Merge WS real-time price with SWR extended session data
             const q = data?.data?.[ticker];
+            const sessionRaw = q?.session || data?.session || 'closed';
+            const s = sessionRaw.toLowerCase();
+            
+            // [FIX] Do NOT overwrite regular session 'price' during POST/PRE/CLOSED.
+            // WebSocket streams trades for whichever session is currently active.
+            const isRegular = s === 'reg' || s === 'open';
+
             return {
-                price: wsPrice.price,
-                changePercent: wsPrice.changePct || q?.changePercent || q?.regChangePct || 0,
+                price: isRegular ? wsPrice.price : (q?.price || 0),
+                changePercent: isRegular ? (wsPrice.changePct || q?.changePercent || q?.regChangePct || 0) : (q?.changePercent || q?.regChangePct || 0),
                 prevClose: q?.previousClose || q?.prevClose || 0,
-                extendedPrice: q?.extendedPrice || 0,
-                extendedChangePercent: q?.extendedChangePercent || 0,
-                extendedLabel: q?.extendedLabel || '',
+                extendedPrice: !isRegular ? wsPrice.price : (q?.extendedPrice || 0),
+                extendedChangePercent: !isRegular && q?.previousClose > 0 
+                    ? ((wsPrice.price - q.previousClose) / q.previousClose) * 100 
+                    : (q?.extendedChangePercent || 0),
+                extendedLabel: q?.extendedLabel || (!isRegular ? (s === 'pre' ? 'PRE' : 'POST') : ''),
                 volume: wsPrice.volume || q?.volume || 0,
-                session: q?.session || data?.session || 'closed',
+                session: sessionRaw,
             };
         }
     }
