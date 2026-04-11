@@ -59,16 +59,24 @@ export function useLivePrice(ticker: string | null, refreshInterval = 5000): Liv
             // [FIX] Do NOT overwrite regular session 'price' during POST/PRE/CLOSED.
             // WebSocket streams trades for whichever session is currently active.
             const isRegular = s === 'reg' || s === 'open';
+            const extLabel = q?.extendedLabel || (!isRegular ? (s === 'pre' ? 'PRE' : 'POST') : '');
+
+            // [FIX] Compute extendedChangePercent correctly: PRE against prevClose, POST against regular close (price)
+            let extChangePct = q?.extendedChangePercent || 0;
+            if (!isRegular) {
+                const basePrice = extLabel === 'PRE' ? q?.previousClose : q?.price;
+                if (basePrice > 0) {
+                    extChangePct = ((wsPrice.price - basePrice) / basePrice) * 100;
+                }
+            }
 
             return {
                 price: isRegular ? wsPrice.price : (q?.price || 0),
                 changePercent: isRegular ? (wsPrice.changePct || q?.changePercent || q?.regChangePct || 0) : (q?.changePercent || q?.regChangePct || 0),
                 prevClose: q?.previousClose || q?.prevClose || 0,
                 extendedPrice: !isRegular ? wsPrice.price : (q?.extendedPrice || 0),
-                extendedChangePercent: !isRegular && q?.previousClose > 0 
-                    ? ((wsPrice.price - q.previousClose) / q.previousClose) * 100 
-                    : (q?.extendedChangePercent || 0),
-                extendedLabel: q?.extendedLabel || (!isRegular ? (s === 'pre' ? 'PRE' : 'POST') : ''),
+                extendedChangePercent: extChangePct,
+                extendedLabel: extLabel,
                 volume: wsPrice.volume || q?.volume || 0,
                 session: sessionRaw,
             };
