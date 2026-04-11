@@ -29,6 +29,10 @@ import { AIDeepAnalysis } from '@/components/AIDeepAnalysis';
 import { CardTooltip, COMMAND_TOOLTIPS } from '@/components/ui/CardTooltip';
 import IVSkewCurve from '@/components/IVSkewCurve';
 import DualGaugeHUD from '@/components/ui/DualGaugeHUD';
+import { useMobile } from '@/hooks/useMobile';
+import { MobileCommandHeader } from '@/components/mobile/MobileCommandHeader';
+import { MobileSnapCarousel } from '@/components/mobile/MobileSnapCarousel';
+import { MobileBottomSheet } from '@/components/mobile/MobileBottomSheet';
 
 // [FIX] Dynamic import with SSR disabled - Recharts requires DOM measurements
 const StockChart = dynamic(() => import("@/components/StockChart").then(mod => mod.StockChart), {
@@ -661,6 +665,7 @@ const DecisionGate = ({ ticker, displayPrice, session, structure, krNews, smaDat
 
 export function LiveTickerDashboard({ ticker, initialStockData, initialNews, range, buildId, chartDiagnostics, initialUnifiedData, initialChartData, onReady }: Props) {
     const tCommon = useTranslations('common');
+    const isMobile = useMobile();
     // --- Live Data State ---
     // [극강] Track whether unified API has responded (to distinguish 'loading' vs 'no data')
     const [unifiedDataReceived, setUnifiedDataReceived] = useState(!!initialUnifiedData);
@@ -1338,10 +1343,23 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
         <div className="w-full max-w-[1600px] mx-auto space-y-6">
 
             {/* 1. TOP HEADER (Mobile / Desktop Split) */}
-            <div className="sticky top-[58px] md:top-[78px] z-30 bg-[#0a0f1a]/90 md:bg-white/5 backdrop-blur-xl rounded-b-xl md:rounded-xl py-2 px-3 md:py-1 border-b border-white/10 md:border md:shadow-[0_8px_32px_rgba(0,0,0,0.3)] transition-all duration-300" data-command-header>
+            {/* 1. TOP HEADER */}
+            {isMobile ? (
+                <MobileCommandHeader 
+                    ticker={ticker}
+                    name={initialStockData.name}
+                    displayPrice={displayPrice}
+                    displayChange={displayChangePct}
+                    sector={companyOverview?.sector}
+                    ssrExtPrice={activeExtPrice}
+                    ssrExtChangePct={activeExtPct}
+                    ssrExtLabel={activeExtLabel}
+                />
+            ) : (
+            <div className="sticky top-[78px] z-30 bg-white/5 backdrop-blur-xl rounded-xl py-1 border border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.3)] transition-all duration-300" data-command-header>
                 
                 {/* === DESKTOP HEADER (Restored untouched, hidden on mobile) === */}
-                <div className="hidden md:flex items-stretch gap-3">
+                <div className="flex items-stretch gap-3">
                     {/* Left Column: Identity + Price */}
                     <div className="flex flex-col justify-center min-w-0 flex-1">
                         {/* Row 1: Identity */}
@@ -1525,66 +1543,10 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                     })()}
                 </div>
 
-                {/* === MOBILE HEADER (Fully Native App Experience) === */}
-                <div className="flex flex-col gap-2.5 md:hidden w-full">
-                    {/* Row 1: Logo + Ticker + Context Scores */}
-                    <div className="flex items-center justify-between w-full">
-                        <div className="flex items-center gap-2">
-                            <div className="w-8 h-8 rounded-full overflow-hidden bg-white/10 flex items-center justify-center shrink-0">
-                                <img
-                                    src={`https://assets.parqet.com/logos/symbol/${ticker}?format=png`}
-                                    alt={`${ticker} logo`}
-                                    className="w-full h-full object-cover"
-                                    onError={(e) => {
-                                        (e.target as HTMLImageElement).style.display = 'none';
-                                        (e.target as HTMLImageElement).parentElement!.classList.add('hidden');
-                                    }}
-                                />
-                            </div>
-                            <div className="flex flex-col leading-tight -mt-0.5">
-                                <h1 className="text-xl font-black text-white tracking-tighter font-jakarta">{ticker}</h1>
-                                {/* Star hidden intentionally on mobile to save space, but functional */}
-                                <div className="hidden"><FavoriteToggle ticker={ticker} name={initialStockData.name} /></div>
-                            </div>
-                        </div>
 
-                        {/* Mobile HUD Injection */}
-                        <div className="flex items-center gap-1.5 shrink-0 scale-95 origin-right">
-                            {(() => {
-                                const liveSmartFlow = _swrQuote?.smartFlow ?? initialUnifiedData?.smartFlow ?? (ssrFallback as any)?.smartFlow ?? 0;
-                                const liveContextScore = _swrQuote?.alpha?.score ?? initialUnifiedData?.alpha?.score ?? (ssrFallback as any)?.alpha?.score ?? 0;
-                                const liveContextGrade = _swrQuote?.alpha?.grade ?? initialUnifiedData?.alpha?.grade ?? (ssrFallback as any)?.alpha?.grade ?? '';
-                                return <DualGaugeHUD contextScore={liveContextScore} contextGrade={liveContextGrade as any} smartFlow={liveSmartFlow} />;
-                            })()}
-                        </div>
-                    </div>
-
-                    {/* Row 2: Price + Ext Session */}
-                    <div className="flex items-end justify-between w-full">
-                        <div className="flex items-baseline gap-2 flex-wrap">
-                            <div className={`text-3xl font-black tracking-tighter tabular-nums leading-none ${pf.color}`} style={pf.style}>
-                                ${displayPrice?.toFixed(2) || '—'}
-                            </div>
-                            <div className={`text-base font-bold tabular-nums tracking-tighter ${displayChangePct >= 0 ? "text-emerald-500" : "text-rose-500"}`}>
-                                {displayChangePct > 0 ? "+" : ""}{displayChangePct?.toFixed(2)}%
-                            </div>
-                        </div>
-
-                        {/* Extended Mobile */}
-                        {activeExtPrice > 0 && (
-                            <div className="flex items-center gap-1.5 px-2 py-1 rounded bg-slate-800/80 border border-slate-700 backdrop-blur-md shrink-0">
-                                <div className={`w-1.5 h-1.5 rounded-full ${activeExtType.includes('PRE') ? 'bg-amber-500' : 'bg-indigo-500'} animate-pulse shrink-0`} />
-                                <span className={`text-[10px] font-black uppercase tracking-widest font-jakarta ${activeExtType.includes('PRE') ? 'text-amber-400' : 'text-indigo-400'}`}>
-                                    {activeExtType.includes('PRE') ? 'PRE' : 'POST'}
-                                </span>
-                                <span className="text-xs font-bold text-slate-200 tabular-nums">
-                                    ${activeExtPrice.toFixed(2)}
-                                </span>
-                            </div>
-                        )}
-                    </div>
-                </div>
             </div>
+            )}
+
 
             {/* [PREMIUM-5x2] Quick Intel Gauges — 5 Columns × 2 Rows */}
             <div className="relative -mt-4 mb-3">
@@ -2230,7 +2192,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                         <GexTimeline ticker={ticker} days={30} onEmpty={() => setActiveInsightTab('levels')} />
                                     </ProGate>
                                 ) : activeInsightTab === 'levels' ? (
-                                    <TechnicalLevelsMap
+                                    <TechnicalLevelsMap isMobile={isMobile}
                                         currentPrice={displayPrice}
                                         sma50={smaData?.sma50}
                                         sma200={smaData?.sma200}
@@ -2926,7 +2888,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
 
                             {/* 2.5 Gamma Pressure Gauge — Bloomberg-tier visual — PRO */}
                             <ProGate title="Gamma Pressure" mode="blur" fomoMessage="Short Gamma · Call Wall · Put Floor · Gamma Flip Level · Squeeze Risk" fomoTagline={tg('taglineGammaPressure')} description={tg('descGammaPressure')}>
-                            <GammaPressureGauge
+                            <GammaPressureGauge isMobile={isMobile}
                                 netGex={structure?.netGex || 0}
                                 callWall={structure?.levels?.callWall || 0}
                                 putFloor={structure?.levels?.putFloor || 0}
