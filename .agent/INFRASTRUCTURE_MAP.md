@@ -1014,6 +1014,19 @@ bash scripts/ec2-deploy-guardian.sh
 ★ catch (e) {} 제거 — 모든 에러 console.error로 출력
 ```
 
+### 수정 이력 (2026-04-15)
+
+#### P0 FIX: Morning Briefing 완전성 100% 보장 및 AI EOL 타파
+| 환경 | 변경 대상 | 상세 내용 |
+|------|----------|----------|
+| **EC2 데몬** | `scripts/ec2-guardian-worker.js` | Node 16 런타임 호환성 붕괴 상태(fetch is not defined 에러) 완벽 해결. 외부에 의존하지 않는 자체 코어 통신 규격 `postJSON` 모듈을 엔진에 탑재 및 PM2 재시동. |
+| **Vercel API** | `api/guardian/briefing/generate/route.ts` | AWS에서 폐기되어 500 에러를 뿜는 구형 Claude 모델 (`v2:0`) 색출 및 AWS 공식 최신 표준 엔진인 Sonnet 4(`v1:0`)로 전면 교체하여 배포 완료. |
+
+#### P0 FIX: Dashboard PRE-Market 가격 정합성 100% 동기화 (Absolute Math Override)
+| 변경 화면 | 변경 파일 | 상세 내용 |
+|------|----------|----------|
+| **대시보드 전역** | `src/utils/calcPriceDisplay.ts` | 외부 API(Polygon)의 타임랙 지연으로 캐싱된 비정상 `%` 데이터를 무시하고 브라우저에서 절대값 기반 자가 연산 로직으로 강제로 덮어씌움 (Bulldozer Override). 워치리스트와 상단 헤더 간 프리마켓 등락률 차이 원천 박멸. |
+
 ### 수정 이력 (2026-04-08)
 
 #### P0 FIX: Dashboard Price Pipeline Separation (a28995f7)
