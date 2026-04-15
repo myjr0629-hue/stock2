@@ -13,6 +13,7 @@ import { useLivePrice } from '@/hooks/useLivePrice';
 import { calcPriceDisplay } from '@/utils/calcPriceDisplay';
 import { usePriceFlash, getFlashStyle } from '@/components/ui/PriceDisplay';
 import useSWR from 'swr';
+import { useMarketStatus } from '@/hooks/useMarketStatus';
 import type { FlowRadarProps } from '@/components/FlowRadar';
 import { ProGate } from '@/components/gate/FeatureGate';
 
@@ -65,8 +66,11 @@ export function FlowPageClient({ ticker, initialFlowData }: FlowPageClientProps)
         };
     }, [chartRes]);
 
+    // [S-45] SSOT Integration
+    const { status: marketStatus } = useMarketStatus();
+
     // [PERF] 5s real-time price polling (separate from heavy 60s ticker API)
-    const livePrice = useLivePrice(ticker);
+    const livePrice = useLivePrice(ticker, marketStatus.market);
 
     // [PHASE 2] Price separated from SWR — SSR + WebSocket only
     const flowSsrFallback = initialFlowData?.liveQuote;

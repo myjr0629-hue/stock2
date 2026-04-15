@@ -6,6 +6,7 @@
 
 import { useFlowData } from '@/hooks/useFlowData';
 import { useLivePrice } from '@/hooks/useLivePrice';
+import { useMarketStatus } from '@/hooks/useMarketStatus';
 import { calcPriceDisplay, PriceDisplayResult } from '@/utils/calcPriceDisplay';
 
 interface UsePriceDisplayOptions {
@@ -49,8 +50,11 @@ export function usePriceDisplay(
         mutate,
     } = useFlowData(ticker, { refreshInterval: tickerInterval });
 
+    // [S-45] SSOT Integration
+    const { status: marketStatus } = useMarketStatus();
+
     // Lightweight: 5s price-only polling
-    const livePrice = useLivePrice(ticker, priceInterval);
+    const livePrice = useLivePrice(ticker, marketStatus.market, priceInterval);
 
     // Effective session: liveQuote's session or fallback
     const session = liveQuote?.session || 'CLOSED';

@@ -735,6 +735,8 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
         refreshInterval: 2000, // [UX] Near-real-time price feel
         skipAlpha: true, // [SSOT FIX] Do NOT recalculate Alpha in real-time. Trust the SSR unified cache (Sector Grid SSOT).
     });
+    // [S-45] SSOT Integration (Moved up to fix useLivePrice dependency)
+    const { status: marketStatus } = useMarketStatus();
     // [PERF] 5s real-time price polling (separate from heavy 60s ticker API)
     const livePrice = useLivePrice(ticker, marketStatus.market);
     // [AWS Phase 3] WebSocket real-time price/GEX from EC2 Hub
@@ -818,8 +820,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
     const tg = useTranslations('gate');
     const locale = useLocale();
 
-    // [S-45] SSOT Integration
-    const { status: marketStatus } = useMarketStatus();
+    // [S-45] SSOT Integration (Moved up)
     // [S-46] Macro SSOT Integration
     const { snapshot: macroData } = useMacroSnapshot();
 
@@ -2009,17 +2010,18 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                             // Percentage calculation: 
                                             // During Pre-Market, serverChange is forcefully 0 to avoid hybrid math.
                                             // Live WebSocket (wsChangePct) streams real-time Pre-Market percentage.
-                                            // We ALWAYS prioritize Live WebSocket % if available and valid.
+                                            // We ALWAYS prioritize Live WebSocket % in Pre-Market (when server is disabled to avoid hybrid math).
+                                            // During Regular Session, prioritize Server's native todaysChangePerc because websocket % can drift.
                                             const wsChangePct = wsPrice?.changePct;
                                             
                                             // Check if we have a valid, bubbling Live WebSocket %
                                             const hasLiveWsPct = wsChangePct !== undefined && Math.abs(wsChangePct) > 0 && Math.abs(wsChangePct) < 20;
 
-                                            const displayChange = hasLiveWsPct 
-                                                ? Number(wsChangePct.toFixed(2)) 
-                                                : serverChange !== 0 
-                                                    ? serverChange 
-                                                    : 0;
+                                            const isMarketOpen = marketStatus.market === 'open';
+
+                                            const displayChange = isMarketOpen 
+                                                ? (serverChange !== 0 ? serverChange : hasLiveWsPct ? Number(wsChangePct.toFixed(2)) : 0)
+                                                : (hasLiveWsPct ? Number(wsChangePct.toFixed(2)) : serverChange !== 0 ? serverChange : 0);
 
                                             return (
                                                 <div className="flex items-center gap-1.5 overflow-hidden justify-end">
