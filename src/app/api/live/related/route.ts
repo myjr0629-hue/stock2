@@ -11,19 +11,26 @@ export const revalidate = 0;
 function calcChangeFromSnapshot(tickerData: any): { price: number; change: number } {
     const currentPrice = tickerData?.lastTrade?.p || tickerData?.day?.c || 0;
     
-    // [V11 ABSOLUTE FIX] Prefer Polygon's native todaysChangePerc because it properly handles splits/dividends and is 100% accurate for Regular Session.
-    // However, during Pre-Market, Polygon sets todaysChangePerc = 0.
-    if (tickerData?.todaysChangePerc !== undefined && tickerData.todaysChangePerc !== 0) {
+    // [V12 ABSOLUTE FIX] NEVER trust Polygon's todaysChangePerc (it causes massive +6.54% drift bugs).
+    // Instead, calculate strictly from prevDay.c.
+    // WARNING: During Pre-Market, prevDay.c is from two days ago. So if we are in Pre-Market, we MUST return 0
+    // and let the frontend's WebSocket (EC2 Hub) provide the correct live Pre-Market percentage.
+    // How do we guess Pre-Market? If todaysChangePerc is exactly 0, or if day.v (today's volume) is extremely low.
+    const isPreMarketGuess = tickerData?.todaysChangePerc === 0 || !tickerData?.day?.v;
+
+    if (isPreMarketGuess) {
+        return { price: Math.round(currentPrice * 100) / 100, change: 0 };
+    }
+
+    const prevClose = tickerData?.prevDay?.c;
+    if (currentPrice > 0 && prevClose > 0) {
+        const manualChange = ((currentPrice - prevClose) / prevClose) * 100;
         return {
             price: Math.round(currentPrice * 100) / 100,
-            change: Math.round(tickerData.todaysChangePerc * 100) / 100,
+            change: Math.round(manualChange * 100) / 100,
         };
     }
 
-    // If todaysChangePerc is 0, we are either in a true 0.00% flat day, or we are in Pre-Market.
-    // If it is Pre-Market, Polygon's prevDay.c is actually from TWO DAYS AGO.
-    // Calculating (currentPrice - prevDay.c) during Pre-Market yields a catastrophic hybrid % (Live Pre-Market vs Two-Days-Ago).
-    // Therefore, if todaysChangePerc is 0, we return 0 for change. We will let the frontend logic handle or fallback it.
     return { price: Math.round(currentPrice * 100) / 100, change: 0 };
 }
 

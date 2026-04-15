@@ -2010,18 +2010,17 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                             // Percentage calculation: 
                                             // During Pre-Market, serverChange is forcefully 0 to avoid hybrid math.
                                             // Live WebSocket (wsChangePct) streams real-time Pre-Market percentage.
-                                            // We ALWAYS prioritize Live WebSocket % in Pre-Market (when server is disabled to avoid hybrid math).
-                                            // During Regular Session, prioritize Server's native todaysChangePerc because websocket % can drift.
+                                            // [ABSOLUTE FIX] ALWAYS Prioritize Live WebSocket % (EC2 Hub calculates this perfectly against True Prev Close).
+                                            // NEVER prioritize serverChange (API todaysChangePerc) because it is frequently corrupted.
+                                            // This applies universally to PRE-MARKET and REGULAR SESSION.
                                             const wsChangePct = wsPrice?.changePct;
-                                            
-                                            // Check if we have a valid, bubbling Live WebSocket %
                                             const hasLiveWsPct = wsChangePct !== undefined && Math.abs(wsChangePct) > 0 && Math.abs(wsChangePct) < 20;
 
-                                            const isMarketOpen = marketStatus.market === 'open';
-
-                                            const displayChange = isMarketOpen 
-                                                ? (serverChange !== 0 ? serverChange : hasLiveWsPct ? Number(wsChangePct.toFixed(2)) : 0)
-                                                : (hasLiveWsPct ? Number(wsChangePct.toFixed(2)) : serverChange !== 0 ? serverChange : 0);
+                                            const displayChange = hasLiveWsPct 
+                                                ? Number(wsChangePct.toFixed(2)) 
+                                                : serverChange !== 0 
+                                                    ? serverChange 
+                                                    : 0;
 
                                             return (
                                                 <div className="flex items-center gap-1.5 overflow-hidden justify-end">
