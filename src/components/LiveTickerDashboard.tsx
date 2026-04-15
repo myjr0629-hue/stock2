@@ -781,7 +781,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
     const [conviction, setConviction] = useState<{ score: number; label: string; grade: string } | null>(null);
     // [UX] GEX Timeline ↔ Tech Levels ↔ IV SKEW toggle
     const [activeInsightTab, setActiveInsightTab] = useState<'gex' | 'levels' | 'ivskew'>('gex');
-    const [relatedData, setRelatedData] = useState<{ count: number; topRelated: { ticker: string; price: number; change: number; logo: string | null }[] } | null>(() => {
+    const [relatedData, setRelatedData] = useState<{ count: number; topRelated: { ticker: string; price: number; change: number; logo: string | null; prevClose?: number }[] } | null>(() => {
         if (!initialUnifiedData?.related) return null;
         return { count: initialUnifiedData.related.count || 0, topRelated: initialUnifiedData.related.topRelated || [] };
     });
@@ -2010,17 +2010,25 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                             // Percentage calculation: 
                                             // During Pre-Market, serverChange is forcefully 0 to avoid hybrid math.
                                             // Live WebSocket (wsChangePct) streams real-time Pre-Market percentage.
-                                            // [ABSOLUTE FIX] ALWAYS Prioritize Live WebSocket % (EC2 Hub calculates this perfectly against True Prev Close).
-                                            // NEVER prioritize serverChange (API todaysChangePerc) because it is frequently corrupted.
-                                            // This applies universally to PRE-MARKET and REGULAR SESSION.
-                                            const wsChangePct = wsPrice?.changePct;
-                                            const hasLiveWsPct = wsChangePct !== undefined && Math.abs(wsChangePct) > 0 && Math.abs(wsChangePct) < 20;
+                                            // [ABSOLUTE FIX] EC2 WebSocket is broadcasting massively corrupted changePct (+4.40% for GOOG).
+                                            // We NEVER trust ANY external changePct (not from Polygon, not from WebSocket) if we have the true prevClose.
+                                            // The backend now passes `item.prevClose` from the snapshot. We strictly calculate ((price - prevClose) / prevClose) * 100.
+                                            let displayChange = serverChange !== 0 ? serverChange : 0;
+                                            
+                                            // STRICT MATH OVERRIDE
+                                            const validWsPrice = wsPrice?.price || 0;
+                                            const validPrevClose = item.prevClose || 0;
 
-                                            const displayChange = hasLiveWsPct 
-                                                ? Number(wsChangePct.toFixed(2)) 
-                                                : serverChange !== 0 
-                                                    ? serverChange 
-                                                    : 0;
+                                            if (validWsPrice > 0 && validPrevClose > 0) {
+                                                displayChange = ((validWsPrice - validPrevClose) / validPrevClose) * 100;
+                                                displayChange = Number(displayChange.toFixed(2));
+                                            } else {
+                                                const wsChangePct = wsPrice?.changePct;
+                                                const hasLiveWsPct = wsChangePct !== undefined && Math.abs(wsChangePct) > 0 && Math.abs(wsChangePct) < 20;
+                                                if (hasLiveWsPct) {
+                                                    displayChange = Number(wsChangePct.toFixed(2));
+                                                }
+                                            }
 
                                             return (
                                                 <div className="flex items-center gap-1.5 overflow-hidden justify-end">

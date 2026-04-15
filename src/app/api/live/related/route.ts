@@ -8,7 +8,7 @@ export const revalidate = 0;
 
 // [V10] Calculate changePct from Polygon snapshot — NEVER trust todaysChangePerc
 // Uses prevDay.c (yesterday's close) and current price to calculate accurate change
-function calcChangeFromSnapshot(tickerData: any): { price: number; change: number } {
+function calcChangeFromSnapshot(tickerData: any): { price: number; change: number, prevClose: number } {
     const currentPrice = tickerData?.lastTrade?.p || tickerData?.day?.c || 0;
     
     // [V12 ABSOLUTE FIX] NEVER trust Polygon's todaysChangePerc (it causes massive +6.54% drift bugs).
@@ -17,21 +17,22 @@ function calcChangeFromSnapshot(tickerData: any): { price: number; change: numbe
     // and let the frontend's WebSocket (EC2 Hub) provide the correct live Pre-Market percentage.
     // How do we guess Pre-Market? If todaysChangePerc is exactly 0, or if day.v (today's volume) is extremely low.
     const isPreMarketGuess = tickerData?.todaysChangePerc === 0 || !tickerData?.day?.v;
+    const prevClose = tickerData?.prevDay?.c || 0;
 
     if (isPreMarketGuess) {
-        return { price: Math.round(currentPrice * 100) / 100, change: 0 };
+        return { price: Math.round(currentPrice * 100) / 100, change: 0, prevClose };
     }
 
-    const prevClose = tickerData?.prevDay?.c;
     if (currentPrice > 0 && prevClose > 0) {
         const manualChange = ((currentPrice - prevClose) / prevClose) * 100;
         return {
             price: Math.round(currentPrice * 100) / 100,
             change: Math.round(manualChange * 100) / 100,
+            prevClose
         };
     }
 
-    return { price: Math.round(currentPrice * 100) / 100, change: 0 };
+    return { price: Math.round(currentPrice * 100) / 100, change: 0, prevClose };
 }
 
 export async function GET(req: NextRequest) {
@@ -107,15 +108,15 @@ export async function GET(req: NextRequest) {
                             return { ticker: relT, price: Math.round(lastBar.c * 100) / 100, change: aggChange, logo: null };
                         }
                     } catch {}
-                    return { ticker: relT, price: 0, change: 0, logo: null };
+                    return { ticker: relT, price: 0, change: 0, logo: null, prevClose: 0 };
                 })
-                .catch(() => ({ ticker: relT, price: 0, change: 0, logo: null }));
+                .catch(() => ({ ticker: relT, price: 0, change: 0, logo: null, prevClose: 0 }));
         });
 
         const topRelated = await Promise.race([
             Promise.all(snapPromises),
-            new Promise<{ ticker: string; price: number; change: number; logo: null }[]>(
-                r => setTimeout(() => r(top4.map((relT: string) => ({ ticker: relT, price: 0, change: 0, logo: null }))), 3000)
+            new Promise<{ ticker: string; price: number; change: number; logo: null; prevClose?: number }[]>(
+                r => setTimeout(() => r(top4.map((relT: string) => ({ ticker: relT, price: 0, change: 0, logo: null, prevClose: 0 }))), 3000)
             )
         ]);
 
