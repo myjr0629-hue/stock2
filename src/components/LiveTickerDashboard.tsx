@@ -1998,24 +1998,34 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                             <span className="text-[12px] font-bold text-white font-jakarta hover:text-indigo-300 transition-colors">{item.ticker}</span>
                                         </div>
                                         {(() => {
-                                            // [V10] Server calculates changePct from Polygon prevDay.c (accurate)
-                                            // Only fallback to WS if server gave valid price but 0% change (flat day)
-                                            // If server price=0 → Polygon has no data → WS also unreliable → show 0%
+                                            // [V11] Show Live Absolute Price AND Server Percentage to prevent Pre-Market Confusion
                                             const serverChange = item.change ?? 0;
                                             const serverPrice = item.price ?? 0;
                                             const wsPrice = relWsConnected ? relWsGetPrice(item.ticker) : undefined;
+                                            
+                                            // Prefer Live WebSocket price if available, otherwise server
+                                            const displayPrice = wsPrice?.price && wsPrice.price > 0 ? wsPrice.price : serverPrice;
+                                            
+                                            // Percentage uses serverChange (which is fixed to avoid hybrid Math bugs).
+                                            // Use Live WS changePct ONLY if server is flat and WS is active.
                                             const wsChangePct = wsPrice?.changePct;
-                                            const displayChange = serverChange !== 0
-                                                ? serverChange
-                                                : (serverPrice > 0)
-                                                    ? 0  // Server has price but 0% change = legitimate flat day
-                                                    : (wsChangePct !== undefined && wsChangePct !== 0 && Math.abs(wsChangePct) < 15)
-                                                        ? Number(wsChangePct.toFixed(2))
-                                                        : 0;
+                                            const displayChange = serverChange !== 0 
+                                                ? serverChange 
+                                                : (wsChangePct !== undefined && Math.abs(wsChangePct) > 0 && Math.abs(wsChangePct) < 20) 
+                                                    ? Number(wsChangePct.toFixed(2)) 
+                                                    : 0;
+
                                             return (
-                                                <span className={`text-[12px] font-jakarta font-bold tabular-nums ${displayChange >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                                                    {displayChange >= 0 ? '+' : ''}{displayChange}%
-                                                </span>
+                                                <div className="flex items-center gap-1.5 overflow-hidden justify-end">
+                                                    {displayPrice > 0 && (
+                                                        <span className="text-[12px] font-jakarta font-medium text-slate-300 tabular-nums">
+                                                            ${displayPrice < 10 ? displayPrice.toFixed(2) : displayPrice < 1000 ? displayPrice.toFixed(1) : Math.round(displayPrice)}
+                                                        </span>
+                                                    )}
+                                                    <span className={`text-[12px] font-jakarta font-bold tabular-nums ml-1 px-1 py-px rounded bg-slate-900/40 ${displayChange > 0 ? 'text-emerald-400' : displayChange < 0 ? 'text-rose-400' : 'text-slate-400'}`}>
+                                                        {displayChange > 0 ? '+' : ''}{displayChange.toFixed(2)}%
+                                                    </span>
+                                                </div>
                                             );
                                         })()}
                                     </div>

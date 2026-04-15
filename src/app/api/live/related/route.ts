@@ -10,14 +10,20 @@ export const revalidate = 0;
 // Uses prevDay.c (yesterday's close) and current price to calculate accurate change
 function calcChangeFromSnapshot(tickerData: any): { price: number; change: number } {
     const currentPrice = tickerData?.lastTrade?.p || tickerData?.day?.c || 0;
-    const prevClose = tickerData?.prevDay?.c || 0;
-    if (currentPrice > 0 && prevClose > 0) {
-        const change = ((currentPrice - prevClose) / prevClose) * 100;
+    
+    // [V11 ABSOLUTE FIX] Prefer Polygon's native todaysChangePerc because it properly handles splits/dividends and is 100% accurate for Regular Session.
+    // However, during Pre-Market, Polygon sets todaysChangePerc = 0.
+    if (tickerData?.todaysChangePerc !== undefined && tickerData.todaysChangePerc !== 0) {
         return {
             price: Math.round(currentPrice * 100) / 100,
-            change: Math.round(change * 100) / 100,
+            change: Math.round(tickerData.todaysChangePerc * 100) / 100,
         };
     }
+
+    // If todaysChangePerc is 0, we are either in a true 0.00% flat day, or we are in Pre-Market.
+    // If it is Pre-Market, Polygon's prevDay.c is actually from TWO DAYS AGO.
+    // Calculating (currentPrice - prevDay.c) during Pre-Market yields a catastrophic hybrid % (Live Pre-Market vs Two-Days-Ago).
+    // Therefore, if todaysChangePerc is 0, we return 0 for change. We will let the frontend logic handle or fallback it.
     return { price: Math.round(currentPrice * 100) / 100, change: 0 };
 }
 
