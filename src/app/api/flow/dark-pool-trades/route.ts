@@ -165,7 +165,8 @@ export async function GET(request: NextRequest) {
                     stats.totalDarkPoolVolume += size;
                     stats.totalDarkPoolValue += size * price;
 
-                    if (size >= BLOCK_TRADE_MIN) {
+                    // [FIX] Update to SEC official Block Trade standard (≥10k shares OR ≥$200k value)
+                    if (size >= BLOCK_TRADE_MIN || (size * price) >= 200000) {
                         rawBlockTrades.push({ trade, exchangeId, conditions, size, price });
                     }
                 }
