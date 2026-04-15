@@ -97,7 +97,7 @@ export function calcPriceDisplay(input: PriceDisplayInput): PriceDisplayResult {
         // PRE-market: Main price MUST be yesterday's regular close.
         if (resolvedPrevClose > 0) {
             displayPrice = resolvedPrevClose;
-            displayChangePct = prevChangePct !== null ? prevChangePct : fallbackChangePct;
+            displayChangePct = prevChangePct !== null && prevChangePct !== undefined ? prevChangePct : (fallbackChangePct ?? 0);
         }
     } else if (s === 'POST' || s === 'CLOSED') {
         // POST-market / CLOSED: Main price MUST be today's regular close.
