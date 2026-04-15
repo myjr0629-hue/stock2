@@ -536,6 +536,19 @@ bash scripts/ec2-deploy-guardian.sh
 
 ## 11. 작업 이력
 
+### [2026-04-16] UI Related Ticker 동기화 완전 해결 및 클라이언트 Fetch 강제화 구축
+- **문제**: COMMAND 페이지의 RELATED 위젯 종목 등락률(%)이 백엔드를 완벽히 수정했음에도 불구하고, 여전히 고장난 EC2 웹소켓 퍼센트(예: +4.77%)를 표출하며 새로고침을 해도 영구적으로 고쳐지지 않는 최악의 클라이언트 캐시 고착화 버그 발생.
+- **원인 분석 (3중 병목 구조 적발)**:
+  1. **[SSR 하드코딩의 배신]**: 페이지 초기 렌더링 최적화를 담당하는 `ticker/page.tsx` (Tier 3 DynamoDB) 과정에서 속도 향상을 이유로 `관련 종목` 모델을 무조건 `{ price: 0, change: 0 }`의 빈 껍데기로 하드코딩하여 내려보냄. 가장 중요한 계산 기준점인 `prevClose`를 강제로 증발시킴.
+  2. **[Client Fetch 설계 부재]**: 프론트엔드(`LiveTickerDashboard.tsx`)에 진입 후, 백엔드로부터 최신 데이터를 다시 불러오는(SWR 혹은 useEffect) 로직 자체가 아예 0% 부재. 따라서 페이지가 마운트 될 때 부여받은 `prevClose: undefined` 상태가 영원히 고착(Freeze) 됨.
+  3. **[Silent Fallback의 역습]**: 등락률 절대 계산식(`(현재가 - 어제종가) / 어제종가`)이 `prevClose`가 없다는 이유로 조건문에서 허무하게 패스되어 버림. 에러가 나야 맞지만, 임시 대체제로 심어둔 "데이터가 없으면 웹소켓이 주는 `changePct`를 그냥 믿어라"라는 침묵의 우회로(Silent Fallback) 로직을 타버리면서 고장난 수치를 계속 방치함.
+- **해결 (Fundamental Absolute Fix)**:
+  1. **클라이언트 직통 Fetch 강제 구축**: SSR의 불완전한 하이드레이션(Hydration) 객체 따위에 의존하지 않도록, `LiveTickerDashboard` 컴포넌트가 마운트 됨과 동시에 무조건적으로 백엔드 진짜 데이터를 직접 찔러 단독 수거해오도록 `useEffect` 비동기 호출망 전격 구축 (`/api/live/related`).
+  2. **절대 방정식 강제 점거**: 프론트엔드가 백엔드로부터 완벽한 `prevClose` 값(예: 332.91)을 확실히 쥐게 됨으로써, 어떠한 외부 타사 API나 고장난 웹소켓의 `changePct` % 값이 들어와도 전부 싸그리 무시하고 `((실시간 현재가 - 어제종가) / 어제종가) * 100` 만을 렌더링하도록 Absolute Math Override 성립.
+- **⚠️ 절대 원칙 (개발 가이드라인)**:
+  - **"데이터의 완전한 기원(Provenance) 추적"**: 백엔드 API만 고쳤다고 끝나는 것이 아니다. Front-end의 SWR, SSR Hydration 단계를 거치며 **필드가 증발하지 않았는지 끝까지 추적할 것.**
+  - **"Silent Fallbacks (침묵의 우회로) 엄금"**: 가격 무결성 연산에 있어서, 기준 데이터가 누락되면 화면을 차라리 멈추게(Error Boundary) 해야지, 검증되지 않은 가짜 서드파티 % 값으로 땜질(Fallback)하여 에러를 덮어두는 행위를 절대 금지한다. 속도나 안 터지는게 중요한게 아니라 **틀린 숫자를 뿌리는 것이 최악이다.**
+
 ### [2026-04-09] Dashboard Signal Feed Pipeline 복구 및 분리 추적 완료
 1. **문제**: Dashboard의 "Signal Feed" (최근 24시간 알림 내역) 섹션이 며칠째 빈값을 나타내고, `Waiting for signals...` 상태로 유지되던 현상 적발.
 2. **원인**: 

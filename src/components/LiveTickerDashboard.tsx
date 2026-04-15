@@ -982,9 +982,21 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
 
         // Related
         if (unifiedData.related) {
-            setRelatedData({
-                count: unifiedData.related.count || 0,
-                topRelated: unifiedData.related.topRelated || []
+            setRelatedData(prev => {
+                // [ABSOLUTE FIX] SWR payload might come from an older Redis cache or Lambda payload
+                // that doesn't contain `prevClose`. We must preserve the `prevClose` that was 
+                // secured by the client-side fetch, otherwise SWR will blindly erase it!
+                const updatedList = (unifiedData.related?.topRelated || []).map((newItem: any) => {
+                    const oldItem = prev?.topRelated?.find((r: any) => r.ticker === newItem.ticker);
+                    return {
+                        ...newItem,
+                        prevClose: newItem.prevClose || oldItem?.prevClose
+                    };
+                });
+                return {
+                    count: unifiedData.related.count || 0,
+                    topRelated: updatedList
+                };
             });
         }
 
