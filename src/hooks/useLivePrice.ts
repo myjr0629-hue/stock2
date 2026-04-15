@@ -27,7 +27,7 @@ export interface LivePriceData {
  * - WebSocket connected → instant push from EC2 Price WS Hub
  * - WebSocket disconnected → SWR polls /api/live/quotes every 5s
  */
-export function useLivePrice(ticker: string | null, refreshInterval = 5000): LivePriceData | null {
+export function useLivePrice(ticker: string | null, globalMarketStatus: string = 'closed', refreshInterval = 5000): LivePriceData | null {
     // [WS] Subscribe to WebSocket price stream
     const tickerArray = ticker ? [ticker] : undefined;
     const { connected: wsConnected, getPrice: wsGetPrice, prices: wsPrices } = useRealtimeData(tickerArray);
@@ -53,12 +53,20 @@ export function useLivePrice(ticker: string | null, refreshInterval = 5000): Liv
         if (wsPrice && wsPrice.price > 0) {
             // Merge WS real-time price with SWR extended session data
             const q = data?.data?.[ticker];
-            const sessionRaw = q?.session || data?.session || 'closed';
-            const s = sessionRaw.toLowerCase();
+            
+            // [V12] We must determine session robustness. If SWR hasn't loaded (data undefined), assuming 'closed' is lethal,
+            // because it routes live WS prices into the extendedPrice bucket.
+            // When in doubt (data undefined), default to generic 'open' so we don't accidentally animate the PRE CLOSE badge.
+            const sessionRaw = q?.session || data?.session || (wsPrice ? 'open' : 'closed');
+            
+            // [ABSOLUTE FIX] Override delayed SWR session with the global SSOT marketStatus.
+            // If the global market is 'open', it IS open. Period.
+            const isGlobalOpen = globalMarketStatus.toLowerCase() === 'open' || globalMarketStatus.toLowerCase() === 'reg';
+            const s = isGlobalOpen ? 'reg' : sessionRaw.toLowerCase();
             
             // [FIX] Do NOT overwrite regular session 'price' during POST/PRE/CLOSED.
             // WebSocket streams trades for whichever session is currently active.
-            const isRegular = s === 'reg' || s === 'open';
+            const isRegular = s === 'reg' || s === 'open' || s === 'market';
             const extLabel = q?.extendedLabel || (!isRegular ? (s === 'pre' ? 'PRE' : 'POST') : '');
 
             // [FIX] Compute extendedChangePercent correctly: PRE against prevClose, POST against regular close (price)
@@ -74,6 +82,8 @@ export function useLivePrice(ticker: string | null, refreshInterval = 5000): Liv
                 price: isRegular ? wsPrice.price : (q?.price || 0),
                 changePercent: isRegular ? (wsPrice.changePct || q?.changePercent || q?.regChangePct || 0) : (q?.changePercent || q?.regChangePct || 0),
                 prevClose: q?.previousClose || q?.prevClose || 0,
+                // [CRITICAL BUGFIX] Never route wsPrice.price to extendedPrice during REGULAR session.
+                // If it is regular session, extendedPrice MUST remain the frozen PRE/POST snapshot.
                 extendedPrice: !isRegular ? wsPrice.price : (q?.extendedPrice || 0),
                 extendedChangePercent: extChangePct,
                 extendedLabel: extLabel,

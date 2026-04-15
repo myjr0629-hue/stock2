@@ -736,7 +736,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
         skipAlpha: true, // [SSOT FIX] Do NOT recalculate Alpha in real-time. Trust the SSR unified cache (Sector Grid SSOT).
     });
     // [PERF] 5s real-time price polling (separate from heavy 60s ticker API)
-    const livePrice = useLivePrice(ticker);
+    const livePrice = useLivePrice(ticker, marketStatus.market);
     // [AWS Phase 3] WebSocket real-time price/GEX from EC2 Hub
     const { connected: wsConnected, getPrice: wsGetPrice, getGex: wsGetGex, getQuote: wsGetQuote } = useRealtimeData([ticker]);
     const wsPrice = wsGetPrice(ticker);
