@@ -2720,7 +2720,7 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                                                 </div>
                                             ) : (
                                                 darkPoolTrades.map((dp: any, i: number) => {
-                                                    const isBlock = dp.size >= 10000;
+                                                    const isBlock = dp.size >= 10000 || dp.premium >= 200000;
                                                     const isMajor = dp.premium >= 1000000;
                                                     const side = dp.side || 'NEUTRAL';
                                                     const nodeBorder = side === 'BUY'

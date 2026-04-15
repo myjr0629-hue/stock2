@@ -135,8 +135,8 @@ async function fetchTradeData(ticker: string): Promise<TradeData | null> {
                 }
             }
 
-            // Block Trade (≥10,000 shares)
-            if (size >= 10000) {
+            // Block Trade (≥10,000 shares OR ≥$200,000 value)
+            if (size >= 10000 || (size * price) >= 200000) {
                 blockTrades++;
                 blockVolume += size;
             }
