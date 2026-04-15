@@ -92,19 +92,25 @@ export function calcPriceDisplay(input: PriceDisplayInput): PriceDisplayResult {
     let displayPrice = livePrice || apiDisplayPrice || resolvedPrevClose || 0;
     let displayChangePct = liveChangePct ?? apiDisplayChangePct ?? null;
 
-    // [BULLETPROOF FIX 2026-04-03]
-    // regularCloseToday = S.day?.c (Polygon) — ONLY available AFTER regular session closes (4pm ET+).
-    // During REG session: regularCloseToday = null → this block is skipped → WebSocket real-time used.
-    // After REG close: regularCloseToday = $360.59 → USE IT, regardless of session detection.
-    // This eliminates ALL dependency on session detection (CentralDataHub, effectiveSession, etc.)
-    if (regularCloseToday && regularCloseToday > 0) {
-        displayPrice = regularCloseToday;
-
-        // Calculate change vs yesterday's close
-        if (resolvedPrevClose > 0 && Math.abs(regularCloseToday - resolvedPrevClose) > 0.001) {
-            displayChangePct = ((regularCloseToday - resolvedPrevClose) / resolvedPrevClose) * 100;
-        } else {
-            // Same as prevClose → weekend/holiday → show previous session's change
+    // [STRICT YAHOO FINANCE PRICING RULE]
+    if (s === 'PRE' || s === 'PRE_CLOSE') {
+        // PRE-market: Main price MUST be yesterday's regular close.
+        if (resolvedPrevClose > 0) {
+            displayPrice = resolvedPrevClose;
+            displayChangePct = prevChangePct !== null ? prevChangePct : fallbackChangePct;
+        }
+    } else if (s === 'POST' || s === 'CLOSED') {
+        // POST-market / CLOSED: Main price MUST be today's regular close.
+        if (regularCloseToday && regularCloseToday > 0) {
+            displayPrice = regularCloseToday;
+            if (resolvedPrevClose > 0 && Math.abs(regularCloseToday - resolvedPrevClose) > 0.001) {
+                displayChangePct = ((regularCloseToday - resolvedPrevClose) / resolvedPrevClose) * 100;
+            } else {
+                displayChangePct = prevChangePct ?? fallbackChangePct ?? 0;
+            }
+        } else if (resolvedPrevClose > 0 && displayPrice === 0) {
+            // Fallback for weekend/holiday where regularCloseToday might be missing
+            displayPrice = resolvedPrevClose;
             displayChangePct = prevChangePct ?? fallbackChangePct ?? 0;
         }
     }

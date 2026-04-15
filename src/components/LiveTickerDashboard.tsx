@@ -1171,7 +1171,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
         session: effectiveSession,
         prevRegularClose: ssrFallback?.prices?.prevRegularClose || initialStockData?.prevClose || null,
         prevClose: initialStockData?.prevClose || 0,
-        regularCloseToday: (effectiveSession !== 'REG') ? (initialStockData?.todayClose || undefined) : undefined,
+        regularCloseToday: (effectiveSession === 'POST' || effectiveSession === 'CLOSED') ? (initialStockData?.todayClose || undefined) : undefined,
         prevChangePct: liveQuote?.prices?.prevChangePct || null,
         fallbackChangePct: initialStockData?.changePercent || 0,
         lastTrade: initialStockData?.price || 0,
