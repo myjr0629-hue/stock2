@@ -92,7 +92,8 @@ export async function fetchTradeData(ticker: string): Promise<TradeData | null> 
                 }
             }
 
-            if (size >= 10000) {
+            // [FIX] Update to SEC official Block Trade standard
+            if (size >= 10000 || (size * price) >= 200000) {
                 blockTrades++;
                 blockVolume += size;
             }
