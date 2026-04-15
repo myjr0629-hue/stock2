@@ -2503,10 +2503,10 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                                     <div className="w-16 h-16 md:w-20 md:h-20 rounded-full border-2 border-dashed border-white/30 flex items-center justify-center" />
                                                     <div className="absolute inset-1 rounded-full bg-slate-900/80 flex flex-col items-center justify-center">
                                                         {(() => {
-                                                            const callsTotal = structure?.structure?.callsOI?.reduce((a: number, b: number) => a + (b || 0), 0) || 0;
-                                                            const putsTotal = structure?.structure?.putsOI?.reduce((a: number, b: number) => a + (b || 0), 0) || 0;
-                                                            const pcr = callsTotal > 0 ? (putsTotal / callsTotal) : 0;
-                                                            const totalOI = callsTotal + putsTotal;
+                                                            const pcr = structure?.pcRatio || 0;
+                                                            const totalCallOI = structure?.totalCallOI || 0;
+                                                            const totalPutOI = structure?.totalPutOI || 0;
+                                                            const totalOI = totalCallOI + totalPutOI;
                                                             const oiFormatted = totalOI >= 1000000 ? (totalOI / 1000000).toFixed(1) + "M"
                                                                 : totalOI >= 1000 ? (totalOI / 1000).toFixed(0) + "K" : totalOI.toString();
                                                             const pcrColor = pcr > 1.2 ? "text-rose-400" : pcr < 0.8 ? "text-emerald-400" : "text-white";
