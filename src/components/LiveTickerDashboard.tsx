@@ -785,6 +785,27 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
         if (!initialUnifiedData?.related) return null;
         return { count: initialUnifiedData.related.count || 0, topRelated: initialUnifiedData.related.topRelated || [] };
     });
+
+    // [ABSOLUTE FIX] SSR DynamoDB snapshots do not reliably include `prevClose` or fresh values.
+    // We must forcefully fetch the true backend response on mount to guarantee valid `prevClose` payloads
+    // for exact strict-math percentage calculations against real-time WebSocket ticks.
+    useEffect(() => {
+        if (!ticker) return;
+        let isMounted = true;
+        fetch(`/api/live/related?t=${ticker}`)
+            .then(res => res.json())
+            .then(data => {
+                if (isMounted && data?.topRelated) {
+                    setRelatedData({
+                        count: data.count || data.topRelated.length,
+                        topRelated: data.topRelated
+                    });
+                }
+            })
+            .catch(() => {});
+        return () => { isMounted = false; };
+    }, [ticker]);
+
     // [WS] Subscribe to RELATED tickers for real-time price updates
     const relatedTickers = React.useMemo(() => relatedData?.topRelated?.map(r => r.ticker) ?? [], [relatedData?.topRelated?.map(r => r.ticker).join(',')]);
     const { connected: relWsConnected, getPrice: relWsGetPrice } = useRealtimeData(relatedTickers.length > 0 ? relatedTickers : undefined);
