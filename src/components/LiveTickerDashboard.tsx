@@ -2006,13 +2006,19 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                             // Prefer Live WebSocket price if available, otherwise server
                                             const displayPrice = wsPrice?.price && wsPrice.price > 0 ? wsPrice.price : serverPrice;
                                             
-                                            // Percentage uses serverChange (which is fixed to avoid hybrid Math bugs).
-                                            // Use Live WS changePct ONLY if server is flat and WS is active.
+                                            // Percentage calculation: 
+                                            // During Pre-Market, serverChange is forcefully 0 to avoid hybrid math.
+                                            // Live WebSocket (wsChangePct) streams real-time Pre-Market percentage.
+                                            // We ALWAYS prioritize Live WebSocket % if available and valid.
                                             const wsChangePct = wsPrice?.changePct;
-                                            const displayChange = serverChange !== 0 
-                                                ? serverChange 
-                                                : (wsChangePct !== undefined && Math.abs(wsChangePct) > 0 && Math.abs(wsChangePct) < 20) 
-                                                    ? Number(wsChangePct.toFixed(2)) 
+                                            
+                                            // Check if we have a valid, bubbling Live WebSocket %
+                                            const hasLiveWsPct = wsChangePct !== undefined && Math.abs(wsChangePct) > 0 && Math.abs(wsChangePct) < 20;
+
+                                            const displayChange = hasLiveWsPct 
+                                                ? Number(wsChangePct.toFixed(2)) 
+                                                : serverChange !== 0 
+                                                    ? serverChange 
                                                     : 0;
 
                                             return (
