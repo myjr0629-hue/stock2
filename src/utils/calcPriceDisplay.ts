@@ -174,16 +174,18 @@ export function calcPriceDisplay(input: PriceDisplayInput): PriceDisplayResult {
                 }
             }
         }
+    }
 
-        // Calculate activeExtPct for fallback data
-        if (activeExtPrice > 0 && resolvedPrevClose > 0) {
-            if (activeExtType === 'PRE' || activeExtType === 'PRE_CLOSE') {
-                activeExtPct = ((activeExtPrice - resolvedPrevClose) / resolvedPrevClose) * 100;
-            } else if (activeExtType === 'POST' && regularCloseToday && regularCloseToday > 0) {
-                activeExtPct = ((activeExtPrice - regularCloseToday) / regularCloseToday) * 100;
-            } else {
-                activeExtPct = ((activeExtPrice - resolvedPrevClose) / resolvedPrevClose) * 100;
-            }
+    // [ABSOLUTE MATH OVERRIDE - BULLDOZER FIX]
+    // Completely ignore any untrustworthy `activeExtPct` from APIs (like +3.93% instead of +0.54%).
+    // Recalculate directly from absolute numbers to guarantee 100% data integrity globally.
+    if (activeExtPrice > 0) {
+        if ((activeExtType === 'PRE' || activeExtType === 'PRE_CLOSE') && resolvedPrevClose > 0) {
+            activeExtPct = ((activeExtPrice - resolvedPrevClose) / resolvedPrevClose) * 100;
+        } else if (activeExtType === 'POST' && regularCloseToday && regularCloseToday > 0) {
+            activeExtPct = ((activeExtPrice - regularCloseToday) / regularCloseToday) * 100;
+        } else if (resolvedPrevClose > 0) {
+            activeExtPct = ((activeExtPrice - resolvedPrevClose) / resolvedPrevClose) * 100;
         }
     }
 
