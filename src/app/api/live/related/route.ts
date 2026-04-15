@@ -88,8 +88,8 @@ export async function GET(req: NextRequest) {
             const snapTicker = SNAPSHOT_ALIAS[relT] || relT;
             return fetchMassive(`/v2/snapshot/locale/us/markets/stocks/tickers/${snapTicker}`, {}, true)
                 .then(async (snap: any) => {
-                    const { price, change } = calcChangeFromSnapshot(snap?.ticker);
-                    if (price > 0) return { ticker: relT, price, change, logo: null };
+                    const { price, change, prevClose } = calcChangeFromSnapshot(snap?.ticker);
+                    if (price > 0) return { ticker: relT, price, change, logo: null, prevClose };
                     // [V11] Snapshot failed (weekend/after-hours) — fallback to v2/aggs 2-day bar
                     try {
                         const today = new Date();
@@ -105,7 +105,7 @@ export async function GET(req: NextRequest) {
                             const aggChange = prevBar.c > 0
                                 ? Math.round(((lastBar.c - prevBar.c) / prevBar.c) * 10000) / 100
                                 : 0;
-                            return { ticker: relT, price: Math.round(lastBar.c * 100) / 100, change: aggChange, logo: null };
+                            return { ticker: relT, price: Math.round(lastBar.c * 100) / 100, change: aggChange, logo: null, prevClose: prevBar.c };
                         }
                     } catch {}
                     return { ticker: relT, price: 0, change: 0, logo: null, prevClose: 0 };
