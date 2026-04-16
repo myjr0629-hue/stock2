@@ -768,10 +768,10 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
     const [selectedExp, setSelectedExp] = useState<string>("");
     // [S-124.6] Quick Intel Gauges State
     const [newsScore, setNewsScore] = useState<{ score: number; label: string; breakdown?: { positive: number; negative: number; neutral: number } } | null>(null);
-    const [earningsData, setEarningsData] = useState<{ nextDate: string | null; daysLabel: string; epsEstimate: number | null; quarter: number | null; year: number | null; hourLabel: string; color: string } | null>(() => {
+    const [earningsData, setEarningsData] = useState<{ nextDate: string | null; daysLabel: string; epsEstimate: number | null; quarter: number | null; year: number | null; hourLabel: string; color: string; forwardEps?: number | null; forwardRevenue?: number | null; forwardYear?: string | null } | null>(() => {
         if (!initialUnifiedData?.earnings) return null;
         const e = initialUnifiedData.earnings;
-        return { nextDate: e.nextEarningsDate || null, daysLabel: e.daysLabel || 'TBD', epsEstimate: e.epsEstimate || null, quarter: e.quarter || null, year: e.year || null, hourLabel: e.hourLabel || '', color: e.color || 'text-slate-400' };
+        return { nextDate: e.nextEarningsDate || e.nextDate || null, daysLabel: e.daysLabel || 'TBD', epsEstimate: e.epsEstimate || null, quarter: e.quarter || null, year: e.year || null, hourLabel: e.hourLabel || '', color: e.color || 'text-slate-400', forwardEps: e.forwardEps || null, forwardRevenue: e.forwardRevenue || null, forwardYear: e.forwardYear || null };
     });
     const [smaData, setSmaData] = useState<{ cross: string; crossType: string; label: string; sma50: number; sma200: number; distance: number; isImminent: boolean; phase: string } | null>(() => {
         if (!initialUnifiedData?.sma) return null;
@@ -962,7 +962,10 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                 epsEstimate: unifiedData.earnings.epsEstimate ?? null,
                 quarter: unifiedData.earnings.quarter,
                 year: unifiedData.earnings.year,
-                color: unifiedData.earnings.color || 'text-slate-400'
+                color: unifiedData.earnings.color || 'text-slate-400',
+                forwardEps: unifiedData.earnings.forwardEps ?? null,
+                forwardRevenue: unifiedData.earnings.forwardRevenue ?? null,
+                forwardYear: unifiedData.earnings.forwardYear ?? null
             });
         }
 
