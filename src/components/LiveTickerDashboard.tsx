@@ -2011,7 +2011,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                     </div>
                                 )}
                                 {((effectiveEarnings?.forwardEps !== undefined && effectiveEarnings?.forwardEps !== null) || (effectiveEarnings?.forwardRevenue !== undefined && effectiveEarnings?.forwardRevenue !== null)) ? (
-                                    <div className="relative z-10 flex items-center justify-between text-[12px] font-jakarta mt-0.5 whitespace-nowrap bg-white/5 px-1.5 py-[1px] rounded -mx-0.5">
+                                    <div className="relative z-10 flex items-center justify-between text-[12px] font-jakarta mt-0.5 flex-wrap gap-y-0.5 bg-white/5 px-1.5 py-[1px] rounded -mx-0.5">
                                         <span className="text-white/80">{td('nextYearDesc') || `내년전망`} {effectiveEarnings.forwardYear ? `(FY${effectiveEarnings.forwardYear.slice(-2)})` : ''}</span>
                                         <div className="flex gap-2">
                                             {effectiveEarnings.forwardEps !== null && effectiveEarnings.forwardEps !== undefined && (

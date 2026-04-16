@@ -257,7 +257,7 @@ export function CommandSSRCards({ data, stockData, ticker }: CommandSSRCardsProp
                         </div>
                     )}
                     {((earnings?.forwardEps !== undefined && earnings?.forwardEps !== null) || (earnings?.forwardRevenue !== undefined && earnings?.forwardRevenue !== null)) ? (
-                        <div className="relative z-10 flex items-center justify-between text-[12px] font-jakarta mt-0.5 whitespace-nowrap bg-white/5 px-1.5 py-[1px] rounded -mx-0.5">
+                        <div className="relative z-10 flex items-center justify-between text-[12px] font-jakarta mt-0.5 flex-wrap gap-y-0.5 bg-white/5 px-1.5 py-[1px] rounded -mx-0.5">
                             <span className="text-white/80">Next FY {earnings.forwardYear ? `(FY${earnings.forwardYear.slice(-2)})` : ''}</span>
                             <div className="flex gap-2">
                                 {earnings.forwardEps !== null && earnings.forwardEps !== undefined && (
