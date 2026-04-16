@@ -1117,10 +1117,10 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
     const effectiveSqueeze = React.useMemo(() => squeezeData || unifiedData?.squeeze || null, [squeezeData, unifiedData?.squeeze]);
     const effectiveInst = React.useMemo(() => institutionalData || unifiedData?.institutional || null, [institutionalData, unifiedData?.institutional]);
     const effectiveEarnings = React.useMemo(() => {
-        if (earningsData) return earningsData;
+        if (earningsData) return earningsData as any;
         if (!unifiedData?.earnings) return null;
         const e = unifiedData.earnings;
-        return { nextDate: e.nextEarningsDate || e.nextDate || null, daysLabel: e.daysLabel || 'TBD', epsEstimate: e.epsEstimate || null, quarter: e.quarter || null, year: e.year || null, hourLabel: e.hourLabel || '', color: e.color || 'text-slate-400' };
+        return { nextDate: e.nextEarningsDate || e.nextDate || null, daysLabel: e.daysLabel || 'TBD', epsEstimate: e.epsEstimate || null, quarter: e.quarter || null, year: e.year || null, hourLabel: e.hourLabel || '', color: e.color || 'text-slate-400', forwardEps: e.forwardEps || null, forwardRevenue: e.forwardRevenue || null, forwardYear: e.forwardYear || null };
     }, [earningsData, unifiedData?.earnings]);
     const effectiveOverview = React.useMemo(() => {
         if (companyOverview) return companyOverview;
@@ -1978,7 +1978,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
 
                     {/* [2-4] EARNINGS — FREE */}
                     {(() => {
-                        const rawDays = earningsData?.daysLabel || '';
+                        const rawDays = effectiveEarnings?.daysLabel || '';
                         const daysNum = parseInt(rawDays.replace(/\D/g, ''));
                         const isValidDays = !isNaN(daysNum);
                         const isImminent = isValidDays && daysNum >= 0 && daysNum <= 7;
@@ -1997,19 +1997,30 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                     </span>
                                 </div>
                                 <div className="relative z-10 flex items-baseline gap-1.5">
-                                    <span className="text-lg font-black text-white leading-none">{earningsData?.nextDate ? new Date(earningsData.nextDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : 'TBD'}</span>
-                                    {earningsData?.hourLabel && <span className="text-[12px] font-jakarta text-amber-400 font-bold">{earningsData.hourLabel === 'bmo' ? td('earnBeforeMarket') : earningsData.hourLabel === 'amc' ? td('earnAfterMarket') : earningsData.hourLabel === 'dmh' ? td('earnDuringMarket') : earningsData.hourLabel}</span>}
+                                    <span className="text-lg font-black text-white leading-none">{effectiveEarnings?.nextDate ? new Date(effectiveEarnings.nextDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : 'TBD'}</span>
+                                    {effectiveEarnings?.hourLabel && <span className="text-[12px] font-jakarta text-amber-400 font-bold">{effectiveEarnings.hourLabel === 'bmo' ? td('earnBeforeMarket') : effectiveEarnings.hourLabel === 'amc' ? td('earnAfterMarket') : effectiveEarnings.hourLabel === 'dmh' ? td('earnDuringMarket') : effectiveEarnings.hourLabel}</span>}
                                     {earnDesc && <span className="text-[12px] font-jakarta text-white ml-0.5">{earnDesc}</span>}
                                 </div>
-                                {earningsData?.epsEstimate !== null && earningsData?.epsEstimate !== undefined && (
+                                {effectiveEarnings?.epsEstimate !== null && effectiveEarnings?.epsEstimate !== undefined && (
                                     <div className="relative z-10 text-[12px] font-jakarta text-white mt-0.5">
-                                        {td('estEps')} <span className="font-bold text-white/90">${earningsData.epsEstimate.toFixed(2)}</span>
-                                        {earningsData?.quarter && earningsData?.year && <span className="text-white/40 ml-1">Q{earningsData.quarter} FY{earningsData.year}</span>}
+                                        {td('estEps')} <span className="font-bold text-white/90">${effectiveEarnings.epsEstimate.toFixed(2)}</span>
+                                        {effectiveEarnings?.quarter && effectiveEarnings?.year && <span className="text-white/40 ml-1">Q{effectiveEarnings.quarter} FY{effectiveEarnings.year}</span>}
                                     </div>
                                 )}
-                                <div className="relative z-10 mt-0.5">
-                                    <span className="text-[12px] font-jakarta text-white">{td('earningsCalendar')}</span>
-                                </div>
+                                {effectiveEarnings?.forwardEps !== undefined && effectiveEarnings?.forwardEps !== null && effectiveEarnings?.forwardRevenue ? (
+                                    <div className="relative z-10 flex items-center justify-between text-[12px] font-jakarta mt-0.5 whitespace-nowrap bg-white/5 px-1.5 py-[1px] rounded -mx-0.5">
+                                        <span className="text-white/80">{td('nextYearDesc') || `내년전망`} {effectiveEarnings.forwardYear ? `(FY${effectiveEarnings.forwardYear.slice(-2)})` : ''}</span>
+                                        <div className="flex gap-2">
+                                            <span className="text-white">EPS <span className="font-bold">${effectiveEarnings.forwardEps.toFixed(2)}</span></span>
+                                            <span className="text-white/40">|</span>
+                                            <span className="text-white">{td('revDesc') || `매출`} <span className="font-bold">${(effectiveEarnings.forwardRevenue / 1e9).toFixed(1)}B</span></span>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div className="relative z-10 mt-0.5">
+                                        <span className="text-[12px] font-jakarta text-white/60 hover:text-white transition-colors cursor-pointer">{td('earningsCalendar')}</span>
+                                    </div>
+                                )}
                             </div>
                         );
                     })()}
