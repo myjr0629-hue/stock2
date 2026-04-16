@@ -2007,13 +2007,19 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                         {effectiveEarnings?.quarter && effectiveEarnings?.year && <span className="text-white/40 ml-1">Q{effectiveEarnings.quarter} FY{effectiveEarnings.year}</span>}
                                     </div>
                                 )}
-                                {effectiveEarnings?.forwardEps !== undefined && effectiveEarnings?.forwardEps !== null && effectiveEarnings?.forwardRevenue ? (
+                                {((effectiveEarnings?.forwardEps !== undefined && effectiveEarnings?.forwardEps !== null) || (effectiveEarnings?.forwardRevenue !== undefined && effectiveEarnings?.forwardRevenue !== null)) ? (
                                     <div className="relative z-10 flex items-center justify-between text-[12px] font-jakarta mt-0.5 whitespace-nowrap bg-white/5 px-1.5 py-[1px] rounded -mx-0.5">
                                         <span className="text-white/80">{td('nextYearDesc') || `내년전망`} {effectiveEarnings.forwardYear ? `(FY${effectiveEarnings.forwardYear.slice(-2)})` : ''}</span>
                                         <div className="flex gap-2">
-                                            <span className="text-white">EPS <span className="font-bold">${effectiveEarnings.forwardEps.toFixed(2)}</span></span>
-                                            <span className="text-white/40">|</span>
-                                            <span className="text-white">{td('revDesc') || `매출`} <span className="font-bold">${(effectiveEarnings.forwardRevenue / 1e9).toFixed(1)}B</span></span>
+                                            {effectiveEarnings.forwardEps !== null && effectiveEarnings.forwardEps !== undefined && (
+                                                <span className="text-white">EPS <span className="font-bold">${Number(effectiveEarnings.forwardEps).toFixed(2)}</span></span>
+                                            )}
+                                            {effectiveEarnings.forwardEps !== null && effectiveEarnings.forwardEps !== undefined && effectiveEarnings.forwardRevenue && (
+                                                <span className="text-white/40">|</span>
+                                            )}
+                                            {effectiveEarnings.forwardRevenue ? (
+                                                <span className="text-white">{td('revDesc') || `매출`} <span className="font-bold">${(Number(effectiveEarnings.forwardRevenue) / 1e9).toFixed(1)}B</span></span>
+                                            ) : null}
                                         </div>
                                     </div>
                                 ) : (

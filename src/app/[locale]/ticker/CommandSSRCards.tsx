@@ -256,13 +256,19 @@ export function CommandSSRCards({ data, stockData, ticker }: CommandSSRCardsProp
                             {earnings?.quarter && earnings?.year && <span className="hidden xl:inline text-white/40 ml-1.5">Q{earnings.quarter} FY{earnings.year}</span>}
                         </div>
                     )}
-                    {earnings?.forwardEps !== undefined && earnings?.forwardEps !== null && earnings?.forwardRevenue !== undefined ? (
-                        <div className="relative z-10 flex items-center justify-between text-[11px] font-jakarta mt-2 whitespace-nowrap bg-white/5 border border-white/5 px-2 py-0.5 rounded -mx-0.5">
-                            <span className="text-white/80">FY{earnings.forwardYear?.slice(-2) || '?'}</span>
-                            <div className="flex gap-1.5">
-                                <span className="text-white">EPS <span className="font-bold">${earnings.forwardEps.toFixed(2)}</span></span>
-                                <span className="text-white/40">|</span>
-                                <span className="text-white">REV <span className="font-bold">${(earnings.forwardRevenue / 1e9).toFixed(1)}B</span></span>
+                    {((earnings?.forwardEps !== undefined && earnings?.forwardEps !== null) || (earnings?.forwardRevenue !== undefined && earnings?.forwardRevenue !== null)) ? (
+                        <div className="relative z-10 flex items-center justify-between text-[12px] font-jakarta mt-0.5 whitespace-nowrap bg-white/5 px-1.5 py-[1px] rounded -mx-0.5">
+                            <span className="text-white/80">Next FY {earnings.forwardYear ? `(FY${earnings.forwardYear.slice(-2)})` : ''}</span>
+                            <div className="flex gap-2">
+                                {earnings.forwardEps !== null && earnings.forwardEps !== undefined && (
+                                    <span className="text-white">EPS <span className="font-bold">${Number(earnings.forwardEps).toFixed(2)}</span></span>
+                                )}
+                                {earnings.forwardEps !== null && earnings.forwardEps !== undefined && earnings.forwardRevenue && (
+                                    <span className="text-white/40">|</span>
+                                )}
+                                {earnings.forwardRevenue ? (
+                                    <span className="text-white">REV <span className="font-bold">${(Number(earnings.forwardRevenue) / 1e9).toFixed(1)}B</span></span>
+                                ) : null}
                             </div>
                         </div>
                     ) : (
