@@ -733,8 +733,20 @@ async function harvestDetails() {
       await Promise.all(batch.map(async (ticker) => {
         detailsMap[ticker] = detailsMap[ticker] || {};
         try {
-          const data = await httpsGet('https://financialmodelingprep.com/stable/grades-consensus?symbol='+ticker+'&apikey='+FMP_KEY, 5000);
+          const [data, targetData] = await Promise.all([
+            httpsGet('https://financialmodelingprep.com/stable/grades-consensus?symbol='+ticker+'&apikey='+FMP_KEY, 5000).catch(() => null),
+            httpsGet('https://financialmodelingprep.com/stable/price-target-consensus?symbol='+ticker+'&apikey='+FMP_KEY, 5000).catch(() => null)
+          ]);
           const grade = Array.isArray(data) ? data[0] : data;
+          
+          let priceTarget = null;
+          if (Array.isArray(targetData) && targetData.length > 0) {
+            const t = targetData[0];
+            if (t.targetConsensus && t.targetHigh) {
+              priceTarget = { targetHigh: t.targetHigh, targetLow: t.targetLow, targetConsensus: t.targetConsensus };
+            }
+          }
+
           if (grade && (grade.strongBuy || grade.buy || grade.hold)) {
             const total = (grade.strongBuy||0)+(grade.buy||0)+(grade.hold||0)+(grade.sell||0)+(grade.strongSell||0);
             const bullishPct = total > 0 ? Math.round(((grade.strongBuy||0)+(grade.buy||0))/total*100) : 0;
@@ -743,8 +755,8 @@ async function harvestDetails() {
               const ws = ((grade.strongBuy||0)*5+(grade.buy||0)*4+(grade.hold||0)*3+(grade.sell||0)*2+(grade.strongSell||0))/total;
               consensus = ws>=4.3?'STRONG BUY':ws>=3.5?'BUY':ws>=2.5?'HOLD':ws>=1.7?'SELL':'STRONG SELL';
             }
-            detailsMap[ticker].analyst = { ticker, consensus, totalAnalysts:total, bullishPct, breakdown:{ strongBuy:grade.strongBuy||0, buy:grade.buy||0, hold:grade.hold||0, sell:grade.sell||0, strongSell:grade.strongSell||0 } };
-            await client.send(new PutCommand({ TableName:'signum-pattern-db', Item:{ pattern:'ANALYST:'+ticker, timestamp:Date.now(), consensus, totalAnalysts:total, bullishPct, breakdown:detailsMap[ticker].analyst.breakdown }}));
+            detailsMap[ticker].analyst = { ticker, consensus, totalAnalysts:total, bullishPct, breakdown:{ strongBuy:grade.strongBuy||0, buy:grade.buy||0, hold:grade.hold||0, sell:grade.sell||0, strongSell:grade.strongSell||0 }, priceTarget };
+            await client.send(new PutCommand({ TableName:'signum-pattern-db', Item:{ pattern:'ANALYST:'+ticker, timestamp:Date.now(), consensus, totalAnalysts:total, bullishPct, breakdown:detailsMap[ticker].analyst.breakdown, priceTarget }}));
             analystOk++;
           }
         } catch {}
