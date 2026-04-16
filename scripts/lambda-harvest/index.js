@@ -691,9 +691,10 @@ async function harvestDetails() {
       await Promise.all(batch.map(async (ticker) => {
         detailsMap[ticker] = detailsMap[ticker] || {};
         try {
-          const [data, targetData] = await Promise.all([
+          const [data, targetData, forwardData] = await Promise.all([
             httpsGet('https://financialmodelingprep.com/stable/grades-consensus?symbol='+ticker+'&apikey='+FMP_KEY, 5000).catch(() => null),
-            httpsGet('https://financialmodelingprep.com/stable/price-target-consensus?symbol='+ticker+'&apikey='+FMP_KEY, 5000).catch(() => null)
+            httpsGet('https://financialmodelingprep.com/stable/price-target-consensus?symbol='+ticker+'&apikey='+FMP_KEY, 5000).catch(() => null),
+            httpsGet('https://financialmodelingprep.com/stable/analyst-estimates?symbol='+ticker+'&period=annual&apikey='+FMP_KEY, 5000).catch(() => null)
           ]);
           const grade = Array.isArray(data) ? data[0] : data;
           
@@ -702,6 +703,14 @@ async function harvestDetails() {
             const t = targetData[0];
             if (t.targetConsensus && t.targetHigh) {
               priceTarget = { targetHigh: t.targetHigh, targetLow: t.targetLow, targetConsensus: t.targetConsensus };
+            }
+          }
+          
+          if (Array.isArray(forwardData)) {
+            const currentYearStr = new Date().toISOString().slice(0, 4);
+            const nextYearData = [...forwardData].reverse().find(f => f.date && f.date.slice(0, 4) > currentYearStr);
+            if (nextYearData && nextYearData.epsAvg !== undefined && nextYearData.revenueAvg) {
+              detailsMap[ticker].forward = { eps: nextYearData.epsAvg, revenue: nextYearData.revenueAvg, year: nextYearData.date.slice(0, 4) };
             }
           }
 
@@ -742,8 +751,9 @@ async function harvestDetails() {
         detailsMap[ticker] = detailsMap[ticker] || {};
         const daysUntil = Math.ceil((new Date(e.date).getTime()-new Date(today).getTime())/(86400000));
         const daysLabel = daysUntil <= 0 ? 'today' : 'D-'+daysUntil;
-        detailsMap[ticker].earnings = { ticker, nextEarningsDate:e.date, daysUntilEarnings:daysUntil, daysLabel, hasData:true, epsEstimate:e.epsEstimated||null, quarter:null, year:null, hour:null };
-        await client.send(new PutCommand({ TableName:'signum-pattern-db', Item:{ pattern:'EARNINGS:'+ticker, timestamp:Date.now(), nextDate:e.date, daysUntil, epsEstimate:e.epsEstimated||null, quarter:null, year:null, hour:null }})).catch(()=>{});
+        const fw = detailsMap[ticker]?.forward || {};
+        detailsMap[ticker].earnings = { ticker, nextEarningsDate:e.date, daysUntilEarnings:daysUntil, daysLabel, hasData:true, epsEstimate:e.epsEstimated||null, quarter:null, year:null, hour:null, forwardEps:fw.eps, forwardRevenue:fw.revenue, forwardYear:fw.year };
+        await client.send(new PutCommand({ TableName:'signum-pattern-db', Item:{ pattern:'EARNINGS:'+ticker, timestamp:Date.now(), nextDate:e.date, daysUntil, epsEstimate:e.epsEstimated||null, quarter:null, year:null, hour:null, forwardEps:fw.eps||null, forwardRevenue:fw.revenue||null, forwardYear:fw.year||null }})).catch(()=>{});
         earningsOk++;
       }
       console.log('FMP Earnings: '+earningsOk+'/'+Object.keys(earningsMap).length+' matched from '+earningsArr.length+' total events');
@@ -1543,7 +1553,7 @@ exports.handler = async (event) => {
         if (cached?.nextDate) {
           const today = new Date().toISOString().slice(0,10);
           const daysUntil = Math.ceil((new Date(cached.nextDate).getTime()-new Date(today).getTime())/86400000);
-          earnings = { ticker, nextEarningsDate:cached.nextDate, daysUntilEarnings:daysUntil, daysLabel:daysUntil<=0?'today':'D-'+daysUntil, hasData:true, epsEstimate:cached.epsEstimate||null };
+          earnings = { ticker, nextEarningsDate:cached.nextDate, daysUntilEarnings:daysUntil, daysLabel:daysUntil<=0?'today':'D-'+daysUntil, hasData:true, epsEstimate:cached.epsEstimate||null, forwardEps:cached.forwardEps||null, forwardRevenue:cached.forwardRevenue||null, forwardYear:cached.forwardYear||null };
         }
         // If no cached data, fetch from FMP (90-day window = much smaller response)
         if (!earnings && FMP_KEY) {
@@ -1758,9 +1768,11 @@ exports.handler = async (event) => {
   results.sma = smaResult.smaCount;
   smaMap = smaResult.smaMap;
   
-  // Daily details: run once at 14:30 UTC (market open + 1hr) or forceRun
+  // Daily details: run once instantly relative to US ET Market Open (09:30 AM ET)
   let detailsMap = {};
-  const isDailyDetailTime = (utcMin >= 14*60+25 && utcMin <= 14*60+35);
+  const nyStr = new Date().toLocaleTimeString('en-US', { timeZone: 'America/New_York', hour12: false });
+  const [nyH, nyM] = nyStr.split(':').map(Number);
+  const isDailyDetailTime = (nyH === 9 && nyM >= 25 && nyM <= 35);
   if (isDailyDetailTime || forceRun) {
     const detailResult = await harvestDetails();
     results.details = { analyst: detailResult.analyst, earnings: detailResult.earnings, fundamentals: detailResult.fundamentals, related: detailResult.related };
@@ -1779,13 +1791,13 @@ exports.handler = async (event) => {
           detailsMap[ticker] = {};
           const a = analystRes.Items?.[0];
           if (a) {
-            detailsMap[ticker].analyst = { ticker, consensus:a.consensus, totalAnalysts:a.totalAnalysts, bullishPct:a.bullishPct, breakdown:a.breakdown };
+            detailsMap[ticker].analyst = { ticker, consensus:a.consensus, totalAnalysts:a.totalAnalysts, bullishPct:a.bullishPct, breakdown:a.breakdown, priceTarget:a.priceTarget||null, targetConsensus:a.targetConsensus||null };
           }
           const e = earningsRes.Items?.[0];
           if (e) {
             const today2 = new Date().toISOString().slice(0,10);
             const daysUntil = e.nextDate ? Math.ceil((new Date(e.nextDate).getTime()-new Date(today2).getTime())/86400000) : 0;
-            detailsMap[ticker].earnings = { ticker, nextEarningsDate:e.nextDate, daysUntilEarnings:daysUntil, daysLabel:daysUntil<=0?'today':'D-'+daysUntil, hasData:true, epsEstimate:e.epsEstimate, quarter:e.quarter, year:e.year };
+            detailsMap[ticker].earnings = { ticker, nextEarningsDate:e.nextDate, daysUntilEarnings:daysUntil, daysLabel:daysUntil<=0?'today':'D-'+daysUntil, hasData:true, epsEstimate:e.epsEstimate, quarter:e.quarter, year:e.year, forwardEps:e.forwardEps||null, forwardRevenue:e.forwardRevenue||null, forwardYear:e.forwardYear||null };
           }
           const f = fundRes.Items?.[0];
           if (f) {

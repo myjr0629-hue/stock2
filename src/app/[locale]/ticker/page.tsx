@@ -9,6 +9,8 @@ import { getFromCache, setInCache } from '@/services/redisClient';
 import { getStockDataLight } from '@/services/marketDataLight';
 import { getStockChartData } from '@/services/stockApi';
 
+export const dynamic = 'force-dynamic';
+
 interface Props {
     params: Promise<{ locale: string }>;
     searchParams: Promise<{ ticker?: string; range?: string; extended?: string }>;

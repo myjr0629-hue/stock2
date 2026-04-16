@@ -2,6 +2,8 @@ import { NextRequest, NextResponse, after } from 'next/server';
 import { getFromCache, setInCache } from '@/services/redisClient';
 import { fetchMassive } from '@/services/massiveClient';
 
+export const dynamic = 'force-dynamic';
+
 // Import individual route GET handlers directly to bypass HTTP overhead
 import { GET as getStructure } from '@/app/api/live/options/structure/route';
 import { GET as getAtm } from '@/app/api/live/options/atm/route';

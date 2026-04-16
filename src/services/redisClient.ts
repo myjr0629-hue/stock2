@@ -50,6 +50,7 @@ async function ecProxyGet<T>(key: string): Promise<T | null> {
         const res = await fetch(`${EC2_PROXY_URL}/get?key=${encodeURIComponent(key)}`, {
             headers: { 'Authorization': `Bearer ${EC2_PROXY_KEY}` },
             signal: AbortSignal.timeout(3000), // 3s timeout
+            cache: 'no-store'
         });
         if (!res.ok) return null;
         const data = await res.json();

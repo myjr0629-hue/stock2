@@ -20,10 +20,31 @@ export async function GET(req: NextRequest) {
         const result = await swrFetch(
             `earnings:${tickerUpper}`,
             async () => {
-                const rawEarnings = await getEarningsCalendar(tickerUpper);
+                const FMP_KEY = process.env.POLYGON_API_KEY ? process.env.FMP_API_KEY : process.env.FMP_API_KEY; // Using env safely
+                const fmpKeyToUse = FMP_KEY || process.env.NEXT_PUBLIC_FMP_API_KEY;
+                const [rawEarnings, forwardRes] = await Promise.all([
+                    getEarningsCalendar(tickerUpper),
+                    fmpKeyToUse ? fetch(`https://financialmodelingprep.com/stable/analyst-estimates?symbol=${tickerUpper}&period=annual&apikey=${fmpKeyToUse}`).catch(()=>null) : null
+                ]);
                 const earnings = [...rawEarnings].sort((a, b) =>
                     new Date(a.date).getTime() - new Date(b.date).getTime()
                 );
+                
+                let forwardEps = null, forwardRevenue = null, forwardYear = null;
+                if (forwardRes && forwardRes.ok) {
+                    try {
+                        const forwardData = await forwardRes.json();
+                        if (Array.isArray(forwardData)) {
+                            const currentYearStr = new Date().toISOString().slice(0, 4);
+                            const nextYearData = [...forwardData].reverse().find((f: any) => f.date && f.date.slice(0, 4) > currentYearStr);
+                            if (nextYearData && nextYearData.epsAvg !== undefined && nextYearData.revenueAvg) {
+                                forwardEps = nextYearData.epsAvg;
+                                forwardRevenue = nextYearData.revenueAvg;
+                                forwardYear = nextYearData.date.slice(0, 4);
+                            }
+                        }
+                    } catch (e) {}
+                }
 
                 if (!earnings || earnings.length === 0) {
                     return {
@@ -77,6 +98,7 @@ export async function GET(req: NextRequest) {
                     epsActual: targetEarnings?.epsActual || null,
                     quarter: targetEarnings?.quarter || null,
                     year: targetEarnings?.year || null,
+                    forwardEps, forwardRevenue, forwardYear,
                     hourLabel: hourCode, color, hasData: true,
                     debug: { latencyMs: Date.now() - startTime, eventsFound: earnings.length }
                 };
