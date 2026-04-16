@@ -3000,7 +3000,9 @@
     "labelStable": "安定",
     "labelBalanced": "均衡",
     "labelCallBias": "コール偏重",
-    "labelPutBias": "プット偏重"
+    "labelPutBias": "プット偏重",
+    "nextYearDesc": "来期予想",
+    "revDesc": "売上高"
   },
   "commandInsight": {
     "longGamma": "Long Gamma",

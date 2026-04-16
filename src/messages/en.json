@@ -3000,7 +3000,9 @@
     "labelStable": "Stable",
     "labelBalanced": "Balanced",
     "labelCallBias": "Call Bias",
-    "labelPutBias": "Put Bias"
+    "labelPutBias": "Put Bias",
+    "nextYearDesc": "Next FY",
+    "revDesc": "REV"
   },
   "commandInsight": {
     "longGamma": "Long Gamma",

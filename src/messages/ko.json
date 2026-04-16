@@ -2918,7 +2918,9 @@
     "labelStable": "안정",
     "labelBalanced": "균형",
     "labelCallBias": "콜 편향",
-    "labelPutBias": "풋 편향"
+    "labelPutBias": "풋 편향",
+    "nextYearDesc": "내년전망",
+    "revDesc": "매출"
   },
   "commandInsight": {
     "longGamma": "Long Gamma",
