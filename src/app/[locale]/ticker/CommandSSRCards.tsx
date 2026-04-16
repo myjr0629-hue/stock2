@@ -261,7 +261,20 @@ export function CommandSSRCards({ data, stockData, ticker }: CommandSSRCardsProp
                             <span className="text-white/80">Next FY {earnings.forwardYear ? `(FY${earnings.forwardYear.slice(-2)})` : ''}</span>
                             <div className="flex gap-2">
                                 {earnings.forwardEps !== null && earnings.forwardEps !== undefined && (
-                                    <span className="text-white">EPS <span className="font-bold">${Number(earnings.forwardEps).toFixed(2)}</span></span>
+                                    <>
+                                        <span className="text-white">EPS <span className="font-bold">${Number(earnings.forwardEps).toFixed(2)}</span></span>
+                                        {(() => {
+                                            if (!price || !fund?.pe || Number(earnings.forwardEps) <= 0 || Number(fund.pe) <= 0) return null;
+                                            const growthRatio = (Number(earnings.forwardEps) * Number(fund.pe) / price) - 1;
+                                            if (Math.abs(growthRatio) < 0.01) return null;
+                                            const isPositive = growthRatio > 0;
+                                            return (
+                                                <span className={`font-bold ml-1 text-[11px] tracking-tight ${isPositive ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                                    ({isPositive ? '▲' : '▼'}{Math.abs(growthRatio * 100).toFixed(0)}%)
+                                                </span>
+                                            );
+                                        })()}
+                                    </>
                                 )}
                                 {earnings.forwardEps !== null && earnings.forwardEps !== undefined && earnings.forwardRevenue && (
                                     <span className="text-white/40">|</span>

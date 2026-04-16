@@ -2015,13 +2015,28 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                         <span className="text-white/80">{td('nextYearDesc') || `내년전망`} {effectiveEarnings.forwardYear ? `(FY${effectiveEarnings.forwardYear.slice(-2)})` : ''}</span>
                                         <div className="flex gap-2">
                                             {effectiveEarnings.forwardEps !== null && effectiveEarnings.forwardEps !== undefined && (
-                                                <span className="text-white">EPS <span className="font-bold">${Number(effectiveEarnings.forwardEps).toFixed(2)}</span></span>
-                                            )}
-                                            {effectiveEarnings.forwardEps !== null && effectiveEarnings.forwardEps !== undefined && effectiveEarnings.forwardRevenue && (
-                                                <span className="text-white/40">|</span>
+                                                <>
+                                                    <span className="text-white">EPS <span className="font-bold">${Number(effectiveEarnings.forwardEps).toFixed(2)}</span></span>
+                                                    {(() => {
+                                                        if (!displayPrice || !effectiveFund?.pe || Number(effectiveEarnings.forwardEps) <= 0 || Number(effectiveFund.pe) <= 0) return null;
+                                                        const growthRatio = (Number(effectiveEarnings.forwardEps) * Number(effectiveFund.pe) / displayPrice) - 1;
+                                                        if (Math.abs(growthRatio) < 0.01) return null; // Too small to show
+                                                        const isPositive = growthRatio > 0;
+                                                        return (
+                                                            <span className={`font-bold ml-1 text-[11px] tracking-tight ${isPositive ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                                                ({isPositive ? '▲' : '▼'}{Math.abs(growthRatio * 100).toFixed(0)}%)
+                                                            </span>
+                                                        );
+                                                    })()}
+                                                </>
                                             )}
                                             {effectiveEarnings.forwardRevenue ? (
-                                                <span className="text-white">{td('revDesc') || `매출`} <span className="font-bold">${(Number(effectiveEarnings.forwardRevenue) / 1e9).toFixed(1)}B</span></span>
+                                                <>
+                                                    {effectiveEarnings.forwardEps !== null && effectiveEarnings.forwardEps !== undefined && (
+                                                        <span className="text-white/40">|</span>
+                                                    )}
+                                                    <span className="text-white">{td('revDesc') || `매출`} <span className="font-bold">${(Number(effectiveEarnings.forwardRevenue) / 1e9).toFixed(1)}B</span></span>
+                                                </>
                                             ) : null}
                                         </div>
                                     </div>
