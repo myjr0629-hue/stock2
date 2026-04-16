@@ -250,12 +250,24 @@ export function CommandSSRCards({ data, stockData, ticker }: CommandSSRCardsProp
                             {earningsDate ? new Date(earningsDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '--'}
                         </span>
                     </div>
-                    {earnings?.quarter && (
-                        <div className="text-[12px] font-jakarta text-slate-300 mt-0.5">
-                            Q{earnings.quarter} {earnings.year || ''} {earnings.hourLabel || ''}
+                    {earnings?.epsEstimate !== null && earnings?.epsEstimate !== undefined && (
+                        <div className="text-[12px] font-jakarta text-slate-300 mt-1 flex items-center">
+                            Est EPS <span className="font-bold text-white/90 ml-1.5">${earnings.epsEstimate.toFixed(2)}</span>
+                            {earnings?.quarter && earnings?.year && <span className="hidden xl:inline text-white/40 ml-1.5">Q{earnings.quarter} FY{earnings.year}</span>}
                         </div>
                     )}
-                    <div className="mt-0.5"><span className="text-[12px] text-slate-300 font-jakarta">Next Earnings Report</span></div>
+                    {earnings?.forwardEps !== undefined && earnings?.forwardEps !== null && earnings?.forwardRevenue !== undefined ? (
+                        <div className="relative z-10 flex items-center justify-between text-[11px] font-jakarta mt-2 whitespace-nowrap bg-white/5 border border-white/5 px-2 py-0.5 rounded -mx-0.5">
+                            <span className="text-white/80">FY{earnings.forwardYear?.slice(-2) || '?'}</span>
+                            <div className="flex gap-1.5">
+                                <span className="text-white">EPS <span className="font-bold">${earnings.forwardEps.toFixed(2)}</span></span>
+                                <span className="text-white/40">|</span>
+                                <span className="text-white">REV <span className="font-bold">${(earnings.forwardRevenue / 1e9).toFixed(1)}B</span></span>
+                            </div>
+                        </div>
+                    ) : (
+                        <div className="mt-1"><span className="text-[12px] text-slate-400 font-jakarta">Next Earnings Report</span></div>
+                    )}
                 </CardShell>
 
                 {/* 2-5: RELATED */}
