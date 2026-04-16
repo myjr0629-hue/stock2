@@ -30,7 +30,7 @@ export async function GET(req: NextRequest) {
                             totalAnalysts: a.totalAnalysts || 0,
                             bullishPct: a.bullishPct || 0,
                             breakdown: a.breakdown || { strongBuy: 0, buy: 0, hold: 0, sell: 0, strongSell: 0 },
-                            priceTarget: null,
+                            priceTarget: a.priceTarget || null,
                             _source: 'dynamodb',
                         };
                     }
@@ -42,13 +42,25 @@ export async function GET(req: NextRequest) {
                 console.log(`[live/analyst] ⚠️ DynamoDB miss for ${ticker} — falling back to FMP`);
                 if (!FMP_API_KEY) throw new Error('FMP_API_KEY not set');
 
-                const res = await fetch(
-                    `https://financialmodelingprep.com/stable/grades-consensus?symbol=${ticker.toUpperCase()}&apikey=${FMP_API_KEY}`,
-                    { signal: AbortSignal.timeout(8000) }
-                );
-                if (!res.ok) throw new Error(`FMP ${res.status}`);
-                const data = await res.json();
+                const [res, targetRes] = await Promise.all([
+                    fetch(`https://financialmodelingprep.com/stable/grades-consensus?symbol=${ticker.toUpperCase()}&apikey=${FMP_API_KEY}`, { signal: AbortSignal.timeout(8000) }).catch(() => null),
+                    fetch(`https://financialmodelingprep.com/stable/price-target-consensus?symbol=${ticker.toUpperCase()}&apikey=${FMP_API_KEY}`, { signal: AbortSignal.timeout(8000) }).catch(() => null)
+                ]);
+
+                if (!res || !res.ok) throw new Error(`FMP Consensus Failed`);
+                const data = await res.json().catch(() => []);
                 const grade = Array.isArray(data) ? data[0] : data;
+
+                let priceTarget = null;
+                if (targetRes && targetRes.ok) {
+                    const targetData = await targetRes.json().catch(() => []);
+                    if (Array.isArray(targetData) && targetData.length > 0) {
+                        const t = targetData[0];
+                        if (t.targetConsensus && t.targetHigh) {
+                            priceTarget = { targetHigh: t.targetHigh, targetLow: t.targetLow, targetConsensus: t.targetConsensus };
+                        }
+                    }
+                }
 
                 if (!grade || (!grade.strongBuy && !grade.buy && !grade.hold)) {
                     return {
@@ -56,7 +68,7 @@ export async function GET(req: NextRequest) {
                         consensus: 'N/A' as const,
                         totalAnalysts: 0, bullishPct: 0,
                         breakdown: { strongBuy: 0, buy: 0, hold: 0, sell: 0, strongSell: 0 },
-                        priceTarget: null,
+                        priceTarget,
                     };
                 }
 
@@ -90,7 +102,7 @@ export async function GET(req: NextRequest) {
                 return {
                     ticker: ticker.toUpperCase(), consensus, totalAnalysts, bullishPct,
                     breakdown: { strongBuy, buy, hold, sell, strongSell },
-                    priceTarget: null,
+                    priceTarget,
                     _source: 'fmp-fallback',
                 };
             },

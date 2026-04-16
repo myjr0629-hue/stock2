@@ -898,7 +898,7 @@ async function tryDynamoFast(ticker: string): Promise<any | null> {
             let analystCard = null;
             if (snap.analyst) {
                 const a = snap.analyst;
-                analystCard = { ticker, consensus: a.consensus || 'N/A', totalAnalysts: a.totalAnalysts || 0, bullishPct: a.bullishPct || 0, breakdown: a.breakdown || {}, period: a.period || null, priceTarget: null };
+                analystCard = { ticker, consensus: a.consensus || 'N/A', totalAnalysts: a.totalAnalysts || 0, bullishPct: a.bullishPct || 0, breakdown: a.breakdown || {}, period: a.period || null, priceTarget: a.priceTarget || null };
             }
 
             let earningsCard = null;

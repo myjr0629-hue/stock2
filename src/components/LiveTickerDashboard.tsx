@@ -812,7 +812,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
     const [analystData, setAnalystData] = useState<{
         consensus: string; totalAnalysts: number; bullishPct: number;
         breakdown: { strongBuy: number; buy: number; hold: number; sell: number; strongSell: number };
-        priceTarget: { mean: number; median: number; high: number; low: number } | null;
+        priceTarget?: { targetConsensus: number; targetHigh: number; targetLow: number } | null;
     } | null>(initialUnifiedData?.analyst || null);
     // [PREMIUM-5x2] New indicator states
     const [volatilityData, setVolatilityData] = useState<{ regime: string; regimeScore: number; gex: number; gexLabel: string; iv: number; flipDistance: number; flipLevel: number; isAboveFlip: boolean; squeezeScore: number; squeezeRisk: string; gammaConcentration: number; gammaConcentrationLabel: string } | null>(initialUnifiedData?.volatility || null);
@@ -1824,7 +1824,17 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                                 <div className="bg-rose-400/60" style={{ width: `${(bd.sell / total) * 100}%` }} />
                                                 <div className="bg-rose-500" style={{ width: `${(bd.strongSell / total) * 100}%` }} />
                                             </div>
-                                            <div className="text-[14px] font-jakarta text-white mt-0.5">→ {total} {td('analystOfTotal')} <span className={`font-bold ${buyPct >= 70 ? 'text-emerald-400' : buyPct <= 30 ? 'text-rose-400' : 'text-white'}`}>{buyPct}%</span> {td('analystBuyReco')}</div>
+                                            {analystData?.priceTarget?.targetConsensus ? (
+                                                <div className="flex items-center justify-between text-[13px] font-jakarta text-white mt-1 pt-1 border-t border-white/5">
+                                                    <span className="text-slate-300 flex items-center gap-1"><span className="text-amber-400/80">🎯</span> {locale === 'ko' ? '12M 목표가' : locale === 'ja' ? '12M 目標株価' : '12M Target'}</span>
+                                                    <div className="flex items-baseline gap-1.5">
+                                                        <span className="font-black text-amber-400">${analystData.priceTarget.targetConsensus.toFixed(2)}</span>
+                                                        <span className="text-[11px] text-slate-400 font-medium">({locale === 'ko' ? '최고' : locale === 'ja' ? '最高' : 'High'} ${analystData.priceTarget.targetHigh?.toFixed(2) ?? '--'})</span>
+                                                    </div>
+                                                </div>
+                                            ) : (
+                                                <div className="text-[14px] font-jakarta text-white mt-0.5">→ {total} {td('analystOfTotal')} <span className={`font-bold ${buyPct >= 70 ? 'text-emerald-400' : buyPct <= 30 ? 'text-rose-400' : 'text-white'}`}>{buyPct}%</span> {td('analystBuyReco')}</div>
+                                            )}
                                         </div>
                                     )}
 
