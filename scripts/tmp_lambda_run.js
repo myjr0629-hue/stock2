@@ -686,3 +686,11 @@ exports.handler = async (event) => {
     })
   };
 };
+
+
+(async () => {
+  console.log('Running TSLA harvest...');
+  const res = await harvestTicker('TSLA');
+  console.log('Result:', res);
+  process.exit(0);
+})();

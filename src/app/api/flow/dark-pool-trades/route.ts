@@ -17,7 +17,9 @@ const DARK_POOL_EXCHANGES: Set<number> = new Set([4, 15, 16, 19]);
 // Dark Pool Condition Codes
 const DARK_POOL_CONDITIONS: Set<number> = new Set([12, 41, 52]);
 
-// ── Redis cache key pattern: darkpool:{TICKER} ──
+// ── Redis cache key pattern: cvv3_darkpool:{TICKER} ──
+// [FIX] Old 'darkpool:' keys are stuck forever since Lambda decoupled. Changed prefix to ignore zombies.
+const CACHE_PREFIX = 'cvv3_darkpool:';
 const REDIS_TTL = 300; // 5 minutes
 
 // Block trade threshold (FINRA standard)
@@ -104,7 +106,7 @@ export async function GET(request: NextRequest) {
     const ticker = searchParams.get('ticker')?.toUpperCase() || 'NVDA';
     const limit = Math.min(parseInt(searchParams.get('limit') || '50'), 100);
 
-    const cacheKey = `darkpool:${ticker}`;
+    const cacheKey = `${CACHE_PREFIX}${ticker}`;
     const STALE_THRESHOLD_MS = 300_000; // 5 min
 
     try {

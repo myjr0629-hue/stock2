@@ -13,6 +13,7 @@
 1. **데이터 무결성**: 모든 지표, 점수, 수치는 정확해야 한다. 근사값, 간이 계산, 하드코딩 0은 허용하지 않는다.
 2. **일관성**: 동일한 티커는 어디서든(Lambda/Vercel, CACHE HIT/MISS, 유니버스/비유니버스) **같은 공식으로 같은 결과**를 보여야 한다. 두 개의 엔진이 같은 역할을 하면 안 된다.
 3. **속도**: 빛의 속도로 출력될 수 있는 구조. 캐시 우선, SWR 패턴, 불필요한 API 호출 제거.
+4. **💡 조합의 극대화 (Resource Optimization 100%)**: 시스템 전체를 평가할 때 "돌아가니까 둔다"는 마인드는 금물이다. Polygon API, AWS, Redis 등 **우리가 쥐고 있는 자원의 조합으로 도출할 수 있는 '가장 똑똑하고, 가장 비용이 적게 들며, 가장 수학적으로 완벽한 계산 방식'**을 항상 찾아내어 적용해야 한다. 과거의 낡고 비효율적인 로직이 완벽한 대안을 가로막고 있다면 가차 없이 뜯어고친다.
 
 ### 🔴 능동적 자세
 - 유저가 물어보기 전에 불일치/비효율을 찾아내야 한다
@@ -43,6 +44,17 @@ AI 에이전트는 데이터 불일치를 조사할 때 무조건 아래 3단계
 - **i18n**: ko, en, ja (next-intl)
 - **결제**: Stripe (해외) + PortOne (국내)
 - **인증**: Supabase Auth
+
+---
+
+## 1.5 API 벤더 명칭 및 웹소켓 엔드포인트 주의사항 (Massive)
+> **[CRITICAL] 기존 'Polygon'의 사명이 'Massive'로 변경되었습니다.**
+> REST API는 하위 호환을 위해 `api.polygon.io`가 아직 통용될 수 있으나, **웹소켓(WebSocket)은 완전히 분리된 신규 주소**를 사용해야 합니다. 절대 혼동하지 마십시오.
+
+- **주식(Stocks) 웹소켓**: `wss://socket.massive.com/stocks`
+  - 지원: 분봉/초봉 집계, 틱 체결(Trades), NBBO 호가(Quotes), 상/하한가(LULD) 이벤트
+- **옵션(Options) 웹소켓**: `wss://socket.massive.com/options`
+  - 지원: 분봉/초봉 집계, 틱 체결(Trades), 실시간 시세(Quotes - 최대 1,000개 계약 제한)
 
 ---
 
@@ -281,9 +293,18 @@ Confidence: 4개 중 강한 신호 3+개=HIGH, 2개=MED, 1개=LOW, 0=NONE
 | Guardian Worker | `scripts/ec2-guardian-worker.js` (42KB) | Morning Briefing AI, DynamoDB→Redis |
 | Price WebSocket | `scripts/ec2-price-ws.js` (52KB) | 실시간 가격 WebSocket 허브 |
 | Redis Proxy | `scripts/ec2-redis-proxy.js` | ElastiCache HTTP 프록시 |
+| Flow Accumulator (New) | `scripts/ec2-flow-accumulator.js` | 1만 개 종목 전용 다크풀/블록딜 SSOT 누적기 |
 - **Instance ID**: `i-0c8e51d26ddc9b3c1`
 - **WebSocket URL**: `wss://ws.signumhq.com`
-- **배포**: `bash scripts/ec2-deploy-guardian.sh`
+- **배포**: `bash scripts/ec2-deploy-flow.sh`
+
+#### Flow Accumulator SSOT 메커니즘 (Phase 2 아키텍처)
+1. **100% 무결점 라이브 누적**: 5,000건 샘플링을 수행하던 기존 Vercel API의 한계를 극복하고, 매일 오전 4:00 AM ET부터 오후 8:00 PM ET까지 `T.*`(미국 전체 주식 1만여 개)에 웹소켓으로 구독하여 메모리(RAM) 상에 하루 전체의 트레이드 틱 방대한 양을 단 1틱의 손실 없이 누적합니다.
+2. **단일 진실 공급원(SSOT) 덮어쓰기 (No-Touch UI)**: EC2 엔진이 1분마다 Upstash Redis에 위치한 기존 `rt-metrics:{TICKER}` 또는 `cache:flow:unified:{TICKER}` 키를 직접 업데이트합니다. "새로운 키"를 파는 것이 아니라 Vercel 엔진이 기존에 수년간 읽어오던 본진 열쇠의 내부 값을 몰래 무결점 데이터로 갈아 끼웁니다(`Root Replacement`).
+3. **전역 자동 전파 (Global Synchronicity)**: 
+   - 프론트엔드의 `Command 페이지(INST RADAR)`, `Flow 페이지`, 그리고 Vercel의 백엔드 모델인 `Alpha Engine`과 `Whale Index`가 **기존과 완벽히 동일한 캐시 조회 코드를 유지한 상태**에서 EC2가 주입한 100% 무결점 다크풀 데이터를 읽습니다.
+   - 따라서 백엔드의 Vercel 시스템을 일절 건드리지 않고, 프론트엔드 전체의 다크풀 정밀도와 스코어 연산의 기반 신뢰도가 100% 동기화 격상됩니다.
+4. **하이브리드 과거 복원 (Self-Healing Boot)**: 로직 검증 및 무중단 재부팅 시, Polygon REST API(`GET /v3/trades`)를 통해 당일 장 시작부터 지금까지의 실데이터 히스토리를 강제로 스캔 및 복구한 후, 웹소켓에 접속하여 라이브 환경을 이어붙이는 고도의 복원 구조를 채택합니다.
 
 ### 4.4 DynamoDB 테이블
 | 테이블명 | PK | SK | 용도 |
@@ -1332,3 +1353,24 @@ for (let i = 0; i < redisBatch.length; i += 20) {
 ### 3. 가이드 페이지(Guide Page) 문서화 작업
 - **가이드라인 추가**: "수치만 보면 알 수 없다"는 페인 포인트를 해결하기 위해 `/guide` 페이지 내에 단독 섹션을 신설.
 - **포함 내용**: Smart Flow가 GEX, Dark Pool, Block Trades, Net Premium 4가지를 융합한 시그니처 지표임을 강조하고, 위 5단계 계급 체계를 컬러 차트와 함께 직관적으로 설명. 마케팅(숏폼)에서 "스마트 플로우 하나만 보라"고 교육할 때 랜딩되는 공식 매뉴얼 역할 수행.
+
+---
+
+## ⚡ [NEXT PHASE] V3.0 하이브리드 인프라 최적화: 다크풀 웹소켓 직통망 설계
+> **대상 과제:** Redis(Upstash) 요금 폭발 원인 차단 및 100% 라이브 다크풀 누적기(Accumulator) 도입
+> **목적:** 무의미한 1분 단위 크론잡(Batch) 폴링을 완전히 폐기하고, 비용 0의 자체 치유형 EC2 RAM 아키텍처로 라이브 지표 송출.
+
+### 1. 맹목적 Redis 푸시(Bleed) 차단 및 On-Demand 캐싱
+- **문제점:** 현재 `lambda-flow-harvest`는 아무도 안 보는 비인기 8,000개 종목의 1초짜리 라이브 체결 데이터까지 1분마다 맹목적으로 Redis에 덮어써서 월 수백 불의 과금 폭탄을 발생.
+- **해결책:** 본장 트레이딩 틱, 다크풀 지표 등 초단기 휘발성 데이터는 일괄 자동 저장을 즉시 제거. 유저가 클릭했을 때만 1분 TTL로 가져오는 **수요 기반(On-Demand) 캐싱**으로 Vercel 백엔드 튜닝.
+
+### 2. EC2 '무과금' 웹소켓 누적기(Accumulator) 구축
+- **역할 분담:** Redis는 무거운 통계(Context Score)와 상태(Auth)만 담는 1급 무장 금고로 제한. 그 외 실시간 라이브 데이터는 새롭게 건립할 경량 EC2 워커 서버의 'RAM(무료 메모리)'에서 직거래.
+- **아키텍처 모델:**
+  - 아침 9:30에 EC2가 전 종목의 카운터를 `0`으로 세팅 후 폴리곤 `T.*` 라이브 웹소켓 파이프 연결.
+  - 하루 종일 다크풀 거래가 터질 때마다 내부 RAM의 카운터 변수에 초고속 누적 (+1).
+  - 브라우저(Vercel UI)는 Redis를 거치지 않고 바로 EC2 포트에 HTTP/WSS로 접속하여 최종 숫자를 다이렉트로 가져감.
+
+### 3. 컴플라이언스 100% 무결성 방어 (Self-Healing)
+- **자체 치유망:** EC2 메모리가 날아가는 것에 대비하여, 5분에 단 한 번만 Redis에 전 종목 '총 누적량 합계'만 저장(비용 거의 제로). 
+- **복구 시나리오:** EC2 재부팅 시 Redis에서 5분 전의 총합계를 퍼오고 부족한 빈 공간(2~3분)만 Polygon REST API로 즉시 패치하여 재조립하는 자가 복구 솔루션 탑재.

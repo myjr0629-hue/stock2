@@ -142,14 +142,17 @@ export function calcPriceDisplay(input: PriceDisplayInput): PriceDisplayResult {
     if (input.liveExtPrice && input.liveExtPrice > 0 && input.liveExtLabel) {
         activeExtPrice = input.liveExtPrice;
         activeExtPct = input.liveExtChangePct || 0;
+        
+        const baseType = input.liveExtLabel.includes('PRE') ? 'PRE' : input.liveExtLabel.includes('POST') ? 'POST' : input.liveExtLabel;
+        
         // During REG session, PRE market has closed → show as 'PRE CLOSE'
         const isRegSession = s === 'REG' || s === 'RTH' || s === 'MARKET';
-        if (input.liveExtLabel === 'PRE' && isRegSession) {
+        if (baseType === 'PRE' && isRegSession) {
             activeExtLabel = 'PRE CLOSE';
             activeExtType = 'PRE_CLOSE';
         } else {
-            activeExtLabel = input.liveExtLabel === 'PRE' ? 'PRE' : input.liveExtLabel === 'POST' ? 'POST' : input.liveExtLabel;
-            activeExtType = input.liveExtLabel;
+            activeExtLabel = input.liveExtLabel;
+            activeExtType = baseType;
         }
     } else {
         // Fallback to heavy ticker API data if live polling hasn't spun up yet
@@ -188,8 +191,12 @@ export function calcPriceDisplay(input: PriceDisplayInput): PriceDisplayResult {
     if (activeExtPrice > 0) {
         if ((activeExtType === 'PRE' || activeExtType === 'PRE_CLOSE') && resolvedPrevClose > 0) {
             activeExtPct = ((activeExtPrice - resolvedPrevClose) / resolvedPrevClose) * 100;
-        } else if (activeExtType === 'POST' && regularCloseToday && regularCloseToday > 0) {
-            activeExtPct = ((activeExtPrice - regularCloseToday) / regularCloseToday) * 100;
+        } else if (activeExtType === 'POST') {
+            // POST session change must reference regular close limit. Try regularCloseToday first, fallback to displayPrice (which locks to intraday close during POST).
+            const referencePrice = (regularCloseToday && regularCloseToday > 0) ? regularCloseToday : displayPrice;
+            if (referencePrice > 0) {
+                activeExtPct = ((activeExtPrice - referencePrice) / referencePrice) * 100;
+            }
         } else if (resolvedPrevClose > 0) {
             activeExtPct = ((activeExtPrice - resolvedPrevClose) / resolvedPrevClose) * 100;
         }
