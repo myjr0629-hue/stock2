@@ -2011,34 +2011,58 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                     </div>
                                 )}
                                 {((effectiveEarnings?.forwardEps !== undefined && effectiveEarnings?.forwardEps !== null) || (effectiveEarnings?.forwardRevenue !== undefined && effectiveEarnings?.forwardRevenue !== null)) ? (
-                                    <div className="relative z-10 flex items-center justify-between text-[12px] font-jakarta mt-0.5 flex-wrap gap-y-0.5 bg-white/5 px-1.5 py-[1px] rounded -mx-0.5">
-                                        <span className="text-white/80">{td('nextYearDesc') || `내년전망`} {effectiveEarnings.forwardYear ? `(FY${effectiveEarnings.forwardYear.slice(-2)})` : ''}</span>
-                                        <div className="flex gap-2">
-                                            {effectiveEarnings.forwardEps !== null && effectiveEarnings.forwardEps !== undefined && (
-                                                <>
-                                                    <span className="text-white">EPS <span className="font-bold">${Number(effectiveEarnings.forwardEps).toFixed(2)}</span></span>
+                                    <div className="relative z-10 flex flex-col gap-1 text-[12px] font-jakarta mt-1 bg-white/5 p-1.5 rounded -mx-0.5">
+                                        {effectiveEarnings.forwardEps !== null && effectiveEarnings.forwardEps !== undefined && (
+                                            <div className="flex items-center justify-between">
+                                                <span className="text-white/70 tracking-tight shrink-0 mr-2">{td('nextYearDesc') || `Forward`} {effectiveEarnings.forwardYear ? `(FY${effectiveEarnings.forwardYear.slice(-2)})` : ''}</span>
+                                                <div className="flex items-center gap-1.5 overflow-hidden">
+                                                    <span className="text-white tracking-tight shrink-0">EPS <span className="font-bold">${Number(effectiveEarnings.forwardEps).toFixed(2)}</span></span>
+                                                    {(() => {
+                                                        const rev = effectiveEarnings.forwardEpsRevision;
+                                                        if (rev) {
+                                                            const isPos = rev > 0;
+                                                            return (
+                                                                <span className={`text-[10px] font-bold px-1 rounded truncate leading-none py-0.5 bg-black/20 ${isPos ? 'text-emerald-400 border border-emerald-500/20' : 'text-rose-400 border border-rose-500/20'}`}>
+                                                                    {isPos ? '▲' : '▼'}${(Math.abs(rev)).toFixed(2)}
+                                                                </span>
+                                                            );
+                                                        }
+                                                        return null;
+                                                    })()}
                                                     {(() => {
                                                         if (!displayPrice || !effectiveFund?.pe || Number(effectiveEarnings.forwardEps) <= 0 || Number(effectiveFund.pe) <= 0) return null;
                                                         const growthRatio = (Number(effectiveEarnings.forwardEps) * Number(effectiveFund.pe) / displayPrice) - 1;
-                                                        if (Math.abs(growthRatio) < 0.01) return null; // Too small to show
+                                                        if (Math.abs(growthRatio) < 0.01) return null;
                                                         const isPositive = growthRatio > 0;
                                                         return (
-                                                            <span className={`font-bold ml-1 text-[11px] tracking-tight ${isPositive ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                                            <span className={`font-black tracking-tighter shrink-0 ${isPositive ? 'text-emerald-400' : 'text-rose-400'}`}>
                                                                 ({isPositive ? '▲' : '▼'}{Math.abs(growthRatio * 100).toFixed(0)}%)
                                                             </span>
                                                         );
                                                     })()}
-                                                </>
-                                            )}
-                                            {effectiveEarnings.forwardRevenue ? (
-                                                <>
-                                                    {effectiveEarnings.forwardEps !== null && effectiveEarnings.forwardEps !== undefined && (
-                                                        <span className="text-white/40">|</span>
-                                                    )}
-                                                    <span className="text-white">{td('revDesc') || `매출`} <span className="font-bold">${(Number(effectiveEarnings.forwardRevenue) / 1e9).toFixed(1)}B</span></span>
-                                                </>
-                                            ) : null}
-                                        </div>
+                                                </div>
+                                            </div>
+                                        )}
+                                        {effectiveEarnings.forwardRevenue ? (
+                                            <div className={`flex items-center justify-between ${(effectiveEarnings.forwardEps !== null && effectiveEarnings.forwardEps !== undefined) ? 'border-t border-white/5 pt-1 mt-0.5' : ''}`}>
+                                                <span className="text-white/70 tracking-tight shrink-0 mr-2">{td('revDesc') || `REV`}</span>
+                                                <div className="flex items-center gap-1.5 overflow-hidden">
+                                                    <span className="text-white tracking-tight font-bold shrink-0">${(Number(effectiveEarnings.forwardRevenue) / 1e9).toFixed(1)}B</span>
+                                                    {(() => {
+                                                        const rev = effectiveEarnings.forwardRevRevision;
+                                                        if (rev) {
+                                                            const isPos = rev > 0;
+                                                            return (
+                                                                <span className={`text-[10px] font-bold px-1 rounded truncate leading-none py-0.5 bg-black/20 ${isPos ? 'text-emerald-400 border border-emerald-500/20' : 'text-rose-400 border border-rose-500/20'}`}>
+                                                                    {isPos ? '▲' : '▼'}${(Math.abs(rev)/1e9).toFixed(1)}B
+                                                                </span>
+                                                            );
+                                                        }
+                                                        return null;
+                                                    })()}
+                                                </div>
+                                            </div>
+                                        ) : null}
                                     </div>
                                 ) : (
                                     <div className="relative z-10 mt-0.5">

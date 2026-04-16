@@ -794,8 +794,38 @@ async function harvestDetails() {
         const daysUntil = Math.ceil((new Date(e.date).getTime()-new Date(today).getTime())/(86400000));
         const daysLabel = daysUntil <= 0 ? 'today' : 'D-'+daysUntil;
         const fw = detailsMap[ticker]?.forward || {};
-        detailsMap[ticker].earnings = { ticker, nextEarningsDate:e.date, daysUntilEarnings:daysUntil, daysLabel, hasData:true, epsEstimate:e.epsEstimated||null, quarter:null, year:null, hour:null, forwardEps:fw.eps, forwardRevenue:fw.revenue, forwardYear:fw.year };
-        await client.send(new PutCommand({ TableName:'signum-pattern-db', Item:{ pattern:'EARNINGS:'+ticker, timestamp:Date.now(), nextDate:e.date, daysUntil, epsEstimate:e.epsEstimated||null, quarter:null, year:null, hour:null, forwardEps:fw.eps||null, forwardRevenue:fw.revenue||null, forwardYear:fw.year||null }})).catch(()=>{});
+        let revisionEps = null;
+        let revisionRev = null;
+        let revisionDate = null;
+        let revRevisionDate = null;
+        
+        try {
+            const oldRes = await client.send(new QueryCommand({ TableName:'signum-pattern-db', KeyConditionExpression:'pattern=:p', ExpressionAttributeValues:{':p':'EARNINGS:'+ticker}, Limit:1, ScanIndexForward:false }));
+            const oldData = oldRes.Items?.[0];
+            if (oldData && fw.eps && oldData.forwardEps && Math.abs(fw.eps - oldData.forwardEps) > 0.001) {
+                revisionEps = Number((fw.eps - oldData.forwardEps).toFixed(3));
+                revisionDate = today;
+            } else if (oldData && oldData.forwardEpsRevision != null && oldData.forwardEpsRevisionDate) {
+                const ageDays = (new Date(today).getTime() - new Date(oldData.forwardEpsRevisionDate).getTime()) / 86400000;
+                if (ageDays <= 4 && fw.eps === oldData.forwardEps) {
+                    revisionEps = oldData.forwardEpsRevision;
+                    revisionDate = oldData.forwardEpsRevisionDate;
+                }
+            }
+            if (oldData && fw.revenue && oldData.forwardRevenue && Math.abs(fw.revenue - oldData.forwardRevenue) > 100000) {
+                revisionRev = fw.revenue - oldData.forwardRevenue;
+                revRevisionDate = today;
+            } else if (oldData && oldData.forwardRevRevision != null && oldData.forwardRevRevisionDate) {
+                const revAgeDays = (new Date(today).getTime() - new Date(oldData.forwardRevRevisionDate).getTime()) / 86400000;
+                if (revAgeDays <= 4 && fw.revenue === oldData.forwardRevenue) {
+                    revisionRev = oldData.forwardRevRevision;
+                    revRevisionDate = oldData.forwardRevRevisionDate;
+                }
+            }
+        } catch (err) {}
+
+        detailsMap[ticker].earnings = { ticker, nextEarningsDate:e.date, daysUntilEarnings:daysUntil, daysLabel, hasData:true, epsEstimate:e.epsEstimated||null, quarter:null, year:null, hour:null, forwardEps:fw.eps||null, forwardRevenue:fw.revenue||null, forwardYear:fw.year||null, forwardEpsRevision:revisionEps, forwardRevRevision:revisionRev, forwardEpsRevisionDate:revisionDate, forwardRevRevisionDate:revRevisionDate };
+        await client.send(new PutCommand({ TableName:'signum-pattern-db', Item:{ pattern:'EARNINGS:'+ticker, timestamp:Date.now(), nextDate:e.date, daysUntil, epsEstimate:e.epsEstimated||null, quarter:null, year:null, hour:null, forwardEps:fw.eps||null, forwardRevenue:fw.revenue||null, forwardYear:fw.year||null, forwardEpsRevision:revisionEps, forwardEpsRevisionDate:revisionDate, forwardRevRevision:revisionRev, forwardRevRevisionDate:revRevisionDate }})).catch(()=>{});
         earningsOk++;
       }
       console.log('FMP Earnings: '+earningsOk+'/'+Object.keys(earningsMap).length+' matched from '+earningsArr.length+' total events');

@@ -257,32 +257,58 @@ export function CommandSSRCards({ data, stockData, ticker }: CommandSSRCardsProp
                         </div>
                     )}
                     {((earnings?.forwardEps !== undefined && earnings?.forwardEps !== null) || (earnings?.forwardRevenue !== undefined && earnings?.forwardRevenue !== null)) ? (
-                        <div className="relative z-10 flex items-center justify-between text-[12px] font-jakarta mt-0.5 flex-wrap gap-y-0.5 bg-white/5 px-1.5 py-[1px] rounded -mx-0.5">
-                            <span className="text-white/80">Next FY {earnings.forwardYear ? `(FY${earnings.forwardYear.slice(-2)})` : ''}</span>
-                            <div className="flex gap-2">
-                                {earnings.forwardEps !== null && earnings.forwardEps !== undefined && (
-                                    <>
-                                        <span className="text-white">EPS <span className="font-bold">${Number(earnings.forwardEps).toFixed(2)}</span></span>
+                        <div className="relative z-10 flex flex-col gap-1 text-[12px] font-jakarta mt-1 bg-white/5 p-1.5 rounded -mx-0.5">
+                            {earnings.forwardEps !== null && earnings.forwardEps !== undefined && (
+                                <div className="flex items-center justify-between">
+                                    <span className="text-white/70 tracking-tight shrink-0 mr-2">Forward {earnings.forwardYear ? `(FY${earnings.forwardYear.slice(-2)})` : ''}</span>
+                                    <div className="flex items-center gap-1.5 overflow-hidden">
+                                        <span className="text-white tracking-tight shrink-0">EPS <span className="font-bold">${Number(earnings.forwardEps).toFixed(2)}</span></span>
+                                        {(() => {
+                                            const rev = (earnings as any).forwardEpsRevision;
+                                            if (rev) {
+                                                const isPos = rev > 0;
+                                                return (
+                                                    <span className={`text-[10px] font-bold px-1 rounded truncate leading-none py-0.5 bg-black/20 ${isPos ? 'text-emerald-400 border border-emerald-500/20' : 'text-rose-400 border border-rose-500/20'}`}>
+                                                        {isPos ? '▲' : '▼'}${(Math.abs(rev)).toFixed(2)}
+                                                    </span>
+                                                );
+                                            }
+                                            return null;
+                                        })()}
                                         {(() => {
                                             if (!price || !fund?.pe || Number(earnings.forwardEps) <= 0 || Number(fund.pe) <= 0) return null;
                                             const growthRatio = (Number(earnings.forwardEps) * Number(fund.pe) / price) - 1;
                                             if (Math.abs(growthRatio) < 0.01) return null;
                                             const isPositive = growthRatio > 0;
                                             return (
-                                                <span className={`font-bold ml-1 text-[11px] tracking-tight ${isPositive ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                                <span className={`font-black tracking-tighter shrink-0 ${isPositive ? 'text-emerald-400' : 'text-rose-400'}`}>
                                                     ({isPositive ? '▲' : '▼'}{Math.abs(growthRatio * 100).toFixed(0)}%)
                                                 </span>
                                             );
                                         })()}
-                                    </>
-                                )}
-                                {earnings.forwardEps !== null && earnings.forwardEps !== undefined && earnings.forwardRevenue && (
-                                    <span className="text-white/40">|</span>
-                                )}
-                                {earnings.forwardRevenue ? (
-                                    <span className="text-white">REV <span className="font-bold">${(Number(earnings.forwardRevenue) / 1e9).toFixed(1)}B</span></span>
-                                ) : null}
-                            </div>
+                                    </div>
+                                </div>
+                            )}
+                            {earnings.forwardRevenue ? (
+                                <div className={`flex items-center justify-between ${(earnings.forwardEps !== null && earnings.forwardEps !== undefined) ? 'border-t border-white/5 pt-1 mt-0.5' : ''}`}>
+                                    <span className="text-white/70 tracking-tight shrink-0 mr-2">REV</span>
+                                    <div className="flex items-center gap-1.5 overflow-hidden">
+                                        <span className="text-white tracking-tight font-bold shrink-0">${(Number(earnings.forwardRevenue) / 1e9).toFixed(1)}B</span>
+                                        {(() => {
+                                            const rev = (earnings as any).forwardRevRevision;
+                                            if (rev) {
+                                                const isPos = rev > 0;
+                                                return (
+                                                    <span className={`text-[10px] font-bold px-1 rounded truncate leading-none py-0.5 bg-black/20 ${isPos ? 'text-emerald-400 border border-emerald-500/20' : 'text-rose-400 border border-rose-500/20'}`}>
+                                                        {isPos ? '▲' : '▼'}${(Math.abs(rev)/1e9).toFixed(1)}B
+                                                    </span>
+                                                );
+                                            }
+                                            return null;
+                                        })()}
+                                    </div>
+                                </div>
+                            ) : null}
                         </div>
                     ) : (
                         <div className="mt-1"><span className="text-[12px] text-slate-400 font-jakarta">Next Earnings Report</span></div>
