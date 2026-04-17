@@ -88,7 +88,7 @@ function isFieldUsable(field: string, data: any): boolean {
     if (!data) return false;
     switch (field) {
         case 'analyst': return data.totalAnalysts > 0;
-        case 'earnings': return data.hasData !== false && (data.nextEarningsDate !== null || data.earningsDate !== null);
+        case 'earnings': return data.hasData !== false && (data.nextEarningsDate !== null || data.earningsDate !== null || data.forwardEps != null);
         case 'fundamentals': return !!data.name || !!data.score || !!data.marketCap || !!data.grade;
         case 'related': return (data.relatedTickers?.length > 0) || (data.topRelated?.length > 0) || (data.count > 0);
         case 'sma': return data.sma50 != null || data.sma200 != null || data.cross != null;
