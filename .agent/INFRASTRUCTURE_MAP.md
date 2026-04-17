@@ -131,17 +131,18 @@ AI 에이전트는 데이터 불일치를 조사할 때 무조건 아래 3단계
 
 ## 4. AWS 구성요소
 
-### 4.1 Lambda v8 → v7.1 (signum-harvest) — 2026-04-07 배포 완료
-- **코드 위치**: `scripts/deploy-lambda-v7.js` (~105KB, Lambda 전체 코드 포함)
+### 4.1 Lambda v7.1 (signum-harvest) — 2026-04-17 FMP 분리 완료
+- **코드 위치**: `scripts/deploy-lambda-v7.js` (~106KB, Lambda 전체 코드 포함)
 - **배포 명령**: `node scripts/deploy-lambda-v7.js`
   - zip 생성 → UpdateFunctionCode → UpdateFunctionConfiguration 자동
 - **설정**: timeout=900s (15분), memory=1024MB
-- **Function URL**: `https://76qkndxbhb5zknqt63g2t4cvqd.lambda-url.us-east-1.on.aws/`
+- **Function URL**: `https://luto3y4wmiku6mjhlbzny3hmp40acvqd.lambda-url.us-east-1.on.aws/`
 - **유니버스**: **1,000종목** (`data/stock_universe_us800.json` 기준)
 - **GEX 계산**: **전 1,000종목** (structureService 100% 호환)
 - **동시성**: GEX 배치 10종목, RSI+DailyBars 배치 50종목
-- **실행 시간**: ~88초 (5분 크론 내 여유)
+- **실행 시간**: **~68초** (이전 681초 → 10배 개선, FMP 분리 효과)
 - **Polygon API**: 최고 티어 (무제한 호출, rate limit 없음)
+- **FMP API**: ⚠️ 배치 수집은 signum-fmp로 이관 완료 (2026-04-17). On-demand 1종목 호출만 유지.
 
 #### Lambda Step별 처리
 | Step | 대상 | 내용 | API 호출 |
@@ -149,11 +150,18 @@ AI 에이전트는 데이터 불일치를 조사할 때 무조건 아래 3단계
 | 1. Price | 1000 | 전종목 snapshot (1 API 호출) | 1 |
 | 2. GEX | 1000 | structureService 호환 12개 지표 | ~3,000 |
 | 3. SMA | 1000 | SMA50/200 Golden/Dead Cross | ~2,000 |
-| 4. Details | 1000 | Analyst(FMP) + Earnings + Fundamentals + Related + **SI%** (Polygon SI+Float) | ~2,500 |
+| 4c. Fundamentals | 1000 | Polygon Reference + Financial Ratios + vX Financials | ~3,000 |
+| 4d. Related | 1000 | Polygon Related Companies | ~1,000 |
+| 4e. SI% | 1000 | Polygon Short Interest + Float | ~2,000 |
+| 4★. DynamoDB Read | 1000 | **항상** ANALYST/EARNINGS/FUND/RELATED 패턴 로드 (signum-fmp 데이터 수신) | 0 |
 | 5. Alpha | 1000 | 점수 계산 (API 호출 없음) | 0 |
 | **5.5. RSI+DailyBars** | **1000** | **Polygon RSI + daily aggs (sparkline/return3d/relVol)** | **~2,000** |
 | 6. Unified | 1000 | DynamoDB + Redis 2키 동시 저장 + cache:analysis 빌드 | ~500 |
 | RLSI | 1 | 시장 전체 RLSI 지표 | 3 |
+
+> **Step 4★ 핵심**: FMP 데이터(Analyst/Earnings/forwardEps)는 signum-fmp Lambda가 DynamoDB `signum-pattern-db`에 저장.
+> signum-harvest는 **매 실행마다** 이 DynamoDB 레코드를 읽어 `detailsMap`에 병합 후 Unified Cache로 전파.
+> harvestDetails() 호출 여부(09:25-35 ET window)와 무관하게 항상 DynamoDB를 읽음.
 
 #### Step 5.5 상세 (RSI + Daily Bars)
 - **RSI**: Polygon `/v1/indicators/rsi/{ticker}?timespan=day&window=14&limit=1`
@@ -224,10 +232,11 @@ Confidence: 4개 중 강한 신호 3+개=HIGH, 2개=MED, 1개=LOW, 0=NONE
 `calculateWhaleIndex(gex, darkPoolPct, blockTrades, netPremium)` — Lambda/Vercel 동일 공식.
 
 #### Lambda On-demand 모드
-- **URL**: `GET https://76qkndxbhb5zknqt63g2t4cvqd.lambda-url.us-east-1.on.aws/?ticker=BABA`
+- **URL**: `GET https://luto3y4wmiku6mjhlbzny3hmp40acvqd.lambda-url.us-east-1.on.aws/?ticker=BABA`
 - **AWS CLI**: `aws lambda invoke --function-name signum-harvest --payload '{"onDemandTicker":"BABA"}'`
 - **Node**: `new LambdaClient().send(new InvokeCommand({FunctionName:'signum-harvest',Payload:JSON.stringify({onDemandTicker:'BABA'})}))`
 - **저장**: DynamoDB + Redis (cache:analysis + cache:command:unified) 동시
+- **FMP 호출**: 비유니버스 종목 1종목에 대해서만 FMP API 직접 호출 (Analyst/Earnings). 분당 1-2회 수준, rate limit 영향 없음.
 
 ### 4.2 Lambda v2.1 (signum-flow-harvest) — Flow 페이지 전용
 - **코드 위치**: `scripts/lambda-flow-harvest/index.js`
@@ -272,16 +281,7 @@ Confidence: 4개 중 강한 신호 3+개=HIGH, 2개=MED, 1개=LOW, 0=NONE
 6. 장 마감 → Lambda 정지 → dynamic-universe TTL 만료 → AMC 수집 중단
 7. 다음날: 아무도 조회 안 하면 수집 안 함 / 다시 조회하면 다시 등록
 ```
-- Redis 키: `flow:dynamic-universe` (JSON 배열, 장 마감까지 TTL)
-- Lambda 코드: 유니버스 처리 완료 후 별도 try/catch 블록에서 실행
-- **유니버스 코드 무변경** — 동적 처리는 완전 분리
-
-#### Vercel 측 Cache-First 연동
-| 파일 | 변경 내용 |
-|------|----------|
-| `centralDataHub.ts` | Lambda 캐시 체크 (L425-439) → HIT 시 Polygon 스킵 + Demand-Cache 저장 |
-| `structureService.ts` | Lambda 캐시를 Reference API 전에 체크 (L241-260) → HIT 시 3단계 전부 스킵 |
-| `FlowPageClient.tsx` | `displayPrice > 0` 블로킹 가드 제거 → Progressive Rendering |
+- Redis 키: `flow:dynamic-universe`
 
 ### 4.3 Lambda v3.0 (signum-cross-sector-intel) — Cross-Sector 브리프 전용 (2026-04-10)
 - **코드 위치**: `scripts/lambda-cross-sector/index.js`
@@ -289,7 +289,58 @@ Confidence: 4개 중 강한 신호 3+개=HIGH, 2개=MED, 1개=LOW, 0=NONE
 - **런타임**: `nodejs20.x` (AWS SDK `client-bedrock-runtime` 내장)
 - **설정**: timeout=900s (15분), memory=512MB
 - **EventBridge**: `signum-cross-sector-cron` (cron(50 21 ? * MON-FRI *))
-- **역할**: 매일 장 마감 후 매크로 뉴스, 10개 섹터 요합, 옵션 포지션 기반으로 Claude Sonnet 4 AI 엔진을 구동해 기관급(Bloomberg-level) JSON 결과를 Upstash Redis에 캐싱. 
+- **역할**: 매일 장 마감 후 매크로 뉴스, 10개 섹터 요합, 옵션 포지션 기반으로 Claude Sonnet 4 AI 엔진을 구동해 기관급(Bloomberg-level) JSON 결과를 Upstash Redis에 캐싱.
+
+### 4.3b Lambda (signum-fmp) — FMP 전용 독립 수집기 (2026-04-17 신규)
+- **코드 위치**: `scripts/deploy-fmp.js` (배포 + 핸들러 코드 포함)
+- **배포 명령**: `node scripts/deploy-fmp.js`
+- **런타임**: `nodejs20.x`
+- **설정**: timeout=900s (15분), memory=512MB
+- **EventBridge**: `signum-fmp-daily` (cron(30 13 ? * MON-FRI *)) = **ET 09:30 평일 1일 1회**
+- **역할**: signum-harvest에서 분리된 FMP API 전담 수집기. 유니버스 1000종목의 Analyst/Earnings/Forward 데이터를 DynamoDB에 저장.
+- **IAM 역할**: `signum-lambda-role` (signum-harvest와 공유)
+- **환경변수**: FMP_API_KEY, AWS_REGION
+
+#### signum-fmp 수집 항목
+| API | 엔드포인트 | DynamoDB 패턴 | UI 표시 |
+|-----|-----------|--------------|--------|
+| grades-consensus | `/stable/grades-consensus` | `ANALYST:{ticker}` | 애널리스트 등급 (Buy/Hold/Sell) |
+| price-target-consensus | `/stable/price-target-consensus` | `ANALYST:{ticker}.priceTarget` | 🎯 12M 목표가 ($316.67) |
+| analyst-estimates | `/stable/analyst-estimates` | `EARNINGS:{ticker}.forwardEps/Revenue` | 내년전망 EPS $9.27 (▲15%) |
+| earnings-calendar | `/stable/earnings-calendar` | `EARNINGS:{ticker}.nextDate` | 어닝 날짜 (D-14) |
+
+#### signum-fmp 핵심 설계
+```
+1. 100종목 배치 × 10슬라이스, 슬라이스 간 1초 sleep (rate limit 관리)
+2. FMP 3 API (grades + target + estimates) → ANALYST:{ticker} 저장
+3. Earnings Calendar 90일 조회 → earningsMap 구축
+4. ★ 핵심: earningsMap 유무와 관계없이 전 종목 forwardEps 저장
+   - earningsMap에 있으면: nextDate + epsEstimate + forwardEps
+   - earningsMap에 없으면: forwardEps/Revenue만 단독 저장
+   → 이것이 이전 170종목→806종목으로 커버리지 4.7배 증가한 핵심 수정
+5. Revision 계산: 이전 DynamoDB 레코드와 비교 → ▲15%/▼3% 등 변동 표시
+```
+
+#### signum-fmp → signum-harvest 데이터 흐름
+```
+signum-fmp (09:30 ET, 1일 1회)
+  FMP API → DynamoDB signum-pattern-db (ANALYST:*, EARNINGS:*)
+                              ↓
+signum-harvest (5분마다, 항상)
+  DynamoDB signum-pattern-db → detailsMap (Step 4★)
+  detailsMap → buildUnifiedCache → DynamoDB + Redis
+                              ↓
+  Vercel API (memory-lru 60s → Redis → DynamoDB fallback)
+                              ↓
+  Frontend UI (목표가, EPS 전망, 애널리스트 등급)
+```
+
+#### signum-fmp 운용 이점
+- **성능**: signum-harvest 681초→68초 (10배 개선)
+- **장애 격리**: FMP 장애 시 signum-fmp만 영향, 가격/GEX/SMA 등 핵심 파이프라인 무영향
+- **Rate Limit**: FMP 300 req/min 제한을 독립 관리, Polygon 무제한과 분리
+- **스케줄 최적화**: 1일 1회만 실행 (애널리스트 데이터는 장중 변동 없음)
+- **추적 용이**: CloudWatch 로그에서 FMP 관련 이슈만 독립 확인 가능
 
 ### 4.4 EC2 워커 (52.23.98.13)
 | 워커 | 파일 | 역할 |
