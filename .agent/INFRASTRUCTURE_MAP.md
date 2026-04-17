@@ -362,16 +362,26 @@ signum-harvest (5분마다, 항상)
 4. **하이브리드 과거 복원 (Self-Healing Boot)**: 로직 검증 및 무중단 재부팅 시, Polygon REST API(`GET /v3/trades`)를 통해 당일 장 시작부터 지금까지의 실데이터 히스토리를 강제로 스캔 및 복구한 후, 웹소켓에 접속하여 라이브 환경을 이어붙이는 고도의 복원 구조를 채택합니다.
 
 ### 4.4 DynamoDB 테이블
-| 테이블명 | PK | SK | 용도 |
-|---------|----|----|------|
-| `signum-unified-cache` | ticker (string) | — | 전체 unified 9섹션 데이터 |
-| `signum-gex-history` | ticker | timestamp | GEX 스냅샷 히스토리 |
-| `signum-alpha-history` | ticker | date | Alpha Score 일별 (SSR_V46) |
-| `signum-flow-history` | ticker | timestamp | 플로우 데이터 히스토리 |
-| `signum-sector-daily` | sectorId | date | 섹터 일별 스냅샷 |
-| `signum-rlsi-history` | pk='MARKET' | timestamp | RLSI 히스토리 |
-| `signum-pattern-db` | pattern | — | ANALYST:, EARNINGS:, FUND:, SI:, RELATED: 패턴 |
-| `signum-backtest-results` | — | — | 백테스트 결과 |
+| 테이블명 | PK | SK | 용도 | 기입자 |
+|---------|----|----|------|--------|
+| `signum-unified-cache` | ticker (string) | — | 전체 unified 9섹션 데이터 | signum-harvest |
+| `signum-gex-history` | ticker | timestamp | GEX 스냅샷 히스토리 | signum-harvest |
+| `signum-alpha-history` | ticker | date | Alpha Score 일별 (SSR_V46) | Vercel (SSR) |
+| `signum-flow-history` | ticker | timestamp | 플로우 데이터 히스토리 | signum-flow-harvest |
+| `signum-sector-daily` | sectorId | date | 섹터 일별 스냅샷 | signum-harvest |
+| `signum-rlsi-history` | pk='MARKET' | timestamp | RLSI 히스토리 | signum-harvest |
+| `signum-pattern-db` | pattern | timestamp | ANALYST/EARNINGS/FUND/SI/RELATED 패턴 | **signum-harvest + signum-fmp** |
+| `signum-backtest-results` | — | — | 백테스트 결과 | Vercel |
+
+#### signum-pattern-db 패턴 상세 (★ signum-fmp 관련)
+| 패턴 | 기입자 | 주요 필드 |
+|------|--------|----------|
+| `ANALYST:{ticker}` | **signum-fmp** (유니버스) / signum-harvest (on-demand) | consensus, totalAnalysts, bullishPct, breakdown, priceTarget |
+| `EARNINGS:{ticker}` | **signum-fmp** (유니버스) / signum-harvest (on-demand) | nextDate, epsEstimate, **forwardEps**, forwardRevenue, forwardYear, revision |
+| `FUND:{ticker}` | signum-harvest | name, marketCap, sector, score, grade, pe, de, roe |
+| `RELATED:{ticker}` | signum-harvest | tickers[] |
+| `SI:{ticker}` | signum-harvest | shortInterest, float, siPercent |
+| `SMA_CROSS:{ticker}` | signum-harvest | cross, sma50, sma200, distance |
 
 ### 4.5 DynamoDB 클라이언트 (Vercel 측 읽기)
 | 파일 | 역할 |
