@@ -343,23 +343,36 @@ signum-harvest (5분마다, 항상)
 - **추적 용이**: CloudWatch 로그에서 FMP 관련 이슈만 독립 확인 가능
 
 ### 4.4 EC2 워커 (52.23.98.13)
-| 워커 | 파일 | 역할 |
-|------|------|------|
-| Guardian Worker | `scripts/ec2-guardian-worker.js` (42KB) | Morning Briefing AI, DynamoDB→Redis |
-| Price WebSocket | `scripts/ec2-price-ws.js` (52KB) | 실시간 가격 WebSocket 허브 |
-| Redis Proxy | `scripts/ec2-redis-proxy.js` | ElastiCache HTTP 프록시 |
-| Flow Accumulator (New) | `scripts/ec2-flow-accumulator.js` | 1만 개 종목 전용 다크풀/블록딜 SSOT 누적기 |
-- **Instance ID**: `i-0c8e51d26ddc9b3c1`
+| 워커 | 파일 | 역할 | PM2 이름 |
+|------|------|------|----------|
+| Guardian Worker | `scripts/ec2-guardian-worker.js` (42KB) | Morning Briefing AI, DynamoDB→Redis | `guardian-worker` |
+| Price WebSocket | `scripts/ec2-price-ws.js` (52KB) | 실시간 가격 WebSocket 허브 | `price-ws` |
+| Redis Proxy | `scripts/ec2-redis-proxy.js` | ElastiCache HTTP 프록시 | `redis-proxy` |
+| **Flow Accumulator v3** ✅ LIVE | `scripts/ec2-flow-accumulator.js` | **다크풀/블록딜 100% SSOT** — ElastiCache 쓰기 ($0) | `signum-flow-acc` |
+- **Instance ID**: `i-0c8e51d26ddc9b3c1`, **Type**: `t3.small`
 - **WebSocket URL**: `wss://ws.signumhq.com`
-- **배포**: `bash scripts/ec2-deploy-flow.sh`
+- **배포**: `node scripts/deploy-ec2-flow.js` (SSH+SCP 자동)
+- **유저**: `ec2-user`, **PEM**: `signum-websocket-key.pem` (ED25519)
 
-#### Flow Accumulator SSOT 메커니즘 (Phase 2 아키텍처)
-1. **100% 무결점 라이브 누적**: 5,000건 샘플링을 수행하던 기존 Vercel API의 한계를 극복하고, 매일 오전 4:00 AM ET부터 오후 8:00 PM ET까지 `T.*`(미국 전체 주식 1만여 개)에 웹소켓으로 구독하여 메모리(RAM) 상에 하루 전체의 트레이드 틱 방대한 양을 단 1틱의 손실 없이 누적합니다.
-2. **단일 진실 공급원(SSOT) 덮어쓰기 (No-Touch UI)**: EC2 엔진이 1분마다 Upstash Redis에 위치한 기존 `rt-metrics:{TICKER}` 또는 `cache:flow:unified:{TICKER}` 키를 직접 업데이트합니다. "새로운 키"를 파는 것이 아니라 Vercel 엔진이 기존에 수년간 읽어오던 본진 열쇠의 내부 값을 몰래 무결점 데이터로 갈아 끼웁니다(`Root Replacement`).
-3. **전역 자동 전파 (Global Synchronicity)**: 
-   - 프론트엔드의 `Command 페이지(INST RADAR)`, `Flow 페이지`, 그리고 Vercel의 백엔드 모델인 `Alpha Engine`과 `Whale Index`가 **기존과 완벽히 동일한 캐시 조회 코드를 유지한 상태**에서 EC2가 주입한 100% 무결점 다크풀 데이터를 읽습니다.
-   - 따라서 백엔드의 Vercel 시스템을 일절 건드리지 않고, 프론트엔드 전체의 다크풀 정밀도와 스코어 연산의 기반 신뢰도가 100% 동기화 격상됩니다.
-4. **하이브리드 과거 복원 (Self-Healing Boot)**: 로직 검증 및 무중단 재부팅 시, Polygon REST API(`GET /v3/trades`)를 통해 당일 장 시작부터 지금까지의 실데이터 히스토리를 강제로 스캔 및 복구한 후, 웹소켓에 접속하여 라이브 환경을 이어붙이는 고도의 복원 구조를 채택합니다.
+#### Flow Accumulator v3 SSOT 메커니즘 (2026-04-17 LIVE)
+1. **100% 무결점 라이브 누적**: 기존 Lambda의 5,000건 REST 샘플링(정확도 0.025%)을 극복. 매일 04:00~20:00 ET 동안 `T.*` / `Q.*` (미국 전체 상위 3,000 종목)을 WebSocket 구독하여 RAM에 100% 전체 틱을 무손실 누적.
+2. **ElastiCache SSOT 쓰기 ($0)**: EC2 → ElastiCache(ioredis, VPC 내부, ~2ms) → Redis Proxy(HTTP) → Vercel 읽기. Upstash 비용 $0.
+3. **Vercel 읽기 경로**: `realtime-metrics/route.ts`의 `fetchFromElastiCache()` → Redis Proxy(`http://52.23.98.13:8081`) → ElastiCache. 실패 시 Upstash fallback 자동.
+4. **완벽한 데이터 호환**: `darkPool` + `blockTrade` + `bidAsk` + `shortVolume` — 기존 rt-metrics 구조 100% 동일. `_source: "ec2-flow-accumulator"`, `_via: "elasticache"` 추적 태그.
+5. **전역 자동 전파**: `Flow 페이지`, `Command(INST RADAR)`, `Alpha Engine`, `Whale Index`, `Stealth Label` — 모든 다크풀 소비자가 **수정 없이** 100% 정밀도 데이터 수신.
+6. **Daily Reset**: 03:50 AM ET에 메모리 자동 초기화.
+
+#### 다크풀 데이터 전파 경로 검증 완료 (2026-04-17)
+| 소비자 | 파일 | 소스 | 비용 | 검증 |
+|--------|------|------|------|------|
+| Flow 페이지 (DARK POOL %) | `realtime-metrics/route.ts` | `_via: elasticache` | $0 | ✅ |
+| watchlistBatchService → Command/Watchlist | `watchlistBatchService.ts` | EC2 Redis Proxy (항상 최신) | $0 | ✅ |
+| terminalEnricher → Stealth/WhaleAccumulation | `terminalEnricher.ts` | Redis Proxy | $0 | ✅ |
+| Power Engine → IF→THEN 시나리오 | (terminalEnricher 경유) | 자동 | $0 | ✅ |
+| Alpha Engine → 점수 계산 | (watchlistBatch 경유) | 자동 | $0 | ✅ |
+| Stealth Label → 기관매집 감지 | (terminalEnricher 경유) | 자동 | $0 | ✅ |
+
+> ⚠️ **핵심 수정 (2026-04-17)**: `watchlistBatchService.ts`에서 캐시 히트 시에도 **항상** `fetchTradeData()`를 호출하여 EC2 ElastiCache 최신 데이터로 갱신하도록 변경. 이전에는 `liveDarkPoolPct === 0`일 때만 호출 → 구 Polygon 샘플값이 캐시에 잔류하는 버그 존재.
 
 ### 4.4 DynamoDB 테이블
 | 테이블명 | PK | SK | 용도 | 기입자 |
@@ -377,7 +390,11 @@ signum-harvest (5분마다, 항상)
 | 패턴 | 기입자 | 주요 필드 |
 |------|--------|----------|
 | `ANALYST:{ticker}` | **signum-fmp** (유니버스) / signum-harvest (on-demand) | consensus, totalAnalysts, bullishPct, breakdown, priceTarget |
-| `EARNINGS:{ticker}` | **signum-fmp** (유니버스) / signum-harvest (on-demand) | nextDate, epsEstimate, **forwardEps**, forwardRevenue, forwardYear, revision |
+| `EARNINGS:{ticker}` | **signum-fmp** (유니버스) / signum-harvest (on-demand) | nextDate, epsEstimate, **forwardEps**, forwardRevenue, forwardYear, **forwardEpsRevision**, forwardEpsRevisionDate, **forwardRevRevision**, forwardRevRevisionDate |
+
+> ⚠️ **EARNINGS 날짜 보완 (2026-04-18)**: FMP `earnings-calendar` API에 M7 대형주가 미포함되어 `nextDate: null`이 저장됨. `command/unified/route.ts`의 TIER 1/1.5/2 전 경로에서 `nextEarningsDate === null`이면 **Finnhub `getEarningsCalendar()` 직접 호출**로 보완. Finnhub 반환 순서가 비정렬이므로 반드시 **날짜순 sort() 후 find()**로 가장 가까운 일정 반환.
+>
+> ⚠️ **EARNINGS Revision 보완 (2026-04-18)**: `signum-fmp` Lambda가 `forwardEpsRevision`을 DynamoDB에 저장하지만, `signum-unified-cache`(warm-command 기반)에는 revision 필드가 포함되지 않음. `command/unified/route.ts`의 TIER 1/1.5 경로에서 `forwardEpsRevision === undefined`이면 **`getEarningsData(ticker)`로 `signum-pattern-db` 직접 조회**하여 보완. TIER 2(tryDynamoFast)는 DynamoDB 직접 읽기이므로 earningsCard 빌더에 revision 필드를 직접 포함.
 | `FUND:{ticker}` | signum-harvest | name, marketCap, sector, score, grade, pe, de, roe |
 | `RELATED:{ticker}` | signum-harvest | tickers[] |
 | `SI:{ticker}` | signum-harvest | shortInterest, float, siPercent |
@@ -632,6 +649,61 @@ bash scripts/ec2-deploy-guardian.sh
 ---
 
 ## 11. 작업 이력
+
+### [2026-04-18] 🟢 워치리스트 전면 성능 최적화 (SSR Fast-Track + Chunking + 구조 정규화 + 2-Phase Progressive)
+
+> **문제 (3건)**: 
+> 1. 워치리스트 진입 시, SWR이 37개 이상의 종목 전체 리얼타임 데이터를 백그라운드 수집 완료할 때까지 브라우저 화면이 스켈레톤 상태로 수 분간 행(Hang) 상태에 걸리는 심각한 렌더링 지연 발생.
+> 2. Redis 캐시 만료 + DynamoDB HIT 조건의 유니버스 종목(ex: CGC)에서 DynamoDB Fallback(Path C) 응답 구조가 `{ analysis: { sparkline, alphaSnapshot } }` 형태로 프론트엔드 파서 기대치(`{ alphaSnapshot, realtime: { sparkline } }`)와 불일치 → 스파크라인/알파 스코어 전면 공란.
+> 3. 비유니버스 종목(Path D)이 5개 무거운 API(`getOptionsData` 5~8초 등)를 `Promise.all`로 전부 기다려 최대 15초 블로킹 → 가장 느린 API가 스파크라인(0.5초)까지 볼모.
+>
+> **원인 분석 (경로별)**: 
+> - **Path A (Cache Hit)**: ✅ 정상 — Redis 캐시에서 즉시 응답
+> - **Path B (SSR Fast-Track)**: ✅ 정상 — 0.05초 내 Stale 데이터 반환
+> - **Path C (DynamoDB Fallback)**: ❌ `alphaSnapshot`이 `analysis` 객체 내부에 매장, `realtime`에 `sparkline` 필드 부재 → 프론트엔드 조건문(`apiData?.alphaSnapshot && apiData?.realtime`) 실패
+> - **Path D (Polygon Full)**: ❌ 5개 API를 동시 시작하지만 `Promise.all`로 전부 완료까지 대기 — 옵션 체인 페이지네이션(5~8초)이 전체를 지배
+>
+> **수정 내역 (4단계)**: 
+> 1. **SSR 패스트트랙 우회로**: `mode === 'ssr'` 요청 시 EC2 연결 등 무거운 연산을 전면 차단하고 0.05초 만에 기존 데이터를 우선 렌더링. *(기존 유지)*
+> 2. **SWR 백그라운드 Chunking**: 전체 종목을 10개 단위 청크로 분절하여 순차 병렬 처리. *(기존 유지)*
+> 3. **DynamoDB Fallback 응답 구조 정규화 (Path C 버그 수정)**: 반환 객체를 Path A와 완전 동일한 `{ ticker, alphaSnapshot, realtime: { sparkline, rsi, return3d, maxPain, gex, ... } }` 형태로 재조립. `getStockDataLight` 호출로 스파크라인 데이터를 DB 기관 데이터와 하이브리드 병합.
+> 4. **비유니버스 2-Phase Progressive Loading (Path D 최적화)**: 5개 API를 동시 시작하되, Phase 1: `getStockDataLight`만 await(~0.5초, 스파크라인 확보). Phase 2: 나머지 4개에 2.5초 Competitive Deadline(`Promise.race`) 적용 — 빠른 API(Trade ~1초, ShortVol ~1초)는 도착, 느린 API(Options ~5초)는 graceful timeout(null). 총 최대 대기: ~3초 (기존 5~15초 → 60~80% 단축). 기존 처리 코드가 null을 graceful 처리하므로 다음 SWR 30초 사이클에서 자동 보완.
+>
+> **결과**: 
+> - 유니버스 종목: 캐시 HIT 즉시 완전체 렌더링 (기존과 동일)
+> - DynamoDB Fallback 종목(Redis 냉각): 스파크라인 + 알파 + 기관 데이터 완전 표출 (이전: 전면 공란)
+> - 비유니버스 종목: 스파크라인 ~0.5초 내 표출 + 가능한 데이터 ~3초 내 채움 (이전: 5~15초 전체 대기)
+> - **변경 안 한 것**: Path A(Cache Hit), Path B(SSR Fast-Track), `useWatchlist.ts` 프론트엔드 — 기존 37개 종목 렌더링 완벽 보존
+
+### [2026-04-18] 🟢 Forward EPS Revision 파이프라인 완성 + EARNINGS 툴팁 강화
+
+> **문제**: `signum-fmp` Lambda가 `forwardEpsRevision`(전날 대비 EPS 추정치 변동)을 DynamoDB에 저장하지만, API 응답에 전달되지 않아 프론트엔드에서 항상 `undefined`.
+>
+> **원인 분석**:
+> 1. `command/unified/route.ts` TIER 2 (tryDynamoFast): earningsCard 빌더에 `forwardEpsRevision` 필드 누락
+> 2. `signum-unified-cache` (warm-command 크론): revision 필드를 저장하지 않음 → TIER 1/1.5에서도 누락
+> 3. `LiveTickerDashboard.tsx`: state 타입에 revision 필드 미포함 → 데이터가 와도 state에서 strip
+>
+> **수정** (4개 파일, 6개 지점):
+> 1. `command/unified/route.ts` TIER 2: earningsCard에 `forwardEpsRevision`, `forwardRevRevision` 추가
+> 2. `command/unified/route.ts` TIER 1: `forwardEpsRevision === undefined`이면 `getEarningsData()` 호출로 보완
+> 3. `command/unified/route.ts` TIER 1.5: 동일 보완 로직
+> 4. `LiveTickerDashboard.tsx`: state 타입 + 3개 mapper(초기화, unified 업데이트, effectiveEarnings)에 revision 필드 추가
+>
+> **UI 개선**:
+> - EPS revision: `▼$0.01` 형태로 실제 금액 표시 (10px, bg-black/30 뱃지)
+> - Revenue revision: 단위 자동 선택 (`≥1B → $X.XB`, `<1B → $XXXM`)
+> - Forward(FY27) / REV 라벨: `text-[12px] text-slate-300` (가독성 향상)
+> - EARNINGS 툴팁: 3개 언어(ko/en/ja)로 Forward EPS, Revision(▲▼), Growth(%) 각 지표 의미 상세 설명 + "실적 전망 리비전 추적" FOMO 뱃지 추가
+> - `CardTooltip.tsx` EARNINGS 항목: 1줄 요약 → 완전한 다국어 설명으로 대체
+
+### [2026-04-18] 🔴 Earnings 날짜 "TBD" 표시 버그 수정 + 다크풀 전파 완전 검증
+
+> **근본 원인**: `signum-fmp` Lambda가 FMP `earnings-calendar`에서 M7 종목 날짜를 가져오지 못해 `EARNINGS:{ticker}`에 `nextDate: null`로 저장. 이 불완전 레코드가 `isFieldUsable('earnings', {forwardEps: 8.30})` = true를 통과하여 기존 Finnhub gap-fill을 차단.
+> 
+> **해결**: `command/unified/route.ts`의 3개 캐시 경로(TIER 1 Redis, TIER 1.5 DynamoDB Unified, TIER 2 tryDynamoFast) 모두에 `nextEarningsDate === null` → Finnhub `getEarningsCalendar()` 직접 호출 + 날짜순 sort() 보완 로직 삽입.
+>
+> **다크풀**: `watchlistBatchService.ts` 캐시 히트 경로에서 구 Polygon 샘플값이 잔류하던 버그 수정. 항상 EC2 ElastiCache 최신 데이터로 갱신.
 
 ### [2026-04-17] 🔴 ANALYST TARGET / EARNINGS 전종목 누락 근본 원인 규명 (실데이터 검증 완료)
 
@@ -1451,6 +1523,10 @@ for (let i = 0; i < redisBatch.length; i += 20) {
   - Earnings Calendar, Analyst Recommendation, Insider Transactions, Price Target
   - 사용 위치: `/api/intel/*-calendar/route.ts` (10개 섹터), `/api/live/earnings/route.ts`
   - 무료 티어 (60 calls/min) — 현재 동작 정상
+- **Vercel Command 페이지**: Finnhub Earnings Calendar **fallback** (2026-04-18 추가)
+  - FMP `signum-fmp` Lambda가 M7 대형주 earnings 날짜를 제공하지 못할 때 직접 호출
+  - 3개 캐시 경로 모두 적용: TIER 1 (Redis), TIER 1.5 (DynamoDB Unified), TIER 2 (tryDynamoFast)
+  - ⚠️ `earningsList.sort()` 필수 — Finnhub 반환 순서 비정렬 (먼 날짜가 먼저 올 수 있음)
 
 ### Polygon (Massive) API 사용 현황
 - **Lambda**: 옵션/가격/SMA/RSI/SI%/Float/Ratios/Financials/Related/News
