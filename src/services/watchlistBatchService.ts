@@ -255,6 +255,25 @@ export async function processWatchlistBatch(tickers: string[], mode: 'full' | 'p
         if (analysis) {
             const base = buildBasePrice();
 
+            // [SELF-HEAL] Sparkline이 오염(빈 배열)된 캐시 자동 복구
+            // 이전 DynamoDB Fallback 버그로 sparkline:[]이 Redis에 저장된 경우 대비
+            // getStockDataLight(~500ms)로 보충 후 캐시 업데이트 — 1회만 발생, 이후 캐시 정상
+            if (!analysis.sparkline || analysis.sparkline.length === 0) {
+                try {
+                    const healData = await getStockDataLight(ticker).catch(() => null);
+                    if (healData) {
+                        const freshSparkline = healData.history?.slice(-20).map((h: any) => h.close) || [];
+                        if (freshSparkline.length > 0) {
+                            analysis.sparkline = freshSparkline;
+                            analysis.rsi = healData.rsi ?? analysis.rsi;
+                            analysis.return3d = healData.return3d ?? analysis.return3d;
+                            // Update Redis cache with healed sparkline (fire-and-forget)
+                            writeAnalysisCache(ticker, analysis as any).catch(() => {});
+                        }
+                    }
+                } catch { /* silent — proceed with empty sparkline */ }
+            }
+
             // 🔥 [SSR FAST-TRACK / STEP 3] SSR initial render: Bypass heavy computations & EC2 calls
             // Returns the Stale cache natively in 0.05s to eliminate Skeleton Hang completely
             if (mode === 'ssr' || mode === 'price') {
