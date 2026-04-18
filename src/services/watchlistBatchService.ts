@@ -546,35 +546,71 @@ export async function processWatchlistBatch(tickers: string[], mode: 'full' | 'p
                 dynamoAnalysis.alphaSnapshot = alphaSnapshot2;
                 writeAnalysisCache(ticker, dynamoAnalysis as any).catch(() => {});
 
+                // [FIX] Return structure MUST match Path A (Cache Hit) format
+                // Frontend parser requires: apiData.alphaSnapshot && apiData.realtime.sparkline
+                const refPriceC = base.extendedPrice || base.displayPrice;
                 return {
                     ticker,
+                    alphaSnapshot: alphaSnapshot2,
                     realtime: {
                         price: base.displayPrice,
                         changePct: base.changePct,
                         session: currentSession === 'regular' ? 'reg' : currentSession,
+                        rsi: dynamoAnalysis.rsi,
+                        return3d: dynamoAnalysis.return3d,
+                        sparkline: dynamoAnalysis.sparkline,
+                        maxPain: dynamoAnalysis.maxPain,
+                        maxPainDist: (dynamoAnalysis.maxPain && refPriceC) ? Number(((dynamoAnalysis.maxPain - refPriceC) / refPriceC * 100).toFixed(2)) : null,
+                        gex: dynamoAnalysis.gex,
+                        gexM: dynamoAnalysis.gexM,
+                        pcr: dynamoAnalysis.pcr,
+                        whaleIndex: dynamoAnalysis.whaleIndex ?? 0,
+                        whaleConfidence: dynamoAnalysis.whaleConfidence ?? 'NONE',
+                        darkPoolPct: dynamoAnalysis.darkPoolPct ?? 0,
+                        squeezeScore: dynamoAnalysis.squeezeScore,
+                        ivSkew: dynamoAnalysis.ivSkew ?? null,
+                        impliedMovePct: dynamoAnalysis.impliedMovePct ?? null,
+                        gammaFlipLevel: dynamoAnalysis.gammaFlipLevel,
+                        iv: dynamoAnalysis.iv,
+                        vwap: base.vwap,
+                        vwapDist: (base.vwap && refPriceC) ? Number(((refPriceC - base.vwap) / base.vwap * 100).toFixed(2)) : null,
+                        callWall: dynamoAnalysis.callWall,
+                        putFloor: dynamoAnalysis.putFloor,
+                        netPremium: dynamoAnalysis.netPremium,
+                        volume: base.volume,
+                        relVol: dynamoAnalysis.relVol ?? 0,
                         extendedPrice: base.extendedPrice,
                         extendedChangePct: base.extendedChangePct,
                         extendedLabel: base.extendedLabel,
-                        volume: base.volume,
-                        vwap: base.vwap,
-                    },
-                    analysis: {
-                        ...dynamoAnalysis,
-                        alphaSnapshot: alphaSnapshot2,
-                    },
-                    _source: 'dynamodb-fallback',
+                    }
                 };
             }
         } catch { /* DynamoDB unavailable, continue to Polygon */ }
 
         // [Step 2] Polygon Full Compute (original path — only reaches here if DynamoDB also missed)
         try {
-            const [stockData, optionsData, structureRes, tradeData, shortVolData] = await Promise.all([
-                getStockDataLight(ticker).catch(() => null),
-                getOptionsData(ticker).catch(() => null),
-                getStructureData(ticker).catch(() => null),
-                fetchTradeData(ticker).catch(() => null),
-                fetchShortVolumeData(ticker).catch(() => null)
+            // [PERF] 2-Phase Progressive Loading for non-universe tickers
+            // All 5 calls start SIMULTANEOUSLY. Phase 1 awaits only getStockDataLight (~500ms for sparkline).
+            // Phase 2: heavy calls get a 2.5s competitive deadline — fast ones (trade ~1s, shortVol ~1s) usually arrive;
+            // slow ones (options ~5s) gracefully timeout as null. Total max: ~3s vs previous 5-15s.
+            // Existing processing code handles null gracefully (?? null, || null everywhere).
+            const stockDataPromise = getStockDataLight(ticker).catch(() => null);
+            const optionsPromise = getOptionsData(ticker).catch(() => null);
+            const structurePromise = getStructureData(ticker).catch(() => null);
+            const tradePromise = fetchTradeData(ticker).catch(() => null);
+            const shortVolPromise = fetchShortVolumeData(ticker).catch(() => null);
+
+            // Phase 1: Await sparkline data (fast, ~500ms)
+            const stockData = await stockDataPromise;
+
+            // Phase 2: Competitive deadline — heavy calls already running since Phase 1 started
+            const ENRICHMENT_DEADLINE_MS = 2500;
+            const deadline = new Promise<null>(r => setTimeout(() => r(null), ENRICHMENT_DEADLINE_MS));
+            const [optionsData, structureRes, tradeData, shortVolData] = await Promise.all([
+                Promise.race([optionsPromise, deadline]),
+                Promise.race([structurePromise, deadline]),
+                Promise.race([tradePromise, deadline]),
+                Promise.race([shortVolPromise, deadline]),
             ]);
 
             if (!stockData) return { ticker, error: 'Stock data unavailable' };
