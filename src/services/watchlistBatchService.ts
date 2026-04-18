@@ -455,13 +455,17 @@ export async function processWatchlistBatch(tickers: string[], mode: 'full' | 'p
                 const base = buildBasePrice();
                 const gd = dynAny.structure;
                 
+                // [FIX] DB에 존재하는 유니버스 종목이 비-유니버스 종목보다 스파크라인 표출에 불이익을 받는 모순 해결.
+                // 빠른 응답을 유지하되, Polygon의 가벼운 Price+Aggs 데이터만 추가 병렬 호출하여 스파크라인과 3D리턴 복구.
+                const stockData = await getStockDataLight(ticker).catch(() => null);
+
                 // Build analysisEntry from DynamoDB data and write to Redis cache
                 const dynamoAnalysis: Record<string, any> = {
                     ticker,
                     timestamp: Date.now(),
-                    rsi: dynAny._dynamoPrice?.rsi ?? null,
-                    return3d: dynAny._dynamoPrice?.return3d ?? null,
-                    sparkline: [],
+                    rsi: stockData?.rsi ?? dynAny._dynamoPrice?.rsi ?? null,
+                    return3d: stockData?.return3d ?? dynAny._dynamoPrice?.return3d ?? null,
+                    sparkline: stockData?.history?.map((h: any) => h.close) ?? [],
                     relVol: null,
                     expiration: gd?.expiration || null,
                     maxPain: gd?.maxPain || null,
