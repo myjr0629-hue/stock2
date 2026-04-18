@@ -601,6 +601,48 @@ export async function GET(request: NextRequest) {
             }
             await enrichExpiration(cachedData);
             await injectAlphaBypass(cachedData, ticker);
+
+            // [V5.0 FIX] TIER 1 캐시에도 earnings 날짜 보완 (Finnhub)
+            if (cachedData.earnings && !cachedData.earnings.nextEarningsDate) {
+                try {
+                    const { getEarningsCalendar } = await import('@/services/finnhubClient');
+                    const earningsList = await getEarningsCalendar(ticker);
+                    earningsList.sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime());
+                    const today = new Date();
+                    today.setHours(0, 0, 0, 0);
+                    const upcoming = earningsList.find((ev: any) => new Date(ev.date) >= today);
+                    if (upcoming) {
+                        const earDate = new Date(upcoming.date);
+                        earDate.setHours(0, 0, 0, 0);
+                        const daysUntil = Math.ceil((earDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+                        cachedData.earnings = {
+                            ...cachedData.earnings,
+                            nextEarningsDate: upcoming.date,
+                            daysUntilEarnings: daysUntil,
+                            daysLabel: daysUntil < 0 ? `D+${Math.abs(daysUntil)}` : daysUntil === 0 ? 'today' : `D-${daysUntil}`,
+                            epsEstimate: upcoming.epsEstimate || cachedData.earnings.epsEstimate,
+                            color: daysUntil <= 3 && daysUntil >= 0 ? 'text-rose-400' : daysUntil <= 7 && daysUntil >= 0 ? 'text-amber-400' : 'text-slate-400',
+                        };
+                    }
+                } catch { /* Finnhub unavailable — keep cached */ }
+            }
+            // [V5.1 FIX] Earnings revision 보완: unified cache에 revision이 없으면 DynamoDB pattern-db에서 보완
+            if (cachedData.earnings && cachedData.earnings.forwardEpsRevision === undefined) {
+                try {
+                    const { getEarningsData } = await import('@/lib/aws/dynamoDataProvider');
+                    const patternData = await getEarningsData(ticker);
+                    if (patternData) {
+                        cachedData.earnings = {
+                            ...cachedData.earnings,
+                            forwardEpsRevision: patternData.forwardEpsRevision ?? null,
+                            forwardEpsRevisionDate: patternData.forwardEpsRevisionDate ?? null,
+                            forwardRevRevision: patternData.forwardRevRevision ?? null,
+                            forwardRevRevisionDate: patternData.forwardRevRevisionDate ?? null,
+                        };
+                    }
+                } catch { /* DynamoDB unavailable */ }
+            }
+
             return jsonResponse({ ...cachedData, overview: resolvedOverview || null, _source: 'cache', _ageMs: ageMs });
         }
 
@@ -684,6 +726,52 @@ export async function GET(request: NextRequest) {
                 
                 const finalFc = CF.filter(f => (dynData as any)[f]).length;
                 console.log(`[Command Unified] DynamoDB+GapFill ${ticker} ${Date.now() - start}ms (${fc}→${finalFc}/9, filled: ${gapNames.filter((n,i) => gapResults[i] && n !== 'overview').join(',')})`);
+
+                // [V5.0 FIX] Earnings 날짜 보완: forwardEps만 있고 nextEarningsDate 없으면 Finnhub 직접 호출
+                if ((dynData as any).earnings && !(dynData as any).earnings.nextEarningsDate) {
+                    try {
+                        const { getEarningsCalendar } = await import('@/services/finnhubClient');
+                        const earningsList = await getEarningsCalendar(ticker);
+                        earningsList.sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime());
+                        const today = new Date();
+                        today.setHours(0, 0, 0, 0);
+                        const upcoming = earningsList.find((ev: any) => new Date(ev.date) >= today);
+                        if (upcoming) {
+                            const earDate = new Date(upcoming.date);
+                            earDate.setHours(0, 0, 0, 0);
+                            const daysUntil = Math.ceil((earDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+                            (dynData as any).earnings = {
+                                ...(dynData as any).earnings,
+                                nextEarningsDate: upcoming.date,
+                                daysUntilEarnings: daysUntil,
+                                daysLabel: daysUntil < 0 ? `D+${Math.abs(daysUntil)}` : daysUntil === 0 ? 'today' : `D-${daysUntil}`,
+                                epsEstimate: upcoming.epsEstimate || (dynData as any).earnings.epsEstimate,
+                                quarter: upcoming.quarter || (dynData as any).earnings.quarter,
+                                year: upcoming.year || (dynData as any).earnings.year,
+                                color: daysUntil <= 3 && daysUntil >= 0 ? 'text-rose-400' : daysUntil <= 7 && daysUntil >= 0 ? 'text-amber-400' : 'text-slate-400',
+                            };
+                            console.log(`[Command Unified] ✅ Finnhub earnings date: ${ticker} → ${upcoming.date} (D-${daysUntil})`);
+                        }
+                    } catch { /* Finnhub unavailable */ }
+                }
+
+                // [V5.1 FIX] Earnings revision 보완
+                if ((dynData as any).earnings && (dynData as any).earnings.forwardEpsRevision === undefined) {
+                    try {
+                        const { getEarningsData } = await import('@/lib/aws/dynamoDataProvider');
+                        const patternData = await getEarningsData(ticker);
+                        if (patternData) {
+                            (dynData as any).earnings = {
+                                ...(dynData as any).earnings,
+                                forwardEpsRevision: patternData.forwardEpsRevision ?? null,
+                                forwardEpsRevisionDate: patternData.forwardEpsRevisionDate ?? null,
+                                forwardRevRevision: patternData.forwardRevRevision ?? null,
+                                forwardRevRevisionDate: patternData.forwardRevRevisionDate ?? null,
+                            };
+                        }
+                    } catch { /* DynamoDB unavailable */ }
+                }
+
                 await enrichExpiration(dynData);
                 await injectAlphaBypass(dynData, ticker);
                 return jsonResponse({ ...dynData, overview: dynOv || null, _source: fc === finalFc ? 'dynamodb-unified' : 'dynamodb-gapfill', _latency: Date.now() - start });
@@ -906,8 +994,42 @@ async function tryDynamoFast(ticker: string): Promise<any | null> {
             let earningsCard = null;
             if (snap.earnings) {
                 const e = snap.earnings;
-                const days = e.daysUntil || 0;
-                earningsCard = { ticker, nextEarningsDate: e.nextDate || null, daysUntilEarnings: days, daysLabel: days < 0 ? `D+${Math.abs(days)}` : days === 0 ? 'today' : `D-${days}`, epsEstimate: e.epsEstimate || null, quarter: e.quarter || null, year: e.year || null, hourLabel: e.hour || '', color: days <= 3 && days >= 0 ? 'text-rose-400' : days <= 7 && days >= 0 ? 'text-amber-400' : 'text-slate-400', hasData: true, forwardEps: e.forwardEps || null, forwardRevenue: e.forwardRevenue || null, forwardYear: e.forwardYear || null };
+                let nextDate = e.nextDate || null;
+                let daysUntil = e.daysUntil;
+                let epsEstimate = e.epsEstimate || null;
+                let quarter = e.quarter || null;
+                let year = e.year || null;
+                let hour = e.hour || '';
+
+                // [V5.0 FIX] DynamoDB nextDate가 null이면 Finnhub 직접 호출로 보완
+                // FMP calendar에 M7 등 대형주 미포함 → Finnhub이 정확한 날짜 보유
+                if (!nextDate) {
+                    try {
+                        const { getEarningsCalendar } = await import('@/services/finnhubClient');
+                        const earningsList = await getEarningsCalendar(ticker);
+                        earningsList.sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime());
+                        const today = new Date();
+                        today.setHours(0, 0, 0, 0);
+                        const upcoming = earningsList.find(e => new Date(e.date) >= today);
+                        if (upcoming) {
+                            nextDate = upcoming.date;
+                            const earDate = new Date(upcoming.date);
+                            earDate.setHours(0, 0, 0, 0);
+                            daysUntil = Math.ceil((earDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+                            epsEstimate = upcoming.epsEstimate || epsEstimate;
+                            quarter = upcoming.quarter || quarter;
+                            year = upcoming.year || year;
+                            hour = upcoming.hour || hour;
+                        }
+                    } catch { /* Finnhub unavailable — keep DynamoDB data */ }
+                }
+
+                // [FIX] daysLabel: nextDate가 없으면 'TBD', 있으면 D-count 계산
+                const days = daysUntil ?? null;
+                const daysLabel = days === null ? 'TBD' : days < 0 ? `D+${Math.abs(days)}` : days === 0 ? 'today' : `D-${days}`;
+                const color = days !== null && days <= 3 && days >= 0 ? 'text-rose-400' : days !== null && days <= 7 && days >= 0 ? 'text-amber-400' : 'text-slate-400';
+
+                earningsCard = { ticker, nextEarningsDate: nextDate, daysUntilEarnings: days ?? 0, daysLabel, epsEstimate, quarter, year, hourLabel: hour, color, hasData: true, forwardEps: e.forwardEps || null, forwardRevenue: e.forwardRevenue || null, forwardYear: e.forwardYear || null, forwardEpsRevision: e.forwardEpsRevision ?? null, forwardEpsRevisionDate: e.forwardEpsRevisionDate ?? null, forwardRevRevision: e.forwardRevRevision ?? null, forwardRevRevisionDate: e.forwardRevRevisionDate ?? null };
             }
 
             let relatedCard = null;

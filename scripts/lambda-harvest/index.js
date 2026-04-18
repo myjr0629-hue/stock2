@@ -677,92 +677,16 @@ async function harvestSMA(priceMap) {
   return { smaCount: withSMA, smaMap };
 }
 
-// ====== Step 4: Analyst(FMP) + Earnings(Finnhub) + Fundamentals + Related — ALL 509 tickers ======
+// ====== Step 4: Polygon Fundamentals + Related + SI — ALL tickers ======
+// FMP analyst/earnings/forward now handled by independent signum-fmp Lambda
 async function harvestDetails() {
-  console.log('Step 4: Details for ALL '+UNIVERSE.length+' tickers (FMP analyst + Finnhub earnings + Polygon fund/related)...');
-  const today = new Date().toISOString().slice(0,10);
-  let analystOk = 0, earningsOk = 0;
+  console.log('Step 4: Details for ALL '+UNIVERSE.length+' tickers (Polygon fund/related/SI)...');
   const detailsMap = {};
   
-  // === 4a: FMP Analyst Grades — ALL tickers (no rate limit issues) ===
-  if (FMP_KEY) {
-    for (let i = 0; i < UNIVERSE.length; i += 10) {
-      const batch = UNIVERSE.slice(i, i+10);
-      await Promise.all(batch.map(async (ticker) => {
-        detailsMap[ticker] = detailsMap[ticker] || {};
-        try {
-          const [data, targetData, forwardData] = await Promise.all([
-            httpsGet('https://financialmodelingprep.com/stable/grades-consensus?symbol='+ticker+'&apikey='+FMP_KEY, 5000).catch(() => null),
-            httpsGet('https://financialmodelingprep.com/stable/price-target-consensus?symbol='+ticker+'&apikey='+FMP_KEY, 5000).catch(() => null),
-            httpsGet('https://financialmodelingprep.com/stable/analyst-estimates?symbol='+ticker+'&period=annual&apikey='+FMP_KEY, 5000).catch(() => null)
-          ]);
-          const grade = Array.isArray(data) ? data[0] : data;
-          
-          let priceTarget = null;
-          if (Array.isArray(targetData) && targetData.length > 0) {
-            const t = targetData[0];
-            if (t.targetConsensus && t.targetHigh) {
-              priceTarget = { targetHigh: t.targetHigh, targetLow: t.targetLow, targetConsensus: t.targetConsensus };
-            }
-          }
-          
-          if (Array.isArray(forwardData)) {
-            const currentYearStr = new Date().toISOString().slice(0, 4);
-            const nextYearData = [...forwardData].reverse().find(f => f.date && f.date.slice(0, 4) > currentYearStr);
-            if (nextYearData && nextYearData.epsAvg !== undefined && nextYearData.revenueAvg) {
-              detailsMap[ticker].forward = { eps: nextYearData.epsAvg, revenue: nextYearData.revenueAvg, year: nextYearData.date.slice(0, 4) };
-            }
-          }
-
-          if (grade && (grade.strongBuy || grade.buy || grade.hold)) {
-            const total = (grade.strongBuy||0)+(grade.buy||0)+(grade.hold||0)+(grade.sell||0)+(grade.strongSell||0);
-            const bullishPct = total > 0 ? Math.round(((grade.strongBuy||0)+(grade.buy||0))/total*100) : 0;
-            let consensus = grade.consensus || 'N/A';
-            if (consensus === 'N/A' && total > 0) {
-              const ws = ((grade.strongBuy||0)*5+(grade.buy||0)*4+(grade.hold||0)*3+(grade.sell||0)*2+(grade.strongSell||0))/total;
-              consensus = ws>=4.3?'STRONG BUY':ws>=3.5?'BUY':ws>=2.5?'HOLD':ws>=1.7?'SELL':'STRONG SELL';
-            }
-            detailsMap[ticker].analyst = { ticker, consensus, totalAnalysts:total, bullishPct, breakdown:{ strongBuy:grade.strongBuy||0, buy:grade.buy||0, hold:grade.hold||0, sell:grade.sell||0, strongSell:grade.strongSell||0 }, priceTarget };
-            await client.send(new PutCommand({ TableName:'signum-pattern-db', Item:{ pattern:'ANALYST:'+ticker, timestamp:Date.now(), consensus, totalAnalysts:total, bullishPct, breakdown:detailsMap[ticker].analyst.breakdown, priceTarget }}));
-            analystOk++;
-          }
-        } catch {}
-      }));
-    }
-    console.log('FMP Analyst: '+analystOk+'/'+UNIVERSE.length);
-  }
-  
-  // === 4b: FMP Earnings Calendar — 1 API call for ALL tickers (no rate limit) ===
-  if (FMP_KEY) {
-    try {
-      const toDate = new Date(Date.now()+180*86400000).toISOString().slice(0,10);
-      const earningsAll = await httpsGet('https://financialmodelingprep.com/stable/earnings-calendar?from='+today+'&to='+toDate+'&apikey='+FMP_KEY, 15000);
-      const earningsArr = Array.isArray(earningsAll) ? earningsAll : [];
-      const tickerSet = new Set(UNIVERSE);
-      // Group by symbol, keep only the nearest future date per ticker
-      const earningsMap = {};
-      for (const e of earningsArr) {
-        if (!tickerSet.has(e.symbol)) continue;
-        if (!earningsMap[e.symbol] || new Date(e.date) < new Date(earningsMap[e.symbol].date)) {
-          earningsMap[e.symbol] = e;
-        }
-      }
-      for (const [ticker, e] of Object.entries(earningsMap)) {
-        detailsMap[ticker] = detailsMap[ticker] || {};
-        const daysUntil = Math.ceil((new Date(e.date).getTime()-new Date(today).getTime())/(86400000));
-        const daysLabel = daysUntil <= 0 ? 'today' : 'D-'+daysUntil;
-        const fw = detailsMap[ticker]?.forward || {};
-        detailsMap[ticker].earnings = { ticker, nextEarningsDate:e.date, daysUntilEarnings:daysUntil, daysLabel, hasData:true, epsEstimate:e.epsEstimated||null, quarter:null, year:null, hour:null, forwardEps:fw.eps, forwardRevenue:fw.revenue, forwardYear:fw.year };
-        await client.send(new PutCommand({ TableName:'signum-pattern-db', Item:{ pattern:'EARNINGS:'+ticker, timestamp:Date.now(), nextDate:e.date, daysUntil, epsEstimate:e.epsEstimated||null, quarter:null, year:null, hour:null, forwardEps:fw.eps||null, forwardRevenue:fw.revenue||null, forwardYear:fw.year||null }})).catch(()=>{});
-        earningsOk++;
-      }
-      console.log('FMP Earnings: '+earningsOk+'/'+Object.keys(earningsMap).length+' matched from '+earningsArr.length+' total events');
-    } catch (e) { console.log('FMP Earnings err: '+e.message); }
-  }
-  
+  let fundOk = 0, relOk = 0, siOk = 0;
+  {
   // === 4c: Polygon Fundamentals — Reference + Financial Ratios + vX Financials ===
   // Fetches 3 APIs per ticker: reference (name/sector), ratios (PE/DE/ROE), vX financials (revenue/margin)
-  let fundOk = 0;
   for (let i = 0; i < UNIVERSE.length; i += 5) {
     const batch = UNIVERSE.slice(i, i+5);
     await Promise.all(batch.map(async (ticker) => {
@@ -849,7 +773,6 @@ async function harvestDetails() {
   }
   
   // === 4d: Polygon Related Companies — ALL tickers (no rate limit) ===
-  let relOk = 0;
   for (let i = 0; i < UNIVERSE.length; i += 10) {
     const batch = UNIVERSE.slice(i, i+10);
     await Promise.all(batch.map(async (ticker) => {
@@ -867,11 +790,10 @@ async function harvestDetails() {
     }));
   }
   
-  console.log('Details: analyst='+analystOk+' earnings='+earningsOk+' fund='+fundOk+' related='+relOk);
+  console.log('Details: fund='+fundOk+' related='+relOk);
   
   // === 4e: Polygon Short Interest + Float (SI%) — daily batch ===
   // [FIX 2026-04-07] settlement_date.gte + /stocks/vX/float for accurate SI%
-  let siOk = 0;
   for (let i = 0; i < UNIVERSE.length; i += 10) {
     const batch = UNIVERSE.slice(i, i+10);
     await Promise.all(batch.map(async (ticker) => {
@@ -899,8 +821,9 @@ async function harvestDetails() {
     }));
   }
   console.log('SI%: '+siOk+'/'+UNIVERSE.length);
+  }
   
-  return { analyst:analystOk, earnings:earningsOk, fundamentals:fundOk, related:relOk, si:siOk, detailsMap };
+  return { fundamentals:fundOk, related:relOk, si:siOk, detailsMap };
 }
 
 // ====== Step 5: Update Alpha Scores (merge GEX into prices) ======
@@ -1525,11 +1448,33 @@ exports.handler = async (event) => {
         if (r) { overview = { name:r.name||ticker, sector:r.sic_description||null, sectorEN:r.sic_description||null, description:r.description?.slice(0,300)||null, descriptionEN:r.description?.slice(0,300)||null, marketCap:r.market_cap||null, exchange:r.primary_exchange||null }; }
       } catch {}
       
-      // 4. Analyst (FMP)
+      // 4. Analyst & Forward Estimates (FMP)
       let analyst = null;
+      let forward = null;
       if (FMP_KEY) {
         try {
-          const data = await httpsGet('https://financialmodelingprep.com/stable/grades-consensus?symbol='+ticker+'&apikey='+FMP_KEY, 5000);
+          const [data, targetData, forwardData] = await Promise.all([
+            httpsGet('https://financialmodelingprep.com/stable/grades-consensus?symbol='+ticker+'&apikey='+FMP_KEY, 5000).catch(() => null),
+            httpsGet('https://financialmodelingprep.com/stable/price-target-consensus?symbol='+ticker+'&apikey='+FMP_KEY, 5000).catch(() => null),
+            httpsGet('https://financialmodelingprep.com/stable/analyst-estimates?symbol='+ticker+'&period=annual&apikey='+FMP_KEY, 5000).catch(() => null)
+          ]);
+          
+          let priceTarget = null;
+          if (Array.isArray(targetData) && targetData.length > 0) {
+            const t = targetData[0];
+            if (t.targetConsensus && t.targetHigh) {
+              priceTarget = { targetHigh: t.targetHigh, targetLow: t.targetLow, targetConsensus: t.targetConsensus };
+            }
+          }
+          
+          if (Array.isArray(forwardData)) {
+            const currentYearStr = new Date().toISOString().slice(0, 4);
+            const nextYearData = [...forwardData].reverse().find(f => f.date && f.date.slice(0, 4) > currentYearStr);
+            if (nextYearData && nextYearData.epsAvg !== undefined && nextYearData.revenueAvg) {
+              forward = { eps: nextYearData.epsAvg, revenue: nextYearData.revenueAvg, year: nextYearData.date.slice(0, 4) };
+            }
+          }
+
           const grade = Array.isArray(data) ? data[0] : data;
           if (grade && (grade.strongBuy || grade.buy || grade.hold)) {
             const total = (grade.strongBuy||0)+(grade.buy||0)+(grade.hold||0)+(grade.sell||0)+(grade.strongSell||0);
@@ -1539,7 +1484,8 @@ exports.handler = async (event) => {
               const ws = ((grade.strongBuy||0)*5+(grade.buy||0)*4+(grade.hold||0)*3+(grade.sell||0)*2+(grade.strongSell||0))/total;
               consensus = ws>=4.3?'STRONG BUY':ws>=3.5?'BUY':ws>=2.5?'HOLD':ws>=1.7?'SELL':'STRONG SELL';
             }
-            analyst = { ticker, consensus, totalAnalysts:total, bullishPct, breakdown:{ strongBuy:grade.strongBuy||0, buy:grade.buy||0, hold:grade.hold||0, sell:grade.sell||0, strongSell:grade.strongSell||0 } };
+            analyst = { ticker, consensus, totalAnalysts:total, bullishPct, breakdown:{ strongBuy:grade.strongBuy||0, buy:grade.buy||0, hold:grade.hold||0, sell:grade.sell||0, strongSell:grade.strongSell||0 }, priceTarget };
+            await client.send(new PutCommand({ TableName:'signum-pattern-db', Item:{ pattern:'ANALYST:'+ticker, timestamp:Date.now(), consensus, totalAnalysts:total, bullishPct, breakdown:analyst.breakdown, priceTarget }})).catch(()=>{});
           }
         } catch {}
       }
@@ -1553,7 +1499,10 @@ exports.handler = async (event) => {
         if (cached?.nextDate) {
           const today = new Date().toISOString().slice(0,10);
           const daysUntil = Math.ceil((new Date(cached.nextDate).getTime()-new Date(today).getTime())/86400000);
-          earnings = { ticker, nextEarningsDate:cached.nextDate, daysUntilEarnings:daysUntil, daysLabel:daysUntil<=0?'today':'D-'+daysUntil, hasData:true, epsEstimate:cached.epsEstimate||null, forwardEps:cached.forwardEps||null, forwardRevenue:cached.forwardRevenue||null, forwardYear:cached.forwardYear||null };
+          earnings = { ticker, nextEarningsDate:cached.nextDate, daysUntilEarnings:daysUntil, daysLabel:daysUntil<=0?'today':'D-'+daysUntil, hasData:true, epsEstimate:cached.epsEstimate||null, forwardEps:cached.forwardEps||(forward?forward.eps:null), forwardRevenue:cached.forwardRevenue||(forward?forward.revenue:null), forwardYear:cached.forwardYear||(forward?forward.year:null) };
+          if (forward) {
+            await client.send(new PutCommand({ TableName:'signum-pattern-db', Item:{ pattern:'EARNINGS:'+ticker, timestamp:Date.now(), nextDate:cached.nextDate, daysUntil, epsEstimate:cached.epsEstimate||null, forwardEps:earnings.forwardEps, forwardRevenue:earnings.forwardRevenue, forwardYear:earnings.forwardYear, quarter:cached.quarter||null, year:cached.year||null }})).catch(()=>{});
+          }
         }
         // If no cached data, fetch from FMP (90-day window = much smaller response)
         if (!earnings && FMP_KEY) {
@@ -1564,9 +1513,9 @@ exports.handler = async (event) => {
           if (events.length > 0) {
             const next = events.sort((a,b) => new Date(a.date).getTime()-new Date(b.date).getTime())[0];
             const daysUntil = Math.ceil((new Date(next.date).getTime()-new Date(today).getTime())/(86400000));
-            earnings = { ticker, nextEarningsDate:next.date, daysUntilEarnings:daysUntil, daysLabel:daysUntil<=0?'today':'D-'+daysUntil, hasData:true, epsEstimate:next.epsEstimated||null };
+            earnings = { ticker, nextEarningsDate:next.date, daysUntilEarnings:daysUntil, daysLabel:daysUntil<=0?'today':'D-'+daysUntil, hasData:true, epsEstimate:next.epsEstimated||null, forwardEps:forward?forward.eps:null, forwardRevenue:forward?forward.revenue:null, forwardYear:forward?forward.year:null };
             // Cache for future use
-            await client.send(new PutCommand({ TableName:'signum-pattern-db', Item:{ pattern:'EARNINGS:'+ticker, timestamp:Date.now(), nextDate:next.date, daysUntil, epsEstimate:next.epsEstimated||null }})).catch(()=>{});
+            await client.send(new PutCommand({ TableName:'signum-pattern-db', Item:{ pattern:'EARNINGS:'+ticker, timestamp:Date.now(), nextDate:next.date, daysUntil, epsEstimate:next.epsEstimated||null, forwardEps:forward?forward.eps:null, forwardRevenue:forward?forward.revenue:null, forwardYear:forward?forward.year:null }})).catch(()=>{});
           }
         }
       } catch {}
@@ -1685,15 +1634,32 @@ exports.handler = async (event) => {
         })).catch(() => {});
       }
       
+      // [FIX] Explicitly sync to pattern-db so the 5-min batch mode doesn't overwrite with old missing targets
+      if (analyst) {
+        await client.send(new PutCommand({ TableName:'signum-pattern-db', Item:{ pattern:'ANALYST:'+ticker, timestamp:Date.now(), consensus:analyst.consensus, totalAnalysts:analyst.totalAnalysts, bullishPct:analyst.bullishPct, breakdown:analyst.breakdown, priceTarget:analyst.priceTarget }})).catch(()=>{});
+      }
+      if (earnings) {
+        await client.send(new PutCommand({ TableName:'signum-pattern-db', Item:{ pattern:'EARNINGS:'+ticker, timestamp:Date.now(), nextDate:earnings.nextEarningsDate, daysUntil:earnings.daysUntilEarnings, epsEstimate:earnings.epsEstimate||null, forwardEps:earnings.forwardEps||null, forwardRevenue:earnings.forwardRevenue||null, forwardYear:earnings.forwardYear||null, quarter:earnings.quarter||null, year:earnings.year||null }})).catch(()=>{});
+      }
+      
       // [v8] Write to Redis: cache:command:unified + cache:analysis
       if (structure) {
         // cache:command:unified — full 9-field data for Command/Ticker pages
         await redisSet('cache:command:unified:' + ticker, data, REDIS_TTL).catch(() => {});
+        
+        let oldAnalysis = {};
+        if (UPSTASH_URL) {
+          try {
+            const raw = await redisPipeline([['GET', 'cache:analysis:' + ticker]]);
+            if (raw && raw[0]) oldAnalysis = JSON.parse(raw[0]);
+          } catch {}
+        }
+        
         // cache:analysis — analysis summary for Dashboard/Watchlist/Portfolio
         const analysisEntry = {
           ticker, timestamp: Date.now(),
-          alphaSnapshot: { score: 0, grade: 'N/A', action: 'HOLD', confidence: 0, triggers: [], engineVersion: 'lambda-v8-ondemand', capturedAt: new Date().toISOString() },
-          rsi: null, return3d: null, sparkline: [], relVol: null,
+          alphaSnapshot: oldAnalysis.alphaSnapshot || { score: 0, grade: 'N/A', action: 'HOLD', confidence: 0, triggers: [], engineVersion: 'lambda-v8-ondemand', capturedAt: new Date().toISOString() },
+          rsi: oldAnalysis.rsi || null, return3d: oldAnalysis.return3d || null, sparkline: oldAnalysis.sparkline || [], relVol: oldAnalysis.relVol || null,
           expiration: structure.expiration || null,
           maxPain: structure.maxPain || null,
           gex: structure.netGex || null,
@@ -1704,9 +1670,9 @@ exports.handler = async (event) => {
           gammaFlipLevel: structure.gammaFlipLevel || null,
           squeezeScore: structure.squeezeScore || null,
           iv: structure.atmIv || null,
-          whaleIndex: 0, whaleConfidence: 'NONE',
-          darkPoolPct: 0, netPremium: structure.netPremium || null,
-          vwapDist: null, volume: null, ivSkew: null, impliedMovePct: null,
+          whaleIndex: oldAnalysis.whaleIndex || 0, whaleConfidence: oldAnalysis.whaleConfidence || 'NONE',
+          darkPoolPct: oldAnalysis.darkPoolPct || 0, netPremium: structure.netPremium || null,
+          vwapDist: oldAnalysis.vwapDist || null, volume: oldAnalysis.volume || null, ivSkew: oldAnalysis.ivSkew || null, impliedMovePct: oldAnalysis.impliedMovePct || null,
         };
         await redisSet('cache:analysis:' + ticker, analysisEntry, REDIS_TTL).catch(() => {});
       }
@@ -1768,50 +1734,54 @@ exports.handler = async (event) => {
   results.sma = smaResult.smaCount;
   smaMap = smaResult.smaMap;
   
-  // Daily details: run once instantly relative to US ET Market Open (09:30 AM ET)
+  // Daily details: Polygon fundamentals/related/SI (09:25-35 ET window or forceRun)
   let detailsMap = {};
   const nyStr = new Date().toLocaleTimeString('en-US', { timeZone: 'America/New_York', hour12: false });
   const [nyH, nyM] = nyStr.split(':').map(Number);
   const isDailyDetailTime = (nyH === 9 && nyM >= 25 && nyM <= 35);
   if (isDailyDetailTime || forceRun) {
     const detailResult = await harvestDetails();
-    results.details = { analyst: detailResult.analyst, earnings: detailResult.earnings, fundamentals: detailResult.fundamentals, related: detailResult.related };
+    results.details = { fundamentals: detailResult.fundamentals, related: detailResult.related, si: detailResult.si };
     detailsMap = detailResult.detailsMap;
   } else {
     results.details = 'SKIP:not_daily_window';
-    // Load existing details from DynamoDB for unified cache
-    // pattern-db has composite key: pattern(HASH) + timestamp(RANGE)
-    // Must use QueryCommand (not GetCommand) with Limit=1, ScanIndexForward=false for latest
-    for (let bi = 0; bi < UNIVERSE.length; bi += 10) {
-      const batch2 = UNIVERSE.slice(bi, bi+10);
-      await Promise.all(batch2.map(async (ticker) => {
-        try {
-          const q = (prefix) => client.send(new QueryCommand({ TableName:'signum-pattern-db', KeyConditionExpression:'pattern=:p', ExpressionAttributeValues:{':p':prefix+ticker}, Limit:1, ScanIndexForward:false }));
-          const [analystRes, earningsRes, fundRes, relRes] = await Promise.all([q('ANALYST:'), q('EARNINGS:'), q('FUND:'), q('RELATED:')]);
-          detailsMap[ticker] = {};
-          const a = analystRes.Items?.[0];
-          if (a) {
-            detailsMap[ticker].analyst = { ticker, consensus:a.consensus, totalAnalysts:a.totalAnalysts, bullishPct:a.bullishPct, breakdown:a.breakdown, priceTarget:a.priceTarget||null, targetConsensus:a.targetConsensus||null };
-          }
-          const e = earningsRes.Items?.[0];
-          if (e) {
-            const today2 = new Date().toISOString().slice(0,10);
-            const daysUntil = e.nextDate ? Math.ceil((new Date(e.nextDate).getTime()-new Date(today2).getTime())/86400000) : 0;
-            detailsMap[ticker].earnings = { ticker, nextEarningsDate:e.nextDate, daysUntilEarnings:daysUntil, daysLabel:daysUntil<=0?'today':'D-'+daysUntil, hasData:true, epsEstimate:e.epsEstimate, quarter:e.quarter, year:e.year, forwardEps:e.forwardEps||null, forwardRevenue:e.forwardRevenue||null, forwardYear:e.forwardYear||null };
-          }
+  }
+  // Always load ANALYST/EARNINGS/FUND/RELATED from DynamoDB (signum-fmp writes here)
+  // This ensures forwardEps and analyst data reach buildUnifiedCache regardless of time window
+  for (let bi = 0; bi < UNIVERSE.length; bi += 10) {
+    const batch2 = UNIVERSE.slice(bi, bi+10);
+    await Promise.all(batch2.map(async (ticker) => {
+      try {
+        const q = (prefix) => client.send(new QueryCommand({ TableName:'signum-pattern-db', KeyConditionExpression:'pattern=:p', ExpressionAttributeValues:{':p':prefix+ticker}, Limit:1, ScanIndexForward:false }));
+        const [analystRes, earningsRes, fundRes, relRes] = await Promise.all([q('ANALYST:'), q('EARNINGS:'), q('FUND:'), q('RELATED:')]);
+        detailsMap[ticker] = detailsMap[ticker] || {};
+        const a = analystRes.Items?.[0];
+        if (a) {
+          detailsMap[ticker].analyst = { ticker, consensus:a.consensus, totalAnalysts:a.totalAnalysts, bullishPct:a.bullishPct, breakdown:a.breakdown, priceTarget:a.priceTarget||null, targetConsensus:a.targetConsensus||null };
+        }
+        const e = earningsRes.Items?.[0];
+        if (e) {
+          const today2 = new Date().toISOString().slice(0,10);
+          const daysUntil = e.nextDate ? Math.ceil((new Date(e.nextDate).getTime()-new Date(today2).getTime())/86400000) : 0;
+          detailsMap[ticker].earnings = { ticker, nextEarningsDate:e.nextDate, daysUntilEarnings:daysUntil, daysLabel:daysUntil<=0?'today':'D-'+daysUntil, hasData:true, epsEstimate:e.epsEstimate, quarter:e.quarter, year:e.year, forwardEps:e.forwardEps||null, forwardRevenue:e.forwardRevenue||null, forwardYear:e.forwardYear||null };
+        }
+        // Only overwrite fundamentals/overview/related if not already set by harvestDetails (Polygon fresh data)
+        if (!detailsMap[ticker].fundamentals) {
           const f = fundRes.Items?.[0];
           if (f) {
             detailsMap[ticker].fundamentals = { ticker, name:f.name||ticker, marketCap:f.marketCap, sector:f.sector, description:f.description?.slice(0,500)||null, exchange:f.exchange||null, score:f.score??null, grade:f.grade||null, pe:f.pe??null, de:f.de??null, roe:f.roe??null, revenueGrowth:f.revenueGrowth??null, netMargin:f.netMargin??null, fcfYield:f.fcfYield??null, pb:f.pb??null, ps:f.ps??null, breakdown:f.breakdown||null };
             detailsMap[ticker].overview = { name:f.name||ticker, sector:f.sector, sectorEN:f.sector, description:f.description?.slice(0,300), descriptionEN:f.description?.slice(0,300), marketCap:f.marketCap, exchange:f.exchange };
           }
+        }
+        if (!detailsMap[ticker].related) {
           const rel = relRes.Items?.[0];
           if (rel?.tickers) {
             const tks = rel.tickers;
             detailsMap[ticker].related = { ticker, count:tks.length, topRelated:tks.slice(0,4).map(t=>({ticker:t,price:0,change:0,logo:null})), relatedTickers:tks, allTickers:tks };
           }
-        } catch {}
-      }));
-    }
+        }
+      } catch {}
+    }));
   }
   
   // [v8] Step 5.5: RSI + Daily Bars (sparkline, return3d, relVol)

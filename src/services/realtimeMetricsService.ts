@@ -31,8 +31,52 @@ export interface ShortVolumeData {
     totalVolume: number;
 }
 
+// [V5.0 SSOT] Primary: EC2 ElastiCache (100% accuracy, $0 cost)
+const EC2_REDIS_PROXY = process.env.EC2_REDIS_PROXY_URL || "http://52.23.98.13:8081";
+const EC2_REDIS_PROXY_KEY = process.env.REDIS_PROXY_KEY || "signum-redis-proxy-2026";
+
 // Fetch Trades for Dark Pool & Block Trade analysis + Buy/Sell classification (Quote Rule)
 export async function fetchTradeData(ticker: string): Promise<TradeData | null> {
+    // [V5.0] PRIMARY: Read from EC2 ElastiCache (100% data from WebSocket accumulator)
+    try {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 3000);
+        const proxyRes = await fetch(
+            `${EC2_REDIS_PROXY}/get?key=${encodeURIComponent(`rt-metrics:${ticker}`)}`,
+            {
+                headers: { 'Authorization': `Bearer ${EC2_REDIS_PROXY_KEY}` },
+                signal: controller.signal,
+                cache: 'no-store',
+            }
+        );
+        clearTimeout(timeout);
+        if (proxyRes.ok) {
+            const proxyData = await proxyRes.json();
+            const metrics = proxyData?.result;
+            if (metrics && metrics.darkPool && metrics.darkPool.percent > 0) {
+                return {
+                    darkPoolPercent: metrics.darkPool.percent,
+                    darkPoolVolume: metrics.darkPool.volume || 0,
+                    totalVolume: metrics.darkPool.totalVolume || 0,
+                    blockTrades: metrics.blockTrade?.count || 0,
+                    blockVolume: metrics.blockTrade?.volume || 0,
+                    largestTrade: metrics.blockTrade?.largestTrade || { size: 0, price: 0 },
+                    avgTradeSize: 0,
+                    buyPct: metrics.darkPool.buyPct || 0,
+                    sellPct: metrics.darkPool.sellPct || 0,
+                    buyVolume: metrics.darkPool.buyVolume || 0,
+                    sellVolume: metrics.darkPool.sellVolume || 0,
+                    buyVwap: metrics.darkPool.buyVwap || 0,
+                    sellVwap: metrics.darkPool.sellVwap || 0,
+                    netBuyValue: metrics.darkPool.netBuyValue || 0,
+                };
+            }
+        }
+    } catch {
+        // Proxy down → fall through to Polygon REST
+    }
+
+    // [FALLBACK] Polygon REST sampling (5,000 trades) — used when EC2 data unavailable
     try {
         const [tradesRes, quotesRes] = await Promise.all([
             fetch(`${POLYGON_BASE}/v3/trades/${ticker}?limit=5000&apiKey=${POLYGON_API_KEY}`, { next: { revalidate: 30 } } as any),

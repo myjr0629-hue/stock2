@@ -319,11 +319,15 @@ export const COMMAND_TOOLTIPS = {
     },
     EARNINGS: {
         tooltip: {
-            ko: '어닝 일정 및 실적 서프라이즈',
-            en: 'Earnings calendar & surprise tracking',
-            ja: '決算日程・サプライズ追跡',
+            ko: '다음 실적 발표일 + 월가 EPS 추정치. Forward EPS는 내년도(FY+1) 애널리스트 컨센서스 전망치이며, ▲▼는 전날 대비 추정치 변동(Revision)을 표시합니다. 추정치 상향(▲)은 실적 기대 개선, 하향(▼)은 전망 악화 시그널입니다. 성장률(%)은 현재 PER 기준 Forward EPS 잠재 상승폭입니다.',
+            en: 'Next earnings date + Wall Street EPS estimate. Forward EPS is the analyst consensus for next fiscal year (FY+1). ▲▼ shows day-over-day estimate revision — upward (▲) signals improving outlook, downward (▼) signals deteriorating expectations. Growth (%) represents Forward EPS upside potential based on current P/E.',
+            ja: '次回決算日 + ウォール街EPSアナリスト予想。Forward EPSは翌年度(FY+1)コンセンサス予想で、▲▼は前日比の予想修正(Revision)を表示。上方修正(▲)は業績期待改善、下方修正(▼)は見通し悪化シグナル。成長率(%)は現在PER基準のForward EPS上昇余地。',
         },
-        badge: null,
+        badge: {
+            ko: '실적 전망 리비전 추적',
+            en: 'Earnings Revision Tracker',
+            ja: '業績予想リビジョン追跡',
+        },
     },
     RELATED: {
         tooltip: {

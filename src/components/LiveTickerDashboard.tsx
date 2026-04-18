@@ -768,10 +768,10 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
     const [selectedExp, setSelectedExp] = useState<string>("");
     // [S-124.6] Quick Intel Gauges State
     const [newsScore, setNewsScore] = useState<{ score: number; label: string; breakdown?: { positive: number; negative: number; neutral: number } } | null>(null);
-    const [earningsData, setEarningsData] = useState<{ nextDate: string | null; daysLabel: string; epsEstimate: number | null; quarter: number | null; year: number | null; hourLabel: string; color: string; forwardEps?: number | null; forwardRevenue?: number | null; forwardYear?: string | null } | null>(() => {
+    const [earningsData, setEarningsData] = useState<{ nextDate: string | null; daysLabel: string; epsEstimate: number | null; quarter: number | null; year: number | null; hourLabel: string; color: string; forwardEps?: number | null; forwardRevenue?: number | null; forwardYear?: string | null; forwardEpsRevision?: number | null; forwardRevRevision?: number | null } | null>(() => {
         if (!initialUnifiedData?.earnings) return null;
         const e = initialUnifiedData.earnings;
-        return { nextDate: e.nextEarningsDate || e.nextDate || null, daysLabel: e.daysLabel || 'TBD', epsEstimate: e.epsEstimate || null, quarter: e.quarter || null, year: e.year || null, hourLabel: e.hourLabel || '', color: e.color || 'text-slate-400', forwardEps: e.forwardEps || null, forwardRevenue: e.forwardRevenue || null, forwardYear: e.forwardYear || null };
+        return { nextDate: e.nextEarningsDate || e.nextDate || null, daysLabel: e.daysLabel || 'TBD', epsEstimate: e.epsEstimate || null, quarter: e.quarter || null, year: e.year || null, hourLabel: e.hourLabel || '', color: e.color || 'text-slate-400', forwardEps: e.forwardEps || null, forwardRevenue: e.forwardRevenue || null, forwardYear: e.forwardYear || null, forwardEpsRevision: e.forwardEpsRevision ?? null, forwardRevRevision: e.forwardRevRevision ?? null };
     });
     const [smaData, setSmaData] = useState<{ cross: string; crossType: string; label: string; sma50: number; sma200: number; distance: number; isImminent: boolean; phase: string } | null>(() => {
         if (!initialUnifiedData?.sma) return null;
@@ -965,7 +965,9 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                 color: unifiedData.earnings.color || 'text-slate-400',
                 forwardEps: unifiedData.earnings.forwardEps ?? null,
                 forwardRevenue: unifiedData.earnings.forwardRevenue ?? null,
-                forwardYear: unifiedData.earnings.forwardYear ?? null
+                forwardYear: unifiedData.earnings.forwardYear ?? null,
+                forwardEpsRevision: unifiedData.earnings.forwardEpsRevision ?? null,
+                forwardRevRevision: unifiedData.earnings.forwardRevRevision ?? null
             });
         }
 
@@ -1113,17 +1115,17 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
         if (unifiedData?.volatility) return ensureScoreIncludesIv(unifiedData.volatility);
         return null;
     }, [volatilityData, unifiedData?.volatility, structure, livePrice?.price, initialStockData?.price]);
-    const effectiveSma = React.useMemo(() => smaData || unifiedData?.sma || null, [smaData, unifiedData?.sma]);
-    const effectiveFund = React.useMemo(() => fundamentalData || unifiedData?.fundamentals || null, [fundamentalData, unifiedData?.fundamentals]);
-    const effectiveRelated = React.useMemo(() => relatedData || (unifiedData?.related ? { count: unifiedData.related.count || 0, topRelated: unifiedData.related.topRelated || [] } : null), [relatedData, unifiedData?.related]);
-    const effectiveAnalyst = React.useMemo(() => analystData || unifiedData?.analyst || null, [analystData, unifiedData?.analyst]);
-    const effectiveSqueeze = React.useMemo(() => squeezeData || unifiedData?.squeeze || null, [squeezeData, unifiedData?.squeeze]);
-    const effectiveInst = React.useMemo(() => institutionalData || unifiedData?.institutional || null, [institutionalData, unifiedData?.institutional]);
+    const effectiveSma = React.useMemo(() => unifiedData?.sma || smaData || null, [smaData, unifiedData?.sma]);
+    const effectiveFund = React.useMemo(() => unifiedData?.fundamentals || fundamentalData || null, [fundamentalData, unifiedData?.fundamentals]);
+    const effectiveRelated = React.useMemo(() => (unifiedData?.related ? { count: unifiedData.related.count || 0, topRelated: unifiedData.related.topRelated || [] } : relatedData) || null, [relatedData, unifiedData?.related]);
+    const effectiveAnalyst = React.useMemo(() => unifiedData?.analyst || analystData || null, [analystData, unifiedData?.analyst]);
+    const effectiveSqueeze = React.useMemo(() => unifiedData?.squeeze || squeezeData || null, [squeezeData, unifiedData?.squeeze]);
+    const effectiveInst = React.useMemo(() => unifiedData?.institutional || institutionalData || null, [institutionalData, unifiedData?.institutional]);
     const effectiveEarnings = React.useMemo(() => {
+        const e = unifiedData?.earnings;
+        if (e) return { nextDate: e.nextEarningsDate || e.nextDate || null, daysLabel: e.daysLabel || 'TBD', epsEstimate: e.epsEstimate || null, quarter: e.quarter || null, year: e.year || null, hourLabel: e.hourLabel || '', color: e.color || 'text-slate-400', forwardEps: e.forwardEps || null, forwardRevenue: e.forwardRevenue || null, forwardYear: e.forwardYear || null, forwardEpsRevision: e.forwardEpsRevision ?? null, forwardRevRevision: e.forwardRevRevision ?? null };
         if (earningsData) return earningsData as any;
-        if (!unifiedData?.earnings) return null;
-        const e = unifiedData.earnings;
-        return { nextDate: e.nextEarningsDate || e.nextDate || null, daysLabel: e.daysLabel || 'TBD', epsEstimate: e.epsEstimate || null, quarter: e.quarter || null, year: e.year || null, hourLabel: e.hourLabel || '', color: e.color || 'text-slate-400', forwardEps: e.forwardEps || null, forwardRevenue: e.forwardRevenue || null, forwardYear: e.forwardYear || null };
+        return null;
     }, [earningsData, unifiedData?.earnings]);
     const effectiveOverview = React.useMemo(() => {
         if (companyOverview) return companyOverview;
@@ -1781,14 +1783,14 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
 
                     {/* [1-5] ANALYST TARGET — FREE */}
                         {(() => {
-                            const isBullish = analystData?.consensus === 'STRONG BUY' || analystData?.consensus === 'BUY';
-                            const isBearish = analystData?.consensus === 'SELL' || analystData?.consensus === 'STRONG SELL';
-                            const bd = analystData?.breakdown;
-                            const total = analystData?.totalAnalysts || 0;
+                            const isBullish = effectiveAnalyst?.consensus === 'STRONG BUY' || effectiveAnalyst?.consensus === 'BUY';
+                            const isBearish = effectiveAnalyst?.consensus === 'SELL' || effectiveAnalyst?.consensus === 'STRONG SELL';
+                            const bd = effectiveAnalyst?.breakdown;
+                            const total = effectiveAnalyst?.totalAnalysts || 0;
 
                             const buyCount = bd ? bd.strongBuy + bd.buy : 0;
                             const buyPct = total > 0 ? Math.round((buyCount / total) * 100) : 0;
-                            const consensusKr = analystData?.consensus === 'STRONG BUY' ? td('analystStrongBuy') : analystData?.consensus === 'BUY' ? td('analystBuy') : analystData?.consensus === 'HOLD' ? td('analystHold') : analystData?.consensus === 'SELL' ? td('analystSell') : analystData?.consensus === 'STRONG SELL' ? td('analystStrongSell') : '...';
+                            const consensusKr = effectiveAnalyst?.consensus === 'STRONG BUY' ? td('analystStrongBuy') : effectiveAnalyst?.consensus === 'BUY' ? td('analystBuy') : effectiveAnalyst?.consensus === 'HOLD' ? td('analystHold') : effectiveAnalyst?.consensus === 'SELL' ? td('analystSell') : effectiveAnalyst?.consensus === 'STRONG SELL' ? td('analystStrongSell') : '...';
                             return (
                                 <div className={`relative overflow-hidden rounded-lg py-2 px-2.5 min-h-[120px] transition-all duration-500 backdrop-blur-xl border cursor-default hover:-translate-y-0.5 hover:brightness-110 hover:border-white/20 hover:shadow-[0_4px_20px_rgba(99,102,241,0.1)] w-[85vw] max-w-[320px] md:w-auto md:max-w-none md:min-w-0 snap-center shrink-0 ${isBullish ? 'bg-emerald-950/40 border-emerald-500/30 animate-card-breathe-bull' : isBearish ? 'bg-rose-950/40 border-rose-500/30 animate-card-breathe-bear' : 'bg-slate-800/40 border-slate-700/50'}`}>
                                     <div className="absolute inset-0 bg-gradient-to-br from-white/[0.06] via-transparent to-transparent pointer-events-none" />
@@ -1827,12 +1829,12 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                                 <div className="bg-rose-400/60" style={{ width: `${(bd.sell / total) * 100}%` }} />
                                                 <div className="bg-rose-500" style={{ width: `${(bd.strongSell / total) * 100}%` }} />
                                             </div>
-                                            {analystData?.priceTarget?.targetConsensus ? (
+                                            {effectiveAnalyst?.priceTarget?.targetConsensus ? (
                                                 <div className="flex items-center justify-between text-[13px] font-jakarta text-white mt-1 pt-1 border-t border-white/5">
                                                     <span className="text-slate-300 flex items-center gap-1"><span className="text-amber-400/80">🎯</span> {locale === 'ko' ? '12M 목표가' : locale === 'ja' ? '12M 目標株価' : '12M Target'}</span>
                                                     <div className="flex items-baseline gap-1.5">
-                                                        <span className="font-black text-amber-400">${analystData.priceTarget.targetConsensus.toFixed(2)}</span>
-                                                        <span className="text-[11px] text-slate-400 font-medium">({locale === 'ko' ? '최고' : locale === 'ja' ? '最高' : 'High'} ${analystData.priceTarget.targetHigh?.toFixed(2) ?? '--'})</span>
+                                                        <span className="font-black text-amber-400">${effectiveAnalyst.priceTarget.targetConsensus.toFixed(2)}</span>
+                                                        <span className="text-[11px] text-slate-400 font-medium">({locale === 'ko' ? '최고' : locale === 'ja' ? '最高' : 'High'} ${effectiveAnalyst.priceTarget.targetHigh?.toFixed(2) ?? '--'})</span>
                                                     </div>
                                                 </div>
                                             ) : (
@@ -2011,19 +2013,19 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                     </div>
                                 )}
                                 {((effectiveEarnings?.forwardEps !== undefined && effectiveEarnings?.forwardEps !== null) || (effectiveEarnings?.forwardRevenue !== undefined && effectiveEarnings?.forwardRevenue !== null)) ? (
-                                    <div className="relative z-10 flex flex-col gap-1 text-[12px] font-jakarta mt-1 bg-white/5 p-1.5 rounded -mx-0.5">
+                                    <div className="relative z-10 flex flex-col gap-0.5 text-[12px] font-jakarta mt-1 bg-white/5 p-1.5 rounded -mx-0.5">
                                         {effectiveEarnings.forwardEps !== null && effectiveEarnings.forwardEps !== undefined && (
                                             <div className="flex items-center justify-between">
-                                                <span className="text-white/70 tracking-tight shrink-0 mr-2">{td('nextYearDesc') || `Forward`} {effectiveEarnings.forwardYear ? `(FY${effectiveEarnings.forwardYear.slice(-2)})` : ''}</span>
-                                                <div className="flex items-center gap-1.5 overflow-hidden">
+                                                <span className="text-slate-300 tracking-tight shrink-0 text-[12px]">{td('nextYearDesc') || `Forward`} {effectiveEarnings.forwardYear ? `(FY${effectiveEarnings.forwardYear.slice(-2)})` : ''}</span>
+                                                <div className="flex items-center gap-1 overflow-hidden">
                                                     <span className="text-white tracking-tight shrink-0">EPS <span className="font-bold">${Number(effectiveEarnings.forwardEps).toFixed(2)}</span></span>
                                                     {(() => {
                                                         const rev = effectiveEarnings.forwardEpsRevision;
-                                                        if (rev) {
+                                                        if (rev && Math.abs(rev) >= 0.005) {
                                                             const isPos = rev > 0;
                                                             return (
-                                                                <span className={`text-[10px] font-bold px-1 rounded truncate leading-none py-0.5 bg-black/20 ${isPos ? 'text-emerald-400 border border-emerald-500/20' : 'text-rose-400 border border-rose-500/20'}`}>
-                                                                    {isPos ? '▲' : '▼'}${(Math.abs(rev)).toFixed(2)}
+                                                                <span className={`text-[10px] font-bold px-0.5 rounded shrink-0 bg-black/30 ${isPos ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                                                    {isPos ? '▲' : '▼'}${Math.abs(rev).toFixed(2)}
                                                                 </span>
                                                             );
                                                         }
@@ -2035,7 +2037,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                                         if (Math.abs(growthRatio) < 0.01) return null;
                                                         const isPositive = growthRatio > 0;
                                                         return (
-                                                            <span className={`font-black tracking-tighter shrink-0 ${isPositive ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                                            <span className={`text-[11px] font-black tracking-tighter shrink-0 ${isPositive ? 'text-emerald-400' : 'text-rose-400'}`}>
                                                                 ({isPositive ? '▲' : '▼'}{Math.abs(growthRatio * 100).toFixed(0)}%)
                                                             </span>
                                                         );
@@ -2044,17 +2046,19 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                             </div>
                                         )}
                                         {effectiveEarnings.forwardRevenue ? (
-                                            <div className={`flex items-center justify-between ${(effectiveEarnings.forwardEps !== null && effectiveEarnings.forwardEps !== undefined) ? 'border-t border-white/5 pt-1 mt-0.5' : ''}`}>
-                                                <span className="text-white/70 tracking-tight shrink-0 mr-2">{td('revDesc') || `REV`}</span>
-                                                <div className="flex items-center gap-1.5 overflow-hidden">
+                                            <div className={`flex items-center justify-between ${(effectiveEarnings.forwardEps !== null && effectiveEarnings.forwardEps !== undefined) ? 'border-t border-white/5 pt-0.5' : ''}`}>
+                                                <span className="text-slate-300 tracking-tight shrink-0 text-[12px]">{td('revDesc') || `REV`}</span>
+                                                <div className="flex items-center gap-1 overflow-hidden">
                                                     <span className="text-white tracking-tight font-bold shrink-0">${(Number(effectiveEarnings.forwardRevenue) / 1e9).toFixed(1)}B</span>
                                                     {(() => {
                                                         const rev = effectiveEarnings.forwardRevRevision;
-                                                        if (rev) {
+                                                        if (rev && Math.abs(rev) >= 1000) {
                                                             const isPos = rev > 0;
+                                                            const absVal = Math.abs(rev);
+                                                            const display = absVal >= 1e9 ? `$${(absVal/1e9).toFixed(1)}B` : `$${(absVal/1e6).toFixed(0)}M`;
                                                             return (
-                                                                <span className={`text-[10px] font-bold px-1 rounded truncate leading-none py-0.5 bg-black/20 ${isPos ? 'text-emerald-400 border border-emerald-500/20' : 'text-rose-400 border border-rose-500/20'}`}>
-                                                                    {isPos ? '▲' : '▼'}${(Math.abs(rev)/1e9).toFixed(1)}B
+                                                                <span className={`text-[10px] font-bold shrink-0 ${isPos ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                                                    {isPos ? '▲' : '▼'}{display}
                                                                 </span>
                                                             );
                                                         }

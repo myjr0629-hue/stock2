@@ -8,6 +8,28 @@ import { getFromCache, setInCache } from '@/services/redisClient';
 const POLYGON_API_KEY = process.env.POLYGON_API_KEY || process.env.MASSIVE_API_KEY || "iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF";
 const POLYGON_BASE = "https://api.polygon.io";
 
+// [SSOT V3] EC2 Redis Proxy — reads from ElastiCache (VPC internal, $0 cost)
+const EC2_REDIS_PROXY = process.env.EC2_REDIS_PROXY_URL || "http://52.23.98.13:8081";
+const EC2_REDIS_PROXY_KEY = process.env.REDIS_PROXY_KEY || "signum-redis-proxy-2026";
+
+async function fetchFromElastiCache(key: string): Promise<any | null> {
+    try {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 3000); // 3s timeout
+        const res = await fetch(`${EC2_REDIS_PROXY}/get?key=${encodeURIComponent(key)}`, {
+            headers: { 'Authorization': `Bearer ${EC2_REDIS_PROXY_KEY}` },
+            signal: controller.signal,
+            cache: 'no-store',
+        });
+        clearTimeout(timeout);
+        if (!res.ok) return null;
+        const data = await res.json();
+        return data?.result || null;
+    } catch {
+        return null; // Proxy down → silent fallback to Upstash
+    }
+}
+
 // Dark Pool Exchange Codes (FINRA TRF/ADF = Dark Pool)
 const DARK_POOL_EXCHANGES: Set<number> = new Set([4, 15, 16, 19]);
 
@@ -307,10 +329,22 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const ticker = searchParams.get('ticker')?.toUpperCase() || 'TSLA';
     const cacheKey = `rt-metrics:${ticker}`;
-    const REDIS_TTL = 600; // 10 minutes — Polygon trade data is daily aggregate, no need for frequent refresh
-    const STALE_THRESHOLD_MS = 300_000; // 5 minutes — background refresh after this age
+    const REDIS_TTL = 600; // 10 minutes
+    const STALE_THRESHOLD_MS = 300_000; // 5 minutes
 
     try {
+        // [SSOT V3] PRIMARY: Read from EC2 ElastiCache via Redis Proxy
+        // EC2 Flow Accumulator writes 100% accurate dark pool data here (vs 0.025% sampling)
+        // Cost: $0 (ElastiCache is VPC-internal)
+        const ec2Data = await fetchFromElastiCache(cacheKey).catch(() => null);
+        if (ec2Data && ec2Data.darkPool) {
+            const cacheAge = ec2Data._ts ? Date.now() - ec2Data._ts : Infinity;
+            if (cacheAge < STALE_THRESHOLD_MS) {
+                return NextResponse.json({ ...ec2Data, _cached: true, _ageMs: cacheAge, _via: 'elasticache' });
+            }
+        }
+
+        // [FALLBACK] SECONDARY: Read from Upstash Redis (legacy cache)
         // [FIX V2] SWR PATTERN: Always serve cached data immediately (even if stale)
         // This handler fetches 50K+ trades (4-8s on Polygon) — cold fetch always times out
         // when called from unified route's callInternalGet with 8s timeout

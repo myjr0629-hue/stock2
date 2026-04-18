@@ -202,45 +202,150 @@ export default async function HowItWorksPage() {
                     <text x="60" y="74" textAnchor="middle" fill="#94a3b8" fontSize="9">SCORE</text>
                 </svg>
 
-                <div className="relative max-w-xl">
-                    {/* Badge */}
-                    <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/20 mb-4">
-                        <svg className="w-3 h-3 text-amber-400" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" /></svg>
-                        <span className="text-[12px] font-bold text-amber-400 tracking-wider uppercase">
-                            Context Score
-                        </span>
+                <div className="relative z-10 flex flex-col lg:flex-row gap-6 lg:gap-12 xl:gap-20 justify-between items-center lg:items-start">
+                    <div className="w-full max-w-xl">
+                        {/* Badge */}
+                        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/20 mb-4">
+                            <svg className="w-3 h-3 text-amber-400" fill="currentColor" viewBox="0 0 20 20"><path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" /></svg>
+                            <span className="text-[12px] font-bold text-amber-400 tracking-wider uppercase">
+                                Context Score
+                            </span>
+                        </div>
+
+                        {/* Title */}
+                        <h3 className="text-lg sm:text-xl font-black text-white mb-3 tracking-tight leading-tight">
+                            {t('contextScoreTitle')}
+                        </h3>
+
+                        {/* Description */}
+                        <p className="text-slate-300 text-[13px] sm:text-[14px] leading-[1.8] mb-5">
+                            {t.rich('contextScoreDesc', richTags)}
+                        </p>
+
+                        {/* 5-Axis Indicator Grid — subtle value showcase */}
+                        <div className="grid grid-cols-5 gap-2 sm:gap-3 mb-5">
+                            {[
+                                { label: t('csAxisMomentum'), color: '#22d3ee', icon: 'M2 12l5 5L20 4' },
+                                { label: t('csAxisOptions'), color: '#a78bfa', icon: 'M12 2v20M2 12h20' },
+                                { label: t('csAxisFlow'), color: '#fbbf24', icon: 'M4 12h16M12 4l8 8-8 8' },
+                                { label: t('csAxisFundamental'), color: '#34d399', icon: 'M3 3v18h18M7 14l4-4 4 4 4-8' },
+                                { label: t('csAxisSentiment'), color: '#fb7185', icon: 'M12 4C7 4 3 8 3 12s4 8 9 8 9-4 9-8-4-8-9-8z' },
+                            ].map((axis, i) => (
+                                <div key={i} className="flex flex-col items-center gap-1.5 py-2 px-1 rounded-lg bg-white/[0.03] border border-white/[0.06]">
+                                    <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke={axis.color} strokeWidth="2" strokeLinecap="round"><path d={axis.icon} /></svg>
+                                    <span className="text-[12px] text-slate-300 font-medium text-center leading-tight">{axis.label}</span>
+                                </div>
+                            ))}
+                        </div>
+
+                        {/* Compliance disclaimer */}
+                        <p className="text-[12px] text-slate-500 leading-relaxed">
+                            {t('contextScoreDisclaimer')}
+                        </p>
                     </div>
 
-                    {/* Title */}
-                    <h3 className="text-lg sm:text-xl font-black text-white mb-3 tracking-tight leading-tight">
-                        {t('contextScoreTitle')}
-                    </h3>
-
-                    {/* Description */}
-                    <p className="text-slate-300 text-[13px] sm:text-[14px] leading-[1.8] mb-5">
-                        {t.rich('contextScoreDesc', richTags)}
-                    </p>
-
-                    {/* 5-Axis Indicator Grid — subtle value showcase */}
-                    <div className="grid grid-cols-5 gap-2 sm:gap-3 mb-5">
+                    {/* Scale Map Infographic */}
+                    <div className="w-full lg:w-64 xl:w-72 shrink-0 flex flex-col gap-2 p-4 rounded-xl lg:rounded-2xl bg-black/20 lg:bg-black/30 border border-white/5 backdrop-blur-md shadow-2xl relative">
+                        <div className="text-[12px] font-bold text-slate-400 tracking-widest uppercase mb-1">{t('csLabelTitle')}</div>
                         {[
-                            { label: t('csAxisMomentum'), color: '#22d3ee', icon: 'M2 12l5 5L20 4' },
-                            { label: t('csAxisOptions'), color: '#a78bfa', icon: 'M12 2v20M2 12h20' },
-                            { label: t('csAxisFlow'), color: '#fbbf24', icon: 'M4 12h16M12 4l8 8-8 8' },
-                            { label: t('csAxisFundamental'), color: '#34d399', icon: 'M3 3v18h18M7 14l4-4 4 4 4-8' },
-                            { label: t('csAxisSentiment'), color: '#fb7185', icon: 'M12 4C7 4 3 8 3 12s4 8 9 8 9-4 9-8-4-8-9-8z' },
-                        ].map((axis, i) => (
-                            <div key={i} className="flex flex-col items-center gap-1.5 py-2 px-1 rounded-lg bg-white/[0.03] border border-white/[0.06]">
-                                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke={axis.color} strokeWidth="2" strokeLinecap="round"><path d={axis.icon} /></svg>
-                                <span className="text-[12px] text-slate-300 font-medium text-center leading-tight">{axis.label}</span>
+                            { range: '80—100', color: 'text-amber-400', bg: 'bg-amber-400/40', label: t('csScaleA'), desc: t('csDescA') },
+                            { range: '60—79', color: 'text-emerald-400', bg: 'bg-emerald-400/40', label: t('csScaleB'), desc: t('csDescB') },
+                            { range: '40—59', color: 'text-slate-300', bg: 'bg-slate-400/40', label: t('csScaleC'), desc: t('csDescC') },
+                            { range: '20—39', color: 'text-orange-400', bg: 'bg-orange-400/40', label: t('csScaleD'), desc: t('csDescD') },
+                            { range: '0—19', color: 'text-rose-400', bg: 'bg-rose-400/40', label: t('csScaleF'), desc: t('csDescF') },
+                        ].map((row, i) => (
+                            <div key={i} className="flex flex-col gap-0.5 relative pl-3 group">
+                                <div className={`absolute left-0 top-1 bottom-1 w-[3px] rounded-full ${row.bg} transition-transform`} />
+                                <div className="flex items-baseline justify-between gap-2">
+                                    <span className={`text-[13px] font-black tracking-tight ${row.color}`}>{row.range}</span>
+                                    <span className={`text-[12px] font-bold uppercase tracking-wide text-right flex-1 ${row.color}`}>{row.label}</span>
+                                </div>
+                                <div className="text-[12px] text-slate-300 leading-snug">{row.desc}</div>
                             </div>
                         ))}
                     </div>
+                </div>
+            </div>
 
-                    {/* Compliance disclaimer */}
-                    <p className="text-[12px] text-slate-500 leading-relaxed">
-                        {t('contextScoreDisclaimer')}
-                    </p>
+            {/* ═══ Smart Flow — FOMO Section ═══ */}
+            <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-purple-500/[0.05] via-white/[0.02] to-emerald-500/[0.04] backdrop-blur-2xl border border-purple-400/[0.12] p-6 sm:p-8 mt-4">
+                {/* Decorative elements */}
+                <div className="absolute -top-16 -right-16 w-48 h-48 bg-purple-400/[0.06] rounded-full blur-3xl" />
+                <div className="absolute -bottom-12 -left-8 w-36 h-36 bg-emerald-400/[0.04] rounded-full blur-3xl" />
+
+                {/* Radar/Sonar SVG decoration for Smart Flow */}
+                <svg className="absolute right-4 top-1/2 -translate-y-1/2 w-40 h-40 sm:w-48 sm:h-48 opacity-[0.08]" viewBox="0 0 120 120" fill="none">
+                    <circle cx="60" cy="60" r="50" stroke="#a78bfa" strokeWidth="1" strokeDasharray="4 4" />
+                    <circle cx="60" cy="60" r="35" stroke="#34d399" strokeWidth="1" opacity="0.6" />
+                    <circle cx="60" cy="60" r="20" stroke="#22d3ee" strokeWidth="2" />
+                    {/* Sonar sweep effect */}
+                    <path d="M60 60 L10 60 A50 50 0 0 1 60 10 Z" fill="#a78bfa" opacity="0.1" />
+                    {/* Data hits (whales) */}
+                    <circle cx="80" cy="30" r="3" fill="#fbbf24" /><circle cx="80" cy="30" r="6" stroke="#fbbf24" strokeWidth="0.5" className="animate-ping" style={{ animationDuration: '3s' }} />
+                    <circle cx="40" cy="85" r="2" fill="#34d399" />
+                    <circle cx="95" cy="70" r="2.5" fill="#22d3ee" />
+                </svg>
+
+                <div className="relative z-10 flex flex-col lg:flex-row gap-6 lg:gap-12 xl:gap-20 justify-between items-center lg:items-start">
+                    <div className="w-full max-w-xl">
+                        {/* Badge */}
+                        <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-purple-500/10 border border-purple-500/20 mb-4">
+                            <Radio className="w-3 h-3 text-purple-400" />
+                            <span className="text-[12px] font-bold text-purple-400 tracking-wider uppercase">
+                                Institutional Whale Radar
+                            </span>
+                        </div>
+
+                        {/* Title */}
+                        <h3 className="text-lg sm:text-xl font-black text-white mb-3 tracking-tight leading-tight">
+                            {t('smartFlowTitle')}
+                        </h3>
+
+                        {/* Description */}
+                        <p className="text-slate-300 text-[13px] sm:text-[14px] leading-[1.8] mb-5">
+                            {t.rich('smartFlowDesc', richTags)}
+                        </p>
+
+                        {/* 4-Axis Indicator Grid */}
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 mb-5">
+                            {[
+                                { label: t('sfAxisGEX'), color: '#22d3ee', icon: 'M13 2L3 14h9l-1 8 10-12h-9l1-8z' },
+                                { label: t('sfAxisDarkPool'), color: '#a78bfa', icon: 'M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z' },
+                                { label: t('sfAxisBlock'), color: '#fb7185', icon: 'M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z' },
+                                { label: t('sfAxisPremium'), color: '#34d399', icon: 'M12 2v20M17 5H9.5a3.5 3.5 0 000 7h5a3.5 3.5 0 010 7H6' }
+                            ].map((axis, i) => (
+                                <div key={i} className="flex flex-col items-center justify-center gap-1.5 py-2.5 px-2 rounded-lg bg-white/[0.03] border border-white/[0.06]">
+                                    <svg className="w-5 h-5 mb-0.5" viewBox="0 0 24 24" fill="none" stroke={axis.color} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><path d={axis.icon} /></svg>
+                                    <span className="text-[11px] sm:text-[12px] text-slate-300 font-medium text-center leading-tight whitespace-nowrap">{axis.label}</span>
+                                </div>
+                            ))}
+                        </div>
+
+                        {/* Compliance disclaimer */}
+                        <p className="text-[12px] text-slate-500 leading-relaxed">
+                            {t('smartFlowDisclaimer')}
+                        </p>
+                    </div>
+
+                    {/* Flow Intensity Infographic */}
+                    <div className="w-full lg:w-64 xl:w-72 shrink-0 flex flex-col gap-2 p-4 rounded-xl lg:rounded-2xl bg-black/20 lg:bg-black/30 border border-white/5 backdrop-blur-md shadow-2xl relative">
+                        <div className="text-[12px] font-bold text-slate-400 tracking-widest uppercase mb-1">{t('sfLabelTitle')}</div>
+                        {[
+                            { range: '75—100', color: 'text-emerald-400', bg: 'bg-emerald-400/40', label: t('sfScaleExIn'), desc: t('sfDescExIn') },
+                            { range: '50—74', color: 'text-cyan-400', bg: 'bg-cyan-400/40', label: t('sfScaleIn'), desc: t('sfDescIn') },
+                            { range: '25—49', color: 'text-orange-400', bg: 'bg-orange-400/40', label: t('sfScaleOut'), desc: t('sfDescOut') },
+                            { range: '0—24', color: 'text-rose-400', bg: 'bg-rose-400/40', label: t('sfScaleExOut'), desc: t('sfDescExOut') },
+                        ].map((row, i) => (
+                            <div key={i} className="flex flex-col gap-0.5 relative pl-3 group">
+                                <div className={`absolute left-0 top-1 bottom-1 w-[3px] rounded-full ${row.bg} transition-transform`} />
+                                <div className="flex items-baseline justify-between gap-2">
+                                    <span className={`text-[13px] font-black tracking-tight ${row.color}`}>{row.range}</span>
+                                    <span className={`text-[12px] font-bold uppercase tracking-wide text-right flex-1 ${row.color}`}>{row.label}</span>
+                                </div>
+                                <div className="text-[12px] text-slate-300 leading-snug">{row.desc}</div>
+                            </div>
+                        ))}
+                    </div>
                 </div>
             </div>
 
