@@ -1783,9 +1783,9 @@ for (let i = 0; i < redisBatch.length; i += 20) {
 
 ## 📊 Context Score (Alpha Engine) 백테스팅 인프라 & 실전 검증 결과
 
-> **조사 일시:** 2026-04-19 (토)
+> **조사 일시:** 2026-04-19 (토) / 최종 업데이트: 2026-04-20
 > **조사 범위:** Redis `cache:analysis:*` 998종목 라이브 데이터 + DynamoDB `signum-alpha-history` 19,078건 (67영업일)
-> **엔진 버전:** V4.6.0 (Vercel, 85종목 정밀) + Lambda-V8 (913종목 경량)
+> **엔진 버전:** V5.0.0 (Vercel SSoT, 프로덕션 배포 완료 2026-04-19)
 
 ### 1. 데이터 저장 파이프라인 (Data Pipeline)
 
@@ -1794,7 +1794,7 @@ for (let i = 0; i < redisBatch.length; i += 20) {
 | 계층 | 저장소 | 테이블/키 패턴 | 용도 | 데이터량 |
 |------|--------|----------------|------|----------|
 | **L1 (실시간)** | Redis (Upstash) | `cache:analysis:{TICKER}` | 실시간 Context Score + 지표 스냅샷 (TTL 3일) | **998종목** |
-| **L2 (일별 이력)** | DynamoDB | `signum-alpha-history` | 일별 alphaScore + OHLCV 이력 | **19,078건** (1,151종목 × 67일) |
+| **L2 (일별 이력)** | DynamoDB | `signum-alpha-history` | 일별 alphaScore + 입력 벡터 + close 이력 | **19,078건** (1,151종목 × 67일), close 99.4% |
 | **L3 (추천 검증)** | Supabase | `alpha_track_records` | T+3 추천 종목 WIN/LOSS 판정 | 테이블 exists, 주입 파이프라인 대기 중 |
 | **L3-B (보조)** | DynamoDB | `signum-backtest` | Score 70+ 단순 기록 | 테이블 exists, 주입 파이프라인 대기 중 |
 
@@ -1811,10 +1811,15 @@ squeezeScore, iv, ivSkew, impliedMovePct, zeroDtePct, impliedMoveDir
 
 #### L2: DynamoDB `signum-alpha-history` 스키마
 ```
-ticker, date, open, high, low, close, volume, vwap, changePct, gex, alphaScore, pcr, qualityTier
+[기본] ticker, date, alphaScore, qualityTier, changePct, gex, pcr, price, close
+[Pillar] grade, momentum, structure, flow, regime, catalyst, engineVersion
+[V5.0 입력 벡터] rsi14, atmIv, darkPoolPct, whaleIndex, squeezeScore, relVol,
+                 shortVolPct, callWall, putFloor, gammaFlipLevel, return3D,
+                 netPremium, ivSkew, impliedMovePct
 ```
-> **주입 경로:** Lambda `signum-harvest` → DynamoDB 직접 Write
-> **⚠️ 데이터 품질 이슈:** 2026-03-10 이후 Lambda 업데이트로 `close`, `vwap` 필드가 NULL로 저장되는 레코드 다수 발생. `changePct`와 `alphaScore`는 정상. Lambda의 DynamoDB Write 로직에서 close 필드 매핑 점검 필요.
+> **주입 경로:** Vercel SSR `recordAlphaDaily()` → DynamoDB 직접 Write (3개 경로: watchlist/portfolio/dashboard)
+> **V5.0 입력 벡터:** 2026-04-19부터 저장 시작. 향후 V6.0 튜닝 시 과거 데이터를 새 엔진으로 재계산 가능.
+> **✅ close 백필 완료 (2026-04-19):** 7,779건의 close NULL 레코드를 `price` 필드에서 복구. close 커버리지: 51.6% → **99.4%** (17,623/17,729건). 3-day forward return 계산 가능.
 
 #### L3: Supabase `alpha_track_records` 스키마
 ```
@@ -1903,8 +1908,9 @@ Score ↑  →  3D 가격 변동 ↑
 | 60+ 커버리지 | 430종목 | **527종목** | +22% |
 | 60+ 적중률 | 85.1% | **86.3%** | +1.2%p |
 
-#### 3-1. 즉시 수정 필요 (데이터 품질)
-- [ ] **Lambda `signum-harvest` DynamoDB Write 시 `close` 필드 NULL 버그 수정**: 2026-03-10 이후 `close`, `vwap`가 NULL로 저장됨. Lambda 코드의 DynamoDB putItem 매핑에서 close 필드 소스 확인 필요
+#### 3-1. 데이터 품질 이슈
+- [x] **close 필드 NULL 백필 완료 (2026-04-19)**: 7,779건 복구 → close 커버리지 99.4%. `price` 필드에서 복사 방식 사용.
+- [ ] **Lambda `signum-harvest` DynamoDB Write 시 `close` 필드 직접 저장 수정**: Vercel SSR이 `price`로 저장하지만 Lambda는 별도 `close` 필드 사용. Lambda에서 `close = price`로 명시 매핑 필요.
 - [ ] **Pillar 상세 점수 직렬화 누락**: Redis `cache:analysis:*`의 `alphaSnapshot.pillars` 객체 내부 값이 `undefined`. `analysisCache.ts`의 `AnalysisCacheEntry.alphaSnapshot.pillars` 직렬화 경로 점검
 
 #### 3-2. Phase 1 (30일 내)
