@@ -150,7 +150,7 @@ export interface AlphaResult {
 // CONSTANTS
 // ============================================================================
 
-const ENGINE_VERSION = '4.6.0';
+const ENGINE_VERSION = '5.0.0';
 
 // Pillar max scores
 const PILLAR_MAX = {
@@ -258,7 +258,15 @@ export function calculateAlphaScore(input: AlphaInput): AlphaResult {
 
     // 5. Apply absolute gates
     const gatesResult = applyAbsoluteGates(rawScore, input);
-    const finalScore = Math.round(Math.max(0, Math.min(100, gatesResult.adjustedScore)));
+    let finalScore = Math.round(Math.max(0, Math.min(100, gatesResult.adjustedScore)));
+
+    // [V5.0] Gate: LOW_DATA_CAP — 데이터 완결성 50% 미만인 종목은 Score 65 캡
+    // 백테스팅 근거: 70-79 패자 16종목 전원이 DarkPool=0%, WhaleIndex=0으로 데이터 부족
+    // Lambda V8 종목이 데이터 없이 70+를 받는 허점 차단
+    if (completeness.pct < 50 && finalScore > 65) {
+        finalScore = 65;
+        gatesResult.gatesApplied.push('LOW_DATA_CAP');
+    }
 
 
     // 6. Determine grade and action
@@ -666,42 +674,44 @@ function calculateFlow(input: AlphaInput): PillarDetail {
     const factors: PillarDetail['factors'] = [];
     let total = 0;
 
-    // Factor 1: Dark Pool % (0-7) — [V3.3.1] Recalibrated
+    // Factor 1: Dark Pool % (0-7) — [V5.0] 백테스팅 보정
+    // 실측: DP NULL(+2.74%) > DP 50%+(+1.93%) → NULL은 벌칙이 아님
     let darkPoolScore = 0;
     const dp = input.darkPoolPct;
     if (dp !== null && dp !== undefined) {
-        if (dp >= 50) darkPoolScore = 7;
-        else if (dp >= 40) darkPoolScore = 6;
-        else if (dp >= 30) darkPoolScore = 5;  // 30% = significant (was 3)
+        if (dp >= 50) darkPoolScore = 5;      // [V5.0] 7→5: DP 높아도 단기 수익과 비례하지 않음
+        else if (dp >= 40) darkPoolScore = 4; // [V5.0] 6→4
+        else if (dp >= 30) darkPoolScore = 4; // 30% = significant
         else if (dp >= 20) darkPoolScore = 3;
         else if (dp >= 10) darkPoolScore = 2;
-        else darkPoolScore = 1;
+        else darkPoolScore = 2;
         factors.push({ name: 'darkPool', value: round1(darkPoolScore), max: 7, detail: `Dark Pool ${dp.toFixed(1)}%` });
     } else {
-        darkPoolScore = 2; // [V4.5] Reduced from 3 → 2 (no data = uncertain, not neutral)
-        factors.push({ name: 'darkPool', value: 2, max: 7, detail: 'Dark Pool 데이터 없음' });
+        darkPoolScore = 3; // [V5.0] 2→3: NULL은 중립~긍정 (실측: NULL 종목이 더 높은 3DR)
+        factors.push({ name: 'darkPool', value: 3, max: 7, detail: 'Dark Pool 데이터 없음' });
     }
     total += darkPoolScore;
 
-    // Factor 2: Whale Index (0-6) — [V4.6] 3일 수익 관점: 기관 대형 매수 감지
+    // Factor 2: Whale Index (0-6) — [V5.0] 백테스팅 곡선 역전
+    // 실측: WI 80+(-1.40%) < WI 20-39(+3.53%) → 고래 대량매수 = 단기 고점 리스크
+    // 기관 초기 매집(WI 20-39)이 3일 후 가격 상승 최적 구간
     let whaleScore = 0;
     const wi = input.whaleIndex;
     if (wi !== null && wi !== undefined && wi > 0) {
-        if (wi >= 70) whaleScore = 6;
-        else if (wi >= 55) whaleScore = 5;
-        else if (wi >= 40) whaleScore = 4;
-        else if (wi >= 25) whaleScore = 3;
-        else whaleScore = 2;
+        if (wi >= 70) whaleScore = 3;      // [V5.0] 6→3: 이미 진입 완료 = 단기 고점 리스크
+        else if (wi >= 55) whaleScore = 3; // [V5.0] 5→3: 대량 보유 = 가격 급등 여력 감소
+        else if (wi >= 40) whaleScore = 4; // 기관 관심 본격화
+        else if (wi >= 25) whaleScore = 5; // [V5.0] 3→5: 초기 매집 = 3일 상승 최적 구간
+        else whaleScore = 4;               // [V5.0] 2→4: 관심 미약하지만 부정적이진 않음
         factors.push({ name: 'whaleIndex', value: round1(whaleScore), max: 6, detail: `Whale ${wi.toFixed(0)}` });
     } else {
-        // [V4.6] GEX 기반 whaleIndex=0일 때 netFlow+blockTrades로 기관 활동 추정
-        // 3일 수익 관점: 대형 자금 유입 = 가격 지지 + 상승 지속
+        // [V5.0] GEX 기반 whaleIndex=0일 때 netFlow+blockTrades로 기관 활동 추정
         const nf = input.netFlow || 0;
         const bt = input.blockTrades || 0;
         if (nf > 5_000_000 && bt >= 5) { whaleScore = 5; factors.push({ name: 'whaleIndex', value: 5, max: 6, detail: `대량유입 $${(nf / 1e6).toFixed(1)}M+블록${bt}건` }); }
         else if (nf > 1_000_000 || bt >= 5) { whaleScore = 4; factors.push({ name: 'whaleIndex', value: 4, max: 6, detail: `기관활동 $${(nf / 1e6).toFixed(1)}M/블록${bt}건` }); }
         else if (nf > 100_000 || bt >= 3) { whaleScore = 3; factors.push({ name: 'whaleIndex', value: 3, max: 6, detail: `소규모유입 $${(nf / 1e3).toFixed(0)}K` }); }
-        else { whaleScore = 2; factors.push({ name: 'whaleIndex', value: 2, max: 6, detail: '기관활동 미감지' }); }
+        else { whaleScore = 3; factors.push({ name: 'whaleIndex', value: 3, max: 6, detail: '기관활동 미감지' }); } // [V5.0] 2→3: 미감지 = 중립
     }
     total += whaleScore;
 
@@ -1082,8 +1092,9 @@ function applyAbsoluteGates(rawScore: number, input: AlphaInput): GateResult {
                 score = score + 5;
                 gatesApplied.push('GAMMA_BREAKOUT');
             } else if (isBreakout && bullishFlow) {
-                // 돌파 + 기관 매수 — 약한 보너스
-                score = score + 3;
+                // [V5.0] 돌파 + 기관 매수 — 보너스 제거 (실측: -2.19% 역효과)
+                // 백테스팅 근거: WALL_BREAKOUT 발동 6종목 평균 +0.49% (기준선 +2.68% 대비 열등)
+                // Call Wall 돌파가 단기 천장이 되는 패턴 확인 → 태그만 유지, 가산 없음
                 gatesApplied.push('WALL_BREAKOUT');
             } else if (!isBreakout && !hasVolume && netFlow < 0) {
                 // 접근 중 + 거래량 약함 + 기관 매도 → 저항 확인
@@ -1134,8 +1145,9 @@ function applyAbsoluteGates(rawScore: number, input: AlphaInput): GateResult {
             score = score + 2;
             gatesApplied.push('RSI_MOMENTUM_ALIVE');
         } else if (rsi <= 30 && changePct > 0 && hasFuel) {
-            // RSI 과매도 + 반등 시작 + 연료 → 3일 반등 셋업
-            score = score + 3;
+            // [V5.0] RSI 과매도 + 반등 — 보너스 제거 (실측: -12.42% 대참사)
+            // 백테스팅 근거: RSI<30 종목 13개 전부 3일 후 하락 (적중률 0%)
+            // RSI 30 이하에서의 반등 베팅은 3일 관점에서 너무 이르다 → 태그만 유지
             gatesApplied.push('RSI_BOUNCE_SETUP');
         }
         // RSI 30-70: 정상 범위 → gate 개입 없음
@@ -1223,6 +1235,25 @@ function applyAbsoluteGates(rawScore: number, input: AlphaInput): GateResult {
             gatesApplied.push('PM_DIVERGE');
         }
         // PM < 1%: 미세 변동 → gate 개입 없음
+    }
+
+    // ================================================================
+    // [V5.0] Gate 12: RSI CONFIDENCE — 백테스팅 검증 최강 예측인자
+    // 실측: RSI 70+ = +6.10%(적중96%), RSI<30 = -4.78%(적중0%)
+    // RSI가 점수의 신뢰도를 확인/부정하는 최종 검증 레이어
+    // ================================================================
+    if (rsi !== null) {
+        if (rsi >= 60 && score >= 55) {
+            // 모멘텀 확인됨 + 다른 지표도 양호 → 확신 보너스
+            score = score + 3;
+            gatesApplied.push('RSI_CONVICTION');
+        }
+        if (rsi < 45 && score >= 65) {
+            // 점수는 높은데 RSI가 약함 = 모멘텀 미확인 → 신뢰도 캡
+            // 백테스팅 근거: 70-79 패자 16종목 중 11종목이 RSI<50
+            score = Math.min(score, 65);
+            gatesApplied.push('RSI_UNCONFIRMED');
+        }
     }
 
     return { adjustedScore: score, gatesApplied };

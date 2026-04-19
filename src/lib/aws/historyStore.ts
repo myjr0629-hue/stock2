@@ -125,7 +125,7 @@ export interface AlphaHistoryItem {
     flow?: number;           // 0-25
     regime?: number;         // 0-15
     catalyst?: number;       // 0-10
-    engineVersion?: string;  // '4.6.0'
+    engineVersion?: string;  // '5.0.0' (was '4.6.0')
     price?: number;
 }
 
