@@ -99,23 +99,21 @@ exports.handler = async (event) => {
   const results = { analyst: 0, earnings: 0, forward: 0 };
 
   // ═══════════════════════════════════════════
-  // Step 1: FMP Analyst Grades + Price Target + Forward Estimates + Earnings Surprise
-  // 4 parallel API calls per ticker, batch 5, sleep 3s
-  // Rate: 200 req/min (67% of 300 limit)
+  // Step 1: FMP Analyst Grades + Price Target + Forward Estimates
+  // 3 parallel API calls per ticker, batch 5, sleep 3s
+  // Rate: 225 req/min (75% of 300 limit)
   // ═══════════════════════════════════════════
   const forwardMap = {};  // ticker → { eps, revenue, year }
-  const surpriseMap = {}; // ticker → { actualEps, estimatedEps, surpriseEps, surprisePct, date }
 
-  console.log('Step 1: FMP 4-API collection for ' + UNIVERSE.length + ' tickers...');
+  console.log('Step 1: FMP 3-API collection for ' + UNIVERSE.length + ' tickers...');
   for (let i = 0; i < UNIVERSE.length; i += 5) {
     const batch = UNIVERSE.slice(i, i + 5);
     await Promise.all(batch.map(async (ticker) => {
       try {
-        const [gradeData, targetData, forwardData, surpriseData] = await Promise.all([
+        const [gradeData, targetData, forwardData] = await Promise.all([
           httpsGet('https://financialmodelingprep.com/stable/grades-consensus?symbol=' + ticker + '&apikey=' + FMP_KEY, 5000).catch(() => null),
           httpsGet('https://financialmodelingprep.com/stable/price-target-consensus?symbol=' + ticker + '&apikey=' + FMP_KEY, 5000).catch(() => null),
-          httpsGet('https://financialmodelingprep.com/stable/analyst-estimates?symbol=' + ticker + '&period=annual&apikey=' + FMP_KEY, 5000).catch(() => null),
-          httpsGet('https://financialmodelingprep.com/api/v3/earnings-surprises/' + ticker + '?apikey=' + FMP_KEY, 5000).catch(() => null)
+          httpsGet('https://financialmodelingprep.com/stable/analyst-estimates?symbol=' + ticker + '&period=annual&apikey=' + FMP_KEY, 5000).catch(() => null)
         ]);
 
         // ── Analyst Grade ──
@@ -136,22 +134,6 @@ exports.handler = async (event) => {
           const nextYearData = [...forwardData].reverse().find(f => f.date && f.date.slice(0, 4) > currentYearStr);
           if (nextYearData && nextYearData.epsAvg !== undefined && nextYearData.revenueAvg) {
             forwardMap[ticker] = { eps: nextYearData.epsAvg, revenue: nextYearData.revenueAvg, year: nextYearData.date.slice(0, 4) };
-          }
-        }
-
-        // ── Earnings Surprise (most recent quarter) ──
-        if (Array.isArray(surpriseData) && surpriseData.length > 0) {
-          const s = surpriseData[0];
-          if (s.actualEarningResult != null && s.estimatedEarning != null) {
-            surpriseMap[ticker] = {
-              actualEps: s.actualEarningResult,
-              estimatedEps: s.estimatedEarning,
-              surpriseEps: Number((s.actualEarningResult - s.estimatedEarning).toFixed(3)),
-              surprisePct: s.estimatedEarning !== 0
-                ? Number(((s.actualEarningResult - s.estimatedEarning) / Math.abs(s.estimatedEarning) * 100).toFixed(1))
-                : 0,
-              date: s.date || null
-            };
           }
         }
 
@@ -176,7 +158,7 @@ exports.handler = async (event) => {
     // Sleep 3s per batch (5 tickers × 3 APIs = 15 calls) — 225 req/min safe
     await new Promise(r => setTimeout(r, 3000));
   }
-  console.log('Step 1 done: analyst=' + results.analyst + '/' + UNIVERSE.length + ', forward=' + Object.keys(forwardMap).length + ', surprise=' + Object.keys(surpriseMap).length);
+  console.log('Step 1 done: analyst=' + results.analyst + '/' + UNIVERSE.length + ', forward=' + Object.keys(forwardMap).length);
 
   // ═══════════════════════════════════════════
   // Step 2: FMP Earnings Calendar (1 API call)
@@ -260,7 +242,6 @@ exports.handler = async (event) => {
 
       // Build EARNINGS record
       const daysUntil = cal ? Math.ceil((new Date(cal.date).getTime() - new Date(today).getTime()) / 86400000) : null;
-      const surp = surpriseMap[ticker] || null;
       const item = {
         pattern: 'EARNINGS:' + ticker,
         timestamp: Date.now(),
@@ -270,7 +251,7 @@ exports.handler = async (event) => {
         epsEstimate: cal ? (cal.epsEstimated || null) : null,
         quarter: null,
         year: null,
-        hour: cal ? (cal.time || null) : null,
+        hour: null,
         // Forward fields (from analyst-estimates)
         forwardEps: fw.eps || null,
         forwardRevenue: fw.revenue || null,
@@ -280,8 +261,6 @@ exports.handler = async (event) => {
         forwardEpsRevisionDate: revisionDate,
         forwardRevRevision: revisionRev,
         forwardRevRevisionDate: revRevisionDate,
-        // Earnings Surprise (most recent quarter)
-        lastSurprise: surp,
       };
 
       await client.send(new PutCommand({ TableName: TABLE, Item: item })).catch(() => {});

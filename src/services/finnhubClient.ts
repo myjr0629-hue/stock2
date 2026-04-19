@@ -150,3 +150,24 @@ export async function getPriceTarget(symbol: string): Promise<PriceTarget | null
     return fetchFinnhub<PriceTarget>('/stock/price-target', { symbol });
 }
 
+/**
+ * Get most recent earnings surprise (actual vs estimate)
+ * Returns the latest quarter's Beat/Miss data
+ * Data changes once per quarter → safe to cache 24h
+ */
+export interface EarningsSurprise {
+    actual: number;
+    estimate: number;
+    surprise: number;
+    surprisePercent: number;
+    period: string;
+    symbol: string;
+}
+
+export async function getEarningsSurprise(symbol: string): Promise<EarningsSurprise | null> {
+    const data = await fetchFinnhub<EarningsSurprise[]>('/stock/earnings', { symbol });
+    if (!data || data.length === 0) return null;
+    const latest = data[0]; // Most recent quarter
+    if (latest.actual == null || latest.estimate == null) return null;
+    return latest;
+}

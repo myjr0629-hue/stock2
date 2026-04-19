@@ -642,6 +642,26 @@ export async function GET(request: NextRequest) {
                     }
                 } catch { /* DynamoDB unavailable */ }
             }
+            // [V6.0] Earnings surprise + hour enrichment for TIER 1 cache
+            if (cachedData.earnings && !cachedData.earnings.lastSurprise) {
+                try {
+                    const { getEarningsSurprise, getEarningsCalendar } = await import('@/services/finnhubClient');
+                    const [surprise, cal] = await Promise.all([
+                        getEarningsSurprise(ticker).catch(() => null),
+                        !cachedData.earnings.hourLabel ? getEarningsCalendar(ticker).catch(() => []) : Promise.resolve([])
+                    ]);
+                    const updates: any = {};
+                    if (surprise) {
+                        updates.lastSurprise = { actualEps: surprise.actual, estimatedEps: surprise.estimate, surpriseEps: Number(surprise.surprise.toFixed(3)), surprisePct: Number(surprise.surprisePercent.toFixed(1)), date: surprise.period };
+                    }
+                    if (!cachedData.earnings.hourLabel && Array.isArray(cal) && cal.length > 0) {
+                        const today = new Date(); today.setHours(0, 0, 0, 0);
+                        const upcoming = cal.sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime()).find((e: any) => new Date(e.date) >= today);
+                        if (upcoming?.hour) updates.hourLabel = upcoming.hour;
+                    }
+                    if (Object.keys(updates).length > 0) cachedData.earnings = { ...cachedData.earnings, ...updates };
+                } catch { /* Finnhub unavailable */ }
+            }
 
             return jsonResponse({ ...cachedData, overview: resolvedOverview || null, _source: 'cache', _ageMs: ageMs });
         }
@@ -770,6 +790,27 @@ export async function GET(request: NextRequest) {
                             };
                         }
                     } catch { /* DynamoDB unavailable */ }
+                }
+
+                // [V6.0] Earnings surprise + hour enrichment for TIER 1.5
+                if ((dynData as any).earnings && !(dynData as any).earnings.lastSurprise) {
+                    try {
+                        const { getEarningsSurprise, getEarningsCalendar } = await import('@/services/finnhubClient');
+                        const [surprise, cal] = await Promise.all([
+                            getEarningsSurprise(ticker).catch(() => null),
+                            !(dynData as any).earnings.hourLabel ? getEarningsCalendar(ticker).catch(() => []) : Promise.resolve([])
+                        ]);
+                        const updates: any = {};
+                        if (surprise) {
+                            updates.lastSurprise = { actualEps: surprise.actual, estimatedEps: surprise.estimate, surpriseEps: Number(surprise.surprise.toFixed(3)), surprisePct: Number(surprise.surprisePercent.toFixed(1)), date: surprise.period };
+                        }
+                        if (!(dynData as any).earnings.hourLabel && Array.isArray(cal) && cal.length > 0) {
+                            const today = new Date(); today.setHours(0, 0, 0, 0);
+                            const upcoming = cal.sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime()).find((e: any) => new Date(e.date) >= today);
+                            if (upcoming?.hour) updates.hourLabel = upcoming.hour;
+                        }
+                        if (Object.keys(updates).length > 0) (dynData as any).earnings = { ...(dynData as any).earnings, ...updates };
+                    } catch { /* Finnhub unavailable */ }
                 }
 
                 await enrichExpiration(dynData);
@@ -1024,12 +1065,29 @@ async function tryDynamoFast(ticker: string): Promise<any | null> {
                     } catch { /* Finnhub unavailable — keep DynamoDB data */ }
                 }
 
+                // [V6.0] Finnhub earnings surprise enrichment — 1 API call, cached 1h
+                // Provides Beat/Miss + surprise% for the most recent quarter
+                let lastSurprise = null;
+                try {
+                    const { getEarningsSurprise } = await import('@/services/finnhubClient');
+                    const surprise = await getEarningsSurprise(ticker);
+                    if (surprise) {
+                        lastSurprise = {
+                            actualEps: surprise.actual,
+                            estimatedEps: surprise.estimate,
+                            surpriseEps: Number(surprise.surprise.toFixed(3)),
+                            surprisePct: Number(surprise.surprisePercent.toFixed(1)),
+                            date: surprise.period
+                        };
+                    }
+                } catch { /* Finnhub unavailable — skip surprise */ }
+
                 // [FIX] daysLabel: nextDate가 없으면 'TBD', 있으면 D-count 계산
                 const days = daysUntil ?? null;
                 const daysLabel = days === null ? 'TBD' : days < 0 ? `D+${Math.abs(days)}` : days === 0 ? 'today' : `D-${days}`;
                 const color = days !== null && days <= 3 && days >= 0 ? 'text-rose-400' : days !== null && days <= 7 && days >= 0 ? 'text-amber-400' : 'text-slate-400';
 
-                earningsCard = { ticker, nextEarningsDate: nextDate, daysUntilEarnings: days ?? 0, daysLabel, epsEstimate, quarter, year, hourLabel: hour, color, hasData: true, forwardEps: e.forwardEps || null, forwardRevenue: e.forwardRevenue || null, forwardYear: e.forwardYear || null, forwardEpsRevision: e.forwardEpsRevision ?? null, forwardEpsRevisionDate: e.forwardEpsRevisionDate ?? null, forwardRevRevision: e.forwardRevRevision ?? null, forwardRevRevisionDate: e.forwardRevRevisionDate ?? null, lastSurprise: e.lastSurprise || null };
+                earningsCard = { ticker, nextEarningsDate: nextDate, daysUntilEarnings: days ?? 0, daysLabel, epsEstimate, quarter, year, hourLabel: hour, color, hasData: true, forwardEps: e.forwardEps || null, forwardRevenue: e.forwardRevenue || null, forwardYear: e.forwardYear || null, forwardEpsRevision: e.forwardEpsRevision ?? null, forwardEpsRevisionDate: e.forwardEpsRevisionDate ?? null, forwardRevRevision: e.forwardRevRevision ?? null, forwardRevRevisionDate: e.forwardRevRevisionDate ?? null, lastSurprise };
             }
 
             let relatedCard = null;
