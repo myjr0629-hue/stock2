@@ -11,15 +11,13 @@ export const revalidate = 0;
 function calcChangeFromSnapshot(tickerData: any): { price: number; change: number, prevClose: number } {
     const currentPrice = tickerData?.lastTrade?.p || tickerData?.day?.c || 0;
     
-    // [V12 ABSOLUTE FIX] NEVER trust Polygon's todaysChangePerc (it causes massive +6.54% drift bugs).
-    // Instead, calculate strictly from prevDay.c.
-    // WARNING: During Pre-Market, prevDay.c is from two days ago. So if we are in Pre-Market, we MUST return 0
-    // and let the frontend's WebSocket (EC2 Hub) provide the correct live Pre-Market percentage.
-    // How do we guess Pre-Market? If todaysChangePerc is exactly 0, or if day.v (today's volume) is extremely low.
-    const isPreMarketGuess = tickerData?.todaysChangePerc === 0 || !tickerData?.day?.v;
+    // [V13 FIX] Pre-Market detection: only when today's trading data is completely absent.
+    // todaysChangePerc===0 happens BOTH in pre-market AND after-hours/weekends, so it cannot be used.
+    // True pre-market = no day.o (today's open) AND no day.v (today's volume).
+    const isPreMarket = !tickerData?.day?.o && !tickerData?.day?.v;
     const prevClose = tickerData?.prevDay?.c || 0;
 
-    if (isPreMarketGuess) {
+    if (isPreMarket) {
         return { price: Math.round(currentPrice * 100) / 100, change: 0, prevClose };
     }
 

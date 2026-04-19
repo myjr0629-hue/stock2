@@ -292,7 +292,7 @@ async function getVolatilityFromDynamoGex(ticker: string): Promise<any | null> {
         return {
             regime, regimeScore, gammaRegime: gex.gammaRegime,
             gex: Math.round(gex.gex), gexLabel: isShortGamma ? 'SHORT' : 'LONG',
-            iv: 0, flipDistance: Math.round(flipDist * 10) / 10, flipLevel,
+            iv: (gex as any).atmIv || 0, flipDistance: Math.round(flipDist * 10) / 10, flipLevel,
             isAboveFlip: flipDist > 0, squeezeScore: 0, squeezeRisk: 'LOW',
             gammaConcentration: 0, gammaConcentrationLabel: 'NORMAL',
             pcr: gex.pcr, _ts: Date.now(),
