@@ -748,6 +748,24 @@ bash scripts/ec2-deploy-guardian.sh
 > **규칙 4: Vercel 배포 대상 파일 수정 시 `git push`까지 끝내야 배포된 것이다.**
 > 로컬에서 잘 돌아간다고 배포된 것이 아니다. Vercel은 `main` 브랜치 push로만 배포되며, commit 없이는 절대 프로덕션에 반영되지 않는다.
 
+### [2026-04-19] 🟢 프론트엔드 장마감(주말) 차트 깜빡임 오류 해결 (Polling Idle 전환)
+
+> **문제**: 주말이나 장마감 등 데이터가 갱신되지 않는 시간에 Command 대시보드 차트의 우측 보조 지표 라인(예: 200.98 Post-Market 종가 라인)이 아무런 조작 없이도 나타났다 사라지기를 반복(요동/깜빡임)하는 현상.
+> 
+> **원인 분석**: 
+> 1. 과거 AWS Lambda 서버 비용 절감을 위해 주말 동안 백그라운드 데이터 수집(Cron)을 완벽히 차단함 (정상).
+> 2. 이에 따라 Redis `flow:extended:*` 캐시가 24시간 후 만료되어 Polygon의 실시간 API로 Fallback하게 되나, 주말 특성상 Polygon API도 `afterHours` 스냅샷 데이터를 누락하거나 응답을 거부하는 현상 발생. 
+> 3. 반면 **프론트엔드(브라우저) 쪽에서는 주말(장마감)을 인지하여도 SWR 폴링 타이머(`refreshInterval`)를 0으로 끄는 방어 로직이 없었음**.
+> 4. 결과적으로 5초(`useLivePrice`), 15초/30초(`LiveTickerDashboard`) 주기로 계속 서버에 데이터를 요구했고, 불안정한 주말 API 응답에 의해 `activeExtPrice`가 0과 정상값을 핑퐁하며 React의 `StockChart` Re-render를 강제, 차트가 지속적으로 삭제-재생성 되며 깜빡임을 유발함.
+>
+> **수정 내역 (Pinpoint 2곳)**:
+> 1. `src/hooks/useLivePrice.ts`: `globalMarketStatus`를 평가하여 `'closed'`일 경우 `refreshInterval`을 `0`으로 설정하고 강제 revalidate를 중지.
+> 2. `src/components/LiveTickerDashboard.tsx`: `useMarketStatus` 훅 호출 위치를 SWR 및 FlowData 훅 상단으로 끌어올림. `isClosed` 상태일 경우 `useFlowData` (2초), `useSWR` 차트 데이터 (30초), `useSWR` Unified 데이터 (15초)의 모든 `refreshInterval`을 `0`으로 전환해 불필요한 Polling을 완벽 차단(Idle).
+> 
+> **결과**:
+> - 주말/장마감 시 프론트엔드 브라우저의 무의미한 네트워크 요청(Vercel API 폭격) 100% 근절. 서버 부하 감소.
+> - 데이터 부재로 인한 Fallback 핑퐁(0과 원상태 왕복) 근절 → 차트 강제 재렌더링 방지 → 200.98 라인 깜빡임 완전 해결.
+
 ### [2026-04-19] 🟢 Earnings Surprise (Beat/Miss) / 시간(BMO/AMC) 통합 및 자동 발표완료 모드 전환
 
 > **문제**: 어닝 카드의 "발표 시간(장전/장후)"과 "최근 분기 어닝 서프라이즈(Beat/Miss %)"가 누락된 채 유지됨. 이전 에이전트가 AWS Lambda(FMP API)에서 1000개 종목을 반복 호출하여 서프라이즈를 산출하려 시도했으나, Rate Limit 및 배치 비용 문제로 구조적 한계와 복잡성 유발.

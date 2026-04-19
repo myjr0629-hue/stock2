@@ -32,16 +32,18 @@ export function useLivePrice(ticker: string | null, globalMarketStatus: string =
     const tickerArray = ticker ? [ticker] : undefined;
     const { connected: wsConnected, getPrice: wsGetPrice, prices: wsPrices } = useRealtimeData(tickerArray);
 
+    const isGlobalClosed = globalMarketStatus.toLowerCase() === 'closed';
+
     // [POLL] SWR fallback — slow polling as backup when WS provides real-time data
     const { data } = useSWR(
         ticker ? `/api/live/quotes?symbols=${ticker}` : null,
         fetcher,
         {
-            // [WS] Never slow down polling — WS is additive overlay only
-            refreshInterval,
+            // [WS] Never slow down polling if open — WS is additive overlay only
+            refreshInterval: isGlobalClosed ? 0 : refreshInterval,
             dedupingInterval: 3000,
-            revalidateOnFocus: true,
-            revalidateOnReconnect: true,
+            revalidateOnFocus: !isGlobalClosed,
+            revalidateOnReconnect: !isGlobalClosed,
             errorRetryCount: 2,
             keepPreviousData: true,
         }

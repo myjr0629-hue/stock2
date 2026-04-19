@@ -731,12 +731,15 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
             changePercent: initialStockData?.changePercent || initialUnifiedData?._dynamoPrice?.changePct || 0
         };
     }, [initialStockData, initialUnifiedData]);
+
+    // [S-45] SSOT Integration (Moved up to control polling)
+    const { status: marketStatus } = useMarketStatus();
+    const isClosed = marketStatus.isHoliday || marketStatus.market === 'closed';
+
     const { data: _swrQuote, isValidating: quoteLoading } = useFlowData(ticker, {
-        refreshInterval: 2000, // [UX] Near-real-time price feel
+        refreshInterval: isClosed ? 0 : 2000, // [UX] Near-real-time price feel
         skipAlpha: true, // [SSOT FIX] Do NOT recalculate Alpha in real-time. Trust the SSR unified cache (Sector Grid SSOT).
     });
-    // [S-45] SSOT Integration (Moved up to fix useLivePrice dependency)
-    const { status: marketStatus } = useMarketStatus();
     // [PERF] 5s real-time price polling (separate from heavy 60s ticker API)
     const livePrice = useLivePrice(ticker, marketStatus.market);
     // [AWS Phase 3] WebSocket real-time price/GEX from EC2 Hub
@@ -752,7 +755,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
         (url: string) => fetch(url).then(r => r.json()),
         {
             fallbackData: initialChartData ? { data: initialChartData } : undefined,
-            refreshInterval: 30_000,     // 30s polling (same as old setInterval)
+            refreshInterval: isClosed ? 0 : 30_000,     // 30s polling (same as old setInterval)
             revalidateOnFocus: true,     // Refresh when user returns to tab
             dedupingInterval: 10_000,    // Prevent duplicate fetches within 10s
         }
@@ -911,7 +914,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
     // [COLD-START FIX] Dynamic polling: 3s when data incomplete → 15s when complete
     // This ensures cold-start tickers auto-populate within seconds of Lambda completion
     const isColdStart = !structure && !initialUnifiedData?.structure;
-    const dynamicRefreshInterval = isColdStart ? 3_000 : 15_000;
+    const dynamicRefreshInterval = isClosed ? 0 : (isColdStart ? 3_000 : 15_000);
 
     const { data: unifiedData, error: unifiedError } = useSWR(
         ticker ? `/api/command/unified?t=${ticker}&lang=${locale}` : null,
