@@ -103,7 +103,7 @@ export function recordFlowSnapshot(
 }
 
 // ====== Alpha Recording ======
-// Called from: SSR calculation endpoints (watchlist, command, intel) after V4.6 Alpha Score calculation
+// Called from: SSR calculation endpoints (watchlist, command, intel) after V5.0 Alpha Score calculation
 export function recordAlphaDaily(
     ticker: string,
     data: {
@@ -121,6 +121,21 @@ export function recordAlphaDaily(
         catalyst?: number;
         engineVersion?: string;
         price?: number;
+        // [V5.0] Full input vector — future engine re-calculation
+        rsi14?: number | null;
+        atmIv?: number | null;
+        darkPoolPct?: number | null;
+        whaleIndex?: number | null;
+        squeezeScore?: number | null;
+        relVol?: number | null;
+        shortVolPct?: number | null;
+        callWall?: number | null;
+        putFloor?: number | null;
+        gammaFlipLevel?: number | null;
+        return3D?: number | null;
+        netPremium?: number | null;
+        ivSkew?: number | null;
+        impliedMovePct?: number | null;
     }
 ): void {
     if (!ticker) return;
@@ -134,7 +149,7 @@ export function recordAlphaDaily(
         changePct: data.changePct ?? 0,
         gex: data.gex ?? 0,
         pcr: data.pcr ?? 0,
-        // Pillar breakdown (only present when SSR V4.6 calculates)
+        // Pillar breakdown (only present when SSR V5.0 calculates)
         grade: data.grade,
         momentum: data.momentum,
         structure: data.structure,
@@ -143,6 +158,21 @@ export function recordAlphaDaily(
         catalyst: data.catalyst,
         engineVersion: data.engineVersion,
         price: data.price,
+        // [V5.0] Full input vector for future re-calculation
+        rsi14: data.rsi14 ?? null,
+        atmIv: data.atmIv ?? null,
+        darkPoolPct: data.darkPoolPct ?? null,
+        whaleIndex: data.whaleIndex ?? null,
+        squeezeScore: data.squeezeScore ?? null,
+        relVol: data.relVol ?? null,
+        shortVolPct: data.shortVolPct ?? null,
+        callWall: data.callWall ?? null,
+        putFloor: data.putFloor ?? null,
+        gammaFlipLevel: data.gammaFlipLevel ?? null,
+        return3D: data.return3D ?? null,
+        netPremium: data.netPremium ?? null,
+        ivSkew: data.ivSkew ?? null,
+        impliedMovePct: data.impliedMovePct ?? null,
     };
 
     saveAlphaDaily(item).catch(() => { });

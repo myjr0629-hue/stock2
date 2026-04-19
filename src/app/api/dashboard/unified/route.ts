@@ -464,6 +464,21 @@ async function buildResponseFromResults(
                     catalyst: alphaResult.pillars.catalyst.score,
                     engineVersion: alphaResult.engineVersion,
                     price: data.underlyingPrice || 0,
+                    // [V5.0] Full input vector for future re-calculation
+                    rsi14: data.rsi ?? null,
+                    atmIv: data.atmIv ?? null,
+                    darkPoolPct: data.darkPoolPct ?? null,
+                    whaleIndex: whaleIndex ?? null,
+                    squeezeScore: data.squeezeScore ?? null,
+                    relVol: data.relVol ?? null,
+                    shortVolPct: data.shortVolPct ?? null,
+                    callWall: data.callWall ?? null,
+                    putFloor: data.putFloor ?? null,
+                    gammaFlipLevel: data.gammaFlipLevel ?? null,
+                    return3D: data.return3d ?? null,
+                    netPremium: data.netPremium ?? null,
+                    ivSkew: data.ivSkew ?? null,
+                    impliedMovePct: data.impliedMovePct ?? null,
                 });
             } catch (e) {
                 console.error(`[Dashboard V3 SWR] Alpha failed for ${ticker}:`, e);

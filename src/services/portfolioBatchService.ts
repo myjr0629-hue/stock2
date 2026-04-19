@@ -391,6 +391,19 @@ export async function processPortfolioBatch(tickers: string[], mode: 'full' | 'p
                 catalyst: alphaResult.pillars.catalyst.score,
                 engineVersion: alphaResult.engineVersion,
                 price: currentPrice,
+                // [V5.0] Full input vector for future re-calculation
+                rsi14: stockData.rsi ?? null,
+                atmIv: structureRes?.atmIv ?? null,
+                darkPoolPct: darkPoolPct ?? null,
+                whaleIndex: Math.round(whaleIndex),
+                squeezeScore: alphaSqueezeScore ?? null,
+                relVol: relVol ?? null,
+                shortVolPct: null,
+                callWall: alphaCallWall ?? null,
+                putFloor: alphaPutFloor ?? null,
+                gammaFlipLevel: alphaGammaFlip ?? null,
+                return3D: return3D ?? null,
+                netPremium: netPremium ?? null,
             });
 
             return fullObj;

@@ -125,8 +125,23 @@ export interface AlphaHistoryItem {
     flow?: number;           // 0-25
     regime?: number;         // 0-15
     catalyst?: number;       // 0-10
-    engineVersion?: string;  // '5.0.0' (was '4.6.0')
+    engineVersion?: string;  // '5.0.0'
     price?: number;
+    // [V5.0] Full input vector — enables future engine re-calculation (V6.0+)
+    rsi14?: number | null;
+    atmIv?: number | null;
+    darkPoolPct?: number | null;
+    whaleIndex?: number | null;
+    squeezeScore?: number | null;
+    relVol?: number | null;
+    shortVolPct?: number | null;
+    callWall?: number | null;
+    putFloor?: number | null;
+    gammaFlipLevel?: number | null;
+    return3D?: number | null;
+    netPremium?: number | null;
+    ivSkew?: number | null;
+    impliedMovePct?: number | null;
 }
 
 export async function saveAlphaDaily(data: AlphaHistoryItem): Promise<void> {
