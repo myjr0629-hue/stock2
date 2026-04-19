@@ -2007,9 +2007,18 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                     {earnDesc && <span className="text-[12px] font-jakarta text-white ml-0.5">{earnDesc}</span>}
                                 </div>
                                 {effectiveEarnings?.epsEstimate !== null && effectiveEarnings?.epsEstimate !== undefined && (
-                                    <div className="relative z-10 text-[12px] font-jakarta text-white mt-0.5">
-                                        {td('estEps')} <span className="font-bold text-white/90">${effectiveEarnings.epsEstimate.toFixed(2)}</span>
-                                        {effectiveEarnings?.quarter && effectiveEarnings?.year && <span className="text-white/40 ml-1">Q{effectiveEarnings.quarter} FY{effectiveEarnings.year}</span>}
+                                    <div className="relative z-10 text-[12px] font-jakarta text-slate-300 mt-0.5 flex items-center flex-wrap gap-x-2">
+                                        <span>{td('estEps')} <span className="font-bold text-white/90">${effectiveEarnings.epsEstimate.toFixed(2)}</span></span>
+                                        {effectiveEarnings?.quarter && effectiveEarnings?.year && <span className="text-slate-300">{`Q${effectiveEarnings.quarter} FY${effectiveEarnings.year}`}</span>}
+                                        {effectiveEarnings?.lastSurprise && (() => {
+                                            const s = effectiveEarnings.lastSurprise;
+                                            const isBeat = s.surpriseEps > 0;
+                                            return (
+                                                <span className={`font-bold ${isBeat ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                                    {isBeat ? 'Beat' : 'Miss'} {isBeat ? '+' : ''}{s.surprisePct.toFixed(1)}%
+                                                </span>
+                                            );
+                                        })()}
                                     </div>
                                 )}
                                 {((effectiveEarnings?.forwardEps !== undefined && effectiveEarnings?.forwardEps !== null) || (effectiveEarnings?.forwardRevenue !== undefined && effectiveEarnings?.forwardRevenue !== null)) ? (

@@ -1029,7 +1029,7 @@ async function tryDynamoFast(ticker: string): Promise<any | null> {
                 const daysLabel = days === null ? 'TBD' : days < 0 ? `D+${Math.abs(days)}` : days === 0 ? 'today' : `D-${days}`;
                 const color = days !== null && days <= 3 && days >= 0 ? 'text-rose-400' : days !== null && days <= 7 && days >= 0 ? 'text-amber-400' : 'text-slate-400';
 
-                earningsCard = { ticker, nextEarningsDate: nextDate, daysUntilEarnings: days ?? 0, daysLabel, epsEstimate, quarter, year, hourLabel: hour, color, hasData: true, forwardEps: e.forwardEps || null, forwardRevenue: e.forwardRevenue || null, forwardYear: e.forwardYear || null, forwardEpsRevision: e.forwardEpsRevision ?? null, forwardEpsRevisionDate: e.forwardEpsRevisionDate ?? null, forwardRevRevision: e.forwardRevRevision ?? null, forwardRevRevisionDate: e.forwardRevRevisionDate ?? null };
+                earningsCard = { ticker, nextEarningsDate: nextDate, daysUntilEarnings: days ?? 0, daysLabel, epsEstimate, quarter, year, hourLabel: hour, color, hasData: true, forwardEps: e.forwardEps || null, forwardRevenue: e.forwardRevenue || null, forwardYear: e.forwardYear || null, forwardEpsRevision: e.forwardEpsRevision ?? null, forwardEpsRevisionDate: e.forwardEpsRevisionDate ?? null, forwardRevRevision: e.forwardRevRevision ?? null, forwardRevRevisionDate: e.forwardRevRevisionDate ?? null, lastSurprise: e.lastSurprise || null };
             }
 
             let relatedCard = null;

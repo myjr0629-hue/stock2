@@ -650,6 +650,104 @@ bash scripts/ec2-deploy-guardian.sh
 
 ## 11. 작업 이력
 
+### [2026-04-19] 🔴🔴 프로덕션 배포 기능 소실 사고 — 에이전트 커밋 누락 (Root Cause Analysis)
+
+> **심각도**: CRITICAL — 사용자가 프로덕션에서 확인했다고 믿었던 기능 7건이 실제로는 한 번도 배포된 적 없었음
+> **최종 상태**: ✅ 전체 복구 완료 (2026-04-19 09:24 KST 확인)
+
+#### 소실된 기능 목록
+| 기능 | 파일 | 사고 당시 | 최종 복구 |
+|------|------|:---:|:---:|
+| Earnings Revision ▲▼ 표시 | `command/unified/route.ts` (+126줄) | ❌ Vercel 미배포 | ✅ 4/19 sync 커밋으로 배포 완료 |
+| Earnings 날짜 TBD→실제 날짜 | `command/unified/route.ts` | ❌ Vercel 미배포 | ✅ 4/19 sync 커밋으로 배포 완료 |
+| SMART FLOW 가이드 페이지 | `how-it-works/page.tsx` (+167줄) | ❌ Vercel 미배포 | ✅ 4/19 sync 커밋으로 배포 완료 |
+| CardTooltip 강화 (다국어) | `CardTooltip.tsx`, `messages/*.json` | ❌ Vercel 미배포 | ✅ 4/19 sync 커밋으로 배포 완료 |
+| Dark Pool ACCUMULATION 라벨 | `LiveTickerDashboard.tsx` (+70줄) | ❌ Vercel 미배포 | ✅ 4/19 sync 커밋으로 배포 완료 |
+| EC2 Flow Accumulator v3 | `ec2-flow-accumulator.js` (+543줄) | ✅ SCP로 4/17 배포 완료 | ✅ EC2 운영 중 (git 무관) |
+| Lambda harvest 수정 | `deploy-lambda-v7.js` (±212줄) | ✅ AWS CLI로 4/17 배포 완료 | ✅ Lambda 운영 중 (git 무관) |
+
+> **피해 범위**: Vercel 프론트엔드 5개 파일만 해당. AWS(EC2/Lambda)는 git과 독립적인 배포 경로(SCP/AWS CLI)를 사용하므로 커밋 누락의 영향을 받지 않았음.
+
+#### 근본 원인: 에이전트의 `git commit` 누락
+
+```
+[4/17 00:35] 커밋 40f4796a — Revision Tracking 등 → 푸시 → Vercel 배포 → 사용자 확인 ✅
+
+[4/17 16:56~17:04] 커밋 8e500e0f, 054b78d7, bf6bad00 — FMP 분리 + docs → 푸시
+
+  ┌──────────────────────────────────────────────────────────────────┐
+  │ ⚠️ 이 시점에서 이전 에이전트가 14개 파일을 수정함               │
+  │    그러나 git commit을 하지 않음! → Working Tree에만 존재        │
+  │                                                                  │
+  │    사용자는 `npm run dev` (localhost:3000)로 이 변경을 확인한 것  │
+  │    프로덕션(signumhq.com)에는 이 변경이 반영된 적 없음!          │
+  └──────────────────────────────────────────────────────────────────┘
+
+[4/18 11:28~] 커밋 aead59ae ~ f15fc9a5 — 워치리스트 에이전트 5건 커밋
+              ⚠️ 위의 미커밋 파일들은 Working Tree에 그대로 방치
+
+[4/19 01:12] 현재 에이전트가 git status에서 미커밋 14개 파일 발견
+             → 한꺼번에 sync 커밋 + 푸시
+             → scratch/test_watchlist_ssr.ts 포함 → Vercel 빌드 에러 💥
+
+[4/19 01:16] scratch 파일 삭제 (07c72663) → 재푸시 → Vercel 배포 성공 ✅
+```
+
+#### 왜 발견이 늦었는가 (3중 맹점)
+
+| 맹점 | 설명 |
+|------|------|
+| **1. 에이전트 커밋 누락** | 이전 에이전트가 파일 수정 후 `git commit`을 수행하지 않고 세션 종료 |
+| **2. localhost vs 프로덕션 혼동** | 사용자에게 `npm run dev` (localhost:3000)를 보여주고 "프로덕션 확인 완료"로 보고 |
+| **3. 후속 에이전트의 무관심** | 워치리스트 에이전트가 `git status`를 확인하지 않고 자기 파일만 커밋 |
+
+#### Vercel 배포 이력 대조 (증거)
+| 배포 ID | 커밋 | 내용 | 상태 |
+|---------|------|------|------|
+| 4ZujmTAog | `bf6bad0` | docs only | ✅ |
+| 8N38CM8DC | `aead59a` | SSR Fast-Track | ✅ |
+| 8di88ncn2 | `89338e8` | DB fallback Polygon fetch | ✅ |
+| 4bkrkhFwe | `b2a8be8` | DynamoDB fallback normalize | ✅ |
+| GkJneGRtv | `bd375f0` | docs: watchlist history | ✅ |
+| C9VeFHmRe | `f15fc9a` | self-healing sparkline | ✅ |
+
+> **`bf6bad0` → `aead59a` 사이에 Earnings/Guide/CardTooltip 관련 커밋이 단 1건도 없음.**
+> 이것이 증거: 이 파일들은 git에 커밋되지 않았으므로 Vercel 배포 파이프라인을 탄 적이 없다.
+
+#### 해결: 일괄 sync 커밋 + scratch 파일 제거
+
+```
+커밋 1e03dddf — sync: align local with production (14개 파일 일괄)
+커밋 07c72663 — fix: remove scratch test files breaking Vercel build
+```
+
+#### 복구 확인 (라이브)
+| 기능 | signumhq.com 확인 |
+|------|:---:|
+| Earnings Revision ▲148% | ✅ TSLA에서 정상 표시 |
+| Earnings 날짜 Apr 22 (D-4) | ✅ TBD 아닌 실제 날짜 |
+| SMART FLOW 가이드 | ✅ how-it-works에 완전 노출 |
+| CardTooltip 강화 | ✅ |
+| Dark Pool 64.5% ACCUMULATION | ✅ |
+
+#### 🔴 재발 방지 절대 규칙 (Mandatory Agent Protocol)
+
+> [!CAUTION]
+> **규칙 1: 에이전트는 파일을 수정한 후 반드시 `git add -A && git commit -m "설명" && git push`까지 완료해야 한다.**
+> Working Tree에 수정을 남겨두고 세션을 종료하면, 다음 에이전트가 해당 변경의 존재를 인지하지 못하고 자기 작업만 커밋하여 미커밋 변경이 영원히 배포되지 않는 사고가 발생한다.
+
+> [!CAUTION]
+> **규칙 2: 사용자에게 "프로덕션 확인" 요청 시 반드시 `signumhq.com` URL을 명시해야 한다.**
+> `npm run dev` (localhost)를 보여주고 "프로덕션 확인 완료"라고 보고하는 것은 허위 보고와 동일하다.
+
+> [!CAUTION]
+> **규칙 3: 세션 시작 시 반드시 `git status`를 확인하여 미커밋 파일이 있는지 점검해야 한다.**
+> 이전 에이전트의 미커밋 작업이 방치될 수 있으므로, 세션 시작의 첫 번째 행동은 Working Tree 상태 확인이다.
+
+> [!CAUTION]
+> **규칙 4: Vercel 배포 대상 파일 수정 시 `git push`까지 끝내야 배포된 것이다.**
+> 로컬에서 잘 돌아간다고 배포된 것이 아니다. Vercel은 `main` 브랜치 push로만 배포되며, commit 없이는 절대 프로덕션에 반영되지 않는다.
+
 ### [2026-04-18] 🟢 워치리스트 전면 성능 최적화 (SSR Fast-Track + Chunking + 구조 정규화 + 2-Phase Progressive)
 
 > **문제 (3건)**: 

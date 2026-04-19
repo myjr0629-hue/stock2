@@ -249,11 +249,21 @@ export function CommandSSRCards({ data, stockData, ticker }: CommandSSRCardsProp
                         <span className="text-lg font-black leading-none text-white">
                             {earningsDate ? new Date(earningsDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '--'}
                         </span>
+                        {earnings?.hourLabel && <span className="text-[12px] font-jakarta text-amber-400 font-bold">{earnings.hourLabel === 'bmo' ? 'BMO' : earnings.hourLabel === 'amc' ? 'AMC' : earnings.hourLabel === 'dmh' ? 'DMH' : earnings.hourLabel}</span>}
                     </div>
                     {earnings?.epsEstimate !== null && earnings?.epsEstimate !== undefined && (
-                        <div className="text-[12px] font-jakarta text-slate-300 mt-1 flex items-center">
-                            Est EPS <span className="font-bold text-white/90 ml-1.5">${earnings.epsEstimate.toFixed(2)}</span>
-                            {earnings?.quarter && earnings?.year && <span className="hidden xl:inline text-white/40 ml-1.5">Q{earnings.quarter} FY{earnings.year}</span>}
+                        <div className="text-[12px] font-jakarta text-slate-300 mt-1 flex items-center flex-wrap gap-x-2">
+                            <span>Est EPS <span className="font-bold text-white/90">${earnings.epsEstimate.toFixed(2)}</span></span>
+                            {earnings?.quarter && earnings?.year && <span className="hidden xl:inline text-slate-300">{`Q${earnings.quarter} FY${earnings.year}`}</span>}
+                            {earnings?.lastSurprise && (() => {
+                                const s = earnings.lastSurprise;
+                                const isBeat = s.surpriseEps > 0;
+                                return (
+                                    <span className={`font-bold ${isBeat ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                        {isBeat ? 'Beat' : 'Miss'} {isBeat ? '+' : ''}{s.surprisePct.toFixed(1)}%
+                                    </span>
+                                );
+                            })()}
                         </div>
                     )}
                     {((earnings?.forwardEps !== undefined && earnings?.forwardEps !== null) || (earnings?.forwardRevenue !== undefined && earnings?.forwardRevenue !== null)) ? (
