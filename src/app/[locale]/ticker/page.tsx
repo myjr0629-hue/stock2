@@ -180,6 +180,13 @@ export default async function TickerPage({ params, searchParams }: Props) {
                 if (ac.whaleIndex !== undefined && initialUnifiedData.smartFlow === undefined) initialUnifiedData.smartFlow = ac.whaleIndex;
             }
         } catch { /* safe */ }
+
+        // [FIX] Cross-reference: inject atmIV into structure from volatility
+        // SSR reads directly from Redis (bypasses /api/command/unified which does this injection).
+        // Without this, structure.atmIV is undefined -> effectiveVol computes iv=0 -> VOL REGIME shows IV 0%.
+        if (initialUnifiedData.structure && !initialUnifiedData.structure.atmIV && initialUnifiedData.volatility?.iv > 0) {
+            initialUnifiedData.structure = { ...initialUnifiedData.structure, atmIV: initialUnifiedData.volatility.iv / 100 };
+        }
     }
 
     // ── Apply DynamoDB price to stockData if Polygon failed ──
