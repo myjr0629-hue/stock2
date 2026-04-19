@@ -748,6 +748,22 @@ bash scripts/ec2-deploy-guardian.sh
 > **규칙 4: Vercel 배포 대상 파일 수정 시 `git push`까지 끝내야 배포된 것이다.**
 > 로컬에서 잘 돌아간다고 배포된 것이 아니다. Vercel은 `main` 브랜치 push로만 배포되며, commit 없이는 절대 프로덕션에 반영되지 않는다.
 
+### [2026-04-19] 🟢 Earnings Surprise (Beat/Miss) / 시간(BMO/AMC) 통합 및 자동 발표완료 모드 전환
+
+> **문제**: 어닝 카드의 "발표 시간(장전/장후)"과 "최근 분기 어닝 서프라이즈(Beat/Miss %)"가 누락된 채 유지됨. 이전 에이전트가 AWS Lambda(FMP API)에서 1000개 종목을 반복 호출하여 서프라이즈를 산출하려 시도했으나, Rate Limit 및 배치 비용 문제로 구조적 한계와 복잡성 유발.
+> 
+> **해결: Finnhub 무료 API를 활용한 Vercel 실시간 직접 (Direct) 호출 방식 도입**
+> - **의사결정**: 유니버스 1000개 종목을 매일 AWS에서 배치로 받아오는 대신, 유저가 요청하는 Ticker에 대해서만 Vercel 프론트엔드(`route.ts`)단에서 Finnhub API(`.getEarningsSurprise`)를 1회 호출하여 결합하는 방식으로 아키텍처 수정. (무료 한도: 분당 60회 충분 충족).
+> - **Lambda 원복**: 기존에 1000종목마다 FMP `earnings-calendar` 3개월치를 페이징하며 서프라이즈를 계산하려던 Lambda 코드는 속도 저하와 장애 위험이 커서 원래의 단순 1회 호출 로직으로 원상 복구. (`lastSurprise`는 DynamoDB에서 관리하지 않고 순수 API 라우트 조립 형태로 분리)
+> 
+> **프리미엄 로직: Pre/Post-Earnings 자동 전환 (발표 당일 실시간 UX)**
+> - **발표 전** (`daysUntilEarnings > 0`): `Est EPS $1.79 | Q1 Beat +3.6%` (다가올 예상치 + 직전 분기 서프라이즈)
+> - **발표 후** (`daysUntilEarnings <= 0` && `lastSurprise` 보유): `EPS $1.62 | Q2 Beat +5.2%` (서프라이즈가 방금 발표된 데이터임에 착안하여, 즉시 '실적 EPS'로 모드 변경 및 '발표완료' 표시). Bloomberg 터미널급 라이브 체감.
+> 
+> **구현 지점**:
+> 1. `route.ts`: TIER 1(Redis), TIER 1.5(DynamoDB Fallback), TIER 2(Cold-Start) 3개 경로 모두에 `getEarningsSurprise`, `getEarningsCalendar` 호출 주입 (Promise.all 병렬 처리).
+> 2. `CommandSSRCards.tsx`, `LiveTickerDashboard.tsx`: 프론트엔드 뷰에 `isPostEarnings` 조건식 삽입하여 사전/사후 텍스트 및 라벨 동적 스위칭. 분기 정보(`Q+`) 추출 로직으로 `Q1 Beat +3.6%` 맥락 제공.
+
 ### [2026-04-18] 🟢 워치리스트 전면 성능 최적화 (SSR Fast-Track + Chunking + 구조 정규화 + 2-Phase Progressive)
 
 > **문제 (3건)**: 
