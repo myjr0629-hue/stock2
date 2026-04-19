@@ -21,6 +21,10 @@ interface UseFlowDataOptions {
     fallbackData?: any;
     /** Skip Alpha calculation algorithms. Defaults to true to keep Flow page fast. */
     skipAlpha?: boolean;
+    /** Revalidate on tab focus (default: true). Set false during market close to prevent stale API refetch. */
+    revalidateOnFocus?: boolean;
+    /** Revalidate on network reconnect (default: true). Set false during market close. */
+    revalidateOnReconnect?: boolean;
 }
 
 /**
@@ -32,7 +36,13 @@ interface UseFlowDataOptions {
  * - Uses skip_alpha=1 to skip alpha-only APIs (Flow page doesn't use alpha)
  */
 export function useFlowData(ticker: string | null, options: UseFlowDataOptions = {}) {
-    const { refreshInterval = 15000, fallbackData, skipAlpha = true } = options;
+    const {
+        refreshInterval = 15000,
+        fallbackData,
+        skipAlpha = true,
+        revalidateOnFocus: _revalidateOnFocus = true,
+        revalidateOnReconnect: _revalidateOnReconnect = true,
+    } = options;
 
     // [PERF] Fallback priority: SSR data → module-level cache → undefined
     const effectiveFallback = fallbackData || (ticker ? _flowCache[ticker] : undefined);
@@ -43,8 +53,8 @@ export function useFlowData(ticker: string | null, options: UseFlowDataOptions =
         {
             fallbackData: effectiveFallback,
             refreshInterval,
-            revalidateOnFocus: true,       // Refresh when tab becomes active
-            revalidateOnReconnect: true,    // Refresh on network reconnect
+            revalidateOnFocus: _revalidateOnFocus,       // [FIX] Caller-controlled (was always true)
+            revalidateOnReconnect: _revalidateOnReconnect, // [FIX] Caller-controlled (was always true)
             dedupingInterval: 3000,        // Must be < refreshInterval to avoid suppressing polls
             keepPreviousData: false,        // [FIX] false: clear stale data on ticker switch (prevents Y-axis stretch from mismatched prices)
             errorRetryCount: 3,            // Retry up to 3 times on error

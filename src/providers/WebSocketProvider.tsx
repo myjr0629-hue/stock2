@@ -121,6 +121,20 @@ const MAX_ALERTS = 50;
 const MAX_OPTIONS_TRADES = 100;
 const MAX_LULD_EVENTS = 20;
 
+// [FIX] Check if market is active (PRE 4AM - POST 8PM ET, weekdays only)
+// Prevents WS reconnection loops during off-market hours that cause:
+// setConnected(true→false) toggle → useLivePrice re-evaluate → activeExtPrice flicker → chart re-render
+function isMarketActive(): boolean {
+    try {
+        const etStr = new Date().toLocaleString('en-US', { timeZone: 'America/New_York', hour12: false });
+        const et = new Date(etStr);
+        const dow = et.getDay();
+        if (dow === 0 || dow === 6) return false; // Weekend
+        const mins = et.getHours() * 60 + et.getMinutes();
+        return mins >= 240 && mins < 1200; // 4:00 AM - 8:00 PM ET (covers PRE+REG+POST)
+    } catch { return true; } // Fail-open: allow connection if timezone check fails
+}
+
 // ── Provider ──
 export function WebSocketProvider({ children }: { children: ReactNode }) {
     // Price WS refs
@@ -264,6 +278,8 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
                 setConnected(false);
                 priceWsRef.current = null;
 
+                // [FIX] Don't reconnect during off-market hours (prevents state toggle → chart flicker)
+                if (!isMarketActive()) return;
                 if (priceReconnectCount.current < MAX_RECONNECT) {
                     const delay = RECONNECT_DELAY * Math.pow(1.5, priceReconnectCount.current);
                     priceReconnectCount.current++;
@@ -346,6 +362,8 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
                 setGuardianConnected(false);
                 guardianWsRef.current = null;
 
+                // [FIX] Don't reconnect during off-market hours (prevents state toggle → chart flicker)
+                if (!isMarketActive()) return;
                 if (guardianReconnectCount.current < MAX_RECONNECT) {
                     const delay = RECONNECT_DELAY * Math.pow(1.5, guardianReconnectCount.current);
                     guardianReconnectCount.current++;
@@ -357,11 +375,20 @@ export function WebSocketProvider({ children }: { children: ReactNode }) {
         } catch { /* WebSocket not supported */ }
     }, []);
 
-    // Connect both on mount
+    // Connect both on mount (only during market hours)
     useEffect(() => {
-        connectPriceWs();
-        connectGuardianWs();
+        // [FIX] Skip initial WS connection during off-market hours
+        // Periodically recheck so WS auto-connects when market opens
+        if (isMarketActive()) {
+            connectPriceWs();
+            connectGuardianWs();
+        }
+        const marketCheckInterval = setInterval(() => {
+            if (isMarketActive() && !priceWsRef.current) connectPriceWs();
+            if (isMarketActive() && !guardianWsRef.current) connectGuardianWs();
+        }, 60000); // Check every 60s if market has opened
         return () => {
+            clearInterval(marketCheckInterval);
             if (priceReconnectTimer.current) clearTimeout(priceReconnectTimer.current);
             if (guardianReconnectTimer.current) clearTimeout(guardianReconnectTimer.current);
             if (priceWsRef.current) { priceWsRef.current.close(); priceWsRef.current = null; }

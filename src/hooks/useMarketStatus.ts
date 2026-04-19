@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { MarketStatusResult } from "@/services/marketStatusProvider";
 
 // Compute initial session from client clock to prevent polling freeze on mount
@@ -39,6 +39,9 @@ export function useMarketStatus() {
     const [status, setStatus] = useState<MarketStatusResult>(INITIAL_STATUS);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
+    // [FIX] Track previous meaningful fields to prevent unnecessary re-renders
+    // Without this, every 30s poll creates a new object → re-render → SWR cascade → chart flicker
+    const prevStateRef = useRef({ market: INITIAL_STATUS.market, session: INITIAL_STATUS.session, isHoliday: INITIAL_STATUS.isHoliday });
 
     useEffect(() => {
         let isMounted = true;
@@ -56,7 +59,13 @@ export function useMarketStatus() {
                 const data = await res.json();
 
                 if (isMounted) {
-                    setStatus(data);
+                    // [FIX] Only update state when meaningful fields actually change
+                    // Prevents 30s poll from causing re-render cascade when market/session unchanged
+                    const prev = prevStateRef.current;
+                    if (prev.market !== data.market || prev.session !== data.session || prev.isHoliday !== data.isHoliday) {
+                        prevStateRef.current = { market: data.market, session: data.session, isHoliday: data.isHoliday };
+                        setStatus(data);
+                    }
                     setLoading(false);
                     setError(null);
                 }
@@ -73,7 +82,7 @@ export function useMarketStatus() {
         // Initial Fetch
         fetchStatus();
 
-        // Poll every 60s (matches server cache)
+        // Poll every 30s (matches server cache)
         const interval = setInterval(fetchStatus, 30000);
 
         return () => {

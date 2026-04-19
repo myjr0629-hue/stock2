@@ -739,6 +739,8 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
     const { data: _swrQuote, isValidating: quoteLoading } = useFlowData(ticker, {
         refreshInterval: isClosed ? 0 : 2000, // [UX] Near-real-time price feel
         skipAlpha: true, // [SSOT FIX] Do NOT recalculate Alpha in real-time. Trust the SSR unified cache (Sector Grid SSOT).
+        revalidateOnFocus: !isClosed,      // [FIX] Prevent stale Polygon refetch during market close
+        revalidateOnReconnect: !isClosed,  // [FIX] Same — network reconnect during weekend must not trigger fetch
     });
     // [PERF] 5s real-time price polling (separate from heavy 60s ticker API)
     const livePrice = useLivePrice(ticker, marketStatus.market);
@@ -756,7 +758,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
         {
             fallbackData: initialChartData ? { data: initialChartData } : undefined,
             refreshInterval: isClosed ? 0 : 30_000,     // 30s polling (same as old setInterval)
-            revalidateOnFocus: true,     // Refresh when user returns to tab
+            revalidateOnFocus: !isClosed,  // [FIX] Prevent chart data refetch during market close
             dedupingInterval: 10_000,    // Prevent duplicate fetches within 10s
         }
     );
@@ -921,7 +923,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
         (url: string) => fetch(url).then(res => res.json()),
         {
             fallbackData: initialUnifiedData, // [SSR HYDRATION] Bypass skeleton
-            revalidateOnFocus: true,  // Refresh when user returns to tab
+            revalidateOnFocus: !isClosed,  // [FIX] Prevent unified data refetch during market close
             revalidateIfStale: true,
             revalidateOnMount: true,  // [V73] ALWAYS fetch on mount — SSR data may be stale
             refreshInterval: dynamicRefreshInterval,  // [COLD-START] 3s aggressive → 15s normal
@@ -1106,7 +1108,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
         })();
 
         // [FIX v4] Comprehensive IV + regimeScore correction
-        const cachedIv = volatilityData?.iv || unifiedData?.volatility?.iv || 0;
+        const cachedIv = volatilityData?.iv || unifiedData?.volatility?.iv || initialUnifiedData?.volatility?.iv || 0;
         if (structureDerived) {
             if (structureDerived.iv === 0 && cachedIv > 0) {
                 // Structure has real-time GEX but POST-market IV=0 → patch with cached IV + recalculate score
