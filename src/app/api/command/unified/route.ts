@@ -480,8 +480,9 @@ export async function GET(request: NextRequest) {
             const CORE_FIELDS = ['analyst','fundamentals','earnings','related','sma','squeeze','volatility','structure','institutional'] as const;
             const missingFields = CORE_FIELDS.filter(f => {
                 if (!isFieldUsable(f, cachedData[f])) return true;
-                // Force refresh volatile fields that are too old
-                if (VOLATILE_FIELDS.has(f)) {
+                // Force refresh volatile fields that are too old — BUT ONLY during market hours.
+                // Off-market: data doesn't change, and GAP-FILL overwrites good Lambda IV with iv:0
+                if (VOLATILE_FIELDS.has(f) && isMarketHoursNow()) {
                     const fieldTs = cachedData[f]?._ts || cachedData.timestamp || 0;
                     if (Date.now() - fieldTs > VOLATILE_STALE_MS) return true;
                 }
@@ -533,11 +534,14 @@ export async function GET(request: NextRequest) {
                     }
                 }
                 if (missingFields.includes('volatility')) {
+                    const existingIv = cachedData.volatility?.iv || 0; // [FIX] Preserve Lambda IV before overwrite
                     const dynamoVol = await getVolatilityFromDynamoGex(ticker);
                     if (dynamoVol) {
+                        // [FIX] GEX table has no IV data → preserve existing IV if replacement has iv:0
+                        if (dynamoVol.iv === 0 && existingIv > 0) dynamoVol.iv = existingIv;
                         cachedData.volatility = dynamoVol;
                         volatilityFilled = true;
-                        console.log(`[Command Unified] ✅ Volatility filled from DynamoDB GEX for ${ticker}`);
+                        console.log(`[Command Unified] ✅ Volatility filled from DynamoDB GEX for ${ticker} (iv: ${dynamoVol.iv})`);
                     }
                 }
 
