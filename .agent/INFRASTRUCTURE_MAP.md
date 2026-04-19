@@ -1989,3 +1989,67 @@ All investment decisions are the sole responsibility of the user.
 > 6. DynamoDB `close` 필드 NULL 버그 (2026-03-10 이후) → Lambda Write 로직 수정 필요 (미해결)
 > 7. Pillar 상세 점수 Redis 직렬화 누락 → 수정 필요 (미해결)
 > 8. 마케팅 시 "수익률" → "가격 변동률", "적중률" → "양의 방향 이동 비율"로 표현 필수
+
+---
+
+## 📊 Dashboard 안정성 & IV 0% 완전 해결 (2026-04-19)
+
+> **커밋**: `dc480316` (깜빡임 제거), `665e3af6` (SSR IV 주입), `165e689b` (근본 원인 수정)
+> **검증**: 프로덕션 API 3회 연속 호출 — `vol.iv: 32, struct.atmIV: 0.32` 일관 반환 ✅
+
+### 1. 차트 깜빡임 근본 원인 (4개)
+
+| # | 원인 | 파일 | 메커니즘 | 커밋 |
+|:-:|------|------|----------|:----:|
+| 1 | `useMarketStatus` 30초 폴링 | `useMarketStatus.ts` | 매 폴링마다 새 객체 → re-render cascade | dc480316 |
+| 2 | WebSocket 재연결 무한루프 | `WebSocketProvider.tsx` | 주말 WS connected toggle → price flicker | dc480316 |
+| 3 | `revalidateOnFocus: true` | `useFlowData.ts` | 탭 전환 시 Polygon 주말 데이터 오염 | dc480316 |
+| 4 | IV fallback chain 부족 | `LiveTickerDashboard.tsx` | `cachedIv=0` 시 복구 불가 | dc480316 |
+
+### 2. IV 0% 근본 원인 — GAP-FILL 데이터 오염 체인
+
+> **⚠️ 이 버그는 "주말에만" 발생. 장중에는 SWR 15초 폴링이 Polygon IV를 복구하여 은폐됨.**
+
+```
+[Redis 원본] volatility.iv = 33 ✅  (Lambda 금요일 보존)
+     ↓
+[L484] Volatile Stale Check: _ts > 5분 → "stale" 판정 (주말에 항상 TRUE)
+     ↓
+[L536] getVolatilityFromDynamoGex() 호출
+     ↓
+[L295] iv: 0 하드코딩  ← GEX 테이블에 IV 없음 (설계 의도)
+     ↓
+[L538] cachedData.volatility = dynamoVol → iv=33이 iv=0으로 덮어씌워짐
+     ↓
+[L582] setInCache() → 오염된 iv=0가 Redis에 재기록 (영속적 오염!)
+     ↓
+[L599] volatility.iv > 0 → FALSE → structure.atmIV 주입 안 됨
+     ↓
+[SSR/SWR] structure.atmIV = undefined → effectiveVol iv=0 → VOL REGIME IV 0%
+```
+
+### 3. 수정 내역 (3중 방어)
+
+| 계층 | 위치 | 수정 내용 | 커밋 |
+|------|------|----------|:----:|
+| **API 근본** | `command/unified/route.ts` L484 | `isMarketHoursNow()` 가드: 장 외 시간 volatile stale 체크 비활성화 | 165e689b |
+| **API 방어** | `command/unified/route.ts` L536 | GAP-FILL 시 기존 IV 보존: `dynamoVol.iv === 0 && existingIv > 0` | 165e689b |
+| **SSR 방어** | `ticker/page.tsx` L185 | SSR Redis 직접 읽기 시 `structure.atmIV = volatility.iv / 100` 주입 | 665e3af6 |
+
+### 4. Context Score 관련 연동
+
+- **VOL REGIME 카드**: `effectiveVol` useMemo → `structure.atmIV` 기반 IV% 계산
+- **regimeScore**: IV 기여분 (iv>0.6→+25, iv>0.4→+15, iv>0.25→+8, iv>0.15→+4)
+- **Context Score**: `cache:analysis:{TICKER}.alphaSnapshot.score` — Lambda/Vercel SSoT 경로 (이 버그와 무관)
+- **Conviction Matrix**: 프론트엔드 실시간 계산 (이 버그와 무관)
+
+### 5. 데이터 흐름 기억 (향후 세션 필수 참조)
+
+> **[MEMORY] Command 페이지 IV 데이터 흐름 (2026-04-19)**
+> 1. Lambda → `signum-unified-cache` DynamoDB에 `volatility.iv` 저장 (정수 %, 예: 33)
+> 2. Lambda → Redis `cache:command:unified:{TICKER}`에 동일 데이터 저장
+> 3. SSR: Redis에서 직접 읽음 (**API 미경유** → `atmIV` 주입 없음 → page.tsx에서 직접 주입 필요)
+> 4. SWR: `/api/command/unified` 호출 → 이 API가 `structure.atmIV = volatility.iv / 100` 주입
+> 5. `getVolatilityFromDynamoGex()`는 GEX 테이블 전용 → **반드시 iv: 0** → 기존 IV 보존 필수
+> 6. 장 외 시간: volatile 필드(squeeze, institutional, volatility) stale 체크 비활성화 필수 (`isMarketHoursNow()`)
+
