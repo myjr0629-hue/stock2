@@ -1,6 +1,6 @@
 
 const { DynamoDBClient } = require('@aws-sdk/client-dynamodb');
-const { DynamoDBDocumentClient, PutCommand, BatchWriteCommand, QueryCommand } = require('@aws-sdk/lib-dynamodb');
+const { DynamoDBDocumentClient, PutCommand, BatchWriteCommand, QueryCommand, UpdateCommand } = require('@aws-sdk/lib-dynamodb');
 const https = require('https');
 const { Redis } = require('@upstash/redis');
 
@@ -435,12 +435,87 @@ async function harvestDetails() {
   return { analyst:analystOk, earnings:earningsOk, fundamentals:fundOk, related:relOk };
 }
 
-// ====== Step 5: Update Alpha Scores — DISABLED ======
-// Context Score is exclusively written by Vercel cron (V4.6 SSR engine).
-// Lambda no longer writes to signum-alpha-history for score data.
-async function updateAlphaScores(snapshotMap, gexMap) {
-  console.log('[SKIP] Alpha scores — Context Score is Vercel cron exclusive');
-  return 0;
+// ====== Step 5: Backtesting Data Pipeline (V9) ======
+// Context Score는 Vercel V5.0 SSR 엔진이 독점 기록.
+// Lambda는 공식 종가(close)만 기록 + 3일 전 record에 close_3d backfill.
+// 이를 통해 매일 자동으로 백테스팅 데이터가 축적됨.
+async function recordCloseAndBackfill(priceMap) {
+  console.log('[V9] Recording close prices + 3-day backfill...');
+  const today = new Date().toISOString().slice(0,10);
+  
+  // Calculate trading date 3 days ago (skip weekends)
+  const getTrading3dAgo = () => {
+    const d = new Date();
+    let tradingDays = 0;
+    while (tradingDays < 3) {
+      d.setDate(d.getDate() - 1);
+      const dow = d.getDay();
+      if (dow !== 0 && dow !== 6) tradingDays++;
+    }
+    return d.toISOString().slice(0,10);
+  };
+  const date3dAgo = getTrading3dAgo();
+  
+  let closeRecorded = 0, backfilled = 0, errors = 0;
+  const tickers = Object.keys(priceMap);
+  
+  // Process in batches of 25 to avoid throttling
+  for (let i = 0; i < tickers.length; i += 25) {
+    const batch = tickers.slice(i, i + 25);
+    await Promise.all(batch.map(async (ticker) => {
+      const closePrice = priceMap[ticker];
+      if (!closePrice || closePrice <= 0) return;
+      
+      try {
+        // Step A: Record today's close price into alpha-history
+        // Uses conditional update to NOT overwrite if Vercel SSR already wrote score data
+        const existing = await client.send(new QueryCommand({
+          TableName: 'signum-alpha-history',
+          KeyConditionExpression: 'ticker=:tk AND #d=:d',
+          ExpressionAttributeValues: { ':tk': ticker, ':d': today },
+          ExpressionAttributeNames: { '#d': 'date' },
+          Limit: 1
+        }));
+        
+        if (existing.Items && existing.Items.length > 0) {
+          // Record exists (SSR or SMA wrote it) — merge close price
+          const merged = { ...existing.Items[0], close: closePrice };
+          await client.send(new PutCommand({ TableName: 'signum-alpha-history', Item: merged }));
+        } else {
+          // No record yet — create minimal close-only record
+          await client.send(new PutCommand({ TableName: 'signum-alpha-history', Item: {
+            ticker, date: today, close: closePrice, qualityTier: 'CLOSE_SNAPSHOT'
+          }}));
+        }
+        closeRecorded++;
+      } catch { errors++; }
+      
+      try {
+        // Step B: Backfill 3-day-ago record with today's close as close_3d
+        const old = await client.send(new QueryCommand({
+          TableName: 'signum-alpha-history',
+          KeyConditionExpression: 'ticker=:tk AND #d=:d',
+          ExpressionAttributeValues: { ':tk': ticker, ':d': date3dAgo },
+          ExpressionAttributeNames: { '#d': 'date' },
+          Limit: 1
+        }));
+        
+        if (old.Items && old.Items.length > 0 && !old.Items[0].close_3d) {
+          const rec = old.Items[0];
+          const oldClose = rec.close;
+          if (oldClose && oldClose > 0) {
+            const return3d = Math.round(((closePrice - oldClose) / oldClose) * 10000) / 100;
+            const merged = { ...rec, close_3d: closePrice, return_3d: return3d };
+            await client.send(new PutCommand({ TableName: 'signum-alpha-history', Item: merged }));
+            backfilled++;
+          }
+        }
+      } catch { /* backfill is best-effort */ }
+    }));
+  }
+  
+  console.log('[V9] Close recorded: ' + closeRecorded + ', Backfilled: ' + backfilled + ' (3d ago: ' + date3dAgo + '), Errors: ' + errors);
+  return { closeRecorded, backfilled, date3dAgo, errors };
 }
 // ====== Redis Cache Warming Orchestrator ======
 // Triggers Vercel /api/cron/warm-command for all 30 batches (300 tickers)
@@ -861,7 +936,7 @@ async function harvestEconomicCalendar() {
 
 exports.handler = async (event) => {
   const start = Date.now();
-  console.log('SIGNUM Harvest Lambda v8.0 — ' + new Date().toISOString());
+  console.log('SIGNUM Harvest Lambda v9.0 — ' + new Date().toISOString());
   const hour = new Date().getUTCHours();
   const minute = new Date().getUTCMinutes();
   const utcMin = hour*60+minute;
@@ -883,7 +958,10 @@ exports.handler = async (event) => {
   if (isRegular || forceRun) {
     gexMap = await harvestGex(priceMap);
     results.gex = Object.keys(gexMap).length;
-    results.alpha = await updateAlphaScores(snapshotMap, gexMap);
+    results.alpha = '[V9] Score via Vercel V5.0 SSR';
+    // V9: Record close prices + backfill 3-day returns for backtesting
+    try { results.backtesting = await recordCloseAndBackfill(priceMap); }
+    catch (e) { results.backtesting = { error: e.message }; }
     results.sma = await harvestSMA(priceMap);
     // V8: Sector daily aggregation (uses gexMap + snapshotMap)
     try { results.sectorDaily = await computeSectorDaily(gexMap, snapshotMap); }
@@ -965,5 +1043,5 @@ exports.handler = async (event) => {
   
   const duration = Math.round((Date.now()-start)/1000);
   console.log('Done in '+duration+'s');
-  return { statusCode:200, body:JSON.stringify({ success:true, version:'8.0', timestamp:new Date().toISOString(), duration, results }) };
+  return { statusCode:200, body:JSON.stringify({ success:true, version:'9.0', timestamp:new Date().toISOString(), duration, results }) };
 };

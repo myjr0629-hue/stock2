@@ -826,17 +826,79 @@ async function harvestDetails() {
   return { fundamentals:fundOk, related:relOk, si:siOk, detailsMap };
 }
 
-// ====== Step 5: Update Alpha Scores (merge GEX into prices) ======
-async function updateAlphaScores(snapshotMap, gexMap) {
+// ====== Step 5: Backtesting Data Pipeline (V9) ======
+// Context Score는 Vercel V5.0 SSR 엔진이 독점 기록.
+// Lambda는 공식 종가(close)만 기록 + 3일 전 record에 close_3d backfill.
+async function recordCloseAndBackfill(priceMap) {
+  console.log('[V9] Recording close prices + 3-day backfill...');
   const today = new Date().toISOString().slice(0,10);
-  const items = [];
-  for (const [ticker, pd] of Object.entries(snapshotMap)) {
-    const alpha = computeAlphaScore(pd, gexMap[ticker]||null);
-    items.push({ ticker, date:today, changePct:Math.round(pd.changePct*100)/100, open:0,high:0,low:0, close:pd.price, volume:pd.volume, vwap:0, gex:gexMap[ticker]?gexMap[ticker].gex:0, pcr:gexMap[ticker]?gexMap[ticker].pcr:0, alphaScore:alpha, qualityTier:gexMap[ticker]?'FULL':'PRICE_ONLY' });
+  
+  const getTrading3dAgo = () => {
+    const d = new Date();
+    let tradingDays = 0;
+    while (tradingDays < 3) {
+      d.setDate(d.getDate() - 1);
+      const dow = d.getDay();
+      if (dow !== 0 && dow !== 6) tradingDays++;
+    }
+    return d.toISOString().slice(0,10);
+  };
+  const date3dAgo = getTrading3dAgo();
+  
+  let closeRecorded = 0, backfilled = 0, errors = 0;
+  const tickers = Object.keys(priceMap);
+  
+  for (let i = 0; i < tickers.length; i += 25) {
+    const batch = tickers.slice(i, i + 25);
+    await Promise.all(batch.map(async (ticker) => {
+      const closePrice = priceMap[ticker];
+      if (!closePrice || closePrice <= 0) return;
+      
+      try {
+        const existing = await client.send(new QueryCommand({
+          TableName: 'signum-alpha-history',
+          KeyConditionExpression: 'ticker=:tk AND #d=:d',
+          ExpressionAttributeValues: { ':tk': ticker, ':d': today },
+          ExpressionAttributeNames: { '#d': 'date' },
+          Limit: 1
+        }));
+        
+        if (existing.Items && existing.Items.length > 0) {
+          const merged = { ...existing.Items[0], close: closePrice };
+          await client.send(new PutCommand({ TableName: 'signum-alpha-history', Item: merged }));
+        } else {
+          await client.send(new PutCommand({ TableName: 'signum-alpha-history', Item: {
+            ticker, date: today, close: closePrice, qualityTier: 'CLOSE_SNAPSHOT'
+          }}));
+        }
+        closeRecorded++;
+      } catch { errors++; }
+      
+      try {
+        const old = await client.send(new QueryCommand({
+          TableName: 'signum-alpha-history',
+          KeyConditionExpression: 'ticker=:tk AND #d=:d',
+          ExpressionAttributeValues: { ':tk': ticker, ':d': date3dAgo },
+          ExpressionAttributeNames: { '#d': 'date' },
+          Limit: 1
+        }));
+        
+        if (old.Items && old.Items.length > 0 && !old.Items[0].close_3d) {
+          const rec = old.Items[0];
+          const oldClose = rec.close;
+          if (oldClose && oldClose > 0) {
+            const return3d = Math.round(((closePrice - oldClose) / oldClose) * 10000) / 100;
+            const merged = { ...rec, close_3d: closePrice, return_3d: return3d };
+            await client.send(new PutCommand({ TableName: 'signum-alpha-history', Item: merged }));
+            backfilled++;
+          }
+        }
+      } catch { /* backfill is best-effort */ }
+    }));
   }
-  // [REMOVED] alpha-history 저장 제거 — Context Score는 Vercel cron 전담 (장마감 1회 저장)
-  console.log('Alpha: '+items.length+' scores (DynamoDB write skipped — Vercel cron handles SSR_V46)');
-  return items.length;
+  
+  console.log('[V9] Close: ' + closeRecorded + ', Backfill: ' + backfilled + ' (3d ago: ' + date3dAgo + '), Err: ' + errors);
+  return { closeRecorded, backfilled, date3dAgo, errors };
 }
 
 // ====== Step 5.5: RSI + Daily Bars (sparkline, return3d, relVol) ======
@@ -1261,7 +1323,7 @@ async function buildUnifiedCache(priceMap, gexMap, optionsCache, smaMap, details
 
 exports.handler = async (event) => {
   const start = Date.now();
-  console.log('SIGNUM Harvest Lambda v8.0 — FMP Earnings + SI% Restore — ' + new Date().toISOString());
+  console.log('SIGNUM Harvest Lambda v9.0 — Backtesting Pipeline — ' + new Date().toISOString());
   
   // ══════════════════════════════════════════════════════════════
   // ON-DEMAND MODE: Fetch a single non-universe ticker
@@ -1729,7 +1791,9 @@ exports.handler = async (event) => {
   gexMap = gexResult.gexMap;
   optionsCache = gexResult.optionsCache;
   results.gex = Object.keys(gexMap).length;
-  results.alpha = await updateAlphaScores(snapshotMap, gexMap);
+  // V9: Record close prices + backfill 3-day returns for backtesting
+  try { results.backtesting = await recordCloseAndBackfill(priceMap); }
+  catch (e) { results.backtesting = { error: e.message }; }
   const smaResult = await harvestSMA(priceMap);
   results.sma = smaResult.smaCount;
   smaMap = smaResult.smaMap;
@@ -1795,5 +1859,5 @@ exports.handler = async (event) => {
   
   const duration = Math.round((Date.now()-start)/1000);
   console.log('Done in '+duration+'s');
-  return { statusCode:200, body:JSON.stringify({ success:true, version:'7.0', timestamp:new Date().toISOString(), duration, results }) };
+  return { statusCode:200, body:JSON.stringify({ success:true, version:'9.0', timestamp:new Date().toISOString(), duration, results }) };
 };
