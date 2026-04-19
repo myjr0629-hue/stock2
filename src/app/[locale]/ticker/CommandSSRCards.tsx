@@ -258,9 +258,10 @@ export function CommandSSRCards({ data, stockData, ticker }: CommandSSRCardsProp
                             {earnings?.lastSurprise && (() => {
                                 const s = earnings.lastSurprise;
                                 const isBeat = s.surpriseEps > 0;
+                                const qLabel = s.date ? `Q${Math.ceil((new Date(s.date).getMonth() + 1) / 3)}` : '';
                                 return (
                                     <span className={`font-bold ${isBeat ? 'text-emerald-400' : 'text-rose-400'}`}>
-                                        {isBeat ? 'Beat' : 'Miss'} {isBeat ? '+' : ''}{s.surprisePct.toFixed(1)}%
+                                        {qLabel} {isBeat ? 'Beat' : 'Miss'} {isBeat ? '+' : ''}{s.surprisePct.toFixed(1)}%
                                     </span>
                                 );
                             })()}
