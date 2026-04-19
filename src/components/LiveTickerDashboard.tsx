@@ -1123,7 +1123,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
     const effectiveInst = React.useMemo(() => unifiedData?.institutional || institutionalData || null, [institutionalData, unifiedData?.institutional]);
     const effectiveEarnings = React.useMemo(() => {
         const e = unifiedData?.earnings;
-        if (e) return { nextDate: e.nextEarningsDate || e.nextDate || null, daysLabel: e.daysLabel || 'TBD', epsEstimate: e.epsEstimate || null, quarter: e.quarter || null, year: e.year || null, hourLabel: e.hourLabel || '', color: e.color || 'text-slate-400', forwardEps: e.forwardEps || null, forwardRevenue: e.forwardRevenue || null, forwardYear: e.forwardYear || null, forwardEpsRevision: e.forwardEpsRevision ?? null, forwardRevRevision: e.forwardRevRevision ?? null };
+        if (e) return { nextDate: e.nextEarningsDate || e.nextDate || null, daysLabel: e.daysLabel || 'TBD', epsEstimate: e.epsEstimate || null, quarter: e.quarter || null, year: e.year || null, hourLabel: e.hourLabel || '', color: e.color || 'text-slate-400', forwardEps: e.forwardEps || null, forwardRevenue: e.forwardRevenue || null, forwardYear: e.forwardYear || null, forwardEpsRevision: e.forwardEpsRevision ?? null, forwardRevRevision: e.forwardRevRevision ?? null, lastSurprise: e.lastSurprise || null };
         if (earningsData) return earningsData as any;
         return null;
     }, [earningsData, unifiedData?.earnings]);

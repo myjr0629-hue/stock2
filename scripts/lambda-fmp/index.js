@@ -107,67 +107,21 @@ exports.handler = async (event) => {
   console.log('Step 1 done: analyst=' + results.analyst + '/' + UNIVERSE.length + ', forward=' + Object.keys(forwardMap).length);
 
   // ═══════════════════════════════════════════
-  // Step 2: FMP Earnings Calendar
-  // FMP returns max 4000 events per call → split into chunks
-  // Past: 3 × 30-day chunks (for epsActual → surprise data)
-  // Future: 1 × 180-day call (for next earnings date)
-  // Total: 4 API calls (negligible vs Step 1's 3000 calls)
+  // Step 2: FMP Earnings Calendar (1 API call)
   // ═══════════════════════════════════════════
   const earningsMap = {};
-  const surpriseMap = {}; // ticker → { actualEps, estimatedEps, surpriseEps, surprisePct, date }
-  const tickerSet = new Set(UNIVERSE);
-
-  // Helper: process earnings array
-  function processEarnings(arr, todayStr) {
-    for (const e of arr) {
+  try {
+    const toDate = new Date(Date.now() + 180 * 86400000).toISOString().slice(0, 10);
+    const earningsAll = await httpsGet('https://financialmodelingprep.com/stable/earnings-calendar?from=' + today + '&to=' + toDate + '&apikey=' + FMP_KEY, 15000);
+    const earningsArr = Array.isArray(earningsAll) ? earningsAll : [];
+    const tickerSet = new Set(UNIVERSE);
+    for (const e of earningsArr) {
       if (!tickerSet.has(e.symbol)) continue;
-      const eventDate = new Date(e.date);
-      if (eventDate >= new Date(todayStr)) {
-        // Future event → next earnings date
-        if (!earningsMap[e.symbol] || eventDate < new Date(earningsMap[e.symbol].date)) {
-          earningsMap[e.symbol] = e;
-        }
-      } else {
-        // Past event with actual EPS → earnings surprise (most recent wins)
-        if (e.epsActual != null && e.epsEstimated != null) {
-          if (!surpriseMap[e.symbol] || eventDate > new Date(surpriseMap[e.symbol].date)) {
-            surpriseMap[e.symbol] = {
-              actualEps: e.epsActual,
-              estimatedEps: e.epsEstimated,
-              surpriseEps: Number((e.epsActual - e.epsEstimated).toFixed(3)),
-              surprisePct: e.epsEstimated !== 0
-                ? Number(((e.epsActual - e.epsEstimated) / Math.abs(e.epsEstimated) * 100).toFixed(1))
-                : 0,
-              date: e.date
-            };
-          }
-        }
+      if (!earningsMap[e.symbol] || new Date(e.date) < new Date(earningsMap[e.symbol].date)) {
+        earningsMap[e.symbol] = e;
       }
     }
-  }
-
-  try {
-    let totalEvents = 0;
-    // Past: 13 × 7-day chunks (91 days total)
-    // FMP caps at 4000 results per call; 7-day windows stay well under (~2000)
-    for (let chunk = 0; chunk < 13; chunk++) {
-      const chunkEnd = new Date(Date.now() - chunk * 7 * 86400000);
-      const chunkStart = new Date(Date.now() - (chunk + 1) * 7 * 86400000);
-      const from = chunkStart.toISOString().slice(0, 10);
-      const to = chunkEnd.toISOString().slice(0, 10);
-      const data = await httpsGet('https://financialmodelingprep.com/stable/earnings-calendar?from=' + from + '&to=' + to + '&apikey=' + FMP_KEY, 15000).catch(() => []);
-      const arr = Array.isArray(data) ? data : [];
-      processEarnings(arr, today);
-      totalEvents += arr.length;
-    }
-    // Future: 1 × 180 days (future data is sparser, 4000 limit is fine)
-    const toDate = new Date(Date.now() + 180 * 86400000).toISOString().slice(0, 10);
-    const futureData = await httpsGet('https://financialmodelingprep.com/stable/earnings-calendar?from=' + today + '&to=' + toDate + '&apikey=' + FMP_KEY, 15000).catch(() => []);
-    const futureArr = Array.isArray(futureData) ? futureData : [];
-    processEarnings(futureArr, today);
-    totalEvents += futureArr.length;
-
-    console.log('Step 2 done: ' + Object.keys(earningsMap).length + ' future, ' + Object.keys(surpriseMap).length + ' surprises from ' + totalEvents + ' events (4 API calls)');
+    console.log('Step 2 done: ' + Object.keys(earningsMap).length + ' tickers with upcoming earnings from ' + earningsArr.length + ' events');
   } catch (e) {
     console.log('Step 2 earnings calendar error: ' + e.message);
   }
@@ -234,7 +188,6 @@ exports.handler = async (event) => {
 
       // Build EARNINGS record
       const daysUntil = cal ? Math.ceil((new Date(cal.date).getTime() - new Date(today).getTime()) / 86400000) : null;
-      const surp = surpriseMap[ticker] || null;
       const item = {
         pattern: 'EARNINGS:' + ticker,
         timestamp: Date.now(),
@@ -244,7 +197,7 @@ exports.handler = async (event) => {
         epsEstimate: cal ? (cal.epsEstimated || null) : null,
         quarter: null,
         year: null,
-        hour: cal ? (cal.time || null) : null,
+        hour: null,
         // Forward fields (from analyst-estimates)
         forwardEps: fw.eps || null,
         forwardRevenue: fw.revenue || null,
@@ -254,8 +207,6 @@ exports.handler = async (event) => {
         forwardEpsRevisionDate: revisionDate,
         forwardRevRevision: revisionRev,
         forwardRevRevisionDate: revRevisionDate,
-        // Earnings Surprise (most recent quarter)
-        lastSurprise: surp,
       };
 
       await client.send(new PutCommand({ TableName: TABLE, Item: item })).catch(() => {});
