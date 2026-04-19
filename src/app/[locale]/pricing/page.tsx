@@ -324,7 +324,7 @@ export default function PricingPage() {
     ];
 
     return (
-        <div className="min-h-screen bg-[#0d1220] text-slate-200">
+        <div className="min-h-screen bg-[#0d1220] text-slate-200" data-pricing>
             {/* ============================================================ */}
             {/* HERO SECTION */}
             {/* ============================================================ */}
@@ -699,7 +699,7 @@ export default function PricingPage() {
                         {t("compDesc")}
                     </p>
 
-                    <div className="rounded-2xl bg-white/[0.02] border border-white/10 overflow-hidden">
+                    <div className="rounded-2xl bg-white/[0.02] border border-white/10 overflow-hidden" data-pricing-comp>
                         <div className="grid grid-cols-3 text-xs uppercase tracking-wider font-bold text-slate-500 px-6 py-4 border-b border-white/[0.06] font-jakarta">
                             <span>{t("compService")}</span>
                             <span className="text-center">{t("compPrice")}</span>
@@ -740,7 +740,7 @@ export default function PricingPage() {
                         {t("matrixDesc")}
                     </p>
 
-                    <div className="rounded-2xl bg-white/[0.02] border border-white/10 overflow-hidden">
+                    <div className="rounded-2xl bg-white/[0.02] border border-white/10 overflow-hidden" data-pricing-matrix>
                         {/* Header */}
                         <div className="grid grid-cols-4 text-xs uppercase tracking-wider font-bold border-b border-white/10 font-jakarta">
                             <div className="px-6 py-4 text-slate-500">{t("matrixFeature")}</div>

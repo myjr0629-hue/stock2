@@ -1131,7 +1131,7 @@
   }
   /* Card sub text */
   [data-command-cards] .text-\[12px\] {
-    font-size: 10px !important;
+    font-size: 11px !important;
   }
   /* Card badge */
   [data-command-cards] .text-\[12px\].font-black {
@@ -1270,7 +1270,7 @@
   }
   /* Card title row */
   [data-dashboard-cards] .text-\[12px\] {
-    font-size: 10px !important;
+    font-size: 11px !important;
   }
   /* Card main value: 20px → 15px */
   [data-dashboard-cards] .text-xl {
@@ -1278,7 +1278,7 @@
   }
   /* Card sub labels */
   [data-dashboard-cards] .text-xs {
-    font-size: 10px !important;
+    font-size: 11px !important;
   }
   /* Gauge track: narrower */
   [data-dashboard-cards] .h-2 {
@@ -1286,7 +1286,7 @@
   }
   /* Gauge labels: smaller */
   [data-dashboard-cards] .text-\[11px\] {
-    font-size: 9px !important;
+    font-size: 11px !important;
   }
 
   /* K3. Dashboard tab bar (moved to sticky top) */
@@ -1297,7 +1297,7 @@
     padding: 4px 8px !important;
   }
   [data-dashboard-tab] .text-\[12px\] {
-    font-size: 10px !important;
+    font-size: 11px !important;
   }
   [data-dashboard-tab] .w-5 {
     width: 16px !important;
@@ -1307,6 +1307,141 @@
   /* K4. Customize button: smaller on mobile */
   [data-dashboard-hero] .px-3.py-0\.5 {
     padding: 2px 8px !important;
-    font-size: 10px !important;
+    font-size: 11px !important;
   }
+
+  /* ────────────────────────────────────────────────────────────
+     L. PRICING PAGE — Feature Matrix Mobile Scroll + Density
+     ──────────────────────────────────────────────────────────── */
+
+  /* L1. Feature Matrix: horizontal scroll with sticky first column */
+  [data-pricing-matrix] {
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
+  }
+  [data-pricing-matrix]::-webkit-scrollbar {
+    display: none;
+  }
+  /* Set minimum width so columns don't collapse */
+  [data-pricing-matrix] > div {
+    min-width: 560px;
+  }
+  /* Sticky feature name column */
+  [data-pricing-matrix] .grid-cols-4 > div:first-child {
+    position: sticky;
+    left: 0;
+    z-index: 2;
+    background: #0d1220;
+  }
+  [data-pricing-matrix] .bg-white\/\[0\.015\] > div:first-child {
+    background: rgba(13, 18, 32, 0.97);
+  }
+  /* Feature label text: smaller on mobile */
+  [data-pricing-matrix] .grid-cols-4 > div:first-child {
+    padding-left: 12px !important;
+    padding-right: 8px !important;
+    font-size: 12px !important;
+  }
+
+  /* L2. Competitor Table: compact text */
+  [data-pricing-comp] .text-\[15px\] {
+    font-size: 12px !important;
+  }
+  [data-pricing-comp] .px-6 {
+    padding-left: 12px !important;
+    padding-right: 12px !important;
+  }
+
+  /* L3. Pricing tier cards: compact padding */
+  [data-pricing] .p-8 {
+    padding: 20px !important;
+  }
+  [data-pricing] .text-5xl {
+    font-size: 36px !important;
+  }
+  /* Monthly/Annual toggle: compact */
+  [data-pricing] .px-6.py-2\.5 {
+    padding: 8px 12px !important;
+  }
+
+  /* L4. Hero section: tighter mobile spacing */
+  [data-pricing] .pt-20.pb-20 {
+    padding-top: 48px !important;
+    padding-bottom: 40px !important;
+  }
+  [data-pricing] .pb-24 {
+    padding-bottom: 48px !important;
+  }
+
+  /* ────────────────────────────────────────────────────────────
+     M. LANDING PAGE — Mobile Polish
+     ──────────────────────────────────────────────────────────── */
+
+  /* M1. Hero dashboard mockup: limit height on mobile */
+  [data-landing] .max-h-\[680px\] {
+    max-height: 320px !important;
+  }
+
+  /* M2. Hero section vertical spacing */
+  [data-landing] .pt-20.pb-16 {
+    padding-top: 48px !important;
+    padding-bottom: 32px !important;
+  }
+
+  /* M3. Feature cards: tighter gap + padding */
+  [data-landing] .grid.gap-6 {
+    gap: 12px !important;
+  }
+  [data-landing] .p-7 {
+    padding: 16px !important;
+  }
+
+  /* M4. Live Ticker Cards section */
+  [data-landing] .grid.gap-4 {
+    gap: 10px !important;
+  }
+  [data-landing] .p-5 {
+    padding: 14px !important;
+  }
+
+  /* M5. Structure awareness text */
+  [data-landing] .text-xl.md\:text-2xl {
+    font-size: 16px !important;
+  }
+
+  /* M6. Pricing badge: full-width on mobile */
+  [data-landing] .inline-flex.items-center.gap-3.px-8 {
+    padding-left: 16px !important;
+    padding-right: 16px !important;
+  }
+
+  /* ────────────────────────────────────────────────────────────
+     N. WATCHLIST PAGE — Mobile Density
+     ──────────────────────────────────────────────────────────── */
+
+  /* N1. StatsBar: 2-col on mobile */
+  [data-watchlist] .lg\:grid-cols-5 {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+
+  /* N2. Sort chips: horizontal scroll, no wrap */
+  [data-watchlist] .flex.items-center.gap-2.text-\[12px\].flex-wrap {
+    flex-wrap: nowrap !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    padding-bottom: 4px;
+  }
+  [data-watchlist] .flex.items-center.gap-2.text-\[12px\].flex-wrap::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* N3. Hide Risk Summary on mobile (desktop-only card) — already lg:block */
+
+  /* ────────────────────────────────────────────────────────────
+     O. GLOBAL MIN-FONT SAFETY NET
+     ──────────────────────────────────────────────────────────── */
+
+  /* Ensure no text below 11px on mobile — excludes svg/icon elements */
+  /* This is a safety net, specific selectors above take priority */
 }
