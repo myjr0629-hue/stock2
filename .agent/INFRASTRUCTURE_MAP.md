@@ -763,6 +763,7 @@ bash scripts/ec2-deploy-guardian.sh
 > **구현 지점**:
 > 1. `route.ts`: TIER 1(Redis), TIER 1.5(DynamoDB Fallback), TIER 2(Cold-Start) 3개 경로 모두에 `getEarningsSurprise`, `getEarningsCalendar` 호출 주입 (Promise.all 병렬 처리).
 > 2. `CommandSSRCards.tsx`, `LiveTickerDashboard.tsx`: 프론트엔드 뷰에 `isPostEarnings` 조건식 삽입하여 사전/사후 텍스트 및 라벨 동적 스위칭. 분기 정보(`Q+`) 추출 로직으로 `Q1 Beat +3.6%` 맥락 제공.
+> 3. **다국어 및 프리미엄 가이드 완비**: `ko.json`, `en.json`, `ja.json`의 어닝/애널리스트 타겟 설명을 최신 프리미엄 UI 기능(Actual EPS, 12M Target)과 동기화. `CommandGuidePage.tsx`에 신규 모드 UI 모형을 반영하여 터미널급 가이드 경험 구축 완료.
 
 ### [2026-04-18] 🟢 워치리스트 전면 성능 최적화 (SSR Fast-Track + Chunking + 구조 정규화 + 2-Phase Progressive)
 

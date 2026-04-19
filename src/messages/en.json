@@ -1155,16 +1155,16 @@
     "analystTarget": {
       "title": "ANALYST TARGET",
       "badge": "Consensus",
-      "desc": "Displays <emerald>analyst opinion distribution</emerald> and price target consensus from major investment banks and research houses. Track the 5-tier distribution (Strong Buy to Strong Sell), analyst count, and target-to-current price gap — real-time tracking of Wall Street's collective research judgment.",
+      "desc": "Displays <emerald>analyst opinion distribution</emerald> and 12-month price target consensus (Average/High) from major investment banks and research houses. Tracks the 5-tier distribution alongside Wall Street's collective research judgment in real-time.",
       "strongBuy": "Strong Buy — Overwhelming bullish consensus",
       "buy": "Buy — Bullish consensus",
       "hold": "Hold — Neutral consensus",
       "sell": "Sell — Bearish consensus",
-      "tip": "Buy opinions above 80% indicate strongly converged consensus. Consider both that consensus may already be priced in and the crowding risk from absence of dissent.",
+      "tip": "Buy opinions above 80% indicate strongly converged consensus. Consider both whether the consensus is already priced in and the crowding risk from a lack of dissenting views.",
       "tradingGuide": "Signal Interpretation",
-      "guide1": "Buy 90%+: Research community outlook extremely converged — strong consensus serves as a medium-term bullish foundation",
-      "guide2": "Buy 50–70%: Dispersed opinions suggest data permits multiple interpretations — an uncertain phase",
-      "guide3": "Hold majority: Absence of directional conviction; wait-and-see dominates until new catalysts emerge"
+      "guide1": "12-Month Target: Assess upside potential through the gap between current price and analysts' average (Target) and highest (High) price targets",
+      "guide2": "Buy 90%+: Research community outlook extremely converged — strong consensus serves as a medium-term bullish foundation",
+      "guide3": "Buy 50–70%: Dispersed opinions suggest data permits multiple interpretations — an uncertain phase"
     },
     "related": {
       "title": "RELATED",
@@ -1220,14 +1220,14 @@
     "earnings": {
       "title": "EARNINGS",
       "badge": "Earnings Schedule",
-      "desc": "Displays next <gold>quarterly earnings date</gold>, D-Day countdown, and EPS estimates. The structural IV expansion/contraction pattern around earnings is a core variable in institutional options strategy — SIGNUM auto-integrates this schedule into all analysis modules.",
-      "upcoming": "Earnings imminent (D-7) — IV expansion, premium-rich environment",
-      "far": "Earnings distant — Fundamentals and technicals take priority",
+      "desc": "Displays the next <gold>quarterly earnings date</gold> and time (BMO/AMC), estimated EPS, and the recent quarter's <emerald>Earnings Surprise (Beat/Miss)</emerald>. It features an Est EPS mode before the announcement that automatically transitions into a <cyan>real-time Actual EPS mode</cyan> on the release day, offering a Bloomberg Terminal-level experience.",
+      "upcoming": "Pre-Release Mode (Est EPS) — Displays estimated EPS and prior quarter surprise",
+      "surprise": "Post-Release Mode (Actual EPS) — Real-time update with actual EPS and current quarter surprise",
       "tip": "IV typically surges D-3 onwards; post-announcement, uncertainty resolution frequently triggers IV Crush.",
       "tradingGuide": "Signal Interpretation",
-      "guide1": "D-7: IV begins rising; options premiums expand as volatility expectations build",
-      "guide2": "Earnings day: Directional uncertainty peaks; results can trigger significant gap moves",
-      "guide3": "Post-earnings: Uncertainty resolves, IV normalizes rapidly — known as IV Crush"
+      "guide1": "BMO / AMC: Specifies whether the announcement is Before Market Open or After Market Close, helping you time the volatility phase",
+      "guide2": "Pre-Release (Est EPS): Evaluates the structure by referencing next quarter's estimated EPS alongside the surprise (Beat/Miss %) recorded during the last announcement",
+      "guide3": "Post-Release (Actual EPS): Switches automatically to Actual mode on release day, instantly exposing the magnitude of the current quarter's Beat/Miss"
     },
     "ivSkew": {
       "title": "IV SKEW",

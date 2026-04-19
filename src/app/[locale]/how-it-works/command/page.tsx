@@ -295,6 +295,7 @@ export default async function CommandGuidePage() {
                         icon={Crosshair} iconColor="text-emerald-400" gradientFrom="from-emerald-500/[0.06]"
                         badgeColor="border-cyan-500/30" badgeBg="bg-cyan-500/20 text-cyan-300"
                         mockupLabel="ANALYST TARGET" mockupValue="88%" mockupValueColor="text-emerald-400" mockupSub="BULLISH" mockupSubColor="text-emerald-400"
+                        subMetrics={[{ label: locale === 'ko' ? '12M 목표가' : locale === 'ja' ? '12M 目標株価' : '12M Target', value: '$218.50', color: 'text-amber-400' }, { label: locale === 'ko' ? '최고' : locale === 'ja' ? '最高' : 'High', value: '$255.00', color: 'text-white' }]}
                         titleKey="analystTarget.title" badgeKey="analystTarget.badge" descKey="analystTarget.desc"
                         bullets={[
                             { color: 'bg-emerald-500', textKey: 'analystTarget.strongBuy' },
@@ -379,12 +380,12 @@ export default async function CommandGuidePage() {
                     <IndicatorCard
                         icon={Calendar} iconColor="text-amber-400" gradientFrom="from-amber-500/[0.06]"
                         badgeColor="border-amber-500/30" badgeBg="bg-amber-500/20 text-amber-300"
-                        mockupLabel="EARNINGS" mockupValue="D-12" mockupValueColor="text-amber-400" mockupSub="Q4 2025" mockupSubColor="text-white/50"
-                        subMetrics={[{ label: 'Est EPS', value: '$1.84', color: 'text-white' }, { label: 'AMC', value: '장마감후', color: 'text-amber-400' }]}
+                        mockupLabel="EARNINGS" mockupValue="D+0" mockupValueColor="text-emerald-400" mockupSub="Q1 Beat +5.2%" mockupSubColor="text-emerald-400"
+                        subMetrics={[{ label: 'Actual EPS', value: '$1.62', color: 'text-white' }, { label: 'Time', value: locale === 'ko' ? 'AMC (장 마감 후)' : locale === 'ja' ? 'AMC (引け後)' : 'AMC (After Close)', color: 'text-amber-400' }]}
                         titleKey="earnings.title" badgeKey="earnings.badge" descKey="earnings.desc"
                         bullets={[
                             { color: 'bg-amber-500', textKey: 'earnings.upcoming' },
-                            { color: 'bg-emerald-500', textKey: 'earnings.far' },
+                            { color: 'bg-cyan-500', textKey: 'earnings.surprise' },
                         ]}
                         tipKey="earnings.tip"
                         tradingGuideKey="earnings.tradingGuide" guide1Key="earnings.guide1" guide2Key="earnings.guide2" guide3Key="earnings.guide3"
