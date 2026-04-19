@@ -2006,22 +2006,40 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                     {effectiveEarnings?.hourLabel && <span className="text-[12px] font-jakarta text-amber-400 font-bold">{effectiveEarnings.hourLabel === 'bmo' ? td('earnBeforeMarket') : effectiveEarnings.hourLabel === 'amc' ? td('earnAfterMarket') : effectiveEarnings.hourLabel === 'dmh' ? td('earnDuringMarket') : effectiveEarnings.hourLabel}</span>}
                                     {earnDesc && <span className="text-[12px] font-jakarta text-white ml-0.5">{earnDesc}</span>}
                                 </div>
-                                {effectiveEarnings?.epsEstimate !== null && effectiveEarnings?.epsEstimate !== undefined && (
-                                    <div className="relative z-10 text-[12px] font-jakarta text-slate-300 mt-0.5 flex items-center flex-wrap gap-x-2">
-                                        <span>{td('estEps')} <span className="font-bold text-white/90">${effectiveEarnings.epsEstimate.toFixed(2)}</span></span>
-                                        {effectiveEarnings?.quarter && effectiveEarnings?.year && <span className="text-slate-300">{`Q${effectiveEarnings.quarter} FY${effectiveEarnings.year}`}</span>}
-                                        {effectiveEarnings?.lastSurprise && (() => {
-                                            const s = effectiveEarnings.lastSurprise;
-                                            const isBeat = s.surpriseEps > 0;
-                                            const qLabel = s.date ? `Q${Math.ceil((new Date(s.date).getMonth() + 1) / 3)}` : '';
-                                            return (
+                                {(() => {
+                                    const isPostEarnings = (rawDays.startsWith('D+') || rawDays === 'today') && effectiveEarnings?.lastSurprise;
+                                    const surp = effectiveEarnings?.lastSurprise;
+                                    if (isPostEarnings && surp) {
+                                        const isBeat = surp.surpriseEps > 0;
+                                        const qLabel = surp.date ? `Q${Math.ceil((new Date(surp.date).getMonth() + 1) / 3)}` : '';
+                                        return (
+                                            <div className="relative z-10 text-[12px] font-jakarta text-slate-300 mt-0.5 flex items-center flex-wrap gap-x-2">
+                                                <span>EPS <span className="font-bold text-white/90">${surp.actualEps.toFixed(2)}</span></span>
                                                 <span className={`font-bold ${isBeat ? 'text-emerald-400' : 'text-rose-400'}`}>
-                                                    {qLabel} {isBeat ? 'Beat' : 'Miss'} {isBeat ? '+' : ''}{s.surprisePct.toFixed(1)}%
+                                                    {qLabel} {isBeat ? 'Beat' : 'Miss'} {isBeat ? '+' : ''}{surp.surprisePct.toFixed(1)}%
                                                 </span>
-                                            );
-                                        })()}
-                                    </div>
-                                )}
+                                            </div>
+                                        );
+                                    }
+                                    if (effectiveEarnings?.epsEstimate !== null && effectiveEarnings?.epsEstimate !== undefined) {
+                                        return (
+                                            <div className="relative z-10 text-[12px] font-jakarta text-slate-300 mt-0.5 flex items-center flex-wrap gap-x-2">
+                                                <span>{td('estEps')} <span className="font-bold text-white/90">${effectiveEarnings.epsEstimate.toFixed(2)}</span></span>
+                                                {effectiveEarnings?.quarter && effectiveEarnings?.year && <span className="text-slate-300">{`Q${effectiveEarnings.quarter} FY${effectiveEarnings.year}`}</span>}
+                                                {surp && (() => {
+                                                    const isBeat = surp.surpriseEps > 0;
+                                                    const qLabel = surp.date ? `Q${Math.ceil((new Date(surp.date).getMonth() + 1) / 3)}` : '';
+                                                    return (
+                                                        <span className={`font-bold ${isBeat ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                                            {qLabel} {isBeat ? 'Beat' : 'Miss'} {isBeat ? '+' : ''}{surp.surprisePct.toFixed(1)}%
+                                                        </span>
+                                                    );
+                                                })()}
+                                            </div>
+                                        );
+                                    }
+                                    return null;
+                                })()}
                                 {((effectiveEarnings?.forwardEps !== undefined && effectiveEarnings?.forwardEps !== null) || (effectiveEarnings?.forwardRevenue !== undefined && effectiveEarnings?.forwardRevenue !== null)) ? (
                                     <div className="relative z-10 flex flex-col gap-0.5 text-[12px] font-jakarta mt-1 bg-white/5 p-1.5 rounded -mx-0.5">
                                         {effectiveEarnings.forwardEps !== null && effectiveEarnings.forwardEps !== undefined && (
