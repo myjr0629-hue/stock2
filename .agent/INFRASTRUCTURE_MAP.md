@@ -1871,6 +1871,8 @@ Score ↑  →  3D 가격 변동 ↑
 ```
 
 > **결론:** 전체적으로 강력한 단조 증가 패턴 확인. 60-69 vs 70-79의 미세 역전(0.06%p)은 70-79 표본(n=69)이 60-69(n=360) 대비 1/5 수준이라 통계적 노이즈로 판단. 엔진의 예측력은 유효.
+>
+> **⚠️ 주의:** 이 시뮬레이션은 2026-04-19 Redis 스냅샷 **1시점** 데이터 기반. 시장이 상승 중이던 하루의 데이터로, 고점수 종목이 우연히 양의 return3d를 보유. 아래 2-5절의 67일 실측과 상충.
 
 #### 2-4. 핵심 발견
 
@@ -1878,6 +1880,48 @@ Score ↑  →  3D 가격 변동 ↑
 2. **Score 30-39 구간 (67종목):** 평균 -0.46%, 하락 비율 66% — "AVOID" 판정의 유효성 입증
 3. **Score 40-49 구간 (178종목):** 평균 +0.85%, 양의 방향 비율 51% — 정확히 "동전 던지기(HOLD)" 수준으로 엔진의 중립 판별 능력 입증
 4. **WhaleIndex 70+ vs <40:** 고래유입 종목(+1.36%) < 비유입 종목(+2.71%) → 단기(3일) 관점에서 고래유입은 고점 도달 후 되돌림 패턴. WhaleIndex 가중치 재검토 또는 측정 기간 5일 확장 필요
+
+---
+
+#### 2-5. ⚠️ V4.6 67일 실측 백테스팅 결과 (2026-04-20 DynamoDB 정밀 분석)
+
+> **조사 일시:** 2026-04-20
+> **데이터 소스:** DynamoDB `signum-alpha-history` — close 백필 완료 후 정밀 계산
+> **방법론:** 각 레코드(ticker, date, alphaScore, close)에 대해 T+3 영업일의 close와 비교 → 3-day forward return 산출
+> **표본:** 11,543건 (close 보유 + alphaScore 보유 + T+3 close 존재하는 레코드)
+> **기간:** 2026-02-03 ~ 2026-04-19 (64영업일)
+
+| Score Band | 표본 | 평균 3D Return | 양의 방향 비율 | 중앙값 | vs SPY |
+|:----------:|:----:|:--------------:|:-------------:|:------:|:------:|
+| **80-100** | 9 | +0.16% | 55.6% | +0.69% | -0.56% |
+| **70-79** | 247 | **-1.61%** | **38.5%** | -1.01% | -2.33% |
+| **60-69** | 892 | -0.64% | 44.1% | -0.40% | -1.36% |
+| **50-59** | 1,463 | -0.46% | 44.7% | -0.32% | -1.18% |
+| **40-49** | 1,769 | +0.23% | 54.7% | +0.20% | -0.50% |
+| **30-39** | 1,061 | **+1.51%** | **65.6%** | +1.28% | +0.79% |
+| **20-29** | 77 | +2.01% | 63.6% | +1.41% | +1.28% |
+| **0-19** | 6,025 | -0.22% | 47.8% | -0.14% | -0.94% |
+| **전체** | **11,543** | **-0.07%** | **49.7%** | — | — |
+
+> **SPY 벤치마크 3D 평균:** +0.72%
+
+##### 핵심 발견 (시뮬레이션 vs 실측 괴리)
+
+| 지표 | 1시점 시뮬레이션 (2-2절) | 67일 실측 (2-5절) |
+|------|:---:|:---:|
+| Score 70+ 적중률 | 75.4% | **38.5%** |
+| Score 70+ 평균 변동 | +3.95% | **-1.61%** |
+| Score 60+ 적중률 | 86.9% | **42.9%** |
+| 단조 증가 패턴 | ✅ | **❌ 역전** |
+
+##### 괴리 원인 분석
+
+1. **시뮬레이션 편향:** 1시점 Redis 스냅샷은 시장 상승일의 데이터 → 고점수 종목이 양의 return3d 보유하는 것은 당연 (인과관계 혼동)
+2. **V4.6 과매수 추격:** V4.6은 이미 오른 종목(RSI↑, 가격↑)에 높은 점수 → 3일 후 되돌림(mean reversion) 발생
+3. **시장 국면:** 2~4월은 관세 쇼크 + Tech 조정 구간 → V4.6의 모멘텀 추격 전략이 역효과
+4. **V5.0 수정 방향의 유효성:** WhaleIndex 역전, WALL_BREAKOUT 제거, RSI Gate 추가는 정확히 이 문제를 타겟팅 → 개선 기대하나 실측 전 확신 불가
+
+> **⚠️ 결론:** V4.6 기반 성과 수치를 마케팅에 사용할 수 없음. V5.0 프로덕션 데이터 축적 후 재검증 필수.
 
 ---
 
@@ -1913,13 +1957,62 @@ Score ↑  →  3D 가격 변동 ↑
 - [ ] **Lambda `signum-harvest` DynamoDB Write 시 `close` 필드 직접 저장 수정**: Vercel SSR이 `price`로 저장하지만 Lambda는 별도 `close` 필드 사용. Lambda에서 `close = price`로 명시 매핑 필요.
 - [ ] **Pillar 상세 점수 직렬화 누락**: Redis `cache:analysis:*`의 `alphaSnapshot.pillars` 객체 내부 값이 `undefined`. `analysisCache.ts`의 `AnalysisCacheEntry.alphaSnapshot.pillars` 직렬화 경로 점검
 
-#### 3-2. Phase 1 (30일 내)
+#### 3-2. Phase 1 — 랜딩페이지 Context Score 위젯 (V5.0 검증 후)
+
+> **목표:** "Why SIGNUM HQ?" 섹션 하단 또는 Hero 섹션 바로 아래에 Context Score 실측 성과 위젯 배치
+> **전제 조건:** V5.0 프로덕션 데이터 최소 5세션(1주) 축적 + 단조증가 패턴 검증 완료
+
+##### 디자인 시안 (PRODUCTION READY 버전)
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│ CONTEXT SCORE ENGINE · LIVE SNAPSHOT      ● APR 25 · UPDATED DAILY │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│  TODAY · SCORE 70+    Past N sessions · Score 70+ band     │
+│       123             ███████████████████████░░ XX.X%       │
+│  of 993 tracked       3-day directional alignment           │
+│                                                    NK+      │
+│                       0%        50%        100%  OBSERVATIONS│
+│                                                             │
+├─────────────────────────────────────────────────────────────┤
+│ Historical reference data. Past observations do not         │
+│ predict or guarantee future price movement.                 │
+│ Not investment advice.                                      │
+└─────────────────────────────────────────────────────────────┘
+```
+
+##### 위젯 데이터 소스
+- **"TODAY · SCORE 70+"**: Redis `cache:analysis:*` 실시간 조회 → alphaScore ≥ 70 종목 수
+- **"XX.X% directional alignment"**: DynamoDB `signum-alpha-history` → 최근 N세션 Score 70+ 종목의 3-day forward return > 0 비율
+- **"NK+ OBSERVATIONS"**: DynamoDB 총 유효 레코드 수
+- **"APR 25 · UPDATED DAILY"**: 매일 장 마감 후 자동 갱신
+
+##### 구현 계획
+
+| # | 작업 | 파일 | 소요 |
+|:-:|------|------|:---:|
+| 1 | 백테스팅 API 구축 | `src/app/api/backtest/performance/route.ts` [NEW] | 1h |
+| 2 | 랜딩페이지 위젯 컴포넌트 | `src/components/landing/ContextScoreWidget.tsx` [NEW] | 1.5h |
+| 3 | 랜딩페이지 배치 (Why SIGNUM HQ? 섹션) | `src/components/landing/LandingPage.tsx` [MODIFY] | 30m |
+| 4 | 30D/60D/90D 탭 (데이터 축적 후 활성화) | 위젯 내부 | 30m |
+
+##### 2단계 접근법
+
+| 단계 | 시기 | 내용 |
+|:---:|------|------|
+| **1단계 (즉시)** | 지금 | 수치 없는 정성적 위젯: "993 stocks tracked · V5.0 Engine · Updated daily" |
+| **2단계 (V5.0 검증 후)** | 4/25 이후 | V5.0 실측 데이터 확인 후 수치 교체. 단조증가 패턴 확인 시에만 수치 게시 |
+
+> **⚠️ 수치 게시 전 필수 확인:** V5.0 Score 70+ 3-day directional alignment > 60% AND 단조증가 패턴(Score↑ → Return↑) 확인 시에만 수치 위젯 활성화. 미달 시 정성적 표현 유지.
+
 - [ ] **Supabase Track Record 주입 활성화**: `reportScheduler.ts`의 크론 리포트가 프로덕션에서 완주하여 Top 3 추천이 Supabase에 실제 주입되도록 안정화
 - [ ] **DarkPool 데이터 범용화**: 현재 DarkPool 보유 비율 85/998(8.5%). Lambda V8에 DarkPool 수집 로직 추가하여 전 종목 커버리지 확보
 
-#### 3-3. Phase 2 (60~90일)
-- [ ] **Score Band별 실측 데이터 UI 공개**: 사이트 내 "Context Score Performance" 페이지 추가. Supabase 데이터 축적 후 실제 수치 기반 테이블 렌더링
-- [ ] **V5.0 프로덕션 백테스팅 재검증**: V5.0 배포 후 30일간 축적된 데이터로 2차 백테스팅 실시. 단조 증가 패턴 유지 여부 확인
+#### 3-3. Phase 2 (V5.0 30일 축적 후)
+- [ ] **V5.0 30일 실측 백테스팅 실시**: V5.0 배포(2026-04-19) 후 30일간 축적된 DynamoDB 데이터로 Score Band별 3-day forward return 재검증
+- [ ] **Score Band별 실측 데이터 UI 공개**: 단조증가 패턴 확인 시 사이트 내 "Context Score Performance" 전용 페이지 추가
+- [ ] **30D/60D/90D 탭 활성화**: 데이터 축적에 따라 기간별 필터 자동 활성화
 
 #### 3-4. Phase 3 (6개월+)
 - [ ] **섹터별 가중치 튜닝**: Tech vs Energy vs Bio 종목별로 최적 Pillar 가중치가 다를 수 있음. 축적 데이터로 섹터별 최적 가중치 도출 → Context Score V6
@@ -1972,8 +2065,10 @@ All investment decisions are the sole responsibility of the user.
 
 #### 4-4. 마케팅 적용 예시 (Compliant Copy)
 
-> **Context Score 60+ 종목의 3일 후 평균 가격 변동률: +4.0% | 양의 방향 이동 비율: 86.9%**
-> *(993종목 시그널 데이터 기반 분석. 실제 투자 수익이 아닌 가격 변동 통계입니다. 과거 데이터가 미래 결과를 보장하지 않습니다.)*
+> **Context Score 60+ 종목의 3일 후 양의 방향 이동 비율: XX.X%**
+> *(V5.0 엔진 실측 데이터 기반. 실제 투자 수익이 아닌 가격 변동 통계입니다. 과거 데이터가 미래 결과를 보장하지 않습니다.)*
+>
+> ⚠️ **수치(XX.X%)는 V5.0 실측 검증 완료 전까지 공란 유지.** V4.6 67일 실측(2/3~4/19)에서 Score 70+ 적중률 38.5%로 확인되어 V4.6 기반 수치는 게시 불가. V5.0 축적 데이터 검증 후 교체.
 
 #### 4-5. 업계 참고 사례
 - **TipRanks:** "Analyst Success Rate" 표기 + "This is not investment advice" 상시 표기
@@ -1986,15 +2081,18 @@ All investment decisions are the sole responsibility of the user.
 
 ### 5. 메모리 블록 (향후 세션 참조)
 
-> **[MEMORY] Context Score V5.0 Backtesting & Tuning (2026-04-19)**
+> **[MEMORY] Context Score V5.0 Backtesting & Tuning (2026-04-19~20)**
 > 1. Redis `cache:analysis:*`에 998종목의 실시간 Context Score가 저장 중 (L1 캐시)
-> 2. DynamoDB `signum-alpha-history`에 19,078건의 일별 Score 이력 저장 중 (L2 이력)
-> 3. Supabase `alpha_track_records`는 테이블 존재하나 0건 — 리포트 크론 완주 이슈
+> 2. DynamoDB `signum-alpha-history`에 19,078건의 일별 Score 이력 저장 중 (L2 이력), close 99.4% 복구 완료
+> 3. **V5.0 전체 입력 벡터 DynamoDB 저장 시작 (2026-04-19)**: rsi14, atmIv, darkPoolPct, whaleIndex 등 14개 필드. 향후 V6.0 재계산 가능.
 > 4. V4.6 → V5.0 튜닝 완료 (WhaleIndex역전, DarkPool보정, RSI Confidence, Gate수정, LOW_DATA_CAP)
-> 5. V5.0 시뮬레이션: 70-79 적중률 75.4%→87.2%(+11.8%p), 단조증가 ❌→✅ 완벽 달성
-> 6. DynamoDB `close` 필드 NULL 버그 (2026-03-10 이후) → Lambda Write 로직 수정 필요 (미해결)
-> 7. Pillar 상세 점수 Redis 직렬화 누락 → 수정 필요 (미해결)
-> 8. 마케팅 시 "수익률" → "가격 변동률", "적중률" → "양의 방향 이동 비율"로 표현 필수
+> 5. **⚠️ V4.6 67일 실측 결과 (2/3~4/19, 11,543건): Score 70+ 적중률 38.5%, 평균 -1.61% — 패턴 역전 확인.**
+>    - 1시점 Redis 시뮬레이션(87.2%)과 67일 실측(38.5%)이 정반대. 시뮬레이션은 단일 시점(상승장 스냅샷) 편향.
+>    - V5.0 튜닝은 이 역전 문제를 정확히 수정(WhaleIndex, WALL_BREAKOUT 제거 등)하므로 개선 기대하나 실측 전 확신 불가.
+> 6. **랜딩페이지 위젯**: V5.0 실측 검증 전까지 수치 게시 보류. 정성적 표현("993 stocks tracked")만 사용.
+>    - V5.0 데이터 1주 축적 후(4/25) 첫 검증. Score 70+ directional alignment > 60% + 단조증가 확인 시 수치 게시.
+> 7. 마케팅 시 "수익률" → "가격 변동률", "적중률" → "양의 방향 이동 비율"로 표현 필수
+> 8. Supabase `alpha_track_records`는 테이블 존재하나 0건 — 리포트 크론 완주 이슈
 
 ---
 
