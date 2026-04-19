@@ -2124,8 +2124,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                         <div className="relative z-10 flex flex-col gap-1">
                             {relatedData?.topRelated && relatedData.topRelated.length > 0 ? (
                                 relatedData.topRelated.slice(0, 4).map((item, idx) => (
-                                    <div key={idx} className="flex items-center justify-between cursor-pointer hover:bg-white/5 rounded px-1 -mx-1 transition-colors"
-                                        onClick={() => window.location.href = `/${locale}/ticker?ticker=${item.ticker}`}>
+                                    <Link key={idx} href={`/ticker?ticker=${item.ticker}`} className="flex items-center justify-between cursor-pointer hover:bg-white/5 rounded px-1 -mx-1 transition-colors">
                                         <div className="flex items-center gap-1.5">
                                             <img
                                                 loading="lazy"
@@ -2182,7 +2181,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                                 </div>
                                             );
                                         })()}
-                                    </div>
+                                    </Link>
                                 ))
                             ) : unifiedDataReceived ? (
                                 <div className="text-[12px] font-jakarta text-slate-500 text-center py-1">Peers</div>
