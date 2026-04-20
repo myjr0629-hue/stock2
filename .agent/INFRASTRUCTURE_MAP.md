@@ -2457,3 +2457,25 @@ const lookbackDays = (dayOfWeek === 0 || dayOfWeek === 6) ? 5 : 3;
 
 **커밋**: `13fb3678` (보안 적용), `4df28108` (긴급 수정)
 **파일**: `src/lib/debugAuth.ts` (신규), `src/app/api/debug/*/route.ts` (10개), `src/app/api/health/env/route.ts`, `src/app/api/health/report/route.ts`
+
+### 4. 랜딩 페이지 Analytics Dashboard 안정화 (2026-04-20)
+
+**문제**: 하단 Analytics Dashboard 카드에서 등락률이 30초마다 나왔다 사라졌다 깜빡이는 현상
+- NVDA: +1.33% → +0.00% → +1.33% (30초 주기 반복)
+- AAPL: 항상 +0.00% (실제 금요일 +2.79% 상승했음에도)
+- LIVE 표시가 장마감에도 녹색 깜빡임 유지 → 사용자 혼란
+
+**원인**:
+1. Polygon `lastTrade.p`가 주말/장외 시간에 호출마다 불안정한 값 반환 → `changePercent`가 0과 실제값 사이 번동
+2. Vercel 멀티인스턴스 서버리스 환경에서 인스턴스별 메모리 캐시 불일치 → 번갈아 다른 값 반환
+3. 프론트엔드에 이전 유효값 보존 로직 없음
+
+**수정 (프론트엔드 핀포인트 — 백엔드 무변경)**:
+- `LiveTickerCard`에 `stableChangeRef` 추가: 마지막 유효한(0이 아닌) `changePercent` 보존
+- `session === 'CLOSED'`일 때 API가 0을 반환하면 이전 유효값 사용
+- 세션 인디케이터: `REG`/`PRE` → 🟢 Live(깜빡임), `POST` → 🟡 Post, `CLOSED` → 🟡 Closed
+
+**영향 범위**: `page.tsx`의 `LiveTickerCard`만 — 랜딩 페이지 전용 컴포넌트, 다른 페이지 무영향
+**커밋**: `f1f094ea`
+**파일**: `src/app/[locale]/page.tsx`
+
