@@ -785,13 +785,12 @@ async function mainLoop() {
         // Harvest all locales (ko first, then en/ja in parallel)
         const koSnapshot = await harvestGuardianData("ko");
 
-        if (isActive) {
-            // En/Ja in parallel (non-blocking)
-            Promise.all([
-                harvestGuardianData("en"),
-                harvestGuardianData("ja"),
-            ]).catch((e) => console.warn("[Worker] Secondary locale harvest failed:", e.message));
-        }
+        // [FIX] Always harvest en/ja — users visit Guardian page in all locales at all times.
+        // Previously only harvested during REG/PRE, causing en/ja cache to expire on weekends.
+        Promise.all([
+            harvestGuardianData("en"),
+            harvestGuardianData("ja"),
+        ]).catch((e) => console.warn("[Worker] Secondary locale harvest failed:", e.message));
 
         // Cross-intelligence alerts (based on ko snapshot)
         if (koSnapshot && session === "REG") {

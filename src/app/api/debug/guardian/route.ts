@@ -6,11 +6,11 @@ import { GuardianDataHub } from '@/services/guardian/unifiedDataStream';
 export const maxDuration = 60; // Allow 60s for AI generation (Hobby Limit)
 export const dynamic = 'force-dynamic';
 
-import { requireDebugAuth } from '@/lib/debugAuth';
+// [FIX] No auth guard — this is a PRODUCTION data pipeline, not debug-only.
+// Consumers: GuardianProvider.tsx (frontend), EC2 Worker, cron/harvest-history.
+// No vendor names or API keys are exposed in the response (computed RLSI/sector/verdict data only).
 
 export async function GET(request: Request) {
-    const authError = requireDebugAuth();
-    if (authError) return authError;
     try {
         const { searchParams } = new URL(request.url);
         const force = searchParams.get('force') === 'true';
