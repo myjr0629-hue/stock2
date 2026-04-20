@@ -658,24 +658,24 @@ export default function Page() {
             </a>
             {/* Anthropic — icon + text */}
             <a href="https://anthropic.com" target="_blank" rel="noopener noreferrer"
-               className="flex items-center gap-2 opacity-85 hover:opacity-100 transition-opacity duration-500" title="Anthropic Claude AI">
+               className="flex items-center gap-2.5 opacity-85 hover:opacity-100 transition-opacity duration-500" title="Anthropic Claude AI">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/logos/anthropic.svg" alt="" style={{height: 24, width: 'auto'}} className="select-none" loading="lazy" />
-              <span className="text-[16px] font-medium text-[#E8C9A8]" style={{fontFamily:'Inter,system-ui,sans-serif'}}>Anthropic</span>
+              <img src="/logos/anthropic.svg" alt="" style={{height: 28, width: 'auto'}} className="select-none" loading="lazy" />
+              <span className="text-[18px] font-medium text-[#E8C9A8]" style={{fontFamily:'Inter,system-ui,sans-serif'}}>Anthropic</span>
             </a>
             {/* Stripe — icon + text */}
             <a href="https://stripe.com" target="_blank" rel="noopener noreferrer"
-               className="flex items-center gap-2 opacity-85 hover:opacity-100 transition-opacity duration-500" title="Stripe Payments">
+               className="flex items-center gap-2.5 opacity-85 hover:opacity-100 transition-opacity duration-500" title="Stripe Payments">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/logos/stripe.svg" alt="" style={{height: 24, width: 'auto'}} className="select-none" loading="lazy" />
-              <span className="text-[16px] font-semibold text-[#7A73FF]" style={{fontFamily:'Inter,system-ui,sans-serif'}}>Stripe</span>
+              <img src="/logos/stripe.svg" alt="" style={{height: 28, width: 'auto'}} className="select-none" loading="lazy" />
+              <span className="text-[18px] font-semibold text-[#7A73FF]" style={{fontFamily:'Inter,system-ui,sans-serif'}}>Stripe</span>
             </a>
             {/* Vercel — icon + text */}
             <a href="https://vercel.com" target="_blank" rel="noopener noreferrer"
-               className="flex items-center gap-2 opacity-85 hover:opacity-100 transition-opacity duration-500" title="Vercel Edge Network">
+               className="flex items-center gap-2.5 opacity-85 hover:opacity-100 transition-opacity duration-500" title="Vercel Edge Network">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/logos/vercel.svg" alt="" style={{height: 22, width: 'auto'}} className="select-none" loading="lazy" />
-              <span className="text-[16px] font-semibold text-white" style={{fontFamily:'Inter,system-ui,sans-serif'}}>Vercel</span>
+              <img src="/logos/vercel.svg" alt="" style={{height: 26, width: 'auto'}} className="select-none" loading="lazy" />
+              <span className="text-[18px] font-semibold text-white" style={{fontFamily:'Inter,system-ui,sans-serif'}}>Vercel</span>
             </a>
           </div>
         </div>
