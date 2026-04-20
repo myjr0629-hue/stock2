@@ -361,6 +361,8 @@ signum-harvest (5분마다, 항상)
 4. **완벽한 데이터 호환**: `darkPool` + `blockTrade` + `bidAsk` + `shortVolume` — 기존 rt-metrics 구조 100% 동일. `_source: "ec2-flow-accumulator"`, `_via: "elasticache"` 추적 태그.
 5. **전역 자동 전파**: `Flow 페이지`, `Command(INST RADAR)`, `Alpha Engine`, `Whale Index`, `Stealth Label` — 모든 다크풀 소비자가 **수정 없이** 100% 정밀도 데이터 수신.
 6. **Daily Reset**: 03:50 AM ET에 메모리 자동 초기화.
+7. **[FIX 2026-04-20] TTL 16시간**: `RT_METRICS_TTL`을 600(10분)→57600(16시간)으로 변경. 장마감(ET 20:00) 후에도 다음날 장 시작까지 전장+POST 100% 누적 데이터가 ElastiCache에 유지됨. 이전에는 TTL 10분 만료 후 Polygon 5K 샘플링(POST 세션 최근 5,000건만)으로 폴백되어 부정확한 데이터 표시.
+8. **[FIX 2026-04-20] API Stale 16시간**: `realtime-metrics/route.ts`에서 EC2 데이터(`_source: ec2-flow-accumulator`)의 stale threshold를 5분→16시간으로 분리. EC2 100% 데이터가 있으면 Polygon 샘플링 폴백 불허.
 
 #### 다크풀 데이터 전파 경로 검증 완료 (2026-04-17)
 | 소비자 | 파일 | 소스 | 비용 | 검증 |
@@ -2291,11 +2293,57 @@ All investment decisions are the sole responsibility of the user.
 
 ### 5. 데이터 흐름 기억 (향후 세션 필수 참조)
 
-> **[MEMORY] Command 페이지 IV 데이터 흐름 (2026-04-19)**
+> **[MEMORY] Command 페이지 IV 데이터 흐름 (2026-04-20 최종 수정)**
 > 1. Lambda → `signum-unified-cache` DynamoDB에 `volatility.iv` 저장 (정수 %, 예: 33)
-> 2. Lambda → Redis `cache:command:unified:{TICKER}`에 동일 데이터 저장
-> 3. SSR: Redis에서 직접 읽음 (**API 미경유** → `atmIV` 주입 없음 → page.tsx에서 직접 주입 필요)
-> 4. SWR: `/api/command/unified` 호출 → 이 API가 `structure.atmIV = volatility.iv / 100` 주입
-> 5. `getVolatilityFromDynamoGex()`는 GEX 테이블 전용 → **반드시 iv: 0** → 기존 IV 보존 필수
-> 6. 장 외 시간: volatile 필드(squeeze, institutional, volatility) stale 체크 비활성화 필수 (`isMarketHoursNow()`)
+> 2. Lambda → `signum-gex-history` DynamoDB에 `atmIv` 저장 (정수 %, 예: 31)
+> 3. Lambda → Redis `cache:command:unified:{TICKER}`에 동일 데이터 저장
+> 4. SSR: Redis에서 직접 읽음 (**API 미경유** → `atmIV` 주입 없음 → page.tsx에서 직접 주입 필요)
+> 5. SWR: `/api/command/unified` 호출 → 이 API가 `structure.atmIV = volatility.iv / 100` 주입
+> 6. `getVolatilityFromDynamoGex()`는 GEX 테이블 전용 → **`(gex as any).atmIv || 0`으로 DynamoDB의 실제 IV 사용** (2026-04-20 수정, 이전: iv: 0 하드코딩)
+> 7. 장 외 시간: volatile 필드(squeeze, institutional, volatility) stale 체크 비활성화 필수 (`isMarketHoursNow()`)
+
+---
+
+## [세션 기록] 2026-04-20: IV 0% / RELATED 0% / Dark Pool TTL 근본 수정
+
+### 1. VOL REGIME IV 0% 근본 수정 (이전 세션 수정 여전히 실패한 원인 해결)
+
+**실제 데이터 역추적 결과**:
+- DynamoDB `signum-gex-history`: `atmIv: 31` ✅ 정상 저장
+- DynamoDB `signum-unified-cache`: `volatility.iv: 31` ✅ 정상 저장
+- Polygon Lambda 프로브: ATM Call IV 0.366 (36.6%) ✅ 정상
+- **BUT** Redis `cache:command:unified:NVDA` → `volatility.iv: 0` ❌
+- **근본 원인**: `getVolatilityFromDynamoGex()` (unified/route.ts:295)에서 **`iv: 0` 하드코딩**
+  - DynamoDB에서 GEX 데이터를 읽어 volatility 객체를 만들 때, `gex.atmIv`(=31)가 존재하지만 무시하고 `iv: 0` 설정
+  - 이후 이 0이 Redis에 저장 → 모든 보정 로직(`volatility.iv > 0` 조건)이 false → 순환 실패
+
+**수정**: `iv: 0` → `iv: (gex as any).atmIv || 0` — 1줄 핀셋 수정
+**커밋**: `6640f00b`
+
+### 2. RELATED 종목 등락률 0.00% 근본 수정
+
+**실제 데이터 역추적 결과**:
+- 라이브 `/api/live/related`: `AMD: change=-0.41, prevClose=278.26` ✅ 정상
+- Redis unified cache: `AMD: price=0, change=0, prevClose=MISSING` ❌
+- **근본 원인**: `calcChangeFromSnapshot()` (related/route.ts:19)에서 `isPreMarketGuess` 오판
+  - 조건: `todaysChangePerc === 0 || !day.v` — 장마감/주말에도 `todaysChangePerc===0` → 프리마켓으로 오판 → change 강제 0
+  - SSR 초기 데이터(캐시 등락률)를 `useEffect`에서 이 0 데이터로 덮어씀
+
+**수정**: `isPreMarketGuess` → `isPreMarket = !day.o && !day.v` (진짜 프리마켓만 감지) — 1줄 핀셋 수정
+**커밋**: `6640f00b`
+
+### 3. Dark Pool % 장마감 후 데이터 소실 수정
+
+**실제 데이터 역추적 결과**:
+- ElastiCache `rt-metrics:NVDA`: **NO DATA** (TTL 만료로 삭제)
+- ElastiCache `rt-metrics:AAPL`: `_source: undefined` (Polygon 5K 샘플링, EC2 아님)
+- **근본 원인**: EC2 `RT_METRICS_TTL = 600` (10분)
+  - EC2 마지막 flush: ET 19:59 → TTL 만료: ET 20:09 → 100% 데이터 영구 삭제
+  - 이후 Polygon 5K 샘플링(POST 세션 최근 5,000건만) 폴백 → 부정확
+
+**수정**:
+1. `ec2-flow-accumulator.js:67`: `RT_METRICS_TTL = 600` → `57600` (10분→16시간)
+2. `realtime-metrics/route.ts:333-343`: EC2 데이터 stale threshold 16시간 분리
+**배포**: Vercel (`git push` 자동) + EC2 (`node scripts/deploy-ec2-flow.js`)
+**커밋**: `16ff810e`
 
