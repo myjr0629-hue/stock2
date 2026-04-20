@@ -2,7 +2,11 @@
 import { NextResponse } from 'next/server';
 
 // Simple test to check if imports work
+import { requireDebugAuth } from '@/lib/debugAuth';
+
 export async function GET(request: Request) {
+    const authError = requireDebugAuth();
+    if (authError) return authError;
     try {
         // Step 1: Try importing the module
         console.log("[Test] Attempting to import GuardianDataHub...");

@@ -4,7 +4,11 @@ import { generateReport } from '@/services/reportScheduler';
 
 export const dynamic = 'force-dynamic';
 
+import { requireDebugAuth } from '@/lib/debugAuth';
+
 export async function GET() {
+    const authError = requireDebugAuth();
+    if (authError) return authError;
     try {
         console.log("API: Starting Manual Generation for 2026-01-09...");
         // Generate EOD report for Jan 9

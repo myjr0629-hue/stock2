@@ -5,6 +5,7 @@ import { loadLatest, validateReportShape, calculateOptionsStatus } from '@/lib/s
 import fs from 'fs';
 import path from 'path';
 import { getBuildId, getEnvType } from '@/services/buildIdSSOT'; // [S-56.4.6d]
+import { requireDebugAuth } from '@/lib/debugAuth';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0; // [S-56.3] No caching
@@ -17,6 +18,8 @@ const NO_CACHE_HEADERS = {
 };
 
 export async function GET(request: Request) {
+    const authError = requireDebugAuth();
+    if (authError) return authError;
     const { searchParams } = new URL(request.url);
     const type = searchParams.get('type') || 'eod';
     const buildId = getBuildId();
@@ -74,8 +77,7 @@ export async function GET(request: Request) {
             },
             // [S-56.4.5c] Env Diagnostics Fallback - for production route parity check
             envDiagnostics: {
-                MASSIVE_API_KEY_present: !!(process.env.MASSIVE_API_KEY || process.env.POLYGON_API_KEY),
-                MASSIVE_BASE_URL_present: !!process.env.MASSIVE_BASE_URL || true,
+                dataKeyPresent: !!(process.env.MASSIVE_API_KEY || process.env.POLYGON_API_KEY),
                 USE_REDIS_SSOT: 'true', // [P0] HARDCODED
                 buildId: buildId.slice(0, 7),
                 routeVersionTag: 'S-56.4.6d'

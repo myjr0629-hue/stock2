@@ -1,7 +1,11 @@
 // [S-51.5.2] Debug KV API - Check Redis connection and keys
 import { debugKV } from '@/lib/storage/reportStore';
 
+import { requireDebugAuth } from '@/lib/debugAuth';
+
 export async function GET() {
+    const authError = requireDebugAuth();
+    if (authError) return authError;
     try {
         const result = await debugKV();
 

@@ -6,7 +6,11 @@ import { GuardianDataHub } from '@/services/guardian/unifiedDataStream';
 export const maxDuration = 60; // Allow 60s for AI generation (Hobby Limit)
 export const dynamic = 'force-dynamic';
 
+import { requireDebugAuth } from '@/lib/debugAuth';
+
 export async function GET(request: Request) {
+    const authError = requireDebugAuth();
+    if (authError) return authError;
     try {
         const { searchParams } = new URL(request.url);
         const force = searchParams.get('force') === 'true';

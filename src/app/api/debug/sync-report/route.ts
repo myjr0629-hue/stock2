@@ -6,7 +6,11 @@ import path from 'path';
 
 export const dynamic = 'force-dynamic';
 
+import { requireDebugAuth } from '@/lib/debugAuth';
+
 export async function GET() {
+    const authError = requireDebugAuth();
+    if (authError) return authError;
     try {
         console.log("SYNC DEBUG: Loading Manual Report from DISK...");
 

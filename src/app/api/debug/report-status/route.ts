@@ -4,7 +4,11 @@ import { getLatestReport, getGlobalLatestReport } from '@/services/reportSchedul
 
 export const dynamic = 'force-dynamic';
 
+import { requireDebugAuth } from '@/lib/debugAuth';
+
 export async function GET() {
+    const authError = requireDebugAuth();
+    if (authError) return authError;
     const TYPES = ['morning', 'pre', 'open', 'draft', 'final', 'eod', 'revised'] as const;
     const candidates = [];
 

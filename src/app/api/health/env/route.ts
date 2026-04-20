@@ -10,8 +10,6 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET() {
-    const MASSIVE_API_KEY = process.env.MASSIVE_API_KEY || process.env.POLYGON_API_KEY;
-    const UPSTASH_URL = process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL;
     const buildId = getBuildId();
     const envType = getEnvType();
 
@@ -25,13 +23,8 @@ export async function GET() {
         ok: true,
         timestampISO: new Date().toISOString(),
         buildId,
-        gitCommitSha: process.env.VERCEL_GIT_COMMIT_SHA || process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA || null,
         deploymentId: process.env.VERCEL_DEPLOYMENT_ID || null,
-        vercelEnv: process.env.VERCEL_ENV || null,
         nodeEnv: process.env.NODE_ENV || "unknown",
-        useRedisSSOT: "true", // [P0] Hardcoded to true - Redis SSOT always enabled
-        massiveKeyPresent: !!MASSIVE_API_KEY,
-        upstashUrlPresent: !!UPSTASH_URL,
         envType
     }, { status: 200, headers });
 }

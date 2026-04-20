@@ -3,7 +3,11 @@ import { CentralDataHub } from "@/services/centralDataHub";
 
 export const dynamic = 'force-dynamic';
 
+import { requireDebugAuth } from '@/lib/debugAuth';
+
 export async function GET(request: Request) {
+    const authError = requireDebugAuth();
+    if (authError) return authError;
     const { searchParams } = new URL(request.url);
     const ticker = searchParams.get("t") || "META";
 

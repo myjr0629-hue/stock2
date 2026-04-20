@@ -3,8 +3,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { getMacroSnapshotSSOT } from "@/services/macroHubProvider";
 import { getOptionsData } from "@/services/stockApi";
 import { getStockData } from "@/services/stockApi";
+import { requireDebugAuth } from "@/lib/debugAuth";
 
 export async function GET(request: NextRequest) {
+    const authError = requireDebugAuth();
+    if (authError) return authError;
     const logs: string[] = [];
     const log = (msg: string) => logs.push(msg);
 

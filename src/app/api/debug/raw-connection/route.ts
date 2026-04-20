@@ -1,13 +1,18 @@
 
 import { NextResponse } from 'next/server';
+import { requireDebugAuth } from '@/lib/debugAuth';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
-    const apiKey = process.env.MASSIVE_API_KEY || "iKNEA6cQ6kqWWuHwURT_AyUqMprDpwGF";
+    // [SECURITY] Block unauthenticated access
+    const authError = requireDebugAuth();
+    if (authError) return authError;
+
+    const apiKey = process.env.MASSIVE_API_KEY || process.env.POLYGON_API_KEY || "";
 
     if (!apiKey) {
-        return NextResponse.json({ error: "MASSIVE_API_KEY is missing in env" }, { status: 500 });
+        return NextResponse.json({ error: "API key missing" }, { status: 500 });
     }
 
     const ticker = "NVDA";
@@ -15,39 +20,28 @@ export async function GET() {
 
     try {
         const start = Date.now();
-        console.log(`[RawProbe] Fetching: ${url.replace(apiKey, '***')}`);
-
         const res = await fetch(url, { cache: 'no-store' });
         const elapsed = Date.now() - start;
 
-        const status = res.status;
-        const statusText = res.statusText;
-
         let data = null;
-        let text = "";
-
         try {
-            text = await res.text();
+            const text = await res.text();
             data = JSON.parse(text);
         } catch (e: any) {
-            data = { rawText: text, jsonError: e.message };
+            data = { error: e.message };
         }
 
         return NextResponse.json({
-            test: "Raw Connection Probe",
-            target: ticker,
-            url: url.replace(apiKey, 'HIDDEN'),
+            test: "Connection Probe",
             elapsedMs: elapsed,
-            httpStatus: status,
-            httpStatusText: statusText,
+            httpStatus: res.status,
             responsePreview: data
         });
 
     } catch (e: any) {
         return NextResponse.json({
             error: "Fetch Failed",
-            details: e.message,
-            stack: e.stack
+            details: e.message
         }, { status: 500 });
     }
 }
