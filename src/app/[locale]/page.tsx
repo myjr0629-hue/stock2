@@ -141,6 +141,8 @@ function LiveTickerCard({ symbol }: { symbol: string }) {
   const [isDataChanged, setIsDataChanged] = useState(false);
   const [sparklineData, setSparklineData] = useState<number[]>([]);
   const prevDataRef = useRef<any>(null);
+  // [FIX] Preserve last valid changePercent during off-hours (Polygon lastTrade.p instability)
+  const stableChangeRef = useRef<{ changePercent: number; underlyingPrice: number } | null>(null);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -154,6 +156,16 @@ function LiveTickerCard({ symbol }: { symbol: string }) {
         if (prev && (prev.netGex !== json.netGex || prev.maxPain !== json.maxPain)) {
           setIsDataChanged(true);
           setTimeout(() => setIsDataChanged(false), 1000);
+        }
+
+        // [FIX] Preserve last valid changePercent during off-hours
+        // Polygon returns inconsistent lastTrade.p on weekends, causing changePercent to flicker between 0 and actual value
+        if (json.changePercent && json.changePercent !== 0) {
+          stableChangeRef.current = { changePercent: json.changePercent, underlyingPrice: json.underlyingPrice };
+        } else if (json.session === 'CLOSED' && stableChangeRef.current) {
+          // During CLOSED, use last known valid change if API returned 0
+          json.changePercent = stableChangeRef.current.changePercent;
+          json.underlyingPrice = stableChangeRef.current.underlyingPrice;
         }
 
         prevDataRef.current = json;
@@ -208,13 +220,24 @@ function LiveTickerCard({ symbol }: { symbol: string }) {
           hover:-translate-y-1 hover:shadow-[0_12px_40px_rgba(34,211,238,0.12)]
           active:translate-y-0 active:shadow-none"
     >
-      {/* Live Indicator Dot */}
+      {/* Live Indicator Dot — session-aware */}
       <div className="absolute top-3 right-3 flex items-center gap-1.5">
-        <span className="relative flex h-1.5 w-1.5">
-          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-          <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500"></span>
-        </span>
-        <span className="text-[10px] text-emerald-400/70 uppercase tracking-wider">Live</span>
+        {data?.session === 'REG' || data?.session === 'PRE' ? (
+          <>
+            <span className="relative flex h-1.5 w-1.5">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500"></span>
+            </span>
+            <span className="text-[10px] text-emerald-400/70 uppercase tracking-wider">Live</span>
+          </>
+        ) : (
+          <>
+            <span className="relative flex h-1.5 w-1.5">
+              <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-amber-500/60"></span>
+            </span>
+            <span className="text-[10px] text-amber-400/50 uppercase tracking-wider">{data?.session === 'POST' ? 'Post' : 'Closed'}</span>
+          </>
+        )}
       </div>
 
       <div className="p-5">
