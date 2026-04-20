@@ -2424,17 +2424,36 @@ const lookbackDays = (dayOfWeek === 0 || dayOfWeek === 6) ? 5 : 3;
 | `/api/debug/audit` | Massive Native 내부 감사 로그 |
 | `/api/debug/hub` | 데이터 파이프라인 상세 |
 | `/api/debug/kv` | Redis 키/값 조회 |
-| `/api/debug/guardian*` | Guardian 시스템 내부 |
+| `/api/debug/guardian-test` | Guardian 테스트 전용 |
 | `/api/debug/options-probe` | 옵션 데이터 원본 |
+| `/api/debug/report-status` | 리포트 상태 진단 |
+| `/api/debug/sync-report` | 리포트 동기화 진단 |
+| `/api/debug/generate-jan9` | 리포트 생성 테스트 |
 | `/api/health/report` | `MASSIVE_API_KEY_present` 필드명 |
+
+> ⚠️ **`/api/debug/guardian`은 auth guard 적용 대상 아님** — 이름은 debug이나 실제로는 **프로덕션 데이터 파이프라인**
+> - 소비자 3곳: `GuardianProvider.tsx` (프론트엔드), `ec2-guardian-worker.js` (EC2), `cron/harvest-history` (크론)
+> - 벤더명/API키 노출 없음 (자체 계산 결과물인 RLSI/섹터/verdict 데이터만 반환)
 
 #### 3-2. Health Env 응답 벤더 필드 제거 (`src/app/api/health/env/route.ts`)
 - **제거**: `massiveKeyPresent`, `upstashUrlPresent`, `vercelEnv`, `gitCommitSha`, `useRedisSSOT`
 - **유지**: `ok`, `timestampISO`, `buildId`, `deploymentId`, `nodeEnv`, `envType`
 
-#### 3-3. 기능 영향
-- **없음**. 수정된 엔드포인트는 모두 개발자 디버깅 전용
-- 차트, 대시보드, 워치리스트, 다크풀, 결제 등 모든 유저 기능 무관
+#### 3-3. 기능 영향 — ⚠️ 가디언 페이지 장애 발생 및 긴급 수정 (2026-04-20)
 
-**커밋**: `13fb3678`
+**장애 내용**: `/api/debug/guardian`에 auth guard를 잘못 적용하여 Guardian 페이지 영어(en)/일본어(ja) 렌더링 완전 실패
+- 프론트엔드 → 403 차단, EC2 Worker → 403 차단 → Redis 캐시 만료 → en/ja 데이터 소멸
+- 한국어(ko)만 Vercel 내부 함수 호출(reportScheduler, briefing/generate)로 우연히 생존
+
+**긴급 수정 (커밋 `4df28108`)**:
+1. `/api/debug/guardian/route.ts` — `requireDebugAuth()` 제거 (프로덕션 파이프라인으로 재분류)
+2. `scripts/ec2-guardian-worker.js` — 주말 en/ja 스킵 로직 제거 (기존 잠복 버그)
+   - 이전: `isActive`(REG/PRE) 조건으로 en/ja만 조건부 수집
+   - 이후: 모든 세션에서 ko/en/ja 동등 수집
+
+**검증 완료**: 프로덕션 ko/en/ja 모두 200 OK + RLSI/Verdict/Breadth 정상 렌더링 확인
+
+**교훈**: 라우트 경로명(`/api/debug/`)만 보고 일괄 잠금하지 말 것 — 반드시 **소비자(caller) grep 전수조사** 후 적용
+
+**커밋**: `13fb3678` (보안 적용), `4df28108` (긴급 수정)
 **파일**: `src/lib/debugAuth.ts` (신규), `src/app/api/debug/*/route.ts` (10개), `src/app/api/health/env/route.ts`, `src/app/api/health/report/route.ts`
