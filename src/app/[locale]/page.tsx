@@ -649,33 +649,33 @@ export default function Page() {
       <section className="py-12 px-6">
         <div className="max-w-4xl mx-auto">
           <p className="text-center text-[11px] font-semibold text-slate-400 uppercase tracking-[0.3em] mb-8">Powered by</p>
-          <div className="flex items-center justify-center gap-10 sm:gap-14 md:gap-20 flex-wrap">
+          <div className="flex items-center justify-center gap-12 sm:gap-16 md:gap-20 flex-wrap">
             {/* AWS — full logo with smile */}
             <a href="https://aws.amazon.com" target="_blank" rel="noopener noreferrer"
                className="opacity-85 hover:opacity-100 transition-opacity duration-500" title="Amazon Web Services">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/logos/aws.svg" alt="AWS" style={{height: 38, width: 'auto'}} className="select-none" loading="lazy" />
+              <img src="/logos/aws.svg" alt="AWS" style={{height: 42, width: 'auto'}} className="select-none" loading="lazy" />
             </a>
             {/* Anthropic — icon + text */}
             <a href="https://anthropic.com" target="_blank" rel="noopener noreferrer"
                className="flex items-center gap-2.5 opacity-85 hover:opacity-100 transition-opacity duration-500" title="Anthropic Claude AI">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/logos/anthropic.svg" alt="" style={{height: 28, width: 'auto'}} className="select-none" loading="lazy" />
-              <span className="text-[18px] font-medium text-[#E8C9A8]" style={{fontFamily:'Inter,system-ui,sans-serif'}}>Anthropic</span>
+              <img src="/logos/anthropic.svg" alt="" style={{height: 34, width: 'auto'}} className="select-none" loading="lazy" />
+              <span className="text-[21px] font-medium text-[#E8C9A8]" style={{fontFamily:'Inter,system-ui,sans-serif'}}>Anthropic</span>
             </a>
             {/* Stripe — icon + text */}
             <a href="https://stripe.com" target="_blank" rel="noopener noreferrer"
                className="flex items-center gap-2.5 opacity-85 hover:opacity-100 transition-opacity duration-500" title="Stripe Payments">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/logos/stripe.svg" alt="" style={{height: 28, width: 'auto'}} className="select-none" loading="lazy" />
-              <span className="text-[18px] font-semibold text-[#7A73FF]" style={{fontFamily:'Inter,system-ui,sans-serif'}}>Stripe</span>
+              <img src="/logos/stripe.svg" alt="" style={{height: 34, width: 'auto'}} className="select-none" loading="lazy" />
+              <span className="text-[21px] font-semibold text-[#7A73FF]" style={{fontFamily:'Inter,system-ui,sans-serif'}}>Stripe</span>
             </a>
             {/* Vercel — icon + text */}
             <a href="https://vercel.com" target="_blank" rel="noopener noreferrer"
                className="flex items-center gap-2.5 opacity-85 hover:opacity-100 transition-opacity duration-500" title="Vercel Edge Network">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/logos/vercel.svg" alt="" style={{height: 26, width: 'auto'}} className="select-none" loading="lazy" />
-              <span className="text-[18px] font-semibold text-white" style={{fontFamily:'Inter,system-ui,sans-serif'}}>Vercel</span>
+              <img src="/logos/vercel.svg" alt="" style={{height: 32, width: 'auto'}} className="select-none" loading="lazy" />
+              <span className="text-[21px] font-semibold text-white" style={{fontFamily:'Inter,system-ui,sans-serif'}}>Vercel</span>
             </a>
           </div>
         </div>
