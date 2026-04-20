@@ -2402,3 +2402,39 @@ const lookbackDays = (dayOfWeek === 0 || dayOfWeek === 6) ? 5 : 3;
 **⚠️ 주의사항**: SVG 파일은 `public/logos/` 디렉토리에 로컬 저장. CDN 의존하지 않음 (외부 CDN 불안정성 방지).
 
 **커밋**: `6a374ce8`, `3e823529`, `c46a754c`, `1a35e1b7`
+
+### 3. API 벤더 노출 차단 — 보안 강화 (2026-04-20)
+
+**목적**: 외부에서 사이트가 사용하는 API 벤더(Polygon, FMP, Upstash 등)를 확인할 수 없도록 차단
+
+**감사 결과 요약**:
+- API 키 자체: 서버사이드 프록시 아키텍처로 **브라우저에서 절대 노출 불가** ✅
+- 벤더 정보: `/api/debug/*` 및 `/api/health/*` 엔드포인트에서 벤더명 노출 → **차단 필요**
+
+**수정 내역**:
+
+#### 3-1. 디버그 엔드포인트 인증 가드 (`src/lib/debugAuth.ts` 신규)
+- `x-debug-secret` 헤더 = `DEBUG_SECRET` 환경변수 일치 시에만 접근 허용
+- 불일치 시 `{"error":"Forbidden"}` (HTTP 403) 반환
+- **적용 범위**: `/api/debug/*` 10개 라우트 + `/api/health/report` 1개
+
+| 차단된 엔드포인트 | 이전 노출 정보 |
+|-----------------|--------------|
+| `/api/debug/raw-connection` | `"url":"https://api.polygon.io/..."` |
+| `/api/debug/audit` | Massive Native 내부 감사 로그 |
+| `/api/debug/hub` | 데이터 파이프라인 상세 |
+| `/api/debug/kv` | Redis 키/값 조회 |
+| `/api/debug/guardian*` | Guardian 시스템 내부 |
+| `/api/debug/options-probe` | 옵션 데이터 원본 |
+| `/api/health/report` | `MASSIVE_API_KEY_present` 필드명 |
+
+#### 3-2. Health Env 응답 벤더 필드 제거 (`src/app/api/health/env/route.ts`)
+- **제거**: `massiveKeyPresent`, `upstashUrlPresent`, `vercelEnv`, `gitCommitSha`, `useRedisSSOT`
+- **유지**: `ok`, `timestampISO`, `buildId`, `deploymentId`, `nodeEnv`, `envType`
+
+#### 3-3. 기능 영향
+- **없음**. 수정된 엔드포인트는 모두 개발자 디버깅 전용
+- 차트, 대시보드, 워치리스트, 다크풀, 결제 등 모든 유저 기능 무관
+
+**커밋**: `13fb3678`
+**파일**: `src/lib/debugAuth.ts` (신규), `src/app/api/debug/*/route.ts` (10개), `src/app/api/health/env/route.ts`, `src/app/api/health/report/route.ts`
