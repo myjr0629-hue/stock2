@@ -998,8 +998,14 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                 // secured by the client-side fetch, otherwise SWR will blindly erase it!
                 const updatedList = (unifiedData.related?.topRelated || []).map((newItem: any) => {
                     const oldItem = prev?.topRelated?.find((r: any) => r.ticker === newItem.ticker);
+                    // [ABSOLUTE FIX V2] Preserve deeply fetched live data (price, change) if backend sends {price:0, change:0}
+                    // This prevents SWR from blindly resetting live metrics back to 0.00%.
+                    const hasLiveOldData = oldItem && (oldItem.price > 0 || Math.abs(oldItem.change) > 0);
+                    
                     return {
                         ...newItem,
+                        price: (hasLiveOldData && newItem.price === 0) ? oldItem.price : newItem.price,
+                        change: (hasLiveOldData && newItem.change === 0) ? oldItem.change : newItem.change,
                         prevClose: newItem.prevClose || oldItem?.prevClose
                     };
                 });
