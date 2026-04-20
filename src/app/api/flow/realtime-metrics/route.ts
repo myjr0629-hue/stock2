@@ -329,8 +329,9 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const ticker = searchParams.get('ticker')?.toUpperCase() || 'TSLA';
     const cacheKey = `rt-metrics:${ticker}`;
-    const REDIS_TTL = 600; // 10 minutes
-    const STALE_THRESHOLD_MS = 300_000; // 5 minutes
+    const REDIS_TTL = 600; // 10 minutes (Polygon sampling cache)
+    const STALE_THRESHOLD_MS = 300_000; // 5 minutes (for Polygon sampling)
+    const EC2_STALE_THRESHOLD_MS = 57_600_000; // 16 hours (for EC2 100% data — valid until next session)
 
     try {
         // [SSOT V3] PRIMARY: Read from EC2 ElastiCache via Redis Proxy
@@ -339,7 +340,9 @@ export async function GET(request: NextRequest) {
         const ec2Data = await fetchFromElastiCache(cacheKey).catch(() => null);
         if (ec2Data && ec2Data.darkPool) {
             const cacheAge = ec2Data._ts ? Date.now() - ec2Data._ts : Infinity;
-            if (cacheAge < STALE_THRESHOLD_MS) {
+            // EC2 100% data is valid for 16 hours (until next market open)
+            const threshold = ec2Data._source === 'ec2-flow-accumulator' ? EC2_STALE_THRESHOLD_MS : STALE_THRESHOLD_MS;
+            if (cacheAge < threshold) {
                 return NextResponse.json({ ...ec2Data, _cached: true, _ageMs: cacheAge, _via: 'elasticache' });
             }
         }

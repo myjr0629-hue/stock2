@@ -64,7 +64,7 @@ const UNIVERSE_REFRESH_MS = 3600000;
 const SHORT_VOL_REFRESH_MS = 3600000;
 
 const DARK_POOL_EXCHANGES = new Set([4, 15, 16, 19]);
-const RT_METRICS_TTL = 600; // 10 min
+const RT_METRICS_TTL = 57600; // 16 hours — keeps full-session data until next market open
 
 // ══════════════════════════════════════════════════════════════
 // ELASTICACHE CONNECTION (ioredis)
