@@ -2347,3 +2347,58 @@ All investment decisions are the sole responsibility of the user.
 **배포**: Vercel (`git push` 자동) + EC2 (`node scripts/deploy-ec2-flow.js`)
 **커밋**: `16ff810e`
 
+## [세션 기록] 2026-04-20 (세션 2): 1D 차트 빈 데이터 버그 수정 + Powered by 로고 스트립
+
+### 1. 1D 차트 "LOADING CHART DATA" 버그 근본 수정
+
+**증상**: 프로덕션에서 모든 티커의 PRICE HISTORY 차트가 "LOADING CHART DATA"에서 멈춤. `/api/chart?symbol=NVDA&range=1d` → `{"data":[], "count": 0}` 빈 배열 반환.
+
+**근본 원인**: `stockApi.ts:getStockChartData()` 함수의 **UTC/ET 시차 + 공휴일 대응 부족**
+
+**상세 매커니즘**:
+1. 한국시간 자정(UTC 자정) → `new Date().getDay()` = 1 (UTC 월요일)
+2. 코드가 "평일" 분기 → `lookbackDays = 2` (기존값)
+3. `from = 4/18(토)` ~ `to = 4/20(월)` → **토/일 거래 데이터 없음**
+4. ET 기준으로는 아직 일요일 밤 → 월요일 프리마켓 데이터도 없음
+5. 결과: Polygon이 빈 데이터 반환 → 차트 렌더링 불가
+
+**발생 조건**: 매주 **KST 월요일 00:00 ~ 월요일 오후 2시** (UTC가 월요일이지만 ET가 아직 일요일인 시간대)
+
+**수정**: `stockApi.ts:1046-1050`
+```
+// [S-66 V3] 기존: 주말 3일, 평일 2일 → 수정: 주말 5일, 평일 3일
+const lookbackDays = (dayOfWeek === 0 || dayOfWeek === 6) ? 5 : 3;
+```
+- 평일 lookback 2→3: UTC 월요일/ET 일요일 시차에서도 금요일 데이터 도달
+- 주말 lookback 3→5: 금요일 공휴일(Good Friday 등) + 주말 조합까지 커버
+- **본장 영향 없음**: Polygon에서 데이터를 더 넓게 가져오되, `targetTradingDayET` 필터에서 당일 데이터만 표시
+
+**커밋**: `e572a802`
+**파일**: `src/services/stockApi.ts` (1줄 변경)
+
+### 2. Landing Page "Powered by" 기술 파트너 로고 스트립
+
+**목적**: 랜딩 페이지에 기술 파트너 로고를 표시하여 사이트 신뢰도 향상
+
+**구현 파일**:
+- `src/app/[locale]/page.tsx`: 로고 스트립 섹션 (Analytics Dashboard 바로 위)
+- `public/logos/aws.svg`: AWS 풀 워드마크 (스마일 흰색 변경 - 다크테마 대응)
+- `public/logos/anthropic.svg`: Anthropic A\ 아이콘
+- `public/logos/stripe.svg`: Stripe S 아이콘
+- `public/logos/vercel.svg`: Vercel ▲ 아이콘
+
+**디자인 사양**:
+| 로고 | 아이콘 높이 | 텍스트 크기 | 색상 |
+|------|-----------|-----------|------|
+| AWS | 42px (풀 워드마크) | 내장 | #FF9900 (오렌지) + #FFFFFF (스마일) |
+| Anthropic | 34px | 21px | #E8C9A8 (웜 골드) |
+| Stripe | 34px | 21px | #7A73FF (퍼플) |
+| Vercel | 32px | 21px | #FFFFFF (화이트) |
+
+- Opacity: 0.85 (hover 시 1.0)
+- 위아래 border 없음 (깔끔한 디자인)
+- 업계 표준 범위 (30~50px) 내 크기
+
+**⚠️ 주의사항**: SVG 파일은 `public/logos/` 디렉토리에 로컬 저장. CDN 의존하지 않음 (외부 CDN 불안정성 방지).
+
+**커밋**: `6a374ce8`, `3e823529`, `c46a754c`, `1a35e1b7`
