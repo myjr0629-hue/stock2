@@ -1873,8 +1873,8 @@ exports.handler = async (event) => {
   const isRegular = (utcMin >= 13*60+30 && utcMin <= 21*60);
   const forceRun = event && event.forceRun;
   
-  // Weekend: skip everything — preserve Friday's data as-is
-  if (isWeekend) {
+  // Weekend: skip everything — preserve Friday's data as-is (unless forceRun)
+  if (isWeekend && !forceRun) {
     console.log('Weekend (day='+day+') — skipping all steps to preserve Friday data');
     return { statusCode:200, body:JSON.stringify({ skipped:true, reason:'Weekend - Friday data preserved', day }) };
   }
