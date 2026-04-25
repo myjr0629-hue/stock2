@@ -3456,3 +3456,31 @@ src/components/intel/mobile/              ← Command + Intel 모바일
 > - MobileFlowPage의 `WatchlistSwipeBar` → `bottom-[56px]`
 > - layout.tsx의 spacer div → `h-[68px]`(현재)
 > - 기타 모바일 페이지의 `pb-*` 패딩
+
+### 15.20 🔴 Dark Pool 데이터 파이프라인 아키텍처 (2026-04-25)
+
+> [!IMPORTANT]
+> **Dark Pool % 데이터의 SSOT는 EC2 ElastiCache (`rt-metrics:{TICKER}`)이다.**
+> Lambda `signum-harvest`가 `darkPoolPct`를 가져올 때 반드시 EC2 proxy를 사용해야 한다.
+> Upstash `rt-metrics`는 비어있음 (flow-harvest V3.0이 비용 최적화로 저장 중단).
+
+**Dark Pool 데이터 흐름:**
+```
+EC2 WebSocket Flow Accumulator (100% 전수 수집)
+  └── ElastiCache rt-metrics:{TICKER}
+       ├── Lambda signum-harvest V9 → ec2ProxyGet() → cache:analysis:{T}.darkPoolPct
+       └── Vercel realtimeMetricsService.ts → fetchTradeData() (PRIMARY)
+            └── FALLBACK: Polygon REST /v3/trades (5K 샘플링)
+```
+
+**절대 금지:**
+- `rt-metrics:{TICKER}`를 Upstash에서 읽지 말 것 — 데이터 없음
+- Lambda flow-harvest에서 `rt-metrics`를 다시 Upstash에 저장하지 말 것 — 비용 최적화 위반
+- `darkPoolPct`를 하드코딩 0으로 fallback하지 말 것 — 무결성 위반
+
+**관련 코드:**
+- `scripts/deploy-lambda-v7.js` L75-110: EC2 proxy 헬퍼 + 변수
+- `scripts/deploy-lambda-v7.js` L990-1010: batch darkPool pre-fetch (EC2 proxy)
+- `scripts/deploy-lambda-v7.js` L1794-1826: OnDemand darkPool fetch (EC2 proxy)
+- `src/services/realtimeMetricsService.ts` L34-77: Vercel → EC2 proxy (PRIMARY)
+
