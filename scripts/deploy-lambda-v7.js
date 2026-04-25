@@ -180,6 +180,22 @@ async function redisPipeline(commands) {
   } catch { return 0; }
 }
 
+// [v9 RESTORED] batchWrite for alpha-history — SSR_V46 in Vercel historyStore prevents overwrites
+async function batchWrite(tableName, items) {
+  for (let i = 0; i < items.length; i += 25) {
+    const batch = items.slice(i, i + 25);
+    try {
+      await client.send(new BatchWriteCommand({
+        RequestItems: { [tableName]: batch.map(item => ({ PutRequest: { Item: item } })) }
+      }));
+    } catch (e) {
+      for (const item of batch) {
+        await client.send(new PutCommand({ TableName: tableName, Item: item })).catch(() => {});
+      }
+    }
+  }
+}
+
 function getNextTradingDayET() {
   // Simple ET approximation: UTC - 4 (EDT) or UTC - 5 (EST)
   const now = new Date();
@@ -431,8 +447,10 @@ async function harvestPrices() {
       items.push({ ticker:t.ticker, date:today, qualityTier:'LIVE', changePct:Math.round(ch*100)/100, open:t.day?.o||0, high:t.day?.h||0, low:t.day?.l||0, close:t.day?.c||p, volume:t.day?.v||0, vwap:t.day?.vw||0, gex:0, pcr:0, alphaScore:0 });
     }
   }
-  // [REMOVED] alpha-history 저장 제거 — Context Score는 Vercel cron이 장마감 시점에 저장 (SSR_V46 덮어쓰기 방지)
-  console.log('Prices: '+items.length+'/'+UNIVERSE.length+' (priceMap has '+Object.keys(priceMap).length+' tickers)');
+  // [v9 RESTORED] alpha-history 저장 복원 — 1000종목 가격/OHLCV 기록 (백테스팅 파이프라인 필수)
+  // SSR_V46 덮어쓰기 방지는 Vercel historyStore.ts L158-165에서 이미 처리됨
+  if (items.length > 0) await batchWrite('signum-alpha-history', items);
+  console.log('Prices: '+items.length+'/'+UNIVERSE.length+' saved to alpha-history (priceMap has '+Object.keys(priceMap).length+' tickers)');
   return { count:items.length, priceMap, snapshotMap };
 }
 
