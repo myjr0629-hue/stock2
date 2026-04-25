@@ -2479,3 +2479,980 @@ const lookbackDays = (dayOfWeek === 0 || dayOfWeek === 6) ? 5 : 3;
 **커밋**: `f1f094ea`
 **파일**: `src/app/[locale]/page.tsx`
 
+
+
+## [세션 기록] 2026-04-21: 반응형 모바일 최적화 아키텍처 및 복구 작업
+
+### 📱 [Architecture] 반응형 모바일 최적화 아키텍처 원칙 및 작업 이력
+
+#### 1. 모바일 최적화 아키텍처 대원칙
+현재 SIGNUM HQ 에서는 빠르고 안전한 크로스 플랫폼 레이아웃을 구현하기 위해 두 가지 방식을 목적에 맞게 혼용, 점진적으로 고도화하고 있습니다.
+
+1. **Phase 1: CSS 기반 레이아웃 분리 (현재 주로 사용, 긴급 복구 및 구조적 안전성 우선)**
+   - Tailwind의 `hidden md:flex`, `flex md:hidden`, `order-first`, `order-last` 등을 활용.
+   - **장점**: SSR(서버 사이드 렌더링) 환경에서 User-Agent를 판별하거나 하이드레이션(Hydration) 플리커링(화면 번쩍임)을 방지할 수 있습니다. 데스크탑 코드를 물리적으로 파괴하지 않아 레이아웃 무결성을 유지하기 가장 좋습니다.
+   - **한계**: 보이지 않는 요소도 브라우저 DOM에 렌더링되므로, 앱이 무거워질 경우(다이내믹 차트 2개 렌더링 등) 메모리 낭비가 발생합니다.
+
+2. **Phase 2: React DOM 수준의 논리적 분리 (최종 지향점: `isMobile ? <Mobile> : <Desktop>`)**
+   - 불필요한 데스크탑 컴포넌트를 아예 로드하지 않아 네이티브 앱 수준의 쾌적함을 확보하는 단계입니다.
+   - 단, SSR 체계와 충돌하지 않도록 Next.js Middleware 단에서의 User-Agent 감지 또는 완전한 CSR(Client-Side) 분기 처리가 필요합니다.
+
+#### 2. 작업 이력 (2026-04-21 기준)
+금일 모바일 뷰 최적화를 시도하는 과정에서 발생한 **데스크탑(웹) 레이아웃 간섭(파괴) 및 꼼수 전역 CSS 충돌 이슈**를 해결하고, 완벽한 반응형 분리 상태로 복구했습니다.
+
+*   **WDC 등 일반 종목 대시보드 (`DashboardClient.tsx`)**:
+    *   **과거 상태**: 모바일에서 `PRE 가격` 배지와 `Customize` 버튼이 겹치는 문제를 풀려고 레이아웃을 밑줄(ROW 2)로 밀어버리는 꼼수 스크립트를 적용해 데스크탑 레이아웃까지 깨짐.
+    *   **조치 결과**: 
+        *   **웹(데스크탑)**: `<div className="hidden md:block">` 내부에 원래 구조인 인라인 가격 배지와 Customize 배지를 100% 원상 복구 (우측 일렬 정렬).
+        *   **모바일**: `<div className="md:hidden flex">`로 묶인 ROW 2 블록을 하단에 추가해, 웹을 건드리지 않고 모바일만 겹치지 않게 분리.
+*   **관심 종목(Watchlist) 및 RELATED 섹션 (`LiveTickerDashboard.tsx`)**:
+    *   **과거 상태**: 화면에 다 들어오지 않는 문제를 해결하려다 전체 높이에 영향이 가는 버그 발생.
+    *   **조치 결과**: 데스크탑 클래스(`gap-1`, `h-auto`)는 유지하고 모바일에서만 타겟팅되는 `gap-0 md:gap-1` 및 `h-[22px] md:h-auto` 기반의 정밀 클래스를 주입하여 모바일 압축 UI 구현.
+*   **가디언 페이지 (`intel-guardian/page.tsx`)**:
+    *   **과거 상태**: `GAMMA SHIELD`를 하단으로 내리기 위해 HTML 구조 자체를 잘라내서 옮기는 바람에 웹에서도 하단으로 추락하는 문제 발생.
+    *   **조치 결과**: 구조 이중화(렌더링 두 번) 없이 Tailwind의 순서 제어 클래스 활용 (`order-last lg:order-first`).
+        *   **웹(데스크탑)**: `lg:order-first`가 발동되어 맵 상단(원래 자리)으로 자동 끌어올림.
+        *   **모바일**: `order-last`가 발동되어 맵 하단(대표님이 편하시다던 위치)에 배치.
+
+#### 3. 향후 원칙
+*   **전역 강제 꼼수 절대 금지**: 루트 어딘가에 몰래 `<style> @media ...</style>`를 박아 놓는 행위는 모듈화를 깨트리며 연쇄 레이아웃 파괴의 주범이므로 절대 퇴출.
+*   **정석적인 캡슐화**: 모든 반응형 대응은 해당 컴포넌트 내의 Tailwind 접두사(`md:`, `lg:`) 또는 안전하게 분리된 `isMobile` State를 통해서만 처리.
+
+
+#### 4. 현행 모범 사례 (Phase 2 - 순수 DOM 방식 적용 완료 컴포넌트)
+과거 "모바일 뷰 고도화 작업" (2026-04 초중순) 당시, 무거운 로직을 두 번 그리지 않기 위해 순수 DOM(React 렌더링) 조건부 분리 방식을 정교하게 적용해 둔 대표적인 컴포넌트들의 실제 사례입니다.
+앞으로는 신규 컴포넌트나 기존 CSS 꼼수가 있던 곳들을 이 모범 사례들처럼 마이그레이션 해야 합니다.
+
+1. **`TechnicalLevelsMap.tsx` (기술적 지지/저항 맵)**
+   - 데스크탑에서는 가로형 네트워크 지도처럼 펼쳐지지만, 모바일을 감지하면 `if (isMobile) { return <MobileLayout /> }` 구문을 통해 완전히 새로운 세로 스택형(Vertical Stack) UI DOM 트리를 단독으로 반환.
+   - 억지로 구겨 넣지 않아 네이티브 앱 같은 렌더링 속도와 무결성 보장.
+
+2. **`GammaPressureGauge.tsx` (감마 압력 게이지)**
+   - 복잡한 SVG 스크롤 차트 및 게이지를 CSS로 억지로 숨기면 메모리 누수가 발생하므로, `useMobile()` 상태 훅을 구독하여 활성화 시 모니터 뷰와 완전히 다른 모바일용 바(Bar) 차트 UI로 바꿔치기(Swap)하도록 논리 분리됨.
+
+3. **`hooks/useMobile.ts`, `useIsMobile.ts`**
+   - 브라우저의 리사이즈를 실시간으로 감지하여 Client 측에서 Mobile 여부를 판단해 반환하는 전용 훅.
+   - 단, 서버(SSR) 단에서는 해당 훅이 `false`(데스크탑)를 기본값으로 가지므로 Hydration 전후 불일치(깜빡임)를 잡기위해 Layout Wrapper 단을 조심해서 써야 함.
+
+#### 5. [2026-04-22] Flow 페이지 모바일 헤더 안정화 (CSS-First Hydration Fix)
+
+> **문제**: Flow 페이지에서 `isMobile` state 기반 조건부 렌더링으로 인해 SSR/Client Hydration Mismatch 에러가 반복 발생. `Ctrl+Shift+R`(hard reload) 시 데스크탑 레이아웃이 모바일에서 노출되는 등 불안정.
+>
+> **해결**: `FlowPageClient.tsx`에서 `useMobile()` 훅과 `isMobile` 조건부 분기를 완전 제거. CSS `md:hidden` / `hidden md:block` 방식으로 전환하여 DOM 구조를 SSR/Client 동일하게 유지.
+>
+> **수정 파일**:
+> - `src/app/[locale]/flow/FlowPageClient.tsx` — `useMobile` 제거, CSS 가시성 제어로 전환
+> - `src/app/[locale]/flow/page.tsx` — 불필요한 헤더 prop 정리
+
+**결론**: Flow 헤더/배지 영역은 **데이터와 구조가 공유**되므로 CSS 방식이 최적. Hydration 에러 0건, 레이아웃 깜빡임 0건.
+
+#### 6. [2026-04-22] Intel 페이지 모바일 앱 네이티브 최적화 (CSS-Only, 데스크탑 영향 0%)
+
+> **원칙**: 데스크탑 웹은 **1바이트도 변경하지 않음**. 모든 모바일 변경은 `lg:` 프리픽스 또는 `lg:hidden` / `hidden lg:block`으로 격리.
+
+**수정 파일 및 내용**:
+
+| 파일 | 변경 | 데스크탑 영향 |
+|------|------|:---:|
+| `IntelClientPage.tsx` L1652 | 모바일 탭 바 `top-16`→`top-14` (MobileHeader 56px 밀착) | ❌ 없음 (`lg:hidden` 내부) |
+| `IntelClientPage.tsx` L1652 | `maskImage` 스크롤 페이드 힌트 추가 | ❌ 없음 (인라인 on `lg:hidden` div) |
+| `IntelClientPage.tsx` L1671 | 탭 버튼 `px-3 py-1.5`→`px-3.5 py-2 min-h-[36px]` (44px+ 터치 타겟) | ❌ 없음 (`lg:hidden` 내부) |
+| `IntelClientPage.tsx` L1682 | `px-4 py-8 space-y-8`→`px-3 lg:px-8 py-4 lg:py-8 space-y-4 lg:space-y-8` | ❌ 없음 (`lg:` 프리픽스 보존) |
+| `SectorCommandCenter.tsx` L524 | 섹터 그리드 `gap-3`→`gap-2 lg:gap-3` | ❌ 없음 (`lg:` 복원) |
+| `SectorCommandCenter.tsx` L561 | 카드 패딩 `p-4`→`p-3 lg:p-4` | ❌ 없음 (`lg:` 복원) |
+| `SectorCommandCenter.tsx` L649 | 랭킹 테이블 `hidden lg:block` (데스크탑에서만 표시) | ❌ 없음 (기존 코드 그대로) |
+| `SectorCommandCenter.tsx` L752+ | **모바일 랭킹 카드 뷰** `lg:hidden` 신규 추가 (64줄) | ❌ 없음 (신규 `lg:hidden` 블록) |
+| `SectorHeatmap.tsx` L289 | 모바일 히트맵 타일 `py-3 min-h-[48px]` (Apple HIG 44px+ 충족) | ❌ 없음 (`block md:hidden` 내부) |
+| `SectorHeatmap.tsx` L292-293 | 히트맵 폰트 `text-[12px]`→`text-[13px]` | ❌ 없음 (`block md:hidden` 내부) |
+
+**적용된 앱 네이티브 패턴 (2025 Finance App Standards)**:
+- **Sticky Horizontal Tabs**: 모바일 섹터 탭이 MobileHeader 바로 아래 밀착 고정
+- **Scroll Fade Mask**: CSS `mask-image`로 탭 좌우 그라데이션 → "더 있다" 시각 힌트
+- **Touch-Friendly Targets ≥ 44px**: 탭 버튼, 히트맵 타일 모두 최소 터치 크기 충족
+- **Mobile Ranking Cards**: 데스크탑의 750px 테이블을 모바일에서는 터치 카드 리스트로 대체
+- **Edge-to-Edge Design**: `px-3` (12px) 패딩으로 앱 느낌의 빈틈 없는 레이아웃
+
+#### 7. 모바일 최적화 의사결정 프레임워크 (확정 — 2026-04-22)
+
+> [!IMPORTANT]
+> 아래 표는 모든 모바일 관련 작업 시 참조해야 하는 **확정된 의사결정 기준**입니다.
+
+| 상황 | 방법 | 이유 | 예시 |
+|------|------|------|------|
+| **스타일만 다름** (패딩, 폰트, gap, 색상) | CSS `lg:py-8 py-4` | 즉시 적용, hydration 100% 안전 | Intel 패딩 축소 |
+| **요소 보이기/숨기기** | CSS `hidden lg:block` / `lg:hidden` | SSR 동일 DOM, 깜빡임 0 | TacticalSidebar, 랭킹 테이블/카드 |
+| **데이터 공유, 레이아웃만 다름** | CSS 두 DOM 모두 렌더 + CSS 제어 | Flow 헤더에서 검증 완료 | Flow 페이지 헤더/배지 |
+| **무거운 컴포넌트, DOM 완전히 다름** | `isMobile` 조건부 렌더링 | DOM 비용 절약이 hydration 리스크보다 클 때만 | TechnicalLevelsMap, GammaPressureGauge |
+
+> [!CAUTION]
+> **절대 금지**: `typeof window !== 'undefined'` 조건으로 SSR/Client 분기하는 것. 이것이 Hydration Mismatch의 근본 원인이었음 (Flow 페이지 2026-04-22 사고).
+
+#### 8. 모바일 최적화 절대 원칙 (확정 — 2026-04-23, 위반 금지)
+
+> [!CAUTION]
+> 아래 3원칙은 모든 모바일 관련 작업에서 **절대로 위반해서는 안 되는** 최상위 원칙입니다.
+
+| # | 원칙 | 설명 |
+|:-:|------|------|
+| **1** | **웹에 무조건 영향을 조금도 주면 안 된다** | 기능이든, API이든, 틀이든 — 웹 코드/API/응답을 1바이트라도 수정하는 작업은 절대 금지. 모바일 작업을 위해 API 응답에 필드를 추가하거나 계산 함수를 주입하는 것도 금지. |
+| **2** | **모바일은 틀일 뿐, 데이터는 반드시 웹과 동일해야 한다** | 모바일은 표시 방식(레이아웃/UI)만 다른 것이지, 데이터는 웹이 사용하는 것과 100% 동일한 것을 그대로 받아서 표시만 하면 된다. |
+| **3** | **모바일용으로 계산을 새로 구축하거나 복사해서 만들 이유가 없다** | 로직을 따로 구성할 필요가 전혀 없다. API가 이미 내려주는 데이터를 그대로 표시하면 되므로 정합성 문제가 생길 이유가 없다. 별도 계산 로직을 만드는 순간 원칙 위반이다. |
+
+> **실패 사례 (2026-04-23)**: unified API에 `enrichConvictionAndVwap()` 함수를 추가하여 웹 API 응답을 변경 → 원칙 1번 위반. 모바일에 `calculateConviction()` 클라이언트 계산을 복사 → 원칙 3번 위반. API에 이미 `alpha.score`와 `alpha.grade`가 존재했으므로 그대로 표시만 하면 되었음.
+
+---
+
+## [세션 기록] 2026-04-23: 모바일 아키텍처 Phase 3 완성 — 서버사이드 UA 완전 분리 + Intel 시안 재구축
+
+### 📱 Phase 3 아키텍처 확정 (서버사이드 UA 감지 + DeviceProvider)
+
+> **이전 Phase 1/2의 한계를 극복한 최종 아키텍처입니다.**
+> - Phase 1 (CSS `hidden md:flex`): DOM이 이중 렌더링되어 무거운 컴포넌트에서 메모리 낭비
+> - Phase 2 (`useMobile()` Client Hook): SSR/Client Hydration Mismatch 발생 (Flow 페이지 사고)
+> - **Phase 3 (`useServerMobile()`)**: 서버에서 UA 감지 → DeviceProvider 주입 → Hydration 안전 + DOM 단일 렌더링
+
+#### 핵심 구조
+
+```
+[브라우저 요청] → [Next.js Server layout.tsx]
+                       │
+            headers().get('user-agent')
+            /iPhone|Android|Mobile/.test(ua)
+                       │
+                ┌──────┴──────┐
+                ▼             ▼
+         isMobile=true   isMobile=false
+                │             │
+    <DeviceProvider>    <DeviceProvider>
+         │             │
+    MobileHeader      LandingHeader + TickerBar
+    {children}        {children}
+    MobileBottomNav   Footer + StickyFoundingBar
+```
+
+**핵심 파일**:
+| 파일 | 역할 |
+|------|------|
+| `src/app/[locale]/layout.tsx` (L44~48) | 서버사이드 UA 감지 + `<DeviceProvider isMobile={}>` 주입 |
+| `src/contexts/DeviceContext.tsx` | `useServerMobile()` 훅 제공 — 클라이언트 컴포넌트에서 사용 |
+| 각 페이지 ClientPage.tsx | `const isMobile = useServerMobile()` → 조건부 렌더링 |
+
+### 📱 모바일 전용 컴포넌트 전체 인벤토리 (2026-04-23 기준)
+
+#### App Shell (전역 — layout.tsx에서 분기)
+| 컴포넌트 | 경로 | 역할 |
+|---------|------|------|
+| MobileHeader | `src/components/mobile/MobileHeader.tsx` | 모바일 헤더 (SIGNUM HQ 로고 + 검색 + 프로필) |
+| MobileBottomNav | `src/components/mobile/MobileBottomNav.tsx` | 하단 5-탭 네비게이션 (Home/Command/Flow/Watch/Profile) |
+| MobileBottomSheet | `src/components/mobile/MobileBottomSheet.tsx` | 범용 바텀 시트 (Framer Motion drag + 블러 오버레이) |
+| MobileSnapCarousel | `src/components/mobile/MobileSnapCarousel.tsx` | CSS scroll-snap 가로 스와이프 컨테이너 |
+
+#### Intel 페이지 — 3-Depth 네이티브 (시안 기반, 2026-04-23 재구축)
+| 컴포넌트 | 경로 | Depth | 역할 |
+|---------|------|-------|------|
+| MobileSectorCommand | `src/components/intel/mobile/MobileSectorCommand.tsx` | 1 | Overview: Hero Card + Context Leaders 스와이프 + Sector List |
+| MobileSectorDetail | `src/components/intel/mobile/MobileSectorDetail.tsx` | 2 | 풀스크린 섹터 상세: Featured Card (GEX/D.Pool/PCR/Ctx) + Holdings |
+| MobileTickerSheet | `src/components/intel/mobile/MobileTickerSheet.tsx` | 3 | 바텀 시트: Context Score SVG 원형 게이지 + 4지표 + CTA |
+| (공유 config) | `src/configs/intelSectors.ts` | — | 섹터 정의 (모바일/데스크탑 공용, JSX-free 순수 데이터) |
+
+**분기점**: `IntelClientPage.tsx` L1692 — `isMobile ? <MobileSectorCommand> : <SectorCommandCenter>`
+
+#### Dashboard 페이지
+| 컴포넌트 | 경로 | 역할 |
+|---------|------|------|
+| MobileDashboardClient | `src/components/mobile/MobileDashboardClient.tsx` | MobileMarketPulse + WatchListRow 리스트 |
+
+#### Command/Flow 페이지
+| 컴포넌트 | 경로 | 역할 |
+|---------|------|------|
+| MobileCommandHeader | `src/components/mobile/MobileCommandHeader.tsx` | 종목 상세 헤더 (로고 + 가격 + Grade + 세션) |
+| MobileFlowHeader | `src/components/mobile/MobileFlowHeader.tsx` | Flow 헤더 (로고 + 가격 + Extended Hours) |
+
+### 📐 Intel 3-Depth 네비게이션 구조 상세
+
+```
+[Overview (Depth 1)] — MobileSectorCommand.tsx
+│
+├── Sticky Quick Summary Bar
+│   └── SIGNUM 로고 + BULLISH/BEARISH 배지 + ▲59 ▼11 카운트
+│
+├── Hero Card (시안 핵심)
+│   ├── +X.XX% 대형 숫자 (44px)
+│   ├── "10 Sectors · 70 Assets · Live"
+│   └── TOP/BOT/WHALE 3분할 (섹터 shortLabel 표시)
+│
+├── Context Leaders (가로 스와이프)
+│   ├── CSS scroll-snap-type: x mandatory
+│   ├── alphaScore 기준 Top 3 + Bottom 1
+│   └── 카드: 티커 + 변동률 + 섹터 + Score
+│
+└── Sector List
+    ├── 10개 섹터 × (순위 + 아이콘 + shortLabel + Lead 티커 + 스파크라인 + 변동률 + Chevron)
+    └── [탭 → push] ──→
+
+[Sector Detail (Depth 2)] — MobileSectorDetail.tsx
+│
+├── Header: ← 뒤로가기 + 섹터명 + 변동률 + ▲/▼
+│
+├── Featured Sector Card
+│   ├── 섹터 아이콘 + 이름
+│   ├── +X.XX% 변동률 (26px)
+│   ├── 4지표 그리드: GEX / D.Pool / PCR / Ctx Score
+│   └── Lead / Lag / Volume 3분할
+│
+└── Holdings List
+    ├── 7개 종목 × (로고 + 티커 + Score + 가격 + 변동률)
+    └── [탭 → sheet] ──→
+
+[Ticker Bottom Sheet (Depth 3)] — MobileTickerSheet.tsx
+│
+├── MobileBottomSheet 래퍼 (drag handle, backdrop blur)
+├── Header: 로고 + 티커명 + 세션 + 가격 + 변동률
+├── Context Score 카드
+│   ├── SVG 원형 게이지 (strokeDasharray 기반)
+│   ├── Grade A/B/C/D + 색상 분기
+│   └── 설명 텍스트 ("Multi-indicator alignment detected" 등)
+├── 4지표 그리드: GEX / Dark Pool / PCR / Net Premium
+└── CTA: "Open Full Analysis →" → /dashboard?ticker={TICKER}
+```
+
+### 🎨 디자인 시스템 일관성 토큰 (모든 모바일 페이지 공통)
+
+| 토큰 | 값 | 용도 |
+|------|---|------|
+| 배경 | `#050a14` ~ `#0a0f1a` | 페이지 바디 |
+| 상승색 | `emerald-400` / `emerald-500` | 가격 상승, 양수 변동 |
+| 하락색 | `rose-400` / `rose-500` | 가격 하락, 음수 변동 |
+| 숫자 폰트 | `font-mono tracking-tight` | 가격, 퍼센트, GEX 수치 |
+| 카드 테두리 | `border-white/[0.04]` ~ `border-white/[0.06]` | 카드, 구분선 |
+| 카드 배경 | `bg-[#0f172a]/50` | 리스트 카드 |
+| 터치 피드백 | `active:bg-white/[0.04]` | 모든 터치 가능 요소 |
+| 터치 방지 하이라이트 | `WebkitTapHighlightColor: transparent` | iOS Safari 파란 하이라이트 제거 |
+| 로고 소스 | `parqet.com/logos/symbol/{TICKER}` | 종목 로고 (fallback: 티커 텍스트) |
+| 최소 터치 타겟 | ≥ 44px | Apple HIG 준수 |
+| 글래스 효과 | `backdrop-filter: blur(20px)` + `-webkit-backdrop-filter` | Sticky 바, 바텀 시트 |
+| 그라데이션 카드 | `bg-gradient-to-br from-{color}/[0.12] to-{color}/[0.02]` | Hero Card, Featured Card |
+
+### 🔒 Zero Regression 보장 메커니즘
+
+```
+[데스크탑 브라우저] → UA: Chrome/Windows
+  → layout.tsx: isMobileDevice = false
+  → DeviceProvider: isMobile = false
+  → IntelClientPage: useServerMobile() = false
+  → 렌더링: <SectorCommandCenter> (데스크탑 전용)
+  → 모바일 코드: 렌더링 트리에 존재하지 않음 ← 물리적 격리
+
+[모바일 브라우저] → UA: iPhone Safari
+  → layout.tsx: isMobileDevice = true
+  → DeviceProvider: isMobile = true
+  → IntelClientPage: useServerMobile() = true
+  → 렌더링: <MobileSectorCommand> (모바일 전용)
+  → 데스크탑 코드: 렌더링 트리에 존재하지 않음 ← 물리적 격리
+```
+
+**결론: 모바일 컴포넌트를 어떻게 수정하든 데스크탑에 영향을 줄 방법이 물리적으로 존재하지 않음.**
+
+---
+
+## [분석 기록] 2026-04-23: Redis (Upstash) 비용 폭증 원인 분석 및 최적화 방안
+
+> **분석 방법**: Upstash 전체 5,194개 키 SCAN + 키별 크기 실측 + Lambda/Vercel 전체 쓰기·읽기 경로 전수 조사
+> **비용 현황**: $192.44/월 (Bandwidth 1TB — 무료 포함량 200GB의 5배 초과)
+
+### 1. 실측 결과: Redis 키 크기 순위 (2026-04-23 SCAN)
+
+| 패턴 | 키 수 | 평균 크기 | 추정 총 용량 | 쓰기 주체 |
+|------|------:|-------:|----------:|---------|
+| **`polygon:snapshot:probe:*`** | **1,028** | **294 KB** | **295.5 MB** | Lambda flow-harvest → Upstash 직접 |
+| `reports:*` (pre/eod/open/live/final/draft) | ~50+ | 547~877 KB | ~30 MB | Vercel reportStore → redis.set() 직접 |
+| `cache:flow:unified:*` | 1,034 | 7 KB | 7.3 MB | Lambda flow-harvest → Upstash 직접 |
+| `cache:command:unified:*` | 994 | 3 KB | 2.5 MB | Lambda harvest → Upstash 직접 |
+| `cache:analysis:*` | 1,775 | 1 KB | 1.4 MB | Lambda harvest → Upstash 직접 |
+| 기타 (guardian, logo, sec 등) | ~300+ | < 20 KB | < 1 MB | 다양 |
+
+### 2. 비용 폭발의 정확한 원인
+
+> **비용의 89%는 Lambda flow-harvest가 5분마다 1,028개 종목의 `polygon:snapshot:probe`를 Upstash에 직접 SET하면서 발생.**
+
+```
+1회 실행: 1,028종목 × 294KB = 295MB
+하루 (장중 12h ÷ 5min = 144회): 295MB × 144 = 42.5GB
+월간 (21 거래일): 42.5GB × 21 = 892GB ← 💣 이것만으로 무료 한도 4.5배
+```
+
+`polygon:snapshot:probe`에는 Polygon 옵션 스냅샷 **원본 전체**(계약당 30+ 필드)가 저장되지만, `structureService`가 실제 사용하는 필드는 8개뿐:
+
+```
+실제 사용 필드: details.strike_price, details.contract_type, details.expiration_date,
+              open_interest, greeks.gamma, greeks.implied_volatility/implied_volatility,
+              day.volume, last_trade.price
+불필요 필드: underlying_asset, break_even_price, fmv, last_quote 전체,
+           day.open/high/low/vwap, last_trade.size/exchange/conditions/sip_timestamp, ...
+```
+
+### 3. 쓰기(SET) 경로 전수 매핑
+
+#### Lambda → Upstash 직접 (Vercel `redisClient.ts`를 거치지 않음)
+| Lambda | 키 | 함수 |
+|--------|---|------|
+| flow-harvest | `polygon:snapshot:probe:{T}` | 자체 `redisSet()` L95 |
+| flow-harvest | `cache:flow:unified:{T}` | 자체 `redisPipeline()` L150 |
+| harvest (v7) | `cache:analysis:{T}` | 자체 `redisPipeline()` |
+| harvest (v7) | `cache:command:unified:{T}` | 자체 `redisPipeline()` |
+
+#### Vercel → Upstash (redisClient.ts `setInCache` 경유, Dual-write)
+| 서비스 | 키 | 비고 |
+|--------|---|------|
+| centralDataHub | `polygon:snapshot:probe:{T}` | on-demand fallback, EC2+Upstash 둘 다 |
+| analysisCache | `cache:analysis:{T}` | warm 덮어쓰기 |
+
+#### Vercel → Upstash 직접 (redisClient.ts 우회)
+| 서비스 | 키 | 함수 |
+|--------|---|------|
+| reportStore | `reports:*` | `redis.set()` / `redis.setex()` TTL 없음! |
+| gammaShieldEngine | `guardian:gamma-shield:*` | `redis.set()` |
+| intelligenceNode | `guardian:intel:*` | `redis.set()` |
+
+### 4. 실증 검증 결과 (2026-04-23 완료)
+
+`scripts/test_field_extraction.js`로 실제 Redis 데이터를 사용해 검증 완료:
+
+```
+✅ PASS NVDA: 1214KB → 365KB (70% 감소)
+✅ PASS TSLA: 2018KB → 604KB (70% 감소)
+✅ PASS META: 2574KB → 777KB (70% 감소)
+✅ PASS AAPL: 1099KB → 331KB (70% 감소)
+✅ PASS MSFT: 1279KB → 383KB (70% 감소)
+✅ PASS AMD:  1117KB → 335KB (70% 감소)
+✅ PASS AVGO: 1500KB → 453KB (70% 감소)
+```
+
+- **검증 방법**: 원본 데이터 vs 경량화 데이터로 `structureService` 계산(PCR, GEX, ATM IV, Gamma Concentration, Net Premium) + `centralDataHub` 계산(MaxPain, Net Premium, Gamma)을 돌려서 결과 비교
+- **결과**: **7개 종목 전부 100% 동일** — 기능 영향 0%
+
+#### 경량화 함수에서 유지하는 필드 (코드 라인별 추적 완료)
+
+```
+structureService.ts 접근 필드 (17개 접근점):
+  L357: details.strike_price / strike_price
+  L358: details.contract_type / contract_type
+  L359: open_interest
+  L406, L492: greeks.gamma
+  L510: day.volume / day.v
+  L511: last_trade.price / last_trade.p / last_quote.midpoint
+  L610: details.strike_price (gamma concentration)
+  L612: open_interest (gamma concentration)
+  L658, L747: implied_volatility / greeks.implied_volatility
+
+centralDataHub.ts 접근 필드 (15개 접근점):
+  L456, L662: details.expiration_date
+  L528: greeks.gamma
+  L529, L554, L629, L644: open_interest
+  L530, L556, L628, L711: details.contract_type
+  L531: day.close / details.close_price
+  L536: day.volume
+  L555: day.previous_close / details.prev_close
+  L630, L643, L697, L710: details.strike_price
+```
+
+### 5. 확정된 작업 계획
+
+#### Phase 1: 경량화 (즉시 실행 — 리스크 0%)
+
+**Lambda flow-harvest의 `fetchOptionsSnapshotRaw()` (L278~286)에서 저장 전 불필요 필드 제거**
+
+| 항목 | 내용 |
+|------|------|
+| 수정 대상 | `scripts/lambda-flow-harvest/index.js` — `cachePayload` 구성부 1곳 |
+| Vercel 코드 변경 | **0줄** |
+| 기능 영향 | **없음** (7종목 실증 완료) |
+| 전환기 호환 | **문제 없음** (키 이름·구조 동일, 필드만 적음) |
+| 실측 크기 감소 | 평균 1,400KB → 420KB (**70% 감소**) |
+| Bandwidth 예상 | 892GB/월 → 268GB/월 |
+| 비용 예상 | $192 → ~$30~40/월 |
+| 필요 작업 | Lambda zip 재배포 1회 |
+
+#### Phase 2: 압축 (Phase 1 적용 후 테스트 → 판단)
+
+경량화 + gzip 압축 병용 시 **96% 감소** 가능 (실측: 1,214KB → 48KB):
+
+| 항목 | 내용 |
+|------|------|
+| 추가 효과 | 268GB → 36GB (무료 한도 200GB 대비 충분한 여유) |
+| 비용 예상 | $30~40 → $0 |
+| 리스크 | Lambda `redisSet()` + Vercel `getFromCache()` 2곳 동기 수정 필요 |
+| 전환기 호환 | 비압축/압축 양쪽 읽기 호환 로직 필요 |
+| 판단 기준 | Phase 1 적용 후 실제 Upstash 대시보드에서 bandwidth 확인 → 추가 최적화 필요 여부 결정 |
+
+### 6. 다른 최적화 방법 비교 (참고용)
+
+| 방법 | 효과 | 리스크 | 비용의 본질을 해결하는가 |
+|------|------|:---:|:---:|
+| **필드 제거 (Phase 1 확정)** | Bandwidth -70% | 없음 | ✅ 근본 원인(큰 payload SET) 해결 |
+| **필드 제거 + 압축 (Phase 2 예정)** | Bandwidth -96% | Lambda+Vercel 동기화 필요 | ✅✅ 완전 해결 |
+| 압축만 | Bandwidth -87% | Lambda+Vercel+전환기 호환 필요 | ✅ |
+| Dual-write 스킵 | Bandwidth -50% | EC2 장애 시 fallback 없음 | ❌ 읽기 비용만 줄임 |
+| MGET 전환 | Commands -60% | EC2 Proxy MGET 미지원 가능 | ❌ Bandwidth 무관 |
+| Vercel Edge Cache | 읽기 -30% | 낮음 | ❌ 문제의 89%는 쓰기(Lambda SET) |
+| 저장소 분리 | Bandwidth -100% (해당 키) | EC2 장애 시 완전 데이터 손실 | ✅ 과도한 리스크 |
+
+### 7. 주의사항
+
+- **Lambda는 자체 Redis 함수 사용**: Vercel의 `redisClient.ts`를 거치지 않음. Vercel 측만 수정하면 Lambda 트래픽(전체의 89%)에 효과 없음
+- **`reportStore`는 TTL 없음**: `redis.set(reportKey, reportStr)` — 무제한 누적. 별도 TTL 추가 권장
+- **Universe 크기 주의**: flow-harvest UNIVERSE가 1,028개 (코드상 하드코딩). 종목 추가 시 비용 선형 증가
+- **검증 스크립트**: `scripts/test_field_extraction.js` — 경량화 필드 완전성 검증용 (재실행 가능)
+
+---
+
+## 15. 모바일 네이티브 최적화 아키텍처 (2026-04-24)
+
+> **목표**: 데스크탑 대시보드와 100% 동일한 데이터를 표시하면서, 네이티브 앱 수준의 모바일 UX를 제공한다.
+> 핵심은 "얇은 UI 레이어(Thin UI Shell)" — 새 로직/API/계산 없이, 기존 `useDashboardStore`만 소비한다.
+
+### 🔴 모바일 절대 원칙 (ABSOLUTE MOBILE RULES)
+
+1. **웹 영향 ZERO**: `DashboardClient.tsx`를 비롯한 기존 데스크탑 코드는 **한 글자도** 수정하지 않는다. 모바일 코드는 `src/components/mobile/` 경로에만 존재한다.
+2. **동일 데이터**: 모바일은 틀(UI Shell)일 뿐, 반드시 데스크탑과 **100% 같은 데이터**를 표시해야 한다. `useDashboardStore`에서 읽기만 한다.
+3. **새 로직 금지**: 모바일 전용 계산, 새 API 엔드포인트, 데이터 복사/재계산을 **일절 하지 않는다**. 정합성 문제가 생길 이유가 없어야 한다.
+4. **시안은 참고**: 시안 코드는 레이아웃 참고용이며, 실제 구현은 **웹과 정확하게 일치**해야 한다. 없는 기능을 넣지 않고, 있는 기능을 빼지 않는다.
+5. **20개 카드 전부 표시**: DashboardClient에 있는 20개 지표 카드를 전부 동일하게 표시한다. `cardOrder` 기반으로 사용자 커스터마이즈 지원.
+
+### 15.0 ⚠️ 페이지별 렌더링 경로 맵 (수정 시 반드시 확인)
+
+> **수정 전 반드시 이 표를 확인하여 올바른 파일을 수정할 것.**
+> 모바일 수정 시 데스크탑 파일을 수정하면 안 되고, 데스크탑 파일만 건드려서도 모바일에 반영되지 않는다.
+
+#### 📍 주요 페이지 렌더링 경로
+
+| 페이지 | URL | 분기 방식 | 데스크탑 컴포넌트 | 모바일 컴포넌트 |
+|--------|-----|-----------|-------------------|-----------------|
+| **Dashboard** | `/dashboard` | **SSR** (User-Agent) | `DashboardClient.tsx` | `MobileDashboardPage.tsx` |
+| **Command** | `/ticker?ticker=X` | **CSR** (window.innerWidth) | `LiveTickerDashboard.tsx` | `MobileCommandPage.tsx` |
+| **Intel** | `/intel` | **CSR** (useServerMobile) | `IntelClientPage.tsx` | `IntelClientPage.tsx` (조건부 분기) |
+| **Flow** | `/flow` | **SSR** (User-Agent) | `FlowPageClient.tsx` | `MobileFlowPage.tsx` |
+| **Guardian** | `/intel-guardian` | 분기 없음 (반응형 CSS) | `GuardianPage` | 동일 (CSS 반응형) |
+| **Watchlist** | `/watchlist` | 분기 없음 | `WatchlistClientPage.tsx` | 동일 (반응형) |
+| **Portfolio** | `/portfolio` | 분기 없음 | `PortfolioClientPage.tsx` | 동일 (반응형) |
+
+#### 📂 Dashboard 렌더링 경로 (SSR 분기)
+
+```
+/dashboard (SSR)
+  └─ src/app/[locale]/dashboard/page.tsx
+       ├── UA = Mobile → MobileDashboardPage.tsx (SSR)
+       │     ├─ src/components/mobile/MobileDashboardShell.tsx  (헤더+탭)
+       │     ├─ src/components/mobile/MobileMetricsTab.tsx      (20개 카드 그리드)
+       │     ├─ src/components/mobile/MobileMetricCard.tsx       (카드 렌더러)
+       │     └─ 데이터: useDashboardStore 읽기 전용
+       │
+       └── UA = Desktop → DashboardClient.tsx (변경 ZERO)
+```
+
+#### 📂 Command 렌더링 경로 (CSR 분기) ⚠️ 주의
+
+```
+/ticker?ticker=NVDA (SSR → CSR)
+  └─ src/app/[locale]/ticker/page.tsx (SSR 데이터 fetch)
+       └─ src/app/[locale]/ticker/TickerPageClient.tsx (CSR)
+            │
+            ├── isMobile (window.innerWidth < 768)
+            │     └─ src/components/intel/mobile/MobileCommandPage.tsx  ← ⚠️ 이 파일 수정!
+            │          ├─ MobileCmdOverview.tsx   (Overview 탭)
+            │          ├─ MobileCmdChart.tsx      (Chart 탭)
+            │          ├─ MobileCmdOptions.tsx    (Options 탭)
+            │          └─ MobileCmdFlow.tsx       (Flow 탭)
+            │
+            └── !isMobile
+                  └─ src/components/LiveTickerDashboard.tsx (데스크탑, 변경 ZERO)
+                       └─ 내부에 MobileCommandHeader 분기 있으나 TickerPageClient에서 이미 분기됨
+```
+
+> ⚠️ **혼동 주의**: `LiveTickerDashboard.tsx` 내부에 `useMobile()` → `MobileCommandHeader` 분기가 있지만,
+> `TickerPageClient.tsx`에서 **먼저** `isMobile` 체크하여 `MobileCommandPage`로 보내므로
+> `LiveTickerDashboard.tsx`의 모바일 분기는 **Command 페이지에서 실행되지 않는다.**
+
+#### 📂 Intel 렌더링 경로 (조건부 분기)
+
+```
+/intel (SSR → CSR)
+  └─ src/app/[locale]/intel/page.tsx
+       └─ src/app/[locale]/intel/IntelClientPage.tsx
+            ├── isMobile && activeTab === 'SECTOR_COMMAND'
+            │     └─ src/components/intel/mobile/MobileSectorCommand.tsx
+            │          └─ MobileCommandPage.tsx (상세)
+            │
+            └── 일반 탭 (데스크탑/모바일 동일 IntelClientPage 내부)
+```
+
+#### 📂 모바일 컴포넌트 디렉토리 맵
+
+```
+src/components/mobile/                    ← Dashboard 전용 모바일
+  ├─ MobileDashboardShell.tsx             (대시보드 헤더+탭+워치리스트)
+  ├─ MobileMetricsTab.tsx                 (20개 카드 그리드)
+  ├─ MobileMetricCard.tsx                 (범용 카드 렌더러)
+  ├─ MobileDashboardClient.tsx            (클라이언트 래퍼)
+  ├─ MobileCommandHeader.tsx              (Command 헤더 — LiveTicker 내부용, 현재 미사용)
+  ├─ MobileFlowHeader.tsx                 (Flow 페이지 모바일 헤더)
+  ├─ MobileHeader.tsx                     (공통 모바일 앱 헤더)
+  ├─ MobileBottomNav.tsx                  (하단 네비게이션)
+  ├─ MobileBottomSheet.tsx                (범용 바텀시트)
+  └─ MobileSnapCarousel.tsx               (스냅 캐러셀)
+
+src/components/intel/mobile/              ← Command + Intel 모바일
+  ├─ MobileCommandPage.tsx                (⚠️ Command 메인 — 수정은 여기!)
+  ├─ MobileCmdOverview.tsx                (Command Overview 탭)
+  ├─ MobileCmdChart.tsx                   (Command Chart 탭)
+  ├─ MobileCmdOptions.tsx                 (Command Options 탭)
+  ├─ MobileCmdFlow.tsx                    (Command Flow 탭)
+  ├─ MobileCmdFund.tsx                    (Command Fundamentals)
+  ├─ MobileSectorCommand.tsx              (Intel 섹터 커맨드)
+  ├─ MobileSectorDetail.tsx               (Intel 섹터 상세)
+  ├─ MobileSectorReport.tsx               (Intel 섹터 리포트)
+  ├─ MobileTickerDetail.tsx               (Intel 티커 상세)
+  ├─ MobileTickerSheet.tsx                (Intel 티커 바텀시트)
+  ├─ MobileCollapsibleHeatmap.tsx         (접이식 히트맵)
+  └─ SectorIcon.tsx                       (섹터 아이콘)
+```
+
+### 15.1 SSR 분기(Bifurcation) 아키텍처
+
+
+```
+[Browser Request]
+       │
+       ▼
+[Next.js Server (page.tsx)]
+       │
+       ├── User-Agent: /iPhone|iPad|Android|Mobile/i
+       │         │
+       │    YES  ├──→ <MobileDashboardPage /> (3-tab native shell)
+       │         │
+       │    NO   ├──→ <DashboardClient />     (기존 데스크탑, 변경 ZERO)
+       │
+       ▼
+[DeviceProvider (layout.tsx)]  ── isMobile prop ──→ Header/Footer 분기
+```
+
+- **분기 파일**: `src/app/[locale]/dashboard/page.tsx`
+- **판별**: `const isMobileDevice = /iPhone|iPad|iPod|Android|Mobile/i.test(userAgent);`
+- **데이터 공유**: `getDashboardTickers()`, `getInitialQuotes()` — 모바일/데스크탑 동일 SSR 데이터
+
+### 15.2 모바일 파일 구조
+
+| 파일 | 역할 | 핵심 원칙 |
+|------|------|-----------|
+| `src/app/[locale]/dashboard/MobileDashboardPage.tsx` | 3-Tab 오케스트레이터 (Metrics/Chart+History/Signals) + Watchlist Drawer | `useDashboardStore`만 소비 |
+| `src/components/mobile/MobileDashboardShell.tsx` | Sticky Header + Tab Nav + Watchlist Drawer Row | 가격 표시는 `calcPriceDisplay()` 동일 사용 |
+| `src/components/mobile/MobileMetricsTab.tsx` | 20개 카드 그리드 (`cardOrder` + `ProGate`/`EliteGate`) | DashboardClient 카드 조건 그대로 복사 |
+| `src/components/mobile/MobileMetricCard.tsx` | 범용 카드 렌더러 (MobileMetricCard, CenteredBar, DualValue, ProportionBar) | `alertStyle` prop으로 조건부 강조 |
+| `src/components/mobile/MobileHeader.tsx` | 모바일 전용 앱 헤더 (layout.tsx에서 분기) | — |
+| `src/components/mobile/MobileBottomNav.tsx` | 모바일 하단 네비게이션 | — |
+| `src/components/mobile/MobileBottomSheet.tsx` | 범용 Bottom Sheet UI | — |
+
+### 15.3 3-Tab 아키텍처
+
+| 탭 | 컴포넌트 | 데이터 소스 | 특이사항 |
+|----|----------|------------|----------|
+| **Metrics** | `MobileMetricsGrid` | `useDashboardStore(s => s.tickers[s.selectedTicker])` | 20개 카드 + `cardOrder` 기반 순서 + `ProGate`/`EliteGate` 게이트 |
+| **Chart+History** | `ChartHistoryTab` | `/api/chart` + `/api/dashboard/daily-history` | 차트 높이 440px (업계 표준), 5-Day History 테이블 |
+| **Signals** | `SignalsTab` | `useDashboardStore(s => s.signals)` + `/api/dashboard/signals` | DynamoDB 신호 + 스토어 실시간 신호 병합 |
+
+### 15.4 20개 카드 데이터 매핑 (store → 모바일)
+
+> **원칙**: 모든 카드가 `useDashboardStore(s => s.tickers[s.selectedTicker])`에서 **동일한 필드**를 읽는다.
+
+| # | Card ID | Store 필드 | 티어 | alertStyle 조건 |
+|---|---------|-----------|------|-----------------|
+| 1 | `netGex` | `data.netGex` | PRO | 음수→rose glow, 양수→emerald |
+| 2 | `gammaFlip` | `data.gammaFlipLevel` | PRO | LONG→emerald, SHORT→rose |
+| 3 | `squeeze` | `data.squeezeScore/Risk` | PRO | HIGH/EXTREME→amber glow |
+| 4 | `vwapDist` | `data.vwap` | FREE | — |
+| 5 | `maxPain` | `data.maxPain` | PRO | — |
+| 6 | `callPutWall` | `data.levels.callWall/putFloor` | PRO | — |
+| 7 | `darkPool` | `data.darkPoolPct` | PRO | ≥55%→purple glow |
+| 8 | `shortVol` | `data.shortVolPct` | PRO | ≥50%→rose glow |
+| 9 | `atmIv` | `data.atmIv` | PRO | — |
+| 10 | `pcRatio` | `data.volumePcr` | FREE | — |
+| 11 | `gexRegime` | `data.netGex+gammaFlipLevel+gammaConcentration` | ELITE | — |
+| 12 | `impliedMove` | `data.impliedMovePct` | ELITE | ≥3%→cyan glow |
+| 13 | `alphaScore` | `data.alpha.score/grade` | PRO | — |
+| 14 | `whaleIndex` | `data.whaleIndex` | PRO | abs≥50→purple |
+| 15 | `rsi14` | `data._rsi14/rsi14` | FREE | overbought/oversold→amber |
+| 16 | `return3d` | `data._return3D/return3D` | FREE | — |
+| 17 | `relVolume` | `data._relVol/relVol` | FREE | ≥2.0x→cyan |
+| 18 | `opi` | `data.volumePcr+netGex` | FREE | — |
+| 19 | `smartMoney` | `data.darkPoolPct+shortVolPct` | ELITE | — |
+| 20 | `ivRank` | `data.atmIv` | PRO | — |
+
+### 15.5 모바일 UI 폰트 표준 (iOS/Trading App 기준)
+
+> **기본 원칙**: iOS 최소 11pt, 트레이딩 앱(Robinhood/Bloomberg) 10-12px
+
+| 요소 | 크기 | 색상 | 비고 |
+|------|------|------|------|
+| 헤더 티커명 | 17px extrabold | white | 주 아이덴티티 |
+| 헤더 가격 | 20px bold mono | white | 티커와 같은 줄 |
+| 헤더 등락률 | 13px bold mono | emerald/rose | 가격 대비 65% |
+| POST 배지 | 11px bold | amber/purple | px-2.5 py-1 rounded-md |
+| 카드 타이틀 | 11px bold uppercase | slate-300 | — |
+| 카드 메인 값 | text-xl (20px) mono | 조건별 | — |
+| 카드 서브텍스트 | 11px | slate-300 | — |
+| 바 레이블 | 9px | slate-400 | — |
+| 카드 배지 | 10px bold | 조건별 | — |
+| 탭 라벨 | 11px bold | white/slate-500 | — |
+| 차트 높이 | 440px | — | 업계 표준 (뷰포트 55%) |
+
+### 15.6 카드 강조(alertStyle) 시스템
+
+| 색상 계열 | 사용처 | 클래스 |
+|-----------|--------|--------|
+| 🔴 Rose | Net GEX 음수, Short Vol ≥50%, Gamma SHORT | `bg-rose-500/10 border-rose-400/40 shadow-[0_0_20px_rgba(244,63,94,0.15)]` |
+| 🟢 Emerald | Net GEX 양수, Gamma LONG | `bg-emerald-500/10 border-emerald-400/30` |
+| 🟡 Amber | Squeeze HIGH/EXTREME, RSI 과매수/과매도 | `bg-amber-500/10 border-amber-400/40 shadow-[0_0_20px_rgba(245,158,11,0.15)]` |
+| 🔵 Cyan | Implied Move ≥3%, Rel Volume ≥2.0x | `bg-cyan-500/10 border-cyan-400/40 shadow-[0_0_25px_rgba(34,211,238,0.2)]` |
+| 🟣 Purple | Dark Pool ≥55%, Whale Index abs≥50 | `bg-purple-500/10 border-purple-400/40 shadow-[0_0_20px_rgba(168,85,247,0.15)]` |
+
+### 15.7 검증 완료 항목 (2026-04-24)
+
+- ✅ `tsc --noEmit` — TypeScript 에러 제로
+- ✅ `npm run build` — Exit code 0
+- ✅ 모바일 UA SSR — Watchlist/Metrics/SignalFeed 정상 렌더링
+- ✅ 데스크탑 UA SSR — 모바일 코드 미유출 (Zero regression)
+- ✅ `DashboardClient.tsx` 미수정 — 웹 영향 ZERO
+- ✅ 새 로직/API 없음 — `useDashboardStore`에서 읽기만
+
+### 15.8 Flow 페이지 모바일 네이티브 (MobileFlowPage) — 2026-04-24
+
+> **핵심**: FlowRadar.tsx를 **절대 수정하지 않고**, MobileFlowPage.tsx에서 MutationObserver + programmatic DOM injection으로 모바일 UI를 제어하는 Zero-Modification 아키텍처.
+
+#### 📂 Flow 렌더링 경로 (SSR 분기)
+
+```
+/flow (SSR)
+  └─ src/app/[locale]/flow/page.tsx
+       ├── UA = Mobile → MobileFlowPage.tsx (SSR)
+       │     ├─ MobileFlowHeader.tsx        (모바일 전용 헤더)
+       │     ├─ FlowRadar.tsx               (데스크탑 컴포넌트 그대로 렌더링)
+       │     ├─ WatchlistSwipeBar            (하단 워치리스트 스와이프 바)
+       │     └─ <style> 블록으로 내부 DOM 재배치
+       │
+       └── UA = Desktop → FlowPageClient.tsx (기존 데스크탑, 변경 ZERO)
+```
+
+#### Flow 모바일 파일 맵
+
+| 파일 | 역할 | 수정 안전 |
+|------|------|:---------:|
+| `src/app/[locale]/flow/page.tsx` | SSR 분기 (UA 판별) | ⚠️ 분기 조건 확인 |
+| `src/app/[locale]/flow/MobileFlowPage.tsx` | 모바일 오케스트레이터 (5탭 + WL 바) | ✅ 자유 수정 |
+| `src/app/[locale]/flow/FlowPageClient.tsx` | 데스크탑 전용 (변경 ZERO) | 🔴 절대 건들지 말 것 |
+| `src/components/FlowRadar.tsx` | 공유 컴포넌트 (key fix만 적용) | ⚠️ 최소한 수정 |
+| `src/components/mobile/MobileFlowHeader.tsx` | Flow 모바일 헤더 | ✅ 자유 수정 |
+
+#### MobileFlowPage 5-Tab 구조
+
+| 탭 | 레이블 | 데이터 소스 | 특이사항 |
+|----|--------|------------|----------|
+| **Level3** | LEVEL3 | FlowRadar 내부 DOM | MutationObserver로 visibility 제어 |
+| **Whale** | WHALE | FlowRadar 내부 DOM | `clickInternalToggle()` programmatic |
+| **Dark Pool** | DARK POOL | FlowRadar 내부 DOM | whale/darkpool 별도 토글 분리 |
+| **Signal** | SIGNAL | FlowRadar 내부 DOM | 시그널 피드 |
+| **AI Verdict** | AI VERDICT | FlowRadar 내부 DOM | "AI" 글자에 violet→cyan 그라디언트 |
+
+#### Vol/OI 토글
+
+- 상태바 우측에 인라인 컴팩트 토글 (`text-[9px]`, `px-1.5`)
+- `clickViewModeToggle()` → FlowRadar 내부 버튼 프로그래밍 클릭
+- LIVE 인디케이터와 같은 줄에 배치
+
+#### ⚠️ DOM 의존성 경고
+
+> FlowRadar 내부 DOM 구조(클래스명 `bg-slate-950`, 토글 버튼 텍스트)가 변경되면
+> MobileFlowPage의 MutationObserver 매핑이 깨진다. FlowRadar 수정 시 반드시
+> MobileFlowPage의 `clickViewModeToggle()`, `clickInternalToggle()` 로직을 함께 확인할 것.
+
+### 15.9 모바일 하단 네비게이션 (MobileBottomNav) — 2026-04-24
+
+> **파일**: `src/components/mobile/MobileBottomNav.tsx`
+> **렌더링**: Server-Side UA 분기 (layout.tsx의 DeviceProvider). 데스크탑에서는 절대 렌더링되지 않음.
+
+#### 7-Tab 구성 (스와이프 가능)
+
+| # | 탭 | 아이콘 | 경로 | 매치 |
+|---|-----|--------|------|------|
+| 1 | DASHBOARD | LayoutDashboard | `/dashboard` | startsWith |
+| 2 | GUARDIAN | Shield | `/intel-guardian` | startsWith |
+| 3 | COMMAND | Crosshair | `/ticker?ticker=NVDA` | startsWith `/ticker` |
+| 4 | FLOW | Waves | `/flow` | startsWith |
+| 5 | INTEL | Radar | `/intel` | exact match |
+| 6 | WATCHLIST | Star | `/watchlist` | startsWith |
+| 7 | PORTFOLIO | Briefcase | `/portfolio` | startsWith |
+
+#### 레이아웃 사양
+
+| 속성 | 값 | 비고 |
+|------|-----|------|
+| 탭 최소 너비 | `min-w-[76px]` | 화면에 5개 보임, 나머지 2개 스와이프 |
+| 탭 간격 | `gap-1` | 오밀조밀하지 않은 간격 |
+| 컨테이너 | `overflow-x-auto`, `scrollbarWidth: 'none'` | 스크롤바 숨김 |
+| 높이 | `h-[56px]` + `env(safe-area-inset-bottom)` | iOS Safe Area 대응 |
+| 활성 표시 | `text-cyan-400` + 상단 2px 시안 바 + glow | — |
+| z-index | `z-[100]` | 최상위 |
+
+### 15.10 워치리스트 스와이프 바 (WatchlistSwipeBar) — 2026-04-24
+
+> **위치**: `MobileFlowPage.tsx` 하단 (인라인 컴포넌트)
+> **데이터 소스**: Supabase 메인 워치리스트 (`getWatchlist()`) + `/api/live/quotes` (10초 폴링)
+
+#### 동작 방식
+
+```
+[Supabase] → getWatchlist() → 티커 목록 (1회 로드)
+                                    ↓
+[/api/live/quotes] → 10초마다 가격/등락률 갱신
+                                    ↓
+[스와이프 바] → 현재 티커 제외, 나머지 수평 스크롤
+                     ↓
+               [탭 클릭] → router.push(`/{locale}/flow?ticker={t}`)
+```
+
+#### UI 사양
+
+| 속성 | 값 | 비고 |
+|------|-----|------|
+| 위치 | `fixed bottom-[56px]` | 바텀 네비 바로 위에 딱 붙음 |
+| 배경 | `bg-[#0a0f1a]/95 backdrop-blur-xl` | 반투명 + 블러 |
+| 로고 | `w-5 h-5` | 50% 확대 (기존 w-4) |
+| 티커명 | `text-[11px] font-bold` | — |
+| 등락률 | `text-[10px] font-mono font-bold` | emerald/rose 색상 |
+| WL 라벨 | `text-[9px] font-black text-amber-500/70` | 좌측 고정 |
+| 우측 | `ChevronRight` 14px | 스크롤 가능 힌트 |
+
+#### ⚠️ 위치 동기화 주의
+
+> `bottom-[56px]`은 MobileBottomNav의 `h-[56px]`에 맞춤.
+> 바텀 네비 높이가 변경되면 이 값도 반드시 함께 변경해야 함.
+> Safe Area Inset Bottom은 네비 내부 padding으로 처리되므로 bar 위치에는 영향 없음.
+
+### 15.11 페이지별 렌더링 경로 맵 (업데이트 2026-04-25)
+
+| 페이지 | URL | 분기 방식 | 데스크탑 컴포넌트 | 모바일 컴포넌트 |
+|--------|-----|-----------|-------------------|-----------------| 
+| **Dashboard** | `/dashboard` | **SSR** (User-Agent) | `DashboardClient.tsx` | `MobileDashboardPage.tsx` |
+| **Command** | `/ticker?ticker=X` | **SSR** (User-Agent) | `LiveTickerDashboard.tsx` | `MobileCommandPage.tsx` |
+| **Intel** | `/intel` | **SSR** (User-Agent) | `IntelClientPage.tsx` | `IntelClientPage.tsx` (조건부) |
+| **Flow** | `/flow` | **SSR** (User-Agent) | `FlowPageClient.tsx` | `MobileFlowPage.tsx` |
+| **Watchlist** | `/watchlist` | **SSR** (User-Agent) | `WatchlistClientPage.tsx` | `MobileWatchlistPage.tsx` |
+| **Portfolio** | `/portfolio` | **SSR** (User-Agent) | `PortfolioClientPage.tsx` | `MobilePortfolioPage.tsx` |
+| **Guardian** | `/intel-guardian` | 분기 없음 (반응형 CSS) | `GuardianPage` | 동일 |
+
+### 15.12 모바일 전용 데이터 패턴 요약
+
+| 데이터 소스 | 사용처 | 접근 방식 | 비고 |
+|-------------|--------|-----------|------|
+| `useDashboardStore` | Dashboard Metrics/Chart/Signals | Zustand store 직접 읽기 | 데스크탑과 동일 store |
+| `useFlowData` + `useLivePrice` | Flow 페이지 | SWR 훅 | FlowRadar와 공유 |
+| `usePortfolio` | Portfolio 3탭 | 커스텀 훅 | 데스크탑과 100% 동일 데이터 |
+| `useWatchlist` | Watchlist 4뷰 | 커스텀 훅 | 데스크탑과 100% 동일 데이터 |
+| `getWatchlist()` (Supabase) | Flow WL 스와이프 바 | dynamic import, 1회 로드 | 메인 워치리스트 |
+| `/api/live/quotes` | Flow WL 스와이프 바 가격 | fetch + setInterval(10s) | 라이트 폴링 |
+| `calcPriceDisplay()` | 모든 가격 표시 | 유틸 함수 | 세션 분기 동일 |
+
+### 15.13 🔴 모바일 수정 시 절대 규칙
+
+> [!CAUTION]
+> **규칙 1: 데스크탑 컴포넌트 수정 금지**
+> `DashboardClient.tsx`, `FlowPageClient.tsx`, `LiveTickerDashboard.tsx`, `PortfolioClientPage.tsx`, `WatchlistClientPage.tsx`는 모바일 작업 시 **절대 수정하지 않는다.** 모바일 전용 파일(`Mobile*.tsx`)에서만 작업한다.
+
+> [!CAUTION]
+> **규칙 2: FlowRadar.tsx 최소 수정**
+> FlowRadar는 모바일/데스크탑이 공유하는 컴포넌트. 버그 수정(key fix 등) 외에는 건드리지 말 것. 모바일 UI 변경은 MobileFlowPage에서 CSS override + DOM injection으로 처리한다.
+
+> [!CAUTION]
+> **규칙 3: MobileBottomNav 높이 변경 시 연쇄 업데이트**
+> `h-[56px]`을 변경하면 반드시 다음도 함께 변경:
+> - MobileFlowPage의 `WatchlistSwipeBar` → `bottom-[56px]`
+> - layout.tsx의 spacer div → `h-[68px]`(현재)
+> - 기타 모바일 페이지의 `pb-*` 패딩
+
+> [!CAUTION]
+> **규칙 4: 모바일 전용 컴포넌트는 Server-Side에서만 렌더링**
+> `MobileBottomNav`, `MobileHeader`는 layout.tsx의 `DeviceProvider` → `isMobile` prop으로 분기.
+> CSS `@media`나 `window.innerWidth`로 분기하면 FOUC/Layout Shift 발생. 반드시 SSR User-Agent 분기.
+
+> [!CAUTION]
+> **규칙 5: SSR 분기 page.tsx 수정 시 반드시 `force-dynamic` 유지**
+> `headers()` 호출로 User-Agent를 읽는 page.tsx는 반드시 `export const dynamic = 'force-dynamic'`을 선언해야 한다.
+> 이 설정 없이는 빌드 시 정적 생성되어 모든 유저에게 동일 렌더링을 반환한다.
+
+### 15.14 Portfolio 모바일 네이티브 (MobilePortfolioPage) — 2026-04-25
+
+> **핵심**: SSR User-Agent 분기로 데스크탑/모바일 완전 분리. 데스크탑 `PortfolioClientPage.tsx`는 `useIsMobile` 의존성 완전 제거 → 데스크탑 전용.
+> **데이터**: `usePortfolio` 훅 100% 공유. 새로운 API/로직 없음. 정합성 100%.
+
+#### 📂 Portfolio 렌더링 경로 (SSR 분기)
+
+```
+/portfolio (SSR)
+  └─ src/app/[locale]/portfolio/page.tsx (force-dynamic)
+       ├── UA = Mobile → MobilePortfolioPage.tsx
+       │     ├─ MobilePortfolioOverview.tsx   (Overview 탭)
+       │     ├─ MobilePortfolioRisk.tsx       (Risk 탭)
+       │     ├─ MobileHoldingCard.tsx         (Holdings 탭 카드)
+       │     └─ 바텀시트 모달 (Add/Edit)
+       │
+       └── UA = Desktop → PortfolioClientPage.tsx (기존 데스크탑, 변경 ZERO)
+```
+
+#### Portfolio 모바일 파일 맵
+
+| 파일 | 역할 | 수정 안전 |
+|------|------|:---------:|
+| `src/app/[locale]/portfolio/page.tsx` | SSR 분기 (UA 판별) | ⚠️ 분기 조건 확인 |
+| `src/app/[locale]/portfolio/MobilePortfolioPage.tsx` | 3탭 셸 (Overview/Holdings/Risk) + 모달 | ✅ 자유 수정 |
+| `src/app/[locale]/portfolio/MobilePortfolioOverview.tsx` | Hero Value + Score/Market + Sector Donut + Treemap | ✅ 자유 수정 |
+| `src/app/[locale]/portfolio/MobilePortfolioRisk.tsx` | Concentration + Sector Bias + Diversification 3축 | ✅ 자유 수정 |
+| `src/components/portfolio/MobileHoldingCard.tsx` | 글래스모피즘 보유종목 카드 | ✅ 자유 수정 |
+| `src/app/[locale]/portfolio/PortfolioClientPage.tsx` | 데스크탑 전용 (useIsMobile 제거됨) | 🔴 모바일 코드 절대 추가 금지 |
+
+#### MobilePortfolioPage 3-Tab 구조
+
+| 탭 | 내용 | 데이터 소스 |
+|----|------|------------|
+| **Overview** | Hero 총자산 카드, Context/Market 점수, 섹터 도넛, P&L 트리맵 | `usePortfolio` |
+| **Holdings** | 글래스모피즘 카드 리스트 + 정렬 + Add/Edit 바텀시트 | `usePortfolio` |
+| **Risk** | 집중도, 섹터 편중, 분산화 지표 (프로그레스 바) | `usePortfolio` |
+
+#### ⚠️ 정합성 규칙
+- `usePortfolio` 훅만 사용 — 새 API/계산 로직 절대 추가 금지
+- `EChartsSectorDonut`, `EChartsPnlTreemap` — 기존 공유 차트 컴포넌트 재사용
+- `PORTFOLIO_TOOLTIPS` — CardTooltip.tsx 공유 (데스크탑 동일)
+
+### 15.15 Watchlist 모바일 네이티브 (MobileWatchlistPage) — 2026-04-24
+
+> **핵심**: SSR User-Agent 분기. 12열 데스크탑 테이블을 4-View 수직 아키텍처로 재구성.
+> **데이터**: `useWatchlist` 훅 100% 공유.
+
+#### 📂 Watchlist 렌더링 경로 (SSR 분기)
+
+```
+/watchlist (SSR)
+  └─ src/app/[locale]/watchlist/page.tsx (force-dynamic)
+       ├── UA = Mobile → MobileWatchlistPage.tsx
+       │     ├─ Overview / Cards / Compact / Signals 4뷰
+       │     └─ 기존 데이터 훅 100% 공유
+       │
+       └── UA = Desktop → WatchlistClientPage.tsx (기존 데스크탑, 변경 ZERO)
+```
+
+#### Watchlist 모바일 파일 맵
+
+| 파일 | 역할 | 수정 안전 |
+|------|------|:---------:|
+| `src/app/[locale]/watchlist/page.tsx` | SSR 분기 (UA 판별) | ⚠️ 분기 조건 확인 |
+| `src/app/[locale]/watchlist/MobileWatchlistPage.tsx` | 4뷰 셸 (Overview/Cards/Compact/Signals) | ✅ 자유 수정 |
+| `src/app/[locale]/watchlist/WatchlistClientPage.tsx` | 데스크탑 전용 | 🔴 모바일 코드 절대 추가 금지 |
+
+### 15.16 Command 모바일 네이티브 (MobileCommandPage) — 2026-04-25 탭 순서 변경
+
+> **핵심**: SSR User-Agent 분기. 데스크탑 `LiveTickerDashboard.tsx` 무변경.
+> **탭 순서 변경 (2026-04-25)**: Chart → AI Overview → Metrics → Options (기존: AI Overview가 첫 번째)
+> **이유**: 모바일 진입 시 차트를 즉시 보여주는 것이 모바일 UX에 최적
+
+#### Command 모바일 파일 맵
+
+| 파일 | 역할 | 수정 안전 |
+|------|------|:---------:|
+| `src/app/[locale]/ticker/page.tsx` | SSR 분기 (UA 판별) | ⚠️ 분기 조건 확인 |
+| `src/components/intel/mobile/MobileCommandPage.tsx` | 4탭 셸 (Chart/Overview/Metrics/Options) | ✅ 자유 수정 |
+| `src/components/intel/mobile/MobileCmdChart.tsx` | 차트 탭 | ✅ 자유 수정 |
+| `src/components/intel/mobile/MobileCmdOverview.tsx` | AI Overview 탭 | ✅ 자유 수정 |
+| `src/components/intel/mobile/MobileCmdMetrics.tsx` | Metrics 탭 | ✅ 자유 수정 |
+| `src/components/intel/mobile/MobileCmdOptions.tsx` | Options 탭 | ✅ 자유 수정 |
+| `src/components/LiveTickerDashboard.tsx` | 데스크탑 전용 | 🔴 모바일 코드 절대 추가 금지 |
+
+#### MobileCommandPage 4-Tab 구조 (2026-04-25 순서)
+
+| # | 탭 | 기본 | 데이터 소스 |
+|---|-----|:---:|------------|
+| 1 | **Chart** | ✅ 기본 탭 | `/api/command/unified` + `initialStockData` |
+| 2 | AI Overview | — | `/api/command/unified` |
+| 3 | Metrics | — | `/api/command/unified` |
+| 4 | Options | — | `/api/command/unified` + `initialStockData` |
+
+### 15.17 MobileHeader 글로벌 아이콘 바 — 2026-04-25
+
+> **파일**: `src/components/mobile/MobileHeader.tsx`
+> **변경**: Guide + Billing 아이콘 추가 (비회원 접근 가능)
+
+#### 아이콘 바 구성 (우측, 좌→우 순서)
+
+| # | 아이콘 | 라이브러리 | 링크 | 비회원 | 터치 피드백 |
+|---|--------|-----------|------|:---:|-------------|
+| 1 | `BookOpen` | Lucide React | `/how-it-works` | ✅ | cyan glow |
+| 2 | `CreditCard` | Lucide React | `/settings` | ✅ | amber glow |
+| 3 | `Search` | Lucide React | 검색 전환 | ✅ | white glow |
+| 4 | `User` / Avatar | Lucide React | 프로필 시트 | ✅ | scale down |
+
+#### 스타일 사양
+- 모든 아이콘: `w-8 h-8 inline-flex items-center justify-center` (수직 정렬 통일)
+- 아이콘 크기: `w-[18px] h-[18px]` (4개 동일)
+- 테두리 글로우: `drop-shadow(0 0 3px rgba(148,163,184,0.15))` (SVG 스트로크 블러)
+- 배경 없음, 카드 없음 — 순수 아이콘만
+- 프로필: 별도 `rounded-full` + `ring-2 ring-cyan-500/20`
+
+### 15.18 모바일 전체 파일 인벤토리 (2026-04-25)
+
+| 위치 | 파일 | 페이지 | 역할 |
+|------|------|--------|------|
+| `src/components/mobile/` | `MobileHeader.tsx` | 전역 | 슬림 헤더 + 검색 + Guide/Billing |
+| `src/components/mobile/` | `MobileBottomNav.tsx` | 전역 | 7탭 하단 네비 |
+| `src/components/mobile/` | `MobileDashboardClient.tsx` | Dashboard | 3탭 대시보드 |
+| `src/app/[locale]/flow/` | `MobileFlowPage.tsx` | Flow | 5탭 + WL 스와이프 바 |
+| `src/app/[locale]/flow/` | `MobileFlowHeader.tsx` | Flow | Flow 전용 헤더 |
+| `src/components/intel/mobile/` | `MobileCommandPage.tsx` | Command | 4탭 (Chart 기본) |
+| `src/components/intel/mobile/` | `MobileCmdChart.tsx` | Command | 차트 탭 |
+| `src/components/intel/mobile/` | `MobileCmdOverview.tsx` | Command | AI Overview 탭 |
+| `src/components/intel/mobile/` | `MobileCmdMetrics.tsx` | Command | Metrics 탭 |
+| `src/components/intel/mobile/` | `MobileCmdOptions.tsx` | Command | Options 탭 |
+| `src/app/[locale]/watchlist/` | `MobileWatchlistPage.tsx` | Watchlist | 4뷰 워치리스트 |
+| `src/app/[locale]/portfolio/` | `MobilePortfolioPage.tsx` | Portfolio | 3탭 셸 |
+| `src/app/[locale]/portfolio/` | `MobilePortfolioOverview.tsx` | Portfolio | Overview 탭 |
+| `src/app/[locale]/portfolio/` | `MobilePortfolioRisk.tsx` | Portfolio | Risk 탭 |
+| `src/components/portfolio/` | `MobileHoldingCard.tsx` | Portfolio | 보유종목 카드 |
+
+### 15.19 🔴 모바일 아키텍처 핵심 원칙 (2026-04-25)
+
+> [!IMPORTANT]
+> **SSR User-Agent Bifurcation 패턴 — 모든 모바일 페이지의 표준 아키텍처**
+> ```
+> page.tsx (Server Component)
+>   └─ headers() → User-Agent 읽기
+>       ├── /Mobile|Android|iPhone/i → <MobilePage />
+>       └── else → <DesktopPage />
+> ```
+> - `export const dynamic = 'force-dynamic'` 필수
+> - `Suspense` + `loading.tsx` 스트리밍으로 TTFB 최적화
+> - 데스크탑 컴포넌트에 `useIsMobile` 금지 — Hydration Mismatch 원인
+> - 모바일 컴포넌트에서 새 API/로직 생성 금지 — 기존 훅 100% 재사용
+
+> [!CAUTION]
+> **규칙 5: 데스크탑 컴포넌트에서 useIsMobile 사용 금지**
+> SSR 분기가 완료된 페이지의 데스크탑 컴포넌트에서는 `useIsMobile()` 훅을 절대 사용하지 않는다.
+> 이 훅은 클라이언트 사이드에서 `window.innerWidth`를 읽으므로 SSR 렌더링과 불일치하여
+> React Hydration Mismatch 에러를 유발한다. 이미 제거 완료: `PortfolioClientPage.tsx`.
+
+> [!CAUTION]
+> **규칙 6: 모바일 전용 컴포넌트는 Server-Side에서만 렌더링**
+> `MobileBottomNav`, `MobileHeader`는 layout.tsx의 `DeviceProvider` → `isMobile` prop으로 분기.
+> CSS `@media`나 `window.innerWidth`로 분기하면 FOUC/Layout Shift 발생. 반드시 SSR User-Agent 분기.
+
+> [!CAUTION]
+> **규칙 7: MobileBottomNav 높이 변경 시 연쇄 업데이트**
+> `h-[56px]`을 변경하면 반드시 다음도 함께 변경:
+> - MobileFlowPage의 `WatchlistSwipeBar` → `bottom-[56px]`
+> - layout.tsx의 spacer div → `h-[68px]`(현재)
+> - 기타 모바일 페이지의 `pb-*` 패딩

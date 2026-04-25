@@ -1,6 +1,10 @@
+import { Suspense } from 'react';
+import { headers } from 'next/headers';
 import PortfolioClientPage from './PortfolioClientPage';
+import MobilePortfolioPage from './MobilePortfolioPage';
 import { getPortfolioServer } from '@/lib/storage/portfolioStoreServer';
 import { processPortfolioBatch } from '@/services/portfolioBatchService';
+import PortfolioLoading from './loading';
 
 // Fetch FULL portfolio data to completely eliminate progressive loading layout shifts (no dashes `-`)
 async function getInitialFullData(tickers: string[]) {
@@ -21,7 +25,8 @@ async function getInitialFullData(tickers: string[]) {
 // Ensure the page is dynamically rendered to handle cookies on every request securely
 export const dynamic = 'force-dynamic';
 
-export default async function PortfolioPage() {
+// [PERF] Async data loader — rendered inside <Suspense> so the shell streams instantly
+async function PortfolioDataLoader({ isMobile }: { isMobile: boolean }) {
     // 1. Fetch user's personalized portfolio securely via SSR cookies
     const portfolioData = await getPortfolioServer();
 
@@ -35,11 +40,36 @@ export default async function PortfolioPage() {
         initialFullData = await getInitialFullData(tickers);
     }
 
+    // SSR Bifurcation: Mobile gets native-optimized shell, Desktop unchanged
+    if (isMobile) {
+        return (
+            <MobilePortfolioPage
+                initialHoldings={holdings}
+                initialFullData={initialFullData}
+            />
+        );
+    }
+
     // 4. Inject into the client wrapper to eliminate the 2s loading skeleton AND progressive dashes
     return (
         <PortfolioClientPage
             initialHoldings={holdings}
             initialFullData={initialFullData}
         />
+    );
+}
+
+export default async function PortfolioPage() {
+    // SSR User-Agent detection (same pattern as Dashboard/Watchlist/Flow pages)
+    const headersList = await headers();
+    const userAgent = headersList.get('user-agent') || '';
+    const isMobile = /iPhone|iPad|iPod|Android|Mobile/i.test(userAgent);
+
+    // [PERF] Suspense Streaming: page shell (nav, layout) renders instantly,
+    // data-dependent content streams in as it becomes ready.
+    return (
+        <Suspense fallback={<PortfolioLoading />}>
+            <PortfolioDataLoader isMobile={isMobile} />
+        </Suspense>
     );
 }

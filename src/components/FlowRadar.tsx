@@ -2430,7 +2430,7 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
 
 
             {/* Tactical Intel Panel */}
-            <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-3 h-[1050px]">
+            <div className="grid grid-cols-1 lg:grid-cols-[1fr_300px] gap-3 h-auto lg:h-[1050px]">
 
                 {/* 1. Main Radar Chart & Whale Feed */}
                 <Card className="bg-slate-900/80 border-white/10 shadow-lg relative overflow-hidden order-2 lg:order-1 rounded-lg flex flex-col h-full">
@@ -2574,7 +2574,7 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
 
                                                     return (
                                                         <div
-                                                            key={t.id || i}
+                                                            key={t.id ? `${t.id}-${i}` : i}
                                                             className={`
                                                         relative min-w-[220px] p-3.5 rounded-xl border-2 backdrop-blur-xl flex flex-col justify-between gap-2
                                                         transition-all duration-500 hover:scale-105 hover:z-10

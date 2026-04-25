@@ -1,18 +1,19 @@
 "use client";
 
 // [PERF V73] ZERO BLANK SCREEN — SSR Card Preview + Skeleton + CSR Dashboard hybrid
-// 1. SSR: CommandSSRCards renders 10 data-filled cards instantly (when data exists)
-// 2. SKELETON: Premium animated skeleton when SSR data unavailable (NEVER blank)
-// 3. CSR: LiveTickerDashboard loads asynchronously with full interactivity
-// 4. When dashboard mounts → SSR preview/skeleton removed seamlessly
+// [V74] Mobile: MobileCommandPage 5-tab native experience (ZERO desktop impact)
 
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect } from "react";
 import dynamic from "next/dynamic";
 import { CommandSSRCards } from "./CommandSSRCards";
 
-// Dynamic import with NO loading skeleton — SSR cards/skeleton serve as the loading UI
 const LiveTickerDashboard = dynamic(
     () => import("@/components/LiveTickerDashboard").then(mod => mod.LiveTickerDashboard),
+    { ssr: false }
+);
+
+const MobileCommandPage = dynamic(
+    () => import("@/components/intel/mobile/MobileCommandPage").then(mod => mod.MobileCommandPage),
     { ssr: false }
 );
 
@@ -24,7 +25,6 @@ interface TickerPageClientProps {
     initialChartData?: any;
 }
 
-// Premium skeleton card — matches CommandSSRCards layout exactly
 function SkeletonCard({ label }: { label: string }) {
     return (
         <div className="relative overflow-hidden rounded-lg py-2 px-2.5 min-h-[120px] bg-slate-800/40 border border-slate-700/50 transition-all duration-500 backdrop-blur-xl">
@@ -47,18 +47,37 @@ const SKELETON_LABELS_ROW2 = ['INST RADAR', 'TREND PHASE', 'FUNDAMENTAL', 'EARNI
 
 export function TickerPageClient({ ticker, range, initialStockData, initialUnifiedData, initialChartData }: TickerPageClientProps) {
     const [dashboardReady, setDashboardReady] = useState(false);
+    const [isMobile, setIsMobile] = useState(false);
+
+    useEffect(() => {
+        const check = () => setIsMobile(window.innerWidth < 768);
+        check();
+        window.addEventListener('resize', check);
+        return () => window.removeEventListener('resize', check);
+    }, []);
 
     const handleDashboardReady = useCallback(() => {
         setDashboardReady(true);
     }, []);
 
+    // ═══ MOBILE: 5-Tab Command Page ═══
+    if (isMobile) {
+        return (
+            <MobileCommandPage
+                ticker={ticker}
+                initialStockData={initialStockData}
+                initialUnifiedData={initialUnifiedData}
+            />
+        );
+    }
+
+    // ═══ DESKTOP: Original SSR + LiveTickerDashboard (UNCHANGED BELOW) ═══
     const hasData = !!initialUnifiedData;
     const hasPrice = initialStockData?.price > 0;
     const dynamoPrice = initialUnifiedData?._dynamoPrice?.price;
     const showPrice = hasPrice || (dynamoPrice && dynamoPrice > 0);
     const displayPrice = hasPrice ? initialStockData.price : dynamoPrice || 0;
     const displayChange = hasPrice ? (initialStockData.changePercent || 0) : (initialUnifiedData?._dynamoPrice?.changePct || 0);
-    // [V75] SSR-instant: extended price + sector from SSR data
     const ssrExtPrice = initialStockData?.extended?.prePrice || initialStockData?.extended?.postPrice || null;
     const ssrExtLabel = initialStockData?.extended?.prePrice ? (initialStockData?.session === 'pre' ? 'PRE' : 'PRE CLOSE')
         : initialStockData?.extended?.postPrice ? 'POST' : '';
@@ -72,23 +91,13 @@ export function TickerPageClient({ ticker, range, initialStockData, initialUnifi
 
     return (
         <>
-            {/* ═══════════════════════════════════════════════════════════════
-                SSR INSTANT PREVIEW — ALWAYS visible until LiveTickerDashboard mounts
-                With data: real cards. Without data: premium skeleton. NEVER blank.
-                ═══════════════════════════════════════════════════════════════ */}
             {!dashboardReady && (
                 <div className="w-full max-w-[1600px] mx-auto space-y-4">
-                    {/* Header preview with ticker + price */}
                     <div className="bg-white/5 backdrop-blur-xl rounded-xl py-2 px-4 border border-white/10 shadow-[0_8px_32px_rgba(0,0,0,0.3)]">
                         <div className="flex items-center gap-3">
                             <div className="relative w-11 h-11 rounded-full overflow-hidden bg-white/10 flex items-center justify-center shrink-0">
-                                <img
-                                    loading="eager"
-                                    src={`https://assets.parqet.com/logos/symbol/${ticker}?format=png`}
-                                    alt={ticker}
-                                    className="w-full h-full object-cover"
-                                    onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                                />
+                                <img loading="eager" src={`https://assets.parqet.com/logos/symbol/${ticker}?format=png`} alt={ticker}
+                                    className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
                             </div>
                             <div className="flex items-center gap-3">
                                 <span className="text-2xl font-black text-white tracking-tighter font-jakarta">{ticker}</span>
@@ -96,25 +105,15 @@ export function TickerPageClient({ ticker, range, initialStockData, initialUnifi
                             </div>
                             {showPrice ? (
                                 <div className="ml-auto flex items-center gap-3 flex-wrap justify-end">
-                                    <span className="text-3xl font-black text-white tracking-tighter tabular-nums shrink-0">
-                                        ${displayPrice.toFixed(2)}
-                                    </span>
+                                    <span className="text-3xl font-black text-white tracking-tighter tabular-nums shrink-0">${displayPrice.toFixed(2)}</span>
                                     <span className={`text-lg font-bold font-mono tracking-tighter shrink-0 ${displayChange >= 0 ? 'text-emerald-500' : 'text-rose-500'}`}>
                                         {displayChange > 0 ? '+' : ''}{displayChange.toFixed(2)}%
                                     </span>
-                                    {/* [V75] SSR-instant PRE/POST badge */}
                                     {ssrExtPrice && ssrExtPrice > 0 && ssrExtLabel && (
                                         <div className={`flex items-center gap-1.5 px-2 py-1 rounded-full border shrink-0 ${
-                                            ssrExtLabel === 'PRE' ? 'bg-amber-500/10 border-amber-500/20' :
-                                            ssrExtLabel === 'PRE CLOSE' ? 'bg-amber-500/10 border-amber-500/20' :
-                                            'bg-cyan-500/10 border-cyan-500/20'
-                                        }`}>
-                                            <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${
-                                                ssrExtLabel.includes('PRE') ? 'bg-amber-400' : 'bg-cyan-400'
-                                            }`} />
-                                            <span className={`text-[12px] font-bold whitespace-nowrap ${
-                                                ssrExtLabel.includes('PRE') ? 'text-amber-400' : 'text-cyan-400'
-                                            }`}>{ssrExtLabel}</span>
+                                            ssrExtLabel === 'PRE' ? 'bg-amber-500/10 border-amber-500/20' : ssrExtLabel === 'PRE CLOSE' ? 'bg-amber-500/10 border-amber-500/20' : 'bg-cyan-500/10 border-cyan-500/20'}`}>
+                                            <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${ssrExtLabel.includes('PRE') ? 'bg-amber-400' : 'bg-cyan-400'}`} />
+                                            <span className={`text-[12px] font-bold whitespace-nowrap ${ssrExtLabel.includes('PRE') ? 'text-amber-400' : 'text-cyan-400'}`}>{ssrExtLabel}</span>
                                             <span className="text-[12px] font-black text-white tabular-nums shrink-0">${ssrExtPrice.toFixed(2)}</span>
                                             {ssrExtChangePct !== null && (
                                                 <span className={`text-[12px] font-bold tabular-nums whitespace-nowrap ${ssrExtChangePct >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
@@ -123,7 +122,6 @@ export function TickerPageClient({ ticker, range, initialStockData, initialUnifi
                                             )}
                                         </div>
                                     )}
-                                    {/* [V75] SSR-instant Sector badge */}
                                     {ssrSector && (
                                         <span className="text-[11px] font-bold text-sky-300 bg-sky-500/10 border border-sky-500/20 px-2 py-1 rounded-full whitespace-nowrap">{ssrSector}</span>
                                     )}
@@ -141,7 +139,6 @@ export function TickerPageClient({ ticker, range, initialStockData, initialUnifi
                         </div>
                     </div>
 
-                    {/* Cards: real data OR premium skeleton — NEVER blank */}
                     {hasData ? (
                         <CommandSSRCards data={initialUnifiedData} stockData={initialStockData} ticker={ticker} />
                     ) : (
@@ -154,17 +151,13 @@ export function TickerPageClient({ ticker, range, initialStockData, initialUnifi
                         </div>
                     )}
 
-                    {/* Chart skeleton placeholder */}
                     <div className="grid grid-cols-1 lg:grid-cols-12 gap-3">
                         <div className="lg:col-span-8 h-[320px] lg:h-[520px] rounded-lg border border-white/10 bg-slate-900/60 overflow-hidden relative">
                             <div className="absolute -top-3 left-4 px-2 py-0.5 bg-indigo-950/80 border border-indigo-500/30 rounded text-[12px] font-black text-indigo-300 uppercase tracking-widest z-20 backdrop-blur-md shadow-lg flex items-center gap-2 font-jakarta">
                                 <div className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse" /> Price History
                             </div>
-                            {/* Decorative fake chart lines */}
                             <div className="absolute inset-0 flex flex-col justify-between px-8 py-12 pointer-events-none">
-                                {[...Array(5)].map((_, i) => (
-                                    <div key={i} className="w-full h-px bg-white/[0.03]" />
-                                ))}
+                                {[...Array(5)].map((_, i) => (<div key={i} className="w-full h-px bg-white/[0.03]" />))}
                             </div>
                             <div className="absolute inset-0 flex items-center justify-center">
                                 <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-800/80 border border-slate-700/50 backdrop-blur-sm">
@@ -177,9 +170,7 @@ export function TickerPageClient({ ticker, range, initialStockData, initialUnifi
                             <div className="h-[250px] bg-slate-800/20 rounded-lg border border-slate-700/15 p-4 animate-pulse">
                                 <div className="text-[12px] font-bold text-slate-500 uppercase tracking-wider mb-3 font-jakarta">SIGNAL FEED</div>
                                 <div className="space-y-2">
-                                    {[...Array(4)].map((_, i) => (
-                                        <div key={i} className="h-4 bg-slate-700/20 rounded w-full" style={{ width: `${85 - i * 10}%` }} />
-                                    ))}
+                                    {[...Array(4)].map((_, i) => (<div key={i} className="h-4 bg-slate-700/20 rounded w-full" style={{ width: `${85 - i * 10}%` }} />))}
                                 </div>
                             </div>
                         </div>
@@ -187,7 +178,6 @@ export function TickerPageClient({ ticker, range, initialStockData, initialUnifi
                 </div>
             )}
 
-            {/* Full Interactive Dashboard — loads asynchronously */}
             <LiveTickerDashboard
                 ticker={ticker}
                 initialStockData={initialStockData}

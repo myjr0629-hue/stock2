@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useMemo, useState, useRef } from "react";
+import React, { useMemo, useState, useRef, useEffect } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
 import { OrbitControls, Html, QuadraticBezierLine } from "@react-three/drei";
 import { EffectComposer, Bloom, Vignette } from "@react-three/postprocessing";
@@ -37,11 +37,10 @@ interface SmartMoneyMapProps {
 }
 
 // === CONSTANTS ===
-const RING_RADIUS = 10; // Tighter ring
 const CENTER_SCALE_BOOST = 2.5;
 
 // === HELPER: HUB & SPOKE LAYOUT ===
-function calculateHubLayout(sectors: SectorData[], vectors: FlowVector[], targetId?: string | null) {
+function calculateHubLayout(sectors: SectorData[], vectors: FlowVector[], targetId?: string | null, ringRadius: number = 10) {
     if (sectors.length === 0) return [];
 
     // 1. Identify Center (Dominant) Sector
@@ -82,8 +81,8 @@ function calculateHubLayout(sectors: SectorData[], vectors: FlowVector[], target
 
     others.forEach((s, i) => {
         const angle = angleOffset + (i * angleStep);
-        const x = RING_RADIUS * Math.cos(angle);
-        const z = RING_RADIUS * Math.sin(angle);
+        const x = ringRadius * Math.cos(angle);
+        const z = ringRadius * Math.sin(angle);
         nodes.push({
             ...s,
             pos: new THREE.Vector3(x, 0, z),
@@ -96,14 +95,15 @@ function calculateHubLayout(sectors: SectorData[], vectors: FlowVector[], target
 }
 
 // === COMPONENT: HTML NODE (2D Overlay) ===
-function HtmlNode({ data, position, onClick, isSource, isTarget, isCenter, isMarketActive = true }: {
+function HtmlNode({ data, position, onClick, isSource, isTarget, isCenter, isMarketActive = true, compact = false }: {
     data: SectorData & { pos: THREE.Vector3 },
     position: THREE.Vector3,
     onClick: (d: SectorData) => void,
     isSource: boolean,
     isTarget: boolean,
     isCenter?: boolean,
-    isMarketActive?: boolean
+    isMarketActive?: boolean,
+    compact?: boolean
 }) {
     const visual = SECTOR_VISUALS[data.id];
     const Icon = visual?.icon;
@@ -113,12 +113,12 @@ function HtmlNode({ data, position, onClick, isSource, isTarget, isCenter, isMar
     const [hovered, setHovered] = useState(false);
 
     // Dynamic Sizing based on Weight (Height)
-    // Central Hub gets massive boost
-    let baseSize = 90;
-    if (isCenter) baseSize = 140; // 2x base
+    // Central Hub gets massive boost. Compact mode for mobile.
+    let baseSize = compact ? 55 : 90;
+    if (isCenter) baseSize = compact ? 80 : 140;
 
     // Weight Modifier: 0.9 ... 1.5
-    let weightMod = 0.9 + (data.height * 0.4);
+    let weightMod = 0.9 + (data.height * (compact ? 0.2 : 0.4));
     if (isCenter) weightMod = 1.0; // Fixed large scale for center
 
     const sizePx = baseSize * weightMod;
@@ -136,7 +136,7 @@ function HtmlNode({ data, position, onClick, isSource, isTarget, isCenter, isMar
     return (
         <group position={position}>
             {/* 3D Anchor for HTML */}
-            <Html center zIndexRange={[100, 0]} distanceFactor={30}>
+            <Html center zIndexRange={[100, 0]} distanceFactor={compact ? 22 : 30}>
                 <div
                     className="relative flex flex-col items-center justify-center transition-all duration-300 cursor-pointer"
                     style={{ width: `${sizePx}px`, height: `${sizePx}px` }}
@@ -191,12 +191,12 @@ function HtmlNode({ data, position, onClick, isSource, isTarget, isCenter, isMar
 
                     {/* LABELS (Below) */}
                     <div
-                        className="absolute top-full mt-3 flex flex-col items-center whitespace-nowrap pointer-events-none"
+                        className="absolute top-full mt-2 flex flex-col items-center whitespace-nowrap pointer-events-none"
                     >
-                        <span className={`text-white font-bold tracking-wider uppercase opacity-90 shadow-black drop-shadow-md ${isCenter ? 'text-[14px]' : 'text-[12px]'}`}>
+                        <span className={`text-white font-bold tracking-wider uppercase opacity-90 shadow-black drop-shadow-md ${isCenter ? (compact ? 'text-[11px]' : 'text-[14px]') : (compact ? 'text-[10px]' : 'text-[12px]')}`}>
                             {visual?.label || data.name}
                         </span>
-                        <span className={`font-mono drop-shadow-md ${isCenter ? 'text-[12px]' : 'text-[12px]'}`} style={{ color: changeColor }}>
+                        <span className={`font-mono drop-shadow-md ${compact ? 'text-[10px]' : 'text-[12px]'}`} style={{ color: changeColor }}>
                             {data.density > 0 ? "+" : ""}{(data.density).toFixed(2)}%
                         </span>
                     </div>
@@ -302,9 +302,35 @@ function ArrowHead({ position, lookAtTarget, color }: { position: THREE.Vector3,
 
 // === MAIN SCENE ===
 export default function SmartMoneyMap({ sectors = [], vectors = [], sourceId, targetId, onSectorSelect, isBullMode = false, isMarketActive = true }: SmartMoneyMapProps) {
+    // Detect mobile IMMEDIATELY for useState defaults — critical for R3F Canvas
+    // Canvas camera prop is only applied on initial mount, NOT on subsequent state changes
+    const isMobileInit = typeof window !== 'undefined' && window.innerWidth < 768;
+
+    const [cameraPos, setCameraPos] = useState<[number, number, number]>(isMobileInit ? [0, 72, 0] : [0, 55, 0]);
+    const [ringRadius, setRingRadius] = useState<number>(isMobileInit ? 11 : 10);
+    const [isCompact, setIsCompact] = useState(isMobileInit);
+
+    useEffect(() => {
+        const handleResize = () => {
+            if (window.innerWidth < 768) {
+                // Mobile viewport: Wider ring + Higher camera = nodes properly spaced and smaller
+                setRingRadius(11);
+                setCameraPos([0, 72, 0]);
+                setIsCompact(true);
+            } else {
+                // Desktop — UNCHANGED
+                setRingRadius(10);
+                setCameraPos([0, 55, 0]);
+                setIsCompact(false);
+            }
+        };
+        handleResize();
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
+    }, []);
 
     // Layout: Hub & Spoke
-    const nodes = useMemo(() => calculateHubLayout(sectors, vectors, targetId), [sectors, vectors, targetId]);
+    const nodes = useMemo(() => calculateHubLayout(sectors, vectors, targetId, ringRadius), [sectors, vectors, targetId, ringRadius]);
 
     // Helper to find position
     const getPos = (id: string) => nodes.find(n => n.id === id)?.pos;
@@ -356,8 +382,8 @@ export default function SmartMoneyMap({ sectors = [], vectors = [], sourceId, ta
 
     return (
         <div className="w-full h-full relative overflow-hidden" style={{ background: '#0a0e14', clipPath: 'inset(0)' }}>
-            {/* Adjusted Camera: [0, 55, 0] to fit Ring Radius 10 + Nodes within FOV 35 */}
-            <Canvas camera={{ position: [0, 55, 0], fov: 35 }} frameloop="always">
+            {/* Adjusted Camera: key forces full Canvas recreation with correct camera on tab re-mount */}
+            <Canvas key={isCompact ? 'mobile' : 'desktop'} camera={{ position: cameraPos, fov: 35 }} frameloop="always">
                 <ambientLight intensity={0.5} />
                 <pointLight position={[0, 20, 0]} intensity={1} />
 
@@ -372,6 +398,7 @@ export default function SmartMoneyMap({ sectors = [], vectors = [], sourceId, ta
                         isTarget={node.id === targetId || vectors?.some(v => v.targetId === node.id) || false}
                         isCenter={node.isCenter}
                         isMarketActive={isMarketActive}
+                        compact={isCompact}
                     />
                 ))}
 

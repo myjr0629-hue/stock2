@@ -520,8 +520,8 @@ export function SectorCommandCenter({ sectorData, onNavigate }: SectorCommandCen
             {/* ═══ SECTOR HEATMAP (ECharts TreeMap) ═══ */}
             <SectorHeatmap sectorData={sectorData} onNavigate={onNavigate} />
 
-            {/* ═══ SECTOR GRID (5×2) ═══ */}
-            <section className="relative z-10 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+            {/* ═══ SECTOR GRID (5×2) — Hidden on mobile to prevent extreme scrolling ═══ */}
+            <section className="hidden lg:grid relative z-10 grid-cols-5 gap-3">
                 {sectorStats.map(({ def, stats }) => (
                     <div
                         key={def.key}
@@ -558,7 +558,7 @@ export function SectorCommandCenter({ sectorData, onNavigate }: SectorCommandCen
                                     stroke="white" strokeWidth="1.5" fill="none" opacity="0.4" />
                             </svg>
                         </div>
-                        <div className="relative z-10 p-4">
+                        <div className="relative z-10 p-3 lg:p-4">
                             {/* Header */}
                             <div className="flex items-center justify-between mb-3">
                                 <div className="flex items-center gap-2">
@@ -646,8 +646,8 @@ export function SectorCommandCenter({ sectorData, onNavigate }: SectorCommandCen
                 ))}
             </section>
 
-            {/* ═══ SECTOR MOMENTUM RANKING — Premium Table ═══ */}
-            <section className="relative z-10 rounded-xl border border-emerald-500/[0.12] bg-[#0d1117]/70 backdrop-blur-sm overflow-x-auto">
+            {/* ═══ SECTOR MOMENTUM RANKING — Desktop Premium Table (hidden on mobile, replaced by cards above) ═══ */}
+            <section className="hidden lg:block relative z-10 rounded-xl border border-emerald-500/[0.12] bg-[#0d1117]/70 backdrop-blur-sm overflow-x-auto">
                 {/* Header Row */}
                 <div className="grid items-center px-5 py-3 border-b border-white/[0.10] min-w-[750px]"
                     style={{ gridTemplateColumns: RANKING_GRID }}>
@@ -750,6 +750,72 @@ export function SectorCommandCenter({ sectorData, onNavigate }: SectorCommandCen
                         );
                     })}
                 </div>
+            </section>
+
+            {/* ═══ MOBILE RANKING CARDS (lg:hidden) — touch-friendly card layout ═══ */}
+            <section className="lg:hidden relative z-10 space-y-2">
+                <div className="flex items-center gap-2 px-1 mb-2">
+                    <BarChart3 className="w-4 h-4 text-indigo-400" />
+                    <span className="text-[13px] font-extrabold text-white tracking-wider uppercase">MOMENTUM RANKING</span>
+                </div>
+                {sortedSectors.map((s, idx) => {
+                    const pct = s.stats.avgChange;
+                    const maxAbs = Math.max(...sectorStats.map(x => Math.abs(x.stats.avgChange)), 0.01);
+                    const barWidth = Math.min(100, (Math.abs(pct) / maxAbs) * 100);
+                    const isPositive = pct >= 0;
+                    const leaderTicker = s.stats.leader?.ticker;
+
+                    return (
+                        <div
+                            key={s.def.key}
+                            onClick={() => onNavigate(s.def.tabKey)}
+                            className="group relative cursor-pointer rounded-xl border border-white/[0.08] bg-[#0d1117]/70 p-3 transition-all active:scale-[0.98] overflow-hidden"
+                        >
+                            <div className="flex items-center gap-3">
+                                {/* Rank */}
+                                <span className={`text-[15px] font-black font-mono w-5 text-center ${idx === 0 ? 'text-amber-400' : idx === 1 ? 'text-slate-200' : idx === 2 ? 'text-amber-600' : 'text-slate-500'}`}>
+                                    {idx + 1}
+                                </span>
+
+                                {/* Sector Icon + Name */}
+                                <div className="flex items-center gap-2 min-w-[85px]">
+                                    <span className={s.def.accent}>{s.def.icon}</span>
+                                    <span className="text-[13px] font-bold text-white tracking-tight">{s.def.shortLabel}</span>
+                                </div>
+
+                                {/* Momentum Bar (flex-1) */}
+                                <div className="flex-1 flex flex-col justify-center">
+                                    <div className="h-[6px] bg-[#1a202c] rounded-full overflow-hidden w-full border border-white/[0.03]">
+                                        <div
+                                            className={`h-full rounded-full transition-all duration-700 ${isPositive ? 'bg-gradient-to-r from-emerald-500 to-emerald-400' : 'bg-gradient-to-r from-rose-500 to-rose-400'}`}
+                                            style={{ width: `${barWidth}%` }}
+                                        />
+                                    </div>
+                                </div>
+
+                                {/* Change % */}
+                                <span className={`text-[14px] font-black font-mono w-[58px] text-right ${getMomentumColor(pct)}`}>
+                                    {pct > 0 ? '+' : ''}{pct.toFixed(2)}%
+                                </span>
+
+                                {/* Leader */}
+                                {leaderTicker && (
+                                    <div className="flex items-center gap-1 min-w-[48px]">
+                                        <img
+                                            src={`https://assets.parqet.com/logos/symbol/${leaderTicker}`}
+                                            alt={leaderTicker}
+                                            className="w-4 h-4 rounded-full"
+                                            onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                                        />
+                                        <span className="text-xs font-bold text-slate-300">{leaderTicker}</span>
+                                    </div>
+                                )}
+
+                                <ChevronRight className="w-3.5 h-3.5 text-slate-500 flex-shrink-0" />
+                            </div>
+                        </div>
+                    );
+                })}
             </section>
         </div>
     );

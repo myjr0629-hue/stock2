@@ -695,6 +695,7 @@
   body {
     -webkit-overflow-scrolling: touch;
     overscroll-behavior-y: contain;
+    overflow-x: hidden;
   }
 
   /* Prevent mobile text size adjustment */
@@ -1444,4 +1445,67 @@
 
   /* Ensure no text below 11px on mobile — excludes svg/icon elements */
   /* This is a safety net, specific selectors above take priority */
+
+  /* ────────────────────────────────────────────────────────────
+     P. MOBILE COMMAND CHART — Compact StockChart header for mobile
+     Only scoped to .mobile-chart-container (MobileCmdChart only)
+     Desktop StockChart: ZERO impact.
+     ──────────────────────────────────────────────────────────── */
+
+  /* P1. Chart container: fill available width, generous height */
+  .mobile-chart-container {
+    min-height: 380px;
+  }
+
+  /* P2. StockChart Card: remove border-radius, make flush */
+  .mobile-chart-container > div {
+    border-radius: 0 !important;
+    border: none !important;
+  }
+
+  /* P3. CardHeader: compact single row */
+  .mobile-chart-container [class*="CardHeader"],
+  .mobile-chart-container header {
+    padding: 6px 10px !important;
+    gap: 4px !important;
+  }
+
+  /* P4. Range tab buttons: larger touch targets (48px), thumb-friendly */
+  .mobile-chart-container [role="tablist"] {
+    height: auto !important;
+    padding: 2px !important;
+    gap: 2px !important;
+  }
+  .mobile-chart-container [role="tab"] {
+    min-height: 36px !important;
+    padding: 4px 8px !important;
+    font-size: 12px !important;
+    font-weight: 700 !important;
+  }
+
+  /* P5. Chart area: minimum height for readability */
+  .mobile-chart-container [class*="CardContent"] {
+    padding: 0 !important;
+  }
+  .mobile-chart-container [class*="min-h-"] {
+    min-height: 320px !important;
+  }
+
+  /* P6. Candle/SMA toggle buttons: larger touch targets */
+  .mobile-chart-container button[title*="Switch"],
+  .mobile-chart-container button[title*="SMA"] {
+    min-height: 36px !important;
+    min-width: 36px !important;
+    padding: 4px 8px !important;
+  }
+
+  /* P7. NBBO overlay: compact on mobile */
+  .mobile-chart-container [class*="absolute"][class*="top-12"] {
+    top: 6px !important;
+    font-size: 11px !important;
+    padding: 4px 8px !important;
+    gap: 4px !important;
+  }
+
+  /* P8. Hide day H/L stats — already hidden via Tailwind hidden md:flex */
 }

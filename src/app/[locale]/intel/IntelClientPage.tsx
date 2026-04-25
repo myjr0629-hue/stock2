@@ -21,6 +21,7 @@ import { TacticalCard } from "@/components/TacticalCard";
 import { ProGate, EliteGate } from '@/components/gate/FeatureGate';
 import { TacticalSidebar } from "@/components/TacticalSidebar";
 import { PremiumBlur } from "@/components/PremiumBlur";
+import { MobileBottomSheet } from "@/components/mobile/MobileBottomSheet";
 import { type AlphaItem } from '@/components/intel/FinalBattleSection';
 import FinalBattleSection from '@/components/intel/FinalBattleSection';
 import { EarningsEvent, RecommendationTrend } from "@/services/finnhubClient";
@@ -35,6 +36,8 @@ import { quantumEdgeConfig } from "@/configs/quantumedge.config";
 import { fintechPulseConfig } from "@/configs/fintechpulse.config";
 import { cloudFortressConfig } from "@/configs/cloudfortress.config";
 import { useIntelSharedData } from "@/hooks/useIntelSharedData";
+import { useServerMobile } from "@/contexts/DeviceContext";
+import { MobileSectorCommand } from "@/components/intel/mobile/MobileSectorCommand";
 
 // [PERF] Lazy-loaded heavy components — reduces initial JS bundle by ~150KB
 const ReportArchive = dynamic(() => import("@/components/ReportArchive").then(m => m.ReportArchive), { ssr: false });
@@ -1132,6 +1135,9 @@ function IntelContent({ initialReport, initialM7Data, initialPAIData, initialSCD
     const [selectedTicker, setSelectedTicker] = useState<TickerItem | null>(null);
     const [liveReport, setLiveReport] = useState<any>(null); // [LIVE TACTICAL] live report data
 
+    // Mobile Detection for Bifurcation
+    const isMobile = useServerMobile();
+
     // [13.1] Timeline State (Time Machine)
     const [currentDate, setCurrentDate] = useState<Date>(new Date());
 
@@ -1637,7 +1643,7 @@ function IntelContent({ initialReport, initialM7Data, initialPAIData, initialSCD
             }} />
 
             {/* 1. MAIN CONTENT (Offset 208px on desktop, full-width on mobile) */}
-            <div className="flex-1 ml-0 lg:ml-52 relative min-h-screen backdrop-blur-[0px]"> {/* ml-52 matches sidebar width */}
+            <div className="flex-1 ml-0 lg:ml-52 relative min-h-screen w-full max-w-[100vw] overflow-x-hidden bg-[#050a14] lg:bg-transparent"> {/* ml-52 matches sidebar width, bg matches MobileHeader on mobile */}
 
                 {/* Glass Grid Overlay */}
                 <div className="fixed inset-0 pointer-events-none z-0 lg:ml-52">
@@ -1648,41 +1654,48 @@ function IntelContent({ initialReport, initialM7Data, initialPAIData, initialSCD
                     <div className="fixed top-0 left-0 lg:left-52 right-0 h-1 bg-indigo-500 z-[200]" title="Debug Mode Active" />
                 )}
 
-                {/* Mobile Sector Tab Selector — horizontal scroll (lg:hidden) */}
-                <div className="lg:hidden overflow-x-auto scrollbar-hide border-b border-white/5 bg-[#070b14]/90 backdrop-blur-md sticky top-16 z-30">
-                    <div className="flex items-center gap-1 px-3 py-2 min-w-max">
-                        {[
-                            { key: 'SECTOR_COMMAND', label: 'ALL' },
-                            { key: 'POST_MARKET_ALL', label: 'POST' },
-                            { key: 'M7', label: 'M7' },
-                            { key: 'PHYSICAL_AI', label: 'AI' },
-                            { key: 'SILICON_CORE', label: 'CHIP' },
-                            { key: 'POWER_MATRIX', label: 'PWR' },
-                            { key: 'BIO_PULSE', label: 'BIO' },
-                            { key: 'CYBER_SHIELD', label: 'SEC' },
-                            { key: 'ORBIT_DEFENSE', label: 'DEF' },
-                            { key: 'QUANTUM_EDGE', label: 'QTM' },
-                            { key: 'FINTECH_PULSE', label: 'FIN' },
-                            { key: 'CLOUD_FORTRESS', label: 'CLD' },
-                        ].map(tab => (
-                            <button
-                                key={tab.key}
-                                onClick={() => setActiveTab(tab.key)}
-                                className={`px-3 py-1.5 rounded-lg text-[11px] font-black tracking-wider whitespace-nowrap transition-all ${activeTab === tab.key
-                                    ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30'
-                                    : 'text-slate-400 hover:text-white border border-transparent'
-                                    }`}
-                            >
-                                {tab.label}
-                            </button>
-                        ))}
+                {/* Mobile Sector Selector — Native Dropdown App Experience (lg:hidden) */}
+                {/* Hidden on SECTOR_COMMAND tab when mobile — MobileSectorCommand already shows all sectors */}
+                {!(isMobile && activeTab === 'SECTOR_COMMAND') && (
+                <div className="lg:hidden sticky top-14 z-40 w-full bg-[#050a14] backdrop-blur-xl border-b border-white/5 shadow-md">
+                    <div className="relative flex items-center">
+                        <select
+                            value={activeTab}
+                            onChange={(e) => setActiveTab(e.target.value)}
+                            className="w-full appearance-none bg-transparent text-white font-black text-[15px] px-5 py-3.5 outline-none tracking-wider uppercase cursor-pointer"
+                            style={{ WebkitAppearance: 'none' }}
+                        >
+                            <option value="SECTOR_COMMAND">🔥 ALL SECTORS</option>
+                            <option value="POST_MARKET_ALL">🌙 POST MARKET</option>
+                            <option value="M7">🌟 MAGNIFICENT 7</option>
+                            <option value="PHYSICAL_AI">🤖 PHYSICAL AI</option>
+                            <option value="SILICON_CORE">⚡ SILICON CORE</option>
+                            <option value="POWER_MATRIX">⚡ POWER MATRIX</option>
+                            <option value="BIO_PULSE">🧬 BIO PULSE</option>
+                            <option value="CYBER_SHIELD">🛡️ CYBER SHIELD</option>
+                            <option value="ORBIT_DEFENSE">🚀 ORBIT DEFENSE</option>
+                            <option value="QUANTUM_EDGE">💻 QUANTUM EDGE</option>
+                            <option value="FINTECH_PULSE">💳 FINTECH PULSE</option>
+                            <option value="CLOUD_FORTRESS">☁️ CLOUD FORTRESS</option>
+                        </select>
+                        <div className="absolute right-5 top-1/2 -translate-y-1/2 pointer-events-none flex items-center justify-center bg-white/5 rounded-md p-1 border border-white/10">
+                            <svg className="w-4 h-4 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M19 9l-7 7-7-7" />
+                            </svg>
+                        </div>
                     </div>
                 </div>
+                )}
 
-                <div className="max-w-[1920px] mx-auto px-4 lg:px-8 py-8 space-y-8 relative z-10">
+                {/* MOBILE SECTOR_COMMAND — Rendered OUTSIDE content wrapper for full-bleed flush layout */}
+                {isMobile && activeTab === 'SECTOR_COMMAND' && (
+                    <MobileSectorCommand sectorData={sectorData} onNavigate={setActiveTab} />
+                )}
 
-                    {/* SECTOR COMMAND DASHBOARD — Main Landing View */}
-                    {activeTab === 'SECTOR_COMMAND' && (
+                <div className={`max-w-[1920px] mx-auto px-3 lg:px-8 pt-3 lg:pt-8 pb-28 lg:pb-8 space-y-4 lg:space-y-8 relative z-10 ${isMobile && activeTab === 'SECTOR_COMMAND' ? 'hidden' : ''}`}>
+
+                    {/* SECTOR COMMAND DASHBOARD — Desktop Only (mobile is rendered above) */}
+                    {activeTab === 'SECTOR_COMMAND' && !isMobile && (
                         <SectorCommandCenter sectorData={sectorData} onNavigate={setActiveTab} />
                     )}
 

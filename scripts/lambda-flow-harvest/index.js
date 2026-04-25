@@ -274,10 +274,50 @@ async function fetchOptionsSnapshotRaw(ticker) {
       }
     }
 
-    // Store RAW in Redis — Vercel reads this and does ALL calculations
+    // [COST OPT] Slim contract — keep ONLY fields used by Vercel's structureService + centralDataHub
+    // Full field mapping verified by scripts/test_field_extraction.js (7 tickers, 100% calculation match)
+    // structureService: details.strike_price, contract_type, expiration_date, open_interest,
+    //   greeks.gamma, greeks.implied_volatility, implied_volatility, day.volume/v,
+    //   last_trade.price/p, last_quote.midpoint, day.close, day.previous_close, details.close_price/prev_close
+    // centralDataHub: same fields + details.contract_type for MaxPain/callWall/putFloor
+    function slimContract(c) {
+      return {
+        details: {
+          strike_price: c.details?.strike_price,
+          contract_type: c.details?.contract_type,
+          expiration_date: c.details?.expiration_date,
+          close_price: c.details?.close_price,
+          prev_close: c.details?.prev_close,
+        },
+        strike_price: c.strike_price,
+        contract_type: c.contract_type,
+        open_interest: c.open_interest,
+        implied_volatility: c.implied_volatility,
+        greeks: c.greeks ? {
+          gamma: c.greeks.gamma,
+          implied_volatility: c.greeks.implied_volatility,
+        } : undefined,
+        day: c.day ? {
+          volume: c.day.volume,
+          v: c.day.v,
+          close: c.day.close,
+          previous_close: c.day.previous_close,
+        } : undefined,
+        last_trade: c.last_trade ? {
+          price: c.last_trade.price,
+          p: c.last_trade.p,
+        } : undefined,
+        last_quote: c.last_quote ? {
+          midpoint: c.last_quote.midpoint,
+        } : undefined,
+      };
+    }
+
+    // Store SLIMMED in Redis — Vercel reads this and does ALL calculations
+    // [COST OPT] ~70% size reduction (verified: 1214KB→356KB for NVDA)
     const cachePayload = {
-      probeResults,     // allExpiryChain source (35 DTE multi-expiry)
-      exactResults,     // rawChain source (weekly expiry full chain)
+      probeResults: probeResults.map(slimContract),
+      exactResults: exactResults.map(slimContract),
       expirations,      // available expiration dates
       weeklyExpiry,     // detected weekly expiration
       _ts: Date.now(),
@@ -286,6 +326,7 @@ async function fetchOptionsSnapshotRaw(ticker) {
     };
 
     await redisSet('polygon:snapshot:probe:' + ticker, cachePayload, getEffectiveTTL(OPTIONS_SNAPSHOT_TTL));
+
     return true;
   } catch (e) {
     console.log('[flow-harvest] options-snapshot err ' + ticker + ': ' + e.message);

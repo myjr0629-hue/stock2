@@ -8,6 +8,7 @@ import { useSearchParams } from "next/navigation";
 import { useDashboardStore } from "@/stores/dashboardStore";
 import { useShallow } from "zustand/react/shallow";
 import { PriceDisplay, usePriceFlash, getFlashStyle, tickerDelay } from "@/components/ui/PriceDisplay";
+import { useMobile } from "@/hooks/useMobile";
 import { calcPriceDisplay } from "@/utils/calcPriceDisplay";
 import { useRealtimeData } from "@/providers/WebSocketProvider";
 import { ProGate, EliteGate } from "@/components/gate/FeatureGate";
@@ -159,7 +160,7 @@ function AlphaStatusBar() {
     }, [fetchDashboardData]);
 
     return (
-        <div className="flex items-center justify-between px-4 py-2 bg-[#0a0f1a] border-b border-white/5">
+        <div className="hidden lg:flex items-center justify-between px-4 py-2 bg-[#0a0f1a] border-b border-white/5">
             {/* Left: intentionally empty — NQ/Phase info moved to global ticker bar */}
             <div />
 
@@ -236,6 +237,113 @@ function AlphaStatusBar() {
                     <BookOpen className="w-3.5 h-3.5" />
                     <span className="hidden sm:inline">GUIDE</span>
                 </Link>
+            </div>
+        </div>
+    );
+}
+
+// Mobile Sticky Hero — Extracted to be a DIRECT CHILD of the scroll container
+// so that CSS sticky works correctly (no h-full parent constraint)
+function MobileStickyHero() {
+    const selectedTicker = useDashboardStore(s => s.selectedTicker);
+    const data = useDashboardStore(s => s.tickers[s.selectedTicker]);
+    const { tier } = useTier();
+    const customize = useCardCustomize(tier);
+
+    const p = calcPriceDisplay({
+        livePrice: data?.display?.price || data?.underlyingPrice,
+        liveChangePct: data?.display?.changePctPct ?? data?.changePercent,
+        apiDisplayPrice: data?.display?.price || data?.underlyingPrice,
+        apiDisplayChangePct: data?.display?.changePctPct ?? data?.intradayChangePct ?? data?.changePercent,
+        session: data?.session || 'CLOSED',
+        prevRegularClose: data?.prevRegularClose,
+        prevClose: data?.prevClose,
+        regularCloseToday: data?.regularCloseToday,
+        prevChangePct: data?.prevChangePct,
+        fallbackChangePct: data?.intradayChangePct ?? data?.changePercent ?? 0,
+        lastTrade: data?.underlyingPrice,
+        extended: data?.extended,
+        prices: { prePrice: data?.extended?.prePrice, postPrice: data?.extended?.postPrice },
+    });
+    const mainPrice = p.displayPrice;
+    const mainChangePct = p.displayChangePct;
+    const isUp = mainChangePct >= 0;
+    const extPrice = p.activeExtPrice;
+    const extPct = p.activeExtPct;
+    const extLabel = p.activeExtLabel?.replace(/\s*\(.*\)/, '').replace(/\s*(CLOSE|CLOSED)$/i, '').trim() || p.activeExtLabel;
+    const hasExt = extPrice > 0 && extLabel;
+
+    return (
+        <div className="flex flex-col px-3 py-1.5 border-b border-white/5 gap-1 sticky top-0 z-30 bg-[#0a0f1a]" style={{ position: 'sticky' }} data-dashboard-hero-mobile>
+            {/* Row 0: LIVE status + Market Countdown */}
+            <div className="flex items-center justify-center gap-2">
+                {(() => {
+                    const now = new Date();
+                    const etStr = now.toLocaleString('en-US', { timeZone: 'America/New_York' });
+                    const et = new Date(etStr);
+                    const etDay = et.getDay();
+                    const etMin = et.getHours() * 60 + et.getMinutes();
+                    const isWeekend = etDay === 0 || etDay === 6;
+                    let sLabel: 'PRE' | 'OPEN' | 'AFTER' | 'CLOSED' = 'CLOSED';
+                    if (!isWeekend) {
+                        if (etMin >= 240 && etMin < 570) sLabel = 'PRE';
+                        else if (etMin >= 570 && etMin < 960) sLabel = 'OPEN';
+                        else if (etMin >= 960 && etMin < 1200) sLabel = 'AFTER';
+                    }
+                    const isLive = sLabel !== 'CLOSED';
+                    return (
+                        <>
+                            <span className="relative flex h-2 w-2">
+                                {isLive && <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />}
+                                <span className={`relative inline-flex rounded-full h-2 w-2 ${isLive ? 'bg-emerald-500' : 'bg-slate-400'}`} />
+                            </span>
+                            <span className={`text-[11px] uppercase tracking-wider font-bold ${isLive ? 'text-emerald-400' : 'text-slate-400'}`}>{isLive ? 'LIVE' : 'CLOSED'}</span>
+                            {isLive && <span className={`px-1.5 py-0.5 text-[10px] uppercase font-bold rounded border ${STATUS_COLORS[sLabel]}`}>{sLabel}</span>}
+                        </>
+                    );
+                })()}
+                <MarketCountdown marketStatus={data?.session} isHoliday={false} />
+            </div>
+            {/* Row 1: Logo + Ticker + Price + Change% */}
+            <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-slate-800 to-slate-700/50 border border-slate-600/50 flex items-center justify-center overflow-hidden relative flex-shrink-0">
+                    <img loading="lazy" decoding="async" src={`/api/logo/${selectedTicker}`} alt={selectedTicker} className="w-5 h-5 object-contain" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+                    <span className="text-[8px] font-bold text-slate-500 absolute">{selectedTicker?.slice(0, 2)}</span>
+                </div>
+                <span className="text-[20px] font-black text-white font-jakarta tracking-tight">{selectedTicker}</span>
+                <span className="text-[19px] font-mono font-bold text-white ml-0.5">
+                    ${mainPrice > 0 ? mainPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '—'}
+                </span>
+                <span className={`text-[14px] font-mono font-bold px-1.5 py-0.5 rounded ${isUp ? 'text-emerald-400 bg-emerald-500/10' : 'text-rose-400 bg-rose-500/10'}`}>
+                    {isUp ? '+' : ''}{mainChangePct.toFixed(2)}%
+                </span>
+            </div>
+            {/* Row 2: PRE/POST pill + Customize */}
+            <div className="flex items-center gap-2 ml-[36px]">
+                {hasExt ? (
+                    <div className={`inline-flex items-center gap-1.5 px-2 py-[3px] rounded-md border ${extLabel?.includes('PRE') ? 'bg-amber-500/10 border-amber-500/25' : 'bg-indigo-500/10 border-indigo-500/25'}`}>
+                        <div className={`w-1.5 h-1.5 rounded-full ${extLabel?.includes('PRE') ? 'bg-amber-500' : 'bg-indigo-500'} animate-pulse`} />
+                        <span className={`text-[11px] font-black uppercase tracking-wide leading-none ${extLabel?.includes('PRE') ? 'text-amber-400' : 'text-indigo-400'}`}>{extLabel}</span>
+                        <span className="text-[12px] font-mono font-bold text-slate-200 leading-none">${extPrice.toFixed(2)}</span>
+                        <span className={`text-[11px] font-mono font-bold leading-none ${extPct >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>{extPct > 0 ? '+' : ''}{extPct.toFixed(2)}%</span>
+                    </div>
+                ) : <div />}
+                {(tier === 'pro' || tier === 'elite') && (
+                    <button
+                        onClick={() => customize.isEditing ? customize.setIsEditing(false) : customize.setIsEditing(true)}
+                        className={`ml-auto inline-flex items-center gap-1 px-1.5 py-0 rounded text-[12px] font-semibold leading-none transition-all ${customize.isEditing
+                            ? 'bg-cyan-500/15 text-cyan-400 border border-cyan-400/40'
+                            : 'bg-slate-800/40 text-slate-400 border border-white/8'
+                        }`}
+                        style={{ height: '18px' }}
+                    >
+                        {customize.isEditing ? (
+                            <><Check className="w-2.5 h-2.5" /> Done</>
+                        ) : (
+                            <><Settings className="w-2.5 h-2.5" /> Customize</>
+                        )}
+                    </button>
+                )}
             </div>
         </div>
     );
@@ -379,28 +487,21 @@ const WatchlistItem = React.memo(function WatchlistItem({ ticker, isSelected }: 
                         )}
                     </div>
                 </div>
-
-                {/* Mobile Right Side: Stack of Prices */}
-                <div className="flex flex-col items-end md:hidden">
-                    <div className="flex items-center gap-2">
-                        {mainPrice > 0 ? (
-                            <span className={`font-mono text-[15px] ${wf.color}`} style={wf.style}>{mainPrice.toFixed(2)}</span>
-                        ) : (
-                            <div className="h-4 w-14 bg-slate-700/50 rounded animate-pulse" />
-                        )}
-                    </div>
-                    <div className="flex items-center gap-2 mt-0.5">
-                        {mainPrice > 0 && (
-                            <span className={`font-mono text-[13px] font-medium ${isPositive ? "text-emerald-400" : "text-rose-400"}`}>
-                                {isPositive ? "+" : ""}{mainChangePct.toFixed(2)}%
-                            </span>
-                        )}
-                        {extPrice > 0 && (
-                            <span className={`font-mono text-[11px] font-medium ${extChangePct >= 0 ? "text-emerald-400/80" : "text-rose-400/80"} bg-slate-900/50 px-1 rounded`}>
-                                {displayExtLabel}: {extChangePct > 0 ? "+" : ""}{extChangePct.toFixed(2)}%
-                            </span>
-                        )}
-                    </div>
+                {/* Mobile: ONE LINE — evenly spaced columns */}
+                <div className="flex items-center gap-3 md:hidden ml-auto flex-shrink-0" style={{ fontVariantNumeric: 'tabular-nums' }}>
+                    {mainPrice > 0 ? (
+                        <span className={`font-mono text-[13px] font-bold text-right min-w-[52px] ${wf.color}`} style={wf.style}>{mainPrice.toFixed(2)}</span>
+                    ) : (
+                        <div className="h-3.5 w-[52px] bg-slate-700/50 rounded animate-pulse" />
+                    )}
+                    {mainPrice > 0 ? (
+                        <span className={`font-mono text-[12px] font-semibold text-right min-w-[56px] ${isPositive ? "text-emerald-400" : "text-rose-400"}`}>
+                            {isPositive ? "+" : ""}{mainChangePct.toFixed(2)}%
+                        </span>
+                    ) : <span className="min-w-[56px]" />}
+                    <span className={`font-mono text-[12px] font-medium text-right min-w-[72px] ${extPrice > 0 ? (extChangePct >= 0 ? "text-emerald-400/60" : "text-rose-400/60") : "text-slate-600"}`}>
+                        {extPrice > 0 ? `${displayExtLabel}:${extChangePct > 0 ? "+" : ""}${extChangePct.toFixed(2)}%` : '—'}
+                    </span>
                 </div>
 
                 {/* Col 2: Last Price (Desktop) */}
@@ -652,6 +753,7 @@ function MainChartPanel() {
     const gt = useTranslations('gate');
     const { tier } = useTier();
     const customize = useCardCustomize(tier);
+    const isMobile = useMobile();
     const selectedTicker = useDashboardStore(s => s.selectedTicker);
     // [PERF FIX] Subscribe only to the selected ticker's data, not all tickers
     const data = useDashboardStore(s => s.tickers[s.selectedTicker]);
@@ -825,7 +927,9 @@ function MainChartPanel() {
 
     return (
         <div className="flex flex-col h-full" data-dashboard-main>
-            {/* Header */}
+            {/* Header — Mobile/Desktop DOM bifurcation */}
+            {isMobile ? null : (
+            /* ===== DESKTOP HEADER — 100% PRESERVED, UNTOUCHED ===== */
             <div className="flex items-center justify-between p-4 border-b border-white/5 flex-wrap gap-2" data-dashboard-hero>
                 <div className="flex items-center gap-3">
                     <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-slate-800 to-slate-800/50 border border-slate-700 flex items-center justify-center overflow-hidden relative">
@@ -905,6 +1009,7 @@ function MainChartPanel() {
                     )}
                 </div>
             </div>
+            )}
 
 
             {/* ═══════ Metrics Grid: 3 Rows × 4 Cards ═══════ */}
@@ -2291,6 +2396,8 @@ export function DashboardClient({ initialTickers, initialQuotes }: { initialTick
             {/* Mobile: Vertical Stack Native Layout */}
             <div className="lg:hidden flex-1 bg-[#0a0f1a] overflow-y-auto w-full pb-8">
                 <div className="flex flex-col">
+                    {/* Sticky hero — DIRECT child of scroll container for CSS sticky to work */}
+                    <MobileStickyHero />
                     <MainChartPanel />
 
                     {/* Left Panel: Watchlist (Stacked) */}

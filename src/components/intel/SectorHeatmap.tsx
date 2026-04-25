@@ -222,27 +222,27 @@ export function SectorHeatmap({ sectorData, onNavigate }: SectorHeatmapProps) {
     if (!treeData || treeData.length === 0) return null;
 
     return (
-        <section className="relative z-10">
-            <div className="rounded-xl border border-slate-700/40 overflow-hidden"
+        <section className="relative z-10 -mx-3 lg:mx-0">
+            <div className="rounded-none lg:rounded-xl border-y lg:border border-slate-700/40 overflow-hidden"
                 style={{
                     background: 'linear-gradient(180deg, #0d1117 0%, #0a0e14 100%)',
                     boxShadow: '0 0 30px rgba(0,0,0,0.4), 0 0 8px rgba(99,102,241,0.06)',
                 }}>
                 {/* Header */}
-                <div className="px-5 py-2.5 border-b border-slate-800/60 flex items-center justify-between"
+                <div className="px-3 lg:px-5 py-2.5 border-b border-slate-800/60 flex flex-wrap sm:flex-nowrap items-center justify-between gap-2"
                     style={{ background: 'linear-gradient(90deg, rgba(13,17,23,1) 0%, rgba(15,25,35,0.95) 50%, rgba(13,17,23,1) 100%)' }}>
-                    <div className="flex items-center gap-3">
-                        <div className="w-1 h-5 rounded-full bg-gradient-to-b from-cyan-400 to-indigo-500" />
-                        <span className="text-[14px] font-black text-white tracking-[0.12em] uppercase font-jakarta">
+                    <div className="flex items-center gap-2 lg:gap-3">
+                        <div className="w-1 h-4 lg:h-5 rounded-full bg-gradient-to-b from-cyan-400 to-indigo-500" />
+                        <span className="text-[12px] lg:text-[14px] font-black text-white tracking-[0.1em] lg:tracking-[0.12em] uppercase font-jakarta whitespace-nowrap">
                             SECTOR HEATMAP
                         </span>
-                        <span className="text-[12px] text-slate-300 font-mono">
+                        <span className="text-[11px] lg:text-[12px] text-slate-300 font-mono hidden sm:inline">
                             {SECTOR_DEFS.length} Sectors • Real-Time
                         </span>
                     </div>
-                    <div className="flex items-center gap-1.5 text-[12px] font-mono">
+                    <div className="flex items-center gap-1.5 text-[11px] lg:text-[12px] font-mono">
                         <span className="text-emerald-400 font-bold">+3%</span>
-                        <div className="flex h-2.5 rounded-full overflow-hidden mx-1" style={{ width: 80 }}>
+                        <div className="flex h-2 lg:h-2.5 rounded-full overflow-hidden mx-0.5 lg:mx-1 w-[60px] lg:w-[80px]">
                             <div style={{ flex: 1, background: '#2d8b57' }} />
                             <div style={{ flex: 1, background: '#1e5233' }} />
                             <div style={{ flex: 1, background: '#1e2430' }} />
@@ -264,7 +264,7 @@ export function SectorHeatmap({ sectorData, onNavigate }: SectorHeatmapProps) {
                 </div>
 
                 {/* Mobile Premium Heat Grid */}
-                <div className="block md:hidden bg-[#0d1117] max-h-[550px] overflow-y-auto scrollbar-thin scrollbar-thumb-slate-800 scrollbar-track-transparent rounded-b-xl border-t border-slate-800">
+                <div className="block md:hidden bg-[#0d1117] max-h-[550px] overflow-y-auto scrollbar-thin scrollbar-thumb-slate-800 scrollbar-track-transparent lg:rounded-b-xl border-t border-slate-800">
                     {treeData.map((sector, idx) => {
                         if (!sector) return null;
                         return (
@@ -276,7 +276,7 @@ export function SectorHeatmap({ sectorData, onNavigate }: SectorHeatmapProps) {
                                     {sector.avgChange >= 0 ? '+' : ''}{sector.avgChange.toFixed(2)}%
                                 </span>
                             </div>
-                            {/* Mobile Heat Tiles */}
+                            {/* Mobile Heat Tiles — min 44px touch target */}
                             <div className="grid grid-cols-4 gap-[2px] p-[2px]">
                                 {sector.children.map(t => (
                                     <div 
@@ -286,11 +286,11 @@ export function SectorHeatmap({ sectorData, onNavigate }: SectorHeatmapProps) {
                                             const tabKey = tabKeyMap[sectorName];
                                             if (tabKey) onNavigate(tabKey);
                                         }}
-                                        className="flex flex-col items-center justify-center py-2.5 rounded-sm px-1 active:scale-95 transition-transform"
+                                        className="flex flex-col items-center justify-center py-3 rounded-sm px-1.5 min-h-[48px] active:scale-95 transition-transform cursor-pointer"
                                         style={{ backgroundColor: t.itemStyle?.color || '#1e2430' }}
                                     >
-                                        <span className="text-[12px] font-black text-white leading-tight font-jakarta drop-shadow-md">{t.name}</span>
-                                        <span className="text-[11px] font-mono font-bold text-white/90 leading-tight drop-shadow-md">
+                                        <span className="text-[13px] font-black text-white leading-tight font-jakarta drop-shadow-md">{t.name}</span>
+                                        <span className="text-[12px] font-mono font-bold text-white/90 leading-tight drop-shadow-md">
                                             {t.changePct > 0 ? '+' : ''}{(t.changePct ?? 0).toFixed(1)}%
                                         </span>
                                     </div>

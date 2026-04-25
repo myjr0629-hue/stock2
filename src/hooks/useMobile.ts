@@ -1,25 +1,23 @@
 import { useState, useEffect } from 'react';
+import { useServerMobile } from '@/contexts/DeviceContext';
 
 // SSR-safe mobile detection hook
-// Matches Tailwind's 'md' breakpoint (768px). By default, assumes desktop during SSR to prevent hydration mismatch.
+// Uses server-detected value from DeviceContext as initial state to prevent hydration flash.
+// Falls back to client-side check via resize listener.
 export function useMobile(breakpoint = 768) {
-    const [isMobile, setIsMobile] = useState<boolean>(false);
+    const serverMobile = useServerMobile();
+    const [isMobile, setIsMobile] = useState<boolean>(serverMobile);
 
     useEffect(() => {
-        // Run only on client
         if (typeof window === 'undefined') return;
 
         const checkMobile = () => {
             setIsMobile(window.innerWidth < breakpoint);
         };
 
-        // Initial check
         checkMobile();
 
-        // Listen for resize events
         window.addEventListener('resize', checkMobile);
-
-        // Cleanup
         return () => window.removeEventListener('resize', checkMobile);
     }, [breakpoint]);
 

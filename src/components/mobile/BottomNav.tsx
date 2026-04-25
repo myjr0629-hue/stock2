@@ -14,7 +14,7 @@ import { clsx } from 'clsx';
 
 const NAV_ITEMS = [
     {
-        label: 'HOME',
+        label: 'DASHBOARD',
         href: '/dashboard',
         icon: (active: boolean) => (
             <svg className="w-5 h-5" fill={active ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24" strokeWidth={active ? 0 : 1.5}>
@@ -26,20 +26,6 @@ const NAV_ITEMS = [
             </svg>
         ),
         matchPath: '/dashboard',
-    },
-    {
-        label: 'COMMAND',
-        href: '/ticker?ticker=NVDA',
-        icon: (active: boolean) => (
-            <svg className="w-5 h-5" fill={active ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24" strokeWidth={active ? 0 : 1.5}>
-                {active ? (
-                    <path d="M13 10V3L4 14h7v7l9-11h-7z" />
-                ) : (
-                    <path strokeLinecap="round" strokeLinejoin="round" d="m3.75 13.5 10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75Z" />
-                )}
-            </svg>
-        ),
-        matchPath: '/ticker',
     },
     {
         label: 'GUARDIAN',
@@ -54,6 +40,20 @@ const NAV_ITEMS = [
             </svg>
         ),
         matchPath: '/intel-guardian',
+    },
+    {
+        label: 'COMMAND',
+        href: '/ticker?ticker=NVDA',
+        icon: (active: boolean) => (
+            <svg className="w-5 h-5" fill={active ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24" strokeWidth={active ? 0 : 1.5}>
+                {active ? (
+                    <path d="M13 10V3L4 14h7v7l9-11h-7z" />
+                ) : (
+                    <path strokeLinecap="round" strokeLinejoin="round" d="m3.75 13.5 10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75Z" />
+                )}
+            </svg>
+        ),
+        matchPath: '/ticker',
     },
     {
         label: 'FLOW',

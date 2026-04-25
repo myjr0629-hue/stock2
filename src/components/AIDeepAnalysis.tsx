@@ -315,7 +315,7 @@ export function AIDeepAnalysis({ ticker, displayPrice, session, snapshot }: Prop
     const risk = analysis ? riskConfig[analysis.riskFlag] || riskConfig.NONE : riskConfig.NONE;
 
     return (
-        <div className="shrink-0 relative rounded-lg border border-amber-500/40 overflow-hidden shadow-lg transition-all duration-300"
+        <div className="shrink-0 relative rounded-lg border border-amber-500/40 overflow-hidden shadow-lg transition-all duration-300 w-full max-w-full"
             style={{ background: 'linear-gradient(180deg, rgba(8,12,21,0.95) 0%, rgba(13,17,25,0.98) 100%)', boxShadow: '0 0 24px rgba(245,158,11,0.18), 0 0 8px rgba(245,158,11,0.10), inset 0 0 12px rgba(245,158,11,0.04)' }}>
 
             {/* ═══ AI Neural Background ═══ */}
@@ -454,13 +454,13 @@ export function AIDeepAnalysis({ ticker, displayPrice, session, snapshot }: Prop
                                 background: `linear-gradient(90deg, ${verdict.bar}10 0%, transparent 60%)`,
                             }}>
                             {/* Verdict label */}
-                            <div className="flex items-center gap-2 mb-2">
+                            <div className="flex items-center gap-2 mb-2 flex-wrap overflow-hidden">
                                 <span className="text-[13px] font-black uppercase tracking-wider font-jakarta"
                                     style={{ color: verdict.bar }}>
                                     {verdict.label}
                                 </span>
                                 <span className="text-[12px] text-slate-400 font-jakarta">—</span>
-                                <span className="text-[12px] text-slate-300 font-semibold font-jakarta">
+                                <span className="text-[12px] text-slate-300 font-semibold font-jakarta break-words overflow-hidden">
                                     {shortVerdict}
                                 </span>
                             </div>

@@ -1,4 +1,6 @@
+import { headers } from 'next/headers';
 import { FlowPageClient } from "./FlowPageClient";
+import { MobileFlowPage } from "./MobileFlowPage";
 import { getFromCache, setInCache } from '@/services/redisClient';
 import { getFlowCache } from '@/lib/aws/flowCacheProvider';
 import { TerminalGateWrapper } from '@/components/gate/TerminalGateWrapper';
@@ -25,6 +27,11 @@ function sanitizeForClient(data: any): any {
 export default async function FlowPage({ params, searchParams }: Props) {
     const resolvedParams = await searchParams;
     const ticker = (resolvedParams.ticker || resolvedParams.t || 'TSLA').toUpperCase();
+
+    // SERVER-SIDE MOBILE DETECTION (matches Dashboard pattern)
+    const headersList = await headers();
+    const userAgent = headersList.get('user-agent') || '';
+    const isMobileDevice = /iPhone|iPad|iPod|Android|Mobile/i.test(userAgent);
 
     if (!ticker) {
         return (
@@ -58,6 +65,19 @@ export default async function FlowPage({ params, searchParams }: Props) {
     // [FIX] Sanitize for React Flight — NaN/Infinity crash client hydration
     const safeData = sanitizeForClient(initialFlowData);
 
+    // MOBILE: Native 5-tab experience (FlowRadar untouched)
+    if (isMobileDevice) {
+        return (
+            <TerminalGateWrapper pageName="FLOW">
+                <MobileFlowPage
+                    ticker={ticker}
+                    initialFlowData={safeData || undefined}
+                />
+            </TerminalGateWrapper>
+        );
+    }
+
+    // DESKTOP: Existing FlowPageClient (ZERO changes)
     return (
         <TerminalGateWrapper pageName="FLOW">
             <FlowPageClient

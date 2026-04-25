@@ -1,4 +1,6 @@
+import { headers } from 'next/headers';
 import { DashboardClient } from './DashboardClient';
+import { MobileDashboardPage } from './MobileDashboardPage';
 import { createClient } from '@/lib/supabase/server';
 import { GET as getLiveQuotes } from '@/app/api/live/quotes/route';
 import { TerminalGateWrapper } from '@/components/gate/TerminalGateWrapper';
@@ -57,13 +59,30 @@ async function getInitialQuotes(tickers: string[]) {
 export const dynamic = 'force-dynamic';
 
 export default async function DashboardPage() {
-    // 1. Fetch user's personalized tickers securely via SSR cookies (0ms latency for client)
+    // 1. SERVER-SIDE MOBILE DETECTION (matches layout.tsx pattern exactly)
+    const headersList = await headers();
+    const userAgent = headersList.get('user-agent') || '';
+    const isMobileDevice = /iPhone|iPad|iPod|Android|Mobile/i.test(userAgent);
+
+    // 2. Fetch user's personalized tickers securely via SSR cookies (0ms latency for client)
     const tickers = await getDashboardTickers();
 
-    // 2. Fetch baseline realtime quotes for those tickers (Server-to-Server speed)
+    // 3. Fetch baseline realtime quotes for those tickers (Server-to-Server speed)
     const initialQuotes = await getInitialQuotes(tickers);
 
-    // 3. Render client component with instant hydration data
+    // 4. BIFURCATED RENDERING — Mobile gets native 3-tab page, Desktop unchanged
+    if (isMobileDevice) {
+        return (
+            <TerminalGateWrapper pageName="COMMAND">
+                <MobileDashboardPage
+                    initialTickers={tickers}
+                    initialQuotes={initialQuotes}
+                />
+            </TerminalGateWrapper>
+        );
+    }
+
+    // 5. DESKTOP: Original DashboardClient (ZERO changes)
     return (
         <TerminalGateWrapper pageName="COMMAND">
             <DashboardClient

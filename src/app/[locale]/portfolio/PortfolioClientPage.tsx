@@ -17,8 +17,8 @@ import { CardTooltip, PORTFOLIO_TOOLTIPS } from '@/components/ui/CardTooltip';
 import { useTier } from '@/contexts/TierContext';
 import useSWR from 'swr';
 import { EChartsSectorDonut, EChartsPnlTreemap } from '@/components/portfolio/PortfolioCharts';
-import { useIsMobile } from '@/hooks/useIsMobile';
-import MobileHoldingCard from '@/components/portfolio/MobileHoldingCard';
+// [SSR BIFURCATION] Mobile rendering handled by MobilePortfolioPage.tsx via page.tsx UA detection
+// useIsMobile and MobileHoldingCard imports removed — desktop-only now
 
 
 
@@ -53,7 +53,7 @@ export default function PortfolioClientPage({
     const { tier } = useTier();
     const [currencyMode, setCurrencyMode] = useState<'usd' | 'local'>('usd');
     const fx = useExchangeRate(locale);
-    const isMobile = useIsMobile();
+    // [SSR BIFURCATION] isMobile removed — this component only renders on desktop
     const [sortKey, setSortKey] = useState<'default' | 'score' | 'pnl' | 'weight' | 'today'>('default');
     const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
 
@@ -150,17 +150,17 @@ export default function PortfolioClientPage({
 
                 {/* Premium Holdings — Desktop: Table Grid / Mobile: Glass Cards */}
                 {loading ? (
-                    <div className={isMobile ? 'space-y-3' : 'space-y-2'}>{[0, 1, 2, 3].map(i => (
-                        <div key={i} className={`animate-pulse ${isMobile ? 'm-glass-card' : 'rounded-xl bg-white/[0.03] border border-white/[0.08] p-4'}`} style={{ animationDelay: `${i * 100}ms` }}>
+                    <div className="space-y-2">{[0, 1, 2, 3].map(i => (
+                        <div key={i} className="animate-pulse rounded-xl bg-white/[0.03] border border-white/[0.08] p-4" style={{ animationDelay: `${i * 100}ms` }}>
                             <div className="flex items-center gap-4">
-                                <div className={`${isMobile ? 'w-11 h-11 rounded-2xl' : 'w-9 h-9 rounded-lg'} bg-slate-700/40`} />
+                                <div className="w-9 h-9 rounded-lg bg-slate-700/40" />
                                 <div className="flex-1 space-y-1.5"><div className="h-4 w-16 bg-slate-700/40 rounded" /><div className="h-2.5 w-28 bg-slate-800/40 rounded" /></div>
                                 <div className="text-right space-y-1"><div className="h-5 w-20 bg-slate-700/40 rounded ml-auto" /><div className="h-3 w-14 bg-slate-800/40 rounded ml-auto" /></div>
                             </div>
                         </div>
                     ))}</div>
                 ) : holdings.length === 0 ? (
-                    <div className={`relative overflow-hidden border border-white/[0.08] bg-gradient-to-br from-white/[0.04] to-white/[0.02] backdrop-blur-xl py-20 text-center ${isMobile ? 'm-glass-card' : 'rounded-2xl'}`}>
+                    <div className="relative overflow-hidden border border-white/[0.08] bg-gradient-to-br from-white/[0.04] to-white/[0.02] backdrop-blur-xl py-20 text-center rounded-2xl">
                         <div className="w-20 h-20 mx-auto mb-5 rounded-2xl bg-gradient-to-br from-emerald-500/10 to-cyan-500/5 border border-emerald-500/20 flex items-center justify-center">
                             <Briefcase className="w-10 h-10 text-emerald-400/40" />
                         </div>
@@ -169,23 +169,6 @@ export default function PortfolioClientPage({
                         <button onClick={() => setShowAddModal(true)} className="px-6 py-2.5 bg-gradient-to-r from-emerald-500/20 to-cyan-500/15 border border-emerald-500/30 text-emerald-400 text-sm font-bold rounded-xl hover:from-emerald-500/30 hover:to-cyan-500/20 transition-all">
                             {t('addFirstHolding')}
                         </button>
-                    </div>
-                ) : isMobile ? (
-                    /* ═══ MOBILE: Glassmorphism Card List ═══ */
-                    <div className="space-y-3">
-                        {sortedHoldings.map((holding, i) => (
-                            <MobileHoldingCard
-                                key={holding.ticker}
-                                holding={holding}
-                                onRemove={() => removeHolding(holding.ticker)}
-                                onEdit={() => setEditingHolding(holding)}
-                                totalValue={summary.totalValue}
-                                index={i}
-                                currencyMode={currencyMode}
-                                fxRate={fx.rate}
-                                fxSymbol={fx.symbol}
-                            />
-                        ))}
                     </div>
                 ) : (
                     /* ═══ DESKTOP: Original 12-Column Grid ═══ */
