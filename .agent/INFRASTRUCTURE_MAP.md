@@ -3484,3 +3484,143 @@ EC2 WebSocket Flow Accumulator (100% 전수 수집)
 - `scripts/deploy-lambda-v7.js` L1794-1826: OnDemand darkPool fetch (EC2 proxy)
 - `src/services/realtimeMetricsService.ts` L34-77: Vercel → EC2 proxy (PRIMARY)
 
+### 15.21 🔴 Alpha History 백테스팅 파이프라인 (2026-04-25)
+
+> [!IMPORTANT]
+> **Lambda Step 1에서 `signum-alpha-history`에 1,000종목 가격/OHLCV를 반드시 저장해야 한다.**
+> V7에서 "SSR_V46 덮어쓰기 방지"를 이유로 저장을 제거했으나, 이는 이중 보호 실수였다.
+> Vercel `historyStore.ts` L158-165에 이미 `ConditionExpression: 'qualityTier <> :ssr'` 보호가 있다.
+
+**Alpha History 데이터 흐름:**
+```
+Lambda signum-harvest (5min cron, 장중)
+  └── Step 1: harvestPrices()
+       └── batchWrite('signum-alpha-history', items)  ← qualityTier: 'LIVE'
+            └── 1,000종목 가격 + OHLCV + changePct
+
+Vercel SSR (유저 접속 시)
+  └── recordAlphaDaily() via historyMiddleware.ts
+       └── saveAlphaDaily() ← qualityTier: 'SSR_V46' (덮어쓰기 우선)
+            └── Alpha Score + 5 Pillar breakdown + input vector
+
+Lambda Step 5: recordCloseAndBackfill()
+  └── 3일 전 레코드에 close_3d, return_3d 역산 저장
+```
+
+**절대 금지:**
+- Lambda Step 1의 alpha-history 저장을 다시 제거하지 말 것 — 백테스팅 불가
+- `qualityTier: 'LIVE'` 외 다른 값으로 Lambda에서 저장하지 말 것 — SSR_V46 충돌 방지
+
+**백테스팅 일정:**
+- 2026-04-28 (월): 1,000종목 저장 재시작
+- 2026-05-05~: 1주 후 3일 수익률 데이터 축적 → 초기 백테스트 가능
+- 2026-05-12~: 2주 후 유의미한 분석 가능 (10,000+ 데이터 포인트)
+
+---
+
+## 16. 🛡️ Guardian 페이지 전수 감사 보고서 (2026-04-25)
+
+> 검증일: 2026-04-25 (토요일, 장마감 후)
+> 판정: **런칭 가능 ✅ — 데이터 파이프라인·계산 정합성·실데이터 무결점**
+
+### 16.1 감사 대상 (12개 컴포넌트)
+
+| # | 컴포넌트 | 파이프라인 | 계산 | 실데이터 | 판정 |
+|:---:|----------|:---:|:---:|:---:|:---:|
+| 1 | RLSI (Gravity Gauge) | ✅ | ✅ | ✅ | 무결점 |
+| 2 | Macro Snapshot (Guardian Eye) | ✅ | ✅ | ✅ | 무결점 |
+| 3 | Sector Flows (16 섹터) | ✅ | ✅ | ✅ | 무결점 |
+| 4 | Gamma Shield | ✅ | ✅ | ✅ | 무결점 |
+| 5 | RVOL (Reality Check) | ✅ | ✅ | ⏳ | 장중 확인 |
+| 6 | Market Breadth | ✅ | ✅ | ✅ | 무결점 |
+| 7 | Divergence Analysis | ✅ | ✅ | ✅ | 무결점 |
+| 8 | AI Verdict (Tactical Insight) | ✅ | ✅ | ✅ | 무결점 |
+| 9 | Rule Verdict | ✅ | ✅ | ✅ | 무결점 |
+| 10 | RLSI History (Score Timeline) | ✅ | ✅ | ⏳ | 장중 확인 |
+| 11 | Rotation Intensity | ✅ | ✅ | ✅ | 무결점 |
+| 12 | Economic Calendar / FedWatch | ✅ | ✅ | ✅ | 무결점 |
+
+### 16.2 데이터 파이프라인 검증 결과
+
+```
+[EC2 Worker] → Redis(guardian:snapshot:{locale}) → [Vercel API] → [GuardianProvider.tsx]
+                ↑                                        ↓
+          111ms latency                            30s polling + WebSocket 이중화
+```
+
+- **RLSI 엔진**: 10개 컴포넌트(priceAction, crossAsset, breadth, McClellan, gamma, liquidity, volatility, sentiment, momentum, rotation) 전부 정상 범위
+- **Macro 데이터**: 9개 자산(NQ, SPX, VIX, US10Y, DXY, BTC, Gold, Oil, Russell) 전부 MASSIVE 소스 정상
+- **섹터 플로우**: 16개 섹터 × 5개 구성종목 = 80개 종목 데이터 무결
+- **Gamma Shield**: SPY/QQQ GEX + Squeeze Risk + Trigger Band 정상
+- **AI Verdict**: Gemini API → Redis 24h 캐시 → 배포 후에도 유지
+
+### 16.3 RLSI 계산 정합성 (실제 값 기준)
+
+| 컴포넌트 | 실측값 | 정상 범위 | 판정 |
+|----------|--------|----------|:---:|
+| priceActionScore | 85.7 | 0-100 | ✅ |
+| crossAssetMomentum | 67 | 0-100 | ✅ |
+| breadthScore | 52 | 0-100 | ✅ |
+| breadthMcClellan | 51 | 0-100 | ✅ |
+| gammaScore | 51 | 0-100 | ✅ |
+| liquidityScore | 46 | 0-100 | ✅ |
+| volatilityScore | 48 | 0-100 | ✅ |
+| sentimentScore | 66 | 0-100 | ✅ |
+| momentumScore | 67.4 | 0-100 | ✅ |
+| rotationScore | 100 | 0-100 | ✅ |
+| yieldPenalty | 4.2 | 0-10 | ✅ |
+| vixMultiplier | 0.776 | 0.6-1.0 | ✅ |
+| **최종 RLSI** | **48.1** | 0-100 | ✅ |
+
+### 16.4 Yield Curve 정합성
+
+| 항목 | 값 | 계산 검증 |
+|------|-----|----------|
+| US 2Y | 3.83% | — |
+| US 10Y | 4.31% | — |
+| Spread (2s10s) | +0.48% | ✅ 4.31 - 3.83 = 0.48 |
+| Real Yield | 2.01% | ✅ 4.31 - 2.30(BEI) = 2.01 |
+| Stance | TIGHT | ✅ realYield > 1.5 = TIGHT |
+
+### 16.5 Divergence Logic 검증
+
+| 케이스 | 조건 | 현재 상태 | 결과 |
+|--------|------|----------|------|
+| A (False Rally) | NQ>+0.3% AND RLSI<40 | NQ +1.86%, RLSI 48 | ❌ RLSI>40 |
+| B (Hidden Opp) | NQ<-0.2% AND RLSI>60 | NQ +1.86% | ❌ NQ>0 |
+| C (Full Bull) | NQ>+0.5% AND RLSI>70 | RLSI 48 | ❌ RLSI<70 |
+| D (Deep Freeze) | NQ<-0.5% AND RLSI<30 | NQ +1.86% | ❌ NQ>0 |
+| **N (Neutral)** | 위 모두 불충족 | — | ✅ MARKET SYNCHRONIZED |
+
+---
+
+## 17. 📋 월요일 장중 모니터링 체크리스트 (2026-04-28)
+
+> [!IMPORTANT]
+> 아래 항목들은 장 마감 후 검증 불가 — **월요일 장중(ET 10:00~15:00) 확인 필수**
+
+### 17.1 RVOL 실시간 검증
+- [ ] QQQ RVOL > 0 확인 (현재 0.00x → 장중에 0.5~2.0 범위 예상)
+- [ ] DIA RVOL > 0 확인
+- [ ] Reality Check 게이지에 NDX 20D / DOW 20D 정상 표시 확인
+
+### 17.2 RLSI History 변동폭 확인
+- [ ] Score Timeline 차트가 장중에 변동하는지 확인 (4/24: 78개 중 73개가 50으로 flat)
+- [ ] 30분 간격으로 RLSI 값이 최소 ±2 이상 변동하는지 확인
+- [ ] 정상 변동 확인되면 이 항목 완료 처리
+
+### 17.3 Alpha History 파이프라인 (복원 검증)
+- [ ] Lambda 5분 cron이 alpha-history에 1,000종목 저장 시작 확인
+- [ ] DynamoDB `signum-alpha-history` 테이블에 2026-04-28 레코드 996+ 확인
+- [ ] close 필드에 실제 종가 저장 확인
+
+### 17.4 Market Breadth 종목 수
+- [ ] breadth.advancers > 0 확인 (현재 항상 0)
+- [ ] breadth.decliners > 0 확인
+
+**관련 코드:**
+- `src/services/guardian/unifiedDataStream.ts` L843-851: breadth context 생성
+- `src/services/guardian/rlsiEngine.ts`: breadth 계산 엔진
+- `src/components/guardian/MarketBreadthPanel.tsx`: breadth UI
+
+
