@@ -164,9 +164,9 @@ export default function WatchlistClientPage({
                             const count = cat === 'all' ? items.length : items.filter(i => ((i as any).category || 'default').toLowerCase() === cat.toLowerCase()).length;
                             const isActive = activeCategory === cat;
                             const label = cat === 'all'
-                                ? (currentLocale === 'ko' ? '전체' : currentLocale === 'ja' ? 'すべて' : 'ALL')
+                                ? t('categoryAll')
                                 : cat === 'default'
-                                    ? (currentLocale === 'ko' ? '기본' : currentLocale === 'ja' ? 'デフォルト' : 'DEFAULT')
+                                    ? t('categoryDefault')
                                     : cat.toUpperCase();
                             return (
                                 <button
@@ -189,7 +189,7 @@ export default function WatchlistClientPage({
                             className="flex items-center gap-1 px-3 py-2 rounded-xl border border-dashed border-white/[0.08] text-[12px] font-bold text-slate-500 hover:text-cyan-400 hover:border-cyan-500/20 transition-all duration-200 whitespace-nowrap"
                         >
                             <FolderPlus className="w-3.5 h-3.5" />
-                            {currentLocale === 'ko' ? '새 카테고리' : currentLocale === 'ja' ? '新規カテゴリ' : 'New Category'}
+                            {t('newCategory')}
                         </button>
                     </div>
                 </div>
@@ -301,7 +301,6 @@ export default function WatchlistClientPage({
                         await deleteCategory(name);
                         if (activeCategory.toLowerCase() === name.toLowerCase()) setActiveCategory('all');
                     }}
-                    currentLocale={currentLocale}
                 />
             )}
         </div>
@@ -885,6 +884,7 @@ const WatchlistCard = memo(function WatchlistCard({ item, onRemove, locale, inde
     currentLocale?: string;
 }) {
     const isPositive = item.changePct >= 0;
+    const t = useTranslations('watchlist');
     const tCommon = useTranslations('common');
     const { hasAccess } = useTier();
     const router = useRouter();
@@ -1224,7 +1224,7 @@ const WatchlistCard = memo(function WatchlistCard({ item, onRemove, locale, inde
                                         >
                                             <Tag className="w-3 h-3" />
                                             {cat === 'default'
-                                                ? (currentLocale === 'ko' ? '기본' : currentLocale === 'ja' ? 'デフォルト' : 'DEFAULT')
+                                                ? t('categoryDefault')
                                                 : cat.toUpperCase()}
                                         </button>
                                     ))}
@@ -1234,7 +1234,7 @@ const WatchlistCard = memo(function WatchlistCard({ item, onRemove, locale, inde
                                         className="w-full text-left px-3 py-2 text-[12px] font-bold text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 transition-colors flex items-center gap-2"
                                     >
                                         <Trash2 className="w-3 h-3" />
-                                        {currentLocale === 'ko' ? '삭제' : currentLocale === 'ja' ? '削除' : 'Delete'}
+                                        {tCommon('delete')}
                                     </button>
                                 </div>
                             )}
@@ -1669,7 +1669,7 @@ function AddWatchlistModal({ onClose, onAdd, existingTickers = [], isElite, cate
                             {isDuplicate && !error && (
                                 <div className="flex items-center gap-2 mt-1.5 px-2.5 py-1.5 rounded-lg bg-amber-500/[0.08] border border-amber-500/15">
                                     <span className="text-amber-400/80 text-xs">⚠</span>
-                                    <span className="text-amber-400 text-[12px] font-semibold">{ticker.toUpperCase()} is already in your watchlist</span>
+                                    <span className="text-amber-400 text-[12px] font-semibold">{t('duplicateWarning', { ticker: ticker.toUpperCase() })}</span>
                                 </div>
                             )}
                         </div>
@@ -1718,7 +1718,7 @@ function AddWatchlistModal({ onClose, onAdd, existingTickers = [], isElite, cate
                         {isElite && categories && categories.length > 1 && validated && (
                             <div>
                                 <div className="text-[12px] text-slate-300 uppercase tracking-widest font-bold mb-2">
-                                    {currentLocale === 'ko' ? '카테고리' : currentLocale === 'ja' ? 'カテゴリ' : 'CATEGORY'}
+                                    {t('category')}
                                 </div>
                                 <div className="flex flex-wrap gap-1.5">
                                     {categories.map(cat => (
@@ -1733,7 +1733,7 @@ function AddWatchlistModal({ onClose, onAdd, existingTickers = [], isElite, cate
                                             }`}
                                         >
                                             {cat === 'default'
-                                                ? (currentLocale === 'ko' ? '기본' : currentLocale === 'ja' ? 'デフォルト' : 'DEFAULT')
+                                                ? t('categoryDefault')
                                                 : cat.toUpperCase()}
                                         </button>
                                     ))}
@@ -1795,17 +1795,18 @@ const ConditionBadge = memo(function ConditionBadge({ item }: { item: EnrichedWa
 });
 
 // ─── CATEGORY MODAL ──────────────────────────────────────────────────────
-function CategoryModal({ onClose, categories: initialCategories, onCreateCategory, onDeleteCategory, currentLocale }: {
+function CategoryModal({ onClose, categories: initialCategories, onCreateCategory, onDeleteCategory }: {
     onClose: () => void;
     categories: string[];
     onCreateCategory: (name: string) => void;
     onDeleteCategory: (name: string) => void;
-    currentLocale: string;
 }) {
     const [newCatName, setNewCatName] = useState('');
     const [localCategories, setLocalCategories] = useState(initialCategories);
     const [deletingCat, setDeletingCat] = useState<string | null>(null);
     const [message, setMessage] = useState<string | null>(null);
+    const t = useTranslations('watchlist');
+    const tCommon = useTranslations('common');
 
     // Sync with parent
     useEffect(() => { setLocalCategories(initialCategories); }, [initialCategories]);
@@ -1816,7 +1817,7 @@ function CategoryModal({ onClose, categories: initialCategories, onCreateCategor
             setLocalCategories(prev => [...prev, name]);
             onCreateCategory(name);
             setNewCatName('');
-            setMessage(currentLocale === 'ko' ? `'${name.toUpperCase()}' 카테고리가 생성되었습니다` : currentLocale === 'ja' ? `'${name.toUpperCase()}' カテゴリを作成しました` : `Category '${name.toUpperCase()}' created`);
+            setMessage(t('categoryCreated', { name: name.toUpperCase() }));
             setTimeout(() => setMessage(null), 2000);
         }
     };
@@ -1826,7 +1827,7 @@ function CategoryModal({ onClose, categories: initialCategories, onCreateCategor
         setLocalCategories(prev => prev.filter(c => c !== cat));
         await onDeleteCategory(cat);
         setDeletingCat(null);
-        setMessage(currentLocale === 'ko' ? `'${cat.toUpperCase()}' 카테고리가 삭제되었습니다` : currentLocale === 'ja' ? `'${cat.toUpperCase()}' カテゴリを削除しました` : `Category '${cat.toUpperCase()}' deleted`);
+        setMessage(t('categoryDeleted', { name: cat.toUpperCase() }));
         setTimeout(() => setMessage(null), 2000);
     };
 
@@ -1848,10 +1849,10 @@ function CategoryModal({ onClose, categories: initialCategories, onCreateCategor
                             </div>
                             <div>
                                 <h2 className="text-base font-black text-white">
-                                    {currentLocale === 'ko' ? '카테고리 관리' : currentLocale === 'ja' ? 'カテゴリ管理' : 'Manage Categories'}
+                                    {t('manageCategories')}
                                 </h2>
                                 <p className="text-[12px] text-slate-300 mt-0.5">
-                                    {currentLocale === 'ko' ? '워치리스트를 분류하세요' : currentLocale === 'ja' ? 'ウォッチリストを分類' : 'Organize your watchlist'}
+                                    {t('organizeWatchlist')}
                                 </p>
                             </div>
                         </div>
@@ -1864,7 +1865,7 @@ function CategoryModal({ onClose, categories: initialCategories, onCreateCategor
                     {localCategories.length > 0 && (
                         <div className="mb-4">
                             <div className="text-[12px] text-slate-300 uppercase tracking-widest font-bold mb-2">
-                                {currentLocale === 'ko' ? '현재 카테고리' : currentLocale === 'ja' ? '現在のカテゴリ' : 'Current Categories'}
+                                {t('currentCategories')}
                             </div>
                             <div className="space-y-1.5">
                                 {localCategories.map((cat: string) => (
@@ -1875,7 +1876,7 @@ function CategoryModal({ onClose, categories: initialCategories, onCreateCategor
                                             onClick={() => handleDelete(cat)}
                                             disabled={!!deletingCat}
                                             className="p-1 rounded-md text-slate-600 hover:text-rose-400 hover:bg-rose-500/15 transition-all duration-200 disabled:opacity-30"
-                                            title={currentLocale === 'ko' ? '삭제' : currentLocale === 'ja' ? '削除' : 'Delete'}
+                                            title={tCommon('delete')}
                                         >
                                             <Trash2 className="w-3.5 h-3.5" />
                                         </button>
@@ -1883,11 +1884,7 @@ function CategoryModal({ onClose, categories: initialCategories, onCreateCategor
                                 ))}
                             </div>
                             <p className="text-[12px] text-slate-500 mt-2">
-                                {currentLocale === 'ko'
-                                    ? '삭제 시 해당 종목은 기본 카테고리로 이동됩니다'
-                                    : currentLocale === 'ja'
-                                        ? '削除すると銘柄はデフォルトに移動します'
-                                        : 'Deleting moves items to the default category'}
+                                {t('deleteMovesToDefault')}
                             </p>
                         </div>
                     )}
@@ -1902,14 +1899,14 @@ function CategoryModal({ onClose, categories: initialCategories, onCreateCategor
                     {/* Create new */}
                     <div>
                         <div className="text-[12px] text-slate-300 uppercase tracking-widest font-bold mb-2">
-                            {currentLocale === 'ko' ? '새 카테고리 만들기' : currentLocale === 'ja' ? '新規カテゴリ作成' : 'Create New'}
+                            {t('createNew')}
                         </div>
                         <div className="flex gap-2">
                             <input
                                 type="text"
                                 value={newCatName}
                                 onChange={(e) => setNewCatName(e.target.value)}
-                                placeholder={currentLocale === 'ko' ? '카테고리 이름' : currentLocale === 'ja' ? 'カテゴリ名' : 'Category name'}
+                                placeholder={t('categoryNamePlaceholder')}
                                 className="flex-1 bg-white/[0.04] border border-white/[0.08] rounded-xl px-4 py-2.5 text-white text-[13px] font-bold focus:border-cyan-500/50 focus:outline-none focus:ring-2 focus:ring-cyan-500/20 placeholder:text-slate-600 transition-all duration-200"
                                 maxLength={20}
                             />
@@ -1922,11 +1919,7 @@ function CategoryModal({ onClose, categories: initialCategories, onCreateCategor
                             </button>
                         </div>
                         <p className="text-[12px] text-slate-500 mt-2">
-                            {currentLocale === 'ko'
-                                ? '종목의 ⋯ 메뉴에서 카테고리를 지정할 수 있습니다'
-                                : currentLocale === 'ja'
-                                    ? '銘柄の⋯メニューからカテゴリを指定できます'
-                                    : 'Assign categories from the ⋯ menu on each item'}
+                            {t('assignCategoryHint')}
                         </p>
                     </div>
 
@@ -1934,7 +1927,7 @@ function CategoryModal({ onClose, categories: initialCategories, onCreateCategor
                         onClick={onClose}
                         className="w-full mt-4 px-4 py-2.5 bg-white/[0.03] text-slate-300 rounded-xl text-[13px] font-bold hover:bg-white/[0.06] hover:text-white transition-all duration-200 border border-white/[0.06]"
                     >
-                        {currentLocale === 'ko' ? '닫기' : currentLocale === 'ja' ? '閉じる' : 'Close'}
+                        {tCommon('close')}
                     </button>
                 </div>
             </div>

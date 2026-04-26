@@ -31,6 +31,41 @@ const UPSTASH_URL = process.env.UPSTASH_REDIS_REST_URL || '';
 const UPSTASH_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN || '';
 const REDIS_TTL = 259200; // 3 days (same as analysisCache.ts)
 
+// [v9 FIX] EC2 ElastiCache Proxy — SSOT for dark pool (100% WebSocket data)
+// Same endpoint Vercel realtimeMetricsService.ts uses as PRIMARY (L35-36)
+const EC2_PROXY_URL = process.env.EC2_REDIS_PROXY_URL || 'http://52.23.98.13:8081';
+const EC2_PROXY_KEY = process.env.REDIS_PROXY_KEY || 'signum-redis-proxy-2026';
+const http = require('http');
+
+// HTTP GET helper for EC2 proxy (HTTP, not HTTPS)
+function ec2ProxyGet(key, timeoutMs) {
+  return new Promise((resolve) => {
+    const url = EC2_PROXY_URL + '/get?key=' + encodeURIComponent(key);
+    const parsed = new URL(url);
+    const options = {
+      hostname: parsed.hostname,
+      port: parsed.port || 8081,
+      path: parsed.pathname + parsed.search,
+      method: 'GET',
+      headers: { 'Authorization': 'Bearer ' + EC2_PROXY_KEY },
+    };
+    const to = setTimeout(() => resolve(null), timeoutMs || 3000);
+    const req = http.request(options, (res) => {
+      let data = '';
+      res.on('data', chunk => data += chunk);
+      res.on('end', () => {
+        clearTimeout(to);
+        try {
+          const parsed = JSON.parse(data);
+          resolve(parsed?.result || null);
+        } catch { resolve(null); }
+      });
+    });
+    req.on('error', () => { clearTimeout(to); resolve(null); });
+    req.end();
+  });
+}
+
 async function redisSet(key, value, ttl) {
   if (!UPSTASH_URL || !UPSTASH_TOKEN) return false;
   try {
@@ -101,6 +136,22 @@ async function redisPipeline(commands) {
       req.end();
     });
   } catch { return 0; }
+}
+
+// [v9 RESTORED] batchWrite for alpha-history — SSR_V46 in Vercel historyStore prevents overwrites
+async function batchWrite(tableName, items) {
+  for (let i = 0; i < items.length; i += 25) {
+    const batch = items.slice(i, i + 25);
+    try {
+      await client.send(new BatchWriteCommand({
+        RequestItems: { [tableName]: batch.map(item => ({ PutRequest: { Item: item } })) }
+      }));
+    } catch (e) {
+      for (const item of batch) {
+        await client.send(new PutCommand({ TableName: tableName, Item: item })).catch(() => {});
+      }
+    }
+  }
 }
 
 function getNextTradingDayET() {
@@ -354,8 +405,10 @@ async function harvestPrices() {
       items.push({ ticker:t.ticker, date:today, qualityTier:'LIVE', changePct:Math.round(ch*100)/100, open:t.day?.o||0, high:t.day?.h||0, low:t.day?.l||0, close:t.day?.c||p, volume:t.day?.v||0, vwap:t.day?.vw||0, gex:0, pcr:0, alphaScore:0 });
     }
   }
-  // [REMOVED] alpha-history 저장 제거 — Context Score는 Vercel cron이 장마감 시점에 저장 (SSR_V46 덮어쓰기 방지)
-  console.log('Prices: '+items.length+'/'+UNIVERSE.length+' (priceMap has '+Object.keys(priceMap).length+' tickers)');
+  // [v9 RESTORED] alpha-history 저장 복원 — 1000종목 가격/OHLCV 기록 (백테스팅 파이프라인 필수)
+  // SSR_V46 덮어쓰기 방지는 Vercel historyStore.ts L158-165에서 이미 처리됨
+  if (items.length > 0) await batchWrite('signum-alpha-history', items);
+  console.log('Prices: '+items.length+'/'+UNIVERSE.length+' saved to alpha-history (priceMap has '+Object.keys(priceMap).length+' tickers)');
   return { count:items.length, priceMap, snapshotMap };
 }
 
@@ -945,28 +998,25 @@ async function buildUnifiedCache(priceMap, gexMap, optionsCache, smaMap, details
   let ok = 0, partial = 0;
   const redisBatch = []; // [v8] Collect Redis cache:analysis commands
   
-  // [v8] Pre-fetch darkPool + blockTrades from flow-harvest Redis (rt-metrics:{TICKER})
+  // [v9 FIX] Pre-fetch darkPool + blockTrades from EC2 ElastiCache proxy (SSOT)
+  // CHANGED: Upstash rt-metrics → EC2 proxy (flow-harvest V3.0 removed Upstash writes)
+  // EC2 WebSocket accumulator has 100% trade data — same source Vercel uses as PRIMARY
   const darkPoolMap = {};
   const blockTradesMap = {};
   for (let i = 0; i < UNIVERSE.length; i += 20) {
     const dpBatch = UNIVERSE.slice(i, i + 20);
-    try {
-      const getCmds = dpBatch.map(t => ['GET', 'rt-metrics:' + t]);
-      const results = await redisPipeline(getCmds);
-      if (Array.isArray(results)) {
-        results.forEach((r, idx) => {
-          if (r) {
-            try {
-              const parsed = typeof r === 'string' ? JSON.parse(r) : r;
-              darkPoolMap[dpBatch[idx]] = parsed?.darkPool?.percent || 0;
-              blockTradesMap[dpBatch[idx]] = parsed?.blockTrade?.count || 0;
-            } catch { darkPoolMap[dpBatch[idx]] = 0; blockTradesMap[dpBatch[idx]] = 0; }
-          }
-        });
+    const results = await Promise.all(dpBatch.map(t => ec2ProxyGet('rt-metrics:' + t, 3000)));
+    results.forEach((metrics, idx) => {
+      if (metrics) {
+        try {
+          const parsed = typeof metrics === 'string' ? JSON.parse(metrics) : metrics;
+          darkPoolMap[dpBatch[idx]] = parsed?.darkPool?.percent || 0;
+          blockTradesMap[dpBatch[idx]] = parsed?.blockTrade?.count || 0;
+        } catch { darkPoolMap[dpBatch[idx]] = 0; blockTradesMap[dpBatch[idx]] = 0; }
       }
-    } catch {}
+    });
   }
-  console.log('DarkPool pre-fetch: ' + Object.keys(darkPoolMap).length + ' tickers');
+  console.log('DarkPool pre-fetch (EC2 proxy): ' + Object.keys(darkPoolMap).length + ' tickers');
   
   for (let i = 0; i < UNIVERSE.length; i += 10) {
     const batch = UNIVERSE.slice(i, i+10);
@@ -1717,6 +1767,18 @@ exports.handler = async (event) => {
           } catch {}
         }
         
+        // [v9 FIX] Fetch fresh dark pool from EC2 proxy (same as batch path)
+        let onDemandDpPct = 0;
+        let onDemandBlockCount = 0;
+        try {
+          const dpMetrics = await ec2ProxyGet('rt-metrics:' + ticker, 3000);
+          if (dpMetrics) {
+            const dpParsed = typeof dpMetrics === 'string' ? JSON.parse(dpMetrics) : dpMetrics;
+            onDemandDpPct = dpParsed?.darkPool?.percent || 0;
+            onDemandBlockCount = dpParsed?.blockTrade?.count || 0;
+          }
+        } catch {}
+        
         // cache:analysis — analysis summary for Dashboard/Watchlist/Portfolio
         const analysisEntry = {
           ticker, timestamp: Date.now(),
@@ -1733,7 +1795,7 @@ exports.handler = async (event) => {
           squeezeScore: structure.squeezeScore || null,
           iv: structure.atmIv || null,
           whaleIndex: oldAnalysis.whaleIndex || 0, whaleConfidence: oldAnalysis.whaleConfidence || 'NONE',
-          darkPoolPct: oldAnalysis.darkPoolPct || 0, netPremium: structure.netPremium || null,
+          darkPoolPct: onDemandDpPct || oldAnalysis.darkPoolPct || 0, netPremium: structure.netPremium || null,
           vwapDist: oldAnalysis.vwapDist || null, volume: oldAnalysis.volume || null, ivSkew: oldAnalysis.ivSkew || null, impliedMovePct: oldAnalysis.impliedMovePct || null,
         };
         await redisSet('cache:analysis:' + ticker, analysisEntry, REDIS_TTL).catch(() => {});
@@ -1769,8 +1831,8 @@ exports.handler = async (event) => {
   const isRegular = (utcMin >= 13*60+30 && utcMin <= 21*60);
   const forceRun = event && event.forceRun;
   
-  // Weekend: skip everything — preserve Friday's data as-is
-  if (isWeekend) {
+  // Weekend: skip everything — preserve Friday's data as-is (unless forceRun)
+  if (isWeekend && !forceRun) {
     console.log('Weekend (day='+day+') — skipping all steps to preserve Friday data');
     return { statusCode:200, body:JSON.stringify({ skipped:true, reason:'Weekend - Friday data preserved', day }) };
   }

@@ -179,7 +179,7 @@ export default function PortfolioClientPage({
                             <div className={`flex-1 ${PORTFOLIO_GRID} px-3 py-2.5 text-[13px] font-bold text-slate-300 uppercase tracking-wider`}>
                                 <div className="pl-1">{t('ticker')}</div>
                                 <div className="text-center">Chart</div>
-                                <div className="text-center">{t('avgPrice') || '매입가'}</div>
+                                <div className="text-center">{t('avgPrice')}</div>
                                 <div className="text-center">{t('currentPrice')}</div>
                                 <div className="text-center">{t('quantity')}</div>
                                 <div className="flex items-center justify-center gap-1">
@@ -643,10 +643,10 @@ function CircularAlphaGauge({ score, grade }: { score?: number; grade?: string }
 function PortfolioActionBadge({ action }: { action: 'RUN' | 'HOLD' | 'TAKE' | 'EXIT' }) {
     const locale = useLocale();
     const tooltips: Record<string, Record<string, string>> = {
-        'RUN': { ko: '모멘텀 유지 - 보유 유효 구간', ja: 'モメンタム継続 - 保有有効区間', en: 'Momentum active — position valid' },
-        'HOLD': { ko: '관망 - 추이를 지켜보세요', ja: '様子見 - 推移を見守りましょう', en: 'Observe — monitor trend' },
-        'TAKE': { ko: '익절 검토 - 수익 확정 구간', ja: '利確検討 - 利益確定区間', en: 'Consider taking profit' },
-        'EXIT': { ko: '손절 검토 - 포지션 정리 구간', ja: '損切り検討 - ポジション整理区間', en: 'Consider exiting position' },
+        'RUN': { ko: '모멘텀 유지 - 보유 유효 구간', ja: 'モメンタム継続 — 保有有効区間', en: 'Momentum active — position valid' },
+        'HOLD': { ko: '관망 - 추이를 지켜보세요', ja: '様子見 — 推移を見守りましょう', en: 'Observe — monitor trend' },
+        'TAKE': { ko: '익절 검토 - 수익 확정 구간', ja: '利確検討 — 利益確定区間', en: 'Consider taking profit' },
+        'EXIT': { ko: '손절 검토 - 포지션 정리 구간', ja: '損切り検討 — ポジション整理区間', en: 'Consider exiting position' },
     };
     const config: Record<string, {
         bg: string;
@@ -726,7 +726,8 @@ function SignalBadge({ action, confidence, triggers }: { action?: string; confid
     const c = config[action] || config['HOLD'];
 
     // Locale-aware tooltip
-    const tooltipHeader = locale === 'ko' ? '📊 Signal 근거' : locale === 'ja' ? '📊 シグナル根拠' : '📊 Signal Basis';
+    const t = useTranslations('portfolio');
+    const tooltipHeader = t('signalTriggers');
     const tooltipText = triggers && triggers.length > 0
         ? `${tooltipHeader}\n━━━━━━━━━━━━━━\n${triggers.join('\n')}`
         : `${c.label} ${confidence}%`;
@@ -746,23 +747,24 @@ function SignalBadge({ action, confidence, triggers }: { action?: string; confid
 
 // MaxPain Indicator - Distance % with arrow + actual price (with loading)
 function MaxPainIndicator({ dist, price }: { dist?: number; price?: number }) {
+    const t = useTranslations('portfolio');
     // Loading state
     if (dist === undefined || dist === null) {
         return (
             <div className="flex flex-col items-center animate-pulse">
-                <span className="text-xs text-slate-300">⏳ 로딩</span>
+                <span className="text-xs text-slate-300">{t('loading')}</span>
             </div>
         );
     }
 
     const color = dist > 0 ? 'text-emerald-400' : dist < 0 ? 'text-rose-400' : 'text-slate-400';
     const arrow = dist > 0 ? '↑' : dist < 0 ? '↓' : '→';
-    const label = dist > 0 ? '상승압력' : dist < 0 ? '하락압력' : '중립';
+    const label = dist > 0 ? t('upwardPressure') : dist < 0 ? t('downwardPressure') : t('neutral');
 
     return (
         <div
             className="flex flex-col items-center"
-            title={`Max Pain 이격도: ${dist > 0 ? '+' : ''}${dist.toFixed(1)}%\n${label}`}
+            title={`${t('maxPainDistance')}: ${dist > 0 ? '+' : ''}${dist.toFixed(1)}%\n${label}`}
         >
             <div className="flex items-center gap-1">
                 <span className={`text-sm font-bold ${color}`}>{arrow}</span>
@@ -780,10 +782,11 @@ function MaxPainIndicator({ dist, price }: { dist?: number; price?: number }) {
 // GEX Indicator - Long/Short badge with loading state
 function GexIndicator({ gexM }: { gexM?: number }) {
     // Loading state
+    const t = useTranslations('portfolio');
     if (gexM === undefined || gexM === null) {
         return (
             <div className="px-1.5 py-0.5 rounded border text-[12px] font-bold text-slate-300 bg-slate-800/50 border-slate-700 animate-pulse">
-                ⏳ 로딩
+                {t('loading')}
             </div>
         );
     }
@@ -797,7 +800,7 @@ function GexIndicator({ gexM }: { gexM?: number }) {
     return (
         <div
             className={`px-1.5 py-0.5 rounded border text-[12px] font-bold ${color}`}
-            title={`감마 노출(GEX): ${gexM > 0 ? '+' : ''}${gexM.toFixed(1)}M\n${gexM > 0 ? '딜러가 변동성 억제 (안정적)' : gexM < 0 ? '딜러가 변동성 가속 (주의)' : '데이터 없음'}`}
+            title={`${t('gexTooltip')}: ${gexM > 0 ? '+' : ''}${gexM.toFixed(1)}M\n${gexM > 0 ? t('dealerSuppressVolatility') : gexM < 0 ? t('dealerAccelerateVolatility') : 'N/A'}`}
         >
             {icon} {label}
         </div>
@@ -806,6 +809,7 @@ function GexIndicator({ gexM }: { gexM?: number }) {
 
 // Sparkline - SVG mini chart for intraday price movement
 function Sparkline({ data, isPositive }: { data: number[]; isPositive: boolean }) {
+    const t = useTranslations('portfolio');
     if (!data || data.length < 2) return null;
 
     const width = 40;
@@ -830,7 +834,7 @@ function Sparkline({ data, isPositive }: { data: number[]; isPositive: boolean }
             height={height}
             className="flex-shrink-0"
         >
-            <title>{`당일 가격 흐름 (${data.length}개 데이터)`}</title>
+            <title>{`${t('dailyPriceFlow')} (${data.length}${t('dataPoints')})`}</title>
             <polyline
                 points={points}
                 fill="none"
@@ -844,6 +848,7 @@ function Sparkline({ data, isPositive }: { data: number[]; isPositive: boolean }
 }
 
 function AddHoldingModal({ onClose, onAdd }: { onClose: () => void; onAdd: (h: any) => Promise<void> }) {
+    const t = useTranslations('portfolio');
     const [ticker, setTicker] = useState('');
     const [quantity, setQuantity] = useState('');
     const [avgPrice, setAvgPrice] = useState('');
@@ -854,8 +859,8 @@ function AddHoldingModal({ onClose, onAdd }: { onClose: () => void; onAdd: (h: a
     const [validated, setValidated] = useState(false);
 
     // Auto-fetch company info when ticker changes
-    const fetchTickerInfo = async (t: string) => {
-        if (!t || t.length < 1) {
+    const fetchTickerInfo = async (sym: string) => {
+        if (!sym || sym.length < 1) {
             setCompanyName('');
             setCurrentPrice(null);
             setValidated(false);
@@ -867,11 +872,11 @@ function AddHoldingModal({ onClose, onAdd }: { onClose: () => void; onAdd: (h: a
         setError('');
         try {
             // Fixed: use 'symbol=' instead of 'ticker='
-            const res = await fetch(`/api/stock?symbol=${t.toUpperCase()}`);
+            const res = await fetch(`/api/stock?symbol=${sym.toUpperCase()}`);
             if (!res.ok) throw new Error('Ticker not found');
             const data = await res.json();
 
-            setCompanyName(data.name || data.shortName || t.toUpperCase());
+            setCompanyName(data.name || data.shortName || sym.toUpperCase());
             setCurrentPrice(data.price || data.last || data.close || null);
             setValidated(true);
 
@@ -880,7 +885,7 @@ function AddHoldingModal({ onClose, onAdd }: { onClose: () => void; onAdd: (h: a
                 setAvgPrice(data.price.toFixed(2));
             }
         } catch {
-            setError('유효하지 않은 티커입니다');
+            setError(t('invalidTicker'));
             setCompanyName('');
             setCurrentPrice(null);
             setValidated(false);
@@ -970,8 +975,8 @@ function AddHoldingModal({ onClose, onAdd }: { onClose: () => void; onAdd: (h: a
                                 <Plus className="w-5 h-5 text-emerald-400" />
                             </div>
                             <div>
-                                <h2 className="text-lg font-black text-white">종목 추가</h2>
-                                <p className="text-[12px] text-slate-300 mt-0.5">포트폴리오에 새 종목을 추가합니다</p>
+                                <h2 className="text-lg font-black text-white">{t('addNewHolding')}</h2>
+                                <p className="text-[12px] text-slate-300 mt-0.5">{t('addNewHoldingDesc')}</p>
                             </div>
                         </div>
                         <button
@@ -986,7 +991,7 @@ function AddHoldingModal({ onClose, onAdd }: { onClose: () => void; onAdd: (h: a
                         {/* Ticker Input with Validation */}
                         <div>
                             <label className="text-[12px] text-slate-300 uppercase tracking-wider block mb-1.5 font-bold">
-                                티커 심볼
+                                {t('tickerSymbol')}
                             </label>
                             <div className="relative">
                                 <input
@@ -1029,7 +1034,7 @@ function AddHoldingModal({ onClose, onAdd }: { onClose: () => void; onAdd: (h: a
                         <div className="grid grid-cols-2 gap-4">
                             <div>
                                 <label className="text-[12px] text-slate-300 uppercase tracking-wider block mb-1.5 font-bold">
-                                    보유 수량
+                                    {t('holdingQuantity')}
                                 </label>
                                 <input
                                     type="number"
@@ -1043,7 +1048,7 @@ function AddHoldingModal({ onClose, onAdd }: { onClose: () => void; onAdd: (h: a
                             </div>
                             <div>
                                 <label className="text-[12px] text-slate-300 uppercase tracking-wider block mb-1.5 font-bold">
-                                    평균 매수가 ($)
+                                    {t('avgBuyPrice')}
                                 </label>
                                 <input
                                     type="number"
@@ -1060,15 +1065,15 @@ function AddHoldingModal({ onClose, onAdd }: { onClose: () => void; onAdd: (h: a
                         {/* Investment Preview */}
                         {qty > 0 && avg > 0 && (
                             <div className="bg-gradient-to-br from-white/[0.04] to-white/[0.02] border border-white/[0.1] rounded-xl p-4">
-                                <div className="text-[12px] text-slate-300 uppercase tracking-wider mb-3 font-bold">투자 요약</div>
+                                <div className="text-[12px] text-slate-300 uppercase tracking-wider mb-3 font-bold">{t('investmentSummary')}</div>
                                 <div className="grid grid-cols-2 gap-4">
                                     <div>
-                                        <div className="text-[12px] text-slate-300 mb-0.5">총 투자금액</div>
+                                        <div className="text-[12px] text-slate-300 mb-0.5">{t('totalInvestmentAmount')}</div>
                                         <div className="text-lg font-bold font-num text-white">${totalCost.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
                                     </div>
                                     {currentPrice && currentPrice !== avg && (
                                         <div>
-                                            <div className="text-[12px] text-slate-300 mb-0.5">예상 손익</div>
+                                            <div className="text-[12px] text-slate-300 mb-0.5">{t('estimatedPL')}</div>
                                             <div className={`text-lg font-bold font-num ${estimatedPL >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
                                                 {estimatedPL >= 0 ? '+' : ''}${estimatedPL.toFixed(2)}
                                                 <span className="text-xs ml-1">({estimatedPLPct >= 0 ? '+' : ''}{estimatedPLPct.toFixed(1)}%)</span>
@@ -1086,7 +1091,7 @@ function AddHoldingModal({ onClose, onAdd }: { onClose: () => void; onAdd: (h: a
                                 onClick={onClose}
                                 className="flex-1 py-3 border border-white/[0.1] rounded-xl text-slate-300 hover:bg-white/[0.05] transition-all font-bold"
                             >
-                                취소
+                                {t('cancel')}
                             </button>
                             <button
                                 type="submit"
@@ -1096,7 +1101,7 @@ function AddHoldingModal({ onClose, onAdd }: { onClose: () => void; onAdd: (h: a
                                     : 'bg-white/[0.05] text-slate-300 cursor-not-allowed'
                                     }`}
                             >
-                                포트폴리오에 추가
+                                {t('addToPortfolio')}
                             </button>
                         </div>
                     </form>
@@ -1113,6 +1118,7 @@ function EditHoldingModal({ holding, onClose, onUpdated }: {
     onClose: () => void;
     onUpdated: () => void
 }) {
+    const t = useTranslations('portfolio');
     const [mode, setMode] = useState<'edit' | 'add'>('edit');
     const [quantity, setQuantity] = useState(holding.quantity.toString());
     const [avgPrice, setAvgPrice] = useState(holding.avgPrice.toFixed(2));
@@ -1187,7 +1193,7 @@ function EditHoldingModal({ holding, onClose, onUpdated }: {
                         <div>
                             <h2 className="text-xl font-bold flex items-center gap-2">
                                 <span className="text-cyan-400">{holding.ticker}</span>
-                                <span className="text-slate-300">수정</span>
+                                <span className="text-slate-300">{t('edit')}</span>
                             </h2>
                             <p className="text-[12px] text-slate-300 mt-0.5">{holding.name}</p>
                         </div>
@@ -1208,7 +1214,7 @@ function EditHoldingModal({ holding, onClose, onUpdated }: {
                                 : 'bg-slate-800/50 text-slate-300 border border-slate-700 hover:bg-slate-800'
                                 }`}
                         >
-                            직접 수정
+                            {t('directEdit')}
                         </button>
                         <button
                             onClick={() => setMode('add')}
@@ -1217,7 +1223,7 @@ function EditHoldingModal({ holding, onClose, onUpdated }: {
                                 : 'bg-slate-800/50 text-slate-400 border border-slate-700 hover:bg-slate-800'
                                 }`}
                         >
-                            추가 매수
+                            {t('addMoreShares')}
                         </button>
                     </div>
 
@@ -1226,7 +1232,7 @@ function EditHoldingModal({ holding, onClose, onUpdated }: {
                         <div className="space-y-4">
                             <div>
                                 <label className="text-[12px] text-slate-300 uppercase tracking-wider block mb-1.5 font-bold">
-                                    수량
+                                    {t('quantity')}
                                 </label>
                                 <input
                                     type="number"
@@ -1237,7 +1243,7 @@ function EditHoldingModal({ holding, onClose, onUpdated }: {
                             </div>
                             <div>
                                 <label className="text-[12px] text-slate-300 uppercase tracking-wider block mb-1.5 font-bold">
-                                    평균 매입가 ($)
+                                    {t('avgBuyPrice')}
                                 </label>
                                 <input
                                     type="number"
@@ -1253,35 +1259,35 @@ function EditHoldingModal({ holding, onClose, onUpdated }: {
                                     onClick={onClose}
                                     className="flex-1 py-3 border border-slate-700 rounded-xl text-slate-300 hover:bg-slate-800 transition-colors font-bold"
                                 >
-                                    취소
+                                    {t('cancel')}
                                 </button>
                                 <button
                                     onClick={handleUpdate}
                                     disabled={isSubmitting || !quantity || !avgPrice}
                                     className="flex-1 py-3 bg-gradient-to-r from-cyan-500 to-indigo-500 text-white rounded-xl font-bold hover:from-cyan-400 hover:to-indigo-400 disabled:opacity-50"
                                 >
-                                    {isSubmitting ? '저장 중...' : '저장'}
+                                    {isSubmitting ? t('saving') : t('save')}
                                 </button>
                             </div>
                         </div>
                     ) : (
-                        /* Add Shares Mode (물타기/불타기) */
+                        /* Add Shares Mode */
                         <div className="space-y-4">
                             <div>
                                 <label className="text-[12px] text-slate-300 uppercase tracking-wider block mb-1.5 font-bold">
-                                    추가 수량
+                                    {t('addMoreQuantity')}
                                 </label>
                                 <input
                                     type="number"
                                     value={addQty}
                                     onChange={(e) => setAddQty(e.target.value)}
-                                    placeholder="추가할 수량"
+                                    placeholder={t('addMoreQuantityPlaceholder')}
                                     className="w-full bg-slate-900/70 border border-slate-700 rounded-xl px-4 py-3 text-white text-lg font-bold focus:border-emerald-500 focus:outline-none font-num placeholder:text-slate-600 placeholder:font-normal"
                                 />
                             </div>
                             <div>
                                 <label className="text-[12px] text-slate-300 uppercase tracking-wider block mb-1.5 font-bold">
-                                    매수 가격 ($)
+                                    {t('buyPrice')}
                                 </label>
                                 <input
                                     type="number"
@@ -1295,22 +1301,22 @@ function EditHoldingModal({ holding, onClose, onUpdated }: {
                             {/* Preview */}
                             {newQty > 0 && (
                                 <div className="bg-slate-800/50 rounded-xl p-4 border border-slate-700">
-                                    <div className="text-[12px] text-slate-300 uppercase tracking-wider mb-2 font-bold">변경 예상</div>
+                                    <div className="text-[12px] text-slate-300 uppercase tracking-wider mb-2 font-bold">{t('changePreview')}</div>
                                     <div className="grid grid-cols-2 gap-4 text-sm">
                                         <div>
-                                            <div className="text-slate-300 text-[12px]">총 수량</div>
+                                            <div className="text-slate-300 text-[12px]">{t('totalQuantity')}</div>
                                             <div className="font-bold font-num text-white">{holding.quantity} → {totalShares}</div>
                                         </div>
                                         <div>
-                                            <div className="text-slate-300 text-[12px]">평균단가</div>
+                                            <div className="text-slate-300 text-[12px]">{t('avgUnitPrice')}</div>
                                             <div className="font-bold font-num text-white">${holding.avgPrice.toFixed(2)} → ${newAvgPrice.toFixed(2)}</div>
                                         </div>
                                     </div>
                                     {newPrice < holding.avgPrice && (
-                                        <div className="mt-2 text-[12px] text-emerald-400 font-bold">💧 물타기: 평단가 {((1 - newAvgPrice / holding.avgPrice) * 100).toFixed(1)}% 하락</div>
+                                        <div className="mt-2 text-[12px] text-emerald-400 font-bold">{t('waterDown', { pct: ((1 - newAvgPrice / holding.avgPrice) * 100).toFixed(1) })}</div>
                                     )}
                                     {newPrice > holding.avgPrice && (
-                                        <div className="mt-2 text-[12px] text-rose-400 font-bold">🔥 불타기: 평단가 {((newAvgPrice / holding.avgPrice - 1) * 100).toFixed(1)}% 상승</div>
+                                        <div className="mt-2 text-[12px] text-rose-400 font-bold">{t('fireUp', { pct: ((newAvgPrice / holding.avgPrice - 1) * 100).toFixed(1) })}</div>
                                     )}
                                 </div>
                             )}
@@ -1320,14 +1326,14 @@ function EditHoldingModal({ holding, onClose, onUpdated }: {
                                     onClick={onClose}
                                     className="flex-1 py-3 border border-slate-700 rounded-xl text-slate-400 hover:bg-slate-800 transition-colors font-bold"
                                 >
-                                    취소
+                                    {t('cancel')}
                                 </button>
                                 <button
                                     onClick={handleAddShares}
                                     disabled={isSubmitting || !addQty || parseInt(addQty) <= 0 || !addPrice}
                                     className="flex-1 py-3 bg-gradient-to-r from-emerald-500 to-cyan-500 text-white rounded-xl font-bold hover:from-emerald-400 hover:to-cyan-400 disabled:opacity-50"
                                 >
-                                    {isSubmitting ? '추가 중...' : '추가 매수'}
+                                    {isSubmitting ? t('adding') : t('addMoreShares')}
                                 </button>
                             </div>
                         </div>
