@@ -20,6 +20,7 @@ export interface PrivacyMeta {
     effectiveDateBold: string;
     effectiveDateSuffix: string;
     backLink: string;
+    goBack?: string;
     importantBadge: string;
 }
 
@@ -31,6 +32,7 @@ export const meta: PrivacyMeta = {
     effectiveDateBold: 'March 7, 2026',
     effectiveDateSuffix: '.',
     backLink: '← Back to Login',
+    goBack: '← Go Back',
     importantBadge: 'IMPORTANT',
 };
 

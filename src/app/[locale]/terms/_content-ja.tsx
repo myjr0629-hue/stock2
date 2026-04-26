@@ -14,6 +14,7 @@ export const meta: TermsMeta = {
     effectiveDateBold: '2026年3月7日',
     effectiveDateSuffix: 'より施行されます。',
     backLink: '← ログインに戻る',
+    goBack: '← 前のページに戻る',
     importantBadge: '重要条項',
 };
 

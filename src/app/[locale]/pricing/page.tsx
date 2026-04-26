@@ -173,19 +173,19 @@ export default function PricingPage() {
             const data = await res.json();
             if (data.success) {
                 const msg = data.type === 'upgrade' ? t('upgradeSuccess')
-                    : data.type === 'billing_change' ? 'Billing cycle updated!'
+                    : data.type === 'billing_change' ? t('billingCycleUpdated')
                     : t('downgradeSuccess');
                 alert(msg);
                 window.location.reload();
             } else if (data.alreadySame) {
-                alert('Already on this plan and billing cycle.');
+                alert(t('alreadySamePlan'));
             } else {
-                alert(data.error || 'Something went wrong');
+                alert(data.error || t('somethingWrong'));
                 console.error('[Pricing] Upgrade error:', data.error);
             }
         } catch (err) {
             console.error('[Pricing] Upgrade fetch error:', err);
-            alert('Failed to process. Please try again.');
+            alert(t('failedProcess'));
         } finally {
             setUpgradeLoading(false);
         }
@@ -446,11 +446,11 @@ export default function PricingPage() {
                             </span>
                             {!isAnnual ? (
                                 <span className="ml-2 text-[11px] text-amber-400 bg-amber-400/10 px-2.5 py-1 rounded-full font-bold font-jakarta">
-                                    FOUNDING
+                                    {t('founding').toUpperCase()}
                                 </span>
                             ) : (
                                 <span className="ml-2 text-[11px] text-emerald-400 bg-emerald-400/10 px-2.5 py-1 rounded-full font-bold font-jakarta">
-                                    SAVE 20%
+                                    {t('savePercent', { percent: '20' })}
                                 </span>
                             )}
                         </div>
@@ -475,7 +475,7 @@ export default function PricingPage() {
                                     disabled={upgradeLoading}
                                     className="w-full mt-2 py-2 text-xs font-bold text-slate-500 hover:text-cyan-400 transition-colors uppercase tracking-wider font-jakarta"
                                 >
-                                    {upgradeLoading ? '...' : isAnnual ? 'Switch to Annual ↑' : 'Switch to Monthly'}
+                                    {upgradeLoading ? '...' : isAnnual ? t('switchToAnnual') : t('switchToMonthly')}
                                 </button>
                             </>
                         ) : tier === 'elite' ? (
@@ -500,7 +500,7 @@ export default function PricingPage() {
                     <div className="relative p-8 pt-9 rounded-2xl bg-white/[0.04] border border-cyan-500/30 transition-all duration-500 shadow-[0_0_40px_rgba(34,211,238,0.12),inset_0_0_30px_rgba(34,211,238,0.03)] md:scale-105 md:-mt-3 md:mb-[-12px]">
                         {/* MOST POPULAR badge */}
                         <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 px-5 py-1.5 rounded-full bg-gradient-to-r from-cyan-500 to-cyan-600 text-[11px] font-black text-black uppercase tracking-[0.15em] shadow-[0_0_20px_rgba(34,211,238,0.3)] font-jakarta">
-                            MOST POPULAR
+                            {t('mostPopular').toUpperCase()}
                         </div>
 
 
@@ -516,11 +516,11 @@ export default function PricingPage() {
                             </span>
                             {!isAnnual ? (
                                 <span className="ml-2 text-[11px] text-cyan-400 bg-cyan-400/10 px-2.5 py-1 rounded-full font-bold font-jakarta">
-                                    FOUNDING
+                                    {t('founding').toUpperCase()}
                                 </span>
                             ) : (
                                 <span className="ml-2 text-[11px] text-emerald-400 bg-emerald-400/10 px-2.5 py-1 rounded-full font-bold font-jakarta">
-                                    SAVE 25%
+                                    {t('savePercent', { percent: '25' })}
                                 </span>
                             )}
                         </div>
@@ -545,7 +545,7 @@ export default function PricingPage() {
                                     disabled={upgradeLoading}
                                     className="w-full mt-2 py-2 text-xs font-bold text-slate-500 hover:text-cyan-400 transition-colors uppercase tracking-wider font-jakarta"
                                 >
-                                    {upgradeLoading ? '...' : isAnnual ? 'Switch to Annual ↑' : 'Switch to Monthly'}
+                                    {upgradeLoading ? '...' : isAnnual ? t('switchToAnnual') : t('switchToMonthly')}
                                 </button>
                             </>
                         ) : tier === 'pro' ? (
@@ -616,7 +616,7 @@ export default function PricingPage() {
                                 <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-cyan-500/10 border border-cyan-500/20 backdrop-blur-sm">
                                     <Zap className="w-3.5 h-3.5 text-cyan-400" />
                                     <span className="text-[11px] font-bold text-cyan-400 uppercase tracking-[0.15em] font-jakarta">
-                                        FOUNDING MEMBER
+                                        {t('foundingMemberBadge').toUpperCase()}
                                     </span>
                                 </div>
                             </div>

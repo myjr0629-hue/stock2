@@ -117,7 +117,7 @@ export default function TermsPage() {
                                 >
                                     <ArrowLeft className="w-4 h-4 transition-transform group-hover:-translate-x-1" />
                                     <span className="relative">
-                                        {locale === 'ko' ? '← 이전 페이지로 돌아가기' : locale === 'ja' ? '← 前のページに戻る' : '← Go Back'}
+                                        {meta.goBack || '← Go Back'}
                                         <span className="absolute -bottom-1 left-0 w-0 h-px bg-cyan-400 shadow-[0_0_8px_rgba(34,211,238,0.8)] transition-all duration-300 group-hover:w-full" />
                                     </span>
                                 </button>

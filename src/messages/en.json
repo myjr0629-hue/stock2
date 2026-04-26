@@ -2648,7 +2648,17 @@
     "ctaTitle": "See the real market moves first",
     "ctaDesc": "Your competitors are already looking at this data",
     "ctaButton": "Get Started Now",
-    "ctaSecondary": "View Guide First"
+    "ctaSecondary": "View Guide First",
+    "mostPopular": "MOST POPULAR",
+    "founding": "FOUNDING",
+    "foundingMemberBadge": "FOUNDING MEMBER",
+    "savePercent": "SAVE {percent}%",
+    "switchToAnnual": "Switch to Annual ↑",
+    "switchToMonthly": "Switch to Monthly",
+    "billingCycleUpdated": "Billing cycle updated!",
+    "alreadySamePlan": "Already on this plan and billing cycle.",
+    "somethingWrong": "Something went wrong",
+    "failedProcess": "Failed to process. Please try again."
   },
   "footer": {
     "disclaimer": "All information provided by SIGNUM HQ is quantitative reference data for informational and educational purposes only and does not constitute a trade recommendation or personalized recommendations. Data is provided \"as is\" without warranty of any kind and may be delayed or contain errors. Past performance is not indicative of future results. All analytical decisions and resulting gains or losses are solely the responsibility of the user.",
