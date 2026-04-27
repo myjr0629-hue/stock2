@@ -140,7 +140,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
     const isClosed = marketStatus.isHoliday || marketStatus.market === 'closed';
 
     const { data: _swrQuote, isValidating: quoteLoading } = useFlowData(ticker, {
-        refreshInterval: isClosed ? 0 : 2000, // [UX] Near-real-time price feel
+        refreshInterval: isClosed ? 0 : 10000, // [COST OPT] 10s polling (WS provides real-time prices)
         skipAlpha: true, // [SSOT FIX] Do NOT recalculate Alpha in real-time. Trust the SSR unified cache (Sector Grid SSOT).
         revalidateOnFocus: !isClosed,      // [FIX] Prevent stale Polygon refetch during market close
         revalidateOnReconnect: !isClosed,  // [FIX] Same — network reconnect during weekend must not trigger fetch

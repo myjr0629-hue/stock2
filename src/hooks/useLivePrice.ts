@@ -27,7 +27,7 @@ export interface LivePriceData {
  * - WebSocket connected → instant push from EC2 Price WS Hub
  * - WebSocket disconnected → SWR polls /api/live/quotes every 5s
  */
-export function useLivePrice(ticker: string | null, globalMarketStatus: string = 'closed', refreshInterval = 5000): LivePriceData | null {
+export function useLivePrice(ticker: string | null, globalMarketStatus: string = 'closed', refreshInterval = 15000): LivePriceData | null {
     // [WS] Subscribe to WebSocket price stream
     const tickerArray = ticker ? [ticker] : undefined;
     const { connected: wsConnected, getPrice: wsGetPrice, prices: wsPrices } = useRealtimeData(tickerArray);

@@ -128,7 +128,7 @@ export function usePortfolio(initialHoldings?: Holding[], initialFullData?: any[
                     }
                 }))
             } : undefined,
-            refreshInterval: isClosed ? 0 : 2000,       // 2s fast price polling (disabled when closed)
+            refreshInterval: isClosed ? 0 : 10000,      // 10s price polling (WS provides real-time, this is fallback)
             revalidateOnMount: true,                     // ← CRITICAL: immediate first fetch
             revalidateOnFocus: false,
             dedupingInterval: 1000,                      // ← Reduced from 2s to 1s for snappier updates
@@ -146,7 +146,7 @@ export function usePortfolio(initialHoldings?: Holding[], initialFullData?: any[
                     return acc;
                 }, {} as Record<string, any>)
             } : undefined,
-            refreshInterval: isClosed ? 0 : 2000,      // 2s near-real-time (disabled when closed)
+            refreshInterval: isClosed ? 0 : 10000,     // 10s live quotes (WS provides real-time, this is fallback)
             revalidateOnMount: true,                     // ← CRITICAL: immediate first fetch
             revalidateOnFocus: false,
             dedupingInterval: 1000,                      // ← Reduced from 3s to 1s

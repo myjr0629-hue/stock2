@@ -68,7 +68,7 @@ export function MobileCmdOptions({ ticker, quote, unified, unifiedLoading, initi
 
     // Flow data — same useFlowData hook as desktop (merged from MobileCmdFlow)
     const { data: liveQuote } = useFlowData(ticker, {
-        refreshInterval: isClosed ? 0 : 2000,
+        refreshInterval: isClosed ? 0 : 10000, // [COST OPT] 10s polling
         skipAlpha: true,
         revalidateOnFocus: !isClosed,
         revalidateOnReconnect: !isClosed,

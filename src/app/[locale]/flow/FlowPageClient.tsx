@@ -33,7 +33,7 @@ export function FlowPageClient({ ticker, initialFlowData }: FlowPageClientProps)
     // - Background refresh every 15s
     // - Deduplication prevents concurrent duplicate requests
     const { data: liveQuote, isLoading: loading, isValidating: quoteLoading } = useFlowData(ticker, {
-        refreshInterval: 2000, // [UX] Near-real-time price feel
+        refreshInterval: 10000, // [COST OPT] 10s polling (WS provides real-time prices)
         fallbackData: initialFlowData?.liveQuote
     });
 
