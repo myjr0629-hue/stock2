@@ -1243,6 +1243,36 @@ export async function getStockChartData(symbol: string, range: Range = "1d"): Pr
         // Active session: always show today's data (fresh chart start)
         finalProcessed = todayData;
         console.log(`[1D Chart ${currentClassified.session}] Active session — showing today: ${targetTradingDayET} (${todayData.length} points)`);
+      } else if (isActiveSession && todayData.length === 0) {
+        // [PRE-MARKET FIX] Active session but Polygon has no minute bars yet
+        // (e.g. early pre-market when Polygon aggregates are delayed ~15 min)
+        // Create a synthetic anchor point from the last known price so the chart
+        // immediately shows today's session instead of falling back to yesterday.
+        const lastKnownPoint = processed[processed.length - 1];
+        if (lastKnownPoint) {
+          const sessionStartMinute = currentClassified.session === 'PRE' ? 240   // 04:00 ET
+                                   : currentClassified.session === 'REG' ? 570   // 09:30 ET
+                                   : 960;                                         // 16:00 ET
+          const anchorPoint = {
+            date: lastKnownPoint.date,
+            close: lastKnownPoint.close,
+            open: lastKnownPoint.close,
+            high: lastKnownPoint.close,
+            low: lastKnownPoint.close,
+            volume: 0,
+            dateET: `${targetTradingDayET.slice(5).replace('-','/')} ${String(Math.floor(sessionStartMinute/60)).padStart(2,'0')}:00 ET`,
+            etMinute: sessionStartMinute,
+            etDate: targetTradingDayET,
+            session: currentClassified.session,
+            _syntheticAnchor: true
+          };
+          finalProcessed = [anchorPoint];
+          console.log(`[1D Chart ${currentClassified.session}] No Polygon bars yet — synthetic anchor at etMin=${sessionStartMinute}, price=${lastKnownPoint.close}`);
+        } else {
+          // No previous data at all — show empty (chart component will show loading)
+          finalProcessed = [];
+          console.log(`[1D Chart ${currentClassified.session}] No data available at all`);
+        }
       } else if (todayData.length >= MIN_SPARKLINE_POINTS) {
         // Enough data for any session
         finalProcessed = todayData;
