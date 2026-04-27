@@ -3713,29 +3713,38 @@ EC2 WebSocket Flow Accumulator (100% 전수 수집)
 ### 15.21 🟢 Alpha History 백테스팅 파이프라인 (2026-04-27 수정 완료)
 
 > [!CAUTION]
-> **2026-04-25 ~ 04-27: `batchWrite` 파괴적 덮어쓰기 버그**
-> Step 1의 `batchWrite`는 DynamoDB `PutItem`이므로 기존 레코드를 **완전히 교체**한다.
-> Step 1이 매 사이클마다 `alphaScore: 0`으로 덮어써서, Vercel SSR이 저장한 실제 점수를 파괴했음.
-> Step 6에서 계산된 실제 alphaScore는 **Redis에만 저장**되고 DynamoDB에는 기록하지 않았음.
-> 금요일(04-25) 데이터가 존재한 이유: 주말 Lambda skip 사이에 Vercel SSR(`SSR_V46`)이 마지막으로 쓴 레코드가 보존된 것.
+> **2026-04-25 ~ 04-27 버그: Step 1 `batchWrite`가 `alphaScore: 0` placeholder로 실제 점수 파괴**
+> - `batchWrite`는 DynamoDB `PutItem`이므로 기존 레코드를 **통째로 교체**한다
+> - Step 1이 매 사이클마다 `{ alphaScore: 0, gex: 0, pcr: 0 }`을 포함시켜 실제 점수를 파괴
+> - Step 6에서 계산된 실제 alphaScore는 **Redis에만 저장**되고 DynamoDB에는 기록하지 않았음
+> - 금요일(04-25) 데이터가 존재한 이유: 주말 Lambda skip 사이에 Vercel SSR(`SSR_V46`)이 마지막으로 쓴 레코드가 보존된 것
+
+> [!WARNING]
+> **2026-04-27 수정 시 발생한 추가 실수: merge-write 타임아웃**
+> - 첫 시도: `batchWrite`를 merge-write(개별 read→merge→put)로 변경
+> - 1000종목 × (1 read + 1 write) = 2000회 DynamoDB 호출 추가 → **15분 타임아웃 발생**
+> - 17:18 UTC에 배포된 Lambda가 Step 1에서만 시간을 다 써서 Step 6에 도달하지 못함
+> - 즉시 롤백: `batchWrite` 복원 + `alphaScore:0` placeholder 필드 제거로 재수정
 
 > [!IMPORTANT]
-> **Lambda Step 1은 반드시 merge-write(read→merge→put) 방식을 사용해야 한다.**
-> `batchWrite`(BatchWriteCommand/PutItem)는 기존 alphaScore/contextScore를 파괴하므로 절대 사용 금지.
-> Step 6에서 계산된 alphaScore는 반드시 `signum-alpha-history`에도 저장해야 한다.
+> **최종 해결책: `batchWrite` 유지 + placeholder 필드 제거 + Step 6 write-back**
+> - Step 1: `batchWrite` 사용 (빠름, 40회 DynamoDB 호출) — 단, `alphaScore/gex/pcr` 필드를 아예 포함하지 않음
+> - Step 6: 계산된 실제 alphaScore를 alpha-history에 merge write-back (개별 read→merge→put)
+> - 매 사이클 Step 1이 OHLCV를 덮어쓰고, Step 6이 alphaScore를 다시 채움
+> - 하루 마지막 사이클의 최종 alphaScore가 백테스트 데이터로 보존됨
 
-**Alpha History 데이터 흐름 (2026-04-27 수정):**
+**Alpha History 데이터 흐름 (2026-04-27 최종):**
 ```
 Lambda signum-harvest (15min cron, 장중)
   └── Step 1: harvestPrices()
-       └── merge-write('signum-alpha-history')  ← qualityTier: 'LIVE'
-            └── 1,000종목 가격 + OHLCV + changePct
-            └── ⚠️ 기존 alphaScore > 0이면 보존 (0으로 덮어쓰지 않음)
+       └── batchWrite('signum-alpha-history')  ← qualityTier: 'LIVE'
+            └── OHLCV + changePct만 저장 (alphaScore/gex/pcr 필드 없음)
+            └── PutItem이므로 기존 레코드를 통째로 교체하지만, 스코어 필드가 없으므로 무해
 
   └── Step 6: buildUnifiedCache()
        └── computeAlphaScore() → alphaRaw 계산
        └── Redis cache:analysis 저장 (기존)
-       └── ★ DynamoDB alpha-history에 alphaScore write-back (2026-04-27 추가)
+       └── ★ DynamoDB alpha-history에 alphaScore merge write-back (read→merge→put)
 
 Vercel SSR (유저 접속 시)
   └── recordAlphaDaily() via historyMiddleware.ts
@@ -3747,7 +3756,8 @@ Lambda Step 5: recordCloseAndBackfill()
 ```
 
 **절대 금지:**
-- Lambda Step 1에서 `batchWrite`(BatchWriteCommand) 사용 금지 — PutItem은 기존 레코드를 완전 파괴
+- Step 1의 items에 `alphaScore: 0`, `gex: 0`, `pcr: 0` 같은 placeholder 포함 금지 — batchWrite(PutItem)가 실제 값을 파괴
+- Step 1에서 merge-write(개별 read→merge→put) 사용 금지 — 1000종목 × 2회 = 2000회 호출로 타임아웃
 - `qualityTier: 'LIVE'` 외 다른 값으로 Lambda에서 저장하지 말 것 — SSR_V46 충돌 방지
 - Step 6의 alphaScore DynamoDB write-back 제거 금지 — 백테스팅 데이터 유일한 소스
 
@@ -3758,8 +3768,8 @@ Lambda Step 5: recordCloseAndBackfill()
 - Reserved Concurrency: 미설정 (AWS 계정 최소값 제한)
 
 **백테스팅 일정:**
-- 2026-04-27 (일): merge-write + alphaScore write-back 배포 완료
-- 2026-04-28 (월): 1,000종목 정상 저장 확인 필요
+- 2026-04-27 (일): batchWrite placeholder 제거 + Step 6 alphaScore write-back 배포
+- 2026-04-28 (월): 1,000종목 정상 저장 확인 필요 (alphaScore > 0 검증)
 - 2026-05-05~: 1주 후 3일 수익률 데이터 축적 → 초기 백테스트 가능
 
 ---
@@ -4175,11 +4185,14 @@ Lambda 비용: ~6배 증가 (6 × 2048MB × 900s)
   Average: 633s | Max Concurrent: 6
 ```
 
-**수정 사항**:
-| 항목 | 변경 전 | 변경 후 |
-|------|---------|---------|
-| EventBridge Schedule | `rate(5 minutes)` | `rate(10 minutes)` |
-| CloudWatch Alarm 임계값 | 240,000ms (4분) | 600,000ms (10분) |
+**수정 사항 (2차 재발 포함)**:
+| 항목 | 1차 수정 | 2차 최종 (04-27) |
+|------|----------|-----------------|
+| EventBridge Schedule | `rate(5 min)` → `rate(10 min)` | **`rate(15 minutes)`** |
+| CloudWatch Alarm 임계값 | 240,000ms → 600,000ms | **840,000ms (14분)** |
 
-**적용 방식**: AWS API 직접 호출 (즉시 적용, 코드 배포 불필요)
+**2차 재발 (2026-04-27)**: 장중 Polygon API 지연으로 단독 7-8분 소요 → 10분 cron에서 다시 중첩
+**최종 해결**: 15분 cron → 최악 8분 + 7분 여유 → 중첩 불가
+
+**적용 방식**: AWS SDK 직접 호출 (즉시 적용)
 
