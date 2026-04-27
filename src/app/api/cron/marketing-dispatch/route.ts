@@ -64,6 +64,7 @@ export async function GET(request: Request) {
   }
 
   const dryRun = searchParams.get('dry_run') !== 'false';
+  const draft = searchParams.get('draft') === 'true'; // Posts go to Buffer Drafts tab
   const action = (searchParams.get('action') || 'pulse') as Action;
   const region = (searchParams.get('region') || 'all') as Region;
   const dateKey = searchParams.get('date') || new Date().toISOString().split('T')[0];
@@ -100,6 +101,8 @@ export async function GET(request: Request) {
               imageUrl: buildImageUrl(baseUrl, content, lang, 'tweet'),
               replyText: `📊 ${ctaUrl}`,
               dryRun,
+
+              draft,
             });
             results.push(r);
           }
@@ -113,6 +116,8 @@ export async function GET(request: Request) {
               text: truncateForPlatform(`${blueskyText}\n\n${ctaUrl}\n\n${tags}`, 'bluesky'),
               imageUrl: lc.imageUrl,
               dryRun,
+
+              draft,
             });
             results.push(r);
           }
@@ -125,6 +130,8 @@ export async function GET(request: Request) {
               channelId: igCh.id,
               imageUrl: storyUrl,
               dryRun,
+
+              draft,
             });
             results.push(r);
           }
@@ -154,6 +161,8 @@ export async function GET(request: Request) {
               imageUrls: carouselUrls,
               altTexts: generateCarouselAltTexts(carouselUrls.length, lang),
               dryRun,
+
+              draft,
             });
             results.push(r);
           }
@@ -167,6 +176,8 @@ export async function GET(request: Request) {
               text: truncateForPlatform(`${lc.platformText?.threads || lc.text}\n\n${tags}`, 'threads'),
               imageUrl: lc.imageUrl,
               dryRun,
+
+              draft,
             });
             results.push(r);
           }
@@ -198,6 +209,8 @@ export async function GET(request: Request) {
               imageUrl: buildImageUrl(baseUrl, content, lang, 'tweet'),
               replyText: `📊 ${ctaUrl}`,
               dryRun,
+
+              draft,
             });
             results.push(r);
           }
@@ -211,6 +224,8 @@ export async function GET(request: Request) {
               text: truncateForPlatform(`${lc.platformText?.bluesky || lc.text}\n\n${ctaUrl}\n\n${tags}`, 'bluesky'),
               imageUrl: lc.imageUrl,
               dryRun,
+
+              draft,
             });
             results.push(r);
           }
@@ -222,6 +237,8 @@ export async function GET(request: Request) {
               channelId: igCh.id,
               imageUrl: buildImageUrl(baseUrl, content, lang, 'story'),
               dryRun,
+
+              draft,
             });
             results.push(r);
           }
@@ -238,6 +255,8 @@ export async function GET(request: Request) {
             description: seo.description,
             link: `${baseUrl}/command?${buildUtm('pinterest', 'midday')}`,
             dryRun,
+
+            draft,
           });
           results.push(r);
         }
@@ -266,6 +285,8 @@ export async function GET(request: Request) {
               channelId: twitterCh.id,
               slides,
               dryRun,
+
+              draft,
             });
             results.push(r);
           }
@@ -282,6 +303,8 @@ export async function GET(request: Request) {
             description: seo.description,
             link: `${baseUrl}/command?${buildUtm('pinterest', 'education')}`,
             dryRun,
+
+            draft,
           });
           results.push(r);
         }
@@ -309,6 +332,8 @@ export async function GET(request: Request) {
               text: truncateForPlatform(`${lc.platformText?.bluesky || lc.text}\n\n${ctaUrl}\n\n${tags}`, 'bluesky'),
               imageUrl: lc.imageUrl,
               dryRun,
+
+              draft,
             });
             results.push(r);
           }
@@ -325,6 +350,8 @@ export async function GET(request: Request) {
             description: seo.description,
             link: `${baseUrl}/command?${buildUtm('pinterest', 'education')}`,
             dryRun,
+
+            draft,
           });
           results.push(r);
         }
@@ -355,6 +382,8 @@ export async function GET(request: Request) {
               imageUrl: buildImageUrl(baseUrl, content, lang, 'tweet'),
               replyText: `📊 ${ctaUrl}`,
               dryRun,
+
+              draft,
             });
             results.push(r);
           }
@@ -368,6 +397,8 @@ export async function GET(request: Request) {
               text: truncateForPlatform(`${lc.platformText?.bluesky || lc.text}\n\n${ctaUrl}\n\n${tags}`, 'bluesky'),
               imageUrl: lc.imageUrl,
               dryRun,
+
+              draft,
             });
             results.push(r);
           }
@@ -379,6 +410,8 @@ export async function GET(request: Request) {
               channelId: igCh.id,
               imageUrl: buildImageUrl(baseUrl, content, lang, 'story'),
               dryRun,
+
+              draft,
             });
             results.push(r);
           }
@@ -395,6 +428,8 @@ export async function GET(request: Request) {
             description: seo.description,
             link: `${baseUrl}/command?${buildUtm('pinterest', 'pulse')}`,
             dryRun,
+
+            draft,
           });
           results.push(r);
         }
@@ -423,6 +458,8 @@ export async function GET(request: Request) {
               imageUrls: carouselUrls,
               altTexts: generateCarouselAltTexts(carouselUrls.length, lang),
               dryRun,
+
+              draft,
             });
             results.push(r);
           }
@@ -436,6 +473,8 @@ export async function GET(request: Request) {
               text: truncateForPlatform(`${lc.platformText?.threads || lc.text}\n\n${tags}`, 'threads'),
               imageUrl: lc.imageUrl,
               dryRun,
+
+              draft,
             });
             results.push(r);
           }
@@ -466,6 +505,8 @@ export async function GET(request: Request) {
               imageUrl: lc.imageUrl,
               replyText: `📊 ${ctaUrl}`,
               dryRun,
+
+              draft,
             });
             results.push(r);
           }
@@ -479,6 +520,8 @@ export async function GET(request: Request) {
               text: truncateForPlatform(`${lc.platformText?.bluesky || lc.text}\n\n${ctaUrl}\n\n${tags}`, 'bluesky'),
               imageUrl: lc.imageUrl,
               dryRun,
+
+              draft,
             });
             results.push(r);
           }
@@ -517,6 +560,8 @@ export async function GET(request: Request) {
               text: truncateForPlatform(lc.text, 'twitter'),
               imageUrl: lc.imageUrl,
               dryRun,
+
+              draft,
             });
             results.push(r);
           }
@@ -529,6 +574,8 @@ export async function GET(request: Request) {
               text: truncateForPlatform(lc.text, 'threads'),
               imageUrl: lc.imageUrl,
               dryRun,
+
+              draft,
             });
             results.push(r);
           }
@@ -545,6 +592,8 @@ export async function GET(request: Request) {
     const dispatchLog = {
       timestamp: new Date().toISOString(),
       dryRun,
+
+      draft,
       action,
       totalChannels: results.length,
       successful: results.filter(r => r.success).length,
@@ -557,6 +606,8 @@ export async function GET(request: Request) {
       success: true,
       timestamp: new Date().toISOString(),
       dryRun,
+
+      draft,
       action,
       summary: {
         totalDispatched: results.length,

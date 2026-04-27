@@ -268,8 +268,9 @@ export async function createPost(opts: {
   mediaUrl?: string;
   scheduledAt?: string; // ISO 8601
   dryRun?: boolean;
+  draft?: boolean; // If true, post goes to Buffer Drafts tab (not published)
 }): Promise<{ success: boolean; postId?: string; dryRun?: boolean; error?: string }> {
-  const { channelIds, text, mediaUrl, scheduledAt, dryRun = true } = opts;
+  const { channelIds, text, mediaUrl, scheduledAt, dryRun = true, draft = false } = opts;
 
   if (dryRun) {
     console.log(`[BufferClient] DRY_RUN createPost:
@@ -308,6 +309,7 @@ export async function createPost(opts: {
           ...(mediaUrl ? { media: [{ url: mediaUrl }] } : {}),
         },
         ...(scheduledAt ? { scheduledAt } : {}),
+        ...(draft ? { draft: true } : {}),
       },
     });
 

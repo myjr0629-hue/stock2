@@ -67,8 +67,9 @@ export async function dispatchTweet(opts: {
   imageUrl?: string;
   replyText?: string;  // CTA link goes in reply
   dryRun?: boolean;
+  draft?: boolean;
 }): Promise<DispatchResult> {
-  const { channelId, text, imageUrl, replyText, dryRun = true } = opts;
+  const { channelId, text, imageUrl, replyText, dryRun = true, draft = false } = opts;
   const channel = getChannels({ tier: 'all' }).find(c => c.id === channelId);
 
   if (dryRun) {
@@ -78,12 +79,10 @@ export async function dispatchTweet(opts: {
   }
 
   // Post main tweet
-  const mainResult = await createPost({ channelIds: [channelId], text, mediaUrl: imageUrl, dryRun: false });
+  const mainResult = await createPost({ channelIds: [channelId], text, mediaUrl: imageUrl, dryRun: false, draft });
 
   // Post auto-reply with CTA link if provided
-  if (replyText && mainResult.postId) {
-    // Buffer doesn't natively support reply-to, so we post the CTA as a separate scheduled post
-    // 30 seconds after main post
+  if (replyText && mainResult.postId && !draft) {
     const replyTime = new Date(Date.now() + 30000).toISOString();
     await createPost({ channelIds: [channelId], text: replyText, scheduledAt: replyTime, dryRun: false });
   }
@@ -107,8 +106,9 @@ export async function dispatchThread(opts: {
   channelId: string;
   slides: ThreadSlide[];
   dryRun?: boolean;
+  draft?: boolean;
 }): Promise<DispatchResult> {
-  const { channelId, slides, dryRun = true } = opts;
+  const { channelId, slides, dryRun = true, draft = false } = opts;
   const channel = getChannels({ tier: 'all' }).find(c => c.id === channelId);
 
   if (dryRun) {
@@ -142,6 +142,7 @@ export async function dispatchThread(opts: {
         channelIds: [channelId],
         content: threadItems[0],  // First tweet
         threadItems: threadItems.slice(1),  // Remaining tweets
+        ...(draft ? { draft: true } : {}),
       },
     });
 
@@ -170,8 +171,9 @@ export async function dispatchCarousel(opts: {
   imageUrls: string[];  // Up to 10 images
   altTexts?: string[];  // ALT text per image (IG SEO — Phase 1-6)
   dryRun?: boolean;
+  draft?: boolean;
 }): Promise<DispatchResult> {
-  const { channelId, caption, imageUrls, altTexts, dryRun = true } = opts;
+  const { channelId, caption, imageUrls, altTexts, dryRun = true, draft = false } = opts;
   const channel = getChannels({ tier: 'all' }).find(c => c.id === channelId);
 
   if (dryRun) {
@@ -203,6 +205,7 @@ export async function dispatchCarousel(opts: {
             ...(altTexts?.[i] ? { altText: altTexts[i] } : {}),
           })),
         },
+        ...(draft ? { draft: true } : {}),
       },
     });
 
@@ -229,8 +232,9 @@ export async function dispatchStory(opts: {
   channelId: string;
   imageUrl: string;  // 1080×1920 story format
   dryRun?: boolean;
+  draft?: boolean;
 }): Promise<DispatchResult> {
-  const { channelId, imageUrl, dryRun = true } = opts;
+  const { channelId, imageUrl, dryRun = true, draft = false } = opts;
   const channel = getChannels({ tier: 'all' }).find(c => c.id === channelId);
 
   if (dryRun) {
@@ -260,6 +264,7 @@ export async function dispatchStory(opts: {
           media: [{ url: imageUrl }],
         },
         subprofile: { type: 'story' },
+        ...(draft ? { draft: true } : {}),
       },
     });
 
@@ -290,8 +295,9 @@ export async function dispatchPin(opts: {
   link: string;
   boardName?: string;
   dryRun?: boolean;
+  draft?: boolean;
 }): Promise<DispatchResult> {
-  const { channelId, imageUrl, title, description, link, dryRun = true } = opts;
+  const { channelId, imageUrl, title, description, link, dryRun = true, draft = false } = opts;
   const channel = getChannels({ tier: 'all' }).find(c => c.id === channelId);
 
   if (dryRun) {
@@ -306,6 +312,7 @@ export async function dispatchPin(opts: {
     text: pinText,
     mediaUrl: imageUrl,
     dryRun: false,
+    draft,
   });
 
   return {
@@ -328,8 +335,9 @@ export async function dispatchPost(opts: {
   text: string;
   imageUrl?: string;
   dryRun?: boolean;
+  draft?: boolean;
 }): Promise<DispatchResult> {
-  const { channelId, text, imageUrl, dryRun = true } = opts;
+  const { channelId, text, imageUrl, dryRun = true, draft = false } = opts;
   const channel = getChannels({ tier: 'all' }).find(c => c.id === channelId);
 
   if (dryRun) {
@@ -337,7 +345,7 @@ export async function dispatchPost(opts: {
     return { success: true, format: 'post', channel: channel?.name || channelId, service: channel?.service || 'unknown', lang: channel?.lang || 'en', dryRun: true, textPreview: text.substring(0, 100) };
   }
 
-  const result = await createPost({ channelIds: [channelId], text, mediaUrl: imageUrl, dryRun: false });
+  const result = await createPost({ channelIds: [channelId], text, mediaUrl: imageUrl, dryRun: false, draft });
   return {
     success: result.success,
     format: 'post',
