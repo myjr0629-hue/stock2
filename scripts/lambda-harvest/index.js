@@ -405,9 +405,32 @@ async function harvestPrices() {
       items.push({ ticker:t.ticker, date:today, qualityTier:'LIVE', changePct:Math.round(ch*100)/100, open:t.day?.o||0, high:t.day?.h||0, low:t.day?.l||0, close:t.day?.c||p, volume:t.day?.v||0, vwap:t.day?.vw||0, gex:0, pcr:0, alphaScore:0 });
     }
   }
-  // [v9 RESTORED] alpha-history 저장 복원 — 1000종목 가격/OHLCV 기록 (백테스팅 파이프라인 필수)
-  // SSR_V46 덮어쓰기 방지는 Vercel historyStore.ts L158-165에서 이미 처리됨
-  if (items.length > 0) await batchWrite('signum-alpha-history', items);
+  // [v9 FIX] Use merge-write instead of destructive batchWrite
+  // batchWrite uses PutItem which DESTROYS existing alphaScore/contextScore
+  // merge-write preserves backtesting scores while updating OHLCV
+  const today2 = new Date().toISOString().slice(0,10);
+  for (let i = 0; i < items.length; i += 25) {
+    const batch = items.slice(i, i + 25);
+    await Promise.all(batch.map(async (item) => {
+      try {
+        const existing = await client.send(new QueryCommand({
+          TableName: 'signum-alpha-history',
+          KeyConditionExpression: 'ticker = :tk AND #d = :d',
+          ExpressionAttributeNames: { '#d': 'date' },
+          ExpressionAttributeValues: { ':tk': item.ticker, ':d': today2 },
+          Limit: 1,
+        }));
+        const merged = { ...(existing.Items?.[0] || {}), ...item };
+        // Preserve existing alphaScore if we only have 0 (placeholder)
+        if (item.alphaScore === 0 && existing.Items?.[0]?.alphaScore > 0) {
+          merged.alphaScore = existing.Items[0].alphaScore;
+        }
+        await client.send(new PutCommand({ TableName: 'signum-alpha-history', Item: merged }));
+      } catch {
+        await client.send(new PutCommand({ TableName: 'signum-alpha-history', Item: item })).catch(() => {});
+      }
+    }));
+  }
   console.log('Prices: '+items.length+'/'+UNIVERSE.length+' saved to alpha-history (priceMap has '+Object.keys(priceMap).length+' tickers)');
   return { count:items.length, priceMap, snapshotMap };
 }
@@ -1345,6 +1368,23 @@ async function buildUnifiedCache(priceMap, gexMap, optionsCache, smaMap, details
               zeroDtePct: null,
             };
             redisBatch.push(['SET', 'cache:analysis:' + ticker, JSON.stringify(analysisEntry), 'EX', String(REDIS_TTL)]);
+            
+            // [v9 FIX] Write alphaScore back to alpha-history for backtesting
+            // This is the ONLY place where real alpha scores get persisted
+            try {
+              const today3 = new Date().toISOString().slice(0,10);
+              const existingAH = await client.send(new QueryCommand({
+                TableName: 'signum-alpha-history',
+                KeyConditionExpression: 'ticker = :tk AND #d = :d',
+                ExpressionAttributeNames: { '#d': 'date' },
+                ExpressionAttributeValues: { ':tk': ticker, ':d': today3 },
+                Limit: 1,
+              }));
+              if (existingAH.Items?.[0]) {
+                const mergedAH = { ...existingAH.Items[0], alphaScore: alphaRaw, alphaGrade, alphaAction };
+                await client.send(new PutCommand({ TableName: 'signum-alpha-history', Item: mergedAH }));
+              }
+            } catch {} // best-effort — don't fail the whole pipeline
           }
           
           // [v8] Also write cache:command:unified:{TICKER} — full 9-field data for Command/Ticker pages
