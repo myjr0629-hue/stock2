@@ -172,8 +172,10 @@ export async function GET(req: NextRequest) {
               width: '40px', height: '40px', borderRadius: '10px',
               alignItems: 'center', justifyContent: 'center',
               background: 'linear-gradient(135deg, #7c3aed, #06b6d4)',
+              overflow: 'hidden',
             })}>
-              <span style={{ fontSize: '18px', fontWeight: 900, color: 'white' }}>S</span>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={await getLogoDataUri()} alt="" width={28} height={28} style={{ objectFit: 'contain' }} />
             </div>
             <div style={box({ flexDirection: 'column' })}>
               <span style={{ fontSize: '16px', fontWeight: 800, color: C.white, letterSpacing: '2px' }}>SIGNUM HQ</span>
@@ -321,4 +323,24 @@ async function loadFonts() {
     _fontCache = [];
   }
   return _fontCache;
+}
+
+// ---------------------------------------------------------------------------
+// Logo loader — SIGNUM HQ icon from public/icons (cached at edge)
+// ---------------------------------------------------------------------------
+let _logoCache: string | null = null;
+
+async function getLogoDataUri(): Promise<string> {
+  if (_logoCache) return _logoCache;
+  try {
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://signumhq.com';
+    const res = await fetch(`${baseUrl}/icons/icon-192x192.png`);
+    const buf = await res.arrayBuffer();
+    const b64 = Buffer.from(buf).toString('base64');
+    _logoCache = `data:image/png;base64,${b64}`;
+  } catch {
+    // Fallback: transparent 1x1 pixel
+    _logoCache = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+  }
+  return _logoCache;
 }
