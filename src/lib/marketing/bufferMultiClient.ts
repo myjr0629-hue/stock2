@@ -51,6 +51,8 @@ export interface DispatchResult {
   error?: string;
   dryRun?: boolean;
   textPreview: string;
+  fullText?: string;    // Complete text (not truncated)
+  imageUrl?: string;    // OG image URL for this post
 }
 
 export interface ThreadSlide {
@@ -75,7 +77,7 @@ export async function dispatchTweet(opts: {
   if (dryRun) {
     console.log(`[BufferMulti] DRY_RUN tweet: ${text.substring(0, 80)}...`);
     if (replyText) console.log(`[BufferMulti] DRY_RUN reply: ${replyText.substring(0, 80)}...`);
-    return { success: true, format: 'tweet', channel: channel?.name || channelId, service: 'twitter', lang: channel?.lang || 'en', dryRun: true, textPreview: text.substring(0, 100) };
+    return { success: true, format: 'tweet', channel: channel?.name || channelId, service: 'twitter', lang: channel?.lang || 'en', dryRun: true, textPreview: text.substring(0, 100), fullText: text, imageUrl };
   }
 
   // Post main tweet
@@ -114,7 +116,7 @@ export async function dispatchThread(opts: {
   if (dryRun) {
     console.log(`[BufferMulti] DRY_RUN thread (${slides.length} tweets):`);
     slides.forEach((s, i) => console.log(`  ${i + 1}/${slides.length}: ${s.text.substring(0, 60)}...`));
-    return { success: true, format: 'thread', channel: channel?.name || channelId, service: 'twitter', lang: channel?.lang || 'en', dryRun: true, textPreview: slides[0]?.text.substring(0, 100) || '' };
+    return { success: true, format: 'thread', channel: channel?.name || channelId, service: 'twitter', lang: channel?.lang || 'en', dryRun: true, textPreview: slides[0]?.text.substring(0, 100) || '', fullText: slides.map(s => s.text).join('\n---\n'), imageUrl: slides[0]?.imageUrl };
   }
 
   const orgId = process.env.BUFFER_ORGANIZATION_ID;
@@ -178,7 +180,7 @@ export async function dispatchCarousel(opts: {
 
   if (dryRun) {
     console.log(`[BufferMulti] DRY_RUN carousel (${imageUrls.length} images): ${caption.substring(0, 80)}...`);
-    return { success: true, format: 'carousel', channel: channel?.name || channelId, service: 'instagram', lang: channel?.lang || 'en', dryRun: true, textPreview: caption.substring(0, 100) };
+    return { success: true, format: 'carousel', channel: channel?.name || channelId, service: 'instagram', lang: channel?.lang || 'en', dryRun: true, textPreview: caption.substring(0, 100), fullText: caption, imageUrl: imageUrls[0] };
   }
 
   const orgId = process.env.BUFFER_ORGANIZATION_ID;
@@ -239,7 +241,7 @@ export async function dispatchStory(opts: {
 
   if (dryRun) {
     console.log(`[BufferMulti] DRY_RUN story: ${imageUrl}`);
-    return { success: true, format: 'story', channel: channel?.name || channelId, service: 'instagram', lang: channel?.lang || 'en', dryRun: true, textPreview: `Story: ${imageUrl}` };
+    return { success: true, format: 'story', channel: channel?.name || channelId, service: 'instagram', lang: channel?.lang || 'en', dryRun: true, textPreview: `Story: ${imageUrl}`, fullText: '', imageUrl };
   }
 
   const orgId = process.env.BUFFER_ORGANIZATION_ID;
@@ -302,7 +304,7 @@ export async function dispatchPin(opts: {
 
   if (dryRun) {
     console.log(`[BufferMulti] DRY_RUN pin: ${title}`);
-    return { success: true, format: 'pin', channel: channel?.name || channelId, service: 'pinterest', lang: 'en', dryRun: true, textPreview: title };
+    return { success: true, format: 'pin', channel: channel?.name || channelId, service: 'pinterest', lang: 'en', dryRun: true, textPreview: title, fullText: `${title}\n\n${description}\n\n${link}`, imageUrl };
   }
 
   // Pinterest via Buffer: text = title + description, media = pin image, link in text
@@ -342,7 +344,7 @@ export async function dispatchPost(opts: {
 
   if (dryRun) {
     console.log(`[BufferMulti] DRY_RUN post (${channel?.service}): ${text.substring(0, 80)}...`);
-    return { success: true, format: 'post', channel: channel?.name || channelId, service: channel?.service || 'unknown', lang: channel?.lang || 'en', dryRun: true, textPreview: text.substring(0, 100) };
+    return { success: true, format: 'post', channel: channel?.name || channelId, service: channel?.service || 'unknown', lang: channel?.lang || 'en', dryRun: true, textPreview: text.substring(0, 100), fullText: text, imageUrl };
   }
 
   const result = await createPost({ channelIds: [channelId], text, mediaUrl: imageUrl, dryRun: false, draft });
