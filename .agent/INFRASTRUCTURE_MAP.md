@@ -3850,30 +3850,48 @@ Lambda Step 5: recordCloseAndBackfill()
 - `src/components/guardian/MarketBreadthPanel.tsx`: breadth UI
 
 
-## 18. Buffer 마케팅 자동화 엔진 (2026-04-27 프로덕션 전환 완료)
+## 18. Buffer 마케팅 자동화 엔진
 
-> [!IMPORTANT]
-> **라이브 상태**: `vercel.json`에 `dry_run=false` 설정 완료. 배포 시 즉시 17개 크론이 실행됨.
-> **롤백**: `&dry_run=false`를 제거 후 재배포하면 즉시 DRY_RUN 모드로 복귀.
+> [!WARNING]
+> **현재 상태 (2026-04-27)**: Draft 테스트 진행 중. 텍스트 기반 채널 성공, 이미지 첨부 실패 (OG 동적 이미지 ↔ Buffer 서버 타임아웃). 완전 오버홀 진행 예정.
+> **롤백**: `vercel.json`에서 `&dry_run=false`를 제거 후 재배포하면 즉시 DRY_RUN 모드로 복귀.
 
 ### 18.1 파일 구조
 
 | 파일 | 역할 |
 |------|------|
-| `src/lib/marketing/bufferClient.ts` | 기본 GraphQL 클라이언트, 13채널 맵, 컴플라이언스 필터 23개, CTA 8종×3언어 |
-| `src/lib/marketing/bufferMultiClient.ts` | 6개 디스패치 포맷 (tweet/thread/carousel/story/pin/post), ALT 텍스트 |
-| `src/lib/marketing/contentEngines.ts` | 콘텐츠 생성 5종 (pulse/morning/edu/event/spotlight), Dark Pool 파라미터 포함 |
-| `src/lib/marketing/aiContentEngine.ts` | Bedrock Haiku 3.5 기반 AI 콘텐츠 생성 4종, dp= 파라미터 포함 |
+| `src/lib/marketing/bufferClient.ts` | GraphQL 클라이언트, 13채널 맵, 컴플라이언스 필터 23개, CTA 8종×3언어 |
+| `src/lib/marketing/bufferMultiClient.ts` | 6개 디스패치 포맷 (tweet/thread/carousel/story/pin/post), draft 파라미터 |
+| `src/lib/marketing/contentEngines.ts` | 콘텐츠 생성 5종 (pulse/morning/edu/event/spotlight), Dark Pool 파라미터 |
+| `src/lib/marketing/aiContentEngine.ts` | Bedrock Haiku 3.5 기반 AI 콘텐츠 생성 4종 |
 | `src/lib/marketing/hashtagEngine.ts` | 플랫폼별 해시태그 (X max 2, IG 15개 3-tier, Pinterest SEO) |
 | `src/lib/marketing/pollyClient.ts` | Amazon Polly TTS + BGM (쇼츠용, Remotion 의존) |
-| `src/app/api/cron/marketing-dispatch/route.ts` | 크론 디스패처 9종 action, ALT 텍스트 자동 전달 |
+| `src/app/api/cron/marketing-dispatch/route.ts` | 크론 디스패처 9종 action, draft 모드 지원 |
 | `src/app/api/cron/daily-content/route.ts` | Redis 콘텐츠 생성 (fetchTradeData→darkPool 연결) |
-| `src/app/api/cron/event-detect/route.ts` | 이벤트 감지 5종 (GEX/VIX/SEC 8K/ITM Sweep/DP Spike) |
-| `src/app/api/cron/buffer-dispatch/route.ts` | **구버전 V1** — 미사용, 롤백용 보존 |
-| `src/app/api/og/market/route.tsx` | OG 이미지 Signal Card v2.1 (Inter 폰트, dp 렌더) |
-| `src/app/api/og/market/slide/route.tsx` | IG 캐러셀 슬라이드 6장 (고유 배경 그라데이션, Inter 폰트) |
+| `src/app/api/cron/event-detect/route.ts` | 이벤트 감지 5종 |
+| `src/app/api/og/market/route.tsx` | OG 이미지 Signal Card v2.1 (6개 포맷: og/tweet/carousel/pin/square/story) |
+| `src/app/api/og/market/slide/route.tsx` | IG 캐러셀 슬라이드 6장 |
+| `scripts/_buffer_all_drafts.js` | 전체 채널 Draft 테스트 스크립트 (로컬 실행) |
 
-### 18.2 13채널 맵 (Buffer Channel IDs)
+### 18.2 Buffer GraphQL API 스키마 변경 (2026-04-27 발견)
+
+> [!CAUTION]
+> Buffer API가 Breaking Change를 적용함. 기존 코드의 GraphQL 뮤테이션이 새 스키마와 불일치.
+
+| 항목 | 구 스키마 (코드 기존) | 신 스키마 (Buffer 현재) |
+|------|---------------------|----------------------|
+| Mutation | `postCreate` | `createPost` |
+| Input Type | `PostCreateInput` | `CreatePostInput` |
+| Channel | `channelIds: [String]` | `channelId: String` (단수) |
+| Content | `content: { text, media }` | `text` + `assets: { images: [{url}] }` |
+| Draft | 커스텀 구현 | `saveToDraft: true` (공식 필드) |
+| Return | `PostCreateSuccess` | `PostActionSuccess` (Union type) |
+| IG Type | 없음 | `metadata: { instagram: { type, shouldShareToFeed: Boolean! } }` |
+
+**`_buffer_all_drafts.js`에서 새 스키마 검증 완료** — 텍스트 Draft 생성 성공.
+**`bufferClient.ts`는 아직 구 스키마** — 오버홀 시 마이그레이션 필요.
+
+### 18.3 13채널 맵 (Buffer Channel IDs)
 
 | Tier | 채널 | Service | Lang | Channel ID |
 |:----:|------|---------|:----:|------------|
@@ -3891,105 +3909,254 @@ Lambda Step 5: recordCloseAndBackfill()
 | 3 | signumhq | tiktok | EN | `69ca95e7af47dacb696df35a` |
 | 3 | SIGNUM HQ | youtube | EN | `69ca9615af47dacb696df427` |
 
-### 18.3 크론 스케줄 (`vercel.json`)
+### 18.4 크론 스케줄 (`vercel.json`)
 
-| # | Action | Region | UTC 시간 | KST 시간 |
-|:-:|--------|:------:|:--------:|:--------:|
-| 1 | morning | en | 10:30 월~금 | 19:30 |
-| 2 | morning_ig | en | 12:00 월~금 | 21:00 |
-| 3 | midday | en | 16:00 월~금 | 01:00+1 |
-| 4 | pulse | en | 20:30 월~금 | 05:30+1 |
-| 5 | pulse_ig | en | 22:00 월~금 | 07:00+1 |
-| 6 | education | en | 00:00 화~토 | 09:00 |
-| 7 | edu_bsky | en | 02:00 화~토 | 11:00 |
-| 8 | pulse | asia | 22:00 월~금 | 07:00+1 |
-| 9 | morning_ig | asia | 23:00 월~금 | 08:00+1 |
-| 10 | education | asia | 03:00 화~토 | 12:00 |
-| 11 | morning | asia | 13:00 월~금 | 22:00 |
-| 12 | midday | asia | 05:00 화~토 | 14:00 |
-| 13 | event-detect | — | */5 13-21 월~금 | — |
-| 14 | spotlight | en | 14:00 월~금 | 23:00 |
-| 15 | spotlight | en | 16:30 월~금 | 01:30+1 |
-| 16 | spotlight | en | 19:00 월~금 | 04:00+1 |
-| 17 | spotlight | all | 21:30 월~금 | 06:30+1 |
+| # | Action | Region | UTC | KST |
+|:-:|--------|:------:|:---:|:---:|
+| 1 | morning | en | 10:30 | 19:30 |
+| 2 | morning_ig | en | 12:00 | 21:00 |
+| 3 | midday | en | 16:00 | 01:00+1 |
+| 4 | pulse | en | 20:30 | 05:30+1 |
+| 5 | pulse_ig | en | 22:00 | 07:00+1 |
+| 6 | education | en | 00:00 | 09:00 |
+| 7 | edu_bsky | en | 02:00 | 11:00 |
+| 8-12 | asia variants | asia | — | — |
+| 13 | event-detect | — | */5 13-21 | — |
+| 14-17 | spotlight ×4 | en/all | — | — |
 
-### 18.4 데이터 플로우
+### 18.5 데이터 플로우
 
 ```
-Redis (market-feed 2분마다) ──→ daily-content 크론 ──→ Redis (marketing:pulse:DATE)
-                                       │
-                               fetchTradeData('SPY') ──→ EC2 Dark Pool 실시간
-                                       │
-                                       ▼
-                              marketing-dispatch (9 actions)
-                                ├─ morning:    X tweet + Bluesky + Threads
-                                ├─ morning_ig: IG carousel (ALT) + Pinterest (SEO)
-                                ├─ midday:     X tweet + Threads
-                                ├─ pulse:      X tweet + Bluesky + Threads
-                                ├─ pulse_ig:   IG carousel (ALT) + Pinterest (SEO)
-                                ├─ education:  X thread + IG carousel + Pinterest
-                                ├─ edu_bsky:   Bluesky post
-                                ├─ spotlight:  X tweet + Threads (M7 게릴라)
-                                └─ event:      event-detect 트리거
-                                       │
-                                       ▼
-                              Buffer GraphQL API (postCreate mutation)
-                                       │
-                                       ▼
-                              13개 SNS 채널 자동 발송
+Redis (market-feed 2분) ──→ daily-content ──→ Redis (marketing:pulse:DATE)
+                                  │                     │
+                          fetchTradeData('SPY')   imageUrl = /api/og/market?spy=X&vix=Y...
+                                  │                     │
+                                  ▼                     ▼
+                         marketing-dispatch ──→ Buffer GraphQL (createPost)
+                           9 actions × 3 langs         │
+                                                       ▼
+                                              13개 SNS 채널
 ```
 
-### 18.5 필수 환경 변수
+### 18.6 Draft 테스트 결과 (2026-04-27)
+
+> [!IMPORTANT]
+> `scripts/_buffer_all_drafts.js`로 전체 채널 Draft 생성 테스트 수행. 총 7회 반복(v3~v7).
+
+#### 최종 결과 요약
+
+| 카테고리 | 성공 | 실패 | 원인 |
+|---------|:----:|:----:|------|
+| **텍스트 기반** (Twitter/Bluesky/Threads) | ✅ 17개 | 0 | 텍스트 + 글자수 준수 |
+| **OG 이미지 첨부** (tweet+image) | ✅ 14개 (v5 Warm-up 시) | 20개+ | Buffer 서버 503 타임아웃 |
+| **IG Story** | 0 | ❌ 전부 | 이미지 필수 + IG metadata 누락 |
+| **IG Carousel** | 0 | ❌ 전부 | 이미지 필수 + type 필드 누락 |
+| **Pinterest** | 0 | ❌ 전부 | 이미지 필수 플랫폼 |
+
+#### 발견된 3대 블로커
+
+**블로커 1: Buffer ↔ Vercel OG 이미지 통신 장애**
+```
+Buffer 서버 ──fetch──→ https://signumhq.com/api/og/market?... ──→ 503 Service Unavailable
+```
+- **원인**: OG 이미지가 Vercel Edge에서 동적 생성 (Satori → PNG). 첫 요청 시 Cold Start 2~5초.
+  Buffer 서버의 이미지 fetch 타임아웃이 이보다 짧아 503 반환.
+- **Warm-up 시도**: 로컬에서 먼저 이미지를 fetch하여 Vercel CDN 캐시에 올린 후 Buffer에 전달
+  → CDN HIT(x-vercel-cache: HIT)에도 불구하고 Buffer 서버 리전 차이로 여전히 실패
+- **근본 해결**: OG 이미지를 사전 렌더링 → 정적 스토리지(Supabase Storage) 업로드 → CDN URL 전달
+
+**블로커 2: Instagram 메타데이터 구조**
+```
+❌ "Instagram posts require a type (post, story, or reel)"
+❌ "Field 'shouldShareToFeed' of required type 'Boolean!' was not provided"
+```
+- Buffer 새 API의 Instagram 전용 메타데이터:
+  ```json
+  { "metadata": { "instagram": { "type": "story", "shouldShareToFeed": false } } }
+  ```
+- `InstagramPostInput` 스키마 (Buffer GraphQL introspection으로 확인):
+  - `type`: `story` | `post` | `reel` (필수)
+  - `shouldShareToFeed`: `Boolean!` (필수)
+
+**블로커 3: OG 이미지 데이터 공백**
+- OG 이미지 URL 파라미터에 `spy=0&vix=0&dp=0` 등 빈 값 주입
+- **원인**: `daily-content` cron이 Redis에서 시장 데이터를 읽을 때, 캐시 키가 다르거나 만료되어 fallback 0값 사용
+- **증상**: Buffer Draft에서 이미지 표시되더라도 S&P 500: +0.00%, Dark Pool: -, VIX: 0.0
+
+#### Draft 테스트 반복 이력
+
+| 버전 | 주요 변경 | 결과 |
+|:----:|---------|------|
+| v3 | 텍스트만, 글자수 준수 | ✅ 17/27 (IG/Pinterest 스킵) |
+| v4 | OG 이미지 URL 직접 전달 | ❌ 전부 503 |
+| v5 | OG 이미지 Warm-up 후 전달 | ✅ 14/48 (전반 성공, 후반 503) |
+| v6 | 개별 순차 Warm-up | ❌ 여전히 503 |
+| v7 | 이미지 로컬 다운로드 + 업로드 시도 | ❌ REST 업로드 API 미지원, Rate Limit |
+
+### 18.7 필수 환경 변수
 
 | 변수명 | 용도 | 위치 |
 |--------|------|------|
 | `BUFFER_ACCESS_TOKEN` | Buffer API 인증 | Vercel + .env.local |
-| `BUFFER_ORGANIZATION_ID` | Buffer 조직 ID | Vercel + .env.local |
-| `CRON_SECRET` | 크론 보안 인증 | Vercel |
+| `BUFFER_ORGANIZATION_ID` | Buffer 조직 ID (`69a92687c9f20bfac044a189`) | Vercel + .env.local |
+| `CRON_SECRET` | 크론 보안 인증 (`eunhoon2912stock`) | Vercel |
 | `NEXT_PUBLIC_BASE_URL` | OG 이미지 URL 베이스 | Vercel |
 
-### 18.6 구현 완료 항목 (38/46)
+### 18.8 오버홀 실행 결과 (2026-04-28 완료)
+
+> [!IMPORTANT]
+> Phase 1~3 코드 변경 완료. TypeScript 빌드 에러 0건. Draft 테스트 IG Story/Carousel 성공 확인.
+
+**Phase 1 ✅**: `bufferClient.ts` — 새 GraphQL 스키마 마이그레이션 완료
+  - `postCreate` → `createPost`, `PostCreateInput` → `CreatePostInput`
+  - `channelIds[]` → 단일 `channelId` + 내부 루프 (300ms 딜레이)
+  - `content.media` → `assets.images`, `saveToDraft` 공식 필드
+  - `InstagramMeta` 인터페이스 추가 (`type`, `shouldShareToFeed`)
+
+**Phase 2 ✅**: `imagePrerenderer.ts` 신규 생성
+  - `prerenderAndUpload()` — 동적 URL fetch → Supabase Storage 업로드 → CDN URL 반환
+  - `prerenderAllFormats()` — tweet/story/pin/og/carousel 일괄 렌더링
+  - `marketing-dispatch/route.ts`에 `prerenderImageUrl()` 래핑 함수 통합
+  - dry_run 모드에서는 동적 URL, 실발송 시 정적 CDN URL 자동 전환
+
+**Phase 3 ✅**: `daily-content/route.ts` 데이터 정합성 강화
+  - SPY=0 방지: `warm-command`, `cache:analysis:SPY`, `cache:analysis:VIX` 다중 fallback
+  - VIX 하드코딩 18 제거, 0일 때 경고 로그 출력
+
+**Phase 4 ✅**: `bufferMultiClient.ts` 6개 디스패치 함수 전환 완료
+  - `dispatchThread()` — 새 스키마 + threadItems
+  - `dispatchCarousel()` — 새 스키마 + IG metadata `{ type: 'post', shouldShareToFeed: true }`
+  - `dispatchStory()` — 새 스키마 + IG metadata `{ type: 'story', shouldShareToFeed: false }`
+  - `dispatchPin()`, `dispatchPost()`, `dispatchTweet()` — 새 스키마
+
+**Draft 테스트 결과** (2026-04-28):
+  - IG Story: ✅ 4/4 성공 (이미지 첨부 확인)
+  - IG Carousel: ✅ 3/3 성공 (이미지 첨부 확인)
+  - Twitter/Bluesky/Threads: ✅ 9/9 성공
+  - 후반부 32건: Buffer Rate Limit (일시적, 프로덕션 크론은 시간 분산)
+
+### 18.9 비주얼 전략 — 3-Tier 시스템 (2026-04-28 확정)
+
+> [!IMPORTANT]
+> 핵심 원칙: **이미지가 FOMO를 만들고, 텍스트가 설명한다.**
+> 다크 ≠ 어둡기만 한 것. 다크 배경에 화려하면서도 촌스럽지 않은 프리미엄.
+
+**Tier 1 — OG 템플릿 (일상 정기 포스트)**
+```
+방식: 전용 웹 페이지로 제작 → Playwright 캡처 → 이미지 저장
+용도: morning, pulse, education, spotlight 정기 발행
+장점: Satori 제한 없음. 풀 CSS/SVG/Canvas. 사이트와 동일한 프리미엄 톤.
+사이즈: Tweet 1200×675, Story 1080×1920, Carousel 1080×1350, Pin 1000×1500
+디자인: 게이지, 스파크라인, 프로그레스 바 등 실제 대시보드 수준
+```
+
+**Tier 2 — 이벤트 캡처 (실시간 이벤트 발생 시)**
+```
+방식: Playwright로 실제 SIGNUM HQ 대시보드 특정 영역 캡처
+용도: GEX 전환, VIX 스파이크, Dark Pool 급등 등 이벤트 트리거
+캡처 맵:
+  - GEX 전환 → /command 의 GEX 게이지 + 감마 프레셔 섹션
+  - Dark Pool 급등 → /flow 의 다크풀 차트
+  - VIX 스파이크 → /command 의 VIX + Tactical Range
+  - 종목 Spotlight → /flow?ticker=XXX 종목 카드
+  - 가디언 리포트 → /guardian 요약 상단
+언어: /en/, /ko/, /ja/ 각각 캡처
+```
+
+**Tier 3 — Remotion 영상 (런칭 후)**
+```
+방식: Remotion 프레임워크로 데이터 시각화 영상 생성
+용도: YouTube Shorts, IG Reels, TikTok
+상태: 별도 작업으로 분리 (런칭 후 진행)
+```
+
+**통합 파이프라인**:
+```
+[Tier 1] 정기 포스트
+  daily-content (크론) → 텍스트 생성 → 템플릿 페이지 캡처 → Supabase 업로드
+  → marketing-dispatch → Buffer 발송
+
+[Tier 2] 이벤트 포스트
+  event-detect (크론) → 이벤트 감지 → 대시보드 캡처 → Supabase 업로드
+  → 텍스트 생성 → Buffer 즉시 발송
+
+[Tier 3] 영상 (런칭 후)
+  Remotion → 영상 렌더링 → S3/Supabase → Buffer/YouTube 업로드
+```
+
+### 18.10 구현 완료 항목 (42/46 + Tier 2~3 신규)
 
 **Phase 0 — 컴플라이언스**: 3/3 ✅
-- 면책 조항 3언어 의무화, 컴플라이언스 필터 23개, AI 출력 하드 필터
-
-**Phase 1 — 플랫폼 알고리즘 최적화**: 14/17
-- ✅ X: 링크→리플라이 분리, $Cashtag, 해시태그 max 2, Dwell Time
-- ✅ IG: ALT 텍스트 (`generateCarouselAltTexts()`), 스와이프 Hook, Save/Share CTA
-- ✅ Threads: 대화형 톤, 질문문 CTA
-- ✅ Pinterest: 롱테일 키워드, SEO 설명, 이미지 텍스트 오버레이, 시즌 45일 선행
-- ❌ X 댓글 봇 (별도 인프라), Threads 멀티포스트 (Buffer 베타), 쇼츠 (Remotion)
-
-**Phase 2 — OG 이미지**: 7/7 ✅
-- Signal Card v2.1, GEX Hero, VIX 라벨, Dark Pool 바, Satori 호환
-- **Inter 폰트** (Google Fonts edge 로드, `route.tsx` + `slide/route.tsx`)
-- **캐러셀 6장 차별화** (슬라이드별 고유 배경 그라데이션)
-
+**Phase 1 — 플랫폼 최적화**: 14/17 (X 댓글봇, Threads 멀티포스트, 쇼츠 미완)
+**Phase 2 — OG 이미지**: 7/7 ✅ → Tier 1 웹 템플릿으로 전환 예정
 **Phase 3 — 콘텐츠 문구**: 6/6 ✅
-
 **Phase 4 — 트리거 확장**: 4/4 ✅
-- **ITM Sweep 감지**: `event-detect` — $5M+ deep ITM sweep, EC2 Redis 폴링
-- **Dark Pool Spike 감지**: SPY/QQQ 50%+ DP ratio 시 트리거
-- **Ticker Spotlight**: M7 게릴라 포스팅 4회/일 (`marketing-dispatch` spotlight action)
-- JA 리전: `region=asia`에서 KO+JA 동시 처리
+**Phase 5 — 인프라**: 6/6 ✅ (스키마 전환 + 이미지 파이프라인 완료, Remotion만 별도)
+**Phase 6 — 비주얼 강화 (신규)**: 0/3 (Tier 1 템플릿 + Tier 2 캡처 + Tier 3 Remotion)
 
-**Phase 5 — 인프라**: 4/6
-- ✅ OG 시각 검증 10/10 포맷 200 OK
-- ✅ `vercel.json` 17개 크론 `dry_run=false`
-- ❌ Remotion Lambda (IAM/S3 인프라 별도 필요)
+### 18.11 크리티컬 버그 픽스 (2026-04-28)
 
-### 18.7 OG 이미지 시각 검증 결과 (2026-04-27)
+#### 버그 1: 다크풀 데이터 "보였다 사라졌다" 문제
 
-| 포맷 | 상태 | 크기 |
-|------|:----:|-----:|
-| Pulse EN | ✅ 200 | 34KB |
-| Pin EN (SEO 오버레이) | ✅ 200 | 51KB |
-| Event EN | ✅ 200 | 40KB |
-| Slide Hook (indigo) | ✅ 200 | 231KB |
-| Slide Data (cyan/green) | ✅ 200 | 173KB |
-| Slide GEX (regime color) | ✅ 200 | 174KB |
-| Slide DarkPool (purple) | ✅ 200 | 183KB |
-| Slide Insight (amber) | ✅ 200 | 163KB |
-| Slide CTA (indigo/cyan) | ✅ 200 | 274KB |
-| Pulse KO | ✅ 200 | 33KB |
+**증상**: RIVN 등 모든 종목의 다크풀(INST RADAR) 카드가 간헐적으로 `— Normal` 표시. 본장 중에도 발생.
+
+**근본 원인 2가지**:
+
+1. **EC2 `_ts` 누락 버그** (`realtime-metrics/route.ts` L342)
+   - EC2 WebSocket 누적기가 `rt-metrics:RIVN`에 실시간 데이터를 정상 적재 (65.2%)
+   - 그러나 `_ts` 필드가 없어서 API Route가 `cacheAge = Infinity`로 판정 → **정상 데이터 폐기**
+   - 수정: `Infinity` → `0` (EC2 실시간 데이터 = 신선한 데이터로 간주)
+
+2. **Stale 무한 루프 버그** (`command/unified/route.ts` L573-580)
+   - 5분마다 volatile field(institutional) stale 체크 → gap-fill 트리거
+   - EC2 타임아웃(3s) + Polygon 타임아웃(8s) → gap-fill 실패 → null 반환
+   - 기존 데이터는 유지되지만 `_ts` 미갱신 → 다음 요청에서 또 stale → 무한 반복
+   - 수정: gap-fill 실패 시 기존 데이터의 `_ts`를 현재 시각으로 리셋 → 5분 쿨다운
+
+**검증 — 전 종목 EC2 데이터 상태 확인**:
+```
+NVDA  53.6% | TSLA 58.3% | AAPL 45.0% | GOOGL 55.0% | AMZN 59.8%
+MCD   67.8% | RIVN 65.5% | CEG  48.9% | PLTR  66.7% | AMD  63.5%
+→ 전 종목 rt-metrics에 데이터 정상 존재, Fix 적용 후 API Route가 정상 반환
+```
+
+**수정 파일**: `realtime-metrics/route.ts` (1줄), `command/unified/route.ts` (4줄 추가)
+**빌드 검증**: tsc 0 errors, next build 성공, Vercel 배포 완료
+
+---
+
+#### 버그 2: `signum-harvest` Lambda 크론 중복 실행 (API 12배 낭비)
+
+**증상**: CloudWatch 알람 `signum-harvest-slow` 연속 발생 (726s, 750s)
+
+**근본 원인**: EventBridge `rate(5 minutes)` vs 실행시간 불일치
+- 단독 실행 시: 평균 **199초 (3.3분)**, 중앙값 169초, 최대 454초
+- 그러나 **14%의 확률로 5분 초과** → 다음 크론 시작 → 중복 실행
+- 중복 실행 시 같은 Polygon API Key 경합 → 전체 실행이 900초(MAX TIMEOUT)로 급증
+- 동시 실행 최대 **6개**, Throttle **186건**, Error **19건**
+
+**비용 영향**:
+```
+정상 (단독): 시간당 ~30,000 Polygon API 호출
+실제 (중복 6개): 시간당 ~360,000 호출 → 12배 낭비
+Lambda 비용: ~6배 증가 (6 × 2048MB × 900s)
+```
+
+**실측 데이터 (24시간 CloudWatch)**:
+```
+단독 실행 (Concurrent=1): 64 samples
+  Average: 199s (3.3min) | Median: 169s (2.8min)
+  Min: 75s | Max: 900s | 5분 초과: 9/64 (14%)
+
+중복 실행 (Concurrent>1): 44 samples  
+  Average: 633s | Max Concurrent: 6
+```
+
+**수정 사항**:
+| 항목 | 변경 전 | 변경 후 |
+|------|---------|---------|
+| EventBridge Schedule | `rate(5 minutes)` | `rate(10 minutes)` |
+| CloudWatch Alarm 임계값 | 240,000ms (4분) | 600,000ms (10분) |
+
+**적용 방식**: AWS API 직접 호출 (즉시 적용, 코드 배포 불필요)
 

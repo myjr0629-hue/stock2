@@ -810,7 +810,9 @@ async function buildResponseFromAnalysisCache(
             // [ROOT FIX] 캐시에 없으면 → 이미 가져온 라이브 데이터에서 직접 채움
             // 원칙: "있으면 캐시, 없으면 실데이터" — 복잡한 캐시 의존 제거
             vwap: ac.vwap || snap?.day?.vw || snap?.prevDay?.vw || vwapMap[ticker] || null,
-            darkPoolPct: ac.darkPoolPct != null ? Math.round(ac.darkPoolPct * 10) / 10 : null,
+            // [FIX] darkPoolPct=0 means Lambda failed to fetch from EC2 proxy — treat as null
+            // Real dark pool % is always >0 (typically 30-70%), so 0 = missing data
+            darkPoolPct: ac.darkPoolPct != null && ac.darkPoolPct > 0 ? Math.round(ac.darkPoolPct * 10) / 10 : null,
             shortVolPct: (() => { const v = ac.shortVolPct ?? shortVolMap[ticker] ?? null; return v != null ? Math.round(v * 10) / 10 : null; })(),
             zeroDtePct: ac.zeroDtePct ?? null,
             impliedMovePct: ac.impliedMovePct != null ? Math.round(ac.impliedMovePct * 10) / 10 : null,
@@ -850,6 +852,33 @@ async function buildResponseFromAnalysisCache(
                 engineVersion: ac.alphaSnapshot.engineVersion,
             } : undefined,
         };
+    }
+
+    // [FIX] EC2 Proxy fallback: fetch darkPoolPct for tickers where cache had null/0
+    // This prevents the "— Normal" flickering when Lambda fails to fetch from EC2
+    const tickersNeedingDarkPool = Object.entries(tickersData)
+        .filter(([_, d]) => (d as any).darkPoolPct == null)
+        .map(([t]) => t);
+    if (tickersNeedingDarkPool.length > 0) {
+        try {
+            const { fetchRealtimeMetrics } = await import('@/services/realtimeMetricsService');
+            const dpResults = await Promise.allSettled(
+                tickersNeedingDarkPool.map(t => fetchRealtimeMetrics(t).catch(() => null))
+            );
+            tickersNeedingDarkPool.forEach((ticker, i) => {
+                const result = dpResults[i];
+                if (result.status === 'fulfilled' && result.value) {
+                    const dpPct = result.value.darkPool?.percent;
+                    if (dpPct != null && dpPct > 0) {
+                        (tickersData[ticker] as any).darkPoolPct = Math.round(dpPct * 10) / 10;
+                    }
+                    const svPct = result.value.shortVolume?.percent;
+                    if (svPct != null && svPct > 0 && (tickersData[ticker] as any).shortVolPct == null) {
+                        (tickersData[ticker] as any).shortVolPct = Math.round(svPct * 10) / 10;
+                    }
+                }
+            });
+        } catch { /* EC2 fallback is best-effort */ }
     }
 
     return {

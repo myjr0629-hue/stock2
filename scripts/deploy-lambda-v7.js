@@ -1052,9 +1052,11 @@ async function buildUnifiedCache(priceMap, gexMap, optionsCache, smaMap, details
       if (metrics) {
         try {
           const parsed = typeof metrics === 'string' ? JSON.parse(metrics) : metrics;
-          darkPoolMap[dpBatch[idx]] = parsed?.darkPool?.percent || 0;
+          // [FIX] Use null instead of 0 when data is missing — 0 overwrites valid cached data
+          const dpPct = parsed?.darkPool?.percent;
+          darkPoolMap[dpBatch[idx]] = (dpPct != null && dpPct > 0) ? dpPct : null;
           blockTradesMap[dpBatch[idx]] = parsed?.blockTrade?.count || 0;
-        } catch { darkPoolMap[dpBatch[idx]] = 0; blockTradesMap[dpBatch[idx]] = 0; }
+        } catch { /* Don't store 0 for darkPool — leave undefined so previous cache is preserved */ }
       }
     });
   }
@@ -1296,7 +1298,8 @@ async function buildUnifiedCache(priceMap, gexMap, optionsCache, smaMap, details
             const vwapDist = snapVwap > 0 ? Math.round(((price - snapVwap) / snapVwap) * 10000) / 100 : null;
             
             // --- Read darkPoolPct from pre-fetched darkPoolMap ---
-            let darkPoolPct = darkPoolMap[ticker] || 0;
+            // [FIX] null = EC2 fetch failed. Preserve previous cache value instead of writing 0.
+            let darkPoolPct = darkPoolMap[ticker] ?? null;
             
             const analysisEntry = {
               ticker,
@@ -1366,7 +1369,7 @@ async function buildUnifiedCache(priceMap, gexMap, optionsCache, smaMap, details
                 if (Math.abs(structure?.netGex || 0) > 10000000) signals++;
                 return signals >= 3 ? 'HIGH' : signals >= 2 ? 'MED' : signals >= 1 ? 'LOW' : 'NONE';
               })(),
-              darkPoolPct: darkPoolPct,
+              darkPoolPct: darkPoolPct ?? null,  // null = no data this cycle, dashboard will use EC2 directly
               netPremium: structure?.netPremium || null,
               vwapDist: vwapDist,
               volume: snap.volume || null,

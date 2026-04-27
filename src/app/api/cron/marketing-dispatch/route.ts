@@ -30,6 +30,7 @@ import {
 } from '@/lib/marketing/bufferMultiClient';
 import { getChannels, truncateForPlatform, buildUtm } from '@/lib/marketing/bufferClient';
 import { getHashtags, buildInstagramFooter, getPinterestSEO, type ContentType, type Lang } from '@/lib/marketing/hashtagEngine';
+import { prerenderAndUpload } from '@/lib/marketing/imagePrerenderer';
 import type { ContentOutput } from '@/lib/marketing/contentEngines';
 
 // ---------------------------------------------------------------------------
@@ -667,6 +668,36 @@ function buildImageUrl(
   if (variant) newUrl.searchParams.set('variant', String(variant));
 
   return newUrl.toString();
+}
+
+/**
+ * Pre-render image via Supabase Storage and return CDN URL.
+ * Falls back to dynamic URL if pre-rendering fails.
+ */
+async function prerenderImageUrl(
+  baseUrl: string,
+  content: ContentOutput,
+  lang: Lang,
+  format: string,
+  dateKey: string,
+  action: string,
+  dryRun: boolean,
+  variant?: number
+): Promise<string> {
+  const dynamicUrl = buildImageUrl(baseUrl, content, lang, format, variant);
+  
+  // In dry_run mode, skip pre-rendering to save resources
+  if (dryRun) return dynamicUrl;
+  
+  try {
+    const filename = `${action}_${lang}_${format}_${dateKey}${variant ? `_v${variant}` : ''}`;
+    const cdnUrl = await prerenderAndUpload(dynamicUrl, filename);
+    if (cdnUrl) return cdnUrl;
+  } catch (err: any) {
+    console.warn(`[MarketingDispatch] Pre-render failed, using dynamic URL: ${err.message}`);
+  }
+  
+  return dynamicUrl; // Fallback to dynamic URL
 }
 
 function buildCarouselUrls(baseUrl: string, content: ContentOutput, lang: Lang): string[] {

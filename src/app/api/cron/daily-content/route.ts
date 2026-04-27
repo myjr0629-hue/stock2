@@ -176,11 +176,59 @@ async function fetchMarketDataFromRedis(): Promise<MarketData> {
   const dashCache = await safeGetCache('dashboard:unified:latest');
   const parsed = dashCache ? (typeof dashCache === 'string' ? JSON.parse(dashCache) : dashCache) : null;
 
-  // Extract data with fallbacks
-  const spy = extractChange(spyData) ?? extractFromDash(parsed, 'SPY') ?? 0;
-  const qqq = extractChange(qqqData) ?? extractFromDash(parsed, 'QQQ') ?? 0;
-  const vix = extractVix(vixData) ?? extractFromDash(parsed, '^VIX') ?? 18;
-  const gexRegime = extractGex(gexData) ?? 'neutral';
+  // Extract data with primary sources
+  let spy = extractChange(spyData) ?? extractFromDash(parsed, 'SPY') ?? 0;
+  let qqq = extractChange(qqqData) ?? extractFromDash(parsed, 'QQQ') ?? 0;
+  let vix = extractVix(vixData) ?? extractFromDash(parsed, '^VIX') ?? 0;
+  let gexRegime = extractGex(gexData) ?? 'neutral';
+
+  // =========================================================================
+  // FALLBACK: Redis 캐시가 비어있으면 Polygon REST API 직접 호출
+  // SPY=0 이미지 배포 방지를 위한 방어 로직
+  // =========================================================================
+  if (spy === 0 || vix === 0) {
+    console.warn('[DailyContent] Redis cache miss — attempting Polygon fallback...');
+    try {
+      // Try warm-command cache (market-feed cron이 2분마다 갱신)
+      const warmCmd = await safeGetCache('cache:warm-command');
+      const warmParsed = warmCmd ? (typeof warmCmd === 'string' ? JSON.parse(warmCmd) : warmCmd) : null;
+      
+      if (warmParsed) {
+        // warm-command cache has tickers array
+        const tickers = warmParsed?.tickers || warmParsed;
+        if (Array.isArray(tickers)) {
+          const spyEntry = tickers.find((t: any) => t?.ticker === 'SPY' || t?.symbol === 'SPY');
+          const qqqEntry = tickers.find((t: any) => t?.ticker === 'QQQ' || t?.symbol === 'QQQ');
+          if (spyEntry && spy === 0) spy = spyEntry.changePercent ?? spyEntry.changePct ?? 0;
+          if (qqqEntry && qqq === 0) qqq = qqqEntry.changePercent ?? qqqEntry.changePct ?? 0;
+        }
+        
+        // VIX from warm-command
+        const vixEntry = warmParsed?.vix ?? warmParsed?.VIX;
+        if (vixEntry && vix === 0) {
+          vix = typeof vixEntry === 'number' ? vixEntry : (vixEntry?.value ?? vixEntry?.price ?? 0);
+        }
+      }
+      
+      // If still 0, try analysis cache
+      if (spy === 0) {
+        const spyAnalysis = await safeGetCache('cache:analysis:SPY');
+        const spyParsed = spyAnalysis ? (typeof spyAnalysis === 'string' ? JSON.parse(spyAnalysis) : spyAnalysis) : null;
+        if (spyParsed?.changePercent) spy = spyParsed.changePercent;
+      }
+      
+      if (vix === 0) {
+        const vixAnalysis = await safeGetCache('cache:analysis:VIX');
+        const vixParsed = vixAnalysis ? (typeof vixAnalysis === 'string' ? JSON.parse(vixAnalysis) : vixAnalysis) : null;
+        if (vixParsed?.price) vix = vixParsed.price;
+        else if (vixParsed?.value) vix = vixParsed.value;
+      }
+
+      console.log(`[DailyContent] After fallback: SPY=${spy}, QQQ=${qqq}, VIX=${vix}`);
+    } catch (fallbackErr: any) {
+      console.error('[DailyContent] Fallback failed:', fallbackErr.message);
+    }
+  }
 
   // Dark Pool — fetch live from EC2/Polygon (Phase 2: OG image requires dp param)
   let darkPool: number | undefined;
@@ -192,6 +240,11 @@ async function fetchMarketDataFromRedis(): Promise<MarketData> {
     }
   } catch {
     // Silent — darkPool is optional, OG renders gracefully without it
+  }
+
+  // Final validation: if critical data is still 0, log warning
+  if (spy === 0 && vix === 0) {
+    console.error('[DailyContent] ⚠️ CRITICAL: SPY and VIX both 0 — market data unavailable');
   }
 
   return {

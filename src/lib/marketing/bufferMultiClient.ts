@@ -1,9 +1,10 @@
 // ============================================================================
 // Buffer Multi-Format Client — Thread, Carousel, Story, Auto-Reply support
 // Extends base bufferClient with platform-specific dispatch formats
+// NEW SCHEMA (2026-04): createPost + CreatePostInput + single channelId
 // ============================================================================
 
-import { createPost, getChannels, truncateForPlatform, buildUtm, type BufferChannel, type ChannelTier } from './bufferClient';
+import { createPost, getChannels, truncateForPlatform, buildUtm, type BufferChannel, type ChannelTier, type InstagramMeta } from './bufferClient';
 import { getHashtags, getTwitterTagsSplit, buildInstagramFooter, getPinterestSEO, type ContentType, type Platform, type Lang } from './hashtagEngine';
 
 const BUFFER_API_URL = 'https://api.buffer.com';
@@ -119,36 +120,42 @@ export async function dispatchThread(opts: {
     return { success: true, format: 'thread', channel: channel?.name || channelId, service: 'twitter', lang: channel?.lang || 'en', dryRun: true, textPreview: slides[0]?.text.substring(0, 100) || '', fullText: slides.map(s => s.text).join('\n---\n'), imageUrl: slides[0]?.imageUrl };
   }
 
-  const orgId = process.env.BUFFER_ORGANIZATION_ID;
-  if (!orgId) throw new Error('[BufferMulti] BUFFER_ORGANIZATION_ID not set');
-
   try {
-    // Buffer's thread creation: postCreate with threadItems
-    const threadItems = slides.map(s => ({
-      text: s.text,
-      ...(s.imageUrl ? { media: [{ url: s.imageUrl }] } : {}),
-    }));
+    // New schema: create thread by posting first tweet, then replies
+    // Thread slide 1: main tweet
+    const firstSlide = slides[0];
+    const input: Record<string, any> = {
+      channelId,
+      text: firstSlide.text || '',
+      schedulingType: 'automatic',
+      mode: 'addToQueue',
+    };
+    if (firstSlide.imageUrl) {
+      input.assets = { images: [{ url: firstSlide.imageUrl }] };
+    }
+    if (draft) input.saveToDraft = true;
+
+    // Include thread items for remaining slides
+    if (slides.length > 1) {
+      input.threadItems = slides.slice(1).map(s => ({
+        text: s.text,
+        ...(s.imageUrl ? { assets: { images: [{ url: s.imageUrl }] } } : {}),
+      }));
+    }
 
     const data = await bufferGraphQL(`
-      mutation CreatePost($input: PostCreateInput!) {
-        postCreate(input: $input) {
-          ... on PostCreateSuccess {
-            post { id status }
-          }
-          ... on CoreError { message }
+      mutation CreatePost($input: CreatePostInput!) {
+        createPost(input: $input) {
+          ... on PostActionSuccess { post { id } }
+          ... on NotFoundError { message }
+          ... on UnauthorizedError { message }
+          ... on UnexpectedError { message }
+          ... on InvalidInputError { message }
         }
       }
-    `, {
-      input: {
-        organizationId: orgId,
-        channelIds: [channelId],
-        content: threadItems[0],  // First tweet
-        threadItems: threadItems.slice(1),  // Remaining tweets
-        ...(draft ? { draft: true } : {}),
-      },
-    });
+    `, { input });
 
-    const result = data.postCreate;
+    const result = data.createPost;
     return {
       success: !!result?.post?.id,
       format: 'thread',
@@ -183,35 +190,42 @@ export async function dispatchCarousel(opts: {
     return { success: true, format: 'carousel', channel: channel?.name || channelId, service: 'instagram', lang: channel?.lang || 'en', dryRun: true, textPreview: caption.substring(0, 100), fullText: caption, imageUrl: imageUrls[0] };
   }
 
-  const orgId = process.env.BUFFER_ORGANIZATION_ID;
-  if (!orgId) throw new Error('[BufferMulti] BUFFER_ORGANIZATION_ID not set');
-
   try {
+    const input: Record<string, any> = {
+      channelId,
+      text: caption || '',
+      schedulingType: 'automatic',
+      mode: 'addToQueue',
+      // Multiple images = carousel on IG
+      assets: {
+        images: imageUrls.slice(0, 10).map((url, i) => ({
+          url,
+          ...(altTexts?.[i] ? { altText: altTexts[i] } : {}),
+        })),
+      },
+      // IG carousel requires post type metadata
+      metadata: {
+        instagram: {
+          type: 'post',
+          shouldShareToFeed: true,
+        },
+      },
+    };
+    if (draft) input.saveToDraft = true;
+
     const data = await bufferGraphQL(`
-      mutation CreatePost($input: PostCreateInput!) {
-        postCreate(input: $input) {
-          ... on PostCreateSuccess {
-            post { id status }
-          }
-          ... on CoreError { message }
+      mutation CreatePost($input: CreatePostInput!) {
+        createPost(input: $input) {
+          ... on PostActionSuccess { post { id } }
+          ... on NotFoundError { message }
+          ... on UnauthorizedError { message }
+          ... on UnexpectedError { message }
+          ... on InvalidInputError { message }
         }
       }
-    `, {
-      input: {
-        organizationId: orgId,
-        channelIds: [channelId],
-        content: {
-          text: caption,
-          media: imageUrls.slice(0, 10).map((url, i) => ({
-            url,
-            ...(altTexts?.[i] ? { altText: altTexts[i] } : {}),
-          })),
-        },
-        ...(draft ? { draft: true } : {}),
-      },
-    });
+    `, { input });
 
-    const result = data.postCreate;
+    const result = data.createPost;
     return {
       success: !!result?.post?.id,
       format: 'carousel',
@@ -244,33 +258,36 @@ export async function dispatchStory(opts: {
     return { success: true, format: 'story', channel: channel?.name || channelId, service: 'instagram', lang: channel?.lang || 'en', dryRun: true, textPreview: `Story: ${imageUrl}`, fullText: '', imageUrl };
   }
 
-  const orgId = process.env.BUFFER_ORGANIZATION_ID;
-  if (!orgId) throw new Error('[BufferMulti] BUFFER_ORGANIZATION_ID not set');
-
   try {
+    const input: Record<string, any> = {
+      channelId,
+      text: '',  // Stories typically have no text
+      schedulingType: 'automatic',
+      mode: 'addToQueue',
+      assets: { images: [{ url: imageUrl }] },
+      // IG Story requires story type metadata + shouldShareToFeed: false
+      metadata: {
+        instagram: {
+          type: 'story',
+          shouldShareToFeed: false,
+        },
+      },
+    };
+    if (draft) input.saveToDraft = true;
+
     const data = await bufferGraphQL(`
-      mutation CreatePost($input: PostCreateInput!) {
-        postCreate(input: $input) {
-          ... on PostCreateSuccess {
-            post { id status }
-          }
-          ... on CoreError { message }
+      mutation CreatePost($input: CreatePostInput!) {
+        createPost(input: $input) {
+          ... on PostActionSuccess { post { id } }
+          ... on NotFoundError { message }
+          ... on UnauthorizedError { message }
+          ... on UnexpectedError { message }
+          ... on InvalidInputError { message }
         }
       }
-    `, {
-      input: {
-        organizationId: orgId,
-        channelIds: [channelId],
-        content: {
-          text: '',
-          media: [{ url: imageUrl }],
-        },
-        subprofile: { type: 'story' },
-        ...(draft ? { draft: true } : {}),
-      },
-    });
+    `, { input });
 
-    const result = data.postCreate;
+    const result = data.createPost;
     return {
       success: !!result?.post?.id,
       format: 'story',

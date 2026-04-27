@@ -259,7 +259,24 @@ export async function fetchChannelsLive(): Promise<any[]> {
 }
 
 /**
- * Create a post on Buffer (supports scheduling)
+ * Instagram metadata for Buffer's new GraphQL schema
+ */
+export interface InstagramMeta {
+  type: 'post' | 'story' | 'reel';
+  shouldShareToFeed: boolean;
+}
+
+/**
+ * Create a post on Buffer — NEW SCHEMA (2026-04 Migration)
+ * 
+ * Buffer API Breaking Change:
+ *   - postCreate → createPost
+ *   - PostCreateInput → CreatePostInput
+ *   - channelIds: [String] → channelId: String (singular)
+ *   - content: { text, media } → text + assets: { images: [{ url }] }
+ *   - saveToDraft: Boolean (official field)
+ *   - metadata: { instagram: { type, shouldShareToFeed } } (required for IG)
+ * 
  * @param dryRun If true, logs instead of actually calling API
  */
 export async function createPost(opts: {
@@ -268,60 +285,96 @@ export async function createPost(opts: {
   mediaUrl?: string;
   scheduledAt?: string; // ISO 8601
   dryRun?: boolean;
-  draft?: boolean; // If true, post goes to Buffer Drafts tab (not published)
+  draft?: boolean;
+  instagramMeta?: InstagramMeta;
 }): Promise<{ success: boolean; postId?: string; dryRun?: boolean; error?: string }> {
-  const { channelIds, text, mediaUrl, scheduledAt, dryRun = true, draft = false } = opts;
+  const { channelIds, text, mediaUrl, scheduledAt, dryRun = true, draft = false, instagramMeta } = opts;
 
   if (dryRun) {
     console.log(`[BufferClient] DRY_RUN createPost:
   channels: ${channelIds.length}
   text: ${text.substring(0, 100)}...
   media: ${mediaUrl || 'none'}
-  scheduled: ${scheduledAt || 'now'}`);
+  scheduled: ${scheduledAt || 'now'}
+  draft: ${draft}
+  igMeta: ${instagramMeta ? JSON.stringify(instagramMeta) : 'none'}`);
     return { success: true, dryRun: true };
   }
 
-  const orgId = process.env.BUFFER_ORGANIZATION_ID;
-  if (!orgId) throw new Error('[BufferClient] BUFFER_ORGANIZATION_ID not set');
+  // New schema uses single channelId — loop through each channel
+  const results: { success: boolean; postId?: string; error?: string }[] = [];
 
-  try {
-    // Buffer GraphQL postCreate mutation
-    const data = await bufferGraphQL(`
-      mutation CreatePost($input: PostCreateInput!) {
-        postCreate(input: $input) {
-          ... on PostCreateSuccess {
-            post {
-              id
-              status
-            }
-          }
-          ... on CoreError {
-            message
+  for (const channelId of channelIds) {
+    try {
+      const input: Record<string, any> = {
+        channelId,
+        text: text || '',
+        schedulingType: 'automatic',
+        mode: 'addToQueue',
+      };
+
+      // Image assets (new schema structure)
+      if (mediaUrl) {
+        input.assets = { images: [{ url: mediaUrl }] };
+      }
+
+      // Draft support (official Buffer field)
+      if (draft) {
+        input.saveToDraft = true;
+      }
+
+      // Scheduling
+      if (scheduledAt) {
+        input.scheduledAt = scheduledAt;
+      }
+
+      // Instagram-specific metadata (required for IG posts/stories/reels)
+      if (instagramMeta) {
+        input.metadata = {
+          instagram: {
+            type: instagramMeta.type,
+            shouldShareToFeed: instagramMeta.shouldShareToFeed,
+          },
+        };
+      }
+
+      const data = await bufferGraphQL(`
+        mutation CreatePost($input: CreatePostInput!) {
+          createPost(input: $input) {
+            ... on PostActionSuccess { post { id } }
+            ... on NotFoundError { message }
+            ... on UnauthorizedError { message }
+            ... on UnexpectedError { message }
+            ... on RestProxyError { message code }
+            ... on LimitReachedError { message }
+            ... on InvalidInputError { message }
           }
         }
-      }
-    `, {
-      input: {
-        organizationId: orgId,
-        channelIds,
-        content: {
-          text,
-          ...(mediaUrl ? { media: [{ url: mediaUrl }] } : {}),
-        },
-        ...(scheduledAt ? { scheduledAt } : {}),
-        ...(draft ? { draft: true } : {}),
-      },
-    });
+      `, { input });
 
-    const result = data.postCreate;
-    if (result?.post?.id) {
-      return { success: true, postId: result.post.id };
+      const result = data.createPost;
+      if (result?.post?.id) {
+        results.push({ success: true, postId: result.post.id });
+      } else {
+        const errMsg = result?.message || 'Unknown error';
+        console.error(`[BufferClient] createPost failed for channel ${channelId}:`, errMsg);
+        results.push({ success: false, error: errMsg });
+      }
+
+      // Rate limit protection: 300ms delay between channels
+      if (channelIds.length > 1) {
+        await new Promise(r => setTimeout(r, 300));
+      }
+    } catch (err: any) {
+      console.error(`[BufferClient] createPost exception for channel ${channelId}:`, err.message);
+      results.push({ success: false, error: err.message });
     }
-    return { success: false, error: result?.message || 'Unknown error' };
-  } catch (err: any) {
-    console.error('[BufferClient] createPost failed:', err.message);
-    return { success: false, error: err.message };
   }
+
+  // Return first successful result, or first error
+  const success = results.find(r => r.success);
+  if (success) return success;
+  return results[0] || { success: false, error: 'No channels provided' };
 }
 
 /**
