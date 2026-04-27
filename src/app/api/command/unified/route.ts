@@ -576,6 +576,10 @@ export async function GET(request: NextRequest) {
                                 gapResults[i]._ts = Date.now();
                             }
                             cachedData[remainingFields[i]] = gapResults[i];
+                        } else if (VOLATILE_FIELDS.has(remainingFields[i]) && cachedData[remainingFields[i]]) {
+                            // [FIX] Gap-fill failed but existing data present — reset _ts to prevent
+                            // infinite stale loop (5-min re-trigger → fail → re-trigger → fail...)
+                            cachedData[remainingFields[i]] = { ...cachedData[remainingFields[i]], _ts: Date.now() };
                         }
                     }
                 }

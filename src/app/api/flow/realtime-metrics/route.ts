@@ -339,7 +339,9 @@ export async function GET(request: NextRequest) {
         // Cost: $0 (ElastiCache is VPC-internal)
         const ec2Data = await fetchFromElastiCache(cacheKey).catch(() => null);
         if (ec2Data && ec2Data.darkPool) {
-            const cacheAge = ec2Data._ts ? Date.now() - ec2Data._ts : Infinity;
+            // [FIX] EC2 flow accumulator writes real-time WebSocket data without _ts field.
+            // Missing _ts = live EC2 data = treat as fresh (0ms age), NOT infinitely old.
+            const cacheAge = ec2Data._ts ? Date.now() - ec2Data._ts : 0;
             // EC2 100% data is valid for 16 hours (until next market open)
             const threshold = ec2Data._source === 'ec2-flow-accumulator' ? EC2_STALE_THRESHOLD_MS : STALE_THRESHOLD_MS;
             if (cacheAge < threshold) {
