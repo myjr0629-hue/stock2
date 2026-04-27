@@ -402,35 +402,14 @@ async function harvestPrices() {
     priceMap[t.ticker] = p;
     snapshotMap[t.ticker] = { changePct:ch, volume:t.day?.v||0, price:p, vwap:t.day?.vw||0 };
     if (us.has(t.ticker)) {
-      items.push({ ticker:t.ticker, date:today, qualityTier:'LIVE', changePct:Math.round(ch*100)/100, open:t.day?.o||0, high:t.day?.h||0, low:t.day?.l||0, close:t.day?.c||p, volume:t.day?.v||0, vwap:t.day?.vw||0, gex:0, pcr:0, alphaScore:0 });
+      items.push({ ticker:t.ticker, date:today, qualityTier:'LIVE', changePct:Math.round(ch*100)/100, open:t.day?.o||0, high:t.day?.h||0, low:t.day?.l||0, close:t.day?.c||p, volume:t.day?.v||0, vwap:t.day?.vw||0 });
     }
   }
-  // [v9 FIX] Use merge-write instead of destructive batchWrite
-  // batchWrite uses PutItem which DESTROYS existing alphaScore/contextScore
-  // merge-write preserves backtesting scores while updating OHLCV
-  const today2 = new Date().toISOString().slice(0,10);
-  for (let i = 0; i < items.length; i += 25) {
-    const batch = items.slice(i, i + 25);
-    await Promise.all(batch.map(async (item) => {
-      try {
-        const existing = await client.send(new QueryCommand({
-          TableName: 'signum-alpha-history',
-          KeyConditionExpression: 'ticker = :tk AND #d = :d',
-          ExpressionAttributeNames: { '#d': 'date' },
-          ExpressionAttributeValues: { ':tk': item.ticker, ':d': today2 },
-          Limit: 1,
-        }));
-        const merged = { ...(existing.Items?.[0] || {}), ...item };
-        // Preserve existing alphaScore if we only have 0 (placeholder)
-        if (item.alphaScore === 0 && existing.Items?.[0]?.alphaScore > 0) {
-          merged.alphaScore = existing.Items[0].alphaScore;
-        }
-        await client.send(new PutCommand({ TableName: 'signum-alpha-history', Item: merged }));
-      } catch {
-        await client.send(new PutCommand({ TableName: 'signum-alpha-history', Item: item })).catch(() => {});
-      }
-    }));
-  }
+  // [v9 FIX] batchWrite for OHLCV only — alphaScore/gex/pcr REMOVED from items
+  // Step 6 writes real alphaScore via merge write-back (not placeholder 0)
+  // batchWrite is fast (25 items/batch) but destructive — so we only include OHLCV fields
+  // alphaScore will be filled by: Step 6 (Lambda) or Vercel SSR (SSR_V46)
+  if (items.length > 0) await batchWrite('signum-alpha-history', items);
   console.log('Prices: '+items.length+'/'+UNIVERSE.length+' saved to alpha-history (priceMap has '+Object.keys(priceMap).length+' tickers)');
   return { count:items.length, priceMap, snapshotMap };
 }

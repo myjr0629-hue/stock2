@@ -3710,19 +3710,32 @@ EC2 WebSocket Flow Accumulator (100% 전수 수집)
 - `scripts/deploy-lambda-v7.js` L1794-1826: OnDemand darkPool fetch (EC2 proxy)
 - `src/services/realtimeMetricsService.ts` L34-77: Vercel → EC2 proxy (PRIMARY)
 
-### 15.21 🔴 Alpha History 백테스팅 파이프라인 (2026-04-25)
+### 15.21 🟢 Alpha History 백테스팅 파이프라인 (2026-04-27 수정 완료)
+
+> [!CAUTION]
+> **2026-04-25 ~ 04-27: `batchWrite` 파괴적 덮어쓰기 버그**
+> Step 1의 `batchWrite`는 DynamoDB `PutItem`이므로 기존 레코드를 **완전히 교체**한다.
+> Step 1이 매 사이클마다 `alphaScore: 0`으로 덮어써서, Vercel SSR이 저장한 실제 점수를 파괴했음.
+> Step 6에서 계산된 실제 alphaScore는 **Redis에만 저장**되고 DynamoDB에는 기록하지 않았음.
+> 금요일(04-25) 데이터가 존재한 이유: 주말 Lambda skip 사이에 Vercel SSR(`SSR_V46`)이 마지막으로 쓴 레코드가 보존된 것.
 
 > [!IMPORTANT]
-> **Lambda Step 1에서 `signum-alpha-history`에 1,000종목 가격/OHLCV를 반드시 저장해야 한다.**
-> V7에서 "SSR_V46 덮어쓰기 방지"를 이유로 저장을 제거했으나, 이는 이중 보호 실수였다.
-> Vercel `historyStore.ts` L158-165에 이미 `ConditionExpression: 'qualityTier <> :ssr'` 보호가 있다.
+> **Lambda Step 1은 반드시 merge-write(read→merge→put) 방식을 사용해야 한다.**
+> `batchWrite`(BatchWriteCommand/PutItem)는 기존 alphaScore/contextScore를 파괴하므로 절대 사용 금지.
+> Step 6에서 계산된 alphaScore는 반드시 `signum-alpha-history`에도 저장해야 한다.
 
-**Alpha History 데이터 흐름:**
+**Alpha History 데이터 흐름 (2026-04-27 수정):**
 ```
-Lambda signum-harvest (5min cron, 장중)
+Lambda signum-harvest (15min cron, 장중)
   └── Step 1: harvestPrices()
-       └── batchWrite('signum-alpha-history', items)  ← qualityTier: 'LIVE'
+       └── merge-write('signum-alpha-history')  ← qualityTier: 'LIVE'
             └── 1,000종목 가격 + OHLCV + changePct
+            └── ⚠️ 기존 alphaScore > 0이면 보존 (0으로 덮어쓰지 않음)
+
+  └── Step 6: buildUnifiedCache()
+       └── computeAlphaScore() → alphaRaw 계산
+       └── Redis cache:analysis 저장 (기존)
+       └── ★ DynamoDB alpha-history에 alphaScore write-back (2026-04-27 추가)
 
 Vercel SSR (유저 접속 시)
   └── recordAlphaDaily() via historyMiddleware.ts
@@ -3734,13 +3747,20 @@ Lambda Step 5: recordCloseAndBackfill()
 ```
 
 **절대 금지:**
-- Lambda Step 1의 alpha-history 저장을 다시 제거하지 말 것 — 백테스팅 불가
+- Lambda Step 1에서 `batchWrite`(BatchWriteCommand) 사용 금지 — PutItem은 기존 레코드를 완전 파괴
 - `qualityTier: 'LIVE'` 외 다른 값으로 Lambda에서 저장하지 말 것 — SSR_V46 충돌 방지
+- Step 6의 alphaScore DynamoDB write-back 제거 금지 — 백테스팅 데이터 유일한 소스
+
+**EventBridge / CloudWatch 설정 (2026-04-27 수정):**
+- EventBridge `signum-harvest-5min`: `rate(15 minutes)` (10분에서 변경 — 장중 7-8분 소요로 중첩 방지)
+- CloudWatch `signum-harvest-slow` 알람: 840,000ms (14분) 임계값 (600,000ms에서 변경)
+- Lambda Timeout: 900s (15분), Memory: 2048MB
+- Reserved Concurrency: 미설정 (AWS 계정 최소값 제한)
 
 **백테스팅 일정:**
-- 2026-04-28 (월): 1,000종목 저장 재시작
+- 2026-04-27 (일): merge-write + alphaScore write-back 배포 완료
+- 2026-04-28 (월): 1,000종목 정상 저장 확인 필요
 - 2026-05-05~: 1주 후 3일 수익률 데이터 축적 → 초기 백테스트 가능
-- 2026-05-12~: 2주 후 유의미한 분석 가능 (10,000+ 데이터 포인트)
 
 ---
 
@@ -3835,10 +3855,13 @@ Lambda Step 5: recordCloseAndBackfill()
 - [ ] 30분 간격으로 RLSI 값이 최소 ±2 이상 변동하는지 확인
 - [ ] 정상 변동 확인되면 이 항목 완료 처리
 
-### 17.3 Alpha History 파이프라인 (복원 검증)
-- [ ] Lambda 5분 cron이 alpha-history에 1,000종목 저장 시작 확인
+### 17.3 Alpha History 파이프라인 (복원 + 수정 검증)
+- [ ] Lambda 15분 cron이 alpha-history에 1,000종목 merge-write 저장 확인
 - [ ] DynamoDB `signum-alpha-history` 테이블에 2026-04-28 레코드 996+ 확인
 - [ ] close 필드에 실제 종가 저장 확인
+- [ ] alphaScore 필드에 실제 점수(0이 아닌 값) 저장 확인 ← Step 6 write-back 검증
+- [ ] qualityTier가 'LIVE'인 레코드의 기존 alphaScore가 merge-write로 보존되는지 확인
+- [ ] 중첩 실행 없음 확인 (CloudWatch ConcurrentExecutions max=1)
 
 ### 17.4 Market Breadth 종목 수
 - [ ] breadth.advancers > 0 확인 (현재 항상 0)
