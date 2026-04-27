@@ -1,7 +1,7 @@
 // ============================================================================
-// /api/og/market — Premium OG Image (Glassmorphism Design)
-// Dynamic social sharing image with ticker symbols, 3-language support
-// 1200×630 standard OG format
+// /api/og/market — Premium OG Image v2.1 (Signal Card Design)
+// GEX Hero + S&P 500 + Dark Pool + VIX
+// All dimensions explicitly calculated for Satori compatibility
 // ============================================================================
 
 import { ImageResponse } from 'next/og';
@@ -9,95 +9,106 @@ import { NextRequest } from 'next/server';
 
 export const runtime = 'edge';
 
-// ---------------------------------------------------------------------------
-// Design System
-// ---------------------------------------------------------------------------
 const C = {
-  // Base
-  bgDark:    '#050a14',
-  bgDeep:    '#0a1628',
-  // Glass
-  glass:     'rgba(255,255,255,0.06)',
-  glassBorder: 'rgba(255,255,255,0.12)',
-  glassHigh: 'rgba(255,255,255,0.10)',
-  // Accent gradients
-  cyan:      '#22d3ee',
-  cyanDim:   '#06b6d4',
-  purple:    '#a78bfa',
-  purpleDim: '#7c3aed',
-  amber:     '#fbbf24',
-  amberDim:  '#f59e0b',
-  // Semantic
-  green:     '#34d399',
-  greenGlow: 'rgba(52,211,153,0.25)',
-  red:       '#f87171',
-  redGlow:   'rgba(248,113,113,0.25)',
-  // Text (minimum slate-300 for readability)
-  white:     '#f8fafc',
-  muted:     '#cbd5e1',
-  dim:       '#94a3b8',
+  bg: '#06090f',
+  glass: 'rgba(255,255,255,0.04)',
+  glassBorder: 'rgba(255,255,255,0.08)',
+  cyan: '#22d3ee',
+  green: '#34d399',
+  red: '#f87171',
+  amber: '#fbbf24',
+  white: '#f1f5f9',
+  muted: '#94a3b8',
+  dim: '#64748b',
 };
 
-// ---------------------------------------------------------------------------
-// i18n
-// ---------------------------------------------------------------------------
 const L: Record<string, Record<string, string>> = {
   en: {
     pulse: 'MARKET PULSE', event: 'STRUCTURAL ALERT', education: 'MARKET INSIGHT',
     morning: 'PRE-MARKET BRIEF', weekly: 'WEEKLY STRUCTURE',
-    sub: 'Options • Dark Pool • Institutional Flow',
-    gex: 'GEX REGIME', vixLabel: 'VOLATILITY',
+    sub: 'Institutional-Grade Market Structure',
+    gexLabel: 'GEX REGIME',
     positive: 'POSITIVE', negative: 'NEGATIVE', neutral: 'NEUTRAL', transition: 'TRANSITION',
-    spySub: 'S&P 500', qqqSub: 'NASDAQ 100', tagline: 'See What Others Can\'t',
+    gexDescPos: 'Dealer hedging absorbs volatility shocks',
+    gexDescNeg: 'Dealer hedging amplifies price movements',
+    gexDescNeu: 'No directional conviction from dealers',
+    gexDescTra: 'Regime shifting - trend acceleration likely',
+    sp500: 'S&P 500', dpLabel: 'DARK POOL', dpSub: 'Institutional Activity',
+    vixLabel: 'VIX', vixSub: 'Fear Index',
+    vixLow: 'CALM', vixMid: 'ELEVATED', vixHigh: 'HIGH', vixExt: 'EXTREME',
+    tagline: 'See What Others Cannot',
+    pinTitle: 'How Gamma Exposure Drives Stock Prices',
+    pinSub: 'Institutional Market Structure Analysis',
   },
   ko: {
-    pulse: '마켓 펄스', event: '구조적 알림', education: '마켓 인사이트',
-    morning: '장전 브리핑', weekly: '주간 구조 분석',
-    sub: '옵션 · 다크풀 · 기관 플로우 통합 분석',
-    gex: 'GEX 레짐', vixLabel: '변동성',
-    positive: '포지티브', negative: '네거티브', neutral: '뉴트럴', transition: '트랜지션',
-    spySub: 'S&P 500', qqqSub: 'NASDAQ 100', tagline: '시장의 이면을 읽다',
+    pulse: 'MARKET PULSE', event: 'STRUCTURAL ALERT', education: 'MARKET INSIGHT',
+    morning: 'PRE-MARKET BRIEF', weekly: 'WEEKLY STRUCTURE',
+    sub: 'Institutional-Grade Market Structure',
+    gexLabel: 'GEX REGIME',
+    positive: 'POSITIVE', negative: 'NEGATIVE', neutral: 'NEUTRAL', transition: 'TRANSITION',
+    gexDescPos: 'Dealer hedging absorbs volatility',
+    gexDescNeg: 'Dealer hedging amplifies moves',
+    gexDescNeu: 'No directional conviction',
+    gexDescTra: 'Regime shifting - acceleration likely',
+    sp500: 'S&P 500', dpLabel: 'DARK POOL', dpSub: 'Institutional',
+    vixLabel: 'VIX', vixSub: 'Fear Index',
+    vixLow: 'CALM', vixMid: 'ELEVATED', vixHigh: 'HIGH', vixExt: 'EXTREME',
+    tagline: 'See What Others Cannot',
+    pinTitle: 'GEX: Options Structure Behind Price Action',
+    pinSub: 'Dark Pool and Gamma Exposure Data',
   },
   ja: {
-    pulse: 'マーケットパルス', event: '構造アラート', education: 'マーケットインサイト',
-    morning: 'プレマーケットブリーフ', weekly: '週間構造分析',
-    sub: 'オプション・ダークプール・機関フロー統合分析',
-    gex: 'GEXレジーム', vixLabel: 'ボラティリティ',
-    positive: 'ポジティブ', negative: 'ネガティブ', neutral: 'ニュートラル', transition: 'トランジション',
-    spySub: 'S&P 500', qqqSub: 'NASDAQ 100', tagline: '市場の深層を読む',
+    pulse: 'MARKET PULSE', event: 'STRUCTURAL ALERT', education: 'MARKET INSIGHT',
+    morning: 'PRE-MARKET BRIEF', weekly: 'WEEKLY STRUCTURE',
+    sub: 'Institutional-Grade Market Structure',
+    gexLabel: 'GEX REGIME',
+    positive: 'POSITIVE', negative: 'NEGATIVE', neutral: 'NEUTRAL', transition: 'TRANSITION',
+    gexDescPos: 'Dealer hedging absorbs volatility',
+    gexDescNeg: 'Dealer hedging amplifies moves',
+    gexDescNeu: 'No directional conviction',
+    gexDescTra: 'Regime shifting - acceleration likely',
+    sp500: 'S&P 500', dpLabel: 'DARK POOL', dpSub: 'Institutional',
+    vixLabel: 'VIX', vixSub: 'Fear Index',
+    vixLow: 'CALM', vixMid: 'ELEVATED', vixHigh: 'HIGH', vixExt: 'EXTREME',
+    tagline: 'See What Others Cannot',
+    pinTitle: 'Gamma Exposure: How Dealers Move Markets',
+    pinSub: 'Options Structure and Dark Pool Analysis',
   },
 };
 
 function changeColor(v: number) { return v > 0 ? C.green : v < 0 ? C.red : C.muted; }
-function changeGlow(v: number) { return v > 0 ? C.greenGlow : v < 0 ? C.redGlow : 'transparent'; }
 function fmt(v: number) { return `${v >= 0 ? '+' : ''}${v.toFixed(2)}%`; }
 
-function gexGradient(gex: string) {
+function gexTheme(gex: string) {
   const g = gex.toLowerCase();
-  if (g === 'positive') return { from: '#059669', to: '#34d399', glow: 'rgba(52,211,153,0.3)' };
-  if (g === 'negative') return { from: '#dc2626', to: '#f87171', glow: 'rgba(248,113,113,0.3)' };
-  if (g === 'transition') return { from: '#d97706', to: '#fbbf24', glow: 'rgba(251,191,36,0.3)' };
-  return { from: '#4b5563', to: '#9ca3af', glow: 'rgba(156,163,175,0.2)' };
+  if (g === 'positive') return { color: '#34d399', bg: 'rgba(52,211,153,0.10)', border: 'rgba(52,211,153,0.20)', glow: 'rgba(52,211,153,0.15)', pct: 75 };
+  if (g === 'negative') return { color: '#f87171', bg: 'rgba(248,113,113,0.10)', border: 'rgba(248,113,113,0.20)', glow: 'rgba(248,113,113,0.15)', pct: 25 };
+  if (g === 'transition') return { color: '#fbbf24', bg: 'rgba(251,191,36,0.10)', border: 'rgba(251,191,36,0.20)', glow: 'rgba(251,191,36,0.12)', pct: 50 };
+  return { color: '#94a3b8', bg: 'rgba(148,163,184,0.06)', border: 'rgba(148,163,184,0.12)', glow: 'rgba(148,163,184,0.08)', pct: 50 };
 }
 
-function vixLevel(v: number) {
-  if (v >= 30) return { color: C.red, label: 'EXTREME' };
-  if (v >= 25) return { color: '#f97316', label: 'HIGH' };
-  if (v >= 18) return { color: C.amber, label: 'ELEVATED' };
-  return { color: C.green, label: 'LOW' };
+function vixInfo(v: number, l: Record<string, string>) {
+  if (v >= 30) return { color: C.red, label: l.vixExt, pct: 95 };
+  if (v >= 25) return { color: '#f97316', label: l.vixHigh, pct: 75 };
+  if (v >= 18) return { color: C.amber, label: l.vixMid, pct: 55 };
+  return { color: C.green, label: l.vixLow, pct: 25 };
 }
 
-// ---------------------------------------------------------------------------
-// GET Handler
-// ---------------------------------------------------------------------------
-// Format → dimensions mapping
+function gexDesc(gex: string, l: Record<string, string>) {
+  const g = gex.toLowerCase();
+  if (g === 'positive') return l.gexDescPos;
+  if (g === 'negative') return l.gexDescNeg;
+  if (g === 'transition') return l.gexDescTra;
+  return l.gexDescNeu;
+}
+
 const FORMAT_SIZES: Record<string, { width: number; height: number }> = {
-  og:       { width: 1200, height: 630 },   // OG link card
-  tweet:    { width: 1200, height: 675 },   // X tweet attachment (16:9)
-  carousel: { width: 1080, height: 1350 },  // IG carousel (4:5)
-  pin:      { width: 1000, height: 1500 },  // Pinterest (2:3)
-  square:   { width: 1080, height: 1080 },  // Universal square
-  story:    { width: 1080, height: 1920 },  // IG Story / Shorts
+  og: { width: 1200, height: 630 },
+  tweet: { width: 1200, height: 675 },
+  carousel: { width: 1080, height: 1350 },
+  pin: { width: 1000, height: 1500 },
+  square: { width: 1080, height: 1080 },
+  story: { width: 1080, height: 1920 },
 };
 
 export async function GET(req: NextRequest) {
@@ -106,261 +117,208 @@ export async function GET(req: NextRequest) {
   const type   = searchParams.get('type') || 'pulse';
   const lang   = (searchParams.get('lang') || 'en') as 'en' | 'ko' | 'ja';
   const spy    = parseFloat(searchParams.get('spy') || '0');
-  const qqq    = parseFloat(searchParams.get('qqq') || '0');
   const vix    = parseFloat(searchParams.get('vix') || '0');
   const gex    = searchParams.get('gex') || 'neutral';
+  const dp     = parseFloat(searchParams.get('dp') || '0');
   const ticker = searchParams.get('ticker') || '';
   const event  = decodeURIComponent(searchParams.get('event') || '');
   const date   = searchParams.get('date') || new Date().toISOString().split('T')[0];
   const format = searchParams.get('format') || 'og';
-  const variant = parseInt(searchParams.get('variant') || '1');
 
-  const { width: imgWidth, height: imgHeight } = FORMAT_SIZES[format] || FORMAT_SIZES.og;
-  const isVertical = imgHeight > imgWidth;
-  const isStory = format === 'story';
+  const { width: W, height: H } = FORMAT_SIZES[format] || FORMAT_SIZES.og;
 
   const l = L[lang] || L.en;
   const title = l[type] || l.pulse;
-  const gexStyle = gexGradient(gex);
+  const gt = gexTheme(gex);
   const gexLabel = l[gex.toLowerCase() as keyof typeof l] || gex.toUpperCase();
-  const vl = vixLevel(vix);
+  const vi = vixInfo(vix, l);
+  const dpPct = dp > 0 ? dp : 0;
+  const dpColor = dpPct >= 40 ? C.amber : C.cyan;
+  const isPin = format === 'pin';
+  const isVertical = H > W;
 
-  // Scale factors for different formats
-  const scale = imgWidth / 1200;
-  const pad = Math.round(36 * scale);
-  const titleSize = Math.round(26 * scale);
-  const dataSize = Math.round(isVertical ? 44 : 56) * scale;
-  const labelSize = Math.round(15 * scale);
+  // Satori-safe box style helper
+  const box = (extra: Record<string, string | number> = {}) => ({
+    display: 'flex' as const,
+    ...extra,
+  });
 
   return new ImageResponse(
     (
-      <div
-        style={{
-          width: '100%',
-          height: '100%',
-          display: 'flex',
-          flexDirection: 'column',
-          background: C.bgDark,
-          position: 'relative',
-          overflow: 'hidden',
-          fontFamily: 'system-ui, -apple-system, sans-serif',
-        }}
-      >
-        {/* Background: gradient mesh */}
-        <div style={{
-          position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, display: 'flex',
-          background: `radial-gradient(ellipse 80% 50% at 20% 40%, rgba(99,102,241,0.15) 0%, transparent 60%),
-                       radial-gradient(ellipse 60% 40% at 80% 60%, ${gexStyle.glow} 0%, transparent 50%),
-                       radial-gradient(ellipse 40% 30% at 50% 90%, rgba(6,182,212,0.1) 0%, transparent 50%)`,
-        }} />
-        
-        {/* Grid lines overlay */}
-        <div style={{
-          position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, display: 'flex',
-          backgroundImage: `linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
-                            linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px)`,
-          backgroundSize: '60px 60px',
-        }} />
+      <div style={box({
+        width: `${W}px`, height: `${H}px`, flexDirection: 'column',
+        background: C.bg, fontFamily: 'system-ui, sans-serif',
+        padding: isPin ? '36px 40px' : '28px 40px',
+      })}>
 
-        {/* Content */}
-        <div style={{ display: 'flex', flexDirection: 'column', padding: `${pad}px ${Math.round(44 * scale)}px`, flex: 1, position: 'relative' }}>
-          
-          {/* Top bar: Logo + Title + GEX Badge */}
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '28px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-              {/* Logo — actual SIGNUM HQ SG symbol */}
-              <div style={{
-                width: '52px', height: '52px', borderRadius: '14px', display: 'flex',
-                alignItems: 'center', justifyContent: 'center',
-                background: `linear-gradient(135deg, ${C.purpleDim}, ${C.cyanDim})`,
-                boxShadow: `0 0 30px rgba(99,102,241,0.4), inset 0 1px 0 rgba(255,255,255,0.2)`,
-                padding: '6px',
-              }}>
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src="data:image/svg+xml;base64,PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz4NCjxzdmcgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIiB2aWV3Qm94PSIyNDYgMjQ3IDUzMCA1MzAiIHdpZHRoPSI1MTIiIGhlaWdodD0iNTEyIj4NCiAgPCEtLSBTSUdOVU0gSFEgLSBTRyBJY29uIChWZWN0b3IsIFRyYW5zcGFyZW50IEJHIC8gRGFyayBCYWNrZ3JvdW5kIFVzZSkgLS0+DQoNCiAgPCEtLSBVcHBlciBTIHBvcnRpb24gd2l0aCBFQ0cgaGVhcnRiZWF0IC0tPg0KICA8cGF0aCBkPSJNIDI2Ni4wOTUsNDcwLjE0NCBDIDI2Ny43MTUsNDM0LjYwMyAyNzMuMDkxLDM4Mi4zNjQgMjc2LjUzNywzNjguNjg0IEMgMjgxLjE0OCwzNTAuMzgxIDI4OS40MTgsMzMxLjcxMSAyOTguNzY2LDMxOC41MDAgQyAzMTAuMjY2LDMwMi4yNDggMzI3LjA1OSwyODguMzQyIDM0Ni41MDAsMjc4Ljk3MyBDIDM3MC42MDEsMjY3LjM1OCAzODQuNDUxLDI2NC40MjcgNDM0LjUwMCwyNjAuMzUyIEMgNDYxLjEyOCwyNTguMTg0IDU1Mi43NDEsMjU3Ljg0NiA1ODAuNTAwLDI1OS44MTQgQyA2MTguODk1LDI2Mi41MzYgNjQzLjU5MiwyNjYuMDk5IDY1OSwyNzEuMTM4IEMgNjY4Ljk1OSwyNzQuMzk1IDY4NC43MzksMjgyLjA5NCA2OTMuNTU3LDI4Ny45OTcgQyA3MDMuNTc4LDI5NC43MDYgNzIwLjE1MiwzMTEuMjA2IDcyNi43MDUsMzIxIEMgNzMxLjY2MiwzMjguNDA4IDczOC4wNzksMzQwLjM4MSA3MzkuNDM2LDM0NC43NTAgQyA3MzkuNjY5LDM0NS41MDAgNzM5LjkwMiwzNDYuMjUwIDc0MC4xMzUsMzQ3IEMgNzA2LjgxNSwzNDcgNjczLjQ5MywzNDcgNjQwLjE3MywzNDcgQyA1ODAuMjU4LDM0NyA1MzYuMDYzLDM0Ny40MDYgNTI5Ljg1NiwzNDguMDEyIEMgNDkxLjEzNiwzNTEuNzk0IDQ2My4xMDgsMzY1Ljg1MiA0NTIuNTk3LDM4Ni43NjUgQyA0NDguMTE2LDM5NS42ODEgNDQ2LjY3Niw0MDMuMjI0IDQ0Ny4zMDMsNDE0LjUwMCBDIDQ0OC41MjAsNDM2LjM5MSA0NTYuMjUzLDQ1Mi42MjIgNDc0Ljk1Myw0NzIuNTM3IEMgNDc5LjEwNCw0NzYuOTU4IDQ4My4wMjIsNDgxLjQ1OCA0ODMuNjYwLDQ4Mi41MzcgQyA0ODQuNjc1LDQ4NC4yNTUgNDg2LjIwNCw0ODEuNjMxIDQ5NS45MTUsNDYxLjUwMCBDIDUwOS44NTYsNDMyLjYwMCA1MTAuMjI4LDQzMS45MjEgNTEzLjQ3MSw0MjkuNTAwIEMgNTE5LjEwOCw0MjUuMjkyIDUyOS4yOTEsNDI3Ljc5MyA1MzIuNjAzLDQzNC4xOTkgQyA1MzMuNDI4LDQzNS43OTUgNTQxLjc0NCw0NjAuMTQwIDU1MS4wODMsNDg4LjMwMCBDIDU2MC40MjIsNTE2LjQ2MCA1NjkuMDc0LDU0MS40MTkgNTcwLjMxMCw1NDMuNzY2IEMgNTcxLjA1OSw1NDUuMTg4IDU3MS44MDgsNTQ2LjYxMSA1NzIuNTU3LDU0OC4wMzMgQyA1NzMuNjIyLDU0Ni4yNzYgNTc0LjY4OCw1NDQuNTE4IDU3NS43NTMsNTQyLjc2MSBDIDU3Ny41MTAsNTM5Ljg2MSA1ODIuMjIyLDUzMS4yMjMgNTg2LjIyNCw1MjMuNTY1IEMgNTkwLjQwNyw1MTUuNTYwIDU5NC42MjEsNTA4LjgyMSA1OTYuMTM2LDUwNy43MTEgQyA2MDUuMjYzLDUwMS4wMjQgNjE4LjgzNyw1MDcuODI0IDYxNy42NzQsNTE4LjUwMCBDIDYxNy4yNjMsNTIyLjI3MCA2MTAuNjY2LDUzNy4wMDIgNTkxLjcwMyw1NzYuNTAwIEMgNTgwLjg3Myw1OTkuMDU3IDU4MC4wMTksNjAwLjM3NSA1NzQuOTA2LDYwMi40MjEgQyA1NjkuMTE5LDYwNC43MzcgNTYzLjgxNCw2MDMuNzUzIDU1OS42ODQsNTk5LjU5OSBDIDU1Ni45MzAsNTk2LjgyOSA1NTQuNzYxLDU5MS4xMzIgNTQzLjYzNiw1NTcuNDQ4IEMgNTI1LjA3Niw1MDEuMjU0IDUyNC45NTQsNTAxIDUxNi4xNzksNTAxIEMgNTA5LjkyNiw1MDEgNTA3Ljc0MSw1MDMuODAyIDQ5Ny4xNTUsNTI1LjQwMSBDIDQ4Ni42NDAsNTQ2Ljg1NSA0ODUuMTEwLDU0OC41MDAgNDc1LjY3Myw1NDguNTAwIEMgNDcwLjI4Myw1NDguNTAwIDQ2OS42MDMsNTQ4LjIzNiA0NjYuNjE1LDU0NC45NzUgQyA0NjQuODM4LDU0My4wMzYgNDYxLjE2MCw1MzYuMjg3IDQ1OC40NDIsNTI5Ljk3NyBDIDQ1MC4yNTEsNTEwLjk2MiA0NDguOTI0LDUwOC43MDcgNDQ0LjcwNyw1MDYuNjQ3IEMgNDQyLjA3NSw1MDUuMzYxIDQzOS44NjQsNTA0Ljk5MSA0MzcuNDg2LDUwNS40MzcgQyA0MzEuNDA3LDUwNi41NzcgNDI4LjgwMSw1MDkuODk1IDQyMi42MDAsNTI0LjM5NCBDIDQxNi4yNDQsNTM5LjI1NiA0MTIuNDg3LDU0My45MzggNDA1LjMyMSw1NDUuOTI4IEMgNDAyLjgwMiw1NDYuNjI4IDM3OC40NjUsNTQ2Ljk5MCAzMzMuODc1LDU0Ni45OTQgQyAzMTEuMzMzLDU0Ni45OTYgMjg4Ljc5Miw1NDYuOTk4IDI2Ni4yNTAsNTQ3IEMgMjY2LjA0Miw1NDUuOTU4IDI2NS44MzMsNTQ0LjkxNyAyNjUuNjI1LDU0My44NzUgQyAyNjQuNzk1LDUzOS43MjYgMjY1LjA5OSw0OTEuOTg5IDI2Ni4wOTUsNDcwLjE0NCBaIiBmaWxsPSJ3aGl0ZSIgc3Ryb2tlPSJub25lIi8+DQoNCiAgPCEtLSBMb3dlciBTIHBvcnRpb24gLS0+DQogIDxwYXRoIGQ9Ik0gNDM2LjEwOSw2MjguNzIyIEMgNTk4LjI1Miw2MjguMzgzIDU5OS41ODQsNjI4LjM2NCA2MTAuNTAwLDYyNi4yNDEgQyA2MjcuMzY5LDYyMi45NjAgNjM4LjUxMCw2MTkuNDY2IDY0OS44NzIsNjEzLjg5MCBDIDY3My44MzMsNjAyLjEzMiA2ODQuOTUwLDU4Mi45MjggNjgyLjIzOSw1NTcuOTgzIEMgNjgxLjAzMCw1NDYuODU5IDY3Ny4yOTYsNTM2LjMwNyA2NzEuNDMyLDUyNy40NDYgQyA2NjEuMzM5LDUxMi4xOTMgNjQ0LjEwMCw0OTcuODg5IDU5NSw0NjQuMDMwIEMgNTg3LjU3NSw0NTguOTEwIDU3Ny4zNDUsNDUxLjQwMCA1NzIuMjY2LDQ0Ny4zNDEgQyA1NTkuNTY2LDQzNy4xOTEgNTU3LjI2Myw0MzIuMTA5IDU2My4zMjMsNDI3LjYwMCBDIDU2Ni4xMzgsNDI1LjUwNiA1NjYuNDE4LDQyNS40OTkgNjYwLjQzNCw0MjUuMjI1IEMgNjkxLjg2Myw0MjUuMTM0IDcyMy4yOTMsNDI1LjA0MiA3NTQuNzIyLDQyNC45NTEgQyA3NTQuOTQzLDQyOC4wNDIgNzU1LjE2NSw0MzEuMTM0IDc1NS4zODYsNDM0LjIyNSBDIDc1Ny41MDgsNDYzLjg2NyA3NTcuOTYxLDQ3Ny4wMjkgNzU3Ljk3NSw1MDkuNTAwIEMgNzU3Ljk5NSw1NTQuMzUzIDc1NC44NjMsNjA1LjUxNyA3NDkuOTgwLDY0MC4xMTIgQyA3NDMuMDIwLDY4OS40MjEgNzE0LjkyMyw3MjcuNjAxIDY3MS45NjksNzQ2LjExOSBDIDY1MS45MDcsNzU0Ljc2OCA2MzkuMDg0LDc1Ny4zNTUgNTk4LjUwMCw3NjAuOTM2IEMgNTI4Ljg4OCw3NjcuMDc5IDQ1OS42NDQsNzY2LjA3MSAzOTUuOTU1LDc1Ny45ODcgQyAzNzUuOTY4LDc1NS40NTAgMzYxLjU2MSw3NTEuMjQwIDM0NS41MDAsNzQzLjI0MSBDIDMyNy4zODcsNzM0LjIyMSAzMDcuNTI1LDcxNy4yMjEgMjk3LjMwNCw3MDEuOTkyIEMgMjg0LjQ1MCw2ODIuODM4IDI3NS40MDEsNjU3LjkyNCAyNzMuMzczLDYzNi4xMDMgQyAyNzMuMTU1LDYzMy43NTYgMjcyLjkzNyw2MzEuNDEwIDI3Mi43MTksNjI5LjA2MyBDIDMyNy4xODMsNjI4Ljk0OSAzODEuNjQ1LDYyOC44MzYgNDM2LjEwOSw2MjguNzIyIFoiIGZpbGw9IndoaXRlIiBzdHJva2U9Im5vbmUiLz4NCjwvc3ZnPg0K"
-                  width="40"
-                  height="40"
-                  alt=""
-                  style={{ objectFit: 'contain' }}
-                />
-              </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <span style={{ fontSize: '26px', fontWeight: 800, color: C.white, letterSpacing: '1px' }}>
-                    {title}
-                  </span>
-                  {ticker && (
-                    <span style={{
-                      fontSize: '20px', fontWeight: 700, color: C.cyan,
-                      padding: '2px 12px', borderRadius: '8px',
-                      background: 'rgba(34,211,238,0.12)', border: '1px solid rgba(34,211,238,0.3)',
-                    }}>
-                      ${ticker}
-                    </span>
-                  )}
-                </div>
-                <span style={{ fontSize: '13px', color: C.muted, letterSpacing: '0.5px' }}>
-                  {l.sub} · {date}
-                </span>
-              </div>
+        {/* ── Pinterest SEO Title Overlay (pin format only) ── */}
+        {isPin ? (
+          <div style={box({ flexDirection: 'column', marginBottom: '20px' })}>
+            <span style={{
+              fontSize: '36px', fontWeight: 900, color: C.white,
+              lineHeight: '1.3', letterSpacing: '0.5px',
+            }}>{l.pinTitle}</span>
+            <span style={{
+              fontSize: '16px', color: C.muted, marginTop: '8px',
+              letterSpacing: '1px',
+            }}>{l.pinSub}</span>
+          </div>
+        ) : null}
+
+        {/* ── Row 1: Header (fixed ~60px) ── */}
+        <div style={box({ alignItems: 'center', justifyContent: 'space-between', height: '50px' })}>
+          <div style={box({ alignItems: 'center', gap: '12px' })}>
+            <div style={box({
+              width: '40px', height: '40px', borderRadius: '10px',
+              alignItems: 'center', justifyContent: 'center',
+              background: 'linear-gradient(135deg, #7c3aed, #06b6d4)',
+            })}>
+              <span style={{ fontSize: '18px', fontWeight: 900, color: 'white' }}>S</span>
             </div>
-
-            {/* GEX Badge — glassmorphism */}
-            <div style={{
-              display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px',
-              padding: '10px 24px', borderRadius: '16px',
-              background: `linear-gradient(135deg, ${gexStyle.from}22, ${gexStyle.to}11)`,
-              border: `1px solid ${gexStyle.to}44`,
-              boxShadow: `0 0 20px ${gexStyle.glow}, inset 0 1px 0 rgba(255,255,255,0.08)`,
-            }}>
-              <span style={{ fontSize: '11px', fontWeight: 600, color: C.muted, letterSpacing: '2px' }}>
-                {l.gex}
-              </span>
-              <span style={{
-                fontSize: '22px', fontWeight: 800, letterSpacing: '1px',
-                background: `linear-gradient(135deg, ${gexStyle.from}, ${gexStyle.to})`,
-                backgroundClip: 'text',
-                color: 'transparent',
-              }}>
-                {gexLabel}
-              </span>
+            <div style={box({ flexDirection: 'column' })}>
+              <span style={{ fontSize: '16px', fontWeight: 800, color: C.white, letterSpacing: '2px' }}>SIGNUM HQ</span>
+              <span style={{ fontSize: '10px', color: C.dim }}>{l.sub}</span>
             </div>
           </div>
+          <div style={box({ flexDirection: 'column', alignItems: 'flex-end' })}>
+            <span style={{ fontSize: '14px', fontWeight: 700, color: C.muted, letterSpacing: '1px' }}>{title}</span>
+            <span style={{ fontSize: '10px', color: C.dim }}>{date}</span>
+          </div>
+        </div>
 
-          {/* Main data row: SPY | QQQ | VIX — vertical stack for portrait formats */}
-          <div style={{ display: 'flex', flexDirection: isVertical ? 'column' : 'row', flex: 1, gap: `${Math.round(16 * scale)}px` }}>
-            
-            {/* SPY Card */}
+        {/* ── Row 2: GEX Hero (fixed ~200px) ── */}
+        <div style={box({
+          flexDirection: 'column', justifyContent: 'center',
+          height: '180px', marginTop: '12px',
+          padding: '16px 28px', borderRadius: '14px',
+          background: gt.bg, border: `1px solid ${gt.border}`,
+        })}>
+          <div style={box({ alignItems: 'center', gap: '8px', marginBottom: '6px' })}>
             <div style={{
-              flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-              borderRadius: '20px', padding: '24px',
-              background: C.glass,
-              border: `1px solid ${C.glassBorder}`,
-              boxShadow: `0 4px 30px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.06), 0 0 40px ${changeGlow(spy)}`,
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-                <div style={{
-                  width: '8px', height: '8px', borderRadius: '50%',
-                  background: changeColor(spy),
-                  boxShadow: `0 0 6px ${changeColor(spy)}`,
-                }} />
-                <span style={{ fontSize: '15px', fontWeight: 700, color: C.muted, letterSpacing: '3px' }}>SPY</span>
-              </div>
+              display: 'flex', width: '8px', height: '8px', borderRadius: '50%',
+              background: gt.color,
+            }} />
+            <span style={{ fontSize: '11px', fontWeight: 700, color: C.muted, letterSpacing: '3px' }}>{l.gexLabel}</span>
+            {ticker ? (
               <span style={{
-                fontSize: '56px', fontWeight: 900, color: changeColor(spy),
-                textShadow: `0 0 30px ${changeGlow(spy)}`,
-                lineHeight: 1,
-              }}>
-                {fmt(spy)}
-              </span>
-              <span style={{ fontSize: '12px', color: C.dim, marginTop: '10px', letterSpacing: '1px' }}>
-                {l.spySub}
-              </span>
-            </div>
+                fontSize: '12px', fontWeight: 700, color: C.cyan, marginLeft: '8px',
+                padding: '1px 8px', borderRadius: '6px',
+                background: 'rgba(34,211,238,0.1)', border: '1px solid rgba(34,211,238,0.2)',
+              }}>{'$' + ticker}</span>
+            ) : null}
+          </div>
+          <span style={{
+            fontSize: '32px', fontWeight: 900, color: gt.color,
+            letterSpacing: '3px', lineHeight: '1.2',
+          }}>{gexLabel}</span>
+          <span style={{ fontSize: '12px', color: C.muted, marginTop: '4px' }}>{gexDesc(gex, l)}</span>
+          <div style={box({ width: '100%', height: '5px', borderRadius: '3px', background: 'rgba(255,255,255,0.06)', marginTop: '12px' })}>
+            <div style={{ display: 'flex', width: `${gt.pct}%`, height: '5px', borderRadius: '3px', background: gt.color }} />
+          </div>
+        </div>
 
-            {/* QQQ Card */}
-            <div style={{
-              flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-              borderRadius: '20px', padding: '24px',
-              background: C.glass,
-              border: `1px solid ${C.glassBorder}`,
-              boxShadow: `0 4px 30px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.06), 0 0 40px ${changeGlow(qqq)}`,
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-                <div style={{
-                  width: '8px', height: '8px', borderRadius: '50%',
-                  background: changeColor(qqq),
-                  boxShadow: `0 0 6px ${changeColor(qqq)}`,
-                }} />
-                <span style={{ fontSize: '15px', fontWeight: 700, color: C.muted, letterSpacing: '3px' }}>QQQ</span>
-              </div>
-              <span style={{
-                fontSize: '56px', fontWeight: 900, color: changeColor(qqq),
-                textShadow: `0 0 30px ${changeGlow(qqq)}`,
-                lineHeight: 1,
-              }}>
-                {fmt(qqq)}
-              </span>
-              <span style={{ fontSize: '12px', color: C.dim, marginTop: '10px', letterSpacing: '1px' }}>
-                {l.qqqSub}
-              </span>
-            </div>
+        {/* ── Row 3: Metrics (fixed ~130px) ── */}
+        <div style={box({ marginTop: '12px', gap: '10px', height: '110px' })}>
 
-            {/* VIX Card */}
-            <div style={{
-              flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-              borderRadius: '20px', padding: '24px',
-              background: C.glass,
-              border: `1px solid ${C.glassBorder}`,
-              boxShadow: `0 4px 30px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.06)`,
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-                <div style={{
-                  width: '8px', height: '8px', borderRadius: '50%',
-                  background: vl.color,
-                  boxShadow: `0 0 6px ${vl.color}`,
-                }} />
-                <span style={{ fontSize: '15px', fontWeight: 700, color: C.muted, letterSpacing: '3px' }}>VIX</span>
-              </div>
-              <span style={{
-                fontSize: '56px', fontWeight: 900, color: vl.color,
-                lineHeight: 1,
-              }}>
-                {vix.toFixed(1)}
-              </span>
-              <span style={{
-                fontSize: '11px', fontWeight: 700, color: vl.color, marginTop: '10px',
-                padding: '2px 10px', borderRadius: '6px',
-                background: `${vl.color}18`, border: `1px solid ${vl.color}33`,
-                letterSpacing: '2px',
-              }}>
-                {vl.label}
-              </span>
-            </div>
+          {/* S&P 500 */}
+          <div style={box({
+            flex: 1, flexDirection: 'column', justifyContent: 'center',
+            padding: '12px 16px', borderRadius: '10px',
+            background: C.glass, border: `1px solid ${C.glassBorder}`,
+          })}>
+            <span style={{ fontSize: '10px', fontWeight: 600, color: C.dim, letterSpacing: '2px' }}>{l.sp500}</span>
+            <span style={{ fontSize: '28px', fontWeight: 900, color: changeColor(spy), lineHeight: '1.2', marginTop: '4px' }}>{fmt(spy)}</span>
           </div>
 
-          {/* Event banner */}
-          {type === 'event' && event && (
-            <div style={{
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              marginTop: '14px', padding: '10px 24px', borderRadius: '12px',
-              background: 'linear-gradient(90deg, rgba(168,85,247,0.12), rgba(34,211,238,0.12))',
-              border: '1px solid rgba(168,85,247,0.25)',
-            }}>
-              <span style={{ fontSize: '15px', fontWeight: 600, color: C.white }}>
-                {event}
-              </span>
+          {/* Dark Pool */}
+          <div style={box({
+            flex: 1, flexDirection: 'column', justifyContent: 'center',
+            padding: '12px 16px', borderRadius: '10px',
+            background: C.glass, border: `1px solid ${C.glassBorder}`,
+          })}>
+            <div style={box({ justifyContent: 'space-between', alignItems: 'center' })}>
+              <span style={{ fontSize: '10px', fontWeight: 600, color: C.dim, letterSpacing: '2px' }}>{l.dpLabel}</span>
+              <span style={{ fontSize: '9px', color: C.dim }}>{l.dpSub}</span>
             </div>
-          )}
-
-          {/* Footer */}
-          <div style={{
-            display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-            marginTop: '16px', paddingTop: '14px',
-            borderTop: `1px solid ${C.glassBorder}`,
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <span style={{
-                fontSize: '16px', fontWeight: 800, letterSpacing: '2px',
-                background: `linear-gradient(135deg, ${C.purple}, ${C.cyan})`,
-                backgroundClip: 'text',
-                color: 'transparent',
-              }}>
-                SIGNUM HQ
-              </span>
-              <span style={{ fontSize: '12px', color: C.dim }}>|</span>
-              <span style={{ fontSize: '12px', color: C.dim, letterSpacing: '0.5px' }}>
-                {l.tagline}
-              </span>
-            </div>
-            <span style={{ fontSize: '13px', fontWeight: 600, color: C.dim, letterSpacing: '0.5px' }}>
-              signumhq.com
+            <span style={{ fontSize: '28px', fontWeight: 900, color: dpColor, lineHeight: '1.2', marginTop: '4px' }}>
+              {dpPct > 0 ? `${dpPct.toFixed(1)}%` : '-'}
             </span>
+            {dpPct > 0 ? (
+              <div style={box({ width: '100%', height: '4px', borderRadius: '2px', background: 'rgba(255,255,255,0.06)', marginTop: '6px' })}>
+                <div style={{ display: 'flex', width: `${Math.min(dpPct * 2, 100)}%`, height: '4px', borderRadius: '2px', background: dpColor }} />
+              </div>
+            ) : null}
           </div>
+
+          {/* VIX */}
+          <div style={box({
+            flex: 1, flexDirection: 'column', justifyContent: 'center',
+            padding: '12px 16px', borderRadius: '10px',
+            background: C.glass, border: `1px solid ${C.glassBorder}`,
+          })}>
+            <div style={box({ justifyContent: 'space-between', alignItems: 'center' })}>
+              <span style={{ fontSize: '10px', fontWeight: 600, color: C.dim, letterSpacing: '2px' }}>{l.vixLabel}</span>
+              <span style={{
+                fontSize: '9px', fontWeight: 700, color: vi.color,
+                padding: '1px 6px', borderRadius: '4px',
+                background: `${vi.color}18`, border: `1px solid ${vi.color}33`,
+              }}>{vi.label}</span>
+            </div>
+            <span style={{ fontSize: '28px', fontWeight: 900, color: vi.color, lineHeight: '1.2', marginTop: '4px' }}>{vix.toFixed(1)}</span>
+            <div style={box({ width: '100%', height: '4px', borderRadius: '2px', background: 'rgba(255,255,255,0.06)', marginTop: '6px' })}>
+              <div style={{ display: 'flex', width: `${vi.pct}%`, height: '4px', borderRadius: '2px', background: vi.color }} />
+            </div>
+          </div>
+        </div>
+
+        {/* ── Event banner (optional) ── */}
+        {type === 'event' && event ? (
+          <div style={box({
+            alignItems: 'center', justifyContent: 'center',
+            marginTop: '8px', padding: '8px 20px', borderRadius: '10px',
+            background: 'linear-gradient(90deg, rgba(168,85,247,0.08), rgba(34,211,238,0.08))',
+            border: '1px solid rgba(168,85,247,0.15)',
+          })}>
+            <span style={{ fontSize: '13px', fontWeight: 600, color: C.white }}>{event}</span>
+          </div>
+        ) : null}
+
+        {/* ── Row 4: Footer (fixed ~36px) ── */}
+        <div style={box({
+          alignItems: 'center', justifyContent: 'space-between',
+          marginTop: '12px', paddingTop: '10px',
+          borderTop: `1px solid ${C.glassBorder}`,
+        })}>
+          <div style={box({ alignItems: 'center', gap: '8px' })}>
+            <span style={{ fontSize: '13px', fontWeight: 800, color: C.cyan, letterSpacing: '2px' }}>SIGNUM HQ</span>
+            <span style={{ fontSize: '10px', color: C.dim }}>{l.tagline}</span>
+          </div>
+          <span style={{ fontSize: '11px', fontWeight: 600, color: C.dim }}>signumhq.com</span>
         </div>
       </div>
     ),
-    { width: imgWidth, height: imgHeight }
+    { width: W, height: H, fonts: await loadFonts() }
   );
+}
+
+// ---------------------------------------------------------------------------
+// Font loader — Inter from Google Fonts (cached at edge)
+// ---------------------------------------------------------------------------
+let _fontCache: { name: string; data: ArrayBuffer; weight: 100 | 200 | 300 | 400 | 500 | 600 | 700 | 800 | 900; style: 'normal' | 'italic' }[] | null = null;
+
+async function loadFonts() {
+  if (_fontCache) return _fontCache;
+  try {
+    const [regular, bold] = await Promise.all([
+      fetch('https://fonts.gstatic.com/s/inter/v18/UcCO3FwrK3iLTeHuS_nVMrMxCp50SjIw2boKoduKmMEVuLyfMZg.ttf').then(r => r.arrayBuffer()),
+      fetch('https://fonts.gstatic.com/s/inter/v18/UcCO3FwrK3iLTeHuS_nVMrMxCp50SjIw2boKoduKmMEVuFuYMZg.ttf').then(r => r.arrayBuffer()),
+    ]);
+    _fontCache = [
+      { name: 'Inter', data: regular, weight: 400 as const, style: 'normal' as const },
+      { name: 'Inter', data: bold, weight: 700 as const, style: 'normal' as const },
+    ];
+  } catch {
+    _fontCache = [];
+  }
+  return _fontCache;
 }

@@ -4,7 +4,7 @@
 // ============================================================================
 
 import { createPost, getChannels, truncateForPlatform, buildUtm, type BufferChannel, type ChannelTier } from './bufferClient';
-import { getHashtags, buildInstagramFooter, getPinterestSEO, type ContentType, type Platform, type Lang } from './hashtagEngine';
+import { getHashtags, getTwitterTagsSplit, buildInstagramFooter, getPinterestSEO, type ContentType, type Platform, type Lang } from './hashtagEngine';
 
 const BUFFER_API_URL = 'https://api.buffer.com';
 
@@ -168,9 +168,10 @@ export async function dispatchCarousel(opts: {
   channelId: string;
   caption: string;
   imageUrls: string[];  // Up to 10 images
+  altTexts?: string[];  // ALT text per image (IG SEO — Phase 1-6)
   dryRun?: boolean;
 }): Promise<DispatchResult> {
-  const { channelId, caption, imageUrls, dryRun = true } = opts;
+  const { channelId, caption, imageUrls, altTexts, dryRun = true } = opts;
   const channel = getChannels({ tier: 'all' }).find(c => c.id === channelId);
 
   if (dryRun) {
@@ -197,7 +198,10 @@ export async function dispatchCarousel(opts: {
         channelIds: [channelId],
         content: {
           text: caption,
-          media: imageUrls.slice(0, 10).map(url => ({ url })),
+          media: imageUrls.slice(0, 10).map((url, i) => ({
+            url,
+            ...(altTexts?.[i] ? { altText: altTexts[i] } : {}),
+          })),
         },
       },
     });
@@ -347,6 +351,42 @@ export async function dispatchPost(opts: {
 }
 
 // ---------------------------------------------------------------------------
+// IG Carousel ALT Text Generator — Phase 1-6
+// IG algorithm uses ALT text + caption keywords for search ranking
+// ---------------------------------------------------------------------------
+const SLIDE_ALT: Record<string, string[]> = {
+  en: [
+    'SIGNUM HQ market structure analysis - daily options flow and gamma exposure overview',
+    'S&P 500 and market data - stock market performance with options structure context',
+    'GEX gamma exposure regime analysis - dealer hedging impact on market volatility',
+    'Dark pool institutional trading activity - smart money positioning data',
+    'Key market insight - options structure drives price action analysis',
+    'SIGNUM HQ call to action - institutional grade market analysis platform',
+  ],
+  ko: [
+    'SIGNUM HQ 시장 구조 분석 - 옵션 플로우 및 감마 노출 개요',
+    'S&P 500 시장 데이터 - 옵션 구조 맥락의 시장 성과 분석',
+    'GEX 감마 노출 레짐 분석 - 딜러 헤징이 변동성에 미치는 영향',
+    '다크풀 기관 매매 활동 - 스마트 머니 포지셔닝 데이터',
+    '핵심 시장 인사이트 - 옵션 구조가 가격 움직임을 결정',
+    'SIGNUM HQ - 기관급 시장 구조 분석 플랫폼',
+  ],
+  ja: [
+    'SIGNUM HQ market structure analysis - options flow and gamma exposure',
+    'S&P 500 market data - stock performance with options structure',
+    'GEX gamma exposure regime - dealer hedging volatility impact',
+    'Dark pool institutional trading - smart money positioning',
+    'Key market insight - options structure price action',
+    'SIGNUM HQ - institutional grade market analysis',
+  ],
+};
+
+export function generateCarouselAltTexts(slideCount: number, lang: string): string[] {
+  const alts = SLIDE_ALT[lang] || SLIDE_ALT.en;
+  return Array.from({ length: slideCount }, (_, i) => alts[i % alts.length]);
+}
+
+// ---------------------------------------------------------------------------
 // Full Multi-Platform Dispatch — handles routing to all platforms
 // ---------------------------------------------------------------------------
 export interface MultiPlatformContent {
@@ -364,6 +404,7 @@ export interface MultiPlatformContent {
   tweetImageUrl?: string;       // 1200×675
   ogImageUrl?: string;          // 1200×630
   carouselImageUrls?: string[]; // 1080×1350 × 8
+  carouselAltTexts?: string[];  // ALT text per slide (IG SEO — Phase 1-6)
   storyImageUrl?: string;       // 1080×1920
   pinImageUrl?: string;         // 1000×1500
   // Context
@@ -388,11 +429,20 @@ export async function dispatchMultiPlatform(
   const channels = getChannels({ tier, lang });
 
   // --- Twitter Tweet ---
+  // 2026 X algorithm: $Cashtags at FIRST LINE for SimClusters matching,
+  // hashtags at end (max 2), CTA link in auto-reply (not in body)
   if (!formats || formats.includes('tweet')) {
     const twitterCh = channels.find(c => c.service === 'twitter');
     if (twitterCh) {
-      const tags = getHashtags({ platform: 'twitter', contentType, lang, tickers: content.tickers, educationTopic: content.educationTopic });
-      const fullText = truncateForPlatform(`${content.tweetText}\n\n${tags}`, 'twitter');
+      const { cashtags, hashtags } = getTwitterTagsSplit({
+        contentType, tickers: content.tickers, educationTopic: content.educationTopic,
+      });
+      // Structure: $CASHTAGS — [tweet body] \n\n #hashtags
+      const bodyWithCashtags = `${cashtags} — ${content.tweetText}`;
+      const fullText = truncateForPlatform(
+        hashtags ? `${bodyWithCashtags}\n\n${hashtags}` : bodyWithCashtags,
+        'twitter',
+      );
       const replyText = `📊 ${content.ctaUrl}`;
 
       const r = await dispatchTweet({
@@ -430,6 +480,7 @@ export async function dispatchMultiPlatform(
         channelId: igCh.id,
         caption,
         imageUrls: content.carouselImageUrls,
+        altTexts: content.carouselAltTexts || generateCarouselAltTexts(content.carouselImageUrls.length, lang),
         dryRun,
       });
       results.push(r);

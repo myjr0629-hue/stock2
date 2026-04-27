@@ -182,11 +182,24 @@ async function fetchMarketDataFromRedis(): Promise<MarketData> {
   const vix = extractVix(vixData) ?? extractFromDash(parsed, '^VIX') ?? 18;
   const gexRegime = extractGex(gexData) ?? 'neutral';
 
+  // Dark Pool — fetch live from EC2/Polygon (Phase 2: OG image requires dp param)
+  let darkPool: number | undefined;
+  try {
+    const { fetchTradeData } = await import('@/services/realtimeMetricsService');
+    const tradeData = await fetchTradeData('SPY');
+    if (tradeData && tradeData.darkPoolPercent > 0) {
+      darkPool = tradeData.darkPoolPercent;
+    }
+  } catch {
+    // Silent — darkPool is optional, OG renders gracefully without it
+  }
+
   return {
     spy,
     qqq,
     vix,
     gexRegime,
+    darkPool,
   };
 }
 

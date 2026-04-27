@@ -21,17 +21,19 @@ BRAND VOICE:
 - Use crisp, punchy sentences. No filler words.
 
 ABSOLUTE COMPLIANCE RULES (violating ANY = content rejection):
-1. NEVER use: "buy", "sell", "bullish", "bearish", "will go up", "will drop", "expect", "predict", "guarantee", "profit", "적중", "매수", "매도", "상승전망", "하락전망", "買い", "売り"
-2. NEVER give financial advice or recommend specific trades
-3. ALWAYS frame data as "historically associated with" or "structural observation"
-4. ALWAYS include disclaimer awareness — present as data context, not prediction
-5. Use institutional language: "call-side activity", "put-side protection", "structural positioning"
+1. NEVER use these EN words: "buy", "sell", "bullish", "bearish", "will go up", "will drop", "expect", "predict", "guarantee", "profit", "sure thing", "100% chance"
+2. NEVER use these KO words: "적중", "매수", "매도", "상승전망", "하락전망", "확실", "수익", "추천", "반드시", "대박"
+3. NEVER use these JA words: "買い", "売り", "絶対", "儲かる", "推奨", "必ず", "確実"
+4. NEVER give financial advice or recommend specific trades
+5. ALWAYS frame data as "historically associated with" or "structural observation"
+6. ALWAYS include disclaimer awareness — present as data context, not prediction
+7. Use institutional language: "call-side activity", "put-side protection", "structural positioning"
 
-PLATFORM OPTIMIZATION:
-- Twitter/X: Max 280 chars. Hook + 1 key data point + 1 insight. No hashtags.
-- Threads: Max 500 chars. Hook → Data → Interpretation flow. Conversational.
-- Instagram: Max 2200 chars. Full analysis. Include hashtags at end.
-- Bluesky: Max 300 chars. Clean, data-focused, no emojis.
+PLATFORM OPTIMIZATION (2026 algorithm-tuned):
+- Twitter/X: Max 280 chars. Start with a provocative HOOK that stops scrolling. Use line breaks for readability. Write to maximize DWELL TIME — make readers pause and think. No external links. No hashtags (added separately). End with a thought-provoking insight, NOT a CTA.
+- Threads: Max 500 chars. CONVERSATIONAL tone — this is a discussion platform, not a broadcast channel. Break text into short paragraphs. END with a question that invites replies (e.g., "What's your read?" or "How are you positioned?"). Replies are the #1 algorithm signal.
+- Instagram: Max 2200 chars. Full analysis with data. Write to be SAVE-WORTHY — information so valuable people bookmark it. Include clear structure with bullet points (▸). No hashtags (added separately).
+- Bluesky: Max 300 chars. Clean, data-focused, professional. No emojis. Compact but insightful.
 
 OUTPUT FORMAT: Return ONLY valid JSON, no markdown fences:
 {
@@ -143,7 +145,7 @@ function applyLimits(pc: PlatformContent): PlatformContent {
 // ---------------------------------------------------------------------------
 export async function generateAIMarketPulse(data: MarketData): Promise<ContentOutput> {
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://signumhq.com';
-  const imageParams = `type=pulse&spy=${data.spy}&qqq=${data.qqq}&vix=${data.vix}&gex=${data.gexRegime}`;
+  const imageParams = `type=pulse&spy=${data.spy}&qqq=${data.qqq}&vix=${data.vix}&gex=${data.gexRegime}&dp=${data.darkPool ?? ''}`;
 
   const userPrompt = `Generate a market structure analysis post for social media.
 
@@ -204,7 +206,7 @@ export async function generateAIMorningBrief(
   data: MarketData & { briefingSummary?: string }
 ): Promise<ContentOutput> {
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://signumhq.com';
-  const imageParams = `type=pulse&spy=${data.spy}&qqq=${data.qqq}&vix=${data.vix}&gex=${data.gexRegime}`;
+  const imageParams = `type=pulse&spy=${data.spy}&qqq=${data.qqq}&vix=${data.vix}&gex=${data.gexRegime}&dp=${data.darkPool ?? ''}`;
 
   const userPrompt = `Generate a PRE-MARKET briefing post for social media. This goes out before US market opens.
 
@@ -298,7 +300,7 @@ export async function generateAIEventSpike(
   marketData?: Partial<MarketData>
 ): Promise<ContentOutput> {
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://signumhq.com';
-  const imageParams = `type=event&ticker=${event.ticker}&spy=${marketData?.spy || 0}&vix=${marketData?.vix || 0}`;
+  const imageParams = `type=event&ticker=${event.ticker}&spy=${marketData?.spy || 0}&vix=${marketData?.vix || 0}&gex=${marketData?.gexRegime || 'neutral'}&dp=${marketData?.darkPool ?? ''}`;
 
   const userPrompt = `Generate an ALERT post about a structural market event.
 

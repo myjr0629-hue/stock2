@@ -4,7 +4,7 @@
 // Compliance-grade premium templates with institutional tone
 // ============================================================================
 
-import { applyCompliance, buildUtm, CTA, CTA_KO, CTA_JA } from './bufferClient';
+import { applyCompliance, buildUtm, CTA, CTA_KO, CTA_JA, DISCLAIMER } from './bufferClient';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -95,26 +95,99 @@ function dpMeaning(dp: number, lang: string): string {
          'Institutional activity within normal range';
 }
 
+// GEX regime → historical directional tendency (compliance-safe)
+function gexHistorical(gex: string, lang: string): string {
+  const stats: Record<string, Record<string, string>> = {
+    positive: {
+      en: 'Historically, positive GEX regimes have shown lower realized volatility over the following 3 sessions.',
+      ko: '역사적으로, GEX Positive 구간에서는 이후 3거래일 실현 변동성이 낮아지는 경향이 있었습니다.',
+      ja: '歴史的に、GEX Positive局面では以降3営業日の実現ボラティリティが低下する傾向がありました。',
+    },
+    negative: {
+      en: 'Historically, negative GEX regimes have coincided with larger intraday price ranges over the following sessions.',
+      ko: '역사적으로, GEX Negative 구간에서는 이후 장중 가격 변동폭이 확대되는 경향이 있었습니다.',
+      ja: '歴史的に、GEX Negative局面では以降のセッションで日中レンジが拡大する傾向がありました。',
+    },
+    transition: {
+      en: 'Regime transitions have historically preceded trend acceleration, not mean reversion.',
+      ko: '레짐 전환기에는 역사적으로 평균회귀보다 추세 가속이 선행되는 경향이 있었습니다.',
+      ja: 'レジーム転換期には、歴史的に平均回帰よりトレンド加速が先行する傾向がありました。',
+    },
+  };
+  return stats[gex.toLowerCase()]?.[lang] || '';
+}
+
+// ---------------------------------------------------------------------------
+// Hook Rotation — Phase 3-1: 피로도 방지 + 긴급성 강화
+// 날짜 기반 로테이션으로 매일 다른 Hook 사용
+// ---------------------------------------------------------------------------
+function getHookIndex(): number {
+  const day = new Date().getDate();
+  return day % 6; // 6개 Hook 로테이션
+}
+
+function getPulseHook(data: MarketData, lang: string): string[] {
+  const idx = getHookIndex();
+
+  const enHooks: string[][] = [
+    [`Surface numbers rarely tell the whole story.`,
+     `SPY ${fmt(data.spy)}. But here's what actually shifted:`],
+    [`Everyone saw ${fmt(data.spy)}. Almost no one saw what happened underneath.`],
+    [`The close was ${fmt(data.spy)}. The structure tells a different story.`],
+    [`SPY ${fmt(data.spy)}. But $${data.darkPool?.toFixed(0) || '?'}% of volume went dark.`,
+     `Here's what the options market is actually saying:`],
+    [`Headline: SPY ${fmt(data.spy)}.`,
+     `Reality: The options structure just shifted.`],
+    [`${Math.abs(data.spy) > 1 ? 'A big move.' : 'A quiet session.'} But the real signal is under the surface.`],
+  ];
+
+  // KO: 번역투 제거, 한국 금융 미디어 네이티브 톤
+  const koHooks: string[][] = [
+    [`어제 SPY ${fmt(data.spy)}. 그 숫자가 가리고 있는 게 있습니다.`],
+    [`지수만 보면 ${fmt(data.spy)}. 하지만 옵션 시장은 다른 얘기를 합니다.`],
+    [`SPY ${fmt(data.spy)} 마감. 다크풀에선 이미 다음 수를 두고 있습니다.`],
+    [`표면: ${fmt(data.spy)}. 이면: 구조적 전환 포착.`],
+    [`${Math.abs(data.spy) > 1 ? '큰 움직임이었습니다.' : '조용한 장이었습니다.'} 그런데 진짜 시그널은 따로 있습니다.`],
+    [`SPY ${fmt(data.spy)}로 마감. 그런데 기관의 발자국이 보입니다.`],
+  ];
+
+  // JA: 丁寧語(です/ます体) + 自然な日本語
+  const jaHooks: string[][] = [
+    [`SPY ${fmt(data.spy)}で引けました。しかし、数字の裏で構造が変わっています。`],
+    [`昨日の${fmt(data.spy)}。市場が本当に伝えたいことは別にあります。`],
+    [`表面は${fmt(data.spy)}。しかしオプション市場は異なるシグナルを発しています。`],
+    [`SPY ${fmt(data.spy)}。ダークプールでは既に次の動きが始まっています。`],
+    [`${Math.abs(data.spy) > 1 ? '大きな動きでした。' : '静かなセッションでした。'}しかし真のシグナルは水面下にあります。`],
+    [`指数だけを見れば${fmt(data.spy)}。構造分析が示すのは全く異なる景色です。`],
+  ];
+
+  const hooks = lang === 'ko' ? koHooks : lang === 'ja' ? jaHooks : enHooks;
+  return hooks[idx % hooks.length];
+}
+
 // ---------------------------------------------------------------------------
 // A. Market Pulse — 5-Layer: Hook → Data → Meaning → Implication → CTA
 // ---------------------------------------------------------------------------
 export function generateMarketPulse(data: MarketData): ContentOutput {
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://signumhq.com';
-  const imageParams = `type=pulse&spy=${data.spy}&qqq=${data.qqq}&vix=${data.vix}&gex=${data.gexRegime}`;
+  const imageParams = `type=pulse&spy=${data.spy}&vix=${data.vix}&gex=${data.gexRegime}&dp=${data.darkPool ?? ''}`;
   const gex = data.gexRegime.toUpperCase();
 
   // ── English ──────────────────────────────────────────
   const enTwitter = [
-    // Hook (반전)
-    `Surface numbers rarely tell the whole story.`,
-    `Retail saw today's ${fmt(data.spy)} drop. Here is what happened beneath the surface:`,
+    // Hook (rotating — Phase 3-1)
+    ...getPulseHook(data, 'en'),
     ``,
     // Data + Meaning
     `▸ GEX flipped ${gex} (${gexMeaning(data.gexRegime, 'en')})`,
     data.darkPool != null ? `▸ Dark Pool at ${data.darkPool.toFixed(1)}% (${dpMeaning(data.darkPool, 'en')})` : '',
     ``,
-    // Implication
+    // Historical context (compliance-safe — Phase 3-6)
+    gexHistorical(data.gexRegime, 'en'),
+    ``,
+    // Implication + Disclaimer
     `Price reacts. Structure dictates.`,
+    DISCLAIMER.en,
   ].filter(Boolean).join('\n');
 
   const enThreads = [
@@ -128,9 +201,11 @@ export function generateMarketPulse(data: MarketData): ContentOutput {
     data.darkPool != null ? `Dark Pool at ${data.darkPool.toFixed(1)}% — ${dpMeaning(data.darkPool, 'en')}.` : '',
     data.callWall ? `Key levels: Call Wall $${data.callWall}, Put Floor $${data.putFloor}.` : '',
     ``,
-    // Implication
+    // Conversational close (Threads algorithm: replies > likes)
     `The headline says one thing. The structure says another.`,
-    `Data-driven context. Not financial advice.`,
+    ``,
+    `What’s your read on tomorrow’s open?`,
+    DISCLAIMER.en,
   ].filter(Boolean).join('\n');
 
   const enInstagram = [
@@ -160,16 +235,21 @@ export function generateMarketPulse(data: MarketData): ContentOutput {
     `SPY ${fmt(data.spy)} · QQQ ${fmt(data.qqq)} · VIX ${data.vix.toFixed(1)}`,
     `GEX: ${gex} — ${gexMeaning(data.gexRegime, 'en')}`,
     data.darkPool != null ? `Dark Pool: ${data.darkPool.toFixed(1)}%` : '',
+    DISCLAIMER.en,
   ].filter(Boolean).join('\n');
 
   // ── Korean ──────────────────────────────────────────
   const koTwitter = [
-    `표면적인 지수 하락(${fmt(data.spy)}) 이면의 구조적 움직임입니다.`,
+    // Hook (rotating — Phase 3-3 네이티브 KO)
+    ...getPulseHook(data, 'ko'),
     ``,
     `▸ GEX: ${gex} 진입 (${gexMeaning(data.gexRegime, 'ko')})`,
     data.darkPool != null ? `▸ 다크풀: ${data.darkPool.toFixed(1)}% (${dpMeaning(data.darkPool, 'ko')})` : '',
     ``,
-    `가격은 현상이지만, 옵션 구조는 본질입니다.`,
+    gexHistorical(data.gexRegime, 'ko'),
+    ``,
+    `가격은 현상. 구조가 본질.`,
+    DISCLAIMER.ko,
   ].filter(Boolean).join('\n');
 
   const koThreads = [
@@ -182,7 +262,9 @@ export function generateMarketPulse(data: MarketData): ContentOutput {
     data.callWall ? `주시 레벨: Call Wall $${data.callWall}, Put Floor $${data.putFloor}` : '',
     ``,
     `표면적 가격과 심층 구조의 괴리.`,
-    `데이터 기반 시장 맥락입니다. 투자 조언이 아닙니다.`,
+    ``,
+    `내일 장 오픈 어떻게 보시나요?`,
+    DISCLAIMER.ko,
   ].filter(Boolean).join('\n');
 
   const koInstagram = [
@@ -212,16 +294,21 @@ export function generateMarketPulse(data: MarketData): ContentOutput {
     `SPY ${fmt(data.spy)} · QQQ ${fmt(data.qqq)} · VIX ${data.vix.toFixed(1)}`,
     `GEX: ${gex} — ${gexMeaning(data.gexRegime, 'ko')}`,
     data.darkPool != null ? `다크풀: ${data.darkPool.toFixed(1)}%` : '',
+    DISCLAIMER.ko,
   ].filter(Boolean).join('\n');
 
   // ── Japanese ──────────────────────────────────────────
   const jaTwitter = [
-    `表面的な指数下落（${fmt(data.spy)}）の裏で起きている構造的変化：`,
+    // Hook (rotating — Phase 3-4 丁寧語 JA)
+    ...getPulseHook(data, 'ja'),
     ``,
     `▸ GEX: ${gex}（${gexMeaning(data.gexRegime, 'ja')}）`,
     data.darkPool != null ? `▸ ダークプール: ${data.darkPool.toFixed(1)}%（${dpMeaning(data.darkPool, 'ja')}）` : '',
     ``,
-    `価格ではなく、市場の「構造」を追跡してください。`,
+    gexHistorical(data.gexRegime, 'ja'),
+    ``,
+    `価格は現象。構造が本質です。`,
+    DISCLAIMER.ja,
   ].filter(Boolean).join('\n');
 
   const jaThreads = [
@@ -233,7 +320,9 @@ export function generateMarketPulse(data: MarketData): ContentOutput {
     data.darkPool != null ? `ダークプール${data.darkPool.toFixed(1)}% — ${dpMeaning(data.darkPool, 'ja')}。` : '',
     ``,
     `表面の価格と深層構造の乖離。`,
-    `データ基盤の市場分析。投資助言ではありません。`,
+    ``,
+    `明日の寄り付き、どう見られますか？`,
+    DISCLAIMER.ja,
   ].filter(Boolean).join('\n');
 
   const jaInstagram = [
@@ -259,6 +348,7 @@ export function generateMarketPulse(data: MarketData): ContentOutput {
   const jaBluesky = [
     `SPY ${fmt(data.spy)} · QQQ ${fmt(data.qqq)} · VIX ${data.vix.toFixed(1)}`,
     `GEX: ${gex} — ${gexMeaning(data.gexRegime, 'ja')}`,
+    DISCLAIMER.ja,
   ].join('\n');
 
   const imageUrl = (lang: string) => `${baseUrl}/api/og/market?${imageParams}&lang=${lang}`;
@@ -305,7 +395,7 @@ export function generateMarketPulse(data: MarketData): ContentOutput {
 // ---------------------------------------------------------------------------
 export function generateMorningBrief(data: MarketData & { briefingSummary?: string }): ContentOutput {
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://signumhq.com';
-  const imageParams = `type=pulse&spy=${data.spy}&qqq=${data.qqq}&vix=${data.vix}&gex=${data.gexRegime}`;
+  const imageParams = `type=pulse&spy=${data.spy}&vix=${data.vix}&gex=${data.gexRegime}&dp=${data.darkPool ?? ''}`;
   const gex = data.gexRegime.toUpperCase();
 
   const enTwitter = [
@@ -316,6 +406,7 @@ export function generateMorningBrief(data: MarketData & { briefingSummary?: stri
     data.briefingSummary ? `\n${data.briefingSummary.substring(0, 100)}` : '',
     ``,
     `Track the mechanics driving today's session.`,
+    DISCLAIMER.en,
   ].filter(Boolean).join('\n');
 
   const koTwitter = [
@@ -326,6 +417,7 @@ export function generateMorningBrief(data: MarketData & { briefingSummary?: stri
     data.briefingSummary ? `\n${data.briefingSummary.substring(0, 100)}` : '',
     ``,
     `오늘의 시장 맥락을 데이터로 확인하십시오.`,
+    DISCLAIMER.ko,
   ].filter(Boolean).join('\n');
 
   const jaTwitter = [
@@ -334,6 +426,7 @@ export function generateMorningBrief(data: MarketData & { briefingSummary?: stri
     `SPY ${fmt(data.spy)} · VIX ${data.vix.toFixed(1)}`,
     `GEX: ${gex} — ${gexMeaning(data.gexRegime, 'ja')}`,
     data.briefingSummary ? `\n${data.briefingSummary.substring(0, 100)}` : '',
+    DISCLAIMER.ja,
   ].filter(Boolean).join('\n');
 
   const imageUrl = (lang: string) => `${baseUrl}/api/og/market?${imageParams}&lang=${lang}`;
@@ -508,7 +601,7 @@ export function getEducationTopicIds(): string[] {
 export function generateEventSpike(event: EventData, marketData?: Partial<MarketData>): ContentOutput {
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://signumhq.com';
 
-  const imageParams = `type=event&ticker=${event.ticker}&event=${encodeURIComponent(event.details)}&spy=${marketData?.spy || 0}&qqq=${marketData?.qqq || 0}&vix=${marketData?.vix || 0}&gex=${marketData?.gexRegime || 'neutral'}`;
+  const imageParams = `type=event&ticker=${event.ticker}&event=${encodeURIComponent(event.details)}&spy=${marketData?.spy || 0}&qqq=${marketData?.qqq || 0}&vix=${marketData?.vix || 0}&gex=${marketData?.gexRegime || 'neutral'}&dp=${marketData?.darkPool ?? ''}`;
 
   function buildEvent(lang: 'en' | 'ko' | 'ja') {
     const premium = event.premium ? (
@@ -517,19 +610,26 @@ export function generateEventSpike(event: EventData, marketData?: Partial<Market
       `Premium: $${(event.premium / 1e6).toFixed(1)}M`
     ) : '';
 
+    // Phase 3-5: value가 있으면 수치 표시
+    const valueStr = event.value ? (
+      lang === 'ko' ? `규모: $${Math.abs(event.value) >= 1e9 ? (event.value / 1e9).toFixed(1) + 'B' : (event.value / 1e6).toFixed(1) + 'M'}` :
+      lang === 'ja' ? `規模: $${Math.abs(event.value) >= 1e9 ? (event.value / 1e9).toFixed(1) + 'B' : (event.value / 1e6).toFixed(1) + 'M'}` :
+      `Size: $${Math.abs(event.value) >= 1e9 ? (event.value / 1e9).toFixed(1) + 'B' : (event.value / 1e6).toFixed(1) + 'M'}`
+    ) : '';
+
     // GEX Shift — special handling with interpretation
     if (event.type === 'gex_shift') {
       const twitter = lang === 'ko'
-        ? `🚨 $${event.ticker} 시장 구조 변화 감지\n\n${event.details}\n이 구간에서는 딜러들의 헤징이 변동성을 억제하는 대신, 증폭시키는 경향이 있습니다.\n\n평소와 다른 리스크 관리가 요구되는 환경입니다.`
+        ? `🚨 $${event.ticker} GEX 레짐 전환 감지\n\n${event.details}${valueStr ? `\n${valueStr}` : ''}\n딜러 헤징이 변동성을 억제하는 대신 증폭시키는 구간입니다.\n${DISCLAIMER.ko}`
         : lang === 'ja'
-        ? `🚨 $${event.ticker} 市場構造変化検出\n\n${event.details}\nこの局面ではディーラーのヘッジがボラティリティを抑制するのではなく、増幅する傾向があります。`
-        : `🚨 Structural Shift Detected: $${event.ticker}\n\n${event.details}\nThis changes how dealers hedge — and how price moves.`;
+        ? `🚨 $${event.ticker} GEXレジーム転換検出\n\n${event.details}${valueStr ? `\n${valueStr}` : ''}\nディーラーヘッジがボラティリティを抑制ではなく増幅する局面です。\n${DISCLAIMER.ja}`
+        : `🚨 $${event.ticker} GEX Regime Shift Detected\n\n${event.details}${valueStr ? `\n${valueStr}` : ''}\nDealer hedging now amplifies rather than suppresses volatility.\n${DISCLAIMER.en}`;
 
       const threads = lang === 'ko'
-        ? `🚨 $${event.ticker} 시장 구조 변화 감지\n\n${event.details}\n이 구간에서는 딜러들의 헤징 알고리즘이 시장의 변동성을 억제하는 대신, 방향성을 증폭시키는 경향이 있습니다.\n\n평소와 다른 리스크 관리가 요구되는 환경입니다.`
+        ? `🚨 $${event.ticker} GEX 레짐 전환\n\n${event.details}${valueStr ? `\n${valueStr}` : ''}\n\n딜러 헤징 알고리즘이 변동성 억제 → 증폭으로 전환되는 구간입니다.\n\n이런 구간에서 어떻게 대응하시나요?\n${DISCLAIMER.ko}`
         : lang === 'ja'
-        ? `🚨 $${event.ticker} 市場構造変化検出\n\n${event.details}\nディーラーのヘッジ行動が変化しました。\nボラティリティが抑制から増幅に転じる可能性があります。`
-        : `🚨 Structural Shift Detected: $${event.ticker}\n\n${event.details}\nIn this regime, dealer hedging shifts from suppressing volatility to potentially amplifying it.\n\nRisk management parameters should be adjusted accordingly.`;
+        ? `🚨 $${event.ticker} GEXレジーム転換\n\n${event.details}${valueStr ? `\n${valueStr}` : ''}\n\nディーラーヘッジがボラティリティ抑制から増幅に転じる局面です。\n\nこの局面でどう対応されていますか？\n${DISCLAIMER.ja}`
+        : `🚨 $${event.ticker} GEX Regime Shift\n\n${event.details}${valueStr ? `\n${valueStr}` : ''}\n\nDealer hedging shifts from suppression to amplification.\n\nHow are you adjusting for this?\n${DISCLAIMER.en}`;
 
       return {
         text: applyCompliance(twitter),
@@ -544,14 +644,17 @@ export function generateEventSpike(event: EventData, marketData?: Partial<Market
       };
     }
 
-    // Generic event
-    const hook = lang === 'ko' ? `$${event.ticker}에서 구조적 변화 감지:`
-               : lang === 'ja' ? `$${event.ticker}で構造的変化検出:`
-               : `Structural change detected — $${event.ticker}:`;
+    // Generic event — Phase 3-5: 구체적 수치 + DISCLAIMER
+    const hook = lang === 'ko' ? `🚨 $${event.ticker} 구조적 변화 감지`
+               : lang === 'ja' ? `🚨 $${event.ticker} 構造的変化を検出`
+               : `🚨 Structural change — $${event.ticker}`;
 
-    const twitter = [hook, '', event.details, premium].filter(Boolean).join('\n');
-    const threads = [hook, '', event.details, premium, '',
-      lang === 'ko' ? '데이터 기반 맥락입니다.' : lang === 'ja' ? 'データ基盤の文脈です。' : 'Data-driven context.'
+    const twitter = [hook, '', event.details, valueStr, premium, '', DISCLAIMER[lang]].filter(Boolean).join('\n');
+    const threads = [hook, '', event.details, valueStr, premium, '',
+      lang === 'ko' ? '이 시그널을 어떻게 해석하시나요?' :
+      lang === 'ja' ? 'このシグナルをどう解釈されますか？' :
+      'What does this signal tell you?',
+      DISCLAIMER[lang],
     ].filter(Boolean).join('\n');
 
     return {
@@ -568,4 +671,145 @@ export function generateEventSpike(event: EventData, marketData?: Partial<Market
   }
 
   return { en: buildEvent('en'), ko: buildEvent('ko'), ja: buildEvent('ja') };
+}
+
+// ---------------------------------------------------------------------------
+// F. Seasonal Content Calendar — Phase 1-15
+// Pinterest users plan ahead → publish educational pins 45 days before major events
+// Returns relevant topic ID + urgency for cron scheduling
+// ---------------------------------------------------------------------------
+interface SeasonalEvent {
+  name: string;
+  month: number;       // 1-12
+  day: number;         // approximate day
+  topicId: string;     // maps to EDUCATION_TOPICS
+  keywords: string[];  // Pinterest SEO keywords
+}
+
+const SEASONAL_CALENDAR: SeasonalEvent[] = [
+  // FOMC meetings (2026 approximate schedule)
+  { name: 'FOMC Jan', month: 1, day: 29, topicId: 'gex', keywords: ['FOMC', 'fed meeting', 'interest rates', 'volatility'] },
+  { name: 'FOMC Mar', month: 3, day: 19, topicId: 'gex', keywords: ['FOMC', 'fed decision', 'gamma exposure'] },
+  { name: 'FOMC May', month: 5, day: 7, topicId: 'gex', keywords: ['FOMC', 'rate decision', 'options flow'] },
+  { name: 'FOMC Jun', month: 6, day: 18, topicId: 'darkpool', keywords: ['FOMC', 'institutional flow', 'dark pool'] },
+  { name: 'FOMC Jul', month: 7, day: 30, topicId: 'gex', keywords: ['FOMC', 'rate cut', 'gamma exposure'] },
+  { name: 'FOMC Sep', month: 9, day: 17, topicId: 'gex', keywords: ['FOMC', 'september volatility'] },
+  { name: 'FOMC Nov', month: 11, day: 5, topicId: 'darkpool', keywords: ['FOMC', 'year end positioning'] },
+  { name: 'FOMC Dec', month: 12, day: 17, topicId: 'gex', keywords: ['FOMC', 'december rate decision'] },
+  // Earnings seasons (start dates)
+  { name: 'Q1 Earnings', month: 4, day: 15, topicId: 'darkpool', keywords: ['earnings season', 'dark pool', 'institutional positioning'] },
+  { name: 'Q2 Earnings', month: 7, day: 15, topicId: 'darkpool', keywords: ['earnings season', 'options flow', 'smart money'] },
+  { name: 'Q3 Earnings', month: 10, day: 15, topicId: 'levels', keywords: ['earnings season', 'support resistance', 'max pain'] },
+  { name: 'Q4 Earnings', month: 1, day: 15, topicId: 'darkpool', keywords: ['earnings season', 'institutional activity'] },
+  // Triple Witching (options expiration)
+  { name: 'March OpEx', month: 3, day: 21, topicId: 'levels', keywords: ['triple witching', 'options expiration', 'max pain'] },
+  { name: 'June OpEx', month: 6, day: 20, topicId: 'levels', keywords: ['triple witching', 'OPEX', 'gamma pin'] },
+  { name: 'Sep OpEx', month: 9, day: 19, topicId: 'levels', keywords: ['triple witching', 'options expiration'] },
+  { name: 'Dec OpEx', month: 12, day: 19, topicId: 'levels', keywords: ['triple witching', 'year end expiration'] },
+  // Jackson Hole
+  { name: 'Jackson Hole', month: 8, day: 22, topicId: 'gex', keywords: ['jackson hole', 'fed symposium', 'volatility spike'] },
+];
+
+export interface SeasonalResult {
+  event: SeasonalEvent;
+  daysUntil: number;
+  urgency: 'early' | 'mid' | 'imminent';
+}
+
+/**
+ * Returns seasonal events approaching within the next 45 days.
+ * Used by cron to decide when to publish educational content on Pinterest.
+ */
+export function getUpcomingSeasonalEvents(referenceDate?: Date): SeasonalResult[] {
+  const now = referenceDate || new Date();
+  const results: SeasonalResult[] = [];
+
+  for (const evt of SEASONAL_CALENDAR) {
+    // Create event date for this year
+    const eventDate = new Date(now.getFullYear(), evt.month - 1, evt.day);
+    // If event already passed this year, check next year
+    if (eventDate < now) {
+      eventDate.setFullYear(eventDate.getFullYear() + 1);
+    }
+    const diffMs = eventDate.getTime() - now.getTime();
+    const daysUntil = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+
+    if (daysUntil <= 45 && daysUntil > 0) {
+      const urgency = daysUntil <= 7 ? 'imminent' : daysUntil <= 21 ? 'mid' : 'early';
+      results.push({ event: evt, daysUntil, urgency });
+    }
+  }
+
+  return results.sort((a, b) => a.daysUntil - b.daysUntil);
+}
+
+// ---------------------------------------------------------------------------
+// F. Ticker Spotlight — Phase 4-3
+// 게릴라 포스팅: M7 + 고관심 종목 중 랜덤 1개 분석
+// ---------------------------------------------------------------------------
+const SPOTLIGHT_TICKERS = ['AAPL', 'MSFT', 'NVDA', 'GOOGL', 'AMZN', 'META', 'TSLA'];
+
+export interface SpotlightData {
+  ticker: string;
+  darkPoolPct?: number;
+  buyPct?: number;
+  sellPct?: number;
+  blockTrades?: number;
+}
+
+export function generateTickerSpotlight(data: SpotlightData): ContentOutput {
+  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://signumhq.com';
+  const { ticker, darkPoolPct, buyPct, sellPct, blockTrades } = data;
+
+  const dpText = darkPoolPct != null ? `Dark Pool: ${darkPoolPct.toFixed(1)}%` : '';
+  const flowText = buyPct != null && sellPct != null
+    ? `Flow: ${buyPct > sellPct ? 'Buy-side dominant' : 'Sell-side dominant'} (${buyPct.toFixed(0)}/${sellPct.toFixed(0)})`
+    : '';
+  const blockText = blockTrades != null && blockTrades > 0 ? `${blockTrades} block trades detected` : '';
+
+  const imageParams = `type=spotlight&ticker=${ticker}&dp=${darkPoolPct ?? ''}`;
+  const imageUrl = (lang: string) => `${baseUrl}/api/og/market?${imageParams}&lang=${lang}`;
+
+  const enText = [
+    `$${ticker} — Under the Hood`,
+    ``,
+    dpText ? `▸ ${dpText}` : '',
+    flowText ? `▸ ${flowText}` : '',
+    blockText ? `▸ ${blockText}` : '',
+    ``,
+    `What institutions are quietly positioning for.`,
+    DISCLAIMER.en,
+  ].filter(Boolean).join('\n');
+
+  const koText = [
+    `$${ticker} — 구조 분석`,
+    ``,
+    dpText ? `▸ 다크풀: ${darkPoolPct?.toFixed(1)}%` : '',
+    flowText ? `▸ 플로우: ${buyPct! > sellPct! ? '매수 우위' : '매도 우위'} (${buyPct?.toFixed(0)}/${sellPct?.toFixed(0)})` : '',
+    blockText ? `▸ 블록 트레이드 ${blockTrades}건 감지` : '',
+    ``,
+    `기관이 조용히 포지셔닝하는 방향.`,
+    DISCLAIMER.ko,
+  ].filter(Boolean).join('\n');
+
+  const jaText = [
+    `$${ticker} — 構造分析`,
+    ``,
+    dpText ? `▸ ダークプール: ${darkPoolPct?.toFixed(1)}%` : '',
+    flowText ? `▸ フロー: ${buyPct! > sellPct! ? '買い優勢' : '売り優勢'} (${buyPct?.toFixed(0)}/${sellPct?.toFixed(0)})` : '',
+    blockText ? `▸ ブロックトレード ${blockTrades}件検出` : '',
+    ``,
+    `機関が静かにポジショニングしている方向。`,
+    DISCLAIMER.ja,
+  ].filter(Boolean).join('\n');
+
+  return {
+    en: { text: applyCompliance(enText), imageUrl: imageUrl('en'), cta: 'darkPoolTrack' },
+    ko: { text: applyCompliance(koText), imageUrl: imageUrl('ko'), cta: 'darkPoolTrack' },
+    ja: { text: applyCompliance(jaText), imageUrl: imageUrl('ja'), cta: 'darkPoolTrack' },
+  };
+}
+
+export function getRandomSpotlightTicker(): string {
+  return SPOTLIGHT_TICKERS[Math.floor(Math.random() * SPOTLIGHT_TICKERS.length)];
 }

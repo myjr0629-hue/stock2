@@ -33,14 +33,18 @@ const L: Record<string, Record<string, string>> = {
     darkpool_title: 'DARK POOL',
     insight_title: 'KEY INSIGHT',
     cta_title: 'SIGNUM HQ',
-    swipe: 'SWIPE →',
-    save: '💾 Save this post',
-    linkInBio: 'Link in bio',
+    swipe_hook: 'See today\'s data →',
+    swipe_data: 'The real signal hides deeper →',
+    swipe_gex: 'Where is Smart Money? →',
+    swipe_dp: 'One key takeaway →',
+    swipe_insight: 'Don\'t miss the action plan →',
+    save: 'Save this post',
+    linkInBio: 'Full analysis → Link in bio',
     positive: 'POSITIVE', negative: 'NEGATIVE', neutral: 'NEUTRAL', transition: 'TRANSITION',
     gex_pos_desc: 'Dealers absorb shocks.\nVolatility compressed.',
     gex_neg_desc: 'Small moves turn into large ones.\nTrends accelerate.',
     gex_trans_desc: 'Regime transition in progress.\nWatch for confirmation.',
-    tagline: 'See What Others Can\'t',
+    tagline: 'See What Others Cannot',
   },
   ko: {
     hook_title: '시장 구조 분석',
@@ -49,10 +53,14 @@ const L: Record<string, Record<string, string>> = {
     darkpool_title: '다크풀',
     insight_title: '핵심 인사이트',
     cta_title: 'SIGNUM HQ',
-    swipe: '스와이프 →',
-    save: '💾 이 포스트를 저장하세요',
-    linkInBio: 'Link in bio',
-    positive: '포지티브', negative: '네거티브', neutral: '뉴트럴', transition: '트랜지션',
+    swipe_hook: '오늘의 데이터 보기 →',
+    swipe_data: '진짜 시그널은 더 깊이 숨어있다 →',
+    swipe_gex: '기관 자금은 어디로? →',
+    swipe_dp: '핵심 인사이트 보기 →',
+    swipe_insight: '실전 액션 플랜 →',
+    save: '이 포스트를 저장하세요',
+    linkInBio: '전체 분석 보기',
+    positive: 'POSITIVE', negative: 'NEGATIVE', neutral: 'NEUTRAL', transition: 'TRANSITION',
     gex_pos_desc: '딜러가 충격을 흡수합니다.\n변동성이 억제됩니다.',
     gex_neg_desc: '작은 움직임이\n큰 움직임으로 전환됩니다.',
     gex_trans_desc: '레짐 전환 중입니다.\n확인을 기다리십시오.',
@@ -65,14 +73,18 @@ const L: Record<string, Record<string, string>> = {
     darkpool_title: 'ダークプール',
     insight_title: 'キーインサイト',
     cta_title: 'SIGNUM HQ',
-    swipe: 'スワイプ →',
-    save: '💾 この投稿を保存',
-    linkInBio: 'Link in bio',
-    positive: 'ポジティブ', negative: 'ネガティブ', neutral: 'ニュートラル', transition: 'トランジション',
-    gex_pos_desc: 'ディーラーがショックを吸収。\nボラティリティ抑制。',
-    gex_neg_desc: '小さな動きが\n大きな動きに転換。',
-    gex_trans_desc: 'レジーム転換中。\n確認を待ちましょう。',
-    tagline: '市場の深層を読む',
+    swipe_hook: 'Data →',
+    swipe_data: 'Signal →',
+    swipe_gex: 'Smart Money →',
+    swipe_dp: 'Insight →',
+    swipe_insight: 'Action →',
+    save: 'Save this post',
+    linkInBio: 'Full analysis',
+    positive: 'POSITIVE', negative: 'NEGATIVE', neutral: 'NEUTRAL', transition: 'TRANSITION',
+    gex_pos_desc: 'Shock absorbed.\nVolatility suppressed.',
+    gex_neg_desc: 'Small moves become\nlarge moves.',
+    gex_trans_desc: 'Regime transition.\nWatch closely.',
+    tagline: 'See What Others Cannot',
   },
 };
 
@@ -105,18 +117,33 @@ export async function GET(req: NextRequest) {
   const gc = gexColor(gex);
   const gexLabel = l[gex.toLowerCase() as keyof typeof l] || gex.toUpperCase();
 
+  // Slide-specific accent gradients (Phase 2-7: Visual differentiation)
+  const slideBg: Record<string, string> = {
+    hook:     `radial-gradient(ellipse 80% 50% at 50% 30%, rgba(99,102,241,0.18) 0%, transparent 60%),
+               radial-gradient(ellipse 60% 40% at 50% 80%, rgba(6,182,212,0.12) 0%, transparent 50%)`,
+    data:     `radial-gradient(ellipse 70% 50% at 30% 40%, rgba(34,211,238,0.15) 0%, transparent 55%),
+               radial-gradient(ellipse 50% 50% at 80% 70%, rgba(52,211,153,0.10) 0%, transparent 50%)`,
+    gex:      `radial-gradient(ellipse 80% 60% at 50% 25%, ${gc.from}25 0%, transparent 60%),
+               radial-gradient(ellipse 50% 40% at 50% 85%, ${gc.to}15 0%, transparent 50%)`,
+    darkpool: `radial-gradient(ellipse 70% 50% at 60% 35%, rgba(168,85,247,0.18) 0%, transparent 55%),
+               radial-gradient(ellipse 50% 40% at 30% 75%, rgba(139,92,246,0.10) 0%, transparent 50%)`,
+    insight:  `radial-gradient(ellipse 80% 50% at 40% 30%, rgba(251,191,36,0.12) 0%, transparent 55%),
+               radial-gradient(ellipse 50% 40% at 70% 80%, rgba(245,158,11,0.08) 0%, transparent 50%)`,
+    cta:      `radial-gradient(ellipse 90% 60% at 50% 50%, rgba(99,102,241,0.20) 0%, transparent 60%),
+               radial-gradient(ellipse 60% 40% at 50% 80%, rgba(34,211,238,0.15) 0%, transparent 50%)`,
+  };
+
   // Common wrapper
   const wrapper = (children: any) => (
     <div style={{
       width: '100%', height: '100%', display: 'flex', flexDirection: 'column',
       background: C.bgDark, position: 'relative', overflow: 'hidden',
-      fontFamily: 'system-ui, -apple-system, sans-serif',
+      fontFamily: 'Inter, system-ui, -apple-system, sans-serif',
     }}>
-      {/* Background gradient */}
+      {/* Background gradient — unique per slide */}
       <div style={{
         position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, display: 'flex',
-        background: `radial-gradient(ellipse 80% 50% at 50% 30%, rgba(99,102,241,0.15) 0%, transparent 60%),
-                     radial-gradient(ellipse 60% 40% at 50% 80%, rgba(6,182,212,0.1) 0%, transparent 50%)`,
+        background: slideBg[slide] || slideBg.hook,
       }} />
       {/* Grid */}
       <div style={{
@@ -177,8 +204,8 @@ export async function GET(req: NextRequest) {
           </div>
           {/* Swipe indicator */}
           <div style={{ display: 'flex', justifyContent: 'center', padding: '20px 0' }}>
-            <span style={{ fontSize: '18px', color: C.dim, letterSpacing: '4px', fontWeight: 600 }}>
-              {l.swipe}
+            <span style={{ fontSize: '18px', color: C.cyan, letterSpacing: '2px', fontWeight: 600 }}>
+              {l.swipe_hook}
             </span>
           </div>
         </>
@@ -233,7 +260,7 @@ export async function GET(req: NextRequest) {
             </div>
           </div>
           <div style={{ display: 'flex', justifyContent: 'center', padding: '20px 0' }}>
-            <span style={{ fontSize: '18px', color: C.dim, letterSpacing: '4px', fontWeight: 600 }}>{l.swipe}</span>
+            <span style={{ fontSize: '18px', color: C.cyan, letterSpacing: '2px', fontWeight: 600 }}>{l.swipe_data}</span>
           </div>
         </>
       );
@@ -269,7 +296,7 @@ export async function GET(req: NextRequest) {
             </div>
           </div>
           <div style={{ display: 'flex', justifyContent: 'center', padding: '20px 0' }}>
-            <span style={{ fontSize: '18px', color: C.dim, letterSpacing: '4px', fontWeight: 600 }}>{l.swipe}</span>
+            <span style={{ fontSize: '18px', color: C.cyan, letterSpacing: '2px', fontWeight: 600 }}>{l.swipe_gex}</span>
           </div>
         </>
       );
@@ -305,7 +332,7 @@ export async function GET(req: NextRequest) {
             </div>
           </div>
           <div style={{ display: 'flex', justifyContent: 'center', padding: '20px 0' }}>
-            <span style={{ fontSize: '18px', color: C.dim, letterSpacing: '4px', fontWeight: 600 }}>{l.swipe}</span>
+            <span style={{ fontSize: '18px', color: C.cyan, letterSpacing: '2px', fontWeight: 600 }}>{l.swipe_dp}</span>
           </div>
         </>
       );
@@ -378,5 +405,27 @@ export async function GET(req: NextRequest) {
       break;
   }
 
-  return new ImageResponse(content, { width: 1080, height: 1350 });
+  return new ImageResponse(content, { width: 1080, height: 1350, fonts: await loadFonts() });
+}
+
+// ---------------------------------------------------------------------------
+// Font loader — Inter from Google Fonts (cached at edge)
+// ---------------------------------------------------------------------------
+let _fontCache: { name: string; data: ArrayBuffer; weight: 100 | 200 | 300 | 400 | 500 | 600 | 700 | 800 | 900; style: 'normal' | 'italic' }[] | null = null;
+
+async function loadFonts() {
+  if (_fontCache) return _fontCache;
+  try {
+    const [regular, bold] = await Promise.all([
+      fetch('https://fonts.gstatic.com/s/inter/v18/UcCO3FwrK3iLTeHuS_nVMrMxCp50SjIw2boKoduKmMEVuLyfMZg.ttf').then(r => r.arrayBuffer()),
+      fetch('https://fonts.gstatic.com/s/inter/v18/UcCO3FwrK3iLTeHuS_nVMrMxCp50SjIw2boKoduKmMEVuFuYMZg.ttf').then(r => r.arrayBuffer()),
+    ]);
+    _fontCache = [
+      { name: 'Inter', data: regular, weight: 400 as const, style: 'normal' as const },
+      { name: 'Inter', data: bold, weight: 700 as const, style: 'normal' as const },
+    ];
+  } catch {
+    _fontCache = [];
+  }
+  return _fontCache;
 }

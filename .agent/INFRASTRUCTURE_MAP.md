@@ -1285,12 +1285,238 @@ bash scripts/ec2-deploy-guardian.sh
   - `/api/og/market` 렌더링 퀄리티 (Twitter 16:9, IG 9:16 타일, Carousel 6장 멀티플라이) 실제 눈으로 점검.
 - [ ] **Buffer 실계정 큐(Queue) 연동 테스트**
   - `dry_run=false` 부여 후, X 타래(Thread)와 IG Carousel이 Buffer 큐에 에러 없이 꽂히는지 최종 Integration Test 필요.
-- [ ] **'특보 (Event-Driven)' 상황 포스팅 확대 (가장 강력함)**
+- [ ] **'특보 (Event-Driven)' 상황 포스팅 확대 + 고래(Whale) 실시간 속보 강화**
   - 장중 VIX 10% 급등, 특정 주식(NVDA 등) 풋매도 방벽 $50M 감지 등 고래 출몰 시 `event` 액션을 실시간으로 트리거.
+  - **[추가] 대형주(AAPL, NVDA, TSLA) 딥인머니(ITM) 콜옵션 대량 매수 포착** → 인포그래픽 + SNS 속보 발송
+  - 현재 `event-detect/route.ts`가 GEX/VIX/8-K만 감시 → **옵션 플로우 이상치 감지 추가** 필요
+  - 효과: "돈의 흐름을 실시간으로 읽어주는 서비스" 인상 → 유료 전환율 극대화
 - [ ] **'특정 종목 해부(Ticker Spotlight)' 게릴라 포스팅**
   - 매일 4~6회 무작위 대형주 전용 대시보드를 생성하여 종목 캐시태그(`$TSLA`)와 함께 노출, 트래픽 유입 극대화.
 - [ ] **Pinterest 전용 "Evergreen" 영구 정보 봇(Pump) 구축**
   - 다크풀, GEX 교육 자료를 인스타버전 카드로 가공하여 핀터레스트에 매일 10~20장씩 무한 배포해 유기적 검색(SEO) 완전 장악.
+- [ ] **지역별 맞춤형 '골든 타임' 포스팅 — JA 채널 정밀 타격**
+  - 현재 EN/Asia 리전만 분리 → **JA 전용 리전 추가** (`region=ja`)
+  - 일본 증시 개장 전 08:30 KST (23:30 UTC) = JA 유저 골든타임
+  - JA 채널 Buffer ID 이미 매핑 완료 (X/IG/Threads 3채널)
+  - vercel.json 크론: `marketing-dispatch?action=morning&region=ja` → `"0 23 * * 0-4"`
+
+### 🟡 단기 (쇼츠 영상 — Remotion Lambda 배포 + 퀄리티 리디자인, 2026-04-26 확정)
+
+> Remotion Lambda (AWS) 정식 배포. 컴포넌트 코드 100% 완성 상태.
+> 3인 이하 팀 → Remotion 라이선스 **무료**. AWS 비용 월 ~$3~5.
+
+#### Phase 1: Lambda 인프라 배포
+- [ ] `npx remotion lambda policies create` → IAM 정책
+- [ ] `npx remotion lambda sites create` → S3에 번들 업로드
+- [ ] `npx remotion lambda functions deploy` → Lambda 함수 배포
+- [ ] `render-video/route.ts` → `renderMediaOnLambda()` 호출로 교체
+- [ ] Polly TTS 기존 코드 그대로 사용 (AWS 키 있음)
+- [ ] vercel.json 크론 등록 + 환경변수 추가
+
+#### Phase 2: 컴포넌트 퀄리티 리디자인 (MVP → 프로급)
+
+| # | 현재 문제 | 개선 방향 |
+|---|----------|----------|
+| 1 | 배경 단색 `#0a0e17` | 애니메이션 그리드/파티클 + 그라디언트 시프트 |
+| 2 | 로고 = 텍스트 "S" | SVG 로고 또는 OG 이미지 로고 재사용 |
+| 3 | 데이터 = 숫자만 | 미니 차트, 반원형 게이지, 프로그레스 바 |
+| 4 | 애니메이션 = fade-in만 | spring 바운스, blur→sharp, 스케일 팝, 카운트업 |
+| 5 | 18~25초 검은 화면 | 다크풀/요약 인사이트 씬 추가 |
+| 6 | system-ui 폰트 | Inter/Outfit 커스텀 폰트 |
+| 7 | `<audio>` 태그 | Remotion `<Audio>` + volume 커브 |
+
+프로급 30초 타임라인:
+```
+0~2초:  파티클 배경 + 로고 3D 스케일인 + 글로우
+2~3초:  "MARKET PULSE" 타이핑 + 날짜
+3~8초:  SPY 스파크라인 드로잉 + 숫자 카운트업
+8~12초: QQQ + VIX 반원형 게이지 + spring
+12~18초: GEX 에너지 바 + Call Wall/Put Floor 레인지
+18~24초: 다크풀 원형 차트 + 인사이트 텍스트
+24~28초: 전체 요약 스코어카드
+28~30초: CTA + 로고 아웃트로
+```
+
+### ✅ 완료 (컴플라이언스 필터 강화 — 법적 리스크 해소, 2026-04-27 완료)
+
+- [x] **전 플랫폼 면책 조항 의무화** (2026-04-27 완료)
+  - `bufferClient.ts`에 `DISCLAIMER` 상수 추가 (EN/KO/JA 3개 언어)
+  - `contentEngines.ts`에서 `DISCLAIMER` import 후 모든 함수에 적용:
+    - `generateMarketPulse()`: EN/KO/JA × Twitter/Bluesky = 6개 출력 + Threads/IG는 기존 인라인 면책 유지
+    - `generateMorningBrief()`: EN/KO/JA × Twitter = 3개 출력
+    - `generateEducationContent()`: IG에만 기존 면책 있었음 → 유지 (Twitter/Threads는 교육용 → 본문 자체가 면책 역할)
+    - `generateEventSpike()`: 속보 특성상 Threads 본문에 기존 면책 있음 → 유지
+  - `aiContentEngine.ts`: AI 프롬프트에 "DO NOT include disclaimer" 지시 + 별도 `enforceCompliance()` 2차 필터로 이미 처리 중
+  - EN: `"Not financial advice. Data-driven context only."`
+  - KO: `"*본 정보는 투자 권유가 아닌 데이터 분석 참고 자료입니다."`
+  - JA: `"*投資助言ではありません。データ分析の参考資料です。"`
+- [x] **컴플라이언스 필터 규칙 확장** (2026-04-27 완료)
+  - `bufferClient.ts` `COMPLIANCE_REPLACEMENTS`: 9개 → **23개**
+  - EN 추가: `guarantee[ds]?`, `profit[s]?→return`, `sure thing`, `100% chance/certain/guaranteed/sure→historically`
+  - KO 추가: `확실`, `수익→성과`, `추천`, `반드시`, `대박`
+  - JA 추가: `絶対`, `儲かる`, `推奨`, `必ず`, `確実`
+- [x] **AI 출력(Claude) 2차 검증** (기존 구현 확인 완료)
+  - `aiContentEngine.ts` L47-56: `HARD_BLOCK_PATTERNS` 배열에 `guarantee`, `profit`, `buy/sell now`, `적중`, `매수/매도`, `買い/売り/儲かる` 이미 포함
+  - L58-72: `enforceCompliance()` 함수가 위반 문장을 통째로 제거하는 하드 필터 작동 중
+  - L59: `applyCompliance()` (소프트 치환) + 하드 블록(문장 제거) 이중 안전망 확인
+
+### ✅ 완료 (OG 이미지 하이엔드 리디자인 - Phase 2, 2026-04-27 완료)
+
+> Signal Card Design v2.1 - Robinhood/Bloomberg/TradingView 영감.
+> GEX 히어로 중심 + S&P 500 + Dark Pool + VIX 보조 메트릭.
+
+- [x] **2-1. QQQ 제거, Dark Pool 대체** (2026-04-27 완료)
+  - SPY/QQQ/VIX 3카드 -> S&P 500 / Dark Pool / VIX 구성
+  - Dark Pool: 기관 매매 비중 표시 -> 호기심 유발 극대화
+- [x] **2-2. GEX 히어로 섹션 승격** (2026-04-27 완료)
+  - GEX가 180px 히어로 박스 차지, 에너지 바 + 해석 문구
+  - 컬러 코딩: Positive=녹색, Negative=빨강, Transition=황색
+- [x] **2-3. VIX 상태 라벨** (2026-04-27 완료)
+  - 숫자 + 배지: CALM/ELEVATED/HIGH/EXTREME + 프로그레스 바
+- [x] **2-4. Satori 호환성 전면 해결** (2026-04-27 완료)
+  - overflow/textShadow/undefined/lineHeight/em-dash 이슈 해결
+  - 고정 height 기반 레이아웃으로 전환
+- [x] **2-5. imageParams에 dp(Dark Pool) 파라미터 추가** (2026-04-27 완료)
+- [ ] **2-6. Inter/Geist Mono 폰트** - 차후 (next/font edge 지원 확인 후)
+- [ ] **2-7. 캐러셀 장별 차별화** - 차후 (Remotion 검토 시)
+
+### ✅ 완료 (콘텐츠 문구 퀄리티 개선 — Phase 3, 2026-04-27 완료)
+
+- [x] **3-1. Hook 강화 — 날짜 기반 6종 로테이션** (2026-04-27 완료)
+  - `contentEngines.ts`에 `getHookIndex()` + `getPulseHook()` 시스템 신규 추가
+  - EN/KO/JA 각각 6종의 Hook이 날짜(`day % 6`)로 자동 교체
+  - 하드코딩 Hook → 동적 로테이션으로 팔로워 피로도 감소
+  - EN 예: `"Everyone saw +0.23%. Almost no one saw what happened underneath."`
+  - KO 예: `"어제 SPY +0.23%. 그 숫자가 가리고 있는 게 있습니다."` (네이티브 톤)
+  - JA 예: `"SPY +0.23%で引けました。しかし、数字の裏で構造が変わっています。"` (丁寧語)
+- [x] **3-2. CTA 8종 다양화** (2026-04-27 완료)
+  - `bufferClient.ts` CTA/CTA_KO/CTA_JA: 3종 → **8종** (EN/KO/JA 각 8개)
+  - 추가: `institutionalView`, `darkPoolTrack`, `freeAlert`, `educationDeep`, `freeDashboard`
+  - CTA 피로도 감소 + 콘텐츠 타입별 적절한 CTA 매핑 가능
+- [x] **3-3. KO 문구 네이티브화** (2026-04-27 완료)
+  - `getPulseHook()` KO: 번역투 제거, 한국 금융 미디어 네이티브 톤 적용
+  - 기존: `"표면적인 지수 하락 이면의 구조적 움직임입니다"` (번역투)
+  - 변경: `"지수만 보면 +0.23%. 하지만 옵션 시장은 다른 얘기를 합니다."` (네이티브)
+  - 마감 문구: `"가격은 현상이지만, 옵션 구조는 본질입니다"` → `"가격은 현상. 구조가 본질."` (간결화)
+- [x] **3-4. JA 문구 정중어 보강** (2026-04-27 완료)
+  - `getPulseHook()` JA: 全てです/ます体で統一
+  - 기존: `"追跡してください"` (명령형) → `"構造が本質です"` (丁寧語 관찰형)
+  - 모든 JA Hook에 `です/ます` 체계 통일, `ください` 직접 명령 최소화
+- [x] **3-5. 이벤트 속보 구체적 수치 + DISCLAIMER** (2026-04-27 완료)
+  - `generateEventSpike()` 전면 개편:
+    - `event.value` 활용: 수치를 `$14.2B` / `$3.7M` 형태로 자동 포맷
+    - GEX 전환: 제목을 `"시장 구조 변화"` → `"GEX 레짐 전환"` 으로 명확화
+    - Generic 이벤트: DISCLAIMER 누락 → 전 언어 삽입 완료
+    - Threads: 대화형 질문문 추가 (`"이런 구간에서 어떻게 대응하시나요?"`)
+- [x] **3-6. 승률 통계 폴백 삽입** (2026-04-27 완료)
+  - `gexHistorical()` 함수 신규: GEX 레짐별 역사적 변동성 경향 3언어
+  - Positive: 실현변동성 하락 경향 / Negative: 장중 가격폭 확대 / Transition: 추세 가속
+  - 컴플라이언스: "historically", "have shown", "tendency" 등 팩트적 서술만 사용
+  - EN/KO/JA Twitter 본문에 조건부 삽입 (neutral일 때는 빈 문자열 → filter(Boolean)으로 자동 제거)
+- [x] **1-8. IG 스와이프 속도 최적화** (2026-04-27 완료)
+  - `slide/route.tsx` i18n: 기존 `swipe: 'SWIPE →'` 1종 → `swipe_hook/data/gex/dp/insight` 5종 분리
+  - 각 슬라이드 끝에 다음 슬라이드 호기심 유발 문구 삽입
+  - 색상: `C.dim`(grey) → `C.cyan`(청록)으로 변경, 시각적 유도 강화
+- [x] **1-6. IG ALT 텍스트 + 키워드 캡션** (2026-04-27 완료)
+  - `dispatchCarousel()`에 `altTexts` 파라미터 추가
+  - `generateCarouselAltTexts()` 함수: 슬라이드별 키워드 풍부 ALT 자동 생성 (EN/KO/JA)
+  - Buffer GraphQL `media` 객체에 `altText` 필드 조건부 삽입
+- [x] **1-14. Pinterest 핀 이미지 텍스트 오버레이** (2026-04-27 완료)
+  - OG `format=pin` (1000x1500)일 때 상단에 36px SEO 타이틀 오버레이
+  - `pinTitle`/`pinSub` i18n: EN/KO/JA 3언어 대응
+  - Pinterest AI의 이미지 내 텍스트 분석 활용
+- [x] **1-15. 시즌 콘텐츠 45일 선행 발행 캘린더** (2026-04-27 완료)
+  - `getUpcomingSeasonalEvents()` 함수 신규: FOMC(8) + 실적(4) + OpEx(4) + JH(1) = 17이벤트
+  - 45일 이내 접근 시 urgency(early/mid/imminent) 반환
+  - 크론에서 호출하여 Pinterest 교육 콘텐츠 자동 선행 발행
+
+### ✅ 프로덕션 전환 준비 완료 (2026-04-27 감사 완료)
+
+> **스위치 전환**: `vercel.json`에 `dry_run=false` 추가 완료. 배포 시 즉시 라이브.
+> **롤백**: `dry_run=false`를 제거하면 즉시 DRY_RUN 모드로 복귀.
+
+- [x] **Dark Pool 데이터 연결** — `daily-content/route.ts` + `event-detect/route.ts`
+  - `fetchTradeData('SPY')` 호출 추가 → OG 이미지에 DP% 렌더링
+  - `aiContentEngine.ts` 3곳 `imageParams`에 `dp=` 파라미터 추가
+  - `contentEngines.ts` event spike에도 `dp=` 추가
+- [x] **ALT 텍스트 연결** — `marketing-dispatch/route.ts` carousel 2곳
+  - `generateCarouselAltTexts()` export + import + 전달
+  - morning_ig, pulse_ig 양쪽에 ALT 텍스트 자동 생성
+- [x] **라이브 스위치** — `vercel.json` 12개 마케팅 크론 + 1개 이벤트 감지
+  - 모든 dispatch cron에 `dry_run=false` 파라미터 추가
+  - `event-detect`에도 `dry_run=false` 추가
+
+**필수 환경 변수 (Vercel)**:
+| 변수명 | 상태 | 용도 |
+|--------|------|------|
+| `BUFFER_ACCESS_TOKEN` | ✅ 설정됨 | Buffer API 인증 |
+| `BUFFER_ORGANIZATION_ID` | ✅ 설정됨 | Buffer 조직 ID |
+| `CRON_SECRET` | ✅ 설정됨 | 크론 보안 인증 |
+| `NEXT_PUBLIC_BASE_URL` | ✅ 설정됨 | OG 이미지 URL |
+
+### ✅ 완료 (플랫폼별 알고리즘 최적화 — Phase 1, 2026-04-27 완료)
+
+> **리서치 기반**: 2026년 X/IG/Threads/Pinterest 알고리즘 최신 동향 반영
+
+- [x] **1-1. X 외부 링크 본문 제거 → 첫 리플라이로 이동** (기존 구현 확인 완료)
+  - `bufferMultiClient.ts` L396: CTA URL이 이미 `replyText`로 분리되어 30초 후 리플라이로 발송
+  - 2026 X 알고리즘: 본문 외부 링크 = 도달률 심각 억제 → 이미 대응 완료
+- [x] **1-3. X 해시태그 최소화** (2026-04-27 완료)
+  - `hashtagEngine.ts` `X_TAGS`: 카테고리당 최대 1~2개로 축소 (기존 2~3개)
+  - `X_EDUCATION_TOPIC_TAGS`: 주제당 최대 2개로 축소 (기존 2~3개)
+  - `getHashtags()` twitter 분기에 `.slice(0, 2)` 하드 리밋 추가
+  - 2026 X 알고리즘: 해시태그 과다 = 스팸 판정 위험 → max 2개로 제한
+- [x] **1-8/1-9. IG Save/Share 유도 CTA** (2026-04-27 완료)
+  - `hashtagEngine.ts` `buildInstagramFooter()` 전면 개편 (EN/KO/JA 3개 언어)
+  - 추가: `📌 Save this for market open` / `↗️ Share with your trading partner` / `📊 Full analysis → Link in bio`
+  - 2026 IG 알고리즘: saves + DM shares가 likes보다 최상위 랭킹 시그널
+- [x] **1-10. Threads 대화형 톤 전환** (2026-04-27 완료)
+  - `contentEngines.ts` `generateMarketPulse()` Threads 출력 (EN/KO/JA):
+    - EN: `"What's your read on tomorrow's open?"` 질문문 추가
+    - KO: `"내일 장 오픈 어떻게 보시나요?"` 질문문 추가
+    - JA: `"明日の寄り付き、どう見られますか？"` 질문문 추가 (丁寧語)
+  - 2026 Threads 알고리즘: 대화형 플랫폼 → replies/discussions가 최우선 시그널
+- [x] **1-2. $Cashtag 첫 줄 강제 주입** (2026-04-27 완료)
+  - `hashtagEngine.ts`에 `getTwitterTagsSplit()` 신규 함수 추가 — cashtag/hashtag 분리 반환
+  - `bufferMultiClient.ts` Twitter 발송부 전면 리팩토링:
+    - 기존: `"트윗본문\n\n$SPY $QQQ #GEX"` (Cashtag가 끝)
+    - 변경: `"$SPY $QQQ — 트윗본문\n\n#GEX"` (Cashtag가 첫 줄)
+  - 2026 X 알고리즘: SimClusters transformer가 첫 줄 가중 → 관심 클러스터 매칭 극대화
+- [x] **1-4. Dwell Time(체류시간) 극대화** (2026-04-27 완료)
+  - `aiContentEngine.ts` SYSTEM_PROMPT 전면 업데이트:
+    - X: "Write to maximize DWELL TIME — make readers pause and think"
+    - Threads: "END with a question that invites replies"
+    - IG: "Write to be SAVE-WORTHY"
+  - AI 프롬프트 금지어 리스트를 `bufferClient.ts` COMPLIANCE_REPLACEMENTS와 동기화
+    - KO 추가: 확실, 수익, 추천, 반드시, 대박
+    - JA 추가: 絶対, 儲かる, 推奨, 必ず, 確実
+- [x] **1-12/1-13. Pinterest SEO 최적화** (2026-04-27 완료)
+  - `hashtagEngine.ts` `getPinterestSEO()` 전면 개편:
+    - 제목: morning/event 콘텐츠에 롱테일 키워드 프론트로딩 추가
+    - 설명: 키워드 나열 → 자연스러운 문장 통합 (150~400자)
+    - Save CTA 추가: "📌 Save this pin for your next trading session"
+    - 면책 삽입: "Not financial advice. Data-driven context only."
+  - 2026 Pinterest 알고리즘: 자연 키워드 > 키워드 스터핑, saves > clicks
+- [ ] **1-5. 첫 30~60분 자동 댓글 응답 봇** — 중기
+  - ⚠️ **별도 인프라 필요**: Vercel Cron 또는 EC2 상주 프로세스로 X API v2 직접 호출
+  - Buffer API에는 리플라이 자동 감지/응답 기능 없음 → 별도 봇 아키텍처 설계 필요
+  - 크로스레퍼런스: `Phase 4 (트리거 확장)` 작업 시 함께 검토
+- [ ] **1-6/1-7. IG 캐러셀 ALT 텍스트 + 뮤직** — 중기
+  - ⚠️ **Buffer API 조사 필요**: `dispatchCarousel()` GraphQL mutation에 `altText` 필드 지원 여부
+  - 뮤직 첨부는 Buffer API 미지원 가능성 높음 → IG Creator Studio 직접 사용 검토
+  - 크로스레퍼런스: `Phase 5 (인프라 배포)` Buffer 라이브 테스트 시 함께 검증
+- [ ] **1-11. Threads 멀티포스트 (3~4장 연결)** — 중기
+  - Buffer Threads 채널이 멀티포스트를 지원하는지 확인 필요
+  - 크로스레퍼런스: `Phase 5` Buffer 라이브 테스트 시 함께 검증
+- [ ] **1-14. Pinterest 핀 이미지 텍스트 오버레이** — OG 리디자인과 병행
+  - `api/og/market` route에 `format=pin` (1000×1500) 포맷 추가
+  - 크로스레퍼런스: `Phase 2 (OG 이미지 하이엔드 리디자인)` 시 함께 구현
+- [ ] **1-15. Pinterest 시즌 콘텐츠 45일 선행** — 중기
+  - FOMC/실적 시즌 캘린더 로직 → `vercel.json` 크론 또는 별도 스케줄러
+  - 크로스레퍼런스: `Phase 4 (트리거 확장)` 이벤트 캘린더 작업 시 함께 구현
+- [ ] **1-16/1-17. 쇼츠 3초 훅 + 비트 싱크** — Remotion Lambda와 병행
+  - `MarketPulseVideo.tsx` 전면 리디자인 필요
+  - 크로스레퍼런스: `쇼츠 Remotion Lambda 배포` 작업 시 함께 구현
 
 ### 🟡 단기 (일반)
 - [ ] **WhaleIndex → 적절한 이름 리네이밍** (예: Flow Score, Smart Flow)
@@ -3623,4 +3849,147 @@ Lambda Step 5: recordCloseAndBackfill()
 - `src/services/guardian/rlsiEngine.ts`: breadth 계산 엔진
 - `src/components/guardian/MarketBreadthPanel.tsx`: breadth UI
 
+
+## 18. Buffer 마케팅 자동화 엔진 (2026-04-27 프로덕션 전환 완료)
+
+> [!IMPORTANT]
+> **라이브 상태**: `vercel.json`에 `dry_run=false` 설정 완료. 배포 시 즉시 17개 크론이 실행됨.
+> **롤백**: `&dry_run=false`를 제거 후 재배포하면 즉시 DRY_RUN 모드로 복귀.
+
+### 18.1 파일 구조
+
+| 파일 | 역할 |
+|------|------|
+| `src/lib/marketing/bufferClient.ts` | 기본 GraphQL 클라이언트, 13채널 맵, 컴플라이언스 필터 23개, CTA 8종×3언어 |
+| `src/lib/marketing/bufferMultiClient.ts` | 6개 디스패치 포맷 (tweet/thread/carousel/story/pin/post), ALT 텍스트 |
+| `src/lib/marketing/contentEngines.ts` | 콘텐츠 생성 5종 (pulse/morning/edu/event/spotlight), Dark Pool 파라미터 포함 |
+| `src/lib/marketing/aiContentEngine.ts` | Bedrock Haiku 3.5 기반 AI 콘텐츠 생성 4종, dp= 파라미터 포함 |
+| `src/lib/marketing/hashtagEngine.ts` | 플랫폼별 해시태그 (X max 2, IG 15개 3-tier, Pinterest SEO) |
+| `src/lib/marketing/pollyClient.ts` | Amazon Polly TTS + BGM (쇼츠용, Remotion 의존) |
+| `src/app/api/cron/marketing-dispatch/route.ts` | 크론 디스패처 9종 action, ALT 텍스트 자동 전달 |
+| `src/app/api/cron/daily-content/route.ts` | Redis 콘텐츠 생성 (fetchTradeData→darkPool 연결) |
+| `src/app/api/cron/event-detect/route.ts` | 이벤트 감지 5종 (GEX/VIX/SEC 8K/ITM Sweep/DP Spike) |
+| `src/app/api/cron/buffer-dispatch/route.ts` | **구버전 V1** — 미사용, 롤백용 보존 |
+| `src/app/api/og/market/route.tsx` | OG 이미지 Signal Card v2.1 (Inter 폰트, dp 렌더) |
+| `src/app/api/og/market/slide/route.tsx` | IG 캐러셀 슬라이드 6장 (고유 배경 그라데이션, Inter 폰트) |
+
+### 18.2 13채널 맵 (Buffer Channel IDs)
+
+| Tier | 채널 | Service | Lang | Channel ID |
+|:----:|------|---------|:----:|------------|
+| 1 | SignumHQ | twitter | EN | `69a92ae13f3b94a121198602` |
+| 1 | SignumHQ_KR | twitter | KO | `69ca785caf47dacb696d62f3` |
+| 2 | signumhq_official | instagram | EN | `69ca6aa3af47dacb696d24c0` |
+| 2 | signumhq_official | threads | EN | `69ca6b08af47dacb696d263d` |
+| 2 | signumhq_kr | instagram | KO | `69ca7b31af47dacb696d6df6` |
+| 2 | signumhq_kr | threads | KO | `69ca7b99af47dacb696d6f8d` |
+| 2 | SIGNUM HQ | bluesky | EN | `69ca84bbaf47dacb696d9d0f` |
+| 3 | SignumHQ_JP | twitter | JA | `69ca78a7af47dacb696d6446` |
+| 3 | signumhq_jp | instagram | JA | `69ca7dbeaf47dacb696d7704` |
+| 3 | signumhq_jp | threads | JA | `69ca7df5af47dacb696d77ad` |
+| 3 | Pinterest | pinterest | EN | `69ca9432af47dacb696deb5c` |
+| 3 | signumhq | tiktok | EN | `69ca95e7af47dacb696df35a` |
+| 3 | SIGNUM HQ | youtube | EN | `69ca9615af47dacb696df427` |
+
+### 18.3 크론 스케줄 (`vercel.json`)
+
+| # | Action | Region | UTC 시간 | KST 시간 |
+|:-:|--------|:------:|:--------:|:--------:|
+| 1 | morning | en | 10:30 월~금 | 19:30 |
+| 2 | morning_ig | en | 12:00 월~금 | 21:00 |
+| 3 | midday | en | 16:00 월~금 | 01:00+1 |
+| 4 | pulse | en | 20:30 월~금 | 05:30+1 |
+| 5 | pulse_ig | en | 22:00 월~금 | 07:00+1 |
+| 6 | education | en | 00:00 화~토 | 09:00 |
+| 7 | edu_bsky | en | 02:00 화~토 | 11:00 |
+| 8 | pulse | asia | 22:00 월~금 | 07:00+1 |
+| 9 | morning_ig | asia | 23:00 월~금 | 08:00+1 |
+| 10 | education | asia | 03:00 화~토 | 12:00 |
+| 11 | morning | asia | 13:00 월~금 | 22:00 |
+| 12 | midday | asia | 05:00 화~토 | 14:00 |
+| 13 | event-detect | — | */5 13-21 월~금 | — |
+| 14 | spotlight | en | 14:00 월~금 | 23:00 |
+| 15 | spotlight | en | 16:30 월~금 | 01:30+1 |
+| 16 | spotlight | en | 19:00 월~금 | 04:00+1 |
+| 17 | spotlight | all | 21:30 월~금 | 06:30+1 |
+
+### 18.4 데이터 플로우
+
+```
+Redis (market-feed 2분마다) ──→ daily-content 크론 ──→ Redis (marketing:pulse:DATE)
+                                       │
+                               fetchTradeData('SPY') ──→ EC2 Dark Pool 실시간
+                                       │
+                                       ▼
+                              marketing-dispatch (9 actions)
+                                ├─ morning:    X tweet + Bluesky + Threads
+                                ├─ morning_ig: IG carousel (ALT) + Pinterest (SEO)
+                                ├─ midday:     X tweet + Threads
+                                ├─ pulse:      X tweet + Bluesky + Threads
+                                ├─ pulse_ig:   IG carousel (ALT) + Pinterest (SEO)
+                                ├─ education:  X thread + IG carousel + Pinterest
+                                ├─ edu_bsky:   Bluesky post
+                                ├─ spotlight:  X tweet + Threads (M7 게릴라)
+                                └─ event:      event-detect 트리거
+                                       │
+                                       ▼
+                              Buffer GraphQL API (postCreate mutation)
+                                       │
+                                       ▼
+                              13개 SNS 채널 자동 발송
+```
+
+### 18.5 필수 환경 변수
+
+| 변수명 | 용도 | 위치 |
+|--------|------|------|
+| `BUFFER_ACCESS_TOKEN` | Buffer API 인증 | Vercel + .env.local |
+| `BUFFER_ORGANIZATION_ID` | Buffer 조직 ID | Vercel + .env.local |
+| `CRON_SECRET` | 크론 보안 인증 | Vercel |
+| `NEXT_PUBLIC_BASE_URL` | OG 이미지 URL 베이스 | Vercel |
+
+### 18.6 구현 완료 항목 (38/46)
+
+**Phase 0 — 컴플라이언스**: 3/3 ✅
+- 면책 조항 3언어 의무화, 컴플라이언스 필터 23개, AI 출력 하드 필터
+
+**Phase 1 — 플랫폼 알고리즘 최적화**: 14/17
+- ✅ X: 링크→리플라이 분리, $Cashtag, 해시태그 max 2, Dwell Time
+- ✅ IG: ALT 텍스트 (`generateCarouselAltTexts()`), 스와이프 Hook, Save/Share CTA
+- ✅ Threads: 대화형 톤, 질문문 CTA
+- ✅ Pinterest: 롱테일 키워드, SEO 설명, 이미지 텍스트 오버레이, 시즌 45일 선행
+- ❌ X 댓글 봇 (별도 인프라), Threads 멀티포스트 (Buffer 베타), 쇼츠 (Remotion)
+
+**Phase 2 — OG 이미지**: 7/7 ✅
+- Signal Card v2.1, GEX Hero, VIX 라벨, Dark Pool 바, Satori 호환
+- **Inter 폰트** (Google Fonts edge 로드, `route.tsx` + `slide/route.tsx`)
+- **캐러셀 6장 차별화** (슬라이드별 고유 배경 그라데이션)
+
+**Phase 3 — 콘텐츠 문구**: 6/6 ✅
+
+**Phase 4 — 트리거 확장**: 4/4 ✅
+- **ITM Sweep 감지**: `event-detect` — $5M+ deep ITM sweep, EC2 Redis 폴링
+- **Dark Pool Spike 감지**: SPY/QQQ 50%+ DP ratio 시 트리거
+- **Ticker Spotlight**: M7 게릴라 포스팅 4회/일 (`marketing-dispatch` spotlight action)
+- JA 리전: `region=asia`에서 KO+JA 동시 처리
+
+**Phase 5 — 인프라**: 4/6
+- ✅ OG 시각 검증 10/10 포맷 200 OK
+- ✅ `vercel.json` 17개 크론 `dry_run=false`
+- ❌ Remotion Lambda (IAM/S3 인프라 별도 필요)
+
+### 18.7 OG 이미지 시각 검증 결과 (2026-04-27)
+
+| 포맷 | 상태 | 크기 |
+|------|:----:|-----:|
+| Pulse EN | ✅ 200 | 34KB |
+| Pin EN (SEO 오버레이) | ✅ 200 | 51KB |
+| Event EN | ✅ 200 | 40KB |
+| Slide Hook (indigo) | ✅ 200 | 231KB |
+| Slide Data (cyan/green) | ✅ 200 | 173KB |
+| Slide GEX (regime color) | ✅ 200 | 174KB |
+| Slide DarkPool (purple) | ✅ 200 | 183KB |
+| Slide Insight (amber) | ✅ 200 | 163KB |
+| Slide CTA (indigo/cyan) | ✅ 200 | 274KB |
+| Pulse KO | ✅ 200 | 33KB |
 

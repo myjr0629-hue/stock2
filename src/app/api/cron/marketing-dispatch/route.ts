@@ -24,6 +24,7 @@ import {
   dispatchStory,
   dispatchPin,
   dispatchPost,
+  generateCarouselAltTexts,
   type DispatchResult,
   type ThreadSlide,
 } from '@/lib/marketing/bufferMultiClient';
@@ -34,7 +35,7 @@ import type { ContentOutput } from '@/lib/marketing/contentEngines';
 // ---------------------------------------------------------------------------
 // Actions
 // ---------------------------------------------------------------------------
-type Action = 'morning' | 'morning_ig' | 'midday' | 'education' | 'edu_bsky' | 'pulse' | 'pulse_ig' | 'event';
+type Action = 'morning' | 'morning_ig' | 'midday' | 'education' | 'edu_bsky' | 'pulse' | 'pulse_ig' | 'event' | 'spotlight';
 type Region = 'en' | 'asia' | 'all'; // en=EN only, asia=KO+JP, all=both
 
 function getLangsForRegion(region: Region): Lang[] {
@@ -151,6 +152,7 @@ export async function GET(request: Request) {
               channelId: igCh.id,
               caption: truncateForPlatform(`${caption}${buildInstagramFooter(lang, 'morning')}`, 'instagram'),
               imageUrls: carouselUrls,
+              altTexts: generateCarouselAltTexts(carouselUrls.length, lang),
               dryRun,
             });
             results.push(r);
@@ -419,6 +421,7 @@ export async function GET(request: Request) {
               channelId: igCh.id,
               caption: truncateForPlatform(`${caption}${buildInstagramFooter(lang, 'pulse')}`, 'instagram'),
               imageUrls: carouselUrls,
+              altTexts: generateCarouselAltTexts(carouselUrls.length, lang),
               dryRun,
             });
             results.push(r);
@@ -474,6 +477,56 @@ export async function GET(request: Request) {
             const r = await dispatchPost({
               channelId: bskyCh.id,
               text: truncateForPlatform(`${lc.platformText?.bluesky || lc.text}\n\n${ctaUrl}\n\n${tags}`, 'bluesky'),
+              imageUrl: lc.imageUrl,
+              dryRun,
+            });
+            results.push(r);
+          }
+        }
+        break;
+      }
+
+      case 'spotlight': {
+        // Phase 4-3: Ticker Spotlight 게릴라 포스팅
+        const { generateTickerSpotlight, getRandomSpotlightTicker } = await import('@/lib/marketing/contentEngines');
+        const { fetchTradeData } = await import('@/services/realtimeMetricsService');
+
+        const ticker = searchParams.get('ticker') || getRandomSpotlightTicker();
+        const tradeData = await fetchTradeData(ticker).catch(() => null);
+
+        const spotlightContent = generateTickerSpotlight({
+          ticker,
+          darkPoolPct: tradeData?.darkPoolPercent,
+          buyPct: tradeData?.buyPct,
+          sellPct: tradeData?.sellPct,
+          blockTrades: tradeData?.blockTrades,
+        });
+
+        // Save for logging
+        await setInCache(`marketing:spotlight:${dateKey}:${ticker}`, JSON.stringify(spotlightContent), 86400);
+
+        for (const lang of langs) {
+          const lc = spotlightContent[lang];
+          if (!lc?.text) continue;
+
+          // X tweet
+          const xCh = getChannels({ tier: 'all', lang, service: 'twitter' })[0];
+          if (xCh) {
+            const r = await dispatchTweet({
+              channelId: xCh.id,
+              text: truncateForPlatform(lc.text, 'twitter'),
+              imageUrl: lc.imageUrl,
+              dryRun,
+            });
+            results.push(r);
+          }
+
+          // Threads
+          const thCh = getChannels({ tier: 'all', lang, service: 'threads' })[0];
+          if (thCh) {
+            const r = await dispatchPost({
+              channelId: thCh.id,
+              text: truncateForPlatform(lc.text, 'threads'),
               imageUrl: lc.imageUrl,
               dryRun,
             });

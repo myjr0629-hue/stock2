@@ -84,6 +84,14 @@ export async function GET(request: Request) {
     const secEvents = await detectSec8K();
     events.push(...secEvents);
 
+    // 4. ITM Sweep detection (Phase 4-1)
+    const sweepEvents = await detectITMSweep();
+    events.push(...sweepEvents);
+
+    // 5. Dark Pool Spike detection (Phase 4-2)
+    const dpEvent = await detectDarkPoolSpike();
+    if (dpEvent) events.push(dpEvent);
+
     // Filter out already-sent events (dedup)
     const newEvents: EventData[] = [];
     for (const ev of events) {
@@ -99,7 +107,7 @@ export async function GET(request: Request) {
         success: true,
         skipped: true,
         reason: 'No new events detected',
-        checked: { gex: !!gexEvent, vix: !!vixEvent, sec: secEvents.length },
+        checked: { gex: !!gexEvent, vix: !!vixEvent, sec: secEvents.length, sweep: sweepEvents.length, dp: !!dpEvent },
       });
     }
 
@@ -243,6 +251,82 @@ async function detectSec8K(): Promise<EventData[]> {
   return events;
 }
 
+// Phase 4-1: ITM Sweep Detection
+// Reads unusual options flow from EC2 Redis accumulator
+async function detectITMSweep(): Promise<EventData[]> {
+  const events: EventData[] = [];
+  const SWEEP_THRESHOLD = 5_000_000; // $5M+ premium
+  try {
+    for (const ticker of TRACKED_TICKERS) {
+      const cacheKey = `options:flow:unusual:${ticker}`;
+      const cached = await safeGet(cacheKey);
+      if (!cached) continue;
+
+      const flows = typeof cached === 'string' ? JSON.parse(cached) : cached;
+      const sweeps = Array.isArray(flows) ? flows : flows?.trades || flows?.sweeps || [];
+
+      for (const sweep of sweeps) {
+        const premium = sweep.premium || sweep.value || sweep.total || 0;
+        if (premium < SWEEP_THRESHOLD) continue;
+
+        // Check freshness (within last 10 min)
+        const ts = new Date(sweep.timestamp || sweep.time || '');
+        if (Date.now() - ts.getTime() > 10 * 60 * 1000) continue;
+
+        const side = sweep.side || sweep.type || (sweep.putCall === 'C' ? 'Call' : 'Put');
+        const strike = sweep.strike ? `$${sweep.strike}` : '';
+        const exp = sweep.expiration || sweep.exp || '';
+
+        events.push({
+          ticker,
+          type: 'whale',
+          details: `$${(premium / 1e6).toFixed(1)}M ${side} sweep detected ${strike ? `at ${strike}` : ''} ${exp ? `exp ${exp}` : ''}`.trim(),
+          premium,
+          value: premium,
+        });
+        break; // One sweep per ticker max
+      }
+    }
+  } catch {
+    // Silent — flow data may not always be available
+  }
+  return events;
+}
+
+// Phase 4-2: Dark Pool Spike Detection
+// Triggers when SPY or QQQ dark pool ratio exceeds 50%
+async function detectDarkPoolSpike(): Promise<EventData | null> {
+  const DP_THRESHOLD = 50; // 50%+ triggers alert
+  try {
+    const { fetchTradeData } = await import('@/services/realtimeMetricsService');
+
+    for (const ticker of ['SPY', 'QQQ']) {
+      const tradeData = await fetchTradeData(ticker);
+      if (!tradeData || tradeData.darkPoolPercent < DP_THRESHOLD) continue;
+
+      // Check if already alerted today
+      const dpKey = `marketing:event:dp_spike:${ticker}`;
+      const prev = await safeGet(dpKey);
+      if (prev) continue;
+
+      // Mark as seen
+      await setInCache(dpKey, String(tradeData.darkPoolPercent), 86400);
+
+      const direction = tradeData.buyPct > tradeData.sellPct ? 'buy-side dominant' : 'sell-side dominant';
+
+      return {
+        ticker,
+        type: 'unusual_volume',
+        details: `Dark pool activity hit ${tradeData.darkPoolPercent.toFixed(1)}% of total volume (${direction}). Institutional positioning shift detected.`,
+        value: tradeData.darkPoolPercent,
+      };
+    }
+  } catch {
+    // fetchTradeData may timeout
+  }
+  return null;
+}
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -256,11 +340,22 @@ async function fetchMarketContext(): Promise<Partial<MarketData>> {
       safeGet('analysis:gex:regime'),
     ]);
 
+    // Dark Pool — live fetch for OG image dp param
+    let darkPool: number | undefined;
+    try {
+      const { fetchTradeData } = await import('@/services/realtimeMetricsService');
+      const tradeData = await fetchTradeData('SPY');
+      if (tradeData && tradeData.darkPoolPercent > 0) {
+        darkPool = tradeData.darkPoolPercent;
+      }
+    } catch { /* optional */ }
+
     return {
       spy: extractNum(spyRaw, 'changePercent') || 0,
       qqq: extractNum(qqqRaw, 'changePercent') || 0,
       vix: extractNum(vixRaw, 'price') || 18,
       gexRegime: parseGexRegime(gexRaw) || 'neutral',
+      darkPool,
     };
   } catch {
     return { spy: 0, qqq: 0, vix: 18, gexRegime: 'neutral' };

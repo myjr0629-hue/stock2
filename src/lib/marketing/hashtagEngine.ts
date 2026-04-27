@@ -27,23 +27,23 @@ export function buildCashtags(tickers?: string[]): string[] {
 // X (Twitter) — 1~3 hashtags max (clean, no spam)
 // ---------------------------------------------------------------------------
 const X_TAGS: Record<ContentType, string[]> = {
-  pulse:     ['#OptionsFlow', '#MarketStructure'],
-  morning:   ['#PreMarket', '#GEX'],
-  education: ['#GammaExposure', '#OptionsTrading'],
+  pulse:     ['#GEX'],
+  morning:   ['#PreMarket'],
+  education: ['#OptionsTrading'],
   event:     ['#OptionsFlow'],
   midday:    [],  // clean, no tags
-  weekly:    ['#WeeklyRecap', '#MarketStructure'],
+  weekly:    ['#WeeklyRecap'],
 };
 
 const X_EDUCATION_TOPIC_TAGS: Record<string, string[]> = {
-  gex:           ['#GammaExposure', '#GEX', '#OptionsTrading'],
-  dark_pool:     ['#DarkPool', '#InstitutionalFlow', '#SmartMoney'],
-  iv_percentile: ['#ImpliedVolatility', '#OptionsTrading'],
-  pcr:           ['#PutCallRatio', '#MarketSentiment'],
-  max_pain:      ['#MaxPain', '#OptionsExpiration'],
-  squeeze:       ['#GammaSqueeze', '#ShortSqueeze'],
-  iv_skew:       ['#IVSkew', '#Volatility'],
-  dex:           ['#DeltaExposure', '#OptionsFlow'],
+  gex:           ['#GammaExposure', '#GEX'],
+  dark_pool:     ['#DarkPool', '#SmartMoney'],
+  iv_percentile: ['#ImpliedVolatility'],
+  pcr:           ['#PutCallRatio'],
+  max_pain:      ['#MaxPain', '#Options'],
+  squeeze:       ['#GammaSqueeze'],
+  iv_skew:       ['#IVSkew'],
+  dex:           ['#DeltaExposure'],
 };
 
 // ---------------------------------------------------------------------------
@@ -158,6 +158,26 @@ const PINTEREST_TOPIC_TITLES: Record<string, string> = {
 // ---------------------------------------------------------------------------
 
 /**
+ * Get cashtags and hashtags SEPARATELY for X (Twitter).
+ * 2026 X algorithm: Cashtags in the FIRST LINE help SimClusters matching.
+ * Hashtags go at the END (max 2, or omitted entirely for cleaner look).
+ */
+export function getTwitterTagsSplit(opts: {
+  contentType: ContentType;
+  tickers?: string[];
+  educationTopic?: string;
+}): { cashtags: string; hashtags: string } {
+  const { contentType, tickers, educationTopic } = opts;
+  const cashtags = buildCashtags(tickers).join(' ');
+  const rawHashtags = contentType === 'education' && educationTopic
+    ? (X_EDUCATION_TOPIC_TAGS[educationTopic] || X_TAGS.education)
+    : (X_TAGS[contentType] || []);
+  // Max 2 hashtags for X (spam avoidance)
+  const hashtags = rawHashtags.slice(0, 2).join(' ');
+  return { cashtags, hashtags };
+}
+
+/**
  * Get hashtags for a specific platform + content type + language
  */
 export function getHashtags(opts: {
@@ -176,7 +196,9 @@ export function getHashtags(opts: {
       const hashtags = contentType === 'education' && educationTopic
         ? (X_EDUCATION_TOPIC_TAGS[educationTopic] || X_TAGS.education)
         : (X_TAGS[contentType] || []);
-      return [...cashtags, ...hashtags].join(' ');
+      // 2026 X algorithm: max 2 hashtags to avoid spam detection
+      const limitedHashtags = hashtags.slice(0, 2);
+      return [...cashtags, ...limitedHashtags].join(' ');
     }
 
     case 'instagram':
@@ -216,21 +238,34 @@ export function getPinterestSEO(opts: {
   const seo = PINTEREST_SEO[contentType] || PINTEREST_SEO.pulse;
   const year = new Date().getFullYear();
 
+  // --- Title: 40~100 chars, primary keyword front-loaded ---
   let title: string;
   if (contentType === 'education' && educationTopic) {
-    title = PINTEREST_TOPIC_TITLES[educationTopic] || `${seo.titlePrefix} ${year}`;
+    title = PINTEREST_TOPIC_TITLES[educationTopic] || `${seo.titlePrefix}: Institutional Options Guide (${year})`;
   } else if (contentType === 'pulse' && date) {
     const gexStr = gexRegime ? ` — GEX ${gexRegime.toUpperCase()}` : '';
     const spyStr = spyChange != null ? ` — SPY ${spyChange >= 0 ? '+' : ''}${spyChange.toFixed(2)}%` : '';
     title = `S&P 500 Market Structure Analysis${spyStr}${gexStr} — ${date}`;
+  } else if (contentType === 'morning') {
+    title = `Pre-Market Options Structure Brief: What Smart Money Is Watching (${date || year})`;
+  } else if (contentType === 'event') {
+    title = `Options Flow Alert: Unusual Institutional Activity Detected (${date || year})`;
   } else {
-    title = `${seo.titlePrefix} — ${date || year}`;
+    title = `${seo.titlePrefix}: Options & Market Structure Analysis — ${date || year}`;
   }
 
+  // --- Description: 150~400 chars, natural keyword integration + CTA ---
+  // Pinterest 2026: front-load primary keyword in first sentence, 2-3 related phrases naturally
   const description = [
-    `${seo.keywords.join(', ')}.`,
-    'See live GEX data, dark pool activity, and AI-powered market structure analysis at SIGNUM HQ.',
-    'Free institutional-grade options flow dashboard with real-time data.',
+    contentType === 'education'
+      ? `Learn how institutional traders use ${educationTopic === 'gex' ? 'gamma exposure (GEX)' : educationTopic === 'dark_pool' ? 'dark pool data' : 'options flow analysis'} to gain an edge.`
+      : `Comprehensive ${seo.keywords[0]} with options flow, gamma exposure, and dark pool data.`,
+    `This ${contentType === 'education' ? 'guide' : 'analysis'} breaks down market structure using institutional-grade metrics most retail traders never see.`,
+    '',
+    `📌 Save this pin for your next trading session.`,
+    `📊 See live data at SIGNUM HQ — free institutional dashboard.`,
+    '',
+    'Not financial advice. Data-driven context only.',
     '',
     seo.hashtags.join(' '),
   ].join(' ');
@@ -244,10 +279,27 @@ export function getPinterestSEO(opts: {
 export function buildInstagramFooter(lang: Lang, contentType: ContentType): string {
   const hashtags = buildInstagramHashtags(lang, contentType);
   const disclaimer = lang === 'ko'
-    ? '*본 정보는 데이터 분석을 위한 참고 자료이며, 투자 권유가 아닙니다.'
+    ? '*본 정보는 투자 권유가 아닌 데이터 분석 참고 자료입니다.'
     : lang === 'ja'
-    ? '*本情報はデータ分析の参考資料であり、投資勧誘ではありません。'
-    : '*Data-driven context. Not financial advice.';
+    ? '*投資助言ではありません。データ分析の参考資料です。'
+    : '*Not financial advice. Data-driven context only.';
 
-  return `\n\n💾 ${lang === 'ko' ? '이 포스트를 저장해서 나중에 다시 확인하세요' : lang === 'ja' ? 'このポストを保存して後で確認しましょう' : 'Save this post for later reference'}\n📊 ${lang === 'ko' ? '전체 분석' : lang === 'ja' ? '全分析' : 'Full analysis'} → Link in bio\n\n${disclaimer}\n.\n.\n.\n.\n.\n${hashtags}`;
+  // 2026 IG algorithm: saves + DM shares are #1 ranking signals
+  const saveCta = lang === 'ko'
+    ? '📌 장 오픈 전에 다시 볼 수 있게 저장하세요'
+    : lang === 'ja'
+    ? '📌 寄り前にもう一度確認できるよう保存してください'
+    : '📌 Save this for market open';
+  const shareCta = lang === 'ko'
+    ? '↗️ 트레이딩 파트너에게 공유하세요'
+    : lang === 'ja'
+    ? '↗️ トレーディングパートナーに共有してください'
+    : '↗️ Share with your trading partner';
+  const analysisCta = lang === 'ko'
+    ? '📊 전체 분석 → 프로필 링크'
+    : lang === 'ja'
+    ? '📊 全分析 → プロフィールリンク'
+    : '📊 Full analysis → Link in bio';
+
+  return `\n\n${saveCta}\n${shareCta}\n${analysisCta}\n\n${disclaimer}\n.\n.\n.\n.\n.\n${hashtags}`;
 }

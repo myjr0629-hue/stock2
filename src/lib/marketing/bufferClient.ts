@@ -60,15 +60,32 @@ export const CHAR_LIMITS: Record<string, number> = {
 // Compliance dictionary (기관 리서치 톤)
 // ---------------------------------------------------------------------------
 export const COMPLIANCE_REPLACEMENTS: [RegExp, string][] = [
-  [/\bBullish\b/gi,    'Call-side activity concentrated'],
-  [/\bBearish\b/gi,    'Put-side protection increased'],
-  [/\bexpect\b/gi,     'historically associated with'],
-  [/\bwill go up\b/gi, 'often coincides with upward moves'],
-  [/\bwill drop\b/gi,  'often coincides with downward pressure'],
-  [/\bCALLED IT\b/gi,  ''],
-  [/\b적중\b/g,        ''],
-  [/\b매수\b/g,        ''],
-  [/\b매도\b/g,        ''],
+  // --- EN: SEC/FTC compliance ---
+  [/\bBullish\b/gi,       'Call-side activity concentrated'],
+  [/\bBearish\b/gi,       'Put-side protection increased'],
+  [/\bexpect\b/gi,        'historically associated with'],
+  [/\bwill go up\b/gi,    'often coincides with upward moves'],
+  [/\bwill drop\b/gi,     'often coincides with downward pressure'],
+  [/\bCALLED IT\b/gi,     ''],
+  [/\bguarantee[ds]?\b/gi, ''],
+  [/\bprofit[s]?\b/gi,    'return'],
+  [/\bsure thing\b/gi,    ''],
+  [/\b100%\s*(chance|certain|guaranteed|sure)\b/gi, 'historically'],
+  // --- KO: 자본시장법 compliance ---
+  [/\b적중\b/g,           ''],
+  [/\b매수\b/g,           ''],
+  [/\b매도\b/g,           ''],
+  [/\b확실\b/g,           ''],
+  [/\b수익\b/g,           '성과'],
+  [/\b추천\b/g,           ''],
+  [/\b반드시\b/g,         ''],
+  [/\b대박\b/g,           ''],
+  // --- JA: 金商法 compliance ---
+  [/絶対/g,               ''],
+  [/儲かる/g,             ''],
+  [/推奨/g,               ''],
+  [/必ず/g,               ''],
+  [/確実/g,               ''],
 ];
 
 export function applyCompliance(text: string): string {
@@ -80,7 +97,17 @@ export function applyCompliance(text: string): string {
 }
 
 // ---------------------------------------------------------------------------
-// CTA templates (통일된 3종)
+// Disclaimer (전 플랫폼 면책 의무화 — 2026-04-27)
+// ---------------------------------------------------------------------------
+export const DISCLAIMER = {
+  en: 'Not financial advice. Data-driven context only.',
+  ko: '*본 정보는 투자 권유가 아닌 데이터 분석 참고 자료입니다.',
+  ja: '*投資助言ではありません。データ分析の参考資料です。',
+} as const;
+
+// ---------------------------------------------------------------------------
+// CTA templates (8종 다양화 — 2026-04-27)
+// Phase 3-2: CTA 피로도 감소 + 전환율 극대화
 // ---------------------------------------------------------------------------
 export const CTA = {
   liveStructure: (utm: string) =>
@@ -89,6 +116,16 @@ export const CTA = {
     `🎯 Track key levels → signumhq.com/flow?${utm}`,
   fullReport: (utm: string) =>
     `📋 Read AI report → signumhq.com/guardian?${utm}`,
+  institutionalView: (utm: string) =>
+    `🏦 This is what institutions are positioning for → signumhq.com/command?${utm}`,
+  darkPoolTrack: (utm: string) =>
+    `🌊 Track dark pool activity in real time → signumhq.com/flow?${utm}`,
+  freeAlert: (utm: string) =>
+    `🔔 Get structural alerts before the crowd → signumhq.com?${utm}`,
+  educationDeep: (utm: string) =>
+    `📖 Go deeper on this metric → signumhq.com/guide?${utm}`,
+  freeDashboard: (utm: string) =>
+    `⚡ Free institutional dashboard → signumhq.com?${utm}`,
 } as const;
 
 export const CTA_KO = {
@@ -98,6 +135,16 @@ export const CTA_KO = {
     `🎯 핵심 레벨 추적 → signumhq.com/flow?${utm}`,
   fullReport: (utm: string) =>
     `📋 AI 리포트 전문 → signumhq.com/guardian?${utm}`,
+  institutionalView: (utm: string) =>
+    `🏦 기관이 지금 주시하는 포지션 → signumhq.com/command?${utm}`,
+  darkPoolTrack: (utm: string) =>
+    `🌊 다크풀 실시간 추적 → signumhq.com/flow?${utm}`,
+  freeAlert: (utm: string) =>
+    `🔔 시장 구조 변화 알림 받기 → signumhq.com?${utm}`,
+  educationDeep: (utm: string) =>
+    `📖 이 지표 더 깊이 알아보기 → signumhq.com/guide?${utm}`,
+  freeDashboard: (utm: string) =>
+    `⚡ 무료 기관급 대시보드 → signumhq.com?${utm}`,
 } as const;
 
 export const CTA_JA = {
@@ -107,6 +154,16 @@ export const CTA_JA = {
     `🎯 キーレベル追跡 → signumhq.com/flow?${utm}`,
   fullReport: (utm: string) =>
     `📋 AIレポート全文 → signumhq.com/guardian?${utm}`,
+  institutionalView: (utm: string) =>
+    `🏦 機関投資家が注目するポジション → signumhq.com/command?${utm}`,
+  darkPoolTrack: (utm: string) =>
+    `🌊 ダークプールをリアルタイムで追跡 → signumhq.com/flow?${utm}`,
+  freeAlert: (utm: string) =>
+    `🔔 構造変化アラートを受け取る → signumhq.com?${utm}`,
+  educationDeep: (utm: string) =>
+    `📖 この指標をさらに詳しく → signumhq.com/guide?${utm}`,
+  freeDashboard: (utm: string) =>
+    `⚡ 無料の機関級ダッシュボード → signumhq.com?${utm}`,
 } as const;
 
 // ---------------------------------------------------------------------------
