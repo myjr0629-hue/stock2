@@ -7,6 +7,20 @@ import React, { useState, useCallback, useEffect } from "react";
 import dynamic from "next/dynamic";
 import { CommandSSRCards } from "./CommandSSRCards";
 
+// Loading fallback for mobile to prevent blank flash
+function MobileCommandSkeleton() {
+    return (
+        <div className="min-h-screen bg-[#050505] text-white">
+            <div className="h-14 bg-slate-800/30 animate-pulse" />
+            <div className="px-3 pt-3 space-y-3">
+                <div className="h-20 bg-slate-800/30 rounded-lg animate-pulse" />
+                <div className="h-44 bg-slate-800/20 rounded-lg animate-pulse" style={{ animationDelay: '100ms' }} />
+                <div className="h-64 bg-slate-800/15 rounded-lg animate-pulse" style={{ animationDelay: '200ms' }} />
+            </div>
+        </div>
+    );
+}
+
 const LiveTickerDashboard = dynamic(
     () => import("@/components/LiveTickerDashboard").then(mod => mod.LiveTickerDashboard),
     { ssr: false }
@@ -14,7 +28,7 @@ const LiveTickerDashboard = dynamic(
 
 const MobileCommandPage = dynamic(
     () => import("@/components/intel/mobile/MobileCommandPage").then(mod => mod.MobileCommandPage),
-    { ssr: false }
+    { ssr: false, loading: () => <MobileCommandSkeleton /> }
 );
 
 interface TickerPageClientProps {
@@ -47,7 +61,7 @@ const SKELETON_LABELS_ROW2 = ['INST RADAR', 'TREND PHASE', 'FUNDAMENTAL', 'EARNI
 
 export function TickerPageClient({ ticker, range, initialStockData, initialUnifiedData, initialChartData }: TickerPageClientProps) {
     const [dashboardReady, setDashboardReady] = useState(false);
-    const [isMobile, setIsMobile] = useState(false);
+    const [isMobile, setIsMobile] = useState<boolean | null>(null);
 
     useEffect(() => {
         const check = () => setIsMobile(window.innerWidth < 768);
@@ -59,6 +73,11 @@ export function TickerPageClient({ ticker, range, initialStockData, initialUnifi
     const handleDashboardReady = useCallback(() => {
         setDashboardReady(true);
     }, []);
+
+    // ═══ Before hydration: show SSR skeleton (prevents blank flash) ═══
+    if (isMobile === null) {
+        return null; // SSR cards below will show via !dashboardReady check
+    }
 
     // ═══ MOBILE: 5-Tab Command Page ═══
     if (isMobile) {
