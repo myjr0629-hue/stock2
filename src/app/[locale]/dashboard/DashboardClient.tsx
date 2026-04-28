@@ -816,34 +816,40 @@ function MainChartPanel() {
     const lastTickerRef = React.useRef<string | null>(null);
     // [PERF] Client-side chart cache — instant display on ticker revisit
     const chartCacheRef = React.useRef<Map<string, { data: any[]; ts: number }>>(new Map());
-    const CHART_CACHE_TTL_MS = 60_000; // 60s — fresh data, but instant on revisit
+    const CHART_CACHE_TTL_MS = 300_000; // 5min — matches server Redis TTL for maximum cache hits
 
-    // [SPEED] Prefetch ALL watchlist charts in parallel on mount
-    // → Every ticker click is instant (cache always warm)
+    // [SPEED] Prefetch watchlist charts — selected ticker first, then stagger others
+    // → Selected chart loads instantly, remaining tickers prefetch in background
     const prefetchedRef = React.useRef(false);
     const dashboardTickers = useDashboardStore(s => s.dashboardTickers);
     useEffect(() => {
         if (prefetchedRef.current || dashboardTickers.length === 0) return;
         prefetchedRef.current = true;
-        // Fire-and-forget parallel fetch for ALL watchlist tickers
-        const prefetchAll = async () => {
-            const promises = dashboardTickers.map(async (t) => {
-                if (chartCacheRef.current.has(t)) return; // already cached
-                try {
-                    const res = await fetch(`/api/chart?symbol=${t}&range=1d`);
-                    if (res.ok) {
-                        const json = await res.json();
-                        const d = json.data || [];
-                        if (d.length > 0) {
-                            chartCacheRef.current.set(t, { data: d, ts: Date.now() });
+        // [PERF] Staggered prefetch: skip selected ticker (fetched separately), batch 3 at a time
+        const prefetchOthers = async () => {
+            const others = dashboardTickers.filter(t => t !== selectedTicker && !chartCacheRef.current.has(t));
+            // Batch in groups of 3 to avoid overwhelming the API
+            for (let i = 0; i < others.length; i += 3) {
+                const batch = others.slice(i, i + 3);
+                await Promise.all(batch.map(async (t) => {
+                    try {
+                        const res = await fetch(`/api/chart?symbol=${t}&range=1d`);
+                        if (res.ok) {
+                            const json = await res.json();
+                            const d = json.data || [];
+                            if (d.length > 0) {
+                                chartCacheRef.current.set(t, { data: d, ts: Date.now() });
+                            }
                         }
-                    }
-                } catch { /* silent */ }
-            });
-            await Promise.all(promises);
+                    } catch { /* silent */ }
+                }));
+                // Small stagger between batches
+                if (i + 3 < others.length) await new Promise(r => setTimeout(r, 200));
+            }
         };
-        prefetchAll();
-    }, [dashboardTickers]);
+        // Delay prefetch to let selected ticker's fetch run first
+        setTimeout(prefetchOthers, 500);
+    }, [dashboardTickers, selectedTicker]);
 
     const fetchChartData = useCallback(async () => {
         if (!selectedTicker) return;
@@ -866,30 +872,24 @@ function MainChartPanel() {
 
     useEffect(() => {
         // [FIX] On ticker change, check client-side cache first (instant from prefetch)
-        if (lastTickerRef.current && lastTickerRef.current !== selectedTicker) {
-            const cached = chartCacheRef.current.get(selectedTicker);
-            if (cached && (Date.now() - cached.ts) < CHART_CACHE_TTL_MS) {
-                // ✅ Cache hit — instant display, no spinner
-                setChartHistory(cached.data);
-                setChartLoading(false);
-            } else {
-                // ❌ Cache miss — keep previous chart visible while loading (no flicker)
-                if (chartHistory.length === 0) {
-                    setChartLoading(true);
-                }
-            }
-        } else if (!lastTickerRef.current) {
-            // First mount — check prefetch cache
-            const cached = chartCacheRef.current.get(selectedTicker);
-            if (cached) {
-                setChartHistory(cached.data);
-                setChartLoading(false);
-            }
+        const cached = chartCacheRef.current.get(selectedTicker);
+        const isCacheValid = cached && (Date.now() - cached.ts) < CHART_CACHE_TTL_MS;
+
+        if (isCacheValid) {
+            // ✅ Cache hit — instant display, no spinner (works on first mount AND ticker switch)
+            setChartHistory(cached!.data);
+            setChartLoading(false);
+        } else if (lastTickerRef.current && lastTickerRef.current !== selectedTicker) {
+            // ❌ Cache miss on ticker switch — keep previous chart visible (no flicker)
+            // Only show spinner if we have absolutely no data
+            if (chartHistory.length === 0) setChartLoading(true);
+        } else if (!lastTickerRef.current && chartHistory.length === 0) {
+            // First mount, no cache — show spinner
+            setChartLoading(true);
         }
         lastTickerRef.current = selectedTicker;
 
-        // Show spinner only on initial empty state (very first load)
-        if (chartHistory.length === 0) setChartLoading(true);
+        // Fetch fresh data (updates cache + display)
         fetchChartData();
 
         // Silent background refresh every 15s

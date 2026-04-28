@@ -15,8 +15,9 @@ export async function GET(request: Request) {
         return NextResponse.json({ error: 'Symbol is required' }, { status: 400 });
     }
 
-    // [AWS] Redis cache first (60s TTL — charts don't need sub-minute freshness)
-    const CHART_CACHE_TTL = range === '1d' ? 60 : 300; // 1min for intraday, 5min for historical
+    // [AWS] Redis cache first (300s TTL — chart visualization doesn't need sub-minute freshness)
+    // [PERF] Increased from 60s→300s to maximize cache hits and reduce Polygon API pressure
+    const CHART_CACHE_TTL = range === '1d' ? 300 : 600; // 5min for intraday, 10min for historical
     const cacheKey = `chart:${symbol}:${range}`;
     try {
         const cached = await getFromCache<any>(cacheKey);
