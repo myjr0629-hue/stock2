@@ -2545,6 +2545,7 @@
     "currentPlan": "Current Plan ✓",
     "upgradeCta": "Upgrade",
     "downgradeCta": "Downgrade",
+    "downgradeToFree": "Downgrade to Free",
     "upgradeSuccess": "Upgrade applied immediately",
     "downgradeSuccess": "Effective from next billing date",
     "foundingTitle": "Lock in this price forever",

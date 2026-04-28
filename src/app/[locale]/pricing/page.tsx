@@ -4,6 +4,7 @@ import { useState, useCallback } from "react";
 import { useTranslations, useLocale } from "next-intl";
 import { Link, useRouter } from "@/i18n/routing";
 import { useTier } from "@/contexts/TierContext";
+import DowngradeToFreeModal from "@/components/DowngradeToFreeModal";
 
 import {
     Check,
@@ -129,6 +130,7 @@ export default function PricingPage() {
     const [isAnnual, setIsAnnual] = useState(false);
     const [checkoutLoading, setCheckoutLoading] = useState(false);
     const [upgradeLoading, setUpgradeLoading] = useState(false);
+    const [showDowngradeModal, setShowDowngradeModal] = useState(false);
 
     // ── 플랜 버튼 클릭 핸들러 ──
     // 모든 언어 → Stripe Checkout Session 생성 → 리다이렉트
@@ -325,6 +327,7 @@ export default function PricingPage() {
     ];
 
     return (
+        <>
         <div className="min-h-screen bg-[#0d1220] text-slate-200" data-pricing>
             {/* ============================================================ */}
             {/* HERO SECTION */}
@@ -415,6 +418,13 @@ export default function PricingPage() {
                                 className="block w-full text-center py-3.5 rounded-lg text-sm font-bold uppercase tracking-wider border border-emerald-500/30 text-emerald-400 bg-emerald-500/10 cursor-default font-jakarta"
                             >
                                 {t("currentPlan")}
+                            </button>
+                        ) : isLoggedIn && (tier === 'pro' || tier === 'elite') ? (
+                            <button
+                                onClick={() => setShowDowngradeModal(true)}
+                                className="block w-full text-center py-3.5 rounded-lg text-sm font-bold uppercase tracking-wider border border-slate-500/20 text-slate-400 hover:text-red-300 hover:border-red-400/20 hover:bg-red-400/[0.03] transition-all font-jakarta"
+                            >
+                                {t("downgradeToFree")}
                             </button>
                         ) : isLoggedIn ? (
                             <button
@@ -866,5 +876,13 @@ export default function PricingPage() {
                 </div>
             </section>
         </div>
+
+        {/* Downgrade to Free Modal */}
+        <DowngradeToFreeModal
+            isOpen={showDowngradeModal}
+            onClose={() => setShowDowngradeModal(false)}
+            tier={tier}
+        />
+        </>
     );
 }

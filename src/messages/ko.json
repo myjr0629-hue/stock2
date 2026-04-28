@@ -2463,6 +2463,7 @@
     "currentPlan": "현재 플랜 ✓",
     "upgradeCta": "업그레이드",
     "downgradeCta": "다운그레이드",
+    "downgradeToFree": "Free로 다운그레이드",
     "upgradeSuccess": "업그레이드가 즉시 적용되었습니다",
     "downgradeSuccess": "다음 결제일부터 적용됩니다",
     "foundingTitle": "평생 이 가격으로 유지됩니다",

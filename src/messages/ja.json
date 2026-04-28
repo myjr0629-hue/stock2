@@ -2545,6 +2545,7 @@
     "currentPlan": "現在のプラン ✓",
     "upgradeCta": "アップグレード",
     "downgradeCta": "ダウングレード",
+    "downgradeToFree": "Freeにダウングレード",
     "upgradeSuccess": "アップグレードが即座に適用されました",
     "downgradeSuccess": "次回請求日から適用されます",
     "foundingTitle": "この価格を永久にロックイン",
