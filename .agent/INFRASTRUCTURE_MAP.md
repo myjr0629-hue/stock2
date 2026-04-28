@@ -528,7 +528,12 @@ signum-harvest (5분마다, 항상)
 | `/api/sparkline` | 스파크라인 |
 | `/api/logo?ticker=TSLA` | 로고 |
 | `/api/og` | OG 이미지 생성 |
-| `/api/stripe/*` | Stripe 결제 |
+| `/api/stripe/checkout` | Stripe 결제 세션 생성 (Checkout) |
+| `/api/stripe/upgrade` | Pro↔Elite 업/다운그레이드 + 결제주기 변경 |
+| `/api/stripe/cancel` | **구독 취소 (cancel_at_period_end)** — GET: 갱신일 조회, POST: 기간 말 해지 예약 + 사유 저장 (2026-04-28) |
+| `/api/stripe/portal` | Stripe Customer Portal 세션 (결제수단 변경 등) |
+| `/api/stripe/webhook` | Stripe Webhook — checkout.session.completed / subscription.updated / subscription.deleted (→ free 자동 전환) |
+| `/api/command/13f?t=TSLA` | **SEC 13-F 기관 보유현황** — FMP API 조회, 상위 10 기관 + 총 보유량/가치 (2026-04-28) |
 | `/api/guardian/*` | Guardian AI |
 | `/api/intel/*` | 섹터 Intel |
 | `/api/history/*` | 히스토리 데이터 |
@@ -4195,4 +4200,59 @@ Lambda 비용: ~6배 증가 (6 × 2048MB × 900s)
 **최종 해결**: 15분 cron → 최악 8분 + 7분 여유 → 중첩 불가
 
 **적용 방식**: AWS SDK 직접 호출 (즉시 적용)
+
+### [2026-04-28] 🟢 SEC 13-F 기관 보유현황 (Institutional Holdings) 통합
+
+> **구현 범위**: Command 페이지에 13-F 기관 보유현황 패널 추가 — SEC Filing 기반 상위 10대 기관의 보유 주식수, 포트폴리오 비중, 총 기관 보유 가치를 표시.
+>
+> **신규 파일**:
+> | 파일 | 역할 |
+> |------|------|
+> | `src/app/api/command/13f/route.ts` | FMP `/stable/institutional-holder` API 조회 → 상위 10 기관 + 집계 |
+> | `src/components/Institutional13FPanel.tsx` | 13-F 패널 UI (그리드 테이블 + CardTooltip + 로딩/에러 상태) |
+>
+> **수정 파일**:
+> | 파일 | 변경 |
+> |------|------|
+> | `how-it-works/command/page.tsx` | 3-Tab → 4-Tab 구조, 2x2 그리드에 13-F 카드 추가 |
+> | `pricing/page.tsx` | COMMAND 매트릭스에 13-F 항목 추가, FREE 기능 목록에 포함 |
+> | `ko.json / en.json / ja.json` | 13-F 설명, 툴팁, 가이드 페이지 텍스트 3개 언어 완벽 대응 |
+>
+> **데이터 흐름**: `Institutional13FPanel (클라이언트)` → `/api/command/13f?t={TICKER}` → FMP API → 상위 10 기관 정렬 반환
+> **접근 제한**: FREE 포함 전체 티어 접근 가능 (SEC 공시 데이터이므로 무료 제공이 업계 표준)
+
+### [2026-04-28] 🟢 구독 다운그레이드 (Downgrade to Free) — 업계표준 3-Step Retention Flow
+
+> **배경**: 기존에 구독 취소 경로가 UI에 전혀 없었음. `api/stripe/portal`은 존재했으나 이를 호출하는 버튼이 없음. FTC/ROSCA 준수 및 사용자 편의를 위해 자체 Downgrade 플로우 구축.
+>
+> **설계 결정 (업계 표준 리서치 기반)**:
+> - **위치**: Pricing 페이지 FREE 카드 — PRO/ELITE 유저에게만 "Downgrade to Free" 버튼 노출
+> - **"Cancel" 대신 "Downgrade"**: 심리적 부담 경감 + 기존 Elite→Pro 다운그레이드와 UX 통일
+> - **cancel_at_period_end: true**: 즉시 해지 아닌 기간 말 해지 (Netflix/Spotify 동일 방식)
+> - **Retention UX**: Keep 버튼 = 크고 밝은 파란색 / Downgrade 버튼 = 작고 흐린 빨간색
+>
+> **3-Step Retention Modal (DowngradeToFreeModal.tsx)**:
+> | Step | 내용 | 목적 |
+> |------|------|------|
+> | 1. Exit Survey | 6가지 사유 선택 (비용/미사용/기능부재/대안/휴식/기타) | 데이터 수집 + 이탈 단계 추가 |
+> | 2. Loss Aversion | 잃는 기능 5가지 표시 + 갱신일까지 유효 배너 + 데이터 보존 안내 | 가치 상기 |
+> | 3. Success | "YYYY년 M월 D일까지 프리미엄 기능 이용 가능" 확인 | 안심 + 복귀 유도 |
+>
+> **취소 사유 저장**:
+> - **Stripe Subscription Metadata**: `cancel_reason`, `cancel_detail`, `cancelled_at` (항상 저장)
+> - **Supabase user_profiles**: `cancel_reason`, `cancel_detail`, `cancel_requested_at` (컬럼 존재 시)
+>
+> **Webhook 자동 처리**: `customer.subscription.deleted` → `upsertTier(userId, 'free')` — 기간 만료 시 자동 Free 전환 (기존 로직, 수정 없음)
+>
+> **신규 파일**:
+> | 파일 | 역할 |
+> |------|------|
+> | `src/app/api/stripe/cancel/route.ts` | GET: 구독 상태+갱신일 조회 / POST: cancel_at_period_end 설정 + 사유 저장 |
+> | `src/components/DowngradeToFreeModal.tsx` | 3-Step Retention 모달 (ko/en/ja 내장, lucide-react 아이콘) |
+>
+> **수정 파일**:
+> | 파일 | 변경 |
+> |------|------|
+> | `pricing/page.tsx` | FREE 카드에 PRO/ELITE 유저 전용 Downgrade 버튼 + Fragment 래핑 + 모달 연결 |
+> | `ko.json / en.json / ja.json` | `downgradeToFree` i18n 키 추가 |
 
