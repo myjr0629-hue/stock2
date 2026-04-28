@@ -1283,15 +1283,17 @@
     "gammaTitle": "TACTICAL RANGE & NET GAMMA ENGINE",
     "gammaDesc": "オプション建玉から導出した<gold>構造的価格レベル</gold>と<cyan>ガンマプロファイル分析</cyan>を提供。Support/Resist/Max Painが短期価格レンジを定義し、Net GEX方向とGamma Flipが市場環境を構造的に分類。",
     "gexTimelineSection": {
-      "title": "GEX TIMELINE 30D / TECH LEVELS / IV SKEW CURVE",
-      "subtitle": "3-Tab Analytical Intelligence Panel",
-      "desc": "Commandターミナルの核心分析パネルです。<cyan>3つの独立タブ</cyan>が異なる時間軸と分析視点から市場構造を立体的に照射します。各タブは機関トレーディングデスクが日常的に参照する同水準の分析を提供します。",
+      "title": "GEX TIMELINE 30D / TECH LEVELS / IV SKEW / 13-F",
+      "subtitle": "4タブ分析インテリジェンスパネル",
+      "desc": "Commandターミナルの中核分析パネルです。<cyan>4つの独立タブ</cyan>が異なる時間軸と視点から市場構造を立体的に照射します。各タブは機関トレーディングデスクが日々参照する同等水準の分析を提供します。",
       "gexTitle": "GEX TIMELINE 30D",
       "gexDesc": "30日間の<emerald>ガンマエクスポージャー(GEX)推移</emerald>を時系列で可視化。ロングガンマ↔ショートガンマ転換(Gamma Flipイベント)がタイムライン下部に自動表示され、<gold>レジーム転換頻度とパターン</gold>から現在のボラティリティ体制の構造的文脈を把握します。転換時点ごとに<rose>NEG→POS / POS→NEG</rose>バッジと当時価格が記録されます。",
       "techTitle": "TECH LEVELS MAP",
       "techDesc": "SMA50、SMA200、VWAP、Max Pain、Call Wall、Put Floor、<purple>Gamma Flip</purple> — 7つのテクニカル・デリバティブレベルを<cyan>価格軸基準で配列</cyan>し、現在価格の構造的位置を可視化。各レベルまでの乖離率(%)がリアルタイムで算出され、機関トレーダーが参照する核心のサポート・レジスタンスマップを提供します。",
       "ivSkewTitle": "IV SKEW CURVE",
-      "ivSkewDesc": "行使価格(Strike)別の<gold>コール/プットインプライドボラティリティ</gold>をカーブで可視化。ATM(等価格)基準の両側スキューの傾きと形状が、オプション市場参加者の<cyan>方向別リスク認識の非対称性</cyan>を示します。プットスキュー深化は下方テールリスクへの機関級ヘッジ需要を、コールスキュー深化は上方投機的需要を示唆します。"
+      "ivSkewDesc": "行使価格(Strike)別の<gold>コール/プットインプライドボラティリティ</gold>をカーブで可視化。ATM(等価格)基準の両側スキューの傾きと形状が、オプション市場参加者の<cyan>方向別リスク認識の非対称性</cyan>を示します。プットスキュー深化は下方テールリスクへの機関級ヘッジ需要を、コールスキュー深化は上方投機的需要を示唆します。",
+      "inst13fTitle": "13-F 機関保有状況",
+      "inst13fDesc": "SEC Form 13-Fに基づく<gold>機関投資家の保有状況</gold>を四半期ごとに照会します。各機関の保有株数、市場価値、全体に対する比重(Weight)を算出し、<cyan>機関集中度と所有構造</cyan>を把握できます。大手機関のポジション変動は、中長期的な価格方向性の先行指標として活用されます。"
     },
     "aiDeepAnalysis": {
       "title": "AI DEEP ANALYSIS",
@@ -2628,7 +2630,8 @@
       "advanced": "高度分析",
       "realtime": "リアルタイム",
       "futurePaid": "今後別途課金",
-      "lifetimeFree": "生涯無料"
+      "lifetimeFree": "生涯無料",
+      "inst13f": "13-F 機関保有状況"
     },
     "faqTitle": "よくある質問",
     "faq": {
@@ -2658,7 +2661,8 @@
     "billingCycleUpdated": "決済サイクルが更新されました！",
     "alreadySamePlan": "既に同じプラン・決済サイクルです。",
     "somethingWrong": "エラーが発生しました",
-    "failedProcess": "処理に失敗しました。再度お試しください。"
+    "failedProcess": "処理に失敗しました。再度お試しください。",
+    "freeF5": "13-F 機関保有状況の照会"
   },
   "footer": {
     "disclaimer": "SIGNUM HQが提供するすべての情報は、分析参考用のクオンツデータであり、金融商品取引法に基づく個別アドバイス・代理業には該当しません。システム環境によりデータの遅延やエラーが発生する場合があり、その正確性・完全性を保証するものではありません。過去の実績は将来の収益を保証するものではなく、すべての分析判断はご自身の判断と責任において行ってください。",

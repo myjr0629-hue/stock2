@@ -228,6 +228,7 @@ export default function PricingPage() {
             title: "COMMAND",
             rows: [
                 { label: t("matrix.priceChart"), free: "full", pro: "full", elite: "full" },
+                { label: t("matrix.inst13f"), free: "full", pro: "full", elite: "full" },
                 { label: t("matrix.hudPeek"), free: "limited", pro: "full", elite: "full", freeNote: t("matrix.peekOnly") },
                 { label: t("matrix.tacticalRange"), free: "lock", pro: "full", elite: "full", freeNote: t("matrix.blurred") },
                 { label: t("matrix.instRadar"), free: "lock", pro: "full", elite: "full", freeNote: t("matrix.blurred") },
@@ -401,7 +402,7 @@ export default function PricingPage() {
                             <span className="text-slate-400 text-base ml-1.5">/mo</span>
                         </div>
                         <ul className="space-y-3.5 mb-9 text-sm">
-                            {[t("freeF1"), t("freeF2"), t("freeF3"), t("freeF4")].map((f, i) => (
+                            {[t("freeF1"), t("freeF2"), t("freeF3"), t("freeF4"), t("freeF5")].map((f, i) => (
                                 <li key={i} className="flex items-start gap-3 text-slate-300 leading-relaxed">
                                     <Check className="w-4.5 h-4.5 text-slate-500 shrink-0 mt-0.5" />
                                     {f}

@@ -1283,15 +1283,17 @@
     "gammaTitle": "TACTICAL RANGE & NET GAMMA ENGINE",
     "gammaDesc": "Provides <gold>structural price levels</gold> derived from options open interest and <cyan>gamma profile analysis</cyan>. Support/Resist/Max Pain define the short-term price range while Net GEX direction and Gamma Flip structurally classify the current market environment.",
     "gexTimelineSection": {
-      "title": "GEX TIMELINE 30D / TECH LEVELS / IV SKEW CURVE",
-      "subtitle": "3-Tab Analytical Intelligence Panel",
-      "desc": "The core analytical panel of the Command terminal. <cyan>Three independent tabs</cyan> illuminate market structure from different time horizons and analytical perspectives. Each tab delivers the same caliber of analysis referenced daily by institutional trading desks.",
+      "title": "GEX TIMELINE 30D / TECH LEVELS / IV SKEW / 13-F",
+      "subtitle": "4-Tab Analytical Intelligence Panel",
+      "desc": "The core analytical panel of the Command terminal. <cyan>Four independent tabs</cyan> illuminate market structure from different time horizons and analytical perspectives. Each tab delivers the same caliber of analysis referenced daily by institutional trading desks.",
       "gexTitle": "GEX TIMELINE 30D",
       "gexDesc": "Visualizes 30 days of <emerald>Gamma Exposure (GEX) evolution</emerald> as a time series. Long-gamma ↔ Short-gamma transitions (Gamma Flip events) are automatically annotated on the timeline, revealing <gold>regime transition frequency and patterns</gold> that contextualize the current volatility regime. Each transition is marked with <rose>NEG→POS / POS→NEG</rose> badges and the price at transition.",
       "techTitle": "TECH LEVELS MAP",
       "techDesc": "SMA50, SMA200, VWAP, Max Pain, Call Wall, Put Floor, <purple>Gamma Flip</purple> — 7 technical and derivative levels <cyan>arranged on the price axis</cyan> to visualize the structural position of current price. Real-time deviation (%) to each level is computed, delivering the core support/resistance map referenced by institutional traders.",
       "ivSkewTitle": "IV SKEW CURVE",
-      "ivSkewDesc": "Visualizes <gold>call/put implied volatility</gold> across strike prices as a curve. The slope and shape of skew on each side of ATM reveals the <cyan>directional risk perception asymmetry</cyan> of options market participants. Deepening put skew indicates institutional hedging demand for tail risk, while call skew steepening signals speculative upside demand."
+      "ivSkewDesc": "Visualizes <gold>call/put implied volatility</gold> across strike prices as a curve. The slope and shape of skew on each side of ATM reveals the <cyan>directional risk perception asymmetry</cyan> of options market participants. Deepening put skew indicates institutional hedging demand for tail risk, while call skew steepening signals speculative upside demand.",
+      "inst13fTitle": "13-F INSTITUTIONAL HOLDINGS",
+      "inst13fDesc": "Surfaces <gold>institutional investor positions</gold> derived from quarterly SEC Form 13-F filings. Displays share counts, market values, and portfolio weight for each reporting institution, enabling assessment of <cyan>ownership concentration and structural positioning</cyan>. Shifts in large institutional holdings serve as leading indicators for medium-to-long-term directional conviction."
     },
     "aiDeepAnalysis": {
       "title": "AI DEEP ANALYSIS",
@@ -2628,7 +2630,8 @@
       "advanced": "Advanced",
       "realtime": "Real-time",
       "futurePaid": "Future paid add-on",
-      "lifetimeFree": "Lifetime free"
+      "lifetimeFree": "Lifetime free",
+      "inst13f": "13-F Institutional Holdings"
     },
     "faqTitle": "Frequently Asked Questions",
     "faq": {
@@ -2658,7 +2661,8 @@
     "billingCycleUpdated": "Billing cycle updated!",
     "alreadySamePlan": "Already on this plan and billing cycle.",
     "somethingWrong": "Something went wrong",
-    "failedProcess": "Failed to process. Please try again."
+    "failedProcess": "Failed to process. Please try again.",
+    "freeF5": "13-F Institutional Holdings lookup"
   },
   "footer": {
     "disclaimer": "All information provided by SIGNUM HQ is quantitative reference data for informational and educational purposes only and does not constitute a trade recommendation or personalized recommendations. Data is provided \"as is\" without warranty of any kind and may be delayed or contain errors. Past performance is not indicative of future results. All analytical decisions and resulting gains or losses are solely the responsibility of the user.",

@@ -1201,15 +1201,17 @@
     "gammaTitle": "TACTICAL RANGE & NET GAMMA ENGINE",
     "gammaDesc": "옵션 미결제약정에서 도출한 <gold>구조적 가격 레벨</gold>과 <cyan>감마 프로파일 분석</cyan>을 제공합니다. Support/Resist/Max Pain 레벨이 단기 가격 구간을 정의하며, Net GEX 방향과 Gamma Flip이 현재 시장 환경을 구조적으로 분류합니다.",
     "gexTimelineSection": {
-      "title": "GEX TIMELINE 30D / TECH LEVELS / IV SKEW CURVE",
-      "subtitle": "3-Tab Analytical Intelligence Panel",
-      "desc": "Command 터미널의 핵심 분석 패널입니다. <cyan>3개의 독립 탭</cyan>이 서로 다른 시간축과 관점에서 시장 구조를 입체적으로 조명합니다. 각 탭은 기관 트레이딩 데스크가 매일 참조하는 동일 수준의 분석을 제공합니다.",
+      "title": "GEX TIMELINE 30D / TECH LEVELS / IV SKEW / 13-F",
+      "subtitle": "4-Tab Analytical Intelligence Panel",
+      "desc": "Command 터미널의 핵심 분석 패널입니다. <cyan>4개의 독립 탭</cyan>이 서로 다른 시간축과 관점에서 시장 구조를 입체적으로 조명합니다. 각 탭은 기관 트레이딩 데스크가 매일 참조하는 동일 수준의 분석을 제공합니다.",
       "gexTitle": "GEX TIMELINE 30D",
       "gexDesc": "30일간의 <emerald>감마 노출(GEX) 추이</emerald>를 시계열로 시각화합니다. 롱감마 ↔ 숏감마 전환(Gamma Flip) 이벤트가 타임라인 하단에 자동으로 표시되며, <gold>레짐 전이 빈도와 패턴</gold>을 통해 현재 변동성 체제의 구조적 맥락을 파악합니다. 전환 시점마다 <rose>NEG→POS / POS→NEG</rose> 배지와 당시 가격이 기록됩니다.",
       "techTitle": "TECH LEVELS MAP",
       "techDesc": "SMA50, SMA200, VWAP, Max Pain, Call Wall, Put Floor, <purple>Gamma Flip</purple> — 7개 기술·파생 레벨을 <cyan>가격 축 기준으로 정렬</cyan>하여 현재가의 구조적 위치를 시각화합니다. 각 레벨까지의 이격률(%)이 실시간으로 산출되어, 기관 트레이더가 참조하는 핵심 지지·저항 맵을 제공합니다.",
       "ivSkewTitle": "IV SKEW CURVE",
-      "ivSkewDesc": "행사가(Strike) 별 <gold>콜/풋 내재변동성</gold>을 곡선으로 시각화합니다. ATM(등가격) 기준 양쪽 스큐의 기울기와 형태가 옵션 시장 참가자의 <cyan>방향별 리스크 인식 비대칭</cyan>을 드러냅니다. Put Skew 심화는 하방 테일 리스크에 대한 기관급 헤지 수요를, Call Skew 심화는 상방 투기적 수요를 시사합니다."
+      "ivSkewDesc": "행사가(Strike) 별 <gold>콜/풋 내재변동성</gold>을 곡선으로 시각화합니다. ATM(등가격) 기준 양쪽 스큐의 기울기와 형태가 옵션 시장 참가자의 <cyan>방향별 리스크 인식 비대칭</cyan>을 드러냅니다. Put Skew 심화는 하방 테일 리스크에 대한 기관급 헤지 수요를, Call Skew 심화는 상방 투기적 수요를 시사합니다.",
+      "inst13fTitle": "13-F INSTITUTIONAL HOLDINGS",
+      "inst13fDesc": "SEC Form 13-F에 기반한 <gold>기관투자자 보유 현황</gold>을 분기별로 조회합니다. 각 기관의 보유 주식 수량, 시장가치, 전체 대비 비중(Weight)을 산출하여 <cyan>기관 집중도와 소유 구조</cyan>를 파악할 수 있습니다. 대형 기관의 포지션 변동은 중장기 가격 방향성의 선행 지표로 활용됩니다."
     },
     "aiDeepAnalysis": {
       "title": "AI DEEP ANALYSIS",
@@ -2546,7 +2548,8 @@
       "advanced": "고급 분석",
       "realtime": "실시간",
       "futurePaid": "추후 별도 과금",
-      "lifetimeFree": "평생 무료"
+      "lifetimeFree": "평생 무료",
+      "inst13f": "13-F 기관 보유 현황"
     },
     "faqTitle": "자주 묻는 질문",
     "faq": {
@@ -2576,7 +2579,8 @@
     "billingCycleUpdated": "결제 주기가 변경되었습니다!",
     "alreadySamePlan": "이미 동일한 플랜 및 결제 주기입니다.",
     "somethingWrong": "오류가 발생했습니다",
-    "failedProcess": "처리에 실패했습니다. 다시 시도해주세요."
+    "failedProcess": "처리에 실패했습니다. 다시 시도해주세요.",
+    "freeF5": "13-F 기관 보유 현황 조회"
   },
   "footer": {
     "disclaimer": "SIGNUM HQ의 모든 정보는 투자 참고용 퀀트 데이터이며, 매매 추천이나 투자 자문에 해당하지 않습니다. 시스템 환경에 따라 데이터 지연 및 오류가 발생할 수 있으며, 당사는 정확성을 보장하지 않습니다. 과거의 실적이 미래 수익을 보장하지 않으며, 모든 분석 판단과 그에 따른 손익의 책임은 전적으로 이용자 본인에게 있습니다.",

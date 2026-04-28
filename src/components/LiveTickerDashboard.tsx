@@ -28,6 +28,7 @@ import { GammaPressureGauge } from '@/components/GammaPressureGauge';
 import { AIDeepAnalysis } from '@/components/AIDeepAnalysis';
 import { CardTooltip, COMMAND_TOOLTIPS } from '@/components/ui/CardTooltip';
 import IVSkewCurve from '@/components/IVSkewCurve';
+const Institutional13FPanel = dynamic(() => import('@/components/Institutional13FPanel'), { ssr: false, loading: () => <div className="min-h-[300px] flex items-center justify-center"><div className="w-8 h-8 border-2 border-indigo-500/30 border-t-indigo-400 rounded-full animate-spin" /></div> });
 import DualGaugeHUD from '@/components/ui/DualGaugeHUD';
 import { useMobile } from '@/hooks/useMobile';
 import { MobileCommandHeader } from '@/components/mobile/MobileCommandHeader';
@@ -188,7 +189,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
     });
     const [conviction, setConviction] = useState<{ score: number; label: string; grade: string } | null>(null);
     // [UX] GEX Timeline ↔ Tech Levels ↔ IV SKEW toggle
-    const [activeInsightTab, setActiveInsightTab] = useState<'gex' | 'levels' | 'ivskew'>('gex');
+    const [activeInsightTab, setActiveInsightTab] = useState<'gex' | 'levels' | 'ivskew' | '13f'>('gex');
     const [relatedData, setRelatedData] = useState<{ count: number; topRelated: { ticker: string; price: number; change: number; logo: string | null; prevClose?: number }[] } | null>(() => {
         if (!initialUnifiedData?.related) return null;
         return { count: initialUnifiedData.related.count || 0, topRelated: initialUnifiedData.related.topRelated || [] };
@@ -1756,6 +1757,17 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                         <div className={`w-1.5 h-1.5 rounded-full ${activeInsightTab === 'ivskew' ? 'bg-indigo-400' : 'bg-slate-500'} ${effectiveSession === 'REG' && activeInsightTab !== 'ivskew' ? 'animate-pulse' : ''}`} />
                                         <CardTooltip tooltip={COMMAND_TOOLTIPS.IV_SKEW.tooltip} badge={COMMAND_TOOLTIPS.IV_SKEW.badge}>IV Skew</CardTooltip>
                                     </button>
+                                    <button
+                                        onClick={() => setActiveInsightTab('13f')}
+                                        className={`shrink-0 px-3 py-1.5 rounded-lg text-[12px] font-black uppercase tracking-wider transition-all duration-200 font-jakarta flex items-center gap-1.5 ${
+                                            activeInsightTab === '13f'
+                                                ? 'bg-indigo-500/20 text-white border border-indigo-500/40 shadow-[0_0_10px_rgba(99,102,241,0.15)]'
+                                                : 'bg-slate-800/40 text-slate-400 border border-slate-700/30 hover:text-slate-300 hover:border-slate-600/50'
+                                        }`}
+                                    >
+                                        <div className={`w-1.5 h-1.5 rounded-full ${activeInsightTab === '13f' ? 'bg-indigo-400' : 'bg-slate-500'}`} />
+                                        <CardTooltip tooltip={COMMAND_TOOLTIPS.INST_13F.tooltip} badge={COMMAND_TOOLTIPS.INST_13F.badge}>13-F</CardTooltip>
+                                    </button>
                                 </div>
 
                                 {/* Tab Content */}
@@ -1775,7 +1787,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                         putFloor={structure?.levels?.putFloor}
                                         gammaFlipLevel={structure?.gammaFlipLevel}
                                     />
-                                ) : (
+                                ) : activeInsightTab === 'ivskew' ? (
                                     <ProGate title="IV Skew Curve" mode="blur" fomoMessage="Call IV · Put IV · Skew Direction · ATM IV Smile · Strike-level Analysis" description={tg('descIvSkew')}>
                                         <IVSkewCurve
                                             ticker={ticker}
@@ -1784,7 +1796,9 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                             expiration={options?.atmSlice?.[0]?.expiration || structure?.expiration}
                                         />
                                     </ProGate>
-                                )}
+                                ) : activeInsightTab === '13f' ? (
+                                    <Institutional13FPanel ticker={ticker} />
+                                ) : null}
                             </div>
 
                             {/* B. Advanced Options Analysis — PRO (Separate Gates) */}

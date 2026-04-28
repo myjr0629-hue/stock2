@@ -534,7 +534,7 @@ export default async function CommandGuidePage() {
             <section className="space-y-5">
                 <div className="flex items-center gap-2 mt-2 mb-2">
                     <div className="h-px flex-1 bg-gradient-to-r from-cyan-500/40 to-transparent" />
-                    <span className="text-[12px] font-bold text-cyan-400 uppercase tracking-widest whitespace-nowrap">📊 3-Tab Intelligence Panel</span>
+                    <span className="text-[12px] font-bold text-cyan-400 uppercase tracking-widest whitespace-nowrap">4-Tab Intelligence Panel</span>
                     <div className="h-px flex-1 bg-gradient-to-l from-cyan-500/40 to-transparent" />
                 </div>
 
@@ -563,8 +563,8 @@ export default async function CommandGuidePage() {
                             {t.rich('gexTimelineSection.desc', richTags)}
                         </p>
 
-                        {/* 3 Tab Cards */}
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        {/* 4 Tab Cards — 2x2 Grid */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             <div className="p-4 rounded-xl bg-emerald-900/20 border border-emerald-500/20">
                                 <div className="flex items-center gap-2 mb-2">
                                     <div className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
@@ -590,6 +590,15 @@ export default async function CommandGuidePage() {
                                 </div>
                                 <p className="text-[13px] text-slate-300 leading-relaxed">
                                     {t.rich('gexTimelineSection.ivSkewDesc', richTags)}
+                                </p>
+                            </div>
+                            <div className="p-4 rounded-xl bg-cyan-900/20 border border-cyan-500/20">
+                                <div className="flex items-center gap-2 mb-2">
+                                    <div className="w-2.5 h-2.5 rounded-full bg-cyan-500" />
+                                    <span className="text-[13px] font-black text-cyan-400">{t('gexTimelineSection.inst13fTitle')}</span>
+                                </div>
+                                <p className="text-[13px] text-slate-300 leading-relaxed">
+                                    {t.rich('gexTimelineSection.inst13fDesc', richTags)}
                                 </p>
                             </div>
                         </div>

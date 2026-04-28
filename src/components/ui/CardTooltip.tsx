@@ -401,6 +401,18 @@ export const COMMAND_TOOLTIPS = {
             ja: 'AIフローインテリジェンス',
         },
     },
+    INST_13F: {
+        tooltip: {
+            ko: 'SEC 13-F 기관 보유 현황 — 분기마다 제출되는 기관투자자의 보유 종목·수량·시장가치. 상위 기관의 비중(Weight)으로 집중도를 파악합니다.',
+            en: 'SEC Form 13-F institutional holdings — quarterly filings showing institutional investors\' positions, share counts & market values. Weight shows concentration among top holders.',
+            ja: 'SEC 13-F機関保有状況 — 四半期ごとの機関投資家の保有銘柄・数量・市場価値。上位機関のWeight(比重)で集中度を把握します。',
+        },
+        badge: {
+            ko: 'SEC 기관 보유 공시',
+            en: 'SEC institutional filings',
+            ja: 'SEC機関保有開示',
+        },
+    },
 } as const;
 
 /**
