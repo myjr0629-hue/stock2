@@ -538,6 +538,83 @@ signum-harvest (5분마다, 항상)
 | `/api/intel/*` | 섹터 Intel |
 | `/api/history/*` | 히스토리 데이터 |
 
+### 7.4 마케팅 자동화 API (크론 + 미디어)
+
+| 경로 | 역할 |
+|------|------|
+| `/api/cron/daily-content` | 마케팅 콘텐츠 생성 — Redis 시장 데이터 → AI(Bedrock Haiku) 3개국어 텍스트 → Redis 저장. `?type=pulse\|morning\|education` |
+| `/api/cron/event-detect` | **이벤트 자동 감지** — 5분 크론: GEX 플립, VIX 급등, SEC 8-K, ITM Sweep($5M+), 다크풀 스파이크(50%+) 감지 → Redis → dispatch 호출 |
+| `/api/cron/marketing-dispatch` | **통합 멀티플랫폼 디스패치** — Buffer API 경유 8종 SNS 자동 게시 (X tweet/thread, Bluesky, IG carousel/story, Threads, Pinterest). 8개 스케줄별 action 파라미터 |
+| `/api/cron/buffer-dispatch` | 레거시 단일 플랫폼 디스패치 (marketing-dispatch로 통합됨) |
+| `/api/cron/render-video` | **영상 렌더링 오케스트레이터** — Redis 데이터 → TTS(Polly) → HTML 템플릿 → S3 업로드. Puppeteer/FFmpeg 캡처용 매니페스트 생성 |
+| `/api/og/market` | **OG 이미지 생성 (Satori)** — GEX Regime + S&P500 + Dark Pool + VIX 시그널 카드. 6개 포맷(og/tweet/carousel/pin/square/story) |
+| `/api/og/market/slide` | **IG 캐러셀 슬라이드** — 6장 슬라이드(hook/data/gex/darkpool/insight/cta) 개별 생성 |
+
+#### 마케팅 라이브러리 (`src/lib/marketing/`)
+
+| 파일 | 역할 |
+|------|------|
+| `contentEngines.ts` (42KB) | 템플릿 기반 콘텐츠 생성 — Pulse, Morning, Education, Event, Ticker Spotlight. 3개 국어 + 플랫폼별 텍스트 변환 |
+| `aiContentEngine.ts` (16KB) | AI 콘텐츠 생성 — AWS Bedrock(Claude Haiku) 기반. 템플릿 엔진의 AI 대체 (fallback: 템플릿) |
+| `bufferClient.ts` (15KB) | Buffer API 클라이언트 — 채널 관리, UTM 빌더, 플랫폼별 글자수 제한(truncate) |
+| `bufferMultiClient.ts` (22KB) | 멀티플랫폼 디스패치 — tweet, thread, carousel, story, pin, post 각 타입별 Buffer API 호출 |
+| `hashtagEngine.ts` (13KB) | 해시태그 엔진 — 플랫폼별(twitter/bluesky/threads/instagram) × 콘텐츠별 × 3개 국어 해시태그 생성 |
+| `imagePrerenderer.ts` (5KB) | **이미지 사전 렌더링** — 동적 OG URL → fetch → Supabase Storage CDN 업로드. Buffer 503 타임아웃 해결 |
+| `pollyClient.ts` (11KB) | AWS Polly TTS — 나레이션 스크립트 생성 + 음성 합성 + BGM 선택 |
+
+#### 마케팅 디스패치 스케줄
+
+| 시간 (KST) | action | 플랫폼 | 콘텐츠 |
+|---|---|---|---|
+| 06:30 | `morning` | X + Bluesky + IG Story | 프리마켓 브리프 |
+| 08:00 | `morning_ig` | IG Carousel + Threads | 프리마켓 (캐러셀) |
+| 11:00 | `midday` | X + Bluesky + IG Story + Pinterest | 장중 코멘터리 |
+| 14:00 | `education` | X Thread + Pinterest | GEX/다크풀 교육 |
+| 17:00 | `edu_bsky` | Bluesky + Pinterest | 교육 (블루스카이) |
+| 05:30+1 | `pulse` | X + Bluesky + IG Story + Pinterest | 장 마감 요약 |
+| 07:00+1 | `pulse_ig` | IG Carousel + Threads | 장 마감 (캐러셀) |
+| 실시간 | `event` | X + Bluesky (즉시) | GEX 플립/VIX 급등 등 |
+
+#### 이벤트 감지 파이프라인
+
+```
+[5분 크론] event-detect
+  ├─ GEX 플립 감지 (analysis:gex:regime 이전값 비교)
+  ├─ VIX 스파이크 감지 (15%+ 변동)
+  ├─ SEC 8-K 속보 감지 (M7 종목)
+  ├─ ITM Sweep 감지 ($5M+ 프리미엄)
+  └─ 다크풀 스파이크 감지 (SPY/QQQ 50%+)
+  
+  → 쿨다운 30분, 하루 최대 3건, 24시간 중복 방지
+  → AI 콘텐츠 생성 (fallback: 템플릿)
+  → Redis 저장 → marketing-dispatch?action=event 호출
+```
+
+#### 🔴 미완성 / 개선 예정 항목
+
+> **OG 이미지 퀄리티 업그레이드 (2026-04-28 확정)**:
+> - **현재**: Satori(next/og) 기반 — CSS 제한으로 실제 웹 대시보드보다 퀄리티 현저히 낮음
+> - **개선**: HTML 템플릿 + Puppeteer 캡처 방식으로 전환
+>   - 프리미엄 HTML/CSS 카드 페이지 제작 (웹 대시보드 동일 수준)
+>   - URL 파라미터로 Redis 실시간 데이터 주입
+>   - Puppeteer 스크린샷 → Supabase Storage CDN → Buffer → SNS 게시
+>   - 5종 카드 템플릿: Pulse / Event / Morning / Ticker / Education
+>   - 6개 포맷: tweet(1200×675) / carousel(1080×1350) / story(1080×1920) / pin(1000×1500) / square(1080×1080) / og(1200×630)
+>
+> **이벤트 발생 시 실제 페이지 캡처**:
+> - GEX 플립, VIX 급등 등 이벤트 발생 시점에 실제 대시보드/커맨드 페이지를 Puppeteer로 캡처
+> - 캡처 대상: Command 페이지 (GEX Gauge + 차트), Guardian 페이지 (전체 시황)
+> - 실제 서비스 화면 스크린샷 → 최고 신뢰도의 SNS 콘텐츠
+>
+> **비디오 렌더링 (Shorts/Reels)**:
+> - HTML 템플릿 → Puppeteer 프레임 캡처 → FFmpeg → MP4
+> - TTS 나레이션(Polly) + BGM 자동 선택
+> - YouTube Shorts / Instagram Reels / TikTok 자동 업로드
+>
+> **크론 스케줄 실제 등록**:
+> - 현재 marketing-dispatch는 dry_run=true 기본값
+> - Vercel cron에 실제 스케줄 등록 필요
+
 ---
 
 ## 8. 핵심 서비스 파일
