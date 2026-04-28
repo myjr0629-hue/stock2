@@ -574,23 +574,35 @@ async function appendRlsiHistory(snapshot) {
 
 // ══════════════════════════════════════════════════════════════
 // AI MORNING BRIEFING GENERATOR (08:00 ET Daily)
-// Narrative-driven: News + Data woven into story via Gemini
+// Narrative-driven: News + Data woven into story via Claude
+// [FIX] Redis-based dedup (not memory) + 1-hour window + retry until success
 // ══════════════════════════════════════════════════════════════
 
-let lastBriefingDate = null;
-
 async function generateMorningBriefing() {
-    const { hour, minute, isWeekend } = getETNow();
+    const { hour, isWeekend } = getETNow();
     if (isWeekend) return;
 
-    // Only at 08:00 ET (±5 min window), once per day
+    // [FIX] 08:00~08:59 ET window (was 08:00~08:05 — too narrow, single failure killed the day)
+    if (hour !== 8) return;
+
     const now = new Date();
     const etDateStr = now.toLocaleDateString("en-US", { timeZone: "America/New_York" });
-    if (lastBriefingDate === etDateStr) return;
-    if (hour !== 8 || minute > 5) return;
+
+    // [FIX] Check Redis for existing today's briefing (not memory variable)
+    // This survives EC2 restarts and ensures we never regenerate an already-existing briefing
+    try {
+        const existingRaw = await redis.get("guardian:morning_briefing:ko");
+        if (existingRaw) {
+            const existing = JSON.parse(existingRaw);
+            if (existing.date === etDateStr && existing.briefing && existing.briefing.length > 50) {
+                return; // Today's briefing already exists — skip
+            }
+        }
+    } catch (e) {
+        console.warn("[Briefing] Redis check error (will attempt generation):", e.message);
+    }
 
     console.log("[Briefing] 🌅 Generating narrative morning briefing...");
-    lastBriefingDate = etDateStr;
 
     // Get current snapshot from Redis
     const snapshotRaw = await redis.get(`${CONFIG.SNAPSHOT_KEY_PREFIX}ko`);
