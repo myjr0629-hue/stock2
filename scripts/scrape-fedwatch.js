@@ -199,9 +199,16 @@ async function scrapeFedWatch() {
 
         // 메인 페이지에서 카운트다운 추출
         const mainText = await page.evaluate(() => document.body.innerText);
-        const daysM = mainText.match(/(\d+)\s*DAYS/i);
+        // Countdown extraction — handle both "DAY" (singular) and "DAYS" (plural)
+        const daysM = mainText.match(/(\d+)\s*DAYS?/i);
+        const hrsM = mainText.match(/(\d+)\s*HRS?/i);
         if (result && daysM) {
             result.daysUntilFomc = parseInt(daysM[1]);
+            if (hrsM) result.hoursUntilFomc = parseInt(hrsM[1]);
+        } else if (result && hrsM) {
+            // Less than 1 day remaining (shows 0 days or no days text)
+            result.daysUntilFomc = 0;
+            result.hoursUntilFomc = parseInt(hrsM[1]);
         }
 
         if (!result) {
