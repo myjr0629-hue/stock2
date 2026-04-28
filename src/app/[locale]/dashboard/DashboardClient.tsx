@@ -880,9 +880,10 @@ function MainChartPanel() {
             setChartHistory(cached!.data);
             setChartLoading(false);
         } else if (lastTickerRef.current && lastTickerRef.current !== selectedTicker) {
-            // ❌ Cache miss on ticker switch — keep previous chart visible (no flicker)
-            // Only show spinner if we have absolutely no data
-            if (chartHistory.length === 0) setChartLoading(true);
+            // ❌ Cache miss on ticker switch — MUST clear old data to prevent Y-axis explosion
+            // (old ticker's $16 data + new ticker's $300 price lines → chart stretches wildly)
+            setChartHistory([]);
+            setChartLoading(true);
         } else if (!lastTickerRef.current && chartHistory.length === 0) {
             // First mount, no cache — show spinner
             setChartLoading(true);
