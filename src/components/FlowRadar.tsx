@@ -2531,120 +2531,159 @@ export function FlowRadar({ ticker, rawChain, allExpiryChain, gammaFlipLevel, oi
                                                 <div className="min-w-[300px] h-[100px] flex items-center justify-center text-cyan-500/30 font-mono text-sm border border-cyan-500/10 rounded-xl bg-cyan-950/10 backdrop-blur-sm">
                                                     No Institutional Data Found
                                                 </div>
-                                            ) : (
-                                                whaleTrades.map((t: any, i: number) => {
-                                                    const isHighImpact = t.premium >= 500000;
-                                                    const isMedImpact = t.premium >= 100000 && t.premium < 500000;
-                                                    const isCall = t.type === 'CALL';
+                                            ) : (() => {
+                                                // [CUMULATIVE] Sort chronologically (oldest first) for display only
+                                                // Original whaleTrades array (newest-first) is NOT mutated — analysis logic unaffected
+                                                const chronological = [...whaleTrades].reverse();
+                                                const totalPremium = chronological.reduce((sum: number, t: any) => sum + (t.premium || 0), 0);
+                                                const callPremium = chronological.filter((t: any) => t.type === 'CALL').reduce((sum: number, t: any) => sum + (t.premium || 0), 0);
+                                                const putPremium = totalPremium - callPremium;
+                                                const totalFmt = totalPremium >= 1000000 ? `$${(totalPremium / 1000000).toFixed(2)}M` : `$${(totalPremium / 1000).toFixed(0)}K`;
+                                                const callFmt = callPremium >= 1000000 ? `$${(callPremium / 1000000).toFixed(1)}M` : `$${(callPremium / 1000).toFixed(0)}K`;
+                                                const putFmt = putPremium >= 1000000 ? `$${(putPremium / 1000000).toFixed(1)}M` : `$${(putPremium / 1000).toFixed(0)}K`;
 
-                                                    // Impact Label
-                                                    const impactLabel = isHighImpact ? "HIGH" : isMedImpact ? "MED" : "LOW";
-                                                    const impactTextColor = isHighImpact ? "text-amber-400" : isMedImpact ? "text-indigo-400" : "text-slate-400";
+                                                let runningTotal = 0;
 
-                                                    // Strategy Logic
-                                                    const moneyness = t.strike / currentPrice;
-                                                    let strategyMain = "";
-                                                    let strategySub = "";
-                                                    if (isCall && moneyness < 0.60) {
-                                                        strategyMain = "STOCK REPL"; strategySub = ui('stockReplace');
-                                                    } else if (isCall && moneyness < 0.85) {
-                                                        strategyMain = "LEVERAGE"; strategySub = ui('leverageLabel');
-                                                    } else {
-                                                        const isBlock = t.size >= 500;
-                                                        strategyMain = isBlock ? "BLOCK" : "SWEEP";
-                                                    }
-
-                                                    // [V3.7.3] Sniper Logic: Local BEP Calculation
-                                                    // Unit Cost = Premium / (Size * 100)
-                                                    const unitCost = t.premium / (t.size * 100);
-                                                    const bep = isCall ? t.strike + unitCost : t.strike - unitCost;
-                                                    const bepDist = ((bep - currentPrice) / currentPrice) * 100;
-                                                    const isInMoney = (isCall && currentPrice > t.strike) || (!isCall && currentPrice < t.strike);
-
-                                                    // Node Color Theme
-                                                    const nodeBorder = isHighImpact ? 'border-amber-400 shadow-[0_0_15px_rgba(251,191,36,0.3)]' :
-                                                        isCall ? 'border-emerald-500/60 shadow-[0_0_10px_rgba(16,185,129,0.2)]' :
-                                                            'border-rose-500/60 shadow-[0_0_10px_rgba(244,63,94,0.2)]';
-
-                                                    const nodeBg = isHighImpact ? 'bg-amber-950/40' : 'bg-slate-900/60';
-
-                                                    // Blinking Border Logic (Overlay)
-                                                    const ShowBlink = isHighImpact || i === 0;
-                                                    const BlinkColor = isHighImpact ? 'border-amber-500 shadow-[0_0_20px_rgba(245,158,11,0.6)]' : 'border-cyan-400 shadow-[0_0_15px_rgba(34,211,238,0.6)]';
-
-                                                    return (
-                                                        <div
-                                                            key={t.id ? `${t.id}-${i}` : i}
-                                                            className={`
-                                                        relative min-w-[220px] p-3.5 rounded-xl border-2 backdrop-blur-xl flex flex-col justify-between gap-2
-                                                        transition-all duration-500 hover:scale-105 hover:z-10
-                                                        animate-in fade-in slide-in-from-right-4
-                                                        ${nodeBorder} ${nodeBg}
-                                                    `}
-                                                        >
-                                                            {/* Glassmorphism inner glow */}
-                                                            <div className={`absolute inset-0 rounded-xl opacity-20 pointer-events-none ${isHighImpact ? 'bg-gradient-to-br from-amber-400/30 via-transparent to-amber-500/10' : isCall ? 'bg-gradient-to-br from-emerald-400/20 via-transparent to-cyan-500/10' : 'bg-gradient-to-br from-rose-400/20 via-transparent to-pink-500/10'}`} />
-                                                            {/* Top shine */}
-                                                            <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-white/20 to-transparent rounded-t-xl" />
-                                                            {/* Blinking Border Overlay */}
-                                                            {ShowBlink && (
-                                                                <div className={`absolute inset-[-2px] rounded-xl border-2 ${BlinkColor} animate-pulse pointer-events-none`} />
-                                                            )}
-
-                                                            {/* Row 1: Ticker & Time */}
-                                                            <div className="flex justify-between items-start">
-                                                                <div className="flex flex-col">
-                                                                    <span className="text-sm font-black text-white tracking-wider flex items-center gap-1.5 shadow-black/50 drop-shadow-md">
-                                                                        {isHighImpact && <span className="inline-block w-2 h-2 rounded-full bg-amber-400 shadow-[0_0_8px_rgba(245,158,11,0.8)] animate-pulse" />} {t.underlying || ticker}
-                                                                    </span>
-                                                                    <span className="text-[13px] text-slate-400 font-mono mt-0.5 opacity-0 h-0 overflow-hidden">
-                                                                        {/* Hidden for layout balance, moved to Row 2 */}
-                                                                    </span>
-                                                                </div>
-                                                                <div className="text-right flex flex-col items-end">
-                                                                    <div className={`text-[13px] font-bold px-2 py-0.5 rounded mb-1 flex items-center gap-1.5 ${isCall ? 'text-emerald-300 bg-emerald-500/20' : 'text-rose-300 bg-rose-500/20'}`}>
-                                                                        <span>{t.type}</span>
-                                                                        <span className="opacity-50">|</span>
-                                                                        {/* [Fix] Direct string parsing to avoid UTC->EST shift (e.g. 2025-01-16 -> Jan 15) */}
-                                                                        <span>{t.expiry.substring(5).replace('-', '/')}</span>
-                                                                    </div>
-                                                                    <div className={`text-[12px] font-bold tracking-wider ${impactTextColor}`}>
-                                                                        IMPACT: {impactLabel}
-                                                                    </div>
-                                                                </div>
+                                                return (
+                                                    <>
+                                                        {/* ── Whale Cumulative Summary Bar ── */}
+                                                        <div className="min-w-[240px] shrink-0 p-3 rounded-xl border border-cyan-500/30 bg-gradient-to-br from-cyan-950/60 to-slate-900/80 backdrop-blur-xl flex flex-col justify-center gap-1.5 shadow-[0_0_20px_rgba(6,182,212,0.1)]">
+                                                            <div className="flex items-center gap-2">
+                                                                <span className="text-[11px] font-black tracking-widest text-cyan-400/80 uppercase">Today's Whale Flow</span>
+                                                                <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">{chronological.length}</span>
                                                             </div>
-
-                                                            {/* Row 2: Strategy & Strike (Expanded) */}
-                                                            <div className="flex justify-between items-end border-b border-white/10 pb-2">
-                                                                <div className="flex flex-col">
-                                                                    <span className="text-[13px] font-bold text-cyan-200">{strategyMain}</span>
-                                                                    <span className="text-xs font-bold text-cyan-300 mt-0.5 font-mono">
-                                                                        {new Date(t.tradeDate).toLocaleDateString('en-US', { month: 'numeric', day: 'numeric', timeZone: 'America/New_York' })} {t.timeET}
-                                                                    </span>
-                                                                </div>
-                                                                <div className="text-right">
-                                                                    <span className="text-sm font-bold text-white">Strike ${t.strike}</span>
-                                                                    <div className="text-xs font-bold text-slate-300 font-mono flex items-center justify-end gap-1 mt-0.5">
-                                                                        <span className={bepDist > 0 ? "text-emerald-400 drop-shadow-sm" : "text-rose-400 drop-shadow-sm"}>
-                                                                            BEP ${bep.toFixed(2)}
-                                                                        </span>
-                                                                    </div>
-                                                                </div>
+                                                            <div className="text-xl font-black text-white tracking-tight drop-shadow-[0_0_8px_rgba(6,182,212,0.3)]">
+                                                                {totalFmt}
                                                             </div>
-
-                                                            {/* Row 3: Premium & Size */}
-                                                            <div className="flex justify-between items-center">
-                                                                <div className={`text-sm font-black tracking-tight ${isHighImpact ? 'text-amber-300 drop-shadow-[0_0_5px_rgba(251,191,36,0.6)]' : 'text-white'}`}>
-                                                                    ${(t.premium / 1000).toFixed(0)}K
-                                                                </div>
-                                                                <div className="text-[13px] font-mono text-slate-300">
-                                                                    {t.size} cts
-                                                                </div>
+                                                            <div className="flex items-center gap-2 text-[11px] font-bold">
+                                                                <span className="text-emerald-400">C {callFmt}</span>
+                                                                <span className="text-slate-600">/</span>
+                                                                <span className="text-rose-400">P {putFmt}</span>
                                                             </div>
                                                         </div>
-                                                    );
-                                                })
-                                            )) : flowViewMode === 'LIVE' ? (
+
+                                                        {/* ── Chronological Whale Cards (oldest → newest) ── */}
+                                                        {chronological.map((t: any, i: number) => {
+                                                            runningTotal += (t.premium || 0);
+                                                            const cumulFmt = runningTotal >= 1000000 ? `$${(runningTotal / 1000000).toFixed(2)}M` : `$${(runningTotal / 1000).toFixed(0)}K`;
+                                                            const isHighImpact = t.premium >= 500000;
+                                                            const isMedImpact = t.premium >= 100000 && t.premium < 500000;
+                                                            const isCall = t.type === 'CALL';
+                                                            const isNewest = i === chronological.length - 1;
+
+                                                            // Impact Label
+                                                            const impactLabel = isHighImpact ? "HIGH" : isMedImpact ? "MED" : "LOW";
+                                                            const impactTextColor = isHighImpact ? "text-amber-400" : isMedImpact ? "text-indigo-400" : "text-slate-400";
+
+                                                            // Strategy Logic
+                                                            const moneyness = t.strike / currentPrice;
+                                                            let strategyMain = "";
+                                                            let strategySub = "";
+                                                            if (isCall && moneyness < 0.60) {
+                                                                strategyMain = "STOCK REPL"; strategySub = ui('stockReplace');
+                                                            } else if (isCall && moneyness < 0.85) {
+                                                                strategyMain = "LEVERAGE"; strategySub = ui('leverageLabel');
+                                                            } else {
+                                                                const isBlock = t.size >= 500;
+                                                                strategyMain = isBlock ? "BLOCK" : "SWEEP";
+                                                            }
+
+                                                            // [V3.7.3] Sniper Logic: Local BEP Calculation
+                                                            const unitCost = t.premium / (t.size * 100);
+                                                            const bep = isCall ? t.strike + unitCost : t.strike - unitCost;
+                                                            const bepDist = ((bep - currentPrice) / currentPrice) * 100;
+                                                            const isInMoney = (isCall && currentPrice > t.strike) || (!isCall && currentPrice < t.strike);
+
+                                                            // Node Color Theme
+                                                            const nodeBorder = isHighImpact ? 'border-amber-400 shadow-[0_0_15px_rgba(251,191,36,0.3)]' :
+                                                                isCall ? 'border-emerald-500/60 shadow-[0_0_10px_rgba(16,185,129,0.2)]' :
+                                                                    'border-rose-500/60 shadow-[0_0_10px_rgba(244,63,94,0.2)]';
+
+                                                            const nodeBg = isHighImpact ? 'bg-amber-950/40' : 'bg-slate-900/60';
+
+                                                            // Blinking Border Logic: newest card + high impact
+                                                            const ShowBlink = isHighImpact || isNewest;
+                                                            const BlinkColor = isHighImpact ? 'border-amber-500 shadow-[0_0_20px_rgba(245,158,11,0.6)]' : 'border-cyan-400 shadow-[0_0_15px_rgba(34,211,238,0.6)]';
+
+                                                            return (
+                                                                <div
+                                                                    key={t.id ? `${t.id}-${i}` : i}
+                                                                    className={`
+                                                                relative min-w-[220px] p-3.5 rounded-xl border-2 backdrop-blur-xl flex flex-col justify-between gap-2
+                                                                transition-all duration-500 hover:scale-105 hover:z-10
+                                                                animate-in fade-in slide-in-from-right-4
+                                                                ${nodeBorder} ${nodeBg}
+                                                            `}
+                                                                >
+                                                                    {/* Glassmorphism inner glow */}
+                                                                    <div className={`absolute inset-0 rounded-xl opacity-20 pointer-events-none ${isHighImpact ? 'bg-gradient-to-br from-amber-400/30 via-transparent to-amber-500/10' : isCall ? 'bg-gradient-to-br from-emerald-400/20 via-transparent to-cyan-500/10' : 'bg-gradient-to-br from-rose-400/20 via-transparent to-pink-500/10'}`} />
+                                                                    {/* Top shine */}
+                                                                    <div className="absolute top-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-white/20 to-transparent rounded-t-xl" />
+                                                                    {/* Blinking Border Overlay */}
+                                                                    {ShowBlink && (
+                                                                        <div className={`absolute inset-[-2px] rounded-xl border-2 ${BlinkColor} animate-pulse pointer-events-none`} />
+                                                                    )}
+
+                                                                    {/* Row 1: Ticker & Time */}
+                                                                    <div className="flex justify-between items-start">
+                                                                        <div className="flex flex-col">
+                                                                            <span className="text-sm font-black text-white tracking-wider flex items-center gap-1.5 shadow-black/50 drop-shadow-md">
+                                                                                {isHighImpact && <span className="inline-block w-2 h-2 rounded-full bg-amber-400 shadow-[0_0_8px_rgba(245,158,11,0.8)] animate-pulse" />} {t.underlying || ticker}
+                                                                            </span>
+                                                                            <span className="text-[13px] text-slate-400 font-mono mt-0.5 opacity-0 h-0 overflow-hidden">
+                                                                                {/* Hidden for layout balance, moved to Row 2 */}
+                                                                            </span>
+                                                                        </div>
+                                                                        <div className="text-right flex flex-col items-end">
+                                                                            <div className={`text-[13px] font-bold px-2 py-0.5 rounded mb-1 flex items-center gap-1.5 ${isCall ? 'text-emerald-300 bg-emerald-500/20' : 'text-rose-300 bg-rose-500/20'}`}>
+                                                                                <span>{t.type}</span>
+                                                                                <span className="opacity-50">|</span>
+                                                                                <span>{t.expiry.substring(5).replace('-', '/')}</span>
+                                                                            </div>
+                                                                            <div className={`text-[12px] font-bold tracking-wider ${impactTextColor}`}>
+                                                                                IMPACT: {impactLabel}
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+
+                                                                    {/* Row 2: Strategy & Strike */}
+                                                                    <div className="flex justify-between items-end border-b border-white/10 pb-2">
+                                                                        <div className="flex flex-col">
+                                                                            <span className="text-[13px] font-bold text-cyan-200">{strategyMain}</span>
+                                                                            <span className="text-xs font-bold text-cyan-300 mt-0.5 font-mono">
+                                                                                {new Date(t.tradeDate).toLocaleDateString('en-US', { month: 'numeric', day: 'numeric', timeZone: 'America/New_York' })} {t.timeET}
+                                                                            </span>
+                                                                        </div>
+                                                                        <div className="text-right">
+                                                                            <span className="text-sm font-bold text-white">Strike ${t.strike}</span>
+                                                                            <div className="text-xs font-bold text-slate-300 font-mono flex items-center justify-end gap-1 mt-0.5">
+                                                                                <span className={bepDist > 0 ? "text-emerald-400 drop-shadow-sm" : "text-rose-400 drop-shadow-sm"}>
+                                                                                    BEP ${bep.toFixed(2)}
+                                                                                </span>
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+
+                                                                    {/* Row 3: Premium & Size + Cumulative */}
+                                                                    <div className="flex justify-between items-center">
+                                                                        <div className="flex flex-col">
+                                                                            <div className={`text-sm font-black tracking-tight ${isHighImpact ? 'text-amber-300 drop-shadow-[0_0_5px_rgba(251,191,36,0.6)]' : 'text-white'}`}>
+                                                                                ${(t.premium / 1000).toFixed(0)}K
+                                                                            </div>
+                                                                            <div className="text-[10px] font-bold text-cyan-400/70 tracking-wider mt-0.5">
+                                                                                Σ {cumulFmt}
+                                                                            </div>
+                                                                        </div>
+                                                                        <div className="text-[13px] font-mono text-slate-300">
+                                                                            {t.size} cts
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            );
+                                                        })}
+                                                    </>
+                                                );
+                                            })()) : flowViewMode === 'LIVE' ? (
                                             /* ===== LIVE WS STREAM VIEW ===== */
                                             !wsFlowConnected ? (
                                                 <div className="min-w-[300px] h-[100px] flex items-center justify-center text-amber-500/30 font-mono text-sm border border-amber-500/10 rounded-xl bg-amber-950/10 backdrop-blur-sm">
