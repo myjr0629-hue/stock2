@@ -200,9 +200,9 @@ export function MobileHeader() {
                             <BookOpen className="w-[18px] h-[18px]" style={{ filter: 'drop-shadow(0 0 3px rgba(148,163,184,0.15))' }} />
                         </Link>
                         <Link
-                            href="/settings"
+                            href="/pricing"
                             className="w-8 h-8 inline-flex items-center justify-center text-slate-400 active:text-amber-400 transition-all tap-highlight-transparent"
-                            aria-label="Billing"
+                            aria-label="Pricing"
                         >
                             <CreditCard className="w-[18px] h-[18px]" style={{ filter: 'drop-shadow(0 0 3px rgba(148,163,184,0.15))' }} />
                         </Link>
