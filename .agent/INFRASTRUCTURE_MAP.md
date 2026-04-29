@@ -184,7 +184,8 @@ AI 에이전트는 데이터 불일치를 조사할 때 무조건 아래 3단계
 | `cache:analysis:{TICKER}` | AnalysisCacheEntry (**31필드**) | Dashboard/Watchlist/Portfolio |
 | `cache:command:unified:{TICKER}` | 9개 섹션 전체 데이터 | Command/Ticker 페이지 |
 - TTL: 259,200초 (3일)
-- 방식: Upstash REST API pipeline (배치 20개씩)
+- **쓰기 방식 (2026-04-29 최적화)**: EC2 Redis Proxy(`http://52.23.98.13:8081/mset`) → ElastiCache pipeline 일괄 SET, 실패 시 Upstash REST fallback
+- **읽기 방식 (2026-04-29 최적화)**: `analysisCache.ts` → `mgetFromCache()` → EC2 Proxy `/mget` 1회 왕복, 실패 시 Upstash SDK `mget()` fallback
 - **cache:analysis**: structure 없어도 항상 기록 (가격/RSI/sparkline만으로도 캐시 HIT 보장)
 
 #### 유니버스 단일 소스
@@ -4524,4 +4525,80 @@ Lambda 비용: ~6배 증가 (6 × 2048MB × 900s)
 > |------|------|
 > | `pricing/page.tsx` | FREE 카드에 PRO/ELITE 유저 전용 Downgrade 버튼 + Fragment 래핑 + 모달 연결 |
 > | `ko.json / en.json / ja.json` | `downgradeToFree` i18n 키 추가 |
+
+---
+
+### ✅ Redis Cost 최적화 (2026-04-29)
+
+> **목적**: Upstash Redis 월 비용 $110.56 → ~$12.50 절감 (89%)
+> **원칙**: 데이터 구조/키/TTL 변경 Zero, DynamoDB 무변경, Upstash fallback 유지
+
+#### 비용 급등 원인
+| 지표 | 4월 실측 |
+|---|---|
+| Commands | 3,971만 |
+| Bandwidth | **1 TB** (한도 200GB의 5배 초과) |
+| Cost | **$110.56** (예산 $120의 92%) |
+| 이전 비용 | 2월 $6.82 → 3월 $21.04 → 4월 $110.56 |
+
+**주범**: Lambda(signum-harvest + flow-harvest)가 5분마다 1,000종목 × 2~4키를 Upstash REST API(외부 HTTPS)로 SET → 일일 30~37GB Bandwidth 소비
+
+#### 작업 1: 배치 읽기 최적화 (MGET 전환)
+| 파일 | 변경 |
+|---|---|
+| `src/services/redisClient.ts` | `mgetFromCache(keys)` 함수 추가 — EC2 `/mget` → Upstash SDK `mget()` → null fallback |
+| `src/services/analysisCache.ts` | `getAnalysisCacheForTickers()`: `Promise.all(N×GET)` → `mgetFromCache(1×MGET)` + 개별 fallback |
+
+- **효과**: N종목 조회 시 N회 API 왕복 → 1회로 축소 (Command 93% 절감)
+- **함수 시그니처**: `Record<string, AnalysisCacheEntry>` 반환 — 15개 소비자 파일 수정 불필요
+
+#### 작업 2: Lambda 쓰기 경로 최적화 (EC2 Proxy 경유)
+| 파일 | 변경 |
+|---|---|
+| `scripts/ec2-redis-proxy.js` | `/mset` POST 엔드포인트 추가 (ioredis pipeline batch SET + TTL) |
+| `scripts/deploy-lambda-v7.js` | `ec2ProxyPost()` + `redisSet()`/`redisPipeline()` → EC2 1순위, Upstash REST fallback |
+| `scripts/lambda-flow-harvest/index.js` | 동일 패턴 적용 |
+
+- **효과**: Lambda → VPC 내부 EC2 Proxy → ElastiCache ($0 Bandwidth) — Upstash Bandwidth 95% 제거
+- **안전장치**: EC2 장애 시 자동 Upstash fallback (기존 코드 삭제하지 않음)
+
+#### 배포 경로
+| 대상 | 명령/방식 |
+|---|---|
+| Vercel | `git push` (자동 배포) |
+| EC2 redis-proxy | `scp → /opt/signum-ws/redis-proxy.js` + `pm2 restart redis-proxy` |
+| Lambda signum-harvest | `node scripts/deploy-lambda-v7.js` |
+| Lambda signum-flow-harvest | `node scripts/deploy-flow-harvest.js` |
+
+> ⚠️ **EC2 배포 주의**: PM2가 `/opt/signum-ws/redis-proxy.js` 경로를 사용. SCP 대상은 `/home/ec2-user/signum-workers/`이므로 반드시 `sudo cp`로 올바른 경로에 복사 후 재시작.
+
+#### 검증 결과 (2026-04-30 01:00 KST)
+- API 전수 테스트 11/12 통과 (Dashboard, Intel, Command, Watchlist, Flow, Realtime, Portfolio 등)
+- 브라우저 3페이지 정상 (Dashboard 14종목+12카드, Command, Flow)
+- Upstash Monitor: Lambda 쓰기 미감지 → EC2 경유 정상 작동 확인
+
+#### 예상 효과
+| 항목 | 수정 전 (4월) | 수정 후 (5월 예측) |
+|---|---:|---:|
+| Commands/월 | 3,971만 | ~627만 |
+| Bandwidth/월 | 1 TB | ~33 GB |
+| **월 비용** | **$110.56** | **~$12.50** |
+
+---
+
+### ✅ GEX Timeline 30D 수정 (2026-03-16, 커밋 b2b771f5)
+
+> **목적**: Command 페이지 GEX Timeline 30D 차트의 장외시간 노이즈 데이터 제거 + X축 시간 비례 보정
+
+#### 변경 파일
+| 파일 | 변경 |
+|---|---|
+| `src/components/history/GexTimeline.tsx` | 9:30-16:00 ET 장중 데이터만 필터링 + 다중일 뷰 일별 종가 집계 + X축 시간 비례 배치 |
+| `src/lib/aws/historyMiddleware.ts` | `isWithinMarketHours()` 가드 추가 — 주말/야간 GEX/Flow DynamoDB 저장 차단 |
+
+#### 핵심 로직
+- **장외 필터**: GEX 스냅샷 저장 시 `isWithinMarketHours()` 체크 → 주말·야간 데이터 DynamoDB 기록 차단
+- **차트 필터**: GexTimeline 렌더링 시 9:30~16:00 ET 범위만 표시 → 프리마켓/애프터마켓 노이즈 제거
+- **일별 집계**: 30일 뷰에서 같은 날 여러 스냅샷 → 마지막 (종가 시점) 값으로 집계
+- **X축 보정**: 인덱스 기반(등간격) → 시간 비례 배치로 변경 (주말 갭 정확히 표현)
 
