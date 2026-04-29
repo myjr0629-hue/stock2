@@ -67,6 +67,25 @@ const server = http.createServer(async (req, res) => {
             return;
         }
 
+        // POST /mset  body: { items: [{ key, value, ttl? }, ...] }
+        // Batch SET via Redis pipeline — used by Lambda for efficient bulk writes
+        if (path === "/mset" && req.method === "POST") {
+            let body = "";
+            for await (const chunk of req) body += chunk;
+            const { items } = JSON.parse(body);
+            if (!items || !Array.isArray(items)) { res.writeHead(400); res.end(JSON.stringify({ error: "items array required" })); return; }
+            const pipeline = redis.pipeline();
+            for (const { key, value, ttl } of items) {
+                const serialized = JSON.stringify(value);
+                if (ttl) pipeline.setex(key, ttl, serialized);
+                else pipeline.set(key, serialized);
+            }
+            await pipeline.exec();
+            res.writeHead(200, { "Content-Type": "application/json" });
+            res.end(JSON.stringify({ ok: true, count: items.length }));
+            return;
+        }
+
         // DELETE /del?key=xxx
         if (path === "/del" && req.method === "DELETE") {
             const key = url.searchParams.get("key");

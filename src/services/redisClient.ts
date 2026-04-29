@@ -131,6 +131,55 @@ export async function getFromCache<T>(key: string): Promise<T | null> {
 }
 
 /**
+ * Get multiple cached values from Redis in a single round-trip (MGET).
+ * Tries EC2 Proxy /mget first, falls back to Upstash SDK mget.
+ * Returns array in same order as input keys (null for misses).
+ * [PERF] Reduces N Redis round-trips to 1 for batch reads.
+ */
+export async function mgetFromCache<T>(keys: string[]): Promise<(T | null)[]> {
+    if (keys.length === 0) return [];
+
+    // Try EC2 Proxy /mget first (ElastiCache, ~15ms single round-trip)
+    if (ecProxyAvailable !== false) {
+        try {
+            const res = await fetch(
+                `${EC2_PROXY_URL}/mget?keys=${keys.map(encodeURIComponent).join(',')}`,
+                {
+                    headers: { 'Authorization': `Bearer ${EC2_PROXY_KEY}` },
+                    signal: AbortSignal.timeout(5000),
+                    cache: 'no-store',
+                }
+            );
+            if (res.ok) {
+                const data = await res.json();
+                if (ecProxyAvailable === null) {
+                    ecProxyAvailable = true;
+                    console.log('[Redis] EC2 Proxy connected (via mget)');
+                }
+                return (data.results || []) as (T | null)[];
+            }
+        } catch (e: any) {
+            ecProxyAvailable = false;
+            console.warn(`[Redis] EC2 Proxy mget unavailable: ${e.message}`);
+        }
+    }
+
+    // Fallback to Upstash mget (SDK native support)
+    const upstash = getUpstashClient();
+    if (upstash) {
+        try {
+            const results = await upstash.mget(...keys);
+            return results as (T | null)[];
+        } catch (e: any) {
+            console.warn(`[Redis/Upstash] mget failed:`, e.message);
+        }
+    }
+
+    // Total failure: return null array
+    return keys.map(() => null);
+}
+
+/**
  * Set value in Redis cache with optional TTL (seconds)
  * Writes to BOTH EC2 Proxy (ElastiCache) and Upstash for consistency
  * [GLOBAL POLICY] Rejects null, undefined, or failed data to prevent cache poisoning

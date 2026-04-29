@@ -5,7 +5,7 @@
 // Used by: watchlist/batch, portfolio/batch, intel/m7, intel/fast routes
 // ============================================================================
 
-import { getFromCache, setInCache } from '@/services/redisClient';
+import { getFromCache, setInCache, mgetFromCache } from '@/services/redisClient';
 
 // Cache key prefix — separate namespace from flow:ticker:* (used by live/ticker)
 const ANALYSIS_CACHE_PREFIX = 'cache:analysis:';
@@ -111,18 +111,17 @@ export async function getAnalysisCacheForTickers(
     if (tickers.length === 0) return results;
 
     try {
-        // Parallel individual gets (works with both ElastiCache and Upstash)
-        const entries = await Promise.all(
-            tickers.map(async (ticker) => {
-                const data = await getAnalysisCache(ticker);
-                return { ticker: ticker.toUpperCase(), data };
-            })
-        );
-        entries.forEach(({ ticker, data }) => {
-            if (data) results[ticker] = data;
+        // [PERF] Single MGET round-trip instead of N individual GETs
+        const keys = tickers.map(t => `${ANALYSIS_CACHE_PREFIX}${t.toUpperCase()}`);
+        const values = await mgetFromCache<AnalysisCacheEntry>(keys);
+
+        values.forEach((data, i) => {
+            if (data) results[tickers[i].toUpperCase()] = data;
         });
     } catch (e) {
-        console.warn('[AnalysisCache] Batch fetch failed:', e);
+        // Fallback: MGET failed → use original individual GETs (zero-regression guarantee)
+        console.warn('[AnalysisCache] MGET failed, falling back to individual GETs:', e);
+        return getAnalysisCacheForTickersFallback(tickers);
     }
 
     return results;

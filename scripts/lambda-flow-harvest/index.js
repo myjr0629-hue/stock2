@@ -37,6 +37,11 @@ const POLYGON_KEY = process.env.POLYGON_API_KEY || 'iKNEA6cQ6kqWWuHwURT_AyUqMprD
 const UPSTASH_URL = process.env.UPSTASH_REDIS_REST_URL || '';
 const UPSTASH_TOKEN = process.env.UPSTASH_REDIS_REST_TOKEN || '';
 
+// [COST OPT] EC2 ElastiCache Proxy — internal VPC writes (zero Upstash cost)
+const EC2_PROXY_URL = process.env.EC2_REDIS_PROXY_URL || 'http://52.23.98.13:8081';
+const EC2_PROXY_KEY = process.env.REDIS_PROXY_KEY || 'signum-redis-proxy-2026';
+const http = require('http');
+
 // TTLs matching Vercel API routes exactly (MARKET HOURS)
 const RT_METRICS_TTL = 600;    // 10 min (realtime-metrics route L310)
 const DARKPOOL_TTL = 300;      // 5 min (dark-pool-trades route L21)
@@ -92,7 +97,44 @@ function httpsGet(url, timeoutMs) {
   });
 }
 
+// HTTP POST helper for EC2 proxy (HTTP, not HTTPS)
+function ec2ProxyPost(path, body, timeoutMs) {
+  return new Promise((resolve) => {
+    const parsed = new URL(EC2_PROXY_URL + path);
+    const options = {
+      hostname: parsed.hostname,
+      port: parsed.port || 8081,
+      path: parsed.pathname,
+      method: 'POST',
+      headers: {
+        'Authorization': 'Bearer ' + EC2_PROXY_KEY,
+        'Content-Type': 'application/json',
+        'Content-Length': Buffer.byteLength(body),
+      },
+    };
+    const to = setTimeout(() => resolve(null), timeoutMs || 3000);
+    const req = http.request(options, (res) => {
+      let data = '';
+      res.on('data', chunk => data += chunk);
+      res.on('end', () => {
+        clearTimeout(to);
+        try { resolve(JSON.parse(data)); } catch { resolve(null); }
+      });
+    });
+    req.on('error', () => { clearTimeout(to); resolve(null); });
+    req.write(body);
+    req.end();
+  });
+}
+
 async function redisSet(key, value, ttl) {
+  // 1st: EC2 Proxy /set (internal VPC, zero Upstash cost)
+  try {
+    const result = await ec2ProxyPost('/set', JSON.stringify({ key, value, ttl }), 3000);
+    if (result && result.ok) return true;
+  } catch {}
+
+  // 2nd: Upstash fallback
   if (!UPSTASH_URL || !UPSTASH_TOKEN) return false;
   try {
     const body = JSON.stringify(['SET', key, JSON.stringify(value), 'EX', String(ttl)]);
@@ -146,8 +188,25 @@ async function redisGet(key) {
   } catch { return null; }
 }
 
-// Batch Redis pipeline (up to 20 commands at once)
+// Batch Redis pipeline — EC2 Proxy /mset first, Upstash /pipeline fallback
 async function redisPipeline(commands) {
+  // Extract SET commands for EC2 /mset
+  const setCommands = commands.filter(c => c[0] === 'SET');
+
+  if (setCommands.length > 0) {
+    try {
+      const items = setCommands.map(c => {
+        let value;
+        try { value = JSON.parse(c[2]); } catch { value = c[2]; }
+        const ttl = c.length >= 5 ? parseInt(c[4]) : undefined;
+        return { key: c[1], value, ttl };
+      });
+      const result = await ec2ProxyPost('/mset', JSON.stringify({ items }), 5000);
+      if (result && result.ok) return commands.length;
+    } catch {}
+  }
+
+  // Fallback: Upstash pipeline
   if (!UPSTASH_URL || !UPSTASH_TOKEN) return 0;
   try {
     const body = JSON.stringify(commands);
