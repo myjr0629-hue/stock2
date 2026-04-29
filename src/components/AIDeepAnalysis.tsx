@@ -95,6 +95,17 @@ interface Props {
         earnings: { daysUntil: number; date: string; estimatedEps: number };
         relatedTickers: string[];
     };
+    gexStats?: {
+        percentile: number;
+        streakDays: number;
+        streakMultiple: number;
+        avgRegimeDuration: number;
+        callWallAccuracy: number | null;
+        cwStreakAccuracy: number | null;
+        flipEvents: { from: string; to: string; timestamp: number; price: number }[];
+        latestRegime: string;
+        totalDays: number;
+    };
 }
 
 const REFRESH_INTERVALS: Record<string, number> = {
@@ -119,7 +130,7 @@ const sectionIcon = (title: string) => {
     return <Zap size={12} className="text-slate-400" />;
 };
 
-export function AIDeepAnalysis({ ticker, displayPrice, session, snapshot }: Props) {
+export function AIDeepAnalysis({ ticker, displayPrice, session, snapshot, gexStats }: Props) {
     const locale = useLocale();
     const [analysis, setAnalysis] = useState<DeepAnalysisResult | null>(null);
     const [loading, setLoading] = useState(false);
@@ -140,11 +151,13 @@ export function AIDeepAnalysis({ ticker, displayPrice, session, snapshot }: Prop
     const snapshotRef = useRef(snapshot);
     const sessionRef = useRef(session);
     const displayPriceRef = useRef(displayPrice);
+    const gexStatsRef = useRef(gexStats);
     tickerRef.current = ticker;
     localeRef.current = locale;
     snapshotRef.current = snapshot;
     sessionRef.current = session;
     displayPriceRef.current = displayPrice;
+    gexStatsRef.current = gexStats;
 
     const fetchAnalysis = useCallback(async (triggerReason: string = 'FIRST_VIEW') => {
         // Use ref to check loading — avoids stale closure
@@ -167,6 +180,7 @@ export function AIDeepAnalysis({ ticker, displayPrice, session, snapshot }: Prop
                     locale: localeRef.current,
                     snapshot: snapshotRef.current,
                     triggerReason,
+                    gexStats: gexStatsRef.current,
                 }),
                 signal: abortRef.current.signal,
             });

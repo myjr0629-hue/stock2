@@ -85,6 +85,61 @@ export function MobileCmdOverview({ ticker, quote, unified, unifiedLoading }: Pr
         };
     }, [unified, q]);
 
+    // [GEX→AI] Fetch GEX history stats for AI Deep Analysis
+    const [gexStatsForMobile, setGexStatsForMobile] = useState<any>(null);
+    useEffect(() => {
+        if (!ticker) return;
+        fetch(`/api/history?type=gex&ticker=${ticker}&days=30`)
+            .then(r => r.json())
+            .then(res => {
+                const raw = res.data || [];
+                if (raw.length < 2) return;
+                const dayMap = new Map<string, any[]>();
+                raw.forEach((d: any) => {
+                    const dt = new Date(d.timestamp);
+                    const et = new Date(dt.toLocaleString('en-US', { timeZone: 'America/New_York' }));
+                    if (et.getDay() === 0 || et.getDay() === 6) return;
+                    const tm = et.getHours() * 60 + et.getMinutes();
+                    if (tm < 570 || tm > 960) return;
+                    const k = `${et.getFullYear()}-${String(et.getMonth()+1).padStart(2,'0')}-${String(et.getDate()).padStart(2,'0')}`;
+                    if (!dayMap.has(k)) dayMap.set(k, []);
+                    dayMap.get(k)!.push(d);
+                });
+                const cd = [...dayMap.keys()].sort().map(k => dayMap.get(k)!.at(-1)!);
+                if (cd.length < 2) return;
+                const latest = cd[cd.length - 1];
+                const vals = cd.map((d: any) => d.gex);
+                const sorted = [...vals].sort((a: number, b: number) => a - b);
+                const pctIdx = sorted.findIndex((v: number) => v >= latest.gex);
+                const pct = Math.round((pctIdx / sorted.length) * 100);
+                let streak = 0;
+                for (let i = cd.length - 1; i >= 0; i--) { if (cd[i].gammaRegime === latest.gammaRegime) streak++; else break; }
+                const sDays = new Set(cd.slice(cd.length - streak).map((d: any) => new Date(d.timestamp).toISOString().slice(0, 10))).size;
+                const durs: number[] = []; let rs2 = 0;
+                for (let i = 1; i < cd.length; i++) {
+                    if (cd[i].gammaRegime !== cd[rs2].gammaRegime) {
+                        if (cd[rs2].gammaRegime === latest.gammaRegime) durs.push(new Set(cd.slice(rs2, i).map((d: any) => new Date(d.timestamp).toISOString().slice(0, 10))).size);
+                        rs2 = i;
+                    }
+                }
+                if (cd[rs2].gammaRegime === latest.gammaRegime) durs.push(new Set(cd.slice(rs2).map((d: any) => new Date(d.timestamp).toISOString().slice(0, 10))).size);
+                const avg = durs.length > 0 ? parseFloat((durs.reduce((a, b) => a + b, 0) / durs.length).toFixed(1)) : 0;
+                let cwR = 0, cwT = 0, cwSR = 0, cwST = 0;
+                cd.forEach((d: any) => { if (d.callWall && d.price && d.callWall > 0 && d.callWall < d.price * 5) { cwT++; if (d.price < d.callWall) cwR++; } });
+                for (let i = cd.length - 1; i >= Math.max(0, cd.length - streak); i--) { const d = cd[i]; if (d.callWall && d.price && d.callWall > 0 && d.callWall < d.price * 5) { cwST++; if (d.price < d.callWall) cwSR++; } }
+                const flips: any[] = [];
+                for (let i = 1; i < cd.length; i++) { if (cd[i].gammaRegime !== cd[i-1].gammaRegime && cd[i-1].gammaRegime) flips.push({ from: cd[i-1].gammaRegime, to: cd[i].gammaRegime, timestamp: cd[i].timestamp, price: cd[i].price }); }
+                setGexStatsForMobile({
+                    percentile: pct, streakDays: sDays, streakMultiple: avg > 0 ? parseFloat((sDays / avg).toFixed(1)) : 0,
+                    avgRegimeDuration: avg, callWallAccuracy: cwT > 0 ? Math.round((cwR / cwT) * 100) : null,
+                    cwStreakAccuracy: cwST > 0 ? Math.round((cwSR / cwST) * 100) : null,
+                    flipEvents: flips, latestRegime: latest.gammaRegime,
+                    totalDays: new Set(cd.map((d: any) => new Date(d.timestamp).toISOString().slice(0, 10))).size,
+                });
+            })
+            .catch(() => {});
+    }, [ticker]);
+
     useEffect(() => {
         abortRef.current?.abort();
         abortRef.current = new AbortController();
@@ -93,7 +148,7 @@ export function MobileCmdOverview({ ticker, quote, unified, unifiedLoading }: Pr
         fetch('/api/command/deep-analysis', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ ticker, locale, snapshot: buildSnapshot(), triggerReason: 'FIRST_VIEW' }),
+            body: JSON.stringify({ ticker, locale, snapshot: buildSnapshot(), triggerReason: 'FIRST_VIEW', gexStats: gexStatsForMobile }),
             signal: abortRef.current.signal,
         })
             .then(r => r.ok ? r.json() : null)

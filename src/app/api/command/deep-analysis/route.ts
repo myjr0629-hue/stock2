@@ -48,7 +48,7 @@ export async function POST(req: Request) {
 
     try {
         body = await req.json();
-        const { ticker, locale = 'ko', snapshot, triggerReason = 'FIRST_VIEW' } = body;
+        const { ticker, locale = 'ko', snapshot, triggerReason = 'FIRST_VIEW', gexStats } = body;
 
         if (!ticker) {
             return NextResponse.json({ error: 'ticker required' }, { status: 400 });
@@ -209,6 +209,21 @@ ${newsXml}
 ${secXmlBlock ? '\n' + secXmlBlock : ''}
   
   <trigger_reason>${triggerReason}</trigger_reason>
+${(() => {
+    if (!gexStats) return '';
+    const gs = gexStats;
+    const flipStr = gs.flipEvents?.length > 0
+        ? gs.flipEvents.map((f: any) => {
+            const d = new Date(f.timestamp);
+            return `${d.getMonth()+1}/${d.getDate()} ${f.from}→${f.to} $${f.price}`;
+        }).join(', ')
+        : 'None in 30d';
+    return `  <gex_history_30d percentile="${gs.percentile}" regime="${gs.latestRegime}" streak_sessions="${gs.streakDays}" avg_regime_duration="${gs.avgRegimeDuration}d" streak_multiple="${gs.streakMultiple}x" total_days="${gs.totalDays}">
+    <call_wall_accuracy overall="${gs.callWallAccuracy !== null ? gs.callWallAccuracy + '%' : 'N/A'}" current_regime="${gs.cwStreakAccuracy !== null ? gs.cwStreakAccuracy + '%' : 'N/A'}"/>
+    <flip_events count="${gs.flipEvents?.length || 0}">${flipStr}</flip_events>
+    <note>30-day historical GEX percentile and regime persistence data. Use for structural context.</note>
+  </gex_history_30d>`;
+})()}
 </ticker_analysis>`;
 
         // --- System Prompt (V2: Trilingual) ---
@@ -271,6 +286,7 @@ All text fields use { "ko": "...", "en": "...", "ja": "..." } trilingual structu
 - If news is scarce, focus on structural indicators and sector context.
 - If trigger_reason=PRICE_MOVE, explain WHAT likely caused it.
 - SEC FILINGS (8-K/10-K): If provided in <sec_filings>, reference recent corporate events (8-K) as supporting context. Use 10-K business overview to understand the company's revenue structure and competitive positioning.
+- GEX HISTORY (30D): If <gex_history_30d> is present, weave the percentile ranking, regime streak duration, and streak multiple into the Options Positioning section. For example: "GEX at 0th percentile with NEGATIVE regime persisting 5 sessions (1.7× average duration) indicates structurally elevated dealer hedging pressure." Do NOT repeat raw numbers — synthesize into narrative insight.
 - FORBIDDEN: investment advice, buy/sell recommendations, emojis.
 - Make connections between indicators.
 </critical_rules>`;

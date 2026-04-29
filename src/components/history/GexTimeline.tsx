@@ -33,9 +33,11 @@ interface GexTimelineProps {
     days?: number;
     compact?: boolean;
     onEmpty?: () => void;
+    currentCallWall?: number | null;
+    currentFlipLevel?: number | null;
 }
 
-export function GexTimeline({ ticker, days = 30, compact = false, onEmpty }: GexTimelineProps) {
+export function GexTimeline({ ticker, days = 30, compact = false, onEmpty, currentCallWall, currentFlipLevel }: GexTimelineProps) {
     const [data, setData] = useState<GexDataPoint[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(false);
@@ -151,47 +153,128 @@ export function GexTimeline({ ticker, days = 30, compact = false, onEmpty }: Gex
         const isAnomaly = percentile >= 90 || percentile <= 10;
         const anomalyLabel = percentile >= 90 ? 'EXTREME HIGH' : percentile <= 10 ? 'EXTREME LOW' : percentile >= 75 ? 'ELEVATED' : percentile <= 25 ? 'DEPRESSED' : 'NORMAL';
 
-        return { max, min, range, latest, trend, positiveDays, negativeDays, totalDays, flipEvents, percentile, isAnomaly, anomalyLabel };
-    }, [chartData]);
+        // [PREMIUM] Regime streak — consecutive days in current regime
+        let currentStreak = 0;
+        const latestRegime = latest.gammaRegime;
+        for (let i = chartData.length - 1; i >= 0; i--) {
+            if (chartData[i].gammaRegime === latestRegime) currentStreak++;
+            else break;
+        }
+        // Deduplicate to unique days for streak
+        const streakDays = new Set(
+            chartData.slice(chartData.length - currentStreak).map(d => new Date(d.timestamp).toISOString().slice(0, 10))
+        ).size;
 
-    // Dynamic insight text generation (compliance-safe, observational only)
-    const insightText = useMemo(() => {
-        if (!stats) return '';
-        const { latest, percentile, flipEvents, positiveDays, negativeDays, totalDays, trend } = stats;
-        const isPositive = latest.gex >= 0;
-        const regimeText = isPositive ? 'Long Gamma' : 'Short Gamma';
+        // [PREMIUM] Regime durations for average calculation
+        const regimeDurations: { regime: string; days: number }[] = [];
+        let rStart = 0;
+        for (let i = 1; i < chartData.length; i++) {
+            if (chartData[i].gammaRegime !== chartData[rStart].gammaRegime) {
+                const dSet = new Set(chartData.slice(rStart, i).map(d => new Date(d.timestamp).toISOString().slice(0, 10)));
+                regimeDurations.push({ regime: chartData[rStart].gammaRegime, days: dSet.size });
+                rStart = i;
+            }
+        }
+        const dSetLast = new Set(chartData.slice(rStart).map(d => new Date(d.timestamp).toISOString().slice(0, 10)));
+        regimeDurations.push({ regime: chartData[rStart].gammaRegime, days: dSetLast.size });
 
-        // Build multi-language insight
-        const insights: Record<string, string> = {
-            ko: '',
-            en: '',
-            ja: '',
-        };
+        const sameRegimeDurations = regimeDurations.filter(r => r.regime === latestRegime).map(r => r.days);
+        const avgRegimeDuration = sameRegimeDurations.length > 0
+            ? parseFloat((sameRegimeDurations.reduce((a, b) => a + b, 0) / sameRegimeDurations.length).toFixed(1))
+            : 0;
+        const streakMultiple = avgRegimeDuration > 0 ? parseFloat((streakDays / avgRegimeDuration).toFixed(1)) : 0;
 
-        if (percentile >= 90) {
-            insights.ko = `GEX ${formatGex(latest.gex)} — ${percentile}th 퍼센타일 극단값. ${regimeText} 레짐에서 딜러 헤징이 ${isPositive ? '가격 안정화' : '변동성 확대'} 방향으로 작용 중.`;
-            insights.en = `GEX ${formatGex(latest.gex)} — ${percentile}th percentile extreme. Dealer hedging in ${regimeText} regime observed ${isPositive ? 'stabilizing price action' : 'amplifying directional moves'}.`;
-            insights.ja = `GEX ${formatGex(latest.gex)} — ${percentile}thパーセンタイル極端値。${regimeText}レジームでディーラーヘッジが${isPositive ? '価格安定化' : 'ボラティリティ拡大'}方向に作用中。`;
-        } else if (percentile <= 10) {
-            insights.ko = `GEX ${formatGex(latest.gex)} — ${percentile}th 퍼센타일 극저치. ${regimeText} 레짐에서 딜러 감마 노출이 역사적 하단 수준.`;
-            insights.en = `GEX ${formatGex(latest.gex)} — ${percentile}th percentile extreme low. Dealer gamma exposure at historically depressed levels in ${regimeText} regime.`;
-            insights.ja = `GEX ${formatGex(latest.gex)} — ${percentile}thパーセンタイル極低値。${regimeText}レジームでディーラーガンマエクスポージャーが歴史的低水準。`;
-        } else if (flipEvents.length > 0) {
-            const lastFlip = flipEvents[flipEvents.length - 1];
-            const flipDate = new Date(lastFlip.timestamp);
-            const flipDateStr = `${flipDate.getMonth() + 1}/${flipDate.getDate()}`;
-            const daysAgo = Math.round((Date.now() - lastFlip.timestamp) / (1000 * 60 * 60 * 24));
-            insights.ko = `${totalDays}일 중 ${flipEvents.length}회 레짐 전환 감지. 최근 ${flipDateStr}(${daysAgo}일 전) ${lastFlip.from === 'POSITIVE' ? 'Long→Short' : 'Short→Long'} Gamma 전환 ($${lastFlip.price?.toFixed(0)}).`;
-            insights.en = `${flipEvents.length} regime transition(s) detected over ${totalDays} days. Latest flip on ${flipDateStr} (${daysAgo}d ago): ${lastFlip.from === 'POSITIVE' ? 'Long→Short' : 'Short→Long'} Gamma at $${lastFlip.price?.toFixed(0)}.`;
-            insights.ja = `${totalDays}日間で${flipEvents.length}回のレジーム転換を検出。直近${flipDateStr}(${daysAgo}日前)に${lastFlip.from === 'POSITIVE' ? 'Long→Short' : 'Short→Long'} Gamma転換($${lastFlip.price?.toFixed(0)})。`;
-        } else {
-            insights.ko = `${totalDays}일간 ${regimeText} 레짐 유지. 딜러 포지셔닝이 ${isPositive ? '가격 핀 효과' : '방향성 가속'} 구조로 관측됨. ${trend === 'rising' ? 'GEX 상승 추세' : 'GEX 하락 추세'}.`;
-            insights.en = `${regimeText} regime maintained for ${totalDays}d. Dealer positioning observed in ${isPositive ? 'price-pinning' : 'directional acceleration'} structure. GEX ${trend === 'rising' ? 'trending up' : 'trending down'}.`;
-            insights.ja = `${totalDays}日間${regimeText}レジーム維持。ディーラーポジショニングが${isPositive ? '価格ピン効果' : '方向性加速'}構造で観測。GEX${trend === 'rising' ? '上昇トレンド' : '下降トレンド'}。`;
+        // [PREMIUM] Call Wall accuracy — how often price stayed below call wall
+        let cwRespected = 0, cwTotal = 0;
+        chartData.forEach(d => {
+            if (d.callWall && d.price && d.callWall > 0 && d.callWall < d.price * 5) {
+                cwTotal++;
+                if (d.price < d.callWall) cwRespected++;
+            }
+        });
+        const callWallAccuracy = cwTotal > 0 ? Math.round((cwRespected / cwTotal) * 100) : null;
+
+        // Regime-filtered call wall accuracy (current streak only)
+        let cwStreakRespected = 0, cwStreakTotal = 0;
+        for (let i = chartData.length - 1; i >= Math.max(0, chartData.length - currentStreak); i--) {
+            const d = chartData[i];
+            if (d.callWall && d.price && d.callWall > 0 && d.callWall < d.price * 5) {
+                cwStreakTotal++;
+                if (d.price < d.callWall) cwStreakRespected++;
+            }
+        }
+        const cwStreakAccuracy = cwStreakTotal > 0 ? Math.round((cwStreakRespected / cwStreakTotal) * 100) : null;
+
+        // Regime timeline for visual bar
+        const regimeTimeline = chartData.map(d => ({
+            date: new Date(d.timestamp).toISOString().slice(0, 10),
+            regime: d.gammaRegime,
+        }));
+        // Deduplicate to one per day
+        const dailyRegime: { date: string; regime: string }[] = [];
+        const seenDates = new Set<string>();
+        for (const r of regimeTimeline) {
+            if (!seenDates.has(r.date)) { seenDates.add(r.date); dailyRegime.push(r); }
         }
 
-        return insights[locale] || insights.en;
+        return { max, min, range, latest, trend, positiveDays, negativeDays, totalDays, flipEvents, percentile, isAnomaly, anomalyLabel, streakDays, avgRegimeDuration, streakMultiple, callWallAccuracy, cwRespected, cwTotal, cwStreakAccuracy, cwStreakRespected, cwStreakTotal, dailyRegime };
+    }, [chartData]);
+
+    // Dynamic insight — accumulated data, compliance-safe, multi-line
+    const insightLines = useMemo(() => {
+        if (!stats) return [];
+        const { latest, percentile, streakDays, avgRegimeDuration, streakMultiple, callWallAccuracy, cwRespected, cwTotal, totalDays } = stats;
+        const isPositive = latest.gex >= 0;
+        const regimeLabel = isPositive ? 'Long Gamma' : 'Short Gamma';
+        const regimeKey = isPositive ? 'POSITIVE' : 'NEGATIVE';
+        const lines: { icon: 'regime' | 'wall' | 'flip'; text: Record<string, string> }[] = [];
+
+        // Line 1: GEX value + regime streak
+        const streakSuffix = avgRegimeDuration > 0 && streakMultiple > 1.5
+            ? { ko: ` 평균 ${avgRegimeDuration}일 대비 ${streakMultiple}배에 해당합니다.`, en: ` Historical average is ${avgRegimeDuration} days — current streak is ${streakMultiple}× above average.`, ja: ` 過去平均${avgRegimeDuration}日に対し、現在${streakMultiple}倍に相当します。` }
+            : { ko: '', en: '', ja: '' };
+        lines.push({
+            icon: 'regime',
+            text: {
+                ko: `GEX ${formatGex(latest.gex)} — ${percentile}th 퍼센타일. ${regimeKey} 레짐이 ${streakDays}세션 연속 관찰되고 있습니다.${streakSuffix.ko}`,
+                en: `GEX ${formatGex(latest.gex)} — ${percentile}th percentile. ${regimeKey} regime observed for ${streakDays} consecutive sessions.${streakSuffix.en}`,
+                ja: `GEX ${formatGex(latest.gex)} — ${percentile}thパーセンタイル。${regimeKey}レジームが${streakDays}セッション連続で観測されています。${streakSuffix.ja}`,
+            },
+        });
+
+        // Line 2: Call Wall accuracy (only if data exists)
+        if (callWallAccuracy !== null && cwTotal >= 5) {
+            const cwPrice = latest.callWall ? `$${latest.callWall}` : '';
+            lines.push({
+                icon: 'wall',
+                text: {
+                    ko: `Call Wall ${cwPrice}. 관측된 ${cwTotal}세션 중 ${callWallAccuracy}%에서 가격이 이 수준 아래에 위치했습니다.`,
+                    en: `Call Wall ${cwPrice}. Price positioned below this level in ${callWallAccuracy}% of ${cwTotal} observed sessions (${cwRespected}/${cwTotal}).`,
+                    ja: `Call Wall ${cwPrice}。観測された${cwTotal}セッション中${callWallAccuracy}%で価格がこの水準を下回りました。`,
+                },
+            });
+        }
+
+        // Line 3: Flip Level
+        if (latest.flipLevel) {
+            lines.push({
+                icon: 'flip',
+                text: {
+                    ko: `Gamma Flip Level $${latest.flipLevel}. 이 수준은 역사적으로 딜러 헤징 레짐 전환과 동시에 관측된 가격대입니다.`,
+                    en: `Gamma Flip Level $${latest.flipLevel}. This level has historically coincided with dealer hedging regime transitions.`,
+                    ja: `Gamma Flip Level $${latest.flipLevel}。この水準はヒストリカルデータにおいてレジーム転換と同時に観測された価格帯です。`,
+                },
+            });
+        }
+
+        return lines;
     }, [stats, locale]);
+
+    const disclaimerText: Record<string, string> = {
+        ko: '구조적 데이터 분석 참고 자료이며, 방향성 예측이 아닙니다.',
+        en: 'Structural data analysis reference. Not a directional forecast.',
+        ja: '構造的データ分析の参考資料です。方向性予測ではありません。',
+    };
 
     if (loading) {
         return (
@@ -245,9 +328,9 @@ export function GexTimeline({ ticker, days = 30, compact = false, onEmpty }: Gex
         );
     }
 
-    // SVG chart dimensions — reduced height for compact placement
+    // SVG chart dimensions
     const W = compact ? 200 : 600;
-    const H = compact ? 40 : 80;
+    const H = compact ? 40 : 120;
     const PADDING = compact ? 2 : 8;
 
     // Build SVG path — X-axis is INDEX-based (industry standard: Bloomberg, TradingView)
@@ -291,142 +374,242 @@ export function GexTimeline({ ticker, days = 30, compact = false, onEmpty }: Gex
         );
     }
 
-    // Full version
+    // Full version — Mockup: 2-col institutional layout
+    // Chart date labels
+    const firstDate = chartData[0] ? new Date(chartData[0].timestamp) : null;
+    const midIdx = Math.floor(chartData.length / 2);
+    const midDate = chartData[midIdx] ? new Date(chartData[midIdx].timestamp) : null;
+    const fmtD = (d: Date | null) => d ? `${d.toLocaleString('en-US',{month:'short',timeZone:'America/New_York'})} ${d.getDate()}` : '';
+    const isNeg = stats.latest.gammaRegime === 'NEGATIVE';
+    const regimeLabel = isNeg ? 'Short Gamma' : 'Long Gamma';
+    const pctLabel = stats.percentile <= 10 ? 'extreme low' : stats.percentile >= 90 ? 'extreme high' : stats.percentile <= 25 ? 'low' : stats.percentile >= 75 ? 'high' : 'normal';
+    const takeaway: Record<string, string> = (() => {
+        const pct = stats.percentile;
+        const streak = stats.streakDays;
+        const mult = stats.streakMultiple;
+        const cwAcc = stats.cwStreakAccuracy ?? stats.callWallAccuracy;
+        if (isNeg) {
+            // SHORT GAMMA — compliance-safe structural observations
+            const intensity = pct <= 5 ? 
+                { ko: `GEX ${pct}퍼센타일 극저치 — 역사적 하단 수준의 딜러 감마 노출`, en: `GEX at ${pct}th percentile — dealer gamma exposure at historical lows`, ja: `GEX${pct}パーセンタイル極低値 — ディーラーガンマが歴史的低水準` } :
+                pct <= 25 ?
+                { ko: `GEX ${pct}퍼센타일 저위 — 딜러 헤징이 가격 변동을 증폭시키는 구조`, en: `GEX at ${pct}th percentile — dealer hedging structurally amplifying moves`, ja: `GEX${pct}パーセンタイル低位 — ディーラーヘッジが変動増幅構造` } :
+                { ko: '딜러 헤징이 가격 변동을 증폭시키는 구간입니다.', en: 'Dealer hedging is amplifying price moves in this regime.', ja: 'ディーラーヘッジが価格変動を増幅する局面です。' };
+            const persistence = mult >= 2.0 ?
+                { ko: ` NEGATIVE 레짐 ${streak}세션 연속 (평균의 ${mult}배)`, en: ` NEGATIVE regime persisting ${streak} sessions (${mult}× average)`, ja: ` NEGATIVEレジーム${streak}セッション継続（平均の${mult}倍）` } :
+                streak >= 3 ?
+                { ko: ` NEGATIVE 레짐 ${streak}세션 연속 관측`, en: ` NEGATIVE regime observed for ${streak} consecutive sessions`, ja: ` NEGATIVEレジーム${streak}セッション連続観測` } :
+                { ko: '', en: '', ja: '' };
+            return {
+                ko: intensity.ko + (persistence.ko ? '.' + persistence.ko : '') + '.',
+                en: intensity.en + (persistence.en ? '.' + persistence.en : '') + '.',
+                ja: intensity.ja + (persistence.ja ? '。' + persistence.ja : '') + '。',
+            };
+        } else {
+            // LONG GAMMA — compliance-safe structural observations
+            const intensity = pct >= 90 ?
+                { ko: `GEX ${pct}퍼센타일 극고치 — 딜러 헤징이 가격 안정화를 강화하는 구조`, en: `GEX at ${pct}th percentile — dealer hedging strongly stabilizing price action`, ja: `GEX${pct}パーセンタイル極高値 — ディーラーヘッジが価格安定化を強化` } :
+                pct >= 60 ?
+                { ko: `GEX ${pct}퍼센타일 — 딜러 헤징이 변동성 흡수 방향으로 작용 중`, en: `GEX at ${pct}th percentile — dealer hedging absorbing volatility`, ja: `GEX${pct}パーセンタイル — ディーラーヘッジがボラティリティ吸収方向に作用中` } :
+                { ko: '딜러 헤징이 가격 안정화 방향으로 작용 중입니다.', en: 'Dealer hedging is currently stabilizing price action.', ja: 'ディーラーヘッジが価格安定化方向に作用中です。' };
+            const persistence = streak >= 3 ?
+                { ko: ` POSITIVE 레짐 ${streak}세션 유지`, en: ` POSITIVE regime held for ${streak} sessions`, ja: ` POSITIVEレジーム${streak}セッション維持` } :
+                { ko: '', en: '', ja: '' };
+            return {
+                ko: intensity.ko + (persistence.ko ? '.' + persistence.ko : '') + '.',
+                en: intensity.en + (persistence.en ? '.' + persistence.en : '') + '.',
+                ja: intensity.ja + (persistence.ja ? '。' + persistence.ja : '') + '。',
+            };
+        }
+    })();
+    // Percentile gauge position (0-100 mapped to bar width)
+    const gaugePos = Math.max(0, Math.min(100, stats.percentile));
+    // Persistence bar widths
+    const maxBarW = 100;
+    const avgBarW = stats.avgRegimeDuration > 0 ? Math.min(maxBarW, (stats.avgRegimeDuration / Math.max(stats.streakDays, stats.avgRegimeDuration)) * maxBarW) : 30;
+    const curBarW = stats.streakDays > 0 ? Math.min(maxBarW, (stats.streakDays / Math.max(stats.streakDays, stats.avgRegimeDuration)) * maxBarW) : 30;
+
     return (
-        <div className={`rounded-xl border backdrop-blur-sm p-3 space-y-2 relative overflow-hidden transition-all duration-500 ${
-            isPositive
-                ? 'border-emerald-500/30 bg-slate-900/40 shadow-[0_0_20px_rgba(16,185,129,0.15)] hover:shadow-[0_0_25px_rgba(16,185,129,0.2)]'
-                : 'border-red-500/30 bg-slate-900/40 shadow-[0_0_20px_rgba(239,68,68,0.15)] hover:shadow-[0_0_25px_rgba(239,68,68,0.2)]'
-        }`}>
-            {/* Gradient mesh background + corner accents */}
+        <div className={`rounded-xl border backdrop-blur-sm p-3 relative overflow-hidden transition-all duration-500 ${isPositive ? 'border-emerald-500/30 bg-slate-900/40 shadow-[0_0_20px_rgba(16,185,129,0.12)]' : 'border-red-500/30 bg-slate-900/40 shadow-[0_0_20px_rgba(239,68,68,0.12)]'}`}>
             <div className="absolute inset-0 pointer-events-none z-0">
-                <div className={`absolute -top-10 -right-10 w-48 h-48 rounded-full ${isPositive ? 'bg-emerald-500/[0.07]' : 'bg-red-500/[0.07]'} blur-3xl`} />
-                <div className={`absolute -bottom-8 -left-8 w-36 h-36 rounded-full ${isPositive ? 'bg-emerald-500/[0.04]' : 'bg-red-500/[0.04]'} blur-2xl`} />
-                <div className="absolute top-0 left-0 right-0 h-12 bg-gradient-to-b from-white/[0.03] to-transparent" />
-                <div className="absolute bottom-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-slate-500/30 to-transparent" />
-                <div className="absolute top-2 left-2 w-4 h-4 border-l-2 border-t-2 border-slate-500/25 rounded-tl" />
-                <div className="absolute top-2 right-2 w-4 h-4 border-r-2 border-t-2 border-slate-500/25 rounded-tr" />
-                <div className="absolute bottom-2 left-2 w-4 h-4 border-l-2 border-b-2 border-slate-500/25 rounded-bl" />
-                <div className="absolute bottom-2 right-2 w-4 h-4 border-r-2 border-b-2 border-slate-500/25 rounded-br" />
+                <div className={`absolute -top-10 -right-10 w-48 h-48 rounded-full ${isPositive ? 'bg-emerald-500/[0.06]' : 'bg-red-500/[0.06]'} blur-3xl`} />
+                <div className="absolute top-0 left-0 right-0 h-12 bg-gradient-to-b from-white/[0.02] to-transparent" />
             </div>
-            {/* Header */}
-            <div className="relative z-10 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                    <div className={`w-2 h-2 rounded-full ${isPositive ? 'bg-emerald-400 shadow-[0_0_6px_rgba(16,185,129,0.6)]' : 'bg-red-400 shadow-[0_0_6px_rgba(239,68,68,0.6)]'}`} />
-                    <span className="text-[12px] font-semibold text-slate-300 tracking-wider uppercase font-jakarta">
-                        <CardTooltip tooltip={COMMAND_TOOLTIPS.GEX_TIMELINE.tooltip} badge={COMMAND_TOOLTIPS.GEX_TIMELINE.badge}>GEX Timeline</CardTooltip>
-                    </span>
-                    <span className="text-[12px] text-slate-300 font-jakarta">{days}D</span>
-                </div>
-                <div className="flex items-center gap-3">
-                    <div className="text-right">
-                        <div className={`text-[13px] font-mono font-bold ${isPositive ? 'text-emerald-400' : 'text-red-400'}`}>
-                            {formatGex(stats.latest.gex)}
-                        </div>
-                        <div className="text-[12px] text-slate-300 font-jakarta flex items-center gap-1">
-                            <div className={`w-2 h-2 rounded-full ${stats.latest.gammaRegime === 'POSITIVE' ? 'bg-emerald-400 shadow-[0_0_4px_rgba(16,185,129,0.5)]' : stats.latest.gammaRegime === 'NEGATIVE' ? 'bg-red-400 shadow-[0_0_4px_rgba(239,68,68,0.5)]' : 'bg-slate-400'}`} />
-                            {stats.latest.gammaRegime === 'POSITIVE' ? 'Long Gamma' : stats.latest.gammaRegime === 'NEGATIVE' ? 'Short Gamma' : 'Neutral'}
+
+            {/* ═══ HEADER ═══ */}
+            <div className="relative z-10 flex items-start justify-between mb-2">
+                <div>
+                    <div className="flex items-center gap-2 mb-0.5">
+                        <div className={`w-0.5 h-8 rounded-full ${isPositive ? 'bg-emerald-400' : 'bg-red-400'}`} />
+                        <div>
+                            <div className="flex items-center gap-1.5">
+                                <span className="text-[13px] font-bold text-slate-200 tracking-wide uppercase font-jakarta">
+                                    <CardTooltip tooltip={COMMAND_TOOLTIPS.GEX_TIMELINE.tooltip} badge={COMMAND_TOOLTIPS.GEX_TIMELINE.badge}>GEX Timeline</CardTooltip>
+                                </span>
+                                <span className="text-[12px] text-slate-400 font-jakarta">· {days}D</span>
+                            </div>
+                            <div className="text-[12px] text-slate-300 font-jakarta mt-0.5">{takeaway[locale] || takeaway.en}</div>
                         </div>
                     </div>
                 </div>
-            </div>
-
-            {/* [PREMIUM] Dynamic Insight Text */}
-            {insightText && (
-                <div className={`relative z-10 ${locale === 'en' ? 'text-[13px]' : 'text-[12px]'} text-slate-300 leading-[1.6] font-jakarta px-0.5`}>
-                    {insightText}
-                </div>
-            )}
-
-            {/* Chart */}
-            <div className="relative z-10">
-                <svg width="100%" height={H} viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" className="overflow-visible">
-                    {/* Grid lines */}
-                    <line x1={PADDING} y1={PADDING} x2={W - PADDING} y2={PADDING}
-                        stroke="rgba(148,163,184,0.06)" strokeWidth="0.5" />
-                    <line x1={PADDING} y1={H - PADDING} x2={W - PADDING} y2={H - PADDING}
-                        stroke="rgba(148,163,184,0.06)" strokeWidth="0.5" />
-
-                    {/* Zero line */}
-                    <line x1={PADDING} y1={zeroY} x2={W - PADDING} y2={zeroY}
-                        stroke="rgba(148,163,184,0.2)" strokeWidth="0.5" strokeDasharray="4 4" />
-
-                    {/* Positive/Negative zones */}
-                    <rect x={PADDING} y={PADDING} width={W - PADDING * 2} height={Math.max(0, zeroY - PADDING)}
-                        fill="rgba(16,185,129,0.03)" />
-                    <rect x={PADDING} y={zeroY} width={W - PADDING * 2} height={Math.max(0, H - PADDING - zeroY)}
-                        fill="rgba(239,68,68,0.03)" />
-
-                    {/* Area fill */}
-                    <path d={fillPath} fill={fillColor} />
-
-                    {/* Line with glow */}
-                    <path d={linePath} fill="none" stroke={glowColor} strokeWidth="4" />
-                    <path d={linePath} fill="none" stroke={lineColor} strokeWidth="1.5" />
-
-                    {/* Latest point with glow */}
-                    <circle cx={points[points.length - 1].x} cy={points[points.length - 1].y}
-                        r="4" fill={glowColor} />
-                    <circle cx={points[points.length - 1].x} cy={points[points.length - 1].y}
-                        r="2.5" fill={lineColor} stroke="#0f172a" strokeWidth="1" />
-                </svg>
-
-                {/* Y-axis labels */}
-                <div className="absolute left-0 top-0 text-[12px] text-emerald-400/70 font-mono font-jakarta">
-                    {formatGex(stats.max)}
-                </div>
-                <div className="absolute left-0 bottom-0 text-[12px] text-red-400/70 font-mono font-jakarta">
-                    {formatGex(stats.min)}
+                <div className="flex items-center gap-1.5 shrink-0">
+                    <span className={`text-[20px] font-mono font-bold leading-tight ${isPositive ? 'text-emerald-400' : 'text-red-400'}`}>{formatGex(stats.latest.gex)}</span>
+                    <span className="text-slate-500">·</span>
+                    <span className="text-[12px] text-slate-300 font-jakarta">{stats.percentile}th percentile</span>
+                    <span className="text-slate-500">·</span>
+                    <span className={`text-[12px] font-semibold font-jakarta ${isPositive ? 'text-emerald-400' : 'text-red-400'}`}>{regimeLabel}</span>
                 </div>
             </div>
 
-            {/* Stats bar — actual trading days + realistic percentile */}
-            <div className="relative z-10 flex items-center justify-between text-[12px] text-slate-300 font-jakarta">
-                <span>
-                    <span className="text-emerald-400">▲</span> {stats.positiveDays}/{stats.totalDays}d Long
-                </span>
-                <span>
-                    <span className="text-red-400">▼</span> {stats.negativeDays}/{stats.totalDays}d Short
-                </span>
-                {stats.isAnomaly && (
-                    <span className={`px-1.5 py-0.5 rounded-full text-[12px] font-bold ${stats.percentile >= 90 ? 'bg-red-500/20 text-red-400 border border-red-500/40' : 'bg-blue-500/20 text-blue-400 border border-blue-500/40'}`}>
-                        <span className="inline-block w-1.5 h-1.5 rounded-full bg-current mr-1" />{stats.anomalyLabel} ({stats.percentile}th%·{stats.totalDays}d)
-                    </span>
-                )}
-                {!stats.isAnomaly && (
-                    <span className="text-slate-300 font-jakarta">{stats.percentile}th%·{stats.totalDays}d</span>
-                )}
-                <span className={stats.trend === 'rising' ? 'text-emerald-400' : 'text-red-400'}>
-                    {stats.trend === 'rising' ? '↗ Rising' : '↘ Falling'}
-                </span>
-            </div>
-
-            {/* [PREMIUM] Gamma Flip Event Timeline */}
-            {stats.flipEvents.length > 0 && (
-                <div className="border-t border-slate-700/30 pt-2 mt-1 space-y-1">
-                    <div className="text-[12px] font-semibold text-slate-300/80 tracking-wider uppercase flex items-center gap-1.5 font-jakarta">
-                        <svg width="12" height="12" viewBox="0 0 12 12" className="text-amber-400"><path d="M6 1L7.5 4.5L11 5.5L8.5 8L9 11.5L6 9.5L3 11.5L3.5 8L1 5.5L4.5 4.5Z" fill="currentColor" /></svg>
-                        Gamma Flip Events ({stats.flipEvents.length})
+            {/* ═══ MAIN 2-COLUMN ═══ */}
+            <div className="relative z-10 grid grid-cols-[1fr_220px] gap-3">
+                {/* LEFT: Chart + Key Levels */}
+                <div className="space-y-2">
+                    {/* Chart */}
+                    <div className="relative">
+                        <svg width="100%" height={H} viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" className="overflow-visible">
+                            <line x1={PADDING} y1={zeroY} x2={W-PADDING} y2={zeroY} stroke="rgba(148,163,184,0.15)" strokeWidth="0.5" strokeDasharray="4 3" />
+                            <rect x={PADDING} y={PADDING} width={W-PADDING*2} height={Math.max(0,zeroY-PADDING)} fill="rgba(16,185,129,0.02)" />
+                            <rect x={PADDING} y={zeroY} width={W-PADDING*2} height={Math.max(0,H-PADDING-zeroY)} fill="rgba(239,68,68,0.02)" />
+                            <path d={fillPath} fill={fillColor} />
+                            <path d={linePath} fill="none" stroke={glowColor} strokeWidth="3" />
+                            <path d={linePath} fill="none" stroke={lineColor} strokeWidth="1.5" />
+                            <circle cx={points[points.length-1].x} cy={points[points.length-1].y} r="4" fill={glowColor} />
+                            <circle cx={points[points.length-1].x} cy={points[points.length-1].y} r="2.5" fill={lineColor} stroke="#0f172a" strokeWidth="1" />
+                        </svg>
+                        {/* Current label — positioned above last point */}
+                        <div className="absolute right-0 text-[12px] font-mono font-bold font-jakarta" style={{ color: lineColor, top: `${Math.max(0, (points[points.length-1].y / H) * 100 - 14)}%` }}>
+                            Current: {formatGex(stats.latest.gex)}
+                        </div>
+                        {/* Zero label */}
+                        <div className="absolute left-1 text-[12px] text-slate-300 font-mono font-jakarta" style={{ top: `${(zeroY/H)*100}%`, transform: 'translateY(-50%)' }}>0</div>
+                        {/* Date labels */}
+                        <div className="flex justify-between mt-0.5 text-[12px] text-slate-300 font-mono font-jakarta">
+                            <span>{fmtD(firstDate)}</span>
+                            <span>{fmtD(midDate)}</span>
+                            <span>TODAY</span>
+                        </div>
                     </div>
-                    <div className="flex flex-wrap gap-1.5">
-                        {stats.flipEvents.slice(-5).map((ev, i) => {
-                            const date = new Date(ev.timestamp);
-                            const dateStr = `${date.getMonth() + 1}/${date.getDate()}`;
-                            const isPositiveFlip = ev.to === 'POSITIVE';
-                            return (
-                                <div key={i} className={`flex items-center gap-1 px-2 py-1 rounded-lg text-[12px] border font-jakarta ${
-                                    isPositiveFlip ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-400' : 'border-red-500/30 bg-red-500/10 text-red-400'
-                                }`}>
-                                    <span className="font-mono text-slate-300/60">{dateStr}</span>
-                                    <div className={`w-2 h-2 rounded-full ${isPositiveFlip ? 'bg-emerald-400' : 'bg-red-400'}`} />
-                                    <span className="font-medium">{ev.from.slice(0,3)} → {ev.to.slice(0,3)}</span>
-                                    <span className="text-slate-300/50 font-mono">${ev.price?.toFixed(0)}</span>
+                    {/* Key Levels Cards — mockup horizontal style */}
+                    <div className="grid grid-cols-2 gap-1.5">
+                        {(currentCallWall || stats.latest.callWall) && (
+                            <div className="rounded-lg border border-red-500/20 bg-red-500/[0.06] p-2 flex items-center gap-2.5">
+                                <div className="w-11 h-11 rounded-lg bg-red-500/15 border border-red-500/25 flex items-center justify-center shrink-0">
+                                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" className="text-red-400">
+                                        <rect x="3" y="10" width="18" height="11" rx="1" stroke="currentColor" strokeWidth="1.5"/>
+                                        <rect x="5" y="4" width="3" height="6" rx="0.5" stroke="currentColor" strokeWidth="1.2"/>
+                                        <rect x="10" y="4" width="4" height="6" rx="0.5" stroke="currentColor" strokeWidth="1.2"/>
+                                        <rect x="16" y="4" width="3" height="6" rx="0.5" stroke="currentColor" strokeWidth="1.2"/>
+                                        <line x1="3" y1="14" x2="21" y2="14" stroke="currentColor" strokeWidth="0.8" opacity="0.4"/>
+                                        <rect x="7" y="16" width="4" height="5" rx="0.5" fill="currentColor" opacity="0.2"/>
+                                        <rect x="13" y="16" width="4" height="5" rx="0.5" fill="currentColor" opacity="0.2"/>
+                                    </svg>
                                 </div>
-                            );
+                                <div className="flex-1 min-w-0">
+                                    <div className="flex items-baseline gap-1.5">
+                                        <span className="text-[12px] font-bold text-red-400 font-jakarta uppercase">Call Wall</span>
+                                        <span className="text-[16px] font-mono font-bold text-slate-200">${currentCallWall ?? stats.latest.callWall}</span>
+                                    </div>
+                                    {stats.cwStreakAccuracy !== null && stats.cwStreakTotal >= 3 ? (
+                                        <div className="text-[12px] text-slate-300 font-jakarta leading-tight">{locale==='ko'?`현재 ${isNeg?'NEGATIVE':'POSITIVE'} 구간 ${stats.cwStreakAccuracy}% 하회`:locale==='ja'?`現在${isNeg?'NEGATIVE':'POSITIVE'}区間の${stats.cwStreakAccuracy}%で下回り`:`${stats.cwStreakAccuracy}% of current ${isNeg?'NEG':'POS'} sessions below`}</div>
+                                    ) : stats.callWallAccuracy !== null ? (
+                                        <div className="text-[12px] text-slate-300 font-jakarta leading-tight">{locale==='ko'?`관측 ${stats.cwTotal}세션 중 ${stats.callWallAccuracy}% 하회`:locale==='ja'?`観測${stats.cwTotal}セッション中${stats.callWallAccuracy}%で下回り`:`${stats.callWallAccuracy}% of ${stats.cwTotal} sessions below`}</div>
+                                    ) : null}
+                                    <div className="text-[12px] text-red-300/70 font-jakarta uppercase tracking-wider">{locale==='ko'?'상단 저항 구간':locale==='ja'?'上方抵抗ゾーン':'Overhead Resistance Zone'}</div>
+                                </div>
+                            </div>
+                        )}
+                        {(currentFlipLevel || stats.latest.flipLevel) && (
+                            <div className="rounded-lg border border-cyan-500/20 bg-cyan-500/[0.06] p-2 flex items-center gap-2.5">
+                                <div className="w-11 h-11 rounded-lg bg-cyan-500/15 border border-cyan-500/25 flex items-center justify-center shrink-0">
+                                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" className="text-cyan-400">
+                                        <path d="M4 9h13l-3-3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                        <path d="M20 15H7l3 3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                                    </svg>
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                    <div className="flex items-baseline gap-1.5">
+                                        <span className="text-[12px] font-bold text-cyan-400 font-jakarta uppercase">Gamma Flip</span>
+                                        <span className="text-[16px] font-mono font-bold text-slate-200">${currentFlipLevel ?? stats.latest.flipLevel}</span>
+                                    </div>
+                                    <div className="text-[12px] text-slate-300 font-jakarta leading-tight">{locale==='ko'?'역사적 레짐 전환 관측 수준':locale==='ja'?'ヒストリカルレジーム転換水準':'Historical regime transition level'}</div>
+                                    <div className="text-[12px] text-cyan-300/70 font-jakarta uppercase tracking-wider">{locale==='ko'?'피봇 / 레짐 전환 레벨':locale==='ja'?'ピボット / レジーム転換':'Pivot / Regime Switch Level'}</div>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                </div>
+
+                {/* RIGHT: Percentile + Persistence + Takeaway */}
+                <div className="space-y-2.5 border-l border-slate-700/30 pl-3">
+                    {/* A. Percentile / Regime */}
+                    <div>
+                        <div className="flex items-center justify-between mb-1">
+                            <span className="text-[12px] font-semibold text-white uppercase tracking-wider font-jakarta">A. Percentile / Regime</span>
+                            <span className="text-[12px] text-slate-300 font-jakarta">{stats.percentile}th · {pctLabel}</span>
+                        </div>
+                        <div className="relative h-2.5 rounded-full bg-gradient-to-r from-red-500/40 via-slate-600/30 to-emerald-500/40">
+                            <div className="absolute top-1/2 w-3 h-3 rounded-full bg-white border-2 border-slate-900 shadow-[0_0_8px_rgba(255,255,255,0.6)]" style={{ left: `${gaugePos}%`, transform: 'translate(-50%, -50%)' }} />
+                        </div>
+                        <div className="flex justify-between mt-0.5 text-[12px] text-slate-300 font-jakarta">
+                            <span>Negative GEX</span><span>Neutral</span><span>Positive GEX</span>
+                        </div>
+                    </div>
+                    {/* B. Regime Persistence */}
+                    <div>
+                        <div className="text-[12px] font-semibold text-white uppercase tracking-wider font-jakarta mb-1">B. Regime Persistence</div>
+                        <div className="flex items-baseline gap-2">
+                            <span className={`text-[22px] font-mono font-bold leading-none ${isPositive ? 'text-emerald-400' : 'text-red-400'}`}>{stats.streakDays}</span>
+                            <div>
+                                <div className="text-[12px] text-slate-300 font-jakarta">sessions</div>
+                                <div className={`text-[12px] font-bold font-jakarta ${isPositive ? 'text-emerald-400' : 'text-red-400'}`}>{isNeg ? 'NEGATIVE' : 'POSITIVE'}</div>
+                            </div>
+                            <div className="ml-auto text-right">
+                                <div className="text-[12px] text-slate-300 font-jakarta">Average duration</div>
+                                <div className="text-[12px] text-slate-300 font-mono font-bold">{stats.avgRegimeDuration}d</div>
+                            </div>
+                        </div>
+                        <div className="space-y-1 mt-1.5">
+                            <div className="flex items-center gap-1.5">
+                                <span className="text-[12px] text-slate-300 font-jakarta w-12 shrink-0">Average</span>
+                                <div className="flex-1 h-1.5 rounded-full bg-slate-700/50 overflow-hidden"><div className="h-full rounded-full bg-slate-400/60" style={{ width: `${avgBarW}%` }} /></div>
+                            </div>
+                            <div className="flex items-center gap-1.5">
+                                <span className="text-[12px] text-slate-300 font-jakarta w-12 shrink-0">Current</span>
+                                <div className="flex-1 h-1.5 rounded-full bg-slate-700/50 overflow-hidden"><div className={`h-full rounded-full ${isPositive ? 'bg-emerald-400/70' : 'bg-red-400/70'}`} style={{ width: `${curBarW}%` }} /></div>
+                                <span className={`text-[12px] font-mono font-bold shrink-0 ${isPositive ? 'text-emerald-400' : 'text-red-400'}`}>{stats.streakMultiple}×</span>
+                            </div>
+                        </div>
+                    </div>
+                    {/* C. Key Takeaway */}
+                    <div>
+                        <div className="text-[12px] font-semibold text-white uppercase tracking-wider font-jakarta mb-1">C. Key Takeaway</div>
+                        <div className="flex items-start gap-1.5">
+                            <svg width="14" height="14" viewBox="0 0 14 14" className={`shrink-0 mt-0.5 ${isPositive ? 'text-emerald-400' : 'text-red-400'}`}><circle cx="7" cy="7" r="5" fill="none" stroke="currentColor" strokeWidth="1.2"/><path d="M7 4v3.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/><circle cx="7" cy="10" r="0.8" fill="currentColor"/></svg>
+                            <div className="text-[12px] text-slate-300 leading-[1.5] font-jakarta">{takeaway[locale] || takeaway.en}</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {/* ═══ BOTTOM: Flip Events + Disclaimer ═══ */}
+            <div className="relative z-10 flex items-center justify-between mt-2.5 pt-2 border-t border-slate-700/30">
+                {stats.flipEvents.length > 0 ? (
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="text-[12px] font-semibold text-slate-400 uppercase tracking-wider font-jakarta flex items-center gap-1">
+                            <svg width="12" height="12" viewBox="0 0 12 12" className="text-amber-400"><path d="M6 1L7.5 4.5L11 5.5L8.5 8L9 11.5L6 9.5L3 11.5L3.5 8L1 5.5L4.5 4.5Z" fill="currentColor"/></svg>
+                            Flip Events ({stats.flipEvents.length})
+                        </span>
+                        {stats.flipEvents.slice(-3).map((ev, i) => {
+                            const d = new Date(ev.timestamp);
+                            const ds = `${d.getMonth()+1}/${d.getDate()}`;
+                            const pos = ev.to === 'POSITIVE';
+                            return <span key={i} className={`px-1.5 py-0.5 rounded text-[12px] font-mono font-jakarta ${pos ? 'bg-emerald-500/15 text-emerald-400' : 'bg-red-500/15 text-red-400'}`}>{ds} {ev.from.slice(0,3)}→{ev.to.slice(0,3)} ${ev.price?.toFixed(0)}</span>;
                         })}
                     </div>
-                </div>
-            )}
+                ) : <div />}
+                <span className="text-[12px] text-slate-500 italic font-jakarta shrink-0">{disclaimerText[locale] || disclaimerText.en}</span>
+            </div>
         </div>
     );
 }

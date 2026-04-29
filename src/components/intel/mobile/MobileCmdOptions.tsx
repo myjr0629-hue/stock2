@@ -105,7 +105,7 @@ export function MobileCmdOptions({ ticker, quote, unified, unifiedLoading, initi
                 <div className="p-2">
                     {activeInsightTab === 'gex' ? (
                         <ProGate title="GEX Timeline 30D" mode="blur" fomoMessage="30-Day Gamma Exposure · Regime Shifts · Gamma Flip Events">
-                            <GexTimeline ticker={ticker} days={30} onEmpty={() => setActiveInsightTab('levels')} />
+                            <GexTimeline ticker={ticker} days={30} onEmpty={() => setActiveInsightTab('levels')} currentCallWall={structure?.levels?.callWall} currentFlipLevel={structure?.gammaFlipLevel} />
                         </ProGate>
                     ) : activeInsightTab === 'levels' ? (
                         <TechnicalLevelsMap isMobile={true}

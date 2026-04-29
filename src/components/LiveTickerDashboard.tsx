@@ -155,6 +155,96 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
     // Use SWR data when available, SSR fallback otherwise — keeps 'liveQuote' name for compatibility
     const liveQuote = _swrQuote || ssrFallback || null;
     const [options, setOptions] = useState<any>(initialUnifiedData?.options || null);
+
+    // [GEX→AI] Fetch GEX history stats for AI Deep Analysis context
+    const [gexStatsForAI, setGexStatsForAI] = useState<any>(null);
+    useEffect(() => {
+        if (!ticker) return;
+        fetch(`/api/history?type=gex&ticker=${ticker}&days=30`)
+            .then(r => r.json())
+            .then(res => {
+                const raw = res.data || [];
+                if (raw.length < 2) return;
+                // Filter to trading hours + daily aggregation (same logic as GexTimeline)
+                const dayMap = new Map<string, any[]>();
+                raw.forEach((d: any) => {
+                    const dt = new Date(d.timestamp);
+                    const etStr = dt.toLocaleString('en-US', { timeZone: 'America/New_York' });
+                    const et = new Date(etStr);
+                    const day = et.getDay();
+                    if (day === 0 || day === 6) return;
+                    const timeMin = et.getHours() * 60 + et.getMinutes();
+                    if (timeMin < 570 || timeMin > 960) return;
+                    const dayKey = `${et.getFullYear()}-${String(et.getMonth()+1).padStart(2,'0')}-${String(et.getDate()).padStart(2,'0')}`;
+                    if (!dayMap.has(dayKey)) dayMap.set(dayKey, []);
+                    dayMap.get(dayKey)!.push(d);
+                });
+                const chartData = [...dayMap.keys()].sort().map(k => {
+                    const pts = dayMap.get(k)!;
+                    return pts[pts.length - 1];
+                });
+                if (chartData.length < 2) return;
+                const latest = chartData[chartData.length - 1];
+                const gexValues = chartData.map((d: any) => d.gex);
+                const sorted = [...gexValues].sort((a: number, b: number) => a - b);
+                const pctIdx = sorted.findIndex((v: number) => v >= latest.gex);
+                const percentile = Math.round((pctIdx / sorted.length) * 100);
+                // Streak
+                let streak = 0;
+                for (let i = chartData.length - 1; i >= 0; i--) {
+                    if (chartData[i].gammaRegime === latest.gammaRegime) streak++;
+                    else break;
+                }
+                const streakDays = new Set(chartData.slice(chartData.length - streak).map((d: any) => new Date(d.timestamp).toISOString().slice(0, 10))).size;
+                // Regime durations
+                const durations: number[] = [];
+                let rs = 0;
+                for (let i = 1; i < chartData.length; i++) {
+                    if (chartData[i].gammaRegime !== chartData[rs].gammaRegime) {
+                        if (chartData[rs].gammaRegime === latest.gammaRegime) {
+                            durations.push(new Set(chartData.slice(rs, i).map((d: any) => new Date(d.timestamp).toISOString().slice(0, 10))).size);
+                        }
+                        rs = i;
+                    }
+                }
+                if (chartData[rs].gammaRegime === latest.gammaRegime) {
+                    durations.push(new Set(chartData.slice(rs).map((d: any) => new Date(d.timestamp).toISOString().slice(0, 10))).size);
+                }
+                const avgDur = durations.length > 0 ? parseFloat((durations.reduce((a, b) => a + b, 0) / durations.length).toFixed(1)) : 0;
+                // Call wall accuracy
+                let cwR = 0, cwT = 0, cwSR = 0, cwST = 0;
+                chartData.forEach((d: any) => {
+                    if (d.callWall && d.price && d.callWall > 0 && d.callWall < d.price * 5) {
+                        cwT++; if (d.price < d.callWall) cwR++;
+                    }
+                });
+                for (let i = chartData.length - 1; i >= Math.max(0, chartData.length - streak); i--) {
+                    const d = chartData[i];
+                    if (d.callWall && d.price && d.callWall > 0 && d.callWall < d.price * 5) {
+                        cwST++; if (d.price < d.callWall) cwSR++;
+                    }
+                }
+                // Flip events
+                const flips: any[] = [];
+                for (let i = 1; i < chartData.length; i++) {
+                    if (chartData[i].gammaRegime !== chartData[i-1].gammaRegime && chartData[i-1].gammaRegime) {
+                        flips.push({ from: chartData[i-1].gammaRegime, to: chartData[i].gammaRegime, timestamp: chartData[i].timestamp, price: chartData[i].price });
+                    }
+                }
+                setGexStatsForAI({
+                    percentile,
+                    streakDays,
+                    streakMultiple: avgDur > 0 ? parseFloat((streakDays / avgDur).toFixed(1)) : 0,
+                    avgRegimeDuration: avgDur,
+                    callWallAccuracy: cwT > 0 ? Math.round((cwR / cwT) * 100) : null,
+                    cwStreakAccuracy: cwST > 0 ? Math.round((cwSR / cwST) * 100) : null,
+                    flipEvents: flips,
+                    latestRegime: latest.gammaRegime,
+                    totalDays: new Set(chartData.map((d: any) => new Date(d.timestamp).toISOString().slice(0, 10))).size,
+                });
+            })
+            .catch(() => {});
+    }, [ticker]);
     // [PERF V74] Chart data via SWR — dedup, stale-while-revalidate, focus-revalidation automatic
     const { data: _swrChartResult } = useSWR(
         ticker ? `/api/chart?symbol=${ticker}&range=${range}` : null,
@@ -1773,7 +1863,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                 {/* Tab Content */}
                                 {activeInsightTab === 'gex' ? (
                                     <ProGate title="GEX Timeline 30D" mode="blur" fomoMessage="30-Day Gamma Exposure · Regime Shifts · Gamma Flip Events" fomoTagline={tg('taglineGEXTimeline')} description={tg('descGexTimeline')}>
-                                        <GexTimeline ticker={ticker} days={30} onEmpty={() => setActiveInsightTab('levels')} />
+                                        <GexTimeline ticker={ticker} days={30} onEmpty={() => setActiveInsightTab('levels')} currentCallWall={structure?.levels?.callWall} currentFlipLevel={structure?.gammaFlipLevel} />
                                     </ProGate>
                                 ) : activeInsightTab === 'levels' ? (
                                     <TechnicalLevelsMap isMobile={isMobile}
@@ -2392,6 +2482,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                     },
                                     relatedTickers: effectiveRelated?.topRelated?.map((r: any) => r.ticker) || [],
                                 }}
+                                gexStats={gexStatsForAI}
                             />
                             </ProGate>
 
