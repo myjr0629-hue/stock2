@@ -1021,10 +1021,7 @@ const WatchlistCard = memo(function WatchlistCard({ item, onRemove, locale, inde
                             <span className="text-[12px] font-bold text-slate-600 absolute">{item.ticker.slice(0, 2)}</span>
                         </div>
                         <div className="min-w-0">
-                            <div className="flex items-center gap-1">
-                                <span className="font-black text-[13px] text-white tracking-wide truncate">{item.ticker}</span>
-                                <ConditionBadge item={item} />
-                            </div>
+                            <span className="font-black text-[13px] text-white tracking-wide truncate block">{item.ticker}</span>
                         </div>
                     </div>
 

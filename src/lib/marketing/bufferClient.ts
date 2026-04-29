@@ -62,7 +62,7 @@ export const CHAR_LIMITS: Record<string, number> = {
 export const COMPLIANCE_REPLACEMENTS: [RegExp, string][] = [
   // --- EN: SEC/FTC compliance ---
   [/\bBullish\b/gi,       'Call-side activity concentrated'],
-  [/\bBearish\b/gi,       'Put-side protection increased'],
+  [/\bBearish\b/gi,       'Put-side activity elevated'],
   [/\bexpect\b/gi,        'historically associated with'],
   [/\bwill go up\b/gi,    'often coincides with upward moves'],
   [/\bwill drop\b/gi,     'often coincides with downward pressure'],

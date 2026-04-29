@@ -349,6 +349,7 @@ signum-harvest (5분마다, 항상)
 | Price WebSocket | `scripts/ec2-price-ws.js` (52KB) | 실시간 가격 WebSocket 허브 | `price-ws` |
 | Redis Proxy | `scripts/ec2-redis-proxy.js` | ElastiCache HTTP 프록시 | `redis-proxy` |
 | **Flow Accumulator v3** ✅ LIVE | `scripts/ec2-flow-accumulator.js` | **다크풀/블록딜 100% SSOT** — ElastiCache 쓰기 ($0) | `signum-flow-acc` |
+| **Capture Worker** ✅ LIVE | `scripts/ec2-capture-worker.js` | **마케팅 스크린샷 캡처** — Puppeteer+Chromium, PORT 3100, 인증 캡처 지원 | `capture-worker` |
 - **Instance ID**: `i-0c8e51d26ddc9b3c1`, **Type**: `t3.small`
 - **WebSocket URL**: `wss://ws.signumhq.com`
 - **배포**: `node scripts/deploy-ec2-flow.js` (SSH+SCP 자동)
@@ -590,30 +591,219 @@ signum-harvest (5분마다, 항상)
   → Redis 저장 → marketing-dispatch?action=event 호출
 ```
 
-#### 🔴 미완성 / 개선 예정 항목
+#### 마케팅 미디어 인프라 (2026-04-29 갱신)
 
-> **OG 이미지 퀄리티 업그레이드 (2026-04-28 확정)**:
-> - **현재**: Satori(next/og) 기반 — CSS 제한으로 실제 웹 대시보드보다 퀄리티 현저히 낮음
-> - **개선**: HTML 템플릿 + Puppeteer 캡처 방식으로 전환
->   - 프리미엄 HTML/CSS 카드 페이지 제작 (웹 대시보드 동일 수준)
->   - URL 파라미터로 Redis 실시간 데이터 주입
->   - Puppeteer 스크린샷 → Supabase Storage CDN → Buffer → SNS 게시
->   - 5종 카드 템플릿: Pulse / Event / Morning / Ticker / Education
->   - 6개 포맷: tweet(1200×675) / carousel(1080×1350) / story(1080×1920) / pin(1000×1500) / square(1080×1080) / og(1200×630)
->
-> **이벤트 발생 시 실제 페이지 캡처**:
-> - GEX 플립, VIX 급등 등 이벤트 발생 시점에 실제 대시보드/커맨드 페이지를 Puppeteer로 캡처
-> - 캡처 대상: Command 페이지 (GEX Gauge + 차트), Guardian 페이지 (전체 시황)
-> - 실제 서비스 화면 스크린샷 → 최고 신뢰도의 SNS 콘텐츠
->
-> **비디오 렌더링 (Shorts/Reels)**:
-> - HTML 템플릿 → Puppeteer 프레임 캡처 → FFmpeg → MP4
-> - TTS 나레이션(Polly) + BGM 자동 선택
-> - YouTube Shorts / Instagram Reels / TikTok 자동 업로드
->
-> **크론 스케줄 실제 등록**:
-> - 현재 marketing-dispatch는 dry_run=true 기본값
-> - Vercel cron에 실제 스케줄 등록 필요
+##### ✅ 완료: HTML 마케팅 카드 템플릿 (3종)
+
+> **Satori(next/og) 한계 극복을 위한 Puppeteer 캡처용 HTML 템플릿 시스템.**
+> URL 파라미터로 Redis 실시간 데이터를 주입 → 렌더링 → Puppeteer 캡처 → Supabase CDN → Buffer → SNS 자동 게시.
+> ChatGPT(DALL-E) 레퍼런스 + 자체 디자인 시스템을 결합하여 Bloomberg급 카드 구현.
+
+| 템플릿 | 파일 | URL 예시 | 포맷 지원 |
+|---|---|---|---|
+| **Market Pulse** | `src/app/marketing/templates/pulse/page.tsx` | `/marketing/templates/pulse?spy=1.24&vix=18.6&gex=positive&dp=42.1&format=tweet` | tweet, og, story, carousel, pin, square |
+| **Event Alert** | `src/app/marketing/templates/event/page.tsx` | `/marketing/templates/event?type=gex_shift&ticker=SPY&event=GEX+Flipped+Negative&spy=-2.1&vix=28.5&dp=58&format=tweet` | tweet, og, story, square |
+| **Ticker Spotlight** | `src/app/marketing/templates/ticker/page.tsx` | `/marketing/templates/ticker?t=NVDA&price=890.50&change=-2.14&gex=negative&dp=62&maxpain=880&iv=78&format=tweet` | tweet, og, story, square |
+
+##### 포맷 사이즈 매핑
+| 포맷 | 사이즈 | 용도 |
+|---|---|---|
+| `tweet` | 1200×675 | X/Bluesky 트윗 이미지 |
+| `og` | 1200×630 | 메타 태그 OG 이미지 |
+| `story` | 1080×1920 | IG/Threads Story |
+| `carousel` | 1080×1080 | IG 캐러셀 슬라이드 |
+| `pin` | 1000×1500 | Pinterest 핀 |
+| `square` | 1080×1080 | 범용 정사각 |
+
+##### 템플릿 공통 디자인 요소
+- **배경**: `#06090f` (near-black navy) + 파티클 웨이브 SVG + 도트 그리드
+- **카드**: Glassmorphism (`rgba(255,255,255,0.03)` + `0.06 border`) + neon glow
+- **아이콘**: 각 메트릭별 SVG 인라인 아이콘 (차트, 파이, 파형 등)
+- **미니 차트**: 카드 배경에 반투명 차트 라인/캔들 SVG
+- **로고**: 실제 사이트 로고 (`/icons/icon-192x192.png`)
+- **폰트**: Inter (Google Fonts, wght 400-900)
+- **GEX 테마**: positive(green), negative(red), neutral(gray), transition(amber) 자동 전환
+- **VIX 레벨**: CALM/ELEVATED/HIGH/EXTREME 자동 뱃지
+- **반응형**: `format` 파라미터로 세로(story)/가로(tweet) 레이아웃 자동 전환
+
+##### ✅ 완료: 미들웨어 제외 설정
+- `src/middleware.ts`: `/marketing` 경로를 i18n 미들웨어에서 제외
+- matcher: `/((?!api|_next|_vercel|auth|marketing|.*\\..*).*)`
+- 템플릿 페이지가 locale prefix 없이 직접 접근 가능 (Puppeteer 캡처용)
+
+##### ✅ 완료: 기존 Satori OG와의 공존 구조
+| 용도 | 기술 | 이유 |
+|---|---|---|
+| `<meta og:image>` 링크 미리보기 | Satori (기존 `/api/og/market`) | Edge에서 즉시 생성, ~10ms |
+| SNS 포스트 첨부 이미지 | HTML 템플릿 + Puppeteer (신규) | 웹과 동일 퀄리티 |
+| 이벤트 알림 이미지 | 템플릿 캡처 (신규) | 실시간 데이터 + 최고 신뢰도 |
+
+##### ✅ 완료: 캡처 서비스 (screenshotService.ts) — 2026-04-29
+
+> **이 서비스가 전체 이미지 파이프라인의 핵심 브릿지.**
+> 템플릿 URL → 스크린샷 캡처 → Supabase Storage CDN URL → Buffer → SNS 자동 게시.
+
+| 파일 | 역할 |
+|---|---|
+| `src/lib/marketing/screenshotService.ts` | 캡처 + 업로드 통합 서비스 |
+| `src/lib/marketing/imagePrerenderer.ts` | 기존 Satori OG 전용 (공존) |
+
+###### 캡처 서비스 주요 API
+```typescript
+// 단일 템플릿 캡처
+captureTemplate({ template: 'event', format: 'tweet', data: {...} })
+  → { cdnUrl, storagePath, sizeKB, format, template }
+
+// 배치 캡처 (daily-content용)
+captureAllFormats('pulse', data, ['tweet','og','story','carousel','pin'])
+  → Record<FormatType, CaptureResult | null>
+
+// 이벤트 알림 전용
+captureEventAlert({ type, ticker, event, spy, vix, dp })
+  → { tweet: cdnUrl | null, story: cdnUrl | null }
+
+// Daily Pulse 전용
+captureDailyPulse({ spy, vix, gex, dp })
+  → Record<format, cdnUrl | null>
+
+// Ticker Spotlight 전용
+captureTickerSpotlight({ ticker, price, change, gex, dp, maxpain, iv })
+  → { tweet: cdnUrl | null, story: cdnUrl | null }
+```
+
+###### 캡처 프로바이더 (우선순위) — 외부 서비스 의존 0
+| 순위 | 프로바이더 | 파일 | 비용 | 특징 |
+|---|---|---|---|---|
+| 1 | **EC2 Puppeteer** | `scripts/ec2-capture-worker.js` → `52.23.98.13:3100` | $0 | Pre-warmed Chromium, Cold Start 0초, 인증 캡처 지원, PM2 관리 |
+| 2 | Satori OG (fallback) | `src/app/api/og/market/route.tsx` | $0 | CSS 제한 있으나 항상 작동 |
+
+###### Supabase Storage 구조
+```
+marketing-assets (bucket, public)
+  └── cards/
+      ├── pulse_tweet_2026-04-29_1714376400.png
+      ├── event_tweet_2026-04-29_1714376400.png
+      └── ticker_story_2026-04-29_1714376400.png
+```
+
+##### ✅ 완료: 이벤트 파이프라인 연결 — 2026-04-29
+
+###### event-detect → screenshotService 연결
+- `src/app/api/cron/event-detect/route.ts` 수정
+- 이벤트 감지 시 `captureEventAlert()` 자동 호출
+- 캡처된 CDN URL을 Redis `marketing:event:images:{dateKey}`에 저장
+- 캡처 실패 시 non-fatal (텍스트만 발송)
+
+###### marketing-dispatch → 캡처 이미지 사용
+- `src/app/api/cron/marketing-dispatch/route.ts` 수정
+- `case 'event':` 에서 Redis에서 캡처 이미지 URL 로드
+- `capturedImages.tweet || lc.imageUrl` — 캡처 이미지 우선, 기존 OG fallback
+
+###### 전체 파이프라인 (완성)
+```
+event-detect (5분 크론)
+  → 이벤트 감지 (GEX 플립, VIX 급등, ITM Sweep, DP 스파이크)
+  → AI 텍스트 생성 (Bedrock Haiku, fallback: 템플릿)
+  → screenshotService.captureEventAlert() → PNG → Supabase CDN ← ✅ 신규
+  → Redis 저장 (content + images)
+  → marketing-dispatch?action=event 호출
+      → Redis에서 캡처 이미지 URL 로드 ← ✅ 신규
+      → Buffer API → X / Bluesky 즉시 발송
+
+daily-content (장 마감 후)
+  → AI 텍스트 생성
+  → screenshotService.captureDailyPulse() → 6개 포맷 일괄 캡처 ← ✅ 신규
+  → 시간대별 marketing-dispatch → 멀티플랫폼 발송
+```
+
+##### ✅ 완료: UI 피드백 반영 (2026-04-29)
+| 항목 | 수정 전 | 수정 후 | 이유 |
+|---|---|---|---|
+| Story CTA | "Swipe up" | "Tap to learn more" | IG 2021년 이후 Swipe Up 폐지 |
+
+##### 이벤트 → 캡처 매핑 (확정)
+| 이벤트 | 사용할 템플릿 | URL 파라미터 주입 | 결과물 |
+|---|---|---|---|
+| **GEX 플립** | `/marketing/templates/event` | `type=gex_shift&ticker=SPY&event=GEX+Flipped+Negative` | tweet + story |
+| **VIX 급등** | `/marketing/templates/event` | `type=unusual_volume&ticker=VIX&event=VIX+Spike+28.5` | tweet + story |
+| **ITM Sweep** | `/marketing/templates/event` | `type=whale&ticker=NVDA&event=Massive+ITM+Sweep` | tweet |
+| **DP 스파이크** | `/marketing/templates/event` | `type=unusual_volume&ticker=SPY&event=Dark+Pool+58%25` | tweet |
+| **Daily Pulse** | `/marketing/templates/pulse` | Redis 실시간 시장 데이터 자동 주입 | 6개 포맷 일괄 |
+| **Ticker 분석** | `/marketing/templates/ticker` | Redis 종목별 데이터 자동 주입 | tweet + story |
+| **Compare 비교** | `/marketing/templates/compare` | `format=tweet&lang=en` | Bloomberg/SpotGamma/UW 가격 비교 |
+| **Education 교육** | `/marketing/templates/education` | `topic=gex&format=pin&lang=en` | GEX/DarkPool/VIX 인포그래픽 |
+
+##### 마케팅 디스패치 마스터 스케줄 (행동심리학 기반)
+
+> **핵심 원칙**: 옵션 트레이더가 SNS를 가장 많이 보는 시간대에 맞춤 배치.
+> 퇴근길(18-19시) 모바일 35%, 저녁 휴식(20-22시) 40% — 이 시간대 집중 공략.
+> 장 개장 30분 전/Power Hour/장 마감 직후 = 트레이더 100% 집중 시간.
+
+###### 🇺🇸 영어권 (미국 시장 타겟) — 7슬롯
+| ET 시간 | KST | 콘텐츠 | 플랫폼 | OG 템플릿 |
+|---|---|---|---|---|
+| 06:00 | 13:00 | Pre-Market Brief | X + Bluesky | Pulse |
+| 09:00 | 16:00 | Opening Bell Ready | X + Threads | Pulse (GEX 강조) |
+| 11:00 | 00:00 | Morning Wrap | X | Pulse |
+| 14:00 | 03:00 | Mid-Day Pulse | IG Story | Pulse (story) |
+| 15:30 | 04:30 | ⭐ Power Hour Alert | X + Bluesky | Ticker Spotlight |
+| 16:30 | 05:30 | ⭐⭐ Market Close Wrap | 전 채널 | Pulse (6포맷) |
+| 20:00 | 09:00 | Education Thread | X Thread + Pinterest | Education |
+
+###### 🇰🇷 한국어 타겟 — 5슬롯
+| KST | 콘텐츠 | 플랫폼 | 이유 |
+|---|---|---|---|
+| 07:30 | 모닝 브리프 | X + Threads | 출근길 모바일 |
+| 12:30 | 점심 업데이트 | X | 점심 SNS |
+| 19:00 | ⭐ 퇴근 브리프 | 전 채널 | 미국 장 개장 준비 |
+| 22:00 | ⭐⭐ 골든 타임 | 전 채널 | 미국 장 개장 30분 전 |
+| 01:00 | 잠자기 전 체크 | Threads + Pinterest | 미국 장 1시간 결과 |
+
+###### 🇯🇵 일본어 타겟 — 4슬롯
+| JST | 콘텐츠 | 플랫폼 |
+|---|---|---|
+| 07:30 | 모닝 (昨夜の米国市場) | X + IG |
+| 19:00 | 퇴근 (米国市場開始準備) | X |
+| 22:00 | ⭐ 골든 타임 | 전 채널 |
+| 01:00 | 잠자기 전 | Threads |
+
+###### ⚡ 이벤트 티어 (실시간 — 일일 최대 3건)
+| 티어 | 이벤트 | 빈도 | 채널 |
+|---|---|---|---|
+| 🔴 Tier 1 | GEX Flip, VIX Spike(15%+), M7 8-K | 주 2-3회 | 전 채널 즉시 |
+| 🟡 Tier 2 | DP 스파이크, Sector Rotation, Earnings 직전, FOMC/CPI 직후 | Tier 1 차면 다음날 | 큐 대기 |
+| 🟢 Tier 3 | 주간 Top Gainers, Sector Performance, Smart Money Flow | 주말 | 정리 콘텐츠 |
+
+###### 콘텐츠 카테고리 7종 (물량 80%:퀄리티 20% 균형)
+| # | 카테고리 | 빈도 | OG 템플릿 |
+|---|---|---|---|
+| 1 | Market Snapshot (정보) | 매일 | Pulse |
+| 2 | Analysis (인사이트) | 매일 | Pulse + Education |
+| 3 | Education (학습) | 주 2-3회 | Education (Pinterest) |
+| 4 | Alert (긴급) | 이벤트 시 | Event Alert |
+| 5 | Spotlight (개별 종목) | 주 3-4회 | Ticker Spotlight |
+| 6 | Compare (비교) | 주 1회 | 커스텀 |
+| 7 | Story (창업) | 주 1회 | 텍스트 위주 |
+
+##### 🟡 미완성 항목 정리 (2026-04-29 갱신)
+
+| 항목 | 상태 | 우선순위 | 비고 |
+|---|---|---|---|
+| **draft=true 테스트** | 🟡 대기 | ★★★ | 배포 후 EC2 Puppeteer 캡처 + Buffer draft 모드 검증 |
+| ~~**텍스트 가다듬기**~~ | ✅ 완료 | — | IG "Tap to learn more" 수정, BEARISH 컴플라이언스 강화, 3개국어 CTA 정리 |
+| **dry_run=false 전환** | 🟡 대기 | ★★ | draft 테스트 완료 후 프로덕션 전환 |
+| ~~**Education 템플릿**~~ | ✅ 완료 | — | `/marketing/templates/education` — GEX/DarkPool/VIX 3토픽, Pinterest pin 최적화, 3개국어 |
+| ~~**Compare 템플릿**~~ | ✅ 완료 | — | `/marketing/templates/compare` — Bloomberg $2K vs SIGNUM $79, BEST VALUE 배지, 3개국어 |
+| ~~**Morning 템플릿**~~ | ✅ 불필요 | — | Pulse 템플릿이 format 파라미터로 모든 포맷 지원 — 별도 불필요 |
+| **시간대별 OG 자동 전환** | 🟢 아이디어 | ★★ | 09:30 ET→MARKET OPEN / 15:50→POWER HOUR / 16:00→EOD WRAP OG 자동 전환 |
+| ~~**BEARISH 표현 로컬라이제이션**~~ | ✅ 완료 | — | EN: "Put-side activity elevated", KO: 자본시장법 컴플라이언스 자동 필터링 |
+| **시즌별 이벤트 OG** | 🟢 아이디어 | ★ | FOMC/어닝 시즌/Black Swan 전용 디자인 |
+| **M7 8-K 트리거** | 🟢 아이디어 | ★ | NVDA/AAPL/MSFT/GOOGL/META/AMZN/TSLA SEC 8-K 감지 → 즉시 Alert |
+| **비디오 렌더링 (Shorts)** | 🔴 미착수 | ★ | HTML → Puppeteer 프레임 → FFmpeg → MP4. 별도 프로젝트 |
+
+##### 이미지 생성 프롬프트 (재사용용)
+> 프롬프트 6종은 별도 파일에 보관: Midjourney/DALL-E/Gemini 등에서 사용 가능.
+> 위치: `.gemini/antigravity/brain/{conversation-id}/marketing_image_prompts.md`
 
 ---
 
@@ -1225,6 +1415,7 @@ bash scripts/ec2-deploy-guardian.sh
 | Guardian Worker | `scripts/ec2-guardian-worker.js` | `/home/ec2-user/guardian/` | `guardian-worker` |
 | Price WebSocket | `scripts/ec2-price-ws.js` | `/home/ec2-user/signum/` | — |
 | Redis Proxy | `scripts/ec2-redis-proxy.js` | `/home/ec2-user/signum/` | — |
+| **Capture Worker** | `scripts/ec2-capture-worker.js` | `/home/ec2-user/capture/` | `capture-worker` |
 
 ### 12.6 변경 → 배포 대상 매핑
 | 수정한 파일 | 배포 대상 |
@@ -1235,6 +1426,7 @@ bash scripts/ec2-deploy-guardian.sh
 | `scripts/lambda-flow-harvest/**` | **Lambda signum-flow-harvest** (`node scripts/deploy-flow-harvest.js`) |
 | `scripts/ec2-guardian-worker.js` | **EC2** (`scp` + `pm2 restart`) |
 | `scripts/ec2-price-ws.js` | **EC2** (`scp` + `pm2 restart`) |
+| `scripts/ec2-capture-worker.js` | **EC2** (`scp -i signum-websocket-key.pem scripts/ec2-capture-worker.js ec2-user@52.23.98.13:/home/ec2-user/capture/` + `pm2 restart capture-worker`) |
 
 ---
 

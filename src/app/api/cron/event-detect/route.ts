@@ -8,6 +8,7 @@ import { NextResponse } from 'next/server';
 import { getFromCache, setInCache } from '@/services/redisClient';
 import { generateEventSpike } from '@/lib/marketing/contentEngines';
 import { generateAIEventSpike } from '@/lib/marketing/aiContentEngine';
+import { captureEventAlert } from '@/lib/marketing/screenshotService';
 import type { EventData, MarketData } from '@/lib/marketing/contentEngines';
 
 // ---------------------------------------------------------------------------
@@ -124,6 +125,30 @@ export async function GET(request: Request) {
     // Save to Redis for buffer-dispatch
     const contentKey = `marketing:event:${dateKey}`;
     await setInCache(contentKey, JSON.stringify(content), 86400);
+
+    // Capture event alert images (HTML template → PNG → Supabase CDN)
+    let eventImages: { tweet: string | null; story: string | null } = { tweet: null, story: null };
+    try {
+      // event.type already matches screenshotService types (gex_shift, unusual_volume, whale, sec_8k)
+      const captureType = (event.type === 'level_break' ? 'gex_shift' : event.type) as 'gex_shift' | 'unusual_volume' | 'whale' | 'sec_8k';
+      eventImages = await captureEventAlert({
+        type: captureType,
+        ticker: event.ticker,
+        event: event.details || event.type,
+        detail: content.en?.text?.substring(0, 100) || '',
+        spy: marketData.spy || 0,
+        vix: marketData.vix || 0,
+        dp: marketData.darkPool || 0,
+      });
+      console.log(`[EventDetect] 📸 Captured: tweet=${!!eventImages.tweet}, story=${!!eventImages.story}`);
+    } catch (err: any) {
+      console.warn('[EventDetect] Image capture failed (non-fatal):', err.message);
+    }
+
+    // Save image URLs to Redis for dispatch
+    if (eventImages.tweet || eventImages.story) {
+      await setInCache(`marketing:event:images:${dateKey}`, JSON.stringify(eventImages), 86400);
+    }
 
     // Mark as sent (dedup)
     const dedupKey = `marketing:event:sent:${event.type}:${event.ticker}:${dateKey}`;

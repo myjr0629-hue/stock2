@@ -490,11 +490,20 @@ export async function GET(request: Request) {
         const content = await loadContent('event', dateKey);
         if (!content) return noContent('event', dateKey);
 
+        // Load pre-captured event alert images (from screenshotService via event-detect)
+        let capturedImages: { tweet?: string; story?: string } = {};
+        try {
+          const imagesRaw = await getFromCache(`marketing:event:images:${dateKey}`);
+          if (imagesRaw) capturedImages = JSON.parse(String(imagesRaw));
+        } catch { /* non-fatal */ }
+
         for (const lang of langs) {
           const lc = content[lang];
           if (!lc?.text) continue;
 
           const ctaUrl = buildCtaUrl(lang, 'command', 'event');
+          // Prefer captured image → fallback to existing OG
+          const tweetImage = capturedImages.tweet || lc.imageUrl;
 
           // X Tweet (즉시)
           const twitterCh = getChannels({ tier: 'all', lang, service: 'twitter' })[0];
@@ -503,7 +512,7 @@ export async function GET(request: Request) {
             const r = await dispatchTweet({
               channelId: twitterCh.id,
               text: truncateForPlatform(`${lc.platformText?.twitter || lc.text}\n\n${tags}`, 'twitter'),
-              imageUrl: lc.imageUrl,
+              imageUrl: tweetImage,
               replyText: `📊 ${ctaUrl}`,
               dryRun,
 
@@ -519,7 +528,7 @@ export async function GET(request: Request) {
             const r = await dispatchPost({
               channelId: bskyCh.id,
               text: truncateForPlatform(`${lc.platformText?.bluesky || lc.text}\n\n${ctaUrl}\n\n${tags}`, 'bluesky'),
-              imageUrl: lc.imageUrl,
+              imageUrl: tweetImage,
               dryRun,
 
               draft,
