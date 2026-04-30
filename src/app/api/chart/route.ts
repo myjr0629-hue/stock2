@@ -37,6 +37,9 @@ export async function GET(request: Request) {
     try {
         const data = await getStockChartData(symbol, range as Range);
 
+        // [SMART CACHE BYPASS] Check if data is sparse (e.g. < 5 points, usually just a synthetic anchor)
+        const isSparseData = data.length < 5;
+
         // [S-53.5] Extract sessionMaskDebug from data if present
         const sessionMaskDebug = (data as any).sessionMaskDebug || null;
         const buildId = getBuildId();
@@ -46,8 +49,10 @@ export async function GET(request: Request) {
             sessionMaskDebug.buildId = buildId;
         }
 
-        // [AWS] Cache to ElastiCache (60s TTL — reduces Polygon API pressure)
-        try { await setInCache(cacheKey, { data, sessionMaskDebug }, CHART_CACHE_TTL); } catch { /* non-critical */ }
+        // [AWS] Cache to ElastiCache ONLY if data is sufficient (Prevents 5-minute trap)
+        if (!isSparseData) {
+            try { await setInCache(cacheKey, { data, sessionMaskDebug }, CHART_CACHE_TTL); } catch { /* non-critical */ }
+        }
 
         // [S-52.2.3] Inject build metadata for staleness detection
         const response = {
@@ -62,12 +67,16 @@ export async function GET(request: Request) {
             count: data.length
         };
 
+        // [SMART CACHE BYPASS] If data is sparse, DO NOT cache at the CDN Edge!
+        const cacheControlHeader = isSparseData 
+            ? 'no-store, max-age=0'
+            : 's-maxage=30, stale-while-revalidate=15';
+
         return new Response(JSON.stringify(response), {
             status: 200,
             headers: {
                 'Content-Type': 'application/json; charset=utf-8',
-                // [S-78] Allow edge cache (CDN cache) but prevent browser cache
-                'Cache-Control': 's-maxage=30, stale-while-revalidate=15'
+                'Cache-Control': cacheControlHeader
             }
         });
     } catch (error) {
