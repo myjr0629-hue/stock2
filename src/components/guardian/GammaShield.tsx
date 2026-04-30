@@ -1,8 +1,37 @@
-import React from 'react';
+"use client";
+
+import React, { useState, useEffect, useMemo } from 'react';
 import type { GammaShieldData } from '@/services/guardian/gammaShieldEngine';
 import { Shield, Zap, AlertTriangle, TrendingUp } from 'lucide-react';
 import { useLocale } from 'next-intl';
 import { GuardianTooltip } from './GuardianTooltip';
+
+// === History Data Types ===
+interface GexHistoryPoint {
+    timestamp: number;
+    gex: number;
+    callWall: number | null;
+    putFloor: number | null;
+    price: number;
+    gammaRegime: string;
+}
+
+interface HistStats {
+    percentile: number;
+    percentileLabel: string;
+    streak: number;
+    regimeLabel: string;
+    regimeShifts: number;
+    cwAccuracy: number | null;
+    cwHit: number;
+    cwTotal: number;
+    pfAccuracy: number | null;
+    pfHit: number;
+    pfTotal: number;
+    cwTrend: number | null;
+    cwTrendDir: 'up' | 'down' | 'flat';
+    sparklinePoints: number[];
+}
 
 // === i18n Text Map ===
 type Locale = 'ko' | 'en' | 'ja';
@@ -127,22 +156,22 @@ function getSqueezeBadgeBg(level: string): string {
 
 // === Squeeze Ring SVG ===
 function SqueezeRing({ value, level }: { value: number; level: string }) {
-    const circumference = 2 * Math.PI * 24;
+    const circumference = 2 * Math.PI * 34;
     const offset = circumference - (Math.min(100, value) / 100) * circumference;
     const strokeColor = level === 'EXTREME' ? '#f87171' :
         level === 'HIGH' ? '#fbbf24' :
             level === 'MEDIUM' ? '#fde047' : '#34d399';
 
     return (
-        <svg width="64" height="64" viewBox="0 0 56 56">
-            <circle cx="28" cy="28" r="24"
-                fill="none" stroke="rgba(100,116,139,0.2)" strokeWidth="3" />
-            <circle cx="28" cy="28" r="24"
-                fill="none" stroke={strokeColor} strokeWidth="3"
+        <svg width="88" height="88" viewBox="0 0 76 76">
+            <circle cx="38" cy="38" r="34"
+                fill="none" stroke="rgba(100,116,139,0.2)" strokeWidth="3.5" />
+            <circle cx="38" cy="38" r="34"
+                fill="none" stroke={strokeColor} strokeWidth="3.5"
                 strokeLinecap="round"
                 strokeDasharray={circumference}
                 strokeDashoffset={offset}
-                transform="rotate(-90 28 28)"
+                transform="rotate(-90 38 38)"
                 className="transition-all duration-700"
             />
         </svg>
@@ -299,8 +328,17 @@ function getSummaryInsight(
     currentPrice: number | null,
     supportWall: number | null,
     resistanceWall: number | null,
-    locale: Locale
+    locale: Locale,
+    hist?: HistStats | null
 ): string[] {
+    // Build history context suffix
+    const hCtx = hist ? {
+        regime: `${hist.regimeLabel} ${hist.streak}D`,
+        cw: hist.cwAccuracy !== null ? `CW ${hist.cwAccuracy}%(${hist.cwHit}/${hist.cwTotal})` : null,
+        pf: hist.pfAccuracy !== null ? `PF ${hist.pfAccuracy}%` : null,
+        pctl: `${hist.percentile}th pctl`,
+        shifts: hist.regimeShifts,
+    } : null;
     const sup = supportWall && supportWall > 0 ? supportWall.toLocaleString() : null;
     const res = resistanceWall && resistanceWall > 0 ? resistanceWall.toLocaleString() : null;
     const distDown = supportWall && supportWall > 0 && currentPrice ? ((currentPrice - supportWall) / currentPrice * 100) : null;
@@ -349,7 +387,15 @@ function getSummaryInsight(
             return [`숏감마(${gexIndex}) — 기관 헤지 매도가 변동 폭 증폭 구간. Squeeze ${squeezeRisk}%${squeezeRisk >= 30 ? ' 축적 중, 방향성 변동 가속 관측' : ''}. 지지 ${sup || '—'}${dD ? `(-${dD}%)` : ''}, 저항 ${res || '—'} 관측.`];
 
         // DEFAULT: Neutral GEX
-        return [`감마 중립(${gexIndex >= 0 ? '+' : ''}${gexIndex}) — 옵션 시장 균형. Squeeze ${squeezeRisk}%${squeezeRisk >= 30 ? ' 축적 중' : ' 안정'}. 지지 ${sup || '—'}${dD ? `(-${dD}%)` : ''}, 저항 ${res || '—'}${dU ? `(+${dU}%)` : ''} 관측.`];
+        {
+            let base = `감마 중립(${gexIndex >= 0 ? '+' : ''}${gexIndex}) — ${sup && res ? `${sup}~${res} 레인지` : '현재 레인지'}에서 균형 유지 구조.`;
+            if (hCtx) {
+                base += ` ${hCtx.regime} 지속${hCtx.shifts === 0 ? ', 전환 없음' : ''}.`;
+                if (hCtx.cw && hist!.cwAccuracy! >= 80) base += ` ${hCtx.cw} 유지.`;
+            }
+            if (squeezeRisk >= 30) base += ` Squeeze ${squeezeRisk}% 축적 중 — 레인지 이탈 시 방향성 확대 가능.`;
+            return [base];
+        }
     }
 
     if (locale === 'ja') {
@@ -377,17 +423,152 @@ function getSummaryInsight(
         return [`Gamma neutral (${gexIndex >= 0 ? '+' : ''}${gexIndex}) · Squeeze ${squeezeRisk}% critical — directionless vol compression. ${sup && res ? `${sup}–${res} range` : 'Range'} breach triggers sharp move either direction.`];
     if (gexIndex >= 40)
         return [`Long gamma dominant (+${gexIndex}) — dealer clamping suppresses ${sup && res ? `${sup}–${res}` : ''} range vol. Squeeze ${squeezeRisk}%${squeezeRisk >= 30 ? ' building — breakout triggers gamma unwind' : ' stable, range-bound regime'}.`];
-    if (gexIndex >= 20)
-        return [`Gamma defense (+${gexIndex}) — institutional positioning absorbs vol. Squeeze ${squeezeRisk}%${squeezeRisk >= 30 ? ' building' : ' stable'}. Floor ${sup || '—'}${dD ? ` (-${dD}%)` : ''}, cap ${res || '—'}${dU ? ` (+${dU}%)` : ''}.`];
-    if (gexIndex <= -20)
-        return [`Short gamma (${gexIndex}) — dealer hedging amplifies swings. Squeeze ${squeezeRisk}%${squeezeRisk >= 30 ? ' building, directional acceleration observed' : ''}. Floor ${sup || '—'}${dD ? ` (-${dD}%)` : ''}, cap ${res || '—'}.`];
-    return [`Gamma neutral (${gexIndex >= 0 ? '+' : ''}${gexIndex}) — options market balanced. Squeeze ${squeezeRisk}%${squeezeRisk >= 30 ? ' building' : ' stable'}. Floor ${sup || '—'}${dD ? ` (-${dD}%)` : ''}, cap ${res || '—'}${dU ? ` (+${dU}%)` : ''}.`];
+    if (gexIndex >= 20) {
+        let base = `Gamma defense (+${gexIndex}) — dealer positioning absorbs volatility within ${sup && res ? `${sup}–${res}` : 'current'} range.`;
+        if (hCtx) {
+            base += ` ${hCtx.regime} sustained${hCtx.shifts === 0 ? ', no regime flips' : ''}.`;
+            if (hCtx.cw && hist!.cwAccuracy! >= 80) base += ` ${hCtx.cw} held.`;
+        }
+        if (squeezeRisk >= 30) base += ` Squeeze ${squeezeRisk}% building.`;
+        return [base];
+    }
+    if (gexIndex <= -20) {
+        let base = `Short gamma (${gexIndex}) — dealer hedging amplifies directional moves.`;
+        if (hCtx) {
+            base += ` ${hCtx.regime}${hCtx.shifts >= 2 ? `, ${hCtx.shifts} regime flips in 30D — unstable` : ''}.`;
+        }
+        base += ` Floor ${sup || '—'}${dD ? ` (-${dD}%)` : ''}, cap ${res || '—'}.`;
+        if (squeezeRisk >= 30) base += ` Squeeze ${squeezeRisk}% — directional acceleration likely.`;
+        return [base];
+    }
+    // DEFAULT: Neutral EN
+    {
+        let base = `Gamma neutral (${gexIndex >= 0 ? '+' : ''}${gexIndex}) — balanced positioning suggests range-bound ${sup && res ? `${sup}–${res}` : 'conditions'}.`;
+        if (hCtx) {
+            base += ` ${hCtx.regime} sustained${hCtx.shifts === 0 ? ', no regime flips' : ''}.`;
+            if (hCtx.cw && hist!.cwAccuracy! >= 80) base += ` ${hCtx.cw} held.`;
+        }
+        if (squeezeRisk >= 30) base += ` Squeeze ${squeezeRisk}% building — range breach may trigger directional expansion.`;
+        else base += ` Squeeze ${squeezeRisk}% stable.`;
+        return [base];
+    }
+}
+
+// === GEX Normalization (for sparkline) ===
+function normalizeGexToIndex(rawGex: number): number {
+    const EXTREME_SHORT = -3_000_000_000;
+    const EXTREME_LONG = 6_000_000_000;
+    if (rawGex >= 0) return Math.min(100, Math.round((rawGex / EXTREME_LONG) * 100));
+    return Math.max(-100, Math.round((rawGex / EXTREME_SHORT) * -100));
 }
 
 // === Main Component ===
 export default function GammaShield({ data, isMarketActive }: Props) {
     const rawLocale = useLocale();
     const locale: Locale = (rawLocale === 'ko' || rawLocale === 'en' || rawLocale === 'ja') ? rawLocale : 'en';
+
+    // === SPY 30D History Fetch ===
+    const [histData, setHistData] = useState<GexHistoryPoint[]>([]);
+    useEffect(() => {
+        fetch('/api/history?type=gex&ticker=SPY&days=30')
+            .then(r => { if (!r.ok) throw new Error(r.statusText); return r.json(); })
+            .then(d => setHistData(d.data || []))
+            .catch(() => {});
+    }, []);
+
+    // === History Stats Calculation ===
+    const histStats = useMemo((): HistStats | null => {
+        if (!histData.length) return null;
+
+        // Filter trading hours + daily close aggregation
+        const dayMap = new Map<string, GexHistoryPoint[]>();
+        histData.filter(d => {
+            const dt = new Date(d.timestamp);
+            const etStr = dt.toLocaleString('en-US', { timeZone: 'America/New_York' });
+            const et = new Date(etStr);
+            const day = et.getDay();
+            if (day === 0 || day === 6) return false;
+            const timeMin = et.getHours() * 60 + et.getMinutes();
+            return timeMin >= 570 && timeMin <= 960;
+        }).forEach(d => {
+            const dt = new Date(d.timestamp);
+            const etStr = dt.toLocaleString('en-US', { timeZone: 'America/New_York' });
+            const et = new Date(etStr);
+            const dayKey = `${et.getFullYear()}-${String(et.getMonth()+1).padStart(2,'0')}-${String(et.getDate()).padStart(2,'0')}`;
+            if (!dayMap.has(dayKey)) dayMap.set(dayKey, []);
+            dayMap.get(dayKey)!.push(d);
+        });
+
+        const daily: GexHistoryPoint[] = [];
+        const sortedDays = [...dayMap.keys()].sort();
+        for (const day of sortedDays) {
+            const pts = dayMap.get(day)!;
+            daily.push(pts[pts.length - 1]);
+        }
+        if (daily.length < 2) return null;
+
+        const gexIndices = daily.map(d => normalizeGexToIndex(d.gex));
+        const latestIdx = data ? normalizeGexToIndex((data.spyGex ?? 0) + (data.qqqGex ?? 0)) : gexIndices[gexIndices.length - 1];
+
+        // 1. Percentile
+        const sorted = [...gexIndices].sort((a, b) => a - b);
+        const pctIdx = sorted.findIndex(v => v >= latestIdx);
+        const percentile = Math.round(((pctIdx >= 0 ? pctIdx : sorted.length) / sorted.length) * 100);
+        const percentileLabel = percentile <= 10 ? 'extreme low' : percentile <= 25 ? 'low' : percentile >= 90 ? 'extreme high' : percentile >= 75 ? 'high' : 'normal';
+
+        // 2. Regime streak
+        const getRegime = (idx: number) => idx >= 20 ? 'POSITIVE' : idx <= -20 ? 'NEGATIVE' : 'NEUTRAL';
+        const latestRegime = data ? (data.gexLevel === 'LONG_GAMMA' ? 'POSITIVE' : data.gexLevel === 'SHORT_GAMMA' ? 'NEGATIVE' : 'NEUTRAL') : getRegime(gexIndices[gexIndices.length - 1]);
+        let streak = 0;
+        for (let i = daily.length - 1; i >= 0; i--) {
+            if (getRegime(gexIndices[i]) === latestRegime) streak++;
+            else break;
+        }
+
+        // 3. Regime shifts
+        let regimeShifts = 0;
+        for (let i = 1; i < daily.length; i++) {
+            if (getRegime(gexIndices[i]) !== getRegime(gexIndices[i-1])) regimeShifts++;
+        }
+
+        // 4. Call Wall accuracy
+        let cwHit = 0, cwTotal = 0;
+        daily.forEach(d => {
+            if (d.callWall && d.callWall > 100 && d.price) {
+                cwTotal++;
+                if (d.price < d.callWall) cwHit++;
+            }
+        });
+
+        // 5. Put Floor accuracy
+        let pfHit = 0, pfTotal = 0;
+        daily.forEach(d => {
+            if (d.putFloor && d.putFloor > 100 && d.price) {
+                pfTotal++;
+                if (d.price > d.putFloor) pfHit++;
+            }
+        });
+
+        // 6. Call Wall trend
+        const cwValues = daily.filter(d => d.callWall && d.callWall > 100).map(d => d.callWall!);
+        const cwTrend = cwValues.length >= 2 ? cwValues[cwValues.length - 1] - cwValues[0] : null;
+        const cwTrendDir: 'up' | 'down' | 'flat' = cwTrend === null ? 'flat' : cwTrend > 50 ? 'up' : cwTrend < -50 ? 'down' : 'flat';
+
+        // 7. Sparkline (last 7 days)
+        const sparkSlice = gexIndices.slice(-7);
+
+        return {
+            percentile, percentileLabel,
+            streak, regimeLabel: latestRegime,
+            regimeShifts,
+            cwAccuracy: cwTotal > 0 ? Math.round((cwHit / cwTotal) * 100) : null,
+            cwHit, cwTotal,
+            pfAccuracy: pfTotal > 0 ? Math.round((pfHit / pfTotal) * 100) : null,
+            pfHit, pfTotal,
+            cwTrend, cwTrendDir,
+            sparklinePoints: sparkSlice,
+        };
+    }, [histData, data]);
 
     if (!data) {
         return (
@@ -430,15 +611,18 @@ export default function GammaShield({ data, isMarketActive }: Props) {
                         {confidence}
                     </span>
                 </div>
-                <span className={`text-[12px] font-bold font-jakarta px-2 py-0.5 rounded border shrink-0 ${isMarketActive ? 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10 animate-pulse' : 'text-slate-300 border-slate-600/30 bg-slate-600/10'}`}>
-                    {isMarketActive ? '● LIVE' : 'STANDBY'}
-                </span>
+                <div className="flex items-center gap-2 shrink-0">
+                    <span className="text-[12px] font-jakarta text-slate-400">SPY + QQQ real-time</span>
+                    <span className={`text-[12px] font-bold font-jakarta px-2 py-0.5 rounded border ${isMarketActive ? 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10 animate-pulse' : 'text-slate-300 border-slate-600/30 bg-slate-600/10'}`}>
+                        {isMarketActive ? '● LIVE' : 'STANDBY'}
+                    </span>
+                </div>
             </div>
 
             {/* Summary Strip — readable multi-line insight */}
             <div className="px-4 pb-2">
                 <div className="bg-slate-800/40 rounded-lg px-3 py-2 border border-slate-700/20">
-                    {getSummaryInsight(gexIndex, squeezeRisk, squeezeLevel, currentPrice, supportWall, resistanceWall, locale).map((line, i) => (
+                    {getSummaryInsight(gexIndex, squeezeRisk, squeezeLevel, currentPrice, supportWall, resistanceWall, locale, histStats).map((line, i) => (
                         <p key={i} className={`text-[13px] font-jakarta leading-relaxed ${i === 0 ? 'text-slate-200 font-semibold' : 'text-slate-400 mt-0.5'}`}>
                             {i === 0 ? '⚡ ' : '  '}{line}
                         </p>
@@ -446,64 +630,81 @@ export default function GammaShield({ data, isMarketActive }: Props) {
                 </div>
             </div>
 
-            {/* Content Grid — responsive: 1 col mobile, 3 col desktop */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 px-4 pb-4">
 
-                {/* Column 1: GEX Pressure Index */}
-                <div className="flex flex-col items-center gap-2">
-                    <span className="text-[12px] font-bold font-jakarta tracking-[0.10em] text-slate-300 uppercase">
-                        Gamma Pressure
-                    </span>
+            {/* Content Grid — 3 columns with vertical dividers */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-0 px-4 pb-4">
 
-                    <div className={`text-[28px] font-black font-jakarta tabular-nums leading-none ${getGexColor(gexIndex)}`}>
-                        {gexIndex >= 0 ? '+' : ''}{gexIndex}
+                {/* ── Column 1: Gamma Pressure Index ── */}
+                <div className="flex flex-col gap-2 pr-4 sm:border-r border-slate-700/25 pb-2">
+                    {/* Title row */}
+                    <div className="flex items-center justify-between">
+                        <span className="text-[12px] font-bold font-jakarta tracking-[0.10em] text-slate-300 uppercase">
+                            Gamma Pressure Index
+                        </span>
                     </div>
 
-                    {/* Level Badge */}
-                    <div className={`text-[12px] font-bold font-jakarta px-2 py-0.5 rounded-sm border ${gexLevel === 'LONG_GAMMA' ? 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10' : gexLevel === 'SHORT_GAMMA' ? 'text-red-400 border-red-500/30 bg-red-500/10' : 'text-slate-300 border-slate-600/30 bg-slate-600/10'}`}>
-                        {gexLevel.replace('_', ' ')}
-                    </div>
+                    {/* 7D GEX TREND — Sparkline (primary visual) */}
+                    {histStats && histStats.sparklinePoints.length >= 2 && (() => {
+                        const pts = histStats.sparklinePoints;
+                        const min = Math.min(...pts);
+                        const max = Math.max(...pts);
+                        const range = max - min || 1;
+                        const W = 260, H = 56, PX = 4, PY = 6;
+                        const coords = pts.map((v, i) => ({
+                            x: PX + (i / (pts.length - 1)) * (W - PX * 2),
+                            y: PY + (1 - (v - min) / range) * (H - PY * 2),
+                        }));
+                        const d = coords.map((c, i) => `${i === 0 ? 'M' : 'L'} ${c.x.toFixed(1)} ${c.y.toFixed(1)}`).join(' ');
+                        const fillD = d + ` L ${coords[coords.length-1].x.toFixed(1)} ${H} L ${coords[0].x.toFixed(1)} ${H} Z`;
+                        const lastPt = coords[coords.length - 1];
+                        const lastVal = pts[pts.length - 1];
+                        const firstVal = pts[0];
+                        const trendUp = lastVal >= firstVal;
+                        const lineColor = trendUp ? '#10b981' : '#ef4444';
+                        const fillColor = trendUp ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.1)';
+                        return (
+                            <div className="w-full bg-slate-800/30 rounded-lg border border-slate-700/20 p-2.5">
+                                <div className="flex items-center justify-between mb-1.5">
+                                    <span className="text-[12px] font-bold font-jakarta text-slate-300 uppercase tracking-wider">7D GEX Trend</span>
+                                    <span className={`text-[12px] font-black font-jakarta tabular-nums ${trendUp ? 'text-emerald-400' : 'text-red-400'}`}>
+                                        {trendUp ? '▲' : '▼'} {lastVal >= 0 ? '+' : ''}{lastVal}
+                                    </span>
+                                </div>
+                                <svg width="100%" height={H} viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" className="rounded">
+                                    <path d={fillD} fill={fillColor} />
+                                    <path d={d} fill="none" stroke={lineColor} strokeWidth="2" strokeLinejoin="round" />
+                                    <circle cx={lastPt.x} cy={lastPt.y} r="3.5" fill={lineColor} />
+                                    {min < 0 && max > 0 && (
+                                        <line x1={PX} y1={PY + (1 - (0 - min) / range) * (H - PY * 2)} x2={W - PX} y2={PY + (1 - (0 - min) / range) * (H - PY * 2)} stroke="rgba(148,163,184,0.25)" strokeWidth="1" strokeDasharray="3 3" />
+                                    )}
+                                </svg>
+                            </div>
+                        );
+                    })()}
 
-                    {/* GEX Bar */}
-                    <div className="w-full max-w-[160px]">
-                        <div className="relative h-[6px] rounded-full bg-slate-800 overflow-hidden">
-                            <div
-                                className={`absolute h-full rounded-full bg-gradient-to-r ${getGexBarGradient(gexIndex)} transition-all duration-700`}
-                                style={{
-                                    left: gexIndex >= 0 ? '50%' : `${50 + (gexIndex / 2)}%`,
-                                    width: `${Math.abs(gexIndex) / 2}%`,
-                                }}
-                            />
-                            {/* Center marker */}
-                            <div className="absolute left-1/2 top-0 w-[1px] h-full bg-slate-500/60" />
+                    {/* Value + Badge + Change — single line */}
+                    <div className="flex items-center gap-2.5 flex-wrap">
+                        <div className={`text-[32px] font-black font-jakarta tabular-nums leading-none ${getGexColor(gexIndex)}`}>
+                            {gexIndex >= 0 ? '+' : ''}{gexIndex}
                         </div>
-                        <div className="flex justify-between mt-1">
-                            <span className="text-[12px] font-jakarta text-red-400/70">-100</span>
-                            <span className="text-[12px] font-jakarta text-slate-300">0</span>
-                            <span className="text-[12px] font-jakarta text-emerald-400/70">+100</span>
+                        <div className={`text-[12px] font-bold font-jakarta px-2 py-0.5 rounded-sm border ${gexLevel === 'LONG_GAMMA' ? 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10' : gexLevel === 'SHORT_GAMMA' ? 'text-red-400 border-red-500/30 bg-red-500/10' : 'text-slate-300 border-slate-600/30 bg-slate-600/10'}`}>
+                            {gexLevel.replace('_', ' ')}
                         </div>
-                    </div>
-
-                    {/* Label + Description */}
-                    <span className="text-[12px] font-jakarta text-slate-300 mt-0.5">
-                        {gexLabel}
-                    </span>
-
-                    {/* v2: GEX Trend */}
-                    {gexChange !== null && (
-                        <div className="flex items-center gap-1 mt-0.5">
+                        {gexChange !== null && (
                             <span className={`text-[12px] font-black font-jakarta tabular-nums ${gexChange > 0 ? 'text-emerald-400' : gexChange < 0 ? 'text-red-400' : 'text-slate-300'}`}>
-                                {gexChange > 0 ? `▲${gexChange}` : gexChange < 0 ? `▼${Math.abs(gexChange)}` : '±0'}
+                                {gexChange > 0 ? `▲${gexChange}` : gexChange < 0 ? `▼${Math.abs(gexChange)}` : '±0'} vs prev
                             </span>
-                            <span className="text-[12px] font-jakarta text-slate-300">vs prev</span>
-                        </div>
-                    )}
-
-
+                        )}
+                        {histStats && (
+                            <span className={`text-[12px] font-bold font-jakarta tabular-nums ${histStats.percentile <= 25 ? 'text-amber-400' : histStats.percentile >= 75 ? 'text-emerald-400' : 'text-slate-300'}`}>
+                                · {histStats.percentile}th pctl
+                            </span>
+                        )}
+                    </div>
                 </div>
 
-                {/* Column 2: Squeeze Risk */}
-                <div className="flex flex-col items-center gap-2 border-t sm:border-t-0 sm:border-x border-slate-700/25 pt-3 sm:pt-0 px-2">
+                {/* ── Column 2: Squeeze Risk ── */}
+                <div className="flex flex-col items-center gap-2 border-t sm:border-t-0 sm:border-r border-slate-700/25 pt-3 sm:pt-0 px-4">
                     <span className="text-[12px] font-bold font-jakarta tracking-[0.10em] text-slate-300 uppercase">
                         Squeeze Risk
                     </span>
@@ -512,10 +713,10 @@ export default function GammaShield({ data, isMarketActive }: Props) {
                     <div className="relative">
                         <SqueezeRing value={squeezeRisk} level={squeezeLevel} />
                         <div className="absolute inset-0 flex flex-col items-center justify-center">
-                            <span className={`text-[18px] font-black font-jakarta tabular-nums leading-none ${getSqueezeColor(squeezeLevel)}`}>
+                            <span className={`text-[24px] font-black font-jakarta tabular-nums leading-none ${getSqueezeColor(squeezeLevel)}`}>
                                 {squeezeRisk}
                             </span>
-                            <span className="text-[12px] font-jakarta text-slate-300">%</span>
+                            <span className="text-[13px] font-jakarta text-slate-300">%</span>
                         </div>
                     </div>
 
@@ -524,13 +725,11 @@ export default function GammaShield({ data, isMarketActive }: Props) {
                         <span className={getSqueezeColor(squeezeLevel)}>{squeezeLevel}</span>
                     </div>
 
-
-
                     {/* Threshold Distance */}
                     {squeezeRisk < 70 && (
                         <div className="text-[12px] font-jakarta text-slate-300 text-center">
                             {squeezeRisk < 45
-                                ? <span>→ <span className="text-amber-400 font-bold">HIGH</span> {`${45 - squeezeRisk}pt`}</span>
+                                ? <span>→ <span className="text-amber-400 font-bold">HIGH</span> if +{45 - squeezeRisk}pt</span>
                                 : <span>→ <span className="text-red-400 font-bold">EXTREME</span> {`${70 - squeezeRisk}pt`}</span>
                             }
                         </div>
@@ -545,14 +744,16 @@ export default function GammaShield({ data, isMarketActive }: Props) {
                             </span>
                         </div>
                     )}
+
                 </div>
 
-                {/* Column 3: Trigger Band */}
-                <div className="flex flex-col gap-1.5 border-t sm:border-t-0 border-slate-700/25 pt-3 sm:pt-0">
-                    <span className="text-[12px] font-bold font-jakarta tracking-[0.10em] text-slate-300 uppercase text-center">
-                        Trigger Band
-                    </span>
-                    <span className="text-[12px] font-jakarta text-slate-300 text-center -mt-1">
+                {/* ── Column 3: Trigger Band ── */}
+                <div className="flex flex-col gap-1.5 border-t sm:border-t-0 border-slate-700/25 pt-3 sm:pt-0 pl-4">
+                    <div className="flex items-center justify-between">
+                        <span className="text-[12px] font-bold font-jakarta tracking-[0.10em] text-slate-300 uppercase">Trigger Band</span>
+                        <span className="text-[12px] font-jakarta text-emerald-400/60">Realtime ●</span>
+                    </div>
+                    <span className="text-[12px] font-jakarta text-slate-300 -mt-1">
                         S&P 500
                     </span>
                     <TriggerBand
@@ -561,7 +762,7 @@ export default function GammaShield({ data, isMarketActive }: Props) {
                         resistance={resistanceWall}
                         locale={locale}
                     />
-                    {/* v2: Gamma Flip Point */}
+                    {/* Gamma Flip Point */}
                     {gammaFlipPoint && currentPrice && (
                         <div className="flex items-center justify-between mt-1">
                             <span className="text-[12px] font-bold font-jakarta text-amber-400/90">⚡ FLIP</span>
@@ -575,6 +776,114 @@ export default function GammaShield({ data, isMarketActive }: Props) {
                     )}
                 </div>
             </div>
+
+            {/* ═══ HISTORICAL CONTEXT (30D) ═══ */}
+            {histStats && (
+                <div className="px-4 pb-4">
+                    <div className="border-t border-slate-700/30 pt-3">
+                        {/* Section Label */}
+                        <div className="flex items-center justify-between mb-3">
+                            <div className="flex items-center gap-2">
+                                <div className="w-1.5 h-1.5 rounded-full bg-cyan-400/60" />
+                                <span className="text-[12px] text-slate-300 font-bold font-jakarta uppercase tracking-widest">
+                                    Historical Context (30D)
+                                </span>
+                                <span className="text-[12px] text-slate-300 font-jakarta">· DynamoDB</span>
+                            </div>
+                            <span className="text-[12px] text-cyan-400/70 font-jakarta">History ●</span>
+                        </div>
+
+                        {/* 6 Metric Cards — Premium 3-tier structure: title → value → desc + source */}
+                        <div className="grid grid-cols-3 sm:grid-cols-6 gap-2.5">
+
+                            {/* 1. GEX 30D Percentile */}
+                            <div className="bg-slate-800/50 rounded-lg px-3 py-2.5 border border-slate-700/30 flex flex-col items-center gap-1">
+                                <span className="text-[12px] font-bold font-jakarta text-slate-300 uppercase tracking-wider">GEX 30D Pctl</span>
+                                <div className={`text-[22px] font-black font-jakarta tabular-nums leading-none ${histStats.percentile <= 25 ? 'text-amber-400' : histStats.percentile >= 75 ? 'text-emerald-400' : 'text-white'}`}>
+                                    {histStats.percentile}<span className="text-[13px] text-slate-300">th</span>
+                                </div>
+                                <span className="text-[12px] text-slate-300 font-jakarta text-center leading-tight">
+                                    {locale === 'ko' ? '30일 대비 현재 감마 위치' : locale === 'ja' ? '30日基準ガンマ位置' : 'Where gamma sits vs 30-day history'}
+                                </span>
+                                <span className="text-[12px] text-slate-300 font-jakarta">30D / DynamoDB</span>
+                            </div>
+
+                            {/* 2. Current Regime Streak */}
+                            <div className="bg-slate-800/50 rounded-lg px-3 py-2.5 border border-slate-700/30 flex flex-col items-center gap-1">
+                                <span className="text-[12px] font-bold font-jakarta text-slate-300 uppercase tracking-wider">Regime Streak</span>
+                                <div className="text-[18px] font-black font-jakarta leading-none">
+                                    <span className={`${histStats.regimeLabel === 'POSITIVE' ? 'text-emerald-400' : histStats.regimeLabel === 'NEGATIVE' ? 'text-red-400' : 'text-slate-200'}`}>
+                                        {histStats.regimeLabel}
+                                    </span>
+                                    <span className="text-white ml-1.5">{histStats.streak}D</span>
+                                </div>
+                                <span className="text-[12px] text-slate-300 font-jakarta text-center leading-tight">
+                                    {locale === 'ko' ? '현재 레짐 지속 기간' : locale === 'ja' ? '現在レジーム継続期間' : 'How long this regime has lasted'}
+                                </span>
+                                <span className="text-[12px] text-slate-300 font-jakarta">30D / DynamoDB</span>
+                            </div>
+
+                            {/* 3. Regime Shifts */}
+                            <div className="bg-slate-800/50 rounded-lg px-3 py-2.5 border border-slate-700/30 flex flex-col items-center gap-1">
+                                <span className="text-[12px] font-bold font-jakarta text-slate-300 uppercase tracking-wider">Regime Shifts</span>
+                                <div className={`text-[22px] font-black font-jakarta tabular-nums leading-none ${histStats.regimeShifts === 0 ? 'text-emerald-400' : histStats.regimeShifts >= 3 ? 'text-amber-400' : 'text-white'}`}>
+                                    {histStats.regimeShifts}
+                                </div>
+                                <span className="text-[12px] text-slate-300 font-jakarta text-center leading-tight">
+                                    {locale === 'ko' ? '시장 안정성 / 불안정성' : locale === 'ja' ? '市場安定性 / 不安定性' : 'Market stability / instability'}
+                                </span>
+                                <span className="text-[12px] text-slate-300 font-jakarta">30D / DynamoDB</span>
+                            </div>
+
+                            {/* 4. Call Wall Hit Rate */}
+                            <div className="bg-slate-800/50 rounded-lg px-3 py-2.5 border border-slate-700/30 flex flex-col items-center gap-1">
+                                <span className="text-[12px] font-bold font-jakarta text-slate-300 uppercase tracking-wider">CW Hit Rate</span>
+                                <div className={`text-[22px] font-black font-jakarta tabular-nums leading-none ${(histStats.cwAccuracy ?? 0) >= 80 ? 'text-emerald-400' : (histStats.cwAccuracy ?? 0) >= 50 ? 'text-amber-400' : 'text-red-400'}`}>
+                                    {histStats.cwAccuracy !== null ? `${histStats.cwAccuracy}%` : '—'}
+                                </div>
+                                <span className="text-[12px] text-slate-300 font-jakarta text-center leading-tight">
+                                    {histStats.cwTotal > 0 && `(${histStats.cwHit}/${histStats.cwTotal}) `}
+                                    {locale === 'ko' ? '저항선 신뢰도' : locale === 'ja' ? '抵抗線信頼度' : 'Resistance reliability'}
+                                </span>
+                                <span className="text-[12px] text-slate-300 font-jakarta">30D / DynamoDB</span>
+                            </div>
+
+                            {/* 5. Put Floor Hit Rate */}
+                            <div className="bg-slate-800/50 rounded-lg px-3 py-2.5 border border-slate-700/30 flex flex-col items-center gap-1">
+                                <span className="text-[12px] font-bold font-jakarta text-slate-300 uppercase tracking-wider">PF Hit Rate</span>
+                                <div className={`text-[22px] font-black font-jakarta tabular-nums leading-none ${(histStats.pfAccuracy ?? 0) >= 80 ? 'text-emerald-400' : (histStats.pfAccuracy ?? 0) >= 50 ? 'text-amber-400' : 'text-red-400'}`}>
+                                    {histStats.pfAccuracy !== null ? `${histStats.pfAccuracy}%` : '—'}
+                                </div>
+                                <span className="text-[12px] text-slate-300 font-jakarta text-center leading-tight">
+                                    {histStats.pfTotal > 0 && `(${histStats.pfHit}/${histStats.pfTotal}) `}
+                                    {locale === 'ko' ? '지지선 신뢰도' : locale === 'ja' ? '支持線信頼度' : 'Support reliability'}
+                                </span>
+                                <span className="text-[12px] text-slate-300 font-jakarta">30D / DynamoDB</span>
+                            </div>
+
+                            {/* 6. Call Wall Trend */}
+                            <div className="bg-slate-800/50 rounded-lg px-3 py-2.5 border border-slate-700/30 flex flex-col items-center gap-1">
+                                <span className="text-[12px] font-bold font-jakarta text-slate-300 uppercase tracking-wider">CW Trend</span>
+                                <div className={`text-[20px] font-black font-jakarta tabular-nums leading-none ${histStats.cwTrendDir === 'up' ? 'text-cyan-400' : histStats.cwTrendDir === 'down' ? 'text-red-400' : 'text-slate-300'}`}>
+                                    {histStats.cwTrend !== null ? (
+                                        <>{histStats.cwTrendDir === 'up' ? '↑' : histStats.cwTrendDir === 'down' ? '↓' : '→'} {histStats.cwTrend > 0 ? '+' : ''}{histStats.cwTrend}pt</>
+                                    ) : '—'}
+                                </div>
+                                <span className="text-[12px] text-slate-300 font-jakarta text-center leading-tight">
+                                    {locale === 'ko' ? '기관 포지셔닝 방향' : locale === 'ja' ? 'ディーラーポジショニング' : 'Dealer positioning direction'}
+                                </span>
+                                <span className="text-[12px] text-slate-300 font-jakarta">30D / DynamoDB</span>
+                            </div>
+
+                        </div>
+
+                        {/* Disclaimer */}
+                        <div className="text-[12px] text-slate-300 text-right mt-2.5 font-jakarta italic">
+                            {locale === 'ko' ? '실시간 구조 + 30일 히스토리 참조. 정보 제공 목적.' : locale === 'ja' ? 'ライブ構造 + 30日ヒストリカル参照。情報提供目的。' : 'Live structure + 30D historical context. Informational only.'}
+                        </div>
+                    </div>
+                </div>
+            )}
 
         </div>
     );

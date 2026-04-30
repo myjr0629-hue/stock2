@@ -66,7 +66,44 @@ function ec2ProxyGet(key, timeoutMs) {
   });
 }
 
+// HTTP POST helper for EC2 proxy (HTTP, not HTTPS) — mirrors ec2ProxyGet pattern
+function ec2ProxyPost(path, body, timeoutMs) {
+  return new Promise((resolve) => {
+    const parsed = new URL(EC2_PROXY_URL + path);
+    const options = {
+      hostname: parsed.hostname,
+      port: parsed.port || 8081,
+      path: parsed.pathname,
+      method: 'POST',
+      headers: {
+        'Authorization': 'Bearer ' + EC2_PROXY_KEY,
+        'Content-Type': 'application/json',
+        'Content-Length': Buffer.byteLength(body),
+      },
+    };
+    const to = setTimeout(() => resolve(null), timeoutMs || 3000);
+    const req = http.request(options, (res) => {
+      let data = '';
+      res.on('data', chunk => data += chunk);
+      res.on('end', () => {
+        clearTimeout(to);
+        try { resolve(JSON.parse(data)); } catch { resolve(null); }
+      });
+    });
+    req.on('error', () => { clearTimeout(to); resolve(null); });
+    req.write(body);
+    req.end();
+  });
+}
+
 async function redisSet(key, value, ttl) {
+  // 1st: EC2 Proxy /set (internal VPC, zero Upstash cost)
+  try {
+    const result = await ec2ProxyPost('/set', JSON.stringify({ key, value, ttl: ttl || REDIS_TTL }), 3000);
+    if (result && result.ok) return true;
+  } catch {}
+
+  // 2nd: Upstash fallback (maintains data availability if EC2 is down)
   if (!UPSTASH_URL || !UPSTASH_TOKEN) return false;
   try {
     const body = JSON.stringify(['SET', key, JSON.stringify(value), 'EX', String(ttl || REDIS_TTL)]);
@@ -97,7 +134,28 @@ async function redisSet(key, value, ttl) {
 }
 
 // Batch Redis pipeline (up to 20 commands at once)
+// EC2 Proxy /mset first, Upstash /pipeline fallback
 async function redisPipeline(commands) {
+  // Extract SET commands for EC2 /mset
+  const setCommands = commands.filter(c => c[0] === 'SET');
+  const hasGet = commands.some(c => c[0] === 'GET');
+
+  // For pure SET batches, use EC2 Proxy /mset
+  if (setCommands.length > 0 && !hasGet) {
+    try {
+      const items = setCommands.map(c => {
+        // c = ['SET', key, jsonString, 'EX', ttlString]
+        let value;
+        try { value = JSON.parse(c[1 + 1]); } catch { value = c[1 + 1]; }
+        const ttl = c.length >= 5 ? parseInt(c[4]) : undefined;
+        return { key: c[1], value, ttl };
+      });
+      const result = await ec2ProxyPost('/mset', JSON.stringify({ items }), 5000);
+      if (result && result.ok) return commands.length;
+    } catch {}
+  }
+
+  // Fallback: Upstash pipeline (original code)
   if (!UPSTASH_URL || !UPSTASH_TOKEN) return 0;
   try {
     const body = JSON.stringify(commands);
@@ -120,8 +178,6 @@ async function redisPipeline(commands) {
         res.on('end', () => {
           try {
             const parsed = JSON.parse(data);
-            // If any command is a GET, return parsed results for data retrieval
-            const hasGet = commands.some(c => c[0] === 'GET');
             if (hasGet) {
               resolve(parsed.map(r => r.result));
             } else {
