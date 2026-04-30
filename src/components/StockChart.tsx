@@ -98,15 +98,18 @@ export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d
 
     // ── Fetch data when needed (only when parent is NOT feeding data) ──
     useEffect(() => {
-        // [FIX] If parent is actively feeding chart data (e.g. dashboard 15s polling),
-        // skip internal fetch entirely to avoid race condition where internal fetch
-        // overwrites parent data → chart recreates → currentPrice line flickers/disappears
-        if (data && data.length > 0) return;
+        // [FIX V75] If parent provided FULL data (>= 5 points), skip internal fetch.
+        // But if SSR returned SPARSE data (< 5 points, e.g. synthetic anchor due to Polygon delay),
+        // we MUST actively recover by polling our Smart Cache API until Polygon has data.
+        if (data && data.length >= 5) return;
+
+        let pollInterval: NodeJS.Timeout | null = null;
 
         const fetchData = async () => {
-            const ssrHasCompleteData = chartData && chartData.length > 0 && (chartData[0] as any)?.etMinute !== undefined;
+            const ssrHasCompleteData = chartData && chartData.length >= 5;
             if (range === '1d' && !ssrHasCompleteData) {
-                setLoading(true);
+                // Only show loading UI if we have absolutely nothing.
+                if (!chartData || chartData.length === 0) setLoading(true);
                 try {
                     const t = Date.now();
                     const res = await fetch(`/api/chart?symbol=${ticker}&range=1d&t=${t}`, { cache: 'no-store' });
@@ -118,13 +121,29 @@ export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d
                             if (json.meta?.sessionMaskDebug?.baseDateET) {
                                 setBaseDateET(json.meta.sessionMaskDebug.baseDateET);
                             }
+                            // [RECOVERY SUCCESS] If we finally got rich data (>= 5 points), stop polling!
+                            if (newData.length >= 5 && pollInterval) {
+                                clearInterval(pollInterval);
+                                pollInterval = null;
+                            }
                         }
                     }
                 } catch (e) { console.error('[StockChart] Fetch error:', e); }
                 setLoading(false);
             }
         };
+
+        // 1. Fetch immediately
         fetchData();
+        
+        // 2. Poll every 15s to recover from sparse/empty data
+        if (range === '1d') {
+            pollInterval = setInterval(fetchData, 15000);
+        }
+
+        return () => {
+            if (pollInterval) clearInterval(pollInterval);
+        };
     }, [ticker, range, data]);
 
     // ── Range change handler ──
