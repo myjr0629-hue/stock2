@@ -365,7 +365,7 @@ export async function processPortfolioBatch(tickers: string[], mode: 'full' | 'p
                 relVol: fullObj.realtime.rvol, expiration: structureRes?.expiration ?? null,
                 maxPain: fullObj.realtime.maxPain, gex: fullObj.realtime.gex,
                 gexM: fullObj.realtime.gexM, pcr: fullObj.realtime.pcr, gammaFlipLevel: fullObj.realtime.gammaFlipLevel,
-                whaleIndex, whaleConfidence: whaleIndex >= 70 ? 'HIGH' : whaleIndex >= 40 ? 'MED' : whaleIndex >= 15 ? 'LOW' : 'NONE',
+                whaleIndex, whaleConfidence: whaleIndex >= 65 ? 'HIGH' : whaleIndex >= 55 ? 'MED' : whaleIndex >= 45 ? 'LOW' : 'NONE',
                 putFloor: alphaPutFloor, callWall: alphaCallWall, netPremium,
                 vwapDist: null, volume: stockData.volume || null, squeezeScore: alphaSqueezeScore, iv: structureRes?.atmIv ?? null, darkPoolPct: darkPoolPct || 0,
                 ivSkew: null, impliedMovePct: null,

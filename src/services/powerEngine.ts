@@ -1128,6 +1128,8 @@ export function selectFinalList(allScoredItems: any[]): any[] {
         // Final Rank (0-100 scale)
         const finalRank = (
             (alphaScore * 0.50) +
+            // [V2] whaleIndex is 50-centered: normalize so 50=neutral contributes 50*0.20=10
+            // Above 50 adds value, below 50 reduces value — directionally correct
             (whaleIndex * 0.20) +
             (momentumScore * 0.15) +
             (optionsQuality * 0.10) +

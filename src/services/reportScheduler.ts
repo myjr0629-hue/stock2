@@ -608,8 +608,8 @@ async function generateReportFromItems(
 
 
             // 4. Mark as Whale Driven if Index High
-            if (forensicResult.whaleIndex >= 85) {
-                console.log(`[ReportScheduler] 🐋 WHALE SIGHTED: ${item.ticker} (Index: ${forensicResult.whaleIndex})`);
+            if (forensicResult.whaleIndex >= 75) {
+                console.log(`[ReportScheduler] 🐋 WHALE SIGHTED: ${item.ticker} (Index: ${forensicResult.whaleIndex}) [V2 Directional]`);
                 if (!item.decisionSSOT.triggersKR) item.decisionSSOT.triggersKR = [];
                 if (!item.decisionSSOT.triggersKR.includes('WHALE_IN_SIGHT')) {
                     item.decisionSSOT.triggersKR.push('WHALE_IN_SIGHT');

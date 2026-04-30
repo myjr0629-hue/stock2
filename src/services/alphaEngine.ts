@@ -390,17 +390,17 @@ function calculateMomentum(input: AlphaInput): PillarDetail {
     const whaleIdxM = input.whaleIndex || 0;
     const darkPoolM = input.darkPoolPct || 0;
 
-    if (changePct >= 1 && (netFlowM > 0 || whaleIdxM >= 40 || darkPoolM >= 35)) {
-        // Strong: positive momentum + institutional confirmation
+    if (changePct >= 1 && (netFlowM > 0 || whaleIdxM >= 55 || darkPoolM >= 35)) {
+        // Strong: positive momentum + institutional confirmation (V2: 55+ = buying)
         confirmScore = 5;
         factors.push({ name: 'trendConfirm', value: 5, max: 5, detail: '가격↑ + 기관확인' });
     } else if (changePct >= 0.5) {
         confirmScore = 3;
         factors.push({ name: 'trendConfirm', value: 3, max: 5, detail: '양호한 상승' });
-    } else if (changePct < -0.5 && (netFlowM > 1000000 || whaleIdxM >= 70)) {
-        confirmScore = 5; // Smart DIP
+    } else if (changePct < -0.5 && (netFlowM > 1000000 || whaleIdxM >= 65)) {
+        confirmScore = 5; // Smart DIP: price down but institutions buying (V2: 65+ = strong buying)
         factors.push({ name: 'trendConfirm', value: 5, max: 5, detail: '가격↓ + 기관매수↑ = 반등신호' });
-    } else if (changePct < -0.5 && (netFlowM > 0 || whaleIdxM >= 50)) {
+    } else if (changePct < -0.5 && (netFlowM > 0 || whaleIdxM >= 55)) {
         confirmScore = 3;
         factors.push({ name: 'trendConfirm', value: 3, max: 5, detail: '가격↓ + 소규모 매집' });
     } else if (changePct >= 0) {
@@ -692,18 +692,19 @@ function calculateFlow(input: AlphaInput): PillarDetail {
     }
     total += darkPoolScore;
 
-    // Factor 2: Whale Index (0-6) — [V5.0] 백테스팅 곡선 역전
-    // 실측: WI 80+(-1.40%) < WI 20-39(+3.53%) → 고래 대량매수 = 단기 고점 리스크
-    // 기관 초기 매집(WI 20-39)이 3일 후 가격 상승 최적 구간
+    // Factor 2: Whale Index (0-6) — [V2] Directional Flow Index (50=neutral)
+    // V2: wi>50 = institutional buying, wi<50 = institutional selling
+    // Higher directional signal = higher score (no more V1 inversion)
     let whaleScore = 0;
     const wi = input.whaleIndex;
     if (wi !== null && wi !== undefined && wi > 0) {
-        if (wi >= 70) whaleScore = 3;      // [V5.0] 6→3: 이미 진입 완료 = 단기 고점 리스크
-        else if (wi >= 55) whaleScore = 3; // [V5.0] 5→3: 대량 보유 = 가격 급등 여력 감소
-        else if (wi >= 40) whaleScore = 4; // 기관 관심 본격화
-        else if (wi >= 25) whaleScore = 5; // [V5.0] 3→5: 초기 매집 = 3일 상승 최적 구간
-        else whaleScore = 4;               // [V5.0] 2→4: 관심 미약하지만 부정적이진 않음
-        factors.push({ name: 'whaleIndex', value: round1(whaleScore), max: 6, detail: `Whale ${wi.toFixed(0)}` });
+        if (wi >= 70) whaleScore = 6;      // [V2] Strong accumulation = top score
+        else if (wi >= 60) whaleScore = 5; // [V2] Confirmed buying
+        else if (wi >= 50) whaleScore = 4; // [V2] Neutral-to-slightly-positive
+        else if (wi >= 40) whaleScore = 3; // [V2] Slightly negative (mild selling)
+        else if (wi >= 30) whaleScore = 2; // [V2] Distribution zone
+        else whaleScore = 1;               // [V2] Heavy distribution
+        factors.push({ name: 'whaleIndex', value: round1(whaleScore), max: 6, detail: `Whale ${wi.toFixed(0)}${wi >= 60 ? '(매집)' : wi <= 40 ? '(분배)' : '(중립)'}` });
     } else {
         // [V5.0] GEX 기반 whaleIndex=0일 때 netFlow+blockTrades로 기관 활동 추정
         const nf = input.netFlow || 0;
@@ -711,7 +712,7 @@ function calculateFlow(input: AlphaInput): PillarDetail {
         if (nf > 5_000_000 && bt >= 5) { whaleScore = 5; factors.push({ name: 'whaleIndex', value: 5, max: 6, detail: `대량유입 $${(nf / 1e6).toFixed(1)}M+블록${bt}건` }); }
         else if (nf > 1_000_000 || bt >= 5) { whaleScore = 4; factors.push({ name: 'whaleIndex', value: 4, max: 6, detail: `기관활동 $${(nf / 1e6).toFixed(1)}M/블록${bt}건` }); }
         else if (nf > 100_000 || bt >= 3) { whaleScore = 3; factors.push({ name: 'whaleIndex', value: 3, max: 6, detail: `소규모유입 $${(nf / 1e3).toFixed(0)}K` }); }
-        else { whaleScore = 3; factors.push({ name: 'whaleIndex', value: 3, max: 6, detail: '기관활동 미감지' }); } // [V5.0] 2→3: 미감지 = 중립
+        else { whaleScore = 3; factors.push({ name: 'whaleIndex', value: 3, max: 6, detail: '기관활동 미감지' }); }
     }
     total += whaleScore;
 
@@ -1374,10 +1375,14 @@ function buildExplanation(
         whyFactors.push('DARK_POOL_HIGH');
         triggerCodes.push('DP_HIGH');
     }
-    if (input.whaleIndex && input.whaleIndex >= 70) {
-        whyParts.push('고래유입');
+    if (input.whaleIndex && input.whaleIndex >= 65) {
+        whyParts.push('기관매집');
         whyFactors.push('WHALE_IN');
         triggerCodes.push('WHALE_IN');
+    } else if (input.whaleIndex && input.whaleIndex <= 35) {
+        whyParts.push('기관분배');
+        whyFactors.push('WHALE_OUT');
+        triggerCodes.push('WHALE_OUT');
     }
     if (input.shortVolPct && input.shortVolPct >= 50) {
         whyParts.push(`공매도경고(${input.shortVolPct.toFixed(0)}%)`);
@@ -1512,49 +1517,86 @@ function round1(val: number): number {
 }
 
 /**
- * Composite WhaleIndex — Lambda 공식과 100% 동일
- * 4개 지표 각 25점, 총 0-100
- * GEX(25) + DarkPool(25) + BlockTrades(25) + NetPremium(25)
+ * Composite WhaleIndex V2 — Directional Institutional Flow Index
+ * 50 = neutral, >50 = accumulation (institutional buying), <50 = distribution (selling)
  *
- * Confidence: 4개 중 강한 신호 3+개=HIGH, 2개=MED, 1개=LOW, 0=NONE
+ * Direction Sources:
+ *  ① Dark Pool buy/sell bias (±20) — most reliable directional signal
+ *  ② Net Premium sign (±15) — options market institutional conviction
+ *  ③ GEX regime confirmation (±5) — gamma environment directional context
+ * Activity Level acts as confidence multiplier (0.6x ~ 1.5x)
+ *
+ * Backward compatible: when buyPct/sellPct unavailable, falls back to V1 activity-only
  */
 export function calculateWhaleIndex(
     gex: number | null | undefined,
     darkPoolPct?: number | null,
     blockTrades?: number | null,
     netPremium?: number | null,
+    darkPoolBuyPct?: number | null,
+    darkPoolSellPct?: number | null,
 ): number {
-    let total = 0;
+    const hasDirectionalData = darkPoolBuyPct != null && darkPoolSellPct != null;
 
-    // 1. GEX (0-25)
-    const absGex = Math.abs(gex ?? 0);
-    if (absGex > 50_000_000) total += 25;
-    else if (absGex > 10_000_000) total += 20;
-    else if (absGex > 1_000_000) total += 15;
-    else if (absGex > 100_000) total += 8;
+    // ① Dark Pool Direction (±20)
+    let dpDirection = 0;
+    if (hasDirectionalData) {
+        const dpBias = darkPoolBuyPct! - darkPoolSellPct!; // range: ~-30 to +30
+        dpDirection = clamp(dpBias * 0.67, -20, 20);
+    }
 
-    // 2. DarkPool (0-25)
+    // ② Net Premium Direction (±15)
+    const np = netPremium ?? 0;
+    const npSign = np > 0 ? 1 : np < 0 ? -1 : 0;
+    const absNp = Math.abs(np);
+    let npScore = 0;
+    if (absNp > 50_000_000) npScore = 15 * npSign;
+    else if (absNp > 10_000_000) npScore = 12 * npSign;
+    else if (absNp > 5_000_000) npScore = 8 * npSign;
+    else if (absNp > 1_000_000) npScore = 5 * npSign;
+    else if (absNp > 100_000) npScore = 2 * npSign;
+
+    // ③ GEX Regime Confirmation (±5)
+    const gexVal = gex ?? 0;
+    let gexBonus = 0;
+    if (gexVal > 0 && dpDirection > 5) gexBonus = 5;       // stable + buying = confirmed
+    else if (gexVal < 0 && dpDirection < -5) gexBonus = -5; // unstable + selling = danger
+
+    // ④ Activity Amplifier (0.6x ~ 1.5x)
+    let activityLevel = 0;
+    const absGex = Math.abs(gexVal);
+    if (absGex > 50_000_000) activityLevel += 25;
+    else if (absGex > 10_000_000) activityLevel += 20;
+    else if (absGex > 1_000_000) activityLevel += 15;
+    else if (absGex > 100_000) activityLevel += 8;
+
     const dp = darkPoolPct ?? 0;
-    if (dp >= 60) total += 25;
-    else if (dp >= 45) total += 20;
-    else if (dp >= 30) total += 12;
-    else if (dp > 0) total += 5;
+    if (dp >= 60) activityLevel += 25;
+    else if (dp >= 45) activityLevel += 20;
+    else if (dp >= 30) activityLevel += 12;
+    else if (dp > 0) activityLevel += 5;
 
-    // 3. BlockTrades (0-25)
     const bt = blockTrades ?? 0;
-    if (bt >= 10) total += 25;
-    else if (bt >= 5) total += 20;
-    else if (bt >= 2) total += 15;
-    else if (bt >= 1) total += 8;
+    if (bt >= 10) activityLevel += 25;
+    else if (bt >= 5) activityLevel += 20;
+    else if (bt >= 2) activityLevel += 15;
+    else if (bt >= 1) activityLevel += 8;
 
-    // 4. NetPremium (0-25)
-    const absNP = Math.abs(netPremium ?? 0);
-    if (absNP > 10_000_000) total += 25;
-    else if (absNP > 5_000_000) total += 20;
-    else if (absNP > 1_000_000) total += 15;
-    else if (absNP > 100_000) total += 8;
+    const multiplier = 0.6 + (Math.min(activityLevel, 75) / 75) * 0.9;
 
-    return total;
+    if (hasDirectionalData) {
+        // V2 Directional: 50-centered
+        const rawDirection = dpDirection + npScore + gexBonus;
+        const amplified = rawDirection * multiplier;
+        return clamp(Math.round(50 + amplified), 0, 100);
+    } else {
+        // V1 Fallback: activity-based (no directional data available)
+        // Still center at 50: low activity = 50, high activity nudged by netPremium direction
+        const activityScore = activityLevel; // 0-75
+        const activityNormalized = (activityScore / 75) * 30; // 0-30
+        const direction = npScore > 0 ? 1 : npScore < 0 ? -1 : 0;
+        return clamp(Math.round(50 + activityNormalized * direction * 0.5 + npScore * 0.5), 0, 100);
+    }
 }
 
 

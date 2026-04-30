@@ -75,16 +75,18 @@ export function getWallDistanceScore(price: number, callWall: number, putFloor: 
 }
 
 /**
- * [V2.0] Calculate Whale Index bonus for Structure score
+ * [V2] Calculate Whale Index bonus for Structure score
+ * V2: 50=neutral, >50=buying, <50=selling
  * @returns 0-5 score
  */
 export function getWhaleBonus(whaleIndex: number | undefined): number {
     if (!whaleIndex) return 0;
 
-    if (whaleIndex >= 80) return 5;  // Whale Alert
-    if (whaleIndex >= 60) return 3;  // Notable activity
-    if (whaleIndex >= 40) return 1;  // Some activity
-    return 0;
+    if (whaleIndex >= 70) return 5;  // Strong accumulation
+    if (whaleIndex >= 60) return 3;  // Confirmed buying
+    if (whaleIndex >= 50) return 1;  // Neutral-positive
+    if (whaleIndex >= 40) return 0;  // Mild selling — no bonus
+    return 0;                        // Distribution — no bonus (could be penalty in future)
 }
 
 /**
