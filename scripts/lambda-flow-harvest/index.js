@@ -677,6 +677,54 @@ async function harvestTicker(ticker) {
 }
 
 // ──────────────────────────────────────────
+// Distributed Lock — prevent concurrent executions
+// Redis key expires after 900s (matches Lambda timeout) as safety net
+// ──────────────────────────────────────────
+const LOCK_KEY = 'flow-harvest:lock';
+const LOCK_TTL = 900; // seconds — matches Lambda timeout
+
+async function acquireLock() {
+  // Try EC2 proxy first (uses SET NX EX pattern)
+  try {
+    const lockValue = Date.now().toString();
+    const result = await ec2ProxyPost('/setnx', JSON.stringify({ key: LOCK_KEY, value: lockValue, ttl: LOCK_TTL }), 3000);
+    if (result && result.ok) return true;
+    if (result && result.exists) return false; // another instance holds the lock
+  } catch {}
+
+  // Fallback: Upstash SET NX EX
+  if (!UPSTASH_URL || !UPSTASH_TOKEN) return true; // no Redis = allow run (safe default)
+  try {
+    const body = JSON.stringify(['SET', LOCK_KEY, Date.now().toString(), 'NX', 'EX', String(LOCK_TTL)]);
+    const url = new URL(UPSTASH_URL);
+    const options = {
+      hostname: url.hostname, port: 443, path: '/', method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + UPSTASH_TOKEN, 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) },
+    };
+    return new Promise((resolve) => {
+      const req = https.request(options, (res) => {
+        let data = '';
+        res.on('data', chunk => data += chunk);
+        res.on('end', () => {
+          try {
+            const parsed = JSON.parse(data);
+            resolve(parsed.result === 'OK'); // 'OK' = acquired, null = already locked
+          } catch { resolve(true); }
+        });
+      });
+      req.on('error', () => resolve(true)); // on error, allow run (safe default)
+      req.setTimeout(3000, () => { req.destroy(); resolve(true); });
+      req.write(body);
+      req.end();
+    });
+  } catch { return true; }
+}
+
+async function releaseLock() {
+  try { await redisSet(LOCK_KEY, '', 1); } catch {} // expire immediately
+}
+
+// ──────────────────────────────────────────
 // Main handler
 // ──────────────────────────────────────────
 exports.handler = async (event) => {
@@ -717,6 +765,17 @@ exports.handler = async (event) => {
       console.log('[flow-harvest] Pre-market (ET: ' + etHour + ') — skipping');
       return { statusCode: 200, body: JSON.stringify({ skipped: true, reason: 'pre-market', etHour }) };
     }
+  }
+
+  // [CONCURRENCY GUARD] Prevent overlapping executions
+  // If another instance is still running, skip this invocation
+  if (!forceRun) {
+    const lockAcquired = await acquireLock();
+    if (!lockAcquired) {
+      console.log('[flow-harvest] SKIPPED — another instance is still running (lock exists)');
+      return { statusCode: 200, body: JSON.stringify({ skipped: true, reason: 'concurrent-lock' }) };
+    }
+    console.log('[flow-harvest] Lock acquired — proceeding with harvest');
   }
 
   // Process in batches of 10 (same concurrency as signum-harvest)
@@ -773,11 +832,15 @@ exports.handler = async (event) => {
   const totalDuration = Math.round((Date.now() - start) / 1000);
   console.log('[flow-harvest] Total complete: ' + (ok + dynamicOk) + ' ok in ' + totalDuration + 's');
 
+  // [CONCURRENCY GUARD] Release lock so next invocation can proceed
+  await releaseLock();
+  console.log('[flow-harvest] Lock released');
+
   return {
     statusCode: 200,
     body: JSON.stringify({
       success: true,
-      version: '2.1',
+      version: '2.2',
       tickers: UNIVERSE.length,
       ok, fail, duration,
       dynamic: { count: dynamicOk + dynamicFail, ok: dynamicOk, fail: dynamicFail },

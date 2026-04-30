@@ -1,0 +1,352 @@
+'use client';
+
+import { useEffect, useState, useCallback } from 'react';
+import { createClient } from '@/lib/supabase/client';
+import { useRouter } from 'next/navigation';
+import {
+  Activity, Server, Database, FileText, Layout,
+  RefreshCw, CheckCircle2, XCircle, AlertTriangle,
+  Clock, Zap, Shield, ChevronDown, ChevronRight,
+  ArrowLeft
+} from 'lucide-react';
+
+const ADMIN_EMAILS = (process.env.NEXT_PUBLIC_ADMIN_EMAILS || '').split(',').map(e => e.trim().toLowerCase());
+
+// ── Status Badge ──
+function StatusBadge({ status }: { status: string }) {
+  const config: Record<string, { color: string; icon: any; label: string }> = {
+    HEALTHY: { color: 'emerald', icon: CheckCircle2, label: 'HEALTHY' },
+    RUNNING: { color: 'emerald', icon: CheckCircle2, label: 'RUNNING' },
+    OK: { color: 'emerald', icon: CheckCircle2, label: 'OK' },
+    DEGRADED: { color: 'amber', icon: AlertTriangle, label: 'DEGRADED' },
+    PARTIAL: { color: 'amber', icon: AlertTriangle, label: 'PARTIAL' },
+    DOWN: { color: 'red', icon: XCircle, label: 'DOWN' },
+  };
+  const c = config[status] || config.DEGRADED;
+  const Icon = c.icon;
+  return (
+    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-bold
+      bg-${c.color}-500/15 border border-${c.color}-500/30 text-${c.color}-400`}>
+      <Icon className="w-3 h-3" />
+      {c.label}
+    </span>
+  );
+}
+
+// ── Hit Rate Bar ──
+function HitRateBar({ rate, count, total, label }: { rate: number; count: number; total: number; label: string }) {
+  const color = rate >= 80 ? '#10b981' : rate >= 50 ? '#f59e0b' : '#ef4444';
+  return (
+    <div className="space-y-1">
+      <div className="flex items-center justify-between text-[12px]">
+        <span className="text-slate-400">{label}</span>
+        <span className="font-bold tabular-nums" style={{ color }}>{count}/{total} <span className="text-slate-500">({rate}%)</span></span>
+      </div>
+      <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
+        <div className="h-full rounded-full transition-all duration-700" style={{ width: `${rate}%`, backgroundColor: color }} />
+      </div>
+    </div>
+  );
+}
+
+// ── Cache Detail Table ──
+function CacheDetailTable({ results, showSource }: { results: any[]; showSource?: boolean }) {
+  return (
+    <div className="grid grid-cols-2 sm:grid-cols-4 gap-1 mt-2">
+      {results.map((r: any) => (
+        <div key={r.ticker} className={`flex items-center gap-1 px-2 py-1 rounded text-[11px]
+          ${r.exists ? 'bg-emerald-500/8 border border-emerald-500/15' : 'bg-red-500/8 border border-red-500/15'}`}>
+          {r.exists ? <CheckCircle2 className="w-3 h-3 text-emerald-400 flex-shrink-0" /> : <XCircle className="w-3 h-3 text-red-400 flex-shrink-0" />}
+          <span className={`font-mono font-bold ${r.exists ? 'text-emerald-300' : 'text-red-300'}`}>{r.ticker}</span>
+          {r.exists && r.age !== undefined && (
+            <span className="text-slate-500 ml-auto tabular-nums">{r.age < 60 ? r.age + 's' : Math.round(r.age / 60) + 'm'}</span>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ── Collapsible Section ──
+function Section({ title, icon: Icon, status, children, defaultOpen = false }: {
+  title: string; icon: any; status?: string; children: React.ReactNode; defaultOpen?: boolean;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <div className="bg-gradient-to-br from-white/[0.03] to-white/[0.01] border border-white/[0.06] rounded-xl overflow-hidden">
+      <button onClick={() => setOpen(!open)} className="w-full flex items-center gap-3 px-4 py-3 hover:bg-white/[0.02] transition-colors">
+        <Icon className="w-4 h-4 text-cyan-400 flex-shrink-0" />
+        <span className="font-bold text-white text-[13px] tracking-wide">{title}</span>
+        {status && <StatusBadge status={status} />}
+        <div className="ml-auto">
+          {open ? <ChevronDown className="w-4 h-4 text-slate-500" /> : <ChevronRight className="w-4 h-4 text-slate-500" />}
+        </div>
+      </button>
+      {open && <div className="px-4 pb-4 space-y-3 border-t border-white/[0.04] pt-3">{children}</div>}
+    </div>
+  );
+}
+
+// ── Content Item ──
+function ContentItem({ label, exists, date, extra }: { label: string; exists: boolean; date?: string; extra?: string }) {
+  return (
+    <div className="flex items-center justify-between py-1">
+      <span className="text-slate-400 text-[12px]">{label}</span>
+      <div className="flex items-center gap-2">
+        {exists ? (
+          <>
+            <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+            {date && <span className="text-[11px] text-slate-500 tabular-nums">{date}</span>}
+            {extra && <span className="text-[11px] text-cyan-400">{extra}</span>}
+          </>
+        ) : (
+          <><XCircle className="w-3 h-3 text-red-400" /><span className="text-[11px] text-red-400">MISSING</span></>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════
+// MAIN PAGE
+// ══════════════════════════════════════════
+export default function AdminHealthPage() {
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [data, setData] = useState<any>(null);
+  const [refreshing, setRefreshing] = useState(false);
+  const [adminEmail, setAdminEmail] = useState('');
+  const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
+  const router = useRouter();
+
+  // Auth check
+  useEffect(() => {
+    const check = async () => {
+      try {
+        const supabase = createClient();
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user?.email && ADMIN_EMAILS.includes(user.email.toLowerCase())) {
+          setIsAdmin(true);
+          setAdminEmail(user.email);
+        } else {
+          router.replace('/');
+        }
+      } catch {
+        router.replace('/');
+      }
+      setLoading(false);
+    };
+    check();
+  }, [router]);
+
+  // Fetch health data
+  const fetchHealth = useCallback(async () => {
+    if (!adminEmail) return;
+    setRefreshing(true);
+    try {
+      const res = await fetch(`/api/admin/health-check?email=${encodeURIComponent(adminEmail)}`);
+      if (res.ok) {
+        const json = await res.json();
+        setData(json);
+        setLastRefresh(new Date());
+      }
+    } catch { }
+    setRefreshing(false);
+  }, [adminEmail]);
+
+  useEffect(() => {
+    if (isAdmin && adminEmail) fetchHealth();
+  }, [isAdmin, adminEmail, fetchHealth]);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-[#060a13] flex items-center justify-center">
+        <div className="animate-spin w-8 h-8 border-2 border-cyan-500 border-t-transparent rounded-full" />
+      </div>
+    );
+  }
+
+  if (!isAdmin) return null;
+
+  // ET time
+  const now = new Date();
+  const etTime = now.toLocaleTimeString('en-US', { timeZone: 'America/New_York', hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  const etHour = parseInt(etTime.split(':')[0]);
+  const isMarketHours = etHour >= 9 && etHour < 16;
+  const isExtendedHours = (etHour >= 4 && etHour < 9) || (etHour >= 16 && etHour < 20);
+
+  return (
+    <div className="min-h-screen bg-[#060a13] text-white" style={{ fontFamily: '"Plus Jakarta Sans", "Inter", system-ui' }}>
+      {/* Header */}
+      <div className="border-b border-white/[0.06] bg-gradient-to-r from-[#0d1424]/80 to-[#060a13]/80 backdrop-blur-xl sticky top-0 z-50">
+        <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <button onClick={() => router.back()} className="text-slate-500 hover:text-white transition-colors">
+              <ArrowLeft className="w-5 h-5" />
+            </button>
+            <Shield className="w-5 h-5 text-cyan-400" />
+            <div>
+              <h1 className="text-[15px] font-black tracking-wide">SYSTEM HEALTH</h1>
+              <p className="text-[10px] text-slate-500 uppercase tracking-widest">Admin Control Center</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            {/* Market Status */}
+            <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold border
+              ${isMarketHours ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' :
+                isExtendedHours ? 'bg-amber-500/10 border-amber-500/20 text-amber-400' :
+                  'bg-slate-500/10 border-slate-500/20 text-slate-400'}`}>
+              <span className="relative flex h-1.5 w-1.5">
+                <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75
+                  ${isMarketHours ? 'bg-emerald-400' : isExtendedHours ? 'bg-amber-400' : 'bg-slate-400'}`} />
+                <span className={`relative inline-flex rounded-full h-1.5 w-1.5
+                  ${isMarketHours ? 'bg-emerald-500' : isExtendedHours ? 'bg-amber-500' : 'bg-slate-500'}`} />
+              </span>
+              ET {etTime} · {isMarketHours ? 'MARKET OPEN' : isExtendedHours ? 'EXTENDED' : 'CLOSED'}
+            </div>
+
+            {/* Refresh */}
+            <button onClick={fetchHealth} disabled={refreshing}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-cyan-500/10 border border-cyan-500/20
+                hover:bg-cyan-500/20 text-cyan-400 text-[11px] font-bold transition-all disabled:opacity-50">
+              <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin' : ''}`} />
+              REFRESH
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div className="max-w-5xl mx-auto px-4 py-6 space-y-4">
+        {/* Overall Status Banner */}
+        {data && (
+          <div className={`flex items-center justify-between px-5 py-4 rounded-xl border
+            ${data.overall === 'HEALTHY'
+              ? 'bg-gradient-to-r from-emerald-500/10 to-emerald-500/5 border-emerald-500/20'
+              : 'bg-gradient-to-r from-amber-500/10 to-amber-500/5 border-amber-500/20'}`}>
+            <div className="flex items-center gap-3">
+              <Zap className={`w-6 h-6 ${data.overall === 'HEALTHY' ? 'text-emerald-400' : 'text-amber-400'}`} />
+              <div>
+                <div className="text-[16px] font-black">{data.overall === 'HEALTHY' ? '시스템 정상' : '일부 점검 필요'}</div>
+                <div className="text-[11px] text-slate-500">
+                  응답 {data.elapsed} · 최종 새로고침 {lastRefresh?.toLocaleTimeString('ko-KR') || '-'}
+                </div>
+              </div>
+            </div>
+            <StatusBadge status={data.overall} />
+          </div>
+        )}
+
+        {!data ? (
+          <div className="flex items-center justify-center py-20">
+            <div className="animate-spin w-8 h-8 border-2 border-cyan-500 border-t-transparent rounded-full" />
+          </div>
+        ) : (
+          <>
+            {/* ═══ LAMBDA PIPELINE ═══ */}
+            <Section title="LAMBDA PIPELINE" icon={Server} status={data.lambda.signumHarvest.status === 'RUNNING' && data.lambda.signumFlowHarvest.status !== 'DOWN' ? 'RUNNING' : 'DEGRADED'} defaultOpen={true}>
+              {/* signum-harvest */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[13px] font-bold text-white">signum-harvest</span>
+                    <span className="text-[10px] text-slate-500">(Dashboard/Command/Watchlist)</span>
+                  </div>
+                  <StatusBadge status={data.lambda.signumHarvest.status} />
+                </div>
+                <div className="text-[11px] text-slate-400">{data.lambda.signumHarvest.evidence}</div>
+                <div className="text-[11px] text-slate-500">평균 데이터 나이: <span className="text-cyan-400 font-bold">{data.lambda.signumHarvest.avgDataAge}</span></div>
+                <HitRateBar rate={data.cache.commandUnified.hitRate} count={data.cache.commandUnified.count} total={data.cache.commandUnified.total} label="cache:command:unified" />
+                <CacheDetailTable results={data.lambda.signumHarvest.details} />
+              </div>
+
+              <div className="border-t border-white/[0.04] my-3" />
+
+              {/* signum-flow-harvest */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[13px] font-bold text-white">signum-flow-harvest</span>
+                    <span className="text-[10px] text-slate-500">(Flow 페이지)</span>
+                  </div>
+                  <StatusBadge status={data.lambda.signumFlowHarvest.status} />
+                </div>
+                <div className="text-[11px] text-slate-400">{data.lambda.signumFlowHarvest.evidence}</div>
+                <div className="text-[11px] text-slate-400">{data.lambda.signumFlowHarvest.probeEvidence}</div>
+                <div className="flex items-center gap-4 text-[11px]">
+                  <span className="text-slate-500">평균 나이: <span className="text-cyan-400 font-bold">{data.lambda.signumFlowHarvest.avgDataAge}</span></span>
+                  <span className="text-slate-500">Lock: {data.lambda.signumFlowHarvest.lockActive
+                    ? <span className="text-amber-400 font-bold">ACTIVE (실행 중)</span>
+                    : <span className="text-slate-400">IDLE</span>}</span>
+                </div>
+                <HitRateBar rate={data.cache.flowUnified.hitRate} count={data.cache.flowUnified.count} total={data.cache.flowUnified.total} label="cache:flow:unified" />
+                <HitRateBar rate={data.cache.snapshotProbe.hitRate} count={data.cache.snapshotProbe.count} total={data.cache.snapshotProbe.total} label="polygon:snapshot:probe" />
+                <CacheDetailTable results={data.lambda.signumFlowHarvest.details} />
+              </div>
+            </Section>
+
+            {/* ═══ CACHE STATUS ═══ */}
+            <Section title="REDIS / ELASTICACHE" icon={Database} status={data.cache.commandUnified.hitRate >= 80 ? 'OK' : 'DEGRADED'}>
+              <HitRateBar rate={data.cache.commandUnified.hitRate} count={data.cache.commandUnified.count} total={data.cache.commandUnified.total} label="cache:command:unified" />
+              <HitRateBar rate={data.cache.analysisCache.hitRate} count={data.cache.analysisCache.count} total={data.cache.analysisCache.total} label="cache:analysis" />
+              <HitRateBar rate={data.cache.flowUnified.hitRate} count={data.cache.flowUnified.count} total={data.cache.flowUnified.total} label="cache:flow:unified" />
+              <HitRateBar rate={data.cache.snapshotProbe.hitRate} count={data.cache.snapshotProbe.count} total={data.cache.snapshotProbe.total} label="polygon:snapshot:probe" />
+
+              <div className="grid grid-cols-2 gap-3 mt-2">
+                <div className="px-3 py-2 rounded-lg bg-white/[0.02] border border-white/[0.05]">
+                  <div className="text-[10px] text-slate-500 uppercase">RLSI</div>
+                  <div className="text-[14px] font-bold">{data.marketData.rlsi.exists
+                    ? <span className="text-cyan-400">{data.marketData.rlsi.value} ({data.marketData.rlsi.regime})</span>
+                    : <span className="text-red-400">N/A</span>}</div>
+                </div>
+                <div className="px-3 py-2 rounded-lg bg-white/[0.02] border border-white/[0.05]">
+                  <div className="text-[10px] text-slate-500 uppercase">VIX</div>
+                  <div className="text-[14px] font-bold">{data.marketData.vix.exists
+                    ? <span className="text-amber-400">{data.marketData.vix.value}</span>
+                    : <span className="text-red-400">N/A</span>}</div>
+                </div>
+              </div>
+            </Section>
+
+            {/* ═══ CONTENT PIPELINE ═══ */}
+            <Section title="CONTENT PIPELINE" icon={FileText}
+              status={data.content.morningBriefing.ko.exists || data.content.morningBriefing.en.exists ? 'OK' : 'DEGRADED'}>
+              <div className="text-[10px] text-slate-500 uppercase tracking-wider font-bold mb-1">모닝 브리핑</div>
+              <ContentItem label="한국어 (ko)" exists={data.content.morningBriefing.ko.exists} date={data.content.morningBriefing.ko.date} />
+              <ContentItem label="English (en)" exists={data.content.morningBriefing.en.exists} date={data.content.morningBriefing.en.date} />
+
+              <div className="border-t border-white/[0.04] my-2" />
+              <div className="text-[10px] text-slate-500 uppercase tracking-wider font-bold mb-1">크로스 섹터 브리프</div>
+              <ContentItem label="한국어 (ko)" exists={data.content.crossSectorBrief.ko.exists} date={data.content.crossSectorBrief.ko.date} />
+              <ContentItem label="English (en)" exists={data.content.crossSectorBrief.en.exists} date={data.content.crossSectorBrief.en.date} />
+
+              <div className="border-t border-white/[0.04] my-2" />
+              <div className="text-[10px] text-slate-500 uppercase tracking-wider font-bold mb-1">마케팅 콘텐츠</div>
+              <ContentItem label="Morning Brief" exists={data.content.marketing.morning.exists} date={data.content.marketing.morning.date} />
+              <ContentItem label="Market Pulse" exists={data.content.marketing.pulse.exists} date={data.content.marketing.pulse.date} />
+
+              <div className="border-t border-white/[0.04] my-2" />
+              <div className="text-[10px] text-slate-500 uppercase tracking-wider font-bold mb-1">시장 리포트</div>
+              {Object.entries(data.content.reports).map(([type, r]: [string, any]) => (
+                <ContentItem key={type} label={type.toUpperCase()} exists={r.exists} date={r.date} />
+              ))}
+            </Section>
+
+            {/* ═══ PAGE HEALTH ═══ */}
+            <Section title="PAGE INTEGRITY" icon={Layout}
+              status={Object.values(data.pages).every((p: any) => p.status === 'OK') ? 'OK' : 'DEGRADED'}>
+              {Object.entries(data.pages).map(([page, info]: [string, any]) => (
+                <div key={page} className="flex items-center justify-between py-1.5 border-b border-white/[0.03] last:border-0">
+                  <div>
+                    <span className="text-[13px] font-bold text-white capitalize">{page}</span>
+                    <span className="text-[10px] text-slate-500 ml-2">{info.dependency}</span>
+                  </div>
+                  <StatusBadge status={info.status} />
+                </div>
+              ))}
+            </Section>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}

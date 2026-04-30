@@ -4,7 +4,8 @@ import { useEffect, useState, useRef, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useTier } from '@/contexts/TierContext';
 import { usePathname } from 'next/navigation';
-import { Eye, Users, UserCheck, UserX, ChevronDown, ChevronUp, X } from 'lucide-react';
+import { Eye, Users, UserCheck, UserX, ChevronDown, ChevronUp, X, Activity } from 'lucide-react';
+import Link from 'next/link';
 
 const ADMIN_EMAILS = (process.env.NEXT_PUBLIC_ADMIN_EMAILS || '').split(',').map(e => e.trim().toLowerCase());
 const HEARTBEAT_INTERVAL = 30000; // 30초
@@ -147,6 +148,9 @@ export function AdminVisitorWidget() {
                     </span>
                 </div>
                 <div className="flex items-center gap-1">
+                    <Link href="/admin/health" className="text-cyan-500 hover:text-cyan-300 transition-colors p-0.5" title="System Health">
+                        <Activity className="w-3 h-3" />
+                    </Link>
                     <button onClick={() => setExpanded(!expanded)} className="text-slate-500 hover:text-white transition-colors p-0.5">
                         {expanded ? <ChevronDown className="w-3 h-3" /> : <ChevronUp className="w-3 h-3" />}
                     </button>
