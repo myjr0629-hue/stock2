@@ -581,14 +581,7 @@ export function GexTimeline({ ticker, days = 30, compact = false, onEmpty, curre
                             </div>
                         </div>
                     </div>
-                    {/* C. Key Takeaway */}
-                    <div>
-                        <div className="text-[12px] font-semibold text-white uppercase tracking-wider font-jakarta mb-1">C. Key Takeaway</div>
-                        <div className="flex items-start gap-1.5">
-                            <svg width="14" height="14" viewBox="0 0 14 14" className={`shrink-0 mt-0.5 ${isPositive ? 'text-emerald-400' : 'text-red-400'}`}><circle cx="7" cy="7" r="5" fill="none" stroke="currentColor" strokeWidth="1.2"/><path d="M7 4v3.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round"/><circle cx="7" cy="10" r="0.8" fill="currentColor"/></svg>
-                            <div className="text-[12px] text-slate-300 leading-[1.5] font-jakarta">{takeaway[locale] || takeaway.en}</div>
-                        </div>
-                    </div>
+
                 </div>
             </div>
 
