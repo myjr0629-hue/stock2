@@ -303,14 +303,37 @@ export default function GuardianDesktop() {
     }, [data]);
 
     // Determine Movers: WS price > live API prices > Guardian snapshot data
+    // [FIX] Always recalculate change% from price against Guardian's prevClose baseline.
+    // This eliminates flicker when data sources (WS/API/cache) return different change values.
     const topMovers = (selectedSector?.topConstituents || []).map(stock => {
-        // [WS] WebSocket price has highest priority
+        // Derive prevClose from Guardian snapshot: price / (1 + change/100)
+        // This is always stable because Guardian cache only refreshes every 5 minutes
+        const guardianPrevClose = (stock.change !== 0 && stock.price > 0)
+            ? stock.price / (1 + stock.change / 100)
+            : stock.price; // If change is 0, price IS prevClose
+
+        // Pick the best available live price (WS > API poll > Guardian cache)
+        let livePrice = stock.price;
+        let liveVolume = stock.volume;
+
         const wsPrice = wsConnected ? wsGetPrice(stock.symbol) : undefined;
         if (wsPrice && wsPrice.price > 0) {
-            return { ...stock, price: wsPrice.price, change: wsPrice.changePct || stock.change, volume: wsPrice.volume || stock.volume };
+            livePrice = wsPrice.price;
+            liveVolume = wsPrice.volume || stock.volume;
+        } else {
+            const live = livePrices[stock.symbol];
+            if (live && live.price > 0) {
+                livePrice = live.price;
+                liveVolume = live.volume || stock.volume;
+            }
         }
-        const live = livePrices[stock.symbol];
-        return live ? { ...stock, price: live.price, change: live.change, volume: live.volume } : stock;
+
+        // Always compute change% from consistent prevClose baseline
+        const change = guardianPrevClose > 0
+            ? ((livePrice - guardianPrevClose) / guardianPrevClose) * 100
+            : stock.change;
+
+        return { ...stock, price: livePrice, change: +change.toFixed(2), volume: liveVolume };
     });
 
     // [V3.0] Regime Logic

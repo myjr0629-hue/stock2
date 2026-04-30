@@ -481,24 +481,12 @@ export class SectorEngine {
 
                 if (res.tickers && res.tickers.length > 0) {
                     // Normalize Snapshot Data to fit existing logic
-                    // [FIX] Session-aware price: during PRE/POST, day.c may equal prevDay.c
-                    // which produces 0% change. Use lastTrade.p for accurate ext-hours pricing.
+                    // INTRADAY PRIORITY: day.c (Regular Session) > lastTrade.p (Ext fallback) > prevDay.c
                     currentSnapshot = res.tickers.map((t: any) => {
-                        const prevClose = t.prevDay?.c || t.day?.o || 0;
-                        const dayClose = t.day?.c || 0;
-                        const lastTradePrice = t.lastTrade?.p || 0;
-
-                        // Session-aware: if day.c ≈ prevClose, regular session hasn't started
-                        let currentPrice: number;
-                        if (dayClose > 0 && Math.abs(dayClose - prevClose) > 0.001) {
-                            currentPrice = dayClose;
-                        } else if (lastTradePrice > 0) {
-                            currentPrice = lastTradePrice;
-                        } else {
-                            currentPrice = dayClose || prevClose || 0;
-                        }
-
+                        // Standard Session Price: Use 'day.c' (Rolling 24h/Day Close)
+                        const currentPrice = t.day?.c || t.lastTrade?.p || t.prevDay?.c || 0;
                         const openPrice = t.day?.o || t.prevDay?.c || 0;
+                        const prevClose = t.prevDay?.c || t.day?.o || 0;
                         const volume = t.day?.v || 0;
 
                         return {
@@ -509,7 +497,7 @@ export class SectorEngine {
                             v: volume
                         };
                     });
-                    console.log(`[SectorEngine] Snapshot Success: ${currentSnapshot.length} items (session-aware pricing)`);
+                    console.log(`[SectorEngine] Snapshot Success: ${currentSnapshot.length} items (using day.c + prevDay.c)`);
                 } else {
                     console.warn("[SectorEngine] Snapshot returned no tickers.");
                 }
