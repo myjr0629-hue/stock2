@@ -1888,14 +1888,76 @@ exports.handler = async (event) => {
         // [v9 FIX] Fetch fresh dark pool from EC2 proxy (same as batch path)
         let onDemandDpPct = 0;
         let onDemandBlockCount = 0;
+        let onDemandBuyPct = null;
+        let onDemandSellPct = null;
         try {
           const dpMetrics = await ec2ProxyGet('rt-metrics:' + ticker, 3000);
           if (dpMetrics) {
             const dpParsed = typeof dpMetrics === 'string' ? JSON.parse(dpMetrics) : dpMetrics;
             onDemandDpPct = dpParsed?.darkPool?.percent || 0;
             onDemandBlockCount = dpParsed?.blockTrade?.count || 0;
+            onDemandBuyPct = dpParsed?.darkPool?.buyPct ?? null;
+            onDemandSellPct = dpParsed?.darkPool?.sellPct ?? null;
           }
         } catch {}
+        
+        // [V2] Compute directional whaleIndex (same formula as batch path)
+        const onDemandWhaleIndex = (() => {
+          // ① Dark Pool Direction (±20)
+          let dpDirection = 0;
+          if (onDemandBuyPct !== null && onDemandSellPct !== null) {
+            const dpBias = onDemandBuyPct - onDemandSellPct;
+            dpDirection = Math.max(-20, Math.min(20, dpBias * 0.67));
+          }
+          // ② Net Premium Direction (±15)
+          const np = structure?.netPremium || 0;
+          const npSign = np > 0 ? 1 : np < 0 ? -1 : 0;
+          const absNp = Math.abs(np);
+          let npScore = 0;
+          if (absNp > 50000000) npScore = 15 * npSign;
+          else if (absNp > 10000000) npScore = 12 * npSign;
+          else if (absNp > 5000000) npScore = 8 * npSign;
+          else if (absNp > 1000000) npScore = 5 * npSign;
+          else if (absNp > 100000) npScore = 2 * npSign;
+          // ③ GEX Regime Confirmation (±5)
+          const gexVal = structure?.netGex || 0;
+          let gexBonus = 0;
+          if (gexVal > 0 && dpDirection > 5) gexBonus = 5;
+          else if (gexVal < 0 && dpDirection < -5) gexBonus = -5;
+          // ④ Activity Amplifier (0.6x ~ 1.5x)
+          let activityLevel = 0;
+          const absGex = Math.abs(gexVal);
+          if (absGex > 50000000) activityLevel += 25;
+          else if (absGex > 10000000) activityLevel += 20;
+          else if (absGex > 1000000) activityLevel += 15;
+          else if (absGex > 100000) activityLevel += 8;
+          const dp = onDemandDpPct || 0;
+          if (dp >= 60) activityLevel += 25;
+          else if (dp >= 45) activityLevel += 20;
+          else if (dp >= 30) activityLevel += 12;
+          else if (dp > 0) activityLevel += 5;
+          if (onDemandBlockCount >= 10) activityLevel += 25;
+          else if (onDemandBlockCount >= 5) activityLevel += 20;
+          else if (onDemandBlockCount >= 2) activityLevel += 15;
+          else if (onDemandBlockCount >= 1) activityLevel += 8;
+          const multiplier = 0.6 + (Math.min(activityLevel, 75) / 75) * 0.9;
+          const rawDirection = dpDirection + npScore + gexBonus;
+          const amplified = rawDirection * multiplier;
+          return Math.max(0, Math.min(100, Math.round(50 + amplified)));
+        })();
+        
+        // [V2] Whale confidence
+        const onDemandWhaleConfidence = (() => {
+          const hasDpDir = onDemandBuyPct != null && onDemandSellPct != null;
+          const absNp = Math.abs(structure?.netPremium || 0);
+          const absGex = Math.abs(structure?.netGex || 0);
+          let signals = 0;
+          if (hasDpDir) signals++;
+          if (onDemandBlockCount >= 3) signals++;
+          if (absNp > 5000000) signals++;
+          if (absGex > 10000000) signals++;
+          return signals >= 3 ? 'HIGH' : signals >= 2 ? 'MED' : signals >= 1 ? 'LOW' : 'NONE';
+        })();
         
         // cache:analysis — analysis summary for Dashboard/Watchlist/Portfolio
         const analysisEntry = {
@@ -1912,7 +1974,7 @@ exports.handler = async (event) => {
           gammaFlipLevel: structure.gammaFlipLevel || null,
           squeezeScore: structure.squeezeScore || null,
           iv: structure.atmIv || null,
-          whaleIndex: oldAnalysis.whaleIndex || 0, whaleConfidence: oldAnalysis.whaleConfidence || 'NONE',
+          whaleIndex: onDemandWhaleIndex, whaleConfidence: onDemandWhaleConfidence,
           darkPoolPct: onDemandDpPct || oldAnalysis.darkPoolPct || 0, netPremium: structure.netPremium || null,
           vwapDist: oldAnalysis.vwapDist || null, volume: oldAnalysis.volume || null, ivSkew: oldAnalysis.ivSkew || null, impliedMovePct: oldAnalysis.impliedMovePct || null,
         };
