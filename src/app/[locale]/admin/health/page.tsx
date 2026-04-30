@@ -14,20 +14,19 @@ const ADMIN_EMAILS = (process.env.NEXT_PUBLIC_ADMIN_EMAILS || '').split(',').map
 
 // ── Status Badge ──
 function StatusBadge({ status }: { status: string }) {
-  const config: Record<string, { color: string; icon: any; label: string }> = {
-    HEALTHY: { color: 'emerald', icon: CheckCircle2, label: 'HEALTHY' },
-    RUNNING: { color: 'emerald', icon: CheckCircle2, label: 'RUNNING' },
-    OK: { color: 'emerald', icon: CheckCircle2, label: 'OK' },
-    DEGRADED: { color: 'amber', icon: AlertTriangle, label: 'DEGRADED' },
-    PARTIAL: { color: 'amber', icon: AlertTriangle, label: 'PARTIAL' },
-    DOWN: { color: 'red', icon: XCircle, label: 'DOWN' },
+  const config: Record<string, { bg: string; border: string; text: string; icon: any; label: string }> = {
+    HEALTHY: { bg: 'bg-emerald-500/15', border: 'border-emerald-500/30', text: 'text-emerald-400', icon: CheckCircle2, label: 'HEALTHY' },
+    RUNNING: { bg: 'bg-emerald-500/15', border: 'border-emerald-500/30', text: 'text-emerald-400', icon: CheckCircle2, label: 'RUNNING' },
+    OK: { bg: 'bg-emerald-500/15', border: 'border-emerald-500/30', text: 'text-emerald-400', icon: CheckCircle2, label: 'OK' },
+    DEGRADED: { bg: 'bg-amber-500/15', border: 'border-amber-500/30', text: 'text-amber-400', icon: AlertTriangle, label: 'DEGRADED' },
+    PARTIAL: { bg: 'bg-amber-500/15', border: 'border-amber-500/30', text: 'text-amber-400', icon: AlertTriangle, label: 'PARTIAL' },
+    DOWN: { bg: 'bg-red-500/15', border: 'border-red-500/30', text: 'text-red-400', icon: XCircle, label: 'DOWN' },
   };
   const c = config[status] || config.DEGRADED;
   const Icon = c.icon;
   return (
-    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-bold
-      bg-${c.color}-500/15 border border-${c.color}-500/30 text-${c.color}-400`}>
-      <Icon className="w-3 h-3" />
+    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[13px] font-bold ${c.bg} border ${c.border} ${c.text}`}>
+      <Icon className="w-3.5 h-3.5" />
       {c.label}
     </span>
   );
@@ -37,12 +36,12 @@ function StatusBadge({ status }: { status: string }) {
 function HitRateBar({ rate, count, total, label }: { rate: number; count: number; total: number; label: string }) {
   const color = rate >= 80 ? '#10b981' : rate >= 50 ? '#f59e0b' : '#ef4444';
   return (
-    <div className="space-y-1">
-      <div className="flex items-center justify-between text-[12px]">
-        <span className="text-slate-400">{label}</span>
-        <span className="font-bold tabular-nums" style={{ color }}>{count}/{total} <span className="text-slate-500">({rate}%)</span></span>
+    <div className="space-y-1.5">
+      <div className="flex items-center justify-between text-[13px]">
+        <span className="text-slate-300">{label}</span>
+        <span className="font-bold tabular-nums" style={{ color }}>{count}/{total} <span className="text-slate-400">({rate}%)</span></span>
       </div>
-      <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
+      <div className="h-2 bg-white/5 rounded-full overflow-hidden">
         <div className="h-full rounded-full transition-all duration-700" style={{ width: `${rate}%`, backgroundColor: color }} />
       </div>
     </div>
@@ -50,16 +49,16 @@ function HitRateBar({ rate, count, total, label }: { rate: number; count: number
 }
 
 // ── Cache Detail Table ──
-function CacheDetailTable({ results, showSource }: { results: any[]; showSource?: boolean }) {
+function CacheDetailTable({ results }: { results: any[] }) {
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-4 gap-1 mt-2">
+    <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 mt-2">
       {results.map((r: any) => (
-        <div key={r.ticker} className={`flex items-center gap-1 px-2 py-1 rounded text-[11px]
+        <div key={r.ticker} className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded text-[13px]
           ${r.exists ? 'bg-emerald-500/8 border border-emerald-500/15' : 'bg-red-500/8 border border-red-500/15'}`}>
-          {r.exists ? <CheckCircle2 className="w-3 h-3 text-emerald-400 flex-shrink-0" /> : <XCircle className="w-3 h-3 text-red-400 flex-shrink-0" />}
+          {r.exists ? <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" /> : <XCircle className="w-3.5 h-3.5 text-red-400 flex-shrink-0" />}
           <span className={`font-mono font-bold ${r.exists ? 'text-emerald-300' : 'text-red-300'}`}>{r.ticker}</span>
           {r.exists && r.age !== undefined && (
-            <span className="text-slate-500 ml-auto tabular-nums">{r.age < 60 ? r.age + 's' : Math.round(r.age / 60) + 'm'}</span>
+            <span className="text-slate-300 ml-auto tabular-nums">{r.age < 60 ? r.age + 's' : Math.round(r.age / 60) + 'm'}</span>
           )}
         </div>
       ))}
@@ -74,15 +73,15 @@ function Section({ title, icon: Icon, status, children, defaultOpen = false }: {
   const [open, setOpen] = useState(defaultOpen);
   return (
     <div className="bg-gradient-to-br from-white/[0.03] to-white/[0.01] border border-white/[0.06] rounded-xl overflow-hidden">
-      <button onClick={() => setOpen(!open)} className="w-full flex items-center gap-3 px-4 py-3 hover:bg-white/[0.02] transition-colors">
-        <Icon className="w-4 h-4 text-cyan-400 flex-shrink-0" />
-        <span className="font-bold text-white text-[13px] tracking-wide">{title}</span>
+      <button onClick={() => setOpen(!open)} className="w-full flex items-center gap-3 px-5 py-3.5 hover:bg-white/[0.02] transition-colors">
+        <Icon className="w-5 h-5 text-cyan-400 flex-shrink-0" />
+        <span className="font-bold text-white text-[14px] tracking-wide">{title}</span>
         {status && <StatusBadge status={status} />}
         <div className="ml-auto">
-          {open ? <ChevronDown className="w-4 h-4 text-slate-500" /> : <ChevronRight className="w-4 h-4 text-slate-500" />}
+          {open ? <ChevronDown className="w-4 h-4 text-slate-300" /> : <ChevronRight className="w-4 h-4 text-slate-300" />}
         </div>
       </button>
-      {open && <div className="px-4 pb-4 space-y-3 border-t border-white/[0.04] pt-3">{children}</div>}
+      {open && <div className="px-5 pb-5 space-y-3 border-t border-white/[0.04] pt-3">{children}</div>}
     </div>
   );
 }
@@ -90,17 +89,17 @@ function Section({ title, icon: Icon, status, children, defaultOpen = false }: {
 // ── Content Item ──
 function ContentItem({ label, exists, date, extra }: { label: string; exists: boolean; date?: string; extra?: string }) {
   return (
-    <div className="flex items-center justify-between py-1">
-      <span className="text-slate-400 text-[12px]">{label}</span>
+    <div className="flex items-center justify-between py-1.5">
+      <span className="text-slate-300 text-[13px]">{label}</span>
       <div className="flex items-center gap-2">
         {exists ? (
           <>
-            <CheckCircle2 className="w-3 h-3 text-emerald-400" />
-            {date && <span className="text-[11px] text-slate-500 tabular-nums">{date}</span>}
-            {extra && <span className="text-[11px] text-cyan-400">{extra}</span>}
+            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+            {date && <span className="text-[13px] text-slate-300 tabular-nums">{date}</span>}
+            {extra && <span className="text-[13px] text-cyan-400">{extra}</span>}
           </>
         ) : (
-          <><XCircle className="w-3 h-3 text-red-400" /><span className="text-[11px] text-red-400">MISSING</span></>
+          <><XCircle className="w-3.5 h-3.5 text-red-400" /><span className="text-[13px] text-red-400">MISSING</span></>
         )}
       </div>
     </div>
@@ -175,31 +174,42 @@ export default function AdminHealthPage() {
   const isMarketHours = etHour >= 9 && etHour < 16;
   const isExtendedHours = (etHour >= 4 && etHour < 9) || (etHour >= 16 && etHour < 20);
 
+  // flow-harvest 상태 판정: probeCache가 있으면 Lambda가 작동 중 (flow:unified는 TTL 5분이라 MISS가 정상)
+  const flowStatus = data?.lambda?.signumFlowHarvest?.status;
+  const probeHitRate = data?.cache?.snapshotProbe?.hitRate || 0;
+  const flowHitRate = data?.cache?.flowUnified?.hitRate || 0;
+  const flowLock = data?.lambda?.signumFlowHarvest?.lockActive;
+  // 실제 판정: probe가 30%+이면 RUNNING, lock active면 RUNNING, probe 10%+이면 PARTIAL
+  const realFlowStatus = probeHitRate >= 30 || flowLock ? 'RUNNING' : probeHitRate >= 10 || flowHitRate > 0 ? 'PARTIAL' : flowStatus;
+
+  const harvestStatus = data?.lambda?.signumHarvest?.status;
+  const lambdaPipelineStatus = harvestStatus === 'RUNNING' && realFlowStatus !== 'DOWN' ? 'RUNNING' : 'DEGRADED';
+
   return (
     <div className="min-h-screen bg-[#060a13] text-white" style={{ fontFamily: '"Plus Jakarta Sans", "Inter", system-ui' }}>
       {/* Header */}
       <div className="border-b border-white/[0.06] bg-gradient-to-r from-[#0d1424]/80 to-[#060a13]/80 backdrop-blur-xl sticky top-0 z-50">
         <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <button onClick={() => router.back()} className="text-slate-500 hover:text-white transition-colors">
+            <button onClick={() => router.back()} className="text-slate-300 hover:text-white transition-colors">
               <ArrowLeft className="w-5 h-5" />
             </button>
             <Shield className="w-5 h-5 text-cyan-400" />
             <div>
-              <h1 className="text-[15px] font-black tracking-wide">SYSTEM HEALTH</h1>
-              <p className="text-[10px] text-slate-500 uppercase tracking-widest">Admin Control Center</p>
+              <h1 className="text-[16px] font-black tracking-wide">SYSTEM HEALTH</h1>
+              <p className="text-[13px] text-slate-300 tracking-wide">Admin Control Center</p>
             </div>
           </div>
           <div className="flex items-center gap-3">
             {/* Market Status */}
-            <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold border
+            <div className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[13px] font-bold border
               ${isMarketHours ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' :
                 isExtendedHours ? 'bg-amber-500/10 border-amber-500/20 text-amber-400' :
-                  'bg-slate-500/10 border-slate-500/20 text-slate-400'}`}>
-              <span className="relative flex h-1.5 w-1.5">
+                  'bg-slate-500/10 border-slate-500/20 text-slate-300'}`}>
+              <span className="relative flex h-2 w-2">
                 <span className={`animate-ping absolute inline-flex h-full w-full rounded-full opacity-75
                   ${isMarketHours ? 'bg-emerald-400' : isExtendedHours ? 'bg-amber-400' : 'bg-slate-400'}`} />
-                <span className={`relative inline-flex rounded-full h-1.5 w-1.5
+                <span className={`relative inline-flex rounded-full h-2 w-2
                   ${isMarketHours ? 'bg-emerald-500' : isExtendedHours ? 'bg-amber-500' : 'bg-slate-500'}`} />
               </span>
               ET {etTime} · {isMarketHours ? 'MARKET OPEN' : isExtendedHours ? 'EXTENDED' : 'CLOSED'}
@@ -208,8 +218,8 @@ export default function AdminHealthPage() {
             {/* Refresh */}
             <button onClick={fetchHealth} disabled={refreshing}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-cyan-500/10 border border-cyan-500/20
-                hover:bg-cyan-500/20 text-cyan-400 text-[11px] font-bold transition-all disabled:opacity-50">
-              <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin' : ''}`} />
+                hover:bg-cyan-500/20 text-cyan-400 text-[13px] font-bold transition-all disabled:opacity-50">
+              <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
               REFRESH
             </button>
           </div>
@@ -227,7 +237,7 @@ export default function AdminHealthPage() {
               <Zap className={`w-6 h-6 ${data.overall === 'HEALTHY' ? 'text-emerald-400' : 'text-amber-400'}`} />
               <div>
                 <div className="text-[16px] font-black">{data.overall === 'HEALTHY' ? '시스템 정상' : '일부 점검 필요'}</div>
-                <div className="text-[11px] text-slate-500">
+                <div className="text-[13px] text-slate-300">
                   응답 {data.elapsed} · 최종 새로고침 {lastRefresh?.toLocaleTimeString('ko-KR') || '-'}
                 </div>
               </div>
@@ -243,18 +253,18 @@ export default function AdminHealthPage() {
         ) : (
           <>
             {/* ═══ LAMBDA PIPELINE ═══ */}
-            <Section title="LAMBDA PIPELINE" icon={Server} status={data.lambda.signumHarvest.status === 'RUNNING' && data.lambda.signumFlowHarvest.status !== 'DOWN' ? 'RUNNING' : 'DEGRADED'} defaultOpen={true}>
+            <Section title="LAMBDA PIPELINE" icon={Server} status={lambdaPipelineStatus} defaultOpen={true}>
               {/* signum-harvest */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <span className="text-[13px] font-bold text-white">signum-harvest</span>
-                    <span className="text-[10px] text-slate-500">(Dashboard/Command/Watchlist)</span>
+                    <span className="text-[14px] font-bold text-white">signum-harvest</span>
+                    <span className="text-[13px] text-slate-300">(Dashboard/Command/Watchlist)</span>
                   </div>
                   <StatusBadge status={data.lambda.signumHarvest.status} />
                 </div>
-                <div className="text-[11px] text-slate-400">{data.lambda.signumHarvest.evidence}</div>
-                <div className="text-[11px] text-slate-500">평균 데이터 나이: <span className="text-cyan-400 font-bold">{data.lambda.signumHarvest.avgDataAge}</span></div>
+                <div className="text-[13px] text-slate-300">{data.lambda.signumHarvest.evidence}</div>
+                <div className="text-[13px] text-slate-300">평균 데이터 나이: <span className="text-cyan-400 font-bold">{data.lambda.signumHarvest.avgDataAge}</span></div>
                 <HitRateBar rate={data.cache.commandUnified.hitRate} count={data.cache.commandUnified.count} total={data.cache.commandUnified.total} label="cache:command:unified" />
                 <CacheDetailTable results={data.lambda.signumHarvest.details} />
               </div>
@@ -265,21 +275,26 @@ export default function AdminHealthPage() {
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <span className="text-[13px] font-bold text-white">signum-flow-harvest</span>
-                    <span className="text-[10px] text-slate-500">(Flow 페이지)</span>
+                    <span className="text-[14px] font-bold text-white">signum-flow-harvest</span>
+                    <span className="text-[13px] text-slate-300">(Flow 페이지)</span>
                   </div>
-                  <StatusBadge status={data.lambda.signumFlowHarvest.status} />
+                  <StatusBadge status={realFlowStatus} />
                 </div>
-                <div className="text-[11px] text-slate-400">{data.lambda.signumFlowHarvest.evidence}</div>
-                <div className="text-[11px] text-slate-400">{data.lambda.signumFlowHarvest.probeEvidence}</div>
-                <div className="flex items-center gap-4 text-[11px]">
-                  <span className="text-slate-500">평균 나이: <span className="text-cyan-400 font-bold">{data.lambda.signumFlowHarvest.avgDataAge}</span></span>
-                  <span className="text-slate-500">Lock: {data.lambda.signumFlowHarvest.lockActive
+                <div className="text-[13px] text-slate-300">{data.lambda.signumFlowHarvest.evidence}</div>
+                <div className="text-[13px] text-slate-300">{data.lambda.signumFlowHarvest.probeEvidence}</div>
+                <div className="flex items-center gap-4 text-[13px]">
+                  <span className="text-slate-300">평균 나이: <span className="text-cyan-400 font-bold">{data.lambda.signumFlowHarvest.avgDataAge}</span></span>
+                  <span className="text-slate-300">Lock: {data.lambda.signumFlowHarvest.lockActive
                     ? <span className="text-amber-400 font-bold">ACTIVE (실행 중)</span>
-                    : <span className="text-slate-400">IDLE</span>}</span>
+                    : <span className="text-slate-300">IDLE</span>}</span>
                 </div>
-                <HitRateBar rate={data.cache.flowUnified.hitRate} count={data.cache.flowUnified.count} total={data.cache.flowUnified.total} label="cache:flow:unified" />
-                <HitRateBar rate={data.cache.snapshotProbe.hitRate} count={data.cache.snapshotProbe.count} total={data.cache.snapshotProbe.total} label="polygon:snapshot:probe" />
+                {flowHitRate === 0 && probeHitRate > 0 && (
+                  <div className="text-[13px] text-amber-400/80 bg-amber-500/5 border border-amber-500/10 rounded-lg px-3 py-2">
+                    💡 flow:unified TTL이 5분이라 MISS가 정상입니다. probe 데이터가 있으면 Lambda는 작동 중입니다.
+                  </div>
+                )}
+                <HitRateBar rate={data.cache.flowUnified.hitRate} count={data.cache.flowUnified.count} total={data.cache.flowUnified.total} label="cache:flow:unified (TTL 5분)" />
+                <HitRateBar rate={data.cache.snapshotProbe.hitRate} count={data.cache.snapshotProbe.count} total={data.cache.snapshotProbe.total} label="polygon:snapshot:probe (TTL 10분)" />
                 <CacheDetailTable results={data.lambda.signumFlowHarvest.details} />
               </div>
             </Section>
@@ -292,15 +307,15 @@ export default function AdminHealthPage() {
               <HitRateBar rate={data.cache.snapshotProbe.hitRate} count={data.cache.snapshotProbe.count} total={data.cache.snapshotProbe.total} label="polygon:snapshot:probe" />
 
               <div className="grid grid-cols-2 gap-3 mt-2">
-                <div className="px-3 py-2 rounded-lg bg-white/[0.02] border border-white/[0.05]">
-                  <div className="text-[10px] text-slate-500 uppercase">RLSI</div>
-                  <div className="text-[14px] font-bold">{data.marketData.rlsi.exists
+                <div className="px-3 py-2.5 rounded-lg bg-white/[0.02] border border-white/[0.05]">
+                  <div className="text-[13px] text-slate-300 uppercase font-semibold">RLSI</div>
+                  <div className="text-[16px] font-bold mt-1">{data.marketData.rlsi.exists
                     ? <span className="text-cyan-400">{data.marketData.rlsi.value} ({data.marketData.rlsi.regime})</span>
                     : <span className="text-red-400">N/A</span>}</div>
                 </div>
-                <div className="px-3 py-2 rounded-lg bg-white/[0.02] border border-white/[0.05]">
-                  <div className="text-[10px] text-slate-500 uppercase">VIX</div>
-                  <div className="text-[14px] font-bold">{data.marketData.vix.exists
+                <div className="px-3 py-2.5 rounded-lg bg-white/[0.02] border border-white/[0.05]">
+                  <div className="text-[13px] text-slate-300 uppercase font-semibold">VIX</div>
+                  <div className="text-[16px] font-bold mt-1">{data.marketData.vix.exists
                     ? <span className="text-amber-400">{data.marketData.vix.value}</span>
                     : <span className="text-red-400">N/A</span>}</div>
                 </div>
@@ -310,22 +325,22 @@ export default function AdminHealthPage() {
             {/* ═══ CONTENT PIPELINE ═══ */}
             <Section title="CONTENT PIPELINE" icon={FileText}
               status={data.content.morningBriefing.ko.exists || data.content.morningBriefing.en.exists ? 'OK' : 'DEGRADED'}>
-              <div className="text-[10px] text-slate-500 uppercase tracking-wider font-bold mb-1">모닝 브리핑</div>
+              <div className="text-[13px] text-slate-300 uppercase tracking-wider font-bold mb-1">모닝 브리핑</div>
               <ContentItem label="한국어 (ko)" exists={data.content.morningBriefing.ko.exists} date={data.content.morningBriefing.ko.date} />
               <ContentItem label="English (en)" exists={data.content.morningBriefing.en.exists} date={data.content.morningBriefing.en.date} />
 
               <div className="border-t border-white/[0.04] my-2" />
-              <div className="text-[10px] text-slate-500 uppercase tracking-wider font-bold mb-1">크로스 섹터 브리프</div>
+              <div className="text-[13px] text-slate-300 uppercase tracking-wider font-bold mb-1">크로스 섹터 브리프</div>
               <ContentItem label="한국어 (ko)" exists={data.content.crossSectorBrief.ko.exists} date={data.content.crossSectorBrief.ko.date} />
               <ContentItem label="English (en)" exists={data.content.crossSectorBrief.en.exists} date={data.content.crossSectorBrief.en.date} />
 
               <div className="border-t border-white/[0.04] my-2" />
-              <div className="text-[10px] text-slate-500 uppercase tracking-wider font-bold mb-1">마케팅 콘텐츠</div>
+              <div className="text-[13px] text-slate-300 uppercase tracking-wider font-bold mb-1">마케팅 콘텐츠</div>
               <ContentItem label="Morning Brief" exists={data.content.marketing.morning.exists} date={data.content.marketing.morning.date} />
               <ContentItem label="Market Pulse" exists={data.content.marketing.pulse.exists} date={data.content.marketing.pulse.date} />
 
               <div className="border-t border-white/[0.04] my-2" />
-              <div className="text-[10px] text-slate-500 uppercase tracking-wider font-bold mb-1">시장 리포트</div>
+              <div className="text-[13px] text-slate-300 uppercase tracking-wider font-bold mb-1">시장 리포트</div>
               {Object.entries(data.content.reports).map(([type, r]: [string, any]) => (
                 <ContentItem key={type} label={type.toUpperCase()} exists={r.exists} date={r.date} />
               ))}
@@ -335,10 +350,10 @@ export default function AdminHealthPage() {
             <Section title="PAGE INTEGRITY" icon={Layout}
               status={Object.values(data.pages).every((p: any) => p.status === 'OK') ? 'OK' : 'DEGRADED'}>
               {Object.entries(data.pages).map(([page, info]: [string, any]) => (
-                <div key={page} className="flex items-center justify-between py-1.5 border-b border-white/[0.03] last:border-0">
+                <div key={page} className="flex items-center justify-between py-2 border-b border-white/[0.03] last:border-0">
                   <div>
-                    <span className="text-[13px] font-bold text-white capitalize">{page}</span>
-                    <span className="text-[10px] text-slate-500 ml-2">{info.dependency}</span>
+                    <span className="text-[14px] font-bold text-white capitalize">{page}</span>
+                    <span className="text-[13px] text-slate-300 ml-2">{info.dependency}</span>
                   </div>
                   <StatusBadge status={info.status} />
                 </div>

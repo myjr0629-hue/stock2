@@ -122,8 +122,8 @@ export async function GET(req: NextRequest) {
     // ═══ BUILD RESPONSE ═══
     const elapsed = Date.now() - start;
 
-    // Calculate overall health
-    const lambdaHealth = commandCache.hitRate >= 80 && flowCache.hitRate >= 30;
+    // Calculate overall health — flow:unified는 TTL 5분이라 Lambda 13분 처리 중 대부분 만료되므로 probe로 판정
+    const lambdaHealth = commandCache.hitRate >= 80 && (probeCache.hitRate >= 10 || flowCache.hitRate > 0 || !!flowLock);
     const contentHealth = !!(briefingKo || briefingEn || briefingLegacy);
     const cacheHealth = commandCache.hitRate >= 80;
 
@@ -140,7 +140,8 @@ export async function GET(req: NextRequest) {
           details: commandCache.results,
         },
         signumFlowHarvest: {
-          status: flowCache.hitRate >= 30 ? 'RUNNING' : probeCache.hitRate >= 50 ? 'PARTIAL' : 'DOWN',
+          // flow:unified TTL=5분, Lambda 처리시간=13분 → 대부분 만료 정상. probe가 있으면 Lambda 작동 중
+          status: (probeCache.hitRate >= 10 || flowCache.hitRate > 0 || !!flowLock) ? 'RUNNING' : probeCache.hitRate > 0 ? 'PARTIAL' : 'DOWN',
           evidence: `cache:flow:unified ${flowCache.hitRate}% hit (${flowCache.results.filter(r => r.exists).length}/${SAMPLE_TICKERS.length})`,
           probeEvidence: `polygon:snapshot:probe ${probeCache.hitRate}% hit (${probeCache.results.filter(r => r.exists).length}/${SAMPLE_TICKERS.length})`,
           avgDataAge: flowCache.avgAge >= 0 ? flowCache.avgAge + 's' : 'N/A',
@@ -183,7 +184,7 @@ export async function GET(req: NextRequest) {
       pages: {
         dashboard: { status: commandCache.hitRate >= 80 ? 'OK' : 'DEGRADED', dependency: 'cache:command:unified' },
         command: { status: commandCache.hitRate >= 80 ? 'OK' : 'DEGRADED', dependency: 'cache:command:unified + chart API' },
-        flow: { status: flowCache.hitRate >= 30 || probeCache.hitRate >= 50 ? 'OK' : 'DEGRADED', dependency: 'cache:flow:unified + polygon:snapshot:probe' },
+        flow: { status: (probeCache.hitRate >= 10 || flowCache.hitRate > 0 || !!flowLock) ? 'OK' : 'DEGRADED', dependency: 'cache:flow:unified + polygon:snapshot:probe' },
         intel: { status: contentHealth ? 'OK' : 'DEGRADED', dependency: 'guardian:morning_briefing + cross-sector:brief' },
         watchlist: { status: analysisCache.hitRate >= 80 ? 'OK' : 'DEGRADED', dependency: 'cache:analysis' },
       },
