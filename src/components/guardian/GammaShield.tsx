@@ -805,7 +805,7 @@ export default function GammaShield({ data, isMarketActive }: Props) {
                                 <span className="text-[12px] text-slate-300 font-jakarta text-center leading-tight">
                                     {locale === 'ko' ? '30일 대비 현재 감마 위치' : locale === 'ja' ? '30日基準ガンマ位置' : 'Where gamma sits vs 30-day history'}
                                 </span>
-                                <span className="text-[12px] text-slate-300 font-jakarta">30D / DynamoDB</span>
+
                             </div>
 
                             {/* 2. Current Regime Streak */}
@@ -820,7 +820,7 @@ export default function GammaShield({ data, isMarketActive }: Props) {
                                 <span className="text-[12px] text-slate-300 font-jakarta text-center leading-tight">
                                     {locale === 'ko' ? '현재 레짐 지속 기간' : locale === 'ja' ? '現在レジーム継続期間' : 'How long this regime has lasted'}
                                 </span>
-                                <span className="text-[12px] text-slate-300 font-jakarta">30D / DynamoDB</span>
+
                             </div>
 
                             {/* 3. Regime Shifts */}
@@ -832,7 +832,7 @@ export default function GammaShield({ data, isMarketActive }: Props) {
                                 <span className="text-[12px] text-slate-300 font-jakarta text-center leading-tight">
                                     {locale === 'ko' ? '시장 안정성 / 불안정성' : locale === 'ja' ? '市場安定性 / 不安定性' : 'Market stability / instability'}
                                 </span>
-                                <span className="text-[12px] text-slate-300 font-jakarta">30D / DynamoDB</span>
+
                             </div>
 
                             {/* 4. Call Wall Hit Rate */}
@@ -845,7 +845,7 @@ export default function GammaShield({ data, isMarketActive }: Props) {
                                     {histStats.cwTotal > 0 && `(${histStats.cwHit}/${histStats.cwTotal}) `}
                                     {locale === 'ko' ? '저항선 신뢰도' : locale === 'ja' ? '抵抗線信頼度' : 'Resistance reliability'}
                                 </span>
-                                <span className="text-[12px] text-slate-300 font-jakarta">30D / DynamoDB</span>
+
                             </div>
 
                             {/* 5. Put Floor Hit Rate */}
@@ -858,7 +858,7 @@ export default function GammaShield({ data, isMarketActive }: Props) {
                                     {histStats.pfTotal > 0 && `(${histStats.pfHit}/${histStats.pfTotal}) `}
                                     {locale === 'ko' ? '지지선 신뢰도' : locale === 'ja' ? '支持線信頼度' : 'Support reliability'}
                                 </span>
-                                <span className="text-[12px] text-slate-300 font-jakarta">30D / DynamoDB</span>
+
                             </div>
 
                             {/* 6. Call Wall Trend */}
@@ -872,7 +872,7 @@ export default function GammaShield({ data, isMarketActive }: Props) {
                                 <span className="text-[12px] text-slate-300 font-jakarta text-center leading-tight">
                                     {locale === 'ko' ? '기관 포지셔닝 방향' : locale === 'ja' ? 'ディーラーポジショニング' : 'Dealer positioning direction'}
                                 </span>
-                                <span className="text-[12px] text-slate-300 font-jakarta">30D / DynamoDB</span>
+
                             </div>
 
                         </div>
