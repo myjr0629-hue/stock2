@@ -37,10 +37,11 @@ export default async function TickerPage({ params, searchParams }: Props) {
     }
 
     // [SSR HYDRATION] Pre-fetch stock data, unified cache, and chart — ALL in parallel
-    // Chart has a 500ms timeout — if Polygon is slow, client SWR will load it instead
+    // Chart has a 1500ms timeout — generous enough for Redis miss + Polygon API fallback
+    // (Previous 500ms caused frequent timeouts → blank chart → SWR reload → flicker for NVDA etc.)
     const chartWithTimeout = Promise.race([
         getStockChartData(ticker, (range || '1d') as any).catch(() => null),
-        new Promise<null>(resolve => setTimeout(() => resolve(null), 500))
+        new Promise<null>(resolve => setTimeout(() => resolve(null), 1500))
     ]);
 
     const [initialStockData, rawUnifiedData, rawOverviewData, initialChartData] = await Promise.all([

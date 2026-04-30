@@ -22,8 +22,24 @@ export async function GET(req: NextRequest) {
         );
 
         const prices = (res.tickers || []).map((t: any) => {
-            const currentPrice = t.day?.c || t.lastTrade?.p || t.prevDay?.c || 0;
             const prevClose = t.prevDay?.c || 0;
+            const dayClose = t.day?.c || 0;
+            const lastTradePrice = t.lastTrade?.p || 0;
+
+            // [FIX] Session-aware price selection
+            // During PRE/POST, day.c often equals prevDay.c (no regular session yet)
+            // which would produce change ≈ 0%. Use lastTrade.p (ext-hours price) instead.
+            let currentPrice: number;
+            if (dayClose > 0 && Math.abs(dayClose - prevClose) > 0.001) {
+                // Regular session is active or has ended → day.c has real intraday data
+                currentPrice = dayClose;
+            } else if (lastTradePrice > 0) {
+                // PRE/POST: day.c is stale/equal to prevClose → use latest trade
+                currentPrice = lastTradePrice;
+            } else {
+                currentPrice = dayClose || prevClose || 0;
+            }
+
             const change = prevClose > 0 ? ((currentPrice - prevClose) / prevClose) * 100 : 0;
 
             return {

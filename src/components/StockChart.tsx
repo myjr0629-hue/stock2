@@ -423,74 +423,9 @@ export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d
         mainSeries.setData(uniqueSeriesData);
         if (uniqueVolData.length > 0) volumeSeries.setData(uniqueVolData);
 
-        // ── Price lines (overlays) ──
-        const addPriceLine = (price: number, color: string, title: string, lineStyle: LineStyle = LineStyle.Dashed, lineWidth: 1 | 2 | 3 | 4 = 1) => {
-            const pl = mainSeries.createPriceLine({
-                price,
-                color,
-                lineWidth,
-                lineStyle,
-                axisLabelVisible: true,
-                title,
-            });
-            priceLinesRef.current.push(pl);
-        };
 
-        // PrevClose
-        if (isIntraday && prevClose !== undefined && prevClose > 0) {
-            addPriceLine(prevClose, '#3b82f6', 'PREV', LineStyle.Dashed, 1);
-        }
-
-        // VWAP — label visible on left side of price axis
-        if (isIntraday && vwap !== undefined && vwap > 0) {
-            const pl = mainSeries.createPriceLine({
-                price: vwap,
-                color: '#22c55e',
-                lineWidth: 1 as 1 | 2 | 3 | 4,
-                lineStyle: LineStyle.Dashed,
-                axisLabelVisible: true,
-                title: 'VWAP',
-                axisLabelColor: '#22c55e',
-                axisLabelTextColor: '#fff',
-            });
-            priceLinesRef.current.push(pl);
-        }
-
-        // Gamma Flip
-        if (isIntraday && gammaFlipLevel !== undefined && gammaFlipLevel > 0) {
-            // Only show if within visible range
-            if (gammaFlipLevel >= minPrice * 0.95 && gammaFlipLevel <= maxPrice * 1.05) {
-                addPriceLine(gammaFlipLevel, '#f59e0b', 'GF', LineStyle.Dashed, 1);
-            }
-        }
-
-        // Alpha Levels — only show if within visible price range (±15%)
-        // [FIX] Prevents Y-axis stretching when options levels are stale/far from price
-        const priceRangeLow = minPrice * 0.85;
-        const priceRangeHigh = maxPrice * 1.15;
-        if (alphaLevels?.callWall && alphaLevels.callWall >= priceRangeLow && alphaLevels.callWall <= priceRangeHigh) {
-            addPriceLine(alphaLevels.callWall, '#22d3ee', 'CALL', LineStyle.Dashed, 1);
-        }
-        if (alphaLevels?.putFloor && alphaLevels.putFloor >= priceRangeLow && alphaLevels.putFloor <= priceRangeHigh) {
-            addPriceLine(alphaLevels.putFloor, '#f43f5e', 'PUT', LineStyle.Dashed, 1);
-        }
-        if (alphaLevels?.maxPain && alphaLevels.maxPain >= priceRangeLow && alphaLevels.maxPain <= priceRangeHigh) {
-            addPriceLine(alphaLevels.maxPain, '#a855f7', 'MAX PAIN', LineStyle.Dashed, 1);
-        }
-
-        // Current price line
-        if (currentPrice !== undefined && currentPrice > 0) {
-            let priceColor = '#e2e8f0';
-            if (isIntraday) {
-                const now = new Date();
-                const etTime = now.toLocaleString("en-US", { timeZone: "America/New_York", hour12: false, hour: '2-digit', minute: '2-digit' });
-                const [h2] = etTime.split(':').map(Number);
-                const curMin = h2 * 60 + parseInt(etTime.split(':')[1]);
-                if (curMin < SESSION_PRE_END) priceColor = '#fbbf24';
-                else if (curMin >= SESSION_REG_END) priceColor = '#60a5fa';
-            }
-            addPriceLine(currentPrice, priceColor, '', LineStyle.Solid, 2);
-        }
+        // [NOTE] Price lines (prevClose, VWAP, GF, alpha levels, currentPrice) are
+        // handled by a separate incremental useEffect below to avoid full chart recreation.
 
         // ── SMA Lines ──
         if (!isIntraday && showSMA && processedData.length > 0) {
@@ -559,8 +494,85 @@ export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d
             sma200SeriesRef.current = null;
             priceLinesRef.current = [];
         };
-    }, [renderData.length > 0 ? `${ticker}-${range}-${renderData.length}-${showSMA}-${chartType}` : 'empty',
-        prevClose, vwap, gammaFlipLevel, currentPrice,
+    }, [renderData.length > 0 ? `${ticker}-${range}-${renderData.length}-${showSMA}-${chartType}` : 'empty']);
+
+    // ═══════════════════════════════════════
+    // INCREMENTAL PRICE LINE UPDATES
+    // (Avoids full chart recreation when overlay values change)
+    // ═══════════════════════════════════════
+    useEffect(() => {
+        const chart = chartRef.current;
+        const mainSeries = mainSeriesRef.current;
+        if (!chart || !mainSeries) return;
+
+        // Remove old price lines
+        priceLinesRef.current.forEach(pl => {
+            try { mainSeries.removePriceLine(pl); } catch { /* already removed */ }
+        });
+        priceLinesRef.current = [];
+
+        const addPriceLineIncr = (price: number, color: string, title: string, lineStyle: LineStyle = LineStyle.Dashed, lineWidth: 1 | 2 | 3 | 4 = 1) => {
+            const pl = mainSeries.createPriceLine({
+                price,
+                color,
+                lineWidth,
+                lineStyle,
+                axisLabelVisible: true,
+                title,
+            });
+            priceLinesRef.current.push(pl);
+        };
+
+        // PrevClose
+        if (isIntraday && prevClose !== undefined && prevClose > 0) {
+            addPriceLineIncr(prevClose, '#3b82f6', 'PREV', LineStyle.Dashed, 1);
+        }
+        // VWAP
+        if (isIntraday && vwap !== undefined && vwap > 0) {
+            const pl = mainSeries.createPriceLine({
+                price: vwap,
+                color: '#22c55e',
+                lineWidth: 1 as 1 | 2 | 3 | 4,
+                lineStyle: LineStyle.Dashed,
+                axisLabelVisible: true,
+                title: 'VWAP',
+                axisLabelColor: '#22c55e',
+                axisLabelTextColor: '#fff',
+            });
+            priceLinesRef.current.push(pl);
+        }
+        // Gamma Flip
+        if (isIntraday && gammaFlipLevel !== undefined && gammaFlipLevel > 0) {
+            if (gammaFlipLevel >= minPrice * 0.95 && gammaFlipLevel <= maxPrice * 1.05) {
+                addPriceLineIncr(gammaFlipLevel, '#f59e0b', 'GF', LineStyle.Dashed, 1);
+            }
+        }
+        // Alpha Levels
+        const priceLow = minPrice * 0.85;
+        const priceHigh = maxPrice * 1.15;
+        if (alphaLevels?.callWall && alphaLevels.callWall >= priceLow && alphaLevels.callWall <= priceHigh) {
+            addPriceLineIncr(alphaLevels.callWall, '#22d3ee', 'CALL', LineStyle.Dashed, 1);
+        }
+        if (alphaLevels?.putFloor && alphaLevels.putFloor >= priceLow && alphaLevels.putFloor <= priceHigh) {
+            addPriceLineIncr(alphaLevels.putFloor, '#f43f5e', 'PUT', LineStyle.Dashed, 1);
+        }
+        if (alphaLevels?.maxPain && alphaLevels.maxPain >= priceLow && alphaLevels.maxPain <= priceHigh) {
+            addPriceLineIncr(alphaLevels.maxPain, '#a855f7', 'MAX PAIN', LineStyle.Dashed, 1);
+        }
+        // Current price
+        if (currentPrice !== undefined && currentPrice > 0) {
+            let priceColor = '#e2e8f0';
+            if (isIntraday) {
+                const now = new Date();
+                const etTime = now.toLocaleString("en-US", { timeZone: "America/New_York", hour12: false, hour: '2-digit', minute: '2-digit' });
+                const [h2] = etTime.split(':').map(Number);
+                const curMin = h2 * 60 + parseInt(etTime.split(':')[1]);
+                if (curMin < SESSION_PRE_END) priceColor = '#fbbf24';
+                else if (curMin >= SESSION_REG_END) priceColor = '#60a5fa';
+            }
+            addPriceLineIncr(currentPrice, priceColor, '', LineStyle.Solid, 2);
+        }
+    }, [prevClose, vwap, gammaFlipLevel, currentPrice,
         alphaLevels?.callWall, alphaLevels?.putFloor, alphaLevels?.maxPain]);
 
     // ═══════════════════════════════════════
