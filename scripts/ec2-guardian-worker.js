@@ -16,6 +16,16 @@
 const Redis = require("ioredis");
 const https = require("https");
 const http = require("http");
+const { BedrockRuntimeClient, InvokeModelCommand } = require("@aws-sdk/client-bedrock-runtime");
+
+let _bedrockClient = null;
+function getBedrock() {
+    if (_bedrockClient) return _bedrockClient;
+    _bedrockClient = new BedrockRuntimeClient({
+        region: process.env.AWS_REGION || 'us-east-1',
+    });
+    return _bedrockClient;
+}
 
 // DynamoDB History Module (Phase 4)
 let dynamo = null;
@@ -630,21 +640,66 @@ async function generateMorningBriefing() {
 
         try {
             const apiUrl = `${CONFIG.VERCEL_API_URL}/api/guardian/briefing/generate`;
+            const t0 = Date.now();
+            
+            // 1. Fetch prompts from Vercel securely (bypasses Vercel timeout)
             const response = await fetch(apiUrl, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ snapshot, rlsiHistory }),
-                signal: AbortSignal.timeout(55000),
+                body: JSON.stringify({ snapshot, rlsiHistory, returnPromptOnly: true }),
+                signal: AbortSignal.timeout(20000), // Prompt building should be fast
             });
 
-            if (!response.ok) {
-                throw new Error(`API responded ${response.status}`);
-            }
-
+            if (!response.ok) throw new Error(`Vercel API responded ${response.status}`);
             const result = await response.json();
 
-            if (result.success && result.briefing) {
-                const briefingTexts = result.briefing; // { ko: "...", en: "...", ja: "..." }
+            if (result.success && result.prompts) {
+                console.log(`[Briefing] 🧠 Prompts built by Vercel in ${Date.now() - t0}ms. Invoking Claude locally...`);
+                const { systemPrompt, userPrompt } = result.prompts;
+
+                // 2. Local Bedrock Execution
+                const client = getBedrock();
+                const command = new InvokeModelCommand({
+                    modelId: 'us.anthropic.claude-sonnet-4-20250514-v1:0',
+                    contentType: 'application/json',
+                    accept: 'application/json',
+                    body: JSON.stringify({
+                        anthropic_version: 'bedrock-2023-05-31',
+                        max_tokens: 2048,
+                        temperature: 0.3,
+                        system: systemPrompt,
+                        messages: [
+                            { role: 'user', content: userPrompt },
+                            { role: 'assistant', content: '{' },
+                        ],
+                    }),
+                });
+
+                // 120s timeout on EC2 (infinite compared to Vercel's 60s)
+                const bedrockResult = await Promise.race([
+                    client.send(command),
+                    new Promise((_, reject) => setTimeout(() => reject(new Error('Claude local timeout 120s')), 120000))
+                ]);
+
+                const responseBody = JSON.parse(new TextDecoder().decode(bedrockResult.body));
+                const rawText = '{' + (responseBody.content?.[0]?.text || '').replace(/```json/g, '').replace(/```/g, '').trim();
+                
+                // 3. Strict Refusal Check
+                const isInvalid = (text) => {
+                    if (!text || text.length < 50) return true;
+                    const lower = text.toLowerCase();
+                    return lower.includes('temporarily unavailable') || 
+                           lower.includes('cannot generate') || 
+                           lower.includes('할 수 없습니다') ||
+                           lower.includes('불가능');
+                };
+
+                const briefingTexts = JSON.parse(rawText);
+                if (isInvalid(briefingTexts.ko) || isInvalid(briefingTexts.en)) {
+                    throw new Error('AI generated invalid/refusal response (intercepted by EC2)');
+                }
+
+                // 4. Set results
 
                 // Store per-locale in Redis (24h TTL)
                 for (const locale of CONFIG.LOCALES) {

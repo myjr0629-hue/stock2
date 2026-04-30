@@ -249,6 +249,16 @@ KO example: "수요일 개장 전 거래에서 S&P 500 선물이 5,650(+0.45%), 
 Output ONLY valid JSON (no markdown fences):
 {"ko": "한국어 브리핑 (6-8문장)", "en": "English briefing (6-8 sentences)", "ja": "日本語ブリーフィング (6-8文)"}`;
 
+        // [V8.2] Fast path for EC2 Worker (return prompt only, skip Bedrock)
+        if (body.returnPromptOnly) {
+            return NextResponse.json({
+                success: true,
+                prompts: { systemPrompt, userPrompt },
+                newsCount: marketNews.length,
+                calendarCount: calendarEvents.length
+            });
+        }
+
         const client = getBedrock();
         const command = new InvokeModelCommand({
             modelId: BEDROCK_MODEL,
