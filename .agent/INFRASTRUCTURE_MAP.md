@@ -87,6 +87,7 @@ AI 에이전트는 데이터 불일치를 조사할 때 무조건 아래 3단계
 - **⚠️ 있으면 캐시, 없으면 실데이터** — 캐시에 null이면 Polygon/FINRA에서 직접 가져옴. 캐시에만 의존하여 빈 카드 방치 금지 (2026-04-08 ROOT FIX)
 - **⚠️ Lambda ↔ Vercel 구조 일치 필수** — Lambda가 저장하는 필드와 Vercel이 읽는 필드는 반드시 1:1 일치. 단, Vercel이 계산 가능한 지표(Context Score)는 Vercel이 최종 권한을 가짐.
 - **Fundamentals 보존**: score=null이면 DynamoDB 이전 데이터 보존 (한번 성공한 데이터 절대 안 비어짐) — analyst/earnings/related도 동일
+- **Morning Briefing AI Bypass (2026-04-30)**: Vercel의 60초 타임아웃 족쇄와 환각(Hallucination) 에러 오염을 방지하기 위해, Vercel은 데이터 수집 및 프롬프트 빌딩(`returnPromptOnly: true`)만 담당하고, 무거운 AWS Bedrock 호출은 120초 제한을 가진 **EC2 Worker(`ec2-guardian-worker.js`)가 직접 전담**하여 데이터를 Redis에 쓰는 무결점 우회 아키텍처를 적용함.
 - **warm-analysis, warm-command, morning-briefing cron: 삭제 완료** (2026-04-04)
 - **Flow 페이지**: Lambda Raw Cache → Vercel 계산 (2계층 캐시), 35 DTE 제한
 - **Flow warm (signum-flow-harvest)**: 옵션 raw 데이터만 저장, 계산은 Vercel 담당 (업계표준 CQRS)
@@ -112,6 +113,7 @@ AI 에이전트는 데이터 불일치를 조사할 때 무조건 아래 3단계
 | `/login` | 로그인 (Supabase) | 🔓 |
 | `/how-it-works` | 사용법 | 🔓 |
 | `/privacy`, `/terms`, `/refund` | 법적 문서 | 🔓 |
+| `/admin/health` | **시스템 헬스체크 대시보드** | 🔒 Admin Only |
 
 ### 3.2 섹터 Intel 보고서 (10개)
 | 섹터 ID | 이름 | 핵심 종목 |
@@ -239,23 +241,41 @@ Confidence: 4개 중 강한 신호 3+개=HIGH, 2개=MED, 1개=LOW, 0=NONE
 - **저장**: DynamoDB + Redis (cache:analysis + cache:command:unified) 동시
 - **FMP 호출**: 비유니버스 종목 1종목에 대해서만 FMP API 직접 호출 (Analyst/Earnings). 분당 1-2회 수준, rate limit 영향 없음.
 
-### 4.2 Lambda v2.1 (signum-flow-harvest) — Flow 페이지 전용
+### 4.2 Lambda v2.2 (signum-flow-harvest) — Flow 페이지 전용
 - **코드 위치**: `scripts/lambda-flow-harvest/index.js`
 - **배포 스크립트**: `scripts/deploy-flow-harvest.js`
 - **배포 명령**: `node scripts/deploy-flow-harvest.js`
-- **설정**: timeout=600s (10분), memory=1024MB (1GB)
+- **설정**: timeout=**900s (15분)**, memory=1024MB (1GB)
 - **런타임**: nodejs20.x
 - **EventBridge**: `signum-flow-harvest-5min` (rate(5 minutes), ENABLED)
 - **유니버스**: 1,000종목 (`data/stock_universe_us800.json`) + **동적 유니버스** (비유니버스 종목)
-- **실행 시간**: ~288초 (4분48초), 1000종목, fail=0
+- **실행 시간**: ~775-815초 (13분), 1000종목, fail=2~6
 - **완전 독립**: signum-harvest와 코드/스케줄/실행 완전 분리
+- **동시 실행 방지 (v2.2)**: Redis 분산 Lock (`flow-harvest:lock`, TTL 900초). 이전 인스턴스 실행 중이면 즉시 SKIP (16ms). `forceRun` 시 Lock 무시.
+
+#### ⚠️ v2.2 Timeout 수정 이력 (2026-04-30)
+- **v2.1 (원래)**: timeout=600s, 동시 실행 무제한. 실행 시간이 600s 초과 시 10개 이상의 인스턴스가 동시 실행되며 Polygon API 경합 → **전 인스턴스 100% timeout 사망** (4/23~4/30, 8일간 데이터 수집 실패).
+- **v2.2 (수정)**: timeout=**900s** + Redis 분산 Lock(동시 1개만). signum-harvest와 동일한 900s 한도. Lock 해제는 완료 시 자동, timeout 시 TTL 만료(900s)로 자동 해제.
 
 #### Flow Harvest 아키텍처 (CQRS — Raw Cache Only)
 ```
-[Lambda v2.1] → Polygon API → raw 원본 → Redis 저장 (계산 0, 가공 0)
+[Lambda v2.2] → Polygon API → raw 원본 → Redis 저장 (계산 0, 가공 0)
                                   ↓
 [Vercel API]  → Redis에서 raw 읽기 → Max Pain, GEX, Gamma Flip 등 계산
 ```
+
+#### 동시 실행 방지 메커니즘 (Distributed Lock)
+```
+EventBridge 5분 트리거 → Lambda 시작
+  ↓
+acquireLock('flow-harvest:lock', NX, EX 900)
+  ├─ OK  → 정상 실행 (1000종목 처리 → Lock 해제)
+  └─ FAIL → "SKIPPED — another instance is still running" (16ms 종료)
+```
+- Redis 키: `flow-harvest:lock`
+- Lock 쓰기: EC2 Proxy `/setnx` 우선 → Upstash `SET NX EX` fallback
+- Lock 해제: `releaseLock()` (TTL 1초로 즉시 만료)
+- 안전장치: Lock TTL=900s (Lambda timeout과 동일) → timeout 시에도 자동 만료
 
 #### 저장 키 / TTL
 | Redis 키 | TTL (장중) | TTL (장외) | 내용 |
@@ -539,6 +559,9 @@ signum-harvest (5분마다, 항상)
 | `/api/guardian/*` | Guardian AI |
 | `/api/intel/*` | 섹터 Intel |
 | `/api/history/*` | 히스토리 데이터 |
+| `/api/admin/health-check` | **시스템 헬스체크 API** — Lambda/Redis/Content 전체 파이프라인 검증 (관리자 전용, READ-ONLY) (2026-04-30) |
+| `/api/admin/visitors` | 실시간 접속자 모니터링 (관리자 전용) |
+| `/api/admin/heartbeat` | 접속자 하트비트 (30초마다 자동 호출) |
 
 ### 7.4 마케팅 자동화 API (크론 + 미디어)
 
