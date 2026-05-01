@@ -107,10 +107,40 @@ export async function GET(req: NextRequest) {
     // flow-harvest lock 상태
     const flowLock = await getFromCache<any>('flow-harvest:lock');
 
-    // ═══ 2. CONTENT PIPELINE — 실제 존재하는 키만 체크 ═══
-    
+    // ═══ 2. EC2 INFRASTRUCTURE ═══
+    const proxyUrl = process.env.EC2_REDIS_PROXY_URL || 'http://52.23.98.13:8081';
+    const proxyKey = process.env.EC2_REDIS_PROXY_KEY || 'signum-redis-proxy-2026';
+
+    // EC2 Redis Proxy 상태
+    let ec2ProxyOk = false;
+    let ec2ProxyLatency = -1;
+    try {
+      const proxyStart = Date.now();
+      const pRes = await fetch(`${proxyUrl}/get?key=health-ping`, {
+        headers: { 'Authorization': `Bearer ${proxyKey}` },
+        signal: AbortSignal.timeout(5000),
+      });
+      ec2ProxyLatency = Date.now() - proxyStart;
+      ec2ProxyOk = pRes.ok || pRes.status === 200;
+    } catch { /* timeout or error */ }
+
+    // EC2 Flow Accumulator (rt-metrics) — 다크풀 100% SSOT
+    const rtSamples = ['NVDA', 'TSLA', 'AAPL', 'SPY'];
+    let rtHits = 0;
+    const rtResults: any[] = [];
+    for (const t of rtSamples) {
+      const v = await checkElastiCache(`rt-metrics:${t}`);
+      if (v) {
+        rtHits++;
+        rtResults.push({ ticker: t, exists: true, source: v._source || '?', dp: v.darkPool?.percentage ?? '?' });
+      } else {
+        rtResults.push({ ticker: t, exists: false });
+      }
+    }
+
+    // ═══ 3. CONTENT PIPELINE — 실제 존재하는 키만 체크 ═══
+
     // 모닝 브리핑: EC2 Guardian Worker → ElastiCache 직접 저장 (ioredis)
-    // Upstash에 없으므로 ElastiCache Proxy로 직접 체크
     const briefingKo = await checkElastiCache('guardian:morning_briefing:ko');
     const briefingEn = await checkElastiCache('guardian:morning_briefing:en');
     const briefingLegacy = await checkElastiCache('guardian:morning_briefing');
@@ -125,34 +155,60 @@ export async function GET(req: NextRequest) {
     const morningContent = await getFromCache<any>(`marketing:morning:${today}`) || await getFromCache<any>(`marketing:morning:${yesterday}`);
     const pulseContent = await getFromCache<any>(`marketing:pulse:${today}`) || await getFromCache<any>(`marketing:pulse:${yesterday}`);
 
-    // ═══ 3. 시장 데이터 — ElastiCache + Upstash 양쪽 체크 ═══
-    // EC2 Guardian Worker가 ElastiCache에 쓰는 키들
+    // ═══ 4. 시장 데이터 — ElastiCache 키 전수 체크 ═══
     const vixData = await checkElastiCache('yahoo:vix');
+    const vix3mData = await checkElastiCache('yahoo:vix3m');
     const spxData = await checkElastiCache('yahoo:spx');
-    const fng = await checkElastiCache('market:fear_greed');
-
-    // RLSI: signum-harvest Lambda → Redis (TTL 3일)
+    const nqData = await checkElastiCache('yahoo:nq');
+    const tnxData = await checkElastiCache('yahoo:tnx');
+    const goldData = await checkElastiCache('yahoo:gold');
+    const oilData = await checkElastiCache('yahoo:oil');
+    const tltData = await checkElastiCache('yahoo:tlt');
+    const usdkrwData = await checkElastiCache('yahoo:usdkrw');
+    const usdjpyData = await checkElastiCache('yahoo:usdjpy');
+    const fng = await checkElastiCache('cnn:feargreed'); // 실제 키는 cnn:feargreed
+    const econCal = await checkElastiCache('fmp:econ-calendar');
     const rlsi = await getFromCache<any>('rlsi:latest') || await checkElastiCache('rlsi:latest');
 
-    // ═══ 4. 상태 판정 ═══
+    const marketFeedKeys = [
+      { key: 'yahoo:vix', data: vixData, label: 'VIX' },
+      { key: 'yahoo:vix3m', data: vix3mData, label: 'VIX3M' },
+      { key: 'yahoo:spx', data: spxData, label: 'S&P 500' },
+      { key: 'yahoo:nq', data: nqData, label: 'NASDAQ' },
+      { key: 'yahoo:tnx', data: tnxData, label: 'US 10Y' },
+      { key: 'yahoo:gold', data: goldData, label: 'Gold' },
+      { key: 'yahoo:oil', data: oilData, label: 'WTI Oil' },
+      { key: 'yahoo:tlt', data: tltData, label: 'TLT' },
+      { key: 'yahoo:usdkrw', data: usdkrwData, label: 'USD/KRW' },
+      { key: 'yahoo:usdjpy', data: usdjpyData, label: 'USD/JPY' },
+      { key: 'cnn:feargreed', data: fng, label: 'Fear & Greed' },
+    ];
+    const marketFeedHits = marketFeedKeys.filter(m => m.data).length;
+
+    // ═══ 5. signum-fmp 데이터 (command cache 내 analyst/earnings) ═══
+    const fmpSample = await checkElastiCache('cache:command:unified:NVDA');
+    let fmpRelay = { analyst: false, earnings: false, fundamentals: false };
+    if (fmpSample) {
+      fmpRelay = {
+        analyst: !!(fmpSample.analyst || fmpSample.analystData),
+        earnings: !!(fmpSample.earnings || fmpSample.earningsData),
+        fundamentals: !!(fmpSample.fundamentals || fmpSample.fundData),
+      };
+    }
+
+    // ═══ 6. 상태 판정 ═══
     const elapsed = Date.now() - start;
 
-    // Lambda 판정
     const harvestOk = commandCache.hitRate >= 80;
-    // flow-harvest: probe가 있거나 lock이 활성이면 RUNNING
     const flowOk = probeCache.hitCount > 0 || flowCache.hitCount > 0 || !!flowLock;
-    // 장외 시간에는 flow TTL 만료 정상 → flowOk를 강제 판정 안 함
     const flowStatus = flowOk ? 'RUNNING' : (et.isMarketHours ? 'DOWN' : 'IDLE');
 
-    // 모닝 브리핑: 생성 시점(4:00 AM ET) 이후 24시간 내이면 EXISTS 여야 정상
     const briefingExists = !!(briefingKo || briefingEn || briefingLegacy);
     const briefingStatus = briefingExists ? 'OK' : (et.isPreMarket || et.isMarketHours ? 'MISSING' : 'PENDING');
 
-    // 크로스 섹터: 장 마감 후(~21:50 ET) 생성. 다음날 장 마감까지 유효
     const crossSectorExists = !!(crossSectorToday || crossSectorYesterday);
 
-    // Overall: 핵심 파이프라인(harvest + flow)이 모두 정상이면 HEALTHY
-    const overall = harvestOk && (flowOk || !et.isMarketHours) ? 'HEALTHY' : 'DEGRADED';
+    const overall = harvestOk && (flowOk || !et.isMarketHours) && ec2ProxyOk ? 'HEALTHY' : 'DEGRADED';
 
     return NextResponse.json({
       timestamp: new Date().toISOString(),
@@ -179,9 +235,28 @@ export async function GET(req: NextRequest) {
           avgDataAge: flowCache.avgAge >= 0 ? flowCache.avgAge + 's' : (probeCache.avgAge >= 0 ? probeCache.avgAge + 's (probe)' : 'N/A'),
           lockActive: !!flowLock,
           lockValue: flowLock ? String(flowLock) : null,
-          note: 'flow:unified TTL=5분, probe TTL=10분. Lambda 처리시간 13분이므로 대부분 만료 정상. probe 1개라도 있으면 Lambda 작동 중.',
+          note: 'flow:unified TTL=5분, probe TTL=10분. Lambda 처리 13분이므로 대부분 만료 정상.',
           details: flowCache.results,
           probeDetails: probeCache.results,
+        },
+        signumFmp: {
+          status: fmpRelay.analyst && fmpRelay.earnings ? 'OK' : 'DEGRADED',
+          evidence: `analyst=${fmpRelay.analyst}, earnings=${fmpRelay.earnings}, fundamentals=${fmpRelay.fundamentals}`,
+          note: 'signum-fmp → DynamoDB → signum-harvest relay → cache:command:unified',
+        },
+      },
+
+      ec2: {
+        redisProxy: {
+          status: ec2ProxyOk ? 'OK' : 'DOWN',
+          latency: ec2ProxyLatency >= 0 ? ec2ProxyLatency + 'ms' : 'TIMEOUT',
+          url: proxyUrl,
+        },
+        flowAccumulator: {
+          status: rtHits >= 3 ? 'RUNNING' : rtHits > 0 ? 'PARTIAL' : 'DOWN',
+          evidence: `rt-metrics ${rtHits}/${rtSamples.length} hit`,
+          details: rtResults,
+          note: '다크풀/블록딜 100% SSOT. EC2 WebSocket → ElastiCache (ioredis, $0)',
         },
       },
 
@@ -213,11 +288,20 @@ export async function GET(req: NextRequest) {
         },
       },
 
-      marketData: {
-        vix: vixData ? { exists: true, value: vixData.price, changePct: vixData.changePct?.toFixed(2) + '%' } : { exists: false, note: 'yahoo:vix (EC2 Guardian → ElastiCache)' },
-        spx: spxData ? { exists: true, value: spxData.price, changePct: spxData.changePct?.toFixed(2) + '%' } : { exists: false },
-        rlsi: rlsi ? { exists: true, value: rlsi.value || rlsi.rlsi, regime: rlsi.regime || rlsi.label } : { exists: false, note: 'signum-harvest Lambda → Redis (TTL 3일)' },
-        fearGreed: fng ? { exists: true, value: fng.value || fng.score } : { exists: false },
+      marketFeed: {
+        status: marketFeedHits >= 8 ? 'OK' : marketFeedHits >= 5 ? 'PARTIAL' : 'DOWN',
+        hitCount: marketFeedHits,
+        total: marketFeedKeys.length,
+        items: marketFeedKeys.map(m => ({
+          key: m.key,
+          label: m.label,
+          exists: !!m.data,
+          value: m.data?.price ?? m.data?.value ?? m.data?.score ?? null,
+          changePct: m.data?.changePct != null ? +(m.data.changePct).toFixed(2) : null,
+        })),
+        econCalendar: { exists: !!econCal },
+        rlsi: rlsi ? { exists: true, value: rlsi.value || rlsi.rlsi, regime: rlsi.regime || rlsi.label } : { exists: false },
+        source: 'Vercel market-feed cron → ElastiCache (every 2min)',
       },
 
       pages: {
@@ -238,3 +322,4 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: e.message }, { status: 500 });
   }
 }
+

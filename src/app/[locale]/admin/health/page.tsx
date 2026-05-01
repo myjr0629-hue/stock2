@@ -7,7 +7,7 @@ import {
   Activity, Server, Database, FileText, Layout,
   RefreshCw, CheckCircle2, XCircle, AlertTriangle,
   Clock, Zap, Shield, ChevronDown, ChevronRight,
-  ArrowLeft
+  ArrowLeft, Wifi, BarChart3, Globe
 } from 'lucide-react';
 
 const ADMIN_EMAILS = (process.env.NEXT_PUBLIC_ADMIN_EMAILS || '').split(',').map(e => e.trim().toLowerCase());
@@ -177,16 +177,15 @@ export default function AdminHealthPage() {
   const isMarketHours = etHour >= 9 && etHour < 16;
   const isExtendedHours = (etHour >= 4 && etHour < 9) || (etHour >= 16 && etHour < 20);
 
-  // flow-harvest 상태 판정: probeCache가 있으면 Lambda가 작동 중 (flow:unified는 TTL 5분이라 MISS가 정상)
-  const flowStatus = data?.lambda?.signumFlowHarvest?.status;
+  // 상태 판정 — API가 이미 정확하게 판정하므로 그대로 사용
+  const flowStatus = data?.lambda?.signumFlowHarvest?.status || 'IDLE';
   const probeHitRate = data?.cache?.snapshotProbe?.hitRate || 0;
   const flowHitRate = data?.cache?.flowUnified?.hitRate || 0;
   const flowLock = data?.lambda?.signumFlowHarvest?.lockActive;
-  // 실제 판정: probe가 30%+이면 RUNNING, lock active면 RUNNING, probe 10%+이면 PARTIAL
-  const realFlowStatus = probeHitRate >= 30 || flowLock ? 'RUNNING' : probeHitRate >= 10 || flowHitRate > 0 ? 'PARTIAL' : flowStatus;
 
   const harvestStatus = data?.lambda?.signumHarvest?.status;
-  const lambdaPipelineStatus = harvestStatus === 'RUNNING' && realFlowStatus !== 'DOWN' ? 'RUNNING' : 'DEGRADED';
+  const fmpStatus = data?.lambda?.signumFmp?.status;
+  const lambdaPipelineStatus = harvestStatus === 'RUNNING' && flowStatus !== 'DOWN' ? 'RUNNING' : 'DEGRADED';
 
   return (
     <div className="min-h-screen bg-[#060a13] text-white" style={{ fontFamily: '"Plus Jakarta Sans", "Inter", system-ui' }}>
@@ -281,7 +280,7 @@ export default function AdminHealthPage() {
                     <span className="text-[14px] font-bold text-white">signum-flow-harvest</span>
                     <span className="text-[13px] text-slate-300">(Flow 페이지)</span>
                   </div>
-                  <StatusBadge status={realFlowStatus} />
+                  <StatusBadge status={flowStatus} />
                 </div>
                 <div className="text-[13px] text-slate-300">{data.lambda.signumFlowHarvest.evidence}</div>
                 <div className="text-[13px] text-slate-300">{data.lambda.signumFlowHarvest.probeEvidence}</div>
@@ -300,7 +299,110 @@ export default function AdminHealthPage() {
                 <HitRateBar rate={data.cache.snapshotProbe.hitRate} count={data.cache.snapshotProbe.count} total={data.cache.snapshotProbe.total} label="polygon:snapshot:probe (TTL 10분)" />
                 <CacheDetailTable results={data.lambda.signumFlowHarvest.details} />
               </div>
+
+              {/* signum-fmp */}
+              {data.lambda.signumFmp && (
+                <>
+                  <div className="border-t border-white/[0.04] my-3" />
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="text-[14px] font-bold text-white">signum-fmp</span>
+                        <span className="text-[13px] text-slate-300">(Analyst/Earnings/Fundamentals)</span>
+                      </div>
+                      <StatusBadge status={data.lambda.signumFmp.status} />
+                    </div>
+                    <div className="text-[13px] text-slate-300">{data.lambda.signumFmp.evidence}</div>
+                    <div className="text-[13px] text-slate-400">{data.lambda.signumFmp.note}</div>
+                  </div>
+                </>
+              )}
             </Section>
+
+            {/* ═══ EC2 INFRASTRUCTURE ═══ */}
+            {data.ec2 && (
+              <Section title="EC2 INFRASTRUCTURE" icon={Wifi}
+                status={data.ec2.redisProxy?.status === 'OK' && data.ec2.flowAccumulator?.status !== 'DOWN' ? 'OK' : 'DEGRADED'}>
+                <div className="space-y-3">
+                  {/* Redis Proxy */}
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <span className="text-[14px] font-bold text-white">Redis Proxy</span>
+                      <span className="text-[13px] text-slate-300 ml-2">{data.ec2.redisProxy?.url}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[13px] text-cyan-400 font-bold">{data.ec2.redisProxy?.latency}</span>
+                      <StatusBadge status={data.ec2.redisProxy?.status || 'DOWN'} />
+                    </div>
+                  </div>
+
+                  <div className="border-t border-white/[0.04]" />
+
+                  {/* Flow Accumulator */}
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="text-[14px] font-bold text-white">Flow Accumulator</span>
+                        <span className="text-[13px] text-slate-300">(signum-flow-acc)</span>
+                      </div>
+                      <StatusBadge status={data.ec2.flowAccumulator?.status || 'DOWN'} />
+                    </div>
+                    <div className="text-[13px] text-slate-300">{data.ec2.flowAccumulator?.evidence}</div>
+                    <div className="text-[13px] text-slate-400">{data.ec2.flowAccumulator?.note}</div>
+                    {data.ec2.flowAccumulator?.details && (
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 mt-2">
+                        {data.ec2.flowAccumulator.details.map((r: any) => (
+                          <div key={r.ticker} className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded text-[13px]
+                            ${r.exists ? 'bg-emerald-500/8 border border-emerald-500/15' : 'bg-red-500/8 border border-red-500/15'}`}>
+                            {r.exists ? <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" /> : <XCircle className="w-3.5 h-3.5 text-red-400" />}
+                            <span className={`font-mono font-bold ${r.exists ? 'text-emerald-300' : 'text-red-300'}`}>{r.ticker}</span>
+                            {r.exists && <span className="text-slate-300 ml-auto text-[13px]">{r.source}</span>}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </Section>
+            )}
+
+            {/* ═══ MARKET FEED ═══ */}
+            {data.marketFeed && (
+              <Section title="MARKET FEED" icon={BarChart3} status={data.marketFeed.status}>
+                <div className="text-[13px] text-slate-400 mb-2">{data.marketFeed.source}</div>
+                <HitRateBar rate={Math.round((data.marketFeed.hitCount / data.marketFeed.total) * 100)} count={data.marketFeed.hitCount} total={data.marketFeed.total} label="Market Indicators" />
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-3">
+                  {data.marketFeed.items?.map((m: any) => (
+                    <div key={m.key} className={`px-3 py-2 rounded-lg border ${m.exists ? 'bg-white/[0.02] border-white/[0.06]' : 'bg-red-500/5 border-red-500/10'}`}>
+                      <div className="text-[13px] text-slate-300 font-semibold">{m.label}</div>
+                      {m.exists ? (
+                        <div className="text-[15px] font-bold mt-0.5">
+                          <span className="text-white">{typeof m.value === 'number' ? (m.value > 1000 ? m.value.toLocaleString(undefined, {maximumFractionDigits: 0}) : m.value.toFixed(2)) : m.value}</span>
+                          {m.changePct != null && (
+                            <span className={`text-[13px] ml-1 ${m.changePct >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                              {m.changePct >= 0 ? '+' : ''}{m.changePct}%
+                            </span>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="text-[14px] text-slate-500 mt-0.5">—</div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+                <div className="flex items-center gap-4 mt-3">
+                  <ContentItem label="Economic Calendar" exists={data.marketFeed.econCalendar?.exists} />
+                  <div className="flex items-center gap-2">
+                    <span className="text-slate-300 text-[13px]">RLSI:</span>
+                    {data.marketFeed.rlsi?.exists ? (
+                      <span className="text-cyan-400 font-bold text-[13px]">{data.marketFeed.rlsi.value} ({data.marketFeed.rlsi.regime})</span>
+                    ) : (
+                      <span className="text-slate-500 text-[13px]">—</span>
+                    )}
+                  </div>
+                </div>
+              </Section>
+            )}
 
             {/* ═══ CACHE STATUS ═══ */}
             <Section title="REDIS / ELASTICACHE" icon={Database} status={data.cache.commandUnified.hitRate >= 80 ? 'OK' : 'DEGRADED'}>
