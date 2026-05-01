@@ -253,7 +253,8 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
             fallbackData: initialChartData ? { data: initialChartData } : undefined,
             refreshInterval: isClosed ? 0 : 30_000,     // 30s polling (same as old setInterval)
             revalidateOnFocus: !isClosed,  // [FIX] Prevent chart data refetch during market close
-            dedupingInterval: 10_000,    // Prevent duplicate fetches within 10s
+            revalidateOnMount: true,       // [V5.1 FIX] Always fetch on mount — prevents blank chart when SSR timeout
+            dedupingInterval: 5_000,       // [V5.1 FIX] 5s dedup (was 10s) — faster initial chart load
         }
     );
     const liveChartData = _swrChartResult?.data || initialChartData || null;
@@ -625,7 +626,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
     const effectiveRelated = React.useMemo(() => (unifiedData?.related ? { count: unifiedData.related.count || 0, topRelated: unifiedData.related.topRelated || [] } : relatedData) || null, [relatedData, unifiedData?.related]);
     const effectiveAnalyst = React.useMemo(() => unifiedData?.analyst || analystData || null, [analystData, unifiedData?.analyst]);
     const effectiveSqueeze = React.useMemo(() => unifiedData?.squeeze || squeezeData || null, [squeezeData, unifiedData?.squeeze]);
-    const effectiveInst = React.useMemo(() => unifiedData?.institutional || institutionalData || null, [institutionalData, unifiedData?.institutional]);
+    const effectiveInst = React.useMemo(() => unifiedData?.institutional || institutionalData || initialUnifiedData?.institutional || null, [institutionalData, unifiedData?.institutional, initialUnifiedData?.institutional]);
     const effectiveEarnings = React.useMemo(() => {
         const e = unifiedData?.earnings;
         if (e) return { nextDate: e.nextEarningsDate || e.nextDate || null, daysLabel: e.daysLabel || 'TBD', epsEstimate: e.epsEstimate || null, quarter: e.quarter || null, year: e.year || null, hourLabel: e.hourLabel || '', color: e.color || 'text-slate-400', forwardEps: e.forwardEps || null, forwardRevenue: e.forwardRevenue || null, forwardYear: e.forwardYear || null, forwardEpsRevision: e.forwardEpsRevision ?? null, forwardRevRevision: e.forwardRevRevision ?? null, lastSurprise: e.lastSurprise || null };
