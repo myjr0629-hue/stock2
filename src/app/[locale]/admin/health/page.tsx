@@ -18,10 +18,14 @@ function StatusBadge({ status }: { status: string }) {
     HEALTHY: { bg: 'bg-emerald-500/15', border: 'border-emerald-500/30', text: 'text-emerald-400', icon: CheckCircle2, label: 'HEALTHY' },
     RUNNING: { bg: 'bg-emerald-500/15', border: 'border-emerald-500/30', text: 'text-emerald-400', icon: CheckCircle2, label: 'RUNNING' },
     OK: { bg: 'bg-emerald-500/15', border: 'border-emerald-500/30', text: 'text-emerald-400', icon: CheckCircle2, label: 'OK' },
+    FRESH: { bg: 'bg-emerald-500/15', border: 'border-emerald-500/30', text: 'text-emerald-400', icon: CheckCircle2, label: 'FRESH' },
     DEGRADED: { bg: 'bg-amber-500/15', border: 'border-amber-500/30', text: 'text-amber-400', icon: AlertTriangle, label: 'DEGRADED' },
     PARTIAL: { bg: 'bg-amber-500/15', border: 'border-amber-500/30', text: 'text-amber-400', icon: AlertTriangle, label: 'PARTIAL' },
+    STALE: { bg: 'bg-amber-500/15', border: 'border-amber-500/30', text: 'text-amber-400', icon: Clock, label: 'STALE' },
     DOWN: { bg: 'bg-red-500/15', border: 'border-red-500/30', text: 'text-red-400', icon: XCircle, label: 'DOWN' },
+    EMPTY: { bg: 'bg-red-500/15', border: 'border-red-500/30', text: 'text-red-400', icon: XCircle, label: 'EMPTY' },
     IDLE: { bg: 'bg-slate-500/15', border: 'border-slate-500/30', text: 'text-slate-300', icon: Clock, label: 'IDLE' },
+    SCHEDULED_IDLE: { bg: 'bg-blue-500/15', border: 'border-blue-500/30', text: 'text-blue-300', icon: Clock, label: '예약 대기' },
     PENDING: { bg: 'bg-slate-500/15', border: 'border-slate-500/30', text: 'text-slate-300', icon: Clock, label: 'PENDING' },
     MISSING: { bg: 'bg-red-500/15', border: 'border-red-500/30', text: 'text-red-400', icon: XCircle, label: 'MISSING' },
   };
@@ -177,15 +181,15 @@ export default function AdminHealthPage() {
   const isMarketHours = etHour >= 9 && etHour < 16;
   const isExtendedHours = (etHour >= 4 && etHour < 9) || (etHour >= 16 && etHour < 20);
 
-  // 상태 판정 — API가 이미 정확하게 판정하므로 그대로 사용
-  const flowStatus = data?.lambda?.signumFlowHarvest?.status || 'IDLE';
+  // 상태 판정 — API가 operationalStatus / dataStatus 분리해서 제공
+  const flowOp = data?.lambda?.signumFlowHarvest?.operationalStatus || 'IDLE';
+  const flowData = data?.lambda?.signumFlowHarvest?.dataStatus || 'EMPTY';
   const probeHitRate = data?.cache?.snapshotProbe?.hitRate || 0;
   const flowHitRate = data?.cache?.flowUnified?.hitRate || 0;
-  const flowLock = data?.lambda?.signumFlowHarvest?.lockActive;
 
-  const harvestStatus = data?.lambda?.signumHarvest?.status;
-  const fmpStatus = data?.lambda?.signumFmp?.status;
-  const lambdaPipelineStatus = harvestStatus === 'RUNNING' && flowStatus !== 'DOWN' ? 'RUNNING' : 'DEGRADED';
+  const harvestOp = data?.lambda?.signumHarvest?.operationalStatus || 'DOWN';
+  const harvestData = data?.lambda?.signumHarvest?.dataStatus || 'EMPTY';
+  const lambdaPipelineStatus = harvestOp === 'RUNNING' && flowOp !== 'DOWN' ? 'RUNNING' : flowOp === 'SCHEDULED_IDLE' && harvestOp === 'RUNNING' ? 'RUNNING' : 'DEGRADED';
 
   return (
     <div className="min-h-screen bg-[#060a13] text-white" style={{ fontFamily: '"Plus Jakarta Sans", "Inter", system-ui' }}>
@@ -296,10 +300,16 @@ export default function AdminHealthPage() {
                     <span className="text-[14px] font-bold text-white">signum-harvest</span>
                     <span className="text-[13px] text-slate-300">(Dashboard/Command/Watchlist)</span>
                   </div>
-                  <StatusBadge status={data.lambda.signumHarvest.status} />
+                  <div className="flex items-center gap-1.5">
+                    <StatusBadge status={data.lambda.signumHarvest.operationalStatus} />
+                    <StatusBadge status={data.lambda.signumHarvest.dataStatus} />
+                  </div>
+                </div>
+                <div className="text-[13px] text-slate-400">{data.lambda.signumHarvest.schedule}</div>
+                <div className="text-[13px] text-cyan-300 bg-cyan-500/5 border border-cyan-500/10 rounded-lg px-3 py-2">
+                  {data.lambda.signumHarvest.statusNote}
                 </div>
                 <div className="text-[13px] text-slate-300">{data.lambda.signumHarvest.evidence}</div>
-                <div className="text-[13px] text-slate-300">평균 데이터 나이: <span className="text-cyan-400 font-bold">{data.lambda.signumHarvest.avgDataAge}</span></div>
                 <HitRateBar rate={data.cache?.commandUnified?.hitRate || 0} count={data.cache?.commandUnified?.count || 0} total={data.cache?.commandUnified?.total || 20} label="cache:command:unified" />
                 <CacheDetailTable results={data.lambda.signumHarvest.details} />
               </div>
@@ -313,7 +323,18 @@ export default function AdminHealthPage() {
                     <span className="text-[14px] font-bold text-white">signum-flow-harvest</span>
                     <span className="text-[13px] text-slate-300">(Flow 페이지)</span>
                   </div>
-                  <StatusBadge status={flowStatus} />
+                  <div className="flex items-center gap-1.5">
+                    <StatusBadge status={data.lambda.signumFlowHarvest.operationalStatus} />
+                    <StatusBadge status={data.lambda.signumFlowHarvest.dataStatus} />
+                  </div>
+                </div>
+                <div className="text-[13px] text-slate-400">{data.lambda.signumFlowHarvest.schedule}</div>
+                <div className={`text-[13px] rounded-lg px-3 py-2 border ${
+                  flowOp === 'DOWN' ? 'text-red-300 bg-red-500/5 border-red-500/10' :
+                  flowOp === 'SCHEDULED_IDLE' ? 'text-blue-300 bg-blue-500/5 border-blue-500/10' :
+                  'text-cyan-300 bg-cyan-500/5 border-cyan-500/10'
+                }`}>
+                  {data.lambda.signumFlowHarvest.statusNote}
                 </div>
                 <div className="text-[13px] text-slate-300">{data.lambda.signumFlowHarvest.evidence}</div>
                 <div className="text-[13px] text-slate-300">{data.lambda.signumFlowHarvest.probeEvidence}</div>
@@ -323,11 +344,6 @@ export default function AdminHealthPage() {
                     ? <span className="text-amber-400 font-bold">ACTIVE (실행 중)</span>
                     : <span className="text-slate-300">IDLE</span>}</span>
                 </div>
-                {flowHitRate === 0 && probeHitRate > 0 && (
-                  <div className="text-[13px] text-amber-400/80 bg-amber-500/5 border border-amber-500/10 rounded-lg px-3 py-2">
-                    💡 flow:unified TTL이 5분이라 MISS가 정상입니다. probe 데이터가 있으면 Lambda는 작동 중입니다.
-                  </div>
-                )}
                 <HitRateBar rate={data.cache?.flowUnified?.hitRate || 0} count={data.cache?.flowUnified?.count || 0} total={data.cache?.flowUnified?.total || 20} label="cache:flow:unified (TTL 5분)" />
                 <HitRateBar rate={data.cache?.snapshotProbe?.hitRate || 0} count={data.cache?.snapshotProbe?.count || 0} total={data.cache?.snapshotProbe?.total || 20} label="polygon:snapshot:probe (TTL 10분)" />
                 <CacheDetailTable results={data.lambda.signumFlowHarvest.details} />
@@ -343,10 +359,16 @@ export default function AdminHealthPage() {
                         <span className="text-[14px] font-bold text-white">signum-fmp</span>
                         <span className="text-[13px] text-slate-300">(Analyst/Earnings/Fundamentals)</span>
                       </div>
-                      <StatusBadge status={data.lambda.signumFmp.status} />
+                      <div className="flex items-center gap-1.5">
+                        <StatusBadge status={data.lambda.signumFmp.operationalStatus} />
+                        <StatusBadge status={data.lambda.signumFmp.dataStatus} />
+                      </div>
+                    </div>
+                    <div className="text-[13px] text-slate-400">{data.lambda.signumFmp.schedule}</div>
+                    <div className="text-[13px] text-cyan-300 bg-cyan-500/5 border border-cyan-500/10 rounded-lg px-3 py-2">
+                      {data.lambda.signumFmp.statusNote}
                     </div>
                     <div className="text-[13px] text-slate-300">{data.lambda.signumFmp.evidence}</div>
-                    <div className="text-[13px] text-slate-400">{data.lambda.signumFmp.note}</div>
                   </div>
                 </>
               )}

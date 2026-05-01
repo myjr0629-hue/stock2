@@ -197,25 +197,58 @@ export async function GET(req: NextRequest) {
       };
     }
 
-    // ═══ 6. 상태 판정 ═══
+    // ═══ 6. 상태 판정 — 작동 상태 vs 자료 유무 분리 ═══
     const elapsed = Date.now() - start;
 
+    // Flow-harvest: 8:00~21:00 ET 평일에만 실행. 그 외에는 SCHEDULED_IDLE
+    const flowRunWindow = !et.isWeekend && et.etHour >= 8 && et.etHour < 21;
+    const flowHasRecentData = flowCache.hitCount > 0 || probeCache.hitCount > 0;
+    const flowDataAge = flowCache.avgAge >= 0 ? flowCache.avgAge : (probeCache.avgAge >= 0 ? probeCache.avgAge : -1);
+    const flowDataFresh = flowDataAge >= 0 && flowDataAge < 1800; // 30분 이내면 FRESH
+
+    // 작동 상태 (Operational)
+    let flowOperational: string;
+    if (!!flowLock) flowOperational = 'RUNNING';       // Lock active = 지금 실행 중
+    else if (flowDataFresh) flowOperational = 'RUNNING'; // 최근 데이터 있음 = 방금 실행 완료
+    else if (!flowRunWindow) flowOperational = 'SCHEDULED_IDLE'; // 스케줄상 비작동 시간
+    else flowOperational = 'DOWN';                      // 본장 중인데 데이터 없음
+
+    // 자료 유무 (Data)
+    let flowDataStatus: string;
+    if (flowDataFresh) flowDataStatus = 'FRESH';        // 30분 이내
+    else if (flowHasRecentData) flowDataStatus = 'STALE'; // 있지만 30분+
+    else flowDataStatus = 'EMPTY';                       // 캐시에 없음
+
+    // 상태 설명 (사람이 읽을 수 있는)
+    let flowNote: string;
+    if (flowOperational === 'SCHEDULED_IDLE' && flowHasRecentData) {
+      flowNote = `장외 시간 — Lambda 미실행 (정상). 최근 데이터 ${flowCache.hitCount + probeCache.hitCount}종목 보존 중 (TTL 24~72h)`;
+    } else if (flowOperational === 'SCHEDULED_IDLE' && !flowHasRecentData) {
+      flowNote = `장외 시간 — Lambda 미실행 (정상). 캐시 TTL 만료됨. 다음 본장(8:00 ET)에 자동 갱신`;
+    } else if (flowOperational === 'RUNNING') {
+      flowNote = `본장 작동 중. ${flowCache.hitCount + probeCache.hitCount}종목 캐시 적재`;
+    } else {
+      flowNote = `⚠️ 본장 시간인데 데이터 없음 — Lambda 실행 확인 필요`;
+    }
+
+    // Harvest: 24/7 rate(15 minutes) — 항상 작동
     const harvestOk = commandCache.hitRate >= 80;
-    const flowOk = probeCache.hitCount > 0 || flowCache.hitCount > 0 || !!flowLock;
-    const flowStatus = flowOk ? 'RUNNING' : (et.isMarketHours ? 'DOWN' : 'IDLE');
+    const harvestDataAge = commandCache.avgAge;
+    const harvestDataFresh = harvestDataAge >= 0 && harvestDataAge < 3600; // 1시간 이내
 
     const briefingExists = !!(briefingKo || briefingEn || briefingJa || briefingLegacy);
     const briefingStatus = briefingExists ? 'OK' : (et.isPreMarket || et.isMarketHours ? 'MISSING' : 'PENDING');
 
     const crossSectorExists = !!(crossSectorToday || crossSectorYesterday);
 
-    const overall = harvestOk && (flowOk || !et.isMarketHours) && ec2ProxyOk ? 'HEALTHY' : 'DEGRADED';
+    const overall = harvestOk && (flowOperational !== 'DOWN') && ec2ProxyOk ? 'HEALTHY' : 'DEGRADED';
 
     return NextResponse.json({
       timestamp: new Date().toISOString(),
       elapsed: elapsed + 'ms',
       overall,
       et: {
+        etHour: et.etHour,
         isMarketHours: et.isMarketHours,
         isPreMarket: et.isPreMarket,
         isPostMarket: et.isPostMarket,
@@ -224,26 +257,37 @@ export async function GET(req: NextRequest) {
 
       lambda: {
         signumHarvest: {
-          status: harvestOk ? 'RUNNING' : commandCache.hitRate >= 50 ? 'DEGRADED' : 'DOWN',
+          operationalStatus: harvestOk ? 'RUNNING' : commandCache.hitRate >= 50 ? 'DEGRADED' : 'DOWN',
+          dataStatus: harvestDataFresh ? 'FRESH' : harvestOk ? 'STALE' : 'EMPTY',
+          schedule: 'rate(15 minutes) — 24/7 상시 실행',
+          statusNote: harvestOk
+            ? `정상 작동. ${commandCache.hitCount}/${SAMPLE_TICKERS.length}종목 캐시 적재 (평균 ${harvestDataAge >= 0 ? Math.round(harvestDataAge / 60) + '분' : 'N/A'})`
+            : `⚠️ 캐시 히트율 ${commandCache.hitRate}% — Lambda 확인 필요`,
           evidence: `cache:command:unified ${commandCache.hitCount}/${SAMPLE_TICKERS.length} hit (${commandCache.hitRate}%)`,
           avgDataAge: commandCache.avgAge >= 0 ? commandCache.avgAge + 's' : 'N/A',
           details: commandCache.results,
         },
         signumFlowHarvest: {
-          status: flowStatus,
+          operationalStatus: flowOperational,
+          dataStatus: flowDataStatus,
+          schedule: '평일 8:00~21:00 ET만 실행 (rate(5 min), 장외 자동 스킵)',
+          statusNote: flowNote,
           evidence: `cache:flow:unified ${flowCache.hitCount}/${SAMPLE_TICKERS.length} hit (${flowCache.hitRate}%)`,
           probeEvidence: `polygon:snapshot:probe ${probeCache.hitCount}/${SAMPLE_TICKERS.length} hit (${probeCache.hitRate}%)`,
-          avgDataAge: flowCache.avgAge >= 0 ? flowCache.avgAge + 's' : (probeCache.avgAge >= 0 ? probeCache.avgAge + 's (probe)' : 'N/A'),
+          avgDataAge: flowDataAge >= 0 ? flowDataAge + 's' : 'N/A',
           lockActive: !!flowLock,
           lockValue: flowLock ? String(flowLock) : null,
-          note: 'flow:unified TTL=5분, probe TTL=10분. Lambda 처리 13분이므로 대부분 만료 정상.',
           details: flowCache.results,
           probeDetails: probeCache.results,
         },
         signumFmp: {
-          status: fmpRelay.analyst && fmpRelay.earnings ? 'OK' : 'DEGRADED',
+          operationalStatus: fmpRelay.analyst && fmpRelay.earnings ? 'OK' : 'DEGRADED',
+          dataStatus: fmpRelay.analyst ? 'FRESH' : 'EMPTY',
+          schedule: 'cron(30 13 ? * MON-FRI *) — 평일 13:30 UTC 1회',
+          statusNote: fmpRelay.analyst && fmpRelay.earnings
+            ? '정상. analyst/earnings/fundamentals 데이터 캐시 적재됨'
+            : '⚠️ analyst 또는 earnings 데이터 누락',
           evidence: `analyst=${fmpRelay.analyst}, earnings=${fmpRelay.earnings}, fundamentals=${fmpRelay.fundamentals}`,
-          note: 'signum-fmp → DynamoDB → signum-harvest relay → cache:command:unified',
         },
       },
 
