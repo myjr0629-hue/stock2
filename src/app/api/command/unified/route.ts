@@ -471,207 +471,214 @@ export async function GET(request: NextRequest) {
             }
             if (resolvedOverview) memorySet(`overview:${ticker}:${locale}`, resolvedOverview);
 
-            // [GAP-FILL V2] Check for missing, empty-shell, or STALE fields and fill them via sub-APIs
-            // CRITICAL FIX: Volatile fields (squeeze, institutional, volatility) must check _ts age,
-            // not just existence. Otherwise cached tickers serve 30-min-old stale data while fresh
-            // tickers always get live data — making cached tickers paradoxically worse.
-            const VOLATILE_FIELDS = new Set(['squeeze', 'institutional', 'volatility']);
-            const VOLATILE_STALE_MS = 300_000; // 5 minutes — force refresh volatile fields older than this
-            const CORE_FIELDS = ['analyst','fundamentals','earnings','related','sma','squeeze','volatility','structure','institutional'] as const;
-            const missingFields = CORE_FIELDS.filter(f => {
-                if (!isFieldUsable(f, cachedData[f])) return true;
-                // Force refresh volatile fields that are too old — BUT ONLY during market hours.
-                // Off-market: data doesn't change, and GAP-FILL overwrites good Lambda IV with iv:0
-                if (VOLATILE_FIELDS.has(f) && isMarketHoursNow()) {
-                    const fieldTs = cachedData[f]?._ts || cachedData.timestamp || 0;
-                    if (Date.now() - fieldTs > VOLATILE_STALE_MS) return true;
-                }
-                return false;
-            });
+            // ══════════════════════════════════════════════════════════════
+            // [ZERO-WAIT RETURN] Fast in-memory operations only, then IMMEDIATE response.
+            // ALL slow API calls (GAP-FILL, IV enrichment, Earnings) run in after().
+            // Bloomberg pattern: show cached data instantly, enrich in background.
+            // ══════════════════════════════════════════════════════════════
 
-            // [AWS-FIRST] ALWAYS enrich volatility IV if cached data has iv=0
-            if (cachedData.volatility && cachedData.volatility.iv === 0) {
-                let ivFound = false;
-                // Attempt 1: Lambda DynamoDB
-                try {
-                    const { getUnifiedCache } = await import('@/lib/aws/unifiedCacheProvider');
-                    const snap = await Promise.race([
-                        getUnifiedCache(ticker, locale),
-                        new Promise<any>(r => setTimeout(() => r(null), 3000))
-                    ]);
-                    if (snap?.volatility?.iv && snap.volatility.iv > 0) {
-                        cachedData.volatility = { ...snap.volatility, _ts: Date.now() };
-                        ivFound = true;
-                    }
-                } catch { /* DynamoDB unavailable */ }
-                // Attempt 2: Live Polygon API
-                if (!ivFound) {
-                    try {
-                        const baseUrl = getBaseUrl(request);
-                        const volRes = await Promise.race([
-                            callInternalGet(getVolatility, `${baseUrl}/api/live/volatility-regime?t=${ticker}`),
-                            new Promise<any>(r => setTimeout(() => r(null), 3000))
-                        ]);
-                        if (volRes?.iv && volRes.iv > 0) {
-                            cachedData.volatility = { ...volRes, _ts: Date.now() };
-                        }
-                    } catch { /* Polygon unavailable */ }
-                }
-            }
-            
-            if (missingFields.length > 0 && missingFields.length <= 7) {
-
-                // [AWS-FIRST] For structure & volatility, use DynamoDB GEX (0.1s) instead of Polygon (20-27s)
-                let structureFilled = false;
-                let volatilityFilled = false;
-
-                if (missingFields.includes('structure')) {
-                    const dynamoStructure = await getStructureFromDynamoGex(ticker);
-                    if (dynamoStructure) {
-                        cachedData.structure = dynamoStructure;
-                        structureFilled = true;
-                        console.log(`[Command Unified] ✅ Structure filled from DynamoDB GEX for ${ticker}`);
-                    }
-                }
-                if (missingFields.includes('volatility')) {
-                    const existingIv = cachedData.volatility?.iv || 0; // [FIX] Preserve Lambda IV before overwrite
-                    const dynamoVol = await getVolatilityFromDynamoGex(ticker);
-                    if (dynamoVol) {
-                        // [FIX] GEX table has no IV data → preserve existing IV if replacement has iv:0
-                        if (dynamoVol.iv === 0 && existingIv > 0) dynamoVol.iv = existingIv;
-                        cachedData.volatility = dynamoVol;
-                        volatilityFilled = true;
-                        console.log(`[Command Unified] ✅ Volatility filled from DynamoDB GEX for ${ticker} (iv: ${dynamoVol.iv})`);
-                    }
-                }
-
-                // Gap-fill remaining fields (excluding DynamoDB-filled ones)
-                const remainingFields = missingFields.filter(f =>
-                    !(f === 'structure' && structureFilled) &&
-                    !(f === 'volatility' && volatilityFilled)
-                );
-                if (remainingFields.length > 0) {
-                    const baseUrl = getBaseUrl(request);
-                    const fieldHandlers: Record<string, [Function, string]> = {
-                        'analyst': [getAnalyst, `${baseUrl}/api/live/analyst?t=${ticker}`],
-                        'fundamentals': [getFundamentals, `${baseUrl}/api/live/fundamentals?t=${ticker}`],
-                        'earnings': [getEarnings, `${baseUrl}/api/live/earnings?t=${ticker}`],
-                        'related': [getRelated, `${baseUrl}/api/live/related?t=${ticker}`],
-                        'sma': [getSma, `${baseUrl}/api/live/sma?t=${ticker}`],
-                        'squeeze': [getSqueeze, `${baseUrl}/api/live/short-squeeze?t=${ticker}`],
-                        'volatility': [getVolatility, `${baseUrl}/api/live/volatility-regime?t=${ticker}`],
-                        'structure': [getStructure, `${baseUrl}/api/live/options/structure?t=${ticker}`],
-                        'institutional': [getInstitutional, `${baseUrl}/api/flow/realtime-metrics?ticker=${ticker}`],
-                    };
-                    
-                    const gapPromises = remainingFields.map(f => {
-                        const [handler, url] = fieldHandlers[f];
-                        return callInternalGet(handler, url);
-                    });
-                    
-                    const gapResults = await Promise.all(gapPromises);
-                    for (let i = 0; i < remainingFields.length; i++) {
-                        if (gapResults[i]) {
-                            if (VOLATILE_FIELDS.has(remainingFields[i])) {
-                                gapResults[i]._ts = Date.now();
-                            }
-                            cachedData[remainingFields[i]] = gapResults[i];
-                        } else if (VOLATILE_FIELDS.has(remainingFields[i]) && cachedData[remainingFields[i]]) {
-                            // [FIX] Gap-fill failed but existing data present — reset _ts to prevent
-                            // infinite stale loop (5-min re-trigger → fail → re-trigger → fail...)
-                            cachedData[remainingFields[i]] = { ...cachedData[remainingFields[i]], _ts: Date.now() };
-                        }
-                    }
-                }
-                
-                const totalFilled = missingFields.filter(f => isFieldUsable(f, cachedData[f])).length;
-                if (totalFilled > 0 || structureFilled) {
-                    cachedData.timestamp = Date.now();
-                    setInCache(dataCacheKey, cachedData, getSmartTTL()).catch(() => {});
-                    console.log(`[Command Unified] Redis GAP-FILL ${ticker}: filled ${totalFilled}/${missingFields.length} fields${structureFilled ? ' (structure via DynamoDB)' : ''}`);
-                }
-            }
-
-            // Promote to memory cache for next request (0ms)
-            memorySet(memKey, cachedData);
-
-            // SWR: If older than threshold, refetch in background
-            if (ageMs > REFRESH_THRESHOLD_MS) {
-                const baseUrl = getBaseUrl(request);
-                after(() => {
-                    triggerBackgroundRefresh(ticker, dataCacheKey, overviewCacheKey, baseUrl, locale);
-                });
-            }
-
-            // [FIX] Cross-reference: inject atmIV into structure from volatility
+            // [FAST] Cross-reference: inject atmIV into structure from volatility (in-memory, 0ms)
             if (cachedData.structure && !cachedData.structure.atmIV && cachedData.volatility?.iv > 0) {
                 cachedData.structure = { ...cachedData.structure, atmIV: cachedData.volatility.iv / 100 };
             }
             await enrichExpiration(cachedData);
             await injectAlphaBypass(cachedData, ticker);
 
-            // [V5.0 FIX] TIER 1 캐시에도 earnings 날짜 보완 (Finnhub)
-            if (cachedData.earnings && !cachedData.earnings.nextEarningsDate) {
-                try {
-                    const { getEarningsCalendar } = await import('@/services/finnhubClient');
-                    const earningsList = await getEarningsCalendar(ticker);
-                    earningsList.sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime());
-                    const today = new Date();
-                    today.setHours(0, 0, 0, 0);
-                    const upcoming = earningsList.find((ev: any) => new Date(ev.date) >= today);
-                    if (upcoming) {
-                        const earDate = new Date(upcoming.date);
-                        earDate.setHours(0, 0, 0, 0);
-                        const daysUntil = Math.ceil((earDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
-                        cachedData.earnings = {
-                            ...cachedData.earnings,
-                            nextEarningsDate: upcoming.date,
-                            daysUntilEarnings: daysUntil,
-                            daysLabel: daysUntil < 0 ? `D+${Math.abs(daysUntil)}` : daysUntil === 0 ? 'today' : `D-${daysUntil}`,
-                            epsEstimate: upcoming.epsEstimate || cachedData.earnings.epsEstimate,
-                            color: daysUntil <= 3 && daysUntil >= 0 ? 'text-rose-400' : daysUntil <= 7 && daysUntil >= 0 ? 'text-amber-400' : 'text-slate-400',
-                        };
-                    }
-                } catch { /* Finnhub unavailable — keep cached */ }
-            }
-            // [V5.1 FIX] Earnings revision 보완: unified cache에 revision이 없으면 DynamoDB pattern-db에서 보완
-            if (cachedData.earnings && cachedData.earnings.forwardEpsRevision === undefined) {
-                try {
-                    const { getEarningsData } = await import('@/lib/aws/dynamoDataProvider');
-                    const patternData = await getEarningsData(ticker);
-                    if (patternData) {
-                        cachedData.earnings = {
-                            ...cachedData.earnings,
-                            forwardEpsRevision: patternData.forwardEpsRevision ?? null,
-                            forwardEpsRevisionDate: patternData.forwardEpsRevisionDate ?? null,
-                            forwardRevRevision: patternData.forwardRevRevision ?? null,
-                            forwardRevRevisionDate: patternData.forwardRevRevisionDate ?? null,
-                        };
-                    }
-                } catch { /* DynamoDB unavailable */ }
-            }
-            // [V6.0] Earnings surprise + hour enrichment for TIER 1 cache
-            if (cachedData.earnings && !cachedData.earnings.lastSurprise) {
-                try {
-                    const { getEarningsSurprise, getEarningsCalendar } = await import('@/services/finnhubClient');
-                    const [surprise, cal] = await Promise.all([
-                        getEarningsSurprise(ticker).catch(() => null),
-                        !cachedData.earnings.hourLabel ? getEarningsCalendar(ticker).catch(() => []) : Promise.resolve([])
-                    ]);
-                    const updates: any = {};
-                    if (surprise) {
-                        updates.lastSurprise = { actualEps: surprise.actual, estimatedEps: surprise.estimate, surpriseEps: Number(surprise.surprise.toFixed(3)), surprisePct: Number(surprise.surprisePercent.toFixed(1)), date: surprise.period };
-                    }
-                    if (!cachedData.earnings.hourLabel && Array.isArray(cal) && cal.length > 0) {
-                        const today = new Date(); today.setHours(0, 0, 0, 0);
-                        const upcoming = cal.sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime()).find((e: any) => new Date(e.date) >= today);
-                        if (upcoming?.hour) updates.hourLabel = upcoming.hour;
-                    }
-                    if (Object.keys(updates).length > 0) cachedData.earnings = { ...cachedData.earnings, ...updates };
-                } catch { /* Finnhub unavailable */ }
-            }
+            // Promote to memory cache for next request (0ms)
+            memorySet(memKey, cachedData);
 
-            return jsonResponse({ ...cachedData, overview: resolvedOverview || null, _source: 'cache', _ageMs: ageMs });
+            // ═══ IMMEDIATE RETURN — user sees data in ≤5ms ═══
+            const immediateResponse = jsonResponse({ ...cachedData, overview: resolvedOverview || null, _source: 'cache', _ageMs: ageMs });
+
+            // ═══ BACKGROUND ENRICHMENT — runs AFTER response is sent ═══
+            const bgBaseUrl = getBaseUrl(request);
+            after(async () => {
+                try {
+                    let enriched = false;
+
+                    // SWR: If older than threshold, do full DynamoDB→Redis sync
+                    if (ageMs > REFRESH_THRESHOLD_MS) {
+                        await triggerBackgroundRefresh(ticker, dataCacheKey, overviewCacheKey, bgBaseUrl, locale);
+                        return; // Full sync covers everything
+                    }
+
+                    // [GAP-FILL] Check for missing, empty-shell, or STALE fields
+                    const VOLATILE_FIELDS = new Set(['squeeze', 'institutional', 'volatility']);
+                    const VOLATILE_STALE_MS = 300_000;
+                    const CORE_FIELDS = ['analyst','fundamentals','earnings','related','sma','squeeze','volatility','structure','institutional'] as const;
+                    const missingFields = CORE_FIELDS.filter(f => {
+                        if (!isFieldUsable(f, cachedData[f])) return true;
+                        if (VOLATILE_FIELDS.has(f) && isMarketHoursNow()) {
+                            const fieldTs = cachedData[f]?._ts || cachedData.timestamp || 0;
+                            if (Date.now() - fieldTs > VOLATILE_STALE_MS) return true;
+                        }
+                        return false;
+                    });
+
+                    // [AWS-FIRST] Enrich volatility IV if cached data has iv=0
+                    if (cachedData.volatility && cachedData.volatility.iv === 0) {
+                        let ivFound = false;
+                        try {
+                            const { getUnifiedCache } = await import('@/lib/aws/unifiedCacheProvider');
+                            const snap = await Promise.race([
+                                getUnifiedCache(ticker, locale),
+                                new Promise<any>(r => setTimeout(() => r(null), 3000))
+                            ]);
+                            if (snap?.volatility?.iv && snap.volatility.iv > 0) {
+                                cachedData.volatility = { ...snap.volatility, _ts: Date.now() };
+                                ivFound = true;
+                                enriched = true;
+                            }
+                        } catch { /* DynamoDB unavailable */ }
+                        if (!ivFound) {
+                            try {
+                                const volRes = await Promise.race([
+                                    callInternalGet(getVolatility, `${bgBaseUrl}/api/live/volatility-regime?t=${ticker}`),
+                                    new Promise<any>(r => setTimeout(() => r(null), 3000))
+                                ]);
+                                if (volRes?.iv && volRes.iv > 0) {
+                                    cachedData.volatility = { ...volRes, _ts: Date.now() };
+                                    enriched = true;
+                                }
+                            } catch { /* Polygon unavailable */ }
+                        }
+                    }
+
+                    // [GAP-FILL] Fill missing/stale fields via DynamoDB + sub-APIs
+                    if (missingFields.length > 0 && missingFields.length <= 7) {
+                        let structureFilled = false;
+                        let volatilityFilled = false;
+
+                        if (missingFields.includes('structure')) {
+                            const dynamoStructure = await getStructureFromDynamoGex(ticker);
+                            if (dynamoStructure) {
+                                cachedData.structure = dynamoStructure;
+                                structureFilled = true;
+                            }
+                        }
+                        if (missingFields.includes('volatility')) {
+                            const existingIv = cachedData.volatility?.iv || 0;
+                            const dynamoVol = await getVolatilityFromDynamoGex(ticker);
+                            if (dynamoVol) {
+                                if (dynamoVol.iv === 0 && existingIv > 0) dynamoVol.iv = existingIv;
+                                cachedData.volatility = dynamoVol;
+                                volatilityFilled = true;
+                            }
+                        }
+
+                        const remainingFields = missingFields.filter(f =>
+                            !(f === 'structure' && structureFilled) &&
+                            !(f === 'volatility' && volatilityFilled)
+                        );
+                        if (remainingFields.length > 0) {
+                            const fieldHandlers: Record<string, [Function, string]> = {
+                                'analyst': [getAnalyst, `${bgBaseUrl}/api/live/analyst?t=${ticker}`],
+                                'fundamentals': [getFundamentals, `${bgBaseUrl}/api/live/fundamentals?t=${ticker}`],
+                                'earnings': [getEarnings, `${bgBaseUrl}/api/live/earnings?t=${ticker}`],
+                                'related': [getRelated, `${bgBaseUrl}/api/live/related?t=${ticker}`],
+                                'sma': [getSma, `${bgBaseUrl}/api/live/sma?t=${ticker}`],
+                                'squeeze': [getSqueeze, `${bgBaseUrl}/api/live/short-squeeze?t=${ticker}`],
+                                'volatility': [getVolatility, `${bgBaseUrl}/api/live/volatility-regime?t=${ticker}`],
+                                'structure': [getStructure, `${bgBaseUrl}/api/live/options/structure?t=${ticker}`],
+                                'institutional': [getInstitutional, `${bgBaseUrl}/api/flow/realtime-metrics?ticker=${ticker}`],
+                            };
+                            const gapPromises = remainingFields.map(f => {
+                                const [handler, url] = fieldHandlers[f];
+                                return callInternalGet(handler, url);
+                            });
+                            const gapResults = await Promise.all(gapPromises);
+                            for (let i = 0; i < remainingFields.length; i++) {
+                                if (gapResults[i]) {
+                                    if (VOLATILE_FIELDS.has(remainingFields[i])) gapResults[i]._ts = Date.now();
+                                    cachedData[remainingFields[i]] = gapResults[i];
+                                } else if (VOLATILE_FIELDS.has(remainingFields[i]) && cachedData[remainingFields[i]]) {
+                                    cachedData[remainingFields[i]] = { ...cachedData[remainingFields[i]], _ts: Date.now() };
+                                }
+                            }
+                        }
+                        const totalFilled = missingFields.filter(f => isFieldUsable(f, cachedData[f])).length;
+                        if (totalFilled > 0 || structureFilled) enriched = true;
+                        console.log(`[Command Unified] BG GAP-FILL ${ticker}: ${totalFilled}/${missingFields.length} fields${structureFilled ? ' (structure via DynamoDB)' : ''}`);
+                    }
+
+                    // [Earnings enrichment] date, revision, surprise
+                    if (cachedData.earnings && !cachedData.earnings.nextEarningsDate) {
+                        try {
+                            const { getEarningsCalendar } = await import('@/services/finnhubClient');
+                            const earningsList = await getEarningsCalendar(ticker);
+                            earningsList.sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime());
+                            const today = new Date(); today.setHours(0, 0, 0, 0);
+                            const upcoming = earningsList.find((ev: any) => new Date(ev.date) >= today);
+                            if (upcoming) {
+                                const earDate = new Date(upcoming.date); earDate.setHours(0, 0, 0, 0);
+                                const daysUntil = Math.ceil((earDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+                                cachedData.earnings = {
+                                    ...cachedData.earnings,
+                                    nextEarningsDate: upcoming.date,
+                                    daysUntilEarnings: daysUntil,
+                                    daysLabel: daysUntil < 0 ? `D+${Math.abs(daysUntil)}` : daysUntil === 0 ? 'today' : `D-${daysUntil}`,
+                                    epsEstimate: upcoming.epsEstimate || cachedData.earnings.epsEstimate,
+                                    color: daysUntil <= 3 && daysUntil >= 0 ? 'text-rose-400' : daysUntil <= 7 && daysUntil >= 0 ? 'text-amber-400' : 'text-slate-400',
+                                };
+                                enriched = true;
+                            }
+                        } catch { /* Finnhub unavailable */ }
+                    }
+                    if (cachedData.earnings && cachedData.earnings.forwardEpsRevision === undefined) {
+                        try {
+                            const { getEarningsData } = await import('@/lib/aws/dynamoDataProvider');
+                            const patternData = await getEarningsData(ticker);
+                            if (patternData) {
+                                cachedData.earnings = {
+                                    ...cachedData.earnings,
+                                    forwardEpsRevision: patternData.forwardEpsRevision ?? null,
+                                    forwardEpsRevisionDate: patternData.forwardEpsRevisionDate ?? null,
+                                    forwardRevRevision: patternData.forwardRevRevision ?? null,
+                                    forwardRevRevisionDate: patternData.forwardRevRevisionDate ?? null,
+                                };
+                                enriched = true;
+                            }
+                        } catch { /* DynamoDB unavailable */ }
+                    }
+                    if (cachedData.earnings && !cachedData.earnings.lastSurprise) {
+                        try {
+                            const { getEarningsSurprise, getEarningsCalendar } = await import('@/services/finnhubClient');
+                            const [surprise, cal] = await Promise.all([
+                                getEarningsSurprise(ticker).catch(() => null),
+                                !cachedData.earnings.hourLabel ? getEarningsCalendar(ticker).catch(() => []) : Promise.resolve([])
+                            ]);
+                            const updates: any = {};
+                            if (surprise) {
+                                updates.lastSurprise = { actualEps: surprise.actual, estimatedEps: surprise.estimate, surpriseEps: Number(surprise.surprise.toFixed(3)), surprisePct: Number(surprise.surprisePercent.toFixed(1)), date: surprise.period };
+                            }
+                            if (!cachedData.earnings.hourLabel && Array.isArray(cal) && cal.length > 0) {
+                                const today = new Date(); today.setHours(0, 0, 0, 0);
+                                const upcoming = cal.sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime()).find((e: any) => new Date(e.date) >= today);
+                                if (upcoming?.hour) updates.hourLabel = upcoming.hour;
+                            }
+                            if (Object.keys(updates).length > 0) { cachedData.earnings = { ...cachedData.earnings, ...updates }; enriched = true; }
+                        } catch { /* Finnhub unavailable */ }
+                    }
+
+                    // Cross-reference IV after enrichment
+                    if (cachedData.structure && !cachedData.structure.atmIV && cachedData.volatility?.iv > 0) {
+                        cachedData.structure = { ...cachedData.structure, atmIV: cachedData.volatility.iv / 100 };
+                        enriched = true;
+                    }
+
+                    // Save enriched data to Redis + Memory for next request
+                    if (enriched) {
+                        cachedData.timestamp = Date.now();
+                        await setInCache(dataCacheKey, cachedData, getSmartTTL());
+                        memorySet(memKey, cachedData);
+                        console.log(`[Command Unified] ✅ BG enrichment saved for ${ticker}`);
+                    }
+                } catch (e) {
+                    console.warn(`[Command Unified] BG enrichment failed for ${ticker}:`, e);
+                }
+            });
+
+            return immediateResponse;
         }
 
         // ══════════════════════════════════════════════════════════════
