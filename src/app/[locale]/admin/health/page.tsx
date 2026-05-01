@@ -21,6 +21,9 @@ function StatusBadge({ status }: { status: string }) {
     DEGRADED: { bg: 'bg-amber-500/15', border: 'border-amber-500/30', text: 'text-amber-400', icon: AlertTriangle, label: 'DEGRADED' },
     PARTIAL: { bg: 'bg-amber-500/15', border: 'border-amber-500/30', text: 'text-amber-400', icon: AlertTriangle, label: 'PARTIAL' },
     DOWN: { bg: 'bg-red-500/15', border: 'border-red-500/30', text: 'text-red-400', icon: XCircle, label: 'DOWN' },
+    IDLE: { bg: 'bg-slate-500/15', border: 'border-slate-500/30', text: 'text-slate-300', icon: Clock, label: 'IDLE' },
+    PENDING: { bg: 'bg-slate-500/15', border: 'border-slate-500/30', text: 'text-slate-300', icon: Clock, label: 'PENDING' },
+    MISSING: { bg: 'bg-red-500/15', border: 'border-red-500/30', text: 'text-red-400', icon: XCircle, label: 'MISSING' },
   };
   const c = config[status] || config.DEGRADED;
   const Icon = c.icon;
@@ -306,49 +309,61 @@ export default function AdminHealthPage() {
               <HitRateBar rate={data.cache.flowUnified.hitRate} count={data.cache.flowUnified.count} total={data.cache.flowUnified.total} label="cache:flow:unified" />
               <HitRateBar rate={data.cache.snapshotProbe.hitRate} count={data.cache.snapshotProbe.count} total={data.cache.snapshotProbe.total} label="polygon:snapshot:probe" />
 
-              <div className="grid grid-cols-2 gap-3 mt-2">
-                <div className="px-3 py-2.5 rounded-lg bg-white/[0.02] border border-white/[0.05]">
-                  <div className="text-[13px] text-slate-300 uppercase font-semibold">RLSI</div>
-                  <div className="text-[16px] font-bold mt-1">{data.marketData.rlsi.exists
-                    ? <span className="text-cyan-400">{data.marketData.rlsi.value} ({data.marketData.rlsi.regime})</span>
-                    : <span className="text-red-400">N/A</span>}</div>
-                </div>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-2">
                 <div className="px-3 py-2.5 rounded-lg bg-white/[0.02] border border-white/[0.05]">
                   <div className="text-[13px] text-slate-300 uppercase font-semibold">VIX</div>
-                  <div className="text-[16px] font-bold mt-1">{data.marketData.vix.exists
-                    ? <span className="text-amber-400">{data.marketData.vix.value}</span>
-                    : <span className="text-red-400">N/A</span>}</div>
+                  <div className="text-[16px] font-bold mt-1">{data.marketData.vix?.exists
+                    ? <span className="text-amber-400">{data.marketData.vix.value} <span className="text-[13px]">{data.marketData.vix.changePct}</span></span>
+                    : <span className="text-slate-500">—</span>}</div>
+                </div>
+                <div className="px-3 py-2.5 rounded-lg bg-white/[0.02] border border-white/[0.05]">
+                  <div className="text-[13px] text-slate-300 uppercase font-semibold">S&P 500</div>
+                  <div className="text-[16px] font-bold mt-1">{data.marketData.spx?.exists
+                    ? <span className="text-cyan-400">{data.marketData.spx.value?.toLocaleString()} <span className="text-[13px]">{data.marketData.spx.changePct}</span></span>
+                    : <span className="text-slate-500">—</span>}</div>
+                </div>
+                <div className="px-3 py-2.5 rounded-lg bg-white/[0.02] border border-white/[0.05]">
+                  <div className="text-[13px] text-slate-300 uppercase font-semibold">RLSI</div>
+                  <div className="text-[16px] font-bold mt-1">{data.marketData.rlsi?.exists
+                    ? <span className="text-cyan-400">{data.marketData.rlsi.value} ({data.marketData.rlsi.regime})</span>
+                    : <span className="text-slate-500">—</span>}</div>
+                </div>
+                <div className="px-3 py-2.5 rounded-lg bg-white/[0.02] border border-white/[0.05]">
+                  <div className="text-[13px] text-slate-300 uppercase font-semibold">Fear & Greed</div>
+                  <div className="text-[16px] font-bold mt-1">{data.marketData.fearGreed?.exists
+                    ? <span className="text-emerald-400">{data.marketData.fearGreed.value}</span>
+                    : <span className="text-slate-500">—</span>}</div>
                 </div>
               </div>
             </Section>
 
             {/* ═══ CONTENT PIPELINE ═══ */}
             <Section title="CONTENT PIPELINE" icon={FileText}
-              status={data.content.morningBriefing.ko.exists || data.content.morningBriefing.en.exists ? 'OK' : 'DEGRADED'}>
-              <div className="text-[13px] text-slate-300 uppercase tracking-wider font-bold mb-1">모닝 브리핑</div>
-              <ContentItem label="한국어 (ko)" exists={data.content.morningBriefing.ko.exists} date={data.content.morningBriefing.ko.date} />
-              <ContentItem label="English (en)" exists={data.content.morningBriefing.en.exists} date={data.content.morningBriefing.en.date} />
+              status={data.content.morningBriefing?.status === 'OK' || data.content.crossSectorBrief?.exists ? 'OK' : 'DEGRADED'}>
+              <div className="text-[13px] text-slate-300 uppercase tracking-wider font-bold mb-1">
+                모닝 브리핑 <span className="text-slate-500 normal-case font-normal ml-1">{data.content.morningBriefing?.source}</span>
+              </div>
+              <ContentItem label="한국어 (ko)" exists={data.content.morningBriefing?.ko?.exists} date={data.content.morningBriefing?.ko?.date} />
+              <ContentItem label="English (en)" exists={data.content.morningBriefing?.en?.exists} date={data.content.morningBriefing?.en?.date} />
+              <ContentItem label="Legacy" exists={data.content.morningBriefing?.legacy?.exists} date={data.content.morningBriefing?.legacy?.date} />
 
               <div className="border-t border-white/[0.04] my-2" />
-              <div className="text-[13px] text-slate-300 uppercase tracking-wider font-bold mb-1">크로스 섹터 브리프</div>
-              <ContentItem label="한국어 (ko)" exists={data.content.crossSectorBrief.ko.exists} date={data.content.crossSectorBrief.ko.date} />
-              <ContentItem label="English (en)" exists={data.content.crossSectorBrief.en.exists} date={data.content.crossSectorBrief.en.date} />
+              <div className="text-[13px] text-slate-300 uppercase tracking-wider font-bold mb-1">
+                크로스 섹터 브리프 <span className="text-slate-500 normal-case font-normal ml-1">{data.content.crossSectorBrief?.source}</span>
+              </div>
+              <ContentItem label={`postmarket:cross-brief-v3`} exists={data.content.crossSectorBrief?.exists} date={data.content.crossSectorBrief?.date} />
 
               <div className="border-t border-white/[0.04] my-2" />
-              <div className="text-[13px] text-slate-300 uppercase tracking-wider font-bold mb-1">마케팅 콘텐츠</div>
-              <ContentItem label="Morning Brief" exists={data.content.marketing.morning.exists} date={data.content.marketing.morning.date} />
-              <ContentItem label="Market Pulse" exists={data.content.marketing.pulse.exists} date={data.content.marketing.pulse.date} />
-
-              <div className="border-t border-white/[0.04] my-2" />
-              <div className="text-[13px] text-slate-300 uppercase tracking-wider font-bold mb-1">시장 리포트</div>
-              {Object.entries(data.content.reports).map(([type, r]: [string, any]) => (
-                <ContentItem key={type} label={type.toUpperCase()} exists={r.exists} date={r.date} />
-              ))}
+              <div className="text-[13px] text-slate-300 uppercase tracking-wider font-bold mb-1">
+                마케팅 콘텐츠 <span className="text-slate-500 normal-case font-normal ml-1">{data.content.marketing?.source}</span>
+              </div>
+              <ContentItem label="Morning Brief" exists={data.content.marketing?.morning?.exists} />
+              <ContentItem label="Market Pulse" exists={data.content.marketing?.pulse?.exists} />
             </Section>
 
             {/* ═══ PAGE HEALTH ═══ */}
             <Section title="PAGE INTEGRITY" icon={Layout}
-              status={Object.values(data.pages).every((p: any) => p.status === 'OK') ? 'OK' : 'DEGRADED'}>
+              status={Object.values(data.pages).every((p: any) => p.status === 'OK' || p.status === 'PENDING') ? 'OK' : 'DEGRADED'}>
               {Object.entries(data.pages).map(([page, info]: [string, any]) => (
                 <div key={page} className="flex items-center justify-between py-2 border-b border-white/[0.03] last:border-0">
                   <div>

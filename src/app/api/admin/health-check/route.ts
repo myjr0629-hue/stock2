@@ -1,5 +1,6 @@
 // [Admin] System Health Check API — 관리자 전용 인프라 헬스체크
 // 모든 체크는 READ-ONLY. 기존 기능에 영향 없음.
+// 2026-05-01: 실제 Redis 키 패턴 검증 완료 후 정밀 수정
 import { NextRequest, NextResponse } from 'next/server';
 import { getFromCache } from '@/services/redisClient';
 
@@ -14,10 +15,9 @@ interface CacheCheckResult {
   exists: boolean;
   age?: number;       // seconds since last update
   source?: string;
-  extra?: Record<string, any>;
 }
 
-async function checkCacheKeys(prefix: string, tickers: string[]): Promise<{ results: CacheCheckResult[], hitRate: number, avgAge: number }> {
+async function checkCacheKeys(prefix: string, tickers: string[]): Promise<{ results: CacheCheckResult[], hitRate: number, avgAge: number, hitCount: number }> {
   const results: CacheCheckResult[] = [];
   let hits = 0;
   let totalAge = 0;
@@ -31,7 +31,7 @@ async function checkCacheKeys(prefix: string, tickers: string[]): Promise<{ resu
         const ts = data.timestamp || data._ts || data.updatedAt;
         const age = ts ? Math.round((Date.now() - (typeof ts === 'number' ? ts : new Date(ts).getTime())) / 1000) : undefined;
         hits++;
-        if (age !== undefined) { totalAge += age; ageCount++; }
+        if (age !== undefined && age > 0) { totalAge += age; ageCount++; }
         results.push({ ticker, exists: true, age, source: data._source || data.source || undefined });
       } else {
         results.push({ ticker, exists: false });
@@ -45,7 +45,46 @@ async function checkCacheKeys(prefix: string, tickers: string[]): Promise<{ resu
     results,
     hitRate: Math.round((hits / tickers.length) * 100),
     avgAge: ageCount > 0 ? Math.round(totalAge / ageCount) : -1,
+    hitCount: hits,
   };
+}
+
+// ElastiCache EC2 Proxy를 통한 직접 조회 (모닝 브리핑 등 ElastiCache에만 쓰는 데이터)
+async function checkElastiCache(key: string): Promise<any> {
+  try {
+    const proxyUrl = process.env.EC2_REDIS_PROXY_URL || 'http://52.23.98.13:8081';
+    const proxyKey = process.env.EC2_REDIS_PROXY_KEY || 'signum-redis-proxy-2026';
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 5000);
+    const res = await fetch(`${proxyUrl}/get?key=${encodeURIComponent(key)}`, {
+      headers: { 'Authorization': `Bearer ${proxyKey}` },
+      signal: controller.signal,
+    });
+    clearTimeout(timeout);
+    if (res.ok) {
+      const data = await res.json();
+      if (data?.result) {
+        return typeof data.result === 'string' ? JSON.parse(data.result) : data.result;
+      }
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+// ET 현재 시간 계산
+function getETInfo() {
+  const now = new Date();
+  const etStr = now.toLocaleString('en-US', { timeZone: 'America/New_York', hour12: false });
+  const etHour = parseInt(etStr.split(' ')[1]?.split(':')[0] || '0');
+  const etMin = parseInt(etStr.split(' ')[1]?.split(':')[1] || '0');
+  const dayOfWeek = new Date(etStr).getDay(); // 0=Sun, 6=Sat
+  const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+  const isMarketHours = !isWeekend && etHour >= 9 && (etHour < 16 || (etHour === 9 && etMin >= 30));
+  const isPreMarket = !isWeekend && etHour >= 4 && etHour < 9;
+  const isPostMarket = !isWeekend && etHour >= 16 && etHour < 20;
+  return { etHour, isWeekend, isMarketHours, isPreMarket, isPostMarket };
 }
 
 export async function GET(req: NextRequest) {
@@ -57,136 +96,140 @@ export async function GET(req: NextRequest) {
   const start = Date.now();
 
   try {
-    // ═══ 1. LAMBDA PIPELINE STATUS ═══
-    // Lambda 상태는 Redis 데이터 신선도로 추론 (CloudWatch SDK 불필요)
+    const et = getETInfo();
 
-    // signum-harvest → cache:command:unified:* 와 cache:analysis:*
+    // ═══ 1. LAMBDA PIPELINE — cache hit로 작동 여부 확인 ═══
     const commandCache = await checkCacheKeys('cache:command:unified:', SAMPLE_TICKERS);
     const analysisCache = await checkCacheKeys('cache:analysis:', SAMPLE_TICKERS);
-
-    // signum-flow-harvest → cache:flow:unified:* 와 polygon:snapshot:probe:*
     const flowCache = await checkCacheKeys('cache:flow:unified:', SAMPLE_TICKERS);
     const probeCache = await checkCacheKeys('polygon:snapshot:probe:', SAMPLE_TICKERS);
 
     // flow-harvest lock 상태
     const flowLock = await getFromCache<any>('flow-harvest:lock');
 
-    // ═══ 2. CONTENT PIPELINE ═══
-    // 모닝 브리핑
-    const briefingKo = await getFromCache<any>('guardian:morning_briefing:ko');
-    const briefingEn = await getFromCache<any>('guardian:morning_briefing:en');
-    const briefingLegacy = await getFromCache<any>('guardian:morning_briefing');
+    // ═══ 2. CONTENT PIPELINE — 실제 존재하는 키만 체크 ═══
+    
+    // 모닝 브리핑: EC2 Guardian Worker → ElastiCache 직접 저장 (ioredis)
+    // Upstash에 없으므로 ElastiCache Proxy로 직접 체크
+    const briefingKo = await checkElastiCache('guardian:morning_briefing:ko');
+    const briefingEn = await checkElastiCache('guardian:morning_briefing:en');
+    const briefingLegacy = await checkElastiCache('guardian:morning_briefing');
 
-    // Cross-Sector Brief
-    const today = new Date().toISOString().split('T')[0];
-    const crossSectorKo = await getFromCache<any>(`cross-sector:brief:ko:${today}`);
-    const crossSectorEn = await getFromCache<any>(`cross-sector:brief:en:${today}`);
-    // Try yesterday if today not found
-    const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
-    const crossSectorKoYesterday = !crossSectorKo ? await getFromCache<any>(`cross-sector:brief:ko:${yesterday}`) : null;
-    const crossSectorEnYesterday = !crossSectorEn ? await getFromCache<any>(`cross-sector:brief:en:${yesterday}`) : null;
+    // 크로스 섹터 브리프: Lambda cross-sector → 키 패턴 = postmarket:cross-brief-v3:{날짜}
+    const today = new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
+    const yesterday = new Date(Date.now() - 86400000).toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
+    const crossSectorToday = await checkElastiCache(`postmarket:cross-brief-v3:${today}`);
+    const crossSectorYesterday = !crossSectorToday ? await checkElastiCache(`postmarket:cross-brief-v3:${yesterday}`) : null;
 
-    // Marketing content
-    const morningContent = await getFromCache<any>(`marketing:morning:${today}`);
-    const pulseContent = await getFromCache<any>(`marketing:pulse:${today}`);
+    // 마케팅 콘텐츠: Vercel daily-content cron → Upstash Redis
+    const morningContent = await getFromCache<any>(`marketing:morning:${today}`) || await getFromCache<any>(`marketing:morning:${yesterday}`);
+    const pulseContent = await getFromCache<any>(`marketing:pulse:${today}`) || await getFromCache<any>(`marketing:pulse:${yesterday}`);
 
-    // ═══ 3. MARKET DATA PIPELINE ═══
-    // RLSI (market regime)
-    const rlsi = await getFromCache<any>('rlsi:latest');
+    // ═══ 3. 시장 데이터 — ElastiCache + Upstash 양쪽 체크 ═══
+    // EC2 Guardian Worker가 ElastiCache에 쓰는 키들
+    const vixData = await checkElastiCache('yahoo:vix');
+    const spxData = await checkElastiCache('yahoo:spx');
+    const fng = await checkElastiCache('market:fear_greed');
 
-    // VIX
-    const vix = await getFromCache<any>('vix:last_known_good');
+    // RLSI: signum-harvest Lambda → Redis (TTL 3일)
+    const rlsi = await getFromCache<any>('rlsi:latest') || await checkElastiCache('rlsi:latest');
 
-    // EC2 Proxy health (implied from data existence)
-    // If we got any cache hits above, EC2 Proxy is working
-
-    // ═══ 4. PER-PAGE DATA INTEGRITY ═══
-    // Dashboard needs: cache:command:unified
-    // Command needs: chart data (checked via command cache)
-    // Flow needs: cache:flow:unified + polygon:snapshot:probe
-    // Intel/Guardian needs: morning briefing + cross-sector
-    // Watchlist needs: cache:analysis
-
-    // ═══ 5. REPORTS ═══
-    const reportTypes = ['pre', 'open', 'eod', 'draft', 'final'] as const;
-    const reports: Record<string, any> = {};
-    for (const type of reportTypes) {
-      const data = await getFromCache<any>(`report:${type}:${today}`);
-      const dataYesterday = !data ? await getFromCache<any>(`report:${type}:${yesterday}`) : null;
-      reports[type] = {
-        exists: !!(data || dataYesterday),
-        date: data ? today : (dataYesterday ? yesterday : null),
-      };
-    }
-
-    // ═══ BUILD RESPONSE ═══
+    // ═══ 4. 상태 판정 ═══
     const elapsed = Date.now() - start;
 
-    // Calculate overall health — flow:unified는 TTL 5분이라 Lambda 13분 처리 중 대부분 만료되므로 probe로 판정
-    const lambdaHealth = commandCache.hitRate >= 80 && (probeCache.hitRate >= 10 || flowCache.hitRate > 0 || !!flowLock);
-    const contentHealth = !!(briefingKo || briefingEn || briefingLegacy);
-    const cacheHealth = commandCache.hitRate >= 80;
+    // Lambda 판정
+    const harvestOk = commandCache.hitRate >= 80;
+    // flow-harvest: probe가 있거나 lock이 활성이면 RUNNING
+    const flowOk = probeCache.hitCount > 0 || flowCache.hitCount > 0 || !!flowLock;
+    // 장외 시간에는 flow TTL 만료 정상 → flowOk를 강제 판정 안 함
+    const flowStatus = flowOk ? 'RUNNING' : (et.isMarketHours ? 'DOWN' : 'IDLE');
+
+    // 모닝 브리핑: 생성 시점(4:00 AM ET) 이후 24시간 내이면 EXISTS 여야 정상
+    const briefingExists = !!(briefingKo || briefingEn || briefingLegacy);
+    const briefingStatus = briefingExists ? 'OK' : (et.isPreMarket || et.isMarketHours ? 'MISSING' : 'PENDING');
+
+    // 크로스 섹터: 장 마감 후(~21:50 ET) 생성. 다음날 장 마감까지 유효
+    const crossSectorExists = !!(crossSectorToday || crossSectorYesterday);
+
+    // Overall: 핵심 파이프라인(harvest + flow)이 모두 정상이면 HEALTHY
+    const overall = harvestOk && (flowOk || !et.isMarketHours) ? 'HEALTHY' : 'DEGRADED';
 
     return NextResponse.json({
       timestamp: new Date().toISOString(),
       elapsed: elapsed + 'ms',
-      overall: lambdaHealth && cacheHealth ? 'HEALTHY' : 'DEGRADED',
+      overall,
+      et: {
+        isMarketHours: et.isMarketHours,
+        isPreMarket: et.isPreMarket,
+        isPostMarket: et.isPostMarket,
+        isWeekend: et.isWeekend,
+      },
 
       lambda: {
         signumHarvest: {
-          status: commandCache.hitRate >= 80 ? 'RUNNING' : commandCache.hitRate >= 50 ? 'DEGRADED' : 'DOWN',
-          evidence: `cache:command:unified ${commandCache.hitRate}% hit (${commandCache.results.filter(r => r.exists).length}/${SAMPLE_TICKERS.length})`,
+          status: harvestOk ? 'RUNNING' : commandCache.hitRate >= 50 ? 'DEGRADED' : 'DOWN',
+          evidence: `cache:command:unified ${commandCache.hitCount}/${SAMPLE_TICKERS.length} hit (${commandCache.hitRate}%)`,
           avgDataAge: commandCache.avgAge >= 0 ? commandCache.avgAge + 's' : 'N/A',
           details: commandCache.results,
         },
         signumFlowHarvest: {
-          // flow:unified TTL=5분, Lambda 처리시간=13분 → 대부분 만료 정상. probe가 있으면 Lambda 작동 중
-          status: (probeCache.hitRate >= 10 || flowCache.hitRate > 0 || !!flowLock) ? 'RUNNING' : probeCache.hitRate > 0 ? 'PARTIAL' : 'DOWN',
-          evidence: `cache:flow:unified ${flowCache.hitRate}% hit (${flowCache.results.filter(r => r.exists).length}/${SAMPLE_TICKERS.length})`,
-          probeEvidence: `polygon:snapshot:probe ${probeCache.hitRate}% hit (${probeCache.results.filter(r => r.exists).length}/${SAMPLE_TICKERS.length})`,
-          avgDataAge: flowCache.avgAge >= 0 ? flowCache.avgAge + 's' : 'N/A',
+          status: flowStatus,
+          evidence: `cache:flow:unified ${flowCache.hitCount}/${SAMPLE_TICKERS.length} hit (${flowCache.hitRate}%)`,
+          probeEvidence: `polygon:snapshot:probe ${probeCache.hitCount}/${SAMPLE_TICKERS.length} hit (${probeCache.hitRate}%)`,
+          avgDataAge: flowCache.avgAge >= 0 ? flowCache.avgAge + 's' : (probeCache.avgAge >= 0 ? probeCache.avgAge + 's (probe)' : 'N/A'),
           lockActive: !!flowLock,
           lockValue: flowLock ? String(flowLock) : null,
+          note: 'flow:unified TTL=5분, probe TTL=10분. Lambda 처리시간 13분이므로 대부분 만료 정상. probe 1개라도 있으면 Lambda 작동 중.',
           details: flowCache.results,
           probeDetails: probeCache.results,
         },
       },
 
       cache: {
-        commandUnified: { hitRate: commandCache.hitRate, count: commandCache.results.filter(r => r.exists).length, total: SAMPLE_TICKERS.length, avgAge: commandCache.avgAge },
-        analysisCache: { hitRate: analysisCache.hitRate, count: analysisCache.results.filter(r => r.exists).length, total: SAMPLE_TICKERS.length, avgAge: analysisCache.avgAge },
-        flowUnified: { hitRate: flowCache.hitRate, count: flowCache.results.filter(r => r.exists).length, total: SAMPLE_TICKERS.length, avgAge: flowCache.avgAge },
-        snapshotProbe: { hitRate: probeCache.hitRate, count: probeCache.results.filter(r => r.exists).length, total: SAMPLE_TICKERS.length, avgAge: probeCache.avgAge },
+        commandUnified: { hitRate: commandCache.hitRate, count: commandCache.hitCount, total: SAMPLE_TICKERS.length, avgAge: commandCache.avgAge },
+        analysisCache: { hitRate: analysisCache.hitRate, count: analysisCache.hitCount, total: SAMPLE_TICKERS.length, avgAge: analysisCache.avgAge },
+        flowUnified: { hitRate: flowCache.hitRate, count: flowCache.hitCount, total: SAMPLE_TICKERS.length, avgAge: flowCache.avgAge },
+        snapshotProbe: { hitRate: probeCache.hitRate, count: probeCache.hitCount, total: SAMPLE_TICKERS.length, avgAge: probeCache.avgAge },
       },
 
       content: {
         morningBriefing: {
-          ko: briefingKo ? { exists: true, date: briefingKo.date || briefingKo.generatedAt || 'unknown' } : { exists: false },
-          en: briefingEn ? { exists: true, date: briefingEn.date || briefingEn.generatedAt || 'unknown' } : { exists: false },
-          legacy: !!briefingLegacy,
+          ko: briefingKo ? { exists: true, date: briefingKo.date || briefingKo.generatedAt } : { exists: false },
+          en: briefingEn ? { exists: true, date: briefingEn.date || briefingEn.generatedAt } : { exists: false },
+          legacy: briefingLegacy ? { exists: true, date: briefingLegacy.date || briefingLegacy.generatedAt } : { exists: false },
+          status: briefingStatus,
+          source: 'EC2 Guardian Worker → ElastiCache (ioredis)',
         },
         crossSectorBrief: {
-          ko: { exists: !!(crossSectorKo || crossSectorKoYesterday), date: crossSectorKo ? today : (crossSectorKoYesterday ? yesterday : null) },
-          en: { exists: !!(crossSectorEn || crossSectorEnYesterday), date: crossSectorEn ? today : (crossSectorEnYesterday ? yesterday : null) },
+          exists: crossSectorExists,
+          date: crossSectorToday ? today : (crossSectorYesterday ? yesterday : null),
+          key: `postmarket:cross-brief-v3:${today}`,
+          source: 'Lambda cross-sector-intel → ElastiCache + Upstash',
         },
         marketing: {
-          morning: { exists: !!morningContent, date: morningContent ? today : null },
-          pulse: { exists: !!pulseContent, date: pulseContent ? today : null },
+          morning: { exists: !!morningContent },
+          pulse: { exists: !!pulseContent },
+          source: 'Vercel daily-content cron → Upstash Redis',
         },
-        reports,
       },
 
       marketData: {
-        rlsi: rlsi ? { exists: true, value: rlsi.value || rlsi.rlsi, regime: rlsi.regime || rlsi.label, updatedAt: rlsi.updatedAt || rlsi._ts } : { exists: false },
-        vix: vix ? { exists: true, value: typeof vix === 'number' ? vix : vix.value } : { exists: false },
+        vix: vixData ? { exists: true, value: vixData.price, changePct: vixData.changePct?.toFixed(2) + '%' } : { exists: false, note: 'yahoo:vix (EC2 Guardian → ElastiCache)' },
+        spx: spxData ? { exists: true, value: spxData.price, changePct: spxData.changePct?.toFixed(2) + '%' } : { exists: false },
+        rlsi: rlsi ? { exists: true, value: rlsi.value || rlsi.rlsi, regime: rlsi.regime || rlsi.label } : { exists: false, note: 'signum-harvest Lambda → Redis (TTL 3일)' },
+        fearGreed: fng ? { exists: true, value: fng.value || fng.score } : { exists: false },
       },
 
       pages: {
-        dashboard: { status: commandCache.hitRate >= 80 ? 'OK' : 'DEGRADED', dependency: 'cache:command:unified' },
-        command: { status: commandCache.hitRate >= 80 ? 'OK' : 'DEGRADED', dependency: 'cache:command:unified + chart API' },
-        flow: { status: (probeCache.hitRate >= 10 || flowCache.hitRate > 0 || !!flowLock) ? 'OK' : 'DEGRADED', dependency: 'cache:flow:unified + polygon:snapshot:probe' },
-        intel: { status: contentHealth ? 'OK' : 'DEGRADED', dependency: 'guardian:morning_briefing + cross-sector:brief' },
-        watchlist: { status: analysisCache.hitRate >= 80 ? 'OK' : 'DEGRADED', dependency: 'cache:analysis' },
+        dashboard: { status: harvestOk ? 'OK' : 'DEGRADED', dependency: 'cache:command:unified (signum-harvest)' },
+        command: { status: harvestOk ? 'OK' : 'DEGRADED', dependency: 'cache:command:unified + chart API' },
+        flow: {
+          status: (flowOk || !et.isMarketHours) ? 'OK' : 'DEGRADED',
+          dependency: 'cache:flow:unified + polygon:snapshot:probe (signum-flow-harvest)',
+        },
+        intel: { status: crossSectorExists ? 'OK' : 'DEGRADED', dependency: 'postmarket:cross-brief-v3 (Lambda cross-sector)' },
+        guardian: { status: briefingExists ? 'OK' : (et.isMarketHours ? 'DEGRADED' : 'PENDING'), dependency: 'guardian:morning_briefing (EC2 Worker)' },
+        watchlist: { status: analysisCache.hitRate >= 80 ? 'OK' : 'DEGRADED', dependency: 'cache:analysis (signum-harvest)' },
       },
 
       _sampleTickers: SAMPLE_TICKERS,
