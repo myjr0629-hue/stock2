@@ -267,7 +267,7 @@ export default function AdminHealthPage() {
                 </div>
                 <div className="text-[13px] text-slate-300">{data.lambda.signumHarvest.evidence}</div>
                 <div className="text-[13px] text-slate-300">평균 데이터 나이: <span className="text-cyan-400 font-bold">{data.lambda.signumHarvest.avgDataAge}</span></div>
-                <HitRateBar rate={data.cache.commandUnified.hitRate} count={data.cache.commandUnified.count} total={data.cache.commandUnified.total} label="cache:command:unified" />
+                <HitRateBar rate={data.cache?.commandUnified?.hitRate || 0} count={data.cache?.commandUnified?.count || 0} total={data.cache?.commandUnified?.total || 20} label="cache:command:unified" />
                 <CacheDetailTable results={data.lambda.signumHarvest.details} />
               </div>
 
@@ -295,8 +295,8 @@ export default function AdminHealthPage() {
                     💡 flow:unified TTL이 5분이라 MISS가 정상입니다. probe 데이터가 있으면 Lambda는 작동 중입니다.
                   </div>
                 )}
-                <HitRateBar rate={data.cache.flowUnified.hitRate} count={data.cache.flowUnified.count} total={data.cache.flowUnified.total} label="cache:flow:unified (TTL 5분)" />
-                <HitRateBar rate={data.cache.snapshotProbe.hitRate} count={data.cache.snapshotProbe.count} total={data.cache.snapshotProbe.total} label="polygon:snapshot:probe (TTL 10분)" />
+                <HitRateBar rate={data.cache?.flowUnified?.hitRate || 0} count={data.cache?.flowUnified?.count || 0} total={data.cache?.flowUnified?.total || 20} label="cache:flow:unified (TTL 5분)" />
+                <HitRateBar rate={data.cache?.snapshotProbe?.hitRate || 0} count={data.cache?.snapshotProbe?.count || 0} total={data.cache?.snapshotProbe?.total || 20} label="polygon:snapshot:probe (TTL 10분)" />
                 <CacheDetailTable results={data.lambda.signumFlowHarvest.details} />
               </div>
 
@@ -405,38 +405,12 @@ export default function AdminHealthPage() {
             )}
 
             {/* ═══ CACHE STATUS ═══ */}
-            <Section title="REDIS / ELASTICACHE" icon={Database} status={data.cache.commandUnified.hitRate >= 80 ? 'OK' : 'DEGRADED'}>
-              <HitRateBar rate={data.cache.commandUnified.hitRate} count={data.cache.commandUnified.count} total={data.cache.commandUnified.total} label="cache:command:unified" />
-              <HitRateBar rate={data.cache.analysisCache.hitRate} count={data.cache.analysisCache.count} total={data.cache.analysisCache.total} label="cache:analysis" />
-              <HitRateBar rate={data.cache.flowUnified.hitRate} count={data.cache.flowUnified.count} total={data.cache.flowUnified.total} label="cache:flow:unified" />
-              <HitRateBar rate={data.cache.snapshotProbe.hitRate} count={data.cache.snapshotProbe.count} total={data.cache.snapshotProbe.total} label="polygon:snapshot:probe" />
+            <Section title="REDIS / ELASTICACHE" icon={Database} status={(data.cache?.commandUnified?.hitRate || 0) >= 80 ? 'OK' : 'DEGRADED'}>
+              <HitRateBar rate={data.cache?.commandUnified?.hitRate || 0} count={data.cache?.commandUnified?.count || 0} total={data.cache?.commandUnified?.total || 20} label="cache:command:unified" />
+              <HitRateBar rate={data.cache?.analysisCache?.hitRate || 0} count={data.cache?.analysisCache?.count || 0} total={data.cache?.analysisCache?.total || 20} label="cache:analysis" />
+              <HitRateBar rate={data.cache?.flowUnified?.hitRate || 0} count={data.cache?.flowUnified?.count || 0} total={data.cache?.flowUnified?.total || 20} label="cache:flow:unified" />
+              <HitRateBar rate={data.cache?.snapshotProbe?.hitRate || 0} count={data.cache?.snapshotProbe?.count || 0} total={data.cache?.snapshotProbe?.total || 20} label="polygon:snapshot:probe" />
 
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mt-2">
-                <div className="px-3 py-2.5 rounded-lg bg-white/[0.02] border border-white/[0.05]">
-                  <div className="text-[13px] text-slate-300 uppercase font-semibold">VIX</div>
-                  <div className="text-[16px] font-bold mt-1">{data.marketData.vix?.exists
-                    ? <span className="text-amber-400">{data.marketData.vix.value} <span className="text-[13px]">{data.marketData.vix.changePct}</span></span>
-                    : <span className="text-slate-500">—</span>}</div>
-                </div>
-                <div className="px-3 py-2.5 rounded-lg bg-white/[0.02] border border-white/[0.05]">
-                  <div className="text-[13px] text-slate-300 uppercase font-semibold">S&P 500</div>
-                  <div className="text-[16px] font-bold mt-1">{data.marketData.spx?.exists
-                    ? <span className="text-cyan-400">{data.marketData.spx.value?.toLocaleString()} <span className="text-[13px]">{data.marketData.spx.changePct}</span></span>
-                    : <span className="text-slate-500">—</span>}</div>
-                </div>
-                <div className="px-3 py-2.5 rounded-lg bg-white/[0.02] border border-white/[0.05]">
-                  <div className="text-[13px] text-slate-300 uppercase font-semibold">RLSI</div>
-                  <div className="text-[16px] font-bold mt-1">{data.marketData.rlsi?.exists
-                    ? <span className="text-cyan-400">{data.marketData.rlsi.value} ({data.marketData.rlsi.regime})</span>
-                    : <span className="text-slate-500">—</span>}</div>
-                </div>
-                <div className="px-3 py-2.5 rounded-lg bg-white/[0.02] border border-white/[0.05]">
-                  <div className="text-[13px] text-slate-300 uppercase font-semibold">Fear & Greed</div>
-                  <div className="text-[16px] font-bold mt-1">{data.marketData.fearGreed?.exists
-                    ? <span className="text-emerald-400">{data.marketData.fearGreed.value}</span>
-                    : <span className="text-slate-500">—</span>}</div>
-                </div>
-              </div>
             </Section>
 
             {/* ═══ CONTENT PIPELINE ═══ */}
