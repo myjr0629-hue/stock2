@@ -197,6 +197,90 @@ export async function GET(req: NextRequest) {
       };
     }
 
+    // ═══ 5.5. ALPHA HISTORY — DynamoDB 저장 무결성 검증 ═══
+    let alphaHistory: any = { status: 'UNKNOWN', error: null };
+    try {
+      const { DynamoDBClient, ScanCommand, QueryCommand } = await import('@aws-sdk/client-dynamodb');
+      const dynClient = new DynamoDBClient({ region: 'us-east-1', credentials: {
+        accessKeyId: process.env.AWS_ACCESS_KEY_ID!, secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY!
+      }});
+
+      const etToday = new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
+      const etYesterday = new Date(Date.now() - 86400000).toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
+
+      // Count records with pagination for today and yesterday
+      async function countByDate(date: string) {
+        let total = 0, scoreGt0 = 0, scoreEq0 = 0, scoreNull = 0, liveTier = 0, ssrTier = 0;
+        let lastKey: any = undefined;
+        do {
+          const res = await dynClient.send(new ScanCommand({
+            TableName: 'signum-alpha-history',
+            FilterExpression: '#d = :date',
+            ExpressionAttributeNames: { '#d': 'date' },
+            ExpressionAttributeValues: { ':date': { S: date } },
+            ProjectionExpression: 'ticker, alphaScore, qualityTier',
+            ExclusiveStartKey: lastKey,
+          }));
+          total += res.Count || 0;
+          (res.Items || []).forEach(item => {
+            const s = parseFloat(item.alphaScore?.N || '0');
+            if (!item.alphaScore) scoreNull++;
+            else if (s > 0) scoreGt0++;
+            else scoreEq0++;
+            if (item.qualityTier?.S === 'LIVE') liveTier++;
+            if (item.qualityTier?.S === 'SSR_V46') ssrTier++;
+          });
+          lastKey = res.LastEvaluatedKey;
+        } while (lastKey);
+        return { total, scoreGt0, scoreEq0, scoreNull, liveTier, ssrTier };
+      }
+
+      const [todayStats, yesterdayStats] = await Promise.all([
+        countByDate(etToday).catch(() => null),
+        countByDate(etYesterday).catch(() => null),
+      ]);
+
+      // Sample ticker scores (latest record)
+      const alphaSamples: any[] = [];
+      for (const t of ['NVDA', 'AAPL', 'META', 'TSLA', 'SPY']) {
+        try {
+          const res = await dynClient.send(new QueryCommand({
+            TableName: 'signum-alpha-history',
+            KeyConditionExpression: 'ticker = :t',
+            ExpressionAttributeValues: { ':t': { S: t } },
+            ScanIndexForward: false, Limit: 1,
+          }));
+          const item = res.Items?.[0];
+          if (item) {
+            alphaSamples.push({
+              ticker: t,
+              date: item.date?.S,
+              score: parseFloat(item.alphaScore?.N || '0'),
+              tier: item.qualityTier?.S || 'NULL',
+              close: parseFloat(item.close?.N || item.price?.N || '0'),
+            });
+          }
+        } catch { /* skip */ }
+      }
+
+      const latestStats = todayStats || yesterdayStats;
+      const isHealthy = latestStats && latestStats.total >= 900 && latestStats.scoreEq0 === 0 && latestStats.scoreNull === 0;
+      alphaHistory = {
+        status: isHealthy ? 'HEALTHY' : latestStats ? 'DEGRADED' : 'NO_DATA',
+        today: todayStats ? { date: etToday, ...todayStats } : null,
+        yesterday: yesterdayStats ? { date: etYesterday, ...yesterdayStats } : null,
+        samples: alphaSamples,
+        note: isHealthy
+          ? `✅ ${latestStats!.total}종목 저장, Score>0: ${latestStats!.scoreGt0}, Score=0: ${latestStats!.scoreEq0} (04-27 수정 이후 무결)`
+          : latestStats
+            ? `⚠️ ${latestStats.total}종목 (Score=0: ${latestStats.scoreEq0}건, NULL: ${latestStats.scoreNull}건)`
+            : '❌ DynamoDB alpha-history 데이터 없음',
+        source: 'Lambda signum-harvest Step 1(OHLCV) + Step 6(alphaScore merge write-back) → DynamoDB',
+      };
+    } catch (e: any) {
+      alphaHistory = { status: 'ERROR', error: e.message };
+    }
+
     // ═══ 6. 상태 판정 — 작동 상태 vs 자료 유무 분리 ═══
     const elapsed = Date.now() - start;
 
@@ -293,6 +377,8 @@ export async function GET(req: NextRequest) {
           evidence: `analyst=${fmpRelay.analyst}, earnings=${fmpRelay.earnings}, fundamentals=${fmpRelay.fundamentals}`,
         },
       },
+
+      alphaHistory,
 
       ec2: {
         redisProxy: {
