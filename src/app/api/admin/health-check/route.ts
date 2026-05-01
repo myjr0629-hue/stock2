@@ -202,31 +202,34 @@ export async function GET(req: NextRequest) {
 
     // Flow-harvest: 8:00~21:00 ET 평일에만 실행. 그 외에는 SCHEDULED_IDLE
     const flowRunWindow = !et.isWeekend && et.etHour >= 8 && et.etHour < 21;
-    const flowHasRecentData = flowCache.hitCount > 0 || probeCache.hitCount > 0;
+    const flowHasData = flowCache.hitCount > 0 || probeCache.hitCount > 0;
     const flowDataAge = flowCache.avgAge >= 0 ? flowCache.avgAge : (probeCache.avgAge >= 0 ? probeCache.avgAge : -1);
-    const flowDataFresh = flowDataAge >= 0 && flowDataAge < 1800; // 30분 이내면 FRESH
 
     // 작동 상태 (Operational)
     let flowOperational: string;
-    if (!!flowLock) flowOperational = 'RUNNING';       // Lock active = 지금 실행 중
-    else if (flowDataFresh) flowOperational = 'RUNNING'; // 최근 데이터 있음 = 방금 실행 완료
-    else if (!flowRunWindow) flowOperational = 'SCHEDULED_IDLE'; // 스케줄상 비작동 시간
-    else flowOperational = 'DOWN';                      // 본장 중인데 데이터 없음
+    if (!!flowLock) flowOperational = 'RUNNING';
+    else if (probeCache.hitRate >= 50) flowOperational = 'RUNNING';
+    else if (!flowRunWindow) flowOperational = 'SCHEDULED_IDLE';
+    else if (flowHasData) flowOperational = 'RUNNING';
+    else flowOperational = 'DOWN';
 
-    // 자료 유무 (Data)
+    // 자료 유무 (Data) — Lock ACTIVE이거나 probe 80%+ → 실시간 처리 중 = FRESH
     let flowDataStatus: string;
-    if (flowDataFresh) flowDataStatus = 'FRESH';        // 30분 이내
-    else if (flowHasRecentData) flowDataStatus = 'STALE'; // 있지만 30분+
-    else flowDataStatus = 'EMPTY';                       // 캐시에 없음
+    if (!!flowLock || probeCache.hitRate >= 80) flowDataStatus = 'FRESH';
+    else if (probeCache.hitRate >= 30) flowDataStatus = 'FRESH';
+    else if (flowHasData) flowDataStatus = 'STALE';
+    else flowDataStatus = 'EMPTY';
 
-    // 상태 설명 (사람이 읽을 수 있는)
+    // 상태 설명
     let flowNote: string;
-    if (flowOperational === 'SCHEDULED_IDLE' && flowHasRecentData) {
-      flowNote = `장외 시간 — Lambda 미실행 (정상). 최근 데이터 ${flowCache.hitCount + probeCache.hitCount}종목 보존 중 (TTL 24~72h)`;
-    } else if (flowOperational === 'SCHEDULED_IDLE' && !flowHasRecentData) {
-      flowNote = `장외 시간 — Lambda 미실행 (정상). 캐시 TTL 만료됨. 다음 본장(8:00 ET)에 자동 갱신`;
+    if (flowOperational === 'SCHEDULED_IDLE' && flowHasData) {
+      flowNote = `장외 시간 — Lambda 미실행 (정상). ${probeCache.hitCount}종목 보존 중 (TTL 24~72h)`;
+    } else if (flowOperational === 'SCHEDULED_IDLE') {
+      flowNote = `장외 시간 — Lambda 미실행 (정상). 캐시 만료됨. 다음 본장(8:00 ET)에 자동 갱신`;
+    } else if (flowOperational === 'RUNNING' && !!flowLock) {
+      flowNote = `Lambda 실행 중 (Lock ACTIVE). probe ${probeCache.hitCount}/${SAMPLE_TICKERS.length}종목 적재. 빨간 종목은 현재 사이클에서 아직 미처리 (순차 처리 중)`;
     } else if (flowOperational === 'RUNNING') {
-      flowNote = `본장 작동 중. ${flowCache.hitCount + probeCache.hitCount}종목 캐시 적재`;
+      flowNote = `정상 작동. probe ${probeCache.hitCount}/${SAMPLE_TICKERS.length}종목 적재`;
     } else {
       flowNote = `⚠️ 본장 시간인데 데이터 없음 — Lambda 실행 확인 필요`;
     }

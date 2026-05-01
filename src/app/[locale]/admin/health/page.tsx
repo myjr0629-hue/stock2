@@ -56,17 +56,23 @@ function HitRateBar({ rate, count, total, label }: { rate: number; count: number
 }
 
 // ── Cache Detail Table ──
-function CacheDetailTable({ results }: { results: any[] }) {
+function CacheDetailTable({ results, isActive }: { results: any[]; isActive?: boolean }) {
   return (
     <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 mt-2">
       {results.map((r: any) => (
         <div key={r.ticker} className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded text-[13px]
-          ${r.exists ? 'bg-emerald-500/8 border border-emerald-500/15' : 'bg-red-500/8 border border-red-500/15'}`}>
-          {r.exists ? <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" /> : <XCircle className="w-3.5 h-3.5 text-red-400 flex-shrink-0" />}
-          <span className={`font-mono font-bold ${r.exists ? 'text-emerald-300' : 'text-red-300'}`}>{r.ticker}</span>
+          ${r.exists ? 'bg-emerald-500/8 border border-emerald-500/15' :
+            isActive ? 'bg-slate-500/8 border border-slate-500/15' : 'bg-red-500/8 border border-red-500/15'}`}>
+          {r.exists
+            ? <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" />
+            : isActive
+              ? <Clock className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
+              : <XCircle className="w-3.5 h-3.5 text-red-400 flex-shrink-0" />}
+          <span className={`font-mono font-bold ${r.exists ? 'text-emerald-300' : isActive ? 'text-slate-400' : 'text-red-300'}`}>{r.ticker}</span>
           {r.exists && r.age !== undefined && (
             <span className="text-slate-300 ml-auto tabular-nums">{r.age < 60 ? r.age + 's' : Math.round(r.age / 60) + 'm'}</span>
           )}
+          {!r.exists && isActive && <span className="text-slate-500 ml-auto text-[13px]">대기</span>}
         </div>
       ))}
     </div>
@@ -346,7 +352,7 @@ export default function AdminHealthPage() {
                 </div>
                 <HitRateBar rate={data.cache?.flowUnified?.hitRate || 0} count={data.cache?.flowUnified?.count || 0} total={data.cache?.flowUnified?.total || 20} label="cache:flow:unified (TTL 5분)" />
                 <HitRateBar rate={data.cache?.snapshotProbe?.hitRate || 0} count={data.cache?.snapshotProbe?.count || 0} total={data.cache?.snapshotProbe?.total || 20} label="polygon:snapshot:probe (TTL 10분)" />
-                <CacheDetailTable results={data.lambda.signumFlowHarvest.details} />
+                <CacheDetailTable results={data.lambda.signumFlowHarvest.details} isActive={flowOp === 'RUNNING'} />
               </div>
 
               {/* signum-fmp */}
