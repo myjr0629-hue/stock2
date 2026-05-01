@@ -70,12 +70,12 @@ function CacheDetailTable({ results }: { results: any[] }) {
 }
 
 // ── Collapsible Section ──
-function Section({ title, icon: Icon, status, children, defaultOpen = false }: {
-  title: string; icon: any; status?: string; children: React.ReactNode; defaultOpen?: boolean;
+function Section({ title, icon: Icon, status, children, defaultOpen = false, id }: {
+  title: string; icon: any; status?: string; children: React.ReactNode; defaultOpen?: boolean; id?: string;
 }) {
   const [open, setOpen] = useState(defaultOpen);
   return (
-    <div className="bg-gradient-to-br from-white/[0.03] to-white/[0.01] border border-white/[0.06] rounded-xl overflow-hidden">
+    <div id={id} className="bg-gradient-to-br from-white/[0.03] to-white/[0.01] border border-white/[0.06] rounded-xl overflow-hidden scroll-mt-28">
       <button onClick={() => setOpen(!open)} className="w-full flex items-center gap-3 px-5 py-3.5 hover:bg-white/[0.02] transition-colors">
         <Icon className="w-5 h-5 text-cyan-400 flex-shrink-0" />
         <span className="font-bold text-white text-[14px] tracking-wide">{title}</span>
@@ -228,6 +228,39 @@ export default function AdminHealthPage() {
         </div>
       </div>
 
+      {/* Tab Navigation */}
+      {data && (
+        <div className="border-b border-white/[0.06] bg-[#060a13]/95 backdrop-blur-md sticky top-[56px] z-40">
+          <div className="max-w-5xl mx-auto px-4 flex gap-1 overflow-x-auto scrollbar-hide py-1.5">
+            {[
+              { id: 'sec-lambda', label: 'Lambda', icon: Server },
+              { id: 'sec-ec2', label: 'EC2', icon: Wifi },
+              { id: 'sec-feed', label: 'Market Feed', icon: BarChart3 },
+              { id: 'sec-cache', label: 'Cache', icon: Database },
+              { id: 'sec-content', label: 'Content', icon: FileText },
+              { id: 'sec-pages', label: 'Pages', icon: Layout },
+            ].map(tab => (
+              <button key={tab.id}
+                onClick={() => {
+                  document.getElementById(tab.id)?.scrollIntoView({ behavior: 'smooth' });
+                  // 자동으로 열기
+                  const section = document.getElementById(tab.id);
+                  if (section) {
+                    const btn = section.querySelector('button');
+                    const content = section.querySelector('[data-content]');
+                    if (content?.classList.contains('hidden')) btn?.click();
+                  }
+                }}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[13px] font-bold
+                  text-slate-300 hover:text-white hover:bg-white/[0.05] transition-all whitespace-nowrap">
+                <tab.icon className="w-3.5 h-3.5" />
+                {tab.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="max-w-5xl mx-auto px-4 py-6 space-y-4">
         {/* Overall Status Banner */}
         {data && (
@@ -255,7 +288,7 @@ export default function AdminHealthPage() {
         ) : (
           <>
             {/* ═══ LAMBDA PIPELINE ═══ */}
-            <Section title="LAMBDA PIPELINE" icon={Server} status={lambdaPipelineStatus} defaultOpen={true}>
+            <Section title="LAMBDA PIPELINE" icon={Server} status={lambdaPipelineStatus} defaultOpen={true} id="sec-lambda">
               {/* signum-harvest */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
@@ -321,7 +354,7 @@ export default function AdminHealthPage() {
 
             {/* ═══ EC2 INFRASTRUCTURE ═══ */}
             {data.ec2 && (
-              <Section title="EC2 INFRASTRUCTURE" icon={Wifi}
+              <Section title="EC2 INFRASTRUCTURE" icon={Wifi} id="sec-ec2"
                 status={data.ec2.redisProxy?.status === 'OK' && data.ec2.flowAccumulator?.status !== 'DOWN' ? 'OK' : 'DEGRADED'}>
                 <div className="space-y-3">
                   {/* Redis Proxy */}
@@ -368,7 +401,7 @@ export default function AdminHealthPage() {
 
             {/* ═══ MARKET FEED ═══ */}
             {data.marketFeed && (
-              <Section title="MARKET FEED" icon={BarChart3} status={data.marketFeed.status}>
+              <Section title="MARKET FEED" icon={BarChart3} status={data.marketFeed.status} id="sec-feed">
                 <div className="text-[13px] text-slate-400 mb-2">{data.marketFeed.source}</div>
                 <HitRateBar rate={Math.round((data.marketFeed.hitCount / data.marketFeed.total) * 100)} count={data.marketFeed.hitCount} total={data.marketFeed.total} label="Market Indicators" />
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-3">
@@ -405,7 +438,7 @@ export default function AdminHealthPage() {
             )}
 
             {/* ═══ CACHE STATUS ═══ */}
-            <Section title="REDIS / ELASTICACHE" icon={Database} status={(data.cache?.commandUnified?.hitRate || 0) >= 80 ? 'OK' : 'DEGRADED'}>
+            <Section title="REDIS / ELASTICACHE" icon={Database} status={(data.cache?.commandUnified?.hitRate || 0) >= 80 ? 'OK' : 'DEGRADED'} id="sec-cache">
               <HitRateBar rate={data.cache?.commandUnified?.hitRate || 0} count={data.cache?.commandUnified?.count || 0} total={data.cache?.commandUnified?.total || 20} label="cache:command:unified" />
               <HitRateBar rate={data.cache?.analysisCache?.hitRate || 0} count={data.cache?.analysisCache?.count || 0} total={data.cache?.analysisCache?.total || 20} label="cache:analysis" />
               <HitRateBar rate={data.cache?.flowUnified?.hitRate || 0} count={data.cache?.flowUnified?.count || 0} total={data.cache?.flowUnified?.total || 20} label="cache:flow:unified" />
@@ -414,14 +447,15 @@ export default function AdminHealthPage() {
             </Section>
 
             {/* ═══ CONTENT PIPELINE ═══ */}
-            <Section title="CONTENT PIPELINE" icon={FileText}
-              status={data.content.morningBriefing?.status === 'OK' || data.content.crossSectorBrief?.exists ? 'OK' : 'DEGRADED'}>
+            <Section title="CONTENT PIPELINE" icon={FileText} id="sec-content"
+              status={data.content?.morningBriefing?.status === 'OK' || data.content?.crossSectorBrief?.exists ? 'OK' : 'DEGRADED'}>
               <div className="text-[13px] text-slate-300 uppercase tracking-wider font-bold mb-1">
                 모닝 브리핑 <span className="text-slate-500 normal-case font-normal ml-1">{data.content.morningBriefing?.source}</span>
               </div>
-              <ContentItem label="한국어 (ko)" exists={data.content.morningBriefing?.ko?.exists} date={data.content.morningBriefing?.ko?.date} />
-              <ContentItem label="English (en)" exists={data.content.morningBriefing?.en?.exists} date={data.content.morningBriefing?.en?.date} />
-              <ContentItem label="Legacy" exists={data.content.morningBriefing?.legacy?.exists} date={data.content.morningBriefing?.legacy?.date} />
+              <ContentItem label="한국어 (ko)" exists={data.content?.morningBriefing?.ko?.exists} date={data.content?.morningBriefing?.ko?.date} />
+              <ContentItem label="English (en)" exists={data.content?.morningBriefing?.en?.exists} date={data.content?.morningBriefing?.en?.date} />
+              <ContentItem label="日本語 (ja)" exists={data.content?.morningBriefing?.ja?.exists} date={data.content?.morningBriefing?.ja?.date} />
+              <ContentItem label="Legacy" exists={data.content?.morningBriefing?.legacy?.exists} date={data.content?.morningBriefing?.legacy?.date} />
 
               <div className="border-t border-white/[0.04] my-2" />
               <div className="text-[13px] text-slate-300 uppercase tracking-wider font-bold mb-1">
@@ -438,9 +472,9 @@ export default function AdminHealthPage() {
             </Section>
 
             {/* ═══ PAGE HEALTH ═══ */}
-            <Section title="PAGE INTEGRITY" icon={Layout}
-              status={Object.values(data.pages).every((p: any) => p.status === 'OK' || p.status === 'PENDING') ? 'OK' : 'DEGRADED'}>
-              {Object.entries(data.pages).map(([page, info]: [string, any]) => (
+            <Section title="PAGE INTEGRITY" icon={Layout} id="sec-pages"
+              status={Object.values(data.pages || {}).every((p: any) => p.status === 'OK' || p.status === 'PENDING') ? 'OK' : 'DEGRADED'}>
+              {Object.entries(data.pages || {}).map(([page, info]: [string, any]) => (
                 <div key={page} className="flex items-center justify-between py-2 border-b border-white/[0.03] last:border-0">
                   <div>
                     <span className="text-[14px] font-bold text-white capitalize">{page}</span>

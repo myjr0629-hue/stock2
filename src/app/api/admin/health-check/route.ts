@@ -143,6 +143,7 @@ export async function GET(req: NextRequest) {
     // 모닝 브리핑: EC2 Guardian Worker → ElastiCache 직접 저장 (ioredis)
     const briefingKo = await checkElastiCache('guardian:morning_briefing:ko');
     const briefingEn = await checkElastiCache('guardian:morning_briefing:en');
+    const briefingJa = await checkElastiCache('guardian:morning_briefing:ja');
     const briefingLegacy = await checkElastiCache('guardian:morning_briefing');
 
     // 크로스 섹터 브리프: Lambda cross-sector → 키 패턴 = postmarket:cross-brief-v3:{날짜}
@@ -203,7 +204,7 @@ export async function GET(req: NextRequest) {
     const flowOk = probeCache.hitCount > 0 || flowCache.hitCount > 0 || !!flowLock;
     const flowStatus = flowOk ? 'RUNNING' : (et.isMarketHours ? 'DOWN' : 'IDLE');
 
-    const briefingExists = !!(briefingKo || briefingEn || briefingLegacy);
+    const briefingExists = !!(briefingKo || briefingEn || briefingJa || briefingLegacy);
     const briefingStatus = briefingExists ? 'OK' : (et.isPreMarket || et.isMarketHours ? 'MISSING' : 'PENDING');
 
     const crossSectorExists = !!(crossSectorToday || crossSectorYesterday);
@@ -271,6 +272,7 @@ export async function GET(req: NextRequest) {
         morningBriefing: {
           ko: briefingKo ? { exists: true, date: briefingKo.date || briefingKo.generatedAt } : { exists: false },
           en: briefingEn ? { exists: true, date: briefingEn.date || briefingEn.generatedAt } : { exists: false },
+          ja: briefingJa ? { exists: true, date: briefingJa.date || briefingJa.generatedAt } : { exists: false },
           legacy: briefingLegacy ? { exists: true, date: briefingLegacy.date || briefingLegacy.generatedAt } : { exists: false },
           status: briefingStatus,
           source: 'EC2 Guardian Worker → ElastiCache (ioredis)',
