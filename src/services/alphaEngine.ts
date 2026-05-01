@@ -150,7 +150,7 @@ export interface AlphaResult {
 // CONSTANTS
 // ============================================================================
 
-const ENGINE_VERSION = '5.0.0';
+const ENGINE_VERSION = '5.1.0';
 
 // Pillar max scores
 const PILLAR_MAX = {
@@ -329,19 +329,20 @@ function calculateMomentum(input: AlphaInput): PillarDetail {
     const factors: PillarDetail['factors'] = [];
     let total = 0;
 
-    // Factor 1: Price Change (0-8) — [V3.3.1] Recalibrated
+    // Factor 1: Price Change (0-8) — [V5.1] Mean Reversion Recalibration
+    // 백테스트 실증(t=-8.08): 당일 하락 종목이 3일 후 +2.75% (승률 64.5%)
+    // 당일 상승 종목은 3일 후 +0.39% (승률 47.5%) → 과열 구간 감점
     const changePct = input.changePct || 0;
     let changeScore: number;
-    // [V4.5] Sweet spot 3-8% = max. Above 8% = diminishing (chase risk)
-    if (changePct >= 3 && changePct <= 8) changeScore = 8;  // Sweet spot
-    else if (changePct > 8 && changePct <= 15) changeScore = 6; // Overheated
-    else if (changePct > 15) changeScore = 3;                // Surge = chase risk
-    else if (changePct >= 2) changeScore = 7;
-    else if (changePct >= 1) changeScore = 5;
-    else if (changePct >= 0.5) changeScore = 4;
-    else if (changePct >= 0) changeScore = changePct * 6; // 0-3 linear
-    else if (changePct >= -1) changeScore = 1;   // Small dip = minimal
-    else changeScore = 0;
+    if (changePct <= -3 && changePct >= -8) changeScore = 7;       // [V5.1] 과매도 = 반등 최적 구간
+    else if (changePct < -8) changeScore = 4;                      // [V5.1] 급락 = 패닉이지만 반등 잠재력
+    else if (changePct <= -1 && changePct > -3) changeScore = 8;   // [V5.1] ★ Sweet spot: 소폭 조정 = 최고 반등 확률
+    else if (changePct <= 0 && changePct > -1) changeScore = 6;    // [V5.1] 약보합 = 바닥 다지기
+    else if (changePct > 0 && changePct <= 1) changeScore = 5;     // [V5.1] 소폭 상승 = 중립
+    else if (changePct > 1 && changePct <= 3) changeScore = 4;     // [V5.1] 보통 상승
+    else if (changePct > 3 && changePct <= 8) changeScore = 2;     // [V5.1] 과열 시작 (기존 8→2)
+    else if (changePct > 8 && changePct <= 15) changeScore = 1;    // [V5.1] 과열 (기존 6→1)
+    else changeScore = 0;                                          // [V5.1] 급등 15%+ = 추격 위험
     changeScore = clamp(changeScore, 0, 8);
     factors.push({ name: 'priceChange', value: round1(changeScore), max: 8, detail: `${changePct >= 0 ? '+' : ''}${changePct.toFixed(1)}%` });
     total += changeScore;
@@ -363,21 +364,22 @@ function calculateMomentum(input: AlphaInput): PillarDetail {
     }
     total += vwapScore;
 
-    // Factor 3: 3-Day Trend (0-7) — [V3.3.1] Recalibrated
+    // Factor 3: 3-Day Trend (0-7) — [V5.1] Mean Reversion Recalibration
+    // 백테스트 실증: 3일 하락(-3%~-1%) 종목이 이후 3일 +3.06% (승률 68.7%)
+    // 3일 상승(+5%+) 종목은 이후 3일 +0.36% (승률 47.3%) → 과열 감점
     let trendScore = 0;
     const return3D = input.return3D;
     if (return3D !== null && return3D !== undefined) {
-        if (return3D >= 5) trendScore = 7;
-        else if (return3D >= 3) trendScore = 6;
-        else if (return3D >= 2) trendScore = 5;
-        else if (return3D >= 1) trendScore = 4;
-        else if (return3D >= 0) trendScore = 3;  // Flat = neutral-positive
-        else if (return3D >= -1) trendScore = 2;
-        else if (return3D >= -3) trendScore = 1;
-        else trendScore = 0;
+        if (return3D <= -3 && return3D >= -10) trendScore = 7;      // [V5.1] ★ 과매도 = 최고 반등 확률
+        else if (return3D < -10) trendScore = 5;                    // [V5.1] 급락 = 반등 잠재력 있으나 리스크
+        else if (return3D <= -1 && return3D > -3) trendScore = 6;   // [V5.1] 소폭 하락 = 양호한 반등 구간
+        else if (return3D <= 0 && return3D > -1) trendScore = 5;    // [V5.1] 약보합 = 바닥 다지기
+        else if (return3D > 0 && return3D <= 2) trendScore = 4;     // [V5.1] 소폭 상승 = 중립
+        else if (return3D > 2 && return3D <= 5) trendScore = 2;     // [V5.1] 상승 = 고점 접근 (기존 5-6→2)
+        else trendScore = 1;                                        // [V5.1] 급등 5%+ = mean reversion 위험 (기존 7→1)
         factors.push({ name: 'trend3D', value: round1(trendScore), max: 7, detail: `3일수익률 ${return3D >= 0 ? '+' : ''}${return3D.toFixed(1)}%` });
     } else {
-        trendScore = changePct > 0 ? Math.min(5, changePct * 2 + 2) : 2;
+        trendScore = changePct < 0 ? Math.min(5, Math.abs(changePct) * 1.5 + 2) : 2;
         factors.push({ name: 'trend3D', value: round1(trendScore), max: 7, detail: '3일 데이터 없음(추정)' });
     }
     total += trendScore;
@@ -412,8 +414,9 @@ function calculateMomentum(input: AlphaInput): PillarDetail {
     }
     total += confirmScore;
 
-    // Factor 5: [V3.3] Momentum Acceleration (0-5)
-    // 가속 중인 상승 = 강한 추세, 감속 = 정점 근처
+    // Factor 5: [V5.1] Momentum Deceleration Bonus (0-5)
+    // 백테스트 실증: 모멘텀 감속(둔화) = 조정 후 반등 신호
+    // 강한 가속 = 이미 정점 근접 = mean reversion 위험
     let accelScore = 0;
     const return3DVal = input.return3D ?? null;
     if (return3DVal !== null && return3DVal !== undefined) {
@@ -421,18 +424,18 @@ function calculateMomentum(input: AlphaInput): PillarDetail {
         const todayPace = changePct;       // 오늘 수익률
         const acceleration = todayPace - dailyAvg3D;
 
-        if (acceleration > 2) {
-            accelScore = 5;  // 강한 가속
-            factors.push({ name: 'acceleration', value: 5, max: 5, detail: `가속 +${acceleration.toFixed(1)}%p` });
-        } else if (acceleration > 1) {
-            accelScore = 3;
-            factors.push({ name: 'acceleration', value: 3, max: 5, detail: `가속 +${acceleration.toFixed(1)}%p` });
-        } else if (acceleration > -0.5) {
-            accelScore = 1;  // 등속 유지
-            factors.push({ name: 'acceleration', value: 1, max: 5, detail: `등속` });
+        if (acceleration < -2) {
+            accelScore = 5;  // [V5.1] 강한 감속 = 조정 진행 중 = 반등 임박
+            factors.push({ name: 'acceleration', value: 5, max: 5, detail: `감속 ${acceleration.toFixed(1)}%p → 반등신호` });
+        } else if (acceleration < -0.5) {
+            accelScore = 4;  // [V5.1] 감속 = 모멘텀 소진 = 바닥 근접
+            factors.push({ name: 'acceleration', value: 4, max: 5, detail: `감속 ${acceleration.toFixed(1)}%p` });
+        } else if (acceleration <= 1) {
+            accelScore = 2;  // [V5.1] 등속 = 중립
+            factors.push({ name: 'acceleration', value: 2, max: 5, detail: `등속` });
         } else {
-            accelScore = 0;  // 감속 — 정점 가능성
-            factors.push({ name: 'acceleration', value: 0, max: 5, detail: `감속 ${acceleration.toFixed(1)}%p` });
+            accelScore = 0;  // [V5.1] 강한 가속 = 정점 가능성 (기존 5→0)
+            factors.push({ name: 'acceleration', value: 0, max: 5, detail: `가속 +${acceleration.toFixed(1)}%p → 과열주의` });
         }
     } else {
         factors.push({ name: 'acceleration', value: 0, max: 5, detail: '3D 데이터 없음' });
@@ -444,9 +447,10 @@ function calculateMomentum(input: AlphaInput): PillarDetail {
     let latePenalty = 0;
     const rsiVal = input.rsi14 ?? 50;
     const rvVal = input.relVol ?? 1;
-    if (return3DVal !== null && return3DVal > 8 && rsiVal > 70) {
+    // [V5.1] 임계값 완화: RSI 65+ & Return3D 5%+ 부터 감점 (기존: 70+ & 8%+)
+    if (return3DVal !== null && return3DVal > 5 && rsiVal > 65) {
         if (rvVal < 1.0) {
-            // 3D +8%이상 + RSI 70+ + 거래량 감소 = 과열 후 이탈
+            // 3D +5%이상 + RSI 65+ + 거래량 감소 = 과열 후 이탈
             latePenalty = -5;
             factors.push({ name: 'lateMomentum', value: -5, max: 0, detail: '과열+거래량감소 = 이탈 경고' });
         } else if (rvVal >= 1.5) {
@@ -578,10 +582,12 @@ function calculateStructure(input: AlphaInput): PillarDetail {
     // Discovery 종목 GEX range: -3K ~ -83K → weekly: -300 ~ -8K
     const gex = input.gex || 0;
     let gexDirectionBonus = 0;
-    if (gex > 50000) gexDirectionBonus = 2;        // Strong positive GEX — dealer support
-    else if (gex > 0) gexDirectionBonus = 1;        // Positive GEX — mild support
-    else if (gex < -5000) gexDirectionBonus = 2;    // [V5 Weekly] Negative GEX = price amplification (3-day catalyst)
-    else if (gex < -1000) gexDirectionBonus = 1;    // [V5 Weekly] Moderate negative = amplification potential
+    // [V5.1] 백테스트 실증(t=-2.13): 음의 GEX가 3일 후 수익률 더 높음
+    // 음의 GEX = 숏감마 = 가격 증폭 = 반등 시 급등 잠재력
+    if (gex < -5000) gexDirectionBonus = 3;         // [V5.1] 강한 숏감마 → 반등 시 급등 (기존 2→3)
+    else if (gex < -1000) gexDirectionBonus = 2;    // [V5.1] 보통 숏감마 (기존 1→2)
+    else if (gex < 0) gexDirectionBonus = 1;        // [V5.1] 약한 숏감마
+    else if (gex > 50000) gexDirectionBonus = 1;    // [V5.1] 양의 GEX = 딜러 지지이나 변동성 낮음 (기존 2→1)
     else gexDirectionBonus = 0;
 
     gammaScore = clamp(gammaFlipBonus + gexDirectionBonus, 0, 5);
