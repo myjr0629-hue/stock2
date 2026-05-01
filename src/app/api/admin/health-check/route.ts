@@ -354,7 +354,7 @@ export async function GET(req: NextRequest) {
         dashboard: { status: harvestOk ? 'OK' : 'DEGRADED', dependency: 'cache:command:unified (signum-harvest)' },
         command: { status: harvestOk ? 'OK' : 'DEGRADED', dependency: 'cache:command:unified + chart API' },
         flow: {
-          status: (flowOk || !et.isMarketHours) ? 'OK' : 'DEGRADED',
+          status: (flowOperational !== 'DOWN' || !et.isMarketHours) ? 'OK' : 'DEGRADED',
           dependency: 'cache:flow:unified + polygon:snapshot:probe (signum-flow-harvest)',
         },
         intel: { status: crossSectorExists ? 'OK' : 'DEGRADED', dependency: 'postmarket:cross-brief-v3 (Lambda cross-sector)' },
