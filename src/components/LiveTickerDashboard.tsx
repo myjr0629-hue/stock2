@@ -651,28 +651,6 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
             setCompanyOverview(null);
             setRelatedData(null);
         }
-
-    // [COLD-START FIX] Client-side overview fetch when SSR overview is null
-    // /api/live/ticker does NOT include overview, so SWR never provides it.
-    // On cold start, SSR times out → overview stays null forever unless we fetch here.
-    const overviewTimer = setTimeout(async () => {
-        if (companyOverview || !ticker) return;
-        try {
-            const res = await fetch(`/api/ticker/overview?ticker=${ticker}`);
-            if (res.ok) {
-                const data = await res.json();
-                if (data?.overview) {
-                    setCompanyOverview({
-                        sector: data.overview.sector || null,
-                        sectorEN: data.overview.sectorEN || null,
-                        description: data.overview.description || null,
-                        descriptionEN: data.overview.descriptionEN || null,
-                    });
-                }
-            }
-        } catch { /* silent fail */ }
-    }, 2000); // 2s delay — wait for SSR hydration first
-    return () => clearTimeout(overviewTimer);
     }, [ticker]);
 
 
@@ -1363,6 +1341,26 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                             const blockCount = effectiveInst?.blockTrade?.count || 0;
                             // [FIX] Require actual data presence — dp=0 means "no data", not "low activity"
                             const hasInstData = effectiveInst && (dp > 0 || blockCount > 0);
+                            const isScanning = !hasInstData;
+                            
+                            if (isScanning) {
+                                return (
+                                    <div className="relative overflow-hidden rounded-lg py-2 px-2.5 min-h-[120px] transition-all duration-500 backdrop-blur-xl border border-indigo-500/20 bg-indigo-950/20 w-[85vw] max-w-[320px] md:w-auto md:max-w-none md:min-w-0 snap-center shrink-0">
+                                        <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/10 via-transparent to-transparent animate-pulse" />
+                                        <div className="relative z-10 flex items-center justify-between mb-2">
+                                            <div className="flex items-center gap-1 opacity-50">
+                                                <Radar className="w-3.5 h-3.5 text-indigo-400" />
+                                                <span className="text-[13px] font-bold text-white uppercase tracking-wider font-jakarta">INST RADAR</span>
+                                            </div>
+                                        </div>
+                                        <div className="relative z-10 flex flex-col items-center justify-center mt-3 gap-2 opacity-80">
+                                            <div className="w-5 h-5 rounded-full border-2 border-indigo-500/30 border-t-indigo-400 animate-spin" />
+                                            <span className="text-[12px] font-jakarta text-indigo-200 animate-pulse font-medium">{locale === 'ko' ? '실시간 데이터 스캐닝 중...' : 'Scanning live data...'}</span>
+                                        </div>
+                                    </div>
+                                );
+                            }
+
                             const isAccumulation = hasInstData && dp > 40 && blockCount >= 3;
                             const isDistribution = hasInstData && dp > 0 && dp < 20 && blockCount <= 1;
                             const signal = isAccumulation ? 'ACCUMULATION' : isDistribution ? 'DISTRIBUTION' : 'NEUTRAL';
@@ -1755,7 +1753,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                                 }
                                                 rsi={initialStockData.rsi}
                                                 return3d={initialStockData.return3d}
-                                                vwap={liveQuote?.vwap || initialStockData?.vwap}
+                                                vwap={(liveQuote?.vwap && liveQuote.vwap > 0 ? liveQuote.vwap : null) || (initialStockData?.vwap && initialStockData.vwap > 0 ? initialStockData.vwap : undefined)}
                                                 gammaFlipLevel={structure?.gammaFlipLevel}
                                                 nbbo={(() => {
                                                     const q = typeof wsGetQuote === 'function' ? wsGetQuote(ticker) : undefined;

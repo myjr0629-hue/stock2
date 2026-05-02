@@ -175,7 +175,15 @@ async function enrichExpiration(data: any): Promise<any> {
     return data;
 }
 
-function jsonResponse(data: any, status = 200) {
+function jsonResponse(data: any, status = 200, isShell = false) {
+    if (isShell) {
+        return NextResponse.json(data, {
+            status,
+            headers: {
+                'Cache-Control': 'no-store, must-revalidate',
+            }
+        });
+    }
     const isMarket = isMarketHoursNow();
     return NextResponse.json(data, {
         status,
@@ -460,8 +468,12 @@ export async function GET(request: NextRequest) {
                 } catch { /* DynamoDB unavailable, continue with Redis */ }
             }
 
-            // Get overview: Redis → API fetch
+            // Get overview: Redis → DynamoDB → API fetch
             let resolvedOverview = cachedOverview;
+            if (!resolvedOverview && cachedData?.overview) {
+                resolvedOverview = cachedData.overview;
+                setInCache(overviewCacheKey, resolvedOverview, getSmartTTL()).catch(() => {});
+            }
             if (!resolvedOverview) {
                 const baseUrl = getBaseUrl(request);
                 resolvedOverview = await callInternalGet(getOverview, `${baseUrl}/api/live/overview?t=${ticker}&lang=${locale}`);
@@ -488,7 +500,8 @@ export async function GET(request: NextRequest) {
             memorySet(memKey, cachedData);
 
             // ═══ IMMEDIATE RETURN — user sees data in ≤5ms ═══
-            const immediateResponse = jsonResponse({ ...cachedData, overview: resolvedOverview || null, _source: 'cache', _ageMs: ageMs });
+            const isShell = !isFieldUsable('institutional', cachedData.institutional) || redisFc <= 4;
+            const immediateResponse = jsonResponse({ ...cachedData, overview: resolvedOverview || null, _source: 'cache', _ageMs: ageMs }, 200, isShell);
 
             // ═══ BACKGROUND ENRICHMENT — runs AFTER response is sent ═══
             const bgBaseUrl = getBaseUrl(request);
@@ -830,7 +843,7 @@ export async function GET(request: NextRequest) {
 
                 await enrichExpiration(dynData);
                 await injectAlphaBypass(dynData, ticker);
-                return jsonResponse({ ...dynData, overview: dynOv || null, _source: fc === finalFc ? 'dynamodb-unified' : 'dynamodb-gapfill', _latency: Date.now() - start });
+                return jsonResponse({ ...dynData, overview: dynOv || null, _source: fc === finalFc ? 'dynamodb-unified' : 'dynamodb-gapfill', _latency: Date.now() - start }, 200, true);
             }
         } catch { /* DynamoDB unavailable, continue to fallback */ }
 
