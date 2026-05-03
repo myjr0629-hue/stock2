@@ -1344,7 +1344,10 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                             const blockCount = effectiveInst?.blockTrade?.count || 0;
                             // [FIX] Require actual data presence — dp=0 means "no data", not "low activity"
                             const hasInstData = effectiveInst && (dp > 0 || blockCount > 0);
-                            const isScanning = !hasInstData;
+                            
+                            // [FIX 2026-05-03] Only show 'Scanning' if the entire institutional object is missing.
+                            // If it exists but dp is 0, it means we fetched data but there were no dark pool trades.
+                            const isScanning = !effectiveInst;
                             
                             if (isScanning) {
                                 return (
