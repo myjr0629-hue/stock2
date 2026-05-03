@@ -33,9 +33,10 @@ const REFRESH_THRESHOLD_MS = 300 * 1000; // [극강] 5 minutes — background re
 // Sources: cache:analysis (Redis), signum-flow-history (DynamoDB), Finnhub API
 async function injectAlphaBypass(data: any, ticker: string) {
     if (!data) return;
-    // [초격차 속도] Skip if ALL fields already populated (0ms early exit, no Redis call)
-    const needsAlpha = !data.alpha;
-    const needsFlow = data.smartFlow === undefined;
+    // [초격차 속도] Skip if ALL fields already populated with VALID data (0ms early exit, no Redis call)
+    // CRITICAL: Check score VALUE, not just object existence. GOOGL had alpha={score:0} in DynamoDB.
+    const needsAlpha = !data.alpha || data.alpha.score === 0 || data.alpha.grade === 'N/A';
+    const needsFlow = data.smartFlow === undefined || data.smartFlow === 0;
     const needsInst = !data.institutional || (data.institutional.darkPool?.percent === 0 && data.institutional.blockTrade?.count === 0);
     const needsSurprise = data.earnings && !data.earnings.lastSurprise;
     if (!needsAlpha && !needsFlow && !needsInst && !needsSurprise) return;
