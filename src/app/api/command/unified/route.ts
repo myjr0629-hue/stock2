@@ -28,16 +28,31 @@ const CACHE_TTL_MARKET = 1800; // [극강] 30 minutes during market hours (was 5
 const CACHE_TTL_OFFHOURS = 259200; // 72 hours off-hours (covers Friday→Monday)
 const REFRESH_THRESHOLD_MS = 300 * 1000; // [극강] 5 minutes — background refresh after 5 min (was 2 min)
 
-// [ROOT FIX] Bypass injection for Alpha & Smart Flow from Lambda's direct Analysis Cache.
-// Prevents "Context Score 0" issue for Universe tickers by sourcing exact scores from signum-harvest.
+// [ROOT FIX] Bypass injection for Alpha, Smart Flow & Institutional from Lambda's direct Analysis Cache.
+// Prevents "Context Score 0" and "Inst Radar 0%" issues for Universe tickers.
 async function injectAlphaBypass(data: any, ticker: string) {
-    if (!data || (data.alpha && data.smartFlow !== undefined)) return; // [초격차 속도] 이미 메모리에 삽입되었으면 0ms 조기 종료 (Redis 호출 일절 없음)
+    if (!data) return;
+    // [초격차 속도] Skip if ALL fields already populated (0ms early exit, no Redis call)
+    const needsAlpha = !data.alpha;
+    const needsFlow = data.smartFlow === undefined;
+    const needsInst = !data.institutional || (data.institutional.darkPool?.percent === 0 && data.institutional.blockTrade?.count === 0);
+    if (!needsAlpha && !needsFlow && !needsInst) return;
     try {
         const { getAnalysisCache } = await import('@/services/analysisCache');
         const ac = await getAnalysisCache(ticker);
         if (ac) {
-            if (ac.alphaSnapshot && !data.alpha) data.alpha = ac.alphaSnapshot;
-            if (ac.whaleIndex !== undefined && data.smartFlow === undefined) data.smartFlow = ac.whaleIndex;
+            if (ac.alphaSnapshot && needsAlpha) data.alpha = ac.alphaSnapshot;
+            if (ac.whaleIndex !== undefined && needsFlow) data.smartFlow = ac.whaleIndex;
+            // [FIX 2026-05-03] Inject institutional from analysis cache when DynamoDB has dp=0
+            // Lambda writes darkPoolPct to analysis cache from EC2 proxy (real-time data)
+            if (needsInst && ac.darkPoolPct != null && ac.darkPoolPct > 0) {
+                data.institutional = {
+                    ...(data.institutional || {}),
+                    darkPool: { percent: ac.darkPoolPct },
+                    blockTrade: data.institutional?.blockTrade || { count: 0, volume: 0 },
+                    shortVolume: data.institutional?.shortVolume || (ac.shortVolPct != null ? { percent: ac.shortVolPct } : null),
+                };
+            }
         }
     } catch { /* graceful fallback */ }
 }
