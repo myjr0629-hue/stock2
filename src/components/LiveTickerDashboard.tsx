@@ -253,8 +253,8 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
             fallbackData: initialChartData ? { data: initialChartData } : undefined,
             refreshInterval: isClosed ? 0 : 30_000,     // 30s polling (same as old setInterval)
             revalidateOnFocus: !isClosed,  // [FIX] Prevent chart data refetch during market close
-            revalidateOnMount: true,       // [V5.1 FIX] Always fetch on mount — prevents blank chart when SSR timeout
-            dedupingInterval: 5_000,       // [V5.1 FIX] 5s dedup (was 10s) — faster initial chart load
+            revalidateOnMount: true,       // [FIX] Always fetch on mount — prevents blank chart when SSR timeout
+            dedupingInterval: 5_000,       // [FIX] 5s dedup (was 10s) — faster initial chart load
         }
     );
     const liveChartData = _swrChartResult?.data || initialChartData || null;
@@ -410,6 +410,8 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
     // 1. Fetch Unified Backend Data (11-in-1 aggregation + Redis SWR Cache)
     // [COLD-START FIX] Dynamic polling: 3s when data incomplete → 15s when complete
     // This ensures cold-start tickers auto-populate within seconds of Lambda completion
+    const isColdStart = !structure && !initialUnifiedData?.structure;
+    const dynamicRefreshInterval = isClosed ? 0 : (isColdStart ? 3_000 : 15_000);
 
     const { data: unifiedData, error: unifiedError } = useSWR(
         ticker ? `/api/command/unified?t=${ticker}&lang=${locale}` : null,
@@ -419,13 +421,8 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
             revalidateOnFocus: !isClosed,  // [FIX] Prevent unified data refetch during market close
             revalidateIfStale: true,
             revalidateOnMount: true,  // [V73] ALWAYS fetch on mount — SSR data may be stale
-            // [FIX 2026-05-02] Dynamic interval via function: ensure we poll if data is missing, even when closed
-            refreshInterval: (data) => {
-                const d = data || initialUnifiedData;
-                const isColdStart = !d?.structure;
-                return isColdStart ? 3_000 : (isClosed ? 0 : 15_000);
-            },
-            dedupingInterval: 2_000,  // Keep aggressive to support fast cold-start resolution
+            refreshInterval: dynamicRefreshInterval,  // [COLD-START] 3s aggressive → 15s normal
+            dedupingInterval: isColdStart ? 2_000 : 5_000,  // [COLD-START] Faster dedup when incomplete
         }
     );
 
@@ -654,6 +651,28 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
             setCompanyOverview(null);
             setRelatedData(null);
         }
+
+    // [COLD-START FIX] Client-side overview fetch when SSR overview is null
+    // /api/live/ticker does NOT include overview, so SWR never provides it.
+    // On cold start, SSR times out → overview stays null forever unless we fetch here.
+    const overviewTimer = setTimeout(async () => {
+        if (companyOverview || !ticker) return;
+        try {
+            const res = await fetch(`/api/ticker/overview?ticker=${ticker}`);
+            if (res.ok) {
+                const data = await res.json();
+                if (data?.overview) {
+                    setCompanyOverview({
+                        sector: data.overview.sector || null,
+                        sectorEN: data.overview.sectorEN || null,
+                        description: data.overview.description || null,
+                        descriptionEN: data.overview.descriptionEN || null,
+                    });
+                }
+            }
+        } catch { /* silent fail */ }
+    }, 2000); // 2s delay — wait for SSR hydration first
+    return () => clearTimeout(overviewTimer);
     }, [ticker]);
 
 
@@ -1344,29 +1363,6 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                             const blockCount = effectiveInst?.blockTrade?.count || 0;
                             // [FIX] Require actual data presence — dp=0 means "no data", not "low activity"
                             const hasInstData = effectiveInst && (dp > 0 || blockCount > 0);
-                            
-                            // [FIX 2026-05-03] Only show 'Scanning' if the entire institutional object is missing.
-                            // If it exists but dp is 0, it means we fetched data but there were no dark pool trades.
-                            const isScanning = !effectiveInst;
-                            
-                            if (isScanning) {
-                                return (
-                                    <div className="relative overflow-hidden rounded-lg py-2 px-2.5 min-h-[120px] transition-all duration-500 backdrop-blur-xl border border-indigo-500/20 bg-indigo-950/20 w-[85vw] max-w-[320px] md:w-auto md:max-w-none md:min-w-0 snap-center shrink-0">
-                                        <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/10 via-transparent to-transparent animate-pulse" />
-                                        <div className="relative z-10 flex items-center justify-between mb-2">
-                                            <div className="flex items-center gap-1 opacity-50">
-                                                <Radar className="w-3.5 h-3.5 text-indigo-400" />
-                                                <span className="text-[13px] font-bold text-white uppercase tracking-wider font-jakarta">INST RADAR</span>
-                                            </div>
-                                        </div>
-                                        <div className="relative z-10 flex flex-col items-center justify-center mt-3 gap-2 opacity-80">
-                                            <div className="w-5 h-5 rounded-full border-2 border-indigo-500/30 border-t-indigo-400 animate-spin" />
-                                            <span className="text-[12px] font-jakarta text-indigo-200 animate-pulse font-medium">{locale === 'ko' ? '실시간 데이터 스캐닝 중...' : 'Scanning live data...'}</span>
-                                        </div>
-                                    </div>
-                                );
-                            }
-
                             const isAccumulation = hasInstData && dp > 40 && blockCount >= 3;
                             const isDistribution = hasInstData && dp > 0 && dp < 20 && blockCount <= 1;
                             const signal = isAccumulation ? 'ACCUMULATION' : isDistribution ? 'DISTRIBUTION' : 'NEUTRAL';
@@ -1759,7 +1755,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                                 }
                                                 rsi={initialStockData.rsi}
                                                 return3d={initialStockData.return3d}
-                                                vwap={(liveQuote?.vwap && liveQuote.vwap > 0 ? liveQuote.vwap : null) || (initialStockData?.vwap && initialStockData.vwap > 0 ? initialStockData.vwap : undefined)}
+                                                vwap={liveQuote?.vwap || initialStockData?.vwap}
                                                 gammaFlipLevel={structure?.gammaFlipLevel}
                                                 nbbo={(() => {
                                                     const q = typeof wsGetQuote === 'function' ? wsGetQuote(ticker) : undefined;

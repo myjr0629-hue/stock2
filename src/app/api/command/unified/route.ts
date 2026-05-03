@@ -175,15 +175,7 @@ async function enrichExpiration(data: any): Promise<any> {
     return data;
 }
 
-function jsonResponse(data: any, status = 200, isShell = false) {
-    if (isShell) {
-        return NextResponse.json(data, {
-            status,
-            headers: {
-                'Cache-Control': 'no-store, must-revalidate',
-            }
-        });
-    }
+function jsonResponse(data: any, status = 200) {
     const isMarket = isMarketHoursNow();
     return NextResponse.json(data, {
         status,
@@ -468,12 +460,8 @@ export async function GET(request: NextRequest) {
                 } catch { /* DynamoDB unavailable, continue with Redis */ }
             }
 
-            // Get overview: Redis → DynamoDB → API fetch
+            // Get overview: Redis → API fetch
             let resolvedOverview = cachedOverview;
-            if (!resolvedOverview && cachedData?.overview) {
-                resolvedOverview = cachedData.overview;
-                setInCache(overviewCacheKey, resolvedOverview, getSmartTTL()).catch(() => {});
-            }
             if (!resolvedOverview) {
                 const baseUrl = getBaseUrl(request);
                 resolvedOverview = await callInternalGet(getOverview, `${baseUrl}/api/live/overview?t=${ticker}&lang=${locale}`);
@@ -500,8 +488,7 @@ export async function GET(request: NextRequest) {
             memorySet(memKey, cachedData);
 
             // ═══ IMMEDIATE RETURN — user sees data in ≤5ms ═══
-            const isShell = !isFieldUsable('institutional', cachedData.institutional) || redisFc <= 4;
-            const immediateResponse = jsonResponse({ ...cachedData, overview: resolvedOverview || null, _source: 'cache', _ageMs: ageMs }, 200, isShell);
+            const immediateResponse = jsonResponse({ ...cachedData, overview: resolvedOverview || null, _source: 'cache', _ageMs: ageMs });
 
             // ═══ BACKGROUND ENRICHMENT — runs AFTER response is sent ═══
             const bgBaseUrl = getBaseUrl(request);
@@ -843,7 +830,7 @@ export async function GET(request: NextRequest) {
 
                 await enrichExpiration(dynData);
                 await injectAlphaBypass(dynData, ticker);
-                return jsonResponse({ ...dynData, overview: dynOv || null, _source: fc === finalFc ? 'dynamodb-unified' : 'dynamodb-gapfill', _latency: Date.now() - start }, 200, true);
+                return jsonResponse({ ...dynData, overview: dynOv || null, _source: fc === finalFc ? 'dynamodb-unified' : 'dynamodb-gapfill', _latency: Date.now() - start });
             }
         } catch { /* DynamoDB unavailable, continue to fallback */ }
 
@@ -1211,7 +1198,7 @@ async function tryDynamoFast(ticker: string): Promise<any | null> {
 
             // Institutional from DynamoDB (no API call)
             let institutionalCard: any = null;
-            if (snapAny.darkPool?.percent || snapAny.shortVol?.percent) {
+            if (snapAny.darkPool?.percent || flow) {
                 institutionalCard = {
                     darkPool: { percent: snapAny.darkPool?.percent || 0 },
                     blockTrade: { count: snapAny.darkPool?.blockCount || 0, volume: 0 },

@@ -1059,7 +1059,7 @@ async function buildUnifiedCache(priceMap, gexMap, optionsCache, smaMap, details
   // [v9 FIX] Pre-fetch darkPool + blockTrades from EC2 ElastiCache proxy (SSOT)
   // CHANGED: Upstash rt-metrics → EC2 proxy (flow-harvest V3.0 removed Upstash writes)
   // EC2 WebSocket accumulator has 100% trade data — same source Vercel uses as PRIMARY
-  const darkPoolMap = {};
+  const darkPoolMap = {};       // { ticker: { percent, buyPct, sellPct } | null }
   const blockTradesMap = {};
   for (let i = 0; i < UNIVERSE.length; i += 20) {
     const dpBatch = UNIVERSE.slice(i, i + 20);
@@ -1068,9 +1068,13 @@ async function buildUnifiedCache(priceMap, gexMap, optionsCache, smaMap, details
       if (metrics) {
         try {
           const parsed = typeof metrics === 'string' ? JSON.parse(metrics) : metrics;
-          // [FIX] Use null instead of 0 when data is missing — 0 overwrites valid cached data
+          // [V2] Extract directional data for Smart Flow V2
           const dpPct = parsed?.darkPool?.percent;
-          darkPoolMap[dpBatch[idx]] = (dpPct != null && dpPct > 0) ? dpPct : null;
+          const buyPct = parsed?.darkPool?.buyPct ?? null;
+          const sellPct = parsed?.darkPool?.sellPct ?? null;
+          darkPoolMap[dpBatch[idx]] = (dpPct != null && dpPct > 0)
+            ? { percent: dpPct, buyPct, sellPct }
+            : null;
           blockTradesMap[dpBatch[idx]] = parsed?.blockTrade?.count || 0;
         } catch { /* Don't store 0 for darkPool — leave undefined so previous cache is preserved */ }
       }
@@ -1215,20 +1219,25 @@ async function buildUnifiedCache(priceMap, gexMap, optionsCache, smaMap, details
           squeeze = { ticker, siPercent, daysToCover, siChange, shortVolPercent:shortVolPct, riskScore, status };
         } catch {}
         
-        // === Build institutional (simplified — dark pool % from snapshot) ===
-        let institutional = null;
-        // For GEX tickers, we have options data to derive basic institutional signals
-        // Full dark pool analysis requires 50K+ trades — too heavy for Lambda
-        // Provide basic structure; warm-command can optionally supplement
-        institutional = { darkPool: { percent: 0 }, blockTrade: { count: 0, volume: 0 }, shortVolume: squeeze ? { percent: squeeze.shortVolPercent } : null };
+        // === Build institutional (from EC2 proxy real-time data) ===
+        // [FIX 2026-05-03] Use actual darkPool/blockTrade data from EC2 proxy pre-fetch
+        // Previously hardcoded to 0, wiping out real data from flow-harvest pipeline
+        const dpObj = darkPoolMap[ticker];
+        const btCount = blockTradesMap[ticker] || 0;
+        let institutional = {
+          darkPool: { percent: dpObj?.percent || 0 },
+          blockTrade: { count: btCount, volume: 0 },
+          shortVolume: squeeze ? { percent: squeeze.shortVolPercent } : null
+        };
         
         // === Preserve existing data from DynamoDB if current run doesn't have it ===
         // Prevents extended-hours cron from wiping out regular-hours data
         // [FIX 2026-04-07] Also preserve fundamentals/analyst/earnings/related when current run returns null
-        // [FIX 2026-05-02] Also preserve institutional data if it is empty
+        // [FIX 2026-05-03] Also preserve institutional data when EC2 proxy returns nothing
         let prevSma = null, prevStructure = null, prevVolatility = null, prevInstitutional = null;
         let prevFundamentals = null, prevAnalyst = null, prevEarnings = null, prevRelated = null;
-        const needsPreserve = !sma || !structure || !gd || !dt.fundamentals?.score || !dt.analyst || !dt.earnings || !dt.related || institutional.blockTrade.count === 0;
+        const instEmpty = institutional.darkPool.percent === 0 && institutional.blockTrade.count === 0;
+        const needsPreserve = !sma || !structure || !gd || !dt.fundamentals?.score || !dt.analyst || !dt.earnings || !dt.related || instEmpty;
         if (needsPreserve) {
           try {
             const existing = await client.send(new GetCommand({ TableName:'signum-unified-cache', Key:{pk:ticker} }));
@@ -1245,8 +1254,8 @@ async function buildUnifiedCache(priceMap, gexMap, optionsCache, smaMap, details
               if (!dt.analyst && existing.Item.data.analyst) prevAnalyst = existing.Item.data.analyst;
               if (!dt.earnings && existing.Item.data.earnings) prevEarnings = existing.Item.data.earnings;
               if (!dt.related && existing.Item.data.related) prevRelated = existing.Item.data.related;
-              // CRITICAL [2026-05-02]: Preserve institutional when current run wipes it out (blockTrade=0)
-              if (institutional.blockTrade.count === 0 && existing.Item.data.institutional?.blockTrade?.count > 0) {
+              // CRITICAL [2026-05-03]: Preserve institutional when EC2 proxy had no data
+              if (instEmpty && existing.Item.data.institutional?.darkPool?.percent > 0) {
                 prevInstitutional = existing.Item.data.institutional;
               }
             }
@@ -1319,8 +1328,9 @@ async function buildUnifiedCache(priceMap, gexMap, optionsCache, smaMap, details
             const vwapDist = snapVwap > 0 ? Math.round(((price - snapVwap) / snapVwap) * 10000) / 100 : null;
             
             // --- Read darkPoolPct from pre-fetched darkPoolMap ---
-            // [FIX] null = EC2 fetch failed. Preserve previous cache value instead of writing 0.
-            let darkPoolPct = darkPoolMap[ticker] ?? null;
+            // [V2] darkPoolMap now stores { percent, buyPct, sellPct } objects
+            // Extract .percent for backward compatibility, null = EC2 fetch failed
+            let darkPoolPct = darkPoolMap[ticker]?.percent ?? null;
             
             const analysisEntry = {
               ticker,
@@ -1350,44 +1360,79 @@ async function buildUnifiedCache(priceMap, gexMap, optionsCache, smaMap, details
               squeezeScore: structure?.squeezeScore || null,
               iv: structure?.atmIv || null,
               whaleIndex: (() => {
-                // Composite Whale Index: GEX(25%) + DarkPool(25%) + BlockTrades(25%) + NetPremium(25%)
-                let score = 0;
-                // 1. GEX component (0-25): higher abs GEX = more institutional hedging
-                const absGex = Math.abs(structure?.netGex || 0);
-                if (absGex > 50000000) score += 25;
-                else if (absGex > 10000000) score += 20;
-                else if (absGex > 1000000) score += 15;
-                else if (absGex > 100000) score += 8;
-                // 2. DarkPool component (0-25): higher DP% = more institutional trading
+                // [V2] Smart Flow — Directional Institutional Flow Index
+                // 50 = neutral, >50 = accumulation (buying), <50 = distribution (selling)
+                // Direction sources: DarkPool buy/sell bias, NetPremium sign, GEX regime
+                // Activity level acts as confidence multiplier
+
+                // ① Dark Pool Direction (±20): Most reliable directional signal
+                const dpData = darkPoolMap[ticker];
+                const dpBuyPct = dpData?.buyPct ?? null;
+                const dpSellPct = dpData?.sellPct ?? null;
+                let dpDirection = 0;
+                if (dpBuyPct !== null && dpSellPct !== null) {
+                  // buyPct=54, sellPct=35 → bias=+19 → strong buy signal
+                  // buyPct=40, sellPct=44 → bias=-4  → weak sell signal
+                  const dpBias = dpBuyPct - dpSellPct; // range: ~-30 to +30
+                  dpDirection = Math.max(-20, Math.min(20, dpBias * 0.67));
+                }
+
+                // ② Net Premium Direction (±15): Options market institutional conviction
+                const np = structure?.netPremium || 0;
+                const npSign = np > 0 ? 1 : np < 0 ? -1 : 0;
+                const absNp = Math.abs(np);
+                let npScore = 0;
+                if (absNp > 50000000) npScore = 15 * npSign;
+                else if (absNp > 10000000) npScore = 12 * npSign;
+                else if (absNp > 5000000) npScore = 8 * npSign;
+                else if (absNp > 1000000) npScore = 5 * npSign;
+                else if (absNp > 100000) npScore = 2 * npSign;
+
+                // ③ GEX Regime Confirmation (±5)
+                const gexVal = structure?.netGex || 0;
+                let gexBonus = 0;
+                if (gexVal > 0 && dpDirection > 5) gexBonus = 5;       // stable + buying = confirmed
+                else if (gexVal < 0 && dpDirection < -5) gexBonus = -5; // unstable + selling = danger confirmed
+
+                // ④ Activity Amplifier (0.6x ~ 1.5x)
+                let activityLevel = 0;
+                const absGex = Math.abs(gexVal);
+                if (absGex > 50000000) activityLevel += 25;
+                else if (absGex > 10000000) activityLevel += 20;
+                else if (absGex > 1000000) activityLevel += 15;
+                else if (absGex > 100000) activityLevel += 8;
+
                 const dp = darkPoolPct || 0;
-                if (dp >= 60) score += 25;
-                else if (dp >= 45) score += 20;
-                else if (dp >= 30) score += 12;
-                else if (dp > 0) score += 5;
-                // 3. BlockTrades component (0-25): more blocks = whale activity
+                if (dp >= 60) activityLevel += 25;
+                else if (dp >= 45) activityLevel += 20;
+                else if (dp >= 30) activityLevel += 12;
+                else if (dp > 0) activityLevel += 5;
+
                 const bt = blockTradesMap[ticker] || 0;
-                if (bt >= 10) score += 25;
-                else if (bt >= 5) score += 20;
-                else if (bt >= 2) score += 15;
-                else if (bt >= 1) score += 8;
-                // 4. NetPremium component (0-25): larger abs premium flow = institutional conviction
-                const absNp = Math.abs(structure?.netPremium || 0);
-                if (absNp > 10000000) score += 25;
-                else if (absNp > 5000000) score += 20;
-                else if (absNp > 1000000) score += 15;
-                else if (absNp > 100000) score += 8;
-                return Math.min(100, score);
+                if (bt >= 10) activityLevel += 25;
+                else if (bt >= 5) activityLevel += 20;
+                else if (bt >= 2) activityLevel += 15;
+                else if (bt >= 1) activityLevel += 8;
+
+                const multiplier = 0.6 + (Math.min(activityLevel, 75) / 75) * 0.9;
+
+                // Final computation
+                const rawDirection = dpDirection + npScore + gexBonus;
+                const amplified = rawDirection * multiplier;
+                return Math.max(0, Math.min(100, Math.round(50 + amplified)));
               })(),
               whaleConfidence: (() => {
-                const dp = darkPoolPct || 0;
+                // [V2] Confidence based on directional data availability + activity
+                const dpData = darkPoolMap[ticker];
+                const hasDpDirection = dpData?.buyPct != null && dpData?.sellPct != null;
                 const bt = blockTradesMap[ticker] || 0;
                 const absNp = Math.abs(structure?.netPremium || 0);
-                // HIGH: multiple strong signals, MED: some signals, LOW: weak
+                const absGex = Math.abs(structure?.netGex || 0);
                 let signals = 0;
-                if (dp >= 50) signals++;
+                if (hasDpDirection) signals++;  // directional data available
                 if (bt >= 3) signals++;
                 if (absNp > 5000000) signals++;
-                if (Math.abs(structure?.netGex || 0) > 10000000) signals++;
+                if (absGex > 10000000) signals++;
                 return signals >= 3 ? 'HIGH' : signals >= 2 ? 'MED' : signals >= 1 ? 'LOW' : 'NONE';
               })(),
               darkPoolPct: darkPoolPct ?? null,  // null = no data this cycle, dashboard will use EC2 directly
@@ -1809,13 +1854,7 @@ exports.handler = async (event) => {
       } catch {}
       
       // 10. Institutional (basic structure)
-      let institutional = { darkPool:{percent:0}, blockTrade:{count:0,volume:0}, shortVolume:squeeze?{percent:squeeze.shortVolPercent}:null };
-      try {
-        const existing = await client.send(new GetCommand({ TableName:'signum-unified-cache', Key:{pk:ticker} }));
-        if (existing.Item?.data?.institutional?.blockTrade?.count > 0) {
-          institutional = existing.Item.data.institutional;
-        }
-      } catch {}
+      const institutional = { darkPool:{percent:0}, blockTrade:{count:0,volume:0}, shortVolume:squeeze?{percent:squeeze.shortVolPercent}:null };
       
       // 11. Save to DynamoDB (signum-unified-cache)
       const data = { timestamp:Date.now(), structure, analyst, fundamentals, earnings, sma, related, volatility, squeeze, institutional };
@@ -1859,14 +1898,76 @@ exports.handler = async (event) => {
         // [v9 FIX] Fetch fresh dark pool from EC2 proxy (same as batch path)
         let onDemandDpPct = 0;
         let onDemandBlockCount = 0;
+        let onDemandBuyPct = null;
+        let onDemandSellPct = null;
         try {
           const dpMetrics = await ec2ProxyGet('rt-metrics:' + ticker, 3000);
           if (dpMetrics) {
             const dpParsed = typeof dpMetrics === 'string' ? JSON.parse(dpMetrics) : dpMetrics;
             onDemandDpPct = dpParsed?.darkPool?.percent || 0;
             onDemandBlockCount = dpParsed?.blockTrade?.count || 0;
+            onDemandBuyPct = dpParsed?.darkPool?.buyPct ?? null;
+            onDemandSellPct = dpParsed?.darkPool?.sellPct ?? null;
           }
         } catch {}
+        
+        // [V2] Compute directional whaleIndex (same formula as batch path)
+        const onDemandWhaleIndex = (() => {
+          // ① Dark Pool Direction (±20)
+          let dpDirection = 0;
+          if (onDemandBuyPct !== null && onDemandSellPct !== null) {
+            const dpBias = onDemandBuyPct - onDemandSellPct;
+            dpDirection = Math.max(-20, Math.min(20, dpBias * 0.67));
+          }
+          // ② Net Premium Direction (±15)
+          const np = structure?.netPremium || 0;
+          const npSign = np > 0 ? 1 : np < 0 ? -1 : 0;
+          const absNp = Math.abs(np);
+          let npScore = 0;
+          if (absNp > 50000000) npScore = 15 * npSign;
+          else if (absNp > 10000000) npScore = 12 * npSign;
+          else if (absNp > 5000000) npScore = 8 * npSign;
+          else if (absNp > 1000000) npScore = 5 * npSign;
+          else if (absNp > 100000) npScore = 2 * npSign;
+          // ③ GEX Regime Confirmation (±5)
+          const gexVal = structure?.netGex || 0;
+          let gexBonus = 0;
+          if (gexVal > 0 && dpDirection > 5) gexBonus = 5;
+          else if (gexVal < 0 && dpDirection < -5) gexBonus = -5;
+          // ④ Activity Amplifier (0.6x ~ 1.5x)
+          let activityLevel = 0;
+          const absGex = Math.abs(gexVal);
+          if (absGex > 50000000) activityLevel += 25;
+          else if (absGex > 10000000) activityLevel += 20;
+          else if (absGex > 1000000) activityLevel += 15;
+          else if (absGex > 100000) activityLevel += 8;
+          const dp = onDemandDpPct || 0;
+          if (dp >= 60) activityLevel += 25;
+          else if (dp >= 45) activityLevel += 20;
+          else if (dp >= 30) activityLevel += 12;
+          else if (dp > 0) activityLevel += 5;
+          if (onDemandBlockCount >= 10) activityLevel += 25;
+          else if (onDemandBlockCount >= 5) activityLevel += 20;
+          else if (onDemandBlockCount >= 2) activityLevel += 15;
+          else if (onDemandBlockCount >= 1) activityLevel += 8;
+          const multiplier = 0.6 + (Math.min(activityLevel, 75) / 75) * 0.9;
+          const rawDirection = dpDirection + npScore + gexBonus;
+          const amplified = rawDirection * multiplier;
+          return Math.max(0, Math.min(100, Math.round(50 + amplified)));
+        })();
+        
+        // [V2] Whale confidence
+        const onDemandWhaleConfidence = (() => {
+          const hasDpDir = onDemandBuyPct != null && onDemandSellPct != null;
+          const absNp = Math.abs(structure?.netPremium || 0);
+          const absGex = Math.abs(structure?.netGex || 0);
+          let signals = 0;
+          if (hasDpDir) signals++;
+          if (onDemandBlockCount >= 3) signals++;
+          if (absNp > 5000000) signals++;
+          if (absGex > 10000000) signals++;
+          return signals >= 3 ? 'HIGH' : signals >= 2 ? 'MED' : signals >= 1 ? 'LOW' : 'NONE';
+        })();
         
         // cache:analysis — analysis summary for Dashboard/Watchlist/Portfolio
         const analysisEntry = {
@@ -1883,7 +1984,7 @@ exports.handler = async (event) => {
           gammaFlipLevel: structure.gammaFlipLevel || null,
           squeezeScore: structure.squeezeScore || null,
           iv: structure.atmIv || null,
-          whaleIndex: oldAnalysis.whaleIndex || 0, whaleConfidence: oldAnalysis.whaleConfidence || 'NONE',
+          whaleIndex: onDemandWhaleIndex, whaleConfidence: onDemandWhaleConfidence,
           darkPoolPct: onDemandDpPct || oldAnalysis.darkPoolPct || 0, netPremium: structure.netPremium || null,
           vwapDist: oldAnalysis.vwapDist || null, volume: oldAnalysis.volume || null, ivSkew: oldAnalysis.ivSkew || null, impliedMovePct: oldAnalysis.impliedMovePct || null,
         };
