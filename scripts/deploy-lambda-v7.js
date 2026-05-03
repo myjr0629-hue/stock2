@@ -1267,9 +1267,10 @@ async function buildUnifiedCache(priceMap, gexMap, optionsCache, smaMap, details
         // === Preserve existing data from DynamoDB if current run doesn't have it ===
         // Prevents extended-hours cron from wiping out regular-hours data
         // [FIX 2026-04-07] Also preserve fundamentals/analyst/earnings/related when current run returns null
-        let prevSma = null, prevStructure = null, prevVolatility = null;
+        // [FIX 2026-05-02] Also preserve institutional data if it is empty
+        let prevSma = null, prevStructure = null, prevVolatility = null, prevInstitutional = null;
         let prevFundamentals = null, prevAnalyst = null, prevEarnings = null, prevRelated = null;
-        const needsPreserve = !sma || !structure || !gd || !dt.fundamentals?.score || !dt.analyst || !dt.earnings || !dt.related;
+        const needsPreserve = !sma || !structure || !gd || !dt.fundamentals?.score || !dt.analyst || !dt.earnings || !dt.related || institutional.blockTrade.count === 0;
         if (needsPreserve) {
           try {
             const existing = await client.send(new GetCommand({ TableName:'signum-unified-cache', Key:{pk:ticker} }));
@@ -1286,6 +1287,10 @@ async function buildUnifiedCache(priceMap, gexMap, optionsCache, smaMap, details
               if (!dt.analyst && existing.Item.data.analyst) prevAnalyst = existing.Item.data.analyst;
               if (!dt.earnings && existing.Item.data.earnings) prevEarnings = existing.Item.data.earnings;
               if (!dt.related && existing.Item.data.related) prevRelated = existing.Item.data.related;
+              // CRITICAL [2026-05-02]: Preserve institutional when current run wipes it out (blockTrade=0)
+              if (institutional.blockTrade.count === 0 && existing.Item.data.institutional?.blockTrade?.count > 0) {
+                prevInstitutional = existing.Item.data.institutional;
+              }
             }
           } catch {}
         }
@@ -1303,7 +1308,7 @@ async function buildUnifiedCache(priceMap, gexMap, optionsCache, smaMap, details
           related: dt.related || prevRelated || null,
           volatility: volatility || prevVolatility,
           squeeze,
-          institutional,
+          institutional: prevInstitutional || institutional,
         };
         
         // Count filled fields
@@ -1846,7 +1851,13 @@ exports.handler = async (event) => {
       } catch {}
       
       // 10. Institutional (basic structure)
-      const institutional = { darkPool:{percent:0}, blockTrade:{count:0,volume:0}, shortVolume:squeeze?{percent:squeeze.shortVolPercent}:null };
+      let institutional = { darkPool:{percent:0}, blockTrade:{count:0,volume:0}, shortVolume:squeeze?{percent:squeeze.shortVolPercent}:null };
+      try {
+        const existing = await client.send(new GetCommand({ TableName:'signum-unified-cache', Key:{pk:ticker} }));
+        if (existing.Item?.data?.institutional?.blockTrade?.count > 0) {
+          institutional = existing.Item.data.institutional;
+        }
+      } catch {}
       
       // 11. Save to DynamoDB (signum-unified-cache)
       const data = { timestamp:Date.now(), structure, analyst, fundamentals, earnings, sma, related, volatility, squeeze, institutional };

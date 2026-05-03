@@ -1211,7 +1211,7 @@ async function tryDynamoFast(ticker: string): Promise<any | null> {
 
             // Institutional from DynamoDB (no API call)
             let institutionalCard: any = null;
-            if (snapAny.darkPool?.percent || flow) {
+            if (snapAny.darkPool?.percent || snapAny.shortVol?.percent) {
                 institutionalCard = {
                     darkPool: { percent: snapAny.darkPool?.percent || 0 },
                     blockTrade: { count: snapAny.darkPool?.blockCount || 0, volume: 0 },

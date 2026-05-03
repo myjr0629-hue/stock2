@@ -422,8 +422,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
             // [FIX 2026-05-02] Dynamic interval via function: ensure we poll if data is missing, even when closed
             refreshInterval: (data) => {
                 const d = data || initialUnifiedData;
-                const instMissing = !d?.institutional || (d.institutional.darkPool?.percent === 0 && d.institutional.blockTrade?.count === 0);
-                const isColdStart = !d?.structure || instMissing;
+                const isColdStart = !d?.structure;
                 return isColdStart ? 3_000 : (isClosed ? 0 : 15_000);
             },
             dedupingInterval: 2_000,  // Keep aggressive to support fast cold-start resolution
