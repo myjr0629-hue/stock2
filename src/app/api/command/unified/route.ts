@@ -28,23 +28,24 @@ const CACHE_TTL_MARKET = 1800; // [극강] 30 minutes during market hours (was 5
 const CACHE_TTL_OFFHOURS = 259200; // 72 hours off-hours (covers Friday→Monday)
 const REFRESH_THRESHOLD_MS = 300 * 1000; // [극강] 5 minutes — background refresh after 5 min (was 2 min)
 
-// [ROOT FIX] Bypass injection for Alpha, Smart Flow & Institutional from Lambda's direct Analysis Cache.
-// Prevents "Context Score 0" and "Inst Radar 0%" issues for Universe tickers.
+// [ROOT FIX] Bypass injection for Alpha, Smart Flow, Institutional & Earnings from Lambda caches.
+// Prevents blank data for Universe tickers by sourcing from every available layer.
+// Sources: cache:analysis (Redis), signum-flow-history (DynamoDB), Finnhub API
 async function injectAlphaBypass(data: any, ticker: string) {
     if (!data) return;
     // [초격차 속도] Skip if ALL fields already populated (0ms early exit, no Redis call)
     const needsAlpha = !data.alpha;
     const needsFlow = data.smartFlow === undefined;
     const needsInst = !data.institutional || (data.institutional.darkPool?.percent === 0 && data.institutional.blockTrade?.count === 0);
-    if (!needsAlpha && !needsFlow && !needsInst) return;
+    const needsSurprise = data.earnings && !data.earnings.lastSurprise;
+    if (!needsAlpha && !needsFlow && !needsInst && !needsSurprise) return;
     try {
         const { getAnalysisCache } = await import('@/services/analysisCache');
         const ac = await getAnalysisCache(ticker);
         if (ac) {
             if (ac.alphaSnapshot && needsAlpha) data.alpha = ac.alphaSnapshot;
             if (ac.whaleIndex !== undefined && needsFlow) data.smartFlow = ac.whaleIndex;
-            // [FIX 2026-05-03] Inject institutional from analysis cache when DynamoDB has dp=0
-            // Lambda writes darkPoolPct to analysis cache from EC2 proxy (real-time data)
+            // [FIX 2026-05-03] Inject institutional from analysis cache
             if (needsInst && ac.darkPoolPct != null && ac.darkPoolPct > 0) {
                 data.institutional = {
                     ...(data.institutional || {}),
@@ -53,6 +54,59 @@ async function injectAlphaBypass(data: any, ticker: string) {
                     shortVolume: data.institutional?.shortVolume || (ac.shortVolPct != null ? { percent: ac.shortVolPct } : null),
                 };
             }
+        }
+
+        // [FIX 2026-05-04] Pull block trade count from signum-flow-history if still 0
+        // flow-harvest writes blockTradeCount to this table every 15min during market hours
+        // This preserves Friday's data through the weekend
+        if (data.institutional?.blockTrade?.count === 0) {
+            try {
+                const { DynamoDBClient } = await import('@aws-sdk/client-dynamodb');
+                const { DynamoDBDocumentClient, QueryCommand } = await import('@aws-sdk/lib-dynamodb');
+                const dynClient = DynamoDBDocumentClient.from(new DynamoDBClient({ region: 'us-east-1' }));
+                const flowResult = await Promise.race([
+                    dynClient.send(new QueryCommand({
+                        TableName: 'signum-flow-history',
+                        KeyConditionExpression: 'ticker = :t',
+                        ExpressionAttributeValues: { ':t': ticker },
+                        ScanIndexForward: false,
+                        Limit: 1
+                    })),
+                    new Promise<any>(r => setTimeout(() => r(null), 2000))
+                ]);
+                const latest = flowResult?.Items?.[0];
+                if (latest && latest.blockTradeCount > 0) {
+                    data.institutional = {
+                        ...data.institutional,
+                        darkPool: { percent: latest.darkPoolPercent || data.institutional?.darkPool?.percent || 0 },
+                        blockTrade: { count: latest.blockTradeCount, volume: 0 },
+                    };
+                }
+            } catch { /* DynamoDB unavailable */ }
+        }
+
+        // [FIX 2026-05-04] Inject earnings surprise from Finnhub if missing
+        // Ensures Beat/Miss always shows (even after cache wipe or DynamoDB gap)
+        if (needsSurprise) {
+            try {
+                const { getEarningsSurprise } = await import('@/services/finnhubClient');
+                const surprise = await Promise.race([
+                    getEarningsSurprise(ticker),
+                    new Promise<any>(r => setTimeout(() => r(null), 2000))
+                ]);
+                if (surprise) {
+                    data.earnings = {
+                        ...data.earnings,
+                        lastSurprise: {
+                            actualEps: surprise.actual,
+                            estimatedEps: surprise.estimate,
+                            surpriseEps: Number(surprise.surprise.toFixed(3)),
+                            surprisePct: Number(surprise.surprisePercent.toFixed(1)),
+                            date: surprise.period
+                        }
+                    };
+                }
+            } catch { /* Finnhub unavailable */ }
         }
     } catch { /* graceful fallback */ }
 }
