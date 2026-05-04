@@ -949,6 +949,22 @@ bash scripts/ec2-deploy-guardian.sh
 
 ## 11. 작업 이력
 
+### [2026-05-05] 🟢 Block Trade 즉시 주입 — EC2 Redis Proxy 직접 호출로 5분 지연 제거
+
+> **문제**: Command 페이지 최초 진입 시 block trade count가 25건(Polygon 샘플)으로 표시되고, 5분 후 background enrichment에서 EC2 데이터(4,216건)로 교체되는 5분 지연.
+> 
+> **근본 원인**: `injectAlphaBypass`에서 institutional 데이터를 `cache:analysis.darkPoolPct`에서만 가져왔고, **block trade count는 background gap-fill의 `getInstitutional` 호출에서만** 갱신됨. 최초 호출 시 EC2 proxy 3초 timeout → Polygon fallback(25건) → 5분간 캐시 지속.
+> 
+> **수정** (`src/app/api/command/unified/route.ts`):
+> - `injectAlphaBypass`에서 EC2 Redis Proxy(`rt-metrics:{ticker}`)를 **직접 호출** (2초 timeout)
+> - EC2 성공 → darkPool + blockTrade + shortVolume 즉시 주입
+> - EC2 실패 → cache:analysis fallback → DynamoDB flow-history fallback (3-layer)
+> - Background gap-fill 로직은 그대로 유지 (2차 보험)
+> 
+> **결과**: 최초 요청부터 EC2의 100% 정확도 block trade 데이터가 즉시 표시 (5분 → 0초)
+> 
+> **커밋**: `7a955954`
+
 ### [2026-05-05] 🟢 signum-harvest Lambda Redis 분산 Lock 구현 — 동시 실행 충돌 에러 근절
 
 > **문제**: CloudWatch 알람 `signum-harvest-errors`가 ALARM → OK 자동 복구 반복. 원인은 EventBridge cron이 5분 간격으로 실행되지만, Lambda 실행 시간이 10~13분으로 cron 간격의 2~3배이기 때문에, 이전 실행이 진행 중일 때 새 실행이 트리거되어 78ms 만에 크래시하는 동시 실행 충돌.
