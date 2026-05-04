@@ -57,7 +57,7 @@ async function injectAlphaBypass(data: any, ticker: string) {
                     try {
                         const { getUnifiedCache } = await import('@/lib/aws/unifiedCacheProvider');
                         const uc = await Promise.race([
-                            getUnifiedCache(ticker),
+                            getUnifiedCache(ticker, 'en'),
                             new Promise<any>(r => setTimeout(() => r(null), 2000))
                         ]);
                         if (uc?.smartFlow && uc.smartFlow > 0) {
