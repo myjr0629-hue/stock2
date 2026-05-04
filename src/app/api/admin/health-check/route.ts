@@ -108,13 +108,16 @@ function getETInfo() {
       // 오늘 9:30 ET까지 남은 시간
       const minsToOpen = 570 - etTimeMin;
       nextOpenEta = `${Math.floor(minsToOpen / 60)}h ${minsToOpen % 60}m`;
+    } else if (!isWeekend && !isHoliday && etTimeMin < 240) {
+      // 평일 새벽 0:00~4:00 ET → 같은 날 9:30까지
+      const minsToOpen = 570 - etTimeMin;
+      nextOpenEta = `${Math.floor(minsToOpen / 60)}h ${minsToOpen % 60}m`;
     } else {
-      // POST / CLOSED / WEEKEND → 다음 영업일 9:30 ET까지
+      // POST / CLOSED(야간) / WEEKEND → 다음 영업일 9:30 ET까지
       let daysToAdd = 1;
       if (dayOfWeek === 5 && etTimeMin >= 960) daysToAdd = 3; // 금요일 POST→월요일
       else if (dayOfWeek === 6) daysToAdd = 2; // 토요일→월요일
       else if (dayOfWeek === 0) daysToAdd = 1; // 일요일→월요일
-      // 남은 분: 오늘 24:00까지 + (daysToAdd-1)*24h + 9:30
       const minsLeftToday = 1440 - etTimeMin;
       const totalMins = minsLeftToday + (daysToAdd - 1) * 1440 + 570;
       const h = Math.floor(totalMins / 60);
