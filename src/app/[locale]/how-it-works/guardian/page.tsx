@@ -562,6 +562,155 @@ export default async function GuardianGuidePage({ params }: { params: Promise<{ 
             </section>
 
             {/* ═══════════════════════════════════════════════════════════ */}
+            {/* Section 1.8: GAMMA SHIELD — Historical Context (30D)      */}
+            {/* ═══════════════════════════════════════════════════════════ */}
+            <section className="space-y-5">
+                <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-400 to-purple-600 flex items-center justify-center shadow-lg shadow-violet-500/25">
+                            <Layers size={20} className="text-white" />
+                        </div>
+                        <div>
+                            <h3 className="text-lg font-bold text-white">{t('gammaShield.historicalContext.title')}</h3>
+                            <p className="text-xs text-violet-400 font-medium uppercase tracking-wider">DynamoDB-Backed 30D Gamma History</p>
+                        </div>
+                    </div>
+                    <span className="px-2.5 py-1 rounded-full bg-violet-500/20 border border-violet-500/30 text-xs font-bold text-violet-300">V10.0</span>
+                </div>
+
+                <p className="text-[14px] text-slate-300 leading-relaxed">{t.rich('gammaShield.historicalContext.desc', richTags)}</p>
+
+                {/* 6 Metric Cards */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {/* GEX 30D Percentile */}
+                    <div className={`${glassCard} ${glassBg}`}>
+                        <div className="relative">
+                            <div className="flex items-center gap-2 mb-2">
+                                <div className="w-7 h-7 rounded-lg bg-cyan-500/15 flex items-center justify-center">
+                                    <BarChart3 size={14} className="text-cyan-400" />
+                                </div>
+                                <h4 className="text-sm font-bold text-white">{t('gammaShield.historicalContext.gexPercentile.title')}</h4>
+                            </div>
+                            <p className="text-[12px] text-slate-300 leading-relaxed mb-2">{t.rich('gammaShield.historicalContext.gexPercentile.desc', richTags)}</p>
+                            {/* Gradient bar mockup */}
+                            <div className="relative h-3 rounded-full bg-gradient-to-r from-rose-500/60 via-amber-500/50 to-emerald-500/60 overflow-hidden">
+                                <div className="absolute top-0 left-[72%] w-1 h-full bg-white rounded-full shadow-[0_0_8px_rgba(255,255,255,0.6)]" />
+                            </div>
+                            <div className="flex justify-between mt-1">
+                                <span className="text-[10px] text-rose-400">0th</span>
+                                <span className="text-[10px] text-white font-bold">72nd</span>
+                                <span className="text-[10px] text-emerald-400">100th</span>
+                            </div>
+                            <div className="mt-2 space-y-0.5 text-[11px] text-slate-400">
+                                <p>• {t('gammaShield.historicalContext.gexPercentile.low')}</p>
+                                <p>• {t('gammaShield.historicalContext.gexPercentile.high')}</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Regime Streak */}
+                    <div className={`${glassCard} ${glassBg}`}>
+                        <div className="relative">
+                            <div className="flex items-center gap-2 mb-2">
+                                <div className="w-7 h-7 rounded-lg bg-emerald-500/15 flex items-center justify-center">
+                                    <Activity size={14} className="text-emerald-400" />
+                                </div>
+                                <h4 className="text-sm font-bold text-white">{t('gammaShield.historicalContext.regimeStreak.title')}</h4>
+                            </div>
+                            <p className="text-[12px] text-slate-300 leading-relaxed mb-2">{t.rich('gammaShield.historicalContext.regimeStreak.desc', richTags)}</p>
+                            {/* Visual bar mockup */}
+                            <div className="flex items-center gap-2">
+                                <span className="text-[10px] text-emerald-400 w-14 font-bold">POSITIVE</span>
+                                <div className="flex-1 h-4 rounded bg-slate-800/60 relative overflow-hidden">
+                                    <div className="absolute inset-y-0 left-0 w-[65%] bg-gradient-to-r from-emerald-500/40 to-emerald-400/20 rounded" />
+                                    <span className="absolute right-2 top-0.5 text-[10px] text-white font-bold">12 sessions</span>
+                                </div>
+                            </div>
+                            <p className="text-[11px] text-slate-400 mt-2">• {t('gammaShield.historicalContext.regimeStreak.extended')}</p>
+                        </div>
+                    </div>
+
+                    {/* Regime Shifts */}
+                    <div className={`${glassCard} ${glassBg}`}>
+                        <div className="relative">
+                            <div className="flex items-center gap-2 mb-2">
+                                <div className="w-7 h-7 rounded-lg bg-amber-500/15 flex items-center justify-center">
+                                    <ArrowUpDown size={14} className="text-amber-400" />
+                                </div>
+                                <h4 className="text-sm font-bold text-white">{t('gammaShield.historicalContext.regimeShifts.title')}</h4>
+                            </div>
+                            <p className="text-[12px] text-slate-300 leading-relaxed mb-2">{t.rich('gammaShield.historicalContext.regimeShifts.desc', richTags)}</p>
+                            <div className="space-y-0.5 text-[11px] text-slate-400">
+                                <p>• {t('gammaShield.historicalContext.regimeShifts.stable')}</p>
+                                <p>• {t('gammaShield.historicalContext.regimeShifts.unstable')}</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* CW Hit Rate */}
+                    <div className={`${glassCard} ${glassBg}`}>
+                        <div className="relative">
+                            <div className="flex items-center gap-2 mb-2">
+                                <div className="w-7 h-7 rounded-lg bg-rose-500/15 flex items-center justify-center">
+                                    <Target size={14} className="text-rose-400" />
+                                </div>
+                                <h4 className="text-sm font-bold text-white">{t('gammaShield.historicalContext.cwHitRate.title')}</h4>
+                            </div>
+                            <p className="text-[12px] text-slate-300 leading-relaxed mb-2">{t.rich('gammaShield.historicalContext.cwHitRate.desc', richTags)}</p>
+                            <div className="space-y-0.5 text-[11px] text-slate-400">
+                                <p>• {t('gammaShield.historicalContext.cwHitRate.high')}</p>
+                                <p>• {t('gammaShield.historicalContext.cwHitRate.low')}</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* PF Hit Rate */}
+                    <div className={`${glassCard} ${glassBg}`}>
+                        <div className="relative">
+                            <div className="flex items-center gap-2 mb-2">
+                                <div className="w-7 h-7 rounded-lg bg-emerald-500/15 flex items-center justify-center">
+                                    <Shield size={14} className="text-emerald-400" />
+                                </div>
+                                <h4 className="text-sm font-bold text-white">{t('gammaShield.historicalContext.pfHitRate.title')}</h4>
+                            </div>
+                            <p className="text-[12px] text-slate-300 leading-relaxed mb-2">{t.rich('gammaShield.historicalContext.pfHitRate.desc', richTags)}</p>
+                            <div className="space-y-0.5 text-[11px] text-slate-400">
+                                <p>• {t('gammaShield.historicalContext.pfHitRate.high')}</p>
+                                <p>• {t('gammaShield.historicalContext.pfHitRate.low')}</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* CW Trend */}
+                    <div className={`${glassCard} ${glassBg}`}>
+                        <div className="relative">
+                            <div className="flex items-center gap-2 mb-2">
+                                <div className="w-7 h-7 rounded-lg bg-indigo-500/15 flex items-center justify-center">
+                                    <TrendingUp size={14} className="text-indigo-400" />
+                                </div>
+                                <h4 className="text-sm font-bold text-white">{t('gammaShield.historicalContext.cwTrend.title')}</h4>
+                            </div>
+                            <p className="text-[12px] text-slate-300 leading-relaxed mb-2">{t.rich('gammaShield.historicalContext.cwTrend.desc', richTags)}</p>
+                            <div className="space-y-0.5 text-[11px] text-slate-400">
+                                <p>• {t('gammaShield.historicalContext.cwTrend.up')}</p>
+                                <p>• {t('gammaShield.historicalContext.cwTrend.down')}</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Historical Context Trading Guide */}
+                <div className="rounded-xl border border-violet-500/15 bg-violet-900/10 p-4 space-y-2">
+                    <span className="text-[13px] font-bold text-violet-400 flex items-center gap-1.5"><Layers size={13} />{t('gammaShield.historicalContext.tradingGuide')}</span>
+                    <div className="text-[13px] text-slate-300 leading-relaxed space-y-0.5">
+                        <p>• {t.rich('gammaShield.historicalContext.guide1', richTags)}</p>
+                        <p>• {t.rich('gammaShield.historicalContext.guide2', richTags)}</p>
+                        <p>• {t.rich('gammaShield.historicalContext.guide3', richTags)}</p>
+                    </div>
+                </div>
+            </section>
+
+            {/* ═══════════════════════════════════════════════════════════ */}
             {/* Section 2: Top Status Bar                                 */}
             {/* ═══════════════════════════════════════════════════════════ */}
             <section className="space-y-5">

@@ -1293,7 +1293,50 @@
       "ivSkewTitle": "IV SKEW CURVE",
       "ivSkewDesc": "Visualizes <gold>call/put implied volatility</gold> across strike prices as a curve. The slope and shape of skew on each side of ATM reveals the <cyan>directional risk perception asymmetry</cyan> of options market participants. Deepening put skew indicates institutional hedging demand for tail risk, while call skew steepening signals speculative upside demand.",
       "inst13fTitle": "13-F INSTITUTIONAL HOLDINGS",
-      "inst13fDesc": "Surfaces <gold>institutional investor positions</gold> derived from quarterly SEC Form 13-F filings. Displays share counts, market values, and portfolio weight for each reporting institution, enabling assessment of <cyan>ownership concentration and structural positioning</cyan>. Shifts in large institutional holdings serve as leading indicators for medium-to-long-term directional conviction."
+      "inst13fDesc": "Surfaces <gold>institutional investor positions</gold> derived from quarterly SEC Form 13-F filings. Displays share counts, market values, and portfolio weight for each reporting institution, enabling assessment of <cyan>ownership concentration and structural positioning</cyan>. Shifts in large institutional holdings serve as leading indicators for medium-to-long-term directional conviction.",
+      "gexDeepDive": {
+        "title": "GEX TIMELINE 30D — Deep Dive",
+        "subtitle": "Per-Ticker 30-Day Gamma Exposure Historical Analysis",
+        "desc": "Tracks the evolution of each ticker's gamma structure through <cyan>30 days of daily GEX data</cyan> accumulated in DynamoDB. Delivers <gold>SpotGamma-tier ($300+/mo) historical GEX tracking</gold> that is typically gated behind expensive institutional data subscriptions.",
+        "percentileGauge": {
+          "title": "A. Percentile / Regime",
+          "desc": "Visualizes the current GEX value's <cyan>percentile within the 30-day distribution</cyan> on a gradient gauge. The spectrum spans from Negative GEX (left) to Positive GEX (right) with the current position marked.",
+          "extremeLow": "≤ 10th — Extreme low; gamma exposure at historical bottom",
+          "depressed": "≤ 25th — Depressed; dealer gamma exposure in weak environment",
+          "normal": "25th–75th — Normal range",
+          "elevated": "≥ 75th — Elevated; dealer gamma exposure in strong environment",
+          "extremeHigh": "≥ 90th — Extreme high; gamma exposure at historical peak"
+        },
+        "regimePersistence": {
+          "title": "B. Regime Persistence",
+          "desc": "Compares the current <gold>POSITIVE/NEGATIVE regime's consecutive session count</gold> against the historical average duration for that regime. A <cyan>Current-to-Average ratio</cyan> exceeding 1.5× structurally indicates regime fatigue.",
+          "aboveAvg": "Extended beyond average (1.5×+) — Elevated volatility magnitude at regime transitions",
+          "belowAvg": "Below average — Additional regime persistence structurally possible"
+        },
+        "keyLevels": {
+          "title": "Key Levels",
+          "desc": "Displays <rose>Call Wall (overhead resistance)</rose> and <cyan>Gamma Flip Level (regime transition pivot)</cyan> extracted from the 30-day history as card-format metrics.",
+          "callWall": "Call Wall — Maximum call OI concentration price. The percentage of 30-day sessions where price remained below this level (Hit Rate) is displayed alongside.",
+          "gammaFlip": "Gamma Flip Level — The price historically coinciding with dealer hedging regime transitions. Dealer gamma exposure switches between long ↔ short at this boundary."
+        },
+        "flipEvents": {
+          "title": "Flip Events (Regime Transitions)",
+          "desc": "Records <gold>POSITIVE ↔ NEGATIVE regime transitions</gold> within the 30-day window. Each event displays the transition date, direction (NEG→POS / POS→NEG), and price at transition.",
+          "toPositive": "NEG→POS — Short gamma to long gamma transition; stabilization regime begins",
+          "toNegative": "POS→NEG — Long gamma to short gamma transition; volatility amplification regime begins"
+        },
+        "dynamicInsight": {
+          "title": "Dynamic Insight",
+          "desc": "Auto-generates <cyan>3 multi-line insight statements</cyan> from accumulated 30-day data. Regime status, Call Wall accuracy, and Gamma Flip Level context are delivered in compliance-safe language.",
+          "regimeLine": "GEX value + percentile + consecutive regime session count summary",
+          "wallLine": "Call Wall price + historical accuracy (hit rate) quantified",
+          "flipLine": "Gamma Flip Level + historical regime transition context"
+        },
+        "tradingGuide": "GEX Timeline 30D Signal Interpretation",
+        "guide1": "<emerald>Percentile 75th+ + Long POSITIVE Streak</emerald> → Dealer gamma structure sustainably stable; <gold>range-bound observation in volatility-suppressed environment</gold>",
+        "guide2": "<rose>Percentile ≤ 10th + Multiple Flip Events</rose> → Extreme short gamma with frequent regime transitions; <cyan>bi-directional sharp movement risk at structural maximum</cyan>",
+        "guide3": "<emerald>Call Wall Hit Rate ≥ 80% + CW Trend ↑</emerald> → High resistance reliability + institutional upward positioning; <gold>current structural analysis accuracy elevated</gold>"
+      }
     },
     "aiDeepAnalysis": {
       "title": "AI DEEP ANALYSIS",
@@ -2097,7 +2140,50 @@
       "tradingGuide": "GAMMA SHIELD V3 Signal Interpretation",
       "guide1": "<emerald>GEX ≥ +20 + Squeeze LOW</emerald> → Dealer hedging stabilizes prices; <gold>volatility-suppressed range-bound zone</gold>",
       "guide2": "<rose>GEX ≤ -20 + Squeeze HIGH</rose> → Dealer hedging amplifies volatility; <cyan>high bi-directional sharp movement probability zone</cyan>",
-      "guide3": "<emerald>Gamma Flip Point within 2%</emerald> → Dealer regime transition imminent; <rose>position management for volatility regime shift warranted</rose>"
+      "guide3": "<emerald>Gamma Flip Point within 2%</emerald> → Dealer regime transition imminent; <rose>position management for volatility regime shift warranted</rose>",
+      "historicalContext": {
+        "title": "HISTORICAL CONTEXT (30D)",
+        "desc": "Quantifies the <gold>historical context</gold> of the current gamma structure through <cyan>DynamoDB</cyan>-backed 30-day historical data. Delivers the same level of historical analysis referenced by institutional options desks, distilled into <emerald>6 core metrics</emerald>.",
+        "gexPercentile": {
+          "title": "GEX 30D Percentile",
+          "desc": "Displays the current GEX value's <cyan>position within the 30-day distribution</cyan> as a percentile. Below 25th indicates historically low gamma exposure (weak); above 75th indicates historically elevated gamma exposure (strong).",
+          "low": "≤ 25th — Dealer gamma exposure at historical lows; volatility amplification environment",
+          "high": "≥ 75th — Dealer gamma exposure at historical highs; stabilization environment"
+        },
+        "regimeStreak": {
+          "title": "Regime Streak",
+          "desc": "Displays the number of consecutive sessions the current <gold>POSITIVE (long gamma) or NEGATIVE (short gamma) regime</gold> has been maintained. Longer regime duration structurally indicates that the volatility regime has stabilized.",
+          "extended": "Extended beyond average — Elevated volatility magnitude observed at regime transitions"
+        },
+        "regimeShifts": {
+          "title": "Regime Shifts",
+          "desc": "Count of <rose>POSITIVE ↔ NEGATIVE regime transitions</rose> within the 30-day window. Higher frequency indicates structural market instability; 0 indicates sustained single-regime stability.",
+          "stable": "0 shifts — Single regime maintained for 30 days; structural stability confirmed",
+          "unstable": "3+ shifts — Frequent regime transitions; directional uncertainty observed"
+        },
+        "cwHitRate": {
+          "title": "CW Hit Rate (Call Wall Reliability)",
+          "desc": "The percentage of sessions where the <cyan>Call Wall (call OI concentration resistance)</cyan> effectively capped price. Calculated as the ratio of sessions where price remained below Call Wall, <gold>quantifying resistance structural reliability</gold>.",
+          "high": "≥ 80% — High resistance reliability; structural ceiling observed",
+          "low": "< 50% — Weakened resistance; structural probability of breakout elevated"
+        },
+        "pfHitRate": {
+          "title": "PF Hit Rate (Put Floor Reliability)",
+          "desc": "The percentage of sessions where the <emerald>Put Floor (put OI concentration support)</emerald> effectively defended price. Calculated as the ratio of sessions where price remained above Put Floor, <gold>quantifying support structural reliability</gold>.",
+          "high": "≥ 80% — High support reliability; structural floor observed",
+          "low": "< 50% — Weakened support; structural probability of breakdown elevated"
+        },
+        "cwTrend": {
+          "title": "CW Trend (Call Wall Direction)",
+          "desc": "Displays the <cyan>daily directional movement and magnitude (pt)</cyan> of the Call Wall. Rising (↑) suggests institutions are adjusting overhead resistance upward; falling (↓) suggests downward adjustment.",
+          "up": "↑ Rising — Institutional positioning expanding upward; resistance retreating",
+          "down": "↓ Falling — Institutional positioning contracting downward; resistance approaching"
+        },
+        "tradingGuide": "Historical Context Signal Interpretation",
+        "guide1": "<emerald>Percentile 75th+ + Extended Streak</emerald> → Stable long gamma environment structurally confirmed; <gold>volatility-suppressed range zone</gold>",
+        "guide2": "<rose>Percentile ≤ 25th + 3+ Shifts</rose> → Unstable short gamma environment; <cyan>bi-directional sharp movement risk structurally elevated</cyan>",
+        "guide3": "<emerald>CW/PF Hit Rate ≥ 80%</emerald> → Options wall structural reliability high; <gold>level-based structural analysis valid</gold>"
+      }
     },
     "strategy": {
       "title": "Structural Analysis Workflow",

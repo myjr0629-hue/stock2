@@ -1293,7 +1293,50 @@
       "ivSkewTitle": "IV SKEW CURVE",
       "ivSkewDesc": "行使価格(Strike)別の<gold>コール/プットインプライドボラティリティ</gold>をカーブで可視化。ATM(等価格)基準の両側スキューの傾きと形状が、オプション市場参加者の<cyan>方向別リスク認識の非対称性</cyan>を示します。プットスキュー深化は下方テールリスクへの機関級ヘッジ需要を、コールスキュー深化は上方投機的需要を示唆します。",
       "inst13fTitle": "13-F 機関保有状況",
-      "inst13fDesc": "SEC Form 13-Fに基づく<gold>機関投資家の保有状況</gold>を四半期ごとに照会します。各機関の保有株数、市場価値、全体に対する比重(Weight)を算出し、<cyan>機関集中度と所有構造</cyan>を把握できます。大手機関のポジション変動は、中長期的な価格方向性の先行指標として活用されます。"
+      "inst13fDesc": "SEC Form 13-Fに基づく<gold>機関投資家の保有状況</gold>を四半期ごとに照会します。各機関の保有株数、市場価値、全体に対する比重(Weight)を算出し、<cyan>機関集中度と所有構造</cyan>を把握できます。大手機関のポジション変動は、中長期的な価格方向性の先行指標として活用されます。",
+      "gexDeepDive": {
+        "title": "GEX TIMELINE 30D — ディープダイブ",
+        "subtitle": "銘柄別30日ガンマエクスポージャー・ヒストリカル分析システム",
+        "desc": "DynamoDBに蓄積された<cyan>30日間の日次GEXデータ</cyan>に基づき、銘柄のガンマ構造変遷を時系列で追跡します。機関オプションデスクが参照する<gold>SpotGamma級（$300+/月）のヒストリカルGEX追跡</gold>をSIGNUMが提供します。",
+        "percentileGauge": {
+          "title": "A. Percentile / Regime",
+          "desc": "現在のGEX値の<cyan>30日分布内パーセンタイル</cyan>をグラデーションゲージで可視化します。左側（Negative GEX）から右側（Positive GEX）までのスペクトラム上に現在位置をマークします。",
+          "extremeLow": "10th以下 — 極低値、歴史的底辺水準のガンマ露出",
+          "depressed": "25th以下 — 低位、ディーラーガンマ露出が弱い環境",
+          "normal": "25th〜75th — 正常範囲",
+          "elevated": "75th以上 — 高位、ディーラーガンマ露出が強い環境",
+          "extremeHigh": "90th以上 — 極高値、歴史的ピーク水準のガンマ露出"
+        },
+        "regimePersistence": {
+          "title": "B. Regime Persistence",
+          "desc": "現在の<gold>POSITIVE/NEGATIVEレジームの連続セッション数</gold>を、当該レジームの歴史的平均持続期間と比較します。<cyan>Current対Average比率</cyan>が1.5×以上の場合、レジーム疲労が構造的に観測されます。",
+          "aboveAvg": "平均超過（1.5×+）— レジーム転換時の変動幅拡大の可能性",
+          "belowAvg": "平均未満 — 現在レジームの追加継続が構造的に可能"
+        },
+        "keyLevels": {
+          "title": "Key Levels（核心価格レベル）",
+          "desc": "30日ヒストリーから抽出した<rose>Call Wall（上方レジスタンス）</rose>と<cyan>Gamma Flip Level（レジーム転換ピボット）</cyan>をカード形式で表示します。",
+          "callWall": "Call Wall — コールOI最大集中価格帯。30日セッション中に価格がこの水準を下回った比率（Hit Rate）が併記されます。",
+          "gammaFlip": "Gamma Flip Level — 歴史的にディーラーヘッジレジーム転換と同時に観測された価格帯。この水準を境にディーラーガンマがロング↔ショートに転換します。"
+        },
+        "flipEvents": {
+          "title": "Flip Events（レジーム転換イベント）",
+          "desc": "30日間における<gold>POSITIVE ↔ NEGATIVE レジーム転換</gold>発生時点を記録します。各イベントに転換日、転換方向（NEG→POS / POS→NEG）、転換時価格が表示されます。",
+          "toPositive": "NEG→POS — ショートガンマからロングガンマへ転換、安定化レジーム開始",
+          "toNegative": "POS→NEG — ロングガンマからショートガンマへ転換、ボラティリティ増幅レジーム開始"
+        },
+        "dynamicInsight": {
+          "title": "Dynamic Insight（自動インサイト）",
+          "desc": "蓄積された30日データに基づき<cyan>3本の多層インサイトライン</cyan>が自動生成されます。レジーム状態、Call Wall精度、Gamma Flip Levelの文脈がコンプライアンス準拠の言語で提供されます。",
+          "regimeLine": "GEX値 + パーセンタイル + レジーム連続セッション数の要約",
+          "wallLine": "Call Wall価格 + ヒストリカル精度（ヒット率）の定量表示",
+          "flipLine": "Gamma Flip Level + 歴史的レジーム転換の文脈解説"
+        },
+        "tradingGuide": "GEX Timeline 30D シグナル解釈",
+        "guide1": "<emerald>Percentile 75th+ + Regime Streak長期POSITIVE</emerald> → ディーラーガンマ構造が安定的状態を持続、<gold>ボラティリティ抑制環境でのレンジが観測</gold>",
+        "guide2": "<rose>Percentile 10th以下 + Flip Events多数</rose> → 極端なショートガンマ + 頻繁なレジーム転換、<cyan>双方向急変動リスクが構造的に最高水準</cyan>",
+        "guide3": "<emerald>Call Wall Hit Rate 80%+ + CW Trend ↑</emerald> → レジスタンス信頼度高 + 機関の上方ポジショニング、<gold>現在の構造分析の精度が高い状態</gold>"
+      }
     },
     "aiDeepAnalysis": {
       "title": "AI DEEP ANALYSIS",
@@ -2097,7 +2140,50 @@
       "tradingGuide": "GAMMA SHIELD V3 シグナル解釈",
       "guide1": "<emerald>GEX +20以上 + Squeeze LOW</emerald> → ディーラーヘッジが価格を安定化する環境、<gold>ボラティリティが抑制されたレンジバウンドゾーン</gold>",
       "guide2": "<rose>GEX -20以下 + Squeeze HIGH</rose> → ディーラーヘッジがボラティリティを増幅する環境、<cyan>双方向の急変動確率が高いハイリスクゾーン</cyan>",
-      "guide3": "<emerald>Gamma Flip Point 2%以内に接近</emerald> → ディーラーレジーム転換迫る、<rose>ボラティリティ体質転換に備えたポジション管理が必要</rose>"
+      "guide3": "<emerald>Gamma Flip Point 2%以内に接近</emerald> → ディーラーレジーム転換迫る、<rose>ボラティリティ体質転換に備えたポジション管理が必要</rose>",
+      "historicalContext": {
+        "title": "HISTORICAL CONTEXT (30D)",
+        "desc": "<cyan>DynamoDB</cyan>ベースの30日ヒストリカルデータにより、現在のガンマ構造の<gold>歴史的文脈</gold>を定量化します。機関オプションデスクが参照する同水準のヒストリカル分析を<emerald>6つのコアメトリクス</emerald>で提供します。",
+        "gexPercentile": {
+          "title": "GEX 30D Percentile",
+          "desc": "現在のGEX値が<cyan>直近30日間の分布における位置</cyan>をパーセンタイルで表示します。25th以下は歴史的低位（ガンマ弱気）、75th以上は歴史的高位（ガンマ強気）を意味します。",
+          "low": "25th以下 — ディーラーガンマ露出が歴史的低水準、ボラティリティ増幅環境",
+          "high": "75th以上 — ディーラーガンマ露出が歴史的高水準、安定化環境"
+        },
+        "regimeStreak": {
+          "title": "Regime Streak",
+          "desc": "現在の<gold>POSITIVE（ロングガンマ）またはNEGATIVE（ショートガンマ）レジーム</gold>が連続的に維持されたセッション数を表示します。レジーム継続期間が長いほど、当該ボラティリティ体質が構造的に安定化していることを示唆します。",
+          "extended": "平均を大幅に超過 — レジーム転換時の変動幅拡大の可能性が観測"
+        },
+        "regimeShifts": {
+          "title": "Regime Shifts",
+          "desc": "30日間における<rose>POSITIVE ↔ NEGATIVE レジーム転換</rose>の発生回数です。転換頻度が高いほど市場の構造的不安定性が観測され、0回は安定的な単一レジーム継続を意味します。",
+          "stable": "0回 — 30日間単一レジーム維持、構造的安定",
+          "unstable": "3回以上 — 頻繁なレジーム転換、方向性不確実性が観測"
+        },
+        "cwHitRate": {
+          "title": "CW Hit Rate（Call Wall信頼度）",
+          "desc": "<cyan>Call Wall（コールOI集中レジスタンス）</cyan>が実際に価格上限を制限した比率です。観測されたセッション中、価格がCall Wallを下回った比率で算出され、<gold>レジスタンスの構造的信頼度</gold>を定量化します。",
+          "high": "80%以上 — レジスタンス信頼度高、構造的上限制限が観測",
+          "low": "50%未満 — レジスタンス弱化、上方ブレイクの可能性が構造的に上昇"
+        },
+        "pfHitRate": {
+          "title": "PF Hit Rate（Put Floor信頼度）",
+          "desc": "<emerald>Put Floor（プットOI集中サポート）</emerald>が実際に価格下限を防衛した比率です。観測されたセッション中、価格がPut Floorを上回った比率で算出され、<gold>サポートの構造的信頼度</gold>を定量化します。",
+          "high": "80%以上 — サポート信頼度高、構造的下限防衛が観測",
+          "low": "50%未満 — サポート弱化、下方ブレイクの可能性が構造的に上昇"
+        },
+        "cwTrend": {
+          "title": "CW Trend（Call Wall推移）",
+          "desc": "Call Wallの<cyan>日次移動方向と変化幅（pt）</cyan>を表示します。上昇（↑）は機関がオーバーヘッドレジスタンスを上方修正中であることを示唆し、下降（↓）は下方修正を示唆します。",
+          "up": "↑ 上昇 — 機関ポジショニングが上方拡大中、レジスタンス後退が観測",
+          "down": "↓ 下降 — 機関ポジショニングが下方収縮中、レジスタンス接近が観測"
+        },
+        "tradingGuide": "Historical Context シグナル解釈",
+        "guide1": "<emerald>Percentile 75th+ + Streak長期維持</emerald> → 安定的ロングガンマ環境が構造的に確認、<gold>ボラティリティ抑制区間</gold>",
+        "guide2": "<rose>Percentile 25th以下 + Shifts 3回+</rose> → 不安定なショートガンマ環境、<cyan>双方向急変動リスクが構造的に上昇</cyan>",
+        "guide3": "<emerald>CW/PF Hit Rate 80%+</emerald> → オプション壁の構造的信頼度高、<gold>当該レベル基準の構造分析が有効</gold>"
+      }
     },
     "strategy": {
       "title": "構造的分析ワークフロー",

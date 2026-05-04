@@ -1211,7 +1211,50 @@
       "ivSkewTitle": "IV SKEW CURVE",
       "ivSkewDesc": "행사가(Strike) 별 <gold>콜/풋 내재변동성</gold>을 곡선으로 시각화합니다. ATM(등가격) 기준 양쪽 스큐의 기울기와 형태가 옵션 시장 참가자의 <cyan>방향별 리스크 인식 비대칭</cyan>을 드러냅니다. Put Skew 심화는 하방 테일 리스크에 대한 기관급 헤지 수요를, Call Skew 심화는 상방 투기적 수요를 시사합니다.",
       "inst13fTitle": "13-F INSTITUTIONAL HOLDINGS",
-      "inst13fDesc": "SEC Form 13-F에 기반한 <gold>기관투자자 보유 현황</gold>을 분기별로 조회합니다. 각 기관의 보유 주식 수량, 시장가치, 전체 대비 비중(Weight)을 산출하여 <cyan>기관 집중도와 소유 구조</cyan>를 파악할 수 있습니다. 대형 기관의 포지션 변동은 중장기 가격 방향성의 선행 지표로 활용됩니다."
+      "inst13fDesc": "SEC Form 13-F에 기반한 <gold>기관투자자 보유 현황</gold>을 분기별로 조회합니다. 각 기관의 보유 주식 수량, 시장가치, 전체 대비 비중(Weight)을 산출하여 <cyan>기관 집중도와 소유 구조</cyan>를 파악할 수 있습니다. 대형 기관의 포지션 변동은 중장기 가격 방향성의 선행 지표로 활용됩니다.",
+      "gexDeepDive": {
+        "title": "GEX TIMELINE 30D — 딥다이브",
+        "subtitle": "종목별 30일 감마 노출 히스토리 분석 시스템",
+        "desc": "DynamoDB에 축적된 <cyan>30일간의 일별 GEX 데이터</cyan>를 기반으로 종목의 감마 구조 변천을 시계열로 추적합니다. 기관 옵션 데스크가 참조하는 <gold>SpotGamma급($300+/월) 히스토리컬 GEX 추적</gold>을 SIGNUM이 제공합니다.",
+        "percentileGauge": {
+          "title": "A. Percentile / Regime",
+          "desc": "현재 GEX 값의 <cyan>30일 분포 내 백분위</cyan>를 그래디언트 게이지로 시각화합니다. 좌측(Negative GEX)에서 우측(Positive GEX)까지의 스펙트럼 위에 현재 위치를 표시합니다.",
+          "extremeLow": "10th 이하 — 극저치, 역사적 하단 수준의 감마 노출",
+          "depressed": "25th 이하 — 저위, 딜러 감마 노출 약세 환경",
+          "normal": "25th ~ 75th — 정상 범위",
+          "elevated": "75th 이상 — 고위, 딜러 감마 노출 강세 환경",
+          "extremeHigh": "90th 이상 — 극고치, 역사적 상단 수준의 감마 노출"
+        },
+        "regimePersistence": {
+          "title": "B. Regime Persistence",
+          "desc": "현재 <gold>POSITIVE/NEGATIVE 레짐의 연속 세션 수</gold>를 해당 레짐의 역사적 평균 지속 기간과 비교합니다. <cyan>Current 대비 Average 바</cyan>의 비율이 1.5× 이상이면 레짐 피로도가 구조적으로 관측됩니다.",
+          "aboveAvg": "평균 대비 장기 지속(1.5×+) — 레짐 전환 시 변동폭 확대 가능성",
+          "belowAvg": "평균 이하 — 현재 레짐의 추가 지속 가능성 관측"
+        },
+        "keyLevels": {
+          "title": "Key Levels (핵심 가격 레벨)",
+          "desc": "30일 히스토리에서 추출한 <rose>Call Wall(상단 저항)</rose>과 <cyan>Gamma Flip Level(레짐 전환 피봇)</cyan>을 카드 형태로 표시합니다.",
+          "callWall": "Call Wall — 콜 OI 최대 집중 가격대. 30일 세션 중 가격이 이 수준 아래에 위치한 비율(Hit Rate)이 함께 표시됩니다.",
+          "gammaFlip": "Gamma Flip Level — 역사적으로 딜러 헤징 레짐 전환과 동시에 관측된 가격대. 이 수준을 경계로 딜러 감마가 롱↔숏으로 전환됩니다."
+        },
+        "flipEvents": {
+          "title": "Flip Events (레짐 전환 이벤트)",
+          "desc": "30일 기간 내 <gold>POSITIVE ↔ NEGATIVE 레짐 전환</gold>이 발생한 시점을 기록합니다. 각 이벤트에 전환 날짜, 전환 방향(NEG→POS / POS→NEG), 전환 당시 가격이 표시됩니다.",
+          "toPositive": "NEG→POS — 숏감마에서 롱감마로 전환, 안정화 레짐 시작",
+          "toNegative": "POS→NEG — 롱감마에서 숏감마로 전환, 변동성 증폭 레짐 시작"
+        },
+        "dynamicInsight": {
+          "title": "Dynamic Insight (자동 인사이트)",
+          "desc": "축적된 30일 데이터를 기반으로 <cyan>3개의 다중 인사이트 라인</cyan>이 자동 생성됩니다. 레짐 상태, Call Wall 정확도, Gamma Flip Level 맥락이 컴플라이언스 준수 언어로 제공됩니다.",
+          "regimeLine": "GEX 값 + 백분위 + 레짐 연속 세션 수 요약",
+          "wallLine": "Call Wall 가격 + 히스토리컬 정확도(히트율) 정량 표시",
+          "flipLine": "Gamma Flip Level + 역사적 레짐 전환 맥락 해설"
+        },
+        "tradingGuide": "GEX Timeline 30D 시그널 해석",
+        "guide1": "<emerald>Percentile 75th+ + Regime Streak 장기 POSITIVE</emerald> → 딜러 감마 구조가 안정적 상태 지속, <gold>변동성 억제 환경에서의 레인지 관측</gold>",
+        "guide2": "<rose>Percentile 10th 이하 + Flip Events 다수</rose> → 극단적 숏감마 + 빈번한 레짐 전환, <cyan>양방향 급변동 리스크 구조적으로 최고 수준</cyan>",
+        "guide3": "<emerald>Call Wall Hit Rate 80%+ + CW Trend ↑</emerald> → 저항선 신뢰도 높음 + 기관 상향 포지셔닝, <gold>현재 구조 분석의 정확도 높음</gold>"
+      }
     },
     "aiDeepAnalysis": {
       "title": "AI DEEP ANALYSIS",
@@ -2015,7 +2058,50 @@
       "tradingGuide": "GAMMA SHIELD V3 시그널 해석",
       "guide1": "<emerald>GEX +20 이상 + 스퀴즈 LOW</emerald> → 딜러 헤지가 가격을 안정시키는 환경, <gold>변동성이 억제된 레인지 바운드 구간</gold>",
       "guide2": "<rose>GEX -20 이하 + 스퀴즈 HIGH</rose> → 딜러 헤지가 변동성을 증폭시키는 환경, <cyan>양방향 급변동 확률이 높은 고위험 구간</cyan>",
-      "guide3": "<emerald>Gamma Flip Point 2% 이내 접근</emerald> → 딜러 레짐 전환 임박, <rose>변동성 체질 전환에 대비한 포지션 관리 필요</rose>"
+      "guide3": "<emerald>Gamma Flip Point 2% 이내 접근</emerald> → 딜러 레짐 전환 임박, <rose>변동성 체질 전환에 대비한 포지션 관리 필요</rose>",
+      "historicalContext": {
+        "title": "HISTORICAL CONTEXT (30D)",
+        "desc": "<cyan>DynamoDB</cyan> 기반 30일 히스토리컬 데이터를 통해 현재 감마 구조의 <gold>역사적 맥락</gold>을 정량화합니다. 기관 옵션 데스크가 참조하는 동일 수준의 히스토리컬 분석을 <emerald>6개 핵심 메트릭</emerald>으로 제공합니다.",
+        "gexPercentile": {
+          "title": "GEX 30D Percentile",
+          "desc": "현재 GEX 값이 <cyan>최근 30일 분포에서 차지하는 위치</cyan>를 백분위로 표시합니다. 25th 이하는 역사적 저위(감마 약세), 75th 이상은 역사적 고위(감마 강세)를 의미합니다.",
+          "low": "25th 이하 — 딜러 감마 노출이 역사적 하단 수준, 변동성 증폭 환경",
+          "high": "75th 이상 — 딜러 감마 노출이 역사적 상단 수준, 안정화 환경"
+        },
+        "regimeStreak": {
+          "title": "Regime Streak",
+          "desc": "현재 <gold>POSITIVE(롱감마) 또는 NEGATIVE(숏감마) 레짐</gold>이 연속적으로 유지된 세션 수를 표시합니다. 레짐 지속 기간이 길수록 해당 변동성 체제가 구조적으로 안정화되어 있음을 시사합니다.",
+          "extended": "평균 대비 장기 지속 — 레짐 전환 시 변동폭 확대 가능성 관측"
+        },
+        "regimeShifts": {
+          "title": "Regime Shifts",
+          "desc": "30일 기간 내 <rose>POSITIVE ↔ NEGATIVE 레짐 전환</rose> 발생 횟수입니다. 전환 빈도가 높을수록 시장의 구조적 불안정성이 관측되며, 0회는 안정적 단일 레짐 지속을 의미합니다.",
+          "stable": "0회 — 30일간 단일 레짐 유지, 구조적 안정",
+          "unstable": "3회 이상 — 빈번한 레짐 전환, 방향성 불확실성 관측"
+        },
+        "cwHitRate": {
+          "title": "CW Hit Rate (Call Wall 신뢰도)",
+          "desc": "<cyan>Call Wall(콜 OI 집중 저항선)</cyan>이 실제로 가격 상단을 제한한 비율입니다. 관측된 세션 중 가격이 Call Wall 아래에 위치한 비율로 산출되며, <gold>저항선의 구조적 신뢰도</gold>를 정량화합니다.",
+          "high": "80% 이상 — 저항선 신뢰도 높음, 구조적 상단 제한 관측",
+          "low": "50% 미만 — 저항선 약화, 상단 돌파 가능성 구조적으로 상승"
+        },
+        "pfHitRate": {
+          "title": "PF Hit Rate (Put Floor 신뢰도)",
+          "desc": "<emerald>Put Floor(풋 OI 집중 지지선)</emerald>이 실제로 가격 하단을 방어한 비율입니다. 관측된 세션 중 가격이 Put Floor 위에 위치한 비율로 산출되며, <gold>지지선의 구조적 신뢰도</gold>를 정량화합니다.",
+          "high": "80% 이상 — 지지선 신뢰도 높음, 구조적 하단 방어 관측",
+          "low": "50% 미만 — 지지선 약화, 하단 이탈 가능성 구조적으로 상승"
+        },
+        "cwTrend": {
+          "title": "CW Trend (Call Wall 추이)",
+          "desc": "Call Wall의 <cyan>일간 이동 방향과 변화폭(pt)</cyan>을 표시합니다. 상승(↑)은 기관이 상단 저항을 상향 조정 중임을 시사하고, 하락(↓)은 하향 조정을 시사합니다.",
+          "up": "↑ 상승 — 기관 포지셔닝이 상방 확장 중, 저항선 후퇴 관측",
+          "down": "↓ 하락 — 기관 포지셔닝이 하방 수축 중, 저항선 접근 관측"
+        },
+        "tradingGuide": "Historical Context 시그널 해석",
+        "guide1": "<emerald>Percentile 75th+ + Streak 장기 유지</emerald> → 안정적 롱감마 환경 구조적으로 확인, <gold>변동성 억제 구간</gold>",
+        "guide2": "<rose>Percentile 25th 이하 + Shifts 3회+</rose> → 불안정한 숏감마 환경, <cyan>양방향 급변동 리스크 구조적 상승</cyan>",
+        "guide3": "<emerald>CW/PF Hit Rate 80%+</emerald> → 옵션 벽의 구조적 신뢰도 높음, <gold>해당 레벨 기반 구조 분석 유효</gold>"
+      }
     },
     "strategy": {
       "title": "구조적 분석 워크플로우",

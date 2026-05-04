@@ -606,6 +606,180 @@ export default async function CommandGuidePage() {
                 </div>
             </section>
 
+            {/* ═══ GEX TIMELINE 30D — Deep Dive ═══ */}
+            <section className="space-y-5">
+                <div className="flex items-center gap-2 mt-2 mb-2">
+                    <div className="h-px flex-1 bg-gradient-to-r from-violet-500/40 to-transparent" />
+                    <span className="text-[12px] font-bold text-violet-400 uppercase tracking-widest whitespace-nowrap">📊 GEX Timeline Deep Dive</span>
+                    <div className="h-px flex-1 bg-gradient-to-l from-violet-500/40 to-transparent" />
+                </div>
+
+                <div className="relative overflow-hidden rounded-2xl bg-white/[0.03] backdrop-blur-xl border border-violet-500/20 p-6">
+                    <div className="absolute inset-0 bg-gradient-to-br from-violet-500/[0.06] via-transparent to-cyan-500/[0.04] pointer-events-none" />
+                    <InfographicBg type="wave" />
+
+                    <div className="relative space-y-5">
+                        {/* Header */}
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                                <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-violet-400 via-purple-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-violet-500/30">
+                                    <Layers size={22} className="text-white" />
+                                </div>
+                                <div>
+                                    <h3 className="text-xl font-black text-white">{t('gexTimelineSection.gexDeepDive.title')}</h3>
+                                    <p className="text-[13px] text-violet-300 font-medium">{t('gexTimelineSection.gexDeepDive.subtitle')}</p>
+                                </div>
+                            </div>
+                            <span className="px-3 py-1 rounded-full bg-violet-500/20 border border-violet-500/30 text-xs font-bold text-violet-300">V10.0</span>
+                        </div>
+
+                        <p className="text-[14px] text-slate-300 leading-relaxed">
+                            {t.rich('gexTimelineSection.gexDeepDive.desc', richTags)}
+                        </p>
+
+                        {/* A. Percentile / Regime */}
+                        <div className="rounded-xl border border-cyan-500/15 bg-cyan-900/10 p-4 space-y-3">
+                            <div className="flex items-center gap-2">
+                                <BarChart3 size={16} className="text-cyan-400" />
+                                <h4 className="text-sm font-bold text-white">{t('gexTimelineSection.gexDeepDive.percentileGauge.title')}</h4>
+                            </div>
+                            <p className="text-[13px] text-slate-300 leading-relaxed">{t.rich('gexTimelineSection.gexDeepDive.percentileGauge.desc', richTags)}</p>
+                            
+                            {/* Gradient gauge mockup */}
+                            <div className="relative h-4 rounded-full bg-gradient-to-r from-rose-500/50 via-amber-500/40 via-50% to-emerald-500/50 overflow-hidden border border-white/10">
+                                <div className="absolute top-0 left-[68%] w-1.5 h-full bg-white rounded-full shadow-[0_0_10px_rgba(255,255,255,0.7)]" />
+                            </div>
+                            <div className="flex justify-between px-1">
+                                <span className="text-[10px] text-rose-400">Negative GEX</span>
+                                <span className="text-[10px] text-white font-bold">68th Percentile</span>
+                                <span className="text-[10px] text-emerald-400">Positive GEX</span>
+                            </div>
+
+                            <div className="grid grid-cols-2 md:grid-cols-3 gap-2 mt-2">
+                                {[
+                                    { label: '≤10th', text: t('gexTimelineSection.gexDeepDive.percentileGauge.extremeLow'), color: 'border-rose-500/20 text-rose-300' },
+                                    { label: '≤25th', text: t('gexTimelineSection.gexDeepDive.percentileGauge.depressed'), color: 'border-amber-500/20 text-amber-300' },
+                                    { label: '25-75th', text: t('gexTimelineSection.gexDeepDive.percentileGauge.normal'), color: 'border-slate-500/20 text-slate-300' },
+                                    { label: '≥75th', text: t('gexTimelineSection.gexDeepDive.percentileGauge.elevated'), color: 'border-emerald-500/20 text-emerald-300' },
+                                    { label: '≥90th', text: t('gexTimelineSection.gexDeepDive.percentileGauge.extremeHigh'), color: 'border-cyan-500/20 text-cyan-300' },
+                                ].map((item) => (
+                                    <div key={item.label} className={`px-2 py-1.5 rounded-lg border ${item.color} bg-slate-900/40`}>
+                                        <div className="text-[10px] font-bold">{item.label}</div>
+                                        <div className="text-[10px] text-slate-400 mt-0.5">{item.text}</div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* B. Regime Persistence */}
+                        <div className="rounded-xl border border-emerald-500/15 bg-emerald-900/10 p-4 space-y-3">
+                            <div className="flex items-center gap-2">
+                                <Activity size={16} className="text-emerald-400" />
+                                <h4 className="text-sm font-bold text-white">{t('gexTimelineSection.gexDeepDive.regimePersistence.title')}</h4>
+                            </div>
+                            <p className="text-[13px] text-slate-300 leading-relaxed">{t.rich('gexTimelineSection.gexDeepDive.regimePersistence.desc', richTags)}</p>
+                            
+                            {/* Persistence bars mockup */}
+                            <div className="space-y-2">
+                                <div className="flex items-center gap-3">
+                                    <span className="text-[11px] text-emerald-400 font-bold w-16">Current</span>
+                                    <div className="flex-1 h-5 rounded bg-slate-800/60 relative overflow-hidden">
+                                        <div className="absolute inset-y-0 left-0 w-[75%] bg-gradient-to-r from-emerald-500/50 to-emerald-400/20 rounded" />
+                                        <span className="absolute right-2 top-0.5 text-[11px] text-white font-bold">15 sessions</span>
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                    <span className="text-[11px] text-slate-400 font-bold w-16">Average</span>
+                                    <div className="flex-1 h-5 rounded bg-slate-800/60 relative overflow-hidden">
+                                        <div className="absolute inset-y-0 left-0 w-[50%] bg-gradient-to-r from-slate-500/40 to-slate-400/15 rounded" />
+                                        <span className="absolute right-2 top-0.5 text-[11px] text-slate-300 font-bold">10 sessions</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="text-[11px] text-slate-400 space-y-0.5">
+                                <p>• {t('gexTimelineSection.gexDeepDive.regimePersistence.aboveAvg')}</p>
+                                <p>• {t('gexTimelineSection.gexDeepDive.regimePersistence.belowAvg')}</p>
+                            </div>
+                        </div>
+
+                        {/* Key Levels */}
+                        <div className="rounded-xl border border-rose-500/15 bg-rose-900/10 p-4 space-y-3">
+                            <div className="flex items-center gap-2">
+                                <Target size={16} className="text-rose-400" />
+                                <h4 className="text-sm font-bold text-white">{t('gexTimelineSection.gexDeepDive.keyLevels.title')}</h4>
+                            </div>
+                            <p className="text-[13px] text-slate-300 leading-relaxed">{t.rich('gexTimelineSection.gexDeepDive.keyLevels.desc', richTags)}</p>
+                            <div className="grid grid-cols-2 gap-2">
+                                <div className="rounded-lg border border-rose-500/20 bg-rose-900/15 p-3">
+                                    <div className="text-[11px] font-bold text-rose-400">CALL WALL</div>
+                                    <div className="text-[18px] font-black text-white mt-1">$235.00</div>
+                                    <div className="text-[10px] text-slate-400 mt-1">Hit Rate: 87%</div>
+                                </div>
+                                <div className="rounded-lg border border-cyan-500/20 bg-cyan-900/15 p-3">
+                                    <div className="text-[11px] font-bold text-cyan-400">GAMMA FLIP</div>
+                                    <div className="text-[18px] font-black text-white mt-1">$228.50</div>
+                                    <div className="text-[10px] text-slate-400 mt-1">+2.8% from current</div>
+                                </div>
+                            </div>
+                            <div className="text-[11px] text-slate-400 space-y-0.5">
+                                <p>• {t('gexTimelineSection.gexDeepDive.keyLevels.callWall')}</p>
+                                <p>• {t('gexTimelineSection.gexDeepDive.keyLevels.gammaFlip')}</p>
+                            </div>
+                        </div>
+
+                        {/* Flip Events */}
+                        <div className="rounded-xl border border-amber-500/15 bg-amber-900/10 p-4 space-y-3">
+                            <div className="flex items-center gap-2">
+                                <ArrowUpDown size={16} className="text-amber-400" />
+                                <h4 className="text-sm font-bold text-white">{t('gexTimelineSection.gexDeepDive.flipEvents.title')}</h4>
+                            </div>
+                            <p className="text-[13px] text-slate-300 leading-relaxed">{t.rich('gexTimelineSection.gexDeepDive.flipEvents.desc', richTags)}</p>
+                            {/* Event timeline mockup */}
+                            <div className="space-y-1.5">
+                                {[
+                                    { date: 'Apr 28', dir: 'NEG→POS', price: '$222.10', color: 'text-emerald-400 border-emerald-500/30 bg-emerald-900/20' },
+                                    { date: 'Apr 15', dir: 'POS→NEG', price: '$218.50', color: 'text-rose-400 border-rose-500/30 bg-rose-900/20' },
+                                ].map((ev) => (
+                                    <div key={ev.date} className={`flex items-center justify-between px-3 py-1.5 rounded-lg border ${ev.color}`}>
+                                        <span className="text-[11px] font-bold">{ev.date}</span>
+                                        <span className="text-[11px] font-black">{ev.dir}</span>
+                                        <span className="text-[11px] text-slate-300">{ev.price}</span>
+                                    </div>
+                                ))}
+                            </div>
+                            <div className="text-[11px] text-slate-400 space-y-0.5">
+                                <p>• {t('gexTimelineSection.gexDeepDive.flipEvents.toPositive')}</p>
+                                <p>• {t('gexTimelineSection.gexDeepDive.flipEvents.toNegative')}</p>
+                            </div>
+                        </div>
+
+                        {/* Dynamic Insight */}
+                        <div className="rounded-xl border border-indigo-500/15 bg-indigo-900/10 p-4 space-y-3">
+                            <div className="flex items-center gap-2">
+                                <Lightbulb size={16} className="text-indigo-400" />
+                                <h4 className="text-sm font-bold text-white">{t('gexTimelineSection.gexDeepDive.dynamicInsight.title')}</h4>
+                            </div>
+                            <p className="text-[13px] text-slate-300 leading-relaxed">{t.rich('gexTimelineSection.gexDeepDive.dynamicInsight.desc', richTags)}</p>
+                            <div className="space-y-1 text-[11px] text-slate-400">
+                                <p>📊 {t('gexTimelineSection.gexDeepDive.dynamicInsight.regimeLine')}</p>
+                                <p>🎯 {t('gexTimelineSection.gexDeepDive.dynamicInsight.wallLine')}</p>
+                                <p>⚡ {t('gexTimelineSection.gexDeepDive.dynamicInsight.flipLine')}</p>
+                            </div>
+                        </div>
+
+                        {/* Trading Guide */}
+                        <div className="rounded-xl border border-violet-500/15 bg-violet-900/10 p-4 space-y-2">
+                            <span className="text-[13px] font-bold text-violet-400 flex items-center gap-1.5"><Layers size={13} />{t('gexTimelineSection.gexDeepDive.tradingGuide')}</span>
+                            <div className="text-[13px] text-slate-300 leading-relaxed space-y-0.5">
+                                <p>• {t.rich('gexTimelineSection.gexDeepDive.guide1', richTags)}</p>
+                                <p>• {t.rich('gexTimelineSection.gexDeepDive.guide2', richTags)}</p>
+                                <p>• {t.rich('gexTimelineSection.gexDeepDive.guide3', richTags)}</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
             {/* ═══ AI Deep Analysis Section ═══ */}
             <section className="space-y-5">
                 <div className="flex items-center gap-2 mt-2 mb-2">
