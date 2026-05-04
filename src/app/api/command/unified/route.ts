@@ -34,8 +34,10 @@ const REFRESH_THRESHOLD_MS = 300 * 1000; // [극강] 5 minutes — background re
 async function injectAlphaBypass(data: any, ticker: string) {
     if (!data) return;
     // [초격차 속도] Skip if ALL fields already populated with VALID data (0ms early exit, no Redis call)
-    // CRITICAL: Check score VALUE, not just object existence. GOOGL had alpha={score:0} in DynamoDB.
-    const needsAlpha = !data.alpha || data.alpha.score === 0 || data.alpha.grade === 'N/A';
+    // [FIX 2026-05-04] Score Consistency: Alpha is ALWAYS injected from cache:analysis (SSOT).
+    // Previously lambda-v8 scores persisted → different score vs Watchlist/Portfolio.
+    // Now: cache:analysis alphaSnapshot is the SSOT for ALL pages.
+    const needsAlpha = true; // Always refresh alpha from cache:analysis for cross-page consistency
     const needsFlow = data.smartFlow === undefined || data.smartFlow === 0;
     const needsInst = !data.institutional || (data.institutional.darkPool?.percent === 0 && data.institutional.blockTrade?.count === 0);
     const needsSurprise = data.earnings && !data.earnings.lastSurprise;
@@ -45,7 +47,9 @@ async function injectAlphaBypass(data: any, ticker: string) {
         const { getAnalysisCache } = await import('@/services/analysisCache');
         const ac = await getAnalysisCache(ticker);
         if (ac) {
-            if (ac.alphaSnapshot && needsAlpha) data.alpha = ac.alphaSnapshot;
+            // [FIX 2026-05-04] ALWAYS use cache:analysis alphaSnapshot as SSOT
+            // This ensures Command = Watchlist = Portfolio score
+            if (ac.alphaSnapshot && ac.alphaSnapshot.score > 0) data.alpha = ac.alphaSnapshot;
             // [FIX 2026-05-04] SmartFlow 3-layer fallback: cache:analysis → DynamoDB unified-cache → skip
             // CRITICAL: cache:analysis whaleIndex can be 0 (blockTrades=undefined bug),
             // but DynamoDB unified-cache has the correct smartFlow value (manually recovered).

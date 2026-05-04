@@ -149,8 +149,10 @@ export async function processPortfolioBatch(tickers: string[], mode: 'full' | 'p
             return { displayPrice, changePct, extendedPrice, extendedLabel, vwap, volume, prevDayClose, liveLast, dayClose, change, isExtended: currentSession !== 'regular' };
         };
 
-        // A. CACHE HIT: V4.6 RECALCULATION (ONE ENGINE, ONE RESULT)
-        // [V8 UNIFIED] Lambda alphaSnapshot 무시, V4.6 엔진으로 재계산
+        // A. CACHE HIT: USE CACHED ALPHA SNAPSHOT (SSOT)
+        // [FIX 2026-05-04] Score Consistency: ALL pages use cache:analysis alphaSnapshot as SSOT.
+        // Previously: recalculated with CLOSED session → different score than Watchlist/Command.
+        // Now: CLOSED/POST → use cached snapshot directly. REG/PRE → recalculate for live accuracy.
         if (analysis) {
             const base = buildBasePrice();
 
@@ -165,48 +167,53 @@ export async function processPortfolioBatch(tickers: string[], mode: 'full' | 'p
                 ? ((base.extendedPrice - base.displayPrice) / base.displayPrice) * 100 : null;
             const refPrice = base.extendedPrice || base.displayPrice;
 
-            // [V8] V4.6 Alpha Score — 항상 재계산
+            // [FIX] Score Consistency: Use cached snapshot when market is closed
+            // Recalculating with CLOSED session applies momentum penalties → lower score vs Watchlist
             const sessionMap: Record<string, AlphaSession> = { pre: 'PRE', regular: 'REG', post: 'POST', closed: 'CLOSED' };
             const alphaSession: AlphaSession = sessionMap[currentSession] || 'CLOSED';
-            let alphaSnapshotV4: any = analysis.alphaSnapshot; // fallback
+            let alphaSnapshotV4: any = analysis.alphaSnapshot; // default: use cached snapshot
 
-            try {
-                const alphaResult = calculateAlphaScore({
-                    ticker: ticker.toUpperCase(),
-                    session: alphaSession,
-                    price: base.displayPrice,
-                    prevClose: base.prevDayClose || 0,
-                    changePct: finalChangePct,
-                    vwap: base.vwap ?? null,
-                    return3D: analysis.return3d ?? null,
-                    rsi14: analysis.rsi ?? null,
-                    pcr: analysis.pcr ?? null,
-                    gex: analysis.gex ?? null,
-                    callWall: analysis.callWall ?? null,
-                    putFloor: analysis.putFloor ?? null,
-                    gammaFlipLevel: analysis.gammaFlipLevel ?? null,
-                    squeezeScore: analysis.squeezeScore ?? null,
-                    atmIv: analysis.iv ?? null,
-                    whaleIndex: analysis.whaleIndex ?? 0,
-                    darkPoolPct: analysis.darkPoolPct ?? 0,
-                    relVol: analysis.relVol ?? null,
-                    netFlow: analysis.netPremium ?? null,
-                    impliedMovePct: analysis.impliedMovePct ?? null,
-                    ivSkew: analysis.ivSkew ?? null,
-                    optionsDataAvailable: analysis.gex !== null,
-                });
-                alphaSnapshotV4 = {
-                    score: alphaResult.score,
-                    grade: alphaResult.grade,
-                    action: alphaResult.action,
-                    actionKR: alphaResult.actionKR,
-                    confidence: Math.round(alphaResult.dataCompleteness),
-                    triggers: alphaResult.triggerCodes,
-                    engineVersion: alphaResult.engineVersion,
-                    capturedAt: new Date().toISOString(),
-                };
-            } catch (e) {
-                console.warn(`[Portfolio CACHE HIT] V4.6 recalc failed for ${ticker}, using cached:`, e);
+            // Only recalculate during active market (REG/PRE) for live accuracy
+            // CLOSED/POST: keep cached snapshot for cross-page consistency
+            if (alphaSession === 'REG' || alphaSession === 'PRE') {
+                try {
+                    const alphaResult = calculateAlphaScore({
+                        ticker: ticker.toUpperCase(),
+                        session: alphaSession,
+                        price: base.displayPrice,
+                        prevClose: base.prevDayClose || 0,
+                        changePct: finalChangePct,
+                        vwap: base.vwap ?? null,
+                        return3D: analysis.return3d ?? null,
+                        rsi14: analysis.rsi ?? null,
+                        pcr: analysis.pcr ?? null,
+                        gex: analysis.gex ?? null,
+                        callWall: analysis.callWall ?? null,
+                        putFloor: analysis.putFloor ?? null,
+                        gammaFlipLevel: analysis.gammaFlipLevel ?? null,
+                        squeezeScore: analysis.squeezeScore ?? null,
+                        atmIv: analysis.iv ?? null,
+                        whaleIndex: analysis.whaleIndex ?? 0,
+                        darkPoolPct: analysis.darkPoolPct ?? 0,
+                        relVol: analysis.relVol ?? null,
+                        netFlow: analysis.netPremium ?? null,
+                        impliedMovePct: analysis.impliedMovePct ?? null,
+                        ivSkew: analysis.ivSkew ?? null,
+                        optionsDataAvailable: analysis.gex !== null,
+                    });
+                    alphaSnapshotV4 = {
+                        score: alphaResult.score,
+                        grade: alphaResult.grade,
+                        action: alphaResult.action,
+                        actionKR: alphaResult.actionKR,
+                        confidence: Math.round(alphaResult.dataCompleteness),
+                        triggers: alphaResult.triggerCodes,
+                        engineVersion: alphaResult.engineVersion,
+                        capturedAt: new Date().toISOString(),
+                    };
+                } catch (e) {
+                    console.warn(`[Portfolio CACHE HIT] V4.6 recalc failed for ${ticker}, using cached:`, e);
+                }
             }
 
             const tripleA = {

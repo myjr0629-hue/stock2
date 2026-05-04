@@ -328,12 +328,15 @@ export async function processWatchlistBatch(tickers: string[], mode: 'full' | 'p
             const finalChangePct = base.changePct;
             const refPrice = base.extendedPrice || base.displayPrice;
 
-            // [V8] V4.6 Alpha Score — 항상 재계산 (Lambda 간단 점수 사용 금지)
+            // [FIX 2026-05-04] Score Consistency: Use cached snapshot when market is CLOSED/POST
+            // Recalculating with CLOSED session applies momentum penalties → lower score
+            // Only recalculate during active market (REG/PRE) for live accuracy
             const sessionMap: Record<string, AlphaSession> = { pre: 'PRE', regular: 'REG', post: 'POST', closed: 'CLOSED' };
             const alphaSession: AlphaSession = sessionMap[currentSession] || 'CLOSED';
-            let alphaSnapshotV4: any = analysis.alphaSnapshot; // fallback
+            let alphaSnapshotV4: any = analysis.alphaSnapshot; // default: use cached snapshot (SSOT)
 
-            try {
+            if (alphaSession === 'REG' || alphaSession === 'PRE') {
+              try {
                 const alphaResult = calculateAlphaScore({
                     ticker: ticker.toUpperCase(),
                     session: alphaSession,
@@ -389,13 +392,13 @@ export async function processWatchlistBatch(tickers: string[], mode: 'full' | 'p
                     capturedAt: new Date().toISOString(),
                 };
 
-                // 🔥 [ROOT FIX] WRITING BACK THE RECALCULATED V4.6 SCORE TO CACHE
+                // 🔥 [ROOT FIX] WRITING BACK THE RECALCULATED SCORE TO CACHE — ONLY during active market
                 // This upgrades the Lambda's simplified score to the HD V4.6 Sector Grid score globally
-                // Ensuring SSOT (Single Source of Truth) across Command Page SSR and Grid.
                 const updatedAnalysis = { ...analysis, alphaSnapshot: alphaSnapshotV4 };
                 import('@/services/analysisCache').then(m => m.writeAnalysisCache(ticker, updatedAnalysis as any).catch(() => {}));
-            } catch (e) {
+              } catch (e) {
                 console.warn(`[Watchlist CACHE HIT] V4.6 recalc failed for ${ticker}, using cached:`, e);
+              }
             }
 
             return {
