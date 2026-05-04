@@ -70,14 +70,47 @@ async function injectAlphaBypass(data: any, ticker: string) {
                     } catch { /* DynamoDB unavailable */ }
                 }
             }
-            // [FIX 2026-05-03] Inject institutional from analysis cache
-            if (needsInst && ac.darkPoolPct != null && ac.darkPoolPct > 0) {
-                data.institutional = {
-                    ...(data.institutional || {}),
-                    darkPool: { percent: ac.darkPoolPct },
-                    blockTrade: data.institutional?.blockTrade || { count: 0, volume: 0 },
-                    shortVolume: data.institutional?.shortVolume || (ac.shortVolPct != null ? { percent: ac.shortVolPct } : null),
-                };
+            // [FIX 2026-05-05] Institutional: ALWAYS inject from EC2 Redis Proxy FIRST (block trade SSOT)
+            // Previously: EC2 data only arrived via background gap-fill (5-min delay).
+            // Now: Direct EC2 read at request time → block trade count appears instantly.
+            if (needsInst) {
+                let ec2Injected = false;
+                try {
+                    const EC2_PROXY = process.env.EC2_REDIS_PROXY_URL || 'http://52.23.98.13:8081';
+                    const EC2_KEY = process.env.REDIS_PROXY_KEY || 'signum-redis-proxy-2026';
+                    const controller = new AbortController();
+                    const timeout = setTimeout(() => controller.abort(), 2000); // 2s timeout (fast path)
+                    const ec2Res = await fetch(`${EC2_PROXY}/get?key=${encodeURIComponent('rt-metrics:' + ticker)}`, {
+                        headers: { 'Authorization': `Bearer ${EC2_KEY}` },
+                        signal: controller.signal,
+                        cache: 'no-store',
+                    });
+                    clearTimeout(timeout);
+                    if (ec2Res.ok) {
+                        const ec2Raw = await ec2Res.json();
+                        const ec2Data = ec2Raw?.result;
+                        const parsed = typeof ec2Data === 'string' ? JSON.parse(ec2Data) : ec2Data;
+                        if (parsed?.darkPool || parsed?.blockTrade) {
+                            data.institutional = {
+                                ...(data.institutional || {}),
+                                darkPool: { percent: parsed.darkPool?.percent || data.institutional?.darkPool?.percent || 0 },
+                                blockTrade: { count: parsed.blockTrade?.count || 0, volume: parsed.blockTrade?.volume || 0 },
+                                shortVolume: parsed.shortVolume || data.institutional?.shortVolume || null,
+                            };
+                            ec2Injected = true;
+                        }
+                    }
+                } catch { /* EC2 proxy unavailable — fall through to cache:analysis */ }
+
+                // Fallback: cache:analysis darkPoolPct (Lambda-sourced)
+                if (!ec2Injected && ac.darkPoolPct != null && ac.darkPoolPct > 0) {
+                    data.institutional = {
+                        ...(data.institutional || {}),
+                        darkPool: { percent: ac.darkPoolPct },
+                        blockTrade: data.institutional?.blockTrade || { count: 0, volume: 0 },
+                        shortVolume: data.institutional?.shortVolume || (ac.shortVolPct != null ? { percent: ac.shortVolPct } : null),
+                    };
+                }
             }
         }
 
