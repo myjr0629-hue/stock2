@@ -101,20 +101,25 @@ function getETInfo() {
   const isPostMarket = !isWeekend && !isHoliday && etTimeMin >= 960 && etTimeMin < 1200;
   const session = isMarketHours ? 'REG' : isPreMarket ? 'PRE' : isPostMarket ? 'POST' : 'CLOSED';
   const sessionLabel = isMarketHours ? 'MARKET OPEN (정규장)' : isPreMarket ? 'PRE-MARKET (프리마켓)' : isPostMarket ? 'POST-MARKET (애프터마켓)' : isWeekend ? 'WEEKEND (주말)' : isHoliday ? 'HOLIDAY (공휴일)' : 'CLOSED (장 마감)';
-  // 다음 장 오픈 ETA
+  // 다음 장 오픈 ETA (ET 기준 정밀 계산)
   let nextOpenEta = '';
   if (!isMarketHours) {
-    const nextDay = new Date(now);
     if (isPreMarket) {
+      // 오늘 9:30 ET까지 남은 시간
       const minsToOpen = 570 - etTimeMin;
       nextOpenEta = `${Math.floor(minsToOpen / 60)}h ${minsToOpen % 60}m`;
     } else {
-      // 다음 영업일 9:30 ET 계산
-      nextDay.setDate(nextDay.getDate() + (isWeekend ? (dayOfWeek === 6 ? 2 : 1) : 1));
-      const diffMs = nextDay.getTime() - now.getTime();
-      const diffH = Math.floor(diffMs / 3600000);
-      const diffM = Math.floor((diffMs % 3600000) / 60000);
-      nextOpenEta = `~${diffH}h ${diffM}m`;
+      // POST / CLOSED / WEEKEND → 다음 영업일 9:30 ET까지
+      let daysToAdd = 1;
+      if (dayOfWeek === 5 && etTimeMin >= 960) daysToAdd = 3; // 금요일 POST→월요일
+      else if (dayOfWeek === 6) daysToAdd = 2; // 토요일→월요일
+      else if (dayOfWeek === 0) daysToAdd = 1; // 일요일→월요일
+      // 남은 분: 오늘 24:00까지 + (daysToAdd-1)*24h + 9:30
+      const minsLeftToday = 1440 - etTimeMin;
+      const totalMins = minsLeftToday + (daysToAdd - 1) * 1440 + 570;
+      const h = Math.floor(totalMins / 60);
+      const m = totalMins % 60;
+      nextOpenEta = `${h}h ${m}m`;
     }
   }
   return { etHour, etMin, etSec, etDateStr, dayOfWeek, isWeekend, isHoliday, isMarketHours, isPreMarket, isPostMarket, session, sessionLabel, nextOpenEta, etTimeFormatted: `${String(etHour).padStart(2,'0')}:${String(etMin).padStart(2,'0')}:${String(etSec).padStart(2,'0')}` };
@@ -360,30 +365,47 @@ export async function GET(req: NextRequest) {
       users = { status: 'ERROR', error: e.message };
     }
 
-    // ═══ 5.7. DATA INTEGRITY — Cross-Source Score Verification ═══
+    // ═══ 5.7. DATA INTEGRITY — Field Completeness & Cross-Source ═══
     const INTEGRITY_TICKERS = ['GOOGL', 'NVDA', 'TSLA', 'AAPL', 'MSFT', 'META', 'AMZN', 'PLTR'];
     const integrityResults: any[] = [];
     let integrityMatches = 0;
     for (const t of INTEGRITY_TICKERS) {
-      const analysisRaw = await getFromCache<any>(`cache:analysis:${t}`);
-      const commandRaw = await getFromCache<any>(`cache:command:unified:${t}`);
-      const aScore = analysisRaw?.alphaSnapshot?.score ?? null;
-      const aGrade = analysisRaw?.alphaSnapshot?.grade ?? null;
-      const aEngine = analysisRaw?.alphaSnapshot?.engineVersion ?? null;
-      const cScore = commandRaw?.alpha?.score ?? null;
-      const cGrade = commandRaw?.alpha?.grade ?? null;
-      const cEngine = commandRaw?.alpha?.engineVersion ?? null;
-      const cSmartFlow = commandRaw?.smartFlow ?? null;
-      const aWhale = analysisRaw?.whaleIndex ?? null;
-      const aDarkPool = analysisRaw?.darkPoolPct ?? null;
-      const scoreMatch = aScore !== null && cScore !== null && Math.abs(aScore - cScore) <= 2;
-      if (scoreMatch) integrityMatches++;
+      const analysis = await getFromCache<any>(`cache:analysis:${t}`);
+      const command = await getFromCache<any>(`cache:command:unified:${t}`);
+      const rtData = await checkElastiCache(`rt-metrics:${t}`);
+      // cache:analysis fields
+      const aScore = analysis?.alphaSnapshot?.score ?? null;
+      const aGrade = analysis?.alphaSnapshot?.grade ?? null;
+      const aEngine = analysis?.alphaSnapshot?.engineVersion ?? null;
+      const aWhale = analysis?.whaleIndex ?? null;
+      const aDarkPool = analysis?.darkPoolPct ?? null;
+      const aRsi = analysis?.rsi ?? null;
+      const aGex = analysis?.gex ?? null;
+      const aPcr = analysis?.pcr ?? null;
+      // cache:command:unified fields
+      const cHasInst = !!(command?.institutional);
+      const cHasEarnings = !!(command?.earnings);
+      const cHasAnalyst = !!(command?.analyst);
+      const cHasVolatility = !!(command?.volatility);
+      // EC2 rt-metrics darkpool cross-check
+      const rtDarkPool = rtData?.darkPool?.percentage ?? null;
+      // Field completeness check (core analysis fields)
+      const coreFields = [aScore, aGrade, aWhale, aDarkPool, aRsi, aGex, aPcr];
+      const fieldsFilled = coreFields.filter(f => f !== null && f !== undefined).length;
+      const fieldCompleteness = Math.round((fieldsFilled / coreFields.length) * 100);
+      // DarkPool cross-source match (analysis vs EC2 rt-metrics)
+      const dpMatch = aDarkPool !== null && rtDarkPool !== null ? Math.abs(aDarkPool - rtDarkPool) <= 5 : aDarkPool !== null || rtDarkPool !== null;
+      // Consider match if analysis has all core data
+      const isHealthy = fieldCompleteness >= 85 && aScore !== null && aScore > 0;
+      if (isHealthy) integrityMatches++;
       integrityResults.push({
         ticker: t,
-        analysis: { score: aScore, grade: aGrade, engine: aEngine, darkPoolPct: aDarkPool, whaleIndex: aWhale },
-        command: { score: cScore, grade: cGrade, engine: cEngine, smartFlow: cSmartFlow },
-        scoreMatch,
-        scoreDiff: aScore !== null && cScore !== null ? cScore - aScore : null,
+        analysis: { score: aScore, grade: aGrade, engine: aEngine, darkPoolPct: aDarkPool, whaleIndex: aWhale, rsi: aRsi !== null ? +aRsi.toFixed(1) : null, gex: aGex },
+        command: { hasInst: cHasInst, hasEarnings: cHasEarnings, hasAnalyst: cHasAnalyst, hasVolatility: cHasVolatility },
+        rtMetrics: { darkPoolPct: rtDarkPool },
+        fieldCompleteness,
+        dpMatch,
+        isHealthy,
       });
     }
     const integrityRate = Math.round((integrityMatches / INTEGRITY_TICKERS.length) * 100);

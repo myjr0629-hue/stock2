@@ -389,19 +389,20 @@ export default function AdminHealthPage() {
                 status={data.dataIntegrity.status === 'CONSISTENT' ? 'OK' : data.dataIntegrity.status === 'PARTIAL' ? 'DEGRADED' : 'DOWN'}
                 defaultOpen={data.dataIntegrity.status !== 'CONSISTENT'} id="sec-integrity">
                 <div className="mb-3">
-                  <HitRateBar rate={data.dataIntegrity.matchRate} count={data.dataIntegrity.matches} total={data.dataIntegrity.total} label="cache:analysis ↔ cache:command:unified Score Match" />
+                  <HitRateBar rate={data.dataIntegrity.matchRate} count={data.dataIntegrity.matches} total={data.dataIntegrity.total} label="cache:analysis Field Completeness & Score Health" />
                 </div>
                 <div className="overflow-x-auto">
                   <table className="w-full text-[12px]">
                     <thead>
                       <tr className="border-b border-white/[0.06]">
                         <th className="text-left py-2 text-slate-400 font-bold">Ticker</th>
-                        <th className="text-center py-2 text-slate-400 font-bold">Analysis</th>
-                        <th className="text-center py-2 text-slate-400 font-bold">Command</th>
-                        <th className="text-center py-2 text-slate-400 font-bold">Diff</th>
+                        <th className="text-center py-2 text-slate-400 font-bold">Score</th>
                         <th className="text-center py-2 text-slate-400 font-bold">Engine</th>
+                        <th className="text-center py-2 text-slate-400 font-bold">Fields</th>
+                        <th className="text-center py-2 text-slate-400 font-bold">Whale/RSI/GEX</th>
                         <th className="text-center py-2 text-slate-400 font-bold">DarkPool</th>
-                        <th className="text-center py-2 text-slate-400 font-bold">Match</th>
+                        <th className="text-center py-2 text-slate-400 font-bold">Command</th>
+                        <th className="text-center py-2 text-slate-400 font-bold">Status</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -412,25 +413,28 @@ export default function AdminHealthPage() {
                             <span className="font-mono font-bold text-cyan-400">{r.analysis.score ?? '—'}</span>
                             <span className="text-slate-500 ml-1">{r.analysis.grade || ''}</span>
                           </td>
+                          <td className="py-2 text-center text-[11px] text-slate-400">{r.analysis.engine || '—'}</td>
                           <td className="py-2 text-center">
-                            <span className="font-mono font-bold text-amber-400">{r.command.score ?? '—'}</span>
-                            <span className="text-slate-500 ml-1">{r.command.grade || ''}</span>
+                            <span className={`font-mono font-bold ${r.fieldCompleteness >= 85 ? 'text-emerald-400' : r.fieldCompleteness >= 50 ? 'text-amber-400' : 'text-red-400'}`}>{r.fieldCompleteness}%</span>
                           </td>
-                          <td className="py-2 text-center font-mono">
-                            {r.scoreDiff !== null ? (
-                              <span className={Math.abs(r.scoreDiff) <= 2 ? 'text-emerald-400' : 'text-red-400'}>{r.scoreDiff > 0 ? '+' : ''}{r.scoreDiff}</span>
-                            ) : <span className="text-slate-500">—</span>}
+                          <td className="py-2 text-center text-[11px] font-mono">
+                            <span className={r.analysis.whaleIndex !== null ? 'text-cyan-400' : 'text-red-400'}>{r.analysis.whaleIndex ?? '—'}</span>
+                            <span className="text-slate-600 mx-0.5">/</span>
+                            <span className={r.analysis.rsi !== null ? 'text-slate-300' : 'text-red-400'}>{r.analysis.rsi ?? '—'}</span>
+                            <span className="text-slate-600 mx-0.5">/</span>
+                            <span className={r.analysis.gex !== null ? 'text-slate-300' : 'text-red-400'}>{typeof r.analysis.gex === 'number' ? (Math.abs(r.analysis.gex) >= 1e6 ? (r.analysis.gex/1e6).toFixed(0)+'M' : r.analysis.gex) : '—'}</span>
+                          </td>
+                          <td className="py-2 text-center text-[11px] font-mono">
+                            <span className={r.analysis.darkPoolPct ? 'text-emerald-400' : 'text-red-400'}>{r.analysis.darkPoolPct ? r.analysis.darkPoolPct + '%' : '—'}</span>
+                            {r.rtMetrics?.darkPoolPct != null && (
+                              <span className="text-slate-500 ml-1">({r.rtMetrics.darkPoolPct}%)</span>
+                            )}
                           </td>
                           <td className="py-2 text-center text-[11px]">
-                            <span className="text-slate-400">{r.analysis.engine || '?'}</span>
-                            <span className="text-slate-600 mx-0.5">/</span>
-                            <span className="text-slate-400">{r.command.engine || '?'}</span>
-                          </td>
-                          <td className="py-2 text-center font-mono text-[11px]">
-                            {r.analysis.darkPoolPct ? <span className="text-emerald-400">{r.analysis.darkPoolPct}%</span> : <span className="text-red-400">null</span>}
+                            {['hasInst','hasEarnings','hasAnalyst','hasVolatility'].filter(k => r.command[k]).length}/{4}
                           </td>
                           <td className="py-2 text-center">
-                            {r.scoreMatch ? <CheckCircle2 className="w-4 h-4 text-emerald-400 mx-auto" /> : <XCircle className="w-4 h-4 text-red-400 mx-auto" />}
+                            {r.isHealthy ? <CheckCircle2 className="w-4 h-4 text-emerald-400 mx-auto" /> : <XCircle className="w-4 h-4 text-red-400 mx-auto" />}
                           </td>
                         </tr>
                       ))}
