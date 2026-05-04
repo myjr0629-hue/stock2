@@ -1911,6 +1911,8 @@ function MainChartPanel() {
                                         putFloor: data?.levels?.putFloor ?? undefined,
                                         maxPain: data?.maxPain ?? undefined
                                     }}
+                                    gammaFlipLevel={data?.gammaFlipLevel ?? undefined}
+                                    vwap={data?.vwap ?? undefined}
                                     session={data?.session || 'CLOSED'}
                                     hideHeaderExtras={true}
                                 />

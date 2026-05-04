@@ -71,6 +71,7 @@ export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d
     const sma50SeriesRef = useRef<ISeriesApi<'Line'> | null>(null);
     const sma200SeriesRef = useRef<ISeriesApi<'Line'> | null>(null);
     const priceLinesRef = useRef<any[]>([]);
+    const [chartReady, setChartReady] = useState(0);
 
     const [range, setRange] = useState(initialRange);
     const [loading, setLoading] = useState(!data || data.length === 0);
@@ -337,6 +338,8 @@ export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d
         });
 
         chartRef.current = chart;
+        // Signal to price line effect that chart is ready
+        setChartReady(c => c + 1);
 
         // ── Main series (Area or Candlestick) ──
         let mainSeries: any;
@@ -567,8 +570,8 @@ export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d
             }
         }
         // Alpha Levels
-        const priceLow = minPrice * 0.85;
-        const priceHigh = maxPrice * 1.15;
+        const priceLow = minPrice * 0.70;
+        const priceHigh = maxPrice * 1.30;
         if (alphaLevels?.callWall && alphaLevels.callWall >= priceLow && alphaLevels.callWall <= priceHigh) {
             addPriceLineIncr(alphaLevels.callWall, '#22d3ee', 'CALL', LineStyle.Dashed, 1);
         }
@@ -591,7 +594,7 @@ export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d
             }
             addPriceLineIncr(currentPrice, priceColor, '', LineStyle.Solid, 2);
         }
-    }, [prevClose, vwap, gammaFlipLevel, currentPrice,
+    }, [chartReady, isIntraday, prevClose, vwap, gammaFlipLevel, currentPrice,
         alphaLevels?.callWall, alphaLevels?.putFloor, alphaLevels?.maxPain]);
 
     // ═══════════════════════════════════════
