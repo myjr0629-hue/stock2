@@ -948,6 +948,118 @@ bash scripts/ec2-deploy-guardian.sh
 
 ## 11. 작업 이력
 
+### [2026-05-04] 🟢 Dashboard 차트 Price Lines Race Condition 해결 + 누락 Props 보완
+
+> **문제**: Dashboard 차트에서 PREV, CALL WALL, PUT FLOOR, MAX PAIN 등 가격 수평선이 표시되지 않거나 한참 기다려야 나타나는 현상. 페이지 재진입 시 반복 발생.
+> 
+> **근본 원인 (Race Condition)**:
+> 1. `StockChart.tsx`의 차트 생성 useEffect와 price line useEffect가 분리되어 있음
+> 2. Dashboard data(prevClose, alphaLevels)가 chart data보다 **먼저** 도착하면, price line useEffect 실행 시 `chartRef.current === null` → **조용히 skip**
+> 3. 이후 chart 생성 완료되어도 price line deps가 변하지 않아 **재실행 안 됨**
+> 4. **analysis-cache SSOT 전환** (ed307bc)으로 API 응답 속도가 ~10ms로 급격히 빨라지면서, 차트보다 데이터가 먼저 도착하는 빈도가 급증 → 잠재 버그 표면화
+> 
+> **수정** (`StockChart.tsx`, `DashboardClient.tsx`):
+> 1. `chartReady` 상태 카운터 추가 — chart 생성 시 increment → price line useEffect deps에 포함 → **chart 생성 후 반드시 price line 재실행 보장**
+> 2. `isIntraday` price line deps 추가 — range 전환 시 라인 정확히 갱신
+> 3. `gammaFlipLevel`, `vwap` props 전달 추가 — **원래부터 DashboardClient→StockChart로 전달되지 않아 GF/VWAP 라인은 Dashboard에서 한 번도 표시된 적 없었음**
+> 4. Alpha level 가시 범위 ±15% → ±30% 확대 — 더 넓은 범위에서 라인 표시
+> 
+> **커밋**: `fe9e618b`
+
+### [2026-05-03~04] 🟢 System Health 관리자 대시보드 완성 (Users/Calendar/Data Integrity)
+
+> **목적**: `/admin/health` 관리자 전용 대시보드를 산업급 시스템 진단 인프라로 확장.
+> 
+> **구현 내용**:
+> 1. **탭 네비게이션**: Overview / Calendar / Users / Integrity 4개 탭 메뉴
+> 2. **Users 탭**: Supabase Admin API 연동 — 총 가입자 수, 금일 접속자 수, 유료 구독자 수 실시간 표시
+> 3. **Calendar 탭**: 미국 주식시장 공휴일 캘린더 표시, 장 상태 인지 (OPEN/CLOSED/HOLIDAY)
+> 4. **Data Integrity 탭**: `cache:analysis` 7개 핵심 필드 완전성 검증(score, grade, whale, darkPool, rsi, gex, pcr) + EC2 `rt-metrics` 다크풀 교차 검증
+> 5. **Next Open ETA**: ET 기반 정밀 계산 — 평일 00:00~04:00 ET CLOSED 상태 보정, 주말/공휴일 자동 전환
+> 6. **Market Feed**: 11개 시장 지표 실시간 연결 상태 (yahoo:spx, cnn:feargreed 등)
+> 
+> **API**: `/api/admin/health-check` — Lambda/Redis/EC2/Content 전체 파이프라인 READ-ONLY 검증
+> 
+> **커밋**: `5c60c552`, `2bd232dd`, `56fd6012`
+
+### [2026-05-03] 🟢 Context Score 정합성 문제 해결 — cache:analysis SSOT 단일 소스 강제
+
+> **문제**: 동일 종목(GOOGL)의 Context Score가 페이지별로 다르게 표시됨:
+> - Command 페이지: 58점
+> - Portfolio 페이지: 48점
+> - Watchlist: 58점
+> 
+> **근본 원인**: Command 페이지의 `command/unified/route.ts`가 Alpha Engine을 **실시간 재계산**하는 반면, Portfolio는 `cache:analysis`의 **pre-computed alphaSnapshot**을 그대로 사용. 입력 데이터 시점 차이로 점수 불일치 발생.
+> 
+> **수정** (`command/unified/route.ts`):
+> - Command 페이지의 TIER 1 (Redis), TIER 1.5 (DynamoDB), TIER 2 (Cold-Start) 3개 경로 모두에서 `cache:analysis`의 `alphaSnapshot`을 **최우선 사용**하도록 변경
+> - 실시간 재계산은 `alphaSnapshot`이 없는 경우에만 fallback으로 동작
+> - **결과**: 모든 페이지에서 동일한 SSOT 점수 표시 (GOOGL: 전 페이지 58점)
+> 
+> **커밋**: `ed307bca`
+
+### [2026-05-03] 🟢 GEX Timeline 모바일 레이아웃 수정 (CSS-only)
+
+> **문제**: Command 페이지 GEX Timeline이 모바일에서 테이블/차트 레이아웃이 깨져 가독성 저하.
+> **수정**: CSS `@media` 쿼리로 모바일 전용 스타일 적용 — 기존 웹/기능에 영향 없음.
+> **커밋**: `4cd44fe1`
+
+### [2026-04-30~05-03] 🟢 Institutional Radar (INST RADAR) 데이터 파이프라인 복구
+
+> **문제**: Command 페이지의 Institutional Radar 카드에서 다크풀/블록딜 데이터가 0%로 표시되거나 무한 스캐닝 상태에 빠지는 현상.
+> 
+> **원인 분석 (다중 병목)**:
+> 1. **Lambda harvest 장외 덮어쓰기**: 장 마감 후 Lambda가 다크풀 데이터를 `null`로 덮어씌움 → 기관 데이터 증발
+> 2. **SWR 무한 revalidation**: `LiveTickerDashboard`에서 다크풀=0일 때 무한 재요청 루프
+> 3. **Zero-value fallback**: 실제 다크풀 활동이 0인 종목에서도 "scanning" UI 표시
+> 4. **block trades 미주입**: `flow-history` DynamoDB의 블록딜 데이터가 unified 응답에 포함되지 않음
+> 
+> **수정** (7개 커밋):
+> - Lambda: 장외시간 다크풀 보존 레이어 구현 (이전 데이터 유지)
+> - `command/unified/route.ts`: `cache:analysis`에서 `darkPoolPct` 직접 주입 + `flow-history`에서 block trades 주입
+> - `LiveTickerDashboard.tsx`: 0% 다크풀 = 정상 데이터로 처리 (scanning UI 제거)
+> - Finnhub earnings surprise 주입 보완
+> 
+> **커밋**: `3bda0d15`, `40c502a8`, `23fe4be2`, `0b374d83`, `37078465`, `341a441a`, `35319c9e`
+
+### [2026-04-30] 🟢 Alpha Engine V5.1.0 — Mean Reversion Factor 보정 (실증 백테스트 기반)
+
+> **문제**: V5.0 Alpha Engine의 return3d(3일 수익률) 계수가 모멘텀 추종(+방향)으로 설정되어 있어, 실제 시장 데이터와 역상관 관계(t-통계량 = -9.117) 확인.
+> 
+> **수정** (`alphaEngine.ts`):
+> - return3d 계수를 **양(+)에서 음(-)으로 전환** — 평균 회귀(Mean Reversion) 반영
+> - 11,543건 역사적 데이터 기반 실증 검증 완료
+> 
+> **커밋**: `b0e0b6a3`
+
+### [2026-04-30] 🟢 Command 페이지 Zero-Wait Return 최적화
+
+> **문제**: NVDA, META 등 무거운 종목에서 Command 페이지 로딩 시 gap-fill/earnings/IV 보완 작업이 3~8초 동기 블로킹.
+> 
+> **수정** (`command/unified/route.ts`):
+> - Cache HIT 시 **즉시 응답** 반환 (0ms 블로킹)
+> - GAP-FILL, Earnings, IV 보완 작업을 Next.js `after()` 백그라운드로 이동
+> - 유저는 즉시 캐시 데이터를 보고, 보완된 데이터는 다음 요청에 반영
+> 
+> **커밋**: `f402483e`
+
+### [2026-04-30] 🟢 Admin Health Dashboard 초기 구축 + Flow Harvest v2.2
+
+> **신규 페이지**: `/admin/health` — 시스템 전체 파이프라인 실시간 진단 대시보드
+> **신규 API**: `/api/admin/health-check` — Lambda, Redis, EC2, Content 전체 헬스체크 (READ-ONLY)
+> 
+> **Health Check 검증 항목**:
+> - Lambda (signum-harvest, signum-flow-harvest, signum-fmp, signum-cross-sector): 실행 상태 + 데이터 신선도
+> - Redis: cache:analysis / cache:command 데이터 존재 + TTL 확인
+> - EC2 Proxy: Redis Proxy, Flow Accumulator 연결 상태
+> - Content: Guardian Briefing, Cross-Sector Brief, News Digest 최신성
+> - Market Feed: VIX, Fear&Greed, SPX, DXY, TNX, BTC, Gold, Oil, NQ, R2K, GLD 11개 지표
+> - Economic Calendar: 데이터 존재 확인
+> 
+> **Flow Harvest v2.2**: timeout 600s→900s + Redis 분산 Lock 동시 실행 방지 (8일간 100% timeout 사망 사고 해결)
+> 
+> **커밋**: `b08f4b4b`, `dc0261ae`, `2460123c`, `f268d487`, `078783a8`, `1dd36909`, `ed50c5a4`, `c2cae18b`, `31e7d860`
+
 ### [2026-04-19] 🔴🔴 프로덕션 배포 기능 소실 사고 — 에이전트 커밋 누락 (Root Cause Analysis)
 
 > **심각도**: CRITICAL — 사용자가 프로덕션에서 확인했다고 믿었던 기능 7건이 실제로는 한 번도 배포된 적 없었음
