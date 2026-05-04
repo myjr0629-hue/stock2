@@ -437,32 +437,32 @@ export function GexTimeline({ ticker, days = 30, compact = false, onEmpty, curre
             </div>
 
             {/* ═══ HEADER ═══ */}
-            <div className="relative z-10 flex items-start justify-between mb-2">
-                <div>
+            <div className="relative z-10 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-1.5 sm:gap-0 mb-2">
+                <div className="min-w-0">
                     <div className="flex items-center gap-2 mb-0.5">
-                        <div className={`w-0.5 h-8 rounded-full ${isPositive ? 'bg-emerald-400' : 'bg-red-400'}`} />
-                        <div>
+                        <div className={`w-0.5 h-8 rounded-full shrink-0 ${isPositive ? 'bg-emerald-400' : 'bg-red-400'}`} />
+                        <div className="min-w-0">
                             <div className="flex items-center gap-1.5">
                                 <span className="text-[13px] font-bold text-slate-200 tracking-wide uppercase font-jakarta">
                                     <CardTooltip tooltip={COMMAND_TOOLTIPS.GEX_TIMELINE.tooltip} badge={COMMAND_TOOLTIPS.GEX_TIMELINE.badge}>GEX Timeline</CardTooltip>
                                 </span>
                                 <span className="text-[12px] text-slate-400 font-jakarta">· {days}D</span>
                             </div>
-                            <div className="text-[12px] text-slate-300 font-jakarta mt-0.5">{takeaway[locale] || takeaway.en}</div>
+                            <div className="text-[11px] sm:text-[12px] text-slate-300 font-jakarta mt-0.5 leading-snug">{takeaway[locale] || takeaway.en}</div>
                         </div>
                     </div>
                 </div>
-                <div className="flex items-center gap-1.5 shrink-0">
-                    <span className={`text-[20px] font-mono font-bold leading-tight ${isPositive ? 'text-emerald-400' : 'text-red-400'}`}>{formatGex(stats.latest.gex)}</span>
+                <div className="flex items-center gap-1.5 shrink-0 pl-3 sm:pl-0">
+                    <span className={`text-[18px] sm:text-[20px] font-mono font-bold leading-tight ${isPositive ? 'text-emerald-400' : 'text-red-400'}`}>{formatGex(stats.latest.gex)}</span>
                     <span className="text-slate-500">·</span>
-                    <span className="text-[12px] text-slate-300 font-jakarta">{stats.percentile}th percentile</span>
+                    <span className="text-[11px] sm:text-[12px] text-slate-300 font-jakarta">{stats.percentile}th percentile</span>
                     <span className="text-slate-500">·</span>
-                    <span className={`text-[12px] font-semibold font-jakarta ${isPositive ? 'text-emerald-400' : 'text-red-400'}`}>{regimeLabel}</span>
+                    <span className={`text-[11px] sm:text-[12px] font-semibold font-jakarta ${isPositive ? 'text-emerald-400' : 'text-red-400'}`}>{regimeLabel}</span>
                 </div>
             </div>
 
-            {/* ═══ MAIN 2-COLUMN ═══ */}
-            <div className="relative z-10 grid grid-cols-[1fr_220px] gap-3">
+            {/* ═══ MAIN 2-COLUMN (mobile: stacked, desktop: side-by-side) ═══ */}
+            <div className="relative z-10 grid grid-cols-1 sm:grid-cols-[1fr_220px] gap-3">
                 {/* LEFT: Chart + Key Levels */}
                 <div className="space-y-2">
                     {/* Chart */}
@@ -490,8 +490,8 @@ export function GexTimeline({ ticker, days = 30, compact = false, onEmpty, curre
                             <span>TODAY</span>
                         </div>
                     </div>
-                    {/* Key Levels Cards — mockup horizontal style */}
-                    <div className="grid grid-cols-2 gap-1.5">
+                    {/* Key Levels Cards — responsive: 1-col mobile, 2-col desktop */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
                         {(currentCallWall || stats.latest.callWall) && (
                             <div className="rounded-lg border border-red-500/20 bg-red-500/[0.06] p-2 flex items-center gap-2.5">
                                 <div className="w-11 h-11 rounded-lg bg-red-500/15 border border-red-500/25 flex items-center justify-center shrink-0">
@@ -540,8 +540,8 @@ export function GexTimeline({ ticker, days = 30, compact = false, onEmpty, curre
                     </div>
                 </div>
 
-                {/* RIGHT: Percentile + Persistence + Takeaway */}
-                <div className="space-y-2.5 border-l border-slate-700/30 pl-3">
+                {/* RIGHT: Percentile + Persistence + Takeaway (mobile: top border, desktop: left border) */}
+                <div className="space-y-2.5 border-t sm:border-t-0 sm:border-l border-slate-700/30 pt-3 sm:pt-0 sm:pl-3">
                     {/* A. Percentile / Regime */}
                     <div>
                         <div className="flex items-center justify-between mb-1">
@@ -586,7 +586,7 @@ export function GexTimeline({ ticker, days = 30, compact = false, onEmpty, curre
             </div>
 
             {/* ═══ BOTTOM: Flip Events + Disclaimer ═══ */}
-            <div className="relative z-10 flex items-center justify-between mt-2.5 pt-2 border-t border-slate-700/30">
+            <div className="relative z-10 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1.5 sm:gap-0 mt-2.5 pt-2 border-t border-slate-700/30">
                 {stats.flipEvents.length > 0 ? (
                     <div className="flex items-center gap-1.5 flex-wrap">
                         <span className="text-[12px] font-semibold text-slate-400 uppercase tracking-wider font-jakarta flex items-center gap-1">
