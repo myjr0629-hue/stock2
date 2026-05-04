@@ -531,8 +531,9 @@ export class GuardianDataHub {
                 divergenceDesc: divCase.verdictDesc,
             };
 
-            if (rlsi.session !== 'REG' && (await loadAiVerdict(locale))) {
-                // [V12.0] After hours with cached AI verdict from Redis: use it (per-locale)
+            if (rlsi.session === 'CLOSED' && (await loadAiVerdict(locale))) {
+                // [V12.0] Only truly CLOSED hours use cached AI verdict (weekends, nights 20:00-04:00 ET)
+                // [FIX] PRE and POST sessions now generate fresh AI analysis instead of returning stale off-hours cache
                 verdict = (await loadAiVerdict(locale))!;
             } else {
                 // Standard Market: Use Dual Stream AI (including divergence situations)

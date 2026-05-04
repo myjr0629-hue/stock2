@@ -146,6 +146,17 @@ const OFF_HOURS_REALITY: Record<Locale, string> = {
     ja: "[診断] 場外時間 - 市場非活性\n[結論] プレマーケット04:00 ET以降分析再開"
 };
 
+// [FIX] Detect if cached content is an off-hours placeholder message
+function isOffHoursContent(text: string): boolean {
+    const markers = [
+        '장외 시간', 'Off-hours', '場外時間',
+        '시장 비활성', 'market inactive', '市場非活性',
+        '실시간 분석 대기', 'waiting for live analysis', 'リアルタイム分析待機',
+        '프리마켓 시작 시 자동 갱신', 'Auto-refresh at pre-market', 'プレマーケット開始時に自動更新'
+    ];
+    return markers.some(m => text.includes(m));
+}
+
 // === LOCALIZED PROMPTS ===
 const ROTATION_PROMPTS: Record<Locale, (ctx: IntelligenceContext, vectorDesc: string) => string> = {
     ko: (ctx, vectorDesc) => {
@@ -621,6 +632,11 @@ export class IntelligenceNode {
             try {
                 const redisCache = await loadInsightFromRedis(getRedisKey('rotation', locale));
                 if (redisCache) {
+                    // [FIX] Skip off-hours cached content during active hours
+                    if (!isOffHours() && isOffHoursContent(redisCache)) {
+                        console.log(`[IntelligenceNode] Skipping stale off-hours rotation cache for ${locale} — regenerating`);
+                        // Fall through to AI generation
+                    } else {
                     // Check Redis updatedAt to see if within TTL
                     const redis = getRedis();
                     if (redis) {
@@ -634,6 +650,7 @@ export class IntelligenceNode {
                                 return redisCache;
                             }
                         }
+                    }
                     }
                 }
             } catch (e) { /* Redis check failed, proceed to generate */ }
@@ -696,6 +713,11 @@ export class IntelligenceNode {
             try {
                 const redisCache = await loadInsightFromRedis(getRedisKey('reality', locale));
                 if (redisCache) {
+                    // [FIX] Skip off-hours cached content during active hours
+                    if (!isOffHours() && isOffHoursContent(redisCache)) {
+                        console.log(`[IntelligenceNode] Skipping stale off-hours reality cache for ${locale} — regenerating`);
+                        // Fall through to AI generation
+                    } else {
                     const redis = getRedis();
                     if (redis) {
                         const raw = await redis.get(getRedisKey('reality', locale)) as { text: string; updatedAt: string } | null;
@@ -708,6 +730,7 @@ export class IntelligenceNode {
                                 return redisCache;
                             }
                         }
+                    }
                     }
                 }
             } catch (e) { /* Redis check failed, proceed to generate */ }
