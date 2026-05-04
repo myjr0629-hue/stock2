@@ -666,9 +666,12 @@ export async function GET(request: NextRequest) {
                     }
 
                     // [GAP-FILL] Check for missing, empty-shell, or STALE fields
-                    const VOLATILE_FIELDS = new Set(['squeeze', 'institutional', 'volatility']);
+                    // [FIX 2026-05-05] Removed 'institutional' — after() EC2 injection handles it.
+                    // Gap-fill's getInstitutional uses Polygon fallback (24 trades) which overwrites
+                    // EC2 data (3,500+ trades), causing ping-pong flickering.
+                    const VOLATILE_FIELDS = new Set(['squeeze', 'volatility']);
                     const VOLATILE_STALE_MS = 300_000;
-                    const CORE_FIELDS = ['analyst','fundamentals','earnings','related','sma','squeeze','volatility','structure','institutional'] as const;
+                    const CORE_FIELDS = ['analyst','fundamentals','earnings','related','sma','squeeze','volatility','structure'] as const;
                     const missingFields = CORE_FIELDS.filter(f => {
                         if (!isFieldUsable(f, cachedData[f])) return true;
                         if (VOLATILE_FIELDS.has(f) && isMarketHoursNow()) {
