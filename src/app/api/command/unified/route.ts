@@ -39,13 +39,33 @@ async function injectAlphaBypass(data: any, ticker: string) {
     const needsFlow = data.smartFlow === undefined || data.smartFlow === 0;
     const needsInst = !data.institutional || (data.institutional.darkPool?.percent === 0 && data.institutional.blockTrade?.count === 0);
     const needsSurprise = data.earnings && !data.earnings.lastSurprise;
-    if (!needsAlpha && !needsFlow && !needsInst && !needsSurprise) return;
+    const needsAnalyst = !data.analyst || !data.analyst.totalAnalysts || data.analyst.totalAnalysts === 0;
+    if (!needsAlpha && !needsFlow && !needsInst && !needsSurprise && !needsAnalyst) return;
     try {
         const { getAnalysisCache } = await import('@/services/analysisCache');
         const ac = await getAnalysisCache(ticker);
         if (ac) {
             if (ac.alphaSnapshot && needsAlpha) data.alpha = ac.alphaSnapshot;
-            if (ac.whaleIndex !== undefined && needsFlow) data.smartFlow = ac.whaleIndex;
+            // [FIX 2026-05-04] SmartFlow 3-layer fallback: cache:analysis → DynamoDB unified-cache → skip
+            // CRITICAL: cache:analysis whaleIndex can be 0 (blockTrades=undefined bug),
+            // but DynamoDB unified-cache has the correct smartFlow value (manually recovered).
+            if (needsFlow) {
+                if (ac.whaleIndex != null && ac.whaleIndex > 0) {
+                    data.smartFlow = ac.whaleIndex;
+                } else {
+                    // Fallback to DynamoDB unified-cache smartFlow
+                    try {
+                        const { getUnifiedCache } = await import('@/lib/aws/unifiedCacheProvider');
+                        const uc = await Promise.race([
+                            getUnifiedCache(ticker),
+                            new Promise<any>(r => setTimeout(() => r(null), 2000))
+                        ]);
+                        if (uc?.smartFlow && uc.smartFlow > 0) {
+                            data.smartFlow = uc.smartFlow;
+                        }
+                    } catch { /* DynamoDB unavailable */ }
+                }
+            }
             // [FIX 2026-05-03] Inject institutional from analysis cache
             if (needsInst && ac.darkPoolPct != null && ac.darkPoolPct > 0) {
                 data.institutional = {
@@ -81,6 +101,37 @@ async function injectAlphaBypass(data: any, ticker: string) {
                         ...data.institutional,
                         darkPool: { percent: latest.darkPoolPercent || data.institutional?.darkPool?.percent || 0 },
                         blockTrade: { count: latest.blockTradeCount, volume: 0 },
+                    };
+                }
+            } catch { /* DynamoDB unavailable */ }
+        }
+
+        // [FIX 2026-05-04] Inject analyst from signum-pattern-db when unified-cache has null
+        // Lambda harvest reads ANALYST:{ticker} from pattern-db and merges into unified-cache,
+        // but sometimes the merge fails or data is stale. Direct pattern-db read as fallback.
+        if (needsAnalyst) {
+            try {
+                const { DynamoDBClient } = await import('@aws-sdk/client-dynamodb');
+                const { DynamoDBDocumentClient, QueryCommand } = await import('@aws-sdk/lib-dynamodb');
+                const dynClient = DynamoDBDocumentClient.from(new DynamoDBClient({ region: 'us-east-1' }));
+                const analystResult = await Promise.race([
+                    dynClient.send(new QueryCommand({
+                        TableName: 'signum-pattern-db',
+                        KeyConditionExpression: 'pattern = :p',
+                        ExpressionAttributeValues: { ':p': `ANALYST:${ticker}` },
+                        ScanIndexForward: false,
+                        Limit: 1
+                    })),
+                    new Promise<any>(r => setTimeout(() => r(null), 2000))
+                ]);
+                const analystData = analystResult?.Items?.[0];
+                if (analystData && analystData.totalAnalysts > 0) {
+                    data.analyst = {
+                        consensus: analystData.consensus,
+                        totalAnalysts: analystData.totalAnalysts,
+                        bullishPct: analystData.bullishPct,
+                        breakdown: analystData.breakdown,
+                        priceTarget: analystData.priceTarget,
                     };
                 }
             } catch { /* DynamoDB unavailable */ }
