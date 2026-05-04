@@ -1973,6 +1973,73 @@ exports.handler = async (event) => {
   }
   const results = {};
   
+  // ══════════════════════════════════════════════════════════════
+  // DISTRIBUTED LOCK: Prevent concurrent scheduled executions
+  // Cron fires every 5min but execution takes 10-13min.
+  // Without lock, overlapping runs cause 78ms crash errors.
+  // Lock key: 'lock:signum-harvest', TTL: 900s (Lambda max timeout)
+  // Uses Upstash Redis SET...NX EX (atomic SETNX with expiry)
+  // ══════════════════════════════════════════════════════════════
+  const LOCK_KEY = 'lock:signum-harvest';
+  const LOCK_TTL = 900; // seconds = 15 min (Lambda max timeout)
+  const lockId = Date.now() + '-' + Math.random().toString(36).slice(2, 8);
+  let lockAcquired = false;
+  
+  if (UPSTASH_URL && UPSTASH_TOKEN) {
+    try {
+      const body = JSON.stringify(['SET', LOCK_KEY, lockId, 'NX', 'EX', String(LOCK_TTL)]);
+      const url = new URL(UPSTASH_URL);
+      const lockRes = await new Promise((resolve) => {
+        const req = https.request({
+          hostname: url.hostname, port: 443, path: '/', method: 'POST',
+          headers: { 'Authorization': 'Bearer ' + UPSTASH_TOKEN, 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) },
+        }, (res) => {
+          let data = '';
+          res.on('data', chunk => data += chunk);
+          res.on('end', () => { try { resolve(JSON.parse(data)); } catch { resolve(null); } });
+        });
+        req.on('error', () => resolve(null));
+        req.setTimeout(3000, () => { req.destroy(); resolve(null); });
+        req.write(body);
+        req.end();
+      });
+      if (lockRes && lockRes.result === 'OK') {
+        lockAcquired = true;
+        console.log('[LOCK] Acquired (id=' + lockId + ')');
+      } else {
+        console.log('[LOCK] Already held — skipping this invocation (concurrent run protection)');
+        return { statusCode: 200, body: JSON.stringify({ skipped: true, reason: 'Concurrent execution — lock held by another invocation' }) };
+      }
+    } catch (lockErr) {
+      console.log('[LOCK] Error acquiring lock: ' + lockErr.message + ' — proceeding without lock');
+    }
+  }
+  
+  // If lock backend unavailable, proceed anyway (availability > consistency)
+  if (!lockAcquired) {
+    console.log('[LOCK] No lock backend available — proceeding without lock (availability mode)');
+  }
+  
+  // Helper: release lock on completion
+  async function releaseLock() {
+    if (!lockAcquired) return;
+    try {
+      const body = JSON.stringify(['DEL', LOCK_KEY]);
+      const url = new URL(UPSTASH_URL);
+      await new Promise((resolve) => {
+        const req = https.request({
+          hostname: url.hostname, port: 443, path: '/', method: 'POST',
+          headers: { 'Authorization': 'Bearer ' + UPSTASH_TOKEN, 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) },
+        }, (res) => { let d=''; res.on('data', c => d+=c); res.on('end', () => resolve(true)); });
+        req.on('error', () => resolve(false));
+        req.setTimeout(2000, () => { req.destroy(); resolve(false); });
+        req.write(body); req.end();
+      });
+    } catch {}
+    console.log('[LOCK] Released (id=' + lockId + ')');
+  }
+  
+
   // Always: Prices + RLSI
   const { count, priceMap, snapshotMap } = await harvestPrices();
   results.prices = count;
@@ -2049,6 +2116,9 @@ exports.handler = async (event) => {
   
   // [v7] Step 6: Build Unified Cache — ALWAYS run (regular + extended)
   results.unified = await buildUnifiedCache(priceMap, gexMap, optionsCache, smaMap, detailsMap, snapshotMap, rsiMap, dailyBarsMap);
+  
+  // Release distributed lock before returning
+  await releaseLock();
   
   const duration = Math.round((Date.now()-start)/1000);
   console.log('Done in '+duration+'s');
