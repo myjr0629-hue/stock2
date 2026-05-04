@@ -1254,6 +1254,47 @@
         "guide1": "<emerald>Percentile 75th+ + Regime Streak 장기 POSITIVE</emerald> → 딜러 감마 구조가 안정적 상태 지속, <gold>변동성 억제 환경에서의 레인지 관측</gold>",
         "guide2": "<rose>Percentile 10th 이하 + Flip Events 다수</rose> → 극단적 숏감마 + 빈번한 레짐 전환, <cyan>양방향 급변동 리스크 구조적으로 최고 수준</cyan>",
         "guide3": "<emerald>Call Wall Hit Rate 80%+ + CW Trend ↑</emerald> → 저항선 신뢰도 높음 + 기관 상향 포지셔닝, <gold>현재 구조 분석의 정확도 높음</gold>"
+      },
+      "inst13fDeepDive": {
+        "title": "13-F INSTITUTIONAL HOLDINGS — 딥다이브",
+        "subtitle": "SEC Form 13-F 기반 기관투자자 보유 분석 시스템",
+        "desc": "미국 증권거래위원회(SEC)에 의무 제출되는 <gold>Form 13-F</gold>에 기반하여, 운용자산 1억 달러 이상 기관투자자의 <cyan>분기별 주식 보유 현황</cyan>을 추적합니다. Vanguard, BlackRock, State Street 등 글로벌 최대 자산운용사부터 헤지펀드, 연기금까지 — 기관의 포지셔닝 변동을 개인 투자자에게 실시간으로 제공합니다.",
+        "whatIs": {
+          "title": "13-F Filing이란?",
+          "desc": "SEC Form 13-F는 <cyan>운용자산(AUM) 1억 달러 이상</cyan>의 기관투자자가 매 분기 종료 후 45일 이내에 SEC에 의무 제출하는 보유 주식 보고서입니다. 미국 증권거래법(Securities Exchange Act of 1934) Section 13(f)에 근거하며, <gold>기관의 주식 포지션을 공개</gold>하여 시장 투명성을 제고하는 규제 장치입니다.",
+          "filing": "제출 의무: AUM $100M+ 기관투자자 — 뮤추얼펀드, 헤지펀드, 연기금, 보험사, 은행 신탁부",
+          "deadline": "제출 기한: 분기 종료 후 45일 이내 (예: Q1은 5월 15일까지)",
+          "content": "보고 내용: 보유 주식 종목, 수량(shares), 시장가치(market value), 투표권 유형"
+        },
+        "dataPoints": {
+          "title": "제공 데이터 항목",
+          "desc": "SIGNUM은 SEC EDGAR에서 수집된 13-F 데이터를 가공하여 <cyan>기관별 보유 현황</cyan>을 직관적으로 제공합니다.",
+          "holders": "Top Holders — 보유 비중 상위 기관투자자 목록 및 보유 수량",
+          "shares": "Shares Held — 기관별 보유 주식 수량 및 전분기 대비 증감",
+          "value": "Market Value — 보유 주식의 분기말 기준 시장가치 ($)",
+          "weight": "Portfolio Weight — 해당 종목이 기관 전체 포트폴리오에서 차지하는 비중 (%)",
+          "change": "QoQ Change — 전분기 대비 보유 수량 변동 (신규 매수 / 증가 / 감소 / 전량 매도)"
+        },
+        "interpretation": {
+          "title": "데이터 해석 프레임워크",
+          "desc": "13-F 데이터는 <gold>분기 단위 스냅샷</gold>이므로, 단독 사용보다 SIGNUM의 다른 지표와 교차 분석할 때 구조적 인사이트의 정밀도가 높아집니다.",
+          "accumulation": "복수 대형 기관의 보유 비중 동시 증가 → 기관급 매집(Accumulation) 구조가 시사됩니다",
+          "distribution": "복수 기관의 보유 비중 동시 감소 → 기관급 분배(Distribution) 구조가 시사됩니다",
+          "concentration": "상위 10개 기관의 합계 비중이 50% 이상 → 소유 집중도가 높아 대형 기관의 포지션 변동이 가격에 미치는 영향이 구조적으로 큽니다",
+          "crossRef": "13-F 매집 패턴 + INST RADAR의 ACCUMULATION + CONVICTION A등급 동시 확인 → 기관의 실행(Execution)과 리서치의 견해가 동일 방향으로 정렬된 강한 구조적 합의입니다"
+        },
+        "limitations": {
+          "title": "⚠️ 중요 제한사항",
+          "desc": "13-F 데이터 해석 시 반드시 인지해야 할 구조적 제한사항입니다.",
+          "delay": "45일 지연: 분기 종료 후 45일 이내에 제출되므로, 공개 시점 기준 최대 4.5개월 전의 포지션입니다. 현재 보유 현황과 상이할 수 있습니다.",
+          "snapshot": "분기 스냅샷: 분기말 단일 시점의 보유 상태만 반영됩니다. 분기 중간의 매매 활동(예: 단기 트레이딩, 분기 중 매수 후 매도)은 포착되지 않습니다.",
+          "incomplete": "불완전 포지션: 숏 포지션, 옵션(일부 제외), 채권, 외국 증권 등은 13-F 보고 대상에서 제외됩니다. 따라서 기관의 전체 포지셔닝을 반영하지 않습니다.",
+          "confidential": "기밀 처리 가능: 일부 기관은 SEC에 기밀 처리(Confidential Treatment)를 신청하여 특정 포지션의 공개를 지연시킬 수 있습니다."
+        },
+        "tradingGuide": "13-F 시그널 해석",
+        "guide1": "<emerald>Top 5 기관 보유 비중 합계 증가 + QoQ 신규 진입 기관 다수</emerald> → 기관의 구조적 매집이 진행 중인 환경이며, <gold>INST RADAR의 ACCUMULATION 시그널과 교차 확인 시 신뢰도가 높아집니다</gold>",
+        "guide2": "<rose>대형 기관의 대량 감소(>20%) + QoQ 전량 매도 기관 발생</rose> → 기관의 구조적 이탈이 관찰되며, <cyan>다크풀 비율 하락과 동반 시 분배(Distribution) 구조가 강화됩니다</cyan>",
+        "guide3": "<emerald>보유 기관 수 증가 + 평균 보유 비중 안정</emerald> → 기관 참여 폭이 확대되며 소유 구조가 분산되는 건강한 구조입니다. <gold>단일 기관 집중 리스크가 감소하는 긍정적 신호입니다</gold>"
       }
     },
     "aiDeepAnalysis": {

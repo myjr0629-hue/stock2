@@ -1336,6 +1336,47 @@
         "guide1": "<emerald>Percentile 75th+ + Regime Streak長期POSITIVE</emerald> → ディーラーガンマ構造が安定的状態を持続、<gold>ボラティリティ抑制環境でのレンジが観測</gold>",
         "guide2": "<rose>Percentile 10th以下 + Flip Events多数</rose> → 極端なショートガンマ + 頻繁なレジーム転換、<cyan>双方向急変動リスクが構造的に最高水準</cyan>",
         "guide3": "<emerald>Call Wall Hit Rate 80%+ + CW Trend ↑</emerald> → レジスタンス信頼度高 + 機関の上方ポジショニング、<gold>現在の構造分析の精度が高い状態</gold>"
+      },
+      "inst13fDeepDive": {
+        "title": "13-F 機関保有状況 — ディープダイブ",
+        "subtitle": "SEC Form 13-F基盤 機関投資家保有分析システム",
+        "desc": "米国証券取引委員会(SEC)への義務提出書類である<gold>Form 13-F</gold>に基づき、運用資産1億ドル以上の機関投資家の<cyan>四半期ごとの株式保有状況</cyan>を追跡します。Vanguard、BlackRock、State Streetなど世界最大級の資産運用会社からヘッジファンド、年金基金まで — 機関のポジショニング変動を個人投資家にリアルタイム提供します。",
+        "whatIs": {
+          "title": "13-Fファイリングとは？",
+          "desc": "SEC Form 13-Fは、<cyan>運用資産(AUM)1億ドル以上</cyan>の機関投資家が四半期終了後45日以内にSECに義務提出する保有株式報告書です。米国証券取引法(Securities Exchange Act of 1934) Section 13(f)に基づき、<gold>機関の株式ポジションを公開</gold>することで市場の透明性を高める規制手段です。",
+          "filing": "提出義務: AUM $100M以上の機関投資家 — ミューチュアルファンド、ヘッジファンド、年金基金、保険会社、銀行信託部門",
+          "deadline": "提出期限: 四半期終了後45日以内（例: Q1は5月15日まで）",
+          "content": "報告内容: 保有株式銘柄、数量(shares)、市場価値(market value)、議決権の種類"
+        },
+        "dataPoints": {
+          "title": "提供データ項目",
+          "desc": "SIGNUMはSEC EDGARから収集した13-Fデータを加工し、<cyan>機関別保有状況</cyan>を直感的に提供します。",
+          "holders": "Top Holders — 保有比率上位の機関投資家一覧と保有数量",
+          "shares": "Shares Held — 機関別保有株式数と前四半期比増減",
+          "value": "Market Value — 四半期末時点の保有株式市場価値 ($)",
+          "weight": "Portfolio Weight — 当該銘柄が機関のポートフォリオ全体に占める比率 (%)",
+          "change": "QoQ Change — 前四半期比保有数量変動（新規買付 / 増加 / 減少 / 全量売却）"
+        },
+        "interpretation": {
+          "title": "データ解釈フレームワーク",
+          "desc": "13-Fデータは<gold>四半期スナップショット</gold>であるため、単独使用よりSIGNUMの他指標との交差分析で構造的インサイトの精度が向上します。",
+          "accumulation": "複数大型機関の保有比率が同時増加 → 機関級集積(Accumulation)構造が示唆されます",
+          "distribution": "複数機関の保有比率が同時減少 → 機関級分配(Distribution)構造が示唆されます",
+          "concentration": "上位10機関の合計比率が50%以上 → 所有集中度が高く、大型機関のポジション変動が価格に与える影響が構造的に大きい状態です",
+          "crossRef": "13-F集積パターン + INST RADARのACCUMULATION + CONVICTION Aグレード同時確認 → 機関の執行(Execution)とリサーチの見解が同方向に整列した強力な構造的合意です"
+        },
+        "limitations": {
+          "title": "⚠️ 重要な制限事項",
+          "desc": "13-Fデータの解釈にあたり必ず認識すべき構造的制限事項です。",
+          "delay": "45日遅延: 四半期終了後45日以内の提出のため、公開時点で最大4.5ヶ月前のポジションです。現在の保有状況と異なる可能性があります。",
+          "snapshot": "四半期スナップショット: 四半期末の単一時点の保有状態のみを反映します。四半期中の売買活動（例：短期トレーディング、四半期中の買付後売却）は捕捉されません。",
+          "incomplete": "不完全なポジション: ショートポジション、オプション（一部除外）、債券、外国証券等は13-F報告対象外です。したがって機関の全体的ポジショニングを反映しません。",
+          "confidential": "機密処理可能: 一部機関はSECに機密処理(Confidential Treatment)を申請し、特定ポジションの公開を遅延させることが可能です。"
+        },
+        "tradingGuide": "13-F シグナル解釈",
+        "guide1": "<emerald>Top 5機関の保有比率合計増加 + QoQ新規参入機関多数</emerald> → 機関の構造的集積が進行中の環境であり、<gold>INST RADARのACCUMULATIONシグナルとの交差確認で信頼度が向上します</gold>",
+        "guide2": "<rose>大型機関の大幅減少(>20%) + QoQ全量売却機関の発生</rose> → 機関の構造的離脱が観測される環境であり、<cyan>ダークプール比率の低下と同時発生時はDistribution構造が強化されます</cyan>",
+        "guide3": "<emerald>保有機関数の増加 + 平均保有比率の安定</emerald> → 機関参加の幅が拡大し所有構造が分散する健全な構造です。<gold>単一機関集中リスクが低減する肯定的シグナルです</gold>"
       }
     },
     "aiDeepAnalysis": {

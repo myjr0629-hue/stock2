@@ -18,12 +18,19 @@ import { useRealtimeData } from '@/providers/WebSocketProvider';
 import { useMarketStatus } from '@/hooks/useMarketStatus';
 import { calcPriceDisplay } from '@/utils/calcPriceDisplay';
 import { usePriceFlash, getFlashStyle } from '@/components/ui/PriceDisplay';
+import dynamic from 'next/dynamic';
 
 // Tab sub-components
 import { MobileCmdOverview } from './MobileCmdOverview';
 import { MobileCmdMetrics } from './MobileCmdMetrics';
 import { MobileCmdChart } from './MobileCmdChart';
 import { MobileCmdOptions } from './MobileCmdOptions';
+
+// 13F Panel — dynamic import for code-splitting
+const Institutional13FPanel = dynamic(() => import('@/components/Institutional13FPanel'), {
+    ssr: false,
+    loading: () => <div className="min-h-[300px] flex items-center justify-center"><div className="w-8 h-8 border-2 border-indigo-500/30 border-t-indigo-400 rounded-full animate-spin" /></div>,
+});
 
 
 interface MobileCommandPageProps {
@@ -39,13 +46,14 @@ interface MobileCommandPageProps {
 
 const LOGO = (t: string) => `https://assets.parqet.com/logos/symbol/${t}?format=png`;
 
-type TabKey = 'overview' | 'metrics' | 'chart' | 'options';
+type TabKey = 'overview' | 'metrics' | 'chart' | 'options' | '13f';
 
 const TABS: { key: TabKey; label: string; aiPrefix?: boolean }[] = [
     { key: 'chart', label: 'Chart' },
     { key: 'overview', label: 'Overview', aiPrefix: true },
     { key: 'metrics', label: 'Metrics' },
     { key: 'options', label: 'Options' },
+    { key: '13f', label: '13-F' },
 ];
 
 // ── Helpers ──
@@ -377,6 +385,9 @@ export function MobileCommandPage({ quote: rawQuote, sectorLabel, onBack, ticker
                 )}
                 {activeTab === 'options' && (
                     <MobileCmdOptions ticker={effectiveQuote.ticker} quote={effectiveQuote} unified={unified} unifiedLoading={unifiedLoading} initialStockData={initialStockData} />
+                )}
+                {activeTab === '13f' && (
+                    <Institutional13FPanel ticker={effectiveQuote.ticker} />
                 )}
 
             </div>

@@ -4,7 +4,7 @@ import { getTranslations, getLocale } from 'next-intl/server';
 import {
     Zap, Target, Activity, ShieldAlert, Crosshair, Radar, TrendingUp,
     BarChart3, Calendar, GitBranch, Lightbulb, LineChart, Signal,
-    ArrowUpDown, Cpu, Newspaper, AlertTriangle, Layers, Brain
+    ArrowUpDown, Cpu, Newspaper, AlertTriangle, Layers, Brain, Briefcase, FileText, Building2, Scale
 } from 'lucide-react';
 
 export default async function CommandGuidePage() {
@@ -774,6 +774,124 @@ export default async function CommandGuidePage() {
                                 <p>• {t.rich('gexTimelineSection.gexDeepDive.guide1', richTags)}</p>
                                 <p>• {t.rich('gexTimelineSection.gexDeepDive.guide2', richTags)}</p>
                                 <p>• {t.rich('gexTimelineSection.gexDeepDive.guide3', richTags)}</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            {/* ═══ 13-F INSTITUTIONAL HOLDINGS — Deep Dive ═══ */}
+            <section className="space-y-5">
+                <div className="flex items-center gap-2 mt-2 mb-2">
+                    <div className="h-px flex-1 bg-gradient-to-r from-cyan-500/40 to-transparent" />
+                    <span className="text-[12px] font-bold text-cyan-400 uppercase tracking-widest whitespace-nowrap">🏛️ 13-F Institutional Holdings Deep Dive</span>
+                    <div className="h-px flex-1 bg-gradient-to-l from-cyan-500/40 to-transparent" />
+                </div>
+
+                <div className="relative overflow-hidden rounded-2xl bg-white/[0.03] backdrop-blur-xl border border-cyan-500/20 p-6">
+                    <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/[0.06] via-transparent to-indigo-500/[0.04] pointer-events-none" />
+                    <InfographicBg type="radar" />
+
+                    {/* Corner Frames */}
+                    <div className="absolute top-3 left-3 w-6 h-6 border-l-2 border-t-2 border-cyan-500/30 pointer-events-none z-0" />
+                    <div className="absolute top-3 right-3 w-6 h-6 border-r-2 border-t-2 border-cyan-500/30 pointer-events-none z-0" />
+                    <div className="absolute bottom-3 left-3 w-6 h-6 border-l-2 border-b-2 border-cyan-500/30 pointer-events-none z-0" />
+                    <div className="absolute bottom-3 right-3 w-6 h-6 border-r-2 border-b-2 border-cyan-500/30 pointer-events-none z-0" />
+
+                    <div className="relative z-10 space-y-5">
+                        {/* Header */}
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                                <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-cyan-400 via-blue-500 to-indigo-600 flex items-center justify-center shadow-lg shadow-cyan-500/30">
+                                    <Building2 size={22} className="text-white" />
+                                </div>
+                                <div>
+                                    <h3 className="text-xl font-black text-white">{t('gexTimelineSection.inst13fDeepDive.title')}</h3>
+                                    <p className="text-[13px] text-cyan-300 font-medium">{t('gexTimelineSection.inst13fDeepDive.subtitle')}</p>
+                                </div>
+                            </div>
+                            <span className="px-3 py-1 rounded-full bg-cyan-500/20 border border-cyan-500/30 text-xs font-bold text-cyan-300">SEC</span>
+                        </div>
+
+                        <p className="text-[14px] text-slate-300 leading-relaxed">
+                            {t.rich('gexTimelineSection.inst13fDeepDive.desc', richTags)}
+                        </p>
+
+                        {/* A. What is 13-F */}
+                        <div className="rounded-xl border border-cyan-500/15 bg-cyan-900/10 p-4 space-y-3">
+                            <div className="flex items-center gap-2">
+                                <FileText size={16} className="text-cyan-400" />
+                                <h4 className="text-sm font-bold text-white">{t('gexTimelineSection.inst13fDeepDive.whatIs.title')}</h4>
+                            </div>
+                            <p className="text-[13px] text-slate-300 leading-relaxed">{t.rich('gexTimelineSection.inst13fDeepDive.whatIs.desc', richTags)}</p>
+                            <div className="space-y-1 text-[11px] text-slate-400">
+                                <p>📋 {t('gexTimelineSection.inst13fDeepDive.whatIs.filing')}</p>
+                                <p>📅 {t('gexTimelineSection.inst13fDeepDive.whatIs.deadline')}</p>
+                                <p>📊 {t('gexTimelineSection.inst13fDeepDive.whatIs.content')}</p>
+                            </div>
+                        </div>
+
+                        {/* B. Data Points */}
+                        <div className="rounded-xl border border-indigo-500/15 bg-indigo-900/10 p-4 space-y-3">
+                            <div className="flex items-center gap-2">
+                                <BarChart3 size={16} className="text-indigo-400" />
+                                <h4 className="text-sm font-bold text-white">{t('gexTimelineSection.inst13fDeepDive.dataPoints.title')}</h4>
+                            </div>
+                            <p className="text-[13px] text-slate-300 leading-relaxed">{t.rich('gexTimelineSection.inst13fDeepDive.dataPoints.desc', richTags)}</p>
+
+                            {/* Data point cards */}
+                            <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                                {[
+                                    { key: 'holders', color: 'border-emerald-500/20 text-emerald-300' },
+                                    { key: 'shares', color: 'border-cyan-500/20 text-cyan-300' },
+                                    { key: 'value', color: 'border-amber-500/20 text-amber-300' },
+                                    { key: 'weight', color: 'border-violet-500/20 text-violet-300' },
+                                    { key: 'change', color: 'border-rose-500/20 text-rose-300' },
+                                ].map((item) => (
+                                    <div key={item.key} className={`px-2 py-1.5 rounded-lg border ${item.color} bg-slate-900/40`}>
+                                        <div className="text-[10px] text-slate-400 mt-0.5">{t(`gexTimelineSection.inst13fDeepDive.dataPoints.${item.key}`)}</div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* C. Interpretation Framework */}
+                        <div className="rounded-xl border border-emerald-500/15 bg-emerald-900/10 p-4 space-y-3">
+                            <div className="flex items-center gap-2">
+                                <Scale size={16} className="text-emerald-400" />
+                                <h4 className="text-sm font-bold text-white">{t('gexTimelineSection.inst13fDeepDive.interpretation.title')}</h4>
+                            </div>
+                            <p className="text-[13px] text-slate-300 leading-relaxed">{t.rich('gexTimelineSection.inst13fDeepDive.interpretation.desc', richTags)}</p>
+                            <div className="space-y-1.5 text-[11px] text-slate-400">
+                                <p>📈 {t('gexTimelineSection.inst13fDeepDive.interpretation.accumulation')}</p>
+                                <p>📉 {t('gexTimelineSection.inst13fDeepDive.interpretation.distribution')}</p>
+                                <p>🎯 {t('gexTimelineSection.inst13fDeepDive.interpretation.concentration')}</p>
+                                <p>🔗 {t('gexTimelineSection.inst13fDeepDive.interpretation.crossRef')}</p>
+                            </div>
+                        </div>
+
+                        {/* D. Important Limitations */}
+                        <div className="rounded-xl border border-amber-500/15 bg-amber-900/10 p-4 space-y-3">
+                            <div className="flex items-center gap-2">
+                                <AlertTriangle size={16} className="text-amber-400" />
+                                <h4 className="text-sm font-bold text-white">{t('gexTimelineSection.inst13fDeepDive.limitations.title')}</h4>
+                            </div>
+                            <p className="text-[13px] text-slate-300 leading-relaxed">{t('gexTimelineSection.inst13fDeepDive.limitations.desc')}</p>
+                            <div className="space-y-1.5 text-[11px] text-amber-200/70">
+                                <p>⏰ {t('gexTimelineSection.inst13fDeepDive.limitations.delay')}</p>
+                                <p>📸 {t('gexTimelineSection.inst13fDeepDive.limitations.snapshot')}</p>
+                                <p>⚠️ {t('gexTimelineSection.inst13fDeepDive.limitations.incomplete')}</p>
+                                <p>🔒 {t('gexTimelineSection.inst13fDeepDive.limitations.confidential')}</p>
+                            </div>
+                        </div>
+
+                        {/* Trading Guide */}
+                        <div className="rounded-xl border border-cyan-500/15 bg-cyan-900/10 p-4 space-y-2">
+                            <span className="text-[13px] font-bold text-cyan-400 flex items-center gap-1.5"><Briefcase size={13} />{t('gexTimelineSection.inst13fDeepDive.tradingGuide')}</span>
+                            <div className="text-[13px] text-slate-300 leading-relaxed space-y-0.5">
+                                <p>• {t.rich('gexTimelineSection.inst13fDeepDive.guide1', richTags)}</p>
+                                <p>• {t.rich('gexTimelineSection.inst13fDeepDive.guide2', richTags)}</p>
+                                <p>• {t.rich('gexTimelineSection.inst13fDeepDive.guide3', richTags)}</p>
                             </div>
                         </div>
                     </div>

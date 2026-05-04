@@ -1,64 +1,70 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { usePathname, Link } from '@/i18n/routing';
+import { useSearchParams } from 'next/navigation';
 import { clsx } from 'clsx';
 import { LayoutDashboard, Crosshair, Shield, Waves, Radar, Star, Briefcase } from 'lucide-react';
 
 /**
  * MobileBottomNav — Exclusive Mobile Native Bottom Tab Bar
  * Rendered ONLY via Server-Side detection. Contains no CSS responsive hacks.
- * State-of-the-Art Bloomberg/iOS App styling.
+ * [FIX] Dynamic ticker propagation: Command→Flow ticker continuity
  */
-
-const NAV_ITEMS = [
-    {
-        label: 'DASHBOARD',
-        href: '/dashboard',
-        icon: LayoutDashboard,
-        matchPath: '/dashboard',
-    },
-    {
-        label: 'GUARDIAN',
-        href: '/intel-guardian',
-        icon: Shield,
-        matchPath: '/intel-guardian',
-    },
-    {
-        label: 'COMMAND',
-        href: '/ticker?ticker=NVDA',
-        icon: Crosshair,
-        matchPath: '/ticker',
-    },
-    {
-        label: 'FLOW',
-        href: '/flow',
-        icon: Waves,
-        matchPath: '/flow',
-    },
-    {
-        label: 'INTEL',
-        href: '/intel',
-        icon: Radar,
-        matchPath: '/intel',
-        matchExact: true,
-    },
-    {
-        label: 'WATCHLIST',
-        href: '/watchlist',
-        icon: Star,
-        matchPath: '/watchlist',
-    },
-    {
-        label: 'PORTFOLIO',
-        href: '/portfolio',
-        icon: Briefcase,
-        matchPath: '/portfolio',
-    },
-];
 
 export function MobileBottomNav() {
     const pathname = usePathname();
+    const searchParams = useSearchParams();
+
+    // [FIX] Extract current ticker from URL for cross-page continuity
+    // Command: /ticker?ticker=NVDA, Flow: /flow?ticker=NVDA
+    const currentTicker = searchParams.get('ticker') || searchParams.get('t') || null;
+
+    const NAV_ITEMS = useMemo(() => [
+        {
+            label: 'DASHBOARD',
+            href: '/dashboard',
+            icon: LayoutDashboard,
+            matchPath: '/dashboard',
+        },
+        {
+            label: 'GUARDIAN',
+            href: '/intel-guardian',
+            icon: Shield,
+            matchPath: '/intel-guardian',
+        },
+        {
+            label: 'COMMAND',
+            href: currentTicker ? `/ticker?ticker=${currentTicker}` : '/ticker?ticker=NVDA',
+            icon: Crosshair,
+            matchPath: '/ticker',
+        },
+        {
+            label: 'FLOW',
+            href: currentTicker ? `/flow?ticker=${currentTicker}` : '/flow',
+            icon: Waves,
+            matchPath: '/flow',
+        },
+        {
+            label: 'INTEL',
+            href: '/intel',
+            icon: Radar,
+            matchPath: '/intel',
+            matchExact: true,
+        },
+        {
+            label: 'WATCHLIST',
+            href: '/watchlist',
+            icon: Star,
+            matchPath: '/watchlist',
+        },
+        {
+            label: 'PORTFOLIO',
+            href: '/portfolio',
+            icon: Briefcase,
+            matchPath: '/portfolio',
+        },
+    ], [currentTicker]);
     // Defer active state to client to avoid SSR hydration mismatch
     const [activePath, setActivePath] = useState<string | null>(null);
     useEffect(() => {

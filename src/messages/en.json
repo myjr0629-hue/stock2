@@ -1336,6 +1336,47 @@
         "guide1": "<emerald>Percentile 75th+ + Long POSITIVE Streak</emerald> → Dealer gamma structure sustainably stable; <gold>range-bound observation in volatility-suppressed environment</gold>",
         "guide2": "<rose>Percentile ≤ 10th + Multiple Flip Events</rose> → Extreme short gamma with frequent regime transitions; <cyan>bi-directional sharp movement risk at structural maximum</cyan>",
         "guide3": "<emerald>Call Wall Hit Rate ≥ 80% + CW Trend ↑</emerald> → High resistance reliability + institutional upward positioning; <gold>current structural analysis accuracy elevated</gold>"
+      },
+      "inst13fDeepDive": {
+        "title": "13-F INSTITUTIONAL HOLDINGS — Deep Dive",
+        "subtitle": "SEC Form 13-F Based Institutional Ownership Analysis",
+        "desc": "Tracks <cyan>quarterly equity positions</cyan> of institutional investors managing over $100 million in assets, based on mandatory <gold>SEC Form 13-F</gold> filings. From the world's largest asset managers — Vanguard, BlackRock, State Street — to hedge funds and pension funds, SIGNUM delivers institutional positioning shifts directly to individual investors.",
+        "whatIs": {
+          "title": "What is a 13-F Filing?",
+          "desc": "SEC Form 13-F is a mandatory quarterly report filed by institutional investment managers with <cyan>assets under management (AUM) exceeding $100 million</cyan>. Required under Section 13(f) of the Securities Exchange Act of 1934, it <gold>publicly discloses institutional equity positions</gold> as a regulatory mechanism for market transparency.",
+          "filing": "Filing Obligation: AUM $100M+ institutional managers — mutual funds, hedge funds, pension funds, insurance companies, bank trust departments",
+          "deadline": "Filing Deadline: Within 45 days of quarter end (e.g., Q1 due by May 15)",
+          "content": "Reported Data: Equity holdings, share count, market value, voting authority type"
+        },
+        "dataPoints": {
+          "title": "Data Points Provided",
+          "desc": "SIGNUM processes 13-F data collected from SEC EDGAR to deliver <cyan>per-institution ownership profiles</cyan> in an intuitive format.",
+          "holders": "Top Holders — Ranked institutional investors by position size and share count",
+          "shares": "Shares Held — Per-institution share count with quarter-over-quarter changes",
+          "value": "Market Value — Quarter-end market value of holdings ($)",
+          "weight": "Portfolio Weight — Percentage weight of the stock within each institution's total portfolio (%)",
+          "change": "QoQ Change — Quarter-over-quarter position changes (New Entry / Increased / Decreased / Sold Out)"
+        },
+        "interpretation": {
+          "title": "Interpretation Framework",
+          "desc": "13-F data provides <gold>quarterly snapshots</gold>; structural insight precision increases significantly when cross-referenced with SIGNUM's real-time indicators rather than used in isolation.",
+          "accumulation": "Multiple large institutions simultaneously increasing positions → Institutional accumulation structure indicated",
+          "distribution": "Multiple institutions simultaneously reducing positions → Institutional distribution structure indicated",
+          "concentration": "Top 10 institutions holding 50%+ combined → High ownership concentration means large institutional position changes carry structurally outsized price impact",
+          "crossRef": "13-F accumulation pattern + INST RADAR ACCUMULATION + CONVICTION Grade A simultaneous confirmation → Institutional execution and research views aligned in the same direction — a powerful structural consensus"
+        },
+        "limitations": {
+          "title": "⚠️ Important Limitations",
+          "desc": "Structural limitations that must be understood when interpreting 13-F data.",
+          "delay": "45-Day Lag: Filed within 45 days after quarter end, meaning published positions may reflect holdings up to 4.5 months old. Current holdings may differ materially.",
+          "snapshot": "Quarterly Snapshot: Reflects holdings at a single point in time (quarter end). Intra-quarter trading activity (e.g., round-trip trades, mid-quarter buys followed by sells) is not captured.",
+          "incomplete": "Incomplete Positions: Short positions, most options, bonds, and foreign securities are excluded from 13-F reporting. Therefore, the filing does not reflect an institution's complete positioning.",
+          "confidential": "Confidential Treatment: Some institutions may request SEC confidential treatment to delay disclosure of specific positions."
+        },
+        "tradingGuide": "13-F Signal Interpretation",
+        "guide1": "<emerald>Top 5 institutional holdings increasing + multiple new entrants QoQ</emerald> → Structural institutional accumulation underway; <gold>reliability increases when cross-confirmed with INST RADAR ACCUMULATION signal</gold>",
+        "guide2": "<rose>Large institution position cuts (>20%) + institutions exiting entirely QoQ</rose> → Structural institutional departure observed; <cyan>strengthened distribution signal when accompanied by declining dark pool ratios</cyan>",
+        "guide3": "<emerald>Growing number of institutional holders + stable average position weight</emerald> → Broadening institutional participation with diversifying ownership structure. <gold>A positive signal as single-institution concentration risk decreases</gold>"
       }
     },
     "aiDeepAnalysis": {

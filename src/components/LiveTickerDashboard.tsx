@@ -671,7 +671,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                 }
             }
         } catch { /* silent fail */ }
-    }, 2000); // 2s delay — wait for SSR hydration first
+    }, 300); // 300ms — fast fallback after SSR hydration (~100ms)
     return () => clearTimeout(overviewTimer);
     }, [ticker]);
 

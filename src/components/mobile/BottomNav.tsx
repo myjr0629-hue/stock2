@@ -12,83 +12,88 @@ import { clsx } from 'clsx';
  * Uses CSS-only hiding — zero desktop rendering cost.
  */
 
-const NAV_ITEMS = [
-    {
-        label: 'DASHBOARD',
-        href: '/dashboard',
-        icon: (active: boolean) => (
-            <svg className="w-5 h-5" fill={active ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24" strokeWidth={active ? 0 : 1.5}>
-                {active ? (
-                    <path d="M12 2.1L1 12h3v9h6v-6h4v6h6v-9h3L12 2.1z" />
-                ) : (
-                    <path strokeLinecap="round" strokeLinejoin="round" d="m2.25 12 8.954-8.955a1.126 1.126 0 0 1 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25" />
-                )}
-            </svg>
-        ),
-        matchPath: '/dashboard',
-    },
-    {
-        label: 'GUARDIAN',
-        href: '/intel-guardian',
-        icon: (active: boolean) => (
-            <svg className="w-5 h-5" fill={active ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24" strokeWidth={active ? 0 : 1.5}>
-                {active ? (
-                    <path d="M12 2L3 7v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V7l-9-5z" />
-                ) : (
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285Z" />
-                )}
-            </svg>
-        ),
-        matchPath: '/intel-guardian',
-    },
-    {
-        label: 'COMMAND',
-        href: '/ticker?ticker=NVDA',
-        icon: (active: boolean) => (
-            <svg className="w-5 h-5" fill={active ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24" strokeWidth={active ? 0 : 1.5}>
-                {active ? (
-                    <path d="M13 10V3L4 14h7v7l9-11h-7z" />
-                ) : (
-                    <path strokeLinecap="round" strokeLinejoin="round" d="m3.75 13.5 10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75Z" />
-                )}
-            </svg>
-        ),
-        matchPath: '/ticker',
-    },
-    {
-        label: 'FLOW',
-        href: '/flow',
-        icon: (active: boolean) => (
-            <svg className="w-5 h-5" fill={active ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24" strokeWidth={active ? 0 : 1.5}>
-                {active ? (
-                    <path d="M3.5 18.49l6-6.01 4 4L22 6.92l-1.41-1.41-7.09 7.97-4-4L2 16.99z" />
-                ) : (
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 18 9 11.25l4.306 4.306a11.95 11.95 0 0 1 5.814-5.518l2.74-1.22m0 0-5.94-2.281m5.94 2.28-2.28 5.941" />
-                )}
-            </svg>
-        ),
-        matchPath: '/flow',
-    },
-    {
-        label: 'INTEL',
-        href: '/intel',
-        icon: (active: boolean) => (
-            <svg className="w-5 h-5" fill={active ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24" strokeWidth={active ? 0 : 1.5}>
-                {active ? (
-                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 15l-5-5 1.41-1.41L12 14.17l7.59-7.59L21 8l-9 9z" />
-                ) : (
-                    <path strokeLinecap="round" strokeLinejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
-                )}
-            </svg>
-        ),
-        matchPath: '/intel',
-        matchExact: true,
-    },
-];
+function getNavItems(currentTicker: string | null) {
+    return [
+        {
+            label: 'DASHBOARD',
+            href: '/dashboard',
+            icon: (active: boolean) => (
+                <svg className="w-5 h-5" fill={active ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24" strokeWidth={active ? 0 : 1.5}>
+                    {active ? (
+                        <path d="M12 2.1L1 12h3v9h6v-6h4v6h6v-9h3L12 2.1z" />
+                    ) : (
+                        <path strokeLinecap="round" strokeLinejoin="round" d="m2.25 12 8.954-8.955a1.126 1.126 0 0 1 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25" />
+                    )}
+                </svg>
+            ),
+            matchPath: '/dashboard',
+        },
+        {
+            label: 'GUARDIAN',
+            href: '/intel-guardian',
+            icon: (active: boolean) => (
+                <svg className="w-5 h-5" fill={active ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24" strokeWidth={active ? 0 : 1.5}>
+                    {active ? (
+                        <path d="M12 2L3 7v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V7l-9-5z" />
+                    ) : (
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285Z" />
+                    )}
+                </svg>
+            ),
+            matchPath: '/intel-guardian',
+        },
+        {
+            label: 'COMMAND',
+            href: currentTicker ? `/ticker?ticker=${currentTicker}` : '/ticker?ticker=NVDA',
+            icon: (active: boolean) => (
+                <svg className="w-5 h-5" fill={active ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24" strokeWidth={active ? 0 : 1.5}>
+                    {active ? (
+                        <path d="M13 10V3L4 14h7v7l9-11h-7z" />
+                    ) : (
+                        <path strokeLinecap="round" strokeLinejoin="round" d="m3.75 13.5 10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75Z" />
+                    )}
+                </svg>
+            ),
+            matchPath: '/ticker',
+        },
+        {
+            label: 'FLOW',
+            href: currentTicker ? `/flow?ticker=${currentTicker}` : '/flow',
+            icon: (active: boolean) => (
+                <svg className="w-5 h-5" fill={active ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24" strokeWidth={active ? 0 : 1.5}>
+                    {active ? (
+                        <path d="M3.5 18.49l6-6.01 4 4L22 6.92l-1.41-1.41-7.09 7.97-4-4L2 16.99z" />
+                    ) : (
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 18 9 11.25l4.306 4.306a11.95 11.95 0 0 1 5.814-5.518l2.74-1.22m0 0-5.94-2.281m5.94 2.28-2.28 5.941" />
+                    )}
+                </svg>
+            ),
+            matchPath: '/flow',
+        },
+        {
+            label: 'INTEL',
+            href: '/intel',
+            icon: (active: boolean) => (
+                <svg className="w-5 h-5" fill={active ? 'currentColor' : 'none'} stroke="currentColor" viewBox="0 0 24 24" strokeWidth={active ? 0 : 1.5}>
+                    {active ? (
+                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 15l-5-5 1.41-1.41L12 14.17l7.59-7.59L21 8l-9 9z" />
+                    ) : (
+                        <path strokeLinecap="round" strokeLinejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z" />
+                    )}
+                </svg>
+            ),
+            matchPath: '/intel',
+            matchExact: true,
+        },
+    ];
+}
 
 export function BottomNav() {
     const pathname = usePathname();
     const searchParams = useSearchParams();
+    // [FIX] Extract current ticker for cross-page continuity
+    const currentTicker = searchParams.get('ticker') || searchParams.get('t') || null;
+    const NAV_ITEMS = getNavItems(currentTicker);
 
     return (
         <>

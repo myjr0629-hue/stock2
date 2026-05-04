@@ -576,11 +576,11 @@ export class GuardianDataHub {
                         spread2s10s: macro?.yieldCurve?.spread2s10s ?? undefined,
                         realYield: macro?.realYield?.realYield ?? undefined,
                         realYieldStance: macro?.realYield?.stance ?? undefined,
-                        // Breadth indicators
-                        breadthPct: rlsi.components?.breadthPct ?? undefined,
-                        adRatio: rlsi.components?.adRatio ?? undefined,
-                        volumeBreadth: rlsi.components?.volumeBreadth ?? undefined,
-                        breadthSignal: rlsi.components?.breadthSignal ?? undefined,
+                        // Breadth indicators — [FIX] Only during REG (off-hours = fallback 50%, no analytical value)
+                        breadthPct: rlsi.session === 'REG' ? (rlsi.components?.breadthPct ?? undefined) : undefined,
+                        adRatio: rlsi.session === 'REG' ? (rlsi.components?.adRatio ?? undefined) : undefined,
+                        volumeBreadth: rlsi.session === 'REG' ? (rlsi.components?.volumeBreadth ?? undefined) : undefined,
+                        breadthSignal: rlsi.session === 'REG' ? (rlsi.components?.breadthSignal ?? undefined) : undefined,
                         // [V6.0] Enhanced Rotation Intelligence
                         rotationRegime: ri.regime,
                         topInflow5d: ri.topInflow.length > 0 ? formatTopFlows('inflow') : undefined,
