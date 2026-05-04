@@ -252,7 +252,7 @@ export default function RLSIInsightPanel({
                             RLSI INSIGHT
                         </span>
                     </GuardianTooltip>
-                    <span className="text-xs text-amber-500 font-mono font-jakarta">· Regular Session Only</span>
+                    <span className="text-xs text-amber-500 font-mono font-jakarta">· {session === 'REG' ? 'Regular Session' : session === 'PRE' ? 'Pre-Market' : session === 'POST' ? 'Post-Market' : 'Regular Session Only'}</span>
                 </div>
                 <div className={`text-xs font-black uppercase px-2 py-0.5 rounded border ${alignmentStatus === 'DIVERGENCE'
                     ? 'text-rose-400 border-rose-500/30 bg-rose-500/10'
@@ -362,7 +362,7 @@ export default function RLSIInsightPanel({
                                 </div>
                                 <div>
                                     <div className="text-xs font-bold text-white/80">{t('insightPending')}</div>
-                                    <div className="text-xs text-slate-400 font-mono mt-0.5 font-jakarta">Regular Session 09:30-16:00 ET</div>
+                                    <div className="text-xs text-slate-400 font-mono mt-0.5 font-jakarta">Pre-Market 04:00 — Regular 09:30 ET</div>
                                 </div>
                             </div>
                         )}

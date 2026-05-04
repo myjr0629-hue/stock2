@@ -14,6 +14,7 @@ import { ProGate } from '@/components/gate/FeatureGate';
 import { GuardianTooltip } from '@/components/guardian/GuardianTooltip';
 import { renderColoredText } from '@/components/guardian/TypewriterText';
 import { useMarketStatus } from '@/hooks/useMarketStatus';
+import { getIsMarketActive, getEffectiveSession } from '@/services/guardian/marketSessionUtils';
 import { Clock } from 'lucide-react';
 
 const GammaShield = dynamic(() => import('@/components/guardian/GammaShield'), { ssr: false });
@@ -36,7 +37,8 @@ export default function MobileGuardianShield({ data, loading, verdict, session }
     const gt = useTranslations('gate');
     const locale = useLocale();
     const { status: marketStatusInfo } = useMarketStatus();
-    const isMarketActive = (session === 'REG' || session === 'PRE' || session === 'POST') && !marketStatusInfo.isHoliday;
+    const isMarketActive = getIsMarketActive(session, marketStatusInfo.isHoliday);
+    const effectiveSession = getEffectiveSession(session);
 
     return (
         <div className="space-y-3">
@@ -87,7 +89,7 @@ export default function MobileGuardianShield({ data, loading, verdict, session }
                                     TACTICAL VERDICT
                                 </h3>
                             </GuardianTooltip>
-                            <span className="text-[12px] text-amber-500 font-mono font-jakarta">· {session === 'REG' ? 'Regular Session' : session === 'PRE' ? 'Pre-Market' : session === 'POST' ? 'Post-Market' : 'Off-Hours'}</span>
+                            <span className="text-[12px] text-amber-500 font-mono font-jakarta">· {effectiveSession === 'REG' ? 'Regular Session' : effectiveSession === 'PRE' ? 'Pre-Market' : effectiveSession === 'POST' ? 'Post-Market' : 'Off-Hours'}</span>
                         </div>
                         <span className="text-[10px] bg-gradient-to-r from-cyan-950/80 to-indigo-950/80 text-cyan-400 px-1.5 py-0.5 rounded border border-cyan-500/20 font-bold font-jakarta">
                             CLAUDE S4

@@ -19,6 +19,7 @@ import { useMarketStatus } from '@/hooks/useMarketStatus';
 import { useRealtimeData } from '@/providers/WebSocketProvider';
 import { GuestWall } from '@/components/gate/GuestWall';
 import { ProGate, EliteGate } from '@/components/gate/FeatureGate';
+import { getIsMarketActive, getIsFullyActive, getEffectiveSession } from '@/services/guardian/marketSessionUtils';
 
 // [PERF] Lazy-loaded heavy components — reduces initial JS bundle
 const SmartMoneyMap = dynamic(() => import("@/components/guardian/SmartMoneyMap"), { ssr: false });
@@ -342,12 +343,14 @@ export default function GuardianDesktop() {
     const isBullMode = regime === 'BULL';
 
     // [V7.7] Session-based animation control
-    const session = data?.rlsi?.session;
+    // [FIX] Use effective session to resolve stale-cache issue during pre-market
+    const rawSession = data?.rlsi?.session;
     const { status: marketStatusInfo } = useMarketStatus();
+    const session = getEffectiveSession(rawSession);
     // isMarketActive: PRE + REG + POST = show analysis (04:00-20:00 ET)
-    const isMarketActive = (session === 'REG' || session === 'PRE' || session === 'POST') && !marketStatusInfo.isHoliday;
+    const isMarketActive = getIsMarketActive(rawSession, marketStatusInfo.isHoliday);
     // isFullyActive: REG only = live animations, pulse effects
-    const isFullyActive = session === 'REG' && !marketStatusInfo.isHoliday;
+    const isFullyActive = getIsFullyActive(rawSession, marketStatusInfo.isHoliday);
 
     // Dynamic Map Border — no pulse animation when market is closed
     const mapBorderClass = isTargetLocked && isFullyActive

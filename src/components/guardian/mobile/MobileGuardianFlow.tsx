@@ -12,6 +12,7 @@ import { useTier } from '@/contexts/TierContext';
 import { ProGate } from '@/components/gate/FeatureGate';
 import { GuardianTooltip } from '@/components/guardian/GuardianTooltip';
 import { useMarketStatus } from '@/hooks/useMarketStatus';
+import { getIsMarketActive, getIsFullyActive } from '@/services/guardian/marketSessionUtils';
 import { useRealtimeData } from '@/providers/WebSocketProvider';
 import { Link } from '@/i18n/routing';
 import { Activity, AlertTriangle, Layers, Lock, ArrowRight } from 'lucide-react';
@@ -82,8 +83,8 @@ export default function MobileGuardianFlow({ data, loading, verdict, session }: 
     const locale = useLocale();
     const { hasAccess, tier } = useTier();
     const { status: marketStatusInfo } = useMarketStatus();
-    const isMarketActive = (session === 'REG' || session === 'PRE' || session === 'POST') && !marketStatusInfo.isHoliday;
-    const isFullyActive = session === 'REG' && !marketStatusInfo.isHoliday;
+    const isMarketActive = getIsMarketActive(session, marketStatusInfo.isHoliday);
+    const isFullyActive = getIsFullyActive(session, marketStatusInfo.isHoliday);
 
     const isMapGuestPreview = tier === 'guest' && (() => {
         if (typeof document === 'undefined') return true;

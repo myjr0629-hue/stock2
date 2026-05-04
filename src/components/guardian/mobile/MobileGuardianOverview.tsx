@@ -12,6 +12,7 @@ import { useTranslations, useLocale } from 'next-intl';
 import { useTier } from '@/contexts/TierContext';
 import { ProGate } from '@/components/gate/FeatureGate';
 import { useMarketStatus } from '@/hooks/useMarketStatus';
+import { getIsMarketActive } from '@/services/guardian/marketSessionUtils';
 
 const GravityGauge = dynamic(() => import('@/components/guardian/GravityGauge'), { ssr: false });
 const RLSIInsightPanel = dynamic(() => import('@/components/guardian/MarketBreadthPanel'), { ssr: false });
@@ -35,7 +36,7 @@ export default function MobileGuardianOverview({ data, loading, verdict, session
     const gt = useTranslations('gate');
     const locale = useLocale();
     const { status: marketStatusInfo } = useMarketStatus();
-    const isMarketActive = (session === 'REG' || session === 'PRE' || session === 'POST') && !marketStatusInfo.isHoliday;
+    const isMarketActive = getIsMarketActive(session, marketStatusInfo.isHoliday);
     const [insightTab, setInsightTab] = useState<'insight' | 'whatif'>('insight');
 
     return (
