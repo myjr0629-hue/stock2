@@ -1,8 +1,9 @@
 // [Admin] System Health Check API — 관리자 전용 인프라 헬스체크
 // 모든 체크는 READ-ONLY. 기존 기능에 영향 없음.
-// 2026-05-01: 실제 Redis 키 패턴 검증 완료 후 정밀 수정
+// 2026-05-04: Users, Calendar, Data Integrity, Score Accuracy 섹션 추가
 import { NextRequest, NextResponse } from 'next/server';
 import { getFromCache } from '@/services/redisClient';
+import { createClient } from '@supabase/supabase-js';
 
 const ADMIN_EMAILS = (process.env.NEXT_PUBLIC_ADMIN_EMAILS || '').split(',').map(e => e.trim().toLowerCase());
 
@@ -73,18 +74,58 @@ async function checkElastiCache(key: string): Promise<any> {
   }
 }
 
-// ET 현재 시간 계산
+// NYSE 2026 공휴일 목록
+const NYSE_HOLIDAYS_2026 = [
+  '2026-01-01', '2026-01-19', '2026-02-16', '2026-04-03',
+  '2026-05-25', '2026-06-19', '2026-07-03', '2026-09-07',
+  '2026-11-26', '2026-12-25',
+];
+
+// ET 현재 시간 + 세션 + 공휴일 + 다음 장 오픈 ETA
 function getETInfo() {
   const now = new Date();
   const etStr = now.toLocaleString('en-US', { timeZone: 'America/New_York', hour12: false });
-  const etHour = parseInt(etStr.split(' ')[1]?.split(':')[0] || '0');
-  const etMin = parseInt(etStr.split(' ')[1]?.split(':')[1] || '0');
-  const dayOfWeek = new Date(etStr).getDay(); // 0=Sun, 6=Sat
+  const etParts = etStr.split(', ');
+  const timeParts = (etParts[1] || '0:0:0').split(':');
+  const etHour = parseInt(timeParts[0] || '0');
+  const etMin = parseInt(timeParts[1] || '0');
+  const etSec = parseInt(timeParts[2] || '0');
+  const etDate = new Date(etStr);
+  const dayOfWeek = etDate.getDay();
   const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
-  const isMarketHours = !isWeekend && etHour >= 9 && (etHour < 16 || (etHour === 9 && etMin >= 30));
-  const isPreMarket = !isWeekend && etHour >= 4 && etHour < 9;
-  const isPostMarket = !isWeekend && etHour >= 16 && etHour < 20;
-  return { etHour, isWeekend, isMarketHours, isPreMarket, isPostMarket };
+  const etDateStr = now.toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
+  const isHoliday = NYSE_HOLIDAYS_2026.includes(etDateStr);
+  const etTimeMin = etHour * 60 + etMin;
+  const isMarketHours = !isWeekend && !isHoliday && etTimeMin >= 570 && etTimeMin < 960;
+  const isPreMarket = !isWeekend && !isHoliday && etTimeMin >= 240 && etTimeMin < 570;
+  const isPostMarket = !isWeekend && !isHoliday && etTimeMin >= 960 && etTimeMin < 1200;
+  const session = isMarketHours ? 'REG' : isPreMarket ? 'PRE' : isPostMarket ? 'POST' : 'CLOSED';
+  const sessionLabel = isMarketHours ? 'MARKET OPEN (정규장)' : isPreMarket ? 'PRE-MARKET (프리마켓)' : isPostMarket ? 'POST-MARKET (애프터마켓)' : isWeekend ? 'WEEKEND (주말)' : isHoliday ? 'HOLIDAY (공휴일)' : 'CLOSED (장 마감)';
+  // 다음 장 오픈 ETA
+  let nextOpenEta = '';
+  if (!isMarketHours) {
+    const nextDay = new Date(now);
+    if (isPreMarket) {
+      const minsToOpen = 570 - etTimeMin;
+      nextOpenEta = `${Math.floor(minsToOpen / 60)}h ${minsToOpen % 60}m`;
+    } else {
+      // 다음 영업일 9:30 ET 계산
+      nextDay.setDate(nextDay.getDate() + (isWeekend ? (dayOfWeek === 6 ? 2 : 1) : 1));
+      const diffMs = nextDay.getTime() - now.getTime();
+      const diffH = Math.floor(diffMs / 3600000);
+      const diffM = Math.floor((diffMs % 3600000) / 60000);
+      nextOpenEta = `~${diffH}h ${diffM}m`;
+    }
+  }
+  return { etHour, etMin, etSec, etDateStr, dayOfWeek, isWeekend, isHoliday, isMarketHours, isPreMarket, isPostMarket, session, sessionLabel, nextOpenEta, etTimeFormatted: `${String(etHour).padStart(2,'0')}:${String(etMin).padStart(2,'0')}:${String(etSec).padStart(2,'0')}` };
+}
+
+// Supabase Admin Client (Service Role — READ ONLY)
+function getSupabaseAdmin() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !key) return null;
+  return createClient(url, key, { auth: { autoRefreshToken: false, persistSession: false } });
 }
 
 export async function GET(req: NextRequest) {
@@ -281,6 +322,79 @@ export async function GET(req: NextRequest) {
       alphaHistory = { status: 'ERROR', error: e.message };
     }
 
+    // ═══ 5.6. USERS & SUBSCRIPTIONS — Supabase Admin ═══
+    let users: any = { status: 'UNAVAILABLE' };
+    try {
+      const sb = getSupabaseAdmin();
+      if (sb) {
+        // Tier distribution
+        const { data: profiles } = await sb.from('user_profiles').select('tier, stripe_subscription_id, created_at');
+        const tierCounts: Record<string, number> = { free: 0, pro: 0, elite: 0 };
+        let paidCount = 0;
+        (profiles || []).forEach((p: any) => {
+          if (p.tier && tierCounts[p.tier] !== undefined) tierCounts[p.tier]++;
+          if (p.stripe_subscription_id) paidCount++;
+        });
+        // Total users via auth admin
+        const { data: authData } = await sb.auth.admin.listUsers({ perPage: 1, page: 1 });
+        const totalUsers = (authData as any)?.total || profiles?.length || 0;
+        // Recent signups (7d)
+        const { data: recentUsers } = await sb.auth.admin.listUsers({ perPage: 100, page: 1 });
+        const now7d = Date.now() - 7 * 86400000;
+        const now24h = Date.now() - 86400000;
+        const recent7d = (recentUsers?.users || []).filter((u: any) => new Date(u.created_at).getTime() > now7d).length;
+        const recent24h = (recentUsers?.users || []).filter((u: any) => new Date(u.created_at).getTime() > now24h).length;
+        const active7d = (recentUsers?.users || []).filter((u: any) => u.last_sign_in_at && new Date(u.last_sign_in_at).getTime() > now7d).length;
+        users = {
+          status: 'OK',
+          totalUsers,
+          tierDistribution: tierCounts,
+          paidSubscriptions: paidCount,
+          recentSignups24h: recent24h,
+          recentSignups7d: recent7d,
+          activeUsers7d: active7d,
+          profileCount: profiles?.length || 0,
+        };
+      }
+    } catch (e: any) {
+      users = { status: 'ERROR', error: e.message };
+    }
+
+    // ═══ 5.7. DATA INTEGRITY — Cross-Source Score Verification ═══
+    const INTEGRITY_TICKERS = ['GOOGL', 'NVDA', 'TSLA', 'AAPL', 'MSFT', 'META', 'AMZN', 'PLTR'];
+    const integrityResults: any[] = [];
+    let integrityMatches = 0;
+    for (const t of INTEGRITY_TICKERS) {
+      const analysisRaw = await getFromCache<any>(`cache:analysis:${t}`);
+      const commandRaw = await getFromCache<any>(`cache:command:unified:${t}`);
+      const aScore = analysisRaw?.alphaSnapshot?.score ?? null;
+      const aGrade = analysisRaw?.alphaSnapshot?.grade ?? null;
+      const aEngine = analysisRaw?.alphaSnapshot?.engineVersion ?? null;
+      const cScore = commandRaw?.alpha?.score ?? null;
+      const cGrade = commandRaw?.alpha?.grade ?? null;
+      const cEngine = commandRaw?.alpha?.engineVersion ?? null;
+      const cSmartFlow = commandRaw?.smartFlow ?? null;
+      const aWhale = analysisRaw?.whaleIndex ?? null;
+      const aDarkPool = analysisRaw?.darkPoolPct ?? null;
+      const scoreMatch = aScore !== null && cScore !== null && Math.abs(aScore - cScore) <= 2;
+      if (scoreMatch) integrityMatches++;
+      integrityResults.push({
+        ticker: t,
+        analysis: { score: aScore, grade: aGrade, engine: aEngine, darkPoolPct: aDarkPool, whaleIndex: aWhale },
+        command: { score: cScore, grade: cGrade, engine: cEngine, smartFlow: cSmartFlow },
+        scoreMatch,
+        scoreDiff: aScore !== null && cScore !== null ? cScore - aScore : null,
+      });
+    }
+    const integrityRate = Math.round((integrityMatches / INTEGRITY_TICKERS.length) * 100);
+    const dataIntegrity = {
+      status: integrityRate >= 90 ? 'CONSISTENT' : integrityRate >= 60 ? 'PARTIAL' : 'DIVERGENT',
+      matchRate: integrityRate,
+      matches: integrityMatches,
+      total: INTEGRITY_TICKERS.length,
+      results: integrityResults,
+    }
+
     // ═══ 6. 상태 판정 — 작동 상태 vs 자료 유무 분리 ═══
     const elapsed = Date.now() - start;
 
@@ -336,11 +450,22 @@ export async function GET(req: NextRequest) {
       overall,
       et: {
         etHour: et.etHour,
+        etMin: et.etMin,
+        etTimeFormatted: et.etTimeFormatted,
+        etDateStr: et.etDateStr,
+        session: et.session,
+        sessionLabel: et.sessionLabel,
         isMarketHours: et.isMarketHours,
         isPreMarket: et.isPreMarket,
         isPostMarket: et.isPostMarket,
         isWeekend: et.isWeekend,
+        isHoliday: et.isHoliday,
+        nextOpenEta: et.nextOpenEta,
+        dayOfWeek: et.dayOfWeek,
       },
+
+      users,
+      dataIntegrity,
 
       lambda: {
         signumHarvest: {
@@ -452,6 +577,7 @@ export async function GET(req: NextRequest) {
       },
 
       _sampleTickers: SAMPLE_TICKERS,
+      _integrityTickers: INTEGRITY_TICKERS,
     });
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 });

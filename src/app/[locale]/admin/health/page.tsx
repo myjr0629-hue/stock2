@@ -7,7 +7,7 @@ import {
   Activity, Server, Database, FileText, Layout,
   RefreshCw, CheckCircle2, XCircle, AlertTriangle,
   Clock, Zap, Shield, ChevronDown, ChevronRight,
-  ArrowLeft, Wifi, BarChart3, Globe
+  ArrowLeft, Wifi, BarChart3, Globe, Users, CalendarDays, GitCompareArrows, TrendingUp
 } from 'lucide-react';
 
 const ADMIN_EMAILS = (process.env.NEXT_PUBLIC_ADMIN_EMAILS || '').split(',').map(e => e.trim().toLowerCase());
@@ -243,6 +243,9 @@ export default function AdminHealthPage() {
         <div className="border-b border-white/[0.06] bg-[#060a13]/95 backdrop-blur-md sticky top-[56px] z-40">
           <div className="max-w-5xl mx-auto px-4 flex gap-1 overflow-x-auto scrollbar-hide py-1.5">
             {[
+              { id: 'sec-calendar', label: 'Calendar', icon: CalendarDays },
+              { id: 'sec-users', label: 'Users', icon: Users },
+              { id: 'sec-integrity', label: 'Integrity', icon: GitCompareArrows },
               { id: 'sec-lambda', label: 'Lambda', icon: Server },
               { id: 'sec-ec2', label: 'EC2', icon: Wifi },
               { id: 'sec-feed', label: 'Market Feed', icon: BarChart3 },
@@ -297,6 +300,146 @@ export default function AdminHealthPage() {
           </div>
         ) : (
           <>
+            {/* ═══ MARKET CALENDAR ═══ */}
+            <div id="sec-calendar" className="scroll-mt-28 bg-gradient-to-br from-white/[0.03] to-white/[0.01] border border-white/[0.06] rounded-xl p-5">
+              <div className="flex items-center gap-3 mb-4">
+                <CalendarDays className="w-5 h-5 text-cyan-400" />
+                <span className="font-bold text-white text-[14px] tracking-wide">MARKET CALENDAR</span>
+                <span className={`ml-auto px-3 py-1 rounded-lg text-[13px] font-black border ${data.et.isMarketHours ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-400' : data.et.isPreMarket ? 'bg-amber-500/15 border-amber-500/30 text-amber-400' : data.et.isPostMarket ? 'bg-blue-500/15 border-blue-500/30 text-blue-300' : 'bg-slate-500/15 border-slate-500/30 text-slate-300'}`}>{data.et.sessionLabel}</span>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div className="bg-white/[0.03] rounded-xl border border-white/[0.06] p-3 text-center">
+                  <div className="text-[11px] text-slate-400 uppercase tracking-wider mb-1">ET Time</div>
+                  <div className="text-[22px] font-mono font-black text-white">{data.et.etTimeFormatted}</div>
+                  <div className="text-[11px] text-slate-400 mt-0.5">{data.et.etDateStr}</div>
+                </div>
+                <div className="bg-white/[0.03] rounded-xl border border-white/[0.06] p-3 text-center">
+                  <div className="text-[11px] text-slate-400 uppercase tracking-wider mb-1">Session</div>
+                  <div className={`text-[18px] font-black ${data.et.isMarketHours ? 'text-emerald-400' : data.et.isPreMarket ? 'text-amber-400' : 'text-slate-300'}`}>{data.et.session}</div>
+                  <div className="text-[11px] text-slate-400 mt-0.5">{['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][data.et.dayOfWeek]}</div>
+                </div>
+                <div className="bg-white/[0.03] rounded-xl border border-white/[0.06] p-3 text-center">
+                  <div className="text-[11px] text-slate-400 uppercase tracking-wider mb-1">Next Open</div>
+                  <div className="text-[18px] font-mono font-bold text-cyan-400">{data.et.nextOpenEta || 'NOW'}</div>
+                  <div className="text-[11px] text-slate-400 mt-0.5">9:30 ET</div>
+                </div>
+                <div className="bg-white/[0.03] rounded-xl border border-white/[0.06] p-3 text-center">
+                  <div className="text-[11px] text-slate-400 uppercase tracking-wider mb-1">Status</div>
+                  <div className="flex items-center justify-center gap-1.5">
+                    {data.et.isWeekend && <span className="text-[13px] font-bold text-orange-400">🏖️ Weekend</span>}
+                    {data.et.isHoliday && <span className="text-[13px] font-bold text-red-400">🎌 Holiday</span>}
+                    {!data.et.isWeekend && !data.et.isHoliday && <span className="text-[13px] font-bold text-emerald-400">📈 Trading Day</span>}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* ═══ USERS & SUBSCRIPTIONS ═══ */}
+            {data.users && data.users.status !== 'UNAVAILABLE' && (
+              <Section title="USERS & SUBSCRIPTIONS" icon={Users} status={data.users.status} defaultOpen={true} id="sec-users">
+                {data.users.status === 'ERROR' ? (
+                  <div className="text-[13px] text-red-400">{data.users.error}</div>
+                ) : (
+                  <>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                      <div className="bg-gradient-to-br from-cyan-500/10 to-cyan-500/5 rounded-xl border border-cyan-500/20 p-4 text-center">
+                        <div className="text-[11px] text-cyan-300 uppercase tracking-wider font-bold mb-1">Total Users</div>
+                        <div className="text-[28px] font-black text-white">{data.users.totalUsers}</div>
+                      </div>
+                      <div className="bg-gradient-to-br from-emerald-500/10 to-emerald-500/5 rounded-xl border border-emerald-500/20 p-4 text-center">
+                        <div className="text-[11px] text-emerald-300 uppercase tracking-wider font-bold mb-1">Active (7d)</div>
+                        <div className="text-[28px] font-black text-emerald-400">{data.users.activeUsers7d}</div>
+                      </div>
+                      <div className="bg-gradient-to-br from-amber-500/10 to-amber-500/5 rounded-xl border border-amber-500/20 p-4 text-center">
+                        <div className="text-[11px] text-amber-300 uppercase tracking-wider font-bold mb-1">Paid</div>
+                        <div className="text-[28px] font-black text-amber-400">{data.users.paidSubscriptions}</div>
+                      </div>
+                      <div className="bg-gradient-to-br from-purple-500/10 to-purple-500/5 rounded-xl border border-purple-500/20 p-4 text-center">
+                        <div className="text-[11px] text-purple-300 uppercase tracking-wider font-bold mb-1">New (24h)</div>
+                        <div className="text-[28px] font-black text-purple-400">{data.users.recentSignups24h}</div>
+                      </div>
+                    </div>
+                    <div className="mt-3">
+                      <div className="text-[12px] text-slate-400 uppercase tracking-wider font-bold mb-2">Tier Distribution</div>
+                      <div className="flex gap-2">
+                        {Object.entries(data.users.tierDistribution || {}).map(([tier, count]: [string, any]) => (
+                          <div key={tier} className={`flex-1 rounded-lg border p-2.5 text-center ${
+                            tier === 'elite' ? 'bg-amber-500/10 border-amber-500/20' :
+                            tier === 'pro' ? 'bg-cyan-500/10 border-cyan-500/20' :
+                            'bg-slate-500/10 border-slate-500/20'}`}>
+                            <div className="text-[20px] font-black text-white">{count}</div>
+                            <div className={`text-[11px] font-bold uppercase ${
+                              tier === 'elite' ? 'text-amber-400' : tier === 'pro' ? 'text-cyan-400' : 'text-slate-400'}`}>{tier}</div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-4 mt-2 text-[12px] text-slate-400">
+                      <span>7d signups: <span className="text-white font-bold">{data.users.recentSignups7d}</span></span>
+                      <span>Profiles: <span className="text-white font-bold">{data.users.profileCount}</span></span>
+                    </div>
+                  </>
+                )}
+              </Section>
+            )}
+
+            {/* ═══ DATA INTEGRITY ═══ */}
+            {data.dataIntegrity && (
+              <Section title="DATA INTEGRITY — Cross-Source Verification" icon={GitCompareArrows}
+                status={data.dataIntegrity.status === 'CONSISTENT' ? 'OK' : data.dataIntegrity.status === 'PARTIAL' ? 'DEGRADED' : 'DOWN'}
+                defaultOpen={data.dataIntegrity.status !== 'CONSISTENT'} id="sec-integrity">
+                <div className="mb-3">
+                  <HitRateBar rate={data.dataIntegrity.matchRate} count={data.dataIntegrity.matches} total={data.dataIntegrity.total} label="cache:analysis ↔ cache:command:unified Score Match" />
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-[12px]">
+                    <thead>
+                      <tr className="border-b border-white/[0.06]">
+                        <th className="text-left py-2 text-slate-400 font-bold">Ticker</th>
+                        <th className="text-center py-2 text-slate-400 font-bold">Analysis</th>
+                        <th className="text-center py-2 text-slate-400 font-bold">Command</th>
+                        <th className="text-center py-2 text-slate-400 font-bold">Diff</th>
+                        <th className="text-center py-2 text-slate-400 font-bold">Engine</th>
+                        <th className="text-center py-2 text-slate-400 font-bold">DarkPool</th>
+                        <th className="text-center py-2 text-slate-400 font-bold">Match</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {data.dataIntegrity.results.map((r: any) => (
+                        <tr key={r.ticker} className="border-b border-white/[0.03] hover:bg-white/[0.02]">
+                          <td className="py-2 font-mono font-bold text-white">{r.ticker}</td>
+                          <td className="py-2 text-center">
+                            <span className="font-mono font-bold text-cyan-400">{r.analysis.score ?? '—'}</span>
+                            <span className="text-slate-500 ml-1">{r.analysis.grade || ''}</span>
+                          </td>
+                          <td className="py-2 text-center">
+                            <span className="font-mono font-bold text-amber-400">{r.command.score ?? '—'}</span>
+                            <span className="text-slate-500 ml-1">{r.command.grade || ''}</span>
+                          </td>
+                          <td className="py-2 text-center font-mono">
+                            {r.scoreDiff !== null ? (
+                              <span className={Math.abs(r.scoreDiff) <= 2 ? 'text-emerald-400' : 'text-red-400'}>{r.scoreDiff > 0 ? '+' : ''}{r.scoreDiff}</span>
+                            ) : <span className="text-slate-500">—</span>}
+                          </td>
+                          <td className="py-2 text-center text-[11px]">
+                            <span className="text-slate-400">{r.analysis.engine || '?'}</span>
+                            <span className="text-slate-600 mx-0.5">/</span>
+                            <span className="text-slate-400">{r.command.engine || '?'}</span>
+                          </td>
+                          <td className="py-2 text-center font-mono text-[11px]">
+                            {r.analysis.darkPoolPct ? <span className="text-emerald-400">{r.analysis.darkPoolPct}%</span> : <span className="text-red-400">null</span>}
+                          </td>
+                          <td className="py-2 text-center">
+                            {r.scoreMatch ? <CheckCircle2 className="w-4 h-4 text-emerald-400 mx-auto" /> : <XCircle className="w-4 h-4 text-red-400 mx-auto" />}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </Section>
+            )}
+
             {/* ═══ LAMBDA PIPELINE ═══ */}
             <Section title="LAMBDA PIPELINE" icon={Server} status={lambdaPipelineStatus} defaultOpen={true} id="sec-lambda">
               {/* signum-harvest */}
