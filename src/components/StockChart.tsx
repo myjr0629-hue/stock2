@@ -598,6 +598,47 @@ export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d
         alphaLevels?.callWall, alphaLevels?.putFloor, alphaLevels?.maxPain]);
 
     // ═══════════════════════════════════════
+    // REAL-TIME CHART LINE TRACKING
+    // Updates the last data point so the chart curve follows the price line instantly.
+    // lightweight-charts .update() is O(1) — no full redraw, no performance cost.
+    // ═══════════════════════════════════════
+    useEffect(() => {
+        const mainSeries = mainSeriesRef.current;
+        if (!mainSeries || !isIntraday || !currentPrice || currentPrice <= 0) return;
+        if (chartType === 'candle') return; // Candle bars have OHLC semantics — skip
+
+        try {
+            const now = new Date();
+            const etTime = now.toLocaleString("en-US", { timeZone: "America/New_York", hour12: false, hour: '2-digit', minute: '2-digit' });
+            const [h, m] = etTime.split(':').map(Number);
+            if (isNaN(h) || isNaN(m)) return;
+            const currentEtMinute = h * 60 + m;
+            if (currentEtMinute < 240 || currentEtMinute > 1199) return;
+
+            const etStr = now.toLocaleDateString('en-US', { timeZone: 'America/New_York' });
+            const baseDate = new Date(etStr + ' 00:00:00');
+            const time = (Math.floor(baseDate.getTime() / 1000) + currentEtMinute * 60) as UTCTimestamp;
+
+            // Session-aware color (same logic as L401-406)
+            let lineColor = '#e2e8f0';
+            if (currentEtMinute < SESSION_PRE_END) lineColor = '#fbbf24';
+            else if (currentEtMinute >= SESSION_REG_END) lineColor = '#60a5fa';
+
+            mainSeries.update({
+                time,
+                value: currentPrice,
+                lineColor,
+                topColor: lineColor === '#fbbf24'
+                    ? 'rgba(251, 191, 36, 0.15)'
+                    : lineColor === '#60a5fa'
+                        ? 'rgba(96, 165, 250, 0.15)'
+                        : 'rgba(96, 165, 250, 0.25)',
+                bottomColor: 'rgba(30, 58, 95, 0.02)',
+            });
+        } catch { /* chart may be disposed during unmount */ }
+    }, [currentPrice, isIntraday, chartType]);
+
+    // ═══════════════════════════════════════
     // RENDER
     // ═══════════════════════════════════════
 
