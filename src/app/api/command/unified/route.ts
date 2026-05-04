@@ -622,6 +622,43 @@ export async function GET(request: NextRequest) {
                 try {
                     let enriched = false;
 
+                    // [FIX 2026-05-05] IMMEDIATE EC2 block trade injection (no 5-min wait)
+                    // Runs after response is sent → 0ms user impact
+                    // Next SWR refresh (15s) picks up the accurate EC2 data
+                    if (!cachedData.institutional?.blockTrade?.count || cachedData.institutional.blockTrade.count < 50) {
+                        try {
+                            const EC2_PROXY = process.env.EC2_REDIS_PROXY_URL || 'http://52.23.98.13:8081';
+                            const EC2_KEY = process.env.REDIS_PROXY_KEY || 'signum-redis-proxy-2026';
+                            const controller = new AbortController();
+                            const timeout = setTimeout(() => controller.abort(), 3000);
+                            const ec2Res = await fetch(`${EC2_PROXY}/get?key=${encodeURIComponent('rt-metrics:' + ticker)}`, {
+                                headers: { 'Authorization': `Bearer ${EC2_KEY}` },
+                                signal: controller.signal,
+                                cache: 'no-store',
+                            });
+                            clearTimeout(timeout);
+                            if (ec2Res.ok) {
+                                const ec2Raw = await ec2Res.json();
+                                const ec2Data = ec2Raw?.result;
+                                const parsed = typeof ec2Data === 'string' ? JSON.parse(ec2Data) : ec2Data;
+                                if (parsed?.blockTrade?.count > 0) {
+                                    cachedData.institutional = {
+                                        ...(cachedData.institutional || {}),
+                                        darkPool: { percent: parsed.darkPool?.percent || cachedData.institutional?.darkPool?.percent || 0 },
+                                        blockTrade: { count: parsed.blockTrade.count, volume: parsed.blockTrade.volume || 0 },
+                                        shortVolume: parsed.shortVolume || cachedData.institutional?.shortVolume || null,
+                                        _ts: Date.now(),
+                                    };
+                                    // Update cache so next SWR refresh gets EC2 data
+                                    await setInCache(dataCacheKey, cachedData, getSmartTTL());
+                                    memorySet(memKey, cachedData);
+                                    enriched = true;
+                                    console.log(`[Command Unified] BG EC2 block trade injected for ${ticker}: ${parsed.blockTrade.count} trades`);
+                                }
+                            }
+                        } catch { /* EC2 proxy unavailable — gap-fill will handle later */ }
+                    }
+
                     // SWR: If older than threshold, do full DynamoDB→Redis sync
                     if (ageMs > REFRESH_THRESHOLD_MS) {
                         await triggerBackgroundRefresh(ticker, dataCacheKey, overviewCacheKey, bgBaseUrl, locale);
