@@ -142,6 +142,7 @@ AI 에이전트는 데이터 불일치를 조사할 때 무조건 아래 3단계
 - **유니버스**: **1,000종목** (`data/stock_universe_us800.json` 기준)
 - **GEX 계산**: **전 1,000종목** (structureService 100% 호환)
 - **동시성**: GEX 배치 10종목, RSI+DailyBars 배치 50종목
+- **분산 Lock**: `SET lock:signum-harvest <id> NX EX 900` (Upstash Redis) — cron 5분 간격 vs 실행 8~13분 충돌 방지. Lock 실패 시 즉시 skip(에러 아님). 완료 시 `DEL` 해제. TTL=900s(15분)로 크래시 시 자동 만료.
 - **실행 시간**: **~68초** (이전 681초 → 10배 개선, FMP 분리 효과)
 - **Polygon API**: 최고 티어 (무제한 호출, rate limit 없음)
 - **FMP API**: ⚠️ 배치 수집은 signum-fmp로 이관 완료 (2026-04-17). On-demand 1종목 호출만 유지.
@@ -947,6 +948,41 @@ bash scripts/ec2-deploy-guardian.sh
 ---
 
 ## 11. 작업 이력
+
+### [2026-05-05] 🟢 signum-harvest Lambda Redis 분산 Lock 구현 — 동시 실행 충돌 에러 근절
+
+> **문제**: CloudWatch 알람 `signum-harvest-errors`가 ALARM → OK 자동 복구 반복. 원인은 EventBridge cron이 5분 간격으로 실행되지만, Lambda 실행 시간이 10~13분으로 cron 간격의 2~3배이기 때문에, 이전 실행이 진행 중일 때 새 실행이 트리거되어 78ms 만에 크래시하는 동시 실행 충돌.
+> 
+> **수정** (`scripts/deploy-lambda-v7.js` → Lambda 배포):
+> - Upstash Redis `SET lock:signum-harvest <id> NX EX 900` (SETNX + TTL 15분)으로 분산 Lock 구현
+> - Lock 획득 실패 시 `{ skipped: true, reason: 'Concurrent execution' }`으로 즉시 종료 (에러 아님)
+> - 실행 완료 시 `DEL lock:signum-harvest`로 Lock 해제
+> - Lock 백엔드 불가 시 availability 우선 — Lock 없이 진행 (기존 동작 유지)
+> - On-Demand 모드(단일 ticker)는 Lock 비적용 (충돌 없음)
+> 
+> **검증** (프로덕션 라이브):
+> - `[LOCK] Acquired (id=...045yji)` → 8분 실행 → `[LOCK] Released`
+> - CloudWatch: Errors=0, Throttles=0 확인
+> - Upstash SETNX 메커니즘: 1차 OK, 2차 null(차단), DEL 성공 검증
+> 
+> **효과**: 에러 알람 0건 + Lambda 비용 50~66% 절감 (중복 실행 제거) + Redis 쓰기 경합 제거
+> 
+> **커밋**: `e8f78a8b`
+
+### [2026-05-05] 🟢 차트 실시간 추적 — Area 곡선이 WebSocket 가격을 즉시 따라감
+
+> **문제**: Command 차트에서 현재가 수평선(WebSocket 실시간)과 차트 영역 곡선(SWR 30초 poll) 사이에 최대 30초 괴리가 발생하여 시각적으로 부자연스러움.
+> 
+> **근본 원인**: 차트 곡선은 `processedData` 배열의 마지막 데이터 포인트까지만 그려지며, 이 배열은 `/api/chart` SWR(30초 간격)이 갱신할 때만 업데이트됨. 반면 현재가 수평선(`createPriceLine`)은 WebSocket 틱마다 갱신.
+> 
+> **수정** (`src/components/StockChart.tsx`):
+> - `currentPrice` prop 변경 시 `mainSeries.update({ time, value: currentPrice })` 호출하는 `useEffect` 추가
+> - lightweight-charts의 `.update()`는 O(1) — 전체 재렌더 없이 단일 포인트만 업데이트
+> - 세션별 색상 자동 적용 (PRE=amber, REG=white, POST=blue)
+> - 캔들 모드는 OHLC 시맨틱 유지를 위해 제외 (Area 모드만 적용)
+> - Extended hours 범위(ET 04:00~19:59)만 업데이트
+> 
+> **커밋**: `61ceee2d`
 
 ### [2026-05-04] 🟢 Dashboard 차트 Price Lines Race Condition 해결 + 누락 Props 보완
 
@@ -2087,6 +2123,8 @@ bash scripts/ec2-deploy-guardian.sh
   → 기존 ticker가 store에 있을 때만 (new ticker는 무시)
 
 [차트] — /api/chart → 30초 자체 SWR (store 무관, 독립)
+  → [실시간 추적] StockChart.tsx useEffect: currentPrice 변경 시 mainSeries.update() (Area 모드만)
+  → WebSocket 틱마다 차트 곡선 끝점이 가격을 즉시 따라감 (O(1), 재렌더 없음)
 
 ★ deepMergeTicker 삭제 — 구조적으로 충돌 불가
 ★ INDICATOR_FIELDS 상수로 필드 분리 명시적 보장
