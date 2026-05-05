@@ -328,7 +328,7 @@ All text fields use { "ko": "...", "en": "...", "ja": "..." } trilingual structu
         const bedrockResult = await callBedrock({
             system: systemPrompt,
             userPrompt,
-            maxTokens: 4096,
+            maxTokens: 6144,
             temperature: 0.4,
             label: 'DeepAnalysis',
         });
@@ -343,23 +343,64 @@ All text fields use { "ko": "...", "en": "...", "ja": "..." } trilingual structu
         // Remove trailing commas before } or ]
         rawText = rawText.replace(/,\s*([}\]])/g, '$1');
         // Replace single-quoted property names (e.g., 'key': → "key":)
-        rawText = rawText.replace(/(?<=[\{,]\s*)'([^']+)'\s*:/g, '"$1":');
+        rawText = rawText.replace(/(?<=[{,]\s*)'([^']+)'\s*:/g, '"$1":');
 
         let analysis;
         try {
             analysis = JSON.parse(rawText);
         } catch (parseErr: any) {
-            // Haiku sometimes appends text after JSON — try to extract valid JSON object
+            // === REPAIR STRATEGY ===
+            // 1. Bracket-matching: Haiku sometimes appends text after JSON
+            // 2. Truncation repair: If maxTokens hit, JSON may have unterminated strings
             try {
+                let repaired = rawText;
+
+                // [FIX] Repair unterminated strings from maxTokens truncation
+                if (parseErr.message.includes('Unterminated string') || parseErr.message.includes('Unexpected end')) {
+                    const lastQuote = repaired.lastIndexOf('"');
+                    const lastBrace = repaired.lastIndexOf('}');
+
+                    if (lastQuote > lastBrace) {
+                        // We're inside an unterminated string — truncate to last complete field
+                        const lastGoodComma = repaired.lastIndexOf('",');
+                        const lastGoodBrace = repaired.lastIndexOf('"}');
+                        const cutPoint = Math.max(lastGoodComma, lastGoodBrace);
+
+                        if (cutPoint > 0) {
+                            repaired = repaired.slice(0, cutPoint + 2);
+                        } else {
+                            repaired = repaired.slice(0, lastQuote + 1);
+                        }
+
+                        // Close all open brackets/braces
+                        let openBraces = 0, openBrackets = 0;
+                        let inStr = false;
+                        for (let i = 0; i < repaired.length; i++) {
+                            const c = repaired[i];
+                            if (c === '"' && (i === 0 || repaired[i-1] !== '\\')) inStr = !inStr;
+                            if (!inStr) {
+                                if (c === '{') openBraces++;
+                                else if (c === '}') openBraces--;
+                                else if (c === '[') openBrackets++;
+                                else if (c === ']') openBrackets--;
+                            }
+                        }
+                        repaired = repaired.replace(/,\s*$/, '');
+                        repaired += ']'.repeat(Math.max(0, openBrackets)) + '}'.repeat(Math.max(0, openBraces));
+                        console.log(`[DeepAnalysis] Repaired truncated JSON: closed ${openBrackets} brackets + ${openBraces} braces`);
+                    }
+                }
+
+                // Try bracket-matching parse on repaired text
                 let depth = 0;
                 let endIdx = -1;
-                for (let i = 0; i < rawText.length; i++) {
-                    if (rawText[i] === '{') depth++;
-                    else if (rawText[i] === '}') { depth--; if (depth === 0) { endIdx = i; break; } }
+                for (let i = 0; i < repaired.length; i++) {
+                    if (repaired[i] === '{') depth++;
+                    else if (repaired[i] === '}') { depth--; if (depth === 0) { endIdx = i; break; } }
                 }
                 if (endIdx > 0) {
-                    analysis = JSON.parse(rawText.slice(0, endIdx + 1));
-                    console.log(`[DeepAnalysis] JSON recovered by truncation at position ${endIdx + 1}`);
+                    analysis = JSON.parse(repaired.slice(0, endIdx + 1));
+                    console.log(`[DeepAnalysis] JSON recovered at position ${endIdx + 1}`);
                 } else {
                     throw parseErr;
                 }
