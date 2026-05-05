@@ -379,9 +379,9 @@ export const COMMAND_TOOLTIPS = {
     },
     AI_DEEP_ANALYSIS: {
         tooltip: {
-            ko: 'Claude Sonnet 4 기반 딥 분석 — 기술적 구조, 옵션 포지셔닝, 뉴스 센티먼트를 종합한 AI 종합 판정. 실시간 시장 데이터 기반.',
-            en: 'Claude Sonnet 4 deep analysis — AI-synthesized verdict combining technical structure, options positioning & news sentiment. Based on live market data.',
-            ja: 'Claude Sonnet 4ディープ分析 — テクニカル構造・オプションポジショニング・ニュースセンチメントを総合したAI判定。リアルタイム市場データ基盤。',
+            ko: 'Claude AI 기반 딥 분석 — 기술적 구조, 옵션 포지셔닝, 뉴스 센티먼트를 종합한 AI 종합 판정. 실시간 시장 데이터 기반.',
+            en: 'Claude AI deep analysis — AI-synthesized verdict combining technical structure, options positioning & news sentiment. Based on live market data.',
+            ja: 'Claude AIディープ分析 — テクニカル構造・オプションポジショニング・ニュースセンチメントを総合したAI判定。リアルタイム市場データ基盤。',
         },
         badge: {
             ko: 'AI 프리미엄 종합 분석',
@@ -391,9 +391,9 @@ export const COMMAND_TOOLTIPS = {
     },
     AI_FLOW_INTELLIGENCE: {
         tooltip: {
-            ko: 'AI 옵션 플로우 분석 — 콜/풋 프리미엄 흐름, 감마 구조, 이례적 활동을 Claude Sonnet 4가 해석. 기관급 인사이트 제공.',
-            en: 'AI options flow analysis — Claude Sonnet 4 interprets call/put premium flows, gamma structure & unusual activity. Institutional-grade insights.',
-            ja: 'AIオプションフロー分析 — コール/プットプレミアム・ガンマ構造・異常活動をClaude Sonnet 4が解釈。機関投資家級インサイト。',
+            ko: 'AI 옵션 플로우 분석 — 콜/풋 프리미엄 흐름, 감마 구조, 이례적 활동을 Claude AI가 해석. 기관급 인사이트 제공.',
+            en: 'AI options flow analysis — Claude AI interprets call/put premium flows, gamma structure & unusual activity. Institutional-grade insights.',
+            ja: 'AIオプションフロー分析 — コール/プットプレミアム・ガンマ構造・異常活動をClaude AIが解釈。機関投資家級インサイト。',
         },
         badge: {
             ko: 'AI 플로우 인텔리전스',

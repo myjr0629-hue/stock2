@@ -20,7 +20,7 @@ import { GuardianDataHub } from '@/services/guardian/unifiedDataStream';
 
 export const maxDuration = 60;
 
-const BEDROCK_MODEL = 'us.anthropic.claude-sonnet-4-6';
+const BEDROCK_MODEL = 'us.anthropic.claude-haiku-4-5-20251001-v1:0';
 
 let _bedrockClient: BedrockRuntimeClient | null = null;
 function getBedrock(): BedrockRuntimeClient {

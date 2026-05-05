@@ -5,7 +5,7 @@
  * - Singleton BedrockRuntimeClient
  * - Exponential backoff retry (3 attempts on ThrottlingException)
  * - Concurrency limiter (max 3 simultaneous requests)
- * - Automatic Haiku 4.5 fallback when Sonnet 4.6 is throttled
+ * - Primary model: Haiku 4.5 (fast, cost-effective, 5M TPM quota)
  * 
  * All AI routes should use callBedrock() instead of direct InvokeModelCommand.
  */
@@ -79,7 +79,7 @@ async function sleep(ms: number): Promise<void> {
 
 // --- Main API ---
 export interface CallBedrockOptions {
-    /** Model ID to use (default: Sonnet 4) */
+    /** Model ID to use (default: Haiku 4.5) */
     modelId?: string;
     /** System prompt */
     system: string;
@@ -118,13 +118,13 @@ export interface CallBedrockResult {
  */
 export async function callBedrock(options: CallBedrockOptions): Promise<CallBedrockResult> {
     const {
-        modelId = MODELS.SONNET_4,
+        modelId = MODELS.HAIKU_35,
         system,
         userPrompt,
         maxTokens = 4096,
         temperature = 0.3,
         timeoutMs = 55000,
-        fallbackModel = MODELS.HAIKU_35,
+        fallbackModel = null as string | null,
         jsonPrefill = false,
         maxRetries = 3,
         label = 'Bedrock',

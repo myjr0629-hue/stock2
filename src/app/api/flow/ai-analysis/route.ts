@@ -163,7 +163,10 @@ All text fields use { "ko": "...", "en": "...", "ja": "..." } trilingual structu
 - CROSS-ANALYSIS: ALWAYS connect 2-3 factors together.
 - FACTOR HIGHLIGHTS: Select 2-4 MOST significant factors only.
 - ACCURACY: Use EXACT values from the XML data.
-- COMPLIANCE: STRICTLY observational language only. NO investment advice in ANY language.
+- COMPLIANCE (STRICT): You are an OBSERVER, not an advisor. Use ONLY observation-based language:
+  → ALLOWED: "관찰됨/observed", "확인됨/noted", "시사함/suggests", "나타남/indicates"
+  → FORBIDDEN: "~해야 한다/should", "매수/매도/buy/sell", "~될 것이다/will happen", "breakout expected"
+  → ALL sentences must describe CURRENT or PAST conditions, NEVER predict future outcomes.
 - ALPHA TRADE: If significant (>$100K), analyze strategic intent.
 - EXPLAIN MECHANICS: Don't just state — explain WHY and HOW.
 </critical_rules>`;
@@ -177,7 +180,12 @@ All text fields use { "ko": "...", "en": "...", "ja": "..." } trilingual structu
             label: 'FlowAI',
         });
 
-        const analysis = JSON.parse(bedrockResult.text);
+        // Robust JSON parsing — handle markdown fences
+        let rawText = bedrockResult.text.trim();
+        rawText = rawText.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '');
+        const jsonStart = rawText.indexOf('{');
+        if (jsonStart > 0) rawText = rawText.slice(jsonStart);
+        const analysis = JSON.parse(rawText);
         const elapsed = Date.now() - startTime;
 
         // --- Save to Redis (language-agnostic) ---

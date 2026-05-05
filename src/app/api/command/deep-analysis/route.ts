@@ -309,6 +309,10 @@ All text fields use { "ko": "...", "en": "...", "ja": "..." } trilingual structu
   → Reference the net 30-day value and sentiment grade (CAUTIOUS, NEUTRAL, BULLISH) in context.
 - GEX HISTORY (30D): If <gex_history_30d> is present, weave the percentile ranking, regime streak duration, and streak multiple into the Options Positioning section. For example: "GEX at 0th percentile with NEGATIVE regime persisting 5 sessions (1.7× average duration) indicates structurally elevated dealer hedging pressure." Do NOT repeat raw numbers — synthesize into narrative insight.
 - FORBIDDEN: investment advice, buy/sell recommendations, emojis.
+- COMPLIANCE (STRICT): You are an OBSERVER, not an advisor. Use ONLY observation-based language:
+  → ALLOWED: "관찰됨/observed", "확인됨/noted", "시사함/suggests", "나타남/indicates", "구조적으로 X 상태/structurally in X state"
+  → FORBIDDEN: "~해야 한다/should", "매수/매도 추천/buy/sell recommendation", "~될 것이다/will happen", "~가 지지된다/is supported", "breakout expected"
+  → ALL sentences must describe CURRENT or PAST conditions, NEVER predict future outcomes.
 - Make connections between indicators.
 </critical_rules>`;
 

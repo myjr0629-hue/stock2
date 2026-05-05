@@ -783,7 +783,7 @@ export class IntelligenceNode {
                 maxTokens: 1024,
                 temperature: 0.2,
                 timeoutMs: 30000,
-                fallbackModel: modelId === MODELS.SONNET_4 ? MODELS.HAIKU_35 : null,
+                fallbackModel: null,
                 jsonPrefill: false,
                 label: `Guardian/${cacheKeySuffix}`,
             });
