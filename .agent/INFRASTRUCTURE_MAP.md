@@ -399,6 +399,103 @@ signum-harvest (5분마다, 항상)
 
 > ⚠️ **핵심 수정 (2026-04-17)**: `watchlistBatchService.ts`에서 캐시 히트 시에도 **항상** `fetchTradeData()`를 호출하여 EC2 ElastiCache 최신 데이터로 갱신하도록 변경. 이전에는 `liveDarkPoolPct === 0`일 때만 호출 → 구 Polygon 샘플값이 캐시에 잔류하는 버그 존재.
 
+#### ⚠️ [CRITICAL FIX 2026-05-05] Command INST RADAR Block Trade 핑퐁 근절 — 5중 캐시 레이어 사건 보고서
+
+> **증상**: Command 페이지 INST RADAR의 Block Trade 수치가 EC2 데이터(4,649건)와 Polygon 샘플 데이터(24건) 사이를 왔다갔다(핑퐁).
+> 장 마감 후에도 EC2 데이터가 표시되지 않는 문제 지속.
+
+##### 근본 원인: 5중 캐시 레이어의 다중 덮어쓰기 충돌
+
+```
+요청 → ① Vercel CDN Edge → ② Memory LRU → ③ Redis → ④ DynamoDB → ⑤ EC2 ElastiCache
+         s-maxage=300        memoryGet()    getFromCache()   getUnifiedCache()   rt-metrics:{TICKER}
+```
+
+**`cache:command:unified:{TICKER}`에 쓰는 경로가 8곳** 존재하며, 각 경로가 서로 다른 institutional 데이터를 덮어쓰면서 핑퐁 발생:
+
+| # | 위치 (route.ts) | 쓰는 데이터 | institutional 출처 | 문제 |
+|---|---|---|---|---|
+| 1 | `injectAlphaBypass` (L75) | cache:analysis 기반 | darkPoolPct만 (blockTrade=0) | ❌ blockTrade 없음 |
+| 2 | gap-fill CORE_FIELDS (L838) | 개별 필드 갱신 | `getInstitutional()` → Polygon 24건 | ❌ 5분마다 EC2 데이터 덮어씀 |
+| 3 | `triggerBackgroundRefresh` (L485) | DynamoDB 전체 동기화 | Lambda harvest → Polygon 24건 | ❌ EC2 데이터 전체 덮어씀 |
+| 4 | `after()` EC2 injection (L635) | EC2 ElastiCache 직접 | 4,649건 (정확) | ✅ 올바른 소스 |
+| 5 | L555 키 마이그레이션 | 기존 데이터 복사 | 기존값 유지 | - 무관 |
+| 6 | L583 QC 갱신 | DynamoDB 보충 | DynamoDB 값 | - QC 한정 |
+| 7 | L925 DynamoDB+GapFill | 초기 빌드 | DynamoDB 원본 | - cold-start 한정 |
+| 8 | L1121 Fresh build | Vercel live fetch | Polygon 직접 | - cold-start 한정 |
+
+##### 수정 이력 (5차 시도 끝에 해결)
+
+| 시도 | 날짜 | 수정 | 결과 | 놓친 레이어 |
+|---|---|---|---|---|
+| 1차 | 05-05 | EC2를 `injectAlphaBypass` critical path에 추가 | ❌ 페이지 2초 느려짐 | critical path에 500ms 추가 |
+| 2차 | 05-05 | EC2를 `after()` background로 이동 | ❌ 핑퐁 지속 | ③ gap-fill이 Polygon으로 덮어씀 |
+| 3차 | 05-05 | gap-fill에서 institutional 제거 | ❌ 핑퐁 지속 | ④ `triggerBackgroundRefresh`가 DynamoDB로 덮어씀 |
+| 4차 | 05-05 | triggerBackgroundRefresh에 EC2 주입 추가 | ❌ 응답에 0건 | ② `memorySet` 누락 → 메모리 캐시 stale |
+| **5차** | **05-05** | **memorySet 추가 + 디버그 검증** | **✅ 해결** | - |
+
+##### 최종 수정 사항 (route.ts)
+
+1. **`injectEC2Institutional()` 공용 함수 신설** (L431~L466)
+   - EC2 ElastiCache에서 `rt-metrics:{TICKER}` 조회 (3초 timeout)
+   - `blockTrade.count > 0`이면 data.institutional에 EC2 데이터 주입
+   - `_source: 'ec2-flow-accumulator'` 태그 추가
+   - 실패 시 기존 데이터 보존 (silent catch)
+
+2. **`triggerBackgroundRefresh()` 수정** (L483~L487)
+   - DynamoDB sync 직후, `setInCache` 직전에 `await injectEC2Institutional(dynamoData, ticker)` 호출
+   - `memorySet(ticker, dynamoData)` 추가 — **메모리 캐시 동기화** (이전 누락)
+   - DynamoDB의 Polygon 24건 → EC2 4,649건으로 교체 후 저장
+
+3. **`after()` EC2 inline 코드 → 공용함수로 교체** (L635)
+   - 기존 36줄 인라인 EC2 코드 삭제 → `injectEC2Institutional()` 1줄 호출
+   - 코드 중복 제거, 일관성 보장
+
+4. **gap-fill에서 institutional 제거** (이전 세션에서 완료)
+   - `VOLATILE_FIELDS`, `CORE_FIELDS`에서 `institutional` 제거
+   - gap-fill의 `getInstitutional()` → Polygon 폴백 경로 차단
+
+##### 최종 데이터 흐름 (수정 후)
+
+```
+[요청] → Layer1(Memory) or Layer2(Redis) → injectAlphaBypass
+         │                                    │
+         │  needsInst=false (EC2 데이터 존재)  │
+         │  → institutional 보존 (4,649건) ✅  │
+         ▼                                    ▼
+      [즉시 응답] ← blockTrade=4,649, _source=ec2-flow-accumulator
+
+      [after() background]
+         ├─ injectEC2Institutional() → 캐시 갱신 (4,649건) ✅
+         └─ triggerBackgroundRefresh()
+              ├─ DynamoDB sync (institutional=Polygon 24건)
+              ├─ injectEC2Institutional() → EC2 덮어쓰기 (4,649건) ✅
+              ├─ setInCache() → Redis 저장 ✅
+              └─ memorySet() → 메모리 캐시 저장 ✅
+```
+
+##### 검증 결과 (2026-05-05 11:15 KST, Vercel 프로덕션 로그)
+```
+[DEBUG-INST] injectAlphaBypass SKIP for TSLA: needsInst=false, hasInst=true, block=4649, dp=58.3
+[DEBUG-INST] Layer2 RESPONSE TSLA: hasInst=true, block=4649, dp=58.3, _src=ec2-flow-accumulator
+[Command Unified] BG EC2 injected for TSLA: 4649 blocks
+[Command Unified] SWR sync complete: TSLA (9/9 fields, inst: 4649 blocks)
+```
+
+Raw HTTP 응답 검증:
+```json
+"institutional":{"blockTrade":{"count":4649,"volume":5790242},"darkPool":{"percent":58.3},"_source":"ec2-flow-accumulator"}
+```
+
+##### 교훈 (향후 동일 문제 방지)
+
+> 🔴 **절대 원칙 추가**: `cache:command:unified:*` 키에 쓰는 코드를 수정할 때, **반드시 8곳 전체를 grep으로 확인**하고 모든 경로에서 동일한 데이터 일관성을 보장할 것. 한 경로만 수정하면 다른 경로가 덮어쓰는 핑퐁 재발.
+>
+> 🔴 **검증 도구 주의**: PowerShell `Invoke-RestMethod`는 중첩 JSON 객체를 정확히 파싱하지 못함. 검증 시 반드시 **raw HTTP 응답** 또는 **Vercel 런타임 로그**로 확인할 것.
+>
+> 🔴 **5중 캐시 레이어 인지**: CDN Edge → Memory LRU → Redis → DynamoDB → EC2. 어느 한 레이어만 수정하면 다른 레이어에서 stale 데이터가 서빙됨. 수정 시 **모든 레이어의 쓰기+읽기 경로를 동시에 추적**할 것.
+
+
 ### 4.4 DynamoDB 테이블
 | 테이블명 | PK | SK | 용도 | 기입자 |
 |---------|----|----|------|--------|
