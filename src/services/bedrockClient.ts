@@ -14,8 +14,8 @@ import { BedrockRuntimeClient, InvokeModelCommand } from '@aws-sdk/client-bedroc
 
 // --- Model Constants ---
 export const MODELS = {
-    SONNET_4: 'anthropic.claude-sonnet-4-6-v1:0',
-    HAIKU_35: 'anthropic.claude-haiku-4-5-20251001-v1:0',
+    SONNET_4: 'us.anthropic.claude-sonnet-4-6',
+    HAIKU_35: 'us.anthropic.claude-haiku-4-5-20251001-v1:0',
 } as const;
 
 // --- Singleton Client ---
