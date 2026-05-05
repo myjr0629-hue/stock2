@@ -40,7 +40,7 @@ function getLogoUrl(ticker: string): string {
 // Verdict grouping config
 const VERDICT_GROUPS = {
     ATTACK: {
-        verdicts: ['BUY_DIP'],
+        verdicts: ['BUY_DIP', 'OVERSOLD_ZONE'],
         icon: Swords,
         label: 'ATTACK_LABEL',
         labelEN: 'BULLISH',
@@ -58,7 +58,7 @@ const VERDICT_GROUPS = {
         emptyMsg: 'DEFEND_EMPTY',
     },
     RETREAT: {
-        verdicts: ['HEDGE', 'TRIM'],
+        verdicts: ['HEDGE', 'TRIM', 'ELEVATED_RISK', 'OVERBOUGHT_ZONE'],
         icon: ArrowDownRight,
         label: 'RETREAT_LABEL',
         labelEN: 'BEARISH',
