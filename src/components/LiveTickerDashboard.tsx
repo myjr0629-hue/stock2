@@ -1912,18 +1912,42 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                         className={`shrink-0 px-3 py-1.5 rounded-lg text-[12px] font-black uppercase tracking-wider transition-all duration-200 font-jakarta flex items-center gap-1.5 ${
                                             activeInsightTab === 'insider'
                                                 ? 'bg-amber-500/20 text-white border border-amber-500/40 shadow-[0_0_10px_rgba(245,158,11,0.2)]'
-                                                : 'bg-slate-800/40 text-slate-400 border border-slate-700/30 hover:text-amber-300 hover:border-amber-500/30'
+                                                : (() => {
+                                                    // [FIX 2026-05-05] Detect same-day insider transaction for strong blink
+                                                    const hasToday = insiderData?.latest && (() => {
+                                                        const txDate = new Date(insiderData.latest!.date);
+                                                        const now = new Date();
+                                                        return txDate.toDateString() === now.toDateString();
+                                                    })();
+                                                    return hasToday
+                                                        ? 'bg-amber-500/15 text-amber-300 border border-amber-500/50 animate-pulse shadow-[0_0_12px_rgba(245,158,11,0.4)]'
+                                                        : 'bg-slate-800/40 text-slate-400 border border-slate-700/30 hover:text-amber-300 hover:border-amber-500/30';
+                                                })()
                                         }`}
                                     >
                                         <div className={`w-1.5 h-1.5 rounded-full ${
                                             activeInsightTab === 'insider' ? 'bg-amber-400' :
-                                            (insiderData?.latest && (Date.now() - new Date(insiderData.latest.date).getTime()) < 48 * 60 * 60 * 1000)
-                                                ? 'bg-amber-400 animate-pulse shadow-[0_0_6px_rgba(245,158,11,0.8)]'
-                                                : 'bg-slate-500'
+                                            (() => {
+                                                if (!insiderData?.latest) return 'bg-slate-500';
+                                                const txDate = new Date(insiderData.latest.date);
+                                                const now = new Date();
+                                                const isToday = txDate.toDateString() === now.toDateString();
+                                                const isRecent = (now.getTime() - txDate.getTime()) < 48 * 60 * 60 * 1000;
+                                                if (isToday) return 'bg-amber-400 animate-ping shadow-[0_0_8px_rgba(245,158,11,1)]';
+                                                if (isRecent) return 'bg-amber-400 animate-pulse shadow-[0_0_6px_rgba(245,158,11,0.8)]';
+                                                return 'bg-slate-500';
+                                            })()
                                         }`} />
                                         <CardTooltip tooltip={COMMAND_TOOLTIPS.INSIDER_FORM4.tooltip} badge={COMMAND_TOOLTIPS.INSIDER_FORM4.badge}>Insider</CardTooltip>
                                         {insiderData && (insiderData.buyCount + insiderData.sellCount) > 0 && (
-                                            <span className="text-[10px] bg-amber-500/30 text-amber-300 px-1.5 py-0.5 rounded-full font-mono leading-none">
+                                            <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-mono leading-none ${
+                                                (() => {
+                                                    const hasToday = insiderData?.latest && new Date(insiderData.latest.date).toDateString() === new Date().toDateString();
+                                                    return hasToday
+                                                        ? 'bg-amber-500/40 text-amber-200 animate-pulse'
+                                                        : 'bg-amber-500/30 text-amber-300';
+                                                })()
+                                            }`}>
                                                 {insiderData.buyCount + insiderData.sellCount}
                                             </span>
                                         )}
@@ -2553,6 +2577,20 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                         estimatedEps: effectiveEarnings?.epsEstimate || 0,
                                     },
                                     relatedTickers: effectiveRelated?.topRelated?.map((r: any) => r.ticker) || [],
+                                    insider: insiderData ? {
+                                        net30d: insiderData.net30d,
+                                        buyCount: insiderData.buyCount,
+                                        sellCount: insiderData.sellCount,
+                                        sentiment: insiderData.sentiment,
+                                        latest: insiderData.latest ? {
+                                            name: insiderData.latest.name,
+                                            title: insiderData.latest.title,
+                                            code: insiderData.latest.code,
+                                            value: insiderData.latest.value,
+                                            date: insiderData.latest.date,
+                                            is10b5: insiderData.latest.is10b5,
+                                        } : null,
+                                    } : null,
                                 }}
                                 gexStats={gexStatsForAI}
                             />

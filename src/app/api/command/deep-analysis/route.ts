@@ -150,6 +150,7 @@ export async function POST(req: Request) {
         const earnings = s.earnings || {};
         const flow = s.flow || {};
         const conviction = s.conviction || {};
+        const insider = s.insider || null;
 
         const priceChange = s.priceChange || 0;
         const priceChangeStr = priceChange >= 0 ? `+${priceChange.toFixed(2)}%` : `${priceChange.toFixed(2)}%`;
@@ -209,6 +210,20 @@ ${newsXml}
 ${secXmlBlock ? '\n' + secXmlBlock : ''}
   
   <trigger_reason>${triggerReason}</trigger_reason>
+${(() => {
+    if (!insider) return '';
+    const fmtVal = (n: number) => { const a = Math.abs(n); return a >= 1e6 ? `$${(n / 1e6).toFixed(1)}M` : a >= 1e3 ? `$${(n / 1e3).toFixed(0)}K` : `$${n}`; };
+    const latestStr = insider.latest
+        ? `name="${insider.latest.name}" title="${insider.latest.title}" type="${insider.latest.code}" value="${fmtVal(insider.latest.value)}" date="${insider.latest.date}" is_10b5_1="${insider.latest.is10b5}"`
+        : '';
+    return `  <insider_activity source="SEC_Form_4" sentiment="${insider.sentiment}">
+    <net_30d>${fmtVal(insider.net30d)}</net_30d>
+    <buy_count>${insider.buyCount}</buy_count>
+    <sell_count>${insider.sellCount}</sell_count>${insider.latest ? `\n    <latest_transaction ${latestStr}/>` : ''}
+    <note>Voluntary (non-10b5-1) insider buys are historically among the strongest bullish signals. Clustered insider selling, especially by C-suite, warrants caution.</note>
+  </insider_activity>`;
+})()
+}
 ${(() => {
     if (!gexStats) return '';
     const gs = gexStats;
@@ -286,6 +301,12 @@ All text fields use { "ko": "...", "en": "...", "ja": "..." } trilingual structu
 - If news is scarce, focus on structural indicators and sector context.
 - If trigger_reason=PRICE_MOVE, explain WHAT likely caused it.
 - SEC FILINGS (8-K/10-K): If provided in <sec_filings>, reference recent corporate events (8-K) as supporting context. Use 10-K business overview to understand the company's revenue structure and competitive positioning.
+- INSIDER ACTIVITY (Form 4): If <insider_activity> is present, weave insider trading patterns into your analysis. Key rules:
+  → Voluntary (non-10b5-1) insider BUYING by C-suite (CEO, CFO, President) is a powerful bullish signal — highlight prominently.
+  → Clustered insider SELLING (multiple executives selling within days) warrants cautionary language.
+  → 10b5-1 plan transactions are routine and should be noted but given less weight.
+  → Connect insider activity to the overall narrative (e.g., "The CEO's voluntary purchase of $2M in shares aligns with the golden cross formation and institutional accumulation signals").
+  → Reference the net 30-day value and sentiment grade (CAUTIOUS, NEUTRAL, BULLISH) in context.
 - GEX HISTORY (30D): If <gex_history_30d> is present, weave the percentile ranking, regime streak duration, and streak multiple into the Options Positioning section. For example: "GEX at 0th percentile with NEGATIVE regime persisting 5 sessions (1.7× average duration) indicates structurally elevated dealer hedging pressure." Do NOT repeat raw numbers — synthesize into narrative insight.
 - FORBIDDEN: investment advice, buy/sell recommendations, emojis.
 - Make connections between indicators.

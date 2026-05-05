@@ -94,6 +94,13 @@ interface Props {
         squeeze: { status: string; siPercent: number };
         earnings: { daysUntil: number; date: string; estimatedEps: number };
         relatedTickers: string[];
+        insider?: {
+            net30d: number;
+            buyCount: number;
+            sellCount: number;
+            sentiment: string;
+            latest: { name: string; title: string; code: string; value: number; date: string; is10b5: boolean } | null;
+        } | null;
     };
     gexStats?: {
         percentile: number;
