@@ -678,7 +678,7 @@ Raw HTTP 응답 검증:
 | 파일 | 역할 |
 |------|------|
 | `contentEngines.ts` (42KB) | 템플릿 기반 콘텐츠 생성 — Pulse, Morning, Education, Event, Ticker Spotlight. 3개 국어 + 플랫폼별 텍스트 변환 |
-| `aiContentEngine.ts` (16KB) | AI 콘텐츠 생성 — AWS Bedrock(Claude Haiku) 기반. 템플릿 엔진의 AI 대체 (fallback: 템플릿) |
+| `aiContentEngine.ts` (16KB) | AI 콘텐츠 생성 — AWS Bedrock(Claude Haiku 4.5) 기반. 템플릿 엔진의 AI 대체 (fallback: 템플릿) |
 | `bufferClient.ts` (15KB) | Buffer API 클라이언트 — 채널 관리, UTM 빌더, 플랫폼별 글자수 제한(truncate) |
 | `bufferMultiClient.ts` (22KB) | 멀티플랫폼 디스패치 — tweet, thread, carousel, story, pin, post 각 타입별 Buffer API 호출 |
 | `hashtagEngine.ts` (13KB) | 해시태그 엔진 — 플랫폼별(twitter/bluesky/threads/instagram) × 콘텐츠별 × 3개 국어 해시태그 생성 |
@@ -959,6 +959,131 @@ daily-content (장 마감 후)
 | `src/lib/universe.ts` | UNIVERSE_500 배열 (Vercel용) |
 | `src/services/universePolicy.ts` | 유니버스 정책 관리 |
 | `data/stock_universe_us800.json` | Lambda용 1000종목 JSON |
+
+### 8.5 AI 엔진 (AWS Bedrock Claude) — V72.17 (2026-05-06 갱신)
+
+> **전체 AI를 Claude Haiku 4.5 단일 모델로 통합 완료.**
+> 컴플라이언스(Observation-Only) 전체 적용 + 깊이 프롬프트 강화.
+
+#### 8.5.1 모델 클라이언트
+
+| 파일 | 역할 |
+|------|------|
+| `src/services/bedrockClient.ts` | AWS Bedrock 통합 클라이언트. `callBedrock()` + `MODELS` 상수 |
+
+#### 8.5.2 모델 선정 이력 및 결론 (2026-05-06 확정)
+
+| 모델 | Model ID | 토큰 속도 | 비용 (In/Out per 1M) | TPM 할당 | 결론 |
+|------|---------|----------|---------------------|---------|------|
+| **Claude Haiku 4.5** | `us.anthropic.claude-haiku-4-5-20251001-v1:0` | 131 t/s | $1.00 / $5.00 | 5M | **✅ 전체 채택** |
+| Claude Sonnet 4.0 | `us.anthropic.claude-sonnet-4-20250514-v1:0` | 81 t/s | $3.00 / $15.00 | ~200K | ❌ 느림+비쌈+할당 부족 |
+| Google Gemma 3 27B | `google.gemma-3-27b-it` | 79 t/s | $0.23 / $0.38 | 100M | ❌ 한국어 번역체+GEX 오해석+컴플라이언스 위반 |
+| OpenAI gpt-oss-120b | Custom Model Import | ? | GPU 인스턴스 비용 | ? | ❌ Custom Import=인프라 관리+비용 폭증 |
+
+##### 모델 비교 테스트 결과 (NVDA 실데이터, 2026-05-05)
+
+| 항목 | Sonnet 4.0 | Haiku 4.5 | Gemma 3 27B |
+|------|-----------|-----------|-------------|
+| **총 시간** (SEC/뉴스 fetch 포함) | ~41초 | **~29초** | ~18초 |
+| **Vercel 60초 여유** | 19초 (위험) | **31초 (안전)** | — |
+| **한국어 품질** | ★★★★★ 네이티브 | ★★★★★ 네이티브 | ★★★☆☆ 번역체 |
+| **금융 도메인 정확도** | ✅ 정확 | ✅ 정확 | ❌ GEX 오해석 |
+| **컴플라이언스 (기본)** | 자연스러움 | 프롬프트 필요 | ❌ 예측적 표현 |
+| **컴플라이언스 (강화 후)** | 완벽 | **완벽** | 미적용 |
+| **호출당 비용** | $0.027 | **$0.010** | $0.0007 |
+| **JSON 안정성** | ✅ | ✅ (파싱 보강) | ✅ |
+| **스케일링 (100+유저)** | ❌ 200K TPM 병목 | **✅ 5M TPM** | ✅ 100M TPM |
+
+> **결론**: Haiku 4.5가 속도(1.6x), 비용(2.7x), 스케일링(25x) 모두 우위. 프롬프트 강화로 깊이 차이 해소.
+
+#### 8.5.3 전체 AI 라우트 맵 (8개 라우트)
+
+| # | 라우트 | 모델 | 컴플라이언스 | 깊이 강화 | JSON 파싱 | 용도 |
+|---|--------|------|:----------:|:-------:|:--------:|------|
+| 1 | `/api/command/deep-analysis` | Haiku 4.5 | ✅ STRICT | ✅ MECHANISM | ✅ Bracket-match | Command 딥 분석 (3언어) |
+| 2 | `/api/flow/ai-analysis` | Haiku 4.5 | ✅ STRICT | ✅ MECHANISM | ✅ Bracket-match | Flow 옵션 분석 (3언어) |
+| 3 | `/api/guardian/news-digest` | Haiku 4.5 | ✅ OBSERVER | — | ✅ Array parse | 뉴스 다이제스트 (3언어) |
+| 4 | `/api/guardian/briefing/generate` | Haiku 4.5 | ✅ 기존 적용 | — | — | 모닝 브리핑 (3언어) |
+| 5 | `/api/intel/perplexity-analysis` | Haiku 4.5 | ✅ STRICT | — | ✅ Standard | Intel 섹터 분석 (3언어) |
+| 6 | `/api/intel/snapshot` | Haiku 4.5 | ✅ OBSERVER | — | ✅ Standard | 섹터 스냅샷 뉴스 |
+| 7 | `/api/intel/cross-sector-brief` | Haiku 4.5 | ✅ OBSERVER | — | ✅ Standard | 크로스섹터 브리프 (Bloomberg급) |
+| 8 | `intelligenceNode.ts` (Guardian) | Haiku 4.5 | ✅ OBSERVER | — | — | Rotation/Reality 인사이트 (3언어) |
+
+#### 8.5.4 컴플라이언스 표준 (2026-05-06 전체 적용 완료)
+
+> **모든 AI 출력은 OBSERVER(관찰자) 표준을 준수해야 한다.**
+
+##### STRICT 컴플라이언스 (Deep Analysis, Flow AI, Intel Analysis)
+```
+ALLOWED (사용 가능):
+  "관찰됨/observed", "확인됨/noted", "시사함/suggests",
+  "나타남/indicates", "~환경이다/environment"
+
+FORBIDDEN (사용 금지):
+  "~해야 한다/should", "매수/매도/buy/sell",
+  "~될 것이다/will happen", "breakout expected"
+
+규칙: 모든 문장은 현재 또는 과거 상태만 기술. 미래 예측 금지.
+```
+
+##### OBSERVER 컴플라이언스 (News, Briefing, Snapshot, Cross-Sector, Guardian)
+```
+시스템 프롬프트에 공통 삽입:
+"COMPLIANCE: OBSERVER only — use observational language (observed, noted, indicates).
+ NEVER use predictive/advisory language (will, should, recommended).
+ No investment advice."
+```
+
+#### 8.5.5 깊이 프롬프트 강화 (Deep Analysis + Flow AI)
+
+> **Haiku 4.5의 분석 깊이를 Sonnet 수준으로 끌어올리는 프롬프트 엔지니어링.**
+
+##### MECHANISM / INTERACTION / SO-WHAT 프레임워크
+```
+각 지표에 대해:
+  → MECHANISM: WHY does this reading matter?
+  → INTERACTION: HOW does it connect to other indicators?
+  → SO-WHAT: What structural condition does this create?
+
+BAD: "GEX is -70M, gamma flip at $205"
+GOOD: "The -70M GEX reading indicates dealer short gamma exposure,
+       meaning options market makers must sell into declines (amplifying
+       downside) and buy into rallies (dampening upside), structurally
+       constraining price movement to the $190-$205 corridor."
+```
+
+- Deep Analysis: 3-4 섹션 강제 (이전 2-4 → 3-4)
+- Flow AI: 교차 팩터 메커니즘 예시 포함
+
+#### 8.5.6 JSON 파싱 강건성 (Haiku 4.5 대응)
+
+> Haiku 4.5는 간헐적으로 JSON 뒤에 대화체 텍스트를 붙임. Bracket-matching 로직으로 해결.
+
+```typescript
+// Deep Analysis, Flow AI 라우트에 적용
+let depth = 0, endIdx = -1;
+for (let i = 0; i < text.length; i++) {
+  if (text[i] === '{') depth++;
+  else if (text[i] === '}') { depth--; if (depth === 0) { endIdx = i; break; } }
+}
+if (endIdx > 0) parsed = JSON.parse(text.slice(0, endIdx + 1));
+```
+
+#### 8.5.7 UI 브랜딩
+
+- `CardTooltip.tsx`: 모델 특정 브랜딩("Claude Sonnet 4") → 모델 무관 브랜딩("Claude AI")으로 변경
+- 향후 모델 교체 시 UI 수정 불필요
+
+#### 8.5.8 스케일링 로드맵
+
+| 유저 규모 | 모델 | TPM | 비용/월 (추정) | 상태 |
+|----------|------|-----|-------------|------|
+| 1-100 | Haiku 4.5 | 5M | ~$130 | ✅ 현재 |
+| 100-1,000 | Haiku 4.5 | 5M (할당 증가 요청) | ~$1,300 | 🟡 계획 |
+| 1,000-10,000 | Haiku 4.5 + 캐시 최적화 | 5M+ | ~$5,000 | 🟢 미래 |
+
+> ⚠️ **Gemma 3 27B 폐기**: 비용(16x 저렴)과 TPM(20x)은 압도적이나, 한국어 번역체 + 금융 도메인 오류(GEX 해석 실패) + 컴플라이언스 자동 위반으로 기관급 서비스 부적합 판정.
+> ⚠️ **GPT OSS 120B/20B 폐기**: Custom Model Import 방식 = GPU 인스턴스 상시 가동($3,000+/월). 서버리스 아키텍처와 비호환.
 
 ---
 
