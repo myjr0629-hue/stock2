@@ -428,6 +428,44 @@ async function getVolatilityFromDynamoGex(ticker: string): Promise<any | null> {
 }
 
 
+// ════════════════════════════════════════════════════════════════════════════
+// [EC2 SSOT] Inject accurate institutional data from EC2 ElastiCache
+// EC2 flow-accumulator provides 100% trade data (vs Polygon's 5,000 sample)
+// Must be called BEFORE any setInCache that includes institutional data
+// ════════════════════════════════════════════════════════════════════════════
+async function injectEC2Institutional(data: any, ticker: string): Promise<boolean> {
+    if (!data) return false;
+    try {
+        const EC2_PROXY = process.env.EC2_REDIS_PROXY_URL || 'http://52.23.98.13:8081';
+        const EC2_KEY = process.env.REDIS_PROXY_KEY || 'signum-redis-proxy-2026';
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 3000);
+        const ec2Res = await fetch(`${EC2_PROXY}/get?key=${encodeURIComponent('rt-metrics:' + ticker)}`, {
+            headers: { 'Authorization': `Bearer ${EC2_KEY}` },
+            signal: controller.signal,
+            cache: 'no-store',
+        });
+        clearTimeout(timeout);
+        if (ec2Res.ok) {
+            const ec2Raw = await ec2Res.json();
+            const ec2Data = ec2Raw?.result;
+            const parsed = typeof ec2Data === 'string' ? JSON.parse(ec2Data) : ec2Data;
+            if (parsed?.blockTrade?.count > 0) {
+                data.institutional = {
+                    ...(data.institutional || {}),
+                    darkPool: { percent: parsed.darkPool?.percent || data.institutional?.darkPool?.percent || 0 },
+                    blockTrade: { count: parsed.blockTrade.count, volume: parsed.blockTrade.volume || 0 },
+                    shortVolume: parsed.shortVolume || data.institutional?.shortVolume || null,
+                    _ts: Date.now(),
+                    _source: 'ec2-flow-accumulator',
+                };
+                return true;
+            }
+        }
+    } catch { /* EC2 proxy unavailable — existing data preserved */ }
+    return false;
+}
+
 // [AWS-FIRST] Background Revalidator — reads from DynamoDB, NOT Polygon.
 // warm-command cron is responsible for populating DynamoDB. This just syncs DynamoDB→Redis.
 async function triggerBackgroundRefresh(ticker: string, dataCacheKey: string, overviewCacheKey: string, _baseUrl: string, _locale: string) {
@@ -442,8 +480,10 @@ async function triggerBackgroundRefresh(ticker: string, dataCacheKey: string, ov
             const CORE_FIELDS = ['structure','analyst','fundamentals','earnings','sma','related','squeeze','volatility','institutional'] as const;
             const fieldCount = CORE_FIELDS.filter(f => (dynamoData as any)[f]).length;
             if (fieldCount >= 3) {
+                // [FIX] EC2 institutional SSOT — prevent DynamoDB Polygon data from overwriting
+                await injectEC2Institutional(dynamoData, ticker);
                 await setInCache(dataCacheKey, dynamoData, getSmartTTL());
-                console.log(`[Command Unified] SWR sync complete: ${ticker} (${fieldCount}/9 fields)`);
+                console.log(`[Command Unified] SWR sync complete: ${ticker} (${fieldCount}/9 fields, inst: ${(dynamoData as any).institutional?.blockTrade?.count || 0} blocks)`);
             }
         }
     } catch (e) {
@@ -622,41 +662,15 @@ export async function GET(request: NextRequest) {
                 try {
                     let enriched = false;
 
-                    // [FIX 2026-05-05] IMMEDIATE EC2 block trade injection (no 5-min wait)
-                    // Runs after response is sent → 0ms user impact
-                    // Next SWR refresh (15s) picks up the accurate EC2 data
+                    // [EC2 SSOT] Inject accurate institutional data (background, 0ms user impact)
                     if (!cachedData.institutional?.blockTrade?.count || cachedData.institutional.blockTrade.count < 50) {
-                        try {
-                            const EC2_PROXY = process.env.EC2_REDIS_PROXY_URL || 'http://52.23.98.13:8081';
-                            const EC2_KEY = process.env.REDIS_PROXY_KEY || 'signum-redis-proxy-2026';
-                            const controller = new AbortController();
-                            const timeout = setTimeout(() => controller.abort(), 3000);
-                            const ec2Res = await fetch(`${EC2_PROXY}/get?key=${encodeURIComponent('rt-metrics:' + ticker)}`, {
-                                headers: { 'Authorization': `Bearer ${EC2_KEY}` },
-                                signal: controller.signal,
-                                cache: 'no-store',
-                            });
-                            clearTimeout(timeout);
-                            if (ec2Res.ok) {
-                                const ec2Raw = await ec2Res.json();
-                                const ec2Data = ec2Raw?.result;
-                                const parsed = typeof ec2Data === 'string' ? JSON.parse(ec2Data) : ec2Data;
-                                if (parsed?.blockTrade?.count > 0) {
-                                    cachedData.institutional = {
-                                        ...(cachedData.institutional || {}),
-                                        darkPool: { percent: parsed.darkPool?.percent || cachedData.institutional?.darkPool?.percent || 0 },
-                                        blockTrade: { count: parsed.blockTrade.count, volume: parsed.blockTrade.volume || 0 },
-                                        shortVolume: parsed.shortVolume || cachedData.institutional?.shortVolume || null,
-                                        _ts: Date.now(),
-                                    };
-                                    // Update cache so next SWR refresh gets EC2 data
-                                    await setInCache(dataCacheKey, cachedData, getSmartTTL());
-                                    memorySet(memKey, cachedData);
-                                    enriched = true;
-                                    console.log(`[Command Unified] BG EC2 block trade injected for ${ticker}: ${parsed.blockTrade.count} trades`);
-                                }
-                            }
-                        } catch { /* EC2 proxy unavailable — gap-fill will handle later */ }
+                        const ec2Ok = await injectEC2Institutional(cachedData, ticker);
+                        if (ec2Ok) {
+                            await setInCache(dataCacheKey, cachedData, getSmartTTL());
+                            memorySet(memKey, cachedData);
+                            enriched = true;
+                            console.log(`[Command Unified] BG EC2 injected for ${ticker}: ${cachedData.institutional?.blockTrade?.count} blocks`);
+                        }
                     }
 
                     // SWR: If older than threshold, do full DynamoDB→Redis sync
