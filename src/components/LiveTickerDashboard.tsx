@@ -1408,42 +1408,22 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                     <div className="relative z-10 mt-0.5">
                                         <span className="text-[12px] text-slate-300 font-jakarta">DP·Block·Short Vol</span>
                                     </div>
-                                    {/* [INSIDER] 1-line teaser — amber theme, click navigates to INSIDER tab */}
-                                    {insiderData && (() => {
-                                        const ins = insiderData;
-                                        const hasRecent = ins.latest && (Date.now() - new Date(ins.latest.date).getTime()) < 48 * 60 * 60 * 1000;
-                                        const netColor = ins.net30d > 0 ? 'text-emerald-400' : ins.net30d < 0 ? 'text-rose-400' : 'text-slate-400';
-                                        const fmtVal = (n: number) => { const a = Math.abs(n); return a >= 1e6 ? `$${(n / 1e6).toFixed(1)}M` : a >= 1e3 ? `$${(n / 1e3).toFixed(0)}K` : `$${n}`; };
-                                        return (
-                                            <button
-                                                onClick={(e) => { e.stopPropagation(); setActiveInsightTab('insider'); }}
-                                                className={`relative z-10 w-full mt-1.5 pt-1.5 border-t border-amber-500/10 flex items-center gap-1.5 text-left group/insider hover:bg-amber-500/5 rounded-b-lg px-0.5 py-0.5 transition-all ${hasRecent ? 'animate-[pulse_3s_ease-in-out_infinite]' : ''}`}
-                                            >
-                                                <svg width="11" height="11" viewBox="0 0 16 16" className="text-amber-400 shrink-0" fill="currentColor"><circle cx="8" cy="4" r="3" /><path d="M2 14c0-3.3 2.7-6 6-6s6 2.7 6 6H2z" /></svg>
-                                                <span className="text-[11px] text-amber-400/90 font-jakarta font-bold truncate">
-                                                    {ins.latest ? `${ins.latest.title} ${ins.latest.code === 'P' ? 'Buy' : 'Sell'} ${fmtVal(ins.latest.value)}` : 'Insider'}
-                                                </span>
-                                                <span className={`text-[11px] font-mono font-bold ${netColor} ml-auto shrink-0`}>
-                                                    Net {ins.net30d > 0 ? '+' : ''}{fmtVal(ins.net30d)}
-                                                </span>
-                                                <svg width="8" height="8" viewBox="0 0 8 8" className="text-amber-400/50 shrink-0"><path d="M2 1l4 3-4 3" fill="currentColor" /></svg>
-                                            </button>
-                                        );
-                                    })()}
                                 </div>
                             );
                         })()}
                     </ProGate>
 
-                    {/* [2-2] TREND PHASE™ — FREE */}
+                    {/* [2-2] TREND PHASE™ + INSIDER PULSE (split) — FREE */}
                         {(() => {
                             const s = effectiveSma;
                             const phase = s?.cross === 'GOLDEN' ? td('smaGolden') : s?.cross === 'DEAD' ? td('smaDead') : s?.label === 'ABOVE' ? td('smaAbove') : s?.label === 'BELOW' ? td('smaBelow') : '...';
+                            const fmtVal = (n: number) => { const a = Math.abs(n); return a >= 1e6 ? `$${(n / 1e6).toFixed(1)}M` : a >= 1e3 ? `$${(n / 1e3).toFixed(0)}K` : `$${n}`; };
                             return (
-                                <div className={`relative overflow-hidden rounded-lg py-2 px-2.5 min-h-[120px] transition-all duration-500 backdrop-blur-xl border cursor-default hover:-translate-y-0.5 hover:brightness-110 hover:border-white/20 hover:shadow-[0_4px_20px_rgba(99,102,241,0.1)] w-[85vw] max-w-[320px] md:w-auto md:max-w-none md:min-w-0 snap-center shrink-0 ${s?.cross === 'GOLDEN' ? 'bg-emerald-950/40 border-emerald-500/30 animate-card-breathe-bull' : s?.cross === 'DEAD' ? 'bg-rose-950/40 border-rose-500/30 animate-card-breathe-bear' : 'bg-slate-800/40 border-slate-700/50'}`}>
+                                <div className={`relative overflow-hidden rounded-lg py-2 px-2.5 min-h-[120px] transition-all duration-500 backdrop-blur-xl border cursor-default hover:-translate-y-0.5 hover:brightness-110 hover:border-white/20 hover:shadow-[0_4px_20px_rgba(99,102,241,0.1)] w-[85vw] max-w-[320px] md:w-auto md:max-w-none md:min-w-0 snap-center shrink-0 flex flex-col ${s?.cross === 'GOLDEN' ? 'bg-emerald-950/40 border-emerald-500/30 animate-card-breathe-bull' : s?.cross === 'DEAD' ? 'bg-rose-950/40 border-rose-500/30 animate-card-breathe-bear' : 'bg-slate-800/40 border-slate-700/50'}`}>
                                     <div className="absolute inset-0 bg-gradient-to-br from-white/[0.06] via-transparent to-transparent pointer-events-none" />
                                     <div className="absolute inset-0 pointer-events-none opacity-[0.12]" style={{ backgroundImage: "repeating-linear-gradient(45deg, transparent, transparent 10px, rgba(255,255,255,0.2) 10px, rgba(255,255,255,0.2) 11px)" }} />
-                                    <div className="relative z-10 flex items-center justify-between mb-1">
+                                    {/* ── TOP: TREND PHASE ── */}
+                                    <div className="relative z-10 flex items-center justify-between mb-0.5">
                                         <div className="flex items-center gap-1">
                                             <TrendingUp className="w-3.5 h-3.5 text-cyan-400" />
                                             <span className="text-[13px] font-bold text-white uppercase tracking-wider font-jakarta"><CardTooltip tooltip={COMMAND_TOOLTIPS.TREND_PHASE.tooltip}>TREND PHASE</CardTooltip></span>
@@ -1464,9 +1444,27 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                             {s.isImminent && <span className="ml-1 text-amber-400">⚡ {td('smaCrossImminent')}</span>}
                                         </div>
                                     )}
-                                    <div className="relative z-10 mt-0.5">
-                                        <span className="text-[12px] text-slate-300 font-jakarta">SMA 50/200 Cross</span>
-                                    </div>
+
+                                    {/* ── BOTTOM: INSIDER PULSE ── */}
+                                    {insiderData ? (
+                                        <button
+                                            onClick={(e) => { e.stopPropagation(); setActiveInsightTab('insider'); }}
+                                            className="relative z-10 mt-auto pt-1.5 border-t border-amber-500/15 flex items-center gap-1.5 text-left hover:bg-amber-500/5 rounded-b px-0.5 py-0.5 transition-all w-full"
+                                        >
+                                            <svg width="11" height="11" viewBox="0 0 16 16" className="text-amber-400 shrink-0" fill="currentColor"><circle cx="8" cy="4" r="3" /><path d="M2 14c0-3.3 2.7-6 6-6s6 2.7 6 6H2z" /></svg>
+                                            <span className="text-[12px] text-amber-400/90 font-jakarta font-bold truncate">
+                                                {insiderData.latest ? `${insiderData.latest.title} ${insiderData.latest.code === 'P' ? 'Buy' : 'Sell'} ${fmtVal(insiderData.latest.value)}` : 'Insider'}
+                                            </span>
+                                            <span className={`text-[12px] font-mono font-bold ${insiderData.net30d > 0 ? 'text-emerald-400' : insiderData.net30d < 0 ? 'text-rose-400' : 'text-slate-400'} ml-auto shrink-0`}>
+                                                Net {insiderData.net30d > 0 ? '+' : ''}{fmtVal(insiderData.net30d)}
+                                            </span>
+                                            <svg width="8" height="8" viewBox="0 0 8 8" className="text-amber-400/50 shrink-0"><path d="M2 1l4 3-4 3" fill="currentColor" /></svg>
+                                        </button>
+                                    ) : (
+                                        <div className="relative z-10 mt-auto pt-0.5">
+                                            <span className="text-[12px] text-slate-300 font-jakarta">SMA 50/200 Cross</span>
+                                        </div>
+                                    )}
                                 </div>
                             );
                         })()}

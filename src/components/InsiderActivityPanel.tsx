@@ -7,13 +7,12 @@
  * Shows insider trading activity from SEC Form 4 filings:
  * - 30-day dot timeline (SVG) with buy/sell markers
  * - Net insider value summary with sentiment badge
- * - Transaction table with SEC filing links
+ * - COMPACT transaction table: Name · Title on ONE line, min 12px, slate-200
  * 
  * Design constraints:
  * - Fits within GEX Timeline card size
- * - Min font 12px, slate-300 text
+ * - Min font 12px, slate-200 text
  * - No emoji — infographic-style only (amber/gold theme)
- * - Guardian TACTICAL INSIGHT-style scrollbar
  * - Zero impact on other features
  */
 
@@ -99,6 +98,16 @@ function sentimentConfig(s: string) {
     }
 }
 
+/** Compact name: "Wilson-Thompson Kathleen" → "K. Wilson-Thompson" */
+function compactName(name: string): string {
+    const parts = name.trim().split(/\s+/);
+    if (parts.length <= 1) return name;
+    // Last part is first name in SEC format: "LastName FirstName MiddleInitial"
+    const lastName = parts[0];
+    const firstName = parts[1];
+    return `${firstName.charAt(0)}. ${lastName}`;
+}
+
 // ─── 30-Day Timeline (SVG) ─────────────────────────────────────────
 
 function InsiderTimeline({ transactions }: { transactions: InsiderTransaction[] }) {
@@ -110,36 +119,33 @@ function InsiderTimeline({ transactions }: { transactions: InsiderTransaction[] 
     const recent = significant.filter(t => new Date(t.date) >= thirtyDaysAgo);
     
     if (recent.length === 0) {
-        // Show all-time timeline if no 30d activity
         return (
-            <div className="px-4 py-2 text-[12px] text-slate-400 font-jakarta text-center">
-                No insider buy/sell activity in the last 30 days
+            <div className="px-4 py-1 text-[12px] text-slate-400 font-jakarta text-center">
+                No insider buy/sell in the last 30 days
             </div>
         );
     }
 
     const maxValue = Math.max(...recent.map(t => t.value), 1);
     const SVG_W = 600;
-    const SVG_H = 50;
+    const SVG_H = 40;
     const MARGIN_X = 20;
 
     return (
-        <div className="px-4 py-2">
-            <div className="flex items-center justify-between mb-1">
-                <span className="text-[11px] text-slate-400 font-jakarta">30-Day Activity</span>
+        <div className="px-4 py-1">
+            <div className="flex items-center justify-between mb-0.5">
+                <span className="text-[12px] text-slate-200 font-jakarta">30-Day Activity</span>
                 <div className="flex items-center gap-3">
-                    <span className="flex items-center gap-1 text-[11px] text-slate-400 font-jakarta">
+                    <span className="flex items-center gap-1 text-[12px] text-slate-200 font-jakarta">
                         <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" /> BUY
                     </span>
-                    <span className="flex items-center gap-1 text-[11px] text-slate-400 font-jakarta">
+                    <span className="flex items-center gap-1 text-[12px] text-slate-200 font-jakarta">
                         <span className="w-2 h-2 rounded-full bg-rose-500 inline-block" /> SELL
                     </span>
                 </div>
             </div>
-            <svg viewBox={`0 0 ${SVG_W} ${SVG_H}`} className="w-full h-[50px]">
-                {/* Baseline */}
+            <svg viewBox={`0 0 ${SVG_W} ${SVG_H}`} className="w-full h-[40px]">
                 <line x1={MARGIN_X} y1={SVG_H / 2} x2={SVG_W - MARGIN_X} y2={SVG_H / 2} stroke="rgba(255,255,255,0.08)" strokeWidth="1" />
-                {/* Date labels */}
                 <text x={MARGIN_X} y={SVG_H - 2} fill="rgba(255,255,255,0.25)" fontSize="8" fontFamily="Jakarta Sans, sans-serif">30d ago</text>
                 <text x={SVG_W - MARGIN_X} y={SVG_H - 2} fill="rgba(255,255,255,0.25)" fontSize="8" fontFamily="Jakarta Sans, sans-serif" textAnchor="end">Today</text>
                 
@@ -148,18 +154,15 @@ function InsiderTimeline({ transactions }: { transactions: InsiderTransaction[] 
                     const daysDiff = (now.getTime() - date.getTime()) / (1000 * 60 * 60 * 24);
                     const xPct = 1 - (daysDiff / 30);
                     const x = MARGIN_X + xPct * (SVG_W - 2 * MARGIN_X);
-                    const radius = 3 + (t.value / maxValue) * 5; // 3-8px radius
+                    const radius = 3 + (t.value / maxValue) * 5;
                     const isBuy = t.code === 'P';
                     const color = isBuy ? '#10b981' : '#f43f5e';
-                    const opacity = t.is10b5 ? 0.6 : 1.0; // Voluntary trades more opaque
+                    const opacity = t.is10b5 ? 0.6 : 1.0;
 
                     return (
                         <g key={`${t.date}-${i}`}>
-                            {/* Glow */}
                             <circle cx={x} cy={SVG_H / 2} r={radius + 2} fill={color} opacity={opacity * 0.15} />
-                            {/* Dot */}
                             <circle cx={x} cy={SVG_H / 2} r={radius} fill={color} opacity={opacity} stroke="rgba(255,255,255,0.3)" strokeWidth="0.5" />
-                            {/* Star for non-10b5-1 */}
                             {!t.is10b5 && (
                                 <text x={x} y={SVG_H / 2 - radius - 3} textAnchor="middle" fill="#fbbf24" fontSize="8" fontWeight="bold">★</text>
                             )}
@@ -171,10 +174,10 @@ function InsiderTimeline({ transactions }: { transactions: InsiderTransaction[] 
     );
 }
 
-// ─── Table Row Heights ─────────────────────────────────────────────
-const VISIBLE_ROWS = 6;
-const ROW_HEIGHT = 40;
-const TABLE_HEADER_HEIGHT = 30;
+// ─── Table Row Heights (compact) ────────────────────────────────────
+const VISIBLE_ROWS = 8;
+const ROW_HEIGHT = 28; // Compact: single-line rows
+const TABLE_HEADER_HEIGHT = 26;
 const SCROLL_HEIGHT = TABLE_HEADER_HEIGHT + (VISIBLE_ROWS * ROW_HEIGHT);
 
 // ─── Main Component ────────────────────────────────────────────────
@@ -223,10 +226,10 @@ export default function InsiderActivityPanel({ ticker, insider: propInsider }: P
     // ─── Loading ───────────────────────────────────────────────────
     if (loading) {
         return (
-            <div className="rounded-lg border border-white/10 bg-slate-900/60 backdrop-blur-lg p-4 min-h-[300px] flex items-center justify-center">
-                <div className="flex flex-col items-center gap-3">
-                    <div className="w-8 h-8 border-2 border-amber-500/30 border-t-amber-400 rounded-full animate-spin" />
-                    <span className="text-[12px] text-slate-300 font-jakarta">Loading Insider Activity...</span>
+            <div className="rounded-lg border border-white/10 bg-slate-900/60 backdrop-blur-lg p-4 min-h-[200px] flex items-center justify-center">
+                <div className="flex flex-col items-center gap-2">
+                    <div className="w-6 h-6 border-2 border-amber-500/30 border-t-amber-400 rounded-full animate-spin" />
+                    <span className="text-[12px] text-slate-200 font-jakarta">Loading Insider Activity...</span>
                 </div>
             </div>
         );
@@ -235,8 +238,8 @@ export default function InsiderActivityPanel({ ticker, insider: propInsider }: P
     // ─── Error ─────────────────────────────────────────────────────
     if (error) {
         return (
-            <div className="rounded-lg border border-rose-500/20 bg-slate-900/60 p-4 min-h-[200px] flex items-center justify-center">
-                <span className="text-[12px] text-slate-300 font-jakarta">Insider data unavailable</span>
+            <div className="rounded-lg border border-rose-500/20 bg-slate-900/60 p-4 min-h-[120px] flex items-center justify-center">
+                <span className="text-[12px] text-slate-200 font-jakarta">Insider data unavailable</span>
             </div>
         );
     }
@@ -244,9 +247,9 @@ export default function InsiderActivityPanel({ ticker, insider: propInsider }: P
     // ─── Empty ─────────────────────────────────────────────────────
     if (!data || data.transactions.length === 0) {
         return (
-            <div className="rounded-lg border border-white/10 bg-slate-900/60 p-4 min-h-[200px] flex items-center justify-center">
+            <div className="rounded-lg border border-white/10 bg-slate-900/60 p-4 min-h-[120px] flex items-center justify-center">
                 <div className="text-center">
-                    <span className="text-[13px] text-slate-300 font-jakarta block">No insider trading data</span>
+                    <span className="text-[13px] text-slate-200 font-jakarta block">No insider trading data</span>
                     <span className="text-[12px] text-slate-400 font-jakarta block mt-1">
                         SEC Form 4 filings update within 2 business days of trades
                     </span>
@@ -266,53 +269,42 @@ export default function InsiderActivityPanel({ ticker, insider: propInsider }: P
                 <div className="absolute -top-10 -right-10 w-40 h-40 bg-[radial-gradient(circle,rgba(245,158,11,0.06)_0%,transparent_60%)]" />
             </div>
 
-            {/* ─── Summary Header ─── */}
-            <div className="relative z-10 px-4 pt-3 pb-2 border-b border-white/5">
-                <div className="flex items-center justify-between mb-2">
+            {/* ─── Summary Header (compact inline) ─── */}
+            <div className="relative z-10 px-4 pt-2 pb-1.5 border-b border-white/5">
+                <div className="flex items-center justify-between mb-1">
                     <div className="flex items-center gap-2">
-                        {/* Insider icon (SVG person silhouette) */}
-                        <svg width="14" height="14" viewBox="0 0 16 16" className="text-amber-400" fill="currentColor">
+                        <svg width="13" height="13" viewBox="0 0 16 16" className="text-amber-400" fill="currentColor">
                             <circle cx="8" cy="4" r="3" />
                             <path d="M2 14c0-3.3 2.7-6 6-6s6 2.7 6 6H2z" />
                         </svg>
                         <span className="text-[12px] font-bold text-slate-200 tracking-wider uppercase font-jakarta">
                             Insider Activity
                         </span>
-                        <span className="text-[11px] text-slate-400 font-jakarta">(Form 4)</span>
+                        <span className="text-[12px] text-slate-400 font-jakarta">(Form 4)</span>
                     </div>
-                    {/* Sentiment badge */}
-                    <span className={`text-[11px] font-black px-2 py-0.5 rounded border font-jakarta ${sent.bg} ${sent.color}`}>
+                    <span className={`text-[12px] font-black px-2 py-0.5 rounded border font-jakarta ${sent.bg} ${sent.color}`}>
                         {sent.label}
                     </span>
                 </div>
 
-                {/* Stats row */}
-                <div className="flex items-center gap-4 flex-wrap">
-                    <div className="flex flex-col">
-                        <span className="text-[11px] text-slate-400 font-jakarta">Net (30d)</span>
-                        <span className={`text-[14px] font-bold font-mono ${netColor}`}>
-                            {data.net30d > 0 ? '+' : ''}{fmtDollar(data.net30d)}
-                        </span>
-                    </div>
-                    <div className="w-px h-6 bg-white/10" />
-                    <div className="flex flex-col">
-                        <span className="text-[11px] text-slate-400 font-jakarta">Buy</span>
-                        <span className="text-[14px] font-bold text-emerald-400 font-mono">{data.buyCount}</span>
-                    </div>
-                    <div className="w-px h-6 bg-white/10" />
-                    <div className="flex flex-col">
-                        <span className="text-[11px] text-slate-400 font-jakarta">Sell</span>
-                        <span className="text-[14px] font-bold text-rose-400 font-mono">{data.sellCount}</span>
-                    </div>
+                {/* Stats row — compact inline */}
+                <div className="flex items-center gap-3 text-[12px] font-jakarta">
+                    <span className="text-slate-200">Net(30d)</span>
+                    <span className={`font-bold font-mono ${netColor}`}>
+                        {data.net30d > 0 ? '+' : ''}{fmtDollar(data.net30d)}
+                    </span>
+                    <span className="text-white/10">|</span>
+                    <span className="text-slate-200">Buy</span>
+                    <span className="font-bold text-emerald-400 font-mono">{data.buyCount}</span>
+                    <span className="text-white/10">|</span>
+                    <span className="text-slate-200">Sell</span>
+                    <span className="font-bold text-rose-400 font-mono">{data.sellCount}</span>
                     {data.latest && (
                         <>
-                            <div className="w-px h-6 bg-white/10" />
-                            <div className="flex flex-col">
-                                <span className="text-[11px] text-slate-400 font-jakarta">Latest</span>
-                                <span className={`text-[12px] font-bold font-jakarta ${data.latest.code === 'P' ? 'text-emerald-400' : 'text-rose-400'}`}>
-                                    {data.latest.title} {data.latest.code === 'P' ? 'Buy' : 'Sell'} {fmtDollar(data.latest.value)}
-                                </span>
-                            </div>
+                            <span className="text-white/10">|</span>
+                            <span className={`font-bold ${data.latest.code === 'P' ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                {data.latest.title} {data.latest.code === 'P' ? 'Buy' : 'Sell'} {fmtDollar(data.latest.value)}
+                            </span>
                         </>
                     )}
                 </div>
@@ -321,60 +313,59 @@ export default function InsiderActivityPanel({ ticker, insider: propInsider }: P
             {/* ─── Timeline ─── */}
             <InsiderTimeline transactions={data.transactions} />
 
-            {/* ─── Transaction Table ─── */}
+            {/* ─── Transaction Table (compact single-line rows) ─── */}
             <div
                 className="relative z-10 overflow-y-auto insider-scroll pr-0.5"
                 style={{ maxHeight: `${SCROLL_HEIGHT}px` }}
             >
                 {/* Table Header */}
-                <div className="sticky top-0 z-20 bg-slate-900/95 backdrop-blur-sm border-b border-white/5 px-4 py-1.5 grid grid-cols-[70px_1fr_60px_55px_80px_24px] md:grid-cols-[70px_1fr_70px_55px_90px_24px] gap-2 items-center">
-                    <span className="text-[11px] text-slate-400 font-jakarta font-bold">DATE</span>
-                    <span className="text-[11px] text-slate-400 font-jakarta font-bold">INSIDER</span>
-                    <span className="text-[11px] text-slate-400 font-jakarta font-bold text-right">SHARES</span>
-                    <span className="text-[11px] text-slate-400 font-jakarta font-bold text-center">TYPE</span>
-                    <span className="text-[11px] text-slate-400 font-jakarta font-bold text-right">VALUE</span>
-                    <span className="text-[11px] text-slate-400 font-jakarta font-bold text-center" title="SEC Filing">
+                <div className="sticky top-0 z-20 bg-slate-900/95 backdrop-blur-sm border-b border-white/5 px-4 py-1 grid grid-cols-[55px_1fr_70px_50px_80px_20px] gap-1.5 items-center">
+                    <span className="text-[12px] text-slate-200 font-jakarta font-bold">DATE</span>
+                    <span className="text-[12px] text-slate-200 font-jakarta font-bold">INSIDER</span>
+                    <span className="text-[12px] text-slate-200 font-jakarta font-bold text-right">SHARES</span>
+                    <span className="text-[12px] text-slate-200 font-jakarta font-bold text-center">TYPE</span>
+                    <span className="text-[12px] text-slate-200 font-jakarta font-bold text-right">VALUE</span>
+                    <span className="text-[12px] text-slate-200 font-jakarta font-bold text-center" title="SEC Filing">
                         <svg width="10" height="10" viewBox="0 0 12 12" fill="currentColor" className="inline">
                             <path d="M4.5 1H10v8H4.5V1zm1 1v6H9V2H5.5zM2 3h2v1H3v5h4v-1h1v2H2V3z" />
                         </svg>
                     </span>
                 </div>
 
-                {/* Transaction Rows */}
+                {/* Transaction Rows — single line: "K. Rubinstein · Director" */}
                 {displayTx.map((tx, idx) => {
                     const cl = codeLabel(tx.code);
                     const dateStr = new Date(tx.date).toLocaleDateString('en-US', { month: '2-digit', day: '2-digit' });
+                    const nameDisplay = compactName(tx.name);
                     
                     return (
                         <div
                             key={`${tx.date}-${tx.name}-${idx}`}
-                            className={`px-4 py-1.5 grid grid-cols-[70px_1fr_60px_55px_80px_24px] md:grid-cols-[70px_1fr_70px_55px_90px_24px] gap-2 items-center border-b border-white/[0.03] hover:bg-white/[0.02] transition-colors ${
+                            className={`px-4 py-0.5 grid grid-cols-[55px_1fr_70px_50px_80px_20px] gap-1.5 items-center border-b border-white/[0.03] hover:bg-white/[0.02] transition-colors ${
                                 tx.code === 'P' ? 'bg-emerald-500/[0.03]' : tx.code === 'S' && !tx.is10b5 ? 'bg-rose-500/[0.03]' : ''
                             }`}
+                            style={{ minHeight: `${ROW_HEIGHT}px` }}
                         >
                             {/* Date */}
-                            <span className="text-[12px] text-slate-300 font-mono tabular-nums">{dateStr}</span>
+                            <span className="text-[12px] text-slate-200 font-mono tabular-nums">{dateStr}</span>
 
-                            {/* Insider Name + Title */}
-                            <div className="flex flex-col min-w-0">
-                                <span className="text-[12px] text-slate-200 font-jakarta truncate" title={tx.name}>
-                                    {tx.name.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(' ')}
-                                </span>
-                                <span className="text-[10px] text-slate-400 font-jakarta flex items-center gap-1">
-                                    {tx.title}
-                                    {!tx.is10b5 && (tx.code === 'P' || tx.code === 'S') && (
-                                        <span className="text-amber-400 font-bold" title="Not a pre-planned 10b5-1 trade (voluntary)">★</span>
-                                    )}
-                                </span>
-                            </div>
+                            {/* Insider: Name · Title (single line) */}
+                            <span className="text-[12px] text-slate-200 font-jakarta truncate" title={`${tx.name} — ${tx.title}`}>
+                                {nameDisplay}
+                                <span className="text-slate-400 mx-1">·</span>
+                                <span className="text-slate-400">{tx.title}</span>
+                                {!tx.is10b5 && (tx.code === 'P' || tx.code === 'S') && (
+                                    <span className="text-amber-400 font-bold ml-0.5" title="Voluntary (non-10b5-1)">★</span>
+                                )}
+                            </span>
 
                             {/* Shares */}
-                            <span className="text-[12px] text-slate-300 font-mono text-right tabular-nums">
+                            <span className="text-[12px] text-slate-200 font-mono text-right tabular-nums">
                                 {tx.shares > 0 ? fmtShares(tx.shares) : '—'}
                             </span>
 
                             {/* Type Badge */}
-                            <span className={`text-[10px] font-black px-1.5 py-0.5 rounded text-center font-jakarta ${cl.bg} ${cl.color}`}>
+                            <span className={`text-[12px] font-black px-1 py-px rounded text-center font-jakarta ${cl.bg} ${cl.color}`}>
                                 {cl.label}
                             </span>
 
@@ -409,10 +400,10 @@ export default function InsiderActivityPanel({ ticker, insider: propInsider }: P
 
             {/* Toggle: show all vs P/S only */}
             {data.transactions.length > displayTx.length && (
-                <div className="relative z-10 px-4 py-1.5 border-t border-white/5">
+                <div className="relative z-10 px-4 py-1 border-t border-white/5">
                     <button
                         onClick={() => setShowAllTx(!showAllTx)}
-                        className="text-[11px] text-amber-400/80 hover:text-amber-300 font-jakarta transition-colors"
+                        className="text-[12px] text-amber-400/80 hover:text-amber-300 font-jakarta transition-colors"
                     >
                         {showAllTx ? 'Show Buy/Sell only' : `Show all ${data.transactions.length} transactions (incl. Awards, Exercises)`}
                     </button>
@@ -420,13 +411,13 @@ export default function InsiderActivityPanel({ ticker, insider: propInsider }: P
             )}
 
             {/* ─── Footer ─── */}
-            <div className="relative z-10 px-4 py-2 border-t border-white/5 flex items-center justify-between flex-wrap gap-1">
-                <span className="text-[11px] text-slate-400 font-jakarta flex items-center gap-1.5">
+            <div className="relative z-10 px-4 py-1.5 border-t border-white/5 flex items-center justify-between flex-wrap gap-1">
+                <span className="text-[12px] text-slate-200 font-jakarta flex items-center gap-1.5">
                     Source: SEC Form 4
                     <span className="text-amber-400/60">·</span>
                     <span className="text-amber-400/80 font-bold" title="★ = Not a 10b5-1 pre-planned trade">★ = Voluntary (non-10b5-1)</span>
                 </span>
-                <span className="text-[11px] text-slate-400 font-jakarta">
+                <span className="text-[12px] text-slate-200 font-jakarta">
                     {data.transactions.length} filings
                 </span>
             </div>
