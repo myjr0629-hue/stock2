@@ -271,7 +271,7 @@ Output ONLY valid JSON (no markdown fences):
                 system: systemPrompt,
                 messages: [
                     { role: 'user', content: userPrompt },
-                    { role: 'assistant', content: '{' },  // Prefill to guarantee JSON object start
+                    // Note: Sonnet 4.6 does NOT support assistant prefill
                 ],
             }),
         });
@@ -282,8 +282,11 @@ Output ONLY valid JSON (no markdown fences):
         ]);
 
         const responseBody = JSON.parse(new TextDecoder().decode(result.body));
-        const rawText = '{' + (responseBody.content?.[0]?.text || '').replace(/```json/g, '').replace(/```/g, '').trim();
-        if (!rawText || rawText === '{') {
+        let rawText = (responseBody.content?.[0]?.text || '').replace(/```json/g, '').replace(/```/g, '').trim();
+        // Extract JSON object from response (may have preamble text)
+        const jsonStart = rawText.indexOf('{');
+        if (jsonStart > 0) rawText = rawText.slice(jsonStart);
+        if (!rawText || !rawText.startsWith('{')) {
             return NextResponse.json({ error: 'Claude returned empty response' }, { status: 500 });
         }
 

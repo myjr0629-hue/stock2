@@ -114,7 +114,7 @@ export interface CallBedrockResult {
 
 /**
  * Call Bedrock Claude with automatic retry, concurrency control, and fallback.
- * Returns the raw text response (with JSON prefill '{' prepended if jsonPrefill=true).
+ * Returns the raw text response. Note: Sonnet 4.6+ does NOT support assistant prefill.
  */
 export async function callBedrock(options: CallBedrockOptions): Promise<CallBedrockResult> {
     const {
@@ -125,7 +125,7 @@ export async function callBedrock(options: CallBedrockOptions): Promise<CallBedr
         temperature = 0.3,
         timeoutMs = 55000,
         fallbackModel = MODELS.HAIKU_35,
-        jsonPrefill = true,
+        jsonPrefill = false,
         maxRetries = 3,
         label = 'Bedrock',
     } = options;
@@ -188,7 +188,9 @@ async function callWithRetry(
             const messages: any[] = [
                 { role: 'user', content: userPrompt },
             ];
-            if (jsonPrefill) {
+            // Sonnet 4.6+ does NOT support assistant prefill — auto-detect and skip
+            const canPrefill = jsonPrefill && !modelId.includes('sonnet-4-6');
+            if (canPrefill) {
                 messages.push({ role: 'assistant', content: '{' });
             }
             
@@ -216,7 +218,7 @@ async function callWithRetry(
             let text = responseBody.content?.[0]?.text || '';
             text = text.replace(/```json/g, '').replace(/```/g, '').trim();
             
-            if (jsonPrefill) {
+            if (canPrefill) {
                 text = '{' + text;
             }
             
