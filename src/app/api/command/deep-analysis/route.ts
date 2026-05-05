@@ -343,8 +343,24 @@ All text fields use { "ko": "...", "en": "...", "ja": "..." } trilingual structu
         try {
             analysis = JSON.parse(rawText);
         } catch (parseErr: any) {
-            console.error(`[DeepAnalysis] JSON parse failed for ${ticker}:`, parseErr.message, '\nRaw (first 500):', rawText.slice(0, 500));
-            return NextResponse.json({ error: parseErr.message }, { status: 500 });
+            // Haiku sometimes appends text after JSON — try to extract valid JSON object
+            try {
+                let depth = 0;
+                let endIdx = -1;
+                for (let i = 0; i < rawText.length; i++) {
+                    if (rawText[i] === '{') depth++;
+                    else if (rawText[i] === '}') { depth--; if (depth === 0) { endIdx = i; break; } }
+                }
+                if (endIdx > 0) {
+                    analysis = JSON.parse(rawText.slice(0, endIdx + 1));
+                    console.log(`[DeepAnalysis] JSON recovered by truncation at position ${endIdx + 1}`);
+                } else {
+                    throw parseErr;
+                }
+            } catch (e2: any) {
+                console.error(`[DeepAnalysis] JSON parse failed for ${ticker}:`, parseErr.message, '\nRaw (first 500):', rawText.slice(0, 500));
+                return NextResponse.json({ error: parseErr.message }, { status: 500 });
+            }
         }
         const elapsed = Date.now() - startTime;
 

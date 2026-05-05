@@ -180,12 +180,28 @@ All text fields use { "ko": "...", "en": "...", "ja": "..." } trilingual structu
             label: 'FlowAI',
         });
 
-        // Robust JSON parsing — handle markdown fences
+        // Robust JSON parsing — handle markdown fences + trailing text
         let rawText = bedrockResult.text.trim();
         rawText = rawText.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '');
         const jsonStart = rawText.indexOf('{');
         if (jsonStart > 0) rawText = rawText.slice(jsonStart);
-        const analysis = JSON.parse(rawText);
+        
+        let analysis;
+        try {
+            analysis = JSON.parse(rawText);
+        } catch {
+            // Haiku sometimes appends text after JSON — extract valid JSON
+            let depth = 0, endIdx = -1;
+            for (let i = 0; i < rawText.length; i++) {
+                if (rawText[i] === '{') depth++;
+                else if (rawText[i] === '}') { depth--; if (depth === 0) { endIdx = i; break; } }
+            }
+            if (endIdx > 0) {
+                analysis = JSON.parse(rawText.slice(0, endIdx + 1));
+            } else {
+                throw new Error('Failed to parse AI response as JSON');
+            }
+        }
         const elapsed = Date.now() - startTime;
 
         // --- Save to Redis (language-agnostic) ---
