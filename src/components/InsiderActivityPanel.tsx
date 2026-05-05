@@ -40,6 +40,12 @@ interface InsiderTransaction {
     filingUrl: string;
 }
 
+/** Grouped transaction row (same date + insider + type) */
+interface GroupedTransaction extends InsiderTransaction {
+    _groupCount: number;
+    _avgPrice: number;
+}
+
 interface InsiderSummary {
     net30d: number;
     buyCount: number;
@@ -222,10 +228,34 @@ export default function InsiderActivityPanel({ ticker, insider: propInsider }: P
         }
     }, [fetchInsider, propInsider]);
 
-    const displayTx = useMemo(() => {
+    const displayTx = useMemo((): GroupedTransaction[] => {
         if (!data?.transactions) return [];
-        if (showAllTx) return data.transactions;
-        return data.transactions.filter(t => t.code === 'P' || t.code === 'S' || t.value > 0);
+        const filtered = showAllTx
+            ? data.transactions
+            : data.transactions.filter(t => t.code === 'P' || t.code === 'S' || t.value > 0);
+
+        // Group by (date + name + code): same day, same insider, same type → merge
+        const groupMap = new Map<string, GroupedTransaction>();
+        for (const tx of filtered) {
+            const dateKey = new Date(tx.date).toISOString().split('T')[0];
+            const key = `${dateKey}|${tx.name}|${tx.code}`;
+            const existing = groupMap.get(key);
+            if (existing) {
+                existing.shares += tx.shares;
+                existing.value += tx.value;
+                existing._groupCount += 1;
+                existing._avgPrice = existing.shares > 0 ? existing.value / existing.shares : 0;
+                // Keep the latest filing URL and the latest sharesAfter
+                if (!existing.filingUrl && tx.filingUrl) existing.filingUrl = tx.filingUrl;
+            } else {
+                groupMap.set(key, {
+                    ...tx,
+                    _groupCount: 1,
+                    _avgPrice: tx.shares > 0 ? tx.value / tx.shares : 0,
+                });
+            }
+        }
+        return Array.from(groupMap.values());
     }, [data, showAllTx]);
 
     // ─── Loading ───────────────────────────────────────────────────
@@ -327,12 +357,13 @@ export default function InsiderActivityPanel({ ticker, insider: propInsider }: P
                 style={{ maxHeight: `${SCROLL_HEIGHT}px` }}
             >
                 {/* Table Header — 12px, slate-200, bold */}
-                <div className="sticky top-0 z-20 bg-slate-900/95 backdrop-blur-sm border-b border-white/5 px-4 py-1 grid grid-cols-[55px_1fr_70px_50px_80px_20px] gap-1.5 items-center">
+                <div className="sticky top-0 z-20 bg-slate-900/95 backdrop-blur-sm border-b border-white/5 px-4 py-1 grid grid-cols-[50px_1fr_68px_46px_68px_62px_20px] gap-1 items-center">
                     <span className="text-[12px] text-slate-200 font-jakarta font-bold">DATE</span>
                     <span className="text-[12px] text-slate-200 font-jakarta font-bold">INSIDER</span>
                     <span className="text-[12px] text-slate-200 font-jakarta font-bold text-right">SHARES</span>
                     <span className="text-[12px] text-slate-200 font-jakarta font-bold text-center">TYPE</span>
                     <span className="text-[12px] text-slate-200 font-jakarta font-bold text-right">VALUE</span>
+                    <span className="text-[12px] text-slate-200 font-jakarta font-bold text-right">AVG</span>
                     <span className="text-[12px] text-slate-200 font-jakarta font-bold text-center" title="SEC Filing">
                         <svg width="10" height="10" viewBox="0 0 12 12" fill="currentColor" className="inline">
                             <path d="M4.5 1H10v8H4.5V1zm1 1v6H9V2H5.5zM2 3h2v1H3v5h4v-1h1v2H2V3z" />
@@ -345,11 +376,12 @@ export default function InsiderActivityPanel({ ticker, insider: propInsider }: P
                     const cl = codeLabel(tx.code);
                     const dateStr = new Date(tx.date).toLocaleDateString('en-US', { month: '2-digit', day: '2-digit' });
                     const nameDisplay = compactName(tx.name);
+                    const avgPrice = tx._avgPrice > 0 ? `$${tx._avgPrice.toFixed(2)}` : '—';
                     
                     return (
                         <div
-                            key={`${tx.date}-${tx.name}-${idx}`}
-                            className={`px-4 py-0.5 grid grid-cols-[55px_1fr_70px_50px_80px_20px] gap-1.5 items-center border-b border-white/[0.03] hover:bg-white/[0.02] transition-colors ${
+                            key={`${tx.date}-${tx.name}-${tx.code}-${idx}`}
+                            className={`px-4 py-0.5 grid grid-cols-[50px_1fr_68px_46px_68px_62px_20px] gap-1 items-center border-b border-white/[0.03] hover:bg-white/[0.02] transition-colors ${
                                 tx.code === 'P' ? 'bg-emerald-500/[0.03]' : tx.code === 'S' && !tx.is10b5 ? 'bg-rose-500/[0.03]' : ''
                             }`}
                             style={{ minHeight: `${ROW_HEIGHT}px` }}
@@ -364,6 +396,9 @@ export default function InsiderActivityPanel({ ticker, insider: propInsider }: P
                                 <span className="text-slate-200/70">{tx.title}</span>
                                 {!tx.is10b5 && (tx.code === 'P' || tx.code === 'S') && (
                                     <span className="text-amber-400 font-bold ml-0.5" title="Voluntary (non-10b5-1)">★</span>
+                                )}
+                                {tx._groupCount > 1 && (
+                                    <span className="ml-1 text-[10px] font-bold text-amber-400/80 bg-amber-500/15 px-1 rounded" title={`${tx._groupCount} transactions merged`}>×{tx._groupCount}</span>
                                 )}
                             </span>
 
@@ -382,6 +417,11 @@ export default function InsiderActivityPanel({ ticker, insider: propInsider }: P
                                 tx.code === 'P' ? 'text-emerald-400' : tx.code === 'S' ? 'text-rose-400' : 'text-slate-200'
                             }`}>
                                 {tx.value > 0 ? fmtDollar(tx.value) : '—'}
+                            </span>
+
+                            {/* Avg Price — 12px slate-300 */}
+                            <span className="text-[12px] text-slate-300 font-mono text-right tabular-nums">
+                                {avgPrice}
                             </span>
 
                             {/* SEC Link */}
