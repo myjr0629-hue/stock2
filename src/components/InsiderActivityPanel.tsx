@@ -357,7 +357,7 @@ export default function InsiderActivityPanel({ ticker, insider: propInsider }: P
                 style={{ maxHeight: `${SCROLL_HEIGHT}px` }}
             >
                 {/* Table Header — 12px, slate-200, bold */}
-                <div className="sticky top-0 z-20 bg-slate-900/95 backdrop-blur-sm border-b border-white/5 px-4 py-1 grid grid-cols-[50px_1fr_68px_46px_68px_62px_20px] gap-1 items-center">
+                <div className="sticky top-0 z-20 bg-slate-900/95 backdrop-blur-sm border-b border-white/5 px-4 py-1 grid grid-cols-[50px_minmax(100px,1fr)_80px_54px_82px_78px_22px] gap-1 items-center">
                     <span className="text-[12px] text-slate-200 font-jakarta font-bold">DATE</span>
                     <span className="text-[12px] text-slate-200 font-jakarta font-bold">INSIDER</span>
                     <span className="text-[12px] text-slate-200 font-jakarta font-bold text-right">SHARES</span>
@@ -381,7 +381,7 @@ export default function InsiderActivityPanel({ ticker, insider: propInsider }: P
                     return (
                         <div
                             key={`${tx.date}-${tx.name}-${tx.code}-${idx}`}
-                            className={`px-4 py-0.5 grid grid-cols-[50px_1fr_68px_46px_68px_62px_20px] gap-1 items-center border-b border-white/[0.03] hover:bg-white/[0.02] transition-colors ${
+                            className={`px-4 py-0.5 grid grid-cols-[50px_minmax(100px,1fr)_80px_54px_82px_78px_22px] gap-1 items-center border-b border-white/[0.03] hover:bg-white/[0.02] transition-colors ${
                                 tx.code === 'P' ? 'bg-emerald-500/[0.03]' : tx.code === 'S' && !tx.is10b5 ? 'bg-rose-500/[0.03]' : ''
                             }`}
                             style={{ minHeight: `${ROW_HEIGHT}px` }}
