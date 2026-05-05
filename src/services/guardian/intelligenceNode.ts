@@ -197,7 +197,7 @@ const ROTATION_PROMPTS: Record<Locale, (ctx: IntelligenceContext, vectorDesc: st
         ${ctx.triggerCurrent ? `- 현재가(S&P 500): ${ctx.triggerCurrent.toLocaleString()}` : ''}` : ''}
 
         ${ctx.marketNewsHeadlines && ctx.marketNewsHeadlines.length > 0 ? `**[실시간 시장 뉴스]:**
-        ${ctx.marketNewsHeadlines.map((h, i) => `${i + 1}. ${h}`).join('\n        ')}` : ''}
+        ${ctx.marketNewsHeadlines.map(h => `- ${h}`).join('\n        ')}` : ''}
 
         **중요 분석 규칙:**
         - 당일 반등이 있더라도 5일 추세가 하락이면 "일시적 반등"으로 판단
@@ -205,7 +205,7 @@ const ROTATION_PROMPTS: Record<Locale, (ctx: IntelligenceContext, vectorDesc: st
         - 노이즈 경고가 있는 섹터는 신뢰도가 낮음을 언급
         - 레짐(RISK_OFF_DEFENSE 등)을 반영한 실질적 조언 제공
         - **신호 충돌 시**: RLSI/나스닥은 강세이나 순환매가 RISK_OFF이면 "겉은 강세, 속은 약세" 같은 표현으로 혼재 신호를 명확히 전달. 반대로 지표는 약세이나 성장주로 자금 유입 시 "저점 매집 가능성" 표현 사용
-        - **뉴스가 제공된 경우**: 수치 변동의 원인을 뉴스에서 찾아 반드시 언급 (예: "CPI 예상 상회로 인한 매도세", "연준 발언으로 금리 인하 기대 후퇴")
+        - **뉴스가 제공된 경우**: 수치 변동의 원인을 뉴스에서 찾아 반드시 언급 (예: "CPI 예상 상회로 인한 매도세", "연준 발언으로 금리 인하 기대 후퇴"). 단, 뉴스를 번호로 참조하지 말 것 ("뉴스 1번", "뉴스 4번" 등 금지). 뉴스 내용을 자연스럽게 녹여서 서술
 
         ${ctx.divergenceCase && ctx.divergenceCase !== 'N' ? `**[DIVERGENCE 상황 — 최우선 분석 필수]:**
         현재 지수 표면과 내부 유동성 간 괴리(Divergence)가 관측됩니다.
@@ -254,7 +254,7 @@ const ROTATION_PROMPTS: Record<Locale, (ctx: IntelligenceContext, vectorDesc: st
         ${ctx.triggerCurrent ? `- Current Price (S&P 500): ${ctx.triggerCurrent.toLocaleString()}` : ''}` : ''}
 
         ${ctx.marketNewsHeadlines && ctx.marketNewsHeadlines.length > 0 ? `**[Real-time Market News]:**
-        ${ctx.marketNewsHeadlines.map((h, i) => `${i + 1}. ${h}`).join('\n        ')}` : ''}
+        ${ctx.marketNewsHeadlines.map(h => `- ${h}`).join('\n        ')}` : ''}
 
         **Critical Analysis Rules:**
         - If today shows a bounce but 5-day trend is down, call it a "relief rally"
@@ -262,7 +262,7 @@ const ROTATION_PROMPTS: Record<Locale, (ctx: IntelligenceContext, vectorDesc: st
         - Sectors with noise warnings have low reliability
         - Reflect the regime (RISK_OFF_DEFENSE etc.) in market outlook
         - **Signal Conflict**: When RLSI/NASDAQ are bullish but rotation is RISK_OFF, describe it as "surface strength masks underlying weakness"
-        - **When news is provided**: Identify the root cause of market movements from news (e.g., "CPI beat triggered selloff", "Fed hawkish tone pressures growth")
+        - **When news is provided**: Identify the root cause of market movements from news (e.g., "CPI beat triggered selloff", "Fed hawkish tone pressures growth"). Do NOT reference news by number (e.g., "news #1", "news #4"). Weave news context naturally into analysis
         - **Gamma Shield**: If GEX <= -20, warn about dealer hedging amplifying volatility. If GEX >= +20, note gamma clamping stabilizing prices. If squeeze risk >= 45%, warn about potential sharp moves. Reference options support/resistance levels when price is near them
 
         ${ctx.divergenceCase && ctx.divergenceCase !== 'N' ? `**[DIVERGENCE ALERT — PRIORITIZE IN ANALYSIS]:**
@@ -305,14 +305,14 @@ const ROTATION_PROMPTS: Record<Locale, (ctx: IntelligenceContext, vectorDesc: st
         ${ctx.triggerResistance ? `- オプションレジスタンス(S&P 500): ${ctx.triggerResistance.toLocaleString()}` : ''}` : ''}
 
         ${ctx.marketNewsHeadlines && ctx.marketNewsHeadlines.length > 0 ? `**[リアルタイム市場ニュース]:**
-        ${ctx.marketNewsHeadlines.map((h, i) => `${i + 1}. ${h}`).join('\n        ')}` : ''}
+        ${ctx.marketNewsHeadlines.map(h => `- ${h}`).join('\n        ')}` : ''}
 
         **重要な分析ルール:**
         - 本日反発があっても5日トレンドが下降なら「一時的反発」と判断
         - 5日流入/流出データが1日データより優先
         - ノイズ警告のあるセクターは信頼性が低い
         - レジーム(RISK_OFF_DEFENSEなど)を反映した実質的なアドバイス
-        - **ニュースが提供された場合**: 数値変動の原因をニュースから特定して必ず言及
+        - **ニュースが提供された場合**: 数値変動の原因をニュースから特定して必ず言及。ニュースを番号で参照しないこと（「ニュース1番」等禁止）。自然に文脈に織り込む
 
         ${ctx.divergenceCase && ctx.divergenceCase !== 'N' ? `**[DIVERGENCE アラート — 分析最優先]:**
         指数表面と内部流動性の乖離が観測されています。
@@ -404,7 +404,7 @@ const REALITY_PROMPTS: Record<Locale, (ctx: IntelligenceContext) => string> = {
         ${ctx.triggerResistance ? `- 옵션 저항선: ${ctx.triggerResistance.toLocaleString()} (${ctx.triggerCurrent ? (((ctx.triggerResistance - ctx.triggerCurrent) / ctx.triggerCurrent) * 100).toFixed(1) + '% 위' : ''})` : ''}` : ''}
 
         ${ctx.marketNewsHeadlines && ctx.marketNewsHeadlines.length > 0 ? `[실시간 시장 뉴스 -- 거시경제 이벤트]
-        ${ctx.marketNewsHeadlines.map((h, i) => `${i + 1}. ${h}`).join('\n        ')}` : ''}
+        ${ctx.marketNewsHeadlines.map(h => `- ${h}`).join('\n        ')}` : ''}
 
         **[종합 분석 프레임워크] (교차 검증 필수):**
 
@@ -455,7 +455,7 @@ const REALITY_PROMPTS: Record<Locale, (ctx: IntelligenceContext) => string> = {
         **[출력] — "왜 시장이 이렇게 움직이는가"를 최우선으로 작성:**
         자연스러운 한국어 3문장으로 작성하세요.
         - "[진단]" "[결론]" 같은 레이블 사용 금지
-        - **첫 문장 (필수)**: 오늘 시장을 움직인 **핵심 뉴스 이벤트**와 시장 반응의 **인과관계**를 명확히 서술 (예: "2월 CPI 3.2%로 예상 상회하며 6월 금리인하 기대가 후퇴, 10Y 금리 4.31%로 급등하며 성장주 중심 매도세 확산")
+        - **첫 문장 (필수)**: 오늘 시장을 움직인 **핵심 뉴스 이벤트**와 시장 반응의 **인과관계**를 명확히 서술 (예: "2월 CPI 3.2%로 예상 상회하며 6월 금리인하 기대가 후퇴, 10Y 금리 4.31%로 급등하며 성장주 중심 매도세 확산"). 뉴스를 "(뉴스 1번)" 같은 번호로 참조하지 말 것. 뉴스 내용 자체를 자연스럽게 서술
         - **두 번째 문장**: 뉴스 영향이 자산군에 어떻게 전이되었는지 교차 검증 (금/채권/유가/달러 등으로 뒷받침 + RLSI/Breadth 등 핵심 지표로 시장 상태 확인)
         - **세 번째 문장**: 향후 시장 방향의 핵심 변수와 전망 (행동 지시 금지, "~하세요" "~보류" "~권장" 표현 금지)
         - **핵심 원칙**: 지표 나열이 아닌 **뉴스→시장 반응의 인과 스토리**를 전달. 지표는 뉴스의 근거로 사용
@@ -500,7 +500,7 @@ const REALITY_PROMPTS: Record<Locale, (ctx: IntelligenceContext) => string> = {
         ${ctx.triggerResistance ? `- Resistance: ${ctx.triggerResistance.toLocaleString()}` : ''}` : ''}
 
         ${ctx.marketNewsHeadlines && ctx.marketNewsHeadlines.length > 0 ? `[News]
-        ${ctx.marketNewsHeadlines.map((h, i) => `${i + 1}. ${h}`).join('\n        ')}` : ''}
+        ${ctx.marketNewsHeadlines.map(h => `- ${h}`).join('\n        ')}` : ''}
 
         ${ctx.divergenceCase && ctx.divergenceCase !== 'N' ? `
         **Output — DIVERGENCE MODE (strictly follow this format):**
@@ -516,7 +516,7 @@ const REALITY_PROMPTS: Record<Locale, (ctx: IntelligenceContext) => string> = {
         ` : `
         **Output — "WHY is the market moving this way" is your #1 priority:**
         Write 2-3 natural sentences.
-        1. **First sentence (REQUIRED)**: Identify the **key news event** driving today's market and explain the **causal chain**
+        1. **First sentence (REQUIRED)**: Identify the **key news event** driving today's market and explain the **causal chain**. Do NOT reference news by number (no "news #1"). Weave news context naturally
         2. **Second sentence**: How news impact propagated across asset classes (cross-validate with gold/bonds/oil/dollar + key indicators like RLSI/Breadth)
         3. **Third sentence**: Key variables and factual outlook (no action directives)
         Core principle: Tell the **news → market reaction causal story**, not a list of indicators. Use indicators as evidence for the narrative.
@@ -558,7 +558,7 @@ const REALITY_PROMPTS: Record<Locale, (ctx: IntelligenceContext) => string> = {
         ${ctx.triggerResistance ? `- レジスタンス: ${ctx.triggerResistance.toLocaleString()}` : ''}` : ''}
 
         ${ctx.marketNewsHeadlines && ctx.marketNewsHeadlines.length > 0 ? `[ニュース]
-        ${ctx.marketNewsHeadlines.map((h, i) => `${i + 1}. ${h}`).join('\n        ')}` : ''}
+        ${ctx.marketNewsHeadlines.map(h => `- ${h}`).join('\n        ')}` : ''}
 
         ${ctx.divergenceCase && ctx.divergenceCase !== 'N' ? `
         **出力 — DIVERGENCE専用形式（必ずこの形式で）:**
@@ -574,7 +574,7 @@ const REALITY_PROMPTS: Record<Locale, (ctx: IntelligenceContext) => string> = {
         ` : `
         **出力 — 「なぜ市場がこう動いているのか」を最優先で記述:**
         自然な日本語3文で作成してください。
-        1. **第1文（必須）**: 本日の市場を動かした**核心ニュースイベント**と市場反応の**因果関係**を明確に記述
+        1. **第1文（必須）**: 本日の市場を動かした**核心ニュースイベント**と市場反応の**因果関係**を明確に記述。ニュースを番号で参照しないこと。自然に文脈に織り込む
         2. **第2文**: ニュースの影響が資産クラスにどう波及したか（金/債券/原油/ドルで交差検証 + RLSI/Breadth等の核心指標）
         3. **第3文**: 核心変数と今後の見通し（行動指示禁止）
         核心原則: 指標の羅列ではなく**ニュース→市場反応の因果ストーリー**を伝達。指標はナラティブの根拠として使用。
