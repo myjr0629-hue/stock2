@@ -5,7 +5,7 @@
  * - Singleton BedrockRuntimeClient
  * - Exponential backoff retry (3 attempts on ThrottlingException)
  * - Concurrency limiter (max 3 simultaneous requests)
- * - Automatic Haiku 3.5 fallback when Sonnet 4 is throttled
+ * - Automatic Haiku 4.5 fallback when Sonnet 4.6 is throttled
  * 
  * All AI routes should use callBedrock() instead of direct InvokeModelCommand.
  */
@@ -14,8 +14,8 @@ import { BedrockRuntimeClient, InvokeModelCommand } from '@aws-sdk/client-bedroc
 
 // --- Model Constants ---
 export const MODELS = {
-    SONNET_4: 'us.anthropic.claude-sonnet-4-20250514-v1:0',
-    HAIKU_35: 'us.anthropic.claude-3-5-haiku-20241022-v1:0',
+    SONNET_4: 'anthropic.claude-sonnet-4-6-v1:0',
+    HAIKU_35: 'anthropic.claude-haiku-4-5-20251001-v1:0',
 } as const;
 
 // --- Singleton Client ---
@@ -142,7 +142,7 @@ export async function callBedrock(options: CallBedrockOptions): Promise<CallBedr
     if (primaryResult) {
         return {
             text: primaryResult,
-            model: modelId.includes('sonnet') ? 'claude-sonnet-4' : modelId.includes('haiku') ? 'claude-haiku-3.5' : modelId,
+            model: modelId.includes('sonnet') ? 'claude-sonnet-4.6' : modelId.includes('haiku') ? 'claude-haiku-4.5' : modelId,
             usedFallback: false,
             elapsedMs: Date.now() - startTime,
         };
@@ -150,14 +150,14 @@ export async function callBedrock(options: CallBedrockOptions): Promise<CallBedr
 
     // --- Fallback model ---
     if (fallbackModel && fallbackModel !== modelId) {
-        console.warn(`[${label}] Primary model exhausted retries, falling back to ${fallbackModel.includes('haiku') ? 'Haiku 3.5' : fallbackModel}`);
+        console.warn(`[${label}] Primary model exhausted retries, falling back to ${fallbackModel.includes('haiku') ? 'Haiku 4.5' : fallbackModel}`);
         
         const fallbackResult = await callWithRetry(fallbackModel, system, userPrompt, maxTokens, temperature, timeoutMs, jsonPrefill, 2, `${label}/Fallback`);
         
         if (fallbackResult) {
             return {
                 text: fallbackResult,
-                model: fallbackModel.includes('haiku') ? 'claude-haiku-3.5' : fallbackModel,
+                model: fallbackModel.includes('haiku') ? 'claude-haiku-4.5' : fallbackModel,
                 usedFallback: true,
                 elapsedMs: Date.now() - startTime,
             };
@@ -225,7 +225,7 @@ async function callWithRetry(
                 continue;
             }
             
-            console.log(`[${label}] ✅ Success on attempt ${attempt} (model: ${modelId.includes('sonnet') ? 'Sonnet4' : modelId.includes('haiku') ? 'Haiku3.5' : modelId})`);
+            console.log(`[${label}] ✅ Success on attempt ${attempt} (model: ${modelId.includes('sonnet') ? 'Sonnet4.6' : modelId.includes('haiku') ? 'Haiku4.5' : modelId})`);
             return text;
             
         } catch (error: any) {

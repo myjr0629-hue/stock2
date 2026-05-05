@@ -763,8 +763,8 @@ export class IntelligenceNode {
         if (!process.env.AWS_ACCESS_KEY_ID) return "SETUP REQUIRED: ADD AWS_ACCESS_KEY_ID";
 
         const prompt = REALITY_PROMPTS[locale](ctx);
-        // [V11.0] Reality Insight uses Claude Sonnet 4 for deeper reasoning
-        const result = await IntelligenceNode.callClaude(prompt, `REALITY_${locale}`, MODELS.SONNET_4);
+        // [V11.1] Reality Insight downgraded to Haiku 4.5 — 350-char output, sufficient quality, 1/3 cost
+        const result = await IntelligenceNode.callClaude(prompt, `REALITY_${locale}`, MODELS.HAIKU_35);
 
         if (result && !result.includes("failed")) {
             _cachedReality[locale] = result;
