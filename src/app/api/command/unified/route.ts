@@ -73,16 +73,12 @@ async function injectAlphaBypass(data: any, ticker: string) {
             // [FIX 2026-05-05] Institutional: inject from cache:analysis (0ms, in-memory)
             // EC2 block trade data arrives via background gap-fill (not in critical path)
             if (needsInst && ac.darkPoolPct != null && ac.darkPoolPct > 0) {
-                const prevBlock = data.institutional?.blockTrade?.count || 0;
                 data.institutional = {
                     ...(data.institutional || {}),
                     darkPool: { percent: ac.darkPoolPct },
                     blockTrade: data.institutional?.blockTrade || { count: 0, volume: 0 },
                     shortVolume: data.institutional?.shortVolume || (ac.shortVolPct != null ? { percent: ac.shortVolPct } : null),
                 };
-                console.log(`[DEBUG-INST] injectAlphaBypass SET institutional for ${ticker}: needsInst=${needsInst}, prevBlock=${prevBlock}, newBlock=${data.institutional.blockTrade.count}, dp=${data.institutional.darkPool.percent}`);
-            } else {
-                console.log(`[DEBUG-INST] injectAlphaBypass SKIP for ${ticker}: needsInst=${needsInst}, hasInst=${!!data.institutional}, block=${data.institutional?.blockTrade?.count}, dp=${data.institutional?.darkPool?.percent}`);
             }
         }
 
@@ -578,7 +574,6 @@ export async function GET(request: NextRequest) {
             }
             await enrichExpiration(finalData);
             await injectAlphaBypass(finalData, ticker);
-            console.log(`[DEBUG-INST] Layer1 RESPONSE ${ticker}: hasInst=${!!finalData.institutional}, block=${finalData.institutional?.blockTrade?.count}, dp=${finalData.institutional?.darkPool?.percent}`);
             return jsonResponse({ ...finalData, overview: overview || null, _source: 'memory-lru', _ageMs: ageMs });
         }
 
@@ -660,7 +655,6 @@ export async function GET(request: NextRequest) {
             memorySet(memKey, cachedData);
 
             // ═══ IMMEDIATE RETURN — user sees data in ≤5ms ═══
-            console.log(`[DEBUG-INST] Layer2 RESPONSE ${ticker}: hasInst=${!!cachedData.institutional}, block=${cachedData.institutional?.blockTrade?.count}, dp=${cachedData.institutional?.darkPool?.percent}, _src=${cachedData.institutional?._source}`);
             const immediateResponse = jsonResponse({ ...cachedData, overview: resolvedOverview || null, _source: 'cache', _ageMs: ageMs });
 
             // ═══ BACKGROUND ENRICHMENT — runs AFTER response is sent ═══
