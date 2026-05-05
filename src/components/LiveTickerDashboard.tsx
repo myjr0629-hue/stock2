@@ -284,7 +284,6 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
     const [activeInsightTab, setActiveInsightTab] = useState<'gex' | 'levels' | 'ivskew' | '13f' | 'insider'>('gex');
     // [INSIDER] Insider trading data (SEC Form 4) — fetched independently, zero coupling
     const [insiderData, setInsiderData] = useState<{ net30d: number; buyCount: number; sellCount: number; sentiment: string; latest: { name: string; title: string; code: string; value: number; date: string; is10b5: boolean } | null } | null>(null);
-    const insiderFetchedRef = useRef(false);
     const [relatedData, setRelatedData] = useState<{ count: number; topRelated: { ticker: string; price: number; change: number; logo: string | null; prevClose?: number }[] } | null>(() => {
         if (!initialUnifiedData?.related) return null;
         return { count: initialUnifiedData.related.count || 0, topRelated: initialUnifiedData.related.topRelated || [] };
@@ -310,14 +309,18 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
         return () => { isMounted = false; };
     }, [ticker]);
 
-    // [INSIDER] Fetch insider data once per ticker (SEC Form 4) — completely independent
+    // [INSIDER] Fetch insider data on every ticker change (SEC Form 4)
     useEffect(() => {
-        if (!ticker || insiderFetchedRef.current) return;
-        insiderFetchedRef.current = true;
+        if (!ticker) return;
+        // [FIX 2026-05-05] Reset on ticker change — previous code used insiderFetchedRef
+        // which was set to true once and never reset, causing stale data on ticker navigation
+        setInsiderData(null);
+        let isMounted = true;
         fetch(`/api/command/insider?ticker=${encodeURIComponent(ticker)}`)
             .then(r => r.ok ? r.json() : null)
-            .then(json => { if (json?.insider) setInsiderData(json.insider); })
+            .then(json => { if (isMounted && json?.insider) setInsiderData(json.insider); })
             .catch(() => {});
+        return () => { isMounted = false; };
     }, [ticker]);
 
     // [WS] Subscribe to RELATED tickers for real-time price updates

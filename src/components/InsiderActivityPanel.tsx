@@ -209,12 +209,16 @@ export default function InsiderActivityPanel({ ticker, insider: propInsider }: P
         }
     }, [ticker]);
 
+    // [FIX 2026-05-05] When propInsider becomes null (ticker change), self-fetch.
+    // When propInsider has data, use it directly (parent already fetched).
     useEffect(() => {
-        if (!propInsider) {
-            fetchInsider();
-        } else {
+        if (propInsider) {
             setData(propInsider);
             setLoading(false);
+        } else {
+            // propInsider is null → ticker changed, parent is fetching, self-fetch as backup
+            setData(null);
+            fetchInsider();
         }
     }, [fetchInsider, propInsider]);
 
