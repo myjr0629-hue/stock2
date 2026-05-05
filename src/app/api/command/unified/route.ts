@@ -197,14 +197,29 @@ function memorySet(key: string, data: any): void {
     memoryCache.set(key, { data, ts: Date.now() });
 }
 
+// [FIX 2026-05-05] Include pre-market (4:00-9:30 AM ET) and post-market (4:00-8:00 PM ET)
+// Previously only covered regular session (9:30-4:00 ET), causing pre/post market to use
+// 72-hour stale cache TTL → EC2 institutional data never refreshed during extended hours.
 function isMarketHoursNow(): boolean {
     const now = new Date();
     const utcMin = now.getUTCHours() * 60 + now.getUTCMinutes();
     const day = now.getUTCDay();
-    return day >= 1 && day <= 5 && utcMin >= 13 * 60 + 30 && utcMin <= 21 * 60;
+    // Weekday + 4:00 AM - 8:00 PM ET (8:00 - 24:00 UTC / 0:00 UTC)
+    // Pre-market: 08:00-13:30 UTC (4:00-9:30 AM ET)
+    // Regular:    13:30-20:00 UTC (9:30 AM-4:00 PM ET)
+    // Post-market: 20:00-00:00 UTC (4:00-8:00 PM ET)
+    return day >= 1 && day <= 5 && utcMin >= 8 * 60 && utcMin <= 24 * 60;
 }
 
-// Smart TTL: short during market, long during off-hours
+// Regular session only — used for aggressive refresh thresholds
+function isRegularSessionNow(): boolean {
+    const now = new Date();
+    const utcMin = now.getUTCHours() * 60 + now.getUTCMinutes();
+    const day = now.getUTCDay();
+    return day >= 1 && day <= 5 && utcMin >= 13 * 60 + 30 && utcMin <= 20 * 60;
+}
+
+// Smart TTL: short during market (incl. extended), long during off-hours
 function getSmartTTL(): number {
     return isMarketHoursNow() ? CACHE_TTL_MARKET : CACHE_TTL_OFFHOURS;
 }
