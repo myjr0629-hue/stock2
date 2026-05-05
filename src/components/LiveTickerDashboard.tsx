@@ -29,6 +29,7 @@ import { AIDeepAnalysis } from '@/components/AIDeepAnalysis';
 import { CardTooltip, COMMAND_TOOLTIPS } from '@/components/ui/CardTooltip';
 import IVSkewCurve from '@/components/IVSkewCurve';
 const Institutional13FPanel = dynamic(() => import('@/components/Institutional13FPanel'), { ssr: false, loading: () => <div className="min-h-[300px] flex items-center justify-center"><div className="w-8 h-8 border-2 border-indigo-500/30 border-t-indigo-400 rounded-full animate-spin" /></div> });
+const InsiderActivityPanel = dynamic(() => import('@/components/InsiderActivityPanel'), { ssr: false, loading: () => <div className="min-h-[300px] flex items-center justify-center"><div className="w-8 h-8 border-2 border-amber-500/30 border-t-amber-400 rounded-full animate-spin" /></div> });
 import DualGaugeHUD from '@/components/ui/DualGaugeHUD';
 import { useMobile } from '@/hooks/useMobile';
 import { MobileCommandHeader } from '@/components/mobile/MobileCommandHeader';
@@ -280,7 +281,10 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
     });
     const [conviction, setConviction] = useState<{ score: number; label: string; grade: string } | null>(null);
     // [UX] GEX Timeline ↔ Tech Levels ↔ IV SKEW toggle
-    const [activeInsightTab, setActiveInsightTab] = useState<'gex' | 'levels' | 'ivskew' | '13f'>('gex');
+    const [activeInsightTab, setActiveInsightTab] = useState<'gex' | 'levels' | 'ivskew' | '13f' | 'insider'>('gex');
+    // [INSIDER] Insider trading data (SEC Form 4) — fetched independently, zero coupling
+    const [insiderData, setInsiderData] = useState<{ net30d: number; buyCount: number; sellCount: number; sentiment: string; latest: { name: string; title: string; code: string; value: number; date: string; is10b5: boolean } | null } | null>(null);
+    const insiderFetchedRef = useRef(false);
     const [relatedData, setRelatedData] = useState<{ count: number; topRelated: { ticker: string; price: number; change: number; logo: string | null; prevClose?: number }[] } | null>(() => {
         if (!initialUnifiedData?.related) return null;
         return { count: initialUnifiedData.related.count || 0, topRelated: initialUnifiedData.related.topRelated || [] };
@@ -304,6 +308,16 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
             })
             .catch(() => {});
         return () => { isMounted = false; };
+    }, [ticker]);
+
+    // [INSIDER] Fetch insider data once per ticker (SEC Form 4) — completely independent
+    useEffect(() => {
+        if (!ticker || insiderFetchedRef.current) return;
+        insiderFetchedRef.current = true;
+        fetch(`/api/command/insider?ticker=${encodeURIComponent(ticker)}`)
+            .then(r => r.ok ? r.json() : null)
+            .then(json => { if (json?.insider) setInsiderData(json.insider); })
+            .catch(() => {});
     }, [ticker]);
 
     // [WS] Subscribe to RELATED tickers for real-time price updates
@@ -1394,6 +1408,28 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                     <div className="relative z-10 mt-0.5">
                                         <span className="text-[12px] text-slate-300 font-jakarta">DP·Block·Short Vol</span>
                                     </div>
+                                    {/* [INSIDER] 1-line teaser — amber theme, click navigates to INSIDER tab */}
+                                    {insiderData && (() => {
+                                        const ins = insiderData;
+                                        const hasRecent = ins.latest && (Date.now() - new Date(ins.latest.date).getTime()) < 48 * 60 * 60 * 1000;
+                                        const netColor = ins.net30d > 0 ? 'text-emerald-400' : ins.net30d < 0 ? 'text-rose-400' : 'text-slate-400';
+                                        const fmtVal = (n: number) => { const a = Math.abs(n); return a >= 1e6 ? `$${(n / 1e6).toFixed(1)}M` : a >= 1e3 ? `$${(n / 1e3).toFixed(0)}K` : `$${n}`; };
+                                        return (
+                                            <button
+                                                onClick={(e) => { e.stopPropagation(); setActiveInsightTab('insider'); }}
+                                                className={`relative z-10 w-full mt-1.5 pt-1.5 border-t border-amber-500/10 flex items-center gap-1.5 text-left group/insider hover:bg-amber-500/5 rounded-b-lg px-0.5 py-0.5 transition-all ${hasRecent ? 'animate-[pulse_3s_ease-in-out_infinite]' : ''}`}
+                                            >
+                                                <svg width="11" height="11" viewBox="0 0 16 16" className="text-amber-400 shrink-0" fill="currentColor"><circle cx="8" cy="4" r="3" /><path d="M2 14c0-3.3 2.7-6 6-6s6 2.7 6 6H2z" /></svg>
+                                                <span className="text-[11px] text-amber-400/90 font-jakarta font-bold truncate">
+                                                    {ins.latest ? `${ins.latest.title} ${ins.latest.code === 'P' ? 'Buy' : 'Sell'} ${fmtVal(ins.latest.value)}` : 'Insider'}
+                                                </span>
+                                                <span className={`text-[11px] font-mono font-bold ${netColor} ml-auto shrink-0`}>
+                                                    Net {ins.net30d > 0 ? '+' : ''}{fmtVal(ins.net30d)}
+                                                </span>
+                                                <svg width="8" height="8" viewBox="0 0 8 8" className="text-amber-400/50 shrink-0"><path d="M2 1l4 3-4 3" fill="currentColor" /></svg>
+                                            </button>
+                                        );
+                                    })()}
                                 </div>
                             );
                         })()}
@@ -1859,6 +1895,27 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                         <div className={`w-1.5 h-1.5 rounded-full ${activeInsightTab === '13f' ? 'bg-indigo-400' : 'bg-slate-500'}`} />
                                         <CardTooltip tooltip={COMMAND_TOOLTIPS.INST_13F.tooltip} badge={COMMAND_TOOLTIPS.INST_13F.badge}>13-F</CardTooltip>
                                     </button>
+                                    <button
+                                        onClick={() => setActiveInsightTab('insider')}
+                                        className={`shrink-0 px-3 py-1.5 rounded-lg text-[12px] font-black uppercase tracking-wider transition-all duration-200 font-jakarta flex items-center gap-1.5 ${
+                                            activeInsightTab === 'insider'
+                                                ? 'bg-amber-500/20 text-white border border-amber-500/40 shadow-[0_0_10px_rgba(245,158,11,0.2)]'
+                                                : 'bg-slate-800/40 text-slate-400 border border-slate-700/30 hover:text-amber-300 hover:border-amber-500/30'
+                                        }`}
+                                    >
+                                        <div className={`w-1.5 h-1.5 rounded-full ${
+                                            activeInsightTab === 'insider' ? 'bg-amber-400' :
+                                            (insiderData?.latest && (Date.now() - new Date(insiderData.latest.date).getTime()) < 48 * 60 * 60 * 1000)
+                                                ? 'bg-amber-400 animate-pulse shadow-[0_0_6px_rgba(245,158,11,0.8)]'
+                                                : 'bg-slate-500'
+                                        }`} />
+                                        <CardTooltip tooltip={COMMAND_TOOLTIPS.INSIDER_FORM4.tooltip} badge={COMMAND_TOOLTIPS.INSIDER_FORM4.badge}>Insider</CardTooltip>
+                                        {insiderData && (insiderData.buyCount + insiderData.sellCount) > 0 && (
+                                            <span className="text-[10px] bg-amber-500/30 text-amber-300 px-1.5 py-0.5 rounded-full font-mono leading-none">
+                                                {insiderData.buyCount + insiderData.sellCount}
+                                            </span>
+                                        )}
+                                    </button>
                                 </div>
 
                                 {/* Tab Content */}
@@ -1889,6 +1946,8 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                     </ProGate>
                                 ) : activeInsightTab === '13f' ? (
                                     <Institutional13FPanel ticker={ticker} />
+                                ) : activeInsightTab === 'insider' ? (
+                                    <InsiderActivityPanel ticker={ticker} insider={insiderData as any} />
                                 ) : null}
                             </div>
 

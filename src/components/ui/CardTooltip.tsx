@@ -413,6 +413,18 @@ export const COMMAND_TOOLTIPS = {
             ja: 'SEC機関保有開示',
         },
     },
+    INSIDER_FORM4: {
+        tooltip: {
+            ko: 'SEC Form 4 내부자 거래 — CEO, CFO, 이사 등 기업 내부자의 자사주 매수/매도 공시. ★ 표시는 10b5-1 사전계획 없는 자발적 거래로 정보성이 가장 높습니다.',
+            en: 'SEC Form 4 insider trades — buy/sell disclosures by corporate insiders (CEO, CFO, directors). ★ marks voluntary trades (non-10b5-1) with highest information value.',
+            ja: 'SEC Form 4インサイダー取引 — CEO・CFO・取締役等の自社株売買開示。★は10b5-1計画外の自発的取引で情報価値が最も高い。',
+        },
+        badge: {
+            ko: 'SEC 내부자 거래 공시',
+            en: 'SEC insider trading filings',
+            ja: 'SEC内部者取引開示',
+        },
+    },
 } as const;
 
 /**
