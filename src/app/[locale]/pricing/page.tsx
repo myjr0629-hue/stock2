@@ -231,6 +231,7 @@ export default function PricingPage() {
             rows: [
                 { label: t("matrix.priceChart"), free: "full", pro: "full", elite: "full" },
                 { label: t("matrix.inst13f"), free: "full", pro: "full", elite: "full" },
+                { label: t("matrix.insiderActivity"), free: "full", pro: "full", elite: "full" },
                 { label: t("matrix.hudPeek"), free: "limited", pro: "full", elite: "full", freeNote: t("matrix.peekOnly") },
                 { label: t("matrix.tacticalRange"), free: "lock", pro: "full", elite: "full", freeNote: t("matrix.blurred") },
                 { label: t("matrix.instRadar"), free: "lock", pro: "full", elite: "full", freeNote: t("matrix.blurred") },

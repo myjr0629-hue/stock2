@@ -2728,7 +2728,8 @@
       "realtime": "실시간",
       "futurePaid": "추후 별도 과금",
       "lifetimeFree": "평생 무료",
-      "inst13f": "13-F 기관 보유 현황"
+      "inst13f": "13-F 기관 보유 현황",
+      "insiderActivity": "내부자 거래 (SEC Form 4)"
     },
     "faqTitle": "자주 묻는 질문",
     "faq": {

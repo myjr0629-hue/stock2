@@ -2810,7 +2810,8 @@
       "realtime": "Real-time",
       "futurePaid": "Future paid add-on",
       "lifetimeFree": "Lifetime free",
-      "inst13f": "13-F Institutional Holdings"
+      "inst13f": "13-F Institutional Holdings",
+      "insiderActivity": "Insider Trading (SEC Form 4)"
     },
     "faqTitle": "Frequently Asked Questions",
     "faq": {
