@@ -5013,3 +5013,55 @@ Lambda 비용: ~6배 증가 (6 × 2048MB × 900s)
 - **일별 집계**: 30일 뷰에서 같은 날 여러 스냅샷 → 마지막 (종가 시점) 값으로 집계
 - **X축 보정**: 인덱스 기반(등간격) → 시간 비례 배치로 변경 (주말 갭 정확히 표현)
 
+---
+
+### ✅ Command Guide — SEC Form 4 Insider Trading Integration (2026-05-06, 커밋 b20ff265)
+
+> **목적**: Command 가이드 페이지에 SEC Form 4 내부자 거래 인텔리전스 통합 + UI 표준화 + AI 분석 엔진 4축 확장
+
+#### 작업 A: GEX Timeline Deep Dive 표준화
+- 10/11px 폰트 → 최소 12px, `text-slate-400` → `text-slate-300` 통일
+- 이모지 전량 교체: 📊→`<BarChart3/>`, 🎯→`<Target/>`, ⚡→`<Zap/>` 등
+
+#### 작업 B: 13-F Deep Dive 표준화
+- 동일 폰트/색상 표준 적용
+- 이모지 12종 → Lucide 아이콘 교체: 📋→`<FileText/>`, 📅→`<Calendar/>`, ⚠️→`<AlertTriangle/>`, 🔒→`<Lock/>` 등
+- JSON limitation.title에서 ⚠️ 이모지 제거 (KO/EN/JA 전 3개 언어)
+
+#### 작업 C: SEC Form 4 Insider Trading Deep Dive 신규 (6개 하위 섹션)
+| 섹션 | 내용 |
+|---|---|
+| A. Form 4 설명 | Section 16(a), 2영업일 공시 의무, 거래 코드(P/S/A/M), 10b5-1 구분 |
+| B. 학술적 근거 | Seyhun(1986, JFE), Lakonishok & Lee(2001, RFS) — 관찰형 인용 |
+| C. SIGNUM 분석 방법론 | 90일 수집, 4단계 Sentiment(BULLISH/CAUTIOUS/BEARISH/NEUTRAL) |
+| D. AI Deep Analysis 통합 | 제4 분석축(INSIDER ACTIVITY) 통합 안내 |
+| E. 해석 프레임워크 | C-suite 매수, 클러스터 매수, 자발적 매도, 10b5-1 매도 해석 |
+| F. 구조적 한계점 | 공시 지연, 매도 노이즈, 대형주 한계 + 컴플라이언스 면책 |
+
+- **UI**: Rose 테마, corner frame, InfographicBg, SEC 뱃지
+- **파일**: `src/app/[locale]/how-it-works/command/page.tsx` (13-F 섹션과 AI 섹션 사이 삽입)
+
+#### 작업 D: AI Deep Analysis 3축→4축 확장
+- **변경 전**: 기술적 구조 / 옵션 포지셔닝 / 뉴스 컨텍스트 (3축, 3-col grid)
+- **변경 후**: 기술적 구조 / 옵션 포지셔닝 / **Insider Activity** / 뉴스 컨텍스트 (4축, 4-col grid)
+- 신규 키: `aiDeepAnalysis.insiderAnalysis` (KO/EN/JA)
+- `aiDeepAnalysis.desc`의 "3개 독립 분석축" → "4개 독립 분석축" 업데이트
+
+#### i18n 변경 내역 (3개 언어 × ~50키)
+| 파일 | 추가 키 | 수정 키 |
+|---|:---:|:---:|
+| `src/messages/ko.json` | ~50 (insiderDeepDive.*) | 2 (limitation title emoji, AI desc 3→4축) |
+| `src/messages/en.json` | ~50 | 2 |
+| `src/messages/ja.json` | ~50 | 2 |
+
+#### 컴플라이언스 정책 (OBSERVER-ONLY)
+> 🔴 **절대 원칙**: 모든 가이드 페이지 텍스트는 관찰/기록형 어조 사용.
+> "~로 관찰되었습니다", "~이 기록된 바 있습니다" 형태만 허용.
+> 예측형 조언("~해야 합니다", "매수 추천") 절대 금지.
+> 학술 인용 시 "통계적으로 유의미한 패턴이 관찰됨" 형태로만 기술.
+
+#### 디자인 정책 (제로 이모지)
+> 🔴 **절대 원칙**: 가이드 페이지 전체에서 Unicode 이모지 사용 금지.
+> 모든 인포그래픽 아이콘은 `lucide-react` 벡터 아이콘만 사용.
+> 최소 폰트 12px, 텍스트 색상 `text-slate-300` 이상.
+

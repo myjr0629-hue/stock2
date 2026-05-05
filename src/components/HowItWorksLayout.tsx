@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { HowItWorksSidebar } from './HowItWorksSidebar';
+import { GuideSearchFilter } from './GuideSearchFilter';
 import { Menu, X, ShieldCheck } from 'lucide-react';
 
 interface HowItWorksLayoutProps {
@@ -56,8 +57,13 @@ export function HowItWorksLayout({ children, title, subtitle }: HowItWorksLayout
                         <div className="mt-3 h-px bg-gradient-to-r from-cyan-500/40 via-purple-500/30 to-transparent" />
                     </div>
 
+                    {/* Guide Search */}
+                    <div className="mb-6 pl-10 lg:pl-0">
+                        <GuideSearchFilter contentSelector=".guide-content" />
+                    </div>
+
                     {/* Content */}
-                    <div className="space-y-6">
+                    <div className="guide-content space-y-6">
                         {children}
                     </div>
 
