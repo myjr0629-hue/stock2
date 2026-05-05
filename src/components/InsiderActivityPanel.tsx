@@ -129,7 +129,7 @@ function InsiderTimeline({ transactions }: { transactions: InsiderTransaction[] 
 
     const maxValue = Math.max(...recent.map(t => t.value), 1);
     const SVG_W = 600;
-    const SVG_H = 40;
+    const SVG_H = 48;
     const MARGIN_X = 20;
 
     return (
@@ -145,10 +145,10 @@ function InsiderTimeline({ transactions }: { transactions: InsiderTransaction[] 
                     </span>
                 </div>
             </div>
-            <svg viewBox={`0 0 ${SVG_W} ${SVG_H}`} className="w-full h-[40px]">
-                <line x1={MARGIN_X} y1={SVG_H / 2} x2={SVG_W - MARGIN_X} y2={SVG_H / 2} stroke="rgba(255,255,255,0.08)" strokeWidth="1" />
-                <text x={MARGIN_X} y={SVG_H - 2} fill="rgba(203,213,225,0.5)" fontSize="9" fontFamily="Jakarta Sans, sans-serif">30d ago</text>
-                <text x={SVG_W - MARGIN_X} y={SVG_H - 2} fill="rgba(203,213,225,0.5)" fontSize="9" fontFamily="Jakarta Sans, sans-serif" textAnchor="end">Today</text>
+            <svg viewBox={`0 0 ${SVG_W} ${SVG_H}`} className="w-full h-[48px]">
+                <line x1={MARGIN_X} y1={SVG_H / 2} x2={SVG_W - MARGIN_X} y2={SVG_H / 2} stroke="rgba(255,255,255,0.35)" strokeWidth="1.5" />
+                <text x={MARGIN_X} y={SVG_H - 1} fill="rgba(226,232,240,0.8)" fontSize="11" fontFamily="Jakarta Sans, sans-serif" fontWeight="500">30d ago</text>
+                <text x={SVG_W - MARGIN_X} y={SVG_H - 1} fill="rgba(226,232,240,0.8)" fontSize="11" fontFamily="Jakarta Sans, sans-serif" textAnchor="end" fontWeight="500">Today</text>
                 
                 {recent.map((t, i) => {
                     const date = new Date(t.date);
@@ -288,7 +288,7 @@ export default function InsiderActivityPanel({ ticker, insider: propInsider }: P
                         </span>
                         <span className="text-[12px] text-slate-200 font-jakarta">(Form 4)</span>
                         <span className="text-[12px] text-amber-400/60 font-jakarta hidden md:inline">·</span>
-                        <span className="text-[12px] text-amber-400/60 font-jakarta italic hidden md:inline">{td('insiderFilingIntel')}</span>
+                        <span className="text-[12px] text-amber-300 font-jakarta font-medium hidden md:inline">{td('insiderFilingIntel')}</span>
                     </div>
                     <span className={`text-[12px] font-black px-2 py-0.5 rounded border font-jakarta ${sent.bg} ${sent.color}`}>
                         {sent.label}
