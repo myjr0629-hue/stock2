@@ -3204,7 +3204,9 @@
     "labelCallBias": "Call Bias",
     "labelPutBias": "Put Bias",
     "nextYearDesc": "Forward",
-    "revDesc": "REV"
+    "revDesc": "REV",
+    "insiderPulse": "INSIDER",
+    "insiderFilingIntel": "SEC Filing Intelligence"
   },
   "commandInsight": {
     "longGamma": "Long Gamma",

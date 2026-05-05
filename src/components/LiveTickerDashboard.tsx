@@ -1455,7 +1455,7 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                             <div className="flex items-center justify-between mb-0.5">
                                                 <div className="flex items-center gap-1.5">
                                                     <svg width="12" height="12" viewBox="0 0 16 16" className="text-amber-400 shrink-0" fill="currentColor"><circle cx="8" cy="4" r="3" /><path d="M2 14c0-3.3 2.7-6 6-6s6 2.7 6 6H2z" /></svg>
-                                                    <span className="text-[12px] text-amber-400 font-jakarta font-bold tracking-wider uppercase">INSIDER</span>
+                                                    <span className="text-[12px] text-amber-400 font-jakarta font-bold tracking-wider uppercase">{td('insiderPulse')}</span>
                                                 </div>
                                                 <span className={`text-[12px] font-black px-1.5 py-px rounded font-jakarta ${insiderData.sentiment === 'BULLISH' ? 'bg-emerald-500/20 text-emerald-400' : insiderData.sentiment === 'BEARISH' ? 'bg-rose-500/20 text-rose-400' : insiderData.sentiment === 'CAUTIOUS' ? 'bg-amber-500/20 text-amber-400' : 'bg-slate-700/30 text-slate-400'}`}>
                                                     {insiderData.sentiment}

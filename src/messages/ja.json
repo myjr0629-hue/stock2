@@ -3204,7 +3204,9 @@
     "labelCallBias": "コール偏重",
     "labelPutBias": "プット偏重",
     "nextYearDesc": "来期予想",
-    "revDesc": "売上高"
+    "revDesc": "売上高",
+    "insiderPulse": "インサイダー取引",
+    "insiderFilingIntel": "SEC届出インテリジェンス"
   },
   "commandInsight": {
     "longGamma": "Long Gamma",

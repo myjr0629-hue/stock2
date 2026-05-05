@@ -3122,7 +3122,9 @@
     "labelCallBias": "콜 편향",
     "labelPutBias": "풋 편향",
     "nextYearDesc": "내년전망",
-    "revDesc": "매출"
+    "revDesc": "매출",
+    "insiderPulse": "내부자 거래",
+    "insiderFilingIntel": "SEC 공시 인텔리전스"
   },
   "commandInsight": {
     "longGamma": "Long Gamma",

@@ -18,6 +18,7 @@
  */
 
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import { useTranslations } from 'next-intl';
 
 // ─── Types (client-side mirror of insiderService) ──────────────────
 
@@ -183,6 +184,7 @@ const SCROLL_HEIGHT = TABLE_HEADER_HEIGHT + (VISIBLE_ROWS * ROW_HEIGHT);
 // ─── Main Component ────────────────────────────────────────────────
 
 export default function InsiderActivityPanel({ ticker, insider: propInsider }: Props) {
+    const td = useTranslations('dashboard');
     const [data, setData] = useState<InsiderSummary | null>(propInsider || null);
     const [loading, setLoading] = useState(!propInsider);
     const [error, setError] = useState<string | null>(null);
@@ -282,7 +284,7 @@ export default function InsiderActivityPanel({ ticker, insider: propInsider }: P
                         </span>
                         <span className="text-[12px] text-slate-200 font-jakarta">(Form 4)</span>
                         <span className="text-[12px] text-amber-400/60 font-jakarta hidden md:inline">·</span>
-                        <span className="text-[12px] text-amber-400/60 font-jakarta italic hidden md:inline">SEC Filing Intelligence</span>
+                        <span className="text-[12px] text-amber-400/60 font-jakarta italic hidden md:inline">{td('insiderFilingIntel')}</span>
                     </div>
                     <span className={`text-[12px] font-black px-2 py-0.5 rounded border font-jakarta ${sent.bg} ${sent.color}`}>
                         {sent.label}
