@@ -483,7 +483,7 @@ Return ONLY valid JSON (no markdown fences, no extra text). The JSON must follow
         console.log(`[CrossSectorBrief V3] Calling Bedrock Claude with ${sectorSummaries.length} sectors + 13 macro indicators...`);
 
         const bedrockResult = await callBedrock({
-            system: 'You are SIGNUM Intelligence, an elite institutional-grade financial analyst. Return ONLY valid JSON. No markdown fences.',
+            system: 'You are SIGNUM Intelligence, an elite institutional-grade financial analyst. Return ONLY valid JSON. No markdown fences. COMPLIANCE: OBSERVER only — use observational language (observed, noted, indicates). NEVER use predictive/advisory language (will, should, recommended). No investment advice.',
             userPrompt: prompt,
             maxTokens: 8192,
             temperature: 0.4,

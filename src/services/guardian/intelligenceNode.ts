@@ -778,7 +778,7 @@ export class IntelligenceNode {
         try {
             const result = await callBedrock({
                 modelId,
-                system: 'You are an institutional investment strategist. Provide concise, data-driven market analysis. Do NOT use any emoji or special unicode symbols. Use plain text only.',
+                system: 'You are an institutional investment strategist. Provide concise, data-driven market analysis. Do NOT use any emoji or special unicode symbols. Use plain text only. COMPLIANCE: You are an OBSERVER — use ONLY observational language (observed, noted, indicates, suggests). NEVER use predictive language (will, should, recommended, expected to). No investment advice or action directives.',
                 userPrompt: prompt,
                 maxTokens: 1024,
                 temperature: 0.2,

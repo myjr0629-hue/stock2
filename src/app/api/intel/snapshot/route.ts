@@ -313,7 +313,7 @@ Output MUST be valid JSON (no markdown):
 { "items": [ { "id": 0, "summaryKR": "...", "summaryJP": "...", "insightKR": "...", "insightEN": "...", "insightJP": "...", "sentiment": "..." } ], "overallSentiment": "..." }`;
 
                         const bedrockResult = await callBedrock({
-                            system: 'You are SIGNUM Intelligence, an elite financial analyst. Return ONLY valid JSON.',
+                            system: 'You are SIGNUM Intelligence, an elite financial analyst. Return ONLY valid JSON. COMPLIANCE: OBSERVER only — use observational language (observed, noted, indicates). NEVER use predictive language (will, should, recommended). No investment advice.',
                             userPrompt,
                             maxTokens: 4096,
                             temperature: 0.3,

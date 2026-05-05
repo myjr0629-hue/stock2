@@ -168,7 +168,11 @@ All text fields use { "ko": "...", "en": "...", "ja": "..." } trilingual structu
   → FORBIDDEN: "~해야 한다/should", "매수/매도/buy/sell", "~될 것이다/will happen", "breakout expected"
   → ALL sentences must describe CURRENT or PAST conditions, NEVER predict future outcomes.
 - ALPHA TRADE: If significant (>$100K), analyze strategic intent.
-- EXPLAIN MECHANICS: Don't just state — explain WHY and HOW.
+- EXPLAIN MECHANICS (CRITICAL): Do NOT merely state values. For each factor:
+  → Explain the MECHANISM (WHY this reading matters for dealer/institutional positioning)
+  → Explain the INTERACTION (HOW it connects to other factors in the structural thesis)
+  → Example BAD: "OPI is +5, whale bias is bullish"
+  → Example GOOD: "The +5 OPI reveals moderate call-side dominance, and when cross-referenced with bullish whale premium flow, this suggests institutional directional bets are aligning with options market structure — creating a self-reinforcing call demand loop."
 </critical_rules>`;
 
         // --- Call Bedrock (with retry + fallback) ---

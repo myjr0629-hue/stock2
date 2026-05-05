@@ -290,7 +290,13 @@ All text fields use { "ko": "...", "en": "...", "ja": "..." } trilingual structu
 </output_format>
 
 <critical_rules>
-- SECTIONS: 2-4 sections with clear titles. Each section 2-4 sentences of DEEP analysis.
+- SECTIONS: 3-4 sections with clear titles. Each section 2-4 sentences of DEEP analysis.
+- DEPTH (CRITICAL): Do NOT merely list indicator values. For EACH observation:
+  → Explain the MECHANISM (WHY does this indicator reading matter?)
+  → Explain the INTERACTION (HOW does it connect to other indicators?)
+  → Provide the SO-WHAT (What structural condition does this create?)
+  → Example BAD: "GEX is -70M, gamma flip at $205"
+  → Example GOOD: "The -70M GEX reading indicates dealer short gamma exposure, meaning options market makers must sell into declines (amplifying downside) and buy into rallies (dampening upside), structurally constraining price movement to the $190-$205 corridor."
 - DATA ACCURACY: Use EXACT values from the XML data. call_wall ≠ gamma_flip_level.
 - NO DUPLICATE METRICS: Focus purely on narrative insight.
 - NEWS INTEGRATION: Weave news naturally into analysis. DO NOT put indicator data in the News section.
