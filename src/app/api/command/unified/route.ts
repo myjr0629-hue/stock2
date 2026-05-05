@@ -483,6 +483,7 @@ async function triggerBackgroundRefresh(ticker: string, dataCacheKey: string, ov
                 // [FIX] EC2 institutional SSOT — prevent DynamoDB Polygon data from overwriting
                 await injectEC2Institutional(dynamoData, ticker);
                 await setInCache(dataCacheKey, dynamoData, getSmartTTL());
+                memorySet(ticker, dynamoData); // [FIX] Sync memory cache — prevents stale Layer 1 from overriding
                 console.log(`[Command Unified] SWR sync complete: ${ticker} (${fieldCount}/9 fields, inst: ${(dynamoData as any).institutional?.blockTrade?.count || 0} blocks)`);
             }
         }
