@@ -4,7 +4,7 @@ import { getTranslations, getLocale } from 'next-intl/server';
 import {
     Zap, Target, Activity, ShieldAlert, Crosshair, Radar, TrendingUp,
     BarChart3, Calendar, GitBranch, Lightbulb, LineChart, Signal,
-    ArrowUpDown, Cpu, Newspaper, AlertTriangle, Layers, Brain, Briefcase, FileText, Building2, Scale
+    ArrowUpDown, Cpu, Newspaper, AlertTriangle, Layers, Brain, Briefcase, FileText, Building2, Scale, Clock, Lock
 } from 'lucide-react';
 
 export default async function CommandGuidePage() {
@@ -610,7 +610,7 @@ export default async function CommandGuidePage() {
             <section className="space-y-5">
                 <div className="flex items-center gap-2 mt-2 mb-2">
                     <div className="h-px flex-1 bg-gradient-to-r from-violet-500/40 to-transparent" />
-                    <span className="text-[12px] font-bold text-violet-400 uppercase tracking-widest whitespace-nowrap">📊 GEX Timeline Deep Dive</span>
+                    <span className="text-[12px] font-bold text-violet-400 uppercase tracking-widest whitespace-nowrap">GEX Timeline Deep Dive</span>
                     <div className="h-px flex-1 bg-gradient-to-l from-violet-500/40 to-transparent" />
                 </div>
 
@@ -650,9 +650,9 @@ export default async function CommandGuidePage() {
                                 <div className="absolute top-0 left-[68%] w-1.5 h-full bg-white rounded-full shadow-[0_0_10px_rgba(255,255,255,0.7)]" />
                             </div>
                             <div className="flex justify-between px-1">
-                                <span className="text-[10px] text-rose-400">Negative GEX</span>
-                                <span className="text-[10px] text-white font-bold">68th Percentile</span>
-                                <span className="text-[10px] text-emerald-400">Positive GEX</span>
+                                <span className="text-[12px] text-rose-400">Negative GEX</span>
+                                <span className="text-[12px] text-white font-bold">68th Percentile</span>
+                                <span className="text-[12px] text-emerald-400">Positive GEX</span>
                             </div>
 
                             <div className="grid grid-cols-2 md:grid-cols-3 gap-2 mt-2">
@@ -664,8 +664,8 @@ export default async function CommandGuidePage() {
                                     { label: '≥90th', text: t('gexTimelineSection.gexDeepDive.percentileGauge.extremeHigh'), color: 'border-cyan-500/20 text-cyan-300' },
                                 ].map((item) => (
                                     <div key={item.label} className={`px-2 py-1.5 rounded-lg border ${item.color} bg-slate-900/40`}>
-                                        <div className="text-[10px] font-bold">{item.label}</div>
-                                        <div className="text-[10px] text-slate-400 mt-0.5">{item.text}</div>
+                                        <div className="text-[12px] font-bold">{item.label}</div>
+                                        <div className="text-[12px] text-slate-300 mt-0.5">{item.text}</div>
                                     </div>
                                 ))}
                             </div>
@@ -682,21 +682,21 @@ export default async function CommandGuidePage() {
                             {/* Persistence bars mockup */}
                             <div className="space-y-2">
                                 <div className="flex items-center gap-3">
-                                    <span className="text-[11px] text-emerald-400 font-bold w-16">Current</span>
+                                    <span className="text-[12px] text-emerald-400 font-bold w-16">Current</span>
                                     <div className="flex-1 h-5 rounded bg-slate-800/60 relative overflow-hidden">
                                         <div className="absolute inset-y-0 left-0 w-[75%] bg-gradient-to-r from-emerald-500/50 to-emerald-400/20 rounded" />
-                                        <span className="absolute right-2 top-0.5 text-[11px] text-white font-bold">15 sessions</span>
+                                        <span className="absolute right-2 top-0.5 text-[12px] text-white font-bold">15 sessions</span>
                                     </div>
                                 </div>
                                 <div className="flex items-center gap-3">
-                                    <span className="text-[11px] text-slate-400 font-bold w-16">Average</span>
+                                    <span className="text-[12px] text-slate-300 font-bold w-16">Average</span>
                                     <div className="flex-1 h-5 rounded bg-slate-800/60 relative overflow-hidden">
                                         <div className="absolute inset-y-0 left-0 w-[50%] bg-gradient-to-r from-slate-500/40 to-slate-400/15 rounded" />
-                                        <span className="absolute right-2 top-0.5 text-[11px] text-slate-300 font-bold">10 sessions</span>
+                                        <span className="absolute right-2 top-0.5 text-[12px] text-slate-300 font-bold">10 sessions</span>
                                     </div>
                                 </div>
                             </div>
-                            <div className="text-[11px] text-slate-400 space-y-0.5">
+                            <div className="text-[12px] text-slate-300 space-y-0.5">
                                 <p>• {t('gexTimelineSection.gexDeepDive.regimePersistence.aboveAvg')}</p>
                                 <p>• {t('gexTimelineSection.gexDeepDive.regimePersistence.belowAvg')}</p>
                             </div>
@@ -711,17 +711,17 @@ export default async function CommandGuidePage() {
                             <p className="text-[13px] text-slate-300 leading-relaxed">{t.rich('gexTimelineSection.gexDeepDive.keyLevels.desc', richTags)}</p>
                             <div className="grid grid-cols-2 gap-2">
                                 <div className="rounded-lg border border-rose-500/20 bg-rose-900/15 p-3">
-                                    <div className="text-[11px] font-bold text-rose-400">CALL WALL</div>
+                                    <div className="text-[12px] font-bold text-rose-400">CALL WALL</div>
                                     <div className="text-[18px] font-black text-white mt-1">$235.00</div>
-                                    <div className="text-[10px] text-slate-400 mt-1">Hit Rate: 87%</div>
+                                    <div className="text-[12px] text-slate-300 mt-1">Hit Rate: 87%</div>
                                 </div>
                                 <div className="rounded-lg border border-cyan-500/20 bg-cyan-900/15 p-3">
-                                    <div className="text-[11px] font-bold text-cyan-400">GAMMA FLIP</div>
+                                    <div className="text-[12px] font-bold text-cyan-400">GAMMA FLIP</div>
                                     <div className="text-[18px] font-black text-white mt-1">$228.50</div>
-                                    <div className="text-[10px] text-slate-400 mt-1">+2.8% from current</div>
+                                    <div className="text-[12px] text-slate-300 mt-1">+2.8% from current</div>
                                 </div>
                             </div>
-                            <div className="text-[11px] text-slate-400 space-y-0.5">
+                            <div className="text-[12px] text-slate-300 space-y-0.5">
                                 <p>• {t('gexTimelineSection.gexDeepDive.keyLevels.callWall')}</p>
                                 <p>• {t('gexTimelineSection.gexDeepDive.keyLevels.gammaFlip')}</p>
                             </div>
@@ -741,13 +741,13 @@ export default async function CommandGuidePage() {
                                     { date: 'Apr 15', dir: 'POS→NEG', price: '$218.50', color: 'text-rose-400 border-rose-500/30 bg-rose-900/20' },
                                 ].map((ev) => (
                                     <div key={ev.date} className={`flex items-center justify-between px-3 py-1.5 rounded-lg border ${ev.color}`}>
-                                        <span className="text-[11px] font-bold">{ev.date}</span>
-                                        <span className="text-[11px] font-black">{ev.dir}</span>
-                                        <span className="text-[11px] text-slate-300">{ev.price}</span>
+                                        <span className="text-[12px] font-bold">{ev.date}</span>
+                                        <span className="text-[12px] font-black">{ev.dir}</span>
+                                        <span className="text-[12px] text-slate-300">{ev.price}</span>
                                     </div>
                                 ))}
                             </div>
-                            <div className="text-[11px] text-slate-400 space-y-0.5">
+                            <div className="text-[12px] text-slate-300 space-y-0.5">
                                 <p>• {t('gexTimelineSection.gexDeepDive.flipEvents.toPositive')}</p>
                                 <p>• {t('gexTimelineSection.gexDeepDive.flipEvents.toNegative')}</p>
                             </div>
@@ -760,10 +760,10 @@ export default async function CommandGuidePage() {
                                 <h4 className="text-sm font-bold text-white">{t('gexTimelineSection.gexDeepDive.dynamicInsight.title')}</h4>
                             </div>
                             <p className="text-[13px] text-slate-300 leading-relaxed">{t.rich('gexTimelineSection.gexDeepDive.dynamicInsight.desc', richTags)}</p>
-                            <div className="space-y-1 text-[11px] text-slate-400">
-                                <p>📊 {t('gexTimelineSection.gexDeepDive.dynamicInsight.regimeLine')}</p>
-                                <p>🎯 {t('gexTimelineSection.gexDeepDive.dynamicInsight.wallLine')}</p>
-                                <p>⚡ {t('gexTimelineSection.gexDeepDive.dynamicInsight.flipLine')}</p>
+                            <div className="space-y-2 text-[12px] text-slate-300">
+                                <p className="flex items-start gap-1.5"><BarChart3 size={14} className="text-cyan-400 mt-0.5 flex-shrink-0" /> {t('gexTimelineSection.gexDeepDive.dynamicInsight.regimeLine')}</p>
+                                <p className="flex items-start gap-1.5"><Target size={14} className="text-amber-400 mt-0.5 flex-shrink-0" /> {t('gexTimelineSection.gexDeepDive.dynamicInsight.wallLine')}</p>
+                                <p className="flex items-start gap-1.5"><Zap size={14} className="text-violet-400 mt-0.5 flex-shrink-0" /> {t('gexTimelineSection.gexDeepDive.dynamicInsight.flipLine')}</p>
                             </div>
                         </div>
 
@@ -784,7 +784,7 @@ export default async function CommandGuidePage() {
             <section className="space-y-5">
                 <div className="flex items-center gap-2 mt-2 mb-2">
                     <div className="h-px flex-1 bg-gradient-to-r from-cyan-500/40 to-transparent" />
-                    <span className="text-[12px] font-bold text-cyan-400 uppercase tracking-widest whitespace-nowrap">🏛️ 13-F Institutional Holdings Deep Dive</span>
+                    <span className="text-[12px] font-bold text-cyan-400 uppercase tracking-widest whitespace-nowrap">13-F Institutional Holdings Deep Dive</span>
                     <div className="h-px flex-1 bg-gradient-to-l from-cyan-500/40 to-transparent" />
                 </div>
 
@@ -824,10 +824,10 @@ export default async function CommandGuidePage() {
                                 <h4 className="text-sm font-bold text-white">{t('gexTimelineSection.inst13fDeepDive.whatIs.title')}</h4>
                             </div>
                             <p className="text-[13px] text-slate-300 leading-relaxed">{t.rich('gexTimelineSection.inst13fDeepDive.whatIs.desc', richTags)}</p>
-                            <div className="space-y-1 text-[11px] text-slate-400">
-                                <p>📋 {t('gexTimelineSection.inst13fDeepDive.whatIs.filing')}</p>
-                                <p>📅 {t('gexTimelineSection.inst13fDeepDive.whatIs.deadline')}</p>
-                                <p>📊 {t('gexTimelineSection.inst13fDeepDive.whatIs.content')}</p>
+                            <div className="space-y-2 text-[12px] text-slate-300">
+                                <p className="flex items-start gap-1.5"><FileText size={14} className="text-cyan-400 mt-0.5 flex-shrink-0" /> {t('gexTimelineSection.inst13fDeepDive.whatIs.filing')}</p>
+                                <p className="flex items-start gap-1.5"><Calendar size={14} className="text-cyan-400 mt-0.5 flex-shrink-0" /> {t('gexTimelineSection.inst13fDeepDive.whatIs.deadline')}</p>
+                                <p className="flex items-start gap-1.5"><BarChart3 size={14} className="text-cyan-400 mt-0.5 flex-shrink-0" /> {t('gexTimelineSection.inst13fDeepDive.whatIs.content')}</p>
                             </div>
                         </div>
 
@@ -849,7 +849,7 @@ export default async function CommandGuidePage() {
                                     { key: 'change', color: 'border-rose-500/20 text-rose-300' },
                                 ].map((item) => (
                                     <div key={item.key} className={`px-2 py-1.5 rounded-lg border ${item.color} bg-slate-900/40`}>
-                                        <div className="text-[10px] text-slate-400 mt-0.5">{t(`gexTimelineSection.inst13fDeepDive.dataPoints.${item.key}`)}</div>
+                                        <div className="text-[12px] text-slate-300 mt-0.5">{t(`gexTimelineSection.inst13fDeepDive.dataPoints.${item.key}`)}</div>
                                     </div>
                                 ))}
                             </div>
@@ -862,11 +862,11 @@ export default async function CommandGuidePage() {
                                 <h4 className="text-sm font-bold text-white">{t('gexTimelineSection.inst13fDeepDive.interpretation.title')}</h4>
                             </div>
                             <p className="text-[13px] text-slate-300 leading-relaxed">{t.rich('gexTimelineSection.inst13fDeepDive.interpretation.desc', richTags)}</p>
-                            <div className="space-y-1.5 text-[11px] text-slate-400">
-                                <p>📈 {t('gexTimelineSection.inst13fDeepDive.interpretation.accumulation')}</p>
-                                <p>📉 {t('gexTimelineSection.inst13fDeepDive.interpretation.distribution')}</p>
-                                <p>🎯 {t('gexTimelineSection.inst13fDeepDive.interpretation.concentration')}</p>
-                                <p>🔗 {t('gexTimelineSection.inst13fDeepDive.interpretation.crossRef')}</p>
+                            <div className="space-y-2 text-[12px] text-slate-300">
+                                <p className="flex items-start gap-1.5"><TrendingUp size={14} className="text-emerald-400 mt-0.5 flex-shrink-0" /> {t('gexTimelineSection.inst13fDeepDive.interpretation.accumulation')}</p>
+                                <p className="flex items-start gap-1.5"><Activity size={14} className="text-rose-400 mt-0.5 flex-shrink-0" /> {t('gexTimelineSection.inst13fDeepDive.interpretation.distribution')}</p>
+                                <p className="flex items-start gap-1.5"><Target size={14} className="text-violet-400 mt-0.5 flex-shrink-0" /> {t('gexTimelineSection.inst13fDeepDive.interpretation.concentration')}</p>
+                                <p className="flex items-start gap-1.5"><GitBranch size={14} className="text-cyan-400 mt-0.5 flex-shrink-0" /> {t('gexTimelineSection.inst13fDeepDive.interpretation.crossRef')}</p>
                             </div>
                         </div>
 
@@ -877,11 +877,11 @@ export default async function CommandGuidePage() {
                                 <h4 className="text-sm font-bold text-white">{t('gexTimelineSection.inst13fDeepDive.limitations.title')}</h4>
                             </div>
                             <p className="text-[13px] text-slate-300 leading-relaxed">{t('gexTimelineSection.inst13fDeepDive.limitations.desc')}</p>
-                            <div className="space-y-1.5 text-[11px] text-amber-200/70">
-                                <p>⏰ {t('gexTimelineSection.inst13fDeepDive.limitations.delay')}</p>
-                                <p>📸 {t('gexTimelineSection.inst13fDeepDive.limitations.snapshot')}</p>
-                                <p>⚠️ {t('gexTimelineSection.inst13fDeepDive.limitations.incomplete')}</p>
-                                <p>🔒 {t('gexTimelineSection.inst13fDeepDive.limitations.confidential')}</p>
+                            <div className="space-y-2 text-[12px] text-amber-200/80">
+                                <p className="flex items-start gap-1.5"><Clock size={14} className="text-amber-400 mt-0.5 flex-shrink-0" /> {t('gexTimelineSection.inst13fDeepDive.limitations.delay')}</p>
+                                <p className="flex items-start gap-1.5"><Layers size={14} className="text-amber-400 mt-0.5 flex-shrink-0" /> {t('gexTimelineSection.inst13fDeepDive.limitations.snapshot')}</p>
+                                <p className="flex items-start gap-1.5"><AlertTriangle size={14} className="text-amber-400 mt-0.5 flex-shrink-0" /> {t('gexTimelineSection.inst13fDeepDive.limitations.incomplete')}</p>
+                                <p className="flex items-start gap-1.5"><Lock size={14} className="text-amber-400 mt-0.5 flex-shrink-0" /> {t('gexTimelineSection.inst13fDeepDive.limitations.confidential')}</p>
                             </div>
                         </div>
 
@@ -898,11 +898,135 @@ export default async function CommandGuidePage() {
                 </div>
             </section>
 
+            {/* ═══ SEC Form 4 Insider Trading Deep Dive ═══ */}
+            <section className="space-y-5">
+                <div className="flex items-center gap-2 mt-2 mb-2">
+                    <div className="h-px flex-1 bg-gradient-to-r from-rose-500/40 to-transparent" />
+                    <span className="text-[12px] font-bold text-rose-400 uppercase tracking-widest whitespace-nowrap">SEC Form 4 Insider Trading Deep Dive</span>
+                    <div className="h-px flex-1 bg-gradient-to-l from-rose-500/40 to-transparent" />
+                </div>
+
+                <div className="relative overflow-hidden rounded-2xl bg-white/[0.03] backdrop-blur-xl border border-rose-500/20 p-6">
+                    <div className="absolute inset-0 bg-gradient-to-br from-rose-500/[0.06] via-transparent to-amber-500/[0.04] pointer-events-none" />
+                    <InfographicBg type="circuit" />
+                    <div className="absolute top-3 left-3 w-6 h-6 border-l-2 border-t-2 border-rose-500/30 pointer-events-none z-0" />
+                    <div className="absolute top-3 right-3 w-6 h-6 border-r-2 border-t-2 border-rose-500/30 pointer-events-none z-0" />
+                    <div className="absolute bottom-3 left-3 w-6 h-6 border-l-2 border-b-2 border-rose-500/30 pointer-events-none z-0" />
+                    <div className="absolute bottom-3 right-3 w-6 h-6 border-r-2 border-b-2 border-rose-500/30 pointer-events-none z-0" />
+
+                    <div className="relative z-10 space-y-4">
+                        <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-xl bg-rose-500/20 border border-rose-500/30 flex items-center justify-center">
+                                <FileText size={20} className="text-rose-400" />
+                            </div>
+                            <div>
+                                <h3 className="text-lg font-black text-white">{t('gexTimelineSection.insiderDeepDive.title')}</h3>
+                                <p className="text-[12px] text-rose-300 font-medium">{t('gexTimelineSection.insiderDeepDive.subtitle')}</p>
+                            </div>
+                            <span className="ml-auto px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider border border-rose-500/30 bg-rose-500/20 text-rose-300 rounded-full">SEC</span>
+                        </div>
+
+                        <p className="text-[14px] text-slate-300 leading-relaxed">{t.rich('gexTimelineSection.insiderDeepDive.desc', richTags)}</p>
+
+                        {/* A. What is Form 4? */}
+                        <div className="rounded-xl border border-rose-500/15 bg-rose-900/10 p-4 space-y-3">
+                            <div className="flex items-center gap-2">
+                                <FileText size={16} className="text-rose-400" />
+                                <h4 className="text-sm font-bold text-white">{t('gexTimelineSection.insiderDeepDive.whatIs.title')}</h4>
+                            </div>
+                            <p className="text-[13px] text-slate-300 leading-relaxed">{t.rich('gexTimelineSection.insiderDeepDive.whatIs.desc', richTags)}</p>
+                            <div className="space-y-2 text-[12px] text-slate-300">
+                                <p className="flex items-start gap-1.5"><FileText size={14} className="text-rose-400 mt-0.5 flex-shrink-0" /> {t('gexTimelineSection.insiderDeepDive.whatIs.obligation')}</p>
+                                <p className="flex items-start gap-1.5"><Layers size={14} className="text-rose-400 mt-0.5 flex-shrink-0" /> {t('gexTimelineSection.insiderDeepDive.whatIs.codes')}</p>
+                                <p className="flex items-start gap-1.5"><ShieldAlert size={14} className="text-rose-400 mt-0.5 flex-shrink-0" /> {t('gexTimelineSection.insiderDeepDive.whatIs.tenb51')}</p>
+                            </div>
+                        </div>
+
+                        {/* B. Academic Research */}
+                        <div className="rounded-xl border border-amber-500/15 bg-amber-900/10 p-4 space-y-3">
+                            <div className="flex items-center gap-2">
+                                <Scale size={16} className="text-amber-400" />
+                                <h4 className="text-sm font-bold text-white">{t('gexTimelineSection.insiderDeepDive.research.title')}</h4>
+                            </div>
+                            <p className="text-[13px] text-slate-300 leading-relaxed">{t('gexTimelineSection.insiderDeepDive.research.desc')}</p>
+                            <div className="space-y-2 text-[12px] text-slate-300">
+                                <p className="flex items-start gap-1.5"><FileText size={14} className="text-amber-400 mt-0.5 flex-shrink-0" /> {t('gexTimelineSection.insiderDeepDive.research.seyhun')}</p>
+                                <p className="flex items-start gap-1.5"><FileText size={14} className="text-amber-400 mt-0.5 flex-shrink-0" /> {t('gexTimelineSection.insiderDeepDive.research.lakonishok')}</p>
+                                <p className="flex items-start gap-1.5"><TrendingUp size={14} className="text-amber-400 mt-0.5 flex-shrink-0" /> {t('gexTimelineSection.insiderDeepDive.research.cluster')}</p>
+                            </div>
+                        </div>
+
+                        {/* C. SIGNUM Methodology */}
+                        <div className="rounded-xl border border-cyan-500/15 bg-cyan-900/10 p-4 space-y-3">
+                            <div className="flex items-center gap-2">
+                                <BarChart3 size={16} className="text-cyan-400" />
+                                <h4 className="text-sm font-bold text-white">{t('gexTimelineSection.insiderDeepDive.signumMethod.title')}</h4>
+                            </div>
+                            <p className="text-[13px] text-slate-300 leading-relaxed">{t.rich('gexTimelineSection.insiderDeepDive.signumMethod.desc', richTags)}</p>
+                            <div className="grid grid-cols-2 gap-2">
+                                {(['bullish', 'cautious', 'bearish', 'neutral'] as const).map((key) => {
+                                    const colors: Record<string, string> = { bullish: 'border-emerald-500/20 text-emerald-300', cautious: 'border-amber-500/20 text-amber-300', bearish: 'border-rose-500/20 text-rose-300', neutral: 'border-slate-500/20 text-slate-300' };
+                                    return <div key={key} className={`px-2.5 py-2 rounded-lg border ${colors[key]} bg-slate-900/40 text-[12px]`}>{t(`gexTimelineSection.insiderDeepDive.signumMethod.${key}`)}</div>;
+                                })}
+                            </div>
+                        </div>
+
+                        {/* D. AI Integration */}
+                        <div className="rounded-xl border border-violet-500/15 bg-violet-900/10 p-4 space-y-3">
+                            <div className="flex items-center gap-2">
+                                <Brain size={16} className="text-violet-400" />
+                                <h4 className="text-sm font-bold text-white">{t('gexTimelineSection.insiderDeepDive.aiIntegration.title')}</h4>
+                            </div>
+                            <p className="text-[13px] text-slate-300 leading-relaxed">{t.rich('gexTimelineSection.insiderDeepDive.aiIntegration.desc', richTags)}</p>
+                        </div>
+
+                        {/* E. Interpretation */}
+                        <div className="rounded-xl border border-emerald-500/15 bg-emerald-900/10 p-4 space-y-3">
+                            <div className="flex items-center gap-2">
+                                <Scale size={16} className="text-emerald-400" />
+                                <h4 className="text-sm font-bold text-white">{t('gexTimelineSection.insiderDeepDive.interpretation.title')}</h4>
+                            </div>
+                            <div className="space-y-2 text-[12px] text-slate-300">
+                                <p className="flex items-start gap-1.5"><TrendingUp size={14} className="text-emerald-400 mt-0.5 flex-shrink-0" /> {t('gexTimelineSection.insiderDeepDive.interpretation.csuiteBuy')}</p>
+                                <p className="flex items-start gap-1.5"><Target size={14} className="text-emerald-400 mt-0.5 flex-shrink-0" /> {t('gexTimelineSection.insiderDeepDive.interpretation.clusterBuy')}</p>
+                                <p className="flex items-start gap-1.5"><Activity size={14} className="text-rose-400 mt-0.5 flex-shrink-0" /> {t('gexTimelineSection.insiderDeepDive.interpretation.voluntarySell')}</p>
+                                <p className="flex items-start gap-1.5"><Clock size={14} className="text-slate-400 mt-0.5 flex-shrink-0" /> {t('gexTimelineSection.insiderDeepDive.interpretation.tenb51')}</p>
+                            </div>
+                        </div>
+
+                        {/* F. Limitations */}
+                        <div className="rounded-xl border border-amber-500/15 bg-amber-900/10 p-4 space-y-3">
+                            <div className="flex items-center gap-2">
+                                <AlertTriangle size={16} className="text-amber-400" />
+                                <h4 className="text-sm font-bold text-white">{t('gexTimelineSection.insiderDeepDive.limitations.title')}</h4>
+                            </div>
+                            <p className="text-[13px] text-slate-300 leading-relaxed">{t('gexTimelineSection.insiderDeepDive.limitations.desc')}</p>
+                            <div className="space-y-2 text-[12px] text-amber-200/80">
+                                <p className="flex items-start gap-1.5"><Clock size={14} className="text-amber-400 mt-0.5 flex-shrink-0" /> {t('gexTimelineSection.insiderDeepDive.limitations.delay')}</p>
+                                <p className="flex items-start gap-1.5"><AlertTriangle size={14} className="text-amber-400 mt-0.5 flex-shrink-0" /> {t('gexTimelineSection.insiderDeepDive.limitations.sellNoise')}</p>
+                                <p className="flex items-start gap-1.5"><Layers size={14} className="text-amber-400 mt-0.5 flex-shrink-0" /> {t('gexTimelineSection.insiderDeepDive.limitations.largeCap')}</p>
+                                <p className="flex items-start gap-1.5"><Lock size={14} className="text-amber-400 mt-0.5 flex-shrink-0" /> {t('gexTimelineSection.insiderDeepDive.limitations.disclaimer')}</p>
+                            </div>
+                        </div>
+
+                        {/* Trading Guide */}
+                        <div className="rounded-xl border border-cyan-500/15 bg-cyan-900/10 p-4 space-y-2">
+                            <span className="text-[13px] font-bold text-cyan-400 flex items-center gap-1.5"><Briefcase size={13} />{t('gexTimelineSection.insiderDeepDive.tradingGuide')}</span>
+                            <div className="text-[13px] text-slate-300 leading-relaxed space-y-0.5">
+                                <p>{String.fromCharCode(8226)} {t.rich('gexTimelineSection.insiderDeepDive.guide1', richTags)}</p>
+                                <p>{String.fromCharCode(8226)} {t.rich('gexTimelineSection.insiderDeepDive.guide2', richTags)}</p>
+                                <p>{String.fromCharCode(8226)} {t.rich('gexTimelineSection.insiderDeepDive.guide3', richTags)}</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
             {/* ═══ AI Deep Analysis Section ═══ */}
             <section className="space-y-5">
                 <div className="flex items-center gap-2 mt-2 mb-2">
                     <div className="h-px flex-1 bg-gradient-to-r from-amber-500/40 to-transparent" />
-                    <span className="text-[12px] font-bold text-amber-400 uppercase tracking-widest whitespace-nowrap">🧠 AI Deep Analysis</span>
+                    <span className="text-[12px] font-bold text-amber-400 uppercase tracking-widest whitespace-nowrap">AI Deep Analysis</span>
                     <div className="h-px flex-1 bg-gradient-to-l from-amber-500/40 to-transparent" />
                 </div>
 
@@ -942,8 +1066,8 @@ export default async function CommandGuidePage() {
                             </p>
                         </div>
 
-                        {/* 3 Analysis Axes */}
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                        {/* 4 Analysis Axes */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
                             <div className="p-3 rounded-lg bg-indigo-900/20 border border-indigo-500/15">
                                 <p className="text-[12px] text-indigo-300 leading-relaxed">
                                     {t('aiDeepAnalysis.techAnalysis')}
@@ -952,6 +1076,11 @@ export default async function CommandGuidePage() {
                             <div className="p-3 rounded-lg bg-cyan-900/20 border border-cyan-500/15">
                                 <p className="text-[12px] text-cyan-300 leading-relaxed">
                                     {t('aiDeepAnalysis.optionsAnalysis')}
+                                </p>
+                            </div>
+                            <div className="p-3 rounded-lg bg-rose-900/20 border border-rose-500/15">
+                                <p className="text-[12px] text-rose-300 leading-relaxed">
+                                    {t('aiDeepAnalysis.insiderAnalysis')}
                                 </p>
                             </div>
                             <div className="p-3 rounded-lg bg-emerald-900/20 border border-emerald-500/15">

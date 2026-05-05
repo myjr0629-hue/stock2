@@ -1366,7 +1366,7 @@
           "crossRef": "13-F集積パターン + INST RADARのACCUMULATION + CONVICTION Aグレード同時確認 → 機関の執行(Execution)とリサーチの見解が同方向に整列した強力な構造的合意です"
         },
         "limitations": {
-          "title": "⚠️ 重要な制限事項",
+          "title": "重要な制限事項",
           "desc": "13-Fデータの解釈にあたり必ず認識すべき構造的制限事項です。",
           "delay": "45日遅延: 四半期終了後45日以内の提出のため、公開時点で最大4.5ヶ月前のポジションです。現在の保有状況と異なる可能性があります。",
           "snapshot": "四半期スナップショット: 四半期末の単一時点の保有状態のみを反映します。四半期中の売買活動（例：短期トレーディング、四半期中の買付後売却）は捕捉されません。",
@@ -1377,17 +1377,68 @@
         "guide1": "<emerald>Top 5機関の保有比率合計増加 + QoQ新規参入機関多数</emerald> → 機関の構造的集積が進行中の環境であり、<gold>INST RADARのACCUMULATIONシグナルとの交差確認で信頼度が向上します</gold>",
         "guide2": "<rose>大型機関の大幅減少(>20%) + QoQ全量売却機関の発生</rose> → 機関の構造的離脱が観測される環境であり、<cyan>ダークプール比率の低下と同時発生時はDistribution構造が強化されます</cyan>",
         "guide3": "<emerald>保有機関数の増加 + 平均保有比率の安定</emerald> → 機関参加の幅が拡大し所有構造が分散する健全な構造です。<gold>単一機関集中リスクが低減する肯定的シグナルです</gold>"
+      },
+      "insiderDeepDive": {
+        "title": "SEC FORM 4 INSIDER TRADING — ディープダイブ",
+        "subtitle": "SEC Form 4基盤 インサイダー取引インテリジェンス",
+        "desc": "SEC Form 4は企業内部者（役員、取締役、10%以上株主）の<gold>自社株売買を2営業日以内に開示</gold>することを義務付けた規定です。SIGNUMはこの開示データをリアルタイムで収集・分析し、<cyan>インサイダー行動パターンに基づく構造的シグナル</cyan>を個人投資家に提供します。",
+        "whatIs": {
+          "title": "Form 4とは？",
+          "desc": "米国証券取引法Section 16(a)に基づき、企業内部者の自社株売買は<cyan>取引発生後2営業日以内</cyan>にSECへの届出が義務付けられています。13-F（45日遅延）とは異なり<gold>ほぼリアルタイムの開示</gold>であり、インサイダーの確信度を最も迅速に捕捉できる規制データです。",
+          "obligation": "届出義務: 役員(CEO/CFO/COO)、取締役会メンバー、10%以上大株主のすべての自社株売買",
+          "codes": "取引コード: P（市場買付）、S（市場売却）、A（ストックオプション行使）、M（オプション転換）等で取引類型を区分",
+          "tenb51": "10b5-1区分: 事前計画された自動売買（Rule 10b5-1）と自発的な裁量売買を明確に区分し、シグナル品質を差別化"
+        },
+        "research": {
+          "title": "学術的根拠（Academic Research Foundation）",
+          "desc": "インサイダー取引の情報価値は数十年にわたる学術研究を通じて実証的に検証されてきました。",
+          "seyhun": "Seyhun（1986年、Journal of Financial Economics）— インサイダー取引後に統計的に有意な異常収益率パターンが観測されており、特にC-level幹部の自発的買付においてそのパターンの強度がより高く記録されました",
+          "lakonishok": "Lakonishok \u0026 Lee（2001年、Review of Financial Studies）— インサイダーは逆張り（Contrarian）投資パターンを示し、小型株において買付シグナルの情報価値がより高く観測されました。大型株では情報価値が相対的に限定的であることが記録されています",
+          "cluster": "クラスター買付 — 複数のインサイダーが短期間に同時買付した場合、単独インサイダー買付と比較して後続の超過収益パターンの強度がより高く記録されています"
+        },
+        "signumMethod": {
+          "title": "SIGNUM分析方法論",
+          "desc": "SIGNUMは直近90日間のForm 4届出を収集し、<cyan>買付/売却件数、純取引金額、10b5-1プラン有無</cyan>を総合分析した上で4段階のセンチメントを自動算出します。",
+          "bullish": "BULLISH — 純買付優位 + 非計画的（Non-10b5-1）買付比率が高い",
+          "cautious": "CAUTIOUS — 混合シグナル、売買均衡または10b5-1計画売却を含む",
+          "bearish": "BEARISH — 純売却優位 + 自発的売却比率が高い",
+          "neutral": "NEUTRAL — 直近90日間に有意なインサイダー取引なし"
+        },
+        "aiIntegration": {
+          "title": "AI Deep Analysis統合",
+          "desc": "インサイダー取引データはAI Deep Analysisの<gold>第4分析軸（INSIDER ACTIVITY）</gold>として統合されます。AIエンジンはテクニカル構造、オプションポジショニング、ニュースコンテキストとともにインサイダー行動パターンを交差分析し、<cyan>より精密な構造的診断</cyan>を提供します。"
+        },
+        "interpretation": {
+          "title": "解釈フレームワーク",
+          "csuiteBuy": "C-level幹部の非計画的買付 — 経営陣が自己資金で自発的に買付した場合、企業内部の見通しに対する確信度が高いと解釈されます",
+          "clusterBuy": "クラスター買付（複数インサイダー同時買付）— 個別買付と比較して構造的信頼度が高いシグナルとして観測されます",
+          "voluntarySell": "自発的大量売却 — 10b5-1プランに基づかない裁量的売却は、インサイダーの短期見通し変化を示唆する可能性があります",
+          "tenb51": "10b5-1プラン売却 — 事前設定された自動売買であるため、タイミング自体の情報価値は限定的と解釈されます"
+        },
+        "limitations": {
+          "title": "構造的限界点",
+          "desc": "インサイダー取引データの解釈にあたり必ず認識すべき制限事項です。",
+          "delay": "開示遅延: 取引後2営業日以内の届出のため、最大2日の時差が存在します",
+          "sellNoise": "売却ノイズ: インサイダー売却の相当部分は納税、ポートフォリオ分散、個人流動性確保等の非情報的動機によるものです",
+          "largeCap": "大型株の限界: Lakonishok \u0026 Lee（2001）によると、大型株ではインサイダー買付の情報価値が小型株と比較して限定的であることが観測されています",
+          "disclaimer": "本データは市場構造の観察および定量化であり、投資助言や売買推奨には該当しません"
+        },
+        "tradingGuide": "Insiderシグナル解釈",
+        "guide1": "<emerald>C-level幹部の非計画的買付 + クラスター買付パターン</emerald> → 経営陣の構造的確信が高い環境であり、<gold>CONVICTION Grade Aとの同時確認でマルチソース合意が強化されます</gold>",
+        "guide2": "<rose>複数インサイダーの自発的大量売却 + 非10b5-1</rose> → インサイダーの短期見通し変化が観測される環境であり、<cyan>INST RADAR DISTRIBUTIONとの同時発生で機関離脱構造が強化されます</cyan>",
+        "guide3": "<emerald>インサイダー取引NEUTRAL + 13-F機関集積パターン</emerald> → インサイダー不在時でも機関の外部確信が観測される構造です。<gold>機関 vs インサイダーの視点の差異に注目が必要です</gold>"
       }
     },
     "aiDeepAnalysis": {
       "title": "AI DEEP ANALYSIS",
       "subtitle": "Claude S4 — Institutional-Grade AI Analysis",
-      "desc": "<gold>Claude Sonnet 4</gold>を搭載した機関級AI分析エンジンです。オプション構造、テクニカル指標、ニュースコンテキストを<cyan>3つの独立分析軸</cyan>で交差処理し、包括的な構造診断を提供します。各分析サイクルごとにRISK等級(LOW/MEDIUM/HIGH/CRITICAL)が自動算出され、次回分析更新時刻がリアルタイム表示されます。",
+      "desc": "<gold>Claude Sonnet 4</gold>を搭載した機関級AI分析エンジンです。オプション構造、テクニカル指標、インサイダー取引、ニュースコンテキストを<cyan>4つの独立分析軸</cyan>で交差処理し、包括的な構造診断を提供します。各分析サイクルごとにRISK等級(LOW/MEDIUM/HIGH/CRITICAL)が自動算出され、次回分析更新時刻がリアルタイム表示されます。",
       "verdictTitle": "AI VERDICT (総合判断)",
       "verdictDesc": "すべての分析軸の結果を<emerald>単一の方向性判断</emerald>に収束させます。BULLISH/NEUTRAL/BEARISH方向と核心根拠要約が1〜2文で提供され、AIコメントが解釈の文脈を補強します。",
       "techAnalysis": "TECHNICAL STRUCTURE ANALYSIS — 移動平均交差、サポート・レジスタンスレベル、トレンド構造を総合したテクニカル構造分析",
       "optionsAnalysis": "OPTIONS POSITIONING — Put Floor、Gamma Flip、オプションチェーン集中度、GEXレジーム基盤のデリバティブポジショニング分析",
-      "newsAnalysis": "NEWS & MARKET CONTEXT — AIがリアルタイムニュースと市場コンテキストを交差分析しセンチメントと触媒を評価",
+      "insiderAnalysis": "INSIDER ACTIVITY (SEC Form 4) — C-level幹部の自発的売買パターン、10b5-1プラン区分、クラスター買付検出によるインサイダー行動分析",
+      "newsAnalysis": "NEWS \u0026 MARKET CONTEXT — AIがリアルタイムニュースと市場コンテキストを交差分析しセンチメントと触媒を評価",
       "riskLow": "LOW — 構造的安定、ボラティリティ抑制環境",
       "riskMedium": "MEDIUM — 混合シグナル、方向模索中",
       "riskHigh": "HIGH — 構造的不確実性、ボラティリティ拡大環境",

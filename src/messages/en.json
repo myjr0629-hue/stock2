@@ -1366,7 +1366,7 @@
           "crossRef": "13-F accumulation pattern + INST RADAR ACCUMULATION + CONVICTION Grade A simultaneous confirmation → Institutional execution and research views aligned in the same direction — a powerful structural consensus"
         },
         "limitations": {
-          "title": "⚠️ Important Limitations",
+          "title": "Important Limitations",
           "desc": "Structural limitations that must be understood when interpreting 13-F data.",
           "delay": "45-Day Lag: Filed within 45 days after quarter end, meaning published positions may reflect holdings up to 4.5 months old. Current holdings may differ materially.",
           "snapshot": "Quarterly Snapshot: Reflects holdings at a single point in time (quarter end). Intra-quarter trading activity (e.g., round-trip trades, mid-quarter buys followed by sells) is not captured.",
@@ -1377,17 +1377,68 @@
         "guide1": "<emerald>Top 5 institutional holdings increasing + multiple new entrants QoQ</emerald> → Structural institutional accumulation underway; <gold>reliability increases when cross-confirmed with INST RADAR ACCUMULATION signal</gold>",
         "guide2": "<rose>Large institution position cuts (>20%) + institutions exiting entirely QoQ</rose> → Structural institutional departure observed; <cyan>strengthened distribution signal when accompanied by declining dark pool ratios</cyan>",
         "guide3": "<emerald>Growing number of institutional holders + stable average position weight</emerald> → Broadening institutional participation with diversifying ownership structure. <gold>A positive signal as single-institution concentration risk decreases</gold>"
+      },
+      "insiderDeepDive": {
+        "title": "SEC FORM 4 INSIDER TRADING — Deep Dive",
+        "subtitle": "SEC Form 4 Based Insider Transaction Intelligence",
+        "desc": "SEC Form 4 mandates that corporate insiders (officers, directors, 10%+ shareholders) <gold>disclose equity transactions within 2 business days</gold>. SIGNUM collects and analyzes these filings in real time to deliver <cyan>structural signals derived from insider behavioral patterns</cyan> directly to individual investors.",
+        "whatIs": {
+          "title": "What is Form 4?",
+          "desc": "Under Section 16(a) of the Securities Exchange Act, insider equity transactions must be <cyan>reported to the SEC within 2 business days</cyan>. Unlike 13-F filings (45-day lag), Form 4 provides <gold>near-real-time disclosure</gold>, making it the fastest regulatory data source for capturing insider conviction levels.",
+          "obligation": "Filing Obligation: All equity transactions by officers (CEO/CFO/COO), board members, and 10%+ beneficial owners",
+          "codes": "Transaction Codes: P (open market purchase), S (open market sale), A (stock option exercise), M (option conversion) — distinguishing transaction types",
+          "tenb51": "10b5-1 Distinction: Pre-scheduled automatic trades (Rule 10b5-1) are clearly separated from voluntary discretionary trades, differentiating signal quality"
+        },
+        "research": {
+          "title": "Academic Research Foundation",
+          "desc": "The informational value of insider trading has been empirically validated through decades of academic research.",
+          "seyhun": "Seyhun (1986, Journal of Financial Economics) — Statistically significant abnormal return patterns have been documented following insider transactions, with particularly stronger patterns recorded for voluntary purchases by C-level executives",
+          "lakonishok": "Lakonishok & Lee (2001, Review of Financial Studies) — Insiders exhibit contrarian investment patterns, with purchase signals showing higher informational value in smaller-capitalization stocks. In large-cap stocks, the informational value has been recorded as comparatively limited",
+          "cluster": "Cluster Buying — When multiple insiders purchase simultaneously within a compressed window, subsequent abnormal return patterns have been recorded at higher intensity compared to single-insider purchases"
+        },
+        "signumMethod": {
+          "title": "SIGNUM Analysis Methodology",
+          "desc": "SIGNUM collects the trailing 90 days of Form 4 filings, synthesizing <cyan>buy/sell counts, net transaction value, and 10b5-1 plan status</cyan> to auto-compute a 4-tier Sentiment classification.",
+          "bullish": "BULLISH — Net buying dominant + high proportion of non-10b5-1 (voluntary) purchases",
+          "cautious": "CAUTIOUS — Mixed signals, buy/sell equilibrium or includes 10b5-1 planned sales",
+          "bearish": "BEARISH — Net selling dominant + high proportion of voluntary sales",
+          "neutral": "NEUTRAL — No significant insider transactions within trailing 90 days"
+        },
+        "aiIntegration": {
+          "title": "AI Deep Analysis Integration",
+          "desc": "Insider transaction data is integrated as the <gold>4th analytical axis (INSIDER ACTIVITY)</gold> in AI Deep Analysis. The AI engine cross-analyzes technical structure, options positioning, and news context alongside insider behavioral patterns to deliver <cyan>more precise structural diagnostics</cyan>."
+        },
+        "interpretation": {
+          "title": "Interpretation Framework",
+          "csuiteBuy": "C-level voluntary purchase — When executives purchase with personal capital outside of pre-arranged plans, it is interpreted as reflecting high conviction in the company's internal outlook",
+          "clusterBuy": "Cluster buying (multiple insiders purchasing simultaneously) — Observed as a signal with structurally higher reliability compared to individual purchases",
+          "voluntarySell": "Voluntary large-scale selling — Discretionary sales not governed by 10b5-1 plans may suggest shifts in insider short-term outlook",
+          "tenb51": "10b5-1 plan sales — Pre-scheduled automatic transactions; the timing itself is interpreted as having limited informational value"
+        },
+        "limitations": {
+          "title": "Structural Limitations",
+          "desc": "Limitations that must be understood when interpreting insider transaction data.",
+          "delay": "Disclosure Lag: Filed within 2 business days of transaction, so up to 2 days of latency may exist",
+          "sellNoise": "Sell Noise: A significant portion of insider selling is driven by non-informational motivations such as tax obligations, portfolio diversification, and personal liquidity needs",
+          "largeCap": "Large-Cap Limitation: Per Lakonishok & Lee (2001), the informational value of insider purchases in large-cap stocks has been observed as limited compared to small-cap stocks",
+          "disclaimer": "This data represents observation and quantification of market structure and does not constitute investment advice or trade recommendations"
+        },
+        "tradingGuide": "Insider Signal Interpretation",
+        "guide1": "<emerald>C-level voluntary purchase + cluster buying pattern</emerald> → High structural conviction from management; <gold>reliability strengthens when cross-confirmed with CONVICTION Grade A</gold>",
+        "guide2": "<rose>Multiple insiders voluntarily selling large positions + non-10b5-1</rose> → Insider short-term outlook shift observed; <cyan>institutional departure structure strengthens when accompanied by INST RADAR DISTRIBUTION</cyan>",
+        "guide3": "<emerald>Insider activity NEUTRAL + 13-F institutional accumulation pattern</emerald> → External institutional conviction observed even in the absence of insider activity. <gold>The divergence between institutional and insider perspectives warrants attention</gold>"
       }
     },
     "aiDeepAnalysis": {
       "title": "AI DEEP ANALYSIS",
       "subtitle": "Claude S4 — Institutional-Grade AI Analysis",
-      "desc": "An institutional-grade AI analysis engine powered by <gold>Claude Sonnet 4</gold>. Cross-processes options structure, technical indicators, and news context across <cyan>3 independent analytical axes</cyan> to deliver comprehensive structural diagnostics. Each analysis cycle auto-computes a RISK tier (LOW/MEDIUM/HIGH/CRITICAL) with next update ETA displayed in real-time.",
+      "desc": "An institutional-grade AI analysis engine powered by <gold>Claude Sonnet 4</gold>. Cross-processes options structure, technical indicators, insider transactions, and news context across <cyan>4 independent analytical axes</cyan> to deliver comprehensive structural diagnostics. Each analysis cycle auto-computes a RISK tier (LOW/MEDIUM/HIGH/CRITICAL) with next update ETA displayed in real-time.",
       "verdictTitle": "AI VERDICT (Composite Judgment)",
       "verdictDesc": "Converges all analytical axis outputs into a <emerald>single directional judgment</emerald>. BULLISH/NEUTRAL/BEARISH direction with 1-2 sentence core rationale summary, supplemented by AI commentary that enriches interpretive context.",
       "techAnalysis": "TECHNICAL STRUCTURE ANALYSIS — Moving average crossovers, support/resistance levels, and trend structure synthesized into technical structural analysis",
       "optionsAnalysis": "OPTIONS POSITIONING — Put Floor, Gamma Flip, options chain concentration, and GEX regime-based derivative positioning analysis",
-      "newsAnalysis": "NEWS & MARKET CONTEXT — AI cross-analyzes real-time news and market context to assess sentiment and catalysts",
+      "insiderAnalysis": "INSIDER ACTIVITY (SEC Form 4) — C-level voluntary buy/sell patterns, 10b5-1 plan distinction, and cluster purchase detection for insider behavioral analysis",
+      "newsAnalysis": "NEWS \u0026 MARKET CONTEXT — AI cross-analyzes real-time news and market context to assess sentiment and catalysts",
       "riskLow": "LOW — Structurally stable, volatility-suppressed environment",
       "riskMedium": "MEDIUM — Mixed signals, direction seeking",
       "riskHigh": "HIGH — Structural uncertainty, volatility-expanding environment",

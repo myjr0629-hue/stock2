@@ -1284,7 +1284,7 @@
           "crossRef": "13-F 매집 패턴 + INST RADAR의 ACCUMULATION + CONVICTION A등급 동시 확인 → 기관의 실행(Execution)과 리서치의 견해가 동일 방향으로 정렬된 강한 구조적 합의입니다"
         },
         "limitations": {
-          "title": "⚠️ 중요 제한사항",
+          "title": "중요 제한사항",
           "desc": "13-F 데이터 해석 시 반드시 인지해야 할 구조적 제한사항입니다.",
           "delay": "45일 지연: 분기 종료 후 45일 이내에 제출되므로, 공개 시점 기준 최대 4.5개월 전의 포지션입니다. 현재 보유 현황과 상이할 수 있습니다.",
           "snapshot": "분기 스냅샷: 분기말 단일 시점의 보유 상태만 반영됩니다. 분기 중간의 매매 활동(예: 단기 트레이딩, 분기 중 매수 후 매도)은 포착되지 않습니다.",
@@ -1295,17 +1295,68 @@
         "guide1": "<emerald>Top 5 기관 보유 비중 합계 증가 + QoQ 신규 진입 기관 다수</emerald> → 기관의 구조적 매집이 진행 중인 환경이며, <gold>INST RADAR의 ACCUMULATION 시그널과 교차 확인 시 신뢰도가 높아집니다</gold>",
         "guide2": "<rose>대형 기관의 대량 감소(>20%) + QoQ 전량 매도 기관 발생</rose> → 기관의 구조적 이탈이 관찰되며, <cyan>다크풀 비율 하락과 동반 시 분배(Distribution) 구조가 강화됩니다</cyan>",
         "guide3": "<emerald>보유 기관 수 증가 + 평균 보유 비중 안정</emerald> → 기관 참여 폭이 확대되며 소유 구조가 분산되는 건강한 구조입니다. <gold>단일 기관 집중 리스크가 감소하는 긍정적 신호입니다</gold>"
+      },
+      "insiderDeepDive": {
+        "title": "SEC FORM 4 INSIDER TRADING — Deep Dive",
+        "subtitle": "SEC Form 4 기반 내부자 거래 인텔리전스",
+        "desc": "SEC Form 4는 기업 내부자(임원, 이사, 10% 이상 주주)의 <gold>자사주 매매 내역을 2영업일 이내에 공시</gold>하도록 의무화한 규정입니다. SIGNUM은 이 공시 데이터를 실시간 수집·분석하여 <cyan>내부자 행동 패턴에 기반한 구조적 신호</cyan>를 개인 투자자에게 제공합니다.",
+        "whatIs": {
+          "title": "Form 4란?",
+          "desc": "미국 증권거래법 Section 16(a)에 의거, 기업 내부자의 자사주 매매는 <cyan>거래 발생 후 2영업일 이내</cyan>에 SEC에 의무 보고됩니다. 13-F(45일 지연)와 달리 <gold>거의 실시간에 가까운 공시</gold>로, 내부자의 확신 수준을 가장 빠르게 포착할 수 있는 규제 데이터입니다.",
+          "obligation": "공시 의무: 임원(CEO/CFO/COO), 이사회 구성원, 10% 이상 대주주의 모든 자사주 매매",
+          "codes": "거래 코드: P(시장 매수), S(시장 매도), A(스톡옵션 행사), M(옵션 전환) 등으로 거래 유형을 구분",
+          "tenb51": "10b5-1 구분: 사전 계획된 자동 매매(Rule 10b5-1)와 자발적 재량 매매를 명확히 구분하여 신호 품질을 차별화"
+        },
+        "research": {
+          "title": "학술적 근거 (Academic Research Foundation)",
+          "desc": "내부자 거래의 정보 가치는 수십 년간의 학술 연구를 통해 실증적으로 검증되어 왔습니다.",
+          "seyhun": "Seyhun (1986, Journal of Financial Economics) — 내부자 거래 이후 통계적으로 유의미한 비정상 수익률 패턴이 관찰된 바 있으며, 특히 C-level 임원의 자발적 매수에서 해당 패턴의 강도가 더 높게 기록되었습니다",
+          "lakonishok": "Lakonishok & Lee (2001, Review of Financial Studies) — 내부자는 역발상(Contrarian) 투자 패턴을 보이며, 소형주에서 매수 신호의 정보 가치가 더 높게 관측되었습니다. 대형주에서는 정보 가치가 상대적으로 제한적인 것으로 기록되었습니다",
+          "cluster": "클러스터 매수 — 복수의 내부자가 단기간 내 동시 매수한 경우, 단일 내부자 매수 대비 후속 초과수익 패턴의 강도가 더 높게 기록된 바 있습니다"
+        },
+        "signumMethod": {
+          "title": "SIGNUM 분석 방법론",
+          "desc": "SIGNUM은 직근 90일간의 Form 4 공시를 수집하여 <cyan>매수/매도 건수, 순거래 금액, 10b5-1 계획 여부</cyan>를 종합 분석한 뒤 4단계 감성(Sentiment)을 자동 산출합니다.",
+          "bullish": "BULLISH — 순매수 우위 + 비계획적(Non-10b5-1) 매수 비중 높음",
+          "cautious": "CAUTIOUS — 혼합 신호, 매수·매도 균형 또는 10b5-1 계획 매도 포함",
+          "bearish": "BEARISH — 순매도 우위 + 자발적 매도 비중 높음",
+          "neutral": "NEUTRAL — 직근 90일 내 유의미한 내부자 거래 없음"
+        },
+        "aiIntegration": {
+          "title": "AI Deep Analysis 통합",
+          "desc": "내부자 거래 데이터는 AI Deep Analysis의 <gold>제4 분석축(INSIDER ACTIVITY)</gold>으로 통합됩니다. AI 엔진은 기술적 구조, 옵션 포지셔닝, 뉴스 컨텍스트와 함께 내부자 행동 패턴을 교차 분석하여 <cyan>보다 정밀한 구조적 진단</cyan>을 제공합니다."
+        },
+        "interpretation": {
+          "title": "해석 프레임워크",
+          "csuiteBuy": "C-level 임원의 비계획적 매수 — 경영진이 자사 자본으로 자발적으로 매수한 경우, 기업 내부 전망에 대한 확신 수준이 높은 것으로 해석됩니다",
+          "clusterBuy": "클러스터 매수(복수 내부자 동시 매수) — 개별 매수 대비 구조적 신뢰도가 높은 신호로 관측됩니다",
+          "voluntarySell": "자발적 대량 매도 — 10b5-1 계획에 의하지 않은 재량적 매도는 내부자의 단기 전망 변화를 시사할 수 있습니다",
+          "tenb51": "10b5-1 계획 매도 — 사전 설정된 자동 매매이므로 시점 자체의 정보 가치는 제한적인 것으로 해석됩니다"
+        },
+        "limitations": {
+          "title": "구조적 한계점",
+          "desc": "내부자 거래 데이터 해석 시 반드시 인지해야 할 제한사항입니다.",
+          "delay": "공시 지연: 거래 후 2영업일 이내 보고이므로, 최대 2일의 시차가 존재합니다",
+          "sellNoise": "매도 노이즈: 내부자 매도의 상당 부분은 세금 납부, 포트폴리오 분산, 개인 유동성 확보 등 비정보적 동기에 의한 것입니다",
+          "largeCap": "대형주 한계: Lakonishok & Lee(2001)에 따르면 대형주에서는 내부자 매수의 정보 가치가 소형주 대비 제한적인 것으로 관측되었습니다",
+          "disclaimer": "본 데이터는 시장 구조의 관찰 및 정량화이며, 투자 조언이나 매매 권유에 해당하지 않습니다"
+        },
+        "tradingGuide": "Insider 시그널 해석",
+        "guide1": "<emerald>C-level 임원 비계획적 매수 + 클러스터 매수 패턴</emerald> → 경영진의 구조적 확신이 높은 환경이며, <gold>CONVICTION Grade A와 동시 확인 시 다중 소스 합의가 강화됩니다</gold>",
+        "guide2": "<rose>복수 내부자 자발적 대량 매도 + 비10b5-1</rose> → 내부자의 단기 전망 변화가 관찰되며, <cyan>INST RADAR DISTRIBUTION과 동반 시 기관 이탈 구조가 강화됩니다</cyan>",
+        "guide3": "<emerald>내부자 거래 NEUTRAL + 13-F 기관 매집 패턴</emerald> → 내부자 부재 시에도 기관의 외부 확신이 관찰되는 구조입니다. <gold>기관 vs 내부자 시각 차이에 주목이 필요합니다</gold>"
       }
     },
     "aiDeepAnalysis": {
       "title": "AI DEEP ANALYSIS",
       "subtitle": "Claude S4 — Institutional-Grade AI Analysis",
-      "desc": "<gold>Claude Sonnet 4</gold> 기반의 기관급 AI 분석 엔진입니다. 옵션 구조, 기술적 지표, 뉴스 컨텍스트를 <cyan>3개 독립 분석축</cyan>으로 교차 처리하여 종합적인 구조 진단을 제공합니다. 각 분석 사이클마다 RISK 등급(LOW/MEDIUM/HIGH/CRITICAL)이 자동 산출되며, 다음 분석 갱신 시각이 실시간 표시됩니다.",
+      "desc": "<gold>Claude Sonnet 4</gold> 기반의 기관급 AI 분석 엔진입니다. 옵션 구조, 기술적 지표, 내부자 거래, 뉴스 컨텍스트를 <cyan>4개 독립 분석축</cyan>으로 교차 처리하여 종합적인 구조 진단을 제공합니다. 각 분석 사이클마다 RISK 등급(LOW/MEDIUM/HIGH/CRITICAL)이 자동 산출되며, 다음 분석 갱신 시각이 실시간 표시됩니다.",
       "verdictTitle": "AI VERDICT (종합 판단)",
       "verdictDesc": "모든 분석 축의 결과를 <emerald>단일 방향성 판단</emerald>으로 수렴시킵니다. BULLISH/NEUTRAL/BEARISH 방향과 함께 핵심 근거 요약이 1~2문장으로 제공되며, AI 코멘트가 해석의 맥락을 보강합니다.",
       "techAnalysis": "TECHNICAL STRUCTURE ANALYSIS — 이동평균 교차, 지지·저항 레벨, 추세 구조를 종합한 기술적 구조 분석",
       "optionsAnalysis": "OPTIONS POSITIONING — Put Floor, Gamma Flip, 옵션 체인 집중도, GEX 레짐 기반 파생 포지셔닝 분석",
-      "newsAnalysis": "NEWS & MARKET CONTEXT — AI가 실시간 뉴스와 시장 컨텍스트를 교차 분석하여 센티먼트와 촉매를 평가",
+      "insiderAnalysis": "INSIDER ACTIVITY (SEC Form 4) — C-level 임원의 자발적 매수/매도 패턴, 10b5-1 계획 구분, 클러스터 매수 감지를 통한 내부자 행동 분석",
+      "newsAnalysis": "NEWS \u0026 MARKET CONTEXT — AI가 실시간 뉴스와 시장 컨텍스트를 교차 분석하여 센티먼트와 촉매를 평가",
       "riskLow": "LOW — 구조적 안정, 변동성 억제 환경",
       "riskMedium": "MEDIUM — 혼합 시그널, 방향 탐색 중",
       "riskHigh": "HIGH — 구조적 불확실성, 변동성 확대 환경",
