@@ -1445,24 +1445,35 @@ export function LiveTickerDashboard({ ticker, initialStockData, initialNews, ran
                                         </div>
                                     )}
 
-                                    {/* ── BOTTOM: INSIDER PULSE ── */}
+                                    {/* ── BOTTOM: INSIDER PULSE (2-line premium) ── */}
                                     {insiderData ? (
                                         <button
                                             onClick={(e) => { e.stopPropagation(); setActiveInsightTab('insider'); }}
-                                            className="relative z-10 mt-auto pt-1.5 border-t border-amber-500/15 flex items-center gap-1.5 text-left hover:bg-amber-500/5 rounded-b px-0.5 py-0.5 transition-all w-full"
+                                            className="relative z-10 mt-auto pt-1.5 border-t border-amber-500/20 text-left hover:bg-amber-500/5 rounded-b px-1 py-1 transition-all w-full group/ins"
                                         >
-                                            <svg width="11" height="11" viewBox="0 0 16 16" className="text-amber-400 shrink-0" fill="currentColor"><circle cx="8" cy="4" r="3" /><path d="M2 14c0-3.3 2.7-6 6-6s6 2.7 6 6H2z" /></svg>
-                                            <span className="text-[12px] text-amber-400/90 font-jakarta font-bold truncate">
-                                                {insiderData.latest ? `${insiderData.latest.title} ${insiderData.latest.code === 'P' ? 'Buy' : 'Sell'} ${fmtVal(insiderData.latest.value)}` : 'Insider'}
-                                            </span>
-                                            <span className={`text-[12px] font-mono font-bold ${insiderData.net30d > 0 ? 'text-emerald-400' : insiderData.net30d < 0 ? 'text-rose-400' : 'text-slate-400'} ml-auto shrink-0`}>
-                                                Net {insiderData.net30d > 0 ? '+' : ''}{fmtVal(insiderData.net30d)}
-                                            </span>
-                                            <svg width="8" height="8" viewBox="0 0 8 8" className="text-amber-400/50 shrink-0"><path d="M2 1l4 3-4 3" fill="currentColor" /></svg>
+                                            {/* Line 1: INSIDER PULSE label + sentiment */}
+                                            <div className="flex items-center justify-between mb-0.5">
+                                                <div className="flex items-center gap-1.5">
+                                                    <svg width="12" height="12" viewBox="0 0 16 16" className="text-amber-400 shrink-0" fill="currentColor"><circle cx="8" cy="4" r="3" /><path d="M2 14c0-3.3 2.7-6 6-6s6 2.7 6 6H2z" /></svg>
+                                                    <span className="text-[12px] text-amber-400 font-jakarta font-bold tracking-wider uppercase">INSIDER</span>
+                                                </div>
+                                                <span className={`text-[12px] font-black px-1.5 py-px rounded font-jakarta ${insiderData.sentiment === 'BULLISH' ? 'bg-emerald-500/20 text-emerald-400' : insiderData.sentiment === 'BEARISH' ? 'bg-rose-500/20 text-rose-400' : insiderData.sentiment === 'CAUTIOUS' ? 'bg-amber-500/20 text-amber-400' : 'bg-slate-700/30 text-slate-400'}`}>
+                                                    {insiderData.sentiment}
+                                                </span>
+                                            </div>
+                                            {/* Line 2: Latest trade + Net value (bold, prominent) */}
+                                            <div className="flex items-center justify-between">
+                                                <span className={`text-[13px] font-jakarta font-bold truncate ${insiderData.latest?.code === 'P' ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                                    {insiderData.latest ? `${insiderData.latest.title} ${insiderData.latest.code === 'P' ? 'Buy' : 'Sell'} ${fmtVal(insiderData.latest.value)}` : '—'}
+                                                </span>
+                                                <span className={`text-[13px] font-mono font-black ${insiderData.net30d > 0 ? 'text-emerald-400' : insiderData.net30d < 0 ? 'text-rose-400' : 'text-slate-400'} shrink-0 ml-2`}>
+                                                    Net {insiderData.net30d > 0 ? '+' : ''}{fmtVal(insiderData.net30d)}
+                                                </span>
+                                            </div>
                                         </button>
                                     ) : (
                                         <div className="relative z-10 mt-auto pt-0.5">
-                                            <span className="text-[12px] text-slate-300 font-jakarta">SMA 50/200 Cross</span>
+                                            <span className="text-[12px] text-slate-200 font-jakarta">SMA 50/200 Cross</span>
                                         </div>
                                     )}
                                 </div>

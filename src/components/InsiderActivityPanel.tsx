@@ -9,10 +9,11 @@
  * - Net insider value summary with sentiment badge
  * - COMPACT transaction table: Name · Title on ONE line, min 12px, slate-200
  * 
- * Design constraints:
- * - Fits within GEX Timeline card size
- * - Min font 12px, slate-200 text
- * - No emoji — infographic-style only (amber/gold theme)
+ * Design rules (strict):
+ * - Minimum font size: 12px (no 10px/11px anywhere)
+ * - Text color: slate-200 minimum (no slate-300/400 for readable content)
+ * - Amber/gold theme for premium feel
+ * - Compliance tagline included
  * - Zero impact on other features
  */
 
@@ -81,11 +82,11 @@ function codeLabel(code: string): { label: string; color: string; bg: string } {
     switch (code) {
         case 'P': return { label: 'BUY', color: 'text-emerald-400', bg: 'bg-emerald-500/20' };
         case 'S': return { label: 'SELL', color: 'text-rose-400', bg: 'bg-rose-500/20' };
-        case 'A': return { label: 'AWARD', color: 'text-slate-400', bg: 'bg-slate-500/20' };
+        case 'A': return { label: 'AWARD', color: 'text-slate-300', bg: 'bg-slate-500/20' };
         case 'M': return { label: 'EXER', color: 'text-blue-400', bg: 'bg-blue-500/20' };
-        case 'C': return { label: 'CONV', color: 'text-slate-400', bg: 'bg-slate-500/20' };
-        case 'F': return { label: 'TAX', color: 'text-slate-400', bg: 'bg-slate-500/20' };
-        default: return { label: code || '—', color: 'text-slate-400', bg: 'bg-slate-500/20' };
+        case 'C': return { label: 'CONV', color: 'text-slate-300', bg: 'bg-slate-500/20' };
+        case 'F': return { label: 'TAX', color: 'text-slate-300', bg: 'bg-slate-500/20' };
+        default: return { label: code || '—', color: 'text-slate-300', bg: 'bg-slate-500/20' };
     }
 }
 
@@ -94,15 +95,14 @@ function sentimentConfig(s: string) {
         case 'BULLISH': return { label: 'BULLISH', color: 'text-emerald-400', bg: 'bg-emerald-500/20 border-emerald-500/30' };
         case 'CAUTIOUS': return { label: 'CAUTIOUS', color: 'text-amber-400', bg: 'bg-amber-500/20 border-amber-500/30' };
         case 'BEARISH': return { label: 'BEARISH', color: 'text-rose-400', bg: 'bg-rose-500/20 border-rose-500/30' };
-        default: return { label: 'NEUTRAL', color: 'text-slate-400', bg: 'bg-slate-500/20 border-slate-500/30' };
+        default: return { label: 'NEUTRAL', color: 'text-slate-300', bg: 'bg-slate-500/20 border-slate-500/30' };
     }
 }
 
-/** Compact name: "Wilson-Thompson Kathleen" → "K. Wilson-Thompson" */
+/** Compact name: "Rubinstein Jonathan" → "J. Rubinstein" */
 function compactName(name: string): string {
     const parts = name.trim().split(/\s+/);
     if (parts.length <= 1) return name;
-    // Last part is first name in SEC format: "LastName FirstName MiddleInitial"
     const lastName = parts[0];
     const firstName = parts[1];
     return `${firstName.charAt(0)}. ${lastName}`;
@@ -120,7 +120,7 @@ function InsiderTimeline({ transactions }: { transactions: InsiderTransaction[] 
     
     if (recent.length === 0) {
         return (
-            <div className="px-4 py-1 text-[12px] text-slate-400 font-jakarta text-center">
+            <div className="px-4 py-1 text-[12px] text-slate-200 font-jakarta text-center">
                 No insider buy/sell in the last 30 days
             </div>
         );
@@ -134,7 +134,7 @@ function InsiderTimeline({ transactions }: { transactions: InsiderTransaction[] 
     return (
         <div className="px-4 py-1">
             <div className="flex items-center justify-between mb-0.5">
-                <span className="text-[12px] text-slate-200 font-jakarta">30-Day Activity</span>
+                <span className="text-[12px] text-slate-200 font-jakarta font-medium">30-Day Activity</span>
                 <div className="flex items-center gap-3">
                     <span className="flex items-center gap-1 text-[12px] text-slate-200 font-jakarta">
                         <span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" /> BUY
@@ -146,8 +146,8 @@ function InsiderTimeline({ transactions }: { transactions: InsiderTransaction[] 
             </div>
             <svg viewBox={`0 0 ${SVG_W} ${SVG_H}`} className="w-full h-[40px]">
                 <line x1={MARGIN_X} y1={SVG_H / 2} x2={SVG_W - MARGIN_X} y2={SVG_H / 2} stroke="rgba(255,255,255,0.08)" strokeWidth="1" />
-                <text x={MARGIN_X} y={SVG_H - 2} fill="rgba(255,255,255,0.25)" fontSize="8" fontFamily="Jakarta Sans, sans-serif">30d ago</text>
-                <text x={SVG_W - MARGIN_X} y={SVG_H - 2} fill="rgba(255,255,255,0.25)" fontSize="8" fontFamily="Jakarta Sans, sans-serif" textAnchor="end">Today</text>
+                <text x={MARGIN_X} y={SVG_H - 2} fill="rgba(203,213,225,0.5)" fontSize="9" fontFamily="Jakarta Sans, sans-serif">30d ago</text>
+                <text x={SVG_W - MARGIN_X} y={SVG_H - 2} fill="rgba(203,213,225,0.5)" fontSize="9" fontFamily="Jakarta Sans, sans-serif" textAnchor="end">Today</text>
                 
                 {recent.map((t, i) => {
                     const date = new Date(t.date);
@@ -176,8 +176,8 @@ function InsiderTimeline({ transactions }: { transactions: InsiderTransaction[] 
 
 // ─── Table Row Heights (compact) ────────────────────────────────────
 const VISIBLE_ROWS = 8;
-const ROW_HEIGHT = 28; // Compact: single-line rows
-const TABLE_HEADER_HEIGHT = 26;
+const ROW_HEIGHT = 28;
+const TABLE_HEADER_HEIGHT = 28;
 const SCROLL_HEIGHT = TABLE_HEADER_HEIGHT + (VISIBLE_ROWS * ROW_HEIGHT);
 
 // ─── Main Component ────────────────────────────────────────────────
@@ -216,7 +216,6 @@ export default function InsiderActivityPanel({ ticker, insider: propInsider }: P
         }
     }, [fetchInsider, propInsider]);
 
-    // Filter: only show P/S by default, or all if toggled
     const displayTx = useMemo(() => {
         if (!data?.transactions) return [];
         if (showAllTx) return data.transactions;
@@ -250,7 +249,7 @@ export default function InsiderActivityPanel({ ticker, insider: propInsider }: P
             <div className="rounded-lg border border-white/10 bg-slate-900/60 p-4 min-h-[120px] flex items-center justify-center">
                 <div className="text-center">
                     <span className="text-[13px] text-slate-200 font-jakarta block">No insider trading data</span>
-                    <span className="text-[12px] text-slate-400 font-jakarta block mt-1">
+                    <span className="text-[12px] text-slate-200/60 font-jakarta block mt-1">
                         SEC Form 4 filings update within 2 business days of trades
                     </span>
                 </div>
@@ -259,7 +258,7 @@ export default function InsiderActivityPanel({ ticker, insider: propInsider }: P
     }
 
     const sent = sentimentConfig(data.sentiment);
-    const netColor = data.net30d > 0 ? 'text-emerald-400' : data.net30d < 0 ? 'text-rose-400' : 'text-slate-400';
+    const netColor = data.net30d > 0 ? 'text-emerald-400' : data.net30d < 0 ? 'text-rose-400' : 'text-slate-300';
 
     return (
         <div className="rounded-lg border border-white/10 bg-slate-900/60 backdrop-blur-lg shadow-lg shadow-[inset_0_1px_0_rgba(255,255,255,0.05)] flex flex-col relative group hover:border-white/20 transition-colors overflow-hidden">
@@ -269,39 +268,42 @@ export default function InsiderActivityPanel({ ticker, insider: propInsider }: P
                 <div className="absolute -top-10 -right-10 w-40 h-40 bg-[radial-gradient(circle,rgba(245,158,11,0.06)_0%,transparent_60%)]" />
             </div>
 
-            {/* ─── Summary Header (compact inline) ─── */}
-            <div className="relative z-10 px-4 pt-2 pb-1.5 border-b border-white/5">
-                <div className="flex items-center justify-between mb-1">
+            {/* ─── Header: Title + Compliance + Sentiment ─── */}
+            <div className="relative z-10 px-4 pt-2.5 pb-1.5 border-b border-white/5">
+                {/* Row 1: Title + Premium tagline + Badge */}
+                <div className="flex items-center justify-between mb-1.5">
                     <div className="flex items-center gap-2">
-                        <svg width="13" height="13" viewBox="0 0 16 16" className="text-amber-400" fill="currentColor">
+                        <svg width="14" height="14" viewBox="0 0 16 16" className="text-amber-400" fill="currentColor">
                             <circle cx="8" cy="4" r="3" />
                             <path d="M2 14c0-3.3 2.7-6 6-6s6 2.7 6 6H2z" />
                         </svg>
-                        <span className="text-[12px] font-bold text-slate-200 tracking-wider uppercase font-jakarta">
+                        <span className="text-[14px] font-bold text-white tracking-wider uppercase font-jakarta">
                             Insider Activity
                         </span>
-                        <span className="text-[12px] text-slate-400 font-jakarta">(Form 4)</span>
+                        <span className="text-[12px] text-slate-200 font-jakarta">(Form 4)</span>
+                        <span className="text-[12px] text-amber-400/60 font-jakarta hidden md:inline">·</span>
+                        <span className="text-[12px] text-amber-400/60 font-jakarta italic hidden md:inline">SEC Filing Intelligence</span>
                     </div>
                     <span className={`text-[12px] font-black px-2 py-0.5 rounded border font-jakarta ${sent.bg} ${sent.color}`}>
                         {sent.label}
                     </span>
                 </div>
 
-                {/* Stats row — compact inline */}
-                <div className="flex items-center gap-3 text-[12px] font-jakarta">
-                    <span className="text-slate-200">Net(30d)</span>
+                {/* Row 2: Stats inline — all 12px slate-200 */}
+                <div className="flex items-center gap-2 text-[12px] font-jakarta flex-wrap">
+                    <span className="text-slate-200 font-medium">Net(30d)</span>
                     <span className={`font-bold font-mono ${netColor}`}>
                         {data.net30d > 0 ? '+' : ''}{fmtDollar(data.net30d)}
                     </span>
-                    <span className="text-white/10">|</span>
-                    <span className="text-slate-200">Buy</span>
+                    <span className="text-white/15">|</span>
+                    <span className="text-slate-200 font-medium">Buy</span>
                     <span className="font-bold text-emerald-400 font-mono">{data.buyCount}</span>
-                    <span className="text-white/10">|</span>
-                    <span className="text-slate-200">Sell</span>
+                    <span className="text-white/15">|</span>
+                    <span className="text-slate-200 font-medium">Sell</span>
                     <span className="font-bold text-rose-400 font-mono">{data.sellCount}</span>
                     {data.latest && (
                         <>
-                            <span className="text-white/10">|</span>
+                            <span className="text-white/15">|</span>
                             <span className={`font-bold ${data.latest.code === 'P' ? 'text-emerald-400' : 'text-rose-400'}`}>
                                 {data.latest.title} {data.latest.code === 'P' ? 'Buy' : 'Sell'} {fmtDollar(data.latest.value)}
                             </span>
@@ -318,7 +320,7 @@ export default function InsiderActivityPanel({ ticker, insider: propInsider }: P
                 className="relative z-10 overflow-y-auto insider-scroll pr-0.5"
                 style={{ maxHeight: `${SCROLL_HEIGHT}px` }}
             >
-                {/* Table Header */}
+                {/* Table Header — 12px, slate-200, bold */}
                 <div className="sticky top-0 z-20 bg-slate-900/95 backdrop-blur-sm border-b border-white/5 px-4 py-1 grid grid-cols-[55px_1fr_70px_50px_80px_20px] gap-1.5 items-center">
                     <span className="text-[12px] text-slate-200 font-jakarta font-bold">DATE</span>
                     <span className="text-[12px] text-slate-200 font-jakarta font-bold">INSIDER</span>
@@ -332,7 +334,7 @@ export default function InsiderActivityPanel({ ticker, insider: propInsider }: P
                     </span>
                 </div>
 
-                {/* Transaction Rows — single line: "K. Rubinstein · Director" */}
+                {/* Transaction Rows — single line: "J. Rubinstein · Director" */}
                 {displayTx.map((tx, idx) => {
                     const cl = codeLabel(tx.code);
                     const dateStr = new Date(tx.date).toLocaleDateString('en-US', { month: '2-digit', day: '2-digit' });
@@ -346,32 +348,32 @@ export default function InsiderActivityPanel({ ticker, insider: propInsider }: P
                             }`}
                             style={{ minHeight: `${ROW_HEIGHT}px` }}
                         >
-                            {/* Date */}
+                            {/* Date — 12px slate-200 */}
                             <span className="text-[12px] text-slate-200 font-mono tabular-nums">{dateStr}</span>
 
-                            {/* Insider: Name · Title (single line) */}
+                            {/* Insider: "J. Rubinstein · Director" — single line, 12px, slate-200 */}
                             <span className="text-[12px] text-slate-200 font-jakarta truncate" title={`${tx.name} — ${tx.title}`}>
-                                {nameDisplay}
-                                <span className="text-slate-400 mx-1">·</span>
-                                <span className="text-slate-400">{tx.title}</span>
+                                <span className="font-medium">{nameDisplay}</span>
+                                <span className="text-slate-200/40 mx-1">·</span>
+                                <span className="text-slate-200/70">{tx.title}</span>
                                 {!tx.is10b5 && (tx.code === 'P' || tx.code === 'S') && (
                                     <span className="text-amber-400 font-bold ml-0.5" title="Voluntary (non-10b5-1)">★</span>
                                 )}
                             </span>
 
-                            {/* Shares */}
+                            {/* Shares — 12px slate-200 */}
                             <span className="text-[12px] text-slate-200 font-mono text-right tabular-nums">
                                 {tx.shares > 0 ? fmtShares(tx.shares) : '—'}
                             </span>
 
-                            {/* Type Badge */}
+                            {/* Type Badge — 12px */}
                             <span className={`text-[12px] font-black px-1 py-px rounded text-center font-jakarta ${cl.bg} ${cl.color}`}>
                                 {cl.label}
                             </span>
 
-                            {/* Value */}
+                            {/* Value — 12px colored */}
                             <span className={`text-[12px] font-bold font-mono text-right tabular-nums ${
-                                tx.code === 'P' ? 'text-emerald-400' : tx.code === 'S' ? 'text-rose-400' : 'text-slate-400'
+                                tx.code === 'P' ? 'text-emerald-400' : tx.code === 'S' ? 'text-rose-400' : 'text-slate-200'
                             }`}>
                                 {tx.value > 0 ? fmtDollar(tx.value) : '—'}
                             </span>
@@ -383,7 +385,7 @@ export default function InsiderActivityPanel({ ticker, insider: propInsider }: P
                                         href={tx.filingUrl}
                                         target="_blank"
                                         rel="noopener noreferrer"
-                                        className="text-slate-500 hover:text-amber-400 transition-colors"
+                                        className="text-slate-400 hover:text-amber-400 transition-colors"
                                         title="View SEC Filing"
                                     >
                                         <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" className="inline">
@@ -398,27 +400,34 @@ export default function InsiderActivityPanel({ ticker, insider: propInsider }: P
                 })}
             </div>
 
-            {/* Toggle: show all vs P/S only */}
+            {/* Toggle: show all vs P/S only — 12px slate-200 */}
             {data.transactions.length > displayTx.length && (
                 <div className="relative z-10 px-4 py-1 border-t border-white/5">
                     <button
                         onClick={() => setShowAllTx(!showAllTx)}
-                        className="text-[12px] text-amber-400/80 hover:text-amber-300 font-jakarta transition-colors"
+                        className="text-[12px] text-amber-400/80 hover:text-amber-300 font-jakarta font-medium transition-colors"
                     >
                         {showAllTx ? 'Show Buy/Sell only' : `Show all ${data.transactions.length} transactions (incl. Awards, Exercises)`}
                     </button>
                 </div>
             )}
 
-            {/* ─── Footer ─── */}
+            {/* ─── Footer: Source + Compliance ─── */}
             <div className="relative z-10 px-4 py-1.5 border-t border-white/5 flex items-center justify-between flex-wrap gap-1">
                 <span className="text-[12px] text-slate-200 font-jakarta flex items-center gap-1.5">
                     Source: SEC Form 4
-                    <span className="text-amber-400/60">·</span>
+                    <span className="text-amber-400/50">·</span>
                     <span className="text-amber-400/80 font-bold" title="★ = Not a 10b5-1 pre-planned trade">★ = Voluntary (non-10b5-1)</span>
                 </span>
                 <span className="text-[12px] text-slate-200 font-jakarta">
                     {data.transactions.length} filings
+                </span>
+            </div>
+
+            {/* Compliance disclaimer */}
+            <div className="relative z-10 px-4 py-1 border-t border-white/[0.03]">
+                <span className="text-[12px] text-slate-200/40 font-jakarta italic">
+                    Insider data is for informational purposes only and does not constitute investment advice.
                 </span>
             </div>
 
