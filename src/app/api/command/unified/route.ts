@@ -589,6 +589,14 @@ export async function GET(request: NextRequest) {
             }
             await enrichExpiration(finalData);
             await injectAlphaBypass(finalData, ticker);
+
+            // [FIX 2026-05-05] EC2 institutional in CRITICAL PATH — eliminates stale-then-fresh issue
+            // EC2 ElastiCache call is ~100ms, ensuring correct block/DP data from FIRST response
+            if (isMarketHoursNow()) {
+                await injectEC2Institutional(finalData, ticker);
+                memorySet(memKey, finalData); // update memory with fresh EC2 data
+            }
+
             return jsonResponse({ ...finalData, overview: overview || null, _source: 'memory-lru', _ageMs: ageMs });
         }
 
@@ -666,28 +674,30 @@ export async function GET(request: NextRequest) {
             await enrichExpiration(cachedData);
             await injectAlphaBypass(cachedData, ticker);
 
-            // Promote to memory cache for next request (0ms)
-            memorySet(memKey, cachedData);
+            // [FIX 2026-05-05] EC2 institutional in CRITICAL PATH — eliminates stale-then-fresh issue
+            // Previously in after() → user saw stale 21 blocks, then 252 blocks on next poll
+            // Now: EC2 ElastiCache is called BEFORE response (~100ms) → correct data from FIRST load
+            if (isMarketHoursNow()) {
+                const ec2Ok = await injectEC2Institutional(cachedData, ticker);
+                if (ec2Ok) {
+                    // Update both caches with fresh EC2 data
+                    await setInCache(dataCacheKey, cachedData, getSmartTTL());
+                    memorySet(memKey, cachedData);
+                    console.log(`[Command Unified] CRITICAL-PATH EC2 for ${ticker}: ${cachedData.institutional?.blockTrade?.count} blocks`);
+                }
+            } else {
+                // Off-hours: just promote to memory cache
+                memorySet(memKey, cachedData);
+            }
 
-            // ═══ IMMEDIATE RETURN — user sees data in ≤5ms ═══
+            // ═══ IMMEDIATE RETURN — user sees ACCURATE data ═══
             const immediateResponse = jsonResponse({ ...cachedData, overview: resolvedOverview || null, _source: 'cache', _ageMs: ageMs });
 
-            // ═══ BACKGROUND ENRICHMENT — runs AFTER response is sent ═══
+            // ═══ BACKGROUND ENRICHMENT — SWR sync only (no EC2, already done above) ═══
             const bgBaseUrl = getBaseUrl(request);
             after(async () => {
                 try {
                     let enriched = false;
-
-                    // [EC2 SSOT] Inject accurate institutional data (background, 0ms user impact)
-                    if (!cachedData.institutional?.blockTrade?.count || cachedData.institutional.blockTrade.count < 50) {
-                        const ec2Ok = await injectEC2Institutional(cachedData, ticker);
-                        if (ec2Ok) {
-                            await setInCache(dataCacheKey, cachedData, getSmartTTL());
-                            memorySet(memKey, cachedData);
-                            enriched = true;
-                            console.log(`[Command Unified] BG EC2 injected for ${ticker}: ${cachedData.institutional?.blockTrade?.count} blocks`);
-                        }
-                    }
 
                     // SWR: If older than threshold, do full DynamoDB→Redis sync
                     if (ageMs > REFRESH_THRESHOLD_MS) {
