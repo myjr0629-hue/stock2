@@ -4692,7 +4692,7 @@ Lambda Step 5: recordCloseAndBackfill()
 | `src/lib/marketing/pollyClient.ts` | Amazon Polly TTS + BGM (쇼츠용, Remotion 의존) |
 | `src/app/api/cron/marketing-dispatch/route.ts` | 크론 디스패처 9종 action, draft 모드 지원 |
 | `src/app/api/cron/daily-content/route.ts` | Redis 콘텐츠 생성 (fetchTradeData→darkPool 연결) |
-| `src/app/api/cron/event-detect/route.ts` | 이벤트 감지 5종 |
+| `src/app/api/cron/event-detect/route.ts` | 이벤트 감지 **6종** (GEX/VIX/8-K/Sweep/DarkPool/**Insider**), 30종목 트래킹 |
 | `src/app/api/og/market/route.tsx` | OG 이미지 Signal Card v2.1 (6개 포맷: og/tweet/carousel/pin/square/story) |
 | `src/app/api/og/market/slide/route.tsx` | IG 캐러셀 슬라이드 6장 |
 | `scripts/_buffer_all_drafts.js` | 전체 채널 Draft 테스트 스크립트 (로컬 실행) |
@@ -4877,13 +4877,16 @@ Buffer 서버 ──fetch──→ https://signumhq.com/api/og/market?... ──
 **Tier 2 — 이벤트 캡처 (실시간 이벤트 발생 시)**
 ```
 방식: Playwright로 실제 SIGNUM HQ 대시보드 특정 영역 캡처
-용도: GEX 전환, VIX 스파이크, Dark Pool 급등 등 이벤트 트리거
-캡처 맵:
-  - GEX 전환 → /command 의 GEX 게이지 + 감마 프레셔 섹션
-  - Dark Pool 급등 → /flow 의 다크풀 차트
-  - VIX 스파이크 → /command 의 VIX + Tactical Range
-  - 종목 Spotlight → /flow?ticker=XXX 종목 카드
-  - 가디언 리포트 → /guardian 요약 상단
+용도: GEX 전환, VIX 스파이크, Dark Pool 급등, Insider Trading 등 이벤트 트리거
+이벤트 감지 6종 (2026-05-06 기준):
+  1. GEX Flip → /command GEX 게이지 + 감마 프레셔
+  2. VIX Spike (15%+) → /command VIX + Tactical Range
+  3. SEC 8-K 속보 → 30종목
+  4. ITM Sweep ($5M+) → 30종목
+  5. Dark Pool Spike (50%+) → SPY, QQQ
+  6. Insider Trade ($1M+ C-Suite / 3+인 클러스터) → 30종목 일별 15개 로테이션
+트래킹 종목 (30개): M7 + PhysicalAI + Cloud + Fintech + Biotech + Industrial + Consumer
+안전장치: 30분 쿨다운, 하루 3건 제한, 24시간 dedup
 언어: /en/, /ko/, /ja/ 각각 캡처
 ```
 
@@ -4914,7 +4917,7 @@ Buffer 서버 ──fetch──→ https://signumhq.com/api/og/market?... ──
 **Phase 1 — 플랫폼 최적화**: 14/17 (X 댓글봇, Threads 멀티포스트, 쇼츠 미완)
 **Phase 2 — OG 이미지**: 7/7 ✅ → Tier 1 웹 템플릿으로 전환 예정
 **Phase 3 — 콘텐츠 문구**: 6/6 ✅
-**Phase 4 — 트리거 확장**: 4/4 ✅
+**Phase 4 — 트리거 확장**: 5/5 ✅ (ITM Sweep + Dark Pool Spike + **Insider Trade** 추가)
 **Phase 5 — 인프라**: 6/6 ✅ (스키마 전환 + 이미지 파이프라인 완료, Remotion만 별도)
 **Phase 6 — 비주얼 강화 (신규)**: 0/3 (Tier 1 템플릿 + Tier 2 캡처 + Tier 3 Remotion)
 
