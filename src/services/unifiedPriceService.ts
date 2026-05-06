@@ -112,10 +112,11 @@ export function calcUnifiedPrice(input: UnifiedPriceInput): UnifiedPriceResult {
     } = input;
 
     // ── 1. 기준선 (prevClose) ──
-    // daily aggs가 있으면 가장 최근 종가 사용 (snapshot보다 정확)
-    const prevClose = (dailyCloses && dailyCloses.length >= 1)
-        ? dailyCloses[0]  // desc order: [0] = 가장 최근 (어제)
-        : prevDayClose;
+    // 항상 prevDayClose(snapshot 어제 종가)를 1순위 사용
+    // dailyCloses[0]은 REG 중에 오늘 장중 데이터일 수 있어 기준선으로 부적합
+    // dailyCloses는 PRE 세션에서 day.c=0일 때 regularChangePct 계산용으로만 사용
+    const prevClose = prevDayClose > 0 ? prevDayClose
+        : (dailyCloses && dailyCloses.length >= 1 ? dailyCloses[0] : 0);
 
     // ── 2. 본장 가격 (regularPrice) ──
     let regularPrice: number;
