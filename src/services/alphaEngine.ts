@@ -1590,18 +1590,25 @@ export function calculateWhaleIndex(
 
     const multiplier = 0.6 + (Math.min(activityLevel, 75) / 75) * 0.9;
 
+    // [V2.1] Sigmoid compression: maps any raw value to ±50 asymptotically
+    // Eliminates ceiling clipping (raw 60 vs 120 both → 100) while preserving ordering
+    // K=30 tuned: ±15→±73, ±30→±88, ±45→±95, ±60→±98
+    // 100 is theoretically unreachable — semantically correct ("perfect consensus" doesn't exist)
+    const compress = (raw: number) => 50 * Math.tanh(raw / 30);
+
     if (hasDirectionalData) {
         // V2 Directional: 50-centered
         const rawDirection = dpDirection + npScore + gexBonus;
         const amplified = rawDirection * multiplier;
-        return clamp(Math.round(50 + amplified), 0, 100);
+        return clamp(Math.round(50 + compress(amplified)), 0, 100);
     } else {
         // V1 Fallback: activity-based (no directional data available)
         // Still center at 50: low activity = 50, high activity nudged by netPremium direction
         const activityScore = activityLevel; // 0-75
         const activityNormalized = (activityScore / 75) * 30; // 0-30
         const direction = npScore > 0 ? 1 : npScore < 0 ? -1 : 0;
-        return clamp(Math.round(50 + activityNormalized * direction * 0.5 + npScore * 0.5), 0, 100);
+        const raw = activityNormalized * direction * 0.5 + npScore * 0.5;
+        return clamp(Math.round(50 + compress(raw)), 0, 100);
     }
 }
 
