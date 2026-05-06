@@ -5173,3 +5173,114 @@ Lambda 비용: ~6배 증가 (6 × 2048MB × 900s)
 > 모든 인포그래픽 아이콘은 `lucide-react` 벡터 아이콘만 사용.
 > 최소 폰트 12px, 텍스트 색상 `text-slate-300` 이상.
 
+---
+
+## V75.1 가격 파이프라인 정밀 수정 (2026-05-06)
+
+### 1. changePct 실시간 재계산 (`useWatchlist.ts`)
+
+**문제**: 메인 워치리스트에서 가격은 WS 실시간(즉시), 등락률은 batch API(30초) → 가격과 등락률 불일치
+**원인**: L184 `changePct: apiData.realtime.changePct ?? fastPrice?.regChangePct ?? 0` — batch 값이 항상 우선
+
+**수정**:
+- `FastPrice` 인터페이스에 `prevClose` 필드 추가 (quotes API에서 제공)
+- 등락률을 클라이언트에서 즉시 재계산: `(currentPrice - prevClose) / prevClose * 100`
+- WS/quotes로 가격 변경 시 등락률도 즉시 동기화
+- batch-only 폴백도 같은 방식으로 적용
+
+```
+변경 전: 가격 WS(실시간) + 등락률 batch(30초) → 불일치
+변경 후: 가격 WS(실시간) + 등락률 즉시 계산 → 동기화
+```
+
+**파일**: `src/hooks/useWatchlist.ts` L143-238
+
+### 2. 메인 워치리스트 PRE 배지 필터링 (`useWatchlist.ts`)
+
+**문제**: 모바일 메인 워치리스트에서 REG(본장) 중 PRE 배지 표시
+**수정**: `useWatchlist.ts`에서 REG 세션일 때 `extLabel === 'PRE'`를 `undefined`로 변환
+
+```typescript
+// L204-210: apiData 경로
+const raw = fastPrice?.extLabel ?? apiData.realtime.extendedLabel;
+if (sess === 'reg' && raw === 'PRE') return undefined;
+
+// L237: fastPrice-only 경로
+extLabel: (session === 'regular' && fastPrice.extLabel === 'PRE') ? undefined : fastPrice.extLabel
+```
+
+> ⚠️ **중요**: 이 필터는 메인 워치리스트(`useWatchlist`)에서만 적용.
+> 대시보드 워치리스트(`dashboardStore`)는 quotes API에서 직접 처리하므로 영향 없음.
+
+### 3. quotes API 회귀 사고 및 복구 (교훈 기록)
+
+> 🔴 **사고 기록**: quotes API(`/api/live/quotes/route.ts`)는 **공유 API**로 대시보드 워치리스트, 메인 워치리스트, Intel SESSION GRID 등 다수 소비자가 사용.
+> 메인 워치리스트의 PRE 배지 문제를 수정하면서 quotes API의 REG 세션 extended 데이터를 **전체 삭제**하여 대시보드 워치리스트의 PRE 가격 컬럼이 깨짐.
+
+**실수 과정**:
+1. `49219c8f`: quotes API REG 블록에서 PRE extended 로직 전체 삭제 → 대시보드 PRE 컬럼 깨짐
+2. `c88318f9`: POST 캐시 전달 추가로 복구 시도 → POST로 잘못 표시
+3. `5c4307cf`: quotes API를 `795f44f2` 상태로 **완전 복구**, PRE 배지 필터는 `useWatchlist`로 이동
+
+**교훈**:
+- 공유 API 수정 시 **전체 소비자 영향 분석 필수**
+- "메인 워치리스트" ≠ "대시보드 워치리스트" — 데이터 소스 구분 필수
+  - 메인 워치리스트: `useWatchlist` hook → `/api/live/quotes` + `/api/watchlist/batch`
+  - 대시보드 워치리스트: `dashboardStore` → `/api/live/quotes` + `/api/dashboard/unified`
+- 표시 로직 변경은 **소비자(컴포넌트/hook) 레벨**에서 처리, API 레벨 변경 금지
+
+### 4. 대시보드 워치리스트 컬럼 헤더 수정 (`DashboardClient.tsx`)
+
+**문제**: `extHeaderLabel`이 REG 세션에서 'POST' 반환 (본장 중 PRE 마감가를 보여주므로 'PRE'가 정확)
+**원인**: `marketStatus`가 'OPEN'일 때 처리 없이 시간 폴백으로 넘어감 → 9:30 이후 'POST'
+
+**수정**:
+```typescript
+// L640: REG/OPEN 세션 추가
+if (ms === 'OPEN' || ms === 'REGULAR' || ms === 'REG') return 'PRE';
+// 폴백 범위도 4:00~16:00 ET → 'PRE'
+```
+
+| 세션 | 헤더 표시 |
+|------|----------|
+| PRE (04:00-09:30 ET) | PRE |
+| OPEN/REG (09:30-16:00 ET) | PRE |
+| AFTER (16:00-20:00 ET) | POST |
+| CLOSED (20:00-04:00 ET) | POST |
+
+**파일**: `src/app/[locale]/dashboard/DashboardClient.tsx` L637-651
+
+### 5. Signal Feed 등록 종목 필터링 (`DashboardClient.tsx`)
+
+**문제**: 캐시 워머 `DEFAULT_TICKERS`에 SPY 포함 → Redis `dashboard:signals:daily`에 SPY 시그널 저장 → 미등록 SPY 시그널 노출
+**원인**: `/api/dashboard/signals`가 전체 시그널 반환, `SignalFeedPanel`에 종목 필터 없음
+
+**수정**:
+```typescript
+// SignalFeedPanel L2137, L2200
+const dashboardTickers = useDashboardStore(s => s.dashboardTickers);
+const tickerSet = useMemo(() => new Set(dashboardTickers), [dashboardTickers]);
+// 머지 후 필터링
+.filter(s => tickerSet.has(s.ticker))
+```
+
+**파일**: `src/app/[locale]/dashboard/DashboardClient.tsx` L2135-2202
+
+### 6. PriceDisplayCard 레이아웃 리팩토링 (`PriceDisplay.tsx`)
+
+**변경**: 카드 내 시각적 계층 재정렬
+- 본장 가격 → 본장 등락률(즉시 하단) → Extended 세션(보조 블록)
+- PRE 가격: `text-[13px]`, PRE 등락률: `text-[12px]`
+
+**파일**: `src/components/ui/PriceDisplay.tsx` L360-406
+
+### 수정 파일 총괄
+
+| 파일 | 변경 내용 | 영향 범위 |
+|------|----------|----------|
+| `src/hooks/useWatchlist.ts` | changePct 실시간 계산 + PRE 배지 필터 | 메인 워치리스트 (웹/모바일) |
+| `src/app/api/live/quotes/route.ts` | 원래 상태 복구 (변경 없음) | 전체 (공유 API) |
+| `src/components/ui/PriceDisplay.tsx` | 레이아웃 순서 + 폰트 크기 | SESSION GRID, 메인 워치리스트 |
+| `src/app/[locale]/dashboard/DashboardClient.tsx` | 헤더 PRE 수정 + Signal Feed 필터 | 대시보드 |
+
+
