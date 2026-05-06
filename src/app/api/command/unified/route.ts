@@ -590,12 +590,10 @@ export async function GET(request: NextRequest) {
             await enrichExpiration(finalData);
             await injectAlphaBypass(finalData, ticker);
 
-            // [FIX 2026-05-05] EC2 institutional in CRITICAL PATH — eliminates stale-then-fresh issue
-            // EC2 ElastiCache call is ~100ms, ensuring correct block/DP data from FIRST response
-            if (isMarketHoursNow()) {
-                await injectEC2Institutional(finalData, ticker);
-                memorySet(memKey, finalData); // update memory with fresh EC2 data
-            }
+            // [FIX 2026-05-06] EC2 institutional ALWAYS injected — ElastiCache retains last session data 24/7
+            // Previously gated by isMarketHoursNow() → off-hours fell back to stale DynamoDB Polygon samples
+            await injectEC2Institutional(finalData, ticker);
+            memorySet(memKey, finalData);
 
             return jsonResponse({ ...finalData, overview: overview || null, _source: 'memory-lru', _ageMs: ageMs });
         }
@@ -674,19 +672,14 @@ export async function GET(request: NextRequest) {
             await enrichExpiration(cachedData);
             await injectAlphaBypass(cachedData, ticker);
 
-            // [FIX 2026-05-05] EC2 institutional in CRITICAL PATH — eliminates stale-then-fresh issue
-            // Previously in after() → user saw stale 21 blocks, then 252 blocks on next poll
-            // Now: EC2 ElastiCache is called BEFORE response (~100ms) → correct data from FIRST load
-            if (isMarketHoursNow()) {
-                const ec2Ok = await injectEC2Institutional(cachedData, ticker);
-                if (ec2Ok) {
-                    // Update both caches with fresh EC2 data
-                    await setInCache(dataCacheKey, cachedData, getSmartTTL());
-                    memorySet(memKey, cachedData);
-                    console.log(`[Command Unified] CRITICAL-PATH EC2 for ${ticker}: ${cachedData.institutional?.blockTrade?.count} blocks`);
-                }
+            // [FIX 2026-05-06] EC2 institutional ALWAYS injected — preserves last session data through off-hours
+            // Previously gated by isMarketHoursNow() → post-market close caused block count regression (252 → 17)
+            const ec2Ok = await injectEC2Institutional(cachedData, ticker);
+            if (ec2Ok) {
+                await setInCache(dataCacheKey, cachedData, getSmartTTL());
+                memorySet(memKey, cachedData);
+                console.log(`[Command Unified] EC2 institutional for ${ticker}: ${cachedData.institutional?.blockTrade?.count} blocks`);
             } else {
-                // Off-hours: just promote to memory cache
                 memorySet(memKey, cachedData);
             }
 
