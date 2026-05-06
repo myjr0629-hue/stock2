@@ -638,13 +638,15 @@ function WatchlistPanel() {
         const ms = market?.marketStatus;
         if (ms === 'PRE') return 'PRE';
         if (ms === 'AFTER' || ms === 'CLOSED') return 'POST';
+        // REG/OPEN: 본장 중에는 PRE 마감가를 표시
+        if (ms === 'OPEN' || ms === 'REGULAR' || ms === 'REG') return 'PRE';
 
         // Derive from ET time as a fallback
         const now = new Date();
         const etStr = now.toLocaleString('en-US', { timeZone: 'America/New_York' });
         const et = new Date(etStr);
         const etMinutes = et.getHours() * 60 + et.getMinutes();
-        if (etMinutes >= 4 * 60 && etMinutes < 9 * 60 + 30) return 'PRE';
+        if (etMinutes >= 4 * 60 && etMinutes < 16 * 60) return 'PRE';
         return 'POST';
     }, [market?.marketStatus]);
 
