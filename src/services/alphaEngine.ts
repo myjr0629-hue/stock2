@@ -150,7 +150,7 @@ export interface AlphaResult {
 // CONSTANTS
 // ============================================================================
 
-const ENGINE_VERSION = '5.1.0';
+const ENGINE_VERSION = '5.2.0';
 
 // Pillar max scores
 const PILLAR_MAX = {
@@ -267,6 +267,34 @@ export function calculateAlphaScore(input: AlphaInput): AlphaResult {
         finalScore = 65;
         gatesResult.gatesApplied.push('LOW_DATA_CAP');
     }
+
+    // [V5.2] Quick Win Gates — 11,543건 실증 백테스트 기반 (t=-17.9, p<0.0000001)
+    // 인프라맵 §3-0 V5.1 Quick Win 항목 적용
+    const changePctFinal = input.changePct || 0;
+
+    // [V5.2] Gate: SURGE_PENALTY — 당일 +3% 이상 급등 종목 감점
+    // 근거: changePct > +3% → 3일후 -0.86% (승률 41.4%), 완벽한 단조감소 패턴
+    if (changePctFinal > 3) {
+        finalScore -= 5;
+        gatesResult.gatesApplied.push('SURGE_PENALTY');
+    }
+
+    // [V5.2] Gate: DIP_BONUS — 당일 -3% 이상 하락 종목 가산
+    // 근거: changePct < -3% → 3일후 +1.31% (승률 61.4%), Mean Reversion 최적 구간
+    if (changePctFinal < -3 && changePctFinal >= -10) {
+        finalScore = Math.min(finalScore + 8, 85); // 85캡: 급락 종목에 S등급 방지
+        gatesResult.gatesApplied.push('DIP_BONUS');
+    }
+
+    // [V5.2] Gate: MOMENTUM_OVERHEAT — Momentum Pillar 20+/25 과열 감점
+    // 근거: Momentum Pillar corr=-0.164 (t=-17.9), 상위20% 적중률 41.7% vs 하위20% 69.9%
+    if (momentum.score >= 20) {
+        finalScore -= 3;
+        gatesResult.gatesApplied.push('MOMENTUM_OVERHEAT');
+    }
+
+    // clamp after V5.2 gates
+    finalScore = Math.round(Math.max(0, Math.min(100, finalScore)));
 
 
     // 6. Determine grade and action

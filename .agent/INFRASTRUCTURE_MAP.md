@@ -1296,6 +1296,29 @@ bash scripts/ec2-deploy-guardian.sh
 > 
 > **커밋**: `3bda0d15`, `40c502a8`, `23fe4be2`, `0b374d83`, `37078465`, `341a441a`, `35319c9e`
 
+### [2026-05-06] 🟢 Alpha Engine V5.2.0 — Quick Win Gates 적용 (34,041건 백테스트 기반)
+
+> **문제**: V5.1 배포(4/30) 후 POST-V5.1 45쌍 분석 결과, 상관계수가 -0.14→+0.31로 역전(개선).
+> 하지만 인프라맵 §3-0에 기록된 Quick Win 3개(changePct 보정, Momentum 과열 감점)가 미적용.
+> 
+> **실증 근거** (11,543건 Deep Analysis, PRE-V5.1 5,881쌍):
+> - Momentum Pillar: corr=-0.164, **t=-17.9** (p<0.0000001)
+> - changePct>+3%: 3일후 -0.86% (승률 41.4%) — 완벽한 단조감소 패턴
+> - changePct<-3%: 3일후 +1.31% (승률 61.4%) — Mean Reversion 최적 구간
+> 
+> **수정** (`alphaEngine.ts`, ENGINE_VERSION 5.1.0→5.2.0):
+> - Gate: `SURGE_PENALTY` — changePct>+3% → finalScore -5점
+> - Gate: `DIP_BONUS` — changePct -3%~-10% → finalScore +8점 (85캡)
+> - Gate: `MOMENTUM_OVERHEAT` — Momentum Pillar ≥20/25 → finalScore -3점
+> 
+> **V5.0→V5.1→V5.2 백테스트 비교 (DynamoDB 34,041건 전량 스캔)**:
+> | 지표 | V5.0 (PRE-V5.1, 5881쌍) | V5.1 (POST, 45쌍) | V5.2 (적용 후 축적 필요) |
+> |------|:---:|:---:|:---:|
+> | Pearson r | -0.1374 | +0.3083 | 검증 예정 (2주 후) |
+> | Score 70+ 적중률 | 39.7% | 66.7% | 검증 예정 |
+> | Score 70+ 평균수익 | -1.31% | +5.06% | 검증 예정 |
+> | 단조 패턴 | ❌ 역방향 | ⚠️ 표본부족 | 검증 예정 |
+
 ### [2026-04-30] 🟢 Alpha Engine V5.1.0 — Mean Reversion Factor 보정 (실증 백테스트 기반)
 
 > **문제**: V5.0 Alpha Engine의 return3d(3일 수익률) 계수가 모멘텀 추종(+방향)으로 설정되어 있어, 실제 시장 데이터와 역상관 관계(t-통계량 = -9.117) 확인.
@@ -2927,14 +2950,74 @@ V6.0 권고:       "떨어진 종목 중 구조가 좋은 것을 사라" (평균
 
 > ⚠️ **과적합 경고:** 2~4월 하락장 67일 데이터 기반. V6.0 적용 시 Bull/Bear 분리 검증 필수.
 
-##### V5.1 Quick Win (즉시 적용 가능)
+##### V5.1 Quick Win → ✅ V5.2.0으로 적용 완료 (2026-05-06)
 
-- [ ] changePct < -3% → **+8점 보너스** (Gate)
-- [ ] changePct > +3% → **-5점 감점** (Gate)
-- [ ] Momentum ≥ 20 → **-3점 감점** (Gate)
-- [ ] GEX=0 → 중립 처리 (Structure Pillar 감점 제거)
+- [x] changePct < -3% → **+8점 보너스** (Gate `DIP_BONUS`) — ✅ V5.2 적용
+- [x] changePct > +3% → **-5점 감점** (Gate `SURGE_PENALTY`) — ✅ V5.2 적용
+- [x] Momentum ≥ 20 → **-3점 감점** (Gate `MOMENTUM_OVERHEAT`) — ✅ V5.2 적용
+- [ ] GEX=0 → 중립 처리 (Structure Pillar 감점 제거) — V6.0 대규모 구조 변경 시 적용 예정
 
-> 예상 효과: Score 70+ 적중률 39.1% → 55~60%
+> 예상 효과: Score 70+ 적중률 39.1% → 55~60% (V5.2 2주 축적 후 재검증)
+
+---
+
+#### 3-0-C. 📊 Context Score 백테스트 마스터 로드맵
+
+> **목적**: DynamoDB `signum-alpha-history` 축적 데이터로 Alpha Score의 "예측력"을 실증 검증
+> **방법**: Score Band별 T+3 Forward Return 분석 (SSR_V46 tier, price>0 레코드만)
+> **현재 데이터**: 34,041건 (총), 5,926쌍 (T+3 계산 가능)
+
+##### 검증 이력
+
+| 날짜 | 엔진 | 데이터 | Pearson r | Score 70+ | 상태 |
+|------|------|--------|:---------:|:---------:|:----:|
+| 2026-04-19 | V5.0 | 993종목 시뮬레이션 | +0.xx (시뮬) | 87.2% (시뮬) | ⚠️ 시뮬과 실측 괴리 |
+| 2026-04-20 | V5.0 | 11,543건 실측 | **-0.004** | **38.5%** | ❌ 총점 예측력 없음 |
+| 2026-05-06 | V5.0/V5.1 분할 | 34,041건 | PRE:-0.137 / POST:+0.308 | PRE:39.7% / POST:66.7% | ✅ V5.1 효과 확인 |
+| 2026-05-20 (예정) | **V5.2** | ~200+쌍 예상 | 검증 예정 | **목표 60%+** | ⏳ |
+
+##### V5.2 재검증 작업 (2026-05-20 이후 실행)
+
+```
+분할 기준: 2026-05-06 (V5.2 배포일)
+POST-V5.2 표본 200+쌍 확보 시 재검증:
+
+1. Score Band별 T+3 Return (6구간)
+2. Pearson 상관계수
+3. Score 70+ 적중률 + 평균수익
+4. 단조증가 패턴 확인 (Score↑ → Return↑)
+5. V5.1 Quick Win 3개 Gate 개별 효과 측정
+   - SURGE_PENALTY 발동 종목 vs 미발동: T+3 차이
+   - DIP_BONUS 발동 종목 vs 미발동: T+3 차이
+   - MOMENTUM_OVERHEAT 발동 종목 vs 미발동: T+3 차이
+```
+
+##### V6.0 대규모 구조 변경 (V5.2 검증 완료 후)
+
+> ⚠️ 아래 항목은 V5.2 200+쌍 검증에서 단조증가 패턴이 확인된 후에만 적용
+
+| # | 변경 | 현재 | V6.0 | 근거 |
+|:-:|------|:---:|:---:|------|
+| 1 | Momentum Pillar 역전 | 높을수록 +점 | **낮을수록 +점** | corr=-0.164 |
+| 2 | Catalyst 약화 | 10점 | **5점** | corr=-0.112 역방향 |
+| 3 | Regime 강화 | 15점 | **확대** | 유일 순방향(+0.070) |
+| 4 | Structure 중간값 최적 | 높을수록 +점 | **8-14 최적** | S[8-14]=58.5% |
+| 5 | GEX=0 보너스 | GEX 높음=+점 | **GEX=0 보너스** | 최강 시그널 조건 |
+
+##### AWS 접근 방법 (백테스트 실행 시)
+
+```powershell
+# .env.local에서 자격증명 확인 후:
+$env:AWS_ACCESS_KEY_ID='<.env.local의 AWS_ACCESS_KEY_ID>'
+$env:AWS_SECRET_ACCESS_KEY='<.env.local의 AWS_SECRET_ACCESS_KEY>'
+$env:AWS_DEFAULT_REGION='us-east-1'
+
+# DynamoDB 전량 스캔 + T+3 분석
+# V5.2 분할 기준일: 2026-05-06
+node -e "...backtest script..."
+```
+
+> ⚠️ 인프라맵 §9.1에 AWS 자격증명 앞 20자만 기록됨. 실제 키는 `.env.local` 파일 참조.
 
 ---
 
