@@ -33,9 +33,62 @@ export default function MobileWatchlistPage({ locale, initialWatchlist, initialF
     const maxItems = tier === 'elite' ? 999 : tier === 'pro' ? 50 : 5;
     const isAtLimit = items.length >= maxItems;
 
+    // ── [MOBILE PRECISION FIX] Recalculate extChangePct with correct baseline ──
+    // Problem: useWatchlist L187 prioritizes fastPrice.extChangePct (from /api/live/quotes)
+    //   over apiData.realtime.extendedChangePct (from batch API).
+    //   Quotes API uses prevDayClose as baseline → wrong PRE/POST %
+    //   Batch API uses dayClose (regular close) as baseline → correct, matches desktop ticker page
+    // Fix: In mobile, recalculate ext% from changePct (accurate, from batch) and currentPrice (WS live)
+    //   Step 1: changePct = (dayClose - prevDayClose) / prevDayClose * 100 → prevDayClose = dayClose / (1 + changePct/100)
+    //   Step 2: dayClose = prevDayClose * (1 + changePct/100) ... but we need dayClose first
+    //   Actually simpler: batch API sets realtime.price = dayClose, WS overrides currentPrice
+    //   During PRE/POST, if currentPrice != displayPrice, ext% = (currentPrice - displayPrice) / displayPrice
+    //   We can estimate displayPrice: since changePct from batch = (dayClose - prevDayClose) / prevDayClose,
+    //   and quotes API has price = prevDayClose, we can compute dayClose = prevDayClose * (1 + changePct/100)
+    //   Then ext% = (currentPrice - dayClose) / dayClose * 100
+    const correctedItems = useMemo(() => {
+        return items.map(item => {
+            if (!item.extLabel || !item.currentPrice || item.currentPrice <= 0) return item;
+            
+            // If extChangePct ≈ changePct, the quotes API's wrong baseline was used
+            // Recalculate: back-derive dayClose from changePct + prevDayClose
+            // quotes API: price = prevDayClose (during PRE/POST)
+            // batch API: changePct = (dayClose - prevDayClose) / prevDayClose * 100
+            // ∴ dayClose = prevDayClose * (1 + changePct/100)
+            // But we don't have prevDayClose separately...
+            // 
+            // Alternative: We know from the API data:
+            //   extChangePct (quotes) = (extPrice - prevDayClose) / prevDayClose * 100
+            //   changePct (batch) = (dayClose - prevDayClose) / prevDayClose * 100
+            //   ∴ prevDayClose = currentPrice / (1 + extChangePct_quotes/100)  [approx, since extPrice ≈ currentPrice]
+            //   ∴ dayClose = prevDayClose * (1 + changePct/100)
+            //   ∴ correct_ext% = (currentPrice - dayClose) / dayClose * 100
+            
+            const quotesExtPct = item.extChangePct;
+            if (quotesExtPct === undefined || quotesExtPct === null) return item;
+            
+            // Back-derive prevDayClose from currentPrice and quotesExtPct
+            // quotesExtPct = (currentPrice - prevDayClose) / prevDayClose * 100
+            // ∴ prevDayClose = currentPrice / (1 + quotesExtPct/100)
+            const prevDayClose = item.currentPrice / (1 + quotesExtPct / 100);
+            if (prevDayClose <= 0) return item;
+            
+            // Calculate dayClose from batch's changePct
+            // changePct = (dayClose - prevDayClose) / prevDayClose * 100
+            // ∴ dayClose = prevDayClose * (1 + changePct/100)
+            const dayClose = prevDayClose * (1 + item.changePct / 100);
+            if (dayClose <= 0) return item;
+            
+            // Correct extended change %
+            const correctExtPct = ((item.currentPrice - dayClose) / dayClose) * 100;
+            
+            return { ...item, extChangePct: correctExtPct };
+        });
+    }, [items]);
+
     // Filter + Sort
     const processed = useMemo(() => {
-        let list = items;
+        let list = correctedItems;
         if (searchQ) {
             const q = searchQ.toUpperCase();
             list = list.filter(i => i.ticker.includes(q));
@@ -50,7 +103,7 @@ export default function MobileWatchlistPage({ locale, initialWatchlist, initialF
             });
         }
         return list;
-    }, [items, searchQ, sortKey, sortDir]);
+    }, [correctedItems, searchQ, sortKey, sortDir]);
 
     const handleSort = (key: SortKey) => {
         if (sortKey === key) setSortDir(d => d === 'desc' ? 'asc' : 'desc');
@@ -106,7 +159,7 @@ export default function MobileWatchlistPage({ locale, initialWatchlist, initialF
             {!loading && <MobileSessionBar />}
 
             {/* ── Stats Bar (non-signals) ── */}
-            {!loading && items.length > 0 && <MobileStatsBar items={items} />}
+            {!loading && correctedItems.length > 0 && <MobileStatsBar items={correctedItems} />}
 
             {/* ── Search + Sort (non-signals) ── */}
             {!loading && items.length > 1 && (

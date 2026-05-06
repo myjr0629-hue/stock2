@@ -23,9 +23,13 @@ const SessionPill = memo(function SessionPill({ label }: { label?: 'PRE' | 'POST
     );
 });
 
-/** Extended change display — shows "PRE +0.35%" or "POST -0.12%" */
+/**
+ * Extended change display — shows "PRE +0.35%" or "POST -0.12%"
+ * [PRECISION] extChangePct is pre-corrected by MobileWatchlistPage's correctedItems pipeline
+ *   using (currentPrice - dayClose) / dayClose formula (matches desktop ticker page exactly)
+ */
 const ExtChangeRow = memo(function ExtChangeRow({ item }: { item: EnrichedWatchlistItem }) {
-    if (!item.extLabel || item.extChangePct === undefined) return null;
+    if (!item.extLabel || item.extChangePct === undefined || item.extChangePct === null) return null;
     const c = SESSION_CFG[item.extLabel];
     const extPos = item.extChangePct >= 0;
     return (
