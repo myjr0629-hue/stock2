@@ -152,8 +152,12 @@ export async function GET(request: Request) {
 
             if (session === 'regular') {
                 price = liveLast || dayClose || prevClose;
-                // [FIX 2026-05-06] REG 세션에서는 extended 배지 표시하지 않음
-                // 본장 중에는 본장 가격만 표시. PRE 배지는 PRE 세션에서만 표시.
+                // [FIX 2026-05-06] REG 세션에서 PRE 배지 표시하지 않음
+                // 단, 이전 세션의 POST 가격은 Redis 캐시에서 전달 (대시보드 POST 컬럼용)
+                if (cachedExt?.postPrice > 0) {
+                    extendedPrice = cachedExt.postPrice;
+                    extendedLabel = 'POST';
+                }
             } else if (session === 'pre') {
                 price = prevClose;
                 extendedPrice = S.min?.c || liveLast || 0;
