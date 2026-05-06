@@ -184,7 +184,9 @@ export function useWatchlist(initialWatchlist?: WatchlistItem[], initialFullData
                     changePct: apiData.realtime.changePct ?? fastPrice?.regChangePct ?? 0,
                     // regChangePct: batch API is the reliable source (correct regular session %)
                     regChangePct: apiData.realtime.changePct ?? fastPrice?.regChangePct ?? 0,
-                    extChangePct: fastPrice?.extChangePct ?? apiData.realtime.extendedChangePct ?? undefined,
+                    // [FIX 2026-05-06] batch API 우선: dayClose 기준 순수 PRE/POST 변동
+                    // quotes의 extendedChangePercent는 prevDayClose 기준이라 본장 등락 포함됨
+                    extChangePct: apiData.realtime.extendedChangePct ?? fastPrice?.extChangePct ?? undefined,
                     extLabel: fastPrice?.extLabel ?? (apiData.realtime.extendedLabel as 'PRE' | 'POST' | undefined),
                     session: apiData.realtime.session,
                     alphaScore: apiData.alphaSnapshot.score,
