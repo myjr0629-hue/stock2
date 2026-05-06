@@ -140,11 +140,12 @@ export function useWatchlist(initialWatchlist?: WatchlistItem[], initialFullData
             });
         }
 
-        // Fast price data (10s polling) — session-aware: use extended prices during pre/post market
+        // Fast price data (5s polling) — session-aware: use extended prices during pre/post market
         interface FastPrice {
             price: number;
             changePct: number;
             regChangePct: number;     // Regular session change
+            prevClose: number;        // [FIX] prevDayClose for real-time changePct calculation
             extChangePct?: number;    // Extended hours change (from reg close)
             extLabel?: 'PRE' | 'POST';
         }
@@ -162,6 +163,7 @@ export function useWatchlist(initialWatchlist?: WatchlistItem[], initialFullData
                         price: displayPrice,
                         changePct: regChangePct,
                         regChangePct,
+                        prevClose: d.prevClose || d.previousClose || 0,
                         extChangePct: hasExtended ? (d.extendedChangePercent || 0) : undefined,
                         extLabel: hasExtended ? (d.extendedLabel || undefined) : undefined,
                     };
@@ -175,15 +177,27 @@ export function useWatchlist(initialWatchlist?: WatchlistItem[], initialFullData
             // [WS] WebSocket real-time price overlay (highest priority)
             const wsPrice = wsConnected ? wsGetPrice(item.ticker) : undefined;
             if (apiData?.alphaSnapshot && apiData?.realtime) {
+                // ★ Price priority: WS(장중 실시간) > batch(본장 가격) > fastPrice
+                const currentPrice = (wsPrice?.price && wsPrice.price > 0) ? wsPrice.price : (apiData.realtime.price || (fastPrice?.price ?? 0));
+
+                // ★ [FIX 2026-05-06] changePct: 가장 최신 가격으로 즉시 재계산
+                // 기존: batch(30초) changePct 고정 → 가격과 등락률 불일치
+                // 수정: prevClose 확보 후 현재 가격으로 직접 계산
+                const prevClose = fastPrice?.prevClose || apiData.realtime.prevDayClose || 0;
+                let changePct: number;
+                if (currentPrice > 0 && prevClose > 0) {
+                    // 실시간 계산: (현재가 - 전일종가) / 전일종가 * 100
+                    changePct = ((currentPrice - prevClose) / prevClose) * 100;
+                } else {
+                    // prevClose 없으면 API 값 폴백
+                    changePct = apiData.realtime.changePct ?? fastPrice?.regChangePct ?? 0;
+                }
+
                 return {
                     ...item,
-                    // ★ Price priority: WS(장중 실시간) > batch(본장 가격) > fastPrice
-                    // 장중: WS 최우선 (실시간 틱), PRE/POST: batch 본장 가격 우선
-                    currentPrice: (wsPrice?.price && wsPrice.price > 0) ? wsPrice.price : (apiData.realtime.price || (fastPrice?.price ?? 0)),
-                    // ★ changePct: batch API 우선 (정확한 본장 등락)
-                    changePct: apiData.realtime.changePct ?? fastPrice?.regChangePct ?? 0,
-                    // regChangePct: batch API is the reliable source (correct regular session %)
-                    regChangePct: apiData.realtime.changePct ?? fastPrice?.regChangePct ?? 0,
+                    currentPrice,
+                    changePct,
+                    regChangePct: changePct,
                     // [FIX 2026-05-06] batch API 우선: dayClose 기준 순수 PRE/POST 변동
                     // quotes의 extendedChangePercent는 prevDayClose 기준이라 본장 등락 포함됨
                     extChangePct: apiData.realtime.extendedChangePct ?? fastPrice?.extChangePct ?? undefined,
@@ -207,13 +221,16 @@ export function useWatchlist(initialWatchlist?: WatchlistItem[], initialFullData
                     vwapDist: apiData.realtime.vwapDist,
                 };
             }
-            // Even without batch data, show fast price
+            // Even without batch data, show fast price with real-time changePct
             if (fastPrice) {
+                const liveChangePct = (fastPrice.price > 0 && fastPrice.prevClose > 0)
+                    ? ((fastPrice.price - fastPrice.prevClose) / fastPrice.prevClose) * 100
+                    : fastPrice.changePct;
                 return {
                     ...item,
                     currentPrice: fastPrice.price,
-                    changePct: fastPrice.changePct,
-                    regChangePct: fastPrice.regChangePct,
+                    changePct: liveChangePct,
+                    regChangePct: liveChangePct,
                     extChangePct: fastPrice.extChangePct,
                     extLabel: fastPrice.extLabel,
                 };
