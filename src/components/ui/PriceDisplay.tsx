@@ -370,28 +370,7 @@ export function PriceDisplayCard({
                 })}
             </div>
 
-            {/* Extended Price (if available) — flash matches main price style */}
-            {hasExtended && (
-                <div className="flex items-center justify-center gap-1.5 mb-1 animate-in fade-in slide-in-from-bottom-1">
-                    <span className={`text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-sm border font-jakarta ${(extendedLabel || 'POST') === 'POST'
-                        ? 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30'
-                        : 'bg-amber-500/20 text-amber-300 border-amber-500/30'
-                        }`}>
-                        {extendedLabel || 'POST'}
-                    </span>
-                    <span
-                        key={extFlash ? `ext-${extendedPrice}-${Date.now()}` : undefined}
-                        className={`text-xs font-bold text-white/90 font-num ${extFlashClass}`}
-                    >
-                        ${extendedPrice.toFixed(2)}
-                    </span>
-                    <span className={`text-[10px] font-semibold font-num ${extendedColor}`}>
-                        {isExtendedUp ? '+' : ''}{extendedChangePct.toFixed(2)}%
-                    </span>
-                </div>
-            )}
-
-            {/* Change Percentage */}
+            {/* Change Percentage — 본장 등락률은 메인 가격 바로 아래 */}
             <div className={`flex items-center justify-center gap-0.5 text-sm font-semibold tracking-tight font-num ${intradayColor} ${isIntradayUp
                 ? 'drop-shadow-[0_0_8px_rgba(52,211,153,0.3)]'
                 : 'drop-shadow-[0_0_8px_rgba(251,113,133,0.3)]'
@@ -403,6 +382,27 @@ export function PriceDisplayCard({
                 )}
                 {isIntradayUp ? '+' : ''}{intradayChangePct.toFixed(2)}%
             </div>
+
+            {/* Extended Price (PRE/POST) — 보조 정보로 아래 배치 */}
+            {hasExtended && (
+                <div className="flex items-center justify-center gap-1.5 mt-0.5 animate-in fade-in slide-in-from-bottom-1">
+                    <span className={`text-[10px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-sm border font-jakarta ${(extendedLabel || 'POST') === 'POST'
+                        ? 'bg-indigo-500/20 text-indigo-300 border-indigo-500/30'
+                        : 'bg-amber-500/20 text-amber-300 border-amber-500/30'
+                        }`}>
+                        {extendedLabel || 'POST'}
+                    </span>
+                    <span
+                        key={extFlash ? `ext-${extendedPrice}-${Date.now()}` : undefined}
+                        className={`text-[13px] font-bold text-white/90 font-num ${extFlashClass}`}
+                    >
+                        ${extendedPrice.toFixed(2)}
+                    </span>
+                    <span className={`text-[12px] font-semibold font-num ${extendedColor}`}>
+                        {isExtendedUp ? '+' : ''}{extendedChangePct.toFixed(2)}%
+                    </span>
+                </div>
+            )}
         </div>
     );
 }
