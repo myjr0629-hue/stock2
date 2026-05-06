@@ -8,18 +8,10 @@ export const revalidate = 0;
 
 // [V10] Calculate changePct from Polygon snapshot — NEVER trust todaysChangePerc
 // Uses prevDay.c (yesterday's close) and current price to calculate accurate change
+// [FIX 2026-05-06] PRE-market에서도 change 계산 — 해당 세션의 정확한 등락률 반환
 function calcChangeFromSnapshot(tickerData: any): { price: number; change: number, prevClose: number } {
     const currentPrice = tickerData?.lastTrade?.p || tickerData?.day?.c || 0;
-    
-    // [V13 FIX] Pre-Market detection: only when today's trading data is completely absent.
-    // todaysChangePerc===0 happens BOTH in pre-market AND after-hours/weekends, so it cannot be used.
-    // True pre-market = no day.o (today's open) AND no day.v (today's volume).
-    const isPreMarket = !tickerData?.day?.o && !tickerData?.day?.v;
     const prevClose = tickerData?.prevDay?.c || 0;
-
-    if (isPreMarket) {
-        return { price: Math.round(currentPrice * 100) / 100, change: 0, prevClose };
-    }
 
     if (currentPrice > 0 && prevClose > 0) {
         const manualChange = ((currentPrice - prevClose) / prevClose) * 100;
