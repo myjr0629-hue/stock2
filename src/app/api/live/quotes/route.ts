@@ -152,11 +152,21 @@ export async function GET(request: Request) {
 
             if (session === 'regular') {
                 price = liveLast || dayClose || prevClose;
-                // [FIX 2026-05-06] REG 세션에서 PRE 배지 표시하지 않음
-                // 단, 이전 세션의 POST 가격은 Redis 캐시에서 전달 (대시보드 POST 컬럼용)
-                if (cachedExt?.postPrice > 0) {
-                    extendedPrice = cachedExt.postPrice;
-                    extendedLabel = 'POST';
+                // [FIX V2] PRE CLOSE badge during REG: multiple fallback chain
+                // Polygon preMarket.c is UNRELIABLE during REG (often 0/undefined)
+                // Fallback order: preMarket.c → preMarket.o/h/l → Redis cache → day.o (today's open ≈ pre-market close)
+                const preMarketClose = S.preMarket?.c || S.preMarket?.o || S.preMarket?.h || S.preMarket?.l || 0;
+                if (preMarketClose > 0) {
+                    extendedPrice = preMarketClose;
+                    extendedLabel = 'PRE';
+                } else if (cachedExt?.prePrice > 0) {
+                    extendedPrice = cachedExt.prePrice;
+                    extendedLabel = 'PRE';
+                } else if (S.day?.o && S.day.o > 0 && prevDayClose > 0 && S.day.o !== prevDayClose) {
+                    // day.o = today's market open price ≈ pre-market close
+                    // Only use if different from prevClose (indicates pre-market activity)
+                    extendedPrice = S.day.o;
+                    extendedLabel = 'PRE';
                 }
             } else if (session === 'pre') {
                 price = prevClose;

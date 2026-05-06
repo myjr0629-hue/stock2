@@ -201,7 +201,13 @@ export function useWatchlist(initialWatchlist?: WatchlistItem[], initialFullData
                     // [FIX 2026-05-06] batch API 우선: dayClose 기준 순수 PRE/POST 변동
                     // quotes의 extendedChangePercent는 prevDayClose 기준이라 본장 등락 포함됨
                     extChangePct: apiData.realtime.extendedChangePct ?? fastPrice?.extChangePct ?? undefined,
-                    extLabel: fastPrice?.extLabel ?? (apiData.realtime.extendedLabel as 'PRE' | 'POST' | undefined),
+                    // [FIX] 메인 워치리스트: REG 세션에서 PRE 배지 숨김 (대시보드는 quotes API에서 직접 처리)
+                    extLabel: (() => {
+                        const raw = fastPrice?.extLabel ?? (apiData.realtime.extendedLabel as 'PRE' | 'POST' | undefined);
+                        const sess = (apiData.realtime.session || '').toLowerCase();
+                        if (sess === 'reg' && raw === 'PRE') return undefined;
+                        return raw;
+                    })(),
                     session: apiData.realtime.session,
                     alphaScore: apiData.alphaSnapshot.score,
                     alphaGrade: apiData.alphaSnapshot.grade,
@@ -232,7 +238,8 @@ export function useWatchlist(initialWatchlist?: WatchlistItem[], initialFullData
                     changePct: liveChangePct,
                     regChangePct: liveChangePct,
                     extChangePct: fastPrice.extChangePct,
-                    extLabel: fastPrice.extLabel,
+                    // [FIX] REG 세션에서 PRE 배지 숨김
+                    extLabel: (priceData?.data?.[item.ticker]?.session === 'regular' && fastPrice.extLabel === 'PRE') ? undefined : fastPrice.extLabel,
                 };
             }
             return { ...item, currentPrice: 0, changePct: 0 };
