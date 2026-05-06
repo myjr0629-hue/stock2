@@ -150,24 +150,10 @@ export async function GET(request: Request) {
             // [FIX] Redis-cached extended data (populated by /api/live/ticker, 24h TTL)
             const cachedExt = extCacheMap[ticker];
 
-            if (session === 'regular') {
-                price = liveLast || dayClose || prevClose;
-                // [FIX V2] PRE CLOSE badge during REG: multiple fallback chain
-                // Polygon preMarket.c is UNRELIABLE during REG (often 0/undefined)
-                // Fallback order: preMarket.c → preMarket.o/h/l → Redis cache → day.o (today's open ≈ pre-market close)
-                const preMarketClose = S.preMarket?.c || S.preMarket?.o || S.preMarket?.h || S.preMarket?.l || 0;
-                if (preMarketClose > 0) {
-                    extendedPrice = preMarketClose;
-                    extendedLabel = 'PRE';
-                } else if (cachedExt?.prePrice > 0) {
-                    extendedPrice = cachedExt.prePrice;
-                    extendedLabel = 'PRE';
-                } else if (S.day?.o && S.day.o > 0 && prevDayClose > 0 && S.day.o !== prevDayClose) {
-                    // day.o = today's market open price ≈ pre-market close
-                    // Only use if different from prevClose (indicates pre-market activity)
-                    extendedPrice = S.day.o;
-                    extendedLabel = 'PRE';
-                }
+            if (session === 'regular') {\r
+                price = liveLast || dayClose || prevClose;\r
+                // [FIX 2026-05-06] REG 세션에서는 extended 배지 표시하지 않음\r
+                // 본장 중에는 본장 가격만 표시. PRE 배지는 PRE 세션에서만 표시.\r
             } else if (session === 'pre') {
                 price = prevClose;
                 extendedPrice = S.min?.c || liveLast || 0;
