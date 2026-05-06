@@ -2134,10 +2134,12 @@ function SignalItem({ signal, locale }: { signal: { time: string; ticker: string
 // [LOCALIZATION] Uses locale for time formatting, [SORTING] Newest signals first
 function SignalFeedPanel() {
     const signals = useDashboardStore(s => s.signals);
+    const dashboardTickers = useDashboardStore(s => s.dashboardTickers);
     const session = useDashboardStore(s => s.tickers[s.selectedTicker]?.session || 'CLOSED');
     const locale = useLocale();
     const td = useTranslations('dashboard');
     const isOpen = session === 'REG';
+    const tickerSet = useMemo(() => new Set(dashboardTickers), [dashboardTickers]);
 
     // [24H] Fetch DynamoDB signals (persisted 24h)
     const [dbSignals, setDbSignals] = useState<any[]>([]);
@@ -2196,9 +2198,10 @@ function SignalFeedPanel() {
         for (const s of dbSignals) addSignal(s);
 
         return Array.from(signalMap.values())
+            .filter(s => tickerSet.has(s.ticker))  // [FIX] 등록된 종목 시그널만 표시
             .sort((a, b) => b.timestamp - a.timestamp)
             .slice(0, 20);
-    }, [signals, dbSignals]);
+    }, [signals, dbSignals, tickerSet]);
 
     return (
         <div className="flex flex-col h-full">
