@@ -10,6 +10,7 @@ import { generateEventSpike } from '@/lib/marketing/contentEngines';
 import { generateAIEventSpike } from '@/lib/marketing/aiContentEngine';
 import { captureEventAlert } from '@/lib/marketing/screenshotService';
 import type { EventData, MarketData } from '@/lib/marketing/contentEngines';
+import { fetchForm4, buildInsiderSummary } from '@/services/insiderService';
 
 // ---------------------------------------------------------------------------
 // Config
@@ -19,8 +20,23 @@ const MAX_DAILY_EVENTS = 3;          // 하루 최대 이벤트 알림 수
 const DEDUP_TTL = 86400;             // 24시간 중복 방지
 const VIX_THRESHOLD = 15;            // VIX 변동률 %
 
-// M7 + 고관심 종목
-const TRACKED_TICKERS = ['AAPL', 'MSFT', 'NVDA', 'GOOGL', 'AMZN', 'META', 'TSLA'];
+// M7 + Physical AI + Sector Leaders (Top 30)
+const TRACKED_TICKERS = [
+  // M7
+  'AAPL', 'MSFT', 'NVDA', 'GOOGL', 'AMZN', 'META', 'TSLA',
+  // Physical AI / Semiconductor
+  'AMD', 'AVGO', 'ARM', 'PLTR', 'SMCI',
+  // Cloud / SaaS
+  'CRM', 'SNOW', 'NET', 'CRWD',
+  // Fintech / Payments
+  'COIN', 'SQ', 'PYPL',
+  // Biotech / Pharma
+  'LLY', 'MRNA', 'ABBV',
+  // Industrial / Energy
+  'BA', 'LMT', 'XOM',
+  // Consumer / Media
+  'DIS', 'NFLX', 'SHOP', 'UBER', 'RIVN',
+];
 
 // ---------------------------------------------------------------------------
 // GET Handler
@@ -93,6 +109,10 @@ export async function GET(request: Request) {
     const dpEvent = await detectDarkPoolSpike();
     if (dpEvent) events.push(dpEvent);
 
+    // 6. Insider Trading detection (V5.2 — SEC Form 4)
+    const insiderEvents = await detectInsiderTrade();
+    events.push(...insiderEvents);
+
     // Filter out already-sent events (dedup)
     const newEvents: EventData[] = [];
     for (const ev of events) {
@@ -108,7 +128,7 @@ export async function GET(request: Request) {
         success: true,
         skipped: true,
         reason: 'No new events detected',
-        checked: { gex: !!gexEvent, vix: !!vixEvent, sec: secEvents.length, sweep: sweepEvents.length, dp: !!dpEvent },
+        checked: { gex: !!gexEvent, vix: !!vixEvent, sec: secEvents.length, sweep: sweepEvents.length, dp: !!dpEvent, insider: insiderEvents.length },
       });
     }
 
@@ -130,7 +150,11 @@ export async function GET(request: Request) {
     let eventImages: { tweet: string | null; story: string | null } = { tweet: null, story: null };
     try {
       // event.type already matches screenshotService types (gex_shift, unusual_volume, whale, sec_8k)
-      const captureType = (event.type === 'level_break' ? 'gex_shift' : event.type) as 'gex_shift' | 'unusual_volume' | 'whale' | 'sec_8k';
+      const captureType = (
+        event.type === 'level_break' ? 'gex_shift' :
+        event.type === 'insider_trade' ? 'sec_8k' :  // Reuse SEC template for insider
+        event.type
+      ) as 'gex_shift' | 'unusual_volume' | 'whale' | 'sec_8k';
       eventImages = await captureEventAlert({
         type: captureType,
         ticker: event.ticker,
@@ -350,6 +374,78 @@ async function detectDarkPoolSpike(): Promise<EventData | null> {
     // fetchTradeData may timeout
   }
   return null;
+}
+
+// Phase 6: Insider Trading Detection (SEC Form 4)
+// Detects significant C-Suite trades ($1M+) or cluster buying (3+ insiders)
+async function detectInsiderTrade(): Promise<EventData[]> {
+  const events: EventData[] = [];
+  const INSIDER_THRESHOLD = 1_000_000; // $1M+ single trade
+  const CLUSTER_MIN = 3;               // 3+ insiders buying = cluster
+
+  // Only check top 15 tickers per cycle to avoid timeout (rotate daily)
+  const dayOfWeek = new Date().getDay(); // 0-6
+  const tickersPerCycle = 15;
+  const startIdx = (dayOfWeek * tickersPerCycle) % TRACKED_TICKERS.length;
+  const tickersToCheck = [
+    ...TRACKED_TICKERS.slice(startIdx, startIdx + tickersPerCycle),
+    ...TRACKED_TICKERS.slice(0, Math.max(0, startIdx + tickersPerCycle - TRACKED_TICKERS.length)),
+  ].slice(0, tickersPerCycle);
+
+  for (const ticker of tickersToCheck) {
+    try {
+      // Check dedup first (avoid redundant API calls)
+      const dateKey = new Date().toISOString().split('T')[0];
+      const dedupKey = `marketing:event:sent:insider_trade:${ticker}:${dateKey}`;
+      const alreadySent = await safeGet(dedupKey);
+      if (alreadySent) continue;
+
+      const transactions = await fetchForm4(ticker, 10);
+      if (transactions.length === 0) continue;
+
+      const summary = buildInsiderSummary(transactions);
+      if (!summary.latest) continue;
+
+      // Check filing freshness: only within last 24 hours
+      const filingDate = new Date(summary.latest.date);
+      const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+      if (filingDate < oneDayAgo) continue;
+
+      const latest = summary.latest;
+      const isCsuite = /CEO|CFO|COO|CTO|President/i.test(latest.title);
+      const isLargeTrade = latest.value >= INSIDER_THRESHOLD;
+      const isClusterBuy = summary.buyCount >= CLUSTER_MIN;
+
+      // Trigger conditions:
+      // 1. C-Suite + $1M+ trade (buy or sell)
+      // 2. Cluster buying (3+ insiders buying, any amount)
+      // 3. Any insider $5M+ trade
+      if ((isCsuite && isLargeTrade) || isClusterBuy || latest.value >= 5_000_000) {
+        const action = latest.code === 'P' ? 'purchase' : 'disposition';
+        const valueStr = latest.value >= 1e9
+          ? `$${(latest.value / 1e9).toFixed(1)}B`
+          : `$${(latest.value / 1e6).toFixed(1)}M`;
+        const is10b5 = latest.is10b5 ? ' (10b5-1 pre-planned)' : '';
+
+        let detail: string;
+        if (isClusterBuy && !isCsuite) {
+          detail = `SEC Form 4: ${summary.buyCount} insiders reported purchases within 30 days. Net insider buying: ${valueStr}. Cluster activity observed.`;
+        } else {
+          detail = `SEC Form 4: ${latest.title} ${latest.name} reported ${valueStr} share ${action}${is10b5}. Filed ${latest.date}.`;
+        }
+
+        events.push({
+          ticker,
+          type: 'insider_trade',
+          details: detail,
+          value: latest.value,
+        });
+      }
+    } catch {
+      // Silent — Polygon API may rate-limit
+    }
+  }
+  return events;
 }
 
 // ---------------------------------------------------------------------------

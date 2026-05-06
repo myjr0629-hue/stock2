@@ -36,7 +36,7 @@ export interface ContentOutput {
 
 export interface EventData {
   ticker: string;
-  type: 'whale' | 'gex_shift' | 'level_break' | 'unusual_volume' | 'sec_8k';
+  type: 'whale' | 'gex_shift' | 'level_break' | 'unusual_volume' | 'sec_8k' | 'insider_trade';
   details: string;
   value?: number;
   premium?: number;

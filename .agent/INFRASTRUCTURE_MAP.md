@@ -1171,6 +1171,28 @@ bash scripts/ec2-deploy-guardian.sh
 
 ## 11. 작업 이력
 
+### [2026-05-06] 🟢 마케팅 이벤트 감지 확장 — Insider Trading + 30종목 확대
+
+> **변경 1**: `event-detect/route.ts` TRACKED_TICKERS 7종목(M7) → **30종목** 확장
+> - M7 + Physical AI(AMD/AVGO/ARM/PLTR/SMCI) + Cloud(CRM/SNOW/NET/CRWD)
+> - Fintech(COIN/SQ/PYPL) + Biotech(LLY/MRNA/ABBV) + Industrial(BA/LMT/XOM)
+> - Consumer(DIS/NFLX/SHOP/UBER/RIVN)
+> - 5분 크론 타임아웃 방지: 일별 로테이션 (15종목/cycle)
+> 
+> **변경 2**: 이벤트 감지 6번째 트리거 `detectInsiderTrade()` 추가
+> - 데이터 소스: Polygon Form 4 API (`insiderService.ts` 재사용)
+> - 트리거 조건:
+>   1. **C-Suite + $1M+** (CEO/CFO/COO/CTO/President의 대규모 거래)
+>   2. **클러스터 매수** (30일 내 3인+ 인사이더 매수)
+>   3. **$5M+ 거래** (직급 무관 대형 거래)
+> - 24시간 filing freshness 필터 + 일별 dedup
+> - 10b5-1 자동매매 여부 표시 (컴플라이언스)
+> - `contentEngines.ts` EventData 타입에 `insider_trade` 추가
+> 
+> **현재 이벤트 감지 6종**: GEX Flip, VIX Spike, SEC 8-K, ITM Sweep, Dark Pool Spike, **Insider Trade**
+> 
+> **스위치 상태**: 전체 `dry_run=true` (스위치 ON 시 즉시 라이브)
+
 ### [2026-05-05] 🟢 Block Trade 즉시 주입 — EC2 Redis Proxy 직접 호출로 5분 지연 제거
 
 > **문제**: Command 페이지 최초 진입 시 block trade count가 25건(Polygon 샘플)으로 표시되고, 5분 후 background enrichment에서 EC2 데이터(4,216건)로 교체되는 5분 지연.
