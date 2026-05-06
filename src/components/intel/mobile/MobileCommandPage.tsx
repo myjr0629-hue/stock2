@@ -178,12 +178,22 @@ export function MobileCommandPage({ quote: rawQuote, sectorLabel, onBack, ticker
     const { getPrice: wsGetPrice } = useRealtimeData([effectiveTicker]);
     const wsPrice = wsGetPrice(effectiveTicker);
 
+    // [FIX 2026-05-06] Ticker API에서 prevChangePct 확보 (PRE 마켓 본장 등락률용)
+    // Flow 페이지와 동일한 데이터 소스 — ticker API가 daily aggs에서 2거래일 전 종가를 제공
+    const { data: tickerApiData } = useSWR(
+        effectiveTicker ? `/api/live/ticker?t=${effectiveTicker}&skip_alpha=1` : null,
+        fetcher,
+        { revalidateOnFocus: false, dedupingInterval: 30_000, refreshInterval: 60_000 }
+    );
+
     // Session — identical to desktop LiveTickerDashboard L856
     const effectiveSession = isClosed
         ? 'CLOSED'
         : (effectiveQuote.session || 'CLOSED').toUpperCase();
 
     // ── calcPriceDisplay — SAME function, SAME params as desktop ──
+    // [FIX] prevChangePct 전달: ticker API → prices.prevChangePct
+    //   PRE 시 calcPriceDisplay L100: prevChangePct가 있으면 이것을 본장 등락률로 사용
     const { displayPrice: price, displayChangePct: changePct, activeExtPrice, activeExtLabel, activeExtPct } = calcPriceDisplay({
         livePrice: wsPrice?.price || livePrice?.price,
         liveChangePct: wsPrice?.changePct || livePrice?.changePercent,
@@ -197,13 +207,14 @@ export function MobileCommandPage({ quote: rawQuote, sectorLabel, onBack, ticker
         apiDisplayPrice: effectiveQuote.price || 0,
         apiDisplayChangePct: effectiveQuote.changePct || 0,
         session: effectiveSession,
-        prevRegularClose: effectiveQuote.prevClose || null,
-        prevClose: effectiveQuote.prevClose || 0,
-        regularCloseToday: (effectiveSession === 'POST' || effectiveSession === 'CLOSED') ? (initialStockData?.todayClose || undefined) : undefined,
+        prevRegularClose: tickerApiData?.prices?.prevRegularClose || effectiveQuote.prevClose || null,
+        prevClose: tickerApiData?.prevClose || effectiveQuote.prevClose || 0,
+        regularCloseToday: tickerApiData?.prices?.regularCloseToday || ((effectiveSession === 'POST' || effectiveSession === 'CLOSED') ? (initialStockData?.todayClose || undefined) : undefined),
+        prevChangePct: tickerApiData?.prices?.prevChangePct,
         fallbackChangePct: effectiveQuote.changePct || 0,
-        lastTrade: effectiveQuote.price || 0,
-        extended: initialStockData?.extended || {},
-        prices: {},
+        lastTrade: tickerApiData?.prices?.lastTrade || effectiveQuote.price || 0,
+        extended: tickerApiData?.extended || initialStockData?.extended || {},
+        prices: tickerApiData?.prices || {},
     });
     const up = changePct >= 0;
 

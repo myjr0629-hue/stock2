@@ -185,7 +185,10 @@ export async function processWatchlistBatch(tickers: string[], mode: 'full' | 'p
         //   메인 가격 = 항상 본장 가격 (regular: liveTick, pre/post: dayClose)
         //   changePct = 항상 본장 등락 (dayClose vs prevDayClose)
         //   extendedPrice = PRE/POST 가격 (별도 표시)
-        const buildBasePrice = () => {
+        // [FIX 2026-05-06] dailyCloses 파라미터 추가:
+        //   PRE 마켓에서 Polygon day.c=0이면 daily aggs[-2].c를 사용하여
+        //   정확한 본장 등락률 계산 (Yahoo Finance와 동일)
+        const buildBasePrice = (dailyCloses?: number[]) => {
             if (!snap) return { displayPrice: 0, changePct: 0, extendedPrice: null, extendedChangePct: null, extendedLabel: undefined, vwap: null, volume: 0, prevDayClose: 0 };
 
             const liveLast = snap.lastTrade?.p || 0;
@@ -203,7 +206,8 @@ export async function processWatchlistBatch(tickers: string[], mode: 'full' | 'p
                 displayPrice = dayClose || prevDayClose;
             }
 
-            // ★ changePct: 항상 본장 등락 (dayClose vs prevDayClose) — Command 페이지와 동일
+            // ★ changePct: 항상 본장 등락 (dayClose vs prevDayClose)
+            // [FIX] PRE 마켓에서 day.c=0이면 daily aggs에서 정확한 본장% 계산
             let changePct = 0;
             if (currentSession === 'regular') {
                 // Regular: 실시간 가격 기준
@@ -216,8 +220,17 @@ export async function processWatchlistBatch(tickers: string[], mode: 'full' | 'p
                 // PRE/POST: 본장 종가 vs 전일 종가
                 if (dayClose > 0 && prevDayClose > 0) {
                     changePct = ((dayClose - prevDayClose) / prevDayClose) * 100;
+                } else if (dailyCloses && dailyCloses.length >= 2) {
+                    // [FIX] day.c=0 (PRE 마켓): daily aggs에서 본장 등락률 계산
+                    // dailyCloses[-1] = 어제 종가, dailyCloses[-2] = 2거래일 전 종가
+                    const prev1 = dailyCloses[dailyCloses.length - 1];
+                    const prev2 = dailyCloses[dailyCloses.length - 2];
+                    if (prev2 > 0) {
+                        changePct = ((prev1 - prev2) / prev2) * 100;
+                    }
                 } else {
-                    changePct = snap.todaysChangePerc || 0;
+                    // 최후 폴백: 0 반환 (todaysChangePerc는 PRE 가격 포함이라 사용 금지)
+                    changePct = 0;
                 }
             }
 
@@ -253,7 +266,7 @@ export async function processWatchlistBatch(tickers: string[], mode: 'full' | 'p
         // Lambda v8 doesn't write shortVolPct to cache:analysis, so checking for it
         // causes the frontend to constantly throw away perfectly good caches.
         if (analysis) {
-            const base = buildBasePrice();
+            const base = buildBasePrice(analysis.sparkline);
 
             // [SELF-HEAL] Sparkline이 오염(빈 배열)된 캐시 자동 복구
             // 이전 DynamoDB Fallback 버그로 sparkline:[]이 Redis에 저장된 경우 대비
@@ -442,7 +455,7 @@ export async function processWatchlistBatch(tickers: string[], mode: 'full' | 'p
         // B. CACHE MISS & FAST MODE (PRICE | SSR)
         // ============================================
         if (mode === 'price' || mode === 'ssr') {
-            const base = buildBasePrice();
+            const base = buildBasePrice();  // CACHE MISS + fast mode: no dailyCloses available, falls back to 0
 
             return {
                 ticker,
@@ -474,12 +487,12 @@ export async function processWatchlistBatch(tickers: string[], mode: 'full' | 'p
 
             if (dynamoData) {
                 const dynAny = dynamoData as any;
-                const base = buildBasePrice();
                 const gd = dynAny.structure;
                 
                 // [FIX] DB에 존재하는 유니버스 종목이 비-유니버스 종목보다 스파크라인 표출에 불이익을 받는 모순 해결.
                 // 빠른 응답을 유지하되, Polygon의 가벼운 Price+Aggs 데이터만 추가 병렬 호출하여 스파크라인과 3D리턴 복구.
                 const stockData = await getStockDataLight(ticker).catch(() => null);
+                const base = buildBasePrice(stockData?.dailyResults?.map((d: any) => d.close));
 
                 // Build analysisEntry from DynamoDB data and write to Redis cache
                 const dynamoAnalysis: Record<string, any> = {

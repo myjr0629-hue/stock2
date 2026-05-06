@@ -135,12 +135,11 @@ export async function GET(request: Request) {
                 // PRE / POST / CLOSED
                 if (dayClose > 0 && prevDayClose > 0 && dayClose !== prevDayClose) {
                     changePercent = ((dayClose - prevDayClose) / prevDayClose) * 100;
-                } else if (session === 'pre' && todaysChangePerc !== 0) {
-                    // During PRE-market, if dayClose hasn't updated from yesterday, 
-                    // todaysChangePerc might hold the correct previous day's regular change.
-                    changePercent = todaysChangePerc;
                 } else {
-                    changePercent = null; // [FIX] Return null instead of 0 to prevent 0.00% flickering in UI
+                    // [FIX 2026-05-06] PRE 마켓에서 day.c=0이면 todaysChangePerc 사용 금지
+                    // todaysChangePerc = (lastTrade - prevDay.c) / prevDay.c → PRE 가격 포함된 값이라 본장 등락률로 부정확
+                    // null을 반환하면 클라이언트가 batch API의 정확한 값을 폴백으로 사용
+                    changePercent = null;
                 }
             }
 
