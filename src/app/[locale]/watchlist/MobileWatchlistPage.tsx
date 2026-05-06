@@ -1,11 +1,11 @@
 'use client';
 // MobileWatchlistPage — 4-Tab (Overview/Cards/Compact/Signals)
 // Data: useWatchlist ONLY. Zero web impact. No heatmap. Sparklines included.
-import React, { useState, useMemo, useCallback, useEffect } from 'react';
+import React, { useState, useMemo, useCallback, useEffect, memo } from 'react';
 import { useWatchlist, type EnrichedWatchlistItem } from '@/hooks/useWatchlist';
 import { useTranslations, useLocale } from 'next-intl';
 import { useTier } from '@/contexts/TierContext';
-import { Star, Plus, RefreshCw, Search, Loader2, X, LayoutList, CreditCard, AlignJustify, ArrowUpDown, type LucideIcon } from 'lucide-react';
+import { Star, Plus, RefreshCw, Search, Loader2, X, LayoutList, CreditCard, AlignJustify, ArrowUpDown, Clock, type LucideIcon } from 'lucide-react';
 import { OverviewRow, CardItem, CompactRow, MobileStatsBar } from './MobileWatchlistTabs';
 
 type TabKey = 'overview' | 'cards' | 'compact';
@@ -102,6 +102,9 @@ export default function MobileWatchlistPage({ locale, initialWatchlist, initialF
                 </div>
             </div>
 
+            {/* ── Session Status Bar ── */}
+            {!loading && <MobileSessionBar />}
+
             {/* ── Stats Bar (non-signals) ── */}
             {!loading && items.length > 0 && <MobileStatsBar items={items} />}
 
@@ -165,6 +168,74 @@ export default function MobileWatchlistPage({ locale, initialWatchlist, initialF
         </div>
     );
 }
+
+// ── Session Status Bar ──
+const MobileSessionBar = memo(function MobileSessionBar() {
+    const [now, setNow] = useState(() => new Date());
+    useEffect(() => {
+        const id = setInterval(() => setNow(new Date()), 1000);
+        return () => clearInterval(id);
+    }, []);
+
+    const info = useMemo(() => {
+        const etStr = now.toLocaleString('en-US', { timeZone: 'America/New_York', hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+        const etParts = now.toLocaleString('en-US', { timeZone: 'America/New_York', hour12: false, hour: '2-digit', minute: '2-digit' }).split(':');
+        const h = parseInt(etParts[0]), m = parseInt(etParts[1]);
+        const mins = h * 60 + m;
+        const etDow = new Date(now.toLocaleString('en-US', { timeZone: 'America/New_York' })).getDay();
+        const isWE = etDow === 0 || etDow === 6;
+
+        let session: string, next: string, countdown: string;
+        if (isWE) {
+            session = 'closed'; next = 'Pre-Market';
+            const daysToMon = etDow === 0 ? 1 : 2;
+            const minsToOpen = daysToMon * 24 * 60 + (240 - mins);
+            const dH = Math.floor(minsToOpen / 60);
+            countdown = dH > 24 ? `${Math.floor(dH / 24)}d ${dH % 24}h` : `${dH}h ${minsToOpen % 60}m`;
+        } else if (mins < 240) {
+            session = 'closed'; next = 'Pre-Market';
+            const diff = 240 - mins; countdown = `${Math.floor(diff / 60)}h ${diff % 60}m`;
+        } else if (mins < 570) {
+            session = 'pre'; next = 'Market Open';
+            const diff = 570 - mins; countdown = `${Math.floor(diff / 60)}h ${diff % 60}m`;
+        } else if (mins < 960) {
+            session = 'reg'; next = 'Market Close';
+            const diff = 960 - mins; countdown = `${Math.floor(diff / 60)}h ${diff % 60}m`;
+        } else if (mins < 1200) {
+            session = 'post'; next = 'Post Close';
+            const diff = 1200 - mins; countdown = `${Math.floor(diff / 60)}h ${diff % 60}m`;
+        } else {
+            session = 'closed'; next = 'Pre-Market';
+            const diff = 24 * 60 + 240 - mins; countdown = `${Math.floor(diff / 60)}h ${diff % 60}m`;
+        }
+        return { etStr, session, next, countdown };
+    }, [now]);
+
+    const sc = info.session === 'reg' ? { color: 'text-emerald-400', dot: 'bg-emerald-400 shadow-emerald-400/50', bg: 'border-emerald-500/15', label: 'REGULAR' }
+        : info.session === 'pre' ? { color: 'text-cyan-400', dot: 'bg-cyan-400 shadow-cyan-400/50', bg: 'border-cyan-500/15', label: 'PRE-MARKET' }
+        : info.session === 'post' ? { color: 'text-amber-400', dot: 'bg-amber-400 shadow-amber-400/50', bg: 'border-amber-500/15', label: 'POST-MARKET' }
+        : { color: 'text-slate-400', dot: 'bg-slate-500', bg: 'border-slate-500/15', label: 'CLOSED' };
+
+    return (
+        <div className={`mx-3 mt-2 px-3 py-2 rounded-xl border ${sc.bg} bg-white/[0.02]`}>
+            <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                    <span className={`w-2 h-2 rounded-full shadow-lg flex-shrink-0 ${sc.dot} ${info.session !== 'closed' ? 'animate-pulse' : ''}`} />
+                    <span className={`text-[12px] font-black tracking-wider ${sc.color}`}>{sc.label}</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                    <Clock className="w-3 h-3 text-slate-500" />
+                    <span className="text-[11px] font-bold tabular-nums text-white/80">{info.etStr}</span>
+                    <span className="text-[9px] font-bold text-slate-500">ET</span>
+                </div>
+            </div>
+            <div className="flex items-center gap-1.5 mt-1">
+                <span className="text-[10px] font-semibold text-slate-500">{info.next} in</span>
+                <span className={`text-[11px] font-black tabular-nums ${sc.color}`}>{info.countdown}</span>
+            </div>
+        </div>
+    );
+});
 
 // ── Mobile Add Modal (bottom-sheet style) ──
 function MobileAddModal({ onClose, onAdd, existing }: {

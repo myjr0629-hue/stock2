@@ -2,8 +2,41 @@
 import React, { memo, useMemo } from 'react';
 import { Link } from '@/i18n/routing';
 import { usePriceFlash, getFlashStyle, tickerDelay } from '@/components/ui/PriceDisplay';
-import { TrendingUp, ArrowDownRight, Activity, Fish, Shield, Zap, Crosshair, RefreshCcw, ChevronRight } from 'lucide-react';
+import { TrendingUp, ArrowDownRight, Activity, Fish, Shield, Zap, Crosshair, RefreshCcw, ChevronRight, Moon, Sun } from 'lucide-react';
 import type { EnrichedWatchlistItem } from '@/hooks/useWatchlist';
+
+// ── Session badge config (PRE=cyan, POST=amber) ──
+const SESSION_CFG = {
+    PRE:  { label: 'PRE',  color: 'text-cyan-400',  bg: 'bg-cyan-500/15',  border: 'border-cyan-500/20',  dot: 'bg-cyan-400',  icon: Sun },
+    POST: { label: 'POST', color: 'text-amber-400', bg: 'bg-amber-500/15', border: 'border-amber-500/20', dot: 'bg-amber-400', icon: Moon },
+} as const;
+
+/** Inline session pill badge — renders only during PRE/POST */
+const SessionPill = memo(function SessionPill({ label }: { label?: 'PRE' | 'POST' }) {
+    if (!label) return null;
+    const c = SESSION_CFG[label];
+    return (
+        <span className={`inline-flex items-center gap-0.5 text-[9px] font-black px-1.5 py-0.5 rounded-md tracking-wider ${c.bg} ${c.color} border ${c.border}`}>
+            <span className={`w-1 h-1 rounded-full ${c.dot} animate-pulse`} />
+            {c.label}
+        </span>
+    );
+});
+
+/** Extended change display — shows "PRE +0.35%" or "POST -0.12%" */
+const ExtChangeRow = memo(function ExtChangeRow({ item }: { item: EnrichedWatchlistItem }) {
+    if (!item.extLabel || item.extChangePct === undefined) return null;
+    const c = SESSION_CFG[item.extLabel];
+    const extPos = item.extChangePct >= 0;
+    return (
+        <div className="flex items-center justify-end gap-1 mt-0.5">
+            <span className={`text-[10px] font-black tracking-wider ${c.color}`}>{c.label}</span>
+            <span className={`text-[11px] font-bold tabular-nums ${extPos ? 'text-cyan-400' : 'text-rose-400'}`}>
+                {extPos ? '+' : ''}{item.extChangePct.toFixed(2)}%
+            </span>
+        </div>
+    );
+});
 
 // ── Sparkline (inline SVG) ──
 export const MiniSparkline = memo(function MiniSparkline({ data, positive }: { data: number[]; positive: boolean }) {
@@ -42,11 +75,15 @@ export const OverviewRow = memo(function OverviewRow({ item, i }: { item: Enrich
                 </div>
             </div>
             <div className="text-right flex-shrink-0">
-                <div className={`font-black tabular-nums text-[18px] tracking-tight ${pf.color}`} style={pf.style}>${item.currentPrice.toFixed(2)}</div>
+                <div className="flex items-center justify-end gap-1.5">
+                    <div className={`font-black tabular-nums text-[18px] tracking-tight ${pf.color}`} style={pf.style}>${item.currentPrice.toFixed(2)}</div>
+                    <SessionPill label={item.extLabel} />
+                </div>
                 <div className={`text-[13px] font-bold tabular-nums flex items-center justify-end gap-0.5 ${pos ? 'text-emerald-400' : 'text-rose-400'}`}>
                     {pos ? <TrendingUp className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
                     {pos ? '+' : ''}{item.changePct.toFixed(2)}%
                 </div>
+                <ExtChangeRow item={item} />
             </div>
             <ChevronRight className="w-4 h-4 text-slate-600 flex-shrink-0" />
         </Link>
@@ -92,11 +129,15 @@ export const CardItem = memo(function CardItem({ item, i }: { item: EnrichedWatc
                     )}
                 </div>
                 <div className="text-right">
-                    <div className={`font-black tabular-nums text-[20px] tracking-tight ${pf.color}`} style={pf.style}>${item.currentPrice.toFixed(2)}</div>
+                    <div className="flex items-center justify-end gap-1.5">
+                        <div className={`font-black tabular-nums text-[20px] tracking-tight ${pf.color}`} style={pf.style}>${item.currentPrice.toFixed(2)}</div>
+                        <SessionPill label={item.extLabel} />
+                    </div>
                     <div className={`text-[14px] font-bold tabular-nums flex items-center justify-end gap-0.5 ${pos ? 'text-emerald-400' : 'text-rose-400'}`}>
                         {pos ? <TrendingUp className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
                         {pos ? '+' : ''}{item.changePct.toFixed(2)}%
                     </div>
+                    <ExtChangeRow item={item} />
                 </div>
             </div>
 
@@ -257,10 +298,22 @@ function MetricCell({ label, value, color }: { label: string; value: string; col
 // ── Compact row ──
 export const CompactRow = memo(function CompactRow({ item }: { item: EnrichedWatchlistItem }) {
     const pos = item.changePct >= 0;
+    const hasExt = item.extLabel && item.extChangePct !== undefined;
+    const extPos = hasExt ? (item.extChangePct! >= 0) : false;
     return (
         <Link href={`/ticker?ticker=${item.ticker}`} className="grid grid-cols-[70px_1fr_1fr_50px] items-center px-3 py-2.5 border-b border-white/[0.04] active:bg-white/[0.04]">
-            <span className="font-black text-[14px] text-white tracking-wide">{item.ticker}</span>
-            <span className={`text-[14px] font-bold tabular-nums text-right ${pos ? 'text-emerald-400' : 'text-rose-400'}`}>{pos ? '+' : ''}{item.changePct.toFixed(2)}%</span>
+            <div className="flex items-center gap-1.5">
+                <span className="font-black text-[14px] text-white tracking-wide">{item.ticker}</span>
+                {hasExt && <span className={`w-1.5 h-1.5 rounded-full ${item.extLabel === 'PRE' ? 'bg-cyan-400' : 'bg-amber-400'} animate-pulse flex-shrink-0`} />}
+            </div>
+            <div className="text-right">
+                <span className={`text-[14px] font-bold tabular-nums ${pos ? 'text-emerald-400' : 'text-rose-400'}`}>{pos ? '+' : ''}{item.changePct.toFixed(2)}%</span>
+                {hasExt && (
+                    <div className={`text-[10px] font-bold tabular-nums ${extPos ? 'text-cyan-400' : 'text-rose-400'}`}>
+                        {item.extLabel} {extPos ? '+' : ''}{item.extChangePct!.toFixed(2)}%
+                    </div>
+                )}
+            </div>
             <span className="text-[14px] font-bold tabular-nums text-right text-white/90">${item.currentPrice.toFixed(2)}</span>
             <MiniSparkline data={item.sparkline || []} positive={pos} />
         </Link>
