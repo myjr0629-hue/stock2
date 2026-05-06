@@ -150,10 +150,10 @@ export async function GET(request: Request) {
             // [FIX] Redis-cached extended data (populated by /api/live/ticker, 24h TTL)
             const cachedExt = extCacheMap[ticker];
 
-            if (session === 'regular') {\r
-                price = liveLast || dayClose || prevClose;\r
-                // [FIX 2026-05-06] REG 세션에서는 extended 배지 표시하지 않음\r
-                // 본장 중에는 본장 가격만 표시. PRE 배지는 PRE 세션에서만 표시.\r
+            if (session === 'regular') {
+                price = liveLast || dayClose || prevClose;
+                // [FIX 2026-05-06] REG 세션에서는 extended 배지 표시하지 않음
+                // 본장 중에는 본장 가격만 표시. PRE 배지는 PRE 세션에서만 표시.
             } else if (session === 'pre') {
                 price = prevClose;
                 extendedPrice = S.min?.c || liveLast || 0;
