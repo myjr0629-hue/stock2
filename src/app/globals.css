@@ -866,7 +866,7 @@
 
 /* AI analysis prose: 13px ??14px (Tactical Verdict, RLSI Insight, macro alerts, GammaShield) */
 :lang(en) [data-guardian] .text-\[13px\] {
-  font-size: 14px !important;
+  font-size: 13px !important;
   line-height: 1.7 !important;
 }
 
