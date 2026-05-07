@@ -48,6 +48,7 @@ const fetcher = (url: string) => fetch(url).then(r => { if (!r.ok) throw new Err
 function round2(n: number): number { return Math.round(n * 100) / 100; }
 
 type Session = 'PRE' | 'REG' | 'POST' | 'CLOSED';
+export type MarketSession = Session;
 function toSession(s: string | undefined): Session {
     if (!s) return 'CLOSED';
     const u = s.toUpperCase();

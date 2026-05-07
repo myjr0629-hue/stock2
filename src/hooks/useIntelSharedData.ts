@@ -6,7 +6,7 @@
 'use client';
 
 import React, { useEffect, useState, useCallback, useRef } from 'react';
-import { calcUnifiedPrice, type MarketSession } from '@/services/unifiedPriceService';
+import { computeOnePipe, type MarketSession } from '@/hooks/useOnePipe';
 
 // Ticker lists
 const M7_TICKERS = ['AAPL', 'NVDA', 'MSFT', 'GOOGL', 'AMZN', 'META', 'TSLA'];
@@ -247,43 +247,39 @@ export function useIntelSharedData(
                     const session = toSession(p.session);
                     const prevCl = q.prevClose || p.prevClose || 0;
 
-                    // [ONE-PIPE] regularCloseToday: 최초 설정 후 유지 (Polygon 변동 차단)
+                    // [ONE-PIPE] regularCloseToday: 최초 설정 후 유지
                     const regCloseToday = q.regularCloseToday && q.regularCloseToday > 0
                         ? q.regularCloseToday
                         : (p.price > 0 ? p.price : null);
 
-                    const unified = calcUnifiedPrice({
+                    const pipe = computeOnePipe({
                         session,
-                        lastTradePrice: p.extendedPrice > 0 ? p.extendedPrice : p.price,
-                        dayClose: p.price > 0 ? p.price : 0,
-                        prevDayClose: prevCl,
+                        pollPrice: p.price,
+                        pollPrevClose: prevCl,
+                        pollExtPrice: p.extendedPrice || 0,
+                        pollExtLabel: p.extendedLabel || '',
+                        pollChangePct: p.changePercent ?? null,
+                        wsPrice: null,
                         regularCloseToday: regCloseToday,
-                        afterHoursPrice: p.extendedLabel === 'POST' && p.extendedPrice > 0 ? p.extendedPrice : undefined,
-                        preMarketPrice: p.extendedLabel === 'PRE' && p.extendedPrice > 0 ? p.extendedPrice : undefined,
                     });
 
-                    // PRE 세션: 본장 등락률은 기존 값 유지
-                    const changePct = session === 'PRE'
-                        ? (q.changePct || unified.regularChangePct)
-                        : unified.regularChangePct;
-
                     // Skip if price unchanged
-                    if (unified.regularPrice === q.price && changePct === q.changePct) return q;
+                    if (pipe.price === q.price && pipe.changePct === q.changePct) return q;
 
                     hasAnyChange = true;
-                    const flash: 'up' | 'down' | null = unified.regularPrice > q.price ? 'up'
-                        : unified.regularPrice < q.price ? 'down' : null;
+                    const flash: 'up' | 'down' | null = pipe.price > q.price ? 'up'
+                        : pipe.price < q.price ? 'down' : null;
 
                     return {
                         ...q,
-                        price: unified.regularPrice,
-                        changePct: changePct ?? 0,
-                        prevClose: unified.prevClose || q.prevClose,
+                        price: pipe.price,
+                        changePct: pipe.changePct,
+                        prevClose: pipe.prevClose || q.prevClose,
                         volume: p.volume ?? q.volume,
                         regularCloseToday: regCloseToday,
-                        extendedPrice: unified.postPrice || unified.prePrice || q.extendedPrice,
-                        extendedChangePct: unified.postChangePct || unified.preChangePct || q.extendedChangePct,
-                        extendedLabel: (p.extendedPrice && p.extendedPrice > 0) ? (p.extendedLabel ?? q.extendedLabel) : q.extendedLabel,
+                        extendedPrice: pipe.extPrice || q.extendedPrice,
+                        extendedChangePct: pipe.extChangePct || q.extendedChangePct,
+                        extendedLabel: pipe.extLabel || q.extendedLabel,
                         session: p.session ?? q.session,
                         priceFlash: flash,
                     };
@@ -394,17 +390,10 @@ function mergeFastIntoFull(full: IntelQuote[], fast: IntelQuote[]): IntelQuote[]
             ? existing.regularCloseToday
             : (updated.price > 0 ? updated.price : null);
 
-        // CLOSED/POST: regularCloseToday가 있으면 그 값 사용 (Polygon 변동 차단)
-        const session = (updated.session || existing.session || '').toUpperCase();
-        const isClosed = session === 'CLOSED' || session === 'POST' || session === 'POST_MARKET';
-        const stablePrice = isClosed && regCloseToday && regCloseToday > 0
-            ? regCloseToday
-            : updated.price;
-
         return {
             ...existing,
-            price: stablePrice,
-            changePct: isClosed ? existing.changePct : updated.changePct,
+            price: updated.price > 0 ? updated.price : existing.price,
+            changePct: updated.changePct || existing.changePct,
             prevClose: updated.prevClose || existing.prevClose,
             volume: updated.volume || existing.volume,
             regularCloseToday: regCloseToday,

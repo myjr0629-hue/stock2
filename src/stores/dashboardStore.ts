@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { calcUnifiedPrice, type MarketSession } from '@/services/unifiedPriceService';
+import { computeOnePipe, type MarketSession } from '@/hooks/useOnePipe';
 import {
     getDashboardTickers as fetchDbTickers,
     toggleDashboardTicker as toggleDbTicker,
@@ -411,37 +411,38 @@ export const useDashboardStore = create<DashboardState>()(
                             ? existing.regularCloseToday
                             : (q.price > 0 ? q.price : null);
 
-                        // ── [ONE-PIPE] calcUnifiedPrice — 단일 가격 계산 경로 ──
-                        const unified = calcUnifiedPrice({
+                        // ── [ONE-PIPE] computeOnePipe — 단일 가격 계산 경로 ──
+                        const pipe = computeOnePipe({
                             session,
-                            lastTradePrice: q.extendedPrice > 0 ? q.extendedPrice : q.price,
-                            dayClose: q.price > 0 ? q.price : 0,
-                            prevDayClose: prevCl,
+                            pollPrice: q.price,
+                            pollPrevClose: prevCl,
+                            pollExtPrice: q.extendedPrice || 0,
+                            pollExtLabel: q.extendedLabel || '',
+                            pollChangePct: q.changePercent ?? null,
+                            wsPrice: null,
                             regularCloseToday: regCloseToday,
-                            afterHoursPrice: q.extendedLabel === 'POST' && q.extendedPrice > 0 ? q.extendedPrice : undefined,
-                            preMarketPrice: q.extendedLabel === 'PRE' && q.extendedPrice > 0 ? q.extendedPrice : undefined,
                         });
 
-                        // ── PRE 세션: 본장 등락률은 기존 값 유지 (prevChangePct from fetchDashboardData) ──
+                        // ── PRE 세션: 본장 등락률은 기존 값 유지 ──
                         const changePct = session === 'PRE'
-                            ? (existing.prevChangePct ?? existing.intradayChangePct ?? unified.regularChangePct)
-                            : unified.regularChangePct;
+                            ? (existing.prevChangePct ?? existing.intradayChangePct ?? pipe.changePct)
+                            : pipe.changePct;
 
                         // ── Write ONLY price fields — never touch indicator fields ──
                         currentTickers[ticker] = {
                             ...existing,              // Preserve all existing indicator data
-                            underlyingPrice: unified.regularPrice,
+                            underlyingPrice: pipe.price,
                             changePercent: changePct,
-                            prevClose: unified.prevClose || existing.prevClose,
-                            prevRegularClose: unified.prevClose || existing.prevRegularClose,
+                            prevClose: pipe.prevClose || existing.prevClose,
+                            prevRegularClose: pipe.prevClose || existing.prevRegularClose,
                             regularCloseToday: regCloseToday,
-                            display: { price: unified.regularPrice, changePctPct: changePct ?? 0 },
+                            display: { price: pipe.price, changePctPct: changePct ?? 0 },
                             extended: {
                                 ...existing.extended,
-                                postPrice: unified.postPrice ?? existing.extended?.postPrice,
-                                postChangePct: unified.postChangePct ?? existing.extended?.postChangePct,
-                                prePrice: unified.prePrice ?? existing.extended?.prePrice,
-                                preChangePct: unified.preChangePct ?? existing.extended?.preChangePct,
+                                postPrice: pipe.session === 'POST' || pipe.session === 'CLOSED' ? pipe.extPrice ?? existing.extended?.postPrice : existing.extended?.postPrice,
+                                postChangePct: pipe.session === 'POST' || pipe.session === 'CLOSED' ? pipe.extChangePct ?? existing.extended?.postChangePct : existing.extended?.postChangePct,
+                                prePrice: pipe.session === 'PRE' || pipe.extLabel === 'PRE CLOSE' ? pipe.extPrice ?? existing.extended?.prePrice : existing.extended?.prePrice,
+                                preChangePct: pipe.session === 'PRE' || pipe.extLabel === 'PRE CLOSE' ? pipe.extChangePct ?? existing.extended?.preChangePct : existing.extended?.preChangePct,
                             },
                             session,
                         };
@@ -512,37 +513,37 @@ export const useDashboardStore = create<DashboardState>()(
                 if (session === 'PRE' && existing.extended?.prePrice === price) return;
                 if ((session === 'POST' || session === 'CLOSED') && existing.extended?.postPrice === price) return;
 
-                // ── [ONE-PIPE] calcUnifiedPrice 경유 — fetchPriceOnly와 동일 경로 ──
-                const unified = calcUnifiedPrice({
+                // ── [ONE-PIPE] computeOnePipe 경유 — fetchPriceOnly와 동일 경로 ──
+                const pipe = computeOnePipe({
                     session: session as MarketSession,
-                    lastTradePrice: price,
-                    dayClose: existing.regularCloseToday || existing.underlyingPrice || 0,
-                    prevDayClose: existing.prevClose || existing.prevRegularClose || 0,
-                    regularCloseToday: existing.regularCloseToday,
+                    pollPrice: existing.regularCloseToday || existing.underlyingPrice || 0,
+                    pollPrevClose: existing.prevClose || existing.prevRegularClose || 0,
+                    pollExtPrice: 0,
+                    pollExtLabel: '',
+                    pollChangePct: null,
                     wsPrice: price,
-                    // CLOSED는 afterHoursPrice를 명시적으로 전달해야 postPrice 계산됨
-                    afterHoursPrice: (session === 'POST' || session === 'CLOSED') ? price : undefined,
+                    regularCloseToday: existing.regularCloseToday,
                 });
 
-                // PRE 세션: 본장 등락률은 기존 값 유지 (fetchPriceOnly와 동일 로직)
+                // PRE 세션: 본장 등락률은 기존 값 유지
                 const calcChangePct = session === 'PRE'
-                    ? (existing.prevChangePct ?? existing.intradayChangePct ?? unified.regularChangePct)
-                    : unified.regularChangePct;
+                    ? (existing.prevChangePct ?? existing.intradayChangePct ?? pipe.changePct)
+                    : pipe.changePct;
 
                 set({
                     tickers: {
                         ...get().tickers,
                         [ticker]: {
                             ...existing,
-                            underlyingPrice: unified.regularPrice,
+                            underlyingPrice: pipe.price,
                             changePercent: calcChangePct,
-                            display: { price: unified.regularPrice, changePctPct: calcChangePct ?? 0 },
+                            display: { price: pipe.price, changePctPct: calcChangePct ?? 0 },
                             extended: {
                                 ...existing.extended,
-                                postPrice: unified.postPrice ?? existing.extended?.postPrice,
-                                postChangePct: unified.postChangePct ?? existing.extended?.postChangePct,
-                                prePrice: unified.prePrice ?? existing.extended?.prePrice,
-                                preChangePct: unified.preChangePct ?? existing.extended?.preChangePct,
+                                postPrice: pipe.session === 'POST' || pipe.session === 'CLOSED' ? pipe.extPrice ?? existing.extended?.postPrice : existing.extended?.postPrice,
+                                postChangePct: pipe.session === 'POST' || pipe.session === 'CLOSED' ? pipe.extChangePct ?? existing.extended?.postChangePct : existing.extended?.postChangePct,
+                                prePrice: pipe.session === 'PRE' || pipe.extLabel === 'PRE CLOSE' ? pipe.extPrice ?? existing.extended?.prePrice : existing.extended?.prePrice,
+                                preChangePct: pipe.session === 'PRE' || pipe.extLabel === 'PRE CLOSE' ? pipe.extChangePct ?? existing.extended?.preChangePct : existing.extended?.preChangePct,
                             },
                         }
                     }
