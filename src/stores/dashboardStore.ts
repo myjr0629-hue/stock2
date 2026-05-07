@@ -498,73 +498,55 @@ export const useDashboardStore = create<DashboardState>()(
 
             // ────────────────────────────────────────────
             // updateRealtimePrice — WebSocket에서 받은 즉시 가격 업데이트
+            // [ONE-PIPE] calcUnifiedPrice 경유 — fetchPriceOnly와 100% 동일 경로
+            // 자체 수학 제거 → 원파이프 단일 계산 함수만 사용
             // ────────────────────────────────────────────
-            updateRealtimePrice: (ticker: string, price: number, changePct?: number) => {
+            updateRealtimePrice: (ticker: string, price: number, _changePct?: number) => {
                 const existing = get().tickers[ticker];
                 if (!existing) return;
 
                 const session = existing.session;
 
-                if (session === 'REG') {
-                    if (existing.underlyingPrice === price) return; // Skip unchanged
-                    const refClose = existing.prevClose || existing.underlyingPrice || price;
-                    const calculatedChangePct = changePct ?? (refClose > 0 ? ((price - refClose) / refClose) * 100 : 0);
+                // Skip unchanged (세션별 해당 필드 비교)
+                if (session === 'REG' && existing.underlyingPrice === price) return;
+                if (session === 'PRE' && existing.extended?.prePrice === price) return;
+                if ((session === 'POST' || session === 'CLOSED') && existing.extended?.postPrice === price) return;
 
-                    set({
-                        tickers: {
-                            ...get().tickers,
-                            [ticker]: {
-                                ...existing,
-                                underlyingPrice: price,
-                                changePercent: calculatedChangePct,
-                                display: {
-                                    ...existing.display,
-                                    price,
-                                    changePctPct: calculatedChangePct,
-                                },
-                            }
+                // ── [ONE-PIPE] calcUnifiedPrice 경유 — fetchPriceOnly와 동일 경로 ──
+                const unified = calcUnifiedPrice({
+                    session: session as MarketSession,
+                    lastTradePrice: price,
+                    dayClose: existing.regularCloseToday || existing.underlyingPrice || 0,
+                    prevDayClose: existing.prevClose || existing.prevRegularClose || 0,
+                    regularCloseToday: existing.regularCloseToday,
+                    wsPrice: price,
+                    // CLOSED는 afterHoursPrice를 명시적으로 전달해야 postPrice 계산됨
+                    afterHoursPrice: (session === 'POST' || session === 'CLOSED') ? price : undefined,
+                });
+
+                // PRE 세션: 본장 등락률은 기존 값 유지 (fetchPriceOnly와 동일 로직)
+                const calcChangePct = session === 'PRE'
+                    ? (existing.prevChangePct ?? existing.intradayChangePct ?? unified.regularChangePct)
+                    : unified.regularChangePct;
+
+                set({
+                    tickers: {
+                        ...get().tickers,
+                        [ticker]: {
+                            ...existing,
+                            underlyingPrice: unified.regularPrice,
+                            changePercent: calcChangePct,
+                            display: { price: unified.regularPrice, changePctPct: calcChangePct ?? 0 },
+                            extended: {
+                                ...existing.extended,
+                                postPrice: unified.postPrice ?? existing.extended?.postPrice,
+                                postChangePct: unified.postChangePct ?? existing.extended?.postChangePct,
+                                prePrice: unified.prePrice ?? existing.extended?.prePrice,
+                                preChangePct: unified.preChangePct ?? existing.extended?.preChangePct,
+                            },
                         }
-                    });
-                } else if (session === 'PRE') {
-                    // During PRE, realtime writes to extended.prePrice
-                    if (existing.extended?.prePrice === price) return;
-                    const prevCl = existing.prevClose || existing.underlyingPrice || 1;
-                    const calculatedChangePct = changePct ?? ((price - prevCl) / prevCl) * 100;
-                    
-                    set({
-                        tickers: {
-                            ...get().tickers,
-                            [ticker]: {
-                                ...existing,
-                                extended: {
-                                    ...existing.extended,
-                                    prePrice: price,
-                                    preChangePct: calculatedChangePct,
-                                }
-                            }
-                        }
-                    });
-                } else if (session === 'POST' || session === 'CLOSED') {
-                    // During POST/CLOSED, realtime writes to extended.postPrice
-                    if (existing.extended?.postPrice === price) return;
-                    // POST change is relative to today's regular close
-                    const dayCl = existing.regularCloseToday || existing.underlyingPrice || existing.prevClose || 1;
-                    const calculatedChangePct = changePct ?? ((price - dayCl) / dayCl) * 100;
-                    
-                    set({
-                        tickers: {
-                            ...get().tickers,
-                            [ticker]: {
-                                ...existing,
-                                extended: {
-                                    ...existing.extended,
-                                    postPrice: price,
-                                    postChangePct: calculatedChangePct,
-                                }
-                            }
-                        }
-                    });
-                }
+                    }
+                });
             },
         }),
         {

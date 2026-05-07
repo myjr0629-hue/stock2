@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
+import { useState, useCallback, useMemo, useEffect } from 'react';
 import useSWR from 'swr';
 import {
     getPortfolio,
@@ -10,8 +10,7 @@ import {
     type PortfolioData
 } from '@/lib/storage/portfolioStore';
 import { useMarketStatus } from './useMarketStatus';
-import { useRealtimeData } from '@/providers/WebSocketProvider';
-import { calcUnifiedPrice, type MarketSession } from '@/services/unifiedPriceService';
+import { useOnePipe } from '@/hooks/useOnePipe';
 
 export interface EnrichedHolding extends Holding {
     currentPrice: number;
@@ -21,7 +20,7 @@ export interface EnrichedHolding extends Holding {
     gainLoss: number;
     gainLossPct: number;
     // Session info
-    session?: 'pre' | 'reg' | 'post';
+    session?: string;
     isExtended?: boolean;
     // Session-aware price decomposition
     regChangePct?: number;     // Regular session change % (from prevClose)
@@ -92,20 +91,8 @@ export function usePortfolio(initialHoldings?: Holding[], initialFullData?: any[
     const { status: marketStatus } = useMarketStatus();
     const isClosed = marketStatus.session === 'closed';
 
-    // [WS] Real-time price overlay via WebSocket (EC2 Price WS Hub)
-    const { getPrice: wsGetPrice, connected: wsConnected } = useRealtimeData(tickerArray);
-
-    // [ONE-PIPE] regularCloseToday 잠금 — Polygon CLOSED/POST 불안정 차단
-    const closeLocks = useRef<Record<string, number>>({});
-    // [FIX] SSR 데이터로 lock 초기화 (페이지 재진입 시 빈 lock 방지)
-    if (initialFullData && initialFullData.length > 0 && Object.keys(closeLocks.current).length === 0) {
-        initialFullData.forEach((r: any) => {
-            const p = r?.realtime?.price;
-            if (r?.ticker && p > 0) {
-                closeLocks.current[r.ticker] = p;
-            }
-        });
-    }
+    // ── [ONE-PIPE] 가격은 useOnePipe 단일 경로 ──
+    const onePipePrices = useOnePipe(tickerArray, { refreshInterval: 5000 });
 
     // ── SWR: Full data with 30s auto-refresh (Alpha, Signal, Action, etc.) ──
     const { data: fullData, error: fullError, isLoading: fullLoading, isValidating: fullValidating, mutate } = useSWR(
@@ -115,72 +102,17 @@ export function usePortfolio(initialHoldings?: Holding[], initialFullData?: any[
             fallbackData: initialFullData && initialFullData.length > 0
                 ? { results: initialFullData }
                 : undefined,
-            refreshInterval: isClosed ? 0 : 30000,      // 30s full refresh (disabled when closed)
-            revalidateOnMount: true,                     // ← CRITICAL: fetch fresh data immediately on mount
+            refreshInterval: isClosed ? 0 : 30000,
+            revalidateOnMount: true,
             revalidateOnFocus: false,
             dedupingInterval: 5000,
         }
     );
 
-    // ── SWR: Price-only with 2s auto-refresh (lightweight) ──
-    const { data: priceData, isLoading: priceLoading } = useSWR(
-        tickerString ? `/api/portfolio/batch?tickers=${tickerString}&mode=price` : null,
-        fetcher,
-        {
-            // Extract lightweight prices from initialFullData
-            fallbackData: initialFullData && initialFullData.length > 0 ? {
-                results: initialFullData.map(r => ({
-                    ticker: r.ticker,
-                    realtime: {
-                        price: r.realtime.price,
-                        changePct: r.realtime.changePct,
-                        session: r.realtime.session,
-                        isExtended: r.realtime.isExtended,
-                        extPrice: r.realtime.extPrice,
-                        extChangePercent: r.realtime.extChangePercent
-                    }
-                }))
-            } : undefined,
-            refreshInterval: isClosed ? 0 : 10000,      // 10s price polling (WS provides real-time, this is fallback)
-            revalidateOnMount: true,                     // ← CRITICAL: immediate first fetch
-            revalidateOnFocus: false,
-            dedupingInterval: 1000,                      // ← Reduced from 2s to 1s for snappier updates
-        }
-    );
-
-    // ── SWR: Live quotes for session-aware extended pricing (2s) ──
-    const { data: liveQuotes } = useSWR(
-        tickerString ? `/api/live/quotes?symbols=${tickerString}` : null,
-        fetcher,
-        {
-            fallbackData: initialFullData && initialFullData.length > 0 ? {
-                data: initialFullData.reduce((acc, r) => {
-                    acc[r.ticker] = r.realtime;
-                    return acc;
-                }, {} as Record<string, any>)
-            } : undefined,
-            refreshInterval: isClosed ? 0 : 10000,     // 10s live quotes (WS provides real-time, this is fallback)
-            revalidateOnMount: true,                     // ← CRITICAL: immediate first fetch
-            revalidateOnFocus: false,
-            dedupingInterval: 1000,                      // ← Reduced from 3s to 1s
-        }
-    );
-
-    // [ONE-PIPE] Session mapper helper
-    const toSession = (s: string | undefined): MarketSession => {
-        if (!s) return 'CLOSED';
-        const u = s.toUpperCase();
-        if (u === 'PRE' || u === 'PRE_MARKET' || u === 'PREMARKET') return 'PRE';
-        if (u === 'REG' || u === 'REGULAR' || u === 'OPEN') return 'REG';
-        if (u === 'POST' || u === 'POST_MARKET' || u === 'POSTMARKET') return 'POST';
-        return 'CLOSED';
-    };
-
-    // ── Enrich portfolio holdings with API data + fast price overlay ──
+    // ── Enrich portfolio holdings with API data + ONE-PIPE price ──
     const holdings = useMemo<EnrichedHolding[]>(() => {
         if (portfolioData.holdings.length === 0) return [];
 
-        // Full batch data (30s)
         const fullResults: Record<string, any> = {};
         if (fullData?.results) {
             fullData.results.forEach((r: any) => {
@@ -188,75 +120,18 @@ export function usePortfolio(initialHoldings?: Holding[], initialFullData?: any[
             });
         }
 
-        // Fast price data (5s)
-        const priceResults: Record<string, any> = {};
-        if (priceData?.results) {
-            priceData.results.forEach((r: any) => {
-                if (r && !r.error) priceResults[r.ticker] = r;
-            });
-        }
-
-        // Live quotes for extended prices (10s)
-        const liveMap: Record<string, any> = {};
-        if (liveQuotes?.data) {
-            Object.entries(liveQuotes.data).forEach(([ticker, d]: [string, any]) => {
-                if (d && d.price > 0) liveMap[ticker] = d;
-            });
-        }
-
         return portfolioData.holdings.map((holding) => {
             const fullApi = fullResults[holding.ticker];
-            const priceApi = priceResults[holding.ticker];
-            const liveQ = liveMap[holding.ticker];
-
-            const fullRt = fullApi?.realtime;
-            const priceRt = priceApi?.realtime;
-            const rt = priceRt || fullRt;
             const alpha = fullApi?.alphaSnapshot;
+            const fullRt = fullApi?.realtime;
 
-            if (rt) {
-                // [WS] WebSocket: REG 세션 최우선 (실시간 틱)
-                const wsPrice = wsGetPrice(holding.ticker);
-                const session = toSession(priceRt?.session || fullRt?.session || liveQ?.session);
+            // ── [ONE-PIPE] 가격은 useOnePipe에서 ──
+            const pipe = onePipePrices.get(holding.ticker);
 
-                // [ONE-PIPE] regularCloseToday 잠금 — 최초 유효한 값 고정
-                const apiPrice = liveQ?.price || priceRt?.price || fullRt?.price || 0;
-                const prevCl = liveQ?.prevClose || priceRt?.prevDayClose || fullRt?.prevDayClose || 0;
-                // [FIX] Polygon 버그 감지: CLOSED/POST에서 price ≈ prevClose면 lock 갱신 차단
-                if (apiPrice > 0 && !closeLocks.current[holding.ticker]) {
-                    const isSuspicious = prevCl > 0 && Math.abs(apiPrice - prevCl) < 0.01;
-                    if (!isSuspicious || (session !== 'CLOSED' && session !== 'POST')) {
-                        closeLocks.current[holding.ticker] = apiPrice;
-                    }
-                }
-                const regCloseToday = closeLocks.current[holding.ticker] || apiPrice;
-
-                // [ONE-PIPE] calcUnifiedPrice로 안정적 가격 계산
-                const unified = calcUnifiedPrice({
-                    session,
-                    lastTradePrice: liveQ?.extendedPrice > 0 ? liveQ.extendedPrice : apiPrice,
-                    dayClose: apiPrice,
-                    prevDayClose: prevCl,
-                    regularCloseToday: regCloseToday,
-                    afterHoursPrice: liveQ?.extendedLabel === 'POST' && liveQ?.extendedPrice > 0 ? liveQ.extendedPrice : undefined,
-                    preMarketPrice: liveQ?.extendedLabel === 'PRE' && liveQ?.extendedPrice > 0 ? liveQ.extendedPrice : undefined,
-                });
-
-                // Price priority: WS(장중 실시간) > ONE-PIPE regularPrice
-                const price = (wsPrice?.price && wsPrice.price > 0) ? wsPrice.price : (unified.regularPrice ?? 0);
-                // changePct: WS(장중) > ONE-PIPE (CLOSED/POST 안정)
-                const changePct = (wsPrice?.changePct != null && session === 'REG') ? wsPrice.changePct : (unified.regularChangePct ?? 0);
-                const regChangePct = unified.regularChangePct ?? 0;
-
-                // Extended price decomposition (POST/PRE badges)
-                const extChangePct = unified.postChangePct || unified.preChangePct || undefined;
-                const postP = unified.postPrice ?? 0;
-                const preP = unified.prePrice ?? 0;
-                const extLabel: 'PRE' | 'POST' | undefined = postP > 0 ? 'POST'
-                    : preP > 0 ? 'PRE' : undefined;
-
-                const displayPrice = (session === 'POST' || session === 'CLOSED') && postP > 0
-                    ? postP : price;
+            if (pipe && pipe.price > 0) {
+                // POST/CLOSED에서는 ext 가격으로 시가총액 계산
+                const displayPrice = (pipe.session === 'POST' || pipe.session === 'CLOSED') && pipe.extPrice
+                    ? pipe.extPrice : pipe.price;
 
                 const marketValue = holding.quantity * displayPrice;
                 const costBasis = holding.quantity * holding.avgPrice;
@@ -266,23 +141,21 @@ export function usePortfolio(initialHoldings?: Holding[], initialFullData?: any[
                 return {
                     ...holding,
                     currentPrice: displayPrice,
-                    change: priceRt?.change ?? fullRt?.change ?? 0,
-                    changePct,
-                    session: priceRt?.session || fullRt?.session,
-                    isExtended: priceRt?.isExtended ?? fullRt?.isExtended,
-                    regChangePct,
-                    extChangePct,
-                    extLabel,
+                    change: fullRt?.change ?? 0,
+                    changePct: pipe.changePct,
+                    session: pipe.session?.toLowerCase(),
+                    isExtended: pipe.session === 'PRE' || pipe.session === 'POST',
+                    regChangePct: pipe.changePct,
+                    extChangePct: pipe.extChangePct ?? undefined,
+                    extLabel: pipe.extLabel === 'PRE CLOSE' ? undefined : (pipe.extLabel as 'PRE' | 'POST' | undefined),
                     marketValue,
                     gainLoss,
                     gainLossPct,
-                    // Alpha from full data (30s)
                     alphaScore: alpha?.score,
                     alphaGrade: alpha?.grade,
                     action: alpha?.action,
                     confidence: alpha?.confidence,
                     triggers: alpha?.triggers,
-                    // Sparkline & indicators from full data (30s) — preserved
                     sparkline: fullRt?.sparkline,
                     threeDay: fullRt?.threeDay,
                     rsi: fullRt?.rsi,
@@ -306,7 +179,7 @@ export function usePortfolio(initialHoldings?: Holding[], initialFullData?: any[
                 gainLossPct: 0,
             };
         });
-    }, [fullData, priceData, liveQuotes, portfolioData, wsGetPrice]);
+    }, [fullData, portfolioData, onePipePrices]);
 
     // ── Summary (derived from holdings) ──
     const summary = useMemo<PortfolioSummary>(() => {
