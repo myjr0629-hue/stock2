@@ -130,7 +130,7 @@ export function useWatchlist(initialWatchlist?: WatchlistItem[], initialFullData
                     changePct: pipe?.changePct ?? apiData.realtime.changePct ?? 0,
                     regChangePct: pipe?.changePct ?? apiData.realtime.changePct ?? 0,
                     extChangePct: pipe?.extChangePct ?? undefined,
-                    extLabel: pipe?.extLabel === 'PRE CLOSE' ? 'PRE' as const : (pipe?.extLabel as 'PRE' | 'POST' | undefined),
+                    extLabel: pipe?.extLabel === 'PRE CLOSE' ? undefined : (pipe?.extLabel as 'PRE' | 'POST' | undefined),
                     session: pipe?.session?.toLowerCase() || apiData.realtime.session,
                     alphaScore: apiData.alphaSnapshot.score,
                     alphaGrade: apiData.alphaSnapshot.grade,
@@ -158,7 +158,7 @@ export function useWatchlist(initialWatchlist?: WatchlistItem[], initialFullData
                     changePct: pipe.changePct,
                     regChangePct: pipe.changePct,
                     extChangePct: pipe.extChangePct ?? undefined,
-                    extLabel: pipe.extLabel === 'PRE CLOSE' ? 'PRE' as const : (pipe.extLabel as 'PRE' | 'POST' | undefined),
+                    extLabel: pipe.extLabel === 'PRE CLOSE' ? undefined : (pipe.extLabel as 'PRE' | 'POST' | undefined),
                 };
             }
             return { ...item, currentPrice: 0, changePct: 0 };
