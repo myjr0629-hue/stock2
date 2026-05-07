@@ -153,28 +153,31 @@ AI 에이전트는 데이터 불일치를 조사할 때 무조건 아래 3단계
 |------|------|------|:-------:|:-------:|
 | 1. Price | 2000 | 전종목 snapshot (**1 API 호출**, O(1)) | 1 | **1.5초** |
 | 2. GEX | 2000 | structureService 호환 12개 지표 (주간만기 only) | ~6,000 | **52초** |
-| 3. SMA | 2000 | SMA50/200 Golden/Dead Cross | ~4,000 | **57초** |
+| 3. SMA+EMA+MACD | 2000 | SMA50/200 + **EMA9/21 + MACD** (v10, 5 API 병렬/종목) | ~10,000 | **~60초** |
 | 4c. Fundamentals | 2000 | Polygon Reference + Financial Ratios + vX Financials | ~6,000 | (09:25-35 ET window) |
 | 4d. Related | 2000 | Polygon Related Companies | ~2,000 | (09:25-35 ET window) |
 | 4e. SI% | 2000 | Polygon Short Interest + Float | ~4,000 | (09:25-35 ET window) |
 | 4★. DynamoDB Read | 2000 | **항상** ANALYST/EARNINGS/FUND/RELATED 패턴 로드 (signum-fmp 데이터 수신) | 0 | <1초 |
-| 5. Alpha | 2000 | 점수 계산 (API 호출 없음) | 0 | <1초 |
-| **5.5. RSI+DailyBars** | **2000** | **Polygon RSI + daily aggs (sparkline/return3d/relVol)** | **~4,000** | **10초** |
-| 6. Unified | 2000 | DynamoDB + Redis 2키 동시 저장 + cache:analysis 빌드 | ~1,000 | **~20초** |
+| 5. Alpha | 2000 | 점수 계산 (**v10**: 7팩터, API 호출 없음) | 0 | <1초 |
+| **5.5. RSI+DailyBars+HV20** | **2000** | **RSI + daily aggs + HV20 실현변동성** (v10, API 0 추가) | **~4,000** | **~10초** |
+| 6. Unified | 2000 | DynamoDB + Redis 2키 동시 저장 + cache:analysis **40필드** 빌드 | ~1,000 | **~20초** |
 | RLSI | 1 | 시장 전체 RLSI 지표 | 3 | ~1초 |
 
 > **Step 1이 빠른 이유**: Polygon `/v2/snapshot/locale/us/markets/stocks/tickers`는 전체 미국 시장 스냅샷을 **1개 API 호출**로 반환. 2,000종목이든 10,000종목이든 동일.
 > **Step 2 GEX가 빠른 이유**: `getWeeklyOptions()` — **주간만기 1개만** 조회 (~150계약/종목). flow-harvest와 달리 전체 만기를 조회하지 않음.
-> **총 실행 시간 ~140초**: 900초 한도의 16%만 사용. 메모리 548MB / 2048MB (27%).
+> **Step 3 EMA/MACD 추가해도 시간 거의 안 늘어남**: 종목당 5 API를 `Promise.all`로 병렬 호출. 병목은 배치 수(200)이지 종목당 호출 수가 아님.
+> **Step 5.5 HV20은 API 호출 0**: 이미 가져온 daily bars에서 log return 표준편차를 순수 계산.
+> **총 실행 시간 ~155초**: 900초 한도의 17%만 사용. 메모리 ~550MB / 2048MB (27%).
 
 > **Step 4★ 핵심**: FMP 데이터(Analyst/Earnings/forwardEps)는 signum-fmp Lambda가 DynamoDB `signum-pattern-db`에 저장.
 > signum-harvest는 **매 실행마다** 이 DynamoDB 레코드를 읽어 `detailsMap`에 병합 후 Unified Cache로 전파.
 > harvestDetails() 호출 여부(09:25-35 ET window)와 무관하게 항상 DynamoDB를 읽음.
 
-#### Step 5.5 상세 (RSI + Daily Bars)
+#### Step 5.5 상세 (RSI + Daily Bars + HV20)
 - **RSI**: Polygon `/v1/indicators/rsi/{ticker}?timespan=day&window=14&limit=1`
 - **Daily Bars**: Polygon `/v2/aggs/ticker/{ticker}/range/1/day/{from}/{to}?limit=30&adjusted=true&sort=asc`
-- 25일치 데이터 → sparkline(last 20 closes), return3d(3일 수익률), relVol(금일/전일 거래량비)
+- 30일치 데이터 → sparkline(last 20 closes), return3d(3일 수익률), relVol(금일/전일 거래량비)
+- **HV20** (v10): 20일 log return 표준편차 × √252 × 100 → 연환산 실현변동성 (%). API 호출 0, 순수 계산.
 - 배치 50종목 동시 → 2000종목 ~10초
 
 #### GEX 계산 로직 (structureService.ts 호환)
@@ -189,7 +192,7 @@ AI 에이전트는 데이터 불일치를 조사할 때 무조건 아래 3단계
 #### Lambda Redis 저장
 | Redis 키 | 형식 | 용도 |
 |----------|------|------|
-| `cache:analysis:{TICKER}` | AnalysisCacheEntry (**31필드**) | Dashboard/Watchlist/Portfolio |
+| `cache:analysis:{TICKER}` | AnalysisCacheEntry (**40필드**, v10) | Dashboard/Watchlist/Portfolio |
 | `cache:command:unified:{TICKER}` | 9개 섹션 전체 데이터 | Command/Ticker 페이지 |
 - TTL: 259,200초 (3일)
 - **쓰기 방식 (2026-04-29 최적화)**: EC2 Redis Proxy(`http://52.23.98.13:8081/mset`) → ElastiCache pipeline 일괄 SET, 실패 시 Upstash REST fallback
@@ -203,10 +206,10 @@ AI 에이전트는 데이터 불일치를 조사할 때 무조건 아래 3단계
 - **Command 유니버스 판별**: `src/app/api/command/unified/route.ts` → `UNIVERSE.includes(ticker)`
 - **전수조사 도구**: `node scripts/verify-universe.js` (Upstash pipeline으로 2,000종목 전수 확인)
 
-#### cache:analysis 필드 완전 목록 (2026-04-07)
+#### cache:analysis 필드 완전 목록 (2026-05-08 v10 확장)
 | 필드 | 소스 | 커버리지 |
 |------|------|:---:|
-| alphaSnapshot (score/grade/action) | computeAlphaScore() | 100% |
+| alphaSnapshot (score/grade/action) | computeAlphaScore() **v10: 7팩터** | 100% |
 | rsi | Polygon `/v1/indicators/rsi` | 100% |
 | return3d | Polygon daily bars (3일 수익률) | 100% |
 | sparkline | Polygon daily bars (last 20 closes) | 100% |
@@ -226,6 +229,44 @@ AI 에이전트는 데이터 불일치를 조사할 때 무조건 아래 3단계
 | squeezeScore | structureService 5요인 | 98% |
 | netPremium | structureService | 99.4% |
 | expiration | structureService | 100% |
+| **ema9** | Polygon `/v1/indicators/ema` (v10) | ~99% |
+| **ema21** | Polygon `/v1/indicators/ema` (v10) | ~99% |
+| **emaCross** | EMA9 vs EMA21 계산 (BULL/BEAR/NONE) (v10) | ~99% |
+| **macdValue** | Polygon `/v1/indicators/macd` (v10) | ~99% |
+| **macdSignal** | Polygon MACD signal line (v10) | ~99% |
+| **macdHistogram** | Polygon MACD histogram (v10) | ~99% |
+| **macdCrossover** | MACD 히스토그램 교차 (BULL/BEAR/NONE) (v10) | ~99% |
+| **hv20** | Daily bars log return stddev × √252 (v10, API 0) | ~98% |
+| **volSpread** | IV - HV20 (양수=고평가) (v10) | ~97% |
+| **ivRank** | IV/HV20 비율 → 0-100 정규화 (v10) | ~97% |
+
+#### Alpha Score v10 공식 (2026-05-08)
+```
+Alpha Score (0-100) = Base(50) + Price(±15) + Volume(+5) + Gamma(±5) + PCR(±5)
+                    + MACD(±5) + IVRank(±3) + VolSpread(±2)
+
+기존 4팩터:
+  1. Price Change: >3%=+15, >1%=+10, >0=+5, <0=-5, <-1%=-10, <-3%=-15
+  2. Volume: >50M=+5, >20M=+3
+  3. Gamma Regime: POSITIVE=+5, NEGATIVE=-5
+  4. PCR: <0.7=+5, >1.3=-5
+
+v10 신규 3팩터:
+  5. MACD Crossover: BULL=+5, BEAR=-5
+  6. IV Rank: >=90=-3 (과열), <=10=+3 (저평가)
+  7. Vol Spread: >15=-2 (IV 고평가), <-10=+2 (IV 저평가)
+
+v10 신규 트리거:
+  - MACD_BULL_CROSS: MACD 히스토그램 음→양 전환
+  - MACD_BEAR_CROSS: MACD 히스토그램 양→음 전환
+  - IV_OVERHEATED: IV Rank >= 90
+  - IV_DEPRESSED: IV Rank <= 10
+  - DUAL_BULL: EMA9>EMA21 (BULL) + SMA50>SMA200 (GOLDEN) 동시
+```
+
+> **v10 개선 효과**: 입력 팩터 4→7개 (+75%), 트리거 7→12종 (+71%). 점수 자체 변화는 ~10%이나, Power Engine IF→THEN 시나리오의 근거가 2배 풍부해짐.
+> **API 비용 영향**: Step 3에 EMA9/EMA21/MACD 3개 병렬 추가 (+6,000 API/실행), 실행 시간 ~3-5초 증가.
+> **HV20은 API 호출 0**: 기존 daily bars에서 순수 계산.
 
 #### Composite WhaleIndex 공식 (2026-04-07)
 ```
