@@ -27,11 +27,8 @@ import { MobileCmdMetrics } from './MobileCmdMetrics';
 import { MobileCmdChart } from './MobileCmdChart';
 import { MobileCmdOptions } from './MobileCmdOptions';
 
-// 13F Panel — dynamic import for code-splitting
-const Institutional13FPanel = dynamic(() => import('@/components/Institutional13FPanel'), {
-    ssr: false,
-    loading: () => <div className="min-h-[300px] flex items-center justify-center"><div className="w-8 h-8 border-2 border-indigo-500/30 border-t-indigo-400 rounded-full animate-spin" /></div>,
-});
+// 13F+Insider — mobile-optimized with toggle
+import { MobileCmd13F } from './MobileCmd13F';
 
 
 interface MobileCommandPageProps {
@@ -399,7 +396,7 @@ export function MobileCommandPage({ quote: rawQuote, sectorLabel, onBack, ticker
                     <MobileCmdOptions ticker={effectiveQuote.ticker} quote={effectiveQuote} unified={unified} unifiedLoading={unifiedLoading} initialStockData={initialStockData} />
                 )}
                 {activeTab === '13f' && (
-                    <Institutional13FPanel ticker={effectiveQuote.ticker} />
+                    <MobileCmd13F ticker={effectiveQuote.ticker} />
                 )}
 
             </div>
