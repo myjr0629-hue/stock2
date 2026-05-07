@@ -147,7 +147,7 @@ export function usePortfolio(initialHoldings?: Holding[], initialFullData?: any[
                     isExtended: pipe.session === 'PRE' || pipe.session === 'POST',
                     regChangePct: pipe.changePct,
                     extChangePct: pipe.extChangePct ?? undefined,
-                    extLabel: pipe.extLabel === 'PRE CLOSE' ? undefined : (pipe.extLabel as 'PRE' | 'POST' | undefined),
+                    extLabel: pipe.extLabel === 'PRE CLOSE' ? 'PRE' as const : (pipe.extLabel as 'PRE' | 'POST' | undefined),
                     marketValue,
                     gainLoss,
                     gainLossPct,
