@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useMemo, useEffect } from 'react';
+import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import useSWR from 'swr';
 import {
     getPortfolio,
@@ -11,6 +11,7 @@ import {
 } from '@/lib/storage/portfolioStore';
 import { useMarketStatus } from './useMarketStatus';
 import { useRealtimeData } from '@/providers/WebSocketProvider';
+import { calcUnifiedPrice, type MarketSession } from '@/services/unifiedPriceService';
 
 export interface EnrichedHolding extends Holding {
     currentPrice: number;
@@ -94,6 +95,9 @@ export function usePortfolio(initialHoldings?: Holding[], initialFullData?: any[
     // [WS] Real-time price overlay via WebSocket (EC2 Price WS Hub)
     const { getPrice: wsGetPrice, connected: wsConnected } = useRealtimeData(tickerArray);
 
+    // [ONE-PIPE] regularCloseToday 잠금 — Polygon CLOSED/POST 불안정 차단
+    const closeLocks = useRef<Record<string, number>>({});
+
     // ── SWR: Full data with 30s auto-refresh (Alpha, Signal, Action, etc.) ──
     const { data: fullData, error: fullError, isLoading: fullLoading, isValidating: fullValidating, mutate } = useSWR(
         tickerString ? `/api/portfolio/batch?tickers=${tickerString}` : null,
@@ -153,6 +157,16 @@ export function usePortfolio(initialHoldings?: Holding[], initialFullData?: any[
         }
     );
 
+    // [ONE-PIPE] Session mapper helper
+    const toSession = (s: string | undefined): MarketSession => {
+        if (!s) return 'CLOSED';
+        const u = s.toUpperCase();
+        if (u === 'PRE' || u === 'PRE_MARKET' || u === 'PREMARKET') return 'PRE';
+        if (u === 'REG' || u === 'REGULAR' || u === 'OPEN') return 'REG';
+        if (u === 'POST' || u === 'POST_MARKET' || u === 'POSTMARKET') return 'POST';
+        return 'CLOSED';
+    };
+
     // ── Enrich portfolio holdings with API data + fast price overlay ──
     const holdings = useMemo<EnrichedHolding[]>(() => {
         if (portfolioData.holdings.length === 0) return [];
@@ -186,43 +200,59 @@ export function usePortfolio(initialHoldings?: Holding[], initialFullData?: any[
             const priceApi = priceResults[holding.ticker];
             const liveQ = liveMap[holding.ticker];
 
-            // Use 2s fast price if available, else 30s full data
-            // Merge: price from fast poll, sparkline/indicators from full data
             const fullRt = fullApi?.realtime;
             const priceRt = priceApi?.realtime;
-            const rt = priceRt || fullRt;  // ← priceRt (2s) takes priority over fullRt (30s)
-            const alpha = fullApi?.alphaSnapshot; // Alpha only from full data
-
-            // Session-aware extended price decomposition from /api/live/quotes
-            let extChangePct: number | undefined;
-            let extLabel: 'PRE' | 'POST' | undefined;
-            let displayPrice: number | undefined;
-
-            if (liveQ) {
-                const hasExtended = liveQ.extendedPrice && liveQ.extendedPrice > 0;
-                if (hasExtended) {
-                    extChangePct = liveQ.extendedChangePercent || 0;
-                    extLabel = liveQ.extendedLabel || undefined;
-                    displayPrice = liveQ.extendedPrice;
-                }
-            }
+            const rt = priceRt || fullRt;
+            const alpha = fullApi?.alphaSnapshot;
 
             if (rt) {
-                // Price priority: WS tick > extended live > fast 2s poll > full 30s
+                // [WS] WebSocket: REG 세션 최우선 (실시간 틱)
                 const wsPrice = wsGetPrice(holding.ticker);
-                const price = wsPrice?.price || displayPrice || priceRt?.price || fullRt?.price || 0;
-                // changePct: WS > priceRt (2s) > fullRt (30s) — freshest data first
-                const changePct = wsPrice?.changePct ?? priceRt?.changePct ?? fullRt?.changePct ?? 0;
-                // regChangePct for UI decomposition: same reliable source
-                const regChangePct = fullRt?.changePct ?? priceRt?.changePct ?? 0;
-                const marketValue = holding.quantity * price;
+                const session = toSession(priceRt?.session || fullRt?.session || liveQ?.session);
+
+                // [ONE-PIPE] regularCloseToday 잠금 — 최초 유효한 값 고정
+                const apiPrice = liveQ?.price || priceRt?.price || fullRt?.price || 0;
+                if (apiPrice > 0 && !closeLocks.current[holding.ticker]) {
+                    closeLocks.current[holding.ticker] = apiPrice;
+                }
+                const regCloseToday = closeLocks.current[holding.ticker] || apiPrice;
+                const prevCl = liveQ?.prevClose || priceRt?.prevDayClose || fullRt?.prevDayClose || 0;
+
+                // [ONE-PIPE] calcUnifiedPrice로 안정적 가격 계산
+                const unified = calcUnifiedPrice({
+                    session,
+                    lastTradePrice: liveQ?.extendedPrice > 0 ? liveQ.extendedPrice : apiPrice,
+                    dayClose: apiPrice,
+                    prevDayClose: prevCl,
+                    regularCloseToday: regCloseToday,
+                    afterHoursPrice: liveQ?.extendedLabel === 'POST' && liveQ?.extendedPrice > 0 ? liveQ.extendedPrice : undefined,
+                    preMarketPrice: liveQ?.extendedLabel === 'PRE' && liveQ?.extendedPrice > 0 ? liveQ.extendedPrice : undefined,
+                });
+
+                // Price priority: WS(장중 실시간) > ONE-PIPE regularPrice
+                const price = (wsPrice?.price && wsPrice.price > 0) ? wsPrice.price : (unified.regularPrice ?? 0);
+                // changePct: WS(장중) > ONE-PIPE (CLOSED/POST 안정)
+                const changePct = (wsPrice?.changePct != null && session === 'REG') ? wsPrice.changePct : (unified.regularChangePct ?? 0);
+                const regChangePct = unified.regularChangePct ?? 0;
+
+                // Extended price decomposition (POST/PRE badges)
+                const extChangePct = unified.postChangePct || unified.preChangePct || undefined;
+                const postP = unified.postPrice ?? 0;
+                const preP = unified.prePrice ?? 0;
+                const extLabel: 'PRE' | 'POST' | undefined = postP > 0 ? 'POST'
+                    : preP > 0 ? 'PRE' : undefined;
+
+                const displayPrice = (session === 'POST' || session === 'CLOSED') && postP > 0
+                    ? postP : price;
+
+                const marketValue = holding.quantity * displayPrice;
                 const costBasis = holding.quantity * holding.avgPrice;
                 const gainLoss = marketValue - costBasis;
                 const gainLossPct = costBasis > 0 ? (gainLoss / costBasis) * 100 : 0;
 
                 return {
                     ...holding,
-                    currentPrice: price,
+                    currentPrice: displayPrice,
                     change: priceRt?.change ?? fullRt?.change ?? 0,
                     changePct,
                     session: priceRt?.session || fullRt?.session,
