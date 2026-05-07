@@ -287,6 +287,27 @@ export async function processWatchlistBatch(tickers: string[], mode: 'full' | 'p
                 } catch { /* silent — proceed with empty sparkline */ }
             }
 
+            // [SELF-HEAL] ivSkew 오염 자동 복구
+            // Lambda harvest가 impliedMovePct를 ivSkew에 기록한 경우 (ivSkew > 2.0은 불가능)
+            // getOptionsData로 rawContracts 가져와 computeIVSkew로 정확한 값 재계산 — 1회만 발생
+            if (analysis.ivSkew == null || analysis.ivSkew > 2.0) {
+                try {
+                    const healOpts: any = await getOptionsData(ticker).catch(() => null);
+                    if (healOpts?.rawContracts?.length > 0) {
+                        const currentPrice = analysis.sparkline?.length > 0
+                            ? analysis.sparkline[analysis.sparkline.length - 1]
+                            : 0;
+                        if (currentPrice > 0) {
+                            const freshIvSkew = computeIVSkew(healOpts.rawContracts, currentPrice);
+                            if (freshIvSkew != null && freshIvSkew <= 2.0) {
+                                analysis.ivSkew = freshIvSkew;
+                                writeAnalysisCache(ticker, analysis as any).catch(() => {});
+                            }
+                        }
+                    }
+                } catch { /* silent — proceed with null ivSkew */ }
+            }
+
             // 🔥 [SSR FAST-TRACK / STEP 3] SSR initial render: Bypass heavy computations & EC2 calls
             // Returns the Stale cache natively in 0.05s to eliminate Skeleton Hang completely
             if (mode === 'ssr' || mode === 'price') {
