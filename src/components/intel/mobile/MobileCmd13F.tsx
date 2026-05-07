@@ -169,14 +169,9 @@ function MobileInsiderContent({ ticker }: { ticker: string }) {
         })();
     }, [ticker]);
 
-    if (loading) return <div className="flex items-center justify-center py-16"><Loader2 className="w-6 h-6 text-amber-400 animate-spin" /></div>;
-    if (!data || !data.transactions?.length) return <div className="text-center py-12 text-slate-400 text-sm">No insider trading data available</div>;
-
-    const sent = sentimentConfig(data.sentiment);
-    const netColor = data.net30d > 0 ? 'text-emerald-400' : data.net30d < 0 ? 'text-rose-400' : 'text-slate-300';
-
-    // Group transactions
+    // Group transactions — must be before early returns (React hooks rule)
     const grouped = useMemo(() => {
+        if (!data?.transactions) return [];
         const txs = (data.transactions || []).filter((t: any) => t.code === 'P' || t.code === 'S' || t.value > 0);
         const map = new Map<string, any>();
         for (const tx of txs) {
@@ -188,6 +183,12 @@ function MobileInsiderContent({ ticker }: { ticker: string }) {
         }
         return Array.from(map.values());
     }, [data]);
+
+    if (loading) return <div className="flex items-center justify-center py-16"><Loader2 className="w-6 h-6 text-amber-400 animate-spin" /></div>;
+    if (!data || !data.transactions?.length) return <div className="text-center py-12 text-slate-400 text-sm">No insider trading data available</div>;
+
+    const sent = sentimentConfig(data.sentiment);
+    const netColor = data.net30d > 0 ? 'text-emerald-400' : data.net30d < 0 ? 'text-rose-400' : 'text-slate-300';
 
     return (
         <div className="space-y-3">
