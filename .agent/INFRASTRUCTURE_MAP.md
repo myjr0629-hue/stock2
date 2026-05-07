@@ -133,34 +133,39 @@ AI 에이전트는 데이터 불일치를 조사할 때 무조건 아래 3단계
 
 ## 4. AWS 구성요소
 
-### 4.1 Lambda v7.1 (signum-harvest) — 2026-04-17 FMP 분리 완료
-- **코드 위치**: `scripts/deploy-lambda-v7.js` (~106KB, Lambda 전체 코드 포함)
+### 4.1 Lambda v7.1 (signum-harvest) — 2026-05-07 2,000종목 확장 완료
+- **코드 위치**: `scripts/deploy-lambda-v7.js` (~118KB, Lambda 전체 코드 포함)
 - **배포 명령**: `node scripts/deploy-lambda-v7.js`
   - zip 생성 → UpdateFunctionCode → UpdateFunctionConfiguration 자동
-- **설정**: timeout=900s (15분), memory=1024MB
+- **설정**: timeout=900s (15분), memory=**2048MB (2GB)**
 - **Function URL**: `https://luto3y4wmiku6mjhlbzny3hmp40acvqd.lambda-url.us-east-1.on.aws/`
-- **유니버스**: **1,000종목** (`data/stock_universe_us800.json` 기준)
-- **GEX 계산**: **전 1,000종목** (structureService 100% 호환)
+- **유니버스**: **2,000종목** (`data/stock_universe_us800.json` 기준, 2026-05-07 확장)
+- **GEX 계산**: **전 2,000종목** (structureService 100% 호환)
 - **동시성**: GEX 배치 10종목, RSI+DailyBars 배치 50종목
-- **분산 Lock**: `SET lock:signum-harvest <id> NX EX 900` (Upstash Redis) — cron 5분 간격 vs 실행 8~13분 충돌 방지. Lock 실패 시 즉시 skip(에러 아님). 완료 시 `DEL` 해제. TTL=900s(15분)로 크래시 시 자동 만료.
-- **실행 시간**: **~68초** (이전 681초 → 10배 개선, FMP 분리 효과)
+- **분산 Lock**: `SET lock:signum-harvest <id> NX EX 900` (Upstash Redis) — cron 5분 간격 vs 실행 충돌 방지. Lock 실패 시 즉시 skip. TTL=900s.
+- **실행 시간**: **~140초** (2,000종목, 900초 중 16% 사용, 메모리 548MB/2048MB)
+- **이전 실행 시간**: 1,000종목 시 ~68초 → 2,000종목 ~140초 (선형 증가, 정상)
 - **Polygon API**: 최고 티어 (무제한 호출, rate limit 없음)
 - **FMP API**: ⚠️ 배치 수집은 signum-fmp로 이관 완료 (2026-04-17). On-demand 1종목 호출만 유지.
 
-#### Lambda Step별 처리
-| Step | 대상 | 내용 | API 호출 |
-|------|------|------|:-------:|
-| 1. Price | 1000 | 전종목 snapshot (1 API 호출) | 1 |
-| 2. GEX | 1000 | structureService 호환 12개 지표 | ~3,000 |
-| 3. SMA | 1000 | SMA50/200 Golden/Dead Cross | ~2,000 |
-| 4c. Fundamentals | 1000 | Polygon Reference + Financial Ratios + vX Financials | ~3,000 |
-| 4d. Related | 1000 | Polygon Related Companies | ~1,000 |
-| 4e. SI% | 1000 | Polygon Short Interest + Float | ~2,000 |
-| 4★. DynamoDB Read | 1000 | **항상** ANALYST/EARNINGS/FUND/RELATED 패턴 로드 (signum-fmp 데이터 수신) | 0 |
-| 5. Alpha | 1000 | 점수 계산 (API 호출 없음) | 0 |
-| **5.5. RSI+DailyBars** | **1000** | **Polygon RSI + daily aggs (sparkline/return3d/relVol)** | **~2,000** |
-| 6. Unified | 1000 | DynamoDB + Redis 2키 동시 저장 + cache:analysis 빌드 | ~500 |
-| RLSI | 1 | 시장 전체 RLSI 지표 | 3 |
+#### Lambda Step별 처리 (2,000종목 실측, 2026-05-07)
+| Step | 대상 | 내용 | API 호출 | 실측 시간 |
+|------|------|------|:-------:|:-------:|
+| 1. Price | 2000 | 전종목 snapshot (**1 API 호출**, O(1)) | 1 | **1.5초** |
+| 2. GEX | 2000 | structureService 호환 12개 지표 (주간만기 only) | ~6,000 | **52초** |
+| 3. SMA | 2000 | SMA50/200 Golden/Dead Cross | ~4,000 | **57초** |
+| 4c. Fundamentals | 2000 | Polygon Reference + Financial Ratios + vX Financials | ~6,000 | (09:25-35 ET window) |
+| 4d. Related | 2000 | Polygon Related Companies | ~2,000 | (09:25-35 ET window) |
+| 4e. SI% | 2000 | Polygon Short Interest + Float | ~4,000 | (09:25-35 ET window) |
+| 4★. DynamoDB Read | 2000 | **항상** ANALYST/EARNINGS/FUND/RELATED 패턴 로드 (signum-fmp 데이터 수신) | 0 | <1초 |
+| 5. Alpha | 2000 | 점수 계산 (API 호출 없음) | 0 | <1초 |
+| **5.5. RSI+DailyBars** | **2000** | **Polygon RSI + daily aggs (sparkline/return3d/relVol)** | **~4,000** | **10초** |
+| 6. Unified | 2000 | DynamoDB + Redis 2키 동시 저장 + cache:analysis 빌드 | ~1,000 | **~20초** |
+| RLSI | 1 | 시장 전체 RLSI 지표 | 3 | ~1초 |
+
+> **Step 1이 빠른 이유**: Polygon `/v2/snapshot/locale/us/markets/stocks/tickers`는 전체 미국 시장 스냅샷을 **1개 API 호출**로 반환. 2,000종목이든 10,000종목이든 동일.
+> **Step 2 GEX가 빠른 이유**: `getWeeklyOptions()` — **주간만기 1개만** 조회 (~150계약/종목). flow-harvest와 달리 전체 만기를 조회하지 않음.
+> **총 실행 시간 ~140초**: 900초 한도의 16%만 사용. 메모리 548MB / 2048MB (27%).
 
 > **Step 4★ 핵심**: FMP 데이터(Analyst/Earnings/forwardEps)는 signum-fmp Lambda가 DynamoDB `signum-pattern-db`에 저장.
 > signum-harvest는 **매 실행마다** 이 DynamoDB 레코드를 읽어 `detailsMap`에 병합 후 Unified Cache로 전파.
@@ -170,7 +175,7 @@ AI 에이전트는 데이터 불일치를 조사할 때 무조건 아래 3단계
 - **RSI**: Polygon `/v1/indicators/rsi/{ticker}?timespan=day&window=14&limit=1`
 - **Daily Bars**: Polygon `/v2/aggs/ticker/{ticker}/range/1/day/{from}/{to}?limit=30&adjusted=true&sort=asc`
 - 25일치 데이터 → sparkline(last 20 closes), return3d(3일 수익률), relVol(금일/전일 거래량비)
-- 배치 50종목 동시 → 1000종목 ~25초
+- 배치 50종목 동시 → 2000종목 ~10초
 
 #### GEX 계산 로직 (structureService.ts 호환)
 - **만기 필터**: `getWeeklyOptions()` — 주간만기 1개만 (전체 만기 아님)
@@ -192,10 +197,11 @@ AI 에이전트는 데이터 불일치를 조사할 때 무조건 아래 3단계
 - **cache:analysis**: structure 없어도 항상 기록 (가격/RSI/sparkline만으로도 캐시 HIT 보장)
 
 #### 유니버스 단일 소스
-- **소스**: `data/stock_universe_us800.json` (1,000종목)
-- **Lambda 변수**: `UNIVERSE` (기존 `UNIVERSE_500` 완전 제거)
+- **소스**: `data/stock_universe_us800.json` (**2,000종목**, 2026-05-07 확장)
+- **Lambda 변수**: `UNIVERSE` (배포 시 JSON.stringify로 하드코딩됨)
 - **Vercel 변수**: `src/lib/universe.ts` → `export const UNIVERSE` (us800.json 직접 import)
 - **Command 유니버스 판별**: `src/app/api/command/unified/route.ts` → `UNIVERSE.includes(ticker)`
+- **전수조사 도구**: `node scripts/verify-universe.js` (Upstash pipeline으로 2,000종목 전수 확인)
 
 #### cache:analysis 필드 완전 목록 (2026-04-07)
 | 필드 | 소스 | 커버리지 |
@@ -255,7 +261,8 @@ Confidence: 4개 중 강한 신호 3+개=HIGH, 2개=MED, 1개=LOW, 0=NONE
   - `signum-flow-harvest-shard-2` — ENABLED, `{"shard":2}`, rate(5 minutes)
   - `signum-flow-harvest-shard-3` — ENABLED, `{"shard":3}`, rate(5 minutes)
 - **유니버스**: **2,000종목** (`data/stock_universe_us800.json`) + 동적 유니버스 (shard-3에서만 처리)
-- **실행 시간**: shard당 147~169초 (2,000종목, 500종목/shard), **최대 3분 이내**
+- **실행 시간**: shard당 76~358초 (2,000종목, 500종목/shard), 장외 1~30ms skip
+- **메모리 사용**: 284~338MB / 1024MB
 - **완전 독립**: signum-harvest와 코드/스케줄/실행 완전 분리
 - **동시 실행 방지 (v3.0)**: shard별 독립 Lock (`flow-harvest:lock:shard-{N}`, TTL 900초)
 - **하위 호환**: `event.shard` 없이 호출 시 전체 유니버스 처리 (forceRun 등)
@@ -324,8 +331,11 @@ acquireLock('flow-harvest:lock', NX, EX 900)
 - **배포 명령**: `node scripts/deploy-fmp.js`
 - **런타임**: `nodejs20.x`
 - **설정**: timeout=900s (15분), memory=512MB
-- **EventBridge**: `signum-fmp-daily` (cron(30 13 ? * MON-FRI *)) = **ET 09:30 평일 1일 1회**
-- **역할**: signum-harvest에서 분리된 FMP API 전담 수집기. 유니버스 1000종목의 Analyst/Earnings/Forward 데이터를 DynamoDB에 저장.
+- **EventBridge (v2.0 shard)**:
+  - `signum-fmp-daily` — **DISABLED** (레거시, 롤백용)
+  - `signum-fmp-shard-0` — ENABLED, `{"shard":0}`, cron(30 13 ? * MON-FRI *) = ET 09:30
+  - `signum-fmp-shard-1` — ENABLED, `{"shard":1}`, cron(30 13 ? * MON-FRI *) = ET 09:30
+- **역할**: signum-harvest에서 분리된 FMP API 전담 수집기. 유니버스 **2,000종목** (2-shard × 1,000)의 Analyst/Earnings/Forward 데이터를 DynamoDB에 저장.
 - **IAM 역할**: `signum-lambda-role` (signum-harvest와 공유)
 - **환경변수**: FMP_API_KEY, AWS_REGION
 
@@ -542,6 +552,111 @@ Raw HTTP 응답 검증:
 ### 4.6 S3
 - **버킷**: `signum-hq-archive`
 - **용도**: 보고서 아카이빙
+
+### 4.7 Redis 2계층 아키텍처 & 파이프라인 (2026-05-07 정밀 분석)
+
+#### 아키텍처 구조
+```
+┌───────── AWS VPC (us-east-1) ─────────────────────┐
+│                                                    │
+│  Lambda (signum-harvest)   ──HTTP──→  EC2 Proxy    │
+│  Lambda (flow-harvest)     ──HTTP──→  (포트 8081)  │
+│  Lambda (signum-fmp)       ──HTTP──→     │         │
+│                                          ↓         │
+│                                 ElastiCache Redis  │
+│                                 (VPC 내부, $0/월)  │
+└────────────────────────────────────────────────────┘
+                                          │
+                                          ↓ (fallback)
+                                  Upstash Redis (글로벌)
+                                  (종량제, ~$3-10/월)
+                                          │
+                                          ↓
+┌────────────────── Vercel ─────────────────────────┐
+│  읽기: EC2 Proxy 1차 (~15ms) → Upstash fallback   │
+│  쓰기: EC2 Proxy + Upstash **양쪽 다** 항상       │
+│  SSR fallback: cache miss → Polygon 직접 계산     │
+└───────────────────────────────────────────────────┘
+```
+
+#### 쓰기 경로 차이 (Lambda vs Vercel)
+| 주체 | EC2 ElastiCache | Upstash | 코드 위치 |
+|------|:---:|:---:|------|
+| **Lambda (3개)** | ✅ 항상 | ❌ EC2 성공 시 skip | `redisSet()` — EC2 성공 → `return true` |
+| **Vercel** | ✅ 항상 | ✅ 항상 (양쪽) | `setInCache()` L213 "always, for fallback consistency" |
+
+> ⚠️ **Lambda가 Upstash에 쓰지 않는 것은 의도적 비용 최적화.**
+> 5분마다 2,000종목 × Upstash SET = 분당 400 요청 → 월 $35+ 추가 비용.
+> EC2 정상 시 Upstash에 데이터 없어도 서비스 영향 없음.
+
+#### 읽기 경로 (Vercel → Redis)
+```
+Vercel API 요청
+  → EC2 Proxy /get or /mget (ElastiCache) ~15ms
+    → HIT: 데이터 반환 ✅
+    → MISS or 실패: Upstash fallback ~30ms
+      → HIT: 데이터 반환
+      → MISS: SSR 직접 계산 fallback (Polygon API 직접 호출, ~2-3초)
+```
+
+#### 장애 시나리오 분석
+| 장애 | 영향 | 대응 |
+|------|------|------|
+| **EC2 정상** (평상시) | 없음 | ElastiCache에서 즉시 반환 |
+| **EC2 일시 장애** | Upstash fallback (101종목만) + SSR 직접 계산 | 느리지만 데이터 유실 없음 |
+| **EC2 장기 장애** | Lambda 쓰기도 Upstash로 전환 | 자동 복구 (redisSet fallback 작동) |
+
+> **SSR 직접 계산 fallback**: `analysisCache.ts`에서 cache miss 시 `centralDataHub.getStockDataLight(ticker)` 호출 → Polygon API로 실시간 계산 → 결과 반환 + `setInCache()` 저장. 느리지만 데이터가 없는 상황은 발생하지 않음.
+
+#### Redis 데이터 크기 & 비용 (2,000종목 기준)
+| 키 유형 | 종목당 | 2,000종목 | TTL | 압축 |
+|---------|:---:|:---:|:---:|:---:|
+| `cache:analysis:{T}` | 3.6 KB | 7.2 MB | 3일 | ❌ |
+| `cache:flow:unified:{T}` | ~10 KB | 20 MB | 5분~72h | ❌ |
+| `polygon:snapshot:probe:{T}` | 356 KB | 712 MB | 10분~72h | ✅ slimContract 70% 절감 |
+| `cache:command:unified:{T}` | ~35 KB | 70 MB | 3일 | ❌ |
+
+> **`slimContract()` 압축**: flow-harvest의 옵션 스냅샷에만 적용. Polygon 원본에서 structureService가 사용하는 필드만 추출 (NVDA 기준 1,214KB→356KB, 70% 절감).
+> EC2 t3.small = 2GB RAM. 장중 옵션 스냅샷 동시 적재 시 메모리 주의.
+
+#### 전수조사 결과 (2026-05-07, 본장 중 실측)
+
+##### Lambda 실행 상태
+| Lambda | 유니버스 | 실행 시간 | 메모리 | 상태 |
+|--------|:---:|:---:|:---:|:---:|
+| signum-harvest | 2,000 | ~140초 | 548MB/2048MB | ✅ |
+| flow-harvest (4-shard) | 2,000 | shard당 76~358초 | 338MB/1024MB | ✅ |
+| signum-fmp (2-shard) | 2,000 | shard당 ~629초 | ~512MB | ✅ |
+
+##### EventBridge Rules 전수 확인
+| Rule | State | 용도 |
+|------|:---:|------|
+| `signum-harvest-5min` | ENABLED | 2,000종목 전체 |
+| `signum-flow-harvest-5min` | **DISABLED** | 레거시 (롤백용) |
+| `signum-flow-harvest-shard-0~3` | ENABLED | 각 500종목 |
+| `signum-fmp-daily` | **DISABLED** | 레거시 (롤백용) |
+| `signum-fmp-shard-0~1` | ENABLED | 각 1,000종목 |
+| `signum-cross-sector-cron` | ENABLED | Cross-Sector AI |
+
+##### 신규 종목 데이터 확인 (프로덕션 API 실측)
+| 종목 | 가격 | Alpha | GEX | RSI | DynamoDB |
+|------|:---:|:---:|:---:|:---:|:---:|
+| MCK (신규) | $739.65 | 45/C | 625K | 16.4 | 50건 |
+| HWM (신규) | $271.00 | 40/C | -5.0M | 67.8 | 50건 |
+| SPOT (신규) | $433.11 | 55/B | -209K | 35.5 | 4,038건 |
+| NVDA (기존) | — | 84/A | -318M | 60.7 | — |
+| AAPL (기존) | — | 67/B | -181M | 69.5 | — |
+
+> 기존 M7 종목 지표 변화 없음. 2,000종목 확장이 기존 데이터에 영향 없음 확인.
+
+#### harvest vs flow-harvest 속도 차이 근본 원인
+| 항목 | signum-harvest (140초) | flow-harvest (76~358초/shard) |
+|------|:---:|:---:|
+| 옵션 조회 범위 | **주간만기 1개** (~150계약) | **전체 만기** (~5,000+계약) |
+| 종목당 데이터량 | 1/33 | 1x |
+| 추가 API | 없음 | 다크풀 trades 5K+10K, quotes 1K |
+| shard당 종목 | 2,000 (단일) | 500 |
+| Price 방식 | 전종목 1 API (O(1)) | 없음 (가격 warm 금지) |
 
 ---
 
