@@ -696,8 +696,13 @@ const TickerHeatmap = memo(function TickerHeatmap({ items }: { items: EnrichedWa
         <div ref={containerRef} className="w-full h-full relative" style={{ minHeight: 130 }} onMouseLeave={() => setHoveredTicker(null)}>
             {rects.map(r => {
                 const pct = r.changePct;
-                const isSmall = r.w < 50 || r.h < 30;
                 const isHovered = hoveredTicker === r.ticker;
+                // Adaptive text sizing based on tile dimensions
+                const isMicro = r.w < 28 || r.h < 20;   // Too small for any text
+                const isTiny = r.w < 42 || r.h < 25;     // Only ticker abbreviation
+                const isSmall = r.w < 60 || r.h < 32;    // Ticker only, no %
+                const tickerFontSize = r.w < 50 ? 9 : r.w < 70 ? 10 : 11;
+                const pctFontSize = r.w < 70 ? 9 : 10;
                 return (
                     <div
                         key={r.ticker}
@@ -714,13 +719,30 @@ const TickerHeatmap = memo(function TickerHeatmap({ items }: { items: EnrichedWa
                             zIndex: isHovered ? 20 : 1,
                             transition: 'filter 0.15s ease, transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease',
                             boxShadow: isHovered ? '0 0 16px rgba(148, 163, 184, 0.25), 0 4px 12px rgba(0,0,0,0.4)' : 'none',
+                            padding: '1px',
                         }}
                     >
-                        <span className="text-white font-black text-[11px] leading-none tracking-wide pointer-events-none" style={{ textShadow: '0 1px 3px rgba(0,0,0,0.6)' }}>
-                            {isSmall ? r.ticker.slice(0, 3) + (r.ticker.length > 3 ? '\u2026' : '') : r.ticker}
-                        </span>
+                        {!isMicro && (
+                            <span
+                                className="text-white font-black leading-none tracking-wide pointer-events-none text-center truncate"
+                                style={{
+                                    fontSize: tickerFontSize,
+                                    textShadow: '0 1px 3px rgba(0,0,0,0.6)',
+                                    maxWidth: Math.max(r.w - 4, 0),
+                                }}
+                            >
+                                {isTiny ? r.ticker.slice(0, 2) : isSmall ? r.ticker.slice(0, 4) : r.ticker}
+                            </span>
+                        )}
                         {!isSmall && (
-                            <span className="text-white/90 font-bold text-[10px] tabular-nums leading-tight mt-0.5 pointer-events-none" style={{ textShadow: '0 1px 2px rgba(0,0,0,0.5)' }}>
+                            <span
+                                className="text-white/90 font-bold tabular-nums leading-tight mt-0.5 pointer-events-none text-center truncate"
+                                style={{
+                                    fontSize: pctFontSize,
+                                    textShadow: '0 1px 2px rgba(0,0,0,0.5)',
+                                    maxWidth: Math.max(r.w - 4, 0),
+                                }}
+                            >
                                 {pct >= 0 ? '+' : ''}{pct.toFixed(1)}%
                             </span>
                         )}
