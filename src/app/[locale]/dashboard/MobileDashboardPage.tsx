@@ -155,24 +155,24 @@ function ChartHistoryTab() {
             {/* 5-Day History */}
             {dailyHistory.length > 0 && (
                 <div className="bg-[#0d1829]/60 rounded-xl border border-white/5 overflow-hidden">
-                    <div className="p-2.5 border-b border-white/5"><span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">5-Day History</span></div>
+                    <div className="p-2.5 border-b border-white/5"><span className="text-xs font-bold uppercase tracking-wider text-slate-400">5-Day History</span></div>
                     <div className="divide-y divide-white/5">
                         {dailyHistory.map((day: any, idx: number) => (
-                            <div key={idx} className="p-2.5">
+                            <div key={idx} className="px-3 py-2.5">
                                 <div className="flex justify-between items-center mb-1.5">
-                                    <span className="text-white font-mono font-bold text-[11px]">{day.date}</span>
+                                    <span className="text-white font-mono font-bold text-[13px]">{day.date}</span>
                                     <div className="flex items-center gap-2">
-                                        <span className="text-white font-mono font-bold text-[11px]">${day.close?.toFixed(2)}</span>
-                                        <span className={`font-mono text-[10px] font-bold ${(day.changePct || 0) >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+                                        <span className="text-white font-mono font-bold text-[13px]">${day.close?.toFixed(2)}</span>
+                                        <span className={`font-mono text-xs font-bold ${(day.changePct || 0) >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
                                             {day.changePct != null ? `${day.changePct > 0 ? "+" : ""}${day.changePct.toFixed(2)}%` : "—"}
                                         </span>
                                     </div>
                                 </div>
-                                <div className="grid grid-cols-4 gap-2 text-[10px] font-mono">
-                                    <div><div className="text-slate-500 text-[8px] font-sans font-semibold">VOL</div><div className="text-white">{day.volume ? `${(day.volume / 1e6).toFixed(1)}M` : "—"}</div></div>
-                                    <div><div className="text-slate-500 text-[8px] font-sans font-semibold">VWAP</div><div className="text-white">${day.vwap?.toFixed(2) || "—"}</div></div>
-                                    <div><div className="text-slate-500 text-[8px] font-sans font-semibold">GAP</div><div className={(day.gapPct || 0) >= 0 ? "text-emerald-400" : "text-rose-400"}>{day.gapPct != null ? `${day.gapPct > 0 ? "+" : ""}${day.gapPct.toFixed(2)}%` : "—"}</div></div>
-                                    <div><div className="text-slate-500 text-[8px] font-sans font-semibold">RNG</div><div className="text-amber-400">{day.rangePct != null ? `${day.rangePct.toFixed(2)}%` : "—"}</div></div>
+                                <div className="grid grid-cols-4 gap-2 text-xs font-mono">
+                                    <div><div className="text-slate-500 text-[10px] font-sans font-semibold">VOL</div><div className="text-white">{day.volume ? `${(day.volume / 1e6).toFixed(1)}M` : "—"}</div></div>
+                                    <div><div className="text-slate-500 text-[10px] font-sans font-semibold">VWAP</div><div className="text-white">${day.vwap?.toFixed(2) || "—"}</div></div>
+                                    <div><div className="text-slate-500 text-[10px] font-sans font-semibold">GAP</div><div className={(day.gapPct || 0) >= 0 ? "text-emerald-400" : "text-rose-400"}>{day.gapPct != null ? `${day.gapPct > 0 ? "+" : ""}${day.gapPct.toFixed(2)}%` : "—"}</div></div>
+                                    <div><div className="text-slate-500 text-[10px] font-sans font-semibold">RNG</div><div className="text-amber-400">{day.rangePct != null ? `${day.rangePct.toFixed(2)}%` : "—"}</div></div>
                                 </div>
                             </div>
                         ))}
