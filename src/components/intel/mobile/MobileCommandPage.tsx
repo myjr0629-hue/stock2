@@ -19,6 +19,7 @@ import { useMarketStatus } from '@/hooks/useMarketStatus';
 import { calcPriceDisplay } from '@/utils/calcPriceDisplay';
 import { usePriceFlash, getFlashStyle } from '@/components/ui/PriceDisplay';
 import dynamic from 'next/dynamic';
+import { MobileWatchlistSwipeBar } from '@/components/mobile/MobileWatchlistSwipeBar';
 
 // Tab sub-components
 import { MobileCmdOverview } from './MobileCmdOverview';
@@ -402,6 +403,9 @@ export function MobileCommandPage({ quote: rawQuote, sectorLabel, onBack, ticker
                 )}
 
             </div>
+
+            {/* ═══ WATCHLIST SWIPE BAR — fixed above bottom nav ═══ */}
+            <MobileWatchlistSwipeBar currentTicker={effectiveTicker} targetPage="command" />
         </div>
     );
 }

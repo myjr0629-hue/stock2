@@ -4,7 +4,7 @@ import React, { useMemo, useState, useRef, useCallback, useEffect } from 'react'
 import dynamic from 'next/dynamic';
 import { useRouter } from 'next/navigation';
 import { useLocale } from 'next-intl';
-import { Loader2, Crosshair, Lock, ChevronRight } from 'lucide-react';
+import { Loader2, Crosshair, Lock } from 'lucide-react';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { useFlowData } from '@/hooks/useFlowData';
 import { useLivePrice } from '@/hooks/useLivePrice';
@@ -12,6 +12,7 @@ import { calcPriceDisplay } from '@/utils/calcPriceDisplay';
 import { useMarketStatus } from '@/hooks/useMarketStatus';
 import { MobileFlowHeader } from '@/components/mobile/MobileFlowHeader';
 import type { FlowRadarProps } from '@/components/FlowRadar';
+import { MobileWatchlistSwipeBar } from '@/components/mobile/MobileWatchlistSwipeBar';
 import useSWR from 'swr';
 
 const FlowRadar = dynamic<FlowRadarProps>(() => import('@/components/FlowRadar').then(m => m.FlowRadar), { ssr: false });
@@ -473,88 +474,7 @@ export function MobileFlowPage({ ticker, initialFlowData }: MobileFlowPageProps)
             </div>
 
             {/* WATCHLIST SWIPE BAR — fixed above bottom nav */}
-            <WatchlistSwipeBar currentTicker={ticker} />
-        </div>
-    );
-}
-
-// ═══ Watchlist Swipe Bar Component — Main Watchlist (Supabase) ═══
-function WatchlistSwipeBar({ currentTicker }: { currentTicker: string }) {
-    const router = useRouter();
-    const locale = useLocale();
-    const [wlTickers, setWlTickers] = useState<string[]>([]);
-    const [prices, setPrices] = useState<Record<string, { price: number; changePct: number }>>({});
-
-    // Load main watchlist tickers from Supabase (one-time)
-    useEffect(() => {
-        let cancelled = false;
-        (async () => {
-            try {
-                const { getWatchlist } = await import('@/lib/storage/watchlistStore');
-                const data = await getWatchlist();
-                if (!cancelled) {
-                    setWlTickers(data.items.map(i => i.ticker));
-                }
-            } catch {}
-        })();
-        return () => { cancelled = true; };
-    }, []);
-
-    // Fetch live prices for watchlist tickers
-    const tickerStr = wlTickers.filter(t => t !== currentTicker).join(',');
-    useEffect(() => {
-        if (!tickerStr) return;
-        const fetchPrices = async () => {
-            try {
-                const r = await fetch(`/api/live/quotes?symbols=${tickerStr}`);
-                if (r.ok) {
-                    const j = await r.json();
-                    const p: Record<string, { price: number; changePct: number }> = {};
-                    if (j.data) {
-                        Object.entries(j.data).forEach(([t, d]: [string, any]) => {
-                            if (d?.price > 0) p[t] = { price: d.price, changePct: d.changePercent || 0 };
-                        });
-                    }
-                    setPrices(p);
-                }
-            } catch {}
-        };
-        fetchPrices();
-        const iv = setInterval(fetchPrices, 10000);
-        return () => clearInterval(iv);
-    }, [tickerStr]);
-
-    const displayTickers = wlTickers.filter(t => t !== currentTicker);
-    if (displayTickers.length === 0) return null;
-
-    return (
-        <div className="fixed bottom-[56px] left-0 right-0 z-20 bg-[#0a0f1a]/95 backdrop-blur-xl border-t border-white/[0.06]">
-            <div className="flex items-center gap-1.5 px-2 py-2">
-                <span className="text-[9px] font-black uppercase tracking-widest text-amber-500/70 px-1 shrink-0">WL</span>
-                <div className="flex-1 flex gap-2 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
-                    {displayTickers.map(t => {
-                        const p = prices[t];
-                        const pct = p?.changePct ?? 0;
-                        const up = pct >= 0;
-                        return (
-                            <button
-                                key={t}
-                                onClick={() => router.push(`/${locale}/flow?ticker=${t}`)}
-                                className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/[0.04] border border-white/[0.07] active:bg-white/[0.10] shrink-0 transition-all"
-                            >
-                                <div className="w-5 h-5 rounded-md bg-slate-800 flex items-center justify-center overflow-hidden shrink-0">
-                                    <img loading="lazy" src={`/api/logo/${t}`} alt="" className="w-4 h-4 object-contain" onError={e => { (e.target as HTMLImageElement).style.display = 'none'; }} />
-                                </div>
-                                <span className="text-[11px] font-bold text-white">{t}</span>
-                                <span className={`text-[10px] font-mono font-bold ${up ? 'text-emerald-400' : 'text-rose-400'}`}>
-                                    {up ? '+' : ''}{pct.toFixed(1)}%
-                                </span>
-                            </button>
-                        );
-                    })}
-                </div>
-                <ChevronRight size={14} className="text-slate-500 shrink-0" />
-            </div>
+            <MobileWatchlistSwipeBar currentTicker={ticker} targetPage="flow" />
         </div>
     );
 }
