@@ -2154,8 +2154,8 @@ async function deploy() {
 
   await lambda.send(new UpdateFunctionConfigurationCommand({
     FunctionName: 'signum-harvest',
-    Timeout: 900,  // 15 minutes (1000 tickers)
-    MemorySize: 2048, // 2GB for 1000 tickers
+    Timeout: 900,  // 15 minutes (2000 tickers)
+    MemorySize: 2048, // 2GB for 2000 tickers
     Environment: { Variables: {
       NODE_ENV: 'production',
       FINNHUB_API_KEY: FINNHUB_KEY,
@@ -2164,7 +2164,7 @@ async function deploy() {
       UPSTASH_REDIS_REST_TOKEN: process.env.UPSTASH_REDIS_REST_TOKEN || '',
     } },
   }));
-  console.log('Lambda config updated (900s/15min, 1024MB)');
+  console.log('Lambda config updated (900s/15min, 2048MB)');
 
   // Enable Function URL for on-demand cold-start
   try {
