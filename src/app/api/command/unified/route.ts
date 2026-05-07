@@ -39,7 +39,8 @@ async function injectAlphaBypass(data: any, ticker: string) {
     // Previously lambda-v8 scores persisted → different score vs Watchlist/Portfolio.
     // Now: cache:analysis alphaSnapshot is the SSOT for ALL pages.
     const needsAlpha = true; // Always refresh alpha from cache:analysis for cross-page consistency
-    const needsFlow = data.smartFlow === undefined || data.smartFlow === 0;
+    // [FIX 2026-05-07] SmartFlow is ALWAYS recalculated — cached values may be stale V1
+    const needsFlow = true;
     const needsInst = !data.institutional || (data.institutional.darkPool?.percent === 0 && data.institutional.blockTrade?.count === 0);
     const needsSurprise = data.earnings && !data.earnings.lastSurprise;
     const needsAnalyst = !data.analyst || !data.analyst.totalAnalysts || data.analyst.totalAnalysts === 0;
