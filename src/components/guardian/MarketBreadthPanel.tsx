@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { BarChart3, TrendingUp, TrendingDown, AlertTriangle, MessageSquare, Lightbulb, Clock, Radio, Sun, FileText } from "lucide-react";
 import { useTranslations, useLocale } from 'next-intl';
 import { GuardianTooltip } from './GuardianTooltip';
+import { renderColoredText } from './TypewriterText';
 
 // === BreadthLiquid — Premium Energy Bar ===
 function BreadthLiquid({ breadthPct, signal, loading, signalColor, advancingLabel, decliningLabel }: { breadthPct: number; signal: string; loading?: boolean; signalColor: string; advancingLabel: string; decliningLabel: string }) {
@@ -339,7 +340,7 @@ export default function RLSIInsightPanel({
                                     </div>
                                 )}
                                 <div className="text-[13px] text-white/80 leading-[1.6] whitespace-pre-line overflow-y-auto custom-briefing-scroll pr-1.5" style={{ fontFamily: 'Pretendard, sans-serif', maxHeight: '145px' }}>
-                                    {insightDesc}
+                                    {renderColoredText(insightDesc)}
                                 </div>
                             </>
                         ) : (insightTitle || insightDesc) ? (
@@ -351,7 +352,7 @@ export default function RLSIInsightPanel({
                                     {insightTitle}
                                 </div>
                                 <div className="text-[13px] text-white/80 leading-[1.6] whitespace-pre-line overflow-y-auto custom-briefing-scroll pr-1.5" style={{ fontFamily: 'Pretendard, sans-serif', maxHeight: '145px' }}>
-                                    {insightDesc}
+                                    {renderColoredText(insightDesc)}
                                 </div>
                                 <div className="text-xs text-amber-500/50 font-mono mt-1.5 font-jakarta">Last session analysis</div>
                             </>
@@ -391,7 +392,7 @@ export default function RLSIInsightPanel({
                                     className="text-[13px] text-white/80 leading-[1.6] whitespace-pre-line overflow-y-auto custom-briefing-scroll pr-1.5" 
                                     style={{ fontFamily: 'Pretendard, sans-serif', maxHeight: '155px' }}
                                 >
-                                    {briefingData.briefing}
+                                    {renderColoredText(briefingData.briefing)}
                                 </div>
                                 {briefingData.generatedAt && (
                                     <div className="text-xs text-amber-500/50 font-mono mt-1.5 font-jakarta">

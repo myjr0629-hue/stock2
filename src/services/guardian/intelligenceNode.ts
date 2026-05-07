@@ -534,7 +534,7 @@ const REALITY_PROMPTS: Record<Locale, (ctx: IntelligenceContext) => string> = {
         2. **Second sentence (divergence cause)**: Why this divergence exists — ${ctx.divergenceCase === 'A' ? 'large-cap driven rally, short-covering bounce, or news-driven temporary rebound?' : ctx.divergenceCase === 'B' ? 'institutional accumulation at value levels, policy expectations, or sector rotation?' : 'analyze why price and liquidity are moving together'}. Cross-validate with gold/bonds/dollar/VIX
         3. **Third sentence (divergence implications)**: What happens if this divergence persists or resolves. ${ctx.divergenceCase === 'A' ? '"Narrow rallies without breadth participation historically precede corrections"' : ctx.divergenceCase === 'B' ? '"Liquidity inflows preceding price recovery suggest potential bottom formation"' : 'directional outlook'}. No action directives
         Core principle: **Every sentence must revolve around the divergence**. News and indicators serve as evidence for the divergence story.
-        Max 350 chars. Do NOT use any emoji.
+        Max 350 chars. Do NOT use any emoji. Do NOT prefix with labels like "Market Assessment:" — start directly with analysis.
         ` : `
         **Output — "WHY is the market moving this way" is your #1 priority:**
         Write 2-3 natural sentences.
@@ -542,7 +542,7 @@ const REALITY_PROMPTS: Record<Locale, (ctx: IntelligenceContext) => string> = {
         2. **Second sentence**: How news impact propagated across asset classes (cross-validate with gold/bonds/oil/dollar + key indicators like RLSI/Breadth)
         3. **Third sentence**: Key variables and factual outlook (no action directives)
         Core principle: Tell the **news → market reaction causal story**, not a list of indicators. Use indicators as evidence for the narrative.
-        Max 350 chars. Do NOT use any emoji.
+        Max 350 chars. Do NOT use any emoji. Do NOT prefix with labels like "Market Assessment:" — start directly with analysis.
         `}
     `;
     },
