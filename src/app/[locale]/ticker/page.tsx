@@ -8,6 +8,7 @@ import { TerminalGateWrapper } from '@/components/gate/TerminalGateWrapper';
 import { getFromCache, setInCache } from '@/services/redisClient';
 import { getStockDataLight } from '@/services/marketDataLight';
 import { getStockChartData } from '@/services/stockApi';
+import { calculateWhaleIndex } from '@/services/alphaEngine';
 
 export const dynamic = 'force-dynamic';
 
@@ -97,7 +98,7 @@ export default async function TickerPage({ params, searchParams }: Props) {
                     const ac = acMap[ticker.toUpperCase()];
                     if (ac?.expiration) ssrExpiration = ac.expiration;
                     if (ac?.alphaSnapshot) ssrAlpha = ac.alphaSnapshot;
-                    if (ac?.whaleIndex) ssrSmartFlow = ac.whaleIndex;
+                    ssrSmartFlow = calculateWhaleIndex(ac?.gex, ac?.darkPoolPct, null, ac?.netPremium);
                 } catch { /* non-critical */ }
                 initialUnifiedData = {
                     structure: gex ? {
@@ -178,7 +179,9 @@ export default async function TickerPage({ params, searchParams }: Props) {
             const ac = await getAnalysisCache(ticker);
             if (ac) {
                 if (ac.alphaSnapshot && !initialUnifiedData.alpha) initialUnifiedData.alpha = ac.alphaSnapshot;
-                if (ac.whaleIndex !== undefined && initialUnifiedData.smartFlow === undefined) initialUnifiedData.smartFlow = ac.whaleIndex;
+                // [FIX 2026-05-07] Always recalculate via V2 — cached whaleIndex may be stale
+                const ssrWhale = calculateWhaleIndex(ac.gex, ac.darkPoolPct, null, ac.netPremium);
+                if (initialUnifiedData.smartFlow === undefined || initialUnifiedData.smartFlow === 100) initialUnifiedData.smartFlow = ssrWhale;
             }
         } catch { /* safe */ }
 
