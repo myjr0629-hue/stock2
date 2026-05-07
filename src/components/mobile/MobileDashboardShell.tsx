@@ -109,7 +109,7 @@ export function MobileStickyHeader({ onOpenDrawer }: { onOpenDrawer: () => void 
                 </div>
             </div>
             {/* Row 2: POST/PRE badge + Market Status */}
-            <div className="flex items-center gap-2 text-[11px]">
+            <div className="flex items-center gap-2 text-[13px]">
                 {hasExt ? (
                     <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md ${extLabel?.includes("PRE") ? "bg-amber-500/15 text-amber-300" : "bg-purple-500/15 text-purple-300"}`}>
                         <span className="font-bold">{extLabel}</span>
