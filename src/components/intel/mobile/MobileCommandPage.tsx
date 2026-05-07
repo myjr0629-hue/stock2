@@ -297,10 +297,10 @@ export function MobileCommandPage({ quote: rawQuote, sectorLabel, onBack, ticker
                 <div className="px-4 pb-2 flex items-center justify-between gap-2">
                     <div className="flex items-center gap-1.5 min-w-0">
                         {hasExt && (
-                            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-md border border-purple-500/20 shrink-0" style={{ background: 'rgba(139,92,246,0.12)' }}>
-                                <span className="text-[10px] font-bold text-purple-300 whitespace-nowrap">{activeExtLabel}</span>
-                                <span className="text-[11px] font-bold text-slate-200 font-mono tabular-nums">${activeExtPrice.toFixed(2)}</span>
-                                <span className={`text-[11px] font-bold font-mono tabular-nums ${activeExtPct >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                            <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg border border-purple-500/25 shrink-0" style={{ background: 'rgba(139,92,246,0.12)' }}>
+                                <span className="text-[12px] font-bold text-purple-300 whitespace-nowrap">{activeExtLabel}</span>
+                                <span className="text-[14px] font-bold text-slate-100 font-mono tabular-nums">${activeExtPrice.toFixed(2)}</span>
+                                <span className={`text-[13px] font-bold font-mono tabular-nums ${activeExtPct >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
                                     {activeExtPct >= 0 ? '+' : ''}{activeExtPct.toFixed(2)}%
                                 </span>
                             </div>

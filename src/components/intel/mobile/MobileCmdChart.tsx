@@ -82,6 +82,34 @@ export function MobileCmdChart({ ticker, quote, unified, unifiedLoading, initial
                     vwap={initialStockData?.vwap}
                     gammaFlipLevel={flipLevel}
                 />
+                {/* Mobile CSS overrides — scoped to .mobile-chart-container, ZERO web impact */}
+                <style dangerouslySetInnerHTML={{__html: `
+                    .mobile-chart-container [class*="CardHeader"] {
+                        flex-wrap: wrap !important;
+                        gap: 6px !important;
+                        padding: 8px 10px !important;
+                    }
+                    .mobile-chart-container [role="tablist"] {
+                        height: 36px !important;
+                        padding: 3px !important;
+                        gap: 2px !important;
+                        border-radius: 10px !important;
+                    }
+                    .mobile-chart-container [role="tab"] {
+                        height: 28px !important;
+                        padding: 0 10px !important;
+                        font-size: 12px !important;
+                        font-weight: 700 !important;
+                        border-radius: 7px !important;
+                        min-width: 32px !important;
+                    }
+                    .mobile-chart-container button {
+                        min-height: 36px !important;
+                    }
+                    .mobile-chart-container [role="tab"] {
+                        min-height: 28px !important;
+                    }
+                `}} />
             </div>
 
             {/* Signal Core — same DecisionGate as desktop */}
