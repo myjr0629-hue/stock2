@@ -2,14 +2,29 @@
 // Server-side service - do not use "use client"
 
 import { fetchMassive } from "@/services/massiveClient";
+import { getAnalysisCacheForTickers, AnalysisCacheEntry } from "@/services/analysisCache";
+import { calculateWhaleIndex } from "@/services/alphaEngine";
 
 // === TYPES ===
+// [V14.0] Institutional Flow Score per Sector
+export interface SectorInstitutionalFlow {
+    avgWhale: number;        // V2 calculateWhaleIndex recalculated
+    totalNetPremium: number; // Sector total NP ($)
+    avgDarkPool: number;     // Sector avg DP%
+    avgPCR: number;          // Sector avg PCR
+    totalGEX: number;        // Sector total GEX ($M)
+    ifs: number;             // Institutional Flow Score (-100 ~ +100)
+    tickerCount: number;     // Tickers with valid data
+    divergence: 'CONFIRMED' | 'DIVERGENT' | 'NEUTRAL';
+}
+
 export interface SectorFlowRate {
     id: string;   // XLK
     name: string; // Technology
     change: number; // Average % change of constituents
     volume: number; // Total volume
-    topConstituents?: { symbol: string; price: number; change: number; volume: number }[];
+    topConstituents?: { symbol: string; price: number; change: number; volume: number; whale?: number }[];
+    instFlow?: SectorInstitutionalFlow;  // [V14.0] Institutional data
 }
 
 export interface FlowVector {
@@ -455,10 +470,19 @@ export class SectorEngine {
         rotationIntensity: RotationIntensity; // [V5.0] Added
     }> {
         try {
-            console.log(`[SectorEngine V6.0] Starting Institutional Flow Analysis...`);
+            console.log(`[SectorEngine V14.0] Starting Institutional Flow Analysis...`);
 
             // 1. Fetch 5-day series data in parallel with snapshot
             const fiveDayPromise = fetch5DaySectorData();
+
+            // [V14.0] Fetch institutional data from cache:analysis (MGET single round-trip)
+            const allSectorTickers = Object.values(SECTOR_MAP).flatMap(s => s.tickers);
+            const uniqueAnalysisTickers = [...new Set(allSectorTickers)];
+            const instPromise = getAnalysisCacheForTickers(uniqueAnalysisTickers)
+                .catch(e => {
+                    console.warn(`[SectorEngine V14.0] cache:analysis MGET failed:`, e?.message);
+                    return {} as Record<string, AnalysisCacheEntry>;
+                });
 
             // 2. Fetch Real-time Snapshot
             const allTickers: string[] = [];
@@ -566,6 +590,84 @@ export class SectorEngine {
                 });
             }
 
+            // [V14.0] Institutional Flow Score (IFS) calculation per sector
+            const acMap = await instPromise;
+            const acMapSize = Object.keys(acMap).length;
+            console.log(`[SectorEngine V14.0] cache:analysis loaded: ${acMapSize} tickers`);
+
+            const ifsClamp = (v: number, min: number, max: number) => Math.max(min, Math.min(max, v));
+            const safeAvg = (nums: number[]) => nums.length === 0 ? 0 : nums.reduce((a, b) => a + b, 0) / nums.length;
+            const safeSum = (nums: number[]) => nums.reduce((a, b) => a + b, 0);
+
+            for (const sector of sectorScores) {
+                const sectorInfo = SECTOR_MAP[sector.id];
+                if (!sectorInfo) continue;
+
+                const sectorAcEntries: AnalysisCacheEntry[] = [];
+                for (const t of sectorInfo.tickers) {
+                    const ac = acMap[t.toUpperCase()];
+                    if (ac) sectorAcEntries.push(ac);
+                }
+
+                if (sectorAcEntries.length === 0) continue;
+
+                // Recalculate V2 WhaleIndex per ticker, then average
+                const whaleScores = sectorAcEntries.map(a =>
+                    calculateWhaleIndex(a.gex, a.darkPoolPct, null, a.netPremium)
+                );
+                const avgWhale = safeAvg(whaleScores);
+                const totalNP = safeSum(sectorAcEntries.map(a => a.netPremium || 0));
+                const avgDP = safeAvg(sectorAcEntries.map(a => a.darkPoolPct || 0));
+                const avgPCR = safeAvg(sectorAcEntries.filter(a => a.pcr != null && a.pcr > 0).map(a => a.pcr!));
+                const totalGEX = safeSum(sectorAcEntries.map(a => a.gexM || 0));
+
+                // IFS composite: whale direction (40%) + net premium (30%) + dark pool (20%) + PCR (10%)
+                const whaleDir = (avgWhale - 50) * 2; // -100 ~ +100 range
+                const npScore = ifsClamp(totalNP / 10_000_000, -100, 100); // scale: $10M = 1 point
+                const dpScore = (avgDP - 30) * 2; // 30% = neutral baseline
+                const pcrScore = avgPCR > 0 ? (1.0 - avgPCR) * 50 : 0; // low PCR = bullish
+                const ifs = ifsClamp(
+                    whaleDir * 0.4 + npScore * 0.3 + dpScore * 0.2 + pcrScore * 0.1,
+                    -100, 100
+                );
+
+                // Divergence detection: price direction vs institutional direction
+                const priceDir = sector.change >= 0;
+                const instDir = ifs >= 0;
+                const divergence: 'CONFIRMED' | 'DIVERGENT' | 'NEUTRAL' =
+                    priceDir === instDir ? 'CONFIRMED'
+                    : Math.abs(ifs) > 20 ? 'DIVERGENT'
+                    : 'NEUTRAL';
+
+                sector.instFlow = {
+                    avgWhale: Math.round(avgWhale),
+                    totalNetPremium: totalNP,
+                    avgDarkPool: Math.round(avgDP),
+                    avgPCR: Number(avgPCR.toFixed(2)),
+                    totalGEX,
+                    ifs: Number(ifs.toFixed(1)),
+                    tickerCount: sectorAcEntries.length,
+                    divergence
+                };
+
+                // Enrich top constituents with whale score
+                if (sector.topConstituents) {
+                    for (const tc of sector.topConstituents) {
+                        const tcAc = acMap[tc.symbol.toUpperCase()];
+                        if (tcAc) {
+                            tc.whale = calculateWhaleIndex(tcAc.gex, tcAc.darkPoolPct, null, tcAc.netPremium);
+                        }
+                    }
+                }
+            }
+
+            // Log IFS summary
+            const ifsActive = sectorScores.filter(s => s.instFlow);
+            if (ifsActive.length > 0) {
+                const ifsSum = ifsActive.map(s => `${s.id}:${s.instFlow!.ifs > 0 ? '+' : ''}${s.instFlow!.ifs.toFixed(0)}(${s.instFlow!.divergence.charAt(0)})`).join(' ');
+                console.log(`[SectorEngine V14.0] IFS: ${ifsSum}`);
+            }
+
             // Sort by Change
             sectorScores.sort((a, b) => b.change - a.change);
 
@@ -588,12 +690,20 @@ export class SectorEngine {
             for (let i = 0; i < pairCount; i++) {
                 const s = losers[i];
                 const t = gainers[i];
-                const strength = ((Math.abs(s.change) + t.change) / 2);
+                const priceStrength = ((Math.abs(s.change) + t.change) / 2) * 10;
+
+                // [V14.0] Blend institutional and price strength
+                const hasInst = s.instFlow && t.instFlow;
+                let finalStrength = priceStrength;
+                if (hasInst) {
+                    const instStrength = (Math.abs(s.instFlow!.ifs) + Math.abs(t.instFlow!.ifs)) / 2;
+                    finalStrength = instStrength * 0.7 + priceStrength * 0.3;
+                }
 
                 vectors.push({
                     sourceId: s.id,
                     targetId: t.id,
-                    strength: strength * 10,
+                    strength: finalStrength,
                     rank: i + 1
                 });
             }

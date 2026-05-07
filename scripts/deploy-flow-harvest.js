@@ -114,11 +114,11 @@ async function deploy() {
     // Update configuration
     await lambda.send(new UpdateFunctionConfigurationCommand({
       FunctionName: FUNCTION_NAME,
-      Timeout: 600,      // 10 minutes
+      Timeout: 900,      // 15 minutes (v2.2+)
       MemorySize: 1024,   // 1GB
       Environment: { Variables: envVars },
     }));
-    console.log('Lambda config updated (600s, 1024MB)');
+    console.log('Lambda config updated (900s, 1024MB)');
   } else {
     // Create new function
     await lambda.send(new CreateFunctionCommand({
@@ -127,7 +127,7 @@ async function deploy() {
       Handler: 'index.handler',
       Role: roleArn,
       Code: { ZipFile: zipBuffer },
-      Timeout: 600,
+      Timeout: 900,
       MemorySize: 1024,
       Environment: { Variables: envVars },
       Description: 'Flow page warm cache — Dark Pool, Short Volume, Block Trades (independent from signum-harvest)',
@@ -184,7 +184,7 @@ async function deploy() {
   console.log('  Function: ' + FUNCTION_NAME);
   console.log('  Schedule: ' + RULE_NAME + ' (every 5 min)');
   console.log('  Tickers: ' + universe.length);
-  console.log('  Timeout: 600s, Memory: 1024MB');
+  console.log('  Timeout: 900s, Memory: 1024MB');
   console.log('\nTo test manually:');
   console.log('  aws lambda invoke --function-name ' + FUNCTION_NAME + ' --region ' + REGION + ' --no-cli-pager out.json && type out.json');
 }

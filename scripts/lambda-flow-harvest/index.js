@@ -80,7 +80,7 @@ const DARK_POOL_CONDITIONS = new Set([12, 41, 52]);
 const BLOCK_TRADE_MIN = 10000; // FINRA standard
 
 // Universe — injected by deploy script
-const UNIVERSE = ["AA","AAAU","AAL","AAOI","AAPL","ABBV","ABNB","ABT","ACHR","ACI","ACN","ACWI","ACWX","ADBE","ADI","ADM","ADMA","ADP","ADT","ADTN","AEG","AEM","AEO","AEP","AES","AFRM","AG","AGI","AGNC","AGQ","AGRO","AHRT","AI","AIG","AKAM","AKR","ALAB","ALGN","ALHC","ALK","ALLY","ALM","AMAT","AMCR","AMD","AMDD","AMGN","AMPX","AMRZ","AMZN","ANET","ANSS","APA","APD","APH","APLD","APO","APP","AQN","AR","ARCC","ARDX","ARE","ARES","ARIS","ARKB","ARM","ARR","ARRY","AS","ASAN","ASHR","ASM","ASML","ASST","ASTS","ASX","ATAT","AU","AUGO","AVGO","AVTR","AWK","AXP","AXTA","AXTI","B","BA","BABA","BABX","BAC","BAM","BAX","BBJP","BBVA","BBWI","BBY","BCE","BCRX","BCS","BE","BEKE","BEN","BETA","BF.B","BHP","BIDU","BIIB","BIL","BILI","BIRK","BITB","BITI","BIV","BIZD","BKLN","BKNG","BKR","BLK","BLMN","BMNR","BMY","BN","BNDX","BNO","BP","BRK.B","BROS","BSV","BSX","BTC","BTCZ","BTDR","BTI","BTU","BULL","BVN","BW","BX","BZ","C","CAG","CALY","CARR","CAT","CCC","CCI","CCJ","CCL","CCUP","CDE","CDNS","CEG","CELH","CENX","CF","CFG","CG","CGAU","CGDV","CGGR","CHTR","CHWY","CHYM","CIEN","CIFR","CL","CLF","CLSK","CMCSA","CMG","CMPS","CNC","CNH","CNQ","CNR","COF","COHR","COIN","COLB","COMP","COP","COPX","CORN","CORZ","COST","COUR","CPB","CPER","CPNG","CPRT","CRCA","CRCG","CRCL","CRDO","CRGY","CRH","CRK","CRM","CRML","CRWD","CRWV","CSCO","CSGP","CSIQ","CSTM","CSX","CTAS","CTMX","CTRA","CTSH","CTVA","CUK","CVE","CVI","CVNA","CVS","CVX","CWAN","CWH","CX","CZR","D","DAL","DAR","DASH","DAWN","DB","DBRG","DCH","DD","DDOG","DE","DELL","DFAC","DHR","DHT","DIS","DJT","DKNG","DLO","DLR","DLTR","DOC","DOCN","DOCU","DOG","DOV","DOW","DPZ","DRI","DRVN","DT","DUK","DVN","DX","DXCM","DYN","DYNF","EA","EBAY","EC","ECL","EFV","EGO","EL","ELA","ELAN","EMB","EMBJ","EMLC","EMR","EMXC","ENB","ENPH","EOG","EOSE","EPD","EQIX","EQNR","EQR","EQT","EQX","ERAS","ERIC","ERY","ET","ETH","ETHA","ETHE","ETHT","ETHU","ETN","EW","EWA","EWC","EWG","EWH","EWT","EXC","EXE","EXK","EZU","F","FANG","FAST","FBTC","FCG","FCX","FDX","FE","FENY","FETH","FEZ","FHN","FIG","FIGR","FINV","FISV","FITB","FIVE","FLG","FLNC","FLO","FLR","FLY","FMC","FNB","FND","FNDE","FNDX","FNF","FORM","FOXA","FRMI","FRO","FRSH","FSK","FSLR","FSLY","FSM","FTI","FTNT","FTV","FUTU","FXN","GAP","GBDC","GD","GDX","GDXJ","GDXY","GE","GEHC","GEMI","GEN","GEV","GFI","GFS","GGLS","GILD","GIS","GLL","GLNG","GLW","GLXY","GM","GME","GO","GOOG","GOOGL","GOVT","GOVZ","GPGI","GPK","GPN","GPZ","GRDN","GRMN","GS","GSIT","GSK","GSLC","GT","GTLB","GTM","GUSH","HAFN","HAL","HBAN","HBM","HCA","HD","HDB","HE","HEFA","HGER","HIMS","HIMX","HL","HLN","HMY","HOG","HON","HOOD","HPE","HPQ","HSBC","HSIC","HST","HSY","HTFL","HUBS","HUM","HUN","HUT","HYMC","IAG","IBKR","IBM","IBN","IBRX","ICE","ICL","IDXX","IE","IEFA","IEI","IEMG","IEUR","IFF","IGIB","IGLB","IGLD","IGSB","IGV","ILF","ILMN","IMSR","INCY","INFQ","INFY","ING","INTC","INTU","INVH","IONQ","IOT","IP","IQV","IR","IREN","IREZ","ISRG","IT","ITB","ITOT","ITUB","ITW","IUSB","IUSV","IVW","IWD","IWF","IWR","IXUS","IYE","IYH","IYR","JAAA","JBS","JCI","JD","JETS","JHG","JHX","JNJ","JOBY","JPM","JPST","KBWB","KC","KDP","KEY","KGC","KHC","KIM","KKR","KLAC","KLAR","KMB","KMI","KO","KR","KSS","KTOS","KVUE","LAR","LBRT","LCID","LDOS","LI","LIN","LITE","LITX","LKQ","LLY","LMND","LMT","LNG","LOW","LRCX","LTRX","LULU","LUMN","LUNR","LUV","LVS","LWLG","LXU","LYB","LYFT","LYG","LYV","M","MA","MAR","MARA","MASI","MAT","MBLY","MCD","MCHP","MCO","MCW","MDB","MDLN","MDLZ","MDT","MELI","MEOH","MET","META","METC","METU","MFG","MGA","MGM","MNST","MO","MOS","MP","MPC","MPWR","MRK","MRNA","MRVL","MS","MSCI","MSFT","MSFU","MSI","MSTR","MT","MTB","MTCH","MTD","MU","MUB","MUFG","MUX","NAIL","NAT","NBIG","NBIS","NBIZ","NCLH","NDAQ","NDSN","NEE","NEM","NET","NEXT","NFLX","NG","NGD","NIO","NKE","NLY","NOC","NOG","NOK","NOV","NOW","NSC","NTLA","NTR","NTRS","NTSK","NU","NUE","NVAX","NVD","NVDA","NVDQ","NVO","NVS","NVTS","NWG","NXE","O","OBDC","OCUL","ODFL","OKE","OKLL","OKLO","OKTA","OMC","ON","ONDG","ONDS","ONON","OPEN","ORC","ORCL","ORCX","ORLA","ORLY","OSCR","OSS","OTIS","OUNZ","OVV","OWL","OXY","PAA","PAAS","PAGP","PANW","PARA","PATH","PAYX","PBF","PBI","PBR","PBR.A","PCAR","PCG","PCT","PDBC","PDD","PDYN","PEAK","PEG","PEP","PFE","PG","PGX","PHM","PHYS","PINS","PL","PLD","PLTD","PLTR","PM","PNC","POET","PONY","POOL","PPG","PPL","PPTA","PR","PRMB","PSA","PSKY","PSQ","PSX","PTC","PTEN","PTIR","PULS","PWR","PYPL","QBTS","QBTX","QCOM","QFIN","QQQI","QQQM","QS","QSR","QUAL","QUBT","QXO","RBLX","RBRK","RCAT","RDDT","RDW","REGN","RELX","RES","RF","RGTI","RIG","RIO","RIOT","RITM","RIVN","RKLB","RKLX","RKT","ROIV","ROK","ROKU","ROP","ROST","RRC","RSG","RSP","RTX","RUN","RWM","RYN","S","SA","SAIL","SAN","SAP","SATS","SBAC","SBET","SBIT","SBSW","SBUX","SCCO","SCHB","SCHE","SCHF","SCHG","SCHH","SCHI","SCHK","SCHO","SCHP","SCHV","SCHW","SCHX","SDOW","SDVY","SE","SEDG","SEI","SEM","SERV","SFM","SG","SGML","SGOL","SGOV","SH","SHEL","SHLS","SHO","SHOP","SHV","SHW","SIG","SIL","SILJ","SIVR","SJNK","SKE","SLB","SLVP","SM","SMCI","SMR","SNA","SNDK","SNOW","SNPS","SNXX","SNY","SO","SOC","SOFI","SONY","SOUN","SPAB","SPDN","SPDW","SPEM","SPG","SPHY","SPIB","SPLB","SPLV","SPMD","SPMO","SPOT","SPSB","SPSM","SPTI","SPTL","SPTM","SPXU","SPYD","SPYG","SPYI","SPYM","SPYV","SQ","SRE","SRLN","SRTY","SSL","SSRM","STAA","STE","STLA","STM","STNG","STT","STUB","STX","STZ","SU","SUNB","SUZ","SVM","SW","SWK","SWKS","SYF","SYK","SYM","SYY","T","TALK","TBIL","TCOM","TDG","TDOC","TE","TEAM","TECK","TEL","TEM","TER","TERN","TEVA","TFC","TGB","TGNA","TGT","TGTX","TIGR","TIP","TJX","TLRY","TMC","TME","TMO","TMUS","TNDM","TNGX","TOST","TPH","TRGP","TRIP","TROW","TROX","TRV","TSCO","TSDD","TSEM","TSLA","TSLG","TSLQ","TSLT","TSLZ","TSM","TSN","TT","TTD","TTE","TTWO","TU","TWLO","TWO","TXN","TYL","U","UAA","UAL","UAMY","UBER","UBS","UDOW","UEC","UGL","UGP","UL","UMAC","UMC","UNH","UNP","UPS","UPST","URA","URI","USAR","USAS","USB","USFR","USHY","USIG","USMV","UUUU","V","VALE","VCIT","VCLT","VCSH","VELO","VET","VEU","VFC","VG","VGIT","VGK","VGLT","VGSH","VIAV","VICI","VIST","VITL","VKTX","VLO","VLY","VMC","VNET","VNOM","VOD","VONV","VRSK","VRT","VRTX","VST","VT","VTEB","VTIP","VTR","VTRS","VTWO","VXUS","VZ","WBD","WBS","WDAY","WDC","WDS","WELL","WEN","WFC","WIX","WMB","WMG","WMT","WPM","WRD","WSC","WU","WULF","WVE","WY","XEL","XLC","XLG","XME","XOM","XP","XPEV","XRAY","XYZ","YANG","YEXT","YINN","YMM","YPF","Z","ZETA","ZS","ZSL","ZTO","ZTS"];
+const UNIVERSE = [];
 
 // ──────────────────────────────────────────
 // HTTP + Redis helpers (same pattern as signum-harvest)
@@ -680,7 +680,8 @@ async function harvestTicker(ticker) {
 // Distributed Lock — prevent concurrent executions
 // Redis key expires after 900s (matches Lambda timeout) as safety net
 // ──────────────────────────────────────────
-const LOCK_KEY = 'flow-harvest:lock';
+// LOCK_KEY is now per-shard (set in handler based on event.shard)
+let LOCK_KEY = 'flow-harvest:lock';
 const LOCK_TTL = 900; // seconds — matches Lambda timeout
 
 async function acquireLock() {
@@ -730,7 +731,27 @@ async function releaseLock() {
 exports.handler = async (event) => {
   const start = Date.now();
   const forceRun = event?.forceRun || event?.test || false;
-  console.log('[flow-harvest] Starting — ' + UNIVERSE.length + ' tickers' + (forceRun ? ' (FORCE)' : ''));
+
+  // ── SHARD CONFIGURATION ──
+  // EventBridge passes {"shard": 0..3} to split the universe across 4 Lambda instances.
+  // If no shard is specified (legacy/forceRun), process the entire universe (backward compatible).
+  const TOTAL_SHARDS = 4;
+  const shardIndex = (typeof event?.shard === 'number') ? event.shard : null;
+  const isSharded = shardIndex !== null && shardIndex >= 0 && shardIndex < TOTAL_SHARDS;
+
+  let myUniverse;
+  if (isSharded) {
+    const perShard = Math.ceil(UNIVERSE.length / TOTAL_SHARDS);
+    const startIdx = shardIndex * perShard;
+    const endIdx = Math.min(startIdx + perShard, UNIVERSE.length);
+    myUniverse = UNIVERSE.slice(startIdx, endIdx);
+    LOCK_KEY = 'flow-harvest:lock:shard-' + shardIndex;
+    console.log('[flow-harvest] Shard ' + shardIndex + '/' + TOTAL_SHARDS + ': tickers ' + startIdx + '-' + (endIdx - 1) + ' (' + myUniverse.length + ' tickers)' + (forceRun ? ' (FORCE)' : ''));
+  } else {
+    myUniverse = UNIVERSE;
+    LOCK_KEY = 'flow-harvest:lock';
+    console.log('[flow-harvest] Starting — ' + UNIVERSE.length + ' tickers (no shard)' + (forceRun ? ' (FORCE)' : ''));
+  }
 
   // Market hours check
   // [FIX] 장외시간/주말에도 마지막 데이터를 보존하기 위해:
@@ -749,14 +770,11 @@ exports.handler = async (event) => {
     const isAfterHours = etHour < 8 || etHour >= 21; // 21:00 이후만 스킵 (20:00 실행은 허용)
 
     if (isWeekend && etHour !== 20) {
-      // 주말: 토요일 20:00에 1회 실행 (Fri close 데이터 refresh)
-      // 그 외에는 스킵 (72h TTL로 보존 중)
       console.log('[flow-harvest] Weekend — skipping (data preserved with 72h TTL)');
       return { statusCode: 200, body: JSON.stringify({ skipped: true, reason: 'weekend-preserved' }) };
     }
 
     if (!isWeekend && isAfterHours) {
-      // 평일 장마감 후: 21:00 이후 스킵 (20:00 실행에서 24h TTL로 보존)
       console.log('[flow-harvest] After hours (ET: ' + etHour + ') — skipping (data preserved with 24h TTL)');
       return { statusCode: 200, body: JSON.stringify({ skipped: true, reason: 'after-hours-preserved', etHour }) };
     }
@@ -767,66 +785,69 @@ exports.handler = async (event) => {
     }
   }
 
-  // [CONCURRENCY GUARD] Prevent overlapping executions
-  // If another instance is still running, skip this invocation
+  // [CONCURRENCY GUARD] Prevent overlapping executions (per-shard lock)
   if (!forceRun) {
     const lockAcquired = await acquireLock();
     if (!lockAcquired) {
-      console.log('[flow-harvest] SKIPPED — another instance is still running (lock exists)');
-      return { statusCode: 200, body: JSON.stringify({ skipped: true, reason: 'concurrent-lock' }) };
+      console.log('[flow-harvest] SKIPPED — another instance is still running (lock: ' + LOCK_KEY + ')');
+      return { statusCode: 200, body: JSON.stringify({ skipped: true, reason: 'concurrent-lock', shard: shardIndex }) };
     }
-    console.log('[flow-harvest] Lock acquired — proceeding with harvest');
+    console.log('[flow-harvest] Lock acquired (' + LOCK_KEY + ') — proceeding with harvest');
   }
 
-  // Process in batches of 10 (same concurrency as signum-harvest)
+  // Process in batches of 10
   let ok = 0, fail = 0;
   const BATCH_SIZE = 10;
 
-  for (let i = 0; i < UNIVERSE.length; i += BATCH_SIZE) {
-    const batch = UNIVERSE.slice(i, i + BATCH_SIZE);
+  for (let i = 0; i < myUniverse.length; i += BATCH_SIZE) {
+    const batch = myUniverse.slice(i, i + BATCH_SIZE);
     const results = await Promise.all(batch.map(t => harvestTicker(t)));
     for (const r of results) {
       if (r.ok) ok++;
       else fail++;
     }
     // Progress log every 100 tickers
-    if ((i + BATCH_SIZE) % 100 === 0 || i + BATCH_SIZE >= UNIVERSE.length) {
-      console.log('[flow-harvest] Progress: ' + (i + BATCH_SIZE) + '/' + UNIVERSE.length + ' (ok=' + ok + ' fail=' + fail + ')');
+    if ((i + BATCH_SIZE) % 100 === 0 || i + BATCH_SIZE >= myUniverse.length) {
+      const prefix = isSharded ? '[shard-' + shardIndex + ']' : '[flow-harvest]';
+      console.log(prefix + ' Progress: ' + (i + BATCH_SIZE) + '/' + myUniverse.length + ' (ok=' + ok + ' fail=' + fail + ')');
     }
   }
 
   const duration = Math.round((Date.now() - start) / 1000);
-  console.log('[flow-harvest] Universe complete: ' + ok + '/' + UNIVERSE.length + ' in ' + duration + 's (fail=' + fail + ')');
+  const logPrefix = isSharded ? '[shard-' + shardIndex + ']' : '[flow-harvest]';
+  console.log(logPrefix + ' Universe complete: ' + ok + '/' + myUniverse.length + ' in ' + duration + 's (fail=' + fail + ')');
 
   // ── DEMAND-DRIVEN DYNAMIC UNIVERSE ──
-  // Process non-universe tickers that users queried during this market session.
-  // Vercel registers them in Redis 'flow:dynamic-universe' list.
-  // This block is completely independent — universe data is ALREADY saved above.
+  // Only the last shard (or non-sharded mode) processes dynamic universe.
+  // This prevents duplicate processing across shards.
   let dynamicOk = 0, dynamicFail = 0;
-  try {
-    const dynamicList = await redisGet('flow:dynamic-universe');
-    if (dynamicList && Array.isArray(dynamicList) && dynamicList.length > 0) {
-      // Filter out any tickers already in UNIVERSE (safety)
-      const universeSet = new Set(UNIVERSE);
-      const dynamicTickers = dynamicList.filter(t => !universeSet.has(t));
+  const isLastShard = !isSharded || shardIndex === TOTAL_SHARDS - 1;
+  if (isLastShard) {
+    try {
+      const dynamicList = await redisGet('flow:dynamic-universe');
+      if (dynamicList && Array.isArray(dynamicList) && dynamicList.length > 0) {
+        // Filter out any tickers already in UNIVERSE (safety)
+        const universeSet = new Set(UNIVERSE);
+        const dynamicTickers = dynamicList.filter(t => !universeSet.has(t));
 
-      if (dynamicTickers.length > 0) {
-        console.log('[flow-harvest] Dynamic universe: ' + dynamicTickers.length + ' tickers: ' + dynamicTickers.join(', '));
+        if (dynamicTickers.length > 0) {
+          console.log('[flow-harvest] Dynamic universe: ' + dynamicTickers.length + ' tickers: ' + dynamicTickers.join(', '));
 
-        for (let i = 0; i < dynamicTickers.length; i += BATCH_SIZE) {
-          const batch = dynamicTickers.slice(i, i + BATCH_SIZE);
-          const results = await Promise.all(batch.map(t => harvestTicker(t)));
-          for (const r of results) {
-            if (r.ok) dynamicOk++;
-            else dynamicFail++;
+          for (let i = 0; i < dynamicTickers.length; i += BATCH_SIZE) {
+            const batch = dynamicTickers.slice(i, i + BATCH_SIZE);
+            const results = await Promise.all(batch.map(t => harvestTicker(t)));
+            for (const r of results) {
+              if (r.ok) dynamicOk++;
+              else dynamicFail++;
+            }
           }
+          console.log('[flow-harvest] Dynamic complete: ' + dynamicOk + '/' + dynamicTickers.length + ' (fail=' + dynamicFail + ')');
         }
-        console.log('[flow-harvest] Dynamic complete: ' + dynamicOk + '/' + dynamicTickers.length + ' (fail=' + dynamicFail + ')');
       }
+    } catch (e) {
+      // Dynamic universe failure NEVER affects fixed universe
+      console.log('[flow-harvest] Dynamic universe error (non-critical): ' + (e.message || e));
     }
-  } catch (e) {
-    // Dynamic universe failure NEVER affects fixed universe
-    console.log('[flow-harvest] Dynamic universe error (non-critical): ' + (e.message || e));
   }
 
   const totalDuration = Math.round((Date.now() - start) / 1000);
@@ -840,8 +861,11 @@ exports.handler = async (event) => {
     statusCode: 200,
     body: JSON.stringify({
       success: true,
-      version: '2.2',
-      tickers: UNIVERSE.length,
+      version: '3.0-shard',
+      shard: shardIndex,
+      totalShards: isSharded ? TOTAL_SHARDS : 1,
+      tickers: myUniverse.length,
+      totalUniverse: UNIVERSE.length,
       ok, fail, duration,
       dynamic: { count: dynamicOk + dynamicFail, ok: dynamicOk, fail: dynamicFail },
       totalDuration,

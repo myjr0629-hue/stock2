@@ -69,7 +69,17 @@ interface SectorFlowRate {
     name: string;
     change: number;
     volume: number;
-    topConstituents?: { symbol: string; price: number; change: number; volume: number }[];
+    topConstituents?: { symbol: string; price: number; change: number; volume: number; whale?: number }[];
+    instFlow?: {
+        avgWhale: number;
+        totalNetPremium: number;
+        avgDarkPool: number;
+        avgPCR: number;
+        totalGEX: number;
+        ifs: number;
+        tickerCount: number;
+        divergence: 'CONFIRMED' | 'DIVERGENT' | 'NEUTRAL';
+    };
 }
 
 interface FlowVector {
@@ -680,6 +690,39 @@ export default function GuardianDesktop() {
                                                         else if (netFlow < -10) insightLines.push(`→ Net outflow dominant — capital dispersing to other sectors`);
                                                     }
 
+                                                    // [V14.0] Institutional Flow Score insight
+                                                    if (sec.instFlow) {
+                                                        const ifs = sec.instFlow.ifs;
+                                                        if (sec.instFlow.divergence === 'DIVERGENT') {
+                                                            if (locale === 'ko') {
+                                                                if (isInflow && ifs < -20) {
+                                                                    insightLines.push(`⚠ 가격 상승이지만 기관 IFS ${ifs.toFixed(0)} — 개인 주도 가능`);
+                                                                } else if (!isInflow && ifs > 20) {
+                                                                    insightLines.push(`⚠ 가격 하락이지만 기관 IFS +${ifs.toFixed(0)} — 스텔스 매집 감지`);
+                                                                }
+                                                            } else if (locale === 'ja') {
+                                                                if (isInflow && ifs < -20) {
+                                                                    insightLines.push(`⚠ 価格上昇だが機関IFS ${ifs.toFixed(0)} — 個人主導の可能性`);
+                                                                } else if (!isInflow && ifs > 20) {
+                                                                    insightLines.push(`⚠ 価格下落だが機関IFS +${ifs.toFixed(0)} — ステルス買集検出`);
+                                                                }
+                                                            } else {
+                                                                if (isInflow && ifs < -20) {
+                                                                    insightLines.push(`⚠ Price rising but IFS ${ifs.toFixed(0)} — possible retail-driven`);
+                                                                } else if (!isInflow && ifs > 20) {
+                                                                    insightLines.push(`⚠ Price falling but IFS +${ifs.toFixed(0)} — stealth accumulation`);
+                                                                }
+                                                            }
+                                                        } else if (sec.instFlow.divergence === 'CONFIRMED') {
+                                                            if (locale === 'ko') {
+                                                                insightLines.push(`✓ 기관 수급 확인 (IFS ${ifs > 0 ? '+' : ''}${ifs.toFixed(0)})`);
+                                                            } else if (locale === 'ja') {
+                                                                insightLines.push(`✓ 機関需給確認 (IFS ${ifs > 0 ? '+' : ''}${ifs.toFixed(0)})`);
+                                                            } else {
+                                                                insightLines.push(`✓ Institutional flow confirmed (IFS ${ifs > 0 ? '+' : ''}${ifs.toFixed(0)})`);
+                                                            }
+                                                        }
+                                                    }
                                                     return (
                                                         <div className="absolute top-3 right-3 z-30 w-[260px] animate-in fade-in slide-in-from-right-2 duration-300">
                                                             <div className="bg-slate-900/92 backdrop-blur-xl border border-slate-600/40 rounded-xl shadow-2xl shadow-black/40 overflow-hidden">
@@ -989,7 +1032,19 @@ export default function GuardianDesktop() {
                                             {selectedSector ? (
                                                 <div className="h-full flex flex-col">
                                                     <div className="flex justify-between items-baseline mb-3 flex-none">
-                                                        <span className="text-lg font-bold text-white">{getSectorName(selectedSector.name, locale)}</span>
+                                                        <div className="flex items-center gap-2">
+                                                            <span className="text-lg font-bold text-white">{getSectorName(selectedSector.name, locale)}</span>
+                                                            {/* [V14.0] IFS Badge */}
+                                                            {selectedSector.instFlow && (
+                                                                <span className={`text-[11px] font-mono font-bold px-1.5 py-0.5 rounded border ${
+                                                                    selectedSector.instFlow.ifs > 20 ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30' :
+                                                                    selectedSector.instFlow.ifs < -20 ? 'bg-rose-500/15 text-rose-400 border-rose-500/30' :
+                                                                    'bg-slate-700/50 text-slate-400 border-slate-700/50'
+                                                                }`}>
+                                                                    IFS {selectedSector.instFlow.ifs > 0 ? '+' : ''}{selectedSector.instFlow.ifs.toFixed(0)}
+                                                                </span>
+                                                            )}
+                                                        </div>
                                                         <span className={`text-xl font-mono ${selectedSector.change >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
                                                             {selectedSector.change > 0 ? "+" : ""}{selectedSector.change.toFixed(2)}%
                                                         </span>
@@ -1061,6 +1116,43 @@ export default function GuardianDesktop() {
                                                                     </div>
                                                                 </div>
 
+                                                                {/* [V14.0] Institutional Flow Card */}
+                                                                {selectedSector.instFlow && (
+                                                                    <div className="bg-slate-900/80 rounded-lg px-3 py-2 border border-slate-800/50 mt-2">
+                                                                        <div className="flex items-center justify-between">
+                                                                            <div>
+                                                                                <div className="text-[12px] text-slate-500 font-bold tracking-wider mb-1">Inst. Flow</div>
+                                                                                <div className="flex items-baseline gap-2">
+                                                                                    <span className={`text-sm font-mono font-bold ${
+                                                                                        selectedSector.instFlow.ifs > 20 ? 'text-emerald-400' :
+                                                                                        selectedSector.instFlow.ifs < -20 ? 'text-rose-400' : 'text-slate-400'
+                                                                                    }`}>
+                                                                                        {selectedSector.instFlow.ifs > 0 ? '+' : ''}{selectedSector.instFlow.ifs.toFixed(0)}
+                                                                                    </span>
+                                                                                    <span className={`text-[11px] font-medium ${
+                                                                                        selectedSector.instFlow.divergence === 'CONFIRMED' ? 'text-emerald-400' :
+                                                                                        selectedSector.instFlow.divergence === 'DIVERGENT' ? 'text-amber-400' : 'text-slate-500'
+                                                                                    }`}>
+                                                                                        {selectedSector.instFlow.divergence === 'CONFIRMED' 
+                                                                                            ? (locale === 'ko' ? '\u2713 \uae30\uad00 \ud655\uc778' : locale === 'ja' ? '\u2713 \u6a5f\u95a2\u78ba\u8a8d' : '\u2713 Confirmed')
+                                                                                            : selectedSector.instFlow.divergence === 'DIVERGENT' 
+                                                                                            ? (locale === 'ko' ? '\u26a0 \uac00\uaca9 \uad34\ub9ac' : locale === 'ja' ? '\u26a0 \u4e56\u96e2' : '\u26a0 Divergent')
+                                                                                            : (locale === 'ko' ? '\uc911\ub9bd' : locale === 'ja' ? '\u4e2d\u7acb' : 'Neutral')}
+                                                                                    </span>
+                                                                                </div>
+                                                                            </div>
+                                                                            <div className="text-right">
+                                                                                <div className="text-[11px] text-slate-600 font-mono">
+                                                                                    <span className="text-slate-500">W</span> {selectedSector.instFlow.avgWhale}
+                                                                                </div>
+                                                                                <div className="text-[11px] text-slate-600 font-mono">
+                                                                                    <span className="text-slate-500">DP</span> {selectedSector.instFlow.avgDarkPool}%
+                                                                                </div>
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+                                                                )}
+
                                                                 {/* Bounce Warning */}
                                                                 {td.isBounce && (
                                                                     <div className="mt-2 flex items-center gap-2 bg-amber-950/30 border border-amber-500/20 rounded-lg px-3 py-2">
@@ -1099,6 +1191,11 @@ export default function GuardianDesktop() {
                                                                         <span className={`text-[13px] font-mono font-bold ${stock.change >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
                                                                             {stock.change > 0 ? "+" : ""}{stock.change.toFixed(2)}%
                                                                         </span>
+                                                                        {stock.whale !== undefined && (
+                                                                            <span className={`text-[11px] font-mono ${stock.whale >= 60 ? 'text-emerald-500' : stock.whale <= 40 ? 'text-rose-500' : 'text-slate-600'}`}>
+                                                                                W{Math.round(stock.whale)}
+                                                                            </span>
+                                                                        )}
                                                                     </div>
                                                                 </Link>
                                                             ))

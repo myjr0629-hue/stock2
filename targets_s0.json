@@ -1,0 +1,1 @@
+[{"Id":"shard-0-target","Arn":"arn:aws:lambda:us-east-1:071378139897:function:signum-flow-harvest","Input":"{\"shard\":0}"}]

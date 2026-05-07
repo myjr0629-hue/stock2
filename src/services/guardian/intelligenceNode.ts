@@ -111,6 +111,10 @@ interface IntelligenceContext {
     // [V13.0] DIVERGENCE CONTEXT — Surface vs Internal flow mismatch
     divergenceCase?: 'A' | 'B' | 'C' | 'D' | 'N';  // A=FalseRally, B=StealthInflow, C=FullBull, D=DeepFreeze, N=Sync
     divergenceDesc?: string;          // Localized divergence description
+    // [V14.0] Institutional Flow Score per sector
+    sectorIFS?: { id: string; ifs: number; divergence: string }[];
+    stealthAlert?: string;            // e.g. "Healthcare: -0.3% but IFS +55"
+    exitAlert?: string;               // e.g. "Energy: +0.8% but IFS -42"
 }
 
 // === TIME-BASED GATING ===
@@ -196,6 +200,11 @@ const ROTATION_PROMPTS: Record<Locale, (ctx: IntelligenceContext, vectorDesc: st
         ${ctx.triggerResistance ? `- 옵션 저항선(S&P 500): ${ctx.triggerResistance.toLocaleString()}` : ''}
         ${ctx.triggerCurrent ? `- 현재가(S&P 500): ${ctx.triggerCurrent.toLocaleString()}` : ''}` : ''}
 
+        ${ctx.sectorIFS && ctx.sectorIFS.length > 0 ? `**[기관 수급 (Institutional Flow Score)]:**
+        ${ctx.sectorIFS.map(s => `- ${s.id}: IFS ${s.ifs > 0 ? '+' : ''}${s.ifs.toFixed(0)} (${s.divergence})`).join('\n        ')}` : ''}
+        ${ctx.stealthAlert ? `- [STEALTH 매집] ${ctx.stealthAlert}` : ''}
+        ${ctx.exitAlert ? `- [SMART EXIT] ${ctx.exitAlert}` : ''}
+
         ${ctx.marketNewsHeadlines && ctx.marketNewsHeadlines.length > 0 ? `**[실시간 시장 뉴스]:**
         ${ctx.marketNewsHeadlines.map(h => `- ${h}`).join('\n        ')}` : ''}
 
@@ -227,6 +236,7 @@ const ROTATION_PROMPTS: Record<Locale, (ctx: IntelligenceContext, vectorDesc: st
         - 뉴스에서 핵심 이벤트를 추출하여 수치의 "왜"를 설명
         - 거시경제 자산 동향으로 순환매의 배경을 설명 (예: "유가 급등으로 에너지 유입")
         - 이모지(emoji) 사용 절대 금지. 텍스트만 사용
+        - **기관 수급(IFS)이 제공된 경우**: 가격 상승인데 IFS 음수 섹터는 "개인 주도 상승" 언급, 가격 하락인데 IFS 양수는 "기관 스텔스 매집" 패턴으로 분석. STEALTH/EXIT 알러트가 있으면 반드시 [해석]에 포함
     `;
     },
     en: (ctx, vectorDesc) => `
@@ -252,6 +262,11 @@ const ROTATION_PROMPTS: Record<Locale, (ctx: IntelligenceContext, vectorDesc: st
         ${ctx.triggerSupport ? `- Options Support (S&P 500): ${ctx.triggerSupport.toLocaleString()}` : ''}
         ${ctx.triggerResistance ? `- Options Resistance (S&P 500): ${ctx.triggerResistance.toLocaleString()}` : ''}
         ${ctx.triggerCurrent ? `- Current Price (S&P 500): ${ctx.triggerCurrent.toLocaleString()}` : ''}` : ''}
+
+        ${ctx.sectorIFS && ctx.sectorIFS.length > 0 ? `**[Institutional Flow Score (IFS)]:**
+        ${ctx.sectorIFS.map(s => `- ${s.id}: IFS ${s.ifs > 0 ? '+' : ''}${s.ifs.toFixed(0)} (${s.divergence})`).join('\n        ')}` : ''}
+        ${ctx.stealthAlert ? `- [STEALTH ACCUMULATION] ${ctx.stealthAlert}` : ''}
+        ${ctx.exitAlert ? `- [SMART MONEY EXIT] ${ctx.exitAlert}` : ''}
 
         ${ctx.marketNewsHeadlines && ctx.marketNewsHeadlines.length > 0 ? `**[Real-time Market News]:**
         ${ctx.marketNewsHeadlines.map(h => `- ${h}`).join('\n        ')}` : ''}
@@ -282,6 +297,7 @@ const ROTATION_PROMPTS: Record<Locale, (ctx: IntelligenceContext, vectorDesc: st
         - Max 3 lines, concise
         - Reference key news events to explain the "why" behind the numbers
         - Do NOT use any emoji. Use plain text only
+        - **When IFS data is provided**: If a sector shows price rise but negative IFS, describe as "retail-driven rally". If price falls but positive IFS, describe as "stealth institutional accumulation". STEALTH/EXIT alerts MUST be addressed in [Interpretation]
     `,
     ja: (ctx, vectorDesc) => `
         あなたは機関投資戦略家です。5日間のトレンドデータとリアルタイムニュースに基づいてセクターローテーションを分析します。
@@ -303,6 +319,11 @@ const ROTATION_PROMPTS: Record<Locale, (ctx: IntelligenceContext, vectorDesc: st
         - スクイーズリスク: ${ctx.squeezeRisk}% (${ctx.squeezeLevel || 'N/A'})
         ${ctx.triggerSupport ? `- オプションサポート(S&P 500): ${ctx.triggerSupport.toLocaleString()}` : ''}
         ${ctx.triggerResistance ? `- オプションレジスタンス(S&P 500): ${ctx.triggerResistance.toLocaleString()}` : ''}` : ''}
+
+        ${ctx.sectorIFS && ctx.sectorIFS.length > 0 ? `**[機関需給 (Institutional Flow Score)]:**
+        ${ctx.sectorIFS.map(s => `- ${s.id}: IFS ${s.ifs > 0 ? '+' : ''}${s.ifs.toFixed(0)} (${s.divergence})`).join('\n        ')}` : ''}
+        ${ctx.stealthAlert ? `- [ステルス買集] ${ctx.stealthAlert}` : ''}
+        ${ctx.exitAlert ? `- [スマートマネー流出] ${ctx.exitAlert}` : ''}
 
         ${ctx.marketNewsHeadlines && ctx.marketNewsHeadlines.length > 0 ? `**[リアルタイム市場ニュース]:**
         ${ctx.marketNewsHeadlines.map(h => `- ${h}`).join('\n        ')}` : ''}
@@ -331,6 +352,7 @@ const ROTATION_PROMPTS: Record<Locale, (ctx: IntelligenceContext, vectorDesc: st
         - 3行以内、簡潔に
         - ニュースから核心イベントを抽出して「なぜ」を説明
         - 絵文字(emoji)使用禁止。テキストのみ使用
+        - **機関需給(IFS)が提供された場合**: 価格上昇だがIFSマイナスのセクターは「個人主導上昇」と言及、価格下落だがIFSプラスは「機関ステルス買集」パターンとして分析
     `
 };
 

@@ -1,0 +1,1 @@
+[{"Id":"fmp-shard-0","Arn":"arn:aws:lambda:us-east-1:071378139897:function:signum-fmp","Input":"{\"shard\":0}"}]

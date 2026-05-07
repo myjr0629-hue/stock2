@@ -610,6 +610,16 @@ export class GuardianDataHub {
                         triggerCurrent: gammaShieldData?.currentPrice ?? undefined,
                         // [V13.0] DIVERGENCE CONTEXT — pass to AI for divergence-aware analysis
                         ...divergenceForAi,
+                        // [V14.0] Institutional Flow Score per sector — for rotation accuracy
+                        sectorIFS: flows.filter(f => f.instFlow).map(f => ({
+                            id: f.id,
+                            ifs: f.instFlow!.ifs,
+                            divergence: f.instFlow!.divergence
+                        })),
+                        stealthAlert: flows.filter(f => f.instFlow?.divergence === 'DIVERGENT' && f.change < 0 && f.instFlow!.ifs > 20)
+                            .map(f => `${f.name}: ${f.change.toFixed(1)}% but IFS +${f.instFlow!.ifs.toFixed(0)}`)[0] || undefined,
+                        exitAlert: flows.filter(f => f.instFlow?.divergence === 'DIVERGENT' && f.change > 0 && f.instFlow!.ifs < -20)
+                            .map(f => `${f.name}: +${f.change.toFixed(1)}% but IFS ${f.instFlow!.ifs.toFixed(0)}`)[0] || undefined,
                     };
 
                     const [rotationText, realityText] = await Promise.all([
