@@ -836,9 +836,9 @@ async function buildResponseFromAnalysisCache(
             _netPremium: ac.netPremium,
             _volume: ac.volume,
             sparkline: ac.sparkline,
-            whaleIndex: ac.whaleIndex,
+            whaleIndex: calculateWhaleIndex(ac.gex, ac.darkPoolPct, null, ac.netPremium),
             whaleConfidence: ac.whaleConfidence,
-            smartFlow: ac.whaleIndex,
+            smartFlow: calculateWhaleIndex(ac.gex, ac.darkPoolPct, null, ac.netPremium),
             // Alpha from pre-computed cache
             alpha: ac.alphaSnapshot ? {
                 score: ac.alphaSnapshot.score,

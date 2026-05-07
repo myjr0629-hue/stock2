@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse, after } from 'next/server';
 import { getFromCache, setInCache } from '@/services/redisClient';
 import { fetchMassive } from '@/services/massiveClient';
+import { calculateWhaleIndex } from '@/services/alphaEngine';
 
 export const dynamic = 'force-dynamic';
 
@@ -54,7 +55,10 @@ async function injectAlphaBypass(data: any, ticker: string) {
             // CRITICAL: cache:analysis whaleIndex can be 0 (blockTrades=undefined bug),
             // but DynamoDB unified-cache has the correct smartFlow value (manually recovered).
             if (needsFlow) {
-                if (ac.whaleIndex != null && ac.whaleIndex > 0) {
+                if (ac.gex != null || ac.darkPoolPct != null || ac.netPremium != null) {
+                    // [FIX] Always recalculate via V2 engine — cached whaleIndex may be stale
+                    data.smartFlow = calculateWhaleIndex(ac.gex, ac.darkPoolPct, null, ac.netPremium);
+                } else if (ac.whaleIndex != null && ac.whaleIndex > 0) {
                     data.smartFlow = ac.whaleIndex;
                 } else {
                     // Fallback to DynamoDB unified-cache smartFlow
@@ -1471,7 +1475,7 @@ async function tryDynamoFast(ticker: string): Promise<any | null> {
                 squeeze: ad.squeezeScore != null ? { score: ad.squeezeScore } : null,
                 institutional: ad.darkPoolPct ? { darkPool: { percent: ad.darkPoolPct } } : null,
                 fundamentals: null, overview: null,
-                history: gexHistory, alpha: ad.alphaSnapshot ? { score: ad.alphaSnapshot.score, grade: ad.alphaSnapshot.grade } : null, smartFlow: ad.whaleIndex || 0,
+                history: gexHistory, alpha: ad.alphaSnapshot ? { score: ad.alphaSnapshot.score, grade: ad.alphaSnapshot.grade } : null, smartFlow: calculateWhaleIndex(ad.gex, ad.darkPoolPct, null, ad.netPremium),
                 timestamp: ad.timestamp,
             };
         }
