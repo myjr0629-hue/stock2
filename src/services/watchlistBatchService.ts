@@ -407,7 +407,9 @@ export async function processWatchlistBatch(tickers: string[], mode: 'full' | 'p
 
                 // 🔥 [ROOT FIX] WRITING BACK THE RECALCULATED SCORE TO CACHE — ONLY during active market
                 // This upgrades the Lambda's simplified score to the HD V4.6 Sector Grid score globally
-                const updatedAnalysis = { ...analysis, alphaSnapshot: alphaSnapshotV4 };
+                // [FIX] Sanitize ivSkew: Lambda may have written impliedMovePct into ivSkew field
+                const sanitizedIvSkew = (analysis.ivSkew != null && analysis.ivSkew <= 2.0) ? analysis.ivSkew : null;
+                const updatedAnalysis = { ...analysis, alphaSnapshot: alphaSnapshotV4, ivSkew: sanitizedIvSkew };
                 import('@/services/analysisCache').then(m => m.writeAnalysisCache(ticker, updatedAnalysis as any).catch(() => {}));
               } catch (e) {
                 console.warn(`[Watchlist CACHE HIT] V4.6 recalc failed for ${ticker}, using cached:`, e);

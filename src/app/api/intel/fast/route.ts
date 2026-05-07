@@ -236,7 +236,7 @@ export async function GET(request: Request) {
                 rsi = analysis.rsi || 0;
                 rvol = analysis.relVol || 0;
                 squeezeScore = analysis.squeezeScore || 0;
-                ivSkew = analysis.ivSkew || 0;
+                ivSkew = (analysis.ivSkew && analysis.ivSkew <= 2.0) ? analysis.ivSkew : 0;
                 impliedMovePct = analysis.impliedMovePct || 0;
                 sparkline = analysis.sparkline || [];
                 if (gex > 0) gammaRegime = 'LONG';

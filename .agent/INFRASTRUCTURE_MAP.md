@@ -242,17 +242,23 @@ Confidence: 4개 중 강한 신호 3+개=HIGH, 2개=MED, 1개=LOW, 0=NONE
 - **저장**: DynamoDB + Redis (cache:analysis + cache:command:unified) 동시
 - **FMP 호출**: 비유니버스 종목 1종목에 대해서만 FMP API 직접 호출 (Analyst/Earnings). 분당 1-2회 수준, rate limit 영향 없음.
 
-### 4.2 Lambda v2.2 (signum-flow-harvest) — Flow 페이지 전용
+### 4.2 Lambda v3.0-shard (signum-flow-harvest) — Flow 페이지 전용
 - **코드 위치**: `scripts/lambda-flow-harvest/index.js`
 - **배포 스크립트**: `scripts/deploy-flow-harvest.js`
-- **배포 명령**: `node scripts/deploy-flow-harvest.js`
+- **배포 명령**: `node scripts/deploy-flow-harvest.js` (배포 후 반드시 `signum-flow-harvest-5min` DISABLE 확인!)
 - **설정**: timeout=**900s (15분)**, memory=1024MB (1GB)
 - **런타임**: nodejs20.x
-- **EventBridge**: `signum-flow-harvest-5min` (rate(5 minutes), ENABLED)
-- **유니버스**: 1,000종목 (`data/stock_universe_us800.json`) + **동적 유니버스** (비유니버스 종목)
-- **실행 시간**: ~775-815초 (13분), 1000종목, fail=2~6
+- **EventBridge (v3.0 shard)**: 
+  - `signum-flow-harvest-5min` — **DISABLED** (레거시, 롤백용)
+  - `signum-flow-harvest-shard-0` — ENABLED, `{"shard":0}`, rate(5 minutes)
+  - `signum-flow-harvest-shard-1` — ENABLED, `{"shard":1}`, rate(5 minutes)
+  - `signum-flow-harvest-shard-2` — ENABLED, `{"shard":2}`, rate(5 minutes)
+  - `signum-flow-harvest-shard-3` — ENABLED, `{"shard":3}`, rate(5 minutes)
+- **유니버스**: **2,000종목** (`data/stock_universe_us800.json`) + 동적 유니버스 (shard-3에서만 처리)
+- **실행 시간**: shard당 147~169초 (2,000종목, 500종목/shard), **최대 3분 이내**
 - **완전 독립**: signum-harvest와 코드/스케줄/실행 완전 분리
-- **동시 실행 방지 (v2.2)**: Redis 분산 Lock (`flow-harvest:lock`, TTL 900초). 이전 인스턴스 실행 중이면 즉시 SKIP (16ms). `forceRun` 시 Lock 무시.
+- **동시 실행 방지 (v3.0)**: shard별 독립 Lock (`flow-harvest:lock:shard-{N}`, TTL 900초)
+- **하위 호환**: `event.shard` 없이 호출 시 전체 유니버스 처리 (forceRun 등)
 
 #### ⚠️ v2.2 Timeout 수정 이력 (2026-04-30)
 - **v2.1 (원래)**: timeout=600s, 동시 실행 무제한. 실행 시간이 600s 초과 시 10개 이상의 인스턴스가 동시 실행되며 Polygon API 경합 → **전 인스턴스 100% timeout 사망** (4/23~4/30, 8일간 데이터 수집 실패).
@@ -1888,6 +1894,22 @@ bash scripts/ec2-deploy-guardian.sh
 ## 13. 미완료 / 향후 작업 (TODO)
 
 ### 🔴 즉시
+- [ ] **signum-flow-harvest 아키텍처 병렬화 (Sharding) 작업** (2026-05-06 발견)
+  - **문제 원인**: 1,000종목 전체(옵션, 거래, 호가 등)를 단일 람다가 처리하여 평균 13분(775~815초)이 소요됨. 변동성 장세에서 15분(900초) 타임아웃에 걸려 NVDA 등 뒷순서 종목 데이터 캐싱 실패 → UI에서 OPI 0 대기 현상(2초 지연) 발생.
+  - **최적화 방안**: Lambda 4-Shard 병렬화
+    1. 단일 `signum-flow-harvest` Lambda + event payload `{"shard": 0~3}`으로 유니버스 4등분.
+    2. EventBridge Rule 4개가 동시에 트리거 → 각 shard가 독립 실행.
+    3. Lock 키: `flow-harvest:lock:shard-${N}` (shard별 독립 Lock).
+    4. 코드 변경 최소: `harvestTicker()` 등 핵심 로직 변경 0. UNIVERSE 슬라이싱만 추가.
+  - **확장 로드맵**:
+    - Phase 1 (런칭 후): 1,000종목 ÷ 4 shard = 250종목/shard → ~3분 15초 (초안정)
+    - Phase 2 (확장):   2,000종목 ÷ 4 shard = 500종목/shard → ~6분 30초 (안정, 여유율 56%)
+    - Phase 3 (극한):   3,000종목 ÷ 4 shard = 750종목/shard → ~10분 (안전)
+    - Phase 4 (미래):   4,000종목+ → shard 추가(5~6개)로 무한 확장
+  - **유니버스 2,000종목 확장 시 추가 종목 선정 기준**: 옵션 거래가 풍부한(OI/Volume 상위) 종목 위주로 선정. 옵션이 없는 소형주는 flow-harvest 대상에서 제외.
+  - **signum-harvest 영향 없음**: signum-harvest는 현재 1,000종목을 **68초**에 처리 (15분 대비 7.5%). 2,000종목으로 확장해도 ~136초(2분 16초)로 sharding 없이 안전. flow-harvest만 sharding 적용.
+  - **추가 최적화**: trades fetch 중복 제거 (Step1 5K + Step2 10K → Step2 10K 1회로 통합, 종목당 API 1회 절약)
+  - **비용**: Lambda 과금 = 실행시간×메모리. 1대×13분 = 4대×3.25분. **비용 중립**.
 - [x] **Composite WhaleIndex → Alpha Score 연결 (2026-04-07 완료)**
   - Vercel `alphaEngine.ts` `calculateWhaleIndex(gex)` → `(gex, darkPoolPct, blockTrades, netPremium)` Composite 교체
   - 변경: `alphaEngine.ts`, `watchlistBatchService.ts`, `powerEngine.ts`, `dashboard/unified/route.ts`, `live/ticker/route.ts`
@@ -5283,4 +5305,239 @@ const tickerSet = useMemo(() => new Set(dashboardTickers), [dashboardTickers]);
 | `src/components/ui/PriceDisplay.tsx` | 레이아웃 순서 + 폰트 크기 | SESSION GRID, 메인 워치리스트 |
 | `src/app/[locale]/dashboard/DashboardClient.tsx` | 헤더 PRE 수정 + Signal Feed 필터 | 대시보드 |
 
+---
 
+## 19. 🔧 UnifiedPriceService — 원파이프 가격 아키텍처 (2026-05-06 구축 완료)
+
+### 19.1 현황 및 목적
+
+**코드 위치**: `src/services/unifiedPriceService.ts`
+**상태**: ✅ 구축 완료, ⚠️ 리팩토링 미적용 (기존 코드에 영향 없음)
+
+**목적**: 모든 페이지(Dashboard, Watchlist, Command, Flow, Related)에서 사용 가능한 **단일 가격 계산 서비스**. PRE/REG/POST/CLOSED 모든 세션에서 정확한 가격과 등락률을 보장.
+
+### 19.2 현재 문제: 3-파이프 경쟁적 쓰기 (대시보드)
+
+```
+현재 대시보드 가격 흐름:
+SSR (initializeStore)     → store.underlyingPrice = 정확한 값
+fetchPriceOnly (2초 폴링) → store.underlyingPrice = Polygon 불안정값으로 덮어씀 ← 버그 원인
+WebSocket Push (실시간)   → store.underlyingPrice = AH 체결가로 또 덮어씀
+```
+
+3개 파이프가 **각각 다른 로직**으로 **같은 store 필드에 경쟁적 쓰기** → 한 곳을 고쳐도 다른 곳이 다시 잘못된 값을 씀 → **구조적으로 해결 불가능**
+
+### 19.3 원파이프 세션별 동작 (확정 사양)
+
+| 세션 | regularPrice (본장 가격) | regularChangePct (본장 등락률) | Extended |
+|------|------|------|------|
+| **PRE** | 어제 종가 (`prevDayClose`) | (어제종가 - 그저께종가) / 그저께종가 | PRE 가격 + PRE 등락률 별도 표시 |
+| **REG** | 실시간 체결가 (WS > lastTrade > day.c) | (현재가 - 어제종가) / 어제종가 | PRE CLOSE 표시 (REG 중에는 PRE 끝남) |
+| **POST** | 오늘 정규장 종가 (`regularCloseToday > day.c`) | (오늘종가 - 어제종가) / 어제종가 | POST 가격 + POST 등락률 별도 표시 |
+| **CLOSED** | 직전장 종가 유지 (다음 장까지 고정) | 직전장 등락률 유지 | POST 데이터 있으면 POST도 유지 |
+| **주말/휴일** | CLOSED와 동일 | CLOSED와 동일 | CLOSED와 동일 |
+| **다음 장 개시** | session이 PRE로 바뀌면 자동 전환 | 자동 전환 | 자동 전환 |
+
+**핵심**: session 하나만 바뀌면 나머지는 전부 자동.
+
+### 19.4 API: 3가지 사용 모드
+
+```typescript
+// Mode A: Full (Command, Flow — 본장+PRE/POST 전부 필요)
+calcUnifiedPrice(input) → { regularPrice, regularChangePct, prePrice, postPrice, ... }
+
+// Mode B: Session (Related — 현재 세션 등락률만)
+getSessionChange(input) → { price, changePct }
+
+// Mode C: Watchlist (본장 메인 + extended 서브)
+getWatchlistPrice(input) → { displayPrice, changePct, extPrice, extChangePct, extLabel }
+
+// Helper: Polygon snapshot → input 자동 변환
+fromPolygonSnapshot(tickerData, session, dailyCloses?) → UnifiedPriceInput
+```
+
+### 19.5 리팩토링 영향도 (Phase별)
+
+#### Phase 1-2: UI 표시만 교체 → 지표 영향 0% ✅
+
+| 파일 | 현재 | 교체 후 | 교체량 |
+|------|------|------|:---:|
+| `DashboardClient.tsx` (워치리스트 LAST/CHG%/POST) | `calcPriceDisplay` + `fetchPriceOnly` 자체 로직 | `calcUnifiedPrice` | ~20줄 |
+| `MobileDashboardShell.tsx` | `calcPriceDisplay` | `calcUnifiedPrice` | ~10줄 |
+| `MobileDashboardClient.tsx` | `calcPriceDisplay` | `calcUnifiedPrice` | ~5줄 |
+| `MobileCommandPage.tsx` | `calcPriceDisplay` | `calcUnifiedPrice` | ~5줄 |
+| `FlowPageClient.tsx` | `calcPriceDisplay` | `calcUnifiedPrice` | ~5줄 |
+| `MobileFlowPage.tsx` | `calcPriceDisplay` | `calcUnifiedPrice` | ~5줄 |
+
+**이 10곳은 JSX 렌더링만 — Alpha Score, Whale Index 등 지표에 영향 없음.**
+
+#### Phase 4-5: 서버 batch 교체 → Alpha Score ±1~5점 변동 가능 ⚠️
+
+| 파일 | 위험 사항 |
+|------|------|
+| `watchlistBatchService.ts` buildBasePrice | Alpha Engine `calculateAlphaScore()`에 price/changePct 입력 |
+| `portfolioBatchService.ts` buildBasePrice | 동일 |
+| `/api/live/ticker` | 동일 |
+
+**price를 입력으로 사용하는 Alpha Engine factor (6개)**:
+- `priceChange` (0-8점): changePct > 3% → 2점, < -1% → 8점
+- `vwapPosition` (0-5점): (price - vwap) / vwap
+- `trendConfirm` (0-5점): changePct > 1% + 기관확인
+- `SURGE_PENALTY`: changePct > 3% → **-5점**
+- `DIP_BONUS`: changePct < -3% → **+8점**
+
+**Phase 4-5는 Phase 1-2 완료 후 별도 진행하며, Alpha Score 비교 검증 필수.**
+
+### 19.6 대시보드만 적용 시 (권장 순서)
+
+**수정 파일**: `dashboardStore.ts` → `fetchPriceOnly()` 함수 **1개만**
+**UI 변경**: ZERO (store 필드명 동일 매핑)
+**다른 페이지 영향**: ZERO (외부 페이지는 dashboardStore에서 종목 리스트 관리만 사용, 가격 미참조)
+**지표 영향**: ZERO (Dashboard는 표시용만)
+
+## 20. 🐋 WhaleIndex(SmartFlow) V2 정합성 수정 (2026-05-07 완료)
+
+### 20.1 문제
+- **전 페이지에서 WhaleIndex(=SmartFlow)가 과대 표시** (NVDA: 100 → 정확한 V2 값: 76)
+- **원인**: Lambda harvest V1이 기록한 stale 값이 Redis/DynamoDB 캐시에 남아있었음
+- **100은 V2 시그모이드 압축(`tanh(x/30)`)으로 수학적 도달 불가능** — 100 자체가 계산 경로 오류의 증거
+
+### 20.2 영향 범위
+| 페이지 | 필드명 | 수정 전 | 수정 후 |
+|:---|:---|:---:|:---:|
+| SESSION GRID | `whaleIndex` | 100 (stale) | V2 재계산 |
+| Command | `smartFlow` | 100 (stale) | V2 재계산 |
+| Dashboard | `smartFlow` | 100 (stale) | V2 재계산 |
+| Portfolio | `whaleIndex` | 0 (하드코딩) | V2 재계산 |
+
+### 20.3 수정 코드 경로 (10개)
+
+| # | 파일 | 위치 | 변경 |
+|:---:|:---|:---|:---|
+| 1 | `watchlistBatchService.ts` | SSR fast-track L309 | `analysis.whaleIndex` → `calculateWhaleIndex(gex,dp,bt,np)` |
+| 2 | `watchlistBatchService.ts` | CACHE HIT full L432 | 동일 |
+| 3 | `watchlistBatchService.ts` | DynamoDB fallback L515 | `0` → `calculateWhaleIndex(gex,dp,bt,np)` |
+| 4 | `watchlistBatchService.ts` | DynamoDB alpha input L555 | 동일 |
+| 5 | `watchlistBatchService.ts` | DynamoDB return L602 | 동일 |
+| 6 | `dashboard/unified/route.ts` | analysis-cache L839 | `ac.whaleIndex` → 재계산 |
+| 7 | `dashboard/unified/route.ts` | smartFlow L841 | 동일 |
+| 8 | `command/unified/route.ts` | injectAlphaBypass L57 | raw data 우선 재계산, 없으면 fallback |
+| 9 | `command/unified/route.ts` | GEX history L1478 | `ad.whaleIndex` → 재계산 |
+
+### 20.4 핵심 원칙
+> **캐시에 저장된 `whaleIndex`를 절대 신뢰하지 않는다.**
+> 모든 반환 시점에서 `calculateWhaleIndex(gex, darkPoolPct, blockTrades, netPremium)`로 실시간 재계산.
+> `calculateWhaleIndex`는 순수 함수(pure function)이며 API 호출 없이 0ms에 완료됨.
+
+### 20.5 WhaleIndex = SmartFlow 동의어
+```
+SESSION GRID: q.whaleIndex → calculateWhaleIndex()
+Command:      data.smartFlow = ac.whaleIndex → calculateWhaleIndex()
+Dashboard:    tickersData[ticker].smartFlow → calculateWhaleIndex()
+```
+**전부 `calculateWhaleIndex()` 하나에서 계산되며, 저장 위치에 따라 이름만 다름.**
+
+---
+
+## 21. 📊 IV SKEW 데이터 오염 수정 (2026-05-07 완료)
+
+### 21.1 문제
+- **모든 종목에서 `ivSkew === impliedMovePct` (동일 값)**
+- IV Skew 정상 범위: **0.85~1.30** (Put ATM IV / Call ATM IV)
+- 표시된 값: **5~18** → 이것은 명백히 Implied Move % 값
+
+| 종목 | 표시된 ivSkew | 정상 범위 | impliedMovePct | 동일? |
+|:---:|:---:|:---:|:---:|:---:|
+| NVDA | 9.65 | 0.85~1.30 | 9.65 | ❌ YES |
+| TSLA | 17.64 | 0.85~1.30 | 17.64 | ❌ YES |
+| AAPL | 5.22 | 0.85~1.30 | 5.22 | ❌ YES |
+
+### 21.2 원인
+**Lambda harvest가 `impliedMovePct` 값을 `ivSkew` 필드에 저장** → Redis `cache:analysis`에 오염된 값 고착 → Universe 종목은 항상 CACHE HIT → 정상 재계산 기회 없음
+
+### 21.3 수정 방법: 오염 값 거부 (IV Skew > 2.0 = 불가능)
+```typescript
+// 모든 analysis.ivSkew 읽기 경로에 적용
+ivSkew: (analysis.ivSkew != null && analysis.ivSkew <= 2.0) ? analysis.ivSkew : null
+```
+
+### 21.4 수정 파일 목록
+
+| # | 파일 | 위치 | 변경 |
+|:---:|:---|:---|:---|
+| 1 | `watchlistBatchService.ts` | SSR fast-track L313 | 오염 가드 추가 |
+| 2 | `watchlistBatchService.ts` | Alpha input L369 | 오염 가드 추가 |
+| 3 | `watchlistBatchService.ts` | CACHE HIT full L436 | 오염 가드 추가 |
+| 4 | `watchlistBatchService.ts` | DynamoDB return L606 | 오염 가드 추가 |
+| 5 | `watchlistBatchService.ts` | Cache writeback L410 | 오염 값 정제 후 저장 |
+| 6 | `intel/fast/route.ts` | analysis read L239 | 오염 가드 추가 |
+
+### 21.5 Lambda 수정 필요 사항 (TODO)
+> **⚠️ Lambda harvest 코드에서 ivSkew 필드에 올바른 `computeIVSkew()` 결과를 저장하도록 수정 필요.**
+> 현재 Vercel 측에서 오염 방지 가드로 잘못된 값을 null 처리하지만, Lambda가 올바른 값을 저장하면 ivSkew가 정상 표시됨.
+> Lambda 수정 시 `computeIVSkew(rawContracts, currentPrice)` 사용 — 결과 범위: 0.85~1.30
+
+---
+
+## 22. 🔍 SESSION GRID 전체 지표 정합성 검증 결과 (2026-05-07)
+
+### 22.1 검증 대상: 10개 지표
+
+| # | 지표 | 데이터 소스 | 정합성 | 비고 |
+|:---:|:---|:---|:---:|:---|
+| 1 | **GEX** (Net Gamma Exposure) | Structure API → Redis | ✅ 정확 | 실시간 계산 |
+| 2 | **PCR** (Put/Call Ratio) | Options API → Redis | ✅ 정확 | |
+| 3 | **NET PREMIUM** | Structure API → Redis | ✅ 정확 | |
+| 4 | **DARK POOL %** | EC2 ElastiCache → Redis | ✅ 정확 | EC2 SSOT |
+| 5 | **PUT FLOOR** | Structure API → Redis | ✅ 정확 | 최대 OI Put |
+| 6 | **CALL WALL** | Structure API → Redis | ✅ 정확 | 최대 OI Call |
+| 7 | **MAX PAIN** | Structure API → Redis | ✅ 정확 | |
+| 8 | **SQUEEZE** | Short-squeeze API → Redis | ✅ 정확 | 0-100 범위 정상 |
+| 9 | **WHALE/SMART FLOW** | `calculateWhaleIndex()` → Redis | ✅ **수정 완료** | V2 항상 재계산 |
+| 10 | **IV SKEW** | `computeIVSkew()` → Redis | ⚠️ **오염 가드 적용** | Lambda 수정 대기 |
+
+### 22.2 Implied Move % — 별도 표시 지표
+
+| 지표 | 계산 방식 | 정합성 |
+|:---|:---|:---:|
+| **IMP MOVE** | `(callWall - putFloor) / price × 100` 또는 `computeImpliedMovePct()` | ✅ 정확 |
+
+### 22.3 One-Pipe 가격 아키텍처 적용 현황 (2026-05-06~07)
+
+| 페이지 | 적용 | 핵심 변경 |
+|:---|:---:|:---|
+| **워치리스트 (Main)** | ✅ | `calcUnifiedPrice` + `regularCloseToday` SSR 잠금 |
+| **포트폴리오** | ✅ | 동일 + `useRef` SSR 초기화로 re-navigation 플리커 방지 |
+| **Command** | ✅ (기존 안정) | 이미 잠금 메커니즘 적용 상태 |
+| **Dashboard** | ✅ (기존 안정) | `dashboardStore` 독립 |
+
+### 22.4 2,000종목 인프라 확장 관련
+
+| 항목 | 상태 | 비고 |
+|:---|:---:|:---|
+| Universe 확장 (70→2000) | ✅ 배포 완료 | `src/lib/universe.ts` |
+| Lambda harvest 2000종목 | ✅ 배포 완료 | `lambda-harvest` V8.x |
+| Redis cache:analysis 2000종목 | ✅ 정상 | warm-analysis cron 2분 주기 |
+| DynamoDB unified-cache 2000종목 | ✅ 정상 | Lambda 자동 기록 |
+| SESSION GRID 70종목 표시 | ✅ 정상 | 10개 섹터 × 7종목 |
+| Command 페이지 2000종목 | ✅ 정상 | 검색 → unified 호출 |
+
+### 22.5 WhaleIndex 계산 공식 (V2 Directional Reform)
+
+```typescript
+// alphaEngine.ts → calculateWhaleIndex()
+// 입력: netGex, darkPoolPct, blockTrades, netPremium, dpBuyPct?, dpSellPct?
+
+// V2 (방향성 있음 - dpBuyPct/dpSellPct 제공 시)
+direction = dpBuyPct > dpSellPct ? +1 : dpBuyPct < dpSellPct ? -1 : 0
+activityLevel = fn(gexScore, dpActivity, blockLevel)
+raw = activityNormalized × direction × 0.5 + npScore × 0.5
+compress(x) = 50 × tanh(x / 30)   // 시그모이드 압축
+whale = clamp(50 + compress(raw), 0, 100)
+
+// V1 Fallback (dpBuyPct/dpSellPct 없을 때)
+direction = netPremium > 0 ? +1 : -1
+// 나머지 동일
+```
+
+**핵심**: `tanh` 압축으로 100은 수학적으로 도달 불가 (최대 ~96). 100이 표시되면 **계산 경로 오류**.
