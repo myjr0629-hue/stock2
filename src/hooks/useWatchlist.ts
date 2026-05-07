@@ -180,8 +180,12 @@ export function useWatchlist(initialWatchlist?: WatchlistItem[], initialFullData
                     const hasExtended = d.extendedPrice && d.extendedPrice > 0;
 
                     // [ONE-PIPE] lock 갱신: 최초 유효값 고정
+                    // [FIX] Polygon 버그 감지: CLOSED/POST에서 price ≈ prevClose면 lock 갱신 차단
                     if (d.price > 0 && !closeLocks.current[ticker]) {
-                        closeLocks.current[ticker] = d.price;
+                        const isSuspicious = prevCl > 0 && Math.abs(d.price - prevCl) < 0.01;
+                        if (!isSuspicious || (session !== 'CLOSED' && session !== 'POST')) {
+                            closeLocks.current[ticker] = d.price;
+                        }
                     }
                     const regCloseToday = closeLocks.current[ticker] || d.price;
 

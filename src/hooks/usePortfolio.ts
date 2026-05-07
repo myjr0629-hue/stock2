@@ -97,6 +97,15 @@ export function usePortfolio(initialHoldings?: Holding[], initialFullData?: any[
 
     // [ONE-PIPE] regularCloseToday 잠금 — Polygon CLOSED/POST 불안정 차단
     const closeLocks = useRef<Record<string, number>>({});
+    // [FIX] SSR 데이터로 lock 초기화 (페이지 재진입 시 빈 lock 방지)
+    if (initialFullData && initialFullData.length > 0 && Object.keys(closeLocks.current).length === 0) {
+        initialFullData.forEach((r: any) => {
+            const p = r?.realtime?.price;
+            if (r?.ticker && p > 0) {
+                closeLocks.current[r.ticker] = p;
+            }
+        });
+    }
 
     // ── SWR: Full data with 30s auto-refresh (Alpha, Signal, Action, etc.) ──
     const { data: fullData, error: fullError, isLoading: fullLoading, isValidating: fullValidating, mutate } = useSWR(
@@ -212,11 +221,15 @@ export function usePortfolio(initialHoldings?: Holding[], initialFullData?: any[
 
                 // [ONE-PIPE] regularCloseToday 잠금 — 최초 유효한 값 고정
                 const apiPrice = liveQ?.price || priceRt?.price || fullRt?.price || 0;
+                const prevCl = liveQ?.prevClose || priceRt?.prevDayClose || fullRt?.prevDayClose || 0;
+                // [FIX] Polygon 버그 감지: CLOSED/POST에서 price ≈ prevClose면 lock 갱신 차단
                 if (apiPrice > 0 && !closeLocks.current[holding.ticker]) {
-                    closeLocks.current[holding.ticker] = apiPrice;
+                    const isSuspicious = prevCl > 0 && Math.abs(apiPrice - prevCl) < 0.01;
+                    if (!isSuspicious || (session !== 'CLOSED' && session !== 'POST')) {
+                        closeLocks.current[holding.ticker] = apiPrice;
+                    }
                 }
                 const regCloseToday = closeLocks.current[holding.ticker] || apiPrice;
-                const prevCl = liveQ?.prevClose || priceRt?.prevDayClose || fullRt?.prevDayClose || 0;
 
                 // [ONE-PIPE] calcUnifiedPrice로 안정적 가격 계산
                 const unified = calcUnifiedPrice({
