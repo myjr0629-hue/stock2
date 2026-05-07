@@ -384,13 +384,26 @@ async function computeRlsi() {
   } catch (e) { console.error('RLSI err:', e.message); return { error: e.message }; }
 }
 
-// ====== Alpha Score ======
-function computeAlphaScore(priceData, gexData) {
+// ====== Alpha Score (v10: enhanced with MACD, IV Rank, Vol Spread) ======
+function computeAlphaScore(priceData, gexData, extras) {
   let s = 50;
   const c = priceData.changePct||0;
   if(c>3) s+=15; else if(c>1) s+=10; else if(c>0) s+=5; else if(c<-3) s-=15; else if(c<-1) s-=10; else if(c<0) s-=5;
   if(priceData.volume>50000000) s+=5; else if(priceData.volume>20000000) s+=3;
   if(gexData) { if(gexData.gammaRegime==='POSITIVE') s+=5; else if(gexData.gammaRegime==='NEGATIVE') s-=5; if(gexData.pcr<0.7) s+=5; else if(gexData.pcr>1.3) s-=5; }
+  // [v10] MACD crossover signal
+  if (extras?.macdCrossover === 'BULL') s += 5;
+  else if (extras?.macdCrossover === 'BEAR') s -= 5;
+  // [v10] IV Rank extreme signal
+  if (extras?.ivRank !== null && extras?.ivRank !== undefined) {
+    if (extras.ivRank >= 90) s -= 3;  // IV overheated — premium expensive
+    else if (extras.ivRank <= 10) s += 3;  // IV depressed — potential expansion
+  }
+  // [v10] Vol Spread signal (IV vs HV)
+  if (extras?.volSpread !== null && extras?.volSpread !== undefined) {
+    if (extras.volSpread > 15) s -= 2;  // IV much higher than HV — overpriced
+    else if (extras.volSpread < -10) s += 2;  // IV below HV — underpriced
+  }
   return Math.max(0, Math.min(100, Math.round(s)));
 }
 
@@ -738,9 +751,9 @@ async function harvestGex(priceMap) {
   return { gexMap, optionsCache };
 }
 
-// ====== Step 3: SMA 50/200 for ALL tickers ======
+// ====== Step 3: SMA 50/200 + EMA 9/21 + MACD for ALL tickers ======
 async function harvestSMA(priceMap) {
-  console.log('Step 3: SMA 50/200...');
+  console.log('Step 3: SMA 50/200 + EMA 9/21 + MACD...');
   const today = new Date().toISOString().slice(0,10);
   const tickers = Object.keys(priceMap);
   const smaMap = {}; // Store for unified cache
@@ -749,9 +762,13 @@ async function harvestSMA(priceMap) {
     const batch = tickers.slice(i, i+10);
     const results = await Promise.all(batch.map(async (ticker) => {
       try {
-        const [s50, s200] = await Promise.all([
+        // [v10] 5 Polygon indicator calls in parallel (SMA50, SMA200, EMA9, EMA21, MACD)
+        const [s50, s200, e9, e21, macdRes] = await Promise.all([
           httpsGet('https://api.polygon.io/v1/indicators/sma/'+ticker+'?timespan=day&adjusted=true&window=50&series_type=close&limit=2&apiKey='+POLYGON_KEY, 8000),
           httpsGet('https://api.polygon.io/v1/indicators/sma/'+ticker+'?timespan=day&adjusted=true&window=200&series_type=close&limit=2&apiKey='+POLYGON_KEY, 8000),
+          httpsGet('https://api.polygon.io/v1/indicators/ema/'+ticker+'?timespan=day&adjusted=true&window=9&series_type=close&limit=1&apiKey='+POLYGON_KEY, 8000).catch(() => null),
+          httpsGet('https://api.polygon.io/v1/indicators/ema/'+ticker+'?timespan=day&adjusted=true&window=21&series_type=close&limit=1&apiKey='+POLYGON_KEY, 8000).catch(() => null),
+          httpsGet('https://api.polygon.io/v1/indicators/macd/'+ticker+'?timespan=day&adjusted=true&short_window=12&long_window=26&signal_window=9&series_type=close&limit=2&apiKey='+POLYGON_KEY, 8000).catch(() => null),
         ]);
         const sma50 = s50?.results?.values?.[0]?.value || null;
         const sma200 = s200?.results?.values?.[0]?.value || null;
@@ -765,7 +782,38 @@ async function harvestSMA(priceMap) {
         }
         const distance = sma50 && sma200 ? Math.round(((sma50-sma200)/sma200)*10000)/100 : 0;
         const isImminent = sma50 && sma200 ? Math.abs(((sma50-sma200)/sma200)*100) < 0.5 : false;
-        smaMap[ticker] = { sma50: sma50?Math.round(sma50*100)/100:null, sma200: sma200?Math.round(sma200*100)/100:null, cross, crossType, distance, isImminent };
+        
+        // [v10] EMA 9/21
+        const ema9 = e9?.results?.values?.[0]?.value || null;
+        const ema21 = e21?.results?.values?.[0]?.value || null;
+        let emaCross = 'NONE';
+        if (ema9 && ema21) {
+          emaCross = ema9 > ema21 ? 'BULL' : 'BEAR';
+        }
+        
+        // [v10] MACD (value, signal, histogram)
+        const macdCurrent = macdRes?.results?.values?.[0] || null;
+        const macdPrev = macdRes?.results?.values?.[1] || null;
+        let macdValue = null, macdSignal = null, macdHistogram = null, macdCrossover = 'NONE';
+        if (macdCurrent) {
+          macdValue = Math.round((macdCurrent.value || 0) * 1000) / 1000;
+          macdSignal = Math.round((macdCurrent.signal || 0) * 1000) / 1000;
+          macdHistogram = Math.round((macdCurrent.histogram || 0) * 1000) / 1000;
+          // Detect MACD crossover
+          if (macdPrev) {
+            const prevHist = macdPrev.histogram || 0;
+            const currHist = macdCurrent.histogram || 0;
+            if (prevHist <= 0 && currHist > 0) macdCrossover = 'BULL';
+            else if (prevHist >= 0 && currHist < 0) macdCrossover = 'BEAR';
+          }
+        }
+        
+        smaMap[ticker] = {
+          sma50: sma50?Math.round(sma50*100)/100:null, sma200: sma200?Math.round(sma200*100)/100:null,
+          cross, crossType, distance, isImminent,
+          ema9: ema9?Math.round(ema9*100)/100:null, ema21: ema21?Math.round(ema21*100)/100:null, emaCross,
+          macdValue, macdSignal, macdHistogram, macdCrossover,
+        };
         return { ticker, sma50: sma50?Math.round(sma50*100)/100:null, sma200: sma200?Math.round(sma200*100)/100:null, cross, crossType };
       } catch { return { ticker, sma50:null, sma200:null, cross:'NONE', crossType:'' }; }
     }));
@@ -784,7 +832,9 @@ async function harvestSMA(priceMap) {
     }
   }
   const withSMA = items.filter(i => i.sma50 && i.sma200).length;
-  console.log('SMA: '+withSMA+'/'+items.length+' with both SMA50+200');
+  const withEMA = Object.values(smaMap).filter(s => s.ema9 && s.ema21).length;
+  const withMACD = Object.values(smaMap).filter(s => s.macdValue !== null).length;
+  console.log('SMA: '+withSMA+'/'+items.length+', EMA9/21: '+withEMA+', MACD: '+withMACD);
   return { smaCount: withSMA, smaMap };
 }
 
@@ -1012,14 +1062,15 @@ async function recordCloseAndBackfill(priceMap) {
   return { closeRecorded, backfilled, date3dAgo, errors };
 }
 
-// ====== Step 5.5: RSI + Daily Bars (sparkline, return3d, relVol) ======
+// ====== Step 5.5: RSI + Daily Bars (sparkline, return3d, relVol, hv20) ======
 // Same Polygon endpoints as Vercel watchlistBatchService.getStockDataLight()
 async function harvestRsiAndDailyBars(universe) {
   console.log('Step 5.5: RSI + Daily Bars for ' + universe.length + ' tickers...');
   const rsiMap = {};
   const dailyBarsMap = {};
+  const hv20Map = {};
   const to = new Date().toISOString().slice(0, 10);
-  const fromDate = new Date(Date.now() - 25 * 86400000).toISOString().slice(0, 10); // 25 days for sparkline(20) + return3d(4)
+  const fromDate = new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10); // 30 days for HV20(20) + sparkline(20) + return3d(4)
   
   for (let i = 0; i < universe.length; i += 50) {
     const batch = universe.slice(i, i + 50);
@@ -1039,19 +1090,35 @@ async function harvestRsiAndDailyBars(universe) {
         const aggData = await httpsGet(aggUrl, 5000);
         if (aggData?.results?.length > 0) {
           dailyBarsMap[ticker] = aggData.results.map(r => ({ close: r.c, volume: r.v || 0 }));
+          
+          // [v10] HV20: Historical Volatility 20-day (annualized)
+          // Computed from log returns of daily closes — 0 extra API calls
+          const closes = aggData.results.map(r => r.c).filter(c => c > 0);
+          if (closes.length >= 21) {
+            const logReturns = [];
+            for (let j = 1; j < closes.length; j++) {
+              logReturns.push(Math.log(closes[j] / closes[j - 1]));
+            }
+            const recent20 = logReturns.slice(-20);
+            const mean = recent20.reduce((a, b) => a + b, 0) / recent20.length;
+            const variance = recent20.reduce((a, b) => a + (b - mean) * (b - mean), 0) / (recent20.length - 1);
+            const dailyVol = Math.sqrt(variance);
+            const annualizedVol = dailyVol * Math.sqrt(252) * 100; // percentage
+            hv20Map[ticker] = Math.round(annualizedVol * 100) / 100;
+          }
         }
       } catch {}
     }));
   }
   
-  console.log('RSI: ' + Object.keys(rsiMap).length + ', DailyBars: ' + Object.keys(dailyBarsMap).length);
-  return { rsiMap, dailyBarsMap };
+  console.log('RSI: ' + Object.keys(rsiMap).length + ', DailyBars: ' + Object.keys(dailyBarsMap).length + ', HV20: ' + Object.keys(hv20Map).length);
+  return { rsiMap, dailyBarsMap, hv20Map };
 }
 
 // ====== [v7 NEW] Step 6: Build Unified Cache ======
 // Combines ALL data from Steps 1-5.5 into complete unified objects
 // Saves to signum-unified-cache for instant Vercel reads
-async function buildUnifiedCache(priceMap, gexMap, optionsCache, smaMap, detailsMap, snapshotMap, rsiMap, dailyBarsMap) {
+async function buildUnifiedCache(priceMap, gexMap, optionsCache, smaMap, detailsMap, snapshotMap, rsiMap, dailyBarsMap, hv20Map) {
   console.log('Step 6: Building unified cache for '+UNIVERSE.length+' tickers...');
   let ok = 0, partial = 0;
   const redisBatch = []; // [v8] Collect Redis cache:analysis commands
@@ -1294,7 +1361,26 @@ async function buildUnifiedCache(priceMap, gexMap, optionsCache, smaMap, details
           {
             // --- Compute REAL alpha score ---
             const snap = snapshotMap?.[ticker] || {};
-            const alphaRaw = computeAlphaScore(snap, gd || null);
+            const smaData = smaMap?.[ticker] || {};
+            const hv20 = hv20Map?.[ticker] ?? null;
+            const currentIv = (structure?.atmIv || null);
+            // [v10] Vol Spread: IV - HV20 (positive = IV overpriced)
+            const volSpread = (currentIv !== null && hv20 !== null) ? Math.round((currentIv - hv20) * 100) / 100 : null;
+            // [v10] IV Rank: current IV position in 52-week range (0-100)
+            // Uses atmIv from gexMap history. For now, compute simplified rank
+            // from current IV vs HV20 relationship (full DynamoDB query TBD)
+            let ivRank = null;
+            if (currentIv !== null && hv20 !== null && hv20 > 0) {
+              // Simplified IV Rank: how much current IV exceeds HV20, normalized to 0-100
+              // If IV == HV20 → 50, IV >> HV20 → 90+, IV << HV20 → 10-
+              const ratio = currentIv / hv20;
+              ivRank = Math.max(0, Math.min(100, Math.round((ratio - 0.5) / 1.5 * 100)));
+            }
+            const alphaRaw = computeAlphaScore(snap, gd || null, {
+              macdCrossover: smaData.macdCrossover || 'NONE',
+              ivRank,
+              volSpread,
+            });
             const alphaGrade = alphaRaw >= 80 ? 'S' : alphaRaw >= 65 ? 'A' : alphaRaw >= 50 ? 'B' : alphaRaw >= 35 ? 'C' : 'D';
             const alphaAction = alphaRaw >= 65 ? 'BUY' : alphaRaw >= 50 ? 'HOLD' : alphaRaw >= 35 ? 'WATCH' : 'AVOID';
             const alphaTriggers = [];
@@ -1305,6 +1391,12 @@ async function buildUnifiedCache(priceMap, gexMap, optionsCache, smaMap, details
             if (gd?.pcr > 1.3) alphaTriggers.push('HIGH_PCR');
             if (gd?.pcr < 0.7) alphaTriggers.push('LOW_PCR');
             if (snap.volume > 50000000) alphaTriggers.push('HIGH_VOLUME');
+            // [v10] New triggers
+            if (smaData.macdCrossover === 'BULL') alphaTriggers.push('MACD_BULL_CROSS');
+            if (smaData.macdCrossover === 'BEAR') alphaTriggers.push('MACD_BEAR_CROSS');
+            if (ivRank !== null && ivRank >= 90) alphaTriggers.push('IV_OVERHEATED');
+            if (ivRank !== null && ivRank <= 10) alphaTriggers.push('IV_DEPRESSED');
+            if (smaData.emaCross === 'BULL' && smaData.cross === 'GOLDEN') alphaTriggers.push('DUAL_BULL');
             
             // --- Compute ivSkew from callWall/putFloor (matching frontend computeIVSkew) ---
             const cw = structure?.levels?.callWall || 0;
@@ -1406,6 +1498,17 @@ async function buildUnifiedCache(priceMap, gexMap, optionsCache, smaMap, details
               shortVolPct: squeeze?.shortVolPercent || null,
               impliedMoveDir: null,
               zeroDtePct: null,
+              // [v10] New indicators: EMA, MACD, HV20, Vol Spread, IV Rank
+              ema9: smaData.ema9 || null,
+              ema21: smaData.ema21 || null,
+              emaCross: smaData.emaCross || 'NONE',
+              macdValue: smaData.macdValue ?? null,
+              macdSignal: smaData.macdSignal ?? null,
+              macdHistogram: smaData.macdHistogram ?? null,
+              macdCrossover: smaData.macdCrossover || 'NONE',
+              hv20: hv20 ?? null,
+              volSpread: volSpread ?? null,
+              ivRank: ivRank ?? null,
             };
             redisBatch.push(['SET', 'cache:analysis:' + ticker, JSON.stringify(analysisEntry), 'EX', String(REDIS_TTL)]);
             
@@ -2066,14 +2169,15 @@ exports.handler = async (event) => {
     }));
   }
   
-  // [v8] Step 5.5: RSI + Daily Bars (sparkline, return3d, relVol)
-  let rsiMap = {}, dailyBarsMap = {};
+  // [v8] Step 5.5: RSI + Daily Bars (sparkline, return3d, relVol, hv20)
+  let rsiMap = {}, dailyBarsMap = {}, hv20Map = {};
   const rsiResult = await harvestRsiAndDailyBars(UNIVERSE);
   rsiMap = rsiResult.rsiMap;
   dailyBarsMap = rsiResult.dailyBarsMap;
+  hv20Map = rsiResult.hv20Map;
   
   // [v7] Step 6: Build Unified Cache — ALWAYS run (regular + extended)
-  results.unified = await buildUnifiedCache(priceMap, gexMap, optionsCache, smaMap, detailsMap, snapshotMap, rsiMap, dailyBarsMap);
+  results.unified = await buildUnifiedCache(priceMap, gexMap, optionsCache, smaMap, detailsMap, snapshotMap, rsiMap, dailyBarsMap, hv20Map);
   
   // Release distributed lock before returning
   await releaseLock();
