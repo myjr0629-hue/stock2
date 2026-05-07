@@ -128,7 +128,7 @@ export function MobileStickyHeader({ onOpenDrawer }: { onOpenDrawer: () => void 
             <div className="flex gap-3 mt-1.5 overflow-x-auto" style={{ scrollbarWidth: "none" }}>
                 {market?.nq?.price != null && <MacroChip name="NQ" val={market.nq.price} pct={market.nq.change} />}
                 {market?.vix != null && <MacroChip name="VIX" val={market.vix} />}
-                {market?.phase && <span className="text-[9px] font-semibold text-slate-500 flex-shrink-0">{market.phase}</span>}
+                {market?.phase && <span className="text-[11px] font-semibold text-slate-500 flex-shrink-0">{market.phase}</span>}
             </div>
         </div>
     );
@@ -136,7 +136,7 @@ export function MobileStickyHeader({ onOpenDrawer }: { onOpenDrawer: () => void 
 
 function MacroChip({ name, val, pct }: { name: string; val: any; pct?: number }) {
     return (
-        <div className="flex items-center gap-1 flex-shrink-0 text-[9px]">
+        <div className="flex items-center gap-1 flex-shrink-0 text-[11px]">
             <span className="text-slate-500 font-semibold">{name}</span>
             {typeof val === "number" ? <span className="text-slate-300 font-bold">{val.toFixed?.(2) ?? val}</span> : <span className="text-slate-300 font-bold">{val}</span>}
             {pct != null && <span className={`font-bold ${pct >= 0 ? "text-emerald-400" : "text-rose-400"}`}>{pct > 0 ? "+" : ""}{pct.toFixed(2)}%</span>}
