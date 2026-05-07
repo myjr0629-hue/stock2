@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { calcUnifiedPrice, type MarketSession } from '@/services/unifiedPriceService';
 import {
     getDashboardTickers as fetchDbTickers,
     toggleDashboardTicker as toggleDbTicker,
@@ -401,63 +402,47 @@ export const useDashboardStore = create<DashboardState>()(
                         if (!q) continue;
 
                         const existing = currentTickers[ticker] || emptyTicker();
-                        const session = toSession(q.session);
+                        const session = toSession(q.session) as MarketSession;
                         const prevCl = existing.prevClose || q.previousClose || q.prevClose || 0;
 
-                        // ── Extract price based on session ──
-                        let price = existing.underlyingPrice;
-                        let changePct = existing.changePercent;
+                        // ── [ONE-PIPE] regularCloseToday: 최초 설정 후 유지 (Polygon 변동 차단) ──
+                        // SSR initializeStore에서 설정됨. 이후 fetchPriceOnly에서는 없을 때만 설정.
+                        const regCloseToday = existing.regularCloseToday && existing.regularCloseToday > 0
+                            ? existing.regularCloseToday
+                            : (q.price > 0 ? q.price : null);
 
-                        if (session === 'REG' || session === 'PRE') {
-                            // REG: q.price = live trade price
-                            // PRE: q.price = previous regular close (Polygon behavior)
-                            const livePrice = q.price > 0 ? q.price : (q.latestPrice > 0 ? q.latestPrice : null);
-                            if (livePrice && livePrice > 0) {
-                                if (session === 'REG') {
-                                    price = livePrice;
-                                    changePct = prevCl > 0 ? ((livePrice - prevCl) / prevCl) * 100 : (q.changePercent ?? 0);
-                                } else {
-                                    // PRE: underlyingPrice = previous regular close, NOT pre-market price
-                                    price = existing.regularCloseToday || prevCl || livePrice;
-                                    changePct = existing.prevChangePct ?? existing.intradayChangePct ?? 0;
-                                }
-                            }
-                        } else {
-                            // POST/CLOSED: q.price = regular session close
-                            const regClose = q.price > 0 ? q.price : (q.latestPrice > 0 ? q.latestPrice : null);
-                            if (regClose && regClose > 0) {
-                                price = regClose;
-                                changePct = prevCl > 0 ? ((regClose - prevCl) / prevCl) * 100 : (q.changePercent ?? 0);
-                            }
-                        }
+                        // ── [ONE-PIPE] calcUnifiedPrice — 단일 가격 계산 경로 ──
+                        const unified = calcUnifiedPrice({
+                            session,
+                            lastTradePrice: q.extendedPrice > 0 ? q.extendedPrice : q.price,
+                            dayClose: q.price > 0 ? q.price : 0,
+                            prevDayClose: prevCl,
+                            regularCloseToday: regCloseToday,
+                            afterHoursPrice: q.extendedLabel === 'POST' && q.extendedPrice > 0 ? q.extendedPrice : undefined,
+                            preMarketPrice: q.extendedLabel === 'PRE' && q.extendedPrice > 0 ? q.extendedPrice : undefined,
+                        });
 
-                        // ── Extended price (PRE/POST badge) ──
-                        let ext = existing.extended || null;
-                        if (q.extendedPrice > 0) {
-                            const dayClose = (session === 'REG') ? (price || 0) : (q.price > 0 ? q.price : (price || 0));
-                            ext = {
-                                ...ext,
-                                postPrice: q.extendedLabel === 'POST' ? q.extendedPrice : ext?.postPrice,
-                                postChangePct: q.extendedLabel === 'POST' ? (q.extendedChangePercent ?? ext?.postChangePct) : ext?.postChangePct,
-                                prePrice: q.extendedLabel === 'PRE' ? q.extendedPrice : ext?.prePrice,
-                                preChangePct: q.extendedLabel === 'PRE' ? (q.extendedChangePercent ??
-                                    (prevCl > 0 ? ((q.extendedPrice - prevCl) / prevCl) * 100 : 0)
-                                ) : ext?.preChangePct,
-                            };
-                        }
+                        // ── PRE 세션: 본장 등락률은 기존 값 유지 (prevChangePct from fetchDashboardData) ──
+                        const changePct = session === 'PRE'
+                            ? (existing.prevChangePct ?? existing.intradayChangePct ?? unified.regularChangePct)
+                            : unified.regularChangePct;
 
                         // ── Write ONLY price fields — never touch indicator fields ──
                         currentTickers[ticker] = {
                             ...existing,              // Preserve all existing indicator data
-                            underlyingPrice: price,
+                            underlyingPrice: unified.regularPrice,
                             changePercent: changePct,
-                            prevClose: prevCl || existing.prevClose,
-                            prevRegularClose: prevCl || existing.prevRegularClose,
-                            regularCloseToday: (session === 'POST' || session === 'CLOSED')
-                                ? (q.price > 0 ? q.price : existing.regularCloseToday)
-                                : existing.regularCloseToday,
-                            display: { price: price ?? 0, changePctPct: changePct ?? 0 },
-                            extended: ext,
+                            prevClose: unified.prevClose || existing.prevClose,
+                            prevRegularClose: unified.prevClose || existing.prevRegularClose,
+                            regularCloseToday: regCloseToday,
+                            display: { price: unified.regularPrice, changePctPct: changePct ?? 0 },
+                            extended: {
+                                ...existing.extended,
+                                postPrice: unified.postPrice ?? existing.extended?.postPrice,
+                                postChangePct: unified.postChangePct ?? existing.extended?.postChangePct,
+                                prePrice: unified.prePrice ?? existing.extended?.prePrice,
+                                preChangePct: unified.preChangePct ?? existing.extended?.preChangePct,
+                            },
                             session,
                         };
                     }
