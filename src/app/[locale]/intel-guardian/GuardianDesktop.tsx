@@ -1000,7 +1000,7 @@ export default function GuardianDesktop() {
                                     </ProGate>
 
                                     {/* 2. SECTOR INTEL (Fill Rest, Bottom) */}
-                                    <div className="flex-1 border border-slate-800 rounded-lg p-3.5 md:p-4 lg:p-6 relative shadow-2xl flex flex-col min-h-[400px] lg:min-h-0 overflow-hidden"
+                                    <div className="border border-slate-800 rounded-lg p-3.5 md:p-4 lg:p-6 relative shadow-2xl flex flex-col min-h-[400px] lg:min-h-0 overflow-hidden"
                                         style={{ background: 'radial-gradient(circle at 85% 15%, rgba(6,182,212,0.12) 0%, transparent 45%), radial-gradient(circle at 10% 80%, rgba(16,185,129,0.06) 0%, transparent 40%), rgba(10,14,20,1)' }}
                                     >
                                         {/* Infographic: Hexagonal Network Pattern */}
