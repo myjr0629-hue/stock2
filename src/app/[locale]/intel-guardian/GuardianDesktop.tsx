@@ -1116,39 +1116,39 @@ export default function GuardianDesktop() {
                                                                     </div>
                                                                 </div>
 
-                                                                {/* [V14.0] Institutional Flow Card */}
+                                                                {/* [V14.0] Institutional Flow — 3-column grid */}
                                                                 {selectedSector.instFlow && (
-                                                                    <div className="bg-slate-900/80 rounded-lg px-3 py-2 border border-slate-800/50 mt-2">
-                                                                        <div className="flex items-center justify-between">
-                                                                            <div>
-                                                                                <div className="text-[12px] text-slate-500 font-bold tracking-wider mb-1">Inst. Flow</div>
-                                                                                <div className="flex items-baseline gap-2">
-                                                                                    <span className={`text-sm font-mono font-bold ${
-                                                                                        selectedSector.instFlow.ifs > 20 ? 'text-emerald-400' :
-                                                                                        selectedSector.instFlow.ifs < -20 ? 'text-rose-400' : 'text-slate-400'
-                                                                                    }`}>
-                                                                                        {selectedSector.instFlow.ifs > 0 ? '+' : ''}{selectedSector.instFlow.ifs.toFixed(0)}
-                                                                                    </span>
-                                                                                    <span className={`text-[11px] font-medium ${
-                                                                                        selectedSector.instFlow.divergence === 'CONFIRMED' ? 'text-emerald-400' :
-                                                                                        selectedSector.instFlow.divergence === 'DIVERGENT' ? 'text-amber-400' : 'text-slate-500'
-                                                                                    }`}>
-                                                                                        {selectedSector.instFlow.divergence === 'CONFIRMED' 
-                                                                                            ? (locale === 'ko' ? '\u2713 \uae30\uad00 \ud655\uc778' : locale === 'ja' ? '\u2713 \u6a5f\u95a2\u78ba\u8a8d' : '\u2713 Confirmed')
-                                                                                            : selectedSector.instFlow.divergence === 'DIVERGENT' 
-                                                                                            ? (locale === 'ko' ? '\u26a0 \uac00\uaca9 \uad34\ub9ac' : locale === 'ja' ? '\u26a0 \u4e56\u96e2' : '\u26a0 Divergent')
-                                                                                            : (locale === 'ko' ? '\uc911\ub9bd' : locale === 'ja' ? '\u4e2d\u7acb' : 'Neutral')}
-                                                                                    </span>
-                                                                                </div>
+                                                                    <div className="grid grid-cols-3 gap-2 mt-2">
+                                                                        {/* Whale Index */}
+                                                                        <div className="bg-slate-900/80 rounded-lg px-3 py-2 border border-slate-800/50">
+                                                                            <div className="text-[12px] text-slate-500 font-bold tracking-wider mb-1">Whale</div>
+                                                                            <span className={`text-sm font-mono font-bold ${
+                                                                                selectedSector.instFlow.avgWhale >= 60 ? 'text-emerald-400' :
+                                                                                selectedSector.instFlow.avgWhale <= 40 ? 'text-rose-400' : 'text-slate-300'
+                                                                            }`}>{selectedSector.instFlow.avgWhale}</span>
+                                                                        </div>
+                                                                        {/* Dark Pool */}
+                                                                        <div className="bg-slate-900/80 rounded-lg px-3 py-2 border border-slate-800/50">
+                                                                            <div className="text-[12px] text-slate-500 font-bold tracking-wider mb-1">Dark Pool</div>
+                                                                            <span className={`text-sm font-mono font-bold ${
+                                                                                selectedSector.instFlow.avgDarkPool >= 40 ? 'text-cyan-400' : 'text-slate-300'
+                                                                            }`}>{selectedSector.instFlow.avgDarkPool}%</span>
+                                                                        </div>
+                                                                        {/* IFS Score */}
+                                                                        <div className="bg-slate-900/80 rounded-lg px-3 py-2 border border-slate-800/50">
+                                                                            <div className="text-[12px] text-slate-500 font-bold tracking-wider mb-1">
+                                                                                {selectedSector.instFlow.divergence === 'CONFIRMED'
+                                                                                    ? (locale === 'ko' ? '기관 확인' : locale === 'ja' ? '機関確認' : 'Confirmed')
+                                                                                    : selectedSector.instFlow.divergence === 'DIVERGENT'
+                                                                                    ? (locale === 'ko' ? '가격 괴리' : locale === 'ja' ? '乖離' : 'Divergent')
+                                                                                    : (locale === 'ko' ? '중립' : locale === 'ja' ? '中立' : 'Neutral')}
                                                                             </div>
-                                                                            <div className="text-right">
-                                                                                <div className="text-[11px] text-slate-600 font-mono">
-                                                                                    <span className="text-slate-500">W</span> {selectedSector.instFlow.avgWhale}
-                                                                                </div>
-                                                                                <div className="text-[11px] text-slate-600 font-mono">
-                                                                                    <span className="text-slate-500">DP</span> {selectedSector.instFlow.avgDarkPool}%
-                                                                                </div>
-                                                                            </div>
+                                                                            <span className={`text-sm font-mono font-bold ${
+                                                                                selectedSector.instFlow.divergence === 'CONFIRMED' ? 'text-emerald-400' :
+                                                                                selectedSector.instFlow.divergence === 'DIVERGENT' ? 'text-amber-400' : 'text-slate-400'
+                                                                            }`}>
+                                                                                IFS {selectedSector.instFlow.ifs > 0 ? '+' : ''}{selectedSector.instFlow.ifs.toFixed(0)}
+                                                                            </span>
                                                                         </div>
                                                                     </div>
                                                                 )}
@@ -1185,15 +1185,17 @@ export default function GuardianDesktop() {
                                                                         <span className="text-[13px] font-bold text-slate-200 group-hover:text-cyan-300 w-10">{stock.symbol}</span>
                                                                     </div>
 
-                                                                    {/* Right: Price + Change inline */}
-                                                                    <div className="flex items-baseline gap-2">
+                                                                    {/* Right: Price + Change + Whale */}
+                                                                    <div className="flex items-center gap-3">
                                                                         <span className="text-[13px] text-slate-200 font-mono font-semibold">${stock.price.toFixed(2)}</span>
-                                                                        <span className={`text-[13px] font-mono font-bold ${stock.change >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
+                                                                        <span className={`text-[13px] font-mono font-bold min-w-[52px] text-right ${stock.change >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
                                                                             {stock.change > 0 ? "+" : ""}{stock.change.toFixed(2)}%
                                                                         </span>
                                                                         {stock.whale !== undefined && (
-                                                                            <span className={`text-[11px] font-mono ${stock.whale >= 60 ? 'text-emerald-500' : stock.whale <= 40 ? 'text-rose-500' : 'text-slate-600'}`}>
-                                                                                W{Math.round(stock.whale)}
+                                                                            <span className={`text-[12px] font-mono font-semibold min-w-[48px] text-right ${
+                                                                                stock.whale >= 60 ? 'text-cyan-400' : stock.whale <= 40 ? 'text-rose-400' : 'text-slate-500'
+                                                                            }`}>
+                                                                                Whale {Math.round(stock.whale)}
                                                                             </span>
                                                                         )}
                                                                     </div>
