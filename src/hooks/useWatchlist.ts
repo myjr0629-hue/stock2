@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useCallback, useMemo, useEffect, useDeferredValue } from 'react';
+import { useState, useCallback, useMemo, useEffect, useDeferredValue, useRef } from 'react';
 import useSWR from 'swr';
 import { useRealtimeData } from '@/providers/WebSocketProvider';
+import { calcUnifiedPrice, type MarketSession } from '@/services/unifiedPriceService';
 import {
     getWatchlist,
     addToWatchlist as storeAdd,
@@ -86,6 +87,27 @@ export function useWatchlist(initialWatchlist?: WatchlistItem[], initialFullData
     const tickerArray = useMemo(() => watchlistData.items.map(i => i.ticker), [watchlistData.items]);
     const { connected: wsConnected, getPrice: wsGetPrice, prices: wsPrices } = useRealtimeData(tickerArray.length > 0 ? tickerArray : undefined);
 
+    // [ONE-PIPE] regularCloseToday 잠금 — SSR 데이터로 초기화
+    const closeLocks = useRef<Record<string, number>>({});
+    // SSR 데이터에서 lock 초기값 설정 (최초 1회만)
+    if (initialFullData && initialFullData.length > 0 && Object.keys(closeLocks.current).length === 0) {
+        initialFullData.forEach((r: any) => {
+            if (r?.ticker && r?.realtime?.price > 0) {
+                closeLocks.current[r.ticker] = r.realtime.price;
+            }
+        });
+    }
+
+    // [ONE-PIPE] Session mapper
+    const toSession = (s: string | undefined): MarketSession => {
+        if (!s) return 'CLOSED';
+        const u = s.toUpperCase();
+        if (u === 'PRE' || u === 'PRE_MARKET' || u === 'PREMARKET') return 'PRE';
+        if (u === 'REG' || u === 'REGULAR' || u === 'OPEN') return 'REG';
+        if (u === 'POST' || u === 'POST_MARKET' || u === 'POSTMARKET') return 'POST';
+        return 'CLOSED';
+    };
+
     // SWR: Full data with 30s auto-refresh (Alpha, Whale, GEX, etc.)
     const hasSSRData = !!(initialFullData && initialFullData.length > 0);
     const { data: fullData, error, isLoading: fullLoading, isValidating: fullValidating, mutate } = useSWR(
@@ -140,31 +162,45 @@ export function useWatchlist(initialWatchlist?: WatchlistItem[], initialFullData
             });
         }
 
-        // Fast price data (5s polling) — session-aware: use extended prices during pre/post market
+        // Fast price data (5s polling) — [ONE-PIPE] calcUnifiedPrice로 안정화
         interface FastPrice {
             price: number;
             changePct: number;
-            regChangePct: number;     // Regular session change
-            prevClose: number;        // [FIX] prevDayClose for real-time changePct calculation
-            extChangePct?: number;    // Extended hours change (from reg close)
+            regChangePct: number;
+            prevClose: number;
+            extChangePct?: number;
             extLabel?: 'PRE' | 'POST';
         }
         const priceMap: Record<string, FastPrice> = {};
         if (priceData?.data) {
             Object.entries(priceData.data).forEach(([ticker, d]: [string, any]) => {
                 if (d && d.price > 0) {
-                    const regChangePct = d.changePercent || 0;
+                    const session = toSession(d.session);
+                    const prevCl = d.prevClose || d.previousClose || 0;
                     const hasExtended = d.extendedPrice && d.extendedPrice > 0;
 
-                    // ★ 메인 가격은 항상 본장 가격 (d.price), extended는 별도 필드로
-                    const displayPrice = d.price;
+                    // [ONE-PIPE] lock 갱신: 최초 유효값 고정
+                    if (d.price > 0 && !closeLocks.current[ticker]) {
+                        closeLocks.current[ticker] = d.price;
+                    }
+                    const regCloseToday = closeLocks.current[ticker] || d.price;
+
+                    const unified = calcUnifiedPrice({
+                        session,
+                        lastTradePrice: hasExtended ? d.extendedPrice : d.price,
+                        dayClose: d.price,
+                        prevDayClose: prevCl,
+                        regularCloseToday: regCloseToday,
+                        afterHoursPrice: d.extendedLabel === 'POST' && hasExtended ? d.extendedPrice : undefined,
+                        preMarketPrice: d.extendedLabel === 'PRE' && hasExtended ? d.extendedPrice : undefined,
+                    });
 
                     priceMap[ticker] = {
-                        price: displayPrice,
-                        changePct: regChangePct,
-                        regChangePct,
-                        prevClose: d.prevClose || d.previousClose || 0,
-                        extChangePct: hasExtended ? (d.extendedChangePercent || 0) : undefined,
+                        price: unified.regularPrice ?? regCloseToday,
+                        changePct: unified.regularChangePct ?? 0,
+                        regChangePct: unified.regularChangePct ?? 0,
+                        prevClose: unified.prevClose ?? prevCl,
+                        extChangePct: (unified.postChangePct || unified.preChangePct) ?? undefined,
                         extLabel: hasExtended ? (d.extendedLabel || undefined) : undefined,
                     };
                 }
@@ -177,31 +213,31 @@ export function useWatchlist(initialWatchlist?: WatchlistItem[], initialFullData
             // [WS] WebSocket real-time price overlay (highest priority)
             const wsPrice = wsConnected ? wsGetPrice(item.ticker) : undefined;
             if (apiData?.alphaSnapshot && apiData?.realtime) {
-                // ★ Price priority: WS(장중 실시간) > batch(본장 가격) > fastPrice
-                const currentPrice = (wsPrice?.price && wsPrice.price > 0) ? wsPrice.price : (apiData.realtime.price || (fastPrice?.price ?? 0));
+                const session = toSession(apiData.realtime.session);
 
-                // ★ [FIX 2026-05-06] changePct: 가장 최신 가격으로 즉시 재계산
-                // 기존: batch(30초) changePct 고정 → 가격과 등락률 불일치
-                // 수정: prevClose 확보 후 현재 가격으로 직접 계산
-                const prevClose = fastPrice?.prevClose || apiData.realtime.prevDayClose || 0;
+                // ★ Price priority: WS(장중 실시간) > ONE-PIPE > batch > fastPrice
+                const currentPrice = (wsPrice?.price && wsPrice.price > 0)
+                    ? wsPrice.price
+                    : (fastPrice?.price || apiData.realtime.price || 0);
+
+                // ★ changePct: WS(장중) > ONE-PIPE (CLOSED/POST 안정)
                 let changePct: number;
-                if (currentPrice > 0 && prevClose > 0) {
-                    // 실시간 계산: (현재가 - 전일종가) / 전일종가 * 100
-                    changePct = ((currentPrice - prevClose) / prevClose) * 100;
+                if (wsPrice?.changePct != null && session === 'REG') {
+                    changePct = wsPrice.changePct;
+                } else if (fastPrice) {
+                    changePct = fastPrice.changePct;
                 } else {
-                    // prevClose 없으면 API 값 폴백
-                    changePct = apiData.realtime.changePct ?? fastPrice?.regChangePct ?? 0;
+                    changePct = apiData.realtime.changePct ?? 0;
                 }
 
                 return {
                     ...item,
                     currentPrice,
                     changePct,
-                    regChangePct: changePct,
+                    regChangePct: fastPrice?.regChangePct ?? changePct,
                     // [FIX 2026-05-06] batch API 우선: dayClose 기준 순수 PRE/POST 변동
-                    // quotes의 extendedChangePercent는 prevDayClose 기준이라 본장 등락 포함됨
-                    extChangePct: apiData.realtime.extendedChangePct ?? fastPrice?.extChangePct ?? undefined,
-                    // [FIX] 메인 워치리스트: REG 세션에서 PRE 배지 숨김 (대시보드는 quotes API에서 직접 처리)
+                    extChangePct: fastPrice?.extChangePct ?? apiData.realtime.extendedChangePct ?? undefined,
+                    // [FIX] 메인 워치리스트: REG 세션에서 PRE 배지 숨김
                     extLabel: (() => {
                         const raw = fastPrice?.extLabel ?? (apiData.realtime.extendedLabel as 'PRE' | 'POST' | undefined);
                         const sess = (apiData.realtime.session || '').toLowerCase();
@@ -227,16 +263,13 @@ export function useWatchlist(initialWatchlist?: WatchlistItem[], initialFullData
                     vwapDist: apiData.realtime.vwapDist,
                 };
             }
-            // Even without batch data, show fast price with real-time changePct
+            // Even without batch data, show fast price with ONE-PIPE changePct
             if (fastPrice) {
-                const liveChangePct = (fastPrice.price > 0 && fastPrice.prevClose > 0)
-                    ? ((fastPrice.price - fastPrice.prevClose) / fastPrice.prevClose) * 100
-                    : fastPrice.changePct;
                 return {
                     ...item,
                     currentPrice: fastPrice.price,
-                    changePct: liveChangePct,
-                    regChangePct: liveChangePct,
+                    changePct: fastPrice.changePct,
+                    regChangePct: fastPrice.regChangePct,
                     extChangePct: fastPrice.extChangePct,
                     // [FIX] REG 세션에서 PRE 배지 숨김
                     extLabel: (priceData?.data?.[item.ticker]?.session === 'regular' && fastPrice.extLabel === 'PRE') ? undefined : fastPrice.extLabel,
