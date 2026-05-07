@@ -5307,93 +5307,198 @@ const tickerSet = useMemo(() => new Set(dashboardTickers), [dashboardTickers]);
 
 ---
 
-## 19. 🔧 UnifiedPriceService — 원파이프 가격 아키텍처 (2026-05-06 구축 완료)
+## 19. 🔧 One-Pipe 가격 아키텍처 — `computeOnePipe` (2026-05-08 전체 적용 완료)
 
-### 19.1 현황 및 목적
+> **사이트 전체 가격 표시의 SSOT (Single Source of Truth).**
+> 어떤 페이지, 어떤 세션, WS든 폴링이든 — 모든 가격은 이 함수 하나를 통과한다.
 
-**코드 위치**: `src/services/unifiedPriceService.ts`
-**상태**: ✅ 구축 완료, ⚠️ 리팩토링 미적용 (기존 코드에 영향 없음)
+### 19.1 핵심 파일
 
-**목적**: 모든 페이지(Dashboard, Watchlist, Command, Flow, Related)에서 사용 가능한 **단일 가격 계산 서비스**. PRE/REG/POST/CLOSED 모든 세션에서 정확한 가격과 등락률을 보장.
+| 파일 | 역할 | 타입 |
+|------|------|------|
+| `src/hooks/useOnePipe.ts` | **SSOT 순수 함수 (`computeOnePipe`) + React 훅 (`useOnePipe`)** | 클라이언트 |
+| `src/services/unifiedPriceService.ts` | **레거시** — `calcUnifiedPrice` 정의만 남아있음. **사이트 어디에서도 import하지 않음.** 삭제 가능. | 레거시 |
+| `src/utils/calcPriceDisplay.ts` | **별도 경로** — Command/Flow 페이지 전용 가격 계산. 향후 `computeOnePipe`로 교체 대상. | 클라이언트 |
 
-### 19.2 현재 문제: 3-파이프 경쟁적 쓰기 (대시보드)
-
-```
-현재 대시보드 가격 흐름:
-SSR (initializeStore)     → store.underlyingPrice = 정확한 값
-fetchPriceOnly (2초 폴링) → store.underlyingPrice = Polygon 불안정값으로 덮어씀 ← 버그 원인
-WebSocket Push (실시간)   → store.underlyingPrice = AH 체결가로 또 덮어씀
-```
-
-3개 파이프가 **각각 다른 로직**으로 **같은 store 필드에 경쟁적 쓰기** → 한 곳을 고쳐도 다른 곳이 다시 잘못된 값을 씀 → **구조적으로 해결 불가능**
-
-### 19.3 원파이프 세션별 동작 (확정 사양)
-
-| 세션 | regularPrice (본장 가격) | regularChangePct (본장 등락률) | Extended |
-|------|------|------|------|
-| **PRE** | 어제 종가 (`prevDayClose`) | (어제종가 - 그저께종가) / 그저께종가 | PRE 가격 + PRE 등락률 별도 표시 |
-| **REG** | 실시간 체결가 (WS > lastTrade > day.c) | (현재가 - 어제종가) / 어제종가 | PRE CLOSE 표시 (REG 중에는 PRE 끝남) |
-| **POST** | 오늘 정규장 종가 (`regularCloseToday > day.c`) | (오늘종가 - 어제종가) / 어제종가 | POST 가격 + POST 등락률 별도 표시 |
-| **CLOSED** | 직전장 종가 유지 (다음 장까지 고정) | 직전장 등락률 유지 | POST 데이터 있으면 POST도 유지 |
-| **주말/휴일** | CLOSED와 동일 | CLOSED와 동일 | CLOSED와 동일 |
-| **다음 장 개시** | session이 PRE로 바뀌면 자동 전환 | 자동 전환 | 자동 전환 |
-
-**핵심**: session 하나만 바뀌면 나머지는 전부 자동.
-
-### 19.4 API: 3가지 사용 모드
+### 19.2 아키텍처: `computeOnePipe` 순수 함수
 
 ```typescript
-// Mode A: Full (Command, Flow — 본장+PRE/POST 전부 필요)
-calcUnifiedPrice(input) → { regularPrice, regularChangePct, prePrice, postPrice, ... }
-
-// Mode B: Session (Related — 현재 세션 등락률만)
-getSessionChange(input) → { price, changePct }
-
-// Mode C: Watchlist (본장 메인 + extended 서브)
-getWatchlistPrice(input) → { displayPrice, changePct, extPrice, extChangePct, extLabel }
-
-// Helper: Polygon snapshot → input 자동 변환
-fromPolygonSnapshot(tickerData, session, dailyCloses?) → UnifiedPriceInput
+// src/hooks/useOnePipe.ts L64
+export function computeOnePipe(params: {
+    session: 'PRE' | 'REG' | 'POST' | 'CLOSED';
+    pollPrice: number;        // 폴링 가격 (API 또는 SSR)
+    pollPrevClose: number;    // 전일 종가
+    pollExtPrice: number;     // Extended 가격 (PRE/POST)
+    pollExtLabel: string;     // Extended 라벨 ('PRE'|'POST')
+    pollChangePct?: number | null;  // API 제공 등락률 (PRE 세션에서만 사용)
+    wsPrice: number | null;   // WebSocket 실시간 가격 (없으면 null)
+    regularCloseToday: number | null;  // 오늘 정규장 종가 (잠금)
+}): OnePipeResult
 ```
 
-### 19.5 리팩토링 영향도 (Phase별)
+**출력 (`OnePipeResult`):**
+```typescript
+{
+    price: number;           // 메인 표시 가격 (세션별 자동 선택)
+    changePct: number;       // 메인 등락률 (항상 직접 계산)
+    extPrice: number | null; // PRE/POST 뱃지 가격
+    extChangePct: number | null; // PRE/POST 뱃지 등락률
+    extLabel: string;        // 뱃지 라벨 ('PRE'|'POST'|'PRE CLOSE'|'')
+    chartPrice: number;      // StockChart currentPrice
+    chartPrevClose: number;  // StockChart 기준선
+    prevClose: number;       // 전일 종가
+    session: 'PRE' | 'REG' | 'POST' | 'CLOSED';
+    source: 'WS' | 'POLL' | 'SSR';
+    regularCloseToday: number | null;
+}
+```
 
-#### Phase 1-2: UI 표시만 교체 → 지표 영향 0% ✅
+### 19.3 세션별 동작 (확정 사양 — 54/54 테스트 통과)
 
-| 파일 | 현재 | 교체 후 | 교체량 |
-|------|------|------|:---:|
-| `DashboardClient.tsx` (워치리스트 LAST/CHG%/POST) | `calcPriceDisplay` + `fetchPriceOnly` 자체 로직 | `calcUnifiedPrice` | ~20줄 |
-| `MobileDashboardShell.tsx` | `calcPriceDisplay` | `calcUnifiedPrice` | ~10줄 |
-| `MobileDashboardClient.tsx` | `calcPriceDisplay` | `calcUnifiedPrice` | ~5줄 |
-| `MobileCommandPage.tsx` | `calcPriceDisplay` | `calcUnifiedPrice` | ~5줄 |
-| `FlowPageClient.tsx` | `calcPriceDisplay` | `calcUnifiedPrice` | ~5줄 |
-| `MobileFlowPage.tsx` | `calcPriceDisplay` | `calcUnifiedPrice` | ~5줄 |
+| 세션 | `price` (메인 가격) | `changePct` (메인 등락률) | `extPrice` / `extLabel` |
+|------|-----|-----|-----|
+| **PRE** | `prevClose` (어제 종가 고정) | `pollChangePct` (API 제공, 전일 본장 등락률) | PRE 실시간 가격 / `'PRE'` |
+| **REG** | WS > pollPrice (실시간 체결가) | `(price - prevClose) / prevClose × 100` (직접 계산) | PRE 마감가 / `'PRE CLOSE'` (있을 때만) |
+| **POST** | `regularCloseToday` (오늘 종가 잠금) | `(regClose - prevClose) / prevClose × 100` | POST 실시간 가격 / `'POST'` |
+| **CLOSED** | `regularCloseToday` (종가 유지) | `(regClose - prevClose) / prevClose × 100` | POST 가격 유지 / `'POST'` |
 
-**이 10곳은 JSX 렌더링만 — Alpha Score, Whale Index 등 지표에 영향 없음.**
+**핵심 원칙:**
+- `changePct`는 **절대로 외부 API 값을 그대로 사용하지 않음** (REG/POST/CLOSED에서). 항상 `(price - prevClose) / prevClose × 100`으로 직접 계산.
+- PRE 세션만 예외: API가 제공하는 `pollChangePct`를 사용 (전일 본장 등락률이므로 계산 불가능).
+- `regularCloseToday`는 최초 설정 후 **절대 변경 안 됨** (Polygon 불안정 변동 차단).
 
-#### Phase 4-5: 서버 batch 교체 → Alpha Score ±1~5점 변동 가능 ⚠️
+### 19.4 `useOnePipe` React 훅 (멀티 티커)
 
-| 파일 | 위험 사항 |
-|------|------|
-| `watchlistBatchService.ts` buildBasePrice | Alpha Engine `calculateAlphaScore()`에 price/changePct 입력 |
-| `portfolioBatchService.ts` buildBasePrice | 동일 |
-| `/api/live/ticker` | 동일 |
+```typescript
+// src/hooks/useOnePipe.ts L160
+export function useOnePipe(
+    tickers: string[],
+    options?: {
+        refreshInterval?: number;  // 기본 5000ms
+        ssrPrices?: Record<string, { price, prevClose, changePct, extPrice, extLabel, session }>;
+    }
+): Map<string, OnePipeResult>
+```
 
-**price를 입력으로 사용하는 Alpha Engine factor (6개)**:
-- `priceChange` (0-8점): changePct > 3% → 2점, < -1% → 8점
-- `vwapPosition` (0-5점): (price - vwap) / vwap
-- `trendConfirm` (0-5점): changePct > 1% + 기관확인
-- `SURGE_PENALTY`: changePct > 3% → **-5점**
-- `DIP_BONUS`: changePct < -3% → **+8점**
+**내부 데이터 소스 (자동 관리):**
+1. `useMarketStatus()` → 마켓 상태 (폴링 제어)
+2. `useRealtimeData(tickers)` → WebSocket 실시간 가격
+3. `useSWR('/api/live/quotes?symbols=...')` → 5초 폴링
+4. `useRef<Record<string, number>>` → `regularCloseToday` 잠금 (렌더 간 유지)
+5. `ssrPrices` → SSR 하이드레이션 데이터 (초기 렌더링 깜빡임 방지)
 
-**Phase 4-5는 Phase 1-2 완료 후 별도 진행하며, Alpha Score 비교 검증 필수.**
+### 19.5 전체 소비자 맵 (2026-05-08 기준)
 
-### 19.6 대시보드만 적용 시 (권장 순서)
+#### ✅ `computeOnePipe` 경유 (원파이프 적용 완료)
 
-**수정 파일**: `dashboardStore.ts` → `fetchPriceOnly()` 함수 **1개만**
-**UI 변경**: ZERO (store 필드명 동일 매핑)
-**다른 페이지 영향**: ZERO (외부 페이지는 dashboardStore에서 종목 리스트 관리만 사용, 가격 미참조)
-**지표 영향**: ZERO (Dashboard는 표시용만)
+| 소비자 | 파일 | 사용 방식 | WS | 폴링 |
+|--------|------|----------|:--:|:----:|
+| **Watchlist** | `src/hooks/useWatchlist.ts` | `useOnePipe` 훅 | ✅ | ✅ 5s |
+| **Portfolio** | `src/hooks/usePortfolio.ts` | `useOnePipe` 훅 | ✅ | ✅ 5s |
+| **Intel** | `src/hooks/useIntelSharedData.ts` | `computeOnePipe` 순수 함수 (fetchPriceOnly 내부) | ❌ | ✅ 2s |
+| **Dashboard** (fetchPriceOnly) | `src/stores/dashboardStore.ts` L414 | `computeOnePipe` 순수 함수 | ❌ | ✅ 2s |
+| **Dashboard** (updateRealtimePrice) | `src/stores/dashboardStore.ts` L517 | `computeOnePipe` 순수 함수 (WS 가격 입력) | ✅ | ❌ |
+
+**데이터 흐름 (Watchlist/Portfolio — `useOnePipe` 훅 전체 관리):**
+```
+useOnePipe(['NVDA', 'AAPL', ...])
+  ├─ useRealtimeData() → WS 가격 (wsPrice)
+  ├─ useSWR('/api/live/quotes?symbols=...') → 5s 폴링 (pollPrice, pollPrevClose, pollExtPrice, ...)
+  ├─ useRef(closeLocks) → regularCloseToday 잠금
+  └─ computeOnePipe({ session, pollPrice, pollPrevClose, wsPrice, ... })
+      → Map<ticker, OnePipeResult>
+```
+
+**데이터 흐름 (Dashboard — Store + 컴포넌트 분리):**
+```
+DashboardClient.tsx
+  ├─ useRealtimeData() → wsPrices 변경 감지
+  │   └─ store.updateRealtimePrice(ticker, price)
+  │       └─ computeOnePipe({ wsPrice: price, ... }) → store.tickers[ticker] 갱신
+  └─ store.fetchPriceOnly() (2s 폴링)
+      └─ fetch('/api/live/quotes') → computeOnePipe({ pollPrice, ... }) → store.tickers 갱신
+```
+
+**데이터 흐름 (Intel — 폴링 전용):**
+```
+useIntelSharedData()
+  ├─ fetchPriceOnly() (2s 폴링)
+  │   └─ fetch('/api/live/quotes?symbols=70종목')
+  │       └─ computeOnePipe({ pollPrice, ... }) → setState 갱신
+  ├─ fetchFast() (30s 폴링) — intel/fast API → 스파크라인/가격 갱신
+  └─ fetchFull() (120s 폴링) — watchlist/batch API → 옵션/알파 데이터 보강
+```
+
+#### ⚠️ 별도 경로 (Command/Flow — 향후 교체 대상)
+
+| 소비자 | 파일 | 사용 함수 | 비고 |
+|--------|------|----------|------|
+| **Command 페이지** | `src/hooks/usePriceDisplay.ts` | `calcPriceDisplay()` | `useLivePrice` + `useFlowData` 경유 |
+| **Flow 페이지** | `src/hooks/usePriceDisplay.ts` | `calcPriceDisplay()` | 동일 |
+| **모바일 Command** | `src/components/intel/mobile/MobileCommandPage.tsx` | `calcPriceDisplay()` | 동일 |
+| **모바일 Flow** | `src/app/[locale]/flow/MobileFlowPage.tsx` | `calcPriceDisplay()` | 동일 |
+
+> ⚠️ **Command/Flow는 단일 종목 상세 페이지**로, `useLivePrice` (5s 단일 종목 폴링) + `useFlowData` (60s 풀 데이터) 구조.
+> `calcPriceDisplay`는 `computeOnePipe`와 **동일한 세션 로직을 독립 구현**하고 있어 로직 드리프트 위험이 있음.
+> 교체 시에는 `calcPriceDisplay` 내부를 `computeOnePipe`로 대체하는 **방법 A** (인터페이스 유지, 내부 교체)가 최소 리스크.
+
+#### 🔵 서버사이드 가격 계산 (교체 불필요)
+
+| 파일 | 용도 | 비고 |
+|------|------|------|
+| `src/services/alphaEngine.ts` | Alpha Score 계산 시 changePct 직접 계산 | 서버 SSR 전용, UI 표시 아님 |
+| `src/services/centralDataHub.ts` | 데이터 허브 가격 계산 | 서버 SSR 전용, UI 표시 아님 |
+| `src/services/powerEngine.ts` | Power Engine 지표 | 서버 SSR 전용, UI 표시 아님 |
+
+> 이 서버사이드 엔진들은 Lambda/SSR에서 실행되며, 클라이언트 가격 표시와 무관.
+> `(price - prevClose) / prevClose × 100` 공식 자체는 동일하므로 교체 불필요.
+
+### 19.6 PRE/POST 뱃지 표시 규칙 (페이지별)
+
+| 페이지 | REG 세션 | PRE 세션 | POST/CLOSED 세션 |
+|--------|---------|---------|-----------------|
+| **Watchlist** | VWAP 컬럼 표시 (PRE 뱃지 숨김) | PRE 뱃지 표시 | POST 뱃지 유지 |
+| **Portfolio** | PRE CLOSE 뱃지 표시 | PRE 뱃지 표시 | POST 뱃지 표시 |
+| **Dashboard** | PRE 컬럼 헤더 + PRE 가격 | PRE 가격 | POST 가격 |
+| **Intel** | 세션 라벨만 | PRE 라벨 | POST 라벨 |
+
+> ⚠️ **Watchlist REG 세션**: `useWatchlist.ts`에서 `session === 'REG' && extLabel includes 'PRE'`일 때 `extLabel`을 빈 문자열로 변환.
+> Portfolio는 이 필터 없음 → PRE CLOSE 뱃지가 항상 표시됨. 이것이 의도된 디자인.
+
+### 19.7 `regularCloseToday` 잠금 메커니즘
+
+POST/CLOSED 세션에서 Polygon API가 `price` 필드에 불안정한 값을 반환하는 문제를 방지:
+
+```
+1. REG 세션: pollPrice가 처음 들어오면 closeLocks[ticker] = pollPrice 저장
+2. POST/CLOSED: regularCloseToday = closeLocks[ticker] (고정, 변경 불가)
+3. 다음 날 PRE: 새로운 pollPrice로 closeLocks 갱신
+```
+
+**잠금 저장 위치:**
+- `useOnePipe` 훅: `useRef<Record<string, number>>` (Watchlist/Portfolio)
+- `dashboardStore.ts`: `existing.regularCloseToday` (Zustand store 필드)
+- `useIntelSharedData.ts`: `q.regularCloseToday` (IntelQuote 필드)
+
+### 19.8 마이그레이션 이력
+
+| 날짜 | 커밋 | 내용 |
+|------|------|------|
+| 2026-05-06 | — | `unifiedPriceService.ts` 신규 작성 (`calcUnifiedPrice`) |
+| 2026-05-07 | `4aa3060a` | `useWatchlist.ts`, `usePortfolio.ts` → `useOnePipe` 훅으로 교체 |
+| 2026-05-07 | `10196435` | Watchlist REG 세션 PRE 뱃지 숨김 (VWAP 우선), `chgpct-verify.ts` 테스트 추가 |
+| 2026-05-08 | `e0b43661` | Treemap 적응형 텍스트 (37+ 종목 대응) |
+| 2026-05-08 | `39caba41` | **`useIntelSharedData.ts` + `dashboardStore.ts` → `computeOnePipe` 교체. `calcUnifiedPrice` 사이트 전체에서 완전 제거.** |
+
+### 19.9 교훈 및 절대 규칙
+
+> 🔴 **가격 계산은 반드시 `computeOnePipe`를 통과해야 한다.** 새 페이지에서 가격을 표시할 때 `(price - prevClose) / prevClose × 100`을 직접 작성하지 말 것. `computeOnePipe`를 import하여 사용할 것.
+>
+> 🔴 **`regularCloseToday` 잠금은 절대 해제하지 말 것.** POST/CLOSED에서 Polygon이 반환하는 `price`는 불안정하다. 잠금된 정규장 종가만 사용할 것.
+>
+> 🔴 **`changePct`는 외부 API 값을 신뢰하지 말 것.** Polygon/WS가 반환하는 `changePercent`는 기준이 불명확하다. REG/POST/CLOSED에서는 항상 `(price - prevClose) / prevClose × 100`으로 직접 계산할 것. PRE만 API 값 사용 (전일 등락률이므로 계산 불가).
+>
+> 🔴 **`useOnePipe`와 `computeOnePipe`의 차이**: `useOnePipe`는 React 훅 (WS+폴링+잠금 자동 관리). `computeOnePipe`는 순수 함수 (입력→출력, 부수 효과 없음). Zustand Store 등 훅 사용 불가능한 곳에서는 `computeOnePipe` 직접 호출.
 
 ## 20. 🐋 WhaleIndex(SmartFlow) V2 정합성 수정 (2026-05-07 완료)
 
