@@ -287,3 +287,12 @@ export function MobileCmd13F({ ticker }: { ticker: string }) {
         </div>
     );
 }
+
+// ═══ Individual exports — for separate tabs ═══
+export function MobileCmd13FOnly({ ticker }: { ticker: string }) {
+    return <Mobile13FContent ticker={ticker} />;
+}
+
+export function MobileCmdInsiderOnly({ ticker }: { ticker: string }) {
+    return <MobileInsiderContent ticker={ticker} />;
+}

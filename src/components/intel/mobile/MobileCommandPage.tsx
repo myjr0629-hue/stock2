@@ -27,8 +27,8 @@ import { MobileCmdMetrics } from './MobileCmdMetrics';
 import { MobileCmdChart } from './MobileCmdChart';
 import { MobileCmdOptions } from './MobileCmdOptions';
 
-// 13F+Insider — mobile-optimized with toggle
-import { MobileCmd13F } from './MobileCmd13F';
+// 13F + Insider — mobile-optimized
+import { MobileCmd13FOnly, MobileCmdInsiderOnly } from './MobileCmd13F';
 
 
 interface MobileCommandPageProps {
@@ -44,7 +44,7 @@ interface MobileCommandPageProps {
 
 const LOGO = (t: string) => `https://assets.parqet.com/logos/symbol/${t}?format=png`;
 
-type TabKey = 'overview' | 'metrics' | 'chart' | 'options' | '13f';
+type TabKey = 'overview' | 'metrics' | 'chart' | 'options' | '13f' | 'insider';
 
 const TABS: { key: TabKey; label: string; aiPrefix?: boolean }[] = [
     { key: 'chart', label: 'Chart' },
@@ -52,6 +52,7 @@ const TABS: { key: TabKey; label: string; aiPrefix?: boolean }[] = [
     { key: 'metrics', label: 'Metrics' },
     { key: 'options', label: 'Options' },
     { key: '13f', label: '13-F' },
+    { key: 'insider', label: 'Insider' },
 ];
 
 // ── Helpers ──
@@ -396,7 +397,10 @@ export function MobileCommandPage({ quote: rawQuote, sectorLabel, onBack, ticker
                     <MobileCmdOptions ticker={effectiveQuote.ticker} quote={effectiveQuote} unified={unified} unifiedLoading={unifiedLoading} initialStockData={initialStockData} />
                 )}
                 {activeTab === '13f' && (
-                    <MobileCmd13F ticker={effectiveQuote.ticker} />
+                    <MobileCmd13FOnly ticker={effectiveQuote.ticker} />
+                )}
+                {activeTab === 'insider' && (
+                    <MobileCmdInsiderOnly ticker={effectiveQuote.ticker} />
                 )}
 
             </div>
