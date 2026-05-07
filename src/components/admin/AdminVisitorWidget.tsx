@@ -110,7 +110,7 @@ export function AdminVisitorWidget() {
         return (
             <button
                 onClick={() => setMinimized(false)}
-                className="fixed md:bottom-20 bottom-24 right-4 z-[9999] w-10 h-10 rounded-full
+                className="fixed md:bottom-20 bottom-24 right-8 z-[9999] w-10 h-10 rounded-full
                     bg-gradient-to-br from-cyan-500/20 to-purple-500/20
                     backdrop-blur-xl border border-cyan-500/30
                     flex items-center justify-center
@@ -128,7 +128,7 @@ export function AdminVisitorWidget() {
     }
 
     return (
-        <div className="fixed md:bottom-20 bottom-24 right-4 z-[9999] w-[220px]
+        <div className="fixed md:bottom-20 bottom-24 right-8 z-[9999] w-[220px]
             bg-gradient-to-br from-[#0d1424]/95 to-[#0a0e1a]/95
             backdrop-blur-2xl
             border border-white/[0.08] rounded-2xl

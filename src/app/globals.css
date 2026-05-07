@@ -1041,13 +1041,13 @@
      F. ADMIN LIVE MONITOR
      ──────────────────────────────────────────────────────────── */
 
-  .fixed.bottom-20.right-4.z-\[9999\] {
+  .fixed.bottom-20.right-8.z-\[9999\] {
     bottom: 72px !important;
     right: 8px !important;
     max-width: 200px !important;
     font-size: 11px !important;
   }
-  .fixed.bottom-20.right-4.z-\[9999\].w-10 {
+  .fixed.bottom-20.right-8.z-\[9999\].w-10 {
     bottom: 72px !important;
     right: 8px !important;
   }
