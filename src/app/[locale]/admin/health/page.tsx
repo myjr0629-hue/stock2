@@ -258,7 +258,7 @@ export default function AdminHealthPage() {
       {/* Tab Navigation */}
       {data && (
         <div className="border-b border-white/[0.06] bg-[#060a13]/95 backdrop-blur-md sticky top-[56px] z-40">
-          <div className="max-w-5xl mx-auto px-4 flex gap-1 overflow-x-auto scrollbar-hide py-1.5">
+          <div className="max-w-5xl mx-auto px-4 flex flex-wrap gap-1 py-1.5">
             {[
               { id: 'sec-calendar', label: 'Calendar', icon: CalendarDays },
               { id: 'sec-users', label: 'Users', icon: Users },
