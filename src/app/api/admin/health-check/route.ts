@@ -458,16 +458,31 @@ export async function GET(req: NextRequest) {
     }
 
     // Harvest: 24/7 rate(15 minutes) — 항상 작동
-    const harvestOk = commandCache.hitRate >= 80;
+    // [SMART] 세션별 기대치 조정:
+    //   본장(REG): 80%+ 필요 (전 종목 캐시 필수)
+    //   프리/포스트: 30%+ 있으면 정상 (Lambda 사이클 진행 중)
+    //   장외/주말: 1건이라도 있으면 정상 (TTL 범위 내 보존)
     const harvestDataAge = commandCache.avgAge;
-    const harvestDataFresh = harvestDataAge >= 0 && harvestDataAge < 3600; // 1시간 이내
+    const harvestDataFresh = harvestDataAge >= 0 && harvestDataAge < 3600;
+    const harvestOk = et.isMarketHours
+      ? commandCache.hitRate >= 80
+      : et.isPreMarket || et.isPostMarket
+        ? commandCache.hitRate >= 30 || commandCache.hitCount >= 5
+        : commandCache.hitCount > 0; // 장외/주말: 캐시 1건이라도 보존 중이면 OK
+    const harvestRealProblem = et.isMarketHours && commandCache.hitRate < 50; // 본장인데 절반 미만 = 진짜 문제
 
     const briefingExists = !!(briefingKo || briefingEn || briefingJa || briefingLegacy);
     const briefingStatus = briefingExists ? 'OK' : (et.isPreMarket || et.isMarketHours ? 'MISSING' : 'PENDING');
 
     const crossSectorExists = !!(crossSectorToday || crossSectorYesterday);
 
-    const overall = harvestOk && (flowOperational !== 'DOWN') && ec2ProxyOk ? 'HEALTHY' : 'DEGRADED';
+    // [SMART] Overall: 진짜 문제가 있을 때만 DEGRADED
+    // - 본장 시간: harvest 50% 미만 OR flow DOWN OR EC2 DOWN = 진짜 문제
+    // - 장외 시간: EC2 DOWN만 진짜 문제 (나머지는 정상 유휴)
+    const hasRealProblem = et.isMarketHours
+      ? (harvestRealProblem || flowOperational === 'DOWN' || !ec2ProxyOk)
+      : (!ec2ProxyOk || (et.isPreMarket && flowOperational === 'DOWN'));
+    const overall = hasRealProblem ? 'DEGRADED' : 'HEALTHY';
 
     return NextResponse.json({
       timestamp: new Date().toISOString(),
@@ -494,8 +509,8 @@ export async function GET(req: NextRequest) {
 
       lambda: {
         signumHarvest: {
-          operationalStatus: harvestOk ? 'RUNNING' : commandCache.hitRate >= 50 ? 'DEGRADED' : 'DOWN',
-          dataStatus: harvestDataFresh ? 'FRESH' : harvestOk ? 'STALE' : 'EMPTY',
+          operationalStatus: harvestOk ? 'RUNNING' : harvestRealProblem ? 'DOWN' : commandCache.hitCount > 0 ? 'RUNNING' : 'IDLE',
+          dataStatus: harvestDataFresh ? 'FRESH' : commandCache.hitCount > 0 ? 'STALE' : 'EMPTY',
           schedule: 'rate(15 minutes) — 24/7 상시 실행',
           statusNote: harvestOk
             ? `정상 작동. ${commandCache.hitCount}/${SAMPLE_TICKERS.length}종목 캐시 적재 (평균 ${harvestDataAge >= 0 ? Math.round(harvestDataAge / 60) + '분' : 'N/A'})`
@@ -608,15 +623,15 @@ export async function GET(req: NextRequest) {
       })(),
 
       pages: {
-        dashboard: { status: harvestOk ? 'OK' : 'DEGRADED', dependency: 'cache:command:unified (signum-harvest)' },
-        command: { status: harvestOk ? 'OK' : 'DEGRADED', dependency: 'cache:command:unified + chart API' },
+        dashboard: { status: harvestOk ? 'OK' : harvestRealProblem ? 'DEGRADED' : 'OK', dependency: 'cache:command:unified (signum-harvest)' },
+        command: { status: harvestOk ? 'OK' : harvestRealProblem ? 'DEGRADED' : 'OK', dependency: 'cache:command:unified + chart API' },
         flow: {
           status: (flowOperational !== 'DOWN' || !et.isMarketHours) ? 'OK' : 'DEGRADED',
           dependency: 'cache:flow:unified + polygon:snapshot:probe (signum-flow-harvest)',
         },
-        intel: { status: crossSectorExists ? 'OK' : 'DEGRADED', dependency: 'postmarket:cross-brief-v3 (Lambda cross-sector)' },
+        intel: { status: crossSectorExists ? 'OK' : (et.isPostMarket ? 'PENDING' : 'OK'), dependency: 'postmarket:cross-brief-v3 (Lambda cross-sector)' },
         guardian: { status: briefingExists ? 'OK' : (et.isMarketHours ? 'DEGRADED' : 'PENDING'), dependency: 'guardian:morning_briefing (EC2 Worker)' },
-        watchlist: { status: analysisCache.hitRate >= 80 ? 'OK' : 'DEGRADED', dependency: 'cache:analysis (signum-harvest)' },
+        watchlist: { status: analysisCache.hitRate >= (et.isMarketHours ? 80 : 30) || analysisCache.hitCount > 0 ? 'OK' : 'DEGRADED', dependency: 'cache:analysis (signum-harvest)' },
       },
 
       _sampleTickers: SAMPLE_TICKERS,

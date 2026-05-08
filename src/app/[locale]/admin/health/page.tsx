@@ -303,7 +303,7 @@ export default function AdminHealthPage() {
             <div className="flex items-center gap-3">
               <Zap className={`w-6 h-6 ${data.overall === 'HEALTHY' ? 'text-emerald-400' : 'text-amber-400'}`} />
               <div>
-                <div className="text-[16px] font-black">{data.overall === 'HEALTHY' ? '시스템 정상' : '일부 점검 필요'}</div>
+                <div className="text-[16px] font-black">{data.overall === 'HEALTHY' ? '✅ 전체 시스템 정상' : '⚠️ 실제 문제 감지됨'}</div>
                 <div className="text-[13px] text-slate-300">
                   응답 {data.elapsed} · 최종 새로고침 {lastRefresh?.toLocaleTimeString('ko-KR') || '-'}
                 </div>
