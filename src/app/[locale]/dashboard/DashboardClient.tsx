@@ -818,7 +818,7 @@ function MainChartPanel() {
     const lastTickerRef = React.useRef<string | null>(null);
     // [PERF] Client-side chart cache — instant display on ticker revisit
     const chartCacheRef = React.useRef<Map<string, { data: any[]; ts: number }>>(new Map());
-    const CHART_CACHE_TTL_MS = 300_000; // 5min — matches server Redis TTL for maximum cache hits
+    const CHART_CACHE_TTL_MS = 60_000; // 1min — matches server Redis TTL, prevents stale chart on normal page entry
 
     // [SPEED] Prefetch watchlist charts — selected ticker first, then stagger others
     // → Selected chart loads instantly, remaining tickers prefetch in background

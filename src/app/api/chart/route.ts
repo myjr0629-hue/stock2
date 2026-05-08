@@ -3,8 +3,9 @@ import { getStockChartData, Range } from '@/services/stockApi';
 import { getBuildId } from '@/services/buildIdSSOT'; // [S-56.4.6e]
 import { getFromCache, setInCache } from '@/services/redisClient';
 
-// [S-78] Edge cache for 30 seconds - faster chart load while maintaining accuracy
-export const revalidate = 30;
+// [FIX] force-dynamic — 차트는 시간/세션에 따라 결과가 달라지므로 CDN 정적 캐시 불가
+// 이전 revalidate=30이 브라우저 디스크 캐시와 결합되어 Ctrl+Shift+R 없이는 구 데이터 표시되는 버그 유발
+export const dynamic = 'force-dynamic';
 
 export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
@@ -15,9 +16,9 @@ export async function GET(request: Request) {
         return NextResponse.json({ error: 'Symbol is required' }, { status: 400 });
     }
 
-    // [AWS] Redis cache first (300s TTL — chart visualization doesn't need sub-minute freshness)
-    // [PERF] Increased from 60s→300s to maximize cache hits and reduce Polygon API pressure
-    const CHART_CACHE_TTL = range === '1d' ? 300 : 600; // 5min for intraday, 10min for historical
+    // [FIX] Redis cache — 1D는 60초 (가격 실시간 추적과 동기화), 장기 차트는 10분
+    // 이전 300초는 WebSocket 실시간 가격과 차트 데이터 불일치를 유발했음
+    const CHART_CACHE_TTL = range === '1d' ? 60 : 600;
     const cacheKey = `chart:${symbol}:${range}`;
     try {
         const cached = await getFromCache<any>(cacheKey);
@@ -44,7 +45,7 @@ export async function GET(request: Request) {
                         range, symbol, count: cached.data?.length || 0
                     }), {
                         status: 200,
-                        headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 's-maxage=30, stale-while-revalidate=15' }
+                        headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': range === '1d' ? 'no-store, no-cache, must-revalidate' : 's-maxage=60, stale-while-revalidate=30' }
                     });
                 }
             } else {
@@ -56,7 +57,7 @@ export async function GET(request: Request) {
                     range, symbol, count: cached.data?.length || 0
                 }), {
                     status: 200,
-                    headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 's-maxage=30, stale-while-revalidate=15' }
+                    headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': range === '1d' ? 'no-store, no-cache, must-revalidate' : 's-maxage=60, stale-while-revalidate=30' }
                 });
             }
         }
@@ -95,10 +96,11 @@ export async function GET(request: Request) {
             count: data.length
         };
 
-        // [SMART CACHE BYPASS] If data is sparse, DO NOT cache at the CDN Edge!
-        const cacheControlHeader = isSparseData 
-            ? 'no-store, max-age=0'
-            : 's-maxage=30, stale-while-revalidate=15';
+        // [FIX] 1D 차트는 브라우저/CDN 캐시 금지 — 항상 신선한 데이터
+        // 장기 차트(5D+)만 CDN 캐시 허용
+        const cacheControlHeader = (isSparseData || range === '1d')
+            ? 'no-store, no-cache, must-revalidate'
+            : 's-maxage=60, stale-while-revalidate=30';
 
         return new Response(JSON.stringify(response), {
             status: 200,
