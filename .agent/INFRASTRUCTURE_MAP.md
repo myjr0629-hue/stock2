@@ -1333,6 +1333,53 @@ bash scripts/ec2-deploy-guardian.sh
 
 ## 11. 작업 이력
 
+### [2026-05-08] 🟢 차트 4중 캐시 문제 해결 — Ctrl+Shift+R 없이 최신 차트 표시
+
+> **문제**: 대시보드 진입 시 차트가 어제 데이터에 머물러 있고, Ctrl+Shift+R(강제 새로고침)을 해야만 최신 데이터 표시. 일반 사용자는 이런 조작을 하지 않으므로 프로덕션 불가.
+> 
+> **근본 원인**: 4개 캐시 레이어가 중첩되어 구 데이터가 갇힘:
+> 1. **Vercel CDN**: `revalidate=30` → 정적 캐시
+> 2. **Redis**: 300초 TTL → 5분간 구 데이터 유지
+> 3. **브라우저 디스크**: `s-maxage=30` → 뒤로가기 시 구 데이터 재사용
+> 4. **클라이언트 JS**: `chartCacheRef` 300초 → 티커 재방문 시 구 데이터
+> 
+> **수정**:
+> - `src/app/api/chart/route.ts`:
+>   - `revalidate=30` → `dynamic='force-dynamic'` (CDN 정적 캐시 제거)
+>   - Redis TTL: 300초 → **60초** (1D 차트)
+>   - Cache-Control: `s-maxage=30` → **`no-store, no-cache, must-revalidate`** (1D 차트)
+>   - 장기 차트(5D+)는 기존대로 `s-maxage=60` 유지
+> - `src/app/[locale]/dashboard/DashboardClient.tsx`:
+>   - `CHART_CACHE_TTL_MS`: 300,000 → **60,000** (1분)
+> 
+> **영향 범위**: Dashboard + Command 페이지 모두 동일 `/api/chart` API 사용 → 양쪽 자동 적용
+> 
+> **커밋**: `8a32a824`
+
+### [2026-05-08] 🟢 System Health 대시보드 고도화 — Alpha History + Chart Cache + 세션별 스마트 판정
+
+> **목적**: 헬스체크가 진짜 문제만 알려주도록 개선. 프리마켓/장외 시간에 불필요한 DEGRADED 표시 제거.
+> 
+> **추가 섹션 (2개)**:
+> 1. **Alpha History (DynamoDB)**: `signum-alpha-history` 오늘/어제 저장 현황, Score>0 건전성, 샘플 종목 최신 스코어, LIVE/SSR tier 분포
+> 2. **Chart Cache (1D 실시간 추적)**: `chart:TICKER:1d` Redis 캐시 age/session/points 모니터링, TTL 60초 수정 효과 추적
+> 
+> **기능 개선 (3개)**:
+> 1. **30초 자동 새로고침**: 카운트다운 표시, 수동 REFRESH 불필요
+> 2. **탭 네비게이션 2줄 표시**: `overflow-x-auto` → `flex-wrap` (스크롤바 가림 문제 해결)
+> 3. **세션별 스마트 판정**: 본장/프리마켓/장외 시간에 따라 기대치 자동 조정
+> 
+> **스마트 판정 로직** (`/api/admin/health-check`):
+> | 세션 | harvest 정상 기준 | overall DEGRADED 조건 |
+> |------|:---:|---|
+> | **본장 (REG)** | 히트율 80%+ | harvest <50% OR flow DOWN OR EC2 DOWN |
+> | **프리/포스트** | 히트율 30%+ 또는 5건+ | EC2 DOWN OR flow DOWN |
+> | **장외/주말** | 1건+ 보존 | EC2 DOWN만 |
+> 
+> **탭 구성 (11개)**: Calendar → Users → Integrity → **Alpha History** → Lambda → EC2 → Market Feed → Cache → **Chart Cache** → Content → Pages
+> 
+> **커밋**: `a5eea89a`, `e86e0eba`, `5f3b0307`
+
 ### [2026-05-06] 🟢 마케팅 이벤트 감지 확장 — Insider Trading + 30종목 확대
 
 > **변경 1**: `event-detect/route.ts` TRACKED_TICKERS 7종목(M7) → **30종목** 확장
