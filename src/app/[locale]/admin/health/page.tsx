@@ -170,6 +170,22 @@ export default function AdminHealthPage() {
     if (isAdmin && adminEmail) fetchHealth();
   }, [isAdmin, adminEmail, fetchHealth]);
 
+  // Auto-refresh every 30s
+  const [countdown, setCountdown] = useState(30);
+  useEffect(() => {
+    if (!isAdmin || !adminEmail) return;
+    const interval = setInterval(() => {
+      setCountdown(prev => {
+        if (prev <= 1) {
+          fetchHealth();
+          return 30;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [isAdmin, adminEmail, fetchHealth]);
+
   if (loading) {
     return (
       <div className="min-h-screen bg-[#060a13] flex items-center justify-center">
@@ -234,6 +250,7 @@ export default function AdminHealthPage() {
               <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
               REFRESH
             </button>
+            <span className="text-[11px] text-slate-500 font-mono tabular-nums">{countdown}s</span>
           </div>
         </div>
       </div>
@@ -246,10 +263,12 @@ export default function AdminHealthPage() {
               { id: 'sec-calendar', label: 'Calendar', icon: CalendarDays },
               { id: 'sec-users', label: 'Users', icon: Users },
               { id: 'sec-integrity', label: 'Integrity', icon: GitCompareArrows },
+              { id: 'sec-alpha', label: 'Alpha History', icon: TrendingUp },
               { id: 'sec-lambda', label: 'Lambda', icon: Server },
               { id: 'sec-ec2', label: 'EC2', icon: Wifi },
               { id: 'sec-feed', label: 'Market Feed', icon: BarChart3 },
               { id: 'sec-cache', label: 'Cache', icon: Database },
+              { id: 'sec-chart', label: 'Chart Cache', icon: Activity },
               { id: 'sec-content', label: 'Content', icon: FileText },
               { id: 'sec-pages', label: 'Pages', icon: Layout },
             ].map(tab => (
@@ -612,14 +631,106 @@ export default function AdminHealthPage() {
               </Section>
             )}
 
+            {/* ═══ ALPHA HISTORY (DynamoDB) ═══ */}
+            {data.alphaHistory && (
+              <Section title="ALPHA HISTORY — DynamoDB 저장 무결성" icon={TrendingUp}
+                status={data.alphaHistory.status === 'HEALTHY' ? 'OK' : data.alphaHistory.status === 'DEGRADED' ? 'DEGRADED' : 'DOWN'}
+                defaultOpen={data.alphaHistory.status !== 'HEALTHY'} id="sec-alpha">
+                <div className="text-[13px] text-cyan-300 bg-cyan-500/5 border border-cyan-500/10 rounded-lg px-3 py-2 mb-3">
+                  {data.alphaHistory.note}
+                </div>
+                <div className="text-[12px] text-slate-400 mb-2">{data.alphaHistory.source}</div>
+                {/* Today / Yesterday stats */}
+                <div className="grid grid-cols-2 gap-3 mb-3">
+                  {[data.alphaHistory.today, data.alphaHistory.yesterday].filter(Boolean).map((s: any) => (
+                    <div key={s.date} className="bg-white/[0.03] rounded-xl border border-white/[0.06] p-3">
+                      <div className="text-[11px] text-slate-400 uppercase tracking-wider font-bold mb-2">{s.date}</div>
+                      <div className="grid grid-cols-3 gap-2 text-center">
+                        <div>
+                          <div className="text-[18px] font-black text-white">{s.total}</div>
+                          <div className="text-[10px] text-slate-400">총 레코드</div>
+                        </div>
+                        <div>
+                          <div className={`text-[18px] font-black ${s.scoreGt0 > 0 ? 'text-emerald-400' : 'text-red-400'}`}>{s.scoreGt0}</div>
+                          <div className="text-[10px] text-slate-400">Score&gt;0</div>
+                        </div>
+                        <div>
+                          <div className={`text-[18px] font-black ${s.scoreEq0 === 0 ? 'text-emerald-400' : 'text-red-400'}`}>{s.scoreEq0}</div>
+                          <div className="text-[10px] text-slate-400">Score=0</div>
+                        </div>
+                      </div>
+                      <div className="flex gap-2 mt-2 text-[11px]">
+                        <span className="text-slate-400">LIVE: <span className="text-cyan-400 font-bold">{s.liveTier}</span></span>
+                        <span className="text-slate-400">SSR: <span className="text-slate-300 font-bold">{s.ssrTier}</span></span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                {/* Sample tickers */}
+                {data.alphaHistory.samples?.length > 0 && (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-[12px]">
+                      <thead>
+                        <tr className="border-b border-white/[0.06]">
+                          <th className="text-left py-2 text-slate-400 font-bold">Ticker</th>
+                          <th className="text-center py-2 text-slate-400 font-bold">Date</th>
+                          <th className="text-center py-2 text-slate-400 font-bold">Score</th>
+                          <th className="text-center py-2 text-slate-400 font-bold">Tier</th>
+                          <th className="text-center py-2 text-slate-400 font-bold">Close</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {data.alphaHistory.samples.map((s: any) => (
+                          <tr key={s.ticker} className="border-b border-white/[0.03]">
+                            <td className="py-2 font-mono font-bold text-white">{s.ticker}</td>
+                            <td className="py-2 text-center text-slate-300">{s.date}</td>
+                            <td className="py-2 text-center"><span className="font-mono font-bold text-cyan-400">{s.score}</span></td>
+                            <td className="py-2 text-center text-[11px] text-slate-400">{s.tier}</td>
+                            <td className="py-2 text-center font-mono text-slate-300">${s.close?.toFixed(2)}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </Section>
+            )}
+
             {/* ═══ CACHE STATUS ═══ */}
             <Section title="REDIS / ELASTICACHE" icon={Database} status={(data.cache?.commandUnified?.hitRate || 0) >= 80 ? 'OK' : 'DEGRADED'} id="sec-cache">
               <HitRateBar rate={data.cache?.commandUnified?.hitRate || 0} count={data.cache?.commandUnified?.count || 0} total={data.cache?.commandUnified?.total || 20} label="cache:command:unified" />
               <HitRateBar rate={data.cache?.analysisCache?.hitRate || 0} count={data.cache?.analysisCache?.count || 0} total={data.cache?.analysisCache?.total || 20} label="cache:analysis" />
               <HitRateBar rate={data.cache?.flowUnified?.hitRate || 0} count={data.cache?.flowUnified?.count || 0} total={data.cache?.flowUnified?.total || 20} label="cache:flow:unified" />
               <HitRateBar rate={data.cache?.snapshotProbe?.hitRate || 0} count={data.cache?.snapshotProbe?.count || 0} total={data.cache?.snapshotProbe?.total || 20} label="polygon:snapshot:probe" />
-
             </Section>
+
+            {/* ═══ CHART CACHE — 1D 실시간성 모니터링 ═══ */}
+            {data.chartCache && (
+              <Section title="CHART CACHE — 1D 실시간 추적" icon={Activity}
+                status={data.chartCache.hitRate >= 60 ? 'OK' : 'DEGRADED'} id="sec-chart">
+                <div className="text-[12px] text-slate-400 mb-2">TTL: {data.chartCache.ttlConfig} · Cache-Control: {data.chartCache.cacheControl}</div>
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                  {data.chartCache.results?.map((r: any) => (
+                    <div key={r.ticker} className={`px-3 py-2.5 rounded-lg border ${
+                      r.exists ? 'bg-white/[0.02] border-white/[0.06]' : 'bg-red-500/5 border-red-500/10'}`}>
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="font-mono font-bold text-white text-[13px]">{r.ticker}</span>
+                        {r.exists ? <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" /> : <XCircle className="w-3.5 h-3.5 text-red-400" />}
+                      </div>
+                      {r.exists ? (
+                        <>
+                          <div className="text-[11px] text-slate-400">Age: <span className={`font-mono font-bold ${(r.age || 0) <= 60 ? 'text-emerald-400' : (r.age || 0) <= 300 ? 'text-amber-400' : 'text-red-400'}`}>{r.age != null ? r.age + 's' : '?'}</span></div>
+                          <div className="text-[11px] text-slate-400">Session: <span className="text-cyan-400">{r.session}</span></div>
+                          <div className="text-[11px] text-slate-400">Points: <span className="text-white">{r.points}</span></div>
+                        </>
+                      ) : (
+                        <div className="text-[11px] text-red-400">캐시 없음</div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </Section>
+            )}
 
             {/* ═══ CONTENT PIPELINE ═══ */}
             <Section title="CONTENT PIPELINE" icon={FileText} id="sec-content"

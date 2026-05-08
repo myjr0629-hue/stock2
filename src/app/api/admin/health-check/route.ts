@@ -589,6 +589,24 @@ export async function GET(req: NextRequest) {
         source: 'Vercel market-feed cron → ElastiCache (every 2min)',
       },
 
+      // ═══ CHART CACHE — 1D 차트 캐시 모니터링 (TTL 60s 수정 효과 추적) ═══
+      chartCache: await (async () => {
+        const chartTickers = ['TSLA', 'NVDA', 'AAPL', 'SPY', 'META'];
+        const results: any[] = [];
+        for (const t of chartTickers) {
+          const d = await getFromCache<any>(`chart:${t}:1d`);
+          if (d) {
+            const ts = d.sessionMaskDebug?.timestamp || d.timestamp;
+            const age = ts ? Math.round((Date.now() - new Date(ts).getTime()) / 1000) : null;
+            results.push({ ticker: t, exists: true, age, session: d.sessionMaskDebug?.currentSession || '?', points: d.data?.length || 0 });
+          } else {
+            results.push({ ticker: t, exists: false });
+          }
+        }
+        const hits = results.filter(r => r.exists).length;
+        return { hitRate: Math.round((hits / chartTickers.length) * 100), results, ttlConfig: '1D=60s, 5D+=600s', cacheControl: '1D=no-store, 5D+=s-maxage=60' };
+      })(),
+
       pages: {
         dashboard: { status: harvestOk ? 'OK' : 'DEGRADED', dependency: 'cache:command:unified (signum-harvest)' },
         command: { status: harvestOk ? 'OK' : 'DEGRADED', dependency: 'cache:command:unified + chart API' },
