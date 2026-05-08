@@ -205,8 +205,11 @@ export default function AdminHealthPage() {
     setBtLoading(true);
     try {
       const res = await fetch(`/api/admin/backtest?email=${encodeURIComponent(adminEmail)}`);
-      if (res.ok) setBtData(await res.json());
-    } catch {}
+      const json = await res.json();
+      setBtData(json);
+    } catch (e: any) {
+      setBtData({ error: `Fetch failed: ${e.message}` });
+    }
     setBtLoading(false);
   };
 
@@ -801,14 +804,14 @@ export default function AdminHealthPage() {
       {/* ═══════════════════════════ BACKTEST MODE ═══════════════════════════ */}
       {mode === 'backtest' && (
         <div className="max-w-5xl mx-auto px-4 py-6 space-y-4">
-          {btLoading && !btData ? (
+          {btLoading ? (
             <div className="flex flex-col items-center justify-center py-20 gap-3">
               <div className="animate-spin w-8 h-8 border-2 border-purple-500 border-t-transparent rounded-full" />
               <div className="text-slate-400 text-[13px]">DynamoDB 전량 스캔 중... (30~50초 소요)</div>
             </div>
           ) : btData?.error ? (
-            <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-5 text-red-400 text-[13px]">{btData.error}</div>
-          ) : btData ? (
+            <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-5 text-red-400 text-[13px]">{btData.error}{btData.stack && <pre className="mt-2 text-[11px] text-red-300/60 overflow-x-auto">{btData.stack}</pre>}</div>
+          ) : btData?.summary ? (
             <>
               {/* Summary Banner */}
               <div className="bg-gradient-to-r from-purple-500/10 to-purple-500/5 border border-purple-500/20 rounded-xl px-5 py-4">
@@ -991,7 +994,15 @@ export default function AdminHealthPage() {
                 </Section>
               </div>
             </>
-          ) : null}
+          ) : (
+            <div className="flex flex-col items-center justify-center py-20 gap-3">
+              <TrendingUp className="w-10 h-10 text-purple-400/50" />
+              <button onClick={fetchBacktest} className="px-5 py-2.5 rounded-xl bg-purple-500/15 border border-purple-500/25 text-purple-400 text-[14px] font-bold hover:bg-purple-500/25 transition-all">
+                DynamoDB 백테스트 분석 시작
+              </button>
+              <div className="text-[12px] text-slate-500">34,000+건 전량 스캔 · 약 30~50초 소요</div>
+            </div>
+          )}
         </div>
       )}
     </div>
