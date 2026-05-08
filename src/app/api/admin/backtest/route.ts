@@ -71,8 +71,8 @@ export async function GET(req: NextRequest) {
     do {
       const res = await client.send(new ScanCommand({
         TableName: 'signum-alpha-history',
-        ProjectionExpression: 'ticker, #d, alphaScore, close, price, qualityTier, engineVersion, changePct',
-        ExpressionAttributeNames: { '#d': 'date' },
+        ProjectionExpression: 'ticker, #d, alphaScore, #c, price, qualityTier, engineVersion, changePct',
+        ExpressionAttributeNames: { '#d': 'date', '#c': 'close' },
         ExclusiveStartKey: lastKey,
       }));
       scanCount++;
