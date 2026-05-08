@@ -150,7 +150,7 @@ export interface AlphaResult {
 // CONSTANTS
 // ============================================================================
 
-const ENGINE_VERSION = '5.2.0';
+const ENGINE_VERSION = '6.0.0';
 
 // Pillar max scores
 const PILLAR_MAX = {
@@ -268,32 +268,58 @@ export function calculateAlphaScore(input: AlphaInput): AlphaResult {
         gatesResult.gatesApplied.push('LOW_DATA_CAP');
     }
 
-    // [V5.2] Quick Win Gates — 11,543건 실증 백테스트 기반 (t=-17.9, p<0.0000001)
-    // 인프라맵 §3-0 V5.1 Quick Win 항목 적용
+    // ══════════════════════════════════════════════════════════════════
+    // [V6.0] DATA-PROVEN GATES — 28,802 T+3쌍 × 50종목 × 2년 실증
+    // Polygon REST API 2024-01-01 ~ 2026-05-08 시뮬레이션 기반
+    // ══════════════════════════════════════════════════════════════════
     const changePctFinal = input.changePct || 0;
+    const rsiFinal = input.rsi14 ?? null;
+    const vwapDistFinal = (input.vwap && input.vwap > 0 && input.price > 0)
+        ? ((input.price - input.vwap) / input.vwap) * 100 : 0;
 
-    // [V5.2] Gate: SURGE_PENALTY — 당일 +3% 이상 급등 종목 감점
-    // 근거: changePct > +3% → 3일후 -0.86% (승률 41.4%), 완벽한 단조감소 패턴
-    if (changePctFinal > 3) {
+    // [V6.0] Gate: RSI_EXTREME_OVERSOLD — RSI < 25 극과매도 보너스
+    // 근거: n=281, avg +1.86%, 적중률 64.8% (28,802쌍 중 최강 단일 신호)
+    if (rsiFinal !== null && rsiFinal < 25) {
+        finalScore += 8;
+        gatesResult.gatesApplied.push('RSI_EXTREME_OVERSOLD');
+    }
+
+    // [V6.0] Gate: VWAP_RSI_OVERSOLD — VWAP<-2% + RSI<35 조합 최강 보너스
+    // 근거: n=98, avg +2.90%, 적중률 66.3% (전체 시뮬레이션 최강 조합)
+    if (vwapDistFinal < -2 && rsiFinal !== null && rsiFinal < 35) {
+        finalScore += 10;
+        gatesResult.gatesApplied.push('VWAP_RSI_OVERSOLD');
+    }
+
+    // [V6.0] Gate: VWAP_RSI_OVERHEAT — VWAP>+2% + RSI>65 유일한 진짜 과열
+    // 근거: n=78, avg -0.27% (28,802쌍 중 유일한 마이너스 조합)
+    if (vwapDistFinal > 2 && rsiFinal !== null && rsiFinal > 65) {
         finalScore -= 5;
-        gatesResult.gatesApplied.push('SURGE_PENALTY');
+        gatesResult.gatesApplied.push('VWAP_RSI_OVERHEAT');
     }
 
-    // [V5.2] Gate: DIP_BONUS — 당일 -3% 이상 하락 종목 가산
-    // 근거: changePct < -3% → 3일후 +1.31% (승률 61.4%), Mean Reversion 최적 구간
-    if (changePctFinal < -3 && changePctFinal >= -10) {
-        finalScore = Math.min(finalScore + 8, 85); // 85캡: 급락 종목에 S등급 방지
-        gatesResult.gatesApplied.push('DIP_BONUS');
+    // [V6.0] Gate: BEAR_SURGE_TRAP — 하락장에서 급등 = 유일한 함정
+    // 근거: Bear(QQQ<-0.5%) + changePct>+3% → n=155, avg -0.43%, 적중률 43.2%
+    const ndxChg = input.ndxChangePct ?? 0;
+    if (ndxChg < -0.5 && changePctFinal > 3) {
+        finalScore -= 8;
+        gatesResult.gatesApplied.push('BEAR_SURGE_TRAP');
     }
 
-    // [V5.2] Gate: MOMENTUM_OVERHEAT — Momentum Pillar 20+/25 과열 감점
-    // 근거: Momentum Pillar corr=-0.164 (t=-17.9), 상위20% 적중률 41.7% vs 하위20% 69.9%
-    if (momentum.score >= 20) {
-        finalScore -= 3;
-        gatesResult.gatesApplied.push('MOMENTUM_OVERHEAT');
+    // [V6.0] Gate: SIDEWAYS_PENALTY — 횡보(-1%~+1%) = 최저 수익 구간
+    // 근거: changePct -1%~+1% → avg +0.12~0.16% (전체 평균의 절반)
+    if (changePctFinal > -1 && changePctFinal < 1) {
+        finalScore -= 2;
+        gatesResult.gatesApplied.push('SIDEWAYS_PENALTY');
     }
 
-    // clamp after V5.2 gates
+    // [V6.0] SURGE_PENALTY 삭제 — 28,802쌍 실증: changePct>+5%도 avg +0.61% (양수)
+    // V5.2의 SURGE_PENALTY는 거짓 감점이었음. U자형 패턴으로 양극단 모두 양호.
+
+    // [V6.0] MOMENTUM_OVERHEAT 삭제 — Momentum Pillar 고점수 자체는 위험하지 않음
+    // 위험한 것은 VWAP+RSI 조합뿐 (위에서 처리)
+
+    // clamp after V6.0 gates
     finalScore = Math.round(Math.max(0, Math.min(100, finalScore)));
 
 
@@ -357,20 +383,17 @@ function calculateMomentum(input: AlphaInput): PillarDetail {
     const factors: PillarDetail['factors'] = [];
     let total = 0;
 
-    // Factor 1: Price Change (0-8) — [V5.1] Mean Reversion Recalibration
-    // 백테스트 실증(t=-8.08): 당일 하락 종목이 3일 후 +2.75% (승률 64.5%)
-    // 당일 상승 종목은 3일 후 +0.39% (승률 47.5%) → 과열 구간 감점
+    // Factor 1: Price Change (0-8) — [V6.0] U자형 패턴 보정
+    // 28,802쌍 실증: changePct는 U자형 — 양극단(급등+급락) 모두 avg +0.5~0.7%
+    // 횡보(-1%~+1%)가 avg +0.12~0.16%로 최악
+    // V5.1의 "급등=과열" 가설은 거짓이었음
     const changePct = input.changePct || 0;
     let changeScore: number;
-    if (changePct <= -3 && changePct >= -8) changeScore = 7;       // [V5.1] 과매도 = 반등 최적 구간
-    else if (changePct < -8) changeScore = 4;                      // [V5.1] 급락 = 패닉이지만 반등 잠재력
-    else if (changePct <= -1 && changePct > -3) changeScore = 8;   // [V5.1] ★ Sweet spot: 소폭 조정 = 최고 반등 확률
-    else if (changePct <= 0 && changePct > -1) changeScore = 6;    // [V5.1] 약보합 = 바닥 다지기
-    else if (changePct > 0 && changePct <= 1) changeScore = 5;     // [V5.1] 소폭 상승 = 중립
-    else if (changePct > 1 && changePct <= 3) changeScore = 4;     // [V5.1] 보통 상승
-    else if (changePct > 3 && changePct <= 8) changeScore = 2;     // [V5.1] 과열 시작 (기존 8→2)
-    else if (changePct > 8 && changePct <= 15) changeScore = 1;    // [V5.1] 과열 (기존 6→1)
-    else changeScore = 0;                                          // [V5.1] 급등 15%+ = 추격 위험
+    const absChg = Math.abs(changePct);
+    if (absChg > 5) changeScore = 6;           // [V6.0] 양극단 (급등/급락 모두) = 좋음
+    else if (absChg > 3) changeScore = 6;      // [V6.0] 강한 움직임 = 좋음 (+0.50%)
+    else if (absChg > 1) changeScore = 4;      // [V6.0] 보통 움직임 = 중립
+    else changeScore = 2;                      // [V6.0] 횡보 = 최저 (avg +0.12%)
     changeScore = clamp(changeScore, 0, 8);
     factors.push({ name: 'priceChange', value: round1(changeScore), max: 8, detail: `${changePct >= 0 ? '+' : ''}${changePct.toFixed(1)}%` });
     total += changeScore;
@@ -392,22 +415,20 @@ function calculateMomentum(input: AlphaInput): PillarDetail {
     }
     total += vwapScore;
 
-    // Factor 3: 3-Day Trend (0-7) — [V5.1] Mean Reversion Recalibration
-    // 백테스트 실증: 3일 하락(-3%~-1%) 종목이 이후 3일 +3.06% (승률 68.7%)
-    // 3일 상승(+5%+) 종목은 이후 3일 +0.36% (승률 47.3%) → 과열 감점
+    // Factor 3: 3-Day Trend (0-7) — [V6.0] U자형 패턴 보정
+    // 28,802쌍 실증: return3D도 U자형 — 양극단 모두 avg +0.42~0.66%
+    // 횡보(-1%~+1%)가 avg +0.13~0.15%로 최악
     let trendScore = 0;
     const return3D = input.return3D;
     if (return3D !== null && return3D !== undefined) {
-        if (return3D <= -3 && return3D >= -10) trendScore = 7;      // [V5.1] ★ 과매도 = 최고 반등 확률
-        else if (return3D < -10) trendScore = 5;                    // [V5.1] 급락 = 반등 잠재력 있으나 리스크
-        else if (return3D <= -1 && return3D > -3) trendScore = 6;   // [V5.1] 소폭 하락 = 양호한 반등 구간
-        else if (return3D <= 0 && return3D > -1) trendScore = 5;    // [V5.1] 약보합 = 바닥 다지기
-        else if (return3D > 0 && return3D <= 2) trendScore = 4;     // [V5.1] 소폭 상승 = 중립
-        else if (return3D > 2 && return3D <= 5) trendScore = 2;     // [V5.1] 상승 = 고점 접근 (기존 5-6→2)
-        else trendScore = 1;                                        // [V5.1] 급등 5%+ = mean reversion 위험 (기존 7→1)
+        const absR3D = Math.abs(return3D);
+        if (absR3D > 5) trendScore = 6;           // [V6.0] 양극단 = 좋음
+        else if (absR3D > 3) trendScore = 5;      // [V6.0] 강한 움직임 = 양호
+        else if (absR3D > 1) trendScore = 3;      // [V6.0] 보통 = 중립
+        else trendScore = 1;                       // [V6.0] 횡보 = 최저
         factors.push({ name: 'trend3D', value: round1(trendScore), max: 7, detail: `3일수익률 ${return3D >= 0 ? '+' : ''}${return3D.toFixed(1)}%` });
     } else {
-        trendScore = changePct < 0 ? Math.min(5, Math.abs(changePct) * 1.5 + 2) : 2;
+        trendScore = Math.abs(changePct) > 2 ? 4 : 2;
         factors.push({ name: 'trend3D', value: round1(trendScore), max: 7, detail: '3일 데이터 없음(추정)' });
     }
     total += trendScore;
