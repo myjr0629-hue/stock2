@@ -1037,8 +1037,7 @@ export default function GuardianDesktop() {
                                                             {/* [V14.0] IFS Badge */}
                                                             {selectedSector.instFlow && (
                                                                 <span
-                                                                    title={locale === 'ko' ? 'IFS (Institutional Flow Score) — 섹터별 기관 수급 점수 (-100~+100). Whale(40%) + Net Premium(30%) + Dark Pool(20%) + PCR(10%)' : 'IFS — Institutional Flow Score (-100 to +100). Whale(40%) + Net Premium(30%) + Dark Pool(20%) + PCR(10%)'}
-                                                                    className={`text-[11px] font-mono font-bold px-1.5 py-0.5 rounded border cursor-help ${
+                                                                    className={`text-[11px] font-mono font-bold px-1.5 py-0.5 rounded border ${
                                                                         selectedSector.instFlow.ifs > 20 ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30' :
                                                                         selectedSector.instFlow.ifs < -20 ? 'bg-rose-500/15 text-rose-400 border-rose-500/30' :
                                                                         'bg-slate-700/50 text-slate-400 border-slate-700/50'
@@ -1139,10 +1138,7 @@ export default function GuardianDesktop() {
                                                                         </div>
                                                                         {/* IFS Score */}
                                                                         <div className="bg-slate-900/80 rounded-lg px-3 py-2 border border-slate-800/50">
-                                                                            <div
-                                                                                title={locale === 'ko' ? 'IFS — CONFIRMED=가격과 수급 일치, DIVERGENT=가격과 수급 괴리(스텔스 매집 또는 개인 주도)' : 'IFS — CONFIRMED=price-flow aligned, DIVERGENT=stealth accumulation or retail-driven'}
-                                                                                className="text-[12px] text-slate-500 font-bold tracking-wider mb-1 cursor-help"
-                                                                            >
+                                                                            <div className="text-[12px] text-slate-500 font-bold tracking-wider mb-1">
                                                                                 {selectedSector.instFlow.divergence === 'CONFIRMED'
                                                                                     ? (locale === 'ko' ? '기관 확인' : locale === 'ja' ? '機関確認' : 'Confirmed')
                                                                                     : selectedSector.instFlow.divergence === 'DIVERGENT'
