@@ -1036,13 +1036,15 @@ export default function GuardianDesktop() {
                                                             <span className="text-lg font-bold text-white">{getSectorName(selectedSector.name, locale)}</span>
                                                             {/* [V14.0] IFS Badge */}
                                                             {selectedSector.instFlow && (
-                                                                <span className={`text-[11px] font-mono font-bold px-1.5 py-0.5 rounded border ${
-                                                                    selectedSector.instFlow.ifs > 20 ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30' :
-                                                                    selectedSector.instFlow.ifs < -20 ? 'bg-rose-500/15 text-rose-400 border-rose-500/30' :
-                                                                    'bg-slate-700/50 text-slate-400 border-slate-700/50'
-                                                                }`}>
-                                                                    IFS {selectedSector.instFlow.ifs > 0 ? '+' : ''}{selectedSector.instFlow.ifs.toFixed(0)}
-                                                                </span>
+                                                                <GuardianTooltip sectionId="ifs" position="bottom">
+                                                                    <span className={`text-[11px] font-mono font-bold px-1.5 py-0.5 rounded border ${
+                                                                        selectedSector.instFlow.ifs > 20 ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30' :
+                                                                        selectedSector.instFlow.ifs < -20 ? 'bg-rose-500/15 text-rose-400 border-rose-500/30' :
+                                                                        'bg-slate-700/50 text-slate-400 border-slate-700/50'
+                                                                    }`}>
+                                                                        IFS {selectedSector.instFlow.ifs > 0 ? '+' : ''}{selectedSector.instFlow.ifs.toFixed(0)}
+                                                                    </span>
+                                                                </GuardianTooltip>
                                                             )}
                                                         </div>
                                                         <span className={`text-xl font-mono ${selectedSector.change >= 0 ? "text-emerald-400" : "text-rose-400"}`}>
@@ -1136,13 +1138,15 @@ export default function GuardianDesktop() {
                                                                         </div>
                                                                         {/* IFS Score */}
                                                                         <div className="bg-slate-900/80 rounded-lg px-3 py-2 border border-slate-800/50">
-                                                                            <div className="text-[12px] text-slate-500 font-bold tracking-wider mb-1">
-                                                                                {selectedSector.instFlow.divergence === 'CONFIRMED'
-                                                                                    ? (locale === 'ko' ? '기관 확인' : locale === 'ja' ? '機関確認' : 'Confirmed')
-                                                                                    : selectedSector.instFlow.divergence === 'DIVERGENT'
-                                                                                    ? (locale === 'ko' ? '가격 괴리' : locale === 'ja' ? '乖離' : 'Divergent')
-                                                                                    : (locale === 'ko' ? '중립' : locale === 'ja' ? '中立' : 'Neutral')}
-                                                                            </div>
+                                                                            <GuardianTooltip sectionId="ifs" position="top">
+                                                                                <div className="text-[12px] text-slate-500 font-bold tracking-wider mb-1">
+                                                                                    {selectedSector.instFlow.divergence === 'CONFIRMED'
+                                                                                        ? (locale === 'ko' ? '기관 확인' : locale === 'ja' ? '機関確認' : 'Confirmed')
+                                                                                        : selectedSector.instFlow.divergence === 'DIVERGENT'
+                                                                                        ? (locale === 'ko' ? '가격 괴리' : locale === 'ja' ? '乖離' : 'Divergent')
+                                                                                        : (locale === 'ko' ? '중립' : locale === 'ja' ? '中立' : 'Neutral')}
+                                                                                </div>
+                                                                            </GuardianTooltip>
                                                                             <span className={`text-sm font-mono font-bold ${
                                                                                 selectedSector.instFlow.divergence === 'CONFIRMED' ? 'text-emerald-400' :
                                                                                 selectedSector.instFlow.divergence === 'DIVERGENT' ? 'text-amber-400' : 'text-slate-400'

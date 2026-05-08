@@ -52,9 +52,14 @@ const TOOLTIP_MAP: Record<string, { ko: string; en: string; ja: string }> = {
         ja: "セクターローテーション戦術分析 — セクター間資金フロー・ローテーションパターン・需給変化をAIが総合分析した戦術的市場判断",
     },
     sectorIntel: {
-        ko: "섹터 인텔리전스 — 선택된 섹터의 5일 추세, 거래량, 주요 종목 등락을 심층 분석",
-        en: "Sector Intelligence — deep analysis of selected sector's 5-day trend, volume intensity & top constituent performance",
-        ja: "セクターインテリジェンス — 選択セクターの5日トレンド・出来高・主要銘柄の騰落を深層分析",
+        ko: "섹터 인텔리전스 — 선택된 섹터의 5일 추세, 거래량 강도, IFS(기관 수급 점수) 및 가격-기관 괴리 분석을 통한 심층 수급 진단",
+        en: "Sector Intelligence — deep analysis of selected sector's 5-day trend, volume intensity, IFS (Institutional Flow Score) & price-institutional divergence detection",
+        ja: "セクターインテリジェンス — 選択セクターの5日トレンド・出来高強度・IFS(機関フロースコア)・価格-機関乖離分析による深層需給診断",
+    },
+    ifs: {
+        ko: "IFS (Institutional Flow Score) — 섹터별 기관 수급 점수 (-100~+100). Whale Index(40%), Net Premium(30%), Dark Pool(20%), PCR(10%)를 종합하여 기관의 실제 자금 방향을 수치화. CONFIRMED=가격과 수급 일치, DIVERGENT=가격과 수급 괴리(스텔스 매집/개인 주도 의심)",
+        en: "IFS (Institutional Flow Score) — sector-level institutional flow composite (-100 to +100). Synthesizes Whale Index (40%), Net Premium (30%), Dark Pool (20%) & PCR (10%) to quantify true institutional direction. CONFIRMED = price-flow aligned, DIVERGENT = stealth accumulation or retail-driven rally detected",
+        ja: "IFS (Institutional Flow Score) — セクター別機関フロースコア(-100~+100)。Whale Index(40%)・Net Premium(30%)・Dark Pool(20%)・PCR(10%)を統合し機関の実際の資金方向を数値化。CONFIRMED=価格と需給一致、DIVERGENT=ステルス買集/個人主導の乖離を検出",
     },
     whatIf: {
         ko: "What-If 시뮬레이터 — VIX, 금리, 심리, 모멘텀을 조정해 RLSI 점수 변화를 시뮬레이션",
