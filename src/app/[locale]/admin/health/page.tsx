@@ -129,6 +129,9 @@ export default function AdminHealthPage() {
   const [refreshing, setRefreshing] = useState(false);
   const [adminEmail, setAdminEmail] = useState('');
   const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
+  const [mode, setMode] = useState<'health' | 'backtest'>('health');
+  const [btData, setBtData] = useState<any>(null);
+  const [btLoading, setBtLoading] = useState(false);
   const router = useRouter();
 
   // Auth check
@@ -196,6 +199,17 @@ export default function AdminHealthPage() {
 
   if (!isAdmin) return null;
 
+  // Backtest fetch
+  const fetchBacktest = async () => {
+    if (!adminEmail) return;
+    setBtLoading(true);
+    try {
+      const res = await fetch(`/api/admin/backtest?email=${encodeURIComponent(adminEmail)}`);
+      if (res.ok) setBtData(await res.json());
+    } catch {}
+    setBtLoading(false);
+  };
+
   // ET time
   const now = new Date();
   const etTime = now.toLocaleTimeString('en-US', { timeZone: 'America/New_York', hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
@@ -225,7 +239,18 @@ export default function AdminHealthPage() {
             <Shield className="w-5 h-5 text-cyan-400" />
             <div>
               <h1 className="text-[16px] font-black tracking-wide">SYSTEM HEALTH</h1>
-              <p className="text-[13px] text-slate-300 tracking-wide">Admin Control Center</p>
+              <div className="flex gap-1 mt-0.5">
+                <button onClick={() => setMode('health')}
+                  className={`px-2 py-0.5 rounded text-[11px] font-bold transition-all ${
+                    mode === 'health' ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30' : 'text-slate-400 hover:text-white'}`}>
+                  HEALTH
+                </button>
+                <button onClick={() => { setMode('backtest'); if (!btData) fetchBacktest(); }}
+                  className={`px-2 py-0.5 rounded text-[11px] font-bold transition-all ${
+                    mode === 'backtest' ? 'bg-purple-500/20 text-purple-400 border border-purple-500/30' : 'text-slate-400 hover:text-white'}`}>
+                  BACKTEST
+                </button>
+              </div>
             </div>
           </div>
           <div className="flex items-center gap-3">
@@ -256,7 +281,7 @@ export default function AdminHealthPage() {
       </div>
 
       {/* Tab Navigation */}
-      {data && (
+      {data && mode === 'health' && (
         <div className="border-b border-white/[0.06] bg-[#060a13]/95 backdrop-blur-md sticky top-[56px] z-40">
           <div className="max-w-5xl mx-auto px-4 flex flex-wrap gap-1 py-1.5">
             {[
@@ -293,7 +318,7 @@ export default function AdminHealthPage() {
         </div>
       )}
 
-      <div className="max-w-5xl mx-auto px-4 py-6 space-y-4">
+      {mode === 'health' && <div className="max-w-5xl mx-auto px-4 py-6 space-y-4">
         {/* Overall Status Banner */}
         {data && (
           <div className={`flex items-center justify-between px-5 py-4 rounded-xl border
@@ -772,7 +797,203 @@ export default function AdminHealthPage() {
             </Section>
           </>
         )}
-      </div>
+      </div>}
+      {/* ═══════════════════════════ BACKTEST MODE ═══════════════════════════ */}
+      {mode === 'backtest' && (
+        <div className="max-w-5xl mx-auto px-4 py-6 space-y-4">
+          {btLoading && !btData ? (
+            <div className="flex flex-col items-center justify-center py-20 gap-3">
+              <div className="animate-spin w-8 h-8 border-2 border-purple-500 border-t-transparent rounded-full" />
+              <div className="text-slate-400 text-[13px]">DynamoDB 전량 스캔 중... (30~50초 소요)</div>
+            </div>
+          ) : btData?.error ? (
+            <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-5 text-red-400 text-[13px]">{btData.error}</div>
+          ) : btData ? (
+            <>
+              {/* Summary Banner */}
+              <div className="bg-gradient-to-r from-purple-500/10 to-purple-500/5 border border-purple-500/20 rounded-xl px-5 py-4">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-3">
+                    <TrendingUp className="w-6 h-6 text-purple-400" />
+                    <div>
+                      <div className="text-[16px] font-black">Context Score 백테스트</div>
+                      <div className="text-[12px] text-slate-400">응답 {btData.elapsed} · DynamoDB {btData.scanPages}페이지 스캔</div>
+                    </div>
+                  </div>
+                  <button onClick={fetchBacktest} disabled={btLoading}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-purple-500/10 border border-purple-500/20 text-purple-400 text-[13px] font-bold">
+                    <RefreshCw className={`w-3.5 h-3.5 ${btLoading ? 'animate-spin' : ''}`} /> 재분석
+                  </button>
+                </div>
+
+                {/* KPI Cards */}
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+                  <div className="bg-white/[0.03] rounded-xl border border-white/[0.06] p-3 text-center">
+                    <div className="text-[11px] text-slate-400 uppercase tracking-wider mb-1">총 레코드</div>
+                    <div className="text-[22px] font-black text-white">{btData.summary.totalRecords.toLocaleString()}</div>
+                  </div>
+                  <div className="bg-white/[0.03] rounded-xl border border-white/[0.06] p-3 text-center">
+                    <div className="text-[11px] text-slate-400 uppercase tracking-wider mb-1">T+3 쌍</div>
+                    <div className="text-[22px] font-black text-cyan-400">{btData.summary.totalPairs.toLocaleString()}</div>
+                  </div>
+                  <div className="bg-white/[0.03] rounded-xl border border-white/[0.06] p-3 text-center">
+                    <div className="text-[11px] text-slate-400 uppercase tracking-wider mb-1">종목 수</div>
+                    <div className="text-[22px] font-black text-white">{btData.summary.uniqueTickers}</div>
+                  </div>
+                  <div className="bg-white/[0.03] rounded-xl border border-white/[0.06] p-3 text-center">
+                    <div className="text-[11px] text-slate-400 uppercase tracking-wider mb-1">Pearson r</div>
+                    <div className={`text-[22px] font-black ${btData.summary.correlation > 0.05 ? 'text-emerald-400' : btData.summary.correlation < -0.05 ? 'text-red-400' : 'text-amber-400'}`}>
+                      {btData.summary.correlation > 0 ? '+' : ''}{btData.summary.correlation}
+                    </div>
+                  </div>
+                  <div className="bg-white/[0.03] rounded-xl border border-white/[0.06] p-3 text-center">
+                    <div className="text-[11px] text-slate-400 uppercase tracking-wider mb-1">단조증가</div>
+                    <div className="text-[22px] font-black">{btData.summary.monotonic ? '✅' : '❌'}</div>
+                  </div>
+                </div>
+                <div className="text-[11px] text-slate-400 mt-2">기간: {btData.summary.dateRange.min} ~ {btData.summary.dateRange.max}</div>
+              </div>
+
+              {/* Score 70+ Highlight */}
+              <div className={`rounded-xl border px-5 py-3 flex items-center justify-between ${
+                btData.summary.score70.hitRate >= 60 ? 'bg-emerald-500/10 border-emerald-500/20' :
+                btData.summary.score70.hitRate >= 50 ? 'bg-amber-500/10 border-amber-500/20' :
+                'bg-red-500/10 border-red-500/20'}`}>
+                <div className="flex items-center gap-3">
+                  <Zap className="w-5 h-5 text-amber-400" />
+                  <div>
+                    <div className="text-[14px] font-bold">Score 70+ 적중률</div>
+                    <div className="text-[12px] text-slate-400">BUY/STRONG_BUY 추천 종목의 T+3 수익 비율</div>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <div className={`text-[24px] font-black ${
+                    btData.summary.score70.hitRate >= 60 ? 'text-emerald-400' :
+                    btData.summary.score70.hitRate >= 50 ? 'text-amber-400' : 'text-red-400'}`}>
+                    {btData.summary.score70.hitRate}%
+                  </div>
+                  <div className="text-[11px] text-slate-400">{btData.summary.score70.count}건 · 평균 {btData.summary.score70.avgReturn > 0 ? '+' : ''}{btData.summary.score70.avgReturn}%</div>
+                </div>
+              </div>
+
+              {/* Score Band Table */}
+              <Section title="SCORE BAND 분석 — T+3 Forward Return" icon={BarChart3} defaultOpen={true} id="sec-bt-bands">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-[13px]">
+                    <thead>
+                      <tr className="border-b border-white/[0.08]">
+                        <th className="text-left py-2.5 text-slate-400 font-bold">Score Band</th>
+                        <th className="text-center py-2.5 text-slate-400 font-bold">표본</th>
+                        <th className="text-center py-2.5 text-slate-400 font-bold">평균 3D Return</th>
+                        <th className="text-center py-2.5 text-slate-400 font-bold">중앙값</th>
+                        <th className="text-center py-2.5 text-slate-400 font-bold">적중률</th>
+                        <th className="text-right py-2.5 text-slate-400 font-bold">패턴</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {btData.bands.map((b: any) => (
+                        <tr key={b.label} className={`border-b border-white/[0.03] ${
+                          b.label.startsWith('70') || b.label.startsWith('80') ? 'bg-emerald-500/5' :
+                          b.label.startsWith('30') || b.label.startsWith('0') ? 'bg-red-500/5' : ''}`}>
+                          <td className="py-2.5 font-mono font-bold text-white">{b.label}</td>
+                          <td className="py-2.5 text-center text-slate-300">{b.count}</td>
+                          <td className="py-2.5 text-center">
+                            <span className={`font-mono font-bold ${b.avgReturn > 0 ? 'text-emerald-400' : b.avgReturn < 0 ? 'text-red-400' : 'text-slate-300'}`}>
+                              {b.avgReturn > 0 ? '+' : ''}{b.avgReturn}%
+                            </span>
+                          </td>
+                          <td className="py-2.5 text-center font-mono text-slate-300">{b.medianReturn > 0 ? '+' : ''}{b.medianReturn}%</td>
+                          <td className="py-2.5 text-center">
+                            <span className={`font-bold ${b.hitRate >= 60 ? 'text-emerald-400' : b.hitRate >= 50 ? 'text-amber-400' : 'text-red-400'}`}>
+                              {b.hitRate}%
+                            </span>
+                          </td>
+                          <td className="py-2.5 text-right">
+                            <div className="w-20 h-2 bg-white/5 rounded-full overflow-hidden ml-auto">
+                              <div className="h-full rounded-full" style={{
+                                width: `${Math.min(100, Math.max(5, 50 + b.avgReturn * 10))}%`,
+                                backgroundColor: b.avgReturn > 0 ? '#10b981' : '#ef4444'
+                              }} />
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </Section>
+
+              {/* Version Comparison */}
+              {Object.keys(btData.versionAnalysis).length > 0 && (
+                <Section title="엔진 버전별 비교" icon={GitCompareArrows} defaultOpen={true} id="sec-bt-version">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    {Object.entries(btData.versionAnalysis).map(([ver, v]: [string, any]) => (
+                      <div key={ver} className={`rounded-xl border p-4 ${
+                        ver === 'V5.2' ? 'bg-purple-500/10 border-purple-500/20' :
+                        ver === 'V5.0-V5.1' ? 'bg-cyan-500/10 border-cyan-500/20' :
+                        'bg-slate-500/10 border-slate-500/20'}`}>
+                        <div className={`text-[14px] font-black mb-2 ${
+                          ver === 'V5.2' ? 'text-purple-400' : ver === 'V5.0-V5.1' ? 'text-cyan-400' : 'text-slate-300'}`}>{ver}</div>
+                        <div className="space-y-1.5 text-[12px]">
+                          <div className="flex justify-between">
+                            <span className="text-slate-400">T+3 쌍</span>
+                            <span className="text-white font-bold">{v.totalPairs.toLocaleString()}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-slate-400">Pearson r</span>
+                            <span className={`font-bold ${v.correlation > 0.05 ? 'text-emerald-400' : v.correlation < -0.05 ? 'text-red-400' : 'text-amber-400'}`}>
+                              {v.correlation > 0 ? '+' : ''}{v.correlation}
+                            </span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-slate-400">Score 70+ 적중률</span>
+                            <span className={`font-bold ${v.score70.hitRate >= 60 ? 'text-emerald-400' : v.score70.hitRate >= 50 ? 'text-amber-400' : 'text-red-400'}`}>
+                              {v.score70.hitRate}% ({v.score70.count}건)
+                            </span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-slate-400">Score 70+ 평균</span>
+                            <span className={`font-mono font-bold ${v.score70.avgReturn > 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                              {v.score70.avgReturn > 0 ? '+' : ''}{v.score70.avgReturn}%
+                            </span>
+                          </div>
+                          <div className="text-[10px] text-slate-500 mt-1">{v.dateRange.min} ~ {v.dateRange.max}</div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </Section>
+              )}
+
+              {/* Top / Worst */}
+              <div className="grid grid-cols-2 gap-4">
+                <Section title="🏆 Best T+3" icon={TrendingUp} defaultOpen={true} id="sec-bt-best">
+                  {btData.topPerformers?.map((p: any, i: number) => (
+                    <div key={i} className="flex items-center justify-between py-1.5 border-b border-white/[0.03] last:border-0">
+                      <div>
+                        <span className="font-mono font-bold text-white text-[13px]">{p.ticker}</span>
+                        <span className="text-[11px] text-slate-400 ml-2">{p.date} · Score {p.score}</span>
+                      </div>
+                      <span className="font-mono font-bold text-emerald-400 text-[13px]">+{p.returnPct}%</span>
+                    </div>
+                  ))}
+                </Section>
+                <Section title="💀 Worst T+3" icon={AlertTriangle} defaultOpen={true} id="sec-bt-worst">
+                  {btData.worstPerformers?.map((p: any, i: number) => (
+                    <div key={i} className="flex items-center justify-between py-1.5 border-b border-white/[0.03] last:border-0">
+                      <div>
+                        <span className="font-mono font-bold text-white text-[13px]">{p.ticker}</span>
+                        <span className="text-[11px] text-slate-400 ml-2">{p.date} · Score {p.score}</span>
+                      </div>
+                      <span className="font-mono font-bold text-red-400 text-[13px]">{p.returnPct}%</span>
+                    </div>
+                  ))}
+                </Section>
+              </div>
+            </>
+          ) : null}
+        </div>
+      )}
     </div>
   );
 }
