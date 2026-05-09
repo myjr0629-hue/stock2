@@ -1069,7 +1069,7 @@ daily-content (장 마감 후)
 | 6 | Compare (비교) | 주 1회 | 커스텀 |
 | 7 | Story (창업) | 주 1회 | 텍스트 위주 |
 
-##### 🟡 미완성 항목 정리 (2026-04-29 갱신)
+##### 🟡 미완성 항목 정리 (2026-05-09 갱신)
 
 | 항목 | 상태 | 우선순위 | 비고 |
 |---|---|---|---|
@@ -1082,7 +1082,12 @@ daily-content (장 마감 후)
 | **시간대별 OG 자동 전환** | 🟢 아이디어 | ★★ | 09:30 ET→MARKET OPEN / 15:50→POWER HOUR / 16:00→EOD WRAP OG 자동 전환 |
 | ~~**BEARISH 표현 로컬라이제이션**~~ | ✅ 완료 | — | EN: "Put-side activity elevated", KO: 자본시장법 컴플라이언스 자동 필터링 |
 | **시즌별 이벤트 OG** | 🟢 아이디어 | ★ | FOMC/어닝 시즌/Black Swan 전용 디자인 |
-| **M7 8-K 트리거** | 🟢 아이디어 | ★ | NVDA/AAPL/MSFT/GOOGL/META/AMZN/TSLA SEC 8-K 감지 → 즉시 Alert |
+| ~~**M7 8-K 트리거**~~ | ✅ 완료 | — | 30종목 TRACKED_TICKERS → SEC 8-K/Form 4 감지 → 즉시 Alert (event-detect Phase 6) |
+| ~~**Insider Trade 템플릿**~~ | ✅ 완료 | — | [V6.0+] insider_trade 전용 테마 (골드) + Context Banner 동적화 |
+| ~~**Fear Resolution 이벤트**~~ | ✅ 완료 | — | [V6.0+] QQQ↓+VIX↓ 공포 해소 국면 감지 → 마케팅 이벤트 자동 발송 |
+| ~~**Spotlight 이미지 CDN**~~ | ✅ 완료 | — | [V6.0+] captureTickerSpotlight() → EC2 Puppeteer → Supabase CDN |
+| ~~**Pulse 사전 렌더링**~~ | ✅ 완료 | — | [V6.0+] captureDailyPulse() 6포맷 사전 렌더링 → Redis URL 저장 |
+| ~~**Spotlight 빈도 조정**~~ | ✅ 완료 | — | 4회→2회 (Power Hour 16:30 UTC + After Hours 21:30 UTC) |
 | **비디오 렌더링 (Shorts)** | 🔴 미착수 | ★ | HTML → Puppeteer 프레임 → FFmpeg → MP4. 별도 프로젝트 |
 
 ##### 이미지 생성 프롬프트 (재사용용)
