@@ -268,6 +268,36 @@ v10 신규 트리거:
 > **API 비용 영향**: Step 3에 EMA9/EMA21/MACD 3개 병렬 추가 (+6,000 API/실행), 실행 시간 ~3-5초 증가.
 > **HV20은 API 호출 0**: 기존 daily bars에서 순수 계산.
 
+#### Lambda Alpha Score v10 vs Vercel Alpha Engine V6.0
+> Lambda `computeAlphaScore()` = v10 (7 factor, 0-100) - harvest sorting
+> Vercel `calculateAlphaScore()` = V6.0 (5-Pillar, 28,802 T+3 pairs) - final score
+
+#### Vercel Alpha Engine V6.0 (src/services/alphaEngine.ts)
+- ENGINE_VERSION = '6.0.0'
+- 5-Pillar: MOMENTUM(25) + STRUCTURE(25) + FLOW(25) + REGIME(15) + CATALYST(10)
+- Grade: S(85+) / A(70+) / B(55+) / C(40+) / D(25+) / F(<25)
+- Self-Correction: Supabase TrackRecord (win70%+ = +5, loss30%- = -10)
+
+##### V6.0 Data-Proven Gates (28,802 T+3 pairs)
+- RSI_EXTREME_OVERSOLD: RSI<25 = +8 (n=281, +1.86%, 64.8%)
+- VWAP_RSI_OVERSOLD: VWAP<-2% + RSI<35 = +10 (n=98, +2.90%, 66.3%)
+- VWAP_RSI_OVERHEAT: VWAP>+2% + RSI>65 = -5 (n=78, -0.27%)
+- BEAR_SURGE_TRAP: QQQ<-0.5% + chg>+3% = -8 (n=155, -0.43%)
+- SIDEWAYS_PENALTY: chg -1%~+1% = -2 (avg +0.12%)
+- FEAR_RESOLUTION: QQQ down + VIX down + RSI<40 = +12 (n=29, +4.03%, 89.7%)
+- FEAR_RESOLUTION_MACD: QQQ down + VIX down + MACD<0 = +10 (n=39, 89.7%)
+
+##### Backtest Version Classification (admin/backtest/route.ts)
+- PRE_V5.0: ~2026-04-18
+- V5.0-V5.1: 2026-04-19 (LOW_DATA_CAP gate)
+- V5.2: 2026-05-06 (SURGE_PENALTY removed)
+- V6.0: 2026-05-08 (Deep Analysis gates) -- FIXED 2026-05-10
+
+##### System Health (/admin/health)
+- HEALTH tab: Lambda/Redis/DynamoDB status
+- BACKTEST tab: signum-alpha-history full scan, T+3 Forward Return, version comparison
+
+
 #### Composite WhaleIndex 공식 (2026-04-07)
 ```
 WhaleIndex (0-100) = GEX(25) + DarkPool(25) + BlockTrades(25) + NetPremium(25)
@@ -530,7 +560,6 @@ signum-harvest (5분마다, 항상)
               ├─ setInCache() → Redis 저장 ✅
               └─ memorySet() → 메모리 캐시 저장 ✅
 ```
-
 ##### 검증 결과 (2026-05-05 11:15 KST, Vercel 프로덕션 로그)
 ```
 [DEBUG-INST] injectAlphaBypass SKIP for TSLA: needsInst=false, hasInst=true, block=4649, dp=58.3
@@ -551,6 +580,176 @@ Raw HTTP 응답 검증:
 > 🔴 **검증 도구 주의**: PowerShell `Invoke-RestMethod`는 중첩 JSON 객체를 정확히 파싱하지 못함. 검증 시 반드시 **raw HTTP 응답** 또는 **Vercel 런타임 로그**로 확인할 것.
 >
 > 🔴 **5중 캐시 레이어 인지**: CDN Edge → Memory LRU → Redis → DynamoDB → EC2. 어느 한 레이어만 수정하면 다른 레이어에서 stale 데이터가 서빙됨. 수정 시 **모든 레이어의 쓰기+읽기 경로를 동시에 추적**할 것.
+
+### 5.3 마케팅 자동화 엔진 (2026-05-09 기준 — Switch-Ready)
+
+> **상태**: 전 코드 완성, `dry_run=true` 대기. 월요일 EC2 워커 확인 후 `dry_run=false` 전환.
+> **Shorts/Reels**: 미구현 (비디오 렌더링 인프라 별도 필요)
+
+#### 핵심 파일 구조
+| 파일 | 역할 |
+|------|------|
+| `src/app/api/cron/marketing-dispatch/route.ts` (772줄) | **통합 디스패치 엔진** — 8개 action, Buffer API 연동 |
+| `src/app/api/cron/event-detect/route.ts` (549줄) | **이벤트 자동 감지** — 7종 알고리즘, 5분마다 스캔 |
+| `src/app/api/cron/daily-content/route.ts` | **일일 콘텐츠 생성** — AI Haiku 4.5 |
+| `src/lib/marketing/aiContentEngine.ts` (377줄) | **AI 콘텐츠 엔진** — Bloomberg-grade 프롬프트 |
+| `src/lib/marketing/contentEngines.ts` (819줄) | **정적 템플릿 엔진** — AI 실패 시 fallback |
+| `src/lib/marketing/screenshotService.ts` (359줄) | **스크린샷 캡처** — EC2 Puppeteer → Supabase CDN |
+| `src/lib/marketing/bufferClient.ts` | **Buffer API 클라이언트** — 플랫폼별 발송 |
+| `src/app/marketing/templates/*/page.tsx` | **V2 HTML 템플릿** — Satori Edge 렌더링 |
+| `src/app/api/og/market/route.tsx` | **OG 이미지 API** — Satori 기반 동적 이미지 |
+
+#### 5.3.1 일일 스케줄 (vercel.json, 21개 크론)
+
+##### 🇺🇸 EN 리전 (7개)
+| KST | ET | Action | 플랫폼 | 이미지 소스 |
+|:---:|:---:|---|---|---|
+| **06:30** | 17:30-1 | `morning` | X + Bluesky + IG Story | Satori OG |
+| **08:00** | 19:00-1 | `morning_ig` | IG Carousel + Threads | Satori OG |
+| **11:00** | 22:00-1 | `midday` | X + Bluesky + IG Story + Pinterest | Satori OG |
+| **14:00** | 01:00 | `education` | X Thread + Pinterest | Satori OG |
+| **17:00** | 04:00 | `edu_bsky` | Bluesky + Pinterest | Satori OG |
+| **05:30+1** | 16:30 | `pulse` | X + Bluesky + IG Story + Pinterest | Satori OG |
+| **07:00+1** | 18:00 | `pulse_ig` | IG Carousel + Threads | Satori OG |
+
+##### 🇰🇷🇯🇵 ASIA 리전 (5개)
+| KST | Action | 플랫폼 |
+|:---:|---|---|
+| **22:00** | `morning` ASIA | X + Bluesky + IG Story |
+| **23:00** | `morning_ig` ASIA | IG Carousel + Threads |
+| **07:00+1** | `pulse` ASIA | X + Bluesky + IG Story |
+| **12:00** | `education` ASIA | X Thread + Pinterest |
+| **14:00** | `midday` ASIA | X + Bluesky + IG Story + Pinterest |
+
+##### 🎯 Ticker Spotlight 게릴라 (4개)
+| KST | Action | 설명 |
+|:---:|---|---|
+| **23:00** | `spotlight` EN | 장 오픈 직후, 랜덤 M7/30종목 |
+| **01:30+1** | `spotlight` EN | 런치타임 |
+| **04:00+1** | `spotlight` EN | 장 마감 전 |
+| **06:30+1** | `spotlight` ALL | 애프터마켓, EN+KO+JA 전체 |
+
+##### ⚡ 이벤트 감지 (1개)
+| KST | 주기 | 설명 |
+|:---:|:---:|---|
+| 22:00~06:00 | 5분마다 | 마켓 시간 전체 스캔 (UTC 13~21시) |
+
+#### 5.3.2 AI 콘텐츠 엔진 (Claude Haiku 4.5)
+
+- **모델**: `us.anthropic.claude-haiku-4-5-20251001-v1:0` (Bedrock)
+- **비용**: ~$0.003/call → 하루 12~16건 × 3언어 = **~$0.01~0.03/일**
+- **3개 언어 병렬**: EN + KO + JA 동시 생성 (`Promise.all`)
+- **콘텐츠 유형**: Market Pulse / Morning Brief / Education / Event Spike
+- **Fallback**: AI 실패 시 → `contentEngines.ts` 정적 템플릿 자동 전환
+
+##### AI 프롬프트 설계 (Bloomberg-grade, 2026-05-09)
+- **브랜드 보이스**: Goldman/Citadel 시니어 퀀트 레벨
+- **Hook 전략**: Cognitive Dissonance Formula (인지부조화 → 스크롤 정지)
+- **플랫폼별 알고리즘 최적화**:
+  - Twitter: DWELL TIME → BOOKMARK (contrarian fact + structural decode)
+  - Threads: REPLIES 최우선 (특정 질문으로 끝맺음)
+  - Instagram: SAVES 최우선 (레퍼런스 문서급 가치)
+  - Bluesky: QUOTES 최우선 (Reuters 와이어 + 편집적 인사이트)
+
+##### 컴플라이언스 시스템 (2중 안전장치)
+1. **System Prompt**: BANNED 단어 목록 (EN 15개 + KO 12개 + JA 9개)
+2. **Post-Processing Filter**: `HARD_BLOCK_PATTERNS` 22개 정규식
+   - EN: directional/advisory 11패턴 (buy/sell/bullish/bearish/guarantee/profit 등)
+   - KO: 4그룹 (매수매도/상승하락전망/추천대박/적중)
+   - JA: 2그룹 (買い売り/チャンス推奨)
+   - Meta: 3패턴 (AI 자체 disclaimer 삽입 방지)
+- **시뮬레이션 결과**: 기관급 4건 PASS, 위반 9건 (EN/KO/JA) 전부 BLOCKED ✅
+
+#### 5.3.3 이벤트 감지 시스템 (7종)
+
+| # | 이벤트 | 감지 조건 | 데이터 소스 | 대상 |
+|:---:|---|---|---|---|
+| 1 | **GEX Flip** | POSITIVE ↔ NEGATIVE 전환 | `analysis:gex:regime` | SPY |
+| 2 | **VIX Spike** | 변동률 ±15% 이상 | `market:realtime:VIX` | VIX |
+| 3 | **SEC 8-K** | 1시간 내 신규 Filing | `sec:8k:{ticker}:latest` | 30종목 |
+| 4 | **ITM Sweep** | $5M+ 프리미엄 옵션 스윕 | `options:flow:unusual:{ticker}` | 30종목 |
+| 5 | **Dark Pool** | SPY/QQQ 50%+ 비율 | `fetchTradeData()` | SPY, QQQ |
+| 6 | **Insider Trade** | C-Suite $1M+ or 3+명 클러스터 | Polygon `fetchForm4()` | 15종목/cycle |
+| 7 | **Fear Resolution** | QQQ -0.5%+ 하락 + VIX -2%+ 하락 | `market:realtime:QQQ/VIXY` | MARKET |
+
+**안전장치**: 쿨다운 30분 / 일일 상한 3건 / 24시간 dedup / Insider 30종목 로테이션
+
+#### 5.3.4 이미지 파이프라인 (2트랙)
+
+##### 트랙 1: Satori OG (정기 발송용)
+```
+marketing-dispatch → buildImageUrl()
+  → /api/og/market?type=pulse&spy=...&format=tweet (Satori Edge 렌더링)
+  → Buffer API에 URL 전달 → Buffer가 직접 fetch
+```
+
+##### 트랙 2: EC2 Puppeteer (Spotlight + Event용)
+```
+screenshotService.ts → captureTemplate()
+  → EC2 52.23.98.13:3100/capture (POST, Puppeteer 캡처)
+  → Supabase Storage (marketing-assets 버킷, public)
+  → CDN URL → Buffer API → SNS
+  
+  ⚠️ EC2 실패 시 → captureViaSatoriOG() 자동 fallback
+```
+
+##### Supabase Storage
+- **버킷**: `marketing-assets` (public, 5MB 제한)
+- **허용 형식**: image/png, image/jpeg, image/webp
+- **CDN URL**: `https://lqvxcmgpuowikdcyhbvn.supabase.co/storage/v1/object/public/marketing-assets/...`
+- **상태**: ✅ 업로드/CDN 접근 검증 완료 (2026-05-09)
+
+##### EC2 Puppeteer Capture Worker
+- **PM2**: `capture-worker` (포트 3100)
+- **상태**: ⚠️ 응답 없음 (2026-05-09 22:00 KST 확인). 월요일 SSH → `pm2 restart capture-worker` 필요
+- **영향**: Spotlight/Event 이미지가 Satori fallback으로 대체됨 (기능은 작동, 프리미엄 V2 디자인만 못 씀)
+
+#### 5.3.5 V2 마케팅 템플릿 (7종 — 2026-05-09 통일 디자인 시스템)
+
+| # | 템플릿 | 파일 | 포맷 | 디자인 |
+|:---:|---|---|---|---|
+| 1 | **Ticker Spotlight** | `templates/ticker/page.tsx` | tweet/og/story/square | ✅ V2 |
+| 2 | **Education** | `templates/education/page.tsx` | tweet/og/story/carousel/pin/square | ✅ V2 |
+| 3 | **Event Alert** | `templates/event/page.tsx` | tweet/og/story/square | ✅ V2 |
+| 4 | **Market Pulse** | `templates/pulse/page.tsx` | tweet/og/story/carousel/pin/square | ✅ V2 |
+| 5 | **Compare** | `templates/compare/page.tsx` | tweet/og/story/carousel/pin/square | ✅ V2 |
+| 6 | **OG Default** | `templates/og-default/page.tsx` | 1200x630 고정 | ✅ NEW |
+| 7 | **Pinterest Pin** | `templates/pin-indicators/page.tsx` | 1000x1500 고정 | ✅ NEW |
+
+**통일 디자인 시스템**: `#080c14` 배경 / 보더 글로우 / `borderLeft: 3px solid {color}` 배지 / REAL-TIME 인디케이터 / signumhq.com 푸터
+
+#### 5.3.6 OG Metadata (layout.tsx)
+```
+openGraph:
+  title: SIGNUM HQ — Institutional Intelligence, Democratized
+  image: /api/og/market?type=pulse&format=og (1200x630)
+twitter:
+  card: summary_large_image
+  image: /api/og/market?type=pulse&format=tweet (1200x675)
+  creator: @signumhq
+```
+
+#### 5.3.7 Switch-ON 절차 (월요일)
+1. EC2 SSH → `pm2 restart capture-worker` (Puppeteer 워커 복구)
+2. `vercel.json` 1개 크론만 `dry_run=false&draft=true`로 변경
+3. 첫 발송 → Buffer Drafts 탭 확인 (이미지/텍스트 QA)
+4. QA 통과 → 나머지 크론 전환
+5. `event-detect`도 `dry_run=false` 전환
+6. 24시간 모니터링 → 안정 확인 후 `draft` 제거
+
+#### 5.3.8 Redis 마케팅 캐시 키
+| 키 | TTL | 용도 |
+|---|:---:|---|
+| `marketing:pulse:{date}` | 24h | Pulse 콘텐츠 (3개 언어) |
+| `marketing:morning:{date}` | 24h | Morning 콘텐츠 |
+| `marketing:education:{date}` | 24h | Education 콘텐츠 |
+| `marketing:event:{date}` | 24h | Event 콘텐츠 |
+| `marketing:event:images:{date}` | 24h | 이벤트 캡처 이미지 URL |
+| `marketing:event:count:{date}` | 24h | 일일 이벤트 카운터 |
+| `marketing:event:last_time` | 30min | 쿨다운 타이머 |
+| `marketing:event:sent:{type}:{ticker}:{date}` | 24h | 중복 방지 dedup |
+| `marketing:spotlight:{date}:{ticker}` | 24h | Spotlight 콘텐츠 로그 |
+| `marketing:dispatch:v2:{date}:{action}` | 7일 | 디스패치 결과 로그 |
 
 
 ### 4.4 DynamoDB 테이블
