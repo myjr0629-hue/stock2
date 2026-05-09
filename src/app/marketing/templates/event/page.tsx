@@ -32,10 +32,12 @@ function EventCard() {
 
   // Event type themes
   const eventThemes: Record<string, { accent: string; bg: string; border: string; glow: string; icon: string }> = {
-    gex_shift:      { accent: '#ef4444', bg: 'rgba(239,68,68,0.06)', border: 'rgba(239,68,68,0.3)', glow: '0 0 60px rgba(239,68,68,0.15), inset 0 0 30px rgba(239,68,68,0.05)', icon: '⚡' },
-    unusual_volume: { accent: '#f97316', bg: 'rgba(249,115,22,0.06)', border: 'rgba(249,115,22,0.3)', glow: '0 0 60px rgba(249,115,22,0.15)', icon: '🔥' },
-    whale:          { accent: '#a855f7', bg: 'rgba(168,85,247,0.06)', border: 'rgba(168,85,247,0.3)', glow: '0 0 60px rgba(168,85,247,0.15)', icon: '🐋' },
-    sec_8k:         { accent: '#3b82f6', bg: 'rgba(59,130,246,0.06)', border: 'rgba(59,130,246,0.3)', glow: '0 0 60px rgba(59,130,246,0.15)', icon: '📋' },
+    gex_shift:        { accent: '#ef4444', bg: 'rgba(239,68,68,0.06)', border: 'rgba(239,68,68,0.3)', glow: '0 0 60px rgba(239,68,68,0.15), inset 0 0 30px rgba(239,68,68,0.05)', icon: '⚡' },
+    unusual_volume:   { accent: '#f97316', bg: 'rgba(249,115,22,0.06)', border: 'rgba(249,115,22,0.3)', glow: '0 0 60px rgba(249,115,22,0.15)', icon: '🔥' },
+    whale:            { accent: '#a855f7', bg: 'rgba(168,85,247,0.06)', border: 'rgba(168,85,247,0.3)', glow: '0 0 60px rgba(168,85,247,0.15)', icon: '🐋' },
+    sec_8k:           { accent: '#3b82f6', bg: 'rgba(59,130,246,0.06)', border: 'rgba(59,130,246,0.3)', glow: '0 0 60px rgba(59,130,246,0.15)', icon: '📋' },
+    insider_trade:    { accent: '#eab308', bg: 'rgba(234,179,8,0.06)',  border: 'rgba(234,179,8,0.3)',  glow: '0 0 60px rgba(234,179,8,0.15)',  icon: '🔍' },
+    fear_resolution:  { accent: '#06b6d4', bg: 'rgba(6,182,212,0.06)',  border: 'rgba(6,182,212,0.3)',  glow: '0 0 60px rgba(6,182,212,0.15)',  icon: '⚡' },
   };
   const theme = eventThemes[type] || eventThemes.gex_shift;
 
@@ -151,7 +153,11 @@ function EventCard() {
             <line x1="12" y1="17" x2="12.01" y2="17" />
           </svg>
           <span style={{ fontSize: '12px', color: '#cbd5e1', fontWeight: 500, lineHeight: 1.4 }}>
-            {ticker} gamma exposure shifted — Volatility expansion expected. Monitor support/resistance levels.
+            {type === 'insider_trade' ? `SEC Form 4 filing detected for ${ticker}. Insider activity may signal directional conviction.`
+             : type === 'fear_resolution' ? `Fear Resolution Phase: Market declining but volatility easing. Historical hit rate: 89.7% (T+3).`
+             : type === 'whale' ? `Significant institutional order flow detected for ${ticker}. Smart money positioning shift.`
+             : type === 'sec_8k' ? `Material corporate event filed with the SEC. Potential catalyst for ${ticker}.`
+             : `${ticker} gamma exposure shifted — Volatility expansion expected. Monitor support/resistance levels.`}
           </span>
         </div>
 

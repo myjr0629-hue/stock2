@@ -543,6 +543,7 @@ export async function GET(request: Request) {
         // Phase 4-3: Ticker Spotlight 게릴라 포스팅
         const { generateTickerSpotlight, getRandomSpotlightTicker } = await import('@/lib/marketing/contentEngines');
         const { fetchTradeData } = await import('@/services/realtimeMetricsService');
+        const { captureTickerSpotlight } = await import('@/lib/marketing/screenshotService');
 
         const ticker = searchParams.get('ticker') || getRandomSpotlightTicker();
         const tradeData = await fetchTradeData(ticker).catch(() => null);
@@ -558,7 +559,26 @@ export async function GET(request: Request) {
         // Save for logging
         await setInCache(`marketing:spotlight:${dateKey}:${ticker}`, JSON.stringify(spotlightContent), 86400);
 
-        for (const lang of langs) {
+        
+        // [V6.0+] Pre-capture premium images via EC2 Puppeteer -> Supabase CDN
+        let spotlightImages = { tweet: null as string | null, story: null as string | null };
+        if (!dryRun) {
+          try {
+            const tickerRaw = await getFromCache(`market:realtime:${ticker}`).catch(() => null);
+            const tickerData = tickerRaw ? (typeof tickerRaw === 'string' ? JSON.parse(tickerRaw) : tickerRaw) : null;
+            spotlightImages = await captureTickerSpotlight({
+              ticker,
+              price: tickerData?.price ?? tickerData?.last ?? 0,
+              change: tickerData?.changePercent ?? tickerData?.changePct ?? 0,
+              gex: 'neutral',
+              dp: tradeData?.darkPoolPercent ?? 0,
+              maxpain: 0, iv: 0,
+            });
+          } catch (err: any) {
+            console.warn(`[Spotlight] Capture failed: ${err.message}`);
+          }
+        }
+for (const lang of langs) {
           const lc = spotlightContent[lang];
           if (!lc?.text) continue;
 
@@ -568,7 +588,7 @@ export async function GET(request: Request) {
             const r = await dispatchTweet({
               channelId: xCh.id,
               text: truncateForPlatform(lc.text, 'twitter'),
-              imageUrl: lc.imageUrl,
+              imageUrl: spotlightImages.tweet || lc.imageUrl,
               dryRun,
 
               draft,
@@ -582,7 +602,7 @@ export async function GET(request: Request) {
             const r = await dispatchPost({
               channelId: thCh.id,
               text: truncateForPlatform(lc.text, 'threads'),
-              imageUrl: lc.imageUrl,
+              imageUrl: spotlightImages.tweet || lc.imageUrl,
               dryRun,
 
               draft,

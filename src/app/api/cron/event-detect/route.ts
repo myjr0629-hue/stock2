@@ -154,12 +154,11 @@ export async function GET(request: Request) {
     // Capture event alert images (HTML template → PNG → Supabase CDN)
     let eventImages: { tweet: string | null; story: string | null } = { tweet: null, story: null };
     try {
-      // event.type already matches screenshotService types (gex_shift, unusual_volume, whale, sec_8k)
+      // event.type already matches screenshotService types
       const captureType = (
         event.type === 'level_break' ? 'gex_shift' :
-        event.type === 'insider_trade' ? 'sec_8k' :  // Reuse SEC template for insider
         event.type
-      ) as 'gex_shift' | 'unusual_volume' | 'whale' | 'sec_8k';
+      ) as 'gex_shift' | 'unusual_volume' | 'whale' | 'sec_8k' | 'insider_trade' | 'fear_resolution';
       eventImages = await captureEventAlert({
         type: captureType,
         ticker: event.ticker,

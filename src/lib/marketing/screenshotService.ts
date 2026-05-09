@@ -265,7 +265,7 @@ export async function captureAllFormats(
  * Called by event-detect cron when an event is detected.
  */
 export async function captureEventAlert(params: {
-  type: 'gex_shift' | 'unusual_volume' | 'whale' | 'sec_8k';
+  type: 'gex_shift' | 'unusual_volume' | 'whale' | 'sec_8k' | 'insider_trade' | 'fear_resolution';
   ticker: string;
   event: string;
   detail?: string;

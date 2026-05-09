@@ -63,10 +63,28 @@ export async function GET(request: Request) {
       const redisKey = `marketing:pulse:${dateKey}`;
       await setInCache(redisKey, JSON.stringify(pulseContent), 86400);
 
+      // [V6.0+] Pre-render pulse images via EC2 Puppeteer -> Supabase CDN
+      let capturedUrls: Record<string, string | null> = {};
+      try {
+        const { captureDailyPulse } = await import('@/lib/marketing/screenshotService');
+        capturedUrls = await captureDailyPulse({
+          spy: marketData.spy,
+          vix: marketData.vix,
+          gex: marketData.gexRegime || 'neutral',
+          dp: marketData.darkPool || 0,
+        });
+        if (Object.values(capturedUrls).some(Boolean)) {
+          await setInCache(`marketing:pulse:images:${dateKey}`, JSON.stringify(capturedUrls), 86400);
+        }
+      } catch (err: any) {
+        console.warn('[DailyContent] Pulse image capture failed (non-fatal):', err.message);
+      }
+
       results.pulse = {
         saved: true,
         engine,
         redisKey,
+        capturedImages: Object.keys(capturedUrls).filter(k => capturedUrls[k]).length,
         preview: {
           en: pulseContent.en.text.substring(0, 120) + '...',
           ko: pulseContent.ko.text.substring(0, 120) + '...',
