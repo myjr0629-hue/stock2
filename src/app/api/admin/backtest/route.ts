@@ -7,9 +7,10 @@ export const maxDuration = 60;
 
 const ADMIN_EMAILS = (process.env.NEXT_PUBLIC_ADMIN_EMAILS || '').split(',').map(e => e.trim().toLowerCase());
 
-// V5.2 배포일 (이 날짜 이후 데이터가 V5.2)
-const V52_CUTOFF = '2026-05-06';
-const V50_CUTOFF = '2026-04-19';
+// Engine version deployment dates (cutoff dates)
+const V60_CUTOFF = '2026-05-08'; // V6.0 Deep Analysis gates (RSI/VWAP/Fear Resolution)
+const V52_CUTOFF = '2026-05-06'; // V5.2 SURGE_PENALTY removal
+const V50_CUTOFF = '2026-04-19'; // V5.0 LOW_DATA_CAP gate
 
 interface AlphaRecord {
   ticker: string;
@@ -131,7 +132,8 @@ export async function GET(req: NextRequest) {
       // 이상치 필터 (|return| > 30%)
       if (Math.abs(ret) > 30) continue;
 
-      const version = r.date >= V52_CUTOFF ? 'V5.2'
+      const version = r.date >= V60_CUTOFF ? 'V6.0'
+        : r.date >= V52_CUTOFF ? 'V5.2'
         : r.date >= V50_CUTOFF ? 'V5.0-V5.1'
         : 'PRE_V5.0';
 
@@ -193,7 +195,7 @@ export async function GET(req: NextRequest) {
 
     // 버전별 분석
     const versionAnalysis: Record<string, any> = {};
-    for (const ver of ['PRE_V5.0', 'V5.0-V5.1', 'V5.2']) {
+    for (const ver of ['PRE_V5.0', 'V5.0-V5.1', 'V5.2', 'V6.0']) {
       const vPairs = pairs.filter(p => p.version === ver);
       if (vPairs.length === 0) continue;
       const vScores = vPairs.map(p => p.score);
