@@ -929,38 +929,59 @@ export default function AdminHealthPage() {
               {/* Version Comparison */}
               {Object.keys(btData.versionAnalysis).length > 0 && (
                 <Section title="엔진 버전별 비교" icon={GitCompareArrows} defaultOpen={true} id="sec-bt-version">
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                     {Object.entries(btData.versionAnalysis).map(([ver, v]: [string, any]) => (
                       <div key={ver} className={`rounded-xl border p-4 ${
+                        ver === 'V6.0' ? 'bg-emerald-500/10 border-emerald-500/20' :
                         ver === 'V5.2' ? 'bg-purple-500/10 border-purple-500/20' :
                         ver === 'V5.0-V5.1' ? 'bg-cyan-500/10 border-cyan-500/20' :
                         'bg-slate-500/10 border-slate-500/20'}`}>
                         <div className={`text-[14px] font-black mb-2 ${
-                          ver === 'V5.2' ? 'text-purple-400' : ver === 'V5.0-V5.1' ? 'text-cyan-400' : 'text-slate-300'}`}>{ver}</div>
+                          ver === 'V6.0' ? 'text-emerald-400' : ver === 'V5.2' ? 'text-purple-400' : ver === 'V5.0-V5.1' ? 'text-cyan-400' : 'text-slate-300'}`}>{ver}</div>
                         <div className="space-y-1.5 text-[12px]">
-                          <div className="flex justify-between">
-                            <span className="text-slate-400">T+3 쌍</span>
-                            <span className="text-white font-bold">{v.totalPairs.toLocaleString()}</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span className="text-slate-400">Pearson r</span>
-                            <span className={`font-bold ${v.correlation > 0.05 ? 'text-emerald-400' : v.correlation < -0.05 ? 'text-red-400' : 'text-amber-400'}`}>
-                              {v.correlation > 0 ? '+' : ''}{v.correlation}
-                            </span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span className="text-slate-400">Score 70+ 적중률</span>
-                            <span className={`font-bold ${v.score70.hitRate >= 60 ? 'text-emerald-400' : v.score70.hitRate >= 50 ? 'text-amber-400' : 'text-red-400'}`}>
-                              {v.score70.hitRate}% ({v.score70.count}건)
-                            </span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span className="text-slate-400">Score 70+ 평균</span>
-                            <span className={`font-mono font-bold ${v.score70.avgReturn > 0 ? 'text-emerald-400' : 'text-red-400'}`}>
-                              {v.score70.avgReturn > 0 ? '+' : ''}{v.score70.avgReturn}%
-                            </span>
-                          </div>
-                          <div className="text-[10px] text-slate-500 mt-1">{v.dateRange.min} ~ {v.dateRange.max}</div>
+                          {v.status === 'COLLECTING' || v.status === 'NO_DATA' ? (
+                            <>
+                              <div className="flex justify-between">
+                                <span className="text-slate-400">상태</span>
+                                <span className={`font-bold ${v.status === 'COLLECTING' ? 'text-amber-400' : 'text-slate-500'}`}>
+                                  {v.status === 'COLLECTING' ? '⏳ T+3 대기중' : '데이터 없음'}
+                                </span>
+                              </div>
+                              {v.totalRecords > 0 && (
+                                <div className="flex justify-between">
+                                  <span className="text-slate-400">레코드</span>
+                                  <span className="text-white font-bold">{v.totalRecords.toLocaleString()}건</span>
+                                </div>
+                              )}
+                              <div className="text-[10px] text-slate-500 mt-1">{v.dateRange.min} ~ {v.dateRange.max}</div>
+                            </>
+                          ) : (
+                            <>
+                              <div className="flex justify-between">
+                                <span className="text-slate-400">T+3 쌍</span>
+                                <span className="text-white font-bold">{v.totalPairs.toLocaleString()}</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-slate-400">Pearson r</span>
+                                <span className={`font-bold ${v.correlation > 0.05 ? 'text-emerald-400' : v.correlation < -0.05 ? 'text-red-400' : 'text-amber-400'}`}>
+                                  {v.correlation > 0 ? '+' : ''}{v.correlation}
+                                </span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-slate-400">Score 70+ 적중률</span>
+                                <span className={`font-bold ${v.score70.hitRate >= 60 ? 'text-emerald-400' : v.score70.hitRate >= 50 ? 'text-amber-400' : 'text-red-400'}`}>
+                                  {v.score70.hitRate}% ({v.score70.count}건)
+                                </span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-slate-400">Score 70+ 평균</span>
+                                <span className={`font-mono font-bold ${v.score70.avgReturn > 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+                                  {v.score70.avgReturn > 0 ? '+' : ''}{v.score70.avgReturn}%
+                                </span>
+                              </div>
+                              <div className="text-[10px] text-slate-500 mt-1">{v.dateRange.min} ~ {v.dateRange.max}</div>
+                            </>
+                          )}
                         </div>
                       </div>
                     ))}

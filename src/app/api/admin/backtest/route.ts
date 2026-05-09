@@ -197,13 +197,38 @@ export async function GET(req: NextRequest) {
     const versionAnalysis: Record<string, any> = {};
     for (const ver of ['PRE_V5.0', 'V5.0-V5.1', 'V5.2', 'V6.0']) {
       const vPairs = pairs.filter(p => p.version === ver);
-      if (vPairs.length === 0) continue;
+      // V5.2+ 는 T+3 쌍이 없어도 카드 표시 (수집 중 상태)
+      if (vPairs.length === 0 && !['V5.2', 'V6.0'].includes(ver)) continue;
+      if (vPairs.length === 0) {
+        // 레코드는 있지만 T+3 쌍이 아직 없는 경우
+        const vRecords = records.filter(r => {
+          const v = r.date >= V60_CUTOFF ? 'V6.0'
+            : r.date >= V52_CUTOFF ? 'V5.2'
+            : r.date >= V50_CUTOFF ? 'V5.0-V5.1'
+            : 'PRE_V5.0';
+          return v === ver;
+        });
+        versionAnalysis[ver] = {
+          totalPairs: 0,
+          totalRecords: vRecords.length,
+          status: vRecords.length > 0 ? 'COLLECTING' : 'NO_DATA',
+          correlation: 0,
+          bands: [],
+          score70: { count: 0, hitRate: 0, avgReturn: 0 },
+          dateRange: {
+            min: vRecords.length > 0 ? vRecords.reduce((m, r) => r.date < m ? r.date : m, '9999') : '-',
+            max: vRecords.length > 0 ? vRecords.reduce((m, r) => r.date > m ? r.date : m, '0000') : '-',
+          },
+        };
+        continue;
+      }
       const vScores = vPairs.map(p => p.score);
       const vReturns = vPairs.map(p => p.returnPct);
       const s70 = vPairs.filter(p => p.score >= 70);
       const s70Hit = s70.filter(p => p.returnPct > 0.25).length;
       versionAnalysis[ver] = {
         totalPairs: vPairs.length,
+        status: 'READY',
         correlation: pearsonCorrelation(vScores, vReturns),
         bands: analyzeBands(vPairs),
         score70: {
