@@ -30,7 +30,7 @@ export const viewport: Viewport = {
 
 export const metadata: Metadata = {
   title: "SIGNUM HQ",
-  description: "Market Signal Command Center - 옵션 · 다크풀 · 고래 통합 분석",
+  description: "Institutional Intelligence, Democratized — GEX · Dark Pool · Options Flow · AI Verdicts",
   manifest: '/manifest.json',
   appleWebApp: {
     capable: true,
@@ -43,6 +43,29 @@ export const metadata: Metadata = {
       { url: '/icons/icon-192x192.png', type: 'image/png' },
     ],
     apple: '/apple-icon.png',
+  },
+  openGraph: {
+    title: 'SIGNUM HQ — Institutional Intelligence, Democratized',
+    description: 'Real-time GEX, Dark Pool, Options Flow & AI Verdicts. See what others cannot.',
+    url: 'https://signumhq.com',
+    siteName: 'SIGNUM HQ',
+    images: [
+      {
+        url: '/api/og/market?type=pulse&format=og',
+        width: 1200,
+        height: 630,
+        alt: 'SIGNUM HQ - Institutional Intelligence, Democratized',
+      },
+    ],
+    locale: 'en_US',
+    type: 'website',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'SIGNUM HQ — Institutional Intelligence, Democratized',
+    description: 'Real-time GEX, Dark Pool, Options Flow & AI Verdicts. See what others cannot.',
+    images: ['/api/og/market?type=pulse&format=tweet'],
+    creator: '@signumhq',
   },
 };
 

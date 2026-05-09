@@ -68,13 +68,15 @@ function CompareCard() {
   return (
     <div style={{
       width: `${width}px`, height: `${height}px`,
-      background: '#06090f',
+      background: '#080c14',
       fontFamily: "'Inter', 'SF Pro Display', system-ui, sans-serif",
       overflow: 'hidden',
       position: 'relative',
       display: 'flex',
       flexDirection: 'column',
     }}>
+      {/* Border glow */}
+      <div style={{ position: 'absolute', inset: '5px', borderRadius: '12px', border: '1px solid rgba(34,211,238,0.12)', boxShadow: '0 0 30px rgba(34,211,238,0.05)', pointerEvents: 'none', zIndex: 1 }} />
       {/* Background grid + glow */}
       <div style={{ position: 'absolute', inset: 0, overflow: 'hidden', pointerEvents: 'none' }}>
         <div style={{
@@ -160,13 +162,13 @@ function CompareCard() {
             <div key={comp.name} style={{
               flex: 1,
               padding: isVertical ? '16px 20px' : '14px 16px',
-              borderRadius: '14px',
-              background: 'rgba(255,255,255,0.02)',
-              border: '1px solid rgba(255,255,255,0.06)',
+              borderRadius: '0 12px 12px 0',
+              background: `${comp.color}04`,
+              borderLeft: `3px solid ${comp.color}50`,
               display: 'flex', flexDirection: 'column',
-              opacity: comp.opacity + 0.4,
+              opacity: 0.7,
             }}>
-              <div style={{ fontSize: '11px', fontWeight: 700, color: '#475569', letterSpacing: '1px' }}>
+              <div style={{ fontSize: '10px', fontWeight: 700, color: '#475569', letterSpacing: '0.1em' }}>
                 {comp.name}
               </div>
               <div style={{
@@ -230,18 +232,17 @@ function CompareCard() {
         {/* ── Footer ── */}
         <div style={{
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          marginTop: isVertical ? '16px' : '12px',
-          paddingTop: '12px',
-          borderTop: '1px solid rgba(255,255,255,0.06)',
+          marginTop: isVertical ? '16px' : '10px',
+          paddingTop: '10px',
+          borderTop: '1px solid rgba(255,255,255,0.05)',
           flexShrink: 0,
         }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span style={{ fontSize: '13px', fontWeight: 700, color: '#22d3ee', letterSpacing: '1px' }}>
-              See What Others Cannot
-            </span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <div style={{ width: '6px', height: '6px', borderRadius: '50%', background: '#34d399', boxShadow: '0 0 8px rgba(52,211,153,0.5)' }} />
+            <span style={{ fontSize: '10px', color: '#34d399', fontWeight: 700, letterSpacing: '0.1em' }}>REAL-TIME</span>
           </div>
-          <span style={{ fontSize: '12px', color: '#475569', letterSpacing: '2px' }}>SIGNAL. ANALYZE. EXECUTE.</span>
-          <span style={{ fontSize: '12px', fontWeight: 600, color: '#64748b' }}>signumhq.com</span>
+          <span style={{ fontSize: '10px', color: '#475569', letterSpacing: '0.1em' }}>See What Others Cannot</span>
+          <span style={{ fontSize: '13px', fontWeight: 700, color: '#06b6d4' }}>signumhq.com</span>
         </div>
       </div>
     </div>
