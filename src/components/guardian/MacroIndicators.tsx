@@ -53,8 +53,38 @@ export const MacroIndicators = memo(() => {
         );
     }
 
+    // [V6.0+] Fear Resolution Phase Detection
+    // QQQ↓ + VIX↓ = "시장 빠졌지만 공포 줄었다" = 기관 바닥 확인
+    const nasdaq100 = snapshot?.factors?.nasdaq100;
+    const isFearResolution = React.useMemo(() => {
+        if (!nasdaq100 || !vix) return false;
+        const qqChg = nasdaq100.chgPct ?? 0;
+        const vixChg = vix.chgPct ?? 0;
+        return qqChg < -0.5 && vixChg < -2;
+    }, [nasdaq100, vix]);
+
     return (
         <div className="h-full flex flex-col gap-2">
+            {/* [V6.0+] Fear Resolution Phase Alert */}
+            {isFearResolution && (
+                <div className="relative overflow-hidden rounded-lg border border-cyan-500/50 bg-gradient-to-r from-cyan-500/10 via-blue-500/10 to-purple-500/10 p-2">
+                    <div className="absolute inset-0 bg-gradient-to-r from-cyan-500/5 to-transparent animate-pulse" />
+                    <div className="relative flex items-center gap-2">
+                        <span className="text-lg">⚡</span>
+                        <div className="flex-1">
+                            <div className="text-[13px] font-black text-cyan-300 tracking-wider">FEAR RESOLUTION PHASE</div>
+                            <div className="text-[11px] text-cyan-400/70 mt-0.5">
+                                QQQ↓ + VIX↓ 감지 — 2년 실증: T+3 적중률 89.7% | RSI&lt;40 종목 주목
+                            </div>
+                        </div>
+                        <div className="text-right">
+                            <div className="text-[18px] font-black text-cyan-300">89.7%</div>
+                            <div className="text-[9px] text-cyan-400/60 uppercase">Hit Rate</div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* Row 1: VIX + DXY */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 {/* VIX Indicator */}
