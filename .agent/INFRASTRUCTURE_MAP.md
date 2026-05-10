@@ -588,11 +588,15 @@ Raw HTTP 응답 검증:
 
 #### 5.3.9 Remotion 쇼츠 파이프라인 (V2 Premium — 2026-05-10 구축)
 
-> **Remotion 버전**: `4.0.441` (remotion, @remotion/cli, @remotion/lambda, @remotion/renderer)
-> **추가 패키지**: `@remotion/paths@4.0.459`, `@remotion/transitions@4.0.459`, `@remotion/noise@4.0.459`, `@remotion/google-fonts@4.0.459`
+> **Remotion 버전**: `4.0.441` (전 패키지 통일)
+> **추가 패키지**: `@remotion/paths`, `@remotion/transitions`, `@remotion/noise`, `@remotion/google-fonts` (all 4.0.441)
 > **포맷**: 9:16 (1080×1920), 30fps
-> **Lambda 배포 상태**: ❌ 미배포 (Lambda 함수 + S3 사이트 업로드 필요)
+> **Lambda 함수**: ✅ `remotion-render-4-0-441-mem2048mb-disk2048mb-240sec` (2048MB, 240sec)
+> **S3 사이트**: ✅ `signum-shorts` (버킷: `remotionlambda-useast1-uyf73mi3b8`)
+> **serveUrl**: `https://remotionlambda-useast1-uyf73mi3b8.s3.us-east-1.amazonaws.com/sites/signum-shorts/index.html`
+> **IAM 역할**: `remotion-lambda-role` (trust: lambda.amazonaws.com)
 > **cron 등록**: ✅ `vercel.json` 등록 완료 (`dry_run=true`, 21:00 UTC 평일)
+> **Vercel 환경변수**: ✅ 4개 설정 완료 (REMOTION_SERVE_URL, FUNCTION_NAME, AWS_REGION, S3_BUCKET)
 
 ##### 파일 구조
 
@@ -644,14 +648,14 @@ Raw HTTP 응답 검증:
 | `npm run remotion:deploy-fn` | AWS Lambda 함수 배포 (2048MB, 240초) |
 | `npm run remotion:render` | 로컬 CLI 렌더링 |
 
-##### Lambda 배포 절차 (미완료)
+##### Lambda 배포 절차 (✅ 2026-05-10 완료)
 
-1. AWS IAM에 `remotion-executionrole-policy` + `remotion-userpolicy` 추가
-2. `npm run remotion:deploy-fn` → Lambda 함수명 기록
-3. `npm run remotion:deploy-site` → serveUrl 기록
-4. Vercel 환경변수 설정: `REMOTION_SERVE_URL`, `REMOTION_FUNCTION_NAME`, `REMOTION_AWS_REGION`, `REMOTION_S3_BUCKET`
-5. 테스트: `GET /api/cron/render-video?status=true` (배포 상태 확인)
-6. 테스트: `GET /api/cron/render-video?type=pulse&lang=en&dry_run=false` (실제 렌더링)
+1. ✅ AWS IAM `remotion-lambda-role` 역할 생성 + 정책 연결
+2. ✅ `npm run remotion:deploy-fn` → `remotion-render-4-0-441-mem2048mb-disk2048mb-240sec`
+3. ✅ `npm run remotion:deploy-site` → `signum-shorts` (61.1MB 업로드)
+4. ✅ Vercel 환경변수 4개 설정
+5. 작동 테스트: `GET /api/cron/render-video?status=true` → Lambda ready 확인
+6. 실제 렌더: `GET /api/cron/render-video?type=pulse&lang=en&dry_run=false`
 7. `vercel.json`에서 `dry_run=true` → `dry_run=false` 전환
 
 ##### 예상 비용 (월간)
