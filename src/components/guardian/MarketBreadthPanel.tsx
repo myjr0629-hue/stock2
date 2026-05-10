@@ -3,6 +3,7 @@ import { BarChart3, TrendingUp, TrendingDown, AlertTriangle, MessageSquare, Ligh
 import { useTranslations, useLocale } from 'next-intl';
 import { GuardianTooltip } from './GuardianTooltip';
 import { renderColoredText } from './TypewriterText';
+import { useServerMobile } from '@/contexts/DeviceContext';
 
 // === BreadthLiquid — Premium Energy Bar ===
 function BreadthLiquid({ breadthPct, signal, loading, signalColor, advancingLabel, decliningLabel }: { breadthPct: number; signal: string; loading?: boolean; signalColor: string; advancingLabel: string; decliningLabel: string }) {
@@ -151,6 +152,7 @@ export default function RLSIInsightPanel({
 }: RLSIInsightPanelProps) {
     const t = useTranslations('guardian');
     const locale = useLocale();
+    const isMobile = useServerMobile();
 
     // Toggle state: "briefing" or "tactical"
     // [FIX] Briefing only during PRE-market (generated & relevant until market open)
@@ -245,7 +247,7 @@ export default function RLSIInsightPanel({
     return (
         <div className="flex flex-col h-full p-4">
             {/* Header */}
-            <div className="flex items-center justify-between mb-2 border-b border-slate-800 pb-2 flex-none">
+                <div className={`flex items-center justify-between mb-2 border-b border-slate-800 pb-2 flex-none ${isMobile ? 'flex-wrap gap-y-1' : ''}`}>
                 <div className="flex items-center gap-2">
                     <MessageSquare className="w-3.5 h-3.5 text-emerald-400" />
                     <GuardianTooltip sectionId="rlsiInsight">
@@ -253,14 +255,29 @@ export default function RLSIInsightPanel({
                             RLSI INSIGHT
                         </span>
                     </GuardianTooltip>
-                    <span className="text-xs text-amber-500 font-mono font-jakarta">· {session === 'REG' ? 'Regular Session' : session === 'PRE' ? 'Pre-Market' : session === 'POST' ? 'Post-Market' : 'Regular Session Only'}</span>
+                    {isMobile ? (
+                        <span className="text-xs text-amber-500 font-mono font-jakarta leading-tight">
+                            · {session === 'REG' ? 'Regular Session' : session === 'PRE' ? 'Pre-Market' : session === 'POST' ? 'Post-Market' : (<>Regular Session<br/>{'\u00A0\u00A0Only'}</>)}
+                        </span>
+                    ) : (
+                        <span className="text-xs text-amber-500 font-mono font-jakarta">· {session === 'REG' ? 'Regular Session' : session === 'PRE' ? 'Pre-Market' : session === 'POST' ? 'Post-Market' : 'Regular Session Only'}</span>
+                    )}
                 </div>
-                <div className={`text-xs font-black uppercase px-2 py-0.5 rounded border ${alignmentStatus === 'DIVERGENCE'
-                    ? 'text-rose-400 border-rose-500/30 bg-rose-500/10'
-                    : 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10'
-                    }`}>
-                    {alignmentStatus}
-                </div>
+                {isMobile ? (
+                    <div className={`text-xs font-black uppercase px-2 py-0.5 rounded border text-center leading-tight ${alignmentStatus === 'DIVERGENCE'
+                        ? 'text-rose-400 border-rose-500/30 bg-rose-500/10'
+                        : 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10'
+                        }`}>
+                        {alignmentStatus === 'ALIGNMENT OK' ? (<>ALIGNMENT<br/>OK</>) : alignmentStatus}
+                    </div>
+                ) : (
+                    <div className={`text-xs font-black uppercase px-2 py-0.5 rounded border ${alignmentStatus === 'DIVERGENCE'
+                        ? 'text-rose-400 border-rose-500/30 bg-rose-500/10'
+                        : 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10'
+                        }`}>
+                        {alignmentStatus}
+                    </div>
+                )}
             </div>
 
             {/* ── Toggle Tabs: Briefing / Tactical ── */}
