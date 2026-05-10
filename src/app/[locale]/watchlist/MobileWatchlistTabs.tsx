@@ -2,8 +2,9 @@
 import React, { memo, useMemo } from 'react';
 import { Link } from '@/i18n/routing';
 import { usePriceFlash, getFlashStyle, tickerDelay } from '@/components/ui/PriceDisplay';
-import { TrendingUp, ArrowDownRight, Activity, Fish, Shield, Zap, Crosshair, RefreshCcw, ChevronRight, Moon, Sun } from 'lucide-react';
+import { TrendingUp, ArrowDownRight, Activity, Fish, Shield, Zap, Crosshair, RefreshCcw, ChevronRight, Moon, Sun, Lock } from 'lucide-react';
 import type { EnrichedWatchlistItem } from '@/hooks/useWatchlist';
+import { useTier } from '@/contexts/TierContext';
 
 // ── Session badge config (PRE=cyan, POST=amber) ──
 const SESSION_CFG = {
@@ -62,6 +63,7 @@ export const MiniSparkline = memo(function MiniSparkline({ data, positive }: { d
 export const OverviewRow = memo(function OverviewRow({ item, i }: { item: EnrichedWatchlistItem; i: number }) {
     const pos = item.changePct >= 0;
     const pf = getFlashStyle(usePriceFlash(item.currentPrice, tickerDelay(item.ticker)));
+    const { hasAccess } = useTier();
     return (
         <Link href={`/ticker?ticker=${item.ticker}`} className="flex items-center gap-3 px-4 py-3 border-b border-white/[0.05] active:bg-white/[0.04] transition-colors" style={{ animation: `fadeSlideIn 0.3s ease-out ${i * 40}ms both` }}>
             <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-slate-800/90 to-slate-900/80 border border-white/[0.08] flex items-center justify-center overflow-hidden flex-shrink-0 shadow-lg shadow-black/20">
@@ -70,8 +72,8 @@ export const OverviewRow = memo(function OverviewRow({ item, i }: { item: Enrich
             <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
                     <span className="font-black text-[16px] text-white tracking-wide">{item.ticker}</span>
-                    {item.alphaGrade && <span className={`text-[11px] font-black px-1.5 py-0.5 rounded-md ${item.alphaGrade === 'A' ? 'bg-emerald-500/15 text-emerald-400' : item.alphaGrade === 'B' ? 'bg-cyan-500/15 text-cyan-400' : item.alphaGrade === 'C' ? 'bg-amber-500/15 text-amber-400' : 'bg-rose-500/15 text-rose-400'}`}>{item.alphaGrade}</span>}
-                    {item.action && <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md tracking-wide ${item.action === 'ADD' || item.action === 'HOLD' || item.action === 'BULLISH' || item.action === 'STRONG_BULLISH' ? 'bg-emerald-500/10 text-emerald-400' : item.action === 'TRIM' || item.action === 'AVOID' ? 'bg-rose-500/10 text-rose-400' : 'bg-amber-500/10 text-amber-400'}`}>{item.action}</span>}
+                    {item.alphaGrade && (hasAccess('pro') ? <span className={`text-[11px] font-black px-1.5 py-0.5 rounded-md ${item.alphaGrade === 'A' ? 'bg-emerald-500/15 text-emerald-400' : item.alphaGrade === 'B' ? 'bg-cyan-500/15 text-cyan-400' : item.alphaGrade === 'C' ? 'bg-amber-500/15 text-amber-400' : 'bg-rose-500/15 text-rose-400'}`}>{item.alphaGrade}</span> : <span className="inline-flex items-center gap-0.5 text-[10px] font-black px-1.5 py-0.5 rounded-md bg-amber-500/10 text-amber-500/60"><Lock className="w-2.5 h-2.5" />PRO</span>)}
+                    {item.action && (hasAccess('pro') ? <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md tracking-wide ${item.action === 'ADD' || item.action === 'HOLD' || item.action === 'BULLISH' || item.action === 'STRONG_BULLISH' ? 'bg-emerald-500/10 text-emerald-400' : item.action === 'TRIM' || item.action === 'AVOID' ? 'bg-rose-500/10 text-rose-400' : 'bg-amber-500/10 text-amber-400'}`}>{item.action}</span> : null)}
                 </div>
                 <div className="flex items-center gap-2.5 mt-1">
                     <MiniSparkline data={item.sparkline || []} positive={pos} />
@@ -98,6 +100,7 @@ export const OverviewRow = memo(function OverviewRow({ item, i }: { item: Enrich
 export const CardItem = memo(function CardItem({ item, i }: { item: EnrichedWatchlistItem; i: number }) {
     const pos = item.changePct >= 0;
     const pf = getFlashStyle(usePriceFlash(item.currentPrice, tickerDelay(item.ticker)));
+    const { hasAccess } = useTier();
     const gradeColor = item.alphaGrade === 'A' ? { stroke: '#34d399', text: 'text-emerald-400', bg: 'bg-emerald-500/10', border: 'border-emerald-500/20' }
         : item.alphaGrade === 'B' ? { stroke: '#22d3ee', text: 'text-cyan-400', bg: 'bg-cyan-500/10', border: 'border-cyan-500/20' }
         : item.alphaGrade === 'C' ? { stroke: '#fbbf24', text: 'text-amber-400', bg: 'bg-amber-500/10', border: 'border-amber-500/20' }
@@ -145,45 +148,72 @@ export const CardItem = memo(function CardItem({ item, i }: { item: EnrichedWatc
                 </div>
             </div>
 
-            {/* ── Row 2: Score Gauge + Signal Badge ── */}
+            {/* ── Row 2: Score Gauge + Signal Badge — PRO gate ── */}
             <div className="flex items-center gap-3 px-4 pb-3">
-                {/* Alpha Score — circular gauge */}
+                {/* Alpha Score — circular gauge — PRO */}
                 {item.alphaScore != null ? (
-                    <div className="flex items-center gap-2.5 flex-1 min-w-0">
-                        <div className="relative w-10 h-10 flex-shrink-0">
-                            <svg className="w-10 h-10 -rotate-90">
-                                <circle cx="20" cy="20" r="14" fill="none" stroke="#1e293b" strokeWidth="3" />
-                                <circle cx="20" cy="20" r="14" fill="none" stroke={gradeColor.stroke} strokeWidth="3"
-                                    strokeLinecap="round" strokeDasharray={circ} strokeDashoffset={offset}
-                                    style={{ transition: 'stroke-dashoffset 0.8s ease-out' }} />
-                            </svg>
-                            <div className={`absolute inset-0 flex items-center justify-center text-[12px] font-black ${gradeColor.text}`}>{item.alphaGrade}</div>
-                        </div>
-                        <div className="min-w-0">
-                            <div className="flex items-baseline gap-1">
-                                <span className="text-[16px] font-black text-white tabular-nums">{item.alphaScore}</span>
-                                <span className="text-[10px] font-bold text-slate-400">/ 100</span>
+                    hasAccess('pro') ? (
+                        <div className="flex items-center gap-2.5 flex-1 min-w-0">
+                            <div className="relative w-10 h-10 flex-shrink-0">
+                                <svg className="w-10 h-10 -rotate-90">
+                                    <circle cx="20" cy="20" r="14" fill="none" stroke="#1e293b" strokeWidth="3" />
+                                    <circle cx="20" cy="20" r="14" fill="none" stroke={gradeColor.stroke} strokeWidth="3"
+                                        strokeLinecap="round" strokeDasharray={circ} strokeDashoffset={offset}
+                                        style={{ transition: 'stroke-dashoffset 0.8s ease-out' }} />
+                                </svg>
+                                <div className={`absolute inset-0 flex items-center justify-center text-[12px] font-black ${gradeColor.text}`}>{item.alphaGrade}</div>
                             </div>
-                            <div className="text-[9px] font-bold text-slate-300 tracking-wider">CONTEXT SCORE</div>
+                            <div className="min-w-0">
+                                <div className="flex items-baseline gap-1">
+                                    <span className="text-[16px] font-black text-white tabular-nums">{item.alphaScore}</span>
+                                    <span className="text-[10px] font-bold text-slate-400">/ 100</span>
+                                </div>
+                                <div className="text-[9px] font-bold text-slate-300 tracking-wider">CONTEXT SCORE</div>
+                            </div>
                         </div>
-                    </div>
+                    ) : (
+                        <div className="flex items-center gap-2.5 flex-1 min-w-0 relative">
+                            <div className="blur-[5px] opacity-40 select-none pointer-events-none flex items-center gap-2.5 flex-1">
+                                <div className="relative w-10 h-10 flex-shrink-0">
+                                    <svg className="w-10 h-10 -rotate-90"><circle cx="20" cy="20" r="14" fill="none" stroke="#1e293b" strokeWidth="3" /><circle cx="20" cy="20" r="14" fill="none" stroke="#94a3b8" strokeWidth="3" strokeDasharray={circ} strokeDashoffset={circ * 0.4} /></svg>
+                                </div>
+                                <div><div className="text-[16px] font-black text-white/40">??</div><div className="text-[9px] font-bold text-slate-500">CONTEXT SCORE</div></div>
+                            </div>
+                            <div className="absolute inset-0 flex flex-col items-center justify-center">
+                                <Lock className="w-3.5 h-3.5 text-amber-500/70" />
+                                <span className="text-[9px] font-black text-amber-500/60 tracking-wider">PRO</span>
+                            </div>
+                        </div>
+                    )
                 ) : (
                     <div className="flex-1" />
                 )}
 
-                {/* Signal Badge — with confidence bar */}
+                {/* Signal Badge — with confidence bar — PRO */}
                 {item.action && sc ? (
-                    <div className={`flex flex-col items-end gap-1 px-3 py-1.5 rounded-xl border ${sc.bg} ${sc.border}`}>
-                        <div className="flex items-center gap-1.5">
-                            <span className={`text-[13px] font-black ${sc.text}`}>{item.action}</span>
-                            {item.confidence != null && <span className="text-[11px] font-bold tabular-nums text-white/70">{item.confidence}%</span>}
-                        </div>
-                        {item.confidence != null && (
-                            <div className="w-16 h-1 rounded-full bg-slate-800 overflow-hidden">
-                                <div className={`h-full rounded-full ${sc.bar} transition-all duration-700`} style={{ width: `${item.confidence}%` }} />
+                    hasAccess('pro') ? (
+                        <div className={`flex flex-col items-end gap-1 px-3 py-1.5 rounded-xl border ${sc.bg} ${sc.border}`}>
+                            <div className="flex items-center gap-1.5">
+                                <span className={`text-[13px] font-black ${sc.text}`}>{item.action}</span>
+                                {item.confidence != null && <span className="text-[11px] font-bold tabular-nums text-white/70">{item.confidence}%</span>}
                             </div>
-                        )}
-                    </div>
+                            {item.confidence != null && (
+                                <div className="w-16 h-1 rounded-full bg-slate-800 overflow-hidden">
+                                    <div className={`h-full rounded-full ${sc.bar} transition-all duration-700`} style={{ width: `${item.confidence}%` }} />
+                                </div>
+                            )}
+                        </div>
+                    ) : (
+                        <div className="relative px-3 py-1.5 rounded-xl border border-amber-500/20 bg-amber-500/[0.06]">
+                            <div className="blur-[4px] opacity-30 select-none pointer-events-none">
+                                <span className="text-[13px] font-black text-slate-400">SIGNAL</span>
+                            </div>
+                            <div className="absolute inset-0 flex items-center justify-center gap-1">
+                                <Lock className="w-3 h-3 text-amber-500/70" />
+                                <span className="text-[9px] font-black text-amber-500/60 tracking-wider">PRO</span>
+                            </div>
+                        </div>
+                    )
                 ) : null}
             </div>
 
@@ -196,72 +226,107 @@ export const CardItem = memo(function CardItem({ item, i }: { item: EnrichedWatc
                 )}
             </div>
 
-            {/* ── Row 4: 6-Metric Grid ── */}
+            {/* ── Row 4: 6-Metric Grid — ELITE gate on 5 cells ── */}
             <div className="grid grid-cols-3 gap-px bg-white/[0.04]">
-                {/* IV with progress bar */}
-                <div className="bg-[#080e1a] p-2.5 text-center">
-                    <div className="text-[10px] font-bold text-slate-300 tracking-wider mb-1">IV</div>
-                    <div className={`text-[14px] font-black tabular-nums ${item.iv != null ? (item.iv >= 50 ? 'text-rose-400' : item.iv <= 20 ? 'text-emerald-400' : 'text-amber-400') : 'text-slate-600'}`}>
-                        {item.iv != null ? `${item.iv.toFixed(0)}%` : '—'}
-                    </div>
-                    {item.iv != null && (
-                        <div className="w-full h-1 rounded-full bg-slate-800 mt-1 overflow-hidden">
-                            <div className={`h-full rounded-full transition-all duration-700 ${item.iv >= 50 ? 'bg-rose-400' : item.iv <= 20 ? 'bg-emerald-400' : 'bg-amber-400'}`}
-                                style={{ width: `${Math.min(item.iv, 100)}%` }} />
+                {/* IV with progress bar — ELITE */}
+                {hasAccess('elite') ? (
+                    <div className="bg-[#080e1a] p-2.5 text-center">
+                        <div className="text-[10px] font-bold text-slate-300 tracking-wider mb-1">IV</div>
+                        <div className={`text-[14px] font-black tabular-nums ${item.iv != null ? (item.iv >= 50 ? 'text-rose-400' : item.iv <= 20 ? 'text-emerald-400' : 'text-amber-400') : 'text-slate-600'}`}>
+                            {item.iv != null ? `${item.iv.toFixed(0)}%` : '—'}
                         </div>
-                    )}
-                </div>
-
-                {/* Whale */}
-                <div className="bg-[#080e1a] p-2.5 text-center">
-                    <div className="text-[10px] font-bold text-slate-300 tracking-wider mb-1">WHALE</div>
-                    <div className="flex items-center justify-center gap-1">
-                        {item.whaleIndex != null && item.whaleIndex >= 70 && <span className="text-[10px]">🐋</span>}
-                        <span className={`text-[14px] font-black tabular-nums ${item.whaleIndex != null && item.whaleIndex >= 70 ? 'text-amber-400' : item.whaleIndex != null && item.whaleIndex >= 40 ? 'text-slate-300' : 'text-slate-500'}`}>
-                            {item.whaleIndex != null ? item.whaleIndex : '—'}
-                        </span>
+                        {item.iv != null && (
+                            <div className="w-full h-1 rounded-full bg-slate-800 mt-1 overflow-hidden">
+                                <div className={`h-full rounded-full transition-all duration-700 ${item.iv >= 50 ? 'bg-rose-400' : item.iv <= 20 ? 'bg-emerald-400' : 'bg-amber-400'}`}
+                                    style={{ width: `${Math.min(item.iv, 100)}%` }} />
+                            </div>
+                        )}
                     </div>
-                </div>
+                ) : (
+                    <div className="bg-[#080e1a] p-2.5 text-center relative">
+                        <div className="text-[10px] font-bold text-slate-300 tracking-wider mb-1">IV</div>
+                        <div className="flex flex-col items-center justify-center gap-0.5"><Lock className="w-3 h-3 text-emerald-500/60" /><span className="text-[8px] font-black text-emerald-500/50 tracking-wider">ELITE</span></div>
+                    </div>
+                )}
 
-                {/* GEX Regime */}
-                <div className="bg-[#080e1a] p-2.5 text-center">
-                    <div className="text-[10px] font-bold text-slate-300 tracking-wider mb-1">GEX</div>
-                    {item.gexM != null ? (
+                {/* Whale — ELITE */}
+                {hasAccess('elite') ? (
+                    <div className="bg-[#080e1a] p-2.5 text-center">
+                        <div className="text-[10px] font-bold text-slate-300 tracking-wider mb-1">WHALE</div>
                         <div className="flex items-center justify-center gap-1">
-                            <span className="text-[10px]">{item.gexM > 0 ? '🛡️' : '⚡'}</span>
-                            <span className={`text-[12px] font-black ${item.gexM > 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                                {item.gexM > 0 ? 'LONG' : 'SHORT'}
+                            {item.whaleIndex != null && item.whaleIndex >= 70 && <span className="text-[10px]">🐋</span>}
+                            <span className={`text-[14px] font-black tabular-nums ${item.whaleIndex != null && item.whaleIndex >= 70 ? 'text-amber-400' : item.whaleIndex != null && item.whaleIndex >= 40 ? 'text-slate-300' : 'text-slate-500'}`}>
+                                {item.whaleIndex != null ? item.whaleIndex : '—'}
                             </span>
                         </div>
-                    ) : <span className="text-[14px] text-slate-600 font-black">—</span>}
-                </div>
+                    </div>
+                ) : (
+                    <div className="bg-[#080e1a] p-2.5 text-center relative">
+                        <div className="text-[10px] font-bold text-slate-300 tracking-wider mb-1">WHALE</div>
+                        <div className="flex flex-col items-center justify-center gap-0.5"><Lock className="w-3 h-3 text-emerald-500/60" /><span className="text-[8px] font-black text-emerald-500/50 tracking-wider">ELITE</span></div>
+                    </div>
+                )}
 
-                {/* Gamma Flip */}
-                <div className="bg-[#080e1a] p-2.5 text-center">
-                    <div className="text-[10px] font-bold text-slate-300 tracking-wider mb-1">Γ FLIP</div>
-                    {item.gammaFlipLevel != null && item.gammaFlipLevel > 0 ? (
-                        <div>
-                            <span className={`text-[13px] font-black tabular-nums ${isAboveFlip ? 'text-emerald-400' : 'text-rose-400'}`}>
-                                ${item.gammaFlipLevel.toFixed(0)}
-                            </span>
-                        </div>
-                    ) : <span className="text-[14px] text-slate-600 font-black">—</span>}
-                </div>
-
-                {/* Max Pain */}
-                <div className="bg-[#080e1a] p-2.5 text-center">
-                    <div className="text-[10px] font-bold text-slate-300 tracking-wider mb-1">MAX PAIN</div>
-                    {item.maxPain != null ? (
-                        <div>
-                            <span className="text-[13px] font-black tabular-nums text-white/90">${item.maxPain.toFixed(0)}</span>
-                            {item.maxPainDist != null && (
-                                <span className={`text-[10px] font-bold ml-0.5 ${item.maxPainDist > 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
-                                    {item.maxPainDist > 0 ? '↑' : '↓'}{Math.abs(item.maxPainDist).toFixed(1)}%
+                {/* GEX Regime — ELITE */}
+                {hasAccess('elite') ? (
+                    <div className="bg-[#080e1a] p-2.5 text-center">
+                        <div className="text-[10px] font-bold text-slate-300 tracking-wider mb-1">GEX</div>
+                        {item.gexM != null ? (
+                            <div className="flex items-center justify-center gap-1">
+                                <span className="text-[10px]">{item.gexM > 0 ? '🛡️' : '⚡'}</span>
+                                <span className={`text-[12px] font-black ${item.gexM > 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                    {item.gexM > 0 ? 'LONG' : 'SHORT'}
                                 </span>
-                            )}
-                        </div>
-                    ) : <span className="text-[14px] text-slate-600 font-black">—</span>}
-                </div>
+                            </div>
+                        ) : <span className="text-[14px] text-slate-600 font-black">—</span>}
+                    </div>
+                ) : (
+                    <div className="bg-[#080e1a] p-2.5 text-center relative">
+                        <div className="text-[10px] font-bold text-slate-300 tracking-wider mb-1">GEX</div>
+                        <div className="flex flex-col items-center justify-center gap-0.5"><Lock className="w-3 h-3 text-emerald-500/60" /><span className="text-[8px] font-black text-emerald-500/50 tracking-wider">ELITE</span></div>
+                    </div>
+                )}
+
+                {/* Gamma Flip — ELITE */}
+                {hasAccess('elite') ? (
+                    <div className="bg-[#080e1a] p-2.5 text-center">
+                        <div className="text-[10px] font-bold text-slate-300 tracking-wider mb-1">Γ FLIP</div>
+                        {item.gammaFlipLevel != null && item.gammaFlipLevel > 0 ? (
+                            <div>
+                                <span className={`text-[13px] font-black tabular-nums ${isAboveFlip ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                    ${item.gammaFlipLevel.toFixed(0)}
+                                </span>
+                            </div>
+                        ) : <span className="text-[14px] text-slate-600 font-black">—</span>}
+                    </div>
+                ) : (
+                    <div className="bg-[#080e1a] p-2.5 text-center relative">
+                        <div className="text-[10px] font-bold text-slate-300 tracking-wider mb-1">Γ FLIP</div>
+                        <div className="flex flex-col items-center justify-center gap-0.5"><Lock className="w-3 h-3 text-emerald-500/60" /><span className="text-[8px] font-black text-emerald-500/50 tracking-wider">ELITE</span></div>
+                    </div>
+                )}
+
+                {/* Max Pain — ELITE */}
+                {hasAccess('elite') ? (
+                    <div className="bg-[#080e1a] p-2.5 text-center">
+                        <div className="text-[10px] font-bold text-slate-300 tracking-wider mb-1">MAX PAIN</div>
+                        {item.maxPain != null ? (
+                            <div>
+                                <span className="text-[13px] font-black tabular-nums text-white/90">${item.maxPain.toFixed(0)}</span>
+                                {item.maxPainDist != null && (
+                                    <span className={`text-[10px] font-bold ml-0.5 ${item.maxPainDist > 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                        {item.maxPainDist > 0 ? '↑' : '↓'}{Math.abs(item.maxPainDist).toFixed(1)}%
+                                    </span>
+                                )}
+                            </div>
+                        ) : <span className="text-[14px] text-slate-600 font-black">—</span>}
+                    </div>
+                ) : (
+                    <div className="bg-[#080e1a] p-2.5 text-center relative">
+                        <div className="text-[10px] font-bold text-slate-300 tracking-wider mb-1">MAX PAIN</div>
+                        <div className="flex flex-col items-center justify-center gap-0.5"><Lock className="w-3 h-3 text-emerald-500/60" /><span className="text-[8px] font-black text-emerald-500/50 tracking-wider">ELITE</span></div>
+                    </div>
+                )}
 
                 {/* 3D Return */}
                 <div className="bg-[#080e1a] p-2.5 text-center">
