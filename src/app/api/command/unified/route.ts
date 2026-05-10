@@ -452,7 +452,13 @@ async function getVolatilityFromDynamoGex(ticker: string): Promise<any | null> {
 // [EC2 SSOT] Inject accurate institutional data from EC2 ElastiCache
 // EC2 flow-accumulator provides 100% trade data (vs Polygon's 5,000 sample)
 // Must be called BEFORE any setInCache that includes institutional data
+// [FIX 2026-05-11] "Last Known Good" — preserves last EC2 data through weekends/holidays.
+// On EC2 success: save to cache:inst-last:TICKER (72h TTL).
+// On EC2 null/failure: restore from cache:inst-last:TICKER.
 // ════════════════════════════════════════════════════════════════════════════
+const INST_LAST_PREFIX = 'cache:inst-last:';
+const INST_LAST_TTL = 259200; // 72 hours — covers Friday→Monday
+
 async function injectEC2Institutional(data: any, ticker: string): Promise<boolean> {
     if (!data) return false;
     try {
@@ -471,18 +477,33 @@ async function injectEC2Institutional(data: any, ticker: string): Promise<boolea
             const ec2Data = ec2Raw?.result;
             const parsed = typeof ec2Data === 'string' ? JSON.parse(ec2Data) : ec2Data;
             if (parsed?.blockTrade?.count > 0) {
-                data.institutional = {
-                    ...(data.institutional || {}),
+                const instPayload = {
                     darkPool: { percent: parsed.darkPool?.percent || data.institutional?.darkPool?.percent || 0 },
                     blockTrade: { count: parsed.blockTrade.count, volume: parsed.blockTrade.volume || 0 },
                     shortVolume: parsed.shortVolume || data.institutional?.shortVolume || null,
                     _ts: Date.now(),
                     _source: 'ec2-flow-accumulator',
                 };
+                data.institutional = { ...(data.institutional || {}), ...instPayload };
+                // [PERSIST] Save last known good EC2 data — survives weekend/holiday TTL expiry
+                setInCache(`${INST_LAST_PREFIX}${ticker}`, instPayload, INST_LAST_TTL).catch(() => {});
                 return true;
             }
         }
-    } catch { /* EC2 proxy unavailable — existing data preserved */ }
+    } catch { /* EC2 proxy unavailable */ }
+
+    // [FALLBACK] EC2 returned null or failed — restore last known good data
+    try {
+        const lastKnown = await getFromCache<any>(`${INST_LAST_PREFIX}${ticker}`);
+        if (lastKnown && lastKnown.blockTrade?.count > 0) {
+            data.institutional = {
+                ...(data.institutional || {}),
+                ...lastKnown,
+                _source: 'ec2-last-known',
+            };
+            return true;
+        }
+    } catch { /* Redis unavailable */ }
     return false;
 }
 
