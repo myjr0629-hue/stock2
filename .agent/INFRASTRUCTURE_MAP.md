@@ -6250,3 +6250,250 @@ V6.0:  데이터 → 실증 → 코드 → "28,802쌍이 증명했다"
 
 **V6.0은 "믿음 기반 엔진"에서 "실증 기반 엔진"으로의 전환점이다.**
 
+---
+
+## 24. 마케팅 자동화 엔진 (2026-05-10 기준 — Switch-Ready)
+
+> **상태**: 전 코드 완성, `dry_run=true` 대기. `dry_run=false` 전환 시 즉시 가동.
+> **Shorts/Reels**: ✅ Remotion V2 Premium 파이프라인 구축 완료 (§25 참조).
+
+### 24.1 핵심 파일 구조
+
+| 파일 | 역할 |
+|------|------|
+| `src/app/api/cron/marketing-dispatch/route.ts` (772줄) | **통합 디스패치 엔진** — 8개 action, Buffer API 연동 |
+| `src/app/api/cron/event-detect/route.ts` (549줄) | **이벤트 자동 감지** — 7종 알고리즘, 5분마다 스캔 |
+| `src/app/api/cron/daily-content/route.ts` | **일일 콘텐츠 생성** — AI Haiku 4.5 |
+| `src/lib/marketing/aiContentEngine.ts` (377줄) | **AI 콘텐츠 엔진** — Bloomberg-grade 프롬프트 |
+| `src/lib/marketing/contentEngines.ts` (819줄) | **정적 템플릿 엔진** — AI 실패 시 fallback |
+| `src/lib/marketing/screenshotService.ts` (359줄) | **스크린샷 캡처** — EC2 Puppeteer → Supabase CDN |
+| `src/lib/marketing/bufferClient.ts` | **Buffer API 클라이언트** — 플랫폼별 발송 |
+| `src/lib/marketing/pollyClient.ts` (222줄) | **TTS 나레이션** — AWS Polly Neural 3개국어 + BGM 선택 |
+| `src/app/marketing/templates/*/page.tsx` | **V2 HTML 템플릿** — Satori Edge 렌더링 |
+| `src/app/api/og/market/route.tsx` | **OG 이미지 API** — Satori 기반 동적 이미지 |
+
+### 24.2 일일 스케줄 (vercel.json, 22개 크론)
+
+##### 🇺🇸 EN 리전 (7개)
+| KST | ET | Action | 플랫폼 | 이미지 소스 |
+|:---:|:---:|---|---|---|
+| **06:30** | 17:30-1 | `morning` | X + Bluesky + IG Story | Satori OG |
+| **08:00** | 19:00-1 | `morning_ig` | IG Carousel + Threads | Satori OG |
+| **11:00** | 22:00-1 | `midday` | X + Bluesky + IG Story + Pinterest | Satori OG |
+| **14:00** | 01:00 | `education` | X Thread + Pinterest | Satori OG |
+| **17:00** | 04:00 | `edu_bsky` | Bluesky + Pinterest | Satori OG |
+| **05:30+1** | 16:30 | `pulse` | X + Bluesky + IG Story + Pinterest | Satori OG |
+| **07:00+1** | 18:00 | `pulse_ig` | IG Carousel + Threads | Satori OG |
+
+##### 🇰🇷🇯🇵 ASIA 리전 (5개)
+| KST | Action | 플랫폼 |
+|:---:|---|---|
+| **22:00** | `morning` ASIA | X + Bluesky + IG Story |
+| **23:00** | `morning_ig` ASIA | IG Carousel + Threads |
+| **07:00+1** | `pulse` ASIA | X + Bluesky + IG Story |
+| **12:00** | `education` ASIA | X Thread + Pinterest |
+| **14:00** | `midday` ASIA | X + Bluesky + IG Story + Pinterest |
+
+##### 🎯 Ticker Spotlight 게릴라 (4개)
+| KST | Action | 설명 |
+|:---:|---|---|
+| **23:00** | `spotlight` EN | 장 오픈 직후, 랜덤 M7/30종목 |
+| **01:30+1** | `spotlight` EN | 런치타임 |
+| **04:00+1** | `spotlight` EN | 장 마감 전 |
+| **06:30+1** | `spotlight` ALL | 애프터마켓, EN+KO+JA 전체 |
+
+##### ⚡ 이벤트 감지 + 영상 렌더링 (2개)
+| KST | 주기 | 설명 |
+|:---:|:---:|---|
+| 22:00~06:00 | 5분마다 | `event-detect` 마켓 시간 전체 스캔 (UTC 13~21시) |
+| **06:00** | 1일 1회 | `render-video` 장 마감 후 쇼츠 생성 (UTC 21:00) |
+
+### 24.3 AI 콘텐츠 엔진 (Claude Haiku 4.5)
+
+- **모델**: `us.anthropic.claude-haiku-4-5-20251001-v1:0` (Bedrock)
+- **비용**: ~$0.003/call → 하루 12~16건 × 3언어 = **~$0.01~0.03/일**
+- **3개 언어 병렬**: EN + KO + JA 동시 생성 (`Promise.all`)
+- **Fallback**: AI 실패 시 → `contentEngines.ts` 정적 템플릿 자동 전환
+
+##### 컴플라이언스 시스템 (2중 안전장치)
+1. **System Prompt**: BANNED 단어 목록 (EN 15개 + KO 12개 + JA 9개)
+2. **Post-Processing Filter**: `HARD_BLOCK_PATTERNS` 22개 정규식
+
+### 24.4 이벤트 감지 시스템 (7종)
+
+| # | 이벤트 | 감지 조건 | 대상 |
+|:---:|---|---|---|
+| 1 | **GEX Flip** | POSITIVE ↔ NEGATIVE 전환 | SPY |
+| 2 | **VIX Spike** | 변동률 ±15% 이상 | VIX |
+| 3 | **SEC 8-K** | 1시간 내 신규 Filing | 30종목 |
+| 4 | **ITM Sweep** | $5M+ 프리미엄 옵션 스윕 | 30종목 |
+| 5 | **Dark Pool** | SPY/QQQ 50%+ 비율 | SPY, QQQ |
+| 6 | **Insider Trade** | C-Suite $1M+ or 3+명 클러스터 | 15종목/cycle |
+| 7 | **Fear Resolution** | QQQ -0.5%+ 하락 + VIX -2%+ 하락 | MARKET |
+
+**안전장치**: 쿨다운 30분 / 일일 상한 3건 / 24시간 dedup
+
+### 24.5 이미지 파이프라인 (2트랙)
+
+##### 트랙 1: Satori OG (정기 발송용)
+```
+marketing-dispatch → buildImageUrl()
+  → /api/og/market?type=pulse&spy=...&format=tweet (Satori Edge 렌더링)
+  → Buffer API에 URL 전달
+```
+
+##### 트랙 2: EC2 Puppeteer (Spotlight + Event용)
+```
+screenshotService.ts → captureTemplate()
+  → EC2 52.23.98.13:3100/capture (POST, Puppeteer 캡처)
+  → Supabase Storage (marketing-assets 버킷, public)
+  → CDN URL → Buffer API → SNS
+  ⚠️ EC2 실패 시 → captureViaSatoriOG() 자동 fallback
+```
+
+### 24.6 V2 마케팅 템플릿 (7종)
+
+| # | 템플릿 | 파일 | 포맷 |
+|:---:|---|---|---|
+| 1 | **Ticker Spotlight** | `templates/ticker/page.tsx` | tweet/og/story/square |
+| 2 | **Education** | `templates/education/page.tsx` | tweet/og/story/carousel/pin/square |
+| 3 | **Event Alert** | `templates/event/page.tsx` | tweet/og/story/square |
+| 4 | **Market Pulse** | `templates/pulse/page.tsx` | tweet/og/story/carousel/pin/square |
+| 5 | **Compare** | `templates/compare/page.tsx` | tweet/og/story/carousel/pin/square |
+| 6 | **OG Default** | `templates/og-default/page.tsx` | 1200x630 고정 |
+| 7 | **Pinterest Pin** | `templates/pin-indicators/page.tsx` | 1000x1500 고정 |
+
+### 24.7 Redis 마케팅 캐시 키
+
+| 키 | TTL | 용도 |
+|---|:---:|---|
+| `marketing:pulse:{date}` | 24h | Pulse 콘텐츠 (3개 언어) |
+| `marketing:morning:{date}` | 24h | Morning 콘텐츠 |
+| `marketing:education:{date}` | 24h | Education 콘텐츠 |
+| `marketing:event:{date}` | 24h | Event 콘텐츠 |
+| `marketing:event:count:{date}` | 24h | 일일 이벤트 카운터 |
+| `marketing:event:last_time` | 30min | 쿨다운 타이머 |
+| `marketing:event:sent:{type}:{ticker}:{date}` | 24h | 중복 방지 dedup |
+| `marketing:spotlight:{date}:{ticker}` | 24h | Spotlight 콘텐츠 로그 |
+| `marketing:dispatch:v2:{date}:{action}` | 7일 | 디스패치 결과 로그 |
+| `marketing:video:{date}` | 7일 | 영상 렌더링 결과 로그 |
+
+### 24.8 Switch-ON 절차
+
+1. EC2 SSH → `pm2 restart capture-worker` (Puppeteer 워커 복구)
+2. `vercel.json` 1개 크론만 `dry_run=false&draft=true`로 변경
+3. 첫 발송 → Buffer Drafts 탭 확인 (이미지/텍스트 QA)
+4. QA 통과 → 나머지 크론 전환
+5. `event-detect`도 `dry_run=false` 전환
+6. `render-video`도 `dry_run=false` 전환
+7. 24시간 모니터링 → 안정 확인 후 `draft` 제거
+
+---
+
+## 25. Remotion 쇼츠 파이프라인 (V2 Premium — 2026-05-10 구축)
+
+> **Remotion 버전**: `4.0.441` (전 패키지 통일)
+> **추가 패키지**: `@remotion/paths`, `@remotion/transitions`, `@remotion/noise`, `@remotion/google-fonts` (all 4.0.441)
+> **포맷**: 9:16 (1080×1920), 30fps
+> **Lambda 함수**: ✅ `remotion-render-4-0-441-mem2048mb-disk2048mb-240sec` (2048MB, 240sec)
+> **S3 사이트**: ✅ `signum-shorts` (버킷: `remotionlambda-useast1-uyf73mi3b8`)
+> **serveUrl**: `https://remotionlambda-useast1-uyf73mi3b8.s3.us-east-1.amazonaws.com/sites/signum-shorts/index.html`
+> **IAM 역할**: `remotion-lambda-role` (trust: lambda.amazonaws.com)
+> **cron 등록**: ✅ `vercel.json` 등록 완료 (`dry_run=true`, 21:00 UTC 평일)
+> **Vercel 환경변수**: ✅ 4개 설정 완료 (REMOTION_SERVE_URL, FUNCTION_NAME, AWS_REGION, S3_BUCKET)
+
+### 25.1 파일 구조
+
+| 파일 | 역할 |
+|------|------|
+| `remotion.config.ts` | Remotion Studio 로컬 프리뷰 설정 |
+| `src/remotion/index.ts` | Remotion Entry Point (`registerRoot`) |
+| `src/remotion/Root.tsx` | 3개 Composition 등록 |
+| `src/remotion/design.ts` | 디자인 시스템 (컬러, 글로우, 글래스모피즘, 타이밍 헬퍼) |
+| `src/remotion/components/AnimatedBackground.tsx` | 회전 그라디언트 + 노이즈 그레인 + 부유 파티클 + 스캔라인 + 비네트 |
+| `src/remotion/components/KineticNumber.tsx` | 슬롯머신 스핀 → spring 안착 → 임팩트 바운스 + 글로우 |
+| `src/remotion/components/SparklineChart.tsx` | SVG evolvePath 차트 드로잉 + 글로우 트레일 + 펄스 엔드닷 |
+| `src/remotion/components/UIComponents.tsx` | GlowCard, ImpactText(stamp/glitch/typewriter), LowerThird, BrandWatermark |
+| `src/remotion/components/MotionEffects.tsx` | PulseRing (동심원 파동), DataCascade (폭포형 데이터) |
+| `src/remotion/compositions/MarketPulseVideo.tsx` | 장 마감 요약 쇼츠 (30초, 4씬) |
+| `src/remotion/compositions/NewsDigestVideo.tsx` | 뉴스 + 시장 반응 쇼츠 (30초, 4씬) |
+| `src/remotion/compositions/EventSpikeVideo.tsx` | 고래/GEX 이벤트 알림 쇼츠 (15초, 3씬) |
+| `src/lib/marketing/remotionLambda.ts` | Lambda 렌더 헬퍼 (renderMediaOnLambda + progress polling + fallback) |
+| `src/app/api/cron/render-video/route.ts` | 렌더링 오케스트레이터 (Redis → TTS → Lambda → S3) |
+| `scripts/deploy-remotion-lambda.mjs` | Lambda 배포 가이드 스크립트 |
+| `scripts/remotion-trust-policy.json` | IAM 역할 Trust Policy |
+| `scripts/remotion-role-policy.json` | IAM 역할 Execution Policy |
+
+### 25.2 렌더링 파이프라인
+
+```
+[Vercel Cron 21:00 UTC] → /api/cron/render-video?type=pulse&lang=en
+   ↓
+1. Redis에서 시장 데이터 fetch (marketing:pulse:{date} 또는 realtime 직접)
+2. pollyClient.ts → TTS 나레이션 생성 (AWS Polly Neural → S3 mp3)
+3. pollyClient.ts → BGM 자동 선택 (GEX 레짐 + VIX 기반)
+4. remotionLambda.ts → renderMediaOnLambda() → MP4 생성
+   ↓ (Lambda 미배포 시 → S3 manifest 저장 fallback)
+5. 결과 Redis 로그 (marketing:video:{date}, 7일 TTL)
+```
+
+### 25.3 Composition 상세
+
+| ID | 파일 | 길이 | 씬 구성 | 전환 효과 |
+|---|---|:---:|---|---|
+| `MarketPulse` | MarketPulseVideo.tsx | 30초 | Impact Opening → SPY/QQQ/VIX → GEX+Levels → CTA | wipe → slide → fade |
+| `NewsDigest` | NewsDigestVideo.tsx | 30초 | LIVE Badge → Headlines(sentiment) → Market Reaction → CTA | wipe → slide → fade |
+| `EventSpike` | EventSpikeVideo.tsx | 15초 | Flash Alert → Details(glitch) → CTA | wipe → fade |
+
+### 25.4 V2 Premium 모션 그래픽 디자인
+
+| 요소 | 구현 |
+|---|---|
+| **배경** | `@remotion/noise` 기반 그레인 + 회전 그라디언트 + 부유 파티클 + 스캔라인 + 비네트 |
+| **숫자** | 슬롯머신 스핀(12프레임) → `spring()` 안착 → 임팩트 스케일 바운스 + 글로우 펄스 |
+| **차트** | SVG `evolvePath()` 실시간 드로잉 + 글로우 라인 + 그래디언트 영역 채우기 + 펄스 엔드닷 |
+| **텍스트** | 3가지 스타일 — stamp(스케일 바운스), glitch(RGB 분리), typewriter(타자기) |
+| **카드** | 글래스모피즘 (`backdrop-filter: blur(20px)`) + 네온 보더 + 시머 엣지 |
+| **씬 전환** | `@remotion/transitions` — wipe, slide, fade + springTiming |
+| **이펙트** | PulseRing(동심원 파동), DataCascade(폭포형 스태거), 컬러 플래시 |
+| **분위기** | 시장 상태 반응형 — bullish(초록 톤), bearish(빨강 톤), neutral(파랑 톤) |
+
+### 25.5 npm 스크립트
+
+| 명령 | 용도 |
+|------|------|
+| `npm run remotion:studio` | 로컬 Remotion Studio 프리뷰 |
+| `npm run remotion:deploy-site` | S3에 Remotion 번들 재업로드 |
+| `npm run remotion:deploy-fn` | AWS Lambda 함수 배포 |
+| `npm run remotion:render` | 로컬 CLI 렌더링 |
+
+### 25.6 Lambda 배포 절차 (✅ 2026-05-10 완료)
+
+1. ✅ AWS IAM `remotion-lambda-role` 역할 생성 + 정책 연결
+2. ✅ `npm run remotion:deploy-fn` → `remotion-render-4-0-441-mem2048mb-disk2048mb-240sec`
+3. ✅ `npm run remotion:deploy-site` → `signum-shorts` (61.1MB, 108 파일)
+4. ✅ Vercel 환경변수 4개 설정 (REMOTION_SERVE_URL, FUNCTION_NAME, AWS_REGION, S3_BUCKET)
+5. 작동 테스트: `GET /api/cron/render-video?status=true` → Lambda ready 확인
+6. 실제 렌더: `GET /api/cron/render-video?type=pulse&lang=en&dry_run=false`
+7. `vercel.json`에서 `dry_run=true` → `dry_run=false` 전환
+
+### 25.7 예상 비용 (월간)
+
+| 항목 | 비용 |
+|------|:---:|
+| Lambda 렌더링 (~20 영상/월) | ~$12 |
+| S3 스토리지 | ~$0.50 |
+| Polly TTS (3개국어 × 20영상) | ~$4 |
+| **총 추정** | **~$16.50/월** |
+
+### 25.8 Composition 수정 시 재배포 절차
+
+```bash
+# 1. 코드 수정 후 로컬 프리뷰로 확인
+npm run remotion:studio
+
+# 2. S3 사이트 재업로드 (기존 사이트 덮어쓰기)
+npm run remotion:deploy-site
+
+# 3. Lambda 함수 자체는 재배포 불필요 (버전 변경 시만)
+```
