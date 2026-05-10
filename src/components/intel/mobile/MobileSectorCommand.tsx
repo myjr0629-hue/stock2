@@ -14,6 +14,7 @@ import { SECTORS, type SectorDefBase } from '@/configs/intelSectors';
 import { type IntelSharedData, type IntelQuote } from '@/hooks/useIntelSharedData';
 import { TrendingUp, TrendingDown, ChevronRight } from 'lucide-react';
 import { SectorIcon } from './SectorIcon';
+import { ProGate } from '@/components/gate/FeatureGate';
 
 interface MobileSectorCommandProps {
     sectorData: IntelSharedData;
@@ -91,6 +92,7 @@ function TrendLine({ isUp, width = 48, height = 20 }: { isUp: boolean; width?: n
 
 export function MobileSectorCommand({ sectorData, onNavigate }: MobileSectorCommandProps) {
     const t = useTranslations('alphaReport');
+    const gt = useTranslations('gate');
 
     // ── State ──
     const [selectedSector, setSelectedSector] = useState<string | null>(null);
@@ -271,7 +273,7 @@ export function MobileSectorCommand({ sectorData, onNavigate }: MobileSectorComm
                             style={{ scrollSnapType: 'x mandatory', WebkitOverflowScrolling: 'touch', scrollbarWidth: 'none' }}>
                             {contextLeaders.map((q, i) => {
                                 const isTop = i < 3;
-                                return (
+                                const card = (
                                     <button
                                         key={q.ticker}
                                         onClick={() => handleTickerTap(q)}
@@ -300,6 +302,14 @@ export function MobileSectorCommand({ sectorData, onNavigate }: MobileSectorComm
                                             {(q as any).sectorLabel} · Score {Math.round(q.alphaScore)}
                                         </div>
                                     </button>
+                                );
+                                // Gate #1, #2 behind ProGate — matches desktop SectorCommandCenter
+                                return i < 2 ? (
+                                    <ProGate key={q.ticker} title={`Alpha #${i + 1}`} fomoMessage={gt('fomoAlphaLeaders')} mode="blur" compact description={gt('descAiDeep')}>
+                                        {card}
+                                    </ProGate>
+                                ) : (
+                                    <React.Fragment key={q.ticker}>{card}</React.Fragment>
                                 );
                             })}
                         </div>
