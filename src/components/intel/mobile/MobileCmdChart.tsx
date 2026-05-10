@@ -5,6 +5,8 @@ import { type IntelQuote } from '@/hooks/useIntelSharedData';
 import dynamic from 'next/dynamic';
 import { Loader2 } from 'lucide-react';
 import { DecisionGate } from '@/components/DecisionGate';
+import { EliteGate } from '@/components/gate/FeatureGate';
+import { useTranslations } from 'next-intl';
 import { useLivePrice } from '@/hooks/useLivePrice';
 import { useRealtimeData } from '@/providers/WebSocketProvider';
 import { useMarketStatus } from '@/hooks/useMarketStatus';
@@ -24,6 +26,7 @@ interface Props { ticker: string; quote: IntelQuote; unified: any; unifiedLoadin
 
 export function MobileCmdChart({ ticker, quote, unified, unifiedLoading, initialStockData }: Props) {
     const q = quote;
+    const tg = useTranslations('gate');
 
     // Same live price hooks as desktop
     const { status: marketStatus } = useMarketStatus();
@@ -113,6 +116,7 @@ export function MobileCmdChart({ ticker, quote, unified, unifiedLoading, initial
             </div>
 
             {/* Signal Core — same DecisionGate as desktop */}
+            <EliteGate title="Signal Core" mode="blur" fomoTagline={tg('taglineSignalCore')} description={tg('descSignalCore')}>
             <div className="rounded-2xl border border-white/[0.06] bg-slate-900/60 overflow-hidden backdrop-blur-md">
                 <DecisionGate
                     ticker={ticker}
@@ -132,6 +136,7 @@ export function MobileCmdChart({ ticker, quote, unified, unifiedLoading, initial
                     earningsData={unified?.earnings || null}
                 />
             </div>
+            </EliteGate>
         </div>
     );
 }

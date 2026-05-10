@@ -12,6 +12,8 @@ import { type IntelQuote } from '@/hooks/useIntelSharedData';
 import { useLocale } from 'next-intl';
 import { ChevronDown, Loader2, TrendingUp, BarChart3, Globe, Zap } from 'lucide-react';
 import { useRealtimeData } from '@/providers/WebSocketProvider';
+import { ProGate } from '@/components/gate/FeatureGate';
+import { useTranslations } from 'next-intl';
 
 interface Props {
     ticker: string;
@@ -41,6 +43,7 @@ function sectionIcon(title: string) {
 
 export function MobileCmdOverview({ ticker, quote, unified, unifiedLoading }: Props) {
     const locale = useLocale();
+    const tg = useTranslations('gate');
     const q = quote;
 
     // ═══ AI DEEP ANALYSIS ═══
@@ -194,6 +197,7 @@ export function MobileCmdOverview({ ticker, quote, unified, unifiedLoading }: Pr
         <div className="space-y-4">
 
             {/* ═══ AI DEEP ANALYSIS ═══ */}
+            <ProGate title="AI Deep Analysis" mode="blur" fomoMessage="AI Deep Technical · Options Positioning · News & Market Context" fomoTagline={tg('taglineAIDeep')} description={tg('descAiDeep')}>
             <div className="rounded-2xl border border-amber-500/30 overflow-hidden relative"
                 style={{ background: 'linear-gradient(180deg, rgba(8,12,21,0.95), rgba(13,17,25,0.98))', boxShadow: '0 0 20px rgba(245,158,11,0.12)' }}>
 
@@ -282,6 +286,7 @@ export function MobileCmdOverview({ ticker, quote, unified, unifiedLoading }: Pr
                     </div>
                 )}
             </div>
+            </ProGate>
 
             {/* ═══ RELATED PEERS ═══ */}
             {relatedData.length > 0 && (
