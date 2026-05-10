@@ -581,10 +581,88 @@ Raw HTTP 응답 검증:
 >
 > 🔴 **5중 캐시 레이어 인지**: CDN Edge → Memory LRU → Redis → DynamoDB → EC2. 어느 한 레이어만 수정하면 다른 레이어에서 stale 데이터가 서빙됨. 수정 시 **모든 레이어의 쓰기+읽기 경로를 동시에 추적**할 것.
 
-### 5.3 마케팅 자동화 엔진 (2026-05-09 기준 — Switch-Ready)
+### 5.3 마케팅 자동화 엔진 (2026-05-10 기준 — Switch-Ready)
 
 > **상태**: 전 코드 완성, `dry_run=true` 대기. 월요일 EC2 워커 확인 후 `dry_run=false` 전환.
-> **Shorts/Reels**: 미구현 (비디오 렌더링 인프라 별도 필요)
+> **Shorts/Reels**: ✅ Remotion V2 Premium 파이프라인 구축 완료 (2026-05-10). Lambda 배포 후 작동.
+
+#### 5.3.9 Remotion 쇼츠 파이프라인 (V2 Premium — 2026-05-10 구축)
+
+> **Remotion 버전**: `4.0.441` (remotion, @remotion/cli, @remotion/lambda, @remotion/renderer)
+> **추가 패키지**: `@remotion/paths@4.0.459`, `@remotion/transitions@4.0.459`, `@remotion/noise@4.0.459`, `@remotion/google-fonts@4.0.459`
+> **포맷**: 9:16 (1080×1920), 30fps
+> **Lambda 배포 상태**: ❌ 미배포 (Lambda 함수 + S3 사이트 업로드 필요)
+> **cron 등록**: ✅ `vercel.json` 등록 완료 (`dry_run=true`, 21:00 UTC 평일)
+
+##### 파일 구조
+
+| 파일 | 역할 |
+|------|------|
+| `remotion.config.ts` | Remotion Studio 로컬 프리뷰 설정 |
+| `src/remotion/index.ts` | Remotion Entry Point (`registerRoot`) |
+| `src/remotion/Root.tsx` | 3개 Composition 등록 (MarketPulse, NewsDigest, EventSpike) |
+| `src/remotion/design.ts` | 디자인 시스템 (컬러, 글로우, 글래스모피즘, 타이밍 헬퍼) |
+| `src/remotion/components/AnimatedBackground.tsx` | 회전 그라디언트 + 노이즈 그레인 + 부유 파티클 + 스캔라인 |
+| `src/remotion/components/KineticNumber.tsx` | 슬롯머신 스핀 → spring 안착 → 임팩트 바운스 |
+| `src/remotion/components/SparklineChart.tsx` | SVG evolvePath 차트 드로잉 + 글로우 트레일 |
+| `src/remotion/components/UIComponents.tsx` | GlowCard, ImpactText(stamp/glitch/typewriter), LowerThird, BrandWatermark |
+| `src/remotion/components/MotionEffects.tsx` | PulseRing (동심원 파동), DataCascade (폭포형 데이터) |
+| `src/remotion/compositions/MarketPulseVideo.tsx` | 장 마감 요약 쇼츠 (30초) |
+| `src/remotion/compositions/NewsDigestVideo.tsx` | 뉴스 + 시장 반응 쇼츠 (30초) |
+| `src/remotion/compositions/EventSpikeVideo.tsx` | 고래/GEX 이벤트 알림 쇼츠 (15초) |
+| `src/lib/marketing/remotionLambda.ts` | Lambda 렌더 헬퍼 (renderMediaOnLambda + progress polling + fallback) |
+| `src/app/api/cron/render-video/route.ts` | 렌더링 오케스트레이터 (Redis → TTS → Lambda → S3) |
+| `scripts/deploy-remotion-lambda.mjs` | Lambda 배포 가이드 스크립트 |
+
+##### 렌더링 파이프라인
+
+```
+[Vercel Cron 21:00 UTC] → /api/cron/render-video?type=pulse&lang=en
+   ↓
+1. Redis에서 시장 데이터 fetch (marketing:pulse:{date} 또는 realtime 직접)
+2. pollyClient.ts → TTS 나레이션 생성 (AWS Polly Neural → S3 mp3)
+3. pollyClient.ts → BGM 자동 선택 (GEX 레짐 + VIX 기반)
+4. remotionLambda.ts → renderMediaOnLambda() → MP4 생성
+   ↓ (Lambda 미배포 시 → S3 manifest 저장 fallback)
+5. 결과 Redis 로그 (marketing:video:{date}, 7일 TTL)
+```
+
+##### Composition 상세
+
+| ID | 파일 | 길이 | 씬 구성 | 전환 효과 |
+|---|---|:---:|---|---|
+| `MarketPulse` | MarketPulseVideo.tsx | 30초 | 4씬: Impact Opening → SPY/QQQ/VIX → GEX+Levels → CTA | wipe → slide → fade |
+| `NewsDigest` | NewsDigestVideo.tsx | 30초 | 4씬: LIVE Badge → Headlines(sentiment) → Market Reaction → CTA | wipe → slide → fade |
+| `EventSpike` | EventSpikeVideo.tsx | 15초 | 3씬: Flash Alert → Details(glitch) → CTA | wipe → fade |
+
+##### npm 스크립트
+
+| 명령 | 용도 |
+|------|------|
+| `npm run remotion:studio` | 로컬 Remotion Studio 프리뷰 |
+| `npm run remotion:deploy-site` | S3에 Remotion 번들 업로드 |
+| `npm run remotion:deploy-fn` | AWS Lambda 함수 배포 (2048MB, 240초) |
+| `npm run remotion:render` | 로컬 CLI 렌더링 |
+
+##### Lambda 배포 절차 (미완료)
+
+1. AWS IAM에 `remotion-executionrole-policy` + `remotion-userpolicy` 추가
+2. `npm run remotion:deploy-fn` → Lambda 함수명 기록
+3. `npm run remotion:deploy-site` → serveUrl 기록
+4. Vercel 환경변수 설정: `REMOTION_SERVE_URL`, `REMOTION_FUNCTION_NAME`, `REMOTION_AWS_REGION`, `REMOTION_S3_BUCKET`
+5. 테스트: `GET /api/cron/render-video?status=true` (배포 상태 확인)
+6. 테스트: `GET /api/cron/render-video?type=pulse&lang=en&dry_run=false` (실제 렌더링)
+7. `vercel.json`에서 `dry_run=true` → `dry_run=false` 전환
+
+##### 예상 비용 (월간)
+
+| 항목 | 비용 |
+|------|:---:|
+| Lambda 렌더링 (~20 영상/월) | ~$12 |
+| S3 스토리지 | ~$0.50 |
+| Polly TTS (3개국어 × 20영상) | ~$4 |
+| **총 추정** | **~$16.50/월** |
+
 
 #### 핵심 파일 구조
 | 파일 | 역할 |
