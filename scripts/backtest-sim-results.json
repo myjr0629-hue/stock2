@@ -1,0 +1,296 @@
+{
+  "timestamp": "2026-05-08T15:52:08.506Z",
+  "totalPairs": 28802,
+  "period": {
+    "from": "2024-01-01",
+    "to": "2026-05-08"
+  },
+  "tickers": 50,
+  "factorCorrelations": {
+    "changePct": {
+      "label": "당일변동률(%)",
+      "r": -0.0072,
+      "n": 28802
+    },
+    "return3D": {
+      "label": "3일수익률(%)",
+      "r": -0.0138,
+      "n": 28802
+    },
+    "vwapDist": {
+      "label": "VWAP거리(%)",
+      "r": -0.0643,
+      "n": 28802
+    },
+    "rsi": {
+      "label": "RSI(14)",
+      "r": -0.0011,
+      "n": 26470
+    },
+    "macdHist": {
+      "label": "MACD Histogram",
+      "r": 0.0034,
+      "n": 26470
+    },
+    "qqq": {
+      "label": "QQQ변동률(%)",
+      "r": -0.0309,
+      "n": 28802
+    },
+    "vixy": {
+      "label": "VIXY변동률(%)",
+      "r": 0.0083,
+      "n": 28802
+    },
+    "tlt": {
+      "label": "TLT변동률(%)",
+      "r": -0.0125,
+      "n": 28802
+    },
+    "gld": {
+      "label": "GLD변동률(%)",
+      "r": -0.0099,
+      "n": 28802
+    }
+  },
+  "changePctBuckets": [
+    {
+      "label": "<-5%",
+      "min": -999,
+      "max": -5,
+      "count": 695,
+      "avgReturn": 0.68,
+      "hitRate": 46.5
+    },
+    {
+      "label": "-5~-3%",
+      "min": -5,
+      "max": -3,
+      "count": 1243,
+      "avgReturn": 0.5,
+      "hitRate": 52.4
+    },
+    {
+      "label": "-3~-1%",
+      "min": -3,
+      "max": -1,
+      "count": 5154,
+      "avgReturn": 0.29,
+      "hitRate": 50.3
+    },
+    {
+      "label": "-1~0%",
+      "min": -1,
+      "max": 0,
+      "count": 6695,
+      "avgReturn": 0.16,
+      "hitRate": 47.7
+    },
+    {
+      "label": "0~+1%",
+      "min": 0,
+      "max": 1,
+      "count": 7122,
+      "avgReturn": 0.12,
+      "hitRate": 48.9
+    },
+    {
+      "label": "+1~+3%",
+      "min": 1,
+      "max": 3,
+      "count": 5811,
+      "avgReturn": 0.2,
+      "hitRate": 50
+    },
+    {
+      "label": "+3~+5%",
+      "min": 3,
+      "max": 5,
+      "count": 1356,
+      "avgReturn": 0.5,
+      "hitRate": 51.2
+    },
+    {
+      "label": ">+5%",
+      "min": 5,
+      "max": 999,
+      "count": 726,
+      "avgReturn": 0.61,
+      "hitRate": 51.2
+    }
+  ],
+  "rsiBuckets": [
+    {
+      "label": "<25",
+      "min": 0,
+      "max": 25,
+      "count": 281,
+      "avgReturn": 1.86,
+      "hitRate": 64.8
+    },
+    {
+      "label": "25-35",
+      "min": 25,
+      "max": 35,
+      "count": 2094,
+      "avgReturn": 0.31,
+      "hitRate": 48.9
+    },
+    {
+      "label": "35-45",
+      "min": 35,
+      "max": 45,
+      "count": 5495,
+      "avgReturn": 0.3,
+      "hitRate": 50
+    },
+    {
+      "label": "45-55",
+      "min": 45,
+      "max": 55,
+      "count": 7498,
+      "avgReturn": 0.09,
+      "hitRate": 48.8
+    },
+    {
+      "label": "55-65",
+      "min": 55,
+      "max": 65,
+      "count": 6486,
+      "avgReturn": 0.23,
+      "hitRate": 49.7
+    },
+    {
+      "label": "65-75",
+      "min": 65,
+      "max": 75,
+      "count": 3631,
+      "avgReturn": 0.5,
+      "hitRate": 51.5
+    },
+    {
+      "label": ">75",
+      "min": 75,
+      "max": 100,
+      "count": 985,
+      "avgReturn": 0.3,
+      "hitRate": 51
+    }
+  ],
+  "return3DBuckets": [
+    {
+      "label": "<-5%",
+      "min": -999,
+      "max": -5,
+      "count": 2146,
+      "avgReturn": 0.66,
+      "hitRate": 50.4
+    },
+    {
+      "label": "-5~-3%",
+      "min": -5,
+      "max": -3,
+      "count": 2379,
+      "avgReturn": 0.18,
+      "hitRate": 50.5
+    },
+    {
+      "label": "-3~-1%",
+      "min": -3,
+      "max": -1,
+      "count": 5144,
+      "avgReturn": 0.23,
+      "hitRate": 49.5
+    },
+    {
+      "label": "-1~0%",
+      "min": -1,
+      "max": 0,
+      "count": 3796,
+      "avgReturn": 0.13,
+      "hitRate": 48.3
+    },
+    {
+      "label": "0~+1%",
+      "min": 0,
+      "max": 1,
+      "count": 4132,
+      "avgReturn": 0.15,
+      "hitRate": 47.7
+    },
+    {
+      "label": "+1~+3%",
+      "min": 1,
+      "max": 3,
+      "count": 6060,
+      "avgReturn": 0.13,
+      "hitRate": 49
+    },
+    {
+      "label": "+3~+5%",
+      "min": 3,
+      "max": 5,
+      "count": 2659,
+      "avgReturn": 0.33,
+      "hitRate": 50.2
+    },
+    {
+      "label": ">+5%",
+      "min": 5,
+      "max": 999,
+      "count": 2486,
+      "avgReturn": 0.42,
+      "hitRate": 51
+    }
+  ],
+  "macdBuckets": [
+    {
+      "label": "<-2",
+      "min": -999,
+      "max": -2,
+      "count": 2802,
+      "avgReturn": 0.19,
+      "hitRate": 49.3
+    },
+    {
+      "label": "-2~-1",
+      "min": -2,
+      "max": -1,
+      "count": 2544,
+      "avgReturn": 0.26,
+      "hitRate": 50.9
+    },
+    {
+      "label": "-1~0",
+      "min": -1,
+      "max": 0,
+      "count": 7714,
+      "avgReturn": 0.37,
+      "hitRate": 50.6
+    },
+    {
+      "label": "0~+1",
+      "min": 0,
+      "max": 1,
+      "count": 8030,
+      "avgReturn": 0.19,
+      "hitRate": 48.6
+    },
+    {
+      "label": "+1~+2",
+      "min": 1,
+      "max": 2,
+      "count": 2681,
+      "avgReturn": 0.14,
+      "hitRate": 48.5
+    },
+    {
+      "label": ">+2",
+      "min": 2,
+      "max": 999,
+      "count": 2699,
+      "avgReturn": 0.4,
+      "hitRate": 51.9
+    }
+  ]
+}

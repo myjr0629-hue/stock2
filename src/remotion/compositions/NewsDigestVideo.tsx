@@ -1,6 +1,6 @@
 // ============================================================================
-// NewsDigestVideo — 뉴스 + 시장 반응 Shorts (30초)
-// 기존 뉴스 API 데이터 활용 → SIGNUM HQ 데이터와 결합
+// NewsDigestVideo V2 — 뉴스 + 시장 반응 Shorts (30초)
+// 타이핑 효과 헤드라인 + 센티먼트 시각화 + 시장 데이터
 // ============================================================================
 
 import React from 'react';
@@ -9,19 +9,28 @@ import {
   interpolate,
   useCurrentFrame,
   useVideoConfig,
-  Sequence,
+  spring,
 } from 'remotion';
+import {
+  TransitionSeries,
+  springTiming,
+  linearTiming,
+} from '@remotion/transitions';
+import { fade } from '@remotion/transitions/fade';
+import { slide } from '@remotion/transitions/slide';
+import { wipe } from '@remotion/transitions/wipe';
+
+import { C, sec, changeColor, glow } from '../design';
+import { AnimatedBackground } from '../components/AnimatedBackground';
+import { KineticNumber } from '../components/KineticNumber';
+import { SparklineChart } from '../components/SparklineChart';
+import { GlowCard, ImpactText, BrandWatermark, LowerThird } from '../components/UIComponents';
 
 // ---------------------------------------------------------------------------
 // Props
 // ---------------------------------------------------------------------------
-export interface NewsHeadline {
-  title: string;
-  sentiment: 'positive' | 'negative' | 'neutral';
-}
-
 export interface NewsDigestProps {
-  headlines: NewsHeadline[];
+  headlines: { title: string; sentiment: 'positive' | 'negative' | 'neutral' }[];
   spy: number;
   vix: number;
   lang: 'en' | 'ko' | 'ja';
@@ -30,200 +39,310 @@ export interface NewsDigestProps {
 }
 
 // ---------------------------------------------------------------------------
-// Constants
+// i18n
 // ---------------------------------------------------------------------------
-const COLORS = {
-  bg: '#0a0e17',
-  card: '#111827',
-  border: '#1e293b',
-  text: '#f1f5f9',
-  muted: '#94a3b8',
-  green: '#22c55e',
-  red: '#ef4444',
-  amber: '#f59e0b',
-  purple: '#8b5cf6',
-  gradient1: '#6366f1',
-  gradient2: '#a855f7',
+const L = {
+  en: { title: 'NEWS DIGEST',   reaction: 'Market Reaction',   cta: 'Real-time intelligence on' },
+  ko: { title: '뉴스 다이제스트', reaction: '시장 반응',          cta: '실시간 인텔리전스' },
+  ja: { title: 'ニュースダイジェスト', reaction: '市場の反応',       cta: 'リアルタイムインテリジェンス' },
 };
 
-const LABELS = {
-  en: { title: 'NEWS DIGEST', breaking: 'TOP STORIES', market: 'Market Reaction', cta: 'Full analysis on signumhq.com' },
-  ko: { title: '뉴스 다이제스트', breaking: '주요 뉴스', market: '시장 반응', cta: '전체 분석 signumhq.com' },
-  ja: { title: 'ニュースダイジェスト', breaking: 'トップニュース', market: 'マーケット反応', cta: '全分析 signumhq.com' },
+const sentimentConfig = {
+  positive: { icon: '📈', color: C.emerald, label: 'BULLISH' },
+  negative: { icon: '📉', color: C.red,     label: 'BEARISH' },
+  neutral:  { icon: '➡️', color: C.muted,   label: 'NEUTRAL' },
 };
 
-const sentimentIcon = (s: string) => s === 'positive' ? '📈' : s === 'negative' ? '📉' : '➡️';
-const sentimentColor = (s: string) => s === 'positive' ? COLORS.green : s === 'negative' ? COLORS.red : COLORS.amber;
+// ---------------------------------------------------------------------------
+// Scenes
+// ---------------------------------------------------------------------------
+
+/** Scene 1: Title + news ticker feel (0-4초) */
+const SceneTitle: React.FC<{ l: typeof L.en }> = ({ l }) => {
+  const frame = useCurrentFrame();
+
+  return (
+    <AbsoluteFill>
+      <AnimatedBackground mood="neutral" intensity={1.2} />
+      <BrandWatermark />
+
+      <div style={{
+        display: 'flex', flexDirection: 'column',
+        alignItems: 'center', justifyContent: 'center',
+        height: '100%', padding: 60, gap: 16,
+      }}>
+        {/* Breaking news style bar */}
+        <div style={{
+          padding: '10px 24px',
+          background: `${C.red}15`,
+          border: `1px solid ${C.red}40`,
+          borderRadius: 8,
+          opacity: interpolate(frame, [0, 8], [0, 1], { extrapolateRight: 'clamp' }),
+        }}>
+          <span style={{ fontSize: 14, color: C.red, letterSpacing: 3, fontWeight: 700 }}>
+            ● LIVE
+          </span>
+        </div>
+
+        <ImpactText text={l.title} frame={frame} delay={5} fontSize={52} style="stamp" color={C.text} />
+
+        {/* Animated underline */}
+        <div style={{
+          width: interpolate(frame, [15, 40], [0, 400], { extrapolateRight: 'clamp' }),
+          height: 2,
+          background: `linear-gradient(90deg, transparent, ${C.cyan}60, transparent)`,
+        }} />
+
+        {/* Date + time */}
+        <div style={{
+          fontSize: 18, color: C.dim,
+          fontFamily: "'JetBrains Mono', monospace",
+          opacity: interpolate(frame, [25, 40], [0, 1], { extrapolateRight: 'clamp' }),
+        }}>
+          {new Date().toISOString().split('T')[0]} · Post Market
+        </div>
+      </div>
+    </AbsoluteFill>
+  );
+};
+
+/** Scene 2: Headlines with sentiment (4-18초) */
+const SceneHeadlines: React.FC<{
+  headlines: NewsDigestProps['headlines'];
+}> = ({ headlines }) => {
+  const frame = useCurrentFrame();
+  const { fps } = useVideoConfig();
+  const items = headlines.slice(0, 4); // Max 4 headlines
+
+  return (
+    <AbsoluteFill>
+      <AnimatedBackground mood="neutral" intensity={0.8} />
+      <BrandWatermark />
+
+      <div style={{
+        display: 'flex', flexDirection: 'column',
+        justifyContent: 'center',
+        height: '100%', padding: '80px 50px',
+        gap: 20,
+      }}>
+        {items.map((h, i) => {
+          const itemDelay = i * 30; // 1 second apart
+          const itemF = Math.max(0, frame - itemDelay);
+          const sc = sentimentConfig[h.sentiment];
+
+          // Slide in from alternating sides
+          const enterDir = i % 2 === 0 ? 'left' : 'right';
+
+          return (
+            <GlowCard
+              key={i}
+              frame={frame}
+              delay={itemDelay}
+              accentColor={sc.color}
+              from={enterDir}
+              width="100%"
+            >
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16 }}>
+                {/* Sentiment icon */}
+                <div style={{
+                  fontSize: 28,
+                  opacity: interpolate(itemF, [10, 20], [0, 1], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' }),
+                }}>
+                  {sc.icon}
+                </div>
+
+                <div style={{ flex: 1 }}>
+                  {/* Headline with typewriter effect */}
+                  <div style={{
+                    fontSize: 22, color: C.text,
+                    fontWeight: 600, lineHeight: 1.4,
+                  }}>
+                    {/* Progressive text reveal */}
+                    <span style={{
+                      opacity: interpolate(itemF, [5, 15], [0, 1], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' }),
+                    }}>
+                      {h.title}
+                    </span>
+                  </div>
+
+                  {/* Sentiment badge */}
+                  <div style={{
+                    marginTop: 8,
+                    display: 'inline-block',
+                    padding: '4px 12px',
+                    borderRadius: 6,
+                    background: `${sc.color}15`,
+                    border: `1px solid ${sc.color}30`,
+                    opacity: interpolate(itemF, [15, 25], [0, 1], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' }),
+                  }}>
+                    <span style={{
+                      fontSize: 12, fontWeight: 700, color: sc.color,
+                      letterSpacing: 2,
+                    }}>
+                      {sc.label}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </GlowCard>
+          );
+        })}
+      </div>
+    </AbsoluteFill>
+  );
+};
+
+/** Scene 3: Market Reaction data (18-25초) */
+const SceneReaction: React.FC<{
+  spy: number; vix: number; l: typeof L.en;
+}> = ({ spy, vix, l }) => {
+  const frame = useCurrentFrame();
+  const mood = spy >= 0 ? 'bullish' : 'bearish';
+
+  return (
+    <AbsoluteFill>
+      <AnimatedBackground mood={mood} intensity={1} />
+      <BrandWatermark />
+
+      <div style={{
+        display: 'flex', flexDirection: 'column',
+        alignItems: 'center', justifyContent: 'center',
+        height: '100%', padding: '80px 50px',
+        gap: 28,
+      }}>
+        <div style={{
+          fontSize: 20, color: C.muted, letterSpacing: 4,
+          textTransform: 'uppercase' as const,
+          opacity: interpolate(frame, [0, 15], [0, 1], { extrapolateRight: 'clamp' }),
+        }}>
+          {l.reaction}
+        </div>
+
+        {/* SPY with chart */}
+        <GlowCard frame={frame} delay={5} accentColor={changeColor(spy)} from="bottom" width="100%">
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div>
+              <div style={{ fontSize: 18, color: C.muted }}>S&P 500</div>
+              <div style={{ fontSize: 30, fontWeight: 800, color: C.text }}>SPY</div>
+            </div>
+            <KineticNumber value={spy} suffix="%" color={changeColor(spy)} frame={frame} delay={10} fontSize={56} />
+          </div>
+          <div style={{ marginTop: 12 }}>
+            <SparklineChart
+              color={changeColor(spy)}
+              width={880} height={100}
+              delay={15}
+            />
+          </div>
+        </GlowCard>
+
+        {/* VIX */}
+        <GlowCard frame={frame} delay={30} accentColor={vix > 25 ? C.red : C.amber} from="bottom" width="100%">
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div>
+              <div style={{ fontSize: 18, color: C.muted }}>Volatility</div>
+              <div style={{ fontSize: 30, fontWeight: 800, color: C.text }}>VIX</div>
+            </div>
+            <KineticNumber
+              value={vix} suffix="" prefix=""
+              color={vix > 25 ? C.red : vix > 18 ? C.amber : C.emerald}
+              frame={frame} delay={35} fontSize={56} decimals={1}
+            />
+          </div>
+        </GlowCard>
+      </div>
+    </AbsoluteFill>
+  );
+};
+
+/** Scene 4: CTA (25-30초) */
+const SceneCTA: React.FC<{ l: typeof L.en }> = ({ l }) => {
+  const frame = useCurrentFrame();
+
+  return (
+    <AbsoluteFill>
+      <AnimatedBackground mood="neutral" intensity={0.5} />
+      <div style={{
+        display: 'flex', flexDirection: 'column',
+        alignItems: 'center', justifyContent: 'center',
+        height: '100%', gap: 24,
+      }}>
+        <div style={{
+          width: 80, height: 80,
+          borderRadius: 20,
+          background: `linear-gradient(135deg, ${C.grad1}, ${C.grad2})`,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          fontSize: 44, fontWeight: 900, color: 'white',
+          boxShadow: glow(C.grad2, 1.5),
+          transform: `scale(${spring({ frame, fps: 30, config: { damping: 10 } })})`,
+        }}>
+          S
+        </div>
+        <div style={{
+          fontSize: 22, color: C.muted,
+          opacity: interpolate(frame, [10, 25], [0, 1], { extrapolateRight: 'clamp' }),
+        }}>
+          {l.cta}
+        </div>
+        <div style={{
+          padding: '14px 36px', borderRadius: 50,
+          background: `linear-gradient(90deg, ${C.grad1}, ${C.grad2})`,
+          fontSize: 22, fontWeight: 700, color: 'white',
+          boxShadow: glow(C.grad1, 1),
+          opacity: interpolate(frame, [15, 30], [0, 1], { extrapolateRight: 'clamp' }),
+        }}>
+          signumhq.com
+        </div>
+      </div>
+    </AbsoluteFill>
+  );
+};
 
 // ---------------------------------------------------------------------------
 // Main Composition
 // ---------------------------------------------------------------------------
 export const NewsDigestVideo: React.FC<NewsDigestProps> = (props) => {
-  const frame = useCurrentFrame();
-  const { fps } = useVideoConfig();
-  const l = LABELS[props.lang] || LABELS.en;
-
-  const opacity = interpolate(frame, [0, 15, 870, 900], [0, 1, 1, 0], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' });
+  const l = L[props.lang] || L.en;
 
   return (
-    <AbsoluteFill style={{ backgroundColor: COLORS.bg, opacity }}>
+    <AbsoluteFill style={{ backgroundColor: C.bg }}>
+      <TransitionSeries>
+        {/* Scene 1: Title (0-4초) */}
+        <TransitionSeries.Sequence durationInFrames={sec(4)}>
+          <SceneTitle l={l} />
+        </TransitionSeries.Sequence>
 
-      {/* === Section 1: Logo + Title (0-3s) === */}
-      <Sequence from={0} durationInFrames={90}>
-        <AbsoluteFill style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column' }}>
-          <div style={{
-            width: 100,
-            height: 100,
-            borderRadius: 24,
-            background: `linear-gradient(135deg, ${COLORS.gradient1}, ${COLORS.gradient2})`,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontSize: 52,
-            fontWeight: 900,
-            color: 'white',
-            opacity: interpolate(frame, [0, 20], [0, 1], { extrapolateRight: 'clamp' }),
-          }}>
-            S
-          </div>
-          <div style={{
-            marginTop: 20,
-            fontSize: 32,
-            fontWeight: 700,
-            color: COLORS.text,
-            letterSpacing: 4,
-            opacity: interpolate(frame, [15, 35], [0, 1], { extrapolateRight: 'clamp' }),
-          }}>
-            {l.title}
-          </div>
-        </AbsoluteFill>
-      </Sequence>
+        <TransitionSeries.Transition
+          presentation={wipe({ direction: 'from-left' })}
+          timing={springTiming({ config: { damping: 200 }, durationInFrames: sec(0.7) })}
+        />
 
-      {/* === Section 2: Headlines (3-20s) === */}
-      <Sequence from={90} durationInFrames={510}>
-        <AbsoluteFill style={{ display: 'flex', flexDirection: 'column', padding: 50, gap: 4 }}>
-          <div style={{ fontSize: 22, color: COLORS.muted, letterSpacing: 3, marginBottom: 20 }}>
-            {l.breaking}
-          </div>
+        {/* Scene 2: Headlines (4-18초) */}
+        <TransitionSeries.Sequence durationInFrames={sec(14)}>
+          <SceneHeadlines headlines={props.headlines} />
+        </TransitionSeries.Sequence>
 
-          {props.headlines.map((headline, i) => {
-            const baseDelay = i * 50;
-            const slideIn = interpolate(frame - 90, [baseDelay, baseDelay + 20], [0, 1], {
-              extrapolateLeft: 'clamp',
-              extrapolateRight: 'clamp',
-            });
+        <TransitionSeries.Transition
+          presentation={slide({ direction: 'from-bottom' })}
+          timing={springTiming({ config: { damping: 200 }, durationInFrames: sec(0.7) })}
+        />
 
-            return (
-              <div
-                key={i}
-                style={{
-                  display: 'flex',
-                  alignItems: 'flex-start',
-                  gap: 16,
-                  padding: '24px 20px',
-                  marginBottom: 16,
-                  background: COLORS.card,
-                  borderRadius: 20,
-                  borderLeft: `4px solid ${sentimentColor(headline.sentiment)}`,
-                  opacity: slideIn,
-                  transform: `translateX(${interpolate(slideIn, [0, 1], [-50, 0])}px)`,
-                }}
-              >
-                <span style={{ fontSize: 36, lineHeight: 1 }}>
-                  {sentimentIcon(headline.sentiment)}
-                </span>
-                <div style={{ flex: 1 }}>
-                  <span style={{ fontSize: 26, fontWeight: 600, color: COLORS.text, lineHeight: 1.4 }}>
-                    {headline.title}
-                  </span>
-                </div>
-              </div>
-            );
-          })}
-        </AbsoluteFill>
-      </Sequence>
+        {/* Scene 3: Market Reaction (18-25초) */}
+        <TransitionSeries.Sequence durationInFrames={sec(7)}>
+          <SceneReaction spy={props.spy} vix={props.vix} l={l} />
+        </TransitionSeries.Sequence>
 
-      {/* === Section 3: Market Reaction (20-25s) === */}
-      <Sequence from={600} durationInFrames={150}>
-        <AbsoluteFill style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: 60, gap: 30 }}>
-          <div style={{ fontSize: 22, color: COLORS.muted, letterSpacing: 3 }}>{l.market}</div>
+        <TransitionSeries.Transition
+          presentation={fade()}
+          timing={linearTiming({ durationInFrames: sec(0.5) })}
+        />
 
-          <div style={{
-            display: 'flex',
-            gap: 20,
-            width: '100%',
-          }}>
-            <div style={{
-              flex: 1,
-              background: COLORS.card,
-              borderRadius: 24,
-              padding: 30,
-              textAlign: 'center',
-              border: `1px solid ${COLORS.border}`,
-            }}>
-              <div style={{ fontSize: 20, color: COLORS.muted }}>SPY</div>
-              <div style={{
-                fontSize: 52,
-                fontWeight: 800,
-                color: props.spy >= 0 ? COLORS.green : COLORS.red,
-              }}>
-                {props.spy >= 0 ? '+' : ''}{props.spy.toFixed(2)}%
-              </div>
-            </div>
+        {/* Scene 4: CTA (25-30초) */}
+        <TransitionSeries.Sequence durationInFrames={sec(5)}>
+          <SceneCTA l={l} />
+        </TransitionSeries.Sequence>
+      </TransitionSeries>
 
-            <div style={{
-              flex: 1,
-              background: COLORS.card,
-              borderRadius: 24,
-              padding: 30,
-              textAlign: 'center',
-              border: `1px solid ${COLORS.border}`,
-            }}>
-              <div style={{ fontSize: 20, color: COLORS.muted }}>VIX</div>
-              <div style={{
-                fontSize: 52,
-                fontWeight: 800,
-                color: props.vix > 25 ? COLORS.red : props.vix > 18 ? COLORS.amber : COLORS.green,
-              }}>
-                {props.vix.toFixed(1)}
-              </div>
-            </div>
-          </div>
-        </AbsoluteFill>
-      </Sequence>
-
-      {/* === Section 4: CTA (25-30s) === */}
-      <Sequence from={750} durationInFrames={150}>
-        <AbsoluteFill style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 24 }}>
-          <div style={{
-            width: 72,
-            height: 72,
-            borderRadius: 18,
-            background: `linear-gradient(135deg, ${COLORS.gradient1}, ${COLORS.gradient2})`,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            fontSize: 40,
-            fontWeight: 900,
-            color: 'white',
-          }}>
-            S
-          </div>
-          <div style={{ fontSize: 26, fontWeight: 600, color: COLORS.text }}>{l.cta}</div>
-          <div style={{
-            padding: '14px 36px',
-            borderRadius: 50,
-            background: `linear-gradient(90deg, ${COLORS.gradient1}, ${COLORS.gradient2})`,
-            fontSize: 20,
-            fontWeight: 700,
-            color: 'white',
-          }}>
-            signumhq.com
-          </div>
-        </AbsoluteFill>
-      </Sequence>
-
-      {/* Audio */}
       {props.narrationUrl && <audio src={props.narrationUrl} />}
       {props.bgmUrl && <audio src={props.bgmUrl} />}
     </AbsoluteFill>
