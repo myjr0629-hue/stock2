@@ -144,6 +144,11 @@
         {
             "path": "/api/cron/marketing-dispatch?action=spotlight&region=all&dry_run=true",
             "schedule": "30 21 * * 1-5"
+        },
+
+        {
+            "path": "/api/cron/render-video?type=pulse&lang=en&dry_run=true",
+            "schedule": "0 21 * * 1-5"
         }
     ]
 }
