@@ -22,6 +22,10 @@ import { MobileHeader } from '@/components/mobile/MobileHeader';
 import { MobileBottomNav } from '@/components/mobile/MobileBottomNav';
 import { MobileLegalFooter } from '@/components/mobile/MobileLegalFooter';
 
+// Native App (Capacitor — no-op on web)
+import { NativeAppProvider } from '@/components/native/NativeAppProvider';
+import { NativePullToRefresh } from '@/components/native/NativePullToRefresh';
+
 export function generateStaticParams() {
     return locales.map((locale) => ({ locale }));
 }
@@ -69,7 +73,11 @@ export default async function LocaleLayout({ children, params }: Props) {
 
                                 {/* 2. MAIN CONTENT */}
                                 <WebSocketProvider>
-                                    {children}
+                                    <NativeAppProvider>
+                                        <NativePullToRefresh>
+                                            {children}
+                                        </NativePullToRefresh>
+                                    </NativeAppProvider>
                                 </WebSocketProvider>
 
                                 {/* 3. FOOTER / BOTTOM NAV (Bifurcated) */}

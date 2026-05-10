@@ -77,7 +77,7 @@ export function MobileBottomNav() {
             <div className="h-[68px]" />
 
             <nav 
-                className="fixed bottom-0 left-0 right-0 z-[100] bg-[#0a0f1a]/85 backdrop-blur-[24px] border-t border-white/[0.08]"
+                className="fixed bottom-0 left-0 right-0 z-[100] bg-[#0a0f1a]/85 backdrop-blur-[24px] border-t border-white/[0.08] native-bottom-nav"
                 style={{
                     paddingBottom: 'env(safe-area-inset-bottom, 16px)',
                     transform: 'translateZ(0)',
@@ -98,13 +98,16 @@ export function MobileBottomNav() {
                                 key={item.label}
                                 href={item.href}
                                 className={clsx(
-                                    "relative flex flex-col items-center justify-center min-w-[76px] shrink-0 h-full gap-1 transition-all duration-200 tap-highlight-transparent",
+                                    "relative flex flex-col items-center justify-center min-w-[76px] shrink-0 h-full gap-1 transition-all duration-200 tap-highlight-transparent native-tab-item",
                                     isActive ? "text-cyan-400" : "text-slate-500 hover:text-slate-300"
                                 )}
                             >
                                 {/* Indicator Glow for Active State */}
                                 {isActive && (
-                                    <div className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-[2px] rounded-full bg-cyan-400 shadow-[0_0_10px_rgba(34,211,238,0.8)]" />
+                                    <>
+                                        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-[2px] rounded-full bg-cyan-400 shadow-[0_0_10px_rgba(34,211,238,0.8)]" />
+                                        <div className="native-tab-active-dot absolute bottom-1 left-1/2 -translate-x-1/2 hidden" />
+                                    </>
                                 )}
                                 
                                 <item.icon 
