@@ -184,37 +184,35 @@ export async function GET(request: Request) {
 // 기존 Redis 캐시 구조 활용 (market-feed, warm-command 등)
 // ---------------------------------------------------------------------------
 async function fetchMarketDataFromRedis(): Promise<MarketData> {
-  // Try to read from existing Redis cache keys
-  const [spyData, qqqData, vixData, gexData] = await Promise.all([
-    safeGetCache('market:realtime:SPY'),
-    safeGetCache('market:realtime:QQQ'),
-    safeGetCache('market:realtime:VIX'),
+  // =========================================================================
+  // PRIMARY: Read from Yahoo Finance cache (written by market-feed cron)
+  // Keys: yahoo:idx:spx (^GSPC), yahoo:idx:nasdaq (^IXIC), yahoo:vix (^VIX)
+  // =========================================================================
+  const [spxData, nasdaqData, vixData, gexData, spyFutures] = await Promise.all([
+    safeGetCache('yahoo:idx:spx'),     // ^GSPC (S&P 500 index)
+    safeGetCache('yahoo:idx:nasdaq'),   // ^IXIC (NASDAQ Composite)
+    safeGetCache('yahoo:vix'),          // ^VIX
     safeGetCache('analysis:gex:regime'),
+    safeGetCache('yahoo:spx'),          // ES=F (S&P futures, backup)
   ]);
 
-  // Also try unified dashboard cache
-  const dashCache = await safeGetCache('dashboard:unified:latest');
-  const parsed = dashCache ? (typeof dashCache === 'string' ? JSON.parse(dashCache) : dashCache) : null;
-
-  // Extract data with primary sources
-  let spy = extractChange(spyData) ?? extractFromDash(parsed, 'SPY') ?? 0;
-  let qqq = extractChange(qqqData) ?? extractFromDash(parsed, 'QQQ') ?? 0;
-  let vix = extractVix(vixData) ?? extractFromDash(parsed, '^VIX') ?? 0;
+  // Extract changePct from Yahoo quotes
+  let spy = extractChange(spxData) ?? extractChange(spyFutures) ?? 0;
+  let qqq = extractChange(nasdaqData) ?? 0;
+  let vix = extractVix(vixData) ?? 0;
   let gexRegime = extractGex(gexData) ?? 'neutral';
 
   // =========================================================================
-  // FALLBACK: Redis 캐시가 비어있으면 Polygon REST API 직접 호출
-  // SPY=0 이미지 배포 방지를 위한 방어 로직
+  // FALLBACK: Try lambda-harvest cache if Yahoo keys are empty
   // =========================================================================
   if (spy === 0 || vix === 0) {
-    console.warn('[DailyContent] Redis cache miss — attempting Polygon fallback...');
+    console.warn('[DailyContent] Yahoo cache miss — attempting fallbacks...');
     try {
-      // Try warm-command cache (market-feed cron이 2분마다 갱신)
+      // Try warm-command cache
       const warmCmd = await safeGetCache('cache:warm-command');
       const warmParsed = warmCmd ? (typeof warmCmd === 'string' ? JSON.parse(warmCmd) : warmCmd) : null;
       
       if (warmParsed) {
-        // warm-command cache has tickers array
         const tickers = warmParsed?.tickers || warmParsed;
         if (Array.isArray(tickers)) {
           const spyEntry = tickers.find((t: any) => t?.ticker === 'SPY' || t?.symbol === 'SPY');
@@ -223,14 +221,13 @@ async function fetchMarketDataFromRedis(): Promise<MarketData> {
           if (qqqEntry && qqq === 0) qqq = qqqEntry.changePercent ?? qqqEntry.changePct ?? 0;
         }
         
-        // VIX from warm-command
         const vixEntry = warmParsed?.vix ?? warmParsed?.VIX;
         if (vixEntry && vix === 0) {
           vix = typeof vixEntry === 'number' ? vixEntry : (vixEntry?.value ?? vixEntry?.price ?? 0);
         }
       }
       
-      // If still 0, try analysis cache
+      // Analysis cache fallback
       if (spy === 0) {
         const spyAnalysis = await safeGetCache('cache:analysis:SPY');
         const spyParsed = spyAnalysis ? (typeof spyAnalysis === 'string' ? JSON.parse(spyAnalysis) : spyAnalysis) : null;
