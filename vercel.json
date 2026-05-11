@@ -81,6 +81,10 @@
             "path": "/api/cron/daily-content?type=education",
             "schedule": "30 23 * * 1-5"
         },
+        {
+            "path": "/api/cron/daily-content?type=pulse",
+            "schedule": "30 15 * * 1-5"
+        },
 
         {
             "path": "/api/cron/marketing-dispatch?action=morning&region=en&dry_run=false",
@@ -92,7 +96,7 @@
         },
         {
             "path": "/api/cron/marketing-dispatch?action=midday&region=en&dry_run=false",
-            "schedule": "45 20 * * 1-5"
+            "schedule": "0 16 * * 1-5"
         },
         {
             "path": "/api/cron/marketing-dispatch?action=pulse&region=en&dry_run=false",
@@ -137,7 +141,7 @@
         },
         {
             "path": "/api/cron/marketing-dispatch?action=midday&region=asia&dry_run=false",
-            "schedule": "50 20 * * 1-5"
+            "schedule": "15 16 * * 1-5"
         },
 
         {
