@@ -306,11 +306,14 @@ export async function createPost(opts: {
 
   for (const channelId of channelIds) {
     try {
+      // Publish immediately: set dueAt to 30s from now so Buffer fires it right away
+      const publishAt = scheduledAt || new Date(Date.now() + 30_000).toISOString();
       const input: Record<string, any> = {
         channelId,
         text: text || '',
         schedulingType: 'automatic',
-        mode: 'addToQueue',
+        mode: 'customScheduled',
+        dueAt: publishAt,
       };
 
       // Image assets (new schema structure)
@@ -323,10 +326,8 @@ export async function createPost(opts: {
         input.saveToDraft = true;
       }
 
-      // Scheduling
-      if (scheduledAt) {
-        input.scheduledAt = scheduledAt;
-      }
+
+
 
       // Instagram-specific metadata (required for IG posts/stories/reels)
       if (instagramMeta) {
