@@ -70,8 +70,16 @@
             "schedule": "*/15 * * * *"
         },
         {
-            "path": "/api/cron/daily-content?type=all",
-            "schedule": "30 20 * * 1-5"
+            "path": "/api/cron/daily-content?type=morning",
+            "schedule": "0 9 * * 1-5"
+        },
+        {
+            "path": "/api/cron/daily-content?type=pulse",
+            "schedule": "25 20 * * 1-5"
+        },
+        {
+            "path": "/api/cron/daily-content?type=education",
+            "schedule": "30 23 * * 1-5"
         },
 
         {
