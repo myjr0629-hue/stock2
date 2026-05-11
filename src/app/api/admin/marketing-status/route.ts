@@ -33,7 +33,7 @@ const CRON_SCHEDULE = [
   { utc: '10:30', kst: '19:30', action: 'morning', label: 'Morning Brief → X+Bluesky+IG Story', type: 'dispatch', region: 'EN', days: 'Mon-Fri' },
   { utc: '12:00', kst: '21:00', action: 'morning_ig', label: 'Morning → IG Carousel+Threads', type: 'dispatch', region: 'EN', days: 'Mon-Fri' },
   { utc: '16:00', kst: '01:00+1', action: 'midday', label: 'Midday → X+Bluesky+IG Story+Pinterest', type: 'dispatch', region: 'EN', days: 'Mon-Fri' },
-  { utc: '20:30', kst: '05:30+1', action: 'pulse', label: 'Market Pulse → X+Bluesky+IG Story+Pinterest', type: 'dispatch', region: 'EN', days: 'Mon-Fri' },
+  { utc: '20:35', kst: '05:35+1', action: 'pulse', label: 'Market Pulse → X+Bluesky+IG Story+Pinterest', type: 'dispatch', region: 'EN', days: 'Mon-Fri' },
   { utc: '21:00', kst: '06:00+1', action: 'render-video', label: 'Remotion 영상 렌더링', type: 'video', region: 'EN', days: 'Mon-Fri' },
   { utc: '22:00', kst: '07:00+1', action: 'pulse_ig', label: 'Pulse → IG Carousel+Threads', type: 'dispatch', region: 'EN', days: 'Mon-Fri' },
   { utc: '00:00', kst: '09:00', action: 'education', label: 'Education → X Thread+Pinterest', type: 'dispatch', region: 'EN', days: 'Tue-Sat' },
@@ -64,11 +64,10 @@ export async function GET(request: NextRequest) {
 
   const start = Date.now();
   const now = new Date();
-  const dateKey = now.toISOString().split('T')[0];
-  // Yesterday's date key
-  const yesterday = new Date(now);
-  yesterday.setDate(yesterday.getDate() - 1);
-  const yesterdayKey = yesterday.toISOString().split('T')[0];
+  const dateKey = now.toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
+  // Yesterday's date key (ET timezone)
+  const yesterday = new Date(now.getTime() - 86400000);
+  const yesterdayKey = yesterday.toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
 
   try {
     // ══════════════════════════════════════════
@@ -293,7 +292,7 @@ export async function GET(request: NextRequest) {
         ...s,
         status,
         hasLog,
-        dryRun: true, // All vercel.json crons have dry_run=true
+        dryRun: s.action === 'render-video', // Only render-video stays dry_run
       };
     });
 

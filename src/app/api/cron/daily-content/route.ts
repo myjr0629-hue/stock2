@@ -39,7 +39,9 @@ export async function GET(request: Request) {
   const useAI = searchParams.get('engine') !== 'template'; // AI by default
 
   try {
-    const dateKey = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
+    // [FIX] Use ET (New York) date as dateKey — ensures alignment with marketing-dispatch
+    // daily-content runs at 20:30 UTC (16:30 ET) → ET date = market session date
+    const dateKey = new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' }); // YYYY-MM-DD
     const results: Record<string, any> = {};
 
     // --- Market Pulse ---

@@ -68,7 +68,10 @@ export async function GET(request: Request) {
   const draft = searchParams.get('draft') === 'true'; // Posts go to Buffer Drafts tab
   const action = (searchParams.get('action') || 'pulse') as Action;
   const region = (searchParams.get('region') || 'all') as Region;
-  const dateKey = searchParams.get('date') || new Date().toISOString().split('T')[0];
+  // [FIX] Use ET date to match daily-content's dateKey (generated at 20:30 UTC = same ET market date)
+  // Without this, morning dispatch at 10:30 UTC next day would use a different dateKey
+  const etDateStr = new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' }); // YYYY-MM-DD
+  const dateKey = searchParams.get('date') || etDateStr;
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://signumhq.com';
   const langs = getLangsForRegion(region);
 

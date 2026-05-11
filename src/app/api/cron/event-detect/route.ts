@@ -58,7 +58,7 @@ export async function GET(request: Request) {
   }
 
   const dryRun = searchParams.get('dry_run') !== 'false';
-  const dateKey = new Date().toISOString().split('T')[0];
+  const dateKey = new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
 
   try {
     // Check daily limit
@@ -399,7 +399,7 @@ async function detectInsiderTrade(): Promise<EventData[]> {
   for (const ticker of tickersToCheck) {
     try {
       // Check dedup first (avoid redundant API calls)
-      const dateKey = new Date().toISOString().split('T')[0];
+      const dateKey = new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
       const dedupKey = `marketing:event:sent:insider_trade:${ticker}:${dateKey}`;
       const alreadySent = await safeGet(dedupKey);
       if (alreadySent) continue;
