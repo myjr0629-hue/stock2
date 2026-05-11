@@ -206,9 +206,13 @@ export async function GET(request: Request) {
       // X tweet + Bluesky + IG Story + Pinterest
       // ========================================
       case 'midday': {
-        // Use pulse content for midday (latest market data)
-        const content = await loadContent('pulse', dateKey);
-        if (!content) return noContent('pulse', dateKey);
+        // Midday uses pulse content — try today, then previous trading day
+        let content = await loadContent('pulse', dateKey);
+        if (!content) {
+          const prevKey = getPreviousTradingDayKey();
+          content = await loadContent('pulse', prevKey);
+          if (!content) return noContent('pulse', `${dateKey} (also tried ${prevKey})`);
+        }
 
         for (const lang of langs) {
           const lc = content[lang];

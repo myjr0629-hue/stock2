@@ -92,7 +92,7 @@
         },
         {
             "path": "/api/cron/marketing-dispatch?action=midday&region=en&dry_run=false",
-            "schedule": "0 16 * * 1-5"
+            "schedule": "45 20 * * 1-5"
         },
         {
             "path": "/api/cron/marketing-dispatch?action=pulse&region=en&dry_run=false",
@@ -137,7 +137,7 @@
         },
         {
             "path": "/api/cron/marketing-dispatch?action=midday&region=asia&dry_run=false",
-            "schedule": "0 5 * * 2-6"
+            "schedule": "50 20 * * 1-5"
         },
 
         {
