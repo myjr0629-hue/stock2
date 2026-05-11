@@ -84,8 +84,15 @@ export async function GET(request: Request) {
       // X tweet + Bluesky + IG Story
       // ========================================
       case 'morning': {
-        const content = await loadContent('morning', dateKey);
-        if (!content) return noContent('morning', dateKey);
+        // Morning content generated after close (16:40 ET) with session dateKey.
+        // Morning dispatch next day (06:30 ET) has different ET date.
+        // → Try today first, then previous trading day fallback.
+        let content = await loadContent('morning', dateKey);
+        if (!content) {
+          const prevKey = getPreviousTradingDayKey();
+          content = await loadContent('morning', prevKey);
+          if (!content) return noContent('morning', `${dateKey} (also tried ${prevKey})`);
+        }
 
         for (const lang of langs) {
           const lc = content[lang];
@@ -147,8 +154,13 @@ export async function GET(request: Request) {
       // MORNING IG CAROUSEL — 08:00 KST
       // ========================================
       case 'morning_ig': {
-        const content = await loadContent('morning', dateKey);
-        if (!content) return noContent('morning', dateKey);
+        // Same fallback as morning — content generated prev close
+        let content = await loadContent('morning', dateKey);
+        if (!content) {
+          const prevKey = getPreviousTradingDayKey();
+          content = await loadContent('morning', prevKey);
+          if (!content) return noContent('morning', `${dateKey} (also tried ${prevKey})`);
+        }
 
         for (const lang of langs) {
           const lc = content[lang];
@@ -665,6 +677,16 @@ async function loadContent(type: string, dateKey: string): Promise<ContentOutput
   if (!cached) return null;
   const parsed = typeof cached === 'string' ? JSON.parse(cached) : cached;
   return parsed as ContentOutput;
+}
+
+// Previous trading day: Mon→Fri, Tue-Fri→prev day, Sat/Sun→Fri
+function getPreviousTradingDayKey(): string {
+  const now = new Date();
+  const et = new Date(now.toLocaleString('en-US', { timeZone: 'America/New_York' }));
+  const day = et.getDay(); // 0=Sun,1=Mon,...
+  const daysBack = day === 1 ? 3 : day === 0 ? 2 : 1; // Mon→3(Fri), Sun→2(Fri)
+  et.setDate(et.getDate() - daysBack);
+  return et.toLocaleDateString('en-CA'); // YYYY-MM-DD
 }
 
 function noContent(type: string, dateKey: string) {

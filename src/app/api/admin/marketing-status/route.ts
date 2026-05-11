@@ -28,7 +28,7 @@ function parseRedis(raw: any): any {
 // ── Full Cron Schedule (from vercel.json) ──
 const CRON_SCHEDULE = [
   // Content Generation (split by type — each runs BEFORE its dispatch)
-  { utc: '09:00', kst: '18:00', action: 'daily-content-morning', label: 'Morning 콘텐츠 생성', type: 'content', region: 'all', days: 'Mon-Fri' },
+  { utc: '20:40', kst: '05:40+1', action: 'daily-content-morning', label: 'Morning 콘텐츠 생성 (장마감후)', type: 'content', region: 'all', days: 'Mon-Fri' },
   { utc: '20:25', kst: '05:25+1', action: 'daily-content-pulse', label: 'Pulse 콘텐츠 생성', type: 'content', region: 'all', days: 'Mon-Fri' },
   { utc: '23:30', kst: '08:30+1', action: 'daily-content-edu', label: 'Education 콘텐츠 생성', type: 'content', region: 'all', days: 'Mon-Fri' },
   // EN Region

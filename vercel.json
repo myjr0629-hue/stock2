@@ -71,7 +71,7 @@
         },
         {
             "path": "/api/cron/daily-content?type=morning",
-            "schedule": "0 9 * * 1-5"
+            "schedule": "40 20 * * 1-5"
         },
         {
             "path": "/api/cron/daily-content?type=pulse",
