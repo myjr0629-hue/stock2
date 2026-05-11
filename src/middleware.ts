@@ -21,7 +21,6 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-    // Match all pathnames except API, static files, Next.js internals, auth callback
-    matcher: ['/((?!api|_next|_vercel|auth|marketing|.*\\..*).*)', '/']
+    // Match all pathnames except API, static files, Next.js internals, auth callback, templates
+    matcher: ['/((?!api|_next|_vercel|auth|marketing|templates|.*\\..*).*)' , '/']
 };
-

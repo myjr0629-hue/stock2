@@ -1,7 +1,6 @@
 // ============================================================================
-// /api/og/market — Premium OG Image v2.1 (Signal Card Design)
-// GEX Hero + S&P 500 + Dark Pool + VIX
-// All dimensions explicitly calculated for Satori compatibility
+// /api/og/market — Premium OG Image v3.0 (GPT+Gemini Fusion)
+// GEX Hero + Scale Bar + Signal Ring + 3 Metric Cards
 // ============================================================================
 
 import { ImageResponse } from 'next/og';
@@ -11,68 +10,76 @@ export const runtime = 'edge';
 
 const C = {
   bg: '#06090f',
-  glass: 'rgba(255,255,255,0.04)',
-  glassBorder: 'rgba(255,255,255,0.08)',
+  card: 'rgba(15,23,42,0.85)',
+  cardBorder: 'rgba(100,160,220,0.12)',
+  cardBorderHi: 'rgba(34,211,238,0.18)',
   cyan: '#22d3ee',
+  cyanDim: '#06b6d4',
+  purple: '#a78bfa',
   green: '#34d399',
+  greenBright: '#4ade80',
   red: '#f87171',
   amber: '#fbbf24',
   white: '#f1f5f9',
   muted: '#94a3b8',
   dim: '#64748b',
+  dimmer: '#475569',
 };
 
 const L: Record<string, Record<string, string>> = {
   en: {
     pulse: 'MARKET PULSE', event: 'STRUCTURAL ALERT', education: 'MARKET INSIGHT',
-    morning: 'PRE-MARKET BRIEF', weekly: 'WEEKLY STRUCTURE',
-    sub: 'Institutional-Grade Market Structure',
-    gexLabel: 'GEX REGIME',
+    morning: 'PRE-MARKET BRIEF', weekly: 'WEEKLY STRUCTURE', spotlight: 'TICKER SPOTLIGHT',
+    gexLabel: 'GEX REGIME', gexScale: 'GEX REGIME SCALE',
     positive: 'POSITIVE', negative: 'NEGATIVE', neutral: 'NEUTRAL', transition: 'TRANSITION',
-    gexDescPos: 'Dealer hedging absorbs volatility shocks',
-    gexDescNeg: 'Dealer hedging amplifies price movements',
-    gexDescNeu: 'No directional conviction from dealers',
-    gexDescTra: 'Regime shifting - trend acceleration likely',
-    sp500: 'S&P 500', dpLabel: 'DARK POOL', dpSub: 'Institutional Activity',
-    vixLabel: 'VIX', vixSub: 'Fear Index',
+    gexDescPos: 'Dealer positioning may dampen volatility and support mean reversion.',
+    gexDescNeg: 'Dealer hedging amplifies directional moves — trend acceleration likely.',
+    gexDescNeu: 'No directional conviction from dealers — watch for breakout.',
+    gexDescTra: 'Regime shifting — structural transition in progress.',
+    gexSignal: 'GEX SIGNAL', strong: 'STRONG', weak: 'WEAK', mixed: 'MIXED',
+    sp500: 'S&P 500', todayChange: "TODAY'S CHANGE",
+    dpLabel: 'DARK POOL', dpSub: 'INSTITUTIONAL ACTIVITY',
+    vixLabel: 'VIX', vixSub: 'MARKET VOLATILITY',
     vixLow: 'CALM', vixMid: 'ELEVATED', vixHigh: 'HIGH', vixExt: 'EXTREME',
     tagline: 'See What Others Cannot',
-    pinTitle: 'How Gamma Exposure Drives Stock Prices',
-    pinSub: 'Institutional Market Structure Analysis',
+    footer: 'Institutional Intelligence, Democratized',
+    footerSub: 'GEX · Dark Pool · Options Flow · AI Verdicts',
   },
   ko: {
     pulse: 'MARKET PULSE', event: 'STRUCTURAL ALERT', education: 'MARKET INSIGHT',
-    morning: 'PRE-MARKET BRIEF', weekly: 'WEEKLY STRUCTURE',
-    sub: 'Institutional-Grade Market Structure',
-    gexLabel: 'GEX REGIME',
+    morning: 'PRE-MARKET BRIEF', weekly: 'WEEKLY STRUCTURE', spotlight: 'TICKER SPOTLIGHT',
+    gexLabel: 'GEX REGIME', gexScale: 'GEX REGIME SCALE',
     positive: 'POSITIVE', negative: 'NEGATIVE', neutral: 'NEUTRAL', transition: 'TRANSITION',
-    gexDescPos: 'Dealer hedging absorbs volatility',
-    gexDescNeg: 'Dealer hedging amplifies moves',
-    gexDescNeu: 'No directional conviction',
-    gexDescTra: 'Regime shifting - acceleration likely',
-    sp500: 'S&P 500', dpLabel: 'DARK POOL', dpSub: 'Institutional',
-    vixLabel: 'VIX', vixSub: 'Fear Index',
+    gexDescPos: '딜러 포지셔닝이 변동성을 억제하고 평균 회귀를 지지합니다.',
+    gexDescNeg: '딜러 헤징이 방향성 움직임을 증폭합니다.',
+    gexDescNeu: '딜러 방향성 확신 없음 — 돌파 주시.',
+    gexDescTra: '레짐 전환 중 — 구조적 전환 진행.',
+    gexSignal: 'GEX SIGNAL', strong: 'STRONG', weak: 'WEAK', mixed: 'MIXED',
+    sp500: 'S&P 500', todayChange: '당일 변동',
+    dpLabel: 'DARK POOL', dpSub: '기관 활동',
+    vixLabel: 'VIX', vixSub: '시장 변동성',
     vixLow: 'CALM', vixMid: 'ELEVATED', vixHigh: 'HIGH', vixExt: 'EXTREME',
     tagline: 'See What Others Cannot',
-    pinTitle: 'GEX: Options Structure Behind Price Action',
-    pinSub: 'Dark Pool and Gamma Exposure Data',
+    footer: 'Institutional Intelligence, Democratized',
+    footerSub: 'GEX · Dark Pool · Options Flow · AI Verdicts',
   },
   ja: {
     pulse: 'MARKET PULSE', event: 'STRUCTURAL ALERT', education: 'MARKET INSIGHT',
-    morning: 'PRE-MARKET BRIEF', weekly: 'WEEKLY STRUCTURE',
-    sub: 'Institutional-Grade Market Structure',
-    gexLabel: 'GEX REGIME',
+    morning: 'PRE-MARKET BRIEF', weekly: 'WEEKLY STRUCTURE', spotlight: 'TICKER SPOTLIGHT',
+    gexLabel: 'GEX REGIME', gexScale: 'GEX REGIME SCALE',
     positive: 'POSITIVE', negative: 'NEGATIVE', neutral: 'NEUTRAL', transition: 'TRANSITION',
-    gexDescPos: 'Dealer hedging absorbs volatility',
-    gexDescNeg: 'Dealer hedging amplifies moves',
-    gexDescNeu: 'No directional conviction',
-    gexDescTra: 'Regime shifting - acceleration likely',
-    sp500: 'S&P 500', dpLabel: 'DARK POOL', dpSub: 'Institutional',
-    vixLabel: 'VIX', vixSub: 'Fear Index',
+    gexDescPos: 'ディーラーポジショニングがボラティリティを抑制。',
+    gexDescNeg: 'ディーラーヘッジが方向性を増幅。',
+    gexDescNeu: 'ディーラー方向性確信なし — ブレイクアウト注視。',
+    gexDescTra: 'レジーム転換中 — 構造的転換進行。',
+    gexSignal: 'GEX SIGNAL', strong: 'STRONG', weak: 'WEAK', mixed: 'MIXED',
+    sp500: 'S&P 500', todayChange: '本日の変動',
+    dpLabel: 'DARK POOL', dpSub: '機関活動',
+    vixLabel: 'VIX', vixSub: 'ボラティリティ',
     vixLow: 'CALM', vixMid: 'ELEVATED', vixHigh: 'HIGH', vixExt: 'EXTREME',
     tagline: 'See What Others Cannot',
-    pinTitle: 'Gamma Exposure: How Dealers Move Markets',
-    pinSub: 'Options Structure and Dark Pool Analysis',
+    footer: 'Institutional Intelligence, Democratized',
+    footerSub: 'GEX · Dark Pool · Options Flow · AI Verdicts',
   },
 };
 
@@ -81,17 +88,17 @@ function fmt(v: number) { return `${v >= 0 ? '+' : ''}${v.toFixed(2)}%`; }
 
 function gexTheme(gex: string) {
   const g = gex.toLowerCase();
-  if (g === 'positive') return { color: '#34d399', bg: 'rgba(52,211,153,0.10)', border: 'rgba(52,211,153,0.20)', glow: 'rgba(52,211,153,0.15)', pct: 75 };
-  if (g === 'negative') return { color: '#f87171', bg: 'rgba(248,113,113,0.10)', border: 'rgba(248,113,113,0.20)', glow: 'rgba(248,113,113,0.15)', pct: 25 };
-  if (g === 'transition') return { color: '#fbbf24', bg: 'rgba(251,191,36,0.10)', border: 'rgba(251,191,36,0.20)', glow: 'rgba(251,191,36,0.12)', pct: 50 };
-  return { color: '#94a3b8', bg: 'rgba(148,163,184,0.06)', border: 'rgba(148,163,184,0.12)', glow: 'rgba(148,163,184,0.08)', pct: 50 };
+  if (g === 'positive') return { color: C.green, colorBright: C.greenBright, ringBg: 'rgba(52,211,153,0.12)', pct: 80, signal: 'STRONG' };
+  if (g === 'negative') return { color: C.red, colorBright: '#fb923c', ringBg: 'rgba(248,113,113,0.12)', pct: 20, signal: 'WEAK' };
+  if (g === 'transition') return { color: C.amber, colorBright: '#fcd34d', ringBg: 'rgba(251,191,36,0.12)', pct: 50, signal: 'MIXED' };
+  return { color: C.muted, colorBright: '#cbd5e1', ringBg: 'rgba(148,163,184,0.08)', pct: 50, signal: 'MIXED' };
 }
 
 function vixInfo(v: number, l: Record<string, string>) {
-  if (v >= 30) return { color: C.red, label: l.vixExt, pct: 95 };
-  if (v >= 25) return { color: '#f97316', label: l.vixHigh, pct: 75 };
-  if (v >= 18) return { color: C.amber, label: l.vixMid, pct: 55 };
-  return { color: C.green, label: l.vixLow, pct: 25 };
+  if (v >= 30) return { color: C.red, label: l.vixExt };
+  if (v >= 25) return { color: '#f97316', label: l.vixHigh };
+  if (v >= 18) return { color: C.amber, label: l.vixMid };
+  return { color: C.green, label: l.vixLow };
 }
 
 function gexDesc(gex: string, l: Record<string, string>) {
@@ -111,9 +118,12 @@ const FORMAT_SIZES: Record<string, { width: number; height: number }> = {
   story: { width: 1080, height: 1920 },
 };
 
+const B = (extra: Record<string, string | number> = {}) => ({
+  display: 'flex' as const, ...extra,
+});
+
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
-
   const type   = searchParams.get('type') || 'pulse';
   const lang   = (searchParams.get('lang') || 'en') as 'en' | 'ko' | 'ja';
   const spy    = parseFloat(searchParams.get('spy') || '0');
@@ -126,7 +136,6 @@ export async function GET(req: NextRequest) {
   const format = searchParams.get('format') || 'og';
 
   const { width: W, height: H } = FORMAT_SIZES[format] || FORMAT_SIZES.og;
-
   const l = L[lang] || L.en;
   const title = l[type] || l.pulse;
   const gt = gexTheme(gex);
@@ -134,148 +143,180 @@ export async function GET(req: NextRequest) {
   const vi = vixInfo(vix, l);
   const dpPct = dp > 0 ? dp : 0;
   const dpColor = dpPct >= 40 ? C.amber : C.cyan;
-  const isPin = format === 'pin';
-  const isVertical = H > W;
 
-  // Satori-safe box style helper
-  const box = (extra: Record<string, string | number> = {}) => ({
-    display: 'flex' as const,
-    ...extra,
-  });
+  // Formatted date: "May 11, 2026"
+  const dateFormatted = (() => {
+    try {
+      return new Date(date + 'T12:00:00Z').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+    } catch { return date; }
+  })();
 
   return new ImageResponse(
     (
-      <div style={box({
+      <div style={B({
         width: `${W}px`, height: `${H}px`, flexDirection: 'column',
-        background: C.bg, fontFamily: 'system-ui, sans-serif',
-        padding: isPin ? '36px 40px' : '28px 40px',
+        backgroundColor: C.bg,
+        backgroundImage: `radial-gradient(ellipse 120% 80% at 70% 20%, rgba(34,211,238,0.06) 0%, transparent 50%), radial-gradient(ellipse 80% 60% at 20% 80%, rgba(99,102,241,0.05) 0%, transparent 50%)`,
+        fontFamily: 'Inter, system-ui, sans-serif',
+        padding: '32px 44px 24px',
+        position: 'relative', overflow: 'hidden',
       })}>
 
-        {/* ── Pinterest SEO Title Overlay (pin format only) ── */}
-        {isPin ? (
-          <div style={box({ flexDirection: 'column', marginBottom: '20px' })}>
-            <span style={{
-              fontSize: '36px', fontWeight: 900, color: C.white,
-              lineHeight: '1.3', letterSpacing: '0.5px',
-            }}>{l.pinTitle}</span>
-            <span style={{
-              fontSize: '16px', color: C.muted, marginTop: '8px',
-              letterSpacing: '1px',
-            }}>{l.pinSub}</span>
-          </div>
-        ) : null}
+        {/* Background grid */}
+        <div style={B({
+          position: 'absolute', top: '0', left: '0', right: '0', bottom: '0',
+          backgroundImage: `linear-gradient(rgba(255,255,255,0.015) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.015) 1px, transparent 1px)`,
+          backgroundSize: '80px 80px',
+        })} />
 
-        {/* ── Row 1: Header (fixed ~60px) ── */}
-        <div style={box({ alignItems: 'center', justifyContent: 'space-between', height: '50px' })}>
-          <div style={box({ alignItems: 'center', gap: '12px' })}>
-            <div style={box({
-              width: '40px', height: '40px', borderRadius: '10px',
+        {/* ── Header ── */}
+        <div style={B({ alignItems: 'center', justifyContent: 'space-between', height: '44px', position: 'relative' })}>
+          <div style={B({ alignItems: 'center', gap: '14px' })}>
+            <div style={B({
+              width: '38px', height: '38px', borderRadius: '10px',
               alignItems: 'center', justifyContent: 'center',
               background: 'linear-gradient(135deg, #7c3aed, #06b6d4)',
-              overflow: 'hidden',
             })}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={await getLogoDataUri()} alt="" width={28} height={28} style={{ objectFit: 'contain' }} />
+              <img src={await getLogoDataUri()} alt="" width={26} height={26} style={{ objectFit: 'contain' }} />
             </div>
-            <div style={box({ flexDirection: 'column' })}>
-              <span style={{ fontSize: '16px', fontWeight: 800, color: C.white, letterSpacing: '2px' }}>SIGNUM HQ</span>
-              <span style={{ fontSize: '10px', color: C.dim }}>{l.sub}</span>
-            </div>
+            <span style={{ fontSize: '20px', fontWeight: 900, color: C.white, letterSpacing: '3px' }}>SIGNUM HQ</span>
+            <div style={B({ width: '1px', height: '20px', background: C.dimmer, marginLeft: '4px', marginRight: '4px' })} />
+            <span style={{ fontSize: '13px', fontWeight: 700, color: C.muted, letterSpacing: '2px' }}>{title}</span>
           </div>
-          <div style={box({ flexDirection: 'column', alignItems: 'flex-end' })}>
-            <span style={{ fontSize: '14px', fontWeight: 700, color: C.muted, letterSpacing: '1px' }}>{title}</span>
-            <span style={{ fontSize: '10px', color: C.dim }}>{date}</span>
-          </div>
+          <span style={{ fontSize: '14px', fontWeight: 600, color: C.dim, letterSpacing: '1px' }}>{dateFormatted}</span>
         </div>
 
-        {/* ── Row 2: GEX Hero (fixed ~200px) ── */}
-        <div style={box({
-          flexDirection: 'column', justifyContent: 'center',
-          height: '180px', marginTop: '12px',
-          padding: '16px 28px', borderRadius: '14px',
-          background: gt.bg, border: `1px solid ${gt.border}`,
+        {/* ── GEX Hero Section ── */}
+        <div style={B({
+          marginTop: '16px', padding: '20px 28px', borderRadius: '16px',
+          backgroundColor: 'rgba(15,23,42,0.9)',
+          border: `1px solid ${C.cardBorder}`,
+          justifyContent: 'space-between', alignItems: 'center',
+          height: '175px',
         })}>
-          <div style={box({ alignItems: 'center', gap: '8px', marginBottom: '6px' })}>
-            <div style={{
-              display: 'flex', width: '8px', height: '8px', borderRadius: '50%',
-              background: gt.color,
-            }} />
-            <span style={{ fontSize: '11px', fontWeight: 700, color: C.muted, letterSpacing: '3px' }}>{l.gexLabel}</span>
-            {ticker ? (
-              <span style={{
-                fontSize: '12px', fontWeight: 700, color: C.cyan, marginLeft: '8px',
-                padding: '1px 8px', borderRadius: '6px',
-                background: 'rgba(34,211,238,0.1)', border: '1px solid rgba(34,211,238,0.2)',
-              }}>{'$' + ticker}</span>
-            ) : null}
+          {/* Left: GEX info */}
+          <div style={B({ flexDirection: 'column', flex: '1' })}>
+            <span style={{ fontSize: '11px', fontWeight: 700, color: C.dim, letterSpacing: '3px' }}>{l.gexLabel}</span>
+            <span style={{ fontSize: '48px', fontWeight: 900, color: gt.color, letterSpacing: '3px', lineHeight: '1.1', marginTop: '4px' }}>{gexLabel}</span>
+            <span style={{ fontSize: '12px', color: C.muted, marginTop: '6px', lineHeight: '1.4', maxWidth: '480px' }}>{gexDesc(gex, l)}</span>
+
+            {/* GEX Scale Bar */}
+            <div style={B({ flexDirection: 'column', marginTop: '14px', width: '420px' })}>
+              <div style={B({ width: '100%', height: '6px', borderRadius: '3px', background: 'linear-gradient(90deg, rgba(248,113,113,0.4), rgba(148,163,184,0.2) 50%, rgba(52,211,153,0.4))', position: 'relative' })}>
+                <div style={B({
+                  width: '12px', height: '12px', borderRadius: '50%',
+                  background: gt.color, border: `2px solid ${C.white}`,
+                  position: 'absolute', top: '-3px',
+                  left: `${gt.pct}%`,
+                })} />
+              </div>
+              <div style={B({ justifyContent: 'space-between', marginTop: '4px', width: '100%' })}>
+                <span style={{ fontSize: '9px', fontWeight: 700, color: C.red, letterSpacing: '1px' }}>NEGATIVE</span>
+                <span style={{ fontSize: '9px', fontWeight: 700, color: C.dim, letterSpacing: '1px' }}>NEUTRAL</span>
+                <span style={{ fontSize: '9px', fontWeight: 700, color: C.green, letterSpacing: '1px' }}>POSITIVE</span>
+              </div>
+            </div>
           </div>
-          <span style={{
-            fontSize: '32px', fontWeight: 900, color: gt.color,
-            letterSpacing: '3px', lineHeight: '1.2',
-          }}>{gexLabel}</span>
-          <span style={{ fontSize: '12px', color: C.muted, marginTop: '4px' }}>{gexDesc(gex, l)}</span>
-          <div style={box({ width: '100%', height: '5px', borderRadius: '3px', background: 'rgba(255,255,255,0.06)', marginTop: '12px' })}>
-            <div style={{ display: 'flex', width: `${gt.pct}%`, height: '5px', borderRadius: '3px', background: gt.color }} />
+
+          {/* Right: GEX Signal Ring */}
+          <div style={B({ flexDirection: 'column', alignItems: 'center', gap: '6px', marginLeft: '20px' })}>
+            <div style={B({
+              width: '90px', height: '90px', borderRadius: '50%',
+              alignItems: 'center', justifyContent: 'center',
+              background: gt.ringBg,
+              border: `2px solid ${gt.color}44`,
+            })}>
+              <div style={B({
+                width: '70px', height: '70px', borderRadius: '50%',
+                alignItems: 'center', justifyContent: 'center',
+                border: `3px solid ${gt.color}`,
+                flexDirection: 'column',
+              })}>
+                <div style={B({ width: '8px', height: '8px', borderRadius: '50%', background: gt.color })} />
+              </div>
+            </div>
+            <span style={{ fontSize: '9px', fontWeight: 700, color: C.dim, letterSpacing: '2px' }}>{l.gexSignal}</span>
+            <span style={{ fontSize: '13px', fontWeight: 900, color: gt.color, letterSpacing: '2px', fontStyle: 'italic' }}>{gt.signal}</span>
           </div>
         </div>
 
-        {/* ── Row 3: Metrics (fixed ~130px) ── */}
-        <div style={box({ marginTop: '12px', gap: '10px', height: '110px' })}>
+        {/* ── Three Metric Cards ── */}
+        <div style={B({ marginTop: '14px', gap: '12px', flex: '1' })}>
 
           {/* S&P 500 */}
-          <div style={box({
-            flex: 1, flexDirection: 'column', justifyContent: 'center',
-            padding: '12px 16px', borderRadius: '10px',
-            background: C.glass, border: `1px solid ${C.glassBorder}`,
+          <div style={B({
+            flex: '1', flexDirection: 'column', justifyContent: 'center',
+            padding: '16px 20px', borderRadius: '14px',
+            background: C.card, border: `1px solid ${C.cardBorder}`,
           })}>
-            <span style={{ fontSize: '10px', fontWeight: 600, color: C.dim, letterSpacing: '2px' }}>{l.sp500}</span>
-            <span style={{ fontSize: '28px', fontWeight: 900, color: changeColor(spy), lineHeight: '1.2', marginTop: '4px' }}>{fmt(spy)}</span>
+            <div style={B({ justifyContent: 'space-between', alignItems: 'center' })}>
+              <span style={{ fontSize: '12px', fontWeight: 700, color: C.dim, letterSpacing: '2px' }}>{l.sp500}</span>
+              <span style={{ fontSize: '16px', color: changeColor(spy) }}>/</span>
+            </div>
+            <span style={{ fontSize: '34px', fontWeight: 900, color: changeColor(spy), lineHeight: '1.2', marginTop: '6px' }}>{fmt(spy)}</span>
+            <div style={B({ alignItems: 'center', gap: '6px', marginTop: '6px' })}>
+              <div style={B({ width: '6px', height: '6px', borderRadius: '50%', background: changeColor(spy) })} />
+              <span style={{ fontSize: '9px', color: C.dim, letterSpacing: '1px' }}>{l.todayChange}</span>
+            </div>
           </div>
 
           {/* Dark Pool */}
-          <div style={box({
-            flex: 1, flexDirection: 'column', justifyContent: 'center',
-            padding: '12px 16px', borderRadius: '10px',
-            background: C.glass, border: `1px solid ${C.glassBorder}`,
+          <div style={B({
+            flex: '1', flexDirection: 'column', justifyContent: 'center',
+            padding: '16px 20px', borderRadius: '14px',
+            background: C.card, border: `1px solid ${C.cardBorder}`,
           })}>
-            <div style={box({ justifyContent: 'space-between', alignItems: 'center' })}>
-              <span style={{ fontSize: '10px', fontWeight: 600, color: C.dim, letterSpacing: '2px' }}>{l.dpLabel}</span>
-              <span style={{ fontSize: '9px', color: C.dim }}>{l.dpSub}</span>
+            <div style={B({ justifyContent: 'space-between', alignItems: 'center' })}>
+              <span style={{ fontSize: '12px', fontWeight: 700, color: C.dim, letterSpacing: '2px' }}>{l.dpLabel}</span>
+              <span style={{ fontSize: '14px', color: dpColor }}>o</span>
             </div>
-            <span style={{ fontSize: '28px', fontWeight: 900, color: dpColor, lineHeight: '1.2', marginTop: '4px' }}>
-              {dpPct > 0 ? `${dpPct.toFixed(1)}%` : '-'}
+            <span style={{ fontSize: '34px', fontWeight: 900, color: dpColor, lineHeight: '1.2', marginTop: '6px' }}>
+              {dpPct > 0 ? `${dpPct.toFixed(1)}%` : '—'}
             </span>
             {dpPct > 0 ? (
-              <div style={box({ width: '100%', height: '4px', borderRadius: '2px', background: 'rgba(255,255,255,0.06)', marginTop: '6px' })}>
-                <div style={{ display: 'flex', width: `${Math.min(dpPct * 2, 100)}%`, height: '4px', borderRadius: '2px', background: dpColor }} />
+              <div style={B({ flexDirection: 'column', marginTop: '6px', gap: '3px' })}>
+                <div style={B({ width: '100%', height: '5px', borderRadius: '3px', background: 'rgba(255,255,255,0.06)' })}>
+                  <div style={{ display: 'flex', width: `${Math.min(dpPct * 2, 100)}%`, height: '5px', borderRadius: '3px', background: `linear-gradient(90deg, ${C.cyanDim}, ${dpColor})` }} />
+                </div>
+                <div style={B({ justifyContent: 'space-between' })}>
+                  <span style={{ fontSize: '8px', color: C.dimmer }}>0%</span>
+                  <span style={{ fontSize: '8px', color: C.dimmer }}>50%</span>
+                  <span style={{ fontSize: '8px', color: C.dimmer }}>100%</span>
+                </div>
               </div>
             ) : null}
           </div>
 
           {/* VIX */}
-          <div style={box({
-            flex: 1, flexDirection: 'column', justifyContent: 'center',
-            padding: '12px 16px', borderRadius: '10px',
-            background: C.glass, border: `1px solid ${C.glassBorder}`,
+          <div style={B({
+            flex: '1', flexDirection: 'column', justifyContent: 'center',
+            padding: '16px 20px', borderRadius: '14px',
+            background: C.card, border: `1px solid ${C.cardBorder}`,
           })}>
-            <div style={box({ justifyContent: 'space-between', alignItems: 'center' })}>
-              <span style={{ fontSize: '10px', fontWeight: 600, color: C.dim, letterSpacing: '2px' }}>{l.vixLabel}</span>
+            <div style={B({ justifyContent: 'space-between', alignItems: 'center' })}>
+              <span style={{ fontSize: '12px', fontWeight: 700, color: C.dim, letterSpacing: '2px' }}>{l.vixLabel}</span>
+              <span style={{ fontSize: '14px', color: vi.color }}>~</span>
+            </div>
+            <div style={B({ alignItems: 'center', gap: '12px', marginTop: '6px' })}>
+              <span style={{ fontSize: '34px', fontWeight: 900, color: vi.color, lineHeight: '1.2' }}>{vix.toFixed(1)}</span>
               <span style={{
-                fontSize: '9px', fontWeight: 700, color: vi.color,
-                padding: '1px 6px', borderRadius: '4px',
+                fontSize: '10px', fontWeight: 800, color: vi.color,
+                padding: '3px 10px', borderRadius: '6px',
                 background: `${vi.color}18`, border: `1px solid ${vi.color}33`,
+                letterSpacing: '1px',
               }}>{vi.label}</span>
             </div>
-            <span style={{ fontSize: '28px', fontWeight: 900, color: vi.color, lineHeight: '1.2', marginTop: '4px' }}>{vix.toFixed(1)}</span>
-            <div style={box({ width: '100%', height: '4px', borderRadius: '2px', background: 'rgba(255,255,255,0.06)', marginTop: '6px' })}>
-              <div style={{ display: 'flex', width: `${vi.pct}%`, height: '4px', borderRadius: '2px', background: vi.color }} />
+            <div style={B({ alignItems: 'center', gap: '6px', marginTop: '6px' })}>
+              <div style={B({ width: '6px', height: '6px', borderRadius: '50%', background: vi.color })} />
+              <span style={{ fontSize: '9px', color: C.dim, letterSpacing: '1px' }}>{l.vixSub}</span>
             </div>
           </div>
         </div>
 
-        {/* ── Event banner (optional) ── */}
+        {/* ── Event banner ── */}
         {type === 'event' && event ? (
-          <div style={box({
+          <div style={B({
             alignItems: 'center', justifyContent: 'center',
             marginTop: '8px', padding: '8px 20px', borderRadius: '10px',
             background: 'linear-gradient(90deg, rgba(168,85,247,0.08), rgba(34,211,238,0.08))',
@@ -285,15 +326,26 @@ export async function GET(req: NextRequest) {
           </div>
         ) : null}
 
-        {/* ── Row 4: Footer (fixed ~36px) ── */}
-        <div style={box({
+        {/* ── Footer ── */}
+        <div style={B({
           alignItems: 'center', justifyContent: 'space-between',
-          marginTop: '12px', paddingTop: '10px',
-          borderTop: `1px solid ${C.glassBorder}`,
+          marginTop: '10px', paddingTop: '10px',
+          borderTop: `1px solid rgba(255,255,255,0.06)`,
+          position: 'relative',
         })}>
-          <div style={box({ alignItems: 'center', gap: '8px' })}>
-            <span style={{ fontSize: '13px', fontWeight: 800, color: C.cyan, letterSpacing: '2px' }}>SIGNUM HQ</span>
-            <span style={{ fontSize: '10px', color: C.dim }}>{l.tagline}</span>
+          <div style={B({ alignItems: 'center', gap: '10px' })}>
+            <div style={B({
+              width: '22px', height: '22px', borderRadius: '6px',
+              alignItems: 'center', justifyContent: 'center',
+              background: 'linear-gradient(135deg, #7c3aed, #06b6d4)',
+            })}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={await getLogoDataUri()} alt="" width={15} height={15} style={{ objectFit: 'contain' }} />
+            </div>
+            <span style={{ fontSize: '12px', fontWeight: 800, color: C.cyan, letterSpacing: '2px' }}>SIGNUM HQ</span>
+          </div>
+          <div style={B({ flexDirection: 'column', alignItems: 'center' })}>
+            <span style={{ fontSize: '10px', color: C.muted, letterSpacing: '1px' }}>{l.tagline}</span>
           </div>
           <span style={{ fontSize: '11px', fontWeight: 600, color: C.dim }}>signumhq.com</span>
         </div>
@@ -304,7 +356,7 @@ export async function GET(req: NextRequest) {
 }
 
 // ---------------------------------------------------------------------------
-// Font loader — Inter from Google Fonts (cached at edge)
+// Font loader
 // ---------------------------------------------------------------------------
 let _fontCache: { name: string; data: ArrayBuffer; weight: 100 | 200 | 300 | 400 | 500 | 600 | 700 | 800 | 900; style: 'normal' | 'italic' }[] | null = null;
 
@@ -319,14 +371,12 @@ async function loadFonts() {
       { name: 'Inter', data: regular, weight: 400 as const, style: 'normal' as const },
       { name: 'Inter', data: bold, weight: 700 as const, style: 'normal' as const },
     ];
-  } catch {
-    _fontCache = [];
-  }
+  } catch { _fontCache = []; }
   return _fontCache;
 }
 
 // ---------------------------------------------------------------------------
-// Logo loader — SIGNUM HQ icon from public/icons (cached at edge)
+// Logo loader
 // ---------------------------------------------------------------------------
 let _logoCache: string | null = null;
 
@@ -339,7 +389,6 @@ async function getLogoDataUri(): Promise<string> {
     const b64 = Buffer.from(buf).toString('base64');
     _logoCache = `data:image/png;base64,${b64}`;
   } catch {
-    // Fallback: transparent 1x1 pixel
     _logoCache = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
   }
   return _logoCache;

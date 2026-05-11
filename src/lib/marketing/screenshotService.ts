@@ -23,7 +23,7 @@ const BUCKET_NAME = 'marketing-assets';
 const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://signumhq.com';
 
 // ── Types ──
-export type TemplateType = 'pulse' | 'event' | 'ticker' | 'morning' | 'education';
+export type TemplateType = 'pulse' | 'event' | 'ticker' | 'morning' | 'education' | 'carousel';
 export type FormatType = keyof typeof FORMATS;
 
 export interface CaptureRequest {
@@ -67,9 +67,20 @@ async function ensureBucket(): Promise<void> {
 }
 
 // ── Template URL Builder ──
+// Maps template types to the new /templates/og/ pages for EC2 Puppeteer capture
+const TEMPLATE_ROUTES: Record<string, string> = {
+  pulse:     '/templates/og/pulse',
+  ticker:    '/templates/og/spotlight',
+  event:     '/templates/og/event',
+  morning:   '/templates/og/morning',
+  education: '/templates/og/education',
+  carousel:  '/templates/og/carousel',
+};
+
 function buildTemplateUrl(req: CaptureRequest): string {
   const base = req.baseUrl || BASE_URL;
-  const url = new URL(`/marketing/templates/${req.template}`, base);
+  const route = TEMPLATE_ROUTES[req.template] || `/templates/og/${req.template}`;
+  const url = new URL(route, base);
   
   // Inject all data params
   for (const [key, value] of Object.entries(req.data)) {
@@ -327,32 +338,141 @@ export async function captureDailyPulse(params: {
  */
 export async function captureTickerSpotlight(params: {
   ticker: string;
-  price: number;
-  change: number;
-  gex: string;
-  dp: number;
-  maxpain: number;
-  iv: number;
-  volume?: string;
-  marketCap?: string;
-}): Promise<{ tweet: string | null; story: string | null }> {
+  dp?: number;
+  buy?: number;
+  sell?: number;
+  blocks?: number;
+  position?: number;
+  sector?: string;
+}): Promise<{ tweet: string | null; og: string | null }> {
   const data: Record<string, string | number> = {
     t: params.ticker,
-    price: params.price,
-    change: params.change,
-    gex: params.gex,
-    dp: params.dp,
-    maxpain: params.maxpain,
-    iv: params.iv,
-    vol: params.volume || '',
-    cap: params.marketCap || '',
+    dp: params.dp || 0,
+    buy: params.buy || 50,
+    sell: params.sell || 50,
+    blocks: params.blocks || 0,
+    position: params.position || 50,
+    sector: params.sector || '',
   };
   
   const tweet = await captureTemplate({ template: 'ticker', format: 'tweet', data });
-  const story = await captureTemplate({ template: 'ticker', format: 'story', data });
+  const og = await captureTemplate({ template: 'ticker', format: 'og', data });
   
   return {
     tweet: tweet?.cdnUrl || null,
-    story: story?.cdnUrl || null,
+    og: og?.cdnUrl || null,
   };
+}
+
+/**
+ * Capture an Education OG image.
+ * Called by marketing-dispatch for concept explainer posts.
+ */
+export async function captureEducation(params: {
+  topic: string;
+}): Promise<{ tweet: string | null; og: string | null }> {
+  const data: Record<string, string | number> = {
+    topic: params.topic,
+  };
+  
+  const tweet = await captureTemplate({ template: 'education', format: 'tweet', data });
+  const og = await captureTemplate({ template: 'education', format: 'og', data });
+  
+  return {
+    tweet: tweet?.cdnUrl || null,
+    og: og?.cdnUrl || null,
+  };
+}
+
+/**
+ * Capture an Event Alert OG image.
+ * Called by marketing-dispatch / event-detect for real-time structural alerts.
+ */
+export async function captureEvent(params: {
+  ticker: string;
+  event: string;
+  detail?: string;
+  spy?: string;
+  vix?: string;
+  dp?: string;
+}): Promise<{ tweet: string | null; og: string | null }> {
+  const data: Record<string, string | number> = {
+    ticker: params.ticker,
+    event: params.event,
+    ...(params.detail && { detail: params.detail }),
+    ...(params.spy && { spy: params.spy }),
+    ...(params.vix && { vix: params.vix }),
+    ...(params.dp && { dp: params.dp }),
+  };
+
+  const tweet = await captureTemplate({ template: 'event', format: 'tweet', data });
+  const og = await captureTemplate({ template: 'event', format: 'og', data });
+
+  return {
+    tweet: tweet?.cdnUrl || null,
+    og: og?.cdnUrl || null,
+  };
+}
+
+/**
+ * Capture a Morning Briefing OG image.
+ * Called by marketing-dispatch for pre-market briefing posts.
+ */
+export async function captureMorning(params: {
+  spy: string;
+  vix: string;
+  gex: string;
+  dp: string;
+  insight?: string;
+}): Promise<{ tweet: string | null; og: string | null }> {
+  const data: Record<string, string | number> = {
+    spy: params.spy,
+    vix: params.vix,
+    gex: params.gex,
+    dp: params.dp,
+    ...(params.insight && { insight: params.insight }),
+  };
+
+  const tweet = await captureTemplate({ template: 'morning', format: 'tweet', data });
+  const og = await captureTemplate({ template: 'morning', format: 'og', data });
+
+  return {
+    tweet: tweet?.cdnUrl || null,
+    og: og?.cdnUrl || null,
+  };
+}
+
+/**
+ * Capture all 6 IG Carousel slides individually (1080×1080 each).
+ * Returns array of CDN URLs in order [slide1..slide6].
+ */
+export async function captureCarousel(params: {
+  spy: string;
+  qqq: string;
+  vix: string;
+  gex: string;
+  dp: string;
+  cw?: string;
+}): Promise<(string | null)[]> {
+  const urls: (string | null)[] = [];
+
+  for (let slide = 1; slide <= 6; slide++) {
+    const data: Record<string, string | number> = {
+      slide,
+      spy: params.spy,
+      qqq: params.qqq,
+      vix: params.vix,
+      gex: params.gex,
+      dp: params.dp,
+      ...(params.cw && { cw: params.cw }),
+    };
+
+    const result = await captureTemplate({ template: 'carousel', format: 'carousel', data });
+    urls.push(result?.cdnUrl || null);
+    // Rate limit between slides
+    await new Promise(r => setTimeout(r, 500));
+  }
+
+  console.log(`[ScreenshotService] Carousel: ${urls.filter(Boolean).length}/6 slides captured`);
+  return urls;
 }

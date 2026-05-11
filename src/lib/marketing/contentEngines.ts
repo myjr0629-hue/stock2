@@ -354,7 +354,7 @@ export function generateMarketPulse(data: MarketData): ContentOutput {
     DISCLAIMER.ja,
   ].join('\n');
 
-  const imageUrl = (lang: string) => `${baseUrl}/api/og/market?${imageParams}&lang=${lang}`;
+  const imageUrl = (lang: string) => `${baseUrl}/templates/og/pulse?${imageParams}&lang=${lang}`;
 
   return {
     en: {
@@ -398,7 +398,7 @@ export function generateMarketPulse(data: MarketData): ContentOutput {
 // ---------------------------------------------------------------------------
 export function generateMorningBrief(data: MarketData & { briefingSummary?: string }): ContentOutput {
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://signumhq.com';
-  const imageParams = `type=pulse&spy=${data.spy}&vix=${data.vix}&gex=${data.gexRegime}&dp=${data.darkPool ?? ''}`;
+  const imageParams = `spy=${data.spy}&vix=${data.vix.toFixed(1)}&gex=${data.gexRegime}&dp=${data.darkPool ?? ''}${data.briefingSummary ? '&insight=' + encodeURIComponent(data.briefingSummary.substring(0, 120)) : ''}`;
   const gex = data.gexRegime.toUpperCase();
 
   const enTwitter = [
@@ -432,7 +432,7 @@ export function generateMorningBrief(data: MarketData & { briefingSummary?: stri
     DISCLAIMER.ja,
   ].filter(Boolean).join('\n');
 
-  const imageUrl = (lang: string) => `${baseUrl}/api/og/market?${imageParams}&lang=${lang}`;
+  const imageUrl = (lang: string) => `${baseUrl}/templates/og/morning?${imageParams}&lang=${lang}`;
 
   return {
     en: { text: applyCompliance(enTwitter), imageUrl: imageUrl('en'), cta: 'fullReport' },
@@ -580,7 +580,7 @@ export function generateEducationContent(topicId?: string): ContentOutput {
 
     return {
       text: applyCompliance(twitter),
-      imageUrl: `${baseUrl}/api/og/market?${imageParams}&lang=${lang}`,
+      imageUrl: `${baseUrl}/templates/og/education?topic=${topic.id}&lang=${lang}`,
       cta: 'trackLevels' as const,
       platformText: {
         twitter: applyCompliance(twitter),
@@ -604,7 +604,7 @@ export function getEducationTopicIds(): string[] {
 export function generateEventSpike(event: EventData, marketData?: Partial<MarketData>): ContentOutput {
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://signumhq.com';
 
-  const imageParams = `type=event&ticker=${event.ticker}&event=${encodeURIComponent(event.details)}&spy=${marketData?.spy || 0}&qqq=${marketData?.qqq || 0}&vix=${marketData?.vix || 0}&gex=${marketData?.gexRegime || 'neutral'}&dp=${marketData?.darkPool ?? ''}`;
+  const imageParams = `ticker=${event.ticker}&event=${encodeURIComponent(event.details)}&spy=${marketData?.spy || 0}&vix=${marketData?.vix || 0}&dp=${marketData?.darkPool ?? ''}`;
 
   function buildEvent(lang: 'en' | 'ko' | 'ja') {
     const premium = event.premium ? (
@@ -636,7 +636,7 @@ export function generateEventSpike(event: EventData, marketData?: Partial<Market
 
       return {
         text: applyCompliance(twitter),
-        imageUrl: `${baseUrl}/api/og/market?${imageParams}&lang=${lang}`,
+        imageUrl: `${baseUrl}/templates/og/event?${imageParams}&lang=${lang}`,
         cta: 'liveStructure' as const,
         platformText: {
           twitter: applyCompliance(twitter),
@@ -662,7 +662,7 @@ export function generateEventSpike(event: EventData, marketData?: Partial<Market
 
     return {
       text: applyCompliance(twitter),
-      imageUrl: `${baseUrl}/api/og/market?${imageParams}&lang=${lang}`,
+      imageUrl: `${baseUrl}/templates/og/event?${imageParams}&lang=${lang}`,
       cta: 'liveStructure' as const,
       platformText: {
         twitter: applyCompliance(twitter),
@@ -770,8 +770,8 @@ export function generateTickerSpotlight(data: SpotlightData): ContentOutput {
     : '';
   const blockText = blockTrades != null && blockTrades > 0 ? `${blockTrades} block trades detected` : '';
 
-  const imageParams = `type=spotlight&ticker=${ticker}&dp=${darkPoolPct ?? ''}`;
-  const imageUrl = (lang: string) => `${baseUrl}/api/og/market?${imageParams}&lang=${lang}`;
+  const imageParams = `t=${ticker}&dp=${darkPoolPct ?? ''}&buy=${buyPct ?? ''}&sell=${sellPct ?? ''}&blocks=${blockTrades ?? ''}&position=${darkPoolPct != null ? Math.min(Math.round(darkPoolPct * 2.5), 100) : 50}`;
+  const imageUrl = (lang: string) => `${baseUrl}/templates/og/spotlight?${imageParams}&lang=${lang}`;
 
   const enText = [
     `$${ticker} — Under the Hood`,

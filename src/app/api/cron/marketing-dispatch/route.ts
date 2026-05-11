@@ -580,18 +580,17 @@ export async function GET(request: Request) {
 
         
         // [V6.0+] Pre-capture premium images via EC2 Puppeteer -> Supabase CDN
-        let spotlightImages = { tweet: null as string | null, story: null as string | null };
+        let spotlightImages = { tweet: null as string | null, og: null as string | null };
         if (!dryRun) {
           try {
-            const tickerRaw = await getFromCache(`market:realtime:${ticker}`).catch(() => null);
-            const tickerData = tickerRaw ? (typeof tickerRaw === 'string' ? JSON.parse(tickerRaw) : tickerRaw) : null;
             spotlightImages = await captureTickerSpotlight({
               ticker,
-              price: tickerData?.price ?? tickerData?.last ?? 0,
-              change: tickerData?.changePercent ?? tickerData?.changePct ?? 0,
-              gex: 'neutral',
               dp: tradeData?.darkPoolPercent ?? 0,
-              maxpain: 0, iv: 0,
+              buy: tradeData?.buyPct ?? 50,
+              sell: tradeData?.sellPct ?? 50,
+              blocks: tradeData?.blockTrades ?? 0,
+              position: tradeData?.darkPoolPercent != null ? Math.min(Math.round(tradeData.darkPoolPercent * 2.5), 100) : 50,
+              sector: '',
             });
           } catch (err: any) {
             console.warn(`[Spotlight] Capture failed: ${err.message}`);
@@ -717,10 +716,23 @@ function buildImageUrl(
   const existingUrl = content[lang]?.imageUrl || '';
   const params = new URL(existingUrl, baseUrl).searchParams;
 
-  const newUrl = new URL(`${baseUrl}/api/og/market`);
-  // Copy existing params
+  // Map content type to new Puppeteer template routes
+  // Detect content type from URL path or type param
+  const urlPath = existingUrl.includes('/templates/og/') ? existingUrl.split('/templates/og/')[1]?.split('?')[0] : '';
+  const contentType = urlPath || params.get('type') || 'pulse';
+  const templateRoutes: Record<string, string> = {
+    pulse: '/templates/og/pulse',
+    spotlight: '/templates/og/spotlight',
+    education: '/templates/og/education',
+    morning: '/templates/og/morning',
+    event: '/templates/og/event',
+  };
+  const route = templateRoutes[contentType] || '/templates/og/pulse';
+  const newUrl = new URL(`${baseUrl}${route}`);
+
+  // Copy existing params (spy, vix, gex, dp, etc.)
   params.forEach((v, k) => newUrl.searchParams.set(k, v));
-  // Override format
+  // Override format/lang
   newUrl.searchParams.set('format', format);
   newUrl.searchParams.set('lang', lang);
   if (variant) newUrl.searchParams.set('variant', String(variant));
@@ -759,19 +771,19 @@ async function prerenderImageUrl(
 }
 
 function buildCarouselUrls(baseUrl: string, content: ContentOutput, lang: Lang): string[] {
-  const slides = ['hook', 'data', 'gex', 'darkpool', 'insight', 'cta'];
   const existingUrl = content[lang]?.imageUrl || '';
   const params = new URL(existingUrl, baseUrl).searchParams;
 
-  return slides.map(slide => {
-    const url = new URL(`${baseUrl}/api/og/market/slide`);
+  return [1, 2, 3, 4, 5, 6].map(slide => {
+    const url = new URL(`${baseUrl}/templates/og/carousel`);
     params.forEach((v, k) => url.searchParams.set(k, v));
-    url.searchParams.set('slide', slide);
+    url.searchParams.set('slide', String(slide));
     url.searchParams.set('format', 'carousel');
     url.searchParams.set('lang', lang);
     return url.toString();
   });
 }
+
 
 function buildEducationThread(
   lc: ContentOutput['en'],
