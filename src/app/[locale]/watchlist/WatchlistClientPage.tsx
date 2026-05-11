@@ -1629,27 +1629,27 @@ function AddWatchlistModal({ onClose, onAdd, existingTickers = [], isElite, cate
     const popularTickers = ['AAPL', 'TSLA', 'NVDA', 'GOOGL', 'MSFT', 'AMZN', 'META'];
 
     return (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={onClose}>
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-md z-50 flex items-center justify-center p-4" onClick={onClose}>
             <div
-                className="relative rounded-2xl overflow-hidden max-w-sm w-full animate-in fade-in zoom-in-95 duration-200"
+                className="relative rounded-2xl overflow-hidden max-w-[380px] w-full"
                 onClick={(e) => e.stopPropagation()}
+                style={{ animation: 'modalIn 0.25s cubic-bezier(0.16,1,0.3,1)' }}
             >
-                {/* Background with subtle glow */}
-                <div className="absolute inset-0 bg-gradient-to-b from-[#0f1629] via-[#0d1220] to-[#0b0f1a] rounded-2xl" />
-                <div className="absolute inset-0 rounded-2xl border border-white/[0.12]" />
-                <div className="absolute -top-20 -right-20 w-40 h-40 bg-amber-500/[0.06] rounded-full blur-3xl pointer-events-none" />
-                <div className="absolute -bottom-10 -left-10 w-32 h-32 bg-cyan-500/[0.04] rounded-full blur-3xl pointer-events-none" />
+                {/* Background layers */}
+                <div className="absolute inset-0 bg-gradient-to-b from-[#111827] via-[#0f1521] to-[#0b1018] rounded-2xl" />
+                <div className="absolute inset-0 rounded-2xl" style={{ border: '1px solid rgba(255,255,255,0.1)', boxShadow: '0 25px 60px rgba(0,0,0,0.6), 0 0 0 1px rgba(255,255,255,0.05) inset' }} />
+                <div className="absolute -top-24 left-1/2 -translate-x-1/2 w-48 h-48 bg-amber-500/[0.07] rounded-full blur-[60px] pointer-events-none" />
 
                 <div className="relative p-6">
                     {/* Header */}
                     <div className="flex items-center justify-between mb-5">
-                        <div className="flex items-center gap-2.5">
-                            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-amber-500/20 to-orange-500/10 border border-amber-500/20 flex items-center justify-center">
-                                <Star className="w-4 h-4 text-amber-400" />
+                        <div className="flex items-center gap-3">
+                            <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: 'linear-gradient(135deg, rgba(245,158,11,0.15), rgba(234,88,12,0.08))', border: '1px solid rgba(245,158,11,0.2)', boxShadow: '0 0 20px rgba(245,158,11,0.08)' }}>
+                                <Crosshair className="w-4.5 h-4.5 text-amber-400" />
                             </div>
                             <div>
-                                <h2 className="text-base font-black text-white">{t('addToWatchlist')}</h2>
-                                <p className="text-[12px] text-white/70 mt-0.5">{t('addToWatchlistDesc')}</p>
+                                <h2 className="text-[15px] font-black text-white tracking-wide">{t('addToWatchlist')}</h2>
+                                <p className="text-[11px] text-slate-500 font-medium mt-0.5">{t('addToWatchlistDesc')}</p>
                             </div>
                         </div>
                         <button
@@ -1672,7 +1672,12 @@ function AddWatchlistModal({ onClose, onAdd, existingTickers = [], isElite, cate
                                     value={ticker}
                                     onChange={(e) => setTicker(e.target.value.toUpperCase())}
                                     placeholder="NVDA, AAPL, TSLA..."
-                                    className={`w-full bg-white/[0.04] border ${error ? 'border-rose-500/50 focus:ring-rose-500/20' : validated ? 'border-emerald-500/40 focus:ring-emerald-500/20' : 'border-white/[0.08] focus:ring-amber-500/20'} rounded-xl pl-10 pr-10 py-3 text-white text-sm font-bold focus:border-amber-500/50 focus:outline-none focus:ring-2 uppercase tracking-widest placeholder:text-slate-600 placeholder:font-normal placeholder:tracking-normal placeholder:normal-case transition-all duration-200`}
+                                    className="w-full rounded-xl pl-10 pr-10 py-3 text-white text-sm font-bold uppercase tracking-widest placeholder:text-slate-600 placeholder:font-normal placeholder:tracking-normal placeholder:normal-case focus:outline-none transition-all duration-200"
+                                    style={{
+                                        background: 'rgba(255,255,255,0.03)',
+                                        border: error ? '1px solid rgba(244,63,94,0.4)' : validated ? '1px solid rgba(16,185,129,0.35)' : '1px solid rgba(255,255,255,0.08)',
+                                        boxShadow: error ? '0 0 16px rgba(244,63,94,0.08) inset' : validated ? '0 0 16px rgba(16,185,129,0.06) inset' : '0 0 12px rgba(0,0,0,0.2) inset',
+                                    }}
                                     autoFocus
                                 />
                                 <div className="absolute right-3.5 top-1/2 -translate-y-1/2">
@@ -1684,33 +1689,26 @@ function AddWatchlistModal({ onClose, onAdd, existingTickers = [], isElite, cate
                                     )}
                                 </div>
                             </div>
-                            {error && <p className="text-rose-400 text-[12px] mt-1.5 flex items-center gap-1"><span className="text-rose-400/60">⚠</span> {error}</p>}
+                            {error && <p className="text-rose-400 text-[11px] mt-1.5 flex items-center gap-1.5 font-medium"><span className="w-1 h-1 rounded-full bg-rose-400" /> {error}</p>}
                             {isDuplicate && !error && (
-                                <div className="flex items-center gap-2 mt-1.5 px-2.5 py-1.5 rounded-lg bg-amber-500/[0.08] border border-amber-500/15">
-                                    <span className="text-amber-400/80 text-xs">⚠</span>
-                                    <span className="text-amber-400 text-[12px] font-semibold">{t('duplicateWarning', { ticker: ticker.toUpperCase() })}</span>
+                                <div className="flex items-center gap-2 mt-2 px-3 py-2 rounded-lg" style={{ background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.12)' }}>
+                                    <div className="w-1 h-1 rounded-full bg-amber-400 flex-shrink-0" />
+                                    <span className="text-amber-400/90 text-[11px] font-semibold">{t('duplicateWarning', { ticker: ticker.toUpperCase() })}</span>
                                 </div>
                             )}
                         </div>
 
                         {/* Company preview card */}
                         {companyName && !error && (
-                            <div className="flex items-center gap-3 p-3 rounded-xl bg-white/[0.03] border border-white/[0.08] transition-all duration-300">
-                                <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-slate-800 to-slate-900 border border-white/[0.08] flex items-center justify-center overflow-hidden flex-shrink-0 shadow-md">
-                                    <img
-                                        loading="lazy"
-                                        decoding="async"
-                                        src={`/api/logo/${ticker}`}
-                                        alt={ticker}
-                                        className="w-6 h-6 object-contain"
-                                        onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                                    />
+                            <div className="flex items-center gap-3 p-3.5 rounded-xl transition-all duration-300" style={{ background: 'rgba(255,255,255,0.025)', border: '1px solid rgba(255,255,255,0.07)', boxShadow: '0 2px 12px rgba(0,0,0,0.15)' }}>
+                                <div className="w-10 h-10 rounded-xl flex items-center justify-center overflow-hidden flex-shrink-0" style={{ background: 'linear-gradient(135deg, #1e293b, #0f172a)', border: '1px solid rgba(255,255,255,0.08)', boxShadow: '0 4px 12px rgba(0,0,0,0.3)' }}>
+                                    <img loading="lazy" decoding="async" src={`/api/logo/${ticker}`} alt={ticker} className="w-6 h-6 object-contain" onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
                                 </div>
-                                <div className="min-w-0">
+                                <div className="min-w-0 flex-1">
                                     <div className="text-[13px] text-white font-bold truncate">{companyName}</div>
-                                    <div className="text-[12px] text-slate-500 font-medium tracking-wider">{ticker.toUpperCase()}</div>
+                                    <div className="text-[11px] text-slate-500 font-bold tracking-[0.15em]">{ticker.toUpperCase()}</div>
                                 </div>
-                                <div className="ml-auto text-emerald-400/80 text-[12px] font-bold bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/10">{t('ready')}</div>
+                                <div className="text-[11px] font-bold px-2.5 py-1 rounded-lg" style={{ color: 'rgba(52,211,153,0.9)', background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.12)' }}>{t('ready')}</div>
                             </div>
                         )}
 
@@ -1761,18 +1759,24 @@ function AddWatchlistModal({ onClose, onAdd, existingTickers = [], isElite, cate
                         )}
 
                         {/* Action buttons */}
-                        <div className="flex gap-2.5 pt-1">
+                        <div className="flex gap-2.5 pt-2">
                             <button
                                 type="button"
                                 onClick={onClose}
-                                className="flex-1 px-4 py-2.5 bg-white/[0.03] text-slate-400 rounded-xl text-sm font-bold hover:bg-white/[0.06] hover:text-slate-200 transition-all duration-200 border border-white/[0.06]"
+                                className="flex-1 px-4 py-2.5 rounded-xl text-[13px] font-bold transition-all duration-200 text-slate-400 hover:text-slate-200"
+                                style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}
                             >
                                 {tCommon('cancel')}
                             </button>
                             <button
                                 type="submit"
                                 disabled={!validated || loading || isDuplicate}
-                                className="flex-[1.3] px-4 py-2.5 bg-gradient-to-r from-amber-500 to-orange-500 text-white rounded-xl text-sm font-black hover:from-amber-400 hover:to-orange-400 transition-all duration-200 disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center gap-2 shadow-lg shadow-amber-500/20 hover:shadow-amber-500/30"
+                                className="flex-[1.4] px-4 py-2.5 rounded-xl text-[13px] font-black text-white flex items-center justify-center gap-2 transition-all duration-200 disabled:opacity-25 disabled:cursor-not-allowed"
+                                style={{
+                                    background: (!validated || loading || isDuplicate) ? 'rgba(255,255,255,0.05)' : 'linear-gradient(135deg, rgba(245,158,11,0.9), rgba(234,88,12,0.85))',
+                                    border: '1px solid rgba(245,158,11,0.25)',
+                                    boxShadow: (!validated || loading || isDuplicate) ? 'none' : '0 4px 20px rgba(245,158,11,0.2), 0 0 0 1px rgba(245,158,11,0.1) inset',
+                                }}
                             >
                                 {loading ? (
                                     <Loader2 className="w-4 h-4 animate-spin" />
