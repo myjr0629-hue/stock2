@@ -7,7 +7,8 @@ import {
   Activity, Server, Database, FileText, Layout,
   RefreshCw, CheckCircle2, XCircle, AlertTriangle,
   Clock, Zap, Shield, ChevronDown, ChevronRight,
-  ArrowLeft, Wifi, BarChart3, Globe, Users, CalendarDays, GitCompareArrows, TrendingUp
+  ArrowLeft, Wifi, BarChart3, Globe, Users, CalendarDays, GitCompareArrows, TrendingUp,
+  Megaphone, Radio, Video, Send, Eye, Timer, Hash
 } from 'lucide-react';
 
 const ADMIN_EMAILS = (process.env.NEXT_PUBLIC_ADMIN_EMAILS || '').split(',').map(e => e.trim().toLowerCase());
@@ -129,9 +130,11 @@ export default function AdminHealthPage() {
   const [refreshing, setRefreshing] = useState(false);
   const [adminEmail, setAdminEmail] = useState('');
   const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
-  const [mode, setMode] = useState<'health' | 'backtest'>('health');
+  const [mode, setMode] = useState<'health' | 'backtest' | 'marketing'>('health');
   const [btData, setBtData] = useState<any>(null);
   const [btLoading, setBtLoading] = useState(false);
+  const [mktData, setMktData] = useState<any>(null);
+  const [mktLoading, setMktLoading] = useState(false);
   const router = useRouter();
 
   // Auth check
@@ -213,6 +216,20 @@ export default function AdminHealthPage() {
     setBtLoading(false);
   };
 
+  // Marketing fetch
+  const fetchMarketing = async () => {
+    if (!adminEmail) return;
+    setMktLoading(true);
+    try {
+      const res = await fetch(`/api/admin/marketing-status?email=${encodeURIComponent(adminEmail)}`);
+      const json = await res.json();
+      setMktData(json);
+    } catch (e: any) {
+      setMktData({ error: `Fetch failed: ${e.message}` });
+    }
+    setMktLoading(false);
+  };
+
   // ET time
   const now = new Date();
   const etTime = now.toLocaleTimeString('en-US', { timeZone: 'America/New_York', hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
@@ -252,6 +269,11 @@ export default function AdminHealthPage() {
                   className={`px-2 py-0.5 rounded text-[11px] font-bold transition-all ${
                     mode === 'backtest' ? 'bg-purple-500/20 text-purple-400 border border-purple-500/30' : 'text-slate-400 hover:text-white'}`}>
                   BACKTEST
+                </button>
+                <button onClick={() => { setMode('marketing'); if (!mktData) fetchMarketing(); }}
+                  className={`px-2 py-0.5 rounded text-[11px] font-bold transition-all ${
+                    mode === 'marketing' ? 'bg-orange-500/20 text-orange-400 border border-orange-500/30' : 'text-slate-400 hover:text-white'}`}>
+                  MARKETING
                 </button>
               </div>
             </div>
@@ -1022,6 +1044,263 @@ export default function AdminHealthPage() {
                 DynamoDB 백테스트 분석 시작
               </button>
               <div className="text-[12px] text-slate-500">34,000+건 전량 스캔 · 약 30~50초 소요</div>
+            </div>
+          )}
+        </div>
+      )}
+      {/* ═══════════════════════════ MARKETING MODE ═══════════════════════════ */}
+      {mode === 'marketing' && (
+        <div className="max-w-5xl mx-auto px-4 py-6 space-y-4">
+          {mktLoading ? (
+            <div className="flex flex-col items-center justify-center py-20 gap-3">
+              <div className="animate-spin w-8 h-8 border-2 border-orange-500 border-t-transparent rounded-full" />
+              <div className="text-slate-400 text-[13px]">마케팅 파이프라인 상태 로딩 중...</div>
+            </div>
+          ) : mktData?.error ? (
+            <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-5 text-red-400 text-[13px]">{mktData.error}</div>
+          ) : mktData ? (
+            <>
+              {/* Overall Status Banner */}
+              <div className={`flex items-center justify-between px-5 py-4 rounded-xl border ${
+                mktData.overall?.dryRunMode
+                  ? 'bg-gradient-to-r from-amber-500/10 to-amber-500/5 border-amber-500/20'
+                  : 'bg-gradient-to-r from-emerald-500/10 to-emerald-500/5 border-emerald-500/20'}`}>
+                <div className="flex items-center gap-3">
+                  <Megaphone className={`w-6 h-6 ${mktData.overall?.dryRunMode ? 'text-amber-400' : 'text-emerald-400'}`} />
+                  <div>
+                    <div className="text-[16px] font-black">
+                      {mktData.overall?.dryRunMode ? '🧪 DRY RUN 모드 — 실제 발송 없음' : '🚀 LIVE 모드 — 실제 발송 중'}
+                    </div>
+                    <div className="text-[12px] text-slate-300 flex gap-3 mt-0.5">
+                      <span>콘텐츠: <span className={mktData.overall?.contentGeneration === 'OK' ? 'text-emerald-400 font-bold' : 'text-red-400 font-bold'}>{mktData.overall?.contentGeneration}</span></span>
+                      <span>발송: <span className="text-amber-400 font-bold">{mktData.overall?.dispatching}</span></span>
+                      <span>이벤트: <span className="text-slate-300 font-bold">{mktData.overall?.eventDetection}</span></span>
+                      <span>영상: <span className="text-slate-300 font-bold">{mktData.overall?.videoRendering}</span></span>
+                    </div>
+                  </div>
+                </div>
+                <button onClick={fetchMarketing} disabled={mktLoading}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-orange-500/10 border border-orange-500/20 text-orange-400 text-[13px] font-bold">
+                  <RefreshCw className={`w-3.5 h-3.5 ${mktLoading ? 'animate-spin' : ''}`} /> 새로고침
+                </button>
+              </div>
+
+              {/* ═══ SCHEDULE TIMELINE ═══ */}
+              <Section title="SCHEDULE TIMELINE — 오늘의 크론" icon={Timer} status={mktData.schedule?.some((s: any) => s.status === 'NEXT') ? 'RUNNING' : 'OK'} defaultOpen={true} id="sec-mkt-schedule">
+                <div className="space-y-1">
+                  {['content', 'dispatch', 'event', 'video'].map(type => {
+                    const items = (mktData.schedule || []).filter((s: any) => s.type === type);
+                    if (items.length === 0) return null;
+                    const typeLabel: Record<string, string> = { content: '📝 콘텐츠 생성', dispatch: '📡 발송', event: '🚨 이벤트 감지', video: '🎬 영상' };
+                    const typeColor: Record<string, string> = { content: 'text-cyan-400', dispatch: 'text-orange-400', event: 'text-red-400', video: 'text-purple-400' };
+                    return (
+                      <div key={type}>
+                        <div className={`text-[11px] uppercase tracking-wider font-bold mb-1 mt-2 ${typeColor[type]}`}>{typeLabel[type]}</div>
+                        {items.map((s: any, i: number) => (
+                          <div key={i} className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-[12px] mb-0.5 ${
+                            s.status === 'DONE' ? 'bg-emerald-500/5 border border-emerald-500/10' :
+                            s.status === 'NEXT' ? 'bg-amber-500/10 border border-amber-500/20 animate-pulse' :
+                            s.status === 'SKIPPED' ? 'bg-slate-500/5 border border-slate-500/10 opacity-40' :
+                            s.status === 'RECURRING' ? 'bg-blue-500/5 border border-blue-500/10' :
+                            'bg-white/[0.02] border border-white/[0.04]'}`}>
+                            {s.status === 'DONE' ? <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" /> :
+                             s.status === 'NEXT' ? <Radio className="w-3.5 h-3.5 text-amber-400 flex-shrink-0" /> :
+                             s.status === 'RECURRING' ? <RefreshCw className="w-3.5 h-3.5 text-blue-400 flex-shrink-0" /> :
+                             s.status === 'SKIPPED' ? <XCircle className="w-3.5 h-3.5 text-slate-500 flex-shrink-0" /> :
+                             <Clock className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />}
+                            <span className="font-mono font-bold text-white w-[70px] flex-shrink-0">{s.kst}</span>
+                            <span className="text-slate-300 flex-1 truncate">{s.label}</span>
+                            <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold ${
+                              s.region === 'EN' ? 'bg-blue-500/15 text-blue-300' :
+                              s.region === 'ASIA' ? 'bg-pink-500/15 text-pink-300' :
+                              'bg-slate-500/15 text-slate-300'}`}>{s.region}</span>
+                            {s.hasLog && <span className="text-[10px] text-emerald-400 font-bold">✓ LOG</span>}
+                            <span className="text-[10px] text-amber-500/60 font-bold">DRY</span>
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  })}
+                </div>
+              </Section>
+
+              {/* ═══ CONTENT STATUS ═══ */}
+              <Section title="CONTENT STATUS — 오늘 생성된 콘텐츠" icon={FileText} defaultOpen={true} id="sec-mkt-content"
+                status={mktData.content?.pulse?.exists || mktData.content?.morning?.exists ? 'OK' : 'EMPTY'}>
+                {['pulse', 'morning', 'education'].map(type => {
+                  const c = mktData.content?.[type];
+                  const labels: Record<string, string> = { pulse: '📊 Market Pulse', morning: '🌅 Morning Brief', education: '📚 Education' };
+                  return (
+                    <div key={type} className={`rounded-lg border p-3 mb-2 ${c?.exists ? 'bg-emerald-500/5 border-emerald-500/10' : 'bg-red-500/5 border-red-500/10'}`}>
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-[13px] font-bold text-white">{labels[type]}</span>
+                        <div className="flex items-center gap-2">
+                          {c?.engine && <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold ${c.engine === 'ai' ? 'bg-purple-500/15 text-purple-300' : 'bg-slate-500/15 text-slate-300'}`}>{c.engine === 'ai' ? 'AI (Haiku)' : 'Template'}</span>}
+                          {c?.exists ? <CheckCircle2 className="w-4 h-4 text-emerald-400" /> : <XCircle className="w-4 h-4 text-red-400" />}
+                        </div>
+                      </div>
+                      {c?.preview && (
+                        <div className="text-[11px] text-slate-400 mt-1 leading-relaxed">
+                          <div className="mb-0.5"><span className="text-blue-400 font-bold">EN:</span> {c.preview}...</div>
+                          {c.previewKo && <div><span className="text-pink-400 font-bold">KO:</span> {c.previewKo}...</div>}
+                        </div>
+                      )}
+                      {type === 'pulse' && c?.capturedImages > 0 && (
+                        <div className="text-[11px] text-cyan-400 mt-1">📸 Pre-captured images: {c.capturedImages}</div>
+                      )}
+                    </div>
+                  );
+                })}
+              </Section>
+
+              {/* ═══ DISPATCH LOG ═══ */}
+              <Section title="DISPATCH LOG — 최근 발송 기록" icon={Send} defaultOpen={true} id="sec-mkt-dispatch"
+                status={mktData.dispatches?.length > 0 ? 'OK' : 'EMPTY'}>
+                {mktData.dispatches?.length > 0 ? (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-[12px]">
+                      <thead>
+                        <tr className="border-b border-white/[0.06]">
+                          <th className="text-left py-2 text-slate-400 font-bold">날짜</th>
+                          <th className="text-left py-2 text-slate-400 font-bold">Action</th>
+                          <th className="text-center py-2 text-slate-400 font-bold">채널</th>
+                          <th className="text-center py-2 text-slate-400 font-bold">성공</th>
+                          <th className="text-center py-2 text-slate-400 font-bold">실패</th>
+                          <th className="text-center py-2 text-slate-400 font-bold">모드</th>
+                          <th className="text-right py-2 text-slate-400 font-bold">시간</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {mktData.dispatches.map((d: any, i: number) => (
+                          <tr key={i} className="border-b border-white/[0.03] hover:bg-white/[0.02]">
+                            <td className="py-2 text-slate-300 font-mono">{d.date}</td>
+                            <td className="py-2 font-bold text-white">{d.action}</td>
+                            <td className="py-2 text-center text-cyan-400 font-bold">{d.totalChannels}</td>
+                            <td className="py-2 text-center text-emerald-400 font-bold">{d.successful}</td>
+                            <td className="py-2 text-center text-red-400 font-bold">{d.failed || 0}</td>
+                            <td className="py-2 text-center">
+                              <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold ${
+                                d.dryRun === false ? 'bg-emerald-500/15 text-emerald-300' : 'bg-amber-500/15 text-amber-300'}`}>
+                                {d.dryRun === false ? 'LIVE' : 'DRY'}
+                              </span>
+                            </td>
+                            <td className="py-2 text-right text-[11px] text-slate-400">{d.timestamp ? new Date(d.timestamp).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }) : '-'}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <div className="text-[13px] text-slate-400 text-center py-4">최근 2일간 발송 기록 없음</div>
+                )}
+              </Section>
+
+              {/* ═══ EVENT DETECTION ═══ */}
+              <Section title="EVENT DETECTION — 실시간 이벤트 감지" icon={Radio} defaultOpen={true} id="sec-mkt-event"
+                status={mktData.events?.dailyCount > 0 ? 'OK' : 'IDLE'}>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-3">
+                  <div className="bg-white/[0.03] rounded-xl border border-white/[0.06] p-3 text-center">
+                    <div className="text-[11px] text-slate-400 uppercase tracking-wider font-bold mb-1">오늘 감지</div>
+                    <div className="text-[22px] font-black text-white">{mktData.events?.dailyCount || 0}<span className="text-[14px] text-slate-500">/{mktData.events?.maxDaily || 3}</span></div>
+                  </div>
+                  <div className="bg-white/[0.03] rounded-xl border border-white/[0.06] p-3 text-center">
+                    <div className="text-[11px] text-slate-400 uppercase tracking-wider font-bold mb-1">쿨다운</div>
+                    <div className={`text-[18px] font-black ${mktData.events?.cooldownActive ? 'text-amber-400' : 'text-emerald-400'}`}>
+                      {mktData.events?.cooldownActive ? `${mktData.events.cooldownRemainingMin}m` : 'READY'}
+                    </div>
+                  </div>
+                  <div className="bg-white/[0.03] rounded-xl border border-white/[0.06] p-3 text-center">
+                    <div className="text-[11px] text-slate-400 uppercase tracking-wider font-bold mb-1">이미지 캡처</div>
+                    <div className="text-[18px] font-black text-white">
+                      {mktData.events?.capturedImages ? (mktData.events.capturedImages.tweet ? '✅' : '❌') : '—'}
+                    </div>
+                  </div>
+                  <div className="bg-white/[0.03] rounded-xl border border-white/[0.06] p-3 text-center">
+                    <div className="text-[11px] text-slate-400 uppercase tracking-wider font-bold mb-1">마지막 이벤트</div>
+                    <div className="text-[13px] font-bold text-slate-300">
+                      {mktData.events?.lastEventTime ? new Date(mktData.events.lastEventTime).toLocaleString('ko-KR', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '없음'}
+                    </div>
+                  </div>
+                </div>
+                {mktData.events?.todayContent?.exists && (
+                  <div className="bg-red-500/5 border border-red-500/10 rounded-lg p-3 text-[12px]">
+                    <div className="text-red-400 font-bold mb-1">🚨 오늘 감지된 이벤트 콘텐츠</div>
+                    <div className="text-slate-300">{mktData.events.todayContent.preview}</div>
+                  </div>
+                )}
+                {mktData.events?.sentToday?.length > 0 && (
+                  <div className="mt-2">
+                    <div className="text-[11px] text-slate-400 font-bold mb-1">오늘 발송 완료 (dedup)</div>
+                    <div className="flex flex-wrap gap-1">
+                      {mktData.events.sentToday.map((e: string) => (
+                        <span key={e} className="text-[10px] px-2 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/15 text-emerald-300 font-mono">{e}</span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                <div className="mt-2 text-[11px] text-slate-500">
+                  감지 대상: GEX Flip · VIX Spike · SEC 8-K · ITM Sweep($5M+) · Dark Pool Spike(50%+) · Insider Trade($1M+) · Fear Resolution
+                </div>
+                <div className="mt-1 text-[11px] text-slate-500">
+                  스케줄: 장중 5분마다 (UTC 13:00-21:00, Mon-Fri) · 쿨다운 30분 · 하루 최대 3건
+                </div>
+              </Section>
+
+              {/* ═══ VIDEO RENDERING ═══ */}
+              <Section title="VIDEO RENDERING — Remotion Lambda" icon={Video} id="sec-mkt-video"
+                status={mktData.video?.exists ? 'OK' : 'IDLE'}>
+                {mktData.video?.exists ? (
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-3 text-[13px]">
+                      <span className="text-slate-300">날짜: <span className="text-white font-bold">{mktData.video.date}</span></span>
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold ${mktData.video.dryRun ? 'bg-amber-500/15 text-amber-300' : 'bg-emerald-500/15 text-emerald-300'}`}>
+                        {mktData.video.dryRun ? 'DRY RUN' : 'RENDERED'}
+                      </span>
+                    </div>
+                    {mktData.video.results?.map((r: any) => (
+                      <div key={r.key} className="bg-white/[0.02] border border-white/[0.04] rounded-lg p-2.5 text-[12px]">
+                        <div className="flex items-center justify-between">
+                          <span className="font-mono font-bold text-white">{r.key}</span>
+                          <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold ${
+                            r.status === 'success' ? 'bg-emerald-500/15 text-emerald-300' :
+                            r.status === 'dry_run' ? 'bg-amber-500/15 text-amber-300' :
+                            'bg-red-500/15 text-red-300'}`}>{r.status}</span>
+                        </div>
+                        {r.narrationPreview && <div className="text-slate-400 mt-1 text-[11px]">{r.narrationPreview}</div>}
+                        {r.bgm && <div className="text-[11px] text-slate-500 mt-0.5">🎵 {r.bgm.name} ({r.bgm.category})</div>}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-[13px] text-slate-400 text-center py-4">최근 2일간 영상 렌더링 기록 없음</div>
+                )}
+              </Section>
+
+              {/* ═══ SPOTLIGHT ═══ */}
+              {mktData.spotlights?.length > 0 && (
+                <Section title="TICKER SPOTLIGHT — 게릴라 포스팅" icon={Eye} id="sec-mkt-spotlight" status="OK">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
+                    {mktData.spotlights.map((s: any) => (
+                      <div key={s.ticker} className="bg-emerald-500/5 border border-emerald-500/10 rounded-lg px-3 py-2">
+                        <div className="font-mono font-bold text-emerald-300 text-[13px]">{s.ticker}</div>
+                        {s.preview && <div className="text-[10px] text-slate-400 mt-0.5 truncate">{s.preview}</div>}
+                      </div>
+                    ))}
+                  </div>
+                </Section>
+              )}
+
+              <div className="text-[11px] text-slate-500 text-center py-2">
+                응답: {mktData.elapsed} · {mktData.timestamp ? new Date(mktData.timestamp).toLocaleTimeString('ko-KR') : '-'}
+              </div>
+            </>
+          ) : (
+            <div className="flex flex-col items-center justify-center py-20 gap-3">
+              <Megaphone className="w-10 h-10 text-orange-400/50" />
+              <button onClick={fetchMarketing} className="px-5 py-2.5 rounded-xl bg-orange-500/15 border border-orange-500/25 text-orange-400 text-[14px] font-bold hover:bg-orange-500/25 transition-all">
+                마케팅 파이프라인 상태 조회
+              </button>
+              <div className="text-[12px] text-slate-500">19개 크론 · 12개 파이프라인 · 실시간 상태 조회</div>
             </div>
           )}
         </div>
