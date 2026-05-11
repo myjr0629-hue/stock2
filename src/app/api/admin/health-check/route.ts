@@ -204,6 +204,7 @@ export async function GET(req: NextRequest) {
     // 마케팅 콘텐츠: Vercel daily-content cron → Upstash Redis
     const morningContent = await getFromCache<any>(`marketing:morning:${today}`) || await getFromCache<any>(`marketing:morning:${yesterday}`);
     const pulseContent = await getFromCache<any>(`marketing:pulse:${today}`) || await getFromCache<any>(`marketing:pulse:${yesterday}`);
+    const educationContent = await getFromCache<any>(`marketing:education:${today}`) || await getFromCache<any>(`marketing:education:${yesterday}`);
 
     // ═══ 4. 시장 데이터 — ElastiCache 키 전수 체크 ═══
     const vixData = await checkElastiCache('yahoo:vix');
@@ -584,6 +585,7 @@ export async function GET(req: NextRequest) {
         marketing: {
           morning: { exists: !!morningContent },
           pulse: { exists: !!pulseContent },
+          education: { exists: !!educationContent },
           source: 'Vercel daily-content cron → Upstash Redis',
         },
       },
