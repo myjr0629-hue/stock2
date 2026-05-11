@@ -229,9 +229,9 @@ async function fetchVideoData(type: string): Promise<any> {
 
     // Fallback: read raw market data from Redis
     const [spyRaw, qqqRaw, vixRaw, gexRaw] = await Promise.all([
-      safeGet('market:realtime:SPY'),
-      safeGet('market:realtime:QQQ'),
-      safeGet('market:realtime:VIX'),
+      safeGet('yahoo:idx:spx'),
+      safeGet('yahoo:idx:nasdaq'),
+      safeGet('yahoo:vix'),
       safeGet('analysis:gex:regime'),
     ]);
 

@@ -255,7 +255,7 @@ async function detectGexFlip(): Promise<EventData | null> {
 
 async function detectVixSpike(): Promise<EventData | null> {
   try {
-    const vixRaw = await safeGet('market:realtime:VIX');
+    const vixRaw = await safeGet('yahoo:vix');
     if (!vixRaw) return null;
 
     const vixData = typeof vixRaw === 'string' ? JSON.parse(vixRaw) : vixRaw;
@@ -462,8 +462,8 @@ async function detectFearResolution(marketData: Partial<MarketData>): Promise<Ev
     if (qqqChg >= -0.5) return null; // QQQ must be down 0.5%+
 
     // VIXY / VIX change
-    const vixyRaw = await safeGet('market:realtime:VIXY');
-    const vixRaw = await safeGet('market:realtime:VIX');
+    const vixyRaw = await safeGet('yahoo:vix'); // VIXY not tracked, use VIX
+    const vixRaw = await safeGet('yahoo:vix');
     let vixChgPct: number | null = null;
 
     if (vixyRaw) {
@@ -495,9 +495,9 @@ async function detectFearResolution(marketData: Partial<MarketData>): Promise<Ev
 async function fetchMarketContext(): Promise<Partial<MarketData>> {
   try {
     const [spyRaw, qqqRaw, vixRaw, gexRaw] = await Promise.all([
-      safeGet('market:realtime:SPY'),
-      safeGet('market:realtime:QQQ'),
-      safeGet('market:realtime:VIX'),
+      safeGet('yahoo:idx:spx'),
+      safeGet('yahoo:idx:nasdaq'),
+      safeGet('yahoo:vix'),
       safeGet('analysis:gex:regime'),
     ]);
 
