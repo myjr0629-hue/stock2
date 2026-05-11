@@ -155,18 +155,29 @@ export default function RLSIInsightPanel({
     const isMobile = useServerMobile();
 
     // Toggle state: "briefing" or "tactical"
-    // [FIX] Briefing only during PRE-market (generated & relevant until market open)
-    // All other sessions (REG, POST, CLOSED) → tactical for actionable analysis
-    const defaultTab = session === "PRE" ? "briefing" : "tactical";
-    const [activeTab, setActiveTab] = useState<"briefing" | "tactical">(defaultTab);
+    // [FIX V2] Default is ALWAYS tactical. Briefing only shown when:
+    // 1. Morning briefing actually EXISTS in Redis (not stale/empty)
+    // 2. Briefing date matches TODAY's ET date
+    // 3. Session is PRE (04:00~09:30 ET)
+    // Once REG starts → always revert to tactical
+    const [activeTab, setActiveTab] = useState<"briefing" | "tactical">("tactical");
     const [briefingData, setBriefingData] = useState<any>(null);
     const [briefingLoading, setBriefingLoading] = useState(false);
 
-    // Update default tab when session changes
+    // Auto-switch to briefing ONLY when briefing data is fetched + valid + PRE session
     useEffect(() => {
-        if (session === "REG") setActiveTab("tactical");
-        else if (session === "PRE") setActiveTab("briefing");
-    }, [session]);
+        if (session === "REG" || session === "POST") {
+            setActiveTab("tactical");
+        } else if (session === "PRE" && briefingData?.briefing) {
+            // Verify briefing is from TODAY (not stale 24h TTL residue)
+            const todayET = new Date().toLocaleDateString('en-US', { timeZone: 'America/New_York' });
+            const briefingDate = briefingData.date || '';
+            if (briefingDate === todayET) {
+                setActiveTab("briefing");
+            }
+            // If date doesn't match → stay on tactical (stale briefing)
+        }
+    }, [session, briefingData]);
 
     // Fetch briefing data
     useEffect(() => {
@@ -185,7 +196,7 @@ export default function RLSIInsightPanel({
             }
         };
         fetchBriefing();
-    }, []);
+    }, [locale]);
 
     const signalConfig: Record<string, { color: string; bg: string; label: string }> = {
         STRONG: { color: "#34d399", bg: "rgba(52,211,153,0.08)", label: t('signalStrong') },
