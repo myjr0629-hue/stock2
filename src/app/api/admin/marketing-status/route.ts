@@ -29,12 +29,13 @@ function parseRedis(raw: any): any {
 const CRON_SCHEDULE = [
   // Content Generation (split by type — each runs BEFORE its dispatch)
   { utc: '20:40', kst: '05:40+1', action: 'daily-content-morning', label: 'Morning 콘텐츠 생성 (장마감후)', type: 'content', region: 'all', days: 'Mon-Fri' },
-  { utc: '20:25', kst: '05:25+1', action: 'daily-content-pulse', label: 'Pulse 콘텐츠 생성', type: 'content', region: 'all', days: 'Mon-Fri' },
+  { utc: '15:30', kst: '00:30+1', action: 'daily-content-pulse-intraday', label: 'Pulse 콘텐츠 생성 (장중 Midday용)', type: 'content', region: 'all', days: 'Mon-Fri' },
+  { utc: '20:25', kst: '05:25+1', action: 'daily-content-pulse', label: 'Pulse 콘텐츠 재생성 (장마감 확정)', type: 'content', region: 'all', days: 'Mon-Fri' },
   { utc: '23:30', kst: '08:30+1', action: 'daily-content-edu', label: 'Education 콘텐츠 생성', type: 'content', region: 'all', days: 'Mon-Fri' },
   // EN Region
   { utc: '10:30', kst: '19:30', action: 'morning', label: 'Morning Brief → X+Bluesky+IG Story', type: 'dispatch', region: 'EN', days: 'Mon-Fri' },
   { utc: '12:00', kst: '21:00', action: 'morning_ig', label: 'Morning → IG Carousel+Threads', type: 'dispatch', region: 'EN', days: 'Mon-Fri' },
-  { utc: '16:00', kst: '01:00+1', action: 'midday', label: 'Midday → X+Bluesky+IG Story+Pinterest', type: 'dispatch', region: 'EN', days: 'Mon-Fri' },
+  { utc: '16:00', kst: '01:00+1', action: 'midday', label: 'Midday → X+Bluesky+IG Story+Pinterest (장중 데이터)', type: 'dispatch', region: 'EN', days: 'Mon-Fri' },
   { utc: '20:35', kst: '05:35+1', action: 'pulse', label: 'Market Pulse → X+Bluesky+IG Story+Pinterest', type: 'dispatch', region: 'EN', days: 'Mon-Fri' },
   { utc: '21:00', kst: '06:00+1', action: 'render-video', label: 'Remotion 영상 렌더링', type: 'video', region: 'EN', days: 'Mon-Fri' },
   { utc: '22:00', kst: '07:00+1', action: 'pulse_ig', label: 'Pulse → IG Carousel+Threads', type: 'dispatch', region: 'EN', days: 'Mon-Fri' },
@@ -47,7 +48,7 @@ const CRON_SCHEDULE = [
   { utc: '23:30', kst: '08:30+1', action: 'pulse_ig', label: 'Pulse → IG Carousel+Threads (ASIA)', type: 'dispatch', region: 'ASIA', days: 'Mon-Fri' },
   { utc: '03:00', kst: '12:00', action: 'education', label: 'Education → KO+JA Thread', type: 'dispatch', region: 'ASIA', days: 'Tue-Sat' },
   { utc: '04:00', kst: '13:00', action: 'edu_bsky', label: 'Education → Bluesky+Pinterest (ASIA)', type: 'dispatch', region: 'ASIA', days: 'Tue-Sat' },
-  { utc: '05:00', kst: '14:00', action: 'midday', label: 'Midday → KO+JA', type: 'dispatch', region: 'ASIA', days: 'Tue-Sat' },
+  { utc: '16:15', kst: '01:15+1', action: 'midday', label: 'Midday → KO+JA (장중 데이터)', type: 'dispatch', region: 'ASIA', days: 'Mon-Fri' },
   // Spotlight (ALL regions)
   { utc: '14:00', kst: '23:00', action: 'spotlight', label: 'Ticker Spotlight #1', type: 'dispatch', region: 'ALL', days: 'Mon-Fri' },
   { utc: '16:30', kst: '01:30+1', action: 'spotlight', label: 'Ticker Spotlight #2', type: 'dispatch', region: 'ALL', days: 'Mon-Fri' },
