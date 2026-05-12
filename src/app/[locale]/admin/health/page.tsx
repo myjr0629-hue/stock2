@@ -1071,7 +1071,7 @@ export default function AdminHealthPage() {
                     <div className="text-[16px] font-black">
                       {mktData.overall?.dryRunMode ? '🧪 DRY RUN 모드 — 실제 발송 없음' : '🚀 LIVE 모드 — 실제 발송 중'}
                     </div>
-                    <div className="text-[12px] text-slate-300 flex gap-3 mt-0.5">
+                    <div className="text-[13px] text-slate-300 flex gap-3 mt-0.5">
                       <span>콘텐츠: <span className={mktData.overall?.contentGeneration === 'OK' ? 'text-emerald-400 font-bold' : 'text-red-400 font-bold'}>{mktData.overall?.contentGeneration}</span></span>
                       <span>발송: <span className="text-amber-400 font-bold">{mktData.overall?.dispatching}</span></span>
                       <span>이벤트: <span className="text-slate-300 font-bold">{mktData.overall?.eventDetection}</span></span>
@@ -1095,9 +1095,9 @@ export default function AdminHealthPage() {
                     const typeColor: Record<string, string> = { content: 'text-cyan-400', dispatch: 'text-orange-400', event: 'text-red-400', video: 'text-purple-400' };
                     return (
                       <div key={type}>
-                        <div className={`text-[11px] uppercase tracking-wider font-bold mb-1 mt-2 ${typeColor[type]}`}>{typeLabel[type]}</div>
+                        <div className={`text-[13px] uppercase tracking-wider font-bold mb-1 mt-2 ${typeColor[type]}`}>{typeLabel[type]}</div>
                         {items.map((s: any, i: number) => (
-                          <div key={i} className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-[12px] mb-0.5 ${
+                          <div key={i} className={`flex items-center gap-2 px-3 py-2 rounded-lg text-[13px] mb-0.5 ${
                             s.status === 'DONE' ? 'bg-emerald-500/5 border border-emerald-500/10' :
                             s.status === 'NEXT' ? 'bg-amber-500/10 border border-amber-500/20 animate-pulse' :
                             s.status === 'SKIPPED' ? 'bg-slate-500/5 border border-slate-500/10 opacity-40' :
@@ -1109,11 +1109,11 @@ export default function AdminHealthPage() {
                              s.status === 'SKIPPED' ? <XCircle className="w-3.5 h-3.5 text-slate-500 flex-shrink-0" /> :
                              <Clock className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />}
                             <span className="font-mono font-bold text-cyan-400 w-[55px] flex-shrink-0">{s.et || s.utc}</span>
-                            <span className="font-mono text-slate-500 w-[55px] flex-shrink-0 text-[10px]">{s.kst}</span>
+                            <span className="font-mono text-slate-500 w-[55px] flex-shrink-0 text-[13px]">{s.kst}</span>
                             <span className="text-slate-300 flex-1 truncate">{s.label}</span>
-                            <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold bg-slate-500/15 text-slate-300`}>{s.region}</span>
-                            {s.hasLog && <span className="text-[10px] text-emerald-400 font-bold">✓ LOG</span>}
-                            {s.dryRun && <span className="text-[10px] text-amber-500/60 font-bold">DRY</span>}
+                            <span className={`text-[13px] px-1.5 py-0.5 rounded font-bold bg-slate-500/15 text-slate-300`}>{s.region}</span>
+                            {s.hasLog && <span className="text-[13px] text-emerald-400 font-bold">✓ LOG</span>}
+                            {s.dryRun && <span className="text-[13px] text-amber-500/60 font-bold">DRY</span>}
                           </div>
                         ))}
                       </div>
@@ -1138,13 +1138,13 @@ export default function AdminHealthPage() {
                         </div>
                       </div>
                       {c?.preview && (
-                        <div className="text-[11px] text-slate-400 mt-1 leading-relaxed">
+                        <div className="text-[13px] text-slate-400 mt-1 leading-relaxed">
                           <div className="mb-0.5"><span className="text-blue-400 font-bold">EN:</span> {c.preview}...</div>
                           {c.previewKo && <div><span className="text-pink-400 font-bold">KO:</span> {c.previewKo}...</div>}
                         </div>
                       )}
                       {type === 'pulse' && c?.capturedImages > 0 && (
-                        <div className="text-[11px] text-cyan-400 mt-1">📸 Pre-captured images: {c.capturedImages}</div>
+                        <div className="text-[13px] text-cyan-400 mt-1">📸 Pre-captured images: {c.capturedImages}</div>
                       )}
                     </div>
                   );
@@ -1156,7 +1156,7 @@ export default function AdminHealthPage() {
                 status={mktData.dispatches?.length > 0 ? 'OK' : 'EMPTY'}>
                 {mktData.dispatches?.length > 0 ? (
                   <div className="overflow-x-auto">
-                    <table className="w-full text-[12px]">
+                    <table className="w-full text-[13px]">
                       <thead>
                         <tr className="border-b border-white/[0.06]">
                           <th className="text-left py-2 text-slate-400 font-bold">날짜</th>
@@ -1177,12 +1177,12 @@ export default function AdminHealthPage() {
                             <td className="py-2 text-center text-emerald-400 font-bold">{d.successful}</td>
                             <td className="py-2 text-center text-red-400 font-bold">{d.failed || 0}</td>
                             <td className="py-2 text-center">
-                              <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold ${
+                              <span className={`text-[13px] px-1.5 py-0.5 rounded font-bold ${
                                 d.dryRun === false ? 'bg-emerald-500/15 text-emerald-300' : 'bg-amber-500/15 text-amber-300'}`}>
                                 {d.dryRun === false ? 'LIVE' : 'DRY'}
                               </span>
                             </td>
-                            <td className="py-2 text-right text-[11px] text-slate-400">{d.timestamp ? new Date(d.timestamp).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }) : '-'}</td>
+                            <td className="py-2 text-right text-[13px] text-slate-400">{d.timestamp ? new Date(d.timestamp).toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' }) : '-'}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -1198,48 +1198,48 @@ export default function AdminHealthPage() {
                 status={mktData.events?.dailyCount > 0 ? 'OK' : 'IDLE'}>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-3">
                   <div className="bg-white/[0.03] rounded-xl border border-white/[0.06] p-3 text-center">
-                    <div className="text-[11px] text-slate-400 uppercase tracking-wider font-bold mb-1">오늘 감지</div>
+                    <div className="text-[13px] text-slate-400 uppercase tracking-wider font-bold mb-1">오늘 감지</div>
                     <div className="text-[22px] font-black text-white">{mktData.events?.dailyCount || 0}<span className="text-[14px] text-slate-500">/{mktData.events?.maxDaily || 3}</span></div>
                   </div>
                   <div className="bg-white/[0.03] rounded-xl border border-white/[0.06] p-3 text-center">
-                    <div className="text-[11px] text-slate-400 uppercase tracking-wider font-bold mb-1">쿨다운</div>
+                    <div className="text-[13px] text-slate-400 uppercase tracking-wider font-bold mb-1">쿨다운</div>
                     <div className={`text-[18px] font-black ${mktData.events?.cooldownActive ? 'text-amber-400' : 'text-emerald-400'}`}>
                       {mktData.events?.cooldownActive ? `${mktData.events.cooldownRemainingMin}m` : 'READY'}
                     </div>
                   </div>
                   <div className="bg-white/[0.03] rounded-xl border border-white/[0.06] p-3 text-center">
-                    <div className="text-[11px] text-slate-400 uppercase tracking-wider font-bold mb-1">이미지 캡처</div>
+                    <div className="text-[13px] text-slate-400 uppercase tracking-wider font-bold mb-1">이미지 캡처</div>
                     <div className="text-[18px] font-black text-white">
                       {mktData.events?.capturedImages ? (mktData.events.capturedImages.tweet ? '✅' : '❌') : '—'}
                     </div>
                   </div>
                   <div className="bg-white/[0.03] rounded-xl border border-white/[0.06] p-3 text-center">
-                    <div className="text-[11px] text-slate-400 uppercase tracking-wider font-bold mb-1">마지막 이벤트</div>
+                    <div className="text-[13px] text-slate-400 uppercase tracking-wider font-bold mb-1">마지막 이벤트</div>
                     <div className="text-[13px] font-bold text-slate-300">
                       {mktData.events?.lastEventTime ? new Date(mktData.events.lastEventTime).toLocaleString('ko-KR', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '없음'}
                     </div>
                   </div>
                 </div>
                 {mktData.events?.todayContent?.exists && (
-                  <div className="bg-red-500/5 border border-red-500/10 rounded-lg p-3 text-[12px]">
+                  <div className="bg-red-500/5 border border-red-500/10 rounded-lg p-3 text-[13px]">
                     <div className="text-red-400 font-bold mb-1">🚨 오늘 감지된 이벤트 콘텐츠</div>
                     <div className="text-slate-300">{mktData.events.todayContent.preview}</div>
                   </div>
                 )}
                 {mktData.events?.sentToday?.length > 0 && (
                   <div className="mt-2">
-                    <div className="text-[11px] text-slate-400 font-bold mb-1">오늘 발송 완료 (dedup)</div>
+                    <div className="text-[13px] text-slate-400 font-bold mb-1">오늘 발송 완료 (dedup)</div>
                     <div className="flex flex-wrap gap-1">
                       {mktData.events.sentToday.map((e: string) => (
-                        <span key={e} className="text-[10px] px-2 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/15 text-emerald-300 font-mono">{e}</span>
+                        <span key={e} className="text-[13px] px-2 py-0.5 rounded bg-emerald-500/10 border border-emerald-500/15 text-emerald-300 font-mono">{e}</span>
                       ))}
                     </div>
                   </div>
                 )}
-                <div className="mt-2 text-[11px] text-slate-500">
+                <div className="mt-2 text-[13px] text-slate-500">
                   감지 대상: GEX Flip · VIX Spike · SEC 8-K · ITM Sweep($5M+) · Dark Pool Spike(50%+) · Insider Trade($1M+) · Fear Resolution
                 </div>
-                <div className="mt-1 text-[11px] text-slate-500">
+                <div className="mt-1 text-[13px] text-slate-500">
                   스케줄: 장중 5분마다 (UTC 13:00-21:00, Mon-Fri) · 쿨다운 30분 · 하루 최대 3건
                 </div>
               </Section>
@@ -1251,21 +1251,21 @@ export default function AdminHealthPage() {
                   <div className="space-y-2">
                     <div className="flex items-center gap-3 text-[13px]">
                       <span className="text-slate-300">날짜: <span className="text-white font-bold">{mktData.video.date}</span></span>
-                      <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold ${mktData.video.dryRun ? 'bg-amber-500/15 text-amber-300' : 'bg-emerald-500/15 text-emerald-300'}`}>
+                      <span className={`text-[13px] px-1.5 py-0.5 rounded font-bold ${mktData.video.dryRun ? 'bg-amber-500/15 text-amber-300' : 'bg-emerald-500/15 text-emerald-300'}`}>
                         {mktData.video.dryRun ? 'DRY RUN' : 'RENDERED'}
                       </span>
                     </div>
                     {mktData.video.results?.map((r: any) => (
-                      <div key={r.key} className="bg-white/[0.02] border border-white/[0.04] rounded-lg p-2.5 text-[12px]">
+                      <div key={r.key} className="bg-white/[0.02] border border-white/[0.04] rounded-lg p-2.5 text-[13px]">
                         <div className="flex items-center justify-between">
                           <span className="font-mono font-bold text-white">{r.key}</span>
-                          <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold ${
+                          <span className={`text-[13px] px-1.5 py-0.5 rounded font-bold ${
                             r.status === 'success' ? 'bg-emerald-500/15 text-emerald-300' :
                             r.status === 'dry_run' ? 'bg-amber-500/15 text-amber-300' :
                             'bg-red-500/15 text-red-300'}`}>{r.status}</span>
                         </div>
-                        {r.narrationPreview && <div className="text-slate-400 mt-1 text-[11px]">{r.narrationPreview}</div>}
-                        {r.bgm && <div className="text-[11px] text-slate-500 mt-0.5">🎵 {r.bgm.name} ({r.bgm.category})</div>}
+                        {r.narrationPreview && <div className="text-slate-400 mt-1 text-[13px]">{r.narrationPreview}</div>}
+                        {r.bgm && <div className="text-[13px] text-slate-500 mt-0.5">🎵 {r.bgm.name} ({r.bgm.category})</div>}
                       </div>
                     ))}
                   </div>
@@ -1281,14 +1281,14 @@ export default function AdminHealthPage() {
                     {mktData.spotlights.map((s: any) => (
                       <div key={s.ticker} className="bg-emerald-500/5 border border-emerald-500/10 rounded-lg px-3 py-2">
                         <div className="font-mono font-bold text-emerald-300 text-[13px]">{s.ticker}</div>
-                        {s.preview && <div className="text-[10px] text-slate-400 mt-0.5 truncate">{s.preview}</div>}
+                        {s.preview && <div className="text-[13px] text-slate-400 mt-0.5 truncate">{s.preview}</div>}
                       </div>
                     ))}
                   </div>
                 </Section>
               )}
 
-              <div className="text-[11px] text-slate-500 text-center py-2">
+              <div className="text-[13px] text-slate-500 text-center py-2">
                 응답: {mktData.elapsed} · {mktData.timestamp ? new Date(mktData.timestamp).toLocaleTimeString('ko-KR') : '-'}
               </div>
             </>
@@ -1298,7 +1298,7 @@ export default function AdminHealthPage() {
               <button onClick={fetchMarketing} className="px-5 py-2.5 rounded-xl bg-orange-500/15 border border-orange-500/25 text-orange-400 text-[14px] font-bold hover:bg-orange-500/25 transition-all">
                 마케팅 파이프라인 상태 조회
               </button>
-              <div className="text-[12px] text-slate-500">19개 크론 · 12개 파이프라인 · 실시간 상태 조회</div>
+              <div className="text-[13px] text-slate-500">28개 크론 · 12개 파이프라인 · 실시간 상태 조회</div>
             </div>
           )}
         </div>

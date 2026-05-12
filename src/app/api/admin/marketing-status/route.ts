@@ -34,7 +34,7 @@ const CRON_SCHEDULE = [
   { utc: '20:25', et: '16:25', kst: '05:25+1', action: 'daily-content-pulse', label: 'Pulse 콘텐츠 생성 (장마감 확정)', type: 'content', region: 'ALL', days: 'Mon-Fri' },
   { utc: '20:40', et: '16:40', kst: '05:40+1', action: 'daily-content-morning', label: 'Morning 콘텐츠 생성 (장마감후)', type: 'content', region: 'ALL', days: 'Mon-Fri' },
   { utc: '23:30', et: '19:30', kst: '08:30+1', action: 'daily-content-edu', label: 'Education 콘텐츠 생성', type: 'content', region: 'ALL', days: 'Mon-Sat' },
-  // ═══ Dispatch — ET 시간순 (28개) ═══
+  // ═══ Dispatch — ET 시간순 (32개) ═══
   { utc: '10:30', et: '06:30', kst: '19:30', action: 'morning', label: 'Morning Brief → X(EN/KO/JA) + Bluesky(EN) + IG Story(EN/KO/JA)', type: 'dispatch', region: 'ALL', days: 'Mon-Fri' },
   { utc: '10:35', et: '06:35', kst: '19:35', action: 'morning_ig', label: 'Morning → IG Carousel(EN) + Threads(EN)', type: 'dispatch', region: 'EN', days: 'Mon-Fri' },
   { utc: '10:38', et: '06:38', kst: '19:38', action: 'morning_ig', label: 'Morning → IG Carousel(KO/JA) + Threads(KO/JA)', type: 'dispatch', region: 'ASIA', days: 'Mon-Fri' },
@@ -62,6 +62,8 @@ const CRON_SCHEDULE = [
   // ── Asia Daytime (KO/JA only — 미국 야간) ──
   { utc: '02:30', et: '22:30', kst: '11:30', action: 'asia_recap', label: 'US Session Recap → Threads(KO/JA)', type: 'dispatch', region: 'ASIA', days: 'Tue-Sat' },
   { utc: '05:00', et: '01:00', kst: '14:00', action: 'asia_insight', label: 'Structure Insight → Threads(KO/JA)', type: 'dispatch', region: 'ASIA', days: 'Tue-Sat' },
+  { utc: '07:30', et: '03:30', kst: '16:30', action: 'asia_tip', label: 'Educational Tip → Threads(KO/JA)', type: 'dispatch', region: 'ASIA', days: 'Mon-Fri' },
+  { utc: '09:00', et: '05:00', kst: '18:00', action: 'asia_preview', label: 'Session Preview → Threads(KO/JA)', type: 'dispatch', region: 'ASIA', days: 'Mon-Fri' },
   // ═══ Other ═══
   { utc: '21:00', et: '17:00', kst: '06:00+1', action: 'render-video', label: 'Remotion 영상 렌더링 (dry_run)', type: 'video', region: 'ALL', days: 'Mon-Fri' },
   { utc: '*/5 13-21', et: '09:00~17:00 5분', kst: '22:00~06:00 5분', action: 'event-detect', label: '이벤트 감지 (GEX/VIX/8-K/Sweep/DP/Insider/Fear)', type: 'event', region: 'ALL', days: 'Mon-Fri' },

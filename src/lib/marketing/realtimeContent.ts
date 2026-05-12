@@ -52,7 +52,7 @@ export async function fetchLiveMarketData(): Promise<LiveMarketData> {
 // Text Builder — observation language only, no predictions
 // ---------------------------------------------------------------------------
 export function buildRealtimeText(
-  ct: 'premarket' | 'intraday' | 'close' | 'structure' | 'afterhours' | 'recap' | 'asia_insight' | 'market_open' | 'asia_evening',
+  ct: 'premarket' | 'intraday' | 'close' | 'structure' | 'afterhours' | 'recap' | 'asia_insight' | 'market_open' | 'asia_evening' | 'asia_tip' | 'asia_preview',
   plat: 'bluesky' | 'threads',
   lang: Lang,
   m: LiveMarketData,
@@ -197,6 +197,33 @@ See where institutions are positioning first.
 → signumhq.com
 
 ${disc.en}`;
+  }
+  // ── ASIA TIP (KST 16:30 — 오후 교육 팁) ──
+  if (ct === 'asia_tip') {
+    const tips: Record<string, string[]> = {
+      ko: [
+        `💡 GEX란? Gamma Exposure의 약자\n\n딜러가 보유한 옵션 헤지의 방향을 나타냅니다.\n• 양수: 변동성 억제\n• 음수: 변동성 증폭\n\n지금 GEX: ${G}\n\n→ signumhq.com에서 실시간 확인\n\n${disc.ko}`,
+        `💡 다크풀(Dark Pool)이란?\n\n기관이 대량 거래를 공개 시장에 노출하지 않고 실행하는 채널.\n• 현재 DP 활동: ${dp}\n\n높을수록 기관이 적극적으로 움직이고 있습니다.\n\n→ signumhq.com\n\n${disc.ko}`,
+        `💡 VIX는 시장의 체온계\n\n• 15 미만: 시장 안정\n• 20-25: 경계\n• 30+: 공포\n\n지금 VIX: ${m.vix.toFixed(1)}\n\n구조를 이해하면 가격이 보입니다.\n\n→ signumhq.com\n\n${disc.ko}`,
+      ],
+      ja: [
+        `💡 GEXとは？Gamma Exposureの略\n\nディーラーのオプションヘッジの方向性を示します。\n• プラス: ボラ抑制\n• マイナス: ボラ増幅\n\n現在GEX: ${G}\n\n→ signumhq.com\n\n${disc.ja}`,
+        `💡 ダークプールとは？\n\n機関が大口取引を非公開で実行するチャネル。\n• 現在DP活動: ${dp}\n\n→ signumhq.com\n\n${disc.ja}`,
+        `💡 VIXは市場の体温計\n\n• 15未満: 安定\n• 20-25: 警戒\n• 30+: 恐怖\n\n現在VIX: ${m.vix.toFixed(1)}\n\n→ signumhq.com\n\n${disc.ja}`,
+      ],
+      en: [
+        `💡 What is GEX?\n\nGamma Exposure shows dealer hedging direction.\n• Positive: Volatility suppressed\n• Negative: Volatility amplified\n\nCurrent GEX: ${G}\n\n→ signumhq.com\n\n${disc.en}`,
+      ],
+    };
+    const arr = tips[lang] || tips.en;
+    const idx = new Date().getDate() % arr.length;
+    return arr[idx];
+  }
+  // ── ASIA PREVIEW (KST 18:00 — 미국 장 오픈 전 프리뷰) ──
+  if (ct === 'asia_preview') {
+    if (lang === 'ko') return `🌟 오늘 밤 미국 장 프리뷰\n\n장 오픈까지 4시간 남았습니다.\n\n현재 구조:\n📊 VIX: ${m.vix.toFixed(1)} | GEX: ${G}\n🏦 다크풀: ${dp}\n\n오늘 밤 어떤 시나리오가 나올 수 있을까요?\n\n→ signumhq.com에서 준비하세요\n\n${disc.ko}`;
+    if (lang === 'ja') return `🌟 今夜の米国市場プレビュー\n\nオープンまで4時間。\n\n現在の構造:\n📊 VIX: ${m.vix.toFixed(1)} | GEX: ${G}\n🏦 DP: ${dp}\n\n今夜のシナリオは？\n\n→ signumhq.comで準備\n\n${disc.ja}`;
+    return `🌟 Tonight's US market preview\n\n4 hours to open.\n\nCurrent structure:\n📊 VIX: ${m.vix.toFixed(1)} | GEX: ${G}\n🏦 Dark Pool: ${dp}\n\nWhat scenario are you expecting tonight?\n\n→ signumhq.com\n\n${disc.en}`;
   }
   // close (threads)
   if (lang === 'ko') return `장 마감 🔔\n\n오늘 구조가 보여준 것:\n📈 SPY: ${sd}${m.spyChg.toFixed(2)}%\n📊 VIX: ${m.vix.toFixed(1)}\n🏦 Dark Pool: ${dp}\n⚡ GEX: ${G}\n\n데이터는 예측하지 않지만, 기관의 포지셔닝을 드러냅니다.\n\n오늘 가장 인상적이었던 지표는? 👇\n\n${disc.ko}`;
