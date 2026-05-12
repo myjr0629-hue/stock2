@@ -64,7 +64,7 @@ export function MobileCmdChart({ ticker, quote, unified, unifiedLoading, initial
         <div className="space-y-4">
             {/* Chart — StockChart handles its own range/fetch/toggle internally.
                 No duplicate range buttons. Mobile CSS makes header compact. */}
-            <div className="mobile-chart-container rounded-2xl border border-white/[0.06] bg-[#0b1219] overflow-hidden">
+            <div className="mobile-chart-container rounded-2xl border border-white/[0.06] bg-[#0b1219] overflow-hidden" style={{ height: 420 }}>
                 <StockChart
                     key={ticker}
                     data={[]}  /* empty = StockChart fetches internally */
