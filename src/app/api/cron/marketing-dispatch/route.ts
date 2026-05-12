@@ -828,14 +828,21 @@ async function captureImageForDispatch(
     return previewUrl.toString();
   }
 
-  // LIVE: EC2 Puppeteer capture → Supabase CDN
-  const result = await captureTemplate({ template, format, data });
-  if (result?.cdnUrl) {
-    console.log(`[Dispatch] ✅ EC2 capture: ${template}/${format}/${lang} → ${result.sizeKB}KB`);
-    return result.cdnUrl;
+  // LIVE: EC2 Puppeteer capture → Supabase CDN (retry once on failure)
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const result = await captureTemplate({ template, format, data });
+      if (result?.cdnUrl) {
+        console.log(`[Dispatch] ✅ EC2 capture: ${template}/${format}/${lang} → ${result.sizeKB}KB`);
+        return result.cdnUrl;
+      }
+    } catch (err: any) {
+      console.warn(`[Dispatch] EC2 capture attempt ${attempt + 1} failed for ${template}/${format}/${lang}: ${err.message}`);
+    }
+    if (attempt === 0) await new Promise(r => setTimeout(r, 500));
   }
 
-  throw new Error(`[Dispatch] EC2 capture failed for ${template}/${format}/${lang} — no image available`);
+  throw new Error(`[Dispatch] EC2 capture failed for ${template}/${format}/${lang} — no image after 2 attempts`);
 }
 
 /**
@@ -861,19 +868,35 @@ async function captureCarouselForDispatch(
     });
   }
 
-  // LIVE: EC2 capture each slide
+  // LIVE: EC2 capture each slide (resilient — skip failures, retry once)
   const urls: string[] = [];
   for (let slide = 1; slide <= 6; slide++) {
-    const result = await captureTemplate({
-      template: 'carousel',
-      format: 'carousel',
-      data: { ...data, slide },
-    });
-    if (!result?.cdnUrl) {
-      throw new Error(`[Dispatch] EC2 carousel slide ${slide} capture failed`);
+    let result = null;
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        result = await captureTemplate({
+          template: 'carousel',
+          format: 'carousel',
+          data: { ...data, slide },
+        });
+        if (result?.cdnUrl) break;
+      } catch (err: any) {
+        console.warn(`[Dispatch] Carousel slide ${slide} attempt ${attempt + 1} failed: ${err.message}`);
+      }
+      if (attempt === 0) await new Promise(r => setTimeout(r, 500));
     }
-    urls.push(result.cdnUrl);
+    if (result?.cdnUrl) {
+      urls.push(result.cdnUrl);
+    } else {
+      console.warn(`[Dispatch] Carousel slide ${slide} skipped after 2 attempts`);
+    }
     await new Promise(r => setTimeout(r, 300));
+  }
+  if (urls.length === 0) {
+    throw new Error(`[Dispatch] EC2 carousel capture failed — all 6 slides failed`);
+  }
+  if (urls.length < 6) {
+    console.warn(`[Dispatch] Carousel partial: ${urls.length}/6 slides captured`);
   }
   return urls;
 }
