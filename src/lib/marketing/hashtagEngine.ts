@@ -6,7 +6,7 @@
 // Pinterest: SEO 키워드 (title/description 최적화)
 // ============================================================================
 
-export type ContentType = 'pulse' | 'morning' | 'education' | 'event' | 'midday' | 'weekly';
+export type ContentType = 'pulse' | 'morning' | 'education' | 'event' | 'midday' | 'weekly' | 'spotlight';
 export type Platform = 'twitter' | 'instagram' | 'threads' | 'bluesky' | 'pinterest';
 export type Lang = 'en' | 'ko' | 'ja';
 
@@ -31,8 +31,9 @@ const X_TAGS: Record<ContentType, string[]> = {
   morning:   ['#PreMarket'],
   education: ['#OptionsTrading'],
   event:     ['#OptionsFlow'],
-  midday:    [],  // clean, no tags
+  midday:    ['#MarketUpdate'],
   weekly:    ['#WeeklyRecap'],
+  spotlight: ['#DarkPool'],
 };
 
 const X_EDUCATION_TOPIC_TAGS: Record<string, string[]> = {
@@ -98,6 +99,7 @@ const BLUESKY_TAGS: Record<ContentType, string[]> = {
   event:     ['#OptionsFlow', '#GEX'],
   midday:    ['#MarketUpdate'],
   weekly:    ['#WeeklyRecap'],
+  spotlight: ['#DarkPool', '#InstitutionalFlow'],
 };
 
 // ---------------------------------------------------------------------------
@@ -139,6 +141,11 @@ const PINTEREST_SEO: Record<ContentType, PinterestSEO> = {
     titlePrefix: 'Weekly Market Review',
     keywords: ['weekly market review', 'stock market recap', 'options flow weekly'],
     hashtags: ['#WeeklyRecap', '#StockMarket', '#Investing', '#MarketAnalysis', '#SignumHQ'],
+  },
+  spotlight: {
+    titlePrefix: 'Institutional Flow Spotlight',
+    keywords: ['dark pool activity', 'institutional trading', 'block trades', 'smart money flow', 'options analysis'],
+    hashtags: ['#DarkPool', '#InstitutionalFlow', '#StockMarket', '#SmartMoney', '#OptionsFlow', '#Trading', '#SignumHQ'],
   },
 };
 

@@ -602,13 +602,31 @@ for (const lang of langs) {
           if (!lc?.text) continue;
 
           const tickerCashtag = `$${ticker}`;
+          const xTags = `${tickerCashtag} $SPY #DarkPool`;
 
           // X tweet
           const xCh = getChannels({ tier: 'all', lang, service: 'twitter' })[0];
           if (xCh) {
             const r = await dispatchTweet({
               channelId: xCh.id,
-              text: truncateForPlatform(`${lc.text}\n\n${tickerCashtag} $SPY`, 'twitter'),
+              text: truncateForPlatform(`${lc.text}\n\n${xTags}`, 'twitter'),
+              imageUrl: spotlightImages.tweet || lc.imageUrl,
+              replyText: `📊 Full analysis → ${buildCtaUrl(lang, 'command', 'spotlight')}`,
+              dryRun,
+
+              draft,
+            });
+            results.push(r);
+          }
+
+          // Bluesky
+          const bskyCh = getChannels({ tier: 'all', lang, service: 'bluesky' })[0];
+          if (bskyCh) {
+            const tags = getHashtags({ platform: 'bluesky', contentType: 'spotlight', lang, tickers: [ticker] });
+            const ctaUrl = buildCtaUrl(lang, 'command', 'spotlight');
+            const r = await dispatchPost({
+              channelId: bskyCh.id,
+              text: truncateForPlatform(`${lc.text}\n\n${ctaUrl}\n\n${tags}`, 'bluesky'),
               imageUrl: spotlightImages.tweet || lc.imageUrl,
               dryRun,
 
@@ -622,7 +640,7 @@ for (const lang of langs) {
           if (thCh) {
             const r = await dispatchPost({
               channelId: thCh.id,
-              text: truncateForPlatform(`${lc.text}\n\n${tickerCashtag}`, 'threads'),
+              text: truncateForPlatform(`${lc.text}\n\n${tickerCashtag} #InstitutionalFlow`, 'threads'),
               imageUrl: spotlightImages.tweet || lc.imageUrl,
               dryRun,
 
@@ -630,6 +648,23 @@ for (const lang of langs) {
             });
             results.push(r);
           }
+        }
+
+        // Pinterest (EN only)
+        const pinChSpot = getChannels({ tier: 'all', service: 'pinterest' })[0];
+        if (pinChSpot) {
+          const seo = getPinterestSEO({ contentType: 'spotlight' });
+          const r = await dispatchPin({
+            channelId: pinChSpot.id,
+            imageUrl: spotlightImages.og || spotlightImages.tweet || spotlightContent.en?.imageUrl || '',
+            title: `${ticker} Dark Pool & Institutional Flow Spotlight`,
+            description: seo.description,
+            link: `${baseUrl}/command?${buildUtm('pinterest', 'spotlight')}&ticker=${ticker}`,
+            dryRun,
+
+            draft,
+          });
+          results.push(r);
         }
         break;
       }
