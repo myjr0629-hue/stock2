@@ -1108,14 +1108,12 @@ export default function AdminHealthPage() {
                              s.status === 'RECURRING' ? <RefreshCw className="w-3.5 h-3.5 text-blue-400 flex-shrink-0" /> :
                              s.status === 'SKIPPED' ? <XCircle className="w-3.5 h-3.5 text-slate-500 flex-shrink-0" /> :
                              <Clock className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />}
-                            <span className="font-mono font-bold text-white w-[70px] flex-shrink-0">{s.kst}</span>
+                            <span className="font-mono font-bold text-cyan-400 w-[55px] flex-shrink-0">{s.et || s.utc}</span>
+                            <span className="font-mono text-slate-500 w-[55px] flex-shrink-0 text-[10px]">{s.kst}</span>
                             <span className="text-slate-300 flex-1 truncate">{s.label}</span>
-                            <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold ${
-                              s.region === 'EN' ? 'bg-blue-500/15 text-blue-300' :
-                              s.region === 'ASIA' ? 'bg-pink-500/15 text-pink-300' :
-                              'bg-slate-500/15 text-slate-300'}`}>{s.region}</span>
+                            <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold bg-slate-500/15 text-slate-300`}>{s.region}</span>
                             {s.hasLog && <span className="text-[10px] text-emerald-400 font-bold">✓ LOG</span>}
-                            <span className="text-[10px] text-amber-500/60 font-bold">DRY</span>
+                            {s.dryRun && <span className="text-[10px] text-amber-500/60 font-bold">DRY</span>}
                           </div>
                         ))}
                       </div>
