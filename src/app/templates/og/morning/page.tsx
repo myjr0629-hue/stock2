@@ -52,6 +52,10 @@ function MorningContent() {
   const gexColor = gexPositive ? '#34d399' : '#f87171';
   const spyDisplay = spyPositive ? `+${Math.abs(spyVal).toFixed(2)}%` : `${spyVal.toFixed(2)}%`;
 
+  const vixNum = parseFloat(vix);
+  const vixStatus = vixNum < 16 ? 'LOW' : vixNum < 20 ? 'CALM' : vixNum < 25 ? 'ELEVATED' : vixNum < 30 ? 'HIGH' : 'EXTREME';
+  const vixBadgeColor = vixNum < 20 ? '#34d399' : vixNum < 25 ? '#fbbf24' : '#f87171';
+
   // Story format: 1080×1920 vertical layout
   if (isStory) {
     return (
@@ -126,9 +130,7 @@ function MorningContent() {
     );
   }
 
-  const vixNum = parseFloat(vix);
-  const vixStatus = vixNum < 16 ? 'LOW' : vixNum < 20 ? 'CALM' : vixNum < 25 ? 'ELEVATED' : vixNum < 30 ? 'HIGH' : 'EXTREME';
-  const vixBadgeColor = vixNum < 20 ? '#34d399' : vixNum < 25 ? '#fbbf24' : '#f87171';
+
 
   const cardStyle: React.CSSProperties = {
     position: 'relative', height: 96, padding: '14px 20px', borderRadius: 12,
