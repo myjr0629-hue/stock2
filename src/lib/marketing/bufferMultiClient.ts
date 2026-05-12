@@ -259,11 +259,13 @@ export async function dispatchStory(opts: {
   }
 
   try {
+    const publishAt = new Date(Date.now() + 30_000).toISOString();
     const input: Record<string, any> = {
       channelId,
       text: '',  // Stories typically have no text
       schedulingType: 'automatic',
-      mode: 'addToQueue',
+      mode: 'customScheduled',
+      dueAt: publishAt,
       assets: { images: [{ url: imageUrl }] },
       // IG Story requires story type metadata + shouldShareToFeed: false
       metadata: {
