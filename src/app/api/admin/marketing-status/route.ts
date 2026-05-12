@@ -55,8 +55,11 @@ const CRON_SCHEDULE = [
   // ── NEW: 18:15-18:30 ET gap fill ──
   { utc: '22:15', et: '18:15', kst: '07:15+1', action: 'afterhours_threads', label: 'Session Recap → Threads(EN/KO/JA)', type: 'dispatch', region: 'ALL', days: 'Mon-Fri' },
   { utc: '22:30', et: '18:30', kst: '07:30+1', action: 'afterhours_bsky', label: 'Session Debrief → Bluesky(EN)', type: 'dispatch', region: 'EN', days: 'Mon-Fri' },
-  { utc: '00:00', et: '20:00', kst: '09:00', action: 'education', label: 'Education → X Thread(EN/KO/JA) + Threads(EN/KO/JA) + Pinterest(EN)', type: 'dispatch', region: 'ALL', days: 'Tue-Sat' },
-  { utc: '02:00', et: '22:00', kst: '11:00', action: 'edu_bsky', label: 'Education → Bluesky(EN) + Pinterest(EN)', type: 'dispatch', region: 'EN', days: 'Tue-Sat' },
+  { utc: '00:00', et: '20:00', kst: '09:00', action: 'education', label: 'Education → X Thread(EN/KO/JA) + Threads(EN/KO/JA) + Pinterest(EN)', type: 'dispatch', region: 'ALL', days: 'Tue-Sun' },
+  { utc: '02:00', et: '22:00', kst: '11:00', action: 'edu_bsky', label: 'Education → Bluesky(EN) + Pinterest(EN)', type: 'dispatch', region: 'EN', days: 'Tue-Sun' },
+  // ── Asia Daytime (KO/JA only — 미국 야간) ──
+  { utc: '02:30', et: '22:30', kst: '11:30', action: 'asia_recap', label: 'US Session Recap → Threads(KO/JA)', type: 'dispatch', region: 'ASIA', days: 'Tue-Sat' },
+  { utc: '05:00', et: '01:00', kst: '14:00', action: 'asia_insight', label: 'Structure Insight → Threads(KO/JA)', type: 'dispatch', region: 'ASIA', days: 'Tue-Sat' },
   // ═══ Other ═══
   { utc: '21:00', et: '17:00', kst: '06:00+1', action: 'render-video', label: 'Remotion 영상 렌더링 (dry_run)', type: 'video', region: 'ALL', days: 'Mon-Fri' },
   { utc: '*/5 13-21', et: '09:00~17:00 5분', kst: '22:00~06:00 5분', action: 'event-detect', label: '이벤트 감지 (GEX/VIX/8-K/Sweep/DP/Insider/Fear)', type: 'event', region: 'ALL', days: 'Mon-Fri' },

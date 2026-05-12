@@ -52,7 +52,7 @@ export async function fetchLiveMarketData(): Promise<LiveMarketData> {
 // Text Builder — observation language only, no predictions
 // ---------------------------------------------------------------------------
 export function buildRealtimeText(
-  ct: 'premarket' | 'intraday' | 'close' | 'structure' | 'afterhours',
+  ct: 'premarket' | 'intraday' | 'close' | 'structure' | 'afterhours' | 'recap' | 'asia_insight',
   plat: 'bluesky' | 'threads',
   lang: Lang,
   m: LiveMarketData,
@@ -108,6 +108,23 @@ export function buildRealtimeText(
     if (lang === 'ko') return `🌙 오늘의 세션 리캡\n\n📈 SPY: ${sd}${m.spyChg.toFixed(2)}%\n📊 VIX: ${m.vix.toFixed(1)}\n🏦 다크풀: ${dp}\n⚡ GEX: ${G}\n\n오늘 구조에서 가장 눈에 띄었던 것: 기관 포지셔닝이 가격보다 먼저 움직였습니다.\n\n내일 장을 위해 주목할 것은? 👇\n\n${disc.ko}`;
     if (lang === 'ja') return `🌙 本日のセッション振り返り\n\n📈 SPY: ${sd}${m.spyChg.toFixed(2)}%\n📊 VIX: ${m.vix.toFixed(1)}\n🏦 DP: ${dp}\n⚡ GEX: ${G}\n\n構造が価格に先行して動いた一日でした。\n\n明日のセッションで注目すべき点は？ 👇\n\n${disc.ja}`;
     return `🌙 Today's session in structure\n\n📈 SPY: ${sd}${m.spyChg.toFixed(2)}%\n📊 VIX: ${m.vix.toFixed(1)}\n🏦 Dark Pool: ${dp}\n⚡ GEX: ${G}\n\nInstitutional positioning moved before price did today.\n\nWhat are you watching for tomorrow? 👇\n\n${disc.en}`;
+  }
+  // ── ASIA DAYTIME: recap (KST 11:30 — 미국 세션 다음날 오전) ──
+  if (ct === 'recap') {
+    if (lang === 'ko') return `☕ 어젯밤 미국 시장 구조 리캡\n\n📈 SPY: ${sd}${m.spyChg.toFixed(2)}%\n📊 VIX: ${m.vix.toFixed(1)}\n🏦 다크풀: ${dp}\n⚡ GEX: ${G} — ${gM}\n\n밤새 기관은 무엇을 했을까요? 구조는 가격이 움직이기 전에 먼저 신호를 보냅니다.\n\n오늘 하루 주목할 레벨은? 💬\n\n${disc.ko}`;
+    if (lang === 'ja') return `☕ 昨夜の米国市場構造レビュー\n\n📈 SPY: ${sd}${m.spyChg.toFixed(2)}%\n📊 VIX: ${m.vix.toFixed(1)}\n🏦 DP: ${dp}\n⚡ GEX: ${G} — ${gM}\n\n機関は夜間に何をしたのか？構造は価格の前にシグナルを送ります。\n\n今日注目すべきレベルは？ 💬\n\n${disc.ja}`;
+    return `☕ Overnight US session recap\n\n📈 SPY: ${sd}${m.spyChg.toFixed(2)}%\n📊 VIX: ${m.vix.toFixed(1)}\n🏦 Dark Pool: ${dp}\n⚡ GEX: ${G} — ${gM}\n\nStructure sends signals before price moves.\n\nWhat levels are you watching today? 💬\n\n${disc.en}`;
+  }
+  // ── ASIA DAYTIME: insight (KST 14:00 — 오후 인사이트) ──
+  if (ct === 'asia_insight') {
+    const gexNote = m.gex === 'positive'
+      ? (lang === 'ko' ? 'GEX가 양수라는 것은 딜러가 변동성을 억제하고 있다는 뜻입니다' : lang === 'ja' ? 'GEXがプラスということは、ディーラーがボラティリティを抑制中' : 'Positive GEX means dealers are suppressing volatility')
+      : m.gex === 'negative'
+      ? (lang === 'ko' ? 'GEX가 음수 — 딜러가 변동성을 증폭시키는 환경입니다' : lang === 'ja' ? 'GEXがマイナス — ディーラーがボラを増幅する環境' : 'Negative GEX — dealers amplifying volatility')
+      : (lang === 'ko' ? 'GEX 중립 — 딜러 영향력이 약한 구간, 방향성이 불투명합니다' : lang === 'ja' ? 'GEX中立 — ディーラーの影響力が弱い区間' : 'Neutral GEX — dealer influence is minimal, direction unclear');
+    if (lang === 'ko') return `💡 오늘의 구조 인사이트\n\n${gexNote}\n\nVIX ${m.vix.toFixed(1)} | DP ${dp}\n\n이 데이터를 보고 무엇이 떠오르시나요?\n→ 실시간 구조 분석: signumhq.com\n\n${disc.ko}`;
+    if (lang === 'ja') return `💡 本日の構造インサイト\n\n${gexNote}\n\nVIX ${m.vix.toFixed(1)} | DP ${dp}\n\nこのデータから何が見えますか？\n→ リアルタイム構造分析: signumhq.com\n\n${disc.ja}`;
+    return `💡 Today's structural insight\n\n${gexNote}\n\nVIX ${m.vix.toFixed(1)} | DP ${dp}\n\nWhat does this data tell you?\n→ Live structure analysis: signumhq.com\n\n${disc.en}`;
   }
   // close (threads)
   if (lang === 'ko') return `장 마감 🔔\n\n오늘 구조가 보여준 것:\n📈 SPY: ${sd}${m.spyChg.toFixed(2)}%\n📊 VIX: ${m.vix.toFixed(1)}\n🏦 Dark Pool: ${dp}\n⚡ GEX: ${G}\n\n데이터는 예측하지 않지만, 기관의 포지셔닝을 드러냅니다.\n\n오늘 가장 인상적이었던 지표는? 👇\n\n${disc.ko}`;

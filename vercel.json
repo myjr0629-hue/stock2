@@ -78,7 +78,7 @@
         },
         {
             "path": "/api/cron/daily-content?type=education",
-            "schedule": "30 23 * * 1-5"
+            "schedule": "30 23 * * 1-6"
         },
         {
             "path": "/api/cron/daily-content?type=pulse",
@@ -123,11 +123,11 @@
         },
         {
             "path": "/api/cron/marketing-dispatch?action=education&region=all&dry_run=false",
-            "schedule": "0 0 * * 2-6"
+            "schedule": "0 0 * * 2-0"
         },
         {
             "path": "/api/cron/marketing-dispatch?action=edu_bsky&region=all&dry_run=false",
-            "schedule": "0 2 * * 2-6"
+            "schedule": "0 2 * * 2-0"
         },
 
         {
@@ -165,6 +165,14 @@
         {
             "path": "/api/cron/marketing-dispatch?action=afterhours_bsky&region=en&dry_run=false",
             "schedule": "30 22 * * 1-5"
+        },
+        {
+            "path": "/api/cron/marketing-dispatch?action=asia_recap&region=asia&dry_run=false",
+            "schedule": "30 2 * * 2-6"
+        },
+        {
+            "path": "/api/cron/marketing-dispatch?action=asia_insight&region=asia&dry_run=false",
+            "schedule": "0 5 * * 2-6"
         },
         {
             "path": "/api/cron/event-detect?dry_run=false",

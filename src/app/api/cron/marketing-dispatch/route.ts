@@ -41,7 +41,7 @@ import { buildRealtimeText, captureRealtimeOG, fetchLiveMarketData } from '@/lib
 // ---------------------------------------------------------------------------
 // Actions
 // ---------------------------------------------------------------------------
-type Action = 'morning' | 'morning_ig' | 'midday' | 'education' | 'edu_bsky' | 'pulse' | 'pulse_ig' | 'event' | 'spotlight' | 'premarket_bsky' | 'premarket_threads' | 'intraday_bsky' | 'close_bsky' | 'close_threads' | 'structure_bsky' | 'insight_threads' | 'afterhours_bsky' | 'afterhours_threads';
+type Action = 'morning' | 'morning_ig' | 'midday' | 'education' | 'edu_bsky' | 'pulse' | 'pulse_ig' | 'event' | 'spotlight' | 'premarket_bsky' | 'premarket_threads' | 'intraday_bsky' | 'close_bsky' | 'close_threads' | 'structure_bsky' | 'insight_threads' | 'afterhours_bsky' | 'afterhours_threads' | 'asia_recap' | 'asia_insight';
 type Region = 'en' | 'asia' | 'all'; // en=EN only, asia=KO+JP, all=both
 
 function getLangsForRegion(region: Region): Lang[] {
@@ -970,6 +970,54 @@ for (const lang of langs) {
           if (!thCh) continue;
           const text = buildRealtimeText('afterhours', 'threads', lang, mkt);
           const tags = getHashtags({ platform: 'threads', contentType: 'close', lang });
+          const ogImage = await captureRealtimeOG(baseUrl, mkt, 'og', dryRun);
+          const r = await dispatchPost({
+            channelId: thCh.id,
+            text: truncateWithTags(text, tags, 'threads'),
+            imageUrl: ogImage,
+            dryRun, draft,
+          });
+          results.push(r);
+        }
+        break;
+      }
+
+      // ========================================
+      // ASIA RECAP — UTC 02:30 (KST 11:30 / ET 22:30)
+      // Threads KO/JA only — Overnight US session recap
+      // ========================================
+      case 'asia_recap': {
+        const mkt = await fetchLiveMarketData();
+        for (const lang of langs) {
+          if (lang === 'en') continue; // Asia-only
+          const thCh = getChannels({ tier: 'all', lang, service: 'threads' })[0];
+          if (!thCh) continue;
+          const text = buildRealtimeText('recap', 'threads', lang, mkt);
+          const tags = getHashtags({ platform: 'threads', contentType: 'pulse', lang });
+          const ogImage = await captureRealtimeOG(baseUrl, mkt, 'og', dryRun);
+          const r = await dispatchPost({
+            channelId: thCh.id,
+            text: truncateWithTags(text, tags, 'threads'),
+            imageUrl: ogImage,
+            dryRun, draft,
+          });
+          results.push(r);
+        }
+        break;
+      }
+
+      // ========================================
+      // ASIA INSIGHT — UTC 05:00 (KST 14:00 / ET 01:00)
+      // Threads KO/JA only — Afternoon data insight
+      // ========================================
+      case 'asia_insight': {
+        const mkt = await fetchLiveMarketData();
+        for (const lang of langs) {
+          if (lang === 'en') continue; // Asia-only
+          const thCh = getChannels({ tier: 'all', lang, service: 'threads' })[0];
+          if (!thCh) continue;
+          const text = buildRealtimeText('asia_insight', 'threads', lang, mkt);
+          const tags = getHashtags({ platform: 'threads', contentType: 'education', lang });
           const ogImage = await captureRealtimeOG(baseUrl, mkt, 'og', dryRun);
           const r = await dispatchPost({
             channelId: thCh.id,
