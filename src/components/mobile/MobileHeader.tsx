@@ -62,7 +62,7 @@ export function MobileHeader() {
         e.preventDefault();
         if (searchQuery.trim()) {
             setIsSearchOpen(false);
-            router.push(`/dashboard?t=${searchQuery.toUpperCase()}`);
+            router.push(`/ticker?ticker=${searchQuery.toUpperCase()}`);
             setSearchQuery("");
         }
     };
