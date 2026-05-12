@@ -972,11 +972,16 @@ function truncateWithTags(body: string, tagsOrFooter: string, service: string): 
   const separator = '\n\n';
   const footerLen = separator.length + tagsOrFooter.length;
   const maxBody = limit - footerLen;
-  if (maxBody < 50) {
-    return truncateForPlatform(`${body}${separator}${tagsOrFooter}`, service);
+  if (maxBody < 20) {
+    return tagsOrFooter.substring(0, limit);
   }
   const trimmedBody = body.length > maxBody ? body.substring(0, maxBody - 3) + '...' : body;
-  return `${trimmedBody}${separator}${tagsOrFooter}`;
+  const result = `${trimmedBody}${separator}${tagsOrFooter}`;
+  // Safety net — NEVER exceed platform limit
+  if (result.length > limit) {
+    return result.substring(0, limit - 3) + '...';
+  }
+  return result;
 }
 
 /**

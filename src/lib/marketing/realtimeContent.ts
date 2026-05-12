@@ -72,22 +72,16 @@ export function buildRealtimeText(
     ja: '*投資助言ではありません。データ分析の参考資料です。',
   };
 
-  // ── BLUESKY (≤300 char, data-first, urgency) ──
+  // ── BLUESKY (≤300 char, data-first — NO disclaimer here; dispatch adds CTA+tags) ──
   if (plat === 'bluesky') {
     if (ct === 'premarket') {
-      if (lang === 'ko') return `📊 프리마켓 구조 | ${m.date}\n\nVIX: ${m.vix.toFixed(1)} (${vd}${m.vixChg.toFixed(1)}%)\nGEX: ${G} — ${gM}\n\n장 오픈 전 기관 포지셔닝이 관찰되고 있습니다.\n\n${disc.ko}`;
-      if (lang === 'ja') return `📊 プレマーケット構造 | ${m.date}\n\nVIX: ${m.vix.toFixed(1)} (${vd}${m.vixChg.toFixed(1)}%)\nGEX: ${G} — ${gM}\n\nオープン前の構造的ポジショニングが観察されています。\n\n${disc.ja}`;
-      return `📊 Pre-Market Structure | ${m.date}\n\nVIX: ${m.vix.toFixed(1)} (${vd}${m.vixChg.toFixed(1)}%)\nGEX: ${G} — ${gM}\n\nStructural positioning observed before the open.\n\n${disc.en}`;
+      return `📊 Pre-Market Structure | ${m.date}\n\nVIX: ${m.vix.toFixed(1)} (${vd}${m.vixChg.toFixed(1)}%)\nGEX: ${G} — ${gM}\n\nStructural positioning observed before the open.`;
     }
     if (ct === 'intraday') {
-      if (lang === 'ko') return `⚡ 장중 구조 업데이트\n\nSPY: ${sd}${m.spyChg.toFixed(2)}% | VIX: ${m.vix.toFixed(1)}\nGEX: ${G} | Dark Pool: ${dp}\n\n기관 자금 흐름이 실시간으로 변동 중입니다.\n\n${disc.ko}`;
-      if (lang === 'ja') return `⚡ 日中構造アップデート\n\nSPY: ${sd}${m.spyChg.toFixed(2)}% | VIX: ${m.vix.toFixed(1)}\nGEX: ${G} | Dark Pool: ${dp}\n\n機関資金フローがリアルタイムで変動しています。\n\n${disc.ja}`;
-      return `⚡ Intraday Structure Update\n\nSPY: ${sd}${m.spyChg.toFixed(2)}% | VIX: ${m.vix.toFixed(1)}\nGEX: ${G} | Dark Pool: ${dp}\n\nInstitutional flow shifting in real-time.\n\n${disc.en}`;
+      return `⚡ Intraday Structure Update\n\nSPY: ${sd}${m.spyChg.toFixed(2)}% | VIX: ${m.vix.toFixed(1)}\nGEX: ${G} | DP: ${dp}\n\nInstitutional flow shifting in real-time.`;
     }
     // close
-    if (lang === 'ko') return `🔔 장 마감 확정 | ${m.date}\n\nSPY: ${sd}${m.spyChg.toFixed(2)}% | VIX: ${m.vix.toFixed(1)}\nGEX: ${G} | Dark Pool: ${dp}\n\n기관 포지셔닝 데이터가 확정되었습니다.\n\n${disc.ko}`;
-    if (lang === 'ja') return `🔔 セッション終了 | ${m.date}\n\nSPY: ${sd}${m.spyChg.toFixed(2)}% | VIX: ${m.vix.toFixed(1)}\nGEX: ${G} | Dark Pool: ${dp}\n\n機関ポジショニングデータが確定しました。\n\n${disc.ja}`;
-    return `🔔 Session Close | ${m.date}\n\nSPY: ${sd}${m.spyChg.toFixed(2)}% | VIX: ${m.vix.toFixed(1)}\nGEX: ${G} | Dark Pool: ${dp}\n\nInstitutional positioning data finalized.\n\n${disc.en}`;
+    return `🔔 Session Close | ${m.date}\n\nSPY: ${sd}${m.spyChg.toFixed(2)}% | VIX: ${m.vix.toFixed(1)}\nGEX: ${G} | DP: ${dp}\n\nInstitutional positioning data finalized.`;
   }
 
   // ── THREADS (≤500 char, conversational, engagement question) ──
@@ -96,7 +90,7 @@ export function buildRealtimeText(
       ? (lang === 'ko' ? '변동성 확대 중' : lang === 'ja' ? 'ボラティリティ拡大中' : 'volatility expanding')
       : (lang === 'ko' ? '변동성 축소 중' : lang === 'ja' ? 'ボラティリティ縮小中' : 'volatility compressing');
     if (lang === 'ko') return `좋은 아침입니다 👋\n\n장 오픈 전 구조 체크:\n• VIX ${m.vix.toFixed(1)} — ${volNote}\n• GEX ${G} — ${gM}\n\n데이터는 예측하지 않습니다. 하지만 기관이 어디에 포지셔닝하고 있는지를 보여줍니다.\n\n오늘 주목하는 지표가 있으신가요? 👇\n\n${disc.ko}`;
-    if (lang === 'ja') return `おはようございます 👋\n\nオープン前の構造チェック:\n• VIX ${m.vix.toFixed(1)} — ${volNote}\n• GEX ${G} — ${gM}\n\nデータは予測しません。しかし機関がどこにポジションを取っているかを明らかにします。\n\n今日注目する指標はありますか？ 👇\n\n${disc.ja}`;
+    if (lang === 'ja') return `おはようございます 👋\n\n構造チェック:\n• VIX ${m.vix.toFixed(1)} — ${volNote}\n• GEX ${G} — ${gM}\n\n機関のポジショニングを観察しています。\n\n注目する指標は？ 👇\n\n${disc.ja}`;
     return `Good morning 👋\n\nQuick pre-market structure check:\n• VIX at ${m.vix.toFixed(1)} — ${volNote}\n• GEX ${G} — ${gM}\n\nThe data doesn't predict. But it reveals where institutions are positioning.\n\nWhat are you watching today? 👇\n\n${disc.en}`;
   }
   // close (threads)
