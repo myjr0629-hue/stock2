@@ -1,16 +1,16 @@
 // ============================================================================
-// /api/cron/marketing-dispatch — 통합 마케팅 자동화 크론
-// 모든 플랫폼 × 모든 포맷을 하나의 엔드포인트로 관리
+// /api/cron/marketing-dispatch ???�합 마�????�동???�론
+// 모든 ?�랫??× 모든 ?�맷???�나???�드?�인?�로 관�?
 // 
-// 스케줄별 호출:
-//   ?action=morning    — 06:30 KST: X tweet + Bluesky + IG Story
-//   ?action=morning_ig — 08:00 KST: IG Carousel
-//   ?action=midday     — 11:00 KST: X tweet + Bluesky + IG Story + Pinterest
-//   ?action=education  — 14:00 KST: X Thread + Pinterest
-//   ?action=edu_bsky   — 17:00 KST: Bluesky education + Pinterest
-//   ?action=pulse      — 05:30+1 KST: X tweet + Bluesky + IG Story + Pinterest
-//   ?action=pulse_ig   — 07:00+1 KST: IG Carousel
-//   ?action=event      — 실시간: 이벤트 즉시 멀티플랫폼 발송
+// ?��?줄별 ?�출:
+//   ?action=morning    ??06:30 KST: X tweet + Bluesky + IG Story
+//   ?action=morning_ig ??08:00 KST: IG Carousel
+//   ?action=midday     ??11:00 KST: X tweet + Bluesky + IG Story + Pinterest
+//   ?action=education  ??14:00 KST: X Thread + Pinterest
+//   ?action=edu_bsky   ??17:00 KST: Bluesky education + Pinterest
+//   ?action=pulse      ??05:30+1 KST: X tweet + Bluesky + IG Story + Pinterest
+//   ?action=pulse_ig   ??07:00+1 KST: IG Carousel
+//   ?action=event      ???�시�? ?�벤??즉시 멀?�플?�폼 발송
 //
 // DRY_RUN 기본: true
 // ============================================================================
@@ -19,7 +19,7 @@ import { NextResponse } from 'next/server';
 import { getFromCache, setInCache } from '@/services/redisClient';
 
 export const dynamic = 'force-dynamic';
-export const maxDuration = 120; // IG 캐러셀 6장 캡처에 충분한 시간
+export const maxDuration = 120; // IG 캐러?� 6??캡처??충분???�간
 
 import {
   dispatchTweet,
@@ -36,11 +36,12 @@ import { getChannels, truncateForPlatform, buildUtm } from '@/lib/marketing/buff
 import { getHashtags, buildInstagramFooter, getPinterestSEO, type ContentType, type Lang } from '@/lib/marketing/hashtagEngine';
 import { captureTemplate, captureStoryImage, type FormatType, type TemplateType } from '@/lib/marketing/screenshotService';
 import type { ContentOutput } from '@/lib/marketing/contentEngines';
+import { buildRealtimeText, captureRealtimeOG, fetchLiveMarketData } from '@/lib/marketing/realtimeContent';
 
 // ---------------------------------------------------------------------------
 // Actions
 // ---------------------------------------------------------------------------
-type Action = 'morning' | 'morning_ig' | 'midday' | 'education' | 'edu_bsky' | 'pulse' | 'pulse_ig' | 'event' | 'spotlight';
+type Action = 'morning' | 'morning_ig' | 'midday' | 'education' | 'edu_bsky' | 'pulse' | 'pulse_ig' | 'event' | 'spotlight' | 'premarket_bsky' | 'premarket_threads' | 'intraday_bsky' | 'close_bsky' | 'close_threads';
 type Region = 'en' | 'asia' | 'all'; // en=EN only, asia=KO+JP, all=both
 
 function getLangsForRegion(region: Region): Lang[] {
@@ -84,13 +85,13 @@ export async function GET(request: Request) {
 
     switch (action) {
       // ========================================
-      // MORNING BRIEF — 06:30 KST
+      // MORNING BRIEF ??06:30 KST
       // X tweet + Bluesky + IG Story
       // ========================================
       case 'morning': {
         // Morning content generated after close (16:40 ET) with session dateKey.
         // Morning dispatch next day (06:30 ET) has different ET date.
-        // → Try today first, then previous trading day fallback.
+        // ??Try today first, then previous trading day fallback.
         let content = await loadContent('morning', dateKey);
         if (!content) {
           const prevKey = getPreviousTradingDayKey();
@@ -140,7 +141,7 @@ export async function GET(request: Request) {
             results.push(r);
           }
 
-          // IG Story (1080×1920) — dedicated story template
+          // IG Story (1080×1920) ??dedicated story template
           const igChMorning = getChannels({ tier: 'all', lang, service: 'instagram' })[0];
           if (igChMorning) {
             const storyUrl = await captureStoryForDispatch(baseUrl, content, lang, dryRun);
@@ -159,10 +160,10 @@ export async function GET(request: Request) {
       }
 
       // ========================================
-      // MORNING IG CAROUSEL — 08:00 KST
+      // MORNING IG CAROUSEL ??08:00 KST
       // ========================================
       case 'morning_ig': {
-        // Same fallback as morning — content generated prev close
+        // Same fallback as morning ??content generated prev close
         let content = await loadContent('morning', dateKey);
         if (!content) {
           const prevKey = getPreviousTradingDayKey();
@@ -213,11 +214,11 @@ export async function GET(request: Request) {
       }
 
       // ========================================
-      // MIDDAY COMMENTARY — 11:00 KST
+      // MIDDAY COMMENTARY ??11:00 KST
       // X tweet + Bluesky + IG Story + Pinterest
       // ========================================
       case 'midday': {
-        // Midday uses pulse content — try today, then previous trading day
+        // Midday uses pulse content ??try today, then previous trading day
         let content = await loadContent('pulse', dateKey);
         if (!content) {
           const prevKey = getPreviousTradingDayKey();
@@ -265,7 +266,7 @@ export async function GET(request: Request) {
             results.push(r);
           }
 
-          // IG Story (1080×1920) — dedicated story template
+          // IG Story (1080×1920) ??dedicated story template
           const igChMidday = getChannels({ tier: 'all', lang, service: 'instagram' })[0];
           if (igChMidday) {
             const storyUrl = await captureStoryForDispatch(baseUrl, content, lang, dryRun);
@@ -278,6 +279,20 @@ export async function GET(request: Request) {
               });
               results.push(r);
             }
+          }
+
+          // Threads
+          const thChMidday = getChannels({ tier: 'all', lang, service: 'threads' })[0];
+          if (thChMidday) {
+            const tags = getHashtags({ platform: 'threads', contentType: 'midday', lang });
+            const r = await dispatchPost({
+              channelId: thChMidday.id,
+              text: truncateWithTags(lc.platformText?.threads || lc.text, tags, 'threads'),
+              imageUrl: ogImage,
+              dryRun,
+              draft,
+            });
+            results.push(r);
           }
         }
 
@@ -301,7 +316,7 @@ export async function GET(request: Request) {
       }
 
       // ========================================
-      // EDUCATION THREAD — 14:00 KST
+      // EDUCATION THREAD ??14:00 KST
       // X Thread + Pinterest
       // ========================================
       case 'education': {
@@ -329,6 +344,21 @@ export async function GET(request: Request) {
             });
             results.push(r);
           }
+
+          // Threads (conversational education reformat)
+          const thChEdu = getChannels({ tier: 'all', lang, service: 'threads' })[0];
+          if (thChEdu) {
+            const eduImage = await captureImageForDispatch(baseUrl, content, lang, 'og', 'education', dryRun);
+            const tags = getHashtags({ platform: 'threads', contentType: 'education', lang });
+            const r = await dispatchPost({
+              channelId: thChEdu.id,
+              text: truncateWithTags(lc.platformText?.threads || lc.text, tags, 'threads'),
+              imageUrl: eduImage,
+              dryRun,
+              draft,
+            });
+            results.push(r);
+          }
         }
 
         // Pinterest (EN only)
@@ -351,7 +381,7 @@ export async function GET(request: Request) {
       }
 
       // ========================================
-      // EDUCATION BLUESKY — 17:00 KST
+      // EDUCATION BLUESKY ??17:00 KST
       // Bluesky + Pinterest
       // ========================================
       case 'edu_bsky': {
@@ -399,7 +429,7 @@ export async function GET(request: Request) {
       }
 
       // ========================================
-      // MARKET PULSE — 05:30+1 KST
+      // MARKET PULSE ??05:30+1 KST
       // X tweet + Bluesky + IG Story + Pinterest
       // ========================================
       case 'pulse': {
@@ -446,7 +476,7 @@ export async function GET(request: Request) {
             results.push(r);
           }
 
-          // IG Story (1080×1920) — dedicated story template
+          // IG Story (1080×1920) ??dedicated story template
           const igChPulse = getChannels({ tier: 'all', lang, service: 'instagram' })[0];
           if (igChPulse) {
             const storyUrl = await captureStoryForDispatch(baseUrl, content, lang, dryRun);
@@ -482,7 +512,7 @@ export async function GET(request: Request) {
       }
 
       // ========================================
-      // PULSE IG CAROUSEL — 07:00+1 KST
+      // PULSE IG CAROUSEL ??07:00+1 KST
       // ========================================
       case 'pulse_ig': {
         const content = await loadContent('pulse', dateKey);
@@ -529,7 +559,7 @@ export async function GET(request: Request) {
       }
 
       // ========================================
-      // EVENT — 실시간 즉시 발송
+      // EVENT ???�시�?즉시 발송
       // ========================================
       case 'event': {
         const content = await loadContent('event', dateKey);
@@ -547,7 +577,7 @@ export async function GET(request: Request) {
           if (!lc?.text) continue;
 
           const ctaUrl = buildCtaUrl(lang, 'command', 'event');
-          // Prefer captured image → fallback to existing OG
+          // Prefer captured image ??fallback to existing OG
           const tweetImage = capturedImages.tweet || lc.imageUrl;
 
           // X Tweet (즉시)
@@ -584,7 +614,7 @@ export async function GET(request: Request) {
       }
 
       case 'spotlight': {
-        // Phase 4-3: Ticker Spotlight 게릴라 포스팅
+        // Phase 4-3: Ticker Spotlight 게릴???�스??
         const { generateTickerSpotlight, getRandomSpotlightTicker } = await import('@/lib/marketing/contentEngines');
         const { fetchTradeData } = await import('@/services/realtimeMetricsService');
         const { captureTickerSpotlight } = await import('@/lib/marketing/screenshotService');
@@ -706,6 +736,121 @@ for (const lang of langs) {
         break;
       }
 
+      // ========================================
+      // PRE-MARKET BLUESKY ??08:30 ET
+      // Real-time structure snapshot (FOMO)
+      // ========================================
+      case 'premarket_bsky': {
+        const mkt = await fetchLiveMarketData();
+        for (const lang of langs) {
+          const bskyCh = getChannels({ tier: 'all', lang, service: 'bluesky' })[0];
+          if (!bskyCh) continue;
+          const text = buildRealtimeText('premarket', 'bluesky', lang, mkt);
+          const tags = getHashtags({ platform: 'bluesky', contentType: 'premarket', lang });
+          const ogImage = await captureRealtimeOG(baseUrl, mkt, 'tweet', dryRun);
+          const r = await dispatchPost({
+            channelId: bskyCh.id,
+            text: truncateWithTags(text, `\n\n${buildCtaUrl(lang, 'command', 'premarket')}\n\n${tags}`, 'bluesky'),
+            imageUrl: ogImage,
+            dryRun, draft,
+          });
+          results.push(r);
+        }
+        break;
+      }
+
+      // ========================================
+      // PRE-MARKET THREADS ??08:35 ET
+      // Conversational pre-market (engagement)
+      // ========================================
+      case 'premarket_threads': {
+        const mkt = await fetchLiveMarketData();
+        for (const lang of langs) {
+          const thCh = getChannels({ tier: 'all', lang, service: 'threads' })[0];
+          if (!thCh) continue;
+          const text = buildRealtimeText('premarket', 'threads', lang, mkt);
+          const tags = getHashtags({ platform: 'threads', contentType: 'premarket', lang });
+          const ogImage = await captureRealtimeOG(baseUrl, mkt, 'og', dryRun);
+          const r = await dispatchPost({
+            channelId: thCh.id,
+            text: truncateWithTags(text, tags, 'threads'),
+            imageUrl: ogImage,
+            dryRun, draft,
+          });
+          results.push(r);
+        }
+        break;
+      }
+
+      // ========================================
+      // INTRADAY BLUESKY ??14:00 ET
+      // Live session structure update (urgency)
+      // ========================================
+      case 'intraday_bsky': {
+        const mkt = await fetchLiveMarketData();
+        for (const lang of langs) {
+          const bskyCh = getChannels({ tier: 'all', lang, service: 'bluesky' })[0];
+          if (!bskyCh) continue;
+          const text = buildRealtimeText('intraday', 'bluesky', lang, mkt);
+          const tags = getHashtags({ platform: 'bluesky', contentType: 'intraday', lang });
+          const ogImage = await captureRealtimeOG(baseUrl, mkt, 'tweet', dryRun);
+          const r = await dispatchPost({
+            channelId: bskyCh.id,
+            text: truncateWithTags(text, `\n\n${buildCtaUrl(lang, 'flow', 'intraday')}\n\n${tags}`, 'bluesky'),
+            imageUrl: ogImage,
+            dryRun, draft,
+          });
+          results.push(r);
+        }
+        break;
+      }
+
+      // ========================================
+      // CLOSE BLUESKY ??16:10 ET
+      // Post-close summary (FOMO next-day)
+      // ========================================
+      case 'close_bsky': {
+        const mkt = await fetchLiveMarketData();
+        for (const lang of langs) {
+          const bskyCh = getChannels({ tier: 'all', lang, service: 'bluesky' })[0];
+          if (!bskyCh) continue;
+          const text = buildRealtimeText('close', 'bluesky', lang, mkt);
+          const tags = getHashtags({ platform: 'bluesky', contentType: 'close', lang });
+          const ogImage = await captureRealtimeOG(baseUrl, mkt, 'tweet', dryRun);
+          const r = await dispatchPost({
+            channelId: bskyCh.id,
+            text: truncateWithTags(text, `\n\n${buildCtaUrl(lang, 'command', 'close')}\n\n${tags}`, 'bluesky'),
+            imageUrl: ogImage,
+            dryRun, draft,
+          });
+          results.push(r);
+        }
+        break;
+      }
+
+      // ========================================
+      // CLOSE THREADS ??16:15 ET
+      // Conversational close recap (engagement)
+      // ========================================
+      case 'close_threads': {
+        const mkt = await fetchLiveMarketData();
+        for (const lang of langs) {
+          const thCh = getChannels({ tier: 'all', lang, service: 'threads' })[0];
+          if (!thCh) continue;
+          const text = buildRealtimeText('close', 'threads', lang, mkt);
+          const tags = getHashtags({ platform: 'threads', contentType: 'close', lang });
+          const ogImage = await captureRealtimeOG(baseUrl, mkt, 'og', dryRun);
+          const r = await dispatchPost({
+            channelId: thCh.id,
+            text: truncateWithTags(text, tags, 'threads'),
+            imageUrl: ogImage,
+            dryRun, draft,
+          });
+          results.push(r);
+        }
+        break;
+      }
+
       default:
         return NextResponse.json({ error: `Unknown action: ${action}` }, { status: 400 });
     }
@@ -757,12 +902,12 @@ async function loadContent(type: string, dateKey: string): Promise<ContentOutput
   return parsed as ContentOutput;
 }
 
-// Previous trading day: Mon→Fri, Tue-Fri→prev day, Sat/Sun→Fri
+// Previous trading day: Mon?�Fri, Tue-Fri?�prev day, Sat/Sun?�Fri
 function getPreviousTradingDayKey(): string {
   const now = new Date();
   const et = new Date(now.toLocaleString('en-US', { timeZone: 'America/New_York' }));
   const day = et.getDay(); // 0=Sun,1=Mon,...
-  const daysBack = day === 1 ? 3 : day === 0 ? 2 : 1; // Mon→3(Fri), Sun→2(Fri)
+  const daysBack = day === 1 ? 3 : day === 0 ? 2 : 1; // Mon??(Fri), Sun??(Fri)
   et.setDate(et.getDate() - daysBack);
   return et.toLocaleDateString('en-CA'); // YYYY-MM-DD
 }
@@ -809,9 +954,9 @@ function extractDataParams(content: ContentOutput, lang: Lang, baseUrl: string):
 }
 
 /**
- * Capture image via EC2 Puppeteer → Supabase CDN.
+ * Capture image via EC2 Puppeteer ??Supabase CDN.
  * Uses /templates/og/* HTML templates exclusively.
- * NO Satori fallback — EC2 Puppeteer is the ONLY image source.
+ * NO Satori fallback ??EC2 Puppeteer is the ONLY image source.
  */
 async function captureImageForDispatch(
   baseUrl: string,
@@ -832,12 +977,12 @@ async function captureImageForDispatch(
     return previewUrl.toString();
   }
 
-  // LIVE: EC2 Puppeteer capture → Supabase CDN (retry once on failure)
+  // LIVE: EC2 Puppeteer capture ??Supabase CDN (retry once on failure)
   for (let attempt = 0; attempt < 2; attempt++) {
     try {
       const result = await captureTemplate({ template, format, data });
       if (result?.cdnUrl) {
-        console.log(`[Dispatch] ✅ EC2 capture: ${template}/${format}/${lang} → ${result.sizeKB}KB`);
+        console.log(`[Dispatch] ??EC2 capture: ${template}/${format}/${lang} ??${result.sizeKB}KB`);
         return result.cdnUrl;
       }
     } catch (err: any) {
@@ -846,11 +991,11 @@ async function captureImageForDispatch(
     if (attempt === 0) await new Promise(r => setTimeout(r, 500));
   }
 
-  throw new Error(`[Dispatch] EC2 capture failed for ${template}/${format}/${lang} — no image after 2 attempts`);
+  throw new Error(`[Dispatch] EC2 capture failed for ${template}/${format}/${lang} ??no image after 2 attempts`);
 }
 
 /**
- * Capture carousel slides via EC2 Puppeteer → Supabase CDN.
+ * Capture carousel slides via EC2 Puppeteer ??Supabase CDN.
  * NO Satori fallback.
  */
 async function captureCarouselForDispatch(
@@ -872,7 +1017,7 @@ async function captureCarouselForDispatch(
     });
   }
 
-  // LIVE: EC2 capture each slide (resilient — skip failures, retry once)
+  // LIVE: EC2 capture each slide (resilient ??skip failures, retry once)
   const urls: string[] = [];
   for (let slide = 1; slide <= 6; slide++) {
     let result = null;
@@ -897,7 +1042,7 @@ async function captureCarouselForDispatch(
     await new Promise(r => setTimeout(r, 300));
   }
   if (urls.length === 0) {
-    throw new Error(`[Dispatch] EC2 carousel capture failed — all 6 slides failed`);
+    throw new Error(`[Dispatch] EC2 carousel capture failed ??all 6 slides failed`);
   }
   if (urls.length < 6) {
     console.warn(`[Dispatch] Carousel partial: ${urls.length}/6 slides captured`);
@@ -921,10 +1066,10 @@ function buildEducationThread(
   const slide1Text = sentences.slice(0, chunkSize).join('. ') + '.';
   const slide2Text = sentences.slice(chunkSize, chunkSize * 2).join('. ') + '.';
   const slide3Text = sentences.slice(chunkSize * 2).join('. ') + '.';
-  const slide4Text = `${ctaUrl}\n\n🔁 RT if this changed how you think about market structure.`;
+  const slide4Text = `${ctaUrl}\n\n?�� RT if this changed how you think about market structure.`;
 
   return [
-    { text: `🧵 ${truncateForPlatform(slide1Text, 'twitter')}`, imageUrl: ogImageUrl },
+    { text: `?�� ${truncateForPlatform(slide1Text, 'twitter')}`, imageUrl: ogImageUrl },
     { text: truncateForPlatform(slide2Text, 'twitter') },
     { text: truncateForPlatform(slide3Text, 'twitter') },
     { text: truncateForPlatform(slide4Text, 'twitter'), imageUrl: ogImageUrl },
@@ -964,7 +1109,7 @@ async function captureStoryForDispatch(
   try {
     const cdnUrl = await captureStoryImage(storyParams);
     if (cdnUrl) {
-      console.log(`[Dispatch] ✅ IG Story captured: ${lang}`);
+      console.log(`[Dispatch] ??IG Story captured: ${lang}`);
       return cdnUrl;
     }
     console.warn(`[Dispatch] IG Story capture returned null for ${lang}`);
@@ -974,3 +1119,4 @@ async function captureStoryForDispatch(
     return null;
   }
 }
+

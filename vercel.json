@@ -131,6 +131,26 @@
         },
 
         {
+            "path": "/api/cron/marketing-dispatch?action=premarket_bsky&region=all&dry_run=false",
+            "schedule": "30 12 * * 1-5"
+        },
+        {
+            "path": "/api/cron/marketing-dispatch?action=premarket_threads&region=all&dry_run=false",
+            "schedule": "35 12 * * 1-5"
+        },
+        {
+            "path": "/api/cron/marketing-dispatch?action=intraday_bsky&region=all&dry_run=false",
+            "schedule": "0 18 * * 1-5"
+        },
+        {
+            "path": "/api/cron/marketing-dispatch?action=close_bsky&region=all&dry_run=false",
+            "schedule": "10 20 * * 1-5"
+        },
+        {
+            "path": "/api/cron/marketing-dispatch?action=close_threads&region=all&dry_run=false",
+            "schedule": "15 20 * * 1-5"
+        },
+        {
             "path": "/api/cron/event-detect?dry_run=false",
             "schedule": "*/5 13-21 * * 1-5"
         },

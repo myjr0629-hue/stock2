@@ -45,6 +45,14 @@ const CRON_SCHEDULE = [
   { utc: '20:43', et: '16:43', kst: '05:43+1', action: 'pulse_ig', label: 'Pulse → IG Carousel+Threads (ASIA)', type: 'dispatch', region: 'ASIA', days: 'Mon-Fri' },
   { utc: '00:00', et: '20:00', kst: '09:00', action: 'education', label: 'Education → X Thread+Pinterest', type: 'dispatch', region: 'ALL', days: 'Tue-Sat' },
   { utc: '02:00', et: '22:00', kst: '11:00', action: 'edu_bsky', label: 'Education → Bluesky+Pinterest', type: 'dispatch', region: 'ALL', days: 'Tue-Sat' },
+    // ═══ Dispatch — Pre-Market Expansion ═══
+  { utc: '12:30', et: '08:30', kst: '21:30', action: 'premarket_bsky', label: 'Pre-Market → Bluesky FOMO', type: 'dispatch', region: 'ALL', days: 'Mon-Fri' },
+  { utc: '12:35', et: '08:35', kst: '21:35', action: 'premarket_threads', label: 'Pre-Market → Threads', type: 'dispatch', region: 'ALL', days: 'Mon-Fri' },
+  // ═══ Dispatch — Intraday Expansion ═══
+  { utc: '18:00', et: '14:00', kst: '03:00+1', action: 'intraday_bsky', label: 'Intraday → Bluesky', type: 'dispatch', region: 'ALL', days: 'Mon-Fri' },
+  // ═══ Dispatch — Close Expansion ═══
+  { utc: '20:10', et: '16:10', kst: '05:10+1', action: 'close_bsky', label: 'Close → Bluesky', type: 'dispatch', region: 'ALL', days: 'Mon-Fri' },
+  { utc: '20:15', et: '16:15', kst: '05:15+1', action: 'close_threads', label: 'Close → Threads', type: 'dispatch', region: 'ALL', days: 'Mon-Fri' },
   // ═══ Other ═══
   { utc: '21:00', et: '17:00', kst: '06:00+1', action: 'render-video', label: 'Remotion 영상 렌더링 (dry_run)', type: 'video', region: 'all', days: 'Mon-Fri' },
   // Event Detection

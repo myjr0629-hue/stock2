@@ -6,7 +6,7 @@
 // Pinterest: SEO 키워드 (title/description 최적화)
 // ============================================================================
 
-export type ContentType = 'pulse' | 'morning' | 'education' | 'event' | 'midday' | 'weekly' | 'spotlight';
+export type ContentType = 'pulse' | 'morning' | 'education' | 'event' | 'midday' | 'weekly' | 'spotlight' | 'premarket' | 'intraday' | 'close';
 export type Platform = 'twitter' | 'instagram' | 'threads' | 'bluesky' | 'pinterest';
 export type Lang = 'en' | 'ko' | 'ja';
 
@@ -34,6 +34,9 @@ const X_TAGS: Record<ContentType, string[]> = {
   midday:    ['#MarketUpdate'],
   weekly:    ['#WeeklyRecap'],
   spotlight: ['#DarkPool'],
+  premarket: ['#PreMarket', '#GEX'],
+  intraday:  ['#MarketUpdate'],
+  close:     ['#MarketClose'],
 };
 
 const X_EDUCATION_TOPIC_TAGS: Record<string, string[]> = {
@@ -100,6 +103,9 @@ const BLUESKY_TAGS: Record<ContentType, string[]> = {
   midday:    ['#MarketUpdate'],
   weekly:    ['#WeeklyRecap'],
   spotlight: ['#DarkPool', '#InstitutionalFlow'],
+  premarket: ['#PreMarket', '#MarketStructure'],
+  intraday:  ['#MarketUpdate', '#OptionsFlow'],
+  close:     ['#MarketClose', '#MarketStructure'],
 };
 
 // ---------------------------------------------------------------------------
@@ -146,6 +152,21 @@ const PINTEREST_SEO: Record<ContentType, PinterestSEO> = {
     titlePrefix: 'Institutional Flow Spotlight',
     keywords: ['dark pool activity', 'institutional trading', 'block trades', 'smart money flow', 'options analysis'],
     hashtags: ['#DarkPool', '#InstitutionalFlow', '#StockMarket', '#SmartMoney', '#OptionsFlow', '#Trading', '#SignumHQ'],
+  },
+  premarket: {
+    titlePrefix: 'Pre-Market Structure',
+    keywords: ['pre-market analysis', 'market structure', 'GEX analysis', 'options positioning'],
+    hashtags: ['#PreMarket', '#MarketStructure', '#OptionsFlow', '#Trading', '#SignumHQ'],
+  },
+  intraday: {
+    titlePrefix: 'Intraday Market Update',
+    keywords: ['intraday analysis', 'live market data', 'options flow', 'dark pool'],
+    hashtags: ['#MarketUpdate', '#OptionsFlow', '#Trading', '#StockMarket', '#SignumHQ'],
+  },
+  close: {
+    titlePrefix: 'Market Close Summary',
+    keywords: ['market close summary', 'daily recap', 'institutional positioning', 'options flow'],
+    hashtags: ['#MarketClose', '#DailyRecap', '#StockMarket', '#OptionsFlow', '#SignumHQ'],
   },
 };
 
