@@ -93,9 +93,9 @@ function buildTemplateUrl(req: CaptureRequest): string {
 
 // ── Screenshot Capture (EC2 Puppeteer Worker) ──
 
-// EC2 캡처 워커: 52.23.98.13:3100 (PM2: capture-worker)
+// EC2 캡처 워커: ws.signumhq.com/capture (nginx reverse proxy → 127.0.0.1:3100)
 // Pre-warmed Chromium — Cold Start 0초, 메모리/시간 제한 없음
-const EC2_CAPTURE_URL = process.env.EC2_CAPTURE_URL || 'http://52.23.98.13:3100';
+const EC2_CAPTURE_URL = process.env.EC2_CAPTURE_URL || 'https://ws.signumhq.com';
 
 /**
  * Primary: EC2 Puppeteer Worker
