@@ -115,11 +115,11 @@
         },
         {
             "path": "/api/cron/marketing-dispatch?action=education&region=all&dry_run=false",
-            "schedule": "0 0 * * 2-0"
+            "schedule": "0 0 * * 0,2-6"
         },
         {
             "path": "/api/cron/marketing-dispatch?action=edu_bsky&region=en&dry_run=false",
-            "schedule": "0 2 * * 2-0"
+            "schedule": "0 2 * * 0,2-6"
         },
         {
             "path": "/api/cron/marketing-dispatch?action=asia_recap&region=asia&dry_run=false",
