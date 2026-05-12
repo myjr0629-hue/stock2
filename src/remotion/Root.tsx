@@ -1,5 +1,5 @@
 // ============================================================================
-// Remotion Root — 모든 Composition 등록 (V2 Premium)
+// Remotion Root — 모든 Composition 등록 (V3 Hybrid)
 // ============================================================================
 
 import React from 'react';
@@ -7,11 +7,43 @@ import { Composition } from 'remotion';
 import { MarketPulseVideo, type MarketPulseProps } from './compositions/MarketPulseVideo';
 import { NewsDigestVideo, type NewsDigestProps } from './compositions/NewsDigestVideo';
 import { EventSpikeVideo, type EventSpikeProps } from './compositions/EventSpikeVideo';
+import { MarketPulseV3, type MarketPulseV3Props } from './compositions/MarketPulseV3';
 
 export const RemotionRoot: React.FC = () => {
   return (
     <>
-      {/* Market Pulse — 장 마감 후 데이터 요약 (30초) */}
+      {/* ★ Market Pulse V3 — 하이브리드 6씬 Shorts (30초) */}
+      <Composition
+        id="MarketPulseV3"
+        component={MarketPulseV3 as React.ComponentType<any>}
+        durationInFrames={30 * 30}
+        fps={30}
+        width={1080}
+        height={1920}
+        defaultProps={{
+          lang: 'en',
+          date: new Date().toISOString().split('T')[0],
+          ticker: 'SPY',
+          tickerName: 'S&P 500 ETF',
+          price: '585.00',
+          change: '+0.84',
+          gexRegime: 'POSITIVE',
+          gexLabel: 'NEGATIVE → POSITIVE',
+          darkPool: 39.2,
+          buyRatio: 34,
+          sellRatio: 65,
+          spy: 0.84,
+          qqq: 1.71,
+          vix: 18.2,
+          insight1: '',
+          insight2: '',
+          insight3: '',
+          bgmUrl: '',
+          narrationUrl: '',
+        }}
+      />
+
+      {/* Market Pulse V2 — 레거시 (30초) */}
       <Composition
         id="MarketPulse"
         component={MarketPulseVideo as React.ComponentType<any>}
