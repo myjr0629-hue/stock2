@@ -23,7 +23,7 @@ const BUCKET_NAME = 'marketing-assets';
 const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://signumhq.com';
 
 // ── Types ──
-export type TemplateType = 'pulse' | 'event' | 'ticker' | 'morning' | 'education' | 'carousel' | 'story';
+export type TemplateType = 'pulse' | 'event' | 'ticker' | 'morning' | 'education' | 'carousel' | 'story' | 'story_spotlight' | 'story_event';
 export type FormatType = keyof typeof FORMATS;
 
 export interface CaptureRequest {
@@ -76,6 +76,8 @@ const TEMPLATE_ROUTES: Record<string, string> = {
   education: '/templates/og/education',
   carousel:  '/templates/og/carousel',
   story:     '/marketing/templates/story',
+  story_spotlight: '/marketing/templates/story/spotlight',
+  story_event:     '/marketing/templates/story/event',
 };
 
 function buildTemplateUrl(req: CaptureRequest): string {
@@ -487,3 +489,46 @@ export async function captureCarousel(params: {
   console.log(`[ScreenshotService] Carousel: ${urls.filter(Boolean).length}/6 slides captured`);
   return urls;
 }
+
+/**
+ * Capture a Ticker Spotlight IG Story (1080x1920).
+ * Called by marketing-dispatch spotlight action.
+ */
+export async function captureSpotlightStory(params: {
+  ticker: string;
+  dp?: number;
+  smartFlow?: number;
+  price?: string;
+  change?: number;
+  company?: string;
+  sector?: string;
+  gex?: string;
+  callWall?: string;
+  putFloor?: string;
+  gammaFlip?: string;
+  maxPain?: string;
+  insight?: string;
+}): Promise<string | null> {
+  const data: Record<string, string | number> = {
+    ticker: params.ticker,
+    dp: params.dp ?? 0,
+    smartFlow: params.smartFlow ?? 50,
+    change: params.change ?? 0,
+    gex: params.gex || 'neutral',
+  };
+  if (params.price) data.price = params.price;
+  if (params.company) data.company = params.company;
+  if (params.sector) data.sector = params.sector;
+  if (params.callWall) data.callWall = params.callWall;
+  if (params.putFloor) data.putFloor = params.putFloor;
+  if (params.gammaFlip) data.gammaFlip = params.gammaFlip;
+  if (params.maxPain) data.maxPain = params.maxPain;
+  if (params.insight) data.insight = params.insight;
+
+  const result = await captureTemplate({ template: 'story_spotlight', format: 'story', data });
+  if (result?.cdnUrl) {
+    console.log('[ScreenshotService] Spotlight Story captured: ' + result.sizeKB + 'KB');
+  }
+  return result?.cdnUrl || null;
+}
+

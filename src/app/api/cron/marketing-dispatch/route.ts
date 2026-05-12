@@ -715,6 +715,27 @@ for (const lang of langs) {
             });
             results.push(r);
           }
+
+          // IG Story (1080x1920) — Spotlight story template
+          const igChSpot = getChannels({ tier: 'all', lang, service: 'instagram' })[0];
+          if (igChSpot && !dryRun) {
+            try {
+              const { captureSpotlightStory } = await import('@/lib/marketing/screenshotService');
+              const storyUrl = await captureSpotlightStory({
+                ticker,
+                dp: tradeData?.darkPoolPercent,
+                smartFlow: tradeData?.buyPct,
+                gex: 'neutral',
+                insight: spotlightContent.en?.text?.split('\n')[0] || '',
+              });
+              if (storyUrl) {
+                const r = await dispatchStory({ channelId: igChSpot.id, imageUrl: storyUrl, dryRun, draft });
+                results.push(r);
+              }
+            } catch (err: any) {
+              console.warn(`[Spotlight] Story capture failed: ${err.message}`);
+            }
+          }
         }
 
         // Pinterest (EN only)
