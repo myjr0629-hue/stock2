@@ -126,12 +126,12 @@
             "schedule": "0 0 * * 2-0"
         },
         {
-            "path": "/api/cron/marketing-dispatch?action=edu_bsky&region=all&dry_run=false",
+            "path": "/api/cron/marketing-dispatch?action=edu_bsky&region=en&dry_run=false",
             "schedule": "0 2 * * 2-0"
         },
 
         {
-            "path": "/api/cron/marketing-dispatch?action=premarket_bsky&region=all&dry_run=false",
+            "path": "/api/cron/marketing-dispatch?action=premarket_bsky&region=en&dry_run=false",
             "schedule": "30 12 * * 1-5"
         },
         {
@@ -139,11 +139,11 @@
             "schedule": "35 12 * * 1-5"
         },
         {
-            "path": "/api/cron/marketing-dispatch?action=intraday_bsky&region=all&dry_run=false",
+            "path": "/api/cron/marketing-dispatch?action=intraday_bsky&region=en&dry_run=false",
             "schedule": "0 18 * * 1-5"
         },
         {
-            "path": "/api/cron/marketing-dispatch?action=close_bsky&region=all&dry_run=false",
+            "path": "/api/cron/marketing-dispatch?action=close_bsky&region=en&dry_run=false",
             "schedule": "10 20 * * 1-5"
         },
         {
