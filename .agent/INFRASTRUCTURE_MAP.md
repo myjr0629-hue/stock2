@@ -1000,6 +1000,54 @@ twitter:
 | `marketing:spotlight:{date}:{ticker}` | 24h | Spotlight 콘텐츠 로그 |
 | `marketing:dispatch:v2:{date}:{action}` | 7일 | 디스패치 결과 로그 |
 
+#### 5.3.10 [계획] 실 페이지 캡처 병행 전략 — OG 카드 + 제품 스크린샷 2트랙
+
+> **상태**: 📋 계획 단계. OG 카드 시스템 안정 운용 확인 후 구현.
+> **원칙**: OG 카드를 **대체하지 않음**. 추가 발행 슬롯으로 **병행** 운용.
+
+##### 전략 근거
+- **OG 카드**: "GEX가 neutral인데 SPY가 올랐다 — 무슨 뜻?" → **호기심 유발** → 학습 → 가입
+- **실 페이지 캡처**: "이것이 우리 유저가 실제로 보는 화면" → **제품 직관** → 즉시 가입
+- **SNS 알고리즘**: 포맷 다양성(카드+실화면+캐러셀+Shorts)을 보상 → 각 포스트 reach 증가
+- **2장 세트**: OG 카드(낚시) 발행 → 30분 후 실 페이지(증거) 발행 = 전환율 극대화
+
+##### 캡처 대상 페이지 (우선순위)
+
+| 순위 | 페이지 | 경로 | 포스팅 각도 | 인증 필요 | 구현 난이도 |
+|:---:|---|---|---|:---:|:---:|
+| 🥇 1 | **Guardian AI 브리핑** | `/intel-guardian` | "AI가 매일 아침 이걸 만들어줍니다" | 🔒 Elite | 중 |
+| 🥇 1 | **Intel 히트맵** | `/intel?sector=m7` | "M7 종목 전체가 한눈에" | 🔓 Free | 낮음 |
+| 🥈 2 | **Command 페이지** | `/ticker?ticker=NVDA` | Spotlight과 세트로 "실시간 구조 분석" | 🔓 Free | 중 |
+| 🥉 3 | **Dashboard** | `/dashboard` | 주 1회 "이 한 화면으로 시장 전체를 봅니다" | 🔓 Free | 중 |
+
+##### 기술적 고려사항
+1. **인증 우회**: EC2 capture-worker에 Supabase 세션 쿠키 또는 서비스 토큰 주입 필요 (Elite 전용 페이지)
+2. **데이터 로딩 대기**: SWR/스켈레톤 해소까지 5-10초 delay 필요 (OG 템플릿의 2초보다 김)
+3. **뷰포트 크롭**: 데스크톱 전체(3000px+) → 1200×675 핵심 영역만 crop (상단 Hero 영역)
+4. **모바일 뷰 변환**: `/ticker` 모바일 뷰 → 1080×1920 Story 포맷 직접 캡처 가능
+
+##### 추가 발행 슬롯 (예상)
+| 시간대 | 콘텐츠 | OG 카드와의 관계 |
+|--------|--------|----------------|
+| 가디언 발행 직후 | Guardian AI 브리핑 캡처 | Morning 카드의 30분 후 "증거" |
+| Spotlight 직후 | Command 페이지 캡처 | Spotlight OG의 30분 후 "실화면" |
+| 장 마감 직후 | Intel M7 히트맵 캡처 | Pulse 카드와 독립된 추가 슬롯 |
+| 주말 1회 | Dashboard 전체 캡처 | 주간 요약 독립 콘텐츠 |
+
+##### 구현 시 screenshotService 확장 방향
+```typescript
+// 기존: OG 템플릿 캡처
+captureTemplate({ template: 'pulse', format: 'tweet', data })
+
+// 추가: 실 페이지 캡처 (새 함수)
+captureLivePage({
+  url: 'https://signumhq.com/ticker?ticker=NVDA',
+  viewport: { width: 1200, height: 675 },
+  delay: 8000,        // 데이터 로딩 대기
+  cropArea: { ... },  // 핵심 영역만
+  authToken?: '...',  // 인증 페이지용
+})
+```
 
 ### 4.4 DynamoDB 테이블
 | 테이블명 | PK | SK | 용도 | 기입자 |
