@@ -12,6 +12,7 @@ import { type IntelQuote } from '@/hooks/useIntelSharedData';
 import { useLocale } from 'next-intl';
 import { ChevronDown, Loader2, TrendingUp, BarChart3, Globe, Zap } from 'lucide-react';
 import { useRealtimeData } from '@/providers/WebSocketProvider';
+import { useRouter } from 'next/navigation';
 import { ProGate } from '@/components/gate/FeatureGate';
 import { useTranslations } from 'next-intl';
 
@@ -312,6 +313,7 @@ export function MobileCmdOverview({ ticker, quote, unified, unifiedLoading }: Pr
 function RelatedPeersLive({ tickers, currentPrice }: { tickers: any[]; currentPrice: number }) {
     const peerTickers = useMemo(() => tickers.map((r: any) => r.ticker), [tickers]);
     const { getPrice: wsGetPrice } = useRealtimeData(peerTickers);
+    const router = useRouter();
 
     return (
         <div className="rounded-2xl border border-white/[0.06] bg-[#0f172a]/50 p-4">
@@ -333,7 +335,12 @@ function RelatedPeersLive({ tickers, currentPrice }: { tickers: any[]; currentPr
                         }
                     }
                     return (
-                        <div key={r.ticker} className="flex items-center gap-3 py-1">
+                        <button
+                            key={r.ticker}
+                            onClick={() => router.push(`/ticker?ticker=${r.ticker}`)}
+                            className="flex items-center gap-3 py-1 w-full text-left active:bg-white/[0.04] rounded-lg transition-colors touch-manipulation"
+                            style={{ WebkitTapHighlightColor: 'transparent' }}
+                        >
                             <div className="w-8 h-8 rounded-lg bg-black border border-white/10 overflow-hidden relative flex items-center justify-center shrink-0">
                                 <span className="text-[9px] font-bold text-white/30 absolute">{r.ticker?.slice(0, 2)}</span>
                                 <img src={LOGO(r.ticker)} alt="" className="w-full h-full object-cover absolute inset-0 rounded-lg"
@@ -346,7 +353,7 @@ function RelatedPeersLive({ tickers, currentPrice }: { tickers: any[]; currentPr
                             <span className={`text-[13px] font-bold font-mono tabular-nums min-w-[56px] text-right px-1 py-px rounded bg-slate-900/40 ${displayChange > 0 ? 'text-emerald-400' : displayChange < 0 ? 'text-rose-400' : 'text-slate-400'}`}>
                                 {displayPrice > 0 ? `${displayChange > 0 ? '+' : ''}${displayChange.toFixed(2)}%` : '—'}
                             </span>
-                        </div>
+                        </button>
                     );
                 })}
             </div>
