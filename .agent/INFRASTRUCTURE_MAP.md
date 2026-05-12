@@ -1,4 +1,4 @@
-# SIGNUM HQ — 인프라 전체 맵 (MUST READ FIRST)
+﻿# SIGNUM HQ — 인프라 전체 맵 (MUST READ FIRST)
 
 > **이 파일은 매 세션 시작 시 반드시 읽어야 합니다.**
 > AWS/Vercel/Redis 전체 구조, 코드 위치, 배포 방법을 기록합니다.
@@ -775,9 +775,13 @@ M7_TICKERS = [NVDA, TSLA, AAPL, MSFT, AMZN, META, GOOGL]
 | `src/lib/marketing/hashtagEngine.ts` | **해시태그/SEO 엔진** — 플랫폼별 태그, Pinterest SEO |
 | `src/app/templates/og/*/page.tsx` | **OG 캡처 전용 HTML 템플릿** (6종, 아래 상세) |
 
-#### 5.3.1 일일 스케줄 (vercel.json, 21개 크론 — ALL `dry_run=false`)
+#### 5.3.1 일일 스케줄 (vercel.json — 2026-05-12 통합 리팩터 완료)
 
-##### 콘텐츠 생성 (3개)
+> **변경 (2026-05-12)**: EN/ASIA 분리 삭제 → `region=all` 통합 (14 → 9 크론).
+> US 시장 사이트이므로 모든 지역이 US 장시간 기준으로 동시 발행.
+> 장중 데이터는 지연 없이 전 언어 동시 발행. 교육은 시간 유연.
+
+##### 콘텐츠 생성 (4개)
 | UTC | KST | 크론 | 역할 |
 |:---:|:---:|---|---|
 | 20:25 | 05:25+1 | `daily-content?type=pulse` | Market Pulse AI 생성 + EC2 pre-capture |
@@ -785,66 +789,47 @@ M7_TICKERS = [NVDA, TSLA, AAPL, MSFT, AMZN, META, GOOGL]
 | 23:30 | 08:30+1 | `daily-content?type=education` | Education AI 생성 |
 | 15:30 | 00:30+1 | `daily-content?type=pulse` | 장중 backup |
 
-##### 🇺🇸 EN 리전 (7개)
-| KST | UTC | Action | 플랫폼 | 이미지 소스 |
+##### 🌐 통합 발행 스케줄 (9개 — 전부 `region=all`, `dry_run=false`)
+| UTC | KST | Action | 목적 | 채널 (EN+KO+JA 동시) |
 |:---:|:---:|---|---|---|
-| **06:30** | 10:30 | `morning` | X + Bluesky + IG Story | ✅ EC2 Puppeteer → Supabase CDN |
-| **08:00** | 12:00 | `morning_ig` | IG Carousel (6슬라이드) | ✅ EC2 Puppeteer (1080×1080 × 6) |
-| **11:00** | 16:00 | `midday` | X + Bluesky + IG Story + Pinterest | ✅ EC2 Puppeteer |
-| **09:00** | 00:00 | `education` | X Thread + Pinterest | ✅ EC2 Puppeteer |
-| **11:00** | 02:00 | `edu_bsky` | Bluesky + Pinterest | ✅ EC2 Puppeteer |
-| **05:35+1** | 20:35 | `pulse` | X + Bluesky + IG Story + Pinterest | ✅ EC2 Puppeteer |
-| **07:00+1** | 22:00 | `pulse_ig` | IG Carousel (6슬라이드) | ✅ EC2 Puppeteer (1080×1080 × 6) |
+| 10:30 | **19:30** | `morning` | 프리마켓 구조 분석 | X + Bluesky |
+| 10:35 | **19:35** | `morning_ig` | 같은 콘텐츠, IG 최적화 | IG 캐러셀 + Threads |
+| 16:00 | **01:00+1** | `midday` | 장중 핵심 변화 | X + Bluesky + Pinterest |
+| 17:00 | **02:00+1** | `spotlight` ① | 기관 주목 종목 #1 | X + Bluesky + Threads |
+| 19:00 | **04:00+1** | `spotlight` ② | 기관 주목 종목 #2 | X + Bluesky + Threads |
+| 20:35 | **05:35+1** | `pulse` | 장 마감 종합 | X + Bluesky + Pinterest |
+| 20:40 | **05:40+1** | `pulse_ig` | 같은 콘텐츠, IG 최적화 | IG 캐러셀 + Threads |
+| 00:00 | **09:00+1** | `education` | 지표 교육 X Thread | X Thread + Pinterest |
+| 02:00 | **11:00+1** | `edu_bsky` | 같은 교육, Bluesky 확장 | Bluesky + Pinterest |
 
-##### 🇰🇷🇯🇵 ASIA 리전 (7개)
-| KST | UTC | Action | 플랫폼 |
-|:---:|:---:|---|---|
-| **07:00+1** | 22:00 | `pulse` ASIA | X + Bluesky + IG Story |
-| **08:00+1** | 23:00 | `morning_ig` ASIA | IG Carousel |
-| **08:30+1** | 23:30 | `pulse_ig` ASIA | IG Carousel |
-| **12:00** | 03:00 | `education` ASIA | X Thread + Pinterest |
-| **13:00** | 04:00 | `edu_bsky` ASIA | Bluesky + Pinterest |
-| **22:00** | 13:00 | `morning` ASIA | X + Bluesky + IG Story |
-| **01:15+1** | 16:15 | `midday` ASIA | X + Bluesky + IG Story + Pinterest |
-
-##### 🎯 Ticker Spotlight 게릴라 (4개)
-| KST | Action | 설명 |
-|:---:|---|---|
-| **23:00** | `spotlight` EN | 장 오픈 직후, 랜덤 M7/30종목 |
-| **01:30+1** | `spotlight` EN | 런치타임 |
-| **04:00+1** | `spotlight` EN | 장 마감 전 |
-| **06:30+1** | `spotlight` ALL | 애프터마켓, EN+KO+JA 전체 |
+> **Spotlight 중복 방지 (2026-05-12)**: Redis `marketing:spotlight:used:{dateKey}` 키로 당일 이미 포스팅된 티커를 추적.
+> 2회 실행 시 반드시 다른 종목이 선택됨 (최대 5회 재시도).
 
 ##### ⚡ 이벤트 감지 (1개)
 | KST | 주기 | 설명 |
 |:---:|:---:|---|
 | 22:00~06:00 | 5분마다 | 마켓 시간 전체 스캔 (UTC 13~21시) |
 
-#### 5.3.2 AI 콘텐츠 엔진 (Claude Haiku 4.5)
+##### 🔧 핵심 수정 이력 (2026-05-12 세션)
 
-- **모델**: `us.anthropic.claude-haiku-4-5-20251001-v1:0` (Bedrock)
-- **비용**: ~$0.003/call → 하루 12~16건 × 3언어 = **~$0.01~0.03/일**
-- **3개 언어 병렬**: EN + KO + JA 동시 생성 (`Promise.all`)
-- **콘텐츠 유형**: Market Pulse / Morning Brief / Education / Event Spike
-- **Fallback**: AI 실패 시 → `contentEngines.ts` 정적 템플릿 자동 전환
+| 수정 | 영향 범위 | 이유 |
+|------|----------|------|
+| `replyText` 전부 삭제 | 전 X 디스패치 (morning/midday/pulse/event/spotlight) | Buffer API가 reply threading을 지원하지 않아 CTA가 독립 스팸 트윗으로 발행되는 문제 |
+| `truncateForPlatform` → `truncateWithTags` | 전 디스패치 | 기존 함수가 본문 길이 초과 시 해시태그/cashtag를 잘라내는 문제. truncateWithTags는 태그를 보존하고 본문만 잘라냄 |
+| `dispatchStory` 전부 삭제 | morning/midday/pulse | Story 템플릿(1080×1920) 미완성 상태에서 발행 시도 → 에러. 캐러셀로 대체 |
+| EN/ASIA 분리 → `region=all` | vercel.json 14 → 9 크론 | US 시장 사이트에서 장중 데이터를 지역별로 지연할 이유 없음 |
+| Spotlight 4회 → 2회 | vercel.json | 스팸 방지 + 품질 우선 (각각 다른 종목, Redis dedup) |
 
-##### AI 프롬프트 설계 (Bloomberg-grade, 2026-05-09)
-- **브랜드 보이스**: Goldman/Citadel 시니어 퀀트 레벨
-- **Hook 전략**: Cognitive Dissonance Formula (인지부조화 → 스크롤 정지)
-- **플랫폼별 알고리즘 최적화**:
-  - Twitter: DWELL TIME → BOOKMARK (contrarian fact + structural decode)
-  - Threads: REPLIES 최우선 (특정 질문으로 끝맺음)
-  - Instagram: SAVES 최우선 (레퍼런스 문서급 가치)
-  - Bluesky: QUOTES 최우선 (Reuters 와이어 + 편집적 인사이트)
-
-##### 컴플라이언스 시스템 (2중 안전장치)
-1. **System Prompt**: BANNED 단어 목록 (EN 15개 + KO 12개 + JA 9개)
-2. **Post-Processing Filter**: `HARD_BLOCK_PATTERNS` 22개 정규식
-   - EN: directional/advisory 11패턴 (buy/sell/bullish/bearish/guarantee/profit 등)
-   - KO: 4그룹 (매수매도/상승하락전망/추천대박/적중)
-   - JA: 2그룹 (買い売り/チャンス推奨)
-   - Meta: 3패턴 (AI 자체 disclaimer 삽입 방지)
-- **시뮬레이션 결과**: 기관급 4건 PASS, 위반 9건 (EN/KO/JA) 전부 BLOCKED ✅
+##### 해시태그/태그 처리 (truncateWithTags — 2026-05-12 전수 적용)
+```
+truncateWithTags(body, tags, platform)
+- body: 본문 텍스트 (잘릴 수 있음)
+- tags: 해시태그/cashtag 문자열 (절대 잘리지 않음)
+- platform: 'twitter'(280자) | 'bluesky'(300자) | 'threads'(500자) | 'instagram'(2200자)
+- 로직: tags 길이 먼저 확보 → 남은 공간에 body를 맞춤 → body + \n\n + tags
+```
+> ⚠️ **절대 원칙**: `truncateForPlatform(body + tags)` 사용 금지. 본문이 길면 tags가 잘림.
+> 반드시 `truncateWithTags(body, tags, platform)` 사용.
 
 #### 5.3.3 이벤트 감지 시스템 (7종)
 
@@ -999,6 +984,7 @@ twitter:
 | `marketing:event:sent:{type}:{ticker}:{date}` | 24h | 중복 방지 dedup |
 | `marketing:spotlight:{date}:{ticker}` | 24h | Spotlight 콘텐츠 로그 |
 | `marketing:dispatch:v2:{date}:{action}` | 7일 | 디스패치 결과 로그 |
+| `marketing:spotlight:used:{dateKey}` | 24h | **Spotlight 중복 티커 방지 (2026-05-12 신규)** |
 
 #### 5.3.10 [계획] 실 페이지 캡처 병행 전략 — OG 카드 + 제품 스크린샷 2트랙
 
