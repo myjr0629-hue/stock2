@@ -233,3 +233,54 @@ process.on('SIGINT', async () => {
   server.close();
   process.exit(0);
 });
+
+// ═══ WATCHDOG: Chromium Health Check & Auto-Restart ═══
+// Prevents the exact failure that caused pulse dispatch timeout at KST 05:35
+let lastBrowserRestart = Date.now();
+const WATCHDOG_INTERVAL = 5 * 60 * 1000;    // Check every 5 minutes
+const FORCE_RESTART_INTERVAL = 2 * 60 * 60 * 1000; // Force restart every 2 hours
+
+setInterval(async () => {
+  const now = Date.now();
+  const uptime = ((now - lastBrowserRestart) / 1000 / 60).toFixed(1);
+
+  try {
+    // Check 1: Is browser still connected?
+    if (!browserInstance || !browserInstance.isConnected()) {
+      console.log(`[Watchdog] ⚠️ Browser disconnected (uptime: ${uptime}min). Restarting...`);
+      try { if (browserInstance) await browserInstance.close().catch(() => {}); } catch {}
+      browserInstance = null;
+      await getBrowser();
+      lastBrowserRestart = Date.now();
+      console.log('[Watchdog] ✅ Browser restarted successfully');
+      return;
+    }
+
+    // Check 2: Force restart every 2 hours (prevent memory leaks)
+    if (now - lastBrowserRestart > FORCE_RESTART_INTERVAL) {
+      console.log(`[Watchdog] 🔄 Scheduled restart (uptime: ${uptime}min). Recycling browser...`);
+      try { await browserInstance.close(); } catch {}
+      browserInstance = null;
+      await getBrowser();
+      lastBrowserRestart = Date.now();
+      console.log('[Watchdog] ✅ Browser recycled successfully');
+      return;
+    }
+
+    // Check 3: Verify browser can open pages (deep health check)
+    const testPage = await browserInstance.newPage();
+    await testPage.close();
+    // Silent success — browser is healthy
+  } catch (err) {
+    console.error(`[Watchdog] ❌ Health check failed: ${err.message}. Force restarting...`);
+    try { if (browserInstance) await browserInstance.close().catch(() => {}); } catch {}
+    browserInstance = null;
+    try {
+      await getBrowser();
+      lastBrowserRestart = Date.now();
+      console.log('[Watchdog] ✅ Browser force-restarted after health check failure');
+    } catch (launchErr) {
+      console.error(`[Watchdog] ❌ Browser restart FAILED: ${launchErr.message}`);
+    }
+  }
+}, WATCHDOG_INTERVAL);
