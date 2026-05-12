@@ -118,7 +118,7 @@ async function captureViaEC2(
         height,
         delay: 2000,
       }),
-      signal: AbortSignal.timeout(30000),
+      signal: AbortSignal.timeout(15000),
     });
     
     if (!res.ok) {

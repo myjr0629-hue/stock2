@@ -17,6 +17,10 @@
 
 import { NextResponse } from 'next/server';
 import { getFromCache, setInCache } from '@/services/redisClient';
+
+export const dynamic = 'force-dynamic';
+export const maxDuration = 120; // IG 캐러셀 6장 캡처에 충분한 시간
+
 import {
   dispatchTweet,
   dispatchThread,
