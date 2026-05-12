@@ -52,7 +52,7 @@ export async function fetchLiveMarketData(): Promise<LiveMarketData> {
 // Text Builder — observation language only, no predictions
 // ---------------------------------------------------------------------------
 export function buildRealtimeText(
-  ct: 'premarket' | 'intraday' | 'close' | 'structure' | 'afterhours' | 'recap' | 'asia_insight',
+  ct: 'premarket' | 'intraday' | 'close' | 'structure' | 'afterhours' | 'recap' | 'asia_insight' | 'market_open' | 'asia_evening',
   plat: 'bluesky' | 'threads',
   lang: Lang,
   m: LiveMarketData,
@@ -66,6 +66,9 @@ export function buildRealtimeText(
   const sd = m.spyChg >= 0 ? '+' : '';
   const vd = m.vixChg >= 0 ? '+' : '';
   const dp = m.dp > 0 ? `${m.dp.toFixed(1)}%` : 'N/A';
+  const volNote = m.vixChg > 0
+    ? (lang === 'ko' ? '변동성 확대 중' : lang === 'ja' ? 'ボラティリティ拡大中' : 'volatility expanding')
+    : (lang === 'ko' ? '변동성 축소 중' : lang === 'ja' ? 'ボラティリティ縮小中' : 'volatility compressing');
   const disc = {
     en: '*Not financial advice. Data-driven context only.',
     ko: '*본 정보는 투자 권유가 아닌 데이터 분석 참고 자료입니다.',
@@ -92,9 +95,6 @@ export function buildRealtimeText(
 
   // ── THREADS (≤500 char, conversational, engagement question) ──
   if (ct === 'premarket') {
-    const volNote = m.vixChg > 0
-      ? (lang === 'ko' ? '변동성 확대 중' : lang === 'ja' ? 'ボラティリティ拡大中' : 'volatility expanding')
-      : (lang === 'ko' ? '변동성 축소 중' : lang === 'ja' ? 'ボラティリティ縮小中' : 'volatility compressing');
     if (lang === 'ko') return `좋은 아침입니다 👋\n\n장 오픈 전 구조 체크:\n• VIX ${m.vix.toFixed(1)} — ${volNote}\n• GEX ${G} — ${gM}\n\n데이터는 예측하지 않습니다. 하지만 기관이 어디에 포지셔닝하고 있는지를 보여줍니다.\n\n오늘 주목하는 지표가 있으신가요? 👇\n\n${disc.ko}`;
     if (lang === 'ja') return `おはようございます 👋\n\n構造チェック:\n• VIX ${m.vix.toFixed(1)} — ${volNote}\n• GEX ${G} — ${gM}\n\n機関のポジショニングを観察しています。\n\n注目する指標は？ 👇\n\n${disc.ja}`;
     return `Good morning 👋\n\nQuick pre-market structure check:\n• VIX at ${m.vix.toFixed(1)} — ${volNote}\n• GEX ${G} — ${gM}\n\nThe data doesn't predict. But it reveals where institutions are positioning.\n\nWhat are you watching today? 👇\n\n${disc.en}`;
@@ -125,6 +125,78 @@ export function buildRealtimeText(
     if (lang === 'ko') return `💡 오늘의 구조 인사이트\n\n${gexNote}\n\nVIX ${m.vix.toFixed(1)} | DP ${dp}\n\n이 데이터를 보고 무엇이 떠오르시나요?\n→ 실시간 구조 분석: signumhq.com\n\n${disc.ko}`;
     if (lang === 'ja') return `💡 本日の構造インサイト\n\n${gexNote}\n\nVIX ${m.vix.toFixed(1)} | DP ${dp}\n\nこのデータから何が見えますか？\n→ リアルタイム構造分析: signumhq.com\n\n${disc.ja}`;
     return `💡 Today's structural insight\n\n${gexNote}\n\nVIX ${m.vix.toFixed(1)} | DP ${dp}\n\nWhat does this data tell you?\n→ Live structure analysis: signumhq.com\n\n${disc.en}`;
+  }
+  // ── MARKET OPEN (KST 22:30 = ET 09:30) ──
+  if (ct === 'market_open') {
+    if (lang === 'ko') return `🔔 미국 시장 오픈!
+
+장 시작과 함께 구조를 확인합니다:
+• VIX: ${m.vix.toFixed(1)} (${volNote})
+• GEX: ${G} — ${gM}
+• 다크풀: ${dp}
+
+오픈 직후 기관 흐름이 가장 빠르게 드러납니다.
+
+어떤 종목을 주시하고 계신가요? 👇
+
+${disc.ko}`;
+    if (lang === 'ja') return `🔔 米国市場オープン!
+
+セッション開始時の構造:
+• VIX: ${m.vix.toFixed(1)}
+• GEX: ${G} — ${gM}
+• DP: ${dp}
+
+オープン直後に機関の動きが最も早く現れます。
+
+注目銘柄は？ 👇
+
+${disc.ja}`;
+    return `🔔 US Market Open
+
+Opening structure check:
+• VIX: ${m.vix.toFixed(1)}
+• GEX: ${G} — ${gM}
+• Dark Pool: ${dp}
+
+Institutional flow reveals itself fastest at the open.
+
+What are you watching? 👇
+
+${disc.en}`;
+  }
+  // ── ASIA EVENING (KST 20:30 — 저녁 소셜 피크) ──
+  if (ct === 'asia_evening') {
+    if (lang === 'ko') return `🌆 오늘의 시장 준비 체크
+
+미국 장 오픈까지 2시간. 지금 구조를 미리 확인하세요:
+📊 VIX: ${m.vix.toFixed(1)} | GEX: ${G}
+🏦 다크풀: ${dp}
+
+기관이 포지셔닝하는 곳을 먼저 봐야 합니다.
+→ signumhq.com에서 실시간 확인
+
+${disc.ko}`;
+    if (lang === 'ja') return `🌆 本日の市場準備チェック
+
+米国オープンまで2時間。構造を事前に確認:
+📊 VIX: ${m.vix.toFixed(1)} | GEX: ${G}
+🏦 DP: ${dp}
+
+機関のポジショニングを先に確認しましょう。
+→ signumhq.comでリアルタイム確認
+
+${disc.ja}`;
+    return `🌆 Pre-session prep
+
+2 hours to US open. Structure check:
+📊 VIX: ${m.vix.toFixed(1)} | GEX: ${G}
+🏦 Dark Pool: ${dp}
+
+See where institutions are positioning first.
+→ signumhq.com
+
+${disc.en}`;
   }
   // close (threads)
   if (lang === 'ko') return `장 마감 🔔\n\n오늘 구조가 보여준 것:\n📈 SPY: ${sd}${m.spyChg.toFixed(2)}%\n📊 VIX: ${m.vix.toFixed(1)}\n🏦 Dark Pool: ${dp}\n⚡ GEX: ${G}\n\n데이터는 예측하지 않지만, 기관의 포지셔닝을 드러냅니다.\n\n오늘 가장 인상적이었던 지표는? 👇\n\n${disc.ko}`;

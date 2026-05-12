@@ -41,7 +41,7 @@ import { buildRealtimeText, captureRealtimeOG, fetchLiveMarketData } from '@/lib
 // ---------------------------------------------------------------------------
 // Actions
 // ---------------------------------------------------------------------------
-type Action = 'morning' | 'morning_ig' | 'midday' | 'education' | 'edu_bsky' | 'pulse' | 'pulse_ig' | 'event' | 'spotlight' | 'premarket_bsky' | 'premarket_threads' | 'intraday_bsky' | 'close_bsky' | 'close_threads' | 'structure_bsky' | 'insight_threads' | 'afterhours_bsky' | 'afterhours_threads' | 'asia_recap' | 'asia_insight';
+type Action = 'morning' | 'morning_ig' | 'midday' | 'education' | 'edu_bsky' | 'pulse' | 'pulse_ig' | 'event' | 'spotlight' | 'premarket_bsky' | 'premarket_threads' | 'intraday_bsky' | 'close_bsky' | 'close_threads' | 'structure_bsky' | 'insight_threads' | 'afterhours_bsky' | 'afterhours_threads' | 'asia_recap' | 'asia_insight' | 'asia_evening' | 'market_open';
 type Region = 'en' | 'asia' | 'all'; // en=EN only, asia=KO+JP, all=both
 
 function getLangsForRegion(region: Region): Lang[] {
@@ -155,6 +155,22 @@ export async function GET(request: Request) {
               results.push(r);
             }
           }
+        }
+
+        // Pinterest (EN only, SEO evergreen)
+        const pinChMorn = getChannels({ tier: 'all', service: 'pinterest' })[0];
+        if (pinChMorn && content.en?.text) {
+          const seo = getPinterestSEO({ contentType: 'morning', date: dateKey });
+          const ogForPin = await captureImageForDispatch(baseUrl, content, 'en', 'pin', 'morning', dryRun);
+          const r = await dispatchPin({
+            channelId: pinChMorn.id,
+            imageUrl: ogForPin,
+            title: seo.title,
+            description: seo.description,
+            link: `${baseUrl}/command?${buildUtm('pinterest', 'morning')}`,
+            dryRun, draft,
+          });
+          results.push(r);
         }
         break;
       }
@@ -816,6 +832,22 @@ for (const lang of langs) {
           });
           results.push(r);
         }
+
+        // Pinterest (EN only)
+        const pinChPM = getChannels({ tier: 'all', service: 'pinterest' })[0];
+        if (pinChPM) {
+          const seo = getPinterestSEO({ contentType: 'premarket', date: dateKey });
+          const pmOg = await captureRealtimeOG(baseUrl, mkt, 'og', dryRun);
+          const r = await dispatchPin({
+            channelId: pinChPM.id,
+            imageUrl: pmOg,
+            title: seo.title,
+            description: seo.description,
+            link: `${baseUrl}/flow?${buildUtm('pinterest', 'premarket')}`,
+            dryRun, draft,
+          });
+          results.push(r);
+        }
         break;
       }
 
@@ -932,6 +964,22 @@ for (const lang of langs) {
           });
           results.push(r);
         }
+
+        // Pinterest (EN only)
+        const pinChInsight = getChannels({ tier: 'all', service: 'pinterest' })[0];
+        if (pinChInsight) {
+          const seo = getPinterestSEO({ contentType: 'intraday', date: dateKey });
+          const insightOg = await captureRealtimeOG(baseUrl, mkt, 'og', dryRun);
+          const r = await dispatchPin({
+            channelId: pinChInsight.id,
+            imageUrl: insightOg,
+            title: seo.title,
+            description: seo.description,
+            link: `${baseUrl}/command?${buildUtm('pinterest', 'insight')}`,
+            dryRun, draft,
+          });
+          results.push(r);
+        }
         break;
       }
 
@@ -1032,6 +1080,86 @@ for (const lang of langs) {
 
       default:
         return NextResponse.json({ error: `Unknown action: ${action}` }, { status: 400 });
+
+      // ========================================
+      // ASIA EVENING — UTC 11:30 (KST 20:30 / ET 07:30)
+      // Threads KO/JA only — Evening engagement
+      // ========================================
+      case 'asia_evening': {
+        const mkt = await fetchLiveMarketData();
+        for (const lang of langs) {
+          if (lang === 'en') continue;
+          const thCh = getChannels({ tier: 'all', lang, service: 'threads' })[0];
+          if (!thCh) continue;
+          const text = buildRealtimeText('asia_evening', 'threads', lang, mkt);
+          const tags = getHashtags({ platform: 'threads', contentType: 'premarket', lang });
+          const ogImage = await captureRealtimeOG(baseUrl, mkt, 'og', dryRun);
+          const r = await dispatchPost({
+            channelId: thCh.id,
+            text: truncateWithTags(text, tags, 'threads'),
+            imageUrl: ogImage,
+            dryRun, draft,
+          });
+          results.push(r);
+        }
+        break;
+      }
+
+      // ========================================
+      // MARKET OPEN — UTC 13:30 (KST 22:30 / ET 09:30)
+      // Threads KO/JA + Bluesky EN
+      // ========================================
+      case 'market_open': {
+        const mkt = await fetchLiveMarketData();
+        // Threads KO/JA
+        for (const lang of langs) {
+          if (lang === 'en') continue;
+          const thCh = getChannels({ tier: 'all', lang, service: 'threads' })[0];
+          if (!thCh) continue;
+          const text = buildRealtimeText('market_open', 'threads', lang, mkt);
+          const tags = getHashtags({ platform: 'threads', contentType: 'intraday', lang });
+          const ogImage = await captureRealtimeOG(baseUrl, mkt, 'og', dryRun);
+          const r = await dispatchPost({
+            channelId: thCh.id,
+            text: truncateWithTags(text, tags, 'threads'),
+            imageUrl: ogImage,
+            dryRun, draft,
+          });
+          results.push(r);
+        }
+        // Bluesky EN
+        const bskyCh = getChannels({ tier: 'all', lang: 'en', service: 'bluesky' })[0];
+        if (bskyCh) {
+          const text = buildRealtimeText('market_open', 'bluesky', 'en', mkt);
+          const ctaUrl = buildCtaUrl('en', 'command', 'market_open');
+          const tags = getHashtags({ platform: 'bluesky', contentType: 'intraday', lang: 'en' });
+          const footer = `\n\n${ctaUrl}\n\n${tags}`;
+          const ogImage = await captureRealtimeOG(baseUrl, mkt, 'og', dryRun);
+          const r = await dispatchPost({
+            channelId: bskyCh.id,
+            text: truncateWithTags(text, footer, 'bluesky'),
+            imageUrl: ogImage,
+            dryRun, draft,
+          });
+          results.push(r);
+        }
+        // Pinterest
+        const pinChOpen = getChannels({ tier: 'all', service: 'pinterest' })[0];
+        if (pinChOpen) {
+          const seo = getPinterestSEO({ contentType: 'intraday', date: dateKey });
+          const ogImage = await captureRealtimeOG(baseUrl, mkt, 'og', dryRun);
+          const r = await dispatchPin({
+            channelId: pinChOpen.id,
+            imageUrl: ogImage,
+            title: seo.title,
+            description: seo.description,
+            link: `${baseUrl}/command?${buildUtm('pinterest', 'market_open')}`,
+            dryRun, draft,
+          });
+          results.push(r);
+        }
+        break;
+      }
     }
 
     // Log dispatch results

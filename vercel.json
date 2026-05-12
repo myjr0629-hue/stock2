@@ -98,6 +98,10 @@
             "schedule": "38 10 * * 1-5"
         },
         {
+            "path": "/api/cron/marketing-dispatch?action=asia_evening&region=asia&dry_run=false",
+            "schedule": "30 11 * * 1-5"
+        },
+        {
             "path": "/api/cron/marketing-dispatch?action=midday&region=all&dry_run=false",
             "schedule": "0 16 * * 1-5"
         },
@@ -137,6 +141,10 @@
         {
             "path": "/api/cron/marketing-dispatch?action=premarket_threads&region=all&dry_run=false",
             "schedule": "35 12 * * 1-5"
+        },
+        {
+            "path": "/api/cron/marketing-dispatch?action=market_open&region=all&dry_run=false",
+            "schedule": "30 13 * * 1-5"
         },
         {
             "path": "/api/cron/marketing-dispatch?action=intraday_bsky&region=en&dry_run=false",
