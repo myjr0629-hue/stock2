@@ -125,6 +125,14 @@
             "path": "/api/cron/marketing-dispatch?action=asia_recap&region=asia&dry_run=false",
             "schedule": "30 2 * * 2-6"
         },
+        {
+            "path": "/api/cron/marketing-dispatch?action=asia_tip&region=asia&dry_run=false",
+            "schedule": "30 7 * * 1-5"
+        },
+        {
+            "path": "/api/cron/marketing-dispatch?action=asia_preview&region=asia&dry_run=false",
+            "schedule": "0 9 * * 1-5"
+        },
 
         {
             "path": "/api/cron/event-detect?dry_run=false",
