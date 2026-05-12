@@ -223,9 +223,10 @@ export async function GET(request: Request) {
           // X Tweet
           const twitterCh = getChannels({ tier: 'all', lang, service: 'twitter' })[0];
           if (twitterCh) {
+            const tags = getHashtags({ platform: 'twitter', contentType: 'midday', lang });
             const r = await dispatchTweet({
               channelId: twitterCh.id,
-              text: truncateForPlatform(lc.platformText?.twitter || lc.text, 'twitter'),
+              text: truncateForPlatform(`${lc.platformText?.twitter || lc.text}${tags ? '\n\n' + tags : ''}`, 'twitter'),
               imageUrl: await captureImageForDispatch(baseUrl, content, lang, 'tweet', 'pulse', dryRun),
               replyText: `📊 ${ctaUrl}`,
               dryRun,
@@ -600,12 +601,14 @@ for (const lang of langs) {
           const lc = spotlightContent[lang];
           if (!lc?.text) continue;
 
+          const tickerCashtag = `$${ticker}`;
+
           // X tweet
           const xCh = getChannels({ tier: 'all', lang, service: 'twitter' })[0];
           if (xCh) {
             const r = await dispatchTweet({
               channelId: xCh.id,
-              text: truncateForPlatform(lc.text, 'twitter'),
+              text: truncateForPlatform(`${lc.text}\n\n${tickerCashtag} $SPY`, 'twitter'),
               imageUrl: spotlightImages.tweet || lc.imageUrl,
               dryRun,
 
@@ -619,7 +622,7 @@ for (const lang of langs) {
           if (thCh) {
             const r = await dispatchPost({
               channelId: thCh.id,
-              text: truncateForPlatform(lc.text, 'threads'),
+              text: truncateForPlatform(`${lc.text}\n\n${tickerCashtag}`, 'threads'),
               imageUrl: spotlightImages.tweet || lc.imageUrl,
               dryRun,
 
