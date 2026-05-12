@@ -102,6 +102,9 @@ export async function GET(request: Request) {
           const blueskyText = lc.platformText?.bluesky || lc.text;
           const ctaUrl = buildCtaUrl(lang, 'guardian', 'morning');
 
+          // Pre-capture OG image (reused across X + Bluesky)
+          const ogImage = await captureImageForDispatch(baseUrl, content, lang, 'tweet', 'morning', dryRun);
+
           // X Tweet + auto-reply
           const twitterCh = getChannels({ tier: 'all', lang, service: 'twitter' })[0];
           if (twitterCh) {
@@ -109,7 +112,7 @@ export async function GET(request: Request) {
             const r = await dispatchTweet({
               channelId: twitterCh.id,
               text: truncateForPlatform(`${tweetText}\n\n${tags}`, 'twitter'),
-              imageUrl: await captureImageForDispatch(baseUrl, content, lang, 'tweet', 'morning', dryRun),
+              imageUrl: ogImage,
               replyText: `📊 ${ctaUrl}`,
               dryRun,
 
@@ -125,7 +128,7 @@ export async function GET(request: Request) {
             const r = await dispatchPost({
               channelId: bskyCh.id,
               text: truncateForPlatform(`${blueskyText}\n\n${ctaUrl}\n\n${tags}`, 'bluesky'),
-              imageUrl: lc.imageUrl,
+              imageUrl: ogImage,
               dryRun,
 
               draft,
@@ -166,6 +169,9 @@ export async function GET(request: Request) {
           const lc = content[lang];
           if (!lc?.text) continue;
 
+          // Pre-capture OG image for Threads
+          const threadsImage = await captureImageForDispatch(baseUrl, content, lang, 'og', 'morning', dryRun);
+
           const igCh = getChannels({ tier: 'all', lang, service: 'instagram' })[0];
           if (igCh) {
             const caption = lc.platformText?.instagram || lc.text;
@@ -190,7 +196,7 @@ export async function GET(request: Request) {
             const r = await dispatchPost({
               channelId: threadsCh.id,
               text: truncateForPlatform(`${lc.platformText?.threads || lc.text}\n\n${tags}`, 'threads'),
-              imageUrl: lc.imageUrl,
+              imageUrl: threadsImage,
               dryRun,
 
               draft,
@@ -220,6 +226,9 @@ export async function GET(request: Request) {
 
           const ctaUrl = buildCtaUrl(lang, 'command', 'midday');
 
+          // Pre-capture OG image (reused across X + Bluesky)
+          const ogImage = await captureImageForDispatch(baseUrl, content, lang, 'tweet', 'pulse', dryRun);
+
           // X Tweet
           const twitterCh = getChannels({ tier: 'all', lang, service: 'twitter' })[0];
           if (twitterCh) {
@@ -227,7 +236,7 @@ export async function GET(request: Request) {
             const r = await dispatchTweet({
               channelId: twitterCh.id,
               text: truncateForPlatform(`${lc.platformText?.twitter || lc.text}${tags ? '\n\n' + tags : ''}`, 'twitter'),
-              imageUrl: await captureImageForDispatch(baseUrl, content, lang, 'tweet', 'pulse', dryRun),
+              imageUrl: ogImage,
               replyText: `📊 ${ctaUrl}`,
               dryRun,
 
@@ -243,7 +252,7 @@ export async function GET(request: Request) {
             const r = await dispatchPost({
               channelId: bskyCh.id,
               text: truncateForPlatform(`${lc.platformText?.bluesky || lc.text}\n\n${ctaUrl}\n\n${tags}`, 'bluesky'),
-              imageUrl: lc.imageUrl,
+              imageUrl: ogImage,
               dryRun,
 
               draft,
@@ -300,8 +309,10 @@ export async function GET(request: Request) {
           const twitterCh = getChannels({ tier: 'all', lang, service: 'twitter' })[0];
 
           if (twitterCh) {
+            // Pre-capture education OG image for thread
+            const eduOgImage = await captureImageForDispatch(baseUrl, content, lang, 'tweet', 'education', dryRun);
             // Build thread slides from education content
-            const slides = buildEducationThread(lc, lang, ctaUrl, baseUrl, content);
+            const slides = buildEducationThread(lc, lang, ctaUrl, eduOgImage);
             const r = await dispatchThread({
               channelId: twitterCh.id,
               slides,
@@ -348,10 +359,11 @@ export async function GET(request: Request) {
           const bskyCh = getChannels({ tier: 'all', lang, service: 'bluesky' })[0];
           if (bskyCh) {
             const tags = getHashtags({ platform: 'bluesky', contentType: 'education', lang });
+            const eduImage = await captureImageForDispatch(baseUrl, content, lang, 'og', 'education', dryRun);
             const r = await dispatchPost({
               channelId: bskyCh.id,
               text: truncateForPlatform(`${lc.platformText?.bluesky || lc.text}\n\n${ctaUrl}\n\n${tags}`, 'bluesky'),
-              imageUrl: lc.imageUrl,
+              imageUrl: eduImage,
               dryRun,
 
               draft,
@@ -393,6 +405,9 @@ export async function GET(request: Request) {
 
           const ctaUrl = buildCtaUrl(lang, 'command', 'pulse');
 
+          // Pre-capture OG image (reused across X + Bluesky)
+          const ogImage = await captureImageForDispatch(baseUrl, content, lang, 'tweet', 'pulse', dryRun);
+
           // X Tweet + auto-reply
           const twitterCh = getChannels({ tier: 'all', lang, service: 'twitter' })[0];
           if (twitterCh) {
@@ -400,7 +415,7 @@ export async function GET(request: Request) {
             const r = await dispatchTweet({
               channelId: twitterCh.id,
               text: truncateForPlatform(`${lc.platformText?.twitter || lc.text}\n\n${tags}`, 'twitter'),
-              imageUrl: await captureImageForDispatch(baseUrl, content, lang, 'tweet', 'pulse', dryRun),
+              imageUrl: ogImage,
               replyText: `📊 ${ctaUrl}`,
               dryRun,
 
@@ -416,7 +431,7 @@ export async function GET(request: Request) {
             const r = await dispatchPost({
               channelId: bskyCh.id,
               text: truncateForPlatform(`${lc.platformText?.bluesky || lc.text}\n\n${ctaUrl}\n\n${tags}`, 'bluesky'),
-              imageUrl: lc.imageUrl,
+              imageUrl: ogImage,
               dryRun,
 
               draft,
@@ -489,10 +504,11 @@ export async function GET(request: Request) {
           const threadsCh = getChannels({ tier: 'all', lang, service: 'threads' })[0];
           if (threadsCh) {
             const tags = getHashtags({ platform: 'threads', contentType: 'pulse', lang });
+            const threadsImage = await captureImageForDispatch(baseUrl, content, lang, 'og', 'pulse', dryRun);
             const r = await dispatchPost({
               channelId: threadsCh.id,
               text: truncateForPlatform(`${lc.platformText?.threads || lc.text}\n\n${tags}`, 'threads'),
-              imageUrl: lc.imageUrl,
+              imageUrl: threadsImage,
               dryRun,
 
               draft,
@@ -833,8 +849,7 @@ function buildEducationThread(
   lc: ContentOutput['en'],
   lang: Lang,
   ctaUrl: string,
-  baseUrl: string,
-  content: ContentOutput
+  ogImageUrl: string,
 ): ThreadSlide[] {
   const text = lc.platformText?.twitter || lc.text;
 
@@ -848,9 +863,9 @@ function buildEducationThread(
   const slide4Text = `${ctaUrl}\n\n🔁 RT if this changed how you think about market structure.`;
 
   return [
-    { text: `🧵 ${truncateForPlatform(slide1Text, 'twitter')}`, imageUrl: lc.imageUrl },
+    { text: `🧵 ${truncateForPlatform(slide1Text, 'twitter')}`, imageUrl: ogImageUrl },
     { text: truncateForPlatform(slide2Text, 'twitter') },
     { text: truncateForPlatform(slide3Text, 'twitter') },
-    { text: truncateForPlatform(slide4Text, 'twitter'), imageUrl: lc.imageUrl },
+    { text: truncateForPlatform(slide4Text, 'twitter'), imageUrl: ogImageUrl },
   ];
 }
