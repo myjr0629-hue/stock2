@@ -444,7 +444,7 @@ export function MobileTickerDetail({ quote: q, sectorLabel, onBack }: MobileTick
 
                 {/* ═══ CTA ═══ */}
                 <button
-                    onClick={() => { router.push(`/dashboard?t=${q.ticker}`); }}
+                    onClick={() => { router.push(`/ticker?ticker=${q.ticker}`); }}
                     className="w-full py-3.5 bg-blue-500 hover:bg-blue-400 active:bg-blue-600 text-white font-semibold rounded-xl transition-colors flex items-center justify-center gap-2 touch-manipulation text-[14px]"
                     style={{ WebkitTapHighlightColor: 'transparent' }}>
                     Open Full Terminal →

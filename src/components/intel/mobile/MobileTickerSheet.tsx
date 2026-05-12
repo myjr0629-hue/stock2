@@ -45,7 +45,7 @@ export function MobileTickerSheet({ ticker, isOpen, onClose }: MobileTickerSheet
     const handleNavigateToTerminal = () => {
         onClose();
         setTimeout(() => {
-            router.push(`/dashboard?t=${ticker.ticker}`);
+            router.push(`/ticker?ticker=${ticker.ticker}`);
         }, 150);
     };
 
