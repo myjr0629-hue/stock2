@@ -590,9 +590,8 @@ for (const lang of langs) {
           if (xCh) {
             const r = await dispatchTweet({
               channelId: xCh.id,
-              text: truncateForPlatform(`${lc.text}\n\n${xTags}`, 'twitter'),
+              text: truncateWithTags(lc.text, xTags, 'twitter'),
               imageUrl: spotlightImages.tweet || lc.imageUrl,
-              replyText: `📊 Full analysis → ${buildCtaUrl(lang, 'command', 'spotlight')}`,
               dryRun,
 
               draft,
@@ -607,7 +606,7 @@ for (const lang of langs) {
             const ctaUrl = buildCtaUrl(lang, 'command', 'spotlight');
             const r = await dispatchPost({
               channelId: bskyCh.id,
-              text: truncateForPlatform(`${lc.text}\n\n${ctaUrl}\n\n${tags}`, 'bluesky'),
+              text: truncateWithTags(lc.text, `\n\n${ctaUrl}\n\n${tags}`, 'bluesky'),
               imageUrl: spotlightImages.tweet || lc.imageUrl,
               dryRun,
 
@@ -621,7 +620,7 @@ for (const lang of langs) {
           if (thCh) {
             const r = await dispatchPost({
               channelId: thCh.id,
-              text: truncateForPlatform(`${lc.text}\n\n${tickerCashtag} #InstitutionalFlow`, 'threads'),
+              text: truncateWithTags(lc.text, `${tickerCashtag} #InstitutionalFlow`, 'threads'),
               imageUrl: spotlightImages.tweet || lc.imageUrl,
               dryRun,
 
