@@ -31,6 +31,7 @@ import {
 import { getChannels, truncateForPlatform, buildUtm } from '@/lib/marketing/bufferClient';
 import { getHashtags, buildInstagramFooter, getPinterestSEO, type ContentType, type Lang } from '@/lib/marketing/hashtagEngine';
 import { prerenderAndUpload } from '@/lib/marketing/imagePrerenderer';
+import { captureTemplate, type FormatType, type TemplateType } from '@/lib/marketing/screenshotService';
 import type { ContentOutput } from '@/lib/marketing/contentEngines';
 
 // ---------------------------------------------------------------------------
@@ -109,7 +110,7 @@ export async function GET(request: Request) {
             const r = await dispatchTweet({
               channelId: twitterCh.id,
               text: truncateForPlatform(`${tweetText}\n\n${tags}`, 'twitter'),
-              imageUrl: buildImageUrl(baseUrl, content, lang, 'tweet'),
+              imageUrl: await captureImageForDispatch(baseUrl, content, lang, 'tweet', 'morning', dryRun),
               replyText: `📊 ${ctaUrl}`,
               dryRun,
 
@@ -136,7 +137,7 @@ export async function GET(request: Request) {
           // IG Story
           const igCh = getChannels({ tier: 'all', lang, service: 'instagram' })[0];
           if (igCh) {
-            const storyUrl = buildImageUrl(baseUrl, content, lang, 'story');
+            const storyUrl = await captureImageForDispatch(baseUrl, content, lang, 'story', 'morning', dryRun);
             const r = await dispatchStory({
               channelId: igCh.id,
               imageUrl: storyUrl,
@@ -169,7 +170,7 @@ export async function GET(request: Request) {
           const igCh = getChannels({ tier: 'all', lang, service: 'instagram' })[0];
           if (igCh) {
             const caption = lc.platformText?.instagram || lc.text;
-            const carouselUrls = buildCarouselUrls(baseUrl, content, lang);
+            const carouselUrls = await captureCarouselForDispatch(baseUrl, content, lang, dryRun);
 
             const r = await dispatchCarousel({
               channelId: igCh.id,
@@ -226,7 +227,7 @@ export async function GET(request: Request) {
             const r = await dispatchTweet({
               channelId: twitterCh.id,
               text: truncateForPlatform(lc.platformText?.twitter || lc.text, 'twitter'),
-              imageUrl: buildImageUrl(baseUrl, content, lang, 'tweet'),
+              imageUrl: await captureImageForDispatch(baseUrl, content, lang, 'tweet', 'pulse', dryRun),
               replyText: `📊 ${ctaUrl}`,
               dryRun,
 
@@ -255,7 +256,7 @@ export async function GET(request: Request) {
           if (igCh) {
             const r = await dispatchStory({
               channelId: igCh.id,
-              imageUrl: buildImageUrl(baseUrl, content, lang, 'story'),
+              imageUrl: await captureImageForDispatch(baseUrl, content, lang, 'story', 'pulse', dryRun),
               dryRun,
 
               draft,
@@ -270,7 +271,7 @@ export async function GET(request: Request) {
           const seo = getPinterestSEO({ contentType: 'pulse', date: dateKey });
           const r = await dispatchPin({
             channelId: pinCh.id,
-            imageUrl: buildImageUrl(baseUrl, content, 'en', 'pin'),
+            imageUrl: await captureImageForDispatch(baseUrl, content, 'en', 'pin', 'pulse', dryRun),
             title: seo.title,
             description: seo.description,
             link: `${baseUrl}/command?${buildUtm('pinterest', 'midday')}`,
@@ -318,7 +319,7 @@ export async function GET(request: Request) {
           const seo = getPinterestSEO({ contentType: 'education' });
           const r = await dispatchPin({
             channelId: pinCh.id,
-            imageUrl: buildImageUrl(baseUrl, content, 'en', 'pin'),
+            imageUrl: await captureImageForDispatch(baseUrl, content, 'en', 'pin', 'education', dryRun),
             title: seo.title,
             description: seo.description,
             link: `${baseUrl}/command?${buildUtm('pinterest', 'education')}`,
@@ -365,7 +366,7 @@ export async function GET(request: Request) {
           const seo = getPinterestSEO({ contentType: 'education' });
           const r = await dispatchPin({
             channelId: pinCh.id,
-            imageUrl: buildImageUrl(baseUrl, content, 'en', 'pin', 2),
+            imageUrl: await captureImageForDispatch(baseUrl, content, 'en', 'pin', 'education', dryRun),
             title: seo.title,
             description: seo.description,
             link: `${baseUrl}/command?${buildUtm('pinterest', 'education')}`,
@@ -399,7 +400,7 @@ export async function GET(request: Request) {
             const r = await dispatchTweet({
               channelId: twitterCh.id,
               text: truncateForPlatform(`${lc.platformText?.twitter || lc.text}\n\n${tags}`, 'twitter'),
-              imageUrl: buildImageUrl(baseUrl, content, lang, 'tweet'),
+              imageUrl: await captureImageForDispatch(baseUrl, content, lang, 'tweet', 'pulse', dryRun),
               replyText: `📊 ${ctaUrl}`,
               dryRun,
 
@@ -428,7 +429,7 @@ export async function GET(request: Request) {
           if (igCh) {
             const r = await dispatchStory({
               channelId: igCh.id,
-              imageUrl: buildImageUrl(baseUrl, content, lang, 'story'),
+              imageUrl: await captureImageForDispatch(baseUrl, content, lang, 'story', 'pulse', dryRun),
               dryRun,
 
               draft,
@@ -443,7 +444,7 @@ export async function GET(request: Request) {
           const seo = getPinterestSEO({ contentType: 'pulse', date: dateKey });
           const r = await dispatchPin({
             channelId: pinCh.id,
-            imageUrl: buildImageUrl(baseUrl, content, 'en', 'pin'),
+            imageUrl: await captureImageForDispatch(baseUrl, content, 'en', 'pin', 'pulse', dryRun),
             title: seo.title,
             description: seo.description,
             link: `${baseUrl}/command?${buildUtm('pinterest', 'pulse')}`,
@@ -470,7 +471,7 @@ export async function GET(request: Request) {
           const igCh = getChannels({ tier: 'all', lang, service: 'instagram' })[0];
           if (igCh) {
             const caption = lc.platformText?.instagram || lc.text;
-            const carouselUrls = buildCarouselUrls(baseUrl, content, lang);
+            const carouselUrls = await captureCarouselForDispatch(baseUrl, content, lang, dryRun);
 
             const r = await dispatchCarousel({
               channelId: igCh.id,
@@ -712,37 +713,103 @@ function buildImageUrl(
   format: string,
   variant?: number
 ): string {
-  // Extract params from existing imageUrl or build fresh
+  // Fallback: Satori OG endpoint (returns actual PNG image)
   const existingUrl = content[lang]?.imageUrl || '';
   const params = new URL(existingUrl, baseUrl).searchParams;
-
-  // Map content type to new Puppeteer template routes
-  // Detect content type from URL path or type param
-  const urlPath = existingUrl.includes('/templates/og/') ? existingUrl.split('/templates/og/')[1]?.split('?')[0] : '';
-  const contentType = urlPath || params.get('type') || 'pulse';
-  const templateRoutes: Record<string, string> = {
-    pulse: '/templates/og/pulse',
-    spotlight: '/templates/og/spotlight',
-    education: '/templates/og/education',
-    morning: '/templates/og/morning',
-    event: '/templates/og/event',
-  };
-  const route = templateRoutes[contentType] || '/templates/og/pulse';
-  const newUrl = new URL(`${baseUrl}${route}`);
-
-  // Copy existing params (spy, vix, gex, dp, etc.)
+  const newUrl = new URL(`${baseUrl}/api/og/market`);
   params.forEach((v, k) => newUrl.searchParams.set(k, v));
-  // Override format/lang
   newUrl.searchParams.set('format', format);
   newUrl.searchParams.set('lang', lang);
   if (variant) newUrl.searchParams.set('variant', String(variant));
-
   return newUrl.toString();
 }
 
 /**
- * Pre-render image via Supabase Storage and return CDN URL.
- * Falls back to dynamic URL if pre-rendering fails.
+ * Capture image via EC2 Puppeteer → Supabase CDN.
+ * Uses new /templates/og/* HTML templates for premium rendering.
+ * Falls back to Satori /api/og/market (actual PNG) if capture fails.
+ */
+async function captureImageForDispatch(
+  baseUrl: string,
+  content: ContentOutput,
+  lang: Lang,
+  format: FormatType,
+  template: TemplateType,
+  dryRun: boolean,
+): Promise<string> {
+  // In dry_run, just return Satori fallback URL (no EC2 cost)
+  const satoriUrl = buildImageUrl(baseUrl, content, lang, format);
+  if (dryRun) return satoriUrl;
+
+  // Extract data params from existing imageUrl
+  const existingUrl = content[lang]?.imageUrl || '';
+  const params = new URL(existingUrl, baseUrl).searchParams;
+  const data: Record<string, string | number> = {};
+  params.forEach((v, k) => { data[k] = v; });
+
+  try {
+    const result = await captureTemplate({ template, format, data });
+    if (result?.cdnUrl) {
+      console.log(`[Dispatch] ✅ EC2 capture: ${template}/${format}/${lang} → ${result.sizeKB}KB`);
+      return result.cdnUrl;
+    }
+  } catch (err: any) {
+    console.warn(`[Dispatch] EC2 capture failed (${template}/${format}): ${err.message}`);
+  }
+
+  // Fallback: Satori endpoint (always works, returns actual PNG)
+  console.log(`[Dispatch] Using Satori fallback: ${template}/${format}/${lang}`);
+  return satoriUrl;
+}
+
+/**
+ * Capture carousel slides via EC2 Puppeteer → Supabase CDN.
+ * Falls back to Satori OG for each slide if capture fails.
+ */
+async function captureCarouselForDispatch(
+  baseUrl: string,
+  content: ContentOutput,
+  lang: Lang,
+  dryRun: boolean,
+): Promise<string[]> {
+  const existingUrl = content[lang]?.imageUrl || '';
+  const params = new URL(existingUrl, baseUrl).searchParams;
+
+  if (dryRun) {
+    // Return Satori fallback URLs
+    return [1, 2, 3, 4, 5, 6].map(slide => {
+      const url = new URL(`${baseUrl}/api/og/market`);
+      params.forEach((v, k) => url.searchParams.set(k, v));
+      url.searchParams.set('slide', String(slide));
+      url.searchParams.set('format', 'carousel');
+      url.searchParams.set('lang', lang);
+      return url.toString();
+    });
+  }
+
+  // EC2 capture each slide
+  const data: Record<string, string | number> = {};
+  params.forEach((v, k) => { data[k] = v; });
+
+  const urls: string[] = [];
+  for (let slide = 1; slide <= 6; slide++) {
+    try {
+      const result = await captureTemplate({
+        template: 'carousel',
+        format: 'carousel',
+        data: { ...data, slide },
+      });
+      urls.push(result?.cdnUrl || buildImageUrl(baseUrl, content, lang, 'carousel'));
+    } catch {
+      urls.push(buildImageUrl(baseUrl, content, lang, 'carousel'));
+    }
+    await new Promise(r => setTimeout(r, 300));
+  }
+  return urls;
+}
+
+/**
+ * @deprecated Use captureImageForDispatch instead
  */
 async function prerenderImageUrl(
   baseUrl: string,
@@ -754,20 +821,7 @@ async function prerenderImageUrl(
   dryRun: boolean,
   variant?: number
 ): Promise<string> {
-  const dynamicUrl = buildImageUrl(baseUrl, content, lang, format, variant);
-  
-  // In dry_run mode, skip pre-rendering to save resources
-  if (dryRun) return dynamicUrl;
-  
-  try {
-    const filename = `${action}_${lang}_${format}_${dateKey}${variant ? `_v${variant}` : ''}`;
-    const cdnUrl = await prerenderAndUpload(dynamicUrl, filename);
-    if (cdnUrl) return cdnUrl;
-  } catch (err: any) {
-    console.warn(`[MarketingDispatch] Pre-render failed, using dynamic URL: ${err.message}`);
-  }
-  
-  return dynamicUrl; // Fallback to dynamic URL
+  return buildImageUrl(baseUrl, content, lang, format, variant);
 }
 
 function buildCarouselUrls(baseUrl: string, content: ContentOutput, lang: Lang): string[] {
@@ -775,7 +829,7 @@ function buildCarouselUrls(baseUrl: string, content: ContentOutput, lang: Lang):
   const params = new URL(existingUrl, baseUrl).searchParams;
 
   return [1, 2, 3, 4, 5, 6].map(slide => {
-    const url = new URL(`${baseUrl}/templates/og/carousel`);
+    const url = new URL(`${baseUrl}/api/og/market`);
     params.forEach((v, k) => url.searchParams.set(k, v));
     url.searchParams.set('slide', String(slide));
     url.searchParams.set('format', 'carousel');
