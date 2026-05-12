@@ -113,7 +113,6 @@ export async function GET(request: Request) {
               channelId: twitterCh.id,
               text: truncateWithTags(tweetText, tags, 'twitter'),
               imageUrl: ogImage,
-              replyText: `📊 ${ctaUrl}`,
               dryRun,
 
               draft,
@@ -226,7 +225,6 @@ export async function GET(request: Request) {
               channelId: twitterCh.id,
               text: truncateWithTags(lc.platformText?.twitter || lc.text, tags, 'twitter'),
               imageUrl: ogImage,
-              replyText: `📊 ${ctaUrl}`,
               dryRun,
 
               draft,
@@ -395,7 +393,6 @@ export async function GET(request: Request) {
               channelId: twitterCh.id,
               text: truncateWithTags(lc.platformText?.twitter || lc.text, tags, 'twitter'),
               imageUrl: ogImage,
-              replyText: `📊 ${ctaUrl}`,
               dryRun,
 
               draft,
@@ -518,7 +515,6 @@ export async function GET(request: Request) {
               channelId: twitterCh.id,
               text: truncateForPlatform(`${lc.platformText?.twitter || lc.text}\n\n${tags}`, 'twitter'),
               imageUrl: tweetImage,
-              replyText: `📊 ${ctaUrl}`,
               dryRun,
 
               draft,
