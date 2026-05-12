@@ -581,9 +581,10 @@ Raw HTTP 응답 검증:
 >
 > 🔴 **5중 캐시 레이어 인지**: CDN Edge → Memory LRU → Redis → DynamoDB → EC2. 어느 한 레이어만 수정하면 다른 레이어에서 stale 데이터가 서빙됨. 수정 시 **모든 레이어의 쓰기+읽기 경로를 동시에 추적**할 것.
 
-### 5.3 마케팅 자동화 엔진 (2026-05-10 기준 — Switch-Ready)
+### 5.3 마케팅 자동화 엔진 (2026-05-12 기준 — LIVE)
 
-> **상태**: 전 코드 완성, `dry_run=true` 대기. `dry_run=false` 전환 전 `remotion:deploy-site` 필수.
+> **상태**: ✅ **전 파이프라인 LIVE**. 모든 크론 `dry_run=false` 실가동.
+> **이미지**: ✅ EC2 Puppeteer 전용 (Satori 완전 삭제 — 2026-05-12).
 > **Shorts/Reels**: ✅ Remotion **V3 Hybrid** 6씬 파이프라인 완성 (2026-05-12). Dynamic Top Ticker + AI 인사이트 + 전 데이터 연결.
 
 #### 5.3.9 Remotion 쇼츠 파이프라인 (V3 Hybrid — 2026-05-12 완성)
@@ -763,37 +764,48 @@ M7_TICKERS = [NVDA, TSLA, AAPL, MSFT, AMZN, META, GOOGL]
 #### 핵심 파일 구조
 | 파일 | 역할 |
 |------|------|
-| `src/app/api/cron/marketing-dispatch/route.ts` (772줄) | **통합 디스패치 엔진** — 8개 action, Buffer API 연동 |
+| `src/app/api/cron/marketing-dispatch/route.ts` (819줄) | **통합 디스패치 엔진** — 9개 action, Buffer GraphQL API 직접 연동 |
 | `src/app/api/cron/event-detect/route.ts` (549줄) | **이벤트 자동 감지** — 7종 알고리즘, 5분마다 스캔 |
-| `src/app/api/cron/daily-content/route.ts` | **일일 콘텐츠 생성** — AI Haiku 4.5 |
-| `src/lib/marketing/aiContentEngine.ts` (377줄) | **AI 콘텐츠 엔진** — Bloomberg-grade 프롬프트 |
+| `src/app/api/cron/daily-content/route.ts` (315줄) | **일일 콘텐츠 생성** — AI Haiku 4.5 + EC2 pre-capture |
+| `src/lib/marketing/aiContentEngine.ts` (391줄) | **AI 콘텐츠 엔진** — Bloomberg-grade 프롬프트, imageUrl→`/templates/og/` |
 | `src/lib/marketing/contentEngines.ts` (819줄) | **정적 템플릿 엔진** — AI 실패 시 fallback |
-| `src/lib/marketing/screenshotService.ts` (359줄) | **스크린샷 캡처** — EC2 Puppeteer → Supabase CDN |
-| `src/lib/marketing/bufferClient.ts` | **Buffer API 클라이언트** — 플랫폼별 발송 |
-| `src/app/marketing/templates/*/page.tsx` | **V2 HTML 템플릿** — Satori Edge 렌더링 |
-| `src/app/api/og/market/route.tsx` | **OG 이미지 API** — Satori 기반 동적 이미지 |
+| `src/lib/marketing/screenshotService.ts` (447줄) | **스크린샷 캡처** — EC2 Puppeteer ONLY → Supabase CDN |
+| `src/lib/marketing/bufferClient.ts` | **Buffer API 기본 클라이언트** — createPost, getChannels |
+| `src/lib/marketing/bufferMultiClient.ts` (590줄) | **멀티포맷 클라이언트** — Tweet/Thread/Carousel/Story/Pin/Post |
+| `src/lib/marketing/hashtagEngine.ts` | **해시태그/SEO 엔진** — 플랫폼별 태그, Pinterest SEO |
+| `src/app/templates/og/*/page.tsx` | **OG 캡처 전용 HTML 템플릿** (6종, 아래 상세) |
 
-#### 5.3.1 일일 스케줄 (vercel.json, 21개 크론)
+#### 5.3.1 일일 스케줄 (vercel.json, 21개 크론 — ALL `dry_run=false`)
+
+##### 콘텐츠 생성 (3개)
+| UTC | KST | 크론 | 역할 |
+|:---:|:---:|---|---|
+| 20:25 | 05:25+1 | `daily-content?type=pulse` | Market Pulse AI 생성 + EC2 pre-capture |
+| 20:40 | 05:40+1 | `daily-content?type=morning` | Morning Brief AI 생성 |
+| 23:30 | 08:30+1 | `daily-content?type=education` | Education AI 생성 |
+| 15:30 | 00:30+1 | `daily-content?type=pulse` | 장중 backup |
 
 ##### 🇺🇸 EN 리전 (7개)
-| KST | ET | Action | 플랫폼 | 이미지 소스 |
+| KST | UTC | Action | 플랫폼 | 이미지 소스 |
 |:---:|:---:|---|---|---|
-| **06:30** | 17:30-1 | `morning` | X + Bluesky + IG Story | Satori OG |
-| **08:00** | 19:00-1 | `morning_ig` | IG Carousel + Threads | Satori OG |
-| **11:00** | 22:00-1 | `midday` | X + Bluesky + IG Story + Pinterest | Satori OG |
-| **14:00** | 01:00 | `education` | X Thread + Pinterest | Satori OG |
-| **17:00** | 04:00 | `edu_bsky` | Bluesky + Pinterest | Satori OG |
-| **05:30+1** | 16:30 | `pulse` | X + Bluesky + IG Story + Pinterest | Satori OG |
-| **07:00+1** | 18:00 | `pulse_ig` | IG Carousel + Threads | Satori OG |
+| **06:30** | 10:30 | `morning` | X + Bluesky + IG Story | ✅ EC2 Puppeteer → Supabase CDN |
+| **08:00** | 12:00 | `morning_ig` | IG Carousel (6슬라이드) | ✅ EC2 Puppeteer (1080×1080 × 6) |
+| **11:00** | 16:00 | `midday` | X + Bluesky + IG Story + Pinterest | ✅ EC2 Puppeteer |
+| **09:00** | 00:00 | `education` | X Thread + Pinterest | ✅ EC2 Puppeteer |
+| **11:00** | 02:00 | `edu_bsky` | Bluesky + Pinterest | ✅ EC2 Puppeteer |
+| **05:35+1** | 20:35 | `pulse` | X + Bluesky + IG Story + Pinterest | ✅ EC2 Puppeteer |
+| **07:00+1** | 22:00 | `pulse_ig` | IG Carousel (6슬라이드) | ✅ EC2 Puppeteer (1080×1080 × 6) |
 
-##### 🇰🇷🇯🇵 ASIA 리전 (5개)
-| KST | Action | 플랫폼 |
-|:---:|---|---|
-| **22:00** | `morning` ASIA | X + Bluesky + IG Story |
-| **23:00** | `morning_ig` ASIA | IG Carousel + Threads |
-| **07:00+1** | `pulse` ASIA | X + Bluesky + IG Story |
-| **12:00** | `education` ASIA | X Thread + Pinterest |
-| **14:00** | `midday` ASIA | X + Bluesky + IG Story + Pinterest |
+##### 🇰🇷🇯🇵 ASIA 리전 (7개)
+| KST | UTC | Action | 플랫폼 |
+|:---:|:---:|---|---|
+| **07:00+1** | 22:00 | `pulse` ASIA | X + Bluesky + IG Story |
+| **08:00+1** | 23:00 | `morning_ig` ASIA | IG Carousel |
+| **08:30+1** | 23:30 | `pulse_ig` ASIA | IG Carousel |
+| **12:00** | 03:00 | `education` ASIA | X Thread + Pinterest |
+| **13:00** | 04:00 | `edu_bsky` ASIA | Bluesky + Pinterest |
+| **22:00** | 13:00 | `morning` ASIA | X + Bluesky + IG Story |
+| **01:15+1** | 16:15 | `midday` ASIA | X + Bluesky + IG Story + Pinterest |
 
 ##### 🎯 Ticker Spotlight 게릴라 (4개)
 | KST | Action | 설명 |
@@ -848,49 +860,101 @@ M7_TICKERS = [NVDA, TSLA, AAPL, MSFT, AMZN, META, GOOGL]
 
 **안전장치**: 쿨다운 30분 / 일일 상한 3건 / 24시간 dedup / Insider 30종목 로테이션
 
-#### 5.3.4 이미지 파이프라인 (2트랙)
+#### 5.3.4 이미지 파이프라인 (EC2 Puppeteer 전용 — Satori 완전 삭제 2026-05-12)
 
-##### 트랙 1: Satori OG (정기 발송용)
-```
-marketing-dispatch → buildImageUrl()
-  → /api/og/market?type=pulse&spy=...&format=tweet (Satori Edge 렌더링)
-  → Buffer API에 URL 전달 → Buffer가 직접 fetch
-```
+> ⚠️ **Satori 완전 삭제**: `captureViaSatoriOG()` 함수 삭제, `/api/og/market` fallback 코드 삭제.
+> EC2 Puppeteer가 유일한 이미지 캡처 방법. EC2 실패 시 에러 반환 (fallback 없음).
 
-##### 트랙 2: EC2 Puppeteer (Spotlight + Event용)
 ```
-screenshotService.ts → captureTemplate()
-  → EC2 52.23.98.13:3100/capture (POST, Puppeteer 캡처)
+[콘텐츠 생성 단계]
+daily-content cron → aiContentEngine.ts
+  → imageUrl: /templates/og/{type}?spy=...&vix=...&lang=en
+  → Redis에 저장 (marketing:{type}:{dateKey})
+
+[디스패치 단계 — 정기]
+marketing-dispatch cron → extractDataParams(content.imageUrl)
+  → captureImageForDispatch(template, format, data)
+  → screenshotService.captureTemplate()
+  → EC2 52.23.98.13:3100/capture (POST, Chromium pre-warmed)
   → Supabase Storage (marketing-assets 버킷, public)
-  → CDN URL → Buffer API → SNS
-  
-  ⚠️ EC2 실패 시 → captureViaSatoriOG() 자동 fallback
+  → CDN URL → Buffer GraphQL API → 실제 발행
+
+[디스패치 단계 — 이벤트]
+event-detect cron → captureEventAlert()
+  → screenshotService.captureTemplate('event', 'tweet', data)
+  → EC2 → Supabase → CDN URL
+  → marketing-dispatch?action=event → Buffer → 실시간 발행
+
+[디스패치 단계 — Spotlight]
+marketing-dispatch?action=spotlight
+  → captureTickerSpotlight(ticker, dp, buy, sell, blocks)
+  → screenshotService.captureTemplate('ticker', 'tweet', data)
+  → EC2 → Supabase → CDN URL → Buffer
 ```
+
+##### 캡처 사이즈 정합성 (검증 완료 2026-05-12)
+| 포맷 | screenshotService 뷰포트 | 템플릿 CSS 고정 | 용도 |
+|------|:---:|:---:|---|
+| tweet | 1200×675 | 1200×630 | X, Threads |
+| og | 1200×630 | 1200×630 | Bluesky, OG 메타 |
+| story | 1080×1920 | — (auto) | IG Story |
+| carousel | 1080×1080 | 1080×1080 | IG Carousel |
+| pin | 1000×1500 | — (auto) | Pinterest |
+| square | 1080×1080 | 1080×1080 | 일반 정사각 |
 
 ##### Supabase Storage
 - **버킷**: `marketing-assets` (public, 5MB 제한)
 - **허용 형식**: image/png, image/jpeg, image/webp
 - **CDN URL**: `https://lqvxcmgpuowikdcyhbvn.supabase.co/storage/v1/object/public/marketing-assets/...`
+- **경로 패턴**: `cards/{template}_{format}_{date}_{timestamp}.png`
 - **상태**: ✅ 업로드/CDN 접근 검증 완료 (2026-05-09)
 
 ##### EC2 Puppeteer Capture Worker
 - **PM2**: `capture-worker` (포트 3100)
-- **상태**: ⚠️ 응답 없음 (2026-05-09 22:00 KST 확인). 월요일 SSH → `pm2 restart capture-worker` 필요
-- **영향**: Spotlight/Event 이미지가 Satori fallback으로 대체됨 (기능은 작동, 프리미엄 V2 디자인만 못 씀)
+- **코드**: `scripts/ec2-capture-worker.js`
+- **Chromium**: Pre-warmed (Cold Start 0초)
+- **Delay**: 2초 대기 후 캡처 (CSS 애니메이션 렌더링 보장)
+- **Timeout**: 30초
+- **상태**: ✅ LIVE (pm2 restart capture-worker 후 확인 필요)
+- **⚠️ 장애 시**: 모든 마케팅 이미지가 실패 → Buffer에 텍스트만 발행됨
 
-#### 5.3.5 V2 마케팅 템플릿 (7종 — 2026-05-09 통일 디자인 시스템)
+#### 5.3.5 OG 캡처 전용 템플릿 (6종 — 2026-05-12 EC2 전용)
 
-| # | 템플릿 | 파일 | 포맷 | 디자인 |
-|:---:|---|---|---|---|
-| 1 | **Ticker Spotlight** | `templates/ticker/page.tsx` | tweet/og/story/square | ✅ V2 |
-| 2 | **Education** | `templates/education/page.tsx` | tweet/og/story/carousel/pin/square | ✅ V2 |
-| 3 | **Event Alert** | `templates/event/page.tsx` | tweet/og/story/square | ✅ V2 |
-| 4 | **Market Pulse** | `templates/pulse/page.tsx` | tweet/og/story/carousel/pin/square | ✅ V2 |
-| 5 | **Compare** | `templates/compare/page.tsx` | tweet/og/story/carousel/pin/square | ✅ V2 |
-| 6 | **OG Default** | `templates/og-default/page.tsx` | 1200x630 고정 | ✅ NEW |
-| 7 | **Pinterest Pin** | `templates/pin-indicators/page.tsx` | 1000x1500 고정 | ✅ NEW |
+> 이 템플릿들은 `src/app/templates/og/` 경로에 위치하며, EC2 Puppeteer가 캡처하는 전용 HTML 페이지입니다.
+> 모든 데이터는 URL 쿼리 파라미터로 주입됩니다.
 
-**통일 디자인 시스템**: `#080c14` 배경 / 보더 글로우 / `borderLeft: 3px solid {color}` 배지 / REAL-TIME 인디케이터 / signumhq.com 푸터
+| # | 템플릿 | 파일 | CSS 고정 크기 | 데이터 파라미터 | screenshotService 등록 |
+|:---:|---|---|:---:|---|:---:|
+| 1 | **Market Pulse** | `templates/og/pulse/page.tsx` | 1200×630 | spy, qqq, vix, gex, dp, lang | `pulse` |
+| 2 | **Morning Brief** | `templates/og/morning/page.tsx` | 1200×630 | spy, vix, gex, dp, insight, lang | `morning` |
+| 3 | **Education** | `templates/og/education/page.tsx` | 1200×630 | topic, lang | `education` |
+| 4 | **Event Alert** | `templates/og/event/page.tsx` | 1200×630 | ticker, event, detail, spy, vix, dp, lang | `event` |
+| 5 | **Ticker Spotlight** | `templates/og/spotlight/page.tsx` | 1200×630 | t(ticker), dp, buy, sell, blocks, position, sector | `ticker` |
+| 6 | **IG Carousel** | `templates/og/carousel/page.tsx` | 1080×1080 | slide(1-6), spy, qqq, vix, gex, dp, cw, lang | `carousel` |
+
+##### screenshotService TEMPLATE_ROUTES 매핑
+```typescript
+const TEMPLATE_ROUTES = {
+  pulse:     '/templates/og/pulse',
+  ticker:    '/templates/og/spotlight',
+  event:     '/templates/og/event',
+  morning:   '/templates/og/morning',
+  education: '/templates/og/education',
+  carousel:  '/templates/og/carousel',
+};
+```
+
+##### V2 마케팅 프리뷰 템플릿 (레거시, 프리뷰 전용)
+| # | 템플릿 | 파일 | 용도 |
+|:---:|---|---|---|
+| 1 | Ticker Spotlight | `marketing/templates/ticker/page.tsx` | 프리뷰/QA용 |
+| 2 | Education | `marketing/templates/education/page.tsx` | 프리뷰/QA용 |
+| 3 | Event Alert | `marketing/templates/event/page.tsx` | 프리뷰/QA용 |
+| 4 | Market Pulse | `marketing/templates/pulse/page.tsx` | 프리뷰/QA용 |
+
+**통일 디자인 시스템**: `#04070d`~`#080c14` 배경 / 보더 글로우 / SIGNUM HQ 브랜딩 / signumhq.com 푸터
+
+> ⚠️ **새 템플릿 추가 시 필수**: `screenshotService.ts`의 `TEMPLATE_ROUTES`에 등록 + CSS 고정 크기 설정 확인
 
 #### 5.3.6 OG Metadata (layout.tsx)
 ```
@@ -903,13 +967,24 @@ twitter:
   creator: @signumhq
 ```
 
-#### 5.3.7 Switch-ON 절차 (월요일)
-1. EC2 SSH → `pm2 restart capture-worker` (Puppeteer 워커 복구)
-2. `vercel.json` 1개 크론만 `dry_run=false&draft=true`로 변경
-3. 첫 발송 → Buffer Drafts 탭 확인 (이미지/텍스트 QA)
-4. QA 통과 → 나머지 크론 전환
-5. `event-detect`도 `dry_run=false` 전환
-6. 24시간 모니터링 → 안정 확인 후 `draft` 제거
+#### 5.3.7 운용 상태 및 모니터링
+
+> ✅ **현재 상태 (2026-05-12)**: 전 파이프라인 LIVE. `dry_run=false` 실가동.
+
+##### 모니터링 체크리스트
+1. **EC2 Capture Worker**: `pm2 status capture-worker` (포트 3100 응답 확인)
+2. **Redis 콘텐츠**: `marketing:pulse:{date}`, `marketing:morning:{date}` 키 존재 확인
+3. **Buffer 큐**: buffer.com 대시보드 → 큐에 포스트가 쌓이는지 확인
+4. **Dispatch 로그**: `marketing:dispatch:v2:{date}:{action}` Redis 키로 성공/실패 확인
+5. **Event Detect**: `marketing:event:count:{date}` 일일 이벤트 카운터 확인
+
+##### 장애 대응
+| 증상 | 원인 | 조치 |
+|------|------|------|
+| 이미지 없이 텍스트만 발행됨 | EC2 capture-worker 다운 | SSH → `pm2 restart capture-worker` |
+| 콘텐츠 없음 (404) | daily-content cron 미실행 | Vercel cron 로그 확인, 수동 트리거 |
+| AI 텍스트 품질 저하 | Bedrock 장애 | contentEngines.ts 정적 템플릿 자동 fallback 작동 |
+| Buffer API 에러 | 토큰 만료 | BUFFER_ACCESS_TOKEN 갱신 |
 
 #### 5.3.8 Redis 마케팅 캐시 키
 | 키 | TTL | 용도 |
