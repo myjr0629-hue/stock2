@@ -183,7 +183,7 @@ export async function GET(request: Request) {
             const tags = getHashtags({ platform: 'threads', contentType: 'morning', lang });
             const r = await dispatchPost({
               channelId: threadsCh.id,
-              text: truncateForPlatform(`${lc.platformText?.threads || lc.text}\n\n${tags}`, 'threads'),
+              text: truncateWithTags(lc.platformText?.threads || lc.text, tags, 'threads'),
               imageUrl: threadsImage,
               dryRun,
 
@@ -339,7 +339,7 @@ export async function GET(request: Request) {
             const eduImage = await captureImageForDispatch(baseUrl, content, lang, 'og', 'education', dryRun);
             const r = await dispatchPost({
               channelId: bskyCh.id,
-              text: truncateForPlatform(`${lc.platformText?.bluesky || lc.text}\n\n${ctaUrl}\n\n${tags}`, 'bluesky'),
+              text: truncateWithTags(lc.platformText?.bluesky || lc.text, `\n\n${ctaUrl}\n\n${tags}`, 'bluesky'),
               imageUrl: eduImage,
               dryRun,
 
@@ -473,7 +473,7 @@ export async function GET(request: Request) {
             const threadsImage = await captureImageForDispatch(baseUrl, content, lang, 'og', 'pulse', dryRun);
             const r = await dispatchPost({
               channelId: threadsCh.id,
-              text: truncateForPlatform(`${lc.platformText?.threads || lc.text}\n\n${tags}`, 'threads'),
+              text: truncateWithTags(lc.platformText?.threads || lc.text, tags, 'threads'),
               imageUrl: threadsImage,
               dryRun,
 
@@ -513,7 +513,7 @@ export async function GET(request: Request) {
             const tags = getHashtags({ platform: 'twitter', contentType: 'event', lang });
             const r = await dispatchTweet({
               channelId: twitterCh.id,
-              text: truncateForPlatform(`${lc.platformText?.twitter || lc.text}\n\n${tags}`, 'twitter'),
+              text: truncateWithTags(lc.platformText?.twitter || lc.text, tags, 'twitter'),
               imageUrl: tweetImage,
               dryRun,
 
@@ -528,7 +528,7 @@ export async function GET(request: Request) {
             const tags = getHashtags({ platform: 'bluesky', contentType: 'event', lang });
             const r = await dispatchPost({
               channelId: bskyCh.id,
-              text: truncateForPlatform(`${lc.platformText?.bluesky || lc.text}\n\n${ctaUrl}\n\n${tags}`, 'bluesky'),
+              text: truncateWithTags(lc.platformText?.bluesky || lc.text, `\n\n${ctaUrl}\n\n${tags}`, 'bluesky'),
               imageUrl: tweetImage,
               dryRun,
 
