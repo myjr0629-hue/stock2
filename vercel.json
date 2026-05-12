@@ -87,82 +87,82 @@
         },
 
         {
-            "path": "/api/cron/marketing-dispatch?action=morning&region=en&dry_run=true",
+            "path": "/api/cron/marketing-dispatch?action=morning&region=en&dry_run=false",
             "schedule": "30 10 * * 1-5"
         },
         {
-            "path": "/api/cron/marketing-dispatch?action=morning_ig&region=en&dry_run=true",
+            "path": "/api/cron/marketing-dispatch?action=morning_ig&region=en&dry_run=false",
             "schedule": "0 12 * * 1-5"
         },
         {
-            "path": "/api/cron/marketing-dispatch?action=midday&region=en&dry_run=true",
+            "path": "/api/cron/marketing-dispatch?action=midday&region=en&dry_run=false",
             "schedule": "0 16 * * 1-5"
         },
         {
-            "path": "/api/cron/marketing-dispatch?action=pulse&region=en&dry_run=true",
+            "path": "/api/cron/marketing-dispatch?action=pulse&region=en&dry_run=false",
             "schedule": "35 20 * * 1-5"
         },
         {
-            "path": "/api/cron/marketing-dispatch?action=pulse_ig&region=en&dry_run=true",
+            "path": "/api/cron/marketing-dispatch?action=pulse_ig&region=en&dry_run=false",
             "schedule": "0 22 * * 1-5"
         },
         {
-            "path": "/api/cron/marketing-dispatch?action=education&region=en&dry_run=true",
+            "path": "/api/cron/marketing-dispatch?action=education&region=en&dry_run=false",
             "schedule": "0 0 * * 2-6"
         },
         {
-            "path": "/api/cron/marketing-dispatch?action=edu_bsky&region=en&dry_run=true",
+            "path": "/api/cron/marketing-dispatch?action=edu_bsky&region=en&dry_run=false",
             "schedule": "0 2 * * 2-6"
         },
 
         {
-            "path": "/api/cron/marketing-dispatch?action=pulse&region=asia&dry_run=true",
+            "path": "/api/cron/marketing-dispatch?action=pulse&region=asia&dry_run=false",
             "schedule": "0 22 * * 1-5"
         },
         {
-            "path": "/api/cron/marketing-dispatch?action=morning_ig&region=asia&dry_run=true",
+            "path": "/api/cron/marketing-dispatch?action=morning_ig&region=asia&dry_run=false",
             "schedule": "0 23 * * 1-5"
         },
         {
-            "path": "/api/cron/marketing-dispatch?action=pulse_ig&region=asia&dry_run=true",
+            "path": "/api/cron/marketing-dispatch?action=pulse_ig&region=asia&dry_run=false",
             "schedule": "30 23 * * 1-5"
         },
         {
-            "path": "/api/cron/marketing-dispatch?action=education&region=asia&dry_run=true",
+            "path": "/api/cron/marketing-dispatch?action=education&region=asia&dry_run=false",
             "schedule": "0 3 * * 2-6"
         },
         {
-            "path": "/api/cron/marketing-dispatch?action=edu_bsky&region=asia&dry_run=true",
+            "path": "/api/cron/marketing-dispatch?action=edu_bsky&region=asia&dry_run=false",
             "schedule": "0 4 * * 2-6"
         },
         {
-            "path": "/api/cron/marketing-dispatch?action=morning&region=asia&dry_run=true",
+            "path": "/api/cron/marketing-dispatch?action=morning&region=asia&dry_run=false",
             "schedule": "0 13 * * 1-5"
         },
         {
-            "path": "/api/cron/marketing-dispatch?action=midday&region=asia&dry_run=true",
+            "path": "/api/cron/marketing-dispatch?action=midday&region=asia&dry_run=false",
             "schedule": "15 16 * * 1-5"
         },
 
         {
-            "path": "/api/cron/event-detect?dry_run=true",
+            "path": "/api/cron/event-detect?dry_run=false",
             "schedule": "*/5 13-21 * * 1-5"
         },
 
         {
-            "path": "/api/cron/marketing-dispatch?action=spotlight&region=all&dry_run=true",
+            "path": "/api/cron/marketing-dispatch?action=spotlight&region=all&dry_run=false",
             "schedule": "0 14 * * 1-5"
         },
         {
-            "path": "/api/cron/marketing-dispatch?action=spotlight&region=all&dry_run=true",
+            "path": "/api/cron/marketing-dispatch?action=spotlight&region=all&dry_run=false",
             "schedule": "30 16 * * 1-5"
         },
         {
-            "path": "/api/cron/marketing-dispatch?action=spotlight&region=all&dry_run=true",
+            "path": "/api/cron/marketing-dispatch?action=spotlight&region=all&dry_run=false",
             "schedule": "0 19 * * 1-5"
         },
         {
-            "path": "/api/cron/marketing-dispatch?action=spotlight&region=all&dry_run=true",
+            "path": "/api/cron/marketing-dispatch?action=spotlight&region=all&dry_run=false",
             "schedule": "30 21 * * 1-5"
         },
 
