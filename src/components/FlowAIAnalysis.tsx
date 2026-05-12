@@ -401,7 +401,7 @@ export function FlowAIAnalysis({ ticker, isSystemReady, isMarketClosed, flowData
                                 <ChevronDown size={14} className={`text-slate-400 transition-transform duration-200 ${openSections.has('factors') ? 'rotate-180' : ''}`} />
                             </button>
                             <div className="overflow-hidden transition-all duration-300 ease-in-out"
-                                style={{ maxHeight: openSections.has('factors') ? '500px' : '0px', opacity: openSections.has('factors') ? 1 : 0 }}>
+                                style={{ maxHeight: openSections.has('factors') ? '2000px' : '0px', opacity: openSections.has('factors') ? 1 : 0 }}>
                                 <div className="px-3.5 pb-3 space-y-2">
                                     {analysis.factorHighlights.map((fh, i) => (
                                         <div key={i} className={`rounded-lg border p-2.5 ${impactColor(fh.impact)}`}>
@@ -435,7 +435,7 @@ export function FlowAIAnalysis({ ticker, isSystemReady, isMarketClosed, flowData
                                 <ChevronDown size={14} className={`text-slate-400 transition-transform duration-200 ${openSections.has('repricing') ? 'rotate-180' : ''}`} />
                             </button>
                             <div className="overflow-hidden transition-all duration-300 ease-in-out"
-                                style={{ maxHeight: openSections.has('repricing') ? '300px' : '0px', opacity: openSections.has('repricing') ? 1 : 0 }}>
+                                style={{ maxHeight: openSections.has('repricing') ? '1000px' : '0px', opacity: openSections.has('repricing') ? 1 : 0 }}>
                                 <div className="px-3.5 pb-3">
                                     <p className="text-[13px] text-slate-300 leading-[1.8]" style={{ fontFamily: 'Pretendard, sans-serif' }}>
                                         {extractLocale(analysis.repricingCondition, locale)}
