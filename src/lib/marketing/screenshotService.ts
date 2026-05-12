@@ -140,44 +140,12 @@ async function captureViaEC2(
   }
 }
 
-/**
- * Fallback: Use existing Satori OG endpoint
- * 기존 인프라 — CSS 제한 있으나 항상 작동
- */
-async function captureViaSatoriOG(
-  req: CaptureRequest
-): Promise<Uint8Array | null> {
-  try {
-    const ogUrl = new URL('/api/og/market', BASE_URL);
-    
-    // Map template data to OG params
-    if (req.data.spy) ogUrl.searchParams.set('spy', String(req.data.spy));
-    if (req.data.vix) ogUrl.searchParams.set('vix', String(req.data.vix));
-    if (req.data.gex) ogUrl.searchParams.set('gex', String(req.data.gex));
-    if (req.data.dp) ogUrl.searchParams.set('dp', String(req.data.dp));
-    ogUrl.searchParams.set('format', req.format);
-    
-    const res = await fetch(ogUrl.toString(), {
-      signal: AbortSignal.timeout(15000),
-    });
-    
-    if (!res.ok) return null;
-    
-    const buffer = new Uint8Array(await res.arrayBuffer());
-    if (buffer.length < 1000) return null;
-    
-    console.log(`[ScreenshotService] Satori fallback: ${(buffer.length / 1024).toFixed(0)}KB`);
-    return buffer;
-  } catch {
-    return null;
-  }
-}
 
 // ── Main Capture Function ──
 
 /**
  * Capture a marketing template and upload to Supabase Storage.
- * Tries providers in order: Self-hosted Puppeteer → Satori fallback
+ * Uses EC2 Puppeteer worker exclusively for capture.
  * 
  * @returns CDN URL of the uploaded image, or null on failure
  */
@@ -189,18 +157,12 @@ export async function captureTemplate(req: CaptureRequest): Promise<CaptureResul
   let buffer: Uint8Array | null = null;
   let provider = 'none';
   
-  // Provider 1: EC2 Puppeteer Worker (52.23.98.13:3100)
+  // Provider 1: EC2 Puppeteer Worker (52.23.98.13:3100) — ONLY provider
   buffer = await captureViaEC2(templateUrl, req.format);
   if (buffer) provider = 'ec2-puppeteer';
   
-  // Provider 2: Satori OG fallback (기존 인프라, 항상 작동)
-  if (!buffer) {
-    buffer = await captureViaSatoriOG(req);
-    if (buffer) provider = 'satori-fallback';
-  }
-  
   if (!buffer || buffer.length < 500) {
-    console.error(`[ScreenshotService] All providers failed for ${req.template}/${req.format}`);
+    console.error(`[ScreenshotService] EC2 capture failed for ${req.template}/${req.format}`);
     return null;
   }
   
