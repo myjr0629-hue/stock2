@@ -546,7 +546,21 @@ export async function GET(request: Request) {
         const { fetchTradeData } = await import('@/services/realtimeMetricsService');
         const { captureTickerSpotlight } = await import('@/lib/marketing/screenshotService');
 
-        const ticker = searchParams.get('ticker') || getRandomSpotlightTicker();
+        const ticker = searchParams.get('ticker') || await (async () => {
+          // Prevent duplicate: check which tickers were already posted today
+          const usedRaw = await getFromCache(`marketing:spotlight:used:${dateKey}`).catch(() => null);
+          const usedTickers: string[] = usedRaw ? JSON.parse(String(usedRaw)) : [];
+          let picked = getRandomSpotlightTicker();
+          let attempts = 0;
+          while (usedTickers.includes(picked) && attempts < 5) {
+            picked = getRandomSpotlightTicker();
+            attempts++;
+          }
+          // Record this ticker as used today
+          usedTickers.push(picked);
+          await setInCache(`marketing:spotlight:used:${dateKey}`, JSON.stringify(usedTickers), 86400);
+          return picked;
+        })();
         const tradeData = await fetchTradeData(ticker).catch(() => null);
 
         const spotlightContent = generateTickerSpotlight({

@@ -56,7 +56,6 @@
             "path": "/api/cron/track-verify",
             "schedule": "30 21 * * 1-5"
         },
-
         {
             "path": "/api/cron/economic-calendar",
             "schedule": "*/30 13-21 * * 1-5"
@@ -85,6 +84,7 @@
             "path": "/api/cron/daily-content?type=pulse",
             "schedule": "30 15 * * 1-5"
         },
+
         {
             "path": "/api/cron/marketing-dispatch?action=morning&region=all&dry_run=false",
             "schedule": "30 10 * * 1-5"
@@ -96,6 +96,10 @@
         {
             "path": "/api/cron/marketing-dispatch?action=midday&region=all&dry_run=false",
             "schedule": "0 16 * * 1-5"
+        },
+        {
+            "path": "/api/cron/marketing-dispatch?action=spotlight&region=all&dry_run=false",
+            "schedule": "0 17 * * 1-5"
         },
         {
             "path": "/api/cron/marketing-dispatch?action=spotlight&region=all&dry_run=false",
