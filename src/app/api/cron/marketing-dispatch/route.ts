@@ -30,7 +30,6 @@ import {
 } from '@/lib/marketing/bufferMultiClient';
 import { getChannels, truncateForPlatform, buildUtm } from '@/lib/marketing/bufferClient';
 import { getHashtags, buildInstagramFooter, getPinterestSEO, type ContentType, type Lang } from '@/lib/marketing/hashtagEngine';
-import { prerenderAndUpload } from '@/lib/marketing/imagePrerenderer';
 import { captureTemplate, type FormatType, type TemplateType } from '@/lib/marketing/screenshotService';
 import type { ContentOutput } from '@/lib/marketing/contentEngines';
 
@@ -706,28 +705,21 @@ function buildCtaUrl(lang: Lang, page: string, campaign: string): string {
   return `${baseUrl}/${page}?${utm}`;
 }
 
-function buildImageUrl(
-  baseUrl: string,
-  content: ContentOutput,
-  lang: Lang,
-  format: string,
-  variant?: number
-): string {
-  // Fallback: Satori OG endpoint (returns actual PNG image)
+/**
+ * Extract data params from content's imageUrl for EC2 capture.
+ */
+function extractDataParams(content: ContentOutput, lang: Lang, baseUrl: string): Record<string, string | number> {
   const existingUrl = content[lang]?.imageUrl || '';
   const params = new URL(existingUrl, baseUrl).searchParams;
-  const newUrl = new URL(`${baseUrl}/api/og/market`);
-  params.forEach((v, k) => newUrl.searchParams.set(k, v));
-  newUrl.searchParams.set('format', format);
-  newUrl.searchParams.set('lang', lang);
-  if (variant) newUrl.searchParams.set('variant', String(variant));
-  return newUrl.toString();
+  const data: Record<string, string | number> = {};
+  params.forEach((v, k) => { data[k] = v; });
+  return data;
 }
 
 /**
  * Capture image via EC2 Puppeteer → Supabase CDN.
- * Uses new /templates/og/* HTML templates for premium rendering.
- * Falls back to Satori /api/og/market (actual PNG) if capture fails.
+ * Uses /templates/og/* HTML templates exclusively.
+ * NO Satori fallback — EC2 Puppeteer is the ONLY image source.
  */
 async function captureImageForDispatch(
   baseUrl: string,
@@ -737,34 +729,30 @@ async function captureImageForDispatch(
   template: TemplateType,
   dryRun: boolean,
 ): Promise<string> {
-  // In dry_run, just return Satori fallback URL (no EC2 cost)
-  const satoriUrl = buildImageUrl(baseUrl, content, lang, format);
-  if (dryRun) return satoriUrl;
+  const data = extractDataParams(content, lang, baseUrl);
 
-  // Extract data params from existing imageUrl
-  const existingUrl = content[lang]?.imageUrl || '';
-  const params = new URL(existingUrl, baseUrl).searchParams;
-  const data: Record<string, string | number> = {};
-  params.forEach((v, k) => { data[k] = v; });
-
-  try {
-    const result = await captureTemplate({ template, format, data });
-    if (result?.cdnUrl) {
-      console.log(`[Dispatch] ✅ EC2 capture: ${template}/${format}/${lang} → ${result.sizeKB}KB`);
-      return result.cdnUrl;
-    }
-  } catch (err: any) {
-    console.warn(`[Dispatch] EC2 capture failed (${template}/${format}): ${err.message}`);
+  // dry_run: return template preview URL (Buffer won't fetch it)
+  if (dryRun) {
+    const previewUrl = new URL(`${baseUrl}/templates/og/${template}`);
+    Object.entries(data).forEach(([k, v]) => previewUrl.searchParams.set(k, String(v)));
+    previewUrl.searchParams.set('format', format);
+    previewUrl.searchParams.set('lang', lang);
+    return previewUrl.toString();
   }
 
-  // Fallback: Satori endpoint (always works, returns actual PNG)
-  console.log(`[Dispatch] Using Satori fallback: ${template}/${format}/${lang}`);
-  return satoriUrl;
+  // LIVE: EC2 Puppeteer capture → Supabase CDN
+  const result = await captureTemplate({ template, format, data });
+  if (result?.cdnUrl) {
+    console.log(`[Dispatch] ✅ EC2 capture: ${template}/${format}/${lang} → ${result.sizeKB}KB`);
+    return result.cdnUrl;
+  }
+
+  throw new Error(`[Dispatch] EC2 capture failed for ${template}/${format}/${lang} — no image available`);
 }
 
 /**
  * Capture carousel slides via EC2 Puppeteer → Supabase CDN.
- * Falls back to Satori OG for each slide if capture fails.
+ * NO Satori fallback.
  */
 async function captureCarouselForDispatch(
   baseUrl: string,
@@ -772,14 +760,12 @@ async function captureCarouselForDispatch(
   lang: Lang,
   dryRun: boolean,
 ): Promise<string[]> {
-  const existingUrl = content[lang]?.imageUrl || '';
-  const params = new URL(existingUrl, baseUrl).searchParams;
+  const data = extractDataParams(content, lang, baseUrl);
 
   if (dryRun) {
-    // Return Satori fallback URLs
     return [1, 2, 3, 4, 5, 6].map(slide => {
-      const url = new URL(`${baseUrl}/api/og/market`);
-      params.forEach((v, k) => url.searchParams.set(k, v));
+      const url = new URL(`${baseUrl}/templates/og/carousel`);
+      Object.entries(data).forEach(([k, v]) => url.searchParams.set(k, String(v)));
       url.searchParams.set('slide', String(slide));
       url.searchParams.set('format', 'carousel');
       url.searchParams.set('lang', lang);
@@ -787,55 +773,21 @@ async function captureCarouselForDispatch(
     });
   }
 
-  // EC2 capture each slide
-  const data: Record<string, string | number> = {};
-  params.forEach((v, k) => { data[k] = v; });
-
+  // LIVE: EC2 capture each slide
   const urls: string[] = [];
   for (let slide = 1; slide <= 6; slide++) {
-    try {
-      const result = await captureTemplate({
-        template: 'carousel',
-        format: 'carousel',
-        data: { ...data, slide },
-      });
-      urls.push(result?.cdnUrl || buildImageUrl(baseUrl, content, lang, 'carousel'));
-    } catch {
-      urls.push(buildImageUrl(baseUrl, content, lang, 'carousel'));
+    const result = await captureTemplate({
+      template: 'carousel',
+      format: 'carousel',
+      data: { ...data, slide },
+    });
+    if (!result?.cdnUrl) {
+      throw new Error(`[Dispatch] EC2 carousel slide ${slide} capture failed`);
     }
+    urls.push(result.cdnUrl);
     await new Promise(r => setTimeout(r, 300));
   }
   return urls;
-}
-
-/**
- * @deprecated Use captureImageForDispatch instead
- */
-async function prerenderImageUrl(
-  baseUrl: string,
-  content: ContentOutput,
-  lang: Lang,
-  format: string,
-  dateKey: string,
-  action: string,
-  dryRun: boolean,
-  variant?: number
-): Promise<string> {
-  return buildImageUrl(baseUrl, content, lang, format, variant);
-}
-
-function buildCarouselUrls(baseUrl: string, content: ContentOutput, lang: Lang): string[] {
-  const existingUrl = content[lang]?.imageUrl || '';
-  const params = new URL(existingUrl, baseUrl).searchParams;
-
-  return [1, 2, 3, 4, 5, 6].map(slide => {
-    const url = new URL(`${baseUrl}/api/og/market`);
-    params.forEach((v, k) => url.searchParams.set(k, v));
-    url.searchParams.set('slide', String(slide));
-    url.searchParams.set('format', 'carousel');
-    url.searchParams.set('lang', lang);
-    return url.toString();
-  });
 }
 
 
@@ -858,7 +810,7 @@ function buildEducationThread(
   const slide4Text = `${ctaUrl}\n\n🔁 RT if this changed how you think about market structure.`;
 
   return [
-    { text: `🧵 ${truncateForPlatform(slide1Text, 'twitter')}`, imageUrl: buildImageUrl(baseUrl, content, lang, 'tweet') },
+    { text: `🧵 ${truncateForPlatform(slide1Text, 'twitter')}`, imageUrl: lc.imageUrl },
     { text: truncateForPlatform(slide2Text, 'twitter') },
     { text: truncateForPlatform(slide3Text, 'twitter') },
     { text: truncateForPlatform(slide4Text, 'twitter'), imageUrl: lc.imageUrl },

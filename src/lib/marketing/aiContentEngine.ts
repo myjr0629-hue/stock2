@@ -219,7 +219,7 @@ INSTRUCTIONS:
 6. DO NOT include disclaimer text — it's added separately
 7. For Instagram, include relevant hashtags at the end: #OptionsFlow #GEX #MarketStructure #DarkPool #SignumHQ`;
 
-  const imageUrl = (lang: string) => `${baseUrl}/api/og/market?${imageParams}&lang=${lang}`;
+  const imageUrl = (lang: string) => `${baseUrl}/templates/og/pulse?${imageParams}&lang=${lang}`;
 
   // Generate all 3 languages in parallel
   const [en, ko, ja] = await Promise.all([
@@ -275,7 +275,7 @@ INSTRUCTIONS:
 4. Keep it forward-looking but analytical
 5. DO NOT include any CTA/links or disclaimers`;
 
-  const imageUrl = (lang: string) => `${baseUrl}/api/og/market?${imageParams}&lang=${lang}`;
+  const imageUrl = (lang: string) => `${baseUrl}/templates/og/morning?${imageParams}&lang=${lang}`;
 
   const [en, ko, ja] = await Promise.all([
     generateForLang('en', userPrompt),
@@ -324,7 +324,7 @@ INSTRUCTIONS:
 7. For Instagram, include educational hashtags at the end`;
 
   const imageParams = `type=education&topic=${topic.id}`;
-  const imageUrl = (lang: string) => `${baseUrl}/api/og/market?${imageParams}&lang=${lang}`;
+  const imageUrl = (lang: string) => `${baseUrl}/templates/og/education?${imageParams}&lang=${lang}`;
 
   const [en, ko, ja] = await Promise.all([
     generateForLang('en', userPrompt),
@@ -374,7 +374,7 @@ INSTRUCTIONS:
 4. Create urgency through data significance, NOT through fear/greed
 5. DO NOT include any CTA/links or disclaimers`;
 
-  const imageUrl = (lang: string) => `${baseUrl}/api/og/market?${imageParams}&lang=${lang}`;
+  const imageUrl = (lang: string) => `${baseUrl}/templates/og/event?${imageParams}&lang=${lang}`;
 
   const [en, ko, ja] = await Promise.all([
     generateForLang('en', userPrompt),
