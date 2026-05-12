@@ -52,7 +52,7 @@ export async function fetchLiveMarketData(): Promise<LiveMarketData> {
 // Text Builder — observation language only, no predictions
 // ---------------------------------------------------------------------------
 export function buildRealtimeText(
-  ct: 'premarket' | 'intraday' | 'close',
+  ct: 'premarket' | 'intraday' | 'close' | 'structure' | 'afterhours',
   plat: 'bluesky' | 'threads',
   lang: Lang,
   m: LiveMarketData,
@@ -80,6 +80,12 @@ export function buildRealtimeText(
     if (ct === 'intraday') {
       return `⚡ Intraday Structure Update\n\nSPY: ${sd}${m.spyChg.toFixed(2)}% | VIX: ${m.vix.toFixed(1)}\nGEX: ${G} | DP: ${dp}\n\nInstitutional flow shifting in real-time.`;
     }
+    if (ct === 'structure') {
+      return `🏦 Mid-Session Structure | ${m.date}\n\nSPY: ${sd}${m.spyChg.toFixed(2)}%\nVIX: ${m.vix.toFixed(1)} | GEX: ${G}\nDark Pool: ${dp}\n\nWhere are dealers positioned right now?`;
+    }
+    if (ct === 'afterhours') {
+      return `📋 Session Debrief | ${m.date}\n\nSPY closed: ${sd}${m.spyChg.toFixed(2)}%\nVIX: ${m.vix.toFixed(1)} | GEX: ${G}\nDP: ${dp}\n\nStructure doesn't lie. Tomorrow's setup starts here.`;
+    }
     // close
     return `🔔 Session Close | ${m.date}\n\nSPY: ${sd}${m.spyChg.toFixed(2)}% | VIX: ${m.vix.toFixed(1)}\nGEX: ${G} | DP: ${dp}\n\nInstitutional positioning data finalized.`;
   }
@@ -92,6 +98,16 @@ export function buildRealtimeText(
     if (lang === 'ko') return `좋은 아침입니다 👋\n\n장 오픈 전 구조 체크:\n• VIX ${m.vix.toFixed(1)} — ${volNote}\n• GEX ${G} — ${gM}\n\n데이터는 예측하지 않습니다. 하지만 기관이 어디에 포지셔닝하고 있는지를 보여줍니다.\n\n오늘 주목하는 지표가 있으신가요? 👇\n\n${disc.ko}`;
     if (lang === 'ja') return `おはようございます 👋\n\n構造チェック:\n• VIX ${m.vix.toFixed(1)} — ${volNote}\n• GEX ${G} — ${gM}\n\n機関のポジショニングを観察しています。\n\n注目する指標は？ 👇\n\n${disc.ja}`;
     return `Good morning 👋\n\nQuick pre-market structure check:\n• VIX at ${m.vix.toFixed(1)} — ${volNote}\n• GEX ${G} — ${gM}\n\nThe data doesn't predict. But it reveals where institutions are positioning.\n\nWhat are you watching today? 👇\n\n${disc.en}`;
+  }
+  if (ct === 'structure') {
+    if (lang === 'ko') return `📊 장중 데이터 체크\n\nSPY ${sd}${m.spyChg.toFixed(2)}% | VIX ${m.vix.toFixed(1)}\n다크풀 활동: ${dp}\nGEX 레짐: ${G}\n\n가격만 보면 놓치는 것이 있습니다. 구조가 말하는 것을 읽어야 합니다.\n\n지금 가장 주목하는 지표는? 💬\n\n${disc.ko}`;
+    if (lang === 'ja') return `📊 セッション中盤チェック\n\nSPY ${sd}${m.spyChg.toFixed(2)}% | VIX ${m.vix.toFixed(1)}\nダークプール: ${dp}\nGEX: ${G}\n\n価格だけでは見えないものがあります。構造を読むと見えてきます。\n\n注目指標は？ 💬\n\n${disc.ja}`;
+    return `📊 Mid-session data check\n\nSPY ${sd}${m.spyChg.toFixed(2)}% | VIX ${m.vix.toFixed(1)}\nDark Pool: ${dp}\nGEX: ${G}\n\nPrice tells you what happened. Structure tells you why.\n\nWhat's catching your eye right now? 💬\n\n${disc.en}`;
+  }
+  if (ct === 'afterhours') {
+    if (lang === 'ko') return `🌙 오늘의 세션 리캡\n\n📈 SPY: ${sd}${m.spyChg.toFixed(2)}%\n📊 VIX: ${m.vix.toFixed(1)}\n🏦 다크풀: ${dp}\n⚡ GEX: ${G}\n\n오늘 구조에서 가장 눈에 띄었던 것: 기관 포지셔닝이 가격보다 먼저 움직였습니다.\n\n내일 장을 위해 주목할 것은? 👇\n\n${disc.ko}`;
+    if (lang === 'ja') return `🌙 本日のセッション振り返り\n\n📈 SPY: ${sd}${m.spyChg.toFixed(2)}%\n📊 VIX: ${m.vix.toFixed(1)}\n🏦 DP: ${dp}\n⚡ GEX: ${G}\n\n構造が価格に先行して動いた一日でした。\n\n明日のセッションで注目すべき点は？ 👇\n\n${disc.ja}`;
+    return `🌙 Today's session in structure\n\n📈 SPY: ${sd}${m.spyChg.toFixed(2)}%\n📊 VIX: ${m.vix.toFixed(1)}\n🏦 Dark Pool: ${dp}\n⚡ GEX: ${G}\n\nInstitutional positioning moved before price did today.\n\nWhat are you watching for tomorrow? 👇\n\n${disc.en}`;
   }
   // close (threads)
   if (lang === 'ko') return `장 마감 🔔\n\n오늘 구조가 보여준 것:\n📈 SPY: ${sd}${m.spyChg.toFixed(2)}%\n📊 VIX: ${m.vix.toFixed(1)}\n🏦 Dark Pool: ${dp}\n⚡ GEX: ${G}\n\n데이터는 예측하지 않지만, 기관의 포지셔닝을 드러냅니다.\n\n오늘 가장 인상적이었던 지표는? 👇\n\n${disc.ko}`;

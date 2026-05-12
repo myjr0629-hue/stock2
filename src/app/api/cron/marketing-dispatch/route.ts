@@ -41,7 +41,7 @@ import { buildRealtimeText, captureRealtimeOG, fetchLiveMarketData } from '@/lib
 // ---------------------------------------------------------------------------
 // Actions
 // ---------------------------------------------------------------------------
-type Action = 'morning' | 'morning_ig' | 'midday' | 'education' | 'edu_bsky' | 'pulse' | 'pulse_ig' | 'event' | 'spotlight' | 'premarket_bsky' | 'premarket_threads' | 'intraday_bsky' | 'close_bsky' | 'close_threads';
+type Action = 'morning' | 'morning_ig' | 'midday' | 'education' | 'edu_bsky' | 'pulse' | 'pulse_ig' | 'event' | 'spotlight' | 'premarket_bsky' | 'premarket_threads' | 'intraday_bsky' | 'close_bsky' | 'close_threads' | 'structure_bsky' | 'insight_threads' | 'afterhours_bsky' | 'afterhours_threads';
 type Region = 'en' | 'asia' | 'all'; // en=EN only, asia=KO+JP, all=both
 
 function getLangsForRegion(region: Region): Lang[] {
@@ -875,6 +875,100 @@ for (const lang of langs) {
           const thCh = getChannels({ tier: 'all', lang, service: 'threads' })[0];
           if (!thCh) continue;
           const text = buildRealtimeText('close', 'threads', lang, mkt);
+          const tags = getHashtags({ platform: 'threads', contentType: 'close', lang });
+          const ogImage = await captureRealtimeOG(baseUrl, mkt, 'og', dryRun);
+          const r = await dispatchPost({
+            channelId: thCh.id,
+            text: truncateWithTags(text, tags, 'threads'),
+            imageUrl: ogImage,
+            dryRun, draft,
+          });
+          results.push(r);
+        }
+        break;
+      }
+
+      // ========================================
+      // STRUCTURE BSKY — 10:30 ET
+      // Bluesky EN only — Mid-morning institutional analysis
+      // ========================================
+      case 'structure_bsky': {
+        const mkt = await fetchLiveMarketData();
+        const bskyCh = getChannels({ tier: 'all', lang: 'en', service: 'bluesky' })[0];
+        if (bskyCh) {
+          const text = buildRealtimeText('structure', 'bluesky', 'en', mkt);
+          const ctaUrl = buildCtaUrl('en', 'command', 'structure');
+          const tags = getHashtags({ platform: 'bluesky', contentType: 'intraday', lang: 'en' });
+          const footer = `\n\n${ctaUrl}\n\n${tags}`;
+          const ogImage = await captureRealtimeOG(baseUrl, mkt, 'og', dryRun);
+          const r = await dispatchPost({
+            channelId: bskyCh.id,
+            text: truncateWithTags(text, footer, 'bluesky'),
+            imageUrl: ogImage,
+            dryRun, draft,
+          });
+          results.push(r);
+        }
+        break;
+      }
+
+      // ========================================
+      // INSIGHT THREADS — 10:45 ET
+      // Threads EN/KO/JA — Data insight engagement
+      // ========================================
+      case 'insight_threads': {
+        const mkt = await fetchLiveMarketData();
+        for (const lang of langs) {
+          const thCh = getChannels({ tier: 'all', lang, service: 'threads' })[0];
+          if (!thCh) continue;
+          const text = buildRealtimeText('structure', 'threads', lang, mkt);
+          const tags = getHashtags({ platform: 'threads', contentType: 'intraday', lang });
+          const ogImage = await captureRealtimeOG(baseUrl, mkt, 'og', dryRun);
+          const r = await dispatchPost({
+            channelId: thCh.id,
+            text: truncateWithTags(text, tags, 'threads'),
+            imageUrl: ogImage,
+            dryRun, draft,
+          });
+          results.push(r);
+        }
+        break;
+      }
+
+      // ========================================
+      // AFTERHOURS BSKY — 18:30 ET
+      // Bluesky EN only — Session debrief
+      // ========================================
+      case 'afterhours_bsky': {
+        const mkt = await fetchLiveMarketData();
+        const bskyCh = getChannels({ tier: 'all', lang: 'en', service: 'bluesky' })[0];
+        if (bskyCh) {
+          const text = buildRealtimeText('afterhours', 'bluesky', 'en', mkt);
+          const ctaUrl = buildCtaUrl('en', 'guardian', 'afterhours');
+          const tags = getHashtags({ platform: 'bluesky', contentType: 'close', lang: 'en' });
+          const footer = `\n\n${ctaUrl}\n\n${tags}`;
+          const ogImage = await captureRealtimeOG(baseUrl, mkt, 'og', dryRun);
+          const r = await dispatchPost({
+            channelId: bskyCh.id,
+            text: truncateWithTags(text, footer, 'bluesky'),
+            imageUrl: ogImage,
+            dryRun, draft,
+          });
+          results.push(r);
+        }
+        break;
+      }
+
+      // ========================================
+      // AFTERHOURS THREADS — 18:15 ET
+      // Threads EN/KO/JA — Session recap engagement
+      // ========================================
+      case 'afterhours_threads': {
+        const mkt = await fetchLiveMarketData();
+        for (const lang of langs) {
+          const thCh = getChannels({ tier: 'all', lang, service: 'threads' })[0];
+          if (!thCh) continue;
+          const text = buildRealtimeText('afterhours', 'threads', lang, mkt);
           const tags = getHashtags({ platform: 'threads', contentType: 'close', lang });
           const ogImage = await captureRealtimeOG(baseUrl, mkt, 'og', dryRun);
           const r = await dispatchPost({

@@ -40,6 +40,9 @@ const CRON_SCHEDULE = [
   { utc: '10:38', et: '06:38', kst: '19:38', action: 'morning_ig', label: 'Morning → IG Carousel(KO/JA) + Threads(KO/JA)', type: 'dispatch', region: 'ASIA', days: 'Mon-Fri' },
   { utc: '12:30', et: '08:30', kst: '21:30', action: 'premarket_bsky', label: 'Pre-Market Structure → Bluesky(EN)', type: 'dispatch', region: 'EN', days: 'Mon-Fri' },
   { utc: '12:35', et: '08:35', kst: '21:35', action: 'premarket_threads', label: 'Pre-Market Engagement → Threads(EN/KO/JA)', type: 'dispatch', region: 'ALL', days: 'Mon-Fri' },
+  // ── NEW: 10:30-10:45 ET gap fill ──
+  { utc: '14:30', et: '10:30', kst: '23:30', action: 'structure_bsky', label: 'Mid-Session Structure → Bluesky(EN)', type: 'dispatch', region: 'EN', days: 'Mon-Fri' },
+  { utc: '14:45', et: '10:45', kst: '23:45', action: 'insight_threads', label: 'Data Insight → Threads(EN/KO/JA)', type: 'dispatch', region: 'ALL', days: 'Mon-Fri' },
   { utc: '16:00', et: '12:00', kst: '01:00+1', action: 'midday', label: 'Midday → X(EN/KO/JA) + Bluesky(EN) + IG(EN/KO/JA) + Threads(EN/KO/JA) + Pinterest(EN)', type: 'dispatch', region: 'ALL', days: 'Mon-Fri' },
   { utc: '17:00', et: '13:00', kst: '02:00+1', action: 'spotlight', label: 'Spotlight #1 → X(EN/KO/JA) + Bluesky(EN) + Threads(EN/KO/JA) + Pinterest(EN)', type: 'dispatch', region: 'ALL', days: 'Mon-Fri' },
   { utc: '18:00', et: '14:00', kst: '03:00+1', action: 'intraday_bsky', label: 'Intraday Structure → Bluesky(EN)', type: 'dispatch', region: 'EN', days: 'Mon-Fri' },
@@ -49,6 +52,9 @@ const CRON_SCHEDULE = [
   { utc: '20:35', et: '16:35', kst: '05:35+1', action: 'pulse', label: 'Pulse → X(EN/KO/JA) + Bluesky(EN) + IG Story(EN/KO/JA) + Pinterest(EN)', type: 'dispatch', region: 'ALL', days: 'Mon-Fri' },
   { utc: '20:40', et: '16:40', kst: '05:40+1', action: 'pulse_ig', label: 'Pulse → IG Carousel(EN) + Threads(EN)', type: 'dispatch', region: 'EN', days: 'Mon-Fri' },
   { utc: '20:43', et: '16:43', kst: '05:43+1', action: 'pulse_ig', label: 'Pulse → IG Carousel(KO/JA) + Threads(KO/JA)', type: 'dispatch', region: 'ASIA', days: 'Mon-Fri' },
+  // ── NEW: 18:15-18:30 ET gap fill ──
+  { utc: '22:15', et: '18:15', kst: '07:15+1', action: 'afterhours_threads', label: 'Session Recap → Threads(EN/KO/JA)', type: 'dispatch', region: 'ALL', days: 'Mon-Fri' },
+  { utc: '22:30', et: '18:30', kst: '07:30+1', action: 'afterhours_bsky', label: 'Session Debrief → Bluesky(EN)', type: 'dispatch', region: 'EN', days: 'Mon-Fri' },
   { utc: '00:00', et: '20:00', kst: '09:00', action: 'education', label: 'Education → X Thread(EN/KO/JA) + Threads(EN/KO/JA) + Pinterest(EN)', type: 'dispatch', region: 'ALL', days: 'Tue-Sat' },
   { utc: '02:00', et: '22:00', kst: '11:00', action: 'edu_bsky', label: 'Education → Bluesky(EN) + Pinterest(EN)', type: 'dispatch', region: 'EN', days: 'Tue-Sat' },
   // ═══ Other ═══
