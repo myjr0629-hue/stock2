@@ -111,7 +111,7 @@ export async function GET(request: Request) {
             const tags = getHashtags({ platform: 'twitter', contentType: 'morning', lang });
             const r = await dispatchTweet({
               channelId: twitterCh.id,
-              text: truncateForPlatform(`${tweetText}\n\n${tags}`, 'twitter'),
+              text: truncateWithTags(tweetText, tags, 'twitter'),
               imageUrl: ogImage,
               replyText: `📊 ${ctaUrl}`,
               dryRun,
@@ -125,9 +125,10 @@ export async function GET(request: Request) {
           const bskyCh = getChannels({ tier: 'all', lang, service: 'bluesky' })[0];
           if (bskyCh) {
             const tags = getHashtags({ platform: 'bluesky', contentType: 'morning', lang });
+            const footer = `\n\n${ctaUrl}\n\n${tags}`;
             const r = await dispatchPost({
               channelId: bskyCh.id,
-              text: truncateForPlatform(`${blueskyText}\n\n${ctaUrl}\n\n${tags}`, 'bluesky'),
+              text: truncateWithTags(blueskyText, footer, 'bluesky'),
               imageUrl: ogImage,
               dryRun,
 
@@ -136,19 +137,7 @@ export async function GET(request: Request) {
             results.push(r);
           }
 
-          // IG Story
-          const igCh = getChannels({ tier: 'all', lang, service: 'instagram' })[0];
-          if (igCh) {
-            const storyUrl = await captureImageForDispatch(baseUrl, content, lang, 'story', 'morning', dryRun);
-            const r = await dispatchStory({
-              channelId: igCh.id,
-              imageUrl: storyUrl,
-              dryRun,
-
-              draft,
-            });
-            results.push(r);
-          }
+          // IG Story removed — IG carousel handled by morning_ig action
         }
         break;
       }
@@ -235,7 +224,7 @@ export async function GET(request: Request) {
             const tags = getHashtags({ platform: 'twitter', contentType: 'midday', lang });
             const r = await dispatchTweet({
               channelId: twitterCh.id,
-              text: truncateForPlatform(`${lc.platformText?.twitter || lc.text}${tags ? '\n\n' + tags : ''}`, 'twitter'),
+              text: truncateWithTags(lc.platformText?.twitter || lc.text, tags, 'twitter'),
               imageUrl: ogImage,
               replyText: `📊 ${ctaUrl}`,
               dryRun,
@@ -249,9 +238,10 @@ export async function GET(request: Request) {
           const bskyCh = getChannels({ tier: 'all', lang, service: 'bluesky' })[0];
           if (bskyCh) {
             const tags = getHashtags({ platform: 'bluesky', contentType: 'midday', lang });
+            const footer = `\n\n${ctaUrl}\n\n${tags}`;
             const r = await dispatchPost({
               channelId: bskyCh.id,
-              text: truncateForPlatform(`${lc.platformText?.bluesky || lc.text}\n\n${ctaUrl}\n\n${tags}`, 'bluesky'),
+              text: truncateWithTags(lc.platformText?.bluesky || lc.text, footer, 'bluesky'),
               imageUrl: ogImage,
               dryRun,
 
@@ -260,18 +250,7 @@ export async function GET(request: Request) {
             results.push(r);
           }
 
-          // IG Story
-          const igCh = getChannels({ tier: 'all', lang, service: 'instagram' })[0];
-          if (igCh) {
-            const r = await dispatchStory({
-              channelId: igCh.id,
-              imageUrl: await captureImageForDispatch(baseUrl, content, lang, 'story', 'pulse', dryRun),
-              dryRun,
-
-              draft,
-            });
-            results.push(r);
-          }
+          // IG Story removed — story templates not production-ready
         }
 
         // Pinterest (EN only)
@@ -414,7 +393,7 @@ export async function GET(request: Request) {
             const tags = getHashtags({ platform: 'twitter', contentType: 'pulse', lang });
             const r = await dispatchTweet({
               channelId: twitterCh.id,
-              text: truncateForPlatform(`${lc.platformText?.twitter || lc.text}\n\n${tags}`, 'twitter'),
+              text: truncateWithTags(lc.platformText?.twitter || lc.text, tags, 'twitter'),
               imageUrl: ogImage,
               replyText: `📊 ${ctaUrl}`,
               dryRun,
@@ -428,9 +407,10 @@ export async function GET(request: Request) {
           const bskyCh = getChannels({ tier: 'all', lang, service: 'bluesky' })[0];
           if (bskyCh) {
             const tags = getHashtags({ platform: 'bluesky', contentType: 'pulse', lang });
+            const footer = `\n\n${ctaUrl}\n\n${tags}`;
             const r = await dispatchPost({
               channelId: bskyCh.id,
-              text: truncateForPlatform(`${lc.platformText?.bluesky || lc.text}\n\n${ctaUrl}\n\n${tags}`, 'bluesky'),
+              text: truncateWithTags(lc.platformText?.bluesky || lc.text, footer, 'bluesky'),
               imageUrl: ogImage,
               dryRun,
 
@@ -439,18 +419,7 @@ export async function GET(request: Request) {
             results.push(r);
           }
 
-          // IG Story
-          const igCh = getChannels({ tier: 'all', lang, service: 'instagram' })[0];
-          if (igCh) {
-            const r = await dispatchStory({
-              channelId: igCh.id,
-              imageUrl: await captureImageForDispatch(baseUrl, content, lang, 'story', 'pulse', dryRun),
-              dryRun,
-
-              draft,
-            });
-            results.push(r);
-          }
+          // IG Story removed — IG carousel handled by pulse_ig action
         }
 
         // Pinterest (EN only)
@@ -757,6 +726,23 @@ function buildCtaUrl(lang: Lang, page: string, campaign: string): string {
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://signumhq.com';
   const utm = buildUtm('social', campaign);
   return `${baseUrl}/${page}?${utm}`;
+}
+
+/**
+ * Truncate body text while preserving tags/footer.
+ * Reserves space for the footer (tags, CTA) first, then truncates body to fit.
+ */
+function truncateWithTags(body: string, tagsOrFooter: string, service: string): string {
+  const LIMITS: Record<string, number> = { twitter: 280, threads: 500, instagram: 2200, bluesky: 300, pinterest: 500 };
+  const limit = LIMITS[service] || 280;
+  const separator = '\n\n';
+  const footerLen = separator.length + tagsOrFooter.length;
+  const maxBody = limit - footerLen;
+  if (maxBody < 50) {
+    return truncateForPlatform(`${body}${separator}${tagsOrFooter}`, service);
+  }
+  const trimmedBody = body.length > maxBody ? body.substring(0, maxBody - 3) + '...' : body;
+  return `${trimmedBody}${separator}${tagsOrFooter}`;
 }
 
 /**
