@@ -30,7 +30,7 @@ import {
 } from '@/lib/marketing/bufferMultiClient';
 import { getChannels, truncateForPlatform, buildUtm } from '@/lib/marketing/bufferClient';
 import { getHashtags, buildInstagramFooter, getPinterestSEO, type ContentType, type Lang } from '@/lib/marketing/hashtagEngine';
-import { captureTemplate, type FormatType, type TemplateType } from '@/lib/marketing/screenshotService';
+import { captureTemplate, captureStoryImage, type FormatType, type TemplateType } from '@/lib/marketing/screenshotService';
 import type { ContentOutput } from '@/lib/marketing/contentEngines';
 
 // ---------------------------------------------------------------------------
@@ -136,7 +136,20 @@ export async function GET(request: Request) {
             results.push(r);
           }
 
-          // IG Story removed — IG carousel handled by morning_ig action
+          // IG Story (1080×1920) — dedicated story template
+          const igChMorning = getChannels({ tier: 'all', lang, service: 'instagram' })[0];
+          if (igChMorning) {
+            const storyUrl = await captureStoryForDispatch(baseUrl, content, lang, dryRun);
+            if (storyUrl) {
+              const r = await dispatchStory({
+                channelId: igChMorning.id,
+                imageUrl: storyUrl,
+                dryRun,
+                draft,
+              });
+              results.push(r);
+            }
+          }
         }
         break;
       }
@@ -248,7 +261,20 @@ export async function GET(request: Request) {
             results.push(r);
           }
 
-          // IG Story removed — story templates not production-ready
+          // IG Story (1080×1920) — dedicated story template
+          const igChMidday = getChannels({ tier: 'all', lang, service: 'instagram' })[0];
+          if (igChMidday) {
+            const storyUrl = await captureStoryForDispatch(baseUrl, content, lang, dryRun);
+            if (storyUrl) {
+              const r = await dispatchStory({
+                channelId: igChMidday.id,
+                imageUrl: storyUrl,
+                dryRun,
+                draft,
+              });
+              results.push(r);
+            }
+          }
         }
 
         // Pinterest (EN only)
@@ -416,7 +442,20 @@ export async function GET(request: Request) {
             results.push(r);
           }
 
-          // IG Story removed — IG carousel handled by pulse_ig action
+          // IG Story (1080×1920) — dedicated story template
+          const igChPulse = getChannels({ tier: 'all', lang, service: 'instagram' })[0];
+          if (igChPulse) {
+            const storyUrl = await captureStoryForDispatch(baseUrl, content, lang, dryRun);
+            if (storyUrl) {
+              const r = await dispatchStory({
+                channelId: igChPulse.id,
+                imageUrl: storyUrl,
+                dryRun,
+                draft,
+              });
+              results.push(r);
+            }
+          }
         }
 
         // Pinterest (EN only)
@@ -863,4 +902,48 @@ function buildEducationThread(
     { text: truncateForPlatform(slide3Text, 'twitter') },
     { text: truncateForPlatform(slide4Text, 'twitter'), imageUrl: ogImageUrl },
   ];
+}
+
+/**
+ * Capture IG Story image (1080×1920) via dedicated story template.
+ * Extracts spy/vix/gex/dp from content's imageUrl params and feeds to captureStoryImage.
+ */
+async function captureStoryForDispatch(
+  baseUrl: string,
+  content: ContentOutput,
+  lang: Lang,
+  dryRun: boolean,
+): Promise<string | null> {
+  const data = extractDataParams(content, lang, baseUrl);
+
+  // Build story-specific params from existing content data
+  const storyParams = {
+    spy: data.spy || '0',
+    vix: data.vix || '18',
+    gex: String(data.gex || 'neutral'),
+    dp: data.dp || '0',
+    date: data.date as string | undefined,
+    insight: data.insight as string | undefined,
+  };
+
+  if (dryRun) {
+    const previewUrl = new URL(`${baseUrl}/marketing/templates/story`);
+    Object.entries(storyParams).forEach(([k, v]) => {
+      if (v != null) previewUrl.searchParams.set(k, String(v));
+    });
+    return previewUrl.toString();
+  }
+
+  try {
+    const cdnUrl = await captureStoryImage(storyParams);
+    if (cdnUrl) {
+      console.log(`[Dispatch] ✅ IG Story captured: ${lang}`);
+      return cdnUrl;
+    }
+    console.warn(`[Dispatch] IG Story capture returned null for ${lang}`);
+    return null;
+  } catch (err: any) {
+    console.error(`[Dispatch] IG Story capture failed: ${err.message}`);
+    return null;
+  }
 }

@@ -23,7 +23,7 @@ const BUCKET_NAME = 'marketing-assets';
 const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://signumhq.com';
 
 // ── Types ──
-export type TemplateType = 'pulse' | 'event' | 'ticker' | 'morning' | 'education' | 'carousel';
+export type TemplateType = 'pulse' | 'event' | 'ticker' | 'morning' | 'education' | 'carousel' | 'story';
 export type FormatType = keyof typeof FORMATS;
 
 export interface CaptureRequest {
@@ -75,6 +75,7 @@ const TEMPLATE_ROUTES: Record<string, string> = {
   morning:   '/templates/og/morning',
   education: '/templates/og/education',
   carousel:  '/templates/og/carousel',
+  story:     '/marketing/templates/story',
 };
 
 function buildTemplateUrl(req: CaptureRequest): string {
@@ -284,13 +285,30 @@ export async function captureDailyPulse(params: {
     date: params.date || new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
   };
   
-  const results = await captureAllFormats('pulse', data, ['tweet', 'og', 'story', 'carousel', 'pin', 'square']);
+  // Standard formats use the pulse template
+  const results = await captureAllFormats('pulse', data, ['tweet', 'og', 'carousel', 'pin', 'square']);
   
   // Return cdnUrl map
   const urls: Record<string, string | null> = {};
   for (const [format, result] of Object.entries(results)) {
     urls[format] = result?.cdnUrl || null;
   }
+
+  // Story uses the dedicated story template (1080×1920 premium layout)
+  try {
+    const storyUrl = await captureStoryImage({
+      spy: params.spy,
+      vix: params.vix,
+      gex: params.gex,
+      dp: params.dp,
+      date: data.date as string,
+    });
+    urls.story = storyUrl;
+  } catch (err: any) {
+    console.warn(`[ScreenshotService] Story pre-capture failed (non-fatal): ${err.message}`);
+    urls.story = null;
+  }
+
   return urls;
 }
 
@@ -324,6 +342,37 @@ export async function captureTickerSpotlight(params: {
     tweet: tweet?.cdnUrl || null,
     og: og?.cdnUrl || null,
   };
+}
+
+/**
+ * Capture an IG Story image (1080×1920) via the dedicated story template.
+ * Uses /marketing/templates/story which is a premium GPT-designed vertical layout.
+ * Called by marketing-dispatch for pulse/morning IG Story posts.
+ */
+export async function captureStoryImage(params: {
+  spy: string | number;
+  vix: string | number;
+  gex: string;
+  dp: string | number;
+  date?: string;
+  insight?: string;
+}): Promise<string | null> {
+  const data: Record<string, string | number> = {
+    spy: params.spy,
+    vix: params.vix,
+    gex: params.gex,
+    dp: params.dp,
+    date: params.date || new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+    ...(params.insight && { insight: params.insight }),
+  };
+  
+  const result = await captureTemplate({ template: 'story', format: 'story', data });
+  
+  if (result?.cdnUrl) {
+    console.log(`[ScreenshotService] ✅ Story captured: ${result.sizeKB}KB`);
+  }
+  
+  return result?.cdnUrl || null;
 }
 
 /**
