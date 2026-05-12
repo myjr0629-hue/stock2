@@ -42,6 +42,8 @@ function MorningContent() {
   const gex = sp.get('gex') || 'positive';
   const dp = sp.get('dp') || '39.2';
   const insight = sp.get('insight') || 'Dealers expected to dampen volatility today. Key level: SPY $542';
+  const format = sp.get('format') || 'og';
+  const isStory = format === 'story';
   const now = new Date();
   const dateStr = sp.get('date') || now.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
   const spyVal = parseFloat(spy);
@@ -49,6 +51,80 @@ function MorningContent() {
   const gexPositive = gex.toLowerCase() === 'positive';
   const gexColor = gexPositive ? '#34d399' : '#f87171';
   const spyDisplay = spyPositive ? `+${Math.abs(spyVal).toFixed(2)}%` : `${spyVal.toFixed(2)}%`;
+
+  // Story format: 1080×1920 vertical layout
+  if (isStory) {
+    return (
+      <div style={{
+        width: 1080, height: 1920, position: 'relative', overflow: 'hidden',
+        color: '#f1f5f9', fontFamily: "'Inter', system-ui, sans-serif",
+        background: `
+          radial-gradient(circle at 50% 25%, rgba(251,191,36,0.12), transparent 40%),
+          radial-gradient(circle at 50% 70%, rgba(34,211,238,0.08), transparent 35%),
+          #06090f
+        `, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+      }}>
+        {/* Scanline */}
+        <div style={{ position: 'absolute', inset: 0, zIndex: 80, pointerEvents: 'none', opacity: 0.03,
+          background: 'repeating-linear-gradient(to bottom, rgba(255,255,255,0.9) 0, rgba(255,255,255,0.9) 1px, transparent 1px, transparent 5px)',
+        }} />
+        {/* Brand */}
+        <div style={{ position: 'absolute', top: 80, left: 0, right: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', zIndex: 20 }}>
+          <img src="/icons/icon-192x192.png" alt="" style={{ width: 72, height: 72, borderRadius: 16, filter: 'drop-shadow(0 0 20px rgba(34,211,238,0.3))' }} />
+          <div style={{ marginTop: 20, fontSize: 36, fontWeight: 900, letterSpacing: '0.14em' }}>SIGNUM <span style={{ color: '#22d3ee' }}>HQ</span></div>
+          <div style={{ marginTop: 8, color: '#fbbf24', fontSize: 20, fontWeight: 900, letterSpacing: '0.35em' }}>MORNING BRIEF</div>
+          <div style={{ marginTop: 8, color: '#94a3b8', fontSize: 18, letterSpacing: '0.05em' }}>{dateStr}</div>
+        </div>
+        {/* Sunrise SVG */}
+        <div style={{ position: 'absolute', top: 280, left: '50%', transform: 'translateX(-50%)', width: 700, height: 430, zIndex: 5, opacity: 0.7 }}
+          dangerouslySetInnerHTML={{ __html: SUNRISE_SVG }}
+        />
+        {/* Title */}
+        <div style={{ position: 'absolute', top: 620, left: 0, right: 0, textAlign: 'center', zIndex: 15 }}>
+          <h1 style={{
+            margin: 0, fontSize: 88, lineHeight: 0.95, fontWeight: 900, letterSpacing: '-0.06em',
+            background: 'linear-gradient(105deg, #c084fc, #a78bfa 30%, #67e8f9 70%, #22d3ee)',
+            WebkitBackgroundClip: 'text', backgroundClip: 'text', color: 'transparent',
+          }}>Pre-Market<br/>Structure</h1>
+          <div style={{ width: 300, height: 3, margin: '24px auto 0', background: 'linear-gradient(90deg, #a78bfa, #22d3ee)', borderRadius: 999, boxShadow: '0 0 20px rgba(34,211,238,0.5)' }} />
+        </div>
+        {/* Metric Cards — 2×2 grid */}
+        <div style={{ position: 'absolute', top: 900, left: 60, right: 60, display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 16, zIndex: 16 }}>
+          <div style={{ padding: '24px 28px', borderRadius: 16, border: '1px solid rgba(255,255,255,0.12)', background: 'rgba(8,15,27,0.75)', backdropFilter: 'blur(12px)' }}>
+            <div style={{ color: '#94a3b8', fontSize: 13, fontWeight: 900, letterSpacing: '0.25em' }}>SPY OVERNIGHT</div>
+            <div style={{ marginTop: 16, fontSize: 48, fontWeight: 900, color: spyPositive ? '#34d399' : '#f87171' }}>{spyDisplay} {spyPositive ? '▲' : '▼'}</div>
+          </div>
+          <div style={{ padding: '24px 28px', borderRadius: 16, border: '1px solid rgba(255,255,255,0.12)', background: 'rgba(8,15,27,0.75)', backdropFilter: 'blur(12px)' }}>
+            <div style={{ color: '#94a3b8', fontSize: 13, fontWeight: 900, letterSpacing: '0.25em' }}>VIX LEVEL</div>
+            <div style={{ marginTop: 16, display: 'flex', alignItems: 'center', gap: 16 }}>
+              <span style={{ fontSize: 48, fontWeight: 900 }}>{vix}</span>
+              <span style={{ padding: '8px 16px', borderRadius: 999, border: `1px solid ${vixNum < 20 ? '#34d399' : vixNum < 25 ? '#fbbf24' : '#f87171'}60`, background: `${vixNum < 20 ? '#34d399' : vixNum < 25 ? '#fbbf24' : '#f87171'}18`, color: vixNum < 20 ? '#34d399' : vixNum < 25 ? '#fbbf24' : '#f87171', fontSize: 18, fontWeight: 900, letterSpacing: '0.12em' }}>{vixNum < 16 ? 'LOW' : vixNum < 20 ? 'CALM' : vixNum < 25 ? 'ELEVATED' : 'HIGH'}</span>
+            </div>
+          </div>
+          <div style={{ padding: '24px 28px', borderRadius: 16, border: '1px solid rgba(255,255,255,0.12)', background: 'rgba(8,15,27,0.75)', backdropFilter: 'blur(12px)' }}>
+            <div style={{ color: '#94a3b8', fontSize: 13, fontWeight: 900, letterSpacing: '0.25em' }}>GEX REGIME</div>
+            <div style={{ marginTop: 20, display: 'flex', alignItems: 'center', gap: 18 }}>
+              <div style={{ width: 24, height: 24, borderRadius: '50%', background: gexColor, boxShadow: `0 0 22px ${gexColor}` }} />
+              <span style={{ color: gexColor, fontSize: 36, fontWeight: 900, letterSpacing: '0.05em' }}>{gex.toUpperCase()}</span>
+            </div>
+          </div>
+          <div style={{ padding: '24px 28px', borderRadius: 16, border: '1px solid rgba(255,255,255,0.12)', background: 'rgba(8,15,27,0.75)', backdropFilter: 'blur(12px)' }}>
+            <div style={{ color: '#94a3b8', fontSize: 13, fontWeight: 900, letterSpacing: '0.25em' }}>DARK POOL</div>
+            <div style={{ marginTop: 16, fontSize: 48, fontWeight: 900, color: '#a855f7', textShadow: '0 0 20px rgba(167,139,250,0.22)' }}>{dp}%</div>
+          </div>
+        </div>
+        {/* Insight */}
+        <div style={{ position: 'absolute', top: 1320, left: 60, right: 60, zIndex: 18, display: 'flex', gap: 16, alignItems: 'flex-start' }}>
+          <div style={{ width: 4, minHeight: 40, borderRadius: 999, background: 'linear-gradient(to bottom, #22d3ee, rgba(34,211,238,0.3))', boxShadow: '0 0 14px rgba(34,211,238,0.5)', flexShrink: 0 }} />
+          <div style={{ color: '#cbd5e1', fontSize: 22, fontWeight: 500, fontStyle: 'italic', lineHeight: 1.5 }}>{insight}</div>
+        </div>
+        {/* Footer */}
+        <div style={{ position: 'absolute', bottom: 60, left: 0, right: 0, textAlign: 'center', zIndex: 24 }}>
+          <div style={{ color: '#94a3b8', fontSize: 18, fontWeight: 500, letterSpacing: '0.4em' }}>signumhq.com</div>
+        </div>
+      </div>
+    );
+  }
 
   const vixNum = parseFloat(vix);
   const vixStatus = vixNum < 16 ? 'LOW' : vixNum < 20 ? 'CALM' : vixNum < 25 ? 'ELEVATED' : vixNum < 30 ? 'HIGH' : 'EXTREME';
