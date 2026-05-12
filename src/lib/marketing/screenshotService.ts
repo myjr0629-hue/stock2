@@ -23,7 +23,7 @@ const BUCKET_NAME = 'marketing-assets';
 const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://signumhq.com';
 
 // ── Types ──
-export type TemplateType = 'pulse' | 'event' | 'ticker' | 'morning' | 'education' | 'carousel' | 'story' | 'story_spotlight' | 'story_event';
+export type TemplateType = 'pulse' | 'event' | 'ticker' | 'morning' | 'education' | 'carousel' | 'story' | 'story_spotlight' | 'story_event' | 'story_education';
 export type FormatType = keyof typeof FORMATS;
 
 export interface CaptureRequest {
@@ -78,6 +78,7 @@ const TEMPLATE_ROUTES: Record<string, string> = {
   story:     '/marketing/templates/story',
   story_spotlight: '/marketing/templates/story/spotlight',
   story_event:     '/marketing/templates/story/event',
+  story_education: '/marketing/templates/story/education',
 };
 
 function buildTemplateUrl(req: CaptureRequest): string {
@@ -532,3 +533,17 @@ export async function captureSpotlightStory(params: {
   return result?.cdnUrl || null;
 }
 
+/**
+ * Capture an Education IG Story (1080x1920).
+ * Called by marketing-dispatch education action.
+ */
+export async function captureEducationStory(params: {
+  topic: string;
+}): Promise<string | null> {
+  const data: Record<string, string | number> = { topic: params.topic };
+  const result = await captureTemplate({ template: 'story_education', format: 'story', data });
+  if (result?.cdnUrl) {
+    console.log('[ScreenshotService] Education Story captured: ' + result.sizeKB + 'KB');
+  }
+  return result?.cdnUrl || null;
+}

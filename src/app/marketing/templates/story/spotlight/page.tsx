@@ -106,7 +106,7 @@ function SpotlightStoryCard() {
       }} />
 
       {/* ═══ HEADER ═══ */}
-      <div style={{ position: 'absolute', left: '34px', right: '34px', top: '33px', height: '132px', zIndex: 2 }}>
+      <div style={{ position: 'absolute', left: '34px', right: '34px', top: '33px', height: '150px', zIndex: 5 }}>
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '28px' }}>
             {/* eslint-disable-next-line @next/next/no-img-element */}

@@ -359,6 +359,22 @@ export async function GET(request: Request) {
             });
             results.push(r);
           }
+
+          // IG Story (1080x1920) — Education story template
+          const igChEdu = getChannels({ tier: 'all', lang, service: 'instagram' })[0];
+          if (igChEdu && !dryRun) {
+            try {
+              const { captureEducationStory } = await import('@/lib/marketing/screenshotService');
+              const topicId = (content as any)?.topicId || 'gex';
+              const storyUrl = await captureEducationStory({ topic: topicId });
+              if (storyUrl) {
+                const r = await dispatchStory({ channelId: igChEdu.id, imageUrl: storyUrl, dryRun, draft });
+                results.push(r);
+              }
+            } catch (err: any) {
+              console.warn(`[Education] Story capture failed: ${err.message}`);
+            }
+          }
         }
 
         // Pinterest (EN only)
