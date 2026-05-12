@@ -64,7 +64,7 @@ export function MobileWatchlistSwipeBar({ currentTicker, targetPage = 'flow' }: 
 
     const navigate = (t: string) => {
         if (targetPage === 'command') {
-            router.push(`/${locale}/ticker/${t}`);
+            router.push(`/${locale}/ticker?ticker=${t}`);
         } else {
             router.push(`/${locale}/flow?ticker=${t}`);
         }
