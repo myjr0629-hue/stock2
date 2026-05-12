@@ -34,36 +34,21 @@ const CRON_SCHEDULE = [
   { utc: '20:25', et: '16:25', kst: '05:25+1', action: 'daily-content-pulse', label: 'Pulse 콘텐츠 생성 (장마감 확정)', type: 'content', region: 'ALL', days: 'Mon-Fri' },
   { utc: '20:40', et: '16:40', kst: '05:40+1', action: 'daily-content-morning', label: 'Morning 콘텐츠 생성 (장마감후)', type: 'content', region: 'ALL', days: 'Mon-Fri' },
   { utc: '23:30', et: '19:30', kst: '08:30+1', action: 'daily-content-edu', label: 'Education 콘텐츠 생성', type: 'content', region: 'ALL', days: 'Mon-Sat' },
-  // ═══ Dispatch — ET 시간순 (32개) ═══
-  { utc: '10:30', et: '06:30', kst: '19:30', action: 'morning', label: 'Morning Brief → X(EN/KO/JA) + Bluesky(EN) + IG Story(EN/KO/JA)', type: 'dispatch', region: 'ALL', days: 'Mon-Fri' },
+  // ═══ ACTIVE Dispatch — 10개 (일 50 포스트, 채널당 3~6) ═══
+  { utc: '10:30', et: '06:30', kst: '19:30', action: 'morning', label: 'Morning Brief → X(EN/KO/JA) + Bluesky(EN) + IG Story(EN/KO/JA) + Pinterest(EN)', type: 'dispatch', region: 'ALL', days: 'Mon-Fri' },
   { utc: '10:35', et: '06:35', kst: '19:35', action: 'morning_ig', label: 'Morning → IG Carousel(EN) + Threads(EN)', type: 'dispatch', region: 'EN', days: 'Mon-Fri' },
   { utc: '10:38', et: '06:38', kst: '19:38', action: 'morning_ig', label: 'Morning → IG Carousel(KO/JA) + Threads(KO/JA)', type: 'dispatch', region: 'ASIA', days: 'Mon-Fri' },
   { utc: '11:30', et: '07:30', kst: '20:30', action: 'asia_evening', label: 'Asia Evening → Threads(KO/JA)', type: 'dispatch', region: 'ASIA', days: 'Mon-Fri' },
-  { utc: '12:30', et: '08:30', kst: '21:30', action: 'premarket_bsky', label: 'Pre-Market Structure → Bluesky(EN)', type: 'dispatch', region: 'EN', days: 'Mon-Fri' },
-  { utc: '12:35', et: '08:35', kst: '21:35', action: 'premarket_threads', label: 'Pre-Market Engagement → Threads(EN/KO/JA) + Pinterest(EN)', type: 'dispatch', region: 'ALL', days: 'Mon-Fri' },
-  { utc: '13:30', et: '09:30', kst: '22:30', action: 'market_open', label: 'Market Open → Threads(KO/JA) + Bluesky(EN) + Pinterest(EN)', type: 'dispatch', region: 'ALL', days: 'Mon-Fri' },
-  // ── NEW: 10:30-10:45 ET gap fill ──
-  { utc: '14:30', et: '10:30', kst: '23:30', action: 'structure_bsky', label: 'Mid-Session Structure → Bluesky(EN)', type: 'dispatch', region: 'EN', days: 'Mon-Fri' },
-  { utc: '14:45', et: '10:45', kst: '23:45', action: 'insight_threads', label: 'Data Insight → Threads(EN/KO/JA)', type: 'dispatch', region: 'ALL', days: 'Mon-Fri' },
+  { utc: '12:35', et: '08:35', kst: '21:35', action: 'premarket_threads', label: 'Pre-Market → Threads(EN/KO/JA) + Pinterest(EN)', type: 'dispatch', region: 'ALL', days: 'Mon-Fri' },
   { utc: '16:00', et: '12:00', kst: '01:00+1', action: 'midday', label: 'Midday → X(EN/KO/JA) + Bluesky(EN) + IG(EN/KO/JA) + Threads(EN/KO/JA) + Pinterest(EN)', type: 'dispatch', region: 'ALL', days: 'Mon-Fri' },
-  { utc: '17:00', et: '13:00', kst: '02:00+1', action: 'spotlight', label: 'Spotlight #1 → X(EN/KO/JA) + Bluesky(EN) + Threads(EN/KO/JA) + Pinterest(EN)', type: 'dispatch', region: 'ALL', days: 'Mon-Fri' },
-  { utc: '18:00', et: '14:00', kst: '03:00+1', action: 'intraday_bsky', label: 'Intraday Structure → Bluesky(EN)', type: 'dispatch', region: 'EN', days: 'Mon-Fri' },
-  { utc: '19:00', et: '15:00', kst: '04:00+1', action: 'spotlight', label: 'Spotlight #2 → X(EN/KO/JA) + Bluesky(EN) + Threads(EN/KO/JA) + Pinterest(EN)', type: 'dispatch', region: 'ALL', days: 'Mon-Fri' },
-  { utc: '20:10', et: '16:10', kst: '05:10+1', action: 'close_bsky', label: 'Session Close → Bluesky(EN)', type: 'dispatch', region: 'EN', days: 'Mon-Fri' },
-  { utc: '20:15', et: '16:15', kst: '05:15+1', action: 'close_threads', label: 'Session Close → Threads(EN/KO/JA)', type: 'dispatch', region: 'ALL', days: 'Mon-Fri' },
   { utc: '20:35', et: '16:35', kst: '05:35+1', action: 'pulse', label: 'Pulse → X(EN/KO/JA) + Bluesky(EN) + IG Story(EN/KO/JA) + Pinterest(EN)', type: 'dispatch', region: 'ALL', days: 'Mon-Fri' },
-  { utc: '20:40', et: '16:40', kst: '05:40+1', action: 'pulse_ig', label: 'Pulse → IG Carousel(EN) + Threads(EN)', type: 'dispatch', region: 'EN', days: 'Mon-Fri' },
-  { utc: '20:43', et: '16:43', kst: '05:43+1', action: 'pulse_ig', label: 'Pulse → IG Carousel(KO/JA) + Threads(KO/JA)', type: 'dispatch', region: 'ASIA', days: 'Mon-Fri' },
-  // ── NEW: 18:15-18:30 ET gap fill ──
-  { utc: '22:15', et: '18:15', kst: '07:15+1', action: 'afterhours_threads', label: 'Session Recap → Threads(EN/KO/JA)', type: 'dispatch', region: 'ALL', days: 'Mon-Fri' },
-  { utc: '22:30', et: '18:30', kst: '07:30+1', action: 'afterhours_bsky', label: 'Session Debrief → Bluesky(EN)', type: 'dispatch', region: 'EN', days: 'Mon-Fri' },
   { utc: '00:00', et: '20:00', kst: '09:00', action: 'education', label: 'Education → X Thread(EN/KO/JA) + Threads(EN/KO/JA) + Pinterest(EN)', type: 'dispatch', region: 'ALL', days: 'Tue-Sun' },
   { utc: '02:00', et: '22:00', kst: '11:00', action: 'edu_bsky', label: 'Education → Bluesky(EN) + Pinterest(EN)', type: 'dispatch', region: 'EN', days: 'Tue-Sun' },
-  // ── Asia Daytime (KO/JA only — 미국 야간) ──
   { utc: '02:30', et: '22:30', kst: '11:30', action: 'asia_recap', label: 'US Session Recap → Threads(KO/JA)', type: 'dispatch', region: 'ASIA', days: 'Tue-Sat' },
-  { utc: '05:00', et: '01:00', kst: '14:00', action: 'asia_insight', label: 'Structure Insight → Threads(KO/JA)', type: 'dispatch', region: 'ASIA', days: 'Tue-Sat' },
-  { utc: '07:30', et: '03:30', kst: '16:30', action: 'asia_tip', label: 'Educational Tip → Threads(KO/JA)', type: 'dispatch', region: 'ASIA', days: 'Mon-Fri' },
-  { utc: '09:00', et: '05:00', kst: '18:00', action: 'asia_preview', label: 'Session Preview → Threads(KO/JA)', type: 'dispatch', region: 'ASIA', days: 'Mon-Fri' },
+  // ═══ RESERVED (Phase 2 — 팔로워 500+ 이후 순차 활성화) ═══
+  // spotlight×2, pulse_ig×2, close×2, afterhours×2, premarket_bsky,
+  // market_open, intraday_bsky, structure_bsky, insight_threads,
+  // asia_insight, asia_tip, asia_preview
   // ═══ Other ═══
   { utc: '21:00', et: '17:00', kst: '06:00+1', action: 'render-video', label: 'Remotion 영상 렌더링 (dry_run)', type: 'video', region: 'ALL', days: 'Mon-Fri' },
   { utc: '*/5 13-21', et: '09:00~17:00 5분', kst: '22:00~06:00 5분', action: 'event-detect', label: '이벤트 감지 (GEX/VIX/8-K/Sweep/DP/Insider/Fear)', type: 'event', region: 'ALL', days: 'Mon-Fri' },

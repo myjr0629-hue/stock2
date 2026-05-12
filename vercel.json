@@ -102,28 +102,16 @@
             "schedule": "30 11 * * 1-5"
         },
         {
+            "path": "/api/cron/marketing-dispatch?action=premarket_threads&region=all&dry_run=false",
+            "schedule": "35 12 * * 1-5"
+        },
+        {
             "path": "/api/cron/marketing-dispatch?action=midday&region=all&dry_run=false",
             "schedule": "0 16 * * 1-5"
         },
         {
-            "path": "/api/cron/marketing-dispatch?action=spotlight&region=all&dry_run=false",
-            "schedule": "0 17 * * 1-5"
-        },
-        {
-            "path": "/api/cron/marketing-dispatch?action=spotlight&region=all&dry_run=false",
-            "schedule": "0 19 * * 1-5"
-        },
-        {
             "path": "/api/cron/marketing-dispatch?action=pulse&region=all&dry_run=false",
             "schedule": "35 20 * * 1-5"
-        },
-        {
-            "path": "/api/cron/marketing-dispatch?action=pulse_ig&region=en&dry_run=false",
-            "schedule": "40 20 * * 1-5"
-        },
-        {
-            "path": "/api/cron/marketing-dispatch?action=pulse_ig&region=asia&dry_run=false",
-            "schedule": "43 20 * * 1-5"
         },
         {
             "path": "/api/cron/marketing-dispatch?action=education&region=all&dry_run=false",
@@ -133,63 +121,11 @@
             "path": "/api/cron/marketing-dispatch?action=edu_bsky&region=en&dry_run=false",
             "schedule": "0 2 * * 2-0"
         },
-
-        {
-            "path": "/api/cron/marketing-dispatch?action=premarket_bsky&region=en&dry_run=false",
-            "schedule": "30 12 * * 1-5"
-        },
-        {
-            "path": "/api/cron/marketing-dispatch?action=premarket_threads&region=all&dry_run=false",
-            "schedule": "35 12 * * 1-5"
-        },
-        {
-            "path": "/api/cron/marketing-dispatch?action=market_open&region=all&dry_run=false",
-            "schedule": "30 13 * * 1-5"
-        },
-        {
-            "path": "/api/cron/marketing-dispatch?action=intraday_bsky&region=en&dry_run=false",
-            "schedule": "0 18 * * 1-5"
-        },
-        {
-            "path": "/api/cron/marketing-dispatch?action=close_bsky&region=en&dry_run=false",
-            "schedule": "10 20 * * 1-5"
-        },
-        {
-            "path": "/api/cron/marketing-dispatch?action=close_threads&region=all&dry_run=false",
-            "schedule": "15 20 * * 1-5"
-        },
-        {
-            "path": "/api/cron/marketing-dispatch?action=structure_bsky&region=en&dry_run=false",
-            "schedule": "30 14 * * 1-5"
-        },
-        {
-            "path": "/api/cron/marketing-dispatch?action=insight_threads&region=all&dry_run=false",
-            "schedule": "45 14 * * 1-5"
-        },
-        {
-            "path": "/api/cron/marketing-dispatch?action=afterhours_threads&region=all&dry_run=false",
-            "schedule": "15 22 * * 1-5"
-        },
-        {
-            "path": "/api/cron/marketing-dispatch?action=afterhours_bsky&region=en&dry_run=false",
-            "schedule": "30 22 * * 1-5"
-        },
         {
             "path": "/api/cron/marketing-dispatch?action=asia_recap&region=asia&dry_run=false",
             "schedule": "30 2 * * 2-6"
         },
-        {
-            "path": "/api/cron/marketing-dispatch?action=asia_insight&region=asia&dry_run=false",
-            "schedule": "0 5 * * 2-6"
-        },
-        {
-            "path": "/api/cron/marketing-dispatch?action=asia_tip&region=asia&dry_run=false",
-            "schedule": "30 7 * * 1-5"
-        },
-        {
-            "path": "/api/cron/marketing-dispatch?action=asia_preview&region=asia&dry_run=false",
-            "schedule": "0 9 * * 1-5"
-        },
+
         {
             "path": "/api/cron/event-detect?dry_run=false",
             "schedule": "*/5 13-21 * * 1-5"
