@@ -1210,6 +1210,8 @@ for (const lang of langs) {
 
     // Log dispatch results
     const logKey = `marketing:dispatch:v2:${dateKey}:${action}`;
+    const successCount = results.filter(r => r.success).length;
+    const failCount = results.filter(r => !r.success).length;
     const dispatchLog = {
       timestamp: new Date().toISOString(),
       dryRun,
@@ -1217,11 +1219,43 @@ for (const lang of langs) {
       draft,
       action,
       totalChannels: results.length,
-      successful: results.filter(r => r.success).length,
-      failed: results.filter(r => !r.success).length,
+      successful: successCount,
+      failed: failCount,
       results,
     };
     await setInCache(logKey, JSON.stringify(dispatchLog), 86400 * 7);
+
+    // ── AUTO-RETRY: If ALL dispatches failed, retry inline after 30s delay ──
+    // Vercel Serverless doesn't support setTimeout after response, so retry inline.
+    const retryCount = parseInt(searchParams.get('_retry') || '0', 10);
+    if (results.length > 0 && successCount === 0 && !dryRun && retryCount < 2) {
+      const retryKey = `marketing:retry:${dateKey}:${action}:${retryCount + 1}`;
+      const alreadyRetried = await getFromCache(retryKey).catch(() => null);
+      if (!alreadyRetried) {
+        await setInCache(retryKey, 'scheduled', 3600); // 1hr dedup
+        console.log(`[Cron/MarketingDispatch] ⚠️ ALL ${failCount} dispatches failed for "${action}". Inline retry #${retryCount + 1} in 30s...`);
+        await new Promise(r => setTimeout(r, 30000)); // 30s backoff (EC2 warm-up)
+        const retryUrl = new URL(request.url);
+        retryUrl.searchParams.set('_retry', String(retryCount + 1));
+        try {
+          const retryRes = await fetch(retryUrl.toString(), {
+            headers: authHeader ? { authorization: authHeader } : {},
+            signal: AbortSignal.timeout(90000),
+          });
+          const retryData = await retryRes.json().catch(() => null);
+          console.log(`[Cron/MarketingDispatch] 🔄 Retry #${retryCount + 1} result:`, retryData?.summary || 'unknown');
+          return NextResponse.json({
+            success: true,
+            action,
+            retryCount: retryCount + 1,
+            originalFailure: { totalDispatched: results.length, failed: failCount },
+            retryResult: retryData,
+          });
+        } catch (retryErr: any) {
+          console.error(`[Cron/MarketingDispatch] Retry #${retryCount + 1} failed: ${retryErr.message}`);
+        }
+      }
+    }
 
     return NextResponse.json({
       success: true,
@@ -1230,16 +1264,47 @@ for (const lang of langs) {
 
       draft,
       action,
+      retryCount,
       summary: {
         totalDispatched: results.length,
-        successful: results.filter(r => r.success).length,
-        failed: results.filter(r => !r.success).length,
+        successful: successCount,
+        failed: failCount,
+        autoRetryScheduled: false,
       },
       results,
     });
   } catch (err: any) {
     console.error('[Cron/MarketingDispatch] Error:', err);
-    return NextResponse.json({ success: false, error: err.message }, { status: 500 });
+
+    // ── AUTO-RETRY on uncaught error ──
+    const retryCount = parseInt(searchParams.get('_retry') || '0', 10);
+    if (!dryRun && retryCount < 2) {
+      const retryKey = `marketing:retry:error:${dateKey}:${action}:${retryCount + 1}`;
+      const alreadyRetried = await getFromCache(retryKey).catch(() => null);
+      if (!alreadyRetried) {
+        await setInCache(retryKey, 'scheduled', 3600).catch(() => {});
+        console.log(`[Cron/MarketingDispatch] ⚠️ Uncaught error for "${action}". Inline retry #${retryCount + 1} in 30s...`);
+        await new Promise(r => setTimeout(r, 30000));
+        const retryUrl = new URL(request.url);
+        retryUrl.searchParams.set('_retry', String(retryCount + 1));
+        try {
+          const retryRes = await fetch(retryUrl.toString(), {
+            headers: request.headers.get('authorization') ? { authorization: request.headers.get('authorization')! } : {},
+            signal: AbortSignal.timeout(90000),
+          });
+          const retryData = await retryRes.json().catch(() => null);
+          return NextResponse.json({
+            success: retryData?.success || false,
+            action,
+            retryCount: retryCount + 1,
+            originalError: err.message,
+            retryResult: retryData,
+          });
+        } catch {}
+      }
+    }
+
+    return NextResponse.json({ success: false, error: err.message, retryExhausted: retryCount >= 2 }, { status: 500 });
   }
 }
 

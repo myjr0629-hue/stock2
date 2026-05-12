@@ -110,38 +110,57 @@ async function captureViaEC2(
   format: FormatType
 ): Promise<Uint8Array | null> {
   const { width, height } = FORMATS[format] || FORMATS.tweet;
+  const MAX_RETRIES = 2; // total attempts: 1 initial + 1 retry
   
-  try {
-    const res = await fetch(`${EC2_CAPTURE_URL}/capture`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        url: templateUrl,
-        width,
-        height,
-        delay: 2000,
-      }),
-      signal: AbortSignal.timeout(15000),
-    });
-    
-    if (!res.ok) {
-      console.error(`[ScreenshotService] EC2 capture failed: ${res.status} ${res.statusText}`);
+  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      const res = await fetch(`${EC2_CAPTURE_URL}/capture`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          url: templateUrl,
+          width,
+          height,
+          delay: 2000,
+        }),
+        signal: AbortSignal.timeout(20000), // 20s timeout (was 15s)
+      });
+      
+      if (!res.ok) {
+        console.error(`[ScreenshotService] EC2 capture failed (attempt ${attempt}/${MAX_RETRIES}): ${res.status} ${res.statusText}`);
+        if (attempt < MAX_RETRIES) {
+          console.log(`[ScreenshotService] Retrying in 15s...`);
+          await new Promise(r => setTimeout(r, 15000));
+          continue;
+        }
+        return null;
+      }
+      
+      const buffer = new Uint8Array(await res.arrayBuffer());
+      
+      if (buffer.length < 1000) {
+        console.error(`[ScreenshotService] EC2: image too small (${buffer.length} bytes), attempt ${attempt}/${MAX_RETRIES}`);
+        if (attempt < MAX_RETRIES) {
+          console.log(`[ScreenshotService] Retrying in 15s...`);
+          await new Promise(r => setTimeout(r, 15000));
+          continue;
+        }
+        return null;
+      }
+      
+      console.log(`[ScreenshotService] EC2 Puppeteer: captured ${(buffer.length / 1024).toFixed(0)}KB (attempt ${attempt})`);
+      return buffer;
+    } catch (err: any) {
+      console.error(`[ScreenshotService] EC2 error (attempt ${attempt}/${MAX_RETRIES}): ${err.message}`);
+      if (attempt < MAX_RETRIES) {
+        console.log(`[ScreenshotService] Retrying in 15s...`);
+        await new Promise(r => setTimeout(r, 15000));
+        continue;
+      }
       return null;
     }
-    
-    const buffer = new Uint8Array(await res.arrayBuffer());
-    
-    if (buffer.length < 1000) {
-      console.error(`[ScreenshotService] EC2: image too small (${buffer.length} bytes)`);
-      return null;
-    }
-    
-    console.log(`[ScreenshotService] EC2 Puppeteer: captured ${(buffer.length / 1024).toFixed(0)}KB`);
-    return buffer;
-  } catch (err: any) {
-    console.error(`[ScreenshotService] EC2 error: ${err.message}`);
-    return null;
   }
+  return null;
 }
 
 
