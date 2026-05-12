@@ -583,20 +583,21 @@ Raw HTTP 응답 검증:
 
 ### 5.3 마케팅 자동화 엔진 (2026-05-10 기준 — Switch-Ready)
 
-> **상태**: 전 코드 완성, `dry_run=true` 대기. 월요일 EC2 워커 확인 후 `dry_run=false` 전환.
-> **Shorts/Reels**: ✅ Remotion V2 Premium 파이프라인 구축 완료 (2026-05-10). Lambda 배포 후 작동.
+> **상태**: 전 코드 완성, `dry_run=true` 대기. `dry_run=false` 전환 전 `remotion:deploy-site` 필수.
+> **Shorts/Reels**: ✅ Remotion **V3 Hybrid** 6씬 파이프라인 완성 (2026-05-12). Dynamic Top Ticker + AI 인사이트 + 전 데이터 연결.
 
-#### 5.3.9 Remotion 쇼츠 파이프라인 (V2 Premium — 2026-05-10 구축)
+#### 5.3.9 Remotion 쇼츠 파이프라인 (V3 Hybrid — 2026-05-12 완성)
 
 > **Remotion 버전**: `4.0.441` (전 패키지 통일)
 > **추가 패키지**: `@remotion/paths`, `@remotion/transitions`, `@remotion/noise`, `@remotion/google-fonts` (all 4.0.441)
-> **포맷**: 9:16 (1080×1920), 30fps
+> **포맷**: 9:16 (1080×1920), 30fps, 30초
 > **Lambda 함수**: ✅ `remotion-render-4-0-441-mem2048mb-disk2048mb-240sec` (2048MB, 240sec)
 > **S3 사이트**: ✅ `signum-shorts` (버킷: `remotionlambda-useast1-uyf73mi3b8`)
 > **serveUrl**: `https://remotionlambda-useast1-uyf73mi3b8.s3.us-east-1.amazonaws.com/sites/signum-shorts/index.html`
 > **IAM 역할**: `remotion-lambda-role` (trust: lambda.amazonaws.com)
 > **cron 등록**: ✅ `vercel.json` 등록 완료 (`dry_run=true`, 21:00 UTC 평일)
 > **Vercel 환경변수**: ✅ 4개 설정 완료 (REMOTION_SERVE_URL, FUNCTION_NAME, AWS_REGION, S3_BUCKET)
+> **V3 완성**: ✅ 6씬 하이브리드 + 동적 Top Ticker + AI 인사이트 (2026-05-12 배포)
 
 ##### 파일 구조
 
@@ -604,40 +605,120 @@ Raw HTTP 응답 검증:
 |------|------|
 | `remotion.config.ts` | Remotion Studio 로컬 프리뷰 설정 |
 | `src/remotion/index.ts` | Remotion Entry Point (`registerRoot`) |
-| `src/remotion/Root.tsx` | 3개 Composition 등록 (MarketPulse, NewsDigest, EventSpike) |
+| `src/remotion/Root.tsx` | **4개** Composition 등록 (★MarketPulseV3, MarketPulse, NewsDigest, EventSpike) |
 | `src/remotion/design.ts` | 디자인 시스템 (컬러, 글로우, 글래스모피즘, 타이밍 헬퍼) |
+| **V3 씬 (신규)** | |
+| `src/remotion/scenes/Scene1_Hook.tsx` (10KB) | ⚠ 더블 플래시 + shake + clipPath 글리치 (Claude base + GPT glitch) |
+| `src/remotion/scenes/Scene2_PriceReveal.tsx` (5KB) | 가격 카운트업 + 티커 slide-in (Claude base) |
+| `src/remotion/scenes/Scene3_XRay.tsx` (13KB) | 레이저 스캔 → 게이지 + Dark Pool reveal (GPT base + Claude glow) |
+| `src/remotion/scenes/Scene4_DataCascade.tsx` (4KB) | SPY/QQQ/VIX 순차 캐스케이드 (기존 KineticNumber 재사용) |
+| `src/remotion/scenes/Scene5_Insight.tsx` (5KB) | 3불릿 AI 인사이트 + 컴플라이언스 세이프 (GPT base) |
+| `src/remotion/scenes/Scene6_CTA.tsx` (11KB) | SVG S마크 + Shine sweep + 단어별 태그라인 (GPT+Claude hybrid) |
+| **V3 컴포넌트 (신규)** | |
+| `src/remotion/components/PersistentLayers.tsx` | 상시 브랜드 로고(좌상) + 프로그레스바(하단) + 스캔라인 |
+| `src/remotion/compositions/MarketPulseV3.tsx` | ★ V3 메인 컴포지션 — TransitionSeries 6씬 + Audio |
+| **V2 레거시** | |
 | `src/remotion/components/AnimatedBackground.tsx` | 회전 그라디언트 + 노이즈 그레인 + 부유 파티클 + 스캔라인 |
-| `src/remotion/components/KineticNumber.tsx` | 슬롯머신 스핀 → spring 안착 → 임팩트 바운스 |
+| `src/remotion/components/KineticNumber.tsx` | 슬롯머신 스핀 → spring 안착 (V3에서도 재사용) |
 | `src/remotion/components/SparklineChart.tsx` | SVG evolvePath 차트 드로잉 + 글로우 트레일 |
-| `src/remotion/components/UIComponents.tsx` | GlowCard, ImpactText(stamp/glitch/typewriter), LowerThird, BrandWatermark |
-| `src/remotion/components/MotionEffects.tsx` | PulseRing (동심원 파동), DataCascade (폭포형 데이터) |
-| `src/remotion/compositions/MarketPulseVideo.tsx` | 장 마감 요약 쇼츠 (30초) |
+| `src/remotion/components/UIComponents.tsx` | GlowCard, ImpactText, LowerThird, BrandWatermark |
+| `src/remotion/components/MotionEffects.tsx` | PulseRing, DataCascade |
+| `src/remotion/compositions/MarketPulseVideo.tsx` | V2 레거시 (pulse_legacy 타입으로 접근 가능) |
 | `src/remotion/compositions/NewsDigestVideo.tsx` | 뉴스 + 시장 반응 쇼츠 (30초) |
 | `src/remotion/compositions/EventSpikeVideo.tsx` | 고래/GEX 이벤트 알림 쇼츠 (15초) |
+| **파이프라인** | |
 | `src/lib/marketing/remotionLambda.ts` | Lambda 렌더 헬퍼 (renderMediaOnLambda + progress polling + fallback) |
-| `src/app/api/cron/render-video/route.ts` | 렌더링 오케스트레이터 (Redis → TTS → Lambda → S3) |
+| `src/app/api/cron/render-video/route.ts` | 렌더링 오케스트레이터 (V3 full data pipeline) |
 | `scripts/deploy-remotion-lambda.mjs` | Lambda 배포 가이드 스크립트 |
 
-##### 렌더링 파이프라인
+##### V3 렌더링 파이프라인 (2026-05-12)
 
 ```
 [Vercel Cron 21:00 UTC] → /api/cron/render-video?type=pulse&lang=en
    ↓
-1. Redis에서 시장 데이터 fetch (marketing:pulse:{date} 또는 realtime 직접)
-2. pollyClient.ts → TTS 나레이션 생성 (AWS Polly Neural → S3 mp3)
-3. pollyClient.ts → BGM 자동 선택 (GEX 레짐 + VIX 기반)
-4. remotionLambda.ts → renderMediaOnLambda() → MP4 생성
+1. marketing:pulse:{ET date} 캐시 OR yahoo:idx:* 직접 fetch
+2. analysis:gex:regime → GEX regime + shift label
+3. realtimeMetricsService.fetchTradeData('SPY') → Dark Pool %, Buy/Sell ratio (live)
+4. ★ findTopTicker() → M7 7종목 cache:analysis:{TICKER} 스캔 → 최대 변동폭 자동 선택
+5. ★ generateVideoInsights() → Bedrock Haiku AI 3줄 인사이트 동적 생성
+6. pollyClient.ts → TTS 나레이션 생성 (AWS Polly Neural → S3 mp3)
+7. pollyClient.ts → BGM 자동 선택 (GEX 레짐 + VIX 기반)
+8. remotionLambda.ts → renderMediaOnLambda('MarketPulseV3', 16 props) → MP4 생성
    ↓ (Lambda 미배포 시 → S3 manifest 저장 fallback)
-5. 결과 Redis 로그 (marketing:video:{date}, 7일 TTL)
+9. 결과 Redis 로그 (marketing:video:{date}, 7일 TTL)
+```
+
+##### V3 데이터 소스 매핑 (실제 Redis 키 검증 완료)
+
+| V3 Prop | 데이터 소스 | Redis 키 / 서비스 | Fallback |
+|---------|-----------|------------------|----------|
+| spy, qqq | Yahoo Finance | `marketing:pulse:{date}` → `yahoo:idx:spx`, `yahoo:idx:nasdaq` | 0 |
+| vix | Yahoo Finance | `marketing:pulse:{date}` → `yahoo:vix` | 18 |
+| gexRegime, gexLabel | Analysis Cache | `analysis:gex:regime` | 'neutral' |
+| darkPool, buyRatio, sellRatio | EC2 ElastiCache Live | `realtimeMetricsService.fetchTradeData('SPY')` | 35/50/50 |
+| ticker, tickerName, price, change | **Dynamic M7 Scan** | `cache:analysis:{NVDA,TSLA,AAPL,MSFT,AMZN,META,GOOGL}` | SPY |
+| insight1, insight2, insight3 | **Bedrock Haiku AI** | `callBedrock(MODELS.HAIKU_35)` | 정적 기본값 |
+| bgmUrl | S3 | `pollyClient.selectBgm()` | '' |
+| narrationUrl | AWS Polly | `pollyClient.synthesizeSpeech()` | '' |
+| lang | Cron param | `?lang=en\|ko\|ja` | 'en' |
+
+##### ★ Dynamic Top Ticker 로직 (findTopTicker)
+
+```
+M7_TICKERS = [NVDA, TSLA, AAPL, MSFT, AMZN, META, GOOGL]
+  ↓ Promise.all → cache:analysis:{TICKER} 7종목 병렬 조회
+  ↓ changePercent 추출 → Math.abs() 기준 정렬
+  ↓ 최대 변동폭 1위 = 오늘의 Hook 티커
+  ↓ 없으면 SPY fallback
+```
+
+##### ★ AI Video Insights 로직 (generateVideoInsights)
+
+```
+데이터 (SPY/QQQ/VIX/GEX/DP) → Bedrock Haiku 프롬프트
+  ↓ "3줄 structural observation, 10-15 words max"
+  ↓ JSON array 파싱 → [insight1, insight2, insight3]
+  ↓ 실패 시 → 정적 기본값 (GEX/DarkPool/VIX 기반)
+  비용: ~$0.003/call
 ```
 
 ##### Composition 상세
 
 | ID | 파일 | 길이 | 씬 구성 | 전환 효과 |
 |---|---|:---:|---|---|
-| `MarketPulse` | MarketPulseVideo.tsx | 30초 | 4씬: Impact Opening → SPY/QQQ/VIX → GEX+Levels → CTA | wipe → slide → fade |
-| `NewsDigest` | NewsDigestVideo.tsx | 30초 | 4씬: LIVE Badge → Headlines(sentiment) → Market Reaction → CTA | wipe → slide → fade |
+| ★`MarketPulseV3` | MarketPulseV3.tsx | 30초 | **6씬**: Hook(3s) → PriceReveal(5s) → XRay(6s) → DataCascade(6s) → Insight(5s) → CTA(5s) | TransitionSeries fade |
+| `MarketPulse` | MarketPulseVideo.tsx | 30초 | 4씬 (V2 레거시, `type=pulse_legacy`로 접근) | wipe → slide → fade |
+| `NewsDigest` | NewsDigestVideo.tsx | 30초 | 4씬: LIVE Badge → Headlines → Market Reaction → CTA | wipe → slide → fade |
 | `EventSpike` | EventSpikeVideo.tsx | 15초 | 3씬: Flash Alert → Details(glitch) → CTA | wipe → fade |
+
+##### V3 씬 타임라인
+
+| 씬 | 시간 | 프레임 | 내용 | 베이스 |
+|:---:|:---:|:---:|---|---|
+| 1. Hook | 0-3s | 0-90 | 더블 플래시 + shake + ⚠ 아이콘 + glitch 텍스트 + 티커 배지 | Claude+GPT |
+| 2. Price | 3-8s | 90-240 | 티커 slide-in + 가격 카운트업 $0→$X + 변동률 배지 | Claude |
+| 3. X-Ray | 8-14s | 240-420 | 레이저 스캔 → GEX 게이지 + Dark Pool 바 + 상태 표시 | GPT+Claude |
+| 4. Data | 14-20s | 420-600 | SPY/QQQ/VIX 순차 슬라이드 + KineticNumber 카운트업 | Existing |
+| 5. Insight | 20-25s | 600-750 | "What institutions track" + 3불릿 AI 인사이트 | GPT |
+| 6. CTA | 25-30s | 750-900 | SVG S마크 + "SIGNUM HQ" + 태그라인 + signumhq.com 버튼 | GPT+Claude |
+
+##### 상시 레이어 (Persistent — 모든 씬 위에)
+
+| 레이어 | 위치 | 내용 |
+|--------|------|------|
+| PersistentBrandLogo | 좌상단 | SVG S마크 + "SIGNUM HQ" + "Institutional Intelligence" |
+| PersistentProgressBar | 하단 | 보라→시안 그라디언트 진행률 바 |
+| PersistentScanline | 전체 | CRT 스캔라인 오버레이 |
+
+##### i18n 지원
+
+| 씬 | en | ko | ja |
+|:---:|:---:|:---:|:---:|
+| Scene2 (Price) | ✅ | ✅ | ✅ |
+| Scene3 (X-Ray) | ✅ | ✅ | ✅ |
+| Scene4 (Data) | ✅ | ✅ | ✅ |
+| Scene5 (Insight) | ✅ | ✅ | ✅ |
+| Scene6 (CTA) | ✅ tagline/bottom | ✅ | ✅ |
 
 ##### npm 스크립트
 
@@ -656,7 +737,17 @@ Raw HTTP 응답 검증:
 4. ✅ Vercel 환경변수 4개 설정
 5. 작동 테스트: `GET /api/cron/render-video?status=true` → Lambda ready 확인
 6. 실제 렌더: `GET /api/cron/render-video?type=pulse&lang=en&dry_run=false`
-7. `vercel.json`에서 `dry_run=true` → `dry_run=false` 전환
+7. ⚠️ **V3 배포 후 필수**: `npm run remotion:deploy-site` 재실행하여 V3 번들 S3 갱신
+
+##### 스위치 전환 절차
+
+```
+1. EC2 capture-worker 정상 확인 (pm2 restart capture-worker)
+2. npm run remotion:deploy-site (V3 번들 S3 업로드)
+3. vercel.json에서 render-video의 dry_run=true → dry_run=false
+4. GET /api/cron/render-video?type=pulse&lang=en&dry_run=false (수동 테스트)
+5. 확인 후 자동 cron 가동
+```
 
 ##### 예상 비용 (월간)
 
@@ -665,7 +756,8 @@ Raw HTTP 응답 검증:
 | Lambda 렌더링 (~20 영상/월) | ~$12 |
 | S3 스토리지 | ~$0.50 |
 | Polly TTS (3개국어 × 20영상) | ~$4 |
-| **총 추정** | **~$16.50/월** |
+| Bedrock Haiku AI 인사이트 (~20건/월) | ~$0.06 |
+| **총 추정** | **~$16.56/월** |
 
 
 #### 핵심 파일 구조
