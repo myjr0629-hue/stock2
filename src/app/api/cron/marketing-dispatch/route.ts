@@ -408,16 +408,22 @@ export async function GET(request: Request) {
           const pinTopic = eduTopics[topicIdx];
           const seo = getPinterestSEO({ contentType: 'education', educationTopic: pinTopic });
 
-          // Capture vertical infographic pin
+          // Capture vertical infographic pin (3 attempts + fallback)
           let pinImage = '';
           if (!dryRun) {
-            try {
-              const result = await captureTemplate({ template: 'education_pin', format: 'pin', data: { topic: pinTopic } });
-              pinImage = result?.cdnUrl || '';
-            } catch (e: any) {
-              console.warn(`[Education] Pin capture failed: ${e.message}`);
-              // Fallback to generic education template
-              pinImage = await captureImageForDispatch(baseUrl, content, 'en', 'pin', 'education', dryRun);
+            for (let att = 0; att < 3 && !pinImage; att++) {
+              try {
+                const r = await captureTemplate({ template: 'education_pin', format: 'pin', data: { topic: pinTopic } });
+                if (r?.cdnUrl) pinImage = r.cdnUrl;
+              } catch (e: any) {
+                console.warn(`[Education] Pin attempt ${att + 1}/3: ${e.message}`);
+              }
+              if (!pinImage && att < 2) await new Promise(r => setTimeout(r, att === 0 ? 3000 : 8000));
+            }
+            // Fallback to generic education template
+            if (!pinImage) {
+              console.warn('[Education] Pin failed 3x, falling back to generic education');
+              try { pinImage = await captureImageForDispatch(baseUrl, content, 'en', 'pin', 'education', false); } catch {}
             }
           } else {
             pinImage = await captureImageForDispatch(baseUrl, content, 'en', 'pin', 'education', dryRun);
@@ -476,12 +482,18 @@ export async function GET(request: Request) {
 
           let pinImage = '';
           if (!dryRun) {
-            try {
-              const result = await captureTemplate({ template: 'education_pin', format: 'pin', data: { topic: pinTopic } });
-              pinImage = result?.cdnUrl || '';
-            } catch (e: any) {
-              console.warn(`[EduBsky] Pin capture failed: ${e.message}`);
-              pinImage = await captureImageForDispatch(baseUrl, content, 'en', 'pin', 'education', dryRun);
+            for (let att = 0; att < 3 && !pinImage; att++) {
+              try {
+                const r = await captureTemplate({ template: 'education_pin', format: 'pin', data: { topic: pinTopic } });
+                if (r?.cdnUrl) pinImage = r.cdnUrl;
+              } catch (e: any) {
+                console.warn(`[EduBsky] Pin attempt ${att + 1}/3: ${e.message}`);
+              }
+              if (!pinImage && att < 2) await new Promise(r => setTimeout(r, att === 0 ? 3000 : 8000));
+            }
+            if (!pinImage) {
+              console.warn('[EduBsky] Pin failed 3x, falling back to generic education');
+              try { pinImage = await captureImageForDispatch(baseUrl, content, 'en', 'pin', 'education', false); } catch {}
             }
           } else {
             pinImage = await captureImageForDispatch(baseUrl, content, 'en', 'pin', 'education', dryRun);
@@ -1306,33 +1318,36 @@ for (const lang of langs) {
             slides[slides.length - 1].text += `\n\n${ctaUrl}`;
           }
 
-          // Capture Briefing OG with RLSI chart
+          // Capture Briefing OG with RLSI chart (aggressive retry + fallback)
           const mktData = await fetchLiveMarketData();
           let ogImage = '';
           if (!dryRun) {
-            try {
-              // Fetch RLSI data from Redis
-              const rlsiRaw = await getFromCache('rlsi:current').catch(() => null);
-              const rlsiHistRaw = await getFromCache('rlsi:history:5d').catch(() => null);
-              const rlsiVal = typeof rlsiRaw === 'string' ? parseInt(rlsiRaw, 10) : (typeof rlsiRaw === 'number' ? rlsiRaw : 50);
-              const rlsiHist = typeof rlsiHistRaw === 'string' ? rlsiHistRaw : `${rlsiVal-6},${rlsiVal-2},${rlsiVal+1},${rlsiVal-3},${rlsiVal}`;
-              
-              const result = await captureTemplate({
-                template: 'briefing',
-                format: 'tweet',
-                data: {
-                  spy: mktData.spyChg,
-                  vix: mktData.vix,
-                  gex: mktData.gex,
-                  rlsi: rlsiVal,
-                  rlsi_hist: rlsiHist,
-                  date: mktData.date,
-                  preview: briefingText.substring(0, 200),
-                },
-              });
-              ogImage = result?.cdnUrl || '';
-            } catch (e: any) {
-              console.warn(`[Dispatch] Briefing OG capture failed: ${e.message}`);
+            const rlsiRaw = await getFromCache('rlsi:current').catch(() => null);
+            const rlsiHistRaw = await getFromCache('rlsi:history:5d').catch(() => null);
+            const rlsiVal = typeof rlsiRaw === 'string' ? parseInt(rlsiRaw, 10) : (typeof rlsiRaw === 'number' ? rlsiRaw : 50);
+            const rlsiHist = typeof rlsiHistRaw === 'string' ? rlsiHistRaw : `${rlsiVal-6},${rlsiVal-2},${rlsiVal+1},${rlsiVal-3},${rlsiVal}`;
+            const briefingData = {
+              spy: mktData.spyChg, vix: mktData.vix, gex: mktData.gex,
+              rlsi: rlsiVal, rlsi_hist: rlsiHist,
+              date: mktData.date, preview: briefingText.substring(0, 200),
+            };
+            // 3 attempts with escalating backoff
+            for (let att = 0; att < 3 && !ogImage; att++) {
+              try {
+                const r = await captureTemplate({ template: 'briefing', format: 'tweet', data: briefingData });
+                if (r?.cdnUrl) ogImage = r.cdnUrl;
+              } catch (e: any) {
+                console.warn(`[Dispatch] Briefing OG attempt ${att + 1}/3: ${e.message}`);
+              }
+              if (!ogImage && att < 2) await new Promise(r => setTimeout(r, att === 0 ? 3000 : 8000));
+            }
+            // Fallback: pulse OG (still better than no image)
+            if (!ogImage) {
+              console.warn('[Dispatch] Briefing OG failed 3x, falling back to pulse OG');
+              try {
+                const fb = await captureTemplate({ template: 'pulse', format: 'tweet', data: { spy: mktData.spyChg, vix: mktData.vix, gex: mktData.gex, date: mktData.date } });
+                if (fb?.cdnUrl) ogImage = fb.cdnUrl;
+              } catch {}
             }
           }
           if (ogImage) slides[0].imageUrl = ogImage;
@@ -1474,11 +1489,23 @@ for (const lang of langs) {
           };
           let ogImage = '';
           if (!dryRun) {
-            try {
-              const result = await captureTemplate({ template: 'ticker', format: 'tweet', data: spotlightParams });
-              ogImage = result?.cdnUrl || '';
-            } catch (e: any) {
-              console.warn(`[Dispatch] Spotlight OG capture failed: ${e.message}`);
+            // 3 attempts with escalating backoff
+            for (let att = 0; att < 3 && !ogImage; att++) {
+              try {
+                const r = await captureTemplate({ template: 'ticker', format: 'tweet', data: spotlightParams });
+                if (r?.cdnUrl) ogImage = r.cdnUrl;
+              } catch (e: any) {
+                console.warn(`[Dispatch] Spotlight OG attempt ${att + 1}/3: ${e.message}`);
+              }
+              if (!ogImage && att < 2) await new Promise(r => setTimeout(r, att === 0 ? 3000 : 8000));
+            }
+            // Fallback: pulse OG
+            if (!ogImage) {
+              console.warn('[Dispatch] Spotlight OG failed 3x, falling back to pulse OG');
+              try {
+                const fb = await captureTemplate({ template: 'pulse', format: 'tweet', data: { spy: String(change), t: ticker, date: dateKey } });
+                if (fb?.cdnUrl) ogImage = fb.cdnUrl;
+              } catch {}
             }
           }
 
@@ -1737,21 +1764,41 @@ async function captureImageForDispatch(
     return previewUrl.toString();
   }
 
-  // LIVE: EC2 Puppeteer capture ??Supabase CDN (retry once on failure)
-  for (let attempt = 0; attempt < 2; attempt++) {
+  // LIVE: EC2 Puppeteer capture — aggressive retry (4 attempts + emergency)
+  const BACKOFF = [2000, 5000, 10000]; // 2s, 5s, 10s between attempts
+  for (let attempt = 0; attempt < 4; attempt++) {
     try {
       const result = await captureTemplate({ template, format, data });
       if (result?.cdnUrl) {
-        console.log(`[Dispatch] ??EC2 capture: ${template}/${format}/${lang} ??${result.sizeKB}KB`);
+        console.log(`[Dispatch] EC2 capture OK: ${template}/${format}/${lang} ${result.sizeKB}KB (attempt ${attempt + 1})`);
         return result.cdnUrl;
       }
+      console.warn(`[Dispatch] EC2 returned null for ${template}/${format}/${lang} (attempt ${attempt + 1})`);
     } catch (err: any) {
-      console.warn(`[Dispatch] EC2 capture attempt ${attempt + 1} failed for ${template}/${format}/${lang}: ${err.message}`);
+      console.warn(`[Dispatch] EC2 capture attempt ${attempt + 1}/4 failed: ${err.message}`);
     }
-    if (attempt === 0) await new Promise(r => setTimeout(r, 500));
+    if (attempt < 3) {
+      const wait = BACKOFF[attempt] || 10000;
+      console.log(`[Dispatch] Retrying in ${wait / 1000}s...`);
+      await new Promise(r => setTimeout(r, wait));
+    }
   }
 
-  console.error(`[Dispatch] EC2 capture failed for ${template}/${format}/${lang} - dispatching text-only`);
+  // Emergency: final attempt after 15s cooldown
+  console.warn(`[Dispatch] Emergency retry for ${template}/${format}/${lang} after 15s...`);
+  await new Promise(r => setTimeout(r, 15000));
+  try {
+    const result = await captureTemplate({ template, format, data });
+    if (result?.cdnUrl) {
+      console.log(`[Dispatch] Emergency capture OK: ${template}/${format}/${lang} ${result.sizeKB}KB`);
+      return result.cdnUrl;
+    }
+  } catch (e: any) {
+    console.error(`[Dispatch] Emergency capture also failed: ${e.message}`);
+  }
+
+  // Absolute last resort: text-only (5 attempts failed over ~32s)
+  console.error(`[Dispatch] ALL 5 capture attempts failed for ${template}/${format}/${lang} - text-only fallback`);
   return '';
 }
 
