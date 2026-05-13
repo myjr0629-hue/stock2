@@ -1771,12 +1771,11 @@ for (const lang of langs) {
           const cleanTactical = rawTactical.replace(/\[[^\]]+\]\s*/g, '').trim();
           const fgiRound = Math.round(mkt.fgi);
 
-          // ── X (Tweet) — max 280 chars (dynamic AI budget) ──
+          // ── X (Tweet) — max 280 chars (Twitter weighted count) ──
           const xCh = getFilteredChannels({ tier: 'all', lang, service: 'twitter' })[0];
           if (xCh) {
             const xTags = getHashtags({ platform: 'twitter', contentType: 'close', lang, tickers: ['SPY', 'QQQ'] });
-            const xFooter = `\n${ctaUrl}\n\n${xTags}`;
-            // Build data-only base first to measure length
+            // Build data-only base
             let xBase = '';
             if (lang === 'ko') {
               xBase = `🏁 미국 장마감\n\nS&P ${sd}${mkt.spyChg.toFixed(2)}% | NQ ${nd}${mkt.qqqChg.toFixed(2)}% | DOW ${dd}${mkt.diaChg.toFixed(2)}%\nVIX ${mkt.vix.toFixed(1)} | F&G ${fgiRound}`;
@@ -1785,19 +1784,21 @@ for (const lang of langs) {
             } else {
               xBase = `🏁 US Market Close\n\nS&P ${sd}${mkt.spyChg.toFixed(2)}% | NQ ${nd}${mkt.qqqChg.toFixed(2)}% | DOW ${dd}${mkt.diaChg.toFixed(2)}%\nVIX ${mkt.vix.toFixed(1)} | F&G ${fgiRound}`;
             }
-            // Dynamic AI budget: 280 - base - footer - separators
-            const aiSep = '\n\n'; // separator before AI text
-            const bodySep = '\n\n'; // separator between body and footer
-            const available = 280 - xBase.length - aiSep.length - bodySep.length - xFooter.length - 3; // -3 for safety
+            // Use Twitter-weighted character counting
+            const footerFull = `\n\n${ctaUrl}\n\n${xTags}`;
+            const usedChars = twitterWeightedLength(xBase) + twitterWeightedLength(footerFull);
+            const available = 280 - usedChars - 5; // -5 for \n\n separator + safety
             let xText = xBase;
-            if (available > 30 && cleanTactical.length > 0) {
-              const xAi = cleanTactical.length > available ? cleanTactical.slice(0, available - 3) + '...' : cleanTactical;
-              xText = `${xBase}${aiSep}${xAi}`;
+            if (available > 20 && cleanTactical.length > 0) {
+              // Truncate AI by available weighted chars (approx: CJK ~1.5x, but slice by char count)
+              const safeLen = Math.max(20, Math.floor(available * 0.7)); // conservative for CJK
+              const xAi = cleanTactical.length > safeLen ? cleanTactical.slice(0, safeLen - 3) + '...' : cleanTactical;
+              xText = `${xBase}\n\n${xAi}`;
             }
             const xOg = await captureMarketCloseOG(baseUrl, mkt, 'tweet', dryRun);
             const r = await dispatchTweet({
               channelId: xCh.id,
-              text: truncateWithTags(xText, xFooter, 'twitter'),
+              text: truncateWithTags(xText, `\n\n${ctaUrl}\n\n${xTags}`, 'twitter'),
               imageUrl: xOg,
               dryRun, draft,
             });
@@ -2380,23 +2381,69 @@ function buildCtaUrl(lang: Lang, page: string, campaign: string): string {
 }
 
 /**
+ * Twitter-weighted character length.
+ * Twitter counts: URLs as 23 chars, CJK/emoji as ~2 chars each.
+ */
+function twitterWeightedLength(text: string): number {
+  // Replace URLs with 23-char placeholder
+  let t = text.replace(/https?:\/\/[^\s]+/g, 'x'.repeat(23));
+  let count = 0;
+  for (const ch of t) {
+    const code = ch.codePointAt(0) || 0;
+    // CJK Unified Ideographs, Katakana, Hiragana, Korean = 2 chars
+    if ((code >= 0x1100 && code <= 0x11FF) ||  // Hangul Jamo
+        (code >= 0x2E80 && code <= 0x9FFF) ||  // CJK
+        (code >= 0xAC00 && code <= 0xD7AF) ||  // Hangul Syllables
+        (code >= 0xF900 && code <= 0xFAFF) ||  // CJK Compat
+        (code >= 0xFF00 && code <= 0xFFEF) ||  // Fullwidth
+        (code >= 0x3000 && code <= 0x30FF) ||  // CJK Symbols, Katakana
+        (code >= 0x31F0 && code <= 0x31FF) ||  // Katakana ext
+        (code >= 0x10000))                     // Emoji & supplementary
+    {
+      count += 2;
+    } else {
+      count += 1;
+    }
+  }
+  return count;
+}
+
+/**
  * Truncate body text while preserving tags/footer.
- * Reserves space for the footer (tags, CTA) first, then truncates body to fit.
+ * Uses Twitter-weighted counting for Twitter, plain length for others.
  */
 function truncateWithTags(body: string, tagsOrFooter: string, service: string): string {
   const LIMITS: Record<string, number> = { twitter: 280, threads: 500, instagram: 2200, bluesky: 300, pinterest: 500 };
   const limit = LIMITS[service] || 280;
   const separator = '\n\n';
-  const footerLen = separator.length + tagsOrFooter.length;
+  const lenFn = service === 'twitter' ? twitterWeightedLength : (s: string) => s.length;
+  const footerLen = lenFn(separator) + lenFn(tagsOrFooter);
   const maxBody = limit - footerLen;
   if (maxBody < 20) {
     return tagsOrFooter.substring(0, limit);
   }
-  const trimmedBody = body.length > maxBody ? body.substring(0, maxBody - 3) + '...' : body;
+  // Iteratively trim body to fit within weighted limit
+  let trimmedBody = body;
+  if (lenFn(body) > maxBody) {
+    // Binary search for the right slice point
+    let lo = 0, hi = body.length;
+    while (lo < hi) {
+      const mid = Math.floor((lo + hi + 1) / 2);
+      if (lenFn(body.substring(0, mid)) <= maxBody - 3) lo = mid;
+      else hi = mid - 1;
+    }
+    trimmedBody = body.substring(0, lo) + '...';
+  }
   const result = `${trimmedBody}${separator}${tagsOrFooter}`;
-  // Safety net — NEVER exceed platform limit
-  if (result.length > limit) {
-    return result.substring(0, limit - 3) + '...';
+  // Safety net
+  if (lenFn(result) > limit) {
+    let lo = 0, hi = result.length;
+    while (lo < hi) {
+      const mid = Math.floor((lo + hi + 1) / 2);
+      if (lenFn(result.substring(0, mid)) <= limit - 3) lo = mid;
+      else hi = mid - 1;
+    }
+    return result.substring(0, lo) + '...';
   }
   return result;
 }
