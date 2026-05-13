@@ -126,70 +126,133 @@ export async function GET(request: Request) {
       // ========================================
       // MORNING BRIEF — 06:30 ET (KST 19:30)
       // LIVE pre-market data + Guardian AI verdict
+      // Guardian-grade: RLSI + Regime + Sector + AI Insight
       // ========================================
       case 'morning': {
-        // Fetch LIVE market data (same source as Guardian morning briefing page)
+        // Fetch LIVE market data + Guardian AI verdicts (same source as website)
         const mkt = await fetchLiveMarketData();
         const sd = mkt.spyChg >= 0 ? '+' : '';
         const vd = mkt.vixChg >= 0 ? '+' : '';
         const dp = mkt.dp > 0 ? `${mkt.dp.toFixed(1)}%` : 'N/A';
         const G = mkt.gex.toUpperCase();
-        const gexMeaning = mkt.gex === 'positive' ? 'Dealer suppression zone'
-          : mkt.gex === 'negative' ? 'Dealer amplification zone' : 'Neutral transition';
+
+        // Fetch RLSI + Guardian AI context for depth
+        let rlsiScore = 50;
+        let rlsiLevel = 'NORMAL';
+        let regime = 'NEUTRAL';
+        let rotationDir = '';
+        try {
+          const rlsiRaw = await getFromCache('rlsi:current').catch(() => null);
+          if (rlsiRaw) rlsiScore = typeof rlsiRaw === 'number' ? rlsiRaw : parseInt(String(rlsiRaw), 10) || 50;
+          const snapshotRaw = await getFromCache('guardian:snapshot:en').catch(() => null);
+          if (snapshotRaw) {
+            const snap = typeof snapshotRaw === 'string' ? JSON.parse(snapshotRaw) : snapshotRaw;
+            rlsiLevel = snap?.rlsi?.level || (rlsiScore >= 65 ? 'OPTIMAL' : rlsiScore >= 40 ? 'NORMAL' : 'DANGER');
+            regime = snap?.tripleA?.regime || 'NEUTRAL';
+            rotationDir = snap?.rotationIntensity?.direction || '';
+          }
+        } catch {}
+
+        const rlsiLabel = rlsiScore >= 65 ? 'GREEN' : rlsiScore >= 40 ? 'YELLOW' : 'RED';
 
         // Build Guardian-grade morning briefing text per language
         for (const lang of langs) {
           const verdict = mkt.verdicts?.[lang];
           const tactical = verdict?.tactical || mkt.tacticalInsight || '';
+          const reality = verdict?.reality || mkt.realityInsight || '';
           const ctaUrl = buildCtaUrl(lang, 'intel-guardian', 'morning');
 
-          // === Language-specific morning briefing ===
+          // Truncate AI insight to fit platform char limits
+          const aiBlock = tactical
+            ? (tactical.length > 250 ? tactical.slice(0, 247) + '...' : tactical)
+            : '';
+
+          // === Language-specific Guardian-grade morning briefing ===
           let morningText = '';
           if (lang === 'ko') {
+            const gexKo = mkt.gex === 'positive' ? '딜러 변동성 억제 구간 → 가격 안정화 압력'
+              : mkt.gex === 'negative' ? '딜러 변동성 증폭 구간 → 급변동 리스크 상승'
+              : '중립 전환 구간 → 방향성 관망';
+            const regimeKo = regime === 'BULL' ? '강세 환경 (Alpha Seek)'
+              : regime === 'BEAR' ? '약세 환경 (Defense Mode)' : '방향성 부재 (Monitor)';
             morningText = [
-              `📊 모닝 브리핑 — Pre-Market Structure`,
+              `📊 SIGNUM 모닝 브리핑`,
+              `${mkt.date} Pre-Market Structure Check`,
               '',
-              `▸ SPY: ${sd}${mkt.spyChg.toFixed(2)}% ($${mkt.spy.toFixed(2)})`,
-              `▸ VIX: ${mkt.vix.toFixed(1)} (${vd}${mkt.vixChg.toFixed(1)}%)`,
-              `▸ GEX: ${G} — ${mkt.gex === 'positive' ? '딜러 변동성 억제 구간' : mkt.gex === 'negative' ? '딜러 변동성 증폭 구간' : '중립 전환 구간'}`,
-              `▸ 다크풀: ${dp}`,
+              `━━━ 시장 구조 ━━━`,
+              `▸ S&P 500: ${sd}${mkt.spyChg.toFixed(2)}% ($${mkt.spy.toFixed(2)})`,
+              `▸ VIX: ${mkt.vix.toFixed(1)} (${vd}${mkt.vixChg.toFixed(1)}%) — ${mkt.vixChg > 0 ? '변동성 확대 중' : '변동성 축소 중'}`,
+              `▸ GEX: ${G} — ${gexKo}`,
+              `▸ 다크풀 활동: ${dp}`,
               '',
-              tactical || '프리마켓 구조 데이터를 기반으로 기관 포지셔닝을 관찰합니다.',
+              `━━━ RLSI 시장 건강도 ━━━`,
+              `▸ RLSI: ${rlsiScore}/100 [${rlsiLabel}]`,
+              `▸ 시장 레짐: ${regimeKo}`,
+              rotationDir ? `▸ 자금 흐름: ${rotationDir === 'RISK_ON' ? '성장주 유입 (Risk-On)' : rotationDir === 'RISK_OFF' ? '방어주 유입 (Risk-Off)' : '순환매 진행 중'}` : '',
               '',
-              `📊 실시간 분석 → ${ctaUrl}`,
+              aiBlock ? `━━━ AI 구조 분석 ━━━` : '',
+              aiBlock || '',
+              '',
+              `📊 전체 분석 보기 → ${ctaUrl}`,
               '',
               '*본 정보는 투자 권유가 아닌 데이터 분석 참고 자료입니다.',
-            ].join('\n');
+            ].filter(Boolean).join('\n');
           } else if (lang === 'ja') {
+            const gexJa = mkt.gex === 'positive' ? 'ディーラーのボラ抑制ゾーン → 価格安定化圧力'
+              : mkt.gex === 'negative' ? 'ディーラーのボラ増幅ゾーン → 急変動リスク上昇'
+              : '中立遷移ゾーン → 方向性待ち';
+            const regimeJa = regime === 'BULL' ? '強気環境 (Alpha Seek)'
+              : regime === 'BEAR' ? '弱気環境 (Defense Mode)' : '方向性不在 (Monitor)';
             morningText = [
-              `📊 モーニングブリーフィング — Pre-Market Structure`,
+              `📊 SIGNUM モーニングブリーフィング`,
+              `${mkt.date} Pre-Market Structure Check`,
               '',
-              `▸ SPY: ${sd}${mkt.spyChg.toFixed(2)}% ($${mkt.spy.toFixed(2)})`,
-              `▸ VIX: ${mkt.vix.toFixed(1)} (${vd}${mkt.vixChg.toFixed(1)}%)`,
-              `▸ GEX: ${G} — ${mkt.gex === 'positive' ? 'ディーラーのボラ抑制ゾーン' : mkt.gex === 'negative' ? 'ディーラーのボラ増幅ゾーン' : '中立遷移ゾーン'}`,
+              `━━━ 市場構造 ━━━`,
+              `▸ S&P 500: ${sd}${mkt.spyChg.toFixed(2)}% ($${mkt.spy.toFixed(2)})`,
+              `▸ VIX: ${mkt.vix.toFixed(1)} (${vd}${mkt.vixChg.toFixed(1)}%) — ${mkt.vixChg > 0 ? 'ボラティリティ拡大中' : 'ボラティリティ縮小中'}`,
+              `▸ GEX: ${G} — ${gexJa}`,
               `▸ ダークプール: ${dp}`,
               '',
-              tactical || '機関のポジショニングを構造データで観察します。',
+              `━━━ RLSI 市場健全度 ━━━`,
+              `▸ RLSI: ${rlsiScore}/100 [${rlsiLabel}]`,
+              `▸ レジーム: ${regimeJa}`,
+              rotationDir ? `▸ 資金フロー: ${rotationDir === 'RISK_ON' ? 'グロース流入 (Risk-On)' : rotationDir === 'RISK_OFF' ? 'ディフェンシブ流入 (Risk-Off)' : 'ローテーション中'}` : '',
               '',
-              `📊 リアルタイム分析 → ${ctaUrl}`,
+              aiBlock ? `━━━ AI構造分析 ━━━` : '',
+              aiBlock || '',
+              '',
+              `📊 詳細分析 → ${ctaUrl}`,
               '',
               '*投資助言ではありません。データ分析の参考資料です。',
-            ].join('\n');
+            ].filter(Boolean).join('\n');
           } else {
+            const gexEn = mkt.gex === 'positive' ? 'Dealer suppression → price stabilization pressure'
+              : mkt.gex === 'negative' ? 'Dealer amplification → elevated move risk'
+              : 'Neutral transition → directionless';
+            const regimeEn = regime === 'BULL' ? 'Bullish (Alpha Seek)'
+              : regime === 'BEAR' ? 'Bearish (Defense Mode)' : 'Neutral (Monitor)';
             morningText = [
-              `📊 Morning Briefing — Pre-Market Structure`,
+              `📊 SIGNUM Morning Briefing`,
+              `${mkt.date} Pre-Market Structure Check`,
               '',
-              `▸ SPY: ${sd}${mkt.spyChg.toFixed(2)}% ($${mkt.spy.toFixed(2)})`,
-              `▸ VIX: ${mkt.vix.toFixed(1)} (${vd}${mkt.vixChg.toFixed(1)}%)`,
-              `▸ GEX: ${G} — ${gexMeaning}`,
-              `▸ Dark Pool: ${dp}`,
+              `━━━ Market Structure ━━━`,
+              `▸ S&P 500: ${sd}${mkt.spyChg.toFixed(2)}% ($${mkt.spy.toFixed(2)})`,
+              `▸ VIX: ${mkt.vix.toFixed(1)} (${vd}${mkt.vixChg.toFixed(1)}%) — ${mkt.vixChg > 0 ? 'volatility expanding' : 'volatility compressing'}`,
+              `▸ GEX: ${G} — ${gexEn}`,
+              `▸ Dark Pool Activity: ${dp}`,
               '',
-              tactical || 'Observing institutional positioning via pre-market structure data.',
+              `━━━ RLSI Health Index ━━━`,
+              `▸ RLSI: ${rlsiScore}/100 [${rlsiLabel}]`,
+              `▸ Market Regime: ${regimeEn}`,
+              rotationDir ? `▸ Capital Flow: ${rotationDir === 'RISK_ON' ? 'Growth inflow (Risk-On)' : rotationDir === 'RISK_OFF' ? 'Defensive rotation (Risk-Off)' : 'Sector rotation in progress'}` : '',
               '',
-              `📊 Live analysis → ${ctaUrl}`,
+              aiBlock ? `━━━ AI Structure Analysis ━━━` : '',
+              aiBlock || '',
+              '',
+              `📊 Full analysis → ${ctaUrl}`,
               '',
               '*Observation only — not financial advice.',
-            ].join('\n');
+            ].filter(Boolean).join('\n');
           }
 
           // Capture realtime OG image (same data as Guardian page)
@@ -217,7 +280,7 @@ export async function GET(request: Request) {
             }
           }
 
-          // X Tweet (if allowed)
+          // X Tweet
           const twitterCh = getFilteredChannels({ tier: 'all', lang, service: 'twitter' })[0];
           if (twitterCh) {
             const tags = getHashtags({ platform: 'twitter', contentType: 'morning', lang });
@@ -260,20 +323,38 @@ export async function GET(request: Request) {
           results.push(r);
         }
 
-        // Telegram (EN — Guardian-grade morning briefing)
+        // Telegram (EN — Guardian-grade, no char limit)
         if (PLATFORM_ALLOW[action]?.has('telegram')) {
+          const gexEnTg = mkt.gex === 'positive' ? 'Dealer suppression → price stabilization'
+            : mkt.gex === 'negative' ? 'Dealer amplification → elevated risk'
+            : 'Neutral transition → directionless';
+          const regimeEnTg = regime === 'BULL' ? 'Bullish (Alpha Seek)'
+            : regime === 'BEAR' ? 'Bearish (Defense Mode)' : 'Neutral (Monitor)';
+          const tgTactical = mkt.verdicts?.en?.tactical || mkt.tacticalInsight || '';
+          const tgReality = mkt.verdicts?.en?.reality || mkt.realityInsight || '';
           const tgMorning = [
-            `📊 Morning Briefing — Pre-Market Structure`,
+            `📊 SIGNUM Morning Briefing`,
+            `${mkt.date} | Pre-Market Structure`,
             '',
-            `▸ SPY: ${sd}${mkt.spyChg.toFixed(2)}% ($${mkt.spy.toFixed(2)})`,
-            `▸ VIX: ${mkt.vix.toFixed(1)} (${vd}${mkt.vixChg.toFixed(1)}%)`,
-            `▸ GEX: ${G} — ${gexMeaning}`,
+            `━━━ Market Structure ━━━`,
+            `▸ S&P 500: ${sd}${mkt.spyChg.toFixed(2)}% ($${mkt.spy.toFixed(2)})`,
+            `▸ VIX: ${mkt.vix.toFixed(1)} (${vd}${mkt.vixChg.toFixed(1)}%) — ${mkt.vixChg > 0 ? 'volatility expanding' : 'volatility compressing'}`,
+            `▸ GEX: ${G} — ${gexEnTg}`,
             `▸ Dark Pool: ${dp}`,
             '',
-            mkt.verdicts?.en?.tactical || mkt.tacticalInsight || 'Observing institutional positioning.',
+            `━━━ RLSI Health ━━━`,
+            `▸ Score: ${rlsiScore}/100 [${rlsiLabel}]`,
+            `▸ Regime: ${regimeEnTg}`,
+            rotationDir ? `▸ Flow: ${rotationDir === 'RISK_ON' ? 'Growth inflow' : rotationDir === 'RISK_OFF' ? 'Defensive rotation' : 'Sector rotation'}` : '',
+            '',
+            tgTactical ? `━━━ AI Tactical Analysis ━━━` : '',
+            tgTactical || '',
+            tgReality ? '' : '',
+            tgReality ? `━━━ Reality Check ━━━` : '',
+            tgReality || '',
             '',
             '*Observation only — not financial advice.',
-          ].join('\n');
+          ].filter(Boolean).join('\n');
           const tgText = formatForTelegram(tgMorning, { channelLink: `${baseUrl}/intel-guardian?${buildUtm('telegram', 'morning')}`, contentType: 'morning' });
           const tgOg = await captureRealtimeOG(baseUrl, mkt, 'tweet', dryRun);
           const r = await dispatchTelegram({ text: tgText, imageUrl: tgOg, dryRun });
