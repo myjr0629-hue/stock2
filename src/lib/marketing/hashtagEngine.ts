@@ -49,24 +49,32 @@ const X_TAGS: Record<ContentType, string[]> = {
 // Localized X tags — use native language tags for higher discovery in each market
 const X_TAGS_LOCALIZED: Record<Lang, Partial<Record<ContentType, string[]>>> = {
   ko: {
-    close:     ['#미국주식', '#해외주식'],       // 2.1M / 1.5M on Korean fintwit
-    morning:   ['#미국주식', '#프리마켓'],
-    pulse:     ['#옵션거래', '#미국주식'],
-    midday:    ['#미국주식', '#주식투자'],
-    briefing:  ['#미국주식', '#프리마켓'],
-    education: ['#주식공부', '#옵션거래'],
-    spotlight: ['#다크풀', '#기관매매'],
-    intraday:  ['#미국주식', '#데이트레이딩'],
+    close:     ['#나스닥', '#미국주식', '#해외주식'],    // 나스닥 1.8M, 미국주식 2.1M, 해외주식 1.5M
+    morning:   ['#미국주식', '#프리마켓', '#해외주식'],
+    pulse:     ['#미국증시', '#옵션거래', '#미국주식'],
+    midday:    ['#미국주식', '#나스닥', '#주식투자'],
+    briefing:  ['#미국주식', '#프리마켓', '#나스닥'],
+    education: ['#주식공부', '#옵션거래', '#미국주식'],
+    spotlight: ['#다크풀', '#기관매매', '#미국주식'],
+    intraday:  ['#미국주식', '#나스닥', '#데이트레이딩'],
+    event:     ['#미국주식', '#긴급속보', '#나스닥'],
+    premarket: ['#프리마켓', '#미국선물', '#미국주식'],
+    weekly:    ['#미국주식', '#주식투자', '#해외주식'],
+    spacex:    ['#스페이스X', '#테슬라', '#미국주식'],
   },
   ja: {
-    close:     ['#米国株', '#株式投資'],          // 4M / 1.8M on Japanese fintwit
-    morning:   ['#米国株', '#プレマーケット'],
-    pulse:     ['#オプション取引', '#米国株'],
-    midday:    ['#米国株', '#デイトレード'],
-    briefing:  ['#米国株', '#プレマーケット'],
-    education: ['#株式投資', '#オプション取引'],
-    spotlight: ['#ダークプール', '#機関投資家'],
-    intraday:  ['#米国株', '#デイトレード'],
+    close:     ['#ナスダック', '#米国株', '#株式投資'],    // ナスダック 1.2M, 米国株 4M, 株式投資 1.8M
+    morning:   ['#米国株', '#プレマーケット', '#ナスダック'],
+    pulse:     ['#米国市場', '#オプション取引', '#米国株'],
+    midday:    ['#米国株', '#ナスダック', '#デイトレード'],
+    briefing:  ['#米国株', '#プレマーケット', '#ナスダック'],
+    education: ['#株式投資', '#オプション取引', '#米国株'],
+    spotlight: ['#ダークプール', '#機関投資家', '#米国株'],
+    intraday:  ['#米国株', '#ナスダック', '#デイトレード'],
+    event:     ['#米国株', '#速報', '#ナスダック'],
+    premarket: ['#プレマーケット', '#米国先物', '#米国株'],
+    weekly:    ['#米国株', '#株式投資', '#投資'],
+    spacex:    ['#SpaceX', '#テスラ', '#米国株'],
   },
   en: {}, // Use default X_TAGS for English
 };
@@ -267,13 +275,17 @@ export function getHashtags(opts: {
 
   switch (platform) {
     case 'twitter': {
-      const cashtags = buildCashtags(tickers);
-      // Use localized tags when available, fallback to English
+      // KO/JA: No $cashtags (users don't search $SPY), use native discovery tags only
+      // EN: Keep $cashtags for SimClusters matching
       const localTags = X_TAGS_LOCALIZED[lang]?.[contentType];
-      const hashtags = localTags
-        || (contentType === 'education' && educationTopic
-          ? (X_EDUCATION_TOPIC_TAGS[educationTopic] || X_TAGS.education)
-          : (X_TAGS[contentType] || []));
+      if (localTags && lang !== 'en') {
+        // Fully localized: native tags only (max 3)
+        return localTags.slice(0, 3).join(' ');
+      }
+      const cashtags = buildCashtags(tickers);
+      const hashtags = contentType === 'education' && educationTopic
+        ? (X_EDUCATION_TOPIC_TAGS[educationTopic] || X_TAGS.education)
+        : (X_TAGS[contentType] || []);
       const limitedHashtags = hashtags.slice(0, 2);
       return [...cashtags, ...limitedHashtags].join(' ');
     }
@@ -282,9 +294,16 @@ export function getHashtags(opts: {
       return buildInstagramHashtags(lang, contentType);
 
     case 'threads': {
-      // $cashtags + IG-style hashtags (3~5 total tags)
+      // KO/JA: Fully localized tags (no $cashtags)
+      // EN: $cashtags + hashtags
+      if (lang === 'ko') {
+        return ['#미국주식', '#나스닥', '#해외주식', '#옵션거래'].join(' ');
+      }
+      if (lang === 'ja') {
+        return ['#米国株', '#ナスダック', '#株式投資', '#投資'].join(' ');
+      }
       const cashtags = buildCashtags(tickers);
-      const igTags = lang === 'ko' ? IG_TAGS_KO : lang === 'ja' ? IG_TAGS_JA : IG_TAGS_EN;
+      const igTags = IG_TAGS_EN;
       return [...cashtags, ...igTags.tier2.slice(0, 2), ...igTags.tier3.slice(0, 1)].join(' ');
     }
 

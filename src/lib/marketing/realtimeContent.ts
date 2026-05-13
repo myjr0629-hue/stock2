@@ -263,10 +263,10 @@ What are you watching? 👇
 ${disc.en}`;
   }
 
-  // close (threads) — 3 indices + FGI + Guardian AI insight (≤500)
-  // Budget: header ~20 + data ~80 + AI ~280 + disc ~60 + tags ~40 = ~480 (fits 500)
+  // close (threads) — Complete short analysis (no truncation) + CTA link
+  // Strategy: Short complete insight → trust + CTA link → site traffic
   const closeInsightRaw = m.tacticalInsight || '';
-  // Clean for marketing: strip bracket tags, ETF symbols (SMH/XLK/XLC), IFS scores, noise warnings
+  // Clean for marketing: strip bracket tags, ETF symbols, IFS scores, noise warnings
   let closeInsight = closeInsightRaw.replace(/\[[^\]]+\]\s*/g, '');
   closeInsight = closeInsight.replace(/\([^)]*IFS\s*[+-]?\d+[^)]*\)/g, '');
   closeInsight = closeInsight.replace(/\([^)]*\b(?:SMH|XLK|XLC|XLY|XLE|XLF|XLV|XLI|XLB|XLP|XLU|XLRE|IWM|AI_PWR)\b[^)]*\)/g, '');
@@ -274,16 +274,21 @@ ${disc.en}`;
   closeInsight = closeInsight.replace(/,?\s*노이즈\s*경고[^.。]*[.。]?/g, '.');
   closeInsight = closeInsight.replace(/\([^)]*스텔스[^)]*\)/g, '');
   closeInsight = closeInsight.replace(/,\s*,/g, ',').replace(/\.\s*\./g, '.').replace(/,\s*\./g, '.').replace(/\s{2,}/g, ' ').trim();
-  const closeTrunc = closeInsight.length > 280 ? closeInsight.slice(0, 277) + '...' : closeInsight;
+  // Keep AI text short enough to never truncate (max 200 chars = complete sentences)
+  const closeTrunc = closeInsight.length > 200 ? closeInsight.slice(0, closeInsight.lastIndexOf('.', 197) + 1 || 197) + '' : closeInsight;
+  const ctaLink = 'https://www.signumhq.com/intel-guardian';
+  const ctaKo = `\n\n📊 전체 분석 보기 → ${ctaLink}`;
+  const ctaJa = `\n\n📊 全分析を見る → ${ctaLink}`;
+  const ctaEn = `\n\n📊 Full analysis → ${ctaLink}`;
   if (lang === 'ko') return closeTrunc
-    ? `장 마감 🔔\n\n📉 S&P 500: ${sd}${m.spyChg.toFixed(2)}%\n📈 나스닥: ${nd}${m.qqqChg.toFixed(2)}%\n📊 다우: ${dd}${m.diaChg.toFixed(2)}%\n\nVIX: ${m.vix.toFixed(1)} | DP: ${dp} | F&G: ${m.fgi}\n\n${closeTrunc}\n\n${disc.ko}`
-    : `장 마감 🔔\n\n📉 S&P 500: ${sd}${m.spyChg.toFixed(2)}%\n📈 나스닥: ${nd}${m.qqqChg.toFixed(2)}%\n📊 다우: ${dd}${m.diaChg.toFixed(2)}%\n\nVIX: ${m.vix.toFixed(1)} | GEX: ${G} | DP: ${dp}\nFear & Greed: ${fgiText}\n\n${disc.ko}`;
+    ? `장 마감 🔔\n\n📉 S&P 500: ${sd}${m.spyChg.toFixed(2)}%\n📈 나스닥: ${nd}${m.qqqChg.toFixed(2)}%\n📊 다우: ${dd}${m.diaChg.toFixed(2)}%\n\nVIX: ${m.vix.toFixed(1)} | DP: ${dp} | F&G: ${m.fgi}\n\n${closeTrunc}${ctaKo}\n\n${disc.ko}`
+    : `장 마감 🔔\n\n📉 S&P 500: ${sd}${m.spyChg.toFixed(2)}%\n📈 나스닥: ${nd}${m.qqqChg.toFixed(2)}%\n📊 다우: ${dd}${m.diaChg.toFixed(2)}%\n\nVIX: ${m.vix.toFixed(1)} | DP: ${dp} | F&G: ${m.fgi}${ctaKo}\n\n${disc.ko}`;
   if (lang === 'ja') return closeTrunc
-    ? `セッション終了 🔔\n\n📉 S&P 500: ${sd}${m.spyChg.toFixed(2)}%\n📈 ナスダック: ${nd}${m.qqqChg.toFixed(2)}%\n📊 ダウ: ${dd}${m.diaChg.toFixed(2)}%\n\nVIX: ${m.vix.toFixed(1)} | DP: ${dp} | F&G: ${m.fgi}\n\n${closeTrunc}\n\n${disc.ja}`
-    : `セッション終了 🔔\n\n📉 S&P 500: ${sd}${m.spyChg.toFixed(2)}%\n📈 ナスダック: ${nd}${m.qqqChg.toFixed(2)}%\n📊 ダウ: ${dd}${m.diaChg.toFixed(2)}%\n\nVIX: ${m.vix.toFixed(1)} | GEX: ${G} | DP: ${dp}\nFear & Greed: ${fgiText}\n\n${disc.ja}`;
+    ? `セッション終了 🔔\n\n📉 S&P 500: ${sd}${m.spyChg.toFixed(2)}%\n📈 ナスダック: ${nd}${m.qqqChg.toFixed(2)}%\n📊 ダウ: ${dd}${m.diaChg.toFixed(2)}%\n\nVIX: ${m.vix.toFixed(1)} | DP: ${dp} | F&G: ${m.fgi}\n\n${closeTrunc}${ctaJa}\n\n${disc.ja}`
+    : `セッション終了 🔔\n\n📉 S&P 500: ${sd}${m.spyChg.toFixed(2)}%\n📈 ナスダック: ${nd}${m.qqqChg.toFixed(2)}%\n📊 ダウ: ${dd}${m.diaChg.toFixed(2)}%\n\nVIX: ${m.vix.toFixed(1)} | DP: ${dp} | F&G: ${m.fgi}${ctaJa}\n\n${disc.ja}`;
   return closeTrunc
-    ? `Session Wrap 🔔\n\n📉 S&P 500: ${sd}${m.spyChg.toFixed(2)}%\n📈 NASDAQ: ${nd}${m.qqqChg.toFixed(2)}%\n📊 DOW: ${dd}${m.diaChg.toFixed(2)}%\n\nVIX: ${m.vix.toFixed(1)} | DP: ${dp} | F&G: ${m.fgi}\n\n${closeTrunc}\n\n${disc.en}`
-    : `Session Wrap 🔔\n\n📉 S&P 500: ${sd}${m.spyChg.toFixed(2)}%\n📈 NASDAQ: ${nd}${m.qqqChg.toFixed(2)}%\n📊 DOW: ${dd}${m.diaChg.toFixed(2)}%\n\nVIX: ${m.vix.toFixed(1)} | GEX: ${G} | DP: ${dp}\nFear & Greed: ${fgiText}\n\n${disc.en}`;
+    ? `Session Wrap 🔔\n\n📉 S&P 500: ${sd}${m.spyChg.toFixed(2)}%\n📈 NASDAQ: ${nd}${m.qqqChg.toFixed(2)}%\n📊 DOW: ${dd}${m.diaChg.toFixed(2)}%\n\nVIX: ${m.vix.toFixed(1)} | DP: ${dp} | F&G: ${m.fgi}\n\n${closeTrunc}${ctaEn}\n\n${disc.en}`
+    : `Session Wrap 🔔\n\n📉 S&P 500: ${sd}${m.spyChg.toFixed(2)}%\n📈 NASDAQ: ${nd}${m.qqqChg.toFixed(2)}%\n📊 DOW: ${dd}${m.diaChg.toFixed(2)}%\n\nVIX: ${m.vix.toFixed(1)} | DP: ${dp} | F&G: ${m.fgi}${ctaEn}\n\n${disc.en}`;
 }
 
 
