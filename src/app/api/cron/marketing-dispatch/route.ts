@@ -41,7 +41,7 @@ import { buildRealtimeText, captureRealtimeOG, fetchLiveMarketData } from '@/lib
 // ---------------------------------------------------------------------------
 // Actions
 // ---------------------------------------------------------------------------
-type Action = 'morning' | 'morning_ig' | 'midday' | 'education' | 'edu_bsky' | 'pulse' | 'pulse_ig' | 'event' | 'spotlight' | 'briefing_thread' | 'premarket_bsky' | 'premarket_threads' | 'intraday_bsky' | 'close_bsky' | 'close_threads' | 'structure_bsky' | 'insight_threads' | 'afterhours_bsky' | 'afterhours_threads' | 'asia_recap' | 'asia_insight' | 'asia_evening' | 'market_open' | 'asia_tip' | 'asia_preview' | 'weekly_recap' | 'trending_spotlight';
+type Action = 'morning' | 'morning_ig' | 'midday' | 'education' | 'edu_bsky' | 'pulse' | 'pulse_ig' | 'event' | 'spotlight' | 'briefing_thread' | 'premarket_bsky' | 'premarket_threads' | 'intraday_bsky' | 'close_bsky' | 'close_threads' | 'structure_bsky' | 'insight_threads' | 'afterhours_bsky' | 'afterhours_threads' | 'asia_recap' | 'asia_insight' | 'asia_evening' | 'market_open' | 'asia_tip' | 'asia_preview' | 'weekly_recap' | 'trending_spotlight' | 'spacex_spotlight';
 type Region = 'en' | 'asia' | 'all'; // en=EN only, asia=KO+JP, all=both
 
 function getLangsForRegion(region: Region): Lang[] {
@@ -1251,6 +1251,148 @@ for (const lang of langs) {
             title: seo.title,
             description: seo.description,
             link: `${baseUrl}/command?${buildUtm('pinterest', 'market_open')}`,
+            dryRun, draft,
+          });
+          results.push(r);
+        }
+        break;
+      }
+
+      // ========================================
+      // SPACEX SPOTLIGHT — $TSLA Proxy × SpaceX IPO Analysis
+      // Special event-driven dispatch (manual or scheduled)
+      // ========================================
+      case 'spacex_spotlight': {
+        // Fetch live $TSLA data from Redis
+        const tslaRaw = await getFromCache('ticker:TSLA').catch(() => null);
+        const tslaData = tslaRaw ? (typeof tslaRaw === 'string' ? JSON.parse(tslaRaw) : tslaRaw) : {};
+        const tslaPrice = tslaData?.price ?? tslaData?.last ?? 0;
+        const tslaChange = tslaData?.changePercent ?? tslaData?.changePct ?? 0;
+        const tslaDp = tslaData?.darkPoolPercent ?? tslaData?.dp ?? 0;
+        const tslaWhale = tslaData?.whaleIndex ?? tslaData?.smartFlow ?? 50;
+        const tslaGex = (tslaData?.gexRegime ?? tslaData?.gex ?? 'neutral').toLowerCase();
+
+        const hookIdx = new Date().getHours() % 3;
+
+        for (const lang of langs) {
+          // 5-Layer content: Hook → Data → Meaning → Implication → CTA
+          const textMap: Record<string, string> = {
+            en: [
+              [`🚀 SpaceX IPO — S-1 filing expected this week.\nBut here's what nobody is tracking:`,
+               `🚀 SpaceX IPO could be the largest in history ($1.75T).\nEvery trader is watching. But the smart money is already moving:`,
+               `🚀 SpaceX IPO is reshaping institutional positioning.\n$TSLA is the only public proxy. Here's what the structure shows:`][hookIdx],
+              '',
+              `▸ $TSLA Dark Pool: ${tslaDp}%`,
+              `▸ $TSLA Smart Flow: ${tslaWhale}/100`,
+              `▸ $TSLA GEX Regime: ${tslaGex.toUpperCase()}`,
+              '',
+              `$TSLA remains the primary SpaceX proxy.`,
+              `When institutions position in $TSLA ahead of a SpaceX catalyst, it reveals conviction level.`,
+              '',
+              `Observation only — not financial advice.`,
+            ].join('\n'),
+            ko: [
+              [`🚀 SpaceX IPO — S-1 공개가 이번 주 예상됩니다.\n하지만 아무도 추적하지 않는 것이 있습니다:`,
+               `🚀 SpaceX IPO — 역사상 최대 ($1.75조) 상장 예정.\n모든 트레이더가 주목합니다. 하지만 스마트머니는 이미 움직이고 있습니다:`,
+               `🚀 SpaceX IPO가 기관 포지셔닝을 재편하고 있습니다.\n$TSLA가 유일한 프록시입니다. 구조가 보여주는 것:`][hookIdx],
+              '',
+              `▸ $TSLA 다크풀: ${tslaDp}%`,
+              `▸ $TSLA 스마트 플로우: ${tslaWhale}/100`,
+              `▸ $TSLA GEX 레짐: ${tslaGex.toUpperCase()}`,
+              '',
+              `$TSLA는 SpaceX의 유일한 공개 프록시입니다.`,
+              `기관이 SpaceX 촉매제 앞에서 $TSLA에 포지셔닝할 때, 그것은 확신 수준을 보여줍니다.`,
+              '',
+              `*본 정보는 투자 권유가 아닌 데이터 분석 참고 자료입니다.`,
+            ].join('\n'),
+            ja: [
+              [`🚀 SpaceX IPO — S-1提出が今週予想されています。\nしかし誰も追跡していないことがあります:`,
+               `🚀 SpaceX IPO — 史上最大（$1.75兆）の上場予定。\nすべてのトレーダーが注目。しかしスマートマネーはすでに動いています:`,
+               `🚀 SpaceX IPOが機関のポジショニングを再編しています。\n$TSLAが唯一のプロキシです。構造が示すもの:`][hookIdx],
+              '',
+              `▸ $TSLA ダークプール: ${tslaDp}%`,
+              `▸ $TSLA スマートフロー: ${tslaWhale}/100`,
+              `▸ $TSLA GEXレジーム: ${tslaGex.toUpperCase()}`,
+              '',
+              `$TSLAはSpaceXの唯一の公開プロキシです。`,
+              `機関がSpaceXの触媒前に$TSLAにポジションを取る時、それは確信度を示します。`,
+              '',
+              `*投資助言ではありません。データ分析の参考資料です。`,
+            ].join('\n'),
+          };
+          const text = textMap[lang] || textMap.en;
+          const ctaUrl = buildCtaUrl(lang, 'command', 'spacex_ipo');
+
+          // Capture OG with real TSLA data
+          let ogImage = '';
+          if (!dryRun) {
+            const ogData = {
+              dp: tslaDp, whale: String(tslaWhale), gex: tslaGex,
+              price: String(tslaPrice), change: tslaChange, date: dateKey,
+            };
+            for (let att = 0; att < 3 && !ogImage; att++) {
+              try {
+                const r = await captureTemplate({ template: 'spacex_ipo', format: 'tweet', data: ogData });
+                if (r?.cdnUrl) ogImage = r.cdnUrl;
+              } catch (e: any) { console.warn(`[SpaceX] OG attempt ${att + 1}: ${e.message}`); }
+              if (!ogImage && att < 2) await new Promise(r => setTimeout(r, att === 0 ? 3000 : 8000));
+            }
+          }
+
+          // X Thread (4 slides)
+          const twitterCh = getChannels({ tier: 'all', lang, service: 'twitter' })[0];
+          if (twitterCh) {
+            const tags = getHashtags({ platform: 'twitter', contentType: 'spotlight', lang, tickers: ['TSLA'] });
+            const lines = text.split('\n').filter(l => l.trim());
+            const slides: { text: string; imageUrl?: string }[] = [];
+            // Slide 1: Hook + image
+            slides.push({ text: `${tags} #SpaceXIPO\n\n${lines.slice(0, 2).join('\n')}`, imageUrl: ogImage || undefined });
+            // Slide 2: Data
+            slides.push({ text: lines.slice(2, 6).join('\n') });
+            // Slide 3: Meaning
+            slides.push({ text: lines.slice(6, 9).join('\n') });
+            // Slide 4: CTA
+            slides.push({ text: `📊 ${lang === 'ko' ? '$TSLA 기관 구조 실시간 추적' : lang === 'ja' ? '$TSLA 機関構造リアルタイム追跡' : 'Track $TSLA institutional structure live'} → ${ctaUrl}\n\n${lines[lines.length - 1]}` });
+            const r = await dispatchThread({ channelId: twitterCh.id, slides, dryRun, draft });
+            results.push(r);
+          }
+
+          // Bsky
+          const bskyCh = getChannels({ tier: 'all', lang, service: 'bluesky' })[0];
+          if (bskyCh) {
+            const tags = getHashtags({ platform: 'bluesky', contentType: 'spotlight', lang, tickers: ['TSLA'] });
+            const r = await dispatchPost({ channelId: bskyCh.id, text: truncateWithTags(text, `${tags} #SpaceXIPO`, 'bluesky'), imageUrl: ogImage, dryRun, draft });
+            results.push(r);
+          }
+
+          // Threads
+          const threadsCh = getChannels({ tier: 'all', lang, service: 'threads' })[0];
+          if (threadsCh) {
+            const tags = getHashtags({ platform: 'threads', contentType: 'spotlight', lang, tickers: ['TSLA'] });
+            const r = await dispatchPost({ channelId: threadsCh.id, text: truncateWithTags(text, tags, 'threads'), imageUrl: ogImage, dryRun, draft });
+            results.push(r);
+          }
+        }
+
+        // Pinterest pin
+        const pinCh = getChannels({ tier: 'all', lang: 'en', service: 'pinterest' })[0];
+        if (pinCh) {
+          let pinImage = '';
+          if (!dryRun) {
+            for (let att = 0; att < 3 && !pinImage; att++) {
+              try {
+                const r = await captureTemplate({ template: 'spacex_ipo', format: 'tweet', data: { dp: tslaDp, whale: String(tslaWhale), gex: tslaGex, date: dateKey } });
+                if (r?.cdnUrl) pinImage = r.cdnUrl;
+              } catch {}
+              if (!pinImage && att < 2) await new Promise(r => setTimeout(r, 3000));
+            }
+          }
+          const r = await dispatchPin({
+            channelId: pinCh.id,
+            imageUrl: pinImage,
+            title: `SpaceX IPO 2026: What $TSLA Dark Pool Data Reveals About Institutional Positioning`,
+            description: `SpaceX IPO analysis using $TSLA as a proxy. Dark Pool ${tslaDp}%, Smart Flow ${tslaWhale}/100, GEX ${tslaGex.toUpperCase()}. Institutional structure analysis by SIGNUM HQ. Not financial advice. #SpaceXIPO #TSLA #DarkPool #SignumHQ`,
+            link: `${baseUrl}/command?${buildUtm('pinterest', 'spacex_ipo')}`,
             dryRun, draft,
           });
           results.push(r);
