@@ -37,6 +37,7 @@ import { getHashtags, buildInstagramFooter, getPinterestSEO, type ContentType, t
 import { captureTemplate, captureStoryImage, type FormatType, type TemplateType } from '@/lib/marketing/screenshotService';
 import type { ContentOutput } from '@/lib/marketing/contentEngines';
 import { buildRealtimeText, captureRealtimeOG, fetchLiveMarketData } from '@/lib/marketing/realtimeContent';
+import { dispatchTelegram, formatForTelegram } from '@/lib/marketing/telegramClient';
 
 // ---------------------------------------------------------------------------
 // Actions
@@ -97,19 +98,19 @@ export async function GET(request: Request) {
     // ═══════════════════════════════════════════════════════════════
     // Target per channel/day: X 5/acct, Bsky 4, Threads 3/acct, Pin 7, IG unlimited(story)
     const PLATFORM_ALLOW: Record<string, Set<string>> = {
-      morning:            new Set(['instagram', 'pinterest']),                    // X removed → briefing_thread가 morning X 슬롯 커버
+      morning:            new Set(['instagram', 'pinterest', 'telegram']),         // + Telegram
       morning_ig:         new Set(['instagram']),                                  // Threads removed (IG carousel is the star here)
-      midday:             new Set(['instagram', 'pinterest']),                    // X removed → pulse가 X 커버, IG story + Pin SEO 유지
-      education:          new Set(['twitter', 'threads', 'pinterest']),            // IG story removed (thread+threads = core for edu)
+      midday:             new Set(['instagram', 'pinterest', 'telegram']),         // + Telegram
+      education:          new Set(['twitter', 'threads', 'pinterest', 'telegram']),// + Telegram
       edu_bsky:           new Set(['bluesky', 'pinterest']),                       // unchanged ✅
-      pulse:              new Set(['twitter', 'instagram', 'pinterest']),          // Bsky removed (close data already on X)
-      spotlight:          new Set(['twitter', 'bluesky', 'pinterest']),            // Threads+IG removed (deep analysis → X/Bsky authority)
+      pulse:              new Set(['twitter', 'instagram', 'pinterest', 'telegram']), // + Telegram
+      spotlight:          new Set(['twitter', 'bluesky', 'pinterest', 'telegram']),// + Telegram
       briefing_thread:    new Set(['twitter']),                                    // unchanged ✅
-      premarket_threads:  new Set(['threads', 'pinterest']),                       // Threads + Pin SEO (pre-market 데이터는 검색 가치 있음)
+      premarket_threads:  new Set(['threads', 'pinterest', 'telegram']),           // + Telegram
       asia_recap:         new Set(['threads']),                                    // unchanged ✅ (KO/JA only)
       asia_insight:       new Set(['threads']),                                    // unchanged ✅ (KO/JA only)
-      spacex_spotlight:   new Set(['twitter', 'threads', 'bluesky', 'pinterest']), // 핵심 마케팅 — 전 채널 포함
-      trending_spotlight: new Set([]),                                              // DISABLED — spotlight이 개별 종목 분석 커버
+      spacex_spotlight:   new Set(['twitter', 'threads', 'bluesky', 'pinterest', 'telegram']), // + Telegram
+      trending_spotlight: new Set([]),                                              // DISABLED
       weekly_recap:       new Set(['twitter', 'threads']),                         // unchanged ✅
     };
 
@@ -209,6 +210,14 @@ export async function GET(request: Request) {
             dryRun, draft,
           });
           results.push(r);
+        }
+
+        // Telegram (EN summary)
+        if (PLATFORM_ALLOW[action]?.has('telegram') && content.en?.text) {
+          const tgText = formatForTelegram(content.en.text, { channelLink: `${baseUrl}/intel-guardian?${buildUtm('telegram', 'morning')}`, contentType: 'morning' });
+          const ogForTg = await captureImageForDispatch(baseUrl, content, 'en', 'tweet', 'morning', dryRun);
+          const r = await dispatchTelegram({ text: tgText, imageUrl: ogForTg, dryRun });
+          results.push({ success: r.success, format: 'post', channel: 'telegram', service: 'telegram', lang: 'en', textPreview: 'telegram', postId: String(r.messageId || '') } as DispatchResult);
         }
         break;
       }
@@ -366,6 +375,14 @@ export async function GET(request: Request) {
           });
           results.push(r);
         }
+
+        // Telegram (EN midday pulse)
+        if (PLATFORM_ALLOW[action]?.has('telegram') && content.en?.text) {
+          const tgText = formatForTelegram(content.en.text, { channelLink: `${baseUrl}/command?${buildUtm('telegram', 'midday')}`, contentType: 'midday' });
+          const ogForTg = await captureImageForDispatch(baseUrl, content, 'en', 'tweet', 'pulse', dryRun);
+          const r = await dispatchTelegram({ text: tgText, imageUrl: ogForTg, dryRun });
+          results.push({ success: r.success, format: 'post', channel: 'telegram', service: 'telegram', lang: 'en', textPreview: 'telegram', postId: String(r.messageId || '') } as DispatchResult);
+        }
         break;
       }
 
@@ -470,6 +487,14 @@ export async function GET(request: Request) {
             draft,
           });
           results.push(r);
+        }
+
+        // Telegram (EN education)
+        if (PLATFORM_ALLOW[action]?.has('telegram') && content.en?.text) {
+          const tgText = formatForTelegram(content.en.platformText?.threads || content.en.text, { channelLink: `${baseUrl}/command?${buildUtm('telegram', 'education')}`, contentType: 'education' });
+          const ogForTg = await captureImageForDispatch(baseUrl, content, 'en', 'tweet', 'education', dryRun);
+          const r = await dispatchTelegram({ text: tgText, imageUrl: ogForTg, dryRun });
+          results.push({ success: r.success, format: 'post', channel: 'telegram', service: 'telegram', lang: 'en', textPreview: 'telegram', postId: String(r.messageId || '') } as DispatchResult);
         }
         break;
       }
@@ -623,6 +648,14 @@ export async function GET(request: Request) {
             draft,
           });
           results.push(r);
+        }
+
+        // Telegram (EN pulse summary)
+        if (PLATFORM_ALLOW[action]?.has('telegram') && content.en?.text) {
+          const tgText = formatForTelegram(content.en.text, { channelLink: `${baseUrl}/command?${buildUtm('telegram', 'pulse')}`, contentType: 'pulse' });
+          const ogForTg = await captureImageForDispatch(baseUrl, content, 'en', 'tweet', 'pulse', dryRun);
+          const r = await dispatchTelegram({ text: tgText, imageUrl: ogForTg, dryRun });
+          results.push({ success: r.success, format: 'post', channel: 'telegram', service: 'telegram', lang: 'en', textPreview: 'telegram', postId: String(r.messageId || '') } as DispatchResult);
         }
         break;
       }
@@ -870,6 +903,13 @@ for (const lang of langs) {
           });
           results.push(r);
         }
+
+        // Telegram (EN spotlight)
+        if (PLATFORM_ALLOW[action]?.has('telegram') && spotlightContent.en?.text) {
+          const tgText = formatForTelegram(spotlightContent.en.text, { channelLink: `${baseUrl}/command?${buildUtm('telegram', 'spotlight')}&ticker=${ticker}`, contentType: 'spotlight' });
+          const r = await dispatchTelegram({ text: tgText, imageUrl: spotlightImages.tweet || spotlightContent.en?.imageUrl || '', dryRun });
+          results.push({ success: r.success, format: 'post', channel: 'telegram', service: 'telegram', lang: 'en', textPreview: 'telegram', postId: String(r.messageId || '') } as DispatchResult);
+        }
         break;
       }
 
@@ -931,6 +971,14 @@ for (const lang of langs) {
             dryRun, draft,
           });
           results.push(r);
+        }
+
+        // Telegram (EN premarket)
+        if (PLATFORM_ALLOW[action]?.has('telegram')) {
+          const tgText = formatForTelegram(buildRealtimeText('premarket', 'threads', 'en', mkt), { channelLink: `${baseUrl}/command?${buildUtm('telegram', 'premarket')}`, contentType: 'premarket' });
+          const tgOg = await captureRealtimeOG(baseUrl, mkt, 'tweet', dryRun);
+          const r = await dispatchTelegram({ text: tgText, imageUrl: tgOg, dryRun });
+          results.push({ success: r.success, format: 'post', channel: 'telegram', service: 'telegram', lang: 'en', textPreview: 'telegram', postId: String(r.messageId || '') } as DispatchResult);
         }
         break;
       }
@@ -1459,6 +1507,33 @@ for (const lang of langs) {
             dryRun, draft,
           });
           results.push(r);
+        }
+
+        // Telegram (EN SpaceX)
+        if (PLATFORM_ALLOW[action]?.has('telegram')) {
+          const tgSpaceXText = [
+            spacexHeadline ? `🚀 SpaceX × $TSLA Proxy Update\n📰 ${spacexHeadline}` : `🚀 SpaceX IPO × $TSLA Proxy — Daily Structure Check`,
+            '',
+            `📊 $TSLA ${changeFmt} ($${Number(tslaPrice).toFixed(2)})`,
+            `▸ Dark Pool: ${tslaDp > 0 ? `${tslaDp.toFixed(1)}%` : 'N/A'}`,
+            `▸ Smart Flow: ${tslaWhale}/100`,
+            `▸ GEX: ${tslaGex.toUpperCase()}`,
+            '',
+            aiAnalysisMap.en || 'Institutional positioning data updated.',
+            '',
+            '*Observation only — not financial advice.',
+          ].join('\n');
+          const tgText = formatForTelegram(tgSpaceXText, { channelLink: `${baseUrl}/dashboard?${buildUtm('telegram', 'spacex')}`, contentType: 'spacex' });
+          // Capture a fresh OG for Telegram (tweet format)
+          let tgOgImage = '';
+          if (!dryRun) {
+            try {
+              const ogR = await captureTemplate({ template: 'spacex_ipo', format: 'tweet', data: { dp: tslaDp, whale: String(tslaWhale), gex: tslaGex, date: dateKey } });
+              if (ogR?.cdnUrl) tgOgImage = ogR.cdnUrl;
+            } catch {}
+          }
+          const r = await dispatchTelegram({ text: tgText, imageUrl: tgOgImage, dryRun });
+          results.push({ success: r.success, format: 'post', channel: 'telegram', service: 'telegram', lang: 'en', textPreview: 'telegram', postId: String(r.messageId || '') } as DispatchResult);
         }
         break;
       }
