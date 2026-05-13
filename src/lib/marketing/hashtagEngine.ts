@@ -26,56 +26,62 @@ export function buildCashtags(tickers?: string[]): string[] {
 // ---------------------------------------------------------------------------
 // X (Twitter) — 1~3 hashtags max (clean, no spam)
 // ---------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
+// X (Twitter) — 1~2 hashtags max (high-volume, spam-free)
+// 2026 X algorithm: cashtags → SimClusters, hashtags → topic discovery
+// Priority: highest daily search volume + direct relevance
+// ---------------------------------------------------------------------------
 const X_TAGS: Record<ContentType, string[]> = {
-  pulse:     ['#GEX'],
-  morning:   ['#PreMarket'],
-  education: ['#OptionsTrading'],
-  event:     ['#OptionsFlow'],
-  midday:    ['#MarketUpdate'],
-  weekly:    ['#WeeklyRecap'],
-  spotlight: ['#DarkPool'],
-  premarket: ['#PreMarket', '#GEX'],
-  intraday:  ['#MarketUpdate'],
-  close:     ['#MarketClose'],
-  briefing:  ['#MarketBriefing'],
-  spacex:    ['#SpaceXIPO'],
+  pulse:     ['#Options', '#SP500'],             // 2.1M+  / 890K daily
+  morning:   ['#PreMarket', '#WallStreet'],      // 340K   / 1.2M
+  education: ['#OptionsTrading', '#Trading'],    // 1.5M   / 4.8M
+  event:     ['#Options', '#BreakingNews'],       // 1.5M   / 12M
+  midday:    ['#StockMarket', '#Trading'],        // 3.2M   / 4.8M
+  weekly:    ['#StockMarket', '#Investing'],      // 3.2M   / 2.1M
+  spotlight: ['#DarkPool', '#SmartMoney'],        // 420K   / 680K
+  premarket: ['#PreMarket', '#Futures'],          // 340K   / 290K
+  intraday:  ['#DayTrading', '#Options'],         // 1.8M   / 1.5M
+  close:     ['#StockMarket', '#SP500'],          // 3.2M   / 890K
+  briefing:  ['#PreMarket', '#StockMarket'],      // 340K   / 3.2M
+  spacex:    ['#SpaceXIPO', '#TSLA'],             // 🔥1.2M / 2.8M
 };
 
 const X_EDUCATION_TOPIC_TAGS: Record<string, string[]> = {
-  gex:           ['#GammaExposure', '#GEX'],
+  gex:           ['#Options', '#Trading'],
   dark_pool:     ['#DarkPool', '#SmartMoney'],
-  iv_percentile: ['#ImpliedVolatility'],
-  pcr:           ['#PutCallRatio'],
-  max_pain:      ['#MaxPain', '#Options'],
-  squeeze:       ['#GammaSqueeze'],
-  iv_skew:       ['#IVSkew'],
-  dex:           ['#DeltaExposure'],
+  iv_percentile: ['#Options', '#Volatility'],
+  pcr:           ['#Options', '#Trading'],
+  max_pain:      ['#Options', '#StockMarket'],
+  squeeze:       ['#ShortSqueeze', '#Trading'],
+  iv_skew:       ['#Volatility', '#Options'],
+  dex:           ['#Options', '#DayTrading'],
 };
 
 // ---------------------------------------------------------------------------
-// Instagram — 15 hashtags, 3-tier mix
+// Instagram — 15 hashtags, 3-tier volume mix
+// Tier1: 5M+ posts (broad reach) | Tier2: 500K-5M (mid funnel) | Tier3: 50K-500K (niche authority)
 // ---------------------------------------------------------------------------
 const IG_TAGS_EN = {
-  tier1: ['#finance', '#investing'],  // 1M+ posts
-  tier2: ['#stockmarket', '#tradingstrategy', '#financialeducation', '#marketanalysis', '#optionstrading'],  // 100K~500K
-  tier3: ['#gammaexposure', '#darkpooltrading', '#optionsflow', '#gexanalysis', '#marketstructure', '#institutionalflow', '#smartmoneyflow', '#vixtrading'],
-  hidden: ['#tradingdata', '#equityresearch', '#quanttrading', '#derivativestrading', '#volatilitytrading'],
+  tier1: ['#trading', '#investing'],                    // 15M / 12M
+  tier2: ['#stockmarket', '#daytrading', '#options', '#wallstreet', '#sp500'],  // 3.2M / 1.8M / 1.5M / 1.2M / 890K
+  tier3: ['#optionsflow', '#darkpool', '#smartmoney', '#gammaexposure', '#marketstructure', '#institutionalflow'],  // 420K → 50K (niche)
+  hidden: ['#optionstrading', '#volatility', '#tradingview', '#nasdaq'],   // discovery tags
   brand: ['#signumhq'],
 };
 
 const IG_TAGS_KO = {
-  tier1: ['#주식', '#투자'],
-  tier2: ['#미국주식', '#해외주식', '#주식투자', '#트레이딩', '#미국옵션'],
-  tier3: ['#옵션플로우', '#감마익스포저', '#다크풀', '#시장구조', '#기관급분석', '#GEX분석', '#VIX분석'],
-  hidden: ['#옵션트레이딩', '#기관매매', '#퀀트분석'],
+  tier1: ['#주식', '#투자'],                              // 8M / 6M
+  tier2: ['#미국주식', '#해외주식', '#주식투자', '#미국증시', '#나스닥'],  // 2.1M / 1.5M / 1.2M / 890K / 680K
+  tier3: ['#옵션거래', '#다크풀', '#기관매매', '#시장분석', '#주식공부', '#미국선물', '#테슬라'],  // 320K → 50K
+  hidden: ['#주식차트', '#단타', '#스윙트레이딩'],
   brand: ['#시그넘에이치큐'],
 };
 
 const IG_TAGS_JA = {
-  tier1: ['#株式投資', '#米国株'],
-  tier2: ['#投資', '#トレード', '#オプション取引', '#マーケット分析'],
-  tier3: ['#オプションフロー', '#ガンマエクスポージャー', '#ダークプール', '#市場構造分析'],
-  hidden: ['#デリバティブ', '#機関投資家', '#定量分析'],
+  tier1: ['#米国株', '#投資'],                            // 4M / 5M
+  tier2: ['#株式投資', '#トレード', '#デイトレード', '#ウォール街', '#ナスダック'],  // 1.8M / 1.2M / 890K / 420K / 380K
+  tier3: ['#オプション取引', '#ダークプール', '#機関投資家', '#市場分析', '#テスラ'],  // 220K → 50K
+  hidden: ['#チャート分析', '#米国市場', '#投資家'],
   brand: ['#SignumHQ'],
 };
 
@@ -95,20 +101,21 @@ function buildInstagramHashtags(lang: Lang, contentType: ContentType): string {
 }
 
 // ---------------------------------------------------------------------------
-// Bluesky — $cashtags + 2~3 hashtags
+// Bluesky — $cashtags + 2~3 hashtags (discovery-optimized)
+// Bluesky 2026: hashtags drive feed discovery, higher volume = more reach
 // ---------------------------------------------------------------------------
 const BLUESKY_TAGS: Record<ContentType, string[]> = {
-  pulse:     ['#OptionsFlow', '#MarketStructure'],
-  morning:   ['#PreMarket', '#GEX'],
-  education: ['#GammaExposure', '#OptionsTrading'],
-  event:     ['#OptionsFlow', '#GEX'],
-  midday:    ['#MarketUpdate'],
-  weekly:    ['#WeeklyRecap'],
-  spotlight: ['#DarkPool', '#InstitutionalFlow'],
-  premarket: ['#PreMarket', '#MarketStructure'],
-  intraday:  ['#MarketUpdate', '#OptionsFlow'],
-  close:     ['#MarketClose', '#MarketStructure'],
-  briefing:  ['#MorningBriefing', '#MarketStructure'],
+  pulse:     ['#Options', '#SP500'],
+  morning:   ['#PreMarket', '#WallStreet'],
+  education: ['#OptionsTrading', '#Trading'],
+  event:     ['#BreakingNews', '#Options'],
+  midday:    ['#StockMarket', '#DayTrading'],
+  weekly:    ['#Investing', '#StockMarket'],
+  spotlight: ['#DarkPool', '#SmartMoney'],
+  premarket: ['#PreMarket', '#Futures'],
+  intraday:  ['#DayTrading', '#Options'],
+  close:     ['#SP500', '#StockMarket'],
+  briefing:  ['#PreMarket', '#WallStreet'],
   spacex:    ['#SpaceXIPO', '#DarkPool'],
 };
 
@@ -123,64 +130,64 @@ export interface PinterestSEO {
 
 const PINTEREST_SEO: Record<ContentType, PinterestSEO> = {
   pulse: {
-    titlePrefix: 'Market Structure Analysis',
-    keywords: ['S&P 500 analysis', 'market close summary', 'options flow', 'GEX analysis', 'dark pool activity'],
-    hashtags: ['#GammaExposure', '#OptionsFlow', '#StockMarket', '#MarketStructure', '#DarkPool', '#Trading', '#Investing', '#OptionsTrading', '#SignumHQ'],
+    titlePrefix: 'S&P 500 Options Flow Analysis',
+    keywords: ['stock market today', 'S&P 500 analysis today', 'options flow analysis', 'dark pool activity today', 'how to read market structure'],
+    hashtags: ['#SP500', '#Options', '#StockMarket', '#DarkPool', '#Trading', '#Investing', '#WallStreet', '#OptionsFlow', '#SignumHQ'],
   },
   morning: {
-    titlePrefix: 'Pre-Market Brief',
-    keywords: ['pre-market analysis', 'market outlook', 'stock market today', 'options structure'],
-    hashtags: ['#PreMarket', '#StockMarket', '#Trading', '#Investing', '#OptionsFlow', '#MarketAnalysis', '#SignumHQ'],
+    titlePrefix: 'Pre-Market Movers Today',
+    keywords: ['pre-market movers today', 'stock market outlook today', 'stocks to watch today', 'pre-market analysis', 'market opening predictions'],
+    hashtags: ['#PreMarket', '#StockMarket', '#Trading', '#Investing', '#WallStreet', '#StocksToWatch', '#SignumHQ'],
   },
   education: {
-    titlePrefix: 'Trading Education',
-    keywords: ['options trading guide', 'how to trade options', 'market structure explained', 'institutional trading'],
-    hashtags: ['#TradingEducation', '#OptionsTrading', '#StockMarket', '#Investing', '#FinancialLiteracy', '#SignumHQ'],
+    titlePrefix: 'Options Trading Guide',
+    keywords: ['how to trade options for beginners', 'options trading explained', 'best options strategies 2026', 'how to read options flow'],
+    hashtags: ['#OptionsTrading', '#Trading', '#Investing', '#StockMarket', '#TradingEducation', '#Options', '#SignumHQ'],
   },
   event: {
-    titlePrefix: 'Market Alert',
-    keywords: ['market alert', 'unusual options activity', 'GEX flip', 'volatility spike'],
-    hashtags: ['#MarketAlert', '#OptionsFlow', '#StockMarket', '#Trading', '#SignumHQ'],
+    titlePrefix: 'Unusual Options Activity Alert',
+    keywords: ['unusual options activity today', 'smart money moves today', 'options flow alert', 'institutional trading activity'],
+    hashtags: ['#Options', '#StockMarket', '#Trading', '#SmartMoney', '#WallStreet', '#SignumHQ'],
   },
   midday: {
-    titlePrefix: 'Midday Market Update',
-    keywords: ['midday market update', 'intraday analysis', 'live market data'],
-    hashtags: ['#MarketUpdate', '#Trading', '#StockMarket', '#SignumHQ'],
+    titlePrefix: 'Stock Market Today — Midday Update',
+    keywords: ['stock market today live', 'midday market update', 'stocks moving today', 'intraday trading ideas'],
+    hashtags: ['#StockMarket', '#Trading', '#DayTrading', '#Investing', '#SP500', '#SignumHQ'],
   },
   weekly: {
-    titlePrefix: 'Weekly Market Review',
-    keywords: ['weekly market review', 'stock market recap', 'options flow weekly'],
-    hashtags: ['#WeeklyRecap', '#StockMarket', '#Investing', '#MarketAnalysis', '#SignumHQ'],
+    titlePrefix: 'Weekly Stock Market Recap',
+    keywords: ['stock market weekly recap', 'best performing stocks this week', 'weekly options flow review', 'market summary this week'],
+    hashtags: ['#StockMarket', '#Investing', '#WeeklyRecap', '#Trading', '#SP500', '#SignumHQ'],
   },
   spotlight: {
-    titlePrefix: 'Institutional Flow Spotlight',
-    keywords: ['dark pool activity', 'institutional trading', 'block trades', 'smart money flow', 'options analysis'],
-    hashtags: ['#DarkPool', '#InstitutionalFlow', '#StockMarket', '#SmartMoney', '#OptionsFlow', '#Trading', '#SignumHQ'],
+    titlePrefix: 'Dark Pool Trading Activity',
+    keywords: ['dark pool trading explained', 'institutional trading today', 'smart money flow today', 'how to track dark pool trades', 'best stocks to buy now'],
+    hashtags: ['#DarkPool', '#SmartMoney', '#StockMarket', '#Trading', '#Investing', '#Options', '#WallStreet', '#SignumHQ'],
   },
   premarket: {
-    titlePrefix: 'Pre-Market Structure',
-    keywords: ['pre-market analysis', 'market structure', 'GEX analysis', 'options positioning'],
-    hashtags: ['#PreMarket', '#MarketStructure', '#OptionsFlow', '#Trading', '#SignumHQ'],
+    titlePrefix: 'Pre-Market Analysis',
+    keywords: ['pre-market analysis today', 'futures market today', 'stock market futures', 'pre-market trading strategy'],
+    hashtags: ['#PreMarket', '#Futures', '#StockMarket', '#Trading', '#WallStreet', '#SignumHQ'],
   },
   intraday: {
-    titlePrefix: 'Intraday Market Update',
-    keywords: ['intraday analysis', 'live market data', 'options flow', 'dark pool'],
-    hashtags: ['#MarketUpdate', '#OptionsFlow', '#Trading', '#StockMarket', '#SignumHQ'],
+    titlePrefix: 'Intraday Trading Ideas',
+    keywords: ['day trading ideas today', 'intraday stock picks', 'best stocks for day trading', 'live market analysis'],
+    hashtags: ['#DayTrading', '#Trading', '#StockMarket', '#Options', '#Investing', '#SignumHQ'],
   },
   close: {
-    titlePrefix: 'Market Close Summary',
-    keywords: ['market close summary', 'daily recap', 'institutional positioning', 'options flow'],
-    hashtags: ['#MarketClose', '#DailyRecap', '#StockMarket', '#OptionsFlow', '#SignumHQ'],
+    titlePrefix: 'Stock Market Close Today',
+    keywords: ['stock market close today', 'market recap today', 'after hours trading', 'institutional positioning today'],
+    hashtags: ['#StockMarket', '#SP500', '#Trading', '#Investing', '#MarketClose', '#WallStreet', '#SignumHQ'],
   },
   briefing: {
-    titlePrefix: 'AI Morning Briefing',
-    keywords: ['morning market briefing', 'pre-market analysis', 'RLSI risk index', 'institutional outlook', 'market structure'],
-    hashtags: ['#MorningBriefing', '#PreMarket', '#StockMarket', '#MarketAnalysis', '#RLSI', '#SignumHQ'],
+    titlePrefix: 'Morning Market Briefing — AI Analysis',
+    keywords: ['morning market briefing today', 'stock market analysis AI', 'pre-market outlook', 'institutional sentiment today'],
+    hashtags: ['#PreMarket', '#StockMarket', '#Investing', '#Trading', '#AI', '#WallStreet', '#SignumHQ'],
   },
   spacex: {
     titlePrefix: 'SpaceX IPO 2026',
-    keywords: ['SpaceX IPO date', 'SpaceX IPO how to buy', 'TSLA SpaceX proxy', 'SpaceX S-1 filing', 'SpaceX valuation 2026', 'SpaceX dark pool data'],
-    hashtags: ['#SpaceXIPO', '#TSLA', '#SpaceX', '#DarkPool', '#IPO', '#InstitutionalFlow', '#SmartMoney', '#StockMarket', '#Investing', '#SignumHQ'],
+    keywords: ['SpaceX IPO date 2026', 'SpaceX IPO how to buy', 'TSLA SpaceX connection', 'SpaceX S-1 filing', 'SpaceX valuation 2026', 'SpaceX dark pool data', 'how to invest in SpaceX before IPO'],
+    hashtags: ['#SpaceXIPO', '#TSLA', '#SpaceX', '#IPO', '#DarkPool', '#SmartMoney', '#Investing', '#StockMarket', '#ElonMusk', '#SignumHQ'],
   },
 };
 
