@@ -1,8 +1,3 @@
-// ============================================================================
-// Realtime Content Helpers — Bluesky/Threads 실시간 포스팅 텍스트 생성
-// compliance-safe, FOMO-triggering, 3 languages (EN/KO/JA)
-// ============================================================================
-
 import type { Lang } from '@/lib/marketing/hashtagEngine';
 import { captureTemplate, type FormatType } from '@/lib/marketing/screenshotService';
 import { getFromCache } from '@/services/redisClient';
@@ -13,7 +8,7 @@ export interface LiveMarketData {
 }
 
 // ---------------------------------------------------------------------------
-// Fetch live market data from Redis
+// Fetch live market data from Redis + actual trade data
 // ---------------------------------------------------------------------------
 export async function fetchLiveMarketData(): Promise<LiveMarketData> {
   const [spyRaw, vixRaw, gexRaw] = await Promise.all([
@@ -29,14 +24,15 @@ export async function fetchLiveMarketData(): Promise<LiveMarketData> {
       try { gexStr = JSON.parse(gexRaw)?.regime ?? gexRaw; } catch { gexStr = gexRaw as string; }
     } else { gexStr = (gexRaw as any)?.regime ?? 'neutral'; }
   }
+
+  // Dark Pool: fetch REAL data from EC2 ElastiCache → Polygon REST
   let dp = 0;
   try {
-    const dpRaw = await getFromCache('yahoo:spy:darkpool').catch(() => null);
-    if (dpRaw) {
-      const d = typeof dpRaw === 'string' ? JSON.parse(dpRaw) : dpRaw;
-      dp = d?.darkPoolPercent ?? d?.dp ?? 0;
-    }
+    const { fetchTradeData } = await import('@/services/realtimeMetricsService');
+    const spyTrade = await fetchTradeData('SPY').catch(() => null);
+    dp = spyTrade?.darkPoolPercent || 0;
   } catch { /* optional */ }
+
   const etNow = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' }));
   return {
     spy: spyData?.price ?? spyData?.last ?? 0,
@@ -44,7 +40,7 @@ export async function fetchLiveMarketData(): Promise<LiveMarketData> {
     vix: vixData?.price ?? vixData?.last ?? 0,
     vixChg: vixData?.changePercent ?? vixData?.changePct ?? 0,
     gex: gexStr, dp,
-    date: etNow.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+    date: `${etNow.getFullYear()}-${String(etNow.getMonth()+1).padStart(2,'0')}-${String(etNow.getDate()).padStart(2,'0')}`,
   };
 }
 
