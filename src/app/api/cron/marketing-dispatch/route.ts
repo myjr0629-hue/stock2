@@ -1227,9 +1227,26 @@ for (const lang of langs) {
           const slides: ThreadSlide[] = [];
           const ctaUrl = buildCtaUrl(lang, 'guardian', 'briefing');
 
-          // Slide 1: Hook + first 2 sentences
-          const hookEmoji = lang === 'ko' ? '🌅 모닝 브리핑' : lang === 'ja' ? '🌅 モーニングブリーフィング' : '🌅 Morning Briefing';
-          const slide1Text = `${hookEmoji}\n\n${sentences.slice(0, 2).join(' ').trim()}`;
+          // Slide 1: FOMO Hook + first 2 sentences (differentiation-first)
+          const hookIdx = new Date().getDay() % 3;
+          const hooks: Record<string, string[]> = {
+            en: [
+              `🌅 Morning Briefing — AI × 7 Data Sources\n\nWhat did institutions position for overnight?\nHere's what our AI found analyzing RLSI, GEX, and dark pool data:\n`,
+              `🌅 Morning Briefing\n\nEvery morning, our AI reads 7 institutional data feeds that most retail traders never see.\nToday's structure:\n`,
+              `🌅 Morning Briefing\n\nPrice tells you what happened yesterday.\nStructure tells you what's coming.\nHere's today's institutional read:\n`,
+            ],
+            ko: [
+              `🌅 모닝 브리핑 — AI × 7개 데이터 소스\n\n밤새 기관은 어디에 포지셔닝했을까?\nRLSI, GEX, 다크풀을 종합한 AI 분석:\n`,
+              `🌅 모닝 브리핑\n\n매일 아침, AI가 일반 투자자가 볼 수 없는 7개 기관 데이터를 분석합니다.\n오늘의 구조:\n`,
+              `🌅 모닝 브리핑\n\n가격은 어제를 말합니다.\n구조는 내일을 보여줍니다.\n오늘의 기관 분석:\n`,
+            ],
+            ja: [
+              `🌅 モーニングブリーフィング — AI × 7データソース\n\n一晩で機関はどこにポジションを取ったのか？\nRLSI・GEX・ダークプールのAI分析:\n`,
+              `🌅 モーニングブリーフィング\n\n毎朝、AIが個人投資家が見ることのない7つの機関データを分析します。\n本日の構造:\n`,
+              `🌅 モーニングブリーフィング\n\n価格は昨日を語ります。\n構造は明日を見せます。\n本日の機関分析:\n`,
+            ],
+          };
+          const slide1Text = `${(hooks[lang] || hooks.en)[hookIdx]}${sentences.slice(0, 2).join(' ').trim()}`;
           slides.push({ text: slide1Text });
 
           // Slide 2: Middle sentences (news & catalysts)
@@ -1311,11 +1328,66 @@ for (const lang of langs) {
           const whaleIdx = tickerData?.whaleIndex || tickerData?.smartFlow || 'N/A';
           const price = tickerData?.price || tickerData?.lastPrice || 'N/A';
           const change = tickerData?.changePct || tickerData?.pctChange || 0;
+          const gex = tickerData?.gexRegime || tickerData?.gex || 'neutral';
+          const changeFmt = `${change >= 0 ? '+' : ''}${typeof change === 'number' ? change.toFixed(2) : change}%`;
+
+          // Smart Flow interpretation (directional signal)
+          const whaleNum = typeof whaleIdx === 'number' ? whaleIdx : parseInt(String(whaleIdx)) || 50;
+          const flowSignal = whaleNum >= 65 ? { en: 'Accumulation pattern observed', ko: '매집 패턴 관찰', ja: '集積パターン観察' }
+            : whaleNum <= 35 ? { en: 'Distribution pattern observed', ko: '분산 패턴 관찰', ja: '分配パターン観察' }
+            : { en: 'Neutral positioning', ko: '중립 포지셔닝', ja: '中立ポジショニング' };
+
+          // DP interpretation
+          const dpNum = typeof dp === 'number' ? dp : parseFloat(String(dp)) || 0;
+          const dpSignal = dpNum >= 40 ? { en: 'Heavy institutional activity', ko: '기관 활발 활동', ja: '機関活発な活動' }
+            : { en: 'Standard institutional flow', ko: '기관 정상 흐름', ja: '機関通常フロー' };
+
+          // Hook rotation (3 variants per lang)
+          const hookIdx = new Date().getDate() % 3;
 
           const textMap: Record<string, string> = {
-            en: `$${ticker} Institutional Flow Spotlight\n\nPrice: $${price} (${change >= 0 ? '+' : ''}${typeof change === 'number' ? change.toFixed(2) : change}%)\nDark Pool: ${dp}%\nSmart Flow: ${whaleIdx}/100\n\nTrack institutional positioning with real-time data.\n\nObservation only — not financial advice.`,
-            ko: `$${ticker} 기관 플로우 스팟라이트\n\n현재가: $${price} (${change >= 0 ? '+' : ''}${typeof change === 'number' ? change.toFixed(2) : change}%)\n다크풀: ${dp}%\n스마트 플로우: ${whaleIdx}/100\n\n실시간 기관 포지셔닝을 데이터로 확인하십시오.\n\n관찰 전용 — 투자 조언이 아닙니다.`,
-            ja: `$${ticker} 機関フロー・スポットライト\n\n現在値: $${price} (${change >= 0 ? '+' : ''}${typeof change === 'number' ? change.toFixed(2) : change}%)\nダークプール: ${dp}%\nスマートフロー: ${whaleIdx}/100\n\nリアルタイムの機関ポジショニングをデータで確認。\n\n観察専用 — 投資助言ではありません。`,
+            en: [
+              // Hook
+              [`$${ticker} at $${price} (${changeFmt}). Everyone sees the price. Here's what most miss:`,
+               `$${ticker} ${changeFmt} — the headline. But the institutional footprint tells the real story:`,
+               `What are institutions doing with $${ticker} right now? The data reveals:`][hookIdx],
+              '',
+              // Data + Meaning
+              `▸ Dark Pool: ${dp}% — ${dpSignal.en}`,
+              `▸ Smart Flow: ${whaleIdx}/100 — ${flowSignal.en}`,
+              `▸ GEX Regime: ${gex.toUpperCase()}`,
+              '',
+              // Implication (SIGNUM differentiator)
+              `Most platforms show you price. We show you the structure beneath it.`,
+              '',
+              `Observation only — not financial advice.`,
+            ].join('\n'),
+            ko: [
+              [`$${ticker} $${price} (${changeFmt}). 모든 사람이 가격을 봅니다. 대부분이 놓치는 것:`,
+               `$${ticker} ${changeFmt} — 헤드라인입니다. 하지만 기관의 발자국은 다른 이야기를 합니다:`,
+               `지금 $${ticker}에서 기관은 무엇을 하고 있을까? 데이터가 보여줍니다:`][hookIdx],
+              '',
+              `▸ 다크풀: ${dp}% — ${dpSignal.ko}`,
+              `▸ 스마트 플로우: ${whaleIdx}/100 — ${flowSignal.ko}`,
+              `▸ GEX 레짐: ${gex.toUpperCase()}`,
+              '',
+              `가격만 보면 반쪽입니다. 구조를 봐야 전체가 보입니다.`,
+              '',
+              `*본 정보는 투자 권유가 아닌 데이터 분석 참고 자료입니다.`,
+            ].join('\n'),
+            ja: [
+              [`$${ticker} $${price} (${changeFmt})。価格は誰でも見えます。しかし見えないものがあります:`,
+               `$${ticker} ${changeFmt} — ヘッドライン。しかし機関の足跡は別の物語を語ります:`,
+               `$${ticker}で機関は今何をしているのか？データが示します:`][hookIdx],
+              '',
+              `▸ ダークプール: ${dp}% — ${dpSignal.ja}`,
+              `▸ スマートフロー: ${whaleIdx}/100 — ${flowSignal.ja}`,
+              `▸ GEXレジーム: ${gex.toUpperCase()}`,
+              '',
+              `価格だけでは半分です。構造を見れば全体が見えます。`,
+              '',
+              `*投資助言ではありません。データ分析の参考資料です。`,
+            ].join('\n'),
           };
           const text = textMap[lang] || textMap.en;
           const ctaUrl = buildCtaUrl(lang, 'command', 'spotlight');
