@@ -305,9 +305,8 @@ export function getPinterestSEO(opts: {
     title = `${seo.titlePrefix}: Options & Market Structure Analysis — ${date || year}`;
   }
 
-  // --- Description: 150~400 chars, natural keyword integration + CTA ---
-  // Pinterest 2026: front-load primary keyword in first sentence, 2-3 related phrases naturally
-  const description = [
+  // --- Description: Pinterest max 500 chars (Buffer enforced) ---
+  const textParts = [
     contentType === 'education'
       ? `Learn how institutional traders use ${educationTopic === 'gex' ? 'gamma exposure (GEX)' : educationTopic === 'dark_pool' ? 'dark pool data' : educationTopic === 'smart_flow' ? 'smart money flow analysis' : 'options flow analysis'} to gain an edge.`
       : `Comprehensive ${seo.keywords[0]} with options flow, gamma exposure, and dark pool data.`,
@@ -317,9 +316,20 @@ export function getPinterestSEO(opts: {
     `📊 See live data at SIGNUM HQ — free institutional dashboard.`,
     '',
     'Not financial advice. Data-driven context only.',
-    '',
-    seo.hashtags.join(' '),
   ].join(' ');
+
+  const hashtagStr = seo.hashtags.join(' ');
+  let description: string;
+  if ((textParts + ' ' + hashtagStr).length <= 500) {
+    description = `${textParts} ${hashtagStr}`;
+  } else if (textParts.length <= 500) {
+    // Fit as many hashtags as possible
+    const remaining = 500 - textParts.length - 1;
+    const tags = hashtagStr.substring(0, remaining);
+    description = `${textParts} ${tags}`.trim();
+  } else {
+    description = textParts.substring(0, 497) + '...';
+  }
 
   return { title, description };
 }
