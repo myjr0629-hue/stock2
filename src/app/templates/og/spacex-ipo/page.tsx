@@ -47,7 +47,7 @@ function SpaceXIPOCard() {
           background: #02040a;
           font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
         }
-        body { display: grid; place-items: center; }
+        body { display: block; }
 
         .og {
           position: relative; width: 1200px; height: 675px; overflow: hidden;
@@ -103,20 +103,16 @@ function SpaceXIPOCard() {
           opacity: 0.38; z-index: 2;
         }
         .top-brand {
-          position: absolute; left: 43px; top: 55px; width: 150px; z-index: 10;
+          position: absolute; left: 43px; top: 38px;
+          display: flex; align-items: center; gap: 16px;
+          z-index: 10;
         }
-        .logo-box {
-          width: 63px; height: 63px; display: grid; place-items: center;
-          border-radius: 14px;
-          background:
-            radial-gradient(circle at 25% 20%, rgba(255,255,255,0.30), transparent 36%),
-            linear-gradient(135deg, #67e8f9 0%, #22d3ee 45%, #2563eb 100%);
-          box-shadow: 0 0 30px rgba(34,211,238,0.25), inset 0 1px 0 rgba(255,255,255,0.24);
-          border: 1px solid rgba(255,255,255,0.16);
-          overflow: hidden;
+        .logo-icon {
+          width: 48px; height: 48px;
+          filter: drop-shadow(0 0 8px rgba(255,255,255,0.25));
         }
         .small-wordmark {
-          margin-top: 28px; color: var(--muted); font-size: 20px; line-height: 1;
+          color: var(--muted); font-size: 20px; line-height: 1;
           font-weight: 800; letter-spacing: 0.30em; text-transform: uppercase;
         }
         .hero-copy {
@@ -200,12 +196,10 @@ function SpaceXIPOCard() {
         <div className="starfield" />
         <div className="earth-glow" />
 
-        {/* Brand — REAL LOGO */}
+        {/* Brand — REAL LOGO + inline text */}
         <aside className="top-brand">
-          <div className="logo-box">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/signum-sg-vectorized.svg" alt="SIGNUM HQ" width={39} height={39} style={{ filter: 'drop-shadow(0 0 4px rgba(255,255,255,0.3))' }} />
-          </div>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img className="logo-icon" src="/signum-sg-vectorized.svg" alt="SIGNUM HQ" width={48} height={48} />
           <div className="small-wordmark">SIGNUM HQ</div>
         </aside>
 

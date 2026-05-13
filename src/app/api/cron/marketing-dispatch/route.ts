@@ -1263,15 +1263,26 @@ for (const lang of langs) {
       // Special event-driven dispatch (manual or scheduled)
       // ========================================
       case 'spacex_spotlight': {
-        // Fetch live $TSLA data from Redis (same key as spotlight)
-        const tslaRaw = await getFromCache('stockData:TSLA').catch(() => null);
-        const tslaData = tslaRaw ? (typeof tslaRaw === 'string' ? JSON.parse(tslaRaw) : tslaRaw) : {};
-        const tslaPrice = tslaData?.price || tslaData?.lastPrice || 0;
-        const tslaChange = tslaData?.changePct || tslaData?.pctChange || 0;
-        const tslaDp = tslaData?.darkPoolPct || tslaData?.dp || 0;
-        const tslaWhale = tslaData?.whaleIndex || tslaData?.smartFlow || 50;
-        const tslaGex = (tslaData?.gexRegime || tslaData?.gex || 'neutral').toLowerCase();
-        const tslaPremium = tslaData?.netPremium || tslaData?.premium || '';
+        // Fetch REAL $TSLA data from proven sources (same as 'spotlight' action)
+        const { fetchTradeData: fetchTslaTrade } = await import('@/services/realtimeMetricsService');
+        const { getStockDataLight: getTslaLight } = await import('@/services/marketDataLight');
+        
+        // Parallel fetch: trade data (DP%) + stock data (price/change)
+        const [tslaTradeData, tslaStockData] = await Promise.all([
+          fetchTslaTrade('TSLA').catch(() => null),
+          getTslaLight('TSLA').catch(() => null),
+        ]);
+        
+        const tslaPrice = tslaStockData?.price || 0;
+        const tslaChange = tslaStockData?.changePercent || 0;
+        const tslaDp = tslaTradeData?.darkPoolPercent || 0;
+        
+        // WhaleIndex & GEX from DynamoDB analysis cache (same key as watchlist)
+        const tslaAnalysisRaw = await getFromCache(`cache:analysis:TSLA`).catch(() => null);
+        const tslaAnalysis = tslaAnalysisRaw ? (typeof tslaAnalysisRaw === 'string' ? JSON.parse(tslaAnalysisRaw) : tslaAnalysisRaw) : {};
+        const tslaWhale = tslaAnalysis?.whaleIndex ?? tslaAnalysis?.smartFlow ?? 50;
+        const tslaGex = (tslaAnalysis?.gexRegime ?? tslaAnalysis?.gex ?? 'neutral').toLowerCase();
+        const tslaPremium = tslaAnalysis?.netPremium ?? '';
 
         const hookIdx = new Date().getHours() % 3;
 
