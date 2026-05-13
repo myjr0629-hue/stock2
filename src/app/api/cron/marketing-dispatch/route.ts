@@ -36,13 +36,13 @@ import { getChannels, truncateForPlatform, buildUtm } from '@/lib/marketing/buff
 import { getHashtags, buildInstagramFooter, getPinterestSEO, type ContentType, type Lang } from '@/lib/marketing/hashtagEngine';
 import { captureTemplate, captureStoryImage, type FormatType, type TemplateType } from '@/lib/marketing/screenshotService';
 import type { ContentOutput } from '@/lib/marketing/contentEngines';
-import { buildRealtimeText, captureRealtimeOG, fetchLiveMarketData } from '@/lib/marketing/realtimeContent';
+import { buildRealtimeText, captureRealtimeOG, captureMarketCloseOG, fetchLiveMarketData } from '@/lib/marketing/realtimeContent';
 import { dispatchTelegram, formatForTelegram } from '@/lib/marketing/telegramClient';
 
 // ---------------------------------------------------------------------------
 // Actions
 // ---------------------------------------------------------------------------
-type Action = 'morning' | 'morning_ig' | 'midday' | 'education' | 'edu_bsky' | 'pulse' | 'pulse_ig' | 'event' | 'spotlight' | 'briefing_thread' | 'premarket_bsky' | 'premarket_threads' | 'intraday_bsky' | 'close_bsky' | 'close_threads' | 'structure_bsky' | 'insight_threads' | 'afterhours_bsky' | 'afterhours_threads' | 'asia_recap' | 'asia_insight' | 'market_open' | 'weekly_recap' | 'trending_spotlight' | 'spacex_spotlight';
+type Action = 'morning' | 'morning_ig' | 'midday' | 'education' | 'edu_bsky' | 'pulse' | 'pulse_ig' | 'event' | 'spotlight' | 'briefing_thread' | 'premarket_bsky' | 'premarket_threads' | 'intraday_bsky' | 'close_bsky' | 'close_threads' | 'structure_bsky' | 'insight_threads' | 'afterhours_bsky' | 'afterhours_threads' | 'asia_recap' | 'asia_insight' | 'market_open' | 'weekly_recap' | 'trending_spotlight' | 'spacex_spotlight' | 'market_close_asia';
 type Region = 'en' | 'asia' | 'all'; // en=EN only, asia=KO+JP, all=both
 
 function getLangsForRegion(region: Region): Lang[] {
@@ -112,6 +112,7 @@ export async function GET(request: Request) {
       spacex_spotlight:   new Set(['twitter', 'threads', 'bluesky', 'pinterest', 'telegram']), // + Telegram
       trending_spotlight: new Set([]),                                              // DISABLED
       weekly_recap:       new Set(['twitter', 'threads', 'telegram']),             // + Telegram
+      market_close_asia:  new Set(['twitter', 'threads', 'bluesky', 'pinterest', 'telegram']), // All platforms
     };
 
     /** Platform-filtered channel lookup — returns [] if action should NOT post to that service */
@@ -1751,6 +1752,118 @@ for (const lang of langs) {
       }
 
       // ========================================
+      // MARKET CLOSE ASIA — KST 08:00
+      // 7-metric dashboard: S&P500, NASDAQ, DOW, VIX, DP, GEX, FGI
+      // market-close OG template + Guardian AI close text
+      // Platforms: X, Bluesky, Threads, Pinterest, Telegram
+      // ========================================
+      case 'market_close_asia': {
+        const mkt = await fetchLiveMarketData();
+        const sd = mkt.spyChg >= 0 ? '+' : '';
+        const nd = mkt.qqqChg >= 0 ? '+' : '';
+        const dd = mkt.diaChg >= 0 ? '+' : '';
+
+        for (const lang of langs) {
+          const ctaUrl = buildCtaUrl(lang, 'intel-guardian', 'market_close');
+          const verdict = mkt.verdicts?.[lang];
+          const rawTactical = verdict?.tactical || mkt.tacticalInsight || '';
+          // Clean AI text: strip metadata tags like [Status], [Analysis], etc.
+          const cleanTactical = rawTactical.replace(/\[\w+\]\s*/g, '').trim();
+          const aiBlock = cleanTactical.length > 150 ? cleanTactical.slice(0, 147) + '...' : cleanTactical;
+          const fgiRound = Math.round(mkt.fgi);
+
+          // ── X (Tweet) — max 280 chars ──
+          const xCh = getFilteredChannels({ tier: 'all', lang, service: 'twitter' })[0];
+          if (xCh) {
+            let xText = '';
+            if (lang === 'ko') {
+              xText = `🏁 미국 장마감\n\nS&P ${sd}${mkt.spyChg.toFixed(2)}% | 나스닥 ${nd}${mkt.qqqChg.toFixed(2)}% | 다우 ${dd}${mkt.diaChg.toFixed(2)}%\nVIX ${mkt.vix.toFixed(1)} | F&G ${fgiRound}\n\n${aiBlock}`;
+            } else if (lang === 'ja') {
+              xText = `🏁 米国市場クローズ\n\nS&P ${sd}${mkt.spyChg.toFixed(2)}% | NQ ${nd}${mkt.qqqChg.toFixed(2)}% | DOW ${dd}${mkt.diaChg.toFixed(2)}%\nVIX ${mkt.vix.toFixed(1)} | F&G ${fgiRound}\n\n${aiBlock}`;
+            } else {
+              xText = `🏁 US Market Close\n\nS&P ${sd}${mkt.spyChg.toFixed(2)}% | NQ ${nd}${mkt.qqqChg.toFixed(2)}% | DOW ${dd}${mkt.diaChg.toFixed(2)}%\nVIX ${mkt.vix.toFixed(1)} | F&G ${fgiRound}\n\n${aiBlock}`;
+            }
+            const xTags = getHashtags({ platform: 'twitter', contentType: 'close', lang, tickers: ['SPY', 'QQQ'] });
+            const xOg = await captureMarketCloseOG(baseUrl, mkt, 'tweet', dryRun);
+            const r = await dispatchTweet({
+              channelId: xCh.id,
+              text: truncateWithTags(xText, `\n${ctaUrl}\n\n${xTags}`, 'twitter'),
+              imageUrl: xOg,
+              dryRun, draft,
+            });
+            results.push(r);
+          }
+
+          // ── Bluesky — max 300 chars ──
+          const bskyCh = getFilteredChannels({ tier: 'all', lang, service: 'bluesky' })[0];
+          if (bskyCh) {
+            const bsText = buildRealtimeText('close', 'bluesky', lang, mkt);
+            const bsTags = getHashtags({ platform: 'bluesky', contentType: 'close', lang, tickers: ['SPY', 'QQQ'] });
+            const bsOg = await captureMarketCloseOG(baseUrl, mkt, 'og', dryRun);
+            const r = await dispatchPost({
+              channelId: bskyCh.id,
+              text: truncateWithTags(bsText, `\n\n${ctaUrl}\n\n${bsTags}`, 'bluesky'),
+              imageUrl: bsOg,
+              dryRun, draft,
+            });
+            results.push(r);
+          }
+
+          // ── Threads — max 500 chars ──
+          const thCh = getFilteredChannels({ tier: 'all', lang, service: 'threads' })[0];
+          if (thCh) {
+            const thText = buildRealtimeText('close', 'threads', lang, mkt);
+            const thTags = getHashtags({ platform: 'threads', contentType: 'close', lang, tickers: ['SPY', 'QQQ'] });
+            const thOg = await captureMarketCloseOG(baseUrl, mkt, 'og', dryRun);
+            const r = await dispatchPost({
+              channelId: thCh.id,
+              text: truncateWithTags(thText, `\n${thTags}`, 'threads'),
+              imageUrl: thOg,
+              dryRun, draft,
+            });
+            results.push(r);
+          }
+
+          // ── Pinterest — SEO pin ──
+          const pinCh = getFilteredChannels({ tier: 'all', lang, service: 'pinterest' })[0];
+          if (pinCh) {
+            const pinSeo = getPinterestSEO({ contentType: 'close' });
+            const pinTitle = lang === 'ko' ? `미국 장마감 브리핑 | S&P ${sd}${mkt.spyChg.toFixed(2)}%`
+              : lang === 'ja' ? `米国市場クローズ | S&P ${sd}${mkt.spyChg.toFixed(2)}%`
+              : `US Market Close | S&P ${sd}${mkt.spyChg.toFixed(2)}%`;
+            const pinHashtags = getHashtags({ platform: 'pinterest', contentType: 'close', lang });
+            const pinDesc = `${pinTitle}\nNASDAQ ${nd}${mkt.qqqChg.toFixed(2)}% | DOW ${dd}${mkt.diaChg.toFixed(2)}%\nVIX: ${mkt.vix.toFixed(1)} | Fear & Greed: ${mkt.fgi}\n\n${pinHashtags}`;
+            const pinOg = await captureMarketCloseOG(baseUrl, mkt, 'og', dryRun);
+            const r = await dispatchPin({
+              channelId: pinCh.id,
+              title: pinTitle,
+              description: pinDesc,
+              link: ctaUrl,
+              imageUrl: pinOg,
+              dryRun, draft,
+            });
+            results.push(r);
+          }
+        }
+
+        // ── Telegram (EN only) ──
+        const tgAllowed = PLATFORM_ALLOW[action]?.has('telegram');
+        if (tgAllowed) {
+          const tgText = formatForTelegram(`🏁 US Market Close\n\nS&P 500: ${sd}${mkt.spyChg.toFixed(2)}%\nNASDAQ: ${nd}${mkt.qqqChg.toFixed(2)}%\nDOW: ${dd}${mkt.diaChg.toFixed(2)}%\n\nVIX: ${mkt.vix.toFixed(1)} | DP: ${mkt.dp > 0 ? mkt.dp.toFixed(1) + '%' : 'N/A'}\nFear & Greed: ${mkt.fgi} (${mkt.fgiLabel})\nGEX: ${mkt.gex.toUpperCase()}\n\n${buildCtaUrl('en', 'intel-guardian', 'market_close')}`);
+          let tgOg = '';
+          if (!dryRun) {
+            try {
+              const ogR = await captureMarketCloseOG(baseUrl, mkt, 'tweet', false);
+              if (ogR) tgOg = ogR;
+            } catch {}
+          }
+          const r = await dispatchTelegram({ text: tgText, imageUrl: tgOg, dryRun });
+          results.push({ success: r.success, format: 'post', channel: 'telegram', service: 'telegram', lang: 'en', textPreview: 'telegram', postId: String(r.messageId || '') } as DispatchResult);
+        }
+        break;
+      }
+
+      // ========================================
       // WEEKLY RECAP — 주말 주간 요약 Thread
       // Saturday 10:00 ET = Sunday 00:00 KST
       // ========================================
@@ -2250,10 +2363,8 @@ function noContent(type: string, dateKey: string) {
 }
 
 function buildCtaUrl(lang: Lang, page: string, campaign: string): string {
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://signumhq.com';
-  const utm = buildUtm('social', campaign);
-  // All CTA links → /intel-guardian (the single real landing page)
-  return `${baseUrl}/intel-guardian?${utm}`;
+  // www.signumhq.com auto-redirects to correct locale via middleware
+  return `https://www.signumhq.com/intel-guardian`;
 }
 
 /**

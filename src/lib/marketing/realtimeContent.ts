@@ -5,6 +5,12 @@ import { getFromCache } from '@/services/redisClient';
 export interface LiveMarketData {
   spy: number; spyChg: number; vix: number; vixChg: number;
   gex: string; dp: number; date: string;
+  /** NASDAQ index change % */
+  qqq: number; qqqChg: number;
+  /** DOW index change % */
+  dia: number; diaChg: number;
+  /** CNN Fear & Greed Index (0-100) */
+  fgi: number; fgiLabel: string;
   /** Guardian AI tactical insight — per-locale cached analysis */
   tacticalInsight?: string;
   /** Guardian AI reality insight — deeper analysis */
@@ -17,10 +23,13 @@ export interface LiveMarketData {
 // Fetch live market data from Redis + actual trade data + Guardian AI insight
 // ---------------------------------------------------------------------------
 export async function fetchLiveMarketData(locale: Lang = 'en'): Promise<LiveMarketData> {
-  const [spyRaw, vixRaw, gexRaw] = await Promise.all([
+  const [spyRaw, vixRaw, gexRaw, nasdaqRaw, dowRaw, fgiRaw] = await Promise.all([
     getFromCache('yahoo:idx:spx').catch(() => null),
     getFromCache('yahoo:vix').catch(() => null),
     getFromCache('analysis:gex:regime').catch(() => null),
+    getFromCache('yahoo:idx:nasdaq').catch(() => null),
+    getFromCache('yahoo:idx:dow').catch(() => null),
+    getFromCache('cnn:feargreed').catch(() => null),
   ]);
   const spyData = spyRaw ? (typeof spyRaw === 'string' ? JSON.parse(spyRaw) : spyRaw) : {};
   const vixData = vixRaw ? (typeof vixRaw === 'string' ? JSON.parse(vixRaw) : vixRaw) : {};
@@ -30,6 +39,15 @@ export async function fetchLiveMarketData(locale: Lang = 'en'): Promise<LiveMark
       try { gexStr = JSON.parse(gexRaw)?.regime ?? gexRaw; } catch { gexStr = gexRaw as string; }
     } else { gexStr = (gexRaw as any)?.regime ?? 'neutral'; }
   }
+
+  // NASDAQ / DOW
+  const nasdaqData = nasdaqRaw ? (typeof nasdaqRaw === 'string' ? JSON.parse(nasdaqRaw) : nasdaqRaw) : {};
+  const dowData = dowRaw ? (typeof dowRaw === 'string' ? JSON.parse(dowRaw) : dowRaw) : {};
+
+  // Fear & Greed
+  const fgiData = fgiRaw ? (typeof fgiRaw === 'string' ? JSON.parse(fgiRaw) : fgiRaw) : {};
+  const fgiScore = Math.round(fgiData?.score ?? 50);
+  const fgiLbl = fgiData?.rating ?? (fgiScore >= 75 ? 'Extreme Greed' : fgiScore >= 55 ? 'Greed' : fgiScore >= 45 ? 'Neutral' : fgiScore >= 25 ? 'Fear' : 'Extreme Fear');
 
   // Dark Pool: fetch REAL data from EC2 ElastiCache → Polygon REST
   // Fallback: last cached DP value from event-detect cron (survives off-hours)
@@ -75,6 +93,12 @@ export async function fetchLiveMarketData(locale: Lang = 'en'): Promise<LiveMark
     spyChg: spyData?.changePercent ?? spyData?.changePct ?? 0,
     vix: vixData?.price ?? vixData?.last ?? 0,
     vixChg: vixData?.changePercent ?? vixData?.changePct ?? 0,
+    qqq: nasdaqData?.price ?? nasdaqData?.last ?? 0,
+    qqqChg: nasdaqData?.changePercent ?? nasdaqData?.changePct ?? 0,
+    dia: dowData?.price ?? dowData?.last ?? 0,
+    diaChg: dowData?.changePercent ?? dowData?.changePct ?? 0,
+    fgi: fgiScore,
+    fgiLabel: fgiLbl,
     gex: gexStr, dp,
     date: `${etNow.getFullYear()}-${String(etNow.getMonth()+1).padStart(2,'0')}-${String(etNow.getDate()).padStart(2,'0')}`,
     tacticalInsight,
@@ -104,8 +128,11 @@ export function buildRealtimeText(
     ? (lang === 'ko' ? '딜러 변동성 증폭 구간' : lang === 'ja' ? 'ディーラーのボラ増幅ゾーン' : 'Dealer volatility amplification zone')
     : (lang === 'ko' ? '중립 전환 구간' : lang === 'ja' ? '中立遷移ゾーン' : 'Neutral transition zone');
   const sd = m.spyChg >= 0 ? '+' : '';
+  const nd = m.qqqChg >= 0 ? '+' : '';
+  const dd = m.diaChg >= 0 ? '+' : '';
   const vd = m.vixChg >= 0 ? '+' : '';
   const dp = m.dp > 0 ? `${m.dp.toFixed(1)}%` : 'N/A';
+  const fgiText = `${m.fgi} (${m.fgiLabel})`;
   const volNote = m.vixChg > 0
     ? (lang === 'ko' ? '변동성 확대 중' : lang === 'ja' ? 'ボラティリティ拡大中' : 'volatility expanding')
     : (lang === 'ko' ? '변동성 축소 중' : lang === 'ja' ? 'ボラティリティ縮小中' : 'volatility compressing');
@@ -140,8 +167,10 @@ export function buildRealtimeText(
       const riTrunc = ri.length > 200 ? ri.slice(0, 197) + '...' : ri;
       return riTrunc ? `💡 Structure Insight\n\n${riTrunc}` : `💡 Structure Insight | ${m.date}\n\nVIX ${m.vix.toFixed(1)} | GEX: ${G} | DP: ${dp}`;
     }
-    // close
-    return bsTrunc ? `🔔 Session Close | ${m.date}\n\nSPY ${sd}${m.spyChg.toFixed(2)}% | VIX ${m.vix.toFixed(1)} | DP ${dp}\n\n${bsTrunc}` : `🔔 Session Close | ${m.date}\n\nSPY: ${sd}${m.spyChg.toFixed(2)}% | VIX: ${m.vix.toFixed(1)}\nGEX: ${G} | DP: ${dp}\n\nInstitutional positioning data finalized.`;
+    // close — 3 indices + FGI + AI insight (≤300)
+    return bsTrunc
+      ? `🔔 Market Close | ${m.date}\n\nS&P ${sd}${m.spyChg.toFixed(2)}% | NQ ${nd}${m.qqqChg.toFixed(2)}% | DOW ${dd}${m.diaChg.toFixed(2)}%\nVIX ${m.vix.toFixed(1)} | F&G ${m.fgi}\n\n${bsTrunc}`
+      : `🔔 Market Close | ${m.date}\n\nS&P ${sd}${m.spyChg.toFixed(2)}% | NQ ${nd}${m.qqqChg.toFixed(2)}% | DOW ${dd}${m.diaChg.toFixed(2)}%\nVIX: ${m.vix.toFixed(1)} | GEX: ${G} | DP: ${dp}\nFear & Greed: ${fgiText}`;
   }
 
   // ── THREADS (≤500 char, conversational, engagement question) ──
@@ -234,12 +263,18 @@ What are you watching? 👇
 ${disc.en}`;
   }
 
-  // close (threads) — Guardian AI insight + data
+  // close (threads) — 3 indices + FGI + Guardian AI insight (≤500)
   const closeInsight = m.tacticalInsight || '';
   const closeTrunc = closeInsight.length > 280 ? closeInsight.slice(0, 277) + '...' : closeInsight;
-  if (lang === 'ko') return closeTrunc ? `장 마감 🔔\n\nSPY ${sd}${m.spyChg.toFixed(2)}% | VIX ${m.vix.toFixed(1)} | DP ${dp}\n\n${closeTrunc}\n\n${disc.ko}` : `장 마감 🔔\n\n📈 SPY: ${sd}${m.spyChg.toFixed(2)}%\n📊 VIX: ${m.vix.toFixed(1)} | DP: ${dp} | GEX: ${G}\n\n${disc.ko}`;
-  if (lang === 'ja') return closeTrunc ? `セッション終了 🔔\n\nSPY ${sd}${m.spyChg.toFixed(2)}% | VIX ${m.vix.toFixed(1)} | DP ${dp}\n\n${closeTrunc}\n\n${disc.ja}` : `セッション終了 🔔\n\nSPY: ${sd}${m.spyChg.toFixed(2)}% | VIX: ${m.vix.toFixed(1)} | DP: ${dp} | GEX: ${G}\n\n${disc.ja}`;
-  return closeTrunc ? `Session Wrap 🔔\n\nSPY ${sd}${m.spyChg.toFixed(2)}% | VIX ${m.vix.toFixed(1)} | DP ${dp}\n\n${closeTrunc}\n\n${disc.en}` : `Session Wrap 🔔\n\nSPY: ${sd}${m.spyChg.toFixed(2)}% | VIX: ${m.vix.toFixed(1)} | DP: ${dp} | GEX: ${G}\n\n${disc.en}`;
+  if (lang === 'ko') return closeTrunc
+    ? `장 마감 🔔\n\n📉 S&P 500: ${sd}${m.spyChg.toFixed(2)}%\n📈 나스닥: ${nd}${m.qqqChg.toFixed(2)}%\n📊 다우: ${dd}${m.diaChg.toFixed(2)}%\n\nVIX: ${m.vix.toFixed(1)} | DP: ${dp} | F&G: ${m.fgi}\n\n${closeTrunc}\n\n${disc.ko}`
+    : `장 마감 🔔\n\n📉 S&P 500: ${sd}${m.spyChg.toFixed(2)}%\n📈 나스닥: ${nd}${m.qqqChg.toFixed(2)}%\n📊 다우: ${dd}${m.diaChg.toFixed(2)}%\n\nVIX: ${m.vix.toFixed(1)} | GEX: ${G} | DP: ${dp}\nFear & Greed: ${fgiText}\n\n${disc.ko}`;
+  if (lang === 'ja') return closeTrunc
+    ? `セッション終了 🔔\n\n📉 S&P 500: ${sd}${m.spyChg.toFixed(2)}%\n📈 ナスダック: ${nd}${m.qqqChg.toFixed(2)}%\n📊 ダウ: ${dd}${m.diaChg.toFixed(2)}%\n\nVIX: ${m.vix.toFixed(1)} | DP: ${dp} | F&G: ${m.fgi}\n\n${closeTrunc}\n\n${disc.ja}`
+    : `セッション終了 🔔\n\n📉 S&P 500: ${sd}${m.spyChg.toFixed(2)}%\n📈 ナスダック: ${nd}${m.qqqChg.toFixed(2)}%\n📊 ダウ: ${dd}${m.diaChg.toFixed(2)}%\n\nVIX: ${m.vix.toFixed(1)} | GEX: ${G} | DP: ${dp}\nFear & Greed: ${fgiText}\n\n${disc.ja}`;
+  return closeTrunc
+    ? `Session Wrap 🔔\n\n📉 S&P 500: ${sd}${m.spyChg.toFixed(2)}%\n📈 NASDAQ: ${nd}${m.qqqChg.toFixed(2)}%\n📊 DOW: ${dd}${m.diaChg.toFixed(2)}%\n\nVIX: ${m.vix.toFixed(1)} | DP: ${dp} | F&G: ${m.fgi}\n\n${closeTrunc}\n\n${disc.en}`
+    : `Session Wrap 🔔\n\n📉 S&P 500: ${sd}${m.spyChg.toFixed(2)}%\n📈 NASDAQ: ${nd}${m.qqqChg.toFixed(2)}%\n📊 DOW: ${dd}${m.diaChg.toFixed(2)}%\n\nVIX: ${m.vix.toFixed(1)} | GEX: ${G} | DP: ${dp}\nFear & Greed: ${fgiText}\n\n${disc.en}`;
 }
 
 // ---------------------------------------------------------------------------
@@ -269,6 +304,46 @@ export async function captureRealtimeOG(
       if (result?.cdnUrl) return result.cdnUrl;
     } catch (err: any) {
       console.warn(`[Dispatch] Realtime OG attempt ${attempt + 1} failed: ${err.message}`);
+    }
+    if (attempt === 0) await new Promise(r => setTimeout(r, 500));
+  }
+  return ''; // Empty = text-only post
+}
+
+// ---------------------------------------------------------------------------
+// Market Close OG Image (7-metric dashboard: SPY, QQQ, DIA, VIX, DP, GEX, FGI)
+// ---------------------------------------------------------------------------
+export async function captureMarketCloseOG(
+  baseUrl: string,
+  mkt: LiveMarketData,
+  format: FormatType,
+  dryRun: boolean,
+): Promise<string> {
+  const data: Record<string, string | number> = {
+    spy: mkt.spyChg,
+    qqq: mkt.qqqChg,
+    dia: mkt.diaChg,
+    vix: mkt.vix,
+    dp: mkt.dp,
+    gex: mkt.gex,
+    fgi: mkt.fgi,
+    date: mkt.date,
+  };
+
+  if (dryRun) {
+    const url = new URL(`${baseUrl}/templates/og/market-close`);
+    Object.entries(data).forEach(([k, v]) => url.searchParams.set(k, String(v)));
+    url.searchParams.set('format', format);
+    return url.toString();
+  }
+
+  // Live capture via EC2 (retry once)
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const result = await captureTemplate({ template: 'market-close', format, data });
+      if (result?.cdnUrl) return result.cdnUrl;
+    } catch (err: any) {
+      console.warn(`[Dispatch] MarketClose OG attempt ${attempt + 1} failed: ${err.message}`);
     }
     if (attempt === 0) await new Promise(r => setTimeout(r, 500));
   }
