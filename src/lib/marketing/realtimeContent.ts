@@ -87,7 +87,7 @@ export async function fetchLiveMarketData(locale: Lang = 'en'): Promise<LiveMark
 // Text Builder — observation language only, no predictions
 // ---------------------------------------------------------------------------
 export function buildRealtimeText(
-  ct: 'premarket' | 'intraday' | 'close' | 'structure' | 'afterhours' | 'recap' | 'asia_insight' | 'market_open' | 'asia_evening' | 'asia_tip' | 'asia_preview',
+  ct: 'premarket' | 'intraday' | 'close' | 'structure' | 'afterhours' | 'recap' | 'asia_insight' | 'market_open',
   plat: 'bluesky' | 'threads',
   lang: Lang,
   m: LiveMarketData,
@@ -164,23 +164,35 @@ export function buildRealtimeText(
     if (lang === 'ja') return truncInsight ? `🌙 セッション終了 — AI構造分析\n\nSPY ${sd}${m.spyChg.toFixed(2)}% | VIX ${m.vix.toFixed(1)} | DP ${dp}\n\n${truncInsight}\n\n${disc.ja}` : `🌙 セッション振り返り\n\nSPY: ${sd}${m.spyChg.toFixed(2)}% | VIX: ${m.vix.toFixed(1)} | GEX: ${G}\n\n${disc.ja}`;
     return truncInsight ? `🌙 Session Close — AI Structure Analysis\n\nSPY ${sd}${m.spyChg.toFixed(2)}% | VIX ${m.vix.toFixed(1)} | DP ${dp}\n\n${truncInsight}\n\n${disc.en}` : `🌙 Session Wrap\n\nSPY: ${sd}${m.spyChg.toFixed(2)}% | VIX: ${m.vix.toFixed(1)} | GEX: ${G}\n\n${disc.en}`;
   }
-  // ── ASIA DAYTIME: recap (KST 11:30 — Guardian AI 분석 기반 리캡) ──
+  // ── ASIA RECAP (KST 11:30) — Hook→Data→Meaning→Scenario→CTA ──
   if (ct === 'recap') {
     const insight = m.tacticalInsight || '';
-    const maxInsight = 350;
-    const truncInsight = insight.length > maxInsight ? insight.slice(0, maxInsight - 3) + '...' : insight;
-    if (lang === 'ko') return truncInsight ? `📊 어젯밤 월가 — AI 구조 분석\n\nSPY ${sd}${m.spyChg.toFixed(2)}% | VIX ${m.vix.toFixed(1)} | DP ${dp}\n\n${truncInsight}\n\n→ 전체 분석: signumhq.com/intel-guardian\n\n${disc.ko}` : `📊 어젯밤 미국 시장\n\nSPY: ${sd}${m.spyChg.toFixed(2)}% | VIX: ${m.vix.toFixed(1)} | DP: ${dp} | GEX: ${G}\n\n${disc.ko}`;
-    if (lang === 'ja') return truncInsight ? `📊 昨夜のウォール街 — AI構造分析\n\nSPY ${sd}${m.spyChg.toFixed(2)}% | VIX ${m.vix.toFixed(1)} | DP ${dp}\n\n${truncInsight}\n\n→ 全分析: signumhq.com/intel-guardian\n\n${disc.ja}` : `📊 昨夜の米国市場\n\nSPY: ${sd}${m.spyChg.toFixed(2)}% | VIX: ${m.vix.toFixed(1)} | GEX: ${G}\n\n${disc.ja}`;
-    return truncInsight ? `📊 Wall Street Overnight — AI Structure Analysis\n\nSPY ${sd}${m.spyChg.toFixed(2)}% | VIX ${m.vix.toFixed(1)} | DP ${dp}\n\n${truncInsight}\n\n→ Full analysis: signumhq.com/intel-guardian\n\n${disc.en}` : `📊 Overnight US Market\n\nSPY: ${sd}${m.spyChg.toFixed(2)}% | VIX: ${m.vix.toFixed(1)} | GEX: ${G}\n\n${disc.en}`;
+    const maxI = 280;
+    const tI = insight.length > maxI ? insight.slice(0, maxI - 3) + '...' : insight;
+    // Dynamic hook based on market movement
+    const hookKo = Math.abs(m.spyChg) > 1 ? '🚨 어젯밤 월가 큰 움직임' : m.spyChg >= 0 ? '📊 어젯밤 월가 요약' : '📉 어젯밤 월가 하락 마감';
+    const hookJa = Math.abs(m.spyChg) > 1 ? '🚨 昨夜のウォール街—大きな動き' : m.spyChg >= 0 ? '📊 昨夜のウォール街サマリー' : '📉 昨夜のウォール街—下落';
+    const hookEn = Math.abs(m.spyChg) > 1 ? '🚨 Wall Street Overnight — Big Move' : m.spyChg >= 0 ? '📊 Wall Street Overnight Recap' : '📉 Wall Street Closed Lower';
+    // Meaning layer — what the data combination implies
+    const meaningKo = m.dp > 40 ? '다크풀 활동이 40%를 넘었습니다 — 기관이 적극적으로 포지셔닝 중입니다.' : m.vix > 25 ? 'VIX 25 이상 — 변동성 확대 구간에서의 기관 움직임에 주목하세요.' : `GEX ${G} 체제에서 ${gM} — 구조적 맥락을 먼저 이해하세요.`;
+    const meaningJa = m.dp > 40 ? 'DP活動40%超 — 機関が積極的にポジショニング中。' : m.vix > 25 ? 'VIX 25超 — ボラ拡大局面での機関の動きに注目。' : `GEX ${G}体制で${gM}。`;
+    const meaningEn = m.dp > 40 ? 'Dark Pool above 40% — institutions actively positioning.' : m.vix > 25 ? 'VIX above 25 — watch institutional moves in elevated volatility.' : `GEX ${G} regime: ${gM}.`;
+    if (lang === 'ko') return `${hookKo}\n\n📈 SPY ${sd}${m.spyChg.toFixed(2)}% | VIX ${m.vix.toFixed(1)} (${vd}${m.vixChg.toFixed(1)}%)\n🏦 다크풀: ${dp} | GEX: ${G}\n\n${tI || meaningKo}\n\n💡 ${meaningKo}\n\n→ 전체 분석: signumhq.com/dashboard\n\n${disc.ko}`;
+    if (lang === 'ja') return `${hookJa}\n\n📈 SPY ${sd}${m.spyChg.toFixed(2)}% | VIX ${m.vix.toFixed(1)} (${vd}${m.vixChg.toFixed(1)}%)\n🏦 DP: ${dp} | GEX: ${G}\n\n${tI || meaningJa}\n\n💡 ${meaningJa}\n\n→ 全分析: signumhq.com/dashboard\n\n${disc.ja}`;
+    return `${hookEn}\n\n📈 SPY ${sd}${m.spyChg.toFixed(2)}% | VIX ${m.vix.toFixed(1)} (${vd}${m.vixChg.toFixed(1)}%)\n🏦 Dark Pool: ${dp} | GEX: ${G}\n\n${tI || meaningEn}\n\n💡 ${meaningEn}\n\n→ Full analysis: signumhq.com/dashboard\n\n${disc.en}`;
   }
-  // ── ASIA DAYTIME: insight (KST 14:00 — Guardian reality insight 기반) ──
+  // ── ASIA INSIGHT (KST 13:00) — Guardian AI deep analysis with context ──
   if (ct === 'asia_insight') {
     const insight = m.realityInsight || m.tacticalInsight || '';
-    const maxInsight = 350;
-    const truncInsight = insight.length > maxInsight ? insight.slice(0, maxInsight - 3) + '...' : insight;
-    if (lang === 'ko') return truncInsight ? `💡 오늘의 구조 인사이트\n\n${truncInsight}\n\n→ 실시간 분석: signumhq.com/intel-guardian\n\n${disc.ko}` : `💡 오늘의 구조 인사이트\n\nGEX ${G} — ${gM}\nVIX ${m.vix.toFixed(1)} | DP ${dp}\n\n→ signumhq.com/intel-guardian\n\n${disc.ko}`;
-    if (lang === 'ja') return truncInsight ? `💡 本日の構造インサイト\n\n${truncInsight}\n\n→ リアルタイム分析: signumhq.com/intel-guardian\n\n${disc.ja}` : `💡 本日の構造インサイト\n\nGEX ${G} — ${gM}\nVIX ${m.vix.toFixed(1)} | DP ${dp}\n\n→ signumhq.com/intel-guardian\n\n${disc.ja}`;
-    return truncInsight ? `💡 Today's Structure Insight\n\n${truncInsight}\n\n→ Live analysis: signumhq.com/intel-guardian\n\n${disc.en}` : `💡 Structure Insight\n\nGEX ${G} — ${gM}\nVIX ${m.vix.toFixed(1)} | DP ${dp}\n\n→ signumhq.com/intel-guardian\n\n${disc.en}`;
+    const maxI = 300;
+    const tI = insight.length > maxI ? insight.slice(0, maxI - 3) + '...' : insight;
+    // Context layer — what the structural regime means for readers
+    const ctxKo = m.gex === 'negative' ? '⚠️ GEX 음수 체제 — 딜러 헤지가 변동성을 증폭시키는 구간입니다. 급격한 움직임에 대비하세요.' : m.gex === 'positive' ? '🛡️ GEX 양수 체제 — 딜러가 변동성을 억제하는 구간입니다. 범위 내 움직임이 예상됩니다.' : '⚖️ GEX 중립 전환 — 방향성 전환이 가능한 구간입니다.';
+    const ctxJa = m.gex === 'negative' ? '⚠️ GEXマイナス体制 — ディーラーヘッジがボラを増幅する局面です。' : m.gex === 'positive' ? '🛡️ GEXプラス体制 — ディーラーがボラを抑制する局面です。' : '⚖️ GEX中立遷移 — 方向転換の可能性がある局面です。';
+    const ctxEn = m.gex === 'negative' ? '⚠️ GEX Negative — dealer hedging amplifies volatility. Prepare for sharp moves.' : m.gex === 'positive' ? '🛡️ GEX Positive — dealer hedging suppresses volatility. Range-bound behavior expected.' : '⚖️ GEX Neutral — directional transition possible.';
+    if (lang === 'ko') return tI ? `🧠 기관 구조 분석 — Guardian AI\n\n📊 VIX ${m.vix.toFixed(1)} | GEX ${G} | DP ${dp}\n\n${tI}\n\n${ctxKo}\n\n→ signumhq.com/dashboard\n\n${disc.ko}` : `🧠 기관 구조 분석\n\n${ctxKo}\n\n📊 VIX ${m.vix.toFixed(1)} | DP ${dp}\n\n→ signumhq.com/dashboard\n\n${disc.ko}`;
+    if (lang === 'ja') return tI ? `🧠 機関構造分析 — Guardian AI\n\n📊 VIX ${m.vix.toFixed(1)} | GEX ${G} | DP ${dp}\n\n${tI}\n\n${ctxJa}\n\n→ signumhq.com/dashboard\n\n${disc.ja}` : `🧠 機関構造分析\n\n${ctxJa}\n\n📊 VIX ${m.vix.toFixed(1)} | DP ${dp}\n\n→ signumhq.com/dashboard\n\n${disc.ja}`;
+    return tI ? `🧠 Institutional Structure — Guardian AI\n\n📊 VIX ${m.vix.toFixed(1)} | GEX ${G} | DP ${dp}\n\n${tI}\n\n${ctxEn}\n\n→ signumhq.com/dashboard\n\n${disc.en}` : `🧠 Institutional Structure\n\n${ctxEn}\n\n📊 VIX ${m.vix.toFixed(1)} | DP ${dp}\n\n→ signumhq.com/dashboard\n\n${disc.en}`;
   }
   // ── MARKET OPEN (KST 22:30 = ET 09:30) ──
   if (ct === 'market_open') {
@@ -221,66 +233,7 @@ What are you watching? 👇
 
 ${disc.en}`;
   }
-  // ── ASIA EVENING (KST 20:30 — 저녁 소셜 피크) ──
-  if (ct === 'asia_evening') {
-    if (lang === 'ko') return `🌆 오늘의 시장 준비 체크
 
-미국 장 오픈까지 2시간. 지금 구조를 미리 확인하세요:
-📊 VIX: ${m.vix.toFixed(1)} | GEX: ${G}
-🏦 다크풀: ${dp}
-
-기관이 포지셔닝하는 곳을 먼저 봐야 합니다.
-→ signumhq.com에서 실시간 확인
-
-${disc.ko}`;
-    if (lang === 'ja') return `🌆 本日の市場準備チェック
-
-米国オープンまで2時間。構造を事前に確認:
-📊 VIX: ${m.vix.toFixed(1)} | GEX: ${G}
-🏦 DP: ${dp}
-
-機関のポジショニングを先に確認しましょう。
-→ signumhq.comでリアルタイム確認
-
-${disc.ja}`;
-    return `🌆 Pre-session prep
-
-2 hours to US open. Structure check:
-📊 VIX: ${m.vix.toFixed(1)} | GEX: ${G}
-🏦 Dark Pool: ${dp}
-
-See where institutions are positioning first.
-→ signumhq.com
-
-${disc.en}`;
-  }
-  // ── ASIA TIP (KST 16:30 — 오후 교육 팁) ──
-  if (ct === 'asia_tip') {
-    const tips: Record<string, string[]> = {
-      ko: [
-        `💡 GEX란? Gamma Exposure의 약자\n\n딜러가 보유한 옵션 헤지의 방향을 나타냅니다.\n• 양수: 변동성 억제\n• 음수: 변동성 증폭\n\n지금 GEX: ${G}\n\n→ signumhq.com에서 실시간 확인\n\n${disc.ko}`,
-        `💡 다크풀(Dark Pool)이란?\n\n기관이 대량 거래를 공개 시장에 노출하지 않고 실행하는 채널.\n• 현재 DP 활동: ${dp}\n\n높을수록 기관이 적극적으로 움직이고 있습니다.\n\n→ signumhq.com\n\n${disc.ko}`,
-        `💡 VIX는 시장의 체온계\n\n• 15 미만: 시장 안정\n• 20-25: 경계\n• 30+: 공포\n\n지금 VIX: ${m.vix.toFixed(1)}\n\n구조를 이해하면 가격이 보입니다.\n\n→ signumhq.com\n\n${disc.ko}`,
-      ],
-      ja: [
-        `💡 GEXとは？Gamma Exposureの略\n\nディーラーのオプションヘッジの方向性を示します。\n• プラス: ボラ抑制\n• マイナス: ボラ増幅\n\n現在GEX: ${G}\n\n→ signumhq.com\n\n${disc.ja}`,
-        `💡 ダークプールとは？\n\n機関が大口取引を非公開で実行するチャネル。\n• 現在DP活動: ${dp}\n\n→ signumhq.com\n\n${disc.ja}`,
-        `💡 VIXは市場の体温計\n\n• 15未満: 安定\n• 20-25: 警戒\n• 30+: 恐怖\n\n現在VIX: ${m.vix.toFixed(1)}\n\n→ signumhq.com\n\n${disc.ja}`,
-      ],
-      en: [
-        `💡 What is GEX?\n\nGamma Exposure shows dealer hedging direction.\n• Positive: Volatility suppressed\n• Negative: Volatility amplified\n\nCurrent GEX: ${G}\n\n→ signumhq.com\n\n${disc.en}`,
-      ],
-    };
-    const arr = tips[lang] || tips.en;
-    const idx = new Date().getDate() % arr.length;
-    return arr[idx];
-  }
-  // ── ASIA PREVIEW (KST 18:00 — 미국 장 오픈 전 프리뷰) ──
-  if (ct === 'asia_preview') {
-    if (lang === 'ko') return `🌟 오늘 밤 미국 장 프리뷰\n\n장 오픈까지 4시간 남았습니다.\n\n현재 구조:\n📊 VIX: ${m.vix.toFixed(1)} | GEX: ${G}\n🏦 다크풀: ${dp}\n\n오늘 밤 어떤 시나리오가 나올 수 있을까요?\n\n→ signumhq.com에서 준비하세요\n\n${disc.ko}`;
-    if (lang === 'ja') return `🌟 今夜の米国市場プレビュー\n\nオープンまで4時間。\n\n現在の構造:\n📊 VIX: ${m.vix.toFixed(1)} | GEX: ${G}\n🏦 DP: ${dp}\n\n今夜のシナリオは？\n\n→ signumhq.comで準備\n\n${disc.ja}`;
-    return `🌟 Tonight's US market preview\n\n4 hours to open.\n\nCurrent structure:\n📊 VIX: ${m.vix.toFixed(1)} | GEX: ${G}\n🏦 Dark Pool: ${dp}\n\nWhat scenario are you expecting tonight?\n\n→ signumhq.com\n\n${disc.en}`;
-  }
   // close (threads) — Guardian AI insight + data
   const closeInsight = m.tacticalInsight || '';
   const closeTrunc = closeInsight.length > 280 ? closeInsight.slice(0, 277) + '...' : closeInsight;
