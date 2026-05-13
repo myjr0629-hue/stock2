@@ -1871,6 +1871,20 @@ for (const lang of langs) {
             });
             results.push(r);
           }
+
+          // ── Instagram Story — image-only (KO/JA) ──
+          const igCh = getFilteredChannels({ tier: 'all', lang, service: 'instagram' })[0];
+          if (igCh) {
+            const storyOg = await captureMarketCloseOG(baseUrl, mkt, 'tweet', dryRun);
+            if (storyOg) {
+              const r = await dispatchStory({
+                channelId: igCh.id,
+                imageUrl: storyOg,
+                dryRun, draft,
+              });
+              results.push(r);
+            }
+          }
         }
 
         // ── Telegram (EN only) ──
