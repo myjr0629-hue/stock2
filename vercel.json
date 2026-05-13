@@ -99,7 +99,7 @@
         },
         {
             "path": "/api/cron/marketing-dispatch?action=education&region=all&dry_run=false",
-            "schedule": "0 0 * * 0,2-6"
+            "schedule": "0 0 * * *"
         },
         {
             "path": "/api/cron/marketing-dispatch?action=spotlight&region=asia&dry_run=false",
@@ -107,7 +107,7 @@
         },
         {
             "path": "/api/cron/marketing-dispatch?action=edu_bsky&region=en&dry_run=false",
-            "schedule": "0 2 * * 0,2-6"
+            "schedule": "0 2 * * *"
         },
         {
             "path": "/api/cron/marketing-dispatch?action=asia_recap&region=asia&dry_run=false",
@@ -118,12 +118,8 @@
             "schedule": "0 4 * * 1-5"
         },
         {
-            "path": "/api/cron/marketing-dispatch?action=asia_tip&region=asia&dry_run=false",
-            "schedule": "30 7 * * 1,3,5"
-        },
-        {
-            "path": "/api/cron/marketing-dispatch?action=asia_preview&region=asia&dry_run=false",
-            "schedule": "0 9 * * 1-5"
+            "path": "/api/cron/marketing-dispatch?action=spacex_spotlight&region=asia&dry_run=false",
+            "schedule": "30 5 * * *"
         },
         {
             "path": "/api/cron/marketing-dispatch?action=morning&region=all&dry_run=false",
@@ -142,24 +138,12 @@
             "schedule": "0 11 * * 1-5"
         },
         {
-            "path": "/api/cron/marketing-dispatch?action=asia_evening&region=asia&dry_run=false",
-            "schedule": "30 11 * * 1-5"
-        },
-        {
             "path": "/api/cron/marketing-dispatch?action=premarket_threads&region=all&dry_run=false",
             "schedule": "35 12 * * 1-5"
         },
         {
             "path": "/api/cron/marketing-dispatch?action=spotlight&region=en&dry_run=false",
             "schedule": "0 14 * * 1-5"
-        },
-        {
-            "path": "/api/cron/marketing-dispatch?action=midday&region=en&dry_run=false",
-            "schedule": "0 16 * * 1-5"
-        },
-        {
-            "path": "/api/cron/marketing-dispatch?action=pulse&region=en&dry_run=false",
-            "schedule": "35 20 * * 1-5"
         },
         {
             "path": "/api/cron/marketing-dispatch?action=weekly_recap&region=all&dry_run=false",
@@ -170,16 +154,16 @@
             "schedule": "0 15 * * 1-5"
         },
         {
-            "path": "/api/cron/marketing-dispatch?action=trending_spotlight&region=all&dry_run=false",
-            "schedule": "30 18 * * 1-5"
-        },
-        {
-            "path": "/api/cron/marketing-dispatch?action=spacex_spotlight&region=asia&dry_run=false",
-            "schedule": "30 5 * * 1-5"
+            "path": "/api/cron/marketing-dispatch?action=midday&region=en&dry_run=false",
+            "schedule": "0 16 * * 1-5"
         },
         {
             "path": "/api/cron/marketing-dispatch?action=spacex_spotlight&region=en&dry_run=false",
-            "schedule": "0 17 * * 1-5"
+            "schedule": "0 17 * * *"
+        },
+        {
+            "path": "/api/cron/marketing-dispatch?action=pulse&region=en&dry_run=false",
+            "schedule": "35 20 * * 1-5"
         },
 
         {
