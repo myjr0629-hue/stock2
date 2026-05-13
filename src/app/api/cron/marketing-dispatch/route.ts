@@ -1767,23 +1767,22 @@ for (const lang of langs) {
           const ctaUrl = buildCtaUrl(lang, 'intel-guardian', 'market_close');
           const verdict = mkt.verdicts?.[lang];
           const rawTactical = verdict?.tactical || mkt.tacticalInsight || '';
-          // Clean AI text: strip metadata tags like [Status], [Analysis], etc.
-          const cleanTactical = rawTactical.replace(/\[\w+\]\s*/g, '').trim();
-          const aiBlock = cleanTactical.length > 150 ? cleanTactical.slice(0, 147) + '...' : cleanTactical;
+          // Clean AI text: strip ALL bracket tags [현황] [해석] [Status] etc. (\w doesn't match CJK)
+          const cleanTactical = rawTactical.replace(/\[[^\]]+\]\s*/g, '').trim();
           const fgiRound = Math.round(mkt.fgi);
 
           // ── X (Tweet) — max 280 chars ──
+          // Budget: header(10) + data(55) + AI(100) = 165 body + CTA+tags(~77) + sep(2) = ~244
           const xCh = getFilteredChannels({ tier: 'all', lang, service: 'twitter' })[0];
           if (xCh) {
-            // X needs tight text: ~80 chars for data + ~40 for tags/CTA = only ~60 for AI
-            const xAi = cleanTactical.length > 60 ? cleanTactical.slice(0, 57) + '...' : cleanTactical;
+            const xAi = cleanTactical.length > 100 ? cleanTactical.slice(0, 97) + '...' : cleanTactical;
             let xText = '';
             if (lang === 'ko') {
-              xText = `🏁 미국 장마감\n\nS&P ${sd}${mkt.spyChg.toFixed(2)}% | NQ ${nd}${mkt.qqqChg.toFixed(2)}% | DOW ${dd}${mkt.diaChg.toFixed(2)}%\nVIX ${mkt.vix.toFixed(1)} | F&G ${fgiRound}`;
+              xText = `🏁 미국 장마감\n\nS&P ${sd}${mkt.spyChg.toFixed(2)}% | NQ ${nd}${mkt.qqqChg.toFixed(2)}% | DOW ${dd}${mkt.diaChg.toFixed(2)}%\nVIX ${mkt.vix.toFixed(1)} | F&G ${fgiRound}${xAi ? `\n\n${xAi}` : ''}`;
             } else if (lang === 'ja') {
-              xText = `🏁 米国市場クローズ\n\nS&P ${sd}${mkt.spyChg.toFixed(2)}% | NQ ${nd}${mkt.qqqChg.toFixed(2)}% | DOW ${dd}${mkt.diaChg.toFixed(2)}%\nVIX ${mkt.vix.toFixed(1)} | F&G ${fgiRound}`;
+              xText = `🏁 米国市場クローズ\n\nS&P ${sd}${mkt.spyChg.toFixed(2)}% | NQ ${nd}${mkt.qqqChg.toFixed(2)}% | DOW ${dd}${mkt.diaChg.toFixed(2)}%\nVIX ${mkt.vix.toFixed(1)} | F&G ${fgiRound}${xAi ? `\n\n${xAi}` : ''}`;
             } else {
-              xText = `🏁 US Market Close\n\nS&P ${sd}${mkt.spyChg.toFixed(2)}% | NQ ${nd}${mkt.qqqChg.toFixed(2)}% | DOW ${dd}${mkt.diaChg.toFixed(2)}%\nVIX ${mkt.vix.toFixed(1)} | F&G ${fgiRound}`;
+              xText = `🏁 US Market Close\n\nS&P ${sd}${mkt.spyChg.toFixed(2)}% | NQ ${nd}${mkt.qqqChg.toFixed(2)}% | DOW ${dd}${mkt.diaChg.toFixed(2)}%\nVIX ${mkt.vix.toFixed(1)} | F&G ${fgiRound}${xAi ? `\n\n${xAi}` : ''}`;
             }
             const xTags = getHashtags({ platform: 'twitter', contentType: 'close', lang, tickers: ['SPY', 'QQQ'] });
             const xOg = await captureMarketCloseOG(baseUrl, mkt, 'tweet', dryRun);

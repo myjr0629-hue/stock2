@@ -264,9 +264,11 @@ ${disc.en}`;
   }
 
   // close (threads) — 3 indices + FGI + Guardian AI insight (≤500)
-  // Budget: header ~20 + data ~80 + AI ~200 + disc ~60 + tags ~40 = ~400 (safe margin)
-  const closeInsight = m.tacticalInsight || '';
-  const closeTrunc = closeInsight.length > 200 ? closeInsight.slice(0, 197) + '...' : closeInsight;
+  // Budget: header ~20 + data ~80 + AI ~280 + disc ~60 + tags ~40 = ~480 (fits 500)
+  const closeInsightRaw = m.tacticalInsight || '';
+  // Strip ALL bracket tags [현황] [해석] [Status] etc. (\w doesn't match CJK)
+  const closeInsight = closeInsightRaw.replace(/\[[^\]]+\]\s*/g, '').trim();
+  const closeTrunc = closeInsight.length > 280 ? closeInsight.slice(0, 277) + '...' : closeInsight;
   if (lang === 'ko') return closeTrunc
     ? `장 마감 🔔\n\n📉 S&P 500: ${sd}${m.spyChg.toFixed(2)}%\n📈 나스닥: ${nd}${m.qqqChg.toFixed(2)}%\n📊 다우: ${dd}${m.diaChg.toFixed(2)}%\n\nVIX: ${m.vix.toFixed(1)} | DP: ${dp} | F&G: ${m.fgi}\n\n${closeTrunc}\n\n${disc.ko}`
     : `장 마감 🔔\n\n📉 S&P 500: ${sd}${m.spyChg.toFixed(2)}%\n📈 나스닥: ${nd}${m.qqqChg.toFixed(2)}%\n📊 다우: ${dd}${m.diaChg.toFixed(2)}%\n\nVIX: ${m.vix.toFixed(1)} | GEX: ${G} | DP: ${dp}\nFear & Greed: ${fgiText}\n\n${disc.ko}`;
