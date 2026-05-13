@@ -1771,29 +1771,39 @@ for (const lang of langs) {
           const cleanTactical = rawTactical.replace(/\[[^\]]+\]\s*/g, '').trim();
           const fgiRound = Math.round(mkt.fgi);
 
-          // ── X (Tweet) — max 280 chars ──
-          // Budget: header(10) + data(55) + AI(100) = 165 body + CTA+tags(~77) + sep(2) = ~244
+          // ── X (Tweet) — max 280 chars (dynamic AI budget) ──
           const xCh = getFilteredChannels({ tier: 'all', lang, service: 'twitter' })[0];
           if (xCh) {
-            const xAi = cleanTactical.length > 100 ? cleanTactical.slice(0, 97) + '...' : cleanTactical;
-            let xText = '';
-            if (lang === 'ko') {
-              xText = `🏁 미국 장마감\n\nS&P ${sd}${mkt.spyChg.toFixed(2)}% | NQ ${nd}${mkt.qqqChg.toFixed(2)}% | DOW ${dd}${mkt.diaChg.toFixed(2)}%\nVIX ${mkt.vix.toFixed(1)} | F&G ${fgiRound}${xAi ? `\n\n${xAi}` : ''}`;
-            } else if (lang === 'ja') {
-              xText = `🏁 米国市場クローズ\n\nS&P ${sd}${mkt.spyChg.toFixed(2)}% | NQ ${nd}${mkt.qqqChg.toFixed(2)}% | DOW ${dd}${mkt.diaChg.toFixed(2)}%\nVIX ${mkt.vix.toFixed(1)} | F&G ${fgiRound}${xAi ? `\n\n${xAi}` : ''}`;
-            } else {
-              xText = `🏁 US Market Close\n\nS&P ${sd}${mkt.spyChg.toFixed(2)}% | NQ ${nd}${mkt.qqqChg.toFixed(2)}% | DOW ${dd}${mkt.diaChg.toFixed(2)}%\nVIX ${mkt.vix.toFixed(1)} | F&G ${fgiRound}${xAi ? `\n\n${xAi}` : ''}`;
-            }
             const xTags = getHashtags({ platform: 'twitter', contentType: 'close', lang, tickers: ['SPY', 'QQQ'] });
+            const xFooter = `\n${ctaUrl}\n\n${xTags}`;
+            // Build data-only base first to measure length
+            let xBase = '';
+            if (lang === 'ko') {
+              xBase = `🏁 미국 장마감\n\nS&P ${sd}${mkt.spyChg.toFixed(2)}% | NQ ${nd}${mkt.qqqChg.toFixed(2)}% | DOW ${dd}${mkt.diaChg.toFixed(2)}%\nVIX ${mkt.vix.toFixed(1)} | F&G ${fgiRound}`;
+            } else if (lang === 'ja') {
+              xBase = `🏁 米国市場クローズ\n\nS&P ${sd}${mkt.spyChg.toFixed(2)}% | NQ ${nd}${mkt.qqqChg.toFixed(2)}% | DOW ${dd}${mkt.diaChg.toFixed(2)}%\nVIX ${mkt.vix.toFixed(1)} | F&G ${fgiRound}`;
+            } else {
+              xBase = `🏁 US Market Close\n\nS&P ${sd}${mkt.spyChg.toFixed(2)}% | NQ ${nd}${mkt.qqqChg.toFixed(2)}% | DOW ${dd}${mkt.diaChg.toFixed(2)}%\nVIX ${mkt.vix.toFixed(1)} | F&G ${fgiRound}`;
+            }
+            // Dynamic AI budget: 280 - base - footer - separators
+            const aiSep = '\n\n'; // separator before AI text
+            const bodySep = '\n\n'; // separator between body and footer
+            const available = 280 - xBase.length - aiSep.length - bodySep.length - xFooter.length - 3; // -3 for safety
+            let xText = xBase;
+            if (available > 30 && cleanTactical.length > 0) {
+              const xAi = cleanTactical.length > available ? cleanTactical.slice(0, available - 3) + '...' : cleanTactical;
+              xText = `${xBase}${aiSep}${xAi}`;
+            }
             const xOg = await captureMarketCloseOG(baseUrl, mkt, 'tweet', dryRun);
             const r = await dispatchTweet({
               channelId: xCh.id,
-              text: truncateWithTags(xText, `\n${ctaUrl}\n\n${xTags}`, 'twitter'),
+              text: truncateWithTags(xText, xFooter, 'twitter'),
               imageUrl: xOg,
               dryRun, draft,
             });
             results.push(r);
           }
+
 
 
           // ── Bluesky — max 300 chars ──
