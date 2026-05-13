@@ -196,13 +196,13 @@ export async function dispatchCarousel(opts: {
     const input: Record<string, any> = {
       channelId,
       text: caption || '',
-      // Share immediately instead of queue (prevents silent scheduling failures)
+      schedulingType: 'now',
+      mode: 'share_now',
       ...(draft ? { saveToDraft: true } : {}),
-      // Multiple images = carousel on IG
+      // Multiple images = carousel on IG (altText NOT supported by ImageAssetInput)
       assets: {
-        images: imageUrls.slice(0, 10).map((url, i) => ({
+        images: imageUrls.slice(0, 10).map((url) => ({
           url,
-          ...(altTexts?.[i] ? { altText: altTexts[i] } : {}),
         })),
       },
       // IG carousel requires post type metadata
