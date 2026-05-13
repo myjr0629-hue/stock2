@@ -68,33 +68,7 @@
             "path": "/api/cron/warm-news-digest",
             "schedule": "*/15 * * * *"
         },
-        {
-            "path": "/api/cron/daily-content?type=morning",
-            "schedule": "40 20 * * 1-5"
-        },
-        {
-            "path": "/api/cron/daily-content?type=pulse",
-            "schedule": "25 20 * * 1-5"
-        },
-        {
-            "path": "/api/cron/daily-content?type=education",
-            "schedule": "30 23 * * *"
-        },
-        {
-            "path": "/api/cron/daily-content?type=pulse",
-            "schedule": "30 15 * * 1-5"
-        },
 
-
-        {
-            "path": "/api/cron/event-detect?dry_run=false",
-            "schedule": "*/5 13-21 * * 1-5"
-        },
-
-        {
-            "path": "/api/cron/render-video?type=pulse&lang=en&dry_run=true",
-            "schedule": "0 21 * * 1-5"
-        },
         {
             "path": "/api/cron/marketing-dispatch?action=market_close_asia&region=asia&dry_run=false&draft=false&secret=eunhoon2912stock",
             "schedule": "0 23 * * 1-5"
