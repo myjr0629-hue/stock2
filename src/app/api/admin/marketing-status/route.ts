@@ -34,34 +34,35 @@ const CRON_SCHEDULE = [
   { utc: '20:25', et: '16:25', kst: '05:25+1', action: 'daily-content-pulse', label: 'Pulse 콘텐츠 생성 (장마감 확정)', type: 'content', region: 'ALL', days: 'Mon-Fri' },
   { utc: '20:40', et: '16:40', kst: '05:40+1', action: 'daily-content-morning', label: 'Morning 콘텐츠 생성 (장마감후)', type: 'content', region: 'ALL', days: 'Mon-Fri' },
   { utc: '23:30', et: '19:30', kst: '08:30+1', action: 'daily-content-edu', label: 'Education 콘텐츠 생성', type: 'content', region: 'ALL', days: 'Mon-Sun' },
-  // ═══ DISPATCH — 21개 (vercel.json 1:1 매칭) ═══
+  // ═══ DISPATCH — 20개 (vercel.json 1:1 매칭, PLATFORM_ALLOW 반영) ═══
   // --- Asia Session (KST 07:30~14:30) ---
-  { utc: '22:30', et: '18:30', kst: '07:30+1', action: 'midday', label: 'Midday → X+Bsky+IG+Threads+Pinterest', type: 'dispatch', region: 'ASIA', days: 'Mon-Fri' },
+  { utc: '22:30', et: '18:30', kst: '07:30+1', action: 'midday', label: 'Midday → IG Story+Pinterest', type: 'dispatch', region: 'ASIA', days: 'Mon-Fri' },
   { utc: '23:00', et: '19:00', kst: '08:00+1', action: 'briefing_thread', label: 'Briefing Thread → X Thread', type: 'dispatch', region: 'ASIA', days: 'Mon-Fri' },
-  { utc: '23:30', et: '19:30', kst: '08:30+1', action: 'pulse', label: 'Pulse → X+Bsky+IG Story+Pinterest', type: 'dispatch', region: 'ASIA', days: 'Mon-Fri' },
+  { utc: '23:30', et: '19:30', kst: '08:30+1', action: 'pulse', label: 'Pulse → X+IG Story+Pinterest', type: 'dispatch', region: 'ASIA', days: 'Mon-Fri' },
   { utc: '00:00', et: '20:00', kst: '09:00', action: 'education', label: '📚 Education → X Thread+Threads+Pinterest', type: 'dispatch', region: 'ALL', days: 'Mon-Sun' },
-  { utc: '01:00', et: '21:00', kst: '10:00', action: 'spotlight', label: 'Spotlight → X Thread+Bsky+Threads', type: 'dispatch', region: 'ASIA', days: 'Mon-Fri' },
-  { utc: '02:00', et: '22:00', kst: '11:00', action: 'edu_bsky', label: '📚 Education → Bluesky(EN)+Pinterest(EN)', type: 'dispatch', region: 'EN', days: 'Mon-Sun' },
+  { utc: '01:00', et: '21:00', kst: '10:00', action: 'spotlight', label: 'Spotlight → X+Bluesky+Pinterest', type: 'dispatch', region: 'ASIA', days: 'Mon-Fri' },
+  { utc: '02:00', et: '22:00', kst: '11:00', action: 'edu_bsky', label: '📚 Education → Bluesky+Pinterest', type: 'dispatch', region: 'EN', days: 'Mon-Sun' },
   { utc: '02:30', et: '22:30', kst: '11:30', action: 'asia_recap', label: 'US Session Recap → Threads(KO/JA)', type: 'dispatch', region: 'ASIA', days: 'Tue-Sat' },
-  { utc: '04:00', et: '00:00', kst: '13:00', action: 'asia_insight', label: 'Asia Insight → Guardian AI 분석', type: 'dispatch', region: 'ASIA', days: 'Mon-Fri' },
-  { utc: '05:30', et: '01:30', kst: '14:30', action: 'spacex_spotlight', label: '🚀 SpaceX × $TSLA → News Pulse AI', type: 'dispatch', region: 'ASIA', days: 'Mon-Sun' },
+  { utc: '04:00', et: '00:00', kst: '13:00', action: 'asia_insight', label: 'Asia Insight → Threads(KO/JA)', type: 'dispatch', region: 'ASIA', days: 'Mon-Fri' },
+  { utc: '05:30', et: '01:30', kst: '14:30', action: 'spacex_spotlight', label: '🚀 SpaceX × $TSLA → X+Threads+Bsky+Pinterest(Pin)', type: 'dispatch', region: 'ASIA', days: 'Mon-Sun' },
   // --- US Pre-Market → Close (KST 19:30~05:35) ---
-  { utc: '10:30', et: '06:30', kst: '19:30', action: 'morning', label: 'Morning Brief → X+Bsky+IG Story+Pinterest', type: 'dispatch', region: 'ALL', days: 'Mon-Fri' },
-  { utc: '10:35', et: '06:35', kst: '19:35', action: 'morning_ig', label: 'Morning → IG Carousel(EN)+Threads(EN)', type: 'dispatch', region: 'EN', days: 'Mon-Fri' },
-  { utc: '10:38', et: '06:38', kst: '19:38', action: 'morning_ig', label: 'Morning → IG Carousel(KO/JA)+Threads(KO/JA)', type: 'dispatch', region: 'ASIA', days: 'Mon-Fri' },
+  { utc: '10:30', et: '06:30', kst: '19:30', action: 'morning', label: 'Morning Brief → IG Story+Pinterest', type: 'dispatch', region: 'ALL', days: 'Mon-Fri' },
+  { utc: '10:35', et: '06:35', kst: '19:35', action: 'morning_ig', label: 'Morning → IG Carousel', type: 'dispatch', region: 'EN', days: 'Mon-Fri' },
+  { utc: '10:38', et: '06:38', kst: '19:38', action: 'morning_ig', label: 'Morning → IG Carousel(KO/JA)', type: 'dispatch', region: 'ASIA', days: 'Mon-Fri' },
   { utc: '11:00', et: '07:00', kst: '20:00', action: 'briefing_thread', label: 'Briefing Thread → X Thread(EN)', type: 'dispatch', region: 'EN', days: 'Mon-Fri' },
   { utc: '12:35', et: '08:35', kst: '21:35', action: 'premarket_threads', label: 'Pre-Market → Threads+Pinterest', type: 'dispatch', region: 'ALL', days: 'Mon-Fri' },
-  { utc: '14:00', et: '10:00', kst: '23:00', action: 'spotlight', label: 'Spotlight → X Thread+Bsky+Threads', type: 'dispatch', region: 'EN', days: 'Mon-Fri' },
-  { utc: '15:00', et: '11:00', kst: '00:00+1', action: 'trending_spotlight', label: '📈 Trending Spotlight → AI 티커 분석', type: 'dispatch', region: 'ALL', days: 'Mon-Fri' },
-  { utc: '16:00', et: '12:00', kst: '01:00+1', action: 'midday', label: 'Midday → X+Bsky+IG+Threads+Pinterest', type: 'dispatch', region: 'EN', days: 'Mon-Fri' },
-  { utc: '17:00', et: '13:00', kst: '02:00+1', action: 'spacex_spotlight', label: '🚀 SpaceX × $TSLA → News Pulse AI', type: 'dispatch', region: 'EN', days: 'Mon-Sun' },
-  { utc: '20:35', et: '16:35', kst: '05:35+1', action: 'pulse', label: 'Pulse → X+Bsky+IG Story+Pinterest', type: 'dispatch', region: 'EN', days: 'Mon-Fri' },
+  { utc: '14:00', et: '10:00', kst: '23:00', action: 'spotlight', label: 'Spotlight → X+Bluesky+Pinterest', type: 'dispatch', region: 'EN', days: 'Mon-Fri' },
+  { utc: '15:00', et: '11:00', kst: '00:00+1', action: 'trending_spotlight', label: '🚫 Trending Spotlight (DISABLED)', type: 'dispatch', region: 'ALL', days: 'Mon-Fri' },
+  { utc: '16:00', et: '12:00', kst: '01:00+1', action: 'midday', label: 'Midday → IG Story+Pinterest', type: 'dispatch', region: 'EN', days: 'Mon-Fri' },
+  { utc: '17:00', et: '13:00', kst: '02:00+1', action: 'spacex_spotlight', label: '🚀 SpaceX × $TSLA → X+Threads+Bsky+Pinterest(Pin)', type: 'dispatch', region: 'EN', days: 'Mon-Sun' },
+  { utc: '20:35', et: '16:35', kst: '05:35+1', action: 'pulse', label: 'Pulse → X+IG Story+Pinterest', type: 'dispatch', region: 'EN', days: 'Mon-Fri' },
   // --- Weekend ---
   { utc: '14:00', et: '10:00', kst: '23:00', action: 'weekly_recap', label: '📊 주간 요약 Thread → X+Threads', type: 'dispatch', region: 'ALL', days: 'Sat' },
   // ═══ Event Detection & Video ═══
   { utc: '*/5 13-21', et: '09:00~17:00 5분', kst: '22:00~06:00 5분', action: 'event-detect', label: '이벤트 감지 (GEX/VIX/8-K/Sweep/DP/Insider/Fear)', type: 'event', region: 'ALL', days: 'Mon-Fri' },
   { utc: '21:00', et: '17:00', kst: '06:00+1', action: 'render-video', label: 'Remotion 영상 렌더링 (dry_run)', type: 'video', region: 'ALL', days: 'Mon-Fri' },
 ];
+
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);

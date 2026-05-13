@@ -339,10 +339,296 @@ function SpaceXIPOCard() {
   );
 }
 
+function SpaceXIPOPin() {
+  const sp = useSearchParams();
+  const dp = parseFloat(sp.get('dp') || '0');
+  const whale = parseInt(sp.get('whale') || '50', 10);
+  const gex = (sp.get('gex') || 'neutral').toUpperCase();
+  const gexDisplay = gex === 'POSITIVE' ? 'POSITIVE' : gex === 'NEGATIVE' ? 'NEGATIVE' : gex === 'TRANSITION' ? 'TRANSITION' : 'NEUTRAL';
+
+  return (
+    <>
+      <style>{`
+        .pin-root {
+          position: relative; width: 1000px; height: 1500px; overflow: hidden;
+          color: #f1f5f9;
+          background:
+            radial-gradient(circle at 50% 24%, rgba(249,115,22,0.22), transparent 32%),
+            radial-gradient(circle at 50% 34%, rgba(34,211,238,0.16), transparent 38%),
+            radial-gradient(circle at 0% 100%, rgba(34,211,238,0.18), transparent 28%),
+            linear-gradient(180deg, #02050d 0%, #040710 46%, #050817 100%);
+          isolation: isolate;
+          font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        }
+        .pin-root::before {
+          content: ""; position: absolute; inset: 0; z-index: -8; opacity: 0.34;
+          background-image:
+            linear-gradient(rgba(34,211,238,0.065) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(34,211,238,0.065) 1px, transparent 1px);
+          background-size: 34px 34px;
+          mask-image: radial-gradient(circle at 50% 48%, black 0%, transparent 86%);
+        }
+        .pin-root::after {
+          content: ""; position: absolute; inset: 0; z-index: 90; pointer-events: none; opacity: 0.045;
+          background: repeating-linear-gradient(to bottom, rgba(255,255,255,0.95) 0, rgba(255,255,255,0.95) 1px, transparent 1px, transparent 5px);
+          mix-blend-mode: overlay;
+        }
+        .pin-starfield {
+          position: absolute; inset: 0; z-index: -7; opacity: 0.58;
+          background:
+            radial-gradient(circle, rgba(241,245,249,0.9) 0 1px, transparent 1.4px),
+            radial-gradient(circle, rgba(34,211,238,0.72) 0 1px, transparent 1.45px),
+            radial-gradient(circle, rgba(249,115,22,0.48) 0 1px, transparent 1.45px);
+          background-size: 71px 71px, 111px 111px, 159px 159px;
+          mask-image: linear-gradient(to bottom, black 0%, black 82%, transparent 100%);
+        }
+        .pin-corner { position: absolute; inset: 31px 28px; z-index: 6; pointer-events: none; }
+        .pin-corner span { position: absolute; width: 40px; height: 40px; border-color: rgba(34,211,238,0.58); filter: drop-shadow(0 0 10px rgba(34,211,238,0.38)); }
+        .pin-corner .tl { left: 0; top: 0; border-left: 2px solid; border-top: 2px solid; }
+        .pin-corner .tr { right: 0; top: 0; border-right: 2px solid; border-top: 2px solid; }
+        .pin-corner .bl { left: 0; bottom: 0; border-left: 2px solid; border-bottom: 2px solid; }
+        .pin-corner .br { right: 0; bottom: 0; border-right: 2px solid; border-bottom: 2px solid; }
+        .pin-brand {
+          position: absolute; left: 0; right: 0; top: 34px; z-index: 20; text-align: center;
+          color: #94a3b8; font-size: 24px; line-height: 1; font-weight: 800;
+          letter-spacing: 0.58em; text-transform: uppercase;
+        }
+        .pin-earth {
+          position: absolute; left: 98px; top: 93px; width: 804px; height: 428px;
+          z-index: 1; overflow: hidden; border-radius: 420px 420px 0 0;
+        }
+        .pin-earth::before {
+          content: ""; position: absolute; left: 15px; right: 15px; bottom: -372px; height: 760px;
+          border-radius: 50%;
+          background:
+            radial-gradient(circle at 22% 30%, rgba(34,211,238,0.28), transparent 34%),
+            radial-gradient(circle at 78% 28%, rgba(249,115,22,0.26), transparent 32%),
+            radial-gradient(circle at 50% 10%, rgba(255,255,255,0.10), transparent 24%), #07101d;
+          box-shadow: inset 0 0 85px rgba(34,211,238,0.20), inset 0 0 110px rgba(249,115,22,0.14),
+            0 -7px 20px rgba(34,211,238,0.48), 0 -7px 30px rgba(249,115,22,0.38);
+          border-top: 4px solid rgba(34,211,238,0.70);
+          outline: 3px solid rgba(249,115,22,0.34);
+        }
+        .pin-earth::after {
+          content: ""; position: absolute; left: 110px; right: 110px; top: 100px; height: 210px;
+          opacity: 0.38;
+          background-image: radial-gradient(circle, rgba(249,115,22,0.85) 0 2px, transparent 2.8px);
+          background-size: 13px 13px;
+          mask-image: radial-gradient(ellipse at 50% 50%, black 0%, transparent 78%);
+        }
+        .pin-rocket {
+          position: absolute; left: 50%; top: 86px; width: 210px; height: 515px;
+          transform: translateX(-50%); z-index: 12;
+        }
+        .pin-rocket svg { width: 100%; height: 100%; overflow: visible; }
+        .pin-radar {
+          position: absolute; left: 50%; top: 451px; width: 420px; height: 130px;
+          transform: translateX(-50%); z-index: 4; opacity: 0.5;
+        }
+        .pin-headline-wrap {
+          position: absolute; left: 70px; right: 70px; top: 560px; z-index: 20; text-align: center;
+        }
+        .pin-headline {
+          margin: 0; color: #f1f5f9; font-size: 96px; line-height: 0.88;
+          font-weight: 900; letter-spacing: -0.075em;
+          text-shadow: 0 10px 40px rgba(0,0,0,0.45), 0 0 18px rgba(255,255,255,0.12);
+        }
+        .pin-subhead {
+          margin-top: 31px; color: #22d3ee; font-size: 58px; line-height: 0.95;
+          font-weight: 800; letter-spacing: -0.07em;
+          text-shadow: 0 0 24px rgba(34,211,238,0.26);
+        }
+        .pin-metrics {
+          position: absolute; left: 100px; right: 100px; top: 792px; z-index: 30;
+          display: grid; gap: 24px;
+        }
+        .pin-mc {
+          position: relative; height: 158px;
+          display: grid; grid-template-columns: 158px 1fr 275px; align-items: center;
+          padding: 0 37px 0 32px; color: #f1f5f9; border-radius: 17px;
+          border: 1px solid rgba(255,255,255,0.22);
+          background: linear-gradient(135deg, rgba(255,255,255,0.085), rgba(255,255,255,0.018)), rgba(10,17,30,0.74);
+          box-shadow: inset 0 1px 0 rgba(255,255,255,0.13), 0 18px 44px rgba(0,0,0,0.32);
+          backdrop-filter: blur(14px); overflow: hidden;
+        }
+        .pin-mc::before {
+          content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 3px;
+          background: currentColor; box-shadow: 0 0 18px currentColor;
+        }
+        .pin-mc::after {
+          content: ""; position: absolute; inset: 0; background: currentColor; opacity: 0.045; pointer-events: none;
+        }
+        .pin-mc.green { color: #34d399; border-color: rgba(52,211,153,0.48); }
+        .pin-mc.cyan { color: #22d3ee; border-color: rgba(34,211,238,0.48); }
+        .pin-mc.amber { color: #fbbf24; border-color: rgba(251,191,36,0.48); }
+        .pin-mc.red { color: #f87171; border-color: rgba(248,113,113,0.48); }
+        .pin-mc-icon {
+          width: 102px; height: 102px; border-radius: 50%; border: 2px solid currentColor;
+          display: grid; place-items: center; background: rgba(255,255,255,0.02);
+          box-shadow: 0 0 22px color-mix(in srgb, currentColor 24%, transparent),
+            inset 0 0 26px rgba(255,255,255,0.035);
+          z-index: 2;
+        }
+        .pin-mc-main {
+          z-index: 2; padding-left: 0; border-right: 1px solid rgba(255,255,255,0.22);
+          height: 84px; display: flex; align-items: center;
+        }
+        .pin-mc-label { color: currentColor; font-size: 39px; line-height: 1; font-weight: 800; letter-spacing: -0.05em; }
+        .pin-mc-value {
+          z-index: 2; justify-self: end; color: #f1f5f9;
+          font-size: 65px; line-height: 0.9; font-weight: 900; letter-spacing: -0.065em;
+          text-shadow: 0 8px 30px rgba(0,0,0,0.34), 0 0 12px rgba(255,255,255,0.10);
+        }
+        .pin-mc-value.pos-text { font-size: 52px; letter-spacing: -0.04em; }
+        .pin-footer { position: absolute; left: 0; right: 0; bottom: 36px; z-index: 30; text-align: center; }
+        .pin-site {
+          color: #22d3ee; font-size: 39px; line-height: 1; font-weight: 800;
+          letter-spacing: -0.03em; text-shadow: 0 0 20px rgba(34,211,238,0.25);
+        }
+        .pin-disc { margin-top: 25px; color: #94a3b8; font-size: 21px; line-height: 1; font-weight: 500; letter-spacing: -0.02em; }
+        .pin-side-hud { position: absolute; left: 28px; top: 505px; width: 92px; height: 265px; opacity: 0.42; z-index: 5; }
+      `}</style>
+
+      <main className="pin-root">
+        <div className="pin-starfield" />
+        <div className="pin-corner"><span className="tl" /><span className="tr" /><span className="bl" /><span className="br" /></div>
+
+        <div className="pin-brand">SIGNUM HQ</div>
+
+        <section className="pin-earth" aria-hidden="true" />
+
+        {/* Rocket */}
+        <section className="pin-rocket" aria-hidden="true">
+          <svg viewBox="0 0 210 515" fill="none">
+            <defs>
+              <linearGradient id="pRocketStroke" x1="105" y1="0" x2="105" y2="330" gradientUnits="userSpaceOnUse">
+                <stop stopColor="#f1f5f9" stopOpacity="0.90" />
+                <stop offset="0.54" stopColor="#22d3ee" stopOpacity="0.92" />
+                <stop offset="1" stopColor="#22d3ee" stopOpacity="0.26" />
+              </linearGradient>
+              <linearGradient id="pThrustGrad" x1="105" y1="286" x2="105" y2="515" gradientUnits="userSpaceOnUse">
+                <stop stopColor="#22d3ee" />
+                <stop offset="0.32" stopColor="#67e8f9" />
+                <stop offset="0.58" stopColor="#fbbf24" />
+                <stop offset="1" stopColor="#f97316" stopOpacity="0" />
+              </linearGradient>
+              <filter id="pRocketGlow" x="-80%" y="-80%" width="260%" height="260%">
+                <feGaussianBlur stdDeviation="5" result="blur" />
+                <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
+              </filter>
+              <filter id="pThrustGlow" x="-100%" y="-40%" width="300%" height="180%">
+                <feGaussianBlur stdDeviation="13" result="blur" />
+                <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
+              </filter>
+            </defs>
+            <g filter="url(#pRocketGlow)">
+              <path d="M105 18 C75 65 72 136 72 238 L72 325 L138 325 L138 238 C138 136 135 65 105 18Z" stroke="url(#pRocketStroke)" strokeWidth="3" fill="rgba(4,7,16,0.38)" />
+              <path d="M72 230 C40 242 35 311 35 350 L72 322" stroke="url(#pRocketStroke)" strokeWidth="3" fill="rgba(4,7,16,0.32)" />
+              <path d="M138 230 C170 242 175 311 175 350 L138 322" stroke="url(#pRocketStroke)" strokeWidth="3" fill="rgba(4,7,16,0.32)" />
+              <circle cx="105" cy="92" r="18" stroke="#22d3ee" strokeWidth="3" />
+              <path d="M86 325V215M124 325V215" stroke="#22d3ee" strokeOpacity="0.44" strokeWidth="2" />
+              <path d="M73 118H137M73 168H137M72 273H138" stroke="#f1f5f9" strokeOpacity="0.25" strokeWidth="2" />
+            </g>
+            <g filter="url(#pThrustGlow)">
+              <path d="M78 325 C74 377 77 431 105 515 C133 431 136 377 132 325Z" fill="url(#pThrustGrad)" opacity="0.95" />
+              <path d="M98 325 C94 374 97 421 105 483 C113 421 116 374 112 325Z" fill="#f1f5f9" opacity="0.52" />
+            </g>
+          </svg>
+        </section>
+
+        {/* Radar Rings */}
+        <svg className="pin-radar" viewBox="0 0 420 130" fill="none" aria-hidden="true">
+          <ellipse cx="210" cy="66" rx="198" ry="54" stroke="#22d3ee" strokeOpacity="0.35" />
+          <ellipse cx="210" cy="66" rx="145" ry="38" stroke="#22d3ee" strokeOpacity="0.28" />
+          <ellipse cx="210" cy="66" rx="90" ry="23" stroke="#22d3ee" strokeOpacity="0.22" />
+          <line x1="210" y1="12" x2="210" y2="120" stroke="#22d3ee" strokeOpacity="0.18" />
+        </svg>
+
+        {/* Side HUD */}
+        <svg className="pin-side-hud" viewBox="0 0 92 265" fill="none" aria-hidden="true">
+          <rect x="0" y="0" width="88" height="80" rx="5" stroke="#22d3ee" strokeOpacity="0.22" />
+          <path d="M8 65 18 48 28 54 42 31 56 37 74 18" stroke="#22d3ee" strokeWidth="2" />
+          <rect x="0" y="105" width="88" height="118" rx="5" stroke="#22d3ee" strokeOpacity="0.18" />
+          <g fill="#22d3ee" opacity="0.55">
+            <rect x="9" y="200" width="7" height="14" /><rect x="22" y="185" width="7" height="29" />
+            <rect x="35" y="170" width="7" height="44" /><rect x="48" y="153" width="7" height="61" />
+            <rect x="61" y="136" width="7" height="78" />
+          </g>
+        </svg>
+
+        {/* Headline */}
+        <section className="pin-headline-wrap">
+          <h1 className="pin-headline">SpaceX IPO</h1>
+          <div className="pin-subhead">× TSLA Proxy Analysis</div>
+        </section>
+
+        {/* Metrics — DYNAMIC DATA */}
+        <section className="pin-metrics">
+          <article className="pin-mc green">
+            <div className="pin-mc-icon">
+              <svg width="62" height="62" viewBox="0 0 62 62" fill="none" aria-hidden="true">
+                <circle cx="31" cy="31" r="24" stroke="currentColor" strokeOpacity="0.22" />
+                <g fill="currentColor">
+                  <circle cx="18" cy="35" r="4" /><circle cx="30" cy="35" r="4" /><circle cx="42" cy="35" r="4" />
+                  <circle cx="24" cy="24" r="4" /><circle cx="36" cy="24" r="4" />
+                  <circle cx="18" cy="47" r="4" /><circle cx="30" cy="47" r="4" /><circle cx="42" cy="47" r="4" />
+                  <circle cx="30" cy="13" r="4" />
+                </g>
+              </svg>
+            </div>
+            <div className="pin-mc-main"><div className="pin-mc-label">Dark Pool</div></div>
+            <div className="pin-mc-value">{dp > 0 ? `${dp.toFixed(1)}%` : 'N/A'}</div>
+          </article>
+
+          <article className="pin-mc cyan">
+            <div className="pin-mc-icon">
+              <svg width="62" height="62" viewBox="0 0 62 62" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" aria-hidden="true">
+                <path d="M9 22 C21 12 35 31 53 17" />
+                <path d="M9 32 C21 22 35 41 53 27" opacity="0.65" />
+                <path d="M9 42 C21 32 35 51 53 37" opacity="0.45" />
+                <circle cx="53" cy="17" r="3" fill="currentColor" stroke="none" />
+                <circle cx="53" cy="27" r="3" fill="currentColor" stroke="none" />
+                <circle cx="53" cy="37" r="3" fill="currentColor" stroke="none" />
+              </svg>
+            </div>
+            <div className="pin-mc-main"><div className="pin-mc-label">Smart Flow</div></div>
+            <div className="pin-mc-value">{whale}<span style={{ fontSize: '36px', opacity: 0.7 }}>/100</span></div>
+          </article>
+
+          <article className={`pin-mc ${gexDisplay === 'POSITIVE' ? 'amber' : gexDisplay === 'NEGATIVE' ? 'red' : 'amber'}`}>
+            <div className="pin-mc-icon">
+              <svg width="62" height="62" viewBox="0 0 62 62" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" aria-hidden="true">
+                <path d="M14 50V35M26 50V24M38 50V16M50 50V29" />
+                <path d="M11 50h44" opacity="0.55" />
+                <path d="M47 14h10M52 9v10" />
+              </svg>
+            </div>
+            <div className="pin-mc-main"><div className="pin-mc-label">GEX Regime</div></div>
+            <div className="pin-mc-value pos-text">{gexDisplay}</div>
+          </article>
+        </section>
+
+        {/* Footer */}
+        <footer className="pin-footer">
+          <div className="pin-site">signumhq.com</div>
+          <div className="pin-disc">Observation only — not financial advice.</div>
+        </footer>
+      </main>
+    </>
+  );
+}
+
+function SpaceXIPORouter() {
+  const sp = useSearchParams();
+  const format = sp.get('format') || 'tweet';
+  if (format === 'pin') return <SpaceXIPOPin />;
+  return <SpaceXIPOCard />;
+}
+
 export default function SpaceXIPOPage() {
   return (
     <Suspense fallback={<div style={{ width: 1200, height: 675, background: '#040710' }} />}>
-      <SpaceXIPOCard />
+      <SpaceXIPORouter />
     </Suspense>
   );
 }

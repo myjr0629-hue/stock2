@@ -90,6 +90,37 @@ export async function GET(request: Request) {
   try {
     const results: DispatchResult[] = [];
 
+    // ═══════════════════════════════════════════════════════════════
+    // PLATFORM OPTIMIZATION MATRIX — 2026-05-13
+    // Each action ONLY posts to platforms with highest ROI.
+    // Prevents algorithmic penalties from over-posting.
+    // ═══════════════════════════════════════════════════════════════
+    // Target per channel/day: X 5/acct, Bsky 4, Threads 3/acct, Pin 7, IG unlimited(story)
+    const PLATFORM_ALLOW: Record<string, Set<string>> = {
+      morning:            new Set(['instagram', 'pinterest']),                    // X removed → briefing_thread가 morning X 슬롯 커버
+      morning_ig:         new Set(['instagram']),                                  // Threads removed (IG carousel is the star here)
+      midday:             new Set(['instagram', 'pinterest']),                    // X removed → pulse가 X 커버, IG story + Pin SEO 유지
+      education:          new Set(['twitter', 'threads', 'pinterest']),            // IG story removed (thread+threads = core for edu)
+      edu_bsky:           new Set(['bluesky', 'pinterest']),                       // unchanged ✅
+      pulse:              new Set(['twitter', 'instagram', 'pinterest']),          // Bsky removed (close data already on X)
+      spotlight:          new Set(['twitter', 'bluesky', 'pinterest']),            // Threads+IG removed (deep analysis → X/Bsky authority)
+      briefing_thread:    new Set(['twitter']),                                    // unchanged ✅
+      premarket_threads:  new Set(['threads', 'pinterest']),                       // Threads + Pin SEO (pre-market 데이터는 검색 가치 있음)
+      asia_recap:         new Set(['threads']),                                    // unchanged ✅ (KO/JA only)
+      asia_insight:       new Set(['threads']),                                    // unchanged ✅ (KO/JA only)
+      spacex_spotlight:   new Set(['twitter', 'threads', 'bluesky', 'pinterest']), // 핵심 마케팅 — 전 채널 포함
+      trending_spotlight: new Set([]),                                              // DISABLED — spotlight이 개별 종목 분석 커버
+      weekly_recap:       new Set(['twitter', 'threads']),                         // unchanged ✅
+    };
+
+    /** Platform-filtered channel lookup — returns [] if action should NOT post to that service */
+    const getFilteredChannels = (opts?: Parameters<typeof getChannels>[0]) => {
+      const svc = opts?.service;
+      const allowed = PLATFORM_ALLOW[action];
+      if (svc && allowed && !allowed.has(svc)) return [] as ReturnType<typeof getChannels>;
+      return getChannels(opts);
+    };
+
     switch (action) {
       // ========================================
       // MORNING BRIEF ??06:30 KST
@@ -118,7 +149,7 @@ export async function GET(request: Request) {
           const ogImage = await captureImageForDispatch(baseUrl, content, lang, 'tweet', 'morning', dryRun);
 
           // X Tweet + auto-reply
-          const twitterCh = getChannels({ tier: 'all', lang, service: 'twitter' })[0];
+          const twitterCh = getFilteredChannels({ tier: 'all', lang, service: 'twitter' })[0];
           if (twitterCh) {
             const tags = getHashtags({ platform: 'twitter', contentType: 'morning', lang });
             const r = await dispatchTweet({
@@ -133,7 +164,7 @@ export async function GET(request: Request) {
           }
 
           // Bluesky
-          const bskyCh = getChannels({ tier: 'all', lang, service: 'bluesky' })[0];
+          const bskyCh = getFilteredChannels({ tier: 'all', lang, service: 'bluesky' })[0];
           if (bskyCh) {
             const tags = getHashtags({ platform: 'bluesky', contentType: 'morning', lang });
             const footer = `\n\n${ctaUrl}\n\n${tags}`;
@@ -149,7 +180,7 @@ export async function GET(request: Request) {
           }
 
           // IG Story (1080×1920) ??dedicated story template
-          const igChMorning = getChannels({ tier: 'all', lang, service: 'instagram' })[0];
+          const igChMorning = getFilteredChannels({ tier: 'all', lang, service: 'instagram' })[0];
           if (igChMorning) {
             const storyUrl = await captureStoryForDispatch(baseUrl, content, lang, dryRun);
             if (storyUrl) {
@@ -165,7 +196,7 @@ export async function GET(request: Request) {
         }
 
         // Pinterest (EN only, SEO evergreen)
-        const pinChMorn = getChannels({ tier: 'all', service: 'pinterest' })[0];
+        const pinChMorn = getFilteredChannels({ tier: 'all', service: 'pinterest' })[0];
         if (pinChMorn && content.en?.text) {
           const seo = getPinterestSEO({ contentType: 'morning', date: dateKey });
           const ogForPin = await captureImageForDispatch(baseUrl, content, 'en', 'pin', 'morning', dryRun);
@@ -201,7 +232,7 @@ export async function GET(request: Request) {
           // Pre-capture OG image for Threads
           const threadsImage = await captureImageForDispatch(baseUrl, content, lang, 'og', 'morning', dryRun);
 
-          const igCh = getChannels({ tier: 'all', lang, service: 'instagram' })[0];
+          const igCh = getFilteredChannels({ tier: 'all', lang, service: 'instagram' })[0];
           if (igCh) {
             const caption = lc.platformText?.instagram || lc.text;
             const carouselUrls = await captureCarouselForDispatch(baseUrl, content, lang, dryRun);
@@ -219,7 +250,7 @@ export async function GET(request: Request) {
           }
 
           // Threads
-          const threadsCh = getChannels({ tier: 'all', lang, service: 'threads' })[0];
+          const threadsCh = getFilteredChannels({ tier: 'all', lang, service: 'threads' })[0];
           if (threadsCh) {
             const tags = getHashtags({ platform: 'threads', contentType: 'morning', lang });
             const r = await dispatchPost({
@@ -259,7 +290,7 @@ export async function GET(request: Request) {
           const ogImage = await captureImageForDispatch(baseUrl, content, lang, 'tweet', 'pulse', dryRun);
 
           // X Tweet
-          const twitterCh = getChannels({ tier: 'all', lang, service: 'twitter' })[0];
+          const twitterCh = getFilteredChannels({ tier: 'all', lang, service: 'twitter' })[0];
           if (twitterCh) {
             const tags = getHashtags({ platform: 'twitter', contentType: 'midday', lang });
             const r = await dispatchTweet({
@@ -274,7 +305,7 @@ export async function GET(request: Request) {
           }
 
           // Bluesky
-          const bskyCh = getChannels({ tier: 'all', lang, service: 'bluesky' })[0];
+          const bskyCh = getFilteredChannels({ tier: 'all', lang, service: 'bluesky' })[0];
           if (bskyCh) {
             const tags = getHashtags({ platform: 'bluesky', contentType: 'midday', lang });
             const footer = `\n\n${ctaUrl}\n\n${tags}`;
@@ -290,7 +321,7 @@ export async function GET(request: Request) {
           }
 
           // IG Story (1080×1920) ??dedicated story template
-          const igChMidday = getChannels({ tier: 'all', lang, service: 'instagram' })[0];
+          const igChMidday = getFilteredChannels({ tier: 'all', lang, service: 'instagram' })[0];
           if (igChMidday) {
             const storyUrl = await captureStoryForDispatch(baseUrl, content, lang, dryRun);
             if (storyUrl) {
@@ -305,7 +336,7 @@ export async function GET(request: Request) {
           }
 
           // Threads
-          const thChMidday = getChannels({ tier: 'all', lang, service: 'threads' })[0];
+          const thChMidday = getFilteredChannels({ tier: 'all', lang, service: 'threads' })[0];
           if (thChMidday) {
             const tags = getHashtags({ platform: 'threads', contentType: 'midday', lang });
             const r = await dispatchPost({
@@ -320,7 +351,7 @@ export async function GET(request: Request) {
         }
 
         // Pinterest (EN only)
-        const pinCh = getChannels({ tier: 'all', service: 'pinterest' })[0];
+        const pinCh = getFilteredChannels({ tier: 'all', service: 'pinterest' })[0];
         if (pinCh) {
           const seo = getPinterestSEO({ contentType: 'pulse', date: dateKey });
           const r = await dispatchPin({
@@ -351,7 +382,7 @@ export async function GET(request: Request) {
           if (!lc?.text) continue;
 
           const ctaUrl = buildCtaUrl(lang, 'command', 'education');
-          const twitterCh = getChannels({ tier: 'all', lang, service: 'twitter' })[0];
+          const twitterCh = getFilteredChannels({ tier: 'all', lang, service: 'twitter' })[0];
 
           if (twitterCh) {
             // Pre-capture education OG image for thread
@@ -369,7 +400,7 @@ export async function GET(request: Request) {
           }
 
           // Threads (conversational education reformat)
-          const thChEdu = getChannels({ tier: 'all', lang, service: 'threads' })[0];
+          const thChEdu = getFilteredChannels({ tier: 'all', lang, service: 'threads' })[0];
           if (thChEdu) {
             const eduImage = await captureImageForDispatch(baseUrl, content, lang, 'og', 'education', dryRun);
             const tags = getHashtags({ platform: 'threads', contentType: 'education', lang });
@@ -384,7 +415,7 @@ export async function GET(request: Request) {
           }
 
           // IG Story (1080x1920) — Education story template
-          const igChEdu = getChannels({ tier: 'all', lang, service: 'instagram' })[0];
+          const igChEdu = getFilteredChannels({ tier: 'all', lang, service: 'instagram' })[0];
           if (igChEdu && !dryRun) {
             try {
               const { captureEducationStory } = await import('@/lib/marketing/screenshotService');
@@ -401,7 +432,7 @@ export async function GET(request: Request) {
         }
 
         // Pinterest (EN only) — vertical infographic pin
-        const pinCh = getChannels({ tier: 'all', service: 'pinterest' })[0];
+        const pinCh = getFilteredChannels({ tier: 'all', service: 'pinterest' })[0];
         if (pinCh) {
           const eduTopics = ['gex', 'dark_pool', 'smart_flow'];
           const topicIdx = new Date().getDate() % eduTopics.length;
@@ -456,7 +487,7 @@ export async function GET(request: Request) {
           if (!lc?.text) continue;
 
           const ctaUrl = buildCtaUrl(lang, 'command', 'education');
-          const bskyCh = getChannels({ tier: 'all', lang, service: 'bluesky' })[0];
+          const bskyCh = getFilteredChannels({ tier: 'all', lang, service: 'bluesky' })[0];
           if (bskyCh) {
             const tags = getHashtags({ platform: 'bluesky', contentType: 'education', lang });
             const eduImage = await captureImageForDispatch(baseUrl, content, lang, 'og', 'education', dryRun);
@@ -473,7 +504,7 @@ export async function GET(request: Request) {
         }
 
         // Additional Pinterest pin (different topic variant)
-        const pinCh = getChannels({ tier: 'all', service: 'pinterest' })[0];
+        const pinCh = getFilteredChannels({ tier: 'all', service: 'pinterest' })[0];
         if (pinCh) {
           const eduTopics = ['gex', 'dark_pool', 'smart_flow'];
           const topicIdx = (new Date().getDate() + 1) % eduTopics.length; // +1 offset from education dispatch
@@ -531,7 +562,7 @@ export async function GET(request: Request) {
           const ogImage = await captureImageForDispatch(baseUrl, content, lang, 'tweet', 'pulse', dryRun);
 
           // X Tweet + auto-reply
-          const twitterCh = getChannels({ tier: 'all', lang, service: 'twitter' })[0];
+          const twitterCh = getFilteredChannels({ tier: 'all', lang, service: 'twitter' })[0];
           if (twitterCh) {
             const tags = getHashtags({ platform: 'twitter', contentType: 'pulse', lang });
             const r = await dispatchTweet({
@@ -546,7 +577,7 @@ export async function GET(request: Request) {
           }
 
           // Bluesky
-          const bskyCh = getChannels({ tier: 'all', lang, service: 'bluesky' })[0];
+          const bskyCh = getFilteredChannels({ tier: 'all', lang, service: 'bluesky' })[0];
           if (bskyCh) {
             const tags = getHashtags({ platform: 'bluesky', contentType: 'pulse', lang });
             const footer = `\n\n${ctaUrl}\n\n${tags}`;
@@ -562,7 +593,7 @@ export async function GET(request: Request) {
           }
 
           // IG Story (1080×1920) ??dedicated story template
-          const igChPulse = getChannels({ tier: 'all', lang, service: 'instagram' })[0];
+          const igChPulse = getFilteredChannels({ tier: 'all', lang, service: 'instagram' })[0];
           if (igChPulse) {
             const storyUrl = await captureStoryForDispatch(baseUrl, content, lang, dryRun);
             if (storyUrl) {
@@ -578,7 +609,7 @@ export async function GET(request: Request) {
         }
 
         // Pinterest (EN only)
-        const pinCh = getChannels({ tier: 'all', service: 'pinterest' })[0];
+        const pinCh = getFilteredChannels({ tier: 'all', service: 'pinterest' })[0];
         if (pinCh) {
           const seo = getPinterestSEO({ contentType: 'pulse', date: dateKey });
           const r = await dispatchPin({
@@ -607,7 +638,7 @@ export async function GET(request: Request) {
           const lc = content[lang];
           if (!lc?.text) continue;
 
-          const igCh = getChannels({ tier: 'all', lang, service: 'instagram' })[0];
+          const igCh = getFilteredChannels({ tier: 'all', lang, service: 'instagram' })[0];
           if (igCh) {
             const caption = lc.platformText?.instagram || lc.text;
             const carouselUrls = await captureCarouselForDispatch(baseUrl, content, lang, dryRun);
@@ -625,7 +656,7 @@ export async function GET(request: Request) {
           }
 
           // Threads
-          const threadsCh = getChannels({ tier: 'all', lang, service: 'threads' })[0];
+          const threadsCh = getFilteredChannels({ tier: 'all', lang, service: 'threads' })[0];
           if (threadsCh) {
             const tags = getHashtags({ platform: 'threads', contentType: 'pulse', lang });
             const threadsImage = await captureImageForDispatch(baseUrl, content, lang, 'og', 'pulse', dryRun);
@@ -666,7 +697,7 @@ export async function GET(request: Request) {
           const tweetImage = capturedImages.tweet || lc.imageUrl;
 
           // X Tweet (즉시)
-          const twitterCh = getChannels({ tier: 'all', lang, service: 'twitter' })[0];
+          const twitterCh = getFilteredChannels({ tier: 'all', lang, service: 'twitter' })[0];
           if (twitterCh) {
             const tags = getHashtags({ platform: 'twitter', contentType: 'event', lang });
             const r = await dispatchTweet({
@@ -681,7 +712,7 @@ export async function GET(request: Request) {
           }
 
           // Bluesky (즉시)
-          const bskyCh = getChannels({ tier: 'all', lang, service: 'bluesky' })[0];
+          const bskyCh = getFilteredChannels({ tier: 'all', lang, service: 'bluesky' })[0];
           if (bskyCh) {
             const tags = getHashtags({ platform: 'bluesky', contentType: 'event', lang });
             const r = await dispatchPost({
@@ -758,7 +789,7 @@ for (const lang of langs) {
           const xTags = `${tickerCashtag} $SPY #DarkPool`;
 
           // X tweet
-          const xCh = getChannels({ tier: 'all', lang, service: 'twitter' })[0];
+          const xCh = getFilteredChannels({ tier: 'all', lang, service: 'twitter' })[0];
           if (xCh) {
             const r = await dispatchTweet({
               channelId: xCh.id,
@@ -772,7 +803,7 @@ for (const lang of langs) {
           }
 
           // Bluesky
-          const bskyCh = getChannels({ tier: 'all', lang, service: 'bluesky' })[0];
+          const bskyCh = getFilteredChannels({ tier: 'all', lang, service: 'bluesky' })[0];
           if (bskyCh) {
             const tags = getHashtags({ platform: 'bluesky', contentType: 'spotlight', lang, tickers: [ticker] });
             const ctaUrl = buildCtaUrl(lang, 'command', 'spotlight');
@@ -788,7 +819,7 @@ for (const lang of langs) {
           }
 
           // Threads
-          const thCh = getChannels({ tier: 'all', lang, service: 'threads' })[0];
+          const thCh = getFilteredChannels({ tier: 'all', lang, service: 'threads' })[0];
           if (thCh) {
             const r = await dispatchPost({
               channelId: thCh.id,
@@ -802,7 +833,7 @@ for (const lang of langs) {
           }
 
           // IG Story (1080x1920) — Spotlight story template
-          const igChSpot = getChannels({ tier: 'all', lang, service: 'instagram' })[0];
+          const igChSpot = getFilteredChannels({ tier: 'all', lang, service: 'instagram' })[0];
           if (igChSpot && !dryRun) {
             try {
               const { captureSpotlightStory } = await import('@/lib/marketing/screenshotService');
@@ -824,7 +855,7 @@ for (const lang of langs) {
         }
 
         // Pinterest (EN only)
-        const pinChSpot = getChannels({ tier: 'all', service: 'pinterest' })[0];
+        const pinChSpot = getFilteredChannels({ tier: 'all', service: 'pinterest' })[0];
         if (pinChSpot) {
           const seo = getPinterestSEO({ contentType: 'spotlight' });
           const r = await dispatchPin({
@@ -849,7 +880,7 @@ for (const lang of langs) {
       case 'premarket_bsky': {
         const mkt = await fetchLiveMarketData();
         for (const lang of langs) {
-          const bskyCh = getChannels({ tier: 'all', lang, service: 'bluesky' })[0];
+          const bskyCh = getFilteredChannels({ tier: 'all', lang, service: 'bluesky' })[0];
           if (!bskyCh) continue;
           const text = buildRealtimeText('premarket', 'bluesky', lang, mkt);
           const tags = getHashtags({ platform: 'bluesky', contentType: 'premarket', lang });
@@ -872,7 +903,7 @@ for (const lang of langs) {
       case 'premarket_threads': {
         const mkt = await fetchLiveMarketData();
         for (const lang of langs) {
-          const thCh = getChannels({ tier: 'all', lang, service: 'threads' })[0];
+          const thCh = getFilteredChannels({ tier: 'all', lang, service: 'threads' })[0];
           if (!thCh) continue;
           const text = buildRealtimeText('premarket', 'threads', lang, mkt);
           const tags = getHashtags({ platform: 'threads', contentType: 'premarket', lang });
@@ -887,7 +918,7 @@ for (const lang of langs) {
         }
 
         // Pinterest (EN only)
-        const pinChPM = getChannels({ tier: 'all', service: 'pinterest' })[0];
+        const pinChPM = getFilteredChannels({ tier: 'all', service: 'pinterest' })[0];
         if (pinChPM) {
           const seo = getPinterestSEO({ contentType: 'premarket', date: dateKey });
           const pmOg = await captureRealtimeOG(baseUrl, mkt, 'og', dryRun);
@@ -911,7 +942,7 @@ for (const lang of langs) {
       case 'intraday_bsky': {
         const mkt = await fetchLiveMarketData();
         for (const lang of langs) {
-          const bskyCh = getChannels({ tier: 'all', lang, service: 'bluesky' })[0];
+          const bskyCh = getFilteredChannels({ tier: 'all', lang, service: 'bluesky' })[0];
           if (!bskyCh) continue;
           const text = buildRealtimeText('intraday', 'bluesky', lang, mkt);
           const tags = getHashtags({ platform: 'bluesky', contentType: 'intraday', lang });
@@ -934,7 +965,7 @@ for (const lang of langs) {
       case 'close_bsky': {
         const mkt = await fetchLiveMarketData();
         for (const lang of langs) {
-          const bskyCh = getChannels({ tier: 'all', lang, service: 'bluesky' })[0];
+          const bskyCh = getFilteredChannels({ tier: 'all', lang, service: 'bluesky' })[0];
           if (!bskyCh) continue;
           const text = buildRealtimeText('close', 'bluesky', lang, mkt);
           const tags = getHashtags({ platform: 'bluesky', contentType: 'close', lang });
@@ -957,7 +988,7 @@ for (const lang of langs) {
       case 'close_threads': {
         const mkt = await fetchLiveMarketData();
         for (const lang of langs) {
-          const thCh = getChannels({ tier: 'all', lang, service: 'threads' })[0];
+          const thCh = getFilteredChannels({ tier: 'all', lang, service: 'threads' })[0];
           if (!thCh) continue;
           const text = buildRealtimeText('close', 'threads', lang, mkt);
           const tags = getHashtags({ platform: 'threads', contentType: 'close', lang });
@@ -979,7 +1010,7 @@ for (const lang of langs) {
       // ========================================
       case 'structure_bsky': {
         const mkt = await fetchLiveMarketData();
-        const bskyCh = getChannels({ tier: 'all', lang: 'en', service: 'bluesky' })[0];
+        const bskyCh = getFilteredChannels({ tier: 'all', lang: 'en', service: 'bluesky' })[0];
         if (bskyCh) {
           const text = buildRealtimeText('structure', 'bluesky', 'en', mkt);
           const ctaUrl = buildCtaUrl('en', 'command', 'structure');
@@ -1004,7 +1035,7 @@ for (const lang of langs) {
       case 'insight_threads': {
         const mkt = await fetchLiveMarketData();
         for (const lang of langs) {
-          const thCh = getChannels({ tier: 'all', lang, service: 'threads' })[0];
+          const thCh = getFilteredChannels({ tier: 'all', lang, service: 'threads' })[0];
           if (!thCh) continue;
           const text = buildRealtimeText('structure', 'threads', lang, mkt);
           const tags = getHashtags({ platform: 'threads', contentType: 'intraday', lang });
@@ -1019,7 +1050,7 @@ for (const lang of langs) {
         }
 
         // Pinterest (EN only)
-        const pinChInsight = getChannels({ tier: 'all', service: 'pinterest' })[0];
+        const pinChInsight = getFilteredChannels({ tier: 'all', service: 'pinterest' })[0];
         if (pinChInsight) {
           const seo = getPinterestSEO({ contentType: 'intraday', date: dateKey });
           const insightOg = await captureRealtimeOG(baseUrl, mkt, 'og', dryRun);
@@ -1042,7 +1073,7 @@ for (const lang of langs) {
       // ========================================
       case 'afterhours_bsky': {
         const mkt = await fetchLiveMarketData();
-        const bskyCh = getChannels({ tier: 'all', lang: 'en', service: 'bluesky' })[0];
+        const bskyCh = getFilteredChannels({ tier: 'all', lang: 'en', service: 'bluesky' })[0];
         if (bskyCh) {
           const text = buildRealtimeText('afterhours', 'bluesky', 'en', mkt);
           const ctaUrl = buildCtaUrl('en', 'guardian', 'afterhours');
@@ -1067,7 +1098,7 @@ for (const lang of langs) {
       case 'afterhours_threads': {
         const mkt = await fetchLiveMarketData();
         for (const lang of langs) {
-          const thCh = getChannels({ tier: 'all', lang, service: 'threads' })[0];
+          const thCh = getFilteredChannels({ tier: 'all', lang, service: 'threads' })[0];
           if (!thCh) continue;
           const text = buildRealtimeText('afterhours', 'threads', lang, mkt);
           const tags = getHashtags({ platform: 'threads', contentType: 'close', lang });
@@ -1091,7 +1122,7 @@ for (const lang of langs) {
         const mkt = await fetchLiveMarketData();
         for (const lang of langs) {
           if (lang === 'en') continue; // Asia-only
-          const thCh = getChannels({ tier: 'all', lang, service: 'threads' })[0];
+          const thCh = getFilteredChannels({ tier: 'all', lang, service: 'threads' })[0];
           if (!thCh) continue;
           const text = buildRealtimeText('recap', 'threads', lang, mkt);
           const tags = getHashtags({ platform: 'threads', contentType: 'pulse', lang });
@@ -1115,7 +1146,7 @@ for (const lang of langs) {
         const mkt = await fetchLiveMarketData();
         for (const lang of langs) {
           if (lang === 'en') continue; // Asia-only
-          const thCh = getChannels({ tier: 'all', lang, service: 'threads' })[0];
+          const thCh = getFilteredChannels({ tier: 'all', lang, service: 'threads' })[0];
           if (!thCh) continue;
           const text = buildRealtimeText('asia_insight', 'threads', lang, mkt);
           const tags = getHashtags({ platform: 'threads', contentType: 'education', lang });
@@ -1141,7 +1172,7 @@ for (const lang of langs) {
         // Threads KO/JA
         for (const lang of langs) {
           if (lang === 'en') continue;
-          const thCh = getChannels({ tier: 'all', lang, service: 'threads' })[0];
+          const thCh = getFilteredChannels({ tier: 'all', lang, service: 'threads' })[0];
           if (!thCh) continue;
           const text = buildRealtimeText('market_open', 'threads', lang, mkt);
           const tags = getHashtags({ platform: 'threads', contentType: 'intraday', lang });
@@ -1155,7 +1186,7 @@ for (const lang of langs) {
           results.push(r);
         }
         // Bluesky EN
-        const bskyCh = getChannels({ tier: 'all', lang: 'en', service: 'bluesky' })[0];
+        const bskyCh = getFilteredChannels({ tier: 'all', lang: 'en', service: 'bluesky' })[0];
         if (bskyCh) {
           const text = buildRealtimeText('market_open', 'bluesky', 'en', mkt);
           const ctaUrl = buildCtaUrl('en', 'command', 'market_open');
@@ -1171,7 +1202,7 @@ for (const lang of langs) {
           results.push(r);
         }
         // Pinterest
-        const pinChOpen = getChannels({ tier: 'all', service: 'pinterest' })[0];
+        const pinChOpen = getFilteredChannels({ tier: 'all', service: 'pinterest' })[0];
         if (pinChOpen) {
           const seo = getPinterestSEO({ contentType: 'intraday', date: dateKey });
           const ogImage = await captureRealtimeOG(baseUrl, mkt, 'og', dryRun);
@@ -1371,7 +1402,7 @@ for (const lang of langs) {
           }
 
           // X Thread (4 slides)
-          const twitterCh = getChannels({ tier: 'all', lang, service: 'twitter' })[0];
+          const twitterCh = getFilteredChannels({ tier: 'all', lang, service: 'twitter' })[0];
           if (twitterCh) {
             const tags = getHashtags({ platform: 'twitter', contentType: 'spacex', lang, tickers: ['TSLA'] });
             const lines = text.split('\n').filter(l => l.trim());
@@ -1389,7 +1420,7 @@ for (const lang of langs) {
           }
 
           // Bsky
-          const bskyCh = getChannels({ tier: 'all', lang, service: 'bluesky' })[0];
+          const bskyCh = getFilteredChannels({ tier: 'all', lang, service: 'bluesky' })[0];
           if (bskyCh) {
             const tags = getHashtags({ platform: 'bluesky', contentType: 'spacex', lang, tickers: ['TSLA'] });
             const r = await dispatchPost({ channelId: bskyCh.id, text: truncateWithTags(text, tags, 'bluesky'), imageUrl: ogImage, dryRun, draft });
@@ -1397,7 +1428,7 @@ for (const lang of langs) {
           }
 
           // Threads
-          const threadsCh = getChannels({ tier: 'all', lang, service: 'threads' })[0];
+          const threadsCh = getFilteredChannels({ tier: 'all', lang, service: 'threads' })[0];
           if (threadsCh) {
             const tags = getHashtags({ platform: 'threads', contentType: 'spacex', lang, tickers: ['TSLA'] });
             const r = await dispatchPost({ channelId: threadsCh.id, text: truncateWithTags(text, tags, 'threads'), imageUrl: ogImage, dryRun, draft });
@@ -1406,13 +1437,13 @@ for (const lang of langs) {
         }
 
         // Pinterest pin
-        const pinCh = getChannels({ tier: 'all', lang: 'en', service: 'pinterest' })[0];
+        const pinCh = getFilteredChannels({ tier: 'all', lang: 'en', service: 'pinterest' })[0];
         if (pinCh) {
           let pinImage = '';
           if (!dryRun) {
             for (let att = 0; att < 3 && !pinImage; att++) {
               try {
-                const r = await captureTemplate({ template: 'spacex_ipo', format: 'tweet', data: { dp: tslaDp, whale: String(tslaWhale), gex: tslaGex, date: dateKey } });
+                const r = await captureTemplate({ template: 'spacex_ipo', format: 'pin', data: { dp: tslaDp, whale: String(tslaWhale), gex: tslaGex, date: dateKey } });
                 if (r?.cdnUrl) pinImage = r.cdnUrl;
               } catch {}
               if (!pinImage && att < 2) await new Promise(r => setTimeout(r, 3000));
@@ -1516,7 +1547,7 @@ for (const lang of langs) {
           if (ogImage) slides[0].imageUrl = ogImage;
 
           // X Thread
-          const twitterCh = getChannels({ tier: 'all', lang, service: 'twitter' })[0];
+          const twitterCh = getFilteredChannels({ tier: 'all', lang, service: 'twitter' })[0];
           if (twitterCh) {
             const tags = getHashtags({ platform: 'twitter', contentType: 'pulse', lang });
             slides[0].text = `${tags}\n\n${slides[0].text}`;
@@ -1525,7 +1556,7 @@ for (const lang of langs) {
           }
 
           // Bsky Thread
-          const bskyCh = getChannels({ tier: 'all', lang, service: 'bluesky' })[0];
+          const bskyCh = getFilteredChannels({ tier: 'all', lang, service: 'bluesky' })[0];
           if (bskyCh) {
             const tags = getHashtags({ platform: 'bluesky', contentType: 'pulse', lang });
             slides[0].text = slides[0].text.includes('#') ? slides[0].text : `${tags}\n\n${slides[0].text}`;
@@ -1606,7 +1637,7 @@ for (const lang of langs) {
           }
 
           // X Tweet
-          const twitterCh = getChannels({ tier: 'all', lang, service: 'twitter' })[0];
+          const twitterCh = getFilteredChannels({ tier: 'all', lang, service: 'twitter' })[0];
           if (twitterCh) {
             const tags = getHashtags({ platform: 'twitter', contentType: 'spotlight', lang, tickers: [ticker] });
             const r = await dispatchTweet({ channelId: twitterCh.id, text: truncateWithTags(text, tags, 'twitter'), imageUrl: ogImage, dryRun, draft });
@@ -1614,7 +1645,7 @@ for (const lang of langs) {
           }
 
           // Bsky
-          const bskyCh = getChannels({ tier: 'all', lang, service: 'bluesky' })[0];
+          const bskyCh = getFilteredChannels({ tier: 'all', lang, service: 'bluesky' })[0];
           if (bskyCh) {
             const tags = getHashtags({ platform: 'bluesky', contentType: 'spotlight', lang, tickers: [ticker] });
             const r = await dispatchPost({ channelId: bskyCh.id, text: truncateWithTags(text, tags, 'bluesky'), imageUrl: ogImage, dryRun, draft });
@@ -1622,7 +1653,7 @@ for (const lang of langs) {
           }
 
           // Threads
-          const threadsCh = getChannels({ tier: 'all', lang, service: 'threads' })[0];
+          const threadsCh = getFilteredChannels({ tier: 'all', lang, service: 'threads' })[0];
           if (threadsCh) {
             const tags = getHashtags({ platform: 'threads', contentType: 'spotlight', lang, tickers: [ticker] });
             const r = await dispatchPost({ channelId: threadsCh.id, text: truncateWithTags(text, tags, 'threads'), imageUrl: ogImage, dryRun, draft });
@@ -1739,7 +1770,7 @@ for (const lang of langs) {
           if (ogImage) slides[0].imageUrl = ogImage;
 
           // X Thread
-          const twitterCh = getChannels({ tier: 'all', lang, service: 'twitter' })[0];
+          const twitterCh = getFilteredChannels({ tier: 'all', lang, service: 'twitter' })[0];
           if (twitterCh) {
             const tags = getHashtags({ platform: 'twitter', contentType: 'briefing', lang });
             // Add $cashtags to first slide
@@ -1753,7 +1784,7 @@ for (const lang of langs) {
           }
 
           // Bluesky Thread
-          const bskyCh = getChannels({ tier: 'all', lang, service: 'bluesky' })[0];
+          const bskyCh = getFilteredChannels({ tier: 'all', lang, service: 'bluesky' })[0];
           if (bskyCh) {
             const tags = getHashtags({ platform: 'bluesky', contentType: 'briefing', lang });
             const bskySlides = slides.map((s, i) => ({
@@ -1772,188 +1803,13 @@ for (const lang of langs) {
       }
 
       // ========================================
-      // SPOTLIGHT — Ticker Deep-Dive (M7 Rotation)
-      // Asia: KST 10:00 / EN: KST 23:00
+      // [REMOVED] SPOTLIGHT v2 — Dead Code (2026-05-13)
+      // Reason: Duplicate case 'spotlight' — JS executes first match only (Line 732).
+      //         This v2 read from stockData:${ticker} Redis key which has 0 writers,
+      //         so data was always null/N/A. Active v1 uses fetchTradeData() live API.
+      //         v2 had better text (hook rotation) — merge into v1's contentEngines later.
       // ========================================
-      case 'spotlight': {
-        // Pick ticker: rotate through M7, dedup via Redis
-        const SPOTLIGHT_POOL = ['NVDA', 'TSLA', 'AAPL', 'MSFT', 'GOOGL', 'META', 'AMZN'];
-        const dedupKey = `marketing:spotlight:last:${dateKey}`;
-        const lastTicker = await getFromCache(dedupKey).catch(() => null) as string | null;
-        let ticker = SPOTLIGHT_POOL[Math.floor(Math.random() * SPOTLIGHT_POOL.length)];
-        // Avoid repeating last ticker
-        if (lastTicker && typeof lastTicker === 'string') {
-          const filtered = SPOTLIGHT_POOL.filter(t => t !== lastTicker);
-          ticker = filtered[Math.floor(Math.random() * filtered.length)];
-        }
-        await setInCache(dedupKey, ticker, 86400);
-
-        // Fetch ticker data from Redis
-        const tickerDataRaw = await getFromCache(`stockData:${ticker}`).catch(() => null);
-        const tickerData = typeof tickerDataRaw === 'string' ? JSON.parse(tickerDataRaw) : tickerDataRaw;
-
-        for (const lang of langs) {
-          const dp = tickerData?.darkPoolPct || tickerData?.dp || 'N/A';
-          const whaleIdx = tickerData?.whaleIndex || tickerData?.smartFlow || 'N/A';
-          const price = tickerData?.price || tickerData?.lastPrice || 'N/A';
-          const change = tickerData?.changePct || tickerData?.pctChange || 0;
-          const gex = tickerData?.gexRegime || tickerData?.gex || 'neutral';
-          const changeFmt = `${change >= 0 ? '+' : ''}${typeof change === 'number' ? change.toFixed(2) : change}%`;
-
-          // Smart Flow interpretation (directional signal)
-          const whaleNum = typeof whaleIdx === 'number' ? whaleIdx : parseInt(String(whaleIdx)) || 50;
-          const flowSignal = whaleNum >= 65 ? { en: 'Accumulation pattern observed', ko: '매집 패턴 관찰', ja: '集積パターン観察' }
-            : whaleNum <= 35 ? { en: 'Distribution pattern observed', ko: '분산 패턴 관찰', ja: '分配パターン観察' }
-            : { en: 'Neutral positioning', ko: '중립 포지셔닝', ja: '中立ポジショニング' };
-
-          // DP interpretation
-          const dpNum = typeof dp === 'number' ? dp : parseFloat(String(dp)) || 0;
-          const dpSignal = dpNum >= 40 ? { en: 'Heavy institutional activity', ko: '기관 활발 활동', ja: '機関活発な活動' }
-            : { en: 'Standard institutional flow', ko: '기관 정상 흐름', ja: '機関通常フロー' };
-
-          // Hook rotation (3 variants per lang)
-          const hookIdx = new Date().getDate() % 3;
-
-          const textMap: Record<string, string> = {
-            en: [
-              // Hook
-              [`$${ticker} at $${price} (${changeFmt}). Everyone sees the price. Here's what most miss:`,
-               `$${ticker} ${changeFmt} — the headline. But the institutional footprint tells the real story:`,
-               `What are institutions doing with $${ticker} right now? The data reveals:`][hookIdx],
-              '',
-              // Data + Meaning
-              `▸ Dark Pool: ${dp}% — ${dpSignal.en}`,
-              `▸ Smart Flow: ${whaleIdx}/100 — ${flowSignal.en}`,
-              `▸ GEX Regime: ${gex.toUpperCase()}`,
-              '',
-              // Implication (SIGNUM differentiator)
-              `Most platforms show you price. We show you the structure beneath it.`,
-              '',
-              `Observation only — not financial advice.`,
-            ].join('\n'),
-            ko: [
-              [`$${ticker} $${price} (${changeFmt}). 모든 사람이 가격을 봅니다. 대부분이 놓치는 것:`,
-               `$${ticker} ${changeFmt} — 헤드라인입니다. 하지만 기관의 발자국은 다른 이야기를 합니다:`,
-               `지금 $${ticker}에서 기관은 무엇을 하고 있을까? 데이터가 보여줍니다:`][hookIdx],
-              '',
-              `▸ 다크풀: ${dp}% — ${dpSignal.ko}`,
-              `▸ 스마트 플로우: ${whaleIdx}/100 — ${flowSignal.ko}`,
-              `▸ GEX 레짐: ${gex.toUpperCase()}`,
-              '',
-              `가격만 보면 반쪽입니다. 구조를 봐야 전체가 보입니다.`,
-              '',
-              `*본 정보는 투자 권유가 아닌 데이터 분석 참고 자료입니다.`,
-            ].join('\n'),
-            ja: [
-              [`$${ticker} $${price} (${changeFmt})。価格は誰でも見えます。しかし見えないものがあります:`,
-               `$${ticker} ${changeFmt} — ヘッドライン。しかし機関の足跡は別の物語を語ります:`,
-               `$${ticker}で機関は今何をしているのか？データが示します:`][hookIdx],
-              '',
-              `▸ ダークプール: ${dp}% — ${dpSignal.ja}`,
-              `▸ スマートフロー: ${whaleIdx}/100 — ${flowSignal.ja}`,
-              `▸ GEXレジーム: ${gex.toUpperCase()}`,
-              '',
-              `価格だけでは半分です。構造を見れば全体が見えます。`,
-              '',
-              `*投資助言ではありません。データ分析の参考資料です。`,
-            ].join('\n'),
-          };
-          const text = textMap[lang] || textMap.en;
-          const ctaUrl = buildCtaUrl(lang, 'command', 'spotlight');
-
-          // Capture spotlight OG image (full params for radar template)
-          const netPrem = tickerData?.netPremium || tickerData?.premium || '';
-          const spotlightParams: Record<string, string | number> = {
-            t: ticker,
-            price: String(price),
-            change: typeof change === 'number' ? change : 0,
-            dp: dpNum,
-            whale: String(whaleIdx),
-            gex: gex.toLowerCase(),
-            premium: typeof netPrem === 'number' ? `${netPrem >= 0 ? '+' : ''}$${Math.abs(netPrem / 1e6).toFixed(1)}M` : String(netPrem || ''),
-            date: dateKey,
-          };
-          let ogImage = '';
-          if (!dryRun) {
-            // 3 attempts with escalating backoff
-            for (let att = 0; att < 3 && !ogImage; att++) {
-              try {
-                const r = await captureTemplate({ template: 'ticker', format: 'tweet', data: spotlightParams });
-                if (r?.cdnUrl) ogImage = r.cdnUrl;
-              } catch (e: any) {
-                console.warn(`[Dispatch] Spotlight OG attempt ${att + 1}/3: ${e.message}`);
-              }
-              if (!ogImage && att < 2) await new Promise(r => setTimeout(r, att === 0 ? 3000 : 8000));
-            }
-            // Fallback: pulse OG
-            if (!ogImage) {
-              console.warn('[Dispatch] Spotlight OG failed 3x, falling back to pulse OG');
-              try {
-                const fb = await captureTemplate({ template: 'pulse', format: 'tweet', data: { spy: String(change), t: ticker, date: dateKey } });
-                if (fb?.cdnUrl) ogImage = fb.cdnUrl;
-              } catch {}
-            }
-          }
-
-          // X Tweet with $cashtag
-          const twitterCh = getChannels({ tier: 'all', lang, service: 'twitter' })[0];
-          if (twitterCh) {
-            const tags = getHashtags({ platform: 'twitter', contentType: 'spotlight', lang, tickers: [ticker] });
-            const r = await dispatchTweet({
-              channelId: twitterCh.id,
-              text: truncateWithTags(text, tags, 'twitter'),
-              imageUrl: ogImage,
-              dryRun, draft,
-            });
-            results.push(r);
-          }
-
-          // Bluesky
-          const bskyCh = getChannels({ tier: 'all', lang, service: 'bluesky' })[0];
-          if (bskyCh) {
-            const tags = getHashtags({ platform: 'bluesky', contentType: 'spotlight', lang, tickers: [ticker] });
-            const footer = `\n\n${ctaUrl}\n\n${tags}`;
-            const r = await dispatchPost({
-              channelId: bskyCh.id,
-              text: truncateWithTags(text, footer, 'bluesky'),
-              imageUrl: ogImage,
-              dryRun, draft,
-            });
-            results.push(r);
-          }
-
-          // IG Story
-          const igCh = getChannels({ tier: 'all', lang, service: 'instagram' })[0];
-          if (igCh && !dryRun) {
-            try {
-              const storyResult = await captureTemplate({ template: 'story_spotlight', format: 'story', data: { ...spotlightParams, lang } });
-              if (storyResult?.cdnUrl) {
-                const r = await dispatchStory({ channelId: igCh.id, imageUrl: storyResult.cdnUrl, dryRun, draft });
-                results.push(r);
-              }
-            } catch (e: any) {
-              console.warn(`[Dispatch] Spotlight Story capture failed: ${e.message}`);
-            }
-          }
-
-          // Pinterest
-          const pinCh = getChannels({ tier: 'all', service: 'pinterest' })[0];
-          if (pinCh && lang === 'en') {
-            const seo = getPinterestSEO({ contentType: 'spotlight', date: dateKey });
-            const r = await dispatchPin({
-              channelId: pinCh.id,
-              imageUrl: ogImage,
-              title: `$${ticker} ${seo.title}`,
-              description: seo.description,
-              link: `${baseUrl}/command?ticker=${ticker}&${buildUtm('pinterest', 'spotlight')}`,
-              dryRun, draft,
-            });
-            results.push(r);
-          }
-        }
-        break;
-      }
-
+      /* DEAD CODE REMOVED — case 'spotlight' already handled at Line 732 */
       default:
         return NextResponse.json({ error: `Unknown action: ${action}` }, { status: 400 });
     }
