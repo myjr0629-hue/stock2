@@ -161,6 +161,18 @@
             "path": "/api/cron/marketing-dispatch?action=pulse&region=en&dry_run=false",
             "schedule": "35 20 * * 1-5"
         },
+        {
+            "path": "/api/cron/marketing-dispatch?action=weekly_recap&region=all&dry_run=false",
+            "schedule": "0 14 * * 6"
+        },
+        {
+            "path": "/api/cron/marketing-dispatch?action=trending_spotlight&region=all&dry_run=false",
+            "schedule": "0 15 * * 1-5"
+        },
+        {
+            "path": "/api/cron/marketing-dispatch?action=trending_spotlight&region=all&dry_run=false",
+            "schedule": "30 18 * * 1-5"
+        },
 
         {
             "path": "/api/cron/event-detect?dry_run=false",

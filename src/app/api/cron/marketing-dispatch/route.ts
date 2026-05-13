@@ -41,7 +41,7 @@ import { buildRealtimeText, captureRealtimeOG, fetchLiveMarketData } from '@/lib
 // ---------------------------------------------------------------------------
 // Actions
 // ---------------------------------------------------------------------------
-type Action = 'morning' | 'morning_ig' | 'midday' | 'education' | 'edu_bsky' | 'pulse' | 'pulse_ig' | 'event' | 'spotlight' | 'briefing_thread' | 'premarket_bsky' | 'premarket_threads' | 'intraday_bsky' | 'close_bsky' | 'close_threads' | 'structure_bsky' | 'insight_threads' | 'afterhours_bsky' | 'afterhours_threads' | 'asia_recap' | 'asia_insight' | 'asia_evening' | 'market_open' | 'asia_tip' | 'asia_preview';
+type Action = 'morning' | 'morning_ig' | 'midday' | 'education' | 'edu_bsky' | 'pulse' | 'pulse_ig' | 'event' | 'spotlight' | 'briefing_thread' | 'premarket_bsky' | 'premarket_threads' | 'intraday_bsky' | 'close_bsky' | 'close_threads' | 'structure_bsky' | 'insight_threads' | 'afterhours_bsky' | 'afterhours_threads' | 'asia_recap' | 'asia_insight' | 'asia_evening' | 'market_open' | 'asia_tip' | 'asia_preview' | 'weekly_recap' | 'trending_spotlight';
 type Region = 'en' | 'asia' | 'all'; // en=EN only, asia=KO+JP, all=both
 
 function getLangsForRegion(region: Region): Lang[] {
@@ -1254,6 +1254,218 @@ for (const lang of langs) {
             dryRun, draft,
           });
           results.push(r);
+        }
+        break;
+      }
+
+      // ========================================
+      // WEEKLY RECAP — 주말 주간 요약 Thread
+      // Saturday 10:00 ET = Sunday 00:00 KST
+      // ========================================
+      case 'weekly_recap': {
+        // Build weekly recap from Redis cached data
+        const weeklyKey = `guardian:weekly_recap`;
+        const weeklyRaw = await getFromCache(weeklyKey).catch(() => null);
+
+        // Fallback: build from available data if no dedicated weekly recap
+        const mktData = await fetchLiveMarketData();
+        const rlsiRaw = await getFromCache('rlsi:current').catch(() => null);
+        const rlsiVal = typeof rlsiRaw === 'string' ? parseInt(rlsiRaw, 10) : (typeof rlsiRaw === 'number' ? rlsiRaw : 50);
+
+        // Get top movers from spotlight dedup set
+        const spotlightHistory = await getFromCache('marketing:spotlight:weekly_tickers').catch(() => null);
+        const weekTickers = spotlightHistory ? (typeof spotlightHistory === 'string' ? JSON.parse(spotlightHistory) : spotlightHistory) : [];
+
+        const hookIdx = new Date().getDate() % 3;
+        const weekDateRange = (() => {
+          const now = new Date();
+          const fri = new Date(now); fri.setDate(now.getDate() - (now.getDay() === 0 ? 2 : 1));
+          const mon = new Date(fri); mon.setDate(fri.getDate() - 4);
+          return `${mon.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} — ${fri.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`;
+        })();
+
+        for (const lang of langs) {
+          const slides: { text: string; imageUrl?: string }[] = [];
+
+          // Slide 1: Weekly hook
+          const weeklyHooks: Record<string, string[]> = {
+            en: [
+              `📊 Weekly Structural Review — ${weekDateRange}\n\nEvery week, we distill 7 institutional data sources into one clarity report.\nHere's what the structure revealed:`,
+              `📊 Week in Review — ${weekDateRange}\n\nPrice tells you what happened.\nStructure tells you why.\nOur weekly institutional analysis:`,
+              `📊 Weekly Intelligence — ${weekDateRange}\n\nWhat did smart money do this week?\nOur AI analyzed dark pool, GEX, and flow data across M7:`,
+            ],
+            ko: [
+              `📊 주간 구조 리뷰 — ${weekDateRange}\n\n매주 7개 기관 데이터를 하나의 인사이트로 압축합니다.\n이번 주 구조가 보여준 것:`,
+              `📊 주간 리뷰 — ${weekDateRange}\n\n가격은 일어난 일을 말합니다.\n구조는 왜 일어났는지를 말합니다.\n이번 주 기관 분석:`,
+              `📊 주간 인텔리전스 — ${weekDateRange}\n\n이번 주 스마트머니는 무엇을 했을까?\nM7 다크풀, GEX, 플로우 AI 분석:`,
+            ],
+            ja: [
+              `📊 週間構造レビュー — ${weekDateRange}\n\n毎週7つの機関データを1つの洞察に凝縮します。\n今週の構造が示したもの:`,
+              `📊 週間レビュー — ${weekDateRange}\n\n価格は何が起きたかを語ります。\n構造はなぜ起きたかを語ります。\n今週の機関分析:`,
+              `📊 週間インテリジェンス — ${weekDateRange}\n\n今週スマートマネーは何をしたのか？\nM7ダークプール・GEX・フローのAI分析:`,
+            ],
+          };
+          slides.push({ text: (weeklyHooks[lang] || weeklyHooks.en)[hookIdx] });
+
+          // Slide 2: Key metrics summary
+          const G = mktData.gex.toUpperCase();
+          const riskLabel = rlsiVal >= 70 ? (lang === 'ko' ? '저위험' : lang === 'ja' ? '低リスク' : 'LOW RISK')
+            : rlsiVal >= 50 ? (lang === 'ko' ? '보통' : lang === 'ja' ? '通常' : 'MODERATE')
+            : (lang === 'ko' ? '주의' : lang === 'ja' ? '注意' : 'ELEVATED');
+          const metricsText = lang === 'ko'
+            ? `▸ RLSI: ${rlsiVal}/100 — ${riskLabel}\n▸ GEX 레짐: ${G}\n▸ VIX: ${mktData.vix.toFixed(1)}\n▸ 다크풀 DP%: ${mktData.dp.toFixed(1)}%`
+            : lang === 'ja'
+            ? `▸ RLSI: ${rlsiVal}/100 — ${riskLabel}\n▸ GEXレジーム: ${G}\n▸ VIX: ${mktData.vix.toFixed(1)}\n▸ ダークプール DP%: ${mktData.dp.toFixed(1)}%`
+            : `▸ RLSI: ${rlsiVal}/100 — ${riskLabel}\n▸ GEX Regime: ${G}\n▸ VIX: ${mktData.vix.toFixed(1)}\n▸ Dark Pool DP%: ${mktData.dp.toFixed(1)}%`;
+          slides.push({ text: metricsText });
+
+          // Slide 3: CTA
+          const ctaUrl = buildCtaUrl(lang, 'command', 'weekly_recap');
+          const ctaText = lang === 'ko'
+            ? `가격만 보면 반쪽입니다.\n구조를 봐야 전체가 보입니다.\n\n📊 실시간 구조 분석 → ${ctaUrl}\n\n*본 정보는 투자 권유가 아닌 데이터 분석 참고 자료입니다.`
+            : lang === 'ja'
+            ? `価格だけでは半分です。\n構造を見れば全体が見えます。\n\n📊 リアルタイム構造分析 → ${ctaUrl}\n\n*投資助言ではありません。データ分析の参考資料です。`
+            : `Price is half the story.\nStructure reveals the full picture.\n\n📊 Live structure → ${ctaUrl}\n\nObservation only — not financial advice.`;
+          slides.push({ text: ctaText });
+
+          // Capture OG for slide 1
+          let ogImage = '';
+          if (!dryRun) {
+            for (let att = 0; att < 3 && !ogImage; att++) {
+              try {
+                const r = await captureTemplate({ template: 'briefing', format: 'tweet', data: { spy: mktData.spyChg, vix: mktData.vix, gex: mktData.gex, rlsi: rlsiVal, date: weekDateRange } });
+                if (r?.cdnUrl) ogImage = r.cdnUrl;
+              } catch (e: any) { console.warn(`[WeeklyRecap] OG attempt ${att + 1}: ${e.message}`); }
+              if (!ogImage && att < 2) await new Promise(r => setTimeout(r, att === 0 ? 3000 : 8000));
+            }
+          }
+          if (ogImage) slides[0].imageUrl = ogImage;
+
+          // X Thread
+          const twitterCh = getChannels({ tier: 'all', lang, service: 'twitter' })[0];
+          if (twitterCh) {
+            const tags = getHashtags({ platform: 'twitter', contentType: 'pulse', lang });
+            slides[0].text = `${tags}\n\n${slides[0].text}`;
+            const r = await dispatchThread({ channelId: twitterCh.id, slides, dryRun, draft });
+            results.push(r);
+          }
+
+          // Bsky Thread
+          const bskyCh = getChannels({ tier: 'all', lang, service: 'bluesky' })[0];
+          if (bskyCh) {
+            const tags = getHashtags({ platform: 'bluesky', contentType: 'pulse', lang });
+            slides[0].text = slides[0].text.includes('#') ? slides[0].text : `${tags}\n\n${slides[0].text}`;
+            const r = await dispatchThread({ channelId: bskyCh.id, slides, dryRun, draft });
+            results.push(r);
+          }
+        }
+        break;
+      }
+
+      // ========================================
+      // TRENDING SPOTLIGHT — $캐시태그 트렌딩 종목 자동 감지
+      // Weekdays: intraday시간대에 추가 발행
+      // ========================================
+      case 'trending_spotlight': {
+        // Fetch all M7 + top tickers and find the biggest mover
+        const TRENDING_TICKERS = ['NVDA', 'TSLA', 'AAPL', 'MSFT', 'GOOGL', 'META', 'AMZN', 'SPY', 'QQQ'];
+        let bestTicker = '';
+        let bestAbsChange = 0;
+        let bestData: any = null;
+
+        for (const t of TRENDING_TICKERS) {
+          try {
+            const raw = await getFromCache(`ticker:${t}`).catch(() => null);
+            if (!raw) continue;
+            const d = typeof raw === 'string' ? JSON.parse(raw) : raw;
+            const absChg = Math.abs(d?.changePercent ?? d?.changePct ?? 0);
+            if (absChg > bestAbsChange) {
+              bestAbsChange = absChg;
+              bestTicker = t;
+              bestData = d;
+            }
+          } catch { /* skip */ }
+        }
+
+        // Only post if there's meaningful movement (> 1.5%)
+        if (!bestTicker || bestAbsChange < 1.5 || !bestData) {
+          console.log(`[TrendingSpotlight] No significant mover (best: ${bestTicker} ${bestAbsChange.toFixed(2)}%). Skipping.`);
+          return NextResponse.json({ success: true, action, results: [], note: 'No trending ticker above threshold' });
+        }
+
+        // Check dedup: don't post same ticker twice in a day
+        const dedupKey = `marketing:trending:${dateKey}`;
+        const alreadyPosted = await getFromCache(dedupKey).catch(() => null);
+        const postedSet: string[] = alreadyPosted ? (typeof alreadyPosted === 'string' ? JSON.parse(alreadyPosted) : alreadyPosted) : [];
+        if (postedSet.includes(bestTicker)) {
+          console.log(`[TrendingSpotlight] ${bestTicker} already posted today. Skipping.`);
+          return NextResponse.json({ success: true, action, results: [], note: `${bestTicker} already posted` });
+        }
+
+        // Build trending spotlight post (reuse spotlight content pattern)
+        const ticker = bestTicker;
+        const price = bestData?.price ?? bestData?.last ?? 0;
+        const change = bestData?.changePercent ?? bestData?.changePct ?? 0;
+        const changeFmt = `${change >= 0 ? '+' : ''}${change.toFixed(2)}%`;
+        const dp = bestData?.darkPoolPercent ?? bestData?.dp ?? 0;
+        const whaleIdx = bestData?.whaleIndex ?? bestData?.smartFlow ?? 50;
+        const gex = bestData?.gexRegime ?? bestData?.gex ?? 'neutral';
+
+        for (const lang of langs) {
+          const text = lang === 'ko'
+            ? `🔥 $${ticker} ${changeFmt} — 오늘 가장 큰 움직임\n\n▸ 다크풀: ${dp}%\n▸ 스마트 플로우: ${whaleIdx}/100\n▸ GEX: ${gex.toUpperCase()}\n\n대부분이 가격만 봅니다. 구조를 보면 다른 이야기가 보입니다.\n\n*본 정보는 투자 권유가 아닌 데이터 분석 참고 자료입니다.`
+            : lang === 'ja'
+            ? `🔥 $${ticker} ${changeFmt} — 本日最大の動き\n\n▸ ダークプール: ${dp}%\n▸ スマートフロー: ${whaleIdx}/100\n▸ GEX: ${gex.toUpperCase()}\n\n価格だけでは半分です。構造を見れば全体が見えます。\n\n*投資助言ではありません。データ分析の参考資料です。`
+            : `🔥 $${ticker} ${changeFmt} — Biggest move today\n\n▸ Dark Pool: ${dp}%\n▸ Smart Flow: ${whaleIdx}/100\n▸ GEX: ${gex.toUpperCase()}\n\nEveryone sees the price move. The structure tells a different story.\n\nObservation only — not financial advice.`;
+
+          // Capture OG
+          let ogImage = '';
+          if (!dryRun) {
+            const spotlightParams = { t: ticker, price: String(price), change, dp, whale: String(whaleIdx), gex: gex.toLowerCase(), date: dateKey };
+            for (let att = 0; att < 3 && !ogImage; att++) {
+              try {
+                const r = await captureTemplate({ template: 'ticker', format: 'tweet', data: spotlightParams });
+                if (r?.cdnUrl) ogImage = r.cdnUrl;
+              } catch (e: any) { console.warn(`[TrendingSpotlight] OG attempt ${att + 1}: ${e.message}`); }
+              if (!ogImage && att < 2) await new Promise(r => setTimeout(r, att === 0 ? 3000 : 8000));
+            }
+          }
+
+          // X Tweet
+          const twitterCh = getChannels({ tier: 'all', lang, service: 'twitter' })[0];
+          if (twitterCh) {
+            const tags = getHashtags({ platform: 'twitter', contentType: 'spotlight', lang, tickers: [ticker] });
+            const r = await dispatchTweet({ channelId: twitterCh.id, text: truncateWithTags(text, tags, 'twitter'), imageUrl: ogImage, dryRun, draft });
+            results.push(r);
+          }
+
+          // Bsky
+          const bskyCh = getChannels({ tier: 'all', lang, service: 'bluesky' })[0];
+          if (bskyCh) {
+            const tags = getHashtags({ platform: 'bluesky', contentType: 'spotlight', lang, tickers: [ticker] });
+            const r = await dispatchPost({ channelId: bskyCh.id, text: truncateWithTags(text, tags, 'bluesky'), imageUrl: ogImage, dryRun, draft });
+            results.push(r);
+          }
+
+          // Threads
+          const threadsCh = getChannels({ tier: 'all', lang, service: 'threads' })[0];
+          if (threadsCh) {
+            const tags = getHashtags({ platform: 'threads', contentType: 'spotlight', lang, tickers: [ticker] });
+            const r = await dispatchPost({ channelId: threadsCh.id, text: truncateWithTags(text, tags, 'threads'), imageUrl: ogImage, dryRun, draft });
+            results.push(r);
+          }
+        }
+
+        // Mark as posted today
+        if (!dryRun) {
+          postedSet.push(bestTicker);
+          await setInCache(dedupKey, JSON.stringify(postedSet), 86400).catch(() => {});
+          // Also track for weekly recap
+          const weeklyKey = 'marketing:spotlight:weekly_tickers';
+          const weeklyRaw = await getFromCache(weeklyKey).catch(() => null);
+          const weeklyArr: string[] = weeklyRaw ? (typeof weeklyRaw === 'string' ? JSON.parse(weeklyRaw) : weeklyRaw) : [];
+          if (!weeklyArr.includes(bestTicker)) weeklyArr.push(bestTicker);
+          await setInCache(weeklyKey, JSON.stringify(weeklyArr), 7 * 86400).catch(() => {});
         }
         break;
       }
