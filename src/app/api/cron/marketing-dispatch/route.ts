@@ -1767,8 +1767,8 @@ for (const lang of langs) {
           const ctaUrl = buildCtaUrl(lang, 'intel-guardian', 'market_close');
           const verdict = mkt.verdicts?.[lang];
           const rawTactical = verdict?.tactical || mkt.tacticalInsight || '';
-          // Clean AI text: strip ALL bracket tags [현황] [해석] [Status] etc. (\w doesn't match CJK)
-          const cleanTactical = rawTactical.replace(/\[[^\]]+\]\s*/g, '').trim();
+          // Clean AI text for marketing: strip tags, ETF symbols, IFS scores, noise warnings
+          const cleanTactical = cleanForMarketing(rawTactical);
           const fgiRound = Math.round(mkt.fgi);
 
           // ── X (Tweet) — max 280 weighted chars ──
@@ -2392,6 +2392,37 @@ function noContent(type: string, dateKey: string) {
 function buildCtaUrl(lang: Lang, page: string, campaign: string): string {
   // www.signumhq.com auto-redirects to correct locale via middleware
   return `https://www.signumhq.com/intel-guardian`;
+}
+
+/**
+ * Clean AI text for marketing — strip institutional details not suitable for social media.
+ * Removes: bracket tags, ETF symbols, IFS scores, noise warnings, sector tickers.
+ */
+function cleanForMarketing(text: string): string {
+  let t = text;
+  // 1. Strip bracket tags [현황] [해석] [Status] etc.
+  t = t.replace(/\[[^\]]+\]\s*/g, '');
+  // 2. Strip parenthetical IFS scores: (반도체 IFS +50, 기술 IFS +36)
+  t = t.replace(/\([^)]*IFS\s*[+-]?\d+[^)]*\)/g, '');
+  // 3. Strip parenthetical ETF symbols: (SMH, XLK), (XLC, XLY 등), (XLE, AI_PWR 등)
+  t = t.replace(/\([^)]*\b(?:SMH|XLK|XLC|XLY|XLE|XLF|XLV|XLI|XLB|XLP|XLU|XLRE|IWM|AI_PWR)\b[^)]*\)/g, '');
+  // 4. Strip standalone IFS references: IFS +50, IFS -20
+  t = t.replace(/\bIFS\s*[+-]?\d+/g, '');
+  // 5. Strip noise warning phrases (ko/ja/en)
+  t = t.replace(/,?\s*노이즈\s*경고[^.。]*[.。]?/g, '.');
+  t = t.replace(/,?\s*ノイズ警告[^.。]*[.。]?/g, '.');
+  t = t.replace(/,?\s*noise\s*warning[^.]*\.?/gi, '.');
+  // 6. Strip stealth signal phrases: (스텔스 매집 신호: ...)
+  t = t.replace(/\([^)]*스텔스[^)]*\)/g, '');
+  t = t.replace(/\([^)]*ステルス[^)]*\)/g, '');
+  t = t.replace(/\([^)]*stealth[^)]*\)/gi, '');
+  // 7. Clean up artifacts: double spaces, orphaned commas/periods, whitespace before punctuation
+  t = t.replace(/,\s*,/g, ',');
+  t = t.replace(/\.\s*\./g, '.');
+  t = t.replace(/,\s*\./g, '.');
+  t = t.replace(/\s{2,}/g, ' ');
+  t = t.replace(/\s+([,.。])/g, '$1');
+  return t.trim();
 }
 
 /**
