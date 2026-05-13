@@ -177,9 +177,9 @@ export function buildRealtimeText(
     const meaningKo = m.dp > 40 ? '다크풀 활동이 40%를 넘었습니다 — 기관이 적극적으로 포지셔닝 중입니다.' : m.vix > 25 ? 'VIX 25 이상 — 변동성 확대 구간에서의 기관 움직임에 주목하세요.' : `GEX ${G} 체제에서 ${gM} — 구조적 맥락을 먼저 이해하세요.`;
     const meaningJa = m.dp > 40 ? 'DP活動40%超 — 機関が積極的にポジショニング中。' : m.vix > 25 ? 'VIX 25超 — ボラ拡大局面での機関の動きに注目。' : `GEX ${G}体制で${gM}。`;
     const meaningEn = m.dp > 40 ? 'Dark Pool above 40% — institutions actively positioning.' : m.vix > 25 ? 'VIX above 25 — watch institutional moves in elevated volatility.' : `GEX ${G} regime: ${gM}.`;
-    if (lang === 'ko') return `${hookKo}\n\n📈 SPY ${sd}${m.spyChg.toFixed(2)}% | VIX ${m.vix.toFixed(1)} (${vd}${m.vixChg.toFixed(1)}%)\n🏦 다크풀: ${dp} | GEX: ${G}\n\n${tI || meaningKo}\n\n💡 ${meaningKo}\n\n→ 전체 분석: signumhq.com/dashboard\n\n${disc.ko}`;
-    if (lang === 'ja') return `${hookJa}\n\n📈 SPY ${sd}${m.spyChg.toFixed(2)}% | VIX ${m.vix.toFixed(1)} (${vd}${m.vixChg.toFixed(1)}%)\n🏦 DP: ${dp} | GEX: ${G}\n\n${tI || meaningJa}\n\n💡 ${meaningJa}\n\n→ 全分析: signumhq.com/dashboard\n\n${disc.ja}`;
-    return `${hookEn}\n\n📈 SPY ${sd}${m.spyChg.toFixed(2)}% | VIX ${m.vix.toFixed(1)} (${vd}${m.vixChg.toFixed(1)}%)\n🏦 Dark Pool: ${dp} | GEX: ${G}\n\n${tI || meaningEn}\n\n💡 ${meaningEn}\n\n→ Full analysis: signumhq.com/dashboard\n\n${disc.en}`;
+    if (lang === 'ko') return `${hookKo}\n\n📈 SPY ${sd}${m.spyChg.toFixed(2)}% | VIX ${m.vix.toFixed(1)} (${vd}${m.vixChg.toFixed(1)}%)\n🏦 다크풀: ${dp} | GEX: ${G}\n\n${tI || meaningKo}\n\n💡 ${meaningKo}\n\n→ 전체 분석: signumhq.com/intel-guardian\n\n${disc.ko}`;
+    if (lang === 'ja') return `${hookJa}\n\n📈 SPY ${sd}${m.spyChg.toFixed(2)}% | VIX ${m.vix.toFixed(1)} (${vd}${m.vixChg.toFixed(1)}%)\n🏦 DP: ${dp} | GEX: ${G}\n\n${tI || meaningJa}\n\n💡 ${meaningJa}\n\n→ 全分析: signumhq.com/intel-guardian\n\n${disc.ja}`;
+    return `${hookEn}\n\n📈 SPY ${sd}${m.spyChg.toFixed(2)}% | VIX ${m.vix.toFixed(1)} (${vd}${m.vixChg.toFixed(1)}%)\n🏦 Dark Pool: ${dp} | GEX: ${G}\n\n${tI || meaningEn}\n\n💡 ${meaningEn}\n\n→ Full analysis: signumhq.com/intel-guardian\n\n${disc.en}`;
   }
   // ── ASIA INSIGHT (KST 13:00) — Guardian AI deep analysis with context ──
   if (ct === 'asia_insight') {
@@ -190,9 +190,9 @@ export function buildRealtimeText(
     const ctxKo = m.gex === 'negative' ? '⚠️ GEX 음수 체제 — 딜러 헤지가 변동성을 증폭시키는 구간입니다. 급격한 움직임에 대비하세요.' : m.gex === 'positive' ? '🛡️ GEX 양수 체제 — 딜러가 변동성을 억제하는 구간입니다. 범위 내 움직임이 예상됩니다.' : '⚖️ GEX 중립 전환 — 방향성 전환이 가능한 구간입니다.';
     const ctxJa = m.gex === 'negative' ? '⚠️ GEXマイナス体制 — ディーラーヘッジがボラを増幅する局面です。' : m.gex === 'positive' ? '🛡️ GEXプラス体制 — ディーラーがボラを抑制する局面です。' : '⚖️ GEX中立遷移 — 方向転換の可能性がある局面です。';
     const ctxEn = m.gex === 'negative' ? '⚠️ GEX Negative — dealer hedging amplifies volatility. Prepare for sharp moves.' : m.gex === 'positive' ? '🛡️ GEX Positive — dealer hedging suppresses volatility. Range-bound behavior expected.' : '⚖️ GEX Neutral — directional transition possible.';
-    if (lang === 'ko') return tI ? `🧠 기관 구조 분석 — Guardian AI\n\n📊 VIX ${m.vix.toFixed(1)} | GEX ${G} | DP ${dp}\n\n${tI}\n\n${ctxKo}\n\n→ signumhq.com/dashboard\n\n${disc.ko}` : `🧠 기관 구조 분석\n\n${ctxKo}\n\n📊 VIX ${m.vix.toFixed(1)} | DP ${dp}\n\n→ signumhq.com/dashboard\n\n${disc.ko}`;
-    if (lang === 'ja') return tI ? `🧠 機関構造分析 — Guardian AI\n\n📊 VIX ${m.vix.toFixed(1)} | GEX ${G} | DP ${dp}\n\n${tI}\n\n${ctxJa}\n\n→ signumhq.com/dashboard\n\n${disc.ja}` : `🧠 機関構造分析\n\n${ctxJa}\n\n📊 VIX ${m.vix.toFixed(1)} | DP ${dp}\n\n→ signumhq.com/dashboard\n\n${disc.ja}`;
-    return tI ? `🧠 Institutional Structure — Guardian AI\n\n📊 VIX ${m.vix.toFixed(1)} | GEX ${G} | DP ${dp}\n\n${tI}\n\n${ctxEn}\n\n→ signumhq.com/dashboard\n\n${disc.en}` : `🧠 Institutional Structure\n\n${ctxEn}\n\n📊 VIX ${m.vix.toFixed(1)} | DP ${dp}\n\n→ signumhq.com/dashboard\n\n${disc.en}`;
+    if (lang === 'ko') return tI ? `🧠 기관 구조 분석 — Guardian AI\n\n📊 VIX ${m.vix.toFixed(1)} | GEX ${G} | DP ${dp}\n\n${tI}\n\n${ctxKo}\n\n→ signumhq.com/intel-guardian\n\n${disc.ko}` : `🧠 기관 구조 분석\n\n${ctxKo}\n\n📊 VIX ${m.vix.toFixed(1)} | DP ${dp}\n\n→ signumhq.com/intel-guardian\n\n${disc.ko}`;
+    if (lang === 'ja') return tI ? `🧠 機関構造分析 — Guardian AI\n\n📊 VIX ${m.vix.toFixed(1)} | GEX ${G} | DP ${dp}\n\n${tI}\n\n${ctxJa}\n\n→ signumhq.com/intel-guardian\n\n${disc.ja}` : `🧠 機関構造分析\n\n${ctxJa}\n\n📊 VIX ${m.vix.toFixed(1)} | DP ${dp}\n\n→ signumhq.com/intel-guardian\n\n${disc.ja}`;
+    return tI ? `🧠 Institutional Structure — Guardian AI\n\n📊 VIX ${m.vix.toFixed(1)} | GEX ${G} | DP ${dp}\n\n${tI}\n\n${ctxEn}\n\n→ signumhq.com/intel-guardian\n\n${disc.en}` : `🧠 Institutional Structure\n\n${ctxEn}\n\n📊 VIX ${m.vix.toFixed(1)} | DP ${dp}\n\n→ signumhq.com/intel-guardian\n\n${disc.en}`;
   }
   // ── MARKET OPEN (KST 22:30 = ET 09:30) ──
   if (ct === 'market_open') {
