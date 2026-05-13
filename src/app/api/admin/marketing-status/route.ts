@@ -33,7 +33,7 @@ const CRON_SCHEDULE = [
   { utc: '15:30', et: '11:30', kst: '00:30+1', action: 'daily-content-pulse-intraday', label: 'Pulse 콘텐츠 생성 (장중 Midday용)', type: 'content', region: 'ALL', days: 'Mon-Fri' },
   { utc: '20:25', et: '16:25', kst: '05:25+1', action: 'daily-content-pulse', label: 'Pulse 콘텐츠 생성 (장마감 확정)', type: 'content', region: 'ALL', days: 'Mon-Fri' },
   { utc: '20:40', et: '16:40', kst: '05:40+1', action: 'daily-content-morning', label: 'Morning 콘텐츠 생성 (장마감후)', type: 'content', region: 'ALL', days: 'Mon-Fri' },
-  { utc: '23:30', et: '19:30', kst: '08:30+1', action: 'daily-content-edu', label: 'Education 콘텐츠 생성', type: 'content', region: 'ALL', days: 'Mon-Sat' },
+  { utc: '23:30', et: '19:30', kst: '08:30+1', action: 'daily-content-edu', label: 'Education 콘텐츠 생성', type: 'content', region: 'ALL', days: 'Mon-Sun' },
   // ═══ DISPATCH — 21개 (vercel.json 1:1 매칭) ═══
   // --- Asia Session (KST 07:30~14:30) ---
   { utc: '22:30', et: '18:30', kst: '07:30+1', action: 'midday', label: 'Midday → X+Bsky+IG+Threads+Pinterest', type: 'dispatch', region: 'ASIA', days: 'Mon-Fri' },
