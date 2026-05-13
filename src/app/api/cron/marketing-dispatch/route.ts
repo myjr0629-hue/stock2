@@ -1775,13 +1775,15 @@ for (const lang of langs) {
           // ── X (Tweet) — max 280 chars ──
           const xCh = getFilteredChannels({ tier: 'all', lang, service: 'twitter' })[0];
           if (xCh) {
+            // X needs tight text: ~80 chars for data + ~40 for tags/CTA = only ~60 for AI
+            const xAi = cleanTactical.length > 60 ? cleanTactical.slice(0, 57) + '...' : cleanTactical;
             let xText = '';
             if (lang === 'ko') {
-              xText = `🏁 미국 장마감\n\nS&P ${sd}${mkt.spyChg.toFixed(2)}% | 나스닥 ${nd}${mkt.qqqChg.toFixed(2)}% | 다우 ${dd}${mkt.diaChg.toFixed(2)}%\nVIX ${mkt.vix.toFixed(1)} | F&G ${fgiRound}\n\n${aiBlock}`;
+              xText = `🏁 미국 장마감\n\nS&P ${sd}${mkt.spyChg.toFixed(2)}% | NQ ${nd}${mkt.qqqChg.toFixed(2)}% | DOW ${dd}${mkt.diaChg.toFixed(2)}%\nVIX ${mkt.vix.toFixed(1)} | F&G ${fgiRound}`;
             } else if (lang === 'ja') {
-              xText = `🏁 米国市場クローズ\n\nS&P ${sd}${mkt.spyChg.toFixed(2)}% | NQ ${nd}${mkt.qqqChg.toFixed(2)}% | DOW ${dd}${mkt.diaChg.toFixed(2)}%\nVIX ${mkt.vix.toFixed(1)} | F&G ${fgiRound}\n\n${aiBlock}`;
+              xText = `🏁 米国市場クローズ\n\nS&P ${sd}${mkt.spyChg.toFixed(2)}% | NQ ${nd}${mkt.qqqChg.toFixed(2)}% | DOW ${dd}${mkt.diaChg.toFixed(2)}%\nVIX ${mkt.vix.toFixed(1)} | F&G ${fgiRound}`;
             } else {
-              xText = `🏁 US Market Close\n\nS&P ${sd}${mkt.spyChg.toFixed(2)}% | NQ ${nd}${mkt.qqqChg.toFixed(2)}% | DOW ${dd}${mkt.diaChg.toFixed(2)}%\nVIX ${mkt.vix.toFixed(1)} | F&G ${fgiRound}\n\n${aiBlock}`;
+              xText = `🏁 US Market Close\n\nS&P ${sd}${mkt.spyChg.toFixed(2)}% | NQ ${nd}${mkt.qqqChg.toFixed(2)}% | DOW ${dd}${mkt.diaChg.toFixed(2)}%\nVIX ${mkt.vix.toFixed(1)} | F&G ${fgiRound}`;
             }
             const xTags = getHashtags({ platform: 'twitter', contentType: 'close', lang, tickers: ['SPY', 'QQQ'] });
             const xOg = await captureMarketCloseOG(baseUrl, mkt, 'tweet', dryRun);
@@ -1793,6 +1795,7 @@ for (const lang of langs) {
             });
             results.push(r);
           }
+
 
           // ── Bluesky — max 300 chars ──
           const bskyCh = getFilteredChannels({ tier: 'all', lang, service: 'bluesky' })[0];
