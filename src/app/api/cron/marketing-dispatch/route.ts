@@ -1265,8 +1265,35 @@ for (const lang of langs) {
             slides[slides.length - 1].text += `\n\n${ctaUrl}`;
           }
 
-          // Capture OG image for first slide
-          const ogImage = await captureRealtimeOG(baseUrl, await fetchLiveMarketData(), 'tweet', dryRun);
+          // Capture Briefing OG with RLSI chart
+          const mktData = await fetchLiveMarketData();
+          let ogImage = '';
+          if (!dryRun) {
+            try {
+              // Fetch RLSI data from Redis
+              const rlsiRaw = await getFromCache('rlsi:current').catch(() => null);
+              const rlsiHistRaw = await getFromCache('rlsi:history:5d').catch(() => null);
+              const rlsiVal = typeof rlsiRaw === 'string' ? parseInt(rlsiRaw, 10) : (typeof rlsiRaw === 'number' ? rlsiRaw : 50);
+              const rlsiHist = typeof rlsiHistRaw === 'string' ? rlsiHistRaw : `${rlsiVal-6},${rlsiVal-2},${rlsiVal+1},${rlsiVal-3},${rlsiVal}`;
+              
+              const result = await captureTemplate({
+                template: 'briefing',
+                format: 'tweet',
+                data: {
+                  spy: mktData.spyChg,
+                  vix: mktData.vix,
+                  gex: mktData.gex,
+                  rlsi: rlsiVal,
+                  rlsi_hist: rlsiHist,
+                  date: mktData.date,
+                  preview: briefingText.substring(0, 200),
+                },
+              });
+              ogImage = result?.cdnUrl || '';
+            } catch (e: any) {
+              console.warn(`[Dispatch] Briefing OG capture failed: ${e.message}`);
+            }
+          }
           if (ogImage) slides[0].imageUrl = ogImage;
 
           // X Thread

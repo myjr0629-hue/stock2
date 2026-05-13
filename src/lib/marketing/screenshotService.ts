@@ -23,7 +23,7 @@ const BUCKET_NAME = 'marketing-assets';
 const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://signumhq.com';
 
 // ── Types ──
-export type TemplateType = 'pulse' | 'event' | 'ticker' | 'morning' | 'education' | 'carousel' | 'story' | 'story_spotlight' | 'story_event' | 'story_education';
+export type TemplateType = 'pulse' | 'event' | 'ticker' | 'morning' | 'education' | 'carousel' | 'story' | 'story_spotlight' | 'story_event' | 'story_education' | 'briefing';
 export type FormatType = keyof typeof FORMATS;
 
 export interface CaptureRequest {
@@ -79,6 +79,7 @@ const TEMPLATE_ROUTES: Record<string, string> = {
   story_spotlight: '/marketing/templates/story/spotlight',
   story_event:     '/marketing/templates/story/event',
   story_education: '/marketing/templates/story/education',
+  briefing:  '/templates/og/briefing',
 };
 
 function buildTemplateUrl(req: CaptureRequest): string {
