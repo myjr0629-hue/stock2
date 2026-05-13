@@ -280,26 +280,51 @@ export async function GET(request: Request) {
             }
           }
 
-          // X Tweet
+          // === Platform-specific text (char limits: X=280, Bsky=300, Threads=500) ===
+          // X Tweet (280 char max — tight data + hook)
           const twitterCh = getFilteredChannels({ tier: 'all', lang, service: 'twitter' })[0];
           if (twitterCh) {
             const tags = getHashtags({ platform: 'twitter', contentType: 'morning', lang });
+            const xText = lang === 'ko'
+              ? `📊 모닝 브리핑\nSPY ${sd}${mkt.spyChg.toFixed(2)}% | VIX ${mkt.vix.toFixed(1)} | GEX ${G}\nRLSI ${rlsiScore}/100 [${rlsiLabel}] | DP ${dp}\n${regime === 'BULL' ? '▸ 강세 환경' : regime === 'BEAR' ? '▸ 약세 환경' : '▸ 관망 구간'}`
+              : lang === 'ja'
+              ? `📊 モーニングブリーフィング\nSPY ${sd}${mkt.spyChg.toFixed(2)}% | VIX ${mkt.vix.toFixed(1)} | GEX ${G}\nRLSI ${rlsiScore}/100 [${rlsiLabel}] | DP ${dp}\n${regime === 'BULL' ? '▸ 強気環境' : regime === 'BEAR' ? '▸ 弱気環境' : '▸ 様子見'}`
+              : `📊 Morning Briefing\nSPY ${sd}${mkt.spyChg.toFixed(2)}% | VIX ${mkt.vix.toFixed(1)} | GEX ${G}\nRLSI ${rlsiScore}/100 [${rlsiLabel}] | DP ${dp}\n${regime === 'BULL' ? '▸ Bullish regime' : regime === 'BEAR' ? '▸ Bearish regime' : '▸ Neutral — monitoring'}`;
             const r = await dispatchTweet({
               channelId: twitterCh.id,
-              text: truncateWithTags(morningText, tags, 'twitter'),
+              text: truncateWithTags(xText, tags, 'twitter'),
               imageUrl: ogImage,
               dryRun, draft,
             });
             results.push(r);
           }
 
-          // Bluesky
+          // Bluesky (300 char max — data + one-line AI insight)
           const bskyCh = getFilteredChannels({ tier: 'all', lang, service: 'bluesky' })[0];
           if (bskyCh) {
             const tags = getHashtags({ platform: 'bluesky', contentType: 'morning', lang });
+            const bskyInsight = aiBlock.length > 80 ? aiBlock.slice(0, 77) + '...' : aiBlock;
+            const bskyText = lang === 'ko'
+              ? `📊 모닝 브리핑 | ${mkt.date}\nSPY ${sd}${mkt.spyChg.toFixed(2)}% | VIX ${mkt.vix.toFixed(1)} | GEX ${G}\nRLSI ${rlsiScore}/100 | DP ${dp}\n${bskyInsight || '프리마켓 구조 분석 데이터 업데이트.'}`
+              : lang === 'ja'
+              ? `📊 モーニング | ${mkt.date}\nSPY ${sd}${mkt.spyChg.toFixed(2)}% | VIX ${mkt.vix.toFixed(1)} | GEX ${G}\nRLSI ${rlsiScore}/100 | DP ${dp}\n${bskyInsight || '構造データ更新中。'}`
+              : `📊 Morning Briefing | ${mkt.date}\nSPY ${sd}${mkt.spyChg.toFixed(2)}% | VIX ${mkt.vix.toFixed(1)} | GEX ${G}\nRLSI ${rlsiScore}/100 | DP ${dp}\n${bskyInsight || 'Pre-market structure data updated.'}`;
             const r = await dispatchPost({
               channelId: bskyCh.id,
-              text: truncateWithTags(morningText, `\n\n${tags}`, 'bluesky'),
+              text: truncateWithTags(bskyText, `\n\n${tags}`, 'bluesky'),
+              imageUrl: ogImage,
+              dryRun, draft,
+            });
+            results.push(r);
+          }
+
+          // Threads (500 char — use full morningText, truncateWithTags handles limit)
+          const threadsCh = getFilteredChannels({ tier: 'all', lang, service: 'threads' })[0];
+          if (threadsCh) {
+            const tags = getHashtags({ platform: 'threads', contentType: 'morning', lang });
+            const r = await dispatchPost({
+              channelId: threadsCh.id,
+              text: truncateWithTags(morningText, tags, 'threads'),
               imageUrl: ogImage,
               dryRun, draft,
             });
