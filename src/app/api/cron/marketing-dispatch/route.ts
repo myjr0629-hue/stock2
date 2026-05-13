@@ -400,18 +400,36 @@ export async function GET(request: Request) {
           }
         }
 
-        // Pinterest (EN only)
+        // Pinterest (EN only) — vertical infographic pin
         const pinCh = getChannels({ tier: 'all', service: 'pinterest' })[0];
         if (pinCh) {
-          const seo = getPinterestSEO({ contentType: 'education' });
+          const eduTopics = ['gex', 'dark_pool', 'smart_flow'];
+          const topicIdx = new Date().getDate() % eduTopics.length;
+          const pinTopic = eduTopics[topicIdx];
+          const seo = getPinterestSEO({ contentType: 'education', educationTopic: pinTopic });
+
+          // Capture vertical infographic pin
+          let pinImage = '';
+          if (!dryRun) {
+            try {
+              const result = await captureTemplate({ template: 'education_pin', format: 'pin', data: { topic: pinTopic } });
+              pinImage = result?.cdnUrl || '';
+            } catch (e: any) {
+              console.warn(`[Education] Pin capture failed: ${e.message}`);
+              // Fallback to generic education template
+              pinImage = await captureImageForDispatch(baseUrl, content, 'en', 'pin', 'education', dryRun);
+            }
+          } else {
+            pinImage = await captureImageForDispatch(baseUrl, content, 'en', 'pin', 'education', dryRun);
+          }
+
           const r = await dispatchPin({
             channelId: pinCh.id,
-            imageUrl: await captureImageForDispatch(baseUrl, content, 'en', 'pin', 'education', dryRun),
+            imageUrl: pinImage,
             title: seo.title,
             description: seo.description,
             link: `${baseUrl}/command?${buildUtm('pinterest', 'education')}`,
             dryRun,
-
             draft,
           });
           results.push(r);
@@ -448,18 +466,34 @@ export async function GET(request: Request) {
           }
         }
 
-        // Additional Pinterest pin (different variant)
+        // Additional Pinterest pin (different topic variant)
         const pinCh = getChannels({ tier: 'all', service: 'pinterest' })[0];
         if (pinCh) {
-          const seo = getPinterestSEO({ contentType: 'education' });
+          const eduTopics = ['gex', 'dark_pool', 'smart_flow'];
+          const topicIdx = (new Date().getDate() + 1) % eduTopics.length; // +1 offset from education dispatch
+          const pinTopic = eduTopics[topicIdx];
+          const seo = getPinterestSEO({ contentType: 'education', educationTopic: pinTopic });
+
+          let pinImage = '';
+          if (!dryRun) {
+            try {
+              const result = await captureTemplate({ template: 'education_pin', format: 'pin', data: { topic: pinTopic } });
+              pinImage = result?.cdnUrl || '';
+            } catch (e: any) {
+              console.warn(`[EduBsky] Pin capture failed: ${e.message}`);
+              pinImage = await captureImageForDispatch(baseUrl, content, 'en', 'pin', 'education', dryRun);
+            }
+          } else {
+            pinImage = await captureImageForDispatch(baseUrl, content, 'en', 'pin', 'education', dryRun);
+          }
+
           const r = await dispatchPin({
             channelId: pinCh.id,
-            imageUrl: await captureImageForDispatch(baseUrl, content, 'en', 'pin', 'education', dryRun),
+            imageUrl: pinImage,
             title: seo.title,
             description: seo.description,
             link: `${baseUrl}/command?${buildUtm('pinterest', 'education')}`,
             dryRun,
-
             draft,
           });
           results.push(r);
