@@ -5,12 +5,18 @@ import { getFromCache } from '@/services/redisClient';
 export interface LiveMarketData {
   spy: number; spyChg: number; vix: number; vixChg: number;
   gex: string; dp: number; date: string;
+  /** Guardian AI tactical insight — per-locale cached analysis */
+  tacticalInsight?: string;
+  /** Guardian AI reality insight — deeper analysis */
+  realityInsight?: string;
+  /** Per-locale verdicts (for 3-lang dispatch) */
+  verdicts?: Record<string, { tactical: string; reality: string }>;
 }
 
 // ---------------------------------------------------------------------------
-// Fetch live market data from Redis + actual trade data
+// Fetch live market data from Redis + actual trade data + Guardian AI insight
 // ---------------------------------------------------------------------------
-export async function fetchLiveMarketData(): Promise<LiveMarketData> {
+export async function fetchLiveMarketData(locale: Lang = 'en'): Promise<LiveMarketData> {
   const [spyRaw, vixRaw, gexRaw] = await Promise.all([
     getFromCache('yahoo:idx:spx').catch(() => null),
     getFromCache('yahoo:vix').catch(() => null),
@@ -33,6 +39,27 @@ export async function fetchLiveMarketData(): Promise<LiveMarketData> {
     dp = spyTrade?.darkPoolPercent || 0;
   } catch { /* optional */ }
 
+  // Guardian AI tactical insight — the REAL analysis text from AI engine (all 3 locales)
+  const verdicts: Record<string, { tactical: string; reality: string }> = {};
+  let tacticalInsight: string | undefined;
+  let realityInsight: string | undefined;
+  try {
+    const [koV, enV, jaV] = await Promise.all([
+      getFromCache('guardian:ai_verdict:ko').catch(() => null),
+      getFromCache('guardian:ai_verdict:en').catch(() => null),
+      getFromCache('guardian:ai_verdict:ja').catch(() => null),
+    ]);
+    for (const [loc, raw] of [['ko', koV], ['en', enV], ['ja', jaV]] as const) {
+      if (raw) {
+        const v = typeof raw === 'string' ? JSON.parse(raw) : raw;
+        verdicts[loc] = { tactical: v?.description || '', reality: v?.realityInsight || '' };
+      }
+    }
+    // Default to locale param for backward compat
+    tacticalInsight = verdicts[locale]?.tactical || verdicts.ko?.tactical || undefined;
+    realityInsight = verdicts[locale]?.reality || verdicts.ko?.reality || undefined;
+  } catch { /* optional */ }
+
   const etNow = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' }));
   return {
     spy: spyData?.price ?? spyData?.last ?? 0,
@@ -41,6 +68,9 @@ export async function fetchLiveMarketData(): Promise<LiveMarketData> {
     vixChg: vixData?.changePercent ?? vixData?.changePct ?? 0,
     gex: gexStr, dp,
     date: `${etNow.getFullYear()}-${String(etNow.getMonth()+1).padStart(2,'0')}-${String(etNow.getDate()).padStart(2,'0')}`,
+    tacticalInsight,
+    realityInsight,
+    verdicts,
   };
 }
 
@@ -53,6 +83,11 @@ export function buildRealtimeText(
   lang: Lang,
   m: LiveMarketData,
 ): string {
+  // Resolve per-locale Guardian AI verdict
+  const localeVerdict = m.verdicts?.[lang];
+  if (localeVerdict) {
+    m = { ...m, tacticalInsight: localeVerdict.tactical || m.tacticalInsight, realityInsight: localeVerdict.reality || m.realityInsight };
+  }
   const G = m.gex.toUpperCase();
   const gM = m.gex === 'positive'
     ? (lang === 'ko' ? '딜러 변동성 억제 구간' : lang === 'ja' ? 'ディーラーのボラ抑制ゾーン' : 'Dealer volatility suppression zone')
@@ -96,31 +131,36 @@ export function buildRealtimeText(
     return `Good morning 👋\n\nQuick pre-market structure check:\n• VIX at ${m.vix.toFixed(1)} — ${volNote}\n• GEX ${G} — ${gM}\n\nThe data doesn't predict. But it reveals where institutions are positioning.\n\nWhat are you watching today? 👇\n\n${disc.en}`;
   }
   if (ct === 'structure') {
-    if (lang === 'ko') return `📊 장중 데이터 체크\n\nSPY ${sd}${m.spyChg.toFixed(2)}% | VIX ${m.vix.toFixed(1)}\n다크풀 활동: ${dp}\nGEX 레짐: ${G}\n\n가격만 보면 놓치는 것이 있습니다. 구조가 말하는 것을 읽어야 합니다.\n\n지금 가장 주목하는 지표는? 💬\n\n${disc.ko}`;
-    if (lang === 'ja') return `📊 セッション中盤チェック\n\nSPY ${sd}${m.spyChg.toFixed(2)}% | VIX ${m.vix.toFixed(1)}\nダークプール: ${dp}\nGEX: ${G}\n\n価格だけでは見えないものがあります。構造を読むと見えてきます。\n\n注目指標は？ 💬\n\n${disc.ja}`;
-    return `📊 Mid-session data check\n\nSPY ${sd}${m.spyChg.toFixed(2)}% | VIX ${m.vix.toFixed(1)}\nDark Pool: ${dp}\nGEX: ${G}\n\nPrice tells you what happened. Structure tells you why.\n\nWhat's catching your eye right now? 💬\n\n${disc.en}`;
+    const insight = m.tacticalInsight || '';
+    const truncSt = insight.length > 200 ? insight.slice(0, 197) + '...' : insight;
+    if (lang === 'ko') return truncSt ? `📊 장중 구조 분석\n\nSPY ${sd}${m.spyChg.toFixed(2)}% | VIX ${m.vix.toFixed(1)} | DP ${dp}\n\n${truncSt}\n\n${disc.ko}` : `📊 장중 데이터 체크\n\nSPY ${sd}${m.spyChg.toFixed(2)}% | VIX ${m.vix.toFixed(1)}\n다크풀: ${dp} | GEX: ${G}\n\n${disc.ko}`;
+    if (lang === 'ja') return truncSt ? `📊 セッション中盤分析\n\nSPY ${sd}${m.spyChg.toFixed(2)}% | VIX ${m.vix.toFixed(1)} | DP ${dp}\n\n${truncSt}\n\n${disc.ja}` : `📊 セッション中盤チェック\n\nSPY ${sd}${m.spyChg.toFixed(2)}% | VIX ${m.vix.toFixed(1)} | GEX: ${G}\n\n${disc.ja}`;
+    return truncSt ? `📊 Mid-Session Analysis\n\nSPY ${sd}${m.spyChg.toFixed(2)}% | VIX ${m.vix.toFixed(1)} | DP ${dp}\n\n${truncSt}\n\n${disc.en}` : `📊 Mid-session check\n\nSPY ${sd}${m.spyChg.toFixed(2)}% | VIX ${m.vix.toFixed(1)} | GEX: ${G}\n\n${disc.en}`;
   }
   if (ct === 'afterhours') {
-    if (lang === 'ko') return `🌙 오늘의 세션 리캡\n\n📈 SPY: ${sd}${m.spyChg.toFixed(2)}%\n📊 VIX: ${m.vix.toFixed(1)}\n🏦 다크풀: ${dp}\n⚡ GEX: ${G}\n\n오늘 구조에서 가장 눈에 띄었던 것: 기관 포지셔닝이 가격보다 먼저 움직였습니다.\n\n내일 장을 위해 주목할 것은? 👇\n\n${disc.ko}`;
-    if (lang === 'ja') return `🌙 本日のセッション振り返り\n\n📈 SPY: ${sd}${m.spyChg.toFixed(2)}%\n📊 VIX: ${m.vix.toFixed(1)}\n🏦 DP: ${dp}\n⚡ GEX: ${G}\n\n構造が価格に先行して動いた一日でした。\n\n明日のセッションで注目すべき点は？ 👇\n\n${disc.ja}`;
-    return `🌙 Today's session in structure\n\n📈 SPY: ${sd}${m.spyChg.toFixed(2)}%\n📊 VIX: ${m.vix.toFixed(1)}\n🏦 Dark Pool: ${dp}\n⚡ GEX: ${G}\n\nInstitutional positioning moved before price did today.\n\nWhat are you watching for tomorrow? 👇\n\n${disc.en}`;
+    const insight = m.tacticalInsight || '';
+    const truncInsight = insight.length > 280 ? insight.slice(0, 277) + '...' : insight;
+    if (lang === 'ko') return truncInsight ? `🌙 세션 종료 — AI 구조 분석\n\nSPY ${sd}${m.spyChg.toFixed(2)}% | VIX ${m.vix.toFixed(1)} | DP ${dp}\n\n${truncInsight}\n\n${disc.ko}` : `🌙 세션 리캡\n\nSPY: ${sd}${m.spyChg.toFixed(2)}% | VIX: ${m.vix.toFixed(1)} | DP: ${dp} | GEX: ${G}\n\n${disc.ko}`;
+    if (lang === 'ja') return truncInsight ? `🌙 セッション終了 — AI構造分析\n\nSPY ${sd}${m.spyChg.toFixed(2)}% | VIX ${m.vix.toFixed(1)} | DP ${dp}\n\n${truncInsight}\n\n${disc.ja}` : `🌙 セッション振り返り\n\nSPY: ${sd}${m.spyChg.toFixed(2)}% | VIX: ${m.vix.toFixed(1)} | GEX: ${G}\n\n${disc.ja}`;
+    return truncInsight ? `🌙 Session Close — AI Structure Analysis\n\nSPY ${sd}${m.spyChg.toFixed(2)}% | VIX ${m.vix.toFixed(1)} | DP ${dp}\n\n${truncInsight}\n\n${disc.en}` : `🌙 Session Wrap\n\nSPY: ${sd}${m.spyChg.toFixed(2)}% | VIX: ${m.vix.toFixed(1)} | GEX: ${G}\n\n${disc.en}`;
   }
-  // ── ASIA DAYTIME: recap (KST 11:30 — 미국 세션 다음날 오전) ──
+  // ── ASIA DAYTIME: recap (KST 11:30 — Guardian AI 분석 기반 리캡) ──
   if (ct === 'recap') {
-    if (lang === 'ko') return `☕ 어젯밤 미국 시장 구조 리캡\n\n📈 SPY: ${sd}${m.spyChg.toFixed(2)}%\n📊 VIX: ${m.vix.toFixed(1)}\n🏦 다크풀: ${dp}\n⚡ GEX: ${G} — ${gM}\n\n밤새 기관은 무엇을 했을까요? 구조는 가격이 움직이기 전에 먼저 신호를 보냅니다.\n\n오늘 하루 주목할 레벨은? 💬\n\n${disc.ko}`;
-    if (lang === 'ja') return `☕ 昨夜の米国市場構造レビュー\n\n📈 SPY: ${sd}${m.spyChg.toFixed(2)}%\n📊 VIX: ${m.vix.toFixed(1)}\n🏦 DP: ${dp}\n⚡ GEX: ${G} — ${gM}\n\n機関は夜間に何をしたのか？構造は価格の前にシグナルを送ります。\n\n今日注目すべきレベルは？ 💬\n\n${disc.ja}`;
-    return `☕ Overnight US session recap\n\n📈 SPY: ${sd}${m.spyChg.toFixed(2)}%\n📊 VIX: ${m.vix.toFixed(1)}\n🏦 Dark Pool: ${dp}\n⚡ GEX: ${G} — ${gM}\n\nStructure sends signals before price moves.\n\nWhat levels are you watching today? 💬\n\n${disc.en}`;
+    const insight = m.tacticalInsight || '';
+    const maxInsight = 350;
+    const truncInsight = insight.length > maxInsight ? insight.slice(0, maxInsight - 3) + '...' : insight;
+    if (lang === 'ko') return truncInsight ? `📊 어젯밤 월가 — AI 구조 분석\n\nSPY ${sd}${m.spyChg.toFixed(2)}% | VIX ${m.vix.toFixed(1)} | DP ${dp}\n\n${truncInsight}\n\n→ 전체 분석: signumhq.com/intel-guardian\n\n${disc.ko}` : `📊 어젯밤 미국 시장\n\nSPY: ${sd}${m.spyChg.toFixed(2)}% | VIX: ${m.vix.toFixed(1)} | DP: ${dp} | GEX: ${G}\n\n${disc.ko}`;
+    if (lang === 'ja') return truncInsight ? `📊 昨夜のウォール街 — AI構造分析\n\nSPY ${sd}${m.spyChg.toFixed(2)}% | VIX ${m.vix.toFixed(1)} | DP ${dp}\n\n${truncInsight}\n\n→ 全分析: signumhq.com/intel-guardian\n\n${disc.ja}` : `📊 昨夜の米国市場\n\nSPY: ${sd}${m.spyChg.toFixed(2)}% | VIX: ${m.vix.toFixed(1)} | GEX: ${G}\n\n${disc.ja}`;
+    return truncInsight ? `📊 Wall Street Overnight — AI Structure Analysis\n\nSPY ${sd}${m.spyChg.toFixed(2)}% | VIX ${m.vix.toFixed(1)} | DP ${dp}\n\n${truncInsight}\n\n→ Full analysis: signumhq.com/intel-guardian\n\n${disc.en}` : `📊 Overnight US Market\n\nSPY: ${sd}${m.spyChg.toFixed(2)}% | VIX: ${m.vix.toFixed(1)} | GEX: ${G}\n\n${disc.en}`;
   }
-  // ── ASIA DAYTIME: insight (KST 14:00 — 오후 인사이트) ──
+  // ── ASIA DAYTIME: insight (KST 14:00 — Guardian reality insight 기반) ──
   if (ct === 'asia_insight') {
-    const gexNote = m.gex === 'positive'
-      ? (lang === 'ko' ? 'GEX가 양수라는 것은 딜러가 변동성을 억제하고 있다는 뜻입니다' : lang === 'ja' ? 'GEXがプラスということは、ディーラーがボラティリティを抑制中' : 'Positive GEX means dealers are suppressing volatility')
-      : m.gex === 'negative'
-      ? (lang === 'ko' ? 'GEX가 음수 — 딜러가 변동성을 증폭시키는 환경입니다' : lang === 'ja' ? 'GEXがマイナス — ディーラーがボラを増幅する環境' : 'Negative GEX — dealers amplifying volatility')
-      : (lang === 'ko' ? 'GEX 중립 — 딜러 영향력이 약한 구간, 방향성이 불투명합니다' : lang === 'ja' ? 'GEX中立 — ディーラーの影響力が弱い区間' : 'Neutral GEX — dealer influence is minimal, direction unclear');
-    if (lang === 'ko') return `💡 오늘의 구조 인사이트\n\n${gexNote}\n\nVIX ${m.vix.toFixed(1)} | DP ${dp}\n\n이 데이터를 보고 무엇이 떠오르시나요?\n→ 실시간 구조 분석: signumhq.com\n\n${disc.ko}`;
-    if (lang === 'ja') return `💡 本日の構造インサイト\n\n${gexNote}\n\nVIX ${m.vix.toFixed(1)} | DP ${dp}\n\nこのデータから何が見えますか？\n→ リアルタイム構造分析: signumhq.com\n\n${disc.ja}`;
-    return `💡 Today's structural insight\n\n${gexNote}\n\nVIX ${m.vix.toFixed(1)} | DP ${dp}\n\nWhat does this data tell you?\n→ Live structure analysis: signumhq.com\n\n${disc.en}`;
+    const insight = m.realityInsight || m.tacticalInsight || '';
+    const maxInsight = 350;
+    const truncInsight = insight.length > maxInsight ? insight.slice(0, maxInsight - 3) + '...' : insight;
+    if (lang === 'ko') return truncInsight ? `💡 오늘의 구조 인사이트\n\n${truncInsight}\n\n→ 실시간 분석: signumhq.com/intel-guardian\n\n${disc.ko}` : `💡 오늘의 구조 인사이트\n\nGEX ${G} — ${gM}\nVIX ${m.vix.toFixed(1)} | DP ${dp}\n\n→ signumhq.com/intel-guardian\n\n${disc.ko}`;
+    if (lang === 'ja') return truncInsight ? `💡 本日の構造インサイト\n\n${truncInsight}\n\n→ リアルタイム分析: signumhq.com/intel-guardian\n\n${disc.ja}` : `💡 本日の構造インサイト\n\nGEX ${G} — ${gM}\nVIX ${m.vix.toFixed(1)} | DP ${dp}\n\n→ signumhq.com/intel-guardian\n\n${disc.ja}`;
+    return truncInsight ? `💡 Today's Structure Insight\n\n${truncInsight}\n\n→ Live analysis: signumhq.com/intel-guardian\n\n${disc.en}` : `💡 Structure Insight\n\nGEX ${G} — ${gM}\nVIX ${m.vix.toFixed(1)} | DP ${dp}\n\n→ signumhq.com/intel-guardian\n\n${disc.en}`;
   }
   // ── MARKET OPEN (KST 22:30 = ET 09:30) ──
   if (ct === 'market_open') {
