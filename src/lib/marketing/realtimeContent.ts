@@ -275,9 +275,9 @@ ${disc.en}`;
   closeInsight = closeInsight.replace(/\b(?:AI_PWR|SMH|XLK|XLC|XLY|XLE|XLF|XLV|XLI|XLB|XLP|XLU|XLRE|IWM)[^\n.。]*[.。]?/g, '');
   closeInsight = closeInsight.replace(/,?\s*노이즈\s*경고[^.。]*[.。]?/g, '.');
   closeInsight = closeInsight.replace(/\([^)]*스텔스[^)]*\)/g, '');
-  // Strip trailing incomplete sentences: "다만..." "ただし..."
-  closeInsight = closeInsight.replace(/다만\s*[^.。]*$/g, '');
-  closeInsight = closeInsight.replace(/ただし\s*[^.。]*$/g, '');
+  // Strip trailing incomplete sentences: "다만..." "ただし..." (greedy — avoids decimal point confusion)
+  closeInsight = closeInsight.replace(/\s*다만\s+.*$/gm, '');
+  closeInsight = closeInsight.replace(/\s*ただし\s+.*$/gm, '');
   closeInsight = closeInsight.replace(/,\s*,/g, ',').replace(/\.\s*\./g, '.').replace(/,\s*\./g, '.').replace(/\s{2,}/g, ' ').trim();
   // Truncate at sentence boundary (max 200 chars, always ends on complete sentence)
   let closeTrunc = closeInsight;

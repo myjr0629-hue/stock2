@@ -2418,9 +2418,10 @@ function cleanForMarketing(text: string): string {
   t = t.replace(/\([^)]*스텔스[^)]*\)/g, '');
   t = t.replace(/\([^)]*ステルス[^)]*\)/g, '');
   t = t.replace(/\([^)]*stealth[^)]*\)/gi, '');
-  // 8. Strip "다만" / "ただし" trailing incomplete sentences
-  t = t.replace(/다만\s*[^.。]*$/g, '');
-  t = t.replace(/ただし\s*[^.。]*$/g, '');
+  // 8. Strip "다만" / "ただし" and everything after (greedy — avoids decimal point confusion)
+  t = t.replace(/\s*다만\s+.*$/gm, '');
+  t = t.replace(/\s*ただし\s+.*$/gm, '');
+  t = t.replace(/\s*However,?\s+.*$/gim, '');
   // 9. Clean up artifacts: double spaces, orphaned commas/periods, whitespace before punctuation
   t = t.replace(/,\s*,/g, ',');
   t = t.replace(/\.\s*\./g, '.');
