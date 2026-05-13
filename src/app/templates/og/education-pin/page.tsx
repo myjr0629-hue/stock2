@@ -3,35 +3,54 @@
 import { useSearchParams } from 'next/navigation';
 import { Suspense } from 'react';
 
-// Education topics with content
-const TOPICS: Record<string, { title: string; subtitle: string; positiveLabel: string; negativeLabel: string; positiveCopy: string; negativeCopy: string; whyLine: string; cards: [string, string, string] }> = {
+// ============================================================================
+// Education Pin — Pinterest 1000×1500 vertical infographic
+// Market Insight 스타일 — 실제 로고 사용
+// /templates/og/education-pin?topic=gex
+// ============================================================================
+
+const TOPICS: Record<string, {
+  title: string; subtitle: string;
+  positiveLabel: string; negativeLabel: string;
+  positiveCopy: string; negativeCopy: string;
+  positiveIcon: string; negativeIcon: string;
+  whyLine: string;
+  cards: [string, string, string];
+  accentColor: string;
+}> = {
   gex: {
     title: 'What is GEX?',
     subtitle: 'Gamma Exposure Explained',
     positiveLabel: 'GEX POSITIVE',
     negativeLabel: 'GEX NEGATIVE',
-    positiveCopy: 'Dealers buy dips,\nsell rips → Market stabilizes',
+    positiveCopy: 'Dealers buy dips, sell rips\n→ Market stabilizes',
     negativeCopy: 'Dealers sell into drops,\nbuy rallies → Volatility explodes',
-    whyLine: 'Most traders watch price. Institutional desks watch GEX.',
+    positiveIcon: 'M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z',
+    negativeIcon: 'M13 2L3 14h9l-1 8 10-12h-9l1-8z',
+    whyLine: 'Most traders watch price.\nInstitutional desks watch GEX.',
     cards: [
       'GEX Positive + VIX Low = Low risk, mean-reversion likely',
       'GEX Neutral + VIX Rising = Watch for breakout',
       'GEX Negative + VIX High = Trend acceleration, elevated risk',
     ],
+    accentColor: '#22d3ee',
   },
   dark_pool: {
     title: 'Dark Pools',
     subtitle: 'Institutional Hidden Orders',
     positiveLabel: 'HIGH DP%',
     negativeLabel: 'LOW DP%',
-    positiveCopy: 'Institutions are active\nbeneath the surface',
-    negativeCopy: 'Institutional activity\nwithin normal range',
-    whyLine: 'Retail sees price. Institutions use dark pools to hide size.',
+    positiveCopy: 'Institutions positioning\n→ Directional moves follow',
+    negativeCopy: 'Retail-driven market\n→ Direction uncertain',
+    positiveIcon: 'M3 21h18M3 10h18M3 7l9-4 9 4M4 10h16v11H4z',
+    negativeIcon: 'M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z',
+    whyLine: 'Retail sees price.\nInstitutions use dark pools to hide size.',
     cards: [
       'DP% > 40% + Rising = Heavy institutional accumulation',
       'DP% 25-40% = Normal institutional flow',
       'DP% < 25% + Falling = Institutions stepping back',
     ],
+    accentColor: '#a855f7',
   },
   smart_flow: {
     title: 'Smart Flow',
@@ -40,12 +59,15 @@ const TOPICS: Record<string, { title: string; subtitle: string; positiveLabel: s
     negativeLabel: 'DISTRIBUTION',
     positiveCopy: 'Institutions building\npositions → Bullish bias',
     negativeCopy: 'Institutions reducing\npositions → Bearish bias',
-    whyLine: 'Price follows volume. Volume follows institutions.',
+    positiveIcon: 'M23 6l-9.5 9.5-5-5L1 18',
+    negativeIcon: 'M23 18l-9.5-9.5-5 5L1 6',
+    whyLine: 'Price follows volume.\nVolume follows institutions.',
     cards: [
       'Smart Flow > 65 = Accumulation pattern observed',
       'Smart Flow 35-65 = No directional conviction',
       'Smart Flow < 35 = Distribution pattern detected',
     ],
+    accentColor: '#34d399',
   },
 };
 
@@ -55,189 +77,219 @@ function EducationPinContent() {
   const t = TOPICS[topic] || TOPICS.gex;
 
   return (
-    <>
-      <style>{`
-        .pin {
-          position: relative; width: 1000px; height: 1500px; overflow: hidden; color: #f1f5f9;
-          background: radial-gradient(circle at 94% 34%, rgba(34,211,238,0.26), transparent 28%), radial-gradient(circle at 8% 96%, rgba(124,58,237,0.34), transparent 30%), radial-gradient(circle at 50% 22%, rgba(34,211,238,0.10), transparent 32%), linear-gradient(180deg, #02050d 0%, #040710 42%, #050817 100%);
-          font-family: Inter, ui-sans-serif, system-ui, sans-serif; isolation: isolate;
-        }
-        .pin::before {
-          content: ""; position: absolute; inset: 0; z-index: -4; opacity: 0.25;
-          background-image: linear-gradient(rgba(34,211,238,0.045) 1px, transparent 1px), linear-gradient(90deg, rgba(34,211,238,0.045) 1px, transparent 1px);
-          background-size: 32px 32px;
-          mask-image: linear-gradient(to bottom, transparent 0%, black 10%, black 92%, transparent 100%);
-        }
-        .pin::after {
-          content: ""; position: absolute; inset: 0; pointer-events: none; z-index: 80; opacity: 0.035;
-          background: repeating-linear-gradient(to bottom, rgba(255,255,255,0.9) 0, rgba(255,255,255,0.9) 1px, transparent 1px, transparent 5px);
-          mix-blend-mode: overlay;
-        }
-        .orbital-decor {
-          position: absolute; left: -240px; bottom: -230px; width: 460px; height: 460px;
-          border-radius: 50%; border: 1px solid rgba(124,58,237,0.20);
-          box-shadow: inset 0 0 90px rgba(124,58,237,0.05); opacity: 0.75;
-        }
-        .top { position: absolute; left: 64px; right: 64px; top: 42px; text-align: center; }
-        .brand { display: inline-flex; align-items: center; gap: 22px; margin-bottom: 46px; }
-        .logo-box {
-          width: 78px; height: 78px; display: grid; place-items: center; border-radius: 18px;
-          background: radial-gradient(circle at 24% 18%, rgba(255,255,255,0.26), transparent 36%), linear-gradient(135deg, #a78bfa 0%, #7c3aed 46%, #22d3ee 100%);
-          box-shadow: 0 0 30px rgba(34,211,238,0.22), inset 0 1px 0 rgba(255,255,255,0.22);
-          border: 1px solid rgba(255,255,255,0.14);
-        }
-        .brand-text { color: #f1f5f9; font-size: 38px; font-weight: 700; letter-spacing: 0.18em; text-transform: uppercase; text-shadow: 0 0 18px rgba(255,255,255,0.12); }
-        .title { margin: 0; color: #f1f5f9; font-size: 74px; line-height: 0.96; font-weight: 900; letter-spacing: -0.07em; text-shadow: 0 8px 32px rgba(0,0,0,0.35); }
-        .subtitle { margin-top: 24px; color: #22d3ee; font-size: 39px; font-weight: 500; letter-spacing: -0.035em; text-shadow: 0 0 18px rgba(34,211,238,0.25); }
-        .top-divider { height: 2px; width: 820px; margin: 32px auto 0; background: linear-gradient(90deg, transparent, #22d3ee, rgba(255,255,255,0.22), transparent); box-shadow: 0 0 18px rgba(34,211,238,0.32); }
-        .section-title { color: #22d3ee; font-size: 25px; font-weight: 900; letter-spacing: 0.38em; text-align: center; text-transform: uppercase; text-shadow: 0 0 14px rgba(34,211,238,0.18); }
-        .concept { position: absolute; left: 94px; right: 94px; top: 350px; height: 305px; }
-        .concept-grid { margin-top: 26px; display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
-        .concept-card {
-          position: relative; height: 222px; border-radius: 14px; border: 1px solid currentColor;
-          background: radial-gradient(circle at 50% 18%, currentColor 0%, transparent 32%), linear-gradient(135deg, rgba(255,255,255,0.055), rgba(255,255,255,0.015)), rgba(10,17,30,0.74);
-          box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), 0 18px 42px rgba(0,0,0,0.24);
-          overflow: hidden; padding: 32px 28px 26px; text-align: center;
-        }
-        .concept-card::before { content: ""; position: absolute; inset: 0; background: currentColor; opacity: 0.055; pointer-events: none; }
-        .concept-card.positive { color: #34d399; }
-        .concept-card.negative { color: #f87171; }
-        .concept-icon { width: 74px; height: 74px; margin: 0 auto 24px; color: currentColor; filter: drop-shadow(0 0 16px currentColor); }
-        .concept-name { color: currentColor; font-size: 32px; font-weight: 900; letter-spacing: 0.02em; text-transform: uppercase; }
-        .concept-copy { margin-top: 19px; color: #f1f5f9; font-size: 21px; line-height: 1.34; font-weight: 500; white-space: pre-line; }
-        .why-section { position: absolute; left: 88px; right: 88px; top: 678px; height: 270px; }
-        .spectrum { position: relative; margin-top: 32px; height: 110px; }
-        .scale-bar { position: absolute; left: 120px; right: 120px; top: 53px; height: 16px; border-radius: 999px; background: linear-gradient(90deg, #8b5cf6 0%, #4b5563 50%, #34d399 100%); box-shadow: 0 0 24px rgba(34,211,238,0.12), inset 0 1px 3px rgba(255,255,255,0.20); }
-        .knob { position: absolute; right: 42px; top: 41px; width: 45px; height: 45px; border-radius: 50%; border: 5px solid #d9ffe7; background: rgba(52,211,153,0.18); box-shadow: 0 0 28px rgba(52,211,153,0.72), inset 0 0 0 8px rgba(52,211,153,0.18); z-index: 4; }
-        .scale-label { position: absolute; top: 0; font-size: 24px; font-weight: 800; letter-spacing: 0.10em; text-transform: uppercase; }
-        .scale-label.neg { left: 0; color: #8b5cf6; }
-        .scale-label.neu { left: 50%; transform: translateX(-50%); color: #94a3b8; }
-        .scale-label.pos { right: 0; color: #34d399; }
-        .scale-icon-left { position: absolute; left: 22px; top: 42px; width: 52px; height: 52px; opacity: 0.92; color: #8b5cf6; filter: drop-shadow(0 0 16px currentColor); }
-        .scale-icon-right { position: absolute; right: -6px; top: 42px; width: 52px; height: 52px; opacity: 0.92; color: #b6ffbf; filter: drop-shadow(0 0 16px currentColor); }
-        .why-line { margin-top: 22px; color: #f1f5f9; text-align: center; font-size: 25px; line-height: 1.32; font-style: italic; font-weight: 500; }
-        .read-section { position: absolute; left: 94px; right: 94px; top: 972px; height: 275px; }
-        .read-stack { margin-top: 24px; display: grid; gap: 13px; }
-        .read-card {
-          position: relative; height: 76px; border-radius: 11px; border: 1px solid currentColor;
-          background: linear-gradient(135deg, rgba(255,255,255,0.055), rgba(255,255,255,0.015)), rgba(10,17,30,0.76);
-          box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), 0 14px 34px rgba(0,0,0,0.20);
-          display: grid; grid-template-columns: 104px 1fr; align-items: center; overflow: hidden; padding-right: 26px;
-        }
-        .read-card::before { content: ""; position: absolute; inset: 0; background: currentColor; opacity: 0.045; pointer-events: none; }
-        .read-card.green { color: #34d399; }
-        .read-card.amber { color: #fbbf24; }
-        .read-card.red { color: #f87171; }
-        .read-icon { width: 51px; height: 51px; margin-left: 29px; border-radius: 50%; border: 1.5px solid currentColor; display: grid; place-items: center; color: currentColor; filter: drop-shadow(0 0 11px currentColor); }
-        .read-copy { color: #f1f5f9; font-size: 22px; line-height: 1.24; font-weight: 600; }
-        .read-copy strong { color: currentColor; font-weight: 900; }
-        .cta { position: absolute; left: 0; right: 0; bottom: 36px; text-align: center; }
-        .save { color: #f1f5f9; font-size: 30px; font-weight: 500; margin-bottom: 20px; }
-        .site { display: inline-block; color: #06b6d4; font-size: 31px; font-weight: 500; text-decoration: underline; text-underline-offset: 8px; text-decoration-thickness: 2px; text-shadow: 0 0 16px rgba(6,182,212,0.18); }
-        .footer-brand { display: inline-flex; align-items: center; gap: 15px; margin-top: 30px; }
-        .small-logo { width: 54px; height: 54px; display: grid; place-items: center; border-radius: 13px; background: linear-gradient(135deg, #a78bfa 0%, #7c3aed 46%, #22d3ee 100%); box-shadow: 0 0 20px rgba(34,211,238,0.18); }
-        .small-word { color: #f1f5f9; font-size: 28px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; }
-        .disclaimer { margin-top: 25px; color: #94a3b8; font-size: 19px; font-weight: 500; }
-      `}</style>
+    <div style={{
+      width: 1000, height: 1500, position: 'relative', overflow: 'hidden',
+      color: '#f1f5f9', fontFamily: "'Inter', system-ui, sans-serif",
+      background: `
+        radial-gradient(circle at 90% 20%, rgba(34,211,238,0.18), transparent 30%),
+        radial-gradient(circle at 10% 85%, rgba(124,58,237,0.22), transparent 28%),
+        radial-gradient(circle at 50% 50%, rgba(34,211,238,0.06), transparent 40%),
+        linear-gradient(180deg, #02050d 0%, #040710 50%, #050817 100%)
+      `,
+      isolation: 'isolate',
+    }}>
+      {/* Grid overlay */}
+      <div style={{
+        position: 'absolute', inset: 0, zIndex: 0, opacity: 0.04,
+        backgroundImage: 'linear-gradient(rgba(34,211,238,0.4) 1px, transparent 1px), linear-gradient(90deg, rgba(34,211,238,0.4) 1px, transparent 1px)',
+        backgroundSize: '32px 32px',
+      }} />
+      {/* Scanline */}
+      <div style={{
+        position: 'absolute', inset: 0, zIndex: 50, pointerEvents: 'none', opacity: 0.035,
+        background: 'repeating-linear-gradient(to bottom, rgba(255,255,255,0.9) 0, rgba(255,255,255,0.9) 1px, transparent 1px, transparent 5px)',
+        mixBlendMode: 'overlay',
+      }} />
+      {/* Top accent bar */}
+      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, height: 3, background: 'linear-gradient(90deg, #a855f7, #22d3ee)', zIndex: 60 }} />
+      {/* Bottom accent bar */}
+      <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: 3, background: 'linear-gradient(90deg, #22d3ee, #a855f7)', zIndex: 60 }} />
 
-      <main className="pin">
-        <div className="orbital-decor" />
+      <div style={{ position: 'relative', zIndex: 10, display: 'flex', flexDirection: 'column', height: '100%', padding: '42px 58px' }}>
 
-        {/* TOP */}
-        <section className="top">
-          <div className="brand">
-            <div className="logo-box">
-              <svg viewBox="0 0 64 64" fill="none" width="48" height="48">
-                <path d="M48 10H25C15 10 9 16 9 25c0 8 5 13 15 17l16 6c5 2 8 5 8 9 0 5-4 8-12 8H15" stroke="white" strokeWidth="11" strokeLinecap="round" strokeLinejoin="round" opacity="0.95" />
-                <path d="M48 10 37 21M16 54 28 43" stroke="white" strokeWidth="11" strokeLinecap="round" opacity="0.95" />
-              </svg>
+        {/* ── Header ── */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 18 }}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/icons/icon-192x192.png" alt="" width={56} height={56} style={{
+              filter: 'drop-shadow(0 0 16px rgba(34,211,238,0.28))',
+            }} />
+            <div style={{ width: 1, height: 42, background: 'linear-gradient(to bottom, transparent, rgba(34,211,238,0.7), transparent)' }} />
+            <div>
+              <div style={{ fontSize: 28, fontWeight: 900, letterSpacing: '0.10em', lineHeight: 1 }}>
+                SIGNUM <span style={{ color: '#22d3ee' }}>HQ</span>
+              </div>
+              <div style={{ marginTop: 6, color: '#94a3b8', fontSize: 13, fontWeight: 500, letterSpacing: '0.02em' }}>
+                See What Others Cannot
+              </div>
             </div>
-            <div className="brand-text">SIGNUM HQ</div>
           </div>
-          <h1 className="title">{t.title}</h1>
-          <div className="subtitle">{t.subtitle}</div>
-          <div className="top-divider" />
-        </section>
-
-        {/* SECTION 1: The Concept */}
-        <section className="concept">
-          <div className="section-title">01 · The Concept</div>
-          <div className="concept-grid">
-            <article className="concept-card positive">
-              <svg className="concept-icon" viewBox="0 0 74 74" fill="none" stroke="currentColor" strokeWidth="4" strokeLinejoin="round">
-                <path d="M37 7 62 17v19c0 18-11 29-25 34C23 65 12 54 12 36V17L37 7Z" />
-                <path d="M25 37 34 46 50 26" strokeLinecap="round" />
-              </svg>
-              <div className="concept-name">{t.positiveLabel}</div>
-              <div className="concept-copy">{t.positiveCopy}</div>
-            </article>
-            <article className="concept-card negative">
-              <svg className="concept-icon" viewBox="0 0 74 74" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M42 5 15 43h21l-3 26 27-43H39L42 5Z" />
-              </svg>
-              <div className="concept-name">{t.negativeLabel}</div>
-              <div className="concept-copy">{t.negativeCopy}</div>
-            </article>
+          <div style={{
+            padding: '8px 20px', borderRadius: 20,
+            background: 'rgba(34,211,238,0.06)', border: '1px solid rgba(34,211,238,0.2)',
+            color: '#67e8f9', fontSize: 13, fontWeight: 800, letterSpacing: '0.4em',
+          }}>
+            MARKET INSIGHT
           </div>
-        </section>
+        </div>
 
-        {/* SECTION 2: Why It Matters */}
-        <section className="why-section">
-          <div className="section-title">02 · Why It Matters</div>
-          <div className="spectrum">
-            <div className="scale-label neg">Negative</div>
-            <div className="scale-label neu">Neutral</div>
-            <div className="scale-label pos">Positive</div>
-            <svg className="scale-icon-left" viewBox="0 0 64 64" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M32 3 38 25 57 12 44 32 61 40 40 40 45 61 32 45 19 61 24 40 3 40 20 32 7 12 26 25 32 3Z" />
-            </svg>
-            <div className="scale-bar" />
-            <span className="knob" />
-            <svg className="scale-icon-right" viewBox="0 0 64 64" fill="none" stroke="currentColor" strokeWidth="3" strokeLinejoin="round">
-              <path d="M32 6 54 15v17c0 16-10 26-22 30C20 58 10 48 10 32V15L32 6Z" />
-            </svg>
+        {/* ── Title ── */}
+        <div style={{ marginTop: 38, textAlign: 'center' }}>
+          <h1 style={{
+            margin: 0, fontSize: 78, fontWeight: 900, lineHeight: 0.96, letterSpacing: '-0.06em',
+            color: '#f1f5f9', textShadow: '0 6px 28px rgba(0,0,0,0.35)',
+          }}>{t.title}</h1>
+          <div style={{
+            marginTop: 18, color: '#22d3ee', fontSize: 36, fontWeight: 500,
+            letterSpacing: '-0.03em', textShadow: '0 0 16px rgba(34,211,238,0.2)',
+          }}>{t.subtitle}</div>
+          <div style={{
+            width: 600, height: 2, margin: '28px auto 0',
+            background: 'linear-gradient(90deg, transparent, #a78bfa, #22d3ee, transparent)',
+            boxShadow: '0 0 18px rgba(34,211,238,0.2)',
+          }} />
+        </div>
+
+        {/* ── Section 1: The Concept ── */}
+        <div style={{ marginTop: 34 }}>
+          <div style={{
+            textAlign: 'center', color: '#22d3ee', fontSize: 20, fontWeight: 900,
+            letterSpacing: '0.35em', textTransform: 'uppercase',
+          }}>01 · THE CONCEPT</div>
+          <div style={{ display: 'flex', gap: 22, marginTop: 22 }}>
+            {/* Positive */}
+            <div style={{
+              flex: 1, padding: '28px 26px', borderRadius: 16,
+              background: 'rgba(52,211,153,0.04)', border: '1px solid rgba(52,211,153,0.18)',
+              borderLeft: '4px solid #34d399', textAlign: 'center',
+            }}>
+              <div style={{
+                width: 62, height: 62, margin: '0 auto 16px', borderRadius: '50%',
+                background: 'rgba(52,211,153,0.08)', border: '1.5px solid rgba(52,211,153,0.3)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}>
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#34d399" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d={t.positiveIcon} /></svg>
+              </div>
+              <div style={{ color: '#34d399', fontSize: 24, fontWeight: 900, letterSpacing: '0.02em' }}>
+                {t.positiveLabel}
+              </div>
+              <div style={{ marginTop: 14, color: '#cbd5e1', fontSize: 19, lineHeight: 1.45, whiteSpace: 'pre-line', fontWeight: 500 }}>
+                {t.positiveCopy}
+              </div>
+            </div>
+            {/* Negative */}
+            <div style={{
+              flex: 1, padding: '28px 26px', borderRadius: 16,
+              background: 'rgba(248,113,113,0.04)', border: '1px solid rgba(248,113,113,0.18)',
+              borderLeft: '4px solid #f87171', textAlign: 'center',
+            }}>
+              <div style={{
+                width: 62, height: 62, margin: '0 auto 16px', borderRadius: '50%',
+                background: 'rgba(248,113,113,0.08)', border: '1.5px solid rgba(248,113,113,0.3)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}>
+                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#f87171" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d={t.negativeIcon} /></svg>
+              </div>
+              <div style={{ color: '#f87171', fontSize: 24, fontWeight: 900, letterSpacing: '0.02em' }}>
+                {t.negativeLabel}
+              </div>
+              <div style={{ marginTop: 14, color: '#cbd5e1', fontSize: 19, lineHeight: 1.45, whiteSpace: 'pre-line', fontWeight: 500 }}>
+                {t.negativeCopy}
+              </div>
+            </div>
           </div>
-          <div className="why-line">{t.whyLine}</div>
-        </section>
+        </div>
 
-        {/* SECTION 3: How To Read It */}
-        <section className="read-section">
-          <div className="section-title">03 · How To Read It</div>
-          <div className="read-stack">
+        {/* ── Section 2: Why It Matters ── */}
+        <div style={{ marginTop: 30 }}>
+          <div style={{
+            textAlign: 'center', color: '#22d3ee', fontSize: 20, fontWeight: 900,
+            letterSpacing: '0.35em', textTransform: 'uppercase',
+          }}>02 · WHY IT MATTERS</div>
+          {/* Spectrum bar */}
+          <div style={{ position: 'relative', margin: '22px auto 0', width: 780, height: 80 }}>
+            <span style={{ position: 'absolute', left: 0, top: 0, color: '#a855f7', fontSize: 18, fontWeight: 800, letterSpacing: '0.08em' }}>NEGATIVE</span>
+            <span style={{ position: 'absolute', left: '50%', top: 0, transform: 'translateX(-50%)', color: '#94a3b8', fontSize: 18, fontWeight: 800, letterSpacing: '0.08em' }}>NEUTRAL</span>
+            <span style={{ position: 'absolute', right: 0, top: 0, color: '#34d399', fontSize: 18, fontWeight: 800, letterSpacing: '0.08em' }}>POSITIVE</span>
+            <div style={{
+              position: 'absolute', left: 80, right: 80, top: 38, height: 14, borderRadius: 999,
+              background: 'linear-gradient(90deg, #a855f7 0%, #64748b 50%, #34d399 100%)',
+              boxShadow: '0 0 20px rgba(34,211,238,0.1)',
+            }} />
+            <div style={{
+              position: 'absolute', right: 60, top: 30, width: 30, height: 30, borderRadius: '50%',
+              border: '3px solid #d9ffe7', background: 'rgba(52,211,153,0.15)',
+              boxShadow: '0 0 20px rgba(52,211,153,0.6)',
+            }} />
+          </div>
+          <div style={{
+            marginTop: 14, textAlign: 'center', color: '#f1f5f9', fontSize: 22,
+            lineHeight: 1.4, fontStyle: 'italic', fontWeight: 500, whiteSpace: 'pre-line',
+          }}>{t.whyLine}</div>
+        </div>
+
+        {/* ── Section 3: How To Read It ── */}
+        <div style={{ marginTop: 28 }}>
+          <div style={{
+            textAlign: 'center', color: '#22d3ee', fontSize: 20, fontWeight: 900,
+            letterSpacing: '0.35em', textTransform: 'uppercase',
+          }}>03 · HOW TO READ IT</div>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginTop: 20 }}>
             {t.cards.map((card, i) => {
-              const cls = i === 0 ? 'green' : i === 1 ? 'amber' : 'red';
+              const colors = ['#34d399', '#fbbf24', '#f87171'];
+              const color = colors[i];
               const [boldPart, ...rest] = card.split(' = ');
               return (
-                <article key={i} className={`read-card ${cls}`}>
-                  <div className="read-icon">
-                    {i === 0 && <svg width="34" height="34" viewBox="0 0 34 34" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round"><path d="M17 4 29 9v10c0 9-5 14-12 17C10 33 5 28 5 19V9l12-5Z"/></svg>}
-                    {i === 1 && <svg width="34" height="34" viewBox="0 0 34 34" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="17" cy="17" r="11"/><circle cx="17" cy="17" r="4"/></svg>}
-                    {i === 2 && <svg width="34" height="34" viewBox="0 0 34 34" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round"><path d="M19 2 7 20h10l-1 12 12-20H18l1-10Z"/></svg>}
+                <div key={i} style={{
+                  display: 'flex', alignItems: 'center', gap: 16,
+                  padding: '16px 22px', borderRadius: 12,
+                  background: `${color}08`, border: `1px solid ${color}22`,
+                  borderLeft: `4px solid ${color}`,
+                }}>
+                  <div style={{
+                    width: 42, height: 42, borderRadius: '50%', flexShrink: 0,
+                    border: `1.5px solid ${color}`, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    color: color, filter: `drop-shadow(0 0 8px ${color})`,
+                  }}>
+                    {i === 0 && <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /></svg>}
+                    {i === 1 && <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="8" /><circle cx="12" cy="12" r="3" /></svg>}
+                    {i === 2 && <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" /></svg>}
                   </div>
-                  <div className="read-copy"><strong>{boldPart}</strong> = {rest.join(' = ')}</div>
-                </article>
+                  <div style={{ color: '#f1f5f9', fontSize: 20, fontWeight: 600, lineHeight: 1.3 }}>
+                    <strong style={{ color: color, fontWeight: 900 }}>{boldPart}</strong> = {rest.join(' = ')}
+                  </div>
+                </div>
               );
             })}
           </div>
-        </section>
+        </div>
 
-        {/* CTA */}
-        <footer className="cta">
-          <div className="save">Save this for your trading toolkit</div>
-          <div className="site">signumhq.com</div>
-          <div className="footer-brand">
-            <div className="small-logo">
-              <svg viewBox="0 0 64 64" fill="none" width="34" height="34">
-                <path d="M48 10H25C15 10 9 16 9 25c0 8 5 13 15 17l16 6c5 2 8 5 8 9 0 5-4 8-12 8H15" stroke="white" strokeWidth="11" strokeLinecap="round" strokeLinejoin="round" opacity="0.95" />
-                <path d="M48 10 37 21M16 54 28 43" stroke="white" strokeWidth="11" strokeLinecap="round" opacity="0.95" />
-              </svg>
-            </div>
-            <div className="small-word">SIGNUM HQ</div>
+        {/* ── Footer ── */}
+        <div style={{ marginTop: 'auto', paddingTop: 24 }}>
+          <div style={{ textAlign: 'center', color: '#cbd5e1', fontSize: 24, fontWeight: 500, marginBottom: 18 }}>
+            Save this for your trading toolkit
           </div>
-          <div className="disclaimer">Observation only — not financial advice</div>
-        </footer>
-      </main>
-    </>
+          <div style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 16,
+            padding: '18px 30px', borderRadius: 14,
+            background: 'linear-gradient(135deg, rgba(124,58,237,0.1), rgba(34,211,238,0.1))',
+            border: '1px solid rgba(124,58,237,0.2)',
+          }}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/icons/icon-192x192.png" alt="" width={42} height={42} style={{
+              filter: 'drop-shadow(0 0 12px rgba(34,211,238,0.2))',
+            }} />
+            <div style={{ width: 1, height: 32, background: 'linear-gradient(to bottom, transparent, rgba(34,211,238,0.5), transparent)' }} />
+            <span style={{ fontSize: 22, fontWeight: 800, letterSpacing: '0.12em' }}>SIGNUM HQ</span>
+            <span style={{ color: '#475569', fontSize: 18 }}>·</span>
+            <span style={{ color: '#22d3ee', fontSize: 22, fontWeight: 600 }}>signumhq.com</span>
+          </div>
+          <div style={{ marginTop: 14, textAlign: 'center', color: '#64748b', fontSize: 16, fontWeight: 500 }}>
+            Observation only — not financial advice
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
 

@@ -687,7 +687,7 @@ export async function GET(request: Request) {
             imageUrl: pinImage,
             title: seo.title,
             description: seo.description,
-            link: `${baseUrl}/intel-guardian?${buildUtm('pinterest', 'education')}`,
+            link: `${baseUrl}/how-it-works?${buildUtm('pinterest', 'education')}`,
             dryRun,
             draft,
           });
@@ -696,7 +696,7 @@ export async function GET(request: Request) {
 
         // Telegram (EN education)
         if (PLATFORM_ALLOW[action]?.has('telegram') && content.en?.text) {
-          const tgText = formatForTelegram(content.en.platformText?.threads || content.en.text, { channelLink: `${baseUrl}/intel-guardian?${buildUtm('telegram', 'education')}`, contentType: 'education' });
+          const tgText = formatForTelegram(content.en.platformText?.threads || content.en.text, { channelLink: `${baseUrl}/how-it-works?${buildUtm('telegram', 'education')}`, contentType: 'education' });
           const ogForTg = await captureImageForDispatch(baseUrl, content, 'en', 'tweet', 'education', dryRun);
           const r = await dispatchTelegram({ text: tgText, imageUrl: ogForTg, dryRun });
           results.push({ success: r.success, format: 'post', channel: 'telegram', service: 'telegram', lang: 'en', textPreview: 'telegram', postId: String(r.messageId || '') } as DispatchResult);
@@ -765,7 +765,7 @@ export async function GET(request: Request) {
             imageUrl: pinImage,
             title: seo.title,
             description: seo.description,
-            link: `${baseUrl}/intel-guardian?${buildUtm('pinterest', 'education')}`,
+            link: `${baseUrl}/how-it-works?${buildUtm('pinterest', 'education')}`,
             dryRun,
             draft,
           });
@@ -774,7 +774,7 @@ export async function GET(request: Request) {
 
         // Telegram (EN education variant)
         if (PLATFORM_ALLOW[action]?.has('telegram') && content.en?.text) {
-          const tgText = formatForTelegram(content.en.platformText?.threads || content.en.text, { channelLink: `${baseUrl}/intel-guardian?${buildUtm('telegram', 'education')}`, contentType: 'education' });
+          const tgText = formatForTelegram(content.en.platformText?.threads || content.en.text, { channelLink: `${baseUrl}/how-it-works?${buildUtm('telegram', 'education')}`, contentType: 'education' });
           const ogForTg = await captureImageForDispatch(baseUrl, content, 'en', 'tweet', 'education', dryRun);
           const r = await dispatchTelegram({ text: tgText, imageUrl: ogForTg, dryRun });
           results.push({ success: r.success, format: 'post', channel: 'telegram', service: 'telegram', lang: 'en', textPreview: 'telegram', postId: String(r.messageId || '') } as DispatchResult);
