@@ -32,18 +32,43 @@ export function buildCashtags(tickers?: string[]): string[] {
 // Priority: highest daily search volume + direct relevance
 // ---------------------------------------------------------------------------
 const X_TAGS: Record<ContentType, string[]> = {
-  pulse:     ['#Options', '#SP500'],             // 2.1M+  / 890K daily
-  morning:   ['#PreMarket', '#WallStreet'],      // 340K   / 1.2M
-  education: ['#OptionsTrading', '#Trading'],    // 1.5M   / 4.8M
-  event:     ['#Options', '#BreakingNews'],       // 1.5M   / 12M
-  midday:    ['#StockMarket', '#Trading'],        // 3.2M   / 4.8M
-  weekly:    ['#StockMarket', '#Investing'],      // 3.2M   / 2.1M
-  spotlight: ['#DarkPool', '#SmartMoney'],        // 420K   / 680K
-  premarket: ['#PreMarket', '#Futures'],          // 340K   / 290K
-  intraday:  ['#DayTrading', '#Options'],         // 1.8M   / 1.5M
-  close:     ['#StockMarket', '#SP500'],          // 3.2M   / 890K
-  briefing:  ['#PreMarket', '#StockMarket'],      // 340K   / 3.2M
-  spacex:    ['#SpaceXIPO', '#TSLA'],             // 🔥1.2M / 2.8M
+  pulse:     ['#Options', '#SP500'],
+  morning:   ['#PreMarket', '#WallStreet'],
+  education: ['#OptionsTrading', '#Trading'],
+  event:     ['#Options', '#BreakingNews'],
+  midday:    ['#StockMarket', '#Trading'],
+  weekly:    ['#StockMarket', '#Investing'],
+  spotlight: ['#DarkPool', '#SmartMoney'],
+  premarket: ['#PreMarket', '#Futures'],
+  intraday:  ['#DayTrading', '#Options'],
+  close:     ['#StockMarket', '#SP500'],
+  briefing:  ['#PreMarket', '#StockMarket'],
+  spacex:    ['#SpaceXIPO', '#TSLA'],
+};
+
+// Localized X tags — use native language tags for higher discovery in each market
+const X_TAGS_LOCALIZED: Record<Lang, Partial<Record<ContentType, string[]>>> = {
+  ko: {
+    close:     ['#미국주식', '#해외주식'],       // 2.1M / 1.5M on Korean fintwit
+    morning:   ['#미국주식', '#프리마켓'],
+    pulse:     ['#옵션거래', '#미국주식'],
+    midday:    ['#미국주식', '#주식투자'],
+    briefing:  ['#미국주식', '#프리마켓'],
+    education: ['#주식공부', '#옵션거래'],
+    spotlight: ['#다크풀', '#기관매매'],
+    intraday:  ['#미국주식', '#데이트레이딩'],
+  },
+  ja: {
+    close:     ['#米国株', '#株式投資'],          // 4M / 1.8M on Japanese fintwit
+    morning:   ['#米国株', '#プレマーケット'],
+    pulse:     ['#オプション取引', '#米国株'],
+    midday:    ['#米国株', '#デイトレード'],
+    briefing:  ['#米国株', '#プレマーケット'],
+    education: ['#株式投資', '#オプション取引'],
+    spotlight: ['#ダークプール', '#機関投資家'],
+    intraday:  ['#米国株', '#デイトレード'],
+  },
+  en: {}, // Use default X_TAGS for English
 };
 
 const X_EDUCATION_TOPIC_TAGS: Record<string, string[]> = {
@@ -243,10 +268,12 @@ export function getHashtags(opts: {
   switch (platform) {
     case 'twitter': {
       const cashtags = buildCashtags(tickers);
-      const hashtags = contentType === 'education' && educationTopic
-        ? (X_EDUCATION_TOPIC_TAGS[educationTopic] || X_TAGS.education)
-        : (X_TAGS[contentType] || []);
-      // 2026 X algorithm: max 2 hashtags to avoid spam detection
+      // Use localized tags when available, fallback to English
+      const localTags = X_TAGS_LOCALIZED[lang]?.[contentType];
+      const hashtags = localTags
+        || (contentType === 'education' && educationTopic
+          ? (X_EDUCATION_TOPIC_TAGS[educationTopic] || X_TAGS.education)
+          : (X_TAGS[contentType] || []));
       const limitedHashtags = hashtags.slice(0, 2);
       return [...cashtags, ...limitedHashtags].join(' ');
     }
