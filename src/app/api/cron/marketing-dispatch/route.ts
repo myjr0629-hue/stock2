@@ -1263,14 +1263,15 @@ for (const lang of langs) {
       // Special event-driven dispatch (manual or scheduled)
       // ========================================
       case 'spacex_spotlight': {
-        // Fetch live $TSLA data from Redis
-        const tslaRaw = await getFromCache('ticker:TSLA').catch(() => null);
+        // Fetch live $TSLA data from Redis (same key as spotlight)
+        const tslaRaw = await getFromCache('stockData:TSLA').catch(() => null);
         const tslaData = tslaRaw ? (typeof tslaRaw === 'string' ? JSON.parse(tslaRaw) : tslaRaw) : {};
-        const tslaPrice = tslaData?.price ?? tslaData?.last ?? 0;
-        const tslaChange = tslaData?.changePercent ?? tslaData?.changePct ?? 0;
-        const tslaDp = tslaData?.darkPoolPercent ?? tslaData?.dp ?? 0;
-        const tslaWhale = tslaData?.whaleIndex ?? tslaData?.smartFlow ?? 50;
-        const tslaGex = (tslaData?.gexRegime ?? tslaData?.gex ?? 'neutral').toLowerCase();
+        const tslaPrice = tslaData?.price || tslaData?.lastPrice || 0;
+        const tslaChange = tslaData?.changePct || tslaData?.pctChange || 0;
+        const tslaDp = tslaData?.darkPoolPct || tslaData?.dp || 0;
+        const tslaWhale = tslaData?.whaleIndex || tslaData?.smartFlow || 50;
+        const tslaGex = (tslaData?.gexRegime || tslaData?.gex || 'neutral').toLowerCase();
+        const tslaPremium = tslaData?.netPremium || tslaData?.premium || '';
 
         const hookIdx = new Date().getHours() % 3;
 
@@ -1326,9 +1327,10 @@ for (const lang of langs) {
           // Capture OG with real TSLA data
           let ogImage = '';
           if (!dryRun) {
+            const premFmt = typeof tslaPremium === 'number' ? `${tslaPremium >= 0 ? '+' : ''}$${Math.abs(tslaPremium / 1e6).toFixed(1)}M` : String(tslaPremium || '');
             const ogData = {
               dp: tslaDp, whale: String(tslaWhale), gex: tslaGex,
-              price: String(tslaPrice), change: tslaChange, date: dateKey,
+              price: String(tslaPrice), change: tslaChange, premium: premFmt, date: dateKey,
             };
             for (let att = 0; att < 3 && !ogImage; att++) {
               try {
