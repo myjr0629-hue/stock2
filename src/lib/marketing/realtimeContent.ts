@@ -32,12 +32,21 @@ export async function fetchLiveMarketData(locale: Lang = 'en'): Promise<LiveMark
   }
 
   // Dark Pool: fetch REAL data from EC2 ElastiCache → Polygon REST
+  // Fallback: last cached DP value from event-detect cron (survives off-hours)
   let dp = 0;
   try {
     const { fetchTradeData } = await import('@/services/realtimeMetricsService');
     const spyTrade = await fetchTradeData('SPY').catch(() => null);
     dp = spyTrade?.darkPoolPercent || 0;
   } catch { /* optional */ }
+  // Off-hours fallback: read last DP snapshot cached by event-detect cron
+  if (dp === 0) {
+    try {
+      const dpCached = await getFromCache('marketing:dp:latest:SPY').catch(() => null)
+        || await getFromCache('marketing:event:dp_spike:SPY').catch(() => null);
+      if (dpCached) dp = parseFloat(String(dpCached)) || 0;
+    } catch { /* optional */ }
+  }
 
   // Guardian AI tactical insight — the REAL analysis text from AI engine (all 3 locales)
   const verdicts: Record<string, { tactical: string; reality: string }> = {};
@@ -106,8 +115,11 @@ export function buildRealtimeText(
     ja: '*投資助言ではありません。データ分析の参考資料です。',
   };
 
-  // ── BLUESKY (≤300 char, data-first — NO disclaimer here; dispatch adds CTA+tags) ──
+  // ── BLUESKY (≤300 char, data-first — NO disclaimer; dispatch adds CTA+tags) ──
   if (plat === 'bluesky') {
+    // Truncate AI insight to fit Bluesky 300 char limit (header ~80 chars)
+    const bsInsight = m.tacticalInsight || '';
+    const bsTrunc = bsInsight.length > 180 ? bsInsight.slice(0, 177) + '...' : bsInsight;
     if (ct === 'premarket') {
       return `📊 Pre-Market Structure | ${m.date}\n\nVIX: ${m.vix.toFixed(1)} (${vd}${m.vixChg.toFixed(1)}%)\nGEX: ${G} — ${gM}\n\nStructural positioning observed before the open.`;
     }
@@ -115,13 +127,21 @@ export function buildRealtimeText(
       return `⚡ Intraday Structure Update\n\nSPY: ${sd}${m.spyChg.toFixed(2)}% | VIX: ${m.vix.toFixed(1)}\nGEX: ${G} | DP: ${dp}\n\nInstitutional flow shifting in real-time.`;
     }
     if (ct === 'structure') {
-      return `🏦 Mid-Session Structure | ${m.date}\n\nSPY: ${sd}${m.spyChg.toFixed(2)}%\nVIX: ${m.vix.toFixed(1)} | GEX: ${G}\nDark Pool: ${dp}\n\nWhere are dealers positioned right now?`;
+      return bsTrunc ? `🏦 Mid-Session | ${m.date}\n\nSPY ${sd}${m.spyChg.toFixed(2)}% | VIX ${m.vix.toFixed(1)} | DP ${dp}\n\n${bsTrunc}` : `🏦 Mid-Session Structure | ${m.date}\n\nSPY: ${sd}${m.spyChg.toFixed(2)}%\nVIX: ${m.vix.toFixed(1)} | GEX: ${G}\nDark Pool: ${dp}`;
     }
     if (ct === 'afterhours') {
-      return `📋 Session Debrief | ${m.date}\n\nSPY closed: ${sd}${m.spyChg.toFixed(2)}%\nVIX: ${m.vix.toFixed(1)} | GEX: ${G}\nDP: ${dp}\n\nStructure doesn't lie. Tomorrow's setup starts here.`;
+      return bsTrunc ? `📋 Session Debrief | ${m.date}\n\nSPY ${sd}${m.spyChg.toFixed(2)}% | VIX ${m.vix.toFixed(1)} | DP ${dp}\n\n${bsTrunc}` : `📋 Session Debrief | ${m.date}\n\nSPY closed: ${sd}${m.spyChg.toFixed(2)}%\nVIX: ${m.vix.toFixed(1)} | GEX: ${G} | DP: ${dp}`;
+    }
+    if (ct === 'recap') {
+      return bsTrunc ? `📊 Wall St Overnight | ${m.date}\n\nSPY ${sd}${m.spyChg.toFixed(2)}% | VIX ${m.vix.toFixed(1)} | DP ${dp}\n\n${bsTrunc}` : `📊 Overnight Recap | ${m.date}\n\nSPY: ${sd}${m.spyChg.toFixed(2)}% | VIX: ${m.vix.toFixed(1)}\nGEX: ${G} | DP: ${dp}`;
+    }
+    if (ct === 'asia_insight') {
+      const ri = m.realityInsight || bsInsight;
+      const riTrunc = ri.length > 200 ? ri.slice(0, 197) + '...' : ri;
+      return riTrunc ? `💡 Structure Insight\n\n${riTrunc}` : `💡 Structure Insight | ${m.date}\n\nVIX ${m.vix.toFixed(1)} | GEX: ${G} | DP: ${dp}`;
     }
     // close
-    return `🔔 Session Close | ${m.date}\n\nSPY: ${sd}${m.spyChg.toFixed(2)}% | VIX: ${m.vix.toFixed(1)}\nGEX: ${G} | DP: ${dp}\n\nInstitutional positioning data finalized.`;
+    return bsTrunc ? `🔔 Session Close | ${m.date}\n\nSPY ${sd}${m.spyChg.toFixed(2)}% | VIX ${m.vix.toFixed(1)} | DP ${dp}\n\n${bsTrunc}` : `🔔 Session Close | ${m.date}\n\nSPY: ${sd}${m.spyChg.toFixed(2)}% | VIX: ${m.vix.toFixed(1)}\nGEX: ${G} | DP: ${dp}\n\nInstitutional positioning data finalized.`;
   }
 
   // ── THREADS (≤500 char, conversational, engagement question) ──
@@ -261,10 +281,12 @@ ${disc.en}`;
     if (lang === 'ja') return `🌟 今夜の米国市場プレビュー\n\nオープンまで4時間。\n\n現在の構造:\n📊 VIX: ${m.vix.toFixed(1)} | GEX: ${G}\n🏦 DP: ${dp}\n\n今夜のシナリオは？\n\n→ signumhq.comで準備\n\n${disc.ja}`;
     return `🌟 Tonight's US market preview\n\n4 hours to open.\n\nCurrent structure:\n📊 VIX: ${m.vix.toFixed(1)} | GEX: ${G}\n🏦 Dark Pool: ${dp}\n\nWhat scenario are you expecting tonight?\n\n→ signumhq.com\n\n${disc.en}`;
   }
-  // close (threads)
-  if (lang === 'ko') return `장 마감 🔔\n\n오늘 구조가 보여준 것:\n📈 SPY: ${sd}${m.spyChg.toFixed(2)}%\n📊 VIX: ${m.vix.toFixed(1)}\n🏦 Dark Pool: ${dp}\n⚡ GEX: ${G}\n\n데이터는 예측하지 않지만, 기관의 포지셔닝을 드러냅니다.\n\n오늘 가장 인상적이었던 지표는? 👇\n\n${disc.ko}`;
-  if (lang === 'ja') return `セッション終了 🔔\n\n本日の構造:\n📈 SPY: ${sd}${m.spyChg.toFixed(2)}%\n📊 VIX: ${m.vix.toFixed(1)}\n🏦 Dark Pool: ${dp}\n⚡ GEX: ${G}\n\nデータは予測しませんが、機関のポジショニングを明らかにします。\n\n今日最も印象的だった指標は？ 👇\n\n${disc.ja}`;
-  return `Session wrap 🔔\n\nHere's what structure revealed today:\n📈 SPY: ${sd}${m.spyChg.toFixed(2)}%\n📊 VIX: ${m.vix.toFixed(1)}\n🏦 Dark Pool: ${dp}\n⚡ GEX: ${G}\n\nThe data doesn't predict, but it reveals positioning.\n\nWhat stood out to you today? 👇\n\n${disc.en}`;
+  // close (threads) — Guardian AI insight + data
+  const closeInsight = m.tacticalInsight || '';
+  const closeTrunc = closeInsight.length > 280 ? closeInsight.slice(0, 277) + '...' : closeInsight;
+  if (lang === 'ko') return closeTrunc ? `장 마감 🔔\n\nSPY ${sd}${m.spyChg.toFixed(2)}% | VIX ${m.vix.toFixed(1)} | DP ${dp}\n\n${closeTrunc}\n\n${disc.ko}` : `장 마감 🔔\n\n📈 SPY: ${sd}${m.spyChg.toFixed(2)}%\n📊 VIX: ${m.vix.toFixed(1)} | DP: ${dp} | GEX: ${G}\n\n${disc.ko}`;
+  if (lang === 'ja') return closeTrunc ? `セッション終了 🔔\n\nSPY ${sd}${m.spyChg.toFixed(2)}% | VIX ${m.vix.toFixed(1)} | DP ${dp}\n\n${closeTrunc}\n\n${disc.ja}` : `セッション終了 🔔\n\nSPY: ${sd}${m.spyChg.toFixed(2)}% | VIX: ${m.vix.toFixed(1)} | DP: ${dp} | GEX: ${G}\n\n${disc.ja}`;
+  return closeTrunc ? `Session Wrap 🔔\n\nSPY ${sd}${m.spyChg.toFixed(2)}% | VIX ${m.vix.toFixed(1)} | DP ${dp}\n\n${closeTrunc}\n\n${disc.en}` : `Session Wrap 🔔\n\nSPY: ${sd}${m.spyChg.toFixed(2)}% | VIX: ${m.vix.toFixed(1)} | DP: ${dp} | GEX: ${G}\n\n${disc.en}`;
 }
 
 // ---------------------------------------------------------------------------

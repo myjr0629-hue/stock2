@@ -508,6 +508,8 @@ async function fetchMarketContext(): Promise<Partial<MarketData>> {
       const tradeData = await fetchTradeData('SPY');
       if (tradeData && tradeData.darkPoolPercent > 0) {
         darkPool = tradeData.darkPoolPercent;
+        // Always cache latest DP for off-hours dispatch usage
+        await setInCache('marketing:dp:latest:SPY', String(darkPool), 86400);
       }
     } catch { /* optional */ }
 
