@@ -1443,11 +1443,11 @@ for (const lang of langs) {
           // X Thread (4 slides)
           const twitterCh = getChannels({ tier: 'all', lang, service: 'twitter' })[0];
           if (twitterCh) {
-            const tags = getHashtags({ platform: 'twitter', contentType: 'spotlight', lang, tickers: ['TSLA'] });
+            const tags = getHashtags({ platform: 'twitter', contentType: 'spacex', lang, tickers: ['TSLA'] });
             const lines = text.split('\n').filter(l => l.trim());
             const slides: { text: string; imageUrl?: string }[] = [];
             // Slide 1: Hook + image
-            slides.push({ text: `${tags} #SpaceXIPO\n\n${lines.slice(0, 2).join('\n')}`, imageUrl: ogImage || undefined });
+            slides.push({ text: `${tags}\n\n${lines.slice(0, 2).join('\n')}`, imageUrl: ogImage || undefined });
             // Slide 2: Data
             slides.push({ text: lines.slice(2, 6).join('\n') });
             // Slide 3: Meaning
@@ -1461,15 +1461,15 @@ for (const lang of langs) {
           // Bsky
           const bskyCh = getChannels({ tier: 'all', lang, service: 'bluesky' })[0];
           if (bskyCh) {
-            const tags = getHashtags({ platform: 'bluesky', contentType: 'spotlight', lang, tickers: ['TSLA'] });
-            const r = await dispatchPost({ channelId: bskyCh.id, text: truncateWithTags(text, `${tags} #SpaceXIPO`, 'bluesky'), imageUrl: ogImage, dryRun, draft });
+            const tags = getHashtags({ platform: 'bluesky', contentType: 'spacex', lang, tickers: ['TSLA'] });
+            const r = await dispatchPost({ channelId: bskyCh.id, text: truncateWithTags(text, tags, 'bluesky'), imageUrl: ogImage, dryRun, draft });
             results.push(r);
           }
 
           // Threads
           const threadsCh = getChannels({ tier: 'all', lang, service: 'threads' })[0];
           if (threadsCh) {
-            const tags = getHashtags({ platform: 'threads', contentType: 'spotlight', lang, tickers: ['TSLA'] });
+            const tags = getHashtags({ platform: 'threads', contentType: 'spacex', lang, tickers: ['TSLA'] });
             const r = await dispatchPost({ channelId: threadsCh.id, text: truncateWithTags(text, tags, 'threads'), imageUrl: ogImage, dryRun, draft });
             results.push(r);
           }
@@ -1488,12 +1488,13 @@ for (const lang of langs) {
               if (!pinImage && att < 2) await new Promise(r => setTimeout(r, 3000));
             }
           }
+          const pinSeo = getPinterestSEO({ contentType: 'spacex', date: dateKey, spyChange: tslaChange, gexRegime: tslaGex });
           const r = await dispatchPin({
             channelId: pinCh.id,
             imageUrl: pinImage,
-            title: `SpaceX IPO 2026: What $TSLA Dark Pool Data Reveals About Institutional Positioning`,
-            description: `SpaceX IPO analysis using $TSLA as a proxy. Dark Pool ${tslaDp}%, Smart Flow ${tslaWhale}/100, GEX ${tslaGex.toUpperCase()}. Institutional structure analysis by SIGNUM HQ. Not financial advice. #SpaceXIPO #TSLA #DarkPool #SignumHQ`,
-            link: `${baseUrl}/command?${buildUtm('pinterest', 'spacex_ipo')}`,
+            title: pinSeo.title || `SpaceX IPO 2026: What $TSLA Dark Pool Data Reveals — DP ${tslaDp > 0 ? tslaDp.toFixed(1) + '%' : 'N/A'}, Smart Flow ${tslaWhale}/100`,
+            description: `${pinSeo.description}`,
+            link: `${baseUrl}/dashboard?${buildUtm('pinterest', 'spacex_ipo')}`,
             dryRun, draft,
           });
           results.push(r);

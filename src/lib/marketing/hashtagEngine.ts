@@ -6,7 +6,7 @@
 // Pinterest: SEO 키워드 (title/description 최적화)
 // ============================================================================
 
-export type ContentType = 'pulse' | 'morning' | 'education' | 'event' | 'midday' | 'weekly' | 'spotlight' | 'premarket' | 'intraday' | 'close' | 'briefing';
+export type ContentType = 'pulse' | 'morning' | 'education' | 'event' | 'midday' | 'weekly' | 'spotlight' | 'premarket' | 'intraday' | 'close' | 'briefing' | 'spacex';
 export type Platform = 'twitter' | 'instagram' | 'threads' | 'bluesky' | 'pinterest';
 export type Lang = 'en' | 'ko' | 'ja';
 
@@ -38,6 +38,7 @@ const X_TAGS: Record<ContentType, string[]> = {
   intraday:  ['#MarketUpdate'],
   close:     ['#MarketClose'],
   briefing:  ['#MarketBriefing'],
+  spacex:    ['#SpaceXIPO'],
 };
 
 const X_EDUCATION_TOPIC_TAGS: Record<string, string[]> = {
@@ -108,6 +109,7 @@ const BLUESKY_TAGS: Record<ContentType, string[]> = {
   intraday:  ['#MarketUpdate', '#OptionsFlow'],
   close:     ['#MarketClose', '#MarketStructure'],
   briefing:  ['#MorningBriefing', '#MarketStructure'],
+  spacex:    ['#SpaceXIPO', '#DarkPool'],
 };
 
 // ---------------------------------------------------------------------------
@@ -174,6 +176,11 @@ const PINTEREST_SEO: Record<ContentType, PinterestSEO> = {
     titlePrefix: 'AI Morning Briefing',
     keywords: ['morning market briefing', 'pre-market analysis', 'RLSI risk index', 'institutional outlook', 'market structure'],
     hashtags: ['#MorningBriefing', '#PreMarket', '#StockMarket', '#MarketAnalysis', '#RLSI', '#SignumHQ'],
+  },
+  spacex: {
+    titlePrefix: 'SpaceX IPO 2026',
+    keywords: ['SpaceX IPO date', 'SpaceX IPO how to buy', 'TSLA SpaceX proxy', 'SpaceX S-1 filing', 'SpaceX valuation 2026', 'SpaceX dark pool data'],
+    hashtags: ['#SpaceXIPO', '#TSLA', '#SpaceX', '#DarkPool', '#IPO', '#InstitutionalFlow', '#SmartMoney', '#StockMarket', '#Investing', '#SignumHQ'],
   },
 };
 
