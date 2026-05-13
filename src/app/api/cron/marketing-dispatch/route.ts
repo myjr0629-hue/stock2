@@ -1284,50 +1284,71 @@ for (const lang of langs) {
         const tslaGex = (tslaAnalysis?.gexRegime ?? tslaAnalysis?.gex ?? 'neutral').toLowerCase();
         const tslaPremium = tslaAnalysis?.netPremium ?? '';
 
-        const hookIdx = new Date().getHours() % 3;
+        // Fetch SpaceX/TSLA news headlines from Polygon
+        const { fetchMassive: fetchPolygonNews } = await import('@/services/massiveClient');
+        let newsHeadlines: string[] = [];
+        try {
+          const newsData = await fetchPolygonNews('/v2/reference/news', { ticker: 'TSLA', limit: '5' }, true);
+          const articles = newsData?.results || [];
+          newsHeadlines = articles
+            .map((a: any) => a.title || '')
+            .filter((t: string) => t.length > 0);
+        } catch { /* news fetch optional */ }
+
+        // Find SpaceX-related headline or use TSLA headline
+        const spacexHeadline = newsHeadlines.find(h => /spacex|ipo|starship|starlink|musk.*space/i.test(h))
+          || newsHeadlines[0] || '';
+
+        const changeFmt = `${tslaChange >= 0 ? '+' : ''}${tslaChange.toFixed(2)}%`;
+        const changeDir = tslaChange >= 0 ? 'up' : 'down';
+        const dpSignal = tslaDp >= 40 ? 'elevated' : 'normal';
+        const flowSignal = tslaWhale >= 65 ? 'accumulation' : tslaWhale <= 35 ? 'distribution' : 'neutral';
 
         for (const lang of langs) {
-          // 5-Layer content: Hook → Data → Meaning → Implication → CTA
+          // Dynamic 5-Layer content based on REAL data + news
           const textMap: Record<string, string> = {
             en: [
-              [`🚀 SpaceX IPO — S-1 filing expected this week.\nBut here's what nobody is tracking:`,
-               `🚀 SpaceX IPO could be the largest in history ($1.75T).\nEvery trader is watching. But the smart money is already moving:`,
-               `🚀 SpaceX IPO is reshaping institutional positioning.\n$TSLA is the only public proxy. Here's what the structure shows:`][hookIdx],
+              spacexHeadline
+                ? `🚀 SpaceX × $TSLA Proxy Update\n📰 ${spacexHeadline}`
+                : `🚀 SpaceX IPO × $TSLA Proxy — Daily Structure Check`,
               '',
-              `▸ $TSLA Dark Pool: ${tslaDp}%`,
-              `▸ $TSLA Smart Flow: ${tslaWhale}/100`,
-              `▸ $TSLA GEX Regime: ${tslaGex.toUpperCase()}`,
+              `📊 $TSLA ${changeFmt} today ($${Number(tslaPrice).toFixed(2)})`,
+              `▸ Dark Pool: ${tslaDp > 0 ? `${tslaDp.toFixed(1)}%` : 'N/A'}${dpSignal === 'elevated' ? ' ⚡ Institutional activity elevated' : ''}`,
+              `▸ Smart Flow: ${tslaWhale}/100 (${flowSignal === 'accumulation' ? '📈 Accumulation pattern' : flowSignal === 'distribution' ? '📉 Distribution pattern' : '➡️ Neutral positioning'})`,
+              `▸ GEX Regime: ${tslaGex.toUpperCase()}`,
               '',
-              `$TSLA remains the primary SpaceX proxy.`,
-              `When institutions position in $TSLA ahead of a SpaceX catalyst, it reveals conviction level.`,
+              `$TSLA remains the primary public proxy for SpaceX exposure.`,
+              `${changeDir === 'down' ? 'Institutional positioning during pullbacks often reveals conviction.' : 'Momentum aligns with institutional flow direction.'}`,
               '',
               `Observation only — not financial advice.`,
             ].join('\n'),
             ko: [
-              [`🚀 SpaceX IPO — S-1 공개가 이번 주 예상됩니다.\n하지만 아무도 추적하지 않는 것이 있습니다:`,
-               `🚀 SpaceX IPO — 역사상 최대 ($1.75조) 상장 예정.\n모든 트레이더가 주목합니다. 하지만 스마트머니는 이미 움직이고 있습니다:`,
-               `🚀 SpaceX IPO가 기관 포지셔닝을 재편하고 있습니다.\n$TSLA가 유일한 프록시입니다. 구조가 보여주는 것:`][hookIdx],
+              spacexHeadline
+                ? `🚀 SpaceX × $TSLA 프록시 업데이트\n📰 ${spacexHeadline}`
+                : `🚀 SpaceX IPO × $TSLA 프록시 — 일일 구조 분석`,
               '',
-              `▸ $TSLA 다크풀: ${tslaDp}%`,
-              `▸ $TSLA 스마트 플로우: ${tslaWhale}/100`,
-              `▸ $TSLA GEX 레짐: ${tslaGex.toUpperCase()}`,
+              `📊 $TSLA 금일 ${changeFmt} ($${Number(tslaPrice).toFixed(2)})`,
+              `▸ 다크풀: ${tslaDp > 0 ? `${tslaDp.toFixed(1)}%` : 'N/A'}${dpSignal === 'elevated' ? ' ⚡ 기관 활동 활발' : ''}`,
+              `▸ 스마트 플로우: ${tslaWhale}/100 (${flowSignal === 'accumulation' ? '📈 매집 패턴' : flowSignal === 'distribution' ? '📉 분산 패턴' : '➡️ 중립'})`,
+              `▸ GEX 레짐: ${tslaGex.toUpperCase()}`,
               '',
-              `$TSLA는 SpaceX의 유일한 공개 프록시입니다.`,
-              `기관이 SpaceX 촉매제 앞에서 $TSLA에 포지셔닝할 때, 그것은 확신 수준을 보여줍니다.`,
+              `$TSLA는 SpaceX 노출의 유일한 공개 프록시입니다.`,
+              `${changeDir === 'down' ? '하락 구간에서의 기관 포지셔닝은 확신 수준을 보여줍니다.' : '모멘텀이 기관 흐름 방향과 일치합니다.'}`,
               '',
               `*본 정보는 투자 권유가 아닌 데이터 분석 참고 자료입니다.`,
             ].join('\n'),
             ja: [
-              [`🚀 SpaceX IPO — S-1提出が今週予想されています。\nしかし誰も追跡していないことがあります:`,
-               `🚀 SpaceX IPO — 史上最大（$1.75兆）の上場予定。\nすべてのトレーダーが注目。しかしスマートマネーはすでに動いています:`,
-               `🚀 SpaceX IPOが機関のポジショニングを再編しています。\n$TSLAが唯一のプロキシです。構造が示すもの:`][hookIdx],
+              spacexHeadline
+                ? `🚀 SpaceX × $TSLA プロキシ更新\n📰 ${spacexHeadline}`
+                : `🚀 SpaceX IPO × $TSLA プロキシ — デイリー構造分析`,
               '',
-              `▸ $TSLA ダークプール: ${tslaDp}%`,
-              `▸ $TSLA スマートフロー: ${tslaWhale}/100`,
-              `▸ $TSLA GEXレジーム: ${tslaGex.toUpperCase()}`,
+              `📊 $TSLA 本日 ${changeFmt} ($${Number(tslaPrice).toFixed(2)})`,
+              `▸ ダークプール: ${tslaDp > 0 ? `${tslaDp.toFixed(1)}%` : 'N/A'}${dpSignal === 'elevated' ? ' ⚡ 機関活動活発' : ''}`,
+              `▸ スマートフロー: ${tslaWhale}/100 (${flowSignal === 'accumulation' ? '📈 集積パターン' : flowSignal === 'distribution' ? '📉 分配パターン' : '➡️ 中立'})`,
+              `▸ GEXレジーム: ${tslaGex.toUpperCase()}`,
               '',
-              `$TSLAはSpaceXの唯一の公開プロキシです。`,
-              `機関がSpaceXの触媒前に$TSLAにポジションを取る時、それは確信度を示します。`,
+              `$TSLAはSpaceXエクスポージャーの唯一の公開プロキシです。`,
+              `${changeDir === 'down' ? '下落時の機関ポジショニングは確信度を示します。' : 'モメンタムが機関フロー方向と一致しています。'}`,
               '',
               `*投資助言ではありません。データ分析の参考資料です。`,
             ].join('\n'),
