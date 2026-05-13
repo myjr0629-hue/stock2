@@ -1771,11 +1771,11 @@ for (const lang of langs) {
           const cleanTactical = rawTactical.replace(/\[[^\]]+\]\s*/g, '').trim();
           const fgiRound = Math.round(mkt.fgi);
 
-          // ── X (Tweet) — max 280 chars (Twitter weighted count) ──
+          // ── X (Tweet) — max 280 weighted chars ──
+          // Build complete tweet directly, measure with Twitter weighted count, trim AI to fit
           const xCh = getFilteredChannels({ tier: 'all', lang, service: 'twitter' })[0];
           if (xCh) {
             const xTags = getHashtags({ platform: 'twitter', contentType: 'close', lang, tickers: ['SPY', 'QQQ'] });
-            // Build data-only base
             let xBase = '';
             if (lang === 'ko') {
               xBase = `🏁 미국 장마감\n\nS&P ${sd}${mkt.spyChg.toFixed(2)}% | NQ ${nd}${mkt.qqqChg.toFixed(2)}% | DOW ${dd}${mkt.diaChg.toFixed(2)}%\nVIX ${mkt.vix.toFixed(1)} | F&G ${fgiRound}`;
@@ -1784,26 +1784,40 @@ for (const lang of langs) {
             } else {
               xBase = `🏁 US Market Close\n\nS&P ${sd}${mkt.spyChg.toFixed(2)}% | NQ ${nd}${mkt.qqqChg.toFixed(2)}% | DOW ${dd}${mkt.diaChg.toFixed(2)}%\nVIX ${mkt.vix.toFixed(1)} | F&G ${fgiRound}`;
             }
-            // Use Twitter-weighted character counting
-            const footerFull = `\n\n${ctaUrl}\n\n${xTags}`;
-            const usedChars = twitterWeightedLength(xBase) + twitterWeightedLength(footerFull);
-            const available = 280 - usedChars - 5; // -5 for \n\n separator + safety
-            let xText = xBase;
-            if (available > 20 && cleanTactical.length > 0) {
-              // Truncate AI by available weighted chars (approx: CJK ~1.5x, but slice by char count)
-              const safeLen = Math.max(20, Math.floor(available * 0.7)); // conservative for CJK
-              const xAi = cleanTactical.length > safeLen ? cleanTactical.slice(0, safeLen - 3) + '...' : cleanTactical;
-              xText = `${xBase}\n\n${xAi}`;
+            const xFooter = `\n\n${ctaUrl}\n\n${xTags}`;
+            // Measure frame (base + footer) to know AI budget
+            const frameWeighted = twitterWeightedLength(xBase + xFooter);
+            const aiRoom = 280 - frameWeighted - 4; // -4 for \n\n before AI + safety
+
+            let xFinalText: string;
+            if (aiRoom > 40 && cleanTactical.length > 0) {
+              // Binary search for max AI chars that fit within aiRoom weighted
+              let lo = 0, hi = cleanTactical.length;
+              while (lo < hi) {
+                const mid = Math.floor((lo + hi + 1) / 2);
+                const sliced = cleanTactical.slice(0, mid) + (mid < cleanTactical.length ? '...' : '');
+                if (twitterWeightedLength(sliced) <= aiRoom) lo = mid;
+                else hi = mid - 1;
+              }
+              const trimmedAi = lo >= cleanTactical.length ? cleanTactical : cleanTactical.slice(0, lo) + '...';
+              xFinalText = `${xBase}\n\n${trimmedAi}${xFooter}`;
+            } else {
+              xFinalText = `${xBase}${xFooter}`;
+            }
+            // Final safety: if STILL over 280 (shouldn't happen), remove AI
+            if (twitterWeightedLength(xFinalText) > 280) {
+              xFinalText = `${xBase}${xFooter}`;
             }
             const xOg = await captureMarketCloseOG(baseUrl, mkt, 'tweet', dryRun);
             const r = await dispatchTweet({
               channelId: xCh.id,
-              text: truncateWithTags(xText, `\n\n${ctaUrl}\n\n${xTags}`, 'twitter'),
+              text: xFinalText,
               imageUrl: xOg,
               dryRun, draft,
             });
             results.push(r);
           }
+
 
 
 
