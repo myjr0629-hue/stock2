@@ -86,9 +86,6 @@
         },
 
 
-        {"_note": "=== MARKETING DISPATCH CRONS DISABLED — rebuilding one by one ==="},
-
-
         {
             "path": "/api/cron/event-detect?dry_run=false",
             "schedule": "*/5 13-21 * * 1-5"
