@@ -1255,7 +1255,7 @@ for (const lang of langs) {
           // X Thread
           const twitterCh = getChannels({ tier: 'all', lang, service: 'twitter' })[0];
           if (twitterCh) {
-            const tags = getHashtags({ platform: 'twitter', contentType: 'morning', lang });
+            const tags = getHashtags({ platform: 'twitter', contentType: 'briefing', lang });
             // Add $cashtags to first slide
             slides[0].text = `${tags}\n\n${slides[0].text}`;
             const r = await dispatchThread({
@@ -1269,7 +1269,7 @@ for (const lang of langs) {
           // Bluesky Thread
           const bskyCh = getChannels({ tier: 'all', lang, service: 'bluesky' })[0];
           if (bskyCh) {
-            const tags = getHashtags({ platform: 'bluesky', contentType: 'morning', lang });
+            const tags = getHashtags({ platform: 'bluesky', contentType: 'briefing', lang });
             const bskySlides = slides.map((s, i) => ({
               ...s,
               text: i === 0 ? `${tags}\n\n${s.text}` : s.text,

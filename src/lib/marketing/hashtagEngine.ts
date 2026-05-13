@@ -6,7 +6,7 @@
 // Pinterest: SEO 키워드 (title/description 최적화)
 // ============================================================================
 
-export type ContentType = 'pulse' | 'morning' | 'education' | 'event' | 'midday' | 'weekly' | 'spotlight' | 'premarket' | 'intraday' | 'close';
+export type ContentType = 'pulse' | 'morning' | 'education' | 'event' | 'midday' | 'weekly' | 'spotlight' | 'premarket' | 'intraday' | 'close' | 'briefing';
 export type Platform = 'twitter' | 'instagram' | 'threads' | 'bluesky' | 'pinterest';
 export type Lang = 'en' | 'ko' | 'ja';
 
@@ -37,6 +37,7 @@ const X_TAGS: Record<ContentType, string[]> = {
   premarket: ['#PreMarket', '#GEX'],
   intraday:  ['#MarketUpdate'],
   close:     ['#MarketClose'],
+  briefing:  ['#MarketBriefing'],
 };
 
 const X_EDUCATION_TOPIC_TAGS: Record<string, string[]> = {
@@ -106,6 +107,7 @@ const BLUESKY_TAGS: Record<ContentType, string[]> = {
   premarket: ['#PreMarket', '#MarketStructure'],
   intraday:  ['#MarketUpdate', '#OptionsFlow'],
   close:     ['#MarketClose', '#MarketStructure'],
+  briefing:  ['#MorningBriefing', '#MarketStructure'],
 };
 
 // ---------------------------------------------------------------------------
@@ -167,6 +169,11 @@ const PINTEREST_SEO: Record<ContentType, PinterestSEO> = {
     titlePrefix: 'Market Close Summary',
     keywords: ['market close summary', 'daily recap', 'institutional positioning', 'options flow'],
     hashtags: ['#MarketClose', '#DailyRecap', '#StockMarket', '#OptionsFlow', '#SignumHQ'],
+  },
+  briefing: {
+    titlePrefix: 'AI Morning Briefing',
+    keywords: ['morning market briefing', 'pre-market analysis', 'RLSI risk index', 'institutional outlook', 'market structure'],
+    hashtags: ['#MorningBriefing', '#PreMarket', '#StockMarket', '#MarketAnalysis', '#RLSI', '#SignumHQ'],
   },
 };
 
@@ -233,9 +240,10 @@ export function getHashtags(opts: {
       return buildInstagramHashtags(lang, contentType);
 
     case 'threads': {
-      // Same as Instagram but fewer (3~5)
+      // $cashtags + IG-style hashtags (3~5 total tags)
+      const cashtags = buildCashtags(tickers);
       const igTags = lang === 'ko' ? IG_TAGS_KO : lang === 'ja' ? IG_TAGS_JA : IG_TAGS_EN;
-      return [...igTags.tier2.slice(0, 3), ...igTags.tier3.slice(0, 2)].join(' ');
+      return [...cashtags, ...igTags.tier2.slice(0, 2), ...igTags.tier3.slice(0, 1)].join(' ');
     }
 
     case 'bluesky': {

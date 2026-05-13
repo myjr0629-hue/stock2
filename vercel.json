@@ -119,7 +119,7 @@
         },
         {
             "path": "/api/cron/marketing-dispatch?action=asia_tip&region=asia&dry_run=false",
-            "schedule": "30 7 * * 1-5"
+            "schedule": "30 7 * * 1,3,5"
         },
         {
             "path": "/api/cron/marketing-dispatch?action=asia_preview&region=asia&dry_run=false",
