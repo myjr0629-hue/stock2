@@ -27,31 +27,44 @@ function parseRedis(raw: any): any {
 
 // ── Full Cron Schedule — MUST match vercel.json exactly ──
 // vercel.json → cron schedule 1:1 매핑. 여기에 없으면 vercel에도 없음.
-// region: ALL = EN+KO+JA, EN = 영어만 (Bluesky/Pinterest = EN채널만), ASIA = KO+JA
+// region: ALL = EN+KO+JA, EN = 영어만, ASIA = KO+JA
 const CRON_SCHEDULE = [
   // ═══ Content Generation (4개) ═══
   { utc: '15:30', et: '11:30', kst: '00:30+1', action: 'daily-content-pulse-intraday', label: 'Pulse 콘텐츠 생성 (장중 Midday용)', type: 'content', region: 'ALL', days: 'Mon-Fri' },
   { utc: '20:25', et: '16:25', kst: '05:25+1', action: 'daily-content-pulse', label: 'Pulse 콘텐츠 생성 (장마감 확정)', type: 'content', region: 'ALL', days: 'Mon-Fri' },
   { utc: '20:40', et: '16:40', kst: '05:40+1', action: 'daily-content-morning', label: 'Morning 콘텐츠 생성 (장마감후)', type: 'content', region: 'ALL', days: 'Mon-Fri' },
   { utc: '23:30', et: '19:30', kst: '08:30+1', action: 'daily-content-edu', label: 'Education 콘텐츠 생성', type: 'content', region: 'ALL', days: 'Mon-Sat' },
-  // ═══ ACTIVE Dispatch — 10개 (일 50 포스트, 채널당 3~6) ═══
-  { utc: '10:30', et: '06:30', kst: '19:30', action: 'morning', label: 'Morning Brief → X(EN/KO/JA) + Bluesky(EN) + IG Story(EN/KO/JA) + Pinterest(EN)', type: 'dispatch', region: 'ALL', days: 'Mon-Fri' },
-  { utc: '10:35', et: '06:35', kst: '19:35', action: 'morning_ig', label: 'Morning → IG Carousel(EN) + Threads(EN)', type: 'dispatch', region: 'EN', days: 'Mon-Fri' },
-  { utc: '10:38', et: '06:38', kst: '19:38', action: 'morning_ig', label: 'Morning → IG Carousel(KO/JA) + Threads(KO/JA)', type: 'dispatch', region: 'ASIA', days: 'Mon-Fri' },
-  { utc: '11:30', et: '07:30', kst: '20:30', action: 'asia_evening', label: 'Asia Evening → Threads(KO/JA)', type: 'dispatch', region: 'ASIA', days: 'Mon-Fri' },
-  { utc: '12:35', et: '08:35', kst: '21:35', action: 'premarket_threads', label: 'Pre-Market → Threads(EN/KO/JA) + Pinterest(EN)', type: 'dispatch', region: 'ALL', days: 'Mon-Fri' },
-  { utc: '16:00', et: '12:00', kst: '01:00+1', action: 'midday', label: 'Midday → X(EN/KO/JA) + Bluesky(EN) + IG(EN/KO/JA) + Threads(EN/KO/JA) + Pinterest(EN)', type: 'dispatch', region: 'ALL', days: 'Mon-Fri' },
-  { utc: '20:35', et: '16:35', kst: '05:35+1', action: 'pulse', label: 'Pulse → X(EN/KO/JA) + Bluesky(EN) + IG Story(EN/KO/JA) + Pinterest(EN)', type: 'dispatch', region: 'ALL', days: 'Mon-Fri' },
-  { utc: '00:00', et: '20:00', kst: '09:00', action: 'education', label: 'Education → X Thread(EN/KO/JA) + Threads(EN/KO/JA) + Pinterest(EN)', type: 'dispatch', region: 'ALL', days: 'Tue-Sun' },
-  { utc: '02:00', et: '22:00', kst: '11:00', action: 'edu_bsky', label: 'Education → Bluesky(EN) + Pinterest(EN)', type: 'dispatch', region: 'EN', days: 'Tue-Sun' },
+  // ═══ DISPATCH — 23개 (실제 vercel.json 매칭) ═══
+  // --- Asia Session (KST 07:30~20:30) ---
+  { utc: '22:30', et: '18:30', kst: '07:30+1', action: 'midday', label: 'Midday → X+Bsky+IG+Threads+Pinterest', type: 'dispatch', region: 'ASIA', days: 'Mon-Fri' },
+  { utc: '23:00', et: '19:00', kst: '08:00+1', action: 'briefing_thread', label: 'Briefing Thread → X Thread', type: 'dispatch', region: 'ASIA', days: 'Mon-Fri' },
+  { utc: '23:30', et: '19:30', kst: '08:30+1', action: 'pulse', label: 'Pulse → X+Bsky+IG Story+Pinterest', type: 'dispatch', region: 'ASIA', days: 'Mon-Fri' },
+  { utc: '00:00', et: '20:00', kst: '09:00', action: 'education', label: 'Education → X Thread+Threads+Pinterest', type: 'dispatch', region: 'ALL', days: 'Tue-Sun' },
+  { utc: '01:00', et: '21:00', kst: '10:00', action: 'spotlight', label: 'Spotlight → X Thread+Bsky+Threads', type: 'dispatch', region: 'ASIA', days: 'Mon-Fri' },
+  { utc: '02:00', et: '22:00', kst: '11:00', action: 'edu_bsky', label: 'Education → Bluesky(EN)+Pinterest(EN)', type: 'dispatch', region: 'EN', days: 'Tue-Sun' },
   { utc: '02:30', et: '22:30', kst: '11:30', action: 'asia_recap', label: 'US Session Recap → Threads(KO/JA)', type: 'dispatch', region: 'ASIA', days: 'Tue-Sat' },
-  // ═══ RESERVED (Phase 2 — 팔로워 500+ 이후 순차 활성화) ═══
-  // spotlight×2, pulse_ig×2, close×2, afterhours×2, premarket_bsky,
-  // market_open, intraday_bsky, structure_bsky, insight_threads,
-  // asia_insight, asia_tip, asia_preview
-  // ═══ Other ═══
-  { utc: '21:00', et: '17:00', kst: '06:00+1', action: 'render-video', label: 'Remotion 영상 렌더링 (dry_run)', type: 'video', region: 'ALL', days: 'Mon-Fri' },
+  { utc: '04:00', et: '00:00', kst: '13:00', action: 'asia_insight', label: 'Asia Insight → Guardian AI 분석', type: 'dispatch', region: 'ASIA', days: 'Mon-Fri' },
+  { utc: '05:30', et: '01:30', kst: '14:30', action: 'spacex_spotlight', label: '🚀 SpaceX × $TSLA → News Pulse AI 분석', type: 'dispatch', region: 'ASIA', days: 'Mon-Fri' },
+  { utc: '07:30', et: '03:30', kst: '16:30', action: 'asia_tip', label: 'Asia Trading Tip → Threads(KO/JA)', type: 'dispatch', region: 'ASIA', days: 'Mon,Wed,Fri' },
+  { utc: '09:00', et: '05:00', kst: '18:00', action: 'asia_preview', label: 'US Session Preview → Threads(KO/JA)', type: 'dispatch', region: 'ASIA', days: 'Mon-Fri' },
+  // --- US Pre-Market → Close (KST 19:30~05:35) ---
+  { utc: '10:30', et: '06:30', kst: '19:30', action: 'morning', label: 'Morning Brief → X+Bsky+IG Story+Pinterest', type: 'dispatch', region: 'ALL', days: 'Mon-Fri' },
+  { utc: '10:35', et: '06:35', kst: '19:35', action: 'morning_ig', label: 'Morning → IG Carousel(EN)+Threads(EN)', type: 'dispatch', region: 'EN', days: 'Mon-Fri' },
+  { utc: '10:38', et: '06:38', kst: '19:38', action: 'morning_ig', label: 'Morning → IG Carousel(KO/JA)+Threads(KO/JA)', type: 'dispatch', region: 'ASIA', days: 'Mon-Fri' },
+  { utc: '11:00', et: '07:00', kst: '20:00', action: 'briefing_thread', label: 'Briefing Thread → X Thread(EN)', type: 'dispatch', region: 'EN', days: 'Mon-Fri' },
+  { utc: '11:30', et: '07:30', kst: '20:30', action: 'asia_evening', label: 'Asia Evening Wrap → Threads(KO/JA)', type: 'dispatch', region: 'ASIA', days: 'Mon-Fri' },
+  { utc: '12:35', et: '08:35', kst: '21:35', action: 'premarket_threads', label: 'Pre-Market → Threads+Pinterest', type: 'dispatch', region: 'ALL', days: 'Mon-Fri' },
+  { utc: '14:00', et: '10:00', kst: '23:00', action: 'spotlight', label: 'Spotlight → X Thread+Bsky+Threads', type: 'dispatch', region: 'EN', days: 'Mon-Fri' },
+  { utc: '15:00', et: '11:00', kst: '00:00+1', action: 'trending_spotlight', label: '📈 Trending Spotlight → AI 티커 분석', type: 'dispatch', region: 'ALL', days: 'Mon-Fri' },
+  { utc: '16:00', et: '12:00', kst: '01:00+1', action: 'midday', label: 'Midday → X+Bsky+IG+Threads+Pinterest', type: 'dispatch', region: 'EN', days: 'Mon-Fri' },
+  { utc: '17:00', et: '13:00', kst: '02:00+1', action: 'spacex_spotlight', label: '🚀 SpaceX × $TSLA → News Pulse AI 분석', type: 'dispatch', region: 'EN', days: 'Mon-Fri' },
+  { utc: '18:30', et: '14:30', kst: '03:30+1', action: 'trending_spotlight', label: '📈 Trending Spotlight → AI 티커 분석', type: 'dispatch', region: 'ALL', days: 'Mon-Fri' },
+  { utc: '20:35', et: '16:35', kst: '05:35+1', action: 'pulse', label: 'Pulse → X+Bsky+IG Story+Pinterest', type: 'dispatch', region: 'EN', days: 'Mon-Fri' },
+  // --- Weekend ---
+  { utc: '14:00', et: '10:00', kst: '23:00', action: 'weekly_recap', label: '📊 주간 요약 Thread → X+Threads', type: 'dispatch', region: 'ALL', days: 'Sat' },
+  // ═══ Event Detection & Video ═══
   { utc: '*/5 13-21', et: '09:00~17:00 5분', kst: '22:00~06:00 5분', action: 'event-detect', label: '이벤트 감지 (GEX/VIX/8-K/Sweep/DP/Insider/Fear)', type: 'event', region: 'ALL', days: 'Mon-Fri' },
+  { utc: '21:00', et: '17:00', kst: '06:00+1', action: 'render-video', label: 'Remotion 영상 렌더링 (dry_run)', type: 'video', region: 'ALL', days: 'Mon-Fri' },
 ];
 
 export async function GET(request: NextRequest) {
@@ -110,7 +123,11 @@ export async function GET(request: NextRequest) {
     // ══════════════════════════════════════════
     // 2. DISPATCH LOG — 최근 발송 기록
     // ══════════════════════════════════════════
-    const ACTIONS = ['morning', 'morning_ig', 'midday', 'education', 'edu_bsky', 'pulse', 'pulse_ig', 'event', 'spotlight'];
+    const ACTIONS = [
+      'morning', 'morning_ig', 'midday', 'education', 'edu_bsky', 'pulse', 'pulse_ig', 'event',
+      'spotlight', 'briefing_thread', 'premarket_threads', 'asia_evening', 'asia_recap',
+      'asia_insight', 'asia_tip', 'asia_preview', 'trending_spotlight', 'spacex_spotlight', 'weekly_recap',
+    ];
     const dispatchResults: any[] = [];
 
     // Check today and yesterday
@@ -253,10 +270,26 @@ export async function GET(request: NextRequest) {
     const utcHour = now.getUTCHours();
     const utcMin = now.getUTCMinutes();
     const utcTotal = utcHour * 60 + utcMin;
-    const dayOfWeek = now.getUTCDay(); // 0=Sun
-    const isWeekday = dayOfWeek >= 1 && dayOfWeek <= 5;
-    const isTueSat = dayOfWeek >= 2 || dayOfWeek === 6;
+    const dayOfWeek = now.getUTCDay(); // 0=Sun, 1=Mon ... 6=Sat
+    const DAY_MAP: Record<string, number> = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
 
+    function isDayApplicable(days: string): boolean {
+      // Handle ranges: "Mon-Fri", "Tue-Sun", "Tue-Sat"
+      if (days.includes('-') && !days.includes(',')) {
+        const [startStr, endStr] = days.split('-');
+        const start = DAY_MAP[startStr] ?? 1;
+        const end = DAY_MAP[endStr] ?? 5;
+        if (start <= end) return dayOfWeek >= start && dayOfWeek <= end;
+        // Wrap-around: Tue-Sun = 2,3,4,5,6,0
+        return dayOfWeek >= start || dayOfWeek <= end;
+      }
+      // Handle lists: "Mon,Wed,Fri"
+      if (days.includes(',')) {
+        return days.split(',').some(d => DAY_MAP[d.trim()] === dayOfWeek);
+      }
+      // Single day: "Sat"
+      return DAY_MAP[days] === dayOfWeek;
+    }
     const schedule = CRON_SCHEDULE.map(s => {
       // Parse UTC time
       let schedMin = -1;
@@ -268,7 +301,7 @@ export async function GET(request: NextRequest) {
       }
 
       // Check if applicable today
-      const applicableToday = s.days === 'Mon-Fri' ? isWeekday : isTueSat;
+      const applicableToday = isDayApplicable(s.days);
 
       // Status determination
       let status: 'DONE' | 'NEXT' | 'PENDING' | 'SKIPPED' | 'RECURRING';
