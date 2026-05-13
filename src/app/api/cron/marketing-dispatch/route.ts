@@ -1771,6 +1771,9 @@ for (const lang of langs) {
           const cleanTactical = cleanForMarketing(rawTactical);
           const fgiRound = Math.round(mkt.fgi);
 
+          // Capture OG image once per lang, reuse across all platforms
+          const ogImage = await captureMarketCloseOG(baseUrl, mkt, 'tweet', dryRun);
+
           // ── X (Tweet) — max 280 weighted chars ──
           // Build complete tweet directly, measure with Twitter weighted count, trim AI to fit
           const xCh = getFilteredChannels({ tier: 'all', lang, service: 'twitter' })[0];
@@ -1808,11 +1811,10 @@ for (const lang of langs) {
             if (twitterWeightedLength(xFinalText) > 280) {
               xFinalText = `${xBase}${xFooter}`;
             }
-            const xOg = await captureMarketCloseOG(baseUrl, mkt, 'tweet', dryRun);
             const r = await dispatchTweet({
               channelId: xCh.id,
               text: xFinalText,
-              imageUrl: xOg,
+              imageUrl: ogImage,
               dryRun, draft,
             });
             results.push(r);
@@ -1873,17 +1875,15 @@ for (const lang of langs) {
           }
 
           // ── Instagram Story — image-only (KO/JA) ──
+          // Reuse the OG image already captured for X tweet
           const igCh = getFilteredChannels({ tier: 'all', lang, service: 'instagram' })[0];
-          if (igCh) {
-            const storyOg = await captureMarketCloseOG(baseUrl, mkt, 'tweet', dryRun);
-            if (storyOg) {
-              const r = await dispatchStory({
-                channelId: igCh.id,
-                imageUrl: storyOg,
-                dryRun, draft,
-              });
-              results.push(r);
-            }
+          if (igCh && ogImage) {
+            const r = await dispatchStory({
+              channelId: igCh.id,
+              imageUrl: ogImage,
+              dryRun, draft,
+            });
+            results.push(r);
           }
         }
 
