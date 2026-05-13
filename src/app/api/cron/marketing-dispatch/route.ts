@@ -342,7 +342,7 @@ export async function GET(request: Request) {
             imageUrl: pinOg,
             title: seo.title,
             description: seo.description,
-            link: `${baseUrl}/command?${buildUtm('pinterest', 'morning')}`,
+            link: `${baseUrl}/intel-guardian?${buildUtm('pinterest', 'morning')}`,
             dryRun, draft,
           });
           results.push(r);
@@ -572,7 +572,7 @@ export async function GET(request: Request) {
             imageUrl: await captureImageForDispatch(baseUrl, content, 'en', 'pin', 'pulse', dryRun),
             title: seo.title,
             description: seo.description,
-            link: `${baseUrl}/command?${buildUtm('pinterest', 'midday')}`,
+            link: `${baseUrl}/intel-guardian?${buildUtm('pinterest', 'midday')}`,
             dryRun,
 
             draft,
@@ -582,7 +582,7 @@ export async function GET(request: Request) {
 
         // Telegram (EN midday pulse)
         if (PLATFORM_ALLOW[action]?.has('telegram') && content.en?.text) {
-          const tgText = formatForTelegram(content.en.text, { channelLink: `${baseUrl}/command?${buildUtm('telegram', 'midday')}`, contentType: 'midday' });
+          const tgText = formatForTelegram(content.en.text, { channelLink: `${baseUrl}/intel-guardian?${buildUtm('telegram', 'midday')}`, contentType: 'midday' });
           const ogForTg = await captureImageForDispatch(baseUrl, content, 'en', 'tweet', 'pulse', dryRun);
           const r = await dispatchTelegram({ text: tgText, imageUrl: ogForTg, dryRun });
           results.push({ success: r.success, format: 'post', channel: 'telegram', service: 'telegram', lang: 'en', textPreview: 'telegram', postId: String(r.messageId || '') } as DispatchResult);
@@ -686,7 +686,7 @@ export async function GET(request: Request) {
             imageUrl: pinImage,
             title: seo.title,
             description: seo.description,
-            link: `${baseUrl}/command?${buildUtm('pinterest', 'education')}`,
+            link: `${baseUrl}/intel-guardian?${buildUtm('pinterest', 'education')}`,
             dryRun,
             draft,
           });
@@ -695,7 +695,7 @@ export async function GET(request: Request) {
 
         // Telegram (EN education)
         if (PLATFORM_ALLOW[action]?.has('telegram') && content.en?.text) {
-          const tgText = formatForTelegram(content.en.platformText?.threads || content.en.text, { channelLink: `${baseUrl}/command?${buildUtm('telegram', 'education')}`, contentType: 'education' });
+          const tgText = formatForTelegram(content.en.platformText?.threads || content.en.text, { channelLink: `${baseUrl}/intel-guardian?${buildUtm('telegram', 'education')}`, contentType: 'education' });
           const ogForTg = await captureImageForDispatch(baseUrl, content, 'en', 'tweet', 'education', dryRun);
           const r = await dispatchTelegram({ text: tgText, imageUrl: ogForTg, dryRun });
           results.push({ success: r.success, format: 'post', channel: 'telegram', service: 'telegram', lang: 'en', textPreview: 'telegram', postId: String(r.messageId || '') } as DispatchResult);
@@ -764,7 +764,7 @@ export async function GET(request: Request) {
             imageUrl: pinImage,
             title: seo.title,
             description: seo.description,
-            link: `${baseUrl}/command?${buildUtm('pinterest', 'education')}`,
+            link: `${baseUrl}/intel-guardian?${buildUtm('pinterest', 'education')}`,
             dryRun,
             draft,
           });
@@ -773,7 +773,7 @@ export async function GET(request: Request) {
 
         // Telegram (EN education variant)
         if (PLATFORM_ALLOW[action]?.has('telegram') && content.en?.text) {
-          const tgText = formatForTelegram(content.en.platformText?.threads || content.en.text, { channelLink: `${baseUrl}/command?${buildUtm('telegram', 'education')}`, contentType: 'education' });
+          const tgText = formatForTelegram(content.en.platformText?.threads || content.en.text, { channelLink: `${baseUrl}/intel-guardian?${buildUtm('telegram', 'education')}`, contentType: 'education' });
           const ogForTg = await captureImageForDispatch(baseUrl, content, 'en', 'tweet', 'education', dryRun);
           const r = await dispatchTelegram({ text: tgText, imageUrl: ogForTg, dryRun });
           results.push({ success: r.success, format: 'post', channel: 'telegram', service: 'telegram', lang: 'en', textPreview: 'telegram', postId: String(r.messageId || '') } as DispatchResult);
@@ -854,7 +854,7 @@ export async function GET(request: Request) {
             imageUrl: await captureImageForDispatch(baseUrl, content, 'en', 'pin', 'pulse', dryRun),
             title: seo.title,
             description: seo.description,
-            link: `${baseUrl}/command?${buildUtm('pinterest', 'pulse')}`,
+            link: `${baseUrl}/intel-guardian?${buildUtm('pinterest', 'pulse')}`,
             dryRun,
 
             draft,
@@ -864,7 +864,7 @@ export async function GET(request: Request) {
 
         // Telegram (EN pulse summary)
         if (PLATFORM_ALLOW[action]?.has('telegram') && content.en?.text) {
-          const tgText = formatForTelegram(content.en.text, { channelLink: `${baseUrl}/command?${buildUtm('telegram', 'pulse')}`, contentType: 'pulse' });
+          const tgText = formatForTelegram(content.en.text, { channelLink: `${baseUrl}/intel-guardian?${buildUtm('telegram', 'pulse')}`, contentType: 'pulse' });
           const ogForTg = await captureImageForDispatch(baseUrl, content, 'en', 'tweet', 'pulse', dryRun);
           const r = await dispatchTelegram({ text: tgText, imageUrl: ogForTg, dryRun });
           results.push({ success: r.success, format: 'post', channel: 'telegram', service: 'telegram', lang: 'en', textPreview: 'telegram', postId: String(r.messageId || '') } as DispatchResult);
@@ -1108,7 +1108,7 @@ for (const lang of langs) {
             imageUrl: spotlightImages.og || spotlightImages.tweet || spotlightContent.en?.imageUrl || '',
             title: `${ticker} Dark Pool & Institutional Flow Spotlight`,
             description: seo.description,
-            link: `${baseUrl}/command?${buildUtm('pinterest', 'spotlight')}&ticker=${ticker}`,
+            link: `${baseUrl}/intel-guardian?${buildUtm('pinterest', 'spotlight')}&ticker=${ticker}`,
             dryRun,
 
             draft,
@@ -1118,7 +1118,7 @@ for (const lang of langs) {
 
         // Telegram (EN spotlight)
         if (PLATFORM_ALLOW[action]?.has('telegram') && spotlightContent.en?.text) {
-          const tgText = formatForTelegram(spotlightContent.en.text, { channelLink: `${baseUrl}/command?${buildUtm('telegram', 'spotlight')}&ticker=${ticker}`, contentType: 'spotlight' });
+          const tgText = formatForTelegram(spotlightContent.en.text, { channelLink: `${baseUrl}/intel-guardian?${buildUtm('telegram', 'spotlight')}&ticker=${ticker}`, contentType: 'spotlight' });
           const r = await dispatchTelegram({ text: tgText, imageUrl: spotlightImages.tweet || spotlightContent.en?.imageUrl || '', dryRun });
           results.push({ success: r.success, format: 'post', channel: 'telegram', service: 'telegram', lang: 'en', textPreview: 'telegram', postId: String(r.messageId || '') } as DispatchResult);
         }
@@ -1179,7 +1179,7 @@ for (const lang of langs) {
             imageUrl: pmOg,
             title: seo.title,
             description: seo.description,
-            link: `${baseUrl}/flow?${buildUtm('pinterest', 'premarket')}`,
+            link: `${baseUrl}/intel-guardian?${buildUtm('pinterest', 'premarket')}`,
             dryRun, draft,
           });
           results.push(r);
@@ -1187,7 +1187,7 @@ for (const lang of langs) {
 
         // Telegram (EN premarket)
         if (PLATFORM_ALLOW[action]?.has('telegram')) {
-          const tgText = formatForTelegram(buildRealtimeText('premarket', 'threads', 'en', mkt), { channelLink: `${baseUrl}/command?${buildUtm('telegram', 'premarket')}`, contentType: 'premarket' });
+          const tgText = formatForTelegram(buildRealtimeText('premarket', 'threads', 'en', mkt), { channelLink: `${baseUrl}/intel-guardian?${buildUtm('telegram', 'premarket')}`, contentType: 'premarket' });
           const tgOg = await captureRealtimeOG(baseUrl, mkt, 'tweet', dryRun);
           const r = await dispatchTelegram({ text: tgText, imageUrl: tgOg, dryRun });
           results.push({ success: r.success, format: 'post', channel: 'telegram', service: 'telegram', lang: 'en', textPreview: 'telegram', postId: String(r.messageId || '') } as DispatchResult);
@@ -1319,7 +1319,7 @@ for (const lang of langs) {
             imageUrl: insightOg,
             title: seo.title,
             description: seo.description,
-            link: `${baseUrl}/command?${buildUtm('pinterest', 'insight')}`,
+            link: `${baseUrl}/intel-guardian?${buildUtm('pinterest', 'insight')}`,
             dryRun, draft,
           });
           results.push(r);
@@ -1471,7 +1471,7 @@ for (const lang of langs) {
             imageUrl: ogImage,
             title: seo.title,
             description: seo.description,
-            link: `${baseUrl}/command?${buildUtm('pinterest', 'market_open')}`,
+            link: `${baseUrl}/intel-guardian?${buildUtm('pinterest', 'market_open')}`,
             dryRun, draft,
           });
           results.push(r);
@@ -1715,7 +1715,7 @@ for (const lang of langs) {
             imageUrl: pinImage,
             title: pinSeo.title || `SpaceX IPO 2026: What $TSLA Dark Pool Data Reveals — DP ${tslaDp > 0 ? tslaDp.toFixed(1) + '%' : 'N/A'}, Smart Flow ${tslaWhale}/100`,
             description: `${pinSeo.description}`,
-            link: `${baseUrl}/dashboard?${buildUtm('pinterest', 'spacex_ipo')}`,
+            link: `${baseUrl}/intel-guardian?${buildUtm('pinterest', 'spacex_ipo')}`,
             dryRun, draft,
           });
           results.push(r);
@@ -1735,7 +1735,7 @@ for (const lang of langs) {
             '',
             '*Observation only — not financial advice.',
           ].join('\n');
-          const tgText = formatForTelegram(tgSpaceXText, { channelLink: `${baseUrl}/dashboard?${buildUtm('telegram', 'spacex')}`, contentType: 'spacex' });
+          const tgText = formatForTelegram(tgSpaceXText, { channelLink: `${baseUrl}/intel-guardian?${buildUtm('telegram', 'spacex')}`, contentType: 'spacex' });
           // Capture a fresh OG for Telegram (tweet format)
           let tgOgImage = '';
           if (!dryRun) {
@@ -1866,7 +1866,7 @@ for (const lang of langs) {
             '',
             '*Observation only — not financial advice.',
           ].join('\n');
-          const tgText = formatForTelegram(tgWeekly, { channelLink: `${baseUrl}/command?${buildUtm('telegram', 'weekly')}`, contentType: 'weekly' });
+          const tgText = formatForTelegram(tgWeekly, { channelLink: `${baseUrl}/intel-guardian?${buildUtm('telegram', 'weekly')}`, contentType: 'weekly' });
           const r = await dispatchTelegram({ text: tgText, dryRun });
           results.push({ success: r.success, format: 'post', channel: 'telegram', service: 'telegram', lang: 'en', textPreview: 'telegram', postId: String(r.messageId || '') } as DispatchResult);
         }
@@ -2252,14 +2252,8 @@ function noContent(type: string, dateKey: string) {
 function buildCtaUrl(lang: Lang, page: string, campaign: string): string {
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://signumhq.com';
   const utm = buildUtm('social', campaign);
-  // Map old page names to actual existing routes
-  const routeMap: Record<string, string> = {
-    command: 'dashboard',
-    guardian: 'intel-guardian',
-    guide: 'how-it-works',
-  };
-  const actualPage = routeMap[page] || page;
-  return `${baseUrl}/${actualPage}?${utm}`;
+  // All CTA links → /intel-guardian (the single real landing page)
+  return `${baseUrl}/intel-guardian?${utm}`;
 }
 
 /**
