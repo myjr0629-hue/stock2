@@ -262,7 +262,7 @@ export async function GET(request: Request) {
           const igChMorning = getFilteredChannels({ tier: 'all', lang, service: 'instagram' })[0];
           if (igChMorning) {
             const storyParams = {
-              spy: String(mkt.spy), vix: String(mkt.vix),
+              spy: String(mkt.spyChg), vix: String(mkt.vix),
               gex: mkt.gex, dp: String(mkt.dp),
               date: mkt.date,
             };
