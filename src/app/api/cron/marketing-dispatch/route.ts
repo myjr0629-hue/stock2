@@ -52,6 +52,13 @@ function getLangsForRegion(region: Region): Lang[] {
   }
 }
 
+// M7 ticker → company name for OG templates
+const COMPANY_MAP: Record<string, string> = {
+  NVDA: 'NVIDIA Corp', TSLA: 'Tesla Inc', AAPL: 'Apple Inc',
+  MSFT: 'Microsoft Corp', GOOGL: 'Alphabet Inc', META: 'Meta Platforms',
+  AMZN: 'Amazon.com Inc', SPY: 'SPDR S&P 500 ETF', QQQ: 'Invesco QQQ Trust',
+};
+
 // ---------------------------------------------------------------------------
 // GET Handler
 // ---------------------------------------------------------------------------
@@ -1419,8 +1426,18 @@ for (const lang of langs) {
           const text = textMap[lang] || textMap.en;
           const ctaUrl = buildCtaUrl(lang, 'command', 'spotlight');
 
-          // Capture spotlight OG image
-          const spotlightParams = { t: ticker, dp: String(dp), whale: String(whaleIdx), price: String(price), change: String(change) };
+          // Capture spotlight OG image (full params for radar template)
+          const netPrem = tickerData?.netPremium || tickerData?.premium || '';
+          const spotlightParams: Record<string, string | number> = {
+            t: ticker,
+            price: String(price),
+            change: typeof change === 'number' ? change : 0,
+            dp: dpNum,
+            whale: String(whaleIdx),
+            gex: gex.toLowerCase(),
+            premium: typeof netPrem === 'number' ? `${netPrem >= 0 ? '+' : ''}$${Math.abs(netPrem / 1e6).toFixed(1)}M` : String(netPrem || ''),
+            date: dateKey,
+          };
           let ogImage = '';
           if (!dryRun) {
             try {

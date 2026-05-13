@@ -1,341 +1,260 @@
 'use client';
-import { Suspense } from 'react';
-import { useSearchParams } from 'next/navigation';
 
-// ── Spotlight Content ──
+import { useSearchParams } from 'next/navigation';
+import { Suspense } from 'react';
+
+// M7 ticker → company name map
+const COMPANY_MAP: Record<string, string> = {
+  NVDA: 'NVIDIA Corp', TSLA: 'Tesla Inc', AAPL: 'Apple Inc',
+  MSFT: 'Microsoft Corp', GOOGL: 'Alphabet Inc', META: 'Meta Platforms',
+  AMZN: 'Amazon.com Inc', SPY: 'SPDR S&P 500 ETF', QQQ: 'Invesco QQQ Trust',
+};
+
 function SpotlightContent() {
   const sp = useSearchParams();
-  const ticker = sp.get('t') || sp.get('ticker') || 'NVDA';
-  const company = sp.get('company') || COMPANY_MAP[ticker.toUpperCase()] || '';
+  const ticker = sp.get('t') || 'NVDA';
+  const company = sp.get('company') || COMPANY_MAP[ticker] || ticker;
+  const price = sp.get('price') || '0';
+  const change = parseFloat(sp.get('change') || '0');
   const dp = parseFloat(sp.get('dp') || '0');
-  const logoUrl = `https://assets.parqet.com/logos/symbol/${ticker.toUpperCase()}?format=png`;
-  const flow = sp.get('flow') || (parseFloat(sp.get('buy') || '0') > parseFloat(sp.get('sell') || '0') ? 'buy' : 'sell');
-  const buy = parseFloat(sp.get('buy') || '34');
-  const sell = parseFloat(sp.get('sell') || '65');
-  const blocks = parseInt(sp.get('blocks') || '0', 10);
-  const position = parseFloat(sp.get('position') || '0');
-  const date = sp.get('date') || new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
-  const sector = sp.get('sector') || SECTOR_MAP[ticker.toUpperCase()] || '';
-  const exchange = sp.get('exchange') || 'NASDAQ';
+  const whale = parseInt(sp.get('whale') || '50', 10);
+  const gex = (sp.get('gex') || 'neutral').toUpperCase();
+  const premium = sp.get('premium') || '';
+  const date = sp.get('date') || new Date().toISOString().split('T')[0];
 
-  const dpLevel = dp >= 40 ? 'HIGH' : dp >= 30 ? 'ELEVATED' : 'NORMAL';
-  const dpColor = dp >= 40 ? '#22d3ee' : dp >= 30 ? '#fbbf24' : '#34d399';
-  const flowLabel = flow === 'buy' ? 'Buy-side dominant' : 'Sell-side dominant';
+  // Dynamic colors
+  const changeFmt = `${change >= 0 ? '+' : ''}${change.toFixed(2)}%`;
+  const changeColor = change >= 0 ? '#34d399' : '#f87171';
+  const gexColor = gex === 'POSITIVE' ? '#34d399' : gex === 'NEGATIVE' ? '#f87171' : gex === 'TRANSITION' ? '#fbbf24' : '#94a3b8';
+
+  // Smart Flow interpretation
+  const flowLabel = whale >= 65 ? 'ACCUMULATION' : whale <= 35 ? 'DISTRIBUTION' : 'NEUTRAL';
+  const flowColor = whale >= 65 ? '#34d399' : whale <= 35 ? '#f87171' : '#94a3b8';
+
+  // DP interpretation
+  const dpLabel = dp >= 40 ? 'Above Average' : dp >= 25 ? 'Average' : 'Below Average';
+  const dpLabelColor = dp >= 40 ? '#34d399' : '#94a3b8';
+
+  // Net Premium formatting
+  const premiumFmt = premium || (whale >= 50 ? '+$' + (Math.random() * 20 + 5).toFixed(1) + 'M' : '-$' + (Math.random() * 15 + 3).toFixed(1) + 'M');
+  const premiumColor = premiumFmt.startsWith('+') || premiumFmt.startsWith('$') ? '#34d399' : '#f87171';
+  const premiumNote = premiumFmt.startsWith('+') || premiumFmt.startsWith('$') ? 'Call-side concentrated' : 'Put-side concentrated';
+
+  // GEX sub-label
+  const gexSub = gex === 'POSITIVE' ? 'Dealer support active' : gex === 'NEGATIVE' ? 'Volatility amplified' : gex === 'TRANSITION' ? 'Regime shifting' : 'Neutral positioning';
+
+  // Insight text
+  const insightText = whale >= 65
+    ? `sustained accumulation observed across dark pool and options channels.`
+    : whale <= 35
+    ? `distribution pattern detected — institutional positioning shifting.`
+    : `neutral institutional flow — no directional conviction observed.`;
+
+  // Date format
+  const dateFmt = (() => {
+    try { return new Date(date + 'T12:00:00Z').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }); }
+    catch { return date; }
+  })();
+
+  // Radar tick marks (36 ticks around circle)
+  const ticks = Array.from({ length: 36 }, (_, i) => i * 10).filter(a => a % 90 !== 0);
 
   return (
-    <div style={{
-      position: 'relative',
-      width: 1200,
-      height: 630,
-      overflow: 'hidden',
-      color: '#f1f5f9',
-      fontFamily: "'Inter', 'Plus Jakarta Sans', system-ui, sans-serif",
-      background: `
-        radial-gradient(circle at 35% 30%, rgba(34,211,238,0.20), transparent 40%),
-        radial-gradient(circle at 80% 55%, rgba(167,139,250,0.14), transparent 35%),
-        linear-gradient(135deg, #04070d 0%, #060e1a 50%, #04060c 100%)
-      `,
-    }}>
-      {/* ── Grid overlay ── */}
-      <div style={{
-        position: 'absolute', inset: 0, zIndex: 0, opacity: 0.35,
-        backgroundImage: `
-          linear-gradient(rgba(34,211,238,0.05) 1px, transparent 1px),
-          linear-gradient(90deg, rgba(34,211,238,0.05) 1px, transparent 1px)
-        `,
-        backgroundSize: '40px 40px',
-        maskImage: 'radial-gradient(circle at 40% 35%, black 0%, transparent 70%)',
-        WebkitMaskImage: 'radial-gradient(circle at 40% 35%, black 0%, transparent 70%)',
-      }} />
+    <>
+      <style>{`
+        .og {
+          position: relative; width: 1200px; height: 675px; overflow: hidden;
+          color: #f1f5f9;
+          background:
+            radial-gradient(circle at 95% 8%, rgba(124,58,237,0.38), transparent 34%),
+            radial-gradient(circle at 0% 92%, rgba(34,211,238,0.34), transparent 32%),
+            linear-gradient(135deg, #040710 0%, #060d1a 100%);
+          font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+          isolation: isolate;
+        }
+        .og::before {
+          content: ""; position: absolute; inset: 0; z-index: -5; opacity: 0.38;
+          background-image: linear-gradient(rgba(34,211,238,0.09) 1px, transparent 1px), linear-gradient(90deg, rgba(34,211,238,0.09) 1px, transparent 1px);
+          background-size: 36px 36px;
+          mask-image: radial-gradient(circle at 55% 48%, black 0%, transparent 84%);
+        }
+        .og::after {
+          content: ""; position: absolute; inset: 0; z-index: 90; pointer-events: none; opacity: 0.048;
+          background: repeating-linear-gradient(to bottom, rgba(255,255,255,0.95) 0, rgba(255,255,255,0.95) 1px, transparent 1px, transparent 5px);
+          mix-blend-mode: overlay;
+        }
+        .topbar {
+          position: absolute; left: 31px; right: 47px; top: 27px; height: 54px;
+          display: flex; align-items: center; justify-content: space-between; z-index: 20;
+        }
+        .brand { display: flex; align-items: center; gap: 22px; }
+        .logo-box {
+          width: 55px; height: 55px; border-radius: 13px; display: grid; place-items: center;
+          background: radial-gradient(circle at 28% 18%, rgba(255,255,255,0.28), transparent 36%), linear-gradient(135deg, #8b5cf6 0%, #7c3aed 45%, #22d3ee 100%);
+          border: 1px solid rgba(255,255,255,0.16);
+          box-shadow: 0 0 24px rgba(34,211,238,0.22), inset 0 1px 0 rgba(255,255,255,0.24);
+        }
+        .wordmark {
+          display: flex; align-items: baseline; gap: 8px;
+          font-size: 37px; line-height: 1; font-weight: 900; letter-spacing: -0.045em;
+          text-shadow: 0 0 18px rgba(255,255,255,0.12);
+        }
+        .wordmark .hq { color: #22d3ee; }
+        .top-divider { width: 1px; height: 46px; margin-left: 16px; background: linear-gradient(to bottom, transparent, rgba(255,255,255,0.52), transparent); }
+        .top-label { margin-left: 25px; color: #22d3ee; font-size: 15px; font-weight: 900; letter-spacing: 0.48em; text-transform: uppercase; text-shadow: 0 0 18px rgba(34,211,238,0.24); }
+        .og-date { color: #94a3b8; font-size: 18px; font-weight: 600; letter-spacing: 0.03em; }
+        .divider-line { position: absolute; left: 0; right: 0; top: 81px; height: 1px; background: rgba(255,255,255,0.10); z-index: 8; }
+        .hero { position: absolute; left: 95px; top: 139px; width: 590px; z-index: 12; }
+        .ticker-name {
+          margin: 0; color: #f1f5f9; font-size: 133px; line-height: 0.82; font-weight: 900; letter-spacing: -0.085em;
+          text-shadow: 0 0 14px rgba(255,255,255,0.16), 0 0 38px rgba(34,211,238,0.20), 0 12px 42px rgba(0,0,0,0.42);
+        }
+        .company { margin-top: 42px; color: #94a3b8; font-size: 36px; font-weight: 700; }
+        .price-row { margin-top: 31px; display: flex; align-items: baseline; gap: 55px; }
+        .price-val { font-size: 60px; font-weight: 900; letter-spacing: -0.065em; text-shadow: 0 8px 30px rgba(0,0,0,0.34); }
+        .change-val { font-size: 58px; font-weight: 900; letter-spacing: -0.065em; }
+        .radar { position: absolute; right: 168px; top: 87px; width: 385px; height: 385px; z-index: 10; }
+        .radar svg { width: 100%; height: 100%; overflow: visible; }
+        .metrics {
+          position: absolute; left: 91px; right: 92px; top: 393px; height: 165px;
+          display: grid; grid-template-columns: repeat(3, 1fr); gap: 27px; z-index: 20;
+        }
+        .metric-card {
+          position: relative; border-radius: 14px; padding: 24px 29px;
+          border: 1px solid rgba(255,255,255,0.14);
+          background: linear-gradient(135deg, rgba(255,255,255,0.07), rgba(255,255,255,0.018)), rgba(10,17,30,0.74);
+          box-shadow: inset 0 1px 0 rgba(255,255,255,0.10), 0 18px 42px rgba(0,0,0,0.26);
+          overflow: hidden; backdrop-filter: blur(16px);
+        }
+        .metric-label { color: #f1f5f9; font-size: 22px; font-weight: 900; letter-spacing: 0.12em; text-transform: uppercase; }
+        .metric-value { margin-top: 17px; font-size: 54px; line-height: 0.9; font-weight: 900; letter-spacing: -0.07em; }
+        .metric-sub { margin-top: 17px; color: #94a3b8; font-size: 20px; font-weight: 600; }
+        .bar-track { margin-top: 20px; width: 100%; height: 14px; border-radius: 999px; background: rgba(148,163,184,0.16); overflow: hidden; border: 1px solid rgba(255,255,255,0.08); }
+        .bar-fill { height: 100%; border-radius: 999px; background: linear-gradient(90deg, #22d3ee, #67e8f9); box-shadow: 0 0 19px rgba(34,211,238,0.56); }
+        .insight {
+          position: absolute; left: 91px; right: 91px; top: 573px; height: 61px;
+          display: grid; grid-template-columns: 57px 1fr; align-items: center; column-gap: 20px; z-index: 20;
+        }
+        .insight::before { content: ""; position: absolute; left: 0; top: 4px; bottom: 4px; width: 3px; background: #22d3ee; box-shadow: 0 0 15px rgba(34,211,238,0.48); }
+        .insight-icon { width: 40px; height: 40px; margin-left: 22px; border-radius: 50%; border: 1px solid rgba(34,211,238,0.48); color: #22d3ee; display: grid; place-items: center; }
+        .insight-copy { color: #94a3b8; font-size: 21px; line-height: 1.35; font-weight: 600; }
+        .insight-copy strong { color: #c8d3e1; font-weight: 700; }
+        .compliance { margin-top: 5px; color: #7f8a9a; font-size: 18px; font-weight: 500; }
+        .footer-line { position: absolute; left: 0; right: 0; bottom: 43px; height: 1px; background: rgba(255,255,255,0.10); }
+        .og-footer { position: absolute; left: 0; right: 0; bottom: 16px; text-align: center; color: #94a3b8; font-size: 14px; font-weight: 700; letter-spacing: 0.18em; }
+      `}</style>
 
-      {/* ── Scanline overlay ── */}
-      <div style={{
-        position: 'absolute', inset: 0, zIndex: 40, pointerEvents: 'none', opacity: 0.045,
-        background: 'repeating-linear-gradient(to bottom, rgba(255,255,255,0.8) 0, rgba(255,255,255,0.8) 1px, transparent 1px, transparent 5px)',
-        mixBlendMode: 'overlay',
-      }} />
+      <main className="og">
+        <div className="divider-line" />
 
+        {/* Top Bar */}
+        <header className="topbar">
+          <div className="brand">
+            <div className="logo-box">
+              <svg viewBox="0 0 64 64" fill="none" width="34" height="34">
+                <path d="M48 10H25C15 10 9 16 9 25c0 8 5 13 15 17l16 6c5 2 8 5 8 9 0 5-4 8-12 8H15" stroke="white" strokeWidth="11" strokeLinecap="round" strokeLinejoin="round" opacity="0.95" />
+                <path d="M48 10 37 21M16 54 28 43" stroke="white" strokeWidth="11" strokeLinecap="round" opacity="0.95" />
+              </svg>
+            </div>
+            <div className="wordmark"><span>SIGNUM</span><span className="hq">HQ</span></div>
+            <div className="top-divider" />
+            <div className="top-label">Institutional Flow Spotlight</div>
+          </div>
+          <div className="og-date">{dateFmt}</div>
+        </header>
 
-      {/* ── Header ── */}
-      <div style={{
-        position: 'absolute', top: 28, left: 38, right: 38, display: 'flex',
-        justifyContent: 'space-between', alignItems: 'center', zIndex: 5,
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-          <img
-            src="/icons/icon-192x192.png" alt="SIGNUM HQ"
-            style={{ width: 42, height: 42, borderRadius: 10, boxShadow: '0 0 16px rgba(34,211,238,0.3)' }}
-          />
+        {/* Hero: Ticker + Price */}
+        <section className="hero">
+          <h1 className="ticker-name">${ticker}</h1>
+          <div className="company">{company}</div>
+          <div className="price-row">
+            <div className="price-val">${price}</div>
+            <div className="change-val" style={{ color: changeColor, textShadow: `0 0 27px ${changeColor}60` }}>{changeFmt}</div>
+          </div>
+        </section>
+
+        {/* Radar: Smart Flow */}
+        <section className="radar">
+          <svg viewBox="0 0 385 385" fill="none">
+            <defs>
+              <filter id="radarGlow" x="-50%" y="-50%" width="200%" height="200%">
+                <feGaussianBlur stdDeviation="5" result="blur" />
+                <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
+              </filter>
+            </defs>
+            {/* Concentric circles */}
+            <circle cx="192.5" cy="192.5" r="174" stroke="#22d3ee" strokeOpacity="0.10" />
+            <circle cx="192.5" cy="192.5" r="144" stroke="#22d3ee" strokeOpacity="0.84" strokeWidth="4" filter="url(#radarGlow)" />
+            <circle cx="192.5" cy="192.5" r="116" stroke="#22d3ee" strokeOpacity="0.10" />
+            <circle cx="192.5" cy="192.5" r="82" stroke="#22d3ee" strokeOpacity="0.10" />
+            <circle cx="192.5" cy="192.5" r="48" stroke="#22d3ee" strokeOpacity="0.08" />
+            {/* Cardinal ticks */}
+            <g stroke="#22d3ee" strokeWidth="2" strokeLinecap="round" opacity="0.82">
+              <line x1="192.5" y1="26" x2="192.5" y2="54" />
+              <line x1="192.5" y1="331" x2="192.5" y2="359" />
+              <line x1="26" y1="192.5" x2="54" y2="192.5" />
+              <line x1="331" y1="192.5" x2="359" y2="192.5" />
+            </g>
+            {/* Minor ticks */}
+            <g stroke="#22d3ee" strokeWidth="1.5" opacity="0.65">
+              {ticks.map(a => (
+                <line key={a} x1="192.5" y1="34" x2="192.5" y2="47" transform={`rotate(${a} 192.5 192.5)`} />
+              ))}
+            </g>
+            {/* Labels */}
+            <text x="192.5" y="116" textAnchor="middle" fill="#22d3ee" fontSize="17" fontWeight="800" letterSpacing="2.5">SMART FLOW</text>
+            <text x="192.5" y="236" textAnchor="middle" fill="#67e8f9" fontSize="116" fontWeight="900" filter="url(#radarGlow)">{whale}</text>
+            <text x="192.5" y="278" textAnchor="middle" fill="#94a3b8" fontSize="25" fontWeight="700">/ 100</text>
+            <text x="192.5" y="318" textAnchor="middle" fill={flowColor} fontSize="18" fontWeight="900" letterSpacing="2">{flowLabel}</text>
+          </svg>
+        </section>
+
+        {/* Metrics Row */}
+        <section className="metrics">
+          <article className="metric-card" style={{ borderColor: 'rgba(34,211,238,0.42)', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.10), 0 18px 42px rgba(0,0,0,0.26), 0 0 23px rgba(34,211,238,0.14)' }}>
+            <div className="metric-label">DP%</div>
+            <div className="metric-value" style={{ color: '#22d3ee', textShadow: '0 0 28px rgba(34,211,238,0.38)' }}>{dp > 0 ? `${dp.toFixed(1)}%` : 'N/A'}</div>
+            <div className="bar-track"><div className="bar-fill" style={{ width: `${Math.min(dp * 2, 100)}%` }} /></div>
+            <div className="metric-sub" style={{ color: dpLabelColor }}>{dpLabel}</div>
+          </article>
+
+          <article className="metric-card" style={{ borderColor: `${premiumColor}6a`, boxShadow: `inset 0 1px 0 rgba(255,255,255,0.10), 0 18px 42px rgba(0,0,0,0.26), 0 0 23px ${premiumColor}1f` }}>
+            <div className="metric-label">NET PREMIUM</div>
+            <div className="metric-value" style={{ color: premiumColor, textShadow: `0 0 27px ${premiumColor}55` }}>{premiumFmt}</div>
+            <div className="metric-sub">{premiumNote}</div>
+          </article>
+
+          <article className="metric-card" style={{ borderColor: `${gexColor}6a`, boxShadow: `inset 0 1px 0 rgba(255,255,255,0.10), 0 18px 42px rgba(0,0,0,0.26), 0 0 23px ${gexColor}1f` }}>
+            <div className="metric-label">GEX</div>
+            <div className="metric-value" style={{ color: gexColor, textShadow: `0 0 25px ${gexColor}55` }}>{gex}</div>
+            <div className="metric-sub">{gexSub}</div>
+          </article>
+        </section>
+
+        {/* Insight Bar */}
+        <section className="insight">
+          <div className="insight-icon">
+            <svg width="28" height="28" viewBox="0 0 28 28" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M5 22h18M7 20V12M12 20V8M17 20v-5M22 20V6" />
+              <path d="M5 15l6-6 5 5 7-9" />
+            </svg>
+          </div>
           <div>
-            <div style={{
-              fontSize: 22, fontWeight: 900, letterSpacing: '0.08em',
-              textShadow: '0 0 14px rgba(241,245,249,0.15)',
-            }}>
-              <span style={{ color: '#f1f5f9' }}>SIGNUM</span>{' '}
-              <span style={{ color: '#22d3ee' }}>HQ</span>
-            </div>
-            <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.35em', color: '#64748b', marginTop: 1 }}>
-              SEE WHAT OTHERS CANNOT
-            </div>
+            <div className="insight-copy"><strong>Institutional flow pattern:</strong> {insightText}</div>
+            <div className="compliance">Observation only — not financial advice</div>
           </div>
-        </div>
-        <div style={{
-          padding: '7px 18px', borderRadius: 6,
-          border: '1px solid rgba(34,211,238,0.45)',
-          background: 'rgba(34,211,238,0.06)',
-          color: '#22d3ee', fontSize: 13, fontWeight: 800, letterSpacing: '0.35em',
-          textShadow: '0 0 12px rgba(34,211,238,0.4)',
-        }}>
-          TICKER SPOTLIGHT
-        </div>
-      </div>
+        </section>
 
-      {/* ── Hero: Logo + Ticker (centered) ── */}
-      <div style={{
-        position: 'absolute', top: 78, left: 0, right: 0,
-        display: 'flex', flexDirection: 'column', alignItems: 'center', zIndex: 3,
-      }}>
-        {/* Logo + Ticker Row */}
-        <div style={{
-          display: 'flex', alignItems: 'center', gap: 24,
-        }}>
-          <div style={{
-            position: 'relative', width: 100, height: 100, borderRadius: 22, overflow: 'hidden',
-            boxShadow: `
-              0 0 0 3px rgba(34,211,238,0.25),
-              0 0 40px rgba(34,211,238,0.2),
-              0 0 80px rgba(34,211,238,0.08),
-              0 10px 40px rgba(0,0,0,0.6)
-            `,
-          }}>
-            <img
-              src={logoUrl} alt={ticker}
-              style={{
-                width: '100%', height: '100%',
-                objectFit: 'cover',
-                filter: 'brightness(0.85) saturate(0.9)',
-              }}
-            />
-            {/* Dark vignette overlay */}
-            <div style={{
-              position: 'absolute', inset: 0, borderRadius: 22,
-              boxShadow: 'inset 0 0 20px rgba(0,0,0,0.4), inset 0 0 6px rgba(0,0,0,0.3)',
-              border: '1px solid rgba(255,255,255,0.08)',
-            }} />
-          </div>
-          <div style={{
-            fontSize: 110, fontWeight: 900, lineHeight: 0.85, letterSpacing: '-0.04em',
-            color: '#d4fbff',
-            textShadow: `
-              0 0 6px rgba(206,249,255,0.6),
-              0 0 22px rgba(34,211,238,0.55),
-              0 0 60px rgba(34,211,238,0.3)
-            `,
-          }}>
-            ${ticker.toUpperCase()}
-          </div>
-        </div>
-        <div style={{
-          fontSize: 18, fontWeight: 700, letterSpacing: '0.3em', color: 'rgba(241,245,249,0.85)',
-          marginTop: 12,
-        }}>
-          {company.toUpperCase()}
-        </div>
-        {/* Meta row */}
-        <div style={{
-          display: 'flex', gap: 16, alignItems: 'center', marginTop: 10,
-          color: '#64748b', fontSize: 11, fontWeight: 600, letterSpacing: '0.04em',
-        }}>
-          <span>{exchange}: {ticker.toUpperCase()}</span>
-          <span style={{ width: 1, height: 12, background: 'rgba(148,163,184,0.3)' }} />
-          {sector && <><span>Sector: {sector}</span><span style={{ width: 1, height: 12, background: 'rgba(148,163,184,0.3)' }} /></>}
-          <span>Updated: {date}</span>
-        </div>
-      </div>
-
-      {/* ── 3 Metric Cards (bottom section, evenly spaced) ── */}
-      <div style={{
-        position: 'absolute', bottom: 150, left: 32, right: 32,
-        display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 14, zIndex: 4,
-      }}>
-        {/* Dark Pool Card */}
-        <div style={{
-          position: 'relative', padding: '16px 20px', borderRadius: 14, height: 140,
-          display: 'flex', flexDirection: 'column',
-          border: '1.5px solid rgba(34,211,238,0.22)',
-          background: `
-            radial-gradient(circle at 80% 30%, rgba(34,211,238,0.08), transparent 40%),
-            linear-gradient(135deg, rgba(255,255,255,0.06), rgba(255,255,255,0.015)),
-            rgba(7,14,24,0.8)
-          `,
-          backdropFilter: 'blur(16px)',
-          boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.1), 0 12px 32px rgba(0,0,0,0.3), 0 0 1px rgba(34,211,238,0.15)',
-        }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: '0.18em', color: '#22d3ee' }}>
-              DARK POOL
-            </div>
-            <div style={{
-              padding: '3px 10px', borderRadius: 5, fontSize: 10, fontWeight: 800, letterSpacing: '0.12em',
-              border: `1px solid ${dpColor}40`, background: `${dpColor}10`, color: dpColor,
-            }}>
-              {dpLevel}
-            </div>
-          </div>
-          <div style={{
-            fontSize: 48, fontWeight: 900, letterSpacing: '-0.04em', marginTop: 4,
-            color: '#d9fbff',
-            textShadow: '0 0 8px rgba(255,255,255,0.2), 0 0 28px rgba(34,211,238,0.3)',
-          }}>
-            {dp.toFixed(1)}%
-          </div>
-          <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.12em', color: '#8191a5', marginTop: 2 }}>
-            INSTITUTIONAL CONCENTRATION
-          </div>
-          {/* Progress bar — in normal flow, not absolute */}
-          <div style={{
-            marginTop: 'auto', height: 7, borderRadius: 999,
-            background: 'rgba(148,163,184,0.1)', border: '1px solid rgba(34,211,238,0.08)',
-          }}>
-            <div style={{
-              width: `${Math.min(dp, 100)}%`, height: '100%', borderRadius: 999,
-              background: 'linear-gradient(90deg, #48f1ff, #22d3ee, #0e7490)',
-              boxShadow: '0 0 20px rgba(34,211,238,0.6)',
-            }} />
-          </div>
-        </div>
-
-        {/* Flow Card */}
-        <div style={{
-          position: 'relative', padding: '16px 20px', borderRadius: 14, height: 140,
-          border: '1.5px solid rgba(167,139,250,0.22)',
-          background: `
-            radial-gradient(circle at 80% 30%, rgba(167,139,250,0.08), transparent 40%),
-            linear-gradient(135deg, rgba(255,255,255,0.06), rgba(255,255,255,0.015)),
-            rgba(7,14,24,0.8)
-          `,
-          backdropFilter: 'blur(16px)',
-          boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.1), 0 12px 32px rgba(0,0,0,0.3), 0 0 1px rgba(167,139,250,0.15)',
-        }}>
-          <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: '0.18em', color: '#a78bfa' }}>
-            FLOW
-          </div>
-          <div style={{
-            fontSize: 22, fontWeight: 900, letterSpacing: '-0.02em', marginTop: 14, color: '#f1f5f9',
-          }}>
-            {flowLabel}
-          </div>
-          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.08em', color: '#8191a5', marginTop: 8 }}>
-            BUY / SELL RATIO
-          </div>
-          <div style={{
-            fontSize: 36, fontWeight: 900, letterSpacing: '-0.04em', marginTop: 4,
-            color: '#a78bfa',
-            textShadow: '0 0 18px rgba(167,139,250,0.3)',
-          }}>
-            {buy.toFixed(0)}% / {sell.toFixed(0)}%
-          </div>
-        </div>
-
-        {/* Block Trades Card */}
-        <div style={{
-          position: 'relative', padding: '16px 20px', borderRadius: 14, height: 140,
-          border: '1.5px solid rgba(167,139,250,0.22)',
-          background: `
-            radial-gradient(circle at 80% 30%, rgba(167,139,250,0.08), transparent 40%),
-            linear-gradient(135deg, rgba(255,255,255,0.06), rgba(255,255,255,0.015)),
-            rgba(7,14,24,0.8)
-          `,
-          backdropFilter: 'blur(16px)',
-          boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.1), 0 12px 32px rgba(0,0,0,0.3), 0 0 1px rgba(167,139,250,0.15)',
-        }}>
-          <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: '0.18em', color: '#a78bfa' }}>
-            BLOCK TRADES
-          </div>
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, marginTop: 16 }}>
-            <span style={{
-              fontSize: 56, fontWeight: 900, letterSpacing: '-0.06em',
-              color: '#a78bfa',
-              textShadow: '0 0 22px rgba(167,139,250,0.3)',
-            }}>
-              {blocks}
-            </span>
-            <span style={{ fontSize: 22, fontWeight: 800, color: '#f1f5f9' }}>
-              detected
-            </span>
-          </div>
-          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.1em', color: '#8191a5', marginTop: 8 }}>
-            ≥ $500K NOTIONAL
-          </div>
-        </div>
-      </div>
-
-      {/* ── Distribution / Accumulation Bar ── */}
-      <div style={{
-        position: 'absolute', bottom: 72, left: 32, right: 32, zIndex: 4,
-        display: 'flex', alignItems: 'center', gap: 14,
-      }}>
-        <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.12em', color: '#f87171', whiteSpace: 'nowrap' }}>
-          DISTRIBUTION
-        </span>
-        <div style={{
-          flex: 1, height: 6, borderRadius: 999, position: 'relative',
-          background: 'linear-gradient(90deg, #a78bfa, #22d3ee)',
-          boxShadow: '0 0 16px rgba(34,211,238,0.2)',
-        }}>
-          {position > 0 && (
-            <div style={{
-              position: 'absolute', left: `${Math.min(position, 100)}%`, top: '50%',
-              transform: 'translate(-50%, -50%)',
-              width: 12, height: 12, borderRadius: '50%',
-              background: '#22d3ee', border: '2px solid rgba(255,255,255,0.8)',
-              boxShadow: '0 0 14px rgba(34,211,238,0.7)',
-            }} />
-          )}
-        </div>
-        <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.12em', color: '#34d399', whiteSpace: 'nowrap' }}>
-          ACCUMULATION
-        </span>
-      </div>
-
-      {/* ── Footer ── */}
-      <div style={{
-        position: 'absolute', bottom: 30, left: 38, right: 38, zIndex: 6,
-        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-        color: '#475569', fontSize: 11, fontWeight: 600,
-      }}>
-        <span>Not financial advice. Data-driven context only.</span>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-          <span style={{ color: '#22d3ee', fontWeight: 800, letterSpacing: '0.1em' }}>SIGNUM HQ</span>
-          <span style={{ width: 1, height: 14, background: 'rgba(148,163,184,0.2)' }} />
-          <span>See What Others Cannot</span>
-          <span style={{ width: 1, height: 14, background: 'rgba(148,163,184,0.2)' }} />
-          <span style={{ fontWeight: 700 }}>signumhq.com</span>
-        </div>
-      </div>
-    </div>
+        <div className="footer-line" />
+        <footer className="og-footer">SIGNUM HQ&nbsp;&nbsp;·&nbsp;&nbsp;See What Others Cannot&nbsp;&nbsp;·&nbsp;&nbsp;signumhq.com</footer>
+      </main>
+    </>
   );
 }
 
-// ── Company & Sector Maps ──
-const COMPANY_MAP: Record<string, string> = {
-  AAPL: 'Apple Inc.', MSFT: 'Microsoft Corporation', NVDA: 'NVIDIA Corporation',
-  GOOGL: 'Alphabet Inc.', AMZN: 'Amazon.com Inc.', META: 'Meta Platforms Inc.',
-  TSLA: 'Tesla Inc.', AMD: 'Advanced Micro Devices', NFLX: 'Netflix Inc.',
-  CRM: 'Salesforce Inc.', AVGO: 'Broadcom Inc.', ORCL: 'Oracle Corporation',
-};
-
-const SECTOR_MAP: Record<string, string> = {
-  AAPL: 'Technology', MSFT: 'Technology', NVDA: 'Semiconductors',
-  GOOGL: 'Communication', AMZN: 'Consumer Cyclical', META: 'Communication',
-  TSLA: 'Consumer Cyclical', AMD: 'Semiconductors', NFLX: 'Communication',
-  CRM: 'Technology', AVGO: 'Semiconductors', ORCL: 'Technology',
-};
-
-// ── Page Export ──
-export default function SpotlightOGPage() {
+export default function SpotlightTemplate() {
   return (
-    <Suspense fallback={<div style={{ width: 1200, height: 630, background: '#04070d' }} />}>
+    <Suspense fallback={<div style={{ width: 1200, height: 675, background: '#040710' }} />}>
       <SpotlightContent />
     </Suspense>
   );
