@@ -194,8 +194,8 @@ export async function dispatchCarousel(opts: {
     const input: Record<string, any> = {
       channelId,
       text: caption || '',
-      schedulingType: 'automatic',
-      mode: 'addToQueue',
+      // Share immediately instead of queue (prevents silent scheduling failures)
+      ...(draft ? { saveToDraft: true } : {}),
       // Multiple images = carousel on IG
       assets: {
         images: imageUrls.slice(0, 10).map((url, i) => ({
@@ -211,7 +211,8 @@ export async function dispatchCarousel(opts: {
         },
       },
     };
-    if (draft) input.saveToDraft = true;
+
+    console.log(`[BufferMulti] Carousel dispatch: ${imageUrls.length} images, caption ${caption.length} chars, channel ${channel?.name || channelId}`);
 
     const data = await bufferGraphQL(`
       mutation CreatePost($input: CreatePostInput!) {
@@ -226,6 +227,11 @@ export async function dispatchCarousel(opts: {
     `, { input });
 
     const result = data.createPost;
+    if (!result?.post?.id) {
+      console.error(`[BufferMulti] Carousel FAILED:`, JSON.stringify(result));
+    } else {
+      console.log(`[BufferMulti] Carousel SUCCESS: postId=${result.post.id}`);
+    }
     return {
       success: !!result?.post?.id,
       format: 'carousel',
@@ -237,6 +243,7 @@ export async function dispatchCarousel(opts: {
       textPreview: caption.substring(0, 100),
     };
   } catch (err: any) {
+    console.error(`[BufferMulti] Carousel EXCEPTION: ${err.message}`, err.response?.data || '');
     return { success: false, format: 'carousel', channel: channel?.name || channelId, service: 'instagram', lang: channel?.lang || 'en', error: err.message, textPreview: caption.substring(0, 100) };
   }
 }

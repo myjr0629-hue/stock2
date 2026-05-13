@@ -389,54 +389,92 @@ export async function GET(request: Request) {
       }
 
       // ========================================
-      // MORNING IG CAROUSEL ??08:00 KST
+      // MORNING IG CAROUSEL — LIVE DATA
+      // Uses fetchLiveMarketData() for real-time accuracy
       // ========================================
       case 'morning_ig': {
-        // Same fallback as morning ??content generated prev close
-        let content = await loadContent('morning', dateKey);
-        if (!content) {
-          const prevKey = getPreviousTradingDayKey();
-          content = await loadContent('morning', prevKey);
-          if (!content) return noContent('morning', `${dateKey} (also tried ${prevKey})`);
-        }
+        // Fetch LIVE market data (same as morning action)
+        const mktIg = await fetchLiveMarketData('en');
+        console.log(`[Cron/MorningIG] Live data: SPY ${mktIg.spyChg.toFixed(2)}% | VIX ${mktIg.vix.toFixed(1)} | GEX ${mktIg.gex} | DP ${mktIg.dp.toFixed(1)}%`);
+
+        // Fetch QQQ change from Redis (for carousel slide 2 — NASDAQ)
+        let qqqChg = 0;
+        try {
+          const qqqRaw = await getFromCache('yahoo:nq').catch(() => null)
+            || await getFromCache('yahoo:idx:ndx').catch(() => null);
+          if (qqqRaw) {
+            const qqqData = typeof qqqRaw === 'string' ? JSON.parse(qqqRaw) : qqqRaw;
+            qqqChg = qqqData?.changePercent ?? qqqData?.changePct ?? 0;
+          }
+        } catch { /* optional */ }
 
         for (const lang of langs) {
-          const lc = content[lang];
-          if (!lc?.text) continue;
-
-          // Pre-capture OG image for Threads
-          const threadsImage = await captureImageForDispatch(baseUrl, content, lang, 'og', 'morning', dryRun);
-
           const igCh = getFilteredChannels({ tier: 'all', lang, service: 'instagram' })[0];
           if (igCh) {
-            const caption = lc.platformText?.instagram || lc.text;
-            const carouselUrls = await captureCarouselForDispatch(baseUrl, content, lang, dryRun);
+            // Build carousel params from LIVE data
+            const carouselData: Record<string, string | number> = {
+              spy: mktIg.spyChg,
+              qqq: qqqChg,
+              vix: mktIg.vix,
+              gex: mktIg.gex,
+              dp: mktIg.dp,
+              date: mktIg.date,
+            };
 
-            const r = await dispatchCarousel({
-              channelId: igCh.id,
-              caption: truncateForPlatform(`${caption}${buildInstagramFooter(lang, 'morning')}`, 'instagram'),
-              imageUrls: carouselUrls,
-              altTexts: generateCarouselAltTexts(carouselUrls.length, lang),
-              dryRun,
+            // Capture 6 carousel slides via EC2
+            const carouselUrls: string[] = [];
+            if (dryRun) {
+              for (let slide = 1; slide <= 6; slide++) {
+                const url = new URL(`${baseUrl}/templates/og/carousel`);
+                Object.entries(carouselData).forEach(([k, v]) => url.searchParams.set(k, String(v)));
+                url.searchParams.set('slide', String(slide));
+                url.searchParams.set('format', 'carousel');
+                carouselUrls.push(url.toString());
+              }
+            } else {
+              for (let slide = 1; slide <= 6; slide++) {
+                for (let attempt = 0; attempt < 2; attempt++) {
+                  try {
+                    const result = await captureTemplate({
+                      template: 'carousel',
+                      format: 'carousel',
+                      data: { ...carouselData, slide },
+                    });
+                    if (result?.cdnUrl) { carouselUrls.push(result.cdnUrl); break; }
+                  } catch (err: any) {
+                    console.warn(`[MorningIG] Carousel slide ${slide} attempt ${attempt + 1} failed: ${err.message}`);
+                  }
+                  if (attempt === 0) await new Promise(r => setTimeout(r, 500));
+                }
+                await new Promise(r => setTimeout(r, 300));
+              }
+            }
 
-              draft,
-            });
-            results.push(r);
-          }
+            console.log(`[MorningIG] Captured ${carouselUrls.length}/6 carousel slides`);
 
-          // Threads
-          const threadsCh = getFilteredChannels({ tier: 'all', lang, service: 'threads' })[0];
-          if (threadsCh) {
-            const tags = getHashtags({ platform: 'threads', contentType: 'morning', lang });
-            const r = await dispatchPost({
-              channelId: threadsCh.id,
-              text: truncateWithTags(lc.platformText?.threads || lc.text, tags, 'threads'),
-              imageUrl: threadsImage,
-              dryRun,
+            if (carouselUrls.length > 0) {
+              // Build Guardian-grade caption from live data
+              const sd = mktIg.spyChg >= 0 ? '+' : '';
+              const G = mktIg.gex.toUpperCase();
+              const dp = mktIg.dp > 0 ? `${mktIg.dp.toFixed(1)}%` : 'N/A';
+              const caption = lang === 'ko'
+                ? `📊 실시간 구조 분석 | ${mktIg.date}\n\nSPY ${sd}${mktIg.spyChg.toFixed(2)}% | VIX ${mktIg.vix.toFixed(1)} | GEX ${G}\n다크풀: ${dp}\n\n기관의 포지셔닝을 데이터로 확인하세요.`
+                : lang === 'ja'
+                ? `📊 リアルタイム構造分析 | ${mktIg.date}\n\nSPY ${sd}${mktIg.spyChg.toFixed(2)}% | VIX ${mktIg.vix.toFixed(1)} | GEX ${G}\nダークプール: ${dp}\n\n機関のポジショニングをデータで確認。`
+                : `📊 Live Structure Analysis | ${mktIg.date}\n\nSPY ${sd}${mktIg.spyChg.toFixed(2)}% | VIX ${mktIg.vix.toFixed(1)} | GEX ${G}\nDark Pool: ${dp}\n\nSee what institutions are doing — before the market tells you.`;
 
-              draft,
-            });
-            results.push(r);
+              const r = await dispatchCarousel({
+                channelId: igCh.id,
+                caption: truncateForPlatform(`${caption}${buildInstagramFooter(lang, 'morning')}`, 'instagram'),
+                imageUrls: carouselUrls,
+                altTexts: generateCarouselAltTexts(carouselUrls.length, lang),
+                dryRun,
+                draft,
+              });
+              results.push(r);
+            } else {
+              console.error(`[MorningIG] All carousel slides failed — skipping IG post for ${lang}`);
+            }
           }
         }
         break;
