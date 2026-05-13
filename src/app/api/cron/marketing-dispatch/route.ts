@@ -124,42 +124,108 @@ export async function GET(request: Request) {
 
     switch (action) {
       // ========================================
-      // MORNING BRIEF ??06:30 KST
-      // X tweet + Bluesky + IG Story
+      // MORNING BRIEF — 06:30 ET (KST 19:30)
+      // LIVE pre-market data + Guardian AI verdict
       // ========================================
       case 'morning': {
-        // Morning content generated after close (16:40 ET) with session dateKey.
-        // Morning dispatch next day (06:30 ET) has different ET date.
-        // ??Try today first, then previous trading day fallback.
-        let content = await loadContent('morning', dateKey);
-        if (!content) {
-          const prevKey = getPreviousTradingDayKey();
-          content = await loadContent('morning', prevKey);
-          if (!content) return noContent('morning', `${dateKey} (also tried ${prevKey})`);
-        }
+        // Fetch LIVE market data (same source as Guardian morning briefing page)
+        const mkt = await fetchLiveMarketData();
+        const sd = mkt.spyChg >= 0 ? '+' : '';
+        const vd = mkt.vixChg >= 0 ? '+' : '';
+        const dp = mkt.dp > 0 ? `${mkt.dp.toFixed(1)}%` : 'N/A';
+        const G = mkt.gex.toUpperCase();
+        const gexMeaning = mkt.gex === 'positive' ? 'Dealer suppression zone'
+          : mkt.gex === 'negative' ? 'Dealer amplification zone' : 'Neutral transition';
 
+        // Build Guardian-grade morning briefing text per language
         for (const lang of langs) {
-          const lc = content[lang];
-          if (!lc?.text) continue;
+          const verdict = mkt.verdicts?.[lang];
+          const tactical = verdict?.tactical || mkt.tacticalInsight || '';
+          const ctaUrl = buildCtaUrl(lang, 'intel-guardian', 'morning');
 
-          const tweetText = lc.platformText?.twitter || lc.text;
-          const blueskyText = lc.platformText?.bluesky || lc.text;
-          const ctaUrl = buildCtaUrl(lang, 'guardian', 'morning');
+          // === Language-specific morning briefing ===
+          let morningText = '';
+          if (lang === 'ko') {
+            morningText = [
+              `📊 모닝 브리핑 — Pre-Market Structure`,
+              '',
+              `▸ SPY: ${sd}${mkt.spyChg.toFixed(2)}% ($${mkt.spy.toFixed(2)})`,
+              `▸ VIX: ${mkt.vix.toFixed(1)} (${vd}${mkt.vixChg.toFixed(1)}%)`,
+              `▸ GEX: ${G} — ${mkt.gex === 'positive' ? '딜러 변동성 억제 구간' : mkt.gex === 'negative' ? '딜러 변동성 증폭 구간' : '중립 전환 구간'}`,
+              `▸ 다크풀: ${dp}`,
+              '',
+              tactical || '프리마켓 구조 데이터를 기반으로 기관 포지셔닝을 관찰합니다.',
+              '',
+              `📊 실시간 분석 → ${ctaUrl}`,
+              '',
+              '*본 정보는 투자 권유가 아닌 데이터 분석 참고 자료입니다.',
+            ].join('\n');
+          } else if (lang === 'ja') {
+            morningText = [
+              `📊 モーニングブリーフィング — Pre-Market Structure`,
+              '',
+              `▸ SPY: ${sd}${mkt.spyChg.toFixed(2)}% ($${mkt.spy.toFixed(2)})`,
+              `▸ VIX: ${mkt.vix.toFixed(1)} (${vd}${mkt.vixChg.toFixed(1)}%)`,
+              `▸ GEX: ${G} — ${mkt.gex === 'positive' ? 'ディーラーのボラ抑制ゾーン' : mkt.gex === 'negative' ? 'ディーラーのボラ増幅ゾーン' : '中立遷移ゾーン'}`,
+              `▸ ダークプール: ${dp}`,
+              '',
+              tactical || '機関のポジショニングを構造データで観察します。',
+              '',
+              `📊 リアルタイム分析 → ${ctaUrl}`,
+              '',
+              '*投資助言ではありません。データ分析の参考資料です。',
+            ].join('\n');
+          } else {
+            morningText = [
+              `📊 Morning Briefing — Pre-Market Structure`,
+              '',
+              `▸ SPY: ${sd}${mkt.spyChg.toFixed(2)}% ($${mkt.spy.toFixed(2)})`,
+              `▸ VIX: ${mkt.vix.toFixed(1)} (${vd}${mkt.vixChg.toFixed(1)}%)`,
+              `▸ GEX: ${G} — ${gexMeaning}`,
+              `▸ Dark Pool: ${dp}`,
+              '',
+              tactical || 'Observing institutional positioning via pre-market structure data.',
+              '',
+              `📊 Live analysis → ${ctaUrl}`,
+              '',
+              '*Observation only — not financial advice.',
+            ].join('\n');
+          }
 
-          // Pre-capture OG image (reused across X + Bluesky)
-          const ogImage = await captureImageForDispatch(baseUrl, content, lang, 'tweet', 'morning', dryRun);
+          // Capture realtime OG image (same data as Guardian page)
+          const ogImage = await captureRealtimeOG(baseUrl, mkt, 'tweet', dryRun);
 
-          // X Tweet + auto-reply
+          // IG Story
+          const igChMorning = getFilteredChannels({ tier: 'all', lang, service: 'instagram' })[0];
+          if (igChMorning) {
+            const storyParams = {
+              spy: String(mkt.spy), vix: String(mkt.vix),
+              gex: mkt.gex, dp: String(mkt.dp),
+              date: mkt.date,
+            };
+            let storyUrl: string | null = null;
+            if (dryRun) {
+              const previewUrl = new URL(`${baseUrl}/marketing/templates/story`);
+              Object.entries(storyParams).forEach(([k, v]) => previewUrl.searchParams.set(k, v));
+              storyUrl = previewUrl.toString();
+            } else {
+              try { storyUrl = await captureStoryImage(storyParams); } catch {}
+            }
+            if (storyUrl) {
+              const r = await dispatchStory({ channelId: igChMorning.id, imageUrl: storyUrl, dryRun, draft });
+              results.push(r);
+            }
+          }
+
+          // X Tweet (if allowed)
           const twitterCh = getFilteredChannels({ tier: 'all', lang, service: 'twitter' })[0];
           if (twitterCh) {
             const tags = getHashtags({ platform: 'twitter', contentType: 'morning', lang });
             const r = await dispatchTweet({
               channelId: twitterCh.id,
-              text: truncateWithTags(tweetText, tags, 'twitter'),
+              text: truncateWithTags(morningText, tags, 'twitter'),
               imageUrl: ogImage,
-              dryRun,
-
-              draft,
+              dryRun, draft,
             });
             results.push(r);
           }
@@ -168,42 +234,24 @@ export async function GET(request: Request) {
           const bskyCh = getFilteredChannels({ tier: 'all', lang, service: 'bluesky' })[0];
           if (bskyCh) {
             const tags = getHashtags({ platform: 'bluesky', contentType: 'morning', lang });
-            const footer = `\n\n${ctaUrl}\n\n${tags}`;
             const r = await dispatchPost({
               channelId: bskyCh.id,
-              text: truncateWithTags(blueskyText, footer, 'bluesky'),
+              text: truncateWithTags(morningText, `\n\n${tags}`, 'bluesky'),
               imageUrl: ogImage,
-              dryRun,
-
-              draft,
+              dryRun, draft,
             });
             results.push(r);
           }
-
-          // IG Story (1080×1920) ??dedicated story template
-          const igChMorning = getFilteredChannels({ tier: 'all', lang, service: 'instagram' })[0];
-          if (igChMorning) {
-            const storyUrl = await captureStoryForDispatch(baseUrl, content, lang, dryRun);
-            if (storyUrl) {
-              const r = await dispatchStory({
-                channelId: igChMorning.id,
-                imageUrl: storyUrl,
-                dryRun,
-                draft,
-              });
-              results.push(r);
-            }
-          }
         }
 
-        // Pinterest (EN only, SEO evergreen)
+        // Pinterest (EN only, SEO)
         const pinChMorn = getFilteredChannels({ tier: 'all', service: 'pinterest' })[0];
-        if (pinChMorn && content.en?.text) {
+        if (pinChMorn) {
           const seo = getPinterestSEO({ contentType: 'morning', date: dateKey });
-          const ogForPin = await captureImageForDispatch(baseUrl, content, 'en', 'pin', 'morning', dryRun);
+          const pinOg = await captureRealtimeOG(baseUrl, mkt, 'pin', dryRun);
           const r = await dispatchPin({
             channelId: pinChMorn.id,
-            imageUrl: ogForPin,
+            imageUrl: pinOg,
             title: seo.title,
             description: seo.description,
             link: `${baseUrl}/command?${buildUtm('pinterest', 'morning')}`,
@@ -212,11 +260,23 @@ export async function GET(request: Request) {
           results.push(r);
         }
 
-        // Telegram (EN summary)
-        if (PLATFORM_ALLOW[action]?.has('telegram') && content.en?.text) {
-          const tgText = formatForTelegram(content.en.text, { channelLink: `${baseUrl}/intel-guardian?${buildUtm('telegram', 'morning')}`, contentType: 'morning' });
-          const ogForTg = await captureImageForDispatch(baseUrl, content, 'en', 'tweet', 'morning', dryRun);
-          const r = await dispatchTelegram({ text: tgText, imageUrl: ogForTg, dryRun });
+        // Telegram (EN — Guardian-grade morning briefing)
+        if (PLATFORM_ALLOW[action]?.has('telegram')) {
+          const tgMorning = [
+            `📊 Morning Briefing — Pre-Market Structure`,
+            '',
+            `▸ SPY: ${sd}${mkt.spyChg.toFixed(2)}% ($${mkt.spy.toFixed(2)})`,
+            `▸ VIX: ${mkt.vix.toFixed(1)} (${vd}${mkt.vixChg.toFixed(1)}%)`,
+            `▸ GEX: ${G} — ${gexMeaning}`,
+            `▸ Dark Pool: ${dp}`,
+            '',
+            mkt.verdicts?.en?.tactical || mkt.tacticalInsight || 'Observing institutional positioning.',
+            '',
+            '*Observation only — not financial advice.',
+          ].join('\n');
+          const tgText = formatForTelegram(tgMorning, { channelLink: `${baseUrl}/intel-guardian?${buildUtm('telegram', 'morning')}`, contentType: 'morning' });
+          const tgOg = await captureRealtimeOG(baseUrl, mkt, 'tweet', dryRun);
+          const r = await dispatchTelegram({ text: tgText, imageUrl: tgOg, dryRun });
           results.push({ success: r.success, format: 'post', channel: 'telegram', service: 'telegram', lang: 'en', textPreview: 'telegram', postId: String(r.messageId || '') } as DispatchResult);
         }
         break;
