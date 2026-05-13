@@ -180,6 +180,7 @@ const PINTEREST_SEO: Record<ContentType, PinterestSEO> = {
 const PINTEREST_TOPIC_TITLES: Record<string, string> = {
   gex: 'What is Gamma Exposure (GEX)? Options Trading Guide',
   dark_pool: 'Dark Pool Activity Explained — How Institutions Trade',
+  smart_flow: 'Smart Money Flow Index — Tracking Institutional Direction',
   iv_percentile: 'IV Percentile Guide — Understanding Implied Volatility',
   pcr: 'Put/Call Ratio Explained — Market Sentiment Indicator',
   max_pain: 'Max Pain Theory — How Options Expiration Affects Stock Prices',
@@ -294,7 +295,7 @@ export function getPinterestSEO(opts: {
   // Pinterest 2026: front-load primary keyword in first sentence, 2-3 related phrases naturally
   const description = [
     contentType === 'education'
-      ? `Learn how institutional traders use ${educationTopic === 'gex' ? 'gamma exposure (GEX)' : educationTopic === 'dark_pool' ? 'dark pool data' : 'options flow analysis'} to gain an edge.`
+      ? `Learn how institutional traders use ${educationTopic === 'gex' ? 'gamma exposure (GEX)' : educationTopic === 'dark_pool' ? 'dark pool data' : educationTopic === 'smart_flow' ? 'smart money flow analysis' : 'options flow analysis'} to gain an edge.`
       : `Comprehensive ${seo.keywords[0]} with options flow, gamma exposure, and dark pool data.`,
     `This ${contentType === 'education' ? 'guide' : 'analysis'} breaks down market structure using institutional-grade metrics most retail traders never see.`,
     '',

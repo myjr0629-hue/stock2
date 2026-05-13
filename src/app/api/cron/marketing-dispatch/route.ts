@@ -1751,7 +1751,8 @@ async function captureImageForDispatch(
     if (attempt === 0) await new Promise(r => setTimeout(r, 500));
   }
 
-  throw new Error(`[Dispatch] EC2 capture failed for ${template}/${format}/${lang} ??no image after 2 attempts`);
+  console.error(`[Dispatch] EC2 capture failed for ${template}/${format}/${lang} - dispatching text-only`);
+  return '';
 }
 
 /**
