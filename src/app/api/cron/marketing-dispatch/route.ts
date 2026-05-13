@@ -41,7 +41,7 @@ import { buildRealtimeText, captureRealtimeOG, fetchLiveMarketData } from '@/lib
 // ---------------------------------------------------------------------------
 // Actions
 // ---------------------------------------------------------------------------
-type Action = 'morning' | 'morning_ig' | 'midday' | 'education' | 'edu_bsky' | 'pulse' | 'pulse_ig' | 'event' | 'spotlight' | 'premarket_bsky' | 'premarket_threads' | 'intraday_bsky' | 'close_bsky' | 'close_threads' | 'structure_bsky' | 'insight_threads' | 'afterhours_bsky' | 'afterhours_threads' | 'asia_recap' | 'asia_insight' | 'asia_evening' | 'market_open' | 'asia_tip' | 'asia_preview';
+type Action = 'morning' | 'morning_ig' | 'midday' | 'education' | 'edu_bsky' | 'pulse' | 'pulse_ig' | 'event' | 'spotlight' | 'briefing_thread' | 'premarket_bsky' | 'premarket_threads' | 'intraday_bsky' | 'close_bsky' | 'close_threads' | 'structure_bsky' | 'insight_threads' | 'afterhours_bsky' | 'afterhours_threads' | 'asia_recap' | 'asia_insight' | 'asia_evening' | 'market_open' | 'asia_tip' | 'asia_preview';
 type Region = 'en' | 'asia' | 'all'; // en=EN only, asia=KO+JP, all=both
 
 function getLangsForRegion(region: Region): Lang[] {
@@ -1124,8 +1124,6 @@ for (const lang of langs) {
         break;
       }
 
-      default:
-        return NextResponse.json({ error: `Unknown action: ${action}` }, { status: 400 });
 
       // ========================================
       // ASIA EVENING — UTC 11:30 (KST 20:30 / ET 07:30)
@@ -1206,6 +1204,195 @@ for (const lang of langs) {
         }
         break;
       }
+
+      // ========================================
+      // BRIEFING THREAD — Guardian AI Morning Briefing → X/Bsky Thread
+      // Asia: KST 08:00 / EN: ET 07:00
+      // ========================================
+      case 'briefing_thread': {
+        for (const lang of langs) {
+          // Load Guardian briefing from Redis
+          const briefingKey = `guardian:morning_briefing:${lang}`;
+          const briefingRaw = await getFromCache(briefingKey).catch(() => null);
+          if (!briefingRaw) {
+            console.warn(`[Dispatch] No briefing found for ${lang}`);
+            continue;
+          }
+          const briefing = typeof briefingRaw === 'string' ? JSON.parse(briefingRaw) : briefingRaw;
+          const briefingText = briefing.briefing || briefing.text || '';
+          if (!briefingText || briefingText.length < 50) continue;
+
+          // Split into Thread slides (2-3 sentences each)
+          const sentences = briefingText.match(/[^.!?]+[.!?]+/g) || [briefingText];
+          const slides: ThreadSlide[] = [];
+          const ctaUrl = buildCtaUrl(lang, 'guardian', 'briefing');
+
+          // Slide 1: Hook + first 2 sentences
+          const hookEmoji = lang === 'ko' ? '🌅 모닝 브리핑' : lang === 'ja' ? '🌅 モーニングブリーフィング' : '🌅 Morning Briefing';
+          const slide1Text = `${hookEmoji}\n\n${sentences.slice(0, 2).join(' ').trim()}`;
+          slides.push({ text: slide1Text });
+
+          // Slide 2: Middle sentences (news & catalysts)
+          if (sentences.length > 2) {
+            const midSentences = sentences.slice(2, Math.min(5, sentences.length));
+            slides.push({ text: midSentences.join(' ').trim() });
+          }
+
+          // Slide 3: Risk assessment + CTA
+          if (sentences.length > 5) {
+            const endSentences = sentences.slice(5);
+            const ctaLine = lang === 'ko' ? '\n\n전체 분석 확인' : lang === 'ja' ? '\n\n詳細分析はこちら' : '\n\nFull analysis';
+            slides.push({ text: `${endSentences.join(' ').trim()}${ctaLine}: ${ctaUrl}` });
+          } else if (slides.length > 0) {
+            // Add CTA to last slide
+            slides[slides.length - 1].text += `\n\n${ctaUrl}`;
+          }
+
+          // Capture OG image for first slide
+          const ogImage = await captureRealtimeOG(baseUrl, await fetchLiveMarketData(), 'tweet', dryRun);
+          if (ogImage) slides[0].imageUrl = ogImage;
+
+          // X Thread
+          const twitterCh = getChannels({ tier: 'all', lang, service: 'twitter' })[0];
+          if (twitterCh) {
+            const tags = getHashtags({ platform: 'twitter', contentType: 'morning', lang });
+            // Add $cashtags to first slide
+            slides[0].text = `${tags}\n\n${slides[0].text}`;
+            const r = await dispatchThread({
+              channelId: twitterCh.id,
+              slides,
+              dryRun, draft,
+            });
+            results.push(r);
+          }
+
+          // Bluesky Thread
+          const bskyCh = getChannels({ tier: 'all', lang, service: 'bluesky' })[0];
+          if (bskyCh) {
+            const tags = getHashtags({ platform: 'bluesky', contentType: 'morning', lang });
+            const bskySlides = slides.map((s, i) => ({
+              ...s,
+              text: i === 0 ? `${tags}\n\n${s.text}` : s.text,
+            }));
+            const r = await dispatchThread({
+              channelId: bskyCh.id,
+              slides: bskySlides,
+              dryRun, draft,
+            });
+            results.push(r);
+          }
+        }
+        break;
+      }
+
+      // ========================================
+      // SPOTLIGHT — Ticker Deep-Dive (M7 Rotation)
+      // Asia: KST 10:00 / EN: KST 23:00
+      // ========================================
+      case 'spotlight': {
+        // Pick ticker: rotate through M7, dedup via Redis
+        const SPOTLIGHT_POOL = ['NVDA', 'TSLA', 'AAPL', 'MSFT', 'GOOGL', 'META', 'AMZN'];
+        const dedupKey = `marketing:spotlight:last:${dateKey}`;
+        const lastTicker = await getFromCache(dedupKey).catch(() => null) as string | null;
+        let ticker = SPOTLIGHT_POOL[Math.floor(Math.random() * SPOTLIGHT_POOL.length)];
+        // Avoid repeating last ticker
+        if (lastTicker && typeof lastTicker === 'string') {
+          const filtered = SPOTLIGHT_POOL.filter(t => t !== lastTicker);
+          ticker = filtered[Math.floor(Math.random() * filtered.length)];
+        }
+        await setInCache(dedupKey, ticker, 86400);
+
+        // Fetch ticker data from Redis
+        const tickerDataRaw = await getFromCache(`stockData:${ticker}`).catch(() => null);
+        const tickerData = typeof tickerDataRaw === 'string' ? JSON.parse(tickerDataRaw) : tickerDataRaw;
+
+        for (const lang of langs) {
+          const dp = tickerData?.darkPoolPct || tickerData?.dp || 'N/A';
+          const whaleIdx = tickerData?.whaleIndex || tickerData?.smartFlow || 'N/A';
+          const price = tickerData?.price || tickerData?.lastPrice || 'N/A';
+          const change = tickerData?.changePct || tickerData?.pctChange || 0;
+
+          const textMap: Record<string, string> = {
+            en: `$${ticker} Institutional Flow Spotlight\n\nPrice: $${price} (${change >= 0 ? '+' : ''}${typeof change === 'number' ? change.toFixed(2) : change}%)\nDark Pool: ${dp}%\nSmart Flow: ${whaleIdx}/100\n\nTrack institutional positioning with real-time data.\n\nObservation only — not financial advice.`,
+            ko: `$${ticker} 기관 플로우 스팟라이트\n\n현재가: $${price} (${change >= 0 ? '+' : ''}${typeof change === 'number' ? change.toFixed(2) : change}%)\n다크풀: ${dp}%\n스마트 플로우: ${whaleIdx}/100\n\n실시간 기관 포지셔닝을 데이터로 확인하십시오.\n\n관찰 전용 — 투자 조언이 아닙니다.`,
+            ja: `$${ticker} 機関フロー・スポットライト\n\n現在値: $${price} (${change >= 0 ? '+' : ''}${typeof change === 'number' ? change.toFixed(2) : change}%)\nダークプール: ${dp}%\nスマートフロー: ${whaleIdx}/100\n\nリアルタイムの機関ポジショニングをデータで確認。\n\n観察専用 — 投資助言ではありません。`,
+          };
+          const text = textMap[lang] || textMap.en;
+          const ctaUrl = buildCtaUrl(lang, 'command', 'spotlight');
+
+          // Capture spotlight OG image
+          const spotlightParams = { t: ticker, dp: String(dp), whale: String(whaleIdx), price: String(price), change: String(change) };
+          let ogImage = '';
+          if (!dryRun) {
+            try {
+              const result = await captureTemplate({ template: 'ticker', format: 'tweet', data: spotlightParams });
+              ogImage = result?.cdnUrl || '';
+            } catch (e: any) {
+              console.warn(`[Dispatch] Spotlight OG capture failed: ${e.message}`);
+            }
+          }
+
+          // X Tweet with $cashtag
+          const twitterCh = getChannels({ tier: 'all', lang, service: 'twitter' })[0];
+          if (twitterCh) {
+            const tags = getHashtags({ platform: 'twitter', contentType: 'spotlight', lang, tickers: [ticker] });
+            const r = await dispatchTweet({
+              channelId: twitterCh.id,
+              text: truncateWithTags(text, tags, 'twitter'),
+              imageUrl: ogImage,
+              dryRun, draft,
+            });
+            results.push(r);
+          }
+
+          // Bluesky
+          const bskyCh = getChannels({ tier: 'all', lang, service: 'bluesky' })[0];
+          if (bskyCh) {
+            const tags = getHashtags({ platform: 'bluesky', contentType: 'spotlight', lang, tickers: [ticker] });
+            const footer = `\n\n${ctaUrl}\n\n${tags}`;
+            const r = await dispatchPost({
+              channelId: bskyCh.id,
+              text: truncateWithTags(text, footer, 'bluesky'),
+              imageUrl: ogImage,
+              dryRun, draft,
+            });
+            results.push(r);
+          }
+
+          // IG Story
+          const igCh = getChannels({ tier: 'all', lang, service: 'instagram' })[0];
+          if (igCh && !dryRun) {
+            try {
+              const storyResult = await captureTemplate({ template: 'story_spotlight', format: 'story', data: { ...spotlightParams, lang } });
+              if (storyResult?.cdnUrl) {
+                const r = await dispatchStory({ channelId: igCh.id, imageUrl: storyResult.cdnUrl, dryRun, draft });
+                results.push(r);
+              }
+            } catch (e: any) {
+              console.warn(`[Dispatch] Spotlight Story capture failed: ${e.message}`);
+            }
+          }
+
+          // Pinterest
+          const pinCh = getChannels({ tier: 'all', service: 'pinterest' })[0];
+          if (pinCh && lang === 'en') {
+            const seo = getPinterestSEO({ contentType: 'spotlight', date: dateKey });
+            const r = await dispatchPin({
+              channelId: pinCh.id,
+              imageUrl: ogImage,
+              title: `$${ticker} ${seo.title}`,
+              description: seo.description,
+              link: `${baseUrl}/command?ticker=${ticker}&${buildUtm('pinterest', 'spotlight')}`,
+              dryRun, draft,
+            });
+            results.push(r);
+          }
+        }
+        break;
+      }
+
+      default:
+        return NextResponse.json({ error: `Unknown action: ${action}` }, { status: 400 });
     }
 
     // Log dispatch results
