@@ -111,57 +111,57 @@ export const DISCLAIMER = {
 // ---------------------------------------------------------------------------
 export const CTA = {
   liveStructure: (utm: string) =>
-    `📊 See live market structure → signumhq.com/command?${utm}`,
+    `📊 See live market structure → signumhq.com/dashboard?${utm}`,
   trackLevels: (utm: string) =>
     `🎯 Track key levels → signumhq.com/flow?${utm}`,
   fullReport: (utm: string) =>
-    `📋 Read AI report → signumhq.com/guardian?${utm}`,
+    `📋 Read AI report → signumhq.com/intel-guardian?${utm}`,
   institutionalView: (utm: string) =>
-    `🏦 This is what institutions are positioning for → signumhq.com/command?${utm}`,
+    `🏦 This is what institutions are positioning for → signumhq.com/dashboard?${utm}`,
   darkPoolTrack: (utm: string) =>
     `🌊 Track dark pool activity in real time → signumhq.com/flow?${utm}`,
   freeAlert: (utm: string) =>
     `🔔 Get structural alerts before the crowd → signumhq.com?${utm}`,
   educationDeep: (utm: string) =>
-    `📖 Go deeper on this metric → signumhq.com/guide?${utm}`,
+    `📖 Go deeper on this metric → signumhq.com/how-it-works?${utm}`,
   freeDashboard: (utm: string) =>
     `⚡ Free institutional dashboard → signumhq.com?${utm}`,
 } as const;
 
 export const CTA_KO = {
   liveStructure: (utm: string) =>
-    `📊 실시간 시장 구조 분석 → signumhq.com/command?${utm}`,
+    `📊 실시간 시장 구조 분석 → signumhq.com/dashboard?${utm}`,
   trackLevels: (utm: string) =>
     `🎯 핵심 레벨 추적 → signumhq.com/flow?${utm}`,
   fullReport: (utm: string) =>
-    `📋 AI 리포트 전문 → signumhq.com/guardian?${utm}`,
+    `📋 AI 리포트 전문 → signumhq.com/intel-guardian?${utm}`,
   institutionalView: (utm: string) =>
-    `🏦 기관이 지금 주시하는 포지션 → signumhq.com/command?${utm}`,
+    `🏦 기관이 지금 주시하는 포지션 → signumhq.com/dashboard?${utm}`,
   darkPoolTrack: (utm: string) =>
     `🌊 다크풀 실시간 추적 → signumhq.com/flow?${utm}`,
   freeAlert: (utm: string) =>
     `🔔 시장 구조 변화 알림 받기 → signumhq.com?${utm}`,
   educationDeep: (utm: string) =>
-    `📖 이 지표 더 깊이 알아보기 → signumhq.com/guide?${utm}`,
+    `📖 이 지표 더 깊이 알아보기 → signumhq.com/how-it-works?${utm}`,
   freeDashboard: (utm: string) =>
     `⚡ 무료 기관급 대시보드 → signumhq.com?${utm}`,
 } as const;
 
 export const CTA_JA = {
   liveStructure: (utm: string) =>
-    `📊 リアルタイム市場構造 → signumhq.com/command?${utm}`,
+    `📊 リアルタイム市場構造 → signumhq.com/dashboard?${utm}`,
   trackLevels: (utm: string) =>
     `🎯 キーレベル追跡 → signumhq.com/flow?${utm}`,
   fullReport: (utm: string) =>
-    `📋 AIレポート全文 → signumhq.com/guardian?${utm}`,
+    `📋 AIレポート全文 → signumhq.com/intel-guardian?${utm}`,
   institutionalView: (utm: string) =>
-    `🏦 機関投資家が注目するポジション → signumhq.com/command?${utm}`,
+    `🏦 機関投資家が注目するポジション → signumhq.com/dashboard?${utm}`,
   darkPoolTrack: (utm: string) =>
     `🌊 ダークプールをリアルタイムで追跡 → signumhq.com/flow?${utm}`,
   freeAlert: (utm: string) =>
     `🔔 構造変化アラートを受け取る → signumhq.com?${utm}`,
   educationDeep: (utm: string) =>
-    `📖 この指標をさらに詳しく → signumhq.com/guide?${utm}`,
+    `📖 この指標をさらに詳しく → signumhq.com/how-it-works?${utm}`,
   freeDashboard: (utm: string) =>
     `⚡ 無料の機関級ダッシュボード → signumhq.com?${utm}`,
 } as const;

@@ -66,6 +66,7 @@ function SpaceXIPOCard() {
           background: radial-gradient(circle at 28% 18%, rgba(255,255,255,0.28), transparent 36%), linear-gradient(135deg, #8b5cf6 0%, #7c3aed 45%, #22d3ee 100%);
           border: 1px solid rgba(255,255,255,0.16);
           box-shadow: 0 0 24px rgba(34,211,238,0.22), inset 0 1px 0 rgba(255,255,255,0.24);
+          overflow: hidden;
         }
         .wordmark {
           display: flex; align-items: baseline; gap: 8px;
@@ -78,70 +79,68 @@ function SpaceXIPOCard() {
         .og-date { color: #94a3b8; font-size: 18px; font-weight: 600; letter-spacing: 0.03em; }
         .divider-line { position: absolute; left: 0; right: 0; top: 81px; height: 1px; background: rgba(255,255,255,0.10); z-index: 8; }
 
-        .hero { position: absolute; left: 95px; top: 120px; width: 590px; z-index: 12; }
+        .hero { position: absolute; left: 85px; top: 102px; width: 550px; z-index: 12; }
         .spacex-title {
-          margin: 0; font-size: 62px; line-height: 0.92; font-weight: 900; letter-spacing: -0.06em;
+          margin: 0; font-size: 52px; line-height: 1; font-weight: 900; letter-spacing: -0.05em;
           background: linear-gradient(135deg, #f97316, #fbbf24, #f1f5f9);
           -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-          text-shadow: none; filter: drop-shadow(0 4px 12px rgba(249,115,22,0.30));
+          filter: drop-shadow(0 4px 12px rgba(249,115,22,0.30));
         }
         .proxy-label {
-          margin-top: 12px; color: #94a3b8; font-size: 18px; font-weight: 700; letter-spacing: 0.05em;
+          margin-top: 8px; color: #94a3b8; font-size: 15px; font-weight: 700; letter-spacing: 0.08em;
         }
         .ticker-name {
-          margin-top: 14px; color: #f1f5f9; font-size: 110px; line-height: 0.82; font-weight: 900; letter-spacing: -0.085em;
+          margin-top: 6px; color: #f1f5f9; font-size: 96px; line-height: 0.85; font-weight: 900; letter-spacing: -0.085em;
           text-shadow: 0 0 14px rgba(255,255,255,0.16), 0 0 38px rgba(34,211,238,0.20), 0 12px 42px rgba(0,0,0,0.42);
         }
-        .company { margin-top: 24px; color: #94a3b8; font-size: 30px; font-weight: 700; }
-        .price-row { margin-top: 16px; display: flex; align-items: baseline; gap: 42px; }
-        .price-val { font-size: 48px; font-weight: 900; letter-spacing: -0.065em; text-shadow: 0 8px 30px rgba(0,0,0,0.34); }
-        .change-val { font-size: 48px; font-weight: 900; letter-spacing: -0.065em; }
+        .company { margin-top: 14px; color: #94a3b8; font-size: 26px; font-weight: 700; }
+        .price-row { margin-top: 8px; display: flex; align-items: baseline; gap: 28px; }
+        .price-val { font-size: 40px; font-weight: 900; letter-spacing: -0.065em; text-shadow: 0 8px 30px rgba(0,0,0,0.34); }
+        .change-val { font-size: 40px; font-weight: 900; letter-spacing: -0.065em; }
 
-        .radar { position: absolute; right: 168px; top: 87px; width: 340px; height: 340px; z-index: 10; }
+        .radar { position: absolute; right: 140px; top: 87px; width: 320px; height: 320px; z-index: 10; }
         .radar svg { width: 100%; height: 100%; overflow: visible; }
 
         .metrics {
-          position: absolute; left: 91px; right: 92px; top: 406px; height: 148px;
+          position: absolute; left: 80px; right: 80px; top: 418px; height: 140px;
           display: grid; grid-template-columns: repeat(3, 1fr); gap: 22px; z-index: 20;
         }
         .metric-card {
-          position: relative; border-radius: 14px; padding: 20px 26px;
+          position: relative; border-radius: 14px; padding: 18px 24px;
           border: 1px solid rgba(255,255,255,0.14);
           background: linear-gradient(135deg, rgba(255,255,255,0.07), rgba(255,255,255,0.018)), rgba(10,17,30,0.74);
           box-shadow: inset 0 1px 0 rgba(255,255,255,0.10), 0 18px 42px rgba(0,0,0,0.26);
           overflow: hidden; backdrop-filter: blur(16px);
         }
-        .metric-label { color: #f1f5f9; font-size: 19px; font-weight: 900; letter-spacing: 0.12em; text-transform: uppercase; }
-        .metric-value { margin-top: 12px; font-size: 44px; line-height: 0.9; font-weight: 900; letter-spacing: -0.07em; }
-        .metric-sub { margin-top: 12px; color: #94a3b8; font-size: 17px; font-weight: 600; }
-        .bar-track { margin-top: 14px; width: 100%; height: 12px; border-radius: 999px; background: rgba(148,163,184,0.16); overflow: hidden; border: 1px solid rgba(255,255,255,0.08); }
+        .metric-label { color: #f1f5f9; font-size: 18px; font-weight: 900; letter-spacing: 0.12em; text-transform: uppercase; }
+        .metric-value { margin-top: 10px; font-size: 42px; line-height: 0.9; font-weight: 900; letter-spacing: -0.07em; }
+        .metric-sub { margin-top: 10px; color: #94a3b8; font-size: 16px; font-weight: 600; }
+        .bar-track { margin-top: 12px; width: 100%; height: 10px; border-radius: 999px; background: rgba(148,163,184,0.16); overflow: hidden; border: 1px solid rgba(255,255,255,0.08); }
         .bar-fill { height: 100%; border-radius: 999px; background: linear-gradient(90deg, #22d3ee, #67e8f9); box-shadow: 0 0 19px rgba(34,211,238,0.56); }
 
         .insight {
-          position: absolute; left: 91px; right: 91px; top: 568px; height: 58px;
-          display: grid; grid-template-columns: 50px 1fr; align-items: center; column-gap: 18px; z-index: 20;
+          position: absolute; left: 80px; right: 80px; top: 575px; height: 52px;
+          display: grid; grid-template-columns: 46px 1fr; align-items: center; column-gap: 16px; z-index: 20;
         }
         .insight::before { content: ""; position: absolute; left: 0; top: 4px; bottom: 4px; width: 3px; background: #f97316; box-shadow: 0 0 15px rgba(249,115,22,0.48); }
-        .insight-icon { width: 36px; height: 36px; margin-left: 18px; border-radius: 50%; border: 1px solid rgba(249,115,22,0.48); color: #f97316; display: grid; place-items: center; }
-        .insight-copy { color: #94a3b8; font-size: 19px; line-height: 1.35; font-weight: 600; }
+        .insight-icon { width: 34px; height: 34px; margin-left: 16px; border-radius: 50%; border: 1px solid rgba(249,115,22,0.48); color: #f97316; display: grid; place-items: center; }
+        .insight-copy { color: #94a3b8; font-size: 17px; line-height: 1.35; font-weight: 600; }
         .insight-copy strong { color: #c8d3e1; font-weight: 700; }
-        .compliance { margin-top: 4px; color: #7f8a9a; font-size: 16px; font-weight: 500; }
+        .compliance { margin-top: 3px; color: #7f8a9a; font-size: 14px; font-weight: 500; }
 
-        .footer-line { position: absolute; left: 0; right: 0; bottom: 43px; height: 1px; background: rgba(255,255,255,0.10); }
-        .og-footer { position: absolute; left: 0; right: 0; bottom: 16px; text-align: center; color: #94a3b8; font-size: 14px; font-weight: 700; letter-spacing: 0.18em; }
+        .footer-line { position: absolute; left: 0; right: 0; bottom: 40px; height: 1px; background: rgba(255,255,255,0.10); }
+        .og-footer { position: absolute; left: 0; right: 0; bottom: 14px; text-align: center; color: #94a3b8; font-size: 13px; font-weight: 700; letter-spacing: 0.18em; }
       `}</style>
 
       <main className="og">
         <div className="divider-line" />
 
-        {/* Top Bar — identical to spotlight */}
+        {/* Top Bar — REAL SIGNUM HQ LOGO from signum-sg-vectorized.svg */}
         <header className="topbar">
           <div className="brand">
             <div className="logo-box">
-              <svg viewBox="0 0 64 64" fill="none" width="34" height="34">
-                <path d="M48 10H25C15 10 9 16 9 25c0 8 5 13 15 17l16 6c5 2 8 5 8 9 0 5-4 8-12 8H15" stroke="white" strokeWidth="11" strokeLinecap="round" strokeLinejoin="round" opacity="0.95" />
-                <path d="M48 10 37 21M16 54 28 43" stroke="white" strokeWidth="11" strokeLinecap="round" opacity="0.95" />
-              </svg>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/signum-sg-vectorized.svg" alt="SIGNUM HQ" width={36} height={36} style={{ filter: 'drop-shadow(0 0 4px rgba(255,255,255,0.3))' }} />
             </div>
             <div className="wordmark"><span>SIGNUM</span><span className="hq">HQ</span></div>
             <div className="top-divider" />
@@ -162,39 +161,39 @@ function SpaceXIPOCard() {
           </div>
         </section>
 
-        {/* Radar: Smart Flow — same as spotlight */}
+        {/* Radar: Smart Flow */}
         <section className="radar">
-          <svg viewBox="0 0 340 340" fill="none">
+          <svg viewBox="0 0 320 320" fill="none">
             <defs>
               <filter id="radarGlow" x="-50%" y="-50%" width="200%" height="200%">
                 <feGaussianBlur stdDeviation="5" result="blur" />
                 <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
               </filter>
             </defs>
-            <circle cx="170" cy="170" r="154" stroke="#22d3ee" strokeOpacity="0.10" />
-            <circle cx="170" cy="170" r="128" stroke="#22d3ee" strokeOpacity="0.84" strokeWidth="4" filter="url(#radarGlow)" />
-            <circle cx="170" cy="170" r="102" stroke="#22d3ee" strokeOpacity="0.10" />
-            <circle cx="170" cy="170" r="72" stroke="#22d3ee" strokeOpacity="0.10" />
-            <circle cx="170" cy="170" r="42" stroke="#22d3ee" strokeOpacity="0.08" />
+            <circle cx="160" cy="160" r="145" stroke="#22d3ee" strokeOpacity="0.10" />
+            <circle cx="160" cy="160" r="120" stroke="#22d3ee" strokeOpacity="0.84" strokeWidth="4" filter="url(#radarGlow)" />
+            <circle cx="160" cy="160" r="96" stroke="#22d3ee" strokeOpacity="0.10" />
+            <circle cx="160" cy="160" r="68" stroke="#22d3ee" strokeOpacity="0.10" />
+            <circle cx="160" cy="160" r="40" stroke="#22d3ee" strokeOpacity="0.08" />
             <g stroke="#22d3ee" strokeWidth="2" strokeLinecap="round" opacity="0.82">
-              <line x1="170" y1="22" x2="170" y2="48" />
-              <line x1="170" y1="292" x2="170" y2="318" />
-              <line x1="22" y1="170" x2="48" y2="170" />
-              <line x1="292" y1="170" x2="318" y2="170" />
+              <line x1="160" y1="20" x2="160" y2="44" />
+              <line x1="160" y1="276" x2="160" y2="300" />
+              <line x1="20" y1="160" x2="44" y2="160" />
+              <line x1="276" y1="160" x2="300" y2="160" />
             </g>
             <g stroke="#22d3ee" strokeWidth="1.5" opacity="0.65">
               {ticks.map(a => (
-                <line key={a} x1="170" y1="30" x2="170" y2="42" transform={`rotate(${a} 170 170)`} />
+                <line key={a} x1="160" y1="28" x2="160" y2="40" transform={`rotate(${a} 160 160)`} />
               ))}
             </g>
-            <text x="170" y="100" textAnchor="middle" fill="#22d3ee" fontSize="15" fontWeight="800" letterSpacing="2.5">SMART FLOW</text>
-            <text x="170" y="210" textAnchor="middle" fill="#67e8f9" fontSize="100" fontWeight="900" filter="url(#radarGlow)">{whale}</text>
-            <text x="170" y="244" textAnchor="middle" fill="#94a3b8" fontSize="22" fontWeight="700">/ 100</text>
-            <text x="170" y="278" textAnchor="middle" fill={flowColor} fontSize="16" fontWeight="900" letterSpacing="2">{flowLabel}</text>
+            <text x="160" y="96" textAnchor="middle" fill="#22d3ee" fontSize="14" fontWeight="800" letterSpacing="2.5">SMART FLOW</text>
+            <text x="160" y="198" textAnchor="middle" fill="#67e8f9" fontSize="90" fontWeight="900" filter="url(#radarGlow)">{whale}</text>
+            <text x="160" y="228" textAnchor="middle" fill="#94a3b8" fontSize="20" fontWeight="700">/ 100</text>
+            <text x="160" y="260" textAnchor="middle" fill={flowColor} fontSize="14" fontWeight="900" letterSpacing="2">{flowLabel}</text>
           </svg>
         </section>
 
-        {/* Metrics Row — identical structure to spotlight */}
+        {/* Metrics Row */}
         <section className="metrics">
           <article className="metric-card" style={{ borderColor: 'rgba(34,211,238,0.42)', boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.10), 0 18px 42px rgba(0,0,0,0.26), 0 0 23px rgba(34,211,238,0.14)' }}>
             <div className="metric-label">DP%</div>
@@ -219,13 +218,13 @@ function SpaceXIPOCard() {
         {/* Insight Bar */}
         <section className="insight">
           <div className="insight-icon">
-            <svg width="24" height="24" viewBox="0 0 28 28" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+            <svg width="22" height="22" viewBox="0 0 28 28" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
               <path d="M5 22h18M7 20V12M12 20V8M17 20v-5M22 20V6" />
               <path d="M5 15l6-6 5 5 7-9" />
             </svg>
           </div>
           <div>
-            <div className="insight-copy"><strong>SpaceX IPO proxy signal:</strong> {whale >= 65 ? 'Strong buy-side conviction in $TSLA ahead of IPO catalyst.' : whale <= 35 ? 'Distribution pattern detected — caution on proxy positioning.' : '$TSLA showing neutral institutional flow — no clear directional conviction.'}</div>
+            <div className="insight-copy"><strong>SpaceX IPO proxy:</strong> {whale >= 65 ? 'Strong buy-side conviction in $TSLA ahead of IPO catalyst.' : whale <= 35 ? 'Distribution pattern — caution on proxy positioning.' : '$TSLA neutral flow — no directional conviction.'}</div>
             <div className="compliance">Observation only — not financial advice</div>
           </div>
         </section>

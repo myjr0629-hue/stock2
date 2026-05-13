@@ -2060,7 +2060,14 @@ function noContent(type: string, dateKey: string) {
 function buildCtaUrl(lang: Lang, page: string, campaign: string): string {
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://signumhq.com';
   const utm = buildUtm('social', campaign);
-  return `${baseUrl}/${page}?${utm}`;
+  // Map old page names to actual existing routes
+  const routeMap: Record<string, string> = {
+    command: 'dashboard',
+    guardian: 'intel-guardian',
+    guide: 'how-it-works',
+  };
+  const actualPage = routeMap[page] || page;
+  return `${baseUrl}/${actualPage}?${utm}`;
 }
 
 /**
