@@ -271,11 +271,21 @@ ${disc.en}`;
   closeInsight = closeInsight.replace(/\([^)]*IFS\s*[+-]?\d+[^)]*\)/g, '');
   closeInsight = closeInsight.replace(/\([^)]*\b(?:SMH|XLK|XLC|XLY|XLE|XLF|XLV|XLI|XLB|XLP|XLU|XLRE|IWM|AI_PWR)\b[^)]*\)/g, '');
   closeInsight = closeInsight.replace(/\bIFS\s*[+-]?\d+/g, '');
+  // Strip standalone ETF/sector codes: "AI_PWR는 당일 -1." → remove entire phrase
+  closeInsight = closeInsight.replace(/\b(?:AI_PWR|SMH|XLK|XLC|XLY|XLE|XLF|XLV|XLI|XLB|XLP|XLU|XLRE|IWM)[^\n.。]*[.。]?/g, '');
   closeInsight = closeInsight.replace(/,?\s*노이즈\s*경고[^.。]*[.。]?/g, '.');
   closeInsight = closeInsight.replace(/\([^)]*스텔스[^)]*\)/g, '');
+  // Strip trailing incomplete sentences: "다만..." "ただし..."
+  closeInsight = closeInsight.replace(/다만\s*[^.。]*$/g, '');
+  closeInsight = closeInsight.replace(/ただし\s*[^.。]*$/g, '');
   closeInsight = closeInsight.replace(/,\s*,/g, ',').replace(/\.\s*\./g, '.').replace(/,\s*\./g, '.').replace(/\s{2,}/g, ' ').trim();
-  // Keep AI text short enough to never truncate (max 200 chars = complete sentences)
-  const closeTrunc = closeInsight.length > 200 ? closeInsight.slice(0, closeInsight.lastIndexOf('.', 197) + 1 || 197) + '' : closeInsight;
+  // Truncate at sentence boundary (max 200 chars, always ends on complete sentence)
+  let closeTrunc = closeInsight;
+  if (closeTrunc.length > 200) {
+    const sub = closeTrunc.slice(0, 200);
+    const lastEnd = Math.max(sub.lastIndexOf('.'), sub.lastIndexOf('。'), sub.lastIndexOf('다.'));
+    closeTrunc = lastEnd > 80 ? closeTrunc.slice(0, lastEnd + 1) : sub;
+  }
   const ctaLink = 'https://www.signumhq.com/intel-guardian';
   const ctaKo = `\n\n📊 전체 분석 보기 → ${ctaLink}`;
   const ctaJa = `\n\n📊 全分析を見る → ${ctaLink}`;

@@ -1791,15 +1791,15 @@ for (const lang of langs) {
 
             let xFinalText: string;
             if (aiRoom > 40 && cleanTactical.length > 0) {
-              // Binary search for max AI chars that fit within aiRoom weighted
+              // Binary search for max chars that fit, then cut at sentence boundary
               let lo = 0, hi = cleanTactical.length;
               while (lo < hi) {
                 const mid = Math.floor((lo + hi + 1) / 2);
-                const sliced = cleanTactical.slice(0, mid) + (mid < cleanTactical.length ? '...' : '');
-                if (twitterWeightedLength(sliced) <= aiRoom) lo = mid;
+                if (twitterWeightedLength(cleanTactical.slice(0, mid)) <= aiRoom) lo = mid;
                 else hi = mid - 1;
               }
-              const trimmedAi = lo >= cleanTactical.length ? cleanTactical : cleanTactical.slice(0, lo) + '...';
+              // Cut at complete sentence within the allowed slice
+              const trimmedAi = truncateToSentence(cleanTactical, lo);
               xFinalText = `${xBase}\n\n${trimmedAi}${xFooter}`;
             } else {
               xFinalText = `${xBase}${xFooter}`;
@@ -2408,21 +2408,46 @@ function cleanForMarketing(text: string): string {
   t = t.replace(/\([^)]*\b(?:SMH|XLK|XLC|XLY|XLE|XLF|XLV|XLI|XLB|XLP|XLU|XLRE|IWM|AI_PWR)\b[^)]*\)/g, '');
   // 4. Strip standalone IFS references: IFS +50, IFS -20
   t = t.replace(/\bIFS\s*[+-]?\d+/g, '');
-  // 5. Strip noise warning phrases (ko/ja/en)
+  // 5. Strip standalone ETF/sector codes: "AI_PWR는 당일 -1." → remove entire phrase
+  t = t.replace(/\b(?:AI_PWR|SMH|XLK|XLC|XLY|XLE|XLF|XLV|XLI|XLB|XLP|XLU|XLRE|IWM)[^\n.。]*[.。]?/g, '');
+  // 6. Strip noise warning phrases (ko/ja/en)
   t = t.replace(/,?\s*노이즈\s*경고[^.。]*[.。]?/g, '.');
   t = t.replace(/,?\s*ノイズ警告[^.。]*[.。]?/g, '.');
   t = t.replace(/,?\s*noise\s*warning[^.]*\.?/gi, '.');
-  // 6. Strip stealth signal phrases: (스텔스 매집 신호: ...)
+  // 7. Strip stealth signal phrases: (스텔스 매집 신호: ...)
   t = t.replace(/\([^)]*스텔스[^)]*\)/g, '');
   t = t.replace(/\([^)]*ステルス[^)]*\)/g, '');
   t = t.replace(/\([^)]*stealth[^)]*\)/gi, '');
-  // 7. Clean up artifacts: double spaces, orphaned commas/periods, whitespace before punctuation
+  // 8. Strip "다만" / "ただし" trailing incomplete sentences
+  t = t.replace(/다만\s*[^.。]*$/g, '');
+  t = t.replace(/ただし\s*[^.。]*$/g, '');
+  // 9. Clean up artifacts: double spaces, orphaned commas/periods, whitespace before punctuation
   t = t.replace(/,\s*,/g, ',');
   t = t.replace(/\.\s*\./g, '.');
   t = t.replace(/,\s*\./g, '.');
   t = t.replace(/\s{2,}/g, ' ');
   t = t.replace(/\s+([,.。])/g, '$1');
   return t.trim();
+}
+
+/**
+ * Truncate text to a complete sentence within maxLen.
+ * Never cuts mid-sentence — finds the last sentence boundary (. 。) before maxLen.
+ */
+function truncateToSentence(text: string, maxLen: number): string {
+  if (text.length <= maxLen) return text;
+  // Find last sentence-ending punctuation before maxLen
+  const sub = text.slice(0, maxLen);
+  const lastPeriod = Math.max(sub.lastIndexOf('.'), sub.lastIndexOf('。'), sub.lastIndexOf('다.'));
+  if (lastPeriod > maxLen * 0.4) {
+    return text.slice(0, lastPeriod + 1);
+  }
+  // Fallback: cut at last space
+  const lastSpace = sub.lastIndexOf(' ');
+  if (lastSpace > maxLen * 0.4) {
+    return text.slice(0, lastSpace) + '...';
+  }
+  return sub + '...';
 }
 
 /**
