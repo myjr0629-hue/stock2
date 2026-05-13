@@ -29,7 +29,9 @@ async function bufferGraphQL<T = any>(
   });
 
   if (!res.ok) {
-    throw new Error(`[BufferMulti] HTTP ${res.status}: ${await res.text()}`);
+    const errBody = await res.text();
+    console.error(`[BufferMulti] HTTP ${res.status} error body:`, errBody.substring(0, 500));
+    throw new Error(`[BufferMulti] HTTP ${res.status}: ${errBody.substring(0, 200)}`);
   }
 
   const json = await res.json();
