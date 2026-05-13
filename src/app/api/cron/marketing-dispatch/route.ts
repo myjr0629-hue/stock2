@@ -102,16 +102,16 @@ export async function GET(request: Request) {
       morning_ig:         new Set(['instagram']),                                  // Threads removed (IG carousel is the star here)
       midday:             new Set(['instagram', 'pinterest', 'telegram']),         // + Telegram
       education:          new Set(['twitter', 'threads', 'pinterest', 'telegram']),// + Telegram
-      edu_bsky:           new Set(['bluesky', 'pinterest']),                       // unchanged ✅
+      edu_bsky:           new Set(['bluesky', 'pinterest', 'telegram']),           // + Telegram
       pulse:              new Set(['twitter', 'instagram', 'pinterest', 'telegram']), // + Telegram
       spotlight:          new Set(['twitter', 'bluesky', 'pinterest', 'telegram']),// + Telegram
-      briefing_thread:    new Set(['twitter']),                                    // unchanged ✅
+      briefing_thread:    new Set(['twitter', 'telegram']),                        // + Telegram
       premarket_threads:  new Set(['threads', 'pinterest', 'telegram']),           // + Telegram
-      asia_recap:         new Set(['threads']),                                    // unchanged ✅ (KO/JA only)
-      asia_insight:       new Set(['threads']),                                    // unchanged ✅ (KO/JA only)
+      asia_recap:         new Set(['threads']),                                    // KO/JA only → Telegram 제외
+      asia_insight:       new Set(['threads']),                                    // KO/JA only → Telegram 제외
       spacex_spotlight:   new Set(['twitter', 'threads', 'bluesky', 'pinterest', 'telegram']), // + Telegram
       trending_spotlight: new Set([]),                                              // DISABLED
-      weekly_recap:       new Set(['twitter', 'threads']),                         // unchanged ✅
+      weekly_recap:       new Set(['twitter', 'threads', 'telegram']),             // + Telegram
     };
 
     /** Platform-filtered channel lookup — returns [] if action should NOT post to that service */
@@ -565,6 +565,14 @@ export async function GET(request: Request) {
             draft,
           });
           results.push(r);
+        }
+
+        // Telegram (EN education variant)
+        if (PLATFORM_ALLOW[action]?.has('telegram') && content.en?.text) {
+          const tgText = formatForTelegram(content.en.platformText?.threads || content.en.text, { channelLink: `${baseUrl}/command?${buildUtm('telegram', 'education')}`, contentType: 'education' });
+          const ogForTg = await captureImageForDispatch(baseUrl, content, 'en', 'tweet', 'education', dryRun);
+          const r = await dispatchTelegram({ text: tgText, imageUrl: ogForTg, dryRun });
+          results.push({ success: r.success, format: 'post', channel: 'telegram', service: 'telegram', lang: 'en', textPreview: 'telegram', postId: String(r.messageId || '') } as DispatchResult);
         }
         break;
       }
@@ -1638,6 +1646,25 @@ for (const lang of langs) {
             const r = await dispatchThread({ channelId: bskyCh.id, slides, dryRun, draft });
             results.push(r);
           }
+        }
+
+        // Telegram (EN weekly recap)
+        if (PLATFORM_ALLOW[action]?.has('telegram')) {
+          const tgWeekly = [
+            `📊 Weekly Structural Review — ${weekDateRange}`,
+            '',
+            `▸ GEX Regime: ${mktData.gex.toUpperCase()}`,
+            `▸ VIX: ${mktData.vix.toFixed(1)}`,
+            `▸ Dark Pool: ${mktData.dp.toFixed(1)}%`,
+            `▸ RLSI: ${rlsiVal}/100`,
+            '',
+            'Structure reveals the full picture.',
+            '',
+            '*Observation only — not financial advice.',
+          ].join('\n');
+          const tgText = formatForTelegram(tgWeekly, { channelLink: `${baseUrl}/command?${buildUtm('telegram', 'weekly')}`, contentType: 'weekly' });
+          const r = await dispatchTelegram({ text: tgText, dryRun });
+          results.push({ success: r.success, format: 'post', channel: 'telegram', service: 'telegram', lang: 'en', textPreview: 'telegram', postId: String(r.messageId || '') } as DispatchResult);
         }
         break;
       }
