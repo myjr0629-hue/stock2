@@ -1275,8 +1275,18 @@ for (const lang of langs) {
         
         const tslaPrice = tslaStockData?.price || 0;
         const tslaChange = tslaStockData?.changePercent || 0;
-        const tslaDp = tslaTradeData?.darkPoolPercent || 0;
-        
+        let tslaDp = tslaTradeData?.darkPoolPercent || 0;
+        // Off-hours fallback: read last cached TSLA DP
+        if (tslaDp === 0) {
+          try {
+            const dpC = await getFromCache('marketing:dp:latest:TSLA').catch(() => null);
+            if (dpC) tslaDp = parseFloat(String(dpC)) || 0;
+          } catch {}
+        }
+        // Always cache latest TSLA DP for off-hours use
+        if (tslaDp > 0) {
+          await setInCache('marketing:dp:latest:TSLA', String(tslaDp), 86400);
+        }
         // WhaleIndex & GEX from DynamoDB analysis cache (same key as watchlist)
         const tslaAnalysisRaw = await getFromCache(`cache:analysis:TSLA`).catch(() => null);
         const tslaAnalysis = tslaAnalysisRaw ? (typeof tslaAnalysisRaw === 'string' ? JSON.parse(tslaAnalysisRaw) : tslaAnalysisRaw) : {};
@@ -1284,56 +1294,114 @@ for (const lang of langs) {
         const tslaGex = (tslaAnalysis?.gexRegime ?? tslaAnalysis?.gex ?? 'neutral').toLowerCase();
         const tslaPremium = tslaAnalysis?.netPremium ?? '';
 
-        // Fetch SpaceX/TSLA news headlines from Polygon
-        const { fetchMassive: fetchPolygonNews } = await import('@/services/massiveClient');
-        let newsHeadlines: string[] = [];
-        try {
-          const newsData = await fetchPolygonNews('/v2/reference/news', { ticker: 'TSLA', limit: '5' }, true);
-          const articles = newsData?.results || [];
-          newsHeadlines = articles
-            .map((a: any) => a.title || '')
-            .filter((t: string) => t.length > 0);
-        } catch { /* news fetch optional */ }
+        // === NEWS: Guardian News Pulse (pre-analyzed) → callBedrock reformat ===
+        let spacexHeadline = '';
+        let newsSourceContext = ''; // Raw analysis from pulse for AI reformat
+        const aiAnalysisMap: Record<string, string> = {};
 
-        // Find SpaceX-related headline or use TSLA headline
-        const spacexHeadline = newsHeadlines.find(h => /spacex|ipo|starship|starlink|musk.*space/i.test(h))
-          || newsHeadlines[0] || '';
+        // Step 1: Check Guardian News Pulse for SpaceX/TSLA related items
+        try {
+          const pulseRaw = await getFromCache('guardian:news:digest').catch(() => null);
+          if (pulseRaw) {
+            const pulse = typeof pulseRaw === 'string' ? JSON.parse(pulseRaw) : pulseRaw;
+            const items = pulse?.items || [];
+            const match = items.find((it: any) =>
+              /spacex|starship|starlink|musk.*space|tsla|tesla/i.test(
+                `${it.headline} ${it.summaryEN} ${it.analysisEN}`
+              )
+            );
+            if (match) {
+              spacexHeadline = match.headline || '';
+              newsSourceContext = `Headline: ${match.headline}\nSummary: ${match.summaryEN}\nAnalysis: ${match.analysisEN}\nImpact: ${match.impact}`;
+              console.log(`[SpaceX] ✅ News Pulse match: "${spacexHeadline}"`);
+            }
+          }
+        } catch { /* pulse read optional */ }
+
+        // Step 2: Fallback — Polygon TSLA ticker news
+        if (!spacexHeadline) {
+          try {
+            const { fetchMassive: fetchPolygonNews } = await import('@/services/massiveClient');
+            const newsData = await fetchPolygonNews('/v2/reference/news', { ticker: 'TSLA', limit: '5' }, true);
+            const articles = (newsData?.results || []).filter((a: any) => a.title);
+            const spxMatch = articles.find((a: any) => /spacex|ipo|starship|starlink|musk.*space/i.test(a.title));
+            const picked = spxMatch || articles[0];
+            if (picked) {
+              spacexHeadline = picked.title;
+              newsSourceContext = `Headline: ${picked.title}\nDescription: ${picked.description || ''}`;
+            }
+          } catch { /* news fetch optional */ }
+        }
 
         const changeFmt = `${tslaChange >= 0 ? '+' : ''}${tslaChange.toFixed(2)}%`;
         const changeDir = tslaChange >= 0 ? 'up' : 'down';
         const dpSignal = tslaDp >= 40 ? 'elevated' : 'normal';
         const flowSignal = tslaWhale >= 65 ? 'accumulation' : tslaWhale <= 35 ? 'distribution' : 'neutral';
 
+        // Step 3: Reformat news + TSLA data into SpaceX post via callBedrock (cached 24h)
+        if (newsSourceContext) {
+          try {
+            const aiCacheKey = `marketing:spacex_ai:${dateKey}`;
+            const cachedAi = await getFromCache(aiCacheKey).catch(() => null);
+            if (cachedAi) {
+              const parsed = typeof cachedAi === 'string' ? JSON.parse(cachedAi) : cachedAi;
+              Object.assign(aiAnalysisMap, parsed);
+            } else {
+              const { callBedrock, MODELS } = await import('@/services/bedrockClient');
+              const dataCtx = `TSLA: $${Number(tslaPrice).toFixed(2)} (${changeFmt}), Dark Pool: ${tslaDp.toFixed(1)}%, Smart Flow: ${tslaWhale}/100, GEX: ${tslaGex}`;
+              const result = await callBedrock({
+                modelId: MODELS.HAIKU_35,
+                system: 'You are an institutional market structure analyst at SIGNUM HQ. Write OBSERVATION ONLY — never predict or advise.',
+                userPrompt: `Based on this news and $TSLA data, write a 2-sentence SpaceX × $TSLA proxy analysis for social media. Connect the news to institutional positioning data. Be specific with numbers.\n\nNews:\n${newsSourceContext}\n\nTSLA data: ${dataCtx}\n\nOutput JSON: {"en":"...English...", "ko":"...한국어...", "ja":"...日本語..."}\nEach: exactly 2 sentences, observation only, no advice. Each language must sound native.`,
+                maxTokens: 500,
+                temperature: 0.4,
+                timeoutMs: 20000,
+                jsonPrefill: true,
+                label: 'SpaceX-Reformat',
+              });
+              try {
+                const parsed = JSON.parse(result.text);
+                if (parsed.en) aiAnalysisMap.en = parsed.en;
+                if (parsed.ko) aiAnalysisMap.ko = parsed.ko;
+                if (parsed.ja) aiAnalysisMap.ja = parsed.ja;
+              } catch { aiAnalysisMap.en = result.text.replace(/[{}"\n]/g, '').trim(); }
+              if (Object.keys(aiAnalysisMap).length > 0) {
+                await setInCache(aiCacheKey, JSON.stringify(aiAnalysisMap), 86400);
+              }
+              console.log(`[SpaceX] ✅ AI reformat done (${result.elapsedMs}ms)`);
+            }
+          } catch (e: any) { console.warn(`[SpaceX] AI reformat skipped: ${e.message}`); }
+        }
+
         for (const lang of langs) {
-          // Dynamic 5-Layer content based on REAL data + news
+          const aiInsight = aiAnalysisMap[lang] || aiAnalysisMap.en || '';
+          // Dynamic 5-Layer content: Hook → Data → AI Analysis → Implication → CTA
           const textMap: Record<string, string> = {
             en: [
               spacexHeadline
                 ? `🚀 SpaceX × $TSLA Proxy Update\n📰 ${spacexHeadline}`
                 : `🚀 SpaceX IPO × $TSLA Proxy — Daily Structure Check`,
               '',
-              `📊 $TSLA ${changeFmt} today ($${Number(tslaPrice).toFixed(2)})`,
+              `📊 $TSLA ${changeFmt} ($${Number(tslaPrice).toFixed(2)})`,
               `▸ Dark Pool: ${tslaDp > 0 ? `${tslaDp.toFixed(1)}%` : 'N/A'}${dpSignal === 'elevated' ? ' ⚡ Institutional activity elevated' : ''}`,
-              `▸ Smart Flow: ${tslaWhale}/100 (${flowSignal === 'accumulation' ? '📈 Accumulation pattern' : flowSignal === 'distribution' ? '📉 Distribution pattern' : '➡️ Neutral positioning'})`,
-              `▸ GEX Regime: ${tslaGex.toUpperCase()}`,
+              `▸ Smart Flow: ${tslaWhale}/100 (${flowSignal === 'accumulation' ? '📈 Accumulation' : flowSignal === 'distribution' ? '📉 Distribution' : '➡️ Neutral'})`,
+              `▸ GEX: ${tslaGex.toUpperCase()}`,
               '',
-              `$TSLA remains the primary public proxy for SpaceX exposure.`,
-              `${changeDir === 'down' ? 'Institutional positioning during pullbacks often reveals conviction.' : 'Momentum aligns with institutional flow direction.'}`,
+              aiInsight || `$TSLA remains the primary public proxy for SpaceX exposure. ${changeDir === 'down' ? 'Institutional positioning during pullbacks often reveals conviction.' : 'Momentum aligns with institutional flow direction.'}`,
               '',
-              `Observation only — not financial advice.`,
+              `*Observation only — not financial advice.`,
             ].join('\n'),
             ko: [
               spacexHeadline
                 ? `🚀 SpaceX × $TSLA 프록시 업데이트\n📰 ${spacexHeadline}`
                 : `🚀 SpaceX IPO × $TSLA 프록시 — 일일 구조 분석`,
               '',
-              `📊 $TSLA 금일 ${changeFmt} ($${Number(tslaPrice).toFixed(2)})`,
+              `📊 $TSLA ${changeFmt} ($${Number(tslaPrice).toFixed(2)})`,
               `▸ 다크풀: ${tslaDp > 0 ? `${tslaDp.toFixed(1)}%` : 'N/A'}${dpSignal === 'elevated' ? ' ⚡ 기관 활동 활발' : ''}`,
-              `▸ 스마트 플로우: ${tslaWhale}/100 (${flowSignal === 'accumulation' ? '📈 매집 패턴' : flowSignal === 'distribution' ? '📉 분산 패턴' : '➡️ 중립'})`,
-              `▸ GEX 레짐: ${tslaGex.toUpperCase()}`,
+              `▸ 스마트 플로우: ${tslaWhale}/100 (${flowSignal === 'accumulation' ? '📈 매집' : flowSignal === 'distribution' ? '📉 분산' : '➡️ 중립'})`,
+              `▸ GEX: ${tslaGex.toUpperCase()}`,
               '',
-              `$TSLA는 SpaceX 노출의 유일한 공개 프록시입니다.`,
-              `${changeDir === 'down' ? '하락 구간에서의 기관 포지셔닝은 확신 수준을 보여줍니다.' : '모멘텀이 기관 흐름 방향과 일치합니다.'}`,
+              aiInsight || `$TSLA는 SpaceX 노출의 유일한 공개 프록시입니다. ${changeDir === 'down' ? '하락 구간에서의 기관 포지셔닝은 확신 수준을 보여줍니다.' : '모멘텀이 기관 흐름 방향과 일치합니다.'}`,
               '',
               `*본 정보는 투자 권유가 아닌 데이터 분석 참고 자료입니다.`,
             ].join('\n'),
@@ -1342,13 +1410,12 @@ for (const lang of langs) {
                 ? `🚀 SpaceX × $TSLA プロキシ更新\n📰 ${spacexHeadline}`
                 : `🚀 SpaceX IPO × $TSLA プロキシ — デイリー構造分析`,
               '',
-              `📊 $TSLA 本日 ${changeFmt} ($${Number(tslaPrice).toFixed(2)})`,
+              `📊 $TSLA ${changeFmt} ($${Number(tslaPrice).toFixed(2)})`,
               `▸ ダークプール: ${tslaDp > 0 ? `${tslaDp.toFixed(1)}%` : 'N/A'}${dpSignal === 'elevated' ? ' ⚡ 機関活動活発' : ''}`,
-              `▸ スマートフロー: ${tslaWhale}/100 (${flowSignal === 'accumulation' ? '📈 集積パターン' : flowSignal === 'distribution' ? '📉 分配パターン' : '➡️ 中立'})`,
-              `▸ GEXレジーム: ${tslaGex.toUpperCase()}`,
+              `▸ スマートフロー: ${tslaWhale}/100 (${flowSignal === 'accumulation' ? '📈 集積' : flowSignal === 'distribution' ? '📉 分配' : '➡️ 中立'})`,
+              `▸ GEX: ${tslaGex.toUpperCase()}`,
               '',
-              `$TSLAはSpaceXエクスポージャーの唯一の公開プロキシです。`,
-              `${changeDir === 'down' ? '下落時の機関ポジショニングは確信度を示します。' : 'モメンタムが機関フロー方向と一致しています。'}`,
+              aiInsight || `$TSLAはSpaceXエクスポージャーの唯一の公開プロキシです。${changeDir === 'down' ? '下落時の機関ポジショニングは確信度を示します。' : 'モメンタムが機関フロー方向と一致。'}`,
               '',
               `*投資助言ではありません。データ分析の参考資料です。`,
             ].join('\n'),

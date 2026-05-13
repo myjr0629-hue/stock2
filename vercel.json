@@ -173,6 +173,14 @@
             "path": "/api/cron/marketing-dispatch?action=trending_spotlight&region=all&dry_run=false",
             "schedule": "30 18 * * 1-5"
         },
+        {
+            "path": "/api/cron/marketing-dispatch?action=spacex_spotlight&region=asia&dry_run=false",
+            "schedule": "30 5 * * 1-5"
+        },
+        {
+            "path": "/api/cron/marketing-dispatch?action=spacex_spotlight&region=en&dry_run=false",
+            "schedule": "0 17 * * 1-5"
+        },
 
         {
             "path": "/api/cron/event-detect?dry_run=false",
