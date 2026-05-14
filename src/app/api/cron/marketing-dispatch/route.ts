@@ -686,27 +686,44 @@ export async function GET(request: Request) {
           const topicIdx = new Date().getDate() % eduTopics.length;
           const pinTopic = eduTopics[topicIdx];
           const seo = getPinterestSEO({ contentType: 'education', educationTopic: pinTopic });
-          // Use cached CDN URL from education dispatch (5min earlier) — no EC2 call
+          const pinTags = getHashtags({ platform: 'pinterest', contentType: 'education' });
+
+          // EC2 capture 1000×1500 vertical pin image
           let pinImage = '';
           if (!dryRun) {
-            try { pinImage = (await getFromCache(`marketing:edu_og_cdn:${dateKey}`)) as string || ''; } catch {}
+            try {
+              const captureResult = await captureTemplate({ template: 'education_pin', format: 'pin', data: { topic: pinTopic } });
+              if (captureResult?.cdnUrl) pinImage = captureResult.cdnUrl;
+            } catch (e: any) {
+              console.warn(`[EducationPin] Capture failed: ${e.message}`);
+            }
+            // Fallback: use cached EN OG from education dispatch
+            if (!pinImage) {
+              try { pinImage = (await getFromCache(`marketing:edu_og_cdn:${dateKey}`)) as string || ''; } catch {}
+            }
           }
           if (!pinImage) {
-            pinImage = `${baseUrl}/templates/og/education?type=education&topic=${pinTopic}&lang=en&format=og`;
+            pinImage = `${baseUrl}/templates/og/education-pin?topic=${pinTopic}&format=pin`;
           }
 
-          const pinLink = `${baseUrl}/how-it-works?${buildUtm('pinterest', 'education')}`;
-          const pinOverhead = seo.title.length + pinLink.length + 4;
+          // Clean link (no UTM spam)
+          const pinLink = `${baseUrl}/intel-guardian`;
+
+          // Build description: short SEO text + hashtags (must fit 500 total)
+          const descBody = seo.description;
+          const pinOverhead = seo.title.length + pinLink.length + pinTags.length + 6; // 6 = three \n\n
           const maxDesc = 500 - pinOverhead;
-          const pinDesc = seo.description.length > maxDesc
-            ? seo.description.substring(0, maxDesc - 3) + '...'
-            : seo.description;
+          const pinDesc = descBody.length > maxDesc
+            ? descBody.substring(0, descBody.lastIndexOf('. ', maxDesc - 1) + 1) || descBody.substring(0, maxDesc - 3) + '...'
+            : descBody;
+
+          const pinFullDesc = `${pinDesc}\n\n${pinTags}`;
 
           const r = await dispatchPin({
             channelId: pinCh.id,
             imageUrl: pinImage,
             title: seo.title,
-            description: pinDesc,
+            description: pinFullDesc,
             link: pinLink,
             dryRun,
             draft,
