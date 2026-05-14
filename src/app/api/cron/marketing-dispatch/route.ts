@@ -1725,16 +1725,15 @@ for (const lang of langs) {
             Object.assign(aiAnalysisMap, parsed);
           } else {
             const { callBedrock, MODELS } = await import('@/services/bedrockClient');
-            const dataCtx = `TSLA: $${Number(tslaPrice).toFixed(2)} (${changeFmt}), Dark Pool: ${tslaDp.toFixed(1)}%, Smart Flow: ${tslaWhale}/100, GEX: ${tslaGex}`;
             const result = await callBedrock({
               modelId: MODELS.HAIKU_35,
-              system: 'You are an institutional SpaceX analyst at SIGNUM HQ. Focus on SpaceX business developments and IPO implications. TSLA data is secondary context only. Write OBSERVATION ONLY — never predict or advise.',
-              userPrompt: `Write a 3-4 sentence SpaceX news analysis based on this news. SpaceX developments are the MAIN topic. Mention TSLA only briefly as a proxy reference. Each language must sound completely native — not translated.\n\nSpaceX News:\n${newsSourceContext}\n\nTSLA reference data: ${dataCtx}\n\nOutput JSON: {"en":"...English analysis...", "ko":"...한국어 분석 (자연스러운 한국어)...", "ja":"...日本語分析 (自然な日本語)..."}\nRules: 3-4 sentences per language. SpaceX focus. Observation only. No investment advice.`,
-              maxTokens: 800,
-              temperature: 0.4,
-              timeoutMs: 20000,
+              system: 'You are a SpaceX business analyst at SIGNUM HQ. Your job is to summarize and analyze SpaceX news for social media. Each language output must be FULLY STANDALONE — readers should understand the news WITHOUT seeing the English headline. Write OBSERVATION ONLY — never predict or advise.',
+              userPrompt: `Summarize and analyze the following SpaceX news in 3 languages. Each output must INCLUDE the key facts from the news (who, what, why) AND your brief analysis. Do NOT just analyze — first summarize the news, then analyze. Each language must sound completely native — NOT translated.\n\nSpaceX News:\n${newsSourceContext}\n\nOutput JSON:\n{"en":"[2-3 sentence news summary] [1-2 sentence analysis]", "ko":"[2-3문장 뉴스 요약 — 한국어로] [1-2문장 분석]", "ja":"[2-3文ニュース要約 — 日本語で] [1-2文分析]"}\n\nRules:\n- 3-4 sentences per language TOTAL\n- Include key facts (names, numbers, context)\n- Each language STANDALONE readable\n- SpaceX is main topic, NO TSLA data\n- Observation only, no investment advice`,
+              maxTokens: 1000,
+              temperature: 0.3,
+              timeoutMs: 25000,
               jsonPrefill: true,
-              label: 'SpaceX-Reformat',
+              label: 'SpaceX-News-Analysis',
             });
             try {
               const parsed = JSON.parse(result.text);
@@ -1766,13 +1765,14 @@ for (const lang of langs) {
 
         for (const lang of langs) {
           const aiInsight = aiAnalysisMap[lang] || '';
-          // NEWS is ALWAYS main. AI insight is supplementary (appended after news).
+          // EN: English news summary is main, AI supplementary
+          // KO/JA: AI native analysis is main (newsSummary is English → useless for non-EN)
           let analysis = '';
-          if (newsSummary) {
-            analysis = newsSummary;
-            if (aiInsight) analysis += '\n\n' + aiInsight;
+          if (lang === 'en') {
+            analysis = newsSummary || aiInsight || `SpaceX continues to advance its IPO timeline amid growing institutional interest.`;
           } else {
-            analysis = aiInsight || `SpaceX continues to advance its IPO timeline amid growing institutional interest.`;
+            // For KO/JA: use AI native analysis first, English news as last resort
+            analysis = aiInsight || newsSummary || `SpaceX continues to advance its IPO timeline amid growing institutional interest.`;
           }
 
           const textMap: Record<string, string> = {
