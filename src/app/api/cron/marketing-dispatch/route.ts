@@ -1742,6 +1742,12 @@ for (const lang of langs) {
               if (parsed.ko) aiAnalysisMap.ko = parsed.ko;
               if (parsed.ja) aiAnalysisMap.ja = parsed.ja;
             } catch { aiAnalysisMap.en = result.text.replace(/[{}"\n]/g, '').trim(); }
+            // Strip 'en:', 'ko:', 'ja:' prefixes and cross-language bleed from AI output
+            for (const lk of Object.keys(aiAnalysisMap)) {
+              if (typeof aiAnalysisMap[lk] === 'string') {
+                aiAnalysisMap[lk] = aiAnalysisMap[lk].replace(/^(en|ko|ja):\s*/i, '').replace(/,\s+(ko|ja|en):\s+.*/s, '').trim();
+              }
+            }
             if (Object.keys(aiAnalysisMap).length > 0) {
               await setInCache(aiCacheKey, JSON.stringify(aiAnalysisMap), 86400);
             }
