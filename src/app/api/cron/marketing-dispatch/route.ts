@@ -114,7 +114,7 @@ export async function GET(request: Request) {
       spacex_spotlight:   new Set(['twitter', 'threads', 'bluesky', 'pinterest', 'telegram']), // + Telegram
       trending_spotlight: new Set([]),                                              // DISABLED
       weekly_recap:       new Set(['twitter', 'threads', 'telegram']),             // + Telegram
-      market_close_asia:  new Set(['twitter', 'threads', 'bluesky', 'pinterest', 'telegram']), // All platforms
+      market_close_asia:  new Set(['twitter', 'threads', 'bluesky', 'instagram', 'telegram']),
     };
 
     /** Platform-filtered channel lookup — returns [] if action should NOT post to that service */
@@ -1956,26 +1956,6 @@ for (const lang of langs) {
             results.push(r);
           }
 
-          // ── Pinterest — SEO pin ──
-          const pinCh = getFilteredChannels({ tier: 'all', lang, service: 'pinterest' })[0];
-          if (pinCh) {
-            const pinSeo = getPinterestSEO({ contentType: 'close' });
-            const pinTitle = lang === 'ko' ? `미국 장마감 브리핑 | S&P ${sd}${mkt.spyChg.toFixed(2)}%`
-              : lang === 'ja' ? `米国市場クローズ | S&P ${sd}${mkt.spyChg.toFixed(2)}%`
-              : `US Market Close | S&P ${sd}${mkt.spyChg.toFixed(2)}%`;
-            const pinHashtags = getHashtags({ platform: 'pinterest', contentType: 'close', lang });
-            const pinDesc = `${pinTitle}\nNASDAQ ${nd}${mkt.qqqChg.toFixed(2)}% | DOW ${dd}${mkt.diaChg.toFixed(2)}%\nVIX: ${mkt.vix.toFixed(1)} | Fear & Greed: ${mkt.fgi}\n\n${pinHashtags}`;
-            const pinOg = await captureMarketCloseOG(baseUrl, mkt, 'og', dryRun);
-            const r = await dispatchPin({
-              channelId: pinCh.id,
-              title: pinTitle,
-              description: pinDesc,
-              link: ctaUrl,
-              imageUrl: pinOg,
-              dryRun, draft,
-            });
-            results.push(r);
-          }
 
           // ── Instagram Story — image-only ──
           // Reuse the OG image already captured for X tweet
@@ -2007,6 +1987,7 @@ for (const lang of langs) {
             }
           }
         }
+
 
         // ── Telegram (EN only) ──
         const tgAllowed = PLATFORM_ALLOW[action]?.has('telegram');
