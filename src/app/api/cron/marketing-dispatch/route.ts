@@ -1673,19 +1673,12 @@ for (const lang of langs) {
           const text = langContent?.text || spacexContent.en?.text || 'SpaceX update';
           const ctaUrl = buildCtaUrl(lang, 'command', 'spacex_ipo');
 
-          // Capture OG with real TSLA data (single attempt — avoid timeout)
+          // OG image: pre-captured by daily-content?type=spacex → Redis
           let ogImage = '';
-          if (!dryRun) {
-            try {
-              const premFmt = typeof tslaPremium === 'number' ? `${tslaPremium >= 0 ? '+' : ''}$${Math.abs(tslaPremium / 1e6).toFixed(1)}M` : String(tslaPremium || '');
-              const ogData = {
-                dp: tslaDp, whale: String(tslaWhale), gex: tslaGex,
-                price: String(tslaPrice), change: tslaChange, premium: premFmt, date: dateKey,
-              };
-              const r = await captureTemplate({ template: 'spacex_ipo', format: 'tweet', data: ogData });
-              if (r?.cdnUrl) ogImage = r.cdnUrl;
-            } catch (e: any) { console.warn(`[SpaceX] OG capture failed: ${e.message}`); }
-          }
+          try {
+            const cachedOg = await getFromCache(`marketing:spacex:og:${dateKey}`).catch(() => null);
+            if (cachedOg) ogImage = String(cachedOg);
+          } catch {}
 
           // X (single post — thread draft not supported by Buffer API)
           const twitterCh = getFilteredChannels({ tier: 'all', lang, service: 'twitter' })[0];

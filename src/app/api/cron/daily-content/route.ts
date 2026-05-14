@@ -170,11 +170,43 @@ export async function GET(request: Request) {
       const redisKey = `marketing:spacex:${dateKey}`;
       await setInCache(redisKey, JSON.stringify(spacexResult.content), 86400);
 
+      // Pre-capture OG image with TSLA data
+      let ogCdnUrl = '';
+      try {
+        // Fetch TSLA data for OG
+        const [tslaTradeRaw, tslaAnalysisRaw] = await Promise.all([
+          safeGetCache('marketing:tsla:latest'),
+          safeGetCache('cache:analysis:TSLA'),
+        ]);
+        const tslaTrade = tslaTradeRaw ? (typeof tslaTradeRaw === 'string' ? JSON.parse(tslaTradeRaw) : tslaTradeRaw) : {};
+        const tslaAnalysis = tslaAnalysisRaw ? (typeof tslaAnalysisRaw === 'string' ? JSON.parse(tslaAnalysisRaw) : tslaAnalysisRaw) : {};
+        const dp = tslaTrade?.darkPoolPercent || tslaAnalysis?.darkPoolPercent || 0;
+        const whale = tslaAnalysis?.whaleIndex ?? tslaAnalysis?.smartFlow ?? 50;
+        const gex = String(tslaAnalysis?.gexRegime ?? 'neutral').toLowerCase();
+        const price = tslaTrade?.price || tslaAnalysis?.price || 0;
+        const change = tslaTrade?.change || tslaAnalysis?.changePercent || 0;
+
+        const { captureTemplate } = await import('@/lib/marketing/screenshotService');
+        const ogResult = await captureTemplate({
+          template: 'spacex_ipo',
+          format: 'tweet',
+          data: { dp, whale: String(whale), gex, price: String(price), change, date: dateKey },
+        });
+        if (ogResult?.cdnUrl) {
+          ogCdnUrl = ogResult.cdnUrl;
+          await setInCache(`marketing:spacex:og:${dateKey}`, ogCdnUrl, 86400);
+          console.log(`[SpaceX-Content] ✅ OG captured: ${ogCdnUrl}`);
+        }
+      } catch (err: any) {
+        console.warn('[SpaceX-Content] OG capture failed (non-fatal):', err.message);
+      }
+
       results.spacex = {
         saved: true,
         engine: spacexResult.source,
         redisKey,
         headline: spacexResult.headline,
+        ogImage: ogCdnUrl || null,
         preview: {
           en: spacexResult.content.en.text.substring(0, 120) + '...',
           ko: spacexResult.content.ko.text.substring(0, 120) + '...',
