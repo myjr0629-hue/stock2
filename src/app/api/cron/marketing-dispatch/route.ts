@@ -656,7 +656,7 @@ export async function GET(request: Request) {
         // Pinterest (EN only) — vertical infographic pin
         const pinCh = getFilteredChannels({ tier: 'all', service: 'pinterest' })[0];
         if (pinCh) {
-          const eduTopics = ['gex', 'dark_pool', 'smart_flow'];
+          const eduTopics = ['gex', 'dark_pool', 'iv_percentile', 'pcr', 'max_pain'];
           const topicIdx = new Date().getDate() % eduTopics.length;
           const pinTopic = eduTopics[topicIdx];
           const seo = getPinterestSEO({ contentType: 'education', educationTopic: pinTopic });
@@ -736,7 +736,7 @@ export async function GET(request: Request) {
         // Additional Pinterest pin (different topic variant)
         const pinCh = getFilteredChannels({ tier: 'all', service: 'pinterest' })[0];
         if (pinCh) {
-          const eduTopics = ['gex', 'dark_pool', 'smart_flow'];
+          const eduTopics = ['gex', 'dark_pool', 'iv_percentile', 'pcr', 'max_pain'];
           const topicIdx = (new Date().getDate() + 1) % eduTopics.length; // +1 offset from education dispatch
           const pinTopic = eduTopics[topicIdx];
           const seo = getPinterestSEO({ contentType: 'education', educationTopic: pinTopic });
