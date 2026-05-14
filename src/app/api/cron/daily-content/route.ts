@@ -192,7 +192,7 @@ export async function GET(request: Request) {
         }
         const whale = tslaAnalysis?.whaleIndex ?? tslaAnalysis?.smartFlow ?? 50;
         const gex = String(tslaAnalysis?.gexRegime ?? 'neutral').toLowerCase();
-        const price = tslaStock?.price || tslaLive?.price || tslaAnalysis?.price || 0;
+        const price = tslaStock?.price || (tslaLive as any)?.price || tslaAnalysis?.price || 0;
         const prevClose = tslaStock?.prevClose || 0;
         let change = tslaStock?.changePercent || 0;
         if (change === 0 && prevClose > 0 && price > 0) {
