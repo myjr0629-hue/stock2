@@ -35,7 +35,7 @@ const T: Record<string, Record<string, any>> = {
 const BG = '#06090f';
 const S: React.CSSProperties = {
   position:'relative', width:1080, height:1080, overflow:'hidden', color:'#f1f5f9',
-  fontFamily:"'Inter',system-ui,sans-serif",
+  fontFamily:"'Inter','Noto Sans KR','Noto Sans JP',system-ui,sans-serif",
   background:`radial-gradient(circle at 68% 38%,rgba(34,211,238,.11),transparent 34%),radial-gradient(circle at 36% 50%,rgba(167,139,250,.10),transparent 38%),linear-gradient(135deg,${BG},#040710)`,
   isolation:'isolate',
 };
@@ -180,5 +180,10 @@ function Content() {
 }
 
 export default function EducationCarouselPage() {
-  return <Suspense fallback={<div style={{width:1080,height:1080,background:BG}}/>}><Content/></Suspense>;
+  return <>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Noto+Sans+KR:wght@400;500;700;900&family=Noto+Sans+JP:wght@400;500;700;900&display=swap" rel="stylesheet" />
+    <Suspense fallback={<div style={{width:1080,height:1080,background:BG}}/>}><Content/></Suspense>
+  </>;
 }
