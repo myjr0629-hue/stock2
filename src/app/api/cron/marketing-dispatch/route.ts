@@ -766,35 +766,34 @@ export async function GET(request: Request) {
         const topicIdx = new Date().getDate() % eduTopics.length;
         const topic = eduTopics[topicIdx];
 
+        // Capture EN slides once — reuse for all languages (CJK font not yet installed on EC2)
+        const slideUrls: string[] = [];
+        for (let slide = 1; slide <= 5; slide++) {
+          if (dryRun) {
+            slideUrls.push(`${baseUrl}/templates/og/education-carousel?topic=${topic}&lang=en&slide=${slide}`);
+          } else {
+            try {
+              const result = await captureTemplate({
+                template: 'education-carousel' as any,
+                format: 'carousel',
+                data: { topic, lang: 'en', slide },
+              });
+              if (result?.cdnUrl) slideUrls.push(result.cdnUrl);
+            } catch (err: any) {
+              console.warn(`[EduIG] Slide ${slide} capture failed: ${err.message}`);
+            }
+            await new Promise(r => setTimeout(r, 1500));
+          }
+        }
+
+        if (slideUrls.length === 0) {
+          console.warn(`[EduIG] No EN slides captured, aborting`);
+          break;
+        }
+
         for (const lang of langs) {
           const igCh = getFilteredChannels({ tier: 'all', lang, service: 'instagram' })[0];
           if (!igCh) continue;
-
-          // Capture 5 slides
-          const slideUrls: string[] = [];
-          for (let slide = 1; slide <= 5; slide++) {
-            if (dryRun) {
-              slideUrls.push(`${baseUrl}/templates/og/education-carousel?topic=${topic}&lang=${lang}&slide=${slide}`);
-            } else {
-              try {
-                const result = await captureTemplate({
-                  template: 'education-carousel' as any,
-                  format: 'carousel',
-                  data: { topic, lang, slide },
-                });
-                if (result?.cdnUrl) slideUrls.push(result.cdnUrl);
-              } catch (err: any) {
-                console.warn(`[EduIG] Slide ${slide} capture failed: ${err.message}`);
-              }
-              // Rate limit between captures (EC2 load management)
-              await new Promise(r => setTimeout(r, 1500));
-            }
-          }
-
-          if (slideUrls.length === 0) {
-            console.warn(`[EduIG] No slides captured for ${lang}, skipping`);
-            continue;
-          }
 
           // Build rich IG caption (2200 chars max) — use full education content
           const lc = eduContent?.[lang];
