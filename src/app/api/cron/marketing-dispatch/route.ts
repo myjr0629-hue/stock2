@@ -795,7 +795,7 @@ export async function GET(request: Request) {
           }
 
           // Build rich IG caption (2200 chars max) — use full education content
-          const lc = eduContent[lang];
+          const lc = eduContent?.[lang];
           const topicLabel = topic.toUpperCase().replace('_', ' ');
           const bodyText = lc?.text || lc?.platformText?.threads || '';
           const igTags = lang === 'ko'
