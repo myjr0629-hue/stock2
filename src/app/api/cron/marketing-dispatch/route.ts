@@ -1957,16 +1957,18 @@ for (const lang of langs) {
           }
 
 
-          // ── Instagram Story — image-only ──
-          // Reuse the OG image already captured for X tweet
+          // ── Instagram Story — 1080×1920 vertical ──
           const igCh = getFilteredChannels({ tier: 'all', lang, service: 'instagram' })[0];
-          if (igCh && ogImage) {
-            const r = await dispatchStory({
-              channelId: igCh.id,
-              imageUrl: ogImage,
-              dryRun, draft,
-            });
-            results.push(r);
+          if (igCh) {
+            const storyImage = await captureMarketCloseOG(baseUrl, mkt, 'story', dryRun);
+            if (storyImage) {
+              const r = await dispatchStory({
+                channelId: igCh.id,
+                imageUrl: storyImage,
+                dryRun, draft,
+              });
+              results.push(r);
+            }
           }
 
           // ── Instagram Feed — 1080×1080 single image post (KO/JA only) ──
