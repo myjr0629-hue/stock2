@@ -1736,11 +1736,17 @@ for (const lang of langs) {
           const analysisLines = lines.filter((l: string) => !l.startsWith('🚀') && !l.startsWith('📰') && !l.startsWith('*') && !l.startsWith('#'));
           const pinBody = analysisLines.join(' ').substring(0, 250).trim();
 
+          // Build description: news body + hashtags (500 char limit)
+          const pinTags = '#SpaceX #TSLA #IPO #SpaceIndustry #StockMarket #Investing #SignumHQ';
+          const pinDesc = pinBody
+            ? `${pinBody}\n\n${pinTags}`
+            : `SpaceX IPO institutional analysis.\n\n${pinTags}`;
+
           const r = await dispatchPin({
             channelId: pinCh.id,
             imageUrl: pinImage,
             title: `🚀 ${pinHeadline}`,
-            description: pinBody || 'SpaceX IPO institutional analysis with dark pool and options flow data.',
+            description: pinDesc.substring(0, 490),
             link: `${baseUrl}/intel-guardian`,
             dryRun, draft,
           });

@@ -173,23 +173,31 @@ export async function GET(request: Request) {
       // Pre-capture OG image with TSLA data
       let ogCdnUrl = '';
       try {
-        // Fetch TSLA data for OG from multiple sources
-        const [tslaTradeRaw, tslaAnalysisRaw, tslaRtRaw, tslaUnifiedRaw] = await Promise.all([
-          safeGetCache('marketing:tsla:latest'),
+        // Fetch TSLA data for OG — use fetchTradeData (live EC2) + cache fallbacks
+        const { fetchTradeData: fetchTsla } = await import('@/services/realtimeMetricsService');
+        const { getStockDataLight: getTslaLight } = await import('@/services/marketDataLight');
+        const [tslaLive, tslaStock, tslaAnalysisRaw] = await Promise.all([
+          fetchTsla('TSLA').catch(() => null),
+          getTslaLight('TSLA').catch(() => null),
           safeGetCache('cache:analysis:TSLA'),
-          safeGetCache('rt-metrics:TSLA'),
-          safeGetCache('cache:command:unified:TSLA'),
         ]);
-        const parse = (raw: any) => raw ? (typeof raw === 'string' ? JSON.parse(raw) : raw) : {};
-        const tslaTrade = parse(tslaTradeRaw);
-        const tslaAnalysis = parse(tslaAnalysisRaw);
-        const tslaRt = parse(tslaRtRaw);
-        const tslaUnified = parse(tslaUnifiedRaw);
-        const dp = tslaTrade?.darkPoolPercent || tslaRt?.darkPoolPct || tslaRt?.darkPoolPercent || tslaAnalysis?.darkPoolPercent || tslaUnified?.darkPoolPercent || 0;
-        const whale = tslaAnalysis?.whaleIndex ?? tslaAnalysis?.smartFlow ?? tslaUnified?.whaleIndex ?? 50;
-        const gex = String(tslaAnalysis?.gexRegime ?? tslaUnified?.gexRegime ?? 'neutral').toLowerCase();
-        const price = tslaTrade?.price || tslaRt?.price || tslaAnalysis?.price || tslaUnified?.price || 0;
-        const change = tslaTrade?.change || tslaRt?.changePercent || tslaAnalysis?.changePercent || tslaUnified?.changePercent || 0;
+        const tslaAnalysis = tslaAnalysisRaw ? (typeof tslaAnalysisRaw === 'string' ? JSON.parse(tslaAnalysisRaw) : tslaAnalysisRaw) : {};
+
+        let dp = tslaLive?.darkPoolPercent || tslaAnalysis?.darkPoolPercent || 0;
+        if (dp === 0) {
+          try {
+            const dpC = await safeGetCache('marketing:dp:latest:TSLA');
+            if (dpC) dp = parseFloat(String(dpC)) || 0;
+          } catch {}
+        }
+        const whale = tslaAnalysis?.whaleIndex ?? tslaAnalysis?.smartFlow ?? 50;
+        const gex = String(tslaAnalysis?.gexRegime ?? 'neutral').toLowerCase();
+        const price = tslaStock?.price || tslaLive?.price || tslaAnalysis?.price || 0;
+        const prevClose = tslaStock?.prevClose || 0;
+        let change = tslaStock?.changePercent || 0;
+        if (change === 0 && prevClose > 0 && price > 0) {
+          change = ((price - prevClose) / prevClose) * 100;
+        }
         console.log(`[SpaceX-Content] TSLA data: dp=${dp} whale=${whale} gex=${gex} price=${price} change=${change}`);
 
         const { captureTemplate } = await import('@/lib/marketing/screenshotService');
@@ -478,12 +486,9 @@ async function generateSpaceXContent(): Promise<{
     };
 
     // Short version for X/Bluesky (280/300 char limit)
-    // Extract first 1-2 sentences only
-    const shortAnalysis = analysis
-      .split(/(?<=[.。!！?？])\s+/)
-      .slice(0, 2)
-      .join(' ')
-      .substring(0, 160);
+    // Extract first sentence only — headline is already long
+    const firstSentence = analysis.split(/(?<=[.。!！?？])\s+/)[0] || analysis;
+    const shortAnalysis = firstSentence.substring(0, 120);
 
     const twitterText = [
       headerMap[lang],
