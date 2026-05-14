@@ -286,9 +286,9 @@ ${disc.en}`;
     const lastEnd = Math.max(sub.lastIndexOf('.'), sub.lastIndexOf('。'), sub.lastIndexOf('다.'));
     closeTrunc = lastEnd > 80 ? closeTrunc.slice(0, lastEnd + 1) : sub;
   }
-  const ctaLink = 'https://www.signumhq.com/intel-guardian';
-  const ctaKo = `\n\n📊 전체 분석 보기 → ${ctaLink}`;
-  const ctaJa = `\n\n📊 全分析を見る → ${ctaLink}`;
+  const ctaLink = 'signumhq.com';
+  const ctaKo = `\n\n📊 전체 분석 → ${ctaLink}`;
+  const ctaJa = `\n\n📊 全分析はプロフィールリンクから → ${ctaLink}`;
   const ctaEn = `\n\n📊 Full analysis → ${ctaLink}`;
   if (lang === 'ko') return closeTrunc
     ? `장 마감 🔔\n\n📉 S&P 500: ${sd}${m.spyChg.toFixed(2)}%\n📈 나스닥: ${nd}${m.qqqChg.toFixed(2)}%\n📊 다우: ${dd}${m.diaChg.toFixed(2)}%\n\nVIX: ${m.vix.toFixed(1)} | DP: ${dp} | F&G: ${m.fgi}\n\n${closeTrunc}${ctaKo}\n\n${disc.ko}`
