@@ -1784,21 +1784,17 @@ for (const lang of langs) {
             }
           }
 
-          // X Thread (4 slides)
+          // X (single post — thread draft not supported by Buffer API)
           const twitterCh = getFilteredChannels({ tier: 'all', lang, service: 'twitter' })[0];
           if (twitterCh) {
             const tags = getHashtags({ platform: 'twitter', contentType: 'spacex', lang, tickers: ['TSLA'] });
-            const lines = text.split('\n').filter(l => l.trim());
-            const slides: { text: string; imageUrl?: string }[] = [];
-            // Slide 1: Hook + image
-            slides.push({ text: `${tags}\n\n${lines.slice(0, 2).join('\n')}`, imageUrl: ogImage || undefined });
-            // Slide 2: Data
-            slides.push({ text: lines.slice(2, 6).join('\n') });
-            // Slide 3: Meaning
-            slides.push({ text: lines.slice(6, 9).join('\n') });
-            // Slide 4: CTA
-            slides.push({ text: `📊 ${lang === 'ko' ? '$TSLA 기관 구조 실시간 추적' : lang === 'ja' ? '$TSLA 機関構造リアルタイム追跡' : 'Track $TSLA institutional structure live'} → ${ctaUrl}\n\n${lines[lines.length - 1]}` });
-            const r = await dispatchThread({ channelId: twitterCh.id, slides, dryRun, draft });
+            const tweetText = truncateWithTags(text, `\n\n${tags}`, 'twitter');
+            const r = await dispatchPost({
+              channelId: twitterCh.id,
+              text: tweetText,
+              imageUrl: ogImage || undefined,
+              dryRun, draft,
+            });
             results.push(r);
           }
 
