@@ -2593,7 +2593,20 @@ function truncateWithTags(body: string, tagsOrFooter: string, service: string): 
       if (lenFn(body.substring(0, mid)) <= maxBody - 3) lo = mid;
       else hi = mid - 1;
     }
-    trimmedBody = body.substring(0, lo) + '...';
+    // Cut at sentence boundary for cleaner truncation
+    const rawSlice = body.substring(0, lo);
+    const lastSentEnd = Math.max(
+      rawSlice.lastIndexOf('. '),
+      rawSlice.lastIndexOf('。'),
+      rawSlice.lastIndexOf('다. '),
+      rawSlice.lastIndexOf('다.\n'),
+    );
+    if (lastSentEnd > lo * 0.4) {
+      // Cut at the end of a complete sentence
+      trimmedBody = rawSlice.substring(0, lastSentEnd + 1).trimEnd();
+    } else {
+      trimmedBody = rawSlice + '...';
+    }
   }
   const result = `${trimmedBody}${separator}${tagsOrFooter}`;
   // Safety net
