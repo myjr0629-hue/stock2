@@ -608,15 +608,18 @@ export async function GET(request: Request) {
           const twitterCh = getFilteredChannels({ tier: 'all', lang, service: 'twitter' })[0];
 
           if (twitterCh) {
-            // Pre-capture education OG image for thread
+            // Pre-capture education OG image
             const eduOgImage = await captureImageForDispatch(baseUrl, content, lang, 'tweet', 'education', dryRun);
-            // Build thread slides from education content
-            const slides = buildEducationThread(lc, lang, ctaUrl, eduOgImage);
-            const r = await dispatchThread({
+            // Single tweet (not thread) — chain tweets are done manually
+            const xTags = getHashtags({ platform: 'twitter', contentType: 'education', lang, tickers: ['SPY', 'QQQ'] });
+            const xBody = lc.platformText?.threads || lc.text;
+            const xFooter = `\n\n${ctaUrl}\n\n${xTags}`;
+            const xText = truncateWithTags(xBody, `${ctaUrl}\n\n${xTags}`, 'twitter');
+            const r = await dispatchTweet({
               channelId: twitterCh.id,
-              slides,
+              text: xText,
+              imageUrl: eduOgImage,
               dryRun,
-
               draft,
             });
             results.push(r);
@@ -683,12 +686,20 @@ export async function GET(request: Request) {
             pinImage = await captureImageForDispatch(baseUrl, content, 'en', 'pin', 'education', dryRun);
           }
 
+          const pinLink = `${baseUrl}/how-it-works?${buildUtm('pinterest', 'education')}`;
+          // Buffer enforces 500 char on combined: title + \n\n + description + \n\n + link
+          const pinOverhead = seo.title.length + pinLink.length + 4; // 4 = two \n\n separators
+          const maxDesc = 500 - pinOverhead;
+          const pinDesc = seo.description.length > maxDesc
+            ? seo.description.substring(0, maxDesc - 3) + '...'
+            : seo.description;
+
           const r = await dispatchPin({
             channelId: pinCh.id,
             imageUrl: pinImage,
             title: seo.title,
-            description: seo.description,
-            link: `${baseUrl}/how-it-works?${buildUtm('pinterest', 'education')}`,
+            description: pinDesc,
+            link: pinLink,
             dryRun,
             draft,
           });
