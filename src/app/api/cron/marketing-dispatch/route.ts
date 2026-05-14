@@ -43,11 +43,13 @@ import { dispatchTelegram, formatForTelegram } from '@/lib/marketing/telegramCli
 // Actions
 // ---------------------------------------------------------------------------
 type Action = 'morning' | 'morning_ig' | 'midday' | 'education' | 'education_pin' | 'education_ig' | 'edu_bsky' | 'pulse' | 'pulse_ig' | 'event' | 'spotlight' | 'briefing_thread' | 'premarket_bsky' | 'premarket_threads' | 'intraday_bsky' | 'close_bsky' | 'close_threads' | 'structure_bsky' | 'insight_threads' | 'afterhours_bsky' | 'afterhours_threads' | 'asia_recap' | 'asia_insight' | 'market_open' | 'weekly_recap' | 'trending_spotlight' | 'spacex_spotlight' | 'market_close_asia';
-type Region = 'en' | 'asia' | 'all'; // en=EN only, asia=KO+JP, all=both
+type Region = 'en' | 'ko' | 'ja' | 'asia' | 'all';
 
 function getLangsForRegion(region: Region): Lang[] {
   switch (region) {
     case 'en':   return ['en'];
+    case 'ko':   return ['ko'];
+    case 'ja':   return ['ja'];
     case 'asia': return ['ko', 'ja'];
     case 'all':  return ['en', 'ko', 'ja'];
   }
