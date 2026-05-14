@@ -171,8 +171,21 @@ const server = http.createServer(async (req, res) => {
         
       } catch (err) {
         console.error('[CaptureWorker] ❌ Error:', err.message);
-        res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.writeHead(500, { 'Content-Type': 'application/json' });
         res.end(JSON.stringify({ error: err.message }));
+        
+        // Auto-recovery: if screenshot timed out, the browser is likely zombie
+        if (err.message && err.message.includes('timed out')) {
+          console.log('[CaptureWorker] ⚠️ Screenshot timed out — killing zombie browser for recovery...');
+          try { if (browserInstance) await browserInstance.close().catch(() => {}); } catch {}
+          browserInstance = null;
+          try {
+            await getBrowser();
+            console.log('[CaptureWorker] ✅ Browser recovered after timeout');
+          } catch (restartErr) {
+            console.error('[CaptureWorker] ❌ Browser recovery failed:', restartErr.message);
+          }
+        }
       }
     });
     return;
