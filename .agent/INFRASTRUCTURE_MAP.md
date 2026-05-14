@@ -1,4 +1,4 @@
-﻿# SIGNUM HQ — 인프라 전체 맵 (MUST READ FIRST)
+# SIGNUM HQ — 인프라 전체 맵 (MUST READ FIRST)
 
 > **이 파일은 매 세션 시작 시 반드시 읽어야 합니다.**
 > AWS/Vercel/Redis 전체 구조, 코드 위치, 배포 방법을 기록합니다.
@@ -775,13 +775,30 @@ M7_TICKERS = [NVDA, TSLA, AAPL, MSFT, AMZN, META, GOOGL]
 | `src/lib/marketing/hashtagEngine.ts` | **해시태그/SEO 엔진** — 플랫폼별 태그, Pinterest SEO |
 | `src/app/templates/og/*/page.tsx` | **OG 캡처 전용 HTML 템플릿** (6종, 아래 상세) |
 
-#### 5.3.1 일일 스케줄 (vercel.json — 2026-05-12 통합 리팩터 완료)
+#### 5.3.1 일일 디스패치 스케줄 (2026-05-14 최신)
 
-> **변경 (2026-05-12)**: EN/ASIA 분리 삭제 → `region=all` 통합 (14 → 9 크론).
-> US 시장 사이트이므로 모든 지역이 US 장시간 기준으로 동시 발행.
-> 장중 데이터는 지연 없이 전 언어 동시 발행. 교육은 시간 유연.
+> **현재 LIVE 자동 발행: 4개** | 코드 준비 완료(미등록): 1개
+> 나머지 9개 크론(morning, midday, spotlight, pulse 등)은 **vercel.json에서 삭제됨** — 콘텐츠 생성만 하고 발행 안 함.
 
-##### 콘텐츠 생성 (4개)
+##### ✅ LIVE 디스패치 (vercel.json 등록, dry_run=false)
+
+| # | UTC | KST | Action | 채널 | 상태 |
+|:--:|:---:|:---:|---|---|:---:|
+| 1 | 23:00 | **08:00** | `market_close_asia` | X(EN/KO/JA) + Threads(KO/JA) + IG싱글(KO/JA) + Telegram(EN) | ✅ LIVE |
+| 2 | 00:00 | **09:00** | `education` | X(EN/KO/JA) + Threads(EN/KO/JA) + Bsky(EN) + Telegram(EN) | ✅ LIVE |
+| 2.1 | 00:05 | **09:05** | `education_pin` | Pinterest(EN) 1000×1500 세로형 | ✅ LIVE |
+| 2.5 | 00:30 | **09:30** | `education_ig` | IG Carousel(EN/KO/JA) — 5슬라이드, EN 이미지 공통 | ✅ LIVE |
+
+##### 🔴 코드 준비 완료 (vercel.json 미등록 — Buffer 확인 후 활성화)
+
+| # | UTC | KST | Action | 채널 | 상태 |
+|:--:|:---:|:---:|---|---|:---:|
+| 3 | 02:00 | **11:00** | `spacex_spotlight` | X(KO/JA) + Threads(KO/JA) | 🔴 코드만 |
+
+> **SpaceX `region=asia`**: Pinterest/Bsky/Telegram 제외 (EN 전용 채널).
+> `region=en` 또는 `region=all` 시에만 Pinterest/Bsky/Telegram 발행.
+
+##### 콘텐츠 생성 크론 (발행 없음, AI 콘텐츠 사전 생성)
 | UTC | KST | 크론 | 역할 |
 |:---:|:---:|---|---|
 | 20:25 | 05:25+1 | `daily-content?type=pulse` | Market Pulse AI 생성 + EC2 pre-capture |
@@ -789,49 +806,101 @@ M7_TICKERS = [NVDA, TSLA, AAPL, MSFT, AMZN, META, GOOGL]
 | 23:30 | 08:30+1 | `daily-content?type=education` | Education AI 생성 |
 | 15:30 | 00:30+1 | `daily-content?type=pulse` | 장중 backup |
 
-##### 🌐 통합 발행 스케줄 (9개 — 전부 `region=all`, `dry_run=false`)
-| UTC | KST | Action | 목적 | 채널 (EN+KO+JA 동시) |
-|:---:|:---:|---|---|---|
-| 10:30 | **19:30** | `morning` | 프리마켓 구조 분석 | X + Bluesky |
-| 10:35 | **19:35** | `morning_ig` | 같은 콘텐츠, IG 최적화 | IG 캐러셀 + Threads |
-| 16:00 | **01:00+1** | `midday` | 장중 핵심 변화 | X + Bluesky + Pinterest |
-| 17:00 | **02:00+1** | `spotlight` ① | 기관 주목 종목 #1 | X + Bluesky + Threads |
-| 19:00 | **04:00+1** | `spotlight` ② | 기관 주목 종목 #2 | X + Bluesky + Threads |
-| 20:35 | **05:35+1** | `pulse` | 장 마감 종합 | X + Bluesky + Pinterest |
-| 20:40 | **05:40+1** | `pulse_ig` | 같은 콘텐츠, IG 최적화 | IG 캐러셀 + Threads |
-| 00:00 | **09:00+1** | `education` | 지표 교육 X Thread | X Thread + Pinterest |
-| 02:00 | **11:00+1** | `edu_bsky` | 같은 교육, Bluesky 확장 | Bluesky + Pinterest |
+---
 
-> **Spotlight 중복 방지 (2026-05-12)**: Redis `marketing:spotlight:used:{dateKey}` 키로 당일 이미 포스팅된 티커를 추적.
-> 2회 실행 시 반드시 다른 종목이 선택됨 (최대 5회 재시도).
+#### 5.3.2 디스패치별 상세 구현
 
-##### ⚡ 이벤트 감지 (1개)
-| KST | 주기 | 설명 |
-|:---:|:---:|---|
-| 22:00~06:00 | 5분마다 | 마켓 시간 전체 스캔 (UTC 13~21시) |
+##### #1 market_close_asia (KST 08:00)
+- **콘텐츠**: 전일 US 장마감 브리핑 (SPY/QQQ/VIX + AI 분석)
+- **OG 이미지**: `market-close` 템플릿 (tweet 1200×675)
+- **IG Story**: `market-close-ig` 템플릿 (story 1080×1920) — KO/JA만
+- **특이사항**: OG 이미지를 lang 루프 밖에서 1회 캡처 → 전 언어 공유
 
-##### 🔧 핵심 수정 이력 (2026-05-12 세션)
+##### #2 education (KST 09:00)
+- **콘텐츠**: 옵션 지표 교육 (GEX/다크풀/IV%/PCR/Max Pain) — 날짜 % 5 로테이션
+- **AI**: Bedrock Haiku 3.5로 EN/KO/JA 교육 콘텐츠 동시 생성
+- **Redis**: `marketing:education:{dateKey}` 캐시 (24h TTL)
+- **CTA**: `signumhq.com/intel-guardian` (UTM 제거, 깔끔한 URL)
+- **Telegram**: `formatForTelegram()` — HTML bold/link 변환
 
-| 수정 | 영향 범위 | 이유 |
-|------|----------|------|
-| `replyText` 전부 삭제 | 전 X 디스패치 (morning/midday/pulse/event/spotlight) | Buffer API가 reply threading을 지원하지 않아 CTA가 독립 스팸 트윗으로 발행되는 문제 |
-| `truncateForPlatform` → `truncateWithTags` | 전 디스패치 | 기존 함수가 본문 길이 초과 시 해시태그/cashtag를 잘라내는 문제. truncateWithTags는 태그를 보존하고 본문만 잘라냄 |
-| `dispatchStory` 전부 삭제 | morning/midday/pulse | Story 템플릿(1080×1920) 미완성 상태에서 발행 시도 → 에러. 캐러셀로 대체 |
-| EN/ASIA 분리 → `region=all` | vercel.json 14 → 9 크론 | US 시장 사이트에서 장중 데이터를 지역별로 지연할 이유 없음 |
-| Spotlight 4회 → 2회 | vercel.json | 스팸 방지 + 품질 우선 (각각 다른 종목, Redis dedup) |
+##### #2.1 education_pin (KST 09:05)
+- **이미지**: `education-pin` 템플릿 1000×1500 세로형 (Pinterest 최적)
+- **SEO**: `getPinterestSEO()` — 동적 title/description 생성
+- **링크**: `signumhq.com/intel-guardian?utm_source=pinterest`
 
-##### 해시태그/태그 처리 (truncateWithTags — 2026-05-12 전수 적용)
-```
-truncateWithTags(body, tags, platform)
-- body: 본문 텍스트 (잘릴 수 있음)
-- tags: 해시태그/cashtag 문자열 (절대 잘리지 않음)
-- platform: 'twitter'(280자) | 'bluesky'(300자) | 'threads'(500자) | 'instagram'(2200자)
-- 로직: tags 길이 먼저 확보 → 남은 공간에 body를 맞춤 → body + \n\n + tags
-```
+##### #2.5 education_ig (KST 09:30)
+- **이미지**: `education-carousel` 템플릿 5슬라이드 (1080×1080)
+- **⚠️ CJK 폰트 이슈**: EC2 Chromium에 한글/일본어 폰트 미설치
+  - **현재 대응**: EN 슬라이드 5장을 1회 캡처 → KO/JA에 공유 (15→5 캡처 절약)
+  - **향후**: EC2에 `noto-sans-cjk` 폰트 설치 → 언어별 슬라이드 복원
+- **캡션**: 언어별 풍부한 AI 교육 콘텐츠 (본문 + 해시태그)
+- **Buffer**: `dispatchCarousel()` — `mode: 'customScheduled'` + `saveToDraft: true`
+- **ALT Text**: `generateCarouselAltTexts()` — IG 검색 알고리즘 최적화
+
+##### #3 spacex_spotlight (KST 11:00) — 🔴 WIP
+- **콘텐츠 구조**: SpaceX 뉴스 메인 / TSLA 데이터 서브
+- **뉴스 소스**:
+  1. Guardian News Pulse (`guardian:news:digest`) — SpaceX/Starship/Starlink 필터
+  2. Polygon TSLA 뉴스 — SpaceX 관련만 (`/spacex|ipo|starship|starlink|musk.*space/`)
+  3. 폴백: 일반 SpaceX IPO 내러티브 (랜덤 TSLA 뉴스 사용 금지)
+- **AI 분석**: Bedrock Haiku — SpaceX 뉴스 중심 3-4문장, 3언어 네이티브
+- **텍스트**: 뉴스 Summary + AI 분석 (TSLA 데이터 라인 제거)
+- **OG 이미지**: `spacex_ipo` 템플릿 (tweet/pin 포맷) — TSLA 데이터 표시
+- **Asia 필터**: `region=asia` → X/Threads만 (Pinterest/Bsky/Telegram 제외)
+- **남은 작업**: Buffer 드래프트 확인 → 텍스트 품질 검증 → cron 등록
+
+---
+
+#### 5.3.3 해결된 버그 및 기술적 결정 (2026-05-13~14)
+
+| 문제 | 원인 | 해결 |
+|------|------|------|
+| `n is not iterable` 런타임 크래시 | `eduContent[lang]` null 참조 | `eduContent?.[lang]` Optional Chaining 적용 |
+| `getLangsForRegion` ko/ja 미지원 | Region 타입에 ko/ja 없음 | `Region` 타입 + switch case 추가 |
+| IG Carousel KO/JA 이미지 깨짐 | EC2 Chromium CJK 폰트 미설치 | EN 이미지 공통 사용 (캡션만 언어별) |
+| IG Carousel 15장 캡처 타임아웃 | 3언어 × 5슬라이드 = 60초 초과 | EN 5장 1회 캡처 → 3언어 공유 |
+| `.toLowerCase is not a function` | `gexRegime`가 숫자값 | `String()` 캐스팅 후 `.toLowerCase()` |
+| SpaceX X Thread draft 실패 | Buffer GraphQL `threadItems` + `saveToDraft` 비호환 | `dispatchPost`(단일 포스트)로 전환 |
+| TSLA +0.00% (장외) | `getStockDataLight`가 `isExtended ? 0` 강제 | `(todayClose - prevClose) / prevClose` 직접 계산 |
+| SpaceX 뉴스 무관 기사 | `articles[0]` 폴백 (아무 TSLA 기사) | SpaceX 관련만 필터, 없으면 일반 내러티브 |
+| SpaceX AI 분석 영어만 | `aiAnalysisMap.en` 폴백 | AI 프롬프트 3언어 네이티브 요구 + `newsSummary` 직접 포함 |
+| `dispatchThread` draft 모드 | `mode: 'addToQueue'` + `saveToDraft` 충돌 | draft 시 `mode: 'customScheduled'` |
+| Buffer 429 Rate Limit | 테스트 과다 호출 | 24h 윈도우 자동 리셋, 테스트 횟수 관리 필요 |
+
+#### 5.3.4 기술적 결정 기록
+
+| 결정 | 이유 |
+|------|------|
+| IG Carousel EN 이미지 공통 | EC2 CJK 폰트 설치 없이 즉시 배포 가능. 캡션이 언어별이므로 콘텐츠 차별화 유지 |
+| SpaceX X를 단일 포스트로 | Buffer API가 thread draft를 지원하지 않음. 라이브 발행 시 thread로 복원 가능 |
+| TSLA 데이터 텍스트 제거 | SpaceX 뉴스가 메인, TSLA는 보조. OG 이미지에만 표시 |
+| `region=asia`에서 Pin/Bsky/TG 제외 | KO/JA 채널에 EN 전용 플랫폼 포스팅 방지 |
+| `truncateWithTags` 전수 적용 | 해시태그/cashtag 보존, 본문만 truncate (2026-05-12~) |
+| `replyText` 전면 삭제 | Buffer API가 reply threading 미지원 → CTA가 독립 스팸으로 발행 |
+
+---
+
+#### 5.3.5 남은 작업 (TODO)
+
+##### 즉시 (Buffer 리밋 해제 후)
+- [ ] SpaceX KO/JA 드래프트 확인 → 텍스트 품질 검증
+- [ ] SpaceX EN 채널 추가 (X/Threads/Bsky/Pinterest/Telegram)
+- [ ] SpaceX vercel.json cron 등록 (`02:00 * * 2-6`, region=all)
+
+##### 단기 (1-2주)
+- [ ] EC2에 `noto-sans-cjk` 폰트 설치 → IG Carousel 다국어 이미지 복원
+- [ ] Morning/Midday/Pulse/Spotlight 디스패치 검증 → 라이브 전환
+- [ ] 이벤트 감지 (`event-detect`) 라이브 전환
+
+##### 중기 (월 단위)
+- [ ] IG Story 템플릿 완성 → 전 디스패치에 IG Story 추가
+- [ ] 영상 콘텐츠 (`render-video`) 라이브 전환
+- [ ] Buffer 외 직접 API 연동 (X API v2, Meta Graph API) 검토
+
 > ⚠️ **절대 원칙**: `truncateForPlatform(body + tags)` 사용 금지. 본문이 길면 tags가 잘림.
 > 반드시 `truncateWithTags(body, tags, platform)` 사용.
 
-#### 5.3.3 이벤트 감지 시스템 (7종)
+#### 5.3.6 이벤트 감지 시스템 (7종)
 
 | # | 이벤트 | 감지 조건 | 데이터 소스 | 대상 |
 |:---:|---|---|---|---|
@@ -845,7 +914,7 @@ truncateWithTags(body, tags, platform)
 
 **안전장치**: 쿨다운 30분 / 일일 상한 3건 / 24시간 dedup / Insider 30종목 로테이션
 
-#### 5.3.4 이미지 파이프라인 (EC2 Puppeteer 전용 — Satori 완전 삭제 2026-05-12)
+#### 5.3.7 이미지 파이프라인 (EC2 Puppeteer 전용 — Satori 완전 삭제 2026-05-12)
 
 > ⚠️ **Satori 완전 삭제**: `captureViaSatoriOG()` 함수 삭제, `/api/og/market` fallback 코드 삭제.
 > EC2 Puppeteer가 유일한 이미지 캡처 방법. EC2 실패 시 에러 반환 (fallback 없음).
@@ -903,7 +972,7 @@ marketing-dispatch?action=spotlight
 - **상태**: ✅ LIVE (pm2 restart capture-worker 후 확인 필요)
 - **⚠️ 장애 시**: 모든 마케팅 이미지가 실패 → Buffer에 텍스트만 발행됨
 
-#### 5.3.5 OG 캡처 전용 템플릿 (6종 — 2026-05-12 EC2 전용)
+#### 5.3.8 OG 캡처 전용 템플릿 (7종 — 2026-05-14 최신)
 
 > 이 템플릿들은 `src/app/templates/og/` 경로에 위치하며, EC2 Puppeteer가 캡처하는 전용 HTML 페이지입니다.
 > 모든 데이터는 URL 쿼리 파라미터로 주입됩니다.
@@ -916,16 +985,17 @@ marketing-dispatch?action=spotlight
 | 4 | **Event Alert** | `templates/og/event/page.tsx` | 1200×630 | ticker, event, detail, spy, vix, dp, lang | `event` |
 | 5 | **Ticker Spotlight** | `templates/og/spotlight/page.tsx` | 1200×630 | t(ticker), dp, buy, sell, blocks, position, sector | `ticker` |
 | 6 | **IG Carousel** | `templates/og/carousel/page.tsx` | 1080×1080 | slide(1-6), spy, qqq, vix, gex, dp, cw, lang | `carousel` |
+| 7 | **SpaceX IPO** | `templates/og/spacex-ipo/page.tsx` | 1200×675(tweet) / 1000×1500(pin) | dp, whale, gex, price, change, premium, date, format | `spacex_ipo` |
 
-##### screenshotService TEMPLATE_ROUTES 매핑
 ```typescript
 const TEMPLATE_ROUTES = {
-  pulse:     '/templates/og/pulse',
-  ticker:    '/templates/og/spotlight',
-  event:     '/templates/og/event',
-  morning:   '/templates/og/morning',
-  education: '/templates/og/education',
-  carousel:  '/templates/og/carousel',
+  pulse:      '/templates/og/pulse',
+  ticker:     '/templates/og/spotlight',
+  event:      '/templates/og/event',
+  morning:    '/templates/og/morning',
+  education:  '/templates/og/education',
+  carousel:   '/templates/og/carousel',
+  spacex_ipo: '/templates/og/spacex-ipo',
 };
 ```
 
