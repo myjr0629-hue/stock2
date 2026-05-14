@@ -757,8 +757,8 @@ export async function GET(request: Request) {
       // 5 slides × 3 langs = 15 captures (separate cron to avoid EC2 contention)
       // ========================================
       case 'education_ig': {
-        const eduContent = await loadContent('education', dateKey);
-        if (!eduContent) return noContent('education', dateKey);
+        // Content is optional — used for rich caption, but carousel slides don't depend on it
+        const eduContent = await loadContent('education', dateKey).catch(() => null);
 
         const eduTopics = ['gex', 'dark_pool', 'iv_percentile', 'pcr', 'max_pain'];
         const topicIdx = new Date().getDate() % eduTopics.length;
