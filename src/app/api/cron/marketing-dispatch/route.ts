@@ -1720,23 +1720,28 @@ for (const lang of langs) {
         // Pinterest pin (EN only — skip for region=asia)
         const pinCh = (region === 'en' || region === 'all') ? getFilteredChannels({ tier: 'all', lang: 'en', service: 'pinterest' })[0] : null;
         if (pinCh) {
+          // Reuse pre-cached OG or pin image from Redis
           let pinImage = '';
-          if (!dryRun) {
-            for (let att = 0; att < 3 && !pinImage; att++) {
-              try {
-                const r = await captureTemplate({ template: 'spacex_ipo', format: 'pin', data: { dp: tslaDp, whale: String(tslaWhale), gex: tslaGex, date: dateKey } });
-                if (r?.cdnUrl) pinImage = r.cdnUrl;
-              } catch {}
-              if (!pinImage && att < 2) await new Promise(r => setTimeout(r, 3000));
-            }
-          }
-          const pinSeo = getPinterestSEO({ contentType: 'spacex', date: dateKey, spyChange: tslaChange, gexRegime: tslaGex });
+          try {
+            const cachedOg = await getFromCache(`marketing:spacex:og:${dateKey}`).catch(() => null);
+            if (cachedOg) pinImage = String(cachedOg);
+          } catch {}
+
+          // Use actual news headline + content for Pinterest
+          const enContent = spacexContent.en as any;
+          const newsText = enContent?.platformText?.threads || enContent?.text || '';
+          // Extract headline from text (second line after header)
+          const lines = newsText.split('\n').filter((l: string) => l.trim());
+          const pinHeadline = lines.find((l: string) => l.startsWith('📰'))?.replace('📰 ', '') || 'SpaceX IPO Update';
+          // Use first 2-3 sentences as description
+          const pinBody = lines.slice(2).join(' ').substring(0, 400);
+
           const r = await dispatchPin({
             channelId: pinCh.id,
             imageUrl: pinImage,
-            title: pinSeo.title || `SpaceX IPO 2026: What $TSLA Dark Pool Data Reveals — DP ${tslaDp > 0 ? tslaDp.toFixed(1) + '%' : 'N/A'}, Smart Flow ${tslaWhale}/100`,
-            description: `${pinSeo.description}`,
-            link: `${baseUrl}/intel-guardian?${buildUtm('pinterest', 'spacex_ipo')}`,
+            title: `🚀 ${pinHeadline}`,
+            description: pinBody || 'SpaceX IPO institutional analysis with dark pool and options flow data.',
+            link: `${baseUrl}/intel-guardian`,
             dryRun, draft,
           });
           results.push(r);
@@ -1752,19 +1757,16 @@ for (const lang of langs) {
             '',
             '*Observation only — not financial advice.',
           ].join('\n');
-          const tgText = formatForTelegram(tgSpaceXText, { channelLink: `${baseUrl}/intel-guardian?${buildUtm('telegram', 'spacex')}`, contentType: 'spacex' });
-          // Capture a fresh OG for Telegram (tweet format)
+          const tgText = formatForTelegram(tgSpaceXText, { channelLink: `${baseUrl}/intel-guardian`, contentType: 'spacex' });
+          // Reuse pre-cached OG from Redis
           let tgOgImage = '';
-          if (!dryRun) {
-            try {
-              const ogR = await captureTemplate({ template: 'spacex_ipo', format: 'tweet', data: { dp: tslaDp, whale: String(tslaWhale), gex: tslaGex, date: dateKey } });
-              if (ogR?.cdnUrl) tgOgImage = ogR.cdnUrl;
-            } catch {}
-          }
+          try {
+            const cachedOg = await getFromCache(`marketing:spacex:og:${dateKey}`).catch(() => null);
+            if (cachedOg) tgOgImage = String(cachedOg);
+          } catch {}
           const r = await dispatchTelegram({ text: tgText, imageUrl: tgOgImage, dryRun });
           results.push({ success: r.success, format: 'post', channel: 'telegram', service: 'telegram', lang: 'en', textPreview: tgSpaceXText.substring(0, 100), fullText: tgSpaceXText, postId: String(r.messageId || '') } as DispatchResult);
         }
-        // Add debug info to last result for diagnostics
         // debug info removed — content pre-generated via daily-content
         break;
       }

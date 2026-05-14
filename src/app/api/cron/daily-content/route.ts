@@ -173,18 +173,24 @@ export async function GET(request: Request) {
       // Pre-capture OG image with TSLA data
       let ogCdnUrl = '';
       try {
-        // Fetch TSLA data for OG
-        const [tslaTradeRaw, tslaAnalysisRaw] = await Promise.all([
+        // Fetch TSLA data for OG from multiple sources
+        const [tslaTradeRaw, tslaAnalysisRaw, tslaRtRaw, tslaUnifiedRaw] = await Promise.all([
           safeGetCache('marketing:tsla:latest'),
           safeGetCache('cache:analysis:TSLA'),
+          safeGetCache('rt-metrics:TSLA'),
+          safeGetCache('cache:command:unified:TSLA'),
         ]);
-        const tslaTrade = tslaTradeRaw ? (typeof tslaTradeRaw === 'string' ? JSON.parse(tslaTradeRaw) : tslaTradeRaw) : {};
-        const tslaAnalysis = tslaAnalysisRaw ? (typeof tslaAnalysisRaw === 'string' ? JSON.parse(tslaAnalysisRaw) : tslaAnalysisRaw) : {};
-        const dp = tslaTrade?.darkPoolPercent || tslaAnalysis?.darkPoolPercent || 0;
-        const whale = tslaAnalysis?.whaleIndex ?? tslaAnalysis?.smartFlow ?? 50;
-        const gex = String(tslaAnalysis?.gexRegime ?? 'neutral').toLowerCase();
-        const price = tslaTrade?.price || tslaAnalysis?.price || 0;
-        const change = tslaTrade?.change || tslaAnalysis?.changePercent || 0;
+        const parse = (raw: any) => raw ? (typeof raw === 'string' ? JSON.parse(raw) : raw) : {};
+        const tslaTrade = parse(tslaTradeRaw);
+        const tslaAnalysis = parse(tslaAnalysisRaw);
+        const tslaRt = parse(tslaRtRaw);
+        const tslaUnified = parse(tslaUnifiedRaw);
+        const dp = tslaTrade?.darkPoolPercent || tslaRt?.darkPoolPct || tslaRt?.darkPoolPercent || tslaAnalysis?.darkPoolPercent || tslaUnified?.darkPoolPercent || 0;
+        const whale = tslaAnalysis?.whaleIndex ?? tslaAnalysis?.smartFlow ?? tslaUnified?.whaleIndex ?? 50;
+        const gex = String(tslaAnalysis?.gexRegime ?? tslaUnified?.gexRegime ?? 'neutral').toLowerCase();
+        const price = tslaTrade?.price || tslaRt?.price || tslaAnalysis?.price || tslaUnified?.price || 0;
+        const change = tslaTrade?.change || tslaRt?.changePercent || tslaAnalysis?.changePercent || tslaUnified?.changePercent || 0;
+        console.log(`[SpaceX-Content] TSLA data: dp=${dp} whale=${whale} gex=${gex} price=${price} change=${change}`);
 
         const { captureTemplate } = await import('@/lib/marketing/screenshotService');
         const ogResult = await captureTemplate({
