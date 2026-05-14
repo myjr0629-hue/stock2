@@ -1754,6 +1754,18 @@ for (const lang of langs) {
           }
         } catch (e: any) { console.warn(`[SpaceX] AI reformat skipped: ${e.message}`); }
 
+        // DEBUG: expose diagnostic info in response for troubleshooting
+        const _debug = {
+          hasNewsSourceContext: !!newsSourceContext,
+          newsSourceContextLen: newsSourceContext?.length || 0,
+          newsSourcePreview: newsSourceContext?.substring(0, 200) || '(empty)',
+          spacexHeadline: spacexHeadline?.substring(0, 80) || '(empty)',
+          aiAnalysisKeys: Object.keys(aiAnalysisMap),
+          aiKoLen: aiAnalysisMap.ko?.length || 0,
+          aiJaLen: aiAnalysisMap.ja?.length || 0,
+          aiEnLen: aiAnalysisMap.en?.length || 0,
+        };
+
         // Extract news summary from newsSourceContext for direct display
         let newsSummary = '';
         if (newsSourceContext) {
@@ -1901,6 +1913,8 @@ for (const lang of langs) {
           const r = await dispatchTelegram({ text: tgText, imageUrl: tgOgImage, dryRun });
           results.push({ success: r.success, format: 'post', channel: 'telegram', service: 'telegram', lang: 'en', textPreview: tgSpaceXText.substring(0, 100), fullText: tgSpaceXText, postId: String(r.messageId || '') } as DispatchResult);
         }
+        // Add debug info to last result for diagnostics
+        if (results.length > 0) (results[results.length - 1] as any)._debug = _debug;
         break;
       }
 
