@@ -665,22 +665,20 @@ export async function GET(request: Request) {
           const pinTopic = eduTopics[topicIdx];
           const seo = getPinterestSEO({ contentType: 'education', educationTopic: pinTopic });
 
-          // Capture vertical infographic pin (3 attempts + fallback)
+          // Capture vertical infographic pin (1 attempt + fast fallback)
           let pinImage = '';
           if (!dryRun) {
-            for (let att = 0; att < 3 && !pinImage; att++) {
-              try {
-                const r = await captureTemplate({ template: 'education_pin', format: 'pin', data: { topic: pinTopic } });
-                if (r?.cdnUrl) pinImage = r.cdnUrl;
-              } catch (e: any) {
-                console.warn(`[Education] Pin attempt ${att + 1}/3: ${e.message}`);
-              }
-              if (!pinImage && att < 2) await new Promise(r => setTimeout(r, att === 0 ? 3000 : 8000));
+            try {
+              const capturePromise = captureTemplate({ template: 'education_pin', format: 'pin', data: { topic: pinTopic } });
+              const timeoutPromise = new Promise<null>((_, rej) => setTimeout(() => rej(new Error('Pin capture timeout 15s')), 15000));
+              const r = await Promise.race([capturePromise, timeoutPromise]);
+              if (r && (r as any)?.cdnUrl) pinImage = (r as any).cdnUrl;
+            } catch (e: any) {
+              console.warn(`[Education] Pin capture failed: ${e.message}`);
             }
-            // Fallback to generic education template
+            // Fallback to generic education OG image
             if (!pinImage) {
-              console.warn('[Education] Pin failed 3x, falling back to generic education');
-              try { pinImage = await captureImageForDispatch(baseUrl, content, 'en', 'pin', 'education', false); } catch {}
+              try { pinImage = await captureImageForDispatch(baseUrl, content, 'en', 'og', 'education', false); } catch {}
             }
           } else {
             pinImage = await captureImageForDispatch(baseUrl, content, 'en', 'pin', 'education', dryRun);
