@@ -1673,21 +1673,18 @@ for (const lang of langs) {
           const text = langContent?.text || spacexContent.en?.text || 'SpaceX update';
           const ctaUrl = buildCtaUrl(lang, 'command', 'spacex_ipo');
 
-          // Capture OG with real TSLA data
+          // Capture OG with real TSLA data (single attempt — avoid timeout)
           let ogImage = '';
           if (!dryRun) {
-            const premFmt = typeof tslaPremium === 'number' ? `${tslaPremium >= 0 ? '+' : ''}$${Math.abs(tslaPremium / 1e6).toFixed(1)}M` : String(tslaPremium || '');
-            const ogData = {
-              dp: tslaDp, whale: String(tslaWhale), gex: tslaGex,
-              price: String(tslaPrice), change: tslaChange, premium: premFmt, date: dateKey,
-            };
-            for (let att = 0; att < 3 && !ogImage; att++) {
-              try {
-                const r = await captureTemplate({ template: 'spacex_ipo', format: 'tweet', data: ogData });
-                if (r?.cdnUrl) ogImage = r.cdnUrl;
-              } catch (e: any) { console.warn(`[SpaceX] OG attempt ${att + 1}: ${e.message}`); }
-              if (!ogImage && att < 2) await new Promise(r => setTimeout(r, att === 0 ? 3000 : 8000));
-            }
+            try {
+              const premFmt = typeof tslaPremium === 'number' ? `${tslaPremium >= 0 ? '+' : ''}$${Math.abs(tslaPremium / 1e6).toFixed(1)}M` : String(tslaPremium || '');
+              const ogData = {
+                dp: tslaDp, whale: String(tslaWhale), gex: tslaGex,
+                price: String(tslaPrice), change: tslaChange, premium: premFmt, date: dateKey,
+              };
+              const r = await captureTemplate({ template: 'spacex_ipo', format: 'tweet', data: ogData });
+              if (r?.cdnUrl) ogImage = r.cdnUrl;
+            } catch (e: any) { console.warn(`[SpaceX] OG capture failed: ${e.message}`); }
           }
 
           // X (single post — thread draft not supported by Buffer API)
