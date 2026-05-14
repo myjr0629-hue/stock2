@@ -1620,7 +1620,13 @@ for (const lang of langs) {
         ]);
         
         let tslaPrice = tslaStockData?.price || 0;
+        // changePercent is forced to 0 after hours — calculate from prevClose/todayClose instead
+        const tslaPrevClose = tslaStockData?.prevClose || 0;
+        const tslaTodayClose = tslaStockData?.todayClose || tslaStockData?.price || 0;
         let tslaChange = tslaStockData?.changePercent || 0;
+        if (tslaChange === 0 && tslaPrevClose > 0 && tslaTodayClose > 0) {
+          tslaChange = ((tslaTodayClose - tslaPrevClose) / tslaPrevClose) * 100;
+        }
         let tslaDp = tslaTradeData?.darkPoolPercent || 0;
         // Off-hours fallback: read cached TSLA price/change
         if (tslaPrice === 0 || tslaChange === 0) {
