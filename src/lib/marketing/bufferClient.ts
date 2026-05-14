@@ -31,7 +31,8 @@ const CHANNEL_MAP: BufferChannel[] = [
   { id: '69ca6aa3af47dacb696d24c0', name: 'signumhq_official', service: 'instagram', tier: 2, lang: 'en' },
   { id: '69ca6b08af47dacb696d263d', name: 'signumhq_official', service: 'threads',   tier: 2, lang: 'en' },
   { id: '69ca7b31af47dacb696d6df6', name: 'signumhq_kr',      service: 'instagram', tier: 2, lang: 'ko' },
-  { id: '69ca7b99af47dacb696d6f8d', name: 'signumhq_kr',      service: 'threads',   tier: 2, lang: 'ko' },
+  // PAUSED (2026-05-15): Meta restriction — duplicate posting triggered account-level block
+  // { id: '69ca7b99af47dacb696d6f8d', name: 'signumhq_kr',      service: 'threads',   tier: 2, lang: 'ko' },
   { id: '69ca84bbaf47dacb696d9d0f', name: 'SIGNUM HQ',        service: 'bluesky',   tier: 2, lang: 'en' },
 
   // --- Tier 3: Future expansion ---
