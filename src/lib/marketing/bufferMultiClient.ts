@@ -336,7 +336,15 @@ export async function dispatchPin(opts: {
   }
 
   // Pinterest via Buffer: text = title + description, media = pin image, link in text
-  const pinText = `${title}\n\n${description}\n\n${link}`;
+  // Buffer enforces 500 char max on the combined text
+  const overhead = title.length + link.length + 4; // 4 = two \n\n separators
+  const maxDescLen = 500 - overhead;
+  const safeDesc = maxDescLen > 20
+    ? (description.length > maxDescLen ? description.substring(0, maxDescLen - 3) + '...' : description)
+    : '';
+  const pinText = safeDesc
+    ? `${title}\n\n${safeDesc}\n\n${link}`
+    : `${title}\n\n${link}`;
   const result = await createPost({
     channelIds: [channelId],
     text: pinText,
