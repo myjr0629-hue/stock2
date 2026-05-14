@@ -105,8 +105,16 @@
             "schedule": "5 0 * * 2-6"
         },
         {
-            "path": "/api/cron/marketing-dispatch?action=education_ig&region=all&dry_run=true&draft=false&secret=eunhoon2912stock",
+            "path": "/api/cron/marketing-dispatch?action=education_ig&region=en&dry_run=true&draft=false&secret=eunhoon2912stock",
             "schedule": "30 0 * * 2-6"
+        },
+        {
+            "path": "/api/cron/marketing-dispatch?action=education_ig&region=ko&dry_run=true&draft=false&secret=eunhoon2912stock",
+            "schedule": "32 0 * * 2-6"
+        },
+        {
+            "path": "/api/cron/marketing-dispatch?action=education_ig&region=ja&dry_run=true&draft=false&secret=eunhoon2912stock",
+            "schedule": "34 0 * * 2-6"
         }
     ]
 }
