@@ -1727,14 +1727,14 @@ for (const lang of langs) {
             if (cachedOg) pinImage = String(cachedOg);
           } catch {}
 
-          // Use actual news headline + content for Pinterest
+          // Use actual news headline + SHORT content for Pinterest (500 char limit)
           const enContent = spacexContent.en as any;
-          const newsText = enContent?.platformText?.threads || enContent?.text || '';
-          // Extract headline from text (second line after header)
-          const lines = newsText.split('\n').filter((l: string) => l.trim());
+          const shortText = enContent?.platformText?.twitter || enContent?.text || '';
+          const lines = shortText.split('\n').filter((l: string) => l.trim());
           const pinHeadline = lines.find((l: string) => l.startsWith('📰'))?.replace('📰 ', '') || 'SpaceX IPO Update';
-          // Use first 2-3 sentences as description
-          const pinBody = lines.slice(2).join(' ').substring(0, 400);
+          // Use short analysis (1-2 sentences) — no disclaimer/hashtags
+          const analysisLines = lines.filter((l: string) => !l.startsWith('🚀') && !l.startsWith('📰') && !l.startsWith('*') && !l.startsWith('#'));
+          const pinBody = analysisLines.join(' ').substring(0, 250).trim();
 
           const r = await dispatchPin({
             channelId: pinCh.id,
