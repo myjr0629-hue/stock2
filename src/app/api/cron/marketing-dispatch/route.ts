@@ -1758,8 +1758,6 @@ for (const lang of langs) {
               '',
               analysis,
               '',
-              `📊 $TSLA Proxy: ${changeFmt} ($${Number(tslaPrice).toFixed(2)}) | DP: ${tslaDp > 0 ? tslaDp.toFixed(1) + '%' : 'N/A'} | Flow: ${tslaWhale}/100`,
-              '',
               `*Observation only — not financial advice.`,
             ].join('\n'),
             ko: [
@@ -1768,8 +1766,6 @@ for (const lang of langs) {
               '',
               analysis,
               '',
-              `📊 $TSLA 프록시: ${changeFmt} ($${Number(tslaPrice).toFixed(2)}) | 다크풀: ${tslaDp > 0 ? tslaDp.toFixed(1) + '%' : 'N/A'} | 플로우: ${tslaWhale}/100`,
-              '',
               `*본 정보는 투자 권유가 아닌 데이터 분석 참고 자료입니다.`,
             ].join('\n'),
             ja: [
@@ -1777,8 +1773,6 @@ for (const lang of langs) {
               `📰 ${spacexHeadline}`,
               '',
               analysis,
-              '',
-              `📊 $TSLA プロキシ: ${changeFmt} ($${Number(tslaPrice).toFixed(2)}) | DP: ${tslaDp > 0 ? tslaDp.toFixed(1) + '%' : 'N/A'} | フロー: ${tslaWhale}/100`,
               '',
               `*投資助言ではありません。データ分析の参考資料です。`,
             ].join('\n'),
