@@ -471,18 +471,23 @@ async function generateSpaceXContent(): Promise<{
       ja: '🚀 SpaceX アップデート',
     };
 
-    const twitter = [
+    // Short version for X/Bluesky (280/300 char limit)
+    // Extract first 1-2 sentences only
+    const shortAnalysis = analysis
+      .split(/(?<=[.。!！?？])\s+/)
+      .slice(0, 2)
+      .join(' ')
+      .substring(0, 160);
+
+    const twitterText = [
       headerMap[lang],
       `📰 ${headline}`,
       '',
-      analysis,
-      '',
-      disclaimerMap[lang],
-      '',
-      hashtagMap[lang],
+      shortAnalysis,
     ].join('\n');
 
-    const threads = [
+    // Full version for Threads/IG (no char limit)
+    const threadsText = [
       headerMap[lang],
       `📰 ${headline}`,
       '',
@@ -494,14 +499,14 @@ async function generateSpaceXContent(): Promise<{
     ].join('\n');
 
     return {
-      text: applyCompliance(twitter),
+      text: applyCompliance(threadsText),
       imageUrl: '',
       cta: 'liveStructure' as const,
       platformText: {
-        twitter: applyCompliance(twitter),
-        threads: applyCompliance(threads),
-        instagram: applyCompliance(threads),
-        bluesky: applyCompliance(twitter),
+        twitter: applyCompliance(twitterText),
+        threads: applyCompliance(threadsText),
+        instagram: applyCompliance(threadsText),
+        bluesky: applyCompliance(twitterText),
       },
     };
   }

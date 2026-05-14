@@ -1670,7 +1670,8 @@ for (const lang of langs) {
 
         for (const lang of langs) {
           const langContent = spacexContent[lang as keyof typeof spacexContent] as any;
-          const text = langContent?.text || spacexContent.en?.text || 'SpaceX update';
+          const fullText = langContent?.text || spacexContent.en?.text || 'SpaceX update';
+          const pText = langContent?.platformText || {};
           const ctaUrl = buildCtaUrl(lang, 'command', 'spacex_ipo');
 
           // OG image: pre-captured by daily-content?type=spacex → Redis
@@ -1680,11 +1681,12 @@ for (const lang of langs) {
             if (cachedOg) ogImage = String(cachedOg);
           } catch {}
 
-          // X (single post — thread draft not supported by Buffer API)
+          // X — short text (platformText.twitter: first 1-2 sentences)
           const twitterCh = getFilteredChannels({ tier: 'all', lang, service: 'twitter' })[0];
           if (twitterCh) {
+            const xText = pText.twitter || fullText;
             const tags = getHashtags({ platform: 'twitter', contentType: 'spacex', lang, tickers: ['TSLA'] });
-            const tweetText = truncateWithTags(text, `\n\n${tags}`, 'twitter');
+            const tweetText = truncateWithTags(xText, `\n\n${tags}`, 'twitter');
             const r = await dispatchPost({
               channelId: twitterCh.id,
               text: tweetText,
@@ -1694,21 +1696,23 @@ for (const lang of langs) {
             results.push(r);
           }
 
-          // Bsky (EN only — no KO/JA Bsky channel)
+          // Bsky — short text (EN only)
           if (lang === 'en') {
             const bskyCh = getFilteredChannels({ tier: 'all', lang, service: 'bluesky' })[0];
             if (bskyCh) {
+              const bskyText = pText.bluesky || fullText;
               const tags = getHashtags({ platform: 'bluesky', contentType: 'spacex', lang, tickers: ['TSLA'] });
-              const r = await dispatchPost({ channelId: bskyCh.id, text: truncateWithTags(text, tags, 'bluesky'), imageUrl: ogImage, dryRun, draft });
+              const r = await dispatchPost({ channelId: bskyCh.id, text: truncateWithTags(bskyText, tags, 'bluesky'), imageUrl: ogImage, dryRun, draft });
               results.push(r);
             }
           }
 
-          // Threads
+          // Threads — full text (no char limit)
           const threadsCh = getFilteredChannels({ tier: 'all', lang, service: 'threads' })[0];
           if (threadsCh) {
+            const thText = pText.threads || fullText;
             const tags = getHashtags({ platform: 'threads', contentType: 'spacex', lang, tickers: ['TSLA'] });
-            const r = await dispatchPost({ channelId: threadsCh.id, text: truncateWithTags(text, tags, 'threads'), imageUrl: ogImage, dryRun, draft });
+            const r = await dispatchPost({ channelId: threadsCh.id, text: truncateWithTags(thText, tags, 'threads'), imageUrl: ogImage, dryRun, draft });
             results.push(r);
           }
         }
