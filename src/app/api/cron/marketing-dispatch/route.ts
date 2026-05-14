@@ -1744,7 +1744,7 @@ for (const lang of langs) {
             // Strip 'en:', 'ko:', 'ja:' prefixes and cross-language bleed from AI output
             for (const lk of Object.keys(aiAnalysisMap)) {
               if (typeof aiAnalysisMap[lk] === 'string') {
-                aiAnalysisMap[lk] = aiAnalysisMap[lk].replace(/^(en|ko|ja):\s*/i, '').replace(/,\s+(ko|ja|en):\s+.*/s, '').trim();
+                aiAnalysisMap[lk] = aiAnalysisMap[lk].replace(/^(en|ko|ja):\s*/i, '').replace(/,\s+(ko|ja|en):\s+[\s\S]*/m, '').trim();
               }
             }
             if (Object.keys(aiAnalysisMap).length > 0) {
