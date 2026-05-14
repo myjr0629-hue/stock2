@@ -81,13 +81,13 @@ function MCContent() {
     <div style={{position:'absolute',left:0,right:0,top:89,height:2,background:'linear-gradient(90deg,#22d3ee,rgba(255,255,255,.50),#a78bfa)',boxShadow:'0 0 18px rgba(34,211,238,.50),0 0 18px rgba(167,139,250,.30)',zIndex:25}}/>
 
     {/* 3 Index cards */}
-    <div style={{position:'absolute',left:28,right:28,top:115,height:340,display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:16,zIndex:15}}>
+    <div style={{position:'absolute',left:28,right:28,top:110,height:290,display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:16,zIndex:15}}>
       {indices.map((idx,i)=>(
-        <div key={i} style={{...panel,padding:'28px 26px 22px',borderColor:`${clr(idx.v)}55`,boxShadow:`inset 0 1px 0 rgba(255,255,255,.10),0 0 27px ${clr(idx.v)}14`}}>
-          <div style={{fontSize:28,fontWeight:900,letterSpacing:'.05em'}}>{idx.name}</div>
-          <div style={{marginTop:20,fontSize:76,lineHeight:.9,fontWeight:900,letterSpacing:'-.07em',color:clr(idx.v),textShadow:`0 0 30px ${clr(idx.v)}44`}}>{fmt(idx.v)}</div>
-          <div style={{marginTop:18,color:'#94a3b8',fontSize:17,fontWeight:800,letterSpacing:'.08em'}}>TODAY&apos;S CHANGE</div>
-          <svg style={{position:'absolute',left:18,right:18,bottom:20,height:110,width:'calc(100% - 36px)'}} viewBox="0 0 300 120" fill="none">
+        <div key={i} style={{...panel,padding:'22px 24px 18px',borderColor:`${clr(idx.v)}55`,boxShadow:`inset 0 1px 0 rgba(255,255,255,.10),0 0 27px ${clr(idx.v)}14`}}>
+          <div style={{fontSize:24,fontWeight:900,letterSpacing:'.05em'}}>{idx.name}</div>
+          <div style={{marginTop:14,fontSize:64,lineHeight:.9,fontWeight:900,letterSpacing:'-.07em',color:clr(idx.v),textShadow:`0 0 30px ${clr(idx.v)}44`}}>{fmt(idx.v)}</div>
+          <div style={{marginTop:12,color:'#94a3b8',fontSize:15,fontWeight:800,letterSpacing:'.08em'}}>TODAY&apos;S CHANGE</div>
+          <svg style={{position:'absolute',left:16,right:16,bottom:14,height:90,width:'calc(100% - 32px)'}} viewBox="0 0 300 120" fill="none">
             <path d={idx.s.line} stroke={`${clr(idx.v)}cc`} strokeWidth="3" strokeLinecap="round" fill="none"/>
             <path d={idx.s.area} fill={clr(idx.v)} opacity=".16"/>
             <circle cx={idx.s.last.x} cy={idx.s.last.y} r="5" fill={clr(idx.v)} filter={`drop-shadow(0 0 6px ${clr(idx.v)})`}/>
@@ -97,60 +97,62 @@ function MCContent() {
     </div>
 
     {/* 4 Metric cards 2×2 */}
-    <div style={{position:'absolute',left:27,right:27,top:472,height:470,display:'grid',gridTemplateColumns:'repeat(2,1fr)',gap:15,zIndex:15}}>
+    <div style={{position:'absolute',left:27,right:27,top:418,height:540,display:'grid',gridTemplateColumns:'repeat(2,1fr)',gap:15,zIndex:15}}>
       {/* VIX */}
-      <div style={{...panel,padding:'26px 30px',borderColor:'rgba(251,191,36,.46)',boxShadow:'inset 0 1px 0 rgba(255,255,255,.10),0 0 27px rgba(251,191,36,.10)'}}>
-        <div style={{display:'flex',alignItems:'center',gap:18}}>
-          <div style={{width:72,height:72,borderRadius:'50%',border:'1.5px solid #fbbf24',display:'grid',placeItems:'center',color:'#fbbf24',background:'rgba(255,255,255,.02)',boxShadow:'inset 0 0 24px rgba(255,255,255,.03),0 0 17px rgba(251,191,36,.3)'}}>
-            <svg width="42" height="42" viewBox="0 0 47 47" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"><path d="M4 24h10l5-17 10 36 5-19h9"/></svg>
+      <div style={{...panel,padding:'24px 28px',borderColor:'rgba(251,191,36,.46)',boxShadow:'inset 0 1px 0 rgba(255,255,255,.10),0 0 27px rgba(251,191,36,.10)'}}>
+        <div style={{display:'flex',alignItems:'center',gap:14}}>
+          <div style={{width:56,height:56,flexShrink:0,borderRadius:'50%',border:'1.5px solid #fbbf24',display:'grid',placeItems:'center',color:'#fbbf24',background:'rgba(255,255,255,.02)',boxShadow:'0 0 17px rgba(251,191,36,.3)'}}>
+            <svg width="32" height="32" viewBox="0 0 47 47" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"><path d="M4 24h10l5-17 10 36 5-19h9"/></svg>
           </div>
-          <span style={{fontSize:25,fontWeight:900,letterSpacing:'.06em'}}>VIX</span>
+          <span style={{fontSize:22,fontWeight:900,letterSpacing:'.06em'}}>VIX</span>
         </div>
-        <div style={{marginTop:20,fontSize:82,lineHeight:.88,fontWeight:900,textShadow:'0 8px 30px rgba(0,0,0,.32)'}}>{vix.toFixed(1)}</div>
-        <div style={{marginTop:22,display:'inline-flex',height:42,padding:'0 22px',borderRadius:10,alignItems:'center',border:`1.5px solid ${vixC}bb`,color:vixC,background:`${vixC}14`,fontSize:21,fontWeight:900,letterSpacing:'.06em'}}>{vixL}</div>
+        <div style={{display:'flex',alignItems:'baseline',gap:20,marginTop:18}}>
+          <span style={{fontSize:72,lineHeight:.88,fontWeight:900,textShadow:'0 8px 30px rgba(0,0,0,.32)'}}>{vix.toFixed(1)}</span>
+          <span style={{display:'inline-flex',height:38,padding:'0 20px',borderRadius:10,alignItems:'center',border:`1.5px solid ${vixC}bb`,color:vixC,background:`${vixC}14`,fontSize:19,fontWeight:900,letterSpacing:'.06em'}}>{vixL}</span>
+        </div>
       </div>
 
       {/* Dark Pool */}
-      <div style={{...panel,padding:'26px 30px',borderColor:'rgba(34,211,238,.46)',boxShadow:'inset 0 1px 0 rgba(255,255,255,.10),0 0 27px rgba(34,211,238,.10)'}}>
-        <div style={{display:'flex',alignItems:'center',gap:18}}>
-          <div style={{width:72,height:72,borderRadius:'50%',border:'1.5px solid #22d3ee',display:'grid',placeItems:'center',color:'#22d3ee',background:'rgba(255,255,255,.02)',boxShadow:'inset 0 0 24px rgba(255,255,255,.03),0 0 17px rgba(34,211,238,.3)'}}>
-            <svg width="46" height="46" viewBox="0 0 56 56" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"><path d="M28 4C18 18 12 27 12 36a16 16 0 0032 0c0-9-6-18-16-32Z"/></svg>
+      <div style={{...panel,padding:'24px 28px',borderColor:'rgba(34,211,238,.46)',boxShadow:'inset 0 1px 0 rgba(255,255,255,.10),0 0 27px rgba(34,211,238,.10)'}}>
+        <div style={{display:'flex',alignItems:'center',gap:14}}>
+          <div style={{width:56,height:56,flexShrink:0,borderRadius:'50%',border:'1.5px solid #22d3ee',display:'grid',placeItems:'center',color:'#22d3ee',background:'rgba(255,255,255,.02)',boxShadow:'0 0 17px rgba(34,211,238,.3)'}}>
+            <svg width="34" height="34" viewBox="0 0 56 56" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round"><path d="M28 4C18 18 12 27 12 36a16 16 0 0032 0c0-9-6-18-16-32Z"/></svg>
           </div>
-          <span style={{fontSize:25,fontWeight:900,letterSpacing:'.06em'}}>DARK POOL</span>
+          <span style={{fontSize:22,fontWeight:900,letterSpacing:'.06em'}}>DARK POOL</span>
         </div>
-        <div style={{marginTop:20,fontSize:82,lineHeight:.88,fontWeight:900}}>{dp>0?dp.toFixed(1):'—'}<span style={{fontSize:40,letterSpacing:'-.05em'}}>%</span></div>
-        <div style={{marginTop:20,height:18,borderRadius:999,border:'1px solid rgba(34,211,238,.45)',background:'rgba(148,163,184,.12)',overflow:'hidden'}}>
+        <div style={{marginTop:18,fontSize:72,lineHeight:.88,fontWeight:900}}>{dp>0?dp.toFixed(1):'—'}<span style={{fontSize:36,letterSpacing:'-.05em'}}>%</span></div>
+        <div style={{marginTop:16,height:16,borderRadius:999,border:'1px solid rgba(34,211,238,.45)',background:'rgba(148,163,184,.12)',overflow:'hidden'}}>
           <div style={{width:`${Math.min(dp*2,100)}%`,height:'100%',borderRadius:'inherit',background:'linear-gradient(90deg,#22d3ee,#67e8f9)',boxShadow:'0 0 22px rgba(34,211,238,.55)'}}/>
         </div>
-        <div style={{marginTop:8,textAlign:'right',color:'#22d3ee',fontSize:18,fontWeight:800}}>{dp.toFixed(1)}%</div>
+        <div style={{marginTop:6,textAlign:'right',color:'#22d3ee',fontSize:16,fontWeight:800}}>{dp.toFixed(1)}%</div>
       </div>
 
       {/* GEX */}
-      <div style={{...panel,padding:'26px 30px',borderColor:`${g.c}55`,boxShadow:`inset 0 1px 0 rgba(255,255,255,.10),0 0 27px ${g.c}14`}}>
-        <div style={{display:'flex',alignItems:'center',gap:18}}>
-          <div style={{width:72,height:72,borderRadius:'50%',border:`1.5px solid ${g.c}`,display:'grid',placeItems:'center',color:g.c,background:'rgba(255,255,255,.02)',boxShadow:`inset 0 0 24px rgba(255,255,255,.03),0 0 17px ${g.c}55`}}>
-            <svg width="44" height="44" viewBox="0 0 50 50" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round"><path d="M3 28c8-14 15-14 23 0s14 14 21 0"/></svg>
+      <div style={{...panel,padding:'24px 28px 80px',borderColor:`${g.c}55`,boxShadow:`inset 0 1px 0 rgba(255,255,255,.10),0 0 27px ${g.c}14`}}>
+        <div style={{display:'flex',alignItems:'center',gap:14}}>
+          <div style={{width:56,height:56,flexShrink:0,borderRadius:'50%',border:`1.5px solid ${g.c}`,display:'grid',placeItems:'center',color:g.c,background:'rgba(255,255,255,.02)',boxShadow:`0 0 17px ${g.c}55`}}>
+            <svg width="32" height="32" viewBox="0 0 50 50" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round"><path d="M3 28c8-14 15-14 23 0s14 14 21 0"/></svg>
           </div>
-          <span style={{fontSize:25,fontWeight:900,letterSpacing:'.05em'}}>GEX REGIME</span>
+          <span style={{fontSize:22,fontWeight:900,letterSpacing:'.05em'}}>GEX REGIME</span>
         </div>
-        <div style={{marginTop:22,fontSize:58,lineHeight:.88,fontWeight:900,color:g.c,textShadow:`0 0 26px ${g.c}44`}}>{g.l}</div>
-        <div style={{position:'absolute',left:30,right:30,bottom:55,height:14,borderRadius:999,background:'linear-gradient(90deg,#f87171,#667085 48%,#34d399)',boxShadow:'inset 0 1px 3px rgba(255,255,255,.14)'}}>
-          <span style={{position:'absolute',left:`${g.p}%`,top:-16,width:0,height:0,borderLeft:'11px solid transparent',borderRight:'11px solid transparent',borderTop:'20px solid #f1f5f9',filter:'drop-shadow(0 0 9px rgba(255,255,255,.38))',transform:'translateX(-50%)'}}/>
+        <div style={{marginTop:18,fontSize:52,lineHeight:.88,fontWeight:900,color:g.c,textShadow:`0 0 26px ${g.c}44`}}>{g.l}</div>
+        <div style={{position:'absolute',left:28,right:28,bottom:48,height:12,borderRadius:999,background:'linear-gradient(90deg,#f87171,#667085 48%,#34d399)',boxShadow:'inset 0 1px 3px rgba(255,255,255,.14)'}}>
+          <span style={{position:'absolute',left:`${g.p}%`,top:-14,width:0,height:0,borderLeft:'9px solid transparent',borderRight:'9px solid transparent',borderTop:'16px solid #f1f5f9',filter:'drop-shadow(0 0 9px rgba(255,255,255,.38))',transform:'translateX(-50%)'}}/>
         </div>
-        <div style={{position:'absolute',left:30,right:30,bottom:24,display:'flex',justifyContent:'space-between',fontSize:15,fontWeight:800,letterSpacing:'.07em'}}>
+        <div style={{position:'absolute',left:28,right:28,bottom:20,display:'flex',justifyContent:'space-between',fontSize:14,fontWeight:800,letterSpacing:'.07em'}}>
           <span style={{color:'#f87171'}}>Negative</span><span style={{color:'#94a3b8'}}>Neutral</span><span style={{color:'#34d399'}}>Positive</span>
         </div>
       </div>
 
       {/* Fear & Greed */}
-      <div style={{...panel,padding:'26px 30px',borderColor:`${fgiC}55`,boxShadow:`inset 0 1px 0 rgba(255,255,255,.10),0 0 27px ${fgiC}14`}}>
-        <div style={{display:'grid',gridTemplateColumns:'140px 1fr',gap:14,alignItems:'center',height:'100%'}}>
-          <div style={{alignSelf:'start',paddingTop:4}}>
-            <div style={{fontSize:25,fontWeight:900,letterSpacing:'.04em'}}>FEAR &amp; GREED</div>
-            <div style={{marginTop:20,fontSize:80,lineHeight:.82,fontWeight:900,color:fgiC,textShadow:`0 0 26px ${fgiC}44`}}>{fgi}</div>
-            <div style={{marginTop:16,fontSize:23,fontWeight:900,letterSpacing:'.04em',color:fgiC}}>{fgiL}</div>
+      <div style={{...panel,padding:'24px 28px',borderColor:`${fgiC}55`,boxShadow:`inset 0 1px 0 rgba(255,255,255,.10),0 0 27px ${fgiC}14`}}>
+        <div style={{fontSize:22,fontWeight:900,letterSpacing:'.04em',marginBottom:8}}>FEAR &amp; GREED</div>
+        <div style={{display:'grid',gridTemplateColumns:'130px 1fr',gap:10,alignItems:'end'}}>
+          <div>
+            <div style={{fontSize:72,lineHeight:.82,fontWeight:900,color:fgiC,textShadow:`0 0 26px ${fgiC}44`}}>{fgi}</div>
+            <div style={{marginTop:12,fontSize:20,fontWeight:900,letterSpacing:'.04em',color:fgiC}}>{fgiL}</div>
           </div>
-          <svg viewBox="0 0 310 190" fill="none" style={{width:'100%',height:'auto',justifySelf:'end',alignSelf:'end',marginBottom:-8,marginRight:-4}}>
+          <svg viewBox="0 0 310 190" fill="none" style={{width:'100%',height:'auto'}}>
             <defs><linearGradient id="fgG" x1="25" y1="152" x2="285" y2="152" gradientUnits="userSpaceOnUse"><stop stopColor="#f87171"/><stop offset=".48" stopColor="#fbbf24"/><stop offset="1" stopColor="#34d399"/></linearGradient></defs>
             <path d="M36 154A120 120 0 01274 154" stroke="url(#fgG)" strokeWidth="22" strokeLinecap="butt"/>
             <line x1="155" y1="154" x2={nx} y2={ny} stroke="#f1f5f9" strokeWidth="7" strokeLinecap="round"/>
