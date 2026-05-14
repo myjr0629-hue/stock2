@@ -1619,9 +1619,24 @@ for (const lang of langs) {
           getTslaLight('TSLA').catch(() => null),
         ]);
         
-        const tslaPrice = tslaStockData?.price || 0;
-        const tslaChange = tslaStockData?.changePercent || 0;
+        let tslaPrice = tslaStockData?.price || 0;
+        let tslaChange = tslaStockData?.changePercent || 0;
         let tslaDp = tslaTradeData?.darkPoolPercent || 0;
+        // Off-hours fallback: read cached TSLA price/change
+        if (tslaPrice === 0 || tslaChange === 0) {
+          try {
+            const cached = await getFromCache('marketing:tsla:latest').catch(() => null);
+            if (cached) {
+              const c = typeof cached === 'string' ? JSON.parse(cached) : cached;
+              if (!tslaPrice && c.price) tslaPrice = c.price;
+              if (!tslaChange && c.change) tslaChange = c.change;
+            }
+          } catch {}
+        }
+        // Cache latest TSLA data for off-hours use
+        if (tslaPrice > 0 && tslaChange !== 0) {
+          await setInCache('marketing:tsla:latest', JSON.stringify({ price: tslaPrice, change: tslaChange }), 86400);
+        }
         // Off-hours fallback: read last cached TSLA DP
         if (tslaDp === 0) {
           try {
@@ -1798,12 +1813,14 @@ for (const lang of langs) {
             results.push(r);
           }
 
-          // Bsky
-          const bskyCh = getFilteredChannels({ tier: 'all', lang, service: 'bluesky' })[0];
-          if (bskyCh) {
-            const tags = getHashtags({ platform: 'bluesky', contentType: 'spacex', lang, tickers: ['TSLA'] });
-            const r = await dispatchPost({ channelId: bskyCh.id, text: truncateWithTags(text, tags, 'bluesky'), imageUrl: ogImage, dryRun, draft });
-            results.push(r);
+          // Bsky (EN only — no KO/JA Bsky channel)
+          if (lang === 'en') {
+            const bskyCh = getFilteredChannels({ tier: 'all', lang, service: 'bluesky' })[0];
+            if (bskyCh) {
+              const tags = getHashtags({ platform: 'bluesky', contentType: 'spacex', lang, tickers: ['TSLA'] });
+              const r = await dispatchPost({ channelId: bskyCh.id, text: truncateWithTags(text, tags, 'bluesky'), imageUrl: ogImage, dryRun, draft });
+              results.push(r);
+            }
           }
 
           // Threads
@@ -1815,8 +1832,8 @@ for (const lang of langs) {
           }
         }
 
-        // Pinterest pin
-        const pinCh = getFilteredChannels({ tier: 'all', lang: 'en', service: 'pinterest' })[0];
+        // Pinterest pin (EN only — skip for region=asia)
+        const pinCh = (region === 'en' || region === 'all') ? getFilteredChannels({ tier: 'all', lang: 'en', service: 'pinterest' })[0] : null;
         if (pinCh) {
           let pinImage = '';
           if (!dryRun) {
@@ -1840,8 +1857,8 @@ for (const lang of langs) {
           results.push(r);
         }
 
-        // Telegram (EN SpaceX)
-        if (PLATFORM_ALLOW[action]?.has('telegram')) {
+        // Telegram (EN SpaceX — skip for region=asia)
+        if (PLATFORM_ALLOW[action]?.has('telegram') && (region === 'en' || region === 'all')) {
           const tgSpaceXText = [
             spacexHeadline ? `🚀 SpaceX × $TSLA Proxy Update\n📰 ${spacexHeadline}` : `🚀 SpaceX IPO × $TSLA Proxy — Daily Structure Check`,
             '',
