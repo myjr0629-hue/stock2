@@ -196,9 +196,9 @@ export async function dispatchCarousel(opts: {
     const input: Record<string, any> = {
       channelId,
       text: caption || '',
-      schedulingType: draft ? 'automatic' : 'now',
-      mode: draft ? 'add' : 'share_now',
-      ...(draft ? { saveToDraft: true } : {}),
+      schedulingType: 'automatic',
+      mode: draft ? 'customScheduled' : 'share_now',
+      ...(draft ? { saveToDraft: true, dueAt: new Date(Date.now() + 30_000).toISOString() } : {}),
       // Multiple images = carousel on IG (altText NOT supported by ImageAssetInput)
       assets: {
         images: imageUrls.slice(0, 10).map((url) => ({
