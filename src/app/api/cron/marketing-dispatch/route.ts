@@ -90,6 +90,21 @@ export async function GET(request: Request) {
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://signumhq.com';
   const langs = getLangsForRegion(region);
 
+  // ── Dedup lock: prevent Vercel cron retry from causing duplicate posts ──
+  if (!dryRun && !draft) {
+    const dedupKey = `dispatch:lock:${action}:${region}:${dateKey}`;
+    try {
+      const existing = await getFromCache(dedupKey).catch(() => null);
+      if (existing) {
+        console.warn(`[Dispatch] DEDUP: ${dedupKey} already executed, skipping`);
+        return NextResponse.json({ skipped: true, reason: 'dedup', key: dedupKey });
+      }
+      await setInCache(dedupKey, new Date().toISOString(), 3600); // 1hr TTL
+    } catch (e) {
+      console.warn('[Dispatch] Dedup lock check failed (non-fatal), proceeding');
+    }
+  }
+
   try {
     const results: DispatchResult[] = [];
 
