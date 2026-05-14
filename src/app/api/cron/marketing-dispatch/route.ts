@@ -757,6 +757,9 @@ export async function GET(request: Request) {
       // 5 slides × 3 langs = 15 captures (separate cron to avoid EC2 contention)
       // ========================================
       case 'education_ig': {
+        const eduContent = await loadContent('education', dateKey);
+        if (!eduContent) return noContent('education', dateKey);
+
         const eduTopics = ['gex', 'dark_pool', 'iv_percentile', 'pcr', 'max_pain'];
         const topicIdx = new Date().getDate() % eduTopics.length;
         const topic = eduTopics[topicIdx];
@@ -791,12 +794,27 @@ export async function GET(request: Request) {
             continue;
           }
 
-          // Build IG caption
-          const caption = lang === 'ko'
-            ? `📚 옵션 구조 교육 시리즈\n\n오늘의 주제: ${topic.toUpperCase().replace('_', ' ')}\n\n기관이 보는 시장 구조를 이해하세요.\n\n📊 signumhq.com\n\n#옵션구조 #주식투자 #GEX #다크풀 #signumhq`
+          // Build rich IG caption (2200 chars max) — use full education content
+          const lc = eduContent[lang];
+          const topicLabel = topic.toUpperCase().replace('_', ' ');
+          const bodyText = lc?.text || lc?.platformText?.threads || '';
+          const igTags = lang === 'ko'
+            ? '#옵션구조 #주식투자 #미국주식 #옵션거래 #GEX #다크풀 #시장구조 #signumhq'
             : lang === 'ja'
-            ? `📚 オプション構造教育シリーズ\n\n今日のトピック: ${topic.toUpperCase().replace('_', ' ')}\n\n機関が見る市場構造を理解しましょう。\n\n📊 signumhq.com\n\n#オプション構造 #株式投資 #GEX #signumhq`
-            : `📚 Options Structure Education\n\nToday's topic: ${topic.toUpperCase().replace('_', ' ')}\n\nUnderstand the market structure that institutions see.\n\n📊 signumhq.com\n\n#optionsflow #stockmarket #GEX #darkpool #signumhq`;
+            ? '#オプション構造 #株式投資 #米国株 #オプション取引 #GEX #signumhq'
+            : '#optionsflow #stockmarket #optionstrading #GEX #darkpool #marketstructure #signumhq';
+          const igHeader = lang === 'ko'
+            ? `📚 옵션 구조 교육 시리즈\n\n오늘의 주제: ${topicLabel}\n\n`
+            : lang === 'ja'
+            ? `📚 オプション構造教育シリーズ\n\n今日のトピック: ${topicLabel}\n\n`
+            : `📚 Options Structure Education\n\nToday's topic: ${topicLabel}\n\n`;
+          const igFooter = `\n\n📊 signumhq.com/intel-guardian\n\n${igTags}`;
+          // Trim body to fit within 2200 total
+          const maxBody = 2200 - igHeader.length - igFooter.length;
+          const trimmedBody = bodyText.length > maxBody
+            ? bodyText.substring(0, bodyText.lastIndexOf('. ', maxBody - 1) + 1) || bodyText.substring(0, maxBody - 3) + '...'
+            : bodyText;
+          const caption = `${igHeader}${trimmedBody}${igFooter}`;
 
           const r = await dispatchCarousel({
             channelId: igCh.id,
