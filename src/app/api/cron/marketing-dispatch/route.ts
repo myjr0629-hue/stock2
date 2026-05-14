@@ -101,7 +101,7 @@ export async function GET(request: Request) {
       morning:            new Set(['instagram', 'pinterest', 'telegram']),         // + Telegram
       morning_ig:         new Set(['instagram']),                                  // Threads removed (IG carousel is the star here)
       midday:             new Set(['instagram', 'pinterest', 'telegram']),         // + Telegram
-      education:          new Set(['twitter', 'threads', 'telegram']),             // Pinterest split to education_pin
+      education:          new Set(['twitter', 'threads', 'bluesky', 'telegram']),    // Bluesky merged (same OG image as Threads)
       education_pin:      new Set(['pinterest']),                                  // Pinterest only (5min after education)
       education_ig:       new Set(['instagram']),                                  // IG Carousel only (5 slides × 3 langs)
       edu_bsky:           new Set(['bluesky', 'telegram']),                        // Bluesky + Telegram
@@ -662,9 +662,26 @@ export async function GET(request: Request) {
           }
         }
 
+        // Bluesky (EN only — reuse education OG image)
+        if (PLATFORM_ALLOW[action]?.has('bluesky')) {
+          const bskyCh = getFilteredChannels({ tier: 'all', service: 'bluesky' })[0];
+          if (bskyCh && content.en?.text) {
+            const bskyImage = await captureImageForDispatch(baseUrl, content, 'en', 'og', 'education', dryRun);
+            const bskyTags = getHashtags({ platform: 'bluesky', contentType: 'education', tickers: ['SPY', 'QQQ'] });
+            const r = await dispatchPost({
+              channelId: bskyCh.id,
+              text: truncateWithTags(content.en.platformText?.threads || content.en.text, bskyTags, 'bluesky'),
+              imageUrl: bskyImage,
+              dryRun,
+              draft,
+            });
+            results.push(r);
+          }
+        }
+
         // Telegram (EN education)
         if (PLATFORM_ALLOW[action]?.has('telegram') && content.en?.text) {
-          const tgText = formatForTelegram(content.en.platformText?.threads || content.en.text, { channelLink: `${baseUrl}/how-it-works?${buildUtm('telegram', 'education')}`, contentType: 'education' });
+          const tgText = formatForTelegram(content.en.platformText?.threads || content.en.text, { channelLink: `${baseUrl}/intel-guardian`, contentType: 'education' });
           const ogForTg = await captureImageForDispatch(baseUrl, content, 'en', 'tweet', 'education', dryRun);
           const r = await dispatchTelegram({ text: tgText, imageUrl: ogForTg, dryRun });
           results.push({ success: r.success, format: 'post', channel: 'telegram', service: 'telegram', lang: 'en', textPreview: 'telegram', postId: String(r.messageId || '') } as DispatchResult);
