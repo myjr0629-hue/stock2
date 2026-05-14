@@ -1956,22 +1956,9 @@ for (const lang of langs) {
             results.push(r);
           }
 
-
-          // ── Instagram Story — 1080×1920 vertical ──
-          const igCh = getFilteredChannels({ tier: 'all', lang, service: 'instagram' })[0];
-          if (igCh) {
-            const storyImage = await captureMarketCloseOG(baseUrl, mkt, 'story', dryRun);
-            if (storyImage) {
-              const r = await dispatchStory({
-                channelId: igCh.id,
-                imageUrl: storyImage,
-                dryRun, draft,
-              });
-              results.push(r);
-            }
-          }
-
           // ── Instagram Feed — 1080×1080 single image post (KO/JA only) ──
+          // (No IG Story — market-close-story template not available)
+          const igCh = getFilteredChannels({ tier: 'all', lang, service: 'instagram' })[0];
           // Asia 장마감 시점에 KO/JA IG 피드 싱글 이미지 (EN은 #8 US Close에서 발행)
           if (igCh && (lang === 'ko' || lang === 'ja')) {
             const igFeedImage = await captureMarketCloseIG(baseUrl, mkt, dryRun);
