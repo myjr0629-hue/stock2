@@ -36,7 +36,7 @@ import { getChannels, truncateForPlatform, buildUtm } from '@/lib/marketing/buff
 import { getHashtags, buildInstagramFooter, getPinterestSEO, type ContentType, type Lang } from '@/lib/marketing/hashtagEngine';
 import { captureTemplate, captureStoryImage, type FormatType, type TemplateType } from '@/lib/marketing/screenshotService';
 import type { ContentOutput } from '@/lib/marketing/contentEngines';
-import { buildRealtimeText, captureRealtimeOG, captureMarketCloseOG, fetchLiveMarketData } from '@/lib/marketing/realtimeContent';
+import { buildRealtimeText, captureRealtimeOG, captureMarketCloseOG, captureMarketCloseIG, fetchLiveMarketData } from '@/lib/marketing/realtimeContent';
 import { dispatchTelegram, formatForTelegram } from '@/lib/marketing/telegramClient';
 
 // ---------------------------------------------------------------------------
@@ -1874,7 +1874,7 @@ for (const lang of langs) {
             results.push(r);
           }
 
-          // ── Instagram Story — image-only (KO/JA) ──
+          // ── Instagram Story — image-only ──
           // Reuse the OG image already captured for X tweet
           const igCh = getFilteredChannels({ tier: 'all', lang, service: 'instagram' })[0];
           if (igCh && ogImage) {
@@ -1884,6 +1884,22 @@ for (const lang of langs) {
               dryRun, draft,
             });
             results.push(r);
+          }
+
+          // ── Instagram Feed — 1080×1080 single image post (EN only) ──
+          // Premium square dashboard image for IG feed (1 per day)
+          if (igCh && lang === 'en') {
+            const igFeedImage = await captureMarketCloseIG(baseUrl, mkt, dryRun);
+            if (igFeedImage) {
+              const igCaption = `🏁 US Market Close | ${mkt.date}\n\nS&P 500: ${sd}${mkt.spyChg.toFixed(2)}%\nNASDAQ: ${nd}${mkt.qqqChg.toFixed(2)}%\nDOW: ${dd}${mkt.diaChg.toFixed(2)}%\n\nVIX: ${mkt.vix.toFixed(1)} | Dark Pool: ${mkt.dp > 0 ? mkt.dp.toFixed(1) + '%' : 'N/A'}\nGEX: ${mkt.gex.toUpperCase()} | Fear & Greed: ${Math.round(mkt.fgi)}\n\n📊 Observation only — not financial advice\n\n#stocks #optionsflow #marketclose #SPY #VIX #wallstreet #signumhq`;
+              const r = await dispatchCarousel({
+                channelId: igCh.id,
+                caption: igCaption,
+                imageUrls: [igFeedImage],
+                dryRun, draft,
+              });
+              results.push({ ...r, format: 'post' as any });
+            }
           }
         }
 

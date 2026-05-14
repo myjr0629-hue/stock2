@@ -374,3 +374,46 @@ export async function captureMarketCloseOG(
   }
   return ''; // Empty = text-only post
 }
+
+// ---------------------------------------------------------------------------
+// Market Close IG Image (1080×1080 square — Instagram feed single image)
+// Same 7-metric data, reuses market-close-ig template
+// ---------------------------------------------------------------------------
+export async function captureMarketCloseIG(
+  baseUrl: string,
+  mkt: LiveMarketData,
+  dryRun: boolean,
+): Promise<string> {
+  const data: Record<string, string | number> = {
+    spy: mkt.spyChg,
+    qqq: mkt.qqqChg,
+    dia: mkt.diaChg,
+    vix: mkt.vix,
+    dp: mkt.dp,
+    gex: mkt.gex,
+    fgi: mkt.fgi,
+    date: mkt.date,
+  };
+
+  if (dryRun) {
+    const url = new URL(`${baseUrl}/templates/og/market-close-ig`);
+    Object.entries(data).forEach(([k, v]) => url.searchParams.set(k, String(v)));
+    return url.toString();
+  }
+
+  // Live capture via EC2 — 1080×1080 square format
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const result = await captureTemplate({
+        template: 'market-close-ig' as any,
+        format: 'carousel',  // 1080×1080 in FORMATS
+        data,
+      });
+      if (result?.cdnUrl) return result.cdnUrl;
+    } catch (err: any) {
+      console.warn(`[Dispatch] MarketClose IG attempt ${attempt + 1} failed: ${err.message}`);
+    }
+    if (attempt === 0) await new Promise(r => setTimeout(r, 500));
+  }
+  return ''; // Empty = skip IG post
+}
