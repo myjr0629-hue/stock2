@@ -1886,12 +1886,14 @@ for (const lang of langs) {
             results.push(r);
           }
 
-          // ── Instagram Feed — 1080×1080 single image post (EN only) ──
-          // Premium square dashboard image for IG feed (1 per day)
-          if (igCh && lang === 'en') {
+          // ── Instagram Feed — 1080×1080 single image post (KO/JA only) ──
+          // Asia 장마감 시점에 KO/JA IG 피드 싱글 이미지 (EN은 #8 US Close에서 발행)
+          if (igCh && (lang === 'ko' || lang === 'ja')) {
             const igFeedImage = await captureMarketCloseIG(baseUrl, mkt, dryRun);
             if (igFeedImage) {
-              const igCaption = `🏁 US Market Close | ${mkt.date}\n\nS&P 500: ${sd}${mkt.spyChg.toFixed(2)}%\nNASDAQ: ${nd}${mkt.qqqChg.toFixed(2)}%\nDOW: ${dd}${mkt.diaChg.toFixed(2)}%\n\nVIX: ${mkt.vix.toFixed(1)} | Dark Pool: ${mkt.dp > 0 ? mkt.dp.toFixed(1) + '%' : 'N/A'}\nGEX: ${mkt.gex.toUpperCase()} | Fear & Greed: ${Math.round(mkt.fgi)}\n\n📊 Observation only — not financial advice\n\n#stocks #optionsflow #marketclose #SPY #VIX #wallstreet #signumhq`;
+              const igCaption = lang === 'ko'
+                ? `🏁 미국 장마감 | ${mkt.date}\n\nS&P 500: ${sd}${mkt.spyChg.toFixed(2)}%\nNASDAQ: ${nd}${mkt.qqqChg.toFixed(2)}%\nDOW: ${dd}${mkt.diaChg.toFixed(2)}%\n\nVIX: ${mkt.vix.toFixed(1)} | 다크풀: ${mkt.dp > 0 ? mkt.dp.toFixed(1) + '%' : 'N/A'}\nGEX: ${mkt.gex.toUpperCase()} | 공포탐욕: ${Math.round(mkt.fgi)}\n\n📊 데이터 분석 참고 자료입니다\n\n#주식 #옵션플로우 #장마감 #SPY #VIX #signumhq`
+                : `🏁 米国市場クローズ | ${mkt.date}\n\nS&P 500: ${sd}${mkt.spyChg.toFixed(2)}%\nNASDAQ: ${nd}${mkt.qqqChg.toFixed(2)}%\nDOW: ${dd}${mkt.diaChg.toFixed(2)}%\n\nVIX: ${mkt.vix.toFixed(1)} | DP: ${mkt.dp > 0 ? mkt.dp.toFixed(1) + '%' : 'N/A'}\nGEX: ${mkt.gex.toUpperCase()} | F&G: ${Math.round(mkt.fgi)}\n\n📊 投資助言ではありません\n\n#株式 #オプション #マーケット #SPY #VIX #signumhq`;
               const r = await dispatchCarousel({
                 channelId: igCh.id,
                 caption: igCaption,
