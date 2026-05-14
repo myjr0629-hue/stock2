@@ -164,6 +164,25 @@ export async function GET(request: Request) {
       };
     }
 
+    // --- SpaceX News Content ---
+    if (contentType === 'spacex' || contentType === 'all') {
+      const spacexResult = await generateSpaceXContent();
+      const redisKey = `marketing:spacex:${dateKey}`;
+      await setInCache(redisKey, JSON.stringify(spacexResult.content), 86400);
+
+      results.spacex = {
+        saved: true,
+        engine: spacexResult.source,
+        redisKey,
+        headline: spacexResult.headline,
+        preview: {
+          en: spacexResult.content.en.text.substring(0, 120) + '...',
+          ko: spacexResult.content.ko.text.substring(0, 120) + '...',
+          ja: spacexResult.content.ja.text.substring(0, 120) + '...',
+        },
+      };
+    }
+
     return NextResponse.json({
       success: true,
       timestamp: new Date().toISOString(),
@@ -311,4 +330,157 @@ function extractFromDash(dash: any, ticker: string): number | null {
   const entry = dash?.tickers?.[ticker] ?? dash?.[ticker];
   if (!entry) return null;
   return entry?.changePercent ?? entry?.changePct ?? entry?.price ?? null;
+}
+
+// ---------------------------------------------------------------------------
+// SpaceX News Content Generator
+// Guardian (3-lang) → Polygon (EN) → AI translate KO/JA → ContentOutput
+// ---------------------------------------------------------------------------
+async function generateSpaceXContent(): Promise<{
+  content: ContentOutput;
+  headline: string;
+  source: string;
+}> {
+  const { applyCompliance, DISCLAIMER } = await import('@/lib/marketing/bufferClient');
+
+  let headline = '';
+  const newsByLang: Record<string, string> = { en: '', ko: '', ja: '' };
+  let source = 'generic';
+
+  // Step 1: Guardian News Digest — already has 3-lang summaries
+  try {
+    const pulseRaw = await safeGetCache('guardian:news:digest');
+    if (pulseRaw) {
+      const pulse = typeof pulseRaw === 'string' ? JSON.parse(pulseRaw) : pulseRaw;
+      const items = pulse?.items || [];
+      const match = items.find((it: any) =>
+        /spacex|starship|starlink|musk.*space|musk.*ipo/i.test(
+          `${it.headline} ${it.summaryEN} ${it.analysisEN}`
+        )
+      );
+      if (match) {
+        headline = match.headline || '';
+        newsByLang.en = [match.summaryEN, match.analysisEN].filter(Boolean).join(' ');
+        newsByLang.ko = [match.summaryKR, match.analysisKR].filter(Boolean).join(' ');
+        newsByLang.ja = [match.summaryJP, match.analysisJP].filter(Boolean).join(' ');
+        source = 'guardian';
+        console.log(`[SpaceX-Content] ✅ Guardian match: "${headline}"`);
+      }
+    }
+  } catch {}
+
+  // Step 2: Polygon TSLA news → SpaceX keyword filter
+  if (!headline) {
+    try {
+      const { fetchMassive } = await import('@/services/massiveClient');
+      const newsData = await fetchMassive('/v2/reference/news', { ticker: 'TSLA', limit: '10' }, true);
+      const articles = (newsData?.results || []).filter((a: any) => a.title);
+      const spxMatch = articles.find((a: any) =>
+        /spacex|ipo|starship|starlink|musk.*space/i.test(a.title)
+      );
+      if (spxMatch) {
+        headline = spxMatch.title;
+        newsByLang.en = spxMatch.description || spxMatch.title;
+        source = 'polygon';
+        console.log(`[SpaceX-Content] ✅ Polygon match: "${headline}"`);
+      }
+    } catch {}
+  }
+
+  // Step 3: Generic fallback
+  if (!headline) {
+    headline = 'SpaceX IPO preparation continues as institutional interest in space sector grows';
+    newsByLang.en = 'SpaceX continues IPO preparation with institutional investors closely monitoring valuation developments and potential market impact.';
+    source = 'generic';
+  }
+
+  // Step 4: If KO/JA missing → Bedrock AI translation
+  if (newsByLang.en && (!newsByLang.ko || !newsByLang.ja)) {
+    try {
+      const { callBedrock, MODELS } = await import('@/services/bedrockClient');
+      const aiResult = await callBedrock({
+        modelId: MODELS.HAIKU_35,
+        system: 'You are a SpaceX business analyst. Summarize the given SpaceX news in Korean and Japanese. Each must be STANDALONE readable — include who, what, why. Output ONLY valid JSON. Observation only, no investment advice.',
+        userPrompt: `SpaceX news to summarize:\n${newsByLang.en}\n\nOutput format: {"ko":"한국어 뉴스 요약 2-3문장. 핵심 사실 포함.","ja":"日本語ニュース要約2-3文。核心事実を含む。"}`,
+        maxTokens: 600,
+        temperature: 0.2,
+        timeoutMs: 20000,
+        jsonPrefill: true,
+        label: 'SpaceX-Content-Gen',
+      });
+
+      // Robust regex extraction (avoids JSON.parse failures)
+      const koM = aiResult.text.match(/"ko"\s*:\s*"((?:[^"\\]|\\.)*)"/);
+      const jaM = aiResult.text.match(/"ja"\s*:\s*"((?:[^"\\]|\\.)*)"/);
+      if (koM && !newsByLang.ko) newsByLang.ko = koM[1].replace(/\\n/g, ' ').replace(/\\"/g, '"');
+      if (jaM && !newsByLang.ja) newsByLang.ja = jaM[1].replace(/\\n/g, ' ').replace(/\\"/g, '"');
+      console.log(`[SpaceX-Content] ✅ AI translate: ko=${newsByLang.ko.length} ja=${newsByLang.ja.length}`);
+    } catch (e: any) {
+      console.warn(`[SpaceX-Content] AI translate failed: ${e.message}`);
+    }
+  }
+
+  // Final fallback for KO/JA
+  if (!newsByLang.ko) newsByLang.ko = newsByLang.en;
+  if (!newsByLang.ja) newsByLang.ja = newsByLang.en;
+
+  // Build ContentOutput (same structure as education/pulse)
+  function buildSpaceX(lang: 'en' | 'ko' | 'ja'): ContentOutput['en'] {
+    const analysis = newsByLang[lang];
+    const disclaimerMap = { en: DISCLAIMER.en, ko: DISCLAIMER.ko, ja: DISCLAIMER.ja };
+    const hashtagMap = {
+      en: '#SpaceX #TSLA #IPO #SpaceIndustry',
+      ko: '#스페이스X #테슬라 #미국주식',
+      ja: '#SpaceX #テスラ #米国株 #宇宙産業',
+    };
+    const headerMap = {
+      en: '🚀 SpaceX Update',
+      ko: '🚀 SpaceX 업데이트',
+      ja: '🚀 SpaceX アップデート',
+    };
+
+    const twitter = [
+      headerMap[lang],
+      `📰 ${headline}`,
+      '',
+      analysis,
+      '',
+      disclaimerMap[lang],
+      '',
+      hashtagMap[lang],
+    ].join('\n');
+
+    const threads = [
+      headerMap[lang],
+      `📰 ${headline}`,
+      '',
+      analysis,
+      '',
+      disclaimerMap[lang],
+      '',
+      hashtagMap[lang],
+    ].join('\n');
+
+    return {
+      text: applyCompliance(twitter),
+      imageUrl: '',
+      cta: 'liveStructure' as const,
+      platformText: {
+        twitter: applyCompliance(twitter),
+        threads: applyCompliance(threads),
+        instagram: applyCompliance(threads),
+        bluesky: applyCompliance(twitter),
+      },
+    };
+  }
+
+  return {
+    content: {
+      en: buildSpaceX('en'),
+      ko: buildSpaceX('ko'),
+      ja: buildSpaceX('ja'),
+    },
+    headline,
+    source,
+  };
 }
