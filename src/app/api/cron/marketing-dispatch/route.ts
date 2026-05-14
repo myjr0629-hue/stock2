@@ -114,7 +114,7 @@ export async function GET(request: Request) {
       spacex_spotlight:   new Set(['twitter', 'threads', 'bluesky', 'pinterest', 'telegram']), // + Telegram
       trending_spotlight: new Set([]),                                              // DISABLED
       weekly_recap:       new Set(['twitter', 'threads', 'telegram']),             // + Telegram
-      market_close_asia:  new Set(['twitter', 'threads', 'bluesky', 'instagram', 'telegram']),
+      market_close_asia:  new Set(['twitter', 'threads', 'instagram', 'telegram']),
     };
 
     /** Platform-filtered channel lookup — returns [] if action should NOT post to that service */
