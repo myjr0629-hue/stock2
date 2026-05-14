@@ -1639,32 +1639,27 @@ for (const lang of langs) {
             }
           } catch {}
         }
-        // Cache latest TSLA data for off-hours use
         if (tslaPrice > 0 && tslaChange !== 0) {
           await setInCache('marketing:tsla:latest', JSON.stringify({ price: tslaPrice, change: tslaChange }), 86400);
         }
-        // Off-hours fallback: read last cached TSLA DP
         if (tslaDp === 0) {
           try {
             const dpC = await getFromCache('marketing:dp:latest:TSLA').catch(() => null);
             if (dpC) tslaDp = parseFloat(String(dpC)) || 0;
           } catch {}
         }
-        // Always cache latest TSLA DP for off-hours use
         if (tslaDp > 0) {
           await setInCache('marketing:dp:latest:TSLA', String(tslaDp), 86400);
         }
-        // WhaleIndex & GEX from DynamoDB analysis cache (same key as watchlist)
         const tslaAnalysisRaw = await getFromCache(`cache:analysis:TSLA`).catch(() => null);
         const tslaAnalysis = tslaAnalysisRaw ? (typeof tslaAnalysisRaw === 'string' ? JSON.parse(tslaAnalysisRaw) : tslaAnalysisRaw) : {};
         const tslaWhale = tslaAnalysis?.whaleIndex ?? tslaAnalysis?.smartFlow ?? 50;
         const tslaGex = String(tslaAnalysis?.gexRegime ?? tslaAnalysis?.gex ?? 'neutral').toLowerCase();
         const tslaPremium = tslaAnalysis?.netPremium ?? '';
 
-        // === NEWS: Guardian News Pulse (primary) → SpaceX-focused content ===
+        // === NEWS: Guardian News Pulse has KR/EN/JP summaries already ===
         let spacexHeadline = '';
-        let newsSourceContext = '';
-        const aiAnalysisMap: Record<string, string> = {};
+        const newsByLang: Record<string, string> = { en: '', ko: '', ja: '' };
 
         // Step 1: Guardian News Pulse — SpaceX/Starship/Starlink/Musk related
         try {
@@ -1679,13 +1674,15 @@ for (const lang of langs) {
             );
             if (match) {
               spacexHeadline = match.headline || '';
-              newsSourceContext = `Headline: ${match.headline}\nSummary: ${match.summaryEN}\nAnalysis: ${match.analysisEN}\nImpact: ${match.impact}`;
-              console.log(`[SpaceX] ✅ News Pulse match: "${spacexHeadline}"`);
+              newsByLang.en = [match.summaryEN, match.analysisEN].filter(Boolean).join(' ');
+              newsByLang.ko = [match.summaryKR, match.analysisKR].filter(Boolean).join(' ');
+              newsByLang.ja = [match.summaryJP, match.analysisJP].filter(Boolean).join(' ');
+              console.log(`[SpaceX] ✅ Guardian match: "${spacexHeadline}" (ko:${newsByLang.ko.length} ja:${newsByLang.ja.length})`);
             }
           }
         } catch { /* pulse read optional */ }
 
-        // Step 2: Fallback — Polygon news (ONLY SpaceX-related, no random TSLA articles)
+        // Step 2: Fallback — Polygon news (EN only)
         if (!spacexHeadline) {
           try {
             const { fetchMassive: fetchPolygonNews } = await import('@/services/massiveClient');
@@ -1694,15 +1691,15 @@ for (const lang of langs) {
             const spxMatch = articles.find((a: any) => /spacex|ipo|starship|starlink|musk.*space/i.test(a.title));
             if (spxMatch) {
               spacexHeadline = spxMatch.title;
-              newsSourceContext = `Headline: ${spxMatch.title}\nDescription: ${spxMatch.description || ''}`;
+              newsByLang.en = spxMatch.description || spxMatch.title;
             }
           } catch { /* news fetch optional */ }
         }
 
-        // Step 3: If no SpaceX news found, use a generic SpaceX IPO narrative
+        // Step 3: Generic fallback
         if (!spacexHeadline) {
           spacexHeadline = 'SpaceX IPO preparation continues as institutional interest in space sector grows';
-          newsSourceContext = 'SpaceX continues IPO preparation. Institutional investors are closely monitoring SpaceX valuation and its impact on TSLA as the primary public proxy.';
+          newsByLang.en = 'SpaceX continues IPO preparation with institutional investors closely monitoring valuation developments.';
         }
 
         const changeFmt = `${tslaChange >= 0 ? '+' : ''}${tslaChange.toFixed(2)}%`;
@@ -1710,82 +1707,15 @@ for (const lang of langs) {
         const dpSignal = tslaDp >= 40 ? 'elevated' : 'normal';
         const flowSignal = tslaWhale >= 65 ? 'accumulation' : tslaWhale <= 35 ? 'distribution' : 'neutral';
 
-        // Step 4: AI — Generate SpaceX news analysis in 3 languages (SpaceX = main, TSLA = secondary)
-        try {
-          // Cache key includes headline hash to invalidate when news changes
-          const headlineHash = spacexHeadline.slice(0, 30).replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
-          const aiCacheKey = `marketing:spacex_ai:${dateKey}:${headlineHash}`;
-          const cachedAi = await getFromCache(aiCacheKey).catch(() => null);
-          if (cachedAi) {
-            const parsed = typeof cachedAi === 'string' ? JSON.parse(cachedAi) : cachedAi;
-            // Strip 'en:', 'ko:', 'ja:' prefixes if AI accidentally included them
-            for (const k of Object.keys(parsed)) {
-              if (typeof parsed[k] === 'string') parsed[k] = parsed[k].replace(/^(en|ko|ja):\s*/i, '').trim();
-            }
-            Object.assign(aiAnalysisMap, parsed);
-          } else {
-            const { callBedrock, MODELS } = await import('@/services/bedrockClient');
-            const result = await callBedrock({
-              modelId: MODELS.HAIKU_35,
-              system: 'You are a SpaceX business analyst at SIGNUM HQ. Your job is to summarize and analyze SpaceX news for social media. Each language output must be FULLY STANDALONE — readers should understand the news WITHOUT seeing the English headline. Write OBSERVATION ONLY — never predict or advise.',
-              userPrompt: `Summarize and analyze the following SpaceX news in 3 languages. Each output must INCLUDE the key facts from the news (who, what, why) AND your brief analysis. Do NOT just analyze — first summarize the news, then analyze. Each language must sound completely native — NOT translated.\n\nSpaceX News:\n${newsSourceContext}\n\nOutput JSON:\n{"en":"[2-3 sentence news summary] [1-2 sentence analysis]", "ko":"[2-3문장 뉴스 요약 — 한국어로] [1-2문장 분석]", "ja":"[2-3文ニュース要約 — 日本語で] [1-2文分析]"}\n\nRules:\n- 3-4 sentences per language TOTAL\n- Include key facts (names, numbers, context)\n- Each language STANDALONE readable\n- SpaceX is main topic, NO TSLA data\n- Observation only, no investment advice`,
-              maxTokens: 1000,
-              temperature: 0.3,
-              timeoutMs: 25000,
-              jsonPrefill: true,
-              label: 'SpaceX-News-Analysis',
-            });
-            try {
-              const parsed = JSON.parse(result.text);
-              if (parsed.en) aiAnalysisMap.en = parsed.en;
-              if (parsed.ko) aiAnalysisMap.ko = parsed.ko;
-              if (parsed.ja) aiAnalysisMap.ja = parsed.ja;
-            } catch { aiAnalysisMap.en = result.text.replace(/[{}"\n]/g, '').trim(); }
-            // Strip 'en:', 'ko:', 'ja:' prefixes and cross-language bleed from AI output
-            for (const lk of Object.keys(aiAnalysisMap)) {
-              if (typeof aiAnalysisMap[lk] === 'string') {
-                aiAnalysisMap[lk] = aiAnalysisMap[lk].replace(/^(en|ko|ja):\s*/i, '').replace(/,\s+(ko|ja|en):\s+[\s\S]*/m, '').trim();
-              }
-            }
-            if (Object.keys(aiAnalysisMap).length > 0) {
-              await setInCache(aiCacheKey, JSON.stringify(aiAnalysisMap), 86400);
-            }
-            console.log(`[SpaceX] ✅ AI reformat done (${result.elapsedMs}ms)`);
-          }
-        } catch (e: any) { console.warn(`[SpaceX] AI reformat skipped: ${e.message}`); }
-
-        // DEBUG: expose diagnostic info in response for troubleshooting
         const _debug = {
-          hasNewsSourceContext: !!newsSourceContext,
-          newsSourceContextLen: newsSourceContext?.length || 0,
-          newsSourcePreview: newsSourceContext?.substring(0, 200) || '(empty)',
           spacexHeadline: spacexHeadline?.substring(0, 80) || '(empty)',
-          aiAnalysisKeys: Object.keys(aiAnalysisMap),
-          aiKoLen: aiAnalysisMap.ko?.length || 0,
-          aiJaLen: aiAnalysisMap.ja?.length || 0,
-          aiEnLen: aiAnalysisMap.en?.length || 0,
+          newsEnLen: newsByLang.en?.length || 0,
+          newsKoLen: newsByLang.ko?.length || 0,
+          newsJaLen: newsByLang.ja?.length || 0,
         };
 
-        // Extract news summary from newsSourceContext for direct display
-        let newsSummary = '';
-        if (newsSourceContext) {
-          const sumMatch = newsSourceContext.match(/Summary:\s*(.+?)(\n|$)/);
-          const anaMatch = newsSourceContext.match(/Analysis:\s*(.+?)(\n|$)/);
-          newsSummary = sumMatch?.[1]?.trim() || '';
-          if (anaMatch?.[1]?.trim()) newsSummary += ' ' + anaMatch[1].trim();
-        }
-
         for (const lang of langs) {
-          const aiInsight = aiAnalysisMap[lang] || '';
-          // EN: English news summary is main, AI supplementary
-          // KO/JA: AI native analysis is main (newsSummary is English → useless for non-EN)
-          let analysis = '';
-          if (lang === 'en') {
-            analysis = newsSummary || aiInsight || `SpaceX continues to advance its IPO timeline amid growing institutional interest.`;
-          } else {
-            // For KO/JA: use AI native analysis first, English news as last resort
-            analysis = aiInsight || newsSummary || `SpaceX continues to advance its IPO timeline amid growing institutional interest.`;
-          }
+          const analysis = newsByLang[lang] || newsByLang.en || 'SpaceX continues to advance its IPO timeline amid growing institutional interest.';
 
           const textMap: Record<string, string> = {
             en: [
@@ -1893,7 +1823,7 @@ for (const lang of langs) {
 
         // Telegram (EN SpaceX — skip for region=asia)
         if (PLATFORM_ALLOW[action]?.has('telegram') && (region === 'en' || region === 'all')) {
-          const tgNewsBody = newsSummary || aiAnalysisMap.en || 'Institutional positioning data updated.';
+          const tgNewsBody = newsByLang.en || 'Institutional positioning data updated.';
           const tgSpaceXText = [
             spacexHeadline ? `🚀 SpaceX Update\n📰 ${spacexHeadline}` : `🚀 SpaceX IPO — Daily Update`,
             '',
