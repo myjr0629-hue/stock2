@@ -37,7 +37,8 @@ const CHANNEL_MAP: BufferChannel[] = [
   // --- Tier 3: Future expansion ---
   { id: '69ca78a7af47dacb696d6446', name: 'SignumHQ_JP',       service: 'twitter',   tier: 3, lang: 'ja' },
   { id: '69ca7dbeaf47dacb696d7704', name: 'signumhq_jp',       service: 'instagram', tier: 3, lang: 'ja' },
-  { id: '69ca7df5af47dacb696d77ad', name: 'signumhq_jp',       service: 'threads',   tier: 3, lang: 'ja' },
+  // PAUSED (2026-05-15): Meta community guidelines restriction — signumhq_jp threads blocked
+  // { id: '69ca7df5af47dacb696d77ad', name: 'signumhq_jp',       service: 'threads',   tier: 3, lang: 'ja' },
   { id: '69ca9432af47dacb696deb5c', name: 'Pinterest',          service: 'pinterest', tier: 3, lang: 'en' },
   { id: '69ca95e7af47dacb696df35a', name: 'signumhq',           service: 'tiktok',    tier: 3, lang: 'en' },
   { id: '69ca9615af47dacb696df427', name: 'SIGNUM HQ',          service: 'youtube',   tier: 3, lang: 'en' },
