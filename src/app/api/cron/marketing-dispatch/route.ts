@@ -1712,10 +1712,16 @@ for (const lang of langs) {
 
         // Step 4: AI — Generate SpaceX news analysis in 3 languages (SpaceX = main, TSLA = secondary)
         try {
-          const aiCacheKey = `marketing:spacex_ai:${dateKey}`;
+          // Cache key includes headline hash to invalidate when news changes
+          const headlineHash = spacexHeadline.slice(0, 30).replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
+          const aiCacheKey = `marketing:spacex_ai:${dateKey}:${headlineHash}`;
           const cachedAi = await getFromCache(aiCacheKey).catch(() => null);
           if (cachedAi) {
             const parsed = typeof cachedAi === 'string' ? JSON.parse(cachedAi) : cachedAi;
+            // Strip 'en:', 'ko:', 'ja:' prefixes if AI accidentally included them
+            for (const k of Object.keys(parsed)) {
+              if (typeof parsed[k] === 'string') parsed[k] = parsed[k].replace(/^(en|ko|ja):\s*/i, '').trim();
+            }
             Object.assign(aiAnalysisMap, parsed);
           } else {
             const { callBedrock, MODELS } = await import('@/services/bedrockClient');
@@ -1754,8 +1760,14 @@ for (const lang of langs) {
 
         for (const lang of langs) {
           const aiInsight = aiAnalysisMap[lang] || '';
-          // Use AI insight if available, otherwise use raw news summary, otherwise generic
-          const analysis = aiInsight || newsSummary || `SpaceX continues to advance its IPO timeline amid growing institutional interest.`;
+          // NEWS is ALWAYS main. AI insight is supplementary (appended after news).
+          let analysis = '';
+          if (newsSummary) {
+            analysis = newsSummary;
+            if (aiInsight) analysis += '\n\n' + aiInsight;
+          } else {
+            analysis = aiInsight || `SpaceX continues to advance its IPO timeline amid growing institutional interest.`;
+          }
 
           const textMap: Record<string, string> = {
             en: [
@@ -1863,15 +1875,11 @@ for (const lang of langs) {
 
         // Telegram (EN SpaceX — skip for region=asia)
         if (PLATFORM_ALLOW[action]?.has('telegram') && (region === 'en' || region === 'all')) {
+          const tgNewsBody = newsSummary || aiAnalysisMap.en || 'Institutional positioning data updated.';
           const tgSpaceXText = [
-            spacexHeadline ? `🚀 SpaceX × $TSLA Proxy Update\n📰 ${spacexHeadline}` : `🚀 SpaceX IPO × $TSLA Proxy — Daily Structure Check`,
+            spacexHeadline ? `🚀 SpaceX Update\n📰 ${spacexHeadline}` : `🚀 SpaceX IPO — Daily Update`,
             '',
-            `📊 $TSLA ${changeFmt} ($${Number(tslaPrice).toFixed(2)})`,
-            `▸ Dark Pool: ${tslaDp > 0 ? `${tslaDp.toFixed(1)}%` : 'N/A'}`,
-            `▸ Smart Flow: ${tslaWhale}/100`,
-            `▸ GEX: ${tslaGex.toUpperCase()}`,
-            '',
-            aiAnalysisMap.en || 'Institutional positioning data updated.',
+            tgNewsBody,
             '',
             '*Observation only — not financial advice.',
           ].join('\n');
@@ -1885,7 +1893,7 @@ for (const lang of langs) {
             } catch {}
           }
           const r = await dispatchTelegram({ text: tgText, imageUrl: tgOgImage, dryRun });
-          results.push({ success: r.success, format: 'post', channel: 'telegram', service: 'telegram', lang: 'en', textPreview: 'telegram', postId: String(r.messageId || '') } as DispatchResult);
+          results.push({ success: r.success, format: 'post', channel: 'telegram', service: 'telegram', lang: 'en', textPreview: tgSpaceXText.substring(0, 100), fullText: tgSpaceXText, postId: String(r.messageId || '') } as DispatchResult);
         }
         break;
       }
