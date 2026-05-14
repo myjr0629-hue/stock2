@@ -668,10 +668,11 @@ export async function GET(request: Request) {
           if (bskyCh && content.en?.text) {
             const bskyImage = await captureImageForDispatch(baseUrl, content, 'en', 'og', 'education', dryRun);
             const bskyTags = getHashtags({ platform: 'bluesky', contentType: 'education', tickers: ['SPY', 'QQQ'] });
-            const bskyFooter = `\n\n${baseUrl}/intel-guardian\n\n${bskyTags}`;
+            const bskyCta = '📊 Track live institutional flow — free dashboard';
+            const bskyFooter = `\n\n${bskyCta}\n${baseUrl}/intel-guardian\n\n${bskyTags}`;
             const r = await dispatchPost({
               channelId: bskyCh.id,
-              text: truncateWithTags(content.en.platformText?.threads || content.en.text, bskyFooter, 'bluesky'),
+              text: truncateWithTags(content.en.text, bskyFooter, 'bluesky'),
               imageUrl: bskyImage,
               dryRun,
               draft,
