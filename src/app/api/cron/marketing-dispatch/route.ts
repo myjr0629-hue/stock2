@@ -657,7 +657,7 @@ export async function GET(request: Request) {
           }
         }
 
-        // Pinterest (EN only) — vertical infographic pin
+        // Pinterest (EN only) — reuse EN education OG image (no extra EC2 call)
         const pinCh = getFilteredChannels({ tier: 'all', service: 'pinterest' })[0];
         if (pinCh) {
           const eduTopics = ['gex', 'dark_pool', 'iv_percentile', 'pcr', 'max_pain'];
@@ -665,28 +665,11 @@ export async function GET(request: Request) {
           const pinTopic = eduTopics[topicIdx];
           const seo = getPinterestSEO({ contentType: 'education', educationTopic: pinTopic });
 
-          // Capture vertical infographic pin (1 attempt + fast fallback)
-          let pinImage = '';
-          if (!dryRun) {
-            try {
-              const capturePromise = captureTemplate({ template: 'education_pin', format: 'pin', data: { topic: pinTopic } });
-              const timeoutPromise = new Promise<null>((_, rej) => setTimeout(() => rej(new Error('Pin capture timeout 15s')), 15000));
-              const r = await Promise.race([capturePromise, timeoutPromise]);
-              if (r && (r as any)?.cdnUrl) pinImage = (r as any).cdnUrl;
-            } catch (e: any) {
-              console.warn(`[Education] Pin capture failed: ${e.message}`);
-            }
-            // Fallback to generic education OG image
-            if (!pinImage) {
-              try { pinImage = await captureImageForDispatch(baseUrl, content, 'en', 'og', 'education', false); } catch {}
-            }
-          } else {
-            pinImage = await captureImageForDispatch(baseUrl, content, 'en', 'pin', 'education', dryRun);
-          }
+          // Reuse EN OG image already captured above (no extra EC2 call needed)
+          const pinImage = await captureImageForDispatch(baseUrl, content, 'en', 'og', 'education', dryRun);
 
           const pinLink = `${baseUrl}/how-it-works?${buildUtm('pinterest', 'education')}`;
-          // Buffer enforces 500 char on combined: title + \n\n + description + \n\n + link
-          const pinOverhead = seo.title.length + pinLink.length + 4; // 4 = two \n\n separators
+          const pinOverhead = seo.title.length + pinLink.length + 4;
           const maxDesc = 500 - pinOverhead;
           const pinDesc = seo.description.length > maxDesc
             ? seo.description.substring(0, maxDesc - 3) + '...'
