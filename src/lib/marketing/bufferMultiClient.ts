@@ -129,8 +129,8 @@ export async function dispatchThread(opts: {
     const input: Record<string, any> = {
       channelId,
       text: firstSlide.text || '',
-      schedulingType: 'automatic',
-      mode: 'addToQueue',
+      schedulingType: draft ? 'automatic' : 'automatic',
+      mode: draft ? 'customScheduled' : 'addToQueue',
     };
     if (firstSlide.imageUrl) {
       input.assets = { images: [{ url: firstSlide.imageUrl }] };
