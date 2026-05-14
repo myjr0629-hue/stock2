@@ -1737,15 +1737,19 @@ for (const lang of langs) {
           }
         } catch (e: any) { console.warn(`[SpaceX] AI reformat skipped: ${e.message}`); }
 
+        // Extract news summary from newsSourceContext for direct display
+        let newsSummary = '';
+        if (newsSourceContext) {
+          const sumMatch = newsSourceContext.match(/Summary:\s*(.+?)(\n|$)/);
+          const anaMatch = newsSourceContext.match(/Analysis:\s*(.+?)(\n|$)/);
+          newsSummary = sumMatch?.[1]?.trim() || '';
+          if (anaMatch?.[1]?.trim()) newsSummary += ' ' + anaMatch[1].trim();
+        }
+
         for (const lang of langs) {
           const aiInsight = aiAnalysisMap[lang] || '';
-          // SpaceX news-first content: News → Analysis → TSLA Reference → CTA
-          const defaultInsight: Record<string, string> = {
-            en: `SpaceX continues to advance its IPO timeline amid growing institutional interest. $TSLA (${changeFmt}) serves as the primary public market proxy, with dark pool activity at ${tslaDp > 0 ? tslaDp.toFixed(1) + '%' : 'N/A'}.`,
-            ko: `SpaceX가 기관 투자자들의 관심 속에 IPO 일정을 진행 중입니다. $TSLA (${changeFmt})가 유일한 공개 프록시로, 다크풀 활동이 ${tslaDp > 0 ? tslaDp.toFixed(1) + '%' : 'N/A'} 수준입니다.`,
-            ja: `SpaceXは機関投資家の注目を集めながらIPOスケジュールを進めています。$TSLA (${changeFmt})が唯一の公開プロキシとして、ダークプール活動は${tslaDp > 0 ? tslaDp.toFixed(1) + '%' : 'N/A'}水準です。`,
-          };
-          const analysis = aiInsight || defaultInsight[lang] || defaultInsight.en;
+          // Use AI insight if available, otherwise use raw news summary, otherwise generic
+          const analysis = aiInsight || newsSummary || `SpaceX continues to advance its IPO timeline amid growing institutional interest.`;
 
           const textMap: Record<string, string> = {
             en: [
