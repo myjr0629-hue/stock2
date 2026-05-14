@@ -1637,7 +1637,7 @@ for (const lang of langs) {
         const tslaAnalysisRaw = await getFromCache(`cache:analysis:TSLA`).catch(() => null);
         const tslaAnalysis = tslaAnalysisRaw ? (typeof tslaAnalysisRaw === 'string' ? JSON.parse(tslaAnalysisRaw) : tslaAnalysisRaw) : {};
         const tslaWhale = tslaAnalysis?.whaleIndex ?? tslaAnalysis?.smartFlow ?? 50;
-        const tslaGex = (tslaAnalysis?.gexRegime ?? tslaAnalysis?.gex ?? 'neutral').toLowerCase();
+        const tslaGex = String(tslaAnalysis?.gexRegime ?? tslaAnalysis?.gex ?? 'neutral').toLowerCase();
         const tslaPremium = tslaAnalysis?.netPremium ?? '';
 
         // === NEWS: Guardian News Pulse (pre-analyzed) → callBedrock reformat ===
