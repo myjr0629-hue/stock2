@@ -42,7 +42,7 @@ import { dispatchTelegram, formatForTelegram } from '@/lib/marketing/telegramCli
 // ---------------------------------------------------------------------------
 // Actions
 // ---------------------------------------------------------------------------
-type Action = 'morning' | 'morning_ig' | 'midday' | 'education' | 'edu_bsky' | 'pulse' | 'pulse_ig' | 'event' | 'spotlight' | 'briefing_thread' | 'premarket_bsky' | 'premarket_threads' | 'intraday_bsky' | 'close_bsky' | 'close_threads' | 'structure_bsky' | 'insight_threads' | 'afterhours_bsky' | 'afterhours_threads' | 'asia_recap' | 'asia_insight' | 'market_open' | 'weekly_recap' | 'trending_spotlight' | 'spacex_spotlight' | 'market_close_asia';
+type Action = 'morning' | 'morning_ig' | 'midday' | 'education' | 'education_ig' | 'edu_bsky' | 'pulse' | 'pulse_ig' | 'event' | 'spotlight' | 'briefing_thread' | 'premarket_bsky' | 'premarket_threads' | 'intraday_bsky' | 'close_bsky' | 'close_threads' | 'structure_bsky' | 'insight_threads' | 'afterhours_bsky' | 'afterhours_threads' | 'asia_recap' | 'asia_insight' | 'market_open' | 'weekly_recap' | 'trending_spotlight' | 'spacex_spotlight' | 'market_close_asia';
 type Region = 'en' | 'asia' | 'all'; // en=EN only, asia=KO+JP, all=both
 
 function getLangsForRegion(region: Region): Lang[] {
@@ -102,6 +102,7 @@ export async function GET(request: Request) {
       morning_ig:         new Set(['instagram']),                                  // Threads removed (IG carousel is the star here)
       midday:             new Set(['instagram', 'pinterest', 'telegram']),         // + Telegram
       education:          new Set(['twitter', 'threads', 'pinterest', 'telegram']),// + Telegram
+      education_ig:       new Set(['instagram']),                                  // IG Carousel only (5 slides × 3 langs)
       edu_bsky:           new Set(['bluesky', 'pinterest', 'telegram']),           // + Telegram
       pulse:              new Set(['twitter', 'instagram', 'pinterest', 'telegram']), // + Telegram
       spotlight:          new Set(['twitter', 'bluesky', 'pinterest', 'telegram']),// + Telegram
@@ -700,6 +701,63 @@ export async function GET(request: Request) {
           const ogForTg = await captureImageForDispatch(baseUrl, content, 'en', 'tweet', 'education', dryRun);
           const r = await dispatchTelegram({ text: tgText, imageUrl: ogForTg, dryRun });
           results.push({ success: r.success, format: 'post', channel: 'telegram', service: 'telegram', lang: 'en', textPreview: 'telegram', postId: String(r.messageId || '') } as DispatchResult);
+        }
+        break;
+      }
+
+      // ========================================
+      // EDUCATION IG CAROUSEL — KST 09:30
+      // 5 slides × 3 langs = 15 captures (separate cron to avoid EC2 contention)
+      // ========================================
+      case 'education_ig': {
+        const eduTopics = ['gex', 'dark_pool', 'iv_percentile', 'pcr', 'max_pain'];
+        const topicIdx = new Date().getDate() % eduTopics.length;
+        const topic = eduTopics[topicIdx];
+
+        for (const lang of langs) {
+          const igCh = getFilteredChannels({ tier: 'all', lang, service: 'instagram' })[0];
+          if (!igCh) continue;
+
+          // Capture 5 slides
+          const slideUrls: string[] = [];
+          for (let slide = 1; slide <= 5; slide++) {
+            if (dryRun) {
+              slideUrls.push(`${baseUrl}/templates/og/education-carousel?topic=${topic}&lang=${lang}&slide=${slide}`);
+            } else {
+              try {
+                const result = await captureTemplate({
+                  template: 'education-carousel' as any,
+                  format: 'carousel',
+                  data: { topic, lang, slide },
+                });
+                if (result?.cdnUrl) slideUrls.push(result.cdnUrl);
+              } catch (err: any) {
+                console.warn(`[EduIG] Slide ${slide} capture failed: ${err.message}`);
+              }
+              // Rate limit between captures (EC2 load management)
+              await new Promise(r => setTimeout(r, 1500));
+            }
+          }
+
+          if (slideUrls.length === 0) {
+            console.warn(`[EduIG] No slides captured for ${lang}, skipping`);
+            continue;
+          }
+
+          // Build IG caption
+          const caption = lang === 'ko'
+            ? `📚 옵션 구조 교육 시리즈\n\n오늘의 주제: ${topic.toUpperCase().replace('_', ' ')}\n\n기관이 보는 시장 구조를 이해하세요.\n\n📊 signumhq.com\n\n#옵션구조 #주식투자 #GEX #다크풀 #signumhq`
+            : lang === 'ja'
+            ? `📚 オプション構造教育シリーズ\n\n今日のトピック: ${topic.toUpperCase().replace('_', ' ')}\n\n機関が見る市場構造を理解しましょう。\n\n📊 signumhq.com\n\n#オプション構造 #株式投資 #GEX #signumhq`
+            : `📚 Options Structure Education\n\nToday's topic: ${topic.toUpperCase().replace('_', ' ')}\n\nUnderstand the market structure that institutions see.\n\n📊 signumhq.com\n\n#optionsflow #stockmarket #GEX #darkpool #signumhq`;
+
+          const r = await dispatchCarousel({
+            channelId: igCh.id,
+            caption,
+            imageUrls: slideUrls,
+            dryRun, draft,
+          });
+          results.push(r);
         }
         break;
       }
