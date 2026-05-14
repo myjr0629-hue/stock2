@@ -42,7 +42,7 @@ import { dispatchTelegram, formatForTelegram } from '@/lib/marketing/telegramCli
 // ---------------------------------------------------------------------------
 // Actions
 // ---------------------------------------------------------------------------
-type Action = 'morning' | 'morning_ig' | 'midday' | 'education' | 'education_ig' | 'edu_bsky' | 'pulse' | 'pulse_ig' | 'event' | 'spotlight' | 'briefing_thread' | 'premarket_bsky' | 'premarket_threads' | 'intraday_bsky' | 'close_bsky' | 'close_threads' | 'structure_bsky' | 'insight_threads' | 'afterhours_bsky' | 'afterhours_threads' | 'asia_recap' | 'asia_insight' | 'market_open' | 'weekly_recap' | 'trending_spotlight' | 'spacex_spotlight' | 'market_close_asia';
+type Action = 'morning' | 'morning_ig' | 'midday' | 'education' | 'education_pin' | 'education_ig' | 'edu_bsky' | 'pulse' | 'pulse_ig' | 'event' | 'spotlight' | 'briefing_thread' | 'premarket_bsky' | 'premarket_threads' | 'intraday_bsky' | 'close_bsky' | 'close_threads' | 'structure_bsky' | 'insight_threads' | 'afterhours_bsky' | 'afterhours_threads' | 'asia_recap' | 'asia_insight' | 'market_open' | 'weekly_recap' | 'trending_spotlight' | 'spacex_spotlight' | 'market_close_asia';
 type Region = 'en' | 'asia' | 'all'; // en=EN only, asia=KO+JP, all=both
 
 function getLangsForRegion(region: Region): Lang[] {
@@ -101,9 +101,10 @@ export async function GET(request: Request) {
       morning:            new Set(['instagram', 'pinterest', 'telegram']),         // + Telegram
       morning_ig:         new Set(['instagram']),                                  // Threads removed (IG carousel is the star here)
       midday:             new Set(['instagram', 'pinterest', 'telegram']),         // + Telegram
-      education:          new Set(['twitter', 'threads', 'pinterest', 'telegram']),// + Telegram
+      education:          new Set(['twitter', 'threads', 'telegram']),             // Pinterest split to education_pin
+      education_pin:      new Set(['pinterest']),                                  // Pinterest only (5min after education)
       education_ig:       new Set(['instagram']),                                  // IG Carousel only (5 slides × 3 langs)
-      edu_bsky:           new Set(['bluesky', 'pinterest', 'telegram']),           // + Telegram
+      edu_bsky:           new Set(['bluesky', 'telegram']),                        // Bluesky + Telegram
       pulse:              new Set(['twitter', 'instagram', 'pinterest', 'telegram']), // + Telegram
       spotlight:          new Set(['twitter', 'bluesky', 'pinterest', 'telegram']),// + Telegram
       briefing_thread:    new Set(['twitter', 'telegram']),                        // + Telegram
@@ -657,7 +658,24 @@ export async function GET(request: Request) {
           }
         }
 
-        // Pinterest (EN only) — reuse EN education OG image (no extra EC2 call)
+        // Telegram (EN education)
+        if (PLATFORM_ALLOW[action]?.has('telegram') && content.en?.text) {
+          const tgText = formatForTelegram(content.en.platformText?.threads || content.en.text, { channelLink: `${baseUrl}/how-it-works?${buildUtm('telegram', 'education')}`, contentType: 'education' });
+          const ogForTg = await captureImageForDispatch(baseUrl, content, 'en', 'tweet', 'education', dryRun);
+          const r = await dispatchTelegram({ text: tgText, imageUrl: ogForTg, dryRun });
+          results.push({ success: r.success, format: 'post', channel: 'telegram', service: 'telegram', lang: 'en', textPreview: 'telegram', postId: String(r.messageId || '') } as DispatchResult);
+        }
+        break;
+      }
+
+      // ========================================
+      // EDUCATION PINTEREST — KST 09:05 (5min after education)
+      // Separate cron to avoid Vercel 60s timeout
+      // ========================================
+      case 'education_pin': {
+        const content = await loadContent('education', dateKey);
+        if (!content) return noContent('education', dateKey);
+
         const pinCh = getFilteredChannels({ tier: 'all', service: 'pinterest' })[0];
         if (pinCh) {
           const eduTopics = ['gex', 'dark_pool', 'iv_percentile', 'pcr', 'max_pain'];
@@ -665,7 +683,6 @@ export async function GET(request: Request) {
           const pinTopic = eduTopics[topicIdx];
           const seo = getPinterestSEO({ contentType: 'education', educationTopic: pinTopic });
 
-          // Reuse EN OG image already captured above (no extra EC2 call needed)
           const pinImage = await captureImageForDispatch(baseUrl, content, 'en', 'og', 'education', dryRun);
 
           const pinLink = `${baseUrl}/how-it-works?${buildUtm('pinterest', 'education')}`;
@@ -685,14 +702,6 @@ export async function GET(request: Request) {
             draft,
           });
           results.push(r);
-        }
-
-        // Telegram (EN education)
-        if (PLATFORM_ALLOW[action]?.has('telegram') && content.en?.text) {
-          const tgText = formatForTelegram(content.en.platformText?.threads || content.en.text, { channelLink: `${baseUrl}/how-it-works?${buildUtm('telegram', 'education')}`, contentType: 'education' });
-          const ogForTg = await captureImageForDispatch(baseUrl, content, 'en', 'tweet', 'education', dryRun);
-          const r = await dispatchTelegram({ text: tgText, imageUrl: ogForTg, dryRun });
-          results.push({ success: r.success, format: 'post', channel: 'telegram', service: 'telegram', lang: 'en', textPreview: 'telegram', postId: String(r.messageId || '') } as DispatchResult);
         }
         break;
       }
