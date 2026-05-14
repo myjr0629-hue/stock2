@@ -1702,6 +1702,31 @@ for (const lang of langs) {
           newsByLang.en = 'SpaceX continues IPO preparation with institutional investors closely monitoring valuation developments.';
         }
 
+        // Step 4: If KO/JA missing (Polygon or generic fallback), generate via AI
+        if (newsByLang.en && (!newsByLang.ko || !newsByLang.ja)) {
+          try {
+            const { callBedrock, MODELS } = await import('@/services/bedrockClient');
+            const aiResult = await callBedrock({
+              modelId: MODELS.HAIKU_35,
+              system: 'Summarize the given SpaceX news in Korean and Japanese. Output ONLY JSON. Each summary must be standalone and native-sounding. Observation only, no investment advice.',
+              userPrompt: `News: ${newsByLang.en}\n\nOutput: {"ko":"한국어 요약 2-3문장","ja":"日本語要約2-3文"}`,
+              maxTokens: 500,
+              temperature: 0.2,
+              timeoutMs: 15000,
+              jsonPrefill: true,
+              label: 'SpaceX-Translate',
+            });
+            // Extract ko/ja from response (robust)
+            const koM = aiResult.text.match(/"ko"\s*:\s*"((?:[^"\\]|\\.)*)"/);
+            const jaM = aiResult.text.match(/"ja"\s*:\s*"((?:[^"\\]|\\.)*)"/);
+            if (koM && !newsByLang.ko) newsByLang.ko = koM[1].replace(/\\n/g, ' ').replace(/\\"/g, '"');
+            if (jaM && !newsByLang.ja) newsByLang.ja = jaM[1].replace(/\\n/g, ' ').replace(/\\"/g, '"');
+            console.log(`[SpaceX] ✅ AI translate done (ko:${newsByLang.ko.length} ja:${newsByLang.ja.length})`);
+          } catch (e: any) {
+            console.warn(`[SpaceX] AI translate skipped: ${e.message}`);
+          }
+        }
+
         const changeFmt = `${tslaChange >= 0 ? '+' : ''}${tslaChange.toFixed(2)}%`;
         const changeDir = tslaChange >= 0 ? 'up' : 'down';
         const dpSignal = tslaDp >= 40 ? 'elevated' : 'normal';
