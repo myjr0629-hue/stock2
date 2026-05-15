@@ -71,7 +71,7 @@ function MarketCloseContent() {
         body { font-family: Inter, ui-sans-serif, system-ui, sans-serif; }
 
         .og {
-          position: relative; width: 1200px; height: 630px; overflow: hidden; color: #f1f5f9;
+          position: relative; width: 1200px; height: 675px; overflow: hidden; color: #f1f5f9;
           background: radial-gradient(circle at 88% 14%, rgba(167,139,250,0.24), transparent 34%),
             radial-gradient(circle at 5% 92%, rgba(34,211,238,0.23), transparent 34%),
             linear-gradient(135deg, #040710, #060d1a);
@@ -122,7 +122,7 @@ function MarketCloseContent() {
         .date { justify-self: end; margin-top: 16px; color: #94a3b8; font-size: 17px; font-weight: 600; }
 
         .index-row {
-          position: absolute; left: 22px; right: 22px; top: 82px; height: 240px;
+          position: absolute; left: 22px; right: 22px; top: 82px; height: 256px;
           display: grid; grid-template-columns: repeat(3, 1fr); gap: 0; z-index: 12;
         }
         .index-card {
@@ -148,7 +148,7 @@ function MarketCloseContent() {
         }
 
         .metric-row {
-          position: absolute; left: 22px; right: 22px; top: 336px; height: 258px;
+          position: absolute; left: 22px; right: 22px; top: 354px; height: 290px;
           display: grid; grid-template-columns: 1fr 1.12fr 1.12fr 1.35fr; gap: 12px; z-index: 18;
         }
         .metric-card {
@@ -164,13 +164,13 @@ function MarketCloseContent() {
         .metric-head { display: flex; align-items: center; gap: 14px; font-size: 18px; font-weight: 900; letter-spacing: 0.16em; text-transform: uppercase; }
         .metric-icon { width: 40px; height: 40px; border-radius: 50%; border: 1.5px solid currentColor; display: grid; place-items: center; flex: 0 0 auto; }
 
-        .vix-value { margin-top: 24px; font-size: 64px; line-height: 0.85; font-weight: 900; letter-spacing: -0.075em; }
+        .vix-value { margin-top: 24px; font-size: 68px; line-height: 0.85; font-weight: 900; letter-spacing: -0.075em; }
         .elevated-badge {
           margin-top: 20px; display: inline-flex; align-items: center; height: 38px; padding: 0 20px;
           border-radius: 10px; font-size: 22px; font-weight: 900; letter-spacing: 0.08em;
         }
 
-        .dp-value { margin-top: 26px; font-size: 58px; line-height: 0.85; font-weight: 900; letter-spacing: -0.075em; }
+        .dp-value { margin-top: 26px; font-size: 62px; line-height: 0.85; font-weight: 900; letter-spacing: -0.075em; }
         .progress-track { margin-top: 24px; height: 18px; border-radius: 999px; border: 1px solid rgba(34,211,238,0.55); background: rgba(148,163,184,0.12); overflow: hidden; }
         .progress-fill { height: 100%; border-radius: inherit; }
         .progress-labels { margin-top: 12px; display: flex; justify-content: space-between; color: #94a3b8; font-size: 14px; font-weight: 600; }
@@ -320,7 +320,7 @@ function MarketCloseContent() {
 
 export default function MarketCloseTemplate() {
   return (
-    <Suspense fallback={<div style={{ width: 1200, height: 630, background: '#040710' }} />}>
+    <Suspense fallback={<div style={{ width: 1200, height: 675, background: '#040710' }} />}>
       <MarketCloseContent />
     </Suspense>
   );

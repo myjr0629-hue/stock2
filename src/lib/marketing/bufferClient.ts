@@ -30,17 +30,15 @@ const CHANNEL_MAP: BufferChannel[] = [
   // --- Tier 2: Brand awareness ---
   { id: '69ca6aa3af47dacb696d24c0', name: 'signumhq_official', service: 'instagram', tier: 2, lang: 'en' },
   { id: '69ca6b08af47dacb696d263d', name: 'signumhq_official', service: 'threads',   tier: 2, lang: 'en' },
-  { id: '69ca7b31af47dacb696d6df6', name: 'signumhq_kr',      service: 'instagram', tier: 2, lang: 'ko' },
-  // PAUSED (2026-05-15): Meta restriction — duplicate posting triggered account-level block
-  // { id: '69ca7b99af47dacb696d6f8d', name: 'signumhq_kr',      service: 'threads',   tier: 2, lang: 'ko' },
+  { id: '6a06eff0090476fb99216fba', name: 'signumhq_kor',      service: 'instagram', tier: 2, lang: 'ko' },
+  { id: '6a06f0ac090476fb99217454', name: 'signumhq_kor',      service: 'threads',   tier: 2, lang: 'ko' },
   { id: '69ca84bbaf47dacb696d9d0f', name: 'SIGNUM HQ',        service: 'bluesky',   tier: 2, lang: 'en' },
+  { id: '69ca9432af47dacb696deb5c', name: 'Pinterest',          service: 'pinterest', tier: 2, lang: 'en' },
 
   // --- Tier 3: Future expansion ---
   { id: '69ca78a7af47dacb696d6446', name: 'SignumHQ_JP',       service: 'twitter',   tier: 3, lang: 'ja' },
-  { id: '69ca7dbeaf47dacb696d7704', name: 'signumhq_jp',       service: 'instagram', tier: 3, lang: 'ja' },
-  // PAUSED (2026-05-15): Meta community guidelines restriction — signumhq_jp threads blocked
-  // { id: '69ca7df5af47dacb696d77ad', name: 'signumhq_jp',       service: 'threads',   tier: 3, lang: 'ja' },
-  { id: '69ca9432af47dacb696deb5c', name: 'Pinterest',          service: 'pinterest', tier: 3, lang: 'en' },
+  { id: '6a06f2cb090476fb99217ed3', name: 'signumhq_jpn',       service: 'instagram', tier: 3, lang: 'ja' },
+  { id: '6a06f344090476fb992180db', name: 'signumhq_jpn',       service: 'threads',   tier: 3, lang: 'ja' },
   { id: '69ca95e7af47dacb696df35a', name: 'signumhq',           service: 'tiktok',    tier: 3, lang: 'en' },
   { id: '69ca9615af47dacb696df427', name: 'SIGNUM HQ',          service: 'youtube',   tier: 3, lang: 'en' },
 ];
@@ -269,6 +267,15 @@ export interface InstagramMeta {
 }
 
 /**
+ * Pinterest Pin metadata (boardServiceId required on create!)
+ */
+export interface PinterestMeta {
+  title: string;           // Pin title (SEO)
+  url?: string;            // Destination link
+  boardServiceId: string;  // Required! Get from channel metadata query
+}
+
+/**
  * Create a post on Buffer — NEW SCHEMA (2026-04 Migration)
  * 
  * Buffer API Breaking Change:
@@ -278,6 +285,7 @@ export interface InstagramMeta {
  *   - content: { text, media } → text + assets: { images: [{ url }] }
  *   - saveToDraft: Boolean (official field)
  *   - metadata: { instagram: { type, shouldShareToFeed } } (required for IG)
+ *   - metadata: { pinterest: { title, url, boardServiceId } } (required for Pinterest!)
  * 
  * @param dryRun If true, logs instead of actually calling API
  */
@@ -289,8 +297,9 @@ export async function createPost(opts: {
   dryRun?: boolean;
   draft?: boolean;
   instagramMeta?: InstagramMeta;
+  pinterestMeta?: PinterestMeta;
 }): Promise<{ success: boolean; postId?: string; dryRun?: boolean; error?: string }> {
-  const { channelIds, text, mediaUrl, scheduledAt, dryRun = true, draft = false, instagramMeta } = opts;
+  const { channelIds, text, mediaUrl, scheduledAt, dryRun = true, draft = false, instagramMeta, pinterestMeta } = opts;
 
   if (dryRun) {
     console.log(`[BufferClient] DRY_RUN createPost:
@@ -299,7 +308,8 @@ export async function createPost(opts: {
   media: ${mediaUrl || 'none'}
   scheduled: ${scheduledAt || 'now'}
   draft: ${draft}
-  igMeta: ${instagramMeta ? JSON.stringify(instagramMeta) : 'none'}`);
+  igMeta: ${instagramMeta ? JSON.stringify(instagramMeta) : 'none'}
+  pinMeta: ${pinterestMeta ? JSON.stringify(pinterestMeta) : 'none'}`);
     return { success: true, dryRun: true };
   }
 
@@ -328,15 +338,24 @@ export async function createPost(opts: {
         input.saveToDraft = true;
       }
 
-
-
-
       // Instagram-specific metadata (required for IG posts/stories/reels)
       if (instagramMeta) {
         input.metadata = {
           instagram: {
             type: instagramMeta.type,
             shouldShareToFeed: instagramMeta.shouldShareToFeed,
+          },
+        };
+      }
+
+      // Pinterest-specific metadata (boardServiceId REQUIRED on create!)
+      if (pinterestMeta) {
+        input.metadata = {
+          ...(input.metadata || {}),
+          pinterest: {
+            title: pinterestMeta.title,
+            ...(pinterestMeta.url ? { url: pinterestMeta.url } : {}),
+            boardServiceId: pinterestMeta.boardServiceId,
           },
         };
       }

@@ -36,7 +36,7 @@ function PulseContent() {
     <>
       <style>{`
         .og-card {
-          position: relative; width: 1200px; height: 630px; overflow: hidden;
+          position: relative; width: 1200px; height: 675px; overflow: hidden;
           color: #f1f5f9;
           background:
             radial-gradient(circle at 78% 8%, rgba(124,58,237,0.22), transparent 32%),
@@ -77,7 +77,7 @@ function PulseContent() {
         .pulse-label { margin-left: 18px; color: #bfd5e7; font-size: 15px; font-weight: 600; letter-spacing: 0.48em; }
         .og-date { color: #94a3b8; font-size: 18px; font-weight: 600; letter-spacing: 0.04em; }
         .hero-card {
-          position: absolute; left: 50px; right: 50px; top: 104px; height: 250px;
+          position: absolute; left: 50px; right: 50px; top: 104px; height: 270px;
           border: 1.5px solid rgba(203,231,255,0.50); border-radius: 20px;
           background: linear-gradient(120deg, rgba(255,255,255,0.08), rgba(255,255,255,0.02) 38%, rgba(34,211,238,0.05)), rgba(11,18,30,0.74);
           box-shadow: inset 0 1px 0 rgba(255,255,255,0.18), 0 0 20px rgba(203,231,255,0.12), 0 0 56px rgba(34,211,238,0.10), 0 18px 52px rgba(0,0,0,0.35);
@@ -114,20 +114,20 @@ function PulseContent() {
         .signal-inner { text-align: center; }
         .signal-inner small { display: block; color: #e8f2ff; font-size: 11px; font-weight: 800; letter-spacing: 0.36em; }
         .signal-inner strong { display: block; margin-top: 10px; font-size: 18px; font-weight: 900; letter-spacing: 0.28em; }
-        .metrics { position: absolute; left: 50px; right: 50px; top: 368px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+        .metrics { position: absolute; left: 50px; right: 50px; top: 388px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
         .metric-card {
-          position: relative; height: 182px; border-radius: 14px;
+          position: relative; height: 250px; border-radius: 14px;
           border: 1.5px solid rgba(203,231,255,0.35);
           background: linear-gradient(135deg, rgba(255,255,255,0.075), rgba(255,255,255,0.018)), rgba(13,22,38,0.88);
           box-shadow: inset 0 1px 0 rgba(255,255,255,0.15), 0 0 16px rgba(203,231,255,0.10), 0 0 24px rgba(34,211,238,0.06), 0 16px 32px rgba(0,0,0,0.24);
-          backdrop-filter: blur(16px); overflow: hidden; padding: 26px 36px;
+          backdrop-filter: blur(16px); overflow: hidden; padding: 28px 36px;
         }
         .metric-card.spx::after { content: ""; position: absolute; inset: auto 0 0 0; height: 58px; background: radial-gradient(ellipse at 80% 100%, rgba(52,211,153,0.20), transparent 60%); opacity: 0.9; }
         .metric-card.dark::after { content: ""; position: absolute; inset: auto 0 0 0; height: 58px; background: radial-gradient(ellipse at 70% 100%, rgba(34,211,238,0.20), transparent 62%); opacity: 0.9; }
         .metric-card.vix-card::after { content: ""; position: absolute; inset: auto 0 0 0; height: 58px; background: radial-gradient(ellipse at 80% 100%, rgba(167,139,250,0.20), transparent 62%); opacity: 0.9; }
         .metric-head { display: flex; justify-content: space-between; align-items: center; font-size: 16px; font-weight: 900; letter-spacing: 0.17em; margin-bottom: 16px; }
         .metric-icon { width: 34px; height: 34px; display: grid; place-items: center; border-radius: 50%; }
-        .metric-value { position: relative; z-index: 2; font-size: 56px; line-height: 0.96; font-weight: 900; letter-spacing: -0.04em; }
+        .metric-value { position: relative; z-index: 2; font-size: 60px; line-height: 0.96; font-weight: 900; letter-spacing: -0.04em; }
         .metric-sub { position: relative; z-index: 2; margin-top: 24px; color: #94a3b8; font-size: 12px; font-weight: 700; letter-spacing: 0.24em; text-transform: uppercase; display: flex; align-items: center; gap: 10px; }
         .dot { width: 7px; height: 7px; border-radius: 50%; }
         .og-sparkline { position: absolute; right: -4px; bottom: 32px; width: 205px; height: 82px; opacity: 0.8; }
@@ -136,7 +136,7 @@ function PulseContent() {
         .bar-labels { position: relative; z-index: 2; margin-top: 10px; display: flex; justify-content: space-between; color: #93a5bd; font-size: 13px; font-weight: 600; }
         .vix-row { display: flex; align-items: center; gap: 26px; }
         .badge { padding: 10px 19px; border-radius: 999px; font-size: 16px; font-weight: 900; letter-spacing: 0.08em; }
-        .og-footer { position: absolute; left: 0; right: 0; bottom: 26px; text-align: center; color: #b7c2d4; font-size: 14px; font-weight: 600; letter-spacing: 0.32em; }
+        .og-footer { position: absolute; left: 0; right: 0; bottom: 10px; text-align: center; color: #b7c2d4; font-size: 14px; font-weight: 600; letter-spacing: 0.32em; }
       `}</style>
 
       <main className="og-card">
@@ -252,7 +252,7 @@ function PulseContent() {
 
 export default function PulseTemplate() {
   return (
-    <Suspense fallback={<div style={{ width: 1200, height: 630, background: '#06090f' }} />}>
+    <Suspense fallback={<div style={{ width: 1200, height: 675, background: '#06090f' }} />}>
       <PulseContent />
     </Suspense>
   );

@@ -12,7 +12,7 @@ import { createClient } from '@supabase/supabase-js';
 // ── Formats ──
 const FORMATS: Record<string, { width: number; height: number }> = {
   tweet:    { width: 1200, height: 675 },
-  og:       { width: 1200, height: 630 },
+  og:       { width: 1200, height: 675 },
   story:    { width: 1080, height: 1920 },
   carousel: { width: 1080, height: 1080 },
   pin:      { width: 1000, height: 1500 },
@@ -23,7 +23,7 @@ const BUCKET_NAME = 'marketing-assets';
 const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://signumhq.com';
 
 // ── Types ──
-export type TemplateType = 'pulse' | 'event' | 'ticker' | 'morning' | 'education' | 'carousel' | 'story' | 'story_spotlight' | 'story_event' | 'story_education' | 'briefing' | 'education_pin' | 'spacex_ipo' | 'market-close' | 'market-close-ig' | 'education-carousel';
+export type TemplateType = 'pulse' | 'event' | 'ticker' | 'morning' | 'education' | 'carousel' | 'story' | 'story_spotlight' | 'story_event' | 'story_education' | 'education_pin' | 'spacex_ipo' | 'market-close' | 'market-close-ig' | 'education-carousel';
 export type FormatType = keyof typeof FORMATS;
 
 export interface CaptureRequest {
@@ -73,13 +73,13 @@ const TEMPLATE_ROUTES: Record<string, string> = {
   ticker:    '/templates/og/spotlight',
   event:     '/templates/og/event',
   morning:   '/templates/og/morning',
+  'morning-pin': '/templates/og/morning-pin',
   education: '/templates/og/education',
   carousel:  '/templates/og/carousel',
   story:     '/marketing/templates/story',
   story_spotlight: '/marketing/templates/story/spotlight',
   story_event:     '/marketing/templates/story/event',
   story_education: '/marketing/templates/story/education',
-  briefing:  '/templates/og/briefing',
   education_pin: '/templates/og/education-pin',
   spacex_ipo: '/templates/og/spacex-ipo',
   'market-close': '/templates/og/market-close',
