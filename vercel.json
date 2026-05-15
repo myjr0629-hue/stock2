@@ -67,39 +67,6 @@
         {
             "path": "/api/cron/warm-news-digest",
             "schedule": "*/15 * * * *"
-        },
-
-        {
-            "path": "/api/cron/dispatch-v2/spacex?region=en",
-            "schedule": "0 18 * * 1-5"
-        },
-        {
-            "path": "/api/cron/dispatch-v2/education",
-            "schedule": "30 19 * * 1-5"
-        },
-        {
-            "path": "/api/cron/dispatch-v2/market-close?region=en",
-            "schedule": "0 21 * * 1-5"
-        },
-        {
-            "path": "/api/cron/dispatch-v2/market-close?region=asia",
-            "schedule": "0 23 * * 0-4"
-        },
-        {
-            "path": "/api/cron/dispatch-v2/spacex?region=asia",
-            "schedule": "0 3 * * 1-5"
-        },
-        {
-            "path": "/api/cron/dispatch-v2/morning",
-            "schedule": "0 12 * * 0-4"
-        },
-        {
-            "path": "/api/cron/dispatch-v2/pulse",
-            "schedule": "30 14 * * 1-5"
-        },
-        {
-            "path": "/api/cron/dispatch-v2/spotlight",
-            "schedule": "30 16 * * 1-5"
         }
     ]
 }
