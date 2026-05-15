@@ -175,6 +175,10 @@ export async function GET(request: Request) {
 
         const rlsiLabel = rlsiScore >= 65 ? 'GREEN' : rlsiScore >= 40 ? 'YELLOW' : 'RED';
 
+        // Capture OG images ONCE before lang loop (same data for all langs)
+        const ogTweet = await captureRealtimeOG(baseUrl, mkt, 'tweet', dryRun);
+        const ogPin = await captureRealtimeOG(baseUrl, mkt, 'pin', dryRun);
+
         // Build Guardian-grade morning briefing text per language
         for (const lang of langs) {
           const verdict = mkt.verdicts?.[lang];
@@ -275,8 +279,8 @@ export async function GET(request: Request) {
             ].filter(Boolean).join('\n');
           }
 
-          // Capture realtime OG image (same data as Guardian page)
-          const ogImage = await captureRealtimeOG(baseUrl, mkt, 'tweet', dryRun);
+          // Reuse pre-captured OG image (hoisted before lang loop)
+          const ogImage = ogTweet;
 
           // IG Story
           const igChMorning = getFilteredChannels({ tier: 'all', lang, service: 'instagram' })[0];
@@ -356,7 +360,7 @@ export async function GET(request: Request) {
         const pinChMorn = getFilteredChannels({ tier: 'all', service: 'pinterest' })[0];
         if (pinChMorn) {
           const seo = getPinterestSEO({ contentType: 'morning', date: dateKey });
-          const pinOg = await captureRealtimeOG(baseUrl, mkt, 'pin', dryRun);
+          const pinOg = ogPin;
           const r = await dispatchPin({
             channelId: pinChMorn.id,
             imageUrl: pinOg,
@@ -401,7 +405,7 @@ export async function GET(request: Request) {
             '*Observation only — not financial advice.',
           ].filter(Boolean).join('\n');
           const tgText = formatForTelegram(tgMorning, { channelLink: `${baseUrl}/intel-guardian?${buildUtm('telegram', 'morning')}`, contentType: 'morning' });
-          const tgOg = await captureRealtimeOG(baseUrl, mkt, 'tweet', dryRun);
+          const tgOg = ogTweet;
           const r = await dispatchTelegram({ text: tgText, imageUrl: tgOg, dryRun });
           results.push({ success: r.success, format: 'post', channel: 'telegram', service: 'telegram', lang: 'en', textPreview: 'telegram', postId: String(r.messageId || '') } as DispatchResult);
         }
