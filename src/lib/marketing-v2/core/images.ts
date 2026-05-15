@@ -30,13 +30,13 @@ const TEMPLATE_ROUTES: Record<string, string> = {
 // ── 슬롯별 필요한 이미지 포맷 정의 ──
 // 각 슬롯에서 어떤 포맷이 필요한지 여기서 선언
 const SLOT_IMAGE_MAP: Record<ContentSlot, { template: string; formats: ImageFormat[] }> = {
-  morning:   { template: 'morning',         formats: ['tweet', 'pin', 'story', 'square'] },
-  close:     { template: 'market-close',    formats: ['tweet', 'pin', 'carousel'] },
-  spacex:    { template: 'spacex-ipo',      formats: ['tweet'] },
-  education: { template: 'education',       formats: ['carousel', 'pin'] },
-  pulse:     { template: 'pulse',           formats: ['tweet', 'pin'] },
-  spotlight: { template: 'ticker',          formats: ['tweet'] },
-  event:     { template: 'event',           formats: ['tweet'] },
+  morning:   { template: 'morning',         formats: ['tweet', 'og', 'pin', 'story', 'square'] },
+  close:     { template: 'market-close',    formats: ['tweet', 'og', 'pin', 'carousel'] },
+  spacex:    { template: 'spacex-ipo',      formats: ['tweet', 'og', 'pin'] },
+  education: { template: 'education',       formats: ['og', 'carousel', 'pin'] },
+  pulse:     { template: 'pulse',           formats: ['tweet', 'og', 'pin'] },
+  spotlight: { template: 'ticker',          formats: ['tweet', 'og'] },
+  event:     { template: 'event',           formats: ['tweet', 'og'] },
 };
 
 // Pin 포맷은 별도 세로 전용 템플릿 사용

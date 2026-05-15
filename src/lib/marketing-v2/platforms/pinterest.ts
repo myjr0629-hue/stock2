@@ -79,9 +79,9 @@ export class PinterestAdapter extends BaseAdapter {
     const tags = this.getHashtags(pkg, lang);
     const description = this.buildText(pkg, lang);
 
-    // ── Destination link ──
+    // ── Destination link (항상 utm_source=pinterest) ──
     const page = pkg.slot === 'education' ? 'how-it-works' : 'intel-guardian';
-    const destinationUrl = t?.ctaFull || `https://www.signumhq.com/${page}?utm_source=pinterest&utm_medium=social&utm_campaign=${pkg.slot}`;
+    const destinationUrl = `https://www.signumhq.com/${page}?utm_source=pinterest&utm_medium=social&utm_campaign=${pkg.slot}`;
 
     // ── Pin description (Buffer enforces 500 char max) ──
     const descWithTags = tags ? `${description}\n\n${tags}` : description;
