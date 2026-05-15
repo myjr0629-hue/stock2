@@ -55,21 +55,31 @@ export async function prepareEducation(opts: { date?: string; dryRun?: boolean; 
   const text: ContentPackage['text'] = {};
   for (const lang of ALL_LANGS) {
     const t = topicContent[lang];
-    const cta = buildCta(lang, 'how-it-works', 'education', 'twitter');
+    // CTA: 클린 URL (UTM 파라미터 없이)
+    const ctaLabels: Record<Lang, string> = {
+      en: `📊 Full analysis → https://www.signumhq.com/how-it-works`,
+      ko: `📊 전체 분석 보기 → https://www.signumhq.com/how-it-works`,
+      ja: `📊 詳細分析 → https://www.signumhq.com/how-it-works`,
+    };
     text[lang] = {
       headline: applyCompliance(`📚 ${t.title}`),
-      data: '',
-      insight: applyCompliance(t.body),
+      data: applyCompliance(t.body),
+      insight: '',
       full: applyCompliance(`📚 ${t.title}\n\n${t.body}`),
       disclaimer: DISCLAIMER[lang],
-      cta: cta.display,
-      ctaFull: cta.full,
+      cta: ctaLabels[lang],
+      ctaFull: `https://www.signumhq.com/how-it-works`,
     };
   }
 
   const images: ContentPackage['images'] = {};
+  // tweet/og용 이미지 (X, Threads, Bluesky)
+  const ogUrl = await captureCustomImage('education-carousel', 'tweet', { topic: topicId, slide: '1' }, date, opts.dryRun);
+  if (ogUrl) { images.tweet = ogUrl; images.og = ogUrl; }
+  // IG Carousel
   const carouselUrl = await captureCustomImage('education-carousel', 'carousel', { topic: topicId, slide: '1' }, date, opts.dryRun);
   if (carouselUrl) images.carousel = carouselUrl;
+  // Pinterest Pin
   const pinUrl = await captureCustomImage('education-pin', 'pin', { topic: topicId }, date, opts.dryRun);
   if (pinUrl) images.pin = pinUrl;
 

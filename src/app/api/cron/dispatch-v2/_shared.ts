@@ -76,7 +76,13 @@ export async function dispatchToAll(
       // 해당 어댑터가 이 언어를 지원하는지 확인
       if (!adapter.supportedLangs?.includes(lang)) continue;
 
-      const r = await adapter.send(pkg, lang, { dryRun: opts.dryRun, draft: opts.draft });
+      let r: SendResult;
+      // Instagram은 sendFeed() 사용 (instagramMeta 필수)
+      if (platform === 'instagram' && 'sendFeed' in adapter) {
+        r = await (adapter as any).sendFeed(pkg, lang, { dryRun: opts.dryRun, draft: opts.draft });
+      } else {
+        r = await adapter.send(pkg, lang, { dryRun: opts.dryRun, draft: opts.draft });
+      }
       results.push(r);
 
       // Rate limit: 채널 간 300ms 대기
