@@ -38,19 +38,37 @@ export async function loadContentPackage(slot: ContentSlot, date: string): Promi
   }
 }
 
-// ── Dedup Lock (send에서 호출 — Vercel 재시도 중복 방지) ──
+// ── Dedup Lock (send에서 호출 — 중복 발행 완벽 차단) ──
+// ★ Threads 블록 방지: Redis 에러 시에도 발송 차단 (안전한 방향)
+// ★ Upstash SET NX (atomic) 사용 → race condition 제거
+// ★ TTL 24시간 → 같은 날 재발행 100% 차단
 export async function acquireLock(slot: ContentSlot, platform: string, date: string): Promise<boolean> {
   const key = makeLockKey(slot, platform, date);
   try {
-    const existing = await getFromCache(key).catch(() => null);
-    if (existing) {
-      console.warn(`[MktV2/Lock] ${key} already sent, skipping`);
-      return false;  // 이미 발송됨
+    // Upstash setnx: atomic — 이미 존재하면 false 반환
+    const { Redis } = await import('@upstash/redis');
+    const url = process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL;
+    const token = process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN;
+    if (!url || !token) {
+      console.error(`[MktV2/Lock] ❌ No Redis credentials — BLOCKING send for safety`);
+      return false;
     }
-    await setInCache(key, new Date().toISOString(), 3600); // 1시간 TTL
-    return true;  // 락 획득 성공
-  } catch {
-    return true;  // 락 체크 실패 시 발송 허용 (안전한 방향)
+    const redis = new Redis({ url, token });
+    
+    // SET key value NX EX 86400 — atomic: 키 없으면 'OK', 있으면 null
+    const result = await redis.set(key, new Date().toISOString(), { nx: true, ex: 86400 });
+    
+    if (result) {
+      console.log(`[MktV2/Lock] ✅ Lock acquired: ${key}`);
+      return true;
+    } else {
+      console.warn(`[MktV2/Lock] 🚫 DUPLICATE blocked: ${key} — already sent today`);
+      return false;
+    }
+  } catch (err: any) {
+    // ★ Redis 에러 시 발송 차단 (이전: 발송 허용 → 중복 위험)
+    console.error(`[MktV2/Lock] ❌ Redis error — BLOCKING send for safety: ${err.message}`);
+    return false;
   }
 }
 
