@@ -16,10 +16,11 @@ export class TwitterAdapter extends BaseAdapter {
     const t = pkg.text[lang];
     if (!t) return '';
     
-    // X = 짧은 헤드라인 + 데이터 + CTA
+    // X = 헤드라인 + 데이터 + 인사이트(있으면) + CTA
     const parts = [
       t.headline,
       t.data,
+      t.insight ? `🎯 ${t.insight.substring(0, 120)}` : '',
       t.cta,
     ].filter(Boolean);
 

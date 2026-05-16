@@ -33,7 +33,7 @@ export async function fetchMarketSnapshot(): Promise<MarketSnapshot> {
   const [spx, nasdaq, diaRaw, vixRaw, gexRaw, dpRaw, fgRaw, spyPriceRaw] = await Promise.all([
     safeGet('yahoo:idx:spx'),
     safeGet('yahoo:idx:nasdaq'),
-    safeGet('yahoo:idx:dji'),
+    safeGet('yahoo:idx:dow'),
     safeGet('yahoo:vix'),
     safeGet('analysis:gex:regime'),
     safeGet('marketing:dp:latest:SPY'),
