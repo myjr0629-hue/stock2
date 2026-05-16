@@ -75,12 +75,33 @@ export function truncateWithTags(body: string, tags: string, maxChars: number): 
     return `${body}\n\n${tags}`;
   }
   
-  // 문장 단위로 자르기
+  // 1차: 문장 단위로 자르기
   const sentences = body.split(/(?<=[.!?。！？])\s*/);
   let trimmed = '';
-  for (const sentence of sentences) {
-    if ((trimmed + sentence).length > bodyLimit - 3) break;
-    trimmed += (trimmed ? ' ' : '') + sentence;
+  let nextIdx = 0;
+  for (let i = 0; i < sentences.length; i++) {
+    if ((trimmed + (trimmed ? ' ' : '') + sentences[i]).length > bodyLimit - 3) {
+      nextIdx = i;
+      break;
+    }
+    trimmed += (trimmed ? ' ' : '') + sentences[i];
+    nextIdx = i + 1;
+  }
+  
+  // 2차: 남은 공간이 15자 이상이면 다음 문장에서 단어 단위로 채움
+  const remaining = bodyLimit - trimmed.length - 4; // "..." + space
+  if (remaining >= 15 && nextIdx < sentences.length) {
+    const nextSentence = sentences[nextIdx];
+    const words = nextSentence.split(/\s+/);
+    let wordFill = '';
+    for (const word of words) {
+      const candidate = wordFill ? `${wordFill} ${word}` : word;
+      if (candidate.length > remaining) break;
+      wordFill = candidate;
+    }
+    if (wordFill.length >= 10) {
+      trimmed += (trimmed ? ' ' : '') + wordFill + '...';
+    }
   }
   
   if (!trimmed) trimmed = body.slice(0, bodyLimit - 3) + '...';
