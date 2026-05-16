@@ -73,8 +73,8 @@ export async function prepareEducation(opts: { date?: string; dryRun?: boolean; 
   }
 
   const images: ContentPackage['images'] = {};
-  // tweet/og용 이미지 (X, Threads, Bluesky) — slide 1을 대표 이미지로
-  const ogUrl = await captureCustomImage('education-carousel', 'tweet', { topic: topicId, slide: '1' }, date, opts.dryRun);
+  // tweet/og용 이미지 (X, Threads, Bluesky) — 전용 16:9 education 템플릿
+  const ogUrl = await captureCustomImage('education', 'tweet', { topic: topicId }, date, opts.dryRun);
   if (ogUrl) { images.tweet = ogUrl; images.og = ogUrl; }
 
   // IG Carousel: 5장 멀티 슬라이드 캡처
