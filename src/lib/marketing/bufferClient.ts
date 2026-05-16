@@ -293,13 +293,14 @@ export async function createPost(opts: {
   channelIds: string[];
   text: string;
   mediaUrl?: string;
+  mediaUrls?: string[];    // 멀티 이미지 (IG 캐러셀용)
   scheduledAt?: string; // ISO 8601
   dryRun?: boolean;
   draft?: boolean;
   instagramMeta?: InstagramMeta;
   pinterestMeta?: PinterestMeta;
 }): Promise<{ success: boolean; postId?: string; dryRun?: boolean; error?: string }> {
-  const { channelIds, text, mediaUrl, scheduledAt, dryRun = true, draft = false, instagramMeta, pinterestMeta } = opts;
+  const { channelIds, text, mediaUrl, mediaUrls, scheduledAt, dryRun = true, draft = false, instagramMeta, pinterestMeta } = opts;
 
   if (dryRun) {
     console.log(`[BufferClient] DRY_RUN createPost:
@@ -329,7 +330,10 @@ export async function createPost(opts: {
       };
 
       // Image assets (new schema structure)
-      if (mediaUrl) {
+      if (mediaUrls && mediaUrls.length > 0) {
+        // 멀티 이미지 (IG 캐러셀)
+        input.assets = { images: mediaUrls.map(url => ({ url })) };
+      } else if (mediaUrl) {
         input.assets = { images: [{ url: mediaUrl }] };
       }
 

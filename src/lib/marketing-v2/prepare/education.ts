@@ -73,12 +73,19 @@ export async function prepareEducation(opts: { date?: string; dryRun?: boolean; 
   }
 
   const images: ContentPackage['images'] = {};
-  // tweet/og용 이미지 (X, Threads, Bluesky)
+  // tweet/og용 이미지 (X, Threads, Bluesky) — slide 1을 대표 이미지로
   const ogUrl = await captureCustomImage('education-carousel', 'tweet', { topic: topicId, slide: '1' }, date, opts.dryRun);
   if (ogUrl) { images.tweet = ogUrl; images.og = ogUrl; }
-  // IG Carousel
-  const carouselUrl = await captureCustomImage('education-carousel', 'carousel', { topic: topicId, slide: '1' }, date, opts.dryRun);
-  if (carouselUrl) images.carousel = carouselUrl;
+
+  // IG Carousel: 5장 멀티 슬라이드 캡처
+  const carouselSlides: string[] = [];
+  for (let i = 1; i <= 5; i++) {
+    const slideUrl = await captureCustomImage('education-carousel', 'carousel', { topic: topicId, slide: String(i) }, date, opts.dryRun);
+    if (slideUrl) carouselSlides.push(slideUrl);
+  }
+  // 대표 이미지 (첫 장)
+  if (carouselSlides.length > 0) images.carousel = carouselSlides[0];
+
   // Pinterest Pin
   const pinUrl = await captureCustomImage('education-pin', 'pin', { topic: topicId }, date, opts.dryRun);
   if (pinUrl) images.pin = pinUrl;
@@ -90,6 +97,7 @@ export async function prepareEducation(opts: { date?: string; dryRun?: boolean; 
     date,
     preparedAt: new Date().toISOString(),
     images, text, hashtags,
+    carouselSlides: carouselSlides.length > 1 ? carouselSlides : undefined,
     metrics: { topicId, topicTitle: topicContent.en.title, pinTitle: EDUCATION_PIN_TITLES[topicId] || topicContent.en.title },
   };
 

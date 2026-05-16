@@ -106,10 +106,15 @@ export class InstagramAdapter extends BaseAdapter {
       return { success: true, platform: this.platform, lang, channelId: channel.id, dryRun: true };
     }
 
+    // 멀티 슬라이드 캐러셀 or 싱글 이미지
+    const hasCarousel = pkg.carouselSlides && pkg.carouselSlides.length > 1;
+
     const result = await createPost({
       channelIds: [channel.id],
       text: caption,
-      mediaUrl: feedImage,
+      ...(hasCarousel
+        ? { mediaUrls: pkg.carouselSlides! }
+        : { mediaUrl: feedImage }),
       dryRun: false,
       draft: opts.draft,
       instagramMeta: { type: 'post', shouldShareToFeed: true },

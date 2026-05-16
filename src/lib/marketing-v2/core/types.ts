@@ -35,6 +35,9 @@ export interface ContentPackage {
   // OG 이미지 풀 — 플랫폼이 필요한 포맷을 골라 씀
   images: Partial<Record<ImageFormat, string>>;   // CDN URL
 
+  // IG 캐러셀 멀티 슬라이드 (여러 장 스와이프)
+  carouselSlides?: string[];                       // CDN URL[]
+
   // 텍스트 — 언어별 구조화된 블록
   text: Partial<Record<Lang, TextBlock>>;
 
