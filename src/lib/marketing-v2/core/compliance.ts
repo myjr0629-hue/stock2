@@ -114,7 +114,7 @@ export function truncateWithTags(body: string, tags: string, maxChars: number, w
   let nextIdx = 0;
   for (let i = 0; i < sentences.length; i++) {
     const candidate = trimmed + (trimmed ? ' ' : '') + sentences[i];
-    if (measure(candidate) > bodyLimit - 6) {
+    if (measure(candidate) > bodyLimit - 3) {
       nextIdx = i;
       break;
     }
@@ -123,7 +123,7 @@ export function truncateWithTags(body: string, tags: string, maxChars: number, w
   }
   
   // 2차: 남은 공간이 15자 이상이면 단어 단위로 채움
-  const remaining = bodyLimit - measure(trimmed) - 8;
+  const remaining = bodyLimit - measure(trimmed) - 4;
   if (remaining >= 15 && nextIdx < sentences.length) {
     const nextSentence = sentences[nextIdx];
     const words = nextSentence.split(/\s+/);
@@ -142,7 +142,7 @@ export function truncateWithTags(body: string, tags: string, maxChars: number, w
     // 글자 단위 fallback
     let fallback = '';
     for (const ch of body) {
-      if (measure(fallback + ch) > bodyLimit - 6) break;
+      if (measure(fallback + ch) > bodyLimit - 3) break;
       fallback += ch;
     }
     trimmed = fallback + '...';
