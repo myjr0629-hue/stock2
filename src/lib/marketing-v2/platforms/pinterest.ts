@@ -79,22 +79,21 @@ export class PinterestAdapter extends BaseAdapter {
     const tags = this.getHashtags(pkg, lang);
     const description = this.buildText(pkg, lang);
 
-    // ── Destination link (슬롯별 랜딩 페이지) ──
-    const utm = `utm_source=pinterest&utm_medium=social&utm_campaign=${pkg.slot}`;
+    // ── Destination link (슬롯별 랜딩 페이지, 클린 URL) ──
     let destinationUrl: string;
     switch (pkg.slot) {
       case 'spacex':
-        destinationUrl = `https://www.signumhq.com/ticker?ticker=TSLA&${utm}`;
+        destinationUrl = `https://www.signumhq.com/ticker?ticker=TSLA`;
         break;
       case 'education':
-        destinationUrl = `https://www.signumhq.com/how-it-works?${utm}`;
+        destinationUrl = `https://www.signumhq.com/how-it-works`;
         break;
       case 'spotlight':
         const spotTicker = pkg.metrics?.ticker || 'AAPL';
-        destinationUrl = `https://www.signumhq.com/ticker?ticker=${spotTicker}&${utm}`;
+        destinationUrl = `https://www.signumhq.com/ticker?ticker=${spotTicker}`;
         break;
       default:
-        destinationUrl = `https://www.signumhq.com/intel-guardian?${utm}`;
+        destinationUrl = `https://www.signumhq.com/intel-guardian`;
         break;
     }
 

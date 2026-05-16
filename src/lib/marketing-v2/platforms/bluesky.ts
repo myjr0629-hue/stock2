@@ -16,15 +16,11 @@ export class BlueskyAdapter extends BaseAdapter {
     const t = pkg.text[lang];
     if (!t) return '';
 
-    // Bluesky = 데이터 + 짧은 AI 인사이트 + CTA
-    const shortInsight = t.insight.length > 80 
-      ? t.insight.slice(0, 77) + '...' 
-      : t.insight;
-
+    // Bluesky = 데이터 + AI 인사이트 + CTA (300자는 base.format()이 처리)
     const parts = [
       t.headline,
       t.data,
-      shortInsight,
+      t.insight ? `🎯 ${t.insight}` : '',
       t.cta,
     ].filter(Boolean);
 
