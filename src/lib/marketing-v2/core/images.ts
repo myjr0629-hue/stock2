@@ -31,7 +31,7 @@ const TEMPLATE_ROUTES: Record<string, string> = {
 // 각 슬롯에서 어떤 포맷이 필요한지 여기서 선언
 const SLOT_IMAGE_MAP: Record<ContentSlot, { template: string; formats: ImageFormat[] }> = {
   morning:   { template: 'morning',         formats: ['tweet', 'og', 'pin', 'story', 'square'] },
-  close:     { template: 'market-close',    formats: ['tweet', 'og', 'pin', 'carousel'] },
+  close:     { template: 'market-close',    formats: ['tweet', 'og', 'pin', 'square'] },
   spacex:    { template: 'spacex-ipo',      formats: ['tweet', 'og', 'pin'] },
   education: { template: 'education',       formats: ['og', 'carousel', 'pin'] },
   pulse:     { template: 'pulse',           formats: ['tweet', 'og', 'pin'] },
@@ -50,6 +50,7 @@ const PIN_TEMPLATE_OVERRIDE: Partial<Record<string, string>> = {
 // Square 포맷은 별도 IG 싱글 전용 템플릿 사용
 const SQUARE_TEMPLATE_OVERRIDE: Partial<Record<string, string>> = {
   'morning': 'morning-ig',
+  'market-close': 'market-close-ig',
 };
 
 // ── Supabase upload ──

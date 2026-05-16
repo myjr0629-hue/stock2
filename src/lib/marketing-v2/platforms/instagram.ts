@@ -86,7 +86,7 @@ export class InstagramAdapter extends BaseAdapter {
       return { success: false, platform: this.platform, lang, channelId: '', error: 'No IG channel' };
     }
 
-    const feedImage = pkg.images.carousel || pkg.images.square;
+    const feedImage = pkg.images.square || pkg.images.carousel || pkg.images.og;
     if (!feedImage) {
       return { success: false, platform: this.platform, lang, channelId: channel.id, error: 'No feed image' };
     }
