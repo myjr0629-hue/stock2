@@ -14,8 +14,8 @@ const CHANNELS: Channel[] = [
 
   // ── Instagram ──
   { id: '69ca6aa3af47dacb696d24c0', name: 'signumhq_official', platform: 'instagram', lang: 'en', enabled: true },
-  { id: '6a06eff0090476fb99216fba', name: 'signumhq_kor',       platform: 'instagram', lang: 'ko', enabled: true },
-  { id: '6a06f2cb090476fb99217ed3', name: 'signumhq_jpn',      platform: 'instagram', lang: 'ja', enabled: true },
+  { id: '6a06eff0090476fb99216fba', name: 'signumhq_kor',       platform: 'instagram', lang: 'ko', enabled: false }, // 정지 상태 (2026-05-16)
+  { id: '6a06f2cb090476fb99217ed3', name: 'signumhq_jpn',      platform: 'instagram', lang: 'ja', enabled: false }, // 정지 상태 (2026-05-16)
 
   // ── Threads ──
   { id: '69ca6b08af47dacb696d263d', name: 'signumhq_official', platform: 'threads',   lang: 'en', enabled: true },
