@@ -66,12 +66,45 @@ export function buildCta(lang: Lang, page: string, campaign: string, platform: P
   return { display: labels[lang], full };
 }
 
+// ── X(Twitter) weighted char count ──
+// CJK, 이모지 등은 2 weighted chars로 카운트
+// https://developer.twitter.com/en/docs/counting-characters
+export function weightedLength(text: string): number {
+  let count = 0;
+  for (const ch of text) {
+    const code = ch.codePointAt(0) || 0;
+    // CJK Unified Ideographs, Hangul, Katakana/Hiragana, CJK Symbols, Fullwidth
+    if (
+      (code >= 0x1100 && code <= 0x11FF) ||   // Hangul Jamo
+      (code >= 0x2E80 && code <= 0x9FFF) ||   // CJK
+      (code >= 0xAC00 && code <= 0xD7AF) ||   // Hangul Syllables
+      (code >= 0xF900 && code <= 0xFAFF) ||   // CJK Compat
+      (code >= 0xFE30 && code <= 0xFE4F) ||   // CJK Forms
+      (code >= 0xFF00 && code <= 0xFFEF) ||   // Fullwidth
+      (code >= 0x3000 && code <= 0x30FF) ||   // CJK Symbols + Kana
+      (code >= 0x31F0 && code <= 0x31FF) ||   // Katakana ext
+      (code >= 0x3200 && code <= 0x32FF) ||   // Enclosed CJK
+      (code >= 0x3400 && code <= 0x4DBF) ||   // CJK Ext A
+      (code >= 0x20000 && code <= 0x2A6DF) || // CJK Ext B
+      (code >= 0x1F000 && code <= 0x1FAFF)    // Emoticons/Emoji
+    ) {
+      count += 2;
+    } else {
+      count += 1;
+    }
+  }
+  return count;
+}
+
 // ── 글자 제한 자르기 + 해시태그 보존 ──
-export function truncateWithTags(body: string, tags: string, maxChars: number): string {
-  const totalNeeded = tags.length + 2; // \n\n + tags
-  const bodyLimit = maxChars - totalNeeded;
+// weighted=true → X(Twitter) CJK 2-char 카운트 사용
+// weighted=false → 일반 string.length (Threads, Pinterest, IG 등)
+export function truncateWithTags(body: string, tags: string, maxChars: number, weighted = false): string {
+  const measure = weighted ? (s: string) => weightedLength(s) : (s: string) => s.length;
+  const tagsWeight = measure(tags) + 2; // \n\n + tags
+  const bodyLimit = maxChars - tagsWeight;
   
-  if (body.length <= bodyLimit) {
+  if (measure(body) <= bodyLimit) {
     return `${body}\n\n${tags}`;
   }
   
@@ -80,30 +113,39 @@ export function truncateWithTags(body: string, tags: string, maxChars: number): 
   let trimmed = '';
   let nextIdx = 0;
   for (let i = 0; i < sentences.length; i++) {
-    if ((trimmed + (trimmed ? ' ' : '') + sentences[i]).length > bodyLimit - 3) {
+    const candidate = trimmed + (trimmed ? ' ' : '') + sentences[i];
+    if (measure(candidate) > bodyLimit - 6) {
       nextIdx = i;
       break;
     }
-    trimmed += (trimmed ? ' ' : '') + sentences[i];
+    trimmed = candidate;
     nextIdx = i + 1;
   }
   
-  // 2차: 남은 공간이 15자 이상이면 다음 문장에서 단어 단위로 채움
-  const remaining = bodyLimit - trimmed.length - 4; // "..." + space
+  // 2차: 남은 공간이 15자 이상이면 단어 단위로 채움
+  const remaining = bodyLimit - measure(trimmed) - 8;
   if (remaining >= 15 && nextIdx < sentences.length) {
     const nextSentence = sentences[nextIdx];
     const words = nextSentence.split(/\s+/);
     let wordFill = '';
     for (const word of words) {
       const candidate = wordFill ? `${wordFill} ${word}` : word;
-      if (candidate.length > remaining) break;
+      if (measure(candidate) > remaining) break;
       wordFill = candidate;
     }
-    if (wordFill.length >= 10) {
+    if (measure(wordFill) >= 10) {
       trimmed += (trimmed ? ' ' : '') + wordFill + '...';
     }
   }
   
-  if (!trimmed) trimmed = body.slice(0, bodyLimit - 3) + '...';
+  if (!trimmed) {
+    // 글자 단위 fallback
+    let fallback = '';
+    for (const ch of body) {
+      if (measure(fallback + ch) > bodyLimit - 6) break;
+      fallback += ch;
+    }
+    trimmed = fallback + '...';
+  }
   return `${trimmed}\n\n${tags}`;
 }

@@ -6,7 +6,7 @@
 
 import { ContentPackage, FormattedPost, SendResult, Lang, Platform, ImageFormat } from '../core/types';
 import { getChannelsByPlatform } from '../core/channels';
-import { applyCompliance, truncateWithTags } from '../core/compliance';
+import { applyCompliance, truncateWithTags, weightedLength } from '../core/compliance';
 import { acquireLock } from '../core/store';
 import { createPost } from '@/lib/marketing/bufferClient';
 
@@ -29,6 +29,17 @@ export abstract class BaseAdapter {
     return pkg.images[this.imageFormat];
   }
 
+  // ── X weighted char 기반 절단 (tags 없을 때 사용) ──
+  protected truncateWeighted(text: string, max: number): string {
+    if (weightedLength(text) <= max) return text;
+    let result = '';
+    for (const ch of text) {
+      if (weightedLength(result + ch) > max - 6) break;
+      result += ch;
+    }
+    return result + '...';
+  }
+
   // ── 포맷 + 컴플라이언스 적용 ──
   format(pkg: ContentPackage, lang: Lang): FormattedPost | null {
     const channel = getChannelsByPlatform(this.platform).find(c => c.lang === lang);
@@ -37,11 +48,14 @@ export abstract class BaseAdapter {
     const rawText = this.buildText(pkg, lang);
     const tags = this.getHashtags(pkg, lang);
     const compliant = applyCompliance(rawText);
+    const useWeighted = this.platform === 'twitter';
     const text = tags 
-      ? truncateWithTags(compliant, tags, this.maxChars)
-      : compliant.length > this.maxChars 
-        ? compliant.slice(0, this.maxChars - 3) + '...'
-        : compliant;
+      ? truncateWithTags(compliant, tags, this.maxChars, useWeighted)
+      : useWeighted
+        ? this.truncateWeighted(compliant, this.maxChars)
+        : compliant.length > this.maxChars 
+          ? compliant.slice(0, this.maxChars - 3) + '...'
+          : compliant;
 
     return {
       channelId: channel.id,
