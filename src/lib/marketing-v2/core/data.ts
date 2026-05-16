@@ -66,7 +66,7 @@ export async function fetchMarketSnapshot(): Promise<MarketSnapshot> {
   spyPrice = spyPP?.price ?? spyPP?.last ?? 0;
 
   // Fallback: warm-command cache
-  if (spy === 0 || vix === 0) {
+  if (spy === 0 || vix === 0 || dia === 0) {
     try {
       const warmRaw = await safeGet('cache:warm-command');
       const warm = parseJSON(warmRaw);
@@ -75,8 +75,10 @@ export async function fetchMarketSnapshot(): Promise<MarketSnapshot> {
         if (Array.isArray(tickers)) {
           const spyEntry = tickers.find((t: any) => t?.ticker === 'SPY' || t?.symbol === 'SPY');
           const qqqEntry = tickers.find((t: any) => t?.ticker === 'QQQ' || t?.symbol === 'QQQ');
+          const diaEntry = tickers.find((t: any) => t?.ticker === 'DIA' || t?.symbol === 'DIA');
           if (spyEntry && spy === 0) spy = spyEntry.changePercent ?? spyEntry.changePct ?? 0;
           if (qqqEntry && qqq === 0) qqq = qqqEntry.changePercent ?? qqqEntry.changePct ?? 0;
+          if (diaEntry && dia === 0) dia = diaEntry.changePercent ?? diaEntry.changePct ?? 0;
         }
         const vixEntry = warm?.vix ?? warm?.VIX;
         if (vixEntry && vix === 0) {

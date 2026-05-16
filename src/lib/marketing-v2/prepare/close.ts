@@ -15,15 +15,15 @@ export async function prepareClose(opts: { date?: string; dryRun?: boolean } = {
   const date = opts.date || getETDate();
   console.log(`[MktV2/Prepare/Close] Starting for ${date}...`);
 
-  // 1. Collect data
+  // 1. Collect data — Market snapshot + Guardian TACTICAL INSIGHT
   const [market, guardian] = await Promise.all([
     fetchMarketSnapshot(),
     fetchGuardianVerdicts(),
   ]);
 
-  console.log(`[MktV2/Prepare/Close] Data: SPY=${market.spy}% VIX=${market.vix} GEX=${market.gexRegime}`);
+  console.log(`[MktV2/Prepare/Close] Data: SPY=${market.spy}% QQQ=${market.qqq}% DIA=${market.dia}% VIX=${market.vix} GEX=${market.gexRegime} RLSI=${guardian.rlsi}`);
 
-  // 2. Build text for each language
+  // 2. Build text for each language — Guardian AI 분석 기반
   const text: ContentPackage['text'] = {};
   for (const lang of ALL_LANGS) {
     text[lang] = buildCloseText(lang, market, guardian, date);
@@ -78,30 +78,65 @@ function buildCloseText(
   date: string,
 ) {
   const spyDir = market.spy >= 0 ? '+' : '';
-  const vixLevel = market.vix > 25 ? 'elevated' : market.vix > 18 ? 'moderate' : 'low';
+  const qqqDir = market.qqq >= 0 ? '+' : '';
+  const diaDir = market.dia >= 0 ? '+' : '';
 
+  // ── Guardian TACTICAL INSIGHT = 핵심 분석 자료 ──
+  // guardian[lang] = AI가 생성한 RLSI/Rotation/Divergence 기반 분석
+  const tacticalInsight = guardian[lang] || guardian.en || '';
+
+  // ── CTA: 클린 URL (UTM 없음) ──
+  const ctaUrl = 'https://www.signumhq.com/intel-guardian';
+
+  // ── 헤드라인 (1줄) ──
   const headlines: Record<Lang, string> = {
     en: `🏁 US Market Close — ${date}`,
-    ko: `🏁 미국 장마감 브리핑 — ${date}`,
+    ko: `🏁 미국 장마감 — ${date}`,
     ja: `🏁 米国市場クローズ — ${date}`,
   };
 
+  // ── 데이터 라인 (간결) ──
   const dataLines: Record<Lang, string> = {
-    en: `📊 SPY ${spyDir}${market.spy.toFixed(2)}% | VIX ${market.vix.toFixed(1)} (${vixLevel})\n🔮 GEX Regime: ${market.gexRegime.toUpperCase()}\n🌊 Dark Pool: ${market.darkPool.toFixed(1)}%`,
-    ko: `📊 SPY ${spyDir}${market.spy.toFixed(2)}% | VIX ${market.vix.toFixed(1)}\n🔮 GEX 레짐: ${market.gexRegime.toUpperCase()}\n🌊 다크풀: ${market.darkPool.toFixed(1)}%`,
-    ja: `📊 SPY ${spyDir}${market.spy.toFixed(2)}% | VIX ${market.vix.toFixed(1)}\n🔮 GEXレジーム: ${market.gexRegime.toUpperCase()}\n🌊 ダークプール: ${market.darkPool.toFixed(1)}%`,
+    en: `📊 SPY ${spyDir}${market.spy.toFixed(2)}% | QQQ ${qqqDir}${market.qqq.toFixed(2)}% | DOW ${diaDir}${market.dia.toFixed(2)}%\n🔮 VIX ${market.vix.toFixed(1)} | GEX ${market.gexRegime.toUpperCase()} | Dark Pool ${market.darkPool.toFixed(1)}%`,
+    ko: `📊 SPY ${spyDir}${market.spy.toFixed(2)}% | QQQ ${qqqDir}${market.qqq.toFixed(2)}% | DOW ${diaDir}${market.dia.toFixed(2)}%\n🔮 VIX ${market.vix.toFixed(1)} | GEX ${market.gexRegime.toUpperCase()} | 다크풀 ${market.darkPool.toFixed(1)}%`,
+    ja: `📊 SPY ${spyDir}${market.spy.toFixed(2)}% | QQQ ${qqqDir}${market.qqq.toFixed(2)}% | DOW ${diaDir}${market.dia.toFixed(2)}%\n🔮 VIX ${market.vix.toFixed(1)} | GEX ${market.gexRegime.toUpperCase()} | DP ${market.darkPool.toFixed(1)}%`,
   };
 
-  const insight = guardian[lang] || guardian.en || 'Market structure analysis in progress.';
-  const cta = buildCta(lang, 'intel-guardian', 'close', 'twitter');
+  // ── Tactical Verdict 요약 (핵심) ──
+  const insightLabels: Record<Lang, string> = {
+    en: '🎯 TACTICAL INSIGHT',
+    ko: '🎯 전술적 인사이트',
+    ja: '🎯 TACTICAL INSIGHT',
+  };
+
+  // ── CTA 라벨 (클린 URL) ──
+  const ctaLabels: Record<Lang, string> = {
+    en: `📊 Full analysis → ${ctaUrl}`,
+    ko: `📊 전체 분석 보기 → ${ctaUrl}`,
+    ja: `📊 詳細分析 → ${ctaUrl}`,
+  };
+
+  // Threads: URL 없이 브랜드 멘션만 (Meta URL 차단 방지)
+  const ctaThreads: Record<Lang, string> = {
+    en: '📊 Full analysis → signumhq.com/intel-guardian',
+    ko: '📊 전체 분석 보기 → signumhq.com/intel-guardian',
+    ja: '📊 詳細分析 → signumhq.com/intel-guardian',
+  };
+
+  // RLSI 점수 표시
+  const rlsiLine = guardian.rlsi > 0 ? `\nRLSI: ${guardian.rlsi.toFixed(0)}/100` : '';
+
+  // 인사이트 본문 (최대 280자 내 맞춤)
+  const insightBody = tacticalInsight ? `\n${insightLabels[lang]}\n${tacticalInsight.substring(0, 250)}` : '';
 
   return {
     headline: applyCompliance(headlines[lang]),
     data: applyCompliance(dataLines[lang]),
-    insight: applyCompliance(insight.substring(0, 200)),
-    full: applyCompliance(`${headlines[lang]}\n\n${dataLines[lang]}\n\n${insight}`),
+    insight: applyCompliance(tacticalInsight.substring(0, 250)),
+    full: applyCompliance(`${headlines[lang]}\n\n${dataLines[lang]}${rlsiLine}${insightBody}`),
     disclaimer: DISCLAIMER[lang],
-    cta: cta.display,
-    ctaFull: cta.full,
+    cta: ctaLabels[lang],
+    ctaFull: ctaUrl,
+    ctaThreads: ctaThreads[lang],
   };
 }
