@@ -83,7 +83,8 @@ function buildCloseText(
 
   // ── Guardian TACTICAL INSIGHT = 핵심 분석 자료 ──
   // guardian[lang] = AI가 생성한 RLSI/Rotation/Divergence 기반 분석
-  const tacticalInsight = guardian[lang] || guardian.en || '';
+  // JA verdict가 없으면 KO → EN fallback
+  const tacticalInsight = guardian[lang] || (lang === 'ja' ? guardian.ko : '') || guardian.en || '';
 
   // ── CTA: 클린 URL (UTM 없음) ──
   const ctaUrl = 'https://www.signumhq.com/intel-guardian';
