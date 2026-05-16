@@ -6767,4 +6767,118 @@ npm run remotion:studio
 npm run remotion:deploy-site
 
 # 3. Lambda 함수 자체는 재배포 불필요 (버전 변경 시만)
+
+---
+
+## 26. 마케팅 V2 파이프라인 (2026-05-16 기준 — Draft QA 진행 중)
+
+> **아키텍처**: 레거시 모놀리식(§18,§24) 제거 → 3-Layer 모듈러 구조 (Core → Prepare → Platforms)
+> **상태**: 슬롯별 Draft 테스트 중. 검증 완료 시 개별 라이브 전환.
+> **주말**: 현재 미설정. 기본 스케줄 안정화 후 별도 추가 예정.
+> **참조**: 레거시 §18, §24는 역사 기록용으로 보존. V2가 SSoT.
+
+### 26.1 V2 아키텍처 (3-Layer)
+
+```
+Layer 1: Core (src/lib/marketing-v2/core/)
+  types.ts / store.ts / images.ts / data.ts / compliance.ts / hashtags.ts / channels.ts
+
+Layer 2: Prepare (src/lib/marketing-v2/prepare/)
+  morning.ts / spacex.ts / education.ts / spotlight.ts / pulse.ts / close.ts
+
+Layer 3: Platforms (src/lib/marketing-v2/platforms/)
+  twitter.ts / threads.ts / bluesky.ts / instagram.ts / pinterest.ts / base.ts
+
+Dispatch: src/app/api/cron/dispatch-v2/_shared.ts → dispatchToAll()
+Routes:   src/app/api/cron/dispatch-v2/{slot}/route.ts
+```
+
+### 26.2 슬롯별 진행 상황
+
+| # | 슬롯 | 채널 수 | 언어 | Draft | 라이브 | 비고 |
+|:-:|:-----|:------:|:----:|:----:|:-----:|:-----|
+| 1 | SpaceX EN | 4 | EN | PASS | LIVE | `0 18 * * 1-5` (KST 03:00) |
+| 2 | Education | 11 | ALL | PASS | 대기 | IG 5장 캐러셀, 16:9 OG 분리 완료 |
+| 3 | Morning | ? | ALL | 미진행 | — | |
+| 4 | Close | ? | ALL | 미진행 | — | |
+| 5 | Pulse | ? | ALL | 미진행 | — | |
+| 6 | Spotlight | ? | ALL | 미진행 | — | |
+| 7 | Event | ? | ALL | 미진행 | — | |
+
+### 26.3 이미지 포맷 매핑 (슬롯 x 포맷)
+
+| 슬롯 | tweet | og | pin | carousel | story | square |
+|:-----|:---:|:---:|:---:|:---:|:---:|:---:|
+| morning | O | O | O | - | O | O |
+| close | O | O | O | O | - | - |
+| spacex | O | O | O | - | - | - |
+| education | O | O | O | O(5장) | - | - |
+| pulse | O | O | O | - | - | - |
+| spotlight | O | O | - | - | - | - |
+| event | O | O | - | - | - | - |
+
+**플랫폼별 사용 포맷**: X=tweet, Threads=og, Bluesky=tweet, IG Feed=carousel/square, IG Story=story, Pinterest=pin
+
+### 26.4 OG 템플릿 경로
+
+| 경로 | 용도 | 사이즈 |
+|:-----|:-----|:------|
+| /templates/og/morning | Morning 16:9 | 1200x675 |
+| /templates/og/morning-pin | Morning Pin | 1000x1500 |
+| /templates/og/morning-ig | Morning IG | 1080x1080 |
+| /templates/og/market-close | Close 16:9 | 1200x675 |
+| /templates/og/spacex-ipo | SpaceX 16:9 | 1200x675 |
+| /templates/og/education | Education 16:9 (X/Threads/Bluesky) | 1200x630 |
+| /templates/og/education-carousel | Education IG (?slide=1~5) | 1080x1080 x5 |
+| /templates/og/education-pin | Education Pin | 1000x1500 |
+| /templates/og/spotlight | Spotlight 16:9 | 1200x675 |
+| /templates/og/pulse | Pulse 16:9 | 1200x675 |
+
+### 26.5 Pinterest Destination Link
+
+| 슬롯 | URL |
+|:-----|:----|
+| SpaceX | signumhq.com/ticker?ticker=TSLA |
+| Spotlight | signumhq.com/ticker?ticker={동적} |
+| Education | signumhq.com/how-it-works |
+| 기타 (Morning/Close/Pulse/Event) | signumhq.com/intel-guardian |
+
+모두 utm_source=pinterest 자동 부착.
+
+### 26.6 중복 발행 방지 (Dedup Lock)
+
+- **방식**: Upstash SET key NX EX 86400 (Atomic)
+- **TTL**: 24시간
+- **키**: mktv2:lock:{slot}:{platform}_{lang}:{date}
+- **Redis 에러/미설정 시**: return false (발송 차단)
+- **배경**: Threads 블록 사건으로 인해 안전 방향 강화
+
+### 26.7 현재 활성 크론
+
+| 크론 | 스케줄 | 상태 |
+|:-----|:------|:----:|
+| dispatch-v2/spacex?region=en&dry_run=false | 0 18 * * 1-5 | LIVE |
+
+### 26.8 Switch-ON 절차
+
+1. ?dry_run=false&draft=true&secret=XXX 호출
+2. Buffer Drafts QA (이미지/텍스트/링크/글자수)
+3. 수정 → 재테스트
+4. vercel.json에 크론 추가 → git push
+5. 24시간 모니터링
+
+### 26.9 향후 계획
+
+| 순서 | 작업 | 상태 |
+|:----:|:-----|:----:|
+| 1 | 나머지 슬롯 Draft QA | 진행중 |
+| 2 | QA 통과 슬롯 순차 라이브 | 대기 |
+| 3 | 주말 전용 스케줄 | 계획 |
+| 4 | Event Detect 연동 | 계획 |
+| 5 | Remotion 쇼츠 연동 (§25) | 계획 |
+
+### 26.10 환경 변수
+
+BUFFER_ACCESS_TOKEN, BUFFER_ORGANIZATION_ID, CRON_SECRET, EC2_CAPTURE_URL, NEXT_PUBLIC_BASE_URL, NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
+
 ```
