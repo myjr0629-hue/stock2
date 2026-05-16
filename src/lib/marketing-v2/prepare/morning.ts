@@ -78,16 +78,32 @@ function buildMorningText(
     ja: `📊 SPY ${spyDir}${market.spy.toFixed(2)}% | VIX ${market.vix.toFixed(1)}\n🔮 GEX: ${market.gexRegime.toUpperCase()} | 🌊 DP: ${market.darkPool.toFixed(1)}%`,
   };
 
-  const insight = guardian[lang] || guardian.en || '';
-  const cta = buildCta(lang, 'intel-guardian', 'morning', 'twitter');
+  // Guardian TACTICAL INSIGHT — JA 없으면 KO → EN fallback
+  const insight = guardian[lang] || (lang === 'ja' ? guardian.ko : '') || guardian.en || '';
+
+  // 클린 CTA URL (UTM 없음)
+  const ctaUrl = 'https://www.signumhq.com/intel-guardian';
+  const ctaLabels: Record<Lang, string> = {
+    en: `📊 Full analysis → ${ctaUrl}`,
+    ko: `📊 전체 분석 보기 → ${ctaUrl}`,
+    ja: `📊 詳細分析 → ${ctaUrl}`,
+  };
+
+  // Threads용 (URL 없이)
+  const ctaThreads: Record<Lang, string> = {
+    en: '📊 Full analysis → signumhq.com/intel-guardian',
+    ko: '📊 전체 분석 보기 → signumhq.com/intel-guardian',
+    ja: '📊 詳細分析 → signumhq.com/intel-guardian',
+  };
 
   return {
     headline: applyCompliance(headlines[lang]),
     data: applyCompliance(dataLines[lang]),
-    insight: applyCompliance(insight.substring(0, 200)),
-    full: applyCompliance(`${headlines[lang]}\n\n${dataLines[lang]}\n\n${insight}`),
+    insight: applyCompliance(insight.substring(0, 250)),
+    full: applyCompliance(`${headlines[lang]}\n\n${dataLines[lang]}\n\n🎯 ${insight}`),
     disclaimer: DISCLAIMER[lang],
-    cta: cta.display,
-    ctaFull: cta.full,
+    cta: ctaLabels[lang],
+    ctaFull: ctaUrl,
+    ctaThreads: ctaThreads[lang],
   };
 }
