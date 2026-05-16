@@ -129,11 +129,20 @@ export async function fetchGuardianVerdicts(): Promise<GuardianVerdicts> {
     safeGet('rlsi:current'),
   ]);
 
+  // Guardian AI verdict 구조: { title, description, sentiment, realityInsight }
+  // realityInsight = TACTICAL INSIGHT 본문 (핵심 분석)
+  // description = Rotation Analysis (보조 분석)
   const parse = (v: any) => {
     if (!v) return '';
     const p = parseJSON(v);
     if (typeof p === 'string') return p.substring(0, 300);
-    return p?.text ?? p?.summary ?? p?.verdict ?? JSON.stringify(p).substring(0, 300);
+    // realityInsight가 가장 유용한 TACTICAL INSIGHT 텍스트
+    const text = p?.realityInsight ?? p?.description ?? p?.text ?? p?.summary ?? p?.verdict ?? '';
+    if (typeof text === 'string' && text.length > 0) {
+      // Markdown 헤더 제거 (# Market Analysis → 본문만)
+      return text.replace(/^#\s+[^\n]+\n+/g, '').trim().substring(0, 300);
+    }
+    return JSON.stringify(p).substring(0, 300);
   };
 
   return {
