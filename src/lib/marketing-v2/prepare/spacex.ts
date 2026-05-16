@@ -79,21 +79,35 @@ function buildSpacexText(
     ja: `🚀 SpaceX アップデート`,
   };
 
+  // KO/JA: 번역된 뉴스 첫 문장 사용, EN: 원문 headline
+  const newsHeadline = lang === 'en' ? news.headline : firstSentence;
+
   const dataLines: Record<Lang, string> = {
     en: `📰 ${news.headline}\n📊 TSLA $${tsla.price.toFixed(2)} (${changeDir}${tsla.changePercent.toFixed(2)}%) | DP ${tsla.darkPoolPercent.toFixed(1)}%`,
-    ko: `📰 ${news.headline}\n📊 TSLA $${tsla.price.toFixed(2)} (${changeDir}${tsla.changePercent.toFixed(2)}%) | 다크풀 ${tsla.darkPoolPercent.toFixed(1)}%`,
-    ja: `📰 ${news.headline}\n📊 TSLA $${tsla.price.toFixed(2)} (${changeDir}${tsla.changePercent.toFixed(2)}%) | DP ${tsla.darkPoolPercent.toFixed(1)}%`,
+    ko: `📰 ${newsHeadline}\n📊 TSLA $${tsla.price.toFixed(2)} (${changeDir}${tsla.changePercent.toFixed(2)}%) | 다크풀 ${tsla.darkPoolPercent.toFixed(1)}%`,
+    ja: `📰 ${newsHeadline}\n📊 TSLA $${tsla.price.toFixed(2)} (${changeDir}${tsla.changePercent.toFixed(2)}%) | DP ${tsla.darkPoolPercent.toFixed(1)}%`,
   };
 
-  const cta = buildCta(lang, 'intel-guardian', 'spacex', 'twitter');
+  // 클린 CTA URL (UTM 없음)
+  const ctaUrl = 'https://www.signumhq.com/intel-guardian';
+  const ctaLabels: Record<Lang, string> = {
+    en: `📊 Full analysis → ${ctaUrl}`,
+    ko: `📊 전체 분석 보기 → ${ctaUrl}`,
+    ja: `📊 詳細分析 → ${ctaUrl}`,
+  };
+
+  // insight: 번역된 본문에서 추가 내용
+  const insightText = newsText.length > firstSentence.length
+    ? newsText.substring(firstSentence.length).trim().substring(0, 200)
+    : '';
 
   return {
     headline: applyCompliance(headlines[lang]),
     data: applyCompliance(dataLines[lang]),
-    insight: applyCompliance(firstSentence.substring(0, 200)),
+    insight: applyCompliance(insightText || firstSentence.substring(0, 200)),
     full: applyCompliance(`${headlines[lang]}\n\n${dataLines[lang]}\n\n${newsText}`),
     disclaimer: DISCLAIMER[lang],
-    cta: cta.display,
-    ctaFull: cta.full,
+    cta: ctaLabels[lang],
+    ctaFull: ctaUrl,
   };
 }
