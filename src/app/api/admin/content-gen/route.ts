@@ -150,6 +150,7 @@ function buildSystemPrompt(platform: string): string {
 ## Role
 - Observer/reviewer tone (NO investment advice, data analysis review only)
 - Professional yet easy-to-read writing style
+- IMPORTANT: The score metric is called "Context Score" (컨텍스트 스코어). NEVER use "Alpha Score" or "알파 스코어".
 
 ## JSON Rules (MUST follow)
 - All double quotes inside strings must be escaped: \\"
@@ -162,7 +163,7 @@ These tags mark where screenshots from signumhq.com will be inserted.
 Place them BETWEEN paragraphs at logical points matching the content being discussed.
 
 CORRECT example body:
-"## Introduction\\nSome text about the stock...\\n\\n[IMAGE: NVDA Alpha Score dashboard showing score of 81]\\n\\nMore analysis text...\\n\\n[IMAGE: GEX gamma exposure chart for NVDA]\\n\\nFurther discussion..."
+"## Introduction\\nSome text about the stock...\\n\\n[IMAGE: NVDA Context Score dashboard showing score of 81]\\n\\nMore analysis text...\\n\\n[IMAGE: GEX gamma exposure chart for NVDA]\\n\\nFurther discussion..."
 
 WRONG (no IMAGE tags in body - THIS IS A FAILURE):
 "## Introduction\\nSome text...\\nMore text...\\nConclusion..."
@@ -218,10 +219,10 @@ When placing [IMAGE: description] in the body, provide EXACT capture locations f
 ### signumhq.com Dashboard Structure
 | Page | URL | Capturable Sections |
 |:---|:---|:---|
-| Ticker Dashboard | /dashboard/{TICKER} | Alpha Score gauge, Smart Flow indicator, GEX chart, Dark Pool ratio bar, RSI/MACD chart, Options chain table, Sector heatmap |
+| Ticker Dashboard | /dashboard/{TICKER} | Context Score gauge, Smart Flow indicator, GEX chart, Dark Pool ratio bar, RSI/MACD chart, Options chain table, Sector heatmap |
 | Command Center | /command | AI analysis summary, Universe scoreboard, Ticker comparison table |
 | Flow (Options) | /flow | Live options tape, Institutional trade filter, Put/Call ratio chart, Net Premium chart |
-| Guardian | /guardian | Portfolio risk matrix, Position P&L, Alpha tracking chart |
+| Guardian | /guardian | Portfolio risk matrix, Position P&L, Context tracking chart |
 | Intel (AI) | /intel | AI market insights, Event briefing, Composite score analysis |
 | Watchlist | /watchlist | Realtime score table, Alert history |
 
@@ -238,7 +239,7 @@ When placing [IMAGE: description] in the body, provide EXACT capture locations f
   "body": "Body text (use \\\\n for line breaks)",
   "tags": "#tag1 #tag2",
   "imageGuide": [
-    { "slot": 1, "label": "NVDA Alpha Score + Smart Flow", "url": "/dashboard/NVDA", "area": "Dashboard top - Score gauge and Smart Flow bar area capture" }
+    { "slot": 1, "label": "NVDA Context Score + Smart Flow", "url": "/dashboard/NVDA", "area": "Dashboard top - Score gauge and Smart Flow bar area capture" }
   ]
 }`;
 }
@@ -262,7 +263,7 @@ Write about noteworthy market issues and trends.`;
 ${t} Data:
 - Price: $${d?.price || d?.currentPrice || '?'}
 - Change: ${d?.changePct || d?.changePercent || '?'}%
-- Score: ${d?.score || d?.alphaScore || '?'}
+- Score: ${d?.score || d?.contextScore || d?.alphaScore || '?'}
 - GEX: $${d?.gex || '?'}
 - Dark Pool: ${d?.darkPoolPct || d?.darkPool?.pct || '?'}%
 - Smart Flow: ${d?.whaleIndex || d?.smartFlow || '?'}
