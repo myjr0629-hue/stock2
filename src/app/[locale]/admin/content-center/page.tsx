@@ -187,7 +187,10 @@ export default function ContentCenterPage() {
   const [redditGen, setRedditGen] = useState(false);
   const [redditError, setRedditError] = useState('');
   const [redditMeta, setRedditMeta] = useState<any>(null);
-  const [commentHistory, setCommentHistory] = useState<{ sub: string; title: string; ticker?: string; ts: string }[]>([]);
+  const [commentHistory, setCommentHistory] = useState<{ sub: string; title: string; url?: string; ts: string }[]>([]);
+  const [redditPosts, setRedditPosts] = useState<any[] | null>(null);
+  const [postsLoading, setPostsLoading] = useState(false);
+  const [selectedPost, setSelectedPost] = useState<any>(null);
   const router = useRouter();
 
   // Load comment history from localStorage
@@ -198,11 +201,11 @@ export default function ContentCenterPage() {
     } catch {}
   }, []);
 
-  const markCommented = () => {
+  const markCommented = (postUrl?: string) => {
     const entry = {
       sub: redditSub,
-      title: redditTitle || `${redditTicker || 'general'} discussion`,
-      ticker: redditTicker || undefined,
+      title: selectedPost?.title || redditTitle || `${redditTicker || 'general'} discussion`,
+      url: postUrl || selectedPost?.url || undefined,
       ts: new Date().toISOString(),
     };
     const updated = [entry, ...commentHistory].slice(0, 50);
@@ -498,40 +501,84 @@ export default function ContentCenterPage() {
               ))}
             </div>
 
-            {/* Post Title + Ticker */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className="text-[13px] font-bold text-slate-400 uppercase tracking-wider mb-2 block">포스트 제목 (선택)</label>
-                <input value={redditTitle} onChange={e => setRedditTitle(e.target.value)}
-                  placeholder="Reddit 포스트 제목 입력..."
-                  className="w-full px-4 py-3 rounded-xl bg-black/30 border border-white/[0.08] text-[14px] text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500/40" />
-              </div>
-              {SUBREDDIT_GROUPS[0].subs.includes(redditSub) && (
-                <div>
-                  <label className="text-[13px] font-bold text-slate-400 uppercase tracking-wider mb-2 block">종목 (금융 서브레딧)</label>
-                  <select value={redditTicker} onChange={e => setRedditTicker(e.target.value)}
-                    className="w-full px-4 py-3 rounded-xl bg-black/30 border border-white/[0.08] text-[14px] text-white focus:outline-none focus:border-cyan-500/40">
-                    {TICKERS.map(t => <option key={t} value={t}>{t}</option>)}
-                  </select>
-                </div>
-              )}
-            </div>
+            {/* Fetch Posts Button */}
+            <button onClick={async () => {
+              setPostsLoading(true); setRedditPosts(null); setSelectedPost(null);
+              try {
+                const res = await fetch(`/api/admin/reddit-posts?sub=${redditSub}&sort=hot&limit=15`);
+                const json = await res.json();
+                if (json.posts) {
+                  const doneUrls = new Set(commentHistory.map(h => h.url).filter(Boolean));
+                  setRedditPosts(json.posts.filter((p: any) => !doneUrls.has(p.url)));
+                }
+              } catch {} setPostsLoading(false);
+            }} disabled={postsLoading}
+              className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-[14px] font-bold transition-all border
+                bg-white/[0.04] text-slate-300 border-white/[0.08] hover:bg-orange-500/10 hover:text-orange-400 disabled:opacity-50">
+              {postsLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+              {redditSub} 최신 포스트 불러오기
+            </button>
 
-            {/* Generate + Reddit Link */}
-            <div className="flex items-center gap-3">
-              <button onClick={generateReddit} disabled={redditGen}
-                className="flex items-center gap-2 px-6 py-3 rounded-xl text-[15px] font-black transition-all border
-                  bg-gradient-to-r from-orange-500/20 to-red-500/20 text-orange-400 border-orange-500/30
-                  hover:from-orange-500/30 hover:to-red-500/30 disabled:opacity-50">
-                {redditGen ? <Loader2 className="w-5 h-5 animate-spin" /> : <MessageCircle className="w-5 h-5" />}
-                {redditGen ? '생성 중...' : '댓글 3개 생성'}
-              </button>
-              <a href={`https://www.reddit.com/${redditSub}/new/`} target="_blank" rel="noopener noreferrer"
-                className="flex items-center gap-2 px-5 py-3 rounded-xl text-[14px] font-bold transition-all border
-                  bg-white/[0.04] text-slate-300 border-white/[0.08] hover:bg-orange-500/10 hover:text-orange-400 hover:border-orange-500/25">
-                <ExternalLink className="w-4 h-4" /> {redditSub} 열기 ↗
-              </a>
-            </div>
+            {/* Post List */}
+            {redditPosts && redditPosts.length > 0 && (
+              <div className="space-y-2">
+                <div className="text-[13px] font-bold text-slate-400 uppercase tracking-wider">📋 댓글 달 포스트 선택 ({redditPosts.length}개)</div>
+                <div className="space-y-1.5 max-h-[400px] overflow-y-auto">
+                  {redditPosts.map((p: any) => {
+                    const ageMin = Math.round((Date.now() / 1000 - p.createdUtc) / 60);
+                    const ageLabel = ageMin < 60 ? `${ageMin}분전` : ageMin < 1440 ? `${Math.round(ageMin/60)}시간전` : `${Math.round(ageMin/1440)}일전`;
+                    const timeBadge = ageMin <= 30 ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' :
+                      ageMin <= 120 ? 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30' :
+                      'bg-red-500/15 text-red-400 border-red-500/25';
+                    const timeIcon = ageMin <= 30 ? '🟢' : ageMin <= 120 ? '🟡' : '🔴';
+                    const isSelected = selectedPost?.id === p.id;
+                    return (
+                      <button key={p.id} onClick={() => { setSelectedPost(p); setRedditTitle(p.title); setRedditComments(null); }}
+                        className={`w-full text-left px-4 py-3 rounded-xl transition-all border flex items-start gap-3
+                          ${isSelected ? 'bg-orange-500/10 border-orange-500/30' : 'bg-white/[0.02] border-white/[0.05] hover:bg-white/[0.05]'}`}>
+                        <div className="flex-1 min-w-0">
+                          <div className="text-[14px] text-white font-bold leading-snug truncate">{p.title}</div>
+                          <div className="flex items-center gap-3 mt-1.5 text-[12px] text-slate-500">
+                            <span>⬆️ {p.score}</span>
+                            <span>💬 {p.numComments}</span>
+                            <span>u/{p.author}</span>
+                            {p.flair && <span className="text-cyan-400">[{p.flair}]</span>}
+                          </div>
+                        </div>
+                        <span className={`text-[11px] font-bold px-2 py-1 rounded-md border flex-shrink-0 ${timeBadge}`}>
+                          {timeIcon} {ageLabel}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+            {redditPosts && redditPosts.length === 0 && (
+              <div className="text-[14px] text-slate-500 text-center py-4">모든 포스트에 이미 댓글 완료했습니다 ✅</div>
+            )}
+
+            {/* Selected Post + Generate */}
+            {selectedPost && (
+              <div className="p-4 rounded-xl bg-orange-500/5 border border-orange-500/15 space-y-3">
+                <div className="text-[13px] font-bold text-orange-400">선택된 포스트:</div>
+                <div className="text-[15px] text-white font-bold">{selectedPost.title}</div>
+                <div className="flex items-center gap-3">
+                  <button onClick={generateReddit} disabled={redditGen}
+                    className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-[14px] font-black transition-all border
+                      bg-gradient-to-r from-orange-500/20 to-red-500/20 text-orange-400 border-orange-500/30
+                      hover:from-orange-500/30 hover:to-red-500/30 disabled:opacity-50">
+                    {redditGen ? <Loader2 className="w-4 h-4 animate-spin" /> : <MessageCircle className="w-4 h-4" />}
+                    {redditGen ? '생성 중...' : '이 포스트용 댓글 생성'}
+                  </button>
+                  <a href={selectedPost.url} target="_blank" rel="noopener noreferrer"
+                    className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-[13px] font-bold transition-all border
+                      bg-white/[0.04] text-slate-300 border-white/[0.08] hover:bg-orange-500/10 hover:text-orange-400">
+                    <ExternalLink className="w-3.5 h-3.5" /> 포스트 열기 ↗
+                  </a>
+                </div>
+              </div>
+            )}
 
             {/* Error */}
             {redditError && (
@@ -572,16 +619,18 @@ export default function ContentCenterPage() {
                 ))}
                 {/* Mark as commented */}
                 <div className="flex items-center gap-3 pt-2">
-                  <button onClick={() => { markCommented(); setRedditComments(null); setRedditTitle(''); }}
+                  <button onClick={() => { markCommented(selectedPost?.url); setRedditComments(null); setRedditTitle(''); if (selectedPost && redditPosts) { setRedditPosts(redditPosts.filter((p: any) => p.id !== selectedPost.id)); } setSelectedPost(null); }}
                     className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-[14px] font-bold transition-all border
                       bg-emerald-500/10 text-emerald-400 border-emerald-500/25 hover:bg-emerald-500/20">
                     <CheckCircle className="w-4 h-4" /> ✅ 댓글 완료 — 히스토리 기록
                   </button>
-                  <a href={`https://www.reddit.com/${redditSub}/new/`} target="_blank" rel="noopener noreferrer"
-                    className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-[14px] font-bold transition-all border
-                      bg-white/[0.04] text-slate-300 border-white/[0.08] hover:bg-orange-500/10 hover:text-orange-400">
-                    <ExternalLink className="w-4 h-4" /> {redditSub} 열기 ↗
-                  </a>
+                  {selectedPost && (
+                    <a href={selectedPost.url} target="_blank" rel="noopener noreferrer"
+                      className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-[14px] font-bold transition-all border
+                        bg-white/[0.04] text-slate-300 border-white/[0.08] hover:bg-orange-500/10 hover:text-orange-400">
+                      <ExternalLink className="w-4 h-4" /> 포스트 열기 ↗
+                    </a>
+                  )}
                 </div>
               </div>
             )}
@@ -614,7 +663,13 @@ export default function ContentCenterPage() {
                     <div key={i} className="flex items-center gap-3 px-3 py-2 rounded-lg bg-white/[0.02] border border-white/[0.04] text-[13px]">
                       <CheckCircle className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" />
                       <span className="text-orange-400 font-bold flex-shrink-0">{h.sub}</span>
-                      <span className="text-slate-300 truncate flex-1">{h.title}</span>
+                      {h.url ? (
+                        <a href={h.url} target="_blank" rel="noopener noreferrer" className="text-slate-300 truncate flex-1 hover:text-cyan-400 transition-colors">
+                          {h.title}
+                        </a>
+                      ) : (
+                        <span className="text-slate-300 truncate flex-1">{h.title}</span>
+                      )}
                       <span className="text-slate-500 text-[11px] flex-shrink-0">
                         {new Date(h.ts).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
                       </span>
