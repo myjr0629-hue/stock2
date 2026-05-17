@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
 import {
   ArrowLeft, Sparkles, Search, Newspaper, Copy, Check,
-  RefreshCw, FileText, Loader2, ChevronDown, ImageIcon, MessageCircle, Shield, Megaphone
+  RefreshCw, FileText, Loader2, ChevronDown, ImageIcon, MessageCircle, Shield, Megaphone, ExternalLink
 } from 'lucide-react';
 
 const ADMIN_EMAILS = (process.env.NEXT_PUBLIC_ADMIN_EMAILS || '').split(',').map(e => e.trim().toLowerCase());
@@ -491,14 +491,21 @@ export default function ContentCenterPage() {
               )}
             </div>
 
-            {/* Generate */}
-            <button onClick={generateReddit} disabled={redditGen}
-              className="flex items-center gap-2 px-6 py-3 rounded-xl text-[15px] font-black transition-all border
-                bg-gradient-to-r from-orange-500/20 to-red-500/20 text-orange-400 border-orange-500/30
-                hover:from-orange-500/30 hover:to-red-500/30 disabled:opacity-50">
-              {redditGen ? <Loader2 className="w-5 h-5 animate-spin" /> : <MessageCircle className="w-5 h-5" />}
-              {redditGen ? '생성 중...' : '댓글 3개 생성'}
-            </button>
+            {/* Generate + Reddit Link */}
+            <div className="flex items-center gap-3">
+              <button onClick={generateReddit} disabled={redditGen}
+                className="flex items-center gap-2 px-6 py-3 rounded-xl text-[15px] font-black transition-all border
+                  bg-gradient-to-r from-orange-500/20 to-red-500/20 text-orange-400 border-orange-500/30
+                  hover:from-orange-500/30 hover:to-red-500/30 disabled:opacity-50">
+                {redditGen ? <Loader2 className="w-5 h-5 animate-spin" /> : <MessageCircle className="w-5 h-5" />}
+                {redditGen ? '생성 중...' : '댓글 3개 생성'}
+              </button>
+              <a href={`https://www.reddit.com/${redditSub}/new/`} target="_blank" rel="noopener noreferrer"
+                className="flex items-center gap-2 px-5 py-3 rounded-xl text-[14px] font-bold transition-all border
+                  bg-white/[0.04] text-slate-300 border-white/[0.08] hover:bg-orange-500/10 hover:text-orange-400 hover:border-orange-500/25">
+                <ExternalLink className="w-4 h-4" /> {redditSub} 열기 ↗
+              </a>
+            </div>
 
             {/* Error */}
             {redditError && (
