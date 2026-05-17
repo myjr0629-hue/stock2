@@ -77,9 +77,12 @@ export abstract class BaseAdapter {
       return { success: false, platform: this.platform, lang, channelId: '', error: `No channel for ${this.platform}/${lang}` };
     }
 
-    // Dedup lock (라이브 전용)
-    if (!opts.dryRun && !opts.draft) {
-      const canSend = await acquireLock(pkg.slot, `${this.platform}_${lang}`, pkg.date);
+    // Dedup lock — 라이브+드래프트 모두 중복 차단 (Threads 블록 방지)
+    // ★ spotlight은 ticker별 별도 lock (체인 트윗 3종목 허용)
+    if (!opts.dryRun) {
+      const lockSuffix = opts.draft ? 'draft' : 'live';
+      const tickerSuffix = pkg.metrics?.ticker ? `_${pkg.metrics.ticker}` : '';
+      const canSend = await acquireLock(pkg.slot, `${this.platform}_${lang}_${lockSuffix}${tickerSuffix}`, pkg.date);
       if (!canSend) {
         return { success: true, platform: this.platform, lang, channelId: post.channelId, postId: 'dedup_skipped' };
       }
