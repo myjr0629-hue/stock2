@@ -198,6 +198,17 @@ function buildSystemPrompt(platform: string): string {
 - Tags (5): e.g., "Stock Market, Options Trading, GEX Analysis, Dark Pool, Institutional Trading"
 - Length: 800~1500 words
 
+## note.com 形式ルール (日本語)
+- 言語: 日本語のみ
+- トーン: データ分析レビュアー、第三者の視点
+- 構成: フック段落 → データ分析 → 考察 → CTA
+- 見出し: ■ または ## で区分
+- 画像ポイント: [IMAGE: 説明] 形式、4~5個挿入
+- SEOキーワード: 米国株、GEX分析、ダークプール、オプションフロー
+- 末尾に: "データソース: signumhq.com"
+- タグ (5~7): 例: #米国株 #TSLA #GEX分析 #オプション #機関投資家
+- 文字数: 1000~2000文字
+
 ## 이미지 가이드 규칙
 각 [IMAGE] 포인트에 대해 imageGuide 배열에 다음 정보 포함:
 - slot: 번호
@@ -225,6 +236,11 @@ function buildSystemPrompt(platform: string): string {
         "title": "English Title",
         "body": "English body content",
         "tags": "Stock Market, Options Trading"
+      },
+      "note": {
+        "title": "日本語タイトル",
+        "body": "日本語本文",
+        "tags": "#米国株 #TSLA #GEX分析"
       },
       "imageGuide": [
         { "slot": 1, "label": "Dashboard header", "url": "/en/dashboard/TSLA", "area": "Header metrics cards" }
