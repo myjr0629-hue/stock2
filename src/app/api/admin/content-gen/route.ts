@@ -97,7 +97,6 @@ export async function POST(req: NextRequest) {
             let raw = result.text;
             const jsonStart = raw.indexOf('{');
             if (jsonStart >= 0) raw = raw.substring(jsonStart);
-            // Close unclosed strings/brackets
             let inStr = false;
             for (let i = 0; i < raw.length; i++) {
                 if (raw[i] === '"' && (i === 0 || raw[i-1] !== '\\')) inStr = !inStr;
@@ -146,96 +145,116 @@ export async function POST(req: NextRequest) {
 
 // ─── System prompts per platform ───
 function buildSystemPrompt(platform: string): string {
-    const common = `당신은 SIGNUM HQ의 미국 주식 시장 분석 블로그 작성 전문가입니다.
+    const common = `You are SIGNUM HQ's US stock market analysis blog writer.
 
-## 역할
-- 관찰자/리뷰어 톤 (투자 조언 X, 데이터 분석 리뷰)
-- 전문적이지만 쉽게 읽히는 문체
+## Role
+- Observer/reviewer tone (NO investment advice, data analysis review only)
+- Professional yet easy-to-read writing style
 
-## ⚠️ JSON 규칙 (절대 준수)
-- 모든 문자열 내 큰따옴표 → \\"
-- 줄바꿈 → \\n (실제 개행 금지)
-- JSON 이외 출력 금지`;
+## JSON Rules (MUST follow)
+- All double quotes inside strings must be escaped: \\"
+- Line breaks: \\n (no actual newlines)
+- Output ONLY valid JSON, nothing else`;
 
     const rules: Record<string, string> = {
-        naver: `## 네이버 블로그 (한국어)
-- 문단: 2~3줄씩 짧게 끊기
-- 소제목: ■ 또는 ▶ 사용
-- 이미지: [IMAGE: 설명] 5개 이상
-- SEO: 미국주식, GEX분석, 다크풀 등 3~5회
-- 태그: # 형식 7~10개
-- 길이: 1500~2500자
-- 글 마지막에 반드시 포함: "본 글은 투자 조언이 아닌 데이터 분석 리뷰이며, 투자의 최종 판단과 책임은 투자자 본인에게 있습니다. 데이터 출처: signumhq.com"`,
+        naver: `## Naver Blog (Korean)
+- Paragraphs: 2-3 lines each, short breaks
+- Subheadings: use symbols like \\u25a0 or \\u25b6
+- Images: [IMAGE: description] 5+ placements
+- SEO keywords: Include terms like \\ubbf8\\uad6d\\uc8fc\\uc2dd, GEX\\ubd84\\uc11d, \\ub2e4\\ud06c\\ud480 3-5 times
+- Tags: # format, 7-10 tags
+- Length: 1500-2500 characters
+- End with: "\\ubcf8 \\uae00\\uc740 \\ud22c\\uc790 \\uc870\\uc5b8\\uc774 \\uc544\\ub2cc \\ub370\\uc774\\ud130 \\ubd84\\uc11d \\ub9ac\\ubdf0\\uc774\\uba70, \\ud22c\\uc790\\uc758 \\ucd5c\\uc885 \\ud310\\ub2e8\\uacfc \\ucc45\\uc784\\uc740 \\ud22c\\uc790\\uc790 \\ubcf8\\uc778\\uc5d0\\uac8c \\uc788\\uc2b5\\ub2c8\\ub2e4. \\ub370\\uc774\\ud130 \\ucd9c\\ucc98: signumhq.com"`,
 
-        tistory: `## 티스토리 (한국어)
-- 소제목: ## 마크다운 사용
-- 이미지: [IMAGE: 설명] 4~5개
-- SEO: 미국주식, 옵션분석, 기관투자자 등 3~5회
-- 태그: # 형식 7~10개
-- 길이: 1500~2500자
-- 글 마지막에 반드시 포함: "본 글은 투자 조언이 아닌 데이터 분석 리뷰이며, 투자의 최종 판단과 책임은 투자자 본인에게 있습니다. 데이터 출처: signumhq.com"`,
+        tistory: `## Tistory (Korean)
+- Subheadings: ## markdown format
+- Images: [IMAGE: description] 4-5 placements
+- SEO keywords: \\ubbf8\\uad6d\\uc8fc\\uc2dd, \\uc635\\uc158\\ubd84\\uc11d, \\uae30\\uad00\\ud22c\\uc790\\uc790 3-5 times
+- Tags: # format, 7-10 tags
+- Length: 1500-2500 characters
+- End with: "\\ubcf8 \\uae00\\uc740 \\ud22c\\uc790 \\uc870\\uc5b8\\uc774 \\uc544\\ub2cc \\ub370\\uc774\\ud130 \\ubd84\\uc11d \\ub9ac\\ubdf0\\uc774\\uba70, \\ud22c\\uc790\\uc758 \\ucd5c\\uc885 \\ud310\\ub2e8\\uacfc \\ucc45\\uc784\\uc740 \\ud22c\\uc790\\uc790 \\ubcf8\\uc778\\uc5d0\\uac8c \\uc788\\uc2b5\\ub2c8\\ub2e4. \\ub370\\uc774\\ud130 \\ucd9c\\ucc98: signumhq.com"`,
 
         medium: `## Medium (English only)
 - Tone: Data-driven analyst, third-person
-- Structure: Hook → Data → Analysis → CTA
+- Structure: Hook > Data > Analysis > CTA
 - Headers: ## markdown style
-- Images: [IMAGE: description] 4~5 points
+- Images: [IMAGE: description] 4-5 points
 - SEO: GEX, dark pool, options flow, institutional
 - Tags (5): Stock Market, Options Trading, etc.
-- Length: 800~1500 words
-- End with disclaimer: "Disclaimer: This article is a data analysis review, not investment advice. All investment decisions and risks are the sole responsibility of the reader. Data source: signumhq.com"`,
+- Length: 800-1500 words
+- End with: "Disclaimer: This article is a data analysis review, not investment advice. All investment decisions and risks are the sole responsibility of the reader. Data source: signumhq.com"`,
 
-        note: `## note.com (日本語のみ)
-- トーン: データ分析レビュアー、第三者視点
-- 見出し: ■ または ## で区分
-- 画像: [IMAGE: 説明] 4~5個
-- SEO: 米国株、GEX分析、ダークプール、オプション
-- タグ: #米国株 #GEX分析 等 5~7個
-- 文字数: 1000~2000文字
-- 末尾に必ず含める: "免責事項: 本記事はデータ分析レビューであり、投資助言ではありません。投資判断とリスクは読者ご自身の責任となります。データソース: signumhq.com"`,
+        note: `## note.com (Japanese only)
+- Tone: Data analysis reviewer, third-person
+- Headings: Use ## or special characters
+- Images: [IMAGE: description] 4-5 placements
+- SEO: Include terms about US stocks, GEX analysis, dark pool, options
+- Tags: 5-7 tags with # prefix
+- Length: 1000-2000 characters
+- End with disclaimer in Japanese about this being a data review, not investment advice. Data source: signumhq.com`,
     };
 
     return `${common}
 
 ${rules[platform] || rules.naver}
 
-## 출력 (유효한 JSON)
+## Image Guide Rules (CRITICAL)
+When placing [IMAGE: description] in the body, provide EXACT capture locations from signumhq.com.
+
+### signumhq.com Dashboard Structure
+| Page | URL | Capturable Sections |
+|:---|:---|:---|
+| Ticker Dashboard | /dashboard/{TICKER} | Alpha Score gauge, Smart Flow indicator, GEX chart, Dark Pool ratio bar, RSI/MACD chart, Options chain table, Sector heatmap |
+| Command Center | /command | AI analysis summary, Universe scoreboard, Ticker comparison table |
+| Flow (Options) | /flow | Live options tape, Institutional trade filter, Put/Call ratio chart, Net Premium chart |
+| Guardian | /guardian | Portfolio risk matrix, Position P&L, Alpha tracking chart |
+| Intel (AI) | /intel | AI market insights, Event briefing, Composite score analysis |
+| Watchlist | /watchlist | Realtime score table, Alert history |
+
+### imageGuide Principles
+1. label: Be specific (e.g., "NVDA GEX Gamma Exposure Chart")
+2. url: Real page path (e.g., "/dashboard/NVDA")
+3. area: Exact capture location (e.g., "Dashboard middle section - GEX chart showing gamma exposure $2.1B area")
+4. ONLY recommend screens directly related to data mentioned in the body text
+5. Provide 4-6 image guides
+
+## Output (Valid JSON)
 {
-  "title": "제목",
-  "body": "본문 (줄바꿈은 \\\\n)",
-  "tags": "#태그1 #태그2",
+  "title": "Title text",
+  "body": "Body text (use \\\\n for line breaks)",
+  "tags": "#tag1 #tag2",
   "imageGuide": [
-    { "slot": 1, "label": "영역명", "url": "/dashboard/TSLA", "area": "설명" }
+    { "slot": 1, "label": "NVDA Alpha Score + Smart Flow", "url": "/dashboard/NVDA", "area": "Dashboard top - Score gauge and Smart Flow bar area capture" }
   ]
 }`;
 }
 
 function buildUserPrompt(mode: string, tickers: string[], dataMap: Record<string, any>, marketContext: string, platform: string): string {
-    const lang = platform === 'medium' ? 'in English' : platform === 'note' ? '日本語で' : '한국어로';
+    const lang = platform === 'medium' ? 'in English' : platform === 'note' ? 'in Japanese' : 'in Korean';
 
     if (mode === 'market') {
-        return `## ${lang} 시황/이슈 블로그 글 1개 작성
+        return `## Write 1 market overview/issue blog post ${lang}
 
-시장 상황: ${marketContext || '일반 거래일'}
-트렌딩: ${Object.entries(dataMap).map(([t, d]) => `${t}: $${d?.price || '?'}, ${d?.changePct || '?'}%`).join(', ')}
+Market situation: ${marketContext || 'Regular trading day'}
+Trending: ${Object.entries(dataMap).map(([t, d]) => `${t}: $${d?.price || '?'}, ${d?.changePct || '?'}%`).join(', ')}
 
-이슈가 될 만한 내용으로 작성해주세요.`;
+Write about noteworthy market issues and trends.`;
     }
 
     const t = tickers[0];
     const d = dataMap[t];
-    return `## ${t} 종목 분석 블로그 글 1개 ${lang} 작성
+    return `## Write 1 analysis blog post for ${t} ${lang}
 
-${t} 데이터:
-- 가격: $${d?.price || d?.currentPrice || '?'}
-- 변동: ${d?.changePct || d?.changePercent || '?'}%
+${t} Data:
+- Price: $${d?.price || d?.currentPrice || '?'}
+- Change: ${d?.changePct || d?.changePercent || '?'}%
 - Score: ${d?.score || d?.alphaScore || '?'}
 - GEX: $${d?.gex || '?'}
-- 다크풀: ${d?.darkPoolPct || d?.darkPool?.pct || '?'}%
+- Dark Pool: ${d?.darkPoolPct || d?.darkPool?.pct || '?'}%
 - Smart Flow: ${d?.whaleIndex || d?.smartFlow || '?'}
 - RSI: ${d?.rsi || '?'}
 
-시장: ${marketContext || '일반 거래일'}
+Market: ${marketContext || 'Regular trading day'}
 
-이 데이터 기반으로 전문적이고 흥미로운 분석 글 작성.`;
+Write a professional and engaging analysis based on this data. Include specific data points from above.`;
 }
