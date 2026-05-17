@@ -17,7 +17,7 @@ const OG_GROUPS = [
     bgColor: 'bg-emerald-500/5',
     hoverColor: 'hover:border-emerald-400/50 hover:shadow-emerald-500/15',
     labelColor: 'text-emerald-400',
-    ratio: '52.33%', // 628/1200 * 100
+    ratio: '52.33%',
     scale: 0.25,
     cols: 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3',
     items: [
@@ -28,7 +28,6 @@ const OG_GROUPS = [
       { name: 'Spotlight', path: '/templates/og/spotlight' },
       { name: 'SpaceX IPO', path: '/templates/og/spacex-ipo' },
       { name: 'Event', path: '/templates/og/event' },
-      { name: 'Carousel (Tweet)', path: '/templates/og/carousel' },
     ],
   },
   {
@@ -39,7 +38,7 @@ const OG_GROUPS = [
     bgColor: 'bg-purple-500/5',
     hoverColor: 'hover:border-purple-400/50 hover:shadow-purple-500/15',
     labelColor: 'text-purple-400',
-    ratio: '177.78%', // 1920/1080 * 100
+    ratio: '177.78%',
     scale: 0.14,
     cols: 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-5',
     items: [
@@ -55,7 +54,7 @@ const OG_GROUPS = [
     bgColor: 'bg-pink-500/5',
     hoverColor: 'hover:border-pink-400/50 hover:shadow-pink-500/15',
     labelColor: 'text-pink-400',
-    ratio: '150%', // 1500/1000 * 100
+    ratio: '150%',
     scale: 0.15,
     cols: 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-4',
     items: [
@@ -66,7 +65,7 @@ const OG_GROUPS = [
     ],
   },
   {
-    label: '🎠 CAROUSEL',
+    label: '🎠 IG CAROUSEL',
     sublabel: '1080 × 1080',
     color: 'amber',
     borderColor: 'border-amber-500/25',
@@ -77,6 +76,7 @@ const OG_GROUPS = [
     scale: 0.2,
     cols: 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-4',
     items: [
+      { name: 'Market Carousel', path: '/templates/og/carousel' },
       { name: 'Education Carousel', path: '/templates/og/education-carousel' },
     ],
   },

@@ -1310,7 +1310,6 @@ export default function AdminHealthPage() {
                     { name: 'Spotlight', path: '/templates/og/spotlight' },
                     { name: 'SpaceX IPO', path: '/templates/og/spacex-ipo' },
                     { name: 'Event', path: '/templates/og/event' },
-                    { name: 'Carousel', path: '/templates/og/carousel' },
                   ].map(t => (
                     <a key={t.name} href={t.path} target="_blank" rel="noopener"
                       className="block rounded-xl border border-emerald-500/20 bg-black/30 overflow-hidden hover:border-emerald-400/40 hover:shadow-lg hover:shadow-emerald-500/10 transition-all group">
@@ -1371,10 +1370,11 @@ export default function AdminHealthPage() {
                   ))}
                 </div>
 
-                {/* Education Carousel */}
-                <div className="text-[13px] font-bold text-amber-400 uppercase tracking-wider mb-2">🎠 Carousel — 1080×1080</div>
+                {/* IG Carousel */}
+                <div className="text-[13px] font-bold text-amber-400 uppercase tracking-wider mb-2">🎠 IG CAROUSEL — 1080×1080</div>
                 <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
                   {[
+                    { name: 'Market Carousel', path: '/templates/og/carousel' },
                     { name: 'Education Carousel', path: '/templates/og/education-carousel' },
                   ].map(t => (
                     <a key={t.name} href={t.path} target="_blank" rel="noopener"
