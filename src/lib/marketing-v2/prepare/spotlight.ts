@@ -7,7 +7,7 @@ import { ContentPackage, ALL_LANGS, ALL_PLATFORMS, Lang } from '../core/types';
 import { storeContentPackage, getETDate } from '../core/store';
 import { captureImagesForSlot } from '../core/images';
 import { buildHashtagMap } from '../core/hashtags';
-import { DISCLAIMER, buildCta, applyCompliance } from '../core/compliance';
+import { DISCLAIMER, applyCompliance } from '../core/compliance';
 import { fetchTickerData, fetchMarketSnapshot } from '../core/data';
 import { getFromCache } from '@/services/redisClient';
 
@@ -142,7 +142,13 @@ function buildSpotlightText(
       : `$${ticker}の機関フローは混在シグナル。ダークプール${data.darkPoolPercent.toFixed(1)}%、GEX ${data.gexRegime}ポジショニング。`,
   };
 
-  const cta = buildCta(lang, 'intel-guardian', 'spotlight', 'twitter');
+  // 클린 CTA URL (종목 페이지)
+  const ctaUrl = `https://www.signumhq.com/ticker?ticker=${ticker}`;
+  const ctaLabels: Record<Lang, string> = {
+    en: `📊 Full analysis → ${ctaUrl}`,
+    ko: `📊 전체 분석 보기 → ${ctaUrl}`,
+    ja: `📊 詳細分析 → ${ctaUrl}`,
+  };
 
   return {
     headline: applyCompliance(headlines[lang]),
@@ -150,7 +156,7 @@ function buildSpotlightText(
     insight: applyCompliance(insights[lang]),
     full: applyCompliance(`${headlines[lang]}\n\n${dataLines[lang]}\n\n${insights[lang]}`),
     disclaimer: DISCLAIMER[lang],
-    cta: cta.display,
-    ctaFull: cta.full,
+    cta: ctaLabels[lang],
+    ctaFull: ctaUrl,
   };
 }
