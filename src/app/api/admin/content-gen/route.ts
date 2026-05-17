@@ -194,7 +194,7 @@ The imageGuide array must match these body tags with exact capture locations.`;
 - Headers: ## markdown style
 - Images: [IMAGE: description] 4-5 points
 - SEO: GEX, dark pool, options flow, institutional
-- Tags (5): Stock Market, Options Trading, etc.
+- Topics: In the "tags" field, output exactly 5 Medium topics as comma-separated plain text WITHOUT # symbols. Example: "Stock Market, Options Trading, Institutional Investing, Technical Analysis, Market Data"
 - Length: 800-1500 words
 - End with: "Disclaimer: This article is a data analysis review, not investment advice. All investment decisions and risks are the sole responsibility of the reader. Data source: signumhq.com"`,
 

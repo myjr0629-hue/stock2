@@ -38,6 +38,26 @@ function CopyBtn({ text, label }: { text: string; label: string }) {
   );
 }
 
+// ── Topic Button (Medium) ──
+function TopicBtn({ topic }: { topic: string }) {
+  const [copied, setCopied] = useState(false);
+  const copy = async () => {
+    await navigator.clipboard.writeText(topic);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  };
+  return (
+    <button onClick={copy}
+      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[13px] font-bold transition-all
+        ${copied
+          ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+          : 'bg-amber-500/10 text-amber-300 border border-amber-500/25 hover:bg-amber-500/20 hover:text-amber-200'}`}>
+      {copied ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+      {copied ? '복사됨' : topic}
+    </button>
+  );
+}
+
 // ── Content Display ──
 function ContentBlock({ data, platform }: { data: any; platform: string }) {
   if (!data) return null;
@@ -90,13 +110,28 @@ function ContentBlock({ data, platform }: { data: any; platform: string }) {
         </div>
       </div>
 
-      {/* Tags */}
+      {/* Tags / Topics */}
       <div>
-        <div className="text-[13px] font-bold text-slate-400 uppercase tracking-wider mb-2">태그</div>
-        <div className="flex items-center justify-between gap-3">
-          <div className="text-[14px] text-cyan-400/90 flex-1">{data.tags}</div>
-          <CopyBtn text={data.tags} label="복사" />
+        <div className="text-[13px] font-bold text-slate-400 uppercase tracking-wider mb-2">
+          {platform === 'medium' ? 'Topics (최대 5개 · 클릭하면 복사)' : '태그'}
         </div>
+        {platform === 'medium' ? (
+          <div className="space-y-2">
+            <div className="flex flex-wrap gap-2">
+              {(data.tags || '').replace(/#/g, '').split(/[,\s]+/).filter(Boolean).slice(0, 5).map((topic: string, i: number) => (
+                <TopicBtn key={i} topic={topic.trim()} />
+              ))}
+            </div>
+            <div className="text-[11px] text-slate-500">
+              Medium 발행 시 오른쪽 &quot;Add a topic&quot; 필드에 하나씩 입력하세요
+            </div>
+          </div>
+        ) : (
+          <div className="flex items-center justify-between gap-3">
+            <div className="text-[14px] text-cyan-400/90 flex-1">{data.tags}</div>
+            <CopyBtn text={data.tags} label="복사" />
+          </div>
+        )}
       </div>
 
       {/* Image Guide */}
