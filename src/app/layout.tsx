@@ -51,7 +51,7 @@ export const metadata: Metadata = {
     siteName: 'SIGNUM HQ',
     images: [
       {
-        url: '/api/og/market?type=pulse&format=og',
+        url: '/og-brand.png',
         width: 1200,
         height: 630,
         alt: 'SIGNUM HQ - Institutional Intelligence, Democratized',
