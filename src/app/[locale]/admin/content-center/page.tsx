@@ -44,12 +44,15 @@ function ImageGuide({ guide }: { guide: any }) {
 }
 
 // ── Post Card ──
-function PostCard({ post, platform }: { post: any; platform: 'naver' | 'tistory' }) {
+function PostCard({ post, platform }: { post: any; platform: 'naver' | 'tistory' | 'medium' }) {
   const d = post[platform];
   if (!d) return null;
 
+  const platformColors: Record<string, string> = { naver: 'text-emerald-400', tistory: 'text-orange-400', medium: 'text-white' };
+  const platformLabels: Record<string, string> = { naver: 'NAVER', tistory: 'TISTORY', medium: 'MEDIUM' };
+
   // Split body by image markers for display
-  const parts = d.body.split(/(\[📸[^\]]*\])/g);
+  const parts = d.body.split(/(\[IMAGE:[^\]]*\])/g);
 
   return (
     <div className="bg-gradient-to-br from-white/[0.03] to-white/[0.01] border border-white/[0.06] rounded-xl overflow-hidden">
@@ -61,8 +64,8 @@ function PostCard({ post, platform }: { post: any; platform: 'naver' | 'tistory'
             {post.type === 'analysis' ? '종목' : '시황'}
           </span>
           {post.ticker && <span className="text-[13px] font-mono font-bold text-white">{post.ticker}</span>}
-          <span className={`text-[11px] font-bold uppercase tracking-wider ${platform === 'naver' ? 'text-emerald-400' : 'text-orange-400'}`}>
-            {platform === 'naver' ? 'NAVER' : 'TISTORY'}
+          <span className={`text-[11px] font-bold uppercase tracking-wider ${platformColors[platform]}`}>
+            {platformLabels[platform]}
           </span>
         </div>
       </div>
@@ -79,7 +82,7 @@ function PostCard({ post, platform }: { post: any; platform: 'naver' | 'tistory'
       <div className="px-4 pb-2">
         <div className="bg-black/20 rounded-lg p-3 max-h-[400px] overflow-y-auto scrollbar-thin">
           {parts.map((part: string, i: number) => {
-            if (part.match(/^\[📸/)) {
+            if (part.match(/^\[IMAGE:/)) {
               return (
                 <div key={i} className="my-2 px-3 py-2 rounded bg-indigo-500/10 border border-indigo-500/20 text-[12px] text-indigo-300 font-bold">
                   {part}
@@ -192,7 +195,7 @@ export default function ContentCenterPage() {
             <FileText className="w-5 h-5 text-cyan-400" />
             <div>
               <h1 className="text-[16px] font-black tracking-wide">CONTENT COMMAND CENTER</h1>
-              <div className="text-[11px] text-slate-400">블로그 콘텐츠 반자동화 — 네이버 · 티스토리</div>
+              <div className="text-[11px] text-slate-400">블로그 콘텐츠 반자동화 — 네이버 · 티스토리 · Medium</div>
             </div>
           </div>
           {result && (
@@ -291,9 +294,10 @@ export default function ContentCenterPage() {
                   {post.ticker ? `${post.ticker} 분석` : '시황/이슈'}
                 </div>
 
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
                   <PostCard post={post} platform="naver" />
                   <PostCard post={post} platform="tistory" />
+                  <PostCard post={post} platform="medium" />
                 </div>
               </div>
             ))}

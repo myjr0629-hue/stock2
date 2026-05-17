@@ -94,16 +94,45 @@ export async function POST(req: NextRequest) {
             timeoutMs: 50000,
         });
 
-        // Parse response
+        // Parse response — robust JSON recovery for Korean blog content
         let parsed: any;
+        const rawText = result.text;
+        
+        // Attempt 1: direct parse
         try {
-            parsed = JSON.parse(result.text);
-        } catch {
-            const jsonMatch = result.text.match(/\{[\s\S]*\}/);
+            parsed = JSON.parse(rawText);
+        } catch (e1) {
+            // Attempt 2: extract outermost JSON object
+            const jsonMatch = rawText.match(/\{[\s\S]*\}/);
             if (jsonMatch) {
-                parsed = JSON.parse(jsonMatch[0]);
+                try {
+                    parsed = JSON.parse(jsonMatch[0]);
+                } catch (e2) {
+                    // Attempt 3: fix common JSON issues in AI output
+                    let fixed = jsonMatch[0];
+                    // Fix unescaped newlines inside string values
+                    fixed = fixed.replace(/(?<=":[ ]*"[^"]*)\n/g, '\\n');
+                    // Fix trailing commas before }]
+                    fixed = fixed.replace(/,\s*([}\]])/g, '$1');
+                    try {
+                        parsed = JSON.parse(fixed);
+                    } catch (e3) {
+                        // Attempt 4: use more aggressive cleanup
+                        try {
+                            // Extract posts array manually
+                            const postsMatch = rawText.match(/"posts"\s*:\s*\[[\s\S]*\]/);
+                            if (postsMatch) {
+                                parsed = JSON.parse(`{${postsMatch[0]}}`);
+                            } else {
+                                throw new Error(`AI JSON parse failed: ${(e1 as Error).message}`);
+                            }
+                        } catch {
+                            throw new Error(`AI JSON parse failed after 4 attempts: ${(e1 as Error).message}`);
+                        }
+                    }
+                }
             } else {
-                throw new Error('AI response is not valid JSON');
+                throw new Error('AI response contains no JSON object');
             }
         }
 
@@ -139,41 +168,66 @@ function buildSystemPrompt(platform: string): string {
 - "이 도구의 데이터를 살펴보니" 식의 제3자 시점
 - 전문적이지만 쉽게 읽히는 문체
 
-## 네이버 블로그 형식 규칙
+## ⚠️ JSON 안전 규칙 (절대 준수)
+- 모든 문자열 값 안의 큰따옴표는 반드시 \\"로 이스케이프
+- 줄바꿈은 반드시 \\n으로 표현 (실제 개행 금지)
+- JSON 이외의 텍스트 출력 금지
+
+## 네이버 블로그 형식 규칙 (한국어)
 - 문단: 2~3줄씩 짧게 끊기 (네이버 가독성)
 - 소제목: ■ 또는 ▶ 로 구분
-- 이미지 포인트: [📸 이미지: 설명] 형식으로 5개 이상 삽입
+- 이미지 포인트: [IMAGE: 설명] 형식으로 5개 이상 삽입
 - 핵심 수치는 굵게 또는 따로 한 줄
-- SEO 키워드 3~5회 자연 삽입
+- SEO 키워드: 미국주식, GEX분석, 다크풀, 옵션플로우 등 3~5회 자연 삽입
 - 마지막에 "데이터 출처: signumhq.com" 포함
 - 태그: # 형식으로 7~10개
 - 길이: 1500~2500자
 
-## 이미지 가이드 규칙
-각 [📸 이미지] 포인트에 대해 imageGuide 배열에 다음 정보 포함:
-- slot: 번호
-- label: "어떤 영역인지"
-- url: signumhq.com 대시보드 경로
-- area: "캡처할 화면 영역 설명"
+## 티스토리 형식 규칙 (한국어)
+- 네이버와 유사하되 소제목에 ## 마크다운 사용 가능
+- 본문 흐름 자연스럽게
 
-## 출력 형식 (JSON)
+## Medium 형식 규칙 (영어)
+- Language: English only
+- Tone: Data-driven analyst, third-person perspective
+- Structure: Hook paragraph → Data breakdown → Analysis → CTA
+- Headers: ## style (Medium supports markdown headers)
+- Image points: [IMAGE: description] format, 4~5 insertions
+- SEO keywords: GEX, dark pool, options flow, institutional analysis
+- End with: "Data source: signumhq.com — Institutional Intelligence, Democratized"
+- Tags (5): e.g., "Stock Market, Options Trading, GEX Analysis, Dark Pool, Institutional Trading"
+- Length: 800~1500 words
+
+## 이미지 가이드 규칙
+각 [IMAGE] 포인트에 대해 imageGuide 배열에 다음 정보 포함:
+- slot: 번호
+- label: 어떤 영역인지
+- url: signumhq.com 대시보드 경로
+- area: 캡처할 화면 영역 설명
+
+## 출력 형식 (반드시 유효한 JSON)
 {
   "posts": [
     {
-      "type": "analysis" | "market",
-      "ticker": "TSLA" | null,
+      "type": "analysis",
+      "ticker": "TSLA",
       "naver": {
         "title": "제목",
-        "body": "본문 (문단 사이에 [📸 이미지: 설명] 포함)",
-        "tags": "#미국주식 #TSLA #GEX분석 ..."
+        "body": "본문 내용 (줄바꿈은 \\\\n으로)",
+        "tags": "#미국주식 #TSLA"
       },
       "tistory": {
         "title": "제목",
-        "body": "본문 (네이버와 동일 포맷, 소제목 강조 약간 다름 가능)",
-        "tags": "#미국주식 #TSLA #GEX분석 ..."
+        "body": "본문 내용",
+        "tags": "#미국주식 #TSLA"
+      },
+      "medium": {
+        "title": "English Title",
+        "body": "English body content",
+        "tags": "Stock Market, Options Trading"
       },
       "imageGuide": [
-        { "slot": 1, "label": "대시보드 헤더", "url": "/ko/dashboard/TSLA", "area": "헤더 지표 카드 영역" }
+        { "slot": 1, "label": "Dashboard header", "url": "/en/dashboard/TSLA", "area": "Header metrics cards" }
       ]
     }
   ]
