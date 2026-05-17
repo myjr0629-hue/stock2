@@ -280,10 +280,10 @@ export default function AdminHealthPage() {
                   className="px-2 py-0.5 rounded text-[11px] font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 hover:bg-emerald-500/20 transition-all">
                   ✏️ 블로그 생성
                 </a>
-                <button onClick={() => { setMode('marketing'); if (!mktData) fetchMarketing(); setTimeout(() => document.getElementById('sec-mkt-og')?.scrollIntoView({ behavior: 'smooth' }), 500); }}
+                <a href="/ko/admin/og-audit" target="_blank" rel="noopener"
                   className="px-2 py-0.5 rounded text-[11px] font-bold text-pink-400 bg-pink-500/10 border border-pink-500/20 hover:bg-pink-500/20 transition-all">
                   🖼️ OG Audit
-                </button>
+                </a>
               </div>
             </div>
           </div>
