@@ -12,10 +12,10 @@ const ADMIN_EMAILS = (process.env.NEXT_PUBLIC_ADMIN_EMAILS || '').split(',').map
 const TICKERS = ['NVDA','TSLA','AAPL','MSFT','GOOGL','AMZN','META','AMD','PLTR','COIN','SMCI','ARM','MSTR','TSM','AVGO','NFLX','CRM','SNOW','BA','DIS'];
 
 const PLATFORMS = [
-  { key: 'naver', label: 'NAVER', color: 'emerald', lang: '한국어' },
-  { key: 'tistory', label: 'TISTORY', color: 'orange', lang: '한국어' },
-  { key: 'medium', label: 'MEDIUM', color: 'white', lang: 'English' },
-  { key: 'note', label: 'NOTE.COM', color: 'purple', lang: '日本語' },
+  { key: 'naver', label: '네이버', emoji: '🟢', color: 'emerald', lang: '한국어' },
+  { key: 'tistory', label: '티스토리', emoji: '🟠', color: 'orange', lang: '한국어' },
+  { key: 'medium', label: 'Medium', emoji: '⚪', color: 'slate', lang: 'English' },
+  { key: 'note', label: 'note.com', emoji: '🟣', color: 'purple', lang: '日本語' },
 ] as const;
 
 type PlatformKey = typeof PLATFORMS[number]['key'];
@@ -38,116 +38,71 @@ function CopyBtn({ text, label }: { text: string; label: string }) {
   );
 }
 
-// ── Single Post with Platform Tabs ──
-function PostBlock({ post, index }: { post: any; index: number }) {
-  const [activePlatform, setActivePlatform] = useState<PlatformKey>('naver');
-  const d = post[activePlatform];
+// ── Content Display ──
+function ContentBlock({ data, platform }: { data: any; platform: string }) {
+  if (!data) return null;
 
-  // Split body by image markers for display
-  const parts = d?.body?.split(/(\[IMAGE:[^\]]*\])/g) || [];
+  const parts = data.body?.split(/(\[IMAGE:[^\]]*\])/g) || [];
 
   return (
-    <div className="bg-gradient-to-br from-white/[0.03] to-white/[0.01] border border-white/[0.06] rounded-2xl overflow-hidden">
-      {/* Post Header */}
-      <div className="px-5 py-4 border-b border-white/[0.04] bg-white/[0.02] flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <span className="w-8 h-8 rounded-full bg-cyan-500/20 flex items-center justify-center text-cyan-400 text-[14px] font-black">
-            {index + 1}
-          </span>
-          <span className={`px-3 py-1 rounded-lg text-[13px] font-black uppercase tracking-wider
-            ${post.type === 'analysis' ? 'bg-cyan-500/15 text-cyan-400 border border-cyan-500/25' : 'bg-amber-500/15 text-amber-400 border border-amber-500/25'}`}>
-            {post.type === 'analysis' ? '종목 분석' : '시황/이슈'}
-          </span>
-          {post.ticker && <span className="text-[16px] font-mono font-black text-white">{post.ticker}</span>}
+    <div className="space-y-4 mt-4">
+      {/* Title */}
+      <div>
+        <div className="text-[13px] font-bold text-slate-400 uppercase tracking-wider mb-2">제목</div>
+        <div className="flex items-start justify-between gap-3">
+          <h3 className="text-[17px] font-bold text-white leading-snug flex-1">{data.title}</h3>
+          <CopyBtn text={data.title} label="복사" />
         </div>
       </div>
 
-      {/* Platform Tabs */}
-      <div className="px-5 pt-3 flex gap-2 border-b border-white/[0.04] pb-3">
-        {PLATFORMS.map(p => {
-          const hasContent = !!post[p.key];
-          const colorMap: Record<string, string> = {
-            emerald: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30',
-            orange: 'bg-orange-500/20 text-orange-400 border-orange-500/30',
-            white: 'bg-white/10 text-white border-white/20',
-            purple: 'bg-purple-500/20 text-purple-400 border-purple-500/30',
-          };
-          return (
-            <button key={p.key}
-              onClick={() => hasContent && setActivePlatform(p.key)}
-              disabled={!hasContent}
-              className={`px-4 py-2 rounded-xl text-[13px] font-bold transition-all border
-                ${activePlatform === p.key && hasContent ? colorMap[p.color] : hasContent ? 'bg-white/[0.03] text-slate-400 border-white/[0.06] hover:bg-white/[0.06] hover:text-slate-200' : 'bg-white/[0.01] text-slate-600 border-white/[0.03] cursor-not-allowed'}`}>
-              {p.label}
-              <span className="ml-1.5 text-[11px] opacity-60">{p.lang}</span>
-            </button>
-          );
-        })}
+      {/* Body */}
+      <div>
+        <div className="text-[13px] font-bold text-slate-400 uppercase tracking-wider mb-2">본문</div>
+        <div className="bg-black/20 rounded-xl p-4 max-h-[500px] overflow-y-auto">
+          {parts.map((part: string, i: number) => {
+            if (part.match(/^\[IMAGE:/)) {
+              return (
+                <div key={i} className="my-3 px-4 py-3 rounded-lg bg-indigo-500/10 border border-indigo-500/20 flex items-center gap-2">
+                  <ImageIcon className="w-4 h-4 text-indigo-400 flex-shrink-0" />
+                  <span className="text-[13px] text-indigo-300 font-bold">{part}</span>
+                </div>
+              );
+            }
+            return <div key={i} className="text-[14px] text-slate-200 leading-[1.8] whitespace-pre-wrap">{part}</div>;
+          })}
+        </div>
+        <div className="mt-3 flex gap-2">
+          <CopyBtn text={data.body} label="본문 전체 복사" />
+          <CopyBtn text={`${data.title}\n\n${data.body}\n\n${data.tags}`} label="전체 복사 (제목+본문+태그)" />
+        </div>
       </div>
 
-      {/* Content */}
-      {d ? (
-        <div className="p-5 space-y-4">
-          {/* Title */}
-          <div>
-            <div className="text-[13px] font-bold text-slate-400 uppercase tracking-wider mb-2">제목</div>
-            <div className="flex items-start justify-between gap-3">
-              <h3 className="text-[17px] font-bold text-white leading-snug flex-1">{d.title}</h3>
-              <CopyBtn text={d.title} label="복사" />
-            </div>
-          </div>
+      {/* Tags */}
+      <div>
+        <div className="text-[13px] font-bold text-slate-400 uppercase tracking-wider mb-2">태그</div>
+        <div className="flex items-center justify-between gap-3">
+          <div className="text-[14px] text-cyan-400/90 flex-1">{data.tags}</div>
+          <CopyBtn text={data.tags} label="복사" />
+        </div>
+      </div>
 
-          {/* Body */}
-          <div>
-            <div className="text-[13px] font-bold text-slate-400 uppercase tracking-wider mb-2">본문</div>
-            <div className="bg-black/20 rounded-xl p-4 max-h-[500px] overflow-y-auto">
-              {parts.map((part: string, i: number) => {
-                if (part.match(/^\[IMAGE:/)) {
-                  return (
-                    <div key={i} className="my-3 px-4 py-3 rounded-lg bg-indigo-500/10 border border-indigo-500/20 flex items-center gap-2">
-                      <ImageIcon className="w-4 h-4 text-indigo-400 flex-shrink-0" />
-                      <span className="text-[13px] text-indigo-300 font-bold">{part}</span>
-                    </div>
-                  );
-                }
-                return <div key={i} className="text-[14px] text-slate-200 leading-[1.8] whitespace-pre-wrap">{part}</div>;
-              })}
-            </div>
-            <div className="mt-3">
-              <CopyBtn text={d.body} label="본문 전체 복사" />
-            </div>
-          </div>
-
-          {/* Tags */}
-          <div>
-            <div className="text-[13px] font-bold text-slate-400 uppercase tracking-wider mb-2">태그</div>
-            <div className="flex items-center justify-between gap-3">
-              <div className="text-[14px] text-cyan-400/90 flex-1">{d.tags}</div>
-              <CopyBtn text={d.tags} label="복사" />
-            </div>
-          </div>
-
-          {/* Image Guide */}
-          {post.imageGuide && post.imageGuide.length > 0 && (
-            <div>
-              <div className="text-[13px] font-bold text-slate-400 uppercase tracking-wider mb-2">이미지 삽입 가이드</div>
-              <div className="space-y-2">
-                {post.imageGuide.map((g: any, i: number) => (
-                  <div key={i} className="flex items-start gap-3 px-4 py-3 rounded-xl bg-indigo-500/5 border border-indigo-500/15">
-                    <ImageIcon className="w-4 h-4 text-indigo-400 mt-0.5 flex-shrink-0" />
-                    <div className="flex-1 min-w-0">
-                      <div className="text-[13px] font-bold text-indigo-300">📸 {g.slot}. {g.label}</div>
-                      <div className="text-[13px] text-slate-400 mt-0.5">{g.area}</div>
-                      {g.url && <div className="text-[13px] text-cyan-400/70 mt-0.5 truncate">signumhq.com{g.url}</div>}
-                    </div>
-                  </div>
-                ))}
+      {/* Image Guide */}
+      {data.imageGuide && data.imageGuide.length > 0 && (
+        <div>
+          <div className="text-[13px] font-bold text-slate-400 uppercase tracking-wider mb-2">이미지 삽입 가이드</div>
+          <div className="space-y-2">
+            {data.imageGuide.map((g: any, i: number) => (
+              <div key={i} className="flex items-start gap-3 px-4 py-3 rounded-xl bg-indigo-500/5 border border-indigo-500/15">
+                <ImageIcon className="w-4 h-4 text-indigo-400 mt-0.5 flex-shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <div className="text-[13px] font-bold text-indigo-300">📸 {g.slot}. {g.label}</div>
+                  <div className="text-[13px] text-slate-400 mt-0.5">{g.area}</div>
+                  {g.url && <div className="text-[13px] text-cyan-400/70 mt-0.5 truncate">signumhq.com{g.url}</div>}
+                </div>
               </div>
-            </div>
-          )}
+            ))}
+          </div>
         </div>
-      ) : (
-        <div className="p-8 text-center text-[14px] text-slate-500">이 플랫폼의 콘텐츠가 없습니다</div>
       )}
     </div>
   );
@@ -160,12 +115,13 @@ export default function ContentCenterPage() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
   const [adminEmail, setAdminEmail] = useState('');
-  const [generating, setGenerating] = useState(false);
   const [genMode, setGenMode] = useState<'auto' | 'ticker' | 'market'>('auto');
   const [selectedTicker, setSelectedTicker] = useState('NVDA');
-  const [result, setResult] = useState<any>(null);
-  const [error, setError] = useState('');
   const [showDropdown, setShowDropdown] = useState(false);
+  const [results, setResults] = useState<Record<string, any>>({});
+  const [generating, setGenerating] = useState<Record<string, boolean>>({});
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [meta, setMeta] = useState<Record<string, any>>({});
   const router = useRouter();
 
   useEffect(() => {
@@ -185,11 +141,10 @@ export default function ContentCenterPage() {
     check();
   }, [router]);
 
-  const generate = useCallback(async () => {
+  const generateForPlatform = useCallback(async (platform: PlatformKey) => {
     if (!adminEmail) return;
-    setGenerating(true);
-    setError('');
-    setResult(null);
+    setGenerating(prev => ({ ...prev, [platform]: true }));
+    setErrors(prev => ({ ...prev, [platform]: '' }));
 
     try {
       const res = await fetch('/api/admin/content-gen', {
@@ -199,16 +154,25 @@ export default function ContentCenterPage() {
           email: adminEmail,
           mode: genMode,
           ticker: genMode === 'ticker' ? selectedTicker : undefined,
+          platform,
         }),
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || 'Generation failed');
-      setResult(json);
+      setResults(prev => ({ ...prev, [platform]: json.content }));
+      setMeta(prev => ({ ...prev, [platform]: { model: json.model, ms: json.elapsedMs, tickers: json.tickers } }));
     } catch (err: any) {
-      setError(err.message);
+      setErrors(prev => ({ ...prev, [platform]: err.message }));
     }
-    setGenerating(false);
+    setGenerating(prev => ({ ...prev, [platform]: false }));
   }, [adminEmail, genMode, selectedTicker]);
+
+  const generateAll = useCallback(async () => {
+    // Sequential: one platform at a time to avoid Bedrock throttling
+    for (const p of PLATFORMS) {
+      await generateForPlatform(p.key);
+    }
+  }, [generateForPlatform]);
 
   if (loading) {
     return (
@@ -218,6 +182,8 @@ export default function ContentCenterPage() {
     );
   }
   if (!isAdmin) return null;
+
+  const isAnyGenerating = Object.values(generating).some(Boolean);
 
   return (
     <div className="min-h-screen bg-[#060a13] text-white" style={{ fontFamily: '"Plus Jakarta Sans", "Inter", system-ui' }}>
@@ -231,47 +197,35 @@ export default function ContentCenterPage() {
             <FileText className="w-5 h-5 text-cyan-400" />
             <div>
               <h1 className="text-[18px] font-black tracking-wide">CONTENT COMMAND CENTER</h1>
-              <div className="text-[13px] text-slate-400">네이버 · 티스토리 · Medium · note.com — 콘텐츠 반자동화</div>
+              <div className="text-[13px] text-slate-400">플랫폼별 콘텐츠 생성 — 네이버 · 티스토리 · Medium · note.com</div>
             </div>
           </div>
-          {result && (
-            <div className="text-[13px] text-slate-400">
-              {result.model} · {result.elapsedMs}ms
-            </div>
-          )}
         </div>
       </div>
 
-      {/* Controls */}
       <div className="max-w-5xl mx-auto px-4 py-6">
+        {/* Mode + Ticker Controls */}
         <div className="flex flex-wrap items-center gap-3 mb-6">
-          {/* Mode buttons */}
           <button onClick={() => setGenMode('auto')}
             className={`flex items-center gap-2 px-5 py-3 rounded-xl text-[14px] font-bold transition-all border
-              ${genMode === 'auto' ? 'bg-gradient-to-r from-cyan-500/20 to-emerald-500/20 text-cyan-400 border-cyan-500/30 shadow-lg shadow-cyan-500/10' : 'bg-white/[0.03] text-slate-300 border-white/[0.06] hover:bg-white/[0.06]'}`}>
-            <Sparkles className="w-4 h-4" />
-            🎲 자동 생성
+              ${genMode === 'auto' ? 'bg-gradient-to-r from-cyan-500/20 to-emerald-500/20 text-cyan-400 border-cyan-500/30' : 'bg-white/[0.03] text-slate-300 border-white/[0.06] hover:bg-white/[0.06]'}`}>
+            <Sparkles className="w-4 h-4" /> 🎲 자동 선별
           </button>
-
           <button onClick={() => setGenMode('ticker')}
             className={`flex items-center gap-2 px-5 py-3 rounded-xl text-[14px] font-bold transition-all border
-              ${genMode === 'ticker' ? 'bg-gradient-to-r from-purple-500/20 to-pink-500/20 text-purple-400 border-purple-500/30 shadow-lg shadow-purple-500/10' : 'bg-white/[0.03] text-slate-300 border-white/[0.06] hover:bg-white/[0.06]'}`}>
-            <Search className="w-4 h-4" />
-            🔍 종목 지정
+              ${genMode === 'ticker' ? 'bg-gradient-to-r from-purple-500/20 to-pink-500/20 text-purple-400 border-purple-500/30' : 'bg-white/[0.03] text-slate-300 border-white/[0.06] hover:bg-white/[0.06]'}`}>
+            <Search className="w-4 h-4" /> 🔍 종목 지정
           </button>
-
           <button onClick={() => setGenMode('market')}
             className={`flex items-center gap-2 px-5 py-3 rounded-xl text-[14px] font-bold transition-all border
-              ${genMode === 'market' ? 'bg-gradient-to-r from-amber-500/20 to-orange-500/20 text-amber-400 border-amber-500/30 shadow-lg shadow-amber-500/10' : 'bg-white/[0.03] text-slate-300 border-white/[0.06] hover:bg-white/[0.06]'}`}>
-            <Newspaper className="w-4 h-4" />
-            📰 시황/이슈
+              ${genMode === 'market' ? 'bg-gradient-to-r from-amber-500/20 to-orange-500/20 text-amber-400 border-amber-500/30' : 'bg-white/[0.03] text-slate-300 border-white/[0.06] hover:bg-white/[0.06]'}`}>
+            <Newspaper className="w-4 h-4" /> 📰 시황/이슈
           </button>
 
-          {/* Ticker Dropdown */}
           {genMode === 'ticker' && (
             <div className="relative">
               <button onClick={() => setShowDropdown(!showDropdown)}
-                className="flex items-center gap-2 px-5 py-3 rounded-xl text-[14px] font-bold bg-white/[0.05] border border-white/[0.08] hover:bg-white/[0.08] transition-all">
+                className="flex items-center gap-2 px-5 py-3 rounded-xl text-[14px] font-bold bg-white/[0.05] border border-white/[0.08]">
                 <span className="text-white font-mono">{selectedTicker}</span>
                 <ChevronDown className="w-4 h-4 text-slate-400" />
               </button>
@@ -280,7 +234,7 @@ export default function ContentCenterPage() {
                   {TICKERS.map(t => (
                     <button key={t} onClick={() => { setSelectedTicker(t); setShowDropdown(false); }}
                       className={`px-3 py-2 rounded-lg text-[13px] font-mono font-bold transition-all
-                        ${t === selectedTicker ? 'bg-purple-500/20 text-purple-400 border border-purple-500/30' : 'text-slate-300 hover:bg-white/[0.05] hover:text-white'}`}>
+                        ${t === selectedTicker ? 'bg-purple-500/20 text-purple-400' : 'text-slate-300 hover:bg-white/[0.05]'}`}>
                       {t}
                     </button>
                   ))}
@@ -288,63 +242,89 @@ export default function ContentCenterPage() {
               )}
             </div>
           )}
+        </div>
 
-          {/* Generate button */}
-          <button onClick={generate} disabled={generating}
-            className="flex items-center gap-2 px-7 py-3 rounded-xl text-[15px] font-black bg-gradient-to-r from-cyan-500 to-emerald-500 text-white
-              hover:from-cyan-400 hover:to-emerald-400 transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-cyan-500/20">
-            {generating ? <Loader2 className="w-5 h-5 animate-spin" /> : <RefreshCw className="w-5 h-5" />}
-            {generating ? '생성 중...' : '생성하기'}
+        {/* Platform Generate Buttons */}
+        <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-8">
+          {PLATFORMS.map(p => {
+            const isGen = generating[p.key];
+            const hasResult = !!results[p.key];
+            const colorActive: Record<string, string> = {
+              emerald: 'from-emerald-500/20 to-green-500/20 border-emerald-500/40 text-emerald-400',
+              orange: 'from-orange-500/20 to-amber-500/20 border-orange-500/40 text-orange-400',
+              slate: 'from-slate-400/20 to-gray-400/20 border-slate-400/40 text-slate-200',
+              purple: 'from-purple-500/20 to-violet-500/20 border-purple-500/40 text-purple-400',
+            };
+            return (
+              <button key={p.key} onClick={() => generateForPlatform(p.key)} disabled={isGen || isAnyGenerating}
+                className={`flex flex-col items-center gap-2 px-4 py-4 rounded-2xl text-[14px] font-bold transition-all border
+                  ${hasResult ? `bg-gradient-to-br ${colorActive[p.color]} shadow-lg` : 'bg-white/[0.03] text-slate-300 border-white/[0.06] hover:bg-white/[0.06]'}
+                  disabled:opacity-50 disabled:cursor-not-allowed`}>
+                {isGen ? <Loader2 className="w-6 h-6 animate-spin" /> : <span className="text-[20px]">{p.emoji}</span>}
+                <span>{p.label}</span>
+                <span className="text-[11px] opacity-60">{p.lang}</span>
+                {hasResult && <Check className="w-4 h-4 text-emerald-400" />}
+              </button>
+            );
+          })}
+
+          {/* Generate All */}
+          <button onClick={generateAll} disabled={isAnyGenerating}
+            className="flex flex-col items-center gap-2 px-4 py-4 rounded-2xl text-[14px] font-black transition-all border
+              bg-gradient-to-r from-cyan-500/20 to-emerald-500/20 text-cyan-400 border-cyan-500/30
+              hover:from-cyan-400/30 hover:to-emerald-400/30 disabled:opacity-50 disabled:cursor-not-allowed">
+            {isAnyGenerating ? <Loader2 className="w-6 h-6 animate-spin" /> : <RefreshCw className="w-6 h-6" />}
+            <span>전체 생성</span>
+            <span className="text-[11px] opacity-60">순차 실행</span>
           </button>
         </div>
 
-        {/* Mode description */}
-        <div className="mb-6 px-5 py-4 rounded-xl bg-white/[0.02] border border-white/[0.04] text-[14px] text-slate-400 leading-relaxed">
-          {genMode === 'auto' && '🎲 AI가 오늘 가장 이슈되는 종목 2개를 자동 선별 + 시황 1개 = 총 3개 블로그 글을 생성합니다. 네이버 · 티스토리 · Medium · note.com 포맷을 동시에 생성합니다.'}
-          {genMode === 'ticker' && `🔍 ${selectedTicker} 종목에 대한 분석 블로그 글 1개를 4개 플랫폼 포맷으로 동시 생성합니다.`}
-          {genMode === 'market' && '📰 오늘의 시장 이슈/시황 기반 블로그 글 1개를 4개 플랫폼 포맷으로 동시 생성합니다.'}
-        </div>
+        {/* Results per platform */}
+        {PLATFORMS.map(p => {
+          const data = results[p.key];
+          const error = errors[p.key];
+          const isGen = generating[p.key];
+          const m = meta[p.key];
 
-        {/* Error */}
-        {error && (
-          <div className="mb-5 px-5 py-4 rounded-xl bg-red-500/10 border border-red-500/20 text-[14px] text-red-400 font-bold">
-            ❌ {error}
-          </div>
-        )}
+          if (!data && !error && !isGen) return null;
 
-        {/* Results */}
-        {result?.content?.posts && (
-          <div className="space-y-6">
-            <div className="flex items-center gap-3 text-[14px] text-slate-400">
-              <span>✅ {result.content.posts.length}개 생성 완료</span>
-              <span>·</span>
-              <span>종목: {result.tickers?.join(', ') || '시황'}</span>
+          return (
+            <div key={p.key} className="mb-6 bg-gradient-to-br from-white/[0.03] to-white/[0.01] border border-white/[0.06] rounded-2xl overflow-hidden">
+              {/* Platform Header */}
+              <div className="px-5 py-4 border-b border-white/[0.04] bg-white/[0.02] flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <span className="text-[18px]">{p.emoji}</span>
+                  <span className="text-[16px] font-black text-white">{p.label}</span>
+                  <span className="text-[13px] text-slate-400">{p.lang}</span>
+                  {m?.tickers && <span className="text-[13px] font-mono text-cyan-400">{m.tickers.join(', ')}</span>}
+                </div>
+                {m && <span className="text-[13px] text-slate-500">{m.model} · {m.ms}ms</span>}
+              </div>
+
+              <div className="px-5 py-4">
+                {isGen && (
+                  <div className="flex items-center gap-3 py-6 justify-center">
+                    <Loader2 className="w-6 h-6 animate-spin text-cyan-400" />
+                    <span className="text-[14px] text-slate-300">{p.label} 콘텐츠 생성 중...</span>
+                  </div>
+                )}
+                {error && (
+                  <div className="px-4 py-3 rounded-xl bg-red-500/10 border border-red-500/20 text-[14px] text-red-400 font-bold">
+                    ❌ {error}
+                  </div>
+                )}
+                {data && <ContentBlock data={data} platform={p.key} />}
+              </div>
             </div>
-
-            {result.content.posts.map((post: any, idx: number) => (
-              <PostBlock key={idx} post={post} index={idx} />
-            ))}
-          </div>
-        )}
+          );
+        })}
 
         {/* Empty state */}
-        {!result && !generating && !error && (
+        {Object.keys(results).length === 0 && !isAnyGenerating && Object.keys(errors).length === 0 && (
           <div className="flex flex-col items-center justify-center py-24 text-slate-500">
             <FileText className="w-14 h-14 opacity-20 mb-5" />
-            <div className="text-[16px] font-bold">모드를 선택하고 &quot;생성하기&quot;를 클릭하세요</div>
-            <div className="text-[14px] mt-2">AI가 Redis 실시간 데이터 기반으로 4개 플랫폼용 블로그 글을 자동 생성합니다</div>
-          </div>
-        )}
-
-        {/* Generating state */}
-        {generating && (
-          <div className="flex flex-col items-center justify-center py-24">
-            <div className="relative">
-              <div className="w-20 h-20 border-2 border-cyan-500/30 rounded-full animate-spin border-t-cyan-400" />
-              <Sparkles className="w-7 h-7 text-cyan-400 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 animate-pulse" />
-            </div>
-            <div className="text-[16px] font-bold text-white mt-5">AI가 콘텐츠를 생성하고 있습니다...</div>
-            <div className="text-[14px] text-slate-400 mt-2">Redis 데이터 분석 → Claude Haiku → 4개 플랫폼 포맷팅</div>
+            <div className="text-[16px] font-bold">플랫폼 버튼을 클릭하여 콘텐츠를 생성하세요</div>
+            <div className="text-[14px] mt-2">각 플랫폼별로 개별 생성 또는 &quot;전체 생성&quot;으로 순차 실행</div>
           </div>
         )}
       </div>

@@ -2,24 +2,19 @@ import { NextRequest, NextResponse } from 'next/server';
 import { callBedrock, MODELS } from '@/services/bedrockClient';
 import { getFromCache, mgetFromCache, setInCache } from '@/services/redisClient';
 
-// Server-side: NEXT_PUBLIC_ vars are available in server components too,
-// but also check ADMIN_EMAILS env as fallback
-const ADMIN_EMAILS = (
-    process.env.NEXT_PUBLIC_ADMIN_EMAILS || 
-    process.env.ADMIN_EMAILS || 
-    'myjr0629@gmail.com'
-).split(',').map(e => e.trim().toLowerCase());
+// Vercel Pro: allow up to 60s
+export const maxDuration = 60;
 
-// M7 + Popular tickers
 const UNIVERSE = ['NVDA','TSLA','AAPL','MSFT','GOOGL','AMZN','META','AMD','PLTR','COIN','SMCI','ARM','MSTR','TSM','AVGO','NFLX','CRM','SNOW','BA','DIS'];
 
 export async function POST(req: NextRequest) {
     try {
         const { email, mode, ticker, platform } = await req.json();
-        
-        // Minimal guard: email must be present (client already verifies via Supabase + ADMIN_EMAILS)
         if (!email) {
             return NextResponse.json({ error: 'Missing email' }, { status: 400 });
+        }
+        if (!platform || !['naver','tistory','medium','note'].includes(platform)) {
+            return NextResponse.json({ error: 'Missing or invalid platform' }, { status: 400 });
         }
 
         // ─── Gather market data from Redis ───
@@ -29,16 +24,14 @@ export async function POST(req: NextRequest) {
         if (mode === 'ticker' && ticker) {
             targetTickers = [ticker.toUpperCase()];
         } else if (mode === 'auto' || mode === 'market') {
-            // Auto: find top trending tickers from Redis data
             const todayKey = `content-center:history:${new Date().toISOString().slice(0, 10)}`;
             const usedTodayRaw = await getFromCache<string[]>(todayKey);
             const usedToday = usedTodayRaw || [];
 
-            // Fetch analysis data for all universe tickers (batch)
             const analysisKeys = UNIVERSE.map(t => `cache:analysis:${t}`);
             const analysisResults = await mgetFromCache<any>(analysisKeys);
 
-            type TickerScore = { ticker: string; score: number; change: number; reason: string };
+            type TickerScore = { ticker: string; score: number; change: number };
             const ranked: TickerScore[] = [];
             for (let i = 0; i < UNIVERSE.length; i++) {
                 const d = analysisResults[i];
@@ -47,130 +40,89 @@ export async function POST(req: NextRequest) {
                     const data = typeof d === 'string' ? JSON.parse(d) : d;
                     const change = Math.abs(data.changePct || data.changePercent || 0);
                     const score = (data.score || 0) + change * 2;
-                    const reason = change > 3 ? '급등락' : data.score > 70 ? '고점수' : '활성';
                     if (!usedToday.includes(`${UNIVERSE[i]}:analysis`)) {
-                        ranked.push({ ticker: UNIVERSE[i], score, change, reason });
+                        ranked.push({ ticker: UNIVERSE[i], score, change });
                     }
                 } catch {}
             }
             ranked.sort((a, b) => b.score - a.score);
 
             if (mode === 'auto') {
-                targetTickers = ranked.slice(0, 2).map(r => r.ticker);
-                // Fallback: if less than 2 ranked, use first available
-                if (targetTickers.length === 0) {
-                    targetTickers = UNIVERSE.slice(0, 2);
-                }
+                targetTickers = ranked.slice(0, 1).map(r => r.ticker);
+                if (targetTickers.length === 0) targetTickers = [UNIVERSE[0]];
             } else {
-                // market mode: pick top 3 for context
-                targetTickers = ranked.slice(0, 3).map(r => r.ticker);
+                targetTickers = ranked.slice(0, 2).map(r => r.ticker);
+                if (targetTickers.length === 0) targetTickers = UNIVERSE.slice(0, 2);
             }
         }
 
-        // Fetch detailed data for target tickers (batch)
+        // Fetch detailed data
         const tickerDataMap: Record<string, any> = {};
         if (targetTickers.length > 0) {
             const detailKeys = targetTickers.map(t => `cache:command:unified:${t}`);
             const detailResults = await mgetFromCache<any>(detailKeys);
             for (let i = 0; i < targetTickers.length; i++) {
                 const d = detailResults[i];
-                if (d) {
-                    tickerDataMap[targetTickers[i]] = typeof d === 'string' ? JSON.parse(d) : d;
-                }
+                if (d) tickerDataMap[targetTickers[i]] = typeof d === 'string' ? JSON.parse(d) : d;
             }
         }
 
-        // Fetch morning briefing for market context
         const briefData = await getFromCache<any>('cache:morning-briefing:ko');
         if (briefData) {
             const brief = typeof briefData === 'string' ? JSON.parse(briefData) : briefData;
             marketContext = brief.summary || brief.headline || '';
         }
 
-        // ─── Build AI prompt ───
-        const systemPrompt = buildSystemPrompt(platform || 'naver');
-        const userPrompt = buildUserPrompt(mode, targetTickers, tickerDataMap, marketContext);
+        // ─── Build AI prompt (single platform only) ───
+        const systemPrompt = buildSystemPrompt(platform);
+        const userPrompt = buildUserPrompt(mode, targetTickers, tickerDataMap, marketContext, platform);
 
         const result = await callBedrock({
             modelId: MODELS.HAIKU_35,
             system: systemPrompt,
             userPrompt,
-            maxTokens: 16000,
+            maxTokens: 4096,
             temperature: 0.7,
             jsonPrefill: true,
-            label: 'ContentCenter',
-            timeoutMs: 55000,
+            label: `ContentCenter-${platform}`,
+            timeoutMs: 45000,
         });
 
-        // Parse response — robust JSON recovery for multilingual blog content
+        // Parse response
         let parsed: any;
-        let rawText = result.text;
-        
-        // Pre-process: fix real newlines inside JSON strings
-        // Replace actual newlines between quotes with \n
-        rawText = rawText.replace(/\r\n/g, '\n');
-        
-        // Helper: attempt to repair truncated JSON
-        function repairTruncatedJson(text: string): string {
-            let t = text.trim();
-            // If truncated mid-string, close the string
-            let inString = false;
-            for (let i = 0; i < t.length; i++) {
-                if (t[i] === '"' && (i === 0 || t[i-1] !== '\\')) inString = !inString;
+        try {
+            parsed = JSON.parse(result.text);
+        } catch {
+            // Try to repair
+            let raw = result.text;
+            const jsonStart = raw.indexOf('{');
+            if (jsonStart >= 0) raw = raw.substring(jsonStart);
+            // Close unclosed strings/brackets
+            let inStr = false;
+            for (let i = 0; i < raw.length; i++) {
+                if (raw[i] === '"' && (i === 0 || raw[i-1] !== '\\')) inStr = !inStr;
             }
-            if (inString) {
-                t += '"';
-            }
-            // Close unclosed brackets/braces
+            if (inStr) raw += '"';
             const braces: string[] = [];
-            for (const ch of t) {
+            for (const ch of raw) {
                 if (ch === '{') braces.push('}');
                 else if (ch === '[') braces.push(']');
                 else if (ch === '}' || ch === ']') braces.pop();
             }
-            // Remove trailing comma before closing
-            t = t.replace(/,\s*$/, '');
-            t += braces.reverse().join('');
-            return t;
-        }
-        
-        // Attempt 1: direct parse
-        try {
-            parsed = JSON.parse(rawText);
-        } catch (e1) {
-            // Attempt 2: repair truncated JSON
+            raw = raw.replace(/,\s*$/, '');
+            raw += braces.reverse().join('');
             try {
-                parsed = JSON.parse(repairTruncatedJson(rawText));
+                parsed = JSON.parse(raw);
             } catch (e2) {
-                // Attempt 3: extract JSON object and repair
-                const jsonMatch = rawText.match(/\{[\s\S]*/);
-                if (jsonMatch) {
-                    try {
-                        parsed = JSON.parse(repairTruncatedJson(jsonMatch[0]));
-                    } catch (e3) {
-                        // Attempt 4: line-by-line newline escaping
-                        let fixed = jsonMatch[0];
-                        // Replace newlines inside string values
-                        fixed = fixed.replace(/\n/g, '\\n');
-                        // But un-escape structural newlines (after : , { [ } ])
-                        fixed = fixed.replace(/([{}\[\],:])\s*\\n/g, '$1\n');
-                        try {
-                            parsed = JSON.parse(repairTruncatedJson(fixed));
-                        } catch {
-                            throw new Error(`AI JSON parse failed after 4 attempts: ${(e1 as Error).message}`);
-                        }
-                    }
-                } else {
-                    throw new Error('AI response contains no JSON');
-                }
+                throw new Error(`JSON parse failed: ${(e2 as Error).message}`);
             }
         }
 
-        // Record history (store as array in cache)
+        // Record history
         if (mode === 'auto' || mode === 'ticker') {
             const todayKey = `content-center:history:${new Date().toISOString().slice(0, 10)}`;
             const existing = await getFromCache<string[]>(todayKey) || [];
-            const newItems = targetTickers.map(t => `${t}:analysis`);
+            const newItems = targetTickers.map(t => `${t}:${platform}`);
             const merged = Array.from(new Set([...existing, ...newItems]));
             await setInCache(todayKey, merged, 86400 * 4);
         }
@@ -178,6 +130,7 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({
             success: true,
             mode,
+            platform,
             tickers: targetTickers,
             content: parsed,
             model: result.model,
@@ -190,150 +143,98 @@ export async function POST(req: NextRequest) {
     }
 }
 
+// ─── System prompts per platform ───
 function buildSystemPrompt(platform: string): string {
-    return `당신은 SIGNUM HQ의 미국 주식 시장 분석 블로그 작성 전문가입니다.
+    const common = `당신은 SIGNUM HQ의 미국 주식 시장 분석 블로그 작성 전문가입니다.
 
 ## 역할
-- 관찰자/리뷰어 톤으로 작성 (투자 조언 X, 데이터 분석 리뷰)
-- "이 도구의 데이터를 살펴보니" 식의 제3자 시점
+- 관찰자/리뷰어 톤 (투자 조언 X, 데이터 분석 리뷰)
 - 전문적이지만 쉽게 읽히는 문체
 
-## ⚠️ JSON 안전 규칙 (절대 준수)
-- 모든 문자열 값 안의 큰따옴표는 반드시 \\"로 이스케이프
-- 줄바꿈은 반드시 \\n으로 표현 (실제 개행 금지)
-- JSON 이외의 텍스트 출력 금지
+## ⚠️ JSON 규칙 (절대 준수)
+- 모든 문자열 내 큰따옴표 → \\"
+- 줄바꿈 → \\n (실제 개행 금지)
+- JSON 이외 출력 금지`;
 
-## 네이버 블로그 형식 규칙 (한국어)
-- 문단: 2~3줄씩 짧게 끊기 (네이버 가독성)
-- 소제목: ■ 또는 ▶ 로 구분
-- 이미지 포인트: [IMAGE: 설명] 형식으로 5개 이상 삽입
-- 핵심 수치는 굵게 또는 따로 한 줄
-- SEO 키워드: 미국주식, GEX분석, 다크풀, 옵션플로우 등 3~5회 자연 삽입
-- 마지막에 "데이터 출처: signumhq.com" 포함
-- 태그: # 형식으로 7~10개
-- 길이: 1500~2500자
+    const rules: Record<string, string> = {
+        naver: `## 네이버 블로그 (한국어)
+- 문단: 2~3줄씩 짧게 끊기
+- 소제목: ■ 또는 ▶ 사용
+- 이미지: [IMAGE: 설명] 5개 이상
+- SEO: 미국주식, GEX분석, 다크풀 등 3~5회
+- 마지막: "데이터 출처: signumhq.com"
+- 태그: # 형식 7~10개
+- 길이: 1500~2500자`,
 
-## 티스토리 형식 규칙 (한국어)
-- 네이버와 유사하되 소제목에 ## 마크다운 사용 가능
-- 본문 흐름 자연스럽게
+        tistory: `## 티스토리 (한국어)
+- 소제목: ## 마크다운 사용
+- 이미지: [IMAGE: 설명] 4~5개
+- SEO: 미국주식, 옵션분석, 기관투자자 등 3~5회
+- 마지막: "데이터 출처: signumhq.com"
+- 태그: # 형식 7~10개
+- 길이: 1500~2500자`,
 
-## Medium 형식 규칙 (영어)
-- Language: English only
-- Tone: Data-driven analyst, third-person perspective
-- Structure: Hook paragraph → Data breakdown → Analysis → CTA
-- Headers: ## style (Medium supports markdown headers)
-- Image points: [IMAGE: description] format, 4~5 insertions
-- SEO keywords: GEX, dark pool, options flow, institutional analysis
-- End with: "Data source: signumhq.com — Institutional Intelligence, Democratized"
-- Tags (5): e.g., "Stock Market, Options Trading, GEX Analysis, Dark Pool, Institutional Trading"
-- Length: 800~1500 words
+        medium: `## Medium (English only)
+- Tone: Data-driven analyst, third-person
+- Structure: Hook → Data → Analysis → CTA
+- Headers: ## markdown style
+- Images: [IMAGE: description] 4~5 points
+- SEO: GEX, dark pool, options flow, institutional
+- End: "Data source: signumhq.com — Institutional Intelligence, Democratized"
+- Tags (5): Stock Market, Options Trading, etc.
+- Length: 800~1500 words`,
 
-## note.com 形式ルール (日本語)
-- 言語: 日本語のみ
-- トーン: データ分析レビュアー、第三者の視点
-- 構成: フック段落 → データ分析 → 考察 → CTA
+        note: `## note.com (日本語のみ)
+- トーン: データ分析レビュアー、第三者視点
 - 見出し: ■ または ## で区分
-- 画像ポイント: [IMAGE: 説明] 形式、4~5個挿入
-- SEOキーワード: 米国株、GEX分析、ダークプール、オプションフロー
-- 末尾に: "データソース: signumhq.com"
-- タグ (5~7): 例: #米国株 #TSLA #GEX分析 #オプション #機関投資家
-- 文字数: 1000~2000文字
+- 画像: [IMAGE: 説明] 4~5個
+- SEO: 米国株、GEX分析、ダークプール、オプション
+- 末尾: "データソース: signumhq.com"
+- タグ: #米国株 #GEX分析 等 5~7個
+- 文字数: 1000~2000文字`,
+    };
 
-## 이미지 가이드 규칙
-각 [IMAGE] 포인트에 대해 imageGuide 배열에 다음 정보 포함:
-- slot: 번호
-- label: 어떤 영역인지
-- url: signumhq.com 대시보드 경로
-- area: 캡처할 화면 영역 설명
+    return `${common}
 
-## 출력 형식 (반드시 유효한 JSON)
+${rules[platform] || rules.naver}
+
+## 출력 (유효한 JSON)
 {
-  "posts": [
-    {
-      "type": "analysis",
-      "ticker": "TSLA",
-      "naver": {
-        "title": "제목",
-        "body": "본문 내용 (줄바꿈은 \\\\n으로)",
-        "tags": "#미국주식 #TSLA"
-      },
-      "tistory": {
-        "title": "제목",
-        "body": "본문 내용",
-        "tags": "#미국주식 #TSLA"
-      },
-      "medium": {
-        "title": "English Title",
-        "body": "English body content",
-        "tags": "Stock Market, Options Trading"
-      },
-      "note": {
-        "title": "日本語タイトル",
-        "body": "日本語本文",
-        "tags": "#米国株 #TSLA #GEX分析"
-      },
-      "imageGuide": [
-        { "slot": 1, "label": "Dashboard header", "url": "/en/dashboard/TSLA", "area": "Header metrics cards" }
-      ]
-    }
+  "title": "제목",
+  "body": "본문 (줄바꿈은 \\\\n)",
+  "tags": "#태그1 #태그2",
+  "imageGuide": [
+    { "slot": 1, "label": "영역명", "url": "/dashboard/TSLA", "area": "설명" }
   ]
 }`;
 }
 
-function buildUserPrompt(mode: string, tickers: string[], dataMap: Record<string, any>, marketContext: string): string {
-    let prompt = '';
+function buildUserPrompt(mode: string, tickers: string[], dataMap: Record<string, any>, marketContext: string, platform: string): string {
+    const lang = platform === 'medium' ? 'in English' : platform === 'note' ? '日本語で' : '한국어로';
 
     if (mode === 'market') {
-        prompt = `## 요청: 시황/이슈 기반 블로그 글 1개 작성
+        return `## ${lang} 시황/이슈 블로그 글 1개 작성
 
-오늘의 시장 상황:
-${marketContext || '일반적인 미국 주식 시장 거래일'}
+시장 상황: ${marketContext || '일반 거래일'}
+트렌딩: ${Object.entries(dataMap).map(([t, d]) => `${t}: $${d?.price || '?'}, ${d?.changePct || '?'}%`).join(', ')}
 
-트렌딩 종목들의 데이터:
-${Object.entries(dataMap).map(([t, d]) => `${t}: 가격 $${d?.price || d?.currentPrice || '?'}, 변동 ${d?.changePct || d?.changePercent || '?'}%, GEX ${d?.gex || '?'}, 다크풀 ${d?.darkPoolPct || d?.darkPool?.pct || '?'}%`).join('\n')}
-
-이슈가 될만한 내용을 찾아서 관심을 끌 수 있는 제목과 본문을 작성해주세요.
-예시: "버크셔 vs 애크먼", "연준 금리와 옵션 시장", "실적 시즌 포지션 분석" 등`;
-
-    } else if (mode === 'auto') {
-        prompt = `## 요청: 자동 생성 — 종목 분석 블로그 글 ${tickers.length}개 + 시황 1개 = 총 ${tickers.length + 1}개 작성
-
-선별된 종목: ${tickers.join(', ')}
-
-각 종목의 실시간 데이터:
-${tickers.map(t => {
-    const d = dataMap[t];
-    if (!d) return `${t}: 데이터 없음`;
-    return `${t}: 가격 $${d?.price || d?.currentPrice || '?'}, 변동 ${d?.changePct || d?.changePercent || '?'}%, Score ${d?.score || d?.alphaScore || '?'}, GEX $${d?.gex || '?'}, 다크풀 ${d?.darkPoolPct || d?.darkPool?.pct || '?'}%, Smart Flow ${d?.whaleIndex || d?.smartFlow || '?'}`;
-}).join('\n')}
-
-시장 컨텍스트:
-${marketContext || '일반 거래일'}
-
-종목 분석 ${tickers.length}개 + 시황/이슈 1개를 posts 배열에 총 ${tickers.length + 1}개 작성해주세요.
-각 글은 서로 다른 관점에서 작성. 중복 내용 없이.`;
-
-    } else {
-        // ticker mode
-        const t = tickers[0];
-        const d = dataMap[t];
-        prompt = `## 요청: ${t} 종목 분석 블로그 글 1개 작성
-
-${t} 실시간 데이터:
-- 가격: $${d?.price || d?.currentPrice || '?'}
-- 변동: ${d?.changePct || d?.changePercent || '?'}%
-- Alpha Score: ${d?.score || d?.alphaScore || '?'}
-- GEX: $${d?.gex || '?'}
-- 다크풀 비율: ${d?.darkPoolPct || d?.darkPool?.pct || '?'}%
-- Smart Flow: ${d?.whaleIndex || d?.smartFlow || '?'}
-- RSI: ${d?.rsi || '?'}
-- IV Skew: ${d?.ivSkew || '?'}
-- SMA 20: ${d?.sma20 || '?'}
-- 추세: ${d?.trendPhase || d?.trend || '?'}
-
-이 데이터를 기반으로 전문적이고 흥미로운 분석 블로그 글을 작성해주세요.
-posts 배열에 1개만.`;
+이슈가 될 만한 내용으로 작성해주세요.`;
     }
 
-    return prompt;
+    const t = tickers[0];
+    const d = dataMap[t];
+    return `## ${t} 종목 분석 블로그 글 1개 ${lang} 작성
+
+${t} 데이터:
+- 가격: $${d?.price || d?.currentPrice || '?'}
+- 변동: ${d?.changePct || d?.changePercent || '?'}%
+- Score: ${d?.score || d?.alphaScore || '?'}
+- GEX: $${d?.gex || '?'}
+- 다크풀: ${d?.darkPoolPct || d?.darkPool?.pct || '?'}%
+- Smart Flow: ${d?.whaleIndex || d?.smartFlow || '?'}
+- RSI: ${d?.rsi || '?'}
+
+시장: ${marketContext || '일반 거래일'}
+
+이 데이터 기반으로 전문적이고 흥미로운 분석 글 작성.`;
 }
