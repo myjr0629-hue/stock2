@@ -154,7 +154,21 @@ function buildSystemPrompt(platform: string): string {
 ## JSON Rules (MUST follow)
 - All double quotes inside strings must be escaped: \\"
 - Line breaks: \\n (no actual newlines)
-- Output ONLY valid JSON, nothing else`;
+- Output ONLY valid JSON, nothing else
+
+## MANDATORY: Image Insertion Tags (CRITICAL - DO NOT SKIP)
+You MUST insert exactly 4-5 [IMAGE: description] tags INSIDE the "body" text.
+These tags mark where screenshots from signumhq.com will be inserted.
+Place them BETWEEN paragraphs at logical points matching the content being discussed.
+
+CORRECT example body:
+"## Introduction\\nSome text about the stock...\\n\\n[IMAGE: NVDA Alpha Score dashboard showing score of 81]\\n\\nMore analysis text...\\n\\n[IMAGE: GEX gamma exposure chart for NVDA]\\n\\nFurther discussion..."
+
+WRONG (no IMAGE tags in body - THIS IS A FAILURE):
+"## Introduction\\nSome text...\\nMore text...\\nConclusion..."
+
+Each [IMAGE: ...] tag must describe what screenshot to capture from signumhq.com.
+The imageGuide array must match these body tags with exact capture locations.`;
 
     const rules: Record<string, string> = {
         naver: `## Naver Blog (Korean)
