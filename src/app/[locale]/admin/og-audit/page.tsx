@@ -62,6 +62,7 @@ const OG_GROUPS = [
       { name: 'Market Close Pin', path: '/templates/og/market-close-pin' },
       { name: 'Pulse Pin', path: '/templates/og/pulse-pin' },
       { name: 'Education Pin', path: '/templates/og/education-pin' },
+      { name: 'SpaceX IPO Pin', path: '/templates/og/spacex-ipo?format=pin' },
     ],
   },
   {

@@ -1355,6 +1355,7 @@ export default function AdminHealthPage() {
                     { name: 'Market Close Pin', path: '/templates/og/market-close-pin' },
                     { name: 'Pulse Pin', path: '/templates/og/pulse-pin' },
                     { name: 'Education Pin', path: '/templates/og/education-pin' },
+                    { name: 'SpaceX IPO Pin', path: '/templates/og/spacex-ipo?format=pin' },
                   ].map(t => (
                     <a key={t.name} href={t.path} target="_blank" rel="noopener"
                       className="block rounded-xl border border-pink-500/20 bg-black/30 overflow-hidden hover:border-pink-400/40 hover:shadow-lg hover:shadow-pink-500/10 transition-all group">

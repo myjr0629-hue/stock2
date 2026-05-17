@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
 import {
   ArrowLeft, Sparkles, Search, Newspaper, Copy, Check,
-  RefreshCw, FileText, Loader2, ChevronDown, ImageIcon
+  RefreshCw, FileText, Loader2, ChevronDown, ImageIcon, MessageCircle, Shield, Megaphone
 } from 'lucide-react';
 
 const ADMIN_EMAILS = (process.env.NEXT_PUBLIC_ADMIN_EMAILS || '').split(',').map(e => e.trim().toLowerCase());
@@ -19,6 +19,13 @@ const PLATFORMS = [
 ] as const;
 
 type PlatformKey = typeof PLATFORMS[number]['key'];
+
+const SUBREDDIT_GROUPS = [
+  { cat: '💰 Finance', subs: ['r/options','r/stocks','r/wallstreetbets','r/investing','r/stockmarket'] },
+  { cat: '💻 Tech', subs: ['r/technology','r/programming','r/datascience','r/machinelearning','r/artificial'] },
+  { cat: '📊 Data', subs: ['r/dataisbeautiful','r/economics','r/finance','r/futurology'] },
+  { cat: '🌐 General', subs: ['r/explainlikeimfive','r/todayilearned'] },
+];
 
 // ── Copy Button ──
 function CopyBtn({ text, label }: { text: string; label: string }) {
@@ -163,6 +170,7 @@ export default function ContentCenterPage() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
   const [adminEmail, setAdminEmail] = useState('');
+  const [topTab, setTopTab] = useState<'blog' | 'reddit'>('blog');
   const [genMode, setGenMode] = useState<'auto' | 'ticker' | 'market'>('auto');
   const [selectedTicker, setSelectedTicker] = useState('NVDA');
   const [showDropdown, setShowDropdown] = useState(false);
@@ -170,6 +178,15 @@ export default function ContentCenterPage() {
   const [generating, setGenerating] = useState<Record<string, boolean>>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [meta, setMeta] = useState<Record<string, any>>({});
+  // Reddit state
+  const [redditSub, setRedditSub] = useState('r/options');
+  const [redditTitle, setRedditTitle] = useState('');
+  const [redditTicker, setRedditTicker] = useState('NVDA');
+  const [karmaMode, setKarmaMode] = useState(true);
+  const [redditComments, setRedditComments] = useState<any[] | null>(null);
+  const [redditGen, setRedditGen] = useState(false);
+  const [redditError, setRedditError] = useState('');
+  const [redditMeta, setRedditMeta] = useState<any>(null);
   const router = useRouter();
 
   useEffect(() => {
@@ -216,11 +233,37 @@ export default function ContentCenterPage() {
   }, [adminEmail, genMode, selectedTicker]);
 
   const generateAll = useCallback(async () => {
-    // Sequential: one platform at a time to avoid Bedrock throttling
     for (const p of PLATFORMS) {
       await generateForPlatform(p.key);
     }
   }, [generateForPlatform]);
+
+  const generateReddit = useCallback(async () => {
+    if (!adminEmail) return;
+    setRedditGen(true);
+    setRedditError('');
+    setRedditComments(null);
+    try {
+      const res = await fetch('/api/admin/reddit-comment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: adminEmail,
+          subreddit: redditSub,
+          postTitle: redditTitle || undefined,
+          ticker: SUBREDDIT_GROUPS[0].subs.includes(redditSub) ? redditTicker : undefined,
+          karmaMode,
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || 'Failed');
+      setRedditComments(json.comments);
+      setRedditMeta({ model: json.model, ms: json.elapsedMs, sub: json.subreddit });
+    } catch (err: any) {
+      setRedditError(err.message);
+    }
+    setRedditGen(false);
+  }, [adminEmail, redditSub, redditTitle, redditTicker, karmaMode]);
 
   if (loading) {
     return (
@@ -245,13 +288,28 @@ export default function ContentCenterPage() {
             <FileText className="w-5 h-5 text-cyan-400" />
             <div>
               <h1 className="text-[18px] font-black tracking-wide">CONTENT COMMAND CENTER</h1>
-              <div className="text-[13px] text-slate-400">플랫폼별 콘텐츠 생성 — 네이버 · 티스토리 · Medium · note.com</div>
+              <div className="text-[13px] text-slate-400">블로그 · Reddit 댓글 생성</div>
             </div>
           </div>
         </div>
       </div>
 
       <div className="max-w-5xl mx-auto px-4 py-6">
+        {/* Top Tab: Blog / Reddit */}
+        <div className="flex gap-2 mb-6">
+          <button onClick={() => setTopTab('blog')}
+            className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-[14px] font-bold transition-all border
+              ${topTab === 'blog' ? 'bg-gradient-to-r from-cyan-500/20 to-emerald-500/20 text-cyan-400 border-cyan-500/30' : 'bg-white/[0.03] text-slate-400 border-white/[0.06] hover:bg-white/[0.06]'}`}>
+            <FileText className="w-4 h-4" /> 📝 블로그 생성
+          </button>
+          <button onClick={() => setTopTab('reddit')}
+            className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-[14px] font-bold transition-all border
+              ${topTab === 'reddit' ? 'bg-gradient-to-r from-orange-500/20 to-red-500/20 text-orange-400 border-orange-500/30' : 'bg-white/[0.03] text-slate-400 border-white/[0.06] hover:bg-white/[0.06]'}`}>
+            <MessageCircle className="w-4 h-4" /> 🟠 Reddit 댓글
+          </button>
+        </div>
+
+        {topTab === 'blog' && (<>
         {/* Mode + Ticker Controls */}
         <div className="flex flex-wrap items-center gap-3 mb-6">
           <button onClick={() => setGenMode('auto')}
@@ -373,6 +431,125 @@ export default function ContentCenterPage() {
             <FileText className="w-14 h-14 opacity-20 mb-5" />
             <div className="text-[16px] font-bold">플랫폼 버튼을 클릭하여 콘텐츠를 생성하세요</div>
             <div className="text-[14px] mt-2">각 플랫폼별로 개별 생성 또는 &quot;전체 생성&quot;으로 순차 실행</div>
+          </div>
+        )}
+        </>)}
+
+        {/* ═══ REDDIT TAB ═══ */}
+        {topTab === 'reddit' && (
+          <div className="space-y-6">
+            {/* Karma/Organic Toggle */}
+            <div className="flex items-center gap-4 p-4 rounded-2xl bg-gradient-to-r from-white/[0.03] to-white/[0.01] border border-white/[0.06]">
+              <button onClick={() => setKarmaMode(true)}
+                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-[14px] font-bold transition-all border
+                  ${karmaMode ? 'bg-yellow-500/15 text-yellow-400 border-yellow-500/30' : 'bg-white/[0.03] text-slate-400 border-white/[0.06]'}`}>
+                <Shield className="w-4 h-4" /> 🛡️ 카르마 모드
+              </button>
+              <button onClick={() => setKarmaMode(false)}
+                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-[14px] font-bold transition-all border
+                  ${!karmaMode ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30' : 'bg-white/[0.03] text-slate-400 border-white/[0.06]'}`}>
+                <Megaphone className="w-4 h-4" /> 🟢 오가닉 모드
+              </button>
+              <div className="text-[12px] text-slate-500 flex-1">
+                {karmaMode ? '홍보 0% — 순수 도움 댓글만 생성 (1~2주차용)' : '자연스러운 signumhq 1회 언급 포함 (3주차~ 용)'}
+              </div>
+            </div>
+
+            {/* Subreddit Selection */}
+            <div className="space-y-3">
+              <div className="text-[13px] font-bold text-slate-400 uppercase tracking-wider">서브레딧 선택</div>
+              {SUBREDDIT_GROUPS.map(g => (
+                <div key={g.cat} className="flex flex-wrap items-center gap-2">
+                  <span className="text-[12px] text-slate-500 w-24 flex-shrink-0">{g.cat}</span>
+                  {g.subs.map(s => (
+                    <button key={s} onClick={() => setRedditSub(s)}
+                      className={`px-3 py-1.5 rounded-lg text-[13px] font-bold transition-all border
+                        ${redditSub === s ? 'bg-orange-500/20 text-orange-400 border-orange-500/30' : 'bg-white/[0.03] text-slate-400 border-white/[0.06] hover:bg-white/[0.06]'}`}>
+                      {s}
+                    </button>
+                  ))}
+                </div>
+              ))}
+            </div>
+
+            {/* Post Title + Ticker */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="text-[13px] font-bold text-slate-400 uppercase tracking-wider mb-2 block">포스트 제목 (선택)</label>
+                <input value={redditTitle} onChange={e => setRedditTitle(e.target.value)}
+                  placeholder="Reddit 포스트 제목 입력..."
+                  className="w-full px-4 py-3 rounded-xl bg-black/30 border border-white/[0.08] text-[14px] text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500/40" />
+              </div>
+              {SUBREDDIT_GROUPS[0].subs.includes(redditSub) && (
+                <div>
+                  <label className="text-[13px] font-bold text-slate-400 uppercase tracking-wider mb-2 block">종목 (금융 서브레딧)</label>
+                  <select value={redditTicker} onChange={e => setRedditTicker(e.target.value)}
+                    className="w-full px-4 py-3 rounded-xl bg-black/30 border border-white/[0.08] text-[14px] text-white focus:outline-none focus:border-cyan-500/40">
+                    {TICKERS.map(t => <option key={t} value={t}>{t}</option>)}
+                  </select>
+                </div>
+              )}
+            </div>
+
+            {/* Generate */}
+            <button onClick={generateReddit} disabled={redditGen}
+              className="flex items-center gap-2 px-6 py-3 rounded-xl text-[15px] font-black transition-all border
+                bg-gradient-to-r from-orange-500/20 to-red-500/20 text-orange-400 border-orange-500/30
+                hover:from-orange-500/30 hover:to-red-500/30 disabled:opacity-50">
+              {redditGen ? <Loader2 className="w-5 h-5 animate-spin" /> : <MessageCircle className="w-5 h-5" />}
+              {redditGen ? '생성 중...' : '댓글 3개 생성'}
+            </button>
+
+            {/* Error */}
+            {redditError && (
+              <div className="px-4 py-3 rounded-xl bg-red-500/10 border border-red-500/20 text-[14px] text-red-400 font-bold">
+                ❌ {redditError}
+              </div>
+            )}
+
+            {/* Results */}
+            {redditComments && (
+              <div className="space-y-4">
+                {redditMeta && (
+                  <div className="text-[13px] text-slate-500">
+                    {redditMeta.sub} · {redditMeta.model} · {redditMeta.ms}ms
+                    {karmaMode && <span className="ml-2 text-yellow-400">🛡️ 카르마 모드</span>}
+                  </div>
+                )}
+                {redditComments.map((c: any, i: number) => (
+                  <div key={i} className="bg-gradient-to-br from-white/[0.04] to-white/[0.01] border border-white/[0.08] rounded-2xl overflow-hidden">
+                    <div className="px-5 py-3 border-b border-white/[0.04] bg-white/[0.02] flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className={`text-[12px] font-bold px-2 py-0.5 rounded-md border
+                          ${c.type === 'analysis' ? 'text-cyan-400 bg-cyan-500/10 border-cyan-500/20' :
+                            c.type === 'quick' ? 'text-amber-400 bg-amber-500/10 border-amber-500/20' :
+                            'text-purple-400 bg-purple-500/10 border-purple-500/20'}`}>
+                          {c.label}
+                        </span>
+                        <span className="text-[11px] text-slate-500">
+                          예상 업보트: {c.upvoteEstimate === 'high' ? '⬆️ 높음' : c.upvoteEstimate === 'medium' ? '↗️ 보통' : '→ 낮음'}
+                        </span>
+                      </div>
+                      <CopyBtn text={c.comment} label="복사" />
+                    </div>
+                    <div className="px-5 py-4 text-[14px] text-slate-200 leading-[1.8] whitespace-pre-wrap">
+                      {c.comment}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Empty */}
+            {!redditComments && !redditGen && !redditError && (
+              <div className="flex flex-col items-center justify-center py-16 text-slate-500">
+                <MessageCircle className="w-14 h-14 opacity-20 mb-5" />
+                <div className="text-[16px] font-bold">서브레딧과 주제를 선택 후 댓글을 생성하세요</div>
+                <div className="text-[14px] mt-2 text-center max-w-md">
+                  {karmaMode ? '카르마 모드: 홍보 없는 순수 도움 댓글만 생성됩니다' : '오가닉 모드: 1개 댓글에 자연스러운 signumhq 언급 포함'}
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>
