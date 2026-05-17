@@ -128,12 +128,12 @@ function buildCloseText(
   const rlsiLine = guardian.rlsi > 0 ? `\nRLSI: ${guardian.rlsi.toFixed(0)}/100` : '';
 
   // 인사이트 본문 (최대 280자 내 맞춤)
-  const insightBody = tacticalInsight ? `\n${insightLabels[lang]}\n${tacticalInsight.substring(0, 250)}` : '';
+  const insightBody = tacticalInsight ? `\n${insightLabels[lang]}\n${tacticalInsight.substring(0, 450)}` : '';
 
   return {
     headline: applyCompliance(headlines[lang]),
     data: applyCompliance(dataLines[lang]),
-    insight: applyCompliance(tacticalInsight.substring(0, 250)),
+    insight: applyCompliance(tacticalInsight.substring(0, 450)),
     full: applyCompliance(`${headlines[lang]}\n\n${dataLines[lang]}${rlsiLine}${insightBody}`),
     disclaimer: DISCLAIMER[lang],
     cta: ctaLabels[lang],

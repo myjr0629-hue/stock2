@@ -99,7 +99,7 @@ function buildMorningText(
   return {
     headline: applyCompliance(headlines[lang]),
     data: applyCompliance(dataLines[lang]),
-    insight: applyCompliance(insight.substring(0, 250)),
+    insight: applyCompliance(insight.substring(0, 450)),
     full: applyCompliance(`${headlines[lang]}\n\n${dataLines[lang]}\n\n🎯 ${insight}`),
     disclaimer: DISCLAIMER[lang],
     cta: ctaLabels[lang],
