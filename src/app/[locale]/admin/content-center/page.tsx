@@ -502,26 +502,46 @@ export default function ContentCenterPage() {
             </div>
 
             {/* Fetch Posts Button */}
-            <button onClick={async () => {
-              setPostsLoading(true); setRedditPosts(null); setSelectedPost(null);
-              try {
-                const cleanSub = redditSub.replace(/^r\//, '');
-                const res = await fetch(`https://www.reddit.com/r/${cleanSub}/hot.json?limit=15&raw_json=1`);
-                const data = await res.json();
-                const posts = (data?.data?.children || []).map((c: any) => {
-                  const p = c.data;
-                  return { id: p.id, title: p.title, url: `https://www.reddit.com${p.permalink}`, score: p.score, numComments: p.num_comments, createdUtc: p.created_utc, author: p.author, flair: p.link_flair_text || null };
-                });
-                const doneUrls = new Set(commentHistory.map(h => h.url).filter(Boolean));
-                setRedditPosts(posts.filter((p: any) => !doneUrls.has(p.url)));
-              } catch (e) { console.error('Reddit fetch error:', e); }
-              setPostsLoading(false);
-            }} disabled={postsLoading}
-              className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-[14px] font-bold transition-all border
-                bg-white/[0.04] text-slate-300 border-white/[0.08] hover:bg-orange-500/10 hover:text-orange-400 disabled:opacity-50">
-              {postsLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
-              {redditSub} 최신 포스트 불러오기
-            </button>
+            <div className="flex items-center gap-3 flex-wrap">
+              <button onClick={async () => {
+                setPostsLoading(true); setRedditPosts(null); setSelectedPost(null); setRedditError('');
+                try {
+                  const res = await fetch(`/api/admin/reddit-posts?sub=${redditSub}&sort=hot&limit=15`);
+                  const json = await res.json();
+                  if (!res.ok) throw new Error(json.error || `HTTP ${res.status}`);
+                  if (json.posts) {
+                    const doneUrls = new Set(commentHistory.map(h => h.url).filter(Boolean));
+                    setRedditPosts(json.posts.filter((p: any) => !doneUrls.has(p.url)));
+                  }
+                } catch (e: any) { setRedditError(`포스트 불러오기 실패: ${e.message}`); }
+                setPostsLoading(false);
+              }} disabled={postsLoading}
+                className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-[14px] font-bold transition-all border
+                  bg-white/[0.04] text-slate-300 border-white/[0.08] hover:bg-orange-500/10 hover:text-orange-400 disabled:opacity-50">
+                {postsLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
+                {redditSub} 최신 포스트 불러오기
+              </button>
+              <a href={`https://www.reddit.com/${redditSub}/new/`} target="_blank" rel="noopener noreferrer"
+                className="flex items-center gap-2 px-4 py-2 rounded-xl text-[13px] font-bold transition-all border
+                  bg-white/[0.03] text-slate-400 border-white/[0.06] hover:bg-orange-500/10 hover:text-orange-400">
+                <ExternalLink className="w-3.5 h-3.5" /> {redditSub} 직접 열기 ↗
+              </a>
+            </div>
+
+            {/* Manual Input Fallback */}
+            <div className="flex items-center gap-3">
+              <input value={redditTitle} onChange={e => { setRedditTitle(e.target.value); setSelectedPost(null); }}
+                placeholder="또는 포스트 제목 직접 입력..."
+                className="flex-1 px-4 py-2.5 rounded-xl bg-black/30 border border-white/[0.08] text-[13px] text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500/40" />
+              {redditTitle && !selectedPost && (
+                <button onClick={generateReddit} disabled={redditGen}
+                  className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-[13px] font-bold transition-all border
+                    bg-gradient-to-r from-orange-500/20 to-red-500/20 text-orange-400 border-orange-500/30 disabled:opacity-50">
+                  {redditGen ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <MessageCircle className="w-3.5 h-3.5" />}
+                  댓글 생성
+                </button>
+              )}
+            </div>
 
             {/* Post List */}
             {redditPosts && redditPosts.length > 0 && (
