@@ -54,11 +54,18 @@ export async function GET(req: NextRequest) {
                 }
             }
 
-            // 2. Fetch Options Chain — Call + Put separately (Polygon sorts alphabetically, limit=250 may miss puts)
+            // 2. Fetch Options Chain — Call + Put separately
+            // [FIX] Add strike_price filter for wide-chain tickers (TSLA, AMZN, etc.)
+            // Without filter, limit=250 fills from lowest strikes ($50+) and never reaches ATM ($400+)
             const todayStr = et.dateString;
+            const strikeLo = underlyingPrice > 0 ? Math.floor(underlyingPrice * 0.80) : 0;
+            const strikeHi = underlyingPrice > 0 ? Math.ceil(underlyingPrice * 1.20) : 99999;
+            const strikeFilter = underlyingPrice > 0
+                ? `&strike_price.gte=${strikeLo}&strike_price.lte=${strikeHi}`
+                : '';
             const [callChainRes, putChainRes] = await Promise.all([
-                fetchMassiveWithRetry(`/v3/snapshot/options/${ticker}?expiration_date.gte=${todayStr}&contract_type=call&limit=250`, 3),
-                fetchMassiveWithRetry(`/v3/snapshot/options/${ticker}?expiration_date.gte=${todayStr}&contract_type=put&limit=250`, 3),
+                fetchMassiveWithRetry(`/v3/snapshot/options/${ticker}?expiration_date.gte=${todayStr}&contract_type=call&limit=250${strikeFilter}`, 3),
+                fetchMassiveWithRetry(`/v3/snapshot/options/${ticker}?expiration_date.gte=${todayStr}&contract_type=put&limit=250${strikeFilter}`, 3),
             ]);
 
             const callContracts = callChainRes.success && callChainRes.data?.results ? callChainRes.data.results : [];
