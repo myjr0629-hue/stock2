@@ -581,11 +581,170 @@ Raw HTTP 응답 검증:
 >
 > 🔴 **5중 캐시 레이어 인지**: CDN Edge → Memory LRU → Redis → DynamoDB → EC2. 어느 한 레이어만 수정하면 다른 레이어에서 stale 데이터가 서빙됨. 수정 시 **모든 레이어의 쓰기+읽기 경로를 동시에 추적**할 것.
 
-### 5.3 마케팅 자동화 엔진 (2026-05-12 기준 — LIVE)
+### 5.3 마케팅 자동화 엔진
 
-> **상태**: ✅ **전 파이프라인 LIVE**. 모든 크론 `dry_run=false` 실가동.
-> **이미지**: ✅ EC2 Puppeteer 전용 (Satori 완전 삭제 — 2026-05-12).
-> **Shorts/Reels**: ✅ Remotion **V3 Hybrid** 6씬 파이프라인 완성 (2026-05-12). Dynamic Top Ticker + AI 인사이트 + 전 데이터 연결.
+> **V2 아키텍처 LIVE** (2026-05-17). V1 레거시 삭제 완료.
+> **이미지**: EC2 Puppeteer 전용 (Satori 완전 삭제).
+> **Shorts/Reels**: Remotion V3 Hybrid 6씬 파이프라인 완성 (2026-05-12).
+
+#### 5.3.0 V2 마케팅 파이프라인 (2026-05-17 LIVE)
+
+> **상태**: ✅ **8개 슬롯 전체 vercel.json 등록**, 프로덕션 `dry_run=false` 실가동.
+> **V1 레거시**: ✅ 완전 삭제 (2026-05-16). `marketing-dispatch/route.ts` (137KB) 삭제, 크론 10개 제거.
+> **채널**: X(3) + Threads(3) + IG(1 EN only, KO/JA 정지) + Bluesky(1) + Pinterest(1) = **10개 활성**
+> **일일 발행량**: **50 posts/day** (7 auto draft 포함)
+
+##### V2 3-Layer 모듈 아키텍처
+
+```
+src/lib/marketing-v2/
+├── core/           ← Layer 1: 공통 인프라 (7파일)
+│   ├── types.ts        ContentPackage, SendResult, Platform, Lang
+│   ├── data.ts         Redis 데이터 수집 통합 (fetchMarketSnapshot, fetchGuardianVerdicts, fetchTickerData)
+│   ├── images.ts       이미지 캡처 풀 + PIN_TEMPLATE_OVERRIDE
+│   ├── hashtags.ts     플랫폼별 해시태그
+│   ├── compliance.ts   디스클레이머 + truncateWithTags (안전마진 3/4)
+│   ├── channels.ts     Buffer 채널 ID (enabled 플래그로 비활성 관리)
+│   └── store.ts        Redis dedup lock (acquireLock — Upstash SET NX EX 86400)
+│
+├── prepare/        ← Layer 2: 슬롯별 패키징 (7 슬롯)
+│   ├── pulse.ts        ★ Guardian AI + GEX fallback
+│   ├── morning.ts      ★ Guardian AI + JA→KO fallback
+│   ├── close.ts        ★ Guardian AI + JA→KO fallback
+│   ├── education.ts
+│   ├── spacex.ts       ★ news[lang] 우선 사용
+│   ├── spotlight.ts    ★ Bedrock AI 종목별 맞춤 분석 3개국어
+│   └── event.ts        ★ Bedrock AI 이벤트 맞춤 분석 3개국어
+│
+├── platforms/      ← Layer 3: 플랫폼 어댑터 (6 플랫폼)
+│   ├── base.ts         ★ Dedup lock + Weighted CJK char count (X only)
+│   ├── twitter.ts      280 weighted (CJK=2)
+│   ├── threads.ts      500 chars
+│   ├── bluesky.ts      300 chars
+│   ├── instagram.ts    ★ sendFeed() 방식, KO/JA enabled:false
+│   ├── pinterest.ts    500 chars + Pin title
+│   └── telegram.ts     (비활성)
+
+src/app/api/cron/dispatch-v2/   ← 크론 라우트 (7 슬롯)
+├── _shared.ts          인증 + dispatchToAll() + buildResponse()
+├── morning/route.ts
+├── pulse/route.ts
+├── market-close/route.ts
+├── education/route.ts
+├── spacex/route.ts
+├── spotlight/route.ts  ★ 체인 트윗 3종목 순차 (NVDA→TSLA→AAPL...)
+└── event/route.ts      ★ event-detect 트리거 + URL 파라미터 입력
+```
+
+##### V2 프로덕션 스케줄 (vercel.json 등록, 2026-05-17)
+
+```
+평일 (화~금 KST):
+  KST 03:00 │ ET 18:00 │ 🚀 SpaceX EN           4ch  │ 0 18 * * 1-5
+  KST 04:30 │ ET 19:30 │ 📚 교육                 9ch  │ 30 19 * * 1-5
+  KST 06:00 │ ET 21:00 │ 🇺🇸 US 장마감           5ch  │ 0 21 * * 1-5
+  KST 08:00 │ ET 23:00 │ 🇰🇷🇯🇵 아시아 장마감      4ch  │ 0 23 * * 1-5
+  KST 12:00 │ UTC 03:00│ 🚀 SpaceX 아시아        4ch  │ 0 3 * * 1-6
+  KST 21:00 │ UTC 12:00│ 🌅 모닝 브리핑           9ch  │ 0 12 * * 1-6
+  KST 23:00 │ UTC 14:00│ 📊 마켓 펄스            8ch  │ 0 14 * * 1-5
+  KST 00:15 │ UTC 15:15│ 🔬 스팟라이트(draft)   21ch  │ 15 15 * * 1-5
+  실시간      │         │ ⚡ 이벤트(event-detect)  7ch  │ cron 없음
+
+토요일 KST: 03:00 SpaceX EN ~ 21:00 모닝 브리핑까지 → STOP
+일요일 KST: ⛔ 전체 정지
+월요일 KST: 12:00 SpaceX 아시아부터 재개 (03:00~08:00 스킵)
+```
+
+##### 🔴 중복 발행 방지 (Dedup Lock — Threads 블록 방지 최우선)
+
+> **Threads 계정이 중복 발행으로 정지된 이력 있음. 이 방어는 절대 해제하지 말 것.**
+
+```
+Lock Key: mktv2:lock:{slot}:{platform}_{lang}_{live|draft}[_{ticker}]:${date}
+예시:     mktv2:lock:morning:twitter_en_live:2026-05-17
+          mktv2:lock:spotlight:threads_ko_draft_NVDA:2026-05-17
+
+방어 원리:
+1. Upstash SET NX EX 86400 (atomic) — 키 없으면 OK(발행), 있으면 null(차단)
+2. 라이브 + 드래프트 모두 dedup 적용 (draft도 중복 차단)
+3. Redis 에러 시 발송 차단 (안전한 방향, false 반환)
+4. Spotlight은 ticker별 별도 lock (체인 트윗 3종목 허용)
+5. TTL 24시간 — 같은 날 같은 슬롯은 절대 2회 발행 불가
+6. Vercel cron 재시도, 수동 호출 모두 자동 차단
+```
+
+##### IG KO/JA 정지 상태 (2026-05-16)
+
+```
+Instagram KO/JA 채널: enabled: false (channels.ts)
+├── 정지 해제 시: channels.ts에서 enabled: true로 원복
+├── dispatch 시: "No IG channel" 에러 반환 (시스템 안전)
+└── 영향: 아시아 장마감 6→4ch, 모닝 10→9ch
+```
+
+##### AI 분석 엔진 (Bedrock Haiku 3.5)
+
+| 슬롯 | 데이터 소스 | AI 분석 |
+|:-----|:----------|:--------|
+| **모닝/펄스/장마감** | `fetchGuardianVerdicts()` → Redis `guardian:ai_verdict:{lang}` | Guardian TACTICAL INSIGHT (EC2 worker 생성) |
+| **스팟라이트** | `fetchTickerData()` + `fetchMarketSnapshot()` → Bedrock Haiku | 종목별 SF/DP/GEX/IV 맞춤 분석 2-3문장 × 3개국어 |
+| **이벤트** | event input (type/ticker/magnitude/details) → Bedrock Haiku | 이벤트 맥락 분석 2-3문장 × 3개국어 |
+| **SpaceX** | `news[lang]` (AI 번역 뉴스) + fallback `news.en` | AI 번역 뉴스 데이터 사용 |
+| **교육** | Redis `marketing:education:*` | 사전 생성 콘텐츠 |
+
+> **JA Fallback 정책**: `guardian.ja` → `guardian.ko` → `guardian.en` 순서. JA Redis 데이터가 NULL이면 KO 사용.
+> **insight 사전 절단**: 250→450자로 확대 (Pinterest 500자 활용). 각 어댑터의 `truncateWithTags`가 최종 절단.
+
+##### 플랫폼별 글자 제한 및 특수 로직
+
+| 플랫폼 | 한도 | 특수 로직 |
+|:------|:----:|:---------|
+| X (Twitter) | 280 weighted | CJK 문자 2배 가중치 (`truncateWeighted` in base.ts) |
+| Threads | 500 | 일반 `string.length` |
+| Bluesky | 300 | 일반 `string.length` |
+| Instagram | - | `sendFeed()` 별도 경로, KO/JA `enabled:false` |
+| Pinterest | 500 | Pin title + description, 세로 이미지 |
+
+> **truncateWithTags 안전마진**: 문장 단위=3, 단어 단위=4 (기존 6/8에서 축소)
+> **CTA**: 전 플랫폼 UTM 없는 클린 URL (`https://www.signumhq.com/intel-guardian` 또는 `/ticker?ticker={TICKER}`)
+
+##### Spotlight 체인 트윗 (3종목 순차 Draft)
+
+```
+route.ts에서 prepareSpotlight() 3회 순차 호출:
+  1. NVDA (MAIN) → 7채널 draft
+  2. TSLA (CHAIN_1) → 7채널 draft (dedup: ticker별 별도 lock)
+  3. AAPL (CHAIN_2) → 7채널 draft
+총 21개 draft → 유저가 체인 트윗으로 조합 후 수동 발행
+
+종목 선택: Redis dedup 라운드로빈 (SPOTLIGHT_POOL 10종목)
+  → mktv2:spotlight:used:{date}:{ticker} 키로 당일 사용 추적
+  → 모두 소진 시 랜덤
+```
+
+##### vercel.json 크론 (UTC, 2026-05-17 등록)
+
+```json
+{ "path": "/api/cron/dispatch-v2/spacex?region=en&dry_run=false",                    "schedule": "0 18 * * 1-5" },
+{ "path": "/api/cron/dispatch-v2/education?region=all&dry_run=false",                 "schedule": "30 19 * * 1-5" },
+{ "path": "/api/cron/dispatch-v2/market-close?region=en&dry_run=false",               "schedule": "0 21 * * 1-5" },
+{ "path": "/api/cron/dispatch-v2/market-close?region=asia&dry_run=false",             "schedule": "0 23 * * 1-5" },
+{ "path": "/api/cron/dispatch-v2/spacex?region=asia&dry_run=false",                   "schedule": "0 3 * * 1-6" },
+{ "path": "/api/cron/dispatch-v2/morning?region=all&dry_run=false",                   "schedule": "0 12 * * 1-6" },
+{ "path": "/api/cron/dispatch-v2/pulse?region=all&dry_run=false",                     "schedule": "0 14 * * 1-5" },
+{ "path": "/api/cron/dispatch-v2/spotlight?region=all&dry_run=false&draft=true",       "schedule": "15 15 * * 1-5" }
+```
+
+##### 주의사항 (MUST READ)
+
+> 🔴 **Threads 중복 발행 금지**: acquireLock 로직을 수정하거나 비활성화하면 Threads 계정 재정지 위험.
+> 🔴 **IG KO/JA 활성화**: 정지 해제 시 `channels.ts`에서 `enabled: true`로 변경 후 배포.
+> 🔴 **JA Guardian 데이터**: 현재 Redis에 JA verdict 미생성. KO fallback 사용 중. EC2 Guardian Worker의 JA polling 주기 보강 필요.
+> 🔴 **Spotlight draft는 항상 draft=true**: vercel.json URL에 `&draft=true` 필수. 라이브 발행 시 중복 위험.
+> 🔴 **일요일 전체 정지**: vercel.json day-of-week `1-5` 또는 `1-6`으로 일요일(0) 제외됨.
+> 🔴 **월요일 03:00~08:00 스킵**: SpaceX EN/교육/US장마감/아시아장마감은 화~토만 실행 (금요일 데이터 기반).
+
+---
 
 #### 5.3.9 Remotion 쇼츠 파이프라인 (V3 Hybrid — 2026-05-12 완성)
 
@@ -5458,8 +5617,12 @@ Lambda Step 5: recordCloseAndBackfill()
 
 ## 18. Buffer 마케팅 자동화 엔진
 
-> [!WARNING]
-> **현재 상태 (2026-04-27)**: Draft 테스트 진행 중. 텍스트 기반 채널 성공, 이미지 첨부 실패 (OG 동적 이미지 ↔ Buffer 서버 타임아웃). 완전 오버홀 진행 예정.
+> [!CAUTION]
+> **⛔ 레거시 (2026-05-16 폐기)**: 이 섹션의 코드는 V2 마이그레이션으로 **전량 삭제**됨.
+> 현재 운영 중인 마케팅 시스템은 **§26 (마케팅 V2 파이프라인)**을 참조하세요.
+> 이 섹션은 역사 기록 및 아키텍처 결정의 맥락 보존용으로만 유지합니다.
+>
+> [이전 상태 (2026-04-27)]: Draft 테스트 진행 중. 텍스트 기반 채널 성공, 이미지 첨부 실패 (OG 동적 이미지 ↔ Buffer 서버 타임아웃). 완전 오버홀 진행 예정.
 > **롤백**: `vercel.json`에서 `&dry_run=false`를 제거 후 재배포하면 즉시 DRY_RUN 모드로 복귀.
 
 ### 18.1 파일 구조
@@ -6525,7 +6688,12 @@ V6.0:  데이터 → 실증 → 코드 → "28,802쌍이 증명했다"
 
 ## 24. 마케팅 자동화 엔진 (2026-05-10 기준 — Switch-Ready)
 
-> **상태**: 전 코드 완성, `dry_run=true` 대기. `dry_run=false` 전환 시 즉시 가동.
+> [!CAUTION]
+> **⛔ 레거시 (2026-05-16 폐기)**: 이 섹션의 모놀리식 마케팅 코드(137KB `route.ts`)는 V2 마이그레이션으로 **완전 삭제**됨.
+> 현재 운영 중인 마케팅 시스템은 **§26 (마케팅 V2 파이프라인)**을 참조하세요.
+> 이 섹션은 역사 기록 및 아키텍처 결정의 맥락 보존용으로만 유지합니다.
+>
+> [이전 상태]: 전 코드 완성, `dry_run=true` 대기. `dry_run=false` 전환 시 즉시 가동.
 > **Shorts/Reels**: ✅ Remotion V2 Premium 파이프라인 구축 완료 (§25 참조).
 
 ### 24.1 핵심 파일 구조
@@ -6768,117 +6936,231 @@ npm run remotion:deploy-site
 
 # 3. Lambda 함수 자체는 재배포 불필요 (버전 변경 시만)
 
+```
+
 ---
 
-## 26. 마케팅 V2 파이프라인 (2026-05-16 기준 — Draft QA 진행 중)
+## 26. 마케팅 V2 파이프라인 (SSoT — 2026-05-16 최종 업데이트)
 
-> **아키텍처**: 레거시 모놀리식(§18,§24) 제거 → 3-Layer 모듈러 구조 (Core → Prepare → Platforms)
-> **상태**: 슬롯별 Draft 테스트 중. 검증 완료 시 개별 라이브 전환.
-> **주말**: 현재 미설정. 기본 스케줄 안정화 후 별도 추가 예정.
-> **참조**: 레거시 §18, §24는 역사 기록용으로 보존. V2가 SSoT.
+> **이 섹션이 마케팅 시스템의 Single Source of Truth(SSoT)입니다.**
+> **레거시 §18, §24는 역사 기록용으로만 보존. 현재 코드와 무관합니다.**
+> **레거시 모놀리식 `marketing-dispatch/route.ts` (137KB)는 완전 삭제됨.**
 
-### 26.1 V2 아키텍처 (3-Layer)
+### 26.1 V1→V2 마이그레이션 완료 (2026-05-16)
+
+#### 삭제된 레거시 파일 (총 216KB)
+| 파일 | 크기 | V2 대체 |
+|:-----|:----:|:--------|
+| `api/cron/marketing-dispatch/route.ts` | 137KB | `dispatch-v2/*` 7개 라우트 |
+| `lib/marketing/hashtagEngine.ts` | 20KB | `marketing-v2/core/hashtags.ts` |
+| `lib/marketing/bufferMultiClient.ts` | 23KB | `marketing-v2/platforms/*` |
+| `lib/marketing/imagePrerenderer.ts` | 5KB | `marketing-v2/core/images.ts` |
+| `lib/marketing/realtimeContent.ts` | 26KB | `marketing-v2/prepare/*` |
+| `lib/marketing/telegramClient.ts` | 5KB | `marketing-v2/platforms/telegram.ts` |
+
+#### 유지 중인 레거시 유틸 (V2가 아직 의존)
+| 파일 | 용도 |
+|:-----|:-----|
+| `lib/marketing/bufferClient.ts` | Buffer API `createPost()` — V2 플랫폼 어댑터가 import |
+| `lib/marketing/screenshotService.ts` | EC2 캡처 라우팅 — V2 images.ts와 병행 |
+| `lib/marketing/contentEngines.ts` | `daily-content`, `event-detect`에서 사용 |
+| `lib/marketing/aiContentEngine.ts` | AI 콘텐츠 생성 (Haiku 4.5) |
+
+### 26.2 V2 아키텍처 (3-Layer 모듈러)
 
 ```
-Layer 1: Core (src/lib/marketing-v2/core/)
-  types.ts / store.ts / images.ts / data.ts / compliance.ts / hashtags.ts / channels.ts
+[Cron Trigger] → [Dispatch Route] → [Prepare Module] → [Platform Adapters] → [Buffer API]
+                   dispatch-v2/       prepare/            platforms/
+                   _shared.ts         morning.ts          twitter.ts
+                   morning/route.ts   spacex.ts           threads.ts
+                   spacex/route.ts    education.ts        bluesky.ts
+                   education/route.ts spotlight.ts        instagram.ts
+                   ...                pulse.ts            pinterest.ts
+                                      close.ts            base.ts
 
-Layer 2: Prepare (src/lib/marketing-v2/prepare/)
-  morning.ts / spacex.ts / education.ts / spotlight.ts / pulse.ts / close.ts
-
-Layer 3: Platforms (src/lib/marketing-v2/platforms/)
-  twitter.ts / threads.ts / bluesky.ts / instagram.ts / pinterest.ts / base.ts
-
-Dispatch: src/app/api/cron/dispatch-v2/_shared.ts → dispatchToAll()
-Routes:   src/app/api/cron/dispatch-v2/{slot}/route.ts
+Core Infrastructure (marketing-v2/core/):
+  types.ts      — ContentPackage, ContentSlot, ImageFormat, Lang
+  store.ts      — Atomic SET NX dedup lock (24h TTL)
+  images.ts     — EC2 캡처 → Supabase CDN 업로드
+  data.ts       — Redis 데이터 fetch (SPY/VIX/GEX/DP/FGI)
+  compliance.ts — 컴플라이언스 필터 + CTA 빌더
+  hashtags.ts   — 플랫폼별 해시태그 (X:2개, IG:15개)
+  channels.ts   — Buffer 채널 ID 레지스트리 (13채널)
 ```
 
-### 26.2 슬롯별 진행 상황
+### 26.3 슬롯별 Draft QA 진행 상황
 
-| # | 슬롯 | 채널 수 | 언어 | Draft | 라이브 | 비고 |
-|:-:|:-----|:------:|:----:|:----:|:-----:|:-----|
-| 1 | SpaceX EN | 4 | EN | PASS | LIVE | `0 18 * * 1-5` (KST 03:00) |
-| 2 | Education | 11 | ALL | PASS | 대기 | IG 5장 캐러셀, 16:9 OG 분리 완료 |
-| 3 | Morning | ? | ALL | 미진행 | — | |
-| 4 | Close | ? | ALL | 미진행 | — | |
-| 5 | Pulse | ? | ALL | 미진행 | — | |
-| 6 | Spotlight | ? | ALL | 미진행 | — | |
-| 7 | Event | ? | ALL | 미진행 | — | |
+| # | 슬롯 | 플랫폼 | 언어 | Draft 테스트 | 라이브 크론 | 비고 |
+|:-:|:-----|:------|:----:|:----------:|:----------:|:-----|
+| ① | 🚀 SpaceX EN | X, Threads, Bluesky, Pinterest | EN | ✅ 2회 PASS | ✅ `0 18 * * 1-5` (KST 03:00) | `dry_run=false` |
+| ② | 📚 Education | X, Threads, Bluesky, IG, Pinterest | ALL (EN/KO/JA) | ✅ 2회 PASS (11/11) | ⏳ 검증 대기 | IG 5장 캐러셀 |
+| ③ | 🇺🇸 미국 장마감 | — | EN | 🔴 미완료 (진행 중) | — | 다음 테스트 |
+| ④ | 🌏 아시아 장마감 | — | KO/JA | ⏳ 미진행 | — | |
+| ⑤ | 🌅 모닝 브리핑 | — | ALL | ⏳ 미진행 | — | |
+| ⑥ | 📊 펄스 | — | ALL | ⏳ 미진행 | — | |
+| ⑦ | 🔍 스팟라이트 | — | ALL | ⏳ 미진행 | — | |
+| ⑧ | 🚀 SpaceX Asia | — | KO/JA | ⏳ 미진행 | — | |
 
-### 26.3 이미지 포맷 매핑 (슬롯 x 포맷)
+### 26.4 확정 스케줄 (V2 전체 — QA 완료 후 순차 활성화)
 
-| 슬롯 | tweet | og | pin | carousel | story | square |
-|:-----|:---:|:---:|:---:|:---:|:---:|:---:|
-| morning | O | O | O | - | O | O |
-| close | O | O | O | O | - | - |
-| spacex | O | O | O | - | - | - |
-| education | O | O | O | O(5장) | - | - |
-| pulse | O | O | O | - | - | - |
-| spotlight | O | O | - | - | - | - |
-| event | O | O | - | - | - | - |
+> 원본 소스: `v2_schedule.md.resolved` (대화 d62977a9)
 
-**플랫폼별 사용 포맷**: X=tweet, Threads=og, Bluesky=tweet, IG Feed=carousel/square, IG Story=story, Pinterest=pin
+| # | 슬롯 | UTC | KST | ET | 요일 | 채널 수 | 언어 | 비고 |
+|:-:|:-----|:----|:----|:---|:----:|:------:|:----:|:-----|
+| ① | 🚀 SpaceX EN | 18:00 | 03:00 | 14:00 | 월~금 | 4 | EN | 장중 |
+| ② | 📚 교육 콘텐츠 | 19:30 | 04:30 | 15:30 | 월~금 | 9 | ALL | IG Carousel + Pin |
+| ③ | 🇺🇸 미국 장마감 | 21:00 | 06:00 | 17:00 | 월~금 | 5 | EN | 장마감 1시간 후 |
+| ④ | 🇰🇷🇯🇵 아시아 장마감 | 23:00 | 08:00 | 19:00 | 일~목 | 6 | KO/JA | |
+| ⑤ | 🚀 SpaceX Asia | 03:00 | 12:00 | 23:00 | 월~금 | 4 | KO/JA | 아시아 낮 |
+| ⑥ | 🌅 모닝 브리핑 | 12:00 | 21:00 | 08:00 | 일~목 | 10 | ALL | US 장 시작 전 |
+| ⑦ | 📊 마켓 펄스 | 14:30 | 23:30 | 10:30 | 월~금 | 8 | ALL | 장시작 1시간 후 |
+| ⑧ | 🔬 스팟라이트 | 16:30 | 01:30 | 12:30 | 월~금 | 7 | ALL | **Draft only** |
+| ⑨ | ⚡ 이벤트 | 실시간 | 실시간 | 실시간 | — | 7 | ALL | 이벤트 감지 시 |
 
-### 26.4 OG 템플릿 경로
+**일일 합계: 53 posts/day** (스팟라이트 7개는 Draft → 수동 발행)
+**최소 간격: 1.5시간**
 
-| 경로 | 용도 | 사이즈 |
-|:-----|:-----|:------|
-| /templates/og/morning | Morning 16:9 | 1200x675 |
-| /templates/og/morning-pin | Morning Pin | 1000x1500 |
-| /templates/og/morning-ig | Morning IG | 1080x1080 |
-| /templates/og/market-close | Close 16:9 | 1200x675 |
-| /templates/og/spacex-ipo | SpaceX 16:9 | 1200x675 |
-| /templates/og/education | Education 16:9 (X/Threads/Bluesky) | 1200x630 |
-| /templates/og/education-carousel | Education IG (?slide=1~5) | 1080x1080 x5 |
-| /templates/og/education-pin | Education Pin | 1000x1500 |
-| /templates/og/spotlight | Spotlight 16:9 | 1200x675 |
-| /templates/og/pulse | Pulse 16:9 | 1200x675 |
+> **주말**: 현재 미설정. 기본 스케줄 안정화 후 별도 추가 예정 (Education만 주말 후보).
+> **vercel.json 크론 작성 시**: `&dry_run=false` 추가 필수. 기본값은 `true` (안전).
 
-### 26.5 Pinterest Destination Link
+### 26.5 플랫폼별 글자수·이미지 매핑
 
-| 슬롯 | URL |
-|:-----|:----|
-| SpaceX | signumhq.com/ticker?ticker=TSLA |
-| Spotlight | signumhq.com/ticker?ticker={동적} |
-| Education | signumhq.com/how-it-works |
-| 기타 (Morning/Close/Pulse/Event) | signumhq.com/intel-guardian |
+| 플랫폼 | 글자수 | 이미지 포맷 | 언어 | 특이사항 |
+|:-------|:------:|:-----------|:----:|:---------|
+| X (Twitter) | 280자 | tweet (1200×675) | EN/KO/JA | `truncateWithTags()` 해시태그 보존 |
+| Threads | 500자 | og (1200×675) | EN/KO/JA | |
+| Bluesky | 300자 | tweet (1200×675) | EN만 | |
+| Instagram | 2,200자 | carousel (1080×1080) or story (1080×1920) | EN/KO/JA | `sendFeed()` 사용, instagramMeta 필수 |
+| Pinterest | 500자 | pin (1000×1500) | EN만 | destination link 필수 |
 
-모두 utm_source=pinterest 자동 부착.
+### 26.6 OG 템플릿 현황 (15개 디렉토리)
 
-### 26.6 중복 발행 방지 (Dedup Lock)
+| # | 경로 | 용도 | 사이즈 | 상태 |
+|:-:|:-----|:-----|:------|:----:|
+| 1 | `/templates/og/morning` | Morning 16:9 (X/Threads/Bluesky) | 1200×675 | ✅ |
+| 2 | `/templates/og/morning-pin` | Morning Pin (Pinterest) | 1000×1500 | ✅ 신규 |
+| 3 | `/templates/og/morning-ig` | Morning IG (Instagram Square) | 1080×1080 | ✅ |
+| 4 | `/templates/og/market-close` | Close 16:9 (X/Threads/Bluesky) | 1200×675 | ✅ |
+| 5 | `/templates/og/market-close-pin` | Close Pin (Pinterest) | 1000×1500 | ✅ |
+| 6 | `/templates/og/market-close-ig` | Close IG | 1080×1080 | ✅ |
+| 7 | `/templates/og/pulse` | Pulse 16:9 (X/Threads/Bluesky) | 1200×675 | ✅ |
+| 8 | `/templates/og/pulse-pin` | Pulse Pin (Pinterest) | 1000×1500 | ✅ 신규 |
+| 9 | `/templates/og/spotlight` | Spotlight 16:9 (X/Threads/Bluesky) | 1200×675 | ✅ 교체 |
+| 10 | `/templates/og/spacex-ipo` | SpaceX 16:9 | 1200×675 | ✅ |
+| 11 | `/templates/og/education` | Education 16:9 (X/Threads/Bluesky) | 1200×630 | ✅ |
+| 12 | `/templates/og/education-carousel` | Education IG Carousel (slide 1~5) | 1080×1080 ×5 | ✅ |
+| 13 | `/templates/og/education-pin` | Education Pin (Pinterest) | 1000×1500 | ✅ |
+| 14 | `/templates/og/event` | Event Alert 16:9 | 1200×675 | ✅ |
+| 15 | `/templates/og/carousel` | 범용 Carousel | 1080×1080 | ✅ |
 
-- **방식**: Upstash SET key NX EX 86400 (Atomic)
-- **TTL**: 24시간
-- **키**: mktv2:lock:{slot}:{platform}_{lang}:{date}
-- **Redis 에러/미설정 시**: return false (발송 차단)
-- **배경**: Threads 블록 사건으로 인해 안전 방향 강화
+### 26.7 이미지 캡처 파이프라인
 
-### 26.7 현재 활성 크론
+```
+[Prepare Module] → captureImagesForSlot(slot, data, date)
+  → SLOT_IMAGE_MAP에서 필요 포맷 결정
+  → PIN_TEMPLATE_OVERRIDE: pin → 전용 세로 템플릿 (market-close-pin, pulse-pin 등)
+  → SQUARE_TEMPLATE_OVERRIDE: square → 전용 IG 템플릿 (morning-ig 등)
+  → EC2 Puppeteer 캡처 (ws.signumhq.com/capture, POST)
+  → Supabase Storage 업로드 (marketing-assets 버킷)
+  → CDN URL 반환 → ContentPackage.images[format]
+```
 
-| 크론 | 스케줄 | 상태 |
+**IG 캐러셀 (Education):**
+```
+captureCustomImage('education-carousel', 'carousel', { topic, slide: '1' }) × 5장
+→ carouselSlides: string[] 배열
+→ Buffer createPost({ mediaUrls: [...] }) — 멀티이미지
+```
+
+### 26.8 Pinterest Destination Link 정책
+
+| 슬롯 | Destination URL |
+|:-----|:----------------|
+| SpaceX | `signumhq.com/ticker?ticker=TSLA` |
+| Spotlight | `signumhq.com/ticker?ticker={동적 티커}` |
+| Education | `signumhq.com/how-it-works` |
+| Morning / Close / Pulse / Event | `signumhq.com/intel-guardian` |
+
+> 모든 링크에 `utm_source=pinterest&utm_medium=social&utm_campaign={슬롯}` 자동 부착.
+> Pinterest adapter에서 자체 생성 — prepare의 ctaFull 사용하지 않음.
+
+### 26.9 중복 발행 방지 (Atomic Dedup Lock)
+
+```
+파일: src/lib/marketing-v2/core/store.ts
+
+방식: Upstash redis.set(key, value, { nx: true, ex: 86400 })
+     → Atomic SET NX — 키 없으면 설정 + true, 있으면 null
+
+키 패턴: mktv2:lock:{slot}:{platform}_{lang}:{date}
+예시:    mktv2:lock:spacex:threads_en:2026-05-16
+
+TTL: 24시간 (86400초)
+Redis 에러 시: return false (발송 차단 — 안전 방향)
+Redis 미설정 시: return false (발송 차단)
+
+배경: Threads 중복 발행 → 계정 블록 사건으로 인해 최대 안전 강화
+```
+
+### 26.10 현재 프로덕션 vercel.json 크론 (마케팅)
+
+| 경로 | 스케줄 | 상태 |
 |:-----|:------|:----:|
-| dispatch-v2/spacex?region=en&dry_run=false | 0 18 * * 1-5 | LIVE |
+| `/api/cron/dispatch-v2/spacex?region=en&dry_run=false` | `0 18 * * 1-5` | 🟢 LIVE |
 
-### 26.8 Switch-ON 절차
+> 나머지 슬롯은 아직 vercel.json에 미등록. 수동 URL 호출로 Draft QA 진행 중.
 
-1. ?dry_run=false&draft=true&secret=XXX 호출
-2. Buffer Drafts QA (이미지/텍스트/링크/글자수)
-3. 수정 → 재테스트
-4. vercel.json에 크론 추가 → git push
-5. 24시간 모니터링
-
-### 26.9 향후 계획
-
-| 순서 | 작업 | 상태 |
-|:----:|:-----|:----:|
-| 1 | 나머지 슬롯 Draft QA | 진행중 |
-| 2 | QA 통과 슬롯 순차 라이브 | 대기 |
-| 3 | 주말 전용 스케줄 | 계획 |
-| 4 | Event Detect 연동 | 계획 |
-| 5 | Remotion 쇼츠 연동 (§25) | 계획 |
-
-### 26.10 환경 변수
-
-BUFFER_ACCESS_TOKEN, BUFFER_ORGANIZATION_ID, CRON_SECRET, EC2_CAPTURE_URL, NEXT_PUBLIC_BASE_URL, NEXT_PUBLIC_SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY
+### 26.11 수동 테스트 URL 패턴
 
 ```
+https://www.signumhq.com/api/cron/dispatch-v2/{슬롯}?region={en|asia|all}&dry_run=false&draft=true&secret={CRON_SECRET}
+```
+
+| 파라미터 | 값 | 설명 |
+|:---------|:---|:-----|
+| `dry_run` | `true`(기본) / `false` | true면 데이터 패키징만, false면 Buffer 발송 |
+| `draft` | `true` / `false`(기본) | true면 Buffer Draft에만 저장 (실발행 안 됨) |
+| `region` | `en` / `asia` / `all` | 언어 필터 |
+| `secret` | `.env.vercel`의 `CRON_SECRET` | Vercel cron은 자동 인증, 수동 호출 시 필수 |
+
+### 26.12 Switch-ON 절차 (슬롯별 라이브 전환)
+
+1. `?dry_run=false&draft=true&secret=XXX` 수동 호출
+2. Buffer Drafts 탭에서 QA (이미지 포맷, 텍스트 내용, 링크, 글자수, 해시태그)
+3. 문제 발견 → 코드 수정 → 빌드 → 배포 → 재테스트
+4. QA 통과 → `vercel.json`에 크론 추가 (`dry_run=false`)
+5. `git add vercel.json && git commit && git push`
+6. **Vercel 배포 확인 필수** (이전에 push 누락으로 크론 미반영 사고 발생)
+7. 24시간 모니터링 → Vercel Functions 로그 확인
+
+### 26.13 향후 계획
+
+| 순서 | 작업 | 상태 | 비고 |
+|:----:|:-----|:----:|:-----|
+| 1 | ③~⑧ 나머지 슬롯 Draft QA | 🔴 진행중 | ③ 장마감 테스트 직전에 멈춤 |
+| 2 | QA 통과 슬롯 순차 라이브 전환 | ⏳ 대기 | |
+| 3 | 주말 전용 스케줄 | 📋 계획 | Education만 주말 후보 |
+| 4 | Event Detect V2 연동 | 📋 계획 | |
+| 5 | Remotion 쇼츠 연동 (§25) | 📋 계획 | |
+
+### 26.14 환경 변수
+
+| 변수 | 용도 |
+|:-----|:-----|
+| `BUFFER_ACCESS_TOKEN` | Buffer API 인증 |
+| `BUFFER_ORGANIZATION_ID` | Buffer 조직 ID |
+| `CRON_SECRET` | 크론 보안 인증 |
+| `EC2_CAPTURE_URL` | EC2 Puppeteer 캡처 서버 (`ws.signumhq.com`) |
+| `NEXT_PUBLIC_BASE_URL` | OG 템플릿 URL 베이스 |
+| `NEXT_PUBLIC_SUPABASE_URL` | Supabase Storage URL |
+| `SUPABASE_SERVICE_ROLE_KEY` | Supabase 서비스 키 (이미지 업로드) |
+
+### 26.15 사고 이력 및 교훈
+
+| 날짜 | 사고 | 원인 | 조치 |
+|:-----|:-----|:-----|:-----|
+| 2026-05-15 | SpaceX 포스팅이 중단 요청 후에도 발행됨 | 로컬 vercel.json에서 크론 삭제했으나 `git push` 누락 → 프로덕션 반영 안 됨 | 긴급 push 후 해소. **크론 변경 시 반드시 즉시 배포** |
+| 이전 | Threads 중복 발행 → 계정 블록 | 비atomic GET→SET 락 + Redis 에러 시 발송 허용 | Atomic SET NX + block-on-error 강화 |
+| 이전 | Pinterest `utm_source=twitter` | prepare에서 platform 하드코딩 → ctaFull에 잘못된 UTM | Pinterest adapter에서 ctaFull 의존 제거, 자체 UTM 생성 |
+| 이전 | Education X에 내용 없이 UTM 링크만 | `data: ''` (빈 문자열) + CTA에 UTM 노출 | `data: t.body` + 클린 URL 적용 |
+| 이전 | Threads OG 이미지 누락 | SpaceX 슬롯이 `tweet`만 캡처, Threads는 `og` 사용 | 모든 슬롯에 `og` 포맷 추가 |
