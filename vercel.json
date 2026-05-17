@@ -71,6 +71,34 @@
         {
             "path": "/api/cron/dispatch-v2/spacex?region=en&dry_run=false",
             "schedule": "0 18 * * 1-5"
+        },
+        {
+            "path": "/api/cron/dispatch-v2/education?region=all&dry_run=false",
+            "schedule": "30 19 * * 1-5"
+        },
+        {
+            "path": "/api/cron/dispatch-v2/market-close?region=en&dry_run=false",
+            "schedule": "0 21 * * 1-5"
+        },
+        {
+            "path": "/api/cron/dispatch-v2/market-close?region=asia&dry_run=false",
+            "schedule": "0 23 * * 1-5"
+        },
+        {
+            "path": "/api/cron/dispatch-v2/spacex?region=asia&dry_run=false",
+            "schedule": "0 3 * * 1-6"
+        },
+        {
+            "path": "/api/cron/dispatch-v2/morning?region=all&dry_run=false",
+            "schedule": "0 12 * * 1-6"
+        },
+        {
+            "path": "/api/cron/dispatch-v2/pulse?region=all&dry_run=false",
+            "schedule": "0 14 * * 1-5"
+        },
+        {
+            "path": "/api/cron/dispatch-v2/spotlight?region=all&dry_run=false&draft=true",
+            "schedule": "15 15 * * 1-5"
         }
     ]
 }
