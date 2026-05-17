@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/client';
 import { useRouter } from 'next/navigation';
 import {
   ArrowLeft, Sparkles, Search, Newspaper, Copy, Check,
-  RefreshCw, FileText, Loader2, ChevronDown, ImageIcon, MessageCircle, Shield, Megaphone, ExternalLink
+  RefreshCw, FileText, Loader2, ChevronDown, ImageIcon, MessageCircle, Shield, Megaphone, ExternalLink, CheckCircle, Trash2, Clock
 } from 'lucide-react';
 
 const ADMIN_EMAILS = (process.env.NEXT_PUBLIC_ADMIN_EMAILS || '').split(',').map(e => e.trim().toLowerCase());
@@ -187,7 +187,33 @@ export default function ContentCenterPage() {
   const [redditGen, setRedditGen] = useState(false);
   const [redditError, setRedditError] = useState('');
   const [redditMeta, setRedditMeta] = useState<any>(null);
+  const [commentHistory, setCommentHistory] = useState<{ sub: string; title: string; ticker?: string; ts: string }[]>([]);
   const router = useRouter();
+
+  // Load comment history from localStorage
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem('reddit-comment-history');
+      if (saved) setCommentHistory(JSON.parse(saved));
+    } catch {}
+  }, []);
+
+  const markCommented = () => {
+    const entry = {
+      sub: redditSub,
+      title: redditTitle || `${redditTicker || 'general'} discussion`,
+      ticker: redditTicker || undefined,
+      ts: new Date().toISOString(),
+    };
+    const updated = [entry, ...commentHistory].slice(0, 50);
+    setCommentHistory(updated);
+    localStorage.setItem('reddit-comment-history', JSON.stringify(updated));
+  };
+
+  const clearHistory = () => {
+    setCommentHistory([]);
+    localStorage.removeItem('reddit-comment-history');
+  };
 
   useEffect(() => {
     const check = async () => {
@@ -544,6 +570,19 @@ export default function ContentCenterPage() {
                     </div>
                   </div>
                 ))}
+                {/* Mark as commented */}
+                <div className="flex items-center gap-3 pt-2">
+                  <button onClick={() => { markCommented(); setRedditComments(null); setRedditTitle(''); }}
+                    className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-[14px] font-bold transition-all border
+                      bg-emerald-500/10 text-emerald-400 border-emerald-500/25 hover:bg-emerald-500/20">
+                    <CheckCircle className="w-4 h-4" /> ✅ 댓글 완료 — 히스토리 기록
+                  </button>
+                  <a href={`https://www.reddit.com/${redditSub}/new/`} target="_blank" rel="noopener noreferrer"
+                    className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-[14px] font-bold transition-all border
+                      bg-white/[0.04] text-slate-300 border-white/[0.08] hover:bg-orange-500/10 hover:text-orange-400">
+                    <ExternalLink className="w-4 h-4" /> {redditSub} 열기 ↗
+                  </a>
+                </div>
               </div>
             )}
 
@@ -554,6 +593,33 @@ export default function ContentCenterPage() {
                 <div className="text-[16px] font-bold">서브레딧과 주제를 선택 후 댓글을 생성하세요</div>
                 <div className="text-[14px] mt-2 text-center max-w-md">
                   {karmaMode ? '카르마 모드: 홍보 없는 순수 도움 댓글만 생성됩니다' : '오가닉 모드: 1개 댓글에 자연스러운 signumhq 언급 포함'}
+                </div>
+              </div>
+            )}
+
+            {/* Comment History */}
+            {commentHistory.length > 0 && (
+              <div className="mt-8 pt-6 border-t border-white/[0.06]">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="text-[13px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
+                    <Clock className="w-4 h-4" /> 댓글 완료 히스토리 ({commentHistory.length})
+                  </div>
+                  <button onClick={clearHistory}
+                    className="flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold text-slate-500 hover:text-red-400 hover:bg-red-500/10 transition-all">
+                    <Trash2 className="w-3 h-3" /> 초기화
+                  </button>
+                </div>
+                <div className="space-y-1.5 max-h-[200px] overflow-y-auto">
+                  {commentHistory.map((h, i) => (
+                    <div key={i} className="flex items-center gap-3 px-3 py-2 rounded-lg bg-white/[0.02] border border-white/[0.04] text-[13px]">
+                      <CheckCircle className="w-3.5 h-3.5 text-emerald-400 flex-shrink-0" />
+                      <span className="text-orange-400 font-bold flex-shrink-0">{h.sub}</span>
+                      <span className="text-slate-300 truncate flex-1">{h.title}</span>
+                      <span className="text-slate-500 text-[11px] flex-shrink-0">
+                        {new Date(h.ts).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                    </div>
+                  ))}
                 </div>
               </div>
             )}
