@@ -505,13 +505,17 @@ export default function ContentCenterPage() {
             <button onClick={async () => {
               setPostsLoading(true); setRedditPosts(null); setSelectedPost(null);
               try {
-                const res = await fetch(`/api/admin/reddit-posts?sub=${redditSub}&sort=hot&limit=15`);
-                const json = await res.json();
-                if (json.posts) {
-                  const doneUrls = new Set(commentHistory.map(h => h.url).filter(Boolean));
-                  setRedditPosts(json.posts.filter((p: any) => !doneUrls.has(p.url)));
-                }
-              } catch {} setPostsLoading(false);
+                const cleanSub = redditSub.replace(/^r\//, '');
+                const res = await fetch(`https://www.reddit.com/r/${cleanSub}/hot.json?limit=15&raw_json=1`);
+                const data = await res.json();
+                const posts = (data?.data?.children || []).map((c: any) => {
+                  const p = c.data;
+                  return { id: p.id, title: p.title, url: `https://www.reddit.com${p.permalink}`, score: p.score, numComments: p.num_comments, createdUtc: p.created_utc, author: p.author, flair: p.link_flair_text || null };
+                });
+                const doneUrls = new Set(commentHistory.map(h => h.url).filter(Boolean));
+                setRedditPosts(posts.filter((p: any) => !doneUrls.has(p.url)));
+              } catch (e) { console.error('Reddit fetch error:', e); }
+              setPostsLoading(false);
             }} disabled={postsLoading}
               className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-[14px] font-bold transition-all border
                 bg-white/[0.04] text-slate-300 border-white/[0.08] hover:bg-orange-500/10 hover:text-orange-400 disabled:opacity-50">
