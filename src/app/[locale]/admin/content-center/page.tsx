@@ -58,18 +58,31 @@ function ContentBlock({ data, platform }: { data: any; platform: string }) {
       {/* Body */}
       <div>
         <div className="text-[13px] font-bold text-slate-400 uppercase tracking-wider mb-2">본문</div>
-        <div className="bg-black/20 rounded-xl p-4 max-h-[500px] overflow-y-auto">
-          {parts.map((part: string, i: number) => {
-            if (part.match(/^\[IMAGE:/)) {
-              return (
-                <div key={i} className="my-3 px-4 py-3 rounded-lg bg-indigo-500/10 border border-indigo-500/20 flex items-center gap-2">
-                  <ImageIcon className="w-4 h-4 text-indigo-400 flex-shrink-0" />
-                  <span className="text-[13px] text-indigo-300 font-bold">{part}</span>
-                </div>
-              );
-            }
-            return <div key={i} className="text-[14px] text-slate-200 leading-[1.8] whitespace-pre-wrap">{part}</div>;
-          })}
+        <div className="bg-black/20 rounded-xl p-4 max-h-[600px] overflow-y-auto">
+          {(() => {
+            let imgCount = 0;
+            return parts.map((part: string, i: number) => {
+              if (part.match(/^\[IMAGE:/)) {
+                imgCount++;
+                const desc = part.replace(/^\[IMAGE:\s*/, '').replace(/\]$/, '');
+                return (
+                  <div key={i} className="my-4 rounded-xl overflow-hidden border-2 border-cyan-500/30 shadow-lg shadow-cyan-500/10">
+                    <div className="bg-gradient-to-r from-cyan-500/20 via-indigo-500/15 to-purple-500/10 px-4 py-3 flex items-center gap-3">
+                      <div className="w-8 h-8 rounded-lg bg-cyan-500/30 flex items-center justify-center text-[14px] font-black text-cyan-300 flex-shrink-0">
+                        {imgCount}
+                      </div>
+                      <ImageIcon className="w-5 h-5 text-cyan-400 flex-shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <div className="text-[14px] font-bold text-cyan-200">📸 이미지 삽입 위치</div>
+                        <div className="text-[13px] text-cyan-300/80 mt-0.5">{desc}</div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              }
+              return <div key={i} className="text-[14px] text-slate-200 leading-[1.8] whitespace-pre-wrap">{part}</div>;
+            });
+          })()}
         </div>
         <div className="mt-3 flex gap-2">
           <CopyBtn text={data.body} label="본문 전체 복사" />
