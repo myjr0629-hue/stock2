@@ -40,7 +40,7 @@ export async function POST(req: NextRequest) {
                     const data = typeof d === 'string' ? JSON.parse(d) : d;
                     const change = Math.abs(data.changePct || data.changePercent || 0);
                     const score = (data.score || 0) + change * 2;
-                    if (!usedToday.includes(`${UNIVERSE[i]}:analysis`)) {
+                    if (!usedToday.includes(`${UNIVERSE[i]}:${platform}`)) {
                         ranked.push({ ticker: UNIVERSE[i], score, change });
                     }
                 } catch {}
@@ -118,11 +118,12 @@ export async function POST(req: NextRequest) {
             }
         }
 
-        // Record history
-        if (mode === 'auto' || mode === 'ticker') {
+        // Record history (per-platform dedup)
+        {
             const todayKey = `content-center:history:${new Date().toISOString().slice(0, 10)}`;
             const existing = await getFromCache<string[]>(todayKey) || [];
-            const newItems = targetTickers.map(t => `${t}:${platform}`);
+            const historyKey = mode === 'market' ? `market:${platform}` : targetTickers.map(t => `${t}:${platform}`);
+            const newItems = Array.isArray(historyKey) ? historyKey : [historyKey];
             const merged = Array.from(new Set([...existing, ...newItems]));
             await setInCache(todayKey, merged, 86400 * 4);
         }
@@ -162,17 +163,17 @@ function buildSystemPrompt(platform: string): string {
 - 소제목: ■ 또는 ▶ 사용
 - 이미지: [IMAGE: 설명] 5개 이상
 - SEO: 미국주식, GEX분석, 다크풀 등 3~5회
-- 마지막: "데이터 출처: signumhq.com"
 - 태그: # 형식 7~10개
-- 길이: 1500~2500자`,
+- 길이: 1500~2500자
+- 글 마지막에 반드시 포함: "본 글은 투자 조언이 아닌 데이터 분석 리뷰이며, 투자의 최종 판단과 책임은 투자자 본인에게 있습니다. 데이터 출처: signumhq.com"`,
 
         tistory: `## 티스토리 (한국어)
 - 소제목: ## 마크다운 사용
 - 이미지: [IMAGE: 설명] 4~5개
 - SEO: 미국주식, 옵션분석, 기관투자자 등 3~5회
-- 마지막: "데이터 출처: signumhq.com"
 - 태그: # 형식 7~10개
-- 길이: 1500~2500자`,
+- 길이: 1500~2500자
+- 글 마지막에 반드시 포함: "본 글은 투자 조언이 아닌 데이터 분석 리뷰이며, 투자의 최종 판단과 책임은 투자자 본인에게 있습니다. 데이터 출처: signumhq.com"`,
 
         medium: `## Medium (English only)
 - Tone: Data-driven analyst, third-person
@@ -180,18 +181,18 @@ function buildSystemPrompt(platform: string): string {
 - Headers: ## markdown style
 - Images: [IMAGE: description] 4~5 points
 - SEO: GEX, dark pool, options flow, institutional
-- End: "Data source: signumhq.com — Institutional Intelligence, Democratized"
 - Tags (5): Stock Market, Options Trading, etc.
-- Length: 800~1500 words`,
+- Length: 800~1500 words
+- End with disclaimer: "Disclaimer: This article is a data analysis review, not investment advice. All investment decisions and risks are the sole responsibility of the reader. Data source: signumhq.com"`,
 
         note: `## note.com (日本語のみ)
 - トーン: データ分析レビュアー、第三者視点
 - 見出し: ■ または ## で区分
 - 画像: [IMAGE: 説明] 4~5個
 - SEO: 米国株、GEX分析、ダークプール、オプション
-- 末尾: "データソース: signumhq.com"
 - タグ: #米国株 #GEX分析 等 5~7個
-- 文字数: 1000~2000文字`,
+- 文字数: 1000~2000文字
+- 末尾に必ず含める: "免責事項: 本記事はデータ分析レビューであり、投資助言ではありません。投資判断とリスクは読者ご自身の責任となります。データソース: signumhq.com"`,
     };
 
     return `${common}
