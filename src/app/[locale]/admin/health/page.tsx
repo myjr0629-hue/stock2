@@ -275,6 +275,15 @@ export default function AdminHealthPage() {
                     mode === 'marketing' ? 'bg-orange-500/20 text-orange-400 border border-orange-500/30' : 'text-slate-400 hover:text-white'}`}>
                   MARKETING
                 </button>
+                <span className="border-l border-white/10 mx-1" />
+                <a href="/ko/admin/content-center" target="_blank" rel="noopener"
+                  className="px-2 py-0.5 rounded text-[11px] font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 hover:bg-emerald-500/20 transition-all">
+                  ✏️ 블로그 생성
+                </a>
+                <button onClick={() => { setMode('marketing'); if (!mktData) fetchMarketing(); setTimeout(() => document.getElementById('sec-mkt-og')?.scrollIntoView({ behavior: 'smooth' }), 500); }}
+                  className="px-2 py-0.5 rounded text-[11px] font-bold text-pink-400 bg-pink-500/10 border border-pink-500/20 hover:bg-pink-500/20 transition-all">
+                  🖼️ OG Audit
+                </button>
               </div>
             </div>
           </div>
@@ -1287,6 +1296,35 @@ export default function AdminHealthPage() {
                   </div>
                 </Section>
               )}
+
+              {/* ═══ OG IMAGE AUDIT ═══ */}
+              <Section title="OG IMAGE AUDIT — 전체 OG 이미지 템플릿" icon={Eye} id="sec-mkt-og" status="OK">
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
+                  {[
+                    { name: 'Morning', path: '/templates/og/morning' },
+                    { name: 'Morning IG', path: '/templates/og/morning-ig' },
+                    { name: 'Morning Pin', path: '/templates/og/morning-pin' },
+                    { name: 'Market Close', path: '/templates/og/market-close' },
+                    { name: 'Market Close IG', path: '/templates/og/market-close-ig' },
+                    { name: 'Market Close Pin', path: '/templates/og/market-close-pin' },
+                    { name: 'Pulse', path: '/templates/og/pulse' },
+                    { name: 'Pulse Pin', path: '/templates/og/pulse-pin' },
+                    { name: 'Education', path: '/templates/og/education' },
+                    { name: 'Education Carousel', path: '/templates/og/education-carousel' },
+                    { name: 'Education Pin', path: '/templates/og/education-pin' },
+                    { name: 'Spotlight', path: '/templates/og/spotlight' },
+                    { name: 'SpaceX IPO', path: '/templates/og/spacex-ipo' },
+                    { name: 'Event', path: '/templates/og/event' },
+                    { name: 'Carousel', path: '/templates/og/carousel' },
+                  ].map(t => (
+                    <a key={t.name} href={t.path} target="_blank" rel="noopener"
+                      className="flex items-center gap-2 px-3 py-2.5 rounded-xl bg-pink-500/5 border border-pink-500/15 hover:bg-pink-500/15 transition-all group">
+                      <span className="text-[13px]">🖼️</span>
+                      <span className="text-[13px] font-bold text-pink-300 group-hover:text-pink-200">{t.name}</span>
+                    </a>
+                  ))}
+                </div>
+              </Section>
 
               <div className="text-[13px] text-slate-500 text-center py-2">
                 응답: {mktData.elapsed} · {mktData.timestamp ? new Date(mktData.timestamp).toLocaleTimeString('ko-KR') : '-'}
