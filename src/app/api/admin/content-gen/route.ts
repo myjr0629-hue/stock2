@@ -1,15 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { callBedrock, MODELS } from '@/services/bedrockClient';
-import Redis from 'ioredis';
+import { getFromCache, mgetFromCache, setInCache } from '@/services/redisClient';
 
 const ADMIN_EMAILS = (process.env.NEXT_PUBLIC_ADMIN_EMAILS || '').split(',').map(e => e.trim().toLowerCase());
-
-// Lazy Redis
-let _redis: Redis | null = null;
-function getRedis(): Redis {
-    if (!_redis) _redis = new Redis(process.env.UPSTASH_REDIS_URL || process.env.REDIS_URL || '');
-    return _redis;
-}
 
 // M7 + Popular tickers
 const UNIVERSE = ['NVDA','TSLA','AAPL','MSFT','GOOGL','AMZN','META','AMD','PLTR','COIN','SMCI','ARM','MSTR','TSM','AVGO','NFLX','CRM','SNOW','BA','DIS'];
@@ -21,8 +14,6 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
         }
 
-        const redis = getRedis();
-
         // ─── Gather market data from Redis ───
         let targetTickers: string[] = [];
         let marketContext = '';
@@ -32,25 +23,23 @@ export async function POST(req: NextRequest) {
         } else if (mode === 'auto' || mode === 'market') {
             // Auto: find top trending tickers from Redis data
             const todayKey = `content-center:history:${new Date().toISOString().slice(0, 10)}`;
-            const usedToday = await redis.smembers(todayKey);
+            const usedTodayRaw = await getFromCache<string[]>(todayKey);
+            const usedToday = usedTodayRaw || [];
 
-            // Fetch analysis data for all universe tickers
-            const pipeline = redis.pipeline();
-            for (const t of UNIVERSE) {
-                pipeline.get(`cache:analysis:${t}`);
-            }
-            const results = await pipeline.exec();
+            // Fetch analysis data for all universe tickers (batch)
+            const analysisKeys = UNIVERSE.map(t => `cache:analysis:${t}`);
+            const analysisResults = await mgetFromCache<any>(analysisKeys);
 
             type TickerScore = { ticker: string; score: number; change: number; reason: string };
             const ranked: TickerScore[] = [];
             for (let i = 0; i < UNIVERSE.length; i++) {
-                const raw = results?.[i]?.[1] as string | null;
-                if (!raw) continue;
+                const d = analysisResults[i];
+                if (!d) continue;
                 try {
-                    const d = JSON.parse(raw);
-                    const change = Math.abs(d.changePct || d.changePercent || 0);
-                    const score = (d.score || 0) + change * 2;
-                    const reason = change > 3 ? '급등락' : d.score > 70 ? '고점수' : '활성';
+                    const data = typeof d === 'string' ? JSON.parse(d) : d;
+                    const change = Math.abs(data.changePct || data.changePercent || 0);
+                    const score = (data.score || 0) + change * 2;
+                    const reason = change > 3 ? '급등락' : data.score > 70 ? '고점수' : '활성';
                     if (!usedToday.includes(`${UNIVERSE[i]}:analysis`)) {
                         ranked.push({ ticker: UNIVERSE[i], score, change, reason });
                     }
@@ -60,32 +49,34 @@ export async function POST(req: NextRequest) {
 
             if (mode === 'auto') {
                 targetTickers = ranked.slice(0, 2).map(r => r.ticker);
+                // Fallback: if less than 2 ranked, use first available
+                if (targetTickers.length === 0) {
+                    targetTickers = UNIVERSE.slice(0, 2);
+                }
+            } else {
+                // market mode: pick top 3 for context
+                targetTickers = ranked.slice(0, 3).map(r => r.ticker);
             }
         }
 
-        // Fetch detailed data for target tickers
+        // Fetch detailed data for target tickers (batch)
         const tickerDataMap: Record<string, any> = {};
         if (targetTickers.length > 0) {
-            const pipe2 = redis.pipeline();
-            for (const t of targetTickers) {
-                pipe2.get(`cache:command:unified:${t}`);
-            }
-            const res2 = await pipe2.exec();
+            const detailKeys = targetTickers.map(t => `cache:command:unified:${t}`);
+            const detailResults = await mgetFromCache<any>(detailKeys);
             for (let i = 0; i < targetTickers.length; i++) {
-                const raw = res2?.[i]?.[1] as string | null;
-                if (raw) {
-                    try { tickerDataMap[targetTickers[i]] = JSON.parse(raw); } catch {}
+                const d = detailResults[i];
+                if (d) {
+                    tickerDataMap[targetTickers[i]] = typeof d === 'string' ? JSON.parse(d) : d;
                 }
             }
         }
 
         // Fetch morning briefing for market context
-        const briefRaw = await redis.get('cache:morning-briefing:ko');
-        if (briefRaw) {
-            try {
-                const brief = JSON.parse(briefRaw);
-                marketContext = brief.summary || brief.headline || '';
-            } catch {}
+        const briefData = await getFromCache<any>('cache:morning-briefing:ko');
+        if (briefData) {
+            const brief = typeof briefData === 'string' ? JSON.parse(briefData) : briefData;
+            marketContext = brief.summary || brief.headline || '';
         }
 
         // ─── Build AI prompt ───
@@ -108,7 +99,6 @@ export async function POST(req: NextRequest) {
         try {
             parsed = JSON.parse(result.text);
         } catch {
-            // Try to extract JSON from text
             const jsonMatch = result.text.match(/\{[\s\S]*\}/);
             if (jsonMatch) {
                 parsed = JSON.parse(jsonMatch[0]);
@@ -117,14 +107,13 @@ export async function POST(req: NextRequest) {
             }
         }
 
-        // Record history
+        // Record history (store as array in cache)
         if (mode === 'auto' || mode === 'ticker') {
             const todayKey = `content-center:history:${new Date().toISOString().slice(0, 10)}`;
-            const items = targetTickers.map(t => `${t}:analysis`);
-            if (items.length > 0) {
-                await redis.sadd(todayKey, ...items);
-                await redis.expire(todayKey, 86400 * 4); // 4 days
-            }
+            const existing = await getFromCache<string[]>(todayKey) || [];
+            const newItems = targetTickers.map(t => `${t}:analysis`);
+            const merged = Array.from(new Set([...existing, ...newItems]));
+            await setInCache(todayKey, merged, 86400 * 4);
         }
 
         return NextResponse.json({
