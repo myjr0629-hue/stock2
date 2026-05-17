@@ -87,52 +87,73 @@ export async function POST(req: NextRequest) {
             modelId: MODELS.HAIKU_35,
             system: systemPrompt,
             userPrompt,
-            maxTokens: 6000,
+            maxTokens: 16000,
             temperature: 0.7,
             jsonPrefill: true,
             label: 'ContentCenter',
-            timeoutMs: 50000,
+            timeoutMs: 55000,
         });
 
-        // Parse response — robust JSON recovery for Korean blog content
+        // Parse response — robust JSON recovery for multilingual blog content
         let parsed: any;
-        const rawText = result.text;
+        let rawText = result.text;
+        
+        // Pre-process: fix real newlines inside JSON strings
+        // Replace actual newlines between quotes with \n
+        rawText = rawText.replace(/\r\n/g, '\n');
+        
+        // Helper: attempt to repair truncated JSON
+        function repairTruncatedJson(text: string): string {
+            let t = text.trim();
+            // If truncated mid-string, close the string
+            const quoteCount = (t.match(/(?<!\\)"/g) || []).length;
+            if (quoteCount % 2 !== 0) {
+                t += '"';
+            }
+            // Close unclosed brackets/braces
+            const opens = (t.match(/[\[{]/g) || []).length;
+            const closes = (t.match(/[\]}]/g) || []).length;
+            const braces: string[] = [];
+            for (const ch of t) {
+                if (ch === '{') braces.push('}');
+                else if (ch === '[') braces.push(']');
+                else if (ch === '}' || ch === ']') braces.pop();
+            }
+            // Remove trailing comma before closing
+            t = t.replace(/,\s*$/, '');
+            t += braces.reverse().join('');
+            return t;
+        }
         
         // Attempt 1: direct parse
         try {
             parsed = JSON.parse(rawText);
         } catch (e1) {
-            // Attempt 2: extract outermost JSON object
-            const jsonMatch = rawText.match(/\{[\s\S]*\}/);
-            if (jsonMatch) {
-                try {
-                    parsed = JSON.parse(jsonMatch[0]);
-                } catch (e2) {
-                    // Attempt 3: fix common JSON issues in AI output
-                    let fixed = jsonMatch[0];
-                    // Fix unescaped newlines inside string values
-                    fixed = fixed.replace(/(?<=":[ ]*"[^"]*)\n/g, '\\n');
-                    // Fix trailing commas before }]
-                    fixed = fixed.replace(/,\s*([}\]])/g, '$1');
+            // Attempt 2: repair truncated JSON
+            try {
+                parsed = JSON.parse(repairTruncatedJson(rawText));
+            } catch (e2) {
+                // Attempt 3: extract JSON object and repair
+                const jsonMatch = rawText.match(/\{[\s\S]*/);
+                if (jsonMatch) {
                     try {
-                        parsed = JSON.parse(fixed);
+                        parsed = JSON.parse(repairTruncatedJson(jsonMatch[0]));
                     } catch (e3) {
-                        // Attempt 4: use more aggressive cleanup
+                        // Attempt 4: line-by-line newline escaping
+                        let fixed = jsonMatch[0];
+                        // Replace newlines inside string values
+                        fixed = fixed.replace(/\n/g, '\\n');
+                        // But un-escape structural newlines (after : , { [ } ])
+                        fixed = fixed.replace(/([{}\[\],:])\s*\\n/g, '$1\n');
                         try {
-                            // Extract posts array manually
-                            const postsMatch = rawText.match(/"posts"\s*:\s*\[[\s\S]*\]/);
-                            if (postsMatch) {
-                                parsed = JSON.parse(`{${postsMatch[0]}}`);
-                            } else {
-                                throw new Error(`AI JSON parse failed: ${(e1 as Error).message}`);
-                            }
+                            parsed = JSON.parse(repairTruncatedJson(fixed));
                         } catch {
                             throw new Error(`AI JSON parse failed after 4 attempts: ${(e1 as Error).message}`);
                         }
                     }
+                } else {
+                    throw new Error('AI response contains no JSON');
                 }
-            } else {
-                throw new Error('AI response contains no JSON object');
             }
         }
 
