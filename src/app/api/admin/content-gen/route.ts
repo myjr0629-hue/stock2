@@ -178,7 +178,7 @@ The imageGuide array must match these body tags with exact capture locations.`;
 - SEO keywords: Include terms like \\ubbf8\\uad6d\\uc8fc\\uc2dd, GEX\\ubd84\\uc11d, \\ub2e4\\ud06c\\ud480 3-5 times
 - Tags: # format, 7-10 tags
 - Length: 1500-2500 characters
-- End with: "\\ubcf8 \\uae00\\uc740 \\ud22c\\uc790 \\uc870\\uc5b8\\uc774 \\uc544\\ub2cc \\ub370\\uc774\\ud130 \\ubd84\\uc11d \\ub9ac\\ubdf0\\uc774\\uba70, \\ud22c\\uc790\\uc758 \\ucd5c\\uc885 \\ud310\\ub2e8\\uacfc \\ucc45\\uc784\\uc740 \\ud22c\\uc790\\uc790 \\ubcf8\\uc778\\uc5d0\\uac8c \\uc788\\uc2b5\\ub2c8\\ub2e4. \\ub370\\uc774\\ud130 \\ucd9c\\ucc98: signumhq.com"`,
+- End with: "\\ubcf8 \\uae00\\uc740 \\ud22c\\uc790 \\uc870\\uc5b8\\uc774 \\uc544\\ub2cc \\ub370\\uc774\\ud130 \\ubd84\\uc11d \\ub9ac\\ubdf0\\uc774\\uba70, \\ud22c\\uc790\\uc758 \\ucd5c\\uc885 \\ud310\\ub2e8\\uacfc \\ucc45\\uc784\\uc740 \\ud22c\\uc790\\uc790 \\ubcf8\\uc778\\uc5d0\\uac8c \\uc788\\uc2b5\\ub2c8\\ub2e4.\\n\\n\\uc704 \\ub370\\uc774\\ud130\\ub294 SIGNUM HQ\\uc5d0\\uc11c \\uc2e4\\uc2dc\\uac04\\uc73c\\ub85c \\ud655\\uc778\\ud560 \\uc218 \\uc788\\uc2b5\\ub2c8\\ub2e4. \\ubb34\\ub8cc \\ud50c\\ub79c \\uc788\\uc2b5\\ub2c8\\ub2e4.\\n\\ud83d\\udd17 https://www.signumhq.com"`,
 
         tistory: `## Tistory (Korean)
 - Subheadings: ## markdown format
@@ -186,7 +186,7 @@ The imageGuide array must match these body tags with exact capture locations.`;
 - SEO keywords: \\ubbf8\\uad6d\\uc8fc\\uc2dd, \\uc635\\uc158\\ubd84\\uc11d, \\uae30\\uad00\\ud22c\\uc790\\uc790 3-5 times
 - Tags: # format, 7-10 tags
 - Length: 1500-2500 characters
-- End with: "\\ubcf8 \\uae00\\uc740 \\ud22c\\uc790 \\uc870\\uc5b8\\uc774 \\uc544\\ub2cc \\ub370\\uc774\\ud130 \\ubd84\\uc11d \\ub9ac\\ubdf0\\uc774\\uba70, \\ud22c\\uc790\\uc758 \\ucd5c\\uc885 \\ud310\\ub2e8\\uacfc \\ucc45\\uc784\\uc740 \\ud22c\\uc790\\uc790 \\ubcf8\\uc778\\uc5d0\\uac8c \\uc788\\uc2b5\\ub2c8\\ub2e4. \\ub370\\uc774\\ud130 \\ucd9c\\ucc98: signumhq.com"`,
+- End with: "\\ubcf8 \\uae00\\uc740 \\ud22c\\uc790 \\uc870\\uc5b8\\uc774 \\uc544\\ub2cc \\ub370\\uc774\\ud130 \\ubd84\\uc11d \\ub9ac\\ubdf0\\uc774\\uba70, \\ud22c\\uc790\\uc758 \\ucd5c\\uc885 \\ud310\\ub2e8\\uacfc \\ucc45\\uc784\\uc740 \\ud22c\\uc790\\uc790 \\ubcf8\\uc778\\uc5d0\\uac8c \\uc788\\uc2b5\\ub2c8\\ub2e4.\\n\\n\\uc704 \\ub370\\uc774\\ud130\\ub294 SIGNUM HQ\\uc5d0\\uc11c \\uc2e4\\uc2dc\\uac04\\uc73c\\ub85c \\ud655\\uc778\\ud560 \\uc218 \\uc788\\uc2b5\\ub2c8\\ub2e4. \\ubb34\\ub8cc \\ud50c\\ub79c \\uc788\\uc2b5\\ub2c8\\ub2e4.\\n\\ud83d\\udd17 https://www.signumhq.com"`,
 
         medium: `## Medium (English only)
 - Tone: Data-driven analyst, third-person
@@ -196,7 +196,7 @@ The imageGuide array must match these body tags with exact capture locations.`;
 - SEO: GEX, dark pool, options flow, institutional
 - Topics: In the "tags" field, output exactly 5 Medium topics as comma-separated plain text WITHOUT # symbols. Example: "Stock Market, Options Trading, Institutional Investing, Technical Analysis, Market Data"
 - Length: 800-1500 words
-- End with: "Disclaimer: This article is a data analysis review, not investment advice. All investment decisions and risks are the sole responsibility of the reader. Data source: signumhq.com"`,
+- End with: "Disclaimer: This article is a data analysis review, not investment advice. All investment decisions and risks are the sole responsibility of the reader.\\n\\nThe above data can be viewed in real-time on SIGNUM HQ. Free plan available.\\n\\ud83d\\udd17 https://www.signumhq.com"`,
 
         note: `## note.com (Japanese only)
 - Tone: Data analysis reviewer, third-person
@@ -205,7 +205,7 @@ The imageGuide array must match these body tags with exact capture locations.`;
 - SEO: Include terms about US stocks, GEX analysis, dark pool, options
 - Tags: 5-7 tags with # prefix
 - Length: 1000-2000 characters
-- End with disclaimer in Japanese about this being a data review, not investment advice. Data source: signumhq.com`,
+- End with disclaimer in Japanese about this being a data review, not investment advice. Then add: "\\u4e0a\\u8a18\\u30c7\\u30fc\\u30bf\\u306fSIGNUM HQ\\u3067\\u30ea\\u30a2\\u30eb\\u30bf\\u30a4\\u30e0\\u3067\\u78ba\\u8a8d\\u3067\\u304d\\u307e\\u3059\\u3002\\u7121\\u6599\\u30d7\\u30e9\\u30f3\\u3042\\u308a\\u307e\\u3059\\u3002\\n\\ud83d\\udd17 https://www.signumhq.com"`,
     };
 
     return `${common}
