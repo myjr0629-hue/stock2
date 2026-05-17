@@ -2,7 +2,13 @@ import { NextRequest, NextResponse } from 'next/server';
 import { callBedrock, MODELS } from '@/services/bedrockClient';
 import { getFromCache, mgetFromCache, setInCache } from '@/services/redisClient';
 
-const ADMIN_EMAILS = (process.env.NEXT_PUBLIC_ADMIN_EMAILS || '').split(',').map(e => e.trim().toLowerCase());
+// Server-side: NEXT_PUBLIC_ vars are available in server components too,
+// but also check ADMIN_EMAILS env as fallback
+const ADMIN_EMAILS = (
+    process.env.NEXT_PUBLIC_ADMIN_EMAILS || 
+    process.env.ADMIN_EMAILS || 
+    'myjr0629@gmail.com'
+).split(',').map(e => e.trim().toLowerCase());
 
 // M7 + Popular tickers
 const UNIVERSE = ['NVDA','TSLA','AAPL','MSFT','GOOGL','AMZN','META','AMD','PLTR','COIN','SMCI','ARM','MSTR','TSM','AVGO','NFLX','CRM','SNOW','BA','DIS'];
@@ -10,8 +16,11 @@ const UNIVERSE = ['NVDA','TSLA','AAPL','MSFT','GOOGL','AMZN','META','AMD','PLTR'
 export async function POST(req: NextRequest) {
     try {
         const { email, mode, ticker, platform } = await req.json();
+        
+        // Auth: check email (client already verified via Supabase)
         if (!email || !ADMIN_EMAILS.includes(email.toLowerCase())) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+            console.warn(`[ContentCenter] Auth failed for: ${email}, allowed: ${ADMIN_EMAILS.join(',')}`);
+            return NextResponse.json({ error: `Unauthorized: ${email}` }, { status: 401 });
         }
 
         // ─── Gather market data from Redis ───
@@ -106,13 +115,14 @@ export async function POST(req: NextRequest) {
         function repairTruncatedJson(text: string): string {
             let t = text.trim();
             // If truncated mid-string, close the string
-            const quoteCount = (t.match(/(?<!\\)"/g) || []).length;
-            if (quoteCount % 2 !== 0) {
+            let inString = false;
+            for (let i = 0; i < t.length; i++) {
+                if (t[i] === '"' && (i === 0 || t[i-1] !== '\\')) inString = !inString;
+            }
+            if (inString) {
                 t += '"';
             }
             // Close unclosed brackets/braces
-            const opens = (t.match(/[\[{]/g) || []).length;
-            const closes = (t.match(/[\]}]/g) || []).length;
             const braces: string[] = [];
             for (const ch of t) {
                 if (ch === '{') braces.push('}');
