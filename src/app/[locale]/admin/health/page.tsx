@@ -1298,29 +1298,95 @@ export default function AdminHealthPage() {
               )}
 
               {/* ═══ OG IMAGE AUDIT ═══ */}
-              <Section title="OG IMAGE AUDIT — 전체 OG 이미지 템플릿" icon={Eye} id="sec-mkt-og" status="OK">
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
+              <Section title="OG IMAGE AUDIT — 전체 OG 이미지 썸네일" icon={Eye} id="sec-mkt-og" status="OK">
+                {/* Tweet / OG (1200×628) */}
+                <div className="text-[13px] font-bold text-cyan-400 uppercase tracking-wider mb-2 mt-1">🐦 Tweet / OG — 1200×628</div>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-5">
                   {[
                     { name: 'Morning', path: '/templates/og/morning' },
-                    { name: 'Morning IG', path: '/templates/og/morning-ig' },
-                    { name: 'Morning Pin', path: '/templates/og/morning-pin' },
                     { name: 'Market Close', path: '/templates/og/market-close' },
-                    { name: 'Market Close IG', path: '/templates/og/market-close-ig' },
-                    { name: 'Market Close Pin', path: '/templates/og/market-close-pin' },
                     { name: 'Pulse', path: '/templates/og/pulse' },
-                    { name: 'Pulse Pin', path: '/templates/og/pulse-pin' },
                     { name: 'Education', path: '/templates/og/education' },
-                    { name: 'Education Carousel', path: '/templates/og/education-carousel' },
-                    { name: 'Education Pin', path: '/templates/og/education-pin' },
                     { name: 'Spotlight', path: '/templates/og/spotlight' },
                     { name: 'SpaceX IPO', path: '/templates/og/spacex-ipo' },
                     { name: 'Event', path: '/templates/og/event' },
                     { name: 'Carousel', path: '/templates/og/carousel' },
                   ].map(t => (
                     <a key={t.name} href={t.path} target="_blank" rel="noopener"
-                      className="flex items-center gap-2 px-3 py-2.5 rounded-xl bg-pink-500/5 border border-pink-500/15 hover:bg-pink-500/15 transition-all group">
-                      <span className="text-[13px]">🖼️</span>
-                      <span className="text-[13px] font-bold text-pink-300 group-hover:text-pink-200">{t.name}</span>
+                      className="block rounded-xl border border-emerald-500/20 bg-black/30 overflow-hidden hover:border-emerald-400/40 hover:shadow-lg hover:shadow-emerald-500/10 transition-all group">
+                      <div className="relative w-full" style={{ paddingBottom: '52.3%' }}>
+                        <iframe src={t.path} className="absolute inset-0 w-[1200px] h-[628px] pointer-events-none border-0"
+                          style={{ transform: 'scale(0.25)', transformOrigin: 'top left', width: '400%', height: '400%' }}
+                          loading="lazy" tabIndex={-1} />
+                      </div>
+                      <div className="px-3 py-2 bg-white/[0.02] border-t border-white/[0.04] flex items-center justify-between">
+                        <span className="text-[13px] font-bold text-emerald-300 group-hover:text-emerald-200">{t.name}</span>
+                        <span className="text-[11px] text-slate-500">1200×628</span>
+                      </div>
+                    </a>
+                  ))}
+                </div>
+
+                {/* Story / IG (1080×1920) */}
+                <div className="text-[13px] font-bold text-purple-400 uppercase tracking-wider mb-2">📱 Story / IG — 1080×1920</div>
+                <div className="grid grid-cols-3 sm:grid-cols-5 gap-3 mb-5">
+                  {[
+                    { name: 'Morning IG', path: '/templates/og/morning-ig' },
+                    { name: 'Market Close IG', path: '/templates/og/market-close-ig' },
+                  ].map(t => (
+                    <a key={t.name} href={t.path} target="_blank" rel="noopener"
+                      className="block rounded-xl border border-purple-500/20 bg-black/30 overflow-hidden hover:border-purple-400/40 hover:shadow-lg hover:shadow-purple-500/10 transition-all group">
+                      <div className="relative w-full" style={{ paddingBottom: '177.7%' }}>
+                        <iframe src={t.path} className="absolute inset-0 pointer-events-none border-0"
+                          style={{ transform: 'scale(0.15)', transformOrigin: 'top left', width: '666%', height: '666%' }}
+                          loading="lazy" tabIndex={-1} />
+                      </div>
+                      <div className="px-2 py-1.5 bg-white/[0.02] border-t border-white/[0.04]">
+                        <span className="text-[11px] font-bold text-purple-300 group-hover:text-purple-200">{t.name}</span>
+                      </div>
+                    </a>
+                  ))}
+                </div>
+
+                {/* Pin (1000×1500) */}
+                <div className="text-[13px] font-bold text-pink-400 uppercase tracking-wider mb-2">📌 Pinterest Pin — 1000×1500</div>
+                <div className="grid grid-cols-3 sm:grid-cols-5 gap-3 mb-5">
+                  {[
+                    { name: 'Morning Pin', path: '/templates/og/morning-pin' },
+                    { name: 'Market Close Pin', path: '/templates/og/market-close-pin' },
+                    { name: 'Pulse Pin', path: '/templates/og/pulse-pin' },
+                    { name: 'Education Pin', path: '/templates/og/education-pin' },
+                  ].map(t => (
+                    <a key={t.name} href={t.path} target="_blank" rel="noopener"
+                      className="block rounded-xl border border-pink-500/20 bg-black/30 overflow-hidden hover:border-pink-400/40 hover:shadow-lg hover:shadow-pink-500/10 transition-all group">
+                      <div className="relative w-full" style={{ paddingBottom: '150%' }}>
+                        <iframe src={t.path} className="absolute inset-0 pointer-events-none border-0"
+                          style={{ transform: 'scale(0.15)', transformOrigin: 'top left', width: '666%', height: '666%' }}
+                          loading="lazy" tabIndex={-1} />
+                      </div>
+                      <div className="px-2 py-1.5 bg-white/[0.02] border-t border-white/[0.04]">
+                        <span className="text-[11px] font-bold text-pink-300 group-hover:text-pink-200">{t.name}</span>
+                      </div>
+                    </a>
+                  ))}
+                </div>
+
+                {/* Education Carousel */}
+                <div className="text-[13px] font-bold text-amber-400 uppercase tracking-wider mb-2">🎠 Carousel — 1080×1080</div>
+                <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
+                  {[
+                    { name: 'Education Carousel', path: '/templates/og/education-carousel' },
+                  ].map(t => (
+                    <a key={t.name} href={t.path} target="_blank" rel="noopener"
+                      className="block rounded-xl border border-amber-500/20 bg-black/30 overflow-hidden hover:border-amber-400/40 hover:shadow-lg hover:shadow-amber-500/10 transition-all group">
+                      <div className="relative w-full" style={{ paddingBottom: '100%' }}>
+                        <iframe src={t.path} className="absolute inset-0 pointer-events-none border-0"
+                          style={{ transform: 'scale(0.2)', transformOrigin: 'top left', width: '500%', height: '500%' }}
+                          loading="lazy" tabIndex={-1} />
+                      </div>
+                      <div className="px-2 py-1.5 bg-white/[0.02] border-t border-white/[0.04]">
+                        <span className="text-[11px] font-bold text-amber-300">{t.name}</span>
+                      </div>
                     </a>
                   ))}
                 </div>
