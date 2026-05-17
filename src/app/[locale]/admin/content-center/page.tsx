@@ -501,44 +501,58 @@ export default function ContentCenterPage() {
               ))}
             </div>
 
-            {/* Fetch Posts Button */}
+            {/* Action Row: Fetch + Open Reddit */}
             <div className="flex items-center gap-3 flex-wrap">
               <button onClick={async () => {
                 setPostsLoading(true); setRedditPosts(null); setSelectedPost(null); setRedditError('');
                 try {
                   const res = await fetch(`/api/admin/reddit-posts?sub=${redditSub}&sort=hot&limit=15`);
                   const json = await res.json();
-                  if (!res.ok) throw new Error(json.error || `HTTP ${res.status}`);
-                  if (json.posts) {
+                  if (json.posts && json.posts.length > 0) {
                     const doneUrls = new Set(commentHistory.map(h => h.url).filter(Boolean));
                     setRedditPosts(json.posts.filter((p: any) => !doneUrls.has(p.url)));
+                  } else {
+                    setRedditError('자동 불러오기 불가 — 아래에서 수동으로 입력하세요');
                   }
-                } catch (e: any) { setRedditError(`포스트 불러오기 실패: ${e.message}`); }
+                } catch (e: any) { setRedditError('자동 불러오기 불가 — 아래에서 수동으로 입력하세요'); }
                 setPostsLoading(false);
               }} disabled={postsLoading}
                 className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-[14px] font-bold transition-all border
                   bg-white/[0.04] text-slate-300 border-white/[0.08] hover:bg-orange-500/10 hover:text-orange-400 disabled:opacity-50">
                 {postsLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
-                {redditSub} 최신 포스트 불러오기
+                자동 불러오기
               </button>
               <a href={`https://www.reddit.com/${redditSub}/new/`} target="_blank" rel="noopener noreferrer"
-                className="flex items-center gap-2 px-4 py-2 rounded-xl text-[13px] font-bold transition-all border
-                  bg-white/[0.03] text-slate-400 border-white/[0.06] hover:bg-orange-500/10 hover:text-orange-400">
-                <ExternalLink className="w-3.5 h-3.5" /> {redditSub} 직접 열기 ↗
+                className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-[14px] font-bold transition-all border
+                  bg-orange-500/15 text-orange-400 border-orange-500/25 hover:bg-orange-500/25">
+                <ExternalLink className="w-4 h-4" /> {redditSub} 열기 → 제목 복사
               </a>
             </div>
 
-            {/* Manual Input Fallback */}
-            <div className="flex items-center gap-3">
-              <input value={redditTitle} onChange={e => { setRedditTitle(e.target.value); setSelectedPost(null); }}
-                placeholder="또는 포스트 제목 직접 입력..."
-                className="flex-1 px-4 py-2.5 rounded-xl bg-black/30 border border-white/[0.08] text-[13px] text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500/40" />
+            {/* Manual Workflow */}
+            <div className="p-4 rounded-xl bg-white/[0.02] border border-white/[0.06] space-y-3">
+              <div className="text-[13px] font-bold text-slate-400">📝 포스트 제목 입력 → 댓글 생성</div>
+              <div className="text-[12px] text-slate-500">
+                1. 위 버튼으로 Reddit 열기 → 2. 포스트 제목 복사 → 3. 아래 붙여넣기 → 4. 댓글 생성
+              </div>
+              <div className="flex items-center gap-3">
+                <input value={redditTitle} onChange={e => { setRedditTitle(e.target.value); setSelectedPost(null); }}
+                  placeholder="Reddit 포스트 제목 붙여넣기..."
+                  className="flex-1 px-4 py-3 rounded-xl bg-black/40 border border-white/[0.10] text-[14px] text-white placeholder-slate-500 focus:outline-none focus:border-orange-500/40" />
+                {SUBREDDIT_GROUPS[0].subs.includes(redditSub) && (
+                  <select value={redditTicker} onChange={e => setRedditTicker(e.target.value)}
+                    className="px-3 py-3 rounded-xl bg-black/40 border border-white/[0.10] text-[14px] text-white focus:outline-none w-[100px]">
+                    {TICKERS.map(t => <option key={t} value={t}>{t}</option>)}
+                  </select>
+                )}
+              </div>
               {redditTitle && !selectedPost && (
                 <button onClick={generateReddit} disabled={redditGen}
-                  className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-[13px] font-bold transition-all border
-                    bg-gradient-to-r from-orange-500/20 to-red-500/20 text-orange-400 border-orange-500/30 disabled:opacity-50">
-                  {redditGen ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <MessageCircle className="w-3.5 h-3.5" />}
-                  댓글 생성
+                  className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-[14px] font-black transition-all border
+                    bg-gradient-to-r from-orange-500/20 to-red-500/20 text-orange-400 border-orange-500/30
+                    hover:from-orange-500/30 hover:to-red-500/30 disabled:opacity-50">
+                  {redditGen ? <Loader2 className="w-4 h-4 animate-spin" /> : <MessageCircle className="w-4 h-4" />}
+                  {redditGen ? '생성 중...' : '이 포스트용 댓글 3개 생성'}
                 </button>
               )}
             </div>
