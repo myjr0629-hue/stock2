@@ -161,12 +161,18 @@ function buildSystemPrompt(platform: string): string {
 You MUST insert exactly 4-5 [IMAGE: description] tags INSIDE the "body" text.
 These tags mark where screenshots from signumhq.com will be inserted.
 Place them BETWEEN paragraphs at logical points matching the content being discussed.
+**IMPORTANT: The [IMAGE: ...] description must ALWAYS be written in Korean (한글), regardless of the blog language.**
+Even for English (Medium) or Japanese (note.com) posts, the IMAGE tag description must be in Korean so the admin can understand the placement.
 
-CORRECT example body:
-"## Introduction\\nSome text about the stock...\\n\\n[IMAGE: NVDA Context Score dashboard showing score of 81]\\n\\nMore analysis text...\\n\\n[IMAGE: GEX gamma exposure chart for NVDA]\\n\\nFurther discussion..."
+CORRECT example body (English post with Korean IMAGE tags):
+"## Introduction\\nSome text about the stock...\\n\\n[IMAGE: NVDA Context Score 대시보드 - 스코어 81점 표시]\\n\\nMore analysis text...\\n\\n[IMAGE: GEX 감마 노출 차트 - NVDA 양수 전환]\\n\\nFurther discussion..."
 
-WRONG (no IMAGE tags in body - THIS IS A FAILURE):
-"## Introduction\\nSome text...\\nMore text...\\nConclusion..."
+CORRECT example body (Japanese post with Korean IMAGE tags):
+"## はじめに\\n株式の分析...\\n\\n[IMAGE: NVDA Context Score 대시보드 - 스코어 게이지]\\n\\n続きの分析..."
+
+WRONG (IMAGE tag in English or Japanese - THIS IS A FAILURE):
+"[IMAGE: NVDA Context Score dashboard showing score of 81]" ← WRONG, must be Korean
+"[IMAGE: NVDAのコンテキストスコア]" ← WRONG, must be Korean
 
 Each [IMAGE: ...] tag must describe what screenshot to capture from signumhq.com.
 The imageGuide array must match these body tags with exact capture locations.`;
