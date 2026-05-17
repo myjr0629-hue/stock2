@@ -37,10 +37,14 @@ export async function prepareSpotlight(opts: { date?: string; dryRun?: boolean; 
 
   console.log(`[MktV2/Prepare/Spotlight] ${ticker}: $${tickerData.price} (${tickerData.changePercent.toFixed(2)}%) SF=${tickerData.smartFlow} DP=${tickerData.darkPoolPercent.toFixed(1)}%`);
 
-  // 3. Build text
+  // 3. AI 맞춤 분석 생성
+  const aiInsight = await generateSpotlightInsight(ticker, tickerData, market);
+  console.log(`[MktV2/Prepare/Spotlight] AI Insight: ${aiInsight.en ? 'OK' : 'FALLBACK'}`);
+
+  // 4. Build text
   const text: ContentPackage['text'] = {};
   for (const lang of ALL_LANGS) {
-    text[lang] = buildSpotlightText(lang, ticker, tickerData, market, date);
+    text[lang] = buildSpotlightText(lang, ticker, tickerData, market, date, aiInsight);
   }
 
   // 4. Build insight text for OG image
@@ -107,12 +111,72 @@ async function selectTicker(date: string): Promise<string> {
   return SPOTLIGHT_POOL[Math.floor(Date.now() / 1000) % SPOTLIGHT_POOL.length];
 }
 
+// ── AI 맞춤 분석 생성 (Bedrock Haiku) ──
+interface AiInsight { en: string; ko: string; ja: string; }
+
+async function generateSpotlightInsight(
+  ticker: string,
+  data: Awaited<ReturnType<typeof fetchTickerData>>,
+  market: Awaited<ReturnType<typeof fetchMarketSnapshot>>,
+): Promise<AiInsight> {
+  const empty: AiInsight = { en: '', ko: '', ja: '' };
+  try {
+    const { callBedrock, MODELS } = await import('@/services/bedrockClient');
+    const changeDir = data.changePercent >= 0 ? '+' : '';
+    const flowLabel = data.smartFlow >= 60 ? 'accumulation' : data.smartFlow <= 40 ? 'distribution' : 'neutral';
+
+    const prompt = `You are an institutional equity analyst. Analyze $${ticker} using ONLY the data below.
+
+DATA:
+- Price: $${data.price.toFixed(2)} (${changeDir}${data.changePercent.toFixed(2)}%)
+- Smart Flow (institutional directional index): ${Math.round(data.smartFlow)}/100 → ${flowLabel}
+- Dark Pool Activity: ${data.darkPoolPercent.toFixed(1)}%
+- GEX Regime: ${data.gexRegime} (dealer gamma positioning)
+- IV Rank: ${data.ivRank} (implied volatility percentile)
+- Market-wide GEX: ${market.gexRegime}
+- VIX: ${market.vix.toFixed(1)}
+
+RULES:
+1. Observation only — NO predictions, NO financial advice
+2. Connect the dots: How do SF + DP + GEX interact for this specific stock?
+3. Each language: 2-3 sentences, STANDALONE, conversational but institutional grade
+4. Output ONLY valid JSON
+
+Output: {"en":"English 2-3 sentences","ko":"한국어 2-3문장","ja":"日本語2-3文"}`;
+
+    const result = await callBedrock({
+      modelId: MODELS.HAIKU_35,
+      system: 'You are a Bloomberg-tier institutional equity analyst. Output JSON only.',
+      userPrompt: prompt,
+      maxTokens: 800,
+      temperature: 0.3,
+      timeoutMs: 25000,
+      jsonPrefill: true,
+      label: `MktV2-Spotlight-${ticker}`,
+    });
+
+    const enM = result.text.match(/"en"\s*:\s*"((?:[^"\\]|\\.)*)"/);
+    const koM = result.text.match(/"ko"\s*:\s*"((?:[^"\\]|\\.)*)"/);
+    const jaM = result.text.match(/"ja"\s*:\s*"((?:[^"\\]|\\.)*)"/);
+
+    return {
+      en: enM ? enM[1].replace(/\\n/g, ' ').replace(/\\"/g, '"') : '',
+      ko: koM ? koM[1].replace(/\\n/g, ' ').replace(/\\"/g, '"') : '',
+      ja: jaM ? jaM[1].replace(/\\n/g, ' ').replace(/\\"/g, '"') : '',
+    };
+  } catch (err) {
+    console.error(`[MktV2/Spotlight] AI insight failed for ${ticker}:`, err);
+    return empty;
+  }
+}
+
 function buildSpotlightText(
   lang: Lang,
   ticker: string,
   data: Awaited<ReturnType<typeof fetchTickerData>>,
   market: Awaited<ReturnType<typeof fetchMarketSnapshot>>,
   date: string,
+  aiInsight: AiInsight = { en: '', ko: '', ja: '' },
 ) {
   const changeDir = data.changePercent >= 0 ? '+' : '';
   const company = COMPANY_MAP[ticker] || ticker;
@@ -130,7 +194,8 @@ function buildSpotlightText(
     ja: `💰 ${company}\n$${data.price.toFixed(2)} (${changeDir}${data.changePercent.toFixed(2)}%)\n\n📊 スマートフロー: ${Math.round(data.smartFlow)} (${flowLabel})\n🌊 ダークプール: ${data.darkPoolPercent.toFixed(1)}%\n🔮 GEX: ${data.gexRegime.toUpperCase()} | IV ランク: ${data.ivRank}`,
   };
 
-  const insights: Record<Lang, string> = {
+  // AI 분석 우선, fallback으로 GEX 기반 템플릿
+  const fallback: Record<Lang, string> = {
     en: data.smartFlow >= 60
       ? `Institutional activity in $${ticker} shows concentrated call-side positioning with elevated dark pool volume. Market-wide GEX is ${market.gexRegime}.`
       : `$${ticker} institutional flow shows mixed signals. Dark pool activity at ${data.darkPoolPercent.toFixed(1)}% with ${data.gexRegime} GEX positioning.`,
@@ -141,6 +206,8 @@ function buildSpotlightText(
       ? `$${ticker}の機関活動はコールサイドに集中し、ダークプール取引量が上昇しています。市場全体のGEXは${market.gexRegime}。`
       : `$${ticker}の機関フローは混在シグナル。ダークプール${data.darkPoolPercent.toFixed(1)}%、GEX ${data.gexRegime}ポジショニング。`,
   };
+
+  const insight = aiInsight[lang] || (lang === 'ja' ? aiInsight.ko : '') || fallback[lang];
 
   // 클린 CTA URL (종목 페이지)
   const ctaUrl = `https://www.signumhq.com/ticker?ticker=${ticker}`;
@@ -153,8 +220,8 @@ function buildSpotlightText(
   return {
     headline: applyCompliance(headlines[lang]),
     data: applyCompliance(dataLines[lang]),
-    insight: applyCompliance(insights[lang]),
-    full: applyCompliance(`${headlines[lang]}\n\n${dataLines[lang]}\n\n${insights[lang]}`),
+    insight: applyCompliance(insight),
+    full: applyCompliance(`${headlines[lang]}\n\n${dataLines[lang]}\n\n🎯 ${insight}`),
     disclaimer: DISCLAIMER[lang],
     cta: ctaLabels[lang],
     ctaFull: ctaUrl,
