@@ -454,15 +454,28 @@ signum-harvest (5분마다, 항상)
 ### 4.4 EC2 워커 (52.23.98.13)
 | 워커 | 파일 | 역할 | PM2 이름 |
 |------|------|------|----------|
-| Guardian Worker | `scripts/ec2-guardian-worker.js` (42KB) | Morning Briefing AI, DynamoDB→Redis | `guardian-worker` |
+| Guardian Worker | `scripts/ec2-guardian-worker.js` (49KB) | Morning Briefing AI, DynamoDB→Redis | `guardian-worker` |
 | Price WebSocket | `scripts/ec2-price-ws.js` (52KB) | 실시간 가격 WebSocket 허브 | `price-ws` |
 | Redis Proxy | `scripts/ec2-redis-proxy.js` | ElastiCache HTTP 프록시 | `redis-proxy` |
 | **Flow Accumulator v3** ✅ LIVE | `scripts/ec2-flow-accumulator.js` | **다크풀/블록딜 100% SSOT** — ElastiCache 쓰기 ($0) | `signum-flow-acc` |
 | **Capture Worker** ✅ LIVE | `scripts/ec2-capture-worker.js` | **마케팅 스크린샷 캡처** — Puppeteer+Chromium, PORT 3100, 인증 캡처 지원 | `capture-worker` |
 - **Instance ID**: `i-0c8e51d26ddc9b3c1`, **Type**: `t3.small`
+- **Node.js**: v16.20.2 (시스템), **GLIBC 2.26** (Amazon Linux 2, Node 18+ 미지원)
 - **WebSocket URL**: `wss://ws.signumhq.com`
-- **배포**: `node scripts/deploy-ec2-flow.js` (SSH+SCP 자동)
+- **배포**: `scp -i signum-websocket-key.pem scripts/ec2-*.js ec2-user@52.23.98.13:/opt/signum-ws/` → `pm2 restart <name>`
+- **⚠️ PM2 script path**: `/opt/signum-ws/guardian-worker.js` (파일명에 `ec2-` 접두사 없음)
 - **유저**: `ec2-user`, **PEM**: `signum-websocket-key.pem` (ED25519)
+
+#### ⚠️ [FIX 2026-05-18] Guardian Worker — Bedrock SDK Node 16 호환
+- **문제**: `@aws-sdk/client-bedrock-runtime` v3.1039.0이 `TransformStream`을 top-level import 시 요구 → Node 16에서 `ReferenceError: TransformStream is not defined` 크래시 → PM2 21회 재시작 후 errored
+- **원인**: Amazon Linux 2의 GLIBC 2.26이 Node 18+을 지원하지 않아 업그레이드 불가
+- **수정**: `require("@aws-sdk/client-bedrock-runtime")`을 lazy-load로 변경 (`getBedrock()`, `getInvokeModelCommand()` 함수 내부에서 try-catch로 감싸 동적 require)
+- **결과**: Worker 정상 기동, RLSI/GEX harvest + DynamoDB 기록 정상 작동. Bedrock 호출 시에만 SDK 로드 시도.
+
+#### ⚠️ [FIX 2026-05-18] Flow Accumulator — activeTickers 메모리 누수
+- **문제**: `refreshActiveUniverse()`에서 `activeTickers`가 append-only로 무한 증가 → 7,712개 구독 → Polygon WebSocket Policy Violation (1008) 크래시
+- **수정**: 매 refresh 시 `activeTickers`를 완전 교체 (Set 기반), stale 종목 unsubscribe
+- **추가**: 장외시간 WebSocket 재접속 60초 간격 gating (`isSleeping` 로직)
 
 #### Flow Accumulator v3 SSOT 메커니즘 (2026-04-17 LIVE)
 1. **100% 무결점 라이브 누적**: 기존 Lambda의 5,000건 REST 샘플링(정확도 0.025%)을 극복. 매일 04:00~20:00 ET 동안 `T.*` / `Q.*` (미국 전체 상위 3,000 종목)을 WebSocket 구독하여 RAM에 100% 전체 틱을 무손실 누적.
@@ -645,7 +658,7 @@ src/app/api/cron/dispatch-v2/   ← 크론 라우트 (7 슬롯)
   KST 06:00 │ ET 21:00 │ 🇺🇸 US 장마감           5ch  │ 0 21 * * 1-5
   KST 08:00 │ ET 23:00 │ 🇰🇷🇯🇵 아시아 장마감      4ch  │ 0 23 * * 1-5
   KST 12:00 │ UTC 03:00│ 🚀 SpaceX 아시아        4ch  │ 0 3 * * 1-6
-  KST 21:00 │ UTC 12:00│ 🌅 모닝 브리핑           9ch  │ 0 12 * * 1-6
+  KST 21:15 │ UTC 12:15│ 🌅 모닝 브리핑           9ch  │ 15 12 * * 1-6  ← [FIX 2026-05-18] 08:15 ET (Guardian briefing 생성 후 15분 대기)
   KST 23:00 │ UTC 14:00│ 📊 마켓 펄스            8ch  │ 0 14 * * 1-5
   KST 00:15 │ UTC 15:15│ 🔬 스팟라이트(draft)   21ch  │ 15 15 * * 1-5
   실시간      │         │ ⚡ 이벤트(event-detect)  7ch  │ cron 없음
@@ -686,7 +699,7 @@ Instagram KO/JA 채널: enabled: false (channels.ts)
 
 | 슬롯 | 데이터 소스 | AI 분석 |
 |:-----|:----------|:--------|
-| **모닝/펄스/장마감** | `fetchGuardianVerdicts()` → Redis `guardian:ai_verdict:{lang}` | Guardian TACTICAL INSIGHT (EC2 worker 생성) |
+| **모닝/펄스/장마감** | `fetchGuardianVerdicts()` → Redis `guardian:morning_briefing:{lang}` 우선 → `guardian:ai_verdict:{lang}` 폴백 | Guardian Morning Briefing AI 내러티브 우선 사용 [FIX 2026-05-18] |
 | **스팟라이트** | `fetchTickerData()` + `fetchMarketSnapshot()` → Bedrock Haiku | 종목별 SF/DP/GEX/IV 맞춤 분석 2-3문장 × 3개국어 |
 | **이벤트** | event input (type/ticker/magnitude/details) → Bedrock Haiku | 이벤트 맥락 분석 2-3문장 × 3개국어 |
 | **SpaceX** | `news[lang]` (AI 번역 뉴스) + fallback `news.en` | AI 번역 뉴스 데이터 사용 |
@@ -730,7 +743,7 @@ route.ts에서 prepareSpotlight() 3회 순차 호출:
 { "path": "/api/cron/dispatch-v2/market-close?region=en&dry_run=false",               "schedule": "0 21 * * 1-5" },
 { "path": "/api/cron/dispatch-v2/market-close?region=asia&dry_run=false",             "schedule": "0 23 * * 1-5" },
 { "path": "/api/cron/dispatch-v2/spacex?region=asia&dry_run=false",                   "schedule": "0 3 * * 1-6" },
-{ "path": "/api/cron/dispatch-v2/morning?region=all&dry_run=false",                   "schedule": "0 12 * * 1-6" },
+{ "path": "/api/cron/dispatch-v2/morning?region=all&dry_run=false",                   "schedule": "15 12 * * 1-6" },
 { "path": "/api/cron/dispatch-v2/pulse?region=all&dry_run=false",                     "schedule": "0 14 * * 1-5" },
 { "path": "/api/cron/dispatch-v2/spotlight?region=all&dry_run=false&draft=true",       "schedule": "15 15 * * 1-5" }
 ```
@@ -743,6 +756,47 @@ route.ts에서 prepareSpotlight() 3회 순차 호출:
 > 🔴 **Spotlight draft는 항상 draft=true**: vercel.json URL에 `&draft=true` 필수. 라이브 발행 시 중복 위험.
 > 🔴 **일요일 전체 정지**: vercel.json day-of-week `1-5` 또는 `1-6`으로 일요일(0) 제외됨.
 > 🔴 **월요일 03:00~08:00 스킵**: SpaceX EN/교육/US장마감/아시아장마감은 화~토만 실행 (금요일 데이터 기반).
+> 🔴 **모닝 OG 이미지**: "SPY OVERNIGHT" → "SPY"로 변경 완료 (2026-05-18). 3개 템플릿 (morning, morning-pin, morning-ig) 모두 프리마켓 실시간 SPY 지수 표시.
+> 🔴 **모닝 데이터 흐름**: Guardian Worker(08:00 ET) → `guardian:morning_briefing:{lang}` Redis 저장 → Vercel 디스패치(08:15 ET) → `fetchGuardianVerdicts()` 우선 읽기
+
+##### 5.3.0a Content Center — 블로그 생성 (2026-05-18 강화)
+
+> **파일**: `src/app/api/admin/content-gen/route.ts`
+> **모델**: Bedrock Haiku 3.5, maxTokens 4096, temperature 0.7
+
+| 플랫폼 | 언어 | 특징 |
+|--------|------|------|
+| 네이버 | 한국어 | SEO 키워드 3-5회, 1500-2500자, IMAGE 태그 5+ |
+| 티스토리 | 한국어 | ## markdown, 1500-2500자, IMAGE 태그 4-5 |
+| Medium | English | Hook>Data>Analysis>CTA, 800-1500 words |
+| note.com | 日本語 | 1000-2000자, ## headings |
+
+**[FIX 2026-05-18] 시관/이슈 모드 데이터 강화:**
+```
+기존: cache:morning-briefing:ko (summary 1줄만 사용) → 빈약한 "Regular trading day" 글
+
+신규 추가 데이터:
+  guardian:news:digest         → 최신 뉴스 헤드라인 6건
+  fmp:econ-calendar            → HIGH 경제 이벤트 (CPI, FOMC 등)
+  guardian:morning_briefing:ko  → AI 모닝 브리핑 내러티브 (500자)
+  rlsi:current + analysis:gex:regime → RLSI + GEX 체제
+  guardian:ai_verdict:ko       → Tactical Insight (300자)
+```
+
+> 프롬프트에 "가장 뉴스워시한 이슈에 집중" + "generic 금지" 지시 추가
+
+##### 5.3.0b Reddit 댓글 생성 (2026-05-18 다양성 강화)
+
+> **파일**: `src/app/api/admin/reddit-comment/route.ts`
+> **모델**: Bedrock Haiku 3.5, maxTokens 3000, temperature 0.9
+
+**[FIX 2026-05-18] 반복 패턴 근절:**
+| 항목 | 기존 | 개선 |
+|------|------|------|
+| 페르소나 | 고정 1개 ("30대 테크") | **8개 랜덤** (퀀트, PM, 학생, 리스크 등) |
+| 오프닝 스타일 | "honestly..." 반복 | **10가지 패턴** 랜덤 |
+| 댓글 구조 | 고정 3종 (Detailed/Quick/Discussion) | **4세트 × 3종 = 12종** 랜덤 |
+| 다양성 룰 | 없음 | 첫 단어 중복 금지, "honestly" 1회 제한, "I" 시작 1회 제한 |
 
 ---
 
