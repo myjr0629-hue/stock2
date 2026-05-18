@@ -7320,12 +7320,110 @@ Reddit:   개인 계정만, 홍보 금지, 링크 4주 후 → 신뢰 빌딩 채
 6. 투자 권유/조언 문구 금지 (정보 제공 목적)
 ```
 
-### 29.3 전체 수동 마케팅 요약
+### 29.3 수동 블로그 플랫폼 운영 가이드
+
+> **도구**: Content Center (`/admin/content-center`) — AI 블로그 즉시 생성 (Bedrock Haiku 3.5)
+> **자동 디스패치 범위**: X, Threads, Bluesky, Pinterest, Telegram, IG (자동)
+> **수동 발행 범위**: Medium, 네이버, 티스토리, note.com (Content Center 생성 → 복사 붙여넣기)
+
+#### 플랫폼별 최적 발행 빈도
+
+| 플랫폼 | 언어 | 추천 빈도 | 요일 | 작업 시간 | 비고 |
+|:------|:-----|:---------|:-----|:---------|:-----|
+| **Medium** | English | 주 2회 | 화/목 | ~5분 | SEO 효과 최대, 주 1회 이하 시 노출 급감 |
+| **네이버 블로그** | 한국어 | 주 2~3회 | 월/수/금 | ~5분 | 네이버 검색 유입, 미국주식 키워드 |
+| **티스토리** | 한국어 | 주 1~2회 | 화/금 | ~5분 | Google 검색 유입 (네이버보다 구글 SEO) |
+| **note.com** | 日本語 | 주 1회 | 수 또는 목 | ~5분 | 일본 시장 타겟, 미국주식 관심층 |
+
+#### 블로그 작업 워크플로우 (5분 이내)
 
 ```
-매일:   "레딧 댓글 뽑아줘"   → Reddit 5~10개 댓글 (EN, seamoca)
-주간:   "노트 글 써줘"       → note.com 분석글 (JA, SIGNUM HQ)
-주간:   "네이버 글 써줘"     → 네이버 블로그 분석글 (KO, 개인 블로그)
-4주 후: "레딧 홍보글 찾아줘"  → Reddit 홍보 질문글 탐색
+1. signumhq.com/admin/content-center → 블로그 생성 탭
+2. 모드 선택: 자동 선별 / 종목 지정 / 시장이슈
+3. 플랫폼 선택: Medium / 네이버 / 티스토리 / note.com
+4. 생성 버튼 클릭 → AI가 즉시 완성 (제목+본문+태그+이미지가이드)
+5. 복사 버튼 → 해당 플랫폼에 붙여넣기 → 발행
 ```
 
+#### 블로그 프롬프트 핵심 설정 (content-gen/route.ts)
+
+| 설정 | 내용 |
+|:-----|:-----|
+| 점수 명칭 | **Context Score** (Alpha Score 사용 금지) |
+| IMAGE 태그 언어 | **모든 플랫폼에서 한글** (`[IMAGE: NVDA Context Score 대시보드]`) |
+| 글 말미 CTA | 모든 플랫폼에 SIGNUM HQ 무료 플랜 안내 + 링크 자동 삽입 |
+| Medium Topics | 생성 결과에 5개 토픽 포함 (클릭 복사 지원) |
+| 어조 | 관찰자/리뷰어 (투자 권유 금지) |
+
+---
+
+### 29.4 Reddit 마케팅 운영 가이드
+
+> **도구**: Content Center → Reddit 댓글 탭 (`/admin/content-center`)
+> **API**: `/api/admin/reddit-comment` (Bedrock Haiku 3.5, 댓글 3종 생성)
+> **계정**: seamoca (Reddit)
+
+#### Reddit 카르마 전략 (필수 선행)
+
+> 🔴 **r/stocks, r/options, r/wallstreetbets는 최소 카르마 요구.** 신규 계정은 댓글이 자동 삭제됨.
+> 카르마 50~100+ 쌓은 후 진입할 것.
+
+| 단계 | 기간 | 대상 서브레딧 | 모드 | 목표 |
+|:-----|:-----|:-------------|:-----|:-----|
+| **Phase 1: 카르마 빌드** | 1~2주 | r/explainlikeimfive, r/todayilearned, r/technology | 🛡️ 카르마 | 카르마 50+ |
+| **Phase 2: 테크 신뢰** | 2~3주 | r/programming, r/datascience, r/dataisbeautiful | 🛡️ 카르마 | 커뮤니티 인지 |
+| **Phase 3: 금융 진입** | 3주+ | r/stocks, r/options, r/investing | 🛡️ 카르마 | 카르마 100+ |
+| **Phase 4: 자연 홍보** | 4주+ | r/options, r/stocks | 🟢 오가닉 | signumhq.com 자연 언급 |
+
+#### 서브레딧 카르마 요구 현황
+
+| 서브레딧 | 카르마 요구 | 진입 시기 |
+|:---------|:----------|:---------|
+| r/explainlikeimfive | 없음 | 🟢 지금 바로 |
+| r/todayilearned | 없음 | 🟢 지금 바로 |
+| r/technology | 낮음 | 🟢 지금 바로 |
+| r/dataisbeautiful | 낮음 | 🟢 지금 바로 |
+| r/programming | 낮음 | 🟡 카르마 10+ |
+| r/stocks | 높음 | 🔴 카르마 50+ |
+| r/options | 높음 | 🔴 카르마 50+ |
+| r/wallstreetbets | 높음 | 🔴 카르마 100+ |
+
+#### Reddit 댓글 생성 규칙 (reddit-comment/route.ts)
+
+| 규칙 | 내용 |
+|:-----|:-----|
+| 마크다운 금지 | `**볼드**`, `*이탤릭*`, 불릿 등 서식 사용 안 함 (AI 생성 티 제거) |
+| 카르마 모드 | 홍보 0%, 순수 도움 댓글만 |
+| 오가닉 모드 | 3개 중 1개에만 자연스러운 signumhq.com 언급 |
+| 댓글 3종 | analysis(상세) + quick(짧은) + discussion(질문) |
+| 히스토리 | localStorage 기반 완료 추적, 중복 방지 |
+
+#### Reddit 선점 타이밍
+
+```
+⏱️ 0~30분 이내:  ██████████ 최상위 노출 확률 높음 (🟢)
+⏱️ 30분~2시간:   ██████     중간 — 괜찮음 (🟡)
+⏱️ 2시간 이후:   ██         묻힘 (🔴)
+```
+
+---
+
+### 29.5 전체 마케팅 운영 요약
+
+```
+[자동 - dispatch-v2, 하루 8회, 50+ posts/day]
+  X(3채널) + Threads(3채널) + Bluesky(1) + Pinterest(1) + IG(1 EN) + Telegram(비활성)
+
+[수동 - Content Center, 주 5~8회]
+  화: Medium(EN) + 네이버(KO)
+  수: note.com(JA)
+  목: Medium(EN) + 티스토리(KO)
+  금: 네이버(KO)
+
+[수동 - Reddit, 매일 3~5댓글]
+  Phase 1-2: r/technology, r/explainlikeimfive (카르마 빌드)
+  Phase 3-4: r/stocks, r/options (데이터 기반 댓글 + 자연 홍보)
+
+[Medium ↔ X 연결 완료]
+  프로필 신뢰도 + 독자 유입 (Share to X는 수동, 자동 아님)
+```
