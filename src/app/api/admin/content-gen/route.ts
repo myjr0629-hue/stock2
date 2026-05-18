@@ -67,15 +67,74 @@ export async function POST(req: NextRequest) {
             }
         }
 
-        const briefData = await getFromCache<any>('cache:morning-briefing:ko');
+        // [FIX 2026-05-18] Enriched market context — news, econ calendar, briefing, RLSI, GEX
+        const [briefData, newsDigest, econCal, mbKo, mbEn, rlsiRaw, gexRaw, aiVerdictKo] = await Promise.all([
+            getFromCache<any>('cache:morning-briefing:ko'),
+            getFromCache<any>('guardian:news:digest'),
+            getFromCache<any>('fmp:econ-calendar'),
+            getFromCache<any>('guardian:morning_briefing:ko'),
+            getFromCache<any>('guardian:morning_briefing:en'),
+            getFromCache<any>('rlsi:current'),
+            getFromCache<any>('analysis:gex:regime'),
+            getFromCache<any>('guardian:ai_verdict:ko'),
+        ]);
+
         if (briefData) {
             const brief = typeof briefData === 'string' ? JSON.parse(briefData) : briefData;
             marketContext = brief.summary || brief.headline || '';
         }
 
+        // Build enriched issue context for market/issue mode
+        let issueContext = '';
+        try {
+            const parts: string[] = [];
+
+            // 1. News headlines
+            if (newsDigest) {
+                const digest = typeof newsDigest === 'string' ? JSON.parse(newsDigest) : newsDigest;
+                const items = (digest?.items || []).slice(0, 6);
+                if (items.length > 0) {
+                    parts.push('## Latest News Headlines');
+                    items.forEach((it: any) => parts.push(`- ${it.headline || it.summaryEN || ''}`));
+                }
+            }
+
+            // 2. Economic calendar
+            if (econCal) {
+                const cal = typeof econCal === 'string' ? JSON.parse(econCal) : econCal;
+                const events = (cal?.events || []).filter((e: any) => e.impact === 'HIGH').slice(0, 4);
+                if (events.length > 0) {
+                    parts.push('## Key Economic Events Today');
+                    events.forEach((e: any) => parts.push(`- ${e.event}: actual=${e.actual || 'TBD'}, estimate=${e.estimate || 'N/A'} (${e.impact})`));
+                }
+            }
+
+            // 3. Morning briefing narrative
+            if (mbKo) {
+                const mb = typeof mbKo === 'string' ? JSON.parse(mbKo) : mbKo;
+                if (mb?.briefing) parts.push(`## AI Morning Briefing\n${mb.briefing.substring(0, 500)}`);
+            }
+
+            // 4. RLSI + GEX regime
+            const rlsi = typeof rlsiRaw === 'number' ? rlsiRaw : parseFloat(String(rlsiRaw)) || 0;
+            const gex = typeof gexRaw === 'string' ? gexRaw : (gexRaw as any)?.regime || 'neutral';
+            if (rlsi > 0) parts.push(`## Market Indicators\n- RLSI: ${rlsi} | GEX Regime: ${gex}`);
+
+            // 5. AI Tactical Insight
+            if (aiVerdictKo) {
+                const v = typeof aiVerdictKo === 'string' ? JSON.parse(aiVerdictKo) : aiVerdictKo;
+                const insight = v?.realityInsight || v?.description || '';
+                if (insight.length > 20) parts.push(`## Tactical Insight\n${insight.substring(0, 300)}`);
+            }
+
+            issueContext = parts.join('\n\n');
+        } catch (e) {
+            console.warn('[ContentCenter] Issue context build error:', (e as Error).message);
+        }
+
         // ─── Build AI prompt (single platform only) ───
         const systemPrompt = buildSystemPrompt(platform);
-        const userPrompt = buildUserPrompt(mode, targetTickers, tickerDataMap, marketContext, platform);
+        const userPrompt = buildUserPrompt(mode, targetTickers, tickerDataMap, marketContext, platform, issueContext);
 
         const result = await callBedrock({
             modelId: MODELS.HAIKU_35,
@@ -250,7 +309,7 @@ When placing [IMAGE: description] in the body, provide EXACT capture locations f
 }`;
 }
 
-function buildUserPrompt(mode: string, tickers: string[], dataMap: Record<string, any>, marketContext: string, platform: string): string {
+function buildUserPrompt(mode: string, tickers: string[], dataMap: Record<string, any>, marketContext: string, platform: string, issueContext?: string): string {
     const lang = platform === 'medium' ? 'in English' : platform === 'note' ? 'in Japanese' : 'in Korean';
 
     if (mode === 'market') {
@@ -259,8 +318,16 @@ function buildUserPrompt(mode: string, tickers: string[], dataMap: Record<string
 Market situation: ${marketContext || 'Regular trading day'}
 Trending: ${Object.entries(dataMap).map(([t, d]) => `${t}: $${d?.price || '?'}, ${d?.changePct || '?'}%`).join(', ')}
 
-Write about noteworthy market issues and trends.`;
-    }
+${issueContext ? `## REAL-TIME MARKET INTELLIGENCE (USE THIS DATA)\n\n${issueContext}\n\n` : ''}
+IMPORTANT INSTRUCTIONS:
+- Focus on the MOST NEWSWORTHY issue from the data above
+- If there are economic events (CPI, FOMC, jobs data), make that the centerpiece
+- If there are major news headlines (Trump tariffs, earnings, FDA), lead with that
+- Use specific numbers and data points from the intelligence above
+- Connect the news to market impact (how did SPY/VIX/sectors react?)
+- Write about what traders and investors are ACTUALLY talking about today
+- DO NOT write a generic "markets were mixed" article — be SPECIFIC and TIMELY`;    }
+
 
     const t = tickers[0];
     const d = dataMap[t];
