@@ -109,11 +109,15 @@ ${subCultureGuide[subInfo.category] || subCultureGuide.general}
 
 ## Comment Rules
 1. Sound like a real Redditor - casual but knowledgeable
-2. Use Reddit markdown: **bold**, *italic*, line breaks, bullet points
-3. NO hashtags ever
-4. Match the subreddit's tone precisely
-5. Add value - don't just agree, contribute something new
-6. If finance: use actual data points when available
+2. NEVER use markdown formatting: NO **bold**, NO *italic*, NO bullet points with -, NO headers with #
+3. Write like a normal person typing quickly. Use plain text only.
+4. NO hashtags ever
+5. Match the subreddit's tone precisely
+6. Add value - don't just agree, contribute something new
+7. If finance: use actual data points when available
+8. Use casual line breaks (just hit enter twice) instead of structured lists
+9. It's OK to use lowercase, abbreviations, contractions - sound human
+10. NEVER structure your comment like an article or blog post
 
 ## JSON Rules
 - Escape double quotes: \\"
@@ -148,7 +152,7 @@ ${subCultureGuide[subInfo.category] || subCultureGuide.general}
 ${targetTicker} Live Data:
 - Price: $${tickerData.price || tickerData.currentPrice || '?'}
 - Change: ${tickerData.changePct || tickerData.changePercent || '?'}%
-- Alpha Score: ${tickerData.score || tickerData.alphaScore || '?'}
+- Context Score: ${tickerData.score || tickerData.contextScore || tickerData.alphaScore || '?'}
 - GEX: $${tickerData.gex || '?'}
 - Dark Pool: ${tickerData.darkPoolPct || tickerData.darkPool?.pct || '?'}%
 - Smart Flow: ${tickerData.whaleIndex || tickerData.smartFlow || '?'}
