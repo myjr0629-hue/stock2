@@ -155,7 +155,7 @@ function MorningIGContent() {
               <svg width="70" height="70" viewBox="0 0 70 70" fill="none" stroke={spyColor} strokeWidth="5" strokeLinecap="round" strokeLinejoin="round"><path d="M14 54V34M28 54V22M42 54V30M56 54V18" /><path d="M14 34l14-12 14 8 14-16" /></svg>
             </div>
             <div>
-              <div style={{ fontSize: 25, fontWeight: 900, letterSpacing: '0.20em' }}>SPY OVERNIGHT</div>
+              <div style={{ fontSize: 25, fontWeight: 900, letterSpacing: '0.20em' }}>SPY</div>
               <div style={{ marginTop: 21, fontSize: 62, lineHeight: 0.88, fontWeight: 900, letterSpacing: '-0.07em', color: spyColor, textShadow: `0 0 26px ${spyColor}36` }}>
                 {spyDisplay} <span style={{ marginLeft: 18, fontSize: 36, filter: `drop-shadow(0 0 12px ${spyColor}52)` }}>{spyPositive ? '▲' : '▼'}</span>
               </div>

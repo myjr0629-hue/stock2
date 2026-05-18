@@ -95,7 +95,7 @@ function MorningContent() {
         {/* Metric Cards — 2×2 grid */}
         <div style={{ position: 'absolute', top: 900, left: 60, right: 60, display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 16, zIndex: 16 }}>
           <div style={{ padding: '24px 28px', borderRadius: 16, border: '1px solid rgba(255,255,255,0.12)', background: 'rgba(8,15,27,0.75)', backdropFilter: 'blur(12px)' }}>
-            <div style={{ color: '#94a3b8', fontSize: 13, fontWeight: 900, letterSpacing: '0.25em' }}>SPY OVERNIGHT</div>
+            <div style={{ color: '#94a3b8', fontSize: 13, fontWeight: 900, letterSpacing: '0.25em' }}>SPY</div>
             <div style={{ marginTop: 16, fontSize: 48, fontWeight: 900, color: spyPositive ? '#34d399' : '#f87171' }}>{spyDisplay} {spyPositive ? '▲' : '▼'}</div>
           </div>
           <div style={{ padding: '24px 28px', borderRadius: 16, border: '1px solid rgba(255,255,255,0.12)', background: 'rgba(8,15,27,0.75)', backdropFilter: 'blur(12px)' }}>
@@ -200,7 +200,7 @@ function MorningContent() {
       <div style={{ position: 'absolute', left: 36, top: 306, width: 550, display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: 10, zIndex: 16 }}>
         {/* SPY */}
         <div style={cardStyle}>
-          <div style={{ color: '#94a3b8', fontSize: 11, fontWeight: 900, letterSpacing: '0.28em' }}>SPY OVERNIGHT</div>
+          <div style={{ color: '#94a3b8', fontSize: 11, fontWeight: 900, letterSpacing: '0.28em' }}>SPY</div>
           <div style={{ marginTop: 12, display: 'flex', alignItems: 'center', gap: 12, fontSize: 36, fontWeight: 900, letterSpacing: '-0.06em', color: spyPositive ? '#34d399' : '#f87171', textShadow: `0 0 20px ${spyPositive ? 'rgba(52,211,153,0.22)' : 'rgba(248,113,113,0.22)'}` }}>
             {spyDisplay}
             <span style={{ fontSize: 20, filter: `drop-shadow(0 0 12px ${spyPositive ? 'rgba(52,211,153,0.42)' : 'rgba(248,113,113,0.42)'})` }}>{spyPositive ? '▲' : '▼'}</span>

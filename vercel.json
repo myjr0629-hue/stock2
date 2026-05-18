@@ -90,7 +90,7 @@
         },
         {
             "path": "/api/cron/dispatch-v2/morning?region=all&dry_run=false",
-            "schedule": "0 12 * * 1-6"
+            "schedule": "15 12 * * 1-6"
         },
         {
             "path": "/api/cron/dispatch-v2/pulse?region=all&dry_run=false",

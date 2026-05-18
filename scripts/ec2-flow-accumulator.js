@@ -213,11 +213,33 @@ async function refreshActiveUniverse() {
         const topTickers = valid.slice(0, MAX_SUBSCRIBERS).map(t => t.ticker);
         console.log(`[Flow SSOT] ✅ Filtered ${topTickers.length} top active tickers.`);
 
-        const newTickers = topTickers.filter(t => !activeTickers.has(t));
-        if (newTickers.length > 0) {
-            newTickers.forEach(t => activeTickers.add(t));
-            subscribeWebsocketBatch(newTickers);
+        // [FIX 2026-05-18] Replace activeTickers entirely — prevents unbounded growth
+        // Old code only added new tickers, never removed stale ones.
+        // After 28 days, activeTickers grew to 7,712 → exceeded WS subscription limit → crash loop.
+        const newSet = new Set(topTickers);
+        const removed = [...activeTickers].filter(t => !newSet.has(t));
+        const added = topTickers.filter(t => !activeTickers.has(t));
+
+        // Unsubscribe removed tickers from WebSocket
+        if (removed.length > 0 && isConnected && ws) {
+            const chunkSize = 1000;
+            for (let i = 0; i < removed.length; i += chunkSize) {
+                const chunk = removed.slice(i, i + chunkSize);
+                const unsubParams = chunk.flatMap(t => [`T.${t}`, `Q.${t}`]).join(",");
+                ws.send(JSON.stringify({ action: "unsubscribe", params: unsubParams }));
+            }
         }
+
+        // Replace activeTickers with exact new set (capped at MAX_SUBSCRIBERS)
+        activeTickers.clear();
+        topTickers.forEach(t => activeTickers.add(t));
+
+        // Subscribe only newly added tickers
+        if (added.length > 0) {
+            subscribeWebsocketBatch(added);
+        }
+
+        console.log(`[Flow SSOT] Universe: ${activeTickers.size} active (${added.length} added, ${removed.length} removed).`);
     } catch (e) {
         console.error("[Flow SSOT] Universe parsing failed:", e.message);
     }
@@ -264,9 +286,17 @@ function connectWebsocket() {
     });
 
     ws.on("close", () => {
-        console.error("[Flow SSOT] 🔴 WS Closed. Reconnecting in 5s...");
         isConnected = false;
-        setTimeout(connectWebsocket, 5000);
+        const { isSleeping } = getETNow();
+        if (isSleeping) {
+            // [FIX 2026-05-18] Don't spam reconnects during market-closed hours.
+            // Check every 60s if market has opened, then reconnect.
+            console.log("[Flow SSOT] 💤 WS closed (market closed). Will retry in 60s...");
+            setTimeout(connectWebsocket, 60000);
+        } else {
+            console.error("[Flow SSOT] 🔴 WS Closed. Reconnecting in 5s...");
+            setTimeout(connectWebsocket, 5000);
+        }
     });
 
     ws.on("error", (e) => console.error("[Flow SSOT] WS Error:", e.message));

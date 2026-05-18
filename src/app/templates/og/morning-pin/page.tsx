@@ -130,7 +130,7 @@ function MorningPinContent() {
       <div style={{ position:'absolute',left:50,right:50,top:840,display:'grid',gridTemplateColumns:'repeat(2,1fr)',gap:16,zIndex:30 }}>
         {/* SPY */}
         <div style={{ ...card, borderColor:'rgba(52,211,153,0.46)',boxShadow:'inset 0 1px 0 rgba(255,255,255,0.10),0 0 26px rgba(52,211,153,0.08),0 18px 42px rgba(0,0,0,0.28)' }}>
-          <div style={{ color:'#94a3b8',fontSize:22,fontWeight:900,letterSpacing:'0.26em',textTransform:'uppercase' as const }}>SPY OVERNIGHT</div>
+          <div style={{ color:'#94a3b8',fontSize:22,fontWeight:900,letterSpacing:'0.26em',textTransform:'uppercase' as const }}>SPY</div>
           <div style={{ marginTop:27,fontSize:72,lineHeight:0.88,fontWeight:900,letterSpacing:'-0.075em',color:spyColor,textShadow:`0 0 26px ${spyColor}66` }}>
             {spyDisplay} <span style={{ fontSize:42,marginLeft:15,filter:`drop-shadow(0 0 12px ${spyColor}88)` }}>{spyPositive ? '▲' : '▼'}</span>
           </div>

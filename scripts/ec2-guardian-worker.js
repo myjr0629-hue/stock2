@@ -16,15 +16,34 @@
 const Redis = require("ioredis");
 const https = require("https");
 const http = require("http");
-const { BedrockRuntimeClient, InvokeModelCommand } = require("@aws-sdk/client-bedrock-runtime");
 
+// [FIX 2026-05-18] Lazy-load Bedrock SDK — Node 16 lacks TransformStream required by AWS SDK v3.
+// Top-level require crashes the entire worker. Lazy-load only when Bedrock is actually needed.
+let _BedrockRuntimeClient = null;
+let _InvokeModelCommand = null;
 let _bedrockClient = null;
+
 function getBedrock() {
     if (_bedrockClient) return _bedrockClient;
-    _bedrockClient = new BedrockRuntimeClient({
+    if (!_BedrockRuntimeClient) {
+        try {
+            const sdk = require("@aws-sdk/client-bedrock-runtime");
+            _BedrockRuntimeClient = sdk.BedrockRuntimeClient;
+            _InvokeModelCommand = sdk.InvokeModelCommand;
+        } catch (e) {
+            console.error("[Guardian Worker] ❌ Bedrock SDK load failed:", e.message);
+            return null;
+        }
+    }
+    _bedrockClient = new _BedrockRuntimeClient({
         region: process.env.AWS_REGION || 'us-east-1',
     });
     return _bedrockClient;
+}
+
+function getInvokeModelCommand() {
+    if (!_InvokeModelCommand) getBedrock();
+    return _InvokeModelCommand;
 }
 
 // DynamoDB History Module (Phase 4)
@@ -659,7 +678,9 @@ async function generateMorningBriefing() {
 
                 // 2. Local Bedrock Execution
                 const client = getBedrock();
-                const command = new InvokeModelCommand({
+                const IMC = getInvokeModelCommand();
+                if (!client || !IMC) throw new Error("Bedrock SDK not available (Node 16 TransformStream limitation)");
+                const command = new IMC({
                     modelId: 'us.anthropic.claude-sonnet-4-20250514-v1:0',
                     contentType: 'application/json',
                     accept: 'application/json',

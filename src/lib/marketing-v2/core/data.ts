@@ -121,12 +121,17 @@ export interface GuardianVerdicts {
 }
 
 export async function fetchGuardianVerdicts(): Promise<GuardianVerdicts> {
-  const [enRaw, koRaw, jaRaw, briefRaw, rlsiRaw] = await Promise.all([
+  const [enRaw, koRaw, jaRaw, briefRaw, rlsiRaw, mbKo, mbEn, mbJa] = await Promise.all([
     safeGet('guardian:ai_verdict:en'),
     safeGet('guardian:ai_verdict:ko'),
     safeGet('guardian:ai_verdict:ja'),
     safeGet('guardian:briefing:latest'),
     safeGet('rlsi:current'),
+    // [FIX 2026-05-18] Fetch guardian morning briefing (generated at 08:00 ET by EC2 guardian-worker)
+    // This is the actual narrative analysis — prefer over stale AI verdict for morning dispatch
+    safeGet('guardian:morning_briefing:ko'),
+    safeGet('guardian:morning_briefing:en'),
+    safeGet('guardian:morning_briefing:ja'),
   ]);
 
   // Guardian AI verdict 구조: { title, description, sentiment, realityInsight }
@@ -145,11 +150,23 @@ export async function fetchGuardianVerdicts(): Promise<GuardianVerdicts> {
     return JSON.stringify(p).substring(0, 300);
   };
 
+  // [FIX 2026-05-18] Morning briefing: prefer guardian-worker's narrative over AI verdict
+  // The morning briefing is a full narrative generated at 08:00 ET with news + data context
+  const parseBriefing = (raw: any) => {
+    if (!raw) return '';
+    const p = parseJSON(raw);
+    return (p?.briefing ?? p?.text ?? '').substring(0, 450);
+  };
+
+  const mbKoText = parseBriefing(mbKo);
+  const mbEnText = parseBriefing(mbEn);
+  const mbJaText = parseBriefing(mbJa);
+
   return {
-    en: parse(enRaw),
-    ko: parse(koRaw),
-    ja: parse(jaRaw),
-    briefing: parse(briefRaw),
+    en: mbEnText || parse(enRaw),
+    ko: mbKoText || parse(koRaw),
+    ja: mbJaText || parse(jaRaw),
+    briefing: parseBriefing(briefRaw) || parse(briefRaw),
     rlsi: typeof rlsiRaw === 'number' ? rlsiRaw : parseFloat(String(rlsiRaw)) || 50,
   };
 }
