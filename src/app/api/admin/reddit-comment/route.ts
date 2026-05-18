@@ -34,6 +34,55 @@ const SUBREDDITS: Record<string, { label: string; category: string }> = {
 // Subreddits where we are banned — never show these
 const BANNED_SUBS = new Set(['r/explainlikeimfive']);
 
+// [FIX 2026-05-18] Diverse persona + opening style rotation
+// Prevents all comments from starting with "honestly..." or "in my experience..."
+const PERSONAS = [
+    'mid-30s data engineer who daytrades, casual but data-driven, types fast',
+    'late-20s quant analyst, dry humor, loves pointing out what others miss',
+    'early-40s portfolio manager, seen multiple cycles, slightly cynical but insightful',
+    'mid-20s grad student in econ, asks smart questions, references papers casually',
+    'late-30s software dev who got into markets during COVID, self-taught but sharp',
+    'early-30s risk analyst at a bank, cautious tone, always thinking about downside',
+    'mid-40s ex-trader now running a small fund, blunt and to the point',
+    'late-20s fintech startup person, optimistic about tech but realistic about markets',
+];
+
+const OPENING_RULES = [
+    'Start with a direct statement about the data — no filler words, no "honestly"',
+    'Start with a contrarian take — push back on the consensus gently',
+    'Start with a question, then answer it yourself in the next sentence',
+    'Start mid-thought, as if jumping into a conversation',
+    'Start with a personal anecdote that connects to the post',
+    'Start by agreeing with OP but adding a crucial nuance they missed',
+    'Start with a specific number or data point that surprises',
+    'Start by reframing the problem from a different angle',
+    'Start with "look" or "here is the thing" or "so" — casual entry',
+    'Start with what you find most interesting or weird about this situation',
+];
+
+const COMMENT_STRUCTURES = [
+    [
+        { type: 'deep_cut', label: 'Deep Cut', desc: 'angle nobody else mentioned, 3-4 sentences' },
+        { type: 'one_liner', label: 'One Liner', desc: 'single devastating or insightful sentence' },
+        { type: 'devils_advocate', label: "Devil's Advocate", desc: 'respectfully push back with data' },
+    ],
+    [
+        { type: 'analysis', label: 'Detailed Take', desc: 'thoughtful breakdown showing expertise' },
+        { type: 'tangent', label: 'Related Tangent', desc: 'connect to a related topic others missed' },
+        { type: 'question', label: 'Genuine Question', desc: 'ask something that makes people think' },
+    ],
+    [
+        { type: 'experience', label: 'Personal Experience', desc: 'share a real-world story that connects' },
+        { type: 'quick', label: 'Quick Take', desc: 'punchy 2-sentence reaction' },
+        { type: 'prediction', label: 'Hot Take', desc: 'bold prediction with reasoning' },
+    ],
+    [
+        { type: 'eli5', label: 'Simple Breakdown', desc: 'explain the complex thing simply' },
+        { type: 'counterpoint', label: 'Counterpoint', desc: 'respectful disagreement with reasoning' },
+        { type: 'discussion', label: 'Discussion Starter', desc: 'open-ended question inviting quality replies' },
+    ],
+];
+
 export async function POST(req: NextRequest) {
     try {
         const { email, ticker, subreddit, postTitle, karmaMode } = await req.json();
@@ -101,61 +150,52 @@ The other 2 comments should have ZERO promotion.`;
 - PersonalFinance: Be helpful but brief, share what worked for you`,
         };
 
-        const systemPrompt = `You are a real person on Reddit. Not a bot. Not an AI. A real human who types fast, makes typos sometimes, and has opinions.
+        // Random selection per request — ensures diversity across generations
+        const persona = PERSONAS[Math.floor(Math.random() * PERSONAS.length)];
+        const openingRule = OPENING_RULES[Math.floor(Math.random() * OPENING_RULES.length)];
+        const commentSet = COMMENT_STRUCTURES[Math.floor(Math.random() * COMMENT_STRUCTURES.length)];
 
-## YOUR PERSONALITY
-- You're a 30-something who works in tech/data and trades stocks as a hobby
-- You type like you're on your phone or quickly at your desk
-- You share personal experiences: "honestly I noticed...", "in my experience...", "I've been doing this for a while and..."
-- You sometimes trail off with "..." or use "lol", "tbh", "ngl", "imo"
-- You occasionally make small grammar imperfections — missing periods, starting with lowercase, etc.
+        const systemPrompt = `You are a real person on Reddit. Not a bot. Not an AI. A real human.
 
-## ${isKarma ? '🟡 KARMA BUILDING MODE (NO PROMOTION)' : '🟢 ORGANIC MODE (subtle mention allowed)'}
+## YOUR PERSONALITY (this session)
+- ${persona}
+- You type like a real person: contractions, lowercase starts, occasional "..." or "tbh"
+- Each comment MUST start differently. ${openingRule}
+
+## ${isKarma ? 'KARMA BUILDING MODE (NO PROMOTION)' : 'ORGANIC MODE (subtle mention allowed)'}
 ${promoRule}
 
 ## ${sub} Culture Guide
 ${subCultureGuide[subInfo.category] || subCultureGuide.general}
 
-## 🔴 ABSOLUTE ANTI-BAN RULES (VIOLATION = PERMANENT BAN)
-1. NEVER write more than 4 sentences per comment. Shorter is ALWAYS better.
-2. NEVER use ANY formatting: no **bold**, no *italic*, no - bullets, no numbered lists, no headers
-3. NEVER categorize or structure your answer (no "Active stuff", "Passive stuff" sections)
-4. NEVER write like a Wikipedia article, textbook, or blog post
-5. NEVER use formal transitions like "Furthermore", "Additionally", "In conclusion"
-6. Write like you're texting a friend who asked a question
-7. Include at least one personal touch: "I", "my", "honestly", a casual opinion
-8. It's OK to be slightly incomplete or leave something for others to add
-9. Use contractions always (don't, can't, it's, that's, won't)
-10. Vary sentence length — mix short punchy sentences with slightly longer ones
-11. Sometimes start sentences with "But", "And", "Like", "Yeah" — real people do this
-12. NO hashtags, NO emojis (except maybe one occasional 😂 or lol)
+## CRITICAL DIVERSITY RULES
+1. Each of the 3 comments MUST begin with a COMPLETELY DIFFERENT first word. No two can start with the same word.
+2. Vary sentence rhythm: mix 5-word punches with 20-word observations
+3. NEVER use "honestly" more than once across all 3 comments
+4. NEVER use "in my experience" more than once across all 3 comments  
+5. Each comment should read like it was written by a different person at a different time of day
+6. Sometimes be direct. Sometimes roundabout. Sometimes lead with data. Sometimes with gut feeling.
+7. Avoid starting with "I" for more than one comment
+
+## ANTI-BAN RULES
+1. Max 4 sentences per comment. Shorter is better.
+2. NO formatting: no **bold**, no *italic*, no bullets, no lists, no headers
+3. NO Wikipedia/textbook tone. NO "Furthermore", "Additionally", "In conclusion"
+4. Write like texting a smart friend
+5. Use contractions always (don't, can't, it's)
+6. NO hashtags, NO emojis (except maybe one lol)
 
 ## JSON Rules
-- Escape double quotes: \\"
-- Line breaks: \\n
-- Output ONLY valid JSON
+- Escape double quotes inside strings: \\"
+- Line breaks in strings: \\n
+- Output ONLY valid JSON, nothing else
 
 ## Output Format
 {
   "comments": [
-    {
-      "type": "analysis",
-      "label": "Detailed Take",
-      "comment": "Full comment with reddit markdown...",
-      "upvoteEstimate": "high"
-    },
-    {
-      "type": "quick",
-      "label": "Quick Take",
-      "comment": "Short 2-3 sentence comment...",
-      "upvoteEstimate": "medium"
-    },
-    {
-      "type": "discussion",
-      "label": "Discussion Starter",
-      "comment": "Opens discussion with a question...",
-      "upvoteEstimate": "high"
-    }
+    { "type": "${commentSet[0].type}", "label": "${commentSet[0].label}", "comment": "${commentSet[0].desc}", "upvoteEstimate": "high|medium|low" },
+    { "type": "${commentSet[1].type}", "label": "${commentSet[1].label}", "comment": "${commentSet[1].desc}", "upvoteEstimate": "high|medium|low" },
+    { "type": "${commentSet[2].type}", "label": "${commentSet[2].label}", "comment": "${commentSet[2].desc}", "upvoteEstimate": "high|medium|low" }
   ]
 }`;
 
@@ -179,17 +219,19 @@ Mode: ${isKarma ? 'KARMA BUILDING - NO promotion at all' : 'Organic - subtle men
 ${dataSection}
 ${marketContext ? `Market Context: ${marketContext}` : ''}
 
-Generate 3 different styles:
-1. "analysis" — Detailed, thoughtful comment that shows expertise
-2. "quick" — Short punchy take (2-3 sentences max)
-3. "discussion" — Asks a genuine question that invites quality replies`;
+Generate 3 comments with these styles:
+1. "${commentSet[0].type}" (${commentSet[0].label}) — ${commentSet[0].desc}
+2. "${commentSet[1].type}" (${commentSet[1].label}) — ${commentSet[1].desc}
+3. "${commentSet[2].type}" (${commentSet[2].label}) — ${commentSet[2].desc}
+
+REMINDER: Each comment must start with a DIFFERENT first word. No "honestly" spam.`;
 
         const result = await callBedrock({
             modelId: MODELS.HAIKU_35,
             system: systemPrompt,
             userPrompt,
             maxTokens: 3000,
-            temperature: 0.85,
+            temperature: 0.9, // Slightly higher for more diversity
             jsonPrefill: true,
             label: `Reddit-${sub}`,
             timeoutMs: 30000,
