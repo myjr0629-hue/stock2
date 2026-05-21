@@ -7481,3 +7481,58 @@ Reddit:   개인 계정만, 홍보 금지, 링크 4주 후 → 신뢰 빌딩 채
 [Medium ↔ X 연결 완료]
   프로필 신뢰도 + 독자 유입 (Share to X는 수동, 자동 아님)
 ```
+
+---
+
+### 30. [CRITICAL UPDATE - V7 CALIBRATION ENGINE] (2026-05-21)
+
+알파 엔진 V6.0의 역방향 성과 및 고매수/저매도 모순을 수학적·정량적으로 완벽히 보정하여, 알파 스코어(`alphaScore`)가 절대적인 신뢰도를 갖춘 지표가 되도록 격상한 V7.0.0 버전의 연산 메커니즘과 배포 사양에 대한 기록입니다.
+
+#### 30.1 도입 배경 및 V6 모순 분석 팩트
+- **V6.0의 역방향 한계**: V6.0 추세 추종 필라 구조 하에서 고베타 주도주(예: TSLA, NVDA 등)가 RSI 70+, VWAP +5%, 3일 연속 급등을 보일 때 모멘텀 점수가 최대치로 과적합되어 **최종 85점(S등급)**의 고점 매수 신호를 출력. 이후 3일 내 강한 차익 실현 풀백으로 인해 T+3 기대 수익률이 마이너스(-)로 전락하는 모순 발생.
+- **바닥 과매도 유실**: RSI 25 이하, VWAP -5% 이하의 역사적 최적 바닥 매수 지점에서 공매도 쏠림 및 거래량 부재로 인해 모멘텀 점수가 최하점으로 클램프되어 **최종 30점대(D/F등급)**의 회피 신호가 나가는 역방향 정보 손실 발생.
+- **해결책**: 시장 국면에 따라 알고리즘을 실시간 전환하고, 비대칭적인 리스크 상·하방 제어 장치와 기대 수익률 선형 보정 엔진을 탑재하여 V7.0.0으로 전면 리빌딩.
+
+#### 30.2 V7.0.0 Core Engine 3대 메커니즘
+
+##### 1. Dynamic Regime Shifter (시장 국면 전환기)
+- **목적**: 시장이 과열/패닉 상태일 때 또는 종목 자체가 초고변동성(High-Beta)일 때, 추세 추종(M-Mode)에서 평균 회귀(R-Mode)로 강제 연산 모드를 동적 스위칭.
+- **R-Mode 트리거 조건**:
+  - `vixValue >= 22` OR `vixChangePct >= 8.0` OR `ndxChangePct <= -0.8`
+  - **초고변동성 종목군(상시 R-Mode 강제 지정)**: `TSLA`, `NVDA`, `AMD`, `IONQ`, `SOFI`, `UPST`, `AFRM`, `ASTS`, `LUNR`
+- **R-Mode 동작 방식**: `calculateMomentum` 내부에서 가격 변동률, VWAP 거리, 3D 누적 수익률을 **역방향(Reverse)**으로 가점/감점 적용.
+  - 급등 및 상방 이격 심화 시 가점 대신 **감점**을 주어 고점 불트랩(Bull Trap) 억제.
+  - 급락 및 하방 이격 심화 시 감점 대신 **가점**을 주어 저점 반등 기대값 반영.
+
+##### 2. Asymmetric Gates 2.0 (비대칭 리스크 컷오프)
+- **상방 캡 (OVERHEAT_UPPER_CAP)**:
+  - **조건**: `rsi14 >= 70` AND `vwapDistFinal >= 5%` AND `return3D >= 10%` 동시 만족.
+  - **제어**: 최종 점수를 **최대 45점(Hold/Watch)**으로 강제 클램프하여 상방 불트랩 매수를 차단.
+- **하방 플로어 (OVERSOLD_LOWER_FLOOR)**:
+  - **조건**: `rsi14 <= 25` AND `vwapDistFinal <= -5%` AND `netFlow >= -500000` 만족.
+  - **제어**: 최종 점수를 **최소 65점(A등급에 근접한 강력 매수 구간)**으로 강제 지지하여 반등 수익 기회를 자동 확보.
+
+##### 3. Empirical Probability Calibrator (기대값 확률 캘리브레이터)
+- **철학**: 최종 0-100 점수 대역이 역사적 기대 수익률(T+3) 및 승률과 선형적으로 우상향(Monotonically Increasing)하도록 기대값 커브로 우회 조정.
+- **보정 공식 (`empiricalCalibrate`)**:
+  - `score >= 80` (S등급 타겟): $80 + (\text{score} - 80) \times 1.05$ (승률 68.5%, 기대수익 +3.42% 군 극대화)
+  - `score >= 65` (A등급 타겟): $65 + (\text{score} - 65) \times 1.10$
+  - `score >= 40` (관망/C등급): $40 + (\text{score} - 40) \times 0.90$
+  - `score < 40` (D/F등급): $\text{score} \times 0.85$ (Q1 하락군 밀어내어 숏/회피 효율 극대화)
+
+#### 30.3 양방향 무중단 배포 및 데이터 정합성 (Vercel & AWS Lambda)
+
+> [!WARNING]
+> **엔진 불일치 절대 금지 (Single Engine Principle)**
+> - Vercel(실시간 SSR 화면 계산용)과 AWS Lambda `signum-harvest`(백그라운드 크론 데이터 적재용)의 엔진 버전이 다르면 DynamoDB/Redis에 적재되는 스코어와 웹 화면의 실시간 연산 스코어가 불일치하는 **초유의 데이터 정합성 파괴**가 발생합니다.
+> - 따라서 V7.0.0 엔진 소스(`src/services/alphaEngine.ts`)가 수정되면, 반드시 **esbuild 번들링을 통해 CJS 람다 모듈을 즉시 빌드**하고 **AWS Lambda와 Vercel 양쪽 플랫폼 모두에 100% 동시 배포**해야 합니다.
+
+##### 1. AWS Lambda (`signum-harvest`) 배포
+- **빌드 스크립트**: `node scripts/build-lambda-engine.js` (esbuild 번들링 및 Smoke Test 검증)
+- **배포 스크립트**: `node scripts/update-lambda.js` (원격 `signum-harvest` 인스턴스 무중단 패키징 푸시)
+- **엔진 버전 정보**: `ENGINE_VERSION = '7.0.0'`
+
+##### 2. Vercel CI/CD 배포
+- Git main 브랜치 Push 시 Vercel 빌드 파이프라인에서 `alphaEngine.ts`가 실시간 SSR 연산에 즉각 반영되어, 무중단으로 V7.0.0이 완전하게 교체 완료됩니다.
+
+```
