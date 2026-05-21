@@ -5,6 +5,7 @@
 // ============================================================================
 
 import { getFromCache } from '@/services/redisClient';
+import { getETNow } from '@/services/timezoneUtils';
 
 // ── Safe cache reader ──
 async function safeGet(key: string): Promise<any> {
@@ -30,68 +31,46 @@ export interface MarketSnapshot {
 }
 
 export async function fetchMarketSnapshot(): Promise<MarketSnapshot> {
-  const [spx, nasdaq, diaRaw, vixRaw, gexRaw, dpRaw, fgRaw, spyPriceRaw] = await Promise.all([
-    safeGet('yahoo:idx:spx'),
-    safeGet('yahoo:idx:nasdaq'),
-    safeGet('yahoo:idx:dow'),
+  const { getStockDataLight } = await import('@/services/marketDataLight');
+
+  const [spyStock, qqqStock, diaStock, vixRaw, gexRaw, dpRaw, fgRaw] = await Promise.all([
+    getStockDataLight('SPY'),
+    getStockDataLight('QQQ'),
+    getStockDataLight('DIA'),
     safeGet('yahoo:vix'),
     safeGet('analysis:gex:regime'),
     safeGet('marketing:dp:latest:SPY'),
     safeGet('cnn:feargreed'),
-    safeGet('yahoo:spx'),
   ]);
 
-  const spxP = parseJSON(spx);
-  const nasdaqP = parseJSON(nasdaq);
-  const diaP = parseJSON(diaRaw);
   const vixP = parseJSON(vixRaw);
   const gexP = parseJSON(gexRaw);
 
-  let spy = spxP?.changePercent ?? spxP?.changePct ?? spxP?.change ?? 0;
-  let qqq = nasdaqP?.changePercent ?? nasdaqP?.changePct ?? 0;
-  let dia = diaP?.changePercent ?? diaP?.changePct ?? diaP?.change ?? 0;
+  let spy = spyStock?.changePercent ?? 0;
+  let qqq = qqqStock?.changePercent ?? 0;
+  let dia = diaStock?.changePercent ?? 0;
+  let spyPrice = spyStock?.price ?? 0;
+
   let vix = vixP?.price ?? vixP?.value ?? vixP?.last ?? 0;
   let gexRegime = gexP?.regime ?? gexP?.gexRegime ?? (typeof gexP === 'string' ? gexP : 'neutral');
   let darkPool = dpRaw ? parseFloat(String(dpRaw)) || 0 : 0;
   let fearGreed = 0;
-  let spyPrice = 0;
 
   // CNN Fear & Greed
   const fgP = parseJSON(fgRaw);
   if (fgP?.score) fearGreed = fgP.score;
   else if (typeof fgP === 'number') fearGreed = fgP;
 
-  // SPY price
-  const spyPP = parseJSON(spyPriceRaw);
-  spyPrice = spyPP?.price ?? spyPP?.last ?? 0;
-
-  // Fallback: warm-command cache
-  if (spy === 0 || vix === 0 || dia === 0) {
+  // Fallback: VIX가 0일 때만 안전장치 가동
+  if (vix === 0) {
     try {
       const warmRaw = await safeGet('cache:warm-command');
       const warm = parseJSON(warmRaw);
-      if (warm) {
-        const tickers = warm?.tickers || warm;
-        if (Array.isArray(tickers)) {
-          const spyEntry = tickers.find((t: any) => t?.ticker === 'SPY' || t?.symbol === 'SPY');
-          const qqqEntry = tickers.find((t: any) => t?.ticker === 'QQQ' || t?.symbol === 'QQQ');
-          const diaEntry = tickers.find((t: any) => t?.ticker === 'DIA' || t?.symbol === 'DIA');
-          if (spyEntry && spy === 0) spy = spyEntry.changePercent ?? spyEntry.changePct ?? 0;
-          if (qqqEntry && qqq === 0) qqq = qqqEntry.changePercent ?? qqqEntry.changePct ?? 0;
-          if (diaEntry && dia === 0) dia = diaEntry.changePercent ?? diaEntry.changePct ?? 0;
-        }
-        const vixEntry = warm?.vix ?? warm?.VIX;
-        if (vixEntry && vix === 0) {
-          vix = typeof vixEntry === 'number' ? vixEntry : (vixEntry?.value ?? vixEntry?.price ?? 0);
-        }
+      const vixEntry = warm?.vix ?? warm?.VIX;
+      if (vixEntry) {
+        vix = typeof vixEntry === 'number' ? vixEntry : (vixEntry?.value ?? vixEntry?.price ?? 0);
       }
     } catch {}
-  }
-
-  // Fallback: analysis cache
-  if (spy === 0) {
-    const spyA = parseJSON(await safeGet('cache:analysis:SPY'));
-    if (spyA?.changePercent) spy = spyA.changePercent;
   }
   if (vix === 0) {
     const vixA = parseJSON(await safeGet('cache:analysis:VIX'));
@@ -107,6 +86,8 @@ export async function fetchMarketSnapshot(): Promise<MarketSnapshot> {
       if (trades && trades.darkPoolPercent && trades.darkPoolPercent > 0) darkPool = trades.darkPoolPercent;
     } catch {}
   }
+
+  console.log(`[MktV2/DataCollector] 💎 Polygon SSoT Real-time: SPY=${spy.toFixed(2)}%, QQQ=${qqq.toFixed(2)}%, DIA=${dia.toFixed(2)}%, SPY_Price=$${spyPrice.toFixed(2)}`);
 
   return { spy, qqq, dia, vix, gexRegime, darkPool, fearGreed, spyPrice };
 }
