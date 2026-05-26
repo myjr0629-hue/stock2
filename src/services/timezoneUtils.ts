@@ -93,8 +93,8 @@ export function getETDateNDaysAgo(n: number): string {
  */
 export type SessionType = 'PRE' | 'REG' | 'POST' | 'CLOSED';
 
-export function getSessionType(etHour: number, etMin: number, isWeekend: boolean): SessionType {
-    if (isWeekend) return 'CLOSED';
+export function getSessionType(etHour: number, etMin: number, isWeekend: boolean, isHoliday?: boolean): SessionType {
+    if (isWeekend || isHoliday) return 'CLOSED';
     const etTime = etHour + etMin / 60;
     if (etTime >= 4.0 && etTime < 9.5) return 'PRE';
     else if (etTime >= 9.5 && etTime < 16.0) return 'REG';

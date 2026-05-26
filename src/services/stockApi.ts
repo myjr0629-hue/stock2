@@ -1043,11 +1043,10 @@ export async function getStockChartData(symbol: string, range: Range = "1d"): Pr
 
   try {
     if (range === "1d") {
-      // [S-66 V3] Lookback must cover weekend + possible Friday holiday (e.g. Good Friday)
-      // Weekday: 2 days, Weekend/Holiday buffer: 5 days to guarantee reaching last trading day
+      // [S-66 V4] Always use 5-day lookback to handle holiday + weekend combos
+      // (e.g. Memorial Day Mon → need to reach back to Friday or earlier)
       const fromDate = new Date();
-      const dayOfWeek = fromDate.getDay(); // 0=Sun, 6=Sat
-      const lookbackDays = (dayOfWeek === 0 || dayOfWeek === 6) ? 5 : 3;
+      const lookbackDays = 5;
       fromDate.setDate(now.getDate() - lookbackDays);
       const from = fromDate.toISOString().split('T')[0];
 
@@ -1096,6 +1095,19 @@ export async function getStockChartData(symbol: string, range: Range = "1d"): Pr
         // [FIX] Weekend detection — ET 기준 요일 확인 (Sat/Sun = CLOSED)
         const etDayOfWeek = etDayFormatter.format(date); // "Sat", "Sun", "Mon", etc.
         if (etDayOfWeek === 'Sat' || etDayOfWeek === 'Sun') {
+          return { session: 'CLOSED', etHour: hour, etMinute: minute, etDateYYYYMMDD, etFormatted };
+        }
+
+        // [FIX] Holiday detection — SSOT HOLIDAYS table from marketStatusProvider
+        const CHART_HOLIDAYS: Record<string, string> = {
+          "01-01": "New Year's Day", "01-19": "MLK Jr. Day",
+          "02-16": "Washington's Birthday", "04-03": "Good Friday",
+          "05-25": "Memorial Day", "06-19": "Juneteenth",
+          "07-03": "Independence Day", "09-07": "Labor Day",
+          "11-26": "Thanksgiving Day", "12-25": "Christmas Day"
+        };
+        const holidayKey = `${month}-${day}`;
+        if (CHART_HOLIDAYS[holidayKey]) {
           return { session: 'CLOSED', etHour: hour, etMinute: minute, etDateYYYYMMDD, etFormatted };
         }
 

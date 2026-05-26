@@ -29,7 +29,15 @@ export async function GET(request: Request) {
             if (range === '1d' && cached.sessionMaskDebug?.currentSession) {
                 const { getETNow, getSessionType } = await import('@/services/timezoneUtils');
                 const et = getETNow();
-                const liveSession = getSessionType(et.hour, et.minute, et.isWeekend);
+                // [FIX] Check holidays so chart API doesn't think it's POST on Memorial Day etc.
+                const CHART_HOLIDAYS: Record<string, boolean> = {
+                    '01-01': true, '01-19': true, '02-16': true, '04-03': true,
+                    '05-25': true, '06-19': true, '07-03': true, '09-07': true,
+                    '11-26': true, '12-25': true
+                };
+                const etDateKey = `${String(et.month).padStart(2,'0')}-${String(et.day).padStart(2,'0')}`;
+                const isHoliday = !!CHART_HOLIDAYS[etDateKey];
+                const liveSession = getSessionType(et.hour, et.minute, et.isWeekend, isHoliday);
                 const cachedSession = cached.sessionMaskDebug.currentSession;
 
                 if (liveSession !== 'CLOSED' && cachedSession !== liveSession) {

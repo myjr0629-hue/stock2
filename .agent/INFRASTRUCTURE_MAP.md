@@ -1877,7 +1877,8 @@ daily-content (장 마감 후)
 | `src/services/analysisCache.ts` | Redis cache:analysis CRUD (AnalysisCacheEntry 타입) |
 | `src/services/redisClient.ts` | Redis 클라이언트 (EC2 Proxy + Upstash) |
 | `src/services/macroHubProvider.ts` | 매크로 데이터 SSOT |
-| `src/services/marketStatusProvider.ts` | 마켓 상태 (pre/regular/post/closed) |
+| `src/services/marketStatusProvider.ts` | 마켓 상태 SSOT (pre/regular/post/closed) + **HOLIDAYS 공휴일 테이블** |
+| `src/services/timezoneUtils.ts` | ET 시간 유틸 + `getSessionType()` (isHoliday 파라미터 지원) |
 
 ### 8.3 배치 서비스
 | 파일 | 역할 |
@@ -7536,3 +7537,93 @@ Reddit:   개인 계정만, 홍보 금지, 링크 4주 후 → 신뢰 빌딩 채
 - Git main 브랜치 Push 시 Vercel 빌드 파이프라인에서 `alphaEngine.ts`가 실시간 SSR 연산에 즉각 반영되어, 무중단으로 V7.0.0이 완전하게 교체 완료됩니다.
 
 ```
+
+---
+
+## 31. 공휴일(Holiday) 감지 시스템 (2026-05-26 신규)
+
+> **Memorial Day 버그에서 발견**: 공휴일(월요일)에 시스템이 POST 세션으로 오판하여 차트 Y축 폭발 + 등락률 0% + POST 컬럼 `—` 표시.
+
+### 31.1 HOLIDAYS 테이블 (2026년 하드코딩)
+
+| 날짜 (MM-DD) | 공휴일명 | 사용처 |
+|:---:|---|---|
+| 01-01 | New Year's Day | marketStatusProvider, stockApi classifyPoint, StockChart, chart/route |
+| 01-19 | MLK Jr. Day | 동일 |
+| 02-16 | Washington's Birthday | 동일 |
+| 04-03 | Good Friday | 동일 |
+| 05-25 | Memorial Day | 동일 |
+| 06-19 | Juneteenth | 동일 |
+| 07-03 | Independence Day (Observed) | 동일 |
+| 09-07 | Labor Day | 동일 |
+| 11-26 | Thanksgiving Day | 동일 |
+| 12-25 | Christmas Day | 동일 |
+
+> [!WARNING]
+> **매년 1월에 해당 연도 공휴일로 업데이트 필수**. 공휴일 날짜는 해마다 바뀜 (예: Memorial Day = 5월 마지막 월요일).
+> 업데이트 필요 위치 (4곳): `marketStatusProvider.ts L19-31`, `stockApi.ts classifyPoint CHART_HOLIDAYS`, `StockChart.tsx HOLIDAYS 배열 (2곳)`, `chart/route.ts CHART_HOLIDAYS`.
+
+### 31.2 공휴일 감지 아키텍쳐 (3레이어)
+
+```
+[Layer 1: Polygon API]  /v1/marketstatus/upcoming → 실시간 확인 (getMarketStatusSSOT)
+        ↓ 실패 시
+[Layer 2: Hardcoded]    HOLIDAYS 테이블 (marketStatusProvider.ts L19-31)
+        ↓ API 호출 불가 시
+[Layer 3: Fallback]     calculateFallbackStatus() — 주말+공휴일만 체크
+```
+
+### 31.3 공휴일 세션 판별 사용처
+
+| 파일 | 함수 | 공휴일 처리 |
+|------|------|------|
+| `src/services/marketStatusProvider.ts` | `getMarketStatusSSOT()` | ✅ Polygon API + HOLIDAYS 테이블 |
+| `src/services/timezoneUtils.ts` | `getSessionType()` | ✅ `isHoliday?` 파라미터 (2026-05-26 추가) |
+| `src/services/stockApi.ts` | `classifyPoint()` (차트 데이터) | ✅ CHART_HOLIDAYS 테이블 (2026-05-26 추가) |
+| `src/components/StockChart.tsx` | `toTimestamp()`, live price inject | ✅ HOLIDAYS 배열 guard (2026-05-26 추가) |
+| `src/app/api/chart/route.ts` | 세션 캐시 판별 | ✅ CHART_HOLIDAYS (2026-05-26 추가) |
+| `src/services/guardian/marketSessionUtils.ts` | `getIsMarketActive()` | ✅ `isHoliday` 파라미터 수신 |
+
+---
+
+## 32. ⚠️ [CRITICAL FIX 2026-05-26] 차트 Y축 스케일링 + 공휴일 오판 근본 수정
+
+> **증상**: Memorial Day(2026-05-25 월) 공휴일에 차트 Y축이 $120~$280으로 극단 확장, 등락률 0%, POST 컬럼 `—` 표시
+> **근본 원인**: `classifyPoint()`가 Sat/Sun만 CLOSED로 처리하고 공휴일을 감지하지 않아, Memorial Day 19:50 ET를 POST 세션으로 오판
+
+### 수정 파일 4개
+
+| # | 파일 | 수정 내용 |
+|---|------|------|
+| 1 | `src/services/stockApi.ts` | `classifyPoint()`에 CHART_HOLIDAYS 테이블 추가 → 공휴일 = CLOSED 반환. `lookbackDays` 항상 5일 고정 (3일 연휴 대응) |
+| 2 | `src/components/StockChart.tsx` | `toTimestamp()` — 차트 데이터의 실제 ET 날짜(`etDate`) 사용 (기존: '오늘' 날짜로 생성 → 주말/공휴일에 날짜 불일치). `currentPrice` 라이브 포인트 삽입 시 CLOSED/공휴일 차단 + 차트 데이터 날짜 vs 오늘 날짜 일치 검증. 실시간 추적 useEffect도 동일 보호 |
+| 3 | `src/services/timezoneUtils.ts` | `getSessionType()`에 `isHoliday?: boolean` 파라미터 추가 (하위 호환) |
+| 4 | `src/app/api/chart/route.ts` | 세션 캐시 판별 시 CHART_HOLIDAYS 체크 → 공휴일에 불필요한 캐시 무효화 방지 |
+
+### 수정 전후 동작 비교
+
+```
+[Memorial Day 19:50 ET]
+
+수정 전:
+  classifyPoint() → POST (월요일이므로 주말 아님)
+  → isActiveSession = true → "오늘 데이터" 표시 시도
+  → Polygon 공휴일 데이터 0개 → synthetic anchor 1포인트
+  → toTimestamp() = 월요일 날짜 기준 + 금요일 etMinute → 날짜 불일치
+  → currentPrice 라이브 포인트 삽입 → Y축 폭발
+
+수정 후:
+  classifyPoint() → CLOSED (CHART_HOLIDAYS 매칭 '05-25')
+  → isActiveSession = false → 직전 거래일(금요일) 데이터 폴백
+  → toTimestamp() = etDate(금요일) 날짜 기준 → 날짜 정확
+  → currentPrice 삽입 차단 (CLOSED + 공휴일 guard)
+  → Y축 금요일 가격 범위만 표시 ✅
+```
+
+### 부수 수정: Remotion 템플릿 빌드 에러
+
+| 파일 | 수정 |
+|------|------|
+| `MarketPressureBriefV35.tsx` | `ComplianceFooter disclaimer=` → `text=` |
+| `MarketPressureBriefV36.tsx` | `ComplianceFooter disclaimer=` → `text=` + `color` 타입 `string` 명시 |
+| `MarketPressureBriefV37.tsx` | `ComplianceFooter disclaimer=` → `text=` |

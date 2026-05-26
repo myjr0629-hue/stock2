@@ -46,11 +46,18 @@ const SESSION_REG_END = 960;  // 16:00
 // Convert data point to UTCTimestamp for lightweight-charts
 function toTimestamp(item: any, isIntraday: boolean): UTCTimestamp {
     if (isIntraday && item.etMinute !== undefined) {
-        // For intraday: use today's date + etMinute as seconds offset from midnight
-        // lightweight-charts needs UTC timestamps
-        const now = new Date();
-        const etStr = now.toLocaleDateString('en-US', { timeZone: 'America/New_York' });
-        const baseDate = new Date(etStr + ' 00:00:00');
+        // For intraday: use the data point's actual ET date (not "today")
+        // This prevents date mismatch when showing Friday data on a weekend/holiday
+        let baseDateStr: string | undefined;
+        if (item.etDate) {
+            // etDate is 'YYYY-MM-DD' from the server
+            baseDateStr = item.etDate;
+        } else {
+            // Fallback: use today's ET date
+            const now = new Date();
+            baseDateStr = now.toLocaleDateString('en-US', { timeZone: 'America/New_York' });
+        }
+        const baseDate = new Date(baseDateStr + ' 00:00:00');
         return (Math.floor(baseDate.getTime() / 1000) + item.etMinute * 60) as UTCTimestamp;
     }
     if (item.date) {
@@ -204,16 +211,37 @@ export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d
             return acc;
         }, []);
 
-    // Append live price
-    if (isIntraday && currentPrice && currentPrice > 0 && processedData.length > 0) {
+    // Append live price — ONLY during active trading sessions
+    // [FIX] Block during CLOSED (weekend/holiday) to prevent injecting "now" point into Friday's chart
+    const sessionProp = (processedData[0] as any)?.session;
+    const isClosedSession = !session || session === 'CLOSED';
+    // Also check ET day: weekends and known holidays should not inject live points
+    const etNowForLive = (() => {
         const now = new Date();
+        const etDayFmt = new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', weekday: 'short' });
+        const etDay = etDayFmt.format(now);
+        if (etDay === 'Sat' || etDay === 'Sun') return null;
+        // Check holidays (same list as server)
+        const etParts = new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', month: '2-digit', day: '2-digit' }).formatToParts(now);
+        const mm = etParts.find(p => p.type === 'month')?.value || '';
+        const dd = etParts.find(p => p.type === 'day')?.value || '';
+        const HOLIDAYS = ['01-01','01-19','02-16','04-03','05-25','06-19','07-03','09-07','11-26','12-25'];
+        if (HOLIDAYS.includes(`${mm}-${dd}`)) return null;
         const etTime = now.toLocaleString("en-US", { timeZone: "America/New_York", hour12: false, hour: '2-digit', minute: '2-digit' });
         const [h, m] = etTime.split(':').map(Number);
-        if (!isNaN(h) && !isNaN(m)) {
-            const currentEtMinute = h * 60 + m;
-            if (currentEtMinute >= 240 && currentEtMinute <= 1199) {
-                const lastPoint = processedData[processedData.length - 1];
-                if (currentEtMinute >= lastPoint.etMinute) {
+        if (isNaN(h) || isNaN(m)) return null;
+        return { h, m, etMinute: h * 60 + m };
+    })();
+
+    if (isIntraday && currentPrice && currentPrice > 0 && processedData.length > 0 && etNowForLive && !isClosedSession) {
+        const { etMinute: currentEtMinute } = etNowForLive;
+        if (currentEtMinute >= 240 && currentEtMinute <= 1199) {
+            const lastPoint = processedData[processedData.length - 1];
+            if (currentEtMinute >= lastPoint.etMinute) {
+                // Verify the chart data's date matches today's ET date
+                const chartDate = lastPoint.etDate;
+                const todayET = new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' }); // YYYY-MM-DD
+                if (chartDate === todayET) {
                     if (currentEtMinute === lastPoint.etMinute) {
                         lastPoint.close = currentPrice;
                     } else {
@@ -223,6 +251,7 @@ export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d
                             high: currentPrice,
                             low: currentPrice,
                             etMinute: currentEtMinute,
+                            etDate: todayET,
                             session: currentEtMinute < 570 ? 'PRE' : currentEtMinute >= 960 ? 'POST' : 'REG',
                             volume: 0,
                         });
@@ -606,9 +635,21 @@ export function StockChart({ data, color = "#2563eb", ticker, initialRange = "1d
         const mainSeries = mainSeriesRef.current;
         if (!mainSeries || !isIntraday || !currentPrice || currentPrice <= 0) return;
         if (chartType === 'candle') return; // Candle bars have OHLC semantics — skip
+        // [FIX] Block during CLOSED session (weekends/holidays)
+        if (!session || session === 'CLOSED') return;
 
         try {
             const now = new Date();
+            // Weekend/Holiday guard (client-side)
+            const etDayFmt = new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', weekday: 'short' });
+            const etDay = etDayFmt.format(now);
+            if (etDay === 'Sat' || etDay === 'Sun') return;
+            const etParts = new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', month: '2-digit', day: '2-digit' }).formatToParts(now);
+            const mm = etParts.find(p => p.type === 'month')?.value || '';
+            const dd = etParts.find(p => p.type === 'day')?.value || '';
+            const HOLIDAYS = ['01-01','01-19','02-16','04-03','05-25','06-19','07-03','09-07','11-26','12-25'];
+            if (HOLIDAYS.includes(`${mm}-${dd}`)) return;
+
             const etTime = now.toLocaleString("en-US", { timeZone: "America/New_York", hour12: false, hour: '2-digit', minute: '2-digit' });
             const [h, m] = etTime.split(':').map(Number);
             if (isNaN(h) || isNaN(m)) return;
