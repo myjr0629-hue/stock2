@@ -32,7 +32,7 @@ export class InstagramAdapter extends BaseAdapter {
   async sendStory(
     pkg: ContentPackage,
     lang: Lang,
-    opts: { dryRun?: boolean; draft?: boolean } = {},
+    opts: { dryRun?: boolean; draft?: boolean; scheduledAt?: string } = {},
   ): Promise<SendResult> {
     const channel = getChannelsByPlatform(this.platform).find(c => c.lang === lang);
     if (!channel) {
@@ -62,6 +62,7 @@ export class InstagramAdapter extends BaseAdapter {
       mediaUrl: storyImage,
       dryRun: false,
       draft: opts.draft,
+      scheduledAt: opts.scheduledAt,
       instagramMeta: { type: 'story', shouldShareToFeed: false },
     });
 
@@ -79,7 +80,7 @@ export class InstagramAdapter extends BaseAdapter {
   async sendFeed(
     pkg: ContentPackage,
     lang: Lang,
-    opts: { dryRun?: boolean; draft?: boolean } = {},
+    opts: { dryRun?: boolean; draft?: boolean; scheduledAt?: string } = {},
   ): Promise<SendResult> {
     const channel = getChannelsByPlatform(this.platform).find(c => c.lang === lang);
     if (!channel) {
@@ -117,6 +118,7 @@ export class InstagramAdapter extends BaseAdapter {
         : { mediaUrl: feedImage }),
       dryRun: false,
       draft: opts.draft,
+      scheduledAt: opts.scheduledAt,
       instagramMeta: { type: 'post', shouldShareToFeed: true },
     });
 

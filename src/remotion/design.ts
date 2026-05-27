@@ -8,31 +8,31 @@
 // ---------------------------------------------------------------------------
 export const C = {
   // Backgrounds
-  bg:       '#080c14',
-  bgDeep:   '#040810',
-  card:     'rgba(255,255,255,0.04)',
-  cardHover:'rgba(255,255,255,0.07)',
-  glass:    'rgba(255,255,255,0.03)',
-  border:   'rgba(255,255,255,0.08)',
+  bg:       '#06090f', // near-black navy
+  bgDeep:   '#04060a',
+  card:     'rgba(241,245,249,0.04)', // based on #f1f5f9
+  cardHover:'rgba(241,245,249,0.07)',
+  glass:    'rgba(241,245,249,0.03)',
+  border:   'rgba(241,245,249,0.08)',
 
   // Text
-  text:     '#f0f4f8',
-  muted:    '#64748b',
+  text:     '#f1f5f9', // primary text
+  muted:    '#94a3b8', // muted text
   dim:      '#475569',
 
   // Accents
-  cyan:     '#22d3ee',
-  emerald:  '#10b981',
-  amber:    '#f59e0b',
-  red:      '#ef4444',
-  purple:   '#a855f7',
+  cyan:     '#22d3ee', // accent cyan
+  emerald:  '#10b981', 
+  amber:    '#fbbf24', // warning amber
+  red:      '#f87171', // negative/caution coral
+  purple:   '#a78bfa', // accent purple
   blue:     '#3b82f6',
   pink:     '#ec4899',
 
   // Gradients
   grad1:    '#6366f1',
-  grad2:    '#a855f7',
-  gradCyan: '#06b6d4',
+  grad2:    '#a78bfa',
+  gradCyan: '#22d3ee',
   gradEmerald: '#10b981',
 } as const;
 

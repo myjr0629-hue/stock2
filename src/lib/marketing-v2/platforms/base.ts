@@ -70,7 +70,7 @@ export abstract class BaseAdapter {
   async send(
     pkg: ContentPackage,
     lang: Lang,
-    opts: { dryRun?: boolean; draft?: boolean } = {},
+    opts: { dryRun?: boolean; draft?: boolean; scheduledAt?: string } = {},
   ): Promise<SendResult> {
     const post = this.format(pkg, lang);
     if (!post) {
@@ -99,6 +99,7 @@ export abstract class BaseAdapter {
       mediaUrl: post.imageUrl,
       dryRun: false,
       draft: opts.draft,
+      scheduledAt: opts.scheduledAt,
     });
 
     return {
@@ -114,7 +115,7 @@ export abstract class BaseAdapter {
   // ── 모든 지원 언어에 일괄 발송 ──
   async sendAll(
     pkg: ContentPackage,
-    opts: { dryRun?: boolean; draft?: boolean; lang?: Lang } = {},
+    opts: { dryRun?: boolean; draft?: boolean; lang?: Lang; scheduledAt?: string } = {},
   ): Promise<SendResult[]> {
     const langs = opts.lang ? [opts.lang] : this.supportedLangs;
     const results: SendResult[] = [];

@@ -76,13 +76,26 @@ export async function dispatchToAll(
       // 해당 어댑터가 이 언어를 지원하는지 확인
       if (!adapter.supportedLangs?.includes(lang)) continue;
 
+      // 봇 방지 알고리즘 우회: 매 정각/동일 분에 나가는 패턴을 방지하기 위해 2~20분 무작위 지연(Jitter) 예약 설정
+      let scheduledAt: string | undefined = undefined;
+      if (!opts.draft) {
+        const delayMs = (2 + Math.floor(Math.random() * 19)) * 60 * 1000; // 2~20분 랜덤 지연
+        scheduledAt = new Date(Date.now() + delayMs).toISOString();
+      }
+
       let r: SendResult;
       // Instagram은 sendFeed() 사용 (instagramMeta 필수)
       if (platform === 'instagram' && 'sendFeed' in adapter) {
-        r = await (adapter as any).sendFeed(pkg, lang, { dryRun: opts.dryRun, draft: opts.draft });
+        r = await (adapter as any).sendFeed(pkg, lang, { dryRun: opts.dryRun, draft: opts.draft, scheduledAt });
       } else {
-        r = await adapter.send(pkg, lang, { dryRun: opts.dryRun, draft: opts.draft });
+        r = await adapter.send(pkg, lang, { dryRun: opts.dryRun, draft: opts.draft, scheduledAt });
       }
+      
+      // If we are scheduled, append that info to the dryRun logs or output
+      if (scheduledAt && r.dryRun) {
+        console.log(`[DispatchV2] Jitter scheduled for ${platform}/${lang} at ${scheduledAt}`);
+      }
+      
       results.push(r);
 
       // Rate limit: 채널 간 300ms 대기

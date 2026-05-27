@@ -11,7 +11,7 @@ export const CACHE_POLICY = {
     REPORT_GEN: { cache: 'no-store' as RequestCache },
     LIVE: { cache: 'no-store' as RequestCache },
     // Display-only data (News feed UI) - Revalidate allowed
-    DISPLAY_NEWS: { next: { revalidate: 300 } }
+    DISPLAY_NEWS: { next: { revalidate: 300 } } as any
 };
 
 /*
@@ -217,7 +217,7 @@ export async function fetchMassive(
                     fetchOptions = CACHE_POLICY.REPORT_GEN;
                 } else if (!fetchOptions) {
                     // Legacy default for non-critical
-                    fetchOptions = { next: { revalidate: 30 } };
+                    fetchOptions = { next: { revalidate: 30 } } as any;
                 }
 
                 // Create a timeout signal
