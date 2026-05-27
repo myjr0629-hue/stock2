@@ -8,9 +8,9 @@ import { Channel, Platform, Lang } from './types';
 
 const CHANNELS: Channel[] = [
   // ── X (Twitter) ──
-  { id: '69a92ae13f3b94a121198602', name: 'SignumHQ',          platform: 'twitter',   lang: 'en', enabled: true },
-  { id: '69ca785caf47dacb696d62f3', name: 'SignumHQ_KR',       platform: 'twitter',   lang: 'ko', enabled: true },
-  { id: '69ca78a7af47dacb696d6446', name: 'SignumHQ_JP',       platform: 'twitter',   lang: 'ja', enabled: true },
+  { id: '69a92ae13f3b94a121198602', name: 'SignumHQ',          platform: 'twitter',   lang: 'en', enabled: false },
+  { id: '69ca785caf47dacb696d62f3', name: 'SignumHQ_KR',       platform: 'twitter',   lang: 'ko', enabled: false },
+  { id: '69ca78a7af47dacb696d6446', name: 'SignumHQ_JP',       platform: 'twitter',   lang: 'ja', enabled: false },
 
   // ── Instagram ──
   { id: '69ca6aa3af47dacb696d24c0', name: 'signumhq_official', platform: 'instagram', lang: 'en', enabled: true },
