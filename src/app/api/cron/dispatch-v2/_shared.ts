@@ -46,16 +46,17 @@ function getLangsForRegion(region: 'en' | 'ko' | 'ja' | 'asia' | 'all'): Lang[] 
 }
 
 // ── 슬롯별 활성 플랫폼 정의 ──
+// X(Twitter): morning, close, education만 (재차단 방지 — 일 3포스트 제한)
 // Instagram 싱글이미지: morning, close만
 // Telegram: 제외
 const SLOT_PLATFORMS: Record<ContentSlot, Platform[]> = {
   morning:   ['twitter', 'threads', 'bluesky', 'instagram', 'pinterest'],
   close:     ['twitter', 'threads', 'bluesky', 'instagram', 'pinterest'],
-  pulse:     ['twitter', 'threads', 'bluesky', 'pinterest'],
-  spotlight: ['twitter', 'threads', 'bluesky'],
+  pulse:     ['threads', 'bluesky', 'pinterest'],
+  spotlight: ['threads', 'bluesky'],
   education: ['twitter', 'threads', 'bluesky', 'instagram', 'pinterest'],
-  spacex:    ['twitter', 'threads', 'bluesky', 'pinterest'],
-  event:     ['twitter', 'threads', 'bluesky'],
+  spacex:    ['threads', 'bluesky', 'pinterest'],
+  event:     ['threads', 'bluesky'],
 };
 
 // ── 모든 활성 플랫폼에 발송 (region 필터링 포함) ──
@@ -76,11 +77,17 @@ export async function dispatchToAll(
       // 해당 어댑터가 이 언어를 지원하는지 확인
       if (!adapter.supportedLangs?.includes(lang)) continue;
 
-      // 봇 방지 알고리즘 우회: 매 정각/동일 분에 나가는 패턴을 방지하기 위해 2~20분 무작위 지연(Jitter) 예약 설정
+      // 봇 방지: X는 5~45분, 기타 2~20분 랜덤 지연 + 다국어 시차(EN→KO +30분, JA +60분)
       let scheduledAt: string | undefined = undefined;
       if (!opts.draft) {
-        const delayMs = (2 + Math.floor(Math.random() * 19)) * 60 * 1000; // 2~20분 랜덤 지연
-        scheduledAt = new Date(Date.now() + delayMs).toISOString();
+        // X 전용 넓은 지터 (재차단 방지)
+        const baseDelayMs = platform === 'twitter'
+          ? (5 + Math.floor(Math.random() * 41)) * 60 * 1000   // 5~45분
+          : (2 + Math.floor(Math.random() * 19)) * 60 * 1000;  // 2~20분
+        // 다국어 시차: 동일 콘텐츠가 EN/KO/JP 동시 게시되는 패턴 방지
+        const langStagger: Record<string, number> = { en: 0, ko: 30, ja: 60 };
+        const staggerMs = (langStagger[lang] || 0) * 60 * 1000;
+        scheduledAt = new Date(Date.now() + baseDelayMs + staggerMs).toISOString();
       }
 
       let r: SendResult;
