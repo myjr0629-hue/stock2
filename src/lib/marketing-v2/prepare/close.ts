@@ -29,17 +29,22 @@ export async function prepareClose(opts: { date?: string; dryRun?: boolean } = {
     text[lang] = buildCloseText(lang, market, guardian, date);
   }
 
-  // 3. Capture images (모든 지표 데이터 전달 — Pin 템플릿 포함)
-  const images = await captureImagesForSlot('close', {
-    spy: String(market.spy.toFixed(2)),
-    qqq: String(market.qqq.toFixed(2)),
-    dia: String(market.dia.toFixed(2)),
-    vix: String(market.vix.toFixed(1)),
-    gex: market.gexRegime,
-    dp: String(market.darkPool.toFixed(1)),
-    fgi: String(market.fearGreed),
-    date,
-  }, date, opts.dryRun);
+  // 3. Capture images (실패해도 텍스트만 발행 — 서비스 연속성 보장)
+  let images: Awaited<ReturnType<typeof captureImagesForSlot>> = {};
+  try {
+    images = await captureImagesForSlot('close', {
+      spy: String(market.spy.toFixed(2)),
+      qqq: String(market.qqq.toFixed(2)),
+      dia: String(market.dia.toFixed(2)),
+      vix: String(market.vix.toFixed(1)),
+      gex: market.gexRegime,
+      dp: String(market.darkPool.toFixed(1)),
+      fgi: String(market.fearGreed),
+      date,
+    }, date, opts.dryRun);
+  } catch (err: any) {
+    console.error(`[MktV2/Prepare/Close] ⚠️ Image capture failed — proceeding without images: ${err.message}`);
+  }
 
   // 4. Build hashtags
   const hashtags = buildHashtagMap('close', ALL_LANGS, ALL_PLATFORMS);

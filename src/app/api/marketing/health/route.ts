@@ -10,7 +10,7 @@ import type { ContentSlot } from '@/lib/marketing-v2/core/types';
 
 export const dynamic = 'force-dynamic';
 
-const SLOTS: ContentSlot[] = ['close', 'morning', 'spacex', 'education'];
+const SLOTS: ContentSlot[] = ['close', 'morning', 'spacex', 'education', 'pulse', 'spotlight'];
 
 export async function GET() {
   const date = getETDate();

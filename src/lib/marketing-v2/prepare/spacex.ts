@@ -27,15 +27,20 @@ export async function prepareSpacex(opts: { date?: string; dryRun?: boolean } = 
     text[lang] = buildSpacexText(lang, news, tsla, date);
   }
 
-  // Capture images
-  const images = await captureImagesForSlot('spacex', {
-    dp: String(tsla.darkPoolPercent.toFixed(1)),
-    whale: String(tsla.smartFlow),
-    gex: tsla.gexRegime,
-    price: String(tsla.price.toFixed(2)),
-    change: String(tsla.changePercent.toFixed(2)),
-    date,
-  }, date, opts.dryRun);
+  // Capture images (실패해도 텍스트만 발행 — 서비스 연속성 보장)
+  let images: Awaited<ReturnType<typeof captureImagesForSlot>> = {};
+  try {
+    images = await captureImagesForSlot('spacex', {
+      dp: String(tsla.darkPoolPercent.toFixed(1)),
+      whale: String(tsla.smartFlow),
+      gex: tsla.gexRegime,
+      price: String(tsla.price.toFixed(2)),
+      change: String(tsla.changePercent.toFixed(2)),
+      date,
+    }, date, opts.dryRun);
+  } catch (err: any) {
+    console.error(`[MktV2/Prepare/SpaceX] ⚠️ Image capture failed — proceeding without images: ${err.message}`);
+  }
 
   // Hashtags
   const hashtags = buildHashtagMap('spacex', ALL_LANGS, ALL_PLATFORMS, ['TSLA']);

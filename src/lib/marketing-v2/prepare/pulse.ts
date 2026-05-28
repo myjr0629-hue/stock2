@@ -28,14 +28,19 @@ export async function preparePulse(opts: { date?: string; dryRun?: boolean } = {
     text[lang] = buildPulseText(lang, market, guardian, date);
   }
 
-  // Capture OG images
-  const images = await captureImagesForSlot('pulse', {
-    spy: String(market.spy.toFixed(2)),
-    vix: String(market.vix.toFixed(1)),
-    gex: market.gexRegime,
-    dp: String(market.darkPool.toFixed(1)),
-    date,
-  }, date, opts.dryRun);
+  // Capture OG images (실패해도 텍스트만 발행 — 서비스 연속성 보장)
+  let images: Awaited<ReturnType<typeof captureImagesForSlot>> = {};
+  try {
+    images = await captureImagesForSlot('pulse', {
+      spy: String(market.spy.toFixed(2)),
+      vix: String(market.vix.toFixed(1)),
+      gex: market.gexRegime,
+      dp: String(market.darkPool.toFixed(1)),
+      date,
+    }, date, opts.dryRun);
+  } catch (err: any) {
+    console.error(`[MktV2/Prepare/Pulse] ⚠️ Image capture failed — proceeding without images: ${err.message}`);
+  }
 
   // Hashtags
   const hashtags = buildHashtagMap('pulse', ALL_LANGS, ALL_PLATFORMS);

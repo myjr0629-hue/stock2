@@ -27,15 +27,20 @@ export async function prepareMorning(opts: { date?: string; dryRun?: boolean } =
     text[lang] = buildMorningText(lang, market, guardian, date);
   }
 
-  // Capture images
-  const images = await captureImagesForSlot('morning', {
-    spy: String(market.spy.toFixed(2)),
-    vix: String(market.vix.toFixed(1)),
-    gex: market.gexRegime,
-    dp: String(market.darkPool.toFixed(1)),
-    date,
-    insight: guardian.en?.substring(0, 80) || '',
-  }, date, opts.dryRun);
+  // Capture images (실패해도 텍스트만 발행 — 서비스 연속성 보장)
+  let images: Awaited<ReturnType<typeof captureImagesForSlot>> = {};
+  try {
+    images = await captureImagesForSlot('morning', {
+      spy: String(market.spy.toFixed(2)),
+      vix: String(market.vix.toFixed(1)),
+      gex: market.gexRegime,
+      dp: String(market.darkPool.toFixed(1)),
+      date,
+      insight: guardian.en?.substring(0, 80) || '',
+    }, date, opts.dryRun);
+  } catch (err: any) {
+    console.error(`[MktV2/Prepare/Morning] ⚠️ Image capture failed — proceeding without images: ${err.message}`);
+  }
 
   // Hashtags
   const hashtags = buildHashtagMap('morning', ALL_LANGS, ALL_PLATFORMS);

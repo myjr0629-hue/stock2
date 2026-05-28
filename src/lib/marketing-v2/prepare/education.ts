@@ -73,22 +73,27 @@ export async function prepareEducation(opts: { date?: string; dryRun?: boolean; 
   }
 
   const images: ContentPackage['images'] = {};
-  // tweet/og용 이미지 (X, Threads, Bluesky) — 전용 16:9 education 템플릿
-  const ogUrl = await captureCustomImage('education', 'tweet', { topic: topicId }, date, opts.dryRun);
-  if (ogUrl) { images.tweet = ogUrl; images.og = ogUrl; }
-
-  // IG Carousel: 5장 멀티 슬라이드 캡처
+  // 이미지 캡처 (실패해도 텍스트만 발행 — 서비스 연속성 보장)
   const carouselSlides: string[] = [];
-  for (let i = 1; i <= 5; i++) {
-    const slideUrl = await captureCustomImage('education-carousel', 'carousel', { topic: topicId, slide: String(i) }, date, opts.dryRun);
-    if (slideUrl) carouselSlides.push(slideUrl);
-  }
-  // 대표 이미지 (첫 장)
-  if (carouselSlides.length > 0) images.carousel = carouselSlides[0];
+  try {
+    // tweet/og용 이미지 (X, Threads, Bluesky) — 전용 16:9 education 템플릿
+    const ogUrl = await captureCustomImage('education', 'tweet', { topic: topicId }, date, opts.dryRun);
+    if (ogUrl) { images.tweet = ogUrl; images.og = ogUrl; }
 
-  // Pinterest Pin
-  const pinUrl = await captureCustomImage('education-pin', 'pin', { topic: topicId }, date, opts.dryRun);
-  if (pinUrl) images.pin = pinUrl;
+    // IG Carousel: 5장 멀티 슬라이드 캡처
+    for (let i = 1; i <= 5; i++) {
+      const slideUrl = await captureCustomImage('education-carousel', 'carousel', { topic: topicId, slide: String(i) }, date, opts.dryRun);
+      if (slideUrl) carouselSlides.push(slideUrl);
+    }
+    // 대표 이미지 (첫 장)
+    if (carouselSlides.length > 0) images.carousel = carouselSlides[0];
+
+    // Pinterest Pin
+    const pinUrl = await captureCustomImage('education-pin', 'pin', { topic: topicId }, date, opts.dryRun);
+    if (pinUrl) images.pin = pinUrl;
+  } catch (err: any) {
+    console.error(`[MktV2/Prepare/Education] ⚠️ Image capture failed — proceeding without images: ${err.message}`);
+  }
 
   const hashtags = buildHashtagMap('education', ALL_LANGS, ALL_PLATFORMS);
 
