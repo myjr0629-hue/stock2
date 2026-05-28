@@ -329,12 +329,12 @@ export async function createPost(opts: {
         dueAt: publishAt,
       };
 
-      // Image assets (new schema structure)
+      // Image assets (new schema structure — assets must be a List of AssetInput)
       if (mediaUrls && mediaUrls.length > 0) {
         // 멀티 이미지 (IG 캐러셀)
-        input.assets = { images: mediaUrls.map(url => ({ url })) };
+        input.assets = mediaUrls.map(url => ({ image: { url } }));
       } else if (mediaUrl) {
-        input.assets = { images: [{ url: mediaUrl }] };
+        input.assets = [{ image: { url: mediaUrl } }];
       }
 
       // Draft support (official Buffer field)
