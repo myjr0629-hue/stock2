@@ -7,10 +7,10 @@
 import { Channel, Platform, Lang } from './types';
 
 const CHANNELS: Channel[] = [
-  // ── X (Twitter) — 재차단 방지: EN만 Phase 1 활성화, KR/JP는 2주 후 순차 ──
+  // ── X (Twitter) — 재차단 방지: 3슬롯 제한 + 5~45분 지터 + 다국어 30분 시차 ──
   { id: '69a92ae13f3b94a121198602', name: 'SignumHQ',          platform: 'twitter',   lang: 'en', enabled: true },
-  { id: '69ca785caf47dacb696d62f3', name: 'SignumHQ_KR',       platform: 'twitter',   lang: 'ko', enabled: false },  // Phase 2 (2주 후)
-  { id: '69ca78a7af47dacb696d6446', name: 'SignumHQ_JP',       platform: 'twitter',   lang: 'ja', enabled: false },  // Phase 3 (4주 후)
+  { id: '69ca785caf47dacb696d62f3', name: 'SignumHQ_KR',       platform: 'twitter',   lang: 'ko', enabled: true },
+  { id: '69ca78a7af47dacb696d6446', name: 'SignumHQ_JP',       platform: 'twitter',   lang: 'ja', enabled: true },
 
   // ── Instagram ──
   { id: '69ca6aa3af47dacb696d24c0', name: 'signumhq_official', platform: 'instagram', lang: 'en', enabled: true },
