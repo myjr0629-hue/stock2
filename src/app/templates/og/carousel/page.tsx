@@ -47,7 +47,7 @@ function Swipe() {
 }
 
 function Wrap({ children,n,bg,noSwipe }:{ children:React.ReactNode;n:number;bg?:React.CSSProperties;noSwipe?:boolean }) {
-  return <div style={{...S,...bg}}><Bg/><Brand/>{children}<Dots n={n}/>{!noSwipe&&<Swipe/>}</div>;
+  return <div className="ready" style={{...S,...bg}}><Bg/><Brand/>{children}<Dots n={n}/>{!noSwipe&&<Swipe/>}</div>;
 }
 
 const card: React.CSSProperties = {

@@ -84,7 +84,7 @@ function SpotlightContent() {
   const sparkPoints = '0,237 25,228 47,198 93,151 148,98 205,49 270,8';
 
   return (
-    <div style={{
+    <div className="ready" style={{
       width: 1200, height: 675, position: 'relative', overflow: 'hidden',
       color: '#f1f5f9', fontFamily: "'Inter', system-ui, sans-serif",
       background: `radial-gradient(circle at 78% 8%,rgba(124,58,237,0.22),transparent 34%),radial-gradient(circle at 96% 42%,rgba(34,211,238,0.14),transparent 36%),radial-gradient(circle at 0% 96%,rgba(124,58,237,0.15),transparent 32%),linear-gradient(135deg,#06090f,#060d1a)`,

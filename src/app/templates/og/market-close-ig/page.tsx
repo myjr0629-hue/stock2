@@ -59,7 +59,7 @@ function MCContent() {
     {name:'DOW',v:dia,s:spark(dia,3)},
   ];
 
-  return <div style={{position:'relative',width:1080,height:1080,overflow:'hidden',color:'#f1f5f9',fontFamily:"'Inter',system-ui,sans-serif",background:`radial-gradient(circle at 83% 92%,rgba(167,139,250,.20),transparent 28%),radial-gradient(circle at 5% 96%,rgba(34,211,238,.24),transparent 28%),radial-gradient(circle at 50% 5%,rgba(34,211,238,.08),transparent 34%),linear-gradient(135deg,${BG},#060d1a)`,isolation:'isolate'}}>
+  return <div className="ready" style={{position:'relative',width:1080,height:1080,overflow:'hidden',color:'#f1f5f9',fontFamily:"'Inter',system-ui,sans-serif",background:`radial-gradient(circle at 83% 92%,rgba(167,139,250,.20),transparent 28%),radial-gradient(circle at 5% 96%,rgba(34,211,238,.24),transparent 28%),radial-gradient(circle at 50% 5%,rgba(34,211,238,.08),transparent 34%),linear-gradient(135deg,${BG},#060d1a)`,isolation:'isolate'}}>
     {/* Grid overlay */}
     <div style={{position:'absolute',inset:0,zIndex:0,opacity:.35,backgroundImage:'linear-gradient(rgba(34,211,238,.065) 1px,transparent 1px),linear-gradient(90deg,rgba(34,211,238,.065) 1px,transparent 1px)',backgroundSize:'34px 34px',maskImage:'radial-gradient(circle at 50% 45%,black,transparent 83%)'}}/>
     {/* Scanline */}

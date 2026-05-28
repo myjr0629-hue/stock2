@@ -192,7 +192,7 @@ function SpaceXIPOCard() {
         }
       `}</style>
 
-      <main className="og">
+      <main className="og ready">
         <div className="starfield" />
         <div className="earth-glow" />
 
@@ -489,7 +489,7 @@ function SpaceXIPOPin() {
         .pin-side-hud { position: absolute; left: 28px; top: 505px; width: 92px; height: 265px; opacity: 0.42; z-index: 5; }
       `}</style>
 
-      <main className="pin-root">
+      <main className="pin-root ready">
         <div className="pin-starfield" />
         <div className="pin-corner"><span className="tl" /><span className="tr" /><span className="bl" /><span className="br" /></div>
 

@@ -30,7 +30,7 @@ function EventContent() {
   const spyPositive = !spy.startsWith('-');
 
   return (
-    <div style={{
+    <div className="ready" style={{
       width: 1200, height: 630, position: 'relative', overflow: 'hidden',
       color: '#f1f5f9', fontFamily: "'Inter', system-ui, sans-serif",
       background: `

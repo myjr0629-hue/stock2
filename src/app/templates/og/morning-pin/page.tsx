@@ -55,7 +55,7 @@ function MorningPinContent() {
   };
 
   return (
-    <div style={{
+    <div className="ready" style={{
       width: 1000, height: 1500, position: 'relative', overflow: 'hidden',
       color: '#f1f5f9', fontFamily: "'Inter', system-ui, sans-serif",
       background: `radial-gradient(ellipse at 50% 0%,rgba(251,191,36,0.13),transparent 45%),radial-gradient(circle at 86% 42%,rgba(34,211,238,0.12),transparent 38%),radial-gradient(circle at 20% 98%,rgba(167,139,250,0.12),transparent 34%),linear-gradient(180deg,#06090f,#080c14 52%,#050813)`,

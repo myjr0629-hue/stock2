@@ -60,7 +60,7 @@ function Dots({n}:{n:number}) {
 }
 function Swipe() { return <div style={{position:'absolute',right:62,bottom:58,color:'#22d3ee',fontSize:28,fontWeight:500,zIndex:20}}>Swipe →</div>; }
 function Wrap({children,n,noSwipe}:{children:React.ReactNode;n:number;noSwipe?:boolean}) {
-  return <div style={S}><div style={grid}/><div style={scan}/><Brand/><Badge/>{children}<Dots n={n}/>{!noSwipe&&<Swipe/>}</div>;
+  return <div className="ready" style={S}><div style={grid}/><div style={scan}/><Brand/><Badge/>{children}<Dots n={n}/>{!noSwipe&&<Swipe/>}</div>;
 }
 
 // ── Slide 1: Hook ──

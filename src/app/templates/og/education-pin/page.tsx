@@ -128,7 +128,7 @@ function EducationPinContent() {
   const t = TOPICS[topic] || TOPICS.gex;
 
   return (
-    <div style={{
+    <div className="ready" style={{
       width: 1000, height: 1500, position: 'relative', overflow: 'hidden',
       color: '#f1f5f9', fontFamily: "'Inter', system-ui, sans-serif",
       background: `

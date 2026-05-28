@@ -197,7 +197,7 @@ function MarketCloseContent() {
         }
       `}</style>
 
-      <main className="og">
+      <main className="og ready">
         <div className="floor-grid" />
 
         {/* Header */}

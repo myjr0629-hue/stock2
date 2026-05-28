@@ -139,7 +139,7 @@ function PulseContent() {
         .og-footer { position: absolute; left: 0; right: 0; bottom: 10px; text-align: center; color: #b7c2d4; font-size: 14px; font-weight: 600; letter-spacing: 0.32em; }
       `}</style>
 
-      <main className="og-card">
+      <main className="og-card ready">
         <div className="mesh" />
 
         {/* Wave backgrounds */}

@@ -59,7 +59,7 @@ function MorningContent() {
   // Story format: 1080×1920 vertical layout
   if (isStory) {
     return (
-      <div style={{
+      <div className="ready" style={{
         width: 1080, height: 1920, position: 'relative', overflow: 'hidden',
         color: '#f1f5f9', fontFamily: "'Inter', system-ui, sans-serif",
         background: `
@@ -141,7 +141,7 @@ function MorningContent() {
   };
 
   return (
-    <div style={{
+    <div className="ready" style={{
       width: 1200, height: 630, position: 'relative', overflow: 'hidden',
       color: '#f1f5f9', fontFamily: "'Inter', system-ui, sans-serif",
       background: `
