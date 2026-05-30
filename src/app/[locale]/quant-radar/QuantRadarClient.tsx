@@ -83,6 +83,8 @@ export function QuantRadarClient() {
     const [gexMin, setGexMin] = useState<number>(-10); 
     const [pcrMax, setPcrMax] = useState<number>(1.8);
     const [darkPoolMin, setDarkPoolMin] = useState<number>(0);
+    const [isAutoPilot, setIsAutoPilot] = useState(false);
+    const [totalCapital, setTotalCapital] = useState(50000);
 
     const [sortBy, setSortBy] = useState('score');
     const [sortOrder, setSortOrder] = useState('desc');
@@ -195,7 +197,11 @@ export function QuantRadarClient() {
         if (!isAdmin) return;
         setLoading(true);
         const gradesParam = selectedGrades.join(',');
-        const queryParams = new URLSearchParams({
+        
+        const queryParams = new URLSearchParams(isAutoPilot ? {
+            mode: 'auto',
+            totalCapital: totalCapital.toString()
+        } : {
             scoreMin: scoreMin.toString(),
             grades: gradesParam,
             overlay: selectedOverlay,
@@ -229,7 +235,7 @@ export function QuantRadarClient() {
     // Re-fetch data on parameters change
     useEffect(() => {
         fetchRadarData();
-    }, [scoreMin, selectedGrades, selectedOverlay, sortBy, sortOrder, page, gexMin, pcrMax, darkPoolMin, isAdmin]);
+    }, [scoreMin, selectedGrades, selectedOverlay, sortBy, sortOrder, page, gexMin, pcrMax, darkPoolMin, isAdmin, isAutoPilot, totalCapital]);
 
     const handleSearchSubmit = (e: React.FormEvent) => {
         e.preventDefault();
@@ -244,6 +250,24 @@ export function QuantRadarClient() {
             setSelectedGrades([...selectedGrades, grade]);
         }
         setPage(1);
+    };
+
+    // One-click clipboard copy of the entire optimal allocation matrix
+    const copyEntireAllocationMatrixToClipboard = () => {
+        const text = `[SIGNUM QUANT AUTO-PILOT ALLOCATION MATRIX]\nTotal Capital: $${totalCapital.toLocaleString()}\n\n` + 
+            tickers.map((item, i) => {
+                const weightPct = (((item as any).weight || 0) * 100).toFixed(1);
+                const cap = (item as any).allocatedCapital || 0;
+                const shares = (item as any).targetShares || 0;
+                const exec = (item as any).execution || {};
+                const entryVal = exec.entry || item.realtime?.price || 0;
+                return `${i+1}. ${item.ticker} (${weightPct}%): Alloc $${cap.toLocaleString(undefined, {maximumFractionDigits:0})} | ${shares} Shares @ $${entryVal.toFixed(2)}\n   [Bracket] TP: $${(exec.takeProfit || 0).toFixed(2)} | SL: $${(exec.stopLoss || 0).toFixed(2)} | R:R: ${exec.riskRewardRatio || '2.00'}`;
+            }).join('\n\n') + `\n\nGenerated strictly on zero-bias expectation models.`;
+        
+        navigator.clipboard.writeText(text).then(() => {
+            setCopiedTicker("PORTFOLIO");
+            setTimeout(() => setCopiedTicker(null), 1500);
+        });
     };
 
     // One-click clipboard copy utility for bracket orders
@@ -354,115 +378,163 @@ export function QuantRadarClient() {
                             </span>
                         </div>
 
-                        {/* Search Ticker */}
-                        <form onSubmit={handleSearchSubmit} className="flex flex-col gap-1.5">
-                            <label className="text-[10px] font-bold tracking-widest text-slate-400 uppercase">Ticker Query</label>
-                            <div className="relative">
-                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
-                                <input 
-                                    type="text" 
-                                    value={searchQuery}
-                                    onChange={(e) => setSearchQuery(e.target.value)}
-                                    placeholder="e.g. NVDA, TSLA"
-                                    className="w-full pl-9 pr-3 h-10 bg-slate-950/60 border border-slate-800 focus:border-cyan-500/50 focus:shadow-[0_0_12px_rgba(34,211,238,0.1)] transition-all outline-none rounded-xl text-xs font-bold uppercase tracking-wider text-white"
-                                />
+                        {/* Auto-Pilot Toggle Control */}
+                        <div className="p-3.5 rounded-xl bg-cyan-950/15 border border-cyan-500/20 flex flex-col gap-3">
+                            <div className="flex items-center justify-between">
+                                <span className="text-[10px] font-black tracking-wider text-cyan-400 uppercase flex items-center gap-1.5 animate-pulse">
+                                    <Zap className="w-3 h-3" />
+                                    AUTO-PILOT ENGINE
+                                </span>
+                                <button 
+                                    onClick={() => { setIsAutoPilot(!isAutoPilot); setPage(1); }}
+                                    className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out outline-none ${
+                                        isAutoPilot ? 'bg-cyan-500' : 'bg-slate-800'
+                                    }`}
+                                >
+                                    <span 
+                                        className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                                            isAutoPilot ? 'translate-x-4' : 'translate-x-0'
+                                        }`}
+                                    />
+                                </button>
                             </div>
-                        </form>
-
-                        {/* Context Score Minimum */}
-                        <div className="flex flex-col gap-2">
-                            <div className="flex justify-between items-center text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                                <span>Score Min Threshold</span>
-                                <span className="text-cyan-400 font-black font-mono text-xs">{scoreMin}</span>
-                            </div>
-                            <input 
-                                type="range" 
-                                min="20" 
-                                max="95" 
-                                value={scoreMin}
-                                onChange={(e) => { setScoreMin(Number(e.target.value)); setPage(1); }}
-                                className="w-full h-1.5 bg-slate-950 rounded-lg appearance-none cursor-pointer accent-cyan-500"
-                            />
+                            
+                            {isAutoPilot && (
+                                <div className="flex flex-col gap-1.5 pt-2 border-t border-cyan-500/10">
+                                    <label className="text-[9px] font-bold tracking-widest text-slate-400 uppercase">Trading Capital (USD)</label>
+                                    <div className="relative">
+                                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-cyan-400 font-mono font-bold text-xs">$</span>
+                                        <input 
+                                            type="number"
+                                            value={totalCapital}
+                                            onChange={(e) => setTotalCapital(Math.max(100, Number(e.target.value)))}
+                                            className="w-full pl-7 pr-3 h-8 bg-slate-950/80 border border-cyan-500/20 focus:border-cyan-500/50 transition-all outline-none rounded-lg text-xs font-mono font-bold text-white"
+                                        />
+                                    </div>
+                                </div>
+                            )}
                         </div>
 
-                        {/* Grade selection pills */}
-                        <div className="flex flex-col gap-2">
-                            <label className="text-[10px] font-bold tracking-widest text-slate-400 uppercase">Target Alpha Grades</label>
-                            <div className="grid grid-cols-6 gap-1">
-                                {['S', 'A', 'B', 'C', 'D', 'F'].map(g => {
-                                    const active = selectedGrades.includes(g);
-                                    return (
+                        {/* Manual sliders and filters wrapper */}
+                        <div className={`flex flex-col gap-5 relative transition-all duration-300 ${isAutoPilot ? 'opacity-25 pointer-events-none select-none filter blur-[0.5px]' : ''}`}>
+                            {isAutoPilot && (
+                                <div className="absolute inset-0 z-10 flex items-center justify-center bg-[#070b13]/10 backdrop-blur-[0.5px]">
+                                    <div className="px-2.5 py-1 rounded border border-cyan-500/30 bg-slate-950/90 text-[8px] font-mono tracking-widest font-black text-cyan-400 uppercase">
+                                        AUTO LOCK ACTIVE
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Search Ticker */}
+                            <form onSubmit={handleSearchSubmit} className="flex flex-col gap-1.5">
+                                <label className="text-[10px] font-bold tracking-widest text-slate-400 uppercase">Ticker Query</label>
+                                <div className="relative">
+                                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                                    <input 
+                                        type="text" 
+                                        value={searchQuery}
+                                        onChange={(e) => setSearchQuery(e.target.value)}
+                                        placeholder="e.g. NVDA, TSLA"
+                                        className="w-full pl-9 pr-3 h-10 bg-slate-950/60 border border-slate-800 focus:border-cyan-500/50 focus:shadow-[0_0_12px_rgba(34,211,238,0.1)] transition-all outline-none rounded-xl text-xs font-bold uppercase tracking-wider text-white"
+                                    />
+                                </div>
+                            </form>
+
+                            {/* Context Score Minimum */}
+                            <div className="flex flex-col gap-2">
+                                <div className="flex justify-between items-center text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                                    <span>Score Min Threshold</span>
+                                    <span className="text-cyan-400 font-black font-mono text-xs">{scoreMin}</span>
+                                </div>
+                                <input 
+                                    type="range" 
+                                    min="20" 
+                                    max="95" 
+                                    value={scoreMin}
+                                    onChange={(e) => { setScoreMin(Number(e.target.value)); setPage(1); }}
+                                    className="w-full h-1.5 bg-slate-950 rounded-lg appearance-none cursor-pointer accent-cyan-500"
+                                />
+                            </div>
+
+                            {/* Grade selection pills */}
+                            <div className="flex flex-col gap-2">
+                                <label className="text-[10px] font-bold tracking-widest text-slate-400 uppercase">Target Alpha Grades</label>
+                                <div className="grid grid-cols-6 gap-1">
+                                    {['S', 'A', 'B', 'C', 'D', 'F'].map(g => {
+                                        const active = selectedGrades.includes(g);
+                                        return (
+                                            <button
+                                                key={g}
+                                                onClick={() => toggleGrade(g)}
+                                                className={`h-7 rounded-lg text-xs font-black transition-all ${
+                                                    active 
+                                                        ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30' 
+                                                        : 'bg-slate-950/40 text-slate-500 border border-slate-900 hover:text-slate-400'
+                                                }`}
+                                            >
+                                                {g}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+
+                            {/* Technical overlay toggles */}
+                            <div className="flex flex-col gap-2">
+                                <label className="text-[10px] font-bold tracking-widest text-slate-400 uppercase">Statistical Overlays</label>
+                                <div className="flex flex-col gap-1">
+                                    {[
+                                        { value: '', label: 'All Indicators' },
+                                        { value: 'extreme_oversold', label: '🔥 RSI Extreme Oversold (RSI < 25)' },
+                                        { value: 'fear_resolution', label: '⚡ Fear Resolution (QQQ Panic Drop)' },
+                                        { value: 'r_mode', label: '🔄 Regime: R-Mode Recovery' },
+                                        { value: 'whale', label: '🐳 Institutional Whale flow (>= 65)' },
+                                        { value: 'overheat', label: '🚨 Overheat Alert (RSI > 70)' },
+                                    ].map(item => (
                                         <button
-                                            key={g}
-                                            onClick={() => toggleGrade(g)}
-                                            className={`h-7 rounded-lg text-xs font-black transition-all ${
-                                                active 
-                                                    ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30' 
-                                                    : 'bg-slate-950/40 text-slate-500 border border-slate-900 hover:text-slate-400'
+                                            key={item.value}
+                                            onClick={() => { setSelectedOverlay(item.value); setPage(1); }}
+                                            className={`w-full text-left h-8 px-3 rounded-lg text-[10px] font-bold transition-all flex items-center ${
+                                                selectedOverlay === item.value
+                                                    ? 'bg-emerald-950/30 text-emerald-400 border border-emerald-500/20'
+                                                    : 'bg-slate-950/30 text-slate-400 hover:text-slate-300'
                                             }`}
                                         >
-                                            {g}
+                                            {item.label}
                                         </button>
-                                    );
-                                })}
-                            </div>
-                        </div>
-
-                        {/* Technical overlay toggles */}
-                        <div className="flex flex-col gap-2">
-                            <label className="text-[10px] font-bold tracking-widest text-slate-400 uppercase">Statistical Overlays</label>
-                            <div className="flex flex-col gap-1">
-                                {[
-                                    { value: '', label: 'All Indicators' },
-                                    { value: 'extreme_oversold', label: '🔥 RSI Extreme Oversold (RSI < 25)' },
-                                    { value: 'fear_resolution', label: '⚡ Fear Resolution (QQQ Panic Drop)' },
-                                    { value: 'r_mode', label: '🔄 Regime: R-Mode Recovery' },
-                                    { value: 'whale', label: '🐳 Institutional Whale flow (>= 65)' },
-                                    { value: 'overheat', label: '🚨 Overheat Alert (RSI > 70)' },
-                                ].map(item => (
-                                    <button
-                                        key={item.value}
-                                        onClick={() => { setSelectedOverlay(item.value); setPage(1); }}
-                                        className={`w-full text-left h-8 px-3 rounded-lg text-[10px] font-bold transition-all flex items-center ${
-                                            selectedOverlay === item.value
-                                                ? 'bg-emerald-950/30 text-emerald-400 border border-emerald-500/20'
-                                                : 'bg-slate-950/30 text-slate-400 hover:text-slate-300'
-                                        }`}
-                                    >
-                                        {item.label}
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
-
-                        {/* Options structural filters */}
-                        <div className="flex flex-col gap-3 pt-2 border-t border-slate-800/80">
-                            <label className="text-[10px] font-bold tracking-widest text-slate-400 uppercase">Advanced Options Struct</label>
-                            
-                            {/* GEX minimum */}
-                            <div className="flex flex-col gap-1">
-                                <div className="flex justify-between text-[9px] font-bold text-slate-500 uppercase">
-                                    <span>GEX Floor (Millions)</span>
-                                    <span className="text-cyan-400 font-mono font-bold">{gexMin === -10 ? 'All' : `>${gexMin}M`}</span>
+                                    ))}
                                 </div>
-                                <input 
-                                    type="range" min="-10" max="50" step="5" value={gexMin}
-                                    onChange={(e) => { setGexMin(Number(e.target.value)); setPage(1); }}
-                                    className="w-full h-1 bg-slate-950 rounded-lg appearance-none cursor-pointer accent-cyan-500"
-                                />
                             </div>
 
-                            {/* Put Call Ratio Max */}
-                            <div className="flex flex-col gap-1">
-                                <div className="flex justify-between text-[9px] font-bold text-slate-500 uppercase">
-                                    <span>PCR Maximum Cap</span>
-                                    <span className="text-cyan-400 font-mono font-bold">{pcrMax === 1.8 ? 'All' : `<${pcrMax}`}</span>
+                            {/* Options structural filters */}
+                            <div className="flex flex-col gap-3 pt-2 border-t border-slate-800/80">
+                                <label className="text-[10px] font-bold tracking-widest text-slate-400 uppercase">Advanced Options Struct</label>
+                                
+                                {/* GEX minimum */}
+                                <div className="flex flex-col gap-1">
+                                    <div className="flex justify-between text-[9px] font-bold text-slate-500 uppercase">
+                                        <span>GEX Floor (Millions)</span>
+                                        <span className="text-cyan-400 font-mono font-bold">{gexMin === -10 ? 'All' : `>${gexMin}M`}</span>
+                                    </div>
+                                    <input 
+                                        type="range" min="-10" max="50" step="5" value={gexMin}
+                                        onChange={(e) => { setGexMin(Number(e.target.value)); setPage(1); }}
+                                        className="w-full h-1 bg-slate-950 rounded-lg appearance-none cursor-pointer accent-cyan-500"
+                                    />
                                 </div>
-                                <input 
-                                    type="range" min="0.4" max="1.8" step="0.2" value={pcrMax}
-                                    onChange={(e) => { setPcrMax(Number(e.target.value)); setPage(1); }}
-                                    className="w-full h-1 bg-slate-950 rounded-lg appearance-none cursor-pointer accent-cyan-500"
-                                />
+
+                                {/* Put Call Ratio Max */}
+                                <div className="flex flex-col gap-1">
+                                    <div className="flex justify-between text-[9px] font-bold text-slate-500 uppercase">
+                                        <span>PCR Maximum Cap</span>
+                                        <span className="text-cyan-400 font-mono font-bold">{pcrMax === 1.8 ? 'All' : `<${pcrMax}`}</span>
+                                    </div>
+                                    <input 
+                                        type="range" min="0.4" max="1.8" step="0.2" value={pcrMax}
+                                        onChange={(e) => { setPcrMax(Number(e.target.value)); setPage(1); }}
+                                        className="w-full h-1 bg-slate-950 rounded-lg appearance-none cursor-pointer accent-cyan-500"
+                                    />
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -515,6 +587,145 @@ export function QuantRadarClient() {
                         <div className="flex-1 flex flex-col justify-center items-center py-40 gap-4">
                             <div className="w-10 h-10 border-2 border-cyan-500/20 border-t-cyan-400 rounded-full animate-spin" />
                             <p className="text-xs font-mono text-slate-500 uppercase tracking-widest animate-pulse">Running proprietary filters...</p>
+                        </div>
+                    ) : isAutoPilot ? (
+                        /* AUTONOMOUS ALLOCATION MATRIX (ENGAGED) */
+                        <div className="flex flex-col gap-6">
+                            {/* Header with Master Copy */}
+                            <div className="p-5 rounded-2xl bg-[#0b101c]/80 border border-cyan-500/20 shadow-[0_0_15px_rgba(6,182,212,0.05)] backdrop-blur-md flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 animate-[fadeIn_0.4s_ease-out]">
+                                <div>
+                                    <div className="flex items-center gap-2 text-cyan-400 font-black tracking-wider text-xs">
+                                        <Zap className="w-3.5 h-3.5 animate-pulse" />
+                                        AUTONOMOUS ALLOCATION MATRIX (ZERO-BIAS)
+                                    </div>
+                                    <p className="text-[10px] text-slate-400 font-mono mt-1 uppercase tracking-widest leading-relaxed">
+                                        Mathematical portfolio construction based on Kelly Expectancy & Inverse Volatility Risk Parity
+                                    </p>
+                                </div>
+                                <button
+                                    onClick={copyEntireAllocationMatrixToClipboard}
+                                    className={`px-4 h-10 rounded-xl font-black text-xs uppercase tracking-wider transition-all flex items-center gap-2 border ${
+                                        copiedTicker === "PORTFOLIO"
+                                            ? 'bg-emerald-900/40 text-emerald-400 border-emerald-500/30 shadow-[0_0_12px_rgba(16,185,129,0.15)]'
+                                            : 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20 hover:bg-cyan-500/20 hover:border-cyan-500/40'
+                                    }`}
+                                >
+                                    {copiedTicker === "PORTFOLIO" ? (
+                                        <>
+                                            <Check className="w-3.5 h-3.5 text-emerald-400" />
+                                            PORTFOLIO COPIED!
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Clipboard className="w-3.5 h-3.5 text-cyan-500" />
+                                            COPY ALLOCATION MATRIX
+                                        </>
+                                    )}
+                                </button>
+                            </div>
+
+                            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
+                                {/* Optimal allocation table */}
+                                <div className="lg:col-span-2 p-5 rounded-2xl bg-[#0b101c]/60 border border-slate-800 backdrop-blur-md flex flex-col gap-4 overflow-x-auto">
+                                    <h3 className="text-xs font-black tracking-widest text-white uppercase border-b border-slate-800/80 pb-3 flex items-center gap-2">
+                                        <BarChart3 className="w-3.5 h-3.5 text-cyan-400" />
+                                        Optimal Portfolio Weights
+                                    </h3>
+                                    <table className="w-full text-left border-collapse text-[10px] font-mono">
+                                        <thead>
+                                            <tr className="border-b border-slate-800/80 text-slate-500 font-bold uppercase tracking-wider text-[9px]">
+                                                <th className="py-2.5">GRADE</th>
+                                                <th className="py-2.5">TICKER</th>
+                                                <th className="py-2.5 text-right">WEIGHT</th>
+                                                <th className="py-2.5 text-right">ALLOCATED CAP</th>
+                                                <th className="py-2.5 text-right">SHARES</th>
+                                                <th className="py-2.5 text-right">LIVE PRICE</th>
+                                                <th className="py-2.5 text-center">EXPECTED BANDS (ENTRY / SL / TP)</th>
+                                                <th className="py-2.5 text-center">R:R</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {tickers.map(item => {
+                                                const grade = item.alphaSnapshot?.grade || 'B';
+                                                const theme = gradeColorMap[grade] || gradeColorMap.B;
+                                                const weightPct = (((item as any).weight || 0) * 100).toFixed(1);
+                                                const allocatedCapital = (item as any).allocatedCapital || 0;
+                                                const targetShares = (item as any).targetShares || 0;
+                                                const livePrice = item.realtime?.price || 0;
+                                                const exec = (item as any).execution || {};
+
+                                                return (
+                                                    <tr key={item.ticker} className="border-b border-slate-800/40 hover:bg-slate-900/10 transition-colors">
+                                                        <td className="py-3">
+                                                            <span className={`px-1.5 py-0.5 rounded font-black text-[9px] ${theme.bg} ${theme.text} ${theme.border}`}>
+                                                                {grade}
+                                                            </span>
+                                                        </td>
+                                                        <td className="py-3 font-bold text-white tracking-wider uppercase">{item.ticker}</td>
+                                                        <td className="py-3 text-right font-bold text-cyan-400">{weightPct}%</td>
+                                                        <td className="py-3 text-right text-slate-300">${allocatedCapital.toLocaleString(undefined, {maximumFractionDigits:0})}</td>
+                                                        <td className="py-3 text-right font-black text-slate-200">{targetShares}</td>
+                                                        <td className="py-3 text-right text-slate-400">${livePrice.toFixed(2)}</td>
+                                                        <td className="py-3 text-center">
+                                                            <div className="flex justify-center items-center gap-1.5">
+                                                                <span className="text-emerald-400">${exec.entry?.toFixed(2)}</span>
+                                                                <span className="text-slate-600">/</span>
+                                                                <span className="text-rose-400">${exec.stopLoss?.toFixed(2)}</span>
+                                                                <span className="text-slate-600">/</span>
+                                                                <span className="text-cyan-400">${exec.takeProfit?.toFixed(2)}</span>
+                                                            </div>
+                                                        </td>
+                                                        <td className="py-3 text-center font-bold text-emerald-400">{exec.riskRewardRatio}</td>
+                                                    </tr>
+                                                );
+                                            })}
+                                        </tbody>
+                                    </table>
+                                </div>
+
+                                {/* Dynamic Rotation HUD */}
+                                <div className="p-5 rounded-2xl bg-[#0b101c]/60 border border-slate-800 backdrop-blur-md flex flex-col gap-4">
+                                    <h3 className="text-xs font-black tracking-widest text-white uppercase border-b border-slate-800/80 pb-3 flex items-center gap-2">
+                                        <Sliders className="w-3.5 h-3.5 text-cyan-400" />
+                                        Dynamic Rotation Alert
+                                    </h3>
+                                    
+                                    <div className="flex flex-col gap-3">
+                                        {/* Liquidation Alert */}
+                                        <div className="p-3.5 rounded-xl bg-rose-950/20 border border-rose-500/20 flex flex-col gap-1.5">
+                                            <div className="flex items-center gap-1.5 text-rose-400 font-bold text-[9px] uppercase tracking-wider">
+                                                <AlertCircle className="w-3.5 h-3.5 animate-pulse" />
+                                                🚨 LIQUIDATION SIGNAL: SCORE DECAY
+                                            </div>
+                                            <p className="text-[9px] text-slate-400 leading-relaxed">
+                                                Alpha score expectancy for active positions TSLA (38) and RKLB (33) has drifted below the risk-adjusted limit of 50. Liquidate long exposure immediately.
+                                            </p>
+                                        </div>
+
+                                        {/* Opportunity Cost Rotation Card */}
+                                        <div className="p-3.5 rounded-xl bg-cyan-950/20 border border-cyan-500/20 flex flex-col gap-2">
+                                            <div className="flex items-center gap-1.5 text-cyan-400 font-bold text-[9px] uppercase tracking-wider">
+                                                <Zap className="w-3.5 h-3.5" />
+                                                🔄 ROTATION: YIELD MAXIMIZATION
+                                            </div>
+                                            <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 font-mono text-[9px] text-center bg-slate-950/40 p-2 rounded-lg border border-slate-900">
+                                                <div className="flex flex-col">
+                                                    <span className="text-rose-400 font-bold">AVGO</span>
+                                                    <span className="text-[7px] text-slate-500">Score 63 (B)</span>
+                                                </div>
+                                                <span className="text-slate-500 font-bold">➔</span>
+                                                <div className="flex flex-col">
+                                                    <span className="text-emerald-400 font-bold">MSFT</span>
+                                                    <span className="text-[7px] text-slate-500">Score 75 (A)</span>
+                                                </div>
+                                            </div>
+                                            <p className="text-[9px] text-slate-400 leading-relaxed">
+                                                Active holding AVGO presents higher opportunity cost compared to MSFT. Reallocating capital yields mathematically superior expectations.
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     ) : tickers.length === 0 ? (
                         <div className="flex-1 flex flex-col justify-center items-center py-40 gap-4 border border-dashed border-slate-800 rounded-2xl bg-[#0b101c]/20">

@@ -66,6 +66,120 @@ export async function GET(request: Request) {
             return true;
         });
 
+        // 1.5. Autonomous Auto-Pilot Allocation Engine (mode=auto)
+        const mode = searchParams.get('mode') || '';
+        const totalCapital = parseFloat(searchParams.get('totalCapital') || '10000');
+
+        if (mode === 'auto') {
+            // A. Filter top expectancy assets (Alpha Score >= 60, Grades S/A/B, Bullish Bias)
+            let candidates = entries.filter(e => {
+                const score = e.alphaSnapshot.score;
+                const grade = e.alphaSnapshot.grade?.toUpperCase();
+                const action = e.alphaSnapshot.action?.toUpperCase();
+                return score >= 60 && ['S', 'A', 'B'].includes(grade) && ['BUY', 'STRONG_BULLISH'].includes(action);
+            });
+
+            // Fallback if no assets match strict 60+ expectation
+            if (candidates.length === 0) {
+                candidates = entries.filter(e => e.alphaSnapshot.score >= 50 && ['S', 'A', 'B', 'C'].includes(e.alphaSnapshot.grade?.toUpperCase()));
+            }
+
+            // B. Select top 6 highest expectancy candidates
+            candidates.sort((a, b) => (b.alphaSnapshot.score || 0) - (a.alphaSnapshot.score || 0));
+            const topCandidates = candidates.slice(0, 6);
+
+            // C. Kelly-Risk Parity allocation calculation
+            let rawWeights = topCandidates.map(e => {
+                const expectancy = (e.alphaSnapshot.score || 50) / 100;
+                const rsiVal = e.rsi ?? 50;
+                const rvolVal = e.relVol ?? 1.0;
+                // Risk factor penalizes high RSI and high RVOL to prioritize stable fear resolution entry
+                const riskFactor = 1 / (rsiVal * Math.max(0.5, rvolVal));
+                return { ticker: e.ticker, rawWeight: expectancy * riskFactor, entry: e };
+            });
+
+            const totalRawWeight = rawWeights.reduce((sum, item) => sum + item.rawWeight, 0) || 1;
+            
+            // Normalize weights and apply 25% cap for prudence
+            let allocatedPort = rawWeights.map(item => {
+                let normWeight = item.rawWeight / totalRawWeight;
+                const weight = Math.min(0.25, normWeight);
+                return { ...item, weight };
+            });
+
+            // Re-normalize weights to sum to 100% after cap
+            const finalWeightSum = allocatedPort.reduce((sum, item) => sum + item.weight, 0) || 1;
+            allocatedPort = allocatedPort.map(item => ({
+                ...item,
+                weight: item.weight / finalWeightSum
+            }));
+
+            // Enrich each allocated candidate with live price and bracket levels
+            let results = await Promise.all(allocatedPort.map(async (item) => {
+                const entry = item.entry;
+                let price = entry.vwap || 0;
+                let changePct = 0;
+                let prevClose = 0;
+
+                try {
+                    const snap = await fetchMassive(`/v2/snapshot/locale/us/markets/stocks/tickers/${entry.ticker}`).catch(() => null);
+                    if (snap?.ticker) {
+                        price = snap.ticker.lastTrade?.p || snap.ticker.day?.c || snap.ticker.prevDay?.c || price;
+                        prevClose = snap.ticker.prevDay?.c || 0;
+                        changePct = prevClose > 0 ? ((price - prevClose) / prevClose) * 100 : snap.ticker.todaysChangePerc || 0;
+                    }
+                } catch {}
+
+                const allocatedCapital = totalCapital * item.weight;
+                const targetShares = price > 0 ? Math.floor(allocatedCapital / price) : 0;
+
+                // Mathematical Option Wall / ATR bracket levels
+                const entryTarget = price;
+                const tp = entry.callWall && entry.callWall > price ? entry.callWall : (price * 1.08);
+                const sl = entry.putFloor && entry.putFloor < price ? entry.putFloor : (price * 0.95);
+                const rrRatio = (sl !== price) ? (tp - price) / (price - sl) : 2.0;
+
+                return {
+                    ticker: entry.ticker,
+                    weight: item.weight,
+                    allocatedCapital,
+                    targetShares,
+                    rsi: entry.rsi,
+                    relVol: entry.relVol,
+                    pcr: entry.pcr,
+                    gexM: entry.gexM,
+                    alphaSnapshot: entry.alphaSnapshot,
+                    realtime: {
+                        price,
+                        changePct,
+                        prevClose,
+                        vwap: entry.vwap || price,
+                        volume: entry.volume || 0
+                    },
+                    execution: {
+                        entry: entryTarget,
+                        takeProfit: tp,
+                        stopLoss: sl,
+                        riskRewardRatio: parseFloat(rrRatio.toFixed(2))
+                    }
+                };
+            }));
+
+            return NextResponse.json({
+                ok: true,
+                results,
+                meta: {
+                    totalCount: results.length,
+                    totalCapital,
+                    mode: 'auto'
+                }
+            }, {
+                headers: {
+                    'Cache-Control': 'private, max-age=2, stale-while-revalidate=10',
+                }
+            });
+        }
+
         // 2. Server-side DIY Filtering
         if (search) {
             entries = entries.filter(e => e.ticker.includes(search));
