@@ -12,9 +12,12 @@ import { LayoutDashboard, Crosshair, Shield, Waves, Radar, Star, Briefcase } fro
  * [FIX] Dynamic ticker propagation: Command→Flow ticker continuity
  */
 
+import { useTier } from '@/contexts/TierContext';
+
 export function MobileBottomNav() {
     const pathname = usePathname();
     const searchParams = useSearchParams();
+    const { isAdmin } = useTier();
 
     // [FIX] Extract current ticker from URL for cross-page continuity
     // Command: /ticker?ticker=NVDA, Flow: /flow?ticker=NVDA
@@ -52,6 +55,12 @@ export function MobileBottomNav() {
             matchPath: '/intel',
             matchExact: true,
         },
+        ...(isAdmin ? [{
+            label: 'RADAR',
+            href: '/quant-radar',
+            icon: Radar,
+            matchPath: '/quant-radar',
+        }] : []),
         {
             label: 'WATCHLIST',
             href: '/watchlist',
@@ -64,7 +73,7 @@ export function MobileBottomNav() {
             icon: Briefcase,
             matchPath: '/portfolio',
         },
-    ], [currentTicker]);
+    ], [currentTicker, isAdmin]);
     // Defer active state to client to avoid SSR hydration mismatch
     const [activePath, setActivePath] = useState<string | null>(null);
     useEffect(() => {

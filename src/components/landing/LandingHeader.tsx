@@ -20,6 +20,11 @@ export function LandingHeader() {
     const { favorites } = useFavorites();
     const [searchQuery, setSearchQuery] = useState("");
     const [user, setUser] = useState<any>(null);
+    const ADMIN_EMAILS = (process.env.NEXT_PUBLIC_ADMIN_EMAILS || '')
+        .split(',')
+        .map(e => e.trim().toLowerCase())
+        .filter(Boolean);
+    const isAdminUser = user ? ADMIN_EMAILS.includes((user.email || '').toLowerCase()) : false;
     const [profileOpen, setProfileOpen] = useState(false);
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const profileRef = useRef<HTMLDivElement>(null);
@@ -170,6 +175,7 @@ export function LandingHeader() {
                         { label: "GUARDIAN", href: "/intel-guardian", icon: Shield },
                         { label: "COMMAND", href: `/ticker?ticker=${currentTicker}`, icon: Crosshair },
                         { label: "FLOW", href: `/flow?ticker=${currentTicker}`, icon: Waves },
+                        ...(isAdminUser ? [{ label: "QUANT RADAR", href: "/quant-radar", icon: Radar }] : []),
                         { label: "INTEL", href: "/intel", icon: Radar },
                         { label: "PORTFOLIO", href: "/portfolio", icon: Briefcase },
                         { label: "WATCHLIST", href: "/watchlist", icon: Star },
@@ -275,13 +281,18 @@ export function LandingHeader() {
                             { label: "GUARDIAN", href: "/intel-guardian", path: "/intel-guardian" },
                             { label: "COMMAND", href: `/ticker?ticker=${currentTicker}`, path: "/ticker" },
                             { label: "FLOW", href: `/flow?ticker=${currentTicker}`, path: "/flow" },
+                            ...(isAdminUser ? [{ label: "RADAR", href: "/quant-radar", path: "/quant-radar" }] : []),
                             { label: "INTEL", href: "/intel", path: "/intel" },
                             { label: "PORTFOLIO", href: "/portfolio", path: "/portfolio" },
                             { label: "WATCHLIST", href: "/watchlist", path: "/watchlist" },
                             { label: "GUIDE", href: "/how-it-works", path: "/how-it-works" },
                             { label: "PRICING", href: "/pricing", path: "/pricing" }
                         ].map((item) => {
-                            const isActive = item.path === "/intel" ? pathname === "/intel" : pathname?.startsWith(item.path);
+                            const isActive = item.path === "/intel" 
+                                ? pathname === "/intel" 
+                                : item.path === "/quant-radar"
+                                ? pathname === "/quant-radar"
+                                : pathname?.startsWith(item.path);
                             return (
                                 <Link suppressHydrationWarning key={item.label} href={item.href}
                                     className={clsx(
