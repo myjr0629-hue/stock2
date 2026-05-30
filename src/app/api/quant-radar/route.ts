@@ -86,7 +86,8 @@ export async function GET(request: Request) {
             if (actionParam && action !== actionParam.toUpperCase()) return false;
 
             // Options limits
-            if (e.gex != null && e.gex < gexMin) return false;
+            const gexVal = e.gexM != null ? e.gexM : (e.gex != null ? e.gex / 1000000 : null);
+            if (gexVal != null && gexVal < gexMin) return false;
             if (e.pcr != null && e.pcr > pcrMax) return false;
             if (e.darkPoolPct != null && e.darkPoolPct < darkPoolMin) return false;
 
