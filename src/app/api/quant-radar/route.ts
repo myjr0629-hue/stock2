@@ -69,8 +69,56 @@ export async function GET(request: Request) {
         // 1.5. Autonomous Auto-Pilot Allocation Engine (mode=auto)
         const mode = searchParams.get('mode') || '';
         const totalCapital = parseFloat(searchParams.get('totalCapital') || '10000');
+        const holdingsParam = searchParams.get('holdings') || '';
+        const userHoldings = holdingsParam ? holdingsParam.split(',').map(t => t.trim().toUpperCase()).filter(Boolean) : [];
 
         if (mode === 'auto') {
+            // Helper function to calculate Pearson correlation coefficient from historical sparkline daily log returns
+            const calculateSparklinePearson = (sparkA: number[], sparkB: number[]): number => {
+                if (!sparkA || !sparkB || sparkA.length < 5 || sparkB.length < 5) {
+                    return 0.40; // baseline historical market correlation
+                }
+                
+                const retA: number[] = [];
+                const retB: number[] = [];
+                const minLen = Math.min(sparkA.length, sparkB.length);
+                
+                for (let i = 1; i < minLen; i++) {
+                    if (sparkA[i-1] > 0 && sparkA[i] > 0) {
+                        retA.push(Math.log(sparkA[i] / sparkA[i-1]));
+                    }
+                    if (sparkB[i-1] > 0 && sparkB[i] > 0) {
+                        retB.push(Math.log(sparkB[i] / sparkB[i-1]));
+                    }
+                }
+                
+                const returnsLen = Math.min(retA.length, retB.length);
+                if (returnsLen < 3) {
+                    return 0.40;
+                }
+                
+                let sumA = 0, sumB = 0;
+                for (let i = 0; i < returnsLen; i++) {
+                    sumA += retA[i];
+                    sumB += retB[i];
+                }
+                const meanA = sumA / returnsLen;
+                const meanB = sumB / returnsLen;
+                
+                let num = 0, denA = 0, denB = 0;
+                for (let i = 0; i < returnsLen; i++) {
+                    const diffA = retA[i] - meanA;
+                    const diffB = retB[i] - meanB;
+                    num += diffA * diffB;
+                    denA += diffA * diffA;
+                    denB += diffB * diffB;
+                }
+                
+                if (denA === 0 || denB === 0) return 0.40;
+                const r = num / Math.sqrt(denA * denB);
+                return isNaN(r) ? 0.40 : Math.max(-1.0, Math.min(1.0, r));
+            };
+
             // A. Filter top expectancy assets (Alpha Score >= 60, Grades S/A/B, Bullish Bias)
             let candidates = entries.filter(e => {
                 const score = e.alphaSnapshot.score;
@@ -88,14 +136,49 @@ export async function GET(request: Request) {
             candidates.sort((a, b) => (b.alphaSnapshot.score || 0) - (a.alphaSnapshot.score || 0));
             const topCandidates = candidates.slice(0, 6);
 
-            // C. Kelly-Risk Parity allocation calculation
+            // C. Dynamic Pearson Correlation Matrix (Systemic Cluster Risk Penalty)
+            const correlations: Record<string, number> = {};
+            topCandidates.forEach((assetA) => {
+                let correlationSum = 0;
+                topCandidates.forEach((assetB) => {
+                    if (assetA.ticker === assetB.ticker) {
+                        correlationSum += 1.0;
+                    } else {
+                        correlationSum += calculateSparklinePearson(assetA.sparkline || [], assetB.sparkline || []);
+                    }
+                });
+                correlations[assetA.ticker] = correlationSum;
+            });
+
+            // D. Kelly-Risk Parity allocation calculation
             let rawWeights = topCandidates.map(e => {
-                const expectancy = (e.alphaSnapshot.score || 50) / 100;
+                const score = e.alphaSnapshot.score;
+                const ivVal = e.iv ?? null;
                 const rsiVal = e.rsi ?? 50;
                 const rvolVal = e.relVol ?? 1.0;
-                // Risk factor penalizes high RSI and high RVOL to prioritize stable fear resolution entry
-                const riskFactor = 1 / (rsiVal * Math.max(0.5, rvolVal));
-                return { ticker: e.ticker, rawWeight: expectancy * riskFactor, entry: e };
+                const price = e.vwap || 0;
+
+                // 1. Technical/Implied Volatility
+                let vol = ivVal;
+                if (vol === null) {
+                    vol = Math.max(0.10, 0.30 * rvolVal) * (1 + Math.abs(rsiVal - 50) / 50);
+                }
+
+                // 2. Win Probability vs Option-bracket payout odds (Kelly Expectancy)
+                const p = score / 100;
+                const tp = e.callWall && e.callWall > price ? e.callWall : (price * 1.08);
+                const sl = e.putFloor && e.putFloor < price ? e.putFloor : (price * 0.94);
+                const b = price - sl > 0 ? (tp - price) / (price - sl) : 2.0;
+                const bClamped = Math.max(0.5, Math.min(5.0, b));
+                const kelly = Math.max(0.0, p - (1 - p) / bClamped);
+
+                // 3. Cluster Penalty
+                const penalty = correlations[e.ticker] || 1.0;
+                
+                // Weight combines Kelly expectancy with correlation-penalized risk parity
+                const rawWeight = kelly * (1 / (vol * penalty));
+
+                return { ticker: e.ticker, rawWeight, entry: e };
             });
 
             const totalRawWeight = rawWeights.reduce((sum, item) => sum + item.rawWeight, 0) || 1;
@@ -113,6 +196,66 @@ export async function GET(request: Request) {
                 ...item,
                 weight: item.weight / finalWeightSum
             }));
+
+            // E. Compute Live Liquidation Alerts and Opportunity Cost Swaps
+            const alerts: {
+                liquidations: Array<{ ticker: string; score: number; reason: string }>;
+                rotations: Array<{ sell: string; sellScore: number; buy: string; buyScore: number; urgency: number; reason: string }>;
+            } = { liquidations: [], rotations: [] };
+
+            // Find held assets decaying below support threshold (Score < 50 or bearish action)
+            userHoldings.forEach(ticker => {
+                const activeEntry = entries.find(e => e.ticker === ticker);
+                if (activeEntry) {
+                    const score = activeEntry.alphaSnapshot.score;
+                    const action = activeEntry.alphaSnapshot.action?.toUpperCase();
+                    if (score < 50 || !['BUY', 'STRONG_BULLISH'].includes(action)) {
+                        alerts.liquidations.push({
+                            ticker,
+                            score,
+                            reason: `Alpha score of ${ticker} (${score}) has decayed below key support thresholds. Liquidate long exposure immediately.`
+                        });
+                    }
+                }
+            });
+
+            // Find opportunity swaps: compare active holdings (that are NOT liquidated) with candidates NOT held
+            const nonLiquidatedHoldings = userHoldings.filter(t => !alerts.liquidations.some(l => l.ticker === t));
+            const candidateList = allocatedPort.filter(item => !userHoldings.includes(item.ticker));
+
+            if (nonLiquidatedHoldings.length > 0 && candidateList.length > 0) {
+                const swaps: Array<{ sell: string; sellScore: number; buy: string; buyScore: number; urgency: number; reason: string }> = [];
+
+                nonLiquidatedHoldings.forEach(heldTicker => {
+                    const heldEntry = entries.find(e => e.ticker === heldTicker);
+                    if (heldEntry) {
+                        const heldScore = heldEntry.alphaSnapshot.score;
+                        
+                        candidateList.forEach(cand => {
+                            const candScore = cand.entry.alphaSnapshot.score;
+                            // Rebalancing score threshold drag is set to 15 points
+                            const urgency = candScore - heldScore - 15;
+
+                            if (urgency > 0) {
+                                swaps.push({
+                                    sell: heldTicker,
+                                    sellScore: heldScore,
+                                    buy: cand.ticker,
+                                    buyScore: candScore,
+                                    urgency,
+                                    reason: `Yield Maximization: Reallocating capital from ${heldTicker} (Score ${heldScore}) to ${cand.ticker} (Score ${candScore}) increases expected risk-adjusted return by ${urgency} expectancy points.`
+                                });
+                            }
+                        });
+                    }
+                });
+
+                // Pick the single highest urgency swap to keep action command clean and definitive
+                if (swaps.length > 0) {
+                    swaps.sort((a, b) => b.urgency - a.urgency);
+                    alerts.rotations.push(swaps[0]);
+                }
+            }
 
             // Enrich each allocated candidate with live price and bracket levels
             let results = await Promise.all(allocatedPort.map(async (item) => {
@@ -136,7 +279,7 @@ export async function GET(request: Request) {
                 // Mathematical Option Wall / ATR bracket levels
                 const entryTarget = price;
                 const tp = entry.callWall && entry.callWall > price ? entry.callWall : (price * 1.08);
-                const sl = entry.putFloor && entry.putFloor < price ? entry.putFloor : (price * 0.95);
+                const sl = entry.putFloor && entry.putFloor < price ? entry.putFloor : (price * 0.94);
                 const rrRatio = (sl !== price) ? (tp - price) / (price - sl) : 2.0;
 
                 return {
@@ -168,6 +311,7 @@ export async function GET(request: Request) {
             return NextResponse.json({
                 ok: true,
                 results,
+                alerts,
                 meta: {
                     totalCount: results.length,
                     totalCapital,

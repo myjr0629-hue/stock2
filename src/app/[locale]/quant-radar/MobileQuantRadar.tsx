@@ -115,15 +115,30 @@ export function MobileQuantRadar() {
     };
 
     // One-click clipboard copy of the entire optimal allocation matrix for mobile
+    // One-click clipboard copy of the entire optimal allocation matrix (Beginner-Friendly Korean)
     const copyEntireAllocationMatrixToClipboard = () => {
-        const text = `[SIGNUM QUANT AUTO-PILOT ALLOCATION MATRIX]\nTotal Capital: $${totalCapital.toLocaleString()}\n\n` + 
+        const text = `[시그넘 시큐리티 오토파일럿 자산 배분 포트폴리오 가이드]\n` +
+            `총 투자 원금 설정: $${totalCapital.toLocaleString()}\n` +
+            `기준일시: ${new Date().toLocaleString('ko-KR')}\n\n` +
+            `--------------------------------------------------\n` +
+            `★ 초보자를 위한 3단계 실전 주문 대입 방법 ★\n` +
+            `1. 증권사 소수점 투자 또는 해외주식 주문 메뉴를 켭니다.\n` +
+            `2. 아래 종목 목록을 보며 '지정가(Limit) 매수' 주문을 실행합니다.\n` +
+            `3. 매수 후 반드시 손절가(SL)와 익절가(TP)를 예약 주문으로 설정하세요.\n` +
+            `--------------------------------------------------\n\n` +
             tickers.map((item, i) => {
                 const weightPct = (((item as any).weight || 0) * 100).toFixed(1);
                 const cap = (item as any).allocatedCapital || 0;
                 const shares = (item as any).targetShares || 0;
                 const exec = (item as any).execution || {};
                 const entryVal = exec.entry || item.realtime?.price || 0;
-                return `${i+1}. ${item.ticker} (${weightPct}%): Alloc $${cap.toLocaleString(undefined, {maximumFractionDigits:0})} | ${shares} Shares @ $${entryVal.toFixed(2)}\n   [Bracket] TP: $${(exec.takeProfit || 0).toFixed(2)} | SL: $${(exec.stopLoss || 0).toFixed(2)} | R:R: ${exec.riskRewardRatio || '2.00'}`;
+                return `${i+1}. 종목: [${item.ticker}] (배분 비중: ${weightPct}%)\n` +
+                       `   - 배분 투자금: $${cap.toLocaleString(undefined, {maximumFractionDigits:0})}\n` +
+                       `   - 추천 매수수량: ${shares}주\n` +
+                       `   - 지정가 매수가격: $${entryVal.toFixed(2)} 이하\n` +
+                       `   - [주문 예약] 익절 예약가격 (TP): $${(exec.takeProfit || 0).toFixed(2)}\n` +
+                       `   - [주문 예약] 손절 예약가격 (SL): $${(exec.stopLoss || 0).toFixed(2)}\n` +
+                       `   - 리스크 대비 보상비 (R:R Ratio): ${exec.riskRewardRatio || '2.00'}`;
             }).join('\n\n') + `\n\nGenerated strictly on zero-bias expectation models.`;
         
         navigator.clipboard.writeText(text).then(() => {
@@ -137,7 +152,13 @@ export function MobileQuantRadar() {
         const score = item.alphaSnapshot.score;
         const grade = item.alphaSnapshot.grade;
         
-        const text = `[${item.ticker}] LIMIT BUY @ $${entryPrice.toFixed(2)} | TP: $${tp.toFixed(2)} (+3.5%) | SL: $${sl.toFixed(2)} (-1.5%) | V7 Score: ${score} (${grade})`;
+        const text = `[시그넘 ${item.ticker} 초보자 맞춤형 주문 가이드]\n` +
+            `1. 매수 종목: ${item.ticker}\n` +
+            `2. 주문 구분: 지정가 매수 (Limit Order)\n` +
+            `3. 매수 지정가격: $${entryPrice.toFixed(2)} 이하\n` +
+            `4. 익절 예약 가격 (Take Profit): $${tp.toFixed(2)} (+3.5%)\n` +
+            `5. 손절 예약 가격 (Stop Loss): $${sl.toFixed(2)} (-1.5%)\n` +
+            `6. 오토 스코어: ${score}점 (Alpha Grade: ${grade})`;
         
         navigator.clipboard.writeText(text).then(() => {
             setCopiedTicker(item.ticker);
@@ -152,7 +173,7 @@ export function MobileQuantRadar() {
         return (
             <div className="w-full min-h-screen bg-[#070b13] flex flex-col justify-center items-center gap-3">
                 <div className="w-8 h-8 border-2 border-cyan-500/20 border-t-cyan-400 rounded-full animate-spin" />
-                <p className="text-[10px] font-mono text-slate-500 uppercase tracking-widest animate-pulse">Checking credentials...</p>
+                <p className="text-[13px] font-mono text-slate-500 uppercase tracking-widest animate-pulse">Checking credentials...</p>
             </div>
         );
     }
@@ -168,21 +189,21 @@ export function MobileQuantRadar() {
                     </div>
 
                     <div className="flex flex-col gap-1">
-                        <h2 className="text-[10px] font-black text-rose-400 tracking-widest uppercase">PROPRIETARY LOCK</h2>
+                        <h2 className="text-[13px] font-black text-rose-400 tracking-widest uppercase">PROPRIETARY LOCK</h2>
                         <h1 className="text-base font-black text-white tracking-tight">ADMIN ACCESS ONLY</h1>
-                        <p className="text-[11px] text-slate-400 leading-relaxed mt-1">
+                        <p className="text-[13px] text-slate-400 leading-relaxed mt-1">
                             This cockpit is locked for general visitors. Access is exclusive to the fund administrator.
                         </p>
                     </div>
 
                     <div className="w-full p-3.5 rounded-xl bg-slate-950/80 border border-slate-900 flex items-start gap-2.5">
                         <AlertCircle className="w-4 h-4 text-slate-500 shrink-0 mt-0.5" />
-                        <span className="text-[9.5px] font-mono text-slate-500 text-left leading-normal">
+                        <span className="text-[13px] font-mono text-slate-500 text-left leading-normal">
                             Please authenticate in settings using your administrator credentials.
                         </span>
                     </div>
 
-                    <Link href="/" className="h-10 rounded-xl bg-slate-950 border border-slate-800 text-slate-400 text-xs font-bold flex items-center justify-center uppercase tracking-wider w-full">
+                    <Link href="/" className="h-10 rounded-xl bg-slate-950 border border-slate-800 text-slate-400 text-[13px] font-bold flex items-center justify-center uppercase tracking-wider w-full">
                         Return
                     </Link>
                 </div>
@@ -204,11 +225,11 @@ export function MobileQuantRadar() {
                 <div className="flex items-center gap-2">
                     <Radar className="w-5 h-5 text-cyan-400 animate-pulse" />
                     <div>
-                        <h1 className="text-xs font-black tracking-widest text-white uppercase">QUANT RADAR</h1>
-                        <p className="text-[8px] font-bold text-emerald-400 tracking-widest uppercase">⚡ PROPRIETARY COCKPIT</p>
+                        <h1 className="text-[13px] font-black tracking-widest text-white uppercase">QUANT RADAR</h1>
+                        <p className="text-[13px] font-bold text-emerald-400 tracking-widest uppercase">⚡ PROPRIETARY COCKPIT</p>
                     </div>
                 </div>
-                <div className="flex items-center gap-1.5 font-mono text-[9px] px-2.5 py-0.5 rounded-full bg-slate-900 border border-slate-800 text-slate-400">
+                <div className="flex items-center gap-1.5 font-mono text-[13px] px-2.5 py-0.5 rounded-full bg-slate-900 border border-slate-800 text-slate-400">
                     <Activity className={`w-2.5 h-2.5 ${loading ? 'animate-spin' : ''}`} />
                     {totalCount} CODES
                 </div>
@@ -227,7 +248,7 @@ export function MobileQuantRadar() {
                             <button
                                 key={tab.id}
                                 onClick={() => setActiveTab(tab.id as any)}
-                                className={`py-2 text-[10px] font-black rounded-lg transition-all flex items-center justify-center gap-1.5 ${
+                                className={`py-2 text-[13px] font-black rounded-lg transition-all flex items-center justify-center gap-1.5 ${
                                     active 
                                         ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/10' 
                                         : 'text-slate-500 hover:text-slate-400'
@@ -250,7 +271,7 @@ export function MobileQuantRadar() {
                         {loading ? (
                             <div className="flex flex-col justify-center items-center py-32 gap-3">
                                 <div className="w-8 h-8 border-2 border-cyan-500/20 border-t-cyan-400 rounded-full animate-spin" />
-                                <p className="text-[10px] font-mono text-slate-500 uppercase tracking-widest">Scanning signals...</p>
+                                <p className="text-[13px] font-mono text-slate-500 uppercase tracking-widest">Scanning signals...</p>
                             </div>
                         ) : isAutoPilot ? (
                             /* MOBILE AUTONOMOUS ALLOCATION HUD */
@@ -258,7 +279,7 @@ export function MobileQuantRadar() {
                                 {/* Master Copy Button */}
                                 <button
                                     onClick={copyEntireAllocationMatrixToClipboard}
-                                    className={`w-full h-10 rounded-xl font-black text-[10px] uppercase tracking-wider transition-all flex items-center justify-center gap-2 border ${
+                                    className={`w-full h-10 rounded-xl font-black text-[13px] uppercase tracking-wider transition-all flex items-center justify-center gap-2 border ${
                                         copiedTicker === "PORTFOLIO"
                                             ? 'bg-emerald-900/30 text-emerald-400 border-emerald-500/25 shadow-[0_0_10px_rgba(16,185,129,0.1)]'
                                             : 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20 active:bg-cyan-500/20'
@@ -281,38 +302,60 @@ export function MobileQuantRadar() {
                                 <div className="flex flex-col gap-2.5">
                                     {/* Liquidation Signal */}
                                     <div className="p-3 rounded-lg bg-rose-950/20 border border-rose-500/15 flex flex-col gap-1">
-                                        <div className="flex items-center gap-1.5 text-rose-400 font-bold text-[8.5px] uppercase tracking-wider">
+                                        <div className="flex items-center gap-1.5 text-rose-400 font-bold text-[13px] uppercase tracking-wider">
                                             <AlertCircle className="w-3 h-3 animate-pulse" />
                                             🚨 EXIT SIGNAL: SCORE DECAY
                                         </div>
-                                        <p className="text-[8.5px] text-slate-400 leading-normal">
+                                        <p className="text-[13px] text-slate-400 leading-normal">
                                             TSLA (38) and RKLB (33) have drifted below expectation threshold (50). Liquidate long exposure immediately.
                                         </p>
                                     </div>
 
                                     {/* Rotation Alert */}
                                     <div className="p-3 rounded-lg bg-cyan-950/20 border border-cyan-500/15 flex flex-col gap-1.5">
-                                        <div className="flex items-center gap-1.5 text-cyan-400 font-bold text-[8.5px] uppercase tracking-wider">
+                                        <div className="flex items-center gap-1.5 text-cyan-400 font-bold text-[13px] uppercase tracking-wider">
                                             <Zap className="w-3 h-3" />
                                             🔄 ROTATION: opportunity cost
                                         </div>
-                                        <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-1.5 font-mono text-[8.5px] text-center bg-slate-950/30 p-1.5 rounded border border-slate-900">
+                                        <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-1.5 font-mono text-[13px] text-center bg-slate-950/30 p-1.5 rounded border border-slate-900">
                                             <div>
                                                 <span className="text-rose-400 font-bold">AVGO</span>
-                                                <span className="text-[6.5px] text-slate-500 block">Score 63</span>
+                                                <span className="text-[13px] text-slate-500 block">Score 63</span>
                                             </div>
                                             <span className="text-slate-500 font-bold">➔</span>
                                             <div>
                                                 <span className="text-emerald-400 font-bold">MSFT</span>
-                                                <span className="text-[6.5px] text-slate-500 block">Score 75</span>
+                                                <span className="text-[13px] text-slate-500 block">Score 75</span>
                                             </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* 초보자를 위한 오토파일럿 실전 주문 3단계 가이드 */}
+                                <div className="p-3.5 rounded-xl bg-cyan-950/10 border border-cyan-500/20 flex flex-col gap-2.5">
+                                    <div className="flex items-center gap-1.5 text-cyan-400 font-bold text-[13px] uppercase tracking-wider">
+                                        <AlertCircle className="w-3.5 h-3.5 text-cyan-400" />
+                                        💡 오토파일럿 초보자 주문 가이드
+                                    </div>
+                                    <div className="flex flex-col gap-2 text-[13px] text-slate-300 leading-relaxed font-jakarta">
+                                        <div className="bg-slate-950/40 p-2.5 rounded-lg border border-slate-900 flex flex-col">
+                                            <strong className="text-white">1단계. 자본금 설정</strong>
+                                            <span className="text-slate-400 text-[13px] mt-0.5">상단의 [DIY SCANS] 탭에서 총 자본금(USD)을 입력하면 종목별 매수 수량이 자동 계산됩니다.</span>
+                                        </div>
+                                        <div className="bg-slate-950/40 p-2.5 rounded-lg border border-slate-900 flex flex-col">
+                                            <strong className="text-white">2단계. 가이드 텍스트 복사</strong>
+                                            <span className="text-slate-400 text-[13px] mt-0.5">상단의 [COPY PORTFOLIO MATRIX] 버튼을 클릭해 한글로 요약된 주문법을 복사합니다.</span>
+                                        </div>
+                                        <div className="bg-slate-950/40 p-2.5 rounded-lg border border-slate-900 flex flex-col">
+                                            <strong className="text-white">3단계. 증권사 주문 등록</strong>
+                                            <span className="text-slate-400 text-[13px] mt-0.5">주거래 증권사 앱에서 복사된 안내대로 지정가(Limit) 매수 및 손절/익절(SL/TP)을 세팅하면 완료됩니다.</span>
                                         </div>
                                     </div>
                                 </div>
 
                                 {/* Capital Allocation Cards */}
                                 <div className="flex flex-col gap-3">
-                                    <h3 className="text-[9.5px] font-black tracking-widest text-slate-400 uppercase flex items-center gap-1.5">
+                                    <h3 className="text-[13px] font-black tracking-widest text-slate-400 uppercase flex items-center gap-1.5">
                                         <Radar className="w-3 h-3 text-cyan-400" />
                                         Optimal Allocations
                                     </h3>
@@ -330,20 +373,20 @@ export function MobileQuantRadar() {
                                             <div key={item.ticker} className="p-3.5 rounded-xl bg-[#0b101c]/50 border border-slate-900 flex flex-col gap-2.5">
                                                 <div className="flex justify-between items-center">
                                                     <div className="flex items-center gap-2">
-                                                        <span className={`w-6 h-6 rounded flex items-center justify-center text-[9px] font-black border ${
+                                                        <span className={`w-6 h-6 rounded flex items-center justify-center text-[13px] font-black border ${
                                                             grade === 'S' ? 'bg-emerald-950/40 text-emerald-400 border-emerald-500/20' :
                                                             grade === 'A' ? 'bg-cyan-950/40 text-cyan-400 border-cyan-500/20' : 'bg-slate-950/40 text-slate-400 border-slate-900'
                                                         }`}>
                                                             {grade}
                                                         </span>
-                                                        <span className="text-xs font-black text-white uppercase">{item.ticker}</span>
+                                                        <span className="text-[13px] font-black text-white uppercase">{item.ticker}</span>
                                                     </div>
-                                                    <span className="text-[10px] font-black font-mono text-cyan-400 bg-cyan-950/40 border border-cyan-500/20 px-2 py-0.5 rounded">
+                                                    <span className="text-[13px] font-black font-mono text-cyan-400 bg-cyan-950/40 border border-cyan-500/20 px-2 py-0.5 rounded">
                                                         {weightPct}% WEIGHT
                                                     </span>
                                                 </div>
 
-                                                <div className="grid grid-cols-2 gap-2 text-[9px] font-mono">
+                                                <div className="grid grid-cols-2 gap-2 text-[13px] font-mono">
                                                     <div className="bg-slate-950/40 p-2 rounded border border-slate-900 flex justify-between">
                                                         <span className="text-slate-500">ALLOC CAP</span>
                                                         <strong className="text-slate-300">${cap.toLocaleString(undefined, {maximumFractionDigits:0})}</strong>
@@ -354,7 +397,7 @@ export function MobileQuantRadar() {
                                                     </div>
                                                 </div>
 
-                                                <div className="p-2.5 rounded-lg bg-slate-950/60 border border-slate-900 flex flex-col gap-1.5 text-[8.5px] font-mono">
+                                                <div className="p-2.5 rounded-lg bg-slate-950/60 border border-slate-900 flex flex-col gap-1.5 text-[13px] font-mono">
                                                     <div className="flex justify-between border-b border-slate-900 pb-1">
                                                         <span className="text-slate-500">ENTRY (LIMIT)</span>
                                                         <strong className="text-emerald-400">${(exec.entry || livePrice).toFixed(2)}</strong>
@@ -371,7 +414,7 @@ export function MobileQuantRadar() {
 
                                                 <button
                                                     onClick={() => copyBracketToClipboard(item, exec.entry || livePrice, exec.takeProfit || 0, exec.stopLoss || 0)}
-                                                    className={`w-full h-8 rounded-lg font-black text-[9px] uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 border ${
+                                                    className={`w-full h-8 rounded-lg font-black text-[13px] uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 border ${
                                                         copiedTicker === item.ticker
                                                             ? 'bg-emerald-900/30 text-emerald-400 border-emerald-500/25'
                                                             : 'bg-slate-950/60 text-cyan-400 border-slate-900 active:bg-slate-900'
@@ -438,7 +481,7 @@ export function MobileQuantRadar() {
                                         {/* Card Header: Ticker / Grade / Price */}
                                         <div className="flex justify-between items-center">
                                             <div className="flex items-center gap-2">
-                                                <div className={`w-8 h-8 rounded-lg text-xs font-black flex items-center justify-center border ${
+                                                <div className={`w-8 h-8 rounded-lg text-[13px] font-black flex items-center justify-center border ${
                                                     grade === 'S' ? 'bg-emerald-950/40 text-emerald-400 border-emerald-500/20' :
                                                     grade === 'A' ? 'bg-cyan-950/40 text-cyan-400 border-cyan-500/20' :
                                                     grade === 'F' ? 'bg-rose-950/40 text-rose-400 border-rose-500/20' : 'bg-slate-950/40 text-slate-400 border-slate-900'
@@ -446,13 +489,13 @@ export function MobileQuantRadar() {
                                                     {grade}
                                                 </div>
                                                 <div className="flex flex-col">
-                                                    <span className="text-xs font-black text-white uppercase tracking-wider">{item.ticker}</span>
-                                                    <span className="text-[8px] font-mono text-slate-500">V7 COCKPIT</span>
+                                                    <span className="text-[13px] font-black text-white uppercase tracking-wider">{item.ticker}</span>
+                                                    <span className="text-[13px] font-mono text-slate-500">V7 COCKPIT</span>
                                                 </div>
                                             </div>
 
                                             {/* Signal Badge */}
-                                            <span className={`text-[8.5px] font-black tracking-widest px-2 py-0.5 rounded border uppercase ${signalColor}`}>
+                                            <span className={`text-[13px] font-black tracking-widest px-2 py-0.5 rounded border uppercase ${signalColor}`}>
                                                 {signalLabel}
                                             </span>
                                         </div>
@@ -460,19 +503,19 @@ export function MobileQuantRadar() {
                                         {/* Dynamic narrative + score progress row */}
                                         <div className="grid grid-cols-[38px_1fr] gap-3 items-center">
                                             <div className="h-[38px] rounded-lg bg-slate-950/60 border border-slate-900 flex flex-col justify-center items-center">
-                                                <span className="text-xs font-black text-white font-mono leading-none">{score}</span>
-                                                <span className="text-[6.5px] font-bold text-slate-500 uppercase tracking-widest mt-0.5">SCORE</span>
+                                                <span className="text-[13px] font-black text-white font-mono leading-none">{score}</span>
+                                                <span className="text-[13px] font-bold text-slate-500 uppercase tracking-widest mt-0.5">SCORE</span>
                                             </div>
 
                                             <div className="p-2.5 rounded-lg bg-slate-950/40 border border-slate-900/60 min-h-[38px] flex items-center">
-                                                <p className="text-[9.5px] font-bold text-slate-300 leading-normal">
+                                                <p className="text-[13px] font-bold text-slate-300 leading-normal">
                                                     {item.alphaSnapshot?.whyKR || '분석 연산 중...'}
                                                 </p>
                                             </div>
                                         </div>
 
                                         {/* Tactical buy target entry zone */}
-                                        <div className="p-2.5 rounded-lg bg-cyan-950/10 border border-cyan-500/10 flex justify-between items-center text-[9px]">
+                                        <div className="p-2.5 rounded-lg bg-cyan-950/10 border border-cyan-500/10 flex justify-between items-center text-[13px]">
                                             <span className="font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1">
                                                 <Target className="w-3 h-3 text-cyan-400" />
                                                 Quant Target Support
@@ -485,7 +528,7 @@ export function MobileQuantRadar() {
                                         {/* One-click Clipboard Bracket Copy Button */}
                                         <button
                                             onClick={() => copyBracketToClipboard(item, entryMax, takeProfit, stopLoss)}
-                                            className={`w-full h-9 rounded-lg font-black text-[10px] uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 border ${
+                                            className={`w-full h-9 rounded-lg font-black text-[13px] uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 border ${
                                                 copiedTicker === item.ticker
                                                     ? 'bg-emerald-900/30 text-emerald-400 border-emerald-500/25'
                                                     : 'bg-slate-950/60 text-cyan-400 border-slate-900 active:bg-slate-900'
@@ -510,7 +553,7 @@ export function MobileQuantRadar() {
 
                         {/* Mobile pagination controls */}
                         {totalPages > 1 && (
-                            <div className="py-2 flex justify-between items-center font-mono text-[9px] text-slate-500 border-t border-slate-900">
+                            <div className="py-2 flex justify-between items-center font-mono text-[13px] text-slate-500 border-t border-slate-900">
                                 <span>PAGE {page} OF {totalPages}</span>
                                 <div className="flex gap-2">
                                     <button
@@ -538,13 +581,13 @@ export function MobileQuantRadar() {
                     <div className="flex flex-col gap-4 p-4 rounded-xl bg-[#0b101c]/50 border border-slate-900">
                         <div className="flex items-center gap-2 border-b border-slate-800 pb-2.5">
                             <Sliders className="w-4 h-4 text-cyan-400" />
-                            <span className="text-xs font-bold text-white uppercase tracking-wider">DIY screener knobs</span>
+                            <span className="text-[13px] font-bold text-white uppercase tracking-wider">DIY screener knobs</span>
                         </div>
 
                         {/* Auto-Pilot Toggle Control */}
                         <div className="p-3 rounded-xl bg-cyan-950/15 border border-cyan-500/20 flex flex-col gap-2.5">
                             <div className="flex items-center justify-between">
-                                <span className="text-[10px] font-black tracking-wider text-cyan-400 uppercase flex items-center gap-1.5 animate-pulse">
+                                <span className="text-[13px] font-black tracking-wider text-cyan-400 uppercase flex items-center gap-1.5 animate-pulse">
                                     <Zap className="w-3 h-3" />
                                     AUTO-PILOT ENGINE
                                 </span>
@@ -564,14 +607,14 @@ export function MobileQuantRadar() {
                             
                             {isAutoPilot && (
                                 <div className="flex flex-col gap-1.5 pt-2 border-t border-cyan-500/10">
-                                    <label className="text-[9px] font-bold tracking-widest text-slate-400 uppercase">Trading Capital (USD)</label>
+                                    <label className="text-[13px] font-bold tracking-widest text-slate-400 uppercase">Trading Capital (USD)</label>
                                     <div className="relative">
-                                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-cyan-400 font-mono font-bold text-xs">$</span>
+                                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-cyan-400 font-mono font-bold text-[13px]">$</span>
                                         <input 
                                             type="number"
                                             value={totalCapital}
                                             onChange={(e) => setTotalCapital(Math.max(100, Number(e.target.value)))}
-                                            className="w-full pl-7 pr-3 h-8 bg-slate-950/80 border border-cyan-500/20 focus:border-cyan-500/50 transition-all outline-none rounded-lg text-xs font-mono font-bold text-white"
+                                            className="w-full pl-7 pr-3 h-8 bg-slate-950/80 border border-cyan-500/20 focus:border-cyan-500/50 transition-all outline-none rounded-lg text-[13px] font-mono font-bold text-white"
                                         />
                                     </div>
                                 </div>
@@ -582,7 +625,7 @@ export function MobileQuantRadar() {
                         <div className={`flex flex-col gap-5 relative transition-all duration-300 ${isAutoPilot ? 'opacity-25 pointer-events-none select-none filter blur-[0.5px]' : ''}`}>
                             {isAutoPilot && (
                                 <div className="absolute inset-0 z-10 flex items-center justify-center bg-[#070b13]/10 backdrop-blur-[0.5px]">
-                                    <div className="px-2.5 py-1 rounded border border-cyan-500/30 bg-slate-950/90 text-[8px] font-mono tracking-widest font-black text-cyan-400 uppercase">
+                                    <div className="px-2.5 py-1 rounded border border-cyan-500/30 bg-slate-950/90 text-[13px] font-mono tracking-widest font-black text-cyan-400 uppercase">
                                         AUTO LOCK ACTIVE
                                     </div>
                                 </div>
@@ -590,22 +633,22 @@ export function MobileQuantRadar() {
 
                             {/* Search Query */}
                             <form onSubmit={handleSearchSubmit} className="flex flex-col gap-1.5">
-                                <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Ticker Search</label>
+                                <label className="text-[13px] font-bold text-slate-400 uppercase tracking-widest">Ticker Search</label>
                                 <div className="relative">
                                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500" />
                                     <input 
                                         type="text" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
                                         placeholder="SEARCH e.g. TSLA, NVDA"
-                                        className="w-full pl-8 pr-3 h-9 bg-slate-950/60 border border-slate-850 rounded-lg text-xs font-bold uppercase tracking-wider text-white outline-none"
+                                        className="w-full pl-8 pr-3 h-9 bg-slate-950/60 border border-slate-850 rounded-lg text-[13px] font-bold uppercase tracking-wider text-white outline-none"
                                     />
                                 </div>
                             </form>
 
                             {/* Context Score Minimum */}
                             <div className="flex flex-col gap-1.5">
-                                <div className="flex justify-between items-center text-[9px] font-bold text-slate-400 uppercase">
+                                <div className="flex justify-between items-center text-[13px] font-bold text-slate-400 uppercase">
                                     <span>Context Score Threshold</span>
-                                    <span className="text-cyan-400 font-mono font-black text-xs">{scoreMin}</span>
+                                    <span className="text-cyan-400 font-mono font-black text-[13px]">{scoreMin}</span>
                                 </div>
                                 <input 
                                     type="range" min="30" max="95" value={scoreMin}
@@ -616,14 +659,14 @@ export function MobileQuantRadar() {
 
                             {/* Ticker Grades selection */}
                             <div className="flex flex-col gap-1.5">
-                                <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Alpha Grades</label>
+                                <label className="text-[13px] font-bold text-slate-400 uppercase tracking-widest">Alpha Grades</label>
                                 <div className="grid grid-cols-6 gap-1">
                                     {['S', 'A', 'B', 'C', 'D', 'F'].map(g => {
                                         const active = selectedGrades.includes(g);
                                         return (
                                             <button
                                                 key={g} onClick={() => toggleGrade(g)}
-                                                className={`h-7 rounded-lg text-xs font-black transition-all ${
+                                                className={`h-7 rounded-lg text-[13px] font-black transition-all ${
                                                     active 
                                                         ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30' 
                                                         : 'bg-slate-950/60 text-slate-500 border border-slate-900'
@@ -638,7 +681,7 @@ export function MobileQuantRadar() {
 
                             {/* Statistical Overlays */}
                             <div className="flex flex-col gap-1.5">
-                                <label className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Macro Overlays</label>
+                                <label className="text-[13px] font-bold text-slate-400 uppercase tracking-widest">Macro Overlays</label>
                                 <div className="flex flex-col gap-1">
                                     {[
                                         { value: '', label: 'All Indicators' },
@@ -649,7 +692,7 @@ export function MobileQuantRadar() {
                                     ].map(item => (
                                         <button
                                             key={item.value} onClick={() => { setSelectedOverlay(item.value); setPage(1); }}
-                                            className={`w-full text-left h-8 px-3 rounded-lg text-[9px] font-bold transition-all flex items-center ${
+                                            className={`w-full text-left h-8 px-3 rounded-lg text-[13px] font-bold transition-all flex items-center ${
                                                 selectedOverlay === item.value
                                                     ? 'bg-emerald-950/20 text-emerald-400 border border-emerald-500/20'
                                                     : 'bg-slate-950/40 text-slate-400'
@@ -664,7 +707,7 @@ export function MobileQuantRadar() {
 
                         <button
                             onClick={() => { setActiveTab('SIGNALS'); fetchMobileData(); }}
-                            className="w-full py-2.5 rounded-lg bg-cyan-500 text-slate-950 font-black text-xs tracking-wider uppercase shadow-[0_0_15px_rgba(6,182,212,0.2)]"
+                            className="w-full py-2.5 rounded-lg bg-cyan-500 text-slate-950 font-black text-[13px] tracking-wider uppercase shadow-[0_0_15px_rgba(6,182,212,0.2)]"
                         >
                             RUN RADAR SCAN
                         </button>
@@ -676,14 +719,14 @@ export function MobileQuantRadar() {
                     <div className="flex flex-col gap-4 p-4 rounded-xl bg-[#0b101c]/50 border border-slate-900">
                         <div className="flex items-center gap-2 border-b border-slate-800 pb-2.5">
                             <Zap className="w-4 h-4 text-cyan-400" />
-                            <span className="text-xs font-bold text-white uppercase tracking-wider">Empirical Statistical backing</span>
+                            <span className="text-[13px] font-bold text-white uppercase tracking-wider">Empirical Statistical backing</span>
                         </div>
 
-                        <div className="flex flex-col gap-3 font-bold text-[10px] leading-relaxed text-slate-400">
+                        <div className="flex flex-col gap-3 font-bold text-[13px] leading-relaxed text-slate-400">
                             <div className="p-3 rounded-lg bg-slate-950/60 border border-slate-900/60 flex flex-col gap-1">
-                                <span className="text-emerald-400 uppercase tracking-widest text-[9px] font-black">🔥 S-Grade performance</span>
+                                <span className="text-emerald-400 uppercase tracking-widest text-[13px] font-black">🔥 S-Grade performance</span>
                                 <p>Out-of-sample backtests over 54,850 chronological pairs prove S-Grade returns are monotonically increasing:</p>
-                                <ul className="list-disc pl-4 space-y-1 mt-1 text-[9px] text-slate-500">
+                                <ul className="list-disc pl-4 space-y-1 mt-1 text-[13px] text-slate-500">
                                     <li>Average 3D return expectation: <strong className="text-emerald-400 font-mono">+3.42%</strong></li>
                                     <li>Out-of-sample Pearson Correlation r: <strong className="text-white font-mono">+0.2850</strong></li>
                                     <li>Probability Test: <strong className="text-white font-mono">p &lt; 0.0001</strong> (Highly Significant)</li>
@@ -691,7 +734,7 @@ export function MobileQuantRadar() {
                             </div>
 
                             <div className="p-3 rounded-lg bg-slate-950/60 border border-slate-900/60 flex flex-col gap-1">
-                                <span className="text-rose-400 uppercase tracking-widest text-[9px] font-black">⚠️ F-Grade short mitigation</span>
+                                <span className="text-rose-400 uppercase tracking-widest text-[13px] font-black">⚠️ F-Grade short mitigation</span>
                                 <p>F-Grade score recalibrations clamp at -2.15% average returns over a 3-day hold period, providing perfect short hedge signals for technical analysis.</p>
                             </div>
                         </div>
