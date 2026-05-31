@@ -4,11 +4,13 @@ import React, { useState, useEffect, useRef, useTransition } from 'react';
 import { 
     Search, Sliders, Radar, Zap, Shield, ShieldAlert, Activity, 
     TrendingUp, TrendingDown, Target, BarChart3, AlertCircle, 
-    ChevronLeft, ChevronRight, Lock, Clipboard, Check, HelpCircle
+    ChevronLeft, ChevronRight, Lock, Clipboard, Check, HelpCircle,
+    DollarSign, Plus, CheckCircle2
 } from 'lucide-react';
 import { Link } from '@/i18n/routing';
 import { useTranslations, useLocale } from 'next-intl';
 import { useTier } from '@/contexts/TierContext';
+import { usePortfolio } from '@/hooks/usePortfolio';
 
 // Premium HSL glowing tokens
 const gradeColorMap: Record<string, { bg: string, text: string, border: string, glow: string }> = {
@@ -56,6 +58,20 @@ const radarI18n: Record<string, {
     allocatedCap: string;
     grade: string;
     ticker: string;
+    held: string;
+    adjustment: string;
+    rebalanceAligned: string;
+    actionBuy: string;
+    actionTrim: string;
+    realAssetStatus: string;
+    totalEvaluated: string;
+    totalGainLoss: string;
+    quickAddTitle: string;
+    quickAddPrice: string;
+    quickAddQty: string;
+    quickAddSubmit: string;
+    noDecayStatus: string;
+    noHoldingsTitle: string;
 }> = {
     ko: {
         autopilotTitle: "AUTONOMOUS ALLOCATION MATRIX (ZERO-BIAS)",
@@ -92,7 +108,21 @@ const radarI18n: Record<string, {
         livePrice: "LIVE PRICE",
         allocatedCap: "ALLOCATED CAP",
         grade: "GRADE",
-        ticker: "TICKER"
+        ticker: "TICKER",
+        held: "보유량",
+        adjustment: "조절 수량",
+        rebalanceAligned: "최적화 완료",
+        actionBuy: "매수 +{shares}주",
+        actionTrim: "축소 -{shares}주",
+        realAssetStatus: "실시간 자산 총평가액 / P&L 트래커 HUD",
+        totalEvaluated: "자산 총평가액",
+        totalGainLoss: "통산 손익 (P&L)",
+        quickAddTitle: "실보유량 즉시 입력 모달",
+        quickAddPrice: "평균 매수단가 ($)",
+        quickAddQty: "보유 수량 (주)",
+        quickAddSubmit: "포트폴리오에 즉시 반영",
+        noDecayStatus: "✅ 모든 보유 종목의 알파 기대치 점수가 안전 임계치(50점 이상)를 상회하고 있습니다.",
+        noHoldingsTitle: "🚨 보유 종목이 없습니다. 즉시 보유 종목을 추가하여 알파 엔진과 실시간 포트폴리오 관리를 연동하세요."
     },
     en: {
         autopilotTitle: "AUTONOMOUS ALLOCATION MATRIX (ZERO-BIAS)",
@@ -129,7 +159,21 @@ const radarI18n: Record<string, {
         livePrice: "LIVE PRICE",
         allocatedCap: "ALLOCATED CAP",
         grade: "GRADE",
-        ticker: "TICKER"
+        ticker: "TICKER",
+        held: "HELD",
+        adjustment: "ADJUSTMENT",
+        rebalanceAligned: "ALIGNED",
+        actionBuy: "BUY +{shares}",
+        actionTrim: "TRIM -{shares}",
+        realAssetStatus: "LIVE NET ASSET VALUE & P&L TRACKER HUD",
+        totalEvaluated: "NAV Value",
+        totalGainLoss: "Total Profit/Loss",
+        quickAddTitle: "Quick Live Holdings Injector",
+        quickAddPrice: "Avg Entry Price (USD)",
+        quickAddQty: "Quantity (Shares)",
+        quickAddSubmit: "Inject to Real Portfolio",
+        noDecayStatus: "✅ All active holdings remain risk-adjusted with alpha expectation scores above 50.",
+        noHoldingsTitle: "🚨 No active holdings found in your real portfolio. Inject tickers now to engage live tracking."
     },
     ja: {
         autopilotTitle: "自律型アロケーションマトリクス (ゼロバイアス・モデル)",
@@ -158,7 +202,7 @@ const radarI18n: Record<string, {
         optimalWeights: "最適ポートフォリオ比率",
         dynamicAlert: "動的ローテーションアラート",
         scoreDecayTitle: "🚨 ポジション清算シグナル: スコア減衰",
-        scoreDecayDesc: "保有中ポジション TSLA (38) および RKLB (33) のアルファ期待スコアが許容基準値의 50 を下回りました。ロングエクスポージャーを直ちに解消してください。",
+        scoreDecayDesc: "保有中ポジション TSLA (38) および RKLB (33) のアルファ期待スコアが許容基準値の 50 を下回りました。ロングエクスポージャーを直ちに解消してください。",
         rotationTitle: "🔄 ローテーション: 利回り最大化",
         rotationDesc: "保有中の AVGO は MSFT に対し機会費用が上昇しています。資本を再配分することで数学的に優れた期待収益率を確保できます。",
         shares: "株数 (SHARES)",
@@ -166,7 +210,21 @@ const radarI18n: Record<string, {
         livePrice: "現在値 (LIVE PRICE)",
         allocatedCap: "割当資金 (CAP)",
         grade: "評価 (GRADE)",
-        ticker: "ティッカー (TICKER)"
+        ticker: "ティッカー (TICKER)",
+        held: "保有数",
+        adjustment: "リバランス",
+        rebalanceAligned: "最適化完了",
+        actionBuy: "買い +{shares}株",
+        actionTrim: "売却 -{shares}株",
+        realAssetStatus: "リアル資産総評価額 & 損益(P&L)トラッカー HUD",
+        totalEvaluated: "資産総評価額",
+        totalGainLoss: "通算損益 (P&L)",
+        quickAddTitle: "実保有量のクイック登録",
+        quickAddPrice: "平均取得単価 (USD)",
+        quickAddQty: "保有株数 (株)",
+        quickAddSubmit: "ポートフォリオに反映",
+        noDecayStatus: "✅ すべての保有銘柄のアルファ期待スコアは安全基準値(50以上)を維持しています。",
+        noHoldingsTitle: "🚨 保有銘柄がありません。オートパイロット推奨比率に基づいて構築してください。"
     }
 };
 
@@ -224,6 +282,15 @@ export function QuantRadarClient() {
 
     // 1. Enforce Admin Security Lock using Tier Context
     const { isAdmin, loading: tierLoading } = useTier();
+
+    // 1.1 Real portfolio integration
+    const { holdings, summary, addHolding } = usePortfolio();
+
+    // Quick Add Modal States
+    const [showQuickAdd, setShowQuickAdd] = useState(false);
+    const [quickAddTicker, setQuickAddTicker] = useState('');
+    const [quickAddQty, setQuickAddQty] = useState('');
+    const [quickAddPrice, setQuickAddPrice] = useState('');
 
     // Canvas radar sweep ref
     const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -344,6 +411,25 @@ export function QuantRadarClient() {
             cancelAnimationFrame(animationFrameId);
         };
     }, [tickers, isAdmin]);
+
+    const handleQuickAddSubmit = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!quickAddTicker || !quickAddQty || !quickAddPrice) return;
+        try {
+            await addHolding({
+                ticker: quickAddTicker.toUpperCase(),
+                name: `${quickAddTicker.toUpperCase()} Asset`,
+                quantity: Number(quickAddQty),
+                avgPrice: Number(quickAddPrice),
+            });
+            setShowQuickAdd(false);
+            setQuickAddTicker('');
+            setQuickAddQty('');
+            setQuickAddPrice('');
+        } catch (err) {
+            console.error('Failed to add holding quick:', err);
+        }
+    };
 
     // Handle batch filtering API requests
     const fetchRadarData = () => {
@@ -827,6 +913,37 @@ export function QuantRadarClient() {
                     ) : isAutoPilot ? (
                         /* AUTONOMOUS ALLOCATION MATRIX (ENGAGED) */
                         <div className="flex flex-col gap-6">
+                            {/* PREMIUM REAL PORTFOLIO EVAL HUD BAR */}
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 rounded-2xl bg-gradient-to-r from-[#0d1527] to-[#090f1a] border border-cyan-500/20 shadow-[0_0_20px_rgba(6,182,212,0.08)] backdrop-blur-md animate-[fadeIn_0.4s_ease-out]">
+                                <div className="flex items-center gap-3">
+                                    <div className="p-2.5 rounded-xl bg-cyan-500/10 border border-cyan-500/20 text-cyan-400">
+                                        <DollarSign className="w-5 h-5 animate-pulse" />
+                                    </div>
+                                    <div>
+                                        <span className="text-[13px] font-bold text-slate-400 uppercase tracking-widest block">{dict.realAssetStatus}</span>
+                                        <span className="text-sm font-black text-cyan-400 tracking-wider">PORTFOLIO TRACKING ACTIVE</span>
+                                    </div>
+                                </div>
+                                
+                                <div className="flex flex-col justify-center border-t md:border-t-0 md:border-l border-slate-800/80 md:pl-6 py-2 md:py-0">
+                                    <span className="text-[13px] font-bold text-slate-500 uppercase tracking-widest block">{dict.totalEvaluated}</span>
+                                    <span className="text-xl font-black text-white font-mono mt-0.5">${(summary?.totalValue || 0).toLocaleString(undefined, {maximumFractionDigits:2})}</span>
+                                </div>
+
+                                <div className="flex flex-col justify-center border-t md:border-t-0 md:border-l border-slate-800/80 md:pl-6 py-2 md:py-0">
+                                    <span className="text-[13px] font-bold text-slate-500 uppercase tracking-widest block">{dict.totalGainLoss}</span>
+                                    <span className={`text-xl font-black font-mono mt-0.5 flex items-center gap-1.5 ${
+                                        (summary?.totalGainLoss || 0) >= 0 ? 'text-emerald-400' : 'text-rose-400'
+                                    }`}>
+                                        {(summary?.totalGainLoss || 0) >= 0 ? '+' : ''}
+                                        ${(summary?.totalGainLoss || 0).toLocaleString(undefined, {maximumFractionDigits:2})}
+                                        <span className="text-[13px] font-bold">
+                                            ({(summary?.totalGainLoss || 0) >= 0 ? '+' : ''}{(summary?.totalGainLossPct || 0).toFixed(2)}%)
+                                        </span>
+                                    </span>
+                                </div>
+                            </div>
+
                             {/* Header with Master Copy */}
                             <div className="p-5 rounded-2xl bg-[#0b101c]/80 border border-cyan-500/20 shadow-[0_0_15px_rgba(6,182,212,0.05)] backdrop-blur-md flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 animate-[fadeIn_0.4s_ease-out]">
                                 <div>
@@ -875,9 +992,12 @@ export function QuantRadarClient() {
                                                 <th className="py-2.5 text-right">{dict.weight}</th>
                                                 <th className="py-2.5 text-right">{dict.allocatedCap}</th>
                                                 <th className="py-2.5 text-right">{dict.shares}</th>
+                                                <th className="py-2.5 text-right text-cyan-400">{dict.held}</th>
+                                                <th className="py-2.5 text-center text-cyan-400">{dict.adjustment}</th>
                                                 <th className="py-2.5 text-right">{dict.livePrice}</th>
                                                 <th className="py-2.5 text-center">{dict.expectedBands}</th>
                                                 <th className="py-2.5 text-center">{dict.riskReward}</th>
+                                                <th className="py-2.5 text-center">ACTION</th>
                                             </tr>
                                         </thead>
                                         <tbody>
@@ -890,6 +1010,11 @@ export function QuantRadarClient() {
                                                 const livePrice = item.realtime?.price || 0;
                                                 const exec = (item as any).execution || {};
 
+                                                // Calculate real-time held & adjustment
+                                                const heldObj = holdings.find(h => h.ticker.toUpperCase() === item.ticker.toUpperCase());
+                                                const heldQty = heldObj ? heldObj.quantity : 0;
+                                                const diffQty = targetShares - heldQty;
+
                                                 return (
                                                     <tr key={item.ticker} className="border-b border-slate-800/40 hover:bg-slate-900/10 transition-colors">
                                                         <td className="py-3">
@@ -901,6 +1026,22 @@ export function QuantRadarClient() {
                                                         <td className="py-3 text-right font-bold text-cyan-400">{weightPct}%</td>
                                                         <td className="py-3 text-right text-slate-300">${allocatedCapital.toLocaleString(undefined, {maximumFractionDigits:0})}</td>
                                                         <td className="py-3 text-right font-black text-slate-200">{targetShares}</td>
+                                                        <td className="py-3 text-right font-bold text-cyan-500">{heldQty}</td>
+                                                        <td className="py-3 text-center">
+                                                            {diffQty > 0 ? (
+                                                                <span className="px-2 py-0.5 rounded bg-emerald-950/40 text-emerald-400 border border-emerald-500/20 text-[13px] font-black tracking-wider uppercase">
+                                                                    {dict.actionBuy.replace('{shares}', String(diffQty))}
+                                                                </span>
+                                                            ) : diffQty < 0 ? (
+                                                                <span className="px-2 py-0.5 rounded bg-rose-950/40 text-rose-400 border border-rose-500/20 text-[13px] font-black tracking-wider uppercase">
+                                                                    {dict.actionTrim.replace('{shares}', String(Math.abs(diffQty)))}
+                                                                </span>
+                                                            ) : (
+                                                                <span className="text-slate-500 text-[13px]">
+                                                                    {dict.rebalanceAligned}
+                                                                </span>
+                                                            )}
+                                                        </td>
                                                         <td className="py-3 text-right text-slate-400">${livePrice.toFixed(2)}</td>
                                                         <td className="py-3 text-center">
                                                             <div className="flex justify-center items-center gap-1.5">
@@ -912,6 +1053,20 @@ export function QuantRadarClient() {
                                                             </div>
                                                         </td>
                                                         <td className="py-3 text-center font-bold text-emerald-400">{exec.riskRewardRatio}</td>
+                                                        <td className="py-3 text-center">
+                                                            <button
+                                                                onClick={() => {
+                                                                    setQuickAddTicker(item.ticker);
+                                                                    setQuickAddPrice(livePrice.toString());
+                                                                    setQuickAddQty(heldQty > 0 ? heldQty.toString() : '');
+                                                                    setShowQuickAdd(true);
+                                                                }}
+                                                                className="p-1.5 rounded bg-slate-900 border border-slate-800 hover:border-cyan-500/40 text-cyan-400 hover:text-white transition-all shadow-sm"
+                                                                title="Quick Add/Update Holding"
+                                                            >
+                                                                <Plus className="w-3.5 h-3.5" />
+                                                            </button>
+                                                        </td>
                                                     </tr>
                                                 );
                                             })}
@@ -941,48 +1096,104 @@ export function QuantRadarClient() {
                                     </div>
                                 </div>
 
-                                {/* Dynamic Rotation HUD */}
-                                <div className="p-5 rounded-2xl bg-[#0b101c]/60 border border-slate-800 backdrop-blur-md flex flex-col gap-4">
-                                    <h3 className="text-[13px] font-black tracking-widest text-white uppercase border-b border-slate-800/80 pb-3 flex items-center gap-2">
-                                        <Sliders className="w-3.5 h-3.5 text-cyan-400" />
-                                        {dict.dynamicAlert}
-                                    </h3>
-                                    
-                                    <div className="flex flex-col gap-3">
-                                        {/* Liquidation Alert */}
-                                        <div className="p-3.5 rounded-xl bg-rose-950/20 border border-rose-500/20 flex flex-col gap-1.5">
-                                            <div className="flex items-center gap-1.5 text-rose-400 font-bold text-[13px] uppercase tracking-wider">
-                                                <AlertCircle className="w-3.5 h-3.5 animate-pulse" />
-                                                {dict.scoreDecayTitle}
-                                            </div>
-                                            <p className="text-[13px] text-slate-400 leading-relaxed">
-                                                {dict.scoreDecayDesc}
-                                            </p>
-                                        </div>
+                                 {/* Dynamic Rotation HUD */}
+                                 {(() => {
+                                     const decayPositions = holdings.filter(h => h.alphaScore !== undefined && h.alphaScore < 50);
 
-                                        {/* Opportunity Cost Rotation Card */}
-                                        <div className="p-3.5 rounded-xl bg-cyan-950/20 border border-cyan-500/20 flex flex-col gap-2">
-                                            <div className="flex items-center gap-1.5 text-cyan-400 font-bold text-[13px] uppercase tracking-wider">
-                                                <Zap className="w-3.5 h-3.5" />
-                                                {dict.rotationTitle}
-                                            </div>
-                                            <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 font-mono text-[13px] text-center bg-slate-950/40 p-2 rounded-lg border border-slate-900">
-                                                <div className="flex flex-col">
-                                                    <span className="text-rose-400 font-bold">AVGO</span>
-                                                    <span className="text-[13px] text-slate-500">Score 63 (B)</span>
-                                                </div>
-                                                <span className="text-slate-500 font-bold">➔</span>
-                                                <div className="flex flex-col">
-                                                    <span className="text-emerald-400 font-bold">MSFT</span>
-                                                    <span className="text-[13px] text-slate-500">Score 75 (A)</span>
-                                                </div>
-                                            </div>
-                                            <p className="text-[13px] text-slate-400 leading-relaxed">
-                                                {dict.rotationDesc}
-                                            </p>
-                                        </div>
-                                    </div>
-                                </div>
+                                     const sortedHoldingsByScore = [...holdings]
+                                         .filter(h => h.alphaScore !== undefined)
+                                         .sort((a, b) => (a.alphaScore || 0) - (b.alphaScore || 0));
+                                     const lowestScoreHolding = sortedHoldingsByScore[0];
+
+                                     const sortedScannedByScore = [...tickers]
+                                         .filter(t => t.alphaSnapshot?.score !== undefined)
+                                         .sort((a, b) => (b.alphaSnapshot?.score || 0) - (a.alphaSnapshot?.score || 0));
+                                     const highestScoreScanned = sortedScannedByScore.find(t => !holdings.some(h => h.ticker.toUpperCase() === t.ticker.toUpperCase()));
+
+                                     const hasHoldings = holdings.length > 0;
+
+                                     return (
+                                         <div className="p-5 rounded-2xl bg-[#0b101c]/60 border border-slate-800 backdrop-blur-md flex flex-col gap-4">
+                                             <h3 className="text-[13px] font-black tracking-widest text-white uppercase border-b border-slate-800/80 pb-3 flex items-center gap-2">
+                                                 <Sliders className="w-3.5 h-3.5 text-cyan-400" />
+                                                 {dict.dynamicAlert}
+                                             </h3>
+                                             
+                                             <div className="flex flex-col gap-3">
+                                                 {!hasHoldings ? (
+                                                     <div className="p-3.5 rounded-xl bg-slate-950/40 border border-slate-900 flex flex-col gap-1.5">
+                                                         <div className="flex items-center gap-1.5 text-amber-500 font-bold text-[13px] uppercase tracking-wider">
+                                                             <AlertCircle className="w-3.5 h-3.5" />
+                                                             NO ACTIVE HOLDINGS
+                                                         </div>
+                                                         <p className="text-[13px] text-slate-400 leading-relaxed">
+                                                             {dict.noHoldingsTitle}
+                                                         </p>
+                                                     </div>
+                                                 ) : (
+                                                     <>
+                                                         {/* Liquidation Alert */}
+                                                         {decayPositions.length > 0 ? (
+                                                             <div className="p-3.5 rounded-xl bg-rose-950/20 border border-rose-500/20 flex flex-col gap-1.5 animate-[pulse_3s_infinite]">
+                                                                 <div className="flex items-center gap-1.5 text-rose-400 font-bold text-[13px] uppercase tracking-wider">
+                                                                     <AlertCircle className="w-3.5 h-3.5 animate-pulse" />
+                                                                     {dict.scoreDecayTitle}
+                                                                 </div>
+                                                                 <p className="text-[13px] text-slate-300 leading-relaxed font-mono">
+                                                                     active position인 {decayPositions.map(h => `${h.ticker} (${h.alphaScore})`).join(', ')}에 대한 기대치 점수가 임계치 50 미만으로 떨어졌습니다. 지금 바로 롱 포지션을 청산하세요.
+                                                                 </p>
+                                                             </div>
+                                                         ) : (
+                                                             <div className="p-3.5 rounded-xl bg-emerald-950/15 border border-emerald-500/20 flex flex-col gap-1.5">
+                                                                 <div className="flex items-center gap-1.5 text-emerald-400 font-bold text-[13px] uppercase tracking-wider">
+                                                                     <CheckCircle2 className="w-3.5 h-3.5" />
+                                                                     RISK-ADJUSTED PASS
+                                                                 </div>
+                                                                 <p className="text-[13px] text-slate-400 leading-relaxed">
+                                                                     {dict.noDecayStatus}
+                                                                 </p>
+                                                             </div>
+                                                         )}
+
+                                                         {/* Opportunity Cost Rotation Card */}
+                                                         {lowestScoreHolding && highestScoreScanned && (highestScoreScanned.alphaSnapshot.score > (lowestScoreHolding.alphaScore || 0)) ? (
+                                                             <div className="p-3.5 rounded-xl bg-cyan-950/20 border border-cyan-500/20 flex flex-col gap-2">
+                                                                 <div className="flex items-center gap-1.5 text-cyan-400 font-bold text-[13px] uppercase tracking-wider">
+                                                                     <Zap className="w-3.5 h-3.5" />
+                                                                     {dict.rotationTitle}
+                                                                 </div>
+                                                                 <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 font-mono text-[13px] text-center bg-slate-950/40 p-2 rounded-lg border border-slate-900">
+                                                                     <div className="flex flex-col">
+                                                                         <span className="text-rose-400 font-bold">{lowestScoreHolding.ticker}</span>
+                                                                         <span className="text-[13px] text-slate-500">Score {lowestScoreHolding.alphaScore}</span>
+                                                                     </div>
+                                                                     <span className="text-slate-500 font-bold">➔</span>
+                                                                     <div className="flex flex-col">
+                                                                         <span className="text-emerald-400 font-bold">{highestScoreScanned.ticker}</span>
+                                                                         <span className="text-[13px] text-slate-500">Score {highestScoreScanned.alphaSnapshot.score}</span>
+                                                                     </div>
+                                                                 </div>
+                                                                 <p className="text-[13px] text-slate-400 leading-relaxed">
+                                                                     현재 보유 중인 {lowestScoreHolding.ticker}는 신규 스캔 1위인 {highestScoreScanned.ticker}와 비교했을 때 기회비용이 높습니다. 자본을 재배분하면 수학적으로 훨씬 유리한 기댓값을 확보할 수 있습니다.
+                                                                 </p>
+                                                             </div>
+                                                         ) : (
+                                                             <div className="p-3.5 rounded-xl bg-slate-950/30 border border-slate-900 flex flex-col gap-1.5">
+                                                                 <div className="flex items-center gap-1.5 text-slate-400 font-bold text-[13px] uppercase tracking-wider">
+                                                                     <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                                                                     ROTATION OPTIMIZED
+                                                                 </div>
+                                                                 <p className="text-[13px] text-slate-500 leading-relaxed">
+                                                                     현재 기회비용 관점에서 교체가 유효한 보유 최저점 대비 신규 최고점의 유의미한 스코어 스프레드가 없습니다. 보유 비중을 안정적으로 유지하십시오.
+                                                                 </p>
+                                                             </div>
+                                                         )}
+                                                     </>
+                                                 )}
+                                             </div>
+                                         </div>
+                                     );
+                                 })()}
                             </div>
                         </div>
                     ) : tickers.length === 0 ? (
@@ -1221,6 +1432,71 @@ export function QuantRadarClient() {
                     )}
                 </div>
             </div>
+            {/* QUICK PORTFOLIO ADD MINI MODAL */}
+            {showQuickAdd && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#070b13]/80 backdrop-blur-md p-4 animate-[fadeIn_0.2s_ease-out]">
+                    <div className="bg-[#0b0f19] border border-cyan-500/30 rounded-3xl p-6 w-full max-w-sm flex flex-col gap-5 shadow-[0_0_50px_rgba(6,182,212,0.15)] relative">
+                        <div className="flex justify-between items-center border-b border-slate-800 pb-3">
+                            <div className="flex items-center gap-2">
+                                <Plus className="w-5 h-5 text-cyan-400" />
+                                <h3 className="text-sm font-black text-white tracking-widest uppercase">{dict.quickAddTitle}</h3>
+                            </div>
+                            <button
+                                onClick={() => setShowQuickAdd(false)}
+                                className="text-slate-400 hover:text-white font-black text-[13px] uppercase tracking-wider transition-all"
+                            >
+                                CLOSE
+                            </button>
+                        </div>
+
+                        <form onSubmit={handleQuickAddSubmit} className="flex flex-col gap-4 font-mono text-[13px]">
+                            <div className="flex flex-col gap-1.5">
+                                <label className="font-bold text-slate-400 uppercase tracking-widest">TICKER</label>
+                                <input
+                                    type="text"
+                                    value={quickAddTicker}
+                                    disabled
+                                    className="w-full bg-slate-950/60 border border-slate-800 h-10 px-3.5 rounded-xl font-bold uppercase tracking-wider text-slate-300 select-none opacity-50"
+                                />
+                            </div>
+
+                            <div className="flex flex-col gap-1.5">
+                                <label className="font-bold text-slate-400 uppercase tracking-widest">{dict.quickAddQty}</label>
+                                <input
+                                    type="number"
+                                    required
+                                    step="any"
+                                    value={quickAddQty}
+                                    onChange={(e) => setQuickAddQty(e.target.value)}
+                                    placeholder="e.g. 100"
+                                    className="w-full bg-slate-950/80 border border-slate-800 focus:border-cyan-500/50 transition-all outline-none h-10 px-3.5 rounded-xl font-bold text-white"
+                                />
+                            </div>
+
+                            <div className="flex flex-col gap-1.5">
+                                <label className="font-bold text-slate-400 uppercase tracking-widest">{dict.quickAddPrice}</label>
+                                <input
+                                    type="number"
+                                    required
+                                    step="any"
+                                    value={quickAddPrice}
+                                    onChange={(e) => setQuickAddPrice(e.target.value)}
+                                    placeholder="Avg Price (e.g. 150.25)"
+                                    className="w-full bg-slate-950/80 border border-slate-800 focus:border-cyan-500/50 transition-all outline-none h-10 px-3.5 rounded-xl font-bold text-white"
+                                />
+                            </div>
+
+                            <button
+                                type="submit"
+                                className="w-full h-11 rounded-xl bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-400 border border-cyan-500/30 font-black transition-all flex items-center justify-center gap-2 tracking-widest uppercase mt-2 shadow-[0_0_12px_rgba(6,182,212,0.1)]"
+                            >
+                                <Check className="w-4 h-4" />
+                                {dict.quickAddSubmit}
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
