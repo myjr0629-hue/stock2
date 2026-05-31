@@ -158,7 +158,7 @@ const radarI18n: Record<string, {
         optimalWeights: "最適ポートフォリオ比率",
         dynamicAlert: "動的ローテーションアラート",
         scoreDecayTitle: "🚨 ポジション清算シグナル: スコア減衰",
-        scoreDecayDesc: "保有中ポジション TSLA (38) および RKLB (33) のアルファ期待スコアが許容基準値の 50 を下回りました。ロングエクスポージャーを直ちに解消してください。",
+        scoreDecayDesc: "保有中ポジション TSLA (38) および RKLB (33) のアルファ期待スコアが許容基準値의 50 を下回りました。ロングエクスポージャーを直ちに解消してください。",
         rotationTitle: "🔄 ローテーション: 利回り最大化",
         rotationDesc: "保有中の AVGO は MSFT に対し機会費用が上昇しています。資本を再配分することで数学的に優れた期待収益率を確保できます。",
         shares: "株数 (SHARES)",
@@ -346,9 +346,9 @@ export function QuantRadarClient() {
     }, [tickers, isAdmin]);
 
     // Handle batch filtering API requests
-    const fetchRadarData = (isSilent = false) => {
+    const fetchRadarData = () => {
         if (!isAdmin) return;
-        if (!isSilent) setLoading(true);
+        setLoading(true);
         const gradesParam = selectedGrades.join(',');
         
         const queryParams = new URLSearchParams(isAutoPilot ? {
@@ -387,13 +387,7 @@ export function QuantRadarClient() {
 
     // Re-fetch data on parameters change
     useEffect(() => {
-        fetchRadarData(false);
-
-        const interval = setInterval(() => {
-            fetchRadarData(true);
-        }, 5000);
-
-        return () => clearInterval(interval);
+        fetchRadarData();
     }, [scoreMin, selectedGrades, selectedOverlay, sortBy, sortOrder, page, gexMin, pcrMax, darkPoolMin, isAdmin, isAutoPilot, totalCapital]);
 
     const handleSearchSubmit = (e: React.FormEvent) => {
@@ -411,9 +405,11 @@ export function QuantRadarClient() {
         setPage(1);
     };
 
+    // One-click clipboard copy of the entire optimal allocation matrix (Localized)
     const copyEntireAllocationMatrixToClipboard = () => {
         let headerText = "";
         let stepsText = "";
+        
         if (locale === 'ko') {
             headerText = `[시그넘 시큐리티 오토파일럿 자산 배분 포트폴리오 가이드]\n` +
                          `총 투자 원금 설정: $${totalCapital.toLocaleString()}\n` +
@@ -478,16 +474,15 @@ export function QuantRadarClient() {
                        `   - [Bracket Order] Stop Loss (SL): $${(exec.stopLoss || 0).toFixed(2)}\n` +
                        `   - Risk-Reward Ratio (R:R): ${exec.riskRewardRatio || '2.00'}`;
             }
-        }).join('\n\n');
-
-        const text = headerText + stepsText + tickersText + `\n\nGenerated strictly on zero-bias expectation models.`;
+        }).join('\n\n') + `\n\nGenerated strictly on zero-bias expectation models.`;
         
-        navigator.clipboard.writeText(text).then(() => {
+        navigator.clipboard.writeText(headerText + stepsText + tickersText).then(() => {
             setCopiedTicker("PORTFOLIO");
             setTimeout(() => setCopiedTicker(null), 1500);
         });
     };
 
+    // One-click clipboard copy utility for bracket orders (Localized)
     const copyBracketToClipboard = (item: TickerData, entryPrice: number, tp: number, sl: number) => {
         const score = item.alphaSnapshot.score;
         const grade = item.alphaSnapshot.grade;
@@ -837,10 +832,10 @@ export function QuantRadarClient() {
                                 <div>
                                     <div className="flex items-center gap-2 text-cyan-400 font-black tracking-wider text-[13px]">
                                         <Zap className="w-3.5 h-3.5 animate-pulse" />
-                                        {dict.autopilotTitle}
+                                        AUTONOMOUS ALLOCATION MATRIX (ZERO-BIAS)
                                     </div>
                                     <p className="text-[13px] text-slate-400 font-mono mt-1 uppercase tracking-widest leading-relaxed">
-                                        {dict.autopilotDesc}
+                                        Mathematical portfolio construction based on Kelly Expectancy & Inverse Volatility Risk Parity
                                     </p>
                                 </div>
                                 <button
@@ -854,12 +849,12 @@ export function QuantRadarClient() {
                                     {copiedTicker === "PORTFOLIO" ? (
                                         <>
                                             <Check className="w-3.5 h-3.5 text-emerald-400" />
-                                            {dict.copyBtnCopied}
+                                            PORTFOLIO COPIED!
                                         </>
                                     ) : (
                                         <>
                                             <Clipboard className="w-3.5 h-3.5 text-cyan-500" />
-                                            {dict.copyBtn}
+                                            COPY ALLOCATION MATRIX
                                         </>
                                     )}
                                 </button>
@@ -902,17 +897,7 @@ export function QuantRadarClient() {
                                                                 {grade}
                                                             </span>
                                                         </td>
-                                                        <td className="py-3 font-bold text-white tracking-wider uppercase">
-                                                            <div className="flex items-center gap-1.5">
-                                                                <img 
-                                                                    src={`/api/logo/${item.ticker}`} 
-                                                                    className="w-4 h-4 rounded-full object-contain bg-slate-900 border border-slate-800" 
-                                                                    alt="" 
-                                                                    onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} 
-                                                                />
-                                                                {item.ticker}
-                                                            </div>
-                                                        </td>
+                                                        <td className="py-3 font-bold text-white tracking-wider uppercase">{item.ticker}</td>
                                                         <td className="py-3 text-right font-bold text-cyan-400">{weightPct}%</td>
                                                         <td className="py-3 text-right text-slate-300">${allocatedCapital.toLocaleString(undefined, {maximumFractionDigits:0})}</td>
                                                         <td className="py-3 text-right font-black text-slate-200">{targetShares}</td>
@@ -968,10 +953,10 @@ export function QuantRadarClient() {
                                         <div className="p-3.5 rounded-xl bg-rose-950/20 border border-rose-500/20 flex flex-col gap-1.5">
                                             <div className="flex items-center gap-1.5 text-rose-400 font-bold text-[13px] uppercase tracking-wider">
                                                 <AlertCircle className="w-3.5 h-3.5 animate-pulse" />
-                                                🚨 LIQUIDATION SIGNAL: SCORE DECAY
+                                                {dict.scoreDecayTitle}
                                             </div>
                                             <p className="text-[13px] text-slate-400 leading-relaxed">
-                                                Alpha score expectancy for active positions TSLA (38) and RKLB (33) has drifted below the risk-adjusted limit of 50. Liquidate long exposure immediately.
+                                                {dict.scoreDecayDesc}
                                             </p>
                                         </div>
 
@@ -979,7 +964,7 @@ export function QuantRadarClient() {
                                         <div className="p-3.5 rounded-xl bg-cyan-950/20 border border-cyan-500/20 flex flex-col gap-2">
                                             <div className="flex items-center gap-1.5 text-cyan-400 font-bold text-[13px] uppercase tracking-wider">
                                                 <Zap className="w-3.5 h-3.5" />
-                                                🔄 ROTATION: YIELD MAXIMIZATION
+                                                {dict.rotationTitle}
                                             </div>
                                             <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 font-mono text-[13px] text-center bg-slate-950/40 p-2 rounded-lg border border-slate-900">
                                                 <div className="flex flex-col">
@@ -993,7 +978,7 @@ export function QuantRadarClient() {
                                                 </div>
                                             </div>
                                             <p className="text-[13px] text-slate-400 leading-relaxed">
-                                                Active holding AVGO presents higher opportunity cost compared to MSFT. Reallocating capital yields mathematically superior expectations.
+                                                {dict.rotationDesc}
                                             </p>
                                         </div>
                                     </div>
@@ -1124,12 +1109,12 @@ export function QuantRadarClient() {
                                             {/* Descriptive Anomaly HUD */}
                                             <div className="p-3 rounded-xl bg-slate-950/40 border border-slate-900 flex flex-col justify-center min-h-[64px]">
                                                 <p className="text-[13px] font-bold text-slate-300 tracking-wide leading-relaxed">
-                                                    {locale === 'en' 
-                                                        ? (item.alphaSnapshot?.why || item.alphaSnapshot?.whyKR || dict.analyzing) 
+                                                    {locale === 'ko' 
+                                                        ? item.alphaSnapshot?.whyKR 
                                                         : locale === 'ja' 
-                                                            ? (item.alphaSnapshot?.whyJA || item.alphaSnapshot?.whyKR || dict.analyzing) 
-                                                            : (item.alphaSnapshot?.whyKR || dict.analyzing)
-                                                    }
+                                                            ? (item.alphaSnapshot?.whyJA || item.alphaSnapshot?.why)
+                                                            : item.alphaSnapshot?.why
+                                                     || dict.analyzing}
                                                 </p>
                                             </div>
                                         </div>

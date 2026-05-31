@@ -549,6 +549,9 @@ export function MobileQuantRadar() {
                                                 <span className="text-[13px] text-slate-500 block">Score 75</span>
                                             </div>
                                         </div>
+                                        <p className="text-[13px] text-slate-400 leading-normal">
+                                            {dict.rotationDesc}
+                                        </p>
                                     </div>
                                 </div>
 
@@ -556,20 +559,20 @@ export function MobileQuantRadar() {
                                 <div className="p-3.5 rounded-xl bg-cyan-950/10 border border-cyan-500/20 flex flex-col gap-2.5">
                                     <div className="flex items-center gap-1.5 text-cyan-400 font-bold text-[13px] uppercase tracking-wider">
                                         <AlertCircle className="w-3.5 h-3.5 text-cyan-400" />
-                                        💡 오토파일럿 초보자 주문 가이드
+                                        {dict.guideTitle}
                                     </div>
                                     <div className="flex flex-col gap-2 text-[13px] text-slate-300 leading-relaxed font-jakarta">
                                         <div className="bg-slate-950/40 p-2.5 rounded-lg border border-slate-900 flex flex-col">
-                                            <strong className="text-white">1단계. 자본금 설정</strong>
-                                            <span className="text-slate-400 text-[13px] mt-0.5">상단의 [DIY SCANS] 탭에서 총 자본금(USD)을 입력하면 종목별 매수 수량이 자동 계산됩니다.</span>
+                                            <strong className="text-white">{dict.guide1Title}</strong>
+                                            <span className="text-slate-400 text-[13px] mt-0.5">{dict.guide1Desc}</span>
                                         </div>
                                         <div className="bg-slate-950/40 p-2.5 rounded-lg border border-slate-900 flex flex-col">
-                                            <strong className="text-white">2단계. 가이드 텍스트 복사</strong>
-                                            <span className="text-slate-400 text-[13px] mt-0.5">상단의 [COPY PORTFOLIO MATRIX] 버튼을 클릭해 한글로 요약된 주문법을 복사합니다.</span>
+                                            <strong className="text-white">{dict.guide2Title}</strong>
+                                            <span className="text-slate-400 text-[13px] mt-0.5">{dict.guide2Desc}</span>
                                         </div>
                                         <div className="bg-slate-950/40 p-2.5 rounded-lg border border-slate-900 flex flex-col">
-                                            <strong className="text-white">3단계. 증권사 주문 등록</strong>
-                                            <span className="text-slate-400 text-[13px] mt-0.5">주거래 증권사 앱에서 복사된 안내대로 지정가(Limit) 매수 및 손절/익절(SL/TP)을 세팅하면 완료됩니다.</span>
+                                            <strong className="text-white">{dict.guide3Title}</strong>
+                                            <span className="text-slate-400 text-[13px] mt-0.5">{dict.guide3Desc}</span>
                                         </div>
                                     </div>
                                 </div>
@@ -741,7 +744,7 @@ export function MobileQuantRadar() {
                                                     {locale === 'en' 
                                                         ? (item.alphaSnapshot?.why || item.alphaSnapshot?.whyKR || dict.analyzing) 
                                                         : locale === 'ja' 
-                                                            ? (item.alphaSnapshot?.whyJA || item.alphaSnapshot?.whyKR || dict.analyzing) 
+                                                            ? (item.alphaSnapshot?.whyJA || item.alphaSnapshot?.why || item.alphaSnapshot?.whyKR || dict.analyzing) 
                                                             : (item.alphaSnapshot?.whyKR || dict.analyzing)
                                                     }
                                                 </p>
@@ -752,7 +755,7 @@ export function MobileQuantRadar() {
                                         <div className="p-2.5 rounded-lg bg-cyan-950/10 border border-cyan-500/10 flex justify-between items-center text-[13px]">
                                             <span className="font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1">
                                                 <Target className="w-3 h-3 text-cyan-400" />
-                                                Quant Target Support
+                                                {dict.optimalRange}
                                             </span>
                                             <span className="text-emerald-400 font-mono font-black">
                                                 ${entryMin.toFixed(2)} - ${entryMax.toFixed(2)}
@@ -771,12 +774,12 @@ export function MobileQuantRadar() {
                                             {copiedTicker === item.ticker ? (
                                                 <>
                                                     <Check className="w-3.5 h-3.5 text-emerald-400" />
-                                                    ORDER BRACKET COPIED!
+                                                    {dict.copyBracketCopied}
                                                 </>
                                             ) : (
                                                 <>
                                                     <Clipboard className="w-3.5 h-3.5 text-cyan-500" />
-                                                    COPY BRACKET ORDER
+                                                    {dict.copyBracket}
                                                 </>
                                             )}
                                         </button>
