@@ -193,9 +193,9 @@ export function QuantRadarClient() {
     }, [tickers, isAdmin]);
 
     // Handle batch filtering API requests
-    const fetchRadarData = () => {
+    const fetchRadarData = (isSilent = false) => {
         if (!isAdmin) return;
-        setLoading(true);
+        if (!isSilent) setLoading(true);
         const gradesParam = selectedGrades.join(',');
         
         const queryParams = new URLSearchParams(isAutoPilot ? {
@@ -234,7 +234,13 @@ export function QuantRadarClient() {
 
     // Re-fetch data on parameters change
     useEffect(() => {
-        fetchRadarData();
+        fetchRadarData(false);
+
+        const interval = setInterval(() => {
+            fetchRadarData(true);
+        }, 5000);
+
+        return () => clearInterval(interval);
     }, [scoreMin, selectedGrades, selectedOverlay, sortBy, sortOrder, page, gexMin, pcrMax, darkPoolMin, isAdmin, isAutoPilot, totalCapital]);
 
     const handleSearchSubmit = (e: React.FormEvent) => {
@@ -680,7 +686,17 @@ export function QuantRadarClient() {
                                                                 {grade}
                                                             </span>
                                                         </td>
-                                                        <td className="py-3 font-bold text-white tracking-wider uppercase">{item.ticker}</td>
+                                                        <td className="py-3 font-bold text-white tracking-wider uppercase">
+                                                            <div className="flex items-center gap-1.5">
+                                                                <img 
+                                                                    src={`/api/logo/${item.ticker}`} 
+                                                                    className="w-4 h-4 rounded-full object-contain bg-slate-900 border border-slate-800" 
+                                                                    alt="" 
+                                                                    onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} 
+                                                                />
+                                                                {item.ticker}
+                                                            </div>
+                                                        </td>
                                                         <td className="py-3 text-right font-bold text-cyan-400">{weightPct}%</td>
                                                         <td className="py-3 text-right text-slate-300">${allocatedCapital.toLocaleString(undefined, {maximumFractionDigits:0})}</td>
                                                         <td className="py-3 text-right font-black text-slate-200">{targetShares}</td>

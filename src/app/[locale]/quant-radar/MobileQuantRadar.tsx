@@ -59,9 +59,9 @@ export function MobileQuantRadar() {
     // Clipboard copy indicators
     const [copiedTicker, setCopiedTicker] = useState<string | null>(null);
 
-    const fetchMobileData = () => {
+    const fetchMobileData = (isSilent = false) => {
         if (!isAdmin) return;
-        setLoading(true);
+        if (!isSilent) setLoading(true);
         
         const queryParams = new URLSearchParams(isAutoPilot ? {
             mode: 'auto',
@@ -96,7 +96,13 @@ export function MobileQuantRadar() {
     };
 
     useEffect(() => {
-        fetchMobileData();
+        fetchMobileData(false);
+
+        const interval = setInterval(() => {
+            fetchMobileData(true);
+        }, 5000);
+
+        return () => clearInterval(interval);
     }, [scoreMin, selectedGrades, selectedOverlay, page, gexMin, isAdmin, isAutoPilot, totalCapital]);
 
     const handleSearchSubmit = (e: React.FormEvent) => {
@@ -379,7 +385,15 @@ export function MobileQuantRadar() {
                                                         }`}>
                                                             {grade}
                                                         </span>
-                                                        <span className="text-[13px] font-black text-white uppercase">{item.ticker}</span>
+                                                         <span className="text-[13px] font-black text-white uppercase flex items-center gap-1">
+                                                             <img 
+                                                                 src={`/api/logo/${item.ticker}`} 
+                                                                 className="w-3.5 h-3.5 rounded-full object-contain bg-slate-900 border border-slate-800" 
+                                                                 alt="" 
+                                                                 onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} 
+                                                             />
+                                                             {item.ticker}
+                                                         </span>
                                                     </div>
                                                     <span className="text-[13px] font-black font-mono text-cyan-400 bg-cyan-950/40 border border-cyan-500/20 px-2 py-0.5 rounded">
                                                         {weightPct}% WEIGHT
