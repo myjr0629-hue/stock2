@@ -9,6 +9,156 @@ import { Link } from '@/i18n/routing';
 import { useTranslations, useLocale } from 'next-intl';
 import { useTier } from '@/contexts/TierContext';
 
+const radarI18n: Record<string, {
+    autopilotTitle: string;
+    autopilotDesc: string;
+    guideTitle: string;
+    guide1Title: string;
+    guide1Desc: string;
+    guide2Title: string;
+    guide2Desc: string;
+    guide3Title: string;
+    guide3Desc: string;
+    copyBtn: string;
+    copyBtnCopied: string;
+    copyBracket: string;
+    copyBracketCopied: string;
+    analyzing: string;
+    neutral: string;
+    strongBuy: string;
+    callBuy: string;
+    putShort: string;
+    avoidLong: string;
+    expectedBands: string;
+    liveGap: string;
+    optimalRange: string;
+    riskReward: string;
+    optimalWeights: string;
+    dynamicAlert: string;
+    scoreDecayTitle: string;
+    scoreDecayDesc: string;
+    rotationTitle: string;
+    rotationDesc: string;
+    shares: string;
+    weight: string;
+    livePrice: string;
+    allocatedCap: string;
+    grade: string;
+    ticker: string;
+}> = {
+    ko: {
+        autopilotTitle: "AUTONOMOUS ALLOCATION MATRIX (ZERO-BIAS)",
+        autopilotDesc: "Kelly Expectancy & Inverse Volatility Risk Parity 모델 기반의 포트폴리오 비중 설계 가이드",
+        guideTitle: "💡 초보자를 위한 오토파일럿 실전 매수 3단계 가이드",
+        guide1Title: "1단계. 투자 자금 설정 및 비중 확인",
+        guide1Desc: "좌측 패널에서 총 투자 자금을 달러($) 단위로 입력하면, 각 종목의 비중(Weight)에 맞춰 추천 매수 수량(Shares)이 자동으로 계산됩니다.",
+        guide2Title: "2단계. 한글 가이드 텍스트 복사",
+        guide2Desc: "우측 상단의 [COPY ALLOCATION MATRIX] 버튼을 클릭하여 증권사 앱을 보면서 그대로 따라 입력할 수 있는 주문 가이드를 복사합니다.",
+        guide3Title: "3단계. 증권사 계좌 주문 세팅",
+        guide3Desc: "주거래 증권사 앱을 켜고 안내문대로 지정가(Limit) 매수를 넣은 뒤, 손절가(SL) 및 익절가(TP) 예약 주문을 등록하면 끝납니다.",
+        copyBtn: "COPY ALLOCATION MATRIX",
+        copyBtnCopied: "PORTFOLIO COPIED!",
+        copyBracket: "COPY ORDER BRACKET",
+        copyBracketCopied: "BRACKET COPIED!",
+        analyzing: "수급 지표 분석 중...",
+        neutral: "NEUTRAL OBSERVATION",
+        strongBuy: "🔥 HIGH-CONVICTION PROPRIETARY BUY",
+        callBuy: "⚡ ACCUMULATION CALL ENTRY",
+        putShort: "💀 PROPRIETARY SHORT / PUT ENTRY",
+        avoidLong: "⚠️ DEGRADED DRIFT - AVOID LONG",
+        expectedBands: "EXPECTED BANDS (ENTRY / SL / TP)",
+        liveGap: "LIVE GAP",
+        optimalRange: "Optimal Buy Limit Range",
+        riskReward: "R:R",
+        optimalWeights: "Optimal Portfolio Weights",
+        dynamicAlert: "Dynamic Rotation Alert",
+        scoreDecayTitle: "🚨 LIQUIDATION SIGNAL: SCORE DECAY",
+        scoreDecayDesc: "active position인 TSLA (38)와 RKLB (33)에 대한 기대치 점수가 임계치 50 미만으로 떨어졌습니다. 지금 바로 롱 포지션을 청산하세요.",
+        rotationTitle: "🔄 ROTATION: YIELD MAXIMIZATION",
+        rotationDesc: "현재 보유 중인 AVGO는 MSFT와 비교했을 때 기회비용이 높습니다. 자본을 재배분하면 수학적으로 훨씬 유리한 기댓값을 확보할 수 있습니다.",
+        shares: "SHARES",
+        weight: "WEIGHT",
+        livePrice: "LIVE PRICE",
+        allocatedCap: "ALLOCATED CAP",
+        grade: "GRADE",
+        ticker: "TICKER"
+    },
+    en: {
+        autopilotTitle: "AUTONOMOUS ALLOCATION MATRIX (ZERO-BIAS)",
+        autopilotDesc: "Mathematical portfolio construction based on Kelly Expectancy & Inverse Volatility Risk Parity",
+        guideTitle: "💡 3-Step Beginner's Guide to Autopilot Execution",
+        guide1Title: "Step 1. Set Capital & Verify Weights",
+        guide1Desc: "Enter your total trading capital in USD in the left panel. The recommended execution shares will adjust automatically based on weights.",
+        guide2Title: "Step 2. Copy Guide Text",
+        guide2Desc: "Click the [COPY ALLOCATION MATRIX] button at the top-right to copy the complete order instructions designed for brokerage apps.",
+        guide3Title: "Step 3. Brokerage Order Execution",
+        guide3Desc: "Open your brokerage app, place a 'Limit Buy' order as advised, and immediately register 'Stop Loss (SL)' and 'Take Profit (TP)' bracket orders.",
+        copyBtn: "COPY ALLOCATION MATRIX",
+        copyBtnCopied: "PORTFOLIO COPIED!",
+        copyBracket: "COPY ORDER BRACKET",
+        copyBracketCopied: "BRACKET COPIED!",
+        analyzing: "Analyzing order flow metrics...",
+        neutral: "NEUTRAL OBSERVATION",
+        strongBuy: "🔥 HIGH-CONVICTION PROPRIETARY BUY",
+        callBuy: "⚡ ACCUMULATION CALL ENTRY",
+        putShort: "💀 PROPRIETARY SHORT / PUT ENTRY",
+        avoidLong: "⚠️ DEGRADED DRIFT - AVOID LONG",
+        expectedBands: "EXPECTED BANDS (ENTRY / SL / TP)",
+        liveGap: "LIVE GAP",
+        optimalRange: "Optimal Buy Limit Range",
+        riskReward: "R:R",
+        optimalWeights: "Optimal Portfolio Weights",
+        dynamicAlert: "Dynamic Rotation Alert",
+        scoreDecayTitle: "🚨 LIQUIDATION SIGNAL: SCORE DECAY",
+        scoreDecayDesc: "Alpha score expectancy for active positions TSLA (38) and RKLB (33) has drifted below the risk-adjusted limit of 50. Liquidate long exposure immediately.",
+        rotationTitle: "🔄 ROTATION: YIELD MAXIMIZATION",
+        rotationDesc: "Active holding AVGO presents higher opportunity cost compared to MSFT. Reallocating capital yields mathematically superior expectations.",
+        shares: "SHARES",
+        weight: "WEIGHT",
+        livePrice: "LIVE PRICE",
+        allocatedCap: "ALLOCATED CAP",
+        grade: "GRADE",
+        ticker: "TICKER"
+    },
+    ja: {
+        autopilotTitle: "自律型アロケーションマトリクス (ゼロバイアス・モデル)",
+        autopilotDesc: "ケリー期待値および逆ボラティリティ・リスクパリティに基づく数学的ポートフォリオ構築",
+        guideTitle: "💡 初心者のためのオートパイロット実戦注文3ステップガイド",
+        guide1Title: "ステップ1. 投資資金の設定と比率確認",
+        guide1Desc: "左側のパネルで総投資資金をドル($)単位で入力すると、各銘柄の比率(Weight)に合わせて推奨購入数量(Shares)が自動計算されます。",
+        guide2Title: "ステップ2. ガイドテキストをコピー",
+        guide2Desc: "右上の [COPY ALLOCATION MATRIX] ボタンをクリックして、証券会社のアプリを見ながらそのまま入力できる注文ガイドをコピーします。",
+        guide3Title: "ステップ3. 証券口座での注文設定",
+        guide3Desc: "証券アプリを開き、案内通りに「指値(Limit)買い」を入れた後、「逆指値・損切り(SL)」および「利食い(TP)」の予約注文を登録すれば完了です。",
+        copyBtn: "アロケーションマトリクスをコピー",
+        copyBtnCopied: "ポートフォリオがコピーされました！",
+        copyBracket: "注文ブラケットをコピー",
+        copyBracketCopied: "ブラケットがコピーされました！",
+        analyzing: "需給指標を分析中...",
+        neutral: "中立観測 (NEUTRAL OBSERVATION)",
+        strongBuy: "🔥 強気買い推奨 (HIGH-CONVICTION BUY)",
+        callBuy: "⚡ コール買いエントリー (ACCUMULATION CALL)",
+        putShort: "💀 プット/ショート推奨 (PROPRIETARY SHORT)",
+        avoidLong: "⚠️ ドリフト低下 - ロング回避 (AVOID LONG)",
+        expectedBands: "想定レンジ (ENTRY / SL / TP)",
+        liveGap: "LIVE GAP",
+        optimalRange: "適正指値レンジ (Optimal Range)",
+        riskReward: "R:R比率",
+        optimalWeights: "最適ポートフォリオ比率",
+        dynamicAlert: "動的ローテーションアラート",
+        scoreDecayTitle: "🚨 ポジション清算シ그날: スコア減衰",
+        scoreDecayDesc: "保有中ポジション TSLA (38) および RKLB (33) のアルファ期待スコアが許容基準値の 50 を下回りました。ロングエクスポージャーを直ちに解消してください。",
+        rotationTitle: "🔄 ローテーション: 利回り最大化",
+        rotationDesc: "保有中の AVGO は MSFT に対し機会費用が上昇しています。資本を再配分することで数学的に優れた期待収益率を確保できます。",
+        shares: "株数 (SHARES)",
+        weight: "比率 (WEIGHT)",
+        livePrice: "現在値 (LIVE PRICE)",
+        allocatedCap: "割当資金 (CAP)",
+        grade: "評価 (GRADE)",
+        ticker: "ティッカー (TICKER)"
+    }
+};
+
 interface TickerData {
     ticker: string;
     rsi: number | null;
@@ -22,6 +172,8 @@ interface TickerData {
         grade: string;
         action: string;
         whyKR?: string;
+        why?: string;
+        whyJA?: string;
     };
     realtime?: {
         price: number;
@@ -32,6 +184,7 @@ interface TickerData {
 export function MobileQuantRadar() {
     const t = useTranslations();
     const locale = useLocale();
+    const dict = radarI18n[locale] || radarI18n.en;
 
     // 1. Enforce Admin Security Lock using Tier Context
     const { isAdmin, loading: tierLoading } = useTier();
@@ -120,24 +273,49 @@ export function MobileQuantRadar() {
         setPage(1);
     };
 
-    // One-click clipboard copy of the entire optimal allocation matrix for mobile
-    // One-click clipboard copy of the entire optimal allocation matrix (Beginner-Friendly Korean)
     const copyEntireAllocationMatrixToClipboard = () => {
-        const text = `[시그넘 시큐리티 오토파일럿 자산 배분 포트폴리오 가이드]\n` +
-            `총 투자 원금 설정: $${totalCapital.toLocaleString()}\n` +
-            `기준일시: ${new Date().toLocaleString('ko-KR')}\n\n` +
-            `--------------------------------------------------\n` +
-            `★ 초보자를 위한 3단계 실전 주문 대입 방법 ★\n` +
-            `1. 증권사 소수점 투자 또는 해외주식 주문 메뉴를 켭니다.\n` +
-            `2. 아래 종목 목록을 보며 '지정가(Limit) 매수' 주문을 실행합니다.\n` +
-            `3. 매수 후 반드시 손절가(SL)와 익절가(TP)를 예약 주문으로 설정하세요.\n` +
-            `--------------------------------------------------\n\n` +
-            tickers.map((item, i) => {
-                const weightPct = (((item as any).weight || 0) * 100).toFixed(1);
-                const cap = (item as any).allocatedCapital || 0;
-                const shares = (item as any).targetShares || 0;
-                const exec = (item as any).execution || {};
-                const entryVal = exec.entry || item.realtime?.price || 0;
+        let headerText = "";
+        let stepsText = "";
+        if (locale === 'ko') {
+            headerText = `[시그넘 시큐리티 오토파일럿 자산 배분 포트폴리오 가이드]\n` +
+                         `총 투자 원금 설정: $${totalCapital.toLocaleString()}\n` +
+                         `기준일시: ${new Date().toLocaleString('ko-KR')}\n\n`;
+            stepsText = `--------------------------------------------------\n` +
+                        `★ 초보자를 위한 3단계 실전 주문 대입 방법 ★\n` +
+                        `1. 증권사 소수점 투자 또는 해외주식 주문 메뉴를 켭니다.\n` +
+                        `2. 아래 종목 목록을 보며 '지정가(Limit) 매수' 주문을 실행합니다.\n` +
+                        `3. 매수 후 반드시 손절가(SL)와 익절가(TP)를 예약 주문으로 설정하세요.\n` +
+                        `--------------------------------------------------\n\n`;
+        } else if (locale === 'ja') {
+            headerText = `[SIGNUM SECURITY オートパイロット資産配分ポートフォリオガイド]\n` +
+                         `総投資資金設定: $${totalCapital.toLocaleString()}\n` +
+                         `基準日時: ${new Date().toLocaleString('ja-JP')}\n\n`;
+            stepsText = `--------------------------------------------------\n` +
+                        `★ 初心者のための3ステップ実戦注文方法 ★\n` +
+                        `1. 証券アプリの小数株投資または海外株式注文メニューを開きます。\n` +
+                        `2. 以下の銘柄リストを見ながら「指値(Limit)買い」注文を実行します。\n` +
+                        `3. 購入後、必ず逆指値・損切り(SL)と利食い(TP)の予約注文を設定してください。\n` +
+                        `--------------------------------------------------\n\n`;
+        } else {
+            headerText = `[SIGNUM SECURITY AUTOPILOT PORTFOLIO ALLOCATION GUIDE]\n` +
+                         `Total Capital Base: $${totalCapital.toLocaleString()}\n` +
+                         `Timestamp: ${new Date().toLocaleString('en-US')}\n\n`;
+            stepsText = `--------------------------------------------------\n` +
+                        `★ 3-Step Execution Guide for Beginners ★\n` +
+                        `1. Open your brokerage app or fractional trading menu.\n` +
+                        `2. Submit a 'Limit Buy' order based on the list below.\n` +
+                        `3. Set 'Stop Loss (SL)' and 'Take Profit (TP)' bracket orders immediately.\n` +
+                        `--------------------------------------------------\n\n`;
+        }
+
+        const tickersText = tickers.map((item, i) => {
+            const weightPct = (((item as any).weight || 0) * 100).toFixed(1);
+            const cap = (item as any).allocatedCapital || 0;
+            const shares = (item as any).targetShares || 0;
+            const exec = (item as any).execution || {};
+            const entryVal = exec.entry || item.realtime?.price || 0;
+            
+            if (locale === 'ko') {
                 return `${i+1}. 종목: [${item.ticker}] (배분 비중: ${weightPct}%)\n` +
                        `   - 배분 투자금: $${cap.toLocaleString(undefined, {maximumFractionDigits:0})}\n` +
                        `   - 추천 매수수량: ${shares}주\n` +
@@ -145,7 +323,26 @@ export function MobileQuantRadar() {
                        `   - [주문 예약] 익절 예약가격 (TP): $${(exec.takeProfit || 0).toFixed(2)}\n` +
                        `   - [주문 예약] 손절 예약가격 (SL): $${(exec.stopLoss || 0).toFixed(2)}\n` +
                        `   - 리스크 대비 보상비 (R:R Ratio): ${exec.riskRewardRatio || '2.00'}`;
-            }).join('\n\n') + `\n\nGenerated strictly on zero-bias expectation models.`;
+            } else if (locale === 'ja') {
+                return `${i+1}. 銘柄: [${item.ticker}] (配分比率: ${weightPct}%)\n` +
+                       `   - 割当資金: $${cap.toLocaleString(undefined, {maximumFractionDigits:0})}\n` +
+                       `   - 推奨購入株数: ${shares}株\n` +
+                       `   - 指値購入価格: $${entryVal.toFixed(2)} 以下\n` +
+                       `   - [予約注文] 利食い注文価格 (TP): $${(exec.takeProfit || 0).toFixed(2)}\n` +
+                       `   - [予約注文] 損切り注文価格 (SL): $${(exec.stopLoss || 0).toFixed(2)}\n` +
+                       `   - リスク・リワード比率 (R:R Ratio): ${exec.riskRewardRatio || '2.00'}`;
+            } else {
+                return `${i+1}. Ticker: [${item.ticker}] (Allocation: ${weightPct}%)\n` +
+                       `   - Allocated Capital: $${cap.toLocaleString(undefined, {maximumFractionDigits:0})}\n` +
+                       `   - Target Shares: ${shares} shares\n` +
+                       `   - Limit Entry Price: $${entryVal.toFixed(2)} or lower\n` +
+                       `   - [Bracket Order] Take Profit (TP): $${(exec.takeProfit || 0).toFixed(2)}\n` +
+                       `   - [Bracket Order] Stop Loss (SL): $${(exec.stopLoss || 0).toFixed(2)}\n` +
+                       `   - Risk-Reward Ratio (R:R): ${exec.riskRewardRatio || '2.00'}`;
+            }
+        }).join('\n\n');
+
+        const text = headerText + stepsText + tickersText + `\n\nGenerated strictly on zero-bias expectation models.`;
         
         navigator.clipboard.writeText(text).then(() => {
             setCopiedTicker("PORTFOLIO");
@@ -153,18 +350,36 @@ export function MobileQuantRadar() {
         });
     };
 
-    // One-click clipboard copy utility for bracket orders
     const copyBracketToClipboard = (item: TickerData, entryPrice: number, tp: number, sl: number) => {
         const score = item.alphaSnapshot.score;
         const grade = item.alphaSnapshot.grade;
         
-        const text = `[시그넘 ${item.ticker} 초보자 맞춤형 주문 가이드]\n` +
-            `1. 매수 종목: ${item.ticker}\n` +
-            `2. 주문 구분: 지정가 매수 (Limit Order)\n` +
-            `3. 매수 지정가격: $${entryPrice.toFixed(2)} 이하\n` +
-            `4. 익절 예약 가격 (Take Profit): $${tp.toFixed(2)} (+3.5%)\n` +
-            `5. 손절 예약 가격 (Stop Loss): $${sl.toFixed(2)} (-1.5%)\n` +
-            `6. 오토 스코어: ${score}점 (Alpha Grade: ${grade})`;
+        let text = "";
+        if (locale === 'ko') {
+            text = `[시그넘 ${item.ticker} 초보자 맞춤형 주문 가이드]\n` +
+                `1. 매수 종목: ${item.ticker}\n` +
+                `2. 주문 구분: 지정가 매수 (Limit Order)\n` +
+                `3. 매수 지정가격: $${entryPrice.toFixed(2)} 이하\n` +
+                `4. 익절 예약 가격 (Take Profit): $${tp.toFixed(2)} (+3.5%)\n` +
+                `5. 손절 예약 가격 (Stop Loss): $${sl.toFixed(2)} (-1.5%)\n` +
+                `6. 오토 스코어: ${score}점 (Alpha Grade: ${grade})`;
+        } else if (locale === 'ja') {
+            text = `[SIGNUM ${item.ticker} 初心者向け注文ガイド]\n` +
+                `1. 購入銘柄: ${item.ticker}\n` +
+                `2. 注文区分: 指値買い (Limit Order)\n` +
+                `3. 指値購入価格: $${entryPrice.toFixed(2)} 以下\n` +
+                `4. 利食い予約価格 (Take Profit): $${tp.toFixed(2)} (+3.5%)\n` +
+                `5. 損切り予約価格 (Stop Loss): $${sl.toFixed(2)} (-1.5%)\n` +
+                `6. オートスコア: ${score}点 (Alpha Grade: ${grade})`;
+        } else {
+            text = `[SIGNUM ${item.ticker} Beginner Order Guide]\n` +
+                `1. Target Ticker: ${item.ticker}\n` +
+                `2. Order Type: Limit Buy (Limit Order)\n` +
+                `3. Limit Purchase Price: $${entryPrice.toFixed(2)} or lower\n` +
+                `4. Take Profit (TP): $${tp.toFixed(2)} (+3.5%)\n` +
+                `5. Stop Loss (SL): $${sl.toFixed(2)} (-1.5%)\n` +
+                `6. Auto Score: ${score} pts (Alpha Grade: ${grade})`;
+        }
         
         navigator.clipboard.writeText(text).then(() => {
             setCopiedTicker(item.ticker);
@@ -294,12 +509,12 @@ export function MobileQuantRadar() {
                                     {copiedTicker === "PORTFOLIO" ? (
                                         <>
                                             <Check className="w-3.5 h-3.5 text-emerald-400" />
-                                            MATRIX COPIED!
+                                            {dict.copyBtnCopied}
                                         </>
                                     ) : (
                                         <>
                                             <Clipboard className="w-3.5 h-3.5 text-cyan-500" />
-                                            COPY PORTFOLIO MATRIX
+                                            {dict.copyBtn}
                                         </>
                                     )}
                                 </button>
@@ -310,10 +525,10 @@ export function MobileQuantRadar() {
                                     <div className="p-3 rounded-lg bg-rose-950/20 border border-rose-500/15 flex flex-col gap-1">
                                         <div className="flex items-center gap-1.5 text-rose-400 font-bold text-[13px] uppercase tracking-wider">
                                             <AlertCircle className="w-3 h-3 animate-pulse" />
-                                            🚨 EXIT SIGNAL: SCORE DECAY
+                                            {dict.scoreDecayTitle}
                                         </div>
                                         <p className="text-[13px] text-slate-400 leading-normal">
-                                            TSLA (38) and RKLB (33) have drifted below expectation threshold (50). Liquidate long exposure immediately.
+                                            {dict.scoreDecayDesc}
                                         </p>
                                     </div>
 
@@ -321,7 +536,7 @@ export function MobileQuantRadar() {
                                     <div className="p-3 rounded-lg bg-cyan-950/20 border border-cyan-500/15 flex flex-col gap-1.5">
                                         <div className="flex items-center gap-1.5 text-cyan-400 font-bold text-[13px] uppercase tracking-wider">
                                             <Zap className="w-3 h-3" />
-                                            🔄 ROTATION: opportunity cost
+                                            {dict.rotationTitle}
                                         </div>
                                         <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-1.5 font-mono text-[13px] text-center bg-slate-950/30 p-1.5 rounded border border-slate-900">
                                             <div>
@@ -396,17 +611,17 @@ export function MobileQuantRadar() {
                                                          </span>
                                                     </div>
                                                     <span className="text-[13px] font-black font-mono text-cyan-400 bg-cyan-950/40 border border-cyan-500/20 px-2 py-0.5 rounded">
-                                                        {weightPct}% WEIGHT
+                                                        {weightPct}% {dict.weight}
                                                     </span>
                                                 </div>
 
                                                 <div className="grid grid-cols-2 gap-2 text-[13px] font-mono">
                                                     <div className="bg-slate-950/40 p-2 rounded border border-slate-900 flex justify-between">
-                                                        <span className="text-slate-500">ALLOC CAP</span>
+                                                        <span className="text-slate-500">{dict.allocatedCap}</span>
                                                         <strong className="text-slate-300">${cap.toLocaleString(undefined, {maximumFractionDigits:0})}</strong>
                                                     </div>
                                                     <div className="bg-slate-950/40 p-2 rounded border border-slate-900 flex justify-between">
-                                                        <span className="text-slate-500">SHARES</span>
+                                                        <span className="text-slate-500">{dict.shares}</span>
                                                         <strong className="text-slate-200">{shares}</strong>
                                                     </div>
                                                 </div>
@@ -437,12 +652,12 @@ export function MobileQuantRadar() {
                                                     {copiedTicker === item.ticker ? (
                                                         <>
                                                             <Check className="w-3 h-3 text-emerald-400" />
-                                                            COPIED!
+                                                            {dict.copyBracketCopied}
                                                         </>
                                                     ) : (
                                                         <>
                                                             <Clipboard className="w-3 h-3 text-cyan-500" />
-                                                            COPY ORDER BRACKET
+                                                            {dict.copyBracket}
                                                         </>
                                                     )}
                                                 </button>
@@ -474,16 +689,16 @@ export function MobileQuantRadar() {
                                 const stopLoss = curPrice * 0.985;
 
                                 // Direct Trade Signal Tags on mobile
-                                let signalLabel = 'NEUTRAL';
+                                let signalLabel = dict.neutral;
                                 let signalColor = 'text-slate-400 border-slate-800 bg-slate-950/40';
                                 if (score >= 80) {
-                                    signalLabel = '🔥 STRONG BUY';
+                                    signalLabel = dict.strongBuy;
                                     signalColor = 'text-emerald-400 border-emerald-500/20 bg-emerald-950/30';
                                 } else if (score >= 70) {
-                                    signalLabel = '⚡ CALL BUY';
+                                    signalLabel = dict.callBuy;
                                     signalColor = 'text-cyan-400 border-cyan-500/20 bg-cyan-950/30';
                                 } else if (score <= 35) {
-                                    signalLabel = '💀 PUT/SHORT';
+                                    signalLabel = dict.putShort;
                                     signalColor = 'text-rose-400 border-rose-500/20 bg-rose-950/30';
                                 }
 
@@ -523,7 +738,12 @@ export function MobileQuantRadar() {
 
                                             <div className="p-2.5 rounded-lg bg-slate-950/40 border border-slate-900/60 min-h-[38px] flex items-center">
                                                 <p className="text-[13px] font-bold text-slate-300 leading-normal">
-                                                    {item.alphaSnapshot?.whyKR || '분석 연산 중...'}
+                                                    {locale === 'en' 
+                                                        ? (item.alphaSnapshot?.why || item.alphaSnapshot?.whyKR || dict.analyzing) 
+                                                        : locale === 'ja' 
+                                                            ? (item.alphaSnapshot?.whyJA || item.alphaSnapshot?.whyKR || dict.analyzing) 
+                                                            : (item.alphaSnapshot?.whyKR || dict.analyzing)
+                                                    }
                                                 </p>
                                             </div>
                                         </div>
