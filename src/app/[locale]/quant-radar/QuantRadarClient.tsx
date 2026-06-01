@@ -72,6 +72,14 @@ const radarI18n: Record<string, {
     quickAddSubmit: string;
     noDecayStatus: string;
     noHoldingsTitle: string;
+    batchInjectBtn: string;
+    batchInjectSuccess: string;
+    liquidateBtn: string;
+    executeRotationBtn: string;
+    tradingCapitalLabel: string;
+    cashLabel: string;
+    totalReturnLabel: string;
+    navLabel: string;
 }> = {
     ko: {
         autopilotTitle: "AUTONOMOUS ALLOCATION MATRIX (ZERO-BIAS)",
@@ -122,7 +130,15 @@ const radarI18n: Record<string, {
         quickAddQty: "보유 수량 (주)",
         quickAddSubmit: "포트폴리오에 즉시 반영",
         noDecayStatus: "✅ 모든 보유 종목의 알파 기대치 점수가 안전 임계치(50점 이상)를 상회하고 있습니다.",
-        noHoldingsTitle: "🚨 보유 종목이 없습니다. 즉시 보유 종목을 추가하여 알파 엔진과 실시간 포트폴리오 관리를 연동하세요."
+        noHoldingsTitle: "🚨 보유 종목이 없습니다. 즉시 보유 종목을 추가하여 알파 엔진과 실시간 포트폴리오 관리를 연동하세요.",
+        batchInjectBtn: "최적 포트폴리오 일괄 구성 (BATCH BUY)",
+        batchInjectSuccess: "최적 배분 포트폴리오가 실제 계좌에 일괄 반영되었습니다!",
+        liquidateBtn: "즉시 포지션 청산 (LIQUIDATE)",
+        executeRotationBtn: "최적화 교체 자동 매매 실행 (ROTATE)",
+        tradingCapitalLabel: "투자 원금",
+        cashLabel: "보유 현금",
+        totalReturnLabel: "종합 통산 수익 (P&L)",
+        navLabel: "실시간 총 평가자산 (NAV)"
     },
     en: {
         autopilotTitle: "AUTONOMOUS ALLOCATION MATRIX (ZERO-BIAS)",
@@ -173,7 +189,15 @@ const radarI18n: Record<string, {
         quickAddQty: "Quantity (Shares)",
         quickAddSubmit: "Inject to Real Portfolio",
         noDecayStatus: "✅ All active holdings remain risk-adjusted with alpha expectation scores above 50.",
-        noHoldingsTitle: "🚨 No active holdings found in your real portfolio. Inject tickers now to engage live tracking."
+        noHoldingsTitle: "🚨 No active holdings found in your real portfolio. Inject tickers now to engage live tracking.",
+        batchInjectBtn: "BATCH INJECT ALLOCATION",
+        batchInjectSuccess: "Optimal allocations injected successfully!",
+        liquidateBtn: "LIQUIDATE POSITION",
+        executeRotationBtn: "EXECUTE ROTATION",
+        tradingCapitalLabel: "TRADING CAPITAL",
+        cashLabel: "CASH BALANCE",
+        totalReturnLabel: "TOTAL RETURN (P&L)",
+        navLabel: "NET ASSET VALUE (NAV)"
     },
     ja: {
         autopilotTitle: "自律型アロケーションマトリクス (ゼロバイアス・モデル)",
@@ -224,7 +248,15 @@ const radarI18n: Record<string, {
         quickAddQty: "保有株数 (株)",
         quickAddSubmit: "ポートフォリオに反映",
         noDecayStatus: "✅ すべての保有銘柄のアルファ期待スコアは安全基準値(50以上)を維持しています。",
-        noHoldingsTitle: "🚨 保有銘柄がありません。オートパイロット推奨比率に基づいて構築してください。"
+        noHoldingsTitle: "🚨 保有銘柄がありません。オートパイロット推奨比率に基づいて構築してください。",
+        batchInjectBtn: "推奨配分一括発注 (BATCH BUY)",
+        batchInjectSuccess: "推奨ポートフォリオ配分が正常に適用されました！",
+        liquidateBtn: "ポジション即時清算 (LIQUIDATE)",
+        executeRotationBtn: "最適配分入替自動実行 (ROTATE)",
+        tradingCapitalLabel: "投資元本",
+        cashLabel: "保有キャッシュ",
+        totalReturnLabel: "総合損益 (P&L)",
+        navLabel: "純資産価値 (NAV)"
     }
 };
 
@@ -284,10 +316,70 @@ export function QuantRadarClient() {
     const { isAdmin, loading: tierLoading } = useTier();
 
     // 1.1 Real portfolio integration
-    const { holdings, summary, addHolding } = usePortfolio();
+    const { holdings, summary, addHolding, removeHolding } = usePortfolio();
 
     // Quick Add Modal States
     const [showQuickAdd, setShowQuickAdd] = useState(false);
+    const [isInjecting, setIsInjecting] = useState(false);
+
+    const handleBatchInject = async () => {
+        if (tickers.length === 0 || isInjecting) return;
+        setIsInjecting(true);
+        try {
+            for (const item of tickers) {
+                const targetShares = (item as any).targetShares || 0;
+                const exec = (item as any).execution || {};
+                const avgPrice = exec.entry || item.realtime?.price || 0;
+                if (targetShares > 0 && avgPrice > 0) {
+                    await addHolding({
+                        ticker: item.ticker.toUpperCase(),
+                        name: `${item.ticker.toUpperCase()} Asset`,
+                        quantity: targetShares,
+                        avgPrice: avgPrice,
+                    });
+                }
+            }
+        } catch (e) {
+            console.error("Failed to batch inject:", e);
+        } finally {
+            setIsInjecting(false);
+        }
+    };
+
+    const handleLiquidate = async (ticker: string) => {
+        if (isInjecting) return;
+        setIsInjecting(true);
+        try {
+            await removeHolding(ticker);
+        } catch (e) {
+            console.error("Failed to liquidate:", e);
+        } finally {
+            setIsInjecting(false);
+        }
+    };
+
+    const handleRotate = async (lowestTicker: string, highestTicker: TickerData) => {
+        if (isInjecting) return;
+        setIsInjecting(true);
+        try {
+            await removeHolding(lowestTicker);
+            const targetShares = (highestTicker as any).targetShares || 0;
+            const exec = (highestTicker as any).execution || {};
+            const avgPrice = exec.entry || highestTicker.realtime?.price || 0;
+            if (targetShares > 0 && avgPrice > 0) {
+                await addHolding({
+                    ticker: highestTicker.ticker.toUpperCase(),
+                    name: `${highestTicker.ticker.toUpperCase()} Asset`,
+                    quantity: targetShares,
+                    avgPrice: avgPrice,
+                });
+            }
+        } catch (e) {
+            console.error("Failed to rotate:", e);
+        } finally {
+            setIsInjecting(false);
+        }
+    };
     const [quickAddTicker, setQuickAddTicker] = useState('');
     const [quickAddQty, setQuickAddQty] = useState('');
     const [quickAddPrice, setQuickAddPrice] = useState('');
@@ -653,6 +745,13 @@ export function QuantRadarClient() {
         );
     }
 
+    // Computed Portfolio NAV with Cash
+    const totalStockCost = holdings.reduce((sum, h) => sum + (h.quantity * h.avgPrice), 0);
+    const cashBalance = Math.max(0, totalCapital - totalStockCost);
+    const computedTotalNAV = summary.totalValue + cashBalance;
+    const computedPL = computedTotalNAV - totalCapital;
+    const computedPLPct = totalCapital > 0 ? (computedPL / totalCapital) * 100 : 0;
+
     // ────────────────────────────────────────────────────────
     // B. AUTHORIZED ADMIN QUANT COCKPIT
     // ────────────────────────────────────────────────────────
@@ -914,31 +1013,40 @@ export function QuantRadarClient() {
                         /* AUTONOMOUS ALLOCATION MATRIX (ENGAGED) */
                         <div className="flex flex-col gap-6">
                             {/* PREMIUM REAL PORTFOLIO EVAL HUD BAR */}
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 rounded-2xl bg-gradient-to-r from-[#0d1527] to-[#090f1a] border border-cyan-500/20 shadow-[0_0_20px_rgba(6,182,212,0.08)] backdrop-blur-md animate-[fadeIn_0.4s_ease-out]">
-                                <div className="flex items-center gap-3">
-                                    <div className="p-2.5 rounded-xl bg-cyan-500/10 border border-cyan-500/20 text-cyan-400">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 p-4 rounded-2xl bg-gradient-to-r from-[#0d1527] to-[#090f1a] border border-cyan-500/20 shadow-[0_0_20px_rgba(6,182,212,0.08)] backdrop-blur-md animate-[fadeIn_0.4s_ease-out]">
+                                <div className="flex items-center gap-3 min-w-0">
+                                    <div className="p-2.5 rounded-xl bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 shrink-0">
                                         <DollarSign className="w-5 h-5 animate-pulse" />
                                     </div>
-                                    <div>
-                                        <span className="text-[13px] font-bold text-slate-400 uppercase tracking-widest block">{dict.realAssetStatus}</span>
-                                        <span className="text-sm font-black text-cyan-400 tracking-wider">PORTFOLIO TRACKING ACTIVE</span>
+                                    <div className="truncate">
+                                        <span className="text-[13px] font-bold text-slate-400 uppercase tracking-widest block whitespace-nowrap">{dict.realAssetStatus}</span>
+                                        <span className="text-xs font-black text-cyan-400 tracking-wider whitespace-nowrap">PORTFOLIO TRACKING ACTIVE</span>
                                     </div>
                                 </div>
                                 
-                                <div className="flex flex-col justify-center border-t md:border-t-0 md:border-l border-slate-800/80 md:pl-6 py-2 md:py-0">
-                                    <span className="text-[13px] font-bold text-slate-500 uppercase tracking-widest block">{dict.totalEvaluated}</span>
-                                    <span className="text-xl font-black text-white font-mono mt-0.5">${(summary?.totalValue || 0).toLocaleString(undefined, {maximumFractionDigits:2})}</span>
+                                <div className="flex flex-col justify-center border-t sm:border-t-0 sm:border-l border-slate-800/80 sm:pl-6 py-2 sm:py-0 min-w-0">
+                                    <span className="text-[13px] font-bold text-slate-500 uppercase tracking-widest block whitespace-nowrap">
+                                        {dict.tradingCapitalLabel} / {dict.cashLabel}
+                                    </span>
+                                    <span className="text-sm font-black text-white font-mono mt-0.5 whitespace-nowrap">
+                                        ${totalCapital.toLocaleString()} / <span className="text-cyan-400">${cashBalance.toLocaleString(undefined, {maximumFractionDigits:2})}</span>
+                                    </span>
                                 </div>
 
-                                <div className="flex flex-col justify-center border-t md:border-t-0 md:border-l border-slate-800/80 md:pl-6 py-2 md:py-0">
-                                    <span className="text-[13px] font-bold text-slate-500 uppercase tracking-widest block">{dict.totalGainLoss}</span>
-                                    <span className={`text-xl font-black font-mono mt-0.5 flex items-center gap-1.5 ${
-                                        (summary?.totalGainLoss || 0) >= 0 ? 'text-emerald-400' : 'text-rose-400'
+                                <div className="flex flex-col justify-center border-t lg:border-t-0 lg:border-l border-slate-800/80 lg:pl-6 py-2 lg:py-0 min-w-0">
+                                    <span className="text-[13px] font-bold text-slate-500 uppercase tracking-widest block whitespace-nowrap">{dict.navLabel}</span>
+                                    <span className="text-base font-black text-white font-mono mt-0.5 whitespace-nowrap">${computedTotalNAV.toLocaleString(undefined, {maximumFractionDigits:2})}</span>
+                                </div>
+
+                                <div className="flex flex-col justify-center border-t lg:border-t-0 lg:border-l border-slate-800/80 lg:pl-6 py-2 lg:py-0 min-w-0">
+                                    <span className="text-[13px] font-bold text-slate-500 uppercase tracking-widest block whitespace-nowrap">{dict.totalReturnLabel}</span>
+                                    <span className={`text-base font-black font-mono mt-0.5 flex items-center gap-1.5 whitespace-nowrap ${
+                                        computedPL >= 0 ? 'text-emerald-400' : 'text-rose-400'
                                     }`}>
-                                        {(summary?.totalGainLoss || 0) >= 0 ? '+' : ''}
-                                        ${(summary?.totalGainLoss || 0).toLocaleString(undefined, {maximumFractionDigits:2})}
-                                        <span className="text-[13px] font-bold">
-                                            ({(summary?.totalGainLoss || 0) >= 0 ? '+' : ''}{(summary?.totalGainLossPct || 0).toFixed(2)}%)
+                                        {computedPL >= 0 ? '+' : ''}
+                                        ${computedPL.toLocaleString(undefined, {maximumFractionDigits:2})}
+                                        <span className="text-xs font-bold">
+                                            ({computedPL >= 0 ? '+' : ''}{computedPLPct.toFixed(2)}%)
                                         </span>
                                     </span>
                                 </div>
@@ -1121,7 +1229,7 @@ export function QuantRadarClient() {
                                              
                                              <div className="flex flex-col gap-3">
                                                  {!hasHoldings ? (
-                                                     <div className="p-3.5 rounded-xl bg-slate-950/40 border border-slate-900 flex flex-col gap-1.5">
+                                                     <div className="p-4 rounded-xl bg-slate-950/40 border border-slate-900 flex flex-col gap-3">
                                                          <div className="flex items-center gap-1.5 text-amber-500 font-bold text-[13px] uppercase tracking-wider">
                                                              <AlertCircle className="w-3.5 h-3.5" />
                                                              NO ACTIVE HOLDINGS
@@ -1129,6 +1237,18 @@ export function QuantRadarClient() {
                                                          <p className="text-[13px] text-slate-400 leading-relaxed">
                                                              {dict.noHoldingsTitle}
                                                          </p>
+                                                         <button
+                                                             onClick={handleBatchInject}
+                                                             disabled={isInjecting || tickers.length === 0}
+                                                             className="w-full h-10 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 disabled:bg-slate-900 disabled:opacity-40 text-emerald-400 disabled:text-slate-500 border border-emerald-500/30 disabled:border-slate-800 font-black transition-all flex items-center justify-center gap-2 tracking-widest uppercase text-[13px]"
+                                                         >
+                                                             {isInjecting ? (
+                                                                 <div className="w-4 h-4 border-2 border-emerald-500/20 border-t-emerald-400 rounded-full animate-spin" />
+                                                             ) : (
+                                                                 <Plus className="w-4 h-4" />
+                                                             )}
+                                                             {dict.batchInjectBtn}
+                                                         </button>
                                                      </div>
                                                  ) : (
                                                      <>
@@ -1142,6 +1262,28 @@ export function QuantRadarClient() {
                                                                  <p className="text-[13px] text-slate-300 leading-relaxed font-mono">
                                                                      active position인 {decayPositions.map(h => `${h.ticker} (${h.alphaScore})`).join(', ')}에 대한 기대치 점수가 임계치 50 미만으로 떨어졌습니다. 지금 바로 롱 포지션을 청산하세요.
                                                                  </p>
+                                                                 <button
+                                                                     onClick={async () => {
+                                                                         if (isInjecting) return;
+                                                                         setIsInjecting(true);
+                                                                         try {
+                                                                             for (const h of decayPositions) {
+                                                                                 await removeHolding(h.ticker);
+                                                                             }
+                                                                         } finally {
+                                                                             setIsInjecting(false);
+                                                                         }
+                                                                     }}
+                                                                     disabled={isInjecting}
+                                                                     className="w-full h-9 rounded-xl bg-rose-500/20 hover:bg-rose-500/30 text-rose-400 border border-rose-500/30 font-black transition-all flex items-center justify-center gap-1.5 tracking-wider uppercase text-[13px] mt-1"
+                                                                 >
+                                                                     {isInjecting ? (
+                                                                         <div className="w-3.5 h-3.5 border-2 border-rose-500/20 border-t-rose-400 rounded-full animate-spin" />
+                                                                     ) : (
+                                                                         <AlertCircle className="w-3.5 h-3.5" />
+                                                                     )}
+                                                                     {dict.liquidateBtn}
+                                                                 </button>
                                                              </div>
                                                          ) : (
                                                              <div className="p-3.5 rounded-xl bg-emerald-950/15 border border-emerald-500/20 flex flex-col gap-1.5">
@@ -1176,6 +1318,18 @@ export function QuantRadarClient() {
                                                                  <p className="text-[13px] text-slate-400 leading-relaxed">
                                                                      현재 보유 중인 {lowestScoreHolding.ticker}는 신규 스캔 1위인 {highestScoreScanned.ticker}와 비교했을 때 기회비용이 높습니다. 자본을 재배분하면 수학적으로 훨씬 유리한 기댓값을 확보할 수 있습니다.
                                                                  </p>
+                                                                 <button
+                                                                     onClick={() => handleRotate(lowestScoreHolding.ticker, highestScoreScanned)}
+                                                                     disabled={isInjecting}
+                                                                     className="w-full h-9 rounded-xl bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-400 border border-cyan-500/30 font-black transition-all flex items-center justify-center gap-1.5 tracking-wider uppercase text-[13px] mt-1"
+                                                                 >
+                                                                     {isInjecting ? (
+                                                                         <div className="w-3.5 h-3.5 border-2 border-cyan-500/20 border-t-cyan-400 rounded-full animate-spin" />
+                                                                     ) : (
+                                                                         <Zap className="w-3.5 h-3.5" />
+                                                                     )}
+                                                                     {dict.executeRotationBtn}
+                                                                 </button>
                                                              </div>
                                                          ) : (
                                                              <div className="p-3.5 rounded-xl bg-slate-950/30 border border-slate-900 flex flex-col gap-1.5">
