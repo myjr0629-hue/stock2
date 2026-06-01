@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef, useTransition } from 'react';
+import React, { useState, useEffect, useRef, useTransition, useMemo } from 'react';
 import { 
     Search, Sliders, Radar, Zap, Shield, ShieldAlert, Activity, 
     TrendingUp, TrendingDown, Target, BarChart3, AlertCircle, 
@@ -11,6 +11,7 @@ import { Link } from '@/i18n/routing';
 import { useTranslations, useLocale } from 'next-intl';
 import { useTier } from '@/contexts/TierContext';
 import { usePortfolio } from '@/hooks/usePortfolio';
+import { useRealtimeData } from '@/providers/WebSocketProvider';
 
 // Premium HSL glowing tokens
 const gradeColorMap: Record<string, { bg: string, text: string, border: string, glow: string }> = {
@@ -406,6 +407,8 @@ export function QuantRadarClient() {
     // Dynamic data loading states
     const [isPending, startTransition] = useTransition();
     const [tickers, setTickers] = useState<TickerData[]>([]);
+    const activeTickers = useMemo(() => tickers.map(t => t.ticker), [tickers]);
+    const { getPrice } = useRealtimeData(activeTickers);
     const [totalCount, setTotalCount] = useState(0);
     const [totalPages, setTotalPages] = useState(1);
     const [loading, setLoading] = useState(true);
@@ -751,6 +754,31 @@ export function QuantRadarClient() {
     const computedTotalNAV = summary.totalValue + cashBalance;
     const computedPL = computedTotalNAV - totalCapital;
     const computedPLPct = totalCapital > 0 ? (computedPL / totalCapital) * 100 : 0;
+
+    // Mechanical execution sequence (priority score descending)
+    const executionSequence = useMemo(() => {
+        return tickers
+            .map(item => {
+                const targetShares = (item as any).targetShares || 0;
+                const heldObj = holdings.find(h => h.ticker.toUpperCase() === item.ticker.toUpperCase());
+                const heldQty = heldObj ? heldObj.quantity : 0;
+                const diffQty = targetShares - heldQty;
+                const exec = (item as any).execution || {};
+                const score = item.alphaSnapshot?.score || 50;
+                const wsPriceObj = getPrice(item.ticker);
+                const livePrice = wsPriceObj ? wsPriceObj.price : (item.realtime?.price || 0);
+                return {
+                    ticker: item.ticker,
+                    diffQty,
+                    entry: exec.entry || livePrice || 0,
+                    stopLoss: exec.stopLoss || 0,
+                    takeProfit: exec.takeProfit || 0,
+                    score
+                };
+            })
+            .filter(item => item.diffQty > 0)
+            .sort((a, b) => b.score - a.score);
+    }, [tickers, holdings, getPrice]);
 
     // ────────────────────────────────────────────────────────
     // B. AUTHORIZED ADMIN QUANT COCKPIT
@@ -1115,7 +1143,8 @@ export function QuantRadarClient() {
                                                 const weightPct = (((item as any).weight || 0) * 100).toFixed(1);
                                                 const allocatedCapital = (item as any).allocatedCapital || 0;
                                                 const targetShares = (item as any).targetShares || 0;
-                                                const livePrice = item.realtime?.price || 0;
+                                                const wsPriceObj = getPrice(item.ticker);
+                                                const livePrice = wsPriceObj ? wsPriceObj.price : (item.realtime?.price || 0);
                                                 const exec = (item as any).execution || {};
 
                                                 // Calculate real-time held & adjustment
@@ -1221,11 +1250,65 @@ export function QuantRadarClient() {
                                      const hasHoldings = holdings.length > 0;
 
                                      return (
-                                         <div className="p-5 rounded-2xl bg-[#0b101c]/60 border border-slate-800 backdrop-blur-md flex flex-col gap-4">
-                                             <h3 className="text-[13px] font-black tracking-widest text-white uppercase border-b border-slate-800/80 pb-3 flex items-center gap-2">
-                                                 <Sliders className="w-3.5 h-3.5 text-cyan-400" />
-                                                 {dict.dynamicAlert}
-                                             </h3>
+                                         <div className="flex flex-col gap-6">
+                                             {/* MECHANICAL EXECUTION SEQUENCE */}
+                                             <div className="p-5 rounded-2xl bg-[#0b101c]/60 border border-slate-800 backdrop-blur-md flex flex-col gap-4">
+                                                 <h3 className="text-[13px] font-black tracking-widest text-cyan-400 uppercase border-b border-slate-800/80 pb-3 flex items-center gap-2">
+                                                     <Zap className="w-3.5 h-3.5 animate-pulse" />
+                                                     MECHANICAL EXECUTION SEQUENCE (기계적 매수 집행 순서)
+                                                 </h3>
+                                                 <div className="flex flex-col gap-3">
+                                                     {executionSequence.length === 0 ? (
+                                                         <div className="p-3.5 rounded-xl bg-emerald-950/15 border border-emerald-500/20 flex flex-col gap-1">
+                                                             <div className="flex items-center gap-1.5 text-emerald-400 font-bold text-[13px] uppercase tracking-wider">
+                                                                 <CheckCircle2 className="w-3.5 h-3.5" />
+                                                                 ALL POSITIONS ALIGNED
+                                                             </div>
+                                                             <p className="text-[13px] text-slate-400 leading-normal">
+                                                                 모든 종목의 매수 비중이 오토파일럿 모델과 완벽히 일치하여 정렬되었습니다. 추가 집행이 필요하지 않습니다.
+                                                             </p>
+                                                         </div>
+                                                     ) : (
+                                                         <div className="flex flex-col gap-3 font-mono text-[13px]">
+                                                             {executionSequence.map((item, index) => (
+                                                                 <div key={item.ticker} className="p-3.5 rounded-xl bg-slate-950/60 border border-slate-900 flex flex-col gap-2 relative overflow-hidden">
+                                                                     <div className="absolute top-0 right-0 px-2 py-0.5 bg-cyan-500/10 text-cyan-400 text-[11px] font-black rounded-bl border-l border-b border-cyan-500/20">
+                                                                         SCORE {item.score}
+                                                                     </div>
+                                                                     <div className="flex items-center gap-2">
+                                                                         <span className="w-5 h-5 rounded-full bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 flex items-center justify-center font-black text-xs shrink-0">
+                                                                             {index + 1}
+                                                                         </span>
+                                                                         <span className="font-black text-white tracking-wider uppercase">{item.ticker}</span>
+                                                                         <span className="text-[13px] text-emerald-400 font-black">+{item.diffQty}주 매수</span>
+                                                                     </div>
+                                                                     <div className="grid grid-cols-3 gap-2 mt-1 pt-2 border-t border-slate-900/60 text-center text-[12px] text-slate-400">
+                                                                         <div className="flex flex-col gap-0.5 bg-slate-950/80 p-1.5 rounded border border-slate-900">
+                                                                             <span className="text-[11px] text-slate-500 uppercase">LIMIT ENTRY</span>
+                                                                             <span className="text-emerald-400 font-bold">${item.entry.toFixed(2)}</span>
+                                                                         </div>
+                                                                         <div className="flex flex-col gap-0.5 bg-slate-950/80 p-1.5 rounded border border-slate-900">
+                                                                             <span className="text-[11px] text-slate-500 uppercase">STOP LOSS</span>
+                                                                             <span className="text-rose-400 font-bold">${item.stopLoss.toFixed(2)}</span>
+                                                                         </div>
+                                                                         <div className="flex flex-col gap-0.5 bg-slate-950/80 p-1.5 rounded border border-slate-900">
+                                                                             <span className="text-[11px] text-slate-500 uppercase">TAKE PROFIT</span>
+                                                                             <span className="text-cyan-400 font-bold">${item.takeProfit.toFixed(2)}</span>
+                                                                         </div>
+                                                                     </div>
+                                                                 </div>
+                                                             ))}
+                                                         </div>
+                                                     )}
+                                                 </div>
+                                             </div>
+
+                                             {/* Dynamic Rotation Alert */}
+                                             <div className="p-5 rounded-2xl bg-[#0b101c]/60 border border-slate-800 backdrop-blur-md flex flex-col gap-4">
+                                                 <h3 className="text-[13px] font-black tracking-widest text-white uppercase border-b border-slate-800/80 pb-3 flex items-center gap-2">
+                                                     <Sliders className="w-3.5 h-3.5 text-cyan-400" />
+                                                     {dict.dynamicAlert}
+                                                 </h3>
                                              
                                              <div className="flex flex-col gap-3">
                                                  {!hasHoldings ? (
@@ -1346,6 +1429,7 @@ export function QuantRadarClient() {
                                                  )}
                                              </div>
                                          </div>
+                                         </div>
                                      );
                                  })()}
                             </div>
@@ -1366,7 +1450,8 @@ export function QuantRadarClient() {
                                 const live = item.realtime;
 
                                 // SUGGESTED TARGET CALCULATION (Support Option Level support)
-                                const curPrice = live?.price || 0;
+                                const wsPriceObj = getPrice(item.ticker);
+                                const curPrice = wsPriceObj ? wsPriceObj.price : (live?.price || 0);
                                 const putFloor = item.putFloor || 0;
                                 const flipLevel = item.gammaFlipLevel || 0;
                                 const callWall = item.callWall || 0;
