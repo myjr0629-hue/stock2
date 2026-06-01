@@ -19,7 +19,7 @@ const CHANNELS: Channel[] = [
 
   // ── Threads ──
   { id: '69ca6b08af47dacb696d263d', name: 'signumhq_official', platform: 'threads',   lang: 'en', enabled: true },
-  { id: '6a06f0ac090476fb99217454', name: 'signumhq_kor',       platform: 'threads',   lang: 'ko', enabled: true },
+  { id: '6a06f0ac090476fb99217454', name: 'signumhq_kor',       platform: 'threads',   lang: 'ko', enabled: false }, // 정지 상태 (2026-06-01)
   { id: '6a06f344090476fb992180db', name: 'signumhq_jpn',      platform: 'threads',   lang: 'ja', enabled: true },
 
   // ── Bluesky ──

@@ -31,7 +31,7 @@ const CHANNEL_MAP: BufferChannel[] = [
   { id: '69ca6aa3af47dacb696d24c0', name: 'signumhq_official', service: 'instagram', tier: 2, lang: 'en' },
   { id: '69ca6b08af47dacb696d263d', name: 'signumhq_official', service: 'threads',   tier: 2, lang: 'en' },
   { id: '6a06eff0090476fb99216fba', name: 'signumhq_kor',      service: 'instagram', tier: 2, lang: 'ko' },
-  { id: '6a06f0ac090476fb99217454', name: 'signumhq_kor',      service: 'threads',   tier: 2, lang: 'ko' },
+  // { id: '6a06f0ac090476fb99217454', name: 'signumhq_kor',      service: 'threads',   tier: 2, lang: 'ko' },
   { id: '69ca84bbaf47dacb696d9d0f', name: 'SIGNUM HQ',        service: 'bluesky',   tier: 2, lang: 'en' },
   { id: '69ca9432af47dacb696deb5c', name: 'Pinterest',          service: 'pinterest', tier: 2, lang: 'en' },
 
