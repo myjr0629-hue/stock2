@@ -271,6 +271,32 @@ interface TickerData {
     };
 }
 
+const TickerLogo = ({ ticker, className = "w-5 h-5" }: { ticker: string, className?: string }) => {
+    const [imgSrc, setImgSrc] = useState(`/api/logo/${ticker.toUpperCase()}`);
+    const [hasError, setHasError] = useState(false);
+
+    return (
+        <div className={`relative ${className} rounded-full bg-slate-950 border border-slate-800 flex items-center justify-center overflow-hidden shrink-0 shadow-inner group-hover:border-cyan-500/30 transition-colors`}>
+            {!hasError ? (
+                <img 
+                    src={imgSrc} 
+                    alt={ticker}
+                    className="w-full h-full object-contain"
+                    onError={() => {
+                        if (imgSrc.startsWith('/api/logo/')) {
+                            setImgSrc(`https://images.financialmodelingprep.com/symbol/${ticker.toUpperCase()}.png`);
+                        } else {
+                            setHasError(true);
+                        }
+                    }}
+                />
+            ) : (
+                <span className="text-[9px] font-black text-slate-500 uppercase">{ticker.slice(0, 2)}</span>
+            )}
+        </div>
+    );
+};
+
 export function MobileQuantRadar() {
     const t = useTranslations();
     const locale = useLocale();
@@ -682,7 +708,7 @@ export function MobileQuantRadar() {
     // B. AUTHORIZED MOBILE QUANT COCKPIT
     // ────────────────────────────────────────────────────────
     return (
-        <div className="w-full min-h-screen bg-[#070b13] text-slate-100 flex flex-col font-jakarta relative pb-24">
+        <div className="w-full min-h-screen bg-[#05070f] bg-[radial-gradient(ellipse_80%_60%_at_50%_-20%,#0f1c3f_0%,#05070f_100%)] text-slate-100 flex flex-col font-jakarta relative pb-24">
             
             {/* Ambient Background Light */}
             <div className="absolute top-0 left-0 w-full h-[180px] bg-gradient-to-b from-cyan-500/10 to-transparent pointer-events-none" />
@@ -835,6 +861,9 @@ export function MobileQuantRadar() {
                                         .filter(x => x.diffQty > 0)
                                         .sort((a, b) => b.score - a.score);
 
+                                    const isStep1Done = trimsList.length === 0 || trimsList.every(x => completedSteps['sell-' + x.ticker]);
+                                    const isStep2Done = buysList.length === 0 || buysList.every(x => completedSteps['buy-' + x.ticker]);
+
                                     return (
                                         <div className="flex flex-col gap-5">
                                              {/* 1. LIVE ALIGNMENT PROGRESS HUD */}
@@ -865,21 +894,31 @@ export function MobileQuantRadar() {
                                              </div>
 
                                              {/* 2. STEP-BY-STEP PLAYBOOK SECTION */}
-                                             <div className="p-4 rounded-xl bg-slate-950/40 border border-slate-900 flex flex-col gap-4">
+                                             <div className="p-5 rounded-2xl bg-gradient-to-br from-[#0c1428]/90 to-[#070b14]/95 border border-slate-900 shadow-lg flex flex-col gap-4 relative overflow-hidden">
                                                  <h3 className="text-[13px] font-black tracking-widest text-white uppercase border-b border-slate-900 pb-2 flex items-center justify-between">
                                                      <span className="flex items-center gap-1.5">
                                                          <Sliders className="w-3.5 h-3.5 text-cyan-400" />
-                                                         QUANT TRADING PLAYBOOK
+                                                         🎯 REBALANCE SCENARIO ROADMAP
                                                      </span>
-                                                     <span className="text-[11px] font-mono text-cyan-400 tracking-wider">LIVE GUIDE</span>
+                                                     <span className="text-[11px] font-mono text-cyan-400 tracking-wider">SEQUENTIAL</span>
                                                  </h3>
 
-                                                 <div className="flex flex-col gap-4">
+                                                 <div className="relative border-l border-slate-800/80 ml-3 pl-5 space-y-7 py-1">
                                                      {/* STEP 1: SELL / TRIM */}
-                                                     <div className="flex flex-col gap-2.5">
+                                                     <div className="flex flex-col gap-2.5 relative">
+                                                         <div className="absolute -left-[33px] top-0 w-6 h-6 rounded-full flex items-center justify-center font-mono font-black text-[11px] transition-all duration-300 z-10 select-none shadow-sm">
+                                                             {isStep1Done ? (
+                                                                 <div className="w-full h-full rounded-full bg-emerald-950/90 border border-emerald-500/40 text-emerald-400 flex items-center justify-center shadow-[0_0_8px_rgba(16,185,129,0.2)]">
+                                                                     <Check className="w-3 h-3" />
+                                                                 </div>
+                                                             ) : (
+                                                                 <div className="w-full h-full rounded-full bg-gradient-to-br from-rose-500 to-amber-500 text-white flex items-center justify-center shadow-[0_0_8px_rgba(244,63,94,0.3)] animate-pulse">
+                                                                     1
+                                                                 </div>
+                                                             )}
+                                                         </div>
                                                          <div className="flex items-center justify-between">
                                                              <span className="text-[13px] font-black text-rose-400 tracking-widest uppercase flex items-center gap-1.5">
-                                                                 <span className="w-5 h-5 rounded bg-rose-500/10 border border-rose-500/20 text-rose-400 flex items-center justify-center font-black text-xs">1</span>
                                                                  STEP 1: 자금 확보 및 매도 (SELL / TRIM)
                                                              </span>
                                                          </div>
@@ -899,7 +938,8 @@ export function MobileQuantRadar() {
                                                                              isDone ? 'bg-slate-950/20 border-slate-955 opacity-50' : 'bg-slate-950/60 border-slate-900 hover:border-slate-800'
                                                                          )}>
                                                                              <div className="flex justify-between items-start">
-                                                                                 <div className="flex items-center gap-1.5">
+                                                                                 <div className="flex items-center gap-2">
+                                                                                     <TickerLogo ticker={x.ticker} className="w-5 h-5" />
                                                                                      <span className="font-mono font-black text-white text-[13px] uppercase tracking-wider">{x.ticker}</span>
                                                                                      <span className="text-[11px] text-rose-400 bg-rose-500/10 px-1.5 py-0.5 rounded font-black border border-rose-500/20">
                                                                                          축소 -{Math.abs(x.diffQty)}주
@@ -943,10 +983,24 @@ export function MobileQuantRadar() {
                                                      </div>
 
                                                      {/* STEP 2: BUY / ACCUMULATE */}
-                                                     <div className="flex flex-col gap-2.5 border-t border-slate-900 pt-3">
+                                                     <div className="flex flex-col gap-2.5 relative pt-3 border-t border-slate-900">
+                                                         <div className="absolute -left-[33px] top-3 w-6 h-6 rounded-full flex items-center justify-center font-mono font-black text-[11px] transition-all duration-300 z-10 select-none shadow-sm">
+                                                             {isStep2Done ? (
+                                                                 <div className="w-full h-full rounded-full bg-emerald-950/90 border border-emerald-500/40 text-emerald-400 flex items-center justify-center shadow-[0_0_8px_rgba(16,185,129,0.2)]">
+                                                                     <Check className="w-3 h-3" />
+                                                                 </div>
+                                                             ) : (
+                                                                 <div className={'w-full h-full rounded-full flex items-center justify-center ' + (
+                                                                     isStep1Done 
+                                                                         ? 'bg-gradient-to-br from-cyan-500 to-emerald-500 text-white shadow-[0_0_8px_rgba(34,211,238,0.35)] animate-pulse' 
+                                                                         : 'bg-slate-900 border border-slate-800 text-slate-500'
+                                                                 )}>
+                                                                     2
+                                                                 </div>
+                                                             )}
+                                                         </div>
                                                          <div className="flex items-center justify-between">
                                                              <span className="text-[13px] font-black text-emerald-400 tracking-widest uppercase flex items-center gap-1.5">
-                                                                 <span className="w-5 h-5 rounded bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center font-black text-xs">2</span>
                                                                  STEP 2: 자금 집행 및 매수 (BUY / ACCUMULATE)
                                                              </span>
                                                          </div>
@@ -969,7 +1023,8 @@ export function MobileQuantRadar() {
                                                                                  SCORE {x.score}
                                                                              </div>
                                                                              <div className="flex justify-between items-start pr-12">
-                                                                                 <div className="flex items-center gap-1.5">
+                                                                                 <div className="flex items-center gap-2">
+                                                                                     <TickerLogo ticker={x.ticker} className="w-5 h-5" />
                                                                                      <span className="font-mono font-black text-white text-[13px] uppercase tracking-wider">{x.ticker}</span>
                                                                                      <span className="text-[11px] text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded font-black border border-emerald-500/20">
                                                                                          매수 +{x.diffQty}주
@@ -1013,10 +1068,18 @@ export function MobileQuantRadar() {
                                                      </div>
 
                                                      {/* STEP 3: YIELD ROTATION */}
-                                                     <div className="flex flex-col gap-2.5 border-t border-slate-900 pt-3">
+                                                     <div className="flex flex-col gap-2.5 relative pt-3 border-t border-slate-900">
+                                                         <div className="absolute -left-[33px] top-3 w-6 h-6 rounded-full flex items-center justify-center font-mono font-black text-[11px] transition-all duration-300 z-10 select-none shadow-sm">
+                                                             <div className={'w-full h-full rounded-full flex items-center justify-center ' + (
+                                                                 isStep1Done && isStep2Done 
+                                                                     ? 'bg-gradient-to-br from-purple-500 to-pink-500 text-white shadow-[0_0_8px_rgba(16,185,129,0.35)] animate-pulse' 
+                                                                     : 'bg-slate-900 border border-slate-800 text-slate-500'
+                                                             )}>
+                                                                 3
+                                                             </div>
+                                                         </div>
                                                          <div className="flex items-center justify-between">
                                                              <span className="text-[13px] font-black text-cyan-400 tracking-widest uppercase flex items-center gap-1.5">
-                                                                 <span className="w-5 h-5 rounded bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 flex items-center justify-center font-black text-xs">3</span>
                                                                  STEP 3: 기대값 교체 및 로테이션 (YIELD ROTATION)
                                                              </span>
                                                          </div>
@@ -1186,13 +1249,8 @@ export function MobileQuantRadar() {
                                                         }`}>
                                                             {grade}
                                                         </span>
-                                                         <span className="text-[13px] font-black text-white uppercase flex items-center gap-1">
-                                                             <img 
-                                                                 src={`/api/logo/${item.ticker}`} 
-                                                                 className="w-3.5 h-3.5 rounded-full object-contain bg-slate-900 border border-slate-800" 
-                                                                 alt="" 
-                                                                 onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} 
-                                                             />
+                                                         <span className="text-[13px] font-black text-white uppercase flex items-center gap-2">
+                                                             <TickerLogo ticker={item.ticker} className="w-5 h-5" />
                                                              {item.ticker}
                                                          </span>
                                                     </div>
@@ -1337,7 +1395,10 @@ export function MobileQuantRadar() {
                                                     {grade}
                                                 </div>
                                                 <div className="flex flex-col">
-                                                    <span className="text-[13px] font-black text-white uppercase tracking-wider">{item.ticker}</span>
+                                                    <span className="text-[13px] font-black text-white uppercase tracking-wider flex items-center gap-1.5">
+                                                        <TickerLogo ticker={item.ticker} className="w-4 h-4" />
+                                                        {item.ticker}
+                                                    </span>
                                                     <span className="text-[13px] font-mono text-slate-500">V7 COCKPIT</span>
                                                 </div>
                                             </div>
