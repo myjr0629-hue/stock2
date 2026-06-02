@@ -279,7 +279,7 @@ interface TickerData {
     whaleIndex: number;
     whaleConfidence: string;
     darkPoolPct: number;
-    alphaSnapshot: {
+    alphaSnapshot?: {
         score: number;
         grade: string;
         action: string;
@@ -435,6 +435,12 @@ export function QuantRadarClient() {
     const [isPending, startTransition] = useTransition();
     const [tickers, setTickers] = useState<TickerData[]>([]);
     const activeTickers = useMemo(() => tickers.map(t => t.ticker), [tickers]);
+    const sortedTickers = useMemo(() => {
+        if (isAutoPilot) {
+            return [...tickers].sort((a, b) => ((b as any).weight || 0) - ((a as any).weight || 0));
+        }
+        return tickers;
+    }, [tickers, isAutoPilot]);
     const { getPrice } = useRealtimeData(activeTickers);
     const [totalCount, setTotalCount] = useState(0);
     const [totalPages, setTotalPages] = useState(1);
@@ -650,7 +656,7 @@ export function QuantRadarClient() {
                         `--------------------------------------------------\n\n`;
         }
 
-        const tickersText = tickers.map((item, i) => {
+        const tickersText = sortedTickers.map((item, i) => {
             const weightPct = (((item as any).weight || 0) * 100).toFixed(1);
             const cap = (item as any).allocatedCapital || 0;
             const shares = (item as any).targetShares || 0;
@@ -692,8 +698,8 @@ export function QuantRadarClient() {
 
     // One-click clipboard copy utility for bracket orders (Localized)
     const copyBracketToClipboard = (item: TickerData, entryPrice: number, tp: number, sl: number) => {
-        const score = item.alphaSnapshot.score;
-        const grade = item.alphaSnapshot.grade;
+        const score = item.alphaSnapshot?.score || 50;
+        const grade = item.alphaSnapshot?.grade || 'B';
         
         let text = "";
         if (locale === 'ko') {
@@ -817,7 +823,7 @@ export function QuantRadarClient() {
 
     // Mechanical execution sequence (priority score descending)
     const executionSequence = useMemo(() => {
-        return tickers
+        return sortedTickers
             .map(item => {
                 const targetShares = (item as any).targetShares || 0;
                 const heldObj = holdings.find(h => h.ticker.toUpperCase() === item.ticker.toUpperCase());
@@ -838,7 +844,7 @@ export function QuantRadarClient() {
             })
             .filter(item => item.diffQty > 0)
             .sort((a, b) => b.score - a.score);
-    }, [tickers, holdings, getPrice]);
+    }, [sortedTickers, holdings, getPrice]);
 
     // ────────────────────────────────────────────────────────
     // B. AUTHORIZED ADMIN QUANT COCKPIT
@@ -1173,13 +1179,420 @@ export function QuantRadarClient() {
                                 </button>
                             </div>
 
-                            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
-                                {/* Optimal allocation table */}
-                                <div className="lg:col-span-2 p-5 rounded-2xl bg-gradient-to-b from-[#0f172a] to-[#0b101c] border border-slate-800 backdrop-blur-md flex flex-col gap-4 overflow-x-auto">
+<div className="flex flex-col gap-6 w-full animate-[fadeIn_0.4s_ease-out]">
+                                {/* 1. PLAYBOOK & ALIGNMENT SECTION (MOVED TO TOP) */}
+                                {(() => {
+                                     const decayPositions = holdings.filter((h: any) => h.alphaScore !== undefined && h.alphaScore < 50);
+
+                                     const sortedHoldingsByScore = [...holdings]
+                                         .filter((h: any) => h.alphaScore !== undefined)
+                                         .sort((a: any, b: any) => (a.alphaScore || 0) - (b.alphaScore || 0));
+                                     const lowestScoreHolding = sortedHoldingsByScore[0];
+
+                                     const sortedScannedByScore = [...sortedTickers]
+                                         .filter((t: any) => t.alphaSnapshot?.score !== undefined)
+                                         .sort((a: any, b: any) => (b.alphaSnapshot?.score || 0) - (a.alphaSnapshot?.score || 0));
+                                     const highestScoreScanned = sortedScannedByScore.find((t: any) => !holdings.some((h: any) => h.ticker.toUpperCase() === t.ticker.toUpperCase()));
+
+                                     const hasHoldings = holdings.length > 0;
+
+                                     // Filter trimming and buying tickers for the checklist
+                                     const trimsList = sortedTickers
+                                         .map((item: any) => {
+                                             const targetShares = (item as any).targetShares || 0;
+                                             const heldObj = holdings.find((h: any) => h.ticker.toUpperCase() === item.ticker.toUpperCase());
+                                             const heldQty = heldObj ? heldObj.quantity : 0;
+                                             const diffQty = targetShares - heldQty;
+                                             const wsPriceObj = getPrice(item.ticker);
+                                             const livePrice = wsPriceObj ? wsPriceObj.price : (item.realtime?.price || 0);
+                                             return { ticker: item.ticker, diffQty, heldQty, targetShares, livePrice, score: item.alphaSnapshot?.score || 50, item };
+                                         })
+                                         .filter((x: any) => x.diffQty < 0);
+
+                                     const buysList = sortedTickers
+                                         .map((item: any) => {
+                                             const targetShares = (item as any).targetShares || 0;
+                                             const heldObj = holdings.find((h: any) => h.ticker.toUpperCase() === item.ticker.toUpperCase());
+                                             const heldQty = heldObj ? heldObj.quantity : 0;
+                                             const diffQty = targetShares - heldQty;
+                                             const wsPriceObj = getPrice(item.ticker);
+                                             const livePrice = wsPriceObj ? wsPriceObj.price : (item.realtime?.price || 0);
+                                             return { ticker: item.ticker, diffQty, heldQty, targetShares, livePrice, score: item.alphaSnapshot?.score || 50, item };
+                                         })
+                                         .filter((x: any) => x.diffQty > 0)
+                                         .sort((a: any, b: any) => b.score - a.score);
+                                     
+                                     const isStep1Done = trimsList.length === 0 || trimsList.every((x: any) => completedSteps['sell-' + x.ticker]);
+                                     const isStep2Done = buysList.length === 0 || buysList.every((x: any) => completedSteps['buy-' + x.ticker]);
+
+                                     return (
+                                          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-stretch">
+                                              {/* 1. LIVE ALIGNMENT PROGRESS HUD */}
+                                              <div className="lg:col-span-1 p-5 rounded-2xl bg-[#0b101c]/80 border border-cyan-500/20 shadow-[0_0_15px_rgba(6,182,212,0.05)] backdrop-blur-md flex flex-col justify-between gap-3.5">
+                                                  <div className="flex justify-between items-center border-b border-slate-800/80 pb-2">
+                                                      <span className="text-[13px] font-black text-slate-300 uppercase tracking-widest flex items-center gap-1.5">
+                                                          <Target className="w-4 h-4 text-cyan-400 animate-pulse" />
+                                                          PORTFOLIO ALIGNMENT PROGRESS
+                                                      </span>
+                                                      <span className="text-cyan-400 font-mono font-black text-sm">{liveAlignmentProgress}%</span>
+                                                  </div>
+                                                  <div className="w-full bg-slate-950 h-2.5 rounded-full overflow-hidden border border-slate-900 relative my-auto">
+                                                      <div 
+                                                          className="bg-gradient-to-r from-cyan-500 to-emerald-500 h-full rounded-full transition-all duration-500 shadow-[0_0_8px_rgba(6,182,212,0.4)]"
+                                                          style={{ width: `${liveAlignmentProgress}%` }}
+                                                      />
+                                                  </div>
+                                                  {liveAlignmentProgress === 100 ? (
+                                                      <div className="text-[13px] text-emerald-400 font-bold flex items-center gap-1.5 bg-emerald-950/20 p-2.5 rounded-xl border border-emerald-500/10">
+                                                          <Check className="w-4 h-4 shrink-0" />
+                                                          PORTFOLIO PERFECTLY ALIGNED (실제 보유량이 모델 비중과 100% 완벽히 일치합니다!)
+                                                      </div>
+                                                  ) : (
+                                                      <p className="text-[12px] text-slate-400 leading-normal">
+                                                          실시간 시세 변동을 반영한 정합률입니다. 아래 3단계 플레이북을 순서대로 복사하여 주문을 집행하면 정합도가 올라갑니다.
+                                                      </p>
+                                                  )}
+                                              </div>
+
+                                              {/* 2. STEP-BY-STEP PLAYBOOK SECTION */}
+                                              <div className="lg:col-span-2 p-5 rounded-2xl bg-gradient-to-br from-[#0b101c] to-[#0f172a] border border-slate-800 backdrop-blur-md flex flex-col gap-4 relative overflow-hidden">
+                                                  <h3 className="text-[13px] font-black tracking-widest text-white uppercase border-b border-slate-800/80 pb-3 flex items-center justify-between">
+                                                      <span className="flex items-center gap-2">
+                                                          <Sliders className="w-3.5 h-3.5 text-cyan-400" />
+                                                          🎯 REBALANCE SCENARIO ROADMAP
+                                                      </span>
+                                                      <span className="text-[11px] font-mono text-cyan-400 tracking-wider">SEQUENTIAL</span>
+                                                  </h3>
+
+                                                  <div className="relative border-l border-slate-800/80 ml-3 pl-6 space-y-7 py-1">
+                                                      {/* STEP 1: SELL / TRIM */}
+                                                      <div className="flex flex-col gap-2.5 relative">
+                                                          <div className="absolute -left-[37px] top-0 w-6 h-6 rounded-full flex items-center justify-center font-mono font-black text-[11px] transition-all duration-300 z-10 select-none shadow-sm">
+                                                              {isStep1Done ? (
+                                                                  <div className="w-full h-full rounded-full bg-emerald-950/90 border border-emerald-500/40 text-emerald-400 flex items-center justify-center shadow-[0_0_8px_rgba(16,185,129,0.2)]">
+                                                                      <Check className="w-3.5 h-3.5" />
+                                                                  </div>
+                                                              ) : (
+                                                                  <div className="w-full h-full rounded-full bg-gradient-to-br from-rose-500 to-amber-500 text-white flex items-center justify-center shadow-[0_0_8px_rgba(244,63,94,0.3)] animate-pulse">
+                                                                      1
+                                                                  </div>
+                                                              )}
+                                                          </div>
+                                                          <div className="flex items-center justify-between">
+                                                              <span className="text-[13px] font-black text-rose-400 tracking-widest uppercase flex items-center gap-1.5">
+                                                                  STEP 1: 자금 확보 및 매도 (SELL / TRIM)
+                                                              </span>
+                                                          </div>
+                                                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 font-mono">
+                                                              {trimsList.length === 0 ? (
+                                                                  <div className="col-span-full p-3 rounded-xl bg-emerald-950/15 border border-emerald-500/20 flex items-center gap-2 text-[13px] text-emerald-400 font-bold">
+                                                                      <Check className="w-3.5 h-3.5 shrink-0" />
+                                                                      확보할 현금 자산 없음 (추가 매도/축소 종목 없음)
+                                                                  </div>
+                                                              ) : (
+                                                                  trimsList.map((x: any) => {
+                                                                      const key = 'sell-' + x.ticker;
+                                                                      const isDone = !!completedSteps[key];
+                                                                      const refundCash = Math.abs(x.diffQty) * x.livePrice;
+                                                                      return (
+                                                                          <div key={x.ticker} className={'p-3.5 rounded-xl border transition-all flex flex-col gap-2 relative ' + (
+                                                                              isDone ? 'bg-slate-950/20 border-slate-905 opacity-50' : 'bg-slate-950/60 border-slate-900 hover:border-slate-800'
+                                                                          )}>
+                                                                              <div className="flex justify-between items-start">
+                                                                                  <div className="flex items-center gap-2">
+                                                                                      <TickerLogo ticker={x.ticker} className="w-5 h-5" />
+                                                                                      <span className="font-mono font-black text-white text-[13px] uppercase tracking-wider">{x.ticker}</span>
+                                                                                      <span className="text-[11px] text-rose-400 bg-rose-500/10 px-1.5 py-0.5 rounded font-black border border-rose-500/20">
+                                                                                          축소 -{Math.abs(x.diffQty)}주
+                                                                                      </span>
+                                                                                  </div>
+                                                                                  <button 
+                                                                                      onClick={() => setCompletedSteps(prev => ({ ...prev, [key]: !prev[key] }))}
+                                                                                      className={'px-2 py-0.5 rounded text-[11px] font-black transition-all flex items-center gap-1 ' + (
+                                                                                          isDone 
+                                                                                              ? 'bg-emerald-950 text-emerald-400 border border-emerald-500/20' 
+                                                                                              : 'bg-slate-900 text-slate-400 hover:text-white border border-slate-800'
+                                                                                      )}
+                                                                                  >
+                                                                                      {isDone ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : null}
+                                                                                      {isDone ? '매도완료' : '미실행'}
+                                                                                  </button>
+                                                                              </div>
+                                                                              <p className="text-[12px] text-slate-400 font-jakarta leading-normal">
+                                                                                  보유 수량을 <span className="font-bold text-slate-300 font-mono">{x.heldQty}주</span>에서 최적 목표치인 <span className="font-bold text-slate-300 font-mono">{x.targetShares}주</span>로 축소하여 현금을 확보하십시오.
+                                                                              </p>
+                                                                              <div className="flex justify-between items-center pt-2 border-t border-slate-900/60 mt-1">
+                                                                                  <div className="font-mono text-[12px]">
+                                                                                      <span className="text-slate-500">회수 현금:</span> <span className="text-rose-400 font-bold">${refundCash.toLocaleString(undefined, {maximumFractionDigits:1})}</span>
+                                                                                  </div>
+                                                                                  <button 
+                                                                                      onClick={() => {
+                                                                                          const exec = (x.item as any).execution || {};
+                                                                                          copyBracketToClipboard(x.item, x.livePrice, exec.takeProfit || 0, exec.stopLoss || 0);
+                                                                                      }}
+                                                                                      className="h-7 px-2 rounded bg-slate-900 border border-slate-800 hover:border-cyan-500/35 text-[11px] font-black text-cyan-400 hover:text-white transition-all uppercase tracking-wider flex items-center gap-1 font-mono"
+                                                                                  >
+                                                                                      <Clipboard className="w-3 h-3" />
+                                                                                      COPY
+                                                                                  </button>
+                                                                              </div>
+                                                                          </div>
+                                                                      );
+                                                                  })
+                                                              )}
+                                                          </div>
+                                                      </div>
+
+                                                      {/* STEP 2: BUY / ACCUMULATE */}
+                                                      <div className="flex flex-col gap-2.5 relative pt-3 border-t border-slate-900">
+                                                          <div className="absolute -left-[37px] top-3 w-6 h-6 rounded-full flex items-center justify-center font-mono font-black text-[11px] transition-all duration-300 z-10 select-none shadow-sm">
+                                                              {isStep2Done ? (
+                                                                  <div className="w-full h-full rounded-full bg-emerald-950/90 border border-emerald-500/40 text-emerald-400 flex items-center justify-center shadow-[0_0_8px_rgba(16,185,129,0.2)]">
+                                                                      <Check className="w-3.5 h-3.5" />
+                                                                  </div>
+                                                              ) : (
+                                                                  <div className={'w-full h-full rounded-full flex items-center justify-center ' + (
+                                                                      isStep1Done 
+                                                                          ? 'bg-gradient-to-br from-cyan-500 to-emerald-500 text-white shadow-[0_0_8px_rgba(34,211,238,0.35)] animate-pulse' 
+                                                                          : 'bg-slate-900 border border-slate-800 text-slate-500'
+                                                                  )}>
+                                                                      2
+                                                                  </div>
+                                                              )}
+                                                          </div>
+                                                          <div className="flex items-center justify-between">
+                                                              <span className="text-[13px] font-black text-emerald-400 tracking-widest uppercase flex items-center gap-1.5">
+                                                                  STEP 2: 자금 집행 및 매수 (BUY / ACCUMULATE)
+                                                              </span>
+                                                          </div>
+                                                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 font-mono">
+                                                              {buysList.length === 0 ? (
+                                                                  <div className="col-span-full p-3 rounded-xl bg-emerald-950/15 border border-emerald-500/20 flex items-center gap-2 text-[13px] text-emerald-400 font-bold">
+                                                                      <Check className="w-3.5 h-3.5 shrink-0" />
+                                                                      매수 대기 자산 없음 (추가 매수 필요 종목 없음)
+                                                                  </div>
+                                                              ) : (
+                                                                  buysList.map((x: any) => {
+                                                                      const key = 'buy-' + x.ticker;
+                                                                      const isDone = !!completedSteps[key];
+                                                                      const orderCost = x.diffQty * x.livePrice;
+                                                                      return (
+                                                                          <div key={x.ticker} className={'p-3.5 rounded-xl border transition-all flex flex-col gap-2 relative ' + (
+                                                                              isDone ? 'bg-slate-950/20 border-slate-905 opacity-50' : 'bg-slate-950/60 border-slate-900 hover:border-slate-800'
+                                                                          )}>
+                                                                              <div className="absolute top-0 right-0 px-1.5 py-0.5 bg-cyan-500/10 text-cyan-400 text-[10px] font-black rounded-bl border-l border-b border-cyan-500/20">
+                                                                                  SCORE {x.score}
+                                                                              </div>
+                                                                              <div className="flex justify-between items-start pr-12">
+                                                                                  <div className="flex items-center gap-2">
+                                                                                      <TickerLogo ticker={x.ticker} className="w-5 h-5" />
+                                                                                      <span className="font-mono font-black text-white text-[13px] uppercase tracking-wider">{x.ticker}</span>
+                                                                                      <span className="text-[11px] text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded font-black border border-emerald-500/20">
+                                                                                          매수 +{x.diffQty}주
+                                                                                      </span>
+                                                                                  </div>
+                                                                                  <button 
+                                                                                      onClick={() => setCompletedSteps(prev => ({ ...prev, [key]: !prev[key] }))}
+                                                                                      className={'px-2 py-0.5 rounded text-[11px] font-black transition-all flex items-center gap-1 ' + (
+                                                                                          isDone 
+                                                                                              ? 'bg-emerald-950 text-emerald-400 border border-emerald-500/20' 
+                                                                                              : 'bg-slate-900 text-slate-400 hover:text-white border border-slate-800'
+                                                                                      )}
+                                                                                  >
+                                                                                      {isDone ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : null}
+                                                                                      {isDone ? '매수완료' : '미실행'}
+                                                                                  </button>
+                                                                              </div>
+                                                                              <p className="text-[12px] text-slate-400 font-jakarta leading-normal">
+                                                                                  확보한 현금에서 지정가 이하로 <span className="font-bold text-slate-300 font-mono">{x.diffQty}주</span>를 매수하여 최적 비중인 <span className="font-bold text-slate-300 font-mono">{x.targetShares}주</span>를 채우십시오.
+                                                                              </p>
+                                                                              <div className="flex justify-between items-center pt-2 border-t border-slate-900/60 mt-1">
+                                                                                  <div className="font-mono text-[12px]">
+                                                                                      <span className="text-slate-500">필요 자금:</span> <span className="text-emerald-400 font-bold">${orderCost.toLocaleString(undefined, {maximumFractionDigits:1})}</span>
+                                                                                  </div>
+                                                                                  <button 
+                                                                                      onClick={() => {
+                                                                                          const exec = (x.item as any).execution || {};
+                                                                                          copyBracketToClipboard(x.item, x.livePrice, exec.takeProfit || 0, exec.stopLoss || 0);
+                                                                                      }}
+                                                                                      className="h-7 px-2 rounded bg-slate-900 border border-slate-800 hover:border-cyan-500/35 text-[11px] font-black text-cyan-400 hover:text-white transition-all uppercase tracking-wider flex items-center gap-1 font-mono"
+                                                                                  >
+                                                                                      <Clipboard className="w-3.5 h-3.5" />
+                                                                                      COPY
+                                                                                  </button>
+                                                                              </div>
+                                                                          </div>
+                                                                      );
+                                                                  })
+                                                              )}
+                                                          </div>
+                                                      </div>
+
+                                                      {/* STEP 3: YIELD ROTATION */}
+                                                      <div className="flex flex-col gap-2.5 relative pt-3 border-t border-slate-900">
+                                                          <div className="absolute -left-[37px] top-3 w-6 h-6 rounded-full flex items-center justify-center font-mono font-black text-[11px] transition-all duration-300 z-10 select-none shadow-sm">
+                                                              <div className={'w-full h-full rounded-full flex items-center justify-center ' + (
+                                                                  isStep1Done && isStep2Done 
+                                                                      ? 'bg-gradient-to-br from-purple-500 to-pink-500 text-white shadow-[0_0_8px_rgba(16,185,129,0.35)] animate-pulse' 
+                                                                      : 'bg-slate-950 border border-slate-900 text-slate-500'
+                                                              )}>
+                                                                  3
+                                                              </div>
+                                                          </div>
+                                                          <div className="flex items-center justify-between">
+                                                              <span className="text-[13px] font-black text-cyan-400 tracking-widest uppercase flex items-center gap-1.5">
+                                                                  STEP 3: 기대값 교체 및 로테이션 (YIELD ROTATION)
+                                                              </span>
+                                                          </div>
+                                                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 font-mono">
+                                                              {!hasHoldings ? (
+                                                                  <div className="col-span-full p-3.5 rounded-xl bg-slate-950/40 border border-slate-900 flex flex-col gap-3 font-jakarta">
+                                                                      <p className="text-[12px] text-slate-400 leading-normal">
+                                                                          포트폴리오에 실보유 내역이 등록되지 않았습니다. 우선 6종목의 최적 포지션 배분을 일괄 계좌에 주입하여 시작해 보세요.
+                                                                      </p>
+                                                                      <button
+                                                                          onClick={handleBatchInject}
+                                                                          disabled={isInjecting || tickers.length === 0}
+                                                                          className="w-full h-10 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 disabled:bg-slate-900 disabled:opacity-40 text-emerald-400 disabled:text-slate-500 border border-emerald-500/30 disabled:border-slate-800 font-black transition-all flex items-center justify-center gap-1.5 tracking-widest uppercase text-[12px]"
+                                                                      >
+                                                                          {isInjecting ? (
+                                                                              <div className="w-3.5 h-3.5 border-2 border-emerald-500/20 border-t-emerald-400 rounded-full animate-spin" />
+                                                                          ) : (
+                                                                              <Plus className="w-3.5 h-3.5" />
+                                                                          )}
+                                                                          {dict.batchInjectBtn}
+                                                                      </button>
+                                                                  </div>
+                                                              ) : (
+                                                                  <>
+                                                                      {/* Decay positions warning */}
+                                                                      {decayPositions.length > 0 ? (
+                                                                          <div className="p-3 rounded-xl bg-rose-950/20 border border-rose-500/20 flex flex-col gap-2">
+                                                                              <div className="flex items-center gap-1 text-rose-400 font-bold text-[12px] uppercase tracking-wider font-mono">
+                                                                                  <AlertCircle className="w-3.5 h-3.5 animate-pulse" />
+                                                                                  스코어 붕괴 청산 신호 (LIQUIDATION)
+                                                                              </div>
+                                                                              <p className="text-[12px] text-slate-300 leading-relaxed font-mono">
+                                                                                  보유 중인 {decayPositions.map((h: any) => h.ticker + ' (' + h.alphaScore + ')').join(', ')}의 스코어가 안전 한계값 50 미만으로 붕괴했습니다. 즉시 청산하십시오.
+                                                                              </p>
+                                                                              <button
+                                                                                  onClick={async () => {
+                                                                                      if (isInjecting) return;
+                                                                                      setIsInjecting(true);
+                                                                                      try {
+                                                                                          for (const h of decayPositions) {
+                                                                                              await removeHolding(h.ticker);
+                                                                                          }
+                                                                                      } finally {
+                                                                                          setIsInjecting(false);
+                                                                                      }
+                                                                                  }}
+                                                                                  disabled={isInjecting}
+                                                                                  className="w-full h-9 rounded-lg bg-rose-500/20 hover:bg-rose-500/30 text-rose-400 border border-rose-500/30 font-black transition-all flex items-center justify-center gap-1 tracking-wider uppercase text-[12px]"
+                                                                              >
+                                                                                  {isInjecting ? (
+                                                                                      <div className="w-3 h-3 border-2 border-rose-500/20 border-t-rose-400 rounded-full animate-spin" />
+                                                                                  ) : (
+                                                                                      <AlertCircle className="w-3 h-3" />
+                                                                                  )}
+                                                                                  {dict.liquidateBtn}
+                                                                              </button>
+                                                                          </div>
+                                                                      ) : null}
+
+                                                                      {/* Rotation Opportunity */}
+                                                                      {lowestScoreHolding && highestScoreScanned && ((highestScoreScanned.alphaSnapshot?.score || 0) > (lowestScoreHolding.alphaScore || 0)) ? (
+                                                                          <div className="p-3.5 rounded-xl bg-cyan-950/20 border border-cyan-500/20 flex flex-col gap-2.5 font-mono">
+                                                                              <div className="flex items-center gap-1.5 text-cyan-400 font-bold text-[12px] uppercase tracking-wider">
+                                                                                  <Zap className="w-3.5 h-3.5 animate-pulse" />
+                                                                                  최적 기회비용 교체 (ROTATION SWAP)
+                                                                              </div>
+                                                                              <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 text-center bg-slate-950/40 p-2 rounded-lg border border-slate-900">
+                                                                                  <div className="flex flex-col">
+                                                                                      <span className="text-rose-400 font-bold">{lowestScoreHolding.ticker}</span>
+                                                                                      <span className="text-[11px] text-slate-500">Score {lowestScoreHolding.alphaScore}</span>
+                                                                                  </div>
+                                                                                  <span className="text-slate-500 font-bold">➔</span>
+                                                                                  <div className="flex flex-col">
+                                                                                      <span className="text-emerald-400 font-bold">{highestScoreScanned.ticker}</span>
+                                                                                      <span className="text-[11px] text-slate-500">Score {highestScoreScanned.alphaSnapshot?.score || 0}</span>
+                                                                                  </div>
+                                                                              </div>
+                                                                              <p className="text-[12px] text-slate-400 leading-normal font-jakarta">
+                                                                                  기대치가 가장 저조한 보유 주식 {lowestScoreHolding.ticker}를 정리하고, 스캐너 1위인 고기대값 주식 {highestScoreScanned.ticker}로 자동 교체하여 복리 이익을 보존하십시오.
+                                                                              </p>
+                                                                              <button
+                                                                                  onClick={() => handleRotate(lowestScoreHolding.ticker, highestScoreScanned)}
+                                                                                  disabled={isInjecting}
+                                                                                  className="w-full h-9 rounded-lg bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-400 border border-cyan-500/30 font-black transition-all flex items-center justify-center gap-1.5 tracking-wider uppercase text-[12px]"
+                                                                              >
+                                                                                  {isInjecting ? (
+                                                                                      <div className="w-3 h-3 border-2 border-cyan-500/20 border-t-cyan-400 rounded-full animate-spin" />
+                                                                                  ) : (
+                                                                                      <Zap className="w-3 h-3" />
+                                                                                  )}
+                                                                                  {dict.executeRotationBtn}
+                                                                              </button>
+                                                                          </div>
+                                                                      ) : (
+                                                                          <div className={`p-3.5 rounded-xl bg-slate-950/30 border border-slate-900 flex flex-col gap-1.5 font-jakarta ${decayPositions.length === 0 ? 'col-span-full' : ''}`}>
+                                                                              <div className="flex items-center gap-1.5 text-slate-400 font-bold text-[12px] uppercase tracking-wider">
+                                                                                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                                                                                  기대값 정렬 최적화 완료
+                                                                              </div>
+                                                                              <p className="text-[12px] text-slate-500 leading-normal">
+                                                                                  현재 보유 유망주 대비 기회비용 교체가 유효한 신규 스코어 스프레드가 없습니다. 보유 종목 구성을 편안하게 유지하십시오.
+                                                                                  {!decayPositions.length && <span className="text-emerald-400 block mt-1.5 font-bold">✅ 모든 보유 지표 최상급 유지 중</span>}
+                                                                              </p>
+                                                                          </div>
+                                                                      )}
+                                                                  </>
+                                                              )}
+                                                          </div>
+                                                      </div>
+                                                  </div>
+                                              </div>
+                                          </div>
+                                     );
+                                 })()}
+
+                                {/* 2. OPTIMAL PORTFOLIO WEIGHTS TABLE (FULL WIDTH) */}
+                                <div className="p-5 rounded-2xl bg-gradient-to-b from-[#0f172a] to-[#0b101c] border border-slate-800 backdrop-blur-md flex flex-col gap-4 overflow-x-auto shadow-[0_4px_20px_rgba(0,0,0,0.2)]">
                                     <h3 className="text-[13px] font-black tracking-widest text-white uppercase border-b border-slate-800/80 pb-3 flex items-center gap-2">
                                         <BarChart3 className="w-3.5 h-3.5 text-cyan-400" />
                                         {dict.optimalWeights}
                                     </h3>
+
+                                    {/* 초보자를 위한 오토파일럿 실전 주문 3단계 가이드 */}
+                                    <div className="p-4 rounded-2xl bg-[#090e18]/80 border border-cyan-500/20 shadow-[0_0_20px_rgba(6,182,212,0.05)] backdrop-blur-md flex flex-col gap-3">
+                                        <div className="flex items-center gap-2 text-cyan-400 font-black text-[13px] uppercase tracking-widest">
+                                            <HelpCircle className="w-4 h-4 text-cyan-400 animate-pulse" />
+                                            {dict.guideTitle}
+                                        </div>
+                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-[13px] text-slate-300 leading-normal font-jakarta">
+                                            <div className="bg-slate-950/65 p-4 rounded-xl border border-slate-900/60 flex flex-col gap-1.5 hover:border-cyan-500/30 hover:bg-slate-900/40 transition-all duration-300 group shadow-inner">
+                                                <div className="flex items-center gap-2">
+                                                    <span className="w-6 h-6 rounded-full bg-rose-500/10 border border-rose-500/20 text-rose-400 flex items-center justify-center font-black text-[11px] group-hover:scale-105 transition-transform">1</span>
+                                                    <strong className="text-white font-bold group-hover:text-cyan-400 transition-colors">{dict.guide1Title}</strong>
+                                                </div>
+                                                <p className="text-slate-400 text-[12px] mt-0.5 leading-relaxed group-hover:text-slate-300 transition-colors">{dict.guide1Desc}</p>
+                                            </div>
+                                            <div className="bg-slate-950/65 p-4 rounded-xl border border-slate-900/60 flex flex-col gap-1.5 hover:border-cyan-500/30 hover:bg-slate-900/40 transition-all duration-300 group shadow-inner">
+                                                <div className="flex items-center gap-2">
+                                                    <span className="w-6 h-6 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center font-black text-[11px] group-hover:scale-105 transition-transform">2</span>
+                                                    <strong className="text-white font-bold group-hover:text-cyan-400 transition-colors">{dict.guide2Title}</strong>
+                                                </div>
+                                                <p className="text-slate-400 text-[12px] mt-0.5 leading-relaxed group-hover:text-slate-300 transition-colors">{dict.guide2Desc}</p>
+                                            </div>
+                                            <div className="bg-slate-950/65 p-4 rounded-xl border border-slate-900/60 flex flex-col gap-1.5 hover:border-cyan-500/30 hover:bg-slate-900/40 transition-all duration-300 group shadow-inner">
+                                                <div className="flex items-center gap-2">
+                                                    <span className="w-6 h-6 rounded-full bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 flex items-center justify-center font-black text-[11px] group-hover:scale-105 transition-transform">3</span>
+                                                    <strong className="text-white font-bold group-hover:text-cyan-400 transition-colors">{dict.guide3Title}</strong>
+                                                </div>
+                                                <p className="text-slate-400 text-[12px] mt-0.5 leading-relaxed group-hover:text-slate-300 transition-colors">{dict.guide3Desc}</p>
+                                            </div>
+                                        </div>
+                                    </div>
                                     <table className="w-full text-left border-collapse text-[13px] font-mono">
                                         <thead>
                                             <tr className="border-b border-slate-800/80 text-slate-500 font-bold uppercase tracking-wider text-[13px]">
@@ -1197,7 +1610,7 @@ export function QuantRadarClient() {
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            {tickers.map(item => {
+                                            {sortedTickers.map((item: any) => {
                                                 const grade = item.alphaSnapshot?.grade || 'B';
                                                 const theme = gradeColorMap[grade] || gradeColorMap.B;
                                                 const weightPct = (((item as any).weight || 0) * 100).toFixed(1);
@@ -1208,7 +1621,7 @@ export function QuantRadarClient() {
                                                 const exec = (item as any).execution || {};
 
                                                 // Calculate real-time held & adjustment
-                                                const heldObj = holdings.find(h => h.ticker.toUpperCase() === item.ticker.toUpperCase());
+                                                const heldObj = holdings.find((h: any) => h.ticker.toUpperCase() === item.ticker.toUpperCase());
                                                 const heldQty = heldObj ? heldObj.quantity : 0;
                                                 const diffQty = targetShares - heldQty;
 
@@ -1274,407 +1687,9 @@ export function QuantRadarClient() {
                                             })}
                                         </tbody>
                                     </table>
-
-                                    {/* 초보자를 위한 오토파일럿 실전 주문 3단계 가이드 */}
-                                    <div className="mt-4 p-4 rounded-xl bg-cyan-950/10 border border-cyan-500/20 flex flex-col gap-3">
-                                        <div className="flex items-center gap-2 text-cyan-400 font-bold text-[13px] uppercase tracking-wider">
-                                            <HelpCircle className="w-4 h-4 text-cyan-400" />
-                                            {dict.guideTitle}
-                                        </div>
-                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-[13px] text-slate-300 leading-normal font-jakarta">
-                                            <div className="bg-slate-950/40 p-3.5 rounded-lg border border-slate-900 flex flex-col gap-1">
-                                                <strong className="text-white">{dict.guide1Title}</strong>
-                                                <p className="text-slate-400 text-[13px] mt-0.5">{dict.guide1Desc}</p>
-                                            </div>
-                                            <div className="bg-slate-950/40 p-3.5 rounded-lg border border-slate-900 flex flex-col gap-1">
-                                                <strong className="text-white">{dict.guide2Title}</strong>
-                                                <p className="text-slate-400 text-[13px] mt-0.5">{dict.guide2Desc}</p>
-                                            </div>
-                                            <div className="bg-slate-950/40 p-3.5 rounded-lg border border-slate-900 flex flex-col gap-1">
-                                                <strong className="text-white">{dict.guide3Title}</strong>
-                                                <p className="text-slate-400 text-[13px] mt-0.5">{dict.guide3Desc}</p>
-                                            </div>
-                                        </div>
-                                    </div>
                                 </div>
-
-                                 {/* 기계적 실전 매매 집행 플레이북 (MECHANICAL TRADING PLAYBOOK) */}
-                                 {(() => {
-                                      const decayPositions = holdings.filter(h => h.alphaScore !== undefined && h.alphaScore < 50);
-
-                                      const sortedHoldingsByScore = [...holdings]
-                                          .filter(h => h.alphaScore !== undefined)
-                                          .sort((a, b) => (a.alphaScore || 0) - (b.alphaScore || 0));
-                                      const lowestScoreHolding = sortedHoldingsByScore[0];
-
-                                      const sortedScannedByScore = [...tickers]
-                                          .filter(t => t.alphaSnapshot?.score !== undefined)
-                                          .sort((a, b) => (b.alphaSnapshot?.score || 0) - (a.alphaSnapshot?.score || 0));
-                                      const highestScoreScanned = sortedScannedByScore.find(t => !holdings.some(h => h.ticker.toUpperCase() === t.ticker.toUpperCase()));
-
-                                      const hasHoldings = holdings.length > 0;
-
-                                      // Filter trimming and buying tickers for the checklist
-                                      const trimsList = tickers
-                                          .map(item => {
-                                              const targetShares = (item as any).targetShares || 0;
-                                              const heldObj = holdings.find(h => h.ticker.toUpperCase() === item.ticker.toUpperCase());
-                                              const heldQty = heldObj ? heldObj.quantity : 0;
-                                              const diffQty = targetShares - heldQty;
-                                              const wsPriceObj = getPrice(item.ticker);
-                                              const livePrice = wsPriceObj ? wsPriceObj.price : (item.realtime?.price || 0);
-                                              return { ticker: item.ticker, diffQty, heldQty, targetShares, livePrice, score: item.alphaSnapshot.score, item };
-                                          })
-                                          .filter(x => x.diffQty < 0);
-
-                                      const buysList = tickers
-                                          .map(item => {
-                                              const targetShares = (item as any).targetShares || 0;
-                                              const heldObj = holdings.find(h => h.ticker.toUpperCase() === item.ticker.toUpperCase());
-                                              const heldQty = heldObj ? heldObj.quantity : 0;
-                                              const diffQty = targetShares - heldQty;
-                                              const wsPriceObj = getPrice(item.ticker);
-                                              const livePrice = wsPriceObj ? wsPriceObj.price : (item.realtime?.price || 0);
-                                              return { ticker: item.ticker, diffQty, heldQty, targetShares, livePrice, score: item.alphaSnapshot.score, item };
-                                          })
-                                          .filter(x => x.diffQty > 0)
-                                          .sort((a, b) => b.score - a.score);
-                                      
-                                      const isStep1Done = trimsList.length === 0 || trimsList.every(x => completedSteps['sell-' + x.ticker]);
-                                      const isStep2Done = buysList.length === 0 || buysList.every(x => completedSteps['buy-' + x.ticker]);
-
-                                      return (
-                                          <div className="lg:col-span-1 flex flex-col gap-6">
-                                              {/* 1. LIVE ALIGNMENT PROGRESS HUD */}
-                                              <div className="p-5 rounded-2xl bg-[#0b101c]/80 border border-cyan-500/20 shadow-[0_0_15px_rgba(6,182,212,0.05)] backdrop-blur-md flex flex-col gap-3.5">
-                                                  <div className="flex justify-between items-center border-b border-slate-800/80 pb-2">
-                                                      <span className="text-[13px] font-black text-slate-300 uppercase tracking-widest flex items-center gap-1.5">
-                                                          <Target className="w-4 h-4 text-cyan-400 animate-pulse" />
-                                                          PORTFOLIO ALIGNMENT PROGRESS
-                                                      </span>
-                                                      <span className="text-cyan-400 font-mono font-black text-sm">{liveAlignmentProgress}%</span>
-                                                  </div>
-                                                  <div className="w-full bg-slate-950 h-2.5 rounded-full overflow-hidden border border-slate-900 relative">
-                                                      <div 
-                                                          className="bg-gradient-to-r from-cyan-500 to-emerald-500 h-full rounded-full transition-all duration-500 shadow-[0_0_8px_rgba(6,182,212,0.4)]"
-                                                          style={{ width: `${liveAlignmentProgress}%` }}
-                                                      />
-                                                  </div>
-                                                  {liveAlignmentProgress === 100 ? (
-                                                      <div className="text-[13px] text-emerald-400 font-bold flex items-center gap-1.5 bg-emerald-950/20 p-2.5 rounded-xl border border-emerald-500/10">
-                                                          <Check className="w-4 h-4 shrink-0" />
-                                                          PORTFOLIO PERFECTLY ALIGNED (실제 보유량이 모델 비중과 100% 완벽히 일치합니다!)
-                                                      </div>
-                                                  ) : (
-                                                      <p className="text-[12px] text-slate-400 leading-normal">
-                                                          실시간 시세 변동을 반영한 정합률입니다. 아래 3단계 플레이북을 순서대로 복사하여 주문을 집행하면 정합도가 올라갑니다.
-                                                      </p>
-                                                  )}
-                                              </div>
-
-                                              {/* 2. STEP-BY-STEP PLAYBOOK SECTION */}
-                                              <div className="p-5 rounded-2xl bg-gradient-to-br from-[#0b101c] to-[#0f172a] border border-slate-800 backdrop-blur-md flex flex-col gap-4 relative overflow-hidden">
-                                                  <h3 className="text-[13px] font-black tracking-widest text-white uppercase border-b border-slate-800/80 pb-3 flex items-center justify-between">
-                                                      <span className="flex items-center gap-2">
-                                                          <Sliders className="w-3.5 h-3.5 text-cyan-400" />
-                                                          🎯 REBALANCE SCENARIO ROADMAP
-                                                      </span>
-                                                      <span className="text-[11px] font-mono text-cyan-400 tracking-wider">SEQUENTIAL</span>
-                                                  </h3>
-
-                                                  <div className="relative border-l border-slate-800/80 ml-3 pl-6 space-y-7 py-1">
-                                                      {/* STEP 1: SELL / TRIM */}
-                                                      <div className="flex flex-col gap-2.5 relative">
-                                                          <div className="absolute -left-[37px] top-0 w-6 h-6 rounded-full flex items-center justify-center font-mono font-black text-[11px] transition-all duration-300 z-10 select-none shadow-sm">
-                                                              {isStep1Done ? (
-                                                                  <div className="w-full h-full rounded-full bg-emerald-950/90 border border-emerald-500/40 text-emerald-400 flex items-center justify-center shadow-[0_0_8px_rgba(16,185,129,0.2)]">
-                                                                      <Check className="w-3 h-3" />
-                                                                  </div>
-                                                              ) : (
-                                                                  <div className="w-full h-full rounded-full bg-gradient-to-br from-rose-500 to-amber-500 text-white flex items-center justify-center shadow-[0_0_8px_rgba(244,63,94,0.3)] animate-pulse">
-                                                                      1
-                                                                  </div>
-                                                              )}
-                                                          </div>
-                                                          <div className="flex items-center justify-between">
-                                                              <span className="text-[13px] font-black text-rose-400 tracking-widest uppercase flex items-center gap-1.5">
-                                                                  STEP 1: 자금 확보 및 매도 (SELL / TRIM)
-                                                              </span>
-                                                          </div>
-                                                          <div className="flex flex-col gap-2 font-mono">
-                                                              {trimsList.length === 0 ? (
-                                                                  <div className="p-3 rounded-xl bg-emerald-950/15 border border-emerald-500/20 flex items-center gap-2 text-[13px] text-emerald-400 font-bold">
-                                                                      <Check className="w-3.5 h-3.5 shrink-0" />
-                                                                      확보할 현금 자산 없음 (추가 매도/축소 종목 없음)
-                                                                  </div>
-                                                              ) : (
-                                                                  trimsList.map(x => {
-                                                                      const key = 'sell-' + x.ticker;
-                                                                      const isDone = !!completedSteps[key];
-                                                                      const refundCash = Math.abs(x.diffQty) * x.livePrice;
-                                                                      return (
-                                                                          <div key={x.ticker} className={'p-3.5 rounded-xl border transition-all flex flex-col gap-2 relative ' + (
-                                                                              isDone ? 'bg-slate-950/20 border-slate-905 opacity-50' : 'bg-slate-950/60 border-slate-900 hover:border-slate-800'
-                                                                          )}>
-                                                                              <div className="flex justify-between items-start">
-                                                                                  <div className="flex items-center gap-2">
-                                                                                      <TickerLogo ticker={x.ticker} className="w-5 h-5" />
-                                                                                      <span className="font-mono font-black text-white text-[13px] uppercase tracking-wider">{x.ticker}</span>
-                                                                                      <span className="text-[11px] text-rose-400 bg-rose-500/10 px-1.5 py-0.5 rounded font-black border border-rose-500/20">
-                                                                                          축소 -{Math.abs(x.diffQty)}주
-                                                                                      </span>
-                                                                                  </div>
-                                                                                  <button 
-                                                                                      onClick={() => setCompletedSteps(prev => ({ ...prev, [key]: !prev[key] }))}
-                                                                                      className={'px-2 py-0.5 rounded text-[11px] font-black transition-all flex items-center gap-1 ' + (
-                                                                                          isDone 
-                                                                                              ? 'bg-emerald-950 text-emerald-400 border border-emerald-500/20' 
-                                                                                              : 'bg-slate-900 text-slate-400 hover:text-white border border-slate-800'
-                                                                                      )}
-                                                                                  >
-                                                                                      {isDone ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : null}
-                                                                                      {isDone ? '매도완료' : '미실행'}
-                                                                                  </button>
-                                                                              </div>
-                                                                              <p className="text-[12px] text-slate-400 font-jakarta leading-normal">
-                                                                                  보유 수량을 <span className="font-bold text-slate-300 font-mono">{x.heldQty}주</span>에서 최적 목표치인 <span className="font-bold text-slate-300 font-mono">{x.targetShares}주</span>로 축소하여 현금을 확보하십시오.
-                                                                              </p>
-                                                                              <div className="flex justify-between items-center pt-2 border-t border-slate-900/60 mt-1">
-                                                                                  <div className="font-mono text-[12px]">
-                                                                                      <span className="text-slate-500">회수 현금:</span> <span className="text-rose-400 font-bold">{'$' + refundCash.toLocaleString(undefined, {maximumFractionDigits:1})}</span>
-                                                                                  </div>
-                                                                                  <button 
-                                                                                      onClick={() => {
-                                                                                          const exec = (x.item as any).execution || {};
-                                                                                          copyBracketToClipboard(x.item, x.livePrice, exec.takeProfit || 0, exec.stopLoss || 0);
-                                                                                      }}
-                                                                                      className="h-7 px-2 rounded bg-slate-900 border border-slate-800 hover:border-cyan-500/35 text-[11px] font-black text-cyan-400 hover:text-white transition-all uppercase tracking-wider flex items-center gap-1 font-mono"
-                                                                                  >
-                                                                                      <Clipboard className="w-3 h-3" />
-                                                                                      COPY
-                                                                                  </button>
-                                                                              </div>
-                                                                          </div>
-                                                                      );
-                                                                  })
-                                                              )}
-                                                          </div>
-                                                      </div>
-
-                                                      {/* STEP 2: BUY / ACCUMULATE */}
-                                                      <div className="flex flex-col gap-2.5 relative pt-3 border-t border-slate-900">
-                                                          <div className="absolute -left-[37px] top-3 w-6 h-6 rounded-full flex items-center justify-center font-mono font-black text-[11px] transition-all duration-300 z-10 select-none shadow-sm">
-                                                              {isStep2Done ? (
-                                                                  <div className="w-full h-full rounded-full bg-emerald-950/90 border border-emerald-500/40 text-emerald-400 flex items-center justify-center shadow-[0_0_8px_rgba(16,185,129,0.2)]">
-                                                                      <Check className="w-3 h-3" />
-                                                                  </div>
-                                                              ) : (
-                                                                  <div className={'w-full h-full rounded-full flex items-center justify-center ' + (
-                                                                      isStep1Done 
-                                                                          ? 'bg-gradient-to-br from-cyan-500 to-emerald-500 text-white shadow-[0_0_8px_rgba(34,211,238,0.35)] animate-pulse' 
-                                                                          : 'bg-slate-900 border border-slate-800 text-slate-500'
-                                                                  )}>
-                                                                      2
-                                                                  </div>
-                                                              )}
-                                                          </div>
-                                                          <div className="flex items-center justify-between">
-                                                              <span className="text-[13px] font-black text-emerald-400 tracking-widest uppercase flex items-center gap-1.5">
-                                                                  STEP 2: 자금 집행 및 매수 (BUY / ACCUMULATE)
-                                                              </span>
-                                                          </div>
-                                                          <div className="flex flex-col gap-2 font-mono">
-                                                              {buysList.length === 0 ? (
-                                                                  <div className="p-3 rounded-xl bg-emerald-950/15 border border-emerald-500/20 flex items-center gap-2 text-[13px] text-emerald-400 font-bold">
-                                                                      <Check className="w-3.5 h-3.5 shrink-0" />
-                                                                      매수 대기 자산 없음 (추가 매수 필요 종목 없음)
-                                                                  </div>
-                                                              ) : (
-                                                                  buysList.map(x => {
-                                                                      const key = 'buy-' + x.ticker;
-                                                                      const isDone = !!completedSteps[key];
-                                                                      const orderCost = x.diffQty * x.livePrice;
-                                                                      return (
-                                                                          <div key={x.ticker} className={'p-3.5 rounded-xl border transition-all flex flex-col gap-2 relative ' + (
-                                                                              isDone ? 'bg-slate-950/20 border-slate-905 opacity-50' : 'bg-slate-950/60 border-slate-900 hover:border-slate-800'
-                                                                          )}>
-                                                                              <div className="absolute top-0 right-0 px-1.5 py-0.5 bg-cyan-500/10 text-cyan-400 text-[10px] font-black rounded-bl border-l border-b border-cyan-500/20">
-                                                                                  SCORE {x.score}
-                                                                              </div>
-                                                                              <div className="flex justify-between items-start pr-12">
-                                                                                  <div className="flex items-center gap-2">
-                                                                                      <TickerLogo ticker={x.ticker} className="w-5 h-5" />
-                                                                                      <span className="font-mono font-black text-white text-[13px] uppercase tracking-wider">{x.ticker}</span>
-                                                                                      <span className="text-[11px] text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded font-black border border-emerald-500/20">
-                                                                                          매수 +{x.diffQty}주
-                                                                                      </span>
-                                                                                  </div>
-                                                                                  <button 
-                                                                                      onClick={() => setCompletedSteps(prev => ({ ...prev, [key]: !prev[key] }))}
-                                                                                      className={'px-2 py-0.5 rounded text-[11px] font-black transition-all flex items-center gap-1 ' + (
-                                                                                          isDone 
-                                                                                              ? 'bg-emerald-950 text-emerald-400 border border-emerald-500/20' 
-                                                                                              : 'bg-slate-900 text-slate-400 hover:text-white border border-slate-800'
-                                                                                      )}
-                                                                                  >
-                                                                                      {isDone ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : null}
-                                                                                      {isDone ? '매수완료' : '미실행'}
-                                                                                  </button>
-                                                                              </div>
-                                                                              <p className="text-[12px] text-slate-400 font-jakarta leading-normal">
-                                                                                  확보한 현금에서 지정가 이하로 <span className="font-bold text-slate-300 font-mono">{x.diffQty}주</span>를 매수하여 최적 비중인 <span className="font-bold text-slate-300 font-mono">{x.targetShares}주</span>를 채우십시오.
-                                                                              </p>
-                                                                              <div className="flex justify-between items-center pt-2 border-t border-slate-900/60 mt-1">
-                                                                                  <div className="font-mono text-[12px]">
-                                                                                      <span className="text-slate-500">필요 자금:</span> <span className="text-emerald-400 font-bold">{'$' + orderCost.toLocaleString(undefined, {maximumFractionDigits:1})}</span>
-                                                                                  </div>
-                                                                                  <button 
-                                                                                      onClick={() => {
-                                                                                          const exec = (x.item as any).execution || {};
-                                                                                          copyBracketToClipboard(x.item, x.livePrice, exec.takeProfit || 0, exec.stopLoss || 0);
-                                                                                      }}
-                                                                                      className="h-7 px-2 rounded bg-slate-900 border border-slate-800 hover:border-cyan-500/35 text-[11px] font-black text-cyan-400 hover:text-white transition-all uppercase tracking-wider flex items-center gap-1 font-mono"
-                                                                                  >
-                                                                                      <Clipboard className="w-3 h-3" />
-                                                                                      COPY
-                                                                                  </button>
-                                                                              </div>
-                                                                          </div>
-                                                                      );
-                                                                  })
-                                                              )}
-                                                          </div>
-                                                      </div>
-
-                                                      {/* STEP 3: YIELD ROTATION */}
-                                                      <div className="flex flex-col gap-2.5 relative pt-3 border-t border-slate-900">
-                                                          <div className="absolute -left-[37px] top-3 w-6 h-6 rounded-full flex items-center justify-center font-mono font-black text-[11px] transition-all duration-300 z-10 select-none shadow-sm">
-                                                              <div className={'w-full h-full rounded-full flex items-center justify-center ' + (
-                                                                  isStep1Done && isStep2Done 
-                                                                      ? 'bg-gradient-to-br from-purple-500 to-pink-500 text-white shadow-[0_0_8px_rgba(16,185,129,0.35)] animate-pulse' 
-                                                                      : 'bg-slate-900 border border-slate-800 text-slate-500'
-                                                              )}>
-                                                                  3
-                                                              </div>
-                                                          </div>
-                                                          <div className="flex items-center justify-between">
-                                                              <span className="text-[13px] font-black text-cyan-400 tracking-widest uppercase flex items-center gap-1.5">
-                                                                  STEP 3: 기대값 교체 및 로테이션 (YIELD ROTATION)
-                                                              </span>
-                                                          </div>
-                                                          <div className="flex flex-col gap-3 font-mono">
-                                                              {!hasHoldings ? (
-                                                                  <div className="p-3.5 rounded-xl bg-slate-950/40 border border-slate-900 flex flex-col gap-3 font-jakarta">
-                                                                      <p className="text-[12px] text-slate-400 leading-normal">
-                                                                          포트폴리오에 실보유 내역이 등록되지 않았습니다. 우선 6종목의 최적 포지션 배분을 일괄 계좌에 주입하여 시작해 보세요.
-                                                                      </p>
-                                                                      <button
-                                                                          onClick={handleBatchInject}
-                                                                          disabled={isInjecting || tickers.length === 0}
-                                                                          className="w-full h-10 rounded-xl bg-emerald-500/20 hover:bg-emerald-500/30 disabled:bg-slate-900 disabled:opacity-40 text-emerald-400 disabled:text-slate-500 border border-emerald-500/30 disabled:border-slate-800 font-black transition-all flex items-center justify-center gap-1.5 tracking-widest uppercase text-[12px]"
-                                                                      >
-                                                                          {isInjecting ? (
-                                                                              <div className="w-3.5 h-3.5 border-2 border-emerald-500/20 border-t-emerald-400 rounded-full animate-spin" />
-                                                                          ) : (
-                                                                              <Plus className="w-3.5 h-3.5" />
-                                                                          )}
-                                                                          {dict.batchInjectBtn}
-                                                                      </button>
-                                                                  </div>
-                                                              ) : (
-                                                                  <>
-                                                                      {/* Decay positions warning */}
-                                                                      {decayPositions.length > 0 ? (
-                                                                          <div className="p-3 rounded-xl bg-rose-950/20 border border-rose-500/20 flex flex-col gap-2">
-                                                                              <div className="flex items-center gap-1 text-rose-400 font-bold text-[12px] uppercase tracking-wider font-mono">
-                                                                                  <AlertCircle className="w-3.5 h-3.5 animate-pulse" />
-                                                                                  스코어 붕괴 청산 신호 (LIQUIDATION)
-                                                                              </div>
-                                                                              <p className="text-[12px] text-slate-300 leading-relaxed font-mono">
-                                                                                  보유 중인 {decayPositions.map(h => h.ticker + ' (' + h.alphaScore + ')').join(', ')}의 스코어가 안전 한계값 50 미만으로 붕괴했습니다. 즉시 청산하십시오.
-                                                                              </p>
-                                                                              <button
-                                                                                  onClick={async () => {
-                                                                                      if (isInjecting) return;
-                                                                                      setIsInjecting(true);
-                                                                                      try {
-                                                                                          for (const h of decayPositions) {
-                                                                                              await removeHolding(h.ticker);
-                                                                                          }
-                                                                                      } finally {
-                                                                                          setIsInjecting(false);
-                                                                                      }
-                                                                                  }}
-                                                                                  disabled={isInjecting}
-                                                                                  className="w-full h-9 rounded-lg bg-rose-500/20 hover:bg-rose-500/30 text-rose-400 border border-rose-500/30 font-black transition-all flex items-center justify-center gap-1 tracking-wider uppercase text-[12px]"
-                                                                              >
-                                                                                  {isInjecting ? (
-                                                                                      <div className="w-3 h-3 border-2 border-rose-500/20 border-t-rose-400 rounded-full animate-spin" />
-                                                                                  ) : (
-                                                                                      <AlertCircle className="w-3 h-3" />
-                                                                                  )}
-                                                                                  {dict.liquidateBtn}
-                                                                              </button>
-                                                                          </div>
-                                                                      ) : null}
-
-                                                                      {/* Rotation Opportunity */}
-                                                                      {lowestScoreHolding && highestScoreScanned && (highestScoreScanned.alphaSnapshot.score > (lowestScoreHolding.alphaScore || 0)) ? (
-                                                                          <div className="p-3.5 rounded-xl bg-cyan-950/20 border border-cyan-500/20 flex flex-col gap-2.5 font-mono">
-                                                                              <div className="flex items-center gap-1.5 text-cyan-400 font-bold text-[12px] uppercase tracking-wider">
-                                                                                  <Zap className="w-3.5 h-3.5 animate-pulse" />
-                                                                                  최적 기회비용 교체 (ROTATION SWAP)
-                                                                              </div>
-                                                                              <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 text-center bg-slate-950/40 p-2 rounded-lg border border-slate-900">
-                                                                                  <div className="flex flex-col">
-                                                                                      <span className="text-rose-400 font-bold">{lowestScoreHolding.ticker}</span>
-                                                                                      <span className="text-[11px] text-slate-500">Score {lowestScoreHolding.alphaScore}</span>
-                                                                                  </div>
-                                                                                  <span className="text-slate-500 font-bold">➔</span>
-                                                                                  <div className="flex flex-col">
-                                                                                      <span className="text-emerald-400 font-bold">{highestScoreScanned.ticker}</span>
-                                                                                      <span className="text-[11px] text-slate-500">Score {highestScoreScanned.alphaSnapshot.score}</span>
-                                                                                  </div>
-                                                                              </div>
-                                                                              <p className="text-[12px] text-slate-400 leading-normal font-jakarta">
-                                                                                  기대치가 가장 저조한 보유 주식 {lowestScoreHolding.ticker}를 정리하고, 스캐너 1위인 고기대값 주식 {highestScoreScanned.ticker}로 자동 교체하여 복리 이익을 보존하십시오.
-                                                                              </p>
-                                                                              <button
-                                                                                  onClick={() => handleRotate(lowestScoreHolding.ticker, highestScoreScanned)}
-                                                                                  disabled={isInjecting}
-                                                                                  className="w-full h-9 rounded-lg bg-cyan-500/20 hover:bg-cyan-500/30 text-cyan-400 border border-cyan-500/30 font-black transition-all flex items-center justify-center gap-1.5 tracking-wider uppercase text-[12px]"
-                                                                              >
-                                                                                  {isInjecting ? (
-                                                                                      <div className="w-3 h-3 border-2 border-cyan-500/20 border-t-cyan-400 rounded-full animate-spin" />
-                                                                                  ) : (
-                                                                                      <Zap className="w-3 h-3" />
-                                                                                  )}
-                                                                                  {dict.executeRotationBtn}
-                                                                              </button>
-                                                                          </div>
-                                                                      ) : (
-                                                                          <div className="p-3.5 rounded-xl bg-slate-950/30 border border-slate-900 flex flex-col gap-1.5 font-jakarta">
-                                                                              <div className="flex items-center gap-1.5 text-slate-400 font-bold text-[12px] uppercase tracking-wider">
-                                                                                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-                                                                                  기대값 정렬 최적화 완료
-                                                                              </div>
-                                                                              <p className="text-[12px] text-slate-500 leading-normal">
-                                                                                  현재 보유 유망주 대비 기회비용 교체가 유효한 신규 스코어 스프레드가 없습니다. 보유 종목 구성을 편안하게 유지하십시오.
-                                                                                  {!decayPositions.length && <span className="text-emerald-400 block mt-1.5 font-bold">✅ 모든 보유 지표 최상급 유지 중</span>}
-                                                                              </p>
-                                                                          </div>
-                                                                      )}
-                                                                  </>
-                                                              )}
-                                                          </div>
-                                                      </div>
-                                                  </div>
-                                              </div>
-                                          </div>
-                                      );
-                                  })()}
                             </div>
-                        </div>
+                            </div>
                     ) : tickers.length === 0 ? (
                         <div className="flex-1 flex flex-col justify-center items-center py-40 gap-4 border border-dashed border-slate-800 rounded-2xl bg-[#0b101c]/20">
                             <AlertCircle className="w-8 h-8 text-slate-600" />

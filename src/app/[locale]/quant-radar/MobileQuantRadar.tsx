@@ -257,7 +257,7 @@ interface TickerData {
     putFloor: number | null;
     gammaFlipLevel: number | null;
     whaleIndex: number;
-    alphaSnapshot: {
+    alphaSnapshot?: {
         score: number;
         grade: string;
         action: string;
@@ -410,6 +410,12 @@ export function MobileQuantRadar() {
     const [pageSize, setPageSize] = useState(10);
     const [tickers, setTickers] = useState<TickerData[]>([]);
     const activeTickers = useMemo(() => tickers.map(t => t.ticker), [tickers]);
+    const sortedTickers = useMemo(() => {
+        if (isAutoPilot) {
+            return [...tickers].sort((a, b) => ((b as any).weight || 0) - ((a as any).weight || 0));
+        }
+        return tickers;
+    }, [tickers, isAutoPilot]);
     const { getPrice } = useRealtimeData(activeTickers);
     const [totalCount, setTotalCount] = useState(0);
     const [totalPages, setTotalPages] = useState(1);
@@ -515,7 +521,7 @@ export function MobileQuantRadar() {
                         `--------------------------------------------------\n\n`;
         }
 
-        const tickersText = tickers.map((item, i) => {
+        const tickersText = sortedTickers.map((item, i) => {
             const weightPct = (((item as any).weight || 0) * 100).toFixed(1);
             const cap = (item as any).allocatedCapital || 0;
             const shares = (item as any).targetShares || 0;
@@ -558,8 +564,8 @@ export function MobileQuantRadar() {
     };
 
     const copyBracketToClipboard = (item: TickerData, entryPrice: number, tp: number, sl: number) => {
-        const score = item.alphaSnapshot.score;
-        const grade = item.alphaSnapshot.grade;
+        const score = item.alphaSnapshot?.score || 50;
+        const grade = item.alphaSnapshot?.grade || 'B';
         
         let text = "";
         if (locale === 'ko') {
@@ -844,7 +850,7 @@ export function MobileQuantRadar() {
                                             const diffQty = targetShares - heldQty;
                                             const wsPriceObj = getPrice(item.ticker);
                                             const livePrice = wsPriceObj ? wsPriceObj.price : (item.realtime?.price || 0);
-                                            return { ticker: item.ticker, diffQty, heldQty, targetShares, livePrice, score: item.alphaSnapshot.score, item };
+                                            return { ticker: item.ticker, diffQty, heldQty, targetShares, livePrice, score: item.alphaSnapshot?.score || 50, item };
                                         })
                                         .filter(x => x.diffQty < 0);
 
@@ -856,7 +862,7 @@ export function MobileQuantRadar() {
                                             const diffQty = targetShares - heldQty;
                                             const wsPriceObj = getPrice(item.ticker);
                                             const livePrice = wsPriceObj ? wsPriceObj.price : (item.realtime?.price || 0);
-                                            return { ticker: item.ticker, diffQty, heldQty, targetShares, livePrice, score: item.alphaSnapshot.score, item };
+                                            return { ticker: item.ticker, diffQty, heldQty, targetShares, livePrice, score: item.alphaSnapshot?.score || 50, item };
                                         })
                                         .filter(x => x.diffQty > 0)
                                         .sort((a, b) => b.score - a.score);
@@ -1140,7 +1146,7 @@ export function MobileQuantRadar() {
                                                                      ) : null}
 
                                                                      {/* Rotation Opportunity */}
-                                                                     {lowestScoreHolding && highestScoreScanned && (highestScoreScanned.alphaSnapshot.score > (lowestScoreHolding.alphaScore || 0)) ? (
+                                                                     {lowestScoreHolding && highestScoreScanned && ((highestScoreScanned.alphaSnapshot?.score || 0) > (lowestScoreHolding.alphaScore || 0)) ? (
                                                                          <div className="p-3 rounded-xl bg-cyan-950/20 border border-cyan-500/20 flex flex-col gap-2 font-mono">
                                                                              <div className="flex items-center gap-1.5 text-cyan-400 font-bold text-[12px] uppercase tracking-wider">
                                                                                  <Zap className="w-3.5 h-3.5 animate-pulse" />
@@ -1154,7 +1160,7 @@ export function MobileQuantRadar() {
                                                                                  <span className="text-slate-500 font-bold">➔</span>
                                                                                  <div className="flex flex-col">
                                                                                      <span className="text-emerald-400 font-bold">{highestScoreScanned.ticker}</span>
-                                                                                     <span className="text-[11px] text-slate-500">Score {highestScoreScanned.alphaSnapshot.score}</span>
+                                                                                     <span className="text-[11px] text-slate-500">Score {highestScoreScanned.alphaSnapshot?.score || 0}</span>
                                                                                  </div>
                                                                              </div>
                                                                              <p className="text-[12px] text-slate-400 leading-normal font-jakarta">
@@ -1224,7 +1230,7 @@ export function MobileQuantRadar() {
                                         Optimal Allocations
                                     </h3>
                                     
-                                    {tickers.map((item, idx) => {
+                                    {sortedTickers.map((item, idx) => {
                                         const grade = item.alphaSnapshot?.grade || 'B';
                                         const score = item.alphaSnapshot?.score || 50;
                                         const weightPct = (((item as any).weight || 0) * 100).toFixed(1);
