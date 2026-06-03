@@ -1,0 +1,117 @@
+/* ═══════════════════════════════════════════════════════════
+   RADAR DESIGN TOKENS — Midnight Navy Palette
+   Last updated: 2026-06-03
+   ═══════════════════════════════════════════════════════════ */
+
+:root {
+  /* ── Surface Hierarchy ─────────────────────────────────── */
+  --radar-bg-base: #0A0F1E;
+  --radar-bg-elevated: #111827;
+  --radar-bg-surface: #1E293B;
+  --radar-bg-glass: rgba(17, 24, 39, 0.70);
+  --radar-bg-glass-hover: rgba(30, 41, 59, 0.50);
+  --radar-border-subtle: rgba(255, 255, 255, 0.06);
+  --radar-border-accent: rgba(56, 189, 248, 0.20);
+
+  /* ── Text Hierarchy ────────────────────────────────────── */
+  --radar-text-primary: #F1F5F9;
+  --radar-text-secondary: #94A3B8;
+  --radar-text-muted: #64748B;
+  --radar-text-inverse: #0F172A;
+
+  /* ── Semantic Colors ───────────────────────────────────── */
+  --radar-accent: #38BDF8;
+  --radar-positive: #34D399;
+  --radar-negative: #F87171;
+  --radar-warning: #FBBF24;
+  --radar-info: #818CF8;
+
+  /* ── Grade Colors ──────────────────────────────────────── */
+  --radar-grade-s: #34D399;
+  --radar-grade-a: #38BDF8;
+  --radar-grade-b: #94A3B8;
+  --radar-grade-c: #64748B;
+  --radar-grade-d: #F59E0B;
+  --radar-grade-f: #F87171;
+
+  /* ── Typography ────────────────────────────────────────── */
+  --radar-font-mono: 'JetBrains Mono', 'SF Mono', 'Cascadia Code', monospace;
+  --radar-font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+}
+
+/* ── Utility Classes ──────────────────────────────────────── */
+
+.radar-glass {
+  background: var(--radar-bg-glass);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--radar-border-subtle);
+}
+
+.radar-glass-hover:hover {
+  background: var(--radar-bg-glass-hover);
+  border-color: var(--radar-border-accent);
+}
+
+.radar-mono {
+  font-family: var(--radar-font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.radar-sans {
+  font-family: var(--radar-font-sans);
+}
+
+/* ── Grade Indicator Strips ───────────────────────────────── */
+.radar-grade-strip-s { border-left: 3px solid var(--radar-grade-s); }
+.radar-grade-strip-a { border-left: 3px solid var(--radar-grade-a); }
+.radar-grade-strip-b { border-left: 3px solid var(--radar-grade-b); }
+.radar-grade-strip-c { border-left: 3px solid var(--radar-grade-c); }
+.radar-grade-strip-d { border-left: 3px solid var(--radar-grade-d); }
+.radar-grade-strip-f { border-left: 3px solid var(--radar-grade-f); }
+
+/* ── Score Progress Bar ───────────────────────────────────── */
+.radar-score-bar {
+  height: 6px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.06);
+  overflow: hidden;
+}
+.radar-score-bar-fill {
+  height: 100%;
+  border-radius: 3px;
+  transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ── Action Row Colors ────────────────────────────────────── */
+.radar-action-sell { 
+  background: rgba(248, 113, 113, 0.08);
+  border-left: 3px solid var(--radar-negative);
+}
+.radar-action-buy {
+  background: rgba(52, 211, 153, 0.08);
+  border-left: 3px solid var(--radar-positive);
+}
+.radar-action-swap {
+  background: rgba(129, 140, 248, 0.08);
+  border-left: 3px solid var(--radar-info);
+}
+
+/* ── Animations ───────────────────────────────────────────── */
+@keyframes radar-fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes radar-pulse-soft {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+.radar-fade-in {
+  animation: radar-fadeIn 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.radar-pulse {
+  animation: radar-pulse-soft 2s ease-in-out infinite;
+}
