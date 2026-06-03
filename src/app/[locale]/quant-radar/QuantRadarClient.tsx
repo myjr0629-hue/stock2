@@ -12,6 +12,7 @@ import { useTranslations, useLocale } from 'next-intl';
 import { useTier } from '@/contexts/TierContext';
 import { usePortfolio } from '@/hooks/usePortfolio';
 import { useRealtimeData } from '@/providers/WebSocketProvider';
+import { requestNotificationPermission, sendRadarAlert } from '@/services/radarNotifications';
 
 // Premium HSL glowing tokens
 const gradeColorMap: Record<string, { bg: string, text: string, border: string, glow: string }> = {
@@ -449,6 +450,10 @@ export function QuantRadarClient() {
     // Clipboard copy indicators
     const [copiedTicker, setCopiedTicker] = useState<string | null>(null);
 
+    // V2 Trading Engine state
+    const [driftAlerts, setDriftAlerts] = useState<any[]>([]);
+    const [engineMeta, setEngineMeta] = useState<any>(null);
+
     // Sonar sweep rotation angle
     const sweepAngleRef = useRef(0);
 
@@ -588,8 +593,18 @@ export function QuantRadarClient() {
                 const data = await res.json();
                 if (data.ok) {
                     setTickers(data.results || []);
-                    setTotalCount(data.meta.totalCount || 0);
-                    setTotalPages(data.meta.totalPages || 1);
+                    setTotalCount(data.meta?.totalCount || 0);
+                    setTotalPages(data.meta?.totalPages || 1);
+                    // V2 engine fields
+                    if (data.driftAlerts) setDriftAlerts(data.driftAlerts);
+                    if (data.meta) setEngineMeta(data.meta);
+                    // Push notifications for critical alerts
+                    if (data.alerts?.liquidations?.length > 0) {
+                        sendRadarAlert('📉 Liquidation Signal', data.alerts.liquidations.map((l: any) => l.ticker).join(', ') + ' — Score decay detected', 'liquidation');
+                    }
+                    if (data.driftAlerts?.length > 0) {
+                        sendRadarAlert('⚠️ Rebalance Signal', data.driftAlerts.length + ' positions drifted beyond ±15%', 'drift');
+                    }
                 }
             } catch (e) {
                 console.error('[QuantRadarClient] Failed to fetch metrics:', e);
@@ -910,7 +925,12 @@ export function QuantRadarClient() {
                                     AUTO-PILOT ENGINE
                                 </span>
                                 <button 
-                                    onClick={() => { setIsAutoPilot(!isAutoPilot); setPage(1); }}
+                                    onClick={() => { 
+                                        const newState = !isAutoPilot;
+                                        setIsAutoPilot(newState); 
+                                        setPage(1);
+                                        if (newState) requestNotificationPermission();
+                                    }}
                                     className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out outline-none ${
                                         isAutoPilot ? 'bg-cyan-500' : 'bg-slate-800'
                                     }`}
@@ -1134,6 +1154,11 @@ export function QuantRadarClient() {
                                     <span className="text-sm font-black text-white font-mono mt-0.5 whitespace-nowrap">
                                         ${totalCapital.toLocaleString()} / <span className="text-cyan-400">${cashBalance.toLocaleString(undefined, {maximumFractionDigits:2})}</span>
                                     </span>
+                                    {engineMeta?.cashReserve > 0 && (
+                                        <span className="text-[10px] font-bold text-amber-400/80 mt-0.5 uppercase tracking-wider">
+                                            🛡️ Cash Reserve {(engineMeta.cashReserve * 100).toFixed(0)}% (${engineMeta.cashReserveAmount?.toLocaleString(undefined, {maximumFractionDigits:0})})
+                                        </span>
+                                    )}
                                 </div>
 
                                 <div className="flex flex-col justify-center border-t lg:border-t-0 lg:border-l border-slate-800/80 lg:pl-6 py-2 lg:py-0 min-w-0">
@@ -1187,6 +1212,27 @@ export function QuantRadarClient() {
                                     )}
                                 </button>
                             </div>
+
+                            {/* V2 CIRCUIT BREAKER WARNING BANNER */}
+                            {driftAlerts.length > 0 && (
+                                <div className="p-4 rounded-2xl bg-amber-950/30 border border-amber-500/30 shadow-[0_0_15px_rgba(245,158,11,0.1)] animate-[fadeIn_0.3s_ease-out]">
+                                    <div className="flex items-center gap-2 text-amber-400 font-black text-[13px] uppercase tracking-wider mb-2">
+                                        <AlertCircle className="w-4 h-4" />
+                                        WEIGHT DRIFT DETECTED — {driftAlerts.length} POSITION{driftAlerts.length > 1 ? 'S' : ''}
+                                    </div>
+                                    <div className="flex flex-wrap gap-2">
+                                        {driftAlerts.map((d: any) => (
+                                            <span key={d.ticker} className={`px-3 py-1 rounded-lg text-xs font-bold border ${
+                                                d.direction === 'OVERWEIGHT' 
+                                                    ? 'bg-rose-950/30 text-rose-400 border-rose-500/20' 
+                                                    : 'bg-cyan-950/30 text-cyan-400 border-cyan-500/20'
+                                            }`}>
+                                                {d.ticker} {d.direction === 'OVERWEIGHT' ? '▲' : '▼'} {d.driftPct}% drift
+                                            </span>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
 
 <div className="flex flex-col gap-6 w-full animate-[fadeIn_0.4s_ease-out]">
                                 {/* 1. PLAYBOOK & ALIGNMENT SECTION (MOVED TO TOP) */}

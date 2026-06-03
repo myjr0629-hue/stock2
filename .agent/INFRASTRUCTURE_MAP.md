@@ -7707,3 +7707,242 @@ Reddit:   개인 계정만, 홍보 금지, 링크 4주 후 → 신뢰 빌딩 채
 | `MarketPressureBriefV35.tsx` | `ComplianceFooter disclaimer=` → `text=` |
 | `MarketPressureBriefV36.tsx` | `ComplianceFooter disclaimer=` → `text=` + `color` 타입 `string` 명시 |
 | `MarketPressureBriefV37.tsx` | `ComplianceFooter disclaimer=` → `text=` |
+
+---
+
+## 33. 🔧 Quant Radar V2 Trading Engine — 실전 매매 엔진 강화 (2026-06-03, 커밋 3909665e)
+
+> **목적**: Quant Radar를 "점수 조회 도구"에서 **실전 매매 실행 시스템**으로 격상
+> **범위**: API route + 4개 신규 서비스/훅 + 클라이언트 통합
+> **엔진 식별자**: `kelly-rp-v2`
+
+### 33.1 핵심 변경 — 7개 Critical 갭 해결
+
+| # | 갭 | 이전 | 이후 | 파일 |
+|---|-----|------|------|------|
+| 1 | Kelly p값 | `p = score/100` | `p = empiricalWinRate(score)` | `route.ts` |
+| 2 | 현금 배분 | 항상 100% 투자 | Regime 기반 0~35% 현금 | `route.ts` |
+| 3 | MDD 차단기 | 없음 | -8% MDD / -3% 일일 / -12% 개별 | `circuitBreaker.ts` |
+| 4 | 드로다운 추적 | 없음 | HWM + localStorage 저장 | `usePortfolioTracker.ts` |
+| 5 | 외부 알림 | 없음 | 브라우저 Notification API | `radarNotifications.ts` |
+| 6 | 주문 이력 | 없음 | Supabase `radar_orders` | `useOrderHistory.ts` |
+| 7 | 자동 갱신 | 수동 갱신만 | 60초 자동 폴링 | `QuantRadarClient.tsx` |
+
+### 33.2 Kelly 경험적 승률 보정 (V7 백테스트 기반)
+
+```
+출처: 54,850 T+3 pairs, t=12.84, p<0.0001
+
+기존: p = score / 100 (Score 85 → p = 0.85)
+보정: p = empiricalWinRate(score)
+
+Score 범위 → 실제 승률:
+  85+  → 0.685 (S-grade)
+  70~84 → 0.582~0.685 (A-grade, 선형 보간)
+  55~69 → 0.521~0.582 (B-grade)
+  40~54 → 0.420~0.521 (C-grade)
+  25~39 → 0.354~0.420 (D-grade)
+  <25   → 0.354 (F-grade)
+```
+
+> ⚠️ **절대 규칙**: Kelly 승률 입력은 반드시 `empiricalWinRate(score)`를 사용. `score/100` 사용 금지.
+
+### 33.3 동적 현금 배분 (Regime-Aware Cash Reserve)
+
+```
+입력: 모든 후보의 alphaSnapshot.pillars.regime 평균
+출력: cashReserve (0.00~0.35)
+
+  avgRegime >= 10/15 → 0.00 (우호)
+  avgRegime >=  7/15 → 0.10 (중립)
+  avgRegime >=  4/15 → 0.20 (위험)
+  avgRegime <   4/15 → 0.35 (위기)
+
+investableCapital = totalCapital × (1 - cashReserve)
+```
+
+### 33.4 변동성 추정 우선순위
+
+```
+1순위: IV (Options Implied Volatility) — cache.iv
+2순위: ATR% (14-period ATR as % of price) — cache.atrPct
+3순위: 0.30 × relativeVolume (폴백 휴리스틱)
+
+기존의 RSI 기반 조정 (× (1 + |RSI-50|/50)) 삭제
+```
+
+### 33.5 적응형 포지션 캡
+
+```
+기존: 25% 고정 → 후보 2개일 때 각 50% (과도한 집중)
+변경: min(25%, 1/N + 10%) where N = 후보 수
+
+  N=2 → cap = min(25%, 60%) = 25%
+  N=4 → cap = min(25%, 35%) = 25%
+  N=6 → cap = min(25%, 27%) = 25%  (실질 변화 없음)
+  ※ 소수 후보 시 50% 집중 방지가 핵심
+```
+
+### 33.6 회로 차단기 (Circuit Breaker)
+
+**파일**: `src/services/circuitBreaker.ts`
+
+```typescript
+evaluateCircuitBreaker(currentNAV, highWaterMark, dailyStartNAV, positions, config)
+→ CircuitBreakerResult { triggered, level, message, actions[] }
+
+level: 'NONE' | 'CAUTION' | 'WARNING' | 'HALT'
+
+트리거:
+  개별 종목 손실 ≤ -12% → LIQUIDATE_POSITION (WARNING)
+  일일 P&L ≤ -3% → HALT_NEW_ORDERS (WARNING)
+  MDD ≤ -8% (HWM 대비) → REDUCE_ALL + INCREASE_CASH (HALT)
+```
+
+### 33.7 비중 드리프트 감지
+
+```
+API 입력: holdingsQty=AAPL:10,NVDA:5,... (쿼리 파라미터)
+DRIFT_THRESHOLD = ±15%
+
+drift = |actualWeight - targetWeight| / targetWeight
+drift > 0.15 → driftAlerts[] 배열에 추가
+
+각 알림: { ticker, targetWeight, actualWeight, driftPct, direction: 'OVERWEIGHT'|'UNDERWEIGHT' }
+```
+
+### 33.8 스마트 지정가 (VWAP-Aware Limit Price)
+
+```
+aggressiveness = clamp((alphaScore - 50) / 40, 0, 1)
+
+현재가 < VWAP (할인 구간):
+  offset = ATR% × 0.1 × (1 - aggressiveness)
+  limitPrice = currentPrice × (1 - offset)
+  strategy = 'VWAP_DISCOUNT'
+
+현재가 >= VWAP (프리미엄 구간):
+  offset = ATR% × 0.3 × (1 - aggressiveness)
+  limitPrice = max(VWAP, currentPrice × (1 - offset))
+  strategy = 'VWAP_PULLBACK'
+```
+
+### 33.9 슬리피지 모델
+
+```
+SLIPPAGE_BPS = 10 (0.1%)
+COMMISSION = $1/거래
+
+effectivePrice = price × (1 + 10/10000)
+targetShares = floor((allocatedCapital - $1) / effectivePrice)
+```
+
+### 33.10 신규 파일 목록
+
+| 파일 | 역할 | 크기 |
+|------|------|------|
+| `src/services/circuitBreaker.ts` | 포트폴리오 회로 차단기 (MDD/일일/개별 손절) | ~100줄 |
+| `src/hooks/usePortfolioTracker.ts` | HWM + 드로다운 추적 (localStorage) | ~80줄 |
+| `src/services/radarNotifications.ts` | 브라우저 Web Push 알림 | ~50줄 |
+| `src/hooks/useOrderHistory.ts` | 주문 이력 추적 (Supabase) | ~80줄 |
+
+### 33.11 API 응답 구조 변경 (mode=auto)
+
+```json
+{
+  "ok": true,
+  "results": [{
+    "ticker": "NVDA",
+    "weight": 0.22,
+    "allocatedCapital": 9900,
+    "targetShares": 8,
+    "kellyMeta": {
+      "winProb": 0.685,
+      "kellyFraction": 0.41,
+      "vol": 0.52
+    },
+    "execution": {
+      "entry": 120.50,
+      "takeProfit": 135.00,
+      "stopLoss": 112.00,
+      "riskRewardRatio": 1.71,
+      "smartLimitPrice": 119.82,
+      "smartLimitStrategy": "VWAP_DISCOUNT",
+      "slippageBps": 10
+    }
+  }],
+  "alerts": { "liquidations": [], "rotations": [] },
+  "driftAlerts": [{ "ticker": "AAPL", "driftPct": 22.3, "direction": "OVERWEIGHT" }],
+  "meta": {
+    "totalCapital": 50000,
+    "investableCapital": 45000,
+    "cashReserve": 0.10,
+    "cashReserveAmount": 5000,
+    "positionCap": 0.25,
+    "mode": "auto",
+    "engine": "kelly-rp-v2"
+  }
+}
+```
+
+### 33.12 데이터 흐름 (V2 Trading Engine)
+
+```
+Lambda (signum-harvest, 15분)
+  → Alpha Engine V7.0.0 (5-Pillar + 12-Gate + R-Mode)
+  → Redis cache:analysis:{TICKER} (Score, Pillars, Gates, Sparkline, IV, ATR)
+
+Vercel API /api/quant-radar?mode=auto&totalCapital=50000
+  → Redis MGET 2,000종목 (~50ms)
+  → Filter: Score ≥ 60, Grade S/A/B, BUY/STRONG_BULLISH
+  → Sort by Score → Top 6
+  → calculateCashReserve(candidates) → 현금 0~35%
+  → Pearson Correlation Matrix → Cluster Penalty
+  → Kelly-Risk Parity V2:
+      p = empiricalWinRate(score)  ← V7 백테스트
+      b = (callWall - price) / (price - putFloor)
+      kelly = max(0, p - (1-p)/b)
+      vol = IV || ATR% || 0.30×relVol
+      rawWeight = kelly × 1/(vol × clusterPenalty)
+  → Position Cap: min(25%, 1/N + 10%)
+  → Slippage: effectivePrice = price × 1.001
+  → Smart Limit: VWAP-aware pricing
+  → Drift Detection: ±15% band
+  → Response with kellyMeta, execution, driftAlerts, cashReserve
+
+Client (QuantRadarClient.tsx)
+  → Auto-refresh 60s polling (autopilot)
+  → usePortfolioTracker (HWM, MDD%, dailyPnL)
+  → radarNotifications (Browser Push)
+  → useOrderHistory (Supabase logging)
+  → 3-Step Rebalance Timeline + Circuit Breaker UI
+```
+
+### 33.13 Supabase 테이블 (radar_orders)
+
+```sql
+-- 주문 이력 추적 테이블 (실행 필요)
+CREATE TABLE radar_orders (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    user_id UUID REFERENCES auth.users(id),
+    ticker TEXT NOT NULL,
+    action TEXT NOT NULL,
+    shares INTEGER NOT NULL,
+    target_price NUMERIC,
+    actual_price NUMERIC,
+    alpha_score INTEGER,
+    alpha_grade TEXT,
+    weight NUMERIC,
+    reason TEXT,
+    portfolio_nav NUMERIC,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+```
+
+### 33.14 절대 규칙
+
+> 🔴 **Kelly p값**: `empiricalWinRate(score)` 사용 필수. `score/100` 사용 금지.
+> 🔴 **현금 배분**: Regime 평균이 4 미만이면 최소 35% 현금 유지.
+> 🔴 **회로 차단기**: MDD -8% 초과 시 즉시 전 포지션 50% 축소.
+> 🔴 **슬리피지**: 배분 계산 시 항상 0.1% + $1 반영.
+> 🔴 **ATR 우선**: 변동성 추정에서 ATR% 사용 가능하면 RSI 휴리스틱보다 우선.
