@@ -71,8 +71,55 @@ export async function GET(request: Request) {
         const totalCapital = parseFloat(searchParams.get('totalCapital') || '10000');
         const holdingsParam = searchParams.get('holdings') || '';
         const userHoldings = holdingsParam ? holdingsParam.split(',').map(t => t.trim().toUpperCase()).filter(Boolean) : [];
+        // Holdings with quantities for drift detection: "AAPL:10,NVDA:5"
+        const holdingsQtyParam = searchParams.get('holdingsQty') || '';
+        const userHoldingsQty: Array<{ticker: string; qty: number}> = holdingsQtyParam
+            ? holdingsQtyParam.split(',').map(h => {
+                const [t, q] = h.split(':');
+                return { ticker: t?.trim().toUpperCase() || '', qty: parseInt(q || '0', 10) };
+            }).filter(h => h.ticker && h.qty > 0)
+            : [];
 
         if (mode === 'auto') {
+            // ── V7 Empirical Win Rate Calibration ──────────────────────────────
+            // Derived from 54,850 T+3 pairs backtest (t=12.84, p<0.0001)
+            // Replaces naive p = score/100 with actual grade-level hit rates
+            const empiricalWinRate = (score: number): number => {
+                if (score >= 85) return 0.685;  // S-grade: 68.5% win rate
+                if (score >= 70) return 0.582 + (score - 70) * (0.685 - 0.582) / 15;
+                if (score >= 55) return 0.521 + (score - 55) * (0.582 - 0.521) / 15;
+                if (score >= 40) return 0.420 + (score - 40) * (0.521 - 0.420) / 15;
+                if (score >= 25) return 0.354 + (score - 25) * (0.420 - 0.354) / 15;
+                return 0.354;  // F-grade: 35.4% win rate
+            };
+
+            // ── Dynamic Cash Reserve (Regime-Aware) ───────────────────────────
+            // When market regime is hostile, hold cash instead of forcing 100% invested
+            const calculateCashReserve = (cands: AnalysisCacheEntry[]): number => {
+                const regimeScores = cands
+                    .map(c => c.alphaSnapshot?.pillars?.regime)
+                    .filter((r): r is number => r != null);
+                if (regimeScores.length === 0) return 0.10;
+                const avgRegime = regimeScores.reduce((s, r) => s + r, 0) / regimeScores.length;
+                if (avgRegime >= 10) return 0.00;  // Favorable
+                if (avgRegime >= 7)  return 0.10;  // Neutral
+                if (avgRegime >= 4)  return 0.20;  // Adverse
+                return 0.35;                        // Crisis
+            };
+
+            // ── Smart Limit Price Calculator ──────────────────────────────────
+            const calculateSmartLimit = (
+                currentPrice: number, vwap: number, atrPct: number, alphaScore: number
+            ): { limitPrice: number; strategy: string } => {
+                const aggressiveness = Math.min(1.0, Math.max(0, (alphaScore - 50) / 40));
+                if (currentPrice < vwap) {
+                    const offset = (atrPct || 0.02) * 0.1 * (1 - aggressiveness);
+                    return { limitPrice: parseFloat((currentPrice * (1 - offset)).toFixed(2)), strategy: 'VWAP_DISCOUNT' };
+                } else {
+                    const offset = (atrPct || 0.02) * 0.3 * (1 - aggressiveness);
+                    return { limitPrice: parseFloat(Math.max(vwap, currentPrice * (1 - offset)).toFixed(2)), strategy: 'VWAP_PULLBACK' };
+                }
+            };
             // Helper function to calculate Pearson correlation coefficient from historical sparkline daily log returns
             const calculateSparklinePearson = (sparkA: number[], sparkB: number[]): number => {
                 if (!sparkA || !sparkB || sparkA.length < 5 || sparkB.length < 5) {
@@ -150,22 +197,28 @@ export async function GET(request: Request) {
                 correlations[assetA.ticker] = correlationSum;
             });
 
-            // D. Kelly-Risk Parity allocation calculation
+            // ── Dynamic Cash Reserve Calculation ──────────────────────────
+            const cashReserve = calculateCashReserve(topCandidates);
+            const investableCapital = totalCapital * (1 - cashReserve);
+
+            // D. Kelly-Risk Parity allocation calculation (V7 calibrated)
             let rawWeights = topCandidates.map(e => {
                 const score = e.alphaSnapshot.score;
                 const ivVal = e.iv ?? null;
-                const rsiVal = e.rsi ?? 50;
                 const rvolVal = e.relVol ?? 1.0;
                 const price = e.vwap || 0;
 
-                // 1. Technical/Implied Volatility
+                // 1. Volatility: IV → ATR → heuristic fallback
                 let vol = ivVal;
+                if (vol === null && (e as any).atrPct) {
+                    vol = (e as any).atrPct;  // ATR as % of price (realized vol)
+                }
                 if (vol === null) {
-                    vol = Math.max(0.10, 0.30 * rvolVal) * (1 + Math.abs(rsiVal - 50) / 50);
+                    vol = Math.max(0.10, 0.30 * rvolVal);  // simplified fallback
                 }
 
-                // 2. Win Probability vs Option-bracket payout odds (Kelly Expectancy)
-                const p = score / 100;
+                // 2. Empirical Win Probability (V7 backtest-calibrated)
+                const p = empiricalWinRate(score);
                 const tp = e.callWall && e.callWall > price ? e.callWall : (price * 1.08);
                 const sl = e.putFloor && e.putFloor < price ? e.putFloor : (price * 0.94);
                 const b = price - sl > 0 ? (tp - price) / (price - sl) : 2.0;
@@ -175,18 +228,21 @@ export async function GET(request: Request) {
                 // 3. Cluster Penalty
                 const penalty = correlations[e.ticker] || 1.0;
                 
-                // Weight combines Kelly expectancy with correlation-penalized risk parity
+                // Weight combines calibrated Kelly × correlation-penalized risk parity
                 const rawWeight = kelly * (1 / (vol * penalty));
 
-                return { ticker: e.ticker, rawWeight, entry: e };
+                return { ticker: e.ticker, rawWeight, entry: e, vol, kellyFraction: kelly, winProb: p };
             });
 
             const totalRawWeight = rawWeights.reduce((sum, item) => sum + item.rawWeight, 0) || 1;
             
-            // Normalize weights and apply 25% cap for prudence
+            // Adaptive position cap: min(25%, 1/N + 10%) where N = number of candidates
+            const positionCap = Math.min(0.25, (1 / Math.max(topCandidates.length, 2)) + 0.10);
+
+            // Normalize weights and apply position cap
             let allocatedPort = rawWeights.map(item => {
                 let normWeight = item.rawWeight / totalRawWeight;
-                const weight = Math.min(0.25, normWeight);
+                const weight = Math.min(positionCap, normWeight);
                 return { ...item, weight };
             });
 
@@ -273,14 +329,23 @@ export async function GET(request: Request) {
                     }
                 } catch {}
 
-                const allocatedCapital = totalCapital * item.weight;
-                const targetShares = price > 0 ? Math.floor(allocatedCapital / price) : 0;
+                // Slippage-adjusted allocation (0.1% + $1 commission per trade)
+                const SLIPPAGE_BPS = 10;
+                const COMMISSION = 1.0;
+                const allocatedCapital = investableCapital * item.weight;
+                const slippagePerShare = price * (SLIPPAGE_BPS / 10000);
+                const effectivePrice = price + slippagePerShare;
+                const targetShares = price > 0 ? Math.floor((allocatedCapital - COMMISSION) / effectivePrice) : 0;
 
                 // Mathematical Option Wall / ATR bracket levels
                 const entryTarget = price;
                 const tp = entry.callWall && entry.callWall > price ? entry.callWall : (price * 1.08);
                 const sl = entry.putFloor && entry.putFloor < price ? entry.putFloor : (price * 0.94);
                 const rrRatio = (sl !== price) ? (tp - price) / (price - sl) : 2.0;
+
+                // Smart limit price
+                const atrPct = (entry as any).atrPct || 0.02;
+                const smartLimit = calculateSmartLimit(price, entry.vwap || price, atrPct, entry.alphaSnapshot.score);
 
                 return {
                     ticker: entry.ticker,
@@ -292,6 +357,11 @@ export async function GET(request: Request) {
                     pcr: entry.pcr,
                     gexM: entry.gexM,
                     alphaSnapshot: entry.alphaSnapshot,
+                    kellyMeta: {
+                        winProb: item.winProb,
+                        kellyFraction: item.kellyFraction,
+                        vol: item.vol,
+                    },
                     realtime: {
                         price,
                         changePct,
@@ -303,19 +373,64 @@ export async function GET(request: Request) {
                         entry: entryTarget,
                         takeProfit: tp,
                         stopLoss: sl,
-                        riskRewardRatio: parseFloat(rrRatio.toFixed(2))
+                        riskRewardRatio: parseFloat(rrRatio.toFixed(2)),
+                        smartLimitPrice: smartLimit.limitPrice,
+                        smartLimitStrategy: smartLimit.strategy,
+                        slippageBps: SLIPPAGE_BPS,
                     }
                 };
             }));
+
+            // ── Weight Drift Detection ────────────────────────────────────────
+            const driftAlerts: Array<{
+                ticker: string; targetWeight: number; actualWeight: number;
+                driftPct: number; needsRebalance: boolean; direction: string;
+            }> = [];
+
+            if (userHoldingsQty.length > 0) {
+                const DRIFT_THRESHOLD = 0.15;
+                // Compute actual NAV from holdings
+                let actualTotalVal = 0;
+                const holdingValues: Record<string, number> = {};
+                for (const h of userHoldingsQty) {
+                    const result = results.find(r => r.ticker === h.ticker);
+                    const hPrice = result?.realtime?.price || 0;
+                    const val = h.qty * hPrice;
+                    holdingValues[h.ticker] = val;
+                    actualTotalVal += val;
+                }
+                if (actualTotalVal > 0) {
+                    for (const r of results) {
+                        const targetW = r.weight;
+                        const actualVal = holdingValues[r.ticker] || 0;
+                        const actualW = actualVal / actualTotalVal;
+                        const drift = targetW > 0.01 ? Math.abs(actualW - targetW) / targetW : 0;
+                        if (drift > DRIFT_THRESHOLD) {
+                            driftAlerts.push({
+                                ticker: r.ticker, targetWeight: targetW, actualWeight: actualW,
+                                driftPct: parseFloat((drift * 100).toFixed(1)),
+                                needsRebalance: true,
+                                direction: actualW > targetW ? 'OVERWEIGHT' : 'UNDERWEIGHT'
+                            });
+                        }
+                    }
+                }
+            }
 
             return NextResponse.json({
                 ok: true,
                 results,
                 alerts,
+                driftAlerts,
                 meta: {
                     totalCount: results.length,
                     totalCapital,
-                    mode: 'auto'
+                    investableCapital,
+                    cashReserve,
+                    cashReserveAmount: totalCapital * cashReserve,
+                    positionCap,
+                    mode: 'auto',
+                    engine: 'kelly-rp-v2'
                 }
             }, {
                 headers: {

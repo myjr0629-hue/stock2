@@ -604,6 +604,15 @@ export function QuantRadarClient() {
         fetchRadarData();
     }, [scoreMin, selectedGrades, selectedOverlay, sortBy, sortOrder, page, gexMin, pcrMax, darkPoolMin, isAdmin, isAutoPilot, totalCapital]);
 
+    // Auto-refresh polling every 60s in autopilot mode
+    useEffect(() => {
+        if (!isAutoPilot || !isAdmin) return;
+        const interval = setInterval(() => {
+            fetchRadarData();
+        }, 60_000);
+        return () => clearInterval(interval);
+    }, [isAutoPilot, isAdmin, totalCapital]);
+
     const handleSearchSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         setPage(1);
