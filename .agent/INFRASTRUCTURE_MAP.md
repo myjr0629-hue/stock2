@@ -7946,3 +7946,84 @@ CREATE TABLE radar_orders (
 > 🔴 **회로 차단기**: MDD -8% 초과 시 즉시 전 포지션 50% 축소.
 > 🔴 **슬리피지**: 배분 계산 시 항상 0.1% + $1 반영.
 > 🔴 **ATR 우선**: 변동성 추정에서 ATR% 사용 가능하면 RSI 휴리스틱보다 우선.
+
+---
+
+## 34. 🎨 Quant Radar V2 UI 전면 개편 (2026-06-03, 커밋 531dc264)
+
+> **목적**: Radar 페이지를 "어둡고 과밀한 데이터 나열" → "프리미엄 실전 매매 대시보드"로 전환
+> **방향**: 5초 규칙 (P&L + 행동 5초 내 파악), Progressive Disclosure, 글래스모피즘
+> **결과**: 2053줄 → 1631줄 (420줄 삭감, +386/-684)
+
+### 34.1 디자인 시스템
+
+**파일**: `src/styles/radar-tokens.css` [NEW]
+
+| 토큰 | 기존 | 변경 | 용도 |
+|------|------|------|------|
+| 배경 | `#05070f` (순수 검정) | `#0A0F1E` (딥 네이비) | 눈 피로 감소 |
+| 카드 | `#0b101c` | `#111827/80` + backdrop-blur | 글래스모피즘 |
+| 보더 | `border-slate-800` | `border-white/5` | 미세한 경계 |
+| 액센트 | `cyan-400` | `sky-400` (#38BDF8) | 더 부드러운 블루 |
+| 수익 | `emerald-400` | 유지 (#34D399) | — |
+| 손실 | `rose-400` | 유지 (#F87171) | — |
+| 경고 | `amber-500` | `amber-400` (#FBBF24) | — |
+
+**폰트**: JetBrains Mono (숫자) + Inter (라벨)
+- `font-[family-name:var(--font-jetbrains)] tabular-nums` — 모든 가격/수량
+- `font-[family-name:var(--font-inter)]` — 모든 라벨/설명
+
+### 34.2 레이아웃 변경 (4-Zone)
+
+```
+기존: HUD → Matrix Header → Drift → Playbook(300줄) → Guide → Table → Pagination
+변경: Mission Control(sticky) → Action Queue → Portfolio Grid → Pagination
+```
+
+| Zone | 역할 | 변경사항 |
+|------|------|---------|
+| **A: Mission Control** | 핵심 KPI 상단 고정 | `sticky top-0 z-20`, glass effect, 4-col: Capital/Cash/NAV/P&L |
+| **B: Action Queue** | 즉시 실행 안내 | 3-Step Playbook 298줄 → 104줄 통합 액션 리스트 |
+| **C: Portfolio Grid** | 포지션 카드 | HTML `<table>` → `grid-cols-1 sm:2 xl:3` 카드 |
+| **S: Sidebar** | 필터 | 캔버스 레이더 제거, 축소형 헤더 |
+
+### 34.3 제거된 컴포넌트
+
+| 컴포넌트 | 줄 수 | 제거 이유 |
+|----------|-------|----------|
+| Canvas 레이더 애니메이션 | 86줄 | rAF 상시 실행 → 성능 부담 |
+| SVG 원형 스코어 게이지 | 16줄 | 가로 프로그레스 바로 대체 |
+| 옵션 월 슬라이더 | 20줄 | 텍스트 수치(Put/Entry/Call)로 대체 |
+| 3-Step 타임라인 UI | 200줄 | 체크박스 액션 리스트로 압축 |
+| "PROPRIETARY COCKPIT" 라벨 | 매 카드 | 정보 가치 0, 공간 낭비 |
+| "COCKPIT ENGAGED" 배너 | 사이드바 | 캔버스와 함께 제거 |
+
+### 34.4 추가된 컴포넌트
+
+| 컴포넌트 | 위치 | 설명 |
+|----------|------|------|
+| Mission Control Bar | Zone A | sticky glass bar, 4-col KPI |
+| Action Queue | Zone B | SELL/BUY/SWAP 인라인 행 + 체크박스 |
+| Portfolio Card Grid | Zone C | 3-column responsive cards |
+| Score Progress Bar | Scanner 카드 | 가로 바 (emerald→sky→amber→rose) |
+| Engine Badge | 사이드바 | "V2 Engine • Kelly-RP" |
+
+### 34.5 Grade 색상 토큰 변경
+
+| Grade | 기존 bg | 변경 bg | 변경 text |
+|-------|---------|---------|----------|
+| S | `emerald-950/40` | `emerald-900/20` | `emerald-400` |
+| A | `cyan-950/40` | `sky-900/20` | `sky-400` |
+| B | `slate-950/40` | `slate-800/30` | `slate-300` |
+| C | `slate-950/40` | `slate-800/20` | `slate-400` |
+| D | `amber-950/40` | `amber-900/20` | `amber-400` |
+| F | `rose-950/40` | `rose-900/20` | `rose-400` |
+
+### 34.6 수정 파일 목록
+
+| 파일 | 변경 | +/- |
+|------|------|-----|
+| `src/styles/radar-tokens.css` | [NEW] 디자인 토큰 CSS | +110 |
+| `src/app/layout.tsx` | JetBrains Mono 폰트 추가 | +8/-2 |
+| `src/app/[locale]/quant-radar/QuantRadarClient.tsx` | 전체 UI 리디자인 | +386/-684 |
+
