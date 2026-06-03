@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState, useEffect, useRef, useTransition, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useTransition, useMemo, useCallback } from 'react';
+import useSWR from 'swr';
 import { 
     Search, Sliders, Radar, Zap, Shield, ShieldAlert, Activity, 
     TrendingUp, TrendingDown, Target, BarChart3, AlertCircle, 
@@ -426,7 +427,36 @@ export function QuantRadarClient() {
     const [darkPoolMin, setDarkPoolMin] = useState<number>(0);
     const [isAutoPilot, setIsAutoPilot] = useState(false);
     const [totalCapital, setTotalCapital] = useState(50000);
+    const [inputCurrency, setInputCurrency] = useState<'USD' | 'KRW'>('USD');
+    const [rawCapitalInput, setRawCapitalInput] = useState('50000');
     const [completedSteps, setCompletedSteps] = useState<Record<string, boolean>>({});
+
+    // Exchange rate from Redis (cron→Redis→API)
+    const { data: fxData } = useSWR('/api/exchange-rates', (url: string) => fetch(url).then(r => r.json()), {
+        refreshInterval: 60_000,
+        dedupingInterval: 30_000,
+    });
+    const usdkrw = fxData?.usdkrw || null;
+
+    // Auto-convert KRW→USD when exchange rate or input changes
+    const handleCapitalInput = useCallback((value: string) => {
+        setRawCapitalInput(value);
+        const num = Number(value) || 0;
+        if (inputCurrency === 'KRW' && usdkrw && usdkrw > 0) {
+            setTotalCapital(Math.max(100, Math.round(num / usdkrw)));
+        } else {
+            setTotalCapital(Math.max(100, num));
+        }
+    }, [inputCurrency, usdkrw]);
+
+    // Re-convert when currency toggles
+    useEffect(() => {
+        if (inputCurrency === 'KRW' && usdkrw) {
+            setRawCapitalInput(Math.round(totalCapital * usdkrw).toString());
+        } else {
+            setRawCapitalInput(totalCapital.toString());
+        }
+    }, [inputCurrency]);
 
     const [sortBy, setSortBy] = useState('score');
     const [sortOrder, setSortOrder] = useState('desc');
@@ -807,7 +837,7 @@ export function QuantRadarClient() {
                             </div>
                             <div>
                                 <div className="text-sm font-bold text-slate-100 tracking-wide">QUANT RADAR</div>
-                                <div className="text-[11px] text-slate-500 font-medium">V2 Engine • Kelly-RP</div>
+                                <div className="text-[13px] text-slate-300 font-medium">V2 Engine • Kelly-RP</div>
                             </div>
                         </div>
                     </div>
@@ -851,17 +881,39 @@ export function QuantRadarClient() {
                             </div>
                             
                             {isAutoPilot && (
-                                <div className="flex flex-col gap-1.5 pt-2 border-t border-cyan-500/10">
-                                    <label className="text-[13px] font-bold tracking-widest text-slate-400 uppercase">Trading Capital (USD)</label>
+                                <div className="flex flex-col gap-2 pt-2 border-t border-sky-500/10">
+                                    <div className="flex items-center justify-between">
+                                        <label className="text-[13px] font-bold text-slate-200 font-[family-name:var(--font-inter)]">Trading Capital</label>
+                                        {usdkrw && (
+                                            <button
+                                                onClick={() => setInputCurrency(c => c === 'USD' ? 'KRW' : 'USD')}
+                                                className={`text-[13px] font-bold px-2 py-0.5 rounded-md border transition-all font-[family-name:var(--font-jetbrains)] ${
+                                                    inputCurrency === 'KRW'
+                                                        ? 'bg-amber-500/10 text-amber-400 border-amber-500/20'
+                                                        : 'bg-sky-500/10 text-sky-400 border-sky-500/20'
+                                                }`}
+                                            >
+                                                {inputCurrency}
+                                            </button>
+                                        )}
+                                    </div>
                                     <div className="relative">
-                                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-cyan-400 font-mono font-bold text-[13px]">$</span>
+                                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sky-400 font-[family-name:var(--font-jetbrains)] font-bold text-[13px]">
+                                            {inputCurrency === 'KRW' ? '₩' : '$'}
+                                        </span>
                                         <input 
                                             type="number"
-                                            value={totalCapital}
-                                            onChange={(e) => setTotalCapital(Math.max(100, Number(e.target.value)))}
-                                            className="w-full pl-7 pr-3 h-8 bg-slate-950/80 border border-cyan-500/20 focus:border-cyan-500/50 transition-all outline-none rounded-lg text-[13px] font-mono font-bold text-white"
+                                            value={rawCapitalInput}
+                                            onChange={(e) => handleCapitalInput(e.target.value)}
+                                            className="w-full pl-7 pr-3 h-9 bg-[#111827]/80 border border-sky-500/20 focus:border-sky-400/50 transition-all outline-none rounded-lg text-[13px] font-[family-name:var(--font-jetbrains)] font-bold text-slate-100"
                                         />
                                     </div>
+                                    {inputCurrency === 'KRW' && usdkrw && (
+                                        <div className="text-[13px] text-slate-300 font-[family-name:var(--font-jetbrains)] tabular-nums">
+                                            ≈ ${totalCapital.toLocaleString()} USD
+                                            <span className="text-slate-400 ml-1">(₩{usdkrw.toLocaleString(undefined, {maximumFractionDigits: 0})}/$1)</span>
+                                        </div>
+                                    )}
                                 </div>
                             )}
                         </div>
@@ -963,7 +1015,7 @@ export function QuantRadarClient() {
                                 
                                 {/* GEX minimum */}
                                 <div className="flex flex-col gap-2">
-                                    <div className="flex justify-between text-[14px] font-bold text-slate-500 uppercase">
+                                    <div className="flex justify-between text-[14px] font-bold text-slate-300 uppercase">
                                         <span>GEX Floor (Millions)</span>
                                         <span className="text-cyan-400 font-mono font-bold">{gexMin === -10 ? 'All' : `>${gexMin}M`}</span>
                                     </div>
@@ -976,7 +1028,7 @@ export function QuantRadarClient() {
 
                                 {/* Put Call Ratio Max */}
                                 <div className="flex flex-col gap-2">
-                                    <div className="flex justify-between text-[14px] font-bold text-slate-500 uppercase">
+                                    <div className="flex justify-between text-[14px] font-bold text-slate-300 uppercase">
                                         <span>PCR Maximum Cap</span>
                                         <span className="text-cyan-400 font-mono font-bold">{pcrMax === 1.8 ? 'All' : `<${pcrMax}`}</span>
                                     </div>
@@ -994,18 +1046,18 @@ export function QuantRadarClient() {
                 {/* CENTRAL AREA: High-density radar scanner grid */}
                 <div className="flex-1 flex flex-col gap-4">
                     {/* Toolbar header */}
-                    <div className="p-4 rounded-2xl bg-[#0b101c]/80 border border-slate-800/80 backdrop-blur-md flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                    <div className="p-4 rounded-xl bg-[#111827]/70 backdrop-blur-sm border border-white/5 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
                         <div className="flex items-center gap-2">
-                            <Activity className="w-4 h-4 text-cyan-400" />
-                            <span className="text-[13px] font-bold text-white tracking-widest uppercase">
-                                PROPRIETARY QUANT COCKPIT
+                            <Activity className="w-4 h-4 text-sky-400" />
+                            <span className="text-[13px] font-bold text-slate-100 tracking-wide font-[family-name:var(--font-inter)]">
+                                QUANT RADAR
                             </span>
-                            {isPending && <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-ping" />}
+                            {isPending && <span className="w-1.5 h-1.5 rounded-full bg-sky-400 animate-ping" />}
                         </div>
 
                         {/* Sort mechanisms */}
-                        <div className="flex items-center gap-2 font-mono text-[13px]">
-                            <span className="text-slate-500">SORT BY:</span>
+                        <div className="flex items-center gap-2 text-[13px] font-[family-name:var(--font-inter)]">
+                            <span className="text-slate-300 font-medium">SORT BY:</span>
                             {['score', 'rsi', 'volume', 'gex'].map(s => {
                                 const active = sortBy === s;
                                 return (
@@ -1022,8 +1074,8 @@ export function QuantRadarClient() {
                                         }}
                                         className={`px-2.5 py-1 rounded transition-all uppercase font-bold ${
                                             active 
-                                                ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/20' 
-                                                : 'text-slate-400 hover:text-slate-200'
+                                                ? 'bg-sky-500/10 text-sky-400 border border-sky-500/20' 
+                                                : 'text-slate-300 hover:text-slate-100'
                                         }`}
                                     >
                                         {s === 'score' ? 'Context Score' : s}
@@ -1036,8 +1088,8 @@ export function QuantRadarClient() {
                     {/* Loader */}
                     {loading ? (
                         <div className="flex-1 flex flex-col justify-center items-center py-40 gap-4">
-                            <div className="w-10 h-10 border-2 border-cyan-500/20 border-t-cyan-400 rounded-full animate-spin" />
-                            <p className="text-[13px] font-mono text-slate-500 uppercase tracking-widest animate-pulse">Running proprietary filters...</p>
+                            <div className="w-10 h-10 border-2 border-sky-500/20 border-t-sky-400 rounded-full animate-spin" />
+                            <p className="text-[13px] font-[family-name:var(--font-inter)] text-slate-300 uppercase tracking-wider animate-pulse">Running filters...</p>
                         </div>
                     ) : isAutoPilot ? (
                         /* AUTONOMOUS ALLOCATION MATRIX (ENGAGED) */
@@ -1045,24 +1097,24 @@ export function QuantRadarClient() {
                             {/* MISSION CONTROL BAR */}
                             <div className="sticky top-0 z-20 grid grid-cols-2 lg:grid-cols-4 gap-4 p-4 rounded-xl bg-[#111827]/70 backdrop-blur-xl border-b border-white/5">
                                 <div className="flex flex-col justify-center min-w-0">
-                                    <span className="text-[11px] font-medium text-slate-500 uppercase tracking-wider font-[family-name:var(--font-inter)]">{dict.tradingCapitalLabel}</span>
+                                    <span className="text-[13px] font-medium text-slate-300 uppercase tracking-wider font-[family-name:var(--font-inter)]">{dict.tradingCapitalLabel}</span>
                                     <span className="text-sm font-bold text-slate-200 font-[family-name:var(--font-jetbrains)] tabular-nums mt-0.5">${totalCapital.toLocaleString()}</span>
                                     {engineMeta?.cashReserve > 0 && (
-                                        <span className="text-[10px] font-medium text-amber-400/80 mt-0.5 font-[family-name:var(--font-inter)]">
+                                        <span className="text-[13px] font-medium text-amber-400/80 mt-0.5 font-[family-name:var(--font-inter)]">
                                             🛡️ Reserve {(engineMeta.cashReserve * 100).toFixed(0)}%
                                         </span>
                                     )}
                                 </div>
                                 <div className="flex flex-col justify-center min-w-0">
-                                    <span className="text-[11px] font-medium text-slate-500 uppercase tracking-wider font-[family-name:var(--font-inter)]">{dict.cashLabel}</span>
+                                    <span className="text-[13px] font-medium text-slate-300 uppercase tracking-wider font-[family-name:var(--font-inter)]">{dict.cashLabel}</span>
                                     <span className="text-sm font-bold text-sky-400 font-[family-name:var(--font-jetbrains)] tabular-nums mt-0.5">${cashBalance.toLocaleString(undefined, {maximumFractionDigits:2})}</span>
                                 </div>
                                 <div className="flex flex-col justify-center min-w-0">
-                                    <span className="text-[11px] font-medium text-slate-500 uppercase tracking-wider font-[family-name:var(--font-inter)]">{dict.navLabel}</span>
+                                    <span className="text-[13px] font-medium text-slate-300 uppercase tracking-wider font-[family-name:var(--font-inter)]">{dict.navLabel}</span>
                                     <span className="text-lg font-bold text-slate-100 font-[family-name:var(--font-jetbrains)] tabular-nums mt-0.5">${computedTotalNAV.toLocaleString(undefined, {maximumFractionDigits:2})}</span>
                                 </div>
                                 <div className="flex flex-col justify-center min-w-0">
-                                    <span className="text-[11px] font-medium text-slate-500 uppercase tracking-wider font-[family-name:var(--font-inter)]">{dict.totalReturnLabel}</span>
+                                    <span className="text-[13px] font-medium text-slate-300 uppercase tracking-wider font-[family-name:var(--font-inter)]">{dict.totalReturnLabel}</span>
                                     <span className={`text-lg font-bold font-[family-name:var(--font-jetbrains)] tabular-nums mt-0.5 ${
                                         computedPL >= 0 ? 'text-emerald-400' : 'text-rose-400'
                                     }`}>
@@ -1079,7 +1131,7 @@ export function QuantRadarClient() {
                                         <Zap className="w-3.5 h-3.5" />
                                         AUTONOMOUS ALLOCATION MATRIX
                                     </div>
-                                    <p className="text-xs text-slate-500 mt-1 font-[family-name:var(--font-inter)]">
+                                    <p className="text-[13px] text-slate-300 mt-1 font-[family-name:var(--font-inter)]">
                                         Kelly Expectancy & Inverse Volatility Risk Parity
                                     </p>
                                 </div>
@@ -1216,7 +1268,7 @@ export function QuantRadarClient() {
                                                                   <h3 className="text-sm font-bold text-slate-100 font-[family-name:var(--font-inter)]">
                                                                       {allActions.length > 0 ? `⚡ ${allActions.length} ACTIONS REQUIRED` : '✅ PORTFOLIO ALIGNED'}
                                                                   </h3>
-                                                                  <span className="text-[11px] text-slate-500 font-[family-name:var(--font-jetbrains)]">{liveAlignmentProgress}% aligned</span>
+                                                                  <span className="text-[13px] text-slate-300 font-[family-name:var(--font-jetbrains)]">{liveAlignmentProgress}% aligned</span>
                                                               </div>
                                                               {allActions.length === 0 ? (
                                                                   <div className="p-3 rounded-lg bg-emerald-900/10 border border-emerald-500/10 text-[12px] text-emerald-400 font-medium flex items-center gap-2">
@@ -1237,7 +1289,7 @@ export function QuantRadarClient() {
                                                                                   >
                                                                                       {isDone && <Check className="w-3 h-3 text-emerald-400" />}
                                                                                   </button>
-                                                                                  <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${tagColor} font-[family-name:var(--font-jetbrains)]`}>{action.type}</span>
+                                                                                  <span className={`text-[13px] font-bold px-1.5 py-0.5 rounded border ${tagColor} font-[family-name:var(--font-jetbrains)]`}>{action.type}</span>
                                                                                   <span className="text-sm font-bold text-slate-100 font-[family-name:var(--font-jetbrains)] min-w-[52px]">{action.type === 'SWAP' ? action.fromTicker : action.ticker}</span>
                                                                                   {action.type === 'SWAP' ? (
                                                                                       <span className="text-xs text-slate-400">→ <span className="text-indigo-400 font-bold">{action.ticker}</span></span>
@@ -1249,7 +1301,7 @@ export function QuantRadarClient() {
                                                                                           <button
                                                                                               onClick={() => handleRotate(action.fromTicker!, action.item)}
                                                                                               disabled={isInjecting}
-                                                                                              className="text-[10px] font-bold text-indigo-400 hover:text-indigo-300 transition font-[family-name:var(--font-inter)]"
+                                                                                              className="text-[13px] font-bold text-indigo-400 hover:text-indigo-300 transition font-[family-name:var(--font-inter)]"
                                                                                           >🔄 EXEC</button>
                                                                                       ) : (
                                                                                           <button
@@ -1257,7 +1309,7 @@ export function QuantRadarClient() {
                                                                                                   const exec = (action.item as any).execution || {};
                                                                                                   copyBracketToClipboard(action.item, action.livePrice, exec.takeProfit || 0, exec.stopLoss || 0);
                                                                                               }}
-                                                                                              className="text-[10px] font-bold text-sky-400 hover:text-sky-300 transition font-[family-name:var(--font-inter)]"
+                                                                                              className="text-[13px] font-bold text-sky-400 hover:text-sky-300 transition font-[family-name:var(--font-inter)]"
                                                                                           >📋 COPY</button>
                                                                                       )}
                                                                                   </div>
@@ -1282,7 +1334,7 @@ export function QuantRadarClient() {
                                                                               try { for (const h of decayPositions) { await removeHolding(h.ticker); } } finally { setIsInjecting(false); }
                                                                           }}
                                                                           disabled={isInjecting}
-                                                                          className="text-[10px] font-bold text-rose-400 hover:text-rose-300 border border-rose-500/20 px-2 py-1 rounded transition"
+                                                                          className="text-[13px] font-bold text-rose-400 hover:text-rose-300 border border-rose-500/20 px-2 py-1 rounded transition"
                                                                       >{dict.liquidateBtn}</button>
                                                                   </div>
                                                               )}
@@ -1331,7 +1383,7 @@ export function QuantRadarClient() {
                                                     {/* Row 1: Grade + Ticker + Weight */}
                                                     <div className="flex items-center justify-between">
                                                         <div className="flex items-center gap-2">
-                                                            <span className={`w-7 h-7 rounded-md flex items-center justify-center text-[11px] font-bold border ${theme.bg} ${theme.text} ${theme.border}`}>{grade}</span>
+                                                            <span className={`w-8 h-8 rounded-md flex items-center justify-center text-[13px] font-bold border ${theme.bg} ${theme.text} ${theme.border}`}>{grade}</span>
                                                             <TickerLogo ticker={item.ticker} className="w-5 h-5" />
                                                             <span className="text-sm font-bold text-slate-100 font-[family-name:var(--font-jetbrains)] tracking-wide">{item.ticker}</span>
                                                         </div>
@@ -1340,30 +1392,30 @@ export function QuantRadarClient() {
                                                     {/* Row 2: Key numbers */}
                                                     <div className="grid grid-cols-3 gap-2 text-center">
                                                         <div>
-                                                            <div className="text-[10px] text-slate-500 font-[family-name:var(--font-inter)] uppercase">{dict.allocatedCap}</div>
+                                                            <div className="text-[13px] text-slate-300 font-[family-name:var(--font-inter)] uppercase">{dict.allocatedCap}</div>
                                                             <div className="text-xs font-bold text-slate-300 font-[family-name:var(--font-jetbrains)] tabular-nums">${allocatedCapital.toLocaleString(undefined, {maximumFractionDigits:0})}</div>
                                                         </div>
                                                         <div>
-                                                            <div className="text-[10px] text-slate-500 font-[family-name:var(--font-inter)] uppercase">{dict.shares}</div>
+                                                            <div className="text-[13px] text-slate-300 font-[family-name:var(--font-inter)] uppercase">{dict.shares}</div>
                                                             <div className="text-xs font-bold text-slate-200 font-[family-name:var(--font-jetbrains)] tabular-nums">{targetShares}</div>
                                                         </div>
                                                         <div>
-                                                            <div className="text-[10px] text-slate-500 font-[family-name:var(--font-inter)] uppercase">{dict.held}</div>
+                                                            <div className="text-[13px] text-slate-300 font-[family-name:var(--font-inter)] uppercase">{dict.held}</div>
                                                             <div className="text-xs font-bold text-sky-400 font-[family-name:var(--font-jetbrains)] tabular-nums">{heldQty}</div>
                                                         </div>
                                                     </div>
                                                     {/* Row 3: Adjustment + Price + Action */}
                                                     <div className="flex items-center justify-between pt-2 border-t border-white/5">
                                                         {diffQty > 0 ? (
-                                                            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/15 font-[family-name:var(--font-jetbrains)]">
+                                                            <span className="text-[13px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/15 font-[family-name:var(--font-jetbrains)]">
                                                                 {dict.actionBuy.replace('{shares}', String(diffQty))}
                                                             </span>
                                                         ) : diffQty < 0 ? (
-                                                            <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-rose-500/10 text-rose-400 border border-rose-500/15 font-[family-name:var(--font-jetbrains)]">
+                                                            <span className="text-[13px] font-bold px-1.5 py-0.5 rounded bg-rose-500/10 text-rose-400 border border-rose-500/15 font-[family-name:var(--font-jetbrains)]">
                                                                 {dict.actionTrim.replace('{shares}', String(Math.abs(diffQty)))}
                                                             </span>
                                                         ) : (
-                                                            <span className="text-[10px] text-slate-500 font-[family-name:var(--font-inter)]">{dict.rebalanceAligned}</span>
+                                                            <span className="text-[13px] text-slate-300 font-[family-name:var(--font-inter)]">{dict.rebalanceAligned}</span>
                                                         )}
                                                         <div className="flex items-center gap-2">
                                                             <span className="text-xs text-slate-400 font-[family-name:var(--font-jetbrains)] tabular-nums">${livePrice.toFixed(2)}</span>
@@ -1392,7 +1444,7 @@ export function QuantRadarClient() {
                         <div className="flex-1 flex flex-col justify-center items-center py-40 gap-4 border border-dashed border-slate-800 rounded-2xl bg-[#0b101c]/20">
                             <AlertCircle className="w-8 h-8 text-slate-600" />
                             <h2 className="text-sm font-bold text-slate-400 uppercase tracking-wider">No signals found</h2>
-                            <p className="text-[13px] text-slate-500 font-mono">Modify DIY parameter slider ranges.</p>
+                            <p className="text-[13px] text-slate-300 font-[family-name:var(--font-inter)]">Modify DIY parameter slider ranges.</p>
                         </div>
                     ) : (
                         /* Dynamic card grid */
@@ -1451,7 +1503,7 @@ export function QuantRadarClient() {
                                                 </span>
                                                 <div>
                                                     <span className="text-sm font-bold text-slate-100 font-[family-name:var(--font-jetbrains)] tracking-wide block">{item.ticker}</span>
-                                                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded border ${convictionColor} font-[family-name:var(--font-inter)]`}>{convictionTag}</span>
+                                                    <span className={`text-[13px] font-bold px-1.5 py-0.5 rounded border ${convictionColor} font-[family-name:var(--font-inter)]`}>{convictionTag}</span>
                                                 </div>
                                             </div>
                                             {live && (
@@ -1467,22 +1519,34 @@ export function QuantRadarClient() {
                                             )}
                                         </div>
 
-                                        {/* Score bar */}
-                                        <div className="flex items-center gap-3">
-                                            <span className="text-xs font-bold text-slate-400 font-[family-name:var(--font-inter)] uppercase w-12">Score</span>
-                                            <div className="flex-1 h-1.5 bg-slate-800/50 rounded-full overflow-hidden">
-                                                <div
-                                                    className={`h-full rounded-full transition-all duration-500 ${
-                                                        score >= 80 ? 'bg-emerald-400' : score >= 60 ? 'bg-sky-400' : score >= 40 ? 'bg-amber-400' : 'bg-rose-400'
-                                                    }`}
-                                                    style={{ width: `${score}%` }}
-                                                />
+                                        {/* Context Score */}
+                                        <div className="flex items-center gap-3 p-2 rounded-lg bg-[#111827]/40 border border-white/5">
+                                            <div className="flex flex-col items-center min-w-[48px]">
+                                                <span className={`text-lg font-bold font-[family-name:var(--font-jetbrains)] tabular-nums leading-none ${
+                                                    score >= 80 ? 'text-emerald-400' : score >= 60 ? 'text-sky-400' : score >= 40 ? 'text-amber-400' : 'text-rose-400'
+                                                }`}>{score}</span>
+                                                <span className="text-[13px] text-slate-300 font-[family-name:var(--font-inter)] mt-0.5">Score</span>
                                             </div>
-                                            <span className="text-xs font-bold text-slate-200 font-[family-name:var(--font-jetbrains)] tabular-nums w-8 text-right">{score}</span>
+                                            <div className="flex-1 flex flex-col gap-1.5">
+                                                <div className="h-2 bg-slate-800/50 rounded-full overflow-hidden">
+                                                    <div
+                                                        className={`h-full rounded-full transition-all duration-500 ${
+                                                            score >= 80 ? 'bg-emerald-400' : score >= 60 ? 'bg-sky-400' : score >= 40 ? 'bg-amber-400' : 'bg-rose-400'
+                                                        }`}
+                                                        style={{ width: `${score}%` }}
+                                                    />
+                                                </div>
+                                                <div className="flex justify-between text-[13px] font-[family-name:var(--font-inter)]">
+                                                    <span className="text-slate-300">{grade} Grade</span>
+                                                    <span className={`font-bold ${score >= 60 ? 'text-emerald-400' : score >= 40 ? 'text-amber-400' : 'text-rose-400'}`}>
+                                                        {score >= 80 ? 'Strong' : score >= 60 ? 'Bullish' : score >= 40 ? 'Neutral' : 'Bearish'}
+                                                    </span>
+                                                </div>
+                                            </div>
                                         </div>
 
                                         {/* Analysis */}
-                                        <p className="text-xs text-slate-400 leading-relaxed font-[family-name:var(--font-inter)]">
+                                        <p className="text-[13px] text-slate-200 leading-relaxed font-[family-name:var(--font-inter)]">
                                             {locale === 'ko'
                                                 ? item.alphaSnapshot?.whyKR
                                                 : locale === 'ja'
@@ -1494,15 +1558,15 @@ export function QuantRadarClient() {
                                         {/* Entry / SL / TP row */}
                                         <div className="grid grid-cols-3 gap-2 text-center">
                                             <div className="p-1.5 rounded bg-emerald-500/5 border border-emerald-500/10">
-                                                <div className="text-[10px] text-slate-500 font-[family-name:var(--font-inter)]">{dict.optimalRange}</div>
+                                                <div className="text-[13px] text-slate-300 font-[family-name:var(--font-inter)]">{dict.optimalRange}</div>
                                                 <div className="text-xs font-bold text-emerald-400 font-[family-name:var(--font-jetbrains)] tabular-nums">${entryTargetMax.toFixed(2)}</div>
                                             </div>
                                             <div className="p-1.5 rounded bg-rose-500/5 border border-rose-500/10">
-                                                <div className="text-[10px] text-slate-500 font-[family-name:var(--font-inter)]">SL -1.5%</div>
+                                                <div className="text-[13px] text-slate-300 font-[family-name:var(--font-inter)]">SL -1.5%</div>
                                                 <div className="text-xs font-bold text-rose-400 font-[family-name:var(--font-jetbrains)] tabular-nums">${stopLoss.toFixed(2)}</div>
                                             </div>
                                             <div className="p-1.5 rounded bg-sky-500/5 border border-sky-500/10">
-                                                <div className="text-[10px] text-slate-500 font-[family-name:var(--font-inter)]">TP +3.5%</div>
+                                                <div className="text-[13px] text-slate-300 font-[family-name:var(--font-inter)]">TP +3.5%</div>
                                                 <div className="text-xs font-bold text-sky-400 font-[family-name:var(--font-jetbrains)] tabular-nums">${takeProfit.toFixed(2)}</div>
                                             </div>
                                         </div>
@@ -1537,7 +1601,7 @@ export function QuantRadarClient() {
                     {/* Pagination */}
                     {totalPages > 1 && (
                         <div className="mt-4 p-3 rounded-xl bg-[#111827]/60 backdrop-blur-sm border border-white/5 flex justify-between items-center">
-                            <span className="text-xs text-slate-500 font-[family-name:var(--font-jetbrains)] tabular-nums">
+                            <span className="text-[13px] text-slate-300 font-[family-name:var(--font-jetbrains)] tabular-nums">
                                 Page {page}/{totalPages} ({totalCount} matched)
                             </span>
                             <div className="flex gap-1.5">
