@@ -11,7 +11,7 @@ import {
 import { Link } from '@/i18n/routing';
 import { useTranslations, useLocale } from 'next-intl';
 import { useTier } from '@/contexts/TierContext';
-import { usePortfolio } from '@/hooks/usePortfolio';
+import { useRadarHoldings } from '@/hooks/useRadarHoldings';
 import { useRealtimeData } from '@/providers/WebSocketProvider';
 import { requestNotificationPermission, sendRadarAlert } from '@/services/radarNotifications';
 import { usePortfolioTracker } from '@/hooks/usePortfolioTracker';
@@ -347,70 +347,47 @@ export function QuantRadarClient() {
     // 1. Enforce Admin Security Lock using Tier Context
     const { isAdmin, loading: tierLoading } = useTier();
 
-    // 1.1 Real portfolio integration
-    const { holdings, summary, addHolding, removeHolding } = usePortfolio();
+    // 1.1 Radar-only holdings (localStorage, independent of main Portfolio)
+    const { holdings, summary, addHolding, removeHolding } = useRadarHoldings();
 
     // Quick Add Modal States
     const [showQuickAdd, setShowQuickAdd] = useState(false);
     const [scannerCollapsed, setScannerCollapsed] = useState(true);
     const [isInjecting, setIsInjecting] = useState(false);
 
-    const handleBatchInject = async () => {
-        if (tickers.length === 0 || isInjecting) return;
-        setIsInjecting(true);
-        try {
-            for (const item of tickers) {
-                const targetShares = (item as any).targetShares || 0;
-                const exec = (item as any).execution || {};
-                const avgPrice = exec.entry || item.realtime?.price || 0;
-                if (targetShares > 0 && avgPrice > 0) {
-                    await addHolding({
-                        ticker: item.ticker.toUpperCase(),
-                        name: `${item.ticker.toUpperCase()} Asset`,
-                        quantity: targetShares,
-                        avgPrice: avgPrice,
-                    });
-                }
-            }
-        } catch (e) {
-            console.error("Failed to batch inject:", e);
-        } finally {
-            setIsInjecting(false);
-        }
-    };
-
-    const handleLiquidate = async (ticker: string) => {
-        if (isInjecting) return;
-        setIsInjecting(true);
-        try {
-            await removeHolding(ticker);
-        } catch (e) {
-            console.error("Failed to liquidate:", e);
-        } finally {
-            setIsInjecting(false);
-        }
-    };
-
-    const handleRotate = async (lowestTicker: string, highestTicker: TickerData) => {
-        if (isInjecting) return;
-        setIsInjecting(true);
-        try {
-            await removeHolding(lowestTicker);
-            const targetShares = (highestTicker as any).targetShares || 0;
-            const exec = (highestTicker as any).execution || {};
-            const avgPrice = exec.entry || highestTicker.realtime?.price || 0;
+    const handleBatchInject = () => {
+        if (tickers.length === 0) return;
+        for (const item of tickers) {
+            const targetShares = (item as any).targetShares || 0;
+            const exec = (item as any).execution || {};
+            const avgPrice = exec.entry || item.realtime?.price || 0;
             if (targetShares > 0 && avgPrice > 0) {
-                await addHolding({
-                    ticker: highestTicker.ticker.toUpperCase(),
-                    name: `${highestTicker.ticker.toUpperCase()} Asset`,
+                addHolding({
+                    ticker: item.ticker.toUpperCase(),
+                    name: `${item.ticker.toUpperCase()} Asset`,
                     quantity: targetShares,
                     avgPrice: avgPrice,
                 });
             }
-        } catch (e) {
-            console.error("Failed to rotate:", e);
-        } finally {
-            setIsInjecting(false);
+        }
+    };
+
+    const handleLiquidate = (ticker: string) => {
+        removeHolding(ticker);
+    };
+
+    const handleRotate = (lowestTicker: string, highestTicker: TickerData) => {
+        removeHolding(lowestTicker);
+        const targetShares = (highestTicker as any).targetShares || 0;
+        const exec = (highestTicker as any).execution || {};
+        const avgPrice = exec.entry || highestTicker.realtime?.price || 0;
+        if (targetShares > 0 && avgPrice > 0) {
+            addHolding({
+                ticker: highestTicker.ticker.toUpperCase(),
+                name: `${highestTicker.ticker.toUpperCase()} Asset`,
+                quantity: targetShares,
+                avgPrice: avgPrice,
+            });
         }
     };
     const [quickAddTicker, setQuickAddTicker] = useState('');
@@ -533,23 +510,19 @@ export function QuantRadarClient() {
 
     // Canvas radar animation removed for performance (V2 redesign)
 
-    const handleQuickAddSubmit = async (e: React.FormEvent) => {
+    const handleQuickAddSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         if (!quickAddTicker || !quickAddQty || !quickAddPrice) return;
-        try {
-            await addHolding({
-                ticker: quickAddTicker.toUpperCase(),
-                name: `${quickAddTicker.toUpperCase()} Asset`,
-                quantity: Number(quickAddQty),
-                avgPrice: Number(quickAddPrice),
-            });
-            setShowQuickAdd(false);
-            setQuickAddTicker('');
-            setQuickAddQty('');
-            setQuickAddPrice('');
-        } catch (err) {
-            console.error('Failed to add holding quick:', err);
-        }
+        addHolding({
+            ticker: quickAddTicker.toUpperCase(),
+            name: `${quickAddTicker.toUpperCase()} Asset`,
+            quantity: Number(quickAddQty),
+            avgPrice: Number(quickAddPrice),
+        });
+        setShowQuickAdd(false);
+        setQuickAddTicker('');
+        setQuickAddQty('');
+        setQuickAddPrice('');
     };
 
     // Handle batch filtering API requests
@@ -834,9 +807,9 @@ export function QuantRadarClient() {
             const livePrice = wsPriceObj ? wsPriceObj.price : (h.currentPrice || h.avgPrice || 0);
             const pnl = (livePrice - h.avgPrice) * h.quantity;
             const pnlPct = h.avgPrice > 0 ? ((livePrice - h.avgPrice) / h.avgPrice) * 100 : 0;
-            const score = h.alphaScore || 50;
-            const grade = h.alphaGrade || 'C';
             const radarMatch = tickers.find((t: any) => t.ticker.toUpperCase() === h.ticker.toUpperCase());
+            const score = radarMatch?.alphaSnapshot?.score || 50;
+            const grade = radarMatch?.alphaSnapshot?.grade || 'C';
             const targetWeight = radarMatch ? ((radarMatch as any).weight || 0) * 100 : 0;
             const exec = radarMatch ? ((radarMatch as any).execution || {}) : {};
             const entryPrice = exec.entry || h.avgPrice;
@@ -1655,10 +1628,16 @@ export function QuantRadarClient() {
                                          .filter((x: any) => x.diffQty > 0)
                                          .sort((a: any, b: any) => b.score - a.score);
 
-                                     // SWAP candidates
-                                     const sortedHoldingsByScore = [...holdings]
-                                         .filter((h: any) => h.alphaScore !== undefined)
-                                         .sort((a: any, b: any) => (a.alphaScore || 0) - (b.alphaScore || 0));
+                                     // SWAP candidates — look up scores from engine data (tickers), not holdings
+                                     const getHoldingScore = (ticker: string) => {
+                                         const t = sortedTickers.find((t: any) => t.ticker.toUpperCase() === ticker.toUpperCase());
+                                         return t?.alphaSnapshot?.score;
+                                     };
+                                     const holdingsWithScores = holdings
+                                         .map(h => ({ ...h, alphaScore: getHoldingScore(h.ticker) }))
+                                         .filter(h => h.alphaScore !== undefined);
+                                     const sortedHoldingsByScore = [...holdingsWithScores]
+                                         .sort((a, b) => (a.alphaScore || 0) - (b.alphaScore || 0));
                                      const lowestScoreHolding = sortedHoldingsByScore[0];
                                      const sortedScannedByScore = [...sortedTickers]
                                          .filter((t: any) => t.alphaSnapshot?.score !== undefined)
@@ -1666,8 +1645,8 @@ export function QuantRadarClient() {
                                      const highestScoreScanned = sortedScannedByScore.find((t: any) => !holdings.some((h: any) => h.ticker.toUpperCase() === t.ticker.toUpperCase()));
                                      const hasSwap = hasHoldings && lowestScoreHolding && highestScoreScanned && ((highestScoreScanned.alphaSnapshot?.score || 0) > (lowestScoreHolding.alphaScore || 0) + 15);
                                      
-                                     // Decay positions (held but score < 50)
-                                     const decayPositions = holdings.filter((h: any) => h.alphaScore !== undefined && h.alphaScore < 50);
+                                     // Decay positions (held but engine score < 50)
+                                     const decayPositions = holdingsWithScores.filter(h => h.alphaScore !== undefined && (h.alphaScore as number) < 50);
 
                                      // Step counters
                                      let stepNum = 0;
@@ -1722,10 +1701,8 @@ export function QuantRadarClient() {
                                                                  </span>
                                                              </div>
                                                              <button
-                                                                 onClick={async () => {
-                                                                     if (isInjecting) return;
-                                                                     setIsInjecting(true);
-                                                                     try { for (const h of decayPositions) { await removeHolding(h.ticker); } } finally { setIsInjecting(false); }
+                                                                 onClick={() => {
+                                                                     for (const h of decayPositions) { removeHolding(h.ticker); }
                                                                  }}
                                                                  disabled={isInjecting}
                                                                  className="text-[13px] font-bold text-rose-400 hover:text-rose-300 border border-rose-500/20 px-2.5 py-1 rounded transition font-[family-name:var(--font-inter)]"
