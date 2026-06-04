@@ -902,7 +902,8 @@ export function QuantRadarClient() {
             {/* RADAR WORKSPACE ROW */}
             <div className="flex-1 w-full max-w-[1720px] mx-auto px-4 sm:px-6 py-6 flex flex-col xl:flex-row gap-6 relative z-10">
                 
-                {/* SIDEBAR: DIY Screener Console */}
+                {/* SIDEBAR: DIY Screener Console — HIDDEN in Auto-Pilot */}
+                {!isAutoPilot && (
                 <div className="w-full xl:w-80 shrink-0 flex flex-col gap-6">
                     {/* Header Panel */}
                     <div className="p-4 rounded-xl bg-[#111827]/80 backdrop-blur-sm border border-white/5">
@@ -1117,10 +1118,12 @@ export function QuantRadarClient() {
                         </div>
                     </div>
                 </div>
+                )}
 
-                {/* CENTRAL AREA: High-density radar scanner grid */}
+                {/* CENTRAL AREA: Full-width in Auto-Pilot, flex-1 otherwise */}
                 <div className="flex-1 flex flex-col gap-4">
-                    {/* Toolbar header */}
+                    {/* Toolbar header — hidden in autopilot (replaced by Mission Control) */}
+                    {!isAutoPilot && (
                     <div className="p-4 rounded-xl bg-[#111827]/70 backdrop-blur-sm border border-white/5 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
                         <div className="flex items-center gap-2">
                             <Activity className="w-4 h-4 text-sky-400" />
@@ -1129,8 +1132,6 @@ export function QuantRadarClient() {
                             </span>
                             {isPending && <span className="w-1.5 h-1.5 rounded-full bg-sky-400 animate-ping" />}
                         </div>
-
-                        {/* Sort mechanisms */}
                         <div className="flex items-center gap-2 text-[13px] font-[family-name:var(--font-inter)]">
                             <span className="text-slate-300 font-medium">SORT BY:</span>
                             {['score', 'rsi', 'volume', 'gex'].map(s => {
@@ -1139,18 +1140,12 @@ export function QuantRadarClient() {
                                     <button
                                         key={s}
                                         onClick={() => {
-                                            if (sortBy === s) {
-                                                setSortOrder(sortOrder === 'desc' ? 'asc' : 'desc');
-                                            } else {
-                                                setSortBy(s);
-                                                setSortOrder('desc');
-                                            }
+                                            if (sortBy === s) { setSortOrder(sortOrder === 'desc' ? 'asc' : 'desc'); }
+                                            else { setSortBy(s); setSortOrder('desc'); }
                                             setPage(1);
                                         }}
                                         className={`px-2.5 py-1 rounded transition-all uppercase font-bold ${
-                                            active 
-                                                ? 'bg-sky-500/10 text-sky-400 border border-sky-500/20' 
-                                                : 'text-slate-300 hover:text-slate-100'
+                                            active ? 'bg-sky-500/10 text-sky-400 border border-sky-500/20' : 'text-slate-300 hover:text-slate-100'
                                         }`}
                                     >
                                         {s === 'score' ? 'Context Score' : s}
@@ -1159,6 +1154,7 @@ export function QuantRadarClient() {
                             })}
                         </div>
                     </div>
+                    )}
 
                     {/* Loader */}
                     {loading ? (
@@ -1167,36 +1163,95 @@ export function QuantRadarClient() {
                             <p className="text-[13px] font-[family-name:var(--font-inter)] text-slate-300 uppercase tracking-wider animate-pulse">Running filters...</p>
                         </div>
                     ) : isAutoPilot ? (
-                        /* AUTONOMOUS ALLOCATION MATRIX (ENGAGED) */
-                        <div className="flex flex-col gap-6">
-                            {/* MISSION CONTROL BAR */}
-                            <div className="sticky top-0 z-20 grid grid-cols-2 lg:grid-cols-4 gap-4 p-4 rounded-xl bg-[#111827]/70 backdrop-blur-xl border-b border-white/5">
-                                <div className="flex flex-col justify-center min-w-0">
-                                    <span className="text-[13px] font-medium text-slate-300 uppercase tracking-wider font-[family-name:var(--font-inter)]">{dict.tradingCapitalLabel}</span>
-                                    <span className="text-sm font-bold text-slate-200 font-[family-name:var(--font-jetbrains)] tabular-nums mt-0.5">${totalCapital.toLocaleString()}</span>
-                                    {engineMeta?.cashReserve > 0 && (
-                                        <span className="text-[13px] font-medium text-amber-400/80 mt-0.5 font-[family-name:var(--font-inter)]">
-                                            🛡️ Reserve {(engineMeta.cashReserve * 100).toFixed(0)}%
+                        /* ═══════════════════════════════════════════════
+                           V3 WAR ROOM — AUTONOMOUS TRADING COMMAND CENTER
+                           ═══════════════════════════════════════════════ */
+                        <div className="flex flex-col gap-4">
+                            {/* ── MISSION CONTROL BAR (sticky, expanded) ── */}
+                            <div className="sticky top-0 z-30 rounded-xl bg-[#0b101c]/95 backdrop-blur-xl border border-white/5 shadow-[0_4px_30px_rgba(0,0,0,0.4)]">
+                                {/* Row 1: Capital Input + Core Metrics */}
+                                <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3 p-4">
+                                    {/* Trading Capital (inline) */}
+                                    <div className="col-span-2 sm:col-span-1 flex flex-col gap-1">
+                                        <span className="text-[13px] font-medium text-slate-400 uppercase tracking-wider font-[family-name:var(--font-inter)]">Capital</span>
+                                        <div className="flex items-center gap-1.5">
+                                            <div className="relative flex-1">
+                                                <span className="absolute left-2 top-1/2 -translate-y-1/2 text-cyan-400 font-[family-name:var(--font-jetbrains)] font-bold text-[13px]">
+                                                    {inputCurrency === 'KRW' ? '₩' : '$'}
+                                                </span>
+                                                <input 
+                                                    type="number"
+                                                    value={rawCapitalInput}
+                                                    onChange={(e) => handleCapitalInput(e.target.value)}
+                                                    className="w-full pl-6 pr-2 h-8 bg-[#111827]/80 border border-cyan-500/20 focus:border-cyan-400/50 transition-all outline-none rounded-lg text-[13px] font-[family-name:var(--font-jetbrains)] font-bold text-slate-100 tabular-nums"
+                                                />
+                                            </div>
+                                            {usdkrw && (
+                                                <button
+                                                    onClick={() => setInputCurrency(c => c === 'USD' ? 'KRW' : 'USD')}
+                                                    className="text-[13px] font-bold px-1.5 py-1 rounded border transition-all font-[family-name:var(--font-jetbrains)] bg-slate-800/50 text-cyan-400 border-cyan-500/20 hover:bg-cyan-500/10 shrink-0"
+                                                >
+                                                    {inputCurrency}
+                                                </button>
+                                            )}
+                                        </div>
+                                        {inputCurrency === 'KRW' && usdkrw && (
+                                            <span className="text-[13px] text-slate-400 font-[family-name:var(--font-jetbrains)] tabular-nums">≈ ${totalCapital.toLocaleString()}</span>
+                                        )}
+                                    </div>
+                                    {/* NAV */}
+                                    <div className="flex flex-col justify-center">
+                                        <span className="text-[13px] font-medium text-slate-400 uppercase tracking-wider font-[family-name:var(--font-inter)]">NAV</span>
+                                        <span className="text-lg font-bold text-slate-100 font-[family-name:var(--font-jetbrains)] tabular-nums">${computedTotalNAV.toLocaleString(undefined, {maximumFractionDigits:0})}</span>
+                                    </div>
+                                    {/* Total P&L */}
+                                    <div className="flex flex-col justify-center">
+                                        <span className="text-[13px] font-medium text-slate-400 uppercase tracking-wider font-[family-name:var(--font-inter)]">P&L</span>
+                                        <span className={`text-lg font-bold font-[family-name:var(--font-jetbrains)] tabular-nums ${computedPL >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                            {computedPL >= 0 ? '+' : ''}{computedPLPct.toFixed(2)}%
                                         </span>
-                                    )}
+                                    </div>
+                                    {/* Daily P&L */}
+                                    <div className="flex flex-col justify-center">
+                                        <span className="text-[13px] font-medium text-slate-400 uppercase tracking-wider font-[family-name:var(--font-inter)]">Today</span>
+                                        <span className={`text-sm font-bold font-[family-name:var(--font-jetbrains)] tabular-nums ${dailyPnlPct >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                            {dailyPnlPct >= 0 ? '+' : ''}{dailyPnlPct.toFixed(2)}%
+                                        </span>
+                                    </div>
+                                    {/* MDD */}
+                                    <div className="flex flex-col justify-center">
+                                        <span className="text-[13px] font-medium text-slate-400 uppercase tracking-wider font-[family-name:var(--font-inter)]">MDD</span>
+                                        <span className={`text-sm font-bold font-[family-name:var(--font-jetbrains)] tabular-nums ${drawdownPct > -2 ? 'text-slate-300' : drawdownPct > -5 ? 'text-amber-400' : 'text-rose-400'}`}>
+                                            {drawdownPct.toFixed(1)}%
+                                        </span>
+                                    </div>
+                                    {/* Alignment */}
+                                    <div className="flex flex-col justify-center">
+                                        <span className="text-[13px] font-medium text-slate-400 uppercase tracking-wider font-[family-name:var(--font-inter)]">Aligned</span>
+                                        <span className={`text-sm font-bold font-[family-name:var(--font-jetbrains)] tabular-nums ${liveAlignmentProgress >= 90 ? 'text-emerald-400' : liveAlignmentProgress >= 50 ? 'text-amber-400' : 'text-rose-400'}`}>
+                                            {liveAlignmentProgress}%
+                                        </span>
+                                    </div>
+                                    {/* Circuit Breaker Status */}
+                                    <div className="flex flex-col justify-center">
+                                        <span className="text-[13px] font-medium text-slate-400 uppercase tracking-wider font-[family-name:var(--font-inter)]">Status</span>
+                                        <span className={`text-sm font-bold font-[family-name:var(--font-inter)] ${
+                                            circuitBreakerResult.level === 'HALT' ? 'text-rose-400' :
+                                            circuitBreakerResult.level === 'WARNING' ? 'text-amber-400' : 'text-emerald-400'
+                                        }`}>
+                                            {circuitBreakerResult.level === 'HALT' ? '🚨 HALT' : circuitBreakerResult.level === 'WARNING' ? '⚠️ WARN' : '🟢 NORMAL'}
+                                        </span>
+                                    </div>
                                 </div>
-                                <div className="flex flex-col justify-center min-w-0">
-                                    <span className="text-[13px] font-medium text-slate-300 uppercase tracking-wider font-[family-name:var(--font-inter)]">{dict.cashLabel}</span>
-                                    <span className="text-sm font-bold text-sky-400 font-[family-name:var(--font-jetbrains)] tabular-nums mt-0.5">${cashBalance.toLocaleString(undefined, {maximumFractionDigits:2})}</span>
-                                </div>
-                                <div className="flex flex-col justify-center min-w-0">
-                                    <span className="text-[13px] font-medium text-slate-300 uppercase tracking-wider font-[family-name:var(--font-inter)]">{dict.navLabel}</span>
-                                    <span className="text-lg font-bold text-slate-100 font-[family-name:var(--font-jetbrains)] tabular-nums mt-0.5">${computedTotalNAV.toLocaleString(undefined, {maximumFractionDigits:2})}</span>
-                                </div>
-                                <div className="flex flex-col justify-center min-w-0">
-                                    <span className="text-[13px] font-medium text-slate-300 uppercase tracking-wider font-[family-name:var(--font-inter)]">{dict.totalReturnLabel}</span>
-                                    <span className={`text-lg font-bold font-[family-name:var(--font-jetbrains)] tabular-nums mt-0.5 ${
-                                        computedPL >= 0 ? 'text-emerald-400' : 'text-rose-400'
+                                {/* Circuit Breaker Alert (if triggered) */}
+                                {circuitBreakerResult.triggered && (
+                                    <div className={`mx-4 mb-3 p-2.5 rounded-lg border flex items-center gap-2 text-[13px] font-[family-name:var(--font-inter)] ${
+                                        circuitBreakerResult.level === 'HALT' ? 'bg-rose-950/30 border-rose-500/20 text-rose-400' : 'bg-amber-950/30 border-amber-500/20 text-amber-400'
                                     }`}>
-                                        {computedPL >= 0 ? '+' : ''}${computedPL.toLocaleString(undefined, {maximumFractionDigits:2})}
-                                        <span className="text-xs ml-1 font-medium">({computedPL >= 0 ? '+' : ''}{computedPLPct.toFixed(2)}%)</span>
-                                    </span>
-                                </div>
+                                        <ShieldAlert className="w-4 h-4 shrink-0" />
+                                        {circuitBreakerResult.actions.map(a => a.reason).join(' | ')}
+                                    </div>
+                                )}
                             </div>
 
                             {/* Header with Master Copy */}
