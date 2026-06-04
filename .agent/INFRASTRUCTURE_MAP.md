@@ -8027,3 +8027,73 @@ CREATE TABLE radar_orders (
 | `src/app/layout.tsx` | JetBrains Mono 폰트 추가 | +8/-2 |
 | `src/app/[locale]/quant-radar/QuantRadarClient.tsx` | 전체 UI 리디자인 | +386/-684 |
 
+---
+
+## 35. 🎯 Quant Radar V3 — War Room (작전판) UI 전면 개편 (2026-06-04, 커밋 df5a214c)
+
+### 35.1 핵심 전환: "분석 도구" → "작전판(War Room)"
+
+- **이전 (V2)**: Scanner 카드가 화면의 주인공. 사용자가 필터를 조정하고 종목을 분석/판단/결정
+- **이후 (V3)**: Position Command Center가 화면의 주인공. 엔진이 100% 결정, 사용자는 실행만
+
+### 35.2 구현 Phase 요약
+
+| Phase | 내용 | 커밋 |
+|:---:|:---|:---|
+| 1 | Auto-pilot ON 시 사이드바 완전 숨김, Mission Control 7칸 확장 | `bf2eea3e` |
+| 2 | Position Command Center: SL-Entry-TP 바, 엔진 지시문, 신호 우선순위 | `1b0f3156` |
+| 5 | Compound Growth Curve: NAV localStorage 저장 + SVG 차트 | `df5a214c` |
+| 6 | Scanner 접이식 (기본 접힘, 클릭 시 펼침) | `1ac81126` |
+
+### 35.3 Auto-pilot ON 시 레이아웃
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│ MISSION CONTROL BAR (sticky, 7칸)                            │
+│ [Capital입력] [NAV] [P&L%] [Today%] [MDD] [Aligned%] [Status]│
+├─────────────────────────────────────────────────────────────┤
+│ COMPOUND GROWTH CURVE (SVG, navHistory ≥ 2일 시 표시)        │
+├────────────────────────────┬────────────────────────────────┤
+│ POSITION COMMAND CENTER    │ POSITION COMMAND CENTER        │
+│ (2-column 카드 그리드)      │ (보유 종목 카드)               │
+│ ┌─ SL━━Entry━━TP ─┐       │                                │
+│ │ 엔진 지시문        │       │                                │
+├────────────────────────────┴────────────────────────────────┤
+│ PLAYBOOK: Alignment + Action Queue                          │
+├─────────────────────────────────────────────────────────────┤
+│ 🔍 ENGINE SCAN RESULTS (접이식, 기본 접힘)                    │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### 35.4 Position Command Center 상세
+
+각 포지션 카드 구성:
+1. **Header**: TickerLogo + 티커 + 현재가 + 신호 배지(HOLD/TP/SL/DECAY/ACCUMULATE)
+2. **SL-Entry-TP 바**: gradient fill + entry marker(|) + current price dot(●)
+3. **Stats Grid**: 보유수량, 평단가, 비중%, Score+Grade
+4. **엔진 지시문**: 자연어 행동 지시 (signal별 동적 생성)
+
+신호 우선순위: `STOP_LOSS(0) → DECAY(1) → TAKE_PROFIT(2) → ACCUMULATE(3) → HOLD(4)`
+
+### 35.5 Compound Growth Curve
+
+- **데이터 소스**: `localStorage` key = `radar_nav_history_${totalCapital}`
+- **구조**: `{date: string, nav: number}[]` (최대 365일)
+- **차트**: SVG viewBox 800×120, gradient area fill
+  - Capital 기준선 (dashed, slate)
+  - HWM 라인 (dashed, cyan)
+  - NAV 곡선 (emerald/rose)
+  - 현재 위치 dot
+- **통계**: 운용일, HWM, MDD, Cash, 복리 연율환산
+
+### 35.6 Scanner 접이식
+
+- `scannerCollapsed` state (기본 `true`)
+- 헤더에 ticker 미리보기: "INTC · AVGO · LUNR ..."
+- ChevronRight 회전 애니메이션
+
+### 35.7 수정 파일
+
+| 파일 | 변경 | 규모 |
+|:---|:---|:---|
+| `src/app/[locale]/quant-radar/QuantRadarClient.tsx` | V3 War Room 전면 개편 | +386/-136 |
