@@ -430,6 +430,7 @@ export function QuantRadarClient() {
     const [darkPoolMin, setDarkPoolMin] = useState<number>(0);
     const [isAutoPilot, setIsAutoPilot] = useState(false);
     const [totalCapital, setTotalCapital] = useState(50000);
+    const [committedCapital, setCommittedCapital] = useState(50000);
     const [inputCurrency, setInputCurrency] = useState<'USD' | 'KRW'>('USD');
     const [rawCapitalInput, setRawCapitalInput] = useState('50000');
     const [completedSteps, setCompletedSteps] = useState<Record<string, boolean>>({});
@@ -451,6 +452,14 @@ export function QuantRadarClient() {
             setTotalCapital(Math.max(100, num));
         }
     }, [inputCurrency, usdkrw]);
+
+    // Debounce: only commit capital to API after 800ms of no typing
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setCommittedCapital(totalCapital);
+        }, 800);
+        return () => clearTimeout(timer);
+    }, [totalCapital]);
 
     // Re-convert when currency toggles
     useEffect(() => {
@@ -601,7 +610,7 @@ export function QuantRadarClient() {
     // Re-fetch data on parameters change
     useEffect(() => {
         fetchRadarData();
-    }, [scoreMin, selectedGrades, selectedOverlay, sortBy, sortOrder, page, gexMin, pcrMax, darkPoolMin, isAdmin, isAutoPilot, totalCapital]);
+    }, [scoreMin, selectedGrades, selectedOverlay, sortBy, sortOrder, page, gexMin, pcrMax, darkPoolMin, isAdmin, isAutoPilot, committedCapital]);
 
     // Auto-refresh polling every 60s in autopilot mode
     useEffect(() => {
@@ -610,7 +619,7 @@ export function QuantRadarClient() {
             fetchRadarData();
         }, 60_000);
         return () => clearInterval(interval);
-    }, [isAutoPilot, isAdmin, totalCapital]);
+    }, [isAutoPilot, isAdmin, committedCapital]);
 
 
     const handleSearchSubmit = (e: React.FormEvent) => {
@@ -1613,24 +1622,12 @@ export function QuantRadarClient() {
                                 </div>
                             )}
 
-<div className="flex flex-col gap-6 w-full animate-[fadeIn_0.4s_ease-out]">
-                                {/* 1. PLAYBOOK & ALIGNMENT SECTION (MOVED TO TOP) */}
+<div className="flex flex-col gap-4 w-full animate-[fadeIn_0.4s_ease-out]">
+                                {/* ═══ STEP-BY-STEP EXECUTION PLAYBOOK ═══ */}
                                 {(() => {
-                                     const decayPositions = holdings.filter((h: any) => h.alphaScore !== undefined && h.alphaScore < 50);
-
-                                     const sortedHoldingsByScore = [...holdings]
-                                         .filter((h: any) => h.alphaScore !== undefined)
-                                         .sort((a: any, b: any) => (a.alphaScore || 0) - (b.alphaScore || 0));
-                                     const lowestScoreHolding = sortedHoldingsByScore[0];
-
-                                     const sortedScannedByScore = [...sortedTickers]
-                                         .filter((t: any) => t.alphaSnapshot?.score !== undefined)
-                                         .sort((a: any, b: any) => (b.alphaSnapshot?.score || 0) - (a.alphaSnapshot?.score || 0));
-                                     const highestScoreScanned = sortedScannedByScore.find((t: any) => !holdings.some((h: any) => h.ticker.toUpperCase() === t.ticker.toUpperCase()));
-
                                      const hasHoldings = holdings.length > 0;
-
-                                     // Filter trimming and buying tickers for the checklist
+                                     
+                                     // Build comprehensive action list
                                      const trimsList = sortedTickers
                                          .map((item: any) => {
                                              const targetShares = (item as any).targetShares || 0;
@@ -1639,9 +1636,10 @@ export function QuantRadarClient() {
                                              const diffQty = targetShares - heldQty;
                                              const wsPriceObj = getPrice(item.ticker);
                                              const livePrice = wsPriceObj ? wsPriceObj.price : (item.realtime?.price || 0);
-                                             return { ticker: item.ticker, diffQty, heldQty, targetShares, livePrice, score: item.alphaSnapshot?.score || 50, item };
+                                             const weight = ((item as any).weight || 0) * 100;
+                                             return { ticker: item.ticker, diffQty, heldQty, targetShares, livePrice, score: item.alphaSnapshot?.score || 50, weight, item };
                                          })
-                                         .filter((x: any) => x.diffQty < 0);
+                                         .filter((x: any) => x.heldQty > 0 && x.diffQty < 0); // Only SELL if actually holding
 
                                      const buysList = sortedTickers
                                          .map((item: any) => {
@@ -1651,143 +1649,236 @@ export function QuantRadarClient() {
                                              const diffQty = targetShares - heldQty;
                                              const wsPriceObj = getPrice(item.ticker);
                                              const livePrice = wsPriceObj ? wsPriceObj.price : (item.realtime?.price || 0);
-                                             return { ticker: item.ticker, diffQty, heldQty, targetShares, livePrice, score: item.alphaSnapshot?.score || 50, item };
+                                             const weight = ((item as any).weight || 0) * 100;
+                                             return { ticker: item.ticker, diffQty, heldQty, targetShares, livePrice, score: item.alphaSnapshot?.score || 50, weight, item };
                                          })
                                          .filter((x: any) => x.diffQty > 0)
                                          .sort((a: any, b: any) => b.score - a.score);
+
+                                     // SWAP candidates
+                                     const sortedHoldingsByScore = [...holdings]
+                                         .filter((h: any) => h.alphaScore !== undefined)
+                                         .sort((a: any, b: any) => (a.alphaScore || 0) - (b.alphaScore || 0));
+                                     const lowestScoreHolding = sortedHoldingsByScore[0];
+                                     const sortedScannedByScore = [...sortedTickers]
+                                         .filter((t: any) => t.alphaSnapshot?.score !== undefined)
+                                         .sort((a: any, b: any) => (b.alphaSnapshot?.score || 0) - (a.alphaSnapshot?.score || 0));
+                                     const highestScoreScanned = sortedScannedByScore.find((t: any) => !holdings.some((h: any) => h.ticker.toUpperCase() === t.ticker.toUpperCase()));
+                                     const hasSwap = hasHoldings && lowestScoreHolding && highestScoreScanned && ((highestScoreScanned.alphaSnapshot?.score || 0) > (lowestScoreHolding.alphaScore || 0) + 15);
                                      
-                                     const isStep1Done = trimsList.length === 0 || trimsList.every((x: any) => completedSteps['sell-' + x.ticker]);
-                                     const isStep2Done = buysList.length === 0 || buysList.every((x: any) => completedSteps['buy-' + x.ticker]);
+                                     // Decay positions (held but score < 50)
+                                     const decayPositions = holdings.filter((h: any) => h.alphaScore !== undefined && h.alphaScore < 50);
+
+                                     // Step counters
+                                     let stepNum = 0;
+                                     const totalSteps = (trimsList.length > 0 ? 1 : 0) + (buysList.length > 0 ? 1 : 0) + (hasSwap ? 1 : 0) + (decayPositions.length > 0 ? 1 : 0);
 
                                      return (
-                                          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-stretch">
-                                              {/* 1. LIVE ALIGNMENT PROGRESS HUD */}
-                                              <div className="lg:col-span-1 p-5 rounded-2xl bg-[#0b101c]/80 border border-cyan-500/20 shadow-[0_0_15px_rgba(6,182,212,0.05)] backdrop-blur-md flex flex-col justify-between gap-3.5">
-                                                  <div className="flex justify-between items-center border-b border-slate-800/80 pb-2">
-                                                      <span className="text-[13px] font-black text-slate-300 uppercase tracking-widest flex items-center gap-1.5">
-                                                          <Target className="w-4 h-4 text-cyan-400 animate-pulse" />
-                                                          PORTFOLIO ALIGNMENT PROGRESS
-                                                      </span>
-                                                      <span className="text-cyan-400 font-mono font-black text-sm">{liveAlignmentProgress}%</span>
-                                                  </div>
-                                                  <div className="w-full bg-slate-950 h-2.5 rounded-full overflow-hidden border border-slate-900 relative my-auto">
-                                                      <div 
-                                                          className="bg-gradient-to-r from-cyan-500 to-emerald-500 h-full rounded-full transition-all duration-500 shadow-[0_0_8px_rgba(6,182,212,0.4)]"
-                                                          style={{ width: `${liveAlignmentProgress}%` }}
-                                                      />
-                                                  </div>
-                                                  {liveAlignmentProgress === 100 ? (
-                                                      <div className="text-[13px] text-emerald-400 font-bold flex items-center gap-1.5 bg-emerald-950/20 p-2.5 rounded-xl border border-emerald-500/10">
-                                                          <Check className="w-4 h-4 shrink-0" />
-                                                          PORTFOLIO PERFECTLY ALIGNED (실제 보유량이 모델 비중과 100% 완벽히 일치합니다!)
-                                                      </div>
-                                                  ) : (
-                                                      <p className="text-[12px] text-slate-400 leading-normal">
-                                                          실시간 시세 변동을 반영한 정합률입니다. 아래 3단계 플레이북을 순서대로 복사하여 주문을 집행하면 정합도가 올라갑니다.
-                                                      </p>
-                                                  )}
-                                              </div>
+                                         <div className="p-5 rounded-xl bg-[#0b101c]/80 border border-white/5 backdrop-blur-sm flex flex-col gap-4">
+                                             <div className="flex items-center justify-between">
+                                                 <h3 className="text-sm font-bold text-slate-100 font-[family-name:var(--font-inter)] flex items-center gap-2">
+                                                     <Zap className="w-4 h-4 text-cyan-400" />
+                                                     EXECUTION PLAYBOOK
+                                                 </h3>
+                                                 <div className="flex items-center gap-3">
+                                                     <span className="text-[13px] text-slate-400 font-[family-name:var(--font-inter)]">
+                                                         {totalSteps > 0 ? `${totalSteps} STEPS` : '✅ ALIGNED'}
+                                                     </span>
+                                                     <span className={`text-[13px] font-bold font-[family-name:var(--font-jetbrains)] tabular-nums ${liveAlignmentProgress >= 90 ? 'text-emerald-400' : 'text-amber-400'}`}>
+                                                         {liveAlignmentProgress}%
+                                                     </span>
+                                                 </div>
+                                             </div>
 
-                                              {/* 2. COMPACT ACTION QUEUE */}
-                                              <div className="lg:col-span-2 p-4 rounded-xl bg-[#111827]/60 backdrop-blur-sm border border-white/5 flex flex-col gap-3">
-                                                  {(() => {
-                                                      const allActions: {type: string, key: string, ticker: string, qty: number, livePrice: number, score: number, item: any, fromTicker?: string}[] = [];
-                                                      trimsList.forEach((x: any) => allActions.push({type: 'SELL', key: 'sell-'+x.ticker, ticker: x.ticker, qty: Math.abs(x.diffQty), livePrice: x.livePrice, score: x.score, item: x.item}));
-                                                      buysList.forEach((x: any) => allActions.push({type: 'BUY', key: 'buy-'+x.ticker, ticker: x.ticker, qty: x.diffQty, livePrice: x.livePrice, score: x.score, item: x.item}));
-                                                      if (lowestScoreHolding && highestScoreScanned && ((highestScoreScanned.alphaSnapshot?.score || 0) > (lowestScoreHolding.alphaScore || 0))) {
-                                                          allActions.push({type: 'SWAP', key: 'swap-'+lowestScoreHolding.ticker, ticker: highestScoreScanned.ticker, qty: 0, livePrice: 0, score: highestScoreScanned.alphaSnapshot?.score || 0, item: highestScoreScanned, fromTicker: lowestScoreHolding.ticker});
-                                                      }
-                                                      return (
-                                                          <>
-                                                              <div className="flex items-center justify-between">
-                                                                  <h3 className="text-sm font-bold text-slate-100 font-[family-name:var(--font-inter)]">
-                                                                      {allActions.length > 0 ? `⚡ ${allActions.length} ACTIONS REQUIRED` : '✅ PORTFOLIO ALIGNED'}
-                                                                  </h3>
-                                                                  <span className="text-[13px] text-slate-300 font-[family-name:var(--font-jetbrains)]">{liveAlignmentProgress}% aligned</span>
-                                                              </div>
-                                                              {allActions.length === 0 ? (
-                                                                  <div className="p-3 rounded-lg bg-emerald-900/10 border border-emerald-500/10 text-[12px] text-emerald-400 font-medium flex items-center gap-2">
-                                                                      <CheckCircle2 className="w-4 h-4 shrink-0" />
-                                                                      {dict.noDecayStatus}
-                                                                  </div>
-                                                              ) : (
-                                                                  <div className="flex flex-col gap-1.5">
-                                                                      {allActions.map(action => {
-                                                                          const isDone = !!completedSteps[action.key];
-                                                                          const colorMap = {SELL: 'text-rose-400 bg-rose-500/10 border-rose-500/15', BUY: 'text-emerald-400 bg-emerald-500/10 border-emerald-500/15', SWAP: 'text-indigo-400 bg-indigo-500/10 border-indigo-500/15'};
-                                                                          const tagColor = colorMap[action.type as keyof typeof colorMap] || colorMap.BUY;
-                                                                          return (
-                                                                              <div key={action.key} className={`flex items-center gap-3 p-2.5 rounded-lg border border-white/5 transition-all ${isDone ? 'opacity-40 bg-[#111827]/30' : 'bg-[#111827]/40 hover:bg-[#111827]/60'}`}>
-                                                                                  <button
-                                                                                      onClick={() => setCompletedSteps(prev => ({ ...prev, [action.key]: !prev[action.key] }))}
-                                                                                      className={`w-5 h-5 rounded border flex items-center justify-center shrink-0 transition-all ${isDone ? 'bg-emerald-500/20 border-emerald-500/30' : 'border-slate-600 hover:border-slate-400'}`}
-                                                                                  >
-                                                                                      {isDone && <Check className="w-3 h-3 text-emerald-400" />}
-                                                                                  </button>
-                                                                                  <span className={`text-[13px] font-bold px-1.5 py-0.5 rounded border ${tagColor} font-[family-name:var(--font-jetbrains)]`}>{action.type}</span>
-                                                                                  <span className="text-sm font-bold text-slate-100 font-[family-name:var(--font-jetbrains)] min-w-[52px]">{action.type === 'SWAP' ? action.fromTicker : action.ticker}</span>
-                                                                                  {action.type === 'SWAP' ? (
-                                                                                      <span className="text-xs text-slate-400">→ <span className="text-indigo-400 font-bold">{action.ticker}</span></span>
-                                                                                  ) : (
-                                                                                      <span className="text-xs text-slate-400 font-[family-name:var(--font-jetbrains)]">{action.type === 'SELL' ? '-' : '+'}{action.qty} shares @ ${action.livePrice.toFixed(2)}</span>
-                                                                                  )}
-                                                                                  <div className="ml-auto flex items-center gap-2">
-                                                                                      {action.type === 'SWAP' ? (
-                                                                                          <button
-                                                                                              onClick={() => handleRotate(action.fromTicker!, action.item)}
-                                                                                              disabled={isInjecting}
-                                                                                              className="text-[13px] font-bold text-indigo-400 hover:text-indigo-300 transition font-[family-name:var(--font-inter)]"
-                                                                                          >🔄 EXEC</button>
-                                                                                      ) : (
-                                                                                          <button
-                                                                                              onClick={() => {
-                                                                                                  const exec = (action.item as any).execution || {};
-                                                                                                  copyBracketToClipboard(action.item, action.livePrice, exec.takeProfit || 0, exec.stopLoss || 0);
-                                                                                              }}
-                                                                                              className="text-[13px] font-bold text-sky-400 hover:text-sky-300 transition font-[family-name:var(--font-inter)]"
-                                                                                          >📋 COPY</button>
-                                                                                      )}
-                                                                                  </div>
-                                                                              </div>
-                                                                          );
-                                                                      })}
-                                                                  </div>
-                                                              )}
-                                                              {/* Decay positions warning */}
-                                                              {decayPositions.length > 0 && (
-                                                                  <div className="p-3 rounded-lg bg-rose-900/10 border border-rose-500/15 flex items-center justify-between">
-                                                                      <div className="flex items-center gap-2">
-                                                                          <AlertCircle className="w-4 h-4 text-rose-400" />
-                                                                          <span className="text-xs font-medium text-rose-400">
-                                                                              {decayPositions.map((h: any) => h.ticker).join(', ')} — Score decay below 50
-                                                                          </span>
-                                                                      </div>
-                                                                      <button
-                                                                          onClick={async () => {
-                                                                              if (isInjecting) return;
-                                                                              setIsInjecting(true);
-                                                                              try { for (const h of decayPositions) { await removeHolding(h.ticker); } } finally { setIsInjecting(false); }
-                                                                          }}
-                                                                          disabled={isInjecting}
-                                                                          className="text-[13px] font-bold text-rose-400 hover:text-rose-300 border border-rose-500/20 px-2 py-1 rounded transition"
-                                                                      >{dict.liquidateBtn}</button>
-                                                                  </div>
-                                                              )}
-                                                              {!hasHoldings && (
-                                                                  <button
-                                                                      onClick={handleBatchInject}
-                                                                      disabled={isInjecting || tickers.length === 0}
-                                                                      className="w-full h-9 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 disabled:bg-slate-800/30 disabled:opacity-40 text-emerald-400 disabled:text-slate-500 border border-emerald-500/20 font-bold transition-all flex items-center justify-center gap-1.5 text-xs font-[family-name:var(--font-inter)]"
-                                                                  >
-                                                                      {isInjecting ? <div className="w-3 h-3 border-2 border-emerald-500/20 border-t-emerald-400 rounded-full animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
-                                                                      {dict.batchInjectBtn}
-                                                                  </button>
-                                                              )}
-                                                          </>
-                                                      );
-                                                  })()}
-                                              </div>
-                                          </div>
+                                             {/* Alignment Progress Bar */}
+                                             <div className="w-full bg-slate-950 h-2 rounded-full overflow-hidden border border-slate-900">
+                                                 <div 
+                                                     className="bg-gradient-to-r from-cyan-500 to-emerald-500 h-full rounded-full transition-all duration-500"
+                                                     style={{ width: `${liveAlignmentProgress}%` }}
+                                                 />
+                                             </div>
+
+                                             {/* ─── NO HOLDINGS: Fresh start ─── */}
+                                             {!hasHoldings && totalSteps === 0 && tickers.length === 0 && (
+                                                 <div className="p-4 rounded-lg bg-slate-900/30 border border-slate-700/30 text-center">
+                                                     <p className="text-[13px] text-slate-300 font-[family-name:var(--font-inter)]">
+                                                         투자금을 입력하면 엔진이 최적 포트폴리오를 계산합니다.
+                                                     </p>
+                                                 </div>
+                                             )}
+
+                                             {/* ─── STEP: LIQUIDATE DECAY (only if actually holding decayed stocks) ─── */}
+                                             {decayPositions.length > 0 && (() => {
+                                                 stepNum++;
+                                                 return (
+                                                     <div className="rounded-lg border border-rose-500/20 overflow-hidden">
+                                                         <div className="p-3 bg-rose-950/20 flex items-center justify-between">
+                                                             <div className="flex items-center gap-2">
+                                                                 <span className="w-6 h-6 rounded-full bg-rose-500/20 border border-rose-500/30 flex items-center justify-center text-[13px] font-bold text-rose-400">
+                                                                     {stepNum}
+                                                                 </span>
+                                                                 <span className="text-[13px] font-bold text-rose-400 uppercase font-[family-name:var(--font-inter)]">
+                                                                     🔴 LIQUIDATE — Score Decay 종목 청산
+                                                                 </span>
+                                                             </div>
+                                                             <button
+                                                                 onClick={async () => {
+                                                                     if (isInjecting) return;
+                                                                     setIsInjecting(true);
+                                                                     try { for (const h of decayPositions) { await removeHolding(h.ticker); } } finally { setIsInjecting(false); }
+                                                                 }}
+                                                                 disabled={isInjecting}
+                                                                 className="text-[13px] font-bold text-rose-400 hover:text-rose-300 border border-rose-500/20 px-2.5 py-1 rounded transition font-[family-name:var(--font-inter)]"
+                                                             >{dict.liquidateBtn}</button>
+                                                         </div>
+                                                         <div className="p-3 flex flex-wrap gap-2">
+                                                             {decayPositions.map((h: any) => (
+                                                                 <span key={h.ticker} className="text-[13px] font-bold px-2 py-1 rounded bg-rose-500/10 text-rose-400 border border-rose-500/15 font-[family-name:var(--font-jetbrains)]">
+                                                                     {h.ticker} (Score {h.alphaScore})
+                                                                 </span>
+                                                             ))}
+                                                         </div>
+                                                     </div>
+                                                 );
+                                             })()}
+
+                                             {/* ─── STEP: TRIM/SELL (only if actually holding excess) ─── */}
+                                             {trimsList.length > 0 && (() => {
+                                                 stepNum++;
+                                                 const allDone = trimsList.every(x => completedSteps['sell-' + x.ticker]);
+                                                 return (
+                                                     <div className={`rounded-lg border overflow-hidden transition-all ${allDone ? 'border-emerald-500/20 opacity-60' : 'border-amber-500/20'}`}>
+                                                         <div className="p-3 bg-amber-950/15 flex items-center gap-2">
+                                                             <span className={`w-6 h-6 rounded-full flex items-center justify-center text-[13px] font-bold ${allDone ? 'bg-emerald-500/20 border border-emerald-500/30 text-emerald-400' : 'bg-amber-500/20 border border-amber-500/30 text-amber-400'}`}>
+                                                                 {allDone ? '✓' : stepNum}
+                                                             </span>
+                                                             <span className="text-[13px] font-bold text-amber-400 uppercase font-[family-name:var(--font-inter)]">
+                                                                 비중 축소 — 초과 보유 종목 매도
+                                                             </span>
+                                                             <span className="text-[13px] text-slate-400 font-[family-name:var(--font-jetbrains)] ml-auto">{trimsList.length}건</span>
+                                                         </div>
+                                                         <div className="p-3 flex flex-col gap-1.5">
+                                                             {trimsList.map(x => {
+                                                                 const isDone = !!completedSteps['sell-' + x.ticker];
+                                                                 return (
+                                                                     <div key={x.ticker} className={`flex items-center gap-3 p-2 rounded-lg transition-all ${isDone ? 'opacity-40' : 'hover:bg-white/[0.02]'}`}>
+                                                                         <button onClick={() => setCompletedSteps(prev => ({ ...prev, ['sell-' + x.ticker]: !prev['sell-' + x.ticker] }))}
+                                                                             className={`w-5 h-5 rounded border flex items-center justify-center shrink-0 ${isDone ? 'bg-emerald-500/20 border-emerald-500/30' : 'border-slate-600 hover:border-slate-400'}`}>
+                                                                             {isDone && <Check className="w-3 h-3 text-emerald-400" />}
+                                                                         </button>
+                                                                         <span className="text-[13px] font-bold px-1.5 py-0.5 rounded bg-rose-500/10 text-rose-400 border border-rose-500/15 font-[family-name:var(--font-jetbrains)]">SELL</span>
+                                                                         <TickerLogo ticker={x.ticker} className="w-5 h-5" />
+                                                                         <span className="text-sm font-bold text-slate-100 font-[family-name:var(--font-jetbrains)]">{x.ticker}</span>
+                                                                         <span className="text-[13px] text-slate-300 font-[family-name:var(--font-jetbrains)] tabular-nums">-{Math.abs(x.diffQty)}주 @ ${x.livePrice.toFixed(2)}</span>
+                                                                         <button onClick={() => { const exec = (x.item as any).execution || {}; copyBracketToClipboard(x.item, x.livePrice, exec.takeProfit || 0, exec.stopLoss || 0); }}
+                                                                             className="ml-auto text-[13px] font-bold text-sky-400 hover:text-sky-300 transition font-[family-name:var(--font-inter)]">📋 COPY</button>
+                                                                     </div>
+                                                                 );
+                                                             })}
+                                                         </div>
+                                                     </div>
+                                                 );
+                                             })()}
+
+                                             {/* ─── STEP: BUY (new positions or add to existing) ─── */}
+                                             {buysList.length > 0 && (() => {
+                                                 stepNum++;
+                                                 const allDone = buysList.every(x => completedSteps['buy-' + x.ticker]);
+                                                 return (
+                                                     <div className={`rounded-lg border overflow-hidden transition-all ${allDone ? 'border-emerald-500/20 opacity-60' : 'border-emerald-500/20'}`}>
+                                                         <div className="p-3 bg-emerald-950/15 flex items-center gap-2">
+                                                             <span className={`w-6 h-6 rounded-full flex items-center justify-center text-[13px] font-bold ${allDone ? 'bg-emerald-500/20 border border-emerald-500/30 text-emerald-400' : 'bg-emerald-500/20 border border-emerald-500/30 text-emerald-400'}`}>
+                                                                 {allDone ? '✓' : stepNum}
+                                                             </span>
+                                                             <span className="text-[13px] font-bold text-emerald-400 uppercase font-[family-name:var(--font-inter)]">
+                                                                 {hasHoldings ? '비중 확대 — 추가 매수' : '🟢 포트폴리오 구축 — 신규 매수'}
+                                                             </span>
+                                                             <span className="text-[13px] text-slate-400 font-[family-name:var(--font-jetbrains)] ml-auto">{buysList.length}건</span>
+                                                         </div>
+                                                         <div className="p-3 flex flex-col gap-1.5">
+                                                             {buysList.map((x, idx) => {
+                                                                 const isDone = !!completedSteps['buy-' + x.ticker];
+                                                                 const isNew = x.heldQty === 0;
+                                                                 return (
+                                                                     <div key={x.ticker} className={`flex items-center gap-3 p-2 rounded-lg transition-all ${isDone ? 'opacity-40' : 'hover:bg-white/[0.02]'}`}>
+                                                                         <button onClick={() => setCompletedSteps(prev => ({ ...prev, ['buy-' + x.ticker]: !prev['buy-' + x.ticker] }))}
+                                                                             className={`w-5 h-5 rounded border flex items-center justify-center shrink-0 ${isDone ? 'bg-emerald-500/20 border-emerald-500/30' : 'border-slate-600 hover:border-slate-400'}`}>
+                                                                             {isDone && <Check className="w-3 h-3 text-emerald-400" />}
+                                                                         </button>
+                                                                         <span className="text-[13px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/15 font-[family-name:var(--font-jetbrains)]">
+                                                                             {isNew ? 'BUY' : 'ADD'}
+                                                                         </span>
+                                                                         <TickerLogo ticker={x.ticker} className="w-5 h-5" />
+                                                                         <span className="text-sm font-bold text-slate-100 font-[family-name:var(--font-jetbrains)]">{x.ticker}</span>
+                                                                         <span className="text-[13px] text-slate-300 font-[family-name:var(--font-jetbrains)] tabular-nums">
+                                                                             +{x.diffQty}주 @ ${x.livePrice.toFixed(2)}
+                                                                         </span>
+                                                                         <span className="text-[13px] text-sky-400/70 font-[family-name:var(--font-jetbrains)] tabular-nums hidden sm:inline">
+                                                                             비중 {x.weight.toFixed(1)}% · Score {x.score}
+                                                                         </span>
+                                                                         <button onClick={() => { const exec = (x.item as any).execution || {}; copyBracketToClipboard(x.item, x.livePrice, exec.takeProfit || 0, exec.stopLoss || 0); }}
+                                                                             className="ml-auto text-[13px] font-bold text-sky-400 hover:text-sky-300 transition font-[family-name:var(--font-inter)]">📋 COPY</button>
+                                                                     </div>
+                                                                 );
+                                                             })}
+                                                         </div>
+                                                         {/* Batch inject button for fresh start */}
+                                                         {!hasHoldings && (
+                                                             <div className="px-3 pb-3">
+                                                                 <button
+                                                                     onClick={handleBatchInject}
+                                                                     disabled={isInjecting || tickers.length === 0}
+                                                                     className="w-full h-9 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 disabled:bg-slate-800/30 disabled:opacity-40 text-emerald-400 disabled:text-slate-500 border border-emerald-500/20 font-bold transition-all flex items-center justify-center gap-1.5 text-[13px] font-[family-name:var(--font-inter)]"
+                                                                 >
+                                                                     {isInjecting ? <div className="w-3 h-3 border-2 border-emerald-500/20 border-t-emerald-400 rounded-full animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
+                                                                     전체 매수 완료 — 보유 등록
+                                                                 </button>
+                                                             </div>
+                                                         )}
+                                                     </div>
+                                                 );
+                                             })()}
+
+                                             {/* ─── STEP: SWAP (rotation, only when held) ─── */}
+                                             {hasSwap && (() => {
+                                                 stepNum++;
+                                                 const swapDone = !!completedSteps['swap-' + lowestScoreHolding.ticker];
+                                                 return (
+                                                     <div className={`rounded-lg border overflow-hidden transition-all ${swapDone ? 'border-emerald-500/20 opacity-60' : 'border-indigo-500/20'}`}>
+                                                         <div className="p-3 bg-indigo-950/15 flex items-center gap-2">
+                                                             <span className={`w-6 h-6 rounded-full flex items-center justify-center text-[13px] font-bold ${swapDone ? 'bg-emerald-500/20 border border-emerald-500/30 text-emerald-400' : 'bg-indigo-500/20 border border-indigo-500/30 text-indigo-400'}`}>
+                                                                 {swapDone ? '✓' : stepNum}
+                                                             </span>
+                                                             <span className="text-[13px] font-bold text-indigo-400 uppercase font-[family-name:var(--font-inter)]">
+                                                                 🔄 ROTATION — 약한 종목을 강한 종목으로 교체
+                                                             </span>
+                                                         </div>
+                                                         <div className="p-3 flex items-center gap-3">
+                                                             <button onClick={() => setCompletedSteps(prev => ({ ...prev, ['swap-' + lowestScoreHolding.ticker]: !prev['swap-' + lowestScoreHolding.ticker] }))}
+                                                                 className={`w-5 h-5 rounded border flex items-center justify-center shrink-0 ${swapDone ? 'bg-emerald-500/20 border-emerald-500/30' : 'border-slate-600 hover:border-slate-400'}`}>
+                                                                 {swapDone && <Check className="w-3 h-3 text-emerald-400" />}
+                                                             </button>
+                                                             <span className="text-sm font-bold text-rose-400 font-[family-name:var(--font-jetbrains)]">{lowestScoreHolding.ticker}</span>
+                                                             <span className="text-[13px] text-slate-400">(Score {lowestScoreHolding.alphaScore})</span>
+                                                             <span className="text-slate-400">→</span>
+                                                             <span className="text-sm font-bold text-emerald-400 font-[family-name:var(--font-jetbrains)]">{highestScoreScanned!.ticker}</span>
+                                                             <span className="text-[13px] text-slate-400">(Score {highestScoreScanned!.alphaSnapshot?.score})</span>
+                                                             <button onClick={() => handleRotate(lowestScoreHolding.ticker, highestScoreScanned!)}
+                                                                 disabled={isInjecting}
+                                                                 className="ml-auto text-[13px] font-bold text-indigo-400 hover:text-indigo-300 border border-indigo-500/20 px-2.5 py-1 rounded transition font-[family-name:var(--font-inter)]">🔄 EXEC</button>
+                                                         </div>
+                                                     </div>
+                                                 );
+                                             })()}
+
+                                             {/* ALL DONE state */}
+                                             {totalSteps === 0 && tickers.length > 0 && (
+                                                 <div className="p-3 rounded-lg bg-emerald-900/10 border border-emerald-500/10 text-[13px] text-emerald-400 font-bold flex items-center gap-2 font-[family-name:var(--font-inter)]">
+                                                     <CheckCircle2 className="w-4 h-4 shrink-0" />
+                                                     포트폴리오가 엔진 모델과 완벽히 정렬되어 있습니다. 추가 조치가 필요 없습니다.
+                                                 </div>
+                                             )}
+                                         </div>
                                      );
                                  })()}
 
