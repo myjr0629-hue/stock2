@@ -348,7 +348,7 @@ export function QuantRadarClient() {
     const { isAdmin, loading: tierLoading } = useTier();
 
     // 1.1 Radar-only holdings (localStorage, independent of main Portfolio)
-    const { holdings, summary, addHolding, removeHolding } = useRadarHoldings();
+    const { holdings, summary, addHolding, removeHolding, journal, journalStats, cumulativeRealizedPnl, recordSnapshot, getSnapshots } = useRadarHoldings();
 
     // Quick Add Modal States
     const [showQuickAdd, setShowQuickAdd] = useState(false);
@@ -533,7 +533,7 @@ export function QuantRadarClient() {
         
         const queryParams = new URLSearchParams(isAutoPilot ? {
             mode: 'auto',
-            totalCapital: totalCapital.toString(),
+            totalCapital: compoundCapital.toString(),
             // Wire holdings to server for drift/liquidation detection
             ...(holdings.length > 0 ? {
                 holdings: holdings.map((h: any) => h.ticker.toUpperCase()).join(','),
@@ -772,12 +772,34 @@ export function QuantRadarClient() {
         );
     }
 
-    // Computed Portfolio NAV with Cash
+    // Computed Portfolio NAV with Cash — uses live prices from WebSocket
     const totalStockCost = holdings.reduce((sum, h) => sum + (h.quantity * h.avgPrice), 0);
+    const liveStockValue = holdings.reduce((sum, h) => {
+        const wsPriceObj = getPrice(h.ticker);
+        const livePrice = wsPriceObj ? wsPriceObj.price : h.avgPrice;
+        return sum + (h.quantity * livePrice);
+    }, 0);
     const cashBalance = Math.max(0, totalCapital - totalStockCost);
-    const computedTotalNAV = summary.totalValue + cashBalance;
+    const computedTotalNAV = liveStockValue + cashBalance;
     const computedPL = computedTotalNAV - totalCapital;
     const computedPLPct = totalCapital > 0 ? (computedPL / totalCapital) * 100 : 0;
+
+    // ── COMPOUND GROWTH: NAV-based Capital for allocation engine ──
+    // When holdings exist and NAV > 0, use NAV as the capital base for next allocation
+    // This is the core compound growth loop: profits are automatically reinvested
+    const compoundCapital = useMemo(() => {
+        if (holdings.length > 0 && computedTotalNAV > 0) {
+            return computedTotalNAV; // ✅ Compound: NAV includes unrealized gains
+        }
+        return totalCapital; // No holdings = use user input
+    }, [holdings.length, computedTotalNAV, totalCapital]);
+
+    // Record daily compound snapshot
+    useEffect(() => {
+        if (computedTotalNAV > 0 && totalCapital > 0) {
+            recordSnapshot(computedTotalNAV, totalCapital);
+        }
+    }, [computedTotalNAV, totalCapital]); // eslint-disable-line react-hooks/exhaustive-deps
 
     // ── LIVE POSITION MONITORING ENGINE ──────────────────────
 
@@ -1261,6 +1283,46 @@ export function QuantRadarClient() {
                                         {circuitBreakerResult.actions.map(a => a.reason).join(' | ')}
                                     </div>
                                 )}
+                                {/* Row 2: Trade Journal Stats + Compound Growth Indicator */}
+                                {(journalStats.totalTrades > 0 || holdings.length > 0) && (
+                                    <div className="mx-4 mb-3 p-2.5 rounded-lg bg-[#111827]/60 border border-white/5 flex items-center gap-4 text-[13px] font-[family-name:var(--font-jetbrains)] tabular-nums flex-wrap">
+                                        {journalStats.totalTrades > 0 && (
+                                            <>
+                                                <span className="flex items-center gap-1.5 text-slate-400">
+                                                    <span className="text-[11px] uppercase text-slate-500 font-[family-name:var(--font-inter)]">Trades</span>
+                                                    <span className="font-bold text-slate-200">{journalStats.totalTrades}</span>
+                                                </span>
+                                                <span className="flex items-center gap-1.5 text-slate-400">
+                                                    <span className="text-[11px] uppercase text-slate-500 font-[family-name:var(--font-inter)]">Win Rate</span>
+                                                    <span className={`font-bold ${journalStats.winRate >= 60 ? 'text-emerald-400' : journalStats.winRate >= 50 ? 'text-amber-400' : 'text-rose-400'}`}>
+                                                        {journalStats.winRate.toFixed(1)}%
+                                                    </span>
+                                                </span>
+                                                <span className="flex items-center gap-1.5 text-slate-400">
+                                                    <span className="text-[11px] uppercase text-slate-500 font-[family-name:var(--font-inter)]">Realized</span>
+                                                    <span className={`font-bold ${cumulativeRealizedPnl >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                                        {cumulativeRealizedPnl >= 0 ? '+' : ''}${cumulativeRealizedPnl.toLocaleString(undefined, {maximumFractionDigits: 0})}
+                                                    </span>
+                                                </span>
+                                                <span className="flex items-center gap-1.5 text-slate-400">
+                                                    <span className="text-[11px] uppercase text-slate-500 font-[family-name:var(--font-inter)]">E[V]</span>
+                                                    <span className={`font-bold ${journalStats.expectancy >= 0 ? 'text-cyan-400' : 'text-rose-400'}`}>
+                                                        ${journalStats.expectancy.toFixed(0)}/trade
+                                                    </span>
+                                                </span>
+                                            </>
+                                        )}
+                                        {holdings.length > 0 && compoundCapital !== totalCapital && (
+                                            <span className="flex items-center gap-1.5 ml-auto text-slate-400">
+                                                <span className="text-[11px] uppercase text-emerald-500 font-[family-name:var(--font-inter)]">⚡ COMPOUND</span>
+                                                <span className="font-bold text-emerald-400">
+                                                    ${compoundCapital.toLocaleString(undefined, {maximumFractionDigits: 0})}
+                                                </span>
+                                            </span>
+                                        )}
+                                    </div>
+                                )}
+
                             </div>
 
                             {/* ═══ COMPOUND GROWTH CURVE ═══ */}
