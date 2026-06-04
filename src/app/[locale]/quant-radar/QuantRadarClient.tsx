@@ -1308,93 +1308,79 @@ export function QuantRadarClient() {
                                 </div>
                             )}
 
-                            {/* LIVE POSITION TRACKER */}
+                            {/* ═══ V3 POSITION COMMAND CENTER ═══ */}
                             {holdings.length > 0 && (
-                                <div className="p-4 rounded-xl bg-[#111827]/60 backdrop-blur-sm border border-white/5 flex flex-col gap-3">
-                                    <div className="flex items-center justify-between">
-                                        <h3 className="text-[13px] font-bold text-slate-100 font-[family-name:var(--font-inter)] flex items-center gap-2">
-                                            <Activity className="w-4 h-4 text-emerald-400" />
-                                            LIVE POSITIONS ({holdings.length})
+                                <div className="flex flex-col gap-3">
+                                    <div className="flex items-center justify-between px-1">
+                                        <h3 className="text-sm font-bold text-slate-100 font-[family-name:var(--font-inter)] flex items-center gap-2">
+                                            <Shield className="w-4 h-4 text-cyan-400" />
+                                            POSITION COMMAND ({holdings.length})
                                         </h3>
                                         <div className="flex items-center gap-2">
-                                            {drawdownPct < -2 && (
-                                                <span className="text-[13px] font-bold px-2 py-0.5 rounded bg-rose-500/10 text-rose-400 border border-rose-500/15 font-[family-name:var(--font-jetbrains)] tabular-nums">
-                                                    MDD {drawdownPct.toFixed(1)}%
-                                                </span>
-                                            )}
                                             <span className={`text-[13px] font-bold px-2 py-0.5 rounded border font-[family-name:var(--font-jetbrains)] tabular-nums ${
-                                                dailyPnlPct >= 0 ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/15' : 'bg-rose-500/10 text-rose-400 border-rose-500/15'
+                                                computedPL >= 0 ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/15' : 'bg-rose-500/10 text-rose-400 border-rose-500/15'
                                             }`}>
-                                                Today {dailyPnlPct >= 0 ? '+' : ''}{dailyPnlPct.toFixed(2)}%
+                                                {computedPL >= 0 ? '+' : ''}${computedPL.toLocaleString(undefined, {maximumFractionDigits: 0})}
                                             </span>
                                         </div>
                                     </div>
 
-                                    {/* Circuit Breaker Warning */}
-                                    {circuitBreakerResult.triggered && (
-                                        <div className={`p-3 rounded-lg border flex items-start gap-2 ${
-                                            circuitBreakerResult.level === 'HALT' ? 'bg-rose-950/30 border-rose-500/30 text-rose-400' :
-                                            circuitBreakerResult.level === 'WARNING' ? 'bg-amber-950/30 border-amber-500/30 text-amber-400' :
-                                            'bg-sky-950/30 border-sky-500/30 text-sky-400'
-                                        }`}>
-                                            <ShieldAlert className="w-4 h-4 mt-0.5 shrink-0" />
-                                            <div className="flex flex-col gap-1">
-                                                <span className="text-[13px] font-bold uppercase">
-                                                    {circuitBreakerResult.level === 'HALT' ? '🚨 CIRCUIT BREAKER HALT' : circuitBreakerResult.level === 'WARNING' ? '⚠️ RISK WARNING' : '⚡ CAUTION'}
-                                                </span>
-                                                {circuitBreakerResult.actions.map((a, i) => (
-                                                    <span key={i} className="text-[13px] font-[family-name:var(--font-inter)]">{a.reason}</span>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    {/* Position Rows */}
-                                    <div className="flex flex-col gap-2">
+                                    {/* Position Cards */}
+                                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
                                         {livePositionStatus.map(pos => {
-                                            const signalConfig: Record<string, {label: string, color: string, icon: string}> = {
-                                                STOP_LOSS: { label: 'STOP LOSS', color: 'bg-rose-500/15 text-rose-400 border-rose-500/20', icon: '🔴' },
-                                                DECAY: { label: 'SCORE DECAY', color: 'bg-amber-500/15 text-amber-400 border-amber-500/20', icon: '⚠️' },
-                                                TAKE_PROFIT: { label: 'TAKE PROFIT', color: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/20', icon: '🟢' },
-                                                ACCUMULATE: { label: 'STRONG', color: 'bg-sky-500/15 text-sky-400 border-sky-500/20', icon: '⚡' },
-                                                HOLD: { label: 'HOLD', color: 'bg-slate-500/15 text-slate-300 border-slate-500/20', icon: '⏸️' },
+                                            const signalConfig: Record<string, {label: string, bgCard: string, borderCard: string, tagColor: string, icon: string, directive: string}> = {
+                                                STOP_LOSS: { 
+                                                    label: 'STOP LOSS', bgCard: 'bg-rose-950/20', borderCard: 'border-rose-500/30 animate-pulse', 
+                                                    tagColor: 'bg-rose-500/15 text-rose-400 border-rose-500/20', icon: '🔴',
+                                                    directive: `즉시 시장가 매도. SL $${pos.slPrice.toFixed(2)} 히트. 감정 배제, 기계적 청산.`
+                                                },
+                                                DECAY: { 
+                                                    label: 'SCORE DECAY', bgCard: 'bg-amber-950/15', borderCard: 'border-amber-500/25',
+                                                    tagColor: 'bg-amber-500/15 text-amber-400 border-amber-500/20', icon: '⚠️',
+                                                    directive: `Score ${pos.score}로 하락. 엔진이 더 이상 추천하지 않음. 축소 또는 청산 권고.`
+                                                },
+                                                TAKE_PROFIT: { 
+                                                    label: 'TAKE PROFIT', bgCard: 'bg-emerald-950/15', borderCard: 'border-emerald-500/25',
+                                                    tagColor: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/20', icon: '🟢',
+                                                    directive: `TP $${pos.tpPrice.toFixed(2)} 도달. 50% 익절 후 잔여분 trailing stop $${(pos.livePrice * 0.97).toFixed(2)} 설정.`
+                                                },
+                                                ACCUMULATE: { 
+                                                    label: 'STRONG', bgCard: 'bg-[#111827]/50', borderCard: 'border-sky-500/20',
+                                                    tagColor: 'bg-sky-500/15 text-sky-400 border-sky-500/20', icon: '⚡',
+                                                    directive: `Score ${pos.score} 유지. 모멘텀 강세. 비중 유지 또는 추가 매수 검토.`
+                                                },
+                                                HOLD: { 
+                                                    label: 'HOLD', bgCard: 'bg-[#111827]/40', borderCard: 'border-white/5',
+                                                    tagColor: 'bg-slate-500/15 text-slate-300 border-slate-500/20', icon: '⏸️',
+                                                    directive: `정상 구간. 유지. Score 40 이하 하락 시 축소, TP 도달 시 익절.`
+                                                },
                                             };
                                             const sc = signalConfig[pos.signal] || signalConfig.HOLD;
-                                            const isUrgent = pos.signal === 'STOP_LOSS' || pos.signal === 'DECAY';
+                                            const actualWeight = computedTotalNAV > 0 ? ((pos.quantity * pos.livePrice) / computedTotalNAV) * 100 : 0;
+                                            
+                                            // SL-Entry-TP bar position calculation
+                                            const slToTp = pos.tpPrice - pos.slPrice;
+                                            const pricePos = slToTp > 0 ? ((pos.livePrice - pos.slPrice) / slToTp) * 100 : 50;
+                                            const clampedPos = Math.max(0, Math.min(100, pricePos));
+                                            const entryPos = slToTp > 0 ? ((pos.avgPrice - pos.slPrice) / slToTp) * 100 : 50;
+                                            const clampedEntry = Math.max(0, Math.min(100, entryPos));
+
                                             return (
-                                                <div key={pos.ticker} className={`p-3 rounded-lg bg-[#111827]/40 border transition-all flex items-center justify-between gap-3 ${
-                                                    isUrgent ? 'border-rose-500/20 animate-pulse' : 'border-white/5 hover:border-white/10'
-                                                }`}>
-                                                    <div className="flex items-center gap-3 min-w-0">
-                                                        <TickerLogo ticker={pos.ticker} className="w-6 h-6" />
-                                                        <div className="flex flex-col min-w-0">
-                                                            <div className="flex items-center gap-2">
-                                                                <span className="text-sm font-bold text-slate-100 font-[family-name:var(--font-jetbrains)]">{pos.ticker}</span>
-                                                                <span className={`text-[13px] font-bold px-1.5 py-0.5 rounded border ${sc.color} font-[family-name:var(--font-inter)]`}>
+                                                <div key={pos.ticker} className={`p-4 rounded-xl ${sc.bgCard} border ${sc.borderCard} transition-all`}>
+                                                    {/* Header: Ticker + Signal + P&L */}
+                                                    <div className="flex items-center justify-between mb-3">
+                                                        <div className="flex items-center gap-2.5">
+                                                            <TickerLogo ticker={pos.ticker} className="w-7 h-7" />
+                                                            <div>
+                                                                <div className="flex items-center gap-2">
+                                                                    <span className="text-sm font-bold text-slate-100 font-[family-name:var(--font-jetbrains)]">{pos.ticker}</span>
+                                                                    <span className="text-[13px] font-bold text-slate-200 font-[family-name:var(--font-jetbrains)] tabular-nums">${pos.livePrice.toFixed(2)}</span>
+                                                                </div>
+                                                                <span className={`text-[13px] font-bold px-1.5 py-0.5 rounded border ${sc.tagColor} font-[family-name:var(--font-inter)]`}>
                                                                     {sc.icon} {sc.label}
                                                                 </span>
                                                             </div>
-                                                            <div className="flex items-center gap-3 text-[13px] text-slate-300 font-[family-name:var(--font-jetbrains)] tabular-nums">
-                                                                <span>{pos.quantity}주 @ ${pos.avgPrice.toFixed(2)}</span>
-                                                                <span className="text-slate-400">→</span>
-                                                                <span className="text-slate-100">${pos.livePrice.toFixed(2)}</span>
-                                                            </div>
                                                         </div>
-                                                    </div>
-                                                    <div className="flex items-center gap-4 shrink-0">
-                                                        {/* Score */}
-                                                        <div className="flex flex-col items-center">
-                                                            <span className={`text-sm font-bold font-[family-name:var(--font-jetbrains)] tabular-nums ${
-                                                                pos.score >= 60 ? 'text-emerald-400' : pos.score >= 40 ? 'text-amber-400' : 'text-rose-400'
-                                                            }`}>{pos.score}</span>
-                                                            <span className="text-[13px] text-slate-400">Score</span>
-                                                        </div>
-                                                        {/* SL/TP range */}
-                                                        <div className="hidden sm:flex flex-col items-center text-[13px] font-[family-name:var(--font-jetbrains)] tabular-nums">
-                                                            <span className={pos.tpHit ? 'text-emerald-400 font-bold' : 'text-slate-400'}>${pos.tpPrice.toFixed(2)}</span>
-                                                            <span className={pos.slHit ? 'text-rose-400 font-bold' : 'text-slate-400'}>${pos.slPrice.toFixed(2)}</span>
-                                                        </div>
-                                                        {/* P&L */}
                                                         <div className="flex flex-col items-end">
                                                             <span className={`text-sm font-bold font-[family-name:var(--font-jetbrains)] tabular-nums ${
                                                                 pos.pnlPct >= 0 ? 'text-emerald-400' : 'text-rose-400'
@@ -1404,33 +1390,107 @@ export function QuantRadarClient() {
                                                             <span className={`text-[13px] font-[family-name:var(--font-jetbrains)] tabular-nums ${
                                                                 pos.pnl >= 0 ? 'text-emerald-400/70' : 'text-rose-400/70'
                                                             }`}>
-                                                                {pos.pnl >= 0 ? '+' : ''}{pos.pnl < 0 ? '-' : ''}${Math.abs(pos.pnl).toLocaleString(undefined, {maximumFractionDigits: 0})}
+                                                                {pos.pnl >= 0 ? '+' : ''}${pos.pnl.toLocaleString(undefined, {maximumFractionDigits: 0})}
                                                             </span>
                                                         </div>
+                                                    </div>
+
+                                                    {/* SL — Entry — TP Visual Bar */}
+                                                    <div className="relative mb-3">
+                                                        <div className="flex justify-between text-[13px] font-[family-name:var(--font-jetbrains)] tabular-nums mb-1">
+                                                            <span className={`${pos.slHit ? 'text-rose-400 font-bold' : 'text-rose-400/60'}`}>SL ${pos.slPrice.toFixed(2)}</span>
+                                                            <span className={`${pos.tpHit ? 'text-emerald-400 font-bold' : 'text-emerald-400/60'}`}>TP ${pos.tpPrice.toFixed(2)}</span>
+                                                        </div>
+                                                        <div className="relative h-2 rounded-full bg-slate-800/80 overflow-visible">
+                                                            {/* Gradient fill from SL to current price */}
+                                                            <div 
+                                                                className={`absolute left-0 top-0 h-full rounded-full transition-all duration-500 ${
+                                                                    pos.pnlPct >= 0 ? 'bg-gradient-to-r from-slate-600 to-emerald-500' : 'bg-gradient-to-r from-rose-500 to-slate-600'
+                                                                }`}
+                                                                style={{ width: `${clampedPos}%` }}
+                                                            />
+                                                            {/* Entry marker */}
+                                                            <div 
+                                                                className="absolute top-[-3px] w-0.5 h-[14px] bg-slate-400/60"
+                                                                style={{ left: `${clampedEntry}%` }}
+                                                                title={`Entry $${pos.avgPrice.toFixed(2)}`}
+                                                            />
+                                                            {/* Current price marker */}
+                                                            <div 
+                                                                className={`absolute top-[-4px] w-2.5 h-2.5 rounded-full border-2 transition-all duration-500 ${
+                                                                    pos.pnlPct >= 0 ? 'bg-emerald-400 border-emerald-300 shadow-[0_0_6px_rgba(16,185,129,0.6)]' : 'bg-rose-400 border-rose-300 shadow-[0_0_6px_rgba(244,63,94,0.6)]'
+                                                                }`}
+                                                                style={{ left: `calc(${clampedPos}% - 5px)` }}
+                                                            />
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Stats Row */}
+                                                    <div className="grid grid-cols-4 gap-2 mb-3 text-[13px]">
+                                                        <div className="flex flex-col">
+                                                            <span className="text-slate-400 font-[family-name:var(--font-inter)]">보유</span>
+                                                            <span className="text-slate-200 font-bold font-[family-name:var(--font-jetbrains)] tabular-nums">{pos.quantity}주</span>
+                                                        </div>
+                                                        <div className="flex flex-col">
+                                                            <span className="text-slate-400 font-[family-name:var(--font-inter)]">평단가</span>
+                                                            <span className="text-slate-200 font-bold font-[family-name:var(--font-jetbrains)] tabular-nums">${pos.avgPrice.toFixed(2)}</span>
+                                                        </div>
+                                                        <div className="flex flex-col">
+                                                            <span className="text-slate-400 font-[family-name:var(--font-inter)]">비중</span>
+                                                            <span className="text-slate-200 font-bold font-[family-name:var(--font-jetbrains)] tabular-nums">{actualWeight.toFixed(1)}%</span>
+                                                        </div>
+                                                        <div className="flex flex-col">
+                                                            <span className="text-slate-400 font-[family-name:var(--font-inter)]">Score</span>
+                                                            <span className={`font-bold font-[family-name:var(--font-jetbrains)] tabular-nums ${
+                                                                pos.score >= 60 ? 'text-emerald-400' : pos.score >= 40 ? 'text-amber-400' : 'text-rose-400'
+                                                            }`}>{pos.score} {pos.grade}</span>
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Engine Directive */}
+                                                    <div className={`p-2.5 rounded-lg border text-[13px] font-medium leading-relaxed ${
+                                                        pos.signal === 'STOP_LOSS' ? 'bg-rose-950/20 border-rose-500/15 text-rose-300' :
+                                                        pos.signal === 'DECAY' ? 'bg-amber-950/20 border-amber-500/15 text-amber-300' :
+                                                        pos.signal === 'TAKE_PROFIT' ? 'bg-emerald-950/20 border-emerald-500/15 text-emerald-300' :
+                                                        'bg-slate-900/30 border-slate-700/30 text-slate-300'
+                                                    } font-[family-name:var(--font-inter)]`}>
+                                                        {sc.directive}
                                                     </div>
                                                 </div>
                                             );
                                         })}
                                     </div>
 
-                                    {/* Weight % bar */}
-                                    {livePositionStatus.length > 0 && (
-                                        <div className="flex gap-0.5 h-2 rounded-full overflow-hidden bg-slate-800/50">
-                                            {livePositionStatus.map(pos => {
-                                                const actualWeight = computedTotalNAV > 0 ? ((pos.quantity * pos.livePrice) / computedTotalNAV) * 100 : 0;
-                                                return (
-                                                    <div
-                                                        key={pos.ticker}
-                                                        className={`h-full transition-all duration-500 ${
-                                                            pos.pnlPct >= 0 ? 'bg-emerald-500/60' : 'bg-rose-500/60'
-                                                        }`}
-                                                        style={{ width: `${Math.max(actualWeight, 0.5)}%` }}
-                                                        title={`${pos.ticker}: ${actualWeight.toFixed(1)}% (target ${pos.targetWeight.toFixed(1)}%)`}
-                                                    />
-                                                );
-                                            })}
-                                        </div>
-                                    )}
+                                    {/* Portfolio Weight Distribution Bar */}
+                                    <div className="flex gap-0.5 h-3 rounded-full overflow-hidden bg-slate-800/50">
+                                        {livePositionStatus.map(pos => {
+                                            const actualWeight = computedTotalNAV > 0 ? ((pos.quantity * pos.livePrice) / computedTotalNAV) * 100 : 0;
+                                            return (
+                                                <div
+                                                    key={pos.ticker}
+                                                    className={`h-full transition-all duration-500 relative group cursor-pointer ${
+                                                        pos.pnlPct >= 0 ? 'bg-emerald-500/60 hover:bg-emerald-500/80' : 'bg-rose-500/60 hover:bg-rose-500/80'
+                                                    }`}
+                                                    style={{ width: `${Math.max(actualWeight, 1)}%` }}
+                                                    title={`${pos.ticker}: ${actualWeight.toFixed(1)}% (target ${pos.targetWeight.toFixed(1)}%)`}
+                                                >
+                                                    {actualWeight > 8 && (
+                                                        <span className="absolute inset-0 flex items-center justify-center text-[10px] font-bold text-white/80 font-[family-name:var(--font-jetbrains)]">
+                                                            {pos.ticker}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            );
+                                        })}
+                                        {/* Cash portion */}
+                                        {cashBalance > 0 && computedTotalNAV > 0 && (
+                                            <div
+                                                className="h-full bg-slate-600/40"
+                                                style={{ width: `${Math.max((cashBalance / computedTotalNAV) * 100, 1)}%` }}
+                                                title={`Cash: ${((cashBalance / computedTotalNAV) * 100).toFixed(1)}%`}
+                                            />
+                                        )}
+                                    </div>
                                 </div>
                             )}
 
