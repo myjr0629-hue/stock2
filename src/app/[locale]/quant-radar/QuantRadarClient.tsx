@@ -496,6 +496,32 @@ export function QuantRadarClient() {
     const _earlyNAV = summary.totalValue + Math.max(0, totalCapital - _earlyStockCost);
     const { hwm, drawdownPct, dailyPnlPct, dailyStartNAV } = usePortfolioTracker(_earlyNAV, totalCapital);
 
+    // ── NAV HISTORY for Compound Growth Curve ──
+    const [navHistory, setNavHistory] = useState<{date: string, nav: number}[]>([]);
+    
+    useEffect(() => {
+        if (totalCapital <= 0) return;
+        const storageKey = `radar_nav_history_${totalCapital}`;
+        try {
+            const stored = localStorage.getItem(storageKey);
+            const history: {date: string, nav: number}[] = stored ? JSON.parse(stored) : [];
+            const today = new Date().toISOString().slice(0, 10);
+            const lastEntry = history[history.length - 1];
+            
+            // Only update once per day or if NAV changed significantly
+            if (!lastEntry || lastEntry.date !== today) {
+                history.push({ date: today, nav: _earlyNAV });
+            } else {
+                lastEntry.nav = _earlyNAV; // Update today's entry
+            }
+            
+            // Keep max 365 days
+            const trimmed = history.slice(-365);
+            localStorage.setItem(storageKey, JSON.stringify(trimmed));
+            setNavHistory(trimmed);
+        } catch { /* localStorage unavailable */ }
+    }, [_earlyNAV, totalCapital]);
+
     // Canvas radar animation removed for performance (V2 redesign)
 
     const handleQuickAddSubmit = async (e: React.FormEvent) => {
@@ -1254,6 +1280,98 @@ export function QuantRadarClient() {
                                     </div>
                                 )}
                             </div>
+
+                            {/* ═══ COMPOUND GROWTH CURVE ═══ */}
+                            {navHistory.length >= 2 && (
+                                <div className="p-4 rounded-xl bg-[#0b101c]/80 backdrop-blur-sm border border-white/5">
+                                    <div className="flex items-center justify-between mb-3">
+                                        <h3 className="text-sm font-bold text-slate-100 font-[family-name:var(--font-inter)] flex items-center gap-2">
+                                            <TrendingUp className="w-4 h-4 text-emerald-400" />
+                                            COMPOUND GROWTH
+                                        </h3>
+                                        <div className="flex items-center gap-4 text-[13px] font-[family-name:var(--font-jetbrains)] tabular-nums">
+                                            <span className="text-slate-400">
+                                                {navHistory.length}일
+                                            </span>
+                                            <span className={`font-bold ${computedPLPct >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                                {computedPLPct >= 0 ? '+' : ''}{computedPLPct.toFixed(2)}%
+                                            </span>
+                                            {navHistory.length > 1 && (() => {
+                                                const totalReturn = computedPLPct / 100;
+                                                const days = navHistory.length;
+                                                const annualized = days > 0 ? (Math.pow(1 + totalReturn, 365 / days) - 1) * 100 : 0;
+                                                return (
+                                                    <span className={`font-bold ${annualized >= 0 ? 'text-cyan-400' : 'text-rose-400'}`}>
+                                                        {annualized >= 0 ? '+' : ''}{annualized.toFixed(1)}% 연율
+                                                    </span>
+                                                );
+                                            })()}
+                                        </div>
+                                    </div>
+                                    {/* SVG Chart */}
+                                    {(() => {
+                                        const data = navHistory;
+                                        const W = 800, H = 120, padY = 8;
+                                        const navs = data.map(d => d.nav);
+                                        const minNav = Math.min(...navs, totalCapital * 0.95);
+                                        const maxNav = Math.max(...navs, totalCapital * 1.05);
+                                        const range = maxNav - minNav || 1;
+                                        const points = data.map((d, i) => ({
+                                            x: (i / Math.max(data.length - 1, 1)) * W,
+                                            y: H - padY - ((d.nav - minNav) / range) * (H - padY * 2)
+                                        }));
+                                        const pathD = points.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x.toFixed(1)},${p.y.toFixed(1)}`).join(' ');
+                                        const areaD = pathD + ` L${W},${H} L0,${H} Z`;
+                                        // HWM line
+                                        const hwmY = H - padY - ((hwm - minNav) / range) * (H - padY * 2);
+                                        // Capital baseline
+                                        const capY = H - padY - ((totalCapital - minNav) / range) * (H - padY * 2);
+                                        const lastPoint = points[points.length - 1];
+                                        
+                                        return (
+                                            <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-[120px]" preserveAspectRatio="none">
+                                                <defs>
+                                                    <linearGradient id="navGrad" x1="0" y1="0" x2="0" y2="1">
+                                                        <stop offset="0%" stopColor={computedPL >= 0 ? '#10B981' : '#F43F5E'} stopOpacity="0.3" />
+                                                        <stop offset="100%" stopColor={computedPL >= 0 ? '#10B981' : '#F43F5E'} stopOpacity="0.02" />
+                                                    </linearGradient>
+                                                </defs>
+                                                {/* Capital baseline */}
+                                                <line x1="0" y1={capY} x2={W} y2={capY} stroke="#475569" strokeWidth="1" strokeDasharray="4 4" opacity="0.5" />
+                                                {/* HWM line */}
+                                                <line x1="0" y1={hwmY} x2={W} y2={hwmY} stroke="#06B6D4" strokeWidth="0.5" strokeDasharray="2 3" opacity="0.4" />
+                                                {/* Area fill */}
+                                                <path d={areaD} fill="url(#navGrad)" />
+                                                {/* NAV line */}
+                                                <path d={pathD} fill="none" stroke={computedPL >= 0 ? '#10B981' : '#F43F5E'} strokeWidth="2" strokeLinejoin="round" />
+                                                {/* Current dot */}
+                                                {lastPoint && (
+                                                    <circle cx={lastPoint.x} cy={lastPoint.y} r="3" fill={computedPL >= 0 ? '#10B981' : '#F43F5E'} stroke="white" strokeWidth="1.5" />
+                                                )}
+                                            </svg>
+                                        );
+                                    })()}
+                                    {/* Stats Row */}
+                                    <div className="grid grid-cols-4 gap-3 mt-2 text-[13px]">
+                                        <div className="flex flex-col items-center">
+                                            <span className="text-slate-400 font-[family-name:var(--font-inter)]">운용일</span>
+                                            <span className="text-slate-200 font-bold font-[family-name:var(--font-jetbrains)] tabular-nums">{navHistory.length}</span>
+                                        </div>
+                                        <div className="flex flex-col items-center">
+                                            <span className="text-slate-400 font-[family-name:var(--font-inter)]">HWM</span>
+                                            <span className="text-cyan-400 font-bold font-[family-name:var(--font-jetbrains)] tabular-nums">${hwm.toLocaleString(undefined, {maximumFractionDigits: 0})}</span>
+                                        </div>
+                                        <div className="flex flex-col items-center">
+                                            <span className="text-slate-400 font-[family-name:var(--font-inter)]">MDD</span>
+                                            <span className={`font-bold font-[family-name:var(--font-jetbrains)] tabular-nums ${drawdownPct > -2 ? 'text-slate-300' : 'text-rose-400'}`}>{drawdownPct.toFixed(1)}%</span>
+                                        </div>
+                                        <div className="flex flex-col items-center">
+                                            <span className="text-slate-400 font-[family-name:var(--font-inter)]">Cash</span>
+                                            <span className="text-slate-200 font-bold font-[family-name:var(--font-jetbrains)] tabular-nums">${cashBalance.toLocaleString(undefined, {maximumFractionDigits: 0})}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
 
                             {/* Header with Master Copy */}
                             <div className="p-4 rounded-xl bg-[#111827]/60 backdrop-blur-sm border border-white/5 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
