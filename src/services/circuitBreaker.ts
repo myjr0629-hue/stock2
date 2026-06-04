@@ -23,16 +23,52 @@ export const DEFAULT_CONFIG: CircuitBreakerConfig = {
   positionLossLimitPct: -12,
 };
 
+const i18nMessages: Record<string, {
+  positionLoss: (ticker: string, pct: string, limit: number) => string;
+  dailyLoss: (pct: string, limit: number) => string;
+  drawdown: (pct: string, limit: number) => string;
+  cashRaise: (pct: string) => string;
+  normal: string;
+  circuitBreaker: (level: string, messages: string) => string;
+}> = {
+  ko: {
+    positionLoss: (ticker, pct, limit) => `${ticker} 포지션 손실 ${pct}%가 한도 ${limit}% 초과`,
+    dailyLoss: (pct, limit) => `일일 손익 ${pct}%가 일일 한도 ${limit}% 초과`,
+    drawdown: (pct, limit) => `포트폴리오 낙폭 ${pct}%가 최대 허용 ${limit}% 초과`,
+    cashRaise: (pct) => `낙폭 ${pct}%에 따른 방어적 현금 비중 확대 발동`,
+    normal: '모든 리스크 지표가 정상 범위 내에 있습니다',
+    circuitBreaker: (level, messages) => `서킷 브레이커 ${level}: ${messages}`,
+  },
+  ja: {
+    positionLoss: (ticker, pct, limit) => `${ticker}ポジション損失${pct}%が制限${limit}%を超過`,
+    dailyLoss: (pct, limit) => `日次損益${pct}%が制限${limit}%を超過`,
+    drawdown: (pct, limit) => `ドローダウン${pct}%が最大制限${limit}%を超過`,
+    cashRaise: (pct) => `${pct}%ドローダウンによる防御的キャッシュ引き上げ`,
+    normal: '全リスク指標が正常範囲内',
+    circuitBreaker: (level, messages) => `サーキットブレーカー${level}: ${messages}`,
+  },
+  en: {
+    positionLoss: (ticker, pct, limit) => `${ticker} position loss ${pct}% exceeds limit of ${limit}%`,
+    dailyLoss: (pct, limit) => `Daily P&L ${pct}% exceeds limit of ${limit}%`,
+    drawdown: (pct, limit) => `Portfolio drawdown ${pct}% exceeds max drawdown limit of ${limit}%`,
+    cashRaise: (pct) => `Defensive cash raise triggered by ${pct}% drawdown`,
+    normal: 'All risk parameters within normal range',
+    circuitBreaker: (level, messages) => `Circuit breaker ${level}: ${messages}`,
+  },
+};
+
 export function evaluateCircuitBreaker(
   currentNAV: number,
   highWaterMark: number,
   dailyStartNAV: number,
   positions: Array<{ ticker: string; costBasis: number; currentValue: number }>,
-  config: CircuitBreakerConfig = DEFAULT_CONFIG
+  config: CircuitBreakerConfig = DEFAULT_CONFIG,
+  locale: string = 'en'
 ): CircuitBreakerResult {
   const actions: CircuitBreakerAction[] = [];
   let level = 'NONE' as string;
   const messages: string[] = [];
+  const t = i18nMessages[locale] || i18nMessages.en;
 
   // 1. Check individual position losses
   for (const pos of positions) {
@@ -44,9 +80,9 @@ export function evaluateCircuitBreaker(
       actions.push({
         type: 'LIQUIDATE_POSITION',
         ticker: pos.ticker,
-        reason: `${pos.ticker} position loss ${positionPnlPct.toFixed(1)}% exceeds limit of ${config.positionLossLimitPct}%`,
+        reason: t.positionLoss(pos.ticker, positionPnlPct.toFixed(1), config.positionLossLimitPct),
       });
-      messages.push(`${pos.ticker} hit position loss limit (${positionPnlPct.toFixed(1)}%)`);
+      messages.push(t.positionLoss(pos.ticker, positionPnlPct.toFixed(1), config.positionLossLimitPct));
 
       if (level !== 'WARNING' && level !== 'HALT') {
         level = 'WARNING';
@@ -61,9 +97,9 @@ export function evaluateCircuitBreaker(
     if (dailyPnlPct <= config.dailyLossLimitPct) {
       actions.push({
         type: 'HALT_NEW_ORDERS',
-        reason: `Daily P&L ${dailyPnlPct.toFixed(1)}% exceeds limit of ${config.dailyLossLimitPct}%`,
+        reason: t.dailyLoss(dailyPnlPct.toFixed(1), config.dailyLossLimitPct),
       });
-      messages.push(`Daily loss limit breached (${dailyPnlPct.toFixed(1)}%)`);
+      messages.push(t.dailyLoss(dailyPnlPct.toFixed(1), config.dailyLossLimitPct));
 
       if (level !== 'HALT') {
         level = 'WARNING';
@@ -78,21 +114,21 @@ export function evaluateCircuitBreaker(
     if (drawdownPct <= config.maxDrawdownPct) {
       actions.push({
         type: 'REDUCE_ALL',
-        reason: `Portfolio drawdown ${drawdownPct.toFixed(1)}% exceeds max drawdown limit of ${config.maxDrawdownPct}%`,
+        reason: t.drawdown(drawdownPct.toFixed(1), config.maxDrawdownPct),
       });
       actions.push({
         type: 'INCREASE_CASH',
-        reason: `Defensive cash raise triggered by ${drawdownPct.toFixed(1)}% drawdown`,
+        reason: t.cashRaise(drawdownPct.toFixed(1)),
       });
-      messages.push(`Max drawdown breached (${drawdownPct.toFixed(1)}%)`);
+      messages.push(t.drawdown(drawdownPct.toFixed(1), config.maxDrawdownPct));
       level = 'HALT';
     }
   }
 
   const triggered = actions.length > 0;
   const message = triggered
-    ? `Circuit breaker ${level}: ${messages.join('; ')}`
-    : 'All risk parameters within normal range';
+    ? t.circuitBreaker(level, messages.join('; '))
+    : t.normal;
 
   return { triggered, level: level as CircuitBreakerResult['level'], message, actions };
 }

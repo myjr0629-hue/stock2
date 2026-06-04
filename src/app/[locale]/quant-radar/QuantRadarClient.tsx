@@ -823,8 +823,8 @@ export function QuantRadarClient() {
                 currentValue: h.quantity * livePrice,
             };
         });
-        return evaluateCircuitBreaker(computedTotalNAV, hwm, dailyStartNAV, positions);
-    }, [isAutoPilot, holdings, computedTotalNAV, hwm, dailyStartNAV, getPrice]);
+        return evaluateCircuitBreaker(computedTotalNAV, hwm, dailyStartNAV, positions, undefined, locale);
+    }, [isAutoPilot, holdings, computedTotalNAV, hwm, dailyStartNAV, getPrice, locale]);
 
     // Per-position live status (SL/TP hit detection, P&L, signal)
     const livePositionStatus = useMemo(() => {

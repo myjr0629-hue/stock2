@@ -6,6 +6,7 @@ const STORAGE_KEYS = {
   HWM: 'radar_hwm',
   DAILY_NAV: 'radar_daily_nav',
   DAILY_DATE: 'radar_daily_date',
+  CAPITAL: 'radar_capital',
 } as const;
 
 function getStoredNumber(key: string, fallback: number): number {
@@ -56,6 +57,25 @@ export function usePortfolioTracker(currentNAV: number, totalCapital: number) {
     }
     return currentNAV;
   });
+
+  // Reset tracker when totalCapital changes significantly (>20% difference from stored)
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const storedCapital = getStoredNumber(STORAGE_KEYS.CAPITAL, 0);
+    
+    if (storedCapital > 0 && totalCapital > 0) {
+      const diff = Math.abs(totalCapital - storedCapital) / storedCapital;
+      if (diff > 0.20) {
+        // Capital changed by more than 20% → reset all tracking
+        setHwm(currentNAV);
+        setDailyStartNAV(currentNAV);
+        setStored(STORAGE_KEYS.HWM, String(currentNAV));
+        setStored(STORAGE_KEYS.DAILY_NAV, String(currentNAV));
+        setStored(STORAGE_KEYS.DAILY_DATE, getTodayDateString());
+      }
+    }
+    setStored(STORAGE_KEYS.CAPITAL, String(totalCapital));
+  }, [totalCapital, currentNAV]);
 
   // Reset daily NAV at the start of each new day
   useEffect(() => {
