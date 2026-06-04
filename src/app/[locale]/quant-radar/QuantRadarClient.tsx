@@ -533,7 +533,7 @@ export function QuantRadarClient() {
     // Handle batch filtering API requests
     const fetchRadarData = () => {
         if (!isAdmin) return;
-        setLoading(true);
+        if (tickers.length === 0) setLoading(true);
         const gradesParam = selectedGrades.join(',');
         
         const queryParams = new URLSearchParams(isAutoPilot ? {
@@ -1193,7 +1193,7 @@ export function QuantRadarClient() {
                     )}
 
                     {/* Loader */}
-                    {loading ? (
+                    {loading && tickers.length === 0 ? (
                         <div className="flex-1 flex flex-col justify-center items-center py-40 gap-4">
                             <div className="w-10 h-10 border-2 border-sky-500/20 border-t-sky-400 rounded-full animate-spin" />
                             <p className="text-[13px] font-[family-name:var(--font-inter)] text-slate-300 uppercase tracking-wider animate-pulse">Running filters...</p>
