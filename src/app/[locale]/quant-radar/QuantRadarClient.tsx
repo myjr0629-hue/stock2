@@ -412,6 +412,7 @@ export function QuantRadarClient() {
     const [rawCapitalInput, setRawCapitalInput] = useState('50000');
     const [completedSteps, setCompletedSteps] = useState<Record<string, boolean>>({});
         const [showHistory, setShowHistory] = useState(false);
+    const [scenarioName, setScenarioName] = useState('');
     const [scenarioList, setScenarioList] = useState<string[]>(() => {
         if (typeof window === 'undefined') return [];
         try { return Object.keys(JSON.parse(localStorage.getItem('radar_scenarios') || '{}')); } catch { return []; }
@@ -1814,7 +1815,7 @@ export function QuantRadarClient() {
                                                                          <TickerLogo ticker={x.ticker} className="w-5 h-5" />
                                                                          <span className="text-sm font-bold text-slate-100 font-[family-name:var(--font-jetbrains)]">{x.ticker}</span>
                                                                          <span className="text-[13px] text-slate-300 font-[family-name:var(--font-jetbrains)] tabular-nums">-{Math.abs(x.diffQty)}주 @ ${x.livePrice.toFixed(2)}</span>
-                                                                         <button onClick={() => { updateQuantity(x.ticker, x.targetShares, x.livePrice); setCompletedSteps(prev => ({ ...prev, ['sell-' + x.ticker]: true })); }} disabled={isDone} className={`text-[13px] font-bold px-2 py-0.5 rounded border transition ${isDone ? 'bg-slate-800/30 text-slate-500 border-slate-700/30 cursor-not-allowed' : 'bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 border-cyan-500/20'}`}>EXEC</button>
+                                                                         <button onClick={() => { updateQuantity(x.ticker, x.targetShares, x.livePrice); setCompletedSteps(prev => ({ ...prev, ['sell-' + x.ticker]: true })); setTimeout(() => fetchRadarData(), 300); }} disabled={isDone} className={`text-[13px] font-bold px-2 py-0.5 rounded border transition ${isDone ? 'bg-slate-800/30 text-slate-500 border-slate-700/30 cursor-not-allowed' : 'bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 border-cyan-500/20'}`}>EXEC</button>
                                                                           <button onClick={() => { const exec = (x.item as any).execution || {}; copyBracketToClipboard(x.item, x.livePrice, exec.takeProfit || 0, exec.stopLoss || 0); }}
                                                                              className="ml-auto text-[13px] font-bold text-sky-400 hover:text-sky-300 transition font-[family-name:var(--font-inter)]">📋 COPY</button>
                                                                      </div>
@@ -1861,7 +1862,7 @@ export function QuantRadarClient() {
                                                                          <span className="text-[13px] text-sky-400/70 font-[family-name:var(--font-jetbrains)] tabular-nums hidden sm:inline">
                                                                              비중 {x.weight.toFixed(1)}% · Score {x.score}
                                                                          </span>
-                                                                         <button onClick={() => { addHolding({ ticker: x.ticker, name: x.ticker, quantity: x.diffQty, avgPrice: x.livePrice }); setCompletedSteps(prev => ({ ...prev, ['buy-' + x.ticker]: true })); }} disabled={isDone} className={`text-[13px] font-bold px-2 py-0.5 rounded border transition ${isDone ? 'bg-slate-800/30 text-slate-500 border-slate-700/30 cursor-not-allowed' : 'bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 border-cyan-500/20'}`}>EXEC</button>
+                                                                         <button onClick={() => { addHolding({ ticker: x.ticker, name: x.ticker, quantity: x.diffQty, avgPrice: x.livePrice }); setCompletedSteps(prev => ({ ...prev, ['buy-' + x.ticker]: true })); setTimeout(() => fetchRadarData(), 300); }} disabled={isDone} className={`text-[13px] font-bold px-2 py-0.5 rounded border transition ${isDone ? 'bg-slate-800/30 text-slate-500 border-slate-700/30 cursor-not-allowed' : 'bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 border-cyan-500/20'}`}>EXEC</button>
                                                                           <button onClick={() => { const exec = (x.item as any).execution || {}; copyBracketToClipboard(x.item, x.livePrice, exec.takeProfit || 0, exec.stopLoss || 0); }}
                                                                              className="ml-auto text-[13px] font-bold text-sky-400 hover:text-sky-300 transition font-[family-name:var(--font-inter)]">📋 COPY</button>
                                                                      </div>
@@ -1966,11 +1967,68 @@ export function QuantRadarClient() {
                                     </div>
                                 )}
 
-                                {/* SCENARIO */}
-                                <div className="flex items-center gap-2 px-1">
-                                    <button onClick={() => { const n = prompt('Scenario name:'); if (!n) return; const s = JSON.parse(localStorage.getItem('radar_scenarios') || '{}'); s[n] = { holdings: JSON.parse(localStorage.getItem('radar_holdings') || '[]'), capital: totalCapital, savedAt: new Date().toISOString() }; localStorage.setItem('radar_scenarios', JSON.stringify(s)); setScenarioList(Object.keys(s)); }} className="text-[13px] font-bold text-sky-400 hover:text-sky-300 border border-sky-500/20 px-2.5 py-1 rounded-lg transition font-[family-name:var(--font-inter)]">Save Scenario</button>
+                                {/* SCENARIO MANAGEMENT */}
+                                <div className="p-4 rounded-xl bg-[#0b101c]/80 border border-white/5 flex flex-col gap-3">
+                                    <h3 className="text-sm font-bold text-slate-100 font-[family-name:var(--font-inter)] flex items-center gap-2">
+                                        <Target className="w-4 h-4 text-sky-400" />
+                                        SCENARIO
+                                    </h3>
+                                    <div className="flex items-center gap-2">
+                                        <input
+                                            type="text"
+                                            value={scenarioName}
+                                            onChange={(e) => setScenarioName(e.target.value)}
+                                            onKeyDown={(e) => {
+                                                if (e.key === 'Enter' && scenarioName.trim()) {
+                                                    const s = JSON.parse(localStorage.getItem('radar_scenarios') || '{}');
+                                                    s[scenarioName.trim()] = { holdings: JSON.parse(localStorage.getItem('radar_holdings') || '[]'), capital: totalCapital, savedAt: new Date().toISOString() };
+                                                    localStorage.setItem('radar_scenarios', JSON.stringify(s));
+                                                    setScenarioList(Object.keys(s));
+                                                    setScenarioName('');
+                                                }
+                                            }}
+                                            placeholder="Scenario name..."
+                                            className="flex-1 text-[13px] bg-slate-950/50 border border-white/10 text-slate-200 rounded-lg px-3 py-1.5 font-[family-name:var(--font-inter)] placeholder:text-slate-600 focus:border-sky-500/30 focus:outline-none"
+                                        />
+                                        <button
+                                            onClick={() => {
+                                                if (!scenarioName.trim()) return;
+                                                const s = JSON.parse(localStorage.getItem('radar_scenarios') || '{}');
+                                                s[scenarioName.trim()] = { holdings: JSON.parse(localStorage.getItem('radar_holdings') || '[]'), capital: totalCapital, savedAt: new Date().toISOString() };
+                                                localStorage.setItem('radar_scenarios', JSON.stringify(s));
+                                                setScenarioList(Object.keys(s));
+                                                setScenarioName('');
+                                            }}
+                                            disabled={!scenarioName.trim()}
+                                            className="text-[13px] font-bold text-sky-400 hover:text-sky-300 disabled:text-slate-600 border border-sky-500/20 disabled:border-slate-700/30 px-3 py-1.5 rounded-lg transition font-[family-name:var(--font-inter)]"
+                                        >SAVE</button>
+                                    </div>
                                     {scenarioList.length > 0 && (
-                                        <select onChange={(e) => { const n = e.target.value; if (!n) return; const s = JSON.parse(localStorage.getItem('radar_scenarios') || '{}'); if (s[n]) { localStorage.setItem('radar_holdings', JSON.stringify(s[n].holdings)); window.location.reload(); } }} className="text-[13px] bg-[#111827] border border-white/10 text-slate-300 rounded-lg px-2 py-1" defaultValue=""><option value="">Load Scenario</option>{scenarioList.map(n => (<option key={n} value={n}>{n}</option>))}</select>
+                                        <div className="flex flex-wrap gap-2">
+                                            {scenarioList.map(name => (
+                                                <div key={name} className="flex items-center gap-1">
+                                                    <button
+                                                        onClick={() => {
+                                                            const s = JSON.parse(localStorage.getItem('radar_scenarios') || '{}');
+                                                            if (s[name]) {
+                                                                localStorage.setItem('radar_holdings', JSON.stringify(s[name].holdings));
+                                                                window.location.reload();
+                                                            }
+                                                        }}
+                                                        className="text-[13px] font-bold text-slate-300 hover:text-sky-400 bg-slate-800/50 hover:bg-sky-500/10 border border-white/5 hover:border-sky-500/20 px-2.5 py-1 rounded-lg transition font-[family-name:var(--font-inter)]"
+                                                    >{name}</button>
+                                                    <button
+                                                        onClick={() => {
+                                                            const s = JSON.parse(localStorage.getItem('radar_scenarios') || '{}');
+                                                            delete s[name];
+                                                            localStorage.setItem('radar_scenarios', JSON.stringify(s));
+                                                            setScenarioList(Object.keys(s));
+                                                        }}
+                                                        className="text-[11px] text-slate-500 hover:text-rose-400 transition"
+                                                    >x</button>
+                                                </div>
+                                            ))}
+                                        </div>
                                     )}
                                 </div>
 
