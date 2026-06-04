@@ -6,7 +6,7 @@ import {
     Search, Sliders, Radar, Zap, Shield, ShieldAlert, Activity, 
     TrendingUp, TrendingDown, Target, BarChart3, AlertCircle, 
     ChevronLeft, ChevronRight, Lock, Clipboard, Check, HelpCircle,
-    DollarSign, Plus, CheckCircle2
+    DollarSign, Plus, CheckCircle2, Clock
 } from 'lucide-react';
 import { Link } from '@/i18n/routing';
 import { useTranslations, useLocale } from 'next-intl';
@@ -348,7 +348,7 @@ export function QuantRadarClient() {
     const { isAdmin, loading: tierLoading } = useTier();
 
     // 1.1 Radar-only holdings (localStorage, independent of main Portfolio)
-    const { holdings, summary, addHolding, removeHolding, journal, journalStats, cumulativeRealizedPnl, recordSnapshot, getSnapshots } = useRadarHoldings();
+    const { holdings, summary, addHolding, removeHolding, updateQuantity, journal, journalStats, cumulativeRealizedPnl, recordSnapshot, getSnapshots } = useRadarHoldings();
 
     // Quick Add Modal States
     const [showQuickAdd, setShowQuickAdd] = useState(false);
@@ -411,6 +411,11 @@ export function QuantRadarClient() {
     const [inputCurrency, setInputCurrency] = useState<'USD' | 'KRW'>('USD');
     const [rawCapitalInput, setRawCapitalInput] = useState('50000');
     const [completedSteps, setCompletedSteps] = useState<Record<string, boolean>>({});
+        const [showHistory, setShowHistory] = useState(false);
+    const [scenarioList, setScenarioList] = useState<string[]>(() => {
+        if (typeof window === 'undefined') return [];
+        try { return Object.keys(JSON.parse(localStorage.getItem('radar_scenarios') || '{}')); } catch { return []; }
+    });
 
     // Exchange rate from Redis (cron→Redis→API)
     const { data: fxData } = useSWR('/api/exchange-rates', (url: string) => fetch(url).then(r => r.json()), {
@@ -1809,7 +1814,8 @@ export function QuantRadarClient() {
                                                                          <TickerLogo ticker={x.ticker} className="w-5 h-5" />
                                                                          <span className="text-sm font-bold text-slate-100 font-[family-name:var(--font-jetbrains)]">{x.ticker}</span>
                                                                          <span className="text-[13px] text-slate-300 font-[family-name:var(--font-jetbrains)] tabular-nums">-{Math.abs(x.diffQty)}주 @ ${x.livePrice.toFixed(2)}</span>
-                                                                         <button onClick={() => { const exec = (x.item as any).execution || {}; copyBracketToClipboard(x.item, x.livePrice, exec.takeProfit || 0, exec.stopLoss || 0); }}
+                                                                         <button onClick={() => { updateQuantity(x.ticker, x.targetShares, x.livePrice); setCompletedSteps(prev => ({ ...prev, ['sell-' + x.ticker]: true })); }} disabled={isDone} className={`text-[13px] font-bold px-2 py-0.5 rounded border transition ${isDone ? 'bg-slate-800/30 text-slate-500 border-slate-700/30 cursor-not-allowed' : 'bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 border-cyan-500/20'}`}>EXEC</button>
+                                                                          <button onClick={() => { const exec = (x.item as any).execution || {}; copyBracketToClipboard(x.item, x.livePrice, exec.takeProfit || 0, exec.stopLoss || 0); }}
                                                                              className="ml-auto text-[13px] font-bold text-sky-400 hover:text-sky-300 transition font-[family-name:var(--font-inter)]">📋 COPY</button>
                                                                      </div>
                                                                  );
@@ -1855,7 +1861,8 @@ export function QuantRadarClient() {
                                                                          <span className="text-[13px] text-sky-400/70 font-[family-name:var(--font-jetbrains)] tabular-nums hidden sm:inline">
                                                                              비중 {x.weight.toFixed(1)}% · Score {x.score}
                                                                          </span>
-                                                                         <button onClick={() => { const exec = (x.item as any).execution || {}; copyBracketToClipboard(x.item, x.livePrice, exec.takeProfit || 0, exec.stopLoss || 0); }}
+                                                                         <button onClick={() => { addHolding({ ticker: x.ticker, name: x.ticker, quantity: x.diffQty, avgPrice: x.livePrice }); setCompletedSteps(prev => ({ ...prev, ['buy-' + x.ticker]: true })); }} disabled={isDone} className={`text-[13px] font-bold px-2 py-0.5 rounded border transition ${isDone ? 'bg-slate-800/30 text-slate-500 border-slate-700/30 cursor-not-allowed' : 'bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 border-cyan-500/20'}`}>EXEC</button>
+                                                                          <button onClick={() => { const exec = (x.item as any).execution || {}; copyBracketToClipboard(x.item, x.livePrice, exec.takeProfit || 0, exec.stopLoss || 0); }}
                                                                              className="ml-auto text-[13px] font-bold text-sky-400 hover:text-sky-300 transition font-[family-name:var(--font-inter)]">📋 COPY</button>
                                                                      </div>
                                                                  );
@@ -1920,6 +1927,52 @@ export function QuantRadarClient() {
                                          </div>
                                      );
                                  })()}
+
+                                {/* ACTION HISTORY */}
+                                {journal.length > 0 && (
+                                    <div className="rounded-xl bg-[#0b101c]/80 backdrop-blur-sm border border-white/5 overflow-hidden">
+                                        <button onClick={() => setShowHistory(prev => !prev)} className="w-full p-4 flex items-center justify-between hover:bg-white/[0.02] transition-colors">
+                                            <h3 className="text-sm font-bold text-slate-100 font-[family-name:var(--font-inter)] flex items-center gap-2">
+                                                <Clock className="w-4 h-4 text-amber-400" />
+                                                ACTION HISTORY
+                                                <span className="text-[13px] font-normal text-slate-400 ml-1">({journal.length})</span>
+                                            </h3>
+                                            <ChevronRight className={`w-4 h-4 text-slate-400 transition-transform duration-200 ${showHistory ? 'rotate-90' : ''}`} />
+                                        </button>
+                                        {showHistory && (
+                                            <div className="px-4 pb-4 flex flex-col gap-1 max-h-[300px] overflow-y-auto">
+                                                {journal.slice(0, 50).map((trade) => {
+                                                    const isBuy = ['BUY', 'ADD', 'ROTATE_IN'].includes(trade.action);
+                                                    const isSell = ['SELL', 'LIQUIDATE', 'ROTATE_OUT'].includes(trade.action);
+                                                    const ac: Record<string, string> = { BUY: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/15', ADD: 'bg-sky-500/10 text-sky-400 border-sky-500/15', SELL: 'bg-amber-500/10 text-amber-400 border-amber-500/15', LIQUIDATE: 'bg-rose-500/10 text-rose-400 border-rose-500/15', ROTATE_OUT: 'bg-rose-500/10 text-rose-400 border-rose-500/15', ROTATE_IN: 'bg-indigo-500/10 text-indigo-400 border-indigo-500/15' };
+                                                    const color = ac[trade.action] || 'bg-slate-500/10 text-slate-300 border-slate-500/15';
+                                                    return (
+                                                        <div key={trade.id} className="flex items-center gap-2 p-2 rounded-lg hover:bg-white/[0.02] transition-all text-[13px]">
+                                                            <span className={`font-bold px-1.5 py-0.5 rounded border text-[11px] ${color} font-[family-name:var(--font-inter)] shrink-0`}>{trade.action}</span>
+                                                            <TickerLogo ticker={trade.ticker} className="w-4 h-4 shrink-0" />
+                                                            <span className="font-bold text-slate-100 font-[family-name:var(--font-jetbrains)]">{trade.ticker}</span>
+                                                            <span className="text-slate-400 font-[family-name:var(--font-jetbrains)] tabular-nums">{isBuy ? '+' : '-'}{trade.quantity} @ ${trade.price.toFixed(2)}</span>
+                                                            {isSell && trade.realizedPnl !== undefined && (
+                                                                <span className={`font-bold font-[family-name:var(--font-jetbrains)] tabular-nums ${trade.realizedPnl >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                                                                    {trade.realizedPnl >= 0 ? '+' : ''}${trade.realizedPnl.toFixed(0)} ({trade.realizedPnlPct?.toFixed(1)}%)
+                                                                </span>
+                                                            )}
+                                                            <span className="ml-auto text-slate-500 font-[family-name:var(--font-inter)] text-[11px] shrink-0">{new Date(trade.timestamp).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+
+                                {/* SCENARIO */}
+                                <div className="flex items-center gap-2 px-1">
+                                    <button onClick={() => { const n = prompt('Scenario name:'); if (!n) return; const s = JSON.parse(localStorage.getItem('radar_scenarios') || '{}'); s[n] = { holdings: JSON.parse(localStorage.getItem('radar_holdings') || '[]'), capital: totalCapital, savedAt: new Date().toISOString() }; localStorage.setItem('radar_scenarios', JSON.stringify(s)); setScenarioList(Object.keys(s)); }} className="text-[13px] font-bold text-sky-400 hover:text-sky-300 border border-sky-500/20 px-2.5 py-1 rounded-lg transition font-[family-name:var(--font-inter)]">Save Scenario</button>
+                                    {scenarioList.length > 0 && (
+                                        <select onChange={(e) => { const n = e.target.value; if (!n) return; const s = JSON.parse(localStorage.getItem('radar_scenarios') || '{}'); if (s[n]) { localStorage.setItem('radar_holdings', JSON.stringify(s[n].holdings)); window.location.reload(); } }} className="text-[13px] bg-[#111827] border border-white/10 text-slate-300 rounded-lg px-2 py-1" defaultValue=""><option value="">Load Scenario</option>{scenarioList.map(n => (<option key={n} value={n}>{n}</option>))}</select>
+                                    )}
+                                </div>
 
                                 {/* 2. OPTIMAL PORTFOLIO WEIGHTS — Collapsible */}
                                 <div className="rounded-xl bg-[#111827]/60 backdrop-blur-sm border border-white/5 overflow-hidden">
