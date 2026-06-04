@@ -14,6 +14,8 @@ import { useTier } from '@/contexts/TierContext';
 import { usePortfolio } from '@/hooks/usePortfolio';
 import { useRealtimeData } from '@/providers/WebSocketProvider';
 import { requestNotificationPermission, sendRadarAlert } from '@/services/radarNotifications';
+import { usePortfolioTracker } from '@/hooks/usePortfolioTracker';
+import { evaluateCircuitBreaker, type CircuitBreakerResult } from '@/services/circuitBreaker';
 import '@/styles/radar-tokens.css';
 
 // Premium design-system grade tokens
@@ -488,6 +490,11 @@ export function QuantRadarClient() {
     // Sonar sweep rotation angle
     const sweepAngleRef = useRef(0);
 
+    // Portfolio Tracker hook (must be before early returns)
+    const _earlyStockCost = holdings.reduce((sum: number, h: any) => sum + (h.quantity * h.avgPrice), 0);
+    const _earlyNAV = summary.totalValue + Math.max(0, totalCapital - _earlyStockCost);
+    const { hwm, drawdownPct, dailyPnlPct, dailyStartNAV } = usePortfolioTracker(_earlyNAV, totalCapital);
+
     // Canvas radar animation removed for performance (V2 redesign)
 
     const handleQuickAddSubmit = async (e: React.FormEvent) => {
@@ -517,7 +524,12 @@ export function QuantRadarClient() {
         
         const queryParams = new URLSearchParams(isAutoPilot ? {
             mode: 'auto',
-            totalCapital: totalCapital.toString()
+            totalCapital: totalCapital.toString(),
+            // Wire holdings to server for drift/liquidation detection
+            ...(holdings.length > 0 ? {
+                holdings: holdings.map((h: any) => h.ticker.toUpperCase()).join(','),
+                holdingsQty: holdings.map((h: any) => `${h.ticker.toUpperCase()}:${h.quantity}`).join(','),
+            } : {})
         } : {
             scoreMin: scoreMin.toString(),
             grades: gradesParam,
@@ -572,6 +584,7 @@ export function QuantRadarClient() {
         }, 60_000);
         return () => clearInterval(interval);
     }, [isAutoPilot, isAdmin, totalCapital]);
+
 
     const handleSearchSubmit = (e: React.FormEvent) => {
         e.preventDefault();
@@ -756,6 +769,68 @@ export function QuantRadarClient() {
     const computedTotalNAV = summary.totalValue + cashBalance;
     const computedPL = computedTotalNAV - totalCapital;
     const computedPLPct = totalCapital > 0 ? (computedPL / totalCapital) * 100 : 0;
+
+    // ── LIVE POSITION MONITORING ENGINE ──────────────────────
+
+
+    // Circuit Breaker evaluation (runs every render when holdings update)
+    const circuitBreakerResult: CircuitBreakerResult = useMemo(() => {
+        if (!isAutoPilot || holdings.length === 0) {
+            return { triggered: false, level: 'NONE' as const, message: '', actions: [] };
+        }
+        const positions = holdings.map((h: any) => {
+            const wsPriceObj = getPrice(h.ticker);
+            const livePrice = wsPriceObj ? wsPriceObj.price : (h.currentPrice || h.avgPrice || 0);
+            return {
+                ticker: h.ticker,
+                costBasis: h.quantity * h.avgPrice,
+                currentValue: h.quantity * livePrice,
+            };
+        });
+        return evaluateCircuitBreaker(computedTotalNAV, hwm, dailyStartNAV, positions);
+    }, [isAutoPilot, holdings, computedTotalNAV, hwm, dailyStartNAV, getPrice]);
+
+    // Per-position live status (SL/TP hit detection, P&L, signal)
+    const livePositionStatus = useMemo(() => {
+        if (!isAutoPilot || holdings.length === 0) return [];
+        return holdings.map((h: any) => {
+            const wsPriceObj = getPrice(h.ticker);
+            const livePrice = wsPriceObj ? wsPriceObj.price : (h.currentPrice || h.avgPrice || 0);
+            const pnl = (livePrice - h.avgPrice) * h.quantity;
+            const pnlPct = h.avgPrice > 0 ? ((livePrice - h.avgPrice) / h.avgPrice) * 100 : 0;
+            const score = h.alphaScore || 50;
+            const grade = h.alphaGrade || 'C';
+            const radarMatch = tickers.find((t: any) => t.ticker.toUpperCase() === h.ticker.toUpperCase());
+            const targetWeight = radarMatch ? ((radarMatch as any).weight || 0) * 100 : 0;
+            const exec = radarMatch ? ((radarMatch as any).execution || {}) : {};
+            const entryPrice = exec.entry || h.avgPrice;
+            const tpPrice = exec.takeProfit || entryPrice * 1.035;
+            const slPrice = exec.stopLoss || entryPrice * 0.985;
+            const tpHit = livePrice >= tpPrice;
+            const slHit = livePrice <= slPrice;
+            let signal: 'HOLD' | 'TAKE_PROFIT' | 'STOP_LOSS' | 'DECAY' | 'ACCUMULATE' = 'HOLD';
+            if (slHit) signal = 'STOP_LOSS';
+            else if (tpHit) signal = 'TAKE_PROFIT';
+            else if (score < 40) signal = 'DECAY';
+            else if (score >= 70 && pnlPct > -5) signal = 'ACCUMULATE';
+            return { ticker: h.ticker, quantity: h.quantity, avgPrice: h.avgPrice, livePrice, pnl, pnlPct, score, grade, targetWeight, tpPrice, slPrice, tpHit, slHit, signal };
+        }).sort((a, b) => {
+            const priority: Record<string, number> = { STOP_LOSS: 0, DECAY: 1, TAKE_PROFIT: 2, ACCUMULATE: 3, HOLD: 4 };
+            return (priority[a.signal] || 4) - (priority[b.signal] || 4);
+        });
+    }, [isAutoPilot, holdings, tickers, getPrice]);
+
+    // Browser notifications for critical position events
+    useEffect(() => {
+        if (!isAutoPilot) return;
+        livePositionStatus.forEach(pos => {
+            if (pos.slHit) sendRadarAlert(`🔴 SL HIT: ${pos.ticker}`, `$${pos.livePrice.toFixed(2)} hit SL $${pos.slPrice.toFixed(2)}`, `sl-${pos.ticker}`);
+            if (pos.tpHit) sendRadarAlert(`🟢 TP HIT: ${pos.ticker}`, `$${pos.livePrice.toFixed(2)} hit TP $${pos.tpPrice.toFixed(2)}`, `tp-${pos.ticker}`);
+        });
+        if (circuitBreakerResult.triggered && circuitBreakerResult.level === 'HALT') {
+            sendRadarAlert('🚨 CIRCUIT BREAKER', circuitBreakerResult.message, 'circuit-breaker');
+        }
+    }, [livePositionStatus, circuitBreakerResult, isAutoPilot]);
 
     // Real-time mathematically exact alignment progress between actual holdings and target weights
     const liveAlignmentProgress = useMemo(() => {
@@ -1175,6 +1250,132 @@ export function QuantRadarClient() {
                                             </span>
                                         ))}
                                     </div>
+                                </div>
+                            )}
+
+                            {/* LIVE POSITION TRACKER */}
+                            {holdings.length > 0 && (
+                                <div className="p-4 rounded-xl bg-[#111827]/60 backdrop-blur-sm border border-white/5 flex flex-col gap-3">
+                                    <div className="flex items-center justify-between">
+                                        <h3 className="text-[13px] font-bold text-slate-100 font-[family-name:var(--font-inter)] flex items-center gap-2">
+                                            <Activity className="w-4 h-4 text-emerald-400" />
+                                            LIVE POSITIONS ({holdings.length})
+                                        </h3>
+                                        <div className="flex items-center gap-2">
+                                            {drawdownPct < -2 && (
+                                                <span className="text-[13px] font-bold px-2 py-0.5 rounded bg-rose-500/10 text-rose-400 border border-rose-500/15 font-[family-name:var(--font-jetbrains)] tabular-nums">
+                                                    MDD {drawdownPct.toFixed(1)}%
+                                                </span>
+                                            )}
+                                            <span className={`text-[13px] font-bold px-2 py-0.5 rounded border font-[family-name:var(--font-jetbrains)] tabular-nums ${
+                                                dailyPnlPct >= 0 ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/15' : 'bg-rose-500/10 text-rose-400 border-rose-500/15'
+                                            }`}>
+                                                Today {dailyPnlPct >= 0 ? '+' : ''}{dailyPnlPct.toFixed(2)}%
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    {/* Circuit Breaker Warning */}
+                                    {circuitBreakerResult.triggered && (
+                                        <div className={`p-3 rounded-lg border flex items-start gap-2 ${
+                                            circuitBreakerResult.level === 'HALT' ? 'bg-rose-950/30 border-rose-500/30 text-rose-400' :
+                                            circuitBreakerResult.level === 'WARNING' ? 'bg-amber-950/30 border-amber-500/30 text-amber-400' :
+                                            'bg-sky-950/30 border-sky-500/30 text-sky-400'
+                                        }`}>
+                                            <ShieldAlert className="w-4 h-4 mt-0.5 shrink-0" />
+                                            <div className="flex flex-col gap-1">
+                                                <span className="text-[13px] font-bold uppercase">
+                                                    {circuitBreakerResult.level === 'HALT' ? '🚨 CIRCUIT BREAKER HALT' : circuitBreakerResult.level === 'WARNING' ? '⚠️ RISK WARNING' : '⚡ CAUTION'}
+                                                </span>
+                                                {circuitBreakerResult.actions.map((a, i) => (
+                                                    <span key={i} className="text-[13px] font-[family-name:var(--font-inter)]">{a.reason}</span>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Position Rows */}
+                                    <div className="flex flex-col gap-2">
+                                        {livePositionStatus.map(pos => {
+                                            const signalConfig: Record<string, {label: string, color: string, icon: string}> = {
+                                                STOP_LOSS: { label: 'STOP LOSS', color: 'bg-rose-500/15 text-rose-400 border-rose-500/20', icon: '🔴' },
+                                                DECAY: { label: 'SCORE DECAY', color: 'bg-amber-500/15 text-amber-400 border-amber-500/20', icon: '⚠️' },
+                                                TAKE_PROFIT: { label: 'TAKE PROFIT', color: 'bg-emerald-500/15 text-emerald-400 border-emerald-500/20', icon: '🟢' },
+                                                ACCUMULATE: { label: 'STRONG', color: 'bg-sky-500/15 text-sky-400 border-sky-500/20', icon: '⚡' },
+                                                HOLD: { label: 'HOLD', color: 'bg-slate-500/15 text-slate-300 border-slate-500/20', icon: '⏸️' },
+                                            };
+                                            const sc = signalConfig[pos.signal] || signalConfig.HOLD;
+                                            const isUrgent = pos.signal === 'STOP_LOSS' || pos.signal === 'DECAY';
+                                            return (
+                                                <div key={pos.ticker} className={`p-3 rounded-lg bg-[#111827]/40 border transition-all flex items-center justify-between gap-3 ${
+                                                    isUrgent ? 'border-rose-500/20 animate-pulse' : 'border-white/5 hover:border-white/10'
+                                                }`}>
+                                                    <div className="flex items-center gap-3 min-w-0">
+                                                        <TickerLogo ticker={pos.ticker} className="w-6 h-6" />
+                                                        <div className="flex flex-col min-w-0">
+                                                            <div className="flex items-center gap-2">
+                                                                <span className="text-sm font-bold text-slate-100 font-[family-name:var(--font-jetbrains)]">{pos.ticker}</span>
+                                                                <span className={`text-[13px] font-bold px-1.5 py-0.5 rounded border ${sc.color} font-[family-name:var(--font-inter)]`}>
+                                                                    {sc.icon} {sc.label}
+                                                                </span>
+                                                            </div>
+                                                            <div className="flex items-center gap-3 text-[13px] text-slate-300 font-[family-name:var(--font-jetbrains)] tabular-nums">
+                                                                <span>{pos.quantity}주 @ ${pos.avgPrice.toFixed(2)}</span>
+                                                                <span className="text-slate-400">→</span>
+                                                                <span className="text-slate-100">${pos.livePrice.toFixed(2)}</span>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    <div className="flex items-center gap-4 shrink-0">
+                                                        {/* Score */}
+                                                        <div className="flex flex-col items-center">
+                                                            <span className={`text-sm font-bold font-[family-name:var(--font-jetbrains)] tabular-nums ${
+                                                                pos.score >= 60 ? 'text-emerald-400' : pos.score >= 40 ? 'text-amber-400' : 'text-rose-400'
+                                                            }`}>{pos.score}</span>
+                                                            <span className="text-[13px] text-slate-400">Score</span>
+                                                        </div>
+                                                        {/* SL/TP range */}
+                                                        <div className="hidden sm:flex flex-col items-center text-[13px] font-[family-name:var(--font-jetbrains)] tabular-nums">
+                                                            <span className={pos.tpHit ? 'text-emerald-400 font-bold' : 'text-slate-400'}>${pos.tpPrice.toFixed(2)}</span>
+                                                            <span className={pos.slHit ? 'text-rose-400 font-bold' : 'text-slate-400'}>${pos.slPrice.toFixed(2)}</span>
+                                                        </div>
+                                                        {/* P&L */}
+                                                        <div className="flex flex-col items-end">
+                                                            <span className={`text-sm font-bold font-[family-name:var(--font-jetbrains)] tabular-nums ${
+                                                                pos.pnlPct >= 0 ? 'text-emerald-400' : 'text-rose-400'
+                                                            }`}>
+                                                                {pos.pnlPct >= 0 ? '+' : ''}{pos.pnlPct.toFixed(2)}%
+                                                            </span>
+                                                            <span className={`text-[13px] font-[family-name:var(--font-jetbrains)] tabular-nums ${
+                                                                pos.pnl >= 0 ? 'text-emerald-400/70' : 'text-rose-400/70'
+                                                            }`}>
+                                                                {pos.pnl >= 0 ? '+' : ''}{pos.pnl < 0 ? '-' : ''}${Math.abs(pos.pnl).toLocaleString(undefined, {maximumFractionDigits: 0})}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+
+                                    {/* Weight % bar */}
+                                    {livePositionStatus.length > 0 && (
+                                        <div className="flex gap-0.5 h-2 rounded-full overflow-hidden bg-slate-800/50">
+                                            {livePositionStatus.map(pos => {
+                                                const actualWeight = computedTotalNAV > 0 ? ((pos.quantity * pos.livePrice) / computedTotalNAV) * 100 : 0;
+                                                return (
+                                                    <div
+                                                        key={pos.ticker}
+                                                        className={`h-full transition-all duration-500 ${
+                                                            pos.pnlPct >= 0 ? 'bg-emerald-500/60' : 'bg-rose-500/60'
+                                                        }`}
+                                                        style={{ width: `${Math.max(actualWeight, 0.5)}%` }}
+                                                        title={`${pos.ticker}: ${actualWeight.toFixed(1)}% (target ${pos.targetWeight.toFixed(1)}%)`}
+                                                    />
+                                                );
+                                            })}
+                                        </div>
+                                    )}
                                 </div>
                             )}
 
