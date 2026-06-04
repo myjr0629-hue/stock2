@@ -352,6 +352,7 @@ export function QuantRadarClient() {
 
     // Quick Add Modal States
     const [showQuickAdd, setShowQuickAdd] = useState(false);
+    const [scannerCollapsed, setScannerCollapsed] = useState(true);
     const [isInjecting, setIsInjecting] = useState(false);
 
     const handleBatchInject = async () => {
@@ -1672,12 +1673,26 @@ export function QuantRadarClient() {
                                      );
                                  })()}
 
-                                {/* 2. OPTIMAL PORTFOLIO WEIGHTS */}
-                                <div className="p-4 rounded-xl bg-[#111827]/60 backdrop-blur-sm border border-white/5 flex flex-col gap-4 overflow-x-auto">
-                                    <h3 className="text-sm font-bold text-slate-100 font-[family-name:var(--font-inter)] flex items-center gap-2">
-                                        <BarChart3 className="w-4 h-4 text-sky-400" />
-                                        {dict.optimalWeights}
-                                    </h3>
+                                {/* 2. OPTIMAL PORTFOLIO WEIGHTS — Collapsible */}
+                                <div className="rounded-xl bg-[#111827]/60 backdrop-blur-sm border border-white/5 overflow-hidden">
+                                    <button
+                                        onClick={() => setScannerCollapsed(c => !c)}
+                                        className="w-full p-4 flex items-center justify-between hover:bg-white/[0.02] transition-colors"
+                                    >
+                                        <h3 className="text-sm font-bold text-slate-100 font-[family-name:var(--font-inter)] flex items-center gap-2">
+                                            <BarChart3 className="w-4 h-4 text-sky-400" />
+                                            {dict.optimalWeights}
+                                            <span className="text-[13px] font-normal text-slate-400 ml-1">({sortedTickers.length})</span>
+                                        </h3>
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-[13px] text-slate-400 font-[family-name:var(--font-inter)]">
+                                                {sortedTickers.slice(0, 3).map((t: any) => t.ticker).join(' · ')}{sortedTickers.length > 3 ? ' ...' : ''}
+                                            </span>
+                                            <ChevronRight className={`w-4 h-4 text-slate-400 transition-transform duration-200 ${scannerCollapsed ? '' : 'rotate-90'}`} />
+                                        </div>
+                                    </button>
+                                    {!scannerCollapsed && (
+                                    <div className="px-4 pb-4 flex flex-col gap-4">
 
                                     {/* Card Grid - replaces table */}
                                     <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
@@ -1753,6 +1768,8 @@ export function QuantRadarClient() {
                                             );
                                         })}
                                     </div>
+                                </div>
+                                    )}
                                 </div>
                             </div>
                             </div>
