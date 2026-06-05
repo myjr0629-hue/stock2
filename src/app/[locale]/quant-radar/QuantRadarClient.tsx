@@ -348,7 +348,7 @@ export function QuantRadarClient() {
     const { isAdmin, loading: tierLoading } = useTier();
 
     // 1.1 Radar-only holdings (localStorage, independent of main Portfolio)
-    const { holdings, summary, addHolding, removeHolding, updateQuantity, journal, journalStats, cumulativeRealizedPnl, recordSnapshot, getSnapshots, reloadFromStorage } = useRadarHoldings();
+    const { holdings, summary, addHolding, removeHolding, updateQuantity, clearAll, journal, journalStats, cumulativeRealizedPnl, recordSnapshot, getSnapshots, reloadFromStorage } = useRadarHoldings();
 
     // Quick Add Modal States
     const [showQuickAdd, setShowQuickAdd] = useState(false);
@@ -2047,9 +2047,29 @@ export function QuantRadarClient() {
                                                 <span className="text-[13px] font-normal text-cyan-400 ml-1">{activeScenario}</span>
                                             )}
                                         </h3>
-                                        {activeScenario && (
-                                            <span className="text-[11px] text-emerald-400/60 font-[family-name:var(--font-inter)]">AUTO-SAVING</span>
-                                        )}
+                                        <div className="flex items-center gap-2">
+                                            {activeScenario && (
+                                                <span className="text-[11px] text-emerald-400/60 font-[family-name:var(--font-inter)]">AUTO-SAVING</span>
+                                            )}
+                                            <button
+                                                onClick={() => {
+                                                    if (!confirm('모든 보유 종목, 거래 기록, 자본금을 초기화합니다. 계속하시겠습니까?')) return;
+                                                    clearAll();
+                                                    localStorage.removeItem('radar_trade_journal');
+                                                    localStorage.removeItem('radar_realized_pnl');
+                                                    localStorage.removeItem('radar_active_scenario');
+                                                    localStorage.setItem('radar_capital', '50000');
+                                                    setActiveScenario('');
+                                                    setTotalCapital(50000);
+                                                    setCommittedCapital(50000);
+                                                    setRawCapitalInput('50000');
+                                                    setCompletedSteps({});
+                                                    reloadFromStorage();
+                                                    setTimeout(() => fetchRadarData(), 300);
+                                                }}
+                                                className="text-[11px] font-bold text-rose-400/70 hover:text-rose-400 border border-rose-500/15 hover:border-rose-500/30 px-2 py-0.5 rounded transition font-[family-name:var(--font-inter)]"
+                                            >RESET</button>
+                                        </div>
                                     </div>
                                     <div className="flex items-center gap-2">
                                         <input
