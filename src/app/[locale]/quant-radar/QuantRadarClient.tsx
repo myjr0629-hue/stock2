@@ -427,6 +427,7 @@ export function QuantRadarClient() {
     });
     const [completedSteps, setCompletedSteps] = useState<Record<string, boolean>>({});
         const [showHistory, setShowHistory] = useState(false);
+    const [execFeedback, setExecFeedback] = useState<string>('');
     const [scenarioName, setScenarioName] = useState('');
     const [activeScenario, setActiveScenario] = useState(() => {
         if (typeof window === 'undefined') return '';
@@ -1522,7 +1523,14 @@ export function QuantRadarClient() {
                                 </div>
                             )}
 
-                            {/* ═══ V3 POSITION COMMAND CENTER ═══ */}
+                            {/* EXEC FEEDBACK TOAST */}
+                                {execFeedback && (
+                                    <div className="fixed top-20 right-8 z-50 px-4 py-2.5 rounded-lg bg-emerald-500/20 border border-emerald-500/30 backdrop-blur-xl shadow-xl animate-[fadeIn_0.2s_ease-out]">
+                                        <span className="text-sm font-bold text-emerald-400 font-[family-name:var(--font-inter)]">{execFeedback}</span>
+                                    </div>
+                                )}
+
+                                {/* ═══ V3 POSITION COMMAND CENTER ═══ */}
                             {holdings.length > 0 && (
                                 <div className="flex flex-col gap-3">
                                     <div className="flex items-center justify-between px-1">
@@ -1860,7 +1868,7 @@ export function QuantRadarClient() {
                                                                          <TickerLogo ticker={x.ticker} className="w-5 h-5" />
                                                                          <span className="text-sm font-bold text-slate-100 font-[family-name:var(--font-jetbrains)]">{x.ticker}</span>
                                                                          <span className="text-[13px] text-slate-300 font-[family-name:var(--font-jetbrains)] tabular-nums">-{Math.abs(x.diffQty)}주 @ ${x.livePrice.toFixed(2)}</span>
-                                                                         <button onClick={() => { updateQuantity(x.ticker, x.targetShares, x.livePrice); setCompletedSteps(prev => ({ ...prev, ['sell-' + x.ticker]: true })); setTimeout(() => fetchRadarData(), 300); }} disabled={isDone} className={`text-[13px] font-bold px-2 py-0.5 rounded border transition ${isDone ? 'bg-slate-800/30 text-slate-500 border-slate-700/30 cursor-not-allowed' : 'bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 border-cyan-500/20'}`}>EXEC</button>
+
                                                                           <button onClick={() => { const exec = (x.item as any).execution || {}; copyBracketToClipboard(x.item, x.livePrice, exec.takeProfit || 0, exec.stopLoss || 0); }}
                                                                              className="ml-auto text-[13px] font-bold text-sky-400 hover:text-sky-300 transition font-[family-name:var(--font-inter)]">📋 COPY</button>
                                                                      </div>
@@ -1907,7 +1915,7 @@ export function QuantRadarClient() {
                                                                          <span className="text-[13px] text-sky-400/70 font-[family-name:var(--font-jetbrains)] tabular-nums hidden sm:inline">
                                                                              비중 {x.weight.toFixed(1)}% · Score {x.score}
                                                                          </span>
-                                                                         <button onClick={() => { addHolding({ ticker: x.ticker, name: x.ticker, quantity: x.diffQty, avgPrice: x.livePrice }); setCompletedSteps(prev => ({ ...prev, ['buy-' + x.ticker]: true })); setTimeout(() => fetchRadarData(), 300); }} disabled={isDone} className={`text-[13px] font-bold px-2 py-0.5 rounded border transition ${isDone ? 'bg-slate-800/30 text-slate-500 border-slate-700/30 cursor-not-allowed' : 'bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 border-cyan-500/20'}`}>EXEC</button>
+
                                                                           <button onClick={() => { const exec = (x.item as any).execution || {}; copyBracketToClipboard(x.item, x.livePrice, exec.takeProfit || 0, exec.stopLoss || 0); }}
                                                                              className="ml-auto text-[13px] font-bold text-sky-400 hover:text-sky-300 transition font-[family-name:var(--font-inter)]">📋 COPY</button>
                                                                      </div>
