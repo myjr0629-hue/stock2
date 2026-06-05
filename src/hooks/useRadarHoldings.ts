@@ -267,6 +267,13 @@ export function useRadarHoldings() {
     };
   }, [journal]);
 
+  // Reload state from localStorage (for scenario switching)
+  const reloadFromStorage = useCallback(() => {
+    setHoldings(loadFromStorage(STORAGE_KEYS.HOLDINGS, []));
+    setJournal(loadFromStorage(STORAGE_KEYS.JOURNAL, []));
+    setCumulativeRealizedPnl(loadFromStorage(STORAGE_KEYS.REALIZED_PNL, 0));
+  }, []);
+
   return {
     holdings,
     summary,
@@ -280,5 +287,6 @@ export function useRadarHoldings() {
     recordTrade,
     recordSnapshot,
     getSnapshots,
+    reloadFromStorage,
   };
 }
