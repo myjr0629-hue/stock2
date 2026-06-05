@@ -1860,10 +1860,19 @@ export function QuantRadarClient() {
                                                                  const isDone = !!completedSteps['sell-' + x.ticker];
                                                                  return (
                                                                      <div key={x.ticker} className={`flex items-center gap-3 p-2 rounded-lg transition-all ${isDone ? 'opacity-40' : 'hover:bg-white/[0.02]'}`}>
-                                                                         <button onClick={() => setCompletedSteps(prev => ({ ...prev, ['sell-' + x.ticker]: !prev['sell-' + x.ticker] }))}
-                                                                             className={`w-5 h-5 rounded border flex items-center justify-center shrink-0 ${isDone ? 'bg-emerald-500/20 border-emerald-500/30' : 'border-slate-600 hover:border-slate-400'}`}>
-                                                                             {isDone && <Check className="w-3 h-3 text-emerald-400" />}
-                                                                         </button>
+                                                                          <button
+                                                                              onClick={() => {
+                                                                                  if (isDone) return;
+                                                                                  const newQty = x.heldQty + x.diffQty;
+                                                                                  updateQuantity(x.ticker, Math.max(0, newQty), x.livePrice);
+                                                                                  setCompletedSteps(prev => ({ ...prev, ['sell-' + x.ticker]: true }));
+                                                                                  setTimeout(() => fetchRadarData(), 500);
+                                                                              }}
+                                                                              disabled={isDone}
+                                                                              className={`w-6 h-6 rounded-md flex items-center justify-center shrink-0 transition-all ${isDone ? 'bg-emerald-500/20 border border-emerald-500/30 cursor-default' : 'bg-rose-500/15 border border-rose-500/25 hover:bg-rose-500/30 cursor-pointer'}`}
+                                                                          >
+                                                                              {isDone ? <Check className="w-3 h-3 text-emerald-400" /> : <span className="text-[10px] font-bold text-rose-400">GO</span>}
+                                                                          </button>
                                                                          <span className="text-[13px] font-bold px-1.5 py-0.5 rounded bg-rose-500/10 text-rose-400 border border-rose-500/15 font-[family-name:var(--font-jetbrains)]">SELL</span>
                                                                          <TickerLogo ticker={x.ticker} className="w-5 h-5" />
                                                                          <span className="text-sm font-bold text-slate-100 font-[family-name:var(--font-jetbrains)]">{x.ticker}</span>
@@ -1900,10 +1909,18 @@ export function QuantRadarClient() {
                                                                  const isNew = x.heldQty === 0;
                                                                  return (
                                                                      <div key={x.ticker} className={`flex items-center gap-3 p-2 rounded-lg transition-all ${isDone ? 'opacity-40' : 'hover:bg-white/[0.02]'}`}>
-                                                                         <button onClick={() => setCompletedSteps(prev => ({ ...prev, ['buy-' + x.ticker]: !prev['buy-' + x.ticker] }))}
-                                                                             className={`w-5 h-5 rounded border flex items-center justify-center shrink-0 ${isDone ? 'bg-emerald-500/20 border-emerald-500/30' : 'border-slate-600 hover:border-slate-400'}`}>
-                                                                             {isDone && <Check className="w-3 h-3 text-emerald-400" />}
-                                                                         </button>
+                                                                          <button
+                                                                              onClick={() => {
+                                                                                  if (isDone) return;
+                                                                                  addHolding({ ticker: x.ticker, name: x.ticker, quantity: x.diffQty, avgPrice: x.livePrice });
+                                                                                  setCompletedSteps(prev => ({ ...prev, ['buy-' + x.ticker]: true }));
+                                                                                  setTimeout(() => fetchRadarData(), 500);
+                                                                              }}
+                                                                              disabled={isDone}
+                                                                              className={`w-6 h-6 rounded-md flex items-center justify-center shrink-0 transition-all ${isDone ? 'bg-emerald-500/20 border border-emerald-500/30 cursor-default' : 'bg-emerald-500/15 border border-emerald-500/25 hover:bg-emerald-500/30 cursor-pointer'}`}
+                                                                          >
+                                                                              {isDone ? <Check className="w-3 h-3 text-emerald-400" /> : <span className="text-[10px] font-bold text-emerald-400">GO</span>}
+                                                                          </button>
                                                                          <span className="text-[13px] font-bold px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/15 font-[family-name:var(--font-jetbrains)]">
                                                                              {isNew ? 'BUY' : 'ADD'}
                                                                          </span>
