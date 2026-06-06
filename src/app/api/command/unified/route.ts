@@ -616,6 +616,23 @@ export async function GET(request: NextRequest) {
             await enrichExpiration(finalData);
             await injectAlphaBypass(finalData, ticker);
 
+            // [FIX 2026-06-06] Earnings SYNCHRONOUS enrichment — don't defer to after()
+            // FMP Lambda often misses M7 large-caps → earnings: null in cache.
+            // Without this, user sees TBD on first visit and must wait for after() + next request.
+            if (!finalData.earnings || !finalData.earnings.nextEarningsDate) {
+                try {
+                    const earningsResult = await Promise.race([
+                        callInternalGet(getEarnings, `${getBaseUrl(request)}/api/live/earnings?t=${ticker}`),
+                        new Promise<null>(r => setTimeout(() => r(null), 3000))
+                    ]);
+                    if (earningsResult && earningsResult.hasData !== false) {
+                        finalData.earnings = { ...(finalData.earnings || {}), ...earningsResult };
+                        memorySet(memKey, finalData);
+                        setInCache(dataCacheKey, finalData, getSmartTTL()).catch(() => {});
+                    }
+                } catch { /* Finnhub unavailable — will retry next request */ }
+            }
+
             // [FIX 2026-05-06] EC2 institutional ALWAYS injected — ElastiCache retains last session data 24/7
             // Previously gated by isMarketHoursNow() → off-hours fell back to stale DynamoDB Polygon samples
             await injectEC2Institutional(finalData, ticker);
@@ -697,6 +714,20 @@ export async function GET(request: NextRequest) {
             }
             await enrichExpiration(cachedData);
             await injectAlphaBypass(cachedData, ticker);
+
+            // [FIX 2026-06-06] Earnings SYNCHRONOUS enrichment for Redis cache tier
+            if (!cachedData.earnings || !cachedData.earnings.nextEarningsDate) {
+                try {
+                    const bgBaseUrl = getBaseUrl(request);
+                    const earningsResult = await Promise.race([
+                        callInternalGet(getEarnings, `${bgBaseUrl}/api/live/earnings?t=${ticker}`),
+                        new Promise<null>(r => setTimeout(() => r(null), 3000))
+                    ]);
+                    if (earningsResult && earningsResult.hasData !== false) {
+                        cachedData.earnings = { ...(cachedData.earnings || {}), ...earningsResult };
+                    }
+                } catch { /* Finnhub unavailable */ }
+            }
 
             // [FIX 2026-05-06] EC2 institutional ALWAYS injected — preserves last session data through off-hours
             // Previously gated by isMarketHoursNow() → post-market close caused block count regression (252 → 17)
