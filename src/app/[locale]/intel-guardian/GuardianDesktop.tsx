@@ -22,7 +22,7 @@ import { ProGate, EliteGate } from '@/components/gate/FeatureGate';
 import { getIsMarketActive, getIsFullyActive, getEffectiveSession } from '@/services/guardian/marketSessionUtils';
 
 // [PERF] Lazy-loaded heavy components — reduces initial JS bundle
-const MobileSmartMoneyMap = dynamic(() => import("@/components/guardian/mobile/MobileSmartMoneyMap"), { ssr: false });
+const SmartMoneyMap = dynamic(() => import("@/components/guardian/SmartMoneyMap"), { ssr: false });
 const GravityGauge = dynamic(() => import("@/components/guardian/GravityGauge"), { ssr: false });
 const VitalsPanel = dynamic(() => import("@/components/guardian/VitalsPanel").then(m => m.VitalsPanel), { ssr: false });
 const OracleHeader = dynamic(() => import("@/components/guardian/OracleHeader").then(m => m.OracleHeader), { ssr: false });
@@ -610,7 +610,7 @@ export default function GuardianDesktop() {
                                                 </div>
                                             )}
                                             <div className={isMapUnlocked ? 'flex-1 relative' : 'h-full relative'}>
-                                                <MobileSmartMoneyMap
+                                                <SmartMoneyMap
                                                     sectors={(data?.sectors || []).map(s => ({
                                                         id: s.id,
                                                         name: s.name,
