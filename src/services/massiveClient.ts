@@ -244,12 +244,11 @@ export async function fetchMassive(
                         // For options endpoints, empty results should NOT be cached
                         // This prevents stale empty data from blocking fresh API calls
                         const isOptionsEndpoint = endpoint.includes('/options/');
-                        const hasValidOptionsData = !isOptionsEndpoint || (data?.results?.length > 0);
+                        // Cache empty options data to prevent hammering API for optionless stocks (e.g. SPCX)
+                        const hasValidOptionsData = true;
 
                         if (useCache && hasValidOptionsData) {
                             massiveCache.set(cacheKey, { data, expiry: Date.now() + 60000 }); // 60s
-                        } else if (isOptionsEndpoint) {
-                            console.warn(`[Massive] NOT caching empty options data for ${endpoint}`);
                         }
                         // [V4.5] Gradually recover delay on successful requests
                         if (adaptiveDelayMs > BASE_DELAY_MS) {
