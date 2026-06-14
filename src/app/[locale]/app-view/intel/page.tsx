@@ -273,7 +273,7 @@ export default function AppIntelPage() {
     setLoading(true);
     try {
       // API call matching route: /api/intel/fast?sector={sectorId}
-      const res = await fetch(`/api/intel/fast?sector=${sectorId.replace('_', '')}`);
+      const res = await fetch(`/api/intel/fast?sector=${sectorId}`);
       if (!res.ok) throw new Error();
       const data = await res.json();
       
