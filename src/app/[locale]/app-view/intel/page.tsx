@@ -258,6 +258,7 @@ export default function AppIntelPage() {
   const [loading, setLoading] = useState(false);
   const [adCount, setAdCount] = useState(0);
   const [showAdModal, setShowAdModal] = useState(false);
+  const [reportCache, setReportCache] = useState<Record<string, SectorReportData>>({});
 
   // Initialize shared data hook
   const sharedData = useIntelSharedData();
@@ -268,9 +269,73 @@ export default function AppIntelPage() {
     if (savedCount) setAdCount(parseInt(savedCount));
   }, []);
 
+  // Background pre-fetch of all sector snapshots to make clicks instant
+  useEffect(() => {
+    let active = true;
+    const prefetch = async () => {
+      // Wait 1.5 seconds for page load to settle
+      await new Promise(r => setTimeout(r, 1500));
+      if (!active) return;
+
+      for (const sec of SECTOR_CONFIGS) {
+        if (!active) break;
+        // Skip if already in cache
+        if (reportCache[sec.id]) continue;
+
+        try {
+          const res = await fetch(`/api/intel/snapshot?sector=${sec.id}`);
+          if (res.ok) {
+            const data = await res.json();
+            if (data.success && data.snapshot && active) {
+              const summary = data.snapshot.sector_summary || {};
+              const briefing = summary.briefing || {};
+              
+              const sentiment = summary.outlook || data.snapshot.sentiment || 'NEUTRAL';
+              
+              const verdict = locale === 'ko'
+                ? (summary.next_day_briefing_kr || briefing.headline || data.snapshot.verdict || 'No verdict available.')
+                : locale === 'ja'
+                  ? (briefing.headlineJP || briefing.headline || data.snapshot.verdict || 'No verdict available.')
+                  : (briefing.headlineEN || briefing.headline || data.snapshot.verdict || 'No verdict available.');
+                  
+              const catalysts = locale === 'ko'
+                ? (briefing.watchpoints || data.snapshot.keyCatalysts || [])
+                : locale === 'ja'
+                  ? (briefing.watchpointsJP || briefing.watchpoints || data.snapshot.keyCatalysts || [])
+                  : (briefing.watchpointsEN || briefing.watchpoints || data.snapshot.keyCatalysts || []);
+
+              const newReport = {
+                sentiment,
+                verdict,
+                catalysts,
+                keyStocksData: (data.snapshot.tickers || []).map((tick: any) => ({
+                  sym: tick.ticker,
+                  grade: tick.grade || 'B',
+                  score: tick.alpha_score || tick.score || 55
+                }))
+              };
+              setReportCache(prev => ({ ...prev, [sec.id]: newReport }));
+            }
+          }
+          // Sleep 300ms between pre-fetches to be gentle
+          await new Promise(r => setTimeout(r, 300));
+        } catch { /* ignore */ }
+      }
+    };
+    prefetch();
+    return () => { active = false; };
+  }, [locale]);
+
   // Fetch Report Data
   const loadSectorReport = async (sectorId: string) => {
-    setLoading(true);
+    // If we have it in client-side cache, show it immediately!
+    if (reportCache[sectorId]) {
+      setReportData(reportCache[sectorId]);
+      setLoading(false);
+    } else {
+      setLoading(true);
+    }
+
     try {
       // API call matching route: /api/intel/snapshot?sector={sectorId}
       const res = await fetch(`/api/intel/snapshot?sector=${sectorId}`);
@@ -295,7 +360,7 @@ export default function AppIntelPage() {
             ? (briefing.watchpointsJP || briefing.watchpoints || data.snapshot.keyCatalysts || [])
             : (briefing.watchpointsEN || briefing.watchpoints || data.snapshot.keyCatalysts || []);
 
-        setReportData({
+        const newReport = {
           sentiment,
           verdict,
           catalysts,
@@ -304,13 +369,16 @@ export default function AppIntelPage() {
             grade: tick.grade || 'B',
             score: tick.alpha_score || tick.score || 55
           }))
-        });
+        };
+
+        setReportData(newReport);
+        setReportCache(prev => ({ ...prev, [sectorId]: newReport }));
       } else {
         throw new Error();
       }
     } catch {
       // Fallback to demo data or make synthetic report if demo does not exist
-      setReportData(DEMO_REPORTS[sectorId] || {
+      const fallback = DEMO_REPORTS[sectorId] || {
         sentiment: 'NEUTRAL',
         verdict: 'AI analysis suggests macro headwinds are balanced by structural cloud migration. High interest rates remain a drag on leveraged players.',
         catalysts: [
@@ -322,7 +390,9 @@ export default function AppIntelPage() {
           grade: 'B',
           score: 58
         }))
-      });
+      };
+      setReportData(fallback);
+      setReportCache(prev => ({ ...prev, [sectorId]: fallback }));
     } finally {
       setLoading(false);
     }
