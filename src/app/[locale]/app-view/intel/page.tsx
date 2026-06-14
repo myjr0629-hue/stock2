@@ -1227,11 +1227,11 @@ export default function AppIntelPage() {
                 {/* KEY STOCKS GRID */}
                 <div className="app-label" style={{
                   fontFamily: 'var(--font-mono), monospace',
-                  fontSize: '11px',
+                  fontSize: '11.5px',
                   fontWeight: 800,
                   letterSpacing: '0.08em',
                   color: 'rgba(255, 255, 255, 0.45)',
-                  padding: '12px 16px 6px'
+                  padding: '12px 0 6px'
                 }}>
                   <span>{t.keyStocks.toUpperCase()}</span>
                 </div>
@@ -1274,23 +1274,26 @@ export default function AppIntelPage() {
                           width: '100%'
                         }}>
                           {/* Left Side: Logo + Sym + Tech Badges */}
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0 }}>
                             <StockLogo symbol={stock.sym} />
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                              <span style={{ fontSize: '15px', fontWeight: 800, color: '#ffffff', fontFamily: 'var(--font-mono), monospace', letterSpacing: '-0.01em' }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                              <span style={{ fontSize: '17px', fontWeight: 850, color: '#ffffff', fontFamily: 'var(--font-mono), monospace', letterSpacing: '-0.01em' }}>
                                 {stock.sym}
                               </span>
                               <div style={{ display: 'flex', gap: '3px' }}>
                                 {stock.rsi !== undefined && stock.rsi > 0 && (
                                   <span style={{
-                                    fontSize: '8px',
+                                    fontSize: '11px',
+                                    fontWeight: 700,
                                     fontFamily: 'var(--font-mono), monospace',
-                                    color: stock.rsi > 70 ? '#ef4444' : stock.rsi < 30 ? '#10b981' : 'rgba(255,255,255,0.4)',
-                                    background: 'rgba(255,255,255,0.03)',
-                                    padding: '0.5px 3px',
-                                    borderRadius: '2px'
+                                    color: stock.rsi > 70 ? '#ef4444' : stock.rsi < 30 ? '#10b981' : 'rgba(255,255,255,0.5)',
+                                    background: 'rgba(255,255,255,0.04)',
+                                    border: '1px solid rgba(255,255,255,0.08)',
+                                    padding: '2px 6px',
+                                    borderRadius: '4px',
+                                    letterSpacing: '0.02em'
                                   }}>
-                                    RSI {Math.round(stock.rsi)}
+                                    RSI: {Math.round(stock.rsi)}
                                   </span>
                                 )}
                               </div>
@@ -1298,17 +1301,17 @@ export default function AppIntelPage() {
                           </div>
 
                           {/* Middle: Sparkline Chart */}
-                          <div style={{ flex: 1, display: 'flex', justifyContent: 'center', padding: '0 10px', overflow: 'hidden' }}>
+                          <div style={{ flex: 1, display: 'flex', justifyContent: 'center', padding: '0 12px', overflow: 'hidden' }}>
                             <Sparkline data={stock.sparkline || []} isUp={isPositive} />
                           </div>
 
                           {/* Right Side: Score, Change, Grade */}
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexShrink: 0 }}>
-                            <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                              <div className="tnum" style={{ fontFamily: 'var(--font-mono), monospace', fontWeight: 700, color: 'rgba(255,255,255,0.45)', fontSize: '10.5px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flexShrink: 0 }}>
+                            <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                              <div className="tnum" style={{ fontFamily: 'var(--font-mono), monospace', fontWeight: 700, color: 'rgba(255,255,255,0.6)', fontSize: '12.5px' }}>
                                 Score: {stock.score}
                               </div>
-                              <div className="tnum" style={{ fontFamily: 'var(--font-mono), monospace', fontWeight: 800, color: changeColor, fontSize: '11px' }}>
+                              <div className="tnum" style={{ fontFamily: 'var(--font-mono), monospace', fontWeight: 800, color: changeColor, fontSize: '12.5px' }}>
                                 {isPositive ? '+' : ''}{changeVal.toFixed(2)}%
                               </div>
                             </div>
@@ -1318,13 +1321,13 @@ export default function AppIntelPage() {
                               color: gradeColor,
                               background: gradeBg,
                               border: gradeBorder,
-                              width: '30px',
-                              height: '30px',
+                              width: '34px',
+                              height: '34px',
                               borderRadius: '50%',
                               display: 'flex',
                               alignItems: 'center',
                               justifyContent: 'center',
-                              fontSize: '12px',
+                              fontSize: '13.5px',
                               boxShadow: '0 2px 6px rgba(0,0,0,0.1)'
                             }}>
                               {stock.grade}
@@ -1337,12 +1340,12 @@ export default function AppIntelPage() {
                           <div 
                             onClick={(e) => e.stopPropagation()} // Prevent collapse on click inside
                             style={{
-                              marginTop: '14px',
-                              paddingTop: '14px',
+                              marginTop: '16px',
+                              paddingTop: '16px',
                               borderTop: '1px solid rgba(255,255,255,0.06)',
                               display: 'flex',
                               flexDirection: 'column',
-                              gap: '12px',
+                              gap: '14px',
                               cursor: 'default'
                             }}
                           >
@@ -1350,25 +1353,25 @@ export default function AppIntelPage() {
                             <div style={{
                               display: 'grid',
                               gridTemplateColumns: 'repeat(3, 1fr)',
-                              gap: '8px',
+                              gap: '10px',
                               background: 'rgba(0,0,0,0.12)',
                               borderRadius: '8px',
-                              padding: '10px',
+                              padding: '12px',
                               border: '1px solid rgba(255,255,255,0.02)'
                             }}>
                               {/* Option Bounds */}
-                              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                                <div style={{ fontSize: '9px', fontWeight: 800, color: 'rgba(255,255,255,0.35)', fontFamily: 'var(--font-mono), monospace', letterSpacing: '0.05em', textTransform: 'uppercase' }}>Option Levels</div>
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
-                                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10.5px' }}>
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                <div style={{ fontSize: '10px', fontWeight: 800, color: 'rgba(255,255,255,0.4)', fontFamily: 'var(--font-mono), monospace', letterSpacing: '0.06em', textTransform: 'uppercase' }}>Option Levels</div>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11.5px' }}>
                                     <span style={{ color: 'rgba(255,255,255,0.45)' }}>Call Wall</span>
                                     <span style={{ fontFamily: 'var(--font-mono), monospace', color: '#ffffff', fontWeight: 600 }}>{stock.callWall && stock.callWall > 0 ? `$${stock.callWall}` : 'N/A'}</span>
                                   </div>
-                                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10.5px' }}>
+                                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11.5px' }}>
                                     <span style={{ color: 'rgba(255,255,255,0.45)' }}>Put Floor</span>
                                     <span style={{ fontFamily: 'var(--font-mono), monospace', color: '#ffffff', fontWeight: 600 }}>{stock.putFloor && stock.putFloor > 0 ? `$${stock.putFloor}` : 'N/A'}</span>
                                   </div>
-                                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10.5px' }}>
+                                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11.5px' }}>
                                     <span style={{ color: 'rgba(255,255,255,0.45)' }}>Max Pain</span>
                                     <span style={{ fontFamily: 'var(--font-mono), monospace', color: '#ffffff', fontWeight: 600 }}>{stock.maxPain && stock.maxPain > 0 ? `$${stock.maxPain}` : 'N/A'}</span>
                                   </div>
@@ -1376,21 +1379,21 @@ export default function AppIntelPage() {
                               </div>
 
                               {/* Option Flow */}
-                              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                                <div style={{ fontSize: '9px', fontWeight: 800, color: 'rgba(255,255,255,0.35)', fontFamily: 'var(--font-mono), monospace', letterSpacing: '0.05em', textTransform: 'uppercase' }}>Option Flow</div>
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
-                                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10.5px' }}>
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                <div style={{ fontSize: '10px', fontWeight: 800, color: 'rgba(255,255,255,0.4)', fontFamily: 'var(--font-mono), monospace', letterSpacing: '0.06em', textTransform: 'uppercase' }}>Option Flow</div>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11.5px' }}>
                                     <span style={{ color: 'rgba(255,255,255,0.45)' }}>Net GEX</span>
                                     <span style={{ fontFamily: 'var(--font-mono), monospace', color: (stock.gex || 0) >= 0 ? '#10b981' : '#ef4444', fontWeight: 700 }}>{formatGex(stock.gex || 0)}</span>
                                   </div>
-                                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10.5px' }}>
+                                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11.5px' }}>
                                     <span style={{ color: 'rgba(255,255,255,0.45)' }}>Vol PCR</span>
                                     <span style={{ fontFamily: 'var(--font-mono), monospace', color: '#ffffff', fontWeight: 600 }}>{stock.pcr ? stock.pcr.toFixed(2) : '0.00'}</span>
                                   </div>
-                                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10.5px' }}>
+                                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11.5px' }}>
                                     <span style={{ color: 'rgba(255,255,255,0.45)' }}>Gamma</span>
                                     <span style={{ 
-                                      fontSize: '9px', 
+                                      fontSize: '9.5px', 
                                       fontWeight: 800, 
                                       color: stock.gammaRegime === 'LONG' ? '#10b981' : stock.gammaRegime === 'SHORT' ? '#ef4444' : '#f59e0b',
                                       fontFamily: 'var(--font-mono), monospace'
@@ -1402,18 +1405,18 @@ export default function AppIntelPage() {
                               </div>
 
                               {/* Technicals */}
-                              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                                <div style={{ fontSize: '9px', fontWeight: 800, color: 'rgba(255,255,255,0.35)', fontFamily: 'var(--font-mono), monospace', letterSpacing: '0.05em', textTransform: 'uppercase' }}>Technicals</div>
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
-                                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10.5px' }}>
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                <div style={{ fontSize: '10px', fontWeight: 800, color: 'rgba(255,255,255,0.4)', fontFamily: 'var(--font-mono), monospace', letterSpacing: '0.06em', textTransform: 'uppercase' }}>Technicals</div>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11.5px' }}>
                                     <span style={{ color: 'rgba(255,255,255,0.45)' }}>RSI (14)</span>
                                     <span style={{ fontFamily: 'var(--font-mono), monospace', color: '#ffffff', fontWeight: 600 }}>{stock.rsi ? Math.round(stock.rsi) : '50'}</span>
                                   </div>
-                                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10.5px' }}>
+                                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11.5px' }}>
                                     <span style={{ color: 'rgba(255,255,255,0.45)' }}>RVOL (20d)</span>
                                     <span style={{ fontFamily: 'var(--font-mono), monospace', color: '#ffffff', fontWeight: 600 }}>{stock.rvol ? stock.rvol.toFixed(1) : '1.0'}x</span>
                                   </div>
-                                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10.5px' }}>
+                                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '11.5px' }}>
                                     <span style={{ color: 'rgba(255,255,255,0.45)' }}>Price</span>
                                     <span style={{ fontFamily: 'var(--font-mono), monospace', color: '#ffffff', fontWeight: 600 }}>{stock.closePrice && stock.closePrice > 0 ? `$${stock.closePrice.toFixed(2)}` : 'N/A'}</span>
                                   </div>
@@ -1423,33 +1426,33 @@ export default function AppIntelPage() {
 
                             {/* Large Sparkline Chart */}
                             {hasSparkline && (
-                              <div style={{ background: 'rgba(0,0,0,0.1)', borderRadius: '8px', padding: '8px', border: '1px solid rgba(255,255,255,0.02)' }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
-                                  <span style={{ fontSize: '9px', fontWeight: 800, color: 'rgba(255,255,255,0.3)', fontFamily: 'var(--font-mono), monospace', letterSpacing: '0.05em', textTransform: 'uppercase' }}>Intraday Chart</span>
-                                  <span style={{ fontSize: '9px', color: 'rgba(255,255,255,0.3)', fontFamily: 'var(--font-mono), monospace' }}>Last 24 Hours</span>
+                              <div style={{ background: 'rgba(0,0,0,0.1)', borderRadius: '8px', padding: '10px', border: '1px solid rgba(255,255,255,0.02)' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                                  <span style={{ fontSize: '9.5px', fontWeight: 800, color: 'rgba(255,255,255,0.35)', fontFamily: 'var(--font-mono), monospace', letterSpacing: '0.05em', textTransform: 'uppercase' }}>Intraday Chart</span>
+                                  <span style={{ fontSize: '9.5px', color: 'rgba(255,255,255,0.3)', fontFamily: 'var(--font-mono), monospace' }}>Last 24 Hours</span>
                                 </div>
-                                <div style={{ height: '50px', padding: '4px 0' }}>
+                                <div style={{ height: '60px', padding: '4px 0' }}>
                                   <ExpandedSparkline data={stock.sparkline || []} isUp={isPositive} />
                                 </div>
                               </div>
                             )}
 
                             {/* AI Stock Analysis */}
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                               <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                <span style={{ color: '#f59e0b', fontFamily: 'var(--font-mono), monospace', fontSize: '10px', fontWeight: 800, letterSpacing: '0.05em' }}>
+                                <span style={{ color: '#f59e0b', fontFamily: 'var(--font-mono), monospace', fontSize: '11px', fontWeight: 800, letterSpacing: '0.05em' }}>
                                   ~ AI ANALYTICAL BRIEF
                                 </span>
                               </div>
                               <p style={{ 
                                 font: 'var(--f-body)', 
-                                color: 'rgba(255,255,255,0.65)', 
-                                fontSize: '12px', 
-                                lineHeight: 1.5, 
+                                color: 'rgba(255,255,255,0.75)', 
+                                fontSize: '13px', 
+                                lineHeight: 1.6, 
                                 margin: 0,
                                 background: 'rgba(245,158,11,0.02)',
                                 borderLeft: '2px solid #f59e0b',
-                                padding: '6px 10px',
+                                padding: '8px 12px',
                                 borderRadius: '0 6px 6px 0'
                               }}>
                                 {formatVerdictText(
