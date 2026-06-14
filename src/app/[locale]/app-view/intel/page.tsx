@@ -278,14 +278,31 @@ export default function AppIntelPage() {
       const data = await res.json();
       
       if (data.success && data.snapshot) {
+        const summary = data.snapshot.sector_summary || {};
+        const briefing = summary.briefing || {};
+        
+        const sentiment = summary.outlook || data.snapshot.sentiment || 'NEUTRAL';
+        
+        const verdict = locale === 'ko'
+          ? (summary.next_day_briefing_kr || briefing.headline || data.snapshot.verdict || 'No verdict available.')
+          : locale === 'ja'
+            ? (briefing.headlineJP || briefing.headline || data.snapshot.verdict || 'No verdict available.')
+            : (briefing.headlineEN || briefing.headline || data.snapshot.verdict || 'No verdict available.');
+            
+        const catalysts = locale === 'ko'
+          ? (briefing.watchpoints || data.snapshot.keyCatalysts || [])
+          : locale === 'ja'
+            ? (briefing.watchpointsJP || briefing.watchpoints || data.snapshot.keyCatalysts || [])
+            : (briefing.watchpointsEN || briefing.watchpoints || data.snapshot.keyCatalysts || []);
+
         setReportData({
-          sentiment: data.snapshot.sentiment || 'NEUTRAL',
-          verdict: data.snapshot.verdict || 'No verdict available.',
-          catalysts: data.snapshot.keyCatalysts || [],
+          sentiment,
+          verdict,
+          catalysts,
           keyStocksData: (data.snapshot.tickers || []).map((tick: any) => ({
             sym: tick.ticker,
             grade: tick.grade || 'B',
-            score: tick.score || 55
+            score: tick.alpha_score || tick.score || 55
           }))
         });
       } else {
