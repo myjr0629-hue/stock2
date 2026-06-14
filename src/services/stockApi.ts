@@ -575,8 +575,8 @@ export async function getOptionsData(symbol: string, presetSpot?: number, budget
     } as any;
   }
 
-  // ✅ Retry: 5 tries (20/40/60/80)
-  const MAX_OI_RETRIES = 5;
+  // ✅ Retry: 5 tries (20/40/60/80) for report generation, 1 try for live user requests
+  const MAX_OI_RETRIES = budget ? 5 : 1;
   let attempt = 0;
 
   let analytics: any = null;
