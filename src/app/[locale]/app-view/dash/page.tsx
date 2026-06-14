@@ -60,12 +60,12 @@ const DEMO_ETFS: PulseItem[] = [
 ];
 
 const DEMO_MACRO: MacroItem[] = [
-  { label: 'US 10Y', value: '4.25%', chg: -0.03, unit: '' },
-  { label: 'DXY', value: '104.2', chg: 0.1, unit: '' },
   { label: 'BTC', value: '$68.5K', chg: 2.1, unit: '%' },
   { label: 'GOLD', value: '$2,340', chg: -0.4, unit: '%' },
   { label: 'OIL', value: '$72.3', chg: 1.2, unit: '%' },
-  { label: 'R2K', value: '2,180', chg: -0.5, unit: '%' },
+  { label: 'SOX', value: '5,200', chg: 1.1, unit: '%' },
+  { label: 'US 10Y', value: '4.25%', chg: -0.03, unit: '' },
+  { label: 'DXY', value: '104.2', chg: 0.1, unit: '' },
   { label: '2s10s', value: '+0.25', chg: 0, unit: '', badge: 'STEEP' },
   { label: 'F&G', value: '68', chg: 0, unit: '', badge: 'GREED' },
 ];
@@ -106,7 +106,7 @@ function fmtMacroValue(level: number | null, label: string): string {
   if (label === 'Bitcoin') return `$${(level / 1000).toFixed(1)}K`;
   if (label === 'Gold') return `$${level.toLocaleString('en-US', { maximumFractionDigits: 0 })}`;
   if (label === 'Oil') return `$${level.toFixed(1)}`;
-  if (label === 'Russell 2K') return level.toLocaleString('en-US', { maximumFractionDigits: 0 });
+  if (label === 'Russell 2K' || label === 'SOX') return level.toLocaleString('en-US', { maximumFractionDigits: 0 });
   if (label === 'US 10Y') return `${level.toFixed(2)}%`;
   if (label.includes('DXY') || label.includes('DOLLAR')) return level.toFixed(1);
   return level.toFixed(2);
@@ -227,13 +227,13 @@ function getMacroBadge(label: string) {
           </svg>
         </span>
       );
-    case 'R2K':
+    case 'SOX':
       return (
-        <span className={`${s.macroBadgeIcon} ${s.r2kBadge}`}>
+        <span className={`${s.macroBadgeIcon} ${s.soxBadge}`}>
           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <rect x="3" y="3" width="18" height="18" rx="2" />
-            <path d="M9 17v-4h3a2 2 0 0 0 0-4H9V5" />
-            <path d="M12 13l4 4" />
+            <rect x="4" y="4" width="16" height="16" rx="2" />
+            <path d="M9 9h6v6H9z" />
+            <path d="M9 1v3M15 1v3M9 20v3M15 20v3M20 9h3M20 15h3M1 9h3M1 15h3" />
           </svg>
         </span>
       );
@@ -447,22 +447,6 @@ export default function AppDashPage() {
 
             const macroItems: MacroItem[] = [];
 
-            // US 10Y
-            macroItems.push({
-              label: 'US 10Y',
-              value: fmtMacroValue(f.us10y?.level, 'US 10Y'),
-              chg: f.us10y?.chgPct ?? 0,
-              unit: '',
-            });
-
-            // DXY
-            macroItems.push({
-              label: 'DXY',
-              value: fmtMacroValue(f.dxy?.level, 'DOLLAR (DXY)'),
-              chg: f.dxy?.chgPct ?? 0,
-              unit: '',
-            });
-
             // BTC
             macroItems.push({
               label: 'BTC',
@@ -487,12 +471,28 @@ export default function AppDashPage() {
               unit: '%',
             });
 
-            // Russell 2K
+            // SOX
             macroItems.push({
-              label: 'R2K',
-              value: fmtMacroValue(f.rut?.level, 'Russell 2K'),
-              chg: f.rut?.chgPct ?? 0,
+              label: 'SOX',
+              value: fmtMacroValue(f.sox?.level, 'SOX'),
+              chg: f.sox?.chgPct ?? 0,
               unit: '%',
+            });
+
+            // US 10Y
+            macroItems.push({
+              label: 'US 10Y',
+              value: fmtMacroValue(f.us10y?.level, 'US 10Y'),
+              chg: f.us10y?.chgPct ?? 0,
+              unit: '',
+            });
+
+            // DXY
+            macroItems.push({
+              label: 'DXY',
+              value: fmtMacroValue(f.dxy?.level, 'DOLLAR (DXY)'),
+              chg: f.dxy?.chgPct ?? 0,
+              unit: '',
             });
 
             // Yield Curve 2s10s

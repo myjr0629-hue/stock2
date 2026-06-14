@@ -22,6 +22,7 @@ const SYMBOLS = [
     { yahoo: 'TLT', key: YAHOO_CACHE_KEYS.TLT || 'yahoo:tlt' },
     { yahoo: 'CL=F', key: YAHOO_CACHE_KEYS.OIL },
     { yahoo: 'RTY=F', key: YAHOO_CACHE_KEYS.RUT },
+    { yahoo: '^SOX',  key: YAHOO_CACHE_KEYS.SOX },
     { yahoo: 'KRW=X', key: YAHOO_CACHE_KEYS.USDKRW },
     { yahoo: 'JPY=X', key: YAHOO_CACHE_KEYS.USDJPY },
     // Actual index quotes (regular session close — not futures)
