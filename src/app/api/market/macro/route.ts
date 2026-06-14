@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { getMacroSnapshotSSOT } from '@/services/macroHubProvider';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET() {
     try {
         const snapshot = await getMacroSnapshotSSOT();

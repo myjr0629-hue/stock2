@@ -3949,6 +3949,8 @@
     "fomoPortfolioSignal": "View AI Signal — Machine-generated directional outlook",
     "fomoPortfolioAction": "Real-time directional analysis — AI-driven position insights",
     "fomoPortfolioScore": "View Portfolio Grade — Overall health assessment",
+    "fomoMacroBriefing": "Macro Economic Intelligence · Fed Interest Rate Outlook & Market Liquidity Analysis",
+    "descMacroBriefing": "FOMC FedWatch probability distribution & Smart Money fund flow real-time data",
     "taglineVolRegime": "Volatility regime shifts dictate strategy rotation",
     "taglineConviction": "Institutional-grade multi-factor conviction scoring",
     "taglineIVSkew": "Options skew reveals where smart money is positioning",

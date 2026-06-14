@@ -1,0 +1,226 @@
+/* App View — Mobile App Layout */
+.app-viewport {
+  width: 100vw;
+  max-width: 430px;
+  margin: 0 auto;
+  min-height: 100vh;
+  min-height: 100dvh;
+  background: var(--bg);
+  color: var(--text);
+  font: var(--f-body);
+  font-feature-settings: 'tnum' 1, 'cv01' 1;
+  -webkit-font-smoothing: antialiased;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  position: relative;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.app-main {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: none;
+  padding-bottom: 132px; /* space for tab bar (72px) + AdMob banner ad (60px) */
+  scrollbar-width: none;
+}
+
+.app-main::-webkit-scrollbar {
+  display: none;
+}
+
+/* Utility classes */
+.tnum { font-variant-numeric: tabular-nums; }
+.pos { color: var(--green); }
+.neg { color: var(--red); }
+
+/* Glass card */
+.app-card {
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: var(--r-card);
+  box-shadow: var(--shadow);
+  padding: var(--s4);
+  margin: 0 var(--s4) var(--s3);
+}
+
+.app-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--s3);
+}
+
+.app-card-title {
+  font: var(--f-micro);
+  color: var(--text-dim);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+/* Section label */
+.app-label {
+  font: var(--f-micro);
+  color: var(--text-muted);
+  letter-spacing: 0.1em;
+  padding: var(--s4) var(--s4) var(--s2);
+}
+
+.app-label-premium {
+  font: var(--f-micro);
+  color: var(--amber);
+  letter-spacing: 0.1em;
+  padding: var(--s4) var(--s4) var(--s2);
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+}
+
+/* Glass header */
+.app-header {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px var(--s4);
+  background: rgba(5, 10, 20, 0.92);
+  backdrop-filter: var(--glass);
+  -webkit-backdrop-filter: var(--glass);
+  border-bottom: 0.5px solid rgba(255,255,255,0.04);
+  min-height: 52px;
+}
+
+/* Input fields allow selection */
+.app-viewport input,
+.app-viewport textarea {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+/* Touch feedback */
+.app-viewport button,
+.app-viewport a,
+.app-viewport [role="button"] {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+.app-pressable {
+  transition: transform 0.12s ease, opacity 0.12s ease;
+}
+.app-pressable:active {
+  transform: scale(0.97);
+  opacity: 0.85;
+}
+
+/* Skeleton shimmer */
+.app-skeleton {
+  background: linear-gradient(90deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0.08) 50%, rgba(255,255,255,0.03) 100%);
+  background-size: 200% 100%;
+  animation: appShimmer 1.5s ease-in-out infinite;
+  border-radius: 6px;
+}
+@keyframes appShimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+/* Ad slot */
+.app-ad-slot {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+  padding: var(--s3) var(--s4);
+  margin: var(--s3) var(--s4);
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: var(--r-btn);
+}
+.app-ad-flag {
+  font: var(--f-micro);
+  color: var(--text-muted);
+  background: rgba(255,255,255,0.04);
+  padding: 2px 6px;
+  border-radius: 3px;
+}
+
+/* App View Safety Override - Hides desktop components in app-view mode */
+.is-app-view header:not(.app-header),
+.is-app-view footer,
+.is-app-view .landing-header,
+.is-app-view .footer,
+.is-app-view .desktop-only,
+.is-app-view [class*="LandingHeader"],
+.is-app-view [class*="Footer"] {
+  display: none !important;
+}
+
+.is-app-view {
+  background: var(--bg) !important;
+}
+
+/* App Bottom Tabbar (Global Styles for App Wrapper) */
+.app-tabbar {
+  position: fixed;
+  bottom: 60px; /* Sit above AdMob banner */
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100%;
+  max-width: 430px;
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  padding: 8px 0 8px;
+  background: rgba(5, 10, 20, 0.92);
+  backdrop-filter: blur(30px) saturate(180%);
+  -webkit-backdrop-filter: blur(30px) saturate(180%);
+  border-top: 0.5px solid rgba(255, 255, 255, 0.06);
+  box-shadow: 0 -1px 0 rgba(255, 255, 255, 0.03), 0 -8px 32px rgba(0, 0, 0, 0.6);
+  z-index: 999;
+}
+
+.app-tabbar-tab {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  background: none;
+  border: none;
+  padding: 6px 12px;
+  cursor: pointer;
+  position: relative;
+  transition: transform 0.1s ease, opacity 0.15s ease;
+  min-width: 56px;
+}
+
+.app-tabbar-tab:active {
+  transform: scale(0.88);
+  opacity: 0.7;
+}
+
+.app-tabbar-label {
+  font: 600 10px/1 'Inter', sans-serif;
+  letter-spacing: 0.02em;
+  color: var(--text-muted);
+  transition: color 0.2s ease;
+}
+
+.app-tabbar-tab.active .app-tabbar-label {
+  color: var(--cyan);
+}
+
+.app-tabbar-glow {
+  position: absolute;
+  bottom: 2px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--cyan);
+  box-shadow: 0 0 6px rgba(34, 211, 238, 0.8), 0 0 12px rgba(34, 211, 238, 0.4);
+}

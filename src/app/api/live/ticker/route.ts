@@ -540,10 +540,15 @@ export async function GET(req: NextRequest) {
             rawChain: slimOptionChain((flowData as any)?.rawChain, true),
             allExpiryChain: slimOptionChain((flowData as any)?.allExpiryChain, false),
             gammaFlipLevel: (structureResult as any)?.gammaFlipLevel ?? null,
+            callWall: (structureResult as any)?.levels?.callWall ?? (flowData as any)?.callWall ?? null,
+            putFloor: (structureResult as any)?.levels?.putFloor ?? (flowData as any)?.putFloor ?? null,
             oiPcr: (structureResult as any)?.pcr ?? null,  // [PCR] OI-based Put/Call Ratio from structureService
             volumePcr: _vpcr,
             volumePcrCallVol: _cvol > 0 ? _cvol : null,
             volumePcrPutVol: _pvol > 0 ? _pvol : null,
+            darkPoolPct: metricsData?.darkPool?.percent ?? null,
+            blockTrades: metricsData?.blockTrade?.count ?? null,
+            ivSkew: computeIVSkew((flowData as any)?.rawChain ?? [], activePrice || 0),
         },
 
         // [S-52.2.1] PRIMARY DISPLAY BLOCK
@@ -579,7 +584,9 @@ export async function GET(req: NextRequest) {
             prevRegularClose,
             prevPrevRegularClose, // [New] Day BEFORE prevRegularClose (for intraday change)
             prevChangePct: fracToPct(prevChangePctFrac), // [New] Pct format (e.g. 1.25)
-            regularCloseToday
+            regularCloseToday,
+            high: S.day?.h || OC.high || S.prevDay?.h || null,
+            low: S.day?.l || OC.low || S.prevDay?.l || null,
         },
 
         extended: {

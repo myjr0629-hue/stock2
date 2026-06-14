@@ -52,9 +52,15 @@ export default async function LocaleLayout({ children, params }: Props) {
     const userAgent = headersList.get('user-agent') || '';
     const isMobileDevice = /iPhone|iPad|iPod|Android|Mobile/i.test(userAgent);
 
+    // [APP-VIEW DETECT] 앱 전용 뷰에서는 모든 웹용 헤더/푸터 및 불필요한 레이아웃 요소를 감추어 모바일 화면을 순수 보장
+    const nextUrl = headersList.get('x-middleware-request-next-url') || '';
+    const referer = headersList.get('referer') || '';
+    const customPathname = headersList.get('x-pathname') || '';
+    const isAppView = nextUrl.includes('/app-view') || referer.includes('/app-view') || customPathname.includes('/app-view') || userAgent.includes('Capacitor');
+
     return (
         <NextIntlClientProvider messages={messages}>
-            <div lang={locale} className={`flex flex-col min-h-screen ${locale === 'en' ? 'font-jakarta' : 'font-body'}`}>
+            <div lang={locale} className={`flex flex-col min-h-screen ${locale === 'en' ? 'font-jakarta' : 'font-body'} ${isAppView ? 'is-app-view' : ''}`}>
                 <ConsentGuard>
                     <TierProvider>
                         <DeviceProvider isMobile={isMobileDevice}>
@@ -62,13 +68,15 @@ export default async function LocaleLayout({ children, params }: Props) {
                             <DeactivationGuard>
                                 
                                 {/* 1. HEADER (Bifurcated) */}
-                                {isMobileDevice ? (
-                                    <MobileHeader />
-                                ) : (
-                                    <div className="sticky top-0 z-50">
-                                        <LandingHeader />
-                                        <CustomTickerBar />
-                                    </div>
+                                {!isAppView && (
+                                    isMobileDevice ? (
+                                        <MobileHeader />
+                                    ) : (
+                                        <div className="sticky top-0 z-50">
+                                            <LandingHeader />
+                                            <CustomTickerBar />
+                                        </div>
+                                    )
                                 )}
 
                                 {/* 2. MAIN CONTENT */}
@@ -81,17 +89,19 @@ export default async function LocaleLayout({ children, params }: Props) {
                                 </WebSocketProvider>
 
                                 {/* 3. FOOTER / BOTTOM NAV (Bifurcated) */}
-                                {isMobileDevice ? (
-                                    <>
-                                        <MobileLegalFooter />
-                                        <MobileBottomNav />
-                                    </>
-                                ) : (
-                                    <>
-                                        <Footer />
-                                        <AdminVisitorWidget />
-                                        <StickyFoundingBar />
-                                    </>
+                                {!isAppView && (
+                                    isMobileDevice ? (
+                                        <>
+                                            <MobileLegalFooter />
+                                            <MobileBottomNav />
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Footer />
+                                            <AdminVisitorWidget />
+                                            <StickyFoundingBar />
+                                        </>
+                                    )
                                 )}
                                 
                             </DeactivationGuard>

@@ -80,6 +80,8 @@ export function MobileBottomNav() {
         setActivePath(pathname);
     }, [pathname]);
 
+    if (pathname.includes('/app-view')) return null;
+
     return (
         <>
             {/* Native spacer to prevent content overlap */}

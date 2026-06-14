@@ -2,7 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getEarningsCalendar, getRecommendationTrends, EarningsEvent, RecommendationTrend } from '@/services/finnhubClient';
 
-const ORBIT_DEFENSE_TICKERS = ['LMT', 'RTX', 'AXON', 'KTOS', 'LDOS', 'ASTS', 'LUNR'];
+const ORBIT_DEFENSE_TICKERS = ['LMT', 'RTX', 'AXON', 'SPCX', 'LDOS', 'ASTS', 'LUNR'];
 
 export async function GET(req: NextRequest) {
     try {

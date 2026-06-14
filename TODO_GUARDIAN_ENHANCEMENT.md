@@ -84,7 +84,7 @@ Guardian RLSI 정확도 향상 (65-75% → 75-85%)
 - 장점: 뉴스 검색 불필요 (순수 지표 분석) → Perplexity보다 적합
 - 비용: ~$0.005/건, 월 ~$75 → 크레딧으로 5년+ 가능
 
-### [ ] Gemini → Bedrock Claude 전체 전환 ⭐⭐⭐⭐⭐
+### [x] Gemini → Bedrock Claude 전체 전환 ⭐⭐⭐⭐⭐
 - **이유**: Gemini API 승인 미획득 → 차단 리스크, Bedrock은 크레딧 차감으로 안정적
 - **방향**: 통합 Bedrock 클라이언트 1개 만들어서 모든 AI 호출 일원화 (도구 최소화)
 - **전환 대상** (5개 API):

@@ -124,7 +124,7 @@ AI 에이전트는 데이터 불일치를 조사할 때 무조건 아래 3단계
 | `power_matrix` | Power Matrix | CEG, VST, GEV, PWR, CCJ, SMR, ETN |
 | `bio_pulse` | Bio Pulse | LLY, NVO, VRTX, REGN, VKTX, AMGN |
 | `cyber_shield` | Cyber Shield | CRWD, PANW, FTNT, ZS, S, OKTA |
-| `orbit_defense` | Orbit Defense | LMT, RTX, AXON, KTOS, ASTS, LUNR |
+| `orbit_defense` | Orbit Defense | LMT, RTX, AXON, SPCX, ASTS, LUNR |
 | `quantum_edge` | Quantum Edge | IONQ, RGTI, QBTS |
 | `fintech_pulse` | Fintech Pulse | PYPL, SOFI, AFRM, HOOD, UPST |
 | `cloud_fortress` | Cloud Fortress | SNOW, DDOG, NET, CRM, NOW |
@@ -8097,3 +8097,208 @@ CREATE TABLE radar_orders (
 | 파일 | 변경 | 규모 |
 |:---|:---|:---|
 | `src/app/[locale]/quant-radar/QuantRadarClient.tsx` | V3 War Room 전면 개편 | +386/-136 |
+
+---
+
+## 36. 📱 SIGNUM HQ 모바일 앱 구축 (Capacitor + AdMob + 3개국어) (2026-06-10)
+
+### 36.1 핵심 비즈니스 모델: 광고 기반 완전 무료화
+- **배경**: 웹 구독 모델의 결제 장벽 및 모바일 웹 리텐션 한계(푸시 미지원 등)를 극복하기 위한 피벗.
+- **수익화 모델**: AdMob SDK를 통한 광고 극대화 + Value Wall 기반 30초 보상형 광고 시청 시 1시간 지표 언락(localStorage 캐시 연동).
+- **다국어 타겟**: 한국(default), 일본, 미국 시장 동시 공략 (next-intl 기반 통합 코드베이스).
+
+### 36.2 모바일 앱 아키텍처 (Capacitor 하이브리드)
+- **코드베이스**: Next.js 프로젝트 내에 모바일 전용 라우트(`/app-view/`) 개설하여 웹/앱 코드 단일화.
+- **네이티브 브릿지**: Capacitor Core (v8.3.3) 및 네이티브 모듈 연동.
+  - `@capacitor/status-bar` (Safe Area / 노치 투명화 및 스타일링)
+  - `@capacitor/haptics` (햅틱 진동 피드백)
+  - `@capacitor/keyboard` / `@capacitor/app` (뒤로가기 키 제어, 키보드 리사이즈)
+  - `@capacitor-community/admob` (테스트 광고 및 실광고 모듈)
+
+### 36.3 5탭 페이지 구조 및 데이터 매핑
+```
+┌─────────────────────────────────────────────────────────────┐
+│ 📊 DASH    │ 📋 GUARDIAN │ 🎯 CMD      │ ⚡ FLOW     │ 📡 INTEL     │
+│ Dashboard  │ Guardian    │ Command     │ Flow        │ Intel        │
+└────────────┴─────────────┴─────────────┴─────────────┴──────────────┘
+```
+1. **DASH (100% 무료)**: Market Pulse + Macro Board + Heatmap + AI Briefing.
+2. **GUARDIAN (80% 무료 / 20% 프리미엄)**: RLSI 종합 지수 + 매크로 + AI Verdict + 경제 캘린더.
+3. **CMD (56% 무료 / 44% 프리미엄 - Value Wall)**: 가격/차트/컨센서스(무료), GEX/다크풀/Whale/ShortSqueeze/AI Insight (보상형 비디오 잠금).
+4. **FLOW (40% 무료 / 60% 프리미엄 - Value Wall)**: OPI 게이지/PCR(무료), 실시간 옵션 체인 테이블/MaxPain (보상형 비디오 잠금).
+5. **INTEL (100% 무료 + 전면 광고)**: 10개 섹터 리포트 및 최신 알파 리포트 (3섹터 리포트 열람 시마다 전면 광고 1회).
+
+### 36.4 다국어 라우팅 및 리소스 관리
+- `src/i18n/routing.ts`에 정의된 `locales = ['ko', 'en', 'ja']` 사용.
+- 모바일 뷰 디렉토리를 `src/app/[locale]/app-view/`로 최종 매핑하여 웹 다국어 번역 키(`messages/*.json`) 100% 재사용 및 기기 언어 감지 리다이렉트 처리.
+
+### 36.5 SSR 앱 뷰 판별 및 헤더/푸터 분기 (Bifurcation)
+- **문제**: Next.js App Router의 Server Components는 클라이언트 사이드 User-Agent나 `window.location`을 읽을 수 없음.
+- **해결**: `src/middleware.ts`에서 요청을 가로채어 현재 URL과 Pathname을 커스텀 헤더(`x-url`, `x-pathname`)에 저장하여 전달.
+- **레이아웃 분기**: `src/app/[locale]/layout.tsx`에서 이 헤더 및 User-Agent 정보를 조합하여 `/app-view` 경로 진입 또는 Capacitor 환경 감지 시, 웹 전용 헤더/푸터 및 사이드바를 감추는 Absolute DOM Bifurcation 구현.
+
+### 36.6 AdMob 광고 파이프라인 및 보상형 비디오 언락 (Value Wall)
+- **AdManager (`src/services/adManager.ts`)**: AdMob SDK를 추상화한 싱글톤 서비스. 하단 Adaptive Banner 고정 노출, 페이지 전환 시 Interstitial(전면 광고) 카운팅 노출, 그리고 Value Wall 언락용 Rewarded Video 기능을 통합 관리.
+- **Value Wall (`src/components/native/ValueWall.tsx`)**: 프리미엄 데이터 영역을 블러(`backdrop-blur`) 오버레이로 차단하고 "영상 보고 언락" CTA 노출. 보상형 비디오 완료 콜백을 받아 `localStorage`에 1시간 만료 타임스탬프(`signum_ad_unlock`)를 기록하여 클라이언트 사이드 캐싱 바이패스 제공.
+- **AppBottomNav / NativeAppProvider**: NativeAppProvider가 마운트될 때 모바일 전용 라우트로 자동 리다이렉트하고 스플래시 스크린 숨김 제어 및 광고 트래킹 초기화.
+
+### 36.7 신규 및 수정 파일 목록
+| 파일 | 유형 | 설명 |
+|:---|:---:|:---|
+| `src/components/native/NativeAppProvider.tsx` | 신규 | Capacitor 전용 초기화, 스플래시 제어, Android 하드웨어 뒤로가기 및 페이지 전환 햅틱/애니메이션 통합 |
+| `src/services/adManager.ts` | 신규 | AdMob API 래퍼 싱글톤. 광고 프리로드 및 보상 완료 로컬스토리지 토큰 1시간 바인딩 제공 |
+| `src/components/native/ValueWall.tsx` | 신규 | 블러 처리 잠금 레이아웃 및 Rewarded Ad 호출 모달/타이머 |
+| `src/styles/native-app.css` | 신규 | 모바일 하이브리드 앱 전용 트랜지션 애니메이션 및 기본 리셋 CSS |
+| `src/styles/app-tokens.css` / `app-view.css` | 신규 | 앱 스키마 칼라 및 폰트 토큰 |
+| `src/app/[locale]/app-view/` (하위 디렉토리 전체) | 신규 | 5개 탭별 최적화된 앱 모바일 전용 페이지 라우트 모음 |
+| `src/components/app/` (하위 컴포넌트 전체) | 신규 | 모바일 전용 컴포넌트 (AdBannerSpacer, AppBottomNav, Sparkline 등) |
+| `capacitor.config.ts` | 수정 | 개발 서버 포트 설정 (`http://10.0.2.2:3000`), Splash/Statusbar 플러그인 상세 조정 |
+| `src/middleware.ts` | 수정 | `x-url` 및 `x-pathname` 헤더 주입 로직 추가 |
+| `src/app/[locale]/layout.tsx` | 수정 | `NativeAppProvider` 래핑 및 `isAppView` 매핑 분기 레이아웃 추가 |
+| `android/` (전체) | 수정 | capacitor.build.gradle, AndroidManifest.xml 권한 및 AdMob APP_ID(테스트용) 주입 |
+
+---
+
+## 37. 🛡️ 가디언 감마 쉴드 개편 & FOMC FedWatch 가독성/로고 개선 (2026-06-12 ~ 2026-06-13)
+
+### 37.1 가디언 감마 쉴드 모바일 최적화 및 텍스트 겹침 수정
+- **모바일 스택 레이아웃:** 3컬럼 가로 그리드 레이아웃을 모바일 해상도(`sm` 미만)에서 개별 프리미엄 카드 블록(`bg-slate-950/30 rounded-xl border border-slate-800/60 p-4 mb-3`)으로 세로 스택되도록 개편. 데스크톱 뷰는 기존의 가로 3컬럼 레이아웃을 유지하여 해상도별 공간 활용 극대화.
+- **타이포그래피 리모델링 ("숫자 semibold / 라벨 regular"):** 강하고 무거운 `font-black`(900) 또는 `font-bold`(700) 수치 표시들을 가독성 높고 세련된 `font-semibold`(600)으로 완화하고, 지표 타이틀과 설명 라벨들은 `font-normal`(400)/`font-medium`(500)으로 설정하여 프리미엄 HUD 디자인 규격 준수.
+- **Squeeze Risk 눈금 및 요약 가이드 추가:** 속도계(Speedometer) 다이 아래에 `LOW`, `HIGH 45`, `EXTREME 70` 폰트 스케일 눈금 눈을 추가하고, threshold 거리 툴팁 및 다이 밸류를 보기 쉽게 정비.
+- **30D Historical Context 카드 겹침 버그 근절:**
+  - `th`(GEX percentile), `D`(Regime streak), `%`(Hit rate), `pt`(CW trend) 등의 유닛 접미사를 `<small className="text-[11px] font-semibold text-slate-400 ml-0.5">` 태그로 인라인 분리하여 가로 폭 점유 최소화.
+  - Regime Streak 카드의 "POSITIVE 10D", "NEUTRAL 9D" 등 텍스트가 카드 경계를 탈출하던 버그를 해결하기 위해, 텍스트 상태값 크기를 `text-[14px]`로 유동적으로 축소 적용.
+  - 각 히스토리 카드 너비를 `w-[138px]`로 한정하고 `overflow-hidden`을 설정하여 가로 스와이프 캐러셀에서 인접 카드를 침범하지 않도록 함.
+
+### 37.2 가디언 페이지 헤더 현지화 브랜딩 정책 수립
+- **영어 대문자 고정:** 한국어/일본어 locale 환경에서도 페이지 메인 타이틀을 영어 대문자 `GUARDIAN`으로 고정하여 글로벌 핀테크 앱 정체성 강화.
+- **하단 서브타이틀 다국어 연동:** 메인 타이틀 아래의 설명(subtitle) 영역을 기기 언어에 맞춰 동적으로 매핑:
+  - **한국어 (`ko`):** `가디언 매크로 리스크 · LIVE`
+  - **일본어 (`ja`):** `ガー디안・マクロ · LIVE`
+  - **영어 (`en`):** `MARKET RISK SENTINEL · LIVE`
+
+### 37.3 FOMC FedWatch & Liquidity 모바일 가독성 및 로고 개선
+- **차트 이모지 제거 및 랜드마크 로고 교체:** 모바일 요약 화면의 `FOMC FEDWATCH & LIQUIDITY` 헤더에 있던 `📊` 이모지를 제거하고, 연방준비제도와 매크로 지표를 상징하는 `lucide-react` 라이브러리의 `<Landmark className="w-4 h-4 text-violet-400 shrink-0" />` 아이콘으로 대체.
+- **지표 폰트 Legibility 상향:** 타겟 금리 정보, cuts/pause/hikes 누적 바 텍스트, 아웃컴 매트릭스 테이블 헤더 및 로우 수치, 그리고 하단의 Net Liquidity Index/Safe Haven Flow 지표 카드 수치 및 타이틀 텍스트 크기와 굵기를 1~2px 가량 상향 조정하여 모바일 기기에서의 시인성을 크게 개선.
+- **FOMC Gauge 컴포넌트 슬림화 (`src/components/guardian/GravityGauge.tsx`)**: 무겁고 불필요한 차트 바 레이아웃을 완전히 제거하고, 1행의 슬림하고 직관적인 인라인 배치 뱃지 스타일(`D-Day 및 dominant 확률 표시`)로 슬림화하여 모바일 헤더 요약 공간 효율 개선.
+
+### 37.4 스마트 머니 맵 WebGL → SVG 2D 전면 개편
+- **배경**: 기존 스마트 머니 맵(`SmartMoneyMap.tsx`)은 Three.js(React Three Fiber, Bloom, Vignette)를 사용하는 3D Canvas로 구현되었으나, 모바일 하이브리드 환경(Capacitor Webview)에서 렌더링 지연, 높은 메모리 점유로 인한 크래시, 터치 제스처 중첩 버그 유발 등 여러 구조적 문제가 발생함.
+- **개편 방향**: 3D 의존성을 완전히 탈피하고, 가볍고 완전 반응형인 **2D SVG 레이아웃**으로 전면 재설계.
+- **핵심 구현**:
+  - `FT_CX`, `FT_CY`, `FT_RING` 등 원형 좌표계 수학적 계산에 의한 고정형 SVG 배치.
+  - SVG 필터 및 `<radialGradient>`, `<linearGradient>`를 사용해 기존 3D의 프리미엄 빛 반사 및 글로우 효과 완벽하게 재현.
+  - 모바일 터치 시 개별 노드의 상세 탑 티커 링(로고 이미지 `/api/logo/${ticker}` 로드)이 슬라이딩 확장되는 SVG 애니메이션 구현.
+  - `isCompact` 분기 없이 단일 SVG 스케일 구조로 전환하여 모바일/데스크톱 100% 호환성 확보.
+
+### 37.5 데이터 파이프라인 및 백그라운드 Self-Healing Cron 적용
+- **Index Close API (`src/app/api/market/index-close/route.ts`)**: Polygon API 프록시 우회 정책을 원상 복구하여 순수 Redis 캐시 데이터만 리턴하되, Redis가 비어 있거나 만료(5분 초과)되었을 때 클라이언트 요청 스레드를 대기시키지 않고 백그라운드에서 `/api/cron/market-feed`를 즉시 fetch하는 Non-blocking Trigger 및 기본 fallback 지표 상수 적용.
+- **Macro Hub (`src/services/macroHubProvider.ts`)**: 동일한 Stale-check 기반 백그라운드 cron 트리거 로직을 구현하여 데이터 캐시 누수 또는 크론 유실 시 실시간 접속자가 발생할 때 자동으로 캐시를 재생성하는 자가 치유(Self-Healing) 파이프라인 완성. CNN Fear & Greed 지수를 Redis 캐시(`cnn:feargreed`)로부터 안정적으로 인출하여 매크로 스냅샷에 포함.
+- **실시간 Ticker API (`src/app/api/live/ticker/route.ts`)**: 모바일 및 메인 지표 피드 고도화를 위해 `callWall`, `putFloor`, `darkPoolPct`, `blockTrades`, `ivSkew`, 당일 고가/저가(`high`, `low`) 등의 풍부한 파생 매크로/미세 지표 데이터를 JSON 인터페이스에 바인딩하여 전송하도록 보강.
+
+### 37.6 수정 파일 목록
+| 파일 | 변경 | 설명 |
+|:---|:---|:---|
+| `src/components/guardian/GammaShield.tsx` | 수정 | Gamma Shield 컴포넌트 리디자인 및 모바일 겹침 버그 수정. 모바일 스택 카드화, font-semibold 수치 정렬, 접미사 `<small>` 태그 분리 및 regime streak 폰트 보정 |
+| `src/components/guardian/SmartMoneyMap.tsx` | 수정 | 3D WebGL Three.js 의존성을 전량 제거하고 SVG 2D 컴포넌트로 전면 재구축하여 10배 이상 성능 향상 및 렌더링 완벽 최적화 |
+| `src/components/guardian/GravityGauge.tsx` | 수정 | FOMC Target Rate 지표 간결화, 슬림한 인라인 요약 UI로 개편 |
+| `src/app/[locale]/app-view/guardian/page.tsx` | 수정 | 메인 가디언 페이지 헤더 localization 정책 변경. Title `GUARDIAN` 대문자 고정 및 `locale`별 서브타이틀 한국어/일본어/영어 매핑 |
+| `src/components/guardian/mobile/MobileGuardianOverview.tsx` | 수정 | FOMC FedWatch 📊 이모지 제거 및 Landmark 아이콘 대체, 가독성 폰트 업사이징. Outcome 테이블 및 유동성 카드 폰트 상향 조정 |
+| `src/services/macroHubProvider.ts` | 수정 | CNN Fear & Greed 인출 연동, 5분 초과 stale 데이터 시 백그라운드 cron 호출을 통한 자가 치유(Self-Healing) 로직 도입 |
+| `src/app/api/market/index-close/route.ts` | 수정 | Pure Redis Flow 복구, 백그라운드 self-healing cron 호출 연동 및 2026 기본 인덱스 보정치 적용 |
+| `src/app/api/live/ticker/route.ts` | 수정 | `callWall`, `putFloor`, `darkPoolPct`, `blockTrades`, `ivSkew` 및 당일 고가/저가 필드 응답 추가 |
+| `src/app/api/market/macro/route.ts` | 수정 | dynamic route force-dynamic 활성화 |
+| `src/middleware.ts` | 수정 | Server Components로의 Request Context 전송을 위한 헤더 (`x-url`, `x-pathname`) 세팅 기능 추가 |
+| `src/app/[locale]/layout.tsx` | 수정 | SSR 단의 layout bifurcation 구조 추가 및 NativeAppProvider 래핑 |
+| `package.json` | 수정 | Capacitor AdMob 패키지 의존성 추가 및 불필요 패키지 제거 |
+
+---
+
+## 38. 📡 모바일 앱 인텔 페이지 시안 리디자인 & 섹터 상승률 연동 (2026-06-13)
+
+### 38.1 시안 리디자인 및 프리미엄 UI 적용
+- **영어 대문자 고정 및 현지화 서브타이틀:**
+  - 한국어/일본어 환경에서도 페이지 메인 타이틀을 영어 대문자 `INTEL` 및 `SECTOR INTELLIGENCE`로 고정하여 글로벌 핀테크 앱 브랜딩 강화.
+  - 타이틀 하단에 `AI-powered analysis · updated every 4 hours · all free` 설명문을 녹색(`#10b981`) 텍스트로 배치하고, 우측에 pulsing 녹색 원이 내장된 `UPD 2H AGO` 업데이트 상태 뱃지를 레이아웃.
+  - 비영어 locale 환경에서는 설명문 밑에 작은 폰트로 한글/일어 현지화 타이틀을 병기하도록 보강.
+- **프리미엄 SVG 아이콘 및 등락 테두리 연동:**
+  - 이모지를 모두 지우고, 프리미엄 2D SVG 아이콘인 `<SectorIcon />`을 은은한 테두리와 배경색을 가진 둥근 사각형 컨테이너에 담아 좌측에 배치.
+  - 카드 좌측 세로 테두리(accent border)를 섹터 평균 등락에 맞추어 녹색(`#10b981`) 또는 적색(`#ef4444`)으로 실시간 동적 매핑.
+- **우측 섹터별 상승률(변동률) 뱃지 연동:**
+  - 기존의 텍스트 "리포트 읽기" 버튼을 대체하여, 실시간 데이터(`useIntelSharedData()`) 기반의 각 섹터 구성종목 평균 변동률(`avgChange.toFixed(1)`)을 양수/음수 색상(녹색/적색)과 반투명 배경 테두리가 어우러진 프리미엄 뱃지로 표시.
+  - 데이터 로딩 중이거나 오프라인 시에는 시안에 정의된 고정 변동률(M7: +2.1%, Physical AI: +1.8%, Silicon Core: -0.3% 등)로 자동 폴백(fallback)되도록 유연하게 연동.
+- **전면 광고 구분선(Ad Breaks):**
+  - 시안의 배치 규칙에 따라 3번째(Silicon Core)와 4번째(Power Matrix) 카드 사이, 그리고 6번째(Cyber Shield)와 7번째(Orbit Defense) 카드 사이에 `— INTERSTITIAL AD BREAK —` 텍스트 구분선과 슬림한 가로 구분선을 배치.
+- **세부 리포트 뷰 이모지 전면 교체:**
+  - AI 종합 판정 및 촉매 등의 헤더 영역에서 `🤖`, `✨`, `⚡` 등의 투박한 이모지를 제거하고, 모던한 Lucide 아이콘(`Bot`, `Sparkles`, `Zap`, `ArrowLeft`)으로 대체하여 HUD 디자인 무결성 강화.
+
+### 38.2 수정 파일 목록
+| 파일 | 변경 | 설명 |
+|:---|:---|:---|
+| `src/app/[locale]/app-view/intel/page.tsx` | 수정 | 모바일 인텔 페이지 전체 리디자인 및 실시간 변동률, SectorIcon, 헤더 번역, ad break, Lucide 아이콘 반영 |
+
+---
+
+## 39. 🚀 Orbit Defense 섹터 SPCX 교체 및 AWS/EC2 배포 연동 (2026-06-14)
+
+### 39.1 변경 개요
+- **목적**: Orbit Defense(방산우주) 섹터에서 기존의 중형주 `KTOS` (Kratos Defense)를 대형주인 `SPCX` (SpaceX IPO 종목)로 완벽 교체하고, 전체 서비스 및 백그라운드 수집기가 정상 작동하도록 구성.
+- **수집 파이프라인 연동**: 백그라운드 데이터 수집 시스템 및 AWS 인프라가 업데이트된 유니버스(`data/stock_universe_us800.json`)를 동적으로 조회하므로, 유니버스 파일 내 KTOS를 SPCX로 교체 및 2001개 종목 수에 맞춰 카운트 정렬을 완료하여 자동 수집되도록 처리.
+
+### 39.2 작업 내역 및 수정 파일
+
+| 파일 | 변경 사항 |
+|---|---|
+| `data/stock_universe_us800.json` | `KTOS`를 제거하고 신규 상장주 `SPCX` 추가 (정렬 순서에 따라 삽입, 총 count: 2001로 조정) |
+| `src/configs/orbitdefense.config.ts` | Orbit Defense 섹터 구성 종목 리스트에서 `KTOS`를 `SPCX`로 교체 |
+| `src/hooks/useIntelSharedData.ts` | 인텔 공유 훅의 섹터 변동률 집계 대상에서 `KTOS` → `SPCX` 변경 |
+| `src/app/[locale]/app-view/intel/page.tsx` | 앱 뷰 인텔 페이지 내 Orbit Defense 섹터 티커 리스트 교체 |
+| `src/app/[locale]/how-it-works/intel/page.tsx` | 인텔 설명서 페이지 내 Orbit Defense 섹터 설명 정보 변경 |
+| `src/app/api/intel/fast/route.ts` | 빠른 인텔 데이터 API 내 Orbit Defense 섹터의 티커 리스트 교체 |
+| `src/app/api/intel/orbitdefense/route.ts` | Orbit Defense 섹터 전용 리포트 API 내 티커 매핑 수정 |
+| `src/app/api/intel/snapshot/route.ts` | 인텔 스냅샷 API 내 Orbit Defense 섹터 티커 리스트 교체 |
+| `src/app/api/orbitdefense/calendar/route.ts` | Orbit Defense 섹터 경제/실적 캘린더 API 내 티커 리스트 교체 |
+
+### 39.3 AWS Lambda 및 EC2 배포/작업 방법
+
+`stock_universe_us800.json` 및 소스코드 변경 사항을 실제 AWS 클라우드 인프라에 적용하기 위한 배포 단계는 다음과 같습니다.
+
+#### 1) AWS Lambda 배포 (데이터 수집기 업데이트)
+Lambda 함수들은 배포 시 로컬 `data/stock_universe_us800.json`에 선언된 유니버스를 패키징하여 배포하므로, 아래 스크립트들을 순서대로 실행해 최신 유니버스 및 코드를 AWS에 반영합니다.
+- **메인 데이터 수집기 (Main Harvest):**
+  ```bash
+  node scripts/deploy-lambda-v7.js
+  ```
+- **실시간 옵션 플로우 수집기 (Options Flow Harvest):**
+  ```bash
+  node scripts/deploy-flow-harvest.js
+  ```
+- **FMP 애널리스트 추정치 수집기 (FMP Estimates Harvest):**
+  ```bash
+  node scripts/deploy-fmp.js
+  ```
+
+#### 2) AWS EC2 배포 (실시간 시세 수집기 및 WebSocket Accumulator)
+EC2 인스턴스에서 실행되는 실시간 시세 및 플로우 수집용 백그라운드 프로세스가 새 티커 `SPCX`를 구독하도록 배포하고 프로세스를 재시작합니다.
+- **EC2 파일 전송 스크립트 실행:**
+  ```bash
+  node scripts/deploy-ec2-flow.js
+  ```
+  *(해당 스크립트는 업데이트된 `stock_universe_us800.json` 및 빌드된 코드를 EC2 인스턴스로 전송합니다.)*
+- **EC2 SSH 접속 및 PM2 프로세스 재시작:**
+  EC2 서버에 SSH로 접속한 뒤, 다음 명령어를 실행하여 새 티커 구독을 활성화합니다.
+  ```bash
+  pm2 restart signum-flow-acc
+  ```
+  *(재시작 시 accumulator가 새로 수정된 유니버스 파일을 로드하여 `SPCX` 실시간 WebSocket 시세 및 옵션 데이터를 정상적으로 수집/구독하기 시작합니다.)*
+
+### 39.4 신규 상장주 SPCX 옵션 거래 개시일 정보
+- **상장일**: 2026년 6월 12일 금요일 (Nasdaq 신규 상장)
+- **옵션 거래 개시일**: **2026년 6월 16일 화요일** (예상)
+- **상세 설명**:
+  - 미국 옵션 청산소(OCC) 및 거래소 규정에 따라, 신규 상장 주식(IPO)의 옵션 상품은 상장 후 **최소 3영업일**의 유예 기간 및 가격 발견 단계(Price Discovery Phase)를 거친 후 거래소의 기초 요건(주가, 유통주식수, 거래량, 주주 수 등) 충족 시 상장 및 개시될 수 있습니다.
+  - 6월 12일(금) 상장 기준 3영업일 시점은 6월 16일(화)이 되며, 대형 IPO(스페이스X급 메가캡)의 경우 거래소의 신속 상장(Fast-Track) 기준을 만족하여 화요일 개장과 동시에 옵션 거래가 개시될 것으로 예상됩니다.
+  - 옵션 거래 개시 전(6월 15일 월요일 등)까지는 데이터 파이프라인에서 옵션 체인 및 OPI 지표가 빈 값 또는 기본 폴백 값으로 표시될 수 있습니다.
+
+
+

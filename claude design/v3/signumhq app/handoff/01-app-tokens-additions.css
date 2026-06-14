@@ -1,0 +1,24 @@
+/* ============================================================
+   01 — app-tokens.css 추가 토큰
+   :root 블록에 병합하세요. (기존 토큰은 변경 없음)
+   ============================================================ */
+:root {
+  /* 누락 폰트 토큰 — cmd.module.css가 이미 참조 중 (REVIEW.md §1-1) */
+  /* next/font 사용 시: var(--font-jb) 를 첫 항목으로 */
+  --f-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', 'Roboto Mono', monospace;
+  /* --f-jakarta 는 참조 제거 권장. 유지해야 한다면: */
+  --f-jakarta: 'Inter', sans-serif;
+
+  /* 글로우 토큰 — 배지/라인/CTA 공용 (REVIEW.md §2-6) */
+  --glow-cyan:  0 0 12px rgba(34,211,238,0.45);
+  --glow-green: 0 0 14px rgba(16,185,129,0.45);
+  --glow-red:   0 0 14px rgba(239,68,68,0.45);
+  --glow-amber: 0 0 18px rgba(245,158,11,0.45);
+
+  /* 모션 이징 — 모든 슬라이딩/스프링 모션 공용 (REVIEW.md §2-7) */
+  --ease-spring: cubic-bezier(0.22, 1, 0.36, 1);
+
+  /* 연장거래(PRE/POST) 의미색 — 하드코딩 보라색 대체 (REVIEW.md §1-4) */
+  --ext-session: var(--amber);
+  --ext-session-dim: var(--amber-dim);
+}

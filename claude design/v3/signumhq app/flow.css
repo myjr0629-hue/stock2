@@ -1,0 +1,64 @@
+/* ============================================================
+   SIGNUM HQ — Flow (options flow) screen
+   ============================================================ */
+
+/* top bar with ticker dropdown */
+.flow-bar { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.flow-bar .center { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.flow-bar .ttl { font: 800 13px/1 'Inter'; letter-spacing: 0.22em; color: var(--text-dim); }
+.ticker-dd { display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; border-radius: var(--r-pill);
+  background: var(--surface-3); border: 1px solid var(--border-strong); font: 800 13px/1 'Inter'; cursor: pointer; }
+.ticker-dd svg { color: var(--text-dim); }
+
+/* ---- OPI gauge centerpiece ---- */
+.gauge-card {
+  position: relative; overflow: hidden; text-align: center;
+  background: radial-gradient(100% 90% at 50% 0%, rgba(34,211,238,0.08), transparent 60%), var(--surface-2);
+  border: 1px solid var(--border-strong); border-radius: 16px; padding: 16px 16px 18px;
+  margin-bottom: 14px; box-shadow: var(--shadow);
+}
+.gauge-wrap { position: relative; width: 240px; margin: 4px auto 0; }
+.gauge-read { font: 800 40px/1 'Inter'; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; margin-top: -34px; }
+.gauge-interp { display: inline-flex; align-items: center; gap: 6px; margin-top: 8px;
+  font: 700 12px/1 'Inter'; color: var(--cyan); letter-spacing: 0.02em; }
+.gauge-zones { display: flex; justify-content: space-between; margin: 12px 6px 0; }
+.gauge-zones span { font: var(--f-micro); letter-spacing: 0.1em; }
+
+/* ---- P/C ratio card ---- */
+.pc-card { background: var(--surface-1); border: 1px solid var(--border); border-radius: var(--r-card); padding: 15px; margin-bottom: 14px;
+  display: grid; grid-template-columns: auto 1fr; gap: 14px; align-items: center; }
+.pc-left .k { font: var(--f-micro); letter-spacing: 0.12em; color: var(--text-muted); }
+.pc-left .v { font: 800 34px/1 'Inter'; margin-top: 6px; font-variant-numeric: tabular-nums; }
+.pc-left .trend { font: 700 11px/1 'Inter'; color: var(--green); margin-top: 8px; font-variant-numeric: tabular-nums; }
+.pc-right { display: flex; flex-direction: column; align-items: flex-end; gap: 10px; }
+.pc-badge { font: 800 10px/1 'Inter'; letter-spacing: 0.08em; padding: 5px 9px; border-radius: 6px; background: var(--green-dim); color: var(--green); border: 1px solid rgba(16,185,129,0.3); }
+.pc-spark { width: 130px; height: 40px; }
+
+/* ---- Flow summary ---- */
+.sum-card { background: var(--surface-1); border: 1px solid var(--border); border-radius: var(--r-card); padding: 15px; margin-bottom: 22px; }
+.sum-top { display: flex; align-items: flex-end; justify-content: space-between; margin-bottom: 14px; }
+.sum-prem .k { font: var(--f-micro); letter-spacing: 0.12em; color: var(--text-muted); }
+.sum-prem .v { font: 800 26px/1 'Inter'; margin-top: 6px; font-variant-numeric: tabular-nums; }
+.sum-alerts { display: inline-flex; align-items: center; gap: 6px; font: 700 11px/1 'Inter'; color: var(--amber);
+  padding: 6px 10px; border-radius: var(--r-pill); background: var(--amber-dim); border: 1px solid rgba(245,158,11,0.3); }
+.sum-alerts .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--amber); box-shadow: 0 0 6px var(--amber);
+  animation: ping-amber 2s ease-out infinite; }
+@keyframes ping-amber { 0% { box-shadow: 0 0 0 0 rgba(245,158,11,0.5); } 70% { box-shadow: 0 0 0 6px rgba(245,158,11,0); } 100% { box-shadow: 0 0 0 0 rgba(245,158,11,0); } }
+.cp-split { height: 14px; border-radius: 999px; overflow: hidden; display: flex; background: var(--surface-3); }
+.cp-split .calls { background: linear-gradient(90deg, #10b981, #34d399); transition: width 1s cubic-bezier(.22,1,.36,1); }
+.cp-split .puts  { background: linear-gradient(90deg, #ef4444, #f87171); flex: 1; }
+.cp-legend { display: flex; justify-content: space-between; margin-top: 10px; }
+.cp-legend span { font: 700 11px/1 'Inter'; }
+.sum-net { font: 700 12px/1 'Inter'; color: var(--green); margin-top: 12px; text-align: center; font-variant-numeric: tabular-nums; }
+
+/* ---- Value Wall: live flow table ---- */
+.flow-table .frow { display: grid; grid-template-columns: auto 1fr auto auto; align-items: center; gap: 10px; padding: 9px 0; }
+.flow-table .frow + .frow { border-top: 1px solid var(--border); }
+.f-cp { font: 800 9px/1 'Inter'; letter-spacing: 0.06em; padding: 4px 6px; border-radius: 5px; }
+.f-strike { font: 700 12px/1 'Inter'; font-variant-numeric: tabular-nums; }
+.f-strike small { display: block; font: 600 10px/1 'Inter'; color: var(--text-muted); margin-top: 3px; }
+.f-prem { font: 800 12px/1 'Inter'; font-variant-numeric: tabular-nums; text-align: right; }
+.f-type { font: var(--f-micro); letter-spacing: 0.06em; color: var(--text-dim); text-align: right; }
+.vault-dp { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border); }
+.vault-dp .k { font: var(--f-micro); color: var(--text-muted); letter-spacing: 0.08em; }
+.vault-dp .v { font: 800 17px/1 'Inter'; margin-top: 6px; }

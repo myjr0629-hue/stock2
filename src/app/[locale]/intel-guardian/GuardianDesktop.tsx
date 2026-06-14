@@ -22,7 +22,7 @@ import { ProGate, EliteGate } from '@/components/gate/FeatureGate';
 import { getIsMarketActive, getIsFullyActive, getEffectiveSession } from '@/services/guardian/marketSessionUtils';
 
 // [PERF] Lazy-loaded heavy components — reduces initial JS bundle
-const SmartMoneyMap = dynamic(() => import("@/components/guardian/SmartMoneyMap"), { ssr: false });
+const MobileSmartMoneyMap = dynamic(() => import("@/components/guardian/mobile/MobileSmartMoneyMap"), { ssr: false });
 const GravityGauge = dynamic(() => import("@/components/guardian/GravityGauge"), { ssr: false });
 const VitalsPanel = dynamic(() => import("@/components/guardian/VitalsPanel").then(m => m.VitalsPanel), { ssr: false });
 const OracleHeader = dynamic(() => import("@/components/guardian/OracleHeader").then(m => m.OracleHeader), { ssr: false });
@@ -610,13 +610,13 @@ export default function GuardianDesktop() {
                                                 </div>
                                             )}
                                             <div className={isMapUnlocked ? 'flex-1 relative' : 'h-full relative'}>
-                                                <SmartMoneyMap
+                                                <MobileSmartMoneyMap
                                                     sectors={(data?.sectors || []).map(s => ({
                                                         id: s.id,
                                                         name: s.name,
                                                         density: s.change,
                                                         height: Math.min(2.5, Math.abs(s.change)),
-                                                        topTickers: [],
+                                                        topTickers: s.topConstituents?.map((c: any) => c.symbol) || [],
                                                         color: s.change >= 0 ? '#10b981' : '#f43f5e'
                                                     }))}
                                                     vectors={data?.vectors || []}
@@ -796,7 +796,16 @@ export default function GuardianDesktop() {
                                     // ── ELITE: 원래 레이아웃 그대로 ──
                                     if (isMapUnlocked) {
                                         return (
-                                            <div className={`absolute inset-0 lg:static lg:flex-1 lg:h-auto lg:min-h-[600px] w-full bg-[#0a0e14] border rounded-lg overflow-hidden group flex flex-col transition-all duration-500 ${mapBorderClass}`}>
+                                            <div className={`absolute inset-0 lg:static lg:flex-1 lg:h-auto lg:min-h-[600px] w-full bg-[#0a0e14] border rounded-lg overflow-hidden group flex flex-col transition-all duration-500 relative ${mapBorderClass}`}>
+                                                {/* HUD Grid Overlay */}
+                                                <div className="absolute inset-0 pointer-events-none bg-[linear-gradient(rgba(255,255,255,0.012)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.012)_1px,transparent_1px)] bg-[size:30px_30px] z-10 opacity-60" />
+                                                
+                                                {/* Neon Corner Accents */}
+                                                <div className="absolute top-2 left-2 w-3 h-3 border-t-2 border-l-2 border-cyan-500/40 pointer-events-none z-20" />
+                                                <div className="absolute top-2 right-2 w-3 h-3 border-t-2 border-r-2 border-cyan-500/40 pointer-events-none z-20" />
+                                                <div className="absolute bottom-2 left-2 w-3 h-3 border-b-2 border-l-2 border-cyan-500/40 pointer-events-none z-20" />
+                                                <div className="absolute bottom-2 right-2 w-3 h-3 border-b-2 border-r-2 border-cyan-500/40 pointer-events-none z-20" />
+                                                
                                                 {mapContent}
                                             </div>
                                         );
@@ -804,13 +813,16 @@ export default function GuardianDesktop() {
 
                                     // ── FREE/PRO: 고정 높이 + 블러 + 오버레이 ──
                                     return (
-                                        <div className={`absolute inset-0 lg:static lg:flex-1 lg:h-auto lg:min-h-[600px] w-full rounded-xl overflow-hidden bg-[#0a0e14] border ${mapBorderClass}`}>
+                                        <div className={`absolute inset-0 lg:static lg:flex-1 lg:h-auto lg:min-h-[600px] w-full rounded-xl overflow-hidden bg-[#0a0e14] border relative ${mapBorderClass}`}>
+                                            {/* HUD Grid Overlay */}
+                                            <div className="absolute inset-0 pointer-events-none bg-[linear-gradient(rgba(255,255,255,0.012)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.012)_1px,transparent_1px)] bg-[size:30px_30px] z-10 opacity-40" />
+                                            
                                             <div className="pointer-events-none select-none h-full overflow-hidden" style={{ filter: 'blur(4.5px)' }}>
                                                 <div className="h-full flex flex-col">
                                                     {mapContent}
                                                 </div>
                                             </div>
-                                            <div className="absolute inset-0 flex items-center justify-center bg-slate-950/30 cursor-pointer">
+                                            <div className="absolute inset-0 flex items-center justify-center bg-slate-950/30 cursor-pointer z-30">
                                                 <div className="flex flex-col items-center gap-3">
                                                     <div className="rounded-full p-2.5 bg-cyan-500/10 border-cyan-500/30 border shadow-[0_0_20px_rgba(34,211,238,0.15)]">
                                                         <Lock className="w-5 h-5 text-cyan-400" />

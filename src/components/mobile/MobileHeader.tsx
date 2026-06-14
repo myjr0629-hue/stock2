@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import { Link, useRouter } from '@/i18n/routing';
+import { usePathname } from 'next/navigation';
 import { Search, User, LogOut, Settings, BookOpen, CreditCard } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { useTranslations } from 'next-intl';
@@ -16,6 +17,7 @@ import { LanguageSwitcher } from '@/components/LanguageSwitcher';
  */
 
 export function MobileHeader() {
+    const pathname = usePathname();
     const t = useTranslations();
     const router = useRouter();
     const [user, setUser] = useState<any>(null);
@@ -48,6 +50,8 @@ export function MobileHeader() {
         }
         return () => { document.body.style.overflow = ''; };
     }, [sheetOpen]);
+
+    if (pathname.includes('/app-view')) return null;
 
     const handleSignOut = async () => {
         const supabase = createClient();

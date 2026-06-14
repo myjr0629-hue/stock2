@@ -1,0 +1,825 @@
+/* ═══════════════════════════════════════════════════════════════
+   SIGNUM HQ — Dashboard Tab
+   Premium dark fintech aesthetic. Every pixel intentional.
+   ═══════════════════════════════════════════════════════════════ */
+
+/* ── Page container ── */
+.page {
+  padding-bottom: var(--s4);
+}
+
+/* ── Header ── */
+.headerBrand {
+  display: flex;
+  align-items: center;
+  gap: var(--s3);
+}
+
+.brandIcon {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--cyan), rgba(34, 211, 238, 0.4));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 15px;
+  color: var(--bg);
+  box-shadow: 0 0 16px rgba(34, 211, 238, 0.25);
+  flex-shrink: 0;
+}
+
+.brandText {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.brandName {
+  font: 800 15px/1 'Inter', sans-serif;
+  color: var(--text);
+  letter-spacing: 0.04em;
+  text-shadow: 0 0 12px rgba(34, 211, 238, 0.4);
+}
+
+.brandSub {
+  font: var(--f-micro);
+  color: var(--text-muted);
+  letter-spacing: 0.12em;
+}
+
+.headerActions {
+  display: flex;
+  align-items: center;
+  gap: var(--s1);
+}
+
+.headerBtn {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: none;
+  background: var(--surface-2);
+  color: var(--text-dim);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  min-height: 44px;
+  min-width: 44px;
+  transition: background 0.15s ease;
+}
+
+.headerBtn:active {
+  background: var(--surface-3);
+}
+
+/* ── Cards ── */
+.card {
+  composes: app-card from global;
+  position: relative;
+  overflow: hidden;
+}
+
+.cardHead {
+  composes: app-card-head from global;
+}
+
+.cardTitle {
+  composes: app-card-title from global;
+}
+
+/* ── MARKET PULSE ── */
+.pulseHeader {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.pulseHeaderDecorator {
+  color: var(--cyan);
+  font-weight: 800;
+  font-size: 16px;
+  user-select: none;
+}
+
+.pulseHeaderContainer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+}
+
+.pulseLiveBadge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(6, 182, 212, 0.08);
+  border: 1px solid rgba(6, 182, 212, 0.2);
+  padding: 3px 8px;
+  border-radius: 20px;
+}
+
+.pulseLiveBadge.closed {
+  background: rgba(148, 163, 184, 0.05);
+  border-color: rgba(148, 163, 184, 0.15);
+}
+
+.pulseDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--cyan);
+  animation: pulseCyan 2s ease-in-out infinite;
+  flex-shrink: 0;
+}
+
+.pulseDot.closed {
+  background: #64748b;
+  animation: none;
+}
+
+@keyframes pulseCyan {
+  0%, 100% {
+    opacity: 1;
+    box-shadow: 0 0 0 0 rgba(34, 211, 238, 0.6);
+  }
+  50% {
+    opacity: 0.7;
+    box-shadow: 0 0 0 6px rgba(34, 211, 238, 0);
+  }
+}
+
+.pulseGlow {
+  position: absolute;
+  top: -40px;
+  left: -40px;
+  width: 120px;
+  height: 120px;
+  background: radial-gradient(circle, rgba(34, 211, 238, 0.06) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+/* 개별 카드 스타일 */
+.pulseCard {
+  background: rgba(15, 23, 42, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 12px;
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  height: 100px; /* 고정 높이 100px로 콤팩트화 */
+  box-sizing: border-box;
+  position: relative;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+}
+
+.pulseCardSymRow {
+  display: flex;
+  align-items: center; /* 원형 뱃지와 티커 텍스트 수직 중앙 정렬 */
+  gap: 5px;
+  line-height: 1;
+}
+
+.pulseSym {
+  font: 800 11px 'Plus Jakarta Sans', sans-serif;
+  color: var(--text-dim);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+/* 원형 브랜드 심볼 뱃지 스타일 */
+.symbolBadge {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Inter', sans-serif;
+  font-weight: 900;
+  font-size: 6px;
+  color: #ffffff;
+  user-select: none;
+  flex-shrink: 0;
+  line-height: 1;
+}
+
+.symbolBadge.dow {
+  background: #0284c7; /* Sky blue (DOW 30) */
+  font-size: 7px;
+}
+
+.symbolBadge.nasdaq, .symbolBadge.qqq {
+  background: #0891b2; /* Cyan/Teal (NASDAQ 100) */
+  font-size: 5.5px;
+}
+
+.symbolBadge.sp500, .symbolBadge.spy {
+  background: #dc2626; /* Red (S&P 500) */
+  font-size: 5.5px;
+}
+
+.symbolBadge.vix {
+  background: #1e1b4b; /* Indigo/Navy (VIX) */
+  border: 1px solid rgba(34, 211, 238, 0.4);
+  color: #22d3ee;
+  font-size: 8px;
+}
+
+.pulsePrice {
+  font: 800 15px/1.1 'ui-monospace', 'SFMono-Regular', monospace;
+  color: var(--text);
+  margin-top: 1px;
+}
+
+/* ── Live Pulse Mapping Hooks ── */
+.live {}
+.up {
+  border-color: rgba(16, 185, 129, 0.25);
+}
+.down {
+  border-color: rgba(239, 68, 68, 0.25);
+}
+
+.pulseCard.live.up {
+  animation: liveBlinkUp 1.8s infinite ease-in-out;
+}
+
+.pulseCard.live.down {
+  animation: liveBlinkDown 1.8s infinite ease-in-out;
+}
+
+@keyframes liveBlinkUp {
+  0%, 100% {
+    border-color: rgba(16, 185, 129, 0.35);
+    box-shadow: 0 0 8px rgba(16, 185, 129, 0.1), inset 0 0 2px rgba(16, 185, 129, 0.02);
+  }
+  50% {
+    border-color: rgba(16, 185, 129, 1);
+    box-shadow: 0 0 16px rgba(16, 185, 129, 0.5), inset 0 0 8px rgba(16, 185, 129, 0.18);
+  }
+}
+
+@keyframes liveBlinkDown {
+  0%, 100% {
+    border-color: rgba(239, 68, 68, 0.35);
+    box-shadow: 0 0 8px rgba(239, 68, 68, 0.1), inset 0 0 2px rgba(239, 68, 68, 0.02);
+  }
+  50% {
+    border-color: rgba(239, 68, 68, 1);
+    box-shadow: 0 0 16px rgba(239, 68, 68, 0.5), inset 0 0 8px rgba(239, 68, 68, 0.18);
+  }
+}
+
+.pulseChg {
+  font: 700 11px/1 'Inter', sans-serif;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.pulseChg.pos {
+  color: var(--green);
+  background: rgba(16, 185, 129, 0.08);
+}
+
+.pulseChg.neg {
+  color: var(--red);
+  background: rgba(239, 68, 68, 0.08);
+}
+
+.pulseSparkline {
+  margin-top: 6px;
+  width: 100%;
+  height: 20px;
+  opacity: 0.85;
+}
+
+/* ── MACRO BOARD ── */
+.macroGrid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  background: transparent;
+  border-radius: 0;
+  overflow: visible;
+}
+
+.macroCell {
+  background: rgba(15, 23, 42, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  border-radius: 8px;
+  padding: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-height: 60px;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+.macroCell:hover {
+  border-color: rgba(255, 255, 255, 0.08);
+  background: rgba(15, 23, 42, 0.45);
+}
+
+.macroCell:active {
+  transform: scale(0.96);
+}
+
+.macroCell.live {
+  animation: macroCellBlink 3s infinite ease-in-out;
+}
+
+@keyframes macroCellBlink {
+  0%, 100% {
+    border-color: rgba(255, 255, 255, 0.04);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+  }
+  50% {
+    border-color: rgba(34, 211, 238, 0.16);
+    box-shadow: 0 4px 24px rgba(34, 211, 238, 0.03), inset 0 0 4px rgba(34, 211, 238, 0.02);
+  }
+}
+
+.macroLabelRow {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  line-height: 1;
+}
+
+/* ── Macro Badge Icons ── */
+.macroBadgeIcon {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  color: #ffffff;
+}
+
+.macroBadgeIcon svg {
+  width: 9px;
+  height: 9px;
+  stroke-width: 2.2px;
+}
+
+.us10yBadge {
+  background: linear-gradient(135deg, #ef4444 0%, #3b82f6 100%);
+  box-shadow: 0 0 6px rgba(59, 130, 246, 0.25);
+}
+
+.dxyBadge {
+  background: rgba(16, 185, 129, 0.1);
+  border: 1px solid rgba(16, 185, 129, 0.35);
+  color: var(--green);
+  box-shadow: 0 0 6px rgba(16, 185, 129, 0.2);
+}
+
+.btcBadge {
+  background: #f97316;
+  box-shadow: 0 0 6px rgba(249, 115, 22, 0.3);
+}
+
+.goldBadge {
+  background: #eab308;
+  box-shadow: 0 0 6px rgba(234, 179, 8, 0.3);
+}
+
+.oilBadge {
+  background: #4b5563;
+  box-shadow: 0 0 5px rgba(75, 85, 99, 0.25);
+}
+
+.r2kBadge {
+  background: #0284c7;
+  box-shadow: 0 0 6px rgba(2, 132, 199, 0.3);
+}
+
+.yieldBadge {
+  background: #8b5cf6;
+  box-shadow: 0 0 6px rgba(139, 92, 246, 0.3);
+}
+
+.fgBadge {
+  background: #06b6d4;
+  box-shadow: 0 0 6px rgba(6, 182, 212, 0.3);
+}
+
+.macroLabel {
+  font: 800 9px 'Plus Jakarta Sans', sans-serif;
+  color: var(--text-muted);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.macroValue {
+  font: 800 14px/1.2 'ui-monospace', monospace;
+  color: var(--text);
+}
+
+.macroChg {
+  font: 600 10px/1 'Inter', sans-serif;
+}
+
+.macroBadge {
+  font: 600 9px/1 'Inter', sans-serif;
+  letter-spacing: 0.06em;
+  padding: 2px 5px;
+  border-radius: 3px;
+  display: inline-block;
+  width: fit-content;
+}
+
+.badgeFear {
+  composes: macroBadge;
+  background: var(--red-dim);
+  color: var(--red);
+}
+
+.badgeCaution {
+  composes: macroBadge;
+  background: var(--amber-dim);
+  color: var(--amber);
+}
+
+.badgeGreed {
+  composes: macroBadge;
+  background: var(--green-dim);
+  color: var(--green);
+}
+
+.badgeNeutral {
+  composes: macroBadge;
+  background: var(--surface-2);
+  color: var(--text-dim);
+}
+
+/* ── SECTOR HEATMAP ── */
+.sectorGrid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+}
+
+.sectorCell {
+  border-radius: var(--r-btn);
+  padding: var(--s3) var(--s2);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-height: 52px;
+  border: 1px solid transparent;
+  transition: transform 0.12s ease;
+}
+
+.sectorCell:active {
+  transform: scale(0.96);
+}
+
+.sectorName {
+  font: var(--f-micro);
+  color: var(--text);
+  letter-spacing: 0.02em;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.sectorPct {
+  font: 700 13px/1 'Inter', sans-serif;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── AI BRIEFING ── */
+.briefingCard {
+  composes: app-card from global;
+  border-left: 3px solid var(--amber);
+  position: relative;
+}
+
+.briefingHeader {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+  margin-bottom: var(--s3);
+}
+
+.briefingIcon {
+  font-size: 16px;
+  animation: sparkle 2s ease-in-out infinite;
+}
+
+@keyframes sparkle {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.7; transform: scale(1.15); }
+}
+
+.briefingTitle {
+  font: var(--f-micro);
+  color: var(--amber);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.briefingBody {
+  font: var(--f-body);
+  color: var(--text-dim);
+  line-height: 1.55;
+  margin-bottom: var(--s3);
+}
+
+.briefingBody strong {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.briefingCta {
+  font: 600 12px/1 'Inter', sans-serif;
+  color: var(--cyan);
+  letter-spacing: 0.03em;
+  cursor: pointer;
+  padding: var(--s2) 0;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  transition: opacity 0.15s;
+}
+
+.briefingCta:active {
+  opacity: 0.7;
+}
+
+/* ── TOP MOVERS ── */
+.sectionHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--s4) var(--s4) var(--s2);
+}
+
+.sectionLabel {
+  display: flex;
+  align-items: center;
+  gap: var(--s2);
+}
+
+.sectionBar {
+  width: 3px;
+  height: 14px;
+  background: var(--cyan);
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+
+.sectionTitle {
+  font: var(--f-micro);
+  color: var(--text-dim);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.sectionAction {
+  font: 600 10px/1 'Inter', sans-serif;
+  color: var(--text-muted);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  padding: 0 var(--s1);
+}
+
+.sectionAction:active {
+  color: var(--cyan);
+}
+
+.moversScroll {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  padding: 0 16px 8px;
+  scrollbar-width: none;
+}
+
+.moversScroll::-webkit-scrollbar {
+  display: none;
+}
+
+.moverCard {
+  min-width: 130px;
+  max-width: 145px;
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: var(--r-card);
+  padding: var(--s3);
+  scroll-snap-align: start;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  transition: transform 0.12s ease;
+}
+
+.moverCard:active {
+  transform: scale(0.97);
+}
+
+.moverTop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.moverSym {
+  font: 700 13px/1 'Inter', sans-serif;
+  color: var(--text);
+  letter-spacing: 0.02em;
+}
+
+.moverChg {
+  font: 700 11px/1 'Inter', sans-serif;
+  font-variant-numeric: tabular-nums;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.moverChgUp {
+  composes: moverChg;
+  background: var(--green-dim);
+  color: var(--green);
+}
+
+.moverChgDown {
+  composes: moverChg;
+  background: var(--red-dim);
+  color: var(--red);
+}
+
+.moverPrice {
+  font: 500 12px/1.2 'Inter', sans-serif;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-dim);
+}
+
+.moverSpark {
+  margin-top: 2px;
+}
+
+/* ── Skeleton states ── */
+.skelPulse {
+  composes: app-skeleton from global;
+  height: 72px;
+}
+
+.skelMacro {
+  composes: app-skeleton from global;
+  height: 130px;
+}
+
+.skelSector {
+  composes: app-skeleton from global;
+  height: 120px;
+}
+
+.skelBriefing {
+  composes: app-skeleton from global;
+  height: 100px;
+}
+
+.skelMovers {
+  display: flex;
+  gap: 12px;
+  padding: 0 16px;
+}
+
+.skelMoverCard {
+  composes: app-skeleton from global;
+  min-width: 130px;
+  height: 100px;
+  border-radius: var(--r-card);
+  flex-shrink: 0;
+}
+
+/* ── Utility ── */
+.pos {
+  color: var(--green);
+}
+
+.neg {
+  color: var(--red);
+}
+
+.flat {
+  color: var(--text-muted);
+}
+
+.tnum {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Responsive tweaks for very narrow screens ── */
+@media (max-width: 360px) {
+  .pulseGrid {
+    gap: var(--s2);
+  }
+
+  .pulsePrice {
+    font-size: 15px;
+  }
+
+  .macroGrid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .sectorGrid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+
+  .moverCard {
+    min-width: 115px;
+  }
+}
+
+/* ── INSTITUTIONAL PULSE ── */
+.instPulseGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--s3);
+}
+
+.instCell {
+  display: flex;
+  flex-direction: column;
+  gap: var(--s2);
+  padding: var(--s3);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--r-btn);
+}
+
+.instLabel {
+  font: var(--f-micro);
+  color: var(--text-muted);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.instValRow {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
+.instVal {
+  font: 700 18px/1 'Inter', sans-serif;
+  color: var(--text);
+}
+
+.instSub {
+  font: var(--f-micro);
+  color: var(--text-dim);
+}
+
+.instTrack {
+  height: 6px;
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 3px;
+  overflow: hidden;
+  position: relative;
+}
+
+.instFill {
+  height: 100%;
+  border-radius: 3px;
+}
+
+/* ── Market Pulse 2-row layout ── */
+.pulseRow {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.pulseDivider {
+  display: none;
+}

@@ -6,6 +6,10 @@ import { updateSession } from './lib/supabase/middleware';
 const intlMiddleware = createIntlMiddleware(routing);
 
 export async function middleware(request: NextRequest) {
+    // Pass request URL/pathname in custom headers so that Server Components can read them
+    request.headers.set('x-url', request.url);
+    request.headers.set('x-pathname', request.nextUrl.pathname);
+
     // First, handle Supabase session refresh
     const supabaseResponse = await updateSession(request);
 
@@ -16,6 +20,10 @@ export async function middleware(request: NextRequest) {
     supabaseResponse.cookies.getAll().forEach(cookie => {
         intlResponse.cookies.set(cookie.name, cookie.value, cookie);
     });
+
+    // Also set response headers to ensure propagation
+    intlResponse.headers.set('x-url', request.url);
+    intlResponse.headers.set('x-pathname', request.nextUrl.pathname);
 
     return intlResponse;
 }

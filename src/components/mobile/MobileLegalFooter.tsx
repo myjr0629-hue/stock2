@@ -10,10 +10,12 @@ import { Link, usePathname } from '@/i18n/routing';
  * All text is fully i18n via next-intl (en/ko/ja).
  */
 export function MobileLegalFooter() {
-    const t = useTranslations('footer');
     const pathname = usePathname();
+    const t = useTranslations('footer');
     const isKorean = pathname?.startsWith('/ko') || false;
     const isJapanese = pathname?.startsWith('/ja') || false;
+
+    if (pathname.includes('/app-view')) return null;
 
     return (
         <footer className="border-t border-white/[0.04] bg-[#050a14] px-4 pt-4 pb-6">

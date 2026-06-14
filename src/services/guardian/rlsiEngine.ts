@@ -413,6 +413,7 @@ async function fetchFearGreedIndex(): Promise<{ score: number; rating: string }>
         if (cached && typeof cached.score === 'number') {
             return { score: cached.score, rating: cached.rating };
         }
+        // Strict Redis Policy: NO external HTTP calls outside cron. Fallback to VIX is handled in the caller when score is negative.
         return { score: -1, rating: 'fallback' };
     } catch {
         return { score: -1, rating: 'fallback' };

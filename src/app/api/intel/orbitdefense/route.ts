@@ -10,7 +10,7 @@ import { fetchMassive } from '@/services/massiveClient';
 import { getAnalysisCacheForTickers } from '@/services/analysisCache';
 import { CentralDataHub } from '@/services/centralDataHub';
 
-const SECTOR_TICKERS = ['LMT', 'RTX', 'AXON', 'KTOS', 'LDOS', 'ASTS', 'LUNR'];
+const SECTOR_TICKERS = ['LMT', 'RTX', 'AXON', 'SPCX', 'LDOS', 'ASTS', 'LUNR'];
 const SECTOR_LABEL = 'OrbitDefense';
 
 export const revalidate = 15;

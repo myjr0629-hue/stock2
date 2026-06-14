@@ -8,6 +8,7 @@ import { MarketStatusResult, getMarketStatusSSOT } from "./marketStatusProvider"
 import { getUpcomingEvents } from './eventHubProvider';
 import { getTreasuryYields, getInflationData } from './fedApiClient';
 import { getYahooDataSSOT, YahooQuote } from './yahooFinanceHub';
+import { getFromCache } from './redisClient';
 
 export interface MacroFactor {
     level: number | null;
@@ -34,6 +35,11 @@ export interface MacroSnapshot {
         gold: MacroFactor;
         oil: MacroFactor;
         rut: MacroFactor;
+    };
+    fearGreed?: {
+        score: number;
+        rating: string;
+        updatedAt: string;
     };
     // Legacy fields
     nq?: number;
@@ -259,6 +265,46 @@ export function determineRegime(vixLevel: number, us10yLevel: number, qqqTrend: 
     return "NEUTRAL";
 }
 
+function triggerCronIfNeeded(yahooData: any) {
+    const now = Date.now();
+    let needsUpdate = false;
+
+    // Trigger cron if any key quote is default or stale (>5 min)
+    const quotes = [
+        yahooData.nq, yahooData.vix, yahooData.spx, yahooData.btc, 
+        yahooData.gold, yahooData.oil, yahooData.rut, yahooData.tnx
+    ];
+
+    for (const q of quotes) {
+        if (!q || q.source === 'DEFAULT' || !q.updatedAt) {
+            needsUpdate = true;
+            break;
+        }
+        const updatedTime = new Date(q.updatedAt).getTime();
+        if (now - updatedTime > 300_000) { // 5 minutes stale
+            needsUpdate = true;
+            break;
+        }
+    }
+
+    if (needsUpdate) {
+        console.log('[MacroHub] Redis macro cache is empty or stale. Triggering background market-feed cron...');
+        try {
+            const isDev = process.env.NODE_ENV === 'development';
+            const baseUrl = isDev ? 'http://localhost:3000' : (process.env.NEXT_PUBLIC_APP_URL || 'https://signumhq.com');
+            fetch(`${baseUrl}/api/cron/market-feed`, {
+                headers: {
+                    'x-vercel-protection-bypass': process.env.VERCEL_AUTOMATION_BYPASS_SECRET || '',
+                }
+            }).catch(err => {
+                console.warn('[MacroHub] Stale trigger failed:', err.message);
+            });
+        } catch (e) {
+            // ignore
+        }
+    }
+}
+
 export async function getMacroSnapshotSSOT(): Promise<MacroSnapshot> {
     const now = Date.now();
     if (cache.data && cache.expiry > now) {
@@ -272,12 +318,16 @@ export async function getMacroSnapshotSSOT(): Promise<MacroSnapshot> {
 
     // Parallel Fetch with Multipliers + [V7.0] Advanced Indicators
     // [V7.0] VIX, NQ, and TNX (US10Y) from Yahoo (rate-limited: 1 call/min)
-    const [yahooData, qqqFallback, fedYield, yieldCurve] = await Promise.all([
+    const [yahooData, qqqFallback, fedYield, yieldCurve, cnnFearGreed] = await Promise.all([
         getYahooDataSSOT(), // Yahoo -> Cache -> Redis -> Default (rate-limited)
         fetchIndexSnapshot(SYMBOLS.NDX_PROXY, "NASDAQ 100", MULTIPLIERS.NDX, marketStatus), // QQQ fallback
         fetchFedYield(), // FED daily yield (fallback for TNX)
-        fetchYieldCurveData()
+        fetchYieldCurveData(),
+        getFromCache<{ score: number; rating: string; updatedAt: string }>('cnn:feargreed')
     ]);
+
+    // Check and trigger background self-healing cron
+    triggerCronIfNeeded(yahooData);
 
     // [V45.9] Use NQ=F from Yahoo, fallback to QQQ proxy
     const nqData = yahooData.nq;
@@ -443,6 +493,7 @@ export async function getMacroSnapshotSSOT(): Promise<MacroSnapshot> {
         // [V3 PIPELINE] Safe Haven ETFs
         tltChangePct: tltFactor.chgPct ?? null,
         gldChangePct: gldFactor.chgPct ?? null,
+        fearGreed: cnnFearGreed || undefined,
     };
 
     cache = { data: snapshot, expiry: now + CACHE_TTL_MS, fetchedAt: now };

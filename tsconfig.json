@@ -41,6 +41,8 @@
     "node_modules",
     "scripts",
     "tests",
-    "src/app/_backup_before_i18n"
+    "src/app/_backup_before_i18n",
+    "generate-*.ts",
+    "run-simulator*.ts"
   ]
 }

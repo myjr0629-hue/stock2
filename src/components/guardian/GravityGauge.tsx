@@ -845,7 +845,7 @@ function TimelineInsight({ history }: { history: { time: string; score: number }
     );
 }
 
-// [V14] FOMC FedWatch — Compact premium card, CSS gradient bar, no ECharts
+// [V14] FOMC FedWatch — Compact premium badge layout, avoiding duplicate charts
 function FedWatchMini() {
     const locale = useLocale();
     const [data, setData] = useState<{
@@ -863,106 +863,45 @@ function FedWatchMini() {
     }, []);
 
     const L = locale === 'ko'
-        ? { cut: '인하', hold: '동결', hike: '인상', target: '목표 금리' }
+        ? { cut: '인하', hold: '동결', hike: '인상' }
         : locale === 'ja'
-            ? { cut: '利下げ', hold: '据置', hike: '利上げ', target: '目標金利' }
-            : { cut: 'CUT', hold: 'HOLD', hike: 'HIKE', target: 'Target' };
+            ? { cut: '利下げ', hold: '据置', hike: '利上げ' }
+            : { cut: 'CUT', hold: 'HOLD', hike: 'HIKE' };
 
     if (!data) return null;
     const total = data.ease + data.noChange + data.hike;
-    // Show component even if probabilities are 0, as long as metadata exists
     if (total === 0 && !data.targetRate && !data.daysUntilFomc) return null;
-
-    const fresh = data.scrapedAt ? (() => {
-        const m = Math.floor((Date.now() - new Date(data.scrapedAt).getTime()) / 60000);
-        if (m < 5) return locale === 'ko' ? '방금' : 'NOW';
-        if (m < 60) return `${m}${locale === 'ko' ? '분 전' : 'm ago'}`;
-        const h = Math.floor(m / 60);
-        return h < 24 ? `${h}${locale === 'ko' ? '시간 전' : 'h ago'}` : `${Math.floor(h / 24)}${locale === 'ko' ? '일 전' : 'd ago'}`;
-    })() : '';
-
-    const chg = (cur: number, prev?: number) => {
-        if (prev == null) return null;
-        const d = cur - prev;
-        if (Math.abs(d) < 0.1) return null;
-        return { arrow: d > 0 ? '▲' : '▼', val: Math.abs(d).toFixed(1), color: d > 0 ? '#34d399' : '#f87171' };
-    };
 
     // Dominant probability
     const dom = data.noChange >= data.hike && data.noChange >= data.ease
-        ? { lbl: L.hold, pct: data.noChange, clr: '#cbd5e1', grad: 'from-slate-400 to-slate-500' }
+        ? { lbl: L.hold, pct: data.noChange, clr: 'var(--cyan)' }
         : data.hike > data.ease
-            ? { lbl: L.hike, pct: data.hike, clr: '#f87171', grad: 'from-rose-400 to-rose-500' }
-            : { lbl: L.cut, pct: data.ease, clr: '#60a5fa', grad: 'from-blue-400 to-blue-500' };
-
-    // Bar segments
-    const segments = [
-        { lbl: L.cut, pct: data.ease, clr: '#3b82f6', bg: 'rgba(59,130,246,0.8)', delta: chg(data.ease, data.prevEase) },
-        { lbl: L.hold, pct: data.noChange, clr: '#94a3b8', bg: 'rgba(148,163,184,0.6)', delta: chg(data.noChange, data.prevNoChange) },
-        { lbl: L.hike, pct: data.hike, clr: '#ef4444', bg: 'rgba(239,68,68,0.8)', delta: chg(data.hike, data.prevHike) },
-    ].filter(s => s.pct > 0);
+            ? { lbl: L.hike, pct: data.hike, clr: 'var(--red)' }
+            : { lbl: L.cut, pct: data.ease, clr: 'var(--green)' };
 
     return (
-        <div className="w-full self-stretch mt-1 mb-1 px-2">
-            <div className="relative rounded-lg border border-slate-600/40 overflow-hidden"
-                style={{ background: 'linear-gradient(135deg, rgba(99,102,241,0.04) 0%, rgba(15,23,42,0.95) 40%, rgba(6,182,212,0.03) 100%)', boxShadow: '0 0 12px rgba(99,102,241,0.12), 0 0 4px rgba(6,182,212,0.08)' }}>
-                <div className="absolute inset-0 pointer-events-none opacity-[0.03]"
-                    style={{ backgroundImage: 'linear-gradient(rgba(148,163,184,0.3) 1px, transparent 1px), linear-gradient(90deg, rgba(148,163,184,0.3) 1px, transparent 1px)', backgroundSize: '16px 16px' }} />
-                <div className="relative z-10 px-4 py-2.5">
-                    {/* Row 1: Header */}
-                    <div className="flex items-center justify-between mb-2">
-                        <div className="flex items-center gap-2">
-                            <Landmark className="w-3.5 h-3.5 text-indigo-400/60" />
-                            <span className="text-[13px] font-black uppercase tracking-[0.15em] text-white/80 font-jakarta">FEDWATCH</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                            {data.targetRate && (
-                                <span className="text-[12px] font-mono text-slate-300">{data.targetRate} bps</span>
-                            )}
-                            {data.daysUntilFomc && (
-                                <span className="text-[12px] font-bold font-mono px-1.5 py-0.5 rounded bg-amber-500/10 border border-amber-500/25 text-amber-400">
-                                    FOMC D-{data.daysUntilFomc}
-                                </span>
-                            )}
-                        </div>
-                    </div>
-
-                    {/* Row 2: Dominant number left + Stacked bar right */}
-                    <div className="flex items-center gap-4">
-                        {/* Left: Big dominant % */}
-                        <div className="flex-shrink-0">
-                            <div className="text-[28px] font-mono font-black leading-none tabular-nums" style={{ color: dom.clr }}>
-                                {dom.pct}<span className="text-[16px] text-slate-400">%</span>
-                            </div>
-                            <div className="text-[12px] font-bold text-slate-300 mt-0.5 tracking-wide">{dom.lbl}</div>
-                        </div>
-
-                        {/* Right: Stacked horizontal bar + labels */}
-                        <div className="flex-1 min-w-0">
-                            {/* Gradient stacked bar */}
-                            <div className="flex w-full h-2 rounded-full overflow-hidden gap-px bg-slate-800">
-                                {segments.map((seg, i) => (
-                                    <div key={i} className="h-full rounded-full transition-all duration-700"
-                                        style={{ width: `${(seg.pct / total) * 100}%`, background: seg.bg }} />
-                                ))}
-                            </div>
-                            {/* Labels below bar */}
-                            <div className="flex items-center justify-between mt-1.5">
-                                {segments.map((seg, i) => (
-                                    <div key={i} className="flex items-center gap-1">
-                                        <div className="w-1.5 h-1.5 rounded-full" style={{ background: seg.clr }} />
-                                        <span className="text-[12px] font-bold" style={{ color: seg.clr }}>{seg.lbl}</span>
-                                        <span className="text-[13px] font-mono font-bold text-slate-300">{seg.pct}%</span>
-                                        {seg.delta && (
-                                            <span className="text-[12px] font-mono font-bold" style={{ color: seg.delta.color }}>
-                                                {seg.delta.arrow}{seg.delta.val}
-                                            </span>
-                                        )}
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    </div>
+        <div className="w-full self-stretch mt-1.5 px-2">
+            <div className="flex items-center justify-between px-3 py-1.5 rounded-lg border border-slate-800 bg-slate-950/30 shadow-sm">
+                <div className="flex items-center gap-1.5">
+                    <Landmark className="w-3.5 h-3.5 text-indigo-400/70" />
+                    <span className="text-[11px] font-black uppercase tracking-[0.12em] text-slate-400 font-jakarta">FOMC</span>
+                    {data.daysUntilFomc && (
+                        <span className="text-[11px] font-extrabold font-mono text-amber-400 ml-1">
+                            D-{data.daysUntilFomc}
+                        </span>
+                    )}
+                </div>
+                
+                <div className="flex items-center gap-2">
+                    <span className="text-[11px] font-bold text-slate-300">
+                        {dom.lbl} <span style={{ color: dom.clr }} className="font-mono font-black">{dom.pct.toFixed(0)}%</span>
+                    </span>
+                    <span className="w-1.5 h-1.5 rounded-full" style={{ background: dom.clr }} />
+                    {data.targetRate && (
+                        <span className="text-[10px] font-mono text-slate-500 border-l border-slate-800 pl-2">
+                            {data.targetRate} bps
+                        </span>
+                    )}
                 </div>
             </div>
         </div>

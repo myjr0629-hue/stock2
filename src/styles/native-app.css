@@ -10,7 +10,7 @@
 
 /* 기본 상태 — 페이지 완전 표시 */
 .native-transition-idle {
-  transform: translateX(0);
+  /* transform: translateX(0); -- Removed to prevent breaking position: fixed for children like AppBottomNav */
   opacity: 1;
 }
 

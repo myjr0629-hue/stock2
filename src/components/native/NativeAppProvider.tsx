@@ -6,7 +6,7 @@
 'use client';
 
 import React, { useEffect, useState, useCallback, createContext, useContext } from 'react';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 
 // ---------------------------------------------------------------------------
 // Native Detection (SSR-safe)
@@ -46,14 +46,26 @@ export const useNativeApp = () => useContext(NativeAppContext);
 // ---------------------------------------------------------------------------
 export function NativeAppProvider({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const router = useRouter();
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [transitionDirection, setTransitionDirection] = useState<'forward' | 'back'>('forward');
   const [prevPathname, setPrevPathname] = useState(pathname);
   const [mounted, setMounted] = useState(false);
 
+  // --- 앱 첫 진입 시 모바일 전용 뷰(/app-view/dash)로 리다이렉트 ---
+  useEffect(() => {
+    if (!_isNative || !mounted) return;
+
+    if (pathname === '/' || pathname === '/ko' || pathname === '/en') {
+      const targetLocale = pathname === '/' ? 'ko' : pathname.split('/')[1] || 'ko';
+      router.replace(`/${targetLocale}/app-view/dash`);
+    }
+  }, [pathname, mounted, router]);
+
   // --- 앱 초기화 (한 번만) ---
   useEffect(() => {
-    if (!_isNative) { setMounted(true); return; }
+    setMounted(true);
+    if (!_isNative) return;
 
     (async () => {
       try {
@@ -106,8 +118,15 @@ export function NativeAppProvider({ children }: { children: React.ReactNode }) {
       // 앱 전용 CSS 클래스 추가
       document.documentElement.classList.add('native-app');
       document.documentElement.classList.add(`native-${_platform}`);
-      
-      setMounted(true);
+
+      // --- AdManager 초기화 + 배너 광고 시작 ---
+      try {
+        const { adManager } = await import('@/services/adManager');
+        await adManager.init();
+        await adManager.showBanner();
+      } catch (e) {
+        console.warn('[NativeAppProvider] AdManager init skipped:', e);
+      }
     })();
   }, []);
 
@@ -147,7 +166,12 @@ export function NativeAppProvider({ children }: { children: React.ReactNode }) {
     return () => clearTimeout(timer);
   }, [pathname, prevPathname, mounted]);
 
-  // 웹에서는 그냥 children 렌더
+  // SSR 및 첫 클라이언트 렌더 시점(마운트 전)에는 서버와 동일하게 children만 렌더링 (Hydration mismatch 방지)
+  if (!mounted) {
+    return <>{children}</>;
+  }
+
+  // 웹 모드에서는 투명하게 children만 렌더링
   if (!_isNative) {
     return <>{children}</>;
   }

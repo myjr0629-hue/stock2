@@ -1,7 +1,7 @@
 {
   "version": "2.0",
   "updated": "2026-05-07",
-  "count": 2000,
+  "count": 2001,
   "description": "US stock universe (2000 tickers) - Expanded from 1000 to include options-active stocks",
   "selectionCriteria": {
     "coreGuaranteed": 300,
@@ -1628,6 +1628,7 @@
     "SOUN",
     "SPAB",
     "SPB",
+    "SPCX",
     "SPDN",
     "SPDW",
     "SPG",

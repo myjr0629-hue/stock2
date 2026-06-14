@@ -154,26 +154,85 @@ function getSqueezeBadgeBg(level: string): string {
     }
 }
 
-// === Squeeze Ring SVG ===
-function SqueezeRing({ value, level }: { value: number; level: string }) {
-    const circumference = 2 * Math.PI * 34;
-    const offset = circumference - (Math.min(100, value) / 100) * circumference;
-    const strokeColor = level === 'EXTREME' ? '#f87171' :
-        level === 'HIGH' ? '#fbbf24' :
-            level === 'MEDIUM' ? '#fde047' : '#34d399';
+// === Speedometer Gauge Component ===
+function Gauge({ value, color, size = 180 }: { value: number; color: string; size?: number }) {
+    const [v, setV] = useState(0);
+    useEffect(() => {
+        const t = setTimeout(() => setV(value), 350);
+        return () => clearTimeout(t);
+    }, [value]);
+
+    const W = size;
+    const H = size / 2 + 14;
+    const cx = W / 2;
+    const cy = size / 2 + 4;
+    const R = size / 2 - 16;
+
+    const arc = (a0: number, a1: number, col: string, op: number) => {
+        const p = (a: number) => [
+            cx + R * Math.cos(Math.PI * (1 - a)),
+            cy - R * Math.sin(Math.PI * (1 - a))
+        ];
+        const [x0, y0] = p(a0);
+        const [x1, y1] = p(a1);
+        return (
+            <path
+                d={`M${x0},${y0} A${R},${R} 0 0 1 ${x1},${y1}`}
+                fill="none"
+                stroke={col}
+                strokeWidth="7"
+                strokeLinecap="round"
+                opacity={op}
+            />
+        );
+    };
 
     return (
-        <svg width="88" height="88" viewBox="0 0 76 76">
-            <circle cx="38" cy="38" r="34"
-                fill="none" stroke="rgba(100,116,139,0.2)" strokeWidth="3.5" />
-            <circle cx="38" cy="38" r="34"
-                fill="none" stroke={strokeColor} strokeWidth="3.5"
-                strokeLinecap="round"
-                strokeDasharray={circumference}
-                strokeDashoffset={offset}
-                transform="rotate(-90 38 38)"
-                className="transition-all duration-700"
-            />
+        <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} style={{ display: 'block', margin: '0 auto' }}>
+            {/* Speedometer limits / segments */}
+            {arc(0.02, 0.32, '#ef4444', 0.25)}  {/* High Squeeze */}
+            {arc(0.36, 0.64, '#fbbf24', 0.25)}  {/* Medium Squeeze */}
+            {arc(0.68, 0.98, '#10b981', 0.25)}  {/* Low Squeeze */}
+
+            {/* Scale Ticks */}
+            {[0, 0.25, 0.5, 0.75, 1].map(f => {
+                const a = Math.PI * (1 - f);
+                const r1 = R - 10;
+                const r2 = R - 15;
+                return (
+                    <line
+                        key={f}
+                        x1={cx + r1 * Math.cos(a)}
+                        y1={cy - r1 * Math.sin(a)}
+                        x2={cx + r2 * Math.cos(a)}
+                        y2={cy - r2 * Math.sin(a)}
+                        stroke="rgba(255,255,255,0.22)"
+                        strokeWidth="1.2"
+                    />
+                );
+            })}
+
+            {/* Rotating Needle */}
+            <g
+                style={{
+                    transform: `rotate(${(v / 100) * 180 - 90}deg)`,
+                    transformOrigin: `${cx}px ${cy}px`,
+                    transition: 'transform 1.3s cubic-bezier(0.22, 1, 0.36, 1)'
+                }}
+            >
+                <line
+                    x1={cx}
+                    y1={cy}
+                    x2={cx}
+                    y2={cy - R + 20}
+                    stroke={color}
+                    strokeWidth="2.8"
+                    strokeLinecap="round"
+                    style={{ filter: `drop-shadow(0 0 6px ${color})` }}
+                />
+                <circle cx={cx} cy={cy - R + 17} r="3" fill={color} />
+            </g>
+            <circle cx={cx} cy={cy} r="6" fill="#0f172a" stroke={color} strokeWidth="2" />
         </svg>
     );
 }
@@ -191,43 +250,48 @@ function TriggerBand({
     }
 
     const range = resistance - support;
-    const position = Math.max(0, Math.min(100, ((current - support) / range) * 100));
+    const rawPos = ((current - support) / range) * 100;
+    // Cap position with padding to keep the badge from overflowing the bounds
+    const position = Math.max(8, Math.min(92, rawPos)); 
 
     return (
-        <div className="flex flex-col gap-1.5">
-            {/* Resistance */}
+        <div className="flex flex-col gap-1.5 w-full">
+            {/* Resistance Header */}
             <div className="flex items-center justify-between">
-                <span className="text-[12px] font-jakarta text-red-400 tracking-wide">RESISTANCE</span>
-                <span className="text-[13px] font-black font-jakarta text-red-400 tabular-nums">
+                <span className="text-[11px] font-jakarta font-bold text-slate-400 tracking-wider">RESISTANCE</span>
+                <span className="text-[12px] font-black font-jakarta text-rose-400 tabular-nums">
                     {resistance.toLocaleString()}
                 </span>
             </div>
 
-            {/* Visual bar */}
-            <div className="relative h-[28px] rounded-md bg-slate-800/60 border border-slate-700/40 overflow-hidden">
-                {/* Gradient background */}
-                <div className="absolute inset-0 bg-gradient-to-t from-emerald-500/8 via-transparent to-red-500/8" />
+            {/* Horizontal Track Container (No overflow-hidden to allow badge expansion) */}
+            <div className="relative h-3 rounded-full bg-slate-800/80 border border-slate-700/50 mt-1 mb-2">
+                {/* Soft gradient background */}
+                <div className="absolute inset-0 rounded-full bg-gradient-to-r from-emerald-500/10 via-cyan-500/5 to-rose-500/10" />
 
-                {/* Current position indicator */}
+                {/* Sliding indicator line */}
                 <div
-                    className="absolute left-1/2 -translate-x-1/2 flex flex-col items-center transition-all duration-700"
-                    style={{ bottom: `${position}%`, transform: `translateX(-50%) translateY(50%)` }}
-                >
-                    <div className="w-2.5 h-2.5 rotate-45 bg-cyan-400 shadow-[0_0_12px_rgba(34,211,238,0.6)]" />
-                </div>
+                    className="absolute top-0 bottom-0 w-[2px] bg-cyan-400 shadow-[0_0_8px_rgba(34,211,238,0.8)] transition-all duration-700 z-10"
+                    style={{ left: `${position}%`, transform: 'translateX(-50%)' }}
+                />
 
-                {/* Current price label */}
-                <div className="absolute inset-0 flex items-center justify-center">
-                    <span className="text-[13px] font-black font-jakarta text-white/90 tabular-nums bg-slate-900/60 px-2 py-0.5 rounded">
+                {/* Floating Current Price Badge */}
+                <div
+                    className="absolute bottom-full mb-2 transition-all duration-700 z-20"
+                    style={{ left: `${position}%`, transform: 'translateX(-50%)' }}
+                >
+                    <span className="text-[10px] font-black font-jakarta text-cyan-300 bg-slate-950/90 border border-cyan-500/30 px-1.5 py-0.5 rounded shadow-[0_4px_12px_rgba(0,0,0,0.8)] whitespace-nowrap">
                         {current.toLocaleString()}
                     </span>
+                    {/* Tiny triangle pointing down */}
+                    <div className="w-1.5 h-1.5 rotate-45 bg-slate-950 border-r border-b border-cyan-500/30 absolute left-1/2 -translate-x-1/2 -bottom-[4px]" />
                 </div>
             </div>
 
-            {/* Support */}
+            {/* Support Footer */}
             <div className="flex items-center justify-between">
-                <span className="text-[12px] font-jakarta text-emerald-400 tracking-wide">SUPPORT</span>
-                <span className="text-[13px] font-black font-jakarta text-emerald-400 tabular-nums">
+                <span className="text-[11px] font-jakarta font-bold text-slate-400 tracking-wider">SUPPORT</span>
+                <span className="text-[12px] font-black font-jakarta text-emerald-400 tabular-nums">
                     {support.toLocaleString()}
                 </span>
             </div>
@@ -603,17 +667,17 @@ export default function GammaShield({ data, isMarketActive }: Props) {
                 <div className="flex items-center gap-2">
                     <Shield className={`w-4 h-4 shrink-0 ${gexIndex >= 0 ? 'text-cyan-400' : 'text-amber-400'}`} />
                     <GuardianTooltip sectionId="gammaShield">
-                        <span className="text-[14px] font-black font-jakarta tracking-[0.08em] text-slate-200">
+                        <span className="text-[13px] font-semibold font-jakarta tracking-[0.08em] text-slate-200">
                             GAMMA SHIELD
                         </span>
                     </GuardianTooltip>
-                    <span className={`text-[12px] font-bold font-jakarta px-1.5 py-0.5 rounded-sm border ${confidence === 'HIGH' ? 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10' : confidence === 'MEDIUM' ? 'text-amber-400 border-amber-500/30 bg-amber-500/10' : 'text-slate-300 border-slate-500/30 bg-slate-500/10'}`}>
+                    <span className={`text-[10px] font-medium font-jakarta px-1.5 py-0.5 rounded-md border ${confidence === 'HIGH' ? 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10' : confidence === 'MEDIUM' ? 'text-amber-400 border-amber-500/30 bg-amber-500/10' : 'text-slate-300 border-slate-500/30 bg-slate-500/10'}`}>
                         {confidence}
                     </span>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
-                    <span className="text-[12px] font-jakarta text-slate-400">SPY + QQQ real-time</span>
-                    <span className={`text-[12px] font-bold font-jakarta px-2 py-0.5 rounded border ${isMarketActive ? 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10 animate-pulse' : 'text-slate-300 border-slate-600/30 bg-slate-600/10'}`}>
+                    <span className="text-[11px] font-jakarta text-slate-400">SPY + QQQ real-time</span>
+                    <span className={`text-[11px] font-semibold font-jakarta px-2 py-0.5 rounded border ${isMarketActive ? 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10 animate-pulse' : 'text-slate-300 border-slate-600/30 bg-slate-600/10'}`}>
                         {isMarketActive ? '● LIVE' : 'STANDBY'}
                     </span>
                 </div>
@@ -623,7 +687,7 @@ export default function GammaShield({ data, isMarketActive }: Props) {
             <div className="px-4 pb-2">
                 <div className="bg-slate-800/40 rounded-lg px-3 py-2 border border-slate-700/20">
                     {getSummaryInsight(gexIndex, squeezeRisk, squeezeLevel, currentPrice, supportWall, resistanceWall, locale, histStats).map((line, i) => (
-                        <p key={i} className={`text-[13px] font-jakarta leading-relaxed ${i === 0 ? 'text-slate-200 font-semibold' : 'text-slate-400 mt-0.5'}`}>
+                        <p key={i} className={`text-[12.5px] font-jakarta leading-relaxed ${i === 0 ? 'text-slate-200 font-semibold' : 'text-slate-400 mt-0.5'}`}>
                             {i === 0 ? '⚡ ' : '  '}{line}
                         </p>
                     ))}
@@ -632,13 +696,13 @@ export default function GammaShield({ data, isMarketActive }: Props) {
 
 
             {/* Content Grid — 3 columns with vertical dividers */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-0 px-4 pb-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-0 px-4 pb-4">
 
                 {/* ── Column 1: Gamma Pressure Index ── */}
-                <div className="flex flex-col gap-2 pr-4 sm:border-r border-slate-700/25 pb-2">
+                <div className="flex flex-col gap-2 p-4 sm:p-0 sm:pr-4 border border-slate-800/60 sm:border-0 sm:border-r border-slate-700/25 rounded-xl sm:rounded-none bg-slate-950/30 sm:bg-transparent mb-1 sm:mb-0">
                     {/* Title row */}
                     <div className="flex items-center justify-between">
-                        <span className="text-[12px] font-bold font-jakarta tracking-[0.10em] text-slate-300 uppercase">
+                        <span className="text-[10.5px] font-normal font-jakarta tracking-[0.12em] text-slate-400 uppercase">
                             Gamma Pressure Index
                         </span>
                     </div>
@@ -661,21 +725,21 @@ export default function GammaShield({ data, isMarketActive }: Props) {
                         const firstVal = pts[0];
                         const trendUp = lastVal >= firstVal;
                         const lineColor = trendUp ? '#10b981' : '#ef4444';
-                        const fillColor = trendUp ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.1)';
+                        const fillColor = trendUp ? 'rgba(16,185,129,0.06)' : 'rgba(239,68,68,0.06)';
                         return (
-                            <div className="w-full bg-slate-800/30 rounded-lg border border-slate-700/20 p-2.5">
+                            <div className="w-full bg-slate-950/50 rounded-lg border border-slate-800/80 p-2.5">
                                 <div className="flex items-center justify-between mb-1.5">
-                                    <span className="text-[12px] font-bold font-jakarta text-slate-300 uppercase tracking-wider">7D GEX Trend</span>
-                                    <span className={`text-[12px] font-black font-jakarta tabular-nums ${trendUp ? 'text-emerald-400' : 'text-red-400'}`}>
+                                    <span className="text-[9.5px] font-normal font-jakarta text-slate-500 uppercase tracking-wider">7D GEX Trend</span>
+                                    <span className={`text-[12px] font-semibold font-jakarta tabular-nums ${trendUp ? 'text-emerald-400' : 'text-red-400'}`}>
                                         {trendUp ? '▲' : '▼'} {lastVal >= 0 ? '+' : ''}{lastVal}
                                     </span>
                                 </div>
-                                <svg width="100%" height={H} viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" className="rounded">
+                                <svg width="100%" height={H} viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" className="rounded animate-fade-in">
                                     <path d={fillD} fill={fillColor} />
-                                    <path d={d} fill="none" stroke={lineColor} strokeWidth="2" strokeLinejoin="round" />
-                                    <circle cx={lastPt.x} cy={lastPt.y} r="3.5" fill={lineColor} />
+                                    <path d={d} fill="none" stroke={lineColor} strokeWidth="1.8" strokeLinejoin="round" />
+                                    <circle cx={lastPt.x} cy={lastPt.y} r="3" fill={lineColor} />
                                     {min < 0 && max > 0 && (
-                                        <line x1={PX} y1={PY + (1 - (0 - min) / range) * (H - PY * 2)} x2={W - PX} y2={PY + (1 - (0 - min) / range) * (H - PY * 2)} stroke="rgba(148,163,184,0.25)" strokeWidth="1" strokeDasharray="3 3" />
+                                        <line x1={PX} y1={PY + (1 - (0 - min) / range) * (H - PY * 2)} x2={W - PX} y2={PY + (1 - (0 - min) / range) * (H - PY * 2)} stroke="rgba(148,163,184,0.15)" strokeWidth="1" strokeDasharray="3 3" />
                                     )}
                                 </svg>
                             </div>
@@ -683,63 +747,79 @@ export default function GammaShield({ data, isMarketActive }: Props) {
                     })()}
 
                     {/* Value + Badge + Change — single line */}
-                    <div className="flex items-center gap-2.5 flex-wrap">
-                        <div className={`text-[32px] font-black font-jakarta tabular-nums leading-none ${getGexColor(gexIndex)}`}>
+                    <div className="flex items-center gap-2.5 flex-wrap mt-1">
+                        <div className={`text-[30px] font-semibold font-jakarta tabular-nums leading-none ${getGexColor(gexIndex)}`}>
                             {gexIndex >= 0 ? '+' : ''}{gexIndex}
                         </div>
-                        <div className={`text-[12px] font-bold font-jakarta px-2 py-0.5 rounded-sm border ${gexLevel === 'LONG_GAMMA' ? 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10' : gexLevel === 'SHORT_GAMMA' ? 'text-red-400 border-red-500/30 bg-red-500/10' : 'text-slate-300 border-slate-600/30 bg-slate-600/10'}`}>
-                            {gexLevel.replace('_', ' ')}
+                        <div className={`text-[10px] font-medium font-jakarta px-2 py-0.5 rounded-md border ${gexLevel === 'LONG_GAMMA' ? 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10' : gexLevel === 'SHORT_GAMMA' ? 'text-red-400 border-red-500/30 bg-red-500/10' : 'text-slate-300 border-slate-600/30 bg-slate-600/10'}`}>
+                            {gexLevel?.replace('_', ' ') || ''}
                         </div>
                         {gexChange !== null && (
-                            <span className={`text-[12px] font-black font-jakarta tabular-nums ${gexChange > 0 ? 'text-emerald-400' : gexChange < 0 ? 'text-red-400' : 'text-slate-300'}`}>
+                            <span className={`text-[11px] font-normal font-jakarta tabular-nums ${gexChange > 0 ? 'text-emerald-400' : gexChange < 0 ? 'text-red-400' : 'text-slate-300'}`}>
                                 {gexChange > 0 ? `▲${gexChange}` : gexChange < 0 ? `▼${Math.abs(gexChange)}` : '±0'} vs prev
                             </span>
                         )}
                         {histStats && (
-                            <span className={`text-[12px] font-bold font-jakarta tabular-nums ${histStats.percentile <= 25 ? 'text-amber-400' : histStats.percentile >= 75 ? 'text-emerald-400' : 'text-slate-300'}`}>
+                            <span className={`text-[11px] font-normal font-jakarta tabular-nums ${histStats.percentile <= 25 ? 'text-amber-400' : histStats.percentile >= 75 ? 'text-emerald-400' : 'text-slate-300'}`}>
                                 · {histStats.percentile}th pctl
                             </span>
                         )}
                     </div>
                 </div>
 
-                {/* ── Column 2: Squeeze Risk ── */}
-                <div className="flex flex-col items-center gap-2 border-t sm:border-t-0 sm:border-r border-slate-700/25 pt-3 sm:pt-0 px-4">
-                    <span className="text-[12px] font-bold font-jakarta tracking-[0.10em] text-slate-300 uppercase">
-                        Squeeze Risk
-                    </span>
+                {/* ── Column 2: Squeeze Risk (HUD style) ── */}
+                <div className="flex flex-col items-center gap-2 p-4 sm:p-3 relative overflow-hidden bg-slate-950/30 sm:bg-slate-950/20 rounded-xl border border-slate-800/60 sm:border-slate-800/40 shadow-inner sm:mx-4 mb-1 sm:mb-0">
+                    {/* HUD Corner Tech Decorations */}
+                    <div className="absolute top-2 left-2 w-1.5 h-1.5 border-t border-l border-cyan-500/40" />
+                    <div className="absolute top-2 right-2 w-1.5 h-1.5 border-t border-r border-cyan-500/40" />
+                    <div className="absolute bottom-2 left-2 w-1.5 h-1.5 border-b border-l border-cyan-500/40" />
+                    <div className="absolute bottom-2 right-2 w-1.5 h-1.5 border-b border-r border-cyan-500/40" />
 
-                    {/* Circular Ring */}
-                    <div className="relative">
-                        <SqueezeRing value={squeezeRisk} level={squeezeLevel} />
-                        <div className="absolute inset-0 flex flex-col items-center justify-center">
-                            <span className={`text-[24px] font-black font-jakarta tabular-nums leading-none ${getSqueezeColor(squeezeLevel)}`}>
-                                {squeezeRisk}
+                    <div className="flex items-center justify-between w-full">
+                        <span className="text-[10.5px] font-normal font-jakarta tracking-[0.12em] text-slate-400 uppercase">
+                            Squeeze Risk
+                        </span>
+                        <span className={`text-[9.5px] font-normal font-jakarta uppercase tracking-wider ${getSqueezeColor(squeezeLevel)}`}>
+                            {squeezeLevel}
+                        </span>
+                    </div>
+
+                    {/* Gauge Visual */}
+                    <div className="relative w-full flex flex-col items-center mt-1">
+                        <Gauge value={squeezeRisk} color={squeezeRisk >= 70 ? '#ef4444' : squeezeRisk >= 45 ? '#f59e0b' : squeezeRisk >= 25 ? '#fde047' : '#10b981'} size={180} />
+                        {/* Gauge Value and Badge overlay */}
+                        <div className="absolute top-[54px] flex flex-col items-center justify-center">
+                            <span className={`text-[25px] font-semibold font-jakarta tabular-nums leading-none ${getSqueezeColor(squeezeLevel)}`}>
+                                {squeezeRisk}<span className="text-[12px] font-medium text-slate-400 ml-0.5">%</span>
                             </span>
-                            <span className="text-[13px] font-jakarta text-slate-300">%</span>
+                            <span className={`text-[9px] font-medium tracking-wider uppercase font-jakarta mt-1.5 px-1.5 py-0.5 rounded-md border ${getSqueezeBadgeBg(squeezeLevel)}`}>
+                                {squeezeLevel}
+                            </span>
                         </div>
                     </div>
 
-                    {/* Level Badge */}
-                    <div className={`text-[12px] font-bold font-jakarta px-2 py-0.5 rounded-sm border ${getSqueezeBadgeBg(squeezeLevel)}`}>
-                        <span className={getSqueezeColor(squeezeLevel)}>{squeezeLevel}</span>
+                    {/* LOW/HIGH/EXTREME scales */}
+                    <div className="flex justify-between w-full max-w-[170px] text-[8.5px] text-slate-500 font-medium font-jakarta -mt-1 px-1">
+                        <span>LOW</span>
+                        <span>HIGH 45</span>
+                        <span>EXTREME 70</span>
                     </div>
 
                     {/* Threshold Distance */}
                     {squeezeRisk < 70 && (
-                        <div className="text-[12px] font-jakarta text-slate-300 text-center">
+                        <div className="text-[10.5px] font-normal font-jakarta text-slate-400 text-center mt-1 leading-snug">
                             {squeezeRisk < 45
-                                ? <span>→ <span className="text-amber-400 font-bold">HIGH</span> if +{45 - squeezeRisk}pt</span>
-                                : <span>→ <span className="text-red-400 font-bold">EXTREME</span> {`${70 - squeezeRisk}pt`}</span>
+                                ? <span>→ <span className="text-amber-400 font-semibold">HIGH</span> if +{45 - squeezeRisk}pt · compression building</span>
+                                : <span>→ <span className="text-red-400 font-semibold">EXTREME</span> if +{70 - squeezeRisk}pt · compression building</span>
                             }
                         </div>
                     )}
 
                     {/* Warning message at high levels */}
                     {squeezeRisk >= 70 && (
-                        <div className="flex items-center gap-1 mt-0.5">
+                        <div className="flex items-center gap-1 mt-1">
                             <AlertTriangle className="w-3.5 h-3.5 text-red-400 animate-pulse" />
-                            <span className="text-[12px] font-jakarta text-red-400">
+                            <span className="text-[11px] font-medium font-jakarta text-red-400">
                                 {t('squeezeWarning', locale)}
                             </span>
                         </div>
@@ -748,12 +828,12 @@ export default function GammaShield({ data, isMarketActive }: Props) {
                 </div>
 
                 {/* ── Column 3: Trigger Band ── */}
-                <div className="flex flex-col gap-1.5 border-t sm:border-t-0 border-slate-700/25 pt-3 sm:pt-0 pl-4">
+                <div className="flex flex-col gap-2 p-4 sm:p-0 sm:pl-4 border border-slate-800/60 sm:border-0 rounded-xl sm:rounded-none bg-slate-950/30 sm:bg-transparent">
                     <div className="flex items-center justify-between">
-                        <span className="text-[12px] font-bold font-jakarta tracking-[0.10em] text-slate-300 uppercase">Trigger Band</span>
-                        <span className="text-[12px] font-jakarta text-emerald-400/60">Realtime ●</span>
+                        <span className="text-[10.5px] font-normal font-jakarta tracking-[0.12em] text-slate-400 uppercase">Trigger Band</span>
+                        <span className="text-[9.5px] font-normal font-jakarta text-emerald-400/60 tracking-wider">Realtime ●</span>
                     </div>
-                    <span className="text-[12px] font-jakarta text-slate-300 -mt-1">
+                    <span className="text-[11px] font-normal font-jakarta text-slate-500 -mt-1.5">
                         S&P 500
                     </span>
                     <TriggerBand
@@ -764,12 +844,12 @@ export default function GammaShield({ data, isMarketActive }: Props) {
                     />
                     {/* Gamma Flip Point */}
                     {gammaFlipPoint && currentPrice && (
-                        <div className="flex items-center justify-between mt-1">
-                            <span className="text-[12px] font-bold font-jakarta text-amber-400/90">⚡ FLIP</span>
-                            <span className={`text-[12px] font-bold font-jakarta tabular-nums ${Math.abs(currentPrice - gammaFlipPoint) / currentPrice < 0.02 ? 'text-amber-400 animate-pulse' : 'text-slate-300'}`}>
+                        <div className="flex items-center justify-between mt-1 pt-1.5 border-t border-slate-800/80">
+                            <span className="text-[10px] font-bold font-jakarta text-amber-500/90 tracking-wider">⚡ FLIP</span>
+                            <span className={`text-[12.5px] font-semibold font-jakarta tabular-nums ${Math.abs(currentPrice - gammaFlipPoint) / currentPrice < 0.02 ? 'text-amber-400 animate-pulse' : 'text-slate-300'}`}>
                                 {gammaFlipPoint.toLocaleString()}
                             </span>
-                            <span className="text-[12px] font-jakarta text-slate-300">
+                            <span className="text-[10.5px] font-normal font-jakarta text-slate-400 tabular-nums">
                                 ({currentPrice > gammaFlipPoint ? '+' : ''}{(((currentPrice - gammaFlipPoint) / gammaFlipPoint) * 100).toFixed(1)}%)
                             </span>
                         </div>
@@ -784,101 +864,108 @@ export default function GammaShield({ data, isMarketActive }: Props) {
                         {/* Section Label */}
                         <div className="flex items-center justify-between mb-3">
                             <div className="flex items-center gap-2">
-                                <div className="w-1.5 h-1.5 rounded-full bg-cyan-400/60" />
-                                <span className="text-[12px] text-slate-300 font-bold font-jakarta uppercase tracking-widest">
+                                <div className="w-1.5 h-1.5 rounded-full bg-cyan-400/60 shadow-[0_0_6px_rgba(34,211,238,0.5)]" />
+                                <span className="text-[11.5px] text-slate-300 font-normal font-jakarta uppercase tracking-wider">
                                     Historical Context (30D)
                                 </span>
-                                <span className="text-[12px] text-slate-300 font-jakarta">· DynamoDB</span>
                             </div>
-                            <span className="text-[12px] text-cyan-400/70 font-jakarta">History ●</span>
+                            {/* Mobile Swipe Hint */}
+                            <span className="text-[9px] text-cyan-400/70 font-jakarta font-bold uppercase tracking-wider block lg:hidden animate-pulse">
+                                ← SWIPE →
+                            </span>
+                            <span className="text-[10.5px] text-slate-400 font-jakarta hidden lg:block">
+                                DynamoDB History ●
+                            </span>
                         </div>
 
-                        {/* 6 Metric Cards — Premium 3-tier structure: title → value → desc + source */}
-                        <div className="grid grid-cols-3 sm:grid-cols-6 gap-2.5">
+                        {/* 6 Metric Cards — Mobile horizontal swipe carousel, Desktop 6-column grid */}
+                        <div className="flex gap-2.5 overflow-x-auto scroll-smooth snap-x snap-mandatory scrollbar-none pb-3 px-1 lg:grid lg:grid-cols-6 lg:overflow-x-visible lg:pb-0 lg:px-0">
 
                             {/* 1. GEX 30D Percentile */}
-                            <div className="bg-slate-800/50 rounded-lg px-3 py-2.5 border border-slate-700/30 flex flex-col items-center gap-1">
-                                <span className="text-[12px] font-bold font-jakarta text-slate-300 uppercase tracking-wider">GEX 30D Pctl</span>
-                                <div className={`text-[22px] font-black font-jakarta tabular-nums leading-none ${histStats.percentile <= 25 ? 'text-amber-400' : histStats.percentile >= 75 ? 'text-emerald-400' : 'text-white'}`}>
-                                    {histStats.percentile}<span className="text-[13px] text-slate-300">th</span>
+                            <div className="bg-slate-950/20 rounded-xl px-3 py-3 border border-slate-800/80 flex flex-col gap-2 shrink-0 w-[138px] snap-start lg:w-auto lg:shrink overflow-hidden shadow-inner">
+                                <span className="text-[9px] font-normal font-jakarta text-slate-400 uppercase tracking-wider truncate text-center w-full">GEX 30D Pctl</span>
+                                <div className={`text-[18px] font-semibold font-jakarta tabular-nums leading-none text-center ${histStats.percentile <= 25 ? 'text-amber-400' : histStats.percentile >= 75 ? 'text-emerald-400' : 'text-white'}`}>
+                                    {histStats.percentile}<small className="text-[11px] font-semibold text-slate-400 ml-0.5">th</small>
                                 </div>
-                                <span className="text-[12px] text-slate-300 font-jakarta text-center leading-tight">
+                                <span className="text-[10px] text-slate-400 font-normal font-jakarta text-center leading-snug line-clamp-2 mt-auto">
                                     {locale === 'ko' ? '30일 대비 현재 감마 위치' : locale === 'ja' ? '30日基準ガンマ位置' : 'Where gamma sits vs 30-day history'}
                                 </span>
-
                             </div>
 
                             {/* 2. Current Regime Streak */}
-                            <div className="bg-slate-800/50 rounded-lg px-3 py-2.5 border border-slate-700/30 flex flex-col items-center gap-1">
-                                <span className="text-[12px] font-bold font-jakarta text-slate-300 uppercase tracking-wider">Regime Streak</span>
-                                <div className="text-[18px] font-black font-jakarta leading-none">
-                                    <span className={`${histStats.regimeLabel === 'POSITIVE' ? 'text-emerald-400' : histStats.regimeLabel === 'NEGATIVE' ? 'text-red-400' : 'text-slate-200'}`}>
+                            <div className="bg-slate-950/20 rounded-xl px-3 py-3 border border-slate-800/80 flex flex-col gap-2 shrink-0 w-[138px] snap-start lg:w-auto lg:shrink overflow-hidden shadow-inner">
+                                <span className="text-[9px] font-normal font-jakarta text-slate-400 uppercase tracking-wider truncate text-center w-full">Regime Streak</span>
+                                <div className="text-[14px] font-semibold font-jakarta leading-none text-center truncate w-full flex items-center justify-center">
+                                    <span className={`${histStats.regimeLabel === 'POSITIVE' ? 'text-emerald-400' : histStats.regimeLabel === 'NEGATIVE' ? 'text-red-400' : 'text-slate-300'}`}>
                                         {histStats.regimeLabel}
                                     </span>
-                                    <span className="text-white ml-1.5">{histStats.streak}D</span>
+                                    <small className="text-[11px] font-semibold text-slate-400 ml-1 whitespace-nowrap">{histStats.streak}D</small>
                                 </div>
-                                <span className="text-[12px] text-slate-300 font-jakarta text-center leading-tight">
+                                <span className="text-[10px] text-slate-400 font-normal font-jakarta text-center leading-snug line-clamp-2 mt-auto">
                                     {locale === 'ko' ? '현재 레짐 지속 기간' : locale === 'ja' ? '現在レジーム継続期間' : 'How long this regime has lasted'}
                                 </span>
-
                             </div>
 
                             {/* 3. Regime Shifts */}
-                            <div className="bg-slate-800/50 rounded-lg px-3 py-2.5 border border-slate-700/30 flex flex-col items-center gap-1">
-                                <span className="text-[12px] font-bold font-jakarta text-slate-300 uppercase tracking-wider">Regime Shifts</span>
-                                <div className={`text-[22px] font-black font-jakarta tabular-nums leading-none ${histStats.regimeShifts === 0 ? 'text-emerald-400' : histStats.regimeShifts >= 3 ? 'text-amber-400' : 'text-white'}`}>
+                            <div className="bg-slate-950/20 rounded-xl px-3 py-3 border border-slate-800/80 flex flex-col gap-2 shrink-0 w-[138px] snap-start lg:w-auto lg:shrink overflow-hidden shadow-inner">
+                                <span className="text-[9px] font-normal font-jakarta text-slate-400 uppercase tracking-wider truncate text-center w-full">Regime Shifts</span>
+                                <div className={`text-[18px] font-semibold font-jakarta tabular-nums leading-none text-center ${histStats.regimeShifts === 0 ? 'text-emerald-400' : histStats.regimeShifts >= 3 ? 'text-amber-400' : 'text-white'}`}>
                                     {histStats.regimeShifts}
                                 </div>
-                                <span className="text-[12px] text-slate-300 font-jakarta text-center leading-tight">
+                                <span className="text-[10px] text-slate-400 font-normal font-jakarta text-center leading-snug line-clamp-2 mt-auto">
                                     {locale === 'ko' ? '시장 안정성 / 불안정성' : locale === 'ja' ? '市場安定性 / 不安定性' : 'Market stability / instability'}
                                 </span>
-
                             </div>
 
                             {/* 4. Call Wall Hit Rate */}
-                            <div className="bg-slate-800/50 rounded-lg px-3 py-2.5 border border-slate-700/30 flex flex-col items-center gap-1">
-                                <span className="text-[12px] font-bold font-jakarta text-slate-300 uppercase tracking-wider">CW Hit Rate</span>
-                                <div className={`text-[22px] font-black font-jakarta tabular-nums leading-none ${(histStats.cwAccuracy ?? 0) >= 80 ? 'text-emerald-400' : (histStats.cwAccuracy ?? 0) >= 50 ? 'text-amber-400' : 'text-red-400'}`}>
-                                    {histStats.cwAccuracy !== null ? `${histStats.cwAccuracy}%` : '—'}
+                            <div className="bg-slate-950/20 rounded-xl px-3 py-3 border border-slate-800/80 flex flex-col gap-2 shrink-0 w-[138px] snap-start lg:w-auto lg:shrink overflow-hidden shadow-inner">
+                                <span className="text-[9px] font-normal font-jakarta text-slate-400 uppercase tracking-wider truncate text-center w-full">CW Hit Rate</span>
+                                <div className={`text-[18px] font-semibold font-jakarta tabular-nums leading-none text-center ${(histStats.cwAccuracy ?? 0) >= 80 ? 'text-emerald-400' : (histStats.cwAccuracy ?? 0) >= 50 ? 'text-amber-400' : 'text-red-400'}`}>
+                                    {histStats.cwAccuracy !== null ? (
+                                        <>{histStats.cwAccuracy}<small className="text-[11px] font-semibold text-slate-400 ml-0.5">%</small></>
+                                    ) : '—'}
                                 </div>
-                                <span className="text-[12px] text-slate-300 font-jakarta text-center leading-tight">
+                                <span className="text-[10px] text-slate-400 font-normal font-jakarta text-center leading-snug line-clamp-2 mt-auto">
                                     {histStats.cwTotal > 0 && `(${histStats.cwHit}/${histStats.cwTotal}) `}
                                     {locale === 'ko' ? '저항선 신뢰도' : locale === 'ja' ? '抵抗線信頼度' : 'Resistance reliability'}
                                 </span>
-
                             </div>
 
                             {/* 5. Put Floor Hit Rate */}
-                            <div className="bg-slate-800/50 rounded-lg px-3 py-2.5 border border-slate-700/30 flex flex-col items-center gap-1">
-                                <span className="text-[12px] font-bold font-jakarta text-slate-300 uppercase tracking-wider">PF Hit Rate</span>
-                                <div className={`text-[22px] font-black font-jakarta tabular-nums leading-none ${(histStats.pfAccuracy ?? 0) >= 80 ? 'text-emerald-400' : (histStats.pfAccuracy ?? 0) >= 50 ? 'text-amber-400' : 'text-red-400'}`}>
-                                    {histStats.pfAccuracy !== null ? `${histStats.pfAccuracy}%` : '—'}
+                            <div className="bg-slate-950/20 rounded-xl px-3 py-3 border border-slate-800/80 flex flex-col gap-2 shrink-0 w-[138px] snap-start lg:w-auto lg:shrink overflow-hidden shadow-inner">
+                                <span className="text-[9px] font-normal font-jakarta text-slate-400 uppercase tracking-wider truncate text-center w-full">PF Hit Rate</span>
+                                <div className={`text-[18px] font-semibold font-jakarta tabular-nums leading-none text-center ${(histStats.pfAccuracy ?? 0) >= 80 ? 'text-emerald-400' : (histStats.pfAccuracy ?? 0) >= 50 ? 'text-amber-400' : 'text-red-400'}`}>
+                                    {histStats.pfAccuracy !== null ? (
+                                        <>{histStats.pfAccuracy}<small className="text-[11px] font-semibold text-slate-400 ml-0.5">%</small></>
+                                    ) : '—'}
                                 </div>
-                                <span className="text-[12px] text-slate-300 font-jakarta text-center leading-tight">
+                                <span className="text-[10px] text-slate-400 font-normal font-jakarta text-center leading-snug line-clamp-2 mt-auto">
                                     {histStats.pfTotal > 0 && `(${histStats.pfHit}/${histStats.pfTotal}) `}
                                     {locale === 'ko' ? '지지선 신뢰도' : locale === 'ja' ? '支持線信頼度' : 'Support reliability'}
                                 </span>
-
                             </div>
 
                             {/* 6. Call Wall Trend */}
-                            <div className="bg-slate-800/50 rounded-lg px-3 py-2.5 border border-slate-700/30 flex flex-col items-center gap-1">
-                                <span className="text-[12px] font-bold font-jakarta text-slate-300 uppercase tracking-wider">CW Trend</span>
-                                <div className={`text-[20px] font-black font-jakarta tabular-nums leading-none ${histStats.cwTrendDir === 'up' ? 'text-cyan-400' : histStats.cwTrendDir === 'down' ? 'text-red-400' : 'text-slate-300'}`}>
+                            <div className="bg-slate-950/20 rounded-xl px-3 py-3 border border-slate-800/80 flex flex-col gap-2 shrink-0 w-[138px] snap-start lg:w-auto lg:shrink overflow-hidden shadow-inner">
+                                <span className="text-[9px] font-normal font-jakarta text-slate-400 uppercase tracking-wider truncate text-center w-full">CW Trend</span>
+                                <div className={`text-[16px] font-semibold font-jakarta tabular-nums leading-none text-center truncate w-full ${histStats.cwTrendDir === 'up' ? 'text-cyan-400' : histStats.cwTrendDir === 'down' ? 'text-red-400' : 'text-slate-300'}`}>
                                     {histStats.cwTrend !== null ? (
-                                        <>{histStats.cwTrendDir === 'up' ? '↑' : histStats.cwTrendDir === 'down' ? '↓' : '→'} {histStats.cwTrend > 0 ? '+' : ''}{histStats.cwTrend}pt</>
+                                        <>
+                                            {histStats.cwTrendDir === 'up' ? '↑' : histStats.cwTrendDir === 'down' ? '↓' : '→'}{' '}
+                                            {histStats.cwTrend > 0 ? '+' : ''}{histStats.cwTrend}
+                                            <small className="text-[11px] font-semibold text-slate-400 ml-0.5">pt</small>
+                                        </>
                                     ) : '—'}
                                 </div>
-                                <span className="text-[12px] text-slate-300 font-jakarta text-center leading-tight">
+                                <span className="text-[10px] text-slate-400 font-normal font-jakarta text-center leading-snug line-clamp-2 mt-auto">
                                     {locale === 'ko' ? '기관 포지셔닝 방향' : locale === 'ja' ? 'ディーラーポジショニング' : 'Dealer positioning direction'}
                                 </span>
-
                             </div>
 
                         </div>
 
                         {/* Disclaimer */}
-                        <div className="text-[12px] text-slate-300 text-right mt-2.5 font-jakarta italic">
+                        <div className="text-[11px] text-slate-500 text-right mt-2 font-jakarta italic">
                             {locale === 'ko' ? '실시간 구조 + 30일 히스토리 참조. 정보 제공 목적.' : locale === 'ja' ? 'ライブ構造 + 30日ヒストリカル参照。情報提供目的。' : 'Live structure + 30D historical context. Informational only.'}
                         </div>
                     </div>

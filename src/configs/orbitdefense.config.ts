@@ -14,7 +14,7 @@ export const orbitDefenseConfig: SectorConfig = {
         glow: 'shadow-[0_0_20px_rgba(14,165,233,0.15)]',
         gradient: 'from-sky-500/20 to-transparent',
     },
-    tickers: ['LMT', 'RTX', 'AXON', 'KTOS', 'LDOS', 'ASTS', 'LUNR'],
+    tickers: ['LMT', 'RTX', 'AXON', 'SPCX', 'LDOS', 'ASTS', 'LUNR'],
     apiEndpoints: {
         live: '/api/intel/orbitdefense',
         snapshot: '/api/intel/snapshot?sector=orbit_defense',

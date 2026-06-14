@@ -1,0 +1,54 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,300..900&family=JetBrains+Mono:wght@400;500;600;700;800&display=swap');
+
+:root {
+  --bg: #0b111e;
+  --bg-elev: #121926;
+  --surface-1: rgba(255,255,255,0.03);
+  --surface-2: rgba(255,255,255,0.045);
+  --surface-3: rgba(255,255,255,0.06);
+  --border: rgba(255,255,255,0.06);
+  --border-strong: rgba(255,255,255,0.10);
+  --cyan: #22d3ee;
+  --cyan-dim: rgba(34,211,238,0.14);
+  --amber: #f59e0b;
+  --amber-dim: rgba(245,158,11,0.14);
+  --green: #10b981;
+  --green-dim: rgba(16,185,129,0.14);
+  --red: #ef4444;
+  --red-dim: rgba(239,68,68,0.14);
+  --text: #f8fafc;
+  --text-dim: #e2e8f0;
+  --text-muted: #94a3b8;
+  --r-card: 12px;
+  --r-btn: 8px;
+  --r-pill: 999px;
+  --shadow: 0 4px 24px rgba(0,0,0,0.4);
+  --shadow-lg: 0 12px 48px rgba(0,0,0,0.55);
+  --glass: blur(20px) saturate(180%);
+  --f-display: 800 32px/1.05 'Inter', sans-serif;
+  --f-h1: 800 24px/1.1 'Inter', sans-serif;
+  --f-h2: 700 18px/1.2 'Inter', sans-serif;
+  --f-h3: 600 15px/1.3 'Inter', sans-serif;
+  --f-body: 400 15px/1.45 'Inter', sans-serif;
+  --f-small: 400 13px/1.4 'Inter', sans-serif;
+  --f-micro: 600 11px/1.3 'Inter', sans-serif;
+  --s1: 4px; --s2: 8px; --s3: 12px; --s4: 16px;
+  --s5: 20px; --s6: 24px; --s7: 32px; --s8: 48px;
+
+  /* 누락 폰트 토큰 — cmd.module.css가 이미 참조 중 */
+  --f-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', 'Roboto Mono', monospace;
+  --f-jakarta: 'Inter', sans-serif;
+
+  /* 글로우 토큰 — 배지/라인/CTA 공용 */
+  --glow-cyan:  0 0 12px rgba(34,211,238,0.45);
+  --glow-green: 0 0 14px rgba(16,185,129,0.45);
+  --glow-red:   0 0 14px rgba(239,68,68,0.45);
+  --glow-amber: 0 0 18px rgba(245,158,11,0.45);
+
+  /* 모션 이징 — 모든 슬라이딩/스프링 모션 공용 */
+  --ease-spring: cubic-bezier(0.22, 1, 0.36, 1);
+
+  /* 연장거래(PRE/POST) 의미색 — 하드코딩 보라색 대체 */
+  --ext-session: var(--amber);
+  --ext-session-dim: var(--amber-dim);
+}

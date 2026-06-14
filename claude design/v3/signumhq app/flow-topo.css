@@ -1,0 +1,93 @@
+/* ============================================================
+   FLOW TOPOGRAPHY MAP v2 — Bubble Constellation (mobile)
+   ============================================================ */
+
+.ft2-card { position: relative; background: #0a0e14; border: 1px solid var(--border-strong);
+  border-radius: var(--r-card); overflow: hidden; margin-bottom: 10px; box-shadow: var(--depth-3), var(--inner-glow-cyan); }
+.ft2-card.locked-target { border-color: rgba(245,158,11,0.5); box-shadow: 0 0 30px rgba(245,158,11,0.18), var(--depth-3); }
+
+.ft2-head { display: flex; align-items: center; gap: 8px; padding: 12px 13px 0; }
+.ft2-title { font: 700 11px/1 'Inter'; letter-spacing: 0.14em; color: var(--text-dim); text-transform: uppercase;
+  border-bottom: 1px solid rgba(255,255,255,0.12); padding-bottom: 5px; }
+.ft2-live { font: 800 9px/1 'Inter'; letter-spacing: 0.06em; padding: 4px 8px; border-radius: 6px;
+  background: rgba(6,78,59,0.8); color: #34d399; border: 1px solid rgba(52,211,153,0.4);
+  box-shadow: 0 0 12px rgba(52,211,153,0.25); animation: pulse 2.4s ease-in-out infinite; }
+@keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.55; } }
+
+/* map / list toggle */
+.ft2-toggle { margin-left: auto; display: flex; gap: 2px; background: rgba(255,255,255,0.04);
+  border: 1px solid var(--border); border-radius: 7px; padding: 2px; }
+.ft2-toggle button { font: 700 9px/1 'Inter'; letter-spacing: 0.08em; padding: 6px 10px; min-height: 24px;
+  border: none; border-radius: 5px; background: transparent; color: var(--text-muted); cursor: pointer; }
+.ft2-toggle button.on { background: rgba(34,211,238,0.14); color: var(--cyan); box-shadow: inset 0 0 0 1px rgba(34,211,238,0.3); }
+
+.ft2-svg { display: block; width: 100%; touch-action: manipulation; }
+
+/* constellation nodes — spring transitions on transform */
+.ft2-node { cursor: pointer; transition: transform .55s var(--ease-spring), opacity .35s ease; }
+.ft2-node.dim { opacity: 0.3; pointer-events: auto; }
+.ft2-node circle.body { transition: r .4s ease; }
+.ft2-glowring { animation: ftSpin 14s linear infinite; transform-origin: center; transform-box: fill-box; }
+@keyframes ftSpin { to { transform: rotate(360deg); } }
+
+/* flow vectors */
+.ft2-vec { stroke-dasharray: 4 7; animation: ftDash 1.4s linear infinite; }
+@keyframes ftDash { to { stroke-dashoffset: -22; } }
+
+/* sub-ticker constellation */
+.ft2-sub { animation: ftSubIn .5s var(--ease-spring) both; }
+.ft2-sub:nth-of-type(2) { animation-delay: .06s; }
+.ft2-sub:nth-of-type(3) { animation-delay: .12s; }
+@keyframes ftSubIn { from { opacity: 0; transform: scale(0.5); } to { opacity: 1; transform: scale(1); } }
+.ft2-subline { animation: ftLineIn .45s ease both; }
+@keyframes ftLineIn { from { opacity: 0; } to { opacity: 1; } }
+
+/* target locked overlay */
+.ft2-locked { position: absolute; bottom: 12px; left: 50%; transform: translateX(-50%);
+  font: 900 13px/1 'Inter'; letter-spacing: 0.15em; color: #fbbf24; pointer-events: none;
+  text-shadow: 0 0 20px rgba(245,158,11,0.6); animation: pulse 3s ease-in-out infinite; white-space: nowrap; }
+
+/* hint chip */
+.ft2-hint { position: absolute; top: 44px; right: 11px; font: 600 8.5px/1 'Inter'; letter-spacing: 0.08em;
+  color: var(--text-muted); background: rgba(5,10,20,0.8); border: 1px solid var(--border);
+  padding: 5px 8px; border-radius: 999px; pointer-events: none; }
+
+/* ── LIST VIEW ── */
+.ft2-list { padding: 10px 11px 12px; display: flex; flex-direction: column; gap: 6px; }
+.ft2-lrow { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 10px;
+  background: var(--surface-1); border: 1px solid var(--border); border-radius: 10px;
+  padding: 10px 11px; cursor: pointer; min-height: 44px;
+  transition: transform .16s var(--ease-spring), border-color .15s ease, background .15s ease; }
+.ft2-lrow:active { transform: scale(0.97); }
+.ft2-lrow.sel { border-color: rgba(34,211,238,0.4); background: rgba(34,211,238,0.05); }
+.ft2-ldot { width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center;
+  font: 800 9px/1 'Inter'; flex-shrink: 0; }
+.ft2-lmid { min-width: 0; }
+.ft2-lname { font: 700 12px/1 'Inter'; letter-spacing: 0.04em; }
+.ft2-lbar { position: relative; height: 3px; border-radius: 2px; background: rgba(255,255,255,0.07); margin-top: 6px; overflow: hidden; }
+.ft2-lbar i { position: absolute; top: 0; bottom: 0; left: 0; border-radius: 2px; }
+.ft2-ltick { font: 500 9px/1 'Inter'; color: var(--text-muted); margin-top: 5px; letter-spacing: 0.04em; }
+.ft2-lchg { font: 600 13px/1 'Inter'; font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
+
+/* ── SECTOR INTEL mini ── */
+.ft2-intel { background: radial-gradient(circle at 85% 15%, rgba(6,182,212,0.12) 0%, transparent 45%), var(--surface-1);
+  border: 1px solid var(--border); border-radius: var(--r-card); padding: 13px; margin-bottom: 10px; box-shadow: var(--depth-2); }
+.ft2-intel-title { font: 800 10px/1 'Inter'; letter-spacing: 0.15em; color: var(--cyan);
+  border-bottom: 1px solid rgba(8,145,178,0.25); padding-bottom: 8px; margin-bottom: 10px; }
+.ft2-ihead { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 10px; }
+.ft2-ihead .n { font: 700 15px/1 'Inter'; }
+.ft2-ihead .c { font: 600 15px/1 var(--f-mono); font-variant-numeric: tabular-nums; }
+.ft2-dayrow { display: flex; align-items: center; gap: 8px; margin-bottom: 5px; }
+.ft2-dayrow .dl { font: 500 9.5px/1 var(--f-mono); color: var(--text-muted); width: 24px; text-align: right; flex-shrink: 0; }
+.ft2-daytrack { position: relative; flex: 1; height: 14px; background: rgba(15,23,42,0.9); border-radius: 4px; overflow: hidden; }
+.ft2-daytrack .mid { position: absolute; left: 50%; top: 0; bottom: 0; width: 1px; background: rgba(51,65,85,0.5); }
+.ft2-daytrack .bar { position: absolute; top: 2px; bottom: 2px; border-radius: 3px; transition: all .5s ease; }
+.ft2-chips { display: flex; gap: 6px; margin-top: 10px; flex-wrap: wrap; }
+.ft2-chip { display: inline-flex; align-items: center; gap: 5px; font: 600 10px/1 var(--f-mono);
+  padding: 6px 9px; border-radius: 7px; background: var(--surface-2); border: 1px solid var(--border);
+  font-variant-numeric: tabular-nums; }
+
+@container (max-width: 374px) {
+  .ft2-hint { display: none; }
+  .ft2-lname { font-size: 11px; }
+}

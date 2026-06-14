@@ -1,45 +1,58 @@
 import type { CapacitorConfig } from '@capacitor/cli';
+import { KeyboardResize } from '@capacitor/keyboard';
 
 const config: CapacitorConfig = {
   appId: 'com.signumhq.app',
   appName: 'SIGNUM HQ',
   webDir: 'out',
 
-  // 프로덕션: signumhq.com 직접 로드 (SSR/API 라우트 전부 사용)
+  // 개발용: 로컬 Next.js 개발 서버 연동 (10.0.2.2는 에뮬레이터에서 호스트 PC를 가리키는 IP)
   server: {
-    url: 'https://signumhq.com',
-    cleartext: false,
+    url: 'http://10.0.2.2:3000',
+    cleartext: true,
+    allowNavigation: ['10.0.2.2:3000'],
   },
 
   // iOS 설정
   ios: {
     contentInset: 'always',
-    backgroundColor: '#080c14',
+    backgroundColor: '#050a14',
     scheme: 'signumhq',
     preferredContentMode: 'mobile',
   },
 
   // Android 설정
   android: {
-    backgroundColor: '#080c14',
+    backgroundColor: '#050a14',
     allowMixedContent: false,
     captureInput: true,
+    webContentsDebuggingEnabled: false,
   },
 
-  // 플러그인 설정 (추후 추가)
+  // 플러그인 설정
   plugins: {
     SplashScreen: {
       launchShowDuration: 2000,
-      backgroundColor: '#080c14',
+      launchAutoHide: false, // NativeAppProvider에서 수동 hide
+      backgroundColor: '#050a14',
       showSpinner: false,
-      launchAutoHide: true,
       androidScaleType: 'CENTER_CROP',
+      splashFullScreen: true,
+      splashImmersive: true,
     },
     StatusBar: {
       style: 'DARK',
-      backgroundColor: '#080c14',
+      backgroundColor: '#050a14',
+    },
+    Keyboard: {
+      resize: KeyboardResize.Ionic,
+      resizeOnFullScreen: true,
+    },
+    PushNotifications: {
+      presentationOptions: ['badge', 'sound', 'alert'],
     },
   },
 };
 
 export default config;
+

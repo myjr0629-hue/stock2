@@ -3948,6 +3948,8 @@
     "fomoPortfolioSignal": "AIシグナルを確認 — マシン生成の方向性見通し",
     "fomoPortfolioAction": "リアルタイム方向性分析 — AI駆動ポジションインサイト",
     "fomoPortfolioScore": "ポートフォリオグレードを確認 — 全体ヘルス評価",
+    "fomoMacroBriefing": "マクロ経済インテリジェンス・FRB金利見通しと市場流動性分析",
+    "descMacroBriefing": "FOMC FedWatch確率分布およびスマートマネー資金フローのリアルタイムデータ",
     "taglineVolRegime": "ボラティリティ・レジームの転換が戦略を決定づけます",
     "taglineConviction": "機関投資家グレードの多因子確信度スコアリング",
     "taglineIVSkew": "オプション・スキューがスマートマネーの方向を示します",

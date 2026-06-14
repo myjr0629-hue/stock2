@@ -1,0 +1,108 @@
+/* ============================================================
+   SIGNUM HQ — mobile-fit.css
+   ① 360px(좁은 Android) 컨테이너 쿼리 리팩토링 — 겹침 제로
+   ② 터치 '손맛': 스프링 프레스 모션 (전 인터랙티브 요소)
+   Load LAST.
+   ============================================================ */
+
+/* viewport = 컨테이너 쿼리 기준 (디바이스 프레임 폭) */
+.viewport { container-type: inline-size; }
+
+/* Android 프레임: 상태바가 오버레이가 아니므로 상단 패딩 축소 */
+.viewport.andr .scroll { padding-top: 14px; }
+
+/* ── ② 터치 손맛 — 스프링 프레스 ── */
+.tab, .seg button, .c2-ranges button, .c2-toggle button, .tkr-pill,
+.srch button, .vw2-cta, .unlock-btn, .modal-close, .detail-back,
+.pulse-cell, .heat-tile, .mover, .sec-card, .flow-row, .ad-cta {
+  transition: transform .16s var(--ease-spring), background .15s ease,
+              border-color .15s ease, color .15s ease, filter .15s ease;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none; -webkit-user-select: none;
+}
+.tab:active { transform: scale(0.90); }
+.seg button:active, .c2-ranges button:active, .c2-toggle button:active { transform: scale(0.93); }
+.tkr-pill:active, .ad-cta:active { transform: scale(0.93); }
+.mover:active, .pulse-cell:active { transform: scale(0.96); }
+.srch button:active { transform: scale(0.93); }
+.detail-back:active { transform: translateX(-3px); }
+
+/* 탭 활성화 시 아이콘 팝 */
+.tab.active svg { animation: tabPop .32s var(--ease-spring); }
+@keyframes tabPop { 0% { transform: scale(0.82); } 60% { transform: scale(1.12); } 100% { transform: scale(1); } }
+
+/* 무버 캐러셀 — 스냅 스크롤 */
+.movers { scroll-snap-type: x mandatory; scroll-padding-left: 2px; }
+.mover { scroll-snap-align: start; }
+.tkr-pills { scroll-snap-type: x proximity; }
+.tkr-pill { scroll-snap-align: start; }
+
+/* 모션 감수성 배려 */
+@media (prefers-reduced-motion: reduce) {
+  .tab.active svg { animation: none; }
+}
+
+/* ── ① ≤374px (Android 360 등) 컴팩트 레이아웃 ── */
+@container (max-width: 374px) {
+  .scroll { padding-left: 13px; padding-right: 13px; }
+
+  /* market pulse */
+  .pulse-grid { gap: 6px; }
+  .pulse-cell { padding: 9px 9px 7px; }
+  .pulse-cell .px { font-size: 12px; }
+  .pulse-cell .chg { font-size: 9px; }
+  .pulse-cell svg { max-width: 100%; }
+
+  /* macro board */
+  .macro-grid { gap: 6px; }
+  .macro-cell { padding: 8px 8px; }
+  .macro-cell .k { font-size: 7.5px; letter-spacing: 0.06em; }
+  .macro-cell .v { font-size: 11px; }
+
+  /* heatmap */
+  .heat-grid { gap: 5px; grid-auto-rows: 52px; }
+  .heat-tile .n { font-size: 8.5px; }
+  .heat-tile .p { font-size: 9px; }
+
+  /* price card */
+  .p2-price { font-size: 27px; }
+  .p2-chg { font-size: 10.5px; }
+  .p2-vitals { gap: 6px; }
+  .p2-vital { padding: 7px 8px; }
+  .p2-vital .v { font-size: 11.5px; }
+
+  /* segmented & ranges */
+  .seg button { font-size: 9.5px; letter-spacing: 0.05em; }
+  .nbbo2 { gap: 7px; padding: 6px 9px; }
+  .nbbo2 span { font-size: 9px; }
+  .c2-legend { gap: 9px; }
+
+  /* vault */
+  .vw2-veil { padding: 16px 14px 13px; }
+  .vw2-title { font-size: 14px; }
+  .vw2-sub { font-size: 10.5px; max-width: 230px; }
+  .vw2-cta { font-size: 13px; }
+  .vw2-teaser .val { font-size: 12px; }
+  .vw2-meta span { font-size: 9px; }
+
+  /* flow */
+  .ftab th { font-size: 7.5px; }
+  .ftab td { font-size: 9.5px; }
+  .srch input { font-size: 12px; padding: 10px 11px; }
+  .gauge-val { font-size: 23px; }
+  .fsum-grid { gap: 6px; }
+
+  /* intel */
+  .sec-ico { width: 36px; height: 36px; font-size: 17px; }
+  .sec-name { font-size: 12.5px; }
+  .sec-insight { font-size: 10.5px; }
+  .sec-perf { font-size: 11px; padding: 5px 7px; }
+
+  /* tab bar */
+  .tabbar { padding: 8px 4px 18px; }
+  .tab .tlabel { font-size: 9px; }
+
+  /* ad slot */
+  .ad-slot { height: 52px; gap: 9px; }
+  .ad-body .t { font-size: 11px; }
+}

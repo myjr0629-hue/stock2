@@ -17,7 +17,7 @@ import { useRealtimeData } from '@/providers/WebSocketProvider';
 import { Link } from '@/i18n/routing';
 import { Activity, AlertTriangle, Layers, Lock, ArrowRight } from 'lucide-react';
 
-const SmartMoneyMap = dynamic(() => import('@/components/guardian/SmartMoneyMap'), { ssr: false });
+const MobileSmartMoneyMap = dynamic(() => import('@/components/guardian/mobile/MobileSmartMoneyMap'), { ssr: false });
 
 // Sector name i18n — identical to desktop page.tsx L194-214
 type SectorLocale = 'ko' | 'en' | 'ja';
@@ -167,10 +167,11 @@ export default function MobileGuardianFlow({ data, loading, verdict, session }: 
                 )}
 
                 {isMapUnlocked ? (
-                    <SmartMoneyMap
+                    <MobileSmartMoneyMap
                         sectors={(data?.sectors || []).map((s: any) => ({
                             id: s.id, name: s.name, density: s.change,
-                            height: Math.min(2.5, Math.abs(s.change)), topTickers: [],
+                            height: Math.min(2.5, Math.abs(s.change)), 
+                            topTickers: s.topConstituents?.map((c: any) => c.symbol) || [],
                             color: s.change >= 0 ? '#10b981' : '#f43f5e'
                         }))}
                         vectors={data?.vectors || []}

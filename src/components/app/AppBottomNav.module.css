@@ -1,0 +1,58 @@
+.tabbar {
+  position: fixed;
+  bottom: 60px; /* Pushed up to sit above the AdMob banner ad */
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100%;
+  max-width: 430px;
+  display: flex;
+  align-items: center;
+  justify-content: space-around;
+  padding: 8px 0 8px; /* Safe area inset is handled by the ad at the bottom */
+  background: rgba(5, 10, 20, 0.92);
+  backdrop-filter: blur(30px) saturate(180%);
+  -webkit-backdrop-filter: blur(30px) saturate(180%);
+  border-top: 0.5px solid rgba(255, 255, 255, 0.06);
+  box-shadow: 0 -1px 0 rgba(255, 255, 255, 0.03), 0 -8px 32px rgba(0, 0, 0, 0.6);
+  z-index: 999;
+}
+
+.tab {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  background: none;
+  border: none;
+  padding: 6px 12px;
+  cursor: pointer;
+  position: relative;
+  transition: transform 0.1s ease, opacity 0.15s ease;
+  min-width: 56px;
+}
+
+.tab:active {
+  transform: scale(0.88);
+  opacity: 0.7;
+}
+
+.label {
+  font: 600 10px/1 'Inter', sans-serif;
+  letter-spacing: 0.02em;
+  color: var(--text-muted);
+  transition: color 0.2s ease;
+}
+
+.active .label {
+  color: var(--cyan);
+}
+
+.glow {
+  position: absolute;
+  bottom: 2px;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--cyan);
+  box-shadow: 0 0 6px rgba(34, 211, 238, 0.8), 0 0 12px rgba(34, 211, 238, 0.4);
+}
