@@ -48,9 +48,9 @@ const DEMO_INDICES: PulseItem[] = [
 ];
 
 const DEMO_FUTURES: PulseItem[] = [
-  { sym: 'NQ100 FUT', px: 19850.50, chg: 0.45, up: true, spark: [5, 6, 5, 7, 6, 8, 7, 8, 9] },
-  { sym: 'R2K FUT', px: 2120.40, chg: 0.15, up: true, spark: [4, 5, 6, 5, 7, 8, 7, 9, 10] },
-  { sym: 'ES FUT', px: 5490.25, chg: 0.30, up: true, spark: [5, 5, 6, 5, 7, 7, 8, 8, 9] },
+  { sym: 'NASDAQ100 F', px: 19850.50, chg: 0.45, up: true, spark: [5, 6, 5, 7, 6, 8, 7, 8, 9] },
+  { sym: 'Russell2k F', px: 2120.40, chg: 0.15, up: true, spark: [4, 5, 6, 5, 7, 8, 7, 9, 10] },
+  { sym: 'S&P500 F', px: 5490.25, chg: 0.30, up: true, spark: [5, 5, 6, 5, 7, 7, 8, 8, 9] },
 ];
 
 const DEMO_ETFS: PulseItem[] = [
@@ -166,11 +166,11 @@ function getSymBadge(sym: string) {
       return <span className={`${s.symbolBadge} ${s.qqq}`}>100</span>;
     case 'VIX':
       return <span className={`${s.symbolBadge} ${s.vix}`}>C</span>;
-    case 'NQ100 FUT':
+    case 'NASDAQ100 F':
       return <span className={`${s.symbolBadge} ${s.nasdaq}`}>FUT</span>;
-    case 'R2K FUT':
+    case 'Russell2k F':
       return <span className={`${s.symbolBadge} ${s.dow}`}>FUT</span>;
-    case 'ES FUT':
+    case 'S&P500 F':
       return <span className={`${s.symbolBadge} ${s.sp500}`}>FUT</span>;
     default:
       return null;
@@ -303,8 +303,8 @@ export default function AppDashPage() {
       return true;
     }
 
-    // 2. Futures (NQ100 FUT, ES FUT, R2K FUT, GOLD, OIL)
-    const CME_FUTURES_SYMBOLS = ['NQ100 FUT', 'R2K FUT', 'ES FUT', 'GOLD', 'OIL'];
+    // 2. Futures (NASDAQ100 F, Russell2k F, S&P500 F, GOLD, OIL)
+    const CME_FUTURES_SYMBOLS = ['NASDAQ100 F', 'RUSSELL2K F', 'S&P500 F', 'GOLD', 'OIL'];
     if (CME_FUTURES_SYMBOLS.includes(symbol)) {
       if (isFuturesClosed) return false;
       // Daily maintenance break: 5:00 PM to 6:00 PM ET (17:00 - 18:00)
@@ -416,7 +416,7 @@ export default function AppDashPage() {
             const futItems: PulseItem[] = [];
             if (f.nasdaq100) {
               futItems.push({
-                sym: 'NQ100 FUT',
+                sym: 'NASDAQ100 F',
                 px: f.nasdaq100.level ?? 19850.50,
                 chg: f.nasdaq100.chgPct ?? 0.45,
                 up: (f.nasdaq100.chgPct ?? 0) >= 0,
@@ -425,7 +425,7 @@ export default function AppDashPage() {
             }
             if (f.rut) {
               futItems.push({
-                sym: 'R2K FUT',
+                sym: 'Russell2k F',
                 px: f.rut.level ?? 2120.40,
                 chg: f.rut.chgPct ?? 0.15,
                 up: (f.rut.chgPct ?? 0) >= 0,
@@ -434,7 +434,7 @@ export default function AppDashPage() {
             }
             if (f.spx) {
               futItems.push({
-                sym: 'ES FUT',
+                sym: 'S&P500 F',
                 px: f.spx.level ?? 5490.25,
                 chg: f.spx.chgPct ?? 0.30,
                 up: (f.spx.chgPct ?? 0) >= 0,
@@ -702,7 +702,7 @@ export default function AppDashPage() {
           <div className={s.skelPulse} style={{ height: '232px' }} />
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            {/* ── Futures Row (NQ100 FUT, R2K FUT, ES FUT) ── */}
+            {/* ── Futures Row (NASDAQ100 F, Russell2k F, S&P500 F) ── */}
             <div className={s.pulseRow}>
               {futures.map((p) => (
                 <div key={p.sym} className={`${s.pulseCard} ${checkIsItemActive(p.sym) ? s.live : ''} ${p.up ? s.up : s.down}`}>
