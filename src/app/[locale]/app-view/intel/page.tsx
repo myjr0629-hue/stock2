@@ -272,8 +272,8 @@ export default function AppIntelPage() {
   const loadSectorReport = async (sectorId: string) => {
     setLoading(true);
     try {
-      // API call matching route: /api/intel/fast?sector={sectorId}
-      const res = await fetch(`/api/intel/fast?sector=${sectorId}`);
+      // API call matching route: /api/intel/snapshot?sector={sectorId}
+      const res = await fetch(`/api/intel/snapshot?sector=${sectorId}`);
       if (!res.ok) throw new Error();
       const data = await res.json();
       
@@ -300,11 +300,11 @@ export default function AppIntelPage() {
           'Enterprise IT budget renewals in progress',
           'Yield curve stabilization lowering risk premiums'
         ],
-        keyStocksData: SECTOR_CONFIGS.find(s => s.id === sectorId)?.stocks.slice(0, 3).map(sym => ({
+        keyStocksData: (SECTOR_CONFIGS.find(s => s.id === sectorId)?.stocks || []).slice(0, 3).map(sym => ({
           sym,
           grade: 'B',
           score: 58
-        })) || []
+        }))
       });
     } finally {
       setLoading(false);
