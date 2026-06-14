@@ -47,6 +47,12 @@ const DEMO_INDICES: PulseItem[] = [
   { sym: 'S&P 500', px: 5473.17, chg: 0.25, up: true, spark: [5, 5, 6, 5, 7, 7, 8, 8, 9] },
 ];
 
+const DEMO_FUTURES: PulseItem[] = [
+  { sym: 'NQ100 FUT', px: 19850.50, chg: 0.45, up: true, spark: [5, 6, 5, 7, 6, 8, 7, 8, 9] },
+  { sym: 'R2K FUT', px: 2120.40, chg: 0.15, up: true, spark: [4, 5, 6, 5, 7, 8, 7, 9, 10] },
+  { sym: 'ES FUT', px: 5490.25, chg: 0.30, up: true, spark: [5, 5, 6, 5, 7, 7, 8, 8, 9] },
+];
+
 const DEMO_ETFS: PulseItem[] = [
   { sym: 'SPY', px: 542.30, chg: 0.82, up: true, spark: [5, 5, 6, 5, 7, 8, 7, 9, 10] },
   { sym: 'QQQ', px: 470.15, chg: 1.24, up: true, spark: [4, 5, 5, 6, 6, 8, 9, 9, 11] },
@@ -160,6 +166,12 @@ function getSymBadge(sym: string) {
       return <span className={`${s.symbolBadge} ${s.qqq}`}>100</span>;
     case 'VIX':
       return <span className={`${s.symbolBadge} ${s.vix}`}>C</span>;
+    case 'NQ100 FUT':
+      return <span className={`${s.symbolBadge} ${s.nasdaq}`}>FUT</span>;
+    case 'R2K FUT':
+      return <span className={`${s.symbolBadge} ${s.dow}`}>FUT</span>;
+    case 'ES FUT':
+      return <span className={`${s.symbolBadge} ${s.sp500}`}>FUT</span>;
     default:
       return null;
   }
@@ -259,6 +271,7 @@ export default function AppDashPage() {
   const isLive = marketStatusInfo?.session === 'regular' && !marketStatusInfo?.isHoliday;
   const [loading, setLoading] = useState(true);
   const [indices, setIndices] = useState<PulseItem[]>(DEMO_INDICES);
+  const [futures, setFutures] = useState<PulseItem[]>(DEMO_FUTURES);
   const [etfs, setEtfs] = useState<PulseItem[]>(DEMO_ETFS);
   const [macro, setMacro] = useState<MacroItem[]>(DEMO_MACRO);
   const [sectors, setSectors] = useState<SectorItem[]>(DEMO_SECTORS);
@@ -266,6 +279,64 @@ export default function AppDashPage() {
   const [briefing, setBriefing] = useState<string>(DEMO_BRIEFING);
   const [volRegime, setVolRegime] = useState<{ regime: string; score: number } | null>({ regime: 'COILING', score: 38 });
   const [darkPoolFlow, setDarkPoolFlow] = useState<{ percent: number; value: number } | null>({ percent: 42.5, value: 8500000000 });
+
+  // Determine if a specific index/macro cell is currently "active" (trading hours)
+  const checkIsItemActive = (symOrLabel: string): boolean => {
+    const now = new Date();
+    // Convert to New York time (EST/EDT)
+    const etStr = now.toLocaleString('en-US', { timeZone: 'America/New_York', hour12: false });
+    const etDate = new Date(etStr);
+    const day = etDate.getDay(); // 0=Sun, 1=Mon, ..., 6=Sat
+    const hour = etDate.getHours();
+    const min = etDate.getMinutes();
+    const totalMins = hour * 60 + min;
+
+    const isFuturesClosed = 
+      (day === 5 && totalMins >= 17 * 60) || // Friday after 5 PM
+      day === 6 || // Saturday
+      (day === 0 && totalMins < 18 * 60); // Sunday before 6 PM
+
+    const symbol = symOrLabel.toUpperCase();
+
+    // 1. Crypto (BTC): always active (24/7/365)
+    if (symbol === 'BTC') {
+      return true;
+    }
+
+    // 2. Futures (NQ100 FUT, ES FUT, R2K FUT, GOLD, OIL)
+    const CME_FUTURES_SYMBOLS = ['NQ100 FUT', 'R2K FUT', 'ES FUT', 'GOLD', 'OIL'];
+    if (CME_FUTURES_SYMBOLS.includes(symbol)) {
+      if (isFuturesClosed) return false;
+      // Daily maintenance break: 5:00 PM to 6:00 PM ET (17:00 - 18:00)
+      const isMaintenanceBreak = hour === 17;
+      return !isMaintenanceBreak;
+    }
+
+    // 3. DXY (Dollar Index): Sun 8:00 PM - Fri 5:00 PM ET
+    if (symbol === 'DXY') {
+      const isDxyClosed = 
+        (day === 5 && totalMins >= 17 * 60) || // Friday after 5 PM
+        day === 6 || // Saturday
+        (day === 0 && totalMins < 20 * 60); // Sunday before 8 PM
+      return !isDxyClosed;
+    }
+
+    // 4. US 10Y (Bond Yields): Weekdays 8:00 AM - 5:00 PM ET
+    if (symbol === 'US 10Y' || symbol === 'TNX') {
+      const isWeekday = day >= 1 && day <= 5;
+      const isTradingHours = totalMins >= 8 * 60 && totalMins < 17 * 60; // 8:00 AM - 5:00 PM
+      return isWeekday && isTradingHours && !marketStatusInfo?.isHoliday;
+    }
+
+    // 5. Fear & Greed (F&G) and Yield Curve spread (2s10s)
+    if (symbol === 'F&G' || symbol === '2S10S') {
+      return false;
+    }
+
+    // 6. Regular Equities/ETFs/Sectors (DOW, NASDAQ, S&P 500, SPY, QQQ, VIX, R2K)
+    const isRegularActive = marketStatusInfo?.session === 'regular' && !marketStatusInfo?.isHoliday;
+    return isRegularActive;
+  };
 
   /* ── Fetch live data from APIs ── */
   useEffect(() => {
@@ -341,6 +412,39 @@ export default function AppDashPage() {
         // ── Build Macro Board from real data ──
         if (f) {
           try {
+            // Populate Futures Row
+            const futItems: PulseItem[] = [];
+            if (f.nasdaq100) {
+              futItems.push({
+                sym: 'NQ100 FUT',
+                px: f.nasdaq100.level ?? 19850.50,
+                chg: f.nasdaq100.chgPct ?? 0.45,
+                up: (f.nasdaq100.chgPct ?? 0) >= 0,
+                spark: DEMO_FUTURES[0].spark,
+              });
+            }
+            if (f.rut) {
+              futItems.push({
+                sym: 'R2K FUT',
+                px: f.rut.level ?? 2120.40,
+                chg: f.rut.chgPct ?? 0.15,
+                up: (f.rut.chgPct ?? 0) >= 0,
+                spark: DEMO_FUTURES[1].spark,
+              });
+            }
+            if (f.spx) {
+              futItems.push({
+                sym: 'ES FUT',
+                px: f.spx.level ?? 5490.25,
+                chg: f.spx.chgPct ?? 0.30,
+                up: (f.spx.chgPct ?? 0) >= 0,
+                spark: DEMO_FUTURES[2].spark,
+              });
+            }
+            if (futItems.length >= 2) {
+              setFutures(futItems);
+            }
+
             const macroItems: MacroItem[] = [];
 
             // US 10Y
@@ -595,13 +699,32 @@ export default function AppDashPage() {
           </div>
         </div>
         {loading ? (
-          <div className={s.skelPulse} style={{ height: '144px' }} />
+          <div className={s.skelPulse} style={{ height: '232px' }} />
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            {/* ── Futures Row (NQ100 FUT, R2K FUT, ES FUT) ── */}
+            <div className={s.pulseRow}>
+              {futures.map((p) => (
+                <div key={p.sym} className={`${s.pulseCard} ${checkIsItemActive(p.sym) ? s.live : ''} ${p.up ? s.up : s.down}`}>
+                  <div className={s.pulseCardSymRow}>
+                    {getSymBadge(p.sym)}
+                    <span className={s.pulseSym}>{p.sym}</span>
+                  </div>
+                  <span className={s.pulsePrice}>{fmtPrice(p.px)}</span>
+                  <span className={`${s.pulseChg} ${p.up ? s.pos : s.neg}`} style={{ width: 'fit-content' }}>
+                    {p.up ? '▲' : '▼'} {fmtChg(Math.abs(p.chg))}
+                  </span>
+                  <div className={s.pulseSparkline}>
+                    <Sparkline data={p.spark} up={p.up} />
+                  </div>
+                </div>
+              ))}
+            </div>
+
             {/* ── Indices Row (DOW, NASDAQ, S&P 500) ── */}
             <div className={s.pulseRow}>
               {indices.map((p) => (
-                <div key={p.sym} className={`${s.pulseCard} ${isLive ? s.live : ''} ${p.up ? s.up : s.down}`}>
+                <div key={p.sym} className={`${s.pulseCard} ${checkIsItemActive(p.sym) ? s.live : ''} ${p.up ? s.up : s.down}`}>
                   <div className={s.pulseCardSymRow}>
                     {getSymBadge(p.sym)}
                     <span className={s.pulseSym}>{p.sym}</span>
@@ -620,7 +743,7 @@ export default function AppDashPage() {
             {/* ── ETFs Row (SPY, QQQ, VIX) ── */}
             <div className={s.pulseRow}>
               {etfs.map((p) => (
-                <div key={p.sym} className={`${s.pulseCard} ${isLive ? s.live : ''} ${p.up ? s.up : s.down}`}>
+                <div key={p.sym} className={`${s.pulseCard} ${checkIsItemActive(p.sym) ? s.live : ''} ${p.up ? s.up : s.down}`}>
                   <div className={s.pulseCardSymRow}>
                     {getSymBadge(p.sym)}
                     <span className={s.pulseSym}>{p.sym}</span>
@@ -654,7 +777,7 @@ export default function AppDashPage() {
         ) : (
           <div className={s.macroGrid}>
             {macro.map((m) => (
-              <div key={m.label} className={`${s.macroCell} ${isLive ? s.live : ''}`}>
+              <div key={m.label} className={`${s.macroCell} ${checkIsItemActive(m.label) ? s.live : ''}`}>
                 <div className={s.macroLabelRow}>
                   {getMacroBadge(m.label)}
                   <span className={s.macroLabel}>{m.label}</span>
