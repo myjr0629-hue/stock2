@@ -9,7 +9,7 @@ import { saveSnapshot, getLatestSnapshot, getSnapshotByDate } from '@/lib/supaba
 import type { SnapshotData, TickerSnapshot, SectorSummary, NewsDigestItem, BriefingData } from '@/types/sector';
 import { fetchStockNews } from '@/services/newsHubProvider';
 import { callBedrock } from '@/services/bedrockClient';
-import { getFromCache } from '@/services/redisClient';
+import { getFromCache, setInCache } from '@/services/redisClient';
 import { YAHOO_CACHE_KEYS, type YahooQuote } from '@/services/yahooFinanceHub';
 
 export const maxDuration = 60;
@@ -47,6 +47,18 @@ export async function GET(request: Request) {
     }
 
     try {
+        const cacheKey = `snapshot:${sector}:${date || 'latest'}`;
+        const cached = await getFromCache<any>(cacheKey).catch(() => null);
+        if (cached) {
+            return NextResponse.json({
+                success: true,
+                snapshot: cached.data_json,
+                snapshot_date: cached.snapshot_date,
+                created_at: cached.created_at,
+                source: 'REDIS'
+            });
+        }
+
         const snapshot = date
             ? await getSnapshotByDate(sector, date)
             : await getLatestSnapshot(sector);
@@ -58,11 +70,19 @@ export async function GET(request: Request) {
             );
         }
 
+        // Cache in Redis for 10 minutes (600s)
+        await setInCache(cacheKey, {
+            data_json: snapshot.data_json,
+            snapshot_date: snapshot.snapshot_date,
+            created_at: snapshot.created_at
+        }, 600).catch(() => null);
+
         return NextResponse.json({
             success: true,
             snapshot: snapshot.data_json,
             snapshot_date: snapshot.snapshot_date,
             created_at: snapshot.created_at,
+            source: 'DB'
         });
     } catch (e: any) {
         console.error('[Snapshot API] GET error:', e);

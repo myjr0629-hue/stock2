@@ -209,7 +209,7 @@ interface SectorReportData {
   sentiment: string;
   verdict: string;
   catalysts: string[];
-  keyStocksData: { sym: string; grade: string; score: number }[];
+  keyStocksData: { sym: string; grade: string; score: number; changePct?: number }[];
 }
 
 const DEMO_REPORTS: Record<string, SectorReportData> = {
@@ -247,6 +247,89 @@ const DEMO_REPORTS: Record<string, SectorReportData> = {
 
 function toCamelCase(id: string): string {
   return id.replace(/_([a-z])/g, (g) => g[1].toUpperCase());
+}
+
+/* ═══════════════════════════════════════════════════════════
+   PREMIUM HELPERS & LOGO RESOLVER
+   ═══════════════════════════════════════════════════════════ */
+
+function StockLogo({ symbol }: { symbol: string }) {
+  const [error, setError] = useState(false);
+
+  if (error) {
+    return (
+      <div style={{
+        width: '32px',
+        height: '32px',
+        borderRadius: '50%',
+        background: 'rgba(255, 255, 255, 0.05)',
+        border: '1px solid rgba(255, 255, 255, 0.08)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        color: '#22d3ee',
+        fontWeight: 800,
+        fontSize: '12px',
+        fontFamily: 'var(--font-mono), monospace',
+        flexShrink: 0
+      }}>
+        {symbol.charAt(0)}
+      </div>
+    );
+  }
+
+  return (
+    <div style={{
+      width: '32px',
+      height: '32px',
+      borderRadius: '50%',
+      background: '#ffffff',
+      border: '1px solid rgba(255, 255, 255, 0.1)',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      padding: '4px',
+      overflow: 'hidden',
+      flexShrink: 0
+    }}>
+      <img
+        loading="lazy"
+        src={`/api/logo/${symbol}`}
+        alt={symbol}
+        style={{ width: '100%', height: '100%', objectFit: 'contain' }}
+        onError={() => setError(true)}
+      />
+    </div>
+  );
+}
+
+function formatVerdictText(text: string) {
+  if (!text) return null;
+  
+  const keywords = [
+    'accumulation', 'distribution', 'accumulate', 'distribute', 'accumulating',
+    'bullish', 'bearish', 'BULLISH', 'BEARISH', 'Bullish', 'Bearish',
+    'Buy-the-dip', 'sell-the-rally', 'Buy-the-dip regime', 'buy-the-dip',
+    'call walls', 'put floors', 'Call Wall', 'Put Floor', 'call wall', 'put floor',
+    'gamma flip', 'gamma squeeze', 'Gamma', 'gamma', 'GEX', 'OPEX', 'VIX',
+    'overbought', 'oversold',
+    // Korean keywords
+    '매집', '분산', '강세', '약세', '강세 편향', '약세 편향',
+    '감마', '감마 스퀴즈', '감마 플립', '하방 지지', '돌파', '근접', '과매도', '과매수'
+  ];
+  
+  const escapedKeywords = keywords.map(kw => kw.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&'));
+  const regex = new RegExp(`(${escapedKeywords.join('|')})`, 'g');
+  
+  const parts = text.split(regex);
+  return (
+    <>
+      {parts.map((part, i) => {
+        const isMatch = keywords.some(kw => kw.toLowerCase() === part.toLowerCase());
+        return isMatch ? <strong key={i} style={{ color: '#ffffff', fontWeight: 700 }}>{part}</strong> : part;
+      })}
+    </>
+  );
 }
 
 export default function AppIntelPage() {
@@ -311,7 +394,8 @@ export default function AppIntelPage() {
                 keyStocksData: (data.snapshot.tickers || []).map((tick: any) => ({
                   sym: tick.ticker,
                   grade: tick.grade || 'B',
-                  score: tick.alpha_score || tick.score || 55
+                  score: tick.alpha_score || tick.score || 55,
+                  changePct: tick.change_pct || 0
                 }))
               };
               setReportCache(prev => ({ ...prev, [sec.id]: newReport }));
@@ -367,7 +451,8 @@ export default function AppIntelPage() {
           keyStocksData: (data.snapshot.tickers || []).map((tick: any) => ({
             sym: tick.ticker,
             grade: tick.grade || 'B',
-            score: tick.alpha_score || tick.score || 55
+            score: tick.alpha_score || tick.score || 55,
+            changePct: tick.change_pct || 0
           }))
         };
 
@@ -778,27 +863,114 @@ export default function AppIntelPage() {
                   const sec = SECTOR_CONFIGS.find(s => s.id === selectedSector);
                   const englishName = sec ? (TRANSLATIONS.en[sec.id] || sec.id) : '';
                   const localizedName = sec ? (t[sec.id] || sec.id) : '';
+                  const descKey = sec ? `desc_${sec.id}` : '';
+                  const localizedDesc = sec ? (t[descKey] || '') : '';
+                  
+                  const avgChange = sec ? getSectorChange(sec.id) : 0;
+                  const isUp = avgChange >= 0;
+                  const badgeColor = isUp ? '#10b981' : '#ef4444';
+                  const badgeBg = isUp ? 'rgba(16, 185, 129, 0.12)' : 'rgba(239, 68, 68, 0.12)';
+                  const badgeBorder = isUp ? '1px solid rgba(16, 185, 129, 0.25)' : '1px solid rgba(239, 68, 68, 0.25)';
+                  
                   return (
                     <div className="app-card" style={{
-                      borderLeft: `4px solid ${sec?.color || 'var(--cyan)'}`,
-                      background: 'var(--surface-2)'
+                      background: 'linear-gradient(135deg, rgba(16, 28, 52, 0.65) 0%, rgba(8, 14, 28, 0.85) 100%)',
+                      borderRadius: '16px',
+                      padding: '18px 16px',
+                      border: '1px solid rgba(255,255,255,0.08)',
+                      boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.4)',
+                      backdropFilter: 'blur(20px)',
+                      WebkitBackdropFilter: 'blur(20px)',
+                      position: 'relative',
+                      overflow: 'hidden'
                     }}>
-                      <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px', flexWrap: 'wrap' }}>
-                        <span style={{ font: 'var(--f-h2)', fontWeight: 800, color: 'var(--text)' }}>
-                          {englishName}
-                        </span>
-                        {locale !== 'en' && (
-                          <span style={{ font: 'var(--f-small)', color: 'var(--text-dim)' }}>
-                            {localizedName}
-                          </span>
-                        )}
+                      {/* Left highlight strip matching sector accent color */}
+                      <div style={{
+                        position: 'absolute',
+                        left: 0,
+                        top: 0,
+                        bottom: 0,
+                        width: '4px',
+                        background: sec?.color || 'var(--cyan)'
+                      }} />
+                      
+                      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
+                        <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+                          {/* Sector Icon Wrapper */}
+                          <div style={{
+                            width: '46px',
+                            height: '46px',
+                            borderRadius: '12px',
+                            background: 'rgba(255, 255, 255, 0.02)',
+                            border: '1px solid rgba(255, 255, 255, 0.08)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            flexShrink: 0,
+                            boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.05)'
+                          }}>
+                            {sec && <SectorIcon sectorKey={toCamelCase(sec.id)} color={sec.color} size={24} />}
+                          </div>
+                          <div>
+                            <div style={{ display: 'flex', alignItems: 'baseline', gap: '6px', flexWrap: 'wrap' }}>
+                              <span style={{ font: 'var(--f-h2)', fontSize: '18px', fontWeight: 850, color: '#ffffff', letterSpacing: '-0.02em' }}>
+                                {englishName}
+                              </span>
+                              {locale !== 'en' && (
+                                <span style={{ font: 'var(--f-micro)', fontSize: '10px', color: 'rgba(255,255,255,0.4)', fontWeight: 500 }}>
+                                  {localizedName}
+                                </span>
+                              )}
+                            </div>
+                            {/* Subtitle / Description */}
+                            <div style={{ font: 'var(--f-micro)', fontSize: '10.5px', color: 'rgba(255,255,255,0.5)', marginTop: '4px', lineHeight: 1.3 }}>
+                              {localizedDesc}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Change / Return Badge */}
+                        <div style={{
+                          background: badgeBg,
+                          border: badgeBorder,
+                          borderRadius: '8px',
+                          padding: '5px 10px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          color: badgeColor,
+                          fontFamily: 'var(--font-mono), monospace',
+                          fontSize: '13px',
+                          fontWeight: 800,
+                          letterSpacing: '-0.01em',
+                          flexShrink: 0,
+                          boxShadow: '0 2px 8px rgba(0, 0, 0, 0.15)'
+                        }}>
+                          {isUp ? '+' : ''}{avgChange.toFixed(1)}%
+                        </div>
                       </div>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 12, paddingTop: 12, borderTop: '1px solid var(--border)' }}>
-                        <span style={{ font: 'var(--f-small)', color: 'var(--text-dim)' }}>{t.sentiment}</span>
+
+                      {/* Sentiment Row */}
+                      <div style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        marginTop: 14,
+                        paddingTop: 12,
+                        borderTop: '1px solid rgba(255,255,255,0.06)'
+                      }}>
+                        <span style={{ font: 'var(--f-small)', color: 'rgba(255,255,255,0.45)', fontWeight: 600, fontSize: '11px', letterSpacing: '0.05em', textTransform: 'uppercase' }}>{t.sentiment}</span>
                         <span style={{
                           font: 'var(--f-small)',
                           fontWeight: 900,
-                          color: reportData.sentiment.includes('BULL') ? 'var(--green)' : reportData.sentiment.includes('BEAR') ? 'var(--red)' : 'var(--amber)'
+                          color: reportData.sentiment.includes('BULL') ? '#10b981' : reportData.sentiment.includes('BEAR') ? '#ef4444' : '#f59e0b',
+                          background: reportData.sentiment.includes('BULL') ? 'rgba(16, 185, 129, 0.12)' : reportData.sentiment.includes('BEAR') ? 'rgba(239, 68, 68, 0.12)' : 'rgba(245, 158, 11, 0.12)',
+                          border: reportData.sentiment.includes('BULL') ? '1px solid rgba(16, 185, 129, 0.2)' : reportData.sentiment.includes('BEAR') ? '1px solid rgba(239, 68, 68, 0.2)' : '1px solid rgba(245, 158, 11, 0.2)',
+                          padding: '3px 8px',
+                          borderRadius: '6px',
+                          fontSize: '10.5px',
+                          letterSpacing: '0.08em',
+                          textTransform: 'uppercase'
                         }}>
                           {reportData.sentiment}
                         </span>
@@ -812,12 +984,22 @@ export default function AppIntelPage() {
                   const sec = SECTOR_CONFIGS.find(s => s.id === selectedSector);
                   if (!sec) return null;
                   return (
-                    <div className="app-card" style={{ borderLeft: '3px solid var(--cyan)', background: 'rgba(34,211,238,0.02)' }}>
-                      <div className="app-card-head" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <span className="app-card-title" style={{ color: 'var(--cyan)' }}>{t.commanderLogLabel}</span>
-                        <Bot className="w-4 h-4 text-cyan" style={{ color: 'var(--cyan)' }} />
+                    <div className="app-card" style={{
+                      borderLeft: '3px solid #22d3ee',
+                      background: 'linear-gradient(90deg, rgba(34, 211, 238, 0.04) 0%, rgba(5, 10, 20, 0) 100%)',
+                      borderTop: '1px solid rgba(255,255,255,0.02)',
+                      borderRight: '1px solid rgba(255,255,255,0.02)',
+                      borderBottom: '1px solid rgba(255,255,255,0.02)',
+                      borderRadius: '12px',
+                      padding: '16px'
+                    }}>
+                      <div className="app-card-head" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                        <span className="app-card-title" style={{ color: '#22d3ee', fontFamily: 'var(--font-mono), monospace', fontSize: '11px', fontWeight: 800, letterSpacing: '0.08em' }}>
+                          ~ {t.commanderLogLabel.toUpperCase()}
+                        </span>
+                        <Bot className="w-4 h-4" style={{ color: '#22d3ee' }} />
                       </div>
-                      <p style={{ font: 'var(--f-body)', color: 'var(--text)', lineHeight: 1.5, fontStyle: 'italic', fontWeight: 600 }}>
+                      <p style={{ font: 'var(--f-body)', color: 'rgba(255, 255, 255, 0.75)', lineHeight: 1.6, fontStyle: 'italic', fontWeight: 500, fontSize: '13px', margin: 0 }}>
                         "{sec.commanderLog}"
                       </p>
                     </div>
@@ -825,74 +1007,144 @@ export default function AppIntelPage() {
                 })()}
 
                 {/* AI VERDICT */}
-                <div className="app-card" style={{ borderLeft: '3px solid var(--amber)', background: 'rgba(245,158,11,0.02)' }}>
-                  <div className="app-card-head" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <span className="app-card-title" style={{ color: 'var(--amber)' }}>{t.verdict}</span>
-                    <Sparkles className="w-4 h-4 text-amber" style={{ color: 'var(--amber)' }} />
+                <div className="app-card" style={{
+                  borderLeft: '3px solid #f59e0b',
+                  background: 'linear-gradient(90deg, rgba(245, 158, 11, 0.04) 0%, rgba(5, 10, 20, 0) 100%)',
+                  borderTop: '1px solid rgba(255,255,255,0.02)',
+                  borderRight: '1px solid rgba(255,255,255,0.02)',
+                  borderBottom: '1px solid rgba(255,255,255,0.02)',
+                  borderRadius: '12px',
+                  padding: '16px'
+                }}>
+                  <div className="app-card-head" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                    <span className="app-card-title" style={{ color: '#f59e0b', fontFamily: 'var(--font-mono), monospace', fontSize: '11px', fontWeight: 800, letterSpacing: '0.08em' }}>
+                      ~ {t.verdict.toUpperCase()}
+                    </span>
+                    <Sparkles className="w-4 h-4" style={{ color: '#f59e0b' }} />
                   </div>
-                  <p style={{ font: 'var(--f-body)', color: 'var(--text)', lineHeight: 1.5 }}>
-                    {reportData.verdict}
+                  <p style={{ font: 'var(--f-body)', color: 'rgba(255, 255, 255, 0.75)', lineHeight: 1.6, fontSize: '13px', margin: 0 }}>
+                    {formatVerdictText(reportData.verdict)}
                   </p>
                 </div>
 
                 {/* KEY CATALYSTS */}
-                <div className="app-card">
-                  <div className="app-card-head">
-                    <span className="app-card-title">{t.catalysts}</span>
+                <div className="app-card" style={{
+                  background: 'rgba(255, 255, 255, 0.015)',
+                  border: '1px solid rgba(255, 255, 255, 0.04)',
+                  borderRadius: '16px',
+                  padding: '16px'
+                }}>
+                  <div className="app-card-head" style={{ marginBottom: '14px' }}>
+                    <span className="app-card-title" style={{ fontFamily: 'var(--font-mono), monospace', fontSize: '11px', fontWeight: 800, letterSpacing: '0.08em', color: 'rgba(255, 255, 255, 0.45)' }}>
+                      {t.catalysts.toUpperCase()}
+                    </span>
                   </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: 4 }}>
-                    {reportData.catalysts.map((cat, i) => (
-                      <div key={i} style={{ display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
-                        <Zap className="w-4 h-4 text-cyan" style={{ color: 'var(--cyan)', flexShrink: 0, marginTop: '2px' }} />
-                        <p style={{ font: 'var(--f-body)', color: 'var(--text-dim)', margin: 0, lineHeight: 1.3 }}>
-                          {cat}
-                        </p>
-                      </div>
-                    ))}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                    {reportData.catalysts.map((cat, i) => {
+                      const numStr = String(i + 1).padStart(2, '0');
+                      return (
+                        <div 
+                          key={i} 
+                          style={{ 
+                            display: 'flex', 
+                            gap: '14px', 
+                            alignItems: 'flex-start',
+                            paddingBottom: i < reportData.catalysts.length - 1 ? '12px' : '0',
+                            borderBottom: i < reportData.catalysts.length - 1 ? '1px solid rgba(255,255,255,0.05)' : 'none'
+                          }}
+                        >
+                          <span style={{ 
+                            fontFamily: 'var(--font-mono), monospace', 
+                            fontSize: '13px', 
+                            fontWeight: 800, 
+                            color: '#22d3ee', 
+                            width: '20px', 
+                            flexShrink: 0, 
+                            marginTop: '2px' 
+                          }}>
+                            {numStr}
+                          </span>
+                          <p style={{ 
+                            font: 'var(--f-body)', 
+                            color: 'rgba(255, 255, 255, 0.7)', 
+                            margin: 0, 
+                            lineHeight: 1.5,
+                            fontSize: '13px'
+                          }}>
+                            {cat}
+                          </p>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
 
                 {/* KEY STOCKS GRID */}
-                <div className="app-label">
-                  <span>{t.keyStocks}</span>
+                <div className="app-label" style={{
+                  fontFamily: 'var(--font-mono), monospace',
+                  fontSize: '11px',
+                  fontWeight: 800,
+                  letterSpacing: '0.08em',
+                  color: 'rgba(255, 255, 255, 0.45)',
+                  padding: '12px 16px 6px'
+                }}>
+                  <span>{t.keyStocks.toUpperCase()}</span>
                 </div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', margin: '0 var(--s4)' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', margin: '0 var(--s4)' }}>
                   {reportData.keyStocksData.map((stock) => {
-                    const gradeColor = stock.grade === 'S' ? 'var(--green)' : stock.grade === 'A' ? 'var(--cyan)' : stock.grade === 'B' ? 'var(--amber)' : 'var(--text-dim)';
+                    const gradeColor = stock.grade === 'S' ? '#10b981' : stock.grade === 'A' ? '#22d3ee' : stock.grade === 'B' ? '#f59e0b' : 'rgba(255,255,255,0.45)';
+                    const gradeBg = stock.grade === 'S' ? 'rgba(16, 185, 129, 0.08)' : stock.grade === 'A' ? 'rgba(34, 211, 238, 0.08)' : stock.grade === 'B' ? 'rgba(245, 158, 11, 0.08)' : 'rgba(255,255,255,0.02)';
+                    const gradeBorder = stock.grade === 'S' ? '1px solid rgba(16, 185, 129, 0.2)' : stock.grade === 'A' ? '1px solid rgba(34, 211, 238, 0.2)' : stock.grade === 'B' ? '1px solid rgba(245, 158, 11, 0.2)' : '1px solid rgba(255,255,255,0.06)';
+                    
+                    const changeVal = stock.changePct ?? 0;
+                    const isPositive = changeVal >= 0;
+                    const changeColor = isPositive ? '#10b981' : '#ef4444';
                     return (
                       <div
                         key={stock.sym}
                         style={{
-                          background: 'var(--surface-1)',
-                          border: '1px solid var(--border)',
-                          borderRadius: 'var(--r-btn)',
-                          padding: '12px 16px',
+                          background: 'rgba(255, 255, 255, 0.015)',
+                          border: '1px solid rgba(255, 255, 255, 0.04)',
+                          borderRadius: '12px',
+                          padding: '12px 14px',
                           display: 'flex',
                           justifyContent: 'space-between',
-                          alignItems: 'center'
+                          alignItems: 'center',
+                          boxShadow: 'inset 0 1px 0 rgba(255,255,255,0.02)'
                         }}
                       >
-                        <div>
-                          <span style={{ font: 'var(--f-h3)', fontWeight: 800, color: 'var(--text)' }}>{stock.sym}</span>
+                        {/* Left Side: Logo + Sym */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                          <StockLogo symbol={stock.sym} />
+                          <span style={{ fontSize: '15px', fontWeight: 800, color: '#ffffff', fontFamily: 'var(--font-mono), monospace', letterSpacing: '-0.01em' }}>
+                            {stock.sym}
+                          </span>
                         </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                          <div style={{ textAlign: 'right' }}>
-                            <div className="tnum" style={{ font: 'var(--f-small)', fontWeight: 700, color: 'var(--text-dim)' }}>
+
+                        {/* Right Side: Score, Change, Grade */}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+                          <div style={{ textAlign: 'right', display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                            <div className="tnum" style={{ fontFamily: 'var(--font-mono), monospace', fontWeight: 700, color: 'rgba(255,255,255,0.45)', fontSize: '11px' }}>
                               Score: {stock.score}
+                            </div>
+                            <div className="tnum" style={{ fontFamily: 'var(--font-mono), monospace', fontWeight: 800, color: changeColor, fontSize: '11px' }}>
+                              {isPositive ? '+' : ''}{changeVal.toFixed(2)}%
                             </div>
                           </div>
                           <span style={{
-                            font: 'var(--f-h2)',
+                            fontFamily: 'var(--font-mono), monospace',
                             fontWeight: 900,
                             color: gradeColor,
-                            background: 'rgba(255,255,255,0.02)',
+                            background: gradeBg,
+                            border: gradeBorder,
                             width: '32px',
                             height: '32px',
                             borderRadius: '50%',
-                            border: '1px solid rgba(255,255,255,0.05)',
                             display: 'flex',
                             alignItems: 'center',
-                            justifyContent: 'center'
+                            justifyContent: 'center',
+                            fontSize: '13px',
+                            boxShadow: '0 2px 6px rgba(0,0,0,0.1)'
                           }}>
                             {stock.grade}
                           </span>
