@@ -39,6 +39,7 @@ export interface MacroSnapshot {
         gold: MacroFactor;
         oil: MacroFactor;
         rut: MacroFactor;
+        sox: MacroFactor;
     };
     // [V45.0] Advanced Macro Indicators
     yieldCurve?: YieldCurveData;
@@ -68,7 +69,8 @@ const INITIAL_SNAPSHOT: MacroSnapshot = {
         btc: { level: null, label: "Bitcoin", source: "FAIL", status: "UNAVAILABLE", symbolUsed: "" },
         gold: { level: null, label: "Gold", source: "FAIL", status: "UNAVAILABLE", symbolUsed: "" },
         oil: { level: null, label: "Oil", source: "FAIL", status: "UNAVAILABLE", symbolUsed: "" },
-        rut: { level: null, label: "Russell 2K", source: "FAIL", status: "UNAVAILABLE", symbolUsed: "" }
+        rut: { level: null, label: "Russell 2K", source: "FAIL", status: "UNAVAILABLE", symbolUsed: "" },
+        sox: { level: null, label: "SOX", source: "FAIL", status: "UNAVAILABLE", symbolUsed: "" }
     }
 };
 

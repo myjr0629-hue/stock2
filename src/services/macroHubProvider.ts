@@ -35,6 +35,7 @@ export interface MacroSnapshot {
         gold: MacroFactor;
         oil: MacroFactor;
         sox: MacroFactor;
+        rut: MacroFactor;
     };
     fearGreed?: {
         score: number;
@@ -413,6 +414,18 @@ export async function getMacroSnapshotSSOT(): Promise<MacroSnapshot> {
         symbolUsed: "^SOX"
     };
 
+    // Russell 2000 from Yahoo RTY=F (E-mini futures)
+    const rutData = yahooData.rut;
+    const rut: MacroFactor = {
+        level: rutData.price,
+        chgPct: rutData.changePct,
+        chgAbs: rutData.change,
+        label: "Russell 2K",
+        source: rutData.source === "YAHOO" ? "MASSIVE" : rutData.source === "REDIS" ? "FRED" : "FAIL",
+        status: rutData.source !== "DEFAULT" ? "OK" : "UNAVAILABLE",
+        symbolUsed: "RTY=F"
+    };
+
     // [V7.0] US10Y: Yahoo ^TNX real-time, fallback to FED daily
     const tnxData = yahooData.tnx;
     const us10y: MacroFactor = tnxData.source !== "DEFAULT" ? {
@@ -480,7 +493,7 @@ export async function getMacroSnapshotSSOT(): Promise<MacroSnapshot> {
         fetchedAtET,
         ageSeconds: 0,
         marketStatus,
-        factors: { nasdaq100: qqq, vix: vixy, us10y, dxy, spx, btc, gold, oil, sox },
+        factors: { nasdaq100: qqq, vix: vixy, us10y, dxy, spx, btc, gold, oil, sox, rut },
         // Legacy fields
         nq: qqq.level ?? 0,
         nqChangePercent: qqq.chgPct ?? 0,

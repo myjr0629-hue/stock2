@@ -250,7 +250,7 @@ export default function GuardianDesktop() {
     const intelSectorId = selectedSectorId || data?.verdictTargetId || null;
 
     // [30s POLLING] Fetch constituent prices every 30 seconds
-    const selectedSector = data?.sectors.find(s => s.id === intelSectorId);
+    const selectedSector = data?.sectors?.find(s => s.id === intelSectorId);
     const constituentSymbols = selectedSector?.topConstituents?.map(c => c.symbol) || [];
 
     // [WS] Subscribe constituent symbols to WebSocket price stream
@@ -629,7 +629,7 @@ export default function GuardianDesktop() {
 
                                                 {/* [FLOW AI EXPLAIN] Glassmorphism Sector Insight Popover */}
                                                 {selectedSectorId && isMapUnlocked && (() => {
-                                                    const sec = data?.sectors.find(s => s.id === selectedSectorId);
+                                                    const sec = data?.sectors?.find(s => s.id === selectedSectorId);
                                                     if (!sec) return null;
                                                     const sectorName = getSectorName(sec.name, locale);
                                                     const change = sec.change;
