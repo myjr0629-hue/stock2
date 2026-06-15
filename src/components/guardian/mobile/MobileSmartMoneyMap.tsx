@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef } from 'react';
 
 // === TYPES ===
 export interface FlowVector {
@@ -305,6 +305,145 @@ export default function MobileSmartMoneyMap({
 }: MobileSmartMoneyMapProps) {
     const [focusedId, setFocusedId] = useState<string | null>(null);
 
+    // Gestures & 3D Interactive States
+    const [zoom, setZoom] = useState(1);
+    const [panX, setPanX] = useState(0);
+    const [panY, setPanY] = useState(0);
+    const [rotationAngle, setRotationAngle] = useState(0);
+    const [isDragging, setIsDragging] = useState(false);
+
+    const touchStartRef = useRef<{
+        touchCount: number;
+        startX: number;
+        startY: number;
+        startPanX: number;
+        startPanY: number;
+        startAngle: number;
+        startDistance: number;
+        startZoom: number;
+    }>({
+        touchCount: 0,
+        startX: 0,
+        startY: 0,
+        startPanX: 0,
+        startPanY: 0,
+        startAngle: 0,
+        startDistance: 0,
+        startZoom: 1
+    });
+
+    const handleTouchStart = (e: React.TouchEvent) => {
+        const touches = e.touches;
+        if (touches.length === 1) {
+            touchStartRef.current = {
+                touchCount: 1,
+                startX: touches[0].clientX,
+                startY: touches[0].clientY,
+                startPanX: panX,
+                startPanY: panY,
+                startAngle: rotationAngle,
+                startDistance: 0,
+                startZoom: zoom
+            };
+            setIsDragging(true);
+        } else if (touches.length === 2) {
+            const dx = touches[0].clientX - touches[1].clientX;
+            const dy = touches[0].clientY - touches[1].clientY;
+            const dist = Math.hypot(dx, dy);
+            touchStartRef.current = {
+                touchCount: 2,
+                startX: (touches[0].clientX + touches[1].clientX) / 2,
+                startY: (touches[0].clientY + touches[1].clientY) / 2,
+                startPanX: panX,
+                startPanY: panY,
+                startAngle: rotationAngle,
+                startDistance: dist,
+                startZoom: zoom
+            };
+            setIsDragging(true);
+        }
+    };
+
+    const handleTouchMove = (e: React.TouchEvent) => {
+        if (!isDragging) return;
+        const touches = e.touches;
+        const start = touchStartRef.current;
+
+        if (touches.length === 1 && start.touchCount === 1) {
+            const dx = touches[0].clientX - start.startX;
+            const dy = touches[0].clientY - start.startY;
+
+            // If zoomed in, drag pans the viewport. If not, drag rotates the options ring!
+            if (zoom > 1.1) {
+                setPanX(start.startPanX + dx);
+                setPanY(start.startPanY + dy);
+            } else {
+                setRotationAngle(start.startAngle + dx * 0.012);
+            }
+        } else if (touches.length === 2 && start.touchCount === 2) {
+            const dx = touches[0].clientX - touches[1].clientX;
+            const dy = touches[0].clientY - touches[1].clientY;
+            const dist = Math.hypot(dx, dy);
+
+            const factor = dist / (start.startDistance || 1);
+            const nextZoom = Math.min(3.0, Math.max(0.6, start.startZoom * factor));
+            setZoom(nextZoom);
+
+            const midX = (touches[0].clientX + touches[1].clientX) / 2;
+            const midY = (touches[0].clientY + touches[1].clientY) / 2;
+            setPanX(start.startPanX + (midX - start.startX));
+            setPanY(start.startPanY + (midY - start.startY));
+        }
+    };
+
+    const handleTouchEnd = () => {
+        setIsDragging(false);
+    };
+
+    const handleMouseDown = (e: React.MouseEvent) => {
+        touchStartRef.current = {
+            touchCount: 1,
+            startX: e.clientX,
+            startY: e.clientY,
+            startPanX: panX,
+            startPanY: panY,
+            startAngle: rotationAngle,
+            startDistance: 0,
+            startZoom: zoom
+        };
+        setIsDragging(true);
+    };
+
+    const handleMouseMove = (e: React.MouseEvent) => {
+        if (!isDragging) return;
+        const start = touchStartRef.current;
+        const dx = e.clientX - start.startX;
+        const dy = e.clientY - start.startY;
+
+        if (zoom > 1.1) {
+            setPanX(start.startPanX + dx);
+            setPanY(start.startPanY + dy);
+        } else {
+            setRotationAngle(start.startAngle + dx * 0.012);
+        }
+    };
+
+    const handleMouseUp = () => {
+        setIsDragging(false);
+    };
+
+    const handleWheel = (e: React.WheelEvent) => {
+        const nextZoom = Math.min(3.0, Math.max(0.6, zoom - e.deltaY * 0.001));
+        setZoom(nextZoom);
+    };
+
+    const handleDoubleClick = () => {
+        setZoom(1);
+        setPanX(0);
+        setPanY(0);
+        setRotationAngle(0);
+    };
+
     // Identify target sector
     const currentTargetId = targetId || (vectors.length > 0 ? vectors[0].targetId : null) || (sectors.length > 0 ? sectors[0].id : 'AI_PWR');
 
@@ -320,7 +459,7 @@ export default function MobileSmartMoneyMap({
         return [
             ...(center ? [{ ...center, x: FT_CX, y: FT_CY, isCenter: true, angle: 0 }] : []),
             ...others.map((s, i) => {
-                const angle = offset + i * step;
+                const angle = offset + i * step + rotationAngle;
                 return {
                     ...s,
                     x: FT_CX + FT_RING * Math.cos(angle),
@@ -330,7 +469,7 @@ export default function MobileSmartMoneyMap({
                 };
             })
         ];
-    }, [sectors, currentTargetId]);
+    }, [sectors, currentTargetId, rotationAngle]);
 
     const activeNodes = useMemo(() => {
         const focusedNode = nodes.find(node => node.id === focusedId);
@@ -386,7 +525,7 @@ export default function MobileSmartMoneyMap({
             )}
 
             <svg
-                className="w-full h-full select-none"
+                className="w-full h-full select-none touch-none"
                 viewBox={`0 0 ${FT_W} ${FT_H}`}
                 style={{ contentVisibility: 'auto' }}
                 onClick={(e) => {
@@ -397,6 +536,15 @@ export default function MobileSmartMoneyMap({
                         }
                     }
                 }}
+                onDoubleClick={handleDoubleClick}
+                onTouchStart={handleTouchStart}
+                onTouchMove={handleTouchMove}
+                onTouchEnd={handleTouchEnd}
+                onMouseDown={handleMouseDown}
+                onMouseMove={handleMouseMove}
+                onMouseUp={handleMouseUp}
+                onMouseLeave={handleMouseUp}
+                onWheel={handleWheel}
             >
                 <defs>
                     {/* Radial gradients for sleek glassmorphic bubbles */}
@@ -418,7 +566,15 @@ export default function MobileSmartMoneyMap({
                     </filter>
                 </defs>
 
-                {/* Concentric orbital guides */}
+                {/* 3D viewport transform wrap group */}
+                <g
+                    transform={`translate(${panX}, ${panY}) scale(${zoom})`}
+                    style={{
+                        transformOrigin: `${FT_CX}px ${FT_CY}px`,
+                        transition: isDragging ? 'none' : 'transform 0.15s ease-out'
+                    }}
+                >
+                    {/* Concentric orbital guides */}
                 <ellipse
                     cx={FT_CX}
                     cy={FT_CY}
@@ -659,6 +815,7 @@ export default function MobileSmartMoneyMap({
                         </g>
                     );
                 })}
+                </g>
             </svg>
             
             {/* Spinning CSS animation support */}
