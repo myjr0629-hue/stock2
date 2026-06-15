@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo, Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import { useLocale } from 'next-intl';
 import { useGuardian } from '@/components/guardian/GuardianProvider';
@@ -96,8 +97,10 @@ const indexFetcher = (url: string) => fetch(url).then(r => r.json());
 interface IndexQuote { price: number; changePct: number; updatedAt: string; }
 interface IndexCloseData { nasdaq: IndexQuote | null; dow: IndexQuote | null; spx: IndexQuote | null; }
 
-export default function AppGuardianPage() {
+function GuardianPageContent() {
   const locale = useLocale();
+  const searchParams = useSearchParams();
+  const tabParam = searchParams.get('tab');
   const t = useMemo(() => TRANSLATIONS[locale] || TRANSLATIONS.en, [locale]);
 
   const { data: globalData, loading, alerts, connectionMode, rlsi } = useGuardian();
@@ -106,6 +109,21 @@ export default function AppGuardianPage() {
   const { data: idxData } = useSWR<IndexCloseData>('/api/market/index-close', indexFetcher, { refreshInterval: 60000, dedupingInterval: 30000 });
   const [activeTab, setActiveTab] = useState<TabKey>('overview');
   const tabsRef = useRef<HTMLDivElement>(null);
+
+  // Sync activeTab with tabParam if provided
+  useEffect(() => {
+    if (tabParam) {
+      if (tabParam === 'reality') {
+        setActiveTab('reality');
+      } else if (tabParam === 'briefing' || tabParam === 'overview') {
+        setActiveTab('overview');
+      } else if (tabParam === 'shield') {
+        setActiveTab('shield');
+      } else if (tabParam === 'flow') {
+        setActiveTab('flow');
+      }
+    }
+  }, [tabParam]);
 
   // Macro Pill Status Helpers
   const getFgStatus = (score: number) => {
@@ -182,6 +200,7 @@ export default function AppGuardianPage() {
       color,
       sentiment: v.sentiment as 'BULLISH' | 'BEARISH' | 'NEUTRAL',
       realityInsight: v.realityInsight as string | undefined,
+      gammaInsight: v.gammaInsight as string | undefined,
     };
   }, [data]);
 
@@ -385,5 +404,18 @@ export default function AppGuardianPage() {
       {/* AD BANNER */}
       <AdBanner />
     </div>
+  );
+}
+
+export default function AppGuardianPage() {
+  return (
+    <Suspense fallback={
+      <div style={{ padding: '80px 16px 16px', textAlign: 'center' }}>
+        <h1 style={{ font: 'var(--f-h1)', color: 'var(--text)' }}>Guardian</h1>
+        <p style={{ font: 'var(--f-body)', color: 'var(--text-dim)', marginTop: 8 }}>Loading…</p>
+      </div>
+    }>
+      <GuardianPageContent />
+    </Suspense>
   );
 }

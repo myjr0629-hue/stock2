@@ -823,3 +823,283 @@
 .pulseDivider {
   display: none;
 }
+
+/* ── LIVE TERMINAL TICKER ── */
+.tickerBar {
+  background: rgba(15, 23, 42, 0.45);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-top: 1px solid rgba(255, 255, 255, 0.04);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  padding: 8px 16px;
+  margin-bottom: 12px;
+  cursor: pointer;
+  transition: background 0.2s ease;
+  user-select: none;
+}
+
+.tickerBar:hover {
+  background: rgba(15, 23, 42, 0.55);
+}
+
+.tickerContainer {
+  height: 20px;
+  overflow: hidden;
+  position: relative;
+  width: 100%;
+}
+
+.tickerContent {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  height: 100%;
+  animation: slideUpFadeIn 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.tickerBadge {
+  font: 700 9px/1 'Inter', sans-serif;
+  letter-spacing: 0.06em;
+  padding: 3px 6px;
+  border-radius: 4px;
+  text-transform: uppercase;
+}
+
+.badgeSignal {
+  color: var(--amber);
+  background: rgba(245, 158, 11, 0.08);
+  border: 1px solid rgba(245, 158, 11, 0.16);
+}
+
+.badgeEcon {
+  color: var(--cyan);
+  background: rgba(34, 211, 238, 0.08);
+  border: 1px solid rgba(34, 211, 238, 0.16);
+}
+
+.badgeBreaking {
+  color: var(--red);
+  background: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.16);
+  box-shadow: 0 0 6px rgba(239, 68, 68, 0.1);
+  animation: pulseNeon 1.5s infinite alternate ease-in-out;
+}
+
+.tickerText {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex: 1;
+}
+
+.tickerTime {
+  font: 400 11px/1 'JetBrains Mono', 'Fira Code', monospace;
+  color: var(--text-muted);
+  margin-left: auto;
+  opacity: 0.7;
+}
+
+@keyframes slideUpFadeIn {
+  0% {
+    transform: translateY(8px);
+    opacity: 0;
+  }
+  100% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+/* ── BRIEFING TAB TOGGLE & NEWS SPOTLIGHT ── */
+.briefingHeaderContainer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--s3);
+  width: 100%;
+}
+
+.briefingToggle {
+  display: flex;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 14px;
+  padding: 2px;
+}
+
+.toggleBtn {
+  border: none;
+  background: transparent;
+  color: var(--text-dim);
+  font: 700 10px/1 'Plus Jakarta Sans', sans-serif;
+  padding: 5px 10px;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.toggleBtn:active {
+  transform: scale(0.95);
+}
+
+.toggleBtnActive {
+  background: rgba(245, 158, 11, 0.15);
+  color: var(--amber);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}
+
+.briefingNewsSection {
+  margin-bottom: 14px;
+  border-bottom: 1px dashed rgba(255, 255, 255, 0.06);
+  padding-bottom: 14px;
+  width: 100%;
+}
+
+.briefingNewsHeader {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+.briefingNewsDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--cyan);
+  box-shadow: 0 0 8px var(--cyan);
+  animation: pulseDot 1.5s infinite alternate ease-in-out;
+}
+
+.briefingNewsTitle {
+  font: 800 9px/1 'Plus Jakarta Sans', sans-serif;
+  color: var(--text-muted);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.briefingNewsList {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+}
+
+.briefingNewsItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  width: 100%;
+}
+
+.briefingNewsItem:active {
+  background: rgba(255, 255, 255, 0.06);
+  transform: translateY(1px);
+}
+
+.briefingNewsHeadline {
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-dim);
+  line-height: 1.4;
+  flex: 1;
+  padding-right: 8px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-align: left;
+}
+
+.briefingNewsArrow {
+  font-size: 10px;
+  color: var(--text-muted);
+  opacity: 0.6;
+}
+
+@keyframes pulseDot {
+  0% {
+    opacity: 0.4;
+    transform: scale(0.8);
+    box-shadow: 0 0 4px var(--cyan);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1.2);
+    box-shadow: 0 0 10px var(--cyan);
+  }
+}
+
+/* ── TRANSIENT TICK FLASH ANIMATIONS ── */
+.flashUp {
+  animation: flashUpGreen 1.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.flashDown {
+  animation: flashDownRed 1.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes flashUpGreen {
+  0% {
+    box-shadow: 0 0 16px rgba(16, 185, 129, 0.45);
+    border-color: rgba(16, 185, 129, 0.6) !important;
+    background-color: rgba(16, 185, 129, 0.08) !important;
+  }
+  100% {
+    box-shadow: none;
+  }
+}
+
+@keyframes flashDownRed {
+  0% {
+    box-shadow: 0 0 16px rgba(239, 68, 68, 0.45);
+    border-color: rgba(239, 68, 68, 0.6) !important;
+    background-color: rgba(239, 68, 68, 0.08) !important;
+  }
+  100% {
+    box-shadow: none;
+  }
+}
+/* ── TOP MOVERS SWITCHER TAB STYLES ── */
+.moversToggle {
+  display: flex;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 14px;
+  padding: 2px;
+  margin-left: 10px;
+}
+
+.moverToggleBtn {
+  border: none;
+  background: transparent;
+  color: var(--text-dim);
+  font: 700 10px/1 'Plus Jakarta Sans', sans-serif;
+  padding: 5px 10px;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.moverToggleBtn:hover {
+  color: var(--text);
+}
+
+.moverToggleBtn:active {
+  transform: scale(0.95);
+}
+
+.moverToggleBtnActive {
+  background: rgba(34, 211, 238, 0.15);
+  color: var(--cyan);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+}

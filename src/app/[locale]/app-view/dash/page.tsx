@@ -1,11 +1,13 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useLocale } from 'next-intl';
+import { useRouter } from 'next/navigation';
 import { Sparkline } from '@/components/app/Sparkline';
 import { AdBanner } from '@/components/app/AdBanner';
 import { ValueWall } from '@/components/app/ValueWall';
 import { useMarketStatus } from '@/hooks/useMarketStatus';
+import { useRealtimeData } from '@/providers/WebSocketProvider';
 import s from './dash.module.css';
 
 /* ═══════════════════════════════════════════════════════════
@@ -49,8 +51,8 @@ const DEMO_INDICES: PulseItem[] = [
 
 const DEMO_FUTURES: PulseItem[] = [
   { sym: 'NASDAQ100 F', px: 19850.50, chg: 0.45, up: true, spark: [5, 6, 5, 7, 6, 8, 7, 8, 9] },
-  { sym: 'Russell2k F', px: 2120.40, chg: 0.15, up: true, spark: [4, 5, 6, 5, 7, 8, 7, 9, 10] },
   { sym: 'S&P500 F', px: 5490.25, chg: 0.30, up: true, spark: [5, 5, 6, 5, 7, 7, 8, 8, 9] },
+  { sym: 'Russell2k F', px: 2120.40, chg: 0.15, up: true, spark: [4, 5, 6, 5, 7, 8, 7, 9, 10] },
 ];
 
 const DEMO_ETFS: PulseItem[] = [
@@ -265,8 +267,22 @@ function getMacroBadge(label: string) {
    DASHBOARD PAGE
    ═══════════════════════════════════════════════════════════ */
 
+interface TickerNewsItem {
+  id: string;
+  headline: string;
+  summaryKR?: string;
+  summaryEN?: string;
+  summaryJP?: string;
+  category: string;
+  impact: string;
+  urgency: number;
+  source: string;
+  ageMinutes: number;
+}
+
 export default function AppDashPage() {
   const locale = useLocale();
+  const router = useRouter();
   const { status: marketStatusInfo } = useMarketStatus();
   const isLive = marketStatusInfo?.session === 'regular' && !marketStatusInfo?.isHoliday;
   const [loading, setLoading] = useState(true);
@@ -276,19 +292,85 @@ export default function AppDashPage() {
   const [macro, setMacro] = useState<MacroItem[]>(DEMO_MACRO);
   const [sectors, setSectors] = useState<SectorItem[]>(DEMO_SECTORS);
   const [movers, setMovers] = useState<MoverItem[]>(DEMO_MOVERS);
+  const [moverSort, setMoverSort] = useState<'value' | 'gainers' | 'losers'>('value');
+  const [moversLoading, setMoversLoading] = useState(false);
   const [briefing, setBriefing] = useState<string>(DEMO_BRIEFING);
   const [volRegime, setVolRegime] = useState<{ regime: string; score: number } | null>({ regime: 'COILING', score: 38 });
   const [darkPoolFlow, setDarkPoolFlow] = useState<{ percent: number; value: number } | null>({ percent: 42.5, value: 8500000000 });
+  const [gammaSqueeze, setGammaSqueeze] = useState<{ score: number; risk: string } | null>({ score: 34, risk: 'LOW' });
+  const [sectorRotation, setSectorRotation] = useState<{ score: number; direction: string; conviction: string } | null>({ score: 50, direction: 'NEUTRAL', conviction: 'LOW' });
+  const [newsItems, setNewsItems] = useState<TickerNewsItem[]>([]);
+  const [tickerIndex, setTickerIndex] = useState(0);
+  const [briefingMode, setBriefingMode] = useState<'briefing' | 'news'>('news');
+
+  // ── WebSocket Real-Time Integration ──
+  const wsSymbols = useMemo(() => {
+    const defaultSymbols = [
+      'XLK', 'XLE', 'XLY', 'XLB', 'XLI', 'XLF', 'XLV', 'XLU',
+      'SPY', 'QQQ', 'DIA'
+    ];
+    const moverSymbols = movers.map(m => m.sym);
+    return Array.from(new Set([...defaultSymbols, ...moverSymbols]));
+  }, [movers]);
+
+  const { prices: wsPrices, getPrice: wsGetPrice } = useRealtimeData(wsSymbols);
+  const [flashStates, setFlashStates] = useState<Record<string, 'up' | 'down'>>({});
+  const prevPricesRef = useRef<Record<string, number>>({});
+
+  useEffect(() => {
+    wsSymbols.forEach(sym => {
+      const update = wsPrices.get(sym);
+      if (update) {
+        const currentPrice = update.price;
+        const prevPrice = prevPricesRef.current[sym];
+        
+        if (prevPrice !== undefined && prevPrice > 0 && currentPrice !== prevPrice) {
+          const direction = currentPrice > prevPrice ? 'up' : 'down';
+          setFlashStates(prev => ({ ...prev, [sym]: direction }));
+          
+          // Clear the flash class after 1.2s to match keyframes
+          const timer = setTimeout(() => {
+            setFlashStates(prev => {
+              if (prev[sym] === direction) {
+                const next = { ...prev };
+                delete next[sym];
+                return next;
+              }
+              return prev;
+            });
+          }, 1200);
+        }
+        prevPricesRef.current[sym] = currentPrice;
+      }
+    });
+  }, [wsPrices, wsSymbols]);
 
   // Determine if a specific index/macro cell is currently "active" (trading hours)
   const checkIsItemActive = (symOrLabel: string): boolean => {
     const now = new Date();
-    // Convert to New York time (EST/EDT)
-    const etStr = now.toLocaleString('en-US', { timeZone: 'America/New_York', hour12: false });
-    const etDate = new Date(etStr);
-    const day = etDate.getDay(); // 0=Sun, 1=Mon, ..., 6=Sat
-    const hour = etDate.getHours();
-    const min = etDate.getMinutes();
+    // Convert to New York time parts reliably without string parsing
+    const formatter = new Intl.DateTimeFormat('en-US', {
+      timeZone: 'America/New_York',
+      hour12: false,
+      year: 'numeric',
+      month: 'numeric',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: 'numeric',
+      second: 'numeric',
+    });
+    
+    const parts = formatter.formatToParts(now);
+    const partMap = Object.fromEntries(parts.map(p => [p.type, p.value]));
+    
+    const year = parseInt(partMap.year, 10);
+    const month = parseInt(partMap.month, 10) - 1; // 0-indexed month
+    const date = parseInt(partMap.day, 10);
+    const hour = parseInt(partMap.hour, 10);
+    const min = parseInt(partMap.minute, 10);
+    
+    const nyDate = new Date(year, month, date, hour, min);
+    const day = nyDate.getDay(); // 0=Sun, 1=Mon, ..., 6=Sat
     const totalMins = hour * 60 + min;
 
     const isFuturesClosed = 
@@ -312,20 +394,17 @@ export default function AppDashPage() {
       return !isMaintenanceBreak;
     }
 
-    // 3. DXY (Dollar Index): Sun 8:00 PM - Fri 5:00 PM ET
+    // 3. DXY (Dollar Index proxy UUP): Weekdays 4:00 AM - 8:00 PM ET
     if (symbol === 'DXY') {
-      const isDxyClosed = 
-        (day === 5 && totalMins >= 17 * 60) || // Friday after 5 PM
-        day === 6 || // Saturday
-        (day === 0 && totalMins < 20 * 60); // Sunday before 8 PM
-      return !isDxyClosed;
+      const isWeekday = day >= 1 && day <= 5;
+      const isTradingHours = totalMins >= 4 * 60 && totalMins < 20 * 60; // 4:00 AM - 8:00 PM
+      return isWeekday && isTradingHours && !marketStatusInfo?.isHoliday;
     }
 
-    // 4. US 10Y (Bond Yields): Weekdays 8:00 AM - 5:00 PM ET
+    // 4. US 10Y (Bond Yields): Standard stock market hours (weekdays 9:30 AM - 4:00 PM ET)
     if (symbol === 'US 10Y' || symbol === 'TNX') {
-      const isWeekday = day >= 1 && day <= 5;
-      const isTradingHours = totalMins >= 8 * 60 && totalMins < 17 * 60; // 8:00 AM - 5:00 PM
-      return isWeekday && isTradingHours && !marketStatusInfo?.isHoliday;
+      const isRegularActive = marketStatusInfo?.session === 'regular' && !marketStatusInfo?.isHoliday;
+      return isRegularActive;
     }
 
     // 5. Fear & Greed (F&G) and Yield Curve spread (2s10s)
@@ -338,20 +417,62 @@ export default function AppDashPage() {
     return isRegularActive;
   };
 
+  /* ── Load dynamic movers ── */
+  useEffect(() => {
+    let active = true;
+    async function loadMovers(isSilent = false) {
+      if (!isSilent) {
+        setMoversLoading(true);
+      }
+      try {
+        const res = await fetch(`/api/market/movers?type=${moverSort}&limit=4`);
+        if (!res.ok) throw new Error('Failed to fetch movers');
+        const data = await res.json();
+        if (active && data.movers) {
+          const mapped: MoverItem[] = data.movers.map((t: any) => {
+            const pctVal = t.changePercent ?? 0;
+            const sign = pctVal >= 0 ? '+' : '';
+            return {
+              sym: t.ticker,
+              px: t.price ? t.price.toFixed(2) : '0.00',
+              chg: `${sign}${pctVal.toFixed(2)}%`,
+              up: pctVal >= 0,
+              spark: t.spark || [5, 6, 7, 8, 9]
+            };
+          });
+          setMovers(mapped);
+        }
+      } catch (err) {
+        console.error('Error loading movers:', err);
+      } finally {
+        if (active && !isSilent) setMoversLoading(false);
+      }
+    }
+    loadMovers(false);
+
+    // Poll every 10 seconds for real-time movers updates from cache silently
+    const interval = setInterval(() => loadMovers(true), 10000);
+
+    return () => {
+      active = false;
+      clearInterval(interval);
+    };
+  }, [moverSort]);
+
   /* ── Fetch live data from APIs ── */
   useEffect(() => {
     let cancelled = false;
 
     async function fetchAll() {
       try {
-        const [marketRes, macroRes, briefingRes, quotesRes, volRes, dpRes, indexRes] = await Promise.allSettled([
+        const [marketRes, macroRes, briefingRes, quotesRes, premiumRes, indexRes, newsRes] = await Promise.allSettled([
           fetch('/api/live/market'),
           fetch('/api/market/macro'),
           fetch(`/api/guardian/briefing?locale=${locale}`),
-          fetch('/api/live/quotes?symbols=XLK,XLE,XLY,XLB,XLI,XLF,XLV,XLU,NVDA,TSLA,AAPL,AMD,SPY,QQQ'),
-          fetch('/api/live/volatility-regime?t=SPY'),
-          fetch('/api/flow/dark-pool-trades?ticker=SPY&limit=1'),
+          fetch('/api/live/quotes?symbols=XLK,XLE,XLY,XLB,XLI,XLF,XLV,XLU,SPY,QQQ'),
+          fetch(`/api/live/premium-metrics?locale=${locale}`),
           fetch('/api/market/index-close'),
+          fetch(`/api/guardian/news-digest?locale=${locale}`),
         ]);
 
         if (cancelled) return;
@@ -423,21 +544,21 @@ export default function AppDashPage() {
                 spark: DEMO_FUTURES[0].spark,
               });
             }
-            if (f.rut) {
-              futItems.push({
-                sym: 'Russell2k F',
-                px: f.rut.level ?? 2120.40,
-                chg: f.rut.chgPct ?? 0.15,
-                up: (f.rut.chgPct ?? 0) >= 0,
-                spark: DEMO_FUTURES[1].spark,
-              });
-            }
             if (f.spx) {
               futItems.push({
                 sym: 'S&P500 F',
                 px: f.spx.level ?? 5490.25,
                 chg: f.spx.chgPct ?? 0.30,
                 up: (f.spx.chgPct ?? 0) >= 0,
+                spark: DEMO_FUTURES[1].spark,
+              });
+            }
+            if (f.rut) {
+              futItems.push({
+                sym: 'Russell2k F',
+                px: f.rut.level ?? 2120.40,
+                chg: f.rut.chgPct ?? 0.15,
+                up: (f.rut.chgPct ?? 0) >= 0,
                 spark: DEMO_FUTURES[2].spark,
               });
             }
@@ -556,22 +677,7 @@ export default function AppDashPage() {
           ];
           setSectors(mappedSectors);
 
-          // 2. Top Movers
-          const moverSymbols = ['NVDA', 'TSLA', 'AAPL', 'AMD'];
-          const mappedMovers: MoverItem[] = moverSymbols.map(sym => {
-            const quote = q[sym] || {};
-            const pctVal = quote.changePercent ?? 0;
-            const sign = pctVal >= 0 ? '+' : '';
-            const demoMover = DEMO_MOVERS.find(d => d.sym === sym);
-            return {
-              sym,
-              px: quote.price ? quote.price.toFixed(2) : (demoMover?.px ?? '0.00'),
-              chg: `${sign}${pctVal.toFixed(2)}%`,
-              up: pctVal >= 0,
-              spark: demoMover?.spark ?? [5, 6, 7, 8, 9]
-            };
-          });
-          setMovers(mappedMovers);
+          // 2. Top Movers (Handled dynamically by separate effect hook based on active toggle tab)
 
           // 3. ETFs (SPY, QQQ, VIX)
           const spyQuote = q.SPY || {};
@@ -615,21 +721,39 @@ export default function AppDashPage() {
               .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
               .split('\n')[0]; // first paragraph only for card
             if (html.length > 20) {
-              setBriefing(html);
+              // Extract only first 2 sentences for cleaner mobile display
+              const sentences = html.split('. ');
+              const summaryText = sentences.slice(0, 2).join('. ') + (sentences.length > 2 ? '.' : '');
+              setBriefing(summaryText);
             }
           }
         }
 
-        // ── Volatility Regime ──
-        if (volRes.status === 'fulfilled' && volRes.value.ok) {
-          const vData = await volRes.value.json();
-          setVolRegime({ regime: vData.regime || 'COILING', score: vData.regimeScore ?? 38 });
+        // ── Premium Metrics (Volatility Regime, Dark Pool, Squeeze Risk, Sector Rotation) ──
+        if (premiumRes.status === 'fulfilled' && premiumRes.value.ok) {
+          try {
+            const pData = await premiumRes.value.json();
+            if (pData.success) {
+              setVolRegime({ regime: pData.volatilityRegime.regime, score: pData.volatilityRegime.score });
+              setDarkPoolFlow({ percent: pData.darkPool.percent, value: pData.darkPool.volume });
+              setGammaSqueeze({ score: pData.gammaSqueeze.score, risk: pData.gammaSqueeze.risk });
+              setSectorRotation({ score: pData.sectorRotation.score, direction: pData.sectorRotation.direction, conviction: pData.sectorRotation.conviction });
+            }
+          } catch (e) {
+            console.error('[Premium Metrics Parsing Error]', e);
+          }
         }
 
-        // ── Dark Pool Flow ──
-        if (dpRes.status === 'fulfilled' && dpRes.value.ok) {
-          const dpData = await dpRes.value.json();
-          setDarkPoolFlow({ percent: dpData.darkPoolPercent ?? 42.5, value: dpData.totalDarkPoolValue ?? 8500000000 });
+        // ── News Digest (Terminal Ticker) ──
+        if (newsRes && newsRes.status === 'fulfilled' && newsRes.value.ok) {
+          try {
+            const newsData = await newsRes.value.json();
+            if (newsData && Array.isArray(newsData.items)) {
+              setNewsItems(newsData.items);
+            }
+          } catch {
+            // silent fail
+          }
         }
       } catch {
         // silently fall back to demo data
@@ -639,8 +763,24 @@ export default function AppDashPage() {
     }
 
     fetchAll();
-    return () => { cancelled = true; };
+
+    // Poll every 30 seconds for live data updates
+    const intervalId = setInterval(fetchAll, 30000);
+
+    return () => {
+      cancelled = true;
+      clearInterval(intervalId);
+    };
   }, []);
+
+  // Ticker auto-rotation: every 5 seconds
+  useEffect(() => {
+    if (newsItems.length <= 1) return;
+    const timer = setInterval(() => {
+      setTickerIndex(prev => (prev + 1) % newsItems.length);
+    }, 5000);
+    return () => clearInterval(timer);
+  }, [newsItems.length]);
 
   /* ── Render ── */
   return (
@@ -680,6 +820,51 @@ export default function AppDashPage() {
           </button>
         </div>
       </header>
+
+      {/* ══════════════ LIVE TERMINAL TICKER ══════════════ */}
+      {newsItems.length > 0 && (
+        <div className={s.tickerBar} onClick={() => router.push('/app-view/guardian?tab=reality')}>
+          <div className={s.tickerContainer}>
+            {newsItems.map((item, idx) => {
+              if (idx !== tickerIndex) return null;
+
+              const isBreaking = item.urgency >= 8;
+              let badgeColor = s.badgeSignal;
+              let badgeText = locale === 'ko' ? '시그널' : 'SIGNAL';
+
+              if (item.category === 'MACRO' || item.category === 'US_MARKET' || item.category === 'GLOBAL') {
+                badgeColor = s.badgeEcon;
+                badgeText = locale === 'ko' ? '지표' : 'ECON';
+              }
+              if (isBreaking) {
+                badgeColor = s.badgeBreaking;
+                badgeText = locale === 'ko' ? '속보' : 'BREAKING';
+              }
+
+              let displayHeadline = item.headline;
+              if (locale === 'ko' && item.summaryKR) {
+                displayHeadline = item.summaryKR;
+              } else if (locale === 'ja' && item.summaryJP) {
+                displayHeadline = item.summaryJP;
+              } else if (item.summaryEN) {
+                displayHeadline = item.summaryEN;
+              }
+
+              return (
+                <div key={item.id} className={s.tickerContent}>
+                  <span className={`${s.tickerBadge} ${badgeColor}`}>{badgeText}</span>
+                  <span className={s.tickerText}>{displayHeadline}</span>
+                  <span className={s.tickerTime}>
+                    {item.ageMinutes < 60
+                      ? `${item.ageMinutes}m`
+                      : `${Math.round(item.ageMinutes / 60)}h`}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* ══════════════ MARKET PULSE ══════════════ */}
       <div className={s.card}>
@@ -723,42 +908,69 @@ export default function AppDashPage() {
 
             {/* ── Indices Row (DOW, NASDAQ, S&P 500) ── */}
             <div className={s.pulseRow}>
-              {indices.map((p) => (
-                <div key={p.sym} className={`${s.pulseCard} ${checkIsItemActive(p.sym) ? s.live : ''} ${p.up ? s.up : s.down}`}>
-                  <div className={s.pulseCardSymRow}>
-                    {getSymBadge(p.sym)}
-                    <span className={s.pulseSym}>{p.sym}</span>
+              {indices.map((p) => {
+                const proxySym = p.sym === 'DOW' ? 'DIA'
+                               : p.sym === 'NASDAQ' ? 'QQQ'
+                               : p.sym === 'S&P 500' ? 'SPY'
+                               : '';
+                const wsData = wsGetPrice(proxySym);
+                
+                // Overlay change if available
+                const displayChg = wsData && wsData.changePct != null ? wsData.changePct : p.chg;
+                const isUp = displayChg >= 0;
+                
+                // Flash animation class
+                const flashClass = wsData ? (flashStates[proxySym] === 'up' ? s.flashUp : flashStates[proxySym] === 'down' ? s.flashDown : '') : '';
+
+                return (
+                  <div key={p.sym} className={`${s.pulseCard} ${checkIsItemActive(p.sym) ? s.live : ''} ${isUp ? s.up : s.down} ${flashClass}`}>
+                    <div className={s.pulseCardSymRow}>
+                      {getSymBadge(p.sym)}
+                      <span className={s.pulseSym}>{p.sym}</span>
+                    </div>
+                    <span className={s.pulsePrice}>{fmtPrice(p.px)}</span>
+                    <span className={`${s.pulseChg} ${isUp ? s.pos : s.neg}`} style={{ width: 'fit-content' }}>
+                      {isUp ? '▲' : '▼'} {fmtChg(Math.abs(displayChg))}
+                    </span>
+                    <div className={s.pulseSparkline}>
+                      <Sparkline data={p.spark} up={isUp} />
+                    </div>
                   </div>
-                  <span className={s.pulsePrice}>{fmtPrice(p.px)}</span>
-                  <span className={`${s.pulseChg} ${p.up ? s.pos : s.neg}`} style={{ width: 'fit-content' }}>
-                    {p.up ? '▲' : '▼'} {fmtChg(Math.abs(p.chg))}
-                  </span>
-                  <div className={s.pulseSparkline}>
-                    <Sparkline data={p.spark} up={p.up} />
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
 
             {/* ── ETFs Row (SPY, QQQ, VIX) ── */}
             <div className={s.pulseRow}>
-              {etfs.map((p) => (
-                <div key={p.sym} className={`${s.pulseCard} ${checkIsItemActive(p.sym) ? s.live : ''} ${p.up ? s.up : s.down}`}>
-                  <div className={s.pulseCardSymRow}>
-                    {getSymBadge(p.sym)}
-                    <span className={s.pulseSym}>{p.sym}</span>
+              {etfs.map((p) => {
+                const wsData = wsGetPrice(p.sym);
+                
+                // Overlay price & change if available
+                const displayPx = wsData && wsData.price > 0 ? wsData.price : p.px;
+                const displayChg = wsData && wsData.changePct != null ? wsData.changePct : p.chg;
+                const isUp = displayChg >= 0;
+                
+                // Flash animation class
+                const flashClass = wsData ? (flashStates[p.sym] === 'up' ? s.flashUp : flashStates[p.sym] === 'down' ? s.flashDown : '') : '';
+
+                return (
+                  <div key={p.sym} className={`${s.pulseCard} ${checkIsItemActive(p.sym) ? s.live : ''} ${isUp ? s.up : s.down} ${flashClass}`}>
+                    <div className={s.pulseCardSymRow}>
+                      {getSymBadge(p.sym)}
+                      <span className={s.pulseSym}>{p.sym}</span>
+                    </div>
+                    <span className={s.pulsePrice}>
+                      {p.sym === 'VIX' ? displayPx.toFixed(2) : `$${fmtPrice(displayPx)}`}
+                    </span>
+                    <span className={`${s.pulseChg} ${isUp ? s.pos : s.neg}`} style={{ width: 'fit-content' }}>
+                      {isUp ? '▲' : '▼'} {fmtChg(Math.abs(displayChg))}
+                    </span>
+                    <div className={s.pulseSparkline}>
+                      <Sparkline data={p.spark} up={isUp} />
+                    </div>
                   </div>
-                  <span className={s.pulsePrice}>
-                    {p.sym === 'VIX' ? p.px.toFixed(2) : `$${fmtPrice(p.px)}`}
-                  </span>
-                  <span className={`${s.pulseChg} ${p.up ? s.pos : s.neg}`} style={{ width: 'fit-content' }}>
-                    {p.up ? '▲' : '▼'} {fmtChg(Math.abs(p.chg))}
-                  </span>
-                  <div className={s.pulseSparkline}>
-                    <Sparkline data={p.spark} up={p.up} />
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         )}
@@ -811,21 +1023,36 @@ export default function AppDashPage() {
           <div className={s.skelSector} />
         ) : (
           <div className={s.sectorGrid}>
-            {sectors.map((sec) => (
-              <div
-                key={sec.name}
-                className={s.sectorCell}
-                style={{
-                  background: heatBg(sec.pct),
-                  borderColor: heatBorder(sec.pct),
-                }}
-              >
-                <span className={s.sectorName}>{sec.name}</span>
-                <span className={`${s.sectorPct} ${sec.pct >= 0 ? s.pos : s.neg}`}>
-                  {sec.pct >= 0 ? '+' : ''}{sec.pct.toFixed(1)}%
-                </span>
-              </div>
-            ))}
+            {sectors.map((sec) => {
+              const symbol = sec.name === 'Tech' ? 'XLK'
+                           : sec.name === 'Energy' ? 'XLE'
+                           : sec.name === 'Cons. Disc' ? 'XLY'
+                           : sec.name === 'Materials' ? 'XLB'
+                           : sec.name === 'Industrials' ? 'XLI'
+                           : sec.name === 'Finance' ? 'XLF'
+                           : sec.name === 'Healthcare' ? 'XLV'
+                           : sec.name === 'Utilities' ? 'XLU'
+                           : '';
+              const wsData = wsGetPrice(symbol);
+              const displayPct = wsData && wsData.changePct != null ? wsData.changePct : sec.pct;
+              const flashClass = wsData ? (flashStates[symbol] === 'up' ? s.flashUp : flashStates[symbol] === 'down' ? s.flashDown : '') : '';
+
+              return (
+                <div
+                  key={sec.name}
+                  className={`${s.sectorCell} ${flashClass}`}
+                  style={{
+                    background: heatBg(displayPct),
+                    borderColor: heatBorder(displayPct),
+                  }}
+                >
+                  <span className={s.sectorName}>{sec.name}</span>
+                  <span className={`${s.sectorPct} ${displayPct >= 0 ? s.pos : s.neg}`}>
+                    {displayPct >= 0 ? '+' : ''}{displayPct.toFixed(1)}%
+                  </span>
+                </div>
+              );
+            })}
           </div>
         )}
       </div>
@@ -837,15 +1064,118 @@ export default function AppDashPage() {
         </div>
       ) : (
         <div className={s.briefingCard}>
-          <div className={s.briefingHeader}>
-            <span className={s.briefingIcon}>✨</span>
-            <span className={s.briefingTitle}>AI MORNING BRIEFING</span>
+          <div className={s.briefingHeaderContainer}>
+            <div className={s.briefingHeader} style={{ marginBottom: 0 }}>
+              <span className={s.briefingIcon}>✨</span>
+              <span className={s.briefingTitle}>
+                {briefingMode === 'briefing' 
+                  ? (locale === 'ko' ? 'AI 모닝브리핑' : locale === 'ja' ? 'AI モーニングブリーフィング' : 'AI MORNING BRIEFING')
+                  : (locale === 'ko' ? '실시간 뉴스펄스' : locale === 'ja' ? 'リアルタイム・ニュース' : 'LIVE NEWS PULSE')}
+              </span>
+            </div>
+            
+            {/* Pill Toggle Switch */}
+            <div className={s.briefingToggle}>
+              <button 
+                className={`${s.toggleBtn} ${briefingMode === 'briefing' ? s.toggleBtnActive : ''}`}
+                onClick={() => setBriefingMode('briefing')}
+              >
+                {locale === 'ko' ? '브리핑' : locale === 'ja' ? '要約' : 'Brief'}
+              </button>
+              <button 
+                className={`${s.toggleBtn} ${briefingMode === 'news' ? s.toggleBtnActive : ''}`}
+                onClick={() => setBriefingMode('news')}
+              >
+                {locale === 'ko' ? '실시간' : locale === 'ja' ? 'ニュース' : 'Live'}
+              </button>
+            </div>
           </div>
-          <div
-            className={s.briefingBody}
-            dangerouslySetInnerHTML={{ __html: briefing }}
-          />
-          <div className={s.briefingCta}>Read Full Report →</div>
+
+          {briefingMode === 'briefing' ? (
+            <>
+              {/* Live News Spotlight (Top 2 items) - MOVED ABOVE briefingBody */}
+              {newsItems.length > 0 && (
+                <div className={s.briefingNewsSection} style={{ marginTop: '8px' }}>
+                  <div className={s.briefingNewsHeader}>
+                    <div className={s.briefingNewsDot} />
+                    <span className={s.briefingNewsTitle}>
+                      {locale === 'ko' ? '실시간 주요 속보' : locale === 'ja' ? 'リアルタイム速報' : 'LIVE MARKET SPOTLIGHT'}
+                    </span>
+                  </div>
+                  <div className={s.briefingNewsList}>
+                    {newsItems.slice(0, 2).map((item) => {
+                      let displayHeadline = item.headline;
+                      if (locale === 'ko' && item.summaryKR) {
+                        displayHeadline = item.summaryKR;
+                      } else if (locale === 'ja' && item.summaryJP) {
+                        displayHeadline = item.summaryJP;
+                      } else if (item.summaryEN) {
+                        displayHeadline = item.summaryEN;
+                      }
+
+                      return (
+                        <div 
+                          key={item.id} 
+                          className={s.briefingNewsItem}
+                          onClick={() => router.push('/app-view/guardian?tab=reality')}
+                        >
+                          <span className={s.briefingNewsHeadline}>{displayHeadline}</span>
+                          <span className={s.briefingNewsArrow}>→</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              <div
+                className={s.briefingBody}
+                style={{ fontSize: '13.5px', lineHeight: '1.55' }}
+                dangerouslySetInnerHTML={{ __html: briefing }}
+              />
+
+              <div className={s.briefingCta} onClick={() => router.push('/app-view/guardian?tab=briefing')}>
+                {locale === 'ko' ? '전체 리포트 읽기 →' : locale === 'ja' ? 'レポート全文を読む →' : 'Read Full Report →'}
+              </div>
+            </>
+          ) : (
+            <>
+              {/* Full news items list in card - SHOWN 5 ITEMS */}
+              <div className={s.briefingNewsList} style={{ marginTop: '8px' }}>
+                {newsItems.slice(0, 5).map((item) => {
+                  let displayHeadline = item.headline;
+                  if (locale === 'ko' && item.summaryKR) {
+                    displayHeadline = item.summaryKR;
+                  } else if (locale === 'ja' && item.summaryJP) {
+                    displayHeadline = item.summaryJP;
+                  } else if (item.summaryEN) {
+                    displayHeadline = item.summaryEN;
+                  }
+
+                  return (
+                    <div 
+                      key={item.id} 
+                      className={s.briefingNewsItem}
+                      onClick={() => router.push('/app-view/guardian?tab=reality')}
+                      style={{ padding: '10px 14px' }}
+                    >
+                      <span className={s.briefingNewsHeadline} style={{ fontSize: '12px' }}>{displayHeadline}</span>
+                      <span className={s.briefingNewsArrow}>→</span>
+                    </div>
+                  );
+                })}
+                {newsItems.length === 0 && (
+                  <div style={{ color: 'var(--text-muted)', fontSize: '12px', padding: '16px 0', textAlign: 'center' }}>
+                    {locale === 'ko' ? '수신된 뉴스가 없습니다.' : locale === 'ja' ? '受信したニュースはありません。' : 'No recent news bulletins.'}
+                  </div>
+                )}
+              </div>
+              
+              <div className={s.briefingCta} onClick={() => router.push('/app-view/guardian?tab=reality')}>
+                {locale === 'ko' ? '시장 모니터 현황 보기 →' : locale === 'ja' ? '市場現況を見る →' : 'View Live Market Monitor →'}
+              </div>
+            </>
+          )}
         </div>
       )}
 
@@ -855,12 +1185,13 @@ export default function AppDashPage() {
           title="Institutional Pulse"
           subtitle={<>Volatility regime + dark-pool flow map, updating <span style={{ color: 'var(--amber)' }}><b>right now</b></span>.</>}
           teaser={{
-            label: 'VOL REGIME · 1 OF 4 FREE',
+            label: 'INSTITUTIONAL · 1 OF 4 FREE',
             value: volRegime?.regime || 'COILING'
           }}
           socialProof="14.2K unlocked today"
           lockedPreview={
-            <div className={s.instPulseGrid} style={{ opacity: 0.15, padding: '16px', filter: 'blur(2px)' }} aria-hidden="true">
+            <div className={s.instPulseGrid} style={{ opacity: 0.12, padding: '16px', filter: 'blur(2.5px)', gap: '12px' }} aria-hidden="true">
+              {/* 1 */}
               <div className={s.instCell}>
                 <span className={s.instLabel}>Volatility Regime</span>
                 <div className={s.instValRow}>
@@ -871,6 +1202,7 @@ export default function AppDashPage() {
                   <div className={s.instFill} style={{ width: '38%', background: 'var(--cyan)' }} />
                 </div>
               </div>
+              {/* 2 */}
               <div className={s.instCell}>
                 <span className={s.instLabel}>Dark Pool Volume</span>
                 <div className={s.instValRow}>
@@ -881,46 +1213,153 @@ export default function AppDashPage() {
                   <div className={s.instFill} style={{ width: '42.5%', background: 'var(--green)' }} />
                 </div>
               </div>
+              {/* 3 */}
+              <div className={s.instCell}>
+                <span className={s.instLabel}>Squeeze Risk</span>
+                <div className={s.instValRow}>
+                  <span className={s.instVal}>LOW</span>
+                  <span className={s.instSub}>34%</span>
+                </div>
+                <div className={s.instTrack}>
+                  <div className={s.instFill} style={{ width: '34%', background: '#ec4899' }} />
+                </div>
+              </div>
+              {/* 4 */}
+              <div className={s.instCell}>
+                <span className={s.instLabel}>Rotation Intensity</span>
+                <div className={s.instValRow}>
+                  <span className={s.instVal}>NEUTRAL</span>
+                  <span className={s.instSub}>50%</span>
+                </div>
+                <div className={s.instTrack}>
+                  <div className={s.instFill} style={{ width: '50%', background: 'var(--amber)' }} />
+                </div>
+              </div>
             </div>
           }
         >
           {loading ? (
-            <div style={{ height: '84px', background: 'rgba(255,255,255,0.02)', borderRadius: '8px', margin: '16px' }} />
+            <div style={{ height: '180px', background: 'rgba(255,255,255,0.02)', borderRadius: '8px', margin: '16px' }} />
           ) : (
-            <div className={s.instPulseGrid} style={{ padding: '16px' }}>
-              {/* Volatility Regime */}
-              <div className={s.instCell}>
-                <span className={s.instLabel}>Volatility Regime</span>
-                <div className={s.instValRow}>
-                  <span className={s.instVal}>{volRegime?.regime || 'COILING'}</span>
-                  <span className={s.instSub}>{volRegime?.score || 38}%</span>
+            <div className={s.instPulseGrid} style={{ padding: '16px', gap: '12px' }}>
+              {/* 1. Volatility Regime */}
+              <div 
+                className={s.instCell} 
+                style={{ 
+                  background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.6) 0%, rgba(30, 41, 59, 0.4) 100%)',
+                  border: '1px solid rgba(34, 211, 238, 0.15)',
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.25), 0 0 8px rgba(34, 211, 238, 0.05)',
+                  position: 'relative'
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span className={s.instLabel} style={{ color: 'var(--cyan)', fontSize: '9px', fontWeight: 'bold' }}>Volatility Regime</span>
+                  <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.3)' }}>시장의 날씨</span>
                 </div>
-                <div className={s.instTrack}>
+                <div className={s.instValRow} style={{ marginTop: '4px' }}>
+                  <span className={s.instVal} style={{ fontSize: '16px', textShadow: '0 0 8px rgba(34, 211, 238, 0.3)' }}>{volRegime?.regime || 'COILING'}</span>
+                  <span className={s.instSub} style={{ fontSize: '11px', color: 'var(--cyan)' }}>{volRegime?.score || 38}%</span>
+                </div>
+                <div className={s.instTrack} style={{ marginTop: '6px', height: '4px', background: 'rgba(255,255,255,0.05)' }}>
                   <div 
                     className={s.instFill} 
                     style={{ 
+                      height: '100%',
                       width: `${volRegime?.score || 38}%`, 
-                      background: (volRegime?.score || 38) >= 75 ? 'var(--red)' : (volRegime?.score || 38) >= 50 ? 'var(--amber)' : 'var(--cyan)' 
+                      background: (volRegime?.score || 38) >= 75 ? 'linear-gradient(90deg, var(--red) 0%, #ff4b4b 100%)' : (volRegime?.score || 38) >= 50 ? 'linear-gradient(90deg, var(--amber) 0%, #ffb84d 100%)' : 'linear-gradient(90deg, var(--cyan) 0%, #00f0ff 100%)',
+                      boxShadow: (volRegime?.score || 38) >= 75 ? '0 0 8px var(--red)' : (volRegime?.score || 38) >= 50 ? '0 0 8px var(--amber)' : '0 0 8px var(--cyan)'
                     }} 
                   />
                 </div>
               </div>
 
-              {/* Dark Pool Flow */}
-              <div className={s.instCell}>
-                <span className={s.instLabel}>Dark Pool Volume</span>
-                <div className={s.instValRow}>
-                  <span className={s.instVal}>{darkPoolFlow?.percent || 42.5}%</span>
-                  <span className={s.instSub}>
+              {/* 2. Dark Pool Volume */}
+              <div 
+                className={s.instCell} 
+                style={{ 
+                  background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.6) 0%, rgba(30, 41, 59, 0.4) 100%)',
+                  border: '1px solid rgba(16, 185, 129, 0.15)',
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.25), 0 0 8px rgba(16, 185, 129, 0.05)'
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span className={s.instLabel} style={{ color: 'var(--green)', fontSize: '9px', fontWeight: 'bold' }}>Dark Pool Volume</span>
+                  <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.3)' }}>기관 비밀 거래</span>
+                </div>
+                <div className={s.instValRow} style={{ marginTop: '4px' }}>
+                  <span className={s.instVal} style={{ fontSize: '16px', color: 'var(--green)', textShadow: '0 0 8px rgba(16, 185, 129, 0.3)' }}>{darkPoolFlow?.percent || 42.5}%</span>
+                  <span className={s.instSub} style={{ fontSize: '11px', color: '#a3e635' }}>
                     ${Math.round((darkPoolFlow?.value || 8500000000) / 100000000) / 10}B
                   </span>
                 </div>
-                <div className={s.instTrack}>
+                <div className={s.instTrack} style={{ marginTop: '6px', height: '4px', background: 'rgba(255,255,255,0.05)' }}>
                   <div 
                     className={s.instFill} 
                     style={{ 
+                      height: '100%',
                       width: `${darkPoolFlow?.percent || 42.5}%`, 
-                      background: 'var(--green)' 
+                      background: 'linear-gradient(90deg, var(--green) 0%, #10b981 100%)',
+                      boxShadow: '0 0 8px var(--green)'
+                    }} 
+                  />
+                </div>
+              </div>
+
+              {/* 3. Gamma Squeeze Risk */}
+              <div 
+                className={s.instCell} 
+                style={{ 
+                  background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.6) 0%, rgba(30, 41, 59, 0.4) 100%)',
+                  border: '1px solid rgba(236, 72, 153, 0.15)',
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.25), 0 0 8px rgba(236, 72, 153, 0.05)'
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span className={s.instLabel} style={{ color: '#ec4899', fontSize: '9px', fontWeight: 'bold' }}>Squeeze Risk</span>
+                  <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.3)' }}>주가 폭발력</span>
+                </div>
+                <div className={s.instValRow} style={{ marginTop: '4px' }}>
+                  <span className={s.instVal} style={{ fontSize: '16px', color: '#f43f5e', textShadow: '0 0 8px rgba(244, 63, 94, 0.3)' }}>{gammaSqueeze?.risk || 'LOW'}</span>
+                  <span className={s.instSub} style={{ fontSize: '11px', color: '#fda4af' }}>{gammaSqueeze?.score || 34}%</span>
+                </div>
+                <div className={s.instTrack} style={{ marginTop: '6px', height: '4px', background: 'rgba(255,255,255,0.05)' }}>
+                  <div 
+                    className={s.instFill} 
+                    style={{ 
+                      height: '100%',
+                      width: `${gammaSqueeze?.score || 34}%`, 
+                      background: 'linear-gradient(90deg, #ec4899 0%, #f43f5e 100%)',
+                      boxShadow: '0 0 8px #ec4899'
+                    }} 
+                  />
+                </div>
+              </div>
+
+              {/* 4. Sector Rotation Intensity */}
+              <div 
+                className={s.instCell} 
+                style={{ 
+                  background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.6) 0%, rgba(30, 41, 59, 0.4) 100%)',
+                  border: '1px solid rgba(234, 179, 8, 0.15)',
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.25), 0 0 8px rgba(234, 179, 8, 0.05)'
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span className={s.instLabel} style={{ color: 'var(--amber)', fontSize: '9px', fontWeight: 'bold' }}>Rotation Intensity</span>
+                  <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.3)' }}>공격/수비 전환</span>
+                </div>
+                <div className={s.instValRow} style={{ marginTop: '4px' }}>
+                  <span className={s.instVal} style={{ fontSize: '16px', color: 'var(--amber)', textShadow: '0 0 8px rgba(245, 158, 11, 0.3)' }}>{sectorRotation?.direction || 'NEUTRAL'}</span>
+                  <span className={s.instSub} style={{ fontSize: '11px', color: '#fde047' }}>{sectorRotation?.score || 50}%</span>
+                </div>
+                <div className={s.instTrack} style={{ marginTop: '6px', height: '4px', background: 'rgba(255,255,255,0.05)' }}>
+                  <div 
+                    className={s.instFill} 
+                    style={{ 
+                      height: '100%',
+                      width: `${sectorRotation?.score || 50}%`, 
+                      background: 'linear-gradient(90deg, var(--amber) 0%, #fbbf24 100%)',
+                      boxShadow: '0 0 8px var(--amber)'
                     }} 
                   />
                 </div>
@@ -932,13 +1371,41 @@ export default function AppDashPage() {
 
       {/* ══════════════ TOP MOVERS ══════════════ */}
       <div className={s.sectionHead}>
-        <div className={s.sectionLabel}>
+        <div className={s.sectionLabel} style={{ display: 'flex', alignItems: 'center' }}>
           <div className={s.sectionBar} />
           <span className={s.sectionTitle}>TOP MOVERS</span>
+          
+          {/* Pill Toggle Switch */}
+          <div className={s.moversToggle}>
+            <button 
+              className={`${s.moverToggleBtn} ${moverSort === 'value' ? s.moverToggleBtnActive : ''}`}
+              onClick={() => setMoverSort('value')}
+            >
+              {locale === 'ko' ? '거래대금' : locale === 'ja' ? '代金' : 'Value'}
+            </button>
+            <button 
+              className={`${s.moverToggleBtn} ${moverSort === 'gainers' ? s.moverToggleBtnActive : ''}`}
+              onClick={() => setMoverSort('gainers')}
+            >
+              {locale === 'ko' ? '상승률' : locale === 'ja' ? '上昇' : 'Gainers'}
+            </button>
+            <button 
+              className={`${s.moverToggleBtn} ${moverSort === 'losers' ? s.moverToggleBtnActive : ''}`}
+              onClick={() => setMoverSort('losers')}
+            >
+              {locale === 'ko' ? '하락률' : locale === 'ja' ? '下落' : 'Losers'}
+            </button>
+          </div>
         </div>
-        <span className={s.sectionAction}>VIEW ALL &gt;</span>
+        <span 
+          className={s.sectionAction} 
+          onClick={() => router.push('/app-view/movers')}
+          style={{ cursor: 'pointer' }}
+        >
+          VIEW ALL &gt;
+        </span>
       </div>
-      {loading ? (
+      {loading || moversLoading ? (
         <div className={s.skelMovers}>
           {[0, 1, 2, 3].map((i) => (
             <div key={i} className={s.skelMoverCard} />
@@ -946,20 +1413,34 @@ export default function AppDashPage() {
         </div>
       ) : (
         <div className={s.moversScroll}>
-          {movers.map((mv) => (
-            <div key={mv.sym} className={s.moverCard}>
-              <div className={s.moverTop}>
-                <span className={s.moverSym}>{mv.sym}</span>
-                <span className={mv.up ? s.moverChgUp : s.moverChgDown}>
-                  {mv.chg}
-                </span>
+          {movers.map((mv) => {
+            const wsData = wsGetPrice(mv.sym);
+
+            // Overlay price & change if available
+            const displayPx = wsData && wsData.price > 0 ? wsData.price.toFixed(2) : mv.px;
+            const displayChg = wsData && wsData.changePct != null 
+              ? `${wsData.changePct >= 0 ? '+' : ''}${wsData.changePct.toFixed(2)}%`
+              : mv.chg;
+            const isUp = displayChg.startsWith('+');
+
+            // Flash animation class
+            const flashClass = wsData ? (flashStates[mv.sym] === 'up' ? s.flashUp : flashStates[mv.sym] === 'down' ? s.flashDown : '') : '';
+
+            return (
+              <div key={mv.sym} className={`${s.moverCard} ${flashClass}`}>
+                <div className={s.moverTop}>
+                  <span className={s.moverSym}>{mv.sym}</span>
+                  <span className={isUp ? s.moverChgUp : s.moverChgDown}>
+                    {displayChg}
+                  </span>
+                </div>
+                <span className={s.moverPrice}>${displayPx}</span>
+                <div className={s.moverSpark}>
+                  <Sparkline data={mv.spark} up={isUp} height={28} fill />
+                </div>
               </div>
-              <span className={s.moverPrice}>${mv.px}</span>
-              <div className={s.moverSpark}>
-                <Sparkline data={mv.spark} up={mv.up} height={28} fill />
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 

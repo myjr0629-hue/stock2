@@ -433,6 +433,7 @@ export interface GuardianVerdict {
     description: string;
     sentiment: 'BULLISH' | 'BEARISH' | 'NEUTRAL';
     realityInsight?: string; // New Dual Stream
+    gammaInsight?: string;
 }
 
 // === CONSTANTS ===

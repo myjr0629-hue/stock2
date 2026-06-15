@@ -45,6 +45,23 @@ AI 에이전트는 데이터 불일치를 조사할 때 무조건 아래 3단계
 - **결제**: Stripe (해외) + PortOne (국내)
 - **인증**: Supabase Auth
 
+### 1.1 모바일 앱 배포 및 비즈니스 등록 현황 (SIGNUM HQ LLC)
+
+- **법인 주체**: **Signum HQ LLC** (미국 법인 계정 등록)
+- **Google Play Console (Android)**:
+  - **계정 성격**: **법인(Organization) 계정** 등록 및 인증 완료.
+  - **규정 면제**: 법인 계정이므로 신규 개인 계정 대상인 **'20인 14일 테스터 비공개 테스트 의무 조항'이 면제**됨. 프로덕션 빌드 즉시 정식 출시 심사 가능.
+  - **상태**: ASO 최적화 메타데이터 입력 완료, 디자인 에셋(아이콘, 스크린샷), 개인정보처리방침 URL, AAB 프로덕션 빌드 등록 완료. 구글 측 최종 심사 대기 상태.
+- **Apple Developer Program (iOS)**:
+  - **상태**: **법인 계정 등록 심사 진행 중** (Pending Approval). 승인 완료 즉시 Xcode/Transporter를 통한 빌드 업로드 대기.
+- **개발/배포 파이프라인 (2대 머신 워크플로우)**:
+  - 메인 개발 작업은 **Windows PC**에서 수행 후 Git 원격 저장소(`GitHub`)로 Push.
+  - 빌드 및 배포 작업은 **Macbook**에서 Git Pull 후 Xcode를 실행하여 서명(Signing) 및 Archive하여 App Store Connect로 최종 업로드(Upload) 진행.
+- **수익화 모델 (AdMob & Subscription)**:
+  - **무료 유저 게이트(Watch & Unlock)**: 비구독 유저가 'Institutional Pulse', 'Flow Map' 등 유료/제한 기능을 클릭 시, **`▶ Watch & Unlock · 1HR`** 주황색 프리미엄 게이트 모달 노출.
+  - **AdMob 연동**: 유저가 잠금해제 버튼 클릭 시 **AdMob 보상형 동영상 광고(Rewarded Video Ad)**를 송출하여 시청 완료 콜백(Callback)을 수신하면 1시간 한시적 무료 패스 부여.
+  - **유료 구독**: 월 $9.99에 광고 없는(Ad-Free) 쾌적한 프리미엄 등급 제공. 유료 구독 시 모든 광고 완벽 차단.
+
 ---
 
 ## 1.5 API 벤더 명칭 및 웹소켓 엔드포인트 주의사항 (Massive)

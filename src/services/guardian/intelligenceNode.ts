@@ -127,15 +127,28 @@ function isOffHours(): boolean {
     return false;
 }
 
+function isRegularMarketHours(): boolean {
+    const nowET = new Date(new Date().toLocaleString("en-US", { timeZone: "America/New_York" }));
+    const hour = nowET.getHours();
+    const minute = nowET.getMinutes();
+    const day = nowET.getDay();
+    if (day === 0 || day === 6) return false;
+    const totalMinutes = hour * 60 + minute;
+    return totalMinutes >= 570 && totalMinutes < 960; // 9:30 AM - 4:00 PM ET
+}
+
 // === CACHE SYSTEM (per locale) ===
 const ROTATION_TTL_NORMAL = 2 * 60 * 1000;
 const REALITY_TTL_NORMAL = 10 * 60 * 1000;
+const GAMMA_TTL_NORMAL = 15 * 60 * 1000;
 const OFF_HOURS_TTL = 12 * 60 * 60 * 1000;
 
 const _cachedRotation: Record<Locale, string | null> = { ko: null, en: null, ja: null };
 const _lastRotationTime: Record<Locale, number> = { ko: 0, en: 0, ja: 0 };
 const _cachedReality: Record<Locale, string | null> = { ko: null, en: null, ja: null };
 const _lastRealityTime: Record<Locale, number> = { ko: 0, en: 0, ja: 0 };
+const _cachedGamma: Record<Locale, string | null> = { ko: null, en: null, ja: null };
+const _lastGammaTime: Record<Locale, number> = { ko: 0, en: 0, ja: 0 };
 
 // === LOCALIZED DEFAULT MESSAGES ===
 const OFF_HOURS_ROTATION: Record<Locale, string> = {
@@ -148,6 +161,12 @@ const OFF_HOURS_REALITY: Record<Locale, string> = {
     ko: "[진단] 장외 시간 - 시장 비활성\n[결론] 프리마켓 04:00 ET 이후 분석 재개",
     en: "[Diagnosis] Off-hours - market inactive\n[Conclusion] Analysis resumes after pre-market 04:00 ET",
     ja: "[診断] 場外時間 - 市場非活性\n[結論] プレマーケット04:00 ET以降分析再開"
+};
+
+const OFF_HOURS_GAMMA: Record<Locale, string> = {
+    ko: "[변동성] 장외 시간 - 시장 비활성 상태입니다.\n[범위] 프리마켓 시작 시 옵션 흐름 분석이 재개됩니다.",
+    en: "[Volatility] Off-hours - market is currently inactive.\n[Range] Option flow analysis resumes at pre-market.",
+    ja: "[ボラティリティ] 場外時間 - 市場非活性状態です。\n[範囲] プレマーケット開始時にオプションフロー分析が再開されます。"
 };
 
 // [FIX] Detect if cached content is an off-hours placeholder message
@@ -354,6 +373,99 @@ const ROTATION_PROMPTS: Record<Locale, (ctx: IntelligenceContext, vectorDesc: st
         - 絵文字(emoji)使用禁止。テキストのみ使用
         - **機関需給(IFS)が提供された場合**: 価格上昇だがIFSマイナスのセクターは「個人主導上昇」と言及、価格下落だがIFSプラスは「機関ステルス買集」パターンとして分析
     `
+};
+
+const GAMMA_PROMPTS: Record<Locale, (ctx: IntelligenceContext) => string> = {
+    ko: (ctx) => {
+        const gex = ctx.gexIndex ?? 0;
+        const squeeze = ctx.squeezeRisk ?? 0;
+        return `
+        당신은 기관 투자용 옵션 데스크 책임전략가입니다. 제공된 실시간 GEX, Squeeze Risk, Trigger Band 데이터를 분석하여 시장의 변동성 위험을 일반인도 쉽게 알 수 있게 해석해 주십시오.
+
+        **현재 데이터:**
+        - GEX 지수: ${gex >= 0 ? '+' : ''}${gex} (${ctx.gexLevel || 'NEUTRAL'})
+        - 스퀴즈 리스크: ${squeeze}% (${ctx.squeezeLevel || 'LOW'})
+        ${ctx.triggerSupport ? `- 옵션 지지선(Floor): ${ctx.triggerSupport.toLocaleString()}` : ''}
+        ${ctx.triggerResistance ? `- 옵션 저항선(Wall): ${ctx.triggerResistance.toLocaleString()}` : ''}
+        ${ctx.triggerCurrent ? `- 현재 S&P 500: ${ctx.triggerCurrent.toLocaleString()}` : ''}
+
+        **작성 규칙 (초보자 친화적 가이드):**
+        - 일반 초보 투자자가 바로 와닿도록 친근하고 직관적인 단어와 비유를 사용하세요.
+        - **GEX (Gamma Pressure Index)**: 옵션 시장의 안전 장치 혹은 에어백(쿠션)으로 비유하세요. GEX가 양수(Long Gamma)이면 "시장에 튼튼한 안전망이 펼쳐져 있어 큰 하락을 완충해 줍니다."와 같이 표현하고, 음수(Short Gamma)이면 "눈길 운전처럼 작은 매도세에도 주가 변동이 미끄러지듯 증폭될 수 있는 취약한 구간입니다."와 같이 하방 압력을 경고하세요.
+        - **Squeeze Risk (스퀴즈 압축률)**: 압력밥솥의 스팀 게이지에 비유하세요. 55%가 넘으면 "주가 압축도가 매우 높아 방향이 어느 쪽이든 한번 터지면 강하게 분출될 준비가 되었습니다."처럼 서술하세요.
+        - **Trigger Band (지지/저항선)**: 보이지 않는 철벽 천장(저항선)과 안전 바닥(지지선)으로 비유하세요. 현재 주가가 저항선에 가까운지, 지지선에 가까운지 언급해 주세요.
+        - 전문가가 사실과 데이터를 기반으로 관찰한 바를 설명하되, "~하세요"와 같은 매매 권유나 행동 지시는 절대 금지합니다.
+        
+        **출력 형식 (반드시 이 형식으로):**
+        [변동성 진단] (GEX와 스퀴즈를 통해 진단한 오늘 시장의 변동성 쿠션 상태 1문장)
+        [지지와 저항] (현재가와 지지선/저항선간의 공방 및 향후 등락 방향성 관찰 1문장)
+        
+        **규칙:**
+        - 한국어 전문가 스타일
+        - 2문장 이내, 총 3줄 이하로 매우 간결하게 작성
+        - 이모지(emoji) 절대 금지
+        `;
+    },
+    en: (ctx) => {
+        const gex = ctx.gexIndex ?? 0;
+        const squeeze = ctx.squeezeRisk ?? 0;
+        return `
+        You are an options desk head strategist. Analyze current options flows, GEX, Squeeze Risk, and Trigger Band levels for retail beginners.
+
+        **Current Data:**
+        - Squeeze Risk: ${ctx.squeezeRisk}% (${ctx.squeezeLevel || 'LOW'})
+        ${ctx.triggerSupport ? `- Options Floor (Support): ${ctx.triggerSupport.toLocaleString()}` : ''}
+        ${ctx.triggerResistance ? `- Options Wall (Resistance): ${ctx.triggerResistance.toLocaleString()}` : ''}
+        ${ctx.triggerCurrent ? `- S&P 500 Current: ${ctx.triggerCurrent.toLocaleString()}` : ''}
+
+        **Writing Rules (Layman's Terms):**
+        - Avoid complex jargon. Use intuitive analogies for options metrics.
+        - **GEX**: Describe it as a "volatility cushion" or "airbag". If positive (Long Gamma), describe it as "active shock absorbers protecting against sharp drops". If negative (Short Gamma), describe it as "driving on ice, where even small sell orders can cause slippage".
+        - **Squeeze Risk**: Analogize to a pressure cooker. If high (>= 55%), explain that "compressed energy could trigger a sharp breakout in either direction."
+        - **Trigger Band**: Describe as options ceiling (Wall) and safety floor (Floor).
+        - Limit output to observation and factual analysis. Do NOT provide investment advice or action directives.
+
+        **Output Format:**
+        [Volatility Diagnosis] (1 sentence on GEX/Squeeze cushion state)
+        [Support & Resistance] (1 sentence on price vs key support/resistance levels)
+
+        **Rules:**
+        - Professional options briefing style
+        - Factual and objective
+        - Max 2 sentences, concise
+        - No emojis
+        `;
+    },
+    ja: (ctx) => {
+        const gex = ctx.gexIndex ?? 0;
+        const squeeze = ctx.squeezeRisk ?? 0;
+        return `
+        あなたはオプション部門의 責任者です。GEX、スクイーズ・リスク、トリガー・バンドを一般の個人投資家向けに分かりやすく解説してください。
+
+        **現在データ:**
+        - GEX指数: ${gex >= 0 ? '+' : ''}${gex} (${ctx.gexLevel || 'NEUTRAL'})
+        - スクイーズ・リスク: ${squeeze}% (${ctx.squeezeLevel || 'LOW'})
+        ${ctx.triggerSupport ? `- オプション支持線(Floor): ${ctx.triggerSupport.toLocaleString()}` : ''}
+        ${ctx.triggerResistance ? `- オプション抵抗線(Wall): ${ctx.triggerResistance.toLocaleString()}` : ''}
+        ${ctx.triggerCurrent ? `- 現在 S&P 500: ${ctx.triggerCurrent.toLocaleString()}` : ''}
+
+        **記述ルール (ビギナー向け):**
+        - 専門用語を避け、分かりやすい比喩で説明してください。
+        - **GEX**: 「ボラティリティの緩衝材（クッション）」として例えます。GEXがプラス（ロングガンマ）なら「大きな下落を吸収する安全ネットが機能中」。マイナス（ショートガンマ）なら「凍結した路面のように、わずかな売りでも価格変動が増幅しやすい警戒ゾーン」。
+        - **Squeeze Risk**: 「圧力鍋」に例え、55%以上なら「エネルギーが圧縮され、どちらか一方に激しく吹き飛ぶ準備完了」。
+        - **Trigger Band**: 「目に見えないオプション天井（抵抗線）」と「安全床（支持線）」に例えます。
+        - 客観的な観察結果のみを述べ、売買推奨や行動指示は厳禁です。
+
+        **出力形式:**
+        [ボラティリティ診断] (クッション状態について1文)
+        [支持と抵抗] (現在価格とオプションの天井/床との攻防について1文)
+
+        **ルール:**
+        - プロフェッショナルな英語・日本語の要約スタイル
+        - 最大2文、簡潔に
+        - 絵文字の使用は厳禁
+        `;
+    }
 };
 
 const REALITY_PROMPTS: Record<Locale, (ctx: IntelligenceContext) => string> = {
@@ -609,11 +721,13 @@ const REALITY_PROMPTS: Record<Locale, (ctx: IntelligenceContext) => string> = {
 // [V9.1] Translation helper — translates cached Korean insight to target locale
 const LOCALE_NAMES: Record<Locale, string> = { ko: 'Korean', en: 'English', ja: 'Japanese' };
 
-async function translateInsight(koreanText: string, targetLocale: Locale, type: 'rotation' | 'reality'): Promise<string | null> {
+async function translateInsight(koreanText: string, targetLocale: Locale, type: 'rotation' | 'reality' | 'gamma'): Promise<string | null> {
     try {
         const prompt = type === 'rotation'
             ? `Translate the following Korean market rotation analysis to ${LOCALE_NAMES[targetLocale]}. Keep the same format ([Status]/[Interpretation]/[Outlook] for English, [現況]/[解釈]/[見通し] for Japanese). Keep it concise, 3 lines max. Maintain financial terminology accuracy.\n\nKorean text:\n${koreanText}`
-            : `Translate the following Korean market analysis to natural ${LOCALE_NAMES[targetLocale]}. Do NOT use labels like [Diagnosis] or [Conclusion]. Write 2-3 natural sentences as a professional market strategist providing factual observations, not action recommendations. Keep financial terms accurate. Max 200 characters for English, 250 characters for Japanese.\n\nKorean text:\n${koreanText}`;
+            : type === 'reality'
+            ? `Translate the following Korean market analysis to natural ${LOCALE_NAMES[targetLocale]}. Do NOT use labels like [Diagnosis] or [Conclusion]. Write 2-3 natural sentences as a professional market strategist providing factual observations, not action recommendations. Keep financial terms accurate. Max 200 characters for English, 250 characters for Japanese.\n\nKorean text:\n${koreanText}`
+            : `Translate the following Korean options market volatility analysis to ${LOCALE_NAMES[targetLocale]}. Write 2-3 natural sentences as a professional options strategist. Maintain accuracy for option terms (GEX, Squeeze, Cushion, Floor, Wall). Keep the tone informative and objective. Max 200 characters for English, 250 characters for Japanese.\n\nKorean text:\n${koreanText}`;
 
         const result = await callBedrock({
             modelId: MODELS.HAIKU_35,
@@ -792,6 +906,76 @@ export class IntelligenceNode {
             _cachedReality[locale] = result;
             _lastRealityTime[locale] = Date.now();
             saveInsightToRedis(getRedisKey('reality', locale), result);
+        }
+        return result;
+    }
+
+    static async generateGammaInsight(ctx: IntelligenceContext): Promise<string> {
+        const locale = ctx.locale || 'ko';
+        const now = Date.now();
+        
+        // Use standard isOffHours gating to align with other AI engines
+        const ttl = isOffHours() ? OFF_HOURS_TTL : GAMMA_TTL_NORMAL;
+
+        if (_cachedGamma[locale] && (now - _lastGammaTime[locale] < ttl)) {
+            return _cachedGamma[locale]!;
+        }
+
+        if (!_cachedGamma[locale] || (now - _lastGammaTime[locale] >= ttl)) {
+            try {
+                const redisCache = await loadInsightFromRedis(getRedisKey('gamma', locale));
+                if (redisCache) {
+                    const redis = getRedis();
+                    if (redis) {
+                        const raw = await redis.get(getRedisKey('gamma', locale)) as { text: string; updatedAt: string } | null;
+                        if (raw?.updatedAt) {
+                            const cacheAge = now - new Date(raw.updatedAt).getTime();
+                            if (cacheAge < ttl) {
+                                console.log(`[IntelligenceNode] Redis cache hit for gamma/${locale} (age: ${(cacheAge/1000).toFixed(0)}s, TTL: ${ttl/1000}s)`);
+                                _cachedGamma[locale] = redisCache;
+                                _lastGammaTime[locale] = new Date(raw.updatedAt).getTime();
+                                return redisCache;
+                            }
+                        }
+                    }
+                }
+            } catch (e) { /* ignore */ }
+        }
+
+        // If it's Off-hours (weekends, nights): 
+        // DO NOT call Claude API. Use existing cache or fallbacks.
+        if (isOffHours()) {
+            console.log(`[IntelligenceNode] Off-hours: skipping Claude call for Gamma (${locale})`);
+            if (_cachedGamma[locale]) return _cachedGamma[locale]!;
+            const redisCache = await loadInsightFromRedis(getRedisKey('gamma', locale));
+            if (redisCache) {
+                _cachedGamma[locale] = redisCache;
+                return redisCache;
+            }
+            if (locale !== 'ko') {
+                const koCache = _cachedGamma['ko'] || await loadInsightFromRedis(getRedisKey('gamma', 'ko'));
+                if (koCache) {
+                    const translated = await translateInsight(koCache, locale, 'gamma');
+                    if (translated) {
+                        _cachedGamma[locale] = translated;
+                        _lastGammaTime[locale] = Date.now();
+                        saveInsightToRedis(getRedisKey('gamma', locale), translated);
+                        return translated;
+                    }
+                }
+            }
+            return OFF_HOURS_GAMMA[locale];
+        }
+
+        if (!process.env.AWS_ACCESS_KEY_ID) return "SETUP REQUIRED: ADD AWS_ACCESS_KEY_ID";
+
+        const prompt = GAMMA_PROMPTS[locale](ctx);
+        const result = await IntelligenceNode.callClaude(prompt, `GAMMA_${locale}`, MODELS.HAIKU_35);
+
+        if (result && !result.includes("failed")) {
+            _cachedGamma[locale] = result;
+            _lastGammaTime[locale] = Date.now();
+            saveInsightToRedis(getRedisKey('gamma', locale), result);
         }
         return result;
     }

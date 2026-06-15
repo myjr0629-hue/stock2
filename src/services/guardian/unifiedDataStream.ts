@@ -531,7 +531,7 @@ export class GuardianDataHub {
                 divergenceDesc: divCase.verdictDesc,
             };
 
-            if (rlsi.session === 'CLOSED' && (await loadAiVerdict(locale))) {
+            if (!force && rlsi.session === 'CLOSED' && (await loadAiVerdict(locale))) {
                 // [V12.0] Only truly CLOSED hours use cached AI verdict (weekends, nights 20:00-04:00 ET)
                 // [FIX] PRE and POST sessions now generate fresh AI analysis instead of returning stale off-hours cache
                 verdict = (await loadAiVerdict(locale))!;
@@ -622,9 +622,19 @@ export class GuardianDataHub {
                             .map(f => `${f.name}: +${f.change.toFixed(1)}% but IFS ${f.instFlow!.ifs.toFixed(0)}`)[0] || undefined,
                     };
 
-                    const [rotationText, realityText] = await Promise.all([
-                        IntelligenceNode.generateRotationInsight(aiContext),
-                        IntelligenceNode.generateRealityInsight(aiContext)
+                    const [rotationText, realityText, gammaText] = await Promise.all([
+                        IntelligenceNode.generateRotationInsight(aiContext).catch(e => {
+                            console.error("[Guardian] Rotation AI failed:", e);
+                            return "Insight generation failed. Sector rotation unstable.";
+                        }),
+                        IntelligenceNode.generateRealityInsight(aiContext).catch(e => {
+                            console.error("[Guardian] Reality AI failed:", e);
+                            return "Insight generation failed. Market reality unstable.";
+                        }),
+                        IntelligenceNode.generateGammaInsight(aiContext).catch(e => {
+                            console.error("[Guardian] Gamma AI failed:", e);
+                            return "Insight generation failed. Volatility matrix unstable.";
+                        })
                     ]);
 
                     // [PART 3] Construct Verdict
@@ -638,6 +648,7 @@ export class GuardianDataHub {
                         // [FIX] Sanitize AI text: strip emoji that breaks Upstash Redis REST API
                         const cleanRotation = rotationText.replace(/[\u{10000}-\u{10FFFF}]/gu, '').replace(/[\u2600-\u27BF\u2B50\u2934\u2935\u25AA-\u25FE\u2700-\u27BF\uFE0F]/g, '').trim();
                         const cleanReality = realityText.replace(/[\u{10000}-\u{10FFFF}]/gu, '').replace(/[\u2600-\u27BF\u2B50\u2934\u2935\u25AA-\u25FE\u2700-\u27BF\uFE0F]/g, '').trim();
+                        const cleanGamma = gammaText.replace(/[\u{10000}-\u{10FFFF}]/gu, '').replace(/[\u2600-\u27BF\u2B50\u2934\u2935\u25AA-\u25FE\u2700-\u27BF\uFE0F]/g, '').trim();
                         
                         // [V13.0] Divergence-aware verdict:
                         // - Title: Use divergence title (DIVERGENCE DETECTED) when divergent, else TACTICAL INSIGHT
@@ -650,7 +661,8 @@ export class GuardianDataHub {
                             sentiment: isDivergent 
                                 ? (divCase.caseId === 'B' ? 'BULLISH' : 'BEARISH')
                                 : 'NEUTRAL',
-                            realityInsight: cleanReality // Center — AI-generated, divergence-aware
+                            realityInsight: cleanReality, // Center — AI-generated, divergence-aware
+                            gammaInsight: cleanGamma
                         };
                         // [V12.0] Persist AI verdict to Redis for after-hours display & deploy survival
                         await saveAiVerdict(verdict, locale);

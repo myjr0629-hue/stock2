@@ -166,6 +166,13 @@ export default function RLSIInsightPanel({
 
     // Auto-switch to briefing ONLY when briefing data is fetched + valid + PRE session
     useEffect(() => {
+        // Avoid overriding activeTab if query param tab=briefing is explicitly requested
+        if (typeof window !== 'undefined') {
+            const params = new URLSearchParams(window.location.search);
+            if (params.get('tab') === 'briefing') {
+                return;
+            }
+        }
         if (session === "REG" || session === "POST") {
             setActiveTab("tactical");
         } else if (session === "PRE" && briefingData?.briefing) {
@@ -178,6 +185,16 @@ export default function RLSIInsightPanel({
             // If date doesn't match → stay on tactical (stale briefing)
         }
     }, [session, briefingData]);
+
+    // Handle incoming routing query params (e.g. ?tab=briefing from App Dashboard)
+    useEffect(() => {
+        if (typeof window !== 'undefined') {
+            const params = new URLSearchParams(window.location.search);
+            if (params.get('tab') === 'briefing') {
+                setActiveTab("briefing");
+            }
+        }
+    }, []);
 
     // Fetch briefing data
     useEffect(() => {

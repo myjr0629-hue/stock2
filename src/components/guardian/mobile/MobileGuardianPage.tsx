@@ -110,6 +110,7 @@ export default function MobileGuardianPage() {
             color,
             sentiment: v.sentiment as 'BULLISH' | 'BEARISH' | 'NEUTRAL',
             realityInsight: v.realityInsight as string | undefined,
+            gammaInsight: v.gammaInsight as string | undefined,
         };
     }, [data]);
 
