@@ -6,32 +6,63 @@ interface TypewriterTextProps {
     className?: string;
 }
 
-// Tag color mapping for section headers (ko / en / ja)
 const TAG_COLORS: Record<string, string> = {
     // Korean
     '[현황]': 'text-cyan-400 font-bold',
+    '**현황**': 'text-cyan-400 font-bold',
     '[해석]': 'text-amber-400 font-bold',
+    '**해석**': 'text-amber-400 font-bold',
     '[액션]': 'text-emerald-400 font-bold',
+    '**액션**': 'text-emerald-400 font-bold',
     '[전망]': 'text-emerald-400 font-bold',
+    '**전망**': 'text-emerald-400 font-bold',
     '[진단]': 'text-cyan-400 font-bold',
+    '**진단**': 'text-cyan-400 font-bold',
     '[결론]': 'text-emerald-400 font-bold',
+    '**결론**': 'text-emerald-400 font-bold',
+    '[변동성 진단]': 'text-cyan-400 font-bold',
+    '**변동성 진단**': 'text-cyan-400 font-bold',
+    '[지지와 저항]': 'text-amber-400 font-bold',
+    '**지지와 저항**': 'text-amber-400 font-bold',
+
     // English
     '[Status]': 'text-cyan-400 font-bold',
+    '**Status**': 'text-cyan-400 font-bold',
     '[Interpretation]': 'text-amber-400 font-bold',
+    '**Interpretation**': 'text-amber-400 font-bold',
     '[Action]': 'text-emerald-400 font-bold',
+    '**Action**': 'text-emerald-400 font-bold',
     '[Outlook]': 'text-emerald-400 font-bold',
+    '**Outlook**': 'text-emerald-400 font-bold',
     '[Diagnosis]': 'text-cyan-400 font-bold',
+    '**Diagnosis**': 'text-cyan-400 font-bold',
     '[Conclusion]': 'text-emerald-400 font-bold',
+    '**Conclusion**': 'text-emerald-400 font-bold',
+    '[Volatility Diagnosis]': 'text-cyan-400 font-bold',
+    '**Volatility Diagnosis**': 'text-cyan-400 font-bold',
+    '[Support & Resistance]': 'text-amber-400 font-bold',
+    '**Support & Resistance**': 'text-amber-400 font-bold',
+
     // Japanese
     '[現況]': 'text-cyan-400 font-bold',
+    '**現況**': 'text-cyan-400 font-bold',
     '[解釈]': 'text-amber-400 font-bold',
+    '**解釈**': 'text-amber-400 font-bold',
     '[アクション]': 'text-emerald-400 font-bold',
+    '**アクション**': 'text-emerald-400 font-bold',
     '[見通し]': 'text-emerald-400 font-bold',
+    '**見通し**': 'text-emerald-400 font-bold',
     '[診断]': 'text-cyan-400 font-bold',
+    '**診断**': 'text-cyan-400 font-bold',
     '[結論]': 'text-emerald-400 font-bold',
+    '**結論**': 'text-emerald-400 font-bold',
+    '[ボラティリティ診断]': 'text-cyan-400 font-bold',
+    '**ボラティリティ診断**': 'text-cyan-400 font-bold',
+    '[支持と抵抗]': 'text-amber-400 font-bold',
+    '**支持と抵抗**': 'text-amber-400 font-bold',
 };
 
-const TAG_PATTERN = /(\[현황\]|\[해석\]|\[액션\]|\[전망\]|\[진단\]|\[결론\]|\[Status\]|\[Interpretation\]|\[Action\]|\[Outlook\]|\[Diagnosis\]|\[Conclusion\]|\[現況\]|\[解釈\]|\[アクション\]|\[見通し\]|\[診断\]|\[結論\])/g;
+const TAG_PATTERN = /(\[현황\]|\*\*현황\*\*|\[해석\]|\*\*해석\*\*|\[액션\]|\*\*액션\*\*|\[전망\]|\*\*전망\*\*|\[진단\]|\*\*진단\*\*|\[결론\]|\*\*결론\*\*|\[변동성 진단\]|\*\*변동성 진단\*\*|\[지지와 저항\]|\*\*지지와 저항\*\*|\[Status\]|\*\*Status\*\*|\[Interpretation\]|\*\*Interpretation\*\*|\[Action\]|\*\*Action\*\*|\[Outlook\]|\*\*Outlook\*\*|\[Diagnosis\]|\*\*Diagnosis\*\*|\[Conclusion\]|\*\*Conclusion\*\*|\[Volatility Diagnosis\]|\*\*Volatility Diagnosis\*\*|\[Support & Resistance\]|\*\*Support & Resistance\*\*|\[現況\]|\*\*現況\*\*|\[解釈\]|\*\*解釈\*\*|\[アクション\]|\*\*アクション\*\*|\[見通し\]|\*\*見通し\*\*|\[診断\]|\*\*診断\*\*|\[結論\]|\*\*結論\*\*|\[ボラティリティ診断\]|\*\*ボラティリティ診断\*\*|\[支持と抵抗\]|\*\*支持と抵抗\*\*)/g;
 
 /** Render text with colored section tags + auto-highlighted data points */
 export function renderColoredText(text: string): React.ReactNode[] {

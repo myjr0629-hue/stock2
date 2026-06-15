@@ -389,13 +389,19 @@ const GAMMA_PROMPTS: Record<Locale, (ctx: IntelligenceContext) => string> = {
         ${ctx.triggerResistance ? `- Call Wall (콜 옵션 상한선): ${ctx.triggerResistance.toLocaleString()}` : ''}
         ${ctx.triggerCurrent ? `- S&P 500 현재가: ${ctx.triggerCurrent.toLocaleString()}` : ''}
 
+        **작성 규칙 (전문가/계량 스타일):**
+        - 비유(압력밥솥, 쿠션, 에어백, 눈길 운전 등)는 일절 배제하고 엄격한 금융 공학 용어를 사용하십시오.
+        - GEX 수준(롱/숏 감마 포지션)과 Squeeze Risk(내재변동성 압축), 현재 가격의 위치에 따른 딜러들의 델타 헤징 리밸런싱 행동과 그것이 시장 유동성에 미치는 흐름(변동성 억제 또는 증폭 메커니즘)의 상호작용적 의미를 명확히 해석하십시오.
+        - 지표의 수치를 그대로 나열하기보다는 파생상품 시장 흐름에 대한 실질적인 인사이트를 전달하십시오.
+        - 컴플라이언스 준수: 투자 권유나 향후 가격 예측은 철저히 배제하고, 객관적인 관찰 서술 어조(‘시사한다’, ‘나타낸다’, ‘관찰된다’ 등)를 고수하십시오.
+
+        **출력 형식:**
         [변동성 진단] (GEX와 스퀴즈를 통해 진단한 현 시점 시장의 파생상품 변동성 상태 및 감마 프로파일 진단 1문장)
         [지지와 저항] (현재가와 콜 월/풋 플로어 격차에 기반한 딜러들의 헤지 리밸런싱 동향 및 공방 구도 관찰 1문장)
 
-        **규칙:**
-        - 고도화된 계량 금융 전문가의 건조하고 묵직한 어조
-        - 2문장 이내, 총 3줄 이하로 매우 간결하게 작성
-        - 이모지(emoji) 절대 금지
+        **제한사항:**
+        - 2문장 이내, 총 3줄 이하로 매우 간결하게 작성하십시오.
+        - 이모지(emoji)는 절대 금지합니다.
         `;
     },
     en: (ctx) => {
@@ -413,8 +419,8 @@ const GAMMA_PROMPTS: Record<Locale, (ctx: IntelligenceContext) => string> = {
 
         **Writing Rules (Institutional Style):**
         - Do NOT use analogies like "pressure cooker", "driving on ice", "airbag", or "cushion". Use formal quantitative finance terminology.
-        - **GEX**: Describe in terms of dealer gamma positioning. Positive GEX (Long Gamma) implies dealer reverse-hedging leading to volatility dampening or gamma clamping. Negative GEX (Short Gamma) implies dynamic feedback loops accelerating directional swings.
-        - **Squeeze Risk**: Frame it as volatility compression or gamma/delta short-covering tail risk.
+        - **GEX**: Describe in terms of dealer gamma positioning. Positive GEX (Long Gamma) implies dealer reverse-hedging leading to volatility dampening or gamma clamping. Negative GEX (Short Gamma) implies dynamic feedback loops accelerating directional swings. Explain the implications on market liquidity.
+        - **Squeeze Risk**: Frame it as volatility compression or gamma/delta short-covering tail risk. Explain what this interaction means for broader market liquidity flow.
         - **Trigger Band**: Refer to the levels as the Call Wall (major resistance) and Put Floor (major support) and analyze the proximity to these barriers and its impact on dealer dynamic delta rebalancing.
         - Compliance: Maintain strict neutrality. Use observational verbs ("observed", "indicates", "suggests", "presents"). Do NOT provide any investment advice or trading directions.
 
@@ -432,30 +438,30 @@ const GAMMA_PROMPTS: Record<Locale, (ctx: IntelligenceContext) => string> = {
         const gex = ctx.gexIndex ?? 0;
         const squeeze = ctx.squeezeRisk ?? 0;
         return `
-        あなたはオプション部門의 責任者です。GEX、スクイーズ・リスク、トリガー・バンドを一般の個人投資家向けに分かりやすく解説してください。
+        あなたはグローバル投資銀行(IB)のシニア・デリバティブ・マーケットメイキング・デスクのストラテジストです。提供されたリアルタイムのGEX(Gamma Exposure)、Squeeze Risk、Trigger Bandのデータに基づき、ボラティリティの力学関係をブルームバーグ端末スタイルの客観的な定量分析として解説してください。
 
         **現在データ:**
         - GEX指数: ${gex >= 0 ? '+' : ''}${gex} (${ctx.gexLevel || 'NEUTRAL'})
         - スクイーズ・リスク: ${squeeze}% (${ctx.squeezeLevel || 'LOW'})
-        ${ctx.triggerSupport ? `- オプション支持線(Floor): ${ctx.triggerSupport.toLocaleString()}` : ''}
-        ${ctx.triggerResistance ? `- オプション抵抗線(Wall): ${ctx.triggerResistance.toLocaleString()}` : ''}
+        ${ctx.triggerSupport ? `- プットオプション支持線(Floor): ${ctx.triggerSupport.toLocaleString()}` : ''}
+        ${ctx.triggerResistance ? `- コールオプション抵抗線(Wall): ${ctx.triggerResistance.toLocaleString()}` : ''}
         ${ctx.triggerCurrent ? `- 現在 S&P 500: ${ctx.triggerCurrent.toLocaleString()}` : ''}
 
-        **記述ルール (ビギナー向け):**
-        - 専門用語を避け、分かりやすい比喩で説明してください。
-        - **GEX**: 「ボラティリティの緩衝材（クッション）」として例えます。GEXがプラス（ロングガンマ）なら「大きな下落を吸収する安全ネットが機能中」。マイナス（ショートガンマ）なら「凍結した路面のように、わずかな売りでも価格変動が増幅しやすい警戒ゾーン」。
-        - **Squeeze Risk**: 「圧力鍋」に例え、55%以上なら「エネルギーが圧縮され、どちらか一方に激しく吹き飛ぶ準備完了」。
-        - **Trigger Band**: 「目に見えないオプション天井（抵抗線）」と「安全床（支持線）」に例えます。
-        - 客観的な観察結果のみを述べ、売買推奨や行動指示は厳禁です。
+        **記述ルール (機関投資家・定量的スタイル):**
+        - 「圧力鍋」や「クッション」などの非現実的または初心者向けの比喩表現は一切禁止し、専門的な金融工学用語を使用してください。
+        - **GEX**: ディーラーのガンマ・ポジショニングとして描写します。正のGEX（ロングガンマ）はディーラーの逆ヘッジによるボラティリティ抑制（ガンマ・クランピング）、負のGEX（ショートガンマ）はボラティリティ増幅フィードバック・ループの引き金となることを説明してください。
+        - **Squeeze Risk**: ボラティリティ圧縮（インプライド・ボラティリティの圧縮）またはデルタ・カバーによるテールリスクとして分析してください。
+        - **Trigger Band**: Call WallおよびPut Floorと呼び、現在価格との近接度合いに基づき、ディーラーの動的デルタ・リバランスがもたらす流動性への影響を分析してください。
+        - コンプライアンス: 厳格な中立性を維持し、投資勧誘や価格予測は行わず、「示唆する」「観測される」「現している」などの客観的な表現のみを使用してください。
 
         **出力形式:**
-        [ボラティリティ診断] (クッション状態について1文)
-        [支持と抵抗] (現在価格とオプションの天井/床との攻防について1文)
+        [ボラティリティ診断] (GEXとボラティリティ圧縮プロファイルに基づいて診断したオプション市場の現状を1文で)
+        [支持と抵抗] (現在値とCall Wall/Put Floorの近接度、およびディーラーのヘッジ動向から推測される流動性の攻防を1文で)
 
         **ルール:**
-        - プロフェッショナルな英語・日本語の要約スタイル
-        - 最大2文、簡潔に
-        - 絵文字の使用は厳禁
+        - 事実に基づき、極めて客観的で専門的なトーン
+        - 最大2文、簡潔に記述
+        - 絵文字(emoji)は絶対に使用しない
         `;
     }
 };
