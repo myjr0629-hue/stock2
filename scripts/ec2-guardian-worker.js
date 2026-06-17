@@ -161,6 +161,48 @@ function fetchJSON(url, timeoutMs = 15000) {
     });
 }
 
+function postJSON(url, bodyData, timeoutMs = 20000) {
+    return new Promise((resolve, reject) => {
+        const parsedUrl = new URL(url);
+        const lib = parsedUrl.protocol === "https:" ? https : http;
+        const payload = JSON.stringify(bodyData);
+        
+        const options = {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Content-Length": Buffer.byteLength(payload)
+            },
+            timeout: timeoutMs
+        };
+
+        const req = lib.request(url, options, (res) => {
+            let data = "";
+            res.on("data", (chunk) => (data += chunk));
+            res.on("end", () => {
+                if (res.statusCode < 200 || res.statusCode >= 300) {
+                    return reject(new Error(`Server responded with status ${res.statusCode}: ${data.substring(0, 200)}`));
+                }
+                try {
+                    resolve(JSON.parse(data));
+                } catch (e) {
+                    reject(new Error(`JSON parse error: ${data.substring(0, 200)}`));
+                }
+            });
+        });
+
+        req.on("error", reject);
+        req.on("timeout", () => {
+            req.destroy();
+            reject(new Error("Request timeout"));
+        });
+
+        req.write(payload);
+        req.end();
+    });
+}
+
+
 function polygonGet(endpoint, params = {}) {
     const url = new URL(`${CONFIG.POLYGON_BASE_URL}${endpoint}`);
     url.searchParams.set("apiKey", CONFIG.POLYGON_API_KEY);
@@ -662,15 +704,7 @@ async function generateMorningBriefing() {
             const t0 = Date.now();
             
             // 1. Fetch prompts from Vercel securely (bypasses Vercel timeout)
-            const response = await fetch(apiUrl, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ snapshot, rlsiHistory, returnPromptOnly: true }),
-                signal: AbortSignal.timeout(20000), // Prompt building should be fast
-            });
-
-            if (!response.ok) throw new Error(`Vercel API responded ${response.status}`);
-            const result = await response.json();
+            const result = await postJSON(apiUrl, { snapshot, rlsiHistory, returnPromptOnly: true }, 20000);
 
             if (result.success && result.prompts) {
                 console.log(`[Briefing] 🧠 Prompts built by Vercel in ${Date.now() - t0}ms. Invoking Claude locally...`);

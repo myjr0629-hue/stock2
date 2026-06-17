@@ -64,6 +64,20 @@ function httpsGet(url) {
     });
 }
 
+// Helper: Get ET Date String (YYYY-MM-DD)
+function getETDateString() {
+    try {
+        const etStr = new Date().toLocaleString('en-US', { timeZone: 'America/New_York', hour12: false });
+        const et = new Date(etStr);
+        const yyyy = et.getFullYear();
+        const mm = String(et.getMonth() + 1).padStart(2, '0');
+        const dd = String(et.getDate()).padStart(2, '0');
+        return `${yyyy}-${mm}-${dd}`;
+    } catch (e) {
+        return new Date().toISOString().split('T')[0];
+    }
+}
+
 // Fetch real previous day close for a ticker from Massive REST API
 function fetchPreviousClose(ticker) {
     const url = `https://api.massive.com/v2/snapshot/locale/us/markets/stocks/tickers/${ticker}?apiKey=${process.env.MASSIVE_API_KEY || process.env.POLYGON_API_KEY}`;
@@ -268,13 +282,16 @@ function subscribeTickerOnPolygon(ticker) {
     subscribedOnPolygon.add(ticker);
     console.log(`[Price WS] + Subscribed to T/A/AM/Q/LULD.${ticker} on Massive`);
 
+    const todayStr = getETDateString();
+    const existing = latestPrices.get(ticker);
+
     // Fetch real previousClose from REST API for accurate changePct
-    if (!latestPrices.has(ticker) || !latestPrices.get(ticker).prevClose) {
+    if (!existing || !existing.prevClose || existing.prevCloseDate !== todayStr) {
         fetchPreviousClose(ticker).then(prevClose => {
             if (prevClose > 0) {
-                const existing = latestPrices.get(ticker) || {};
-                latestPrices.set(ticker, { ...existing, prevClose });
-                console.log(`[Price WS] 📊 ${ticker} prevClose: $${prevClose}`);
+                const cur = latestPrices.get(ticker) || {};
+                latestPrices.set(ticker, { ...cur, prevClose, prevCloseDate: todayStr });
+                console.log(`[Price WS] 📊 ${ticker} prevClose: $${prevClose} (${todayStr})`);
                 // After we have prevClose, subscribe Q. for ATM options
                 subscribeQuotesForTicker(ticker);
             }
@@ -283,7 +300,6 @@ function subscribeTickerOnPolygon(ticker) {
         // Already have price, subscribe Q. now
         subscribeQuotesForTicker(ticker);
     }
-
 }
 
 function unsubscribeTickerOnPolygon(ticker) {
@@ -295,9 +311,27 @@ function unsubscribeTickerOnPolygon(ticker) {
     console.log(`[Price WS] - Unsubscribed from T/A/AM/Q/LULD.${ticker} on Massive`);
 }
 
-// ══════════════════════════════════════════════════════════════
-// PRICE UPDATE HANDLERS
-// ══════════════════════════════════════════════════════════════
+// Helper: Check if day rolled over and trigger prevClose refresh
+function checkAndRefreshPrevClose(ticker, existing) {
+    if (!existing) return;
+    const todayStr = getETDateString();
+    if (existing.prevClose && existing.prevCloseDate !== todayStr && !existing.isFetchingPrevClose) {
+        existing.isFetchingPrevClose = true;
+        fetchPreviousClose(ticker).then(prevClose => {
+            if (prevClose > 0) {
+                const cur = latestPrices.get(ticker) || {};
+                latestPrices.set(ticker, { ...cur, prevClose, prevCloseDate: todayStr, isFetchingPrevClose: false });
+                console.log(`[Price WS] 📊 Rolled over & updated ${ticker} prevClose to $${prevClose} for ${todayStr}`);
+            } else {
+                const cur = latestPrices.get(ticker) || {};
+                latestPrices.set(ticker, { ...cur, isFetchingPrevClose: false });
+            }
+        }).catch(() => {
+            const cur = latestPrices.get(ticker) || {};
+            latestPrices.set(ticker, { ...cur, isFetchingPrevClose: false });
+        });
+    }
+}
 
 function handleAggregateUpdate(msg) {
     const ticker = msg.sym;
@@ -310,6 +344,8 @@ function handleAggregateUpdate(msg) {
 
     // Update latest price cache (prevClose must come from REST API, never from trade/agg data)
     const existing = latestPrices.get(ticker);
+    checkAndRefreshPrevClose(ticker, existing);
+
     const prevClose = existing?.prevClose || 0;
     const changePct = prevClose > 0 ? ((price - prevClose) / prevClose) * 100 : 0;
 
@@ -318,6 +354,7 @@ function handleAggregateUpdate(msg) {
         changePct: Math.round(changePct * 100) / 100,
         volume,
         prevClose,
+        prevCloseDate: existing?.prevCloseDate || getETDateString(),
         ts: Date.now(),
     });
 
@@ -334,6 +371,8 @@ function handleTradeUpdate(msg) {
     const volume = msg.s || 0;
 
     const existing = latestPrices.get(ticker);
+    checkAndRefreshPrevClose(ticker, existing);
+
     const prevClose = existing?.prevClose || 0;
     const changePct = prevClose > 0 ? ((price - prevClose) / prevClose) * 100 : 0;
 
@@ -342,6 +381,7 @@ function handleTradeUpdate(msg) {
         changePct: Math.round(changePct * 100) / 100,
         volume: (existing?.volume || 0) + volume,
         prevClose,
+        prevCloseDate: existing?.prevCloseDate || getETDateString(),
         ts: Date.now(),
     });
 
@@ -1213,6 +1253,7 @@ async function fetchSnapshotREST(tickers) {
                 changePct: Math.round(changePct * 100) / 100,
                 volume,
                 prevClose,
+                prevCloseDate: getETDateString(),
                 ts: Date.now(),
             });
             

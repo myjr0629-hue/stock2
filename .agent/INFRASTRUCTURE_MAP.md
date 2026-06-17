@@ -500,6 +500,19 @@ signum-harvest (5분마다, 항상)
 - **수정**: 매 refresh 시 `activeTickers`를 완전 교체 (Set 기반), stale 종목 unsubscribe
 - **추가**: 장외시간 WebSocket 재접속 60초 간격 gating (`isSleeping` 로직)
 
+#### 🔴 [CRITICAL] Flow Accumulator 운용 절대 규칙 (2026-06-17 교훈)
+> **블록 트레이드/다크풀 데이터는 RAM 누적이다. PM2 restart = 전량 리셋.**
+> 하루 종일 누적된 수천 건의 블록 데이터가 재시작 한 번으로 0건이 된다.
+
+- **코드 수정 금지**: `subscribeWebsocketBatch()` 로직 (개별 티커 구독 방식)을 절대 건드리지 말 것. 이 코드는 v3에서 검증된 방식으로 정상 작동 중.
+- **API 키 변경 금지**: flow-acc는 `.env.local` 없이 내장 키(`eunhoon`)를 사용. `.env.local` 생성/수정 불필요.
+- **WS 재연결 패턴은 정상**: ~15초마다 WS 끊김+재연결이 반복되지만, `metricsDb`(Map)는 메모리에 유지되므로 데이터 누적에 영향 없음. 60초마다 Flush 정상 (1,500~1,900 tickers/flush).
+- **Massive API 키 현황 (2026-06-17)**:
+  - `eunhoon` — price-ws + flow-acc 공유 (현재 사용 중, 정상 작동)
+  - `flow` — `k2ee_pCqOHmTMFy9pbQNPj3K6pWpod2p` (별도 생성, 미사용)
+  - 최고 티어 무제한 계정, WS 연결 수 제한 없음
+- **INST RADAR 데이터 경로**: `ec2-flow-accumulator` → `rt-metrics:{TICKER}` (ElastiCache) → `injectEC2Institutional()` (unified/route.ts) → `data.institutional.blockTrade.count` → UI 표시
+
 #### Flow Accumulator v3 SSOT 메커니즘 (2026-04-17 LIVE)
 1. **100% 무결점 라이브 누적**: 기존 Lambda의 5,000건 REST 샘플링(정확도 0.025%)을 극복. 매일 04:00~20:00 ET 동안 `T.*` / `Q.*` (미국 전체 상위 3,000 종목)을 WebSocket 구독하여 RAM에 100% 전체 틱을 무손실 누적.
 2. **ElastiCache SSOT 쓰기 ($0)**: EC2 → ElastiCache(ioredis, VPC 내부, ~2ms) → Redis Proxy(HTTP) → Vercel 읽기. Upstash 비용 $0.
