@@ -114,7 +114,7 @@
 .metaRow b { color: var(--text-dim); }
 
 /* 해제 리빌 */
-.revealed { animation: vaultReveal 0.5s ease both; }
+.revealed { animation: vaultReveal 0.5s ease both; padding: 0 var(--s4); }
 @keyframes vaultReveal {
   from { opacity: 0; transform: translateY(8px); filter: blur(4px); }
   to   { opacity: 1; transform: none; filter: none; }

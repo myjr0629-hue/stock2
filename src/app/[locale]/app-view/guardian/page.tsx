@@ -11,6 +11,8 @@ import useSWR from 'swr';
 import { Eye, Shield, Activity, Map } from 'lucide-react';
 import s from '../dash/dash.module.css';
 import { AdBanner } from '@/components/app/AdBanner';
+import { MobileAppFooter } from '@/components/mobile/MobileAppFooter';
+import { SwipeableTabs } from '@/components/app/SwipeableTabs';
 
 /* ═══════════════════════════════════════════════════════════
    3-LANGUAGE LOCALIZATION DICTIONARY
@@ -135,10 +137,11 @@ function GuardianPageContent() {
   };
 
   const getVixStatus = (v: number) => {
-    if (v > 30) return { label: t.vixExtreme, color: '#f43f5e' };
-    if (v > 20) return { label: t.vixElevated, color: '#f59e0b' };
-    if (v > 15) return { label: t.vixNormal, color: '#94a3b8' };
-    return { label: t.vixLow, color: '#34d399' };
+    if (v <= 0) return { label: '—', color: '#94a3b8', border: 'rgba(255, 255, 255, 0.06)', bg: 'rgba(255, 255, 255, 0.02)' };
+    if (v > 30) return { label: t.vixExtreme, color: '#f43f5e', border: 'rgba(239, 68, 68, 0.25)', bg: 'rgba(239, 68, 68, 0.06)' };
+    if (v > 20) return { label: t.vixElevated, color: '#f59e0b', border: 'rgba(245, 158, 11, 0.15)', bg: 'rgba(245, 158, 11, 0.04)' };
+    if (v > 15) return { label: t.vixNormal, color: '#94a3b8', border: 'rgba(255, 255, 255, 0.06)', bg: 'rgba(255, 255, 255, 0.02)' };
+    return { label: t.vixLow, color: '#34d399', border: 'rgba(16, 185, 129, 0.15)', bg: 'rgba(16, 185, 129, 0.04)' };
   };
 
   const getDxyStatus = (d: number) => {
@@ -148,12 +151,29 @@ function GuardianPageContent() {
     return { label: t.dxyWeak, color: '#34d399' };
   };
 
+  const getIndexStatus = (chg: number | null) => {
+    if (chg === null) return { color: '#94a3b8', border: 'rgba(255, 255, 255, 0.06)', bg: 'rgba(255, 255, 255, 0.02)' };
+    if (chg >= 0) {
+      return { color: '#34d399', border: 'rgba(52, 211, 153, 0.25)', bg: 'rgba(52, 211, 153, 0.06)' };
+    } else {
+      return { color: '#f43f5e', border: 'rgba(239, 68, 68, 0.25)', bg: 'rgba(239, 68, 68, 0.06)' };
+    }
+  };
+
   // Macro data
   const fgScore = rlsi?.components?.sentimentScore ?? 0;
   const vix = snapshot?.factors?.vix?.level ?? 0;
   const vixChg = snapshot?.factors?.vix?.chgPct ?? 0;
   const fgStatus = getFgStatus(fgScore);
   const vixStatus = getVixStatus(vix);
+
+  const spxPrice = snapshot?.factors?.spx?.level ?? idxData?.spx?.price ?? null;
+  const spxChg = snapshot?.factors?.spx?.chgPct ?? idxData?.spx?.changePct ?? null;
+  const spxStatus = getIndexStatus(spxChg);
+
+  const ndxPrice = snapshot?.factors?.nasdaq100?.level ?? idxData?.nasdaq?.price ?? null;
+  const ndxChg = snapshot?.factors?.nasdaq100?.chgPct ?? idxData?.nasdaq?.changePct ?? null;
+  const ndxStatus = getIndexStatus(ndxChg);
 
   // RLSI score color
   const rlsiScore = data?.rlsi?.score ?? 0;
@@ -274,7 +294,8 @@ function GuardianPageContent() {
           {/* VIX */}
           <div style={{
             display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-            padding: '8px 4px', borderRadius: 'var(--r-btn)', border: '1px solid var(--border)', background: 'var(--surface-1)'
+            padding: '8px 4px', borderRadius: 'var(--r-btn)', border: '1px solid',
+            borderColor: vixStatus.border, background: vixStatus.bg
           }}>
             <span style={{ font: "600 10.5px/1.2 'Inter'", color: 'var(--text-dim)', marginBottom: 4 }}>VIX</span>
             <span className="tnum" style={{ font: "900 18px/1 'Inter'", color: vixStatus.color }}>
@@ -288,28 +309,30 @@ function GuardianPageContent() {
           {/* S&P 500 */}
           <div style={{
             display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-            padding: '8px 4px', borderRadius: 'var(--r-btn)', border: '1px solid var(--border)', background: 'var(--surface-1)'
+            padding: '8px 4px', borderRadius: 'var(--r-btn)', border: '1px solid',
+            borderColor: spxStatus.border, background: spxStatus.bg, textAlign: 'center'
           }}>
             <span style={{ font: "600 10.5px/1.2 'Inter'", color: 'var(--text-dim)', marginBottom: 4 }}>S&amp;P 500</span>
-            <span className="tnum" style={{ font: "800 13px/1.2 'Inter'", fontWeight: 900, color: (idxData?.spx?.changePct ?? 0) >= 0 ? 'var(--green)' : 'var(--red)' }}>
-              {idxData?.spx ? (idxData.spx.changePct >= 0 ? '+' : '') + idxData.spx.changePct.toFixed(2) + '%' : '—'}
+            <span className="tnum" style={{ font: "800 13px/1.2 'Inter'", fontWeight: 900, color: spxStatus.color }}>
+              {spxChg !== null ? (spxChg >= 0 ? '+' : '') + spxChg.toFixed(2) + '%' : '—'}
             </span>
             <span className="tnum" style={{ font: "500 10px/1.2 'Inter'", color: 'var(--text-muted)', marginTop: 4 }}>
-              {idxData?.spx ? Number(idxData.spx.price).toLocaleString(undefined, { maximumFractionDigits: 0 }) : ''}
+              {spxPrice !== null ? Number(spxPrice).toLocaleString(undefined, { maximumFractionDigits: 0 }) : ''}
             </span>
           </div>
 
           {/* NASDAQ 100 */}
           <div style={{
             display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-            padding: '8px 4px', borderRadius: 'var(--r-btn)', border: '1px solid var(--border)', background: 'var(--surface-1)'
+            padding: '8px 4px', borderRadius: 'var(--r-btn)', border: '1px solid',
+            borderColor: ndxStatus.border, background: ndxStatus.bg, textAlign: 'center'
           }}>
             <span style={{ font: "600 10.5px/1.2 'Inter'", color: 'var(--text-dim)', marginBottom: 4 }}>NASDAQ 100</span>
-            <span className="tnum" style={{ font: "800 13px/1.2 'Inter'", fontWeight: 900, color: (idxData?.nasdaq?.changePct ?? 0) >= 0 ? 'var(--green)' : 'var(--red)' }}>
-              {idxData?.nasdaq ? (idxData.nasdaq.changePct >= 0 ? '+' : '') + idxData.nasdaq.changePct.toFixed(2) + '%' : '—'}
+            <span className="tnum" style={{ font: "800 13px/1.2 'Inter'", fontWeight: 900, color: ndxStatus.color }}>
+              {ndxChg !== null ? (ndxChg >= 0 ? '+' : '') + ndxChg.toFixed(2) + '%' : '—'}
             </span>
             <span className="tnum" style={{ font: "500 10px/1.2 'Inter'", color: 'var(--text-muted)', marginTop: 4 }}>
-              {idxData?.nasdaq ? Number(idxData.nasdaq.price).toLocaleString(undefined, { maximumFractionDigits: 0 }) : ''}
+              {ndxPrice !== null ? Number(ndxPrice).toLocaleString(undefined, { maximumFractionDigits: 0 }) : ''}
             </span>
           </div>
         </div>
@@ -368,7 +391,11 @@ function GuardianPageContent() {
       </div>
 
       {/* TAB CONTENT (RECYCLING ORIGINAL COMPONENTS) */}
-      <div style={{ marginTop: '4px', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+      <SwipeableTabs
+        onSwipeLeft={() => { const TABS: TabKey[] = ['overview','reality','shield','flow']; const i = TABS.indexOf(activeTab); if (i < TABS.length - 1) setActiveTab(TABS[i + 1]); }}
+        onSwipeRight={() => { const TABS: TabKey[] = ['overview','reality','shield','flow']; const i = TABS.indexOf(activeTab); if (i > 0) setActiveTab(TABS[i - 1]); }}
+      >
+      <div style={{ marginTop: '4px', display: 'flex', flexDirection: 'column', gap: '12px', padding: '0 16px' }}>
         {activeTab === 'overview' && (
           <MobileGuardianOverview
             data={data}
@@ -400,9 +427,11 @@ function GuardianPageContent() {
           />
         )}
       </div>
+      </SwipeableTabs>
 
       {/* AD BANNER */}
       <AdBanner />
+      <MobileAppFooter />
     </div>
   );
 }

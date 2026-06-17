@@ -3,6 +3,7 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useLocale } from 'next-intl';
 import { useRouter } from 'next/navigation';
+import { MobileAppFooter } from '@/components/mobile/MobileAppFooter';
 import { Sparkline } from '@/components/app/Sparkline';
 import { AdBanner } from '@/components/app/AdBanner';
 import { ValueWall } from '@/components/app/ValueWall';
@@ -296,12 +297,14 @@ export default function AppDashPage() {
   const [moversLoading, setMoversLoading] = useState(false);
   const [briefing, setBriefing] = useState<string>(DEMO_BRIEFING);
   const [volRegime, setVolRegime] = useState<{ regime: string; score: number } | null>({ regime: 'COILING', score: 38 });
-  const [darkPoolFlow, setDarkPoolFlow] = useState<{ percent: number; value: number } | null>({ percent: 42.5, value: 8500000000 });
+  const [darkPoolFlow, setDarkPoolFlow] = useState<{ percent: number; volume: number; totalVolume: number } | null>({ percent: 42.5, volume: 0, totalVolume: 0 });
   const [gammaSqueeze, setGammaSqueeze] = useState<{ score: number; risk: string } | null>({ score: 34, risk: 'LOW' });
   const [sectorRotation, setSectorRotation] = useState<{ score: number; direction: string; conviction: string } | null>({ score: 50, direction: 'NEUTRAL', conviction: 'LOW' });
   const [newsItems, setNewsItems] = useState<TickerNewsItem[]>([]);
   const [tickerIndex, setTickerIndex] = useState(0);
   const [briefingMode, setBriefingMode] = useState<'briefing' | 'news'>('news');
+  const [showLangDropdown, setShowLangDropdown] = useState(false);
+  const [showToast, setShowToast] = useState(false);
 
   // ── WebSocket Real-Time Integration ──
   const wsSymbols = useMemo(() => {
@@ -735,7 +738,7 @@ export default function AppDashPage() {
             const pData = await premiumRes.value.json();
             if (pData.success) {
               setVolRegime({ regime: pData.volatilityRegime.regime, score: pData.volatilityRegime.score });
-              setDarkPoolFlow({ percent: pData.darkPool.percent, value: pData.darkPool.volume });
+              setDarkPoolFlow({ percent: pData.darkPool.percent, volume: pData.darkPool.volume, totalVolume: pData.darkPool.totalVolume ?? 0 });
               setGammaSqueeze({ score: pData.gammaSqueeze.score, risk: pData.gammaSqueeze.risk });
               setSectorRotation({ score: pData.sectorRotation.score, direction: pData.sectorRotation.direction, conviction: pData.sectorRotation.conviction });
             }
@@ -806,18 +809,51 @@ export default function AppDashPage() {
           </div>
         </div>
         <div className={s.headerActions}>
-          <button className={s.headerBtn} aria-label="Notifications">
+          <button className={s.headerBtn} aria-label="Notifications" onClick={() => {
+            setShowToast(true);
+            setTimeout(() => setShowToast(false), 2500);
+          }}>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
               <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9Z" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
               <path d="M13.73 21a2 2 0 0 1-3.46 0" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
           </button>
-          <button className={s.headerBtn} aria-label="Settings">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-              <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="1.6" />
-              <path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10A15.3 15.3 0 0 1 12 2Z" stroke="currentColor" strokeWidth="1.6" />
-            </svg>
-          </button>
+          <div style={{ position: 'relative' }}>
+            <button className={s.headerBtn} aria-label="Language" onClick={() => setShowLangDropdown(!showLangDropdown)}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="1.6" />
+                <path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10A15.3 15.3 0 0 1 12 2Z" stroke="currentColor" strokeWidth="1.6" />
+              </svg>
+            </button>
+            {showLangDropdown && (
+              <div style={{
+                position: 'absolute', top: '100%', right: 0, marginTop: '8px',
+                background: 'rgba(15, 23, 42, 0.98)', border: '1px solid rgba(255,255,255,0.1)',
+                borderRadius: '12px', padding: '6px', zIndex: 100,
+                backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)',
+                boxShadow: '0 8px 32px rgba(0,0,0,0.6)', minWidth: '120px'
+              }}>
+                {[{ code: 'ko', label: '🇰🇷 한국어' }, { code: 'en', label: '🇺🇸 English' }, { code: 'ja', label: '🇯🇵 日本語' }].map(lang => (
+                  <button key={lang.code}
+                    onClick={() => {
+                      setShowLangDropdown(false);
+                      const currentPath = window.location.pathname;
+                      const newPath = currentPath.replace(/^\/(ko|en|ja)/, `/${lang.code}`);
+                      router.push(newPath);
+                    }}
+                    style={{
+                      display: 'block', width: '100%', padding: '10px 14px',
+                      background: locale === lang.code ? 'rgba(34,211,238,0.1)' : 'transparent',
+                      border: locale === lang.code ? '1px solid rgba(34,211,238,0.2)' : '1px solid transparent',
+                      borderRadius: '8px', color: locale === lang.code ? 'var(--cyan)' : 'rgba(255,255,255,0.7)',
+                      fontSize: '13px', fontWeight: locale === lang.code ? 700 : 500,
+                      cursor: 'pointer', textAlign: 'left', transition: 'all 0.15s ease'
+                    }}
+                  >{lang.label}</button>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </header>
 
@@ -897,7 +933,7 @@ export default function AppDashPage() {
                   </div>
                   <span className={s.pulsePrice}>{fmtPrice(p.px)}</span>
                   <span className={`${s.pulseChg} ${p.up ? s.pos : s.neg}`} style={{ width: 'fit-content' }}>
-                    {p.up ? '▲' : '▼'} {fmtChg(Math.abs(p.chg))}
+                    {p.up ? '▲' : '▼'} {p.up ? '+' : ''}{p.chg.toFixed(2)}%
                   </span>
                   <div className={s.pulseSparkline}>
                     <Sparkline data={p.spark} up={p.up} />
@@ -930,7 +966,7 @@ export default function AppDashPage() {
                     </div>
                     <span className={s.pulsePrice}>{fmtPrice(p.px)}</span>
                     <span className={`${s.pulseChg} ${isUp ? s.pos : s.neg}`} style={{ width: 'fit-content' }}>
-                      {isUp ? '▲' : '▼'} {fmtChg(Math.abs(displayChg))}
+                      {isUp ? '▲' : '▼'} {isUp ? '+' : ''}{displayChg.toFixed(2)}%
                     </span>
                     <div className={s.pulseSparkline}>
                       <Sparkline data={p.spark} up={isUp} />
@@ -963,7 +999,7 @@ export default function AppDashPage() {
                       {p.sym === 'VIX' ? displayPx.toFixed(2) : `$${fmtPrice(displayPx)}`}
                     </span>
                     <span className={`${s.pulseChg} ${isUp ? s.pos : s.neg}`} style={{ width: 'fit-content' }}>
-                      {isUp ? '▲' : '▼'} {fmtChg(Math.abs(displayChg))}
+                      {isUp ? '▲' : '▼'} {isUp ? '+' : ''}{displayChg.toFixed(2)}%
                     </span>
                     <div className={s.pulseSparkline}>
                       <Sparkline data={p.spark} up={isUp} />
@@ -1180,7 +1216,6 @@ export default function AppDashPage() {
       )}
 
       {/* ══════════════ INSTITUTIONAL PULSE (PREMIUM) ══════════════ */}
-      <div className={s.card} style={{ padding: 0, overflow: 'hidden' }}>
         <ValueWall
           title="Institutional Pulse"
           subtitle={<>Volatility regime + dark-pool flow map, updating <span style={{ color: 'var(--amber)' }}><b>right now</b></span>.</>}
@@ -1188,9 +1223,9 @@ export default function AppDashPage() {
             label: 'INSTITUTIONAL · 1 OF 4 FREE',
             value: volRegime?.regime || 'COILING'
           }}
-          socialProof="14.2K unlocked today"
+          socialProof={locale === 'ko' ? '오늘 14.2K 잠금해제' : locale === 'ja' ? '本日14.2Kがロック解除' : '14.2K unlocked today'}
           lockedPreview={
-            <div className={s.instPulseGrid} style={{ opacity: 0.12, padding: '16px', filter: 'blur(2.5px)', gap: '12px' }} aria-hidden="true">
+            <div className={s.instPulseGrid} style={{ opacity: 0.12, padding: '0', filter: 'blur(2.5px)', gap: '10px' }} aria-hidden="true">
               {/* 1 */}
               <div className={s.instCell}>
                 <span className={s.instLabel}>Volatility Regime</span>
@@ -1241,7 +1276,7 @@ export default function AppDashPage() {
           {loading ? (
             <div style={{ height: '180px', background: 'rgba(255,255,255,0.02)', borderRadius: '8px', margin: '16px' }} />
           ) : (
-            <div className={s.instPulseGrid} style={{ padding: '16px', gap: '12px' }}>
+            <div className={s.instPulseGrid} style={{ padding: '0', gap: '10px' }}>
               {/* 1. Volatility Regime */}
               <div 
                 className={s.instCell} 
@@ -1254,7 +1289,7 @@ export default function AppDashPage() {
               >
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <span className={s.instLabel} style={{ color: 'var(--cyan)', fontSize: '9px', fontWeight: 'bold' }}>Volatility Regime</span>
-                  <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.3)' }}>시장의 날씨</span>
+                  <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.5)' }}>{locale === 'ko' ? '시장의 날씨' : locale === 'ja' ? '市場のウェザー' : 'Market Weather'}</span>
                 </div>
                 <div className={s.instValRow} style={{ marginTop: '4px' }}>
                   <span className={s.instVal} style={{ fontSize: '16px', textShadow: '0 0 8px rgba(34, 211, 238, 0.3)' }}>{volRegime?.regime || 'COILING'}</span>
@@ -1284,12 +1319,12 @@ export default function AppDashPage() {
               >
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <span className={s.instLabel} style={{ color: 'var(--green)', fontSize: '9px', fontWeight: 'bold' }}>Dark Pool Volume</span>
-                  <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.3)' }}>기관 비밀 거래</span>
+                  <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.5)' }}>{locale === 'ko' ? '기관 비밀 거래' : locale === 'ja' ? '機関取引フロー' : 'Institutional Flow'}</span>
                 </div>
                 <div className={s.instValRow} style={{ marginTop: '4px' }}>
                   <span className={s.instVal} style={{ fontSize: '16px', color: 'var(--green)', textShadow: '0 0 8px rgba(16, 185, 129, 0.3)' }}>{darkPoolFlow?.percent || 42.5}%</span>
                   <span className={s.instSub} style={{ fontSize: '11px', color: '#a3e635' }}>
-                    ${Math.round((darkPoolFlow?.value || 8500000000) / 100000000) / 10}B
+                    DP {darkPoolFlow?.volume ? (darkPoolFlow.volume >= 1e6 ? `${(darkPoolFlow.volume / 1e6).toFixed(1)}M` : `${(darkPoolFlow.volume / 1e3).toFixed(1)}K`) : '—'}
                   </span>
                 </div>
                 <div className={s.instTrack} style={{ marginTop: '6px', height: '4px', background: 'rgba(255,255,255,0.05)' }}>
@@ -1316,7 +1351,7 @@ export default function AppDashPage() {
               >
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <span className={s.instLabel} style={{ color: '#ec4899', fontSize: '9px', fontWeight: 'bold' }}>Squeeze Risk</span>
-                  <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.3)' }}>주가 폭발력</span>
+                  <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.5)' }}>{locale === 'ko' ? '주가 폭발력' : locale === 'ja' ? 'スクイーズリスク' : 'Squeeze Risk'}</span>
                 </div>
                 <div className={s.instValRow} style={{ marginTop: '4px' }}>
                   <span className={s.instVal} style={{ fontSize: '16px', color: '#f43f5e', textShadow: '0 0 8px rgba(244, 63, 94, 0.3)' }}>{gammaSqueeze?.risk || 'LOW'}</span>
@@ -1346,7 +1381,7 @@ export default function AppDashPage() {
               >
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <span className={s.instLabel} style={{ color: 'var(--amber)', fontSize: '9px', fontWeight: 'bold' }}>Rotation Intensity</span>
-                  <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.3)' }}>공격/수비 전환</span>
+                  <span style={{ fontSize: '10px', color: 'rgba(255,255,255,0.5)' }}>{locale === 'ko' ? '공격/수비 전환' : locale === 'ja' ? 'ローテーション' : 'Rotation'}</span>
                 </div>
                 <div className={s.instValRow} style={{ marginTop: '4px' }}>
                   <span className={s.instVal} style={{ fontSize: '16px', color: 'var(--amber)', textShadow: '0 0 8px rgba(245, 158, 11, 0.3)' }}>{sectorRotation?.direction || 'NEUTRAL'}</span>
@@ -1367,7 +1402,6 @@ export default function AppDashPage() {
             </div>
           )}
         </ValueWall>
-      </div>
 
       {/* ══════════════ TOP MOVERS ══════════════ */}
       <div className={s.sectionHead}>
@@ -1446,6 +1480,33 @@ export default function AppDashPage() {
 
       {/* ══════════════ AD BANNER ══════════════ */}
       <AdBanner />
+      <MobileAppFooter />
+
+      {/* Language dropdown backdrop */}
+      {showLangDropdown && (
+        <div
+          onClick={() => setShowLangDropdown(false)}
+          style={{ position: 'fixed', inset: 0, zIndex: 99, background: 'transparent' }}
+        />
+      )}
+
+      {/* Toast notification */}
+      {showToast && (
+        <div style={{
+          position: 'fixed', top: 60, left: '50%', transform: 'translateX(-50%)',
+          background: 'rgba(15, 23, 42, 0.95)', border: '1px solid rgba(34,211,238,0.25)',
+          borderRadius: '12px', padding: '12px 20px', zIndex: 200,
+          backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)',
+          boxShadow: '0 8px 32px rgba(0,0,0,0.5)',
+          display: 'flex', alignItems: 'center', gap: '8px',
+          animation: 'appFadeIn 0.2s ease',
+        }}>
+          <span style={{ fontSize: '14px' }}>🔔</span>
+          <span style={{ fontSize: '12px', fontWeight: 600, color: 'rgba(255,255,255,0.8)' }}>
+            {locale === 'ko' ? '알림 기능 준비 중입니다' : locale === 'ja' ? '通知機能は準備中です' : 'Notifications coming soon'}
+          </span>
+        </div>
+      )}
     </div>
   );
 }

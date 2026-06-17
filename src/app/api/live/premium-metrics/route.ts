@@ -33,27 +33,33 @@ export async function GET(req: NextRequest) {
             console.warn('[premium-metrics] Failed to fetch volatility-regime:', e);
         }
 
-        // 2. Dark Pool Volume (Fetch from dark-pool-trades API)
+        // 2. Dark Pool Volume (Use same source as web Flow page: realtime-metrics)
         let darkPoolPercent = 42.5;
-        let darkPoolVolume = 8100000000;
+        let darkPoolVolume = 0;
+        let darkPoolTotalVolume = 0;
         
         try {
-            // First, try to query direct cache (cvv3_darkpool:SPY)
-            const cachedDp = await getFromCache<any>('cvv3_darkpool:SPY');
-            if (cachedDp) {
-                darkPoolPercent = cachedDp.darkPoolPercent ?? darkPoolPercent;
-                darkPoolVolume = cachedDp.totalDarkPoolValue ?? darkPoolVolume;
-            } else {
-                // If not cached, trigger internal API fetch
-                const res = await fetch(`${origin}/api/flow/dark-pool-trades?ticker=SPY&limit=1`);
-                if (res.ok) {
-                    const dpData = await res.json();
-                    darkPoolPercent = dpData.darkPoolPercent ?? darkPoolPercent;
-                    darkPoolVolume = dpData.totalDarkPoolValue ?? darkPoolVolume;
+            // Primary: realtime-metrics API (same as web Flow page)
+            const res = await fetch(`${origin}/api/flow/realtime-metrics?ticker=SPY`);
+            if (res.ok) {
+                const rmData = await res.json();
+                if (rmData.darkPool) {
+                    darkPoolPercent = rmData.darkPool.percent ?? darkPoolPercent;
+                    darkPoolVolume = rmData.darkPool.volume ?? darkPoolVolume;
+                    darkPoolTotalVolume = rmData.darkPool.totalVolume ?? darkPoolTotalVolume;
                 }
             }
         } catch (e) {
-            console.warn('[premium-metrics] Failed to fetch dark pool volume:', e);
+            // Fallback: direct Redis cache
+            try {
+                const cachedDp = await getFromCache<any>('cvv3_darkpool:SPY');
+                if (cachedDp) {
+                    darkPoolPercent = cachedDp.darkPoolPercent ?? darkPoolPercent;
+                    darkPoolVolume = cachedDp.totalDarkPoolValue ?? darkPoolVolume;
+                }
+            } catch {
+                console.warn('[premium-metrics] Failed to fetch dark pool volume:', e);
+            }
         }
 
         // 3. Sector Rotation Intensity (Fetch from guardian:snapshot:${locale} or dynamic fallback)
@@ -89,6 +95,7 @@ export async function GET(req: NextRequest) {
             darkPool: {
                 percent: darkPoolPercent,
                 volume: darkPoolVolume,
+                totalVolume: darkPoolTotalVolume,
             },
             gammaSqueeze: {
                 score: Math.round(squeezeScore),

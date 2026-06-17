@@ -858,7 +858,7 @@ function FedWatchMini() {
     useEffect(() => {
         fetch('/api/guardian/fedwatch')
             .then(r => r.json())
-            .then(d => { if (d && typeof d.noChange === 'number' && (d.noChange > 0 || d.hike > 0 || d.ease > 0 || d.targetRate || d.daysUntilFomc)) setData(d); })
+            .then(d => { if (d && typeof d.noChange === 'number') setData(d); })
             .catch(() => {});
     }, []);
 
@@ -868,10 +868,21 @@ function FedWatchMini() {
             ? { cut: '利下げ', hold: '据置', hike: '利上げ', target: '目標金利' }
             : { cut: 'CUT', hold: 'HOLD', hike: 'HIKE', target: 'Target' };
 
-    if (!data) return null;
+    if (!data) return (
+        <div className="w-full self-stretch mt-1 mb-1 px-2">
+            <div className="relative rounded-lg border border-slate-600/40 overflow-hidden"
+                style={{ background: 'linear-gradient(135deg, rgba(99,102,241,0.04) 0%, rgba(15,23,42,0.95) 40%, rgba(6,182,212,0.03) 100%)' }}>
+                <div className="relative z-10 px-4 py-3">
+                    <div className="flex items-center gap-2">
+                        <Landmark className="w-3.5 h-3.5 text-indigo-400/60" />
+                        <span className="text-[13px] font-black uppercase tracking-[0.15em] text-white/80 font-jakarta">FEDWATCH</span>
+                        <span className="text-[11px] text-slate-500 ml-auto">{locale === 'ko' ? '데이터 업데이트 대기중' : 'Awaiting data'}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
     const total = data.ease + data.noChange + data.hike;
-    // Show component even if probabilities are 0, as long as metadata exists
-    if (total === 0 && !data.targetRate && !data.daysUntilFomc) return null;
 
     const fresh = data.scrapedAt ? (() => {
         const m = Math.floor((Date.now() - new Date(data.scrapedAt).getTime()) / 60000);
@@ -943,7 +954,7 @@ function FedWatchMini() {
                             <div className="flex w-full h-2 rounded-full overflow-hidden gap-px bg-slate-800">
                                 {segments.map((seg, i) => (
                                     <div key={i} className="h-full rounded-full transition-all duration-700"
-                                        style={{ width: `${(seg.pct / total) * 100}%`, background: seg.bg }} />
+                                        style={{ width: `${total > 0 ? (seg.pct / total) * 100 : 33}%`, background: seg.bg }} />
                                 ))}
                             </div>
                             {/* Labels below bar */}

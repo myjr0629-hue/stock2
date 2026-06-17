@@ -74,7 +74,7 @@ async function saveToDynamoDB(data) {
 
 // --- CME FedWatch Scraper ---
 async function scrapeFedWatch() {
-    console.log('🚀 CME FedWatch 스크래핑 시작...');
+    console.log('[FedWatch] Starting CME FedWatch scrape...');
     const startTime = Date.now();
     let browser;
 
@@ -88,149 +88,160 @@ async function scrapeFedWatch() {
         await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
         await page.setViewport({ width: 1920, height: 1080 });
 
-        console.log('📡 CME FedWatch 페이지 접속...');
+        // === Strategy A: Intercept network responses for probability data ===
+        const capturedData = [];
+        page.on('response', async (response) => {
+            const url = response.url();
+            const ct = response.headers()['content-type'] || '';
+            if (ct.includes('json') || url.includes('api') || url.includes('fedwatch') || url.includes('probabilities')) {
+                try {
+                    const text = await response.text();
+                    if (text.includes('ease') || text.includes('EASE') || text.includes('noChange') || 
+                        text.includes('hike') || text.includes('HIKE') || text.includes('probability') ||
+                        text.includes('target_rate') || text.includes('targetRate') || text.includes('cut')) {
+                        console.log(`[NET] Captured: ${url.slice(0, 150)}`);
+                        try { capturedData.push({ url, data: JSON.parse(text) }); } catch {}
+                    }
+                } catch {}
+            }
+        });
+
+        console.log('[FedWatch] Loading CME page...');
         await page.goto('https://www.cmegroup.com/markets/interest-rates/cme-fedwatch-tool.html', {
             waitUntil: 'networkidle2',
-            timeout: 30000,
+            timeout: 45000,
         });
-        await delay(6000);
+        await delay(10000);
 
-        // 쿠키 닫기
-        try { await page.click('#onetrust-accept-btn-handler'); await delay(500); } catch {}
+        // Cookie dismiss
+        try { await page.click('#onetrust-accept-btn-handler'); await delay(1000); } catch {}
+        await delay(5000);
 
-        // 모든 프레임에서 데이터 추출
-        console.log('📊 데이터 추출 중...');
-        const frames = page.frames();
         let result = null;
 
-        for (const frame of frames) {
-            try {
-                const text = await frame.evaluate(() => document.body?.innerText || '');
-                if (text.includes('EASE') && text.includes('HIKE') && text.includes('NO CHANGE')) {
-                    console.log('🔍 FedWatch 테이블 감지됨. 텍스트 파싱 시도...');
-                    
-                    // === Strategy 1: Header-indexed parsing (new CME structure) ===
-                    // CME now separates headers from data in table rows:
-                    //   "PROBABILITY  EASE  NO CHANGE  HIKE\n0.0%  91.7%  8.3%"
-                    // Find the header line, then extract percentages from next line(s)
-                    const lines = text.split(/[\n\r]+/).map(l => l.trim()).filter(Boolean);
-                    let headerIdx = -1;
-                    for (let i = 0; i < lines.length; i++) {
-                        if (lines[i].includes('EASE') && lines[i].includes('HIKE')) {
-                            headerIdx = i;
-                            break;
-                        }
-                    }
-
-                    if (headerIdx >= 0) {
-                        // Collect all percentages from lines after the header
-                        const remainingText = lines.slice(headerIdx + 1).join(' ');
-                        const pctMatches = [...remainingText.matchAll(/([\d.]+)\s*%/g)].map(m => parseFloat(m[1]));
-                        
-                        // Determine column order from header
-                        const headerLine = lines[headerIdx];
-                        const colOrder = [];
-                        const positions = [
-                            { name: 'EASE', pos: headerLine.indexOf('EASE') },
-                            { name: 'NO_CHANGE', pos: headerLine.indexOf('NO CHANGE') },
-                            { name: 'HIKE', pos: headerLine.indexOf('HIKE') },
-                        ].filter(c => c.pos >= 0).sort((a, b) => a.pos - b.pos);
-                        
-                        if (positions.length === 3 && pctMatches.length >= 3) {
-                            const mapped = {};
-                            positions.forEach((col, i) => { mapped[col.name] = pctMatches[i]; });
-                            result = {
-                                ease: mapped['EASE'] || 0,
-                                noChange: mapped['NO_CHANGE'] || 0,
-                                hike: mapped['HIKE'] || 0,
-                            };
-                            console.log(`✅ Strategy 1 성공: EASE=${result.ease}%, NO_CHANGE=${result.noChange}%, HIKE=${result.hike}%`);
-                        }
-                    }
-
-                    // === Strategy 2: Legacy regex (old CME structure, fallback) ===
-                    if (!result) {
-                        const easeM = text.match(/EASE\s*[\n\r\s]*([\d.]+)%?/);
-                        const ncM = text.match(/NO\s*CHANGE\s*[\n\r\s]*([\d.]+)%?/);
-                        const hikeM = text.match(/HIKE\s*[\n\r\s]*([\d.]+)%?/);
-
-                        if (easeM || ncM || hikeM) {
-                            result = {
-                                ease: easeM ? parseFloat(easeM[1]) : 0,
-                                noChange: ncM ? parseFloat(ncM[1]) : 0,
-                                hike: hikeM ? parseFloat(hikeM[1]) : 0,
-                            };
-                            console.log(`✅ Strategy 2 (legacy) 성공: EASE=${result.ease}%, NO_CHANGE=${result.noChange}%, HIKE=${result.hike}%`);
-                        }
-                    }
-
-                    // === Strategy 3: Brute-force all percentages ===
-                    if (!result) {
-                        const allPcts = [...text.matchAll(/([\d.]+)\s*%/g)].map(m => parseFloat(m[1]));
-                        const validPcts = allPcts.filter(p => p >= 0 && p <= 100);
-                        if (validPcts.length >= 3) {
-                            // Assume order: ease, noChange, hike (first 3 probabilities summing to ~100)
-                            for (let i = 0; i <= validPcts.length - 3; i++) {
-                                const sum = validPcts[i] + validPcts[i+1] + validPcts[i+2];
-                                if (Math.abs(sum - 100) < 2) {
-                                    result = { ease: validPcts[i], noChange: validPcts[i+1], hike: validPcts[i+2] };
-                                    console.log(`✅ Strategy 3 (brute) 성공: EASE=${result.ease}%, NO_CHANGE=${result.noChange}%, HIKE=${result.hike}%`);
-                                    break;
-                                }
-                            }
-                        }
-                    }
-
-                    // Add metadata if we got probabilities
-                    if (result) {
-                        const targetM = text.match(/Current\s*target\s*rate\s*is\s*([\d]+-[\d]+)/i);
-                        const meetingM = text.match(/(\d+\s*\d+\s*2026)/);
-                        const contractM = text.match(/CONTRACT\s*[\n\r\s]*(\w+)/);
-                        const midPriceM = text.match(/MID\s*PRICE\s*[\n\r\s]*([\d.]+)/);
-                        result.targetRate = targetM?.[1] || null;
-                        result.nextMeetingDate = meetingM?.[1]?.trim() || null;
-                        result.contract = contractM?.[1] || null;
-                        result.midPrice = midPriceM ? parseFloat(midPriceM[1]) : null;
+        // Check captured network data
+        if (capturedData.length > 0) {
+            console.log(`[FedWatch] Captured ${capturedData.length} potential API responses`);
+            for (const { url, data } of capturedData) {
+                const d = typeof data === 'object' ? data : {};
+                if (typeof d.ease === 'number' || typeof d.noChange === 'number') {
+                    result = { ease: d.ease || 0, noChange: d.noChange || 0, hike: d.hike || 0 };
+                    console.log(`[FedWatch] Direct format from: ${url.slice(0, 80)}`);
+                    break;
+                }
+                if (Array.isArray(d) && d.length > 0 && d[0].probability) {
+                    const m = d[0]; result = { ease: m.probability.ease || 0, noChange: m.probability.noChange || 0, hike: m.probability.hike || 0 };
+                    if (m.date) result.nextMeetingDate = m.date;
+                    break;
+                }
+                if (d.data && typeof d.data === 'object') {
+                    const inner = Array.isArray(d.data) ? d.data[0] : d.data;
+                    if (inner && (inner.ease !== undefined || inner.cut !== undefined)) {
+                        result = { ease: inner.ease || inner.cut || 0, noChange: inner.noChange || inner.hold || 0, hike: inner.hike || 0 };
                         break;
                     }
                 }
-            } catch {}
+                // Log structure for debugging
+                console.log(`[NET-DEBUG] Keys: ${Object.keys(d).slice(0, 10).join(', ')}`);
+            }
+        } else {
+            console.log('[FedWatch] No API responses captured');
         }
 
-        // 메인 페이지에서 카운트다운 추출
-        const mainText = await page.evaluate(() => document.body.innerText);
-        // Countdown extraction — handle both "DAY" (singular) and "DAYS" (plural)
+        // === Strategy B: DOM text extraction (iframe) ===
+        if (!result) {
+            console.log('[FedWatch] Trying DOM extraction...');
+            const frames = page.frames();
+            for (const frame of frames) {
+                try {
+                    const text = await frame.evaluate(() => document.body?.innerText || '');
+                    if (text.includes('EASE') && text.includes('HIKE') && text.includes('NO CHANGE')) {
+                        const lines = text.split(/[\n\r]+/).map(l => l.trim()).filter(Boolean);
+                        let headerIdx = -1;
+                        for (let i = 0; i < lines.length; i++) {
+                            if (lines[i].includes('EASE') && lines[i].includes('HIKE')) { headerIdx = i; break; }
+                        }
+                        if (headerIdx >= 0) {
+                            const rem = lines.slice(headerIdx + 1).join(' ');
+                            const pcts = [...rem.matchAll(/([\d.]+)\s*%/g)].map(m => parseFloat(m[1]));
+                            if (pcts.length >= 3) {
+                                const hdr = lines[headerIdx];
+                                const cols = [
+                                    { n: 'EASE', p: hdr.indexOf('EASE') },
+                                    { n: 'NC', p: hdr.indexOf('NO CHANGE') },
+                                    { n: 'HIKE', p: hdr.indexOf('HIKE') },
+                                ].filter(c => c.p >= 0).sort((a, b) => a.p - b.p);
+                                if (cols.length === 3) {
+                                    result = { ease: pcts[0], noChange: pcts[1], hike: pcts[2] };
+                                    if (cols[0].n !== 'EASE') { /* reorder based on header */ }
+                                }
+                            }
+                        }
+                        if (!result) {
+                            const eM = text.match(/EASE\s*[\n\r\s]*([\d.]+)%?/);
+                            const nM = text.match(/NO\s*CHANGE\s*[\n\r\s]*([\d.]+)%?/);
+                            const hM = text.match(/HIKE\s*[\n\r\s]*([\d.]+)%?/);
+                            if (eM || nM || hM) result = { ease: eM ? parseFloat(eM[1]) : 0, noChange: nM ? parseFloat(nM[1]) : 0, hike: hM ? parseFloat(hM[1]) : 0 };
+                        }
+                        if (result) break;
+                    }
+                } catch {}
+            }
+        }
+
+        // === Strategy C: Brute-force all % elements ===
+        if (!result) {
+            console.log('[FedWatch] Trying brute-force...');
+            const allPctText = await page.evaluate(() => {
+                const els = document.querySelectorAll('*');
+                const t = [];
+                els.forEach(el => { if (el.children.length === 0 && el.textContent) { const s = el.textContent.trim(); if (s.includes('%') && /\d/.test(s)) t.push(s); } });
+                return t.join(' | ');
+            });
+            console.log(`[FedWatch] % elements: ${allPctText.slice(0, 300)}`);
+            const allPcts = [...allPctText.matchAll(/([\d.]+)\s*%/g)].map(m => parseFloat(m[1])).filter(p => p >= 0 && p <= 100);
+            for (let i = 0; i <= allPcts.length - 3; i++) {
+                const sum = allPcts[i] + allPcts[i+1] + allPcts[i+2];
+                if (Math.abs(sum - 100) < 2) {
+                    result = { ease: allPcts[i], noChange: allPcts[i+1], hike: allPcts[i+2] };
+                    console.log(`[FedWatch] Brute-force success: ${result.ease}% / ${result.noChange}% / ${result.hike}%`);
+                    break;
+                }
+            }
+        }
+
+        // Extract countdown + metadata from main page
+        const mainText = await page.evaluate(() => document.body?.innerText || '');
         const daysM = mainText.match(/(\d+)\s*DAYS?/i);
         const hrsM = mainText.match(/(\d+)\s*HRS?/i);
-        if (result && daysM) {
-            result.daysUntilFomc = parseInt(daysM[1]);
-            if (hrsM) result.hoursUntilFomc = parseInt(hrsM[1]);
-        } else if (result && hrsM) {
-            // Less than 1 day remaining (shows 0 days or no days text)
-            result.daysUntilFomc = 0;
-            result.hoursUntilFomc = parseInt(hrsM[1]);
+        if (result && daysM) { result.daysUntilFomc = parseInt(daysM[1]); if (hrsM) result.hoursUntilFomc = parseInt(hrsM[1]); }
+        else if (result && hrsM) { result.daysUntilFomc = 0; result.hoursUntilFomc = parseInt(hrsM[1]); }
+
+        if (result) {
+            const targetM = mainText.match(/target\s*rate[:\s]*([\d.]+-[\d.]+)/i);
+            result.targetRate = targetM?.[1] || null;
+            const meetingM = mainText.match(/(\w+\s+\d+,?\s+\d{4})/);
+            result.nextMeetingDate = meetingM?.[1]?.trim() || null;
         }
 
         if (!result) {
-            // Fallback: 메인 페이지에서 % 패턴 찾기
-            const allPct = [...mainText.matchAll(/([\d.]+)%/g)].map(m => parseFloat(m[1]));
-            console.log('⚠️ iframe 추출 실패. 메인 페이지 %값:', allPct.slice(0, 10));
-            throw new Error('FedWatch 확률 데이터 추출 실패');
+            console.log('[FedWatch] All strategies failed');
+            throw new Error('FedWatch probability extraction failed');
         }
 
         result.scrapedAt = new Date().toISOString();
         result.elapsedMs = Date.now() - startTime;
 
-        console.log('\n════════════════════════════════════');
-        console.log('  📋 FedWatch 데이터');
-        console.log('════════════════════════════════════');
-        console.log(`  인하 (EASE):     ${result.ease}%`);
-        console.log(`  동결 (NO CHANGE): ${result.noChange}%`);
-        console.log(`  인상 (HIKE):     ${result.hike}%`);
-        console.log(`  Target Rate:     ${result.targetRate}`);
-        console.log(`  다음 FOMC:       ${result.daysUntilFomc}일 후`);
-        console.log(`  소요시간:         ${(result.elapsedMs / 1000).toFixed(1)}s`);
-        console.log('════════════════════════════════════\n');
+        console.log('\n====================================');
+        console.log('  FedWatch Data');
+        console.log('====================================');
+        console.log(`  Cut (EASE):       ${result.ease}%`);
+        console.log(`  Hold (NO CHANGE): ${result.noChange}%`);
+        console.log(`  Hike:             ${result.hike}%`);
+        console.log(`  Target Rate:      ${result.targetRate}`);
+        console.log(`  Next FOMC:        D-${result.daysUntilFomc} (${result.hoursUntilFomc || '?'}h)`);
+        console.log(`  Elapsed:          ${(result.elapsedMs / 1000).toFixed(1)}s`);
+        console.log('====================================\n');
 
         return result;
     } finally {

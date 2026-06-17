@@ -1,4 +1,5 @@
 @import url('https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,300..900&family=JetBrains+Mono:wght@400;500;600;700;800&display=swap');
+@import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css');
 
 :root {
   --bg: #0b111e;
@@ -25,19 +26,22 @@
   --shadow: 0 4px 24px rgba(0,0,0,0.4);
   --shadow-lg: 0 12px 48px rgba(0,0,0,0.55);
   --glass: blur(20px) saturate(180%);
-  --f-display: 800 32px/1.05 'Inter', sans-serif;
-  --f-h1: 800 24px/1.1 'Inter', sans-serif;
-  --f-h2: 700 18px/1.2 'Inter', sans-serif;
-  --f-h3: 600 15px/1.3 'Inter', sans-serif;
-  --f-body: 400 15px/1.45 'Inter', sans-serif;
-  --f-small: 400 13px/1.4 'Inter', sans-serif;
-  --f-micro: 600 11px/1.3 'Inter', sans-serif;
+
+  /* 본문/UI 폰트: Pretendard (한글) + Inter (라틴) */
+  --f-sans: 'Pretendard Variable', 'Pretendard', 'Inter', -apple-system, 'Apple SD Gothic Neo', sans-serif;
+  --f-display: 800 32px/1.05 var(--f-sans);
+  --f-h1: 800 24px/1.1 var(--f-sans);
+  --f-h2: 700 18px/1.2 var(--f-sans);
+  --f-h3: 600 15px/1.3 var(--f-sans);
+  --f-body: 400 15px/1.45 var(--f-sans);
+  --f-small: 400 13px/1.4 var(--f-sans);
+  --f-micro: 600 11px/1.3 var(--f-sans);
   --s1: 4px; --s2: 8px; --s3: 12px; --s4: 16px;
   --s5: 20px; --s6: 24px; --s7: 32px; --s8: 48px;
 
-  /* 누락 폰트 토큰 — cmd.module.css가 이미 참조 중 */
+  /* 모노스페이스 (금융 숫자) */
   --f-mono: 'JetBrains Mono', ui-monospace, 'SF Mono', 'Roboto Mono', monospace;
-  --f-jakarta: 'Inter', sans-serif;
+  --f-jakarta: var(--f-sans);
 
   /* 글로우 토큰 — 배지/라인/CTA 공용 */
   --glow-cyan:  0 0 12px rgba(34,211,238,0.45);

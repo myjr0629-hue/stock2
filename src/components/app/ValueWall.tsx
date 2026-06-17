@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, ReactNode } from 'react';
 import styles from './ValueWall.module.css';
 
-const UNLOCK_KEY = 'signum.unlockUntil';
+const UNLOCK_KEY = 'signum_ad_unlock';
 const UNLOCK_MS = 60 * 60 * 1000; // 1 hour
 
 /** 전역 잠금해제 상태 — 모든 ValueWall이 공유, 만료 자동 처리 */
@@ -12,8 +12,17 @@ export function useUnlockState() {
 
   useEffect(() => {
     const check = () => {
-      const until = Number(localStorage.getItem(UNLOCK_KEY) || 0);
-      setUnlocked(Date.now() < until);
+      const raw = localStorage.getItem(UNLOCK_KEY);
+      if (!raw) { setUnlocked(false); return; }
+      try {
+        // Support both formats: adManager JSON and legacy raw timestamp
+        const parsed = JSON.parse(raw);
+        const until = parsed.unlockedUntil || parsed;
+        setUnlocked(Date.now() < Number(until));
+      } catch {
+        // Legacy format: raw timestamp string
+        setUnlocked(Date.now() < Number(raw));
+      }
     };
     check();
     // 다른 인스턴스/탭에서의 해제 동기화
@@ -28,7 +37,8 @@ export function useUnlockState() {
   }, []);
 
   const unlock = useCallback(() => {
-    localStorage.setItem(UNLOCK_KEY, String(Date.now() + UNLOCK_MS));
+    const state = { unlockedUntil: Date.now() + UNLOCK_MS, tier: 'premium' };
+    localStorage.setItem(UNLOCK_KEY, JSON.stringify(state));
     window.dispatchEvent(new Event('signum:unlock'));
     setUnlocked(true);
   }, []);
@@ -45,7 +55,7 @@ interface ValueWallProps {
   title: string;
   subtitle?: ReactNode;
   /** 해제 시 렌더할 실제 콘텐츠 (잠금 중에는 마운트되지 않음) */
-  children: ReactNode;
+  children?: ReactNode;
   /** 잠금 중 블러 뒤에 보여줄 데모/플레이스홀더 — 실데이터 금지 */
   lockedPreview?: ReactNode;
   /** 블러 없이 노출하는 무료 시그널 1개 */

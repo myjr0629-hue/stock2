@@ -18,6 +18,97 @@
   display: none;
 }
 
+/* Premium Infographic Tab Control */
+.tabContainer {
+  padding: 12px 16px 0;
+  position: sticky;
+  top: 49px;
+  z-index: 25;
+  background: rgba(5, 10, 20, 0.9);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+.tabTrack {
+  display: flex;
+  gap: 8px;
+}
+
+.tabBtn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 7px 10px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: transparent;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  -webkit-tap-highlight-color: transparent;
+  position: relative;
+  overflow: hidden;
+}
+
+.tabBtn:active {
+  transform: scale(0.96);
+}
+
+.tabActive {
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+.tabIconWrap {
+  width: 26px;
+  height: 26px;
+  border-radius: 7px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: all 0.3s ease;
+}
+
+.tabText {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  text-align: left;
+  min-width: 0;
+}
+
+.tabLabel {
+  font: 700 13px/1 'Inter', sans-serif;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  transition: color 0.3s ease;
+}
+
+.tabSub {
+  font: 600 9px/1 'Inter', sans-serif;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  transition: color 0.3s ease;
+}
+
+.tabGlow {
+  position: absolute;
+  bottom: 0;
+  left: 20%;
+  right: 20%;
+  height: 2px;
+  border-radius: 2px;
+  opacity: 0.7;
+  filter: blur(1px);
+}
+
+.tabIcon {
+  font-size: 8px;
+  opacity: 0.8;
+}
+
 .hdr {
   display: flex;
   align-items: center;
@@ -90,7 +181,7 @@
   background: rgba(255, 255, 255, 0.02);
   border: 1px solid rgba(255, 255, 255, 0.05);
   border-radius: 14px;
-  padding: 4px 14px;
+  padding: 4px 16px;
   box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
 }
 

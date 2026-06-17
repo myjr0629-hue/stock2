@@ -1,6 +1,7 @@
 'use client';
 
 import { usePathname, useRouter } from '@/i18n/routing';
+import { useLocale } from 'next-intl';
 import styles from './AppBottomNav.module.css';
 
 const TABS = [
@@ -10,6 +11,14 @@ const TABS = [
   { id: 'flow', label: 'Flow', path: '/app-view/flow', icon: 'flow' },
   { id: 'intel', label: 'Intel', path: '/app-view/intel', icon: 'intel' },
 ];
+
+const TAB_LABELS: Record<string, Record<string, string>> = {
+  dash: { ko: '대시보드', en: 'Dashboard', ja: 'ダッシュボード' },
+  guardian: { ko: '가디언', en: 'Guardian', ja: 'ガーディアン' },
+  cmd: { ko: '커맨드', en: 'Command', ja: 'コマンド' },
+  flow: { ko: '플로우', en: 'Flow', ja: 'フロー' },
+  intel: { ko: '인텔', en: 'Intel', ja: 'インテル' },
+};
 
 function TabIcon({ name, active }: { name: string; active: boolean }) {
   const color = active ? 'var(--cyan)' : 'var(--text-muted)';
@@ -60,6 +69,7 @@ function TabIcon({ name, active }: { name: string; active: boolean }) {
 export function AppBottomNav() {
   const pathname = usePathname();
   const router = useRouter();
+  const locale = useLocale();
 
   const activeTab = TABS.find(t => pathname?.startsWith(t.path))?.id || 'dash';
 
@@ -71,10 +81,13 @@ export function AppBottomNav() {
           <button
             key={tab.id}
             className={`app-tabbar-tab ${isActive ? 'active' : ''}`}
-            onClick={() => router.push(tab.path)}
+            onClick={() => {
+              if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate(10);
+              router.push(tab.path);
+            }}
           >
             <TabIcon name={tab.icon} active={isActive} />
-            <span className="app-tabbar-label">{tab.label}</span>
+            <span className="app-tabbar-label">{TAB_LABELS[tab.id]?.[locale] || TAB_LABELS[tab.id]?.en || tab.label}</span>
             {isActive && <span className="app-tabbar-glow" />}
           </button>
         );

@@ -8317,5 +8317,114 @@ EC2 인스턴스에서 실행되는 실시간 시세 및 플로우 수집용 백
   - 6월 12일(금) 상장 기준 3영업일 시점은 6월 16일(화)이 되며, 대형 IPO(스페이스X급 메가캡)의 경우 거래소의 신속 상장(Fast-Track) 기준을 만족하여 화요일 개장과 동시에 옵션 거래가 개시될 것으로 예상됩니다.
   - 옵션 거래 개시 전(6월 15일 월요일 등)까지는 데이터 파이프라인에서 옵션 체인 및 OPI 지표가 빈 값 또는 기본 폴백 값으로 표시될 수 있습니다.
 
+---
 
+## 40. 📱 모바일 옵션 플로우(app-view/flow) 실시간 다크풀 및 지표 개편 (2026-06-16 ~ 2026-06-17)
+
+### 40.1 변경 개요
+- **목적**: 모바일 옵션 플로우 페이지(`src/app/[locale]/app-view/flow/page.tsx`)의 상단 지표 카드(Max Pain, Gamma Flip)에 실시간 괴리율 계산 및 위치 비교를 추가하고 근접 시 네온 글로잉 테두리(Intelligent Glowing Border) 효과를 이식하여 프리미엄 HUD 디자인 완성.
+- **다크풀 및 공매도 위젯 데이터 연동**: 다크풀 누적 비율 및 거래량을 실시간 API(`tickerData.flow`)와 연동하고, 기존 Unusual Options Activity (UOA) 서브 탭을 실시간 기관 다크풀 & 블록 딜(Block Trades) 내역 피드로 교체.
+- **타입 안정성 및 빌드 통과**: 빌드 과정에서 발생한 SWC 컴파일러의 정규식 오인(Regex Literal Parsing Error) 및 TypeScript 타입 에러를 원천 해결하여 Next.js 15 프로덕션 빌드 성공 및 개발 서버 복구.
+
+### 40.2 작업 내역 및 수정 파일
+
+| 파일 | 변경 사항 |
+|---|---|
+| `src/app/[locale]/app-view/flow/page.tsx` | - 기초자산 가격 카드 개편 및 `p2Card` 프리미엄 레이아웃 적용.<br>- Max Pain 괴리율($\pm 1.5\%$ 이내 접근 시 골드빛 글로잉 테두리) 및 Gamma Flip 괴리율(상회/하회 계산 및 $\pm 1.0\%$ 이내 접근 시 그린/레드 글로잉 테두리) 구현.<br>- 다크풀 누적 비율(`dpPct`), 순매수(`dpNetBuyStr`), 공매도 비중(`shortPct`) 실시간 바인딩.<br>- Unusual Options Activity 서브 탭을 제거하고, 실시간 다크풀 및 대량 블록 딜 체결 피드(`darkPoolTrades`)를 렌더링하도록 탭 전면 수정.<br>- 헤더 텍스트의 슬래시를 중괄호 문자열(`{"TIME / EXCH"}`)로 이스케이프하여 SWC regex 컴파일 오류 해결.<br>- JSX 가독성 향상 및 안정성을 위해 IIFE 코드를 걷어내고 최상단 컴포넌트 변수로 리팩토링. |
+| `src/app/api/live/ticker/route.ts` | - `calculateAlphaScore` 호출 인수에서 `AlphaInput` 인터페이스에 없는 비표준 옵션 필드(`darkPoolVol`, `darkPoolTotalVol`, `darkPoolNetBuyVal`, `shortVol`, `shortTotalVol`)를 제거하여 TypeScript 타입 에러 근절.<br>- 해당 실시간 다크풀/공매도 거래량 데이터는 API 응답의 `flow` 필드에 포함시켜 프론트엔드가 이를 정상적으로 소비하도록 구조적 수정 완료. |
+
+### 40.3 인프라 및 실행 주의 사항
+1. **Turbopack 캐시 충돌 방지**: 개발 서버(`next dev --turbo`) 실행 중 프로덕션 빌드(`npm run build`)를 수행하면 `.next` 캐시 불일치가 발생할 수 있으므로, 반드시 `.next` 폴더를 `Remove-Item -Recurse -Force .next`로 지운 뒤 재기동해야 함.
+2. **실시간 데이터 의존성**: 옵션 괴리도 및 다크풀 데이터는 Lambda 수집기(`signum-flow-harvest`) 및 EC2 Accumulator(`signum-flow-acc`)가 동작 중이어야 실시간 갱신됨.
+3. **슬래시 문자열 이스케이프**: Next.js (SWC) 빌더가 JSX 태그 안의 텍스트 슬래시(예: `TIME / EXCH`)를 정규식 리터럴로 잘못 파싱하는 버그가 있으므로, 향후 JSX 작업 시 슬래시가 포함된 문자열은 반드시 `{"TIME / EXCH"}` 형태로 격리할 것.
+
+
+
+## 섹션 41: 모바일 앱 전체 개편 (2026-06-17)
+
+### 41.0 개요
+- **목적**: SIGNUM HQ 모바일 앱(Capacitor 기반)을 웹뷰 래퍼 수준에서 네이티브급 프리미엄 앱으로 전환
+- **대상 시장**: 한국(ko), 미국(en), 일본(ja) 3개국 앱스토어 출시
+- **수익 모델**: AdMob 광고 기반 무료 + 프리미엄 구독($9.99/mo)
+- **절대 법칙**: 웹 코드 불가침 — `app-view/`, `components/app/`, `components/native/`, `services/adManager.ts`만 수정
+
+### 41.1 수정 파일 전체 목록
+
+#### 앱 페이지 (6개 수정 + 1개 신규)
+| 파일 | 변경 |
+|------|------|
+| `src/app/[locale]/app-view/layout.tsx` | NativePullToRefresh + NetworkStatus 추가 |
+| `src/app/[locale]/app-view/dash/page.tsx` | 한국어→3lang 번역, 헤더 버튼(알림토스트+언어전환 드롭다운), socialProof 3lang |
+| `src/app/[locale]/app-view/cmd/page.tsx` | 30s폴링, SwipeableTabs, ValueWall(3탭 잠금), 3lang섹션타이틀+시그널카드, TabLockIcon/PremiumContent 고아코드 제거 |
+| `src/app/[locale]/app-view/flow/page.tsx` | 하드코딩3곳→실시간바인딩, 스켈레톤로딩, 30s폴링, 언락시스템통합, ja버그수정, SwipeableTabs, 3lang, transactions고아코드제거 |
+| `src/app/[locale]/app-view/guardian/page.tsx` | SwipeableTabs 탭 스와이프 |
+| `src/app/[locale]/app-view/intel/page.tsx` | adManager연동(네이티브시 실제광고+웹폴백), Earnings Calendar위젯, Analyst Consensus위젯 |
+| `src/app/[locale]/app-view/movers/page.tsx` | DEMO_MOVERS 폴백데이터 + 에러안내 3lang |
+| `src/app/[locale]/app-view/onboarding/page.tsx` | **[NEW]** 3슬라이드 온보딩 (3lang, localStorage 완료플래그) |
+
+#### 앱 컴포넌트 (3개 수정 + 2개 신규)
+| 파일 | 변경 |
+|------|------|
+| `src/components/app/AppBottomNav.tsx` | 5탭 다국어(ko/en/ja) + navigator.vibrate(10) 햅틱 |
+| `src/components/app/AdBanner.tsx` | Capacitor 네이티브 감지 → 실제 AdMob 배너 실행 시 HTML 목업 숨김 |
+| `src/components/app/ValueWall.tsx` | localStorage키 통합: `signum.unlockUntil`→`signum_ad_unlock` (JSON포맷, adManager와 호환) |
+| `src/components/app/SwipeableTabs.tsx` | **[NEW]** 터치 스와이프 탭 전환 (50px임계, 500ms시간, 1.5x수평비율, 햅틱) |
+| `src/components/app/NetworkStatus.tsx` | **[NEW]** 오프라인 감지 빨간 필 배너 (3lang, navigator.onLine) |
+
+### 41.2 해결된 핵심 문제
+
+#### 이중 언락 시스템 통합
+- **이전**: App ValueWall(`signum.unlockUntil`, 타임스탬프)과 AdManager(`signum_ad_unlock`, JSON) 분리 → 한쪽 잠금해제해도 다른쪽 잠김
+- **이후**: 단일 키 `signum_ad_unlock` + JSON `{ unlockedUntil: timestamp, tier: 'premium' }` 포맷 통일. 레거시 타임스탬프 포맷도 파싱 호환
+
+#### Flow 하드코딩 제거
+- **이전**: 어떤 종목이든 IVRank 34%, Skew -8.6%, P/C 1.82, Implied Move ±4.9%, OPI +3 동일
+- **이후**: `tickerData.flow.*` API 응답에서 실시간 바인딩 + 폴백 `'—'` 표시
+
+#### 데이터 자동 갱신
+| 페이지 | 가격 | 지표 | 방식 |
+|--------|------|------|------|
+| Dashboard | WS 실시간 | 30s 폴링 | setInterval + WebSocket |
+| Guardian | Provider 위임 | 60s SWR | Provider |
+| CMD | WS 실시간 | **30s 폴링 (추가됨)** | setInterval |
+| Flow | WS 가격 | **30s 폴링 (추가됨)** | setInterval |
+| Intel | 프리패치 | 1회 | 마운트 시 |
+| Movers | 없음 | 15s 폴링 | setInterval |
+
+### 41.3 다국어 현황 (작업 후)
+- **BottomNav 5탭**: ko/en/ja 완전 번역 ✅
+- **CMD 7개 섹션타이틀 + 9개 시그널카드**: 완전 번역 ✅
+- **Flow 3개 섹션 + 컬럼헤더 5개**: 완전 번역 ✅
+- **Dashboard Institutional Pulse 4개 서브타이틀**: 완전 번역 ✅
+- **Intel 10개 새 번역키**: earningsCalendar, analystConsensus 등 ✅
+- **Native ValueWall**: 한국어 고정 (향후 번역 필요)
+
+### 41.4 광고 시스템 현황
+| 계층 | 상태 | 비고 |
+|------|------|------|
+| adManager.ts | ✅ 완전 구현 | 테스트 ID, 실배포 시 교체 필요 |
+| NativeAppProvider | ✅ 초기화 | init() + showBanner() |
+| Native ValueWall | ✅ 실제 연동 | showRewarded() |
+| App ValueWall | ✅ 통합 완료 | signum_ad_unlock JSON 키 통일 |
+| AdBanner | ✅ 네이티브 감지 | 네이티브 시 HTML 목업 숨김 |
+| Intel 인터스티셜 | ✅ adManager 연동 | 네이티브 시 실제 광고 + 웹 폴백 |
+| CMD ValueWall | ✅ 3탭 잠금 | OVERVIEW 무료, VERDICT/QUANT/HOLDERS 잠금 |
+
+### 41.5 앱스러운 UX 추가 현황
+| 기능 | 상태 | 적용 범위 |
+|------|------|----------|
+| Pull-to-Refresh | ✅ 연결 완료 | 전체 앱 (layout) |
+| 탭 스와이프 | ✅ 적용 | Guardian, Flow, CMD |
+| 햅틱 피드백 | ✅ 추가 | BottomNav(탭터치), 페이지전환, Pull-to-Refresh, 스와이프 |
+| 로딩 스켈레톤 | ✅ 추가 | Flow (4블록) |
+| 오프라인 감지 | ✅ 추가 | 전체 앱 (layout) |
+| 온보딩 | ✅ 신규 | /app-view/onboarding |
+| 언어 전환 | ✅ 신규 | Dashboard 헤더 🌐 버튼 |
+
+### 41.6 주의 사항
+1. **웹 불가침 원칙**: 공유 hook/util(useMarketStatus, useLivePrice, calcPriceDisplay, WebSocketProvider, GuardianProvider 등) 절대 수정 금지
+2. **AdMob 테스트 ID**: adManager.ts에 구글 공식 테스트 ID 사용 중, 실제 배포 시 반드시 교체
+3. **SWC 슬래시 이스케이프**: JSX 안 슬래시 포함 문자열은 `{"TEXT / TEXT"}` 형태 필수
+4. **Native ValueWall 한국어**: `src/components/native/ValueWall.tsx`는 한국어 고정, 향후 3lang 필요
+5. **Turbopack 캐시**: dev 서버 실행 중 빌드 시 `.next` 삭제 필수
 

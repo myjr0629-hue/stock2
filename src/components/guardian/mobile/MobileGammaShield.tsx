@@ -180,7 +180,7 @@ function Gauge({ value, color, size = 180 }: { value: number; color: string; siz
                 d={`M${x0},${y0} A${R},${R} 0 0 1 ${x1},${y1}`}
                 fill="none"
                 stroke={col}
-                strokeWidth="7"
+                strokeWidth="8"
                 strokeLinecap="round"
                 opacity={op}
             />
@@ -190,9 +190,9 @@ function Gauge({ value, color, size = 180 }: { value: number; color: string; siz
     return (
         <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} style={{ display: 'block', margin: '0 auto' }}>
             {/* Speedometer limits / segments */}
-            {arc(0.02, 0.32, '#ef4444', 0.25)}  {/* High Squeeze */}
-            {arc(0.36, 0.64, '#fbbf24', 0.25)}  {/* Medium Squeeze */}
-            {arc(0.68, 0.98, '#10b981', 0.25)}  {/* Low Squeeze */}
+            {arc(0.02, 0.32, '#ef4444', 0.55)}  {/* High Squeeze */}
+            {arc(0.36, 0.64, '#fbbf24', 0.55)}  {/* Medium Squeeze */}
+            {arc(0.68, 0.98, '#10b981', 0.55)}  {/* Low Squeeze */}
 
             {/* Scale Ticks */}
             {[0, 0.25, 0.5, 0.75, 1].map(f => {
@@ -206,8 +206,8 @@ function Gauge({ value, color, size = 180 }: { value: number; color: string; siz
                         y1={cy - r1 * Math.sin(a)}
                         x2={cx + r2 * Math.cos(a)}
                         y2={cy - r2 * Math.sin(a)}
-                        stroke="rgba(255,255,255,0.22)"
-                        strokeWidth="1.2"
+                        stroke="rgba(255,255,255,0.35)"
+                        strokeWidth="1.5"
                     />
                 );
             })}
@@ -259,36 +259,36 @@ function TriggerBand({
             <div className="grid grid-cols-3 gap-2 text-center items-end">
                 {/* Support */}
                 <div className="flex flex-col items-start text-left">
-                    <span className="text-[9px] font-bold font-jakarta text-slate-500 tracking-wider">SUPPORT</span>
-                    <span className="text-[12.5px] font-black font-jakarta text-emerald-400 tabular-nums">
+                    <span className="text-[10px] font-bold font-jakarta text-slate-400 tracking-wider">SUPPORT</span>
+                    <span className="text-[13px] font-black font-jakarta text-emerald-400 tabular-nums">
                         {support.toLocaleString()}
                     </span>
                 </div>
                 {/* Current */}
                 <div className="flex flex-col items-center">
-                    <span className="text-[9px] font-bold font-jakarta text-slate-400 tracking-wider mb-0.5">CURRENT</span>
-                    <span className="text-[12.5px] font-black font-jakarta text-cyan-300 bg-slate-950/70 border border-cyan-500/20 px-2 py-0.5 rounded-md tabular-nums leading-none">
+                    <span className="text-[10px] font-bold font-jakarta text-slate-300 tracking-wider mb-0.5">CURRENT</span>
+                    <span className="text-[14px] font-black font-jakarta text-cyan-300 bg-slate-950/80 border border-cyan-500/30 px-2.5 py-1 rounded-md tabular-nums leading-none">
                         {current.toLocaleString()}
                     </span>
                 </div>
                 {/* Resistance */}
                 <div className="flex flex-col items-end text-right">
-                    <span className="text-[9px] font-bold font-jakarta text-slate-500 tracking-wider">RESISTANCE</span>
-                    <span className="text-[12.5px] font-black font-jakarta text-rose-400 tabular-nums">
+                    <span className="text-[10px] font-bold font-jakarta text-slate-400 tracking-wider">RESISTANCE</span>
+                    <span className="text-[13px] font-black font-jakarta text-rose-400 tabular-nums">
                         {resistance.toLocaleString()}
                     </span>
                 </div>
             </div>
 
             {/* Slider Track */}
-            <div className="relative h-2 rounded-full bg-slate-800/80 border border-slate-700/50 mt-1">
+            <div className="relative h-2.5 rounded-full bg-slate-800/90 border border-slate-700/60 mt-1.5">
                 {/* Soft gradient background */}
-                <div className="absolute inset-0 rounded-full bg-gradient-to-r from-emerald-500/10 via-cyan-500/5 to-rose-500/10" />
+                <div className="absolute inset-0 rounded-full bg-gradient-to-r from-emerald-500/20 via-cyan-500/10 to-rose-500/20" />
 
-                {/* Sliding indicator dot */}
+                {/* Sliding indicator dot — centered vertically on the track */}
                 <div
-                    className="absolute top-1/2 -translate-y-1/2 w-3.5 h-3.5 rounded-full bg-cyan-400 border-2 border-slate-950 shadow-[0_0_8px_rgba(34,211,238,0.95)] transition-all duration-700 z-10"
-                    style={{ left: `${position}%`, transform: 'translate(-50%, -50%)' }}
+                    className="absolute w-4 h-4 rounded-full bg-cyan-400 border-2 border-slate-950 shadow-[0_0_10px_rgba(34,211,238,0.9)] transition-all duration-700 z-10"
+                    style={{ left: `${position}%`, top: '50%', transform: 'translate(-50%, -50%)' }}
                 />
             </div>
         </div>
@@ -694,14 +694,14 @@ export default function GammaShield({ data, isMarketActive }: Props) {
             <div className="flex flex-col gap-3.5 px-4 pb-4">
 
                 {/* ── Layer 1: Gamma Pressure Index ── */}
-                <div className="bg-slate-950/35 rounded-xl border border-slate-800/70 p-3.5 flex flex-col gap-3 shadow-inner">
+                <div className="bg-slate-950/60 rounded-xl border border-slate-800/80 p-3.5 flex flex-col gap-3 shadow-inner">
                     {/* Header */}
-                    <div className="flex items-center justify-between border-b border-slate-800/50 pb-1.5">
-                        <span className="text-[10.5px] font-bold font-jakarta tracking-[0.1em] text-cyan-400 uppercase">
+                    <div className="flex items-center justify-between border-b border-slate-700/60 pb-1.5">
+                        <span className="text-[11px] font-bold font-jakarta tracking-[0.1em] text-cyan-400 uppercase">
                             Gamma Pressure Index
                         </span>
                         {histStats && (
-                            <span className="text-[10.5px] font-bold font-jakarta text-slate-400">
+                            <span className="text-[11px] font-bold font-jakarta text-slate-300">
                                 {histStats.percentile}th percentile
                             </span>
                         )}
@@ -714,7 +714,7 @@ export default function GammaShield({ data, isMarketActive }: Props) {
                                 <div className={`text-[32px] font-black font-jakarta tabular-nums leading-none ${getGexColor(gexIndex)}`}>
                                     {gexIndex >= 0 ? '+' : ''}{gexIndex}
                                 </div>
-                                <div className={`text-[9px] font-bold font-jakarta px-1.5 py-0.5 rounded border ${gexLevel === 'LONG_GAMMA' ? 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10' : gexLevel === 'SHORT_GAMMA' ? 'text-red-400 border-red-500/30 bg-red-500/10' : 'text-slate-300 border-slate-600/30 bg-slate-600/10'}`}>
+                                <div className={`text-[10px] font-bold font-jakarta px-1.5 py-0.5 rounded border ${gexLevel === 'LONG_GAMMA' ? 'text-emerald-400 border-emerald-500/40 bg-emerald-500/15' : gexLevel === 'SHORT_GAMMA' ? 'text-red-400 border-red-500/40 bg-red-500/15' : 'text-slate-300 border-slate-600/40 bg-slate-600/15'}`}>
                                     {gexLevel?.replace('_', ' ') || ''}
                                 </div>
                             </div>
@@ -743,10 +743,10 @@ export default function GammaShield({ data, isMarketActive }: Props) {
                             const firstVal = pts[0];
                             const trendUp = lastVal >= firstVal;
                             const lineColor = trendUp ? '#10b981' : '#ef4444';
-                            const fillColor = trendUp ? 'rgba(16,185,129,0.03)' : 'rgba(239,68,68,0.03)';
+                            const fillColor = trendUp ? 'rgba(16,185,129,0.15)' : 'rgba(239,68,68,0.15)';
                             return (
                                 <div className="flex flex-col items-end gap-1">
-                                    <span className="text-[9px] font-normal font-jakarta text-slate-500 uppercase tracking-wider">7D GEX Trend</span>
+                                    <span className="text-[10px] font-semibold font-jakarta text-slate-300 uppercase tracking-wider">7D GEX Trend</span>
                                     <svg width={W} height={H} viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" className="rounded">
                                         <path d={fillD} fill={fillColor} />
                                         <path d={d} fill="none" stroke={lineColor} strokeWidth="1.6" strokeLinejoin="round" />
@@ -759,18 +759,18 @@ export default function GammaShield({ data, isMarketActive }: Props) {
                 </div>
 
                 {/* ── Layer 2: Squeeze Risk ── */}
-                <div className="bg-slate-950/35 rounded-xl border border-slate-800/70 p-3.5 flex flex-col items-center gap-2.5 shadow-inner relative overflow-hidden">
+                <div className="bg-slate-950/60 rounded-xl border border-slate-800/80 p-3.5 flex flex-col items-center gap-2.5 shadow-inner relative overflow-hidden">
                     {/* HUD Corner Tech Decorations */}
-                    <div className="absolute top-2 left-2 w-1.5 h-1.5 border-t border-l border-cyan-500/40" />
-                    <div className="absolute top-2 right-2 w-1.5 h-1.5 border-t border-r border-cyan-500/40" />
-                    <div className="absolute bottom-2 left-2 w-1.5 h-1.5 border-b border-l border-cyan-500/40" />
-                    <div className="absolute bottom-2 right-2 w-1.5 h-1.5 border-b border-r border-cyan-500/40" />
+                    <div className="absolute top-2 left-2 w-1.5 h-1.5 border-t border-l border-cyan-500/50" />
+                    <div className="absolute top-2 right-2 w-1.5 h-1.5 border-t border-r border-cyan-500/50" />
+                    <div className="absolute bottom-2 left-2 w-1.5 h-1.5 border-b border-l border-cyan-500/50" />
+                    <div className="absolute bottom-2 right-2 w-1.5 h-1.5 border-b border-r border-cyan-500/50" />
 
-                    <div className="flex items-center justify-between w-full border-b border-slate-800/50 pb-1.5">
-                        <span className="text-[10.5px] font-bold font-jakarta tracking-[0.1em] text-cyan-400 uppercase">
+                    <div className="flex items-center justify-between w-full border-b border-slate-700/60 pb-1.5">
+                        <span className="text-[11px] font-bold font-jakarta tracking-[0.1em] text-cyan-400 uppercase">
                             Squeeze Risk
                         </span>
-                        <span className={`text-[9.5px] font-bold font-jakarta uppercase tracking-wider px-2 py-0.5 rounded border ${getSqueezeBadgeBg(squeezeLevel)}`}>
+                        <span className={`text-[10px] font-bold font-jakarta uppercase tracking-wider px-2 py-0.5 rounded border ${getSqueezeBadgeBg(squeezeLevel)}`}>
                             {squeezeLevel}
                         </span>
                     </div>
@@ -783,14 +783,14 @@ export default function GammaShield({ data, isMarketActive }: Props) {
                             <span className={`text-[25px] font-black font-jakarta tabular-nums leading-none ${getSqueezeColor(squeezeLevel)}`}>
                                 {squeezeRisk}<span className="text-[12px] font-medium text-slate-400 ml-0.5">%</span>
                             </span>
-                            <span className="text-[8px] font-bold tracking-wider text-slate-500 uppercase mt-1">
+                            <span className="text-[9px] font-bold tracking-wider text-slate-400 uppercase mt-1">
                                 Compression
                             </span>
                         </div>
                     </div>
 
                     {/* LOW/HIGH/EXTREME scales */}
-                    <div className="flex justify-between w-full max-w-[150px] text-[8.5px] text-slate-500 font-bold font-jakarta -mt-1 px-1">
+                    <div className="flex justify-between w-full max-w-[150px] text-[9px] text-slate-400 font-bold font-jakarta -mt-1 px-1">
                         <span>LOW</span>
                         <span>HIGH 45</span>
                         <span>EXTREME 70</span>
@@ -798,7 +798,7 @@ export default function GammaShield({ data, isMarketActive }: Props) {
 
                     {/* Threshold Distance */}
                     {squeezeRisk < 70 && (
-                        <div className="text-[11px] font-medium font-jakarta text-slate-300 text-center mt-1 leading-snug">
+                        <div className="text-[11.5px] font-medium font-jakarta text-slate-200 text-center mt-1 leading-snug">
                             {squeezeRisk < 45
                                 ? <span>→ <span className="text-amber-400 font-semibold">HIGH</span> if +{45 - squeezeRisk}pt · compression building</span>
                                 : <span>→ <span className="text-red-400 font-semibold">EXTREME</span> if +{70 - squeezeRisk}pt · compression building</span>
@@ -818,12 +818,12 @@ export default function GammaShield({ data, isMarketActive }: Props) {
                 </div>
 
                 {/* ── Layer 3: Trigger Band ── */}
-                <div className="bg-slate-950/35 rounded-xl border border-slate-800/70 p-3.5 flex flex-col gap-3 shadow-inner">
-                    <div className="flex items-center justify-between border-b border-slate-800/50 pb-1.5">
-                        <span className="text-[10.5px] font-bold font-jakarta tracking-[0.1em] text-cyan-400 uppercase">
+                <div className="bg-slate-950/60 rounded-xl border border-slate-800/80 p-3.5 flex flex-col gap-3 shadow-inner">
+                    <div className="flex items-center justify-between border-b border-slate-700/60 pb-1.5">
+                        <span className="text-[11px] font-bold font-jakarta tracking-[0.1em] text-cyan-400 uppercase">
                             Trigger Band
                         </span>
-                        <span className="text-[9.5px] font-bold font-jakarta text-emerald-400/80 tracking-wider">
+                        <span className="text-[10px] font-bold font-jakarta text-emerald-400 tracking-wider">
                             S&P 500 · REALTIME
                         </span>
                     </div>
@@ -838,12 +838,12 @@ export default function GammaShield({ data, isMarketActive }: Props) {
                     {/* Gamma Flip Point */}
                     {gammaFlipPoint && currentPrice && (
                         <div className="flex items-center justify-between pt-2 border-t border-slate-800/50">
-                            <span className="text-[10px] font-bold font-jakarta text-amber-500/90 tracking-wider">⚡ FLIP POINT</span>
+                            <span className="text-[11px] font-bold font-jakarta text-amber-400 tracking-wider">⚡ FLIP POINT</span>
                             <div className="flex items-center gap-1.5">
-                                <span className={`text-[12.5px] font-semibold font-jakarta tabular-nums ${Math.abs(currentPrice - gammaFlipPoint) / currentPrice < 0.02 ? 'text-amber-400 animate-pulse' : 'text-slate-300'}`}>
+                                <span className={`text-[13px] font-bold font-jakarta tabular-nums ${Math.abs(currentPrice - gammaFlipPoint) / currentPrice < 0.02 ? 'text-amber-400 animate-pulse' : 'text-slate-200'}`}>
                                     {gammaFlipPoint.toLocaleString()}
                                 </span>
-                                <span className="text-[10.5px] font-normal font-jakarta text-slate-500 tabular-nums">
+                                <span className="text-[11px] font-medium font-jakarta text-slate-400 tabular-nums">
                                     ({currentPrice > gammaFlipPoint ? '+' : ''}{(((currentPrice - gammaFlipPoint) / gammaFlipPoint) * 100).toFixed(1)}%)
                                 </span>
                             </div>
@@ -855,16 +855,16 @@ export default function GammaShield({ data, isMarketActive }: Props) {
             {/* ═══ HISTORICAL CONTEXT (30D) ═══ */}
             {histStats && (
                 <div className="px-4 pb-4">
-                    <div className="border-t border-slate-700/30 pt-3.5">
+                    <div className="border-t border-slate-700/50 pt-3.5">
                         {/* Section Label */}
                         <div className="flex items-center justify-between mb-3">
                             <div className="flex items-center gap-2">
-                                <div className="w-1.5 h-1.5 rounded-full bg-cyan-400/60 shadow-[0_0_6px_rgba(34,211,238,0.5)]" />
-                                <span className="text-[11px] text-slate-300 font-bold font-jakarta uppercase tracking-wider">
+                                <div className="w-1.5 h-1.5 rounded-full bg-cyan-400/80 shadow-[0_0_6px_rgba(34,211,238,0.6)]" />
+                                <span className="text-[11px] text-slate-200 font-bold font-jakarta uppercase tracking-wider">
                                     Historical Context (30D)
                                 </span>
                             </div>
-                            <span className="text-[10px] text-slate-500 font-bold font-jakarta">
+                            <span className="text-[10px] text-slate-400 font-bold font-jakarta">
                                 DynamoDB History
                             </span>
                         </div>
@@ -873,70 +873,70 @@ export default function GammaShield({ data, isMarketActive }: Props) {
                         <div className="grid grid-cols-3 gap-2 pb-1.5">
 
                             {/* 1. GEX 30D Percentile */}
-                            <div className="bg-slate-950/30 rounded-xl p-2.5 border border-slate-800/70 flex flex-col gap-1 shadow-inner h-[88px] justify-between">
-                                <span className="text-[8px] font-bold font-jakarta text-slate-400 uppercase tracking-wider text-center w-full truncate">GEX 30D Pctl</span>
+                            <div className="bg-slate-950/50 rounded-xl p-2.5 border border-slate-800/80 flex flex-col gap-1 shadow-inner h-[88px] justify-between">
+                                <span className="text-[9px] font-bold font-jakarta text-slate-300 uppercase tracking-wider text-center w-full truncate">GEX 30D Pctl</span>
                                 <div className={`text-[16px] font-black font-jakarta tabular-nums leading-none text-center ${histStats.percentile <= 25 ? 'text-amber-400' : histStats.percentile >= 75 ? 'text-emerald-400' : 'text-white'}`}>
                                     {histStats.percentile}<small className="text-[10px] font-bold text-slate-400 ml-0.5">th</small>
                                 </div>
-                                <span className="text-[8.5px] text-slate-400 font-medium font-jakarta text-center leading-tight line-clamp-2 w-full mt-auto">
+                                <span className="text-[9px] text-slate-400 font-medium font-jakarta text-center leading-tight line-clamp-2 w-full mt-auto">
                                     {locale === 'ko' ? '30일 대비 감마 위치' : locale === 'ja' ? '30日基準ガンマ位置' : 'GEX position vs 30D'}
                                 </span>
                             </div>
 
                             {/* 2. Current Regime Streak */}
-                            <div className="bg-slate-950/30 rounded-xl p-2.5 border border-slate-800/70 flex flex-col gap-1 shadow-inner h-[88px] justify-between">
-                                <span className="text-[8px] font-bold font-jakarta text-slate-400 uppercase tracking-wider text-center w-full truncate">Regime Streak</span>
+                            <div className="bg-slate-950/50 rounded-xl p-2.5 border border-slate-800/80 flex flex-col gap-1 shadow-inner h-[88px] justify-between">
+                                <span className="text-[9px] font-bold font-jakarta text-slate-300 uppercase tracking-wider text-center w-full truncate">Regime Streak</span>
                                 <div className="text-[11.5px] font-black font-jakarta leading-none text-center truncate w-full flex items-center justify-center">
                                     <span className={`${histStats.regimeLabel === 'POSITIVE' ? 'text-emerald-400' : histStats.regimeLabel === 'NEGATIVE' ? 'text-red-400' : 'text-slate-300'}`}>
                                         {histStats.regimeLabel === 'POSITIVE' ? 'POS' : histStats.regimeLabel === 'NEGATIVE' ? 'NEG' : histStats.regimeLabel}
                                     </span>
                                     <small className="text-[10px] font-bold text-slate-400 ml-1 whitespace-nowrap">{histStats.streak}D</small>
                                 </div>
-                                <span className="text-[8.5px] text-slate-400 font-medium font-jakarta text-center leading-tight line-clamp-2 w-full mt-auto">
+                                <span className="text-[9px] text-slate-400 font-medium font-jakarta text-center leading-tight line-clamp-2 w-full mt-auto">
                                     {locale === 'ko' ? '현재 레짐 지속 기간' : locale === 'ja' ? '現在レジーム継続期間' : 'How long regime lasted'}
                                 </span>
                             </div>
 
                             {/* 3. Regime Shifts */}
-                            <div className="bg-slate-950/30 rounded-xl p-2.5 border border-slate-800/70 flex flex-col gap-1 shadow-inner h-[88px] justify-between">
-                                <span className="text-[8px] font-bold font-jakarta text-slate-400 uppercase tracking-wider text-center w-full truncate">Regime Shifts</span>
+                            <div className="bg-slate-950/50 rounded-xl p-2.5 border border-slate-800/80 flex flex-col gap-1 shadow-inner h-[88px] justify-between">
+                                <span className="text-[9px] font-bold font-jakarta text-slate-300 uppercase tracking-wider text-center w-full truncate">Regime Shifts</span>
                                 <div className={`text-[16px] font-black font-jakarta tabular-nums leading-none text-center ${histStats.regimeShifts === 0 ? 'text-emerald-400' : histStats.regimeShifts >= 3 ? 'text-amber-400' : 'text-white'}`}>
                                     {histStats.regimeShifts}
                                 </div>
-                                <span className="text-[8.5px] text-slate-400 font-medium font-jakarta text-center leading-tight line-clamp-2 w-full mt-auto">
+                                <span className="text-[9px] text-slate-400 font-medium font-jakarta text-center leading-tight line-clamp-2 w-full mt-auto">
                                     {locale === 'ko' ? '시장 안정성/불안정' : locale === 'ja' ? '市場安定性/不安定' : 'Market stability metric'}
                                 </span>
                             </div>
 
                             {/* 4. Call Wall Hit Rate */}
-                            <div className="bg-slate-950/30 rounded-xl p-2.5 border border-slate-800/70 flex flex-col gap-1 shadow-inner h-[88px] justify-between">
-                                <span className="text-[8px] font-bold font-jakarta text-slate-400 uppercase tracking-wider text-center w-full truncate">CW Hit Rate</span>
+                            <div className="bg-slate-950/50 rounded-xl p-2.5 border border-slate-800/80 flex flex-col gap-1 shadow-inner h-[88px] justify-between">
+                                <span className="text-[9px] font-bold font-jakarta text-slate-300 uppercase tracking-wider text-center w-full truncate">CW Hit Rate</span>
                                 <div className={`text-[16px] font-black font-jakarta tabular-nums leading-none text-center ${(histStats.cwAccuracy ?? 0) >= 80 ? 'text-emerald-400' : (histStats.cwAccuracy ?? 0) >= 50 ? 'text-amber-400' : 'text-red-400'}`}>
                                     {histStats.cwAccuracy !== null ? (
                                         <>{histStats.cwAccuracy}<small className="text-[10px] font-bold text-slate-400 ml-0.5">%</small></>
                                     ) : '—'}
                                 </div>
-                                <span className="text-[8.5px] text-slate-400 font-medium font-jakarta text-center leading-tight line-clamp-2 w-full mt-auto">
+                                <span className="text-[9px] text-slate-400 font-medium font-jakarta text-center leading-tight line-clamp-2 w-full mt-auto">
                                     {locale === 'ko' ? '저항선 신뢰도' : locale === 'ja' ? '抵抗線信頼度' : 'Resistance reliability'}
                                 </span>
                             </div>
 
                             {/* 5. Put Floor Hit Rate */}
-                            <div className="bg-slate-950/30 rounded-xl p-2.5 border border-slate-800/70 flex flex-col gap-1 shadow-inner h-[88px] justify-between">
-                                <span className="text-[8px] font-bold font-jakarta text-slate-400 uppercase tracking-wider text-center w-full truncate">PF Hit Rate</span>
+                            <div className="bg-slate-950/50 rounded-xl p-2.5 border border-slate-800/80 flex flex-col gap-1 shadow-inner h-[88px] justify-between">
+                                <span className="text-[9px] font-bold font-jakarta text-slate-300 uppercase tracking-wider text-center w-full truncate">PF Hit Rate</span>
                                 <div className={`text-[16px] font-black font-jakarta tabular-nums leading-none text-center ${(histStats.pfAccuracy ?? 0) >= 80 ? 'text-emerald-400' : (histStats.pfAccuracy ?? 0) >= 50 ? 'text-amber-400' : 'text-red-400'}`}>
                                     {histStats.pfAccuracy !== null ? (
                                         <>{histStats.pfAccuracy}<small className="text-[10px] font-bold text-slate-400 ml-0.5">%</small></>
                                     ) : '—'}
                                 </div>
-                                <span className="text-[8.5px] text-slate-400 font-medium font-jakarta text-center leading-tight line-clamp-2 w-full mt-auto">
+                                <span className="text-[9px] text-slate-400 font-medium font-jakarta text-center leading-tight line-clamp-2 w-full mt-auto">
                                     {locale === 'ko' ? '지지선 신뢰도' : locale === 'ja' ? '支持線信頼度' : 'Support reliability'}
                                 </span>
                             </div>
 
                             {/* 6. Call Wall Trend */}
-                            <div className="bg-slate-950/30 rounded-xl p-2.5 border border-slate-800/70 flex flex-col gap-1 shadow-inner h-[88px] justify-between">
-                                <span className="text-[8px] font-bold font-jakarta text-slate-400 uppercase tracking-wider text-center w-full truncate">CW Trend</span>
+                            <div className="bg-slate-950/50 rounded-xl p-2.5 border border-slate-800/80 flex flex-col gap-1 shadow-inner h-[88px] justify-between">
+                                <span className="text-[9px] font-bold font-jakarta text-slate-300 uppercase tracking-wider text-center w-full truncate">CW Trend</span>
                                 <div className={`text-[16px] font-black font-jakarta tabular-nums leading-none text-center truncate w-full ${histStats.cwTrendDir === 'up' ? 'text-cyan-400' : histStats.cwTrendDir === 'down' ? 'text-red-400' : 'text-slate-300'}`}>
                                     {histStats.cwTrend !== null ? (
                                         <>
@@ -946,7 +946,7 @@ export default function GammaShield({ data, isMarketActive }: Props) {
                                         </>
                                     ) : '—'}
                                 </div>
-                                <span className="text-[8.5px] text-slate-400 font-medium font-jakarta text-center leading-tight line-clamp-2 w-full mt-auto">
+                                <span className="text-[9px] text-slate-400 font-medium font-jakarta text-center leading-tight line-clamp-2 w-full mt-auto">
                                     {locale === 'ko' ? '기관 포지셔닝 방향' : locale === 'ja' ? 'ディーラーポジショニング' : 'Dealer positioning direction'}
                                 </span>
                             </div>
@@ -954,7 +954,7 @@ export default function GammaShield({ data, isMarketActive }: Props) {
                         </div>
 
                         {/* Disclaimer */}
-                        <div className="text-[11px] text-slate-500 text-right mt-2 font-jakarta italic">
+                        <div className="text-[11.5px] text-slate-400 text-right mt-2 font-jakarta italic">
                             {locale === 'ko' ? '실시간 구조 + 30일 히스토리 참조. 정보 제공 목적.' : locale === 'ja' ? 'ライブ構造 + 30日ヒストリカル参照。情報提供目的。' : 'Live structure + 30D historical context. Informational only.'}
                         </div>
                     </div>

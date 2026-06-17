@@ -4,8 +4,10 @@ import { useState, useEffect, useMemo, Suspense, useRef } from 'react';
 import { useSearchParams, useRouter, useParams } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import { useTranslations } from 'next-intl';
-import { ValueWall, useUnlockState } from '@/components/app/ValueWall';
+import { MobileAppFooter } from '@/components/mobile/MobileAppFooter';
 import { AdBanner } from '@/components/app/AdBanner';
+import { SwipeableTabs } from '@/components/app/SwipeableTabs';
+import { ValueWall } from '@/components/app/ValueWall';
 import s from './cmd.module.css';
 
 // WebSocket real-time price hooks
@@ -29,7 +31,7 @@ const DEMO = {
   high: 137.50,
   low: 131.20,
   session: 'REG' as const,
-  analyst: { rating: 'STRONG BUY', target: 180.00, buy: 15, hold: 3, sell: 1 },
+  analyst: { rating: 'STRONG BUY', target: 180.00, targetHigh: 220.00, targetLow: 140.00, buy: 15, hold: 3, sell: 1, totalAnalysts: 19, bullishPct: 79 },
   fundamentals: [
     { label: 'P / E', value: '45.2', sub: 'Industry avg 38.5', trend: 'up' },
     { label: 'ROE', value: '56.3%', sub: 'vs 22.1% sector', trend: 'up' },
@@ -43,6 +45,8 @@ const DEMO = {
     gammaFlipRaw: 132.50,
     callWall: 140.00,
     putFloor: 130.00,
+    maxPain: 135.00,
+    netPremium: 2400000,
     darkPool: '68.4%',
     blockTrades: 214,
     aiInsight:
@@ -96,29 +100,12 @@ function sma(candles: { c: number }[], window: number): (number | null)[] {
   });
 }
 
-/* ═══════════════════════════════════════════
-   PREMIUM LOCK INDICATOR FOR TAB BAR
-   ═══════════════════════════════════════════ */
-function TabLockIcon({ unlocked }: { unlocked: boolean }) {
-  if (unlocked) {
-    return (
-      <svg width="10" height="10" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0 }}>
-        <path d="M12 3v4M12 17v4M3 12h4M17 12h4M6.34 6.34l2.83 2.83M14.83 14.83l2.83 2.83M6.34 17.66l2.83-2.83M14.83 9.17l2.83-2.83" stroke="#f59e0b" strokeWidth="2.5" strokeLinecap="round" />
-      </svg>
-    );
-  }
-  return (
-    <svg width="10" height="10" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0 }}>
-      <rect x="5" y="11" width="14" height="9" rx="2" stroke="#f59e0b" strokeWidth="2.5" />
-      <path d="M8 11V8a4 4 0 0 1 8 0v3" stroke="#f59e0b" strokeWidth="2.5" />
-    </svg>
-  );
-}
+/* TabLockIcon — removed (unused orphan) */
 
 /* ═══════════════════════════════════════════
    SVG CANDLESTICK CHART (PREMIUM INTEGRATED)
    ═══════════════════════════════════════════ */
-function CandleChart({ ticker, price, vwap }: { ticker: string; price: number; vwap?: number }) {
+function CandleChart({ ticker, price, vwap, locale = 'en' }: { ticker: string; price: number; vwap?: number; locale?: string }) {
   const [range, setRange] = useState<'1D' | '1W' | '1M' | '3M' | '1Y'>('1D');
   const [chartType, setChartType] = useState<'line' | 'candle'>('line');
   const [candles, setCandles] = useState<{ o: number; h: number; l: number; c: number; dateET: string; session: string }[]>([]);
@@ -335,7 +322,7 @@ function CandleChart({ ticker, price, vwap }: { ticker: string; price: number; v
             </div>
           </div>
         ) : (
-          <div className={s.c2Title}>PRICE HISTORY</div>
+          <div className={s.c2Title}>{locale === 'ko' ? '가격 히스토리' : locale === 'ja' ? '価格推移' : 'PRICE HISTORY'}</div>
         )}
         <div className={s.c2Toggle}>
           <button 
@@ -754,93 +741,319 @@ function GexBarChart({ data }: { data: number[] }) {
    ANALYST CONSENSUS CARD
    ═══════════════════════════════════════════ */
 function AnalystConsensus({
-  analyst, price
+  analyst, price, locale = 'en'
 }: {
-  analyst: typeof DEMO.analyst; price: number
+  analyst: typeof DEMO.analyst; price: number; locale?: string
 }) {
   const [animated, setAnimated] = useState(false);
   useEffect(() => { const t = setTimeout(() => setAnimated(true), 200); return () => clearTimeout(t); }, []);
 
   const total = analyst.buy + analyst.hold + analyst.sell;
-  const buyPct = Math.round((analyst.buy / total) * 100);
-  const holdPct = Math.round((analyst.hold / total) * 100);
-  const sellPct = Math.round((analyst.sell / total) * 100);
-  const upsidePct = ((analyst.target - price) / price * 100).toFixed(1);
+  const buyPct = total > 0 ? Math.round((analyst.buy / total) * 100) : 0;
+  const holdPct = total > 0 ? Math.round((analyst.hold / total) * 100) : 0;
+  const sellPct = total > 0 ? Math.round((analyst.sell / total) * 100) : 0;
+  const upsidePct = price > 0 ? ((analyst.target - price) / price * 100).toFixed(1) : '0';
+  const isUpside = Number(upsidePct) >= 0;
 
   const ratingClass = analyst.rating.includes('BUY') ? s.ratingBuy
     : analyst.rating.includes('SELL') ? s.ratingSell : s.ratingHold;
 
+  const desc = locale === 'ko'
+    ? `${total}명 애널리스트 중 ${buyPct}%가 긍정적 의견`
+    : locale === 'ja'
+    ? `${total}名のアナリストのうち${buyPct}%が強気`
+    : `${buyPct}% bullish consensus from ${total} analysts`;
+
   return (
     <div className={`${s.card} ${s.animateIn} ${s.delay3}`}>
-      <div className={s.cardTitle}>ANALYST CONSENSUS</div>
+      {/* Header: Title + Rating badge inline */}
       <div className={s.analystHead}>
+        <div className={s.cardTitle} style={{ marginBottom: 0 }}>
+          {locale === 'ko' ? '애널리스트 컨센서스' : locale === 'ja' ? 'アナリスト・コンセンサス' : 'ANALYST CONSENSUS'}
+        </div>
         <span className={ratingClass}>{analyst.rating}</span>
       </div>
-      <div className={s.targetRow}>
-        <span className={s.targetLabel}>12M TARGET:</span>
-        <span className={s.targetValue}>${analyst.target.toFixed(2)}</span>
-        <span className={`${s.targetPct} ${s.pos}`}>+{upsidePct}%</span>
+
+      {/* Bullish % main metric */}
+      <div className={s.analystMetric}>
+        <span className={s.analystBullishPct} style={{ color: buyPct >= 50 ? 'var(--green)' : buyPct >= 30 ? 'var(--amber)' : 'var(--red)' }}>
+          {buyPct}%
+        </span>
+        <span className={s.analystDesc}>{desc}</span>
       </div>
-      <div className={s.barGroup}>
-        {[
-          { label: 'Buy', count: analyst.buy, pct: buyPct, cls: s.barFillGreen },
-          { label: 'Hold', count: analyst.hold, pct: holdPct, cls: s.barFillAmber },
-          { label: 'Sell', count: analyst.sell, pct: sellPct, cls: s.barFillRed },
-        ].map(b => (
-          <div key={b.label} className={s.barRow}>
-            <span className={s.barLabel}>{b.label}</span>
-            <div className={s.barTrack}>
-              <div className={b.cls} style={{ width: animated ? `${b.pct}%` : '0%' }} />
-            </div>
-            <span className={s.barCount}>{b.count}</span>
+
+      {/* Horizontal stacked bar */}
+      <div className={s.analystStackedBar}>
+        <div className={s.stackedBuy} style={{ width: animated ? `${buyPct}%` : '0%' }} />
+        <div className={s.stackedHold} style={{ width: animated ? `${holdPct}%` : '0%' }} />
+        <div className={s.stackedSell} style={{ width: animated ? `${sellPct}%` : '0%' }} />
+      </div>
+      <div className={s.analystLegend}>
+        <span style={{ color: 'var(--green)' }}>Buy {analyst.buy}</span>
+        <span style={{ color: 'var(--amber)' }}>Hold {analyst.hold}</span>
+        <span style={{ color: 'var(--red)' }}>Sell {analyst.sell}</span>
+      </div>
+
+      {/* Price Target */}
+      <div className={s.analystTargetBlock}>
+        <div className={s.analystTargetRow}>
+          <span className={s.analystTargetLabel}>
+            {locale === 'ko' ? '12M 목표가' : locale === 'ja' ? '12M目標株価' : '12M TARGET'}
+          </span>
+          <span className={s.analystTargetPrice}>${analyst.target.toFixed(2)}</span>
+          <span className={s.analystTargetUpside} style={{ color: isUpside ? 'var(--green)' : 'var(--red)' }}>
+            {isUpside ? '+' : ''}{upsidePct}%
+          </span>
+        </div>
+        {analyst.targetHigh > 0 && (
+          <div className={s.analystTargetRange}>
+            <span>{locale === 'ko' ? '최고' : 'High'} ${analyst.targetHigh.toFixed(0)}</span>
+            <span>{locale === 'ko' ? '최저' : 'Low'} ${analyst.targetLow.toFixed(0)}</span>
           </div>
-        ))}
+        )}
       </div>
     </div>
   );
 }
 
 /* ═══════════════════════════════════════════
-   FUNDAMENTALS CARD
+   FUNDAMENTALS CARD (Premium)
    ═══════════════════════════════════════════ */
-function FundamentalsCard({ items }: { items: typeof DEMO.fundamentals }) {
+interface FundRaw {
+  score?: number | null;
+  grade?: string | null;
+  pe?: number | null;
+  roe?: number | null;
+  de?: number | null;
+  revenueGrowth?: number | null;
+  netMargin?: number | null;
+  fcfYield?: number | null;
+  breakdown?: Record<string, { value: string; score: number; label: string }> | null;
+}
+function FundamentalsCard({ raw, locale = 'en' }: { raw: FundRaw | null; locale?: string }) {
+  const score = raw?.score ?? null;
+  const grade = raw?.grade && raw.grade !== 'NO_DATA' ? raw.grade : null;
+
+  // Insight text based on score
+  const getInsight = (s: number | null): string => {
+    if (s === null) return '';
+    if (locale === 'ko') {
+      if (s >= 80) return '재무 우수';
+      if (s >= 60) return '재무 양호';
+      if (s >= 40) return '재무 보통';
+      if (s >= 20) return '재무 취약';
+      return '재무 위험';
+    }
+    if (s >= 80) return 'Strong';
+    if (s >= 60) return 'Good';
+    if (s >= 40) return 'Average';
+    if (s >= 20) return 'Weak';
+    return 'Poor';
+  };
+
+  const insight = getInsight(score);
+  const gradeColor = (g: string | null) => {
+    if (!g) return 'rgba(255,255,255,0.3)';
+    if (g.startsWith('A')) return '#10b981';
+    if (g.startsWith('B')) return '#22d3ee';
+    if (g.startsWith('C')) return '#f59e0b';
+    if (g.startsWith('D')) return '#f97316';
+    return '#ef4444';
+  };
+
+  const metrics = [
+    { key: 'PE', val: raw?.pe != null ? String(raw.pe) : null },
+    { key: 'ROE', val: raw?.roe != null ? `${raw.roe}%` : null },
+    { key: 'D/E', val: raw?.de != null ? String(raw.de) : null },
+    { key: locale === 'ko' ? '매출' : 'Rev', val: raw?.revenueGrowth != null ? `${raw.revenueGrowth > 0 ? '+' : ''}${raw.revenueGrowth}%` : null },
+    { key: locale === 'ko' ? '마진' : 'Margin', val: raw?.netMargin != null ? `${raw.netMargin}%` : null },
+  ].filter(m => m.val !== null);
+
+  const breakdownKeys = raw?.breakdown ? Object.keys(raw.breakdown) : [];
+
   return (
     <div className={`${s.card} ${s.animateIn} ${s.delay4}`}>
-      <div className={s.cardTitle} style={{ marginBottom: 'var(--s3)' }}>FUNDAMENTALS</div>
-      <div className={s.fundGrid}>
-        {items.map(f => (
-          <div key={f.label} className={s.fundItem}>
-            <div className={s.fundLabel}>{f.label}</div>
-            <div className={s.fundValue}>{f.value}</div>
-            <div className={`${s.fundSub} ${f.trend === 'up' ? s.pos : s.neg}`}>{f.sub}</div>
-          </div>
-        ))}
+      {/* Header Row */}
+      <div className={s.fundHeader}>
+        <div className={s.cardTitle} style={{ margin: 0 }}>
+          {locale === 'ko' ? '펀더멘탈' : locale === 'ja' ? 'ファンダメンタルズ' : 'FUNDAMENTAL'}
+        </div>
+        {grade && (
+          <span className={s.fundGradeBadge} style={{ color: gradeColor(grade), borderColor: gradeColor(grade) }}>
+            {grade}
+          </span>
+        )}
       </div>
+
+      {/* Score + Insight Row */}
+      {score !== null && (
+        <div className={s.fundScoreRow}>
+          <span className={s.fundScoreNum} style={{ color: gradeColor(grade) }}>{score}</span>
+          <span className={s.fundScoreMax}>/100</span>
+          <span className={s.fundInsight} style={{ color: gradeColor(grade) }}>{insight}</span>
+        </div>
+      )}
+
+      {/* Metric Pills */}
+      {metrics.length > 0 && (
+        <div className={s.fundMetricRow}>
+          {metrics.map(m => (
+            <div key={m.key} className={s.fundMetricPill}>
+              <span className={s.fundMetricKey}>{m.key}</span>
+              <span className={s.fundMetricVal}>{m.val}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Breakdown Footer */}
+      {breakdownKeys.length > 0 && (
+        <div className={s.fundFooter}>
+          {breakdownKeys.map(k => raw!.breakdown![k].label).join(' \u00B7 ')}
+        </div>
+      )}
     </div>
   );
 }
 
 /* ═══════════════════════════════════════════
-   EARNINGS CARD
+/* ═══════════════════════════════════════════
+   EARNINGS CARD (Premium)
    ═══════════════════════════════════════════ */
-function EarningsCard({ earnings }: { earnings: typeof DEMO.earnings }) {
+interface EarnRaw {
+  nextEarningsDate?: string | null;
+  daysUntilEarnings?: number | null;
+  daysLabel?: string | null;
+  epsEstimate?: number | null;
+  epsActual?: number | null;
+  quarter?: number | null;
+  year?: number | null;
+  hourLabel?: string | null;
+  forwardEps?: number | null;
+  forwardRevenue?: number | null;
+  forwardYear?: string | null;
+  lastSurprise?: { actualEps: number; estimatedEps: number; surpriseEps: number; surprisePct: number; date: string } | null;
+  hasData?: boolean;
+}
+function EarningsCardPremium({ raw, locale = 'en' }: { raw: EarnRaw | null; locale?: string }) {
   const [animated, setAnimated] = useState(false);
   useEffect(() => { const t = setTimeout(() => setAnimated(true), 300); return () => clearTimeout(t); }, []);
 
+  if (!raw || !raw.hasData) return null;
+
+  const days = raw.daysUntilEarnings ?? null;
+  const daysLabel = raw.daysLabel || 'TBD';
+  const isImminent = days !== null && days >= 0 && days <= 7;
+  const isPast = days !== null && days < 0;
+
+  // Format date nicely
+  const dateStr = raw.nextEarningsDate
+    ? new Date(raw.nextEarningsDate + 'T00:00:00').toLocaleDateString(locale === 'ko' ? 'ko-KR' : 'en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+    : 'TBD';
+
+  // Session label
+  const hourCode = raw.hourLabel?.toLowerCase() || '';
+  const sessionText = hourCode === 'amc'
+    ? (locale === 'ko' ? '마감후' : 'AMC')
+    : hourCode === 'bmo'
+    ? (locale === 'ko' ? '개장전' : 'BMO')
+    : hourCode === 'dmh'
+    ? (locale === 'ko' ? '장중' : 'DMH')
+    : '';
+
+  // Quarter label
+  const qLabel = raw.quarter && raw.year ? `Q${raw.quarter} FY${String(raw.year).slice(-2)}` : '';
+
+  // Progress (assuming 90 days cycle)
+  const progress = days !== null && days >= 0 ? Math.max(0, Math.min(100, ((90 - days) / 90) * 100)) : 100;
+
+  // Format large revenue number
+  const fmtRevenue = (v: number | null | undefined): string => {
+    if (v == null) return '';
+    const abs = Math.abs(v);
+    if (abs >= 1e12) return `$${(v / 1e12).toFixed(1)}T`;
+    if (abs >= 1e9) return `$${(v / 1e9).toFixed(1)}B`;
+    if (abs >= 1e6) return `$${(v / 1e6).toFixed(0)}M`;
+    return `$${v.toFixed(0)}`;
+  };
+
   return (
     <div className={`${s.card} ${s.animateIn} ${s.delay5}`}>
-      <div className={s.cardTitle} style={{ marginBottom: 'var(--s3)' }}>NEXT EARNINGS</div>
-      <div className={s.earningsTop}>
-        <span className={s.earningsDate}>{earnings.date}</span>
-        <span className={s.countdownBadge}>D-{earnings.daysLeft}</span>
+      {/* Header */}
+      <div className={s.earnHeader}>
+        <div className={s.cardTitle} style={{ margin: 0 }}>
+          {locale === 'ko' ? '실적 발표' : locale === 'ja' ? '決算予定' : 'EARNINGS'}
+        </div>
+        <span className={isImminent ? s.countdownImminent : s.countdownBadge}>{daysLabel}</span>
       </div>
-      <div className={s.earningsBar}>
-        <div className={s.earningsBarFill} style={{ width: animated ? `${earnings.progress}%` : '0%' }} />
+
+      {/* Date + Session Row */}
+      <div className={s.earnDateRow}>
+        <span className={s.earningsDate}>{dateStr}</span>
+        {sessionText && (
+          <span className={s.earnSessionBadge}>{sessionText}</span>
+        )}
+        {days !== null && days > 0 && (
+          <span className={s.earnDaysText}>
+            {locale === 'ko' ? `${days}일 후` : `${days}d`}
+          </span>
+        )}
       </div>
-      <div className={s.earningsSession}>
-        <span>⏱</span>
-        After Market Close ({earnings.session})
-      </div>
+
+      {/* Progress Bar */}
+      {!isPast && (
+        <div className={s.earningsBar}>
+          <div className={s.earningsBarFill} style={{ width: animated ? `${progress}%` : '0%' }} />
+        </div>
+      )}
+
+      {/* EPS Estimate + Quarter */}
+      {(raw.epsEstimate != null || qLabel) && (
+        <div className={s.earnInfoRow}>
+          {raw.epsEstimate != null && (
+            <div className={s.earnInfoItem}>
+              <span className={s.earnInfoLabel}>{locale === 'ko' ? '예상 EPS' : 'Est EPS'}</span>
+              <span className={s.earnInfoValue}>${raw.epsEstimate.toFixed(2)}</span>
+            </div>
+          )}
+          {qLabel && (
+            <div className={s.earnInfoItem}>
+              <span className={s.earnInfoLabel}>{qLabel}</span>
+            </div>
+          )}
+          {/* Last Surprise */}
+          {raw.lastSurprise && (
+            <div className={s.earnInfoItem}>
+              <span className={raw.lastSurprise.surprisePct >= 0 ? s.earnBeat : s.earnMiss}>
+                {raw.lastSurprise.surprisePct >= 0 ? 'Beat' : 'Miss'} {raw.lastSurprise.surprisePct >= 0 ? '+' : ''}{raw.lastSurprise.surprisePct.toFixed(1)}%
+              </span>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Forward Guidance */}
+      {(raw.forwardEps != null || raw.forwardRevenue != null) && (
+        <div className={s.earnForwardSection}>
+          <div className={s.earnForwardTitle}>
+            {locale === 'ko' ? `내년전망` : 'Forward'} {raw.forwardYear ? `(FY${raw.forwardYear.slice(-2)})` : ''}
+          </div>
+          <div className={s.earnForwardRow}>
+            {raw.forwardEps != null && (
+              <div className={s.earnForwardItem}>
+                <span className={s.earnForwardLabel}>EPS</span>
+                <span className={s.earnForwardValue}>${raw.forwardEps.toFixed(2)}</span>
+              </div>
+            )}
+            {raw.forwardRevenue != null && (
+              <div className={s.earnForwardItem}>
+                <span className={s.earnForwardLabel}>{locale === 'ko' ? '매출' : 'Rev'}</span>
+                <span className={s.earnForwardValue}>{fmtRevenue(raw.forwardRevenue)}</span>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -936,81 +1149,196 @@ function TechnicalGammaMap({
   );
 }
 
+/* PremiumContent — removed (unused orphan component) */
+
 /* ═══════════════════════════════════════════
-   PREMIUM CONTENT (inside ValueWall)
+   PAGE CONTENT (needs Suspense boundary)
    ═══════════════════════════════════════════ */
-interface PremiumProps {
-  ticker: string;
-  price: number;
-  high: number;
-  low: number;
-  premium: typeof DEMO.premium;
-}
+/* ═══════════════════════════════════════════
+   RELATED PEERS (LIVE)
+   ═══════════════════════════════════════════ */
+const LOGO = (t: string) => `https://assets.parqet.com/logos/symbol/${t}?format=png`;
 
-function PremiumContent({ 
-  ticker, 
-  price, 
-  high, 
-  low, 
-  premium 
-}: PremiumProps) {
+function RelatedPeersLive({ tickers, currentPrice, locale }: { tickers: any[]; currentPrice: number; locale: string }) {
+  const peerTickers = useMemo(() => tickers.map((r: any) => r.ticker), [tickers]);
+  const { getPrice: wsGetPrice } = useRealtimeData(peerTickers);
+  const router = useRouter();
+
+  const title = locale === 'ko' ? '상관 종목 (Peers)' : locale === 'ja' ? '関連銘柄' : 'Related Peers';
+
   return (
-    <div className={s.premiumContent}>
-      {/* 1. IV Skew Curve */}
-      <div style={{ marginBottom: 'var(--s4)' }}>
-        <IVSkewCurve ticker={ticker} underlyingPrice={price} />
-      </div>
-
-      {/* 2. Technical & Gamma Levels Map */}
-      <div style={{ marginBottom: 'var(--s4)' }}>
-        <TechnicalGammaMap 
-          price={price} 
-          high={high} 
-          low={low} 
-          callWall={premium.callWall} 
-          putFloor={premium.putFloor} 
-          gammaFlip={premium.gammaFlipRaw} 
-        />
-      </div>
-
-      {/* 3. Original GEX profile */}
-      <GexBarChart data={premium.gex} />
-
-      {/* 4. Original metrics summary */}
-      <div className={s.premiumMetrics} style={{ marginBottom: 'var(--s3)' }}>
-        <div className={s.premiumMetric}>
-          <span className={s.premiumMetricLabel}>GAMMA FLIP</span>
-          <span className={s.premiumMetricValue}>{premium.gammaFlip}</span>
-        </div>
-        <div className={s.premiumMetric}>
-          <span className={s.premiumMetricLabel}>DARK POOL</span>
-          <span className={s.premiumMetricValue}>{premium.darkPool}</span>
-        </div>
-        <div className={s.premiumMetric}>
-          <span className={s.premiumMetricLabel}>BLOCKS</span>
-          <span className={s.premiumMetricValue}>{premium.blockTrades}</span>
-        </div>
-      </div>
-
-      {/* 5. AI Insight */}
-      <div className={s.aiInsight} style={{ marginBottom: 'var(--s4)' }}>
-        <div className={s.aiInsightHead}>
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-            <circle cx="12" cy="12" r="9" stroke="var(--cyan)" strokeWidth="1.5" />
-            <path d="M12 8v4l3 3" stroke="var(--cyan)" strokeWidth="1.5" strokeLinecap="round" />
-          </svg>
-          <span className={s.aiInsightLabel}>AI DEEP INSIGHT</span>
-        </div>
-        <div className={s.aiInsightText}>{premium.aiInsight}</div>
-      </div>
-
-      {/* 6. 13F Holders & Insider Tracker */}
-      <div>
-        <div className={s.cardTitle} style={{ marginBottom: '12px' }}>INSTITUTIONAL & INSIDER FILINGS</div>
-        <MobileCmd13F ticker={ticker} />
+    <div className={`${s.card} ${s.animateIn} ${s.delay6}`}>
+      <div className={s.cardTitle} style={{ marginBottom: 'var(--s3)' }}>{title}</div>
+      <div className={s.peerList}>
+        {tickers.map((r: any) => {
+          const wsPrice = wsGetPrice(r.ticker);
+          const serverPrice = r.price || 0;
+          const displayPrice = wsPrice?.price && wsPrice.price > 0 ? wsPrice.price : serverPrice;
+          let displayChange = r.change ?? 0;
+          const validWsPrice = wsPrice?.price || 0;
+          const validPrevClose = r.prevClose || 0;
+          if (validWsPrice > 0 && validPrevClose > 0) {
+            displayChange = Number((((validWsPrice - validPrevClose) / validPrevClose) * 100).toFixed(2));
+          } else {
+            const wsChangePct = wsPrice?.changePct;
+            if (wsChangePct !== undefined && Math.abs(wsChangePct) > 0 && Math.abs(wsChangePct) < 20) {
+              displayChange = Number(wsChangePct.toFixed(2));
+            }
+          }
+          return (
+            <button
+              key={r.ticker}
+              onClick={() => router.push(`/app-view/cmd?t=${r.ticker}`)}
+              className={s.peerRow}
+            >
+              <div className={s.peerLogo}>
+                <span>{r.ticker?.slice(0, 2)}</span>
+                <img src={LOGO(r.ticker)} alt=""
+                  onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }} />
+              </div>
+              <span className={s.peerTicker}>{r.ticker}</span>
+              <span className={s.peerPrice}>
+                {displayPrice > 0 ? `$${displayPrice < 10 ? displayPrice.toFixed(2) : displayPrice < 1000 ? displayPrice.toFixed(1) : Math.round(displayPrice)}` : '—'}
+              </span>
+              <span className={s.peerChange} style={{ color: displayChange > 0 ? 'var(--green)' : displayChange < 0 ? 'var(--red)' : 'var(--text-muted)' }}>
+                {displayPrice > 0 ? `${displayChange > 0 ? '+' : ''}${displayChange.toFixed(2)}%` : '—'}
+              </span>
+            </button>
+          );
+        })}
       </div>
     </div>
   );
+}
+
+/* ═══════════════════════════════════════════
+   SIGNAL CARD
+   ═══════════════════════════════════════════ */
+function SignalCard({ label, value, sub, color, bg, border, badge, badgeColor, iconKey }: {
+  label: string; value: string; sub?: string; iconKey?: string;
+  color?: string; bg?: string; border?: string;
+  badge?: string; badgeColor?: string;
+}) {
+  const cardBg = bg || 'bg-[#0f172a]/45';
+  const cardBorder = border || 'border-white/[0.06]';
+
+  const getIcon = (lbl: string) => {
+    const l = lbl.toUpperCase();
+    if (l.includes('VOL REGIME')) {
+      return (
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="opacity-80 shrink-0">
+          <path d="M12 2v20M17 5v14M22 9v6M7 7v10M2 10v4" strokeLinecap="round"/>
+        </svg>
+      );
+    }
+    if (l.includes('CONVICTION')) {
+      return (
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="opacity-80 shrink-0">
+          <circle cx="12" cy="12" r="10"/>
+          <path d="M16.2 7.8l-2 5.6-5.6 2 2-5.6 5.6-2z" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+      );
+    }
+    if (l.includes('VWAP')) {
+      return (
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="opacity-80 shrink-0">
+          <path d="M3 6h18M3 12h18M3 18h18" strokeLinecap="round"/>
+          <circle cx="12" cy="12" r="2" fill="currentColor"/>
+        </svg>
+      );
+    }
+    if (l.includes('SQUEEZE')) {
+      return (
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="opacity-80 shrink-0">
+          <path d="M8.5 14.5A2.5 2.5 0 0011 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 11-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 002.5 2.5z" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+      );
+    }
+    if (l.includes('ANALYST')) {
+      return (
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="opacity-80 shrink-0">
+          <circle cx="12" cy="12" r="10"/>
+          <circle cx="12" cy="12" r="6"/>
+          <circle cx="12" cy="12" r="2" fill="currentColor"/>
+        </svg>
+      );
+    }
+    if (l.includes('RADAR')) {
+      return (
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="opacity-80 shrink-0">
+          <path d="M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z"/>
+          <path d="M12 6a6 6 0 00-6 6M12 9a3 3 0 00-3 3"/>
+          <circle cx="12" cy="12" r="1" fill="currentColor"/>
+        </svg>
+      );
+    }
+    if (l.includes('TREND')) {
+      return (
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="opacity-80 shrink-0">
+          <path d="M23 6l-9.5 9.5-5-5L1 18" strokeLinecap="round" strokeLinejoin="round"/>
+          <path d="M17 6h6v6" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+      );
+    }
+    if (l.includes('FUNDAMENTAL')) {
+      return (
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="opacity-80 shrink-0">
+          <path d="M3 3v18h18" strokeLinecap="round" strokeLinejoin="round"/>
+          <path d="M18.7 8l-5.1 5.2-2.8-2.7L7 14.3" strokeLinecap="round" strokeLinejoin="round"/>
+        </svg>
+      );
+    }
+    if (l.includes('EARNINGS')) {
+      return (
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="opacity-80 shrink-0">
+          <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+          <path d="M16 2v4M8 2v4M3 10h18" strokeLinecap="round"/>
+        </svg>
+      );
+    }
+    return null;
+  };
+
+  const icon = getIcon(iconKey || label);
+
+  return (
+    <div className={`relative overflow-hidden rounded-xl px-4 py-3.5 transition-all duration-500 backdrop-blur-xl border ${cardBg} ${cardBorder}`}
+      style={{
+        boxShadow: border && border.includes('border-') 
+          ? '0 0 14px rgba(255,255,255,0.02), inset 0 1px 0 rgba(255,255,255,0.05)'
+          : '0 4px 14px rgba(0, 0, 0, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.03)'
+      }}>
+      <div className="absolute inset-0 bg-gradient-to-br from-white/[0.03] via-transparent to-transparent pointer-events-none" />
+      <div className="relative z-10">
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-1.5 text-slate-300 font-bold uppercase tracking-wider text-[10.5px]">
+            {icon && <span style={{ color: color || '#94a3b8' }}>{icon}</span>}
+            <span>{label}</span>
+          </div>
+          {badge && (
+            <span className={`text-[9.5px] font-black px-1.5 py-0.5 rounded ${badgeColor || 'bg-slate-800/80 text-slate-300 border border-white/5'}`}>
+              {badge}
+            </span>
+          )}
+        </div>
+        <div className={`text-[19px] font-extrabold font-mono tabular-nums leading-none tracking-tight ${color || 'text-white'}`}>
+          {value}
+        </div>
+        {sub && (
+          <div className="text-[11.5px] text-slate-200 mt-2 font-semibold leading-snug tracking-wide">
+            {sub}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+type Tri = string | { ko?: string; en?: string; ja?: string };
+function tl(val: Tri | undefined, locale: string): string {
+    if (!val) return '';
+    if (typeof val === 'string') return val;
+    return (val as any)[locale] || val.en || val.ko || '';
 }
 
 /* ═══════════════════════════════════════════
@@ -1020,30 +1348,56 @@ function CmdPageContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const params = useParams();
-  const locale = params?.locale;
+  const locale = typeof params?.locale === 'string' ? params.locale : 'en';
   const tIndicators = useTranslations('indicators');
   const tCommon = useTranslations('common');
+  const tDashboard = useTranslations('dashboard');
   const ticker = (searchParams.get('t') || 'NVDA').toUpperCase();
 
   const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [searchVal, setSearchVal] = useState('');
 
-  const [data, setData] = useState<(typeof DEMO & { rawTickerData?: any }) | null>(null);
+  const [data, setData] = useState<(typeof DEMO & { rawTickerData?: any; unified?: any; fundRaw?: FundRaw | null; earnRaw?: EarnRaw | null }) | null>(null);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'overview' | 'quant' | 'holders' | 'verdict'>('overview');
-  const { unlocked } = useUnlockState();
+  
+  // Reorder tabs: OVERVIEW | VERDICT ✱ | QUANT ✱ | HOLDERS ✱
+  const [activeTab, setActiveTab] = useState<'overview' | 'verdict' | 'quant' | 'holders'>('overview');
+  const [openSections, setOpenSections] = useState<Set<number>>(new Set());
+
+  // Deep AI states
+  const [gexStats, setGexStats] = useState<any>(null);
+  const [aiInsightData, setAiInsightData] = useState<any>(null);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [relatedData, setRelatedData] = useState<any[]>([]);
 
   useEffect(() => {
+    if (!ticker) return;
+    let isMounted = true;
+    fetch(`/api/live/related?t=${ticker}`)
+      .then(res => res.json())
+      .then(data => {
+        if (isMounted && data?.topRelated) {
+          setRelatedData(data.topRelated);
+        }
+      })
+      .catch(() => {});
+    return () => { isMounted = false; };
+  }, [ticker]);
+
+  const initialLoadRef = useRef(true);
+  useEffect(() => {
     let cancelled = false;
-    setLoading(true);
+    initialLoadRef.current = true;
+    if (initialLoadRef.current) setLoading(true);
 
     async function fetchAll() {
       try {
-        const [tickerRes, analystRes, fundRes, earningsRes] = await Promise.allSettled([
+        const [tickerRes, analystRes, fundRes, earningsRes, unifiedRes] = await Promise.allSettled([
           fetch(`/api/live/ticker?t=${ticker}`).then(r => r.json()),
           fetch(`/api/live/analyst?t=${ticker}`).then(r => r.json()),
           fetch(`/api/live/fundamentals?t=${ticker}`).then(r => r.json()),
           fetch(`/api/live/earnings?t=${ticker}`).then(r => r.json()),
+          fetch(`/api/command/unified?t=${ticker}&lang=${locale}`).then(r => r.json()),
         ]);
 
         if (cancelled) return;
@@ -1052,6 +1406,7 @@ function CmdPageContent() {
         const a = analystRes.status === 'fulfilled' ? analystRes.value : null;
         const f = fundRes.status === 'fulfilled' ? fundRes.value : null;
         const e = earningsRes.status === 'fulfilled' ? earningsRes.value : null;
+        const u = unifiedRes.status === 'fulfilled' ? unifiedRes.value : null;
 
         const price = t?.display?.price ?? t?.price ?? DEMO.price;
         const changeAbs = t?.display?.changeAbs ?? DEMO.change;
@@ -1060,27 +1415,61 @@ function CmdPageContent() {
         const session = t?.session ?? DEMO.session;
         const company = t?.name ?? DEMO.company;
 
-        const analyst = a?.consensus ? {
-          rating: a.consensus.rating || DEMO.analyst.rating,
-          target: a.consensus.targetPrice || DEMO.analyst.target,
-          buy: a.consensus.buy ?? DEMO.analyst.buy,
-          hold: a.consensus.hold ?? DEMO.analyst.hold,
-          sell: a.consensus.sell ?? DEMO.analyst.sell,
+        const analyst = a?.totalAnalysts > 0 ? {
+          rating: a.consensus || DEMO.analyst.rating,
+          target: a.priceTarget?.targetConsensus || DEMO.analyst.target,
+          targetHigh: a.priceTarget?.targetHigh || 0,
+          targetLow: a.priceTarget?.targetLow || 0,
+          buy: (a.breakdown?.strongBuy || 0) + (a.breakdown?.buy || 0),
+          hold: a.breakdown?.hold ?? DEMO.analyst.hold,
+          sell: (a.breakdown?.sell || 0) + (a.breakdown?.strongSell || 0),
+          totalAnalysts: a.totalAnalysts || 0,
+          bullishPct: a.bullishPct || 0,
         } : DEMO.analyst;
 
-        const fundamentals = f?.fundamentals ? [
-          { label: 'P / E', value: String(f.fundamentals.pe || '—'), sub: f.fundamentals.peSub || '', trend: 'up' },
-          { label: 'ROE', value: f.fundamentals.roe ? `${f.fundamentals.roe}%` : '—', sub: f.fundamentals.roeSub || '', trend: 'up' },
-          { label: 'REVENUE TTM', value: f.fundamentals.revenue || '—', sub: f.fundamentals.revenueSub || '', trend: 'up' },
-          { label: 'EPS', value: f.fundamentals.eps ? `$${f.fundamentals.eps}` : '—', sub: f.fundamentals.epsSub || '', trend: 'up' },
+        // Fundamentals: /api/live/fundamentals returns FLAT (f.score, f.pe, etc.)
+        const fundSource = f?.score != null ? f : (u?.fundamentals || null);
+        const fundamentals = fundSource ? [
+          { label: 'P / E', value: fundSource.pe != null ? String(fundSource.pe) : '—', sub: '', trend: 'up' },
+          { label: 'ROE', value: fundSource.roe != null ? `${fundSource.roe}%` : '—', sub: '', trend: 'up' },
+          { label: 'D/E', value: fundSource.de != null ? String(fundSource.de) : '—', sub: '', trend: 'up' },
+          { label: 'MARGIN', value: fundSource.netMargin != null ? `${fundSource.netMargin}%` : '—', sub: '', trend: 'up' },
         ] : DEMO.fundamentals;
+        const fundRaw: FundRaw | null = fundSource ? {
+          score: fundSource.score ?? null,
+          grade: fundSource.grade ?? null,
+          pe: fundSource.pe ?? null,
+          roe: fundSource.roe ?? null,
+          de: fundSource.de ?? null,
+          revenueGrowth: fundSource.revenueGrowth ?? null,
+          netMargin: fundSource.netMargin ?? null,
+          fcfYield: fundSource.fcfYield ?? null,
+          breakdown: fundSource.breakdown ?? null,
+        } : null;
 
-        const earnings = e?.earnings ? {
-          date: e.earnings.date || DEMO.earnings.date,
-          daysLeft: e.earnings.daysLeft ?? DEMO.earnings.daysLeft,
-          progress: e.earnings.progress ?? DEMO.earnings.progress,
-          session: e.earnings.session || DEMO.earnings.session,
+        // Earnings: /api/live/earnings returns FLAT (e.nextEarningsDate, etc.)
+        const earnSource = e?.hasData ? e : (u?.earnings?.hasData ? u.earnings : null);
+        const earnings = earnSource ? {
+          date: earnSource.nextEarningsDate || DEMO.earnings.date,
+          daysLeft: earnSource.daysUntilEarnings ?? DEMO.earnings.daysLeft,
+          progress: DEMO.earnings.progress,
+          session: earnSource.hourLabel || DEMO.earnings.session,
         } : DEMO.earnings;
+        const earnRaw: EarnRaw | null = earnSource ? {
+          nextEarningsDate: earnSource.nextEarningsDate || null,
+          daysUntilEarnings: earnSource.daysUntilEarnings ?? null,
+          daysLabel: earnSource.daysLabel || null,
+          epsEstimate: earnSource.epsEstimate ?? null,
+          epsActual: earnSource.epsActual ?? null,
+          quarter: earnSource.quarter ?? null,
+          year: earnSource.year ?? null,
+          hourLabel: earnSource.hourLabel || null,
+          forwardEps: earnSource.forwardEps ?? null,
+          forwardRevenue: earnSource.forwardRevenue ?? null,
+          forwardYear: earnSource.forwardYear ?? null,
+          lastSurprise: earnSource.lastSurprise ?? null,
+          hasData: true,
+        } : null;
 
         const flow = t?.flow || {};
         const gexData = flow.gexProfile || DEMO.premium.gex;
@@ -1090,6 +1479,8 @@ function CmdPageContent() {
           gammaFlipRaw: flow.gammaFlipLevel ?? DEMO.premium.gammaFlipRaw,
           callWall: flow.callWall ?? DEMO.premium.callWall,
           putFloor: flow.putFloor ?? DEMO.premium.putFloor,
+          maxPain: flow.maxPain ?? u?.structure?.maxPain ?? 0,
+          netPremium: flow.netFlow ?? t?.netPremium ?? u?.structure?.netPremium ?? 0,
           darkPool: flow.darkPoolPct != null ? `${flow.darkPoolPct}%` : DEMO.premium.darkPool,
           blockTrades: flow.blockTrades ?? DEMO.premium.blockTrades,
           aiInsight: t?.alpha?.whyKR || DEMO.premium.aiInsight,
@@ -1115,18 +1506,25 @@ function CmdPageContent() {
           earnings,
           premium,
           rawTickerData: t,
+          unified: u,
+          fundRaw,
+          earnRaw,
         });
       } catch {
         if (!cancelled) {
-          setData({ ...DEMO, ticker, company: DEMO.company, rawTickerData: null });
+          setData({ ...DEMO, ticker, company: DEMO.company, rawTickerData: null, unified: null, fundRaw: null, earnRaw: null });
         }
       } finally {
-        if (!cancelled) setLoading(false);
+        if (!cancelled) {
+          setLoading(false);
+          initialLoadRef.current = false;
+        }
       }
     }
 
     fetchAll();
-    return () => { cancelled = true; };
+    const interval = setInterval(() => { if (!cancelled) fetchAll(); }, 30000);
+    return () => { cancelled = true; clearInterval(interval); };
   }, [ticker]);
 
   // ── Live Price Hooks ──
@@ -1166,8 +1564,14 @@ function CmdPageContent() {
 
   const [flash, setFlash] = useState<'up' | 'down' | null>(null);
   const prevPriceRef = useRef(displayPrice);
+  const displayPriceRef = useRef(displayPrice);
+  const displayChangePctRef = useRef(displayChangePct);
+  const effectiveSessionRef = useRef(effectiveSession);
 
   useEffect(() => {
+    displayPriceRef.current = displayPrice;
+    displayChangePctRef.current = displayChangePct;
+    effectiveSessionRef.current = effectiveSession;
     if (displayPrice !== prevPriceRef.current) {
       const isUp = displayPrice >= prevPriceRef.current;
       setFlash(isUp ? 'up' : 'down');
@@ -1175,11 +1579,286 @@ function CmdPageContent() {
       const tId = setTimeout(() => setFlash(null), 450);
       return () => clearTimeout(tId);
     }
-  }, [displayPrice]);
+  }, [displayPrice, displayChangePct, effectiveSession]);
 
   const resolvedPrevClose = t?.prices?.prevRegularClose || t?.prevClose || 0;
   const finalChangeAbs = resolvedPrevClose > 0 ? Math.abs(displayPrice - resolvedPrevClose) : Math.abs(t?.display?.changeAbs || data?.change || 0);
   const up = displayChangePct >= 0;
+
+  // ── [GEX→AI] Fetch GEX history stats for AI Deep Analysis ──
+  useEffect(() => {
+    if (!ticker) return;
+    fetch(`/api/history?type=gex&ticker=${ticker}&days=30`)
+      .then(r => r.json())
+      .then(res => {
+        const raw = res.data || [];
+        if (raw.length < 2) return;
+        const dayMap = new Map<string, any[]>();
+        raw.forEach((d: any) => {
+          const dt = new Date(d.timestamp);
+          const et = new Date(dt.toLocaleString('en-US', { timeZone: 'America/New_York' }));
+          if (et.getDay() === 0 || et.getDay() === 6) return;
+          const tm = et.getHours() * 60 + et.getMinutes();
+          if (tm < 570 || tm > 960) return;
+          const k = `${et.getFullYear()}-${String(et.getMonth()+1).padStart(2,'0')}-${String(et.getDate()).padStart(2,'0')}`;
+          if (!dayMap.has(k)) dayMap.set(k, []);
+          dayMap.get(k)!.push(d);
+        });
+        const cd = [...dayMap.keys()].sort().map(k => dayMap.get(k)!.at(-1)!);
+        if (cd.length < 2) return;
+        const latest = cd[cd.length - 1];
+        const vals = cd.map((d: any) => d.gex);
+        const sorted = [...vals].sort((a: number, b: number) => a - b);
+        const pctIdx = sorted.findIndex((v: number) => v >= latest.gex);
+        const pct = Math.round((pctIdx / sorted.length) * 100);
+        let streak = 0;
+        for (let i = cd.length - 1; i >= 0; i--) { if (cd[i].gammaRegime === latest.gammaRegime) streak++; else break; }
+        const sDays = new Set(cd.slice(cd.length - streak).map((d: any) => new Date(d.timestamp).toISOString().slice(0, 10))).size;
+        const durs: number[] = []; let rs2 = 0;
+        for (let i = 1; i < cd.length; i++) {
+          if (cd[i].gammaRegime !== cd[rs2].gammaRegime) {
+            if (cd[rs2].gammaRegime === latest.gammaRegime) durs.push(new Set(cd.slice(rs2, i).map((d: any) => new Date(d.timestamp).toISOString().slice(0, 10))).size);
+            rs2 = i;
+          }
+        }
+        if (cd[rs2].gammaRegime === latest.gammaRegime) durs.push(new Set(cd.slice(rs2).map((d: any) => new Date(d.timestamp).toISOString().slice(0, 10))).size);
+        const avg = durs.length > 0 ? parseFloat((durs.reduce((a, b) => a + b, 0) / durs.length).toFixed(1)) : 0;
+        let cwR = 0, cwT = 0, cwSR = 0, cwST = 0;
+        cd.forEach((d: any) => { if (d.callWall && d.price && d.callWall > 0 && d.callWall < d.price * 5) { cwT++; if (d.price < d.callWall) cwR++; } });
+        for (let i = cd.length - 1; i >= Math.max(0, cd.length - streak); i--) { const d = cd[i]; if (d.callWall && d.price && d.callWall > 0 && d.callWall < d.price * 5) { cwST++; if (d.price < d.callWall) cwSR++; } }
+        const flips: any[] = [];
+        for (let i = 1; i < cd.length; i++) { if (cd[i].gammaRegime !== cd[i-1].gammaRegime && cd[i-1].gammaRegime) flips.push({ from: cd[i-1].gammaRegime, to: cd[i].gammaRegime, timestamp: cd[i].timestamp, price: cd[i].price }); }
+        setGexStats({
+          percentile: pct, streakDays: sDays, streakMultiple: avg > 0 ? parseFloat((sDays / avg).toFixed(1)) : 0,
+          avgRegimeDuration: avg, callWallAccuracy: cwT > 0 ? Math.round((cwR / cwT) * 100) : null,
+          cwStreakAccuracy: cwST > 0 ? Math.round((cwSR / cwST) * 100) : null,
+          flipEvents: flips, latestRegime: latest.gammaRegime,
+          totalDays: new Set(cd.map((d: any) => new Date(d.timestamp).toISOString().slice(0, 10))).size,
+        });
+      })
+      .catch(() => {});
+  }, [ticker]);
+
+  // ── [AI DEEP INSIGHTS] Fetch detailed AI report ──
+  useEffect(() => {
+    if (!data) return;
+    setAiLoading(true);
+
+    const u = data.unified || {};
+    const q = data;
+    const s = u.structure || {};
+    const vol = u.volatility || {};
+    const sma = u.sma || {};
+    const fund = u.fundamentals || {};
+    const anal = u.analyst || {};
+    const inst = u.institutional || {};
+    const sqz = u.squeeze || {};
+    const earn = u.earnings || {};
+
+    const snapshot = {
+      price: displayPriceRef.current || q.price,
+      priceChange: displayChangePctRef.current || q.changePct,
+      session: effectiveSessionRef.current,
+      signalCore: { direction: 'NEUTRAL', conviction: 'MIXED', condition: 'TREND', conclusion: '', bullCount: 0, bearCount: 0, bullSignals: '', bearSignals: '' },
+      contextScore: { value: u.alpha?.score || 0, grade: u.alpha?.grade || 'C' },
+      smartFlow: { value: u.smartFlow || 0, trend: u.smartFlow >= 60 ? 'INFLOW' : 'NEUTRAL' },
+      sma: { cross: sma.cross || 'NONE', sma50: sma.sma50 || 0, sma200: sma.sma200 || 0, trendPhase: sma.phase || 'UNKNOWN' },
+      vwap: u.structure?.underlyingPrice || 0,
+      vwapDistance: '0%',
+      conviction: { score: u.alpha?.score || 50, grade: u.alpha?.grade || 'C' },
+      structure: {
+        netGex: s.netGex || 0, gammaFlipLevel: s.gammaFlipLevel || 0,
+        squeezeRisk: vol.squeezeRisk || 'LOW', squeezeScore: vol.squeezeScore || 0,
+        pcRatio: s.pcRatio || 0, callWall: s.levels?.callWall || 0,
+        putFloor: s.levels?.putFloor || 0, maxPain: s.maxPain || 0,
+        gammaConcentration: 0, gammaConcentrationLabel: 'NORMAL',
+      },
+      flow: { netPremium: q.rawTickerData?.flow?.netFlow || q.rawTickerData?.netPremium || 0 },
+      fundamental: { score: fund.score || 0, grade: fund.grade || '-', pe: fund.breakdown?.pe?.value || 0, fcfMargin: 0 },
+      analyst: { score: anal.bullishPct || 0, buyPct: anal.bullishPct || 0 },
+      institutional: { dpRatio: inst.darkPool?.percent || 0, activity: 'NORMAL' },
+      volatility: { regime: vol.regime || 'CALM', regimeScore: vol.regimeScore || 0, gexLong: 0 },
+      squeeze: { status: sqz.status || 'NORMAL', siPercent: sqz.siPercent || 0 },
+      earnings: { daysUntil: earn.daysUntilEarnings || 999, date: earn.nextEarningsDate || '', estimatedEps: earn.epsEstimate || 0 },
+      relatedTickers: u.related?.topRelated?.map((r: any) => r.ticker) || [],
+    };
+
+    const abortController = new AbortController();
+    fetch('/api/command/deep-analysis', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ticker, locale, snapshot, triggerReason: 'FIRST_VIEW', gexStats }),
+      signal: abortController.signal,
+    })
+      .then(r => r.ok ? r.json() : null)
+      .then(res => {
+        if (res) setAiInsightData(res);
+      })
+      .catch(() => {})
+      .finally(() => setAiLoading(false));
+
+    return () => { abortController.abort(); };
+  }, [data, gexStats, locale, ticker]);
+
+  // ── 9-Signal Calculations (Same as MobileCmdMetrics) ──
+  const signalsData = useMemo(() => {
+    if (!data) return null;
+    const u = data.unified || {};
+    const q = data;
+    const structure = u.structure || {};
+    const volatility = u.volatility || {};
+    const sma = u.sma || {};
+    const squeeze = u.squeeze || {};
+    const institutional = u.institutional || {};
+    const earnings = u.earnings || {};
+    const analyst = u.analyst || {};
+    const fund = u.fundamentals || {};
+
+    const pcr = structure.pcRatio || 0;
+    const regime = volatility.regime || (q.rawTickerData?.gammaRegime === 'LONG' ? 'CALM' : q.rawTickerData?.gammaRegime === 'SHORT' ? 'LOADED' : 'CALM');
+    const squeezeScore = volatility.squeezeScore || q.rawTickerData?.squeezeScore || 0;
+    const smaCross = sma.cross || 'NONE';
+    const darkPool = institutional.darkPool?.percent || q.premium.darkPool || 0;
+    const earningsLabel = earnings.daysLabel || '';
+    const flipLevel = structure.gammaFlipLevel || 0;
+    const flipDist = flipLevel > 0 && q.price > 0 ? ((q.price - flipLevel) / flipLevel * 100) : 0;
+    const isAboveFlip = flipDist > 0;
+    const atmIV = volatility.iv || structure.atmIV ? Math.round((volatility.iv || (structure.atmIV * 100)) || 0) : 0;
+    const priceTarget = analyst.priceTarget?.targetConsensus || 0;
+    const targetUpside = priceTarget > 0 && q.price > 0 ? ((priceTarget - q.price) / q.price * 100) : 0;
+
+    // effectiveVol
+    const netGex = structure.netGex || 0;
+    const isShortGamma = netGex < 0;
+    const fLevel = structure.gammaFlipLevel || 0;
+    const priceVal = q.price || 0;
+    const fDist = fLevel > 0 && priceVal > 0 ? ((priceVal - fLevel) / fLevel) * 100 : 0;
+    let rs = 5;
+    if (isShortGamma) rs += Math.min(30, Math.abs(netGex) / 1000000 * 3);
+    else rs += Math.min(10, Math.abs(netGex) / 2000000 * 3);
+    if (Math.abs(fDist) < 1) rs += 15;
+    else if (Math.abs(fDist) < 3) rs += 10;
+    else if (Math.abs(fDist) < 5) rs += 5;
+    else if (Math.abs(fDist) < 10) rs += 2;
+    const iv = structure.atmIV || 0;
+    if (iv > 0.6) rs += 25;
+    else if (iv > 0.4) rs += 15;
+    else if (iv > 0.25) rs += 8;
+    else if (iv > 0.15) rs += 4;
+    rs = Math.min(100, Math.round(rs));
+    let rg = rs >= 75 ? 'ERUPTING' : rs >= 50 ? 'LOADED' : rs >= 25 ? 'COILING' : 'CALM';
+    const cachedIv = volatility.iv || 0;
+    const derivedIv = iv ? Math.round(iv * 100) : 0;
+    let finalIv = derivedIv > 0 ? derivedIv : cachedIv;
+    if (derivedIv === 0 && cachedIv > 0) {
+      let rs2 = 5;
+      if (isShortGamma) rs2 += Math.min(30, Math.abs(netGex) / 1000000 * 3);
+      else rs2 += Math.min(10, Math.abs(netGex) / 2000000 * 3);
+      if (Math.abs(fDist) < 1) rs2 += 15;
+      else if (Math.abs(fDist) < 3) rs2 += 10;
+      else if (Math.abs(fDist) < 5) rs2 += 5;
+      else if (Math.abs(fDist) < 10) rs2 += 2;
+      if (cachedIv > 60) rs2 += 25;
+      else if (cachedIv > 40) rs2 += 15;
+      else if (cachedIv > 25) rs2 += 8;
+      else if (cachedIv > 15) rs2 += 4;
+      rs2 = Math.min(100, Math.round(rs2));
+      if (rs2 > rs) {
+        rs = rs2;
+        rg = rs2 >= 75 ? 'ERUPTING' : rs2 >= 50 ? 'LOADED' : rs2 >= 25 ? 'COILING' : 'CALM';
+      }
+    }
+
+    // conviction
+    let cScore = 50;
+    if (smaCross === 'GOLDEN') cScore += 15;
+    else if (smaCross === 'DEAD') cScore -= 15;
+    const vwapVal = data?.vwap || structure?.underlyingPrice || 0;
+    if (vwapVal > 0 && priceVal > 0) {
+      const vwapDiff = ((priceVal - vwapVal) / vwapVal) * 100;
+      if (vwapDiff > 1) cScore += 8;
+      else if (vwapDiff < -1) cScore -= 8;
+    }
+    const cPcr = structure?.pcRatio || 0;
+    if (cPcr > 0 && cPcr < 0.7) cScore += 7;
+    else if (cPcr > 1.2) cScore -= 7;
+    if (netGex > 0) cScore += 5;
+    else if (netGex < 0) cScore -= 5;
+    const netPrem = q.rawTickerData?.flow?.netFlow || q.rawTickerData?.netPremium || 0;
+    if (netPrem > 500000) cScore += 5;
+    else if (netPrem < -500000) cScore -= 5;
+    cScore = Math.max(0, Math.min(100, cScore));
+    let cLabel = tDashboard('convNeutral'); let cGrade = 'C';
+    if (cScore >= 80) { cLabel = tDashboard('convStrong'); cGrade = 'A'; }
+    else if (cScore >= 65) { cLabel = tDashboard('convBullish'); cGrade = 'B+'; }
+    else if (cScore >= 55) { cLabel = tDashboard('convSlightUp'); cGrade = 'B'; }
+    else if (cScore >= 45) { cLabel = tDashboard('convNeutral'); cGrade = 'C'; }
+    else if (cScore >= 35) { cLabel = tDashboard('convSlightDown'); cGrade = 'D'; }
+    else if (cScore >= 20) { cLabel = tDashboard('convBearish'); cGrade = 'D-'; }
+    else { cLabel = tDashboard('convStrongDown'); cGrade = 'F'; }
+
+    return {
+      regimeScore: rs, regime: rg, gexLabel: isShortGamma ? 'SHORT' : 'LONG', iv: finalIv, flipDistance: Math.round(fDist * 10) / 10, flipLevel: fLevel, isAboveFlip: fDist > 0,
+      convictionScore: cScore, convictionLabel: cLabel, convictionGrade: cGrade,
+      vwap: vwapVal, vwapDiff: vwapVal > 0 && priceVal > 0 ? ((priceVal - vwapVal) / vwapVal) * 100 : 0,
+      squeezePercent: squeeze.siPercent ?? (squeezeScore > 0 ? squeezeScore : null), squeezeStatus: squeeze.status || 'LOW', dtc: squeeze.daysToCover ?? null, siChange: squeeze.siChange ?? null, shortVol: institutional.shortVolume?.percent ?? null,
+      analystConsensus: analyst.consensus || null, totalAnalysts: analyst.totalAnalysts || 0, priceTarget, targetUpside, buyPct: analyst.totalAnalysts > 0 ? Math.round(((analyst.breakdown?.strongBuy || 0) + (analyst.breakdown?.buy || 0)) / analyst.totalAnalysts * 100) : 0,
+      darkPool, blockTradeCount: institutional.blockTrade?.count || 0,
+      smaCross, smaDistance: sma.distance ?? null, smaLabel: sma.label || '',
+      fundGrade: fund.grade || '', fundScore: fund.score || null, fundPe: fund.pe || null, fundRoe: fund.roe || null, fundRevenueGrowth: fund.revenueGrowth || null,
+      earningsLabel, nextEarningsDate: earnings.nextEarningsDate || '', epsEstimate: earnings.epsEstimate || null
+    };
+  }, [data]);
+
+  // Verdict AI Deep Insight Accordion parsing
+  const verdictHeader = aiInsightData || null;
+  const currentStateText = tl(verdictHeader?.currentState, locale);
+  const verdictParts = currentStateText?.split('—') || [];
+  const verdictLabel = verdictParts[0]?.trim() || 'NEUTRAL';
+  const verdictDesc = verdictParts.slice(1).join('—').trim() || '';
+  const verdictColor = verdictLabel.includes('BULL') ? '#10b981' : verdictLabel.includes('BEAR') ? '#f43f5e' : '#f59e0b';
+
+  const companyDescription = useMemo(() => {
+    const overview = data?.unified?.overview?.overview || {};
+    return locale === 'ko' ? overview.description : locale === 'ja' ? (overview.descriptionJA || overview.descriptionEN) : overview.descriptionEN;
+  }, [data, locale]);
+
+  const relatedPeers = useMemo(() => {
+    return relatedData.length > 0 ? relatedData : (data?.unified?.related?.topRelated || []);
+  }, [relatedData, data?.unified?.related?.topRelated]);
+
+  const toggleSection = (i: number) => {
+    setOpenSections(prev => {
+      const next = new Set(prev);
+      next.has(i) ? next.delete(i) : next.add(i);
+      return next;
+    });
+  };
+
+  const sectionIcon = (title: string) => {
+    const tStr = title.toLowerCase();
+    if (tStr.includes('기술') || tStr.includes('technical') || tStr.includes('技術')) {
+      return (
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" className="text-cyan-400">
+          <path d="M23 6l-9.5 9.5-5-5L1 18" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+          <path d="M17 6h6v6" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      );
+    }
+    if (tStr.includes('옵션') || tStr.includes('option') || tStr.includes('オプション')) {
+      return (
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" className="text-indigo-400">
+          <path d="M18 20V10M12 20V4M6 20v-6" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      );
+    }
+    return (
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" className="text-amber-400">
+        <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2.5" />
+        <path d="M12 16v-4M12 8h.01" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
+      </svg>
+    );
+  };
 
   if (loading || !data) {
     return (
@@ -1234,14 +1913,8 @@ function CmdPageContent() {
               onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
             />
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', minWidth: 0 }}>
-            <span className={s.headerTicker}>{data.ticker}</span>
-            <span className={s.headerCompany}>{data.company}</span>
-          </div>
-          <div className={s.headerIntel}>
-            <span className={`${s.headerBadge} ${s.badgeGold}`}>
-              {tIndicators('gammaFlip')} {data.premium.gammaFlip}
-            </span>
+          <div style={{ display: 'flex', alignItems: 'center', minWidth: 0 }}>
+            <span className={s.headerTicker} style={{ fontSize: '15px' }}>{data.ticker}</span>
           </div>
         </div>
         <button className={s.headerBtn} aria-label="Search" onClick={() => setIsSearchOpen(true)}>
@@ -1252,29 +1925,123 @@ function CmdPageContent() {
         </button>
       </div>
 
-      {/* ── PRICE CARD v2 ── */}
+      {/* ── HERO CARD — Premium Glassmorphism ── */}
       <div className={`${s.p2Card} ${s.animateIn} ${s.delay1}`}>
-        <div className={s.p2Topline}>
-          <div className={isOpen ? s.marketBadge : isPrePost ? s.marketBadgePrePost : s.marketBadgeClosed}>
-            {isOpen ? (
-              <span className={s.marketDotActive} />
-            ) : isPrePost ? (
-              <span className={s.marketDotPulse} />
-            ) : null}
-            {sessionLabel}
+        {/* Background sparkline decoration */}
+        <SparklineBg up={up} />
+
+        {/* ── Row 1: Identity (Logo + Ticker/Company) | Status ── */}
+        <div className={s.heroIdentity}>
+          <div className={s.heroLeft}>
+            <div className={s.heroLogo}>
+              <img
+                src={`https://assets.parqet.com/logos/symbol/${data.ticker}?format=png`}
+                alt={data.ticker}
+                onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+              />
+            </div>
+            <div className={s.heroNameGroup}>
+              <span className={s.heroTicker}>{data.ticker}</span>
+              <span className={s.heroCompany}>{data.company}</span>
+            </div>
+            <span className={`${s.p2Tick} ${flash ? s[`show-${flash}`] : ''}`}>
+              {flash === 'down' ? '▼ TICK' : '▲ TICK'}
+            </span>
           </div>
-          <span className={`${s.p2Tick} ${flash ? s[`show-${flash}`] : ''}`}>
-            {flash === 'down' ? '▼ TICK' : '▲ TICK'}
-          </span>
+          <div className={s.heroRight}>
+            <div className={isOpen ? s.heroStatusOpen : isPrePost ? s.heroStatusPrePost : s.heroStatusClosed}>
+              {isOpen ? (
+                <span className={s.marketDotActive} />
+              ) : isPrePost ? (
+                <span className={s.marketDotPulse} />
+              ) : null}
+              {sessionLabel}
+            </div>
+            <span className={s.heroTime}>
+              {(() => {
+                const now = new Date();
+                const etStr = now.toLocaleString('en-US', {
+                  timeZone: 'America/New_York',
+                  month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false
+                });
+                return `${etStr} ET`;
+              })()}
+            </span>
+          </div>
         </div>
-        <div className={s.p2PriceRow}>
-          <span className={`${s.p2Price} ${flash ? s[`flash-${flash}`] : ''}`}>
-            ${displayPrice.toFixed(2)}
-          </span>
-          <span className={`${s.p2Chg} ${up ? s.pos : s.neg}`}>
-            {up ? '▲' : '▼'} {up ? '+' : ''}{finalChangeAbs.toFixed(2)} ({up ? '+' : ''}{displayChangePct.toFixed(2)}%)
-          </span>
+
+        {/* ── Row 2: Big Price | Extended Hours Card ── */}
+        <div className={s.heroMainRow}>
+          <div className={s.heroPriceBlock}>
+            <span className={`${s.p2Price} ${flash ? s[`flash-${flash}`] : ''}`}>
+              ${displayPrice.toFixed(2)}
+            </span>
+            <span className={`${s.p2Chg} ${up ? s.pos : s.neg}`}>
+              {up ? '▲' : '▼'} {up ? '+' : ''}{displayChangePct.toFixed(2)}%
+            </span>
+          </div>
+          {hasExt && (
+            <div className={s.heroExtCard}>
+              <SparklineBg up={activeExtPct >= 0} />
+              <span className={s.heroExtLabel}>{activeExtLabel}</span>
+              <span className={s.heroExtPrice}>${activeExtPrice.toFixed(2)}</span>
+              <span className={s.heroExtChange} style={{ color: activeExtPct >= 0 ? 'var(--green)' : 'var(--red)' }}>
+                {activeExtPct >= 0 ? '+' : ''}{activeExtPct.toFixed(2)}%
+              </span>
+            </div>
+          )}
         </div>
+
+        {/* ── Row 3: Option Metrics — MAX PAIN / GAMMA FLIP / TOTAL PREMIUM ── */}
+        <div className={s.heroMetrics}>
+          <div className={s.heroMetricCard}>
+            <span className={s.heroMetricLabel}>MAX PAIN</span>
+            <span className={s.heroMetricValue}>
+              ${data.premium.maxPain > 0 ? data.premium.maxPain.toFixed(0) : '—'}
+            </span>
+            {data.premium.maxPain > 0 && (() => {
+              const mpDiff = ((displayPrice - data.premium.maxPain) / data.premium.maxPain) * 100;
+              return (
+                <span className={s.heroMetricSub} style={{ color: Math.abs(mpDiff) <= 1.5 ? 'var(--amber)' : mpDiff > 0 ? 'var(--red)' : 'var(--green)' }}>
+                  {mpDiff >= 0 ? '+' : ''}{mpDiff.toFixed(2)}% {locale === 'ko' ? '괴리' : locale === 'ja' ? '乖離' : 'gap'}
+                </span>
+              );
+            })()}
+          </div>
+          <div className={s.heroMetricCard}>
+            <span className={s.heroMetricLabel}>GAMMA FLIP</span>
+            <span className={s.heroMetricValue}>{data.premium.gammaFlip}</span>
+            {data.premium.gammaFlipRaw > 0 && (() => {
+              const gfDiff = ((displayPrice - data.premium.gammaFlipRaw) / data.premium.gammaFlipRaw) * 100;
+              return (
+                <span className={s.heroMetricSub} style={{ color: gfDiff >= 0 ? 'var(--green)' : 'var(--red)' }}>
+                  {gfDiff >= 0
+                    ? (locale === 'ko' ? '상회' : locale === 'ja' ? '上回る' : 'above')
+                    : (locale === 'ko' ? '하회' : locale === 'ja' ? '下回る' : 'below')
+                  } ({gfDiff >= 0 ? '+' : ''}{gfDiff.toFixed(2)}%)
+                </span>
+              );
+            })()}
+          </div>
+          <div className={s.heroMetricCard}>
+            <span className={s.heroMetricLabel}>TOTAL PREMIUM</span>
+            <span className={s.heroMetricValue}>
+              {data.premium.netPremium !== 0
+                ? (Math.abs(data.premium.netPremium) >= 1e6
+                  ? `$${(data.premium.netPremium / 1e6).toFixed(1)}M`
+                  : `$${(data.premium.netPremium / 1e3).toFixed(0)}K`)
+                : '—'}
+            </span>
+            <span className={s.heroMetricSub} style={{ color: data.premium.netPremium >= 0 ? 'var(--green)' : 'var(--red)' }}>
+              {data.premium.netPremium >= 0
+                ? (locale === 'ko' ? '콜 우세' : locale === 'ja' ? 'コール優勢' : 'Call dominant')
+                : (locale === 'ko' ? '풋 우세' : locale === 'ja' ? 'プット優勢' : 'Put dominant')
+              }
+            </span>
+          </div>
+        </div>
+
+        {/* ── Row 4: Vitals Strip (RSI / VWAP / DAY RANGE) ── */}
         <div className={s.p2Vitals}>
           <div className={s.p2Vital}>
             <div className={s.k}>RSI 14</div>
@@ -1294,245 +2061,397 @@ function CmdPageContent() {
             </div>
           </div>
         </div>
-        {hasExt && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 12px', borderRadius: '8px', border: '1px solid var(--ext-session-dim)', flexShrink: 0, marginTop: '12px', width: 'fit-content', background: 'var(--ext-session-dim)' }}>
-            <span style={{ fontSize: '11px', fontWeight: 'bold', color: 'var(--ext-session)', whiteSpace: 'nowrap' }}>{activeExtLabel}</span>
-            <span style={{ fontSize: '13px', fontWeight: 'bold', color: '#f1f5f9', fontFamily: 'var(--f-mono)', fontVariantNumeric: 'tabular-nums' }}>${activeExtPrice.toFixed(2)}</span>
-            <span style={{ fontSize: '12px', fontWeight: 'bold', fontFamily: 'var(--f-mono)', fontVariantNumeric: 'tabular-nums', color: activeExtPct >= 0 ? 'var(--green)' : 'var(--red)' }}>
-              {activeExtPct >= 0 ? '+' : ''}{activeExtPct.toFixed(2)}%
-            </span>
-          </div>
-        )}
       </div>
 
-      {/* ── TAB BAR v2 (overview, quant, holders, verdict) ── */}
+      {/* ── TAB BAR v2 (OVERVIEW, VERDICT ✱, QUANT ✱, HOLDERS ✱) ── */}
       <div className={`${s.seg} ${s.seg4}`}>
-        <span className={s.segPill} style={{ left: `calc(3px + ${['overview', 'quant', 'holders', 'verdict'].indexOf(activeTab)} * (100% - 6px) / 4)` }}></span>
+        <span className={s.segPill} style={{ left: `calc(3px + ${['overview', 'verdict', 'quant', 'holders'].indexOf(activeTab)} * (100% - 6px) / 4)` }}></span>
         <button 
           className={activeTab === 'overview' ? s.on : ''}
           onClick={() => setActiveTab('overview')}
         >
-          Overview
-        </button>
-        <button 
-          className={activeTab === 'quant' ? s.on : ''}
-          onClick={() => setActiveTab('quant')}
-        >
-          Quant <TabLockIcon unlocked={unlocked} />
-        </button>
-        <button 
-          className={activeTab === 'holders' ? s.on : ''}
-          onClick={() => setActiveTab('holders')}
-        >
-          Holders <TabLockIcon unlocked={unlocked} />
+          OVERVIEW
         </button>
         <button 
           className={activeTab === 'verdict' ? s.on : ''}
           onClick={() => setActiveTab('verdict')}
         >
-          Verdict <TabLockIcon unlocked={unlocked} />
+          <span style={{
+            background: 'linear-gradient(90deg, #a855f7, #ec4899, #3b82f6)',
+            WebkitBackgroundClip: 'text',
+            WebkitTextFillColor: 'transparent',
+            fontWeight: 900,
+            opacity: activeTab === 'verdict' ? 1 : 0.65
+          }}>
+            AI ✱
+          </span>
+        </button>
+        <button 
+          className={activeTab === 'quant' ? s.on : ''}
+          onClick={() => setActiveTab('quant')}
+        >
+          QUANT ✱
+        </button>
+        <button 
+          className={activeTab === 'holders' ? s.on : ''}
+          onClick={() => setActiveTab('holders')}
+        >
+          HOLDERS ✱
         </button>
       </div>
 
       {/* ── TAB CONTENT ── */}
+      <SwipeableTabs
+        onSwipeLeft={() => { const TABS = ['overview', 'verdict', 'quant', 'holders'] as const; const i = TABS.indexOf(activeTab); if (i < TABS.length - 1) setActiveTab(TABS[i + 1] as typeof activeTab); }}
+        onSwipeRight={() => { const TABS = ['overview', 'verdict', 'quant', 'holders'] as const; const i = TABS.indexOf(activeTab); if (i > 0) setActiveTab(TABS[i - 1] as typeof activeTab); }}
+      >
       {activeTab === 'overview' && (
         <div className={`${s.animateIn} ${s.delay2}`}>
-          {/* Chart card with upgrade */}
+          {/* Chart card */}
           <div className={s.card}>
-            <CandleChart ticker={data.ticker} price={displayPrice} vwap={data.vwap} />
+            <CandleChart 
+              ticker={data.ticker} 
+              price={
+                (effectiveSession === 'POST' || effectiveSession === 'PRE' || effectiveSession === 'CLOSED') && activeExtPrice > 0
+                  ? activeExtPrice
+                  : displayPrice
+              } 
+              vwap={data.vwap}
+              locale={locale}
+            />
           </div>
 
-          <AnalystConsensus analyst={data.analyst} price={displayPrice} />
-          <FundamentalsCard items={data.fundamentals} />
-          <EarningsCard earnings={data.earnings} />
-        </div>
-      )}
+          <AnalystConsensus analyst={data.analyst} price={displayPrice} locale={locale} />
+          <FundamentalsCard raw={data.fundRaw || null} locale={locale} />
+          <EarningsCardPremium raw={data.earnRaw || null} locale={locale} />
 
-      {activeTab === 'quant' && (
-        <div className={`${s.animateIn} ${s.delay2}`}>
-          <div className={s.premiumLabel}>
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
-              <rect x="5" y="11" width="14" height="9" rx="2" stroke="var(--amber)" strokeWidth="2" />
-              <path d="M8 11V8a4 4 0 0 1 8 0v3" stroke="var(--amber)" strokeWidth="2" />
-            </svg>
-            QUANTITATIVE INDICATORS
-          </div>
-          <ValueWall 
-            title="Quant Intelligence"
-            teaser={{ label: 'GAMMA FLIP · 1 OF 6 SIGNALS FREE', value: data.premium.gammaFlip }}
-            socialProof="12,400 unlocked today"
-            lockedPreview={
-              <div className={s.premiumContent}>
-                <div style={{ marginBottom: 'var(--s4)' }}>
-                  <IVSkewCurve 
-                    ticker="" 
-                    underlyingPrice={135.20} 
-                    expiration="Aug 25, 2026"
-                    atmSlice={[
-                      { strike: 120, type: 'call', iv: 0.45, gamma: 0.02, oi: 1500 },
-                      { strike: 125, type: 'call', iv: 0.42, gamma: 0.04, oi: 2200 },
-                      { strike: 130, type: 'call', iv: 0.38, gamma: 0.08, oi: 4500 },
-                      { strike: 135, type: 'call', iv: 0.35, gamma: 0.12, oi: 8000 },
-                      { strike: 140, type: 'call', iv: 0.39, gamma: 0.06, oi: 3800 },
-                      { strike: 145, type: 'call', iv: 0.43, gamma: 0.03, oi: 1900 },
-                      { strike: 120, type: 'put', iv: 0.58, gamma: 0.01, oi: 3400 },
-                      { strike: 125, type: 'put', iv: 0.52, gamma: 0.03, oi: 4100 },
-                      { strike: 130, type: 'put', iv: 0.44, gamma: 0.07, oi: 6200 },
-                      { strike: 135, type: 'put', iv: 0.36, gamma: 0.10, oi: 7100 },
-                      { strike: 140, type: 'put', iv: 0.32, gamma: 0.04, oi: 2500 },
-                      { strike: 145, type: 'put', iv: 0.30, gamma: 0.02, oi: 1100 },
-                    ]}
-                  />
-                </div>
-                <div style={{ marginBottom: 'var(--s4)' }}>
-                  <TechnicalGammaMap 
-                    price={135.20} 
-                    high={data.high} 
-                    low={data.low} 
-                    callWall={data.premium.callWall} 
-                    putFloor={data.premium.putFloor} 
-                    gammaFlip={data.premium.gammaFlipRaw} 
-                  />
-                </div>
-                <GexBarChart data={data.premium.gex} />
-                <div className={s.premiumMetrics} style={{ marginBottom: 'var(--s3)' }}>
-                  <div className={s.premiumMetric}>
-                    <span className={s.premiumMetricLabel}>GAMMA FLIP</span>
-                    <span className={s.premiumMetricValue}>{data.premium.gammaFlip}</span>
-                  </div>
-                  <div className={s.premiumMetric}>
-                    <span className={s.premiumMetricLabel}>DARK POOL</span>
-                    <span className={s.premiumMetricValue}>{data.premium.darkPool}</span>
-                  </div>
-                  <div className={s.premiumMetric}>
-                    <span className={s.premiumMetricLabel}>BLOCKS</span>
-                    <span className={s.premiumMetricValue}>{data.premium.blockTrades}</span>
-                  </div>
-                </div>
+          {/* Company Description */}
+          {companyDescription && (
+            <div className={`${s.card} ${s.animateIn} ${s.delay6}`}>
+              <div className={s.cardTitle} style={{ marginBottom: 'var(--s2)' }}>
+                {locale === 'ko' ? '기업 개요' : locale === 'ja' ? '企業概要' : 'Company Overview'}
               </div>
-            }
-          >
-            <div className={s.premiumContent}>
-              <div style={{ marginBottom: 'var(--s4)' }}>
-                <IVSkewCurve ticker={data.ticker} underlyingPrice={displayPrice} />
-              </div>
-              <div style={{ marginBottom: 'var(--s4)' }}>
-                <TechnicalGammaMap 
-                  price={displayPrice} 
-                  high={data.high} 
-                  low={data.low} 
-                  callWall={data.premium.callWall} 
-                  putFloor={data.premium.putFloor} 
-                  gammaFlip={data.premium.gammaFlipRaw} 
-                />
-              </div>
-              <GexBarChart data={data.premium.gex} />
-              <div className={s.premiumMetrics} style={{ marginBottom: 'var(--s3)' }}>
-                <div className={s.premiumMetric}>
-                  <span className={s.premiumMetricLabel}>GAMMA FLIP</span>
-                  <span className={s.premiumMetricValue}>{data.premium.gammaFlip}</span>
-                </div>
-                <div className={s.premiumMetric}>
-                  <span className={s.premiumMetricLabel}>DARK POOL</span>
-                  <span className={s.premiumMetricValue}>{data.premium.darkPool}</span>
-                </div>
-                <div className={s.premiumMetric}>
-                  <span className={s.premiumMetricLabel}>BLOCKS</span>
-                  <span className={s.premiumMetricValue}>{data.premium.blockTrades}</span>
-                </div>
-              </div>
+              <p style={{ fontSize: '12.5px', color: 'var(--text-dim)', lineHeight: 1.6, margin: 0 }}>{companyDescription}</p>
             </div>
-          </ValueWall>
-        </div>
-      )}
+          )}
 
-      {activeTab === 'holders' && (
-        <div className={`${s.animateIn} ${s.delay2}`}>
-          <div className={s.premiumLabel}>
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none">
-              <rect x="5" y="11" width="14" height="9" rx="2" stroke="var(--amber)" strokeWidth="2" />
-              <path d="M8 11V8a4 4 0 0 1 8 0v3" stroke="var(--amber)" strokeWidth="2" />
-            </svg>
-            OWNERSHIP INSIGHTS
-          </div>
-          <ValueWall 
-            title="Institutional Holders"
-            subtitle="Major institutional shareholders and ownership distribution insights."
-            teaser={{ label: 'TOP HOLDER · 1 OF 20 SIGNALS FREE', value: 'Vanguard Group' }}
-            socialProof="8,900 unlocked today"
-            lockedPreview={
-              <div className={s.premiumContent}>
-                <div className="space-y-3" style={{ opacity: 0.8 }}>
-                  <div className="grid grid-cols-3 gap-2">
-                    <div className="bg-white/[0.04] rounded-xl p-3 border border-white/[0.06]">
-                      <div className="text-[11px] text-slate-400 font-semibold mb-1">Holders</div>
-                      <div className="text-[17px] font-bold text-white font-mono">1,824</div>
-                    </div>
-                    <div className="bg-white/[0.04] rounded-xl p-3 border border-white/[0.06]">
-                      <div className="text-[11px] text-slate-400 font-semibold mb-1">Total Value</div>
-                      <div className="text-[17px] font-bold text-emerald-400 font-mono">$18.2B</div>
-                    </div>
-                    <div className="bg-white/[0.04] rounded-xl p-3 border border-white/[0.06]">
-                      <div className="text-[11px] text-slate-400 font-semibold mb-1">Period</div>
-                      <div className="text-[15px] font-bold text-indigo-400 font-mono">Q2 2026</div>
-                    </div>
-                  </div>
-                  <div className="rounded-xl border border-indigo-500/20 bg-indigo-500/[0.04] p-3" style={{ border: '1px solid rgba(139,92,246,0.1)' }}>
-                    <div className="flex items-center gap-3 mb-2">
-                      <span className="text-[13px] font-bold w-5 text-center text-indigo-400">1</span>
-                      <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shrink-0">
-                        <span className="text-[11px] font-bold text-white/90">VG</span>
-                      </div>
-                      <span className="text-[13px] font-semibold text-white truncate flex-1">Vanguard Group Inc</span>
-                    </div>
-                    <div className="grid grid-cols-3 gap-2 pl-8">
-                      <div>
-                        <div className="text-[10px] text-slate-500 font-semibold">SHARES</div>
-                        <div className="text-[13px] text-slate-200 font-mono font-semibold">1,024M</div>
-                      </div>
-                      <div>
-                        <div className="text-[10px] text-slate-500 font-semibold">VALUE</div>
-                        <div className="text-[13px] text-slate-200 font-mono font-semibold">$138.2B</div>
-                      </div>
-                      <div>
-                        <div className="text-[10px] text-slate-500 font-semibold">WEIGHT</div>
-                        <div className="text-[13px] font-mono font-bold text-indigo-300">8.4%</div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            }
-          >
-            <div className={s.premiumContent}>
-              <MobileCmd13F ticker={data.ticker} />
-            </div>
-          </ValueWall>
+          {/* Related Peers Live */}
+          {relatedPeers.length > 0 && (
+            <RelatedPeersLive tickers={relatedPeers.slice(0, 4)} currentPrice={displayPrice} locale={locale} />
+          )}
         </div>
       )}
 
       {activeTab === 'verdict' && (
+        <ValueWall
+          title={locale === 'ko' ? 'AI 분석 잠금' : locale === 'ja' ? 'AI分析ロック' : 'AI Analysis Locked'}
+          subtitle={locale === 'ko' ? '30초 광고를 시청하고 1시간 프리미엄 분석을 이용하세요' : locale === 'ja' ? '30秒の動画を視聴して1時間プレミアム分析をご利用ください' : 'Watch a 30-second video to unlock premium analysis for 1 hour'}
+          socialProof={locale === 'ko' ? '오늘 14.2K 잠금해제' : locale === 'ja' ? '本日14.2Kがロック解除' : '14.2K unlocked today'}
+        >
         <div className={`${s.animateIn} ${s.delay2}`}>
-          <div className={s.sectionLabel}>AI VERDICT & CONTEXT</div>
-          <div className={s.card}>
-            <div className={s.aiInsight} style={{ background: 'transparent', border: 'none', padding: 0 }}>
-              <div className={s.aiInsightHead}>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
-                  <circle cx="12" cy="12" r="9" stroke="var(--cyan)" strokeWidth="1.5" />
-                  <path d="M12 8v4l3 3" stroke="var(--cyan)" strokeWidth="1.5" strokeLinecap="round" />
-                </svg>
-                <span className={s.aiInsightLabel}>AI DEEP INSIGHT</span>
+          {aiLoading && !verdictHeader && (
+            <div className="rounded-2xl border border-white/[0.06] bg-[#0f172a]/50 p-8 flex flex-col items-center gap-3 text-center">
+              <div className="relative w-9 h-9 flex items-center justify-center">
+                <div className="absolute inset-0 rounded-full border-2 border-transparent border-t-cyan-400 animate-spin" />
+                <img src="/signum-sg-vectorized.svg" alt="" width={16} height={16} className="animate-pulse" />
               </div>
-              <div className={s.aiInsightText}>{data.premium.aiInsight}</div>
+              <span className="text-[12px] text-cyan-400 font-bold tracking-wider">
+                {locale === 'ko' ? 'AI 심층 분석 및 최신 퀀트 판정 생성 중...' : locale === 'ja' ? 'AI深層分析および最新クオンツ判定を生成中...' : 'Generating AI deep analysis...'}
+              </span>
+            </div>
+          )}
+
+          {verdictHeader ? (
+            <div className="rounded-2xl border border-amber-500/25 overflow-hidden relative"
+              style={{ background: 'linear-gradient(180deg, rgba(8,12,21,0.96), rgba(13,17,25,0.98))', boxShadow: '0 0 24px rgba(245,158,11,0.08)' }}>
+              
+              {/* AI Engine Header */}
+              <div className="px-4 py-3.5 border-b border-white/[0.06] flex items-center gap-2"
+                style={{ background: 'linear-gradient(90deg, rgba(6,182,212,0.06), transparent)' }}>
+                <img src="/signum-sg-vectorized.svg" alt="AI" width={15} height={15}
+                  style={{ filter: 'drop-shadow(0 0 4px rgba(245,158,11,0.4))' }} />
+                <span className="text-[11px] font-black text-white uppercase tracking-[0.15em]">AI Deep Analysis</span>
+                <span className="text-[9px] bg-cyan-950/80 text-cyan-400 px-1.5 py-0.5 rounded border border-cyan-500/20 font-bold font-mono">CLAUDE S4</span>
+              </div>
+
+              {/* Verdict Indicator */}
+              <div className="relative">
+                <div className="absolute left-0 top-0 bottom-0 w-[4px] rounded-r" style={{ background: verdictColor }} />
+                <div className="px-4 py-4" style={{ background: `linear-gradient(90deg, ${verdictColor}0c, transparent)` }}>
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="text-[13px] font-black uppercase tracking-wider" style={{ color: verdictColor }}>{verdictLabel}</span>
+                    {verdictDesc && (
+                      <>
+                        <span className="text-[11px] text-slate-500">—</span>
+                        <span className="text-[11px] text-slate-300 font-bold font-sans">{verdictDesc}</span>
+                      </>
+                    )}
+                  </div>
+                  {tl(verdictHeader.keyInsight, locale) && (
+                    <div className="mt-2.5 px-3 py-2.5 rounded-xl border border-cyan-500/15" style={{ background: 'linear-gradient(135deg, rgba(6,182,212,0.06), rgba(99,102,241,0.04))' }}>
+                      <p className="text-[12.5px] text-slate-300 leading-relaxed font-sans">{tl(verdictHeader.keyInsight, locale)}</p>
+                    </div>
+                  )}
+                  {/* Risk + Confidence meters */}
+                  <div className="flex items-center gap-4 mt-3">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[10px] text-slate-500 font-bold tracking-wider uppercase">RISK</span>
+                      <span className={`text-[10px] px-2 py-0.5 rounded border font-black
+                        ${verdictHeader.riskFlag === 'HIGH' ? 'bg-rose-500/15 text-rose-400 border-rose-500/25' :
+                          verdictHeader.riskFlag === 'MEDIUM' ? 'bg-amber-500/15 text-amber-400 border-amber-500/25' :
+                            'bg-emerald-500/15 text-emerald-400 border-emerald-500/25'}`}>
+                        {verdictHeader.riskFlag || 'LOW'}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[10px] text-slate-500 font-bold tracking-wider uppercase">CONFIDENCE</span>
+                      <div className="flex items-center gap-1">
+                        {[1, 2, 3].map(d => {
+                          const confLevel = verdictHeader.confidence === 'HIGH' ? 3 : verdictHeader.confidence === 'MEDIUM' ? 2 : 1;
+                          const isActive = d <= confLevel;
+                          return (
+                            <div 
+                              key={d} 
+                              className={`w-2 h-2 rounded-full transition-all duration-300 ${isActive ? 'bg-cyan-400' : 'bg-slate-700'}`} 
+                              style={{ boxShadow: isActive ? '0 0 6px var(--cyan)' : 'none' }}
+                            />
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Accordion Detail Sections */}
+              {verdictHeader.sections?.map((sec: any, i: number) => {
+                const isOpen = openSections.has(i);
+                return (
+                  <div key={i} className="border-t border-white/[0.04] bg-slate-900/10">
+                    <button onClick={() => toggleSection(i)} className="w-full flex items-center justify-between px-4 py-3 active:bg-white/[0.02] transition-colors">
+                      <div className="flex items-center gap-2.5">
+                        {sectionIcon(tl(sec.title, locale))}
+                        <span className="text-[11.5px] font-bold text-slate-300 uppercase tracking-wider font-sans">{tl(sec.title, locale)}</span>
+                      </div>
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className={`text-slate-400 transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`}>
+                        <path d="M6 9l6 6 6-6" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                    </button>
+                    <div className="overflow-hidden transition-all duration-300" style={{ maxHeight: isOpen ? '400px' : '0px', opacity: isOpen ? 1 : 0 }}>
+                      <div className="px-4 pb-4">
+                        <p className="text-[12.5px] text-slate-300 leading-relaxed font-sans">{tl(sec.content, locale)}</p>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            !aiLoading && (
+              <div className="rounded-2xl border border-white/[0.06] bg-[#0f172a]/50 p-6 flex flex-col items-center gap-2 text-center">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" className="text-slate-500 animate-pulse">
+                  <path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M6.34 17.66l2.83-2.83M14.83 9.17l2.83-2.83" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"/>
+                </svg>
+                <span className="text-[12px] text-slate-400">Loading AI Analytical Verdict...</span>
+              </div>
+            )
+          )}
+        </div>
+        </ValueWall>
+      )}
+
+      {activeTab === 'quant' && (
+        <ValueWall
+          title={locale === 'ko' ? '퀀트 시그널 잠금' : locale === 'ja' ? 'クオンツシグナルロック' : 'Quant Signals Locked'}
+          subtitle={locale === 'ko' ? '30초 광고를 시청하고 1시간 프리미엄 분석을 이용하세요' : locale === 'ja' ? '30秒の動画を視聴して1時間プレミアム分析をご利用ください' : 'Watch a 30-second video to unlock premium analysis for 1 hour'}
+          socialProof={locale === 'ko' ? '오늘 14.2K 잠금해제' : locale === 'ja' ? '本日14.2Kがロック解除' : '14.2K unlocked today'}
+        >
+        <div className={`${s.animateIn} ${s.delay2}`}>
+          {/* 9-Signal Dashboard */}
+          {signalsData && (
+            <div className="mb-5">
+              <div className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-3 px-0.5">
+                {locale === 'ko' ? '시그널 대시보드' : locale === 'ja' ? 'シグナルダッシュボード' : 'Signal Dashboard'}
+              </div>
+              <div className="grid grid-cols-2 gap-2.5">
+                {/* [1] VOL REGIME */}
+                <SignalCard 
+                  label={locale === 'ko' ? '변동성 레짐' : locale === 'ja' ? 'ボラティリティ体制' : 'VOL REGIME'}
+                  iconKey="VOL REGIME"
+                  value={`${signalsData.regimeScore} /100`}
+                  badge={signalsData.regime}
+                  badgeColor={signalsData.regime === 'ERUPTING' ? 'bg-rose-500/25 text-rose-400' : signalsData.regime === 'LOADED' ? 'bg-amber-500/25 text-amber-400' : signalsData.regime === 'COILING' ? 'bg-cyan-500/25 text-cyan-400' : 'bg-emerald-500/25 text-emerald-400'}
+                  color={signalsData.regime === 'ERUPTING' ? 'text-rose-400' : signalsData.regime === 'LOADED' ? 'text-amber-400' : signalsData.regime === 'COILING' ? 'text-cyan-400' : 'text-emerald-400'}
+                  bg={signalsData.regime === 'ERUPTING' ? 'bg-rose-950/20' : signalsData.regime === 'LOADED' ? 'bg-amber-950/20' : 'bg-slate-900/40'}
+                  border={signalsData.regime === 'ERUPTING' ? 'border-rose-500/20' : signalsData.regime === 'LOADED' ? 'border-amber-500/20' : 'border-white/[0.06]'}
+                  sub={`${locale === 'ko' ? '상태: ' : locale === 'ja' ? '状態: ' : ''}${tDashboard(signalsData.regime === 'ERUPTING' ? 'volErupting' : signalsData.regime === 'LOADED' ? 'volLoaded' : signalsData.regime === 'COILING' ? 'volCoiling' : 'volStable')} · IV ${signalsData.iv}%`} 
+                />
+
+                {/* [2] CONVICTION */}
+                <SignalCard 
+                  label={locale === 'ko' ? '확신도' : locale === 'ja' ? 'コンビクション' : 'CONVICTION'}
+                  iconKey="CONVICTION"
+                  value={`${signalsData.convictionScore} /100`}
+                  badge={signalsData.convictionGrade}
+                  badgeColor={signalsData.convictionScore >= 60 ? 'bg-emerald-500/25 text-emerald-400' : signalsData.convictionScore <= 40 ? 'bg-rose-500/25 text-rose-400' : 'bg-slate-500/25 text-slate-300'}
+                  color={signalsData.convictionScore >= 60 ? 'text-emerald-400' : signalsData.convictionScore <= 40 ? 'text-rose-400' : 'text-white'}
+                  bg={signalsData.convictionScore >= 60 ? 'bg-emerald-950/20' : signalsData.convictionScore <= 40 ? 'bg-rose-950/20' : 'bg-slate-900/40'}
+                  border={signalsData.convictionScore >= 60 ? 'border-emerald-500/20' : signalsData.convictionScore <= 40 ? 'border-rose-500/20' : 'border-white/[0.06]'}
+                  sub={`${signalsData.convictionLabel}`} 
+                />
+
+                {/* [3] VWAP */}
+                <SignalCard 
+                  label="VWAP"
+                  iconKey="VWAP"
+                  value={signalsData.vwap > 0 ? `$${signalsData.vwap.toFixed(2)}` : '—'}
+                  color={signalsData.vwapDiff > 2 ? 'text-emerald-400' : signalsData.vwapDiff < -2 ? 'text-rose-400' : 'text-white'}
+                  bg={signalsData.vwapDiff > 2 ? 'bg-emerald-950/20' : signalsData.vwapDiff < -2 ? 'bg-rose-950/20' : 'bg-slate-900/40'}
+                  border={signalsData.vwapDiff > 2 ? 'border-emerald-500/20' : signalsData.vwapDiff < -2 ? 'border-rose-500/20' : 'border-white/[0.06]'}
+                  sub={signalsData.vwap > 0 ? (
+                    locale === 'ko' ? `${signalsData.vwapDiff > 0 ? '+' : ''}${signalsData.vwapDiff.toFixed(1)}% 괴리율`
+                    : locale === 'ja' ? `${signalsData.vwapDiff > 0 ? '+' : ''}${signalsData.vwapDiff.toFixed(1)}% 乖離率`
+                    : `${signalsData.vwapDiff > 0 ? '+' : ''}${signalsData.vwapDiff.toFixed(1)}% deviation`
+                  ) : (
+                    locale === 'ko' ? '기초자산 가격 추적'
+                    : locale === 'ja' ? '原資産価格の追跡'
+                    : 'Underlying price tracking'
+                  )} 
+                />
+
+                {/* [4] SHORT SQUEEZE */}
+                <SignalCard 
+                  label={locale === 'ko' ? '순매도 스퀘즈' : locale === 'ja' ? 'ショートスクイーズ' : 'SHORT SQUEEZE'}
+                  iconKey="SHORT SQUEEZE"
+                  value={signalsData.squeezePercent != null ? `${Number(signalsData.squeezePercent).toFixed(1)}%` : '-'}
+                  color={signalsData.squeezeStatus === 'CRITICAL' ? 'text-rose-400' : signalsData.squeezeStatus === 'HIGH' ? 'text-amber-400' : signalsData.squeezeStatus === 'MEDIUM' ? 'text-cyan-400' : 'text-emerald-400'}
+                  bg={signalsData.squeezeStatus === 'CRITICAL' ? 'bg-rose-950/20' : signalsData.squeezeStatus === 'HIGH' ? 'bg-amber-950/20' : 'bg-slate-900/40'}
+                  border={signalsData.squeezeStatus === 'CRITICAL' ? 'border-rose-500/20' : signalsData.squeezeStatus === 'HIGH' ? 'border-amber-500/20' : 'border-white/[0.06]'}
+                  sub={`${signalsData.squeezeStatus} · DTC: ${signalsData.dtc?.toFixed(1) || '—'}${signalsData.siChange ? ` · Δ ${signalsData.siChange > 0 ? '+' : ''}${signalsData.siChange.toFixed(1)}%` : ''}`} 
+                />
+
+                {/* [5] ANALYST TARGET */}
+                <SignalCard 
+                  label={locale === 'ko' ? '애널리스트 목표' : locale === 'ja' ? 'アナリスト目標' : 'ANALYST TARGET'}
+                  iconKey="ANALYST TARGET"
+                  value={signalsData.buyPct > 0 ? `${signalsData.buyPct}%` : '—'}
+                  color={signalsData.buyPct >= 60 ? 'text-emerald-400' : signalsData.buyPct <= 40 ? 'text-rose-400' : 'text-white'}
+                  bg={signalsData.buyPct >= 60 ? 'bg-emerald-950/20' : signalsData.buyPct <= 40 ? 'bg-rose-950/20' : 'bg-slate-900/40'}
+                  border={signalsData.buyPct >= 60 ? 'border-emerald-500/20' : signalsData.buyPct <= 40 ? 'border-rose-500/20' : 'border-white/[0.06]'}
+                  sub={`${signalsData.analystConsensus || (locale === 'ko' ? '보유' : locale === 'ja' ? 'ホールド' : 'Hold')} · ${locale === 'ko' ? '목표가' : locale === 'ja' ? '目標株価' : 'target'} $${signalsData.priceTarget.toFixed(0)} (${signalsData.targetUpside >= 0 ? '+' : ''}${signalsData.targetUpside.toFixed(1)}%)`} 
+                />
+
+                {/* [6] INST RADAR */}
+                <SignalCard 
+                  label={locale === 'ko' ? '기관 레이더' : locale === 'ja' ? '機関レーダー' : 'INST RADAR'}
+                  iconKey="INST RADAR"
+                  value={signalsData.darkPool > 0 ? `${signalsData.darkPool.toFixed(1)}%` : '—'}
+                  color={signalsData.darkPool >= 40 ? 'text-indigo-400' : 'text-slate-300'}
+                  bg={signalsData.darkPool >= 40 ? 'bg-indigo-950/20' : 'bg-slate-900/40'}
+                  border={signalsData.darkPool >= 40 ? 'border-indigo-500/20' : 'border-white/[0.06]'}
+                  sub={`DP · Block Trade: ${signalsData.blockTradeCount}`} 
+                />
+
+                {/* [7] TREND PHASE */}
+                <SignalCard 
+                  label={locale === 'ko' ? '트렌드 페이즈' : locale === 'ja' ? 'トレンドフェーズ' : 'TREND PHASE'}
+                  iconKey="TREND PHASE"
+                  value={signalsData.smaCross === 'GOLDEN' ? 'GOLDEN' : signalsData.smaCross === 'DEAD' ? 'DEAD' : 'CALM'}
+                  color={signalsData.smaCross === 'GOLDEN' ? 'text-emerald-400' : signalsData.smaCross === 'DEAD' ? 'text-rose-400' : 'text-slate-300'}
+                  bg={signalsData.smaCross === 'GOLDEN' ? 'bg-emerald-950/20' : signalsData.smaCross === 'DEAD' ? 'bg-rose-950/20' : 'bg-slate-900/40'}
+                  border={signalsData.smaCross === 'GOLDEN' ? 'border-emerald-500/20' : signalsData.smaCross === 'DEAD' ? 'border-rose-500/20' : 'border-white/[0.06]'}
+                  sub={`${signalsData.smaLabel || 'SMA 50/200'} · ${signalsData.smaDistance != null ? (signalsData.smaDistance >= 0 ? '+' : '') + signalsData.smaDistance + '%' : '—'}`} 
+                />
+
+                {/* [8] FUNDAMENTAL */}
+                <SignalCard 
+                  label={locale === 'ko' ? '펀더멘탈' : locale === 'ja' ? 'ファンダメンタル' : 'FUNDAMENTAL'}
+                  iconKey="FUNDAMENTAL"
+                  value={signalsData.fundGrade || 'C'}
+                  color={signalsData.fundGrade?.startsWith('A') ? 'text-emerald-400' : signalsData.fundGrade?.startsWith('B') ? 'text-cyan-400' : 'text-amber-400'}
+                  bg={signalsData.fundGrade?.startsWith('A') ? 'bg-emerald-950/20' : signalsData.fundGrade?.startsWith('B') ? 'bg-cyan-950/20' : 'bg-slate-900/40'}
+                  border={signalsData.fundGrade?.startsWith('A') ? 'border-emerald-500/20' : signalsData.fundGrade?.startsWith('B') ? 'border-cyan-500/20' : 'border-white/[0.06]'}
+                  sub={signalsData.fundScore ? `PE: ${signalsData.fundPe || '—'} · ROE: ${signalsData.fundRoe || '—'}%` : (locale === 'ko' ? '재무 건전성 평가' : locale === 'ja' ? '財務健全性評価' : 'Financial scoring')} 
+                />
+
+                {/* [9] EARNINGS */}
+                <div className="col-span-2">
+                  <SignalCard 
+                    label={locale === 'ko' ? '실적 발표' : locale === 'ja' ? '決算予定' : 'NEXT EARNINGS'}
+                    iconKey="NEXT EARNINGS"
+                    value={signalsData.earningsLabel || 'TBD'}
+                    color="text-amber-400"
+                    bg="bg-amber-950/20"
+                    border="border-amber-500/20"
+                    sub={`${signalsData.nextEarningsDate || (locale === 'ko' ? '미정' : locale === 'ja' ? '未定' : 'TBD')} · ${locale === 'ko' ? '예상 EPS' : locale === 'ja' ? '予想EPS' : 'Estimated EPS'}: $${signalsData.epsEstimate?.toFixed(2) || '—'}`} 
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* IV Skew Curve */}
+          <div style={{ marginBottom: 'var(--s4)' }}>
+            <IVSkewCurve ticker={data.ticker} underlyingPrice={displayPrice} />
+          </div>
+
+          {/* Technical & Gamma Levels Map */}
+          <div style={{ marginBottom: 'var(--s4)' }}>
+            <TechnicalGammaMap 
+              price={displayPrice} 
+              high={data.high} 
+              low={data.low} 
+              callWall={data.premium.callWall} 
+              putFloor={data.premium.putFloor} 
+              gammaFlip={data.premium.gammaFlipRaw} 
+            />
+          </div>
+
+          {/* GEX Profile */}
+          <GexBarChart data={data.premium.gex} />
+
+          {/* Premium Metrics Summary */}
+          <div className={s.premiumMetrics} style={{ marginBottom: 'var(--s3)', marginTop: '16px' }}>
+            <div className={s.premiumMetric}>
+              <span className={s.premiumMetricLabel}>GAMMA FLIP</span>
+              <span className={s.premiumMetricValue}>{data.premium.gammaFlip}</span>
+            </div>
+            <div className={s.premiumMetric}>
+              <span className={s.premiumMetricLabel}>DARK POOL</span>
+              <span className={s.premiumMetricValue}>{data.premium.darkPool}</span>
+            </div>
+            <div className={s.premiumMetric}>
+              <span className={s.premiumMetricLabel}>BLOCKS</span>
+              <span className={s.premiumMetricValue}>{data.premium.blockTrades}</span>
             </div>
           </div>
         </div>
+        </ValueWall>
       )}
+
+      {activeTab === 'holders' && (
+        <ValueWall
+          title={locale === 'ko' ? '기관 보유 잠금' : locale === 'ja' ? '機関保有ロック' : 'Holdings Data Locked'}
+          subtitle={locale === 'ko' ? '30초 광고를 시청하고 1시간 프리미엄 분석을 이용하세요' : locale === 'ja' ? '30秒の動画を視聴して1時間プレミアム分析をご利用ください' : 'Watch a 30-second video to unlock premium analysis for 1 hour'}
+          socialProof={locale === 'ko' ? '오늘 14.2K 잠금해제' : locale === 'ja' ? '本日14.2Kがロック解除' : '14.2K unlocked today'}
+        >
+        <div className={`${s.animateIn} ${s.delay2}`}>
+          <div className="rounded-2xl border border-white/[0.06] bg-[#0f172a]/50 p-4">
+            <div className="text-[13px] font-bold text-slate-400 uppercase tracking-wider mb-3">Institutional & Insider Filings</div>
+            <MobileCmd13F ticker={data.ticker} />
+          </div>
+        </div>
+        </ValueWall>
+      )}
+      </SwipeableTabs>
 
       {/* ── AD BANNER ── */}
       <div className={`${s.animateIn} ${s.delay7}`} style={{ padding: '0 var(--s4)', marginBottom: 'var(--s6)' }}>
         <AdBanner />
       </div>
+
+      {/* ── MOBILE APP LEGAL FOOTER ── */}
+      <MobileAppFooter />
 
       {/* ── SEARCH MODAL (Premium Glassmorphism) ── */}
       {isSearchOpen && (
