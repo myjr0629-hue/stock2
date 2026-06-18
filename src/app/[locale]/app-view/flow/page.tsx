@@ -225,6 +225,11 @@ export default function AppFlowPage() {
   const t = useMemo(() => TRANSLATIONS[locale] || TRANSLATIONS.en, [locale]);
   const tIndicators = useTranslations('indicators');
 
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   const [ticker, setTicker] = useState('NVDA');
   const [searchInput, setSearchInput] = useState('NVDA');
   const [loading, setLoading] = useState(false);
@@ -255,7 +260,6 @@ export default function AppFlowPage() {
   const [flowTab, setFlowTab] = useState<'whale' | 'darkpool'>('whale');
   const [activePopover, setActivePopover] = useState<string | null>(null);
   const [minPremium, setMinPremium] = useState(100000); // 100k, 250k, 500k, 1000000
-  const [isFilterOpen, setIsFilterOpen] = useState(false);
 
   // Click outside to close popovers
   useEffect(() => {
@@ -263,13 +267,10 @@ export default function AppFlowPage() {
       if (activePopover && !(e.target as HTMLElement).closest('.popover-container') && !(e.target as HTMLElement).closest('.info-btn')) {
         setActivePopover(null);
       }
-      if (isFilterOpen && !(e.target as HTMLElement).closest('.filter-popover-container') && !(e.target as HTMLElement).closest('.filter-btn')) {
-        setIsFilterOpen(false);
-      }
     };
     document.addEventListener('click', handleOutsideClick);
     return () => document.removeEventListener('click', handleOutsideClick);
-  }, [activePopover, isFilterOpen]);
+  }, [activePopover]);
 
   // Compute display prices via util
   const effectiveSession = marketStatus.isHoliday || marketStatus.market === 'closed'
@@ -583,6 +584,7 @@ export default function AppFlowPage() {
     e.preventDefault();
     if (searchInput.trim()) {
       setTicker(searchInput.toUpperCase().trim());
+      setIsSearchOpen(false);
     }
   };
 
@@ -983,7 +985,37 @@ export default function AppFlowPage() {
             {t.title}
           </div>
         </div>
-        <div className={dashStyles.headerActions}>
+        <div className={dashStyles.headerActions} style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          {/* Search Toggle Button */}
+          <button
+            type="button"
+            onClick={() => setIsSearchOpen(!isSearchOpen)}
+            style={{
+              background: 'none',
+              border: 'none',
+              padding: '6px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'pointer',
+              color: isSearchOpen ? 'var(--cyan)' : 'rgba(255, 255, 255, 0.7)',
+              transition: 'all 0.2s ease',
+              outline: 'none',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.color = 'var(--cyan)';
+            }}
+            onMouseLeave={(e) => {
+              if (!isSearchOpen) {
+                e.currentTarget.style.color = 'rgba(255, 255, 255, 0.7)';
+              }
+            }}
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="11" cy="11" r="8" />
+              <line x1="21" y1="21" x2="16.65" y2="16.65" />
+            </svg>
+          </button>
           <span style={{ display: 'flex', alignItems: 'center', gap: '6px', font: 'var(--f-micro)', fontWeight: 800, color: '#10b981', letterSpacing: '0.05em' }}>
             <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#10b981', boxShadow: '0 0 6px #10b981' }} />
             LIVE
@@ -991,169 +1023,83 @@ export default function AppFlowPage() {
         </div>
       </header>
 
-      {/* SEARCH BAR (Always Visible) */}
-      <form onSubmit={handleSearch} style={{ padding: '12px 16px 4px', display: 'flex', justifyContent: 'center', width: '100%', boxSizing: 'border-box' }}>
-        <div style={{ display: 'flex', gap: '8px', width: '100%', alignItems: 'center', position: 'relative' }}>
-          <div style={{ position: 'relative', flex: 1 }}>
-            {/* Magnifying Glass Icon on Left */}
-            <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', display: 'flex', alignItems: 'center', pointerEvents: 'none', opacity: 0.6 }}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <circle cx="11" cy="11" r="8" />
-                <line x1="21" y1="21" x2="16.65" y2="16.65" />
-              </svg>
-            </span>
-            <input
-              type="text"
-              value={searchInput}
-              onChange={(e) => setSearchInput(e.target.value)}
-              placeholder={t.searchPlaceholder}
+      {/* SEARCH BAR (Toggleable) */}
+      {isSearchOpen && (
+        <form onSubmit={handleSearch} style={{ padding: '12px 16px 4px', display: 'flex', justifyContent: 'center', width: '100%', boxSizing: 'border-box' }}>
+          <div style={{ display: 'flex', gap: '8px', width: '100%', alignItems: 'center', position: 'relative' }}>
+            <div style={{ position: 'relative', flex: 1 }}>
+              {/* Magnifying Glass Icon on Left */}
+              <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', display: 'flex', alignItems: 'center', pointerEvents: 'none', opacity: 0.6 }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="11" cy="11" r="8" />
+                  <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                </svg>
+              </span>
+              <input
+                type="text"
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
+                placeholder={t.searchPlaceholder}
+                style={{
+                  width: '100%',
+                  height: '38px',
+                  background: 'rgba(255, 255, 255, 0.05)',
+                  border: '1px solid rgba(255, 255, 255, 0.12)',
+                  borderRadius: 'var(--r-pill)',
+                  padding: '0 16px 0 34px',
+                  font: 'var(--f-small)',
+                  fontWeight: 600,
+                  color: 'var(--text)',
+                  outline: 'none',
+                  transition: 'all 0.3s ease',
+                  backdropFilter: 'blur(16px) saturate(180%)',
+                  WebkitBackdropFilter: 'blur(16px) saturate(180%)',
+                  boxShadow: 'inset 0 1px 0 rgba(255, 255, 255, 0.15), 0 8px 32px 0 rgba(0, 0, 0, 0.3)',
+                  boxSizing: 'border-box'
+                }}
+              />
+            </div>
+            {/* Close Search Button */}
+            <button
+              type="button"
+              className="close-search-btn"
+              onClick={() => setIsSearchOpen(false)}
               style={{
-                width: '100%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: '38px',
                 height: '38px',
                 background: 'rgba(255, 255, 255, 0.05)',
                 border: '1px solid rgba(255, 255, 255, 0.12)',
-                borderRadius: 'var(--r-pill)',
-                padding: '0 16px 0 34px',
-                font: 'var(--f-small)',
-                fontWeight: 600,
-                color: 'var(--text)',
+                borderRadius: '10px',
+                cursor: 'pointer',
+                color: 'rgba(255, 255, 255, 0.7)',
+                transition: 'all 0.2s ease',
                 outline: 'none',
-                transition: 'all 0.3s ease',
+                boxShadow: 'inset 0 1px 0 rgba(255, 255, 255, 0.15), 0 8px 32px 0 rgba(0, 0, 0, 0.3)',
                 backdropFilter: 'blur(16px) saturate(180%)',
                 WebkitBackdropFilter: 'blur(16px) saturate(180%)',
-                boxShadow: 'inset 0 1px 0 rgba(255, 255, 255, 0.15), 0 8px 32px 0 rgba(0, 0, 0, 0.3)',
                 boxSizing: 'border-box'
               }}
-            />
-          </div>
-          {/* Filter Settings Button */}
-          <button
-            type="button"
-            className="filter-btn"
-            onClick={() => setIsFilterOpen(!isFilterOpen)}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              width: '38px',
-              height: '38px',
-              background: 'rgba(255, 255, 255, 0.05)',
-              border: isFilterOpen ? '1px solid var(--cyan)' : '1px solid rgba(255, 255, 255, 0.12)',
-              borderRadius: '10px',
-              cursor: 'pointer',
-              color: isFilterOpen ? 'var(--cyan)' : 'rgba(255, 255, 255, 0.7)',
-              transition: 'all 0.2s ease',
-              outline: 'none',
-              boxShadow: 'inset 0 1px 0 rgba(255, 255, 255, 0.15), 0 8px 32px 0 rgba(0, 0, 0, 0.3)',
-              backdropFilter: 'blur(16px) saturate(180%)',
-              WebkitBackdropFilter: 'blur(16px) saturate(180%)',
-              boxSizing: 'border-box'
-            }}
-            onMouseEnter={(e) => {
-              if (!isFilterOpen) {
+              onMouseEnter={(e) => {
                 e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.2)';
                 e.currentTarget.style.color = '#ffffff';
-              }
-            }}
-            onMouseLeave={(e) => {
-              if (!isFilterOpen) {
+              }}
+              onMouseLeave={(e) => {
                 e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.12)';
                 e.currentTarget.style.color = 'rgba(255, 255, 255, 0.7)';
-              }
-            }}
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="4" y1="6" x2="20" y2="6" />
-              <line x1="4" y1="12" x2="20" y2="12" />
-              <line x1="4" y1="18" x2="20" y2="18" />
-              <circle cx="8" cy="6" r="2" fill="currentColor" />
-              <circle cx="16" cy="12" r="2" fill="currentColor" />
-              <circle cx="12" cy="18" r="2" fill="currentColor" />
-            </svg>
-          </button>
-
-          {/* Interactive Glassmorphism Filter Dropdown Popover */}
-          {isFilterOpen && (
-            <div 
-              className="filter-popover-container"
-              style={{
-                position: 'absolute',
-                right: '0px',
-                top: '46px',
-                width: '210px',
-                background: 'rgba(15, 23, 42, 0.88)',
-                border: '1px solid rgba(255, 255, 255, 0.12)',
-                borderRadius: '12px',
-                padding: '12px',
-                boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.1)',
-                backdropFilter: 'blur(20px) saturate(180%)',
-                WebkitBackdropFilter: 'blur(20px) saturate(180%)',
-                zIndex: 200,
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '8px',
-                boxSizing: 'border-box'
               }}
             >
-              <span style={{ font: 'var(--f-micro)', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>
-                {locale === 'ko' ? '거래 규모 필터' : locale === 'ja' ? '取引規模フィルター' : 'Premium Filter'}
-              </span>
-              {[
-                { label: locale === 'ko' ? '$100K 이상' : '$100K+', value: 100000 },
-                { label: locale === 'ko' ? '$250K 이상' : '$250K+', value: 250000 },
-                { label: locale === 'ko' ? '$500K 이상' : '$500K+', value: 500000 },
-                { label: locale === 'ko' ? '$1.0M 이상' : '$1.0M+', value: 1000000 }
-              ].map((opt) => {
-                const isActive = minPremium === opt.value;
-                return (
-                  <button
-                    key={opt.value}
-                    type="button"
-                    onClick={() => {
-                      setMinPremium(opt.value);
-                      setIsFilterOpen(false);
-                    }}
-                    style={{
-                      width: '100%',
-                      padding: '8px 12px',
-                      borderRadius: '8px',
-                      border: isActive ? '1px solid var(--cyan)' : '1px solid rgba(255, 255, 255, 0.05)',
-                      background: isActive ? 'rgba(6, 182, 212, 0.12)' : 'rgba(255, 255, 255, 0.02)',
-                      color: isActive ? '#ffffff' : 'rgba(255, 255, 255, 0.65)',
-                      font: 'var(--f-small)',
-                      fontWeight: isActive ? 800 : 600,
-                      textAlign: 'left',
-                      cursor: 'pointer',
-                      transition: 'all 0.15s ease',
-                      boxSizing: 'border-box',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between'
-                    }}
-                    onMouseEnter={(e) => {
-                      if (!isActive) {
-                        e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.15)';
-                        e.currentTarget.style.color = '#ffffff';
-                      }
-                    }}
-                    onMouseLeave={(e) => {
-                      if (!isActive) {
-                        e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.05)';
-                        e.currentTarget.style.color = 'rgba(255, 255, 255, 0.65)';
-                      }
-                    }}
-                  >
-                    <span>{opt.label}</span>
-                    {isActive && (
-                      <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'var(--cyan)', boxShadow: '0 0 6px var(--cyan)' }} />
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      </form>
+              {/* Close/Cross (X) Icon SVG */}
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
+            </button>
+          </div>
+        </form>
+      )}
 
       {/* UNDERLYER TICKER TABS (M7 Ticker Logos with brand glows) */}
       <div style={{ display: 'flex', gap: '10px', padding: '12px 16px', overflowX: 'auto', WebkitOverflowScrolling: 'touch' }} className="no-scrollbar">
@@ -1286,14 +1232,14 @@ export default function AppFlowPage() {
                   {sessionLabel}
                 </div>
                 <span className={s.heroTime}>
-                  {(() => {
+                  {mounted ? (() => {
                     const now = new Date();
                     const etStr = now.toLocaleString('en-US', {
                       timeZone: 'America/New_York',
                       month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false
                     });
                     return `${etStr} ET`;
-                  })()}
+                  })() : ''}
                 </span>
               </div>
             </div>
