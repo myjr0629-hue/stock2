@@ -236,3 +236,16 @@
   background: var(--cyan);
   box-shadow: 0 0 6px rgba(34, 211, 238, 0.8), 0 0 12px rgba(34, 211, 238, 0.4);
 }
+
+/* Premium scrollbar hiding */
+.premium-scroll {
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+
+.premium-scroll::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+

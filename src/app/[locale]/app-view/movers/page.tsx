@@ -5,6 +5,7 @@ import { useLocale } from 'next-intl';
 import { useRouter } from '@/i18n/routing';
 import { MobileAppFooter } from '@/components/mobile/MobileAppFooter';
 import { Sparkline } from '@/components/app/Sparkline';
+import { useRealtimeData } from '@/providers/WebSocketProvider';
 import s from './movers.module.css';
 
 interface MoverItem {
@@ -104,6 +105,16 @@ function MoversPageContent() {
   } | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'value' | 'gainers' | 'losers'>('value');
+
+  const allTickers = data 
+    ? Array.from(new Set([
+        ...data.value.map(m => m.ticker),
+        ...data.gainers.map(m => m.ticker),
+        ...data.losers.map(m => m.ticker)
+      ]))
+    : [];
+
+  const { prices } = useRealtimeData(allTickers);
 
   useEffect(() => {
     let active = true;
@@ -219,10 +230,28 @@ function MoversPageContent() {
   const activeItems = activeTab === 'value' ? data.value : activeTab === 'gainers' ? data.gainers : data.losers;
 
   const renderRow = (item: MoverItem, index: number) => {
-    const chgText = `${item.changePercent >= 0 ? '+' : ''}${item.changePercent.toFixed(2)}%`;
+    const wsData = prices.get(item.ticker);
+    const displayPrice = wsData ? wsData.price : item.price;
+    const displayChangePercent = wsData ? wsData.changePct : item.changePercent;
+    
+    // Use the actual daily volume from the snapshot (item.volume).
+    // The WebSocket volume (wsData.volume) is only the volume accumulated since the connection started, not the full daily volume.
+    const displayVolume = item.volume;
+    const displayValue = displayVolume * displayPrice;
+
+    const chgText = `${displayChangePercent >= 0 ? '+' : ''}${displayChangePercent.toFixed(2)}%`;
     const rankClass = index === 0 ? s.rank1 : index === 1 ? s.rank2 : index === 2 ? s.rank3 : s.rank;
-    const maxRef = activeTab === 'value' ? (data.value[0]?.value || 1) : Math.max(...activeItems.map(x => x.volume), 1);
-    const relativePercent = Math.min(100, Math.max(5, ((activeTab === 'value' ? item.value : item.volume) / maxRef) * 100));
+
+    // Calculate maxRef based on displayValue of the first item (which is the highest) or max volume of active items
+    const firstItem = data.value[0];
+    const firstItemPrice = firstItem ? (prices.get(firstItem.ticker)?.price || firstItem.price) : 1;
+    const firstItemVal = firstItem ? firstItem.volume * firstItemPrice : 1;
+
+    const maxRef = activeTab === 'value'
+      ? firstItemVal
+      : Math.max(...activeItems.map(x => x.volume), 1);
+
+    const relativePercent = Math.min(100, Math.max(5, ((activeTab === 'value' ? displayValue : displayVolume) / maxRef) * 100));
 
     return (
       <div key={item.ticker} className={s.row} onClick={() => handleTickerClick(item.ticker)}>
@@ -233,18 +262,18 @@ function MoversPageContent() {
         <div className={s.infoCol}>
           <span className={s.name}>{item.ticker}</span>
           <span className={s.volume}>
-            {activeTab === 'value' ? `${t.val}: ${fmtValue(item.value)}` : `${t.vol}: ${fmtVolume(item.volume)}`}
+            {activeTab === 'value' ? `${t.val}: ${fmtValue(displayValue)}` : `${t.vol}: ${fmtVolume(displayVolume)}`}
           </span>
           <div className={s.progressTrack}>
             <div className={s.progressBar} style={{ width: `${relativePercent}%`, background: activeColor }} />
           </div>
         </div>
         <div className={s.sparkCol}>
-          <Sparkline data={item.spark || []} up={item.changePercent >= 0} height={20} fill />
+          <Sparkline data={item.spark || []} up={displayChangePercent >= 0} height={20} fill />
         </div>
         <div className={s.priceCol}>
-          <span className={s.price}>${fmtPrice(item.price)}</span>
-          <span className={`${s.chg} ${item.changePercent >= 0 ? s.chgUp : s.chgDn}`}>
+          <span className={s.price}>${fmtPrice(displayPrice)}</span>
+          <span className={`${s.chg} ${displayChangePercent >= 0 ? s.chgUp : s.chgDn}`}>
             {chgText}
           </span>
         </div>

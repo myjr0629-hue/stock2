@@ -17,31 +17,93 @@ export function AdBanner() {
     }
   }, []);
 
-  // In native app, real AdMob banner is displayed by adManager.showBanner()
-  // Don't show HTML mockup to avoid double banners
-  if (isNative) return null;
+  // In native app, the real AdMob banner is displayed as a native overlay at the bottom.
+  // We return a 50px blank spacer to prevent the banner overlay from covering any webview content.
+  if (isNative) {
+    return <div style={{ height: 50, width: '100%', flexShrink: 0 }} aria-hidden />;
+  }
 
   return (
-    <div className="app-ad-slot">
-      <span className="app-ad-flag">AD</span>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-          <path d="M3 10v4a2 2 0 0 0 2 2h2l5 4V4L7 8H5a2 2 0 0 0-2 2Z"
-            stroke="var(--text-muted)" strokeWidth="1.6" strokeLinejoin="round"/>
-          <path d="M16 9a4 4 0 0 1 0 6" stroke="var(--text-muted)" strokeWidth="1.6" strokeLinecap="round"/>
+    <div 
+      className="app-ad-slot" 
+      style={{
+        background: 'radial-gradient(circle at 10% 10%, rgba(99,102,241,0.08) 0%, transparent 60%), rgba(30, 41, 59, 0.25)',
+        border: '1px solid rgba(255, 255, 255, 0.05)',
+        boxShadow: 'inset 0 1px 0 rgba(255, 255, 255, 0.02), 0 4px 12px rgba(0,0,0,0.15)',
+        borderRadius: '12px',
+        padding: '12px 16px',
+        display: 'flex',
+        alignItems: 'center',
+        gap: 12,
+        position: 'relative',
+        overflow: 'hidden',
+        margin: '16px'
+      }}
+    >
+      {/* Subtle light shimmer glow */}
+      <div style={{
+        position: 'absolute',
+        top: 0,
+        right: 0,
+        width: 80,
+        height: '100%',
+        background: 'linear-gradient(90deg, transparent, rgba(99,102,241,0.02))',
+        pointerEvents: 'none'
+      }} />
+
+      {/* Styled Sponsored Tag */}
+      <span style={{
+        fontSize: '8px',
+        fontWeight: 900,
+        color: 'rgba(255, 255, 255, 0.4)',
+        background: 'rgba(255, 255, 255, 0.05)',
+        border: '1px solid rgba(255, 255, 255, 0.08)',
+        borderRadius: '3px',
+        padding: '2px 4px',
+        letterSpacing: '0.05em',
+        fontFamily: 'var(--f-sans)',
+        textTransform: 'uppercase'
+      }}>SPONSOR</span>
+
+      {/* Tech Shield/Activity Icon */}
+      <div style={{ 
+        display: 'flex', 
+        alignItems: 'center', 
+        justifyContent: 'center', 
+        width: 28, 
+        height: 28, 
+        borderRadius: '50%', 
+        background: 'rgba(99,102,241,0.12)',
+        border: '1px solid rgba(99,102,241,0.2)'
+      }}>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#818cf8" strokeWidth="2.5">
+          <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" />
         </svg>
       </div>
+
+      {/* Content block */}
       <div style={{ flex: 1 }}>
-        <div style={{ font: 'var(--f-small)', color: 'var(--text)' }}>Sponsored placement</div>
-        <div style={{ font: 'var(--f-micro)', color: 'var(--text-muted)', marginTop: 2 }}>{"ADMOB · BANNER 320×50"}</div>
+        <div style={{ font: 'var(--f-small)', color: 'var(--text)', fontWeight: 800, fontSize: '12px' }}>
+          Apex Clearing Intelligence Feed
+        </div>
+        <div style={{ font: 'var(--f-micro)', color: 'var(--text-muted)', marginTop: 2, fontSize: '10px', opacity: 0.8 }}>
+          실시간 기관 다크풀 블록 및 대형 옵션 체인 플로우
+        </div>
       </div>
+
+      {/* Premium CTA Button */}
       <div style={{
         font: 'var(--f-small)',
-        color: 'var(--cyan)',
-        border: '1px solid rgba(34,211,238,0.3)',
-        borderRadius: 'var(--r-btn)',
-        padding: '4px 12px'
-      }}>Learn</div>
+        fontWeight: 800,
+        color: '#a5b4fc',
+        border: '1px solid rgba(165,180,252,0.3)',
+        borderRadius: '8px',
+        padding: '5px 12px',
+        fontSize: '11px',
+        cursor: 'pointer',
+        background: 'rgba(99,102,241,0.08)',
+        transition: 'all 0.2s ease'
+      }}>연결</div>
     </div>
   );
 }

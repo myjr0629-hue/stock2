@@ -120,16 +120,25 @@ function fmtMacroValue(level: number | null, label: string): string {
    ═══════════════════════════════════════════════════════════ */
 
 function heatBg(pct: number): string {
-  const abs = Math.min(Math.abs(pct), 5);
-  const alpha = 0.06 + (abs / 5) * 0.18;
+  const abs = Math.abs(pct);
+  if (abs < 0.2) return 'rgba(30, 41, 59, 0.4)'; // Neutral dark-gray for flat sectors
+  
+  // Non-linear intensity scaling (peaks at 3.0% change)
+  const intensity = Math.min(abs / 3.0, 1.0);
+  const alpha = 0.12 + intensity * 0.58; // scale from 12% to 70% opacity
+  
   return pct >= 0
     ? `rgba(16, 185, 129, ${alpha.toFixed(2)})`
     : `rgba(239, 68, 68, ${alpha.toFixed(2)})`;
 }
 
 function heatBorder(pct: number): string {
-  const abs = Math.min(Math.abs(pct), 5);
-  const alpha = 0.08 + (abs / 5) * 0.15;
+  const abs = Math.abs(pct);
+  if (abs < 0.2) return 'rgba(255, 255, 255, 0.03)';
+  
+  const intensity = Math.min(abs / 3.0, 1.0);
+  const alpha = 0.2 + intensity * 0.5; // scale border opacity from 20% to 70%
+  
   return pct >= 0
     ? `rgba(16, 185, 129, ${alpha.toFixed(2)})`
     : `rgba(239, 68, 68, ${alpha.toFixed(2)})`;
@@ -1050,6 +1059,81 @@ export default function AppDashPage() {
         )}
       </div>
 
+      {/* ══════════════ TOP MOVERS (Moved for better flow) ══════════════ */}
+      <div className={s.sectionHead} style={{ marginTop: '20px', padding: '0 var(--s4)' }}>
+        <div className={s.sectionLabel} style={{ display: 'flex', alignItems: 'center' }}>
+          <div className={s.sectionBar} />
+          <span className={s.sectionTitle}>TOP MOVERS</span>
+          
+          {/* Pill Toggle Switch */}
+          <div className={s.moversToggle}>
+            <button 
+              className={`${s.moverToggleBtn} ${moverSort === 'value' ? s.moverToggleBtnActive : ''}`}
+              onClick={() => setMoverSort('value')}
+            >
+              {locale === 'ko' ? '거래대금' : locale === 'ja' ? '代금' : 'Value'}
+            </button>
+            <button 
+              className={`${s.moverToggleBtn} ${moverSort === 'gainers' ? s.moverToggleBtnActive : ''}`}
+              onClick={() => setMoverSort('gainers')}
+            >
+              {locale === 'ko' ? '상승률' : locale === 'ja' ? '상승' : 'Gainers'}
+            </button>
+            <button 
+              className={`${s.moverToggleBtn} ${moverSort === 'losers' ? s.moverToggleBtnActive : ''}`}
+              onClick={() => setMoverSort('losers')}
+            >
+              {locale === 'ko' ? '하락률' : locale === 'ja' ? '하락' : 'Losers'}
+            </button>
+          </div>
+        </div>
+        <span 
+          className={s.sectionAction} 
+          onClick={() => router.push('/app-view/movers')}
+          style={{ cursor: 'pointer' }}
+        >
+          VIEW ALL &gt;
+        </span>
+      </div>
+      {loading || moversLoading ? (
+        <div className={s.skelMovers} style={{ padding: '0 var(--s4)' }}>
+          {[0, 1, 2, 3].map((i) => (
+            <div key={i} className={s.skelMoverCard} />
+          ))}
+        </div>
+      ) : (
+        <div className={s.moversScroll} style={{ padding: '0 var(--s4)' }}>
+          {movers.map((mv) => {
+            const wsData = wsGetPrice(mv.sym);
+
+            // Overlay price & change if available
+            const displayPx = wsData && wsData.price > 0 ? wsData.price.toFixed(2) : mv.px;
+            const displayChg = wsData && wsData.changePct != null 
+              ? `${wsData.changePct >= 0 ? '+' : ''}${wsData.changePct.toFixed(2)}%`
+              : mv.chg;
+            const isUp = displayChg.startsWith('+');
+
+            // Flash animation class
+            const flashClass = wsData ? (flashStates[mv.sym] === 'up' ? s.flashUp : flashStates[mv.sym] === 'down' ? s.flashDown : '') : '';
+
+            return (
+              <div key={mv.sym} className={`${s.moverCard} ${flashClass}`}>
+                <div className={s.moverTop}>
+                  <span className={s.moverSym}>{mv.sym}</span>
+                  <span className={isUp ? s.moverChgUp : s.moverChgDown}>
+                    {displayChg}
+                  </span>
+                </div>
+                <span className={s.moverPrice}>${displayPx}</span>
+                <div className={s.moverSpark}>
+                  <Sparkline data={mv.spark} up={isUp} height={28} fill />
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
       {/* ══════════════ SECTOR HEATMAP ══════════════ */}
       <div className={s.card}>
         <div className={s.cardHead}>
@@ -1403,80 +1487,7 @@ export default function AppDashPage() {
           )}
         </ValueWall>
 
-      {/* ══════════════ TOP MOVERS ══════════════ */}
-      <div className={s.sectionHead}>
-        <div className={s.sectionLabel} style={{ display: 'flex', alignItems: 'center' }}>
-          <div className={s.sectionBar} />
-          <span className={s.sectionTitle}>TOP MOVERS</span>
-          
-          {/* Pill Toggle Switch */}
-          <div className={s.moversToggle}>
-            <button 
-              className={`${s.moverToggleBtn} ${moverSort === 'value' ? s.moverToggleBtnActive : ''}`}
-              onClick={() => setMoverSort('value')}
-            >
-              {locale === 'ko' ? '거래대금' : locale === 'ja' ? '代金' : 'Value'}
-            </button>
-            <button 
-              className={`${s.moverToggleBtn} ${moverSort === 'gainers' ? s.moverToggleBtnActive : ''}`}
-              onClick={() => setMoverSort('gainers')}
-            >
-              {locale === 'ko' ? '상승률' : locale === 'ja' ? '上昇' : 'Gainers'}
-            </button>
-            <button 
-              className={`${s.moverToggleBtn} ${moverSort === 'losers' ? s.moverToggleBtnActive : ''}`}
-              onClick={() => setMoverSort('losers')}
-            >
-              {locale === 'ko' ? '하락률' : locale === 'ja' ? '下落' : 'Losers'}
-            </button>
-          </div>
-        </div>
-        <span 
-          className={s.sectionAction} 
-          onClick={() => router.push('/app-view/movers')}
-          style={{ cursor: 'pointer' }}
-        >
-          VIEW ALL &gt;
-        </span>
-      </div>
-      {loading || moversLoading ? (
-        <div className={s.skelMovers}>
-          {[0, 1, 2, 3].map((i) => (
-            <div key={i} className={s.skelMoverCard} />
-          ))}
-        </div>
-      ) : (
-        <div className={s.moversScroll}>
-          {movers.map((mv) => {
-            const wsData = wsGetPrice(mv.sym);
 
-            // Overlay price & change if available
-            const displayPx = wsData && wsData.price > 0 ? wsData.price.toFixed(2) : mv.px;
-            const displayChg = wsData && wsData.changePct != null 
-              ? `${wsData.changePct >= 0 ? '+' : ''}${wsData.changePct.toFixed(2)}%`
-              : mv.chg;
-            const isUp = displayChg.startsWith('+');
-
-            // Flash animation class
-            const flashClass = wsData ? (flashStates[mv.sym] === 'up' ? s.flashUp : flashStates[mv.sym] === 'down' ? s.flashDown : '') : '';
-
-            return (
-              <div key={mv.sym} className={`${s.moverCard} ${flashClass}`}>
-                <div className={s.moverTop}>
-                  <span className={s.moverSym}>{mv.sym}</span>
-                  <span className={isUp ? s.moverChgUp : s.moverChgDown}>
-                    {displayChg}
-                  </span>
-                </div>
-                <span className={s.moverPrice}>${displayPx}</span>
-                <div className={s.moverSpark}>
-                  <Sparkline data={mv.spark} up={isUp} height={28} fill />
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
 
       {/* ══════════════ AD BANNER ══════════════ */}
       <AdBanner />

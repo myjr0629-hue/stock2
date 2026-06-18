@@ -165,6 +165,61 @@ const DEMO_DARK_POOL_TRADES = [
   { id: 'dp-5', exchangeName: 'FINRA ADF', side: 'SELL', size: 1000, price: 209.23, premium: 209230, timeET: '11:30:04' },
 ];
 
+function SparklineBg({ up, seed = 'default' }: { up: boolean; seed?: string }) {
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  const pts = useMemo(() => {
+    if (!mounted) return '';
+    let h = 0;
+    for (let i = 0; i < seed.length; i++) {
+      h = seed.charCodeAt(i) + ((h << 5) - h);
+    }
+    const rand = () => {
+      const x = Math.sin(h++) * 10000;
+      return x - Math.floor(x);
+    };
+
+    const n = 40;
+    const vals: number[] = [];
+    let v = 50;
+    for (let i = 0; i < n; i++) {
+      v += (rand() - (up ? 0.42 : 0.58)) * 8;
+      v = Math.max(10, Math.min(90, v));
+      vals.push(v);
+    }
+    return vals.map((y, i) => `${(i / (n - 1)) * 100},${100 - y}`).join(' ');
+  }, [up, seed, mounted]);
+
+  if (!mounted) {
+    return (
+      <svg viewBox="0 0 100 100" preserveAspectRatio="none" width="100%" height="100%"
+        style={{ position: 'absolute', inset: 0, opacity: 0 }}>
+      </svg>
+    );
+  }
+
+  const gradId = `sparkGrad-${seed}`;
+
+  return (
+    <svg viewBox="0 0 100 100" preserveAspectRatio="none" width="100%" height="100%"
+      style={{ position: 'absolute', inset: 0 }}>
+      <defs>
+        <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor={up ? 'var(--green)' : 'var(--red)'} stopOpacity="0.15" />
+          <stop offset="100%" stopColor={up ? 'var(--green)' : 'var(--red)'} stopOpacity="0" />
+        </linearGradient>
+      </defs>
+      <polyline points={pts} fill="none" stroke={up ? 'var(--green)' : 'var(--red)'}
+        strokeWidth="0.8" opacity="0.4" />
+      <polygon points={`0,100 ${pts} 100,100`} fill={`url(#${gradId})`} />
+    </svg>
+  );
+}
+
 export default function AppFlowPage() {
   const locale = useLocale();
   const t = useMemo(() => TRANSLATIONS[locale] || TRANSLATIONS.en, [locale]);
@@ -174,6 +229,7 @@ export default function AppFlowPage() {
   const [searchInput, setSearchInput] = useState('NVDA');
   const [loading, setLoading] = useState(false);
   const [isLocked, setIsLocked] = useState(true);
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
 
   // Real-time market / price integrations (similar to cmd/page.tsx)
   const { status: marketStatus } = useMarketStatus();
@@ -197,11 +253,32 @@ export default function AppFlowPage() {
   const [rawChain, setRawChain] = useState<any[]>([]);
   const [darkPoolTrades, setDarkPoolTrades] = useState<any[]>([]);
   const [flowTab, setFlowTab] = useState<'whale' | 'darkpool'>('whale');
+  const [activePopover, setActivePopover] = useState<string | null>(null);
+
+  // Click outside to close popovers
+  useEffect(() => {
+    const handleOutsideClick = (e: MouseEvent) => {
+      if (activePopover && !(e.target as HTMLElement).closest('.popover-container') && !(e.target as HTMLElement).closest('.info-btn')) {
+        setActivePopover(null);
+      }
+    };
+    document.addEventListener('click', handleOutsideClick);
+    return () => document.removeEventListener('click', handleOutsideClick);
+  }, [activePopover]);
 
   // Compute display prices via util
   const effectiveSession = marketStatus.isHoliday || marketStatus.market === 'closed'
     ? 'CLOSED'
     : (tickerData?.session || tickerData?.rawTickerData?.session || 'CLOSED').toUpperCase();
+
+  const opiCalculated = useMemo(() => {
+    return {
+      value: opi,
+      isFallback: effectiveSession === 'CLOSED'
+    };
+  }, [opi, effectiveSession]);
+
+  const liveGammaFlip = tickerData?.premium?.gammaFlip || tickerData?.flow?.gammaFlip || (ticker === 'TSLA' ? '$165.00' : ticker === 'AAPL' ? '$210.00' : '$208.00');
 
   const { displayPrice, displayChangePct, activeExtPrice, activeExtLabel, activeExtPct } = calcPriceDisplay({
     livePrice: wsPrice?.price || livePrice?.price,
@@ -450,6 +527,22 @@ export default function AppFlowPage() {
     return sweeps.length > 0 ? sweeps.sort((a, b) => b.premium - a.premium) : DEMO_WHALES;
   }, [rawChain, DEMO_WHALES]);
 
+  const whaleSummary = useMemo(() => {
+    const count = whaleSweeps.length;
+    const total = whaleSweeps.reduce((sum: number, tx: any) => sum + tx.premium, 0);
+    const callSum = whaleSweeps.filter((tx: any) => tx.type === 'CALL').reduce((sum: number, tx: any) => sum + tx.premium, 0);
+    const putSum = whaleSweeps.filter((tx: any) => tx.type === 'PUT').reduce((sum: number, tx: any) => sum + tx.premium, 0);
+    return { count, total, callSum, putSum };
+  }, [whaleSweeps]);
+
+  const dpSummary = useMemo(() => {
+    const count = darkPoolTrades.length;
+    const total = darkPoolTrades.reduce((sum: number, tx: any) => sum + tx.premium, 0);
+    const buySum = darkPoolTrades.filter((tx: any) => tx.side === 'BUY').reduce((sum: number, tx: any) => sum + tx.premium, 0);
+    const sellSum = darkPoolTrades.filter((tx: any) => tx.side === 'SELL').reduce((sum: number, tx: any) => sum + tx.premium, 0);
+    return { count, total, buySum, sellSum };
+  }, [darkPoolTrades]);
+
   // Compute real UOA
   const uoaList = useMemo(() => {
     if (!rawChain || rawChain.length === 0) return DEMO_UOA;
@@ -527,13 +620,100 @@ export default function AppFlowPage() {
 
   // AI Verdict derived values
   const aiIvRank = ivRankVal ?? null;
-  const compositeIndex = Math.round((opi * 0.4) + (((ivRankVal ?? 50)) * 0.3) + ((100 - pcRatio * 50) * 0.3));
   const whaleNetBetRaw = tickerData?.flow?.darkPoolNetBuyVal ?? null;
   const whaleNetBetStr = whaleNetBetRaw != null
     ? (Math.abs(whaleNetBetRaw) >= 1000000
       ? `${whaleNetBetRaw >= 0 ? '+' : '-'}$${(Math.abs(whaleNetBetRaw) / 1000000).toFixed(1)}M`
       : `${whaleNetBetRaw >= 0 ? '+' : '-'}$${(Math.abs(whaleNetBetRaw) / 1000).toFixed(0)}K`)
     : '—';
+
+  // ── 9-Factor Option Sentiment Scoring Logic ──
+  const netWhalePremium = useMemo(() => {
+    return whaleNetBetRaw ?? (totalPrem * (callPct / 100 - 0.5) * 2);
+  }, [whaleNetBetRaw, totalPrem, callPct]);
+
+  const opiScore = useMemo(() => {
+    const opiVal = (opi - 50) * 2; // maps 0~100 to -100~+100
+    return opiVal * 0.25;
+  }, [opi]);
+
+  const whaleScore = useMemo(() => {
+    if (netWhalePremium > 500000) return 25;
+    if (netWhalePremium > 100000) return 15;
+    if (netWhalePremium < -500000) return -25;
+    if (netWhalePremium < -100000) return -15;
+    return 0;
+  }, [netWhalePremium]);
+
+  const squeezeProb = useMemo(() => {
+    return Math.round((parseFloat(shortPct) || 45.2) * 0.5 + (ivRankVal ?? 50) * 0.5);
+  }, [shortPct, ivRankVal]);
+
+  const squeezeScore = useMemo(() => {
+    let score = 0;
+    if (squeezeProb >= 70) score = 15;
+    else if (squeezeProb >= 45) score = 8;
+    return (opi - 50) > 0 ? score : -score;
+  }, [squeezeProb, opi]);
+
+  const skewScore = useMemo(() => {
+    const val = ivSkewVal ?? 0;
+    return Math.max(-15, Math.min(15, -val * 1.5));
+  }, [ivSkewVal]);
+
+  const smartScore = useMemo(() => {
+    const smartMoneyScore = Math.max(10, Math.min(95, (blockCount / 3)));
+    let score = 0;
+    if (smartMoneyScore >= 60) score = 10;
+    else if (smartMoneyScore >= 40) score = 5;
+    else if (smartMoneyScore < 20) score = -5;
+    return netWhalePremium >= 0 ? score : -score;
+  }, [blockCount, netWhalePremium]);
+
+  const dexScore = useMemo(() => {
+    const gammaFlipNum = typeof liveGammaFlip === 'number'
+      ? liveGammaFlip
+      : parseFloat((liveGammaFlip || '').replace(/[^0-9.]/g, '')) || 0;
+    const dist = gammaFlipNum > 0 ? ((displayPrice - gammaFlipNum) / gammaFlipNum) * 100 : 0;
+    if (dist > 5) return -10;
+    if (dist > 2) return -5;
+    if (dist < -5) return 10;
+    if (dist < -2) return 5;
+    return 0;
+  }, [liveGammaFlip, displayPrice]);
+
+  const uoaScore = useMemo(() => {
+    const uoaCount = uoaList.length;
+    let score = 0;
+    if (uoaCount >= 4) score = 5;
+    else if (uoaCount >= 2) score = 3;
+    return (opi - 50) < 0 ? -score : score;
+  }, [uoaList, opi]);
+
+  const pcScore = useMemo(() => {
+    if (pcRatio >= 2.0) return -5;
+    if (pcRatio >= 1.3) return -3;
+    if (pcRatio <= 0.5) return 5;
+    if (pcRatio <= 0.75) return 3;
+    return 0;
+  }, [pcRatio]);
+
+  const zdteScore = useMemo(() => {
+    const pinStrength = volRegime === 'STABLE' ? 75 : volRegime === 'LOADED' ? 45 : 15;
+    let score = 0;
+    if (pinStrength >= 60) score = 5;
+    else if (pinStrength >= 35) score = 3;
+    return (opi - 50) < 0 ? -score : score;
+  }, [volRegime, opi]);
+
+  const compositeScore = useMemo(() => {
+    const flowBonus = Math.abs(netWhalePremium) > 1000000 ? (netWhalePremium > 0 ? 5 : -5) : 0;
+    let score = opiScore + whaleScore + squeezeScore + skewScore + smartScore + dexScore + uoaScore + pcScore + zdteScore + flowBonus;
+    return Math.max(-100, Math.min(100, Math.round(score)));
+  }, [opiScore, whaleScore, squeezeScore, skewScore, smartScore, dexScore, uoaScore, pcScore, zdteScore, netWhalePremium]);
+
+  const compositeIndex = Math.round((opi * 0.4) + (((ivRankVal ?? 50)) * 0.3) + ((100 - pcRatio * 50) * 0.3));
+
   const aiVerdictLabel = opi >= 65 ? t.bullishMomentum : opi >= 40 ? t.neutralLabel : t.bearishPressure;
   const aiVerdictBadgeStyle = opi >= 65
     ? { background: 'rgba(16, 185, 129, 0.12)', color: 'var(--green)', border: '1px solid rgba(16, 185, 129, 0.25)' }
@@ -542,102 +722,394 @@ export default function AppFlowPage() {
     : { background: 'rgba(239, 68, 68, 0.12)', color: 'var(--red)', border: '1px solid rgba(239, 68, 68, 0.25)' };
   const aiOpiColor = opi >= 65 ? 'var(--green)' : opi >= 40 ? 'var(--amber)' : 'var(--red)';
 
+  // Info popover helper components
+  const InfoBtn = ({ popKey }: { popKey: string }) => (
+    <button
+      className="info-btn"
+      type="button"
+      onClick={(e) => {
+        e.stopPropagation();
+        setActivePopover(activePopover === popKey ? null : popKey);
+      }}
+      style={{
+        background: 'transparent',
+        border: 'none',
+        padding: '2px',
+        marginLeft: '4px',
+        color: activePopover === popKey ? 'var(--cyan)' : 'var(--text-muted)',
+        cursor: 'pointer',
+        display: 'inline-flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        outline: 'none',
+        transition: 'color 0.2s ease',
+        verticalAlign: 'middle'
+      }}
+    >
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+        <circle cx="12" cy="12" r="10" />
+        <line x1="12" y1="16" x2="12" y2="12" />
+        <line x1="12" y1="8" x2="12.01" y2="8" />
+      </svg>
+    </button>
+  );
+
+  const renderPopover = (popKey: string, text: string, title: string) => {
+    if (activePopover !== popKey) return null;
+    return (
+      <div 
+        className="popover-container animate-in fade-in zoom-in-95 duration-150"
+        style={{
+          position: 'absolute',
+          top: '45px',
+          left: '16px',
+          right: '16px',
+          background: 'rgba(15, 23, 42, 0.95)',
+          border: '1px solid rgba(6, 182, 212, 0.3)',
+          borderRadius: '10px',
+          padding: '12px 14px',
+          boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.6), 0 8px 10px -6px rgba(6, 182, 212, 0.15)',
+          zIndex: 100,
+          backdropFilter: 'blur(12px)',
+          WebkitBackdropFilter: 'blur(12px)',
+        }}
+      >
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+          <span style={{ fontSize: '11px', fontWeight: 900, color: 'var(--cyan)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+            {title}
+          </span>
+          <button 
+            type="button"
+            onClick={(e) => { e.stopPropagation(); setActivePopover(null); }}
+            style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', fontSize: '12px', cursor: 'pointer', padding: '2px' }}
+          >
+            ✕
+          </button>
+        </div>
+        <div style={{ fontSize: '11px', lineHeight: '1.4', color: '#b4c6ef', fontWeight: 500, textAlign: 'left' }}>
+          {text}
+        </div>
+      </div>
+    );
+  };
+
+  const renderWhaleCard = (tx: any, idx: number) => {
+    const isCall = tx.type === 'CALL';
+    const dirColor = tx.dir === 'ASK' ? '#10b981' : tx.dir === 'BID' ? '#ef4444' : '#f59e0b';
+    const impactLabel = tx.premium > 500000 ? 'IMPACT: HIGH' : tx.premium > 100000 ? 'IMPACT: MID' : 'IMPACT: LOW';
+    const impactColor = tx.premium > 500000 ? '#ef4444' : tx.premium > 100000 ? '#f59e0b' : 'var(--cyan)';
+
+    return (
+      <div
+        key={idx}
+        style={{
+          flex: '0 0 78%',
+          scrollSnapAlign: 'start',
+          background: 'linear-gradient(135deg, rgba(20, 30, 50, 0.4) 0%, rgba(10, 15, 30, 0.6) 100%)',
+          border: `1px solid ${isCall ? 'rgba(16,185,129,0.18)' : 'rgba(239,68,68,0.18)'}`,
+          borderRadius: '12px',
+          padding: '12px 14px',
+          position: 'relative',
+          boxShadow: isCall 
+            ? '0 4px 12px rgba(16,185,129,0.03)' 
+            : '0 4px 12px rgba(239,68,68,0.03)',
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'space-between',
+          minHeight: '125px'
+        }}
+      >
+        {/* Ticker & Type */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <span style={{ fontSize: '12px', fontWeight: 900, color: '#ffffff' }}>{ticker}</span>
+            <span style={{
+              fontSize: '8px',
+              fontWeight: 900,
+              padding: '2px 5px',
+              borderRadius: '4px',
+              background: isCall ? 'rgba(16,185,129,0.08)' : 'rgba(239,68,68,0.08)',
+              color: isCall ? '#10b981' : '#ef4444',
+              border: `1px solid ${isCall ? 'rgba(16,185,129,0.15)' : 'rgba(239,68,68,0.15)'}`
+            }}>
+              {isCall ? 'CALL' : 'PUT'} | {tx.expiry}
+            </span>
+          </div>
+          <span style={{ fontSize: '8px', fontWeight: 800, color: impactColor, background: 'rgba(255,255,255,0.02)', padding: '2px 5px', borderRadius: '4px' }}>
+            {impactLabel}
+          </span>
+        </div>
+
+        {/* Premium & Strike */}
+        <div style={{ margin: '10px 0 6px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+          <div>
+            <span style={{ fontSize: '8px', color: 'var(--text-muted)', display: 'block', textTransform: 'uppercase', letterSpacing: '0.02em' }}>
+              {locale === 'ko' ? '프리미엄' : 'PREMIUM'}
+            </span>
+            <span className="tnum" style={{ fontSize: '17px', fontWeight: 900, color: dirColor }}>
+              ${(tx.premium / 1000).toFixed(1)}K
+            </span>
+          </div>
+          <div style={{ textAlign: 'right' }}>
+            <span style={{ fontSize: '8px', color: 'var(--text-muted)', display: 'block', textTransform: 'uppercase', letterSpacing: '0.02em' }}>
+              {locale === 'ko' ? '행사가' : 'STRIKE'}
+            </span>
+            <span className="tnum" style={{ fontSize: '15px', fontWeight: 900, color: '#ffffff' }}>
+              ${tx.strike}
+            </span>
+          </div>
+        </div>
+
+        {/* Time & Side */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '9px', color: 'var(--text-muted)', borderTop: '1px solid rgba(255,255,255,0.04)', paddingTop: '6px' }}>
+          <span>{tx.time}</span>
+          <span style={{ fontWeight: 800, color: '#ffffff' }}>
+            {tx.dir}
+          </span>
+        </div>
+      </div>
+    );
+  };
+
+  const renderDarkPoolCard = (tx: any, idx: number) => {
+    const isBuy = tx.side === 'BUY';
+    const isSell = tx.side === 'SELL';
+    const sideColor = isBuy ? '#10b981' : isSell ? '#ef4444' : 'var(--text-muted)';
+    const sideText = isBuy ? 'BLOCK - BUY' : isSell ? 'BLOCK - SELL' : 'NEUTRAL';
+
+    return (
+      <div
+        key={idx}
+        style={{
+          flex: '0 0 78%',
+          scrollSnapAlign: 'start',
+          background: 'linear-gradient(135deg, rgba(20, 30, 50, 0.4) 0%, rgba(10, 15, 30, 0.6) 100%)',
+          border: `1px solid ${isBuy ? 'rgba(16,185,129,0.18)' : isSell ? 'rgba(239,68,68,0.18)' : 'rgba(255,255,255,0.1)'}`,
+          borderRadius: '12px',
+          padding: '12px 14px',
+          position: 'relative',
+          boxShadow: isBuy
+            ? '0 4px 12px rgba(16,185,129,0.03)'
+            : isSell
+            ? '0 4px 12px rgba(239,68,68,0.03)'
+            : 'none',
+          display: 'flex',
+          flexDirection: 'column',
+          justifyContent: 'space-between',
+          minHeight: '125px'
+        }}
+      >
+        {/* Ticker & Side */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <span style={{ fontSize: '12px', fontWeight: 900, color: '#ffffff' }}>{ticker}</span>
+            <span style={{
+              fontSize: '8px',
+              fontWeight: 900,
+              padding: '2px 5px',
+              borderRadius: '4px',
+              background: isBuy ? 'rgba(16,185,129,0.08)' : isSell ? 'rgba(239,68,68,0.08)' : 'rgba(255,255,255,0.04)',
+              color: sideColor,
+              border: `1px solid ${isBuy ? 'rgba(16,185,129,0.15)' : isSell ? 'rgba(239,68,68,0.15)' : 'rgba(255,255,255,0.08)'}`
+            }}>
+              {sideText}
+            </span>
+          </div>
+          <span style={{ fontSize: '8px', fontWeight: 800, color: 'var(--text-muted)', background: 'rgba(255,255,255,0.02)', padding: '2px 5px', borderRadius: '4px' }}>
+            {tx.exchangeName}
+          </span>
+        </div>
+
+        {/* Value & Price */}
+        <div style={{ margin: '10px 0 6px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+          <div>
+            <span style={{ fontSize: '8px', color: 'var(--text-muted)', display: 'block', textTransform: 'uppercase', letterSpacing: '0.02em' }}>
+              {locale === 'ko' ? '거래 대금' : 'VALUE'}
+            </span>
+            <span className="tnum" style={{ fontSize: '17px', fontWeight: 900, color: 'var(--cyan)' }}>
+              ${(tx.premium / 1000).toFixed(0)}K
+            </span>
+          </div>
+          <div style={{ textAlign: 'right' }}>
+            <span style={{ fontSize: '8px', color: 'var(--text-muted)', display: 'block', textTransform: 'uppercase', letterSpacing: '0.02em' }}>
+              {locale === 'ko' ? '체결단가' : 'PRICE'}
+            </span>
+            <span className="tnum" style={{ fontSize: '15px', fontWeight: 900, color: '#ffffff' }}>
+              ${tx.price.toFixed(2)}
+            </span>
+          </div>
+        </div>
+
+        {/* Size & Time */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '9px', color: 'var(--text-muted)', borderTop: '1px solid rgba(255,255,255,0.04)', paddingTop: '6px' }}>
+          <span>{tx.timeET}</span>
+          <span style={{ fontWeight: 800, color: '#ffffff' }}>
+            {(tx.size / 1000).toFixed(1)}K shares
+          </span>
+        </div>
+      </div>
+    );
+  };
+
+  const BRAND_COLORS: Record<string, { color: string, glow: string }> = {
+    NVDA: { color: '#76b900', glow: 'rgba(118, 185, 0, 0.4)' },
+    TSLA: { color: '#cc0000', glow: 'rgba(204, 0, 0, 0.4)' },
+    AAPL: { color: '#a2aaad', glow: 'rgba(162, 170, 173, 0.4)' },
+    SPY: { color: '#0ea5e9', glow: 'rgba(14, 165, 233, 0.4)' },
+    QQQ: { color: '#22d3ee', glow: 'rgba(34, 211, 238, 0.4)' }
+  };
+
   return (
-    <div className={dashStyles.page} style={{ paddingBottom: '90px' }}>
+    <div className={dashStyles.page} style={{ paddingBottom: '160px' }}>
       {/* HEADER */}
       <header className="app-header">
-        <div className={dashStyles.headerTitle} style={{ font: 'var(--f-h2)', fontWeight: 800 }}>
-          {t.title}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          {/* Heartbeat/Pulse Icon SVG */}
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--cyan)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ filter: 'drop-shadow(0 0 4px rgba(6, 182, 212, 0.5))' }}>
+            <path d="M22 12h-4l-3 9L9 3l-3 9H2" />
+          </svg>
+          <div className={dashStyles.headerTitle} style={{ font: 'var(--f-h2)', fontWeight: 800 }}>
+            {t.title}
+          </div>
         </div>
         <div className={dashStyles.headerActions}>
-          <span className="app-label-premium" style={{ padding: 0 }}>
-            <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--cyan)', boxShadow: '0 0 6px var(--cyan)' }} />
+          <span style={{ display: 'flex', alignItems: 'center', gap: '6px', font: 'var(--f-micro)', fontWeight: 800, color: '#10b981', letterSpacing: '0.05em' }}>
+            <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#10b981', boxShadow: '0 0 6px #10b981' }} />
             LIVE
           </span>
         </div>
       </header>
 
-      {/* SEARCH BAR */}
-      <form onSubmit={handleSearch} style={{ padding: '12px 16px 4px', display: 'flex', justifyContent: 'center' }}>
-        <div style={{ position: 'relative', width: '100%', maxWidth: '280px' }}>
-          {/* Magnifying Glass Icon on Left */}
-          <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', display: 'flex', alignItems: 'center', pointerEvents: 'none', opacity: 0.6 }}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="11" cy="11" r="8" />
-              <line x1="21" y1="21" x2="16.65" y2="16.65" />
-            </svg>
-          </span>
-          <input
-            type="text"
-            value={searchInput}
-            onChange={(e) => setSearchInput(e.target.value)}
-            placeholder={t.searchPlaceholder}
-            style={{
-              width: '100%',
-              background: 'rgba(22, 32, 54, 0.45)',
-              border: '1px solid rgba(255, 255, 255, 0.08)',
-              borderRadius: 'var(--r-pill)',
-              padding: '8px 56px 8px 34px', // padding left for icon, right for button
-              font: 'var(--f-small)',
-              fontWeight: 600,
-              color: 'var(--text)',
-              outline: 'none',
-              transition: 'all 0.3s ease',
-              backdropFilter: 'blur(10px)',
-              WebkitBackdropFilter: 'blur(10px)',
-              boxShadow: 'inset 0 1px 0 rgba(255, 255, 255, 0.02), 0 4px 12px rgba(0, 0, 0, 0.15)'
-            }}
-          />
-          {/* Premium Integrated Submit Button on Right */}
+      {/* SEARCH BAR (Always Visible) */}
+      <form onSubmit={handleSearch} style={{ padding: '12px 16px 4px', display: 'flex', justifyContent: 'center', width: '100%', boxSizing: 'border-box' }}>
+        <div style={{ display: 'flex', gap: '8px', width: '100%', alignItems: 'center' }}>
+          <div style={{ position: 'relative', flex: 1 }}>
+            {/* Magnifying Glass Icon on Left */}
+            <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', display: 'flex', alignItems: 'center', pointerEvents: 'none', opacity: 0.6 }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="11" cy="11" r="8" />
+                <line x1="21" y1="21" x2="16.65" y2="16.65" />
+              </svg>
+            </span>
+            <input
+              type="text"
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              placeholder={t.searchPlaceholder}
+              style={{
+                width: '100%',
+                height: '38px',
+                background: 'rgba(22, 32, 54, 0.45)',
+                border: '1px solid rgba(255, 255, 255, 0.08)',
+                borderRadius: 'var(--r-pill)',
+                padding: '0 16px 0 34px',
+                font: 'var(--f-small)',
+                fontWeight: 600,
+                color: 'var(--text)',
+                outline: 'none',
+                transition: 'all 0.3s ease',
+                backdropFilter: 'blur(10px)',
+                WebkitBackdropFilter: 'blur(10px)',
+                boxShadow: 'inset 0 1px 0 rgba(255, 255, 255, 0.02), 0 4px 12px rgba(0, 0, 0, 0.15)',
+                boxSizing: 'border-box'
+              }}
+            />
+          </div>
+          {/* Filter Settings Button */}
           <button
-            type="submit"
+            type="button"
             style={{
-              position: 'absolute',
-              right: '4px',
-              top: '4px',
-              bottom: '4px',
-              background: 'linear-gradient(135deg, var(--cyan) 0%, #0891b2 100%)',
-              border: 'none',
-              color: '#050a14',
-              borderRadius: 'var(--r-pill)',
-              padding: '0 12px',
-              font: '700 11px var(--f-sans)',
-              cursor: 'pointer',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              boxShadow: '0 2px 6px rgba(6, 182, 212, 0.3)',
-              transition: 'transform 0.15s ease, opacity 0.15s ease'
+              width: '38px',
+              height: '38px',
+              background: 'rgba(22, 32, 54, 0.45)',
+              border: '1px solid rgba(255, 255, 255, 0.08)',
+              borderRadius: '10px',
+              cursor: 'pointer',
+              color: 'rgba(255, 255, 255, 0.7)',
+              transition: 'all 0.2s ease',
+              outline: 'none',
+              boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+              backdropFilter: 'blur(10px)',
+              WebkitBackdropFilter: 'blur(10px)',
+              boxSizing: 'border-box'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.2)';
+              e.currentTarget.style.color = '#ffffff';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.08)';
+              e.currentTarget.style.color = 'rgba(255, 255, 255, 0.7)';
             }}
           >
-            {locale === 'ko' ? '검색' : locale === 'ja' ? '検索' : 'GO'}
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="4" y1="6" x2="20" y2="6" />
+              <line x1="4" y1="12" x2="20" y2="12" />
+              <line x1="4" y1="18" x2="20" y2="18" />
+              <circle cx="8" cy="6" r="2" fill="currentColor" />
+              <circle cx="16" cy="12" r="2" fill="currentColor" />
+              <circle cx="12" cy="18" r="2" fill="currentColor" />
+            </svg>
           </button>
         </div>
       </form>
 
-      {/* UNDERLYER TICKER TABS */}
-      <div style={{ display: 'flex', gap: '8px', padding: '12px 16px', overflowX: 'auto' }}>
-        {['NVDA', 'TSLA', 'AAPL', 'SPY', 'QQQ'].map((sym) => (
-          <button
-            key={sym}
-            onClick={() => {
-              setTicker(sym);
-              setSearchInput(sym);
-            }}
-            style={{
-              padding: '6px 14px',
-              borderRadius: 'var(--r-pill)',
-              border: '1px solid',
-              borderColor: ticker === sym ? 'var(--cyan)' : 'var(--border)',
-              background: ticker === sym ? 'var(--cyan-dim)' : 'transparent',
-              color: ticker === sym ? 'var(--cyan)' : 'var(--text-dim)',
-              font: 'var(--f-micro)',
-              fontWeight: 700,
-            }}
-          >
-            {sym}
-          </button>
-        ))}
+      {/* UNDERLYER TICKER TABS (M7 Ticker Logos with brand glows) */}
+      <div style={{ display: 'flex', gap: '10px', padding: '12px 16px', overflowX: 'auto', WebkitOverflowScrolling: 'touch' }} className="no-scrollbar">
+        {['NVDA', 'TSLA', 'AAPL', 'SPY', 'QQQ'].map((sym) => {
+          const brand = BRAND_COLORS[sym] || { color: 'var(--cyan)', glow: 'rgba(6, 182, 212, 0.3)' };
+          const isActive = ticker === sym;
+          return (
+            <button
+              key={sym}
+              onClick={() => {
+                setTicker(sym);
+                setSearchInput(sym);
+              }}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                padding: '6px 14px',
+                borderRadius: 'var(--r-pill)',
+                border: '1px solid',
+                borderColor: isActive ? brand.color : 'rgba(255,255,255,0.06)',
+                background: isActive ? 'rgba(30, 41, 59, 0.55)' : 'rgba(255,255,255,0.02)',
+                color: isActive ? '#ffffff' : 'var(--text-dim)',
+                font: 'var(--f-micro)',
+                fontWeight: 700,
+                cursor: 'pointer',
+                transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+                boxShadow: isActive ? `0 0 12px ${brand.glow}` : 'none',
+                flexShrink: 0,
+                outline: 'none'
+              }}
+            >
+              <div style={{
+                width: '16px',
+                height: '16px',
+                borderRadius: '50%',
+                overflow: 'hidden',
+                background: 'rgba(255,255,255,0.1)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flexShrink: 0
+              }}>
+                <img
+                  src={`https://assets.parqet.com/logos/symbol/${sym}?format=png`}
+                  alt=""
+                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                  onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                />
+              </div>
+              <span>{sym}</span>
+            </button>
+          );
+        })}
       </div>
 
       {/* ── LOADING SKELETON ── */}
@@ -673,11 +1145,41 @@ export default function AppFlowPage() {
         const liveLow = tickerData?.display?.low || tickerData?.rawTickerData?.display?.low || (displayPrice * 0.985);
         const liveGammaFlip = tickerData?.premium?.gammaFlip || tickerData?.flow?.gammaFlip || (ticker === 'TSLA' ? '$165.00' : ticker === 'AAPL' ? '$210.00' : '$208.00');
 
+        const companyName = tickerData?.name || tickerData?.company || tickerData?.rawTickerData?.name || (ticker === 'NVDA' ? 'NVIDIA Corp' : ticker === 'TSLA' ? 'Tesla Inc' : ticker === 'AAPL' ? 'Apple Inc' : ticker === 'SPY' ? 'SPDR S&P 500 ETF' : ticker === 'QQQ' ? 'Invesco QQQ Trust' : '');
+
         return (
-          <div className={`${s.p2Card} ${s.animateIn} ${s.delay1}`} style={{ margin: '4px 16px 12px' }}>
-            <div className={s.p2Topline}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: 'var(--s3)' }}>
-                <div className={isOpen ? s.marketBadge : isPrePost ? s.marketBadgePrePost : s.marketBadgeClosed} style={{ marginBottom: 0 }}>
+          <div
+            className={`${s.p2Card} ${s.connectedP2Card} ${s.animateIn} ${s.delay1}`}
+            style={{
+              margin: '4px 16px 0px',
+              borderBottom: 'none',
+              borderBottomLeftRadius: '0px',
+              borderBottomRightRadius: '0px'
+            }}
+          >
+            {/* Background sparkline decoration */}
+            <SparklineBg up={up} seed={ticker} />
+
+            {/* ── Row 1: Identity (Logo + Ticker/Company) | Status ── */}
+            <div className={s.heroIdentity}>
+              <div className={s.heroLeft}>
+                <div className={s.heroLogo}>
+                  <img
+                    src={`https://assets.parqet.com/logos/symbol/${ticker}?format=png`}
+                    alt={ticker}
+                    onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                  />
+                </div>
+                <div className={s.heroNameGroup}>
+                  <span className={s.heroTicker}>{ticker}</span>
+                  <span className={s.heroCompany}>{companyName}</span>
+                </div>
+                <span className={`${s.p2Tick} ${flash ? s[`show-${flash}`] : ''}`}>
+                  {flash === 'down' ? '▼ TICK' : '▲ TICK'}
+                </span>
+              </div>
+              <div className={s.heroRight}>
+                <div className={isOpen ? s.heroStatusOpen : isPrePost ? s.heroStatusPrePost : s.heroStatusClosed}>
                   {isOpen ? (
                     <span className={s.marketDotActive} />
                   ) : isPrePost ? (
@@ -685,94 +1187,132 @@ export default function AppFlowPage() {
                   ) : null}
                   {sessionLabel}
                 </div>
-                <span className={`${s.headerBadge} ${s.badgeGold}`} style={{ display: 'inline-flex', alignItems: 'center' }}>
-                  {tIndicators('gammaFlip')} {liveGammaFlip}
+                <span className={s.heroTime}>
+                  {(() => {
+                    const now = new Date();
+                    const etStr = now.toLocaleString('en-US', {
+                      timeZone: 'America/New_York',
+                      month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false
+                    });
+                    return `${etStr} ET`;
+                  })()}
                 </span>
               </div>
-              <span className={`${s.p2Tick} ${flash ? s[`show-${flash}`] : ''}`} style={{ marginBottom: 'var(--s3)' }}>
-                {flash === 'down' ? '▼ TICK' : '▲ TICK'}
-              </span>
             </div>
-            <div className={s.p2PriceRow}>
-              <span className={`${s.p2Price} ${flash ? s[`flash-${flash}`] : ''}`}>
-                ${displayPrice.toFixed(2)}
-              </span>
-              <span className={`${s.p2Chg} ${up ? s.pos : s.neg}`}>
-                {up ? '▲' : '▼'} {up ? '+' : ''}{finalChangeAbs.toFixed(2)} ({up ? '+' : ''}{displayChangePct.toFixed(2)}%)
-              </span>
-            </div>
-            {hasExt && (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '6px 12px', borderRadius: '8px', border: '1px solid var(--ext-session-dim)', flexShrink: 0, marginTop: '8px', width: 'fit-content', background: 'var(--ext-session-dim)' }}>
-                <span style={{ fontSize: '11px', fontWeight: 'bold', color: 'var(--ext-session)', whiteSpace: 'nowrap' }}>{activeExtLabel}</span>
-                <span style={{ fontSize: '13px', fontWeight: 'bold', color: '#f1f5f9', fontFamily: 'var(--f-mono)', fontVariantNumeric: 'tabular-nums' }}>${activeExtPrice.toFixed(2)}</span>
-                <span style={{ fontSize: '12px', fontWeight: 'bold', fontFamily: 'var(--f-mono)', fontVariantNumeric: 'tabular-nums', color: activeExtPct >= 0 ? 'var(--green)' : 'var(--red)' }}>
-                  {activeExtPct >= 0 ? '+' : ''}{activeExtPct.toFixed(2)}%
-                </span>
-              </div>
-            )}
 
+            {/* ── Row 2: Big Price | Extended Hours Card ── */}
+            <div className={s.heroMainRow}>
+              <div className={s.heroPriceBlock}>
+                <span className={`${s.p2Price} ${flash ? s[`flash-${flash}`] : ''}`}>
+                  ${displayPrice.toFixed(2)}
+                </span>
+                <span className={`${s.p2Chg} ${up ? s.pos : s.neg}`}>
+                  {up ? '▲' : '▼'} {up ? '+' : ''}{displayChangePct.toFixed(2)}%
+                </span>
+              </div>
+              {hasExt && (
+                <div className={s.heroExtCard}>
+                  <SparklineBg up={activeExtPct >= 0} seed={`${ticker}-ext`} />
+                  <span className={s.heroExtLabel}>{activeExtLabel}</span>
+                  <span className={s.heroExtPrice}>${activeExtPrice.toFixed(2)}</span>
+                  <span className={s.heroExtChange} style={{ color: activeExtPct >= 0 ? 'var(--green)' : 'var(--red)' }}>
+                    {activeExtPct >= 0 ? '+' : ''}{activeExtPct.toFixed(2)}%
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {/* ── Row 3: Option Metrics — MAX PAIN / GAMMA FLIP / TOTAL PREMIUM ── */}
             {(() => {
-              const maxPainDiffPct = maxPainVal > 0 ? ((displayPrice - maxPainVal) / maxPainVal) * 100 : 0;
-              const maxPainDiffSign = maxPainDiffPct >= 0 ? '+' : '';
-              const maxPainDiffText = locale === 'ko'
-                ? `${maxPainDiffSign}${maxPainDiffPct.toFixed(2)}% 괴리`
-                : locale === 'ja'
-                ? `${maxPainDiffSign}${maxPainDiffPct.toFixed(2)}% 乖離`
-                : `${maxPainDiffSign}${maxPainDiffPct.toFixed(2)}% gap`;
-
+              const mpDiff = maxPainVal > 0 ? ((displayPrice - maxPainVal) / maxPainVal) * 100 : 0;
               const gammaFlipNum = typeof liveGammaFlip === 'number'
                 ? liveGammaFlip
                 : parseFloat((liveGammaFlip || '').replace(/[^0-9.]/g, '')) || 0;
-              const gammaFlipDiffPct = gammaFlipNum > 0 ? ((displayPrice - gammaFlipNum) / gammaFlipNum) * 100 : 0;
-              const gammaFlipDiffSign = gammaFlipDiffPct >= 0 ? '+' : '';
-              const isAboveGamma = displayPrice >= gammaFlipNum;
-              const gammaFlipDiffText = gammaFlipNum > 0
-                ? (isAboveGamma
-                  ? (locale === 'ko' ? `상회 (${gammaFlipDiffSign}${gammaFlipDiffPct.toFixed(2)}%)` : locale === 'ja' ? `上回る (${gammaFlipDiffSign}${gammaFlipDiffPct.toFixed(2)}%)` : `Above (${gammaFlipDiffSign}${gammaFlipDiffPct.toFixed(2)}%)`)
-                  : (locale === 'ko' ? `하회 (${gammaFlipDiffSign}${gammaFlipDiffPct.toFixed(2)}%)` : locale === 'ja' ? `下回る (${gammaFlipDiffSign}${gammaFlipDiffPct.toFixed(2)}%)` : `Below (${gammaFlipDiffSign}${gammaFlipDiffPct.toFixed(2)}%)`))
-                : '-';
-              const gammaFlipTextColor = gammaFlipNum > 0
-                ? (isAboveGamma ? '#22d3ee' : '#f87171')
-                : 'var(--text-muted)';
-
-              const isMaxPainClose = Math.abs(maxPainDiffPct) <= 1.5;
-              const isGammaFlipClose = gammaFlipNum > 0 && Math.abs(gammaFlipDiffPct) <= 1.5;
+              const gfDiff = gammaFlipNum > 0 ? ((displayPrice - gammaFlipNum) / gammaFlipNum) * 100 : 0;
+              const netPremiumVal = tickerData?.flow?.netPremium ?? (callPct >= 50 ? totalPrem * (callPct - 50) / 50 : -totalPrem * (50 - callPct) / 50);
 
               return (
-                <div className={s.p2Vitals}>
-                  <div className={`${s.p2Vital} ${isMaxPainClose ? 'vital-gold-glow' : ''}`}>
-                    <div className={s.k}>MAX PAIN</div>
-                    <div className={s.v}>${maxPainVal.toFixed(1)}</div>
-                    <div style={{ font: '700 10px/1 Inter', marginTop: '5px', color: isMaxPainClose ? '#fbbf24' : 'var(--text-muted)', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>
-                      {maxPainDiffText}
-                    </div>
-                    <div className={s.bar}><i style={{ width: '65%' }} /></div>
+                <div className={s.heroMetrics}>
+                  <div className={s.heroMetricCard}>
+                    <span className={s.heroMetricLabel}>MAX PAIN</span>
+                    <span className={s.heroMetricValue}>
+                      ${maxPainVal > 0 ? maxPainVal.toFixed(0) : '—'}
+                    </span>
+                    {maxPainVal > 0 && (
+                      <span className={s.heroMetricSub} style={{ color: Math.abs(mpDiff) <= 1.5 ? 'var(--amber)' : mpDiff > 0 ? 'var(--red)' : 'var(--green)' }}>
+                        {mpDiff >= 0 ? '+' : ''}{mpDiff.toFixed(2)}% {locale === 'ko' ? '괴리' : locale === 'ja' ? '乖離' : 'gap'}
+                      </span>
+                    )}
                   </div>
-                  <div className={`${s.p2Vital} ${isGammaFlipClose ? (isAboveGamma ? 'vital-cyan-glow' : 'vital-red-glow') : ''}`}>
-                    <div className={s.k}>GAMMA FLIP</div>
-                    <div className={s.v}>{liveGammaFlip}</div>
-                    <div style={{ font: '700 10px/1 Inter', marginTop: '5px', color: gammaFlipTextColor, whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>
-                      {gammaFlipDiffText}
-                    </div>
-                    <div className={s.bar}><i style={{ width: '52%' }} /></div>
+                  <div className={s.heroMetricCard}>
+                    <span className={s.heroMetricLabel}>GAMMA FLIP</span>
+                    <span className={s.heroMetricValue}>{liveGammaFlip}</span>
+                    {gammaFlipNum > 0 && (
+                      <span className={s.heroMetricSub} style={{ color: gfDiff >= 0 ? 'var(--green)' : 'var(--red)' }}>
+                        {gfDiff >= 0
+                          ? (locale === 'ko' ? '상회' : locale === 'ja' ? '상회' : 'above')
+                          : (locale === 'ko' ? '하회' : locale === 'ja' ? '하회' : 'below')
+                        } ({gfDiff >= 0 ? '+' : ''}{gfDiff.toFixed(2)}%)
+                      </span>
+                    )}
                   </div>
-                  <div className={s.p2Vital}>
-                    <div className={s.k}>TOTAL PREMIUM</div>
-                    <div className={s.v}>${(totalPrem / 1000000).toFixed(1)}M</div>
-                    <div style={{ font: '700 10px/1 Inter', marginTop: '5px', color: 'var(--text-muted)', visibility: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>
-                      placeholder
-                    </div>
-                    <div className={s.bar}><i style={{ width: '80%' }} /></div>
+                  <div className={s.heroMetricCard}>
+                    <span className={s.heroMetricLabel}>TOTAL PREMIUM</span>
+                    <span className={s.heroMetricValue}>
+                      {netPremiumVal !== 0
+                        ? (Math.abs(netPremiumVal) >= 1e6
+                          ? `$${(netPremiumVal / 1e6).toFixed(1)}M`
+                          : `$${(netPremiumVal / 1e3).toFixed(0)}K`)
+                        : '—'}
+                    </span>
+                    <span className={s.heroMetricSub} style={{ color: netPremiumVal >= 0 ? 'var(--green)' : 'var(--red)' }}>
+                      {netPremiumVal >= 0
+                        ? (locale === 'ko' ? '콜 우세' : locale === 'ja' ? 'コール優勢' : 'Call dominant')
+                        : (locale === 'ko' ? '풋 우세' : locale === 'ja' ? 'プット優勢' : 'Put dominant')
+                      }
+                    </span>
                   </div>
                 </div>
               );
             })()}
+
+            {/* ── Row 4: Vitals Strip (RSI / VWAP / DAY RANGE) ── */}
+            <div className={s.p2Vitals}>
+              <div className={s.p2Vital}>
+                <div className={s.k}>RSI 14</div>
+                <div className={s.v}>{liveRsi.toFixed(1)}</div>
+                <div className={s.bar}><i style={{ width: `${liveRsi}%` }} /></div>
+              </div>
+              <div className={s.p2Vital}>
+                <div className={s.k}>VWAP</div>
+                <div className={s.v}>${liveVwap.toFixed(2)}</div>
+                <div className={s.bar}><i style={{ width: '52%' }} /></div>
+              </div>
+              <div className={s.p2Vital}>
+                <div className={s.k}>DAY RANGE</div>
+                <div className={s.v}>${liveLow.toFixed(1)}–${liveHigh.toFixed(1)}</div>
+                <div className={s.bar}>
+                  <i style={{ width: `${((displayPrice - liveLow) / (liveHigh - liveLow || 1)) * 100}%` }} />
+                </div>
+              </div>
+            </div>
           </div>
         );
       })()}
 
       {/* ── SEGMENTED SUB-TABS (Overview, AI Intel, Options Flow, Strike Profile) ── */}
-      <div className={`${s.seg} ${s.seg4}`} style={{ margin: '12px 16px var(--s3)' }}>
+      <div 
+        className={`${s.seg} ${s.seg4} ${s.connectedSeg}`} 
+        style={{ 
+          marginTop: '0px',
+          marginBottom: '0px',
+          borderRadius: '0px',
+          borderTop: '1px solid rgba(255, 255, 255, 0.055)',
+          borderBottom: '1px solid rgba(255, 255, 255, 0.055)',
+          marginLeft: '16px',
+          marginRight: '16px'
+        }}
+      >
         <span className={s.segPill} style={{ left: `calc(3px + ${['overview', 'ai-intel', 'whale-flow', 'strike-profile'].indexOf(activeTab)} * (100% - 6px) / 4)` }}></span>
         <button
           className={activeTab === 'overview' ? s.on : ''}
@@ -808,8 +1348,24 @@ export default function AppFlowPage() {
         </button>
       </div>
 
+
       {/* ── STYLE TAG FOR CUSTOM PREMIUM SCROLLBAR & VITAL CARD GLOWS ── */}
       <style jsx global>{`
+        .premium-card {
+          background: rgba(30, 41, 59, 0.45);
+          border: 1px solid rgba(255, 255, 255, 0.05);
+          border-radius: 12px;
+          box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.02), 0 8px 32px rgba(0, 0, 0, 0.24);
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
+        }
+        .animate-glow {
+          box-shadow: 0 0 15px rgba(6, 182, 212, 0.05), inset 0 1px 0 rgba(255, 255, 255, 0.02);
+          transition: box-shadow 0.3s ease;
+        }
+        .animate-glow:hover {
+          box-shadow: 0 0 20px rgba(6, 182, 212, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.02);
+        }
         .premium-scroll::-webkit-scrollbar {
           width: 5px;
         }
@@ -824,6 +1380,15 @@ export default function AppFlowPage() {
         }
         .premium-scroll::-webkit-scrollbar-thumb:hover {
           background: rgba(6, 182, 212, 0.55);
+        }
+        .no-scrollbar {
+          scrollbar-width: none !important;
+          -ms-overflow-style: none !important;
+        }
+        .no-scrollbar::-webkit-scrollbar {
+          display: none !important;
+          width: 0 !important;
+          height: 0 !important;
         }
 
         @keyframes vital-pulse-gold {
@@ -863,204 +1428,611 @@ export default function AppFlowPage() {
       >
       {activeTab === 'overview' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', padding: '0 16px var(--s4)' }} className="animate-in fade-in duration-200">
-          {/* PCR & OPI Gauge */}
-          <div className="app-card" style={{ padding: '18px 16px', margin: 0 }}>
+          {/* OPI Radial Gauge (Module 1) */}
+          <div className="premium-card" style={{ padding: '20px 18px', margin: 0, position: 'relative', borderTop: 'none', borderTopLeftRadius: '0px', borderTopRightRadius: '0px' }}>
+            {renderPopover('opi', locale === 'ko' ? '옵션 가격 압박 지수. 콜/풋 포지셔닝에 따른 가격 압박 방향을 보여줍니다. 양수(+)는 콜 가격 우위, 음수(-)는 풋 가격 우위입니다.' : 'Options Price Gauge — price pressure direction from call/put positioning. Positive = call-price dominance, negative = put-price dominance.', locale === 'ko' ? 'OPI 설명' : 'OPI Info')}
             <div className="app-card-head" style={{ marginBottom: 0 }}>
-              <span className="app-card-title">{t.opiGauge}</span>
-              <span style={{ font: 'var(--f-micro)', fontWeight: 700, color: gaugeColor }}>{gaugeStatus}</span>
+              <span className="app-card-title" style={{ display: 'inline-flex', alignItems: 'center', color: '#f8fafc', fontWeight: 800 }}>
+                {t.opiGauge}
+                <InfoBtn popKey="opi" />
+                <span style={{ 
+                  fontSize: '8px', 
+                  fontWeight: 900, 
+                  background: opiCalculated.isFallback ? 'rgba(239, 68, 68, 0.08)' : 'rgba(16, 185, 129, 0.08)', 
+                  color: opiCalculated.isFallback ? '#f43f5e' : '#10b981',
+                  border: `1px solid ${opiCalculated.isFallback ? 'rgba(239, 68, 68, 0.2)' : 'rgba(16, 185, 129, 0.2)'}`,
+                  padding: '2.5px 7px', 
+                  borderRadius: '12px', 
+                  marginLeft: '8px',
+                  verticalAlign: 'middle',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.08em'
+                }}>
+                  {opiCalculated.isFallback ? (locale === 'ko' ? '장마감' : 'Closed') : (locale === 'ko' ? '장중 작동' : 'Intraday')}
+                </span>
+              </span>
+              <span style={{ font: 'var(--f-micro)', fontWeight: 900, color: gaugeColor, letterSpacing: '0.05em' }}>{gaugeStatus}</span>
             </div>
 
             {/* Semi-circular Gauge */}
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginTop: 12, position: 'relative' }}>
-              <svg width="180" height="96" viewBox="0 0 180 96">
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginTop: 12, position: 'relative', height: '115px' }}>
+              <svg width="190" height="105" viewBox="0 0 180 100">
+                <defs>
+                  <linearGradient id="opiGaugeGrad" x1="0" y1="0" x2="1" y2="0">
+                    <stop offset="0%" stopColor="#f43f5e" />
+                    <stop offset="50%" stopColor="#fbbf24" />
+                    <stop offset="100%" stopColor="#10b981" />
+                  </linearGradient>
+                  <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+                    <feGaussianBlur stdDeviation="3" result="blur" />
+                    <feComposite in="SourceGraphic" in2="blur" operator="over" />
+                  </filter>
+                </defs>
+                {/* Arc track */}
                 <path
                   d={describeArc(90, 90, 80, -90, 90)}
                   fill="none"
-                  stroke="rgba(255,255,255,0.04)"
-                  strokeWidth="10"
+                  stroke="rgba(255, 255, 255, 0.04)"
+                  strokeWidth="6"
                   strokeLinecap="round"
                 />
+                {/* Filled arc with gradient */}
                 <path
                   d={describeArc(90, 90, 80, -90, -90 + (opi / 100) * 180)}
                   fill="none"
-                  stroke={gaugeColor}
-                  strokeWidth="10"
+                  stroke="url(#opiGaugeGrad)"
+                  strokeWidth="7"
                   strokeLinecap="round"
+                  style={{ filter: 'drop-shadow(0 0 6px rgba(16, 185, 129, 0.25))' }}
                 />
-                <circle cx="90" cy="90" r="5" fill="var(--text)" />
+                {/* Dial center pin */}
+                <circle cx="90" cy="90" r="4.5" fill="#f8fafc" />
+                {/* Dial hand */}
                 <line
                   x1="90"
                   y1="90"
                   x2="90"
-                  y2="28"
-                  stroke="var(--text)"
-                  strokeWidth="2"
+                  y2="30"
+                  stroke="#ffffff"
+                  strokeWidth="2.5"
                   strokeLinecap="round"
-                  transform={`rotate(${rotationAngle} 90 90)`}
-                  style={{ transition: 'transform 0.8s ease-out' }}
+                  style={{
+                    transform: `rotate(${rotationAngle}deg)`,
+                    transformOrigin: '90px 90px',
+                    transition: 'transform 1.2s cubic-bezier(0.19, 1, 0.22, 1)',
+                    filter: 'drop-shadow(0 0 3px rgba(255, 255, 255, 0.6))'
+                  }}
                 />
               </svg>
-              <div style={{ position: 'absolute', bottom: 2, textAlign: 'center' }}>
-                <span className="tnum" style={{ font: 'var(--f-display)', fontSize: '24px', fontWeight: 800 }}>{opi.toFixed(1)}</span>
+              {/* Positioned value badge below the hand but inside the arc */}
+              <div style={{ position: 'absolute', bottom: '12px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                <span className="tnum" style={{ font: 'var(--f-display)', fontSize: '32px', fontWeight: 900, color: '#ffffff', letterSpacing: '-0.03em', textShadow: '0 4px 12px rgba(0,0,0,0.4)' }}>
+                  {opi.toFixed(1)}
+                </span>
+                <span style={{ font: 'var(--f-micro)', fontWeight: 800, color: 'var(--text-muted)', fontSize: '8.5px', letterSpacing: '0.08em', textTransform: 'uppercase', marginTop: '-4px' }}>
+                  OPI SCORE
+                </span>
               </div>
             </div>
 
             {/* PCR Summary */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid var(--border)', marginTop: 18, paddingTop: 14 }}>
-              <div>
-                <span style={{ font: 'var(--f-micro)', color: 'var(--text-muted)' }}>{t.pcRatio}</span>
-                <div className="tnum" style={{ font: 'var(--f-h3)', fontWeight: 700, marginTop: 4 }}>{pcRatio.toFixed(2)}</div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid rgba(255, 255, 255, 0.05)', marginTop: 14, paddingTop: 14 }}>
+              <div style={{ display: 'flex', flexDirection: 'column' }}>
+                <span style={{ font: 'var(--f-micro)', color: 'var(--text-muted)', fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{t.pcRatio}</span>
+                <span className="tnum" style={{ font: 'var(--f-body)', fontWeight: 800, color: '#ffffff', marginTop: 4 }}>{pcRatio.toFixed(2)}</span>
               </div>
-              <div style={{ textAlign: 'right' }}>
-                <span style={{ font: 'var(--f-micro)', color: 'var(--text-muted)' }}>{t.regime}</span>
-                <div style={{ font: 'var(--f-h3)', fontWeight: 700, color: volRegime === 'ERUPTING' ? 'var(--red)' : volRegime === 'LOADED' ? 'var(--amber)' : 'var(--green)', marginTop: 4 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                <span style={{ font: 'var(--f-micro)', color: 'var(--text-muted)', fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{locale === 'ko' ? '기초자산 OPI' : 'Underlying OPI'}</span>
+                <span className="tnum" style={{ font: 'var(--f-body)', fontWeight: 800, color: gaugeColor, marginTop: 4 }}>{opi.toFixed(0)} ({gaugeStatus})</span>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
+                <span style={{ font: 'var(--f-micro)', color: 'var(--text-muted)', fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{t.regime}</span>
+                <span style={{ 
+                  font: 'var(--f-micro)', 
+                  fontWeight: 900, 
+                  color: volRegime === 'ERUPTING' ? '#f43f5e' : volRegime === 'LOADED' ? '#fbbf24' : '#10b981',
+                  background: volRegime === 'ERUPTING' ? 'rgba(239, 68, 68, 0.08)' : volRegime === 'LOADED' ? 'rgba(245, 158, 11, 0.08)' : 'rgba(16, 185, 129, 0.08)',
+                  border: `1px solid ${volRegime === 'ERUPTING' ? 'rgba(239, 68, 68, 0.15)' : volRegime === 'LOADED' ? 'rgba(245, 158, 11, 0.15)' : 'rgba(16, 185, 129, 0.15)'}`,
+                  padding: '2px 6px',
+                  borderRadius: '4px',
+                  marginTop: 4,
+                  letterSpacing: '0.03em'
+                }}>
                   {volRegime}
-                </div>
+                </span>
               </div>
             </div>
           </div>
 
-          {/* Premium Total Option Flows (Call/Put double bar) */}
-          <div className="app-card" style={{ padding: '16px', margin: 0 }}>
+          {/* Sentiment & Squeeze Grid (Module 2) */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+            {/* Left Card: Composite Index */}
+            {(() => {
+              const compStatus = compositeIndex >= 65 ? (locale === 'ko' ? '강세 수급' : 'Strong Bullish') : compositeIndex >= 40 ? (locale === 'ko' ? '중립 혼조' : 'Neutral Mixed') : (locale === 'ko' ? '약세 흐름' : 'Bearish Flow');
+              const compColor = compositeIndex >= 65 ? '#10b981' : compositeIndex >= 40 ? '#fbbf24' : '#f43f5e';
+              const radius = 24;
+              const circum = 2 * Math.PI * radius;
+              const strokeDashoffset = circum - (compositeIndex / 100) * circum;
+              
+              return (
+                <div className="premium-card" style={{ padding: '16px 14px', margin: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px', position: 'relative' }}>
+                  {renderPopover('composite', locale === 'ko' ? '종합 수급 지수. GEX 레짐, OPI, IV Rank, PC Ratio 등 9가지 핵심 지표의 방향 일치도를 가중치 점수화한 지표입니다.' : 'Multi-indicator composite — direction alignment score across 9 core indicators (flow, gamma, IV, short interest, etc.).', locale === 'ko' ? '종합지수 설명' : 'Composite Info')}
+                  <span className="app-card-title" style={{ fontSize: '10px', alignSelf: 'flex-start', display: 'inline-flex', alignItems: 'center', color: 'var(--text-muted)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                    {locale === 'ko' ? '종합 수급 지수' : 'Composite Index'}
+                    <InfoBtn popKey="composite" />
+                  </span>
+                  <div style={{ position: 'relative', width: '64px', height: '64px', marginTop: '2px' }}>
+                    <svg width="64" height="64" viewBox="0 0 64 64" style={{ transform: 'rotate(-90deg)' }}>
+                      <circle cx="32" cy="32" r={radius} fill="none" stroke="rgba(255,255,255,0.03)" strokeWidth="3" />
+                      <circle cx="32" cy="32" r={radius} fill="none" stroke={compColor} strokeWidth="3" strokeDasharray={circum} strokeDashoffset={strokeDashoffset} strokeLinecap="round" style={{ filter: `drop-shadow(0 0 4px ${compColor})` }} />
+                    </svg>
+                    <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', font: 'var(--f-small)', fontWeight: 900, color: '#ffffff', fontSize: '13px' }}>
+                      {compositeIndex}%
+                    </div>
+                  </div>
+                  <span style={{ fontSize: '11px', fontWeight: 800, color: compColor, letterSpacing: '0.02em' }}>{compStatus}</span>
+                </div>
+              );
+            })()}
+
+            {/* Right Card: Squeeze Probability */}
+            {(() => {
+              const sqStatus = squeezeProb >= 70 ? (locale === 'ko' ? '높음 (위험)' : 'High Squeeze') : squeezeProb >= 40 ? (locale === 'ko' ? '보통 (대기)' : 'Moderate') : (locale === 'ko' ? '낮음 (안정)' : 'Low Squeeze');
+              const sqColor = squeezeProb >= 70 ? '#f43f5e' : squeezeProb >= 40 ? '#fbbf24' : '#10b981';
+              const radius = 24;
+              const circum = 2 * Math.PI * radius;
+              const strokeDashoffset = circum - (squeezeProb / 100) * circum;
+
+              return (
+                <div className="premium-card" style={{ padding: '16px 14px', margin: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px', position: 'relative' }}>
+                  {renderPopover('squeeze', locale === 'ko' ? '숏 스퀴즈 발생 확률. 공매도 비율, 대차 잔고, Days to Cover(DTC) 등을 종합 분석하여 숏 스퀴즈 유발 압력을 보여줍니다.' : 'Short squeeze indicator — combines short interest, utilization rate & DTC. Higher values indicate increased squeeze pressure.', locale === 'ko' ? '스퀴즈 확률 설명' : 'Squeeze Info')}
+                  <span className="app-card-title" style={{ fontSize: '10px', alignSelf: 'flex-start', display: 'inline-flex', alignItems: 'center', color: 'var(--text-muted)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                    {locale === 'ko' ? '스퀴즈 분출 확률' : 'Squeeze Probability'}
+                    <InfoBtn popKey="squeeze" />
+                  </span>
+                  <div style={{ position: 'relative', width: '64px', height: '64px', marginTop: '2px' }}>
+                    <svg width="64" height="64" viewBox="0 0 64 64" style={{ transform: 'rotate(-90deg)' }}>
+                      <circle cx="32" cy="32" r={radius} fill="none" stroke="rgba(255,255,255,0.03)" strokeWidth="3" />
+                      <circle cx="32" cy="32" r={radius} fill="none" stroke={sqColor} strokeWidth="3" strokeDasharray={circum} strokeDashoffset={strokeDashoffset} strokeLinecap="round" style={{ filter: `drop-shadow(0 0 4px ${sqColor})` }} />
+                    </svg>
+                    <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', font: 'var(--f-small)', fontWeight: 900, color: '#ffffff', fontSize: '13px' }}>
+                      {squeezeProb}%
+                    </div>
+                  </div>
+                  <span style={{ fontSize: '11px', fontWeight: 800, color: sqColor, letterSpacing: '0.02em' }}>{sqStatus}</span>
+                </div>
+              );
+            })()}
+          </div>
+
+          {/* Premium Total Option Flows (Module 3) */}
+          <div className="premium-card" style={{ padding: '18px 16px', margin: 0 }}>
             <div className="app-card-head" style={{ marginBottom: '8px' }}>
-              <span className="app-card-title">{t.totalPremium}</span>
-              <span className="tnum" style={{ font: 'var(--f-h3)', fontWeight: 700, color: 'var(--text)' }}>
+              <span className="app-card-title" style={{ color: 'var(--text-muted)', fontWeight: 800, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{t.totalPremium}</span>
+              <span className="tnum" style={{ font: 'var(--f-h2)', fontWeight: 900, color: '#ffffff', letterSpacing: '-0.02em' }}>
                 ${(totalPrem / 1000000).toFixed(1)}M
               </span>
             </div>
             
-            <div style={{ background: 'rgba(255,255,255,0.03)', height: '10px', borderRadius: '5px', overflow: 'hidden', display: 'flex', margin: '4px 0 12px' }}>
-              <div style={{ width: `${callPct}%`, background: 'var(--green)', height: '100%' }} />
-              <div style={{ width: `${100 - callPct}%`, background: 'var(--red)', height: '100%' }} />
+            <div style={{ background: 'rgba(255,255,255,0.02)', height: '8px', borderRadius: '4px', overflow: 'hidden', display: 'flex', margin: '6px 0 14px', border: '1px solid rgba(255,255,255,0.03)' }}>
+              <div style={{ width: `${callPct}%`, background: 'linear-gradient(90deg, #10b981, #34d399)', height: '100%' }} />
+              <div style={{ width: `${100 - callPct}%`, background: 'linear-gradient(90deg, #ef4444, #f43f5e)', height: '100%' }} />
             </div>
 
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--green)' }} />
-                <span style={{ font: 'var(--f-micro)', color: 'var(--text-dim)' }}>{t.callBullish}</span>
-                <span className="tnum" style={{ font: 'var(--f-micro)', fontWeight: 700, color: 'var(--green)' }}>{callPct.toFixed(1)}%</span>
+                <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#10b981', boxShadow: '0 0 6px #10b981' }} />
+                <span style={{ font: 'var(--f-micro)', color: 'var(--text-dim)', fontWeight: 600 }}>{t.callBullish}</span>
+                <span className="tnum" style={{ font: 'var(--f-micro)', fontWeight: 800, color: '#10b981' }}>{callPct.toFixed(1)}%</span>
               </div>
               <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginLeft: 'auto' }}>
-                <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--red)' }} />
-                <span style={{ font: 'var(--f-micro)', color: 'var(--text-dim)' }}>{t.putBearish}</span>
-                <span className="tnum" style={{ font: 'var(--f-micro)', fontWeight: 700, color: 'var(--red)' }}>{(100 - callPct).toFixed(1)}%</span>
+                <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#ef4444', boxShadow: '0 0 6px #ef4444' }} />
+                <span style={{ font: 'var(--f-micro)', color: 'var(--text-dim)', fontWeight: 600 }}>{t.putBearish}</span>
+                <span className="tnum" style={{ font: 'var(--f-micro)', fontWeight: 800, color: '#ef4444' }}>{(100 - callPct).toFixed(1)}%</span>
               </div>
             </div>
           </div>
 
-          {/* OPTIONS MARKET REGIME SPEC WIDGET */}
-          <div className="app-card" style={{ padding: '16px', margin: 0 }}>
-            <div className="app-card-head" style={{ marginBottom: '10px' }}>
-              <span className="app-card-title">OPTIONS MARKET REGIME</span>
-              <span className={`${s.headerBadge} ${ivRankVal != null && ivRankVal < 30 ? s.badgeGreen : s.badgeAmber}`} style={{ fontSize: '9px', padding: '3px 8px' }}>
-                {regimeLabel}
-              </span>
-            </div>
-            
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px', marginBottom: '12px' }}>
-              <div style={{ background: 'rgba(255,255,255,0.02)', padding: '10px 8px', borderRadius: '6px', textAlign: 'center', border: '1px solid rgba(255,255,255,0.03)' }}>
-                <div style={{ font: 'var(--f-micro)', color: 'var(--text-muted)' }}>IVRank</div>
-                <div style={{ font: 'var(--f-h3)', fontWeight: 800, color: 'var(--text)', marginTop: '4px' }}>{ivRankVal != null ? `${ivRankVal}%` : '—'}</div>
-              </div>
-              <div style={{ background: 'rgba(255,255,255,0.02)', padding: '10px 8px', borderRadius: '6px', textAlign: 'center', border: '1px solid rgba(255,255,255,0.03)' }}>
-                <div style={{ font: 'var(--f-micro)', color: 'var(--text-muted)' }}>Skew</div>
-                <div style={{ font: 'var(--f-h3)', fontWeight: 800, color: 'var(--red)', marginTop: '4px' }}>{ivSkewVal != null ? `${ivSkewVal}%` : '—'}</div>
-              </div>
-              <div style={{ background: 'rgba(255,255,255,0.02)', padding: '10px 8px', borderRadius: '6px', textAlign: 'center', border: '1px solid rgba(255,255,255,0.03)' }}>
-                <div style={{ font: 'var(--f-micro)', color: 'var(--text-muted)' }}>{"P/C Ratio"}</div>
-                <div style={{ font: 'var(--f-h3)', fontWeight: 800, color: 'var(--text)', marginTop: '4px' }}>{pcRatio.toFixed(2)}</div>
-              </div>
-            </div>
+          {/* Spot Price Positioning Ruler (Module 4) */}
+          {(() => {
+            const floor = putFloorVal || (displayPrice * 0.95);
+            const wall = callWallVal || (displayPrice * 1.05);
+            const range = wall - floor || 1;
+            const pct = Math.max(2, Math.min(98, ((displayPrice - floor) / range) * 100));
 
-            <div style={{ font: 'var(--f-micro)', color: 'var(--text-dim)', background: 'rgba(6, 182, 212, 0.05)', border: '1px solid rgba(6, 182, 212, 0.15)', borderRadius: '6px', padding: '8px 10px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--cyan)' }} />
-              <span>{regimeInsight}</span>
-            </div>
-          </div>
+            return (
+              <div className="premium-card" style={{ padding: '18px 16px', margin: 0, position: 'relative' }}>
+                {renderPopover('ruler', locale === 'ko' ? '현재가 위치 자. 풋 플로어(지지선, 하한)와 콜 월(저항선, 상한) 사이에서 현재 주가의 상대적인 위치를 백분율(%)로 표시합니다.' : 'Current price position ruler showing relative percentage between Put Floor (Support) and Call Wall (Resistance).', locale === 'ko' ? '현재가 위치 설명' : 'Ruler Info')}
+                <span className="app-card-title" style={{ display: 'inline-flex', alignItems: 'center', marginBottom: '18px', color: 'var(--text-muted)', fontWeight: 800, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                  {locale === 'ko' ? '현재가 위치 (Spot Price Position)' : 'Spot Price Position Ruler'}
+                  <InfoBtn popKey="ruler" />
+                </span>
+                
+                {/* Ruler track */}
+                <div style={{ 
+                  position: 'relative', 
+                  height: '8px', 
+                  background: 'rgba(255, 255, 255, 0.04)', 
+                  borderRadius: '4px', 
+                  margin: '30px 8px 18px',
+                  border: '1px solid rgba(255, 255, 255, 0.02)'
+                }}>
+                  {/* Subtle technical tick marks behind slider */}
+                  <div style={{
+                    position: 'absolute',
+                    inset: 0,
+                    background: 'repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.05) 1px, transparent 1px, transparent 10px)',
+                    borderRadius: '4px'
+                  }} />
+                  
+                  {/* Glowing center indicator bar */}
+                  <div style={{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, background: 'linear-gradient(90deg, rgba(239, 68, 68, 0.12) 0%, rgba(245, 158, 11, 0.06) 50%, rgba(16, 185, 129, 0.12) 100%)', borderRadius: '4px' }} />
+                  
+                  {/* Floating Price Pin with Tooltip */}
+                  <div
+                    style={{
+                      position: 'absolute',
+                      left: `${pct}%`,
+                      top: '50%',
+                      transform: 'translate(-50%, -50%)',
+                      zIndex: 3,
+                    }}
+                  >
+                    {/* Tooltip box above the pin */}
+                    <div style={{
+                      position: 'absolute',
+                      bottom: '14px',
+                      left: '50%',
+                      transform: 'translateX(-50%)',
+                      background: 'rgba(6, 182, 212, 0.95)',
+                      border: '1px solid rgba(34, 211, 238, 0.4)',
+                      boxShadow: '0 4px 14px rgba(6, 182, 212, 0.3)',
+                      color: '#050a14',
+                      padding: '3px 8px',
+                      borderRadius: '4px',
+                      font: 'var(--f-micro)',
+                      fontWeight: 900,
+                      fontSize: '10px',
+                      whiteSpace: 'nowrap',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '4px',
+                      backdropFilter: 'blur(8px)',
+                      WebkitBackdropFilter: 'blur(8px)',
+                    }}>
+                      <span>${displayPrice.toFixed(2)}</span>
+                      <span style={{ opacity: 0.8 }}>({pct.toFixed(0)}%)</span>
+                    </div>
+                    {/* Tooltip arrow */}
+                    <div style={{
+                      position: 'absolute',
+                      bottom: '10px',
+                      left: '50%',
+                      transform: 'translateX(-50%)',
+                      width: 0,
+                      height: 0,
+                      borderLeft: '4px solid transparent',
+                      borderRight: '4px solid transparent',
+                      borderTop: '4px solid rgba(6, 182, 212, 0.95)',
+                      zIndex: 4,
+                    }} />
+                    {/* Glowing marker dot */}
+                    <div style={{
+                      width: '12px',
+                      height: '12px',
+                      borderRadius: '50%',
+                      background: 'var(--cyan)',
+                      border: '2.5px solid #ffffff',
+                      boxShadow: '0 0 10px var(--cyan), 0 0 4px #ffffff',
+                    }} />
+                  </div>
+                </div>
 
-          {/* IMPLIED MOVE & KEY BARRIERS */}
-          <div className="app-card" style={{ padding: '16px', margin: 0 }}>
-            <div className="app-card-head" style={{ marginBottom: '10px' }}>
-              <span className="app-card-title">{"IMPLIED MOVE & BARRIERS"}</span>
-            </div>
-            
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: '12px', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-              <span style={{ font: 'var(--f-small)', color: 'var(--text-dim)' }}>IMPLIED MOVE</span>
-              <div style={{ textAlign: 'right' }}>
-                <span className="tnum" style={{ font: 'var(--f-h3)', fontWeight: 800, color: 'var(--amber)' }}>{impliedMoveStr}</span>
-                <span style={{ font: 'var(--f-micro)', color: 'var(--text-muted)', display: 'block' }}>{nearestExpiryLabel ? `ATM Straddle (${nearestExpiryLabel})` : 'ATM Straddle'}</span>
-              </div>
-            </div>
-
-            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '12px' }}>
-              <div style={{ flex: 1 }}>
-                <span style={{ font: 'var(--f-micro)', color: 'var(--text-muted)' }}>{`PUT FLOOR (${t.support})`}</span>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '4px' }}>
-                  <span className="tnum" style={{ font: 'var(--f-h3)', fontWeight: 800, color: 'var(--red)' }}>{putFloorVal != null ? `$${putFloorVal.toFixed(0)}` : '—'}</span>
-                  <span style={{ fontSize: '9px', fontWeight: 'bold', background: 'var(--red-dim)', color: 'var(--red)', padding: '2px 6px', borderRadius: '4px' }}>{t.support.toUpperCase()}</span>
+                {/* Left & Right Anchors */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', font: 'var(--f-micro)', fontWeight: 700, padding: '0 4px' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column' }}>
+                    <span style={{ color: '#ef4444', fontSize: '9px', letterSpacing: '0.04em' }}>PUT FLOOR ({t.support})</span>
+                    <span className="tnum" style={{ fontSize: '13px', fontWeight: 900, color: '#f8fafc', marginTop: '3px' }}>${floor.toFixed(0)}</span>
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
+                    <span style={{ color: '#10b981', fontSize: '9px', letterSpacing: '0.04em' }}>CALL WALL ({t.resistance})</span>
+                    <span className="tnum" style={{ fontSize: '13px', fontWeight: 900, color: '#f8fafc', marginTop: '3px' }}>${wall.toFixed(0)}</span>
+                  </div>
                 </div>
               </div>
-              <div style={{ flex: 1, textAlign: 'right' }}>
-                <span style={{ font: 'var(--f-micro)', color: 'var(--text-muted)' }}>{`CALL WALL (${t.resistance})`}</span>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '4px', justifyContent: 'flex-end' }}>
-                  <span style={{ fontSize: '9px', fontWeight: 'bold', background: 'var(--green-dim)', color: 'var(--green)', padding: '2px 6px', borderRadius: '4px' }}>{t.resistance.toUpperCase()}</span>
-                  <span className="tnum" style={{ font: 'var(--f-h3)', fontWeight: 800, color: 'var(--green)' }}>{callWallVal != null ? `$${callWallVal.toFixed(0)}` : '—'}</span>
+            );
+          })()}
+
+          {/* Options Market & GEX Regime Monitor (Module 5) */}
+          {(() => {
+            const gammaFlipNum = typeof liveGammaFlip === 'number'
+              ? liveGammaFlip
+              : parseFloat((liveGammaFlip || '').replace(/[^0-9.]/g, '')) || 0;
+            const isAboveGamma = displayPrice >= gammaFlipNum;
+            const gexRegimeColor = isAboveGamma ? '#10b981' : '#ef4444';
+            const gexRegimeLabel = isAboveGamma 
+              ? (locale === 'ko' ? 'LONG GAMMA (안정적 레짐)' : 'LONG GAMMA (STABLE)')
+              : (locale === 'ko' ? 'SHORT GAMMA (변동성 레짐)' : 'SHORT GAMMA (VOLATILE)');
+
+            return (
+              <div className="premium-card" style={{ padding: '18px 16px', margin: 0, position: 'relative' }}>
+                {renderPopover('gex', locale === 'ko' ? '감마 익스포저 레짐. 양(+)의 감마(Long Gamma)는 변동성을 억제하여 주가를 안정시키며, 음(-)의 감마(Short Gamma)는 변동성을 증폭시키는 환경을 의미합니다.' : 'GEX Regime indicates market volatility suppression (Long Gamma) vs amplification (Short Gamma).', locale === 'ko' ? '감마 레짐 설명' : 'Regime Info')}
+                <div className="app-card-head" style={{ marginBottom: '14px', alignItems: 'center' }}>
+                  <span className="app-card-title" style={{ display: 'inline-flex', alignItems: 'center', color: 'var(--text-muted)', fontWeight: 800, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                    OPTIONS MARKET & GEX REGIME
+                    <InfoBtn popKey="gex" />
+                  </span>
+                  <span style={{
+                    fontSize: '8px',
+                    fontWeight: 900,
+                    padding: '3px 8px',
+                    borderRadius: '12px',
+                    background: isAboveGamma ? 'rgba(16, 185, 129, 0.08)' : 'rgba(239, 68, 68, 0.08)',
+                    color: gexRegimeColor,
+                    border: `1px solid ${isAboveGamma ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.2)'}`,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.06em'
+                  }}>
+                    {gexRegimeLabel}
+                  </span>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px', marginBottom: '14px' }}>
+                  <div style={{ background: 'rgba(30, 41, 59, 0.2)', padding: '11px 8px', borderRadius: '8px', textAlign: 'center', border: '1px solid rgba(255,255,255,0.03)' }}>
+                    <div style={{ font: 'var(--f-micro)', color: 'var(--text-muted)', fontWeight: 700, fontSize: '9px', textTransform: 'uppercase' }}>IV Rank</div>
+                    <div className="tnum" style={{ font: 'var(--f-body)', fontWeight: 900, color: '#ffffff', marginTop: '4px' }}>{ivRankVal != null ? `${ivRankVal}%` : '—'}</div>
+                  </div>
+                  <div style={{ background: 'rgba(30, 41, 59, 0.2)', padding: '11px 8px', borderRadius: '8px', textAlign: 'center', border: '1px solid rgba(255,255,255,0.03)' }}>
+                    <div style={{ font: 'var(--f-micro)', color: 'var(--text-muted)', fontWeight: 700, fontSize: '9px', textTransform: 'uppercase' }}>IV Skew</div>
+                    <div className="tnum" style={{ font: 'var(--f-body)', fontWeight: 900, color: '#f43f5e', marginTop: '4px' }}>{ivSkewVal != null ? `${ivSkewVal.toFixed(1)}%` : '—'}</div>
+                  </div>
+                  <div style={{ background: 'rgba(30, 41, 59, 0.2)', padding: '11px 8px', borderRadius: '8px', textAlign: 'center', border: '1px solid rgba(255,255,255,0.03)' }}>
+                    <div style={{ font: 'var(--f-micro)', color: 'var(--text-muted)', fontWeight: 700, fontSize: '9px', textTransform: 'uppercase' }}>Volume P/C</div>
+                    <div className="tnum" style={{ font: 'var(--f-body)', fontWeight: 900, color: '#ffffff', marginTop: '4px' }}>{pcRatio.toFixed(2)}</div>
+                  </div>
+                </div>
+
+                <div style={{ 
+                  font: 'var(--f-micro)', 
+                  fontWeight: 600,
+                  color: '#b4c6ef', 
+                  background: 'rgba(6, 182, 212, 0.04)', 
+                  border: '1px solid rgba(6, 182, 212, 0.15)', 
+                  borderRadius: '8px', 
+                  padding: '10px 12px', 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  gap: '10px',
+                  lineHeight: 1.4
+                }}>
+                  <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--cyan)', boxShadow: '0 0 6px var(--cyan)', flexShrink: 0 }} />
+                  <span>{regimeInsight}</span>
                 </div>
               </div>
-            </div>
-          </div>
+            );
+          })()}
         </div>
       )}
-
       {/* 2. AI INTEL TAB */}
       {activeTab === 'ai-intel' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', padding: '0 16px var(--s4)' }} className="animate-in fade-in duration-200">
           {/* AI VERDICT GAUGE */}
-          <div className="app-card" style={{ padding: '16px', margin: 0 }}>
-            <div className="app-card-head" style={{ marginBottom: '12px' }}>
-              <span className="app-card-title">{`AI VERDICT (${aiVerdictLabel})`}</span>
-              <span className={s.headerBadge} style={{ fontSize: '9px', padding: '3px 8px', ...aiVerdictBadgeStyle }}>
+          <div className="premium-card animate-glow" style={{ padding: '18px 16px', margin: 0, position: 'relative', borderTop: 'none', borderTopLeftRadius: '0px', borderTopRightRadius: '0px' }}>
+            <div className="app-card-head" style={{ marginBottom: '14px', alignItems: 'center' }}>
+              <span className="app-card-title" style={{ display: 'inline-flex', alignItems: 'center', color: 'var(--text-muted)', fontWeight: 800, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                AI VERDICT
+              </span>
+              <span style={{
+                fontSize: '9px',
+                fontWeight: 900,
+                padding: '3px 8px',
+                borderRadius: '12px',
+                ...aiVerdictBadgeStyle,
+                textTransform: 'uppercase',
+                letterSpacing: '0.06em'
+              }}>
                 {aiVerdictLabel}
               </span>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
-              <div style={{ background: 'rgba(255,255,255,0.02)', padding: '10px 12px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.03)' }}>
-                <span style={{ font: 'var(--f-micro)', color: 'var(--text-muted)' }}>{t.opiLabel}</span>
-                <div className="tnum" style={{ font: 'var(--f-h2)', fontWeight: 800, color: aiOpiColor, marginTop: '4px' }}>{opi >= 0 ? '+' : ''}{opi.toFixed(0)}</div>
-              </div>
-              <div style={{ background: 'rgba(255,255,255,0.02)', padding: '10px 12px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.03)' }}>
-                <span style={{ font: 'var(--f-micro)', color: 'var(--text-muted)' }}>{t.atmIvPctLabel}</span>
-                <div className="tnum" style={{ font: 'var(--f-h2)', fontWeight: 800, color: 'var(--text)', marginTop: '4px' }}>{aiIvRank != null ? `${aiIvRank}%` : '—'}</div>
-              </div>
-              <div style={{ background: 'rgba(255,255,255,0.02)', padding: '10px 12px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.03)' }}>
-                <span style={{ font: 'var(--f-micro)', color: 'var(--text-muted)' }}>COMPOSITE INDEX</span>
-                <div className="tnum" style={{ font: 'var(--f-h2)', fontWeight: 800, color: 'var(--text)', marginTop: '4px' }}>{compositeIndex}%</div>
-              </div>
-              <div style={{ background: 'rgba(255,255,255,0.02)', padding: '10px 12px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.03)' }}>
-                <span style={{ font: 'var(--f-micro)', color: 'var(--text-muted)' }}>{t.whaleNetBetLabel}</span>
-                <div className="tnum" style={{ font: 'var(--f-h2)', fontWeight: 800, color: whaleNetBetRaw != null && whaleNetBetRaw >= 0 ? 'var(--green)' : 'var(--red)', marginTop: '4px' }}>{whaleNetBetStr}</div>
-              </div>
+            {/* Composite Slider Track */}
+            {(() => {
+              const posPct = ((compositeScore + 100) / 200) * 100;
+              const scoreColor = compositeScore > 20 
+                ? '#10b981' 
+                : compositeScore < -20 
+                ? '#ef4444' 
+                : '#f59e0b';
+              
+              return (
+                <div style={{ marginBottom: '20px', background: 'rgba(30, 41, 59, 0.15)', padding: '14px 12px', borderRadius: '10px', border: '1px solid rgba(255,255,255,0.02)' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                    <span style={{ fontSize: '10px', color: 'var(--text-muted)', fontWeight: 800, letterSpacing: '0.04em' }}>
+                      {locale === 'ko' ? '분석 종합' : 'ANALYSIS VERDICT'}
+                    </span>
+                    <span className="tnum" style={{ fontSize: '15px', fontWeight: 900, color: scoreColor, textShadow: `0 0 8px ${scoreColor}40` }}>
+                      {compositeScore > 0 ? '+' : ''}{compositeScore}
+                    </span>
+                  </div>
+                  
+                  {/* Slider Track */}
+                  <div style={{ position: 'relative', height: '6px', borderRadius: '3px', background: 'linear-gradient(90deg, #ef4444 0%, #1e293b 45%, #1e293b 55%, #10b981 100%)', border: '1px solid rgba(255,255,255,0.05)', margin: '10px 0' }}>
+                    {/* Center Mark */}
+                    <div style={{ position: 'absolute', left: '50%', top: 0, bottom: 0, width: '1px', background: 'rgba(255,255,255,0.2)' }} />
+                    
+                    {/* Glowing Pin */}
+                    <div style={{
+                      position: 'absolute',
+                      left: `calc(${posPct}% - 4px)`,
+                      top: '-5px',
+                      width: '8px',
+                      height: '16px',
+                      borderRadius: '4px',
+                      background: '#ffffff',
+                      boxShadow: `0 0 10px ${scoreColor}, 0 0 4px #ffffff`,
+                      border: `1.5px solid ${scoreColor}`,
+                      zIndex: 3,
+                      transition: 'left 0.4s cubic-bezier(0.25, 0.8, 0.25, 1)'
+                    }} />
+                  </div>
+                  
+                  {/* Labels */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '8px', color: 'var(--text-muted)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                    <span>{locale === 'ko' ? '극하락 (-100)' : 'EXT BEARISH (-100)'}</span>
+                    <span>{locale === 'ko' ? '중립 (0)' : 'NEUTRAL (0)'}</span>
+                    <span>{locale === 'ko' ? '극상승 (+100)' : 'EXT BULLISH (+100)'}</span>
+                  </div>
+                </div>
+              );
+            })()}
+
+            {/* 9-Factor Option Sentiment Grid */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px' }}>
+              {(() => {
+                const factors = [
+                  {
+                    id: 'opi',
+                    name: locale === 'ko' ? '옵션 압박 (OPI)' : 'OPI',
+                    value: `${opiScore >= 0 ? '+' : ''}${Math.round(opiScore)}`,
+                    score: opiScore,
+                    maxScore: 25,
+                    info: locale === 'ko' ? '옵션 압박 지수 (OPI)는 콜과 풋 옵션 프리미엄의 매수 세기 비율을 지수화한 것입니다.' : 'Options Pressure Index measures the buying strength ratio of call vs put premiums.'
+                  },
+                  {
+                    id: 'whale',
+                    name: locale === 'ko' ? '고래 포지션' : 'Whale Net',
+                    value: `${whaleScore >= 0 ? '+' : ''}${Math.round(whaleScore)}`,
+                    score: whaleScore,
+                    maxScore: 25,
+                    info: locale === 'ko' ? '기관 및 대형 고래 투자자의 옵션 순거래 방향과 총 매수 규모를 추적한 지표입니다.' : 'Tracks the net trading direction and total premium size of institutions.'
+                  },
+                  {
+                    id: 'squeeze',
+                    name: locale === 'ko' ? '스퀴즈 확률' : 'Squeeze',
+                    value: `${squeezeScore >= 0 ? '+' : ''}${Math.round(squeezeScore)}`,
+                    score: squeezeScore,
+                    maxScore: 15,
+                    info: locale === 'ko' ? '공매도 비중과 내재변동성(IV) 분석을 바탕으로 숏 스퀴즈 발생 잠재력을 나타냅니다.' : 'Indicates short squeeze potential based on short volume and IV rank.'
+                  },
+                  {
+                    id: 'skew',
+                    name: locale === 'ko' ? 'IV 스큐' : 'IV Skew',
+                    value: `${skewScore >= 0 ? '+' : ''}${Math.round(skewScore)}`,
+                    score: skewScore,
+                    maxScore: 15,
+                    info: locale === 'ko' ? '콜 옵션과 풋 옵션 간 내재변동성의 차이(기울기)를 측정하여 하방 베팅 강도를 탐색합니다.' : 'Measures the difference in implied volatility between OTM calls and puts.'
+                  },
+                  {
+                    id: 'smart',
+                    name: locale === 'ko' ? '스마트머니' : 'Smart Money',
+                    value: `${smartScore >= 0 ? '+' : ''}${Math.round(smartScore)}`,
+                    score: smartScore,
+                    maxScore: 10,
+                    info: locale === 'ko' ? '비공개 블록딜 거래 및 장외 기관 주문 흐름(Smart Money)을 분석하여 가중치를 부여합니다.' : 'Analyzes private block trades and over-the-counter institutional orders.'
+                  },
+                  {
+                    id: 'dex',
+                    name: locale === 'ko' ? '감마노출 (DEX)' : 'DEX Gamma',
+                    value: `${dexScore >= 0 ? '+' : ''}${Math.round(dexScore)}`,
+                    score: dexScore,
+                    maxScore: 10,
+                    info: locale === 'ko' ? '기초자산 가격과 감마 플립 레벨 간 이격도를 측정하여 딜러의 델타 헤징 압력을 추적합니다.' : 'Tracks dealer delta-hedging pressure by measuring distance to Gamma Flip.'
+                  },
+                  {
+                    id: 'uoa',
+                    name: locale === 'ko' ? '이례적 UOA' : 'Unusual UOA',
+                    value: `${uoaScore >= 0 ? '+' : ''}${Math.round(uoaScore)}`,
+                    score: uoaScore,
+                    maxScore: 5,
+                    info: locale === 'ko' ? '일반적인 수준을 넘어서는 대규모 또는 갑작스러운 이례적 옵션 수급(UOA) 강도를 추적합니다.' : 'Tracks unusual option activity volume multiples.'
+                  },
+                  {
+                    id: 'pc',
+                    name: locale === 'ko' ? '풋/콜 비율' : 'P/C Ratio',
+                    value: `${pcScore >= 0 ? '+' : ''}${Math.round(pcScore)}`,
+                    score: pcScore,
+                    maxScore: 5,
+                    info: locale === 'ko' ? '시장 전체의 풋 옵션 거래량 대비 콜 옵션 거래량의 상대적 비율을 점수화한 지표입니다.' : 'Scores the volume ratio of put options relative to call options.'
+                  },
+                  {
+                    id: 'gex',
+                    name: locale === 'ko' ? '감마 레짐' : 'GEX Regime',
+                    value: `${zdteScore >= 0 ? '+' : ''}${Math.round(zdteScore)}`,
+                    score: zdteScore,
+                    maxScore: 5,
+                    info: locale === 'ko' ? '시장 감마 환경을 나타내며, 롱 감마 레짐은 안정적 흐름, 숏 감마 레짐은 변동성 확대를 의미합니다.' : 'Indicates overall market gamma volatility regime.'
+                  }
+                ];
+
+                return factors.map((f) => (
+                  <div key={f.id} style={{
+                    background: 'rgba(30, 41, 59, 0.4)',
+                    border: '1px solid rgba(255, 255, 255, 0.06)',
+                    borderRadius: '8px',
+                    padding: '12px 6px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'center',
+                    position: 'relative',
+                    minHeight: '84px',
+                    justifyContent: 'space-between',
+                    backdropFilter: 'blur(10px)',
+                    WebkitBackdropFilter: 'blur(10px)'
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '100%', gap: '1px' }}>
+                      <span style={{ fontSize: '11.5px', color: 'var(--text-muted)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.02em', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                        {f.name}
+                      </span>
+                      <InfoBtn popKey={f.id} />
+                    </div>
+
+                    <div className="tnum" style={{ fontSize: '17px', fontWeight: 900, color: '#f8fafc', margin: '3px 0' }}>
+                      {f.value}
+                    </div>
+
+                    <div style={{ position: 'relative', width: '85%', height: '4px', background: 'rgba(255,255,255,0.08)', borderRadius: '2px', overflow: 'hidden', margin: '2px auto 0' }}>
+                      <div style={{ position: 'absolute', left: '50%', top: 0, bottom: 0, width: '1px', background: 'rgba(255,255,255,0.3)', zIndex: 2 }} />
+                      {f.score !== 0 && (() => {
+                        const pct = Math.min(100, (Math.abs(f.score) / f.maxScore) * 50);
+                        const isPositive = f.score > 0;
+                        return (
+                          <div style={{
+                            position: 'absolute',
+                            left: isPositive ? '50%' : `calc(50% - ${pct}%)`,
+                            width: `${pct}%`,
+                            height: '100%',
+                            background: isPositive ? 'linear-gradient(90deg, #10b981, #059669)' : 'linear-gradient(90deg, #dc2626, #ef4444)',
+                            borderRadius: '1px',
+                            boxShadow: isPositive ? '0 0 4px rgba(16,185,129,0.4)' : '0 0 4px rgba(239,68,68,0.4)'
+                          }} />
+                        );
+                      })()}
+                    </div>
+                    {renderPopover(f.id, f.info, f.name)}
+                  </div>
+                ));
+              })()}
             </div>
           </div>
 
           {/* AI FLOW INTELLIGENCE */}
-          <div className={s.aiInsight} style={{ margin: 0 }}>
-            <div className={s.aiInsightHead} style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap' }}>
+          <div className="premium-card" style={{ padding: '18px 16px', margin: 0, position: 'relative' }}>
+            <div className="app-card-head" style={{ marginBottom: '14px', alignItems: 'center' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
                   <circle cx="12" cy="12" r="9" stroke="var(--cyan)" strokeWidth="1.5" />
                   <path d="M12 8v4l3 3" stroke="var(--cyan)" strokeWidth="1.5" strokeLinecap="round" />
                 </svg>
-                <span className={s.aiInsightLabel}>{locale === 'ko' ? 'AI 플로우 인텔리전스' : locale === 'ja' ? 'AIフロー・インテリジェンス' : 'AI FLOW INTELLIGENCE'}</span>
+                <span className="app-card-title" style={{ display: 'inline-flex', alignItems: 'center', color: 'var(--text-muted)', fontWeight: 800, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                  {locale === 'ko' ? 'AI 플로우 인텔리전스' : locale === 'ja' ? 'AIフロー・インテリジェンス' : 'AI FLOW INTELLIGENCE'}
+                </span>
               </div>
-              <span style={{ fontSize: '9px', fontWeight: 'bold', background: 'rgba(6, 182, 212, 0.15)', color: 'var(--cyan)', padding: '2px 6px', borderRadius: '4px', marginLeft: '6px' }}>
-                CLAUDE 3.5
+              <span style={{ fontSize: '10px', fontWeight: 900, background: 'rgba(6, 182, 212, 0.08)', color: 'var(--cyan)', border: '1px solid rgba(6, 182, 212, 0.2)', padding: '2px 8px', borderRadius: '12px', letterSpacing: '0.06em' }}>
+                Claude
               </span>
             </div>
             
             {(() => {
-              // Localized texts
               const aiTitle = locale === 'ko' ? '구조적 분배 분석 (Structural Distribution)'
                 : locale === 'ja' ? '構造的分配分析 (Structural Distribution)'
                 : 'Structural Distribution';
@@ -1079,7 +2051,7 @@ export default function AppFlowPage() {
                 `만기 주간 $210 / $215 콜 감마 집중이 강한 저항으로 작용하고 있으며, $200 부근의 기관 풋 차단벽이 하단을 지지하고 있다.`,
                 `다크풀의 대량 체결비율(50.8%)을 고려할 때 현 위치에서의 소폭 횡보세 이후 돌파 방향성 탐색 시나리오가 유력하다.`
               ] : locale === 'ja' ? [
-                `${ticker}は現在値$${displayPrice.toFixed(2)}において、強力な空売りクジラポジション（$15.5M）と総合的なOPI（+3）の乖離を示しており、これは機関投資家が短期的な下落方向の弱気ベッティングを構築している最中であっても、オプション市場構造はまだ下落方向의 合意を形成していないことを示唆しています。`,
+                `${ticker}は現在値$${displayPrice.toFixed(2)}において、強力な空売りクジラポジション（$15.5M）と総合的なOPI（+3）の乖離を示しており、これは機関投資家が短期的な下落方向の弱気ベッティングを構築している最中であっても、オプション市場構造はまだ下落方向の合意を形成していないことを示唆しています。`,
                 `ガンマフリップレベル（$207）が現在の株価のすぐ下に位置する状況で、$200プットフロアと$220コールウォールの間の狭い取引レンジは、ディーラーのヘッジフローが現在双方向で圧力をかけていることを示しています。`,
                 `満期週の$210 / $215コールガンマの集中が強力な抵抗として作用しており、$200付近の機関投資家のプット障壁が下値を支持しています。`,
                 `ダークプールの大量約定比率（50.8%）を考慮すると、現在の水準での小幅な横ばい推移の後、ブレイクアウトの方向性を模索するシナリオが有力です。`
@@ -1095,185 +2067,184 @@ export default function AppFlowPage() {
 
               return (
                 <>
-                  <div className={s.aiInsightText} style={{ fontSize: '13px', lineHeight: '1.6' }}>
-                    <div style={{ fontWeight: 800, color: 'var(--text)', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <div style={{ fontSize: '13px', lineHeight: '1.6', color: '#b4c6ef', background: 'rgba(30, 41, 59, 0.15)', padding: '12px 14px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.02)' }}>
+                    <div style={{ fontWeight: 800, color: '#ffffff', marginBottom: '8px', display: 'flex', alignItems: 'center', gap: '6px' }}>
                       <span style={{ color: 'var(--cyan)' }}>✦</span> {aiTitle}
                     </div>
                     {aiDesc}
                   </div>
 
                   {/* Bullet Insights */}
-                  <div style={{ borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '12px', marginTop: '12px', position: 'relative', overflow: 'hidden' }}>
-                    <div style={{ fontSize: '12px', fontWeight: 800, color: 'var(--text-muted)', marginBottom: '10px' }}>
-                      {insightHeader}
-                    </div>
-                    <div style={{
-                      filter: isLocked ? 'blur(5px)' : 'none',
-                      opacity: isLocked ? 0.2 : 1,
-                      transition: 'all 0.3s ease'
-                    }}>
+                  <div style={{ borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '14px', marginTop: '14px', position: 'relative' }}>
+                    <ValueWall
+                      title={locale === 'ko' ? 'AI 핵심 맥락 잠금해제' : 'Unlock AI Insights'}
+                      subtitle={locale === 'ko' ? '광고 시청 후 1시간 동안 AI 상세 맥락 분석을 해제합니다.' : 'Watch an ad to unlock AI insights for 1 hour.'}
+                      socialProof={locale === 'ko' ? '오늘 14.2K 잠금해제' : '14.2K unlocked today'}
+                      onUnlock={() => setIsLocked(false)}
+                      lockedPreview={
+                        <div style={{ opacity: 0.12, filter: 'blur(3.5px)', pointerEvents: 'none' }}>
+                          <div style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                            {insightHeader}
+                          </div>
+                          <ul style={{ paddingLeft: '0', margin: 0, display: 'flex', flexDirection: 'column', gap: '10px', fontSize: '12.5px', lineHeight: '1.6' }}>
+                            <li style={{ listStyleType: 'none', position: 'relative', paddingLeft: '16px', color: '#b4c6ef' }}>
+                              <span style={{ position: 'absolute', left: 0, color: 'var(--cyan)', fontWeight: 'bold' }}>•</span>
+                              {bullets[0]}
+                            </li>
+                            <li style={{ listStyleType: 'none', position: 'relative', paddingLeft: '16px', color: '#b4c6ef' }}>
+                              <span style={{ position: 'absolute', left: 0, color: 'var(--cyan)', fontWeight: 'bold' }}>•</span>
+                              {bullets[1]}
+                            </li>
+                          </ul>
+                        </div>
+                      }
+                    >
+                      <div style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-muted)', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                        {insightHeader}
+                      </div>
                       <ul style={{
                         paddingLeft: '0',
                         margin: 0,
                         display: 'flex',
                         flexDirection: 'column',
-                        gap: '8px',
-                        fontSize: '13px',
+                        gap: '10px',
+                        fontSize: '12.5px',
                         lineHeight: '1.6'
                       }}>
-                      {bullets.map((txt, idx) => (
-                        <li key={idx} style={{
-                          listStyleType: 'none',
-                          position: 'relative',
-                          paddingLeft: '14px',
-                          color: '#b4c6ef',
-                          transition: 'color 0.2s ease'
-                        }}>
-                          <span style={{
-                            position: 'absolute',
-                            left: 0,
-                            color: 'var(--cyan)',
-                            fontWeight: 'bold'
-                          }}>•</span>
-                          {txt}
-                        </li>
-                      ))}
-                    </ul>
-                    </div>
-
-                    {isLocked && (
-                      <div style={{
-                        position: 'absolute',
-                        left: 0,
-                        right: 0,
-                        top: '22px',
-                        bottom: 0,
-                        background: 'linear-gradient(to bottom, rgba(5,10,20,0) 0%, rgba(5,10,20,0.92) 50%, rgba(5,10,20,0.98) 100%)',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        padding: '10px',
-                        textAlign: 'center',
-                        zIndex: 5
-                      }}>
-                        <div style={{
-                          width: '24px',
-                          height: '24px',
-                          borderRadius: '50%',
-                          background: 'rgba(6, 182, 212, 0.1)',
-                          border: '1px solid var(--cyan)',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          boxShadow: '0 0 10px rgba(6, 182, 212, 0.2)',
-                          marginBottom: '4px'
-                        }}>
-                          <svg width="10" height="10" viewBox="0 0 24 24" fill="none">
-                            <rect x="3" y="11" width="18" height="11" rx="2" stroke="var(--cyan)" strokeWidth="2" />
-                            <path d="M7 11V7a5 5 0 0 1 10 0v4" stroke="var(--cyan)" strokeWidth="2" />
-                          </svg>
-                        </div>
-                        <span style={{ fontSize: '10px', fontWeight: 800, color: 'var(--text)', marginBottom: '1px' }}>
-                          {locale === 'ko' ? 'AI 핵심 맥락 잠금해제' : locale === 'ja' ? 'AIインサイト解除' : 'Unlock AI Insights'}
-                        </span>
-                        <span style={{ fontSize: '8px', color: 'var(--text-muted)', marginBottom: '6px', maxWidth: '200px', lineHeight: 1.2 }}>
-                          {locale === 'ko' ? '광고 시청 후 1시간 동안 AI 상세 맥락 분석을 해제합니다.' : locale === 'ja' ? '広告視聴で1時間AIインサイトを解禁します。' : 'Watch an ad to unlock AI insights for 1 hour.'}
-                        </span>
-                        <button
-                          onClick={handleUnlock}
-                          style={{
-                            background: 'linear-gradient(135deg, var(--cyan) 0%, #0891b2 100%)',
-                            border: 'none',
-                            color: '#050a14',
-                            padding: '3px 12px',
-                            borderRadius: 'var(--r-pill)',
-                            fontSize: '9px',
-                            fontWeight: 800,
-                            cursor: 'pointer',
-                            boxShadow: '0 2px 6px rgba(6, 182, 212, 0.3)',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: '4px'
-                          }}
-                        >
-                          <svg width="8" height="8" viewBox="0 0 24 24" fill="currentColor">
-                            <path d="M8 5v14l11-7z"/>
-                          </svg>
-                          {t.unlockBtn}
-                        </button>
-                      </div>
-                    )}
+                        {bullets.map((txt, idx) => (
+                          <li key={idx} style={{
+                            listStyleType: 'none',
+                            position: 'relative',
+                            paddingLeft: '16px',
+                            color: '#b4c6ef',
+                          }}>
+                            <span style={{
+                              position: 'absolute',
+                              left: 0,
+                              color: 'var(--cyan)',
+                              fontWeight: 'bold'
+                            }}>•</span>
+                            {txt}
+                          </li>
+                        ))}
+                      </ul>
+                    </ValueWall>
                   </div>
 
                   {/* Trigger condition */}
-                  <div style={{ marginTop: '16px', padding: '10px 12px', background: 'rgba(245, 158, 11, 0.05)', border: '1px solid rgba(245, 158, 11, 0.15)', borderRadius: '6px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div style={{ marginTop: '16px', padding: '12px', background: 'rgba(245, 158, 11, 0.04)', border: '1px solid rgba(245, 158, 11, 0.15)', borderRadius: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                     <div>
-                      <span style={{ font: 'var(--f-micro)', color: 'var(--text-muted)', display: 'block' }}>{triggerLabel}</span>
-                      <span style={{ font: 'var(--f-small)', fontWeight: 'bold', color: 'var(--text)' }}>{triggerValue}</span>
+                      <span style={{ font: 'var(--f-micro)', color: 'var(--text-muted)', display: 'block', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{triggerLabel}</span>
+                      <span style={{ font: 'var(--f-small)', fontWeight: 800, color: '#ffffff', marginTop: '2px', display: 'block' }}>{triggerValue}</span>
                     </div>
-                    <span style={{ font: 'var(--f-micro)', fontWeight: 'bold', background: 'rgba(245, 158, 11, 0.15)', color: 'var(--amber)', padding: '4px 10px', borderRadius: '4px' }}>RISK: MEDIUM</span>
+                    <span style={{ fontSize: '9px', fontWeight: 900, background: 'rgba(245, 158, 11, 0.08)', color: 'var(--amber)', border: '1px solid rgba(245, 158, 11, 0.2)', padding: '3px 8px', borderRadius: '12px', letterSpacing: '0.04em' }}>
+                      RISK: MEDIUM
+                    </span>
                   </div>
                 </>
               );
             })()}
           </div>
         </div>
-      )}
-
-      {/* 3. FLOW (WHALE RADAR) TAB */}
+      )}{/* 3. FLOW (WHALE RADAR) TAB */}
       {activeTab === 'whale-flow' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', padding: '0 16px var(--s4)' }} className="animate-in fade-in duration-200">
-            {/* DARK POOL & SHORT INTEREST WIDGET */}
-            <div className="app-card" style={{ padding: '16px', margin: 0 }}>
-              <div className="app-card-head" style={{ marginBottom: '10px' }}>
-                <span className="app-card-title">{locale === 'ko' ? '다크풀 & 공매도' : locale === 'ja' ? 'ダークプール＆ショートインタレスト' : 'DARK POOL & SHORT INTEREST'}</span>
-                <span style={{ fontSize: '9px', fontWeight: 'bold', background: 'rgba(245, 158, 11, 0.1)', color: 'var(--amber)', padding: '2px 6px', borderRadius: '4px' }}>
-                  DP ACCUMULATION
-                </span>
-              </div>
-              
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px' }}>
-                <div style={{ background: 'rgba(255,255,255,0.02)', padding: '10px 8px', borderRadius: '6px', textAlign: 'center', border: '1px solid rgba(255,255,255,0.03)' }}>
-                  <div style={{ font: 'var(--f-micro)', color: 'var(--text-muted)' }}>Dark Pool %</div>
-                  <div className="tnum" style={{ font: 'var(--f-h3)', fontWeight: 800, color: 'var(--cyan)', marginTop: '4px' }}>{dpPct}</div>
-                  <span style={{ font: 'var(--f-micro)', color: 'var(--text-muted)', fontSize: '8px', display: 'block', marginTop: '2px', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }} title={dpVolStr}>
-                    {dpNetBuyStr}
-                  </span>
+            {/* TODAY'S WHALE FLOW & SUMMARY WIDGET */}
+            {(() => {
+              const whaleTotalVol = totalPrem;
+              const whaleNetBet = netWhalePremium;
+              const whaleCallPrem = Math.max(0, (whaleTotalVol + whaleNetBet) / 2);
+              const whalePutPrem = Math.max(0, (whaleTotalVol - whaleNetBet) / 2);
+              const callPctShare = whaleTotalVol > 0 ? (whaleCallPrem / whaleTotalVol) * 100 : 50;
+              const putPctShare = whaleTotalVol > 0 ? (whalePutPrem / whaleTotalVol) * 100 : 50;
+
+              return (
+                <div className="premium-card animate-glow" style={{ padding: '18px 16px', margin: 0, borderTop: 'none', borderTopLeftRadius: '0px', borderTopRightRadius: '0px' }}>
+                  <div className="app-card-head" style={{ marginBottom: '14px', alignItems: 'center' }}>
+                    <span className="app-card-title" style={{ display: 'inline-flex', alignItems: 'center', color: 'var(--text-muted)', fontWeight: 800, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                      {locale === 'ko' ? '기관 고래 주문 총합' : "TODAY'S WHALE FLOW"}
+                    </span>
+                    <span style={{
+                      fontSize: '8px',
+                      fontWeight: 900,
+                      padding: '3px 8px',
+                      borderRadius: '12px',
+                      background: 'rgba(6, 182, 212, 0.08)',
+                      color: 'var(--cyan)',
+                      border: '1px solid rgba(6, 182, 212, 0.2)',
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.06em'
+                    }}>
+                      {locale === 'ko' ? '실시간 집계' : 'LIVE ACCUM'}
+                    </span>
+                  </div>
+
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: '12px' }}>
+                    <div>
+                      <span style={{ fontSize: '9px', color: 'var(--text-muted)', display: 'block', textTransform: 'uppercase', letterSpacing: '0.02em' }}>
+                        {locale === 'ko' ? '당일 고래 누적 거래대금' : 'Whale Total Volume'}
+                      </span>
+                      <span className="tnum" style={{ fontSize: '24px', fontWeight: 900, color: '#ffffff', letterSpacing: '-0.02em', marginTop: '2px', display: 'block' }}>
+                        ${(whaleTotalVol / 1000000).toFixed(2)}M
+                      </span>
+                    </div>
+                    <div style={{ textAlign: 'right', fontSize: '11px', fontWeight: 700 }}>
+                      <span style={{ color: '#10b981', marginRight: '8px' }}>C ${(whaleCallPrem / 1000000).toFixed(1)}M</span>
+                      <span style={{ color: '#ef4444' }}>P ${(whalePutPrem / 1000000).toFixed(1)}M</span>
+                    </div>
+                  </div>
+
+                  {/* Dual Distribution Bar */}
+                  <div style={{ height: '6px', borderRadius: '3px', background: 'rgba(255,255,255,0.08)', overflow: 'hidden', display: 'flex', marginBottom: '16px' }}>
+                    <div style={{ width: `${callPctShare}%`, background: 'linear-gradient(90deg, #059669, #10b981)', transition: 'width 0.4s ease' }} />
+                    <div style={{ width: `${putPctShare}%`, background: 'linear-gradient(90deg, #ef4444, #dc2626)', transition: 'width 0.4s ease' }} />
+                  </div>
+
+                  {/* Three metrics */}
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px', borderTop: '1px solid rgba(255,255,255,0.04)', paddingTop: '14px' }}>
+                    <div style={{ background: 'rgba(30, 41, 59, 0.15)', padding: '10px 8px', borderRadius: '8px', textAlign: 'center', border: '1px solid rgba(255,255,255,0.02)' }}>
+                      <div style={{ font: 'var(--f-micro)', color: 'var(--text-muted)', fontWeight: 800, fontSize: '9px', textTransform: 'uppercase' }}>Dark Pool %</div>
+                      <div className="tnum" style={{ font: 'var(--f-body)', fontWeight: 900, color: 'var(--cyan)', marginTop: '4px' }}>{dpPct}</div>
+                      <span style={{ font: 'var(--f-micro)', color: 'var(--text-muted)', fontSize: '8px', display: 'block', marginTop: '2px', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>
+                        {dpNetBuyStr}
+                      </span>
+                    </div>
+                    <div style={{ background: 'rgba(30, 41, 59, 0.15)', padding: '10px 8px', borderRadius: '8px', textAlign: 'center', border: '1px solid rgba(255,255,255,0.02)' }}>
+                      <div style={{ font: 'var(--f-micro)', color: 'var(--text-muted)', fontWeight: 800, fontSize: '9px', textTransform: 'uppercase' }}>Short Vol %</div>
+                      <div className="tnum" style={{ font: 'var(--f-body)', fontWeight: 900, color: '#f43f5e', marginTop: '4px' }}>{shortPct}</div>
+                      <span style={{ font: 'var(--f-micro)', color: 'var(--text-muted)', fontSize: '8px', display: 'block', marginTop: '2px' }}>
+                        {locale === 'ko' ? '일일 공매도' : 'Daily Short'}
+                      </span>
+                    </div>
+                    <div style={{ background: 'rgba(30, 41, 59, 0.15)', padding: '10px 8px', borderRadius: '8px', textAlign: 'center', border: '1px solid rgba(255,255,255,0.02)' }}>
+                      <div style={{ font: 'var(--f-micro)', color: 'var(--text-muted)', fontWeight: 800, fontSize: '9px', textTransform: 'uppercase' }}>Block Trades</div>
+                      <div className="tnum" style={{ font: 'var(--f-body)', fontWeight: 900, color: '#ffffff', marginTop: '4px' }}>{blockCount}</div>
+                      <span style={{ font: 'var(--f-micro)', color: 'var(--text-muted)', fontSize: '8px', display: 'block', marginTop: '2px' }}>
+                        {locale === 'ko' ? '대량 체결' : 'Block Trades'}
+                      </span>
+                    </div>
+                  </div>
                 </div>
-                <div style={{ background: 'rgba(255,255,255,0.02)', padding: '10px 8px', borderRadius: '6px', textAlign: 'center', border: '1px solid rgba(255,255,255,0.03)' }}>
-                  <div style={{ font: 'var(--f-micro)', color: 'var(--text-muted)' }}>Short Vol %</div>
-                  <div className="tnum" style={{ font: 'var(--f-h3)', fontWeight: 800, color: 'var(--red)', marginTop: '4px' }}>{shortPct}</div>
-                  <span style={{ font: 'var(--f-micro)', color: 'var(--text-muted)', fontSize: '8px', display: 'block', marginTop: '2px', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }} title={shortVolStr}>
-                    {locale === 'ko' ? '일일 공매도' : locale === 'ja' ? '日次空売' : 'Daily Short'}
-                  </span>
-                </div>
-                <div style={{ background: 'rgba(255,255,255,0.02)', padding: '10px 8px', borderRadius: '6px', textAlign: 'center', border: '1px solid rgba(255,255,255,0.03)' }}>
-                  <div style={{ font: 'var(--f-micro)', color: 'var(--text-muted)' }}>Block Trades</div>
-                  <div className="tnum" style={{ font: 'var(--f-h3)', fontWeight: 800, color: 'var(--text)', marginTop: '4px' }}>{blockCount}</div>
-                  <span style={{ font: 'var(--f-micro)', color: 'var(--text-muted)', fontSize: '8px', display: 'block', marginTop: '2px' }}>
-                    {locale === 'ko' ? '대량 거래 건수' : locale === 'ja' ? '大口取引件数' : 'Block Count'}
-                  </span>
-                </div>
-              </div>
-            </div>
+              );
+            })()}
 
             {/* VALUE WALL / PREMIUM OPTIONS TABLE */}
-            <div style={{ position: 'relative', overflow: 'hidden', background: 'var(--surface-1)', border: '1px solid var(--border)', borderRadius: 'var(--r-card)' }}>
+            <div style={{ position: 'relative', overflow: 'hidden', background: 'rgba(30, 41, 59, 0.12)', border: '1px solid rgba(255,255,255,0.03)', borderRadius: '14px', padding: '12px' }}>
               {/* Sub-Tab Selector */}
-              <div style={{ display: 'flex', borderBottom: '1px solid var(--border)', padding: '4px', gap: '4px' }}>
+              <div style={{ display: 'flex', background: 'rgba(0,0,0,0.2)', padding: '3px', borderRadius: '8px', marginBottom: '14px' }}>
                 <button
                   onClick={() => setFlowTab('whale')}
                   style={{
                     flex: 1,
-                    padding: '10px 0',
-                    borderRadius: 'var(--r-btn)',
+                    padding: '8px 0',
+                    borderRadius: '6px',
                     border: 'none',
-                    background: flowTab === 'whale' ? 'var(--cyan-dim)' : 'transparent',
-                    color: flowTab === 'whale' ? 'var(--cyan)' : 'var(--text-dim)',
-                    font: 'var(--f-micro)',
-                    fontWeight: 800,
+                    background: flowTab === 'whale' ? 'rgba(6, 182, 212, 0.15)' : 'transparent',
+                    color: flowTab === 'whale' ? 'var(--cyan)' : 'var(--text-muted)',
+                    fontSize: '10px',
+                    fontWeight: 900,
                     cursor: 'pointer',
+                    textTransform: 'uppercase',
                     transition: 'all 0.2s ease',
                   }}
                 >
@@ -1283,14 +2254,15 @@ export default function AppFlowPage() {
                   onClick={() => setFlowTab('darkpool')}
                   style={{
                     flex: 1,
-                    padding: '10px 0',
-                    borderRadius: 'var(--r-btn)',
+                    padding: '8px 0',
+                    borderRadius: '6px',
                     border: 'none',
-                    background: flowTab === 'darkpool' ? 'var(--cyan-dim)' : 'transparent',
-                    color: flowTab === 'darkpool' ? 'var(--cyan)' : 'var(--text-dim)',
-                    font: 'var(--f-micro)',
-                    fontWeight: 800,
+                    background: flowTab === 'darkpool' ? 'rgba(6, 182, 212, 0.15)' : 'transparent',
+                    color: flowTab === 'darkpool' ? 'var(--cyan)' : 'var(--text-muted)',
+                    fontSize: '10px',
+                    fontWeight: 900,
                     cursor: 'pointer',
+                    textTransform: 'uppercase',
                     transition: 'all 0.2s ease',
                   }}
                 >
@@ -1298,134 +2270,54 @@ export default function AppFlowPage() {
                 </button>
               </div>
 
-              {/* Compact scrollable container with customized scrollbar */}
-              <div className="premium-scroll" style={{ maxHeight: '280px', overflowY: 'auto', padding: '0 12px 14px' }}>
-                {flowTab === 'whale' ? (
-                  /* Whale Sweep Radar */
-                  <div>
-                    {/* Header */}
-                    <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid var(--border)', font: 'var(--f-micro)', color: 'var(--text-muted)', position: 'sticky', top: 0, background: 'var(--surface-1)', zIndex: 5 }}>
-                      <span style={{ width: '55px' }}>{locale === 'ko' ? '시간' : locale === 'ja' ? '時刻' : 'TIME'}</span>
-                      <span style={{ width: '65px', textAlign: 'center' }}>{locale === 'ko' ? '행사가' : locale === 'ja' ? '行使価格' : 'STRIKE'}</span>
-                      <span style={{ width: '35px', textAlign: 'center' }}>{locale === 'ko' ? '유형' : locale === 'ja' ? 'タイプ' : 'TYPE'}</span>
-                      <span style={{ width: '50px', textAlign: 'center' }}>{locale === 'ko' ? '만기' : locale === 'ja' ? '満期' : 'EXPIRY'}</span>
-                      <span style={{ flex: 1, textAlign: 'right' }}>{locale === 'ko' ? '프리미엄' : locale === 'ja' ? 'プレミアム' : 'PREMIUM'}</span>
-                    </div>
-                    {/* List */}
-                    {whaleSweeps.map((tx, idx) => {
-                      const blur = isLocked && idx >= 3;
-                      return (
-                        <div 
-                          key={idx} 
-                          style={{ 
-                            display: 'flex', 
-                            justifyContent: 'space-between', 
-                            padding: '12px 0', 
-                            borderBottom: idx < whaleSweeps.length - 1 ? '1px solid rgba(255,255,255,0.03)' : 'none', 
-                            font: 'var(--f-small)',
-                            filter: blur ? 'blur(5px)' : 'none',
-                            opacity: blur ? 0.25 : 1,
-                            pointerEvents: blur ? 'none' : 'auto',
-                            transition: 'filter 0.3s ease, opacity 0.3s ease'
-                          }}
-                        >
-                          <span className="tnum" style={{ width: '55px', color: 'var(--text-dim)' }}>{tx.time}</span>
-                          <span className="tnum" style={{ width: '65px', textAlign: 'center', fontWeight: 700, color: 'var(--text)' }}>
-                            ${tx.strike}
-                          </span>
-                          <span style={{ width: '35px', textAlign: 'center', fontWeight: 900, color: tx.type === 'CALL' ? 'var(--green)' : 'var(--red)' }}>
-                            {tx.type === 'CALL' ? 'C' : 'P'}
-                          </span>
-                          <span className="tnum" style={{ width: '50px', textAlign: 'center', color: 'var(--text-dim)' }}>{tx.expiry}</span>
-                          <span className="tnum" style={{ flex: 1, textAlign: 'right', fontWeight: 700, color: tx.dir === 'ASK' ? 'var(--green)' : tx.dir === 'BID' ? 'var(--red)' : 'var(--text)' }}>
-                            ${(tx.premium / 1000).toFixed(1)}K
-                          </span>
-                        </div>
-                      );
-                    })}
+              {/* Horizontal Scroll Deck wrapped in ValueWall */}
+              <ValueWall
+                title={locale === 'ko' ? '기관급 실시간 옵션 체인' : locale === 'ja' ? '機関レベルのオプションチェーン' : 'Institutional Options Chain'}
+                subtitle={<>{locale === 'ko' ? '실시간 고래 거래 + 다크풀 플로우, ' : locale === 'ja' ? 'リアルタイムホエール取引 + リアルタイムダークプール, ' : 'Real-time whale sweeps + block trades, '}<span style={{ color: 'var(--amber)' }}><b>{locale === 'ko' ? '지금 업데이트 중' : locale === 'ja' ? '更新중' : 'updating now'}</b></span>.</>}
+                socialProof={locale === 'ko' ? '오늘 14.2K 잠금해제' : locale === 'ja' ? '本日14.2Kがロック解除' : '14.2K unlocked today'}
+                onUnlock={() => setIsLocked(false)}
+                lockedPreview={
+                  <div 
+                    className="premium-scroll no-scrollbar" 
+                    style={{ 
+                      display: 'flex',
+                      gap: '12px',
+                      overflowX: 'hidden',
+                      padding: '4px 0 10px',
+                      opacity: 0.12,
+                      filter: 'blur(3px)',
+                      pointerEvents: 'none'
+                    }}
+                    aria-hidden="true"
+                  >
+                    {flowTab === 'whale'
+                      ? whaleSweeps.slice(0, 2).map((tx, idx) => renderWhaleCard(tx, idx))
+                      : darkPoolTrades.slice(0, 2).map((tx, idx) => renderDarkPoolCard(tx, idx))
+                    }
                   </div>
-                ) : (
-                  /* Dark Pool & Institutional Block Trades */
-                  <div>
-                    {/* Header */}
-                    <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid var(--border)', font: 'var(--f-micro)', color: 'var(--text-muted)', position: 'sticky', top: 0, background: 'var(--surface-1)', zIndex: 5 }}>
-                      <span style={{ width: '90px' }}>{"TIME / EXCH"}</span>
-                      <span style={{ width: '80px', textAlign: 'center' }}>{"PRICE / SIDE"}</span>
-                      <span style={{ flex: 1, textAlign: 'right' }}>{"VALUE / SIZE"}</span>
-                    </div>
-                    {/* List */}
-                    {darkPoolTrades.map((tx, idx) => {
-                      const blur = isLocked && idx >= 3;
-                      const isBuy = tx.side === 'BUY';
-                      const isSell = tx.side === 'SELL';
-                      const sideColor = isBuy ? 'var(--green)' : isSell ? 'var(--red)' : 'var(--text-muted)';
-                      const sideText = isBuy ? 'BUY' : isSell ? 'SELL' : 'NEUTRAL';
-                      
-                      return (
-                        <div 
-                          key={idx} 
-                          style={{ 
-                            display: 'flex', 
-                            justifyContent: 'space-between', 
-                            padding: '12px 0', 
-                            borderBottom: idx < darkPoolTrades.length - 1 ? '1px solid rgba(255,255,255,0.03)' : 'none', 
-                            font: 'var(--f-small)',
-                            filter: blur ? 'blur(5px)' : 'none',
-                            opacity: blur ? 0.25 : 1,
-                            pointerEvents: blur ? 'none' : 'auto',
-                            transition: 'filter 0.3s ease, opacity 0.3s ease'
-                          }}
-                        >
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', width: '90px' }}>
-                            <span className="tnum" style={{ color: 'var(--text-dim)', fontSize: '11px' }}>{tx.timeET}</span>
-                            <span style={{ fontSize: '9px', color: 'var(--text-muted)' }}>{tx.exchangeName}</span>
-                          </div>
-                          <div style={{ width: '80px', display: 'flex', flexDirection: 'column', gap: '2px', alignItems: 'center' }}>
-                            <span className="tnum" style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text)' }}>${tx.price.toFixed(2)}</span>
-                            <span style={{ fontSize: '9px', fontWeight: 700, color: sideColor }}>{sideText}</span>
-                          </div>
-                          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '2px', alignItems: 'flex-end' }}>
-                            <span className="tnum" style={{ fontSize: '11px', fontWeight: 800, color: 'var(--cyan)' }}>
-                              ${(tx.premium / 1000).toFixed(0)}K
-                            </span>
-                            <span style={{ fontSize: '9px', color: 'var(--text-muted)' }}>
-                              {(tx.size / 1000).toFixed(1)}K shares
-                            </span>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-
-              {/* Lock Overlay — ValueWall inside position:relative container */}
-              {isLocked && (
-                <div style={{
-                  position: 'absolute',
-                  left: 0,
-                  right: 0,
-                  top: '90px',
-                  bottom: 0,
-                  zIndex: 10,
-                  display: 'flex',
-                  flexDirection: 'column',
-                  justifyContent: 'center',
-                }}>
-                  <div style={{ height: '50px', background: 'linear-gradient(to bottom, rgba(5,10,20,0) 0%, rgba(5,10,20,1) 100%)' }} />
-                  <div style={{ background: 'rgba(5,10,20,1)', padding: '0 8px 8px' }}>
-                    <ValueWall
-                      title={locale === 'ko' ? '기관급 실시간 옵션 체인' : locale === 'ja' ? '機関レベルのオプションチェーン' : 'Institutional Options Chain'}
-                      subtitle={<>{locale === 'ko' ? '실시간 고래 거래 + 다크풀 플로우, ' : locale === 'ja' ? 'リアルタイムホエール取引 + ダークプールフロー、' : 'Real-time whale trades + dark-pool flow, '}<span style={{ color: 'var(--amber)' }}><b>{locale === 'ko' ? '지금 업데이트 중' : locale === 'ja' ? '更新中' : 'updating now'}</b></span>.</>}
-                      teaser={{
-                        label: locale === 'ko' ? 'INSTITUTIONAL · 무료 미리보기' : locale === 'ja' ? 'INSTITUTIONAL · 無料プレビュー' : 'INSTITUTIONAL · FREE PREVIEW',
-                        value: volRegime || 'LOADED'
-                      }}
-                      socialProof={locale === 'ko' ? '오늘 14.2K 잠금해제' : locale === 'ja' ? '本日14.2Kがロック解除' : '14.2K unlocked today'}
-                    />
-                  </div>
+                }
+              >
+                <div 
+                  className="premium-scroll no-scrollbar" 
+                  style={{ 
+                    display: 'flex',
+                    gap: '12px',
+                    overflowX: 'auto',
+                    padding: '4px 0 10px',
+                    scrollSnapType: 'x mandatory',
+                    WebkitOverflowScrolling: 'touch',
+                    minHeight: '145px'
+                  }}
+                >
+                  {flowTab === 'whale' ? (
+                    /* Whale Sweep Radar Deck */
+                    whaleSweeps.map((tx, idx) => renderWhaleCard(tx, idx))
+                  ) : (
+                    /* Dark Pool & Block Trades Deck */
+                    darkPoolTrades.map((tx, idx) => renderDarkPoolCard(tx, idx))
+                  )}
                 </div>
-              )}
+              </ValueWall>
             </div>
 
             {/* Max Pain Info (also blurred if locked) */}
@@ -1433,37 +2325,36 @@ export default function AppFlowPage() {
               filter: isLocked ? 'blur(5px)' : 'none',
               opacity: isLocked ? 0.25 : 1,
               padding: '12px 14px',
-              margin: '0 12px 12px',
-              background: 'var(--surface-2)',
-              border: '1px solid var(--border)',
-              borderRadius: 'var(--r-btn)',
+              margin: 0,
+              background: 'rgba(30, 41, 59, 0.15)',
+              border: '1px solid rgba(255,255,255,0.03)',
+              borderRadius: '12px',
               display: 'flex',
               justifyContent: 'space-between',
               alignItems: 'center',
               transition: 'all 0.3s ease'
             }}>
-              <span style={{ font: 'var(--f-small)', color: 'var(--text-dim)' }}>{t.maxPain}</span>
-              <span className="tnum" style={{ font: 'var(--f-h3)', fontWeight: 800, color: 'var(--amber)' }}>
+              <span style={{ fontSize: '10px', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{t.maxPain}</span>
+              <span className="tnum" style={{ fontSize: '16px', fontWeight: 900, color: 'var(--amber)' }}>
                 ${maxPainVal.toFixed(1)}
               </span>
             </div>
 
-          </div>
-      )}
-
-      {/* 4. STRIKE PROFILE TAB */}
+        </div>
+      )}{/* 4. STRIKE PROFILE TAB */}
       {activeTab === 'strike-profile' && (() => {
         // Group rawChain by strike price
         const strikeMap: Record<number, { strike: number; put: number; call: number; isWall: boolean; isFloor: boolean; isUnderlyer?: boolean }> = {};
         
+        const chain = rawChain || [];
         // Find nearest expiration date
-        const expirations = Array.from(new Set(rawChain.map(opt => opt.details?.expiration_date).filter(Boolean))).sort() as string[];
+        const expirations = Array.from(new Set(chain.map(opt => opt.details?.expiration_date).filter(Boolean))).sort() as string[];
         const nearestExpiry = expirations[0] || '';
         
         // Filter options for this nearest expiry (or all if none)
         const filteredChain = nearestExpiry 
-          ? rawChain.filter(opt => opt.details?.expiration_date === nearestExpiry)
-          : rawChain;
+          ? chain.filter(opt => opt.details?.expiration_date === nearestExpiry)
+          : chain;
 
         filteredChain.forEach(opt => {
           const strike = opt.details?.strike_price;
@@ -1558,21 +2449,25 @@ export default function AppFlowPage() {
 
         return (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', padding: '0 16px var(--s4)' }} className="animate-in fade-in duration-200">
-            <div className="app-card" style={{ padding: '18px 16px', margin: 0 }}>
-              <div className="app-card-head" style={{ marginBottom: '14px' }}>
-                <span className="app-card-title">{locale === 'ko' ? '장중 행사가 프로파일' : locale === 'ja' ? 'イントラデイ行使価格プロファイル' : 'INTRADAY STRIKE PROFILE'}</span>
-                <span style={{ font: 'var(--f-micro)', color: 'var(--text-muted)' }}>{expiryLabel}</span>
+            <div className="premium-card" style={{ padding: '18px 16px', margin: 0, borderTop: 'none', borderTopLeftRadius: '0px', borderTopRightRadius: '0px' }}>
+              <div className="app-card-head" style={{ marginBottom: '14px', alignItems: 'center' }}>
+                <span className="app-card-title" style={{ display: 'inline-flex', alignItems: 'center', color: 'var(--text-muted)', fontWeight: 800, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                  {locale === 'ko' ? '장중 행사가 프로파일' : locale === 'ja' ? 'イントラデイ行使価格プロファイル' : 'INTRADAY STRIKE PROFILE'}
+                </span>
+                <span style={{ fontSize: '9px', fontWeight: 900, background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.08)', color: 'var(--text-muted)', padding: '2px 8px', borderRadius: '12px', letterSpacing: '0.04em' }}>
+                  {expiryLabel}
+                </span>
               </div>
 
               {/* Label header */}
-              <div style={{ display: 'flex', justifyContent: 'space-between', font: 'var(--f-micro)', color: 'var(--text-muted)', paddingBottom: '6px', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                <span>{locale === 'ko' ? 'PUT (매도/하방 지지)' : locale === 'ja' ? 'PUT (売り/下値支持)' : 'PUT (Sell/Support)'}</span>
+              <div style={{ display: 'flex', justifyContent: 'space-between', font: 'var(--f-micro)', color: 'var(--text-muted)', paddingBottom: '8px', borderBottom: '1px solid rgba(255,255,255,0.05)', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                <span style={{ color: '#ef4444' }}>{locale === 'ko' ? 'PUT 지지' : 'PUT SUPPORT'}</span>
                 <span style={{ width: '60px', textAlign: 'center' }}>STRIKE</span>
-                <span>{locale === 'ko' ? 'CALL (매수/상방 저항)' : locale === 'ja' ? 'CALL (買い/上値抵抗)' : 'CALL (Buy/Resistance)'}</span>
+                <span style={{ color: '#10b981' }}>{locale === 'ko' ? 'CALL 저항' : 'CALL RESIST'}</span>
               </div>
 
               {/* Bar List */}
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '10px', position: 'relative' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '14px', position: 'relative' }}>
                 
                 {/* Dynamic Underlyer Line */}
                 {(() => {
@@ -1583,16 +2478,16 @@ export default function AppFlowPage() {
                   const bottomStrike = selectedStrikes[selectedStrikes.length - 1];
                   
                   if (displayPrice >= topStrike) {
-                    yPos = 10;
+                    yPos = 13;
                   } else if (displayPrice <= bottomStrike) {
-                    yPos = (selectedStrikes.length - 1) * 30 + 10;
+                    yPos = (selectedStrikes.length - 1) * 36 + 13;
                   } else {
                     for (let i = 0; i < selectedStrikes.length - 1; i++) {
                       const upper = selectedStrikes[i];
                       const lower = selectedStrikes[i + 1];
                       if (displayPrice <= upper && displayPrice > lower) {
                         const ratio = (upper - displayPrice) / (upper - lower);
-                        yPos = i * 30 + 10 + ratio * 30;
+                        yPos = i * 36 + 13 + ratio * 36;
                         break;
                       }
                     }
@@ -1616,19 +2511,20 @@ export default function AppFlowPage() {
                         flex: 1,
                         borderTop: '1.5px dashed var(--cyan)',
                         opacity: 0.85,
-                        boxShadow: '0 0 4px rgba(6, 182, 212, 0.5)'
+                        boxShadow: '0 0 6px rgba(6, 182, 212, 0.4)'
                       }} />
                       <div style={{
                         background: 'rgba(6, 182, 212, 0.95)',
                         color: '#050a14',
-                        font: '700 9px var(--f-mono)',
-                        padding: '2px 6px',
-                        borderRadius: '4px',
-                        boxShadow: '0 0 8px rgba(6, 182, 212, 0.6)',
-                        marginLeft: '6px',
-                        marginRight: '6px',
+                        font: '900 9px var(--f-mono)',
+                        padding: '3px 8px',
+                        borderRadius: '12px',
+                        boxShadow: '0 0 10px rgba(6, 182, 212, 0.5)',
+                        marginLeft: '8px',
+                        marginRight: '8px',
                         border: '1px solid var(--cyan)',
-                        whiteSpace: 'nowrap'
+                        whiteSpace: 'nowrap',
+                        letterSpacing: '0.02em'
                       }}>
                         ${displayPrice.toFixed(2)}
                       </div>
@@ -1636,7 +2532,7 @@ export default function AppFlowPage() {
                         flex: 1,
                         borderTop: '1.5px dashed var(--cyan)',
                         opacity: 0.85,
-                        boxShadow: '0 0 4px rgba(6, 182, 212, 0.5)'
+                        boxShadow: '0 0 6px rgba(6, 182, 212, 0.4)'
                       }} />
                     </div>
                   );
@@ -1652,16 +2548,18 @@ export default function AppFlowPage() {
                   const isFloor = strike === floorStrike;
 
                   return (
-                    <div key={idx} style={{ display: 'flex', alignItems: 'center', height: '20px', position: 'relative' }}>
+                    <div key={idx} style={{ display: 'flex', alignItems: 'center', height: '26px', position: 'relative' }}>
                       {/* Put bar (grows left) */}
-                      <div style={{ flex: 1, display: 'flex', justifyContent: 'flex-end', paddingRight: '10px' }}>
+                      <div style={{ flex: 1, display: 'flex', justifyContent: 'flex-end', paddingRight: '12px' }}>
                         <div style={{
                           width: `${putPct}%`,
-                          height: '8px',
-                          background: isFloor ? 'linear-gradient(90deg, #ef4444 0%, #ef4444 100%)' : 'rgba(239, 68, 68, 0.45)',
-                          borderRadius: '4px',
-                          boxShadow: isFloor ? '0 0 8px rgba(239, 68, 68, 0.5)' : 'none',
-                          transition: 'width 0.5s ease'
+                          height: '7px',
+                          background: isFloor 
+                            ? 'linear-gradient(270deg, rgba(239, 68, 68, 0.2) 0%, #ef4444 100%)' 
+                            : 'linear-gradient(270deg, rgba(239, 68, 68, 0.06) 0%, rgba(239, 68, 68, 0.65) 100%)',
+                          borderRadius: '3.5px',
+                          boxShadow: isFloor ? '0 0 8px rgba(239, 68, 68, 0.4)' : 'none',
+                          transition: 'width 0.4s ease'
                         }} />
                       </div>
 
@@ -1669,39 +2567,66 @@ export default function AppFlowPage() {
                       <div className="tnum" style={{
                         width: '60px',
                         textAlign: 'center',
-                        font: 'var(--f-micro)',
-                        fontWeight: 800,
-                        color: isClosest ? 'var(--cyan)' : 'var(--text)',
-                        background: isClosest ? 'rgba(6, 182, 212, 0.1)' : 'transparent',
+                        fontSize: '11px',
+                        fontWeight: 900,
+                        color: isClosest ? 'var(--cyan)' : '#ffffff',
+                        background: isClosest ? 'rgba(6, 182, 212, 0.12)' : 'transparent',
                         border: isClosest ? '1px solid rgba(6, 182, 212, 0.3)' : 'none',
-                        borderRadius: '4px',
+                        borderRadius: '6px',
                         padding: isClosest ? '2px 0' : 0,
-                        zIndex: 2
+                        zIndex: 2,
+                        textShadow: isClosest ? '0 0 8px rgba(6, 182, 212, 0.3)' : 'none'
                       }}>
                         ${strike}
                       </div>
 
                       {/* Call bar (grows right) */}
-                      <div style={{ flex: 1, display: 'flex', justifyContent: 'flex-start', paddingLeft: '10px' }}>
+                      <div style={{ flex: 1, display: 'flex', justifyContent: 'flex-start', paddingLeft: '12px' }}>
                         <div style={{
                           width: `${callPct}%`,
-                          height: '8px',
-                          background: isWall ? 'linear-gradient(90deg, #10b981 0%, #10b981 100%)' : 'rgba(16, 185, 129, 0.45)',
-                          borderRadius: '4px',
-                          boxShadow: isWall ? '0 0 8px rgba(16, 185, 129, 0.5)' : 'none',
-                          transition: 'width 0.5s ease'
+                          height: '7px',
+                          background: isWall 
+                            ? 'linear-gradient(90deg, rgba(16, 185, 129, 0.2) 0%, #10b981 100%)' 
+                            : 'linear-gradient(90deg, rgba(16, 185, 129, 0.06) 0%, rgba(16, 185, 129, 0.65) 100%)',
+                          borderRadius: '3.5px',
+                          boxShadow: isWall ? '0 0 8px rgba(16, 185, 129, 0.4)' : 'none',
+                          transition: 'width 0.4s ease'
                         }} />
                       </div>
 
                       {/* Floating Barrier Badges */}
                       {isWall && (
-                        <span style={{ position: 'absolute', right: 0, font: '600 8px var(--f-mono)', background: 'var(--green-dim)', color: 'var(--green)', padding: '1px 4px', borderRadius: '3px', border: '1px solid rgba(16,185,129,0.2)' }}>
-                          CALL WALL
+                        <span style={{
+                          position: 'absolute',
+                          right: 0,
+                          fontSize: '8px',
+                          fontFamily: 'var(--f-mono)',
+                          fontWeight: 900,
+                          background: 'rgba(16, 185, 129, 0.08)',
+                          color: '#10b981',
+                          padding: '2px 6px',
+                          borderRadius: '10px',
+                          border: '1px solid rgba(16, 185, 129, 0.2)',
+                          letterSpacing: '0.04em'
+                        }}>
+                          WALL
                         </span>
                       )}
                       {isFloor && (
-                        <span style={{ position: 'absolute', left: 0, font: '600 8px var(--f-mono)', background: 'var(--red-dim)', color: 'var(--red)', padding: '1px 4px', borderRadius: '3px', border: '1px solid rgba(239,68,68,0.2)' }}>
-                          PUT FLOOR
+                        <span style={{
+                          position: 'absolute',
+                          left: 0,
+                          fontSize: '8px',
+                          fontFamily: 'var(--f-mono)',
+                          fontWeight: 900,
+                          background: 'rgba(239, 68, 68, 0.08)',
+                          color: '#ef4444',
+                          padding: '2px 6px',
+                          borderRadius: '10px',
+                          border: '1px solid rgba(239, 68, 68, 0.2)',
+                          letterSpacing: '0.04em'
+                        }}>
+                          FLOOR
                         </span>
                       )}
                     </div>
@@ -1711,9 +2636,7 @@ export default function AppFlowPage() {
             </div>
           </div>
         );
-      })()}
-
-      </SwipeableTabs>
+      })()}</SwipeableTabs>
       </>)}
 
       {/* AD BANNER */}

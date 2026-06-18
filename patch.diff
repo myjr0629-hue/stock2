@@ -1,0 +1,1198 @@
+diff --git a/src/app/[locale]/app-view/flow/page.tsx b/src/app/[locale]/app-view/flow/page.tsx
+index d76821d8..51dbaf6a 100644
+--- a/src/app/[locale]/app-view/flow/page.tsx
++++ b/src/app/[locale]/app-view/flow/page.tsx
+@@ -863,152 +863,386 @@ export default function AppFlowPage() {
+       >
+       {activeTab === 'overview' && (
+         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', padding: '0 16px var(--s4)' }} className="animate-in fade-in duration-200">
+-          {/* PCR & OPI Gauge */}
+-          <div className="app-card" style={{ padding: '18px 16px', margin: 0 }}>
++          {/* OPI Radial Gauge (Module 1) */}
++          <div className="premium-card" style={{ padding: '20px 18px', margin: 0, position: 'relative' }}>
++            {renderPopover('opi', locale === 'ko' ? '?듭뀡 ?꾨씪?댁뒪 寃뚯씠吏 ??肄????ъ??붾떇 湲곕컲 媛寃??뺣젰 諛⑺뼢. +??肄?媛寃??곗쐞, -????媛寃??곗쐞?낅땲??' : 'Options Price Gauge ??price pressure direction from call/put positioning. Positive = call-price dominance, negative = put-price dominance.', locale === 'ko' ? 'OPI ?ㅻ챸' : 'OPI Info')}
+             <div className="app-card-head" style={{ marginBottom: 0 }}>
+-              <span className="app-card-title">{t.opiGauge}</span>
+-              <span style={{ font: 'var(--f-micro)', fontWeight: 700, color: gaugeColor }}>{gaugeStatus}</span>
++              <span className="app-card-title" style={{ display: 'inline-flex', alignItems: 'center', color: '#f8fafc', fontWeight: 800 }}>
++                {t.opiGauge}
++                <InfoBtn popKey="opi" />
++                <span style={{ 
++                  fontSize: '8px', 
++                  fontWeight: 900, 
++                  background: opiCalculated.isFallback ? 'rgba(239, 68, 68, 0.08)' : 'rgba(16, 185, 129, 0.08)', 
++                  color: opiCalculated.isFallback ? '#f43f5e' : '#10b981',
++                  border: `1px solid ${opiCalculated.isFallback ? 'rgba(239, 68, 68, 0.2)' : 'rgba(16, 185, 129, 0.2)'}`,
++                  padding: '2.5px 7px', 
++                  borderRadius: '12px', 
++                  marginLeft: '8px',
++                  verticalAlign: 'middle',
++                  textTransform: 'uppercase',
++                  letterSpacing: '0.08em'
++                }}>
++                  {opiCalculated.isFallback ? (locale === 'ko' ? '?λ쭏媛? : 'Closed') : (locale === 'ko' ? '?μ쨷 ?묐룞' : 'Intraday')}
++                </span>
++              </span>
++              <span style={{ font: 'var(--f-micro)', fontWeight: 900, color: gaugeColor, letterSpacing: '0.05em' }}>{gaugeStatus}</span>
+             </div>
+ 
+             {/* Semi-circular Gauge */}
+-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginTop: 12, position: 'relative' }}>
+-              <svg width="180" height="96" viewBox="0 0 180 96">
++            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginTop: 12, position: 'relative', height: '115px' }}>
++              <svg width="190" height="105" viewBox="0 0 180 100">
++                <defs>
++                  <linearGradient id="opiGaugeGrad" x1="0" y1="0" x2="1" y2="0">
++                    <stop offset="0%" stopColor="#f43f5e" />
++                    <stop offset="50%" stopColor="#fbbf24" />
++                    <stop offset="100%" stopColor="#10b981" />
++                  </linearGradient>
++                  <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
++                    <feGaussianBlur stdDeviation="3" result="blur" />
++                    <feComposite in="SourceGraphic" in2="blur" operator="over" />
++                  </filter>
++                </defs>
++                {/* Arc track */}
+                 <path
+                   d={describeArc(90, 90, 80, -90, 90)}
+                   fill="none"
+-                  stroke="rgba(255,255,255,0.04)"
+-                  strokeWidth="10"
++                  stroke="rgba(255, 255, 255, 0.04)"
++                  strokeWidth="6"
+                   strokeLinecap="round"
+                 />
++                {/* Filled arc with gradient */}
+                 <path
+                   d={describeArc(90, 90, 80, -90, -90 + (opi / 100) * 180)}
+                   fill="none"
+-                  stroke={gaugeColor}
+-                  strokeWidth="10"
++                  stroke="url(#opiGaugeGrad)"
++                  strokeWidth="7"
+                   strokeLinecap="round"
++                  style={{ filter: 'drop-shadow(0 0 6px rgba(16, 185, 129, 0.25))' }}
+                 />
+-                <circle cx="90" cy="90" r="5" fill="var(--text)" />
++                {/* Dial center pin */}
++                <circle cx="90" cy="90" r="4.5" fill="#f8fafc" />
++                {/* Dial hand */}
+                 <line
+                   x1="90"
+                   y1="90"
+                   x2="90"
+-                  y2="28"
+-                  stroke="var(--text)"
+-                  strokeWidth="2"
++                  y2="30"
++                  stroke="#ffffff"
++                  strokeWidth="2.5"
+                   strokeLinecap="round"
+                   transform={`rotate(${rotationAngle} 90 90)`}
+-                  style={{ transition: 'transform 0.8s ease-out' }}
++                  style={{ transition: 'transform 1.2s cubic-bezier(0.19, 1, 0.22, 1)' }}
++                  filter="url(#glow)"
+                 />
+               </svg>
+-              <div style={{ position: 'absolute', bottom: 2, textAlign: 'center' }}>
+-                <span className="tnum" style={{ font: 'var(--f-display)', fontSize: '24px', fontWeight: 800 }}>{opi.toFixed(1)}</span>
++              {/* Positioned value badge below the hand but inside the arc */}
++              <div style={{ position: 'absolute', bottom: '12px', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
++                <span className="tnum" style={{ font: 'var(--f-display)', fontSize: '32px', fontWeight: 900, color: '#ffffff', letterSpacing: '-0.03em', textShadow: '0 4px 12px rgba(0,0,0,0.4)' }}>
++                  {opi.toFixed(1)}
++                </span>
++                <span style={{ font: 'var(--f-micro)', fontWeight: 800, color: 'var(--text-muted)', fontSize: '8.5px', letterSpacing: '0.08em', textTransform: 'uppercase', marginTop: '-4px' }}>
++                  OPI SCORE
++                </span>
+               </div>
+             </div>
+ 
+             {/* PCR Summary */}
+-            <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid var(--border)', marginTop: 18, paddingTop: 14 }}>
+-              <div>
+-                <span style={{ font: 'var(--f-micro)', color: 'var(--text-muted)' }}>{t.pcRatio}</span>
+-                <div className="tnum" style={{ font: 'var(--f-h3)', fontWeight: 700, marginTop: 4 }}>{pcRatio.toFixed(2)}</div>
++            <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid rgba(255, 255, 255, 0.05)', marginTop: 14, paddingTop: 14 }}>
++              <div style={{ display: 'flex', flexDirection: 'column' }}>
++                <span style={{ font: 'var(--f-micro)', color: 'var(--text-muted)', fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{t.pcRatio}</span>
++                <span className="tnum" style={{ font: 'var(--f-body)', fontWeight: 800, color: '#ffffff', marginTop: 4 }}>{pcRatio.toFixed(2)}</span>
++              </div>
++              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
++                <span style={{ font: 'var(--f-micro)', color: 'var(--text-muted)', fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{locale === 'ko' ? '湲곗큹?먯궛 OPI' : 'Underlying OPI'}</span>
++                <span className="tnum" style={{ font: 'var(--f-body)', fontWeight: 800, color: gaugeColor, marginTop: 4 }}>{opi.toFixed(0)} ({gaugeStatus})</span>
+               </div>
+-              <div style={{ textAlign: 'right' }}>
+-                <span style={{ font: 'var(--f-micro)', color: 'var(--text-muted)' }}>{t.regime}</span>
+-                <div style={{ font: 'var(--f-h3)', fontWeight: 700, color: volRegime === 'ERUPTING' ? 'var(--red)' : volRegime === 'LOADED' ? 'var(--amber)' : 'var(--green)', marginTop: 4 }}>
++              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
++                <span style={{ font: 'var(--f-micro)', color: 'var(--text-muted)', fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{t.regime}</span>
++                <span style={{ 
++                  font: 'var(--f-micro)', 
++                  fontWeight: 900, 
++                  color: volRegime === 'ERUPTING' ? '#f43f5e' : volRegime === 'LOADED' ? '#fbbf24' : '#10b981',
++                  background: volRegime === 'ERUPTING' ? 'rgba(239, 68, 68, 0.08)' : volRegime === 'LOADED' ? 'rgba(245, 158, 11, 0.08)' : 'rgba(16, 185, 129, 0.08)',
++                  border: `1px solid ${volRegime === 'ERUPTING' ? 'rgba(239, 68, 68, 0.15)' : volRegime === 'LOADED' ? 'rgba(245, 158, 11, 0.15)' : 'rgba(16, 185, 129, 0.15)'}`,
++                  padding: '2px 6px',
++                  borderRadius: '4px',
++                  marginTop: 4,
++                  letterSpacing: '0.03em'
++                }}>
+                   {volRegime}
+-                </div>
++                </span>
+               </div>
+             </div>
+           </div>
+ 
+-          {/* Premium Total Option Flows (Call/Put double bar) */}
+-          <div className="app-card" style={{ padding: '16px', margin: 0 }}>
++          {/* Sentiment & Squeeze Grid (Module 2) */}
++          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
++            {/* Left Card: Composite Index */}
++            {(() => {
++              const compStatus = compositeIndex >= 65 ? (locale === 'ko' ? '媛뺤꽭 ?섍툒' : 'Strong Bullish') : compositeIndex >= 40 ? (locale === 'ko' ? '以묐┰ ?쇱“' : 'Neutral Mixed') : (locale === 'ko' ? '?쎌꽭 ?먮쫫' : 'Bearish Flow');
++              const compColor = compositeIndex >= 65 ? '#10b981' : compositeIndex >= 40 ? '#fbbf24' : '#f43f5e';
++              const radius = 24;
++              const circum = 2 * Math.PI * radius;
++              const strokeDashoffset = circum - (compositeIndex / 100) * circum;
++              
++              return (
++                <div className="premium-card" style={{ padding: '16px 14px', margin: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px', position: 'relative' }}>
++                  {renderPopover('composite', locale === 'ko' ? '蹂듯빀 吏??吏????GEX ?덉쭚, OPI, IV Rank, PC Ratio ??9媛??듭떖 吏?쒖쓽 諛⑺뼢 ?쇱튂?꾨? 媛以??먯닔?뷀븳 吏?쒖엯?덈떎.' : 'Multi-indicator composite ??direction alignment score across 9 core indicators (flow, gamma, IV, short interest, etc.).', locale === 'ko' ? '醫낇빀吏???ㅻ챸' : 'Composite Info')}
++                  <span className="app-card-title" style={{ fontSize: '10px', alignSelf: 'flex-start', display: 'inline-flex', alignItems: 'center', color: 'var(--text-muted)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
++                    {locale === 'ko' ? '醫낇빀 ?섍툒 吏?? : 'Composite Index'}
++                    <InfoBtn popKey="composite" />
++                  </span>
++                  <div style={{ position: 'relative', width: '64px', height: '64px', marginTop: '2px' }}>
++                    <svg width="64" height="64" viewBox="0 0 64 64" style={{ transform: 'rotate(-90deg)' }}>
++                      <circle cx="32" cy="32" r={radius} fill="none" stroke="rgba(255,255,255,0.03)" strokeWidth="3" />
++                      <circle cx="32" cy="32" r={radius} fill="none" stroke={compColor} strokeWidth="3" strokeDasharray={circum} strokeDashoffset={strokeDashoffset} strokeLinecap="round" style={{ filter: `drop-shadow(0 0 4px ${compColor})` }} />
++                    </svg>
++                    <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', font: 'var(--f-small)', fontWeight: 900, color: '#ffffff', fontSize: '13px' }}>
++                      {compositeIndex}%
++                    </div>
++                  </div>
++                  <span style={{ fontSize: '11px', fontWeight: 800, color: compColor, letterSpacing: '0.02em' }}>{compStatus}</span>
++                </div>
++              );
++            })()}
++
++            {/* Right Card: Squeeze Probability */}
++            {(() => {
++              const sqStatus = squeezeProb >= 70 ? (locale === 'ko' ? '?믪쓬 (?꾪뿕)' : 'High Squeeze') : squeezeProb >= 40 ? (locale === 'ko' ? '蹂댄넻 (?湲?' : 'Moderate') : (locale === 'ko' ? '—'쓬 (?덉젙)' : 'Low Squeeze');
++              const sqColor = squeezeProb >= 70 ? '#f43f5e' : squeezeProb >= 40 ? '#fbbf24' : '#10b981';
++              const radius = 24;
++              const circum = 2 * Math.PI * radius;
++              const strokeDashoffset = circum - (squeezeProb / 100) * circum;
++
++              return (
++                <div className="premium-card" style={{ padding: '16px 14px', margin: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '10px', position: 'relative' }}>
++                  {renderPopover('squeeze', locale === 'ko' ? '—'?ㅽ댁쫰 吏????怨듬ℓ??鍮꾩쑉, ?李??댁슜瑜? DTC(Days to Cover) ?깆쓣 媛以??곗궛??蹂?숈꽦 遺꾩텧 ?뺣쪧?낅땲??' : 'Short squeeze indicator ??combines short interest, utilization rate & DTC. Higher values indicate increased squeeze pressure.', locale === 'ko' ? '?ㅽ댁쫰 ?뺣쪧 ?ㅻ챸' : 'Squeeze Info')}
++                  <span className="app-card-title" style={{ fontSize: '10px', alignSelf: 'flex-start', display: 'inline-flex', alignItems: 'center', color: 'var(--text-muted)', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
++                    {locale === 'ko' ? '?ㅽ댁쫰 遺꾩텧 ?뺣쪧' : 'Squeeze Probability'}
++                    <InfoBtn popKey="squeeze" />
++                  </span>
++                  <div style={{ position: 'relative', width: '64px', height: '64px', marginTop: '2px' }}>
++                    <svg width="64" height="64" viewBox="0 0 64 64" style={{ transform: 'rotate(-90deg)' }}>
++                      <circle cx="32" cy="32" r={radius} fill="none" stroke="rgba(255,255,255,0.03)" strokeWidth="3" />
++                      <circle cx="32" cy="32" r={radius} fill="none" stroke={sqColor} strokeWidth="3" strokeDasharray={circum} strokeDashoffset={strokeDashoffset} strokeLinecap="round" style={{ filter: `drop-shadow(0 0 4px ${sqColor})` }} />
++                    </svg>
++                    <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', font: 'var(--f-small)', fontWeight: 900, color: '#ffffff', fontSize: '13px' }}>
++                      {squeezeProb}%
++                    </div>
++                  </div>
++                  <span style={{ fontSize: '11px', fontWeight: 800, color: sqColor, letterSpacing: '0.02em' }}>{sqStatus}</span>
++                </div>
++              );
++            })()}
++          </div>
++
++          {/* Premium Total Option Flows (Module 3) */}
++          <div className="premium-card" style={{ padding: '18px 16px', margin: 0 }}>
+             <div className="app-card-head" style={{ marginBottom: '8px' }}>
+-              <span className="app-card-title">{t.totalPremium}</span>
+-              <span className="tnum" style={{ font: 'var(--f-h3)', fontWeight: 700, color: 'var(--text)' }}>
++              <span className="app-card-title" style={{ color: 'var(--text-muted)', fontWeight: 800, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{t.totalPremium}</span>
++              <span className="tnum" style={{ font: 'var(--f-h2)', fontWeight: 900, color: '#ffffff', letterSpacing: '-0.02em' }}>
+                 ${(totalPrem / 1000000).toFixed(1)}M
+               </span>
+             </div>
+             
+-            <div style={{ background: 'rgba(255,255,255,0.03)', height: '10px', borderRadius: '5px', overflow: 'hidden', display: 'flex', margin: '4px 0 12px' }}>
+-              <div style={{ width: `${callPct}%`, background: 'var(--green)', height: '100%' }} />
+-              <div style={{ width: `${100 - callPct}%`, background: 'var(--red)', height: '100%' }} />
++            <div style={{ background: 'rgba(255,255,255,0.02)', height: '8px', borderRadius: '4px', overflow: 'hidden', display: 'flex', margin: '6px 0 14px', border: '1px solid rgba(255,255,255,0.03)' }}>
++              <div style={{ width: `${callPct}%`, background: 'linear-gradient(90deg, #10b981, #34d399)', height: '100%' }} />
++              <div style={{ width: `${100 - callPct}%`, background: 'linear-gradient(90deg, #ef4444, #f43f5e)', height: '100%' }} />
+             </div>
+ 
+             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+               <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+-                <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--green)' }} />
+-                <span style={{ font: 'var(--f-micro)', color: 'var(--text-dim)' }}>{t.callBullish}</span>
+-                <span className="tnum" style={{ font: 'var(--f-micro)', fontWeight: 700, color: 'var(--green)' }}>{callPct.toFixed(1)}%</span>
++                <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#10b981', boxShadow: '0 0 6px #10b981' }} />
++                <span style={{ font: 'var(--f-micro)', color: 'var(--text-dim)', fontWeight: 600 }}>{t.callBullish}</span>
++                <span className="tnum" style={{ font: 'var(--f-micro)', fontWeight: 800, color: '#10b981' }}>{callPct.toFixed(1)}%</span>
+               </div>
+               <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginLeft: 'auto' }}>
+-                <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--red)' }} />
+-                <span style={{ font: 'var(--f-micro)', color: 'var(--text-dim)' }}>{t.putBearish}</span>
+-                <span className="tnum" style={{ font: 'var(--f-micro)', fontWeight: 700, color: 'var(--red)' }}>{(100 - callPct).toFixed(1)}%</span>
++                <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#ef4444', boxShadow: '0 0 6px #ef4444' }} />
++                <span style={{ font: 'var(--f-micro)', color: 'var(--text-dim)', fontWeight: 600 }}>{t.putBearish}</span>
++                <span className="tnum" style={{ font: 'var(--f-micro)', fontWeight: 800, color: '#ef4444' }}>{(100 - callPct).toFixed(1)}%</span>
+               </div>
+             </div>
+           </div>
+ 
+-          {/* OPTIONS MARKET REGIME SPEC WIDGET */}
+-          <div className="app-card" style={{ padding: '16px', margin: 0 }}>
+-            <div className="app-card-head" style={{ marginBottom: '10px' }}>
+-              <span className="app-card-title">OPTIONS MARKET REGIME</span>
+-              <span className={`${s.headerBadge} ${ivRankVal != null && ivRankVal < 30 ? s.badgeGreen : s.badgeAmber}`} style={{ fontSize: '9px', padding: '3px 8px' }}>
+-                {regimeLabel}
+-              </span>
+-            </div>
+-            
+-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px', marginBottom: '12px' }}>
+-              <div style={{ background: 'rgba(255,255,255,0.02)', padding: '10px 8px', borderRadius: '6px', textAlign: 'center', border: '1px solid rgba(255,255,255,0.03)' }}>
+-                <div style={{ font: 'var(--f-micro)', color: 'var(--text-muted)' }}>IVRank</div>
+-                <div style={{ font: 'var(--f-h3)', fontWeight: 800, color: 'var(--text)', marginTop: '4px' }}>{ivRankVal != null ? `${ivRankVal}%` : '—'}</div>
+-              </div>
+-              <div style={{ background: 'rgba(255,255,255,0.02)', padding: '10px 8px', borderRadius: '6px', textAlign: 'center', border: '1px solid rgba(255,255,255,0.03)' }}>
+-                <div style={{ font: 'var(--f-micro)', color: 'var(--text-muted)' }}>Skew</div>
+-                <div style={{ font: 'var(--f-h3)', fontWeight: 800, color: 'var(--red)', marginTop: '4px' }}>{ivSkewVal != null ? `${ivSkewVal}%` : '—'}</div>
+-              </div>
+-              <div style={{ background: 'rgba(255,255,255,0.02)', padding: '10px 8px', borderRadius: '6px', textAlign: 'center', border: '1px solid rgba(255,255,255,0.03)' }}>
+-                <div style={{ font: 'var(--f-micro)', color: 'var(--text-muted)' }}>{"P/C Ratio"}</div>
+-                <div style={{ font: 'var(--f-h3)', fontWeight: 800, color: 'var(--text)', marginTop: '4px' }}>{pcRatio.toFixed(2)}</div>
+-              </div>
+-            </div>
+-
+-            <div style={{ font: 'var(--f-micro)', color: 'var(--text-dim)', background: 'rgba(6, 182, 212, 0.05)', border: '1px solid rgba(6, 182, 212, 0.15)', borderRadius: '6px', padding: '8px 10px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+-              <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--cyan)' }} />
+-              <span>{regimeInsight}</span>
+-            </div>
+-          </div>
++          {/* Spot Price Positioning Ruler (Module 4) */}
++          {(() => {
++            const floor = putFloorVal || (displayPrice * 0.95);
++            const wall = callWallVal || (displayPrice * 1.05);
++            const range = wall - floor || 1;
++            const pct = Math.max(2, Math.min(98, ((displayPrice - floor) / range) * 100));
++
++            return (
++              <div className="premium-card" style={{ padding: '18px 16px', margin: 0, position: 'relative' }}>
++                {renderPopover('ruler', locale === 'ko' ? '?꾩옱媛 ?꾩튂 ???????뚮줈??吏吏?? 鍮④컯)? 肄??????꽑, 珥덈줉) 踰붿쐞 ???꾩옱 二쇨????꾩튂瑜?諛깅텇??%)濡??쒓린?⑸땲??' : 'Current price position ruler showing relative percentage between Put Floor (Support) and Call Wall (Resistance).', locale === 'ko' ? '?꾩튂???ㅻ챸' : 'Ruler Info')}
++                <span className="app-card-title" style={{ display: 'inline-flex', alignItems: 'center', marginBottom: '18px', color: 'var(--text-muted)', fontWeight: 800, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
++                  {locale === 'ko' ? '?꾩옱媛 ?꾩튂 ??(Spot Price Position)' : 'Spot Price Position Ruler'}
++                  <InfoBtn popKey="ruler" />
++                </span>
++                
++                {/* Ruler track */}
++                <div style={{ 
++                  position: 'relative', 
++                  height: '8px', 
++                  background: 'rgba(255, 255, 255, 0.04)', 
++                  borderRadius: '4px', 
++                  margin: '30px 8px 18px',
++                  border: '1px solid rgba(255, 255, 255, 0.02)'
++                }}>
++                  {/* Subtle technical tick marks behind slider */}
++                  <div style={{
++                    position: 'absolute',
++                    inset: 0,
++                    background: 'repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0.05) 1px, transparent 1px, transparent 10px)',
++                    borderRadius: '4px'
++                  }} />
++                  
++                  {/* Glowing center indicator bar */}
++                  <div style={{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, background: 'linear-gradient(90deg, rgba(239, 68, 68, 0.12) 0%, rgba(245, 158, 11, 0.06) 50%, rgba(16, 185, 129, 0.12) 100%)', borderRadius: '4px' }} />
++                  
++                  {/* Floating Price Pin with Tooltip */}
++                  <div
++                    style={{
++                      position: 'absolute',
++                      left: `${pct}%`,
++                      top: '50%',
++                      transform: 'translate(-50%, -50%)',
++                      zIndex: 3,
++                    }}
++                  >
++                    {/* Tooltip box above the pin */}
++                    <div style={{
++                      position: 'absolute',
++                      bottom: '14px',
++                      left: '50%',
++                      transform: 'translateX(-50%)',
++                      background: 'rgba(6, 182, 212, 0.95)',
++                      border: '1px solid rgba(34, 211, 238, 0.4)',
++                      boxShadow: '0 4px 14px rgba(6, 182, 212, 0.3)',
++                      color: '#050a14',
++                      padding: '3px 8px',
++                      borderRadius: '4px',
++                      font: 'var(--f-micro)',
++                      fontWeight: 900,
++                      fontSize: '10px',
++                      whiteSpace: 'nowrap',
++                      display: 'flex',
++                      alignItems: 'center',
++                      gap: '4px',
++                      backdropFilter: 'blur(8px)',
++                      WebkitBackdropFilter: 'blur(8px)',
++                    }}>
++                      <span>${displayPrice.toFixed(2)}</span>
++                      <span style={{ opacity: 0.8 }}>({pct.toFixed(0)}%)</span>
++                    </div>
++                    {/* Tooltip arrow */}
++                    <div style={{
++                      position: 'absolute',
++                      bottom: '10px',
++                      left: '50%',
++                      transform: 'translateX(-50%)',
++                      width: 0,
++                      height: 0,
++                      borderLeft: '4px solid transparent',
++                      borderRight: '4px solid transparent',
++                      borderTop: '4px solid rgba(6, 182, 212, 0.95)',
++                      zIndex: 4,
++                    }} />
++                    {/* Glowing marker dot */}
++                    <div style={{
++                      width: '12px',
++                      height: '12px',
++                      borderRadius: '50%',
++                      background: 'var(--cyan)',
++                      border: '2.5px solid #ffffff',
++                      boxShadow: '0 0 10px var(--cyan), 0 0 4px #ffffff',
++                    }} />
++                  </div>
++                </div>
+ 
+-          {/* IMPLIED MOVE & KEY BARRIERS */}
+-          <div className="app-card" style={{ padding: '16px', margin: 0 }}>
+-            <div className="app-card-head" style={{ marginBottom: '10px' }}>
+-              <span className="app-card-title">{"IMPLIED MOVE & BARRIERS"}</span>
+-            </div>
+-            
+-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingBottom: '12px', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+-              <span style={{ font: 'var(--f-small)', color: 'var(--text-dim)' }}>IMPLIED MOVE</span>
+-              <div style={{ textAlign: 'right' }}>
+-                <span className="tnum" style={{ font: 'var(--f-h3)', fontWeight: 800, color: 'var(--amber)' }}>{impliedMoveStr}</span>
+-                <span style={{ font: 'var(--f-micro)', color: 'var(--text-muted)', display: 'block' }}>{nearestExpiryLabel ? `ATM Straddle (${nearestExpiryLabel})` : 'ATM Straddle'}</span>
++                {/* Left & Right Anchors */}
++                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', font: 'var(--f-micro)', fontWeight: 700, padding: '0 4px' }}>
++                  <div style={{ display: 'flex', flexDirection: 'column' }}>
++                    <span style={{ color: '#ef4444', fontSize: '9px', letterSpacing: '0.04em' }}>PUT FLOOR ({t.support})</span>
++                    <span className="tnum" style={{ fontSize: '13px', fontWeight: 900, color: '#f8fafc', marginTop: '3px' }}>${floor.toFixed(0)}</span>
++                  </div>
++                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
++                    <span style={{ color: '#10b981', fontSize: '9px', letterSpacing: '0.04em' }}>CALL WALL ({t.resistance})</span>
++                    <span className="tnum" style={{ fontSize: '13px', fontWeight: 900, color: '#f8fafc', marginTop: '3px' }}>${wall.toFixed(0)}</span>
++                  </div>
++                </div>
+               </div>
+-            </div>
++            );
++          })()}
++
++          {/* Options Market & GEX Regime Monitor (Module 5) */}
++          {(() => {
++            const gammaFlipNum = typeof liveGammaFlip === 'number'
++              ? liveGammaFlip
++              : parseFloat((liveGammaFlip || '').replace(/[^0-9.]/g, '')) || 0;
++            const isAboveGamma = displayPrice >= gammaFlipNum;
++            const gexRegimeColor = isAboveGamma ? '#10b981' : '#ef4444';
++            const gexRegimeLabel = isAboveGamma 
++              ? (locale === 'ko' ? 'LONG GAMMA (?덉젙???덉쭚)' : 'LONG GAMMA (STABLE)')
++              : (locale === 'ko' ? 'SHORT GAMMA (蹂?숈꽦 ?덉쭚)' : 'SHORT GAMMA (VOLATILE)');
++
++            return (
++              <div className="premium-card" style={{ padding: '18px 16px', margin: 0, position: 'relative' }}>
++                {renderPopover('gex', locale === 'ko' ? '媛먮쭏 ?듭뒪?ъ? ?덉쭚 ????+)??媛먮쭏(Long Gamma)??蹂?숈꽦???듭젣??二쇨?瑜??덉젙?쒗궎怨? ??-)??媛먮쭏(Short Gamma)??蹂?숈꽦???뺣?/利앺룺?쒗궎???섍꼍???삵빀?덈떎.' : 'GEX Regime indicates market volatility suppression (Long Gamma) vs amplification (Short Gamma).', locale === 'ko' ? '媛먮쭏?덉쭚 ?ㅻ챸' : 'Regime Info')}
++                <div className="app-card-head" style={{ marginBottom: '14px', alignItems: 'center' }}>
++                  <span className="app-card-title" style={{ display: 'inline-flex', alignItems: 'center', color: 'var(--text-muted)', fontWeight: 800, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
++                    OPTIONS MARKET & GEX REGIME
++                    <InfoBtn popKey="gex" />
++                  </span>
++                  <span style={{
++                    fontSize: '8px',
++                    fontWeight: 900,
++                    padding: '3px 8px',
++                    borderRadius: '12px',
++                    background: isAboveGamma ? 'rgba(16, 185, 129, 0.08)' : 'rgba(239, 68, 68, 0.08)',
++                    color: gexRegimeColor,
++                    border: `1px solid ${isAboveGamma ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.2)'}`,
++                    textTransform: 'uppercase',
++                    letterSpacing: '0.06em'
++                  }}>
++                    {gexRegimeLabel}
++                  </span>
++                </div>
+ 
+-            <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '12px' }}>
+-              <div style={{ flex: 1 }}>
+-                <span style={{ font: 'var(--f-micro)', color: 'var(--text-muted)' }}>{`PUT FLOOR (${t.support})`}</span>
+-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '4px' }}>
+-                  <span className="tnum" style={{ font: 'var(--f-h3)', fontWeight: 800, color: 'var(--red)' }}>{putFloorVal != null ? `$${putFloorVal.toFixed(0)}` : '—'}</span>
+-                  <span style={{ fontSize: '9px', fontWeight: 'bold', background: 'var(--red-dim)', color: 'var(--red)', padding: '2px 6px', borderRadius: '4px' }}>{t.support.toUpperCase()}</span>
++                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px', marginBottom: '14px' }}>
++                  <div style={{ background: 'rgba(30, 41, 59, 0.2)', padding: '11px 8px', borderRadius: '8px', textAlign: 'center', border: '1px solid rgba(255,255,255,0.03)' }}>
++                    <div style={{ font: 'var(--f-micro)', color: 'var(--text-muted)', fontWeight: 700, fontSize: '9px', textTransform: 'uppercase' }}>IV Rank</div>
++                    <div className="tnum" style={{ font: 'var(--f-body)', fontWeight: 900, color: '#ffffff', marginTop: '4px' }}>{ivRankVal != null ? `${ivRankVal}%` : '—'}</div>
++                  </div>
++                  <div style={{ background: 'rgba(30, 41, 59, 0.2)', padding: '11px 8px', borderRadius: '8px', textAlign: 'center', border: '1px solid rgba(255,255,255,0.03)' }}>
++                    <div style={{ font: 'var(--f-micro)', color: 'var(--text-muted)', fontWeight: 700, fontSize: '9px', textTransform: 'uppercase' }}>IV Skew</div>
++                    <div className="tnum" style={{ font: 'var(--f-body)', fontWeight: 900, color: '#f43f5e', marginTop: '4px' }}>{ivSkewVal != null ? `${ivSkewVal.toFixed(1)}%` : '—'}</div>
++                  </div>
++                  <div style={{ background: 'rgba(30, 41, 59, 0.2)', padding: '11px 8px', borderRadius: '8px', textAlign: 'center', border: '1px solid rgba(255,255,255,0.03)' }}>
++                    <div style={{ font: 'var(--f-micro)', color: 'var(--text-muted)', fontWeight: 700, fontSize: '9px', textTransform: 'uppercase' }}>Volume P/C</div>
++                    <div className="tnum" style={{ font: 'var(--f-body)', fontWeight: 900, color: '#ffffff', marginTop: '4px' }}>{pcRatio.toFixed(2)}</div>
++                  </div>
+                 </div>
+-              </div>
+-              <div style={{ flex: 1, textAlign: 'right' }}>
+-                <span style={{ font: 'var(--f-micro)', color: 'var(--text-muted)' }}>{`CALL WALL (${t.resistance})`}</span>
+-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '4px', justifyContent: 'flex-end' }}>
+-                  <span style={{ fontSize: '9px', fontWeight: 'bold', background: 'var(--green-dim)', color: 'var(--green)', padding: '2px 6px', borderRadius: '4px' }}>{t.resistance.toUpperCase()}</span>
+-                  <span className="tnum" style={{ font: 'var(--f-h3)', fontWeight: 800, color: 'var(--green)' }}>{callWallVal != null ? `$${callWallVal.toFixed(0)}` : '—'}</span>
++
++                <div style={{ 
++                  font: 'var(--f-micro)', 
++                  fontWeight: 600,
++                  color: '#b4c6ef', 
++                  background: 'rgba(6, 182, 212, 0.04)', 
++                  border: '1px solid rgba(6, 182, 212, 0.15)', 
++                  borderRadius: '8px', 
++                  padding: '10px 12px', 
++                  display: 'flex', 
++                  alignItems: 'center', 
++                  gap: '10px',
++                  lineHeight: 1.4
++                }}>
++                  <span style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--cyan)', boxShadow: '0 0 6px var(--cyan)', flexShrink: 0 }} />
++                  <span>{regimeInsight}</span>
+                 </div>
+               </div>
+-            </div>
+-          </div>
++            );
++          })()}
+         </div>
+       )}
+ 
+@@ -1016,41 +1250,123 @@ export default function AppFlowPage() {
+       {activeTab === 'ai-intel' && (
+         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', padding: '0 16px var(--s4)' }} className="animate-in fade-in duration-200">
+           {/* AI VERDICT GAUGE */}
+-          <div className="app-card" style={{ padding: '16px', margin: 0 }}>
+-            <div className="app-card-head" style={{ marginBottom: '12px' }}>
+-              <span className="app-card-title">{`AI VERDICT (${aiVerdictLabel})`}</span>
+-              <span className={s.headerBadge} style={{ fontSize: '9px', padding: '3px 8px', ...aiVerdictBadgeStyle }}>
+-                {aiVerdictLabel}
++          <div className="premium-card" style={{ padding: '20px 18px', margin: 0, position: 'relative' }}>
++            {renderPopover('verdict', locale === 'ko' ? 'AI 醫낇빀 ?먯젙 ???뚮줈?? 媛먮쭏 ?덉쭚, 蹂?숈꽦, ???湲곌? ?ъ?????9媛吏 ?듭뀡 吏?쒖쓽 遺덇퇏??媛뺣룄瑜?媛以??⑹궛??諛⑺뼢???먯닔?낅땲??' : 'AI composite verdict ??weighted aggregate of core options variables to score overall market pressure.', locale === 'ko' ? '醫낇빀?먯젙 ?ㅻ챸' : 'AI Verdict Info')}
++            <div className="app-card-head" style={{ marginBottom: '16px', alignItems: 'center' }}>
++              <span className="app-card-title" style={{ display: 'inline-flex', alignItems: 'center', color: '#f8fafc', fontWeight: 800 }}>
++                {locale === 'ko' ? 'AI VERDICT (醫낇빀 遺꾩꽍)' : 'AI VERDICT (Composite Analysis)'}
++                <InfoBtn popKey="verdict" />
++              </span>
++              <span style={{
++                fontSize: '9px',
++                fontWeight: 900,
++                padding: '3px 8px',
++                borderRadius: '12px',
++                background: compositeScore > 20 ? 'rgba(16, 185, 129, 0.08)' : compositeScore < -20 ? 'rgba(239, 68, 68, 0.08)' : 'rgba(245, 158, 11, 0.08)',
++                color: compositeScore > 20 ? '#10b981' : compositeScore < -20 ? '#ef4444' : '#fbbf24',
++                border: `1px solid ${compositeScore > 20 ? 'rgba(16, 185, 129, 0.2)' : compositeScore < -20 ? 'rgba(239, 68, 68, 0.2)' : 'rgba(245, 158, 11, 0.2)'}`,
++                letterSpacing: '0.04em'
++              }}>
++                {locale === 'ko' ? `遺꾩꽍 醫낇빀 ${compositeScore >= 0 ? '+' : ''}${compositeScore}` : `Composite ${compositeScore >= 0 ? '+' : ''}${compositeScore}`}
+               </span>
+             </div>
+ 
+-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+-              <div style={{ background: 'rgba(255,255,255,0.02)', padding: '10px 12px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.03)' }}>
+-                <span style={{ font: 'var(--f-micro)', color: 'var(--text-muted)' }}>{t.opiLabel}</span>
+-                <div className="tnum" style={{ font: 'var(--f-h2)', fontWeight: 800, color: aiOpiColor, marginTop: '4px' }}>{opi >= 0 ? '+' : ''}{opi.toFixed(0)}</div>
+-              </div>
+-              <div style={{ background: 'rgba(255,255,255,0.02)', padding: '10px 12px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.03)' }}>
+-                <span style={{ font: 'var(--f-micro)', color: 'var(--text-muted)' }}>{t.atmIvPctLabel}</span>
+-                <div className="tnum" style={{ font: 'var(--f-h2)', fontWeight: 800, color: 'var(--text)', marginTop: '4px' }}>{aiIvRank != null ? `${aiIvRank}%` : '—'}</div>
+-              </div>
+-              <div style={{ background: 'rgba(255,255,255,0.02)', padding: '10px 12px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.03)' }}>
+-                <span style={{ font: 'var(--f-micro)', color: 'var(--text-muted)' }}>COMPOSITE INDEX</span>
+-                <div className="tnum" style={{ font: 'var(--f-h2)', fontWeight: 800, color: 'var(--text)', marginTop: '4px' }}>{compositeIndex}%</div>
++            {/* COMPOSITE SCORE GAUGE */}
++            <div style={{ marginBottom: '22px', marginTop: '4px' }}>
++              <div style={{ position: 'relative', height: '6px', background: 'rgba(255, 255, 255, 0.03)', borderRadius: '3px', border: '1px solid rgba(255, 255, 255, 0.02)', overflow: 'hidden' }}>
++                {/* Center line */}
++                <div style={{ position: 'absolute', left: '50%', top: 0, bottom: 0, width: '1px', background: 'rgba(255,255,255,0.2)', zIndex: 1 }} />
++                {/* Score indicator */}
++                <div
++                  style={{
++                    position: 'absolute',
++                    top: '50%',
++                    transform: 'translateY(-50%)',
++                    width: '8px',
++                    height: '8px',
++                    borderRadius: '50%',
++                    zIndex: 2,
++                    boxShadow: compositeScore > 20 ? '0 0 10px #10b981' : compositeScore < -20 ? '0 0 10px #ef4444' : '0 0 8px #ffffff',
++                    background: compositeScore > 20 ? '#10b981' : compositeScore < -20 ? '#ef4444' : '#ffffff',
++                    left: `calc(${Math.max(2, Math.min(98, (compositeScore + 100) / 2))}% - 4px)`,
++                    transition: 'all 0.4s cubic-bezier(0.19, 1, 0.22, 1)'
++                  }}
++                />
+               </div>
+-              <div style={{ background: 'rgba(255,255,255,0.02)', padding: '10px 12px', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.03)' }}>
+-                <span style={{ font: 'var(--f-micro)', color: 'var(--text-muted)' }}>{t.whaleNetBetLabel}</span>
+-                <div className="tnum" style={{ font: 'var(--f-h2)', fontWeight: 800, color: whaleNetBetRaw != null && whaleNetBetRaw >= 0 ? 'var(--green)' : 'var(--red)', marginTop: '4px' }}>{whaleNetBetStr}</div>
++              <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '6px', font: 'var(--f-micro)', fontWeight: 700 }}>
++                <span style={{ color: '#ef4444', fontSize: '9px', letterSpacing: '0.02em' }}>{locale === 'ko' ? '-100 洹뱀빟?? : locale === 'ja' ? '-100 璵듐굙??선湲? : '-100 EXTREME BEAR'}</span>
++                <span style={{ color: 'var(--text-muted)', fontSize: '9px' }}>0</span>
++                <span style={{ color: '#10b981', fontSize: '9px', letterSpacing: '0.02em' }}>{locale === 'ko' ? '洹밴컯??+100' : locale === 'ja' ? '璵듐굙??섭湲?+100' : 'EXTREME BULL +100'}</span>
+               </div>
+             </div>
++
++            {/* 3-COLUMN FACTORS GRID */}
++            {(() => {
++              const factors = [
++                { key: 'opi', name: 'OPI' + (opiCalculated.isFallback ? (locale === 'ko' ? '(?λ쭏媛?' : '(Closed)') : (locale === 'ko' ? '(?μ쨷)' : '(Live)')), score: Math.round(opiScore), max: 25, displayVal: `${opiScore > 0 ? '+' : ''}${Math.round(opiScore)}` },
++                { key: 'whale', name: locale === 'ko' ? '怨좊옒' : 'Whale', score: Math.round(whaleScore), max: 25, displayVal: `${whaleScore > 0 ? '+' : ''}${Math.round(whaleScore)}` },
++                { key: 'squeeze', name: locale === 'ko' ? '?ㅽ댁쫰' : 'Squeeze', score: Math.round(squeezeScore), max: 15, displayVal: `${squeezeScore > 0 ? '+' : ''}${Math.round(squeezeScore)}` },
++                { key: 'skew', name: locale === 'ko' ? 'IV?ㅽ걧' : 'IV Skew', score: Math.round(skewScore), max: 15, displayVal: `${skewScore > 0 ? '+' : ''}${Math.round(skewScore)}` },
++                { key: 'smart', name: locale === 'ko' ? '?ㅻ쭏?? : 'Smart', score: Math.round(smartScore), max: 10, displayVal: `${smartScore > 0 ? '+' : ''}${Math.round(smartScore)}` },
++                { key: 'dex', name: 'DEX', score: Math.round(dexScore), max: 10, displayVal: `${dexScore > 0 ? '+' : ''}${Math.round(dexScore)}` },
++                { key: 'uoa', name: 'UOA', score: Math.round(uoaScore), max: 5, displayVal: `${uoaScore > 0 ? '+' : ''}${Math.round(uoaScore)}` },
++                { key: 'pc', name: 'P/C', score: Math.round(pcScore), max: 5, displayVal: `${pcScore > 0 ? '+' : ''}${Math.round(pcScore)}` },
++                { key: 'zdte', name: 'GEX', score: Math.round(zdteScore), max: 5, displayVal: `${zdteScore > 0 ? '+' : ''}${Math.round(zdteScore)}` },
++              ];
++
++              return (
++                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '14px 10px' }}>
++                  {factors.map((f) => (
++                    <div key={f.key} style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
++                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
++                        <span style={{ fontSize: '10px', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>{f.name}</span>
++                        <span className="tnum" style={{ fontSize: '10px', fontWeight: 900, color: f.score > 0 ? '#10b981' : f.score < 0 ? '#ef4444' : 'var(--text)' }}>
++                          {f.displayVal}
++                        </span>
++                      </div>
++                      <div style={{ height: '3px', background: 'rgba(255,255,255,0.03)', borderRadius: '1.5px', overflow: 'hidden', position: 'relative' }}>
++                        <div style={{ position: 'absolute', left: '50%', top: 0, bottom: 0, width: '1px', background: 'rgba(255,255,255,0.1)', zIndex: 2 }} />
++                        {f.score > 0 ? (
++                          <div style={{
++                            position: 'absolute',
++                            left: '50%',
++                            top: 0,
++                            bottom: 0,
++                            background: 'linear-gradient(90deg, #10b981, #34d399)',
++                            borderRadius: '0 1.5px 1.5px 0',
++                            width: `${Math.min(50, (f.score / f.max) * 50)}%`
++                          }} />
++                        ) : f.score < 0 ? (
++                          <div style={{
++                            position: 'absolute',
++                            right: '50%',
++                            top: 0,
++                            bottom: 0,
++                            background: 'linear-gradient(270deg, #ef4444, #f43f5e)',
++                            borderRadius: '1.5px 0 0 1.5px',
++                            width: `${Math.min(50, (Math.abs(f.score) / f.max) * 50)}%`
++                          }} />
++                        ) : null}
++                      </div>
++                    </div>
++                  ))}
++                </div>
++              );
++            })()}
+           </div>
+ 
+           {/* AI FLOW INTELLIGENCE */}
+-          <div className={s.aiInsight} style={{ margin: 0 }}>
+-            <div className={s.aiInsightHead} style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap' }}>
++          <div className="premium-card" style={{
++            margin: 0,
++            background: 'linear-gradient(135deg, rgba(6, 182, 212, 0.05) 0%, rgba(10, 15, 30, 0.8) 100%)',
++            border: '1px solid rgba(6, 182, 212, 0.2)',
++            padding: '20px 18px'
++          }}>
++            <div className={s.aiInsightHead} style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', justifyContent: 'space-between', marginBottom: '16px' }}>
+               <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none">
+-                  <circle cx="12" cy="12" r="9" stroke="var(--cyan)" strokeWidth="1.5" />
+-                  <path d="M12 8v4l3 3" stroke="var(--cyan)" strokeWidth="1.5" strokeLinecap="round" />
++                  <circle cx="12" cy="12" r="9" stroke="var(--cyan)" strokeWidth="1.8" />
++                  <path d="M12 8v4l3 3" stroke="var(--cyan)" strokeWidth="1.8" strokeLinecap="round" />
+                 </svg>
+                 <span className={s.aiInsightLabel}>{locale === 'ko' ? 'AI ?뚮줈???명뀛由ъ쟾?? : locale === 'ja' ? 'AI?뺛꺆?쇈꺕?ㅳ꺍?녴꺁?멥궒?녈궧' : 'AI FLOW INTELLIGENCE'}</span>
+               </div>
+@@ -1142,116 +1458,47 @@ export default function AppFlowPage() {
+                     </div>
+ 
+                     {isLocked && (
+-                      <div style={{
+-                        position: 'absolute',
+-                        left: 0,
+-                        right: 0,
+-                        top: '22px',
+-                        bottom: 0,
+-                        background: 'linear-gradient(to bottom, rgba(5,10,20,0) 0%, rgba(5,10,20,0.92) 50%, rgba(5,10,20,0.98) 100%)',
+-                        display: 'flex',
+-                        flexDirection: 'column',
+-                        alignItems: 'center',
+-                        justifyContent: 'center',
+-                        padding: '10px',
+-                        textAlign: 'center',
+-                        zIndex: 5
+-                      }}>
+-                        <div style={{
+-                          width: '24px',
+-                          height: '24px',
+-                          borderRadius: '50%',
+-                          background: 'rgba(6, 182, 212, 0.1)',
+-                          border: '1px solid var(--cyan)',
+-                          display: 'flex',
+-                          alignItems: 'center',
+-                          justifyContent: 'center',
+-                          boxShadow: '0 0 10px rgba(6, 182, 212, 0.2)',
+-                          marginBottom: '4px'
+-                        }}>
+-                          <svg width="10" height="10" viewBox="0 0 24 24" fill="none">
+-                            <rect x="3" y="11" width="18" height="11" rx="2" stroke="var(--cyan)" strokeWidth="2" />
+-                            <path d="M7 11V7a5 5 0 0 1 10 0v4" stroke="var(--cyan)" strokeWidth="2" />
+-                          </svg>
+-                        </div>
+-                        <span style={{ fontSize: '10px', fontWeight: 800, color: 'var(--text)', marginBottom: '1px' }}>
+-                          {locale === 'ko' ? 'AI ?듭떖 留λ씫 ?좉툑?댁젣' : locale === 'ja' ? 'AI?ㅳ꺍?듐궎?덅㎗?? : 'Unlock AI Insights'}
+-                        </span>
+-                        <span style={{ fontSize: '8px', color: 'var(--text-muted)', marginBottom: '6px', maxWidth: '200px', lineHeight: 1.2 }}>
+-                          {locale === 'ko' ? '愿묎퀬 ?쒖껌 ??1?쒓컙 ?숈븞 AI ?곸꽭 留λ씫 遺꾩꽍???댁젣?⑸땲??' : locale === 'ja' ? '佯껃몜誤뽬겢???귡뼋AI?ㅳ꺍?듐궎?덀굮鰲ｇ쫨?쀣겲?쇻? : 'Watch an ad to unlock AI insights for 1 hour.'}
+-                        </span>
+-                        <button
+-                          onClick={handleUnlock}
+-                          style={{
+-                            background: 'linear-gradient(135deg, var(--cyan) 0%, #0891b2 100%)',
+-                            border: 'none',
+-                            color: '#050a14',
+-                            padding: '3px 12px',
+-                            borderRadius: 'var(--r-pill)',
+-                            fontSize: '9px',
+-                            fontWeight: 800,
+-                            cursor: 'pointer',
+-                            boxShadow: '0 2px 6px rgba(6, 182, 212, 0.3)',
+-                            display: 'flex',
+-                            alignItems: 'center',
+-                            gap: '4px'
+-                          }}
+-                        >
+-                          <svg width="8" height="8" viewBox="0 0 24 24" fill="currentColor">
+-                            <path d="M8 5v14l11-7z"/>
+-                          </svg>
+-                          {t.unlockBtn}
+-                        </button>
+-                      </div>
+-                    )}
+-                  </div>
+-
+-                  {/* Trigger condition */}
+-                  <div style={{ marginTop: '16px', padding: '10px 12px', background: 'rgba(245, 158, 11, 0.05)', border: '1px solid rgba(245, 158, 11, 0.15)', borderRadius: '6px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+-                    <div>
+-                      <span style={{ font: 'var(--f-micro)', color: 'var(--text-muted)', display: 'block' }}>{triggerLabel}</span>
+-                      <span style={{ font: 'var(--f-small)', fontWeight: 'bold', color: 'var(--text)' }}>{triggerValue}</span>
+-                    </div>
+-                    <span style={{ font: 'var(--f-micro)', fontWeight: 'bold', background: 'rgba(245, 158, 11, 0.15)', color: 'var(--amber)', padding: '4px 10px', borderRadius: '4px' }}>RISK: MEDIUM</span>
+-                  </div>
+-                </>
+-              );
+-            })()}
+-          </div>
+-        </div>
+-      )}
+-
+-      {/* 3. FLOW (WHALE RADAR) TAB */}
+-      {activeTab === 'whale-flow' && (
++           {activeTab === 'whale-flow' && (
+         <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', padding: '0 16px var(--s4)' }} className="animate-in fade-in duration-200">
+             {/* DARK POOL & SHORT INTEREST WIDGET */}
+-            <div className="app-card" style={{ padding: '16px', margin: 0 }}>
+-              <div className="app-card-head" style={{ marginBottom: '10px' }}>
+-                <span className="app-card-title">{locale === 'ko' ? '?ㅽ겕? & 怨듬ℓ?? : locale === 'ja' ? '??쇈궚?쀣꺖?ワ펵?룔깾?쇈깉?ㅳ꺍?욍꺃?밤깉' : 'DARK POOL & SHORT INTEREST'}</span>
+-                <span style={{ fontSize: '9px', fontWeight: 'bold', background: 'rgba(245, 158, 11, 0.1)', color: 'var(--amber)', padding: '2px 6px', borderRadius: '4px' }}>
++            <div className="premium-card" style={{ padding: '18px 16px', margin: 0 }}>
++              <div className="app-card-head" style={{ marginBottom: '14px', alignItems: 'center' }}>
++                <span className="app-card-title" style={{ color: 'var(--text-muted)', fontWeight: 800, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
++                  {locale === 'ko' ? '?ㅽ겕? & 怨듬ℓ?? : locale === 'ja' ? '??쇈궚?쀣꺖?ワ펵?룔깾?쇈깉?ㅳ꺍?욍꺃?밤깉' : 'DARK POOL & SHORT INTEREST'}
++                </span>
++                <span style={{ 
++                  fontSize: '8px', 
++                  fontWeight: 900, 
++                  background: 'rgba(245, 158, 11, 0.08)', 
++                  color: '#fbbf24', 
++                  border: '1px solid rgba(245, 158, 11, 0.2)',
++                  padding: '2.5px 7.5px', 
++                  borderRadius: '12px',
++                  letterSpacing: '0.05em'
++                }}>
+                   DP ACCUMULATION
+                 </span>
+               </div>
+               
+               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '8px' }}>
+-                <div style={{ background: 'rgba(255,255,255,0.02)', padding: '10px 8px', borderRadius: '6px', textAlign: 'center', border: '1px solid rgba(255,255,255,0.03)' }}>
+-                  <div style={{ font: 'var(--f-micro)', color: 'var(--text-muted)' }}>Dark Pool %</div>
+-                  <div className="tnum" style={{ font: 'var(--f-h3)', fontWeight: 800, color: 'var(--cyan)', marginTop: '4px' }}>{dpPct}</div>
+-                  <span style={{ font: 'var(--f-micro)', color: 'var(--text-muted)', fontSize: '8px', display: 'block', marginTop: '2px', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }} title={dpVolStr}>
++                <div style={{ background: 'rgba(30, 41, 59, 0.2)', padding: '11px 8px', borderRadius: '8px', textAlign: 'center', border: '1px solid rgba(255,255,255,0.03)' }}>
++                  <div style={{ font: 'var(--f-micro)', color: 'var(--text-muted)', fontWeight: 700, fontSize: '9px', textTransform: 'uppercase' }}>Dark Pool %</div>
++                  <div className="tnum" style={{ font: 'var(--f-body)', fontWeight: 900, color: 'var(--cyan)', marginTop: '4px' }}>{dpPct}</div>
++                  <span style={{ font: 'var(--f-micro)', color: 'var(--text-muted)', fontSize: '8px', display: 'block', marginTop: '3px', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }} title={dpVolStr}>
+                     {dpNetBuyStr}
+                   </span>
+                 </div>
+-                <div style={{ background: 'rgba(255,255,255,0.02)', padding: '10px 8px', borderRadius: '6px', textAlign: 'center', border: '1px solid rgba(255,255,255,0.03)' }}>
+-                  <div style={{ font: 'var(--f-micro)', color: 'var(--text-muted)' }}>Short Vol %</div>
+-                  <div className="tnum" style={{ font: 'var(--f-h3)', fontWeight: 800, color: 'var(--red)', marginTop: '4px' }}>{shortPct}</div>
+-                  <span style={{ font: 'var(--f-micro)', color: 'var(--text-muted)', fontSize: '8px', display: 'block', marginTop: '2px', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }} title={shortVolStr}>
++                <div style={{ background: 'rgba(30, 41, 59, 0.2)', padding: '11px 8px', borderRadius: '8px', textAlign: 'center', border: '1px solid rgba(255,255,255,0.03)' }}>
++                  <div style={{ font: 'var(--f-micro)', color: 'var(--text-muted)', fontWeight: 700, fontSize: '9px', textTransform: 'uppercase' }}>Short Vol %</div>
++                  <div className="tnum" style={{ font: 'var(--f-body)', fontWeight: 900, color: '#ef4444', marginTop: '4px' }}>{shortPct}</div>
++                  <span style={{ font: 'var(--f-micro)', color: 'var(--text-muted)', fontSize: '8px', display: 'block', marginTop: '3px', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }} title={shortVolStr}>
+                     {locale === 'ko' ? '?쇱씪 怨듬ℓ?? : locale === 'ja' ? '?ζА令뷴２' : 'Daily Short'}
+                   </span>
+                 </div>
+-                <div style={{ background: 'rgba(255,255,255,0.02)', padding: '10px 8px', borderRadius: '6px', textAlign: 'center', border: '1px solid rgba(255,255,255,0.03)' }}>
+-                  <div style={{ font: 'var(--f-micro)', color: 'var(--text-muted)' }}>Block Trades</div>
+-                  <div className="tnum" style={{ font: 'var(--f-h3)', fontWeight: 800, color: 'var(--text)', marginTop: '4px' }}>{blockCount}</div>
+-                  <span style={{ font: 'var(--f-micro)', color: 'var(--text-muted)', fontSize: '8px', display: 'block', marginTop: '2px' }}>
++                <div style={{ background: 'rgba(30, 41, 59, 0.2)', padding: '11px 8px', borderRadius: '8px', textAlign: 'center', border: '1px solid rgba(255,255,255,0.03)' }}>
++                  <div style={{ font: 'var(--f-micro)', color: 'var(--text-muted)', fontWeight: 700, fontSize: '9px', textTransform: 'uppercase' }}>Block Trades</div>
++                  <div className="tnum" style={{ font: 'var(--f-body)', fontWeight: 900, color: '#ffffff', marginTop: '4px' }}>{blockCount}</div>
++                  <span style={{ font: 'var(--f-micro)', color: 'var(--text-muted)', fontSize: '8px', display: 'block', marginTop: '3px' }}>
+                     {locale === 'ko' ? '???嫄곕옒 嫄댁닔' : locale === 'ja' ? '鸚㎩룭?뽩폊餓뜻빊' : 'Block Count'}
+                   </span>
+                 </div>
+@@ -1259,20 +1506,34 @@ export default function AppFlowPage() {
+             </div>
+ 
+             {/* VALUE WALL / PREMIUM OPTIONS TABLE */}
+-            <div style={{ position: 'relative', overflow: 'hidden', background: 'var(--surface-1)', border: '1px solid var(--border)', borderRadius: 'var(--r-card)' }}>
++            <div style={{ 
++              position: 'relative', 
++              overflow: 'hidden', 
++              background: 'linear-gradient(135deg, rgba(20, 26, 46, 0.65) 0%, rgba(10, 15, 30, 0.85) 100%)', 
++              border: '1px solid rgba(255, 255, 255, 0.06)', 
++              borderRadius: '14px',
++              boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.03)',
++              backdropFilter: 'blur(16px)',
++              WebkitBackdropFilter: 'blur(16px)',
++              minHeight: isLocked ? '320px' : 'auto',
++              transition: 'min-height 0.4s ease'
++            }}>
+               {/* Sub-Tab Selector */}
+-              <div style={{ display: 'flex', borderBottom: '1px solid var(--border)', padding: '4px', gap: '4px' }}>
++              <div style={{ display: 'flex', borderBottom: '1px solid rgba(255, 255, 255, 0.05)', padding: '5px', gap: '4px' }}>
+                 <button
+                   onClick={() => setFlowTab('whale')}
+                   style={{
+                     flex: 1,
+                     padding: '10px 0',
+-                    borderRadius: 'var(--r-btn)',
++                    borderRadius: '10px',
+                     border: 'none',
+-                    background: flowTab === 'whale' ? 'var(--cyan-dim)' : 'transparent',
++                    background: flowTab === 'whale' ? 'rgba(6, 182, 212, 0.08)' : 'transparent',
++                    borderBottom: flowTab === 'whale' ? '2px solid var(--cyan)' : '2px solid transparent',
+                     color: flowTab === 'whale' ? 'var(--cyan)' : 'var(--text-dim)',
+                     font: 'var(--f-micro)',
+-                    fontWeight: 800,
++                    fontWeight: 900,
++                    textTransform: 'uppercase',
++                    letterSpacing: '0.05em',
+                     cursor: 'pointer',
+                     transition: 'all 0.2s ease',
+                   }}
+@@ -1284,12 +1545,15 @@ export default function AppFlowPage() {
+                   style={{
+                     flex: 1,
+                     padding: '10px 0',
+-                    borderRadius: 'var(--r-btn)',
++                    borderRadius: '10px',
+                     border: 'none',
+-                    background: flowTab === 'darkpool' ? 'var(--cyan-dim)' : 'transparent',
++                    background: flowTab === 'darkpool' ? 'rgba(6, 182, 212, 0.08)' : 'transparent',
++                    borderBottom: flowTab === 'darkpool' ? '2px solid var(--cyan)' : '2px solid transparent',
+                     color: flowTab === 'darkpool' ? 'var(--cyan)' : 'var(--text-dim)',
+                     font: 'var(--f-micro)',
+-                    fontWeight: 800,
++                    fontWeight: 900,
++                    textTransform: 'uppercase',
++                    letterSpacing: '0.05em',
+                     cursor: 'pointer',
+                     transition: 'all 0.2s ease',
+                   }}
+@@ -1299,75 +1563,316 @@ export default function AppFlowPage() {
+               </div>
+ 
+               {/* Compact scrollable container with customized scrollbar */}
+-              <div className="premium-scroll" style={{ maxHeight: '280px', overflowY: 'auto', padding: '0 12px 14px' }}>
++              <div className="premium-scroll" style={{ 
++                overflowX: 'auto', 
++                WebkitOverflowScrolling: 'touch',
++                padding: '12px 14px 16px',
++                height: isLocked ? '320px' : 'auto',
++                display: 'flex',
++                flexDirection: 'row',
++                gap: '12px'
++              }}>
+                 {flowTab === 'whale' ? (
+-                  /* Whale Sweep Radar */
+-                  <div>
+-                    {/* Header */}
+-                    <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid var(--border)', font: 'var(--f-micro)', color: 'var(--text-muted)', position: 'sticky', top: 0, background: 'var(--surface-1)', zIndex: 5 }}>
+-                      <span style={{ width: '55px' }}>{locale === 'ko' ? '?쒓컙' : locale === 'ja' ? '?귛댗' : 'TIME'}</span>
+-                      <span style={{ width: '65px', textAlign: 'center' }}>{locale === 'ko' ? '?됱궗媛' : locale === 'ja' ? '烏뚥슴堊→졏' : 'STRIKE'}</span>
+-                      <span style={{ width: '35px', textAlign: 'center' }}>{locale === 'ko' ? '?좏삎' : locale === 'ja' ? '?욍궎?? : 'TYPE'}</span>
+-                      <span style={{ width: '50px', textAlign: 'center' }}>{locale === 'ko' ? '留뚭린' : locale === 'ja' ? '繹?? : 'EXPIRY'}</span>
+-                      <span style={{ flex: 1, textAlign: 'right' }}>{locale === 'ko' ? '?꾨━誘몄뾼' : locale === 'ja' ? '?쀣꺃?잆궋?? : 'PREMIUM'}</span>
++                  /* Whale Sweep Radar Cards */
++                  <div style={{ display: 'flex', flexDirection: 'row', gap: '12px' }}>
++                    {/* Summary Card */}
++                    <div
++                      style={{
++                        width: '170px',
++                        flexShrink: 0,
++                        padding: '14px 12px',
++                        background: 'linear-gradient(135deg, rgba(6, 182, 212, 0.1) 0%, rgba(15, 23, 42, 0.75) 100%)',
++                        border: '1px solid rgba(6, 182, 212, 0.25)',
++                        borderRadius: '12px',
++                        display: 'flex',
++                        flexDirection: 'column',
++                        justifyContent: 'space-between',
++                        boxShadow: '0 4px 20px rgba(6, 182, 212, 0.15)'
++                      }}
++                    >
++                      <div>
++                        <div style={{ fontSize: '9px', fontWeight: 800, color: 'var(--cyan)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>
++                          TODAY'S WHALE FLOW
++                        </div>
++                        <div className="tnum" style={{ fontSize: '20px', fontWeight: 900, color: '#ffffff', fontFamily: 'var(--font-mono)' }}>
++                          ${(whaleSummary.total / 1000000).toFixed(2)}M
++                        </div>
++                      </div>
++                      
++                      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '12px' }}>
++                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px' }}>
++                          <span style={{ color: 'var(--text-muted)' }}>CALL:</span>
++                          <span style={{ color: 'var(--green)', fontWeight: 700 }}>${(whaleSummary.callSum / 1000000).toFixed(2)}M</span>
++                        </div>
++                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px' }}>
++                          <span style={{ color: 'var(--text-muted)' }}>PUT:</span>
++                          <span style={{ color: 'var(--red)', fontWeight: 700 }}>${(whaleSummary.putSum / 1000000).toFixed(2)}M</span>
++                        </div>
++                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '4px', marginTop: '2px' }}>
++                          <span style={{ color: 'var(--text-muted)' }}>COUNT:</span>
++                          <span style={{ color: 'var(--text)', fontWeight: 700 }}>{whaleSummary.count} trades</span>
++                        </div>
++                      </div>
+                     </div>
+-                    {/* List */}
+-                    {whaleSweeps.map((tx, idx) => {
+-                      const blur = isLocked && idx >= 3;
++
++                    {/* Transaction Cards */}
++                    {whaleSweeps.map((tx: any, idx: number) => {
++                      const blur = isLocked && idx >= 2;
++                      const isCall = tx.type === 'CALL';
++                      const cardColor = isCall ? 'var(--green)' : 'var(--red)';
++                      const impact = tx.premium >= 1000000 ? 'HIGH' : tx.premium >= 500000 ? 'MEDIUM' : 'LOW';
++                      const impactColor = impact === 'HIGH' ? 'var(--red)' : impact === 'MEDIUM' ? 'var(--amber)' : 'var(--cyan)';
++                      const bep = isCall ? (tx.strike + tx.px) : (tx.strike - tx.px);
++
+                       return (
+                         <div 
+                           key={idx} 
+                           style={{ 
+-                            display: 'flex', 
+-                            justifyContent: 'space-between', 
+-                            padding: '12px 0', 
+-                            borderBottom: idx < whaleSweeps.length - 1 ? '1px solid rgba(255,255,255,0.03)' : 'none', 
+-                            font: 'var(--f-small)',
++                            width: '180px',
++                            flexShrink: 0,
++                            padding: '12px',
++                            background: 'linear-gradient(135deg, rgba(30, 41, 59, 0.45) 0%, rgba(15, 23, 42, 0.75) 100%)',
++                            border: '1px solid rgba(255, 255, 255, 0.08)',
++                            borderTop: `3px solid ${cardColor}`,
++                            borderRadius: '12px',
++                            display: 'flex',
++                            flexDirection: 'column',
++                            justifyContent: 'space-between',
++                            boxShadow: '0 4px 15px rgba(0,0,0,0.2)',
+                             filter: blur ? 'blur(5px)' : 'none',
+-                            opacity: blur ? 0.25 : 1,
++                            opacity: blur ? 0.2 : 1,
+                             pointerEvents: blur ? 'none' : 'auto',
+-                            transition: 'filter 0.3s ease, opacity 0.3s ease'
++                            transition: 'all 0.3s ease',
++                            position: 'relative'
+                           }}
+                         >
+-                          <span className="tnum" style={{ width: '55px', color: 'var(--text-dim)' }}>{tx.time}</span>
+-                          <span className="tnum" style={{ width: '65px', textAlign: 'center', fontWeight: 700, color: 'var(--text)' }}>
+-                            ${tx.strike}
+-                          </span>
+-                          <span style={{ width: '35px', textAlign: 'center', fontWeight: 900, color: tx.type === 'CALL' ? 'var(--green)' : 'var(--red)' }}>
+-                            {tx.type === 'CALL' ? 'C' : 'P'}
+-                          </span>
+-                          <span className="tnum" style={{ width: '50px', textAlign: 'center', color: 'var(--text-dim)' }}>{tx.expiry}</span>
+-                          <span className="tnum" style={{ flex: 1, textAlign: 'right', fontWeight: 700, color: tx.dir === 'ASK' ? 'var(--green)' : tx.dir === 'BID' ? 'var(--red)' : 'var(--text)' }}>
+-                            ${(tx.premium / 1000).toFixed(1)}K
+-                          </span>
++                          <div>
++                            {/* Card Header */}
++                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
++                              <span style={{ fontSize: '11px', fontWeight: 900, color: '#ffffff' }}>{ticker}</span>
++                              <span style={{ 
++                                fontSize: '8px', 
++                                fontWeight: 800, 
++                                background: isCall ? 'rgba(16, 185, 129, 0.12)' : 'rgba(239, 68, 68, 0.12)', 
++                                color: cardColor,
++                                padding: '2px 6px',
++                                borderRadius: '4px',
++                                textTransform: 'uppercase'
++                              }}>
++                                {tx.type} | {tx.expiry}
++                              </span>
++                            </div>
++
++                            {/* Impact Badge */}
++                            <div style={{ fontSize: '8px', fontWeight: 700, color: impactColor, marginBottom: '10px', letterSpacing: '0.05em' }}>
++                              IMPACT: {impact}
++                            </div>
++
++                            {/* Options Grid */}
++                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px 10px', marginBottom: '8px' }}>
++                              <div>
++                                <span style={{ display: 'block', fontSize: '8px', color: 'var(--text-muted)' }}>STRIKE</span>
++                                <span className="tnum" style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text)' }}>${tx.strike}</span>
++                              </div>
++                              <div>
++                                <span style={{ display: 'block', fontSize: '8px', color: 'var(--text-muted)' }}>BEP</span>
++                                <span className="tnum" style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text)' }}>${bep.toFixed(2)}</span>
++                              </div>
++                              <div>
++                                <span style={{ display: 'block', fontSize: '8px', color: 'var(--text-muted)' }}>PRICE</span>
++                                <span className="tnum" style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-dim)' }}>${tx.px.toFixed(2)}</span>
++                              </div>
++                              <div>
++                                <span style={{ display: 'block', fontSize: '8px', color: 'var(--text-muted)' }}>SIZE</span>
++                                <span className="tnum" style={{ fontSize: '11px', fontWeight: 700, color: 'var(--text-dim)' }}>{tx.size} cts</span>
++                              </div>
++                            </div>
++                          </div>
++
++                          {/* Card Footer */}
++                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '8px', marginTop: '4px' }}>
++                            <span className="tnum" style={{ fontSize: '13px', fontWeight: 900, color: cardColor }}>
++                              ${(tx.premium / 1000).toFixed(0)}K
++                            </span>
++                            <span className="tnum" style={{ fontSize: '8px', color: 'var(--text-muted)' }}>{tx.time}</span>
++                          </div>
+                         </div>
+                       );
+                     })}
+                   </div>
+                 ) : (
+-                  /* Dark Pool & Institutional Block Trades */
+-                  <div>
+-                    {/* Header */}
+-                    <div style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: '1px solid var(--border)', font: 'var(--f-micro)', color: 'var(--text-muted)', position: 'sticky', top: 0, background: 'var(--surface-1)', zIndex: 5 }}>
+-                      <span style={{ width: '90px' }}>{"TIME / EXCH"}</span>
+-                      <span style={{ width: '80px', textAlign: 'center' }}>{"PRICE / SIDE"}</span>
+-                      <span style={{ flex: 1, textAlign: 'right' }}>{"VALUE / SIZE"}</span>
++                  /* Dark Pool & Institutional Block Trades Card Row */
++                  <div style={{ display: 'flex', flexDirection: 'row', gap: '12px' }}>
++                    {/* Summary Card */}
++                    <div
++                      style={{
++                        width: '170px',
++                        flexShrink: 0,
++                        padding: '14px 12px',
++                        background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.1) 0%, rgba(15, 23, 42, 0.75) 100%)',
++                        border: '1px solid rgba(245, 158, 11, 0.25)',
++                        borderRadius: '12px',
++                        display: 'flex',
++                        flexDirection: 'column',
++                        justifyContent: 'space-between',
++                        boxShadow: '0 4px 20px rgba(245, 158, 11, 0.15)'
++                      }}
++                    >
++                      <div>
++                        <div style={{ fontSize: '9px', fontWeight: 800, color: 'var(--amber)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '8px' }}>
++                          TODAY'S INST. FLOW
++                        </div>
++                        <div className="tnum" style={{ fontSize: '20px', fontWeight: 900, color: '#ffffff', fontFamily: 'var(--font-mono)' }}>
++                          ${(dpSummary.total / 1000000).toFixed(2)}M
++                        </div>
++                      </div>
++                      
++                      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '12px' }}>
++                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px' }}>
++                          <span style={{ color: 'var(--text-muted)' }}>BUY SIDE:</span>
++                          <span style={{ color: 'var(--green)', fontWeight: 700 }}>${(dpSummary.buySum / 1000000).toFixed(2)}M</span>
++                        </div>
++                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px' }}>
++                          <span style={{ color: 'var(--text-muted)' }}>SELL SIDE:</span>
++                          <span style={{ color: 'var(--red)', fontWeight: 700 }}>${(dpSummary.sellSum / 1000000).toFixed(2)}M</span>
++                        </div>
++                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '10px', borderTop: '1px solid rgba(255,255,255,0.06)', paddingTop: '4px', marginTop: '2px' }}>
++                          <span style={{ color: 'var(--text-muted)' }}>COUNT:</span>
++                          <span style={{ color: 'var(--text)', fontWeight: 700 }}>{dpSummary.count} trades</span>
++                        </div>
++                      </div>
+                     </div>
+-                    {/* List */}
+-                    {darkPoolTrades.map((tx, idx) => {
+-                      const blur = isLocked && idx >= 3;
++
++                    {/* Dark Pool Transaction Cards */}
++                    {darkPoolTrades.map((tx: any, idx: number) => {
++                      const blur = isLocked && idx >= 2;
+                       const isBuy = tx.side === 'BUY';
+                       const isSell = tx.side === 'SELL';
+-                      const sideColor = isBuy ? 'var(--green)' : isSell ? 'var(--red)' : 'var(--text-muted)';
++                      const cardColor = isBuy ? 'var(--green)' : isSell ? 'var(--red)' : 'var(--text-muted)';
+                       const sideText = isBuy ? 'BUY' : isSell ? 'SELL' : 'NEUTRAL';
+                       
+                       return (
+                         <div 
+                           key={idx} 
+                           style={{ 
+-                            display: 'flex', 
+-                            justifyContent: 'space-between', 
+-                            padding: '12px 0', 
++                            width: '180px',
++                            flexShrink: 0,
++                            padding: '12px',
++                            background: 'linear-gradient(135deg, rgba(30, 41, 59, 0.45) 0%, rgba(15, 23, 42, 0.75) 100%)',
++                            border: '1px solid rgba(255, 255, 255, 0.08)',
++                            borderTop: `3px solid ${cardColor}`,
++                            borderRadius: '12px',
++                            display: 'flex',
++                            flexDirection: 'column',
++                            justifyContent: 'space-between',
++                            boxShadow: '0 4px 15px rgba(0,0,0,0.2)',
++                            filter: blur ? 'blur(5px)' : 'none',
++                            opacity: blur ? 0.2 : 1,
++                            pointerEvents: blur ? 'none' : 'auto',
++                            transition: 'all 0.3s ease',
++                            position: 'relative'
++                          }}
++                        >
++                          <div>
++                            {/* Card Header */}
++                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
++                              <span style={{ fontSize: '11px', fontWeight: 900, color: '#ffffff' }}>{ticker}</span>
++                              <span style={{ 
++                                fontSize: '8px', 
++                                fontWeight: 800, 
++                                background: isBuy ? 'rgba(16, 185, 129, 0.12)' : isSell ? 'rgba(239, 68, 68, 0.12)' : 'rgba(255,255,255,0.06)', 
++                                color: cardColor,
++                                padding: '2px 6px',
++                                borderRadius: '4px',
++                                textTransform: 'uppercase'
++                              }}>
++                                {sideText}
++                              </span>
++                            </div>
++
++                            {/* Venue */}
++                            <div style={{ fontSize: '9px', fontWeight: 700, color: 'var(--text-muted)', marginBottom: '10px' }}>
++                              {tx.exchangeName || 'DARK POOL'}
++                            </div>
++
++                            {/* Details Grid */}
++                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px 10px', marginBottom: '8px' }}>
++                              <div>
++                                <span style={{ display: 'block', fontSize: '8px', color: 'var(--text-muted)' }}>PRICE</span>
++                                <span className="tnum" style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text)' }}>${tx.price.toFixed(2)}</span>
++                              </div>
++                              <div>
++                                <span style={{ display: 'block', fontSize: '8px', color: 'var(--text-muted)' }}>SHARES</span>
++                                <span className="tnum" style={{ fontSize: '11px', fontWeight: 800, color: 'var(--text-dim)' }}>{(tx.size / 1000).toFixed(1)}K</span>
++                              </div>
++                            </div>
++                          </div>
++
++                          {/* Card Footer */}
++                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', borderTop: '1px solid rgba(255,255,255,0.05)', paddingTop: '8px', marginTop: '4px' }}>
++                            <span className="tnum" style={{ fontSize: '13px', fontWeight: 900, color: 'var(--cyan)' }}>
++                              ${(tx.premium / 1000).toFixed(0)}K
++                            </span>
++                            <span className="tnum" style={{ fontSize: '8px', color: 'var(--text-muted)' }}>{tx.timeET}</span>
++                          </div>
++                        </div>
++                      );
++                    })}
++                  </div>
++                )}
++              </div>
++
++              {/* Lock Overlay ??ValueWall inside position:relative container */}
++              {isLocked && (
++                <div style={{
++                  position: 'absolute',
++                  left: 0,
++                  right: 0,
++                  top: '90px',
++                  bottom: 0,
++                  zIndex: 10,
++                  display: 'flex',
++                  flexDirection: 'column',
++                  justifyContent: 'center',
++                }}>
++                  <div style={{ height: '50px', background: 'linear-gradient(to bottom, rgba(5,10,20,0) 0%, rgba(5,10,20,1) 100%)' }} />
++                  <div style={{ background: 'rgba(5,10,20,1)', padding: '0 8px 8px' }}>
++                    <ValueWall
++                      title={locale === 'ko' ? '湲곌?湲??ㅼ떆媛??듭뀡 泥댁씤' : locale === 'ja' ? '艅잓뼟?с깧?ャ겗?ゃ깤?룔깾?녈긽?㎯꺖?? : 'Institutional Options Chain'}
++                      subtitle={<>{locale === 'ko' ? '?ㅼ떆媛?怨좊옒 嫄곕옒 + ?ㅽ겕? ?뚮줈?? ' : locale === 'ja' ? '?ゃ궋?ャ궭?ㅳ깲?쎼궓?쇈꺂?뽩폊 + ??쇈궚?쀣꺖?ャ깢??꺖?? : 'Real-time whale trades + dark-pool flow, '}<span style={{ color: 'var(--amber)' }}><b>{locale === 'ko' ? '吏湲??낅뜲?댄듃 以? : locale === 'ja' ? '?닸뼭訝? : 'updating now'}</b></span>.</>}
++                      teaser={{
++                        label: locale === 'ko' ? 'INSTITUTIONAL 쨌 臾대즺 誘몃━蹂닿린' : locale === 'ja' ? 'INSTITUTIONAL 쨌 ?→뼑?쀣꺃?볝깷?? : 'INSTITUTIONAL 쨌 FREE PREVIEW',
++                        value: volRegime || 'LOADED'
++                      }}
++                      socialProof={locale === 'ko' ? '?ㅻ뒛 14.2K ?좉툑?댁젣' : locale === 'ja' ? '?ф뿥14.2K?뚣꺆?껁궚鰲ｉ솮' : '14.2K unlocked today'}
++                    />
++                  </div>
++                </div>
++              )}
++            </div>
++
++            {/* Max Pain Info (also blurred if locked) */}
++            <div style={{ 
++              filter: isLocked ? 'blur(5px)' : 'none',
++              opacity: isLocked ? 0.25 : 1,
++              padding: '12px 14px',
++              margin: '0 12px 12px',
++              background: 'rgba(30, 41, 59, 0.2)',
++              border: '1px solid rgba(255,255,255,0.05)',
++              borderRadius: '8px',
++              display: 'flex',
++              justifyContent: 'space-between',
++              alignItems: 'center',
++              transition: 'all 0.3s ease'
++            }}>
++              <span style={{ font: 'var(--f-small)', color: 'var(--text-dim)' }}>{t.maxPain}</span>
++              <span className="tnum" style={{ font: 'var(--f-h3)', fontWeight: 800, color: 'var(--amber)' }}>
++                ${maxPainVal.toFixed(1)}
++              </span>
++            </div>
++
++          </div>
++      )}                         padding: '12px 0', 
+                             borderBottom: idx < darkPoolTrades.length - 1 ? '1px solid rgba(255,255,255,0.03)' : 'none', 
+                             font: 'var(--f-small)',
+                             filter: blur ? 'blur(5px)' : 'none',

@@ -678,31 +678,57 @@ function CandleChart({ ticker, price, vwap, locale = 'en' }: { ticker: string; p
 /* ═══════════════════════════════════════════
    SPARKLINE (background decoration for price)
    ═══════════════════════════════════════════ */
-function SparklineBg({ up }: { up: boolean }) {
+function SparklineBg({ up, seed = 'default' }: { up: boolean; seed?: string }) {
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   const pts = useMemo(() => {
+    if (!mounted) return '';
+    let h = 0;
+    for (let i = 0; i < seed.length; i++) {
+      h = seed.charCodeAt(i) + ((h << 5) - h);
+    }
+    const rand = () => {
+      const x = Math.sin(h++) * 10000;
+      return x - Math.floor(x);
+    };
+
     const n = 40;
     const vals: number[] = [];
     let v = 50;
     for (let i = 0; i < n; i++) {
-      v += (Math.random() - (up ? 0.42 : 0.58)) * 8;
+      v += (rand() - (up ? 0.42 : 0.58)) * 8;
       v = Math.max(10, Math.min(90, v));
       vals.push(v);
     }
     return vals.map((y, i) => `${(i / (n - 1)) * 100},${100 - y}`).join(' ');
-  }, [up]);
+  }, [up, seed, mounted]);
+
+  if (!mounted) {
+    return (
+      <svg viewBox="0 0 100 100" preserveAspectRatio="none" width="100%" height="100%"
+        style={{ position: 'absolute', inset: 0, opacity: 0 }}>
+      </svg>
+    );
+  }
+
+  const gradId = `sparkGrad-${seed}`;
 
   return (
     <svg viewBox="0 0 100 100" preserveAspectRatio="none" width="100%" height="100%"
       style={{ position: 'absolute', inset: 0 }}>
       <defs>
-        <linearGradient id="sparkGrad" x1="0" y1="0" x2="0" y2="1">
+        <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%" stopColor={up ? 'var(--green)' : 'var(--red)'} stopOpacity="0.15" />
           <stop offset="100%" stopColor={up ? 'var(--green)' : 'var(--red)'} stopOpacity="0" />
         </linearGradient>
       </defs>
       <polyline points={pts} fill="none" stroke={up ? 'var(--green)' : 'var(--red)'}
         strokeWidth="0.8" opacity="0.4" />
-      <polygon points={`0,100 ${pts} 100,100`} fill="url(#sparkGrad)" />
+      <polygon points={`0,100 ${pts} 100,100`} fill={`url(#${gradId})`} />
     </svg>
   );
 }
@@ -862,24 +888,47 @@ function FundamentalsCard({ raw, locale = 'en' }: { raw: FundRaw | null; locale?
   };
 
   const metrics = [
-    { key: 'PE', val: raw?.pe != null ? String(raw.pe) : null },
-    { key: 'ROE', val: raw?.roe != null ? `${raw.roe}%` : null },
-    { key: 'D/E', val: raw?.de != null ? String(raw.de) : null },
-    { key: locale === 'ko' ? '매출' : 'Rev', val: raw?.revenueGrowth != null ? `${raw.revenueGrowth > 0 ? '+' : ''}${raw.revenueGrowth}%` : null },
-    { key: locale === 'ko' ? '마진' : 'Margin', val: raw?.netMargin != null ? `${raw.netMargin}%` : null },
+    { 
+      key: 'PE', 
+      val: raw?.pe != null ? String(raw.pe) : null 
+    },
+    { 
+      key: 'ROE', 
+      val: raw?.roe != null ? `${raw.roe}%` : null 
+    },
+    { 
+      key: 'D/E', 
+      val: raw?.de != null ? String(raw.de) : null 
+    },
+    { 
+      key: locale === 'ko' ? '매출' : 'Rev', 
+      val: raw?.revenueGrowth != null ? `${raw.revenueGrowth > 0 ? '+' : ''}${raw.revenueGrowth}%` : null 
+    },
+    { 
+      key: locale === 'ko' ? '마진' : 'Margin', 
+      val: raw?.netMargin != null ? `${raw.netMargin}%` : null 
+    },
   ].filter(m => m.val !== null);
 
   const breakdownKeys = raw?.breakdown ? Object.keys(raw.breakdown) : [];
 
+  const row1 = metrics.slice(0, 3);
+  const row2 = metrics.slice(3);
+
   return (
-    <div className={`${s.card} ${s.animateIn} ${s.delay4}`}>
+    <div className={`${s.premiumCard} ${s.animateIn} ${s.delay4}`}>
       {/* Header Row */}
-      <div className={s.fundHeader}>
-        <div className={s.cardTitle} style={{ margin: 0 }}>
+      <div className={s.premiumHeader}>
+        <div className={s.premiumTitle}>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="18" y1="20" x2="18" y2="10" />
+            <line x1="12" y1="20" x2="12" y2="4" />
+            <line x1="6" y1="20" x2="6" y2="14" />
+          </svg>
           {locale === 'ko' ? '펀더멘탈' : locale === 'ja' ? 'ファンダメンタルズ' : 'FUNDAMENTAL'}
         </div>
         {grade && (
-          <span className={s.fundGradeBadge} style={{ color: gradeColor(grade), borderColor: gradeColor(grade) }}>
+          <span className={s.premGradeBadge} style={{ color: gradeColor(grade), borderColor: gradeColor(grade) }}>
             {grade}
           </span>
         )}
@@ -887,22 +936,36 @@ function FundamentalsCard({ raw, locale = 'en' }: { raw: FundRaw | null; locale?
 
       {/* Score + Insight Row */}
       {score !== null && (
-        <div className={s.fundScoreRow}>
-          <span className={s.fundScoreNum} style={{ color: gradeColor(grade) }}>{score}</span>
-          <span className={s.fundScoreMax}>/100</span>
-          <span className={s.fundInsight} style={{ color: gradeColor(grade) }}>{insight}</span>
+        <div className={s.premScoreRow}>
+          <span className={s.premScoreNum} style={{ color: gradeColor(grade) }}>{score}</span>
+          <span className={s.premScoreMax}>/100</span>
+          <span className={s.premInsightBadge} style={{ color: gradeColor(grade), borderColor: `${gradeColor(grade)}50`, background: `${gradeColor(grade)}15` }}>
+            {insight}
+          </span>
         </div>
       )}
 
-      {/* Metric Pills */}
+      {/* Metric Grid */}
       {metrics.length > 0 && (
-        <div className={s.fundMetricRow}>
-          {metrics.map(m => (
-            <div key={m.key} className={s.fundMetricPill}>
-              <span className={s.fundMetricKey}>{m.key}</span>
-              <span className={s.fundMetricVal}>{m.val}</span>
+        <div className={s.premMutedGrid}>
+          <div className={s.premRow3}>
+            {row1.map(m => (
+              <div key={m.key} className={s.premRatioPill}>
+                <span className={s.premRatioLabel}>{m.key}</span>
+                <span className={s.premRatioValue}>{m.val}</span>
+              </div>
+            ))}
+          </div>
+          {row2.length > 0 && (
+            <div className={row2.length >= 3 ? s.premRow3 : s.premRow2}>
+              {row2.map(m => (
+                <div key={m.key} className={s.premRatioPill}>
+                  <span className={s.premRatioLabel}>{m.key}</span>
+                  <span className={s.premRatioValue}>{m.val}</span>
+                </div>
+              ))}
             </div>
-          ))}
+          )}
         </div>
       )}
 
@@ -948,7 +1011,7 @@ function EarningsCardPremium({ raw, locale = 'en' }: { raw: EarnRaw | null; loca
 
   // Format date nicely
   const dateStr = raw.nextEarningsDate
-    ? new Date(raw.nextEarningsDate + 'T00:00:00').toLocaleDateString(locale === 'ko' ? 'ko-KR' : 'en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+    ? new Date(raw.nextEarningsDate + 'T00:00:00').toLocaleDateString(locale === 'ko' ? 'ko-KR' : 'en-US', { month: 'long', day: 'numeric', year: 'numeric' })
     : 'TBD';
 
   // Session label
@@ -978,53 +1041,61 @@ function EarningsCardPremium({ raw, locale = 'en' }: { raw: EarnRaw | null; loca
   };
 
   return (
-    <div className={`${s.card} ${s.animateIn} ${s.delay5}`}>
+    <div className={`${s.premiumCard} ${s.animateIn} ${s.delay5}`}>
       {/* Header */}
-      <div className={s.earnHeader}>
-        <div className={s.cardTitle} style={{ margin: 0 }}>
+      <div className={s.premiumHeader}>
+        <div className={s.premiumTitle}>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <rect x="3" y="4" width="18" height="18" rx="2" ry="2" />
+            <line x1="16" y1="2" x2="16" y2="6" />
+            <line x1="8" y1="2" x2="8" y2="6" />
+            <line x1="3" y1="10" x2="21" y2="10" />
+          </svg>
           {locale === 'ko' ? '실적 발표' : locale === 'ja' ? '決算予定' : 'EARNINGS'}
         </div>
-        <span className={isImminent ? s.countdownImminent : s.countdownBadge}>{daysLabel}</span>
+        <div>
+          <span className={s.premCountdownBadge}>{daysLabel}</span>
+          {days !== null && days > 0 && (
+            <div className={s.premDaysText}>
+              {locale === 'ko' ? `${days}일 후` : `${days}d`}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Date + Session Row */}
-      <div className={s.earnDateRow}>
-        <span className={s.earningsDate}>{dateStr}</span>
+      <div className={s.premDateRow}>
+        <span className={s.premDateVal}>{dateStr}</span>
         {sessionText && (
-          <span className={s.earnSessionBadge}>{sessionText}</span>
-        )}
-        {days !== null && days > 0 && (
-          <span className={s.earnDaysText}>
-            {locale === 'ko' ? `${days}일 후` : `${days}d`}
-          </span>
+          <span className={s.premSessionBadge}>{sessionText}</span>
         )}
       </div>
 
       {/* Progress Bar */}
       {!isPast && (
-        <div className={s.earningsBar}>
-          <div className={s.earningsBarFill} style={{ width: animated ? `${progress}%` : '0%' }} />
+        <div className={s.premProgressBar}>
+          <div className={s.premProgressBarFill} style={{ width: animated ? `${progress}%` : '0%' }} />
         </div>
       )}
 
       {/* EPS Estimate + Quarter */}
-      {(raw.epsEstimate != null || qLabel) && (
-        <div className={s.earnInfoRow}>
+      {(raw.epsEstimate != null || qLabel || raw.lastSurprise) && (
+        <div className={s.premInfoRow}>
           {raw.epsEstimate != null && (
-            <div className={s.earnInfoItem}>
-              <span className={s.earnInfoLabel}>{locale === 'ko' ? '예상 EPS' : 'Est EPS'}</span>
-              <span className={s.earnInfoValue}>${raw.epsEstimate.toFixed(2)}</span>
+            <div className={s.premInfoPill}>
+              <span>{locale === 'ko' ? '예상 EPS' : 'Est EPS'}</span>
+              <span className={s.premInfoPillValue}>${raw.epsEstimate.toFixed(2)}</span>
             </div>
           )}
           {qLabel && (
-            <div className={s.earnInfoItem}>
-              <span className={s.earnInfoLabel}>{qLabel}</span>
+            <div className={s.premInfoPill}>
+              <span>{qLabel}</span>
             </div>
           )}
           {/* Last Surprise */}
           {raw.lastSurprise && (
-            <div className={s.earnInfoItem}>
-              <span className={raw.lastSurprise.surprisePct >= 0 ? s.earnBeat : s.earnMiss}>
+            <div className={s.premInfoPill}>
+              <span style={{ color: raw.lastSurprise.surprisePct >= 0 ? '#34d399' : '#f87171', fontWeight: 800 }}>
                 {raw.lastSurprise.surprisePct >= 0 ? 'Beat' : 'Miss'} {raw.lastSurprise.surprisePct >= 0 ? '+' : ''}{raw.lastSurprise.surprisePct.toFixed(1)}%
               </span>
             </div>
@@ -1034,21 +1105,42 @@ function EarningsCardPremium({ raw, locale = 'en' }: { raw: EarnRaw | null; loca
 
       {/* Forward Guidance */}
       {(raw.forwardEps != null || raw.forwardRevenue != null) && (
-        <div className={s.earnForwardSection}>
-          <div className={s.earnForwardTitle}>
+        <div className={s.premForwardSection}>
+          <div className={s.premForwardTitle}>
             {locale === 'ko' ? `내년전망` : 'Forward'} {raw.forwardYear ? `(FY${raw.forwardYear.slice(-2)})` : ''}
           </div>
-          <div className={s.earnForwardRow}>
+          <div className={s.premForwardGrid}>
             {raw.forwardEps != null && (
-              <div className={s.earnForwardItem}>
-                <span className={s.earnForwardLabel}>EPS</span>
-                <span className={s.earnForwardValue}>${raw.forwardEps.toFixed(2)}</span>
+              <div className={s.premForwardCard}>
+                <div className={s.premForwardLeft}>
+                  <span className={s.premForwardLabel}>EPS</span>
+                  <span className={s.premForwardVal}>${raw.forwardEps.toFixed(2)}</span>
+                </div>
+                <svg className={s.premForwardChart} viewBox="0 0 44 22">
+                  <path
+                    d="M2,18 Q12,16 22,8 T42,3"
+                    fill="none"
+                    stroke="#10b981"
+                    strokeWidth="1.8"
+                    strokeLinecap="round"
+                  />
+                  <circle cx="42" cy="3" r="2" fill="#10b981" />
+                </svg>
               </div>
             )}
             {raw.forwardRevenue != null && (
-              <div className={s.earnForwardItem}>
-                <span className={s.earnForwardLabel}>{locale === 'ko' ? '매출' : 'Rev'}</span>
-                <span className={s.earnForwardValue}>{fmtRevenue(raw.forwardRevenue)}</span>
+              <div className={s.premForwardCard}>
+                <div className={s.premForwardLeft}>
+                  <span className={s.premForwardLabel}>{locale === 'ko' ? '매출' : 'Rev'}</span>
+                  <span className={s.premForwardVal}>{fmtRevenue(raw.forwardRevenue)}</span>
+                </div>
+                <svg className={s.premForwardChart} viewBox="0 0 44 22">
+                  <rect x="2" y="14" width="4" height="8" rx="1" fill="#06b6d4" opacity="0.4" />
+                  <rect x="10" y="11" width="4" height="11" rx="1" fill="#06b6d4" opacity="0.6" />
+                  <rect x="18" y="9" width="4" height="13" rx="1" fill="#06b6d4" opacity="0.8" />
+                  <rect x="26" y="6" width="4" height="16" rx="1" fill="#06b6d4" />
+                  <rect x="34" y="3" width="4" height="19" rx="1" fill="#22d3ee" style={{ filter: 'drop-shadow(0 0 2px var(--cyan))' }} />
+                </svg>
               </div>
             )}
           </div>
@@ -1096,7 +1188,7 @@ function TechnicalGammaMap({
   const s3 = low - 2 * (pp - high);
 
   // Group levels and filter nulls
-  const levels = [
+  const rawLevels = [
     { label: 'R3 (Resistance)', val: r3, type: 'pivot', color: 'rgba(239, 68, 68, 0.5)' },
     { label: 'R2 (Resistance)', val: r2, type: 'pivot', color: 'rgba(239, 68, 68, 0.7)' },
     { label: 'R1 (Resistance)', val: r1, type: 'pivot', color: 'rgba(239, 68, 68, 0.95)' },
@@ -1106,25 +1198,103 @@ function TechnicalGammaMap({
     { label: 'S3 (Support)', val: s3, type: 'pivot', color: 'rgba(16, 185, 129, 0.5)' },
   ];
 
-  if (callWall) levels.push({ label: 'Call Wall', val: callWall, type: 'gamma', color: '#f43f5e' });
-  if (putFloor) levels.push({ label: 'Put Floor', val: putFloor, type: 'gamma', color: '#10b981' });
-  if (gammaFlip) levels.push({ label: 'Gamma Flip', val: gammaFlip, type: 'gamma', color: '#f59e0b' });
-  levels.push({ label: 'CURRENT PRICE', val: price, type: 'price', color: '#22d3ee' });
+  if (callWall) rawLevels.push({ label: 'Call Wall', val: callWall, type: 'gamma', color: '#f43f5e' });
+  if (putFloor) rawLevels.push({ label: 'Put Floor', val: putFloor, type: 'gamma', color: '#10b981' });
+  if (gammaFlip) rawLevels.push({ label: 'Gamma Flip', val: gammaFlip, type: 'gamma', color: '#f59e0b' });
+  rawLevels.push({ label: 'CURRENT PRICE', val: price, type: 'price', color: '#22d3ee' });
 
   // Sort by value descending
-  levels.sort((a, b) => b.val - a.val);
+  rawLevels.sort((a, b) => b.val - a.val);
+
+  // Merge levels at the exact same price (prevent overlapping labels for identical levels)
+  const mergedMap = new Map<string, typeof rawLevels[0]>();
+  for (const l of rawLevels) {
+    const key = l.val.toFixed(2);
+    const existing = mergedMap.get(key);
+    if (existing) {
+      existing.label = `${existing.label} / ${l.label}`;
+      // Upgrade type/color priority: price > gamma > pivot
+      if (l.type === 'price' || existing.type === 'price') {
+        existing.type = 'price';
+        existing.color = '#22d3ee';
+      } else if (l.type === 'gamma') {
+        existing.type = 'gamma';
+        existing.color = l.color;
+      }
+    } else {
+      mergedMap.set(key, { ...l });
+    }
+  }
+  const levels = Array.from(mergedMap.values()).sort((a, b) => b.val - a.val);
 
   const minVal = Math.min(...levels.map(l => l.val));
   const maxVal = Math.max(...levels.map(l => l.val));
   const range = maxVal - minVal || 1;
 
+  // Position calculation with compression of large gaps (non-linear scale)
+  let positions = levels.map((l) => {
+    const pct = maxVal === minVal ? 50 : ((maxVal - l.val) / range) * 100;
+    return {
+      ...l,
+      pct,
+    };
+  });
+
+  // Compress any vertical empty gaps larger than 14% to 14% to make the layout compact
+  const MAX_GAP_PCT = 14;
+  for (let i = 1; i < positions.length; i++) {
+    const diff = positions[i].pct - positions[i - 1].pct;
+    if (diff > MAX_GAP_PCT) {
+      const excess = diff - MAX_GAP_PCT;
+      for (let j = i; j < positions.length; j++) {
+        positions[j].pct -= excess;
+      }
+    }
+  }
+
+  // Normalize percentages back to safe boundaries [6%, 94%]
+  const newMin = positions[0].pct;
+  const newMax = positions[positions.length - 1].pct;
+  const newRange = newMax - newMin || 1;
+  positions = positions.map(p => ({
+    ...p,
+    pct: ((p.pct - newMin) / newRange) * 88 + 6
+  }));
+
+  // Resolve minor overlaps (minimum vertical space is 7.2%)
+  const MIN_GAP_PCT = 7.2;
+  for (let i = 1; i < positions.length; i++) {
+    if (positions[i].pct - positions[i - 1].pct < MIN_GAP_PCT) {
+      positions[i].pct = positions[i - 1].pct + MIN_GAP_PCT;
+    }
+  }
+  if (positions.length > 0 && positions[positions.length - 1].pct > 94) {
+    positions[positions.length - 1].pct = 94;
+    for (let i = positions.length - 2; i >= 0; i--) {
+      if (positions[i + 1].pct - positions[i].pct < MIN_GAP_PCT) {
+        positions[i].pct = positions[i + 1].pct - MIN_GAP_PCT;
+      }
+    }
+  }
+  if (positions.length > 0 && positions[0].pct < 6) {
+    positions[0].pct = 6;
+    for (let i = 1; i < positions.length; i++) {
+      if (positions[i].pct - positions[i - 1].pct < MIN_GAP_PCT) {
+        positions[i].pct = positions[i - 1].pct + MIN_GAP_PCT;
+      }
+    }
+  }
+
   return (
     <div className={s.levelMapCard}>
       <div className={s.cardTitle} style={{ marginBottom: '16px' }}>TECHNICAL & GAMMA LEVELS MAP</div>
       <div className={s.rulerContainer}>
+        {/* Subtle Watermarks */}
+        <div className={s.watermarkTop}>RESISTANCE</div>
+        <div className={s.watermarkBottom}>SUPPORT</div>
+        
         <div className={s.verticalRuler} />
-        {levels.map((l, idx) => {
-          const pct = ((maxVal - l.val) / range) * 100;
+        {positions.map((l, idx) => {
           const isPrice = l.type === 'price';
           const isGamma = l.type === 'gamma';
           
@@ -1132,7 +1302,7 @@ function TechnicalGammaMap({
             <div 
               key={`${l.label}-${idx}`} 
               className={`${s.rulerMarker} ${isPrice ? s.priceMarker : isGamma ? s.gammaMarker : s.pivotMarker}`}
-              style={{ top: `${pct.toFixed(1)}%` }}
+              style={{ top: `${l.pct.toFixed(1)}%` }}
             >
               <span className={s.markerVal} style={{ color: l.color }}>
                 ${l.val.toFixed(2)}
@@ -1214,13 +1384,160 @@ function RelatedPeersLive({ tickers, currentPrice, locale }: { tickers: any[]; c
 /* ═══════════════════════════════════════════
    SIGNAL CARD
    ═══════════════════════════════════════════ */
-function SignalCard({ label, value, sub, color, bg, border, badge, badgeColor, iconKey }: {
-  label: string; value: string; sub?: string; iconKey?: string;
+function SignalCard({ label, value, sub, color, bg, border, badge, badgeColor, iconKey, locale = 'en' }: {
+  label: string; value: string; sub?: React.ReactNode; iconKey?: string;
   color?: string; bg?: string; border?: string;
-  badge?: string; badgeColor?: string;
+  badge?: string; badgeColor?: string; locale?: string;
 }) {
-  const cardBg = bg || 'bg-[#0f172a]/45';
-  const cardBorder = border || 'border-white/[0.06]';
+  const getGlowColor = () => {
+    const k = (iconKey || label).toUpperCase();
+    if (k.includes('VOL REGIME')) {
+      return 'rgba(34, 211, 238, 0.15)'; // Cyan
+    }
+    if (k.includes('CONVICTION') || k.includes('TREND')) {
+      return 'rgba(16, 185, 129, 0.15)'; // Emerald
+    }
+    if (k.includes('SQUEEZE')) {
+      return 'rgba(239, 68, 68, 0.15)'; // Red
+    }
+    if (k.includes('RADAR')) {
+      return 'rgba(232, 121, 249, 0.18)'; // Fuchsia
+    }
+    if (k.includes('FUNDAMENTAL')) {
+      return 'rgba(245, 158, 11, 0.15)'; // Amber
+    }
+    return 'rgba(255, 255, 255, 0.05)';
+  };
+
+  const getInsight = () => {
+    const k = (iconKey || label).toUpperCase();
+    if (k.includes('VOL REGIME')) {
+      const regime = badge || '';
+      if (locale === 'ko') {
+        if (regime === 'ERUPTING') return '극단적 변동';
+        if (regime === 'LOADED') return '변동성 축적';
+        if (regime === 'COILING') return '에너지 응축';
+        return '변동성 안정';
+      }
+      if (locale === 'ja') {
+        if (regime === 'ERUPTING') return '極端な変動';
+        if (regime === 'LOADED') return 'ボラティリティ蓄積';
+        if (regime === 'COILING') return 'エネルギー凝縮';
+        return '安定';
+      }
+      if (regime === 'ERUPTING') return 'Extreme Vol';
+      if (regime === 'LOADED') return 'Vol Accumulating';
+      if (regime === 'COILING') return 'Coiling';
+      return 'Stable';
+    }
+    if (k.includes('CONVICTION')) {
+      const score = parseFloat(value);
+      if (isNaN(score)) return null;
+      if (locale === 'ko') {
+        if (score >= 80) return '강한 상승 편향';
+        if (score >= 60) return '상승 우위';
+        if (score >= 45) return '중립/관망';
+        if (score >= 30) return '하락 우위';
+        return '강한 하락 편향';
+      }
+      if (locale === 'ja') {
+        if (score >= 80) return '強い上昇偏向';
+        if (score >= 60) return '上昇優位';
+        if (score >= 45) return '中立・様子見';
+        if (score >= 30) return '下落優位';
+        return '強い下落偏向';
+      }
+      if (score >= 80) return 'Strong Bullish';
+      if (score >= 60) return 'Moderate Bullish';
+      if (score >= 45) return 'Neutral/Mixed';
+      if (score >= 30) return 'Moderate Bearish';
+      return 'Strong Bearish';
+    }
+    if (k.includes('SQUEEZE')) {
+      const status = badge || '';
+      if (locale === 'ko') {
+        if (status === 'CRITICAL') return '숏커버 임박/경계';
+        if (status === 'HIGH') return '숏커버 가능성 높음';
+        if (status === 'MEDIUM') return '공매도 보통';
+        return '공매도 위험 낮음';
+      }
+      if (locale === 'ja') {
+        if (status === 'CRITICAL') return '急変動警戒';
+        if (status === 'HIGH') return 'スクイーズ高リスク';
+        if (status === 'MEDIUM') return '空売り通常';
+        return '空売りリスク低';
+      }
+      if (status === 'CRITICAL') return 'Critical Squeeze';
+      if (status === 'HIGH') return 'High Squeeze Risk';
+      if (status === 'MEDIUM') return 'Moderate Shorting';
+      return 'Low Squeeze Risk';
+    }
+    if (k.includes('RADAR')) {
+      const pct = parseFloat(value);
+      if (isNaN(pct)) return null;
+      if (locale === 'ko') {
+        if (pct >= 45) return '기관 매집 강함';
+        if (pct >= 30) return '기관 매집 보통';
+        return '기관 거래 낮음';
+      }
+      if (locale === 'ja') {
+        if (pct >= 45) return '機関の買い集め強';
+        if (pct >= 30) return '機関の買い集め通常';
+        return '機関取引低';
+      }
+      if (pct >= 45) return 'Strong Inst. Buy';
+      if (pct >= 30) return 'Moderate Inst. Buy';
+      return 'Low Inst. Activity';
+    }
+    if (k.includes('TREND')) {
+      const val = value.toUpperCase();
+      if (locale === 'ko') {
+        if (val.includes('GOLDEN')) return '상승 추세 강화';
+        if (val.includes('DEAD')) return '하락 추세 지속';
+        return '단기 횡보';
+      }
+      if (locale === 'ja') {
+        if (val.includes('GOLDEN')) return '上昇トレンド強';
+        if (val.includes('DEAD')) return '下降トレンド強';
+        return 'レンジ推移';
+      }
+      if (val.includes('GOLDEN')) return 'Bullish Trend';
+      if (val.includes('DEAD')) return 'Bearish Trend';
+      return 'Consolidating';
+    }
+    if (k.includes('FUNDAMENTAL')) {
+      const val = value.toUpperCase();
+      if (locale === 'ko') {
+        if (val.startsWith('A')) return '재무 초우량';
+        if (val.startsWith('B')) return '재무 양호';
+        return '재무 추적 필요';
+      }
+      if (locale === 'ja') {
+        if (val.startsWith('A')) return '超優良財務';
+        if (val.startsWith('B')) return '健全財務';
+        return '財務通常';
+      }
+      if (val.startsWith('A')) return 'Excellent';
+      if (val.startsWith('B')) return 'Healthy';
+      return 'Average';
+    }
+    return null;
+  };
+
+  const getProgress = () => {
+    const k = (iconKey || label).toUpperCase();
+    if (k.includes('VOL REGIME') || k.includes('CONVICTION')) {
+      return parseFloat(value) || 0;
+    }
+    if (k.includes('RADAR')) {
+      return parseFloat(value) || 0;
+    }
+    if (k.includes('SQUEEZE')) {
+      const val = parseFloat(value) || 0;
+      return Math.min(100, val * 5); // Scale so 20% looks full
+    }
+    return null;
+  };
 
   const getIcon = (lbl: string) => {
     const l = lbl.toUpperCase();
@@ -1239,27 +1556,10 @@ function SignalCard({ label, value, sub, color, bg, border, badge, badgeColor, i
         </svg>
       );
     }
-    if (l.includes('VWAP')) {
-      return (
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="opacity-80 shrink-0">
-          <path d="M3 6h18M3 12h18M3 18h18" strokeLinecap="round"/>
-          <circle cx="12" cy="12" r="2" fill="currentColor"/>
-        </svg>
-      );
-    }
     if (l.includes('SQUEEZE')) {
       return (
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="opacity-80 shrink-0">
           <path d="M8.5 14.5A2.5 2.5 0 0011 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 11-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 002.5 2.5z" strokeLinecap="round" strokeLinejoin="round"/>
-        </svg>
-      );
-    }
-    if (l.includes('ANALYST')) {
-      return (
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="opacity-80 shrink-0">
-          <circle cx="12" cy="12" r="10"/>
-          <circle cx="12" cy="12" r="6"/>
-          <circle cx="12" cy="12" r="2" fill="currentColor"/>
         </svg>
       );
     }
@@ -1288,31 +1588,43 @@ function SignalCard({ label, value, sub, color, bg, border, badge, badgeColor, i
         </svg>
       );
     }
-    if (l.includes('EARNINGS')) {
-      return (
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="opacity-80 shrink-0">
-          <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
-          <path d="M16 2v4M8 2v4M3 10h18" strokeLinecap="round"/>
-        </svg>
-      );
-    }
     return null;
   };
 
+  const glowColor = getGlowColor();
   const icon = getIcon(iconKey || label);
+  const insightText = getInsight();
+  const pctVal = getProgress();
+
+  const isRadar = (iconKey || label).toUpperCase().includes('RADAR');
+  const displayColor = isRadar ? 'text-fuchsia-400' : color || 'text-white';
+
+  const getColorValue = () => {
+    if (color?.includes('rose')) return '#f87171'; // rose-400
+    if (color?.includes('amber')) return '#fbbf24'; // amber-400
+    if (color?.includes('cyan')) return '#22d3ee'; // cyan-400
+    if (color?.includes('emerald')) return '#34d399'; // emerald-400
+    if (color?.includes('fuchsia') || isRadar) return '#e879f9'; // fuchsia-400
+    if (color?.includes('purple')) return '#c084fc'; // purple-400
+    if (color?.includes('indigo')) return '#818cf8'; // indigo-400
+    return '#94a3b8'; // slate-400
+  };
+  const colorVal = getColorValue();
 
   return (
-    <div className={`relative overflow-hidden rounded-xl px-4 py-3.5 transition-all duration-500 backdrop-blur-xl border ${cardBg} ${cardBorder}`}
+    <div 
+      className="relative overflow-hidden rounded-2xl px-4 py-3.5 transition-all duration-300 backdrop-blur-xl border"
       style={{
-        boxShadow: border && border.includes('border-') 
-          ? '0 0 14px rgba(255,255,255,0.02), inset 0 1px 0 rgba(255,255,255,0.05)'
-          : '0 4px 14px rgba(0, 0, 0, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.03)'
-      }}>
-      <div className="absolute inset-0 bg-gradient-to-br from-white/[0.03] via-transparent to-transparent pointer-events-none" />
+        boxShadow: `0 0 16px ${glowColor.replace('0.15', '0.04')}, inset 0 1px 0 rgba(255, 255, 255, 0.05)`,
+        background: `radial-gradient(120% 120% at 20% 0%, ${glowColor.replace('0.15', '0.05')}, transparent 70%), rgba(22, 32, 54, 0.45)`,
+        borderColor: glowColor.replace('0.15', '0.22')
+      }}
+    >
+      <div className="absolute inset-0 bg-gradient-to-br from-white/[0.02] via-transparent to-transparent pointer-events-none" />
       <div className="relative z-10">
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-1.5 text-slate-300 font-bold uppercase tracking-wider text-[10.5px]">
-            {icon && <span style={{ color: color || '#94a3b8' }}>{icon}</span>}
+            {icon && <span style={{ color: colorVal, filter: `drop-shadow(0 0 2px ${colorVal})` }}>{icon}</span>}
             <span>{label}</span>
           </div>
           {badge && (
@@ -1321,11 +1633,44 @@ function SignalCard({ label, value, sub, color, bg, border, badge, badgeColor, i
             </span>
           )}
         </div>
-        <div className={`text-[19px] font-extrabold font-mono tabular-nums leading-none tracking-tight ${color || 'text-white'}`}>
-          {value}
+        
+        {/* Metric Value & Insight Badge Inline Row */}
+        <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+          <span 
+            className={`text-[20px] font-black font-mono tabular-nums leading-none tracking-tight ${displayColor}`}
+            style={{ textShadow: `0 0 6px ${colorVal}30` }}
+          >
+            {value}
+          </span>
+          {insightText && (
+            <span 
+              className="text-[9px] font-extrabold px-1.5 py-0.5 rounded-md border leading-none tracking-wide"
+              style={{
+                borderColor: `${colorVal}30`,
+                color: colorVal,
+                backgroundColor: `${colorVal}12`,
+                textShadow: `0 0 4px ${colorVal}20`
+              }}
+            >
+              {insightText}
+            </span>
+          )}
         </div>
+
+        {pctVal !== null && (
+          <div className="h-[3px] bg-white/[0.04] rounded-full overflow-hidden my-2.5">
+            <div 
+              className="h-full rounded-full transition-all duration-1000"
+              style={{
+                width: `${pctVal}%`,
+                background: colorVal,
+                boxShadow: `0 0 6px ${colorVal}`
+              }}
+            />
+          </div>
+        )}
         {sub && (
-          <div className="text-[11.5px] text-slate-200 mt-2 font-semibold leading-snug tracking-wide">
+          <div className="text-[11.5px] text-slate-400 mt-2 font-medium leading-snug tracking-wide">
             {sub}
           </div>
         )}
@@ -1407,6 +1752,30 @@ function CmdPageContent() {
         const f = fundRes.status === 'fulfilled' ? fundRes.value : null;
         const e = earningsRes.status === 'fulfilled' ? earningsRes.value : null;
         const u = unifiedRes.status === 'fulfilled' ? unifiedRes.value : null;
+
+        const rejections = [
+          { name: 'ticker', res: tickerRes },
+          { name: 'analyst', res: analystRes },
+          { name: 'fundamentals', res: fundRes },
+          { name: 'earnings', res: earningsRes },
+          { name: 'unified', res: unifiedRes }
+        ].filter(x => x.res.status === 'rejected');
+
+        if (rejections.length > 0) {
+          fetch('/api/debug-log', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              message: 'Promises rejected in Promise.allSettled',
+              rejections: rejections.map(x => ({
+                name: x.name,
+                reason: String((x.res as any).reason)
+              })),
+              ticker,
+              location: 'CmdPageContent fetchAll allSettled check'
+            })
+          }).catch(() => {});
+        }
 
         const price = t?.display?.price ?? t?.price ?? DEMO.price;
         const changeAbs = t?.display?.changeAbs ?? DEMO.change;
@@ -1510,7 +1879,17 @@ function CmdPageContent() {
           fundRaw,
           earnRaw,
         });
-      } catch {
+      } catch (err: any) {
+        fetch('/api/debug-log', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            message: err?.message || String(err),
+            stack: err?.stack || '',
+            ticker,
+            location: 'CmdPageContent fetchAll'
+          })
+        }).catch(() => {});
         if (!cancelled) {
           setData({ ...DEMO, ticker, company: DEMO.company, rawTickerData: null, unified: null, fundRaw: null, earnRaw: null });
         }
@@ -1925,10 +2304,17 @@ function CmdPageContent() {
         </button>
       </div>
 
-      {/* ── HERO CARD — Premium Glassmorphism ── */}
-      <div className={`${s.p2Card} ${s.animateIn} ${s.delay1}`}>
+      <div 
+        className={`${s.p2Card} ${s.connectedP2Card} ${s.animateIn} ${s.delay1}`}
+        style={{
+          marginBottom: '0px',
+          borderBottom: 'none',
+          borderBottomLeftRadius: '0px',
+          borderBottomRightRadius: '0px'
+        }}
+      >
         {/* Background sparkline decoration */}
-        <SparklineBg up={up} />
+        <SparklineBg up={up} seed={data.ticker} />
 
         {/* ── Row 1: Identity (Logo + Ticker/Company) | Status ── */}
         <div className={s.heroIdentity}>
@@ -1982,7 +2368,7 @@ function CmdPageContent() {
           </div>
           {hasExt && (
             <div className={s.heroExtCard}>
-              <SparklineBg up={activeExtPct >= 0} />
+              <SparklineBg up={activeExtPct >= 0} seed={`${data.ticker}-ext`} />
               <span className={s.heroExtLabel}>{activeExtLabel}</span>
               <span className={s.heroExtPrice}>${activeExtPrice.toFixed(2)}</span>
               <span className={s.heroExtChange} style={{ color: activeExtPct >= 0 ? 'var(--green)' : 'var(--red)' }}>
@@ -2063,8 +2449,18 @@ function CmdPageContent() {
         </div>
       </div>
 
-      {/* ── TAB BAR v2 (OVERVIEW, VERDICT ✱, QUANT ✱, HOLDERS ✱) ── */}
-      <div className={`${s.seg} ${s.seg4}`}>
+      <div 
+        className={`${s.seg} ${s.seg4} ${s.connectedSeg}`}
+        style={{
+          marginTop: '0px',
+          marginBottom: '0px',
+          borderRadius: '0px',
+          borderTop: '1px solid rgba(255, 255, 255, 0.055)',
+          borderBottom: '1px solid rgba(255, 255, 255, 0.055)',
+          marginLeft: 'var(--s4)',
+          marginRight: 'var(--s4)'
+        }}
+      >
         <span className={s.segPill} style={{ left: `calc(3px + ${['overview', 'verdict', 'quant', 'holders'].indexOf(activeTab)} * (100% - 6px) / 4)` }}></span>
         <button 
           className={activeTab === 'overview' ? s.on : ''}
@@ -2107,8 +2503,15 @@ function CmdPageContent() {
       >
       {activeTab === 'overview' && (
         <div className={`${s.animateIn} ${s.delay2}`}>
-          {/* Chart card */}
-          <div className={s.card}>
+          <div 
+            className={`${s.card} ${s.connectedChartCard}`}
+            style={{
+              marginTop: '0px',
+              borderTop: 'none',
+              borderTopLeftRadius: '0px',
+              borderTopRightRadius: '0px'
+            }}
+          >
             <CandleChart 
               ticker={data.ticker} 
               price={
@@ -2127,9 +2530,19 @@ function CmdPageContent() {
 
           {/* Company Description */}
           {companyDescription && (
-            <div className={`${s.card} ${s.animateIn} ${s.delay6}`}>
-              <div className={s.cardTitle} style={{ marginBottom: 'var(--s2)' }}>
-                {locale === 'ko' ? '기업 개요' : locale === 'ja' ? '企業概要' : 'Company Overview'}
+            <div className={`${s.premiumCard} ${s.animateIn} ${s.delay6}`}>
+              <div className={s.premiumHeader}>
+                <div className={s.premiumTitle}>
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="2" y="2" width="20" height="20" rx="2" ry="2" />
+                    <path d="M7 22V14h10v8" />
+                    <path d="M9 8h2" />
+                    <path d="M13 8h2" />
+                    <path d="M9 12h2" />
+                    <path d="M13 12h2" />
+                  </svg>
+                  {locale === 'ko' ? '기업 개요' : locale === 'ja' ? '企業概要' : 'Company Overview'}
+                </div>
               </div>
               <p style={{ fontSize: '12.5px', color: 'var(--text-dim)', lineHeight: 1.6, margin: 0 }}>{companyDescription}</p>
             </div>
@@ -2162,8 +2575,15 @@ function CmdPageContent() {
           )}
 
           {verdictHeader ? (
-            <div className="rounded-2xl border border-amber-500/25 overflow-hidden relative"
-              style={{ background: 'linear-gradient(180deg, rgba(8,12,21,0.96), rgba(13,17,25,0.98))', boxShadow: '0 0 24px rgba(245,158,11,0.08)' }}>
+            <div className="rounded-b-2xl border-x border-b border-amber-500/25 overflow-hidden relative"
+              style={{ 
+                background: 'linear-gradient(180deg, rgba(8,12,21,0.96), rgba(13,17,25,0.98))', 
+                boxShadow: '0 0 24px rgba(245,158,11,0.08)',
+                marginTop: '0px',
+                borderTop: 'none',
+                borderTopLeftRadius: '0px',
+                borderTopRightRadius: '0px'
+              }}>
               
               {/* AI Engine Header */}
               <div className="px-4 py-3.5 border-b border-white/[0.06] flex items-center gap-2"
@@ -2266,7 +2686,7 @@ function CmdPageContent() {
           subtitle={locale === 'ko' ? '30초 광고를 시청하고 1시간 프리미엄 분석을 이용하세요' : locale === 'ja' ? '30秒の動画を視聴して1時間プレミアム分析をご利用ください' : 'Watch a 30-second video to unlock premium analysis for 1 hour'}
           socialProof={locale === 'ko' ? '오늘 14.2K 잠금해제' : locale === 'ja' ? '本日14.2Kがロック解除' : '14.2K unlocked today'}
         >
-        <div className={`${s.animateIn} ${s.delay2}`}>
+        <div className={`${s.animateIn} ${s.delay2}`} style={{ marginTop: '16px' }}>
           {/* 9-Signal Dashboard */}
           {signalsData && (
             <div className="mb-5">
@@ -2284,7 +2704,8 @@ function CmdPageContent() {
                   color={signalsData.regime === 'ERUPTING' ? 'text-rose-400' : signalsData.regime === 'LOADED' ? 'text-amber-400' : signalsData.regime === 'COILING' ? 'text-cyan-400' : 'text-emerald-400'}
                   bg={signalsData.regime === 'ERUPTING' ? 'bg-rose-950/20' : signalsData.regime === 'LOADED' ? 'bg-amber-950/20' : 'bg-slate-900/40'}
                   border={signalsData.regime === 'ERUPTING' ? 'border-rose-500/20' : signalsData.regime === 'LOADED' ? 'border-amber-500/20' : 'border-white/[0.06]'}
-                  sub={`${locale === 'ko' ? '상태: ' : locale === 'ja' ? '状態: ' : ''}${tDashboard(signalsData.regime === 'ERUPTING' ? 'volErupting' : signalsData.regime === 'LOADED' ? 'volLoaded' : signalsData.regime === 'COILING' ? 'volCoiling' : 'volStable')} · IV ${signalsData.iv}%`} 
+                  sub={<>{locale === 'ko' ? '상태: ' : locale === 'ja' ? '状態: ' : ''}{tDashboard(signalsData.regime === 'ERUPTING' ? 'volErupting' : signalsData.regime === 'LOADED' ? 'volLoaded' : signalsData.regime === 'COILING' ? 'volCoiling' : 'volStable')} · IV <span className="text-cyan-400 font-extrabold">{signalsData.iv}%</span></>} 
+                  locale={locale}
                 />
 
                 {/* [2] CONVICTION */}
@@ -2297,26 +2718,8 @@ function CmdPageContent() {
                   color={signalsData.convictionScore >= 60 ? 'text-emerald-400' : signalsData.convictionScore <= 40 ? 'text-rose-400' : 'text-white'}
                   bg={signalsData.convictionScore >= 60 ? 'bg-emerald-950/20' : signalsData.convictionScore <= 40 ? 'bg-rose-950/20' : 'bg-slate-900/40'}
                   border={signalsData.convictionScore >= 60 ? 'border-emerald-500/20' : signalsData.convictionScore <= 40 ? 'border-rose-500/20' : 'border-white/[0.06]'}
-                  sub={`${signalsData.convictionLabel}`} 
-                />
-
-                {/* [3] VWAP */}
-                <SignalCard 
-                  label="VWAP"
-                  iconKey="VWAP"
-                  value={signalsData.vwap > 0 ? `$${signalsData.vwap.toFixed(2)}` : '—'}
-                  color={signalsData.vwapDiff > 2 ? 'text-emerald-400' : signalsData.vwapDiff < -2 ? 'text-rose-400' : 'text-white'}
-                  bg={signalsData.vwapDiff > 2 ? 'bg-emerald-950/20' : signalsData.vwapDiff < -2 ? 'bg-rose-950/20' : 'bg-slate-900/40'}
-                  border={signalsData.vwapDiff > 2 ? 'border-emerald-500/20' : signalsData.vwapDiff < -2 ? 'border-rose-500/20' : 'border-white/[0.06]'}
-                  sub={signalsData.vwap > 0 ? (
-                    locale === 'ko' ? `${signalsData.vwapDiff > 0 ? '+' : ''}${signalsData.vwapDiff.toFixed(1)}% 괴리율`
-                    : locale === 'ja' ? `${signalsData.vwapDiff > 0 ? '+' : ''}${signalsData.vwapDiff.toFixed(1)}% 乖離率`
-                    : `${signalsData.vwapDiff > 0 ? '+' : ''}${signalsData.vwapDiff.toFixed(1)}% deviation`
-                  ) : (
-                    locale === 'ko' ? '기초자산 가격 추적'
-                    : locale === 'ja' ? '原資産価格の追跡'
-                    : 'Underlying price tracking'
-                  )} 
+                  sub={<span className="text-slate-300 font-bold">{signalsData.convictionLabel}</span>} 
+                  locale={locale}
                 />
 
                 {/* [4] SHORT SQUEEZE */}
@@ -2324,21 +2727,13 @@ function CmdPageContent() {
                   label={locale === 'ko' ? '순매도 스퀘즈' : locale === 'ja' ? 'ショートスクイーズ' : 'SHORT SQUEEZE'}
                   iconKey="SHORT SQUEEZE"
                   value={signalsData.squeezePercent != null ? `${Number(signalsData.squeezePercent).toFixed(1)}%` : '-'}
+                  badge={signalsData.squeezeStatus}
+                  badgeColor={signalsData.squeezeStatus === 'CRITICAL' ? 'bg-rose-500/25 text-rose-400' : signalsData.squeezeStatus === 'HIGH' ? 'bg-amber-500/25 text-amber-400' : signalsData.squeezeStatus === 'MEDIUM' ? 'bg-cyan-500/25 text-cyan-400' : 'bg-emerald-500/25 text-emerald-400'}
                   color={signalsData.squeezeStatus === 'CRITICAL' ? 'text-rose-400' : signalsData.squeezeStatus === 'HIGH' ? 'text-amber-400' : signalsData.squeezeStatus === 'MEDIUM' ? 'text-cyan-400' : 'text-emerald-400'}
                   bg={signalsData.squeezeStatus === 'CRITICAL' ? 'bg-rose-950/20' : signalsData.squeezeStatus === 'HIGH' ? 'bg-amber-950/20' : 'bg-slate-900/40'}
                   border={signalsData.squeezeStatus === 'CRITICAL' ? 'border-rose-500/20' : signalsData.squeezeStatus === 'HIGH' ? 'border-amber-500/20' : 'border-white/[0.06]'}
-                  sub={`${signalsData.squeezeStatus} · DTC: ${signalsData.dtc?.toFixed(1) || '—'}${signalsData.siChange ? ` · Δ ${signalsData.siChange > 0 ? '+' : ''}${signalsData.siChange.toFixed(1)}%` : ''}`} 
-                />
-
-                {/* [5] ANALYST TARGET */}
-                <SignalCard 
-                  label={locale === 'ko' ? '애널리스트 목표' : locale === 'ja' ? 'アナリスト目標' : 'ANALYST TARGET'}
-                  iconKey="ANALYST TARGET"
-                  value={signalsData.buyPct > 0 ? `${signalsData.buyPct}%` : '—'}
-                  color={signalsData.buyPct >= 60 ? 'text-emerald-400' : signalsData.buyPct <= 40 ? 'text-rose-400' : 'text-white'}
-                  bg={signalsData.buyPct >= 60 ? 'bg-emerald-950/20' : signalsData.buyPct <= 40 ? 'bg-rose-950/20' : 'bg-slate-900/40'}
-                  border={signalsData.buyPct >= 60 ? 'border-emerald-500/20' : signalsData.buyPct <= 40 ? 'border-rose-500/20' : 'border-white/[0.06]'}
-                  sub={`${signalsData.analystConsensus || (locale === 'ko' ? '보유' : locale === 'ja' ? 'ホールド' : 'Hold')} · ${locale === 'ko' ? '목표가' : locale === 'ja' ? '目標株価' : 'target'} $${signalsData.priceTarget.toFixed(0)} (${signalsData.targetUpside >= 0 ? '+' : ''}${signalsData.targetUpside.toFixed(1)}%)`} 
+                  sub={<>{signalsData.squeezeStatus} · DTC: <span className="text-cyan-400 font-extrabold">{signalsData.dtc?.toFixed(1) || '—'}</span>{signalsData.siChange ? <> · Δ <span className={signalsData.siChange > 0 ? 'text-emerald-400 font-bold' : 'text-rose-400 font-bold'}>{signalsData.siChange > 0 ? '+' : ''}{signalsData.siChange.toFixed(1)}%</span></> : ''}</>} 
+                  locale={locale}
                 />
 
                 {/* [6] INST RADAR */}
@@ -2346,10 +2741,11 @@ function CmdPageContent() {
                   label={locale === 'ko' ? '기관 레이더' : locale === 'ja' ? '機関レーダー' : 'INST RADAR'}
                   iconKey="INST RADAR"
                   value={signalsData.darkPool > 0 ? `${signalsData.darkPool.toFixed(1)}%` : '—'}
-                  color={signalsData.darkPool >= 40 ? 'text-indigo-400' : 'text-slate-300'}
-                  bg={signalsData.darkPool >= 40 ? 'bg-indigo-950/20' : 'bg-slate-900/40'}
-                  border={signalsData.darkPool >= 40 ? 'border-indigo-500/20' : 'border-white/[0.06]'}
-                  sub={`DP · Block Trade: ${signalsData.blockTradeCount}`} 
+                  color={signalsData.darkPool >= 45 ? 'text-fuchsia-400' : signalsData.darkPool >= 30 ? 'text-purple-400' : 'text-slate-300'}
+                  bg={signalsData.darkPool >= 45 ? 'bg-fuchsia-950/20' : signalsData.darkPool >= 30 ? 'bg-purple-950/20' : 'bg-slate-900/40'}
+                  border={signalsData.darkPool >= 45 ? 'border-fuchsia-500/20' : signalsData.darkPool >= 30 ? 'border-purple-500/20' : 'border-white/[0.06]'}
+                  sub={<>DP · Block: <span className={`${signalsData.darkPool >= 45 ? 'text-fuchsia-400' : signalsData.darkPool >= 30 ? 'text-purple-400' : 'text-indigo-400'} font-extrabold`}>{signalsData.blockTradeCount}</span></>} 
+                  locale={locale}
                 />
 
                 {/* [7] TREND PHASE */}
@@ -2360,7 +2756,8 @@ function CmdPageContent() {
                   color={signalsData.smaCross === 'GOLDEN' ? 'text-emerald-400' : signalsData.smaCross === 'DEAD' ? 'text-rose-400' : 'text-slate-300'}
                   bg={signalsData.smaCross === 'GOLDEN' ? 'bg-emerald-950/20' : signalsData.smaCross === 'DEAD' ? 'bg-rose-950/20' : 'bg-slate-900/40'}
                   border={signalsData.smaCross === 'GOLDEN' ? 'border-emerald-500/20' : signalsData.smaCross === 'DEAD' ? 'border-rose-500/20' : 'border-white/[0.06]'}
-                  sub={`${signalsData.smaLabel || 'SMA 50/200'} · ${signalsData.smaDistance != null ? (signalsData.smaDistance >= 0 ? '+' : '') + signalsData.smaDistance + '%' : '—'}`} 
+                  sub={<>{signalsData.smaLabel || 'SMA 50/200'} · <span className={signalsData.smaDistance >= 0 ? 'text-emerald-400 font-bold' : 'text-rose-400 font-bold'}>{signalsData.smaDistance >= 0 ? '+' : ''}{signalsData.smaDistance}%</span></>} 
+                  locale={locale}
                 />
 
                 {/* [8] FUNDAMENTAL */}
@@ -2371,28 +2768,22 @@ function CmdPageContent() {
                   color={signalsData.fundGrade?.startsWith('A') ? 'text-emerald-400' : signalsData.fundGrade?.startsWith('B') ? 'text-cyan-400' : 'text-amber-400'}
                   bg={signalsData.fundGrade?.startsWith('A') ? 'bg-emerald-950/20' : signalsData.fundGrade?.startsWith('B') ? 'bg-cyan-950/20' : 'bg-slate-900/40'}
                   border={signalsData.fundGrade?.startsWith('A') ? 'border-emerald-500/20' : signalsData.fundGrade?.startsWith('B') ? 'border-cyan-500/20' : 'border-white/[0.06]'}
-                  sub={signalsData.fundScore ? `PE: ${signalsData.fundPe || '—'} · ROE: ${signalsData.fundRoe || '—'}%` : (locale === 'ko' ? '재무 건전성 평가' : locale === 'ja' ? '財務健全性評価' : 'Financial scoring')} 
+                  sub={signalsData.fundScore ? <>PE: <span className="text-cyan-400 font-bold">{signalsData.fundPe || '—'}</span> · ROE: <span className="text-cyan-400 font-bold">{signalsData.fundRoe || '—'}%</span></> : (locale === 'ko' ? '재무 건전성 평가' : locale === 'ja' ? '財務健全性評価' : 'Financial scoring')} 
+                  locale={locale}
                 />
-
-                {/* [9] EARNINGS */}
-                <div className="col-span-2">
-                  <SignalCard 
-                    label={locale === 'ko' ? '실적 발표' : locale === 'ja' ? '決算予定' : 'NEXT EARNINGS'}
-                    iconKey="NEXT EARNINGS"
-                    value={signalsData.earningsLabel || 'TBD'}
-                    color="text-amber-400"
-                    bg="bg-amber-950/20"
-                    border="border-amber-500/20"
-                    sub={`${signalsData.nextEarningsDate || (locale === 'ko' ? '미정' : locale === 'ja' ? '未定' : 'TBD')} · ${locale === 'ko' ? '예상 EPS' : locale === 'ja' ? '予想EPS' : 'Estimated EPS'}: $${signalsData.epsEstimate?.toFixed(2) || '—'}`} 
-                  />
-                </div>
               </div>
             </div>
           )}
 
           {/* IV Skew Curve */}
           <div style={{ marginBottom: 'var(--s4)' }}>
-            <IVSkewCurve ticker={data.ticker} underlyingPrice={displayPrice} />
+            <IVSkewCurve 
+              ticker={data.ticker} 
+              underlyingPrice={displayPrice} 
+              gammaFlip={data.premium.gammaFlipRaw || 0}
+              darkPool={signalsData?.darkPool || 0}
+              blockTradeCount={signalsData?.blockTradeCount || 0}
+            />
           </div>
 
           {/* Technical & Gamma Levels Map */}
@@ -2436,7 +2827,15 @@ function CmdPageContent() {
           socialProof={locale === 'ko' ? '오늘 14.2K 잠금해제' : locale === 'ja' ? '本日14.2Kがロック解除' : '14.2K unlocked today'}
         >
         <div className={`${s.animateIn} ${s.delay2}`}>
-          <div className="rounded-2xl border border-white/[0.06] bg-[#0f172a]/50 p-4">
+          <div 
+            className="rounded-b-2xl border-x border-b border-white/[0.06] bg-[#0f172a]/50 p-4"
+            style={{
+              marginTop: '0px',
+              borderTop: 'none',
+              borderTopLeftRadius: '0px',
+              borderTopRightRadius: '0px'
+            }}
+          >
             <div className="text-[13px] font-bold text-slate-400 uppercase tracking-wider mb-3">Institutional & Insider Filings</div>
             <MobileCmd13F ticker={data.ticker} />
           </div>
