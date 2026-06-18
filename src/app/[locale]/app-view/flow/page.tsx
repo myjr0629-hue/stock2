@@ -254,6 +254,8 @@ export default function AppFlowPage() {
   const [darkPoolTrades, setDarkPoolTrades] = useState<any[]>([]);
   const [flowTab, setFlowTab] = useState<'whale' | 'darkpool'>('whale');
   const [activePopover, setActivePopover] = useState<string | null>(null);
+  const [minPremium, setMinPremium] = useState(100000); // 100k, 250k, 500k, 1000000
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
 
   // Click outside to close popovers
   useEffect(() => {
@@ -261,10 +263,13 @@ export default function AppFlowPage() {
       if (activePopover && !(e.target as HTMLElement).closest('.popover-container') && !(e.target as HTMLElement).closest('.info-btn')) {
         setActivePopover(null);
       }
+      if (isFilterOpen && !(e.target as HTMLElement).closest('.filter-popover-container') && !(e.target as HTMLElement).closest('.filter-btn')) {
+        setIsFilterOpen(false);
+      }
     };
     document.addEventListener('click', handleOutsideClick);
     return () => document.removeEventListener('click', handleOutsideClick);
-  }, [activePopover]);
+  }, [activePopover, isFilterOpen]);
 
   // Compute display prices via util
   const effectiveSession = marketStatus.isHoliday || marketStatus.market === 'closed'
@@ -500,32 +505,38 @@ export default function AppFlowPage() {
 
   // Compute real Whale Sweeps
   const whaleSweeps = useMemo(() => {
-    if (!rawChain || rawChain.length === 0) return DEMO_WHALES;
-    const sweeps = rawChain.map((c: any, i: number) => {
-      const strike = c.details?.strike_price || 0;
-      const type = (c.details?.contract_type || 'call').toUpperCase();
-      const expiry = c.details?.expiration_date ? c.details.expiration_date.split('-').slice(1).join('/') : '06/19';
-      const volume = c.day?.volume || 0;
-      const px = c.last_quote?.midpoint || c.day?.close || 0;
-      const premium = volume * px * 100;
-      const delta = c.greeks?.delta || 0;
-      const dir = type === 'CALL' ? (delta > 0.6 ? 'ASK' : 'BID') : (delta < -0.6 ? 'ASK' : 'BID');
-      const timeStr = c.time || new Date(Date.now() - i * 120000).toTimeString().split(' ')[0];
+    const baseList = (!rawChain || rawChain.length === 0) 
+      ? DEMO_WHALES 
+      : rawChain.map((c: any, i: number) => {
+          const strike = c.details?.strike_price || 0;
+          const type = (c.details?.contract_type || 'call').toUpperCase();
+          const expiry = c.details?.expiration_date ? c.details.expiration_date.split('-').slice(1).join('/') : '06/19';
+          const volume = c.day?.volume || 0;
+          const px = c.last_quote?.midpoint || c.day?.close || 0;
+          const premium = volume * px * 100;
+          const delta = c.greeks?.delta || 0;
+          const dir = type === 'CALL' ? (delta > 0.6 ? 'ASK' : 'BID') : (delta < -0.6 ? 'ASK' : 'BID');
+          const timeStr = c.time || new Date(Date.now() - i * 120000).toTimeString().split(' ')[0];
 
-      return {
-        time: timeStr,
-        strike,
-        type: type as 'CALL' | 'PUT',
-        expiry,
-        size: volume,
-        px,
-        premium,
-        dir
-      };
-    }).filter(tx => tx.premium >= 100000); // $100K 이상
+          return {
+            time: timeStr,
+            strike,
+            type: type as 'CALL' | 'PUT',
+            expiry,
+            size: volume,
+            px,
+            premium,
+            dir
+          };
+        });
 
-    return sweeps.length > 0 ? sweeps.sort((a, b) => b.premium - a.premium) : DEMO_WHALES;
-  }, [rawChain, DEMO_WHALES]);
+    const filtered = baseList.filter(tx => tx.premium >= minPremium);
+    return filtered.sort((a, b) => b.premium - a.premium);
+  }, [rawChain, DEMO_WHALES, minPremium]);
+
+  const filteredDarkPoolTrades = useMemo(() => {
+    return darkPoolTrades.filter((tx: any) => tx.premium >= minPremium);
+  }, [darkPoolTrades, minPremium]);
 
   const whaleSummary = useMemo(() => {
     const count = whaleSweeps.length;
@@ -536,12 +547,12 @@ export default function AppFlowPage() {
   }, [whaleSweeps]);
 
   const dpSummary = useMemo(() => {
-    const count = darkPoolTrades.length;
-    const total = darkPoolTrades.reduce((sum: number, tx: any) => sum + tx.premium, 0);
-    const buySum = darkPoolTrades.filter((tx: any) => tx.side === 'BUY').reduce((sum: number, tx: any) => sum + tx.premium, 0);
-    const sellSum = darkPoolTrades.filter((tx: any) => tx.side === 'SELL').reduce((sum: number, tx: any) => sum + tx.premium, 0);
+    const count = filteredDarkPoolTrades.length;
+    const total = filteredDarkPoolTrades.reduce((sum: number, tx: any) => sum + tx.premium, 0);
+    const buySum = filteredDarkPoolTrades.filter((tx: any) => tx.side === 'BUY').reduce((sum: number, tx: any) => sum + tx.premium, 0);
+    const sellSum = filteredDarkPoolTrades.filter((tx: any) => tx.side === 'SELL').reduce((sum: number, tx: any) => sum + tx.premium, 0);
     return { count, total, buySum, sellSum };
-  }, [darkPoolTrades]);
+  }, [filteredDarkPoolTrades]);
 
   // Compute real UOA
   const uoaList = useMemo(() => {
@@ -982,7 +993,7 @@ export default function AppFlowPage() {
 
       {/* SEARCH BAR (Always Visible) */}
       <form onSubmit={handleSearch} style={{ padding: '12px 16px 4px', display: 'flex', justifyContent: 'center', width: '100%', boxSizing: 'border-box' }}>
-        <div style={{ display: 'flex', gap: '8px', width: '100%', alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: '8px', width: '100%', alignItems: 'center', position: 'relative' }}>
           <div style={{ position: 'relative', flex: 1 }}>
             {/* Magnifying Glass Icon on Left */}
             <span style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', display: 'flex', alignItems: 'center', pointerEvents: 'none', opacity: 0.6 }}>
@@ -999,8 +1010,8 @@ export default function AppFlowPage() {
               style={{
                 width: '100%',
                 height: '38px',
-                background: 'rgba(22, 32, 54, 0.45)',
-                border: '1px solid rgba(255, 255, 255, 0.08)',
+                background: 'rgba(255, 255, 255, 0.05)',
+                border: '1px solid rgba(255, 255, 255, 0.12)',
                 borderRadius: 'var(--r-pill)',
                 padding: '0 16px 0 34px',
                 font: 'var(--f-small)',
@@ -1008,9 +1019,9 @@ export default function AppFlowPage() {
                 color: 'var(--text)',
                 outline: 'none',
                 transition: 'all 0.3s ease',
-                backdropFilter: 'blur(10px)',
-                WebkitBackdropFilter: 'blur(10px)',
-                boxShadow: 'inset 0 1px 0 rgba(255, 255, 255, 0.02), 0 4px 12px rgba(0, 0, 0, 0.15)',
+                backdropFilter: 'blur(16px) saturate(180%)',
+                WebkitBackdropFilter: 'blur(16px) saturate(180%)',
+                boxShadow: 'inset 0 1px 0 rgba(255, 255, 255, 0.15), 0 8px 32px 0 rgba(0, 0, 0, 0.3)',
                 boxSizing: 'border-box'
               }}
             />
@@ -1018,31 +1029,37 @@ export default function AppFlowPage() {
           {/* Filter Settings Button */}
           <button
             type="button"
+            className="filter-btn"
+            onClick={() => setIsFilterOpen(!isFilterOpen)}
             style={{
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               width: '38px',
               height: '38px',
-              background: 'rgba(22, 32, 54, 0.45)',
-              border: '1px solid rgba(255, 255, 255, 0.08)',
+              background: 'rgba(255, 255, 255, 0.05)',
+              border: isFilterOpen ? '1px solid var(--cyan)' : '1px solid rgba(255, 255, 255, 0.12)',
               borderRadius: '10px',
               cursor: 'pointer',
-              color: 'rgba(255, 255, 255, 0.7)',
+              color: isFilterOpen ? 'var(--cyan)' : 'rgba(255, 255, 255, 0.7)',
               transition: 'all 0.2s ease',
               outline: 'none',
-              boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
-              backdropFilter: 'blur(10px)',
-              WebkitBackdropFilter: 'blur(10px)',
+              boxShadow: 'inset 0 1px 0 rgba(255, 255, 255, 0.15), 0 8px 32px 0 rgba(0, 0, 0, 0.3)',
+              backdropFilter: 'blur(16px) saturate(180%)',
+              WebkitBackdropFilter: 'blur(16px) saturate(180%)',
               boxSizing: 'border-box'
             }}
             onMouseEnter={(e) => {
-              e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.2)';
-              e.currentTarget.style.color = '#ffffff';
+              if (!isFilterOpen) {
+                e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.2)';
+                e.currentTarget.style.color = '#ffffff';
+              }
             }}
             onMouseLeave={(e) => {
-              e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.08)';
-              e.currentTarget.style.color = 'rgba(255, 255, 255, 0.7)';
+              if (!isFilterOpen) {
+                e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.12)';
+                e.currentTarget.style.color = 'rgba(255, 255, 255, 0.7)';
+              }
             }}
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
@@ -1054,6 +1071,87 @@ export default function AppFlowPage() {
               <circle cx="12" cy="18" r="2" fill="currentColor" />
             </svg>
           </button>
+
+          {/* Interactive Glassmorphism Filter Dropdown Popover */}
+          {isFilterOpen && (
+            <div 
+              className="filter-popover-container"
+              style={{
+                position: 'absolute',
+                right: '0px',
+                top: '46px',
+                width: '210px',
+                background: 'rgba(15, 23, 42, 0.88)',
+                border: '1px solid rgba(255, 255, 255, 0.12)',
+                borderRadius: '12px',
+                padding: '12px',
+                boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.1)',
+                backdropFilter: 'blur(20px) saturate(180%)',
+                WebkitBackdropFilter: 'blur(20px) saturate(180%)',
+                zIndex: 200,
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '8px',
+                boxSizing: 'border-box'
+              }}
+            >
+              <span style={{ font: 'var(--f-micro)', fontWeight: 800, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>
+                {locale === 'ko' ? '거래 규모 필터' : locale === 'ja' ? '取引規模フィルター' : 'Premium Filter'}
+              </span>
+              {[
+                { label: locale === 'ko' ? '$100K 이상' : '$100K+', value: 100000 },
+                { label: locale === 'ko' ? '$250K 이상' : '$250K+', value: 250000 },
+                { label: locale === 'ko' ? '$500K 이상' : '$500K+', value: 500000 },
+                { label: locale === 'ko' ? '$1.0M 이상' : '$1.0M+', value: 1000000 }
+              ].map((opt) => {
+                const isActive = minPremium === opt.value;
+                return (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => {
+                      setMinPremium(opt.value);
+                      setIsFilterOpen(false);
+                    }}
+                    style={{
+                      width: '100%',
+                      padding: '8px 12px',
+                      borderRadius: '8px',
+                      border: isActive ? '1px solid var(--cyan)' : '1px solid rgba(255, 255, 255, 0.05)',
+                      background: isActive ? 'rgba(6, 182, 212, 0.12)' : 'rgba(255, 255, 255, 0.02)',
+                      color: isActive ? '#ffffff' : 'rgba(255, 255, 255, 0.65)',
+                      font: 'var(--f-small)',
+                      fontWeight: isActive ? 800 : 600,
+                      textAlign: 'left',
+                      cursor: 'pointer',
+                      transition: 'all 0.15s ease',
+                      boxSizing: 'border-box',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between'
+                    }}
+                    onMouseEnter={(e) => {
+                      if (!isActive) {
+                        e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.15)';
+                        e.currentTarget.style.color = '#ffffff';
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      if (!isActive) {
+                        e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.05)';
+                        e.currentTarget.style.color = 'rgba(255, 255, 255, 0.65)';
+                      }
+                    }}
+                  >
+                    <span>{opt.label}</span>
+                    {isActive && (
+                      <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'var(--cyan)', boxShadow: '0 0 6px var(--cyan)' }} />
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </div>
       </form>
 
@@ -2292,7 +2390,7 @@ export default function AppFlowPage() {
                   >
                     {flowTab === 'whale'
                       ? whaleSweeps.slice(0, 2).map((tx, idx) => renderWhaleCard(tx, idx))
-                      : darkPoolTrades.slice(0, 2).map((tx, idx) => renderDarkPoolCard(tx, idx))
+                      : filteredDarkPoolTrades.slice(0, 2).map((tx, idx) => renderDarkPoolCard(tx, idx))
                     }
                   </div>
                 }
@@ -2314,7 +2412,7 @@ export default function AppFlowPage() {
                     whaleSweeps.map((tx, idx) => renderWhaleCard(tx, idx))
                   ) : (
                     /* Dark Pool & Block Trades Deck */
-                    darkPoolTrades.map((tx, idx) => renderDarkPoolCard(tx, idx))
+                    filteredDarkPoolTrades.map((tx, idx) => renderDarkPoolCard(tx, idx))
                   )}
                 </div>
               </ValueWall>
